@@ -18,11 +18,12 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart';
-import 'package:fmp/services/account/netease_account_service.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/download/download_path_utils.dart';
 import 'package:fmp/services/download/download_service.dart';
 import 'package:isar/isar.dart';
@@ -1042,17 +1043,24 @@ void main() {
         'http://127.0.0.1:1/audio.mp3',
         sourceTypeOverride: SourceType.netease,
       );
+      final sourceAuthContext = _FakeSourceAuthContext()
+        ..authHeaders = const {
+          'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
+          'Origin': 'https://music.163.com',
+          'Referer': 'https://music.163.com/',
+          'User-Agent': 'Netease-UA',
+        };
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: _SingleSourceManager(recordingSource),
-        neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
+        sourceAuthContext: sourceAuthContext,
       );
+      addTearDown(service.dispose);
 
       final settings = await settingsRepository.get();
       settings.customDownloadDir = baseDir.path;
-      settings.useNeteaseAuthForPlay = true;
       await settingsRepository.save(settings);
 
       final enabledTask = await createTaskForTrack('netease-auth-enabled');
@@ -1061,18 +1069,208 @@ void main() {
         'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
         'Origin': 'https://music.163.com',
         'Referer': 'https://music.163.com/',
-        'User-Agent': NeteaseAccountService.userAgent,
+        'User-Agent': 'Netease-UA',
       });
+      expect(sourceAuthContext.authForPlayRequests, [SourceType.netease]);
 
       recordingSource.recordedAuthHeaders.clear();
-      settings.useNeteaseAuthForPlay = false;
-      await settingsRepository.save(settings);
+      sourceAuthContext
+        ..authForPlayRequests.clear()
+        ..authHeaders = null;
 
       final disabledTask = await createTaskForTrack('netease-auth-disabled');
       await service.debugStartDownloadForTesting(disabledTask);
       expect(recordingSource.recordedAuthHeaders.single, isNull);
+      expect(sourceAuthContext.authForPlayRequests, [SourceType.netease]);
+    });
 
-      service.dispose();
+    test('download metadata detail auth comes from SourceAuthContext',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_detail_auth_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      settings.useYoutubeAuthForPlay = false;
+      await settingsRepository.save(settings);
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = 4;
+        request.response.add(Uint8List.fromList([1, 2, 3, 4]));
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final track = Track()
+        ..sourceId = 'yt-detail-auth'
+        ..sourceType = SourceType.youtube
+        ..title = 'Detail Auth'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+      final playlist = Playlist()..name = 'Phase1';
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final sourceAuthContext = _FakeSourceAuthContext()
+        ..authHeaders = const {'Authorization': 'Bearer detail'};
+      final source = _RecordingDetailAudioSource(
+        'http://${server.address.address}:${server.port}/audio.m4a',
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(source),
+        sourceAuthContext: sourceAuthContext,
+      );
+      addTearDown(service.dispose);
+
+      await service.debugStartDownloadForTesting(task);
+      await _waitUntil(() async => service.debugActiveDownloads == 0);
+
+      expect(sourceAuthContext.authForPlayRequests,
+          [SourceType.youtube, SourceType.youtube]);
+      expect(
+          source.detailAuthHeaders.single, {'Authorization': 'Bearer detail'});
+    });
+
+    test('downloaded metadata images use SourceAuthContext image headers',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_image_headers_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final imageRequests = <({String path, Map<String, String> headers})>[];
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        final requestPath = request.uri.path;
+        if (requestPath.toLowerCase().contains('audio')) {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 4;
+          request.response.add(Uint8List.fromList([1, 2, 3, 4]));
+        } else {
+          final capturedHeaders = <String, String>{};
+          request.headers.forEach((headerName, values) {
+            capturedHeaders[headerName.toLowerCase()] = values.join(',');
+          });
+          imageRequests.add((
+            path: requestPath,
+            headers: capturedHeaders,
+          ));
+          request.response.statusCode = HttpStatus.ok;
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 3;
+          request.response.add([5, 6, 7]);
+        }
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      settings.downloadImageOption = DownloadImageOption.coverOnly;
+      await settingsRepository.save(settings);
+
+      final imageUrl =
+          'http://${server.address.address}:${server.port}/cover.jpg';
+      final track = Track()
+        ..sourceId = 'yt-image-headers'
+        ..sourceType = SourceType.youtube
+        ..title = 'Image Headers'
+        ..artist = 'Test Artist'
+        ..thumbnailUrl = imageUrl
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+      final playlist = Playlist()..name = 'Phase1';
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final sourceAuthContext = _FakeSourceAuthContext()
+        ..authHeaders = const {
+          'Authorization': 'Bearer stream',
+          'Cookie': 'SID=stream',
+        }
+        ..imageHeadersBySource[SourceType.youtube] = const {
+          'X-Source-Image': 'context',
+        };
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(
+          _StaticAudioSource(
+            'http://${server.address.address}:${server.port}/audio.m4a',
+          ),
+        ),
+        sourceAuthContext: sourceAuthContext,
+      );
+      addTearDown(service.dispose);
+
+      await HttpOverrides.runWithHttpOverrides<Future<void>>(
+        () async {
+          await service.debugStartDownloadForTesting(task);
+          await _waitUntil(() async => service.debugActiveDownloads == 0);
+        },
+        _DirectHttpOverrides(),
+      );
+
+      expect(sourceAuthContext.imageHeaderRequests, [SourceType.youtube]);
+      expect(imageRequests, isNotEmpty);
+      for (final imageRequest in imageRequests) {
+        expect(imageRequest.headers['x-source-image'], 'context');
+        expect(imageRequest.headers.containsKey('cookie'), isFalse);
+        expect(imageRequest.headers.containsKey('authorization'), isFalse);
+      }
+      final audioPath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      final coverFile = File(p.join(p.dirname(audioPath), 'cover.jpg'));
+      expect(await coverFile.exists(), isTrue);
+      expect(await coverFile.length(), greaterThan(0));
     });
 
     test(
@@ -1682,6 +1880,29 @@ class _RecordingAudioSource extends _StaticAudioSource {
   }
 }
 
+class _RecordingDetailAudioSource extends _StaticAudioSource
+    implements TrackDetailSource {
+  _RecordingDetailAudioSource(super.audioUrl);
+
+  final List<Map<String, String>?> detailAuthHeaders = [];
+
+  @override
+  Future<VideoDetail> getVideoDetail(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  }) async {
+    detailAuthHeaders.add(
+      authHeaders == null ? null : Map<String, String>.from(authHeaders),
+    );
+    return VideoDetail.fromYouTube(
+      videoId: sourceId,
+      title: sourceId,
+      description: '',
+      author: 'Test Artist',
+    );
+  }
+}
+
 class _RecordingBilibiliSource extends BilibiliSource {
   _RecordingBilibiliSource(this.audioUrl);
 
@@ -1702,11 +1923,49 @@ class _RecordingBilibiliSource extends BilibiliSource {
   }
 }
 
-class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
-  _HeaderOnlyNeteaseAccountService(Isar isar) : super(isar: isar);
+class _FakeSourceAuthContext implements SourceAuthContext {
+  Map<String, String>? authHeaders;
+  final authForPlayRequests = <SourceType>[];
+  final imageHeaderRequests = <SourceType>[];
+  final imageHeadersBySource = <SourceType, Map<String, String>>{};
 
   @override
-  Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+    authForPlayRequests.add(sourceType);
+    return authHeaders;
+  }
+
+  @override
+  Map<String, String> downloadMediaHeaders(
+    SourceType sourceType, {
+    Map<String, String>? authHeaders,
+    String? requestUrl,
+  }) {
+    return SourceHttpPolicy.mediaHeaders(
+      sourceType,
+      authHeaders: authHeaders,
+      requestUrl: requestUrl,
+    );
+  }
+
+  @override
+  Map<String, String> imageHeaders(SourceType sourceType) {
+    imageHeaderRequests.add(sourceType);
+    return imageHeadersBySource[sourceType] ??
+        SourceHttpPolicy.imageHeaders(sourceType);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _DirectHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.findProxy = (_) => 'DIRECT';
+    return client;
+  }
 }
 
 Future<void> _waitUntil(Future<bool> Function() condition) async {

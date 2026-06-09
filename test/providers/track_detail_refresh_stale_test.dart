@@ -1,18 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/library/track_detail_provider.dart';
-import 'package:fmp/services/account/bilibili_account_service.dart';
-import 'package:fmp/services/account/netease_account_service.dart';
-import 'package:fmp/services/account/youtube_account_service.dart';
-import 'package:isar/isar.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -28,7 +23,8 @@ void main() {
     ]);
     addTearDown(sourceManager.dispose);
 
-    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+    final notifier =
+        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
 
     final pageOne = _track('BV-SAME', SourceType.bilibili)
       ..cid = 101
@@ -64,7 +60,8 @@ void main() {
     ]);
     addTearDown(sourceManager.dispose);
 
-    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+    final notifier =
+        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
 
     final trackA = _track('BV-A', SourceType.bilibili);
     final trackB = _track('YT-B', SourceType.youtube);
@@ -102,7 +99,8 @@ void main() {
     ]);
     addTearDown(sourceManager.dispose);
 
-    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+    final notifier =
+        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
 
     final trackA = _track('BV-A', SourceType.bilibili);
     final initialLoadFuture = notifier.loadDetail(trackA);
@@ -138,7 +136,8 @@ void main() {
     ]);
     addTearDown(sourceManager.dispose);
 
-    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+    final notifier =
+        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
 
     final track = _track('YT-B', SourceType.youtube);
     final loadFuture = notifier.loadDetail(track);
@@ -183,7 +182,8 @@ void main() {
 
     final track = _track('BV-MISSING', SourceType.bilibili)
       ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
-    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+    final notifier =
+        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
 
     await notifier.loadDetail(track);
 
@@ -216,7 +216,8 @@ void main() {
 
     final track = _track('BV-STATE', SourceType.bilibili)
       ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
-    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+    final notifier =
+        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
 
     final loadFuture = notifier.loadDetail(track);
     await pumpEventQueue(times: 2);
@@ -224,7 +225,26 @@ void main() {
     await loadFuture;
 
     expect(notifier.state.error, isNull);
-    expect(notifier.state.detail!.title, 'Local metadata after source StateError');
+    expect(
+        notifier.state.detail!.title, 'Local metadata after source StateError');
+  });
+
+  test('loadDetail gets auth from SourceAuthContext authForPlay', () async {
+    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
+    final sourceManager = SourceManager(sources: [youtube]);
+    addTearDown(sourceManager.dispose);
+    final authContext = _FakeSourceAuthContext()
+      ..authHeaders = const {'Authorization': 'Bearer detail'};
+    final notifier = TrackDetailNotifier(sourceManager, authContext);
+
+    final loadFuture =
+        notifier.loadDetail(_track('YT-auth', SourceType.youtube));
+    await pumpEventQueue(times: 2);
+    youtube.complete('YT-auth', _detail('YT-auth', 'Auth detail'));
+    await loadFuture;
+
+    expect(authContext.requests, [SourceType.youtube]);
+    expect(youtube.authRequests.single, {'Authorization': 'Bearer detail'});
   });
 }
 
@@ -263,6 +283,7 @@ class _CompletingTrackDetailSource implements TrackDetailSource {
   final SourceType sourceType;
 
   final requests = <String>[];
+  final authRequests = <Map<String, String>?>[];
   final _completers = <String, List<Completer<VideoDetail>>>{};
 
   @override
@@ -271,6 +292,7 @@ class _CompletingTrackDetailSource implements TrackDetailSource {
     Map<String, String>? authHeaders,
   }) {
     requests.add(sourceId);
+    authRequests.add(authHeaders);
     final completer = Completer<VideoDetail>();
     _completers.putIfAbsent(sourceId, () => []).add(completer);
     return completer.future;
@@ -285,43 +307,16 @@ class _CompletingTrackDetailSource implements TrackDetailSource {
   }
 }
 
-class _FakeRef extends Fake implements Ref {
-  final _isar = _FakeIsar();
+class _FakeSourceAuthContext implements SourceAuthContext {
+  Map<String, String>? authHeaders;
+  final requests = <SourceType>[];
 
   @override
-  T read<T>(ProviderListenable<T> provider) {
-    if (identical(provider, bilibiliAccountServiceProvider)) {
-      return _FakeBilibiliAccountService(_isar) as T;
-    }
-    if (identical(provider, youtubeAccountServiceProvider)) {
-      return _FakeYouTubeAccountService(_isar) as T;
-    }
-    if (identical(provider, neteaseAccountServiceProvider)) {
-      return _FakeNeteaseAccountService(_isar) as T;
-    }
-    throw UnimplementedError('Unexpected provider: $provider');
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+    requests.add(sourceType);
+    return authHeaders;
   }
-}
-
-class _FakeBilibiliAccountService extends BilibiliAccountService {
-  _FakeBilibiliAccountService(Isar isar) : super(isar: isar);
 
   @override
-  Future<String?> getAuthCookieString() async => null;
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
-
-class _FakeYouTubeAccountService extends YouTubeAccountService {
-  _FakeYouTubeAccountService(Isar isar) : super(isar: isar);
-
-  @override
-  Future<Map<String, String>?> getAuthHeaders() async => null;
-}
-
-class _FakeNeteaseAccountService extends NeteaseAccountService {
-  _FakeNeteaseAccountService(Isar isar) : super(isar: isar);
-
-  @override
-  Future<String?> getAuthCookieString() async => null;
-}
-
-class _FakeIsar extends Fake implements Isar {}

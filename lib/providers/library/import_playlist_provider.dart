@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../account/account_provider.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/import/import_service.dart';
 import '../../services/library/playlist_mutation_service.dart';
+import '../account/source_auth_context_provider.dart';
 import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
 
@@ -214,9 +214,7 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
       trackRepository: trackRepository,
       isar: isar,
       mutationService: mutationService,
-      bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-      youtubeAccountService: ref.read(youtubeAccountServiceProvider),
-      neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+      sourceAuthContext: ref.read(sourceAuthContextProvider),
     );
   };
 });

@@ -3,16 +3,13 @@ import 'dart:async';
 import 'package:isar/isar.dart';
 
 import '../../core/logger.dart';
-import '../../core/utils/auth_headers_utils.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
-import '../account/bilibili_account_service.dart';
-import '../account/netease_account_service.dart';
-import '../account/youtube_account_service.dart';
+import '../account/source_auth_context.dart';
 import '../library/playlist_mutation_service.dart';
 import 'youtube_mix_shorthand.dart';
 import 'package:fmp/i18n/strings.g.dart';
@@ -114,9 +111,7 @@ class ImportService with Logging implements ImportServiceFacade {
   final TrackRepository _trackRepository;
   final Isar _isar;
   final PlaylistMutationService _mutationService;
-  final BilibiliAccountService? _bilibiliAccountService;
-  final YouTubeAccountService? _youtubeAccountService;
-  final NeteaseAccountService? _neteaseAccountService;
+  final SourceAuthContext _sourceAuthContext;
 
   // 导入进度流
   final _progressController = StreamController<ImportProgress>.broadcast();
@@ -156,28 +151,17 @@ class ImportService with Logging implements ImportServiceFacade {
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required Isar isar,
+    required SourceAuthContext sourceAuthContext,
     PlaylistMutationService? mutationService,
-    BilibiliAccountService? bilibiliAccountService,
-    YouTubeAccountService? youtubeAccountService,
-    NeteaseAccountService? neteaseAccountService,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
         _isar = isar,
+        _sourceAuthContext = sourceAuthContext,
         _mutationService = mutationService ??
             PlaylistMutationService(
               isar: isar,
-            ),
-        _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService,
-        _neteaseAccountService = neteaseAccountService;
-
-  /// 获取指定平台的认证 headers
-  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
-      buildAuthHeaders(sourceType,
-          bilibiliAccountService: _bilibiliAccountService,
-          youtubeAccountService: _youtubeAccountService,
-          neteaseAccountService: _neteaseAccountService);
+            );
 
   /// 从 URL 导入歌单/收藏夹
   @override
@@ -216,10 +200,10 @@ class ImportService with Logging implements ImportServiceFacade {
       }
 
       // 解析播放列表
-      Map<String, String>? authHeaders;
-      if (useAuth) {
-        authHeaders = await _getAuthHeaders(source.sourceType);
-      }
+      final authHeaders = await _sourceAuthContext.playlistImportAuth(
+        source.sourceType,
+        useAuth: useAuth,
+      );
       final result =
           await source.parsePlaylist(normalizedUrl, authHeaders: authHeaders);
 
@@ -240,6 +224,7 @@ class ImportService with Logging implements ImportServiceFacade {
                   current: current.toString(), total: total.toString()),
             );
           },
+          authHeaders: authHeaders,
         );
         expandedTracks = expansion.tracks;
       } else {
@@ -453,10 +438,10 @@ class ImportService with Logging implements ImportServiceFacade {
         throw ImportException(t.importSource.unrecognizedSource);
       }
 
-      Map<String, String>? authHeaders;
-      if (playlist.useAuthForRefresh) {
-        authHeaders = await _getAuthHeaders(source.sourceType);
-      }
+      final authHeaders = await _sourceAuthContext.playlistRefreshAuth(
+        source.sourceType,
+        useAuthForRefresh: playlist.useAuthForRefresh,
+      );
       final result = await source.parsePlaylist(playlist.sourceUrl!,
           authHeaders: authHeaders);
       _throwIfCancelled();
@@ -480,6 +465,7 @@ class ImportService with Logging implements ImportServiceFacade {
                   current: current.toString(), total: total.toString()),
             );
           },
+          authHeaders: authHeaders,
         );
         expandedTracks = expansion.tracks;
         expansionComplete = expansion.isComplete;
@@ -570,10 +556,10 @@ class ImportService with Logging implements ImportServiceFacade {
 
   /// 展开多分P视频为独立Track
   Future<_TrackExpansionResult> _expandMultiPageVideos(
-    PagedVideoSource source,
-    List<Track> tracks,
-    void Function(int current, int total, String item) onProgress,
-  ) async {
+      PagedVideoSource source,
+      List<Track> tracks,
+      void Function(int current, int total, String item) onProgress,
+      {Map<String, String>? authHeaders}) async {
     final expandedTracks = <Track>[];
     var isComplete = true;
 
@@ -595,7 +581,10 @@ class ImportService with Logging implements ImportServiceFacade {
 
       try {
         // 获取分P信息
-        final pages = await source.getVideoPages(track.sourceId);
+        final pages = await source.getVideoPages(
+          track.sourceId,
+          authHeaders: authHeaders,
+        );
 
         if (pages.length <= 1) {
           // API 返回单P，直接添加

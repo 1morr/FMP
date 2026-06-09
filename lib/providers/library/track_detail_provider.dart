@@ -4,12 +4,13 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/utils/auth_headers_utils.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
+import '../../services/account/source_auth_context.dart';
 import '../../services/audio/audio_provider.dart';
+import '../account/source_auth_context_provider.dart';
 
 /// 当前播放歌曲详情状态
 class TrackDetailState {
@@ -41,10 +42,10 @@ class TrackDetailState {
 /// 歌曲详情 Notifier
 class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   final SourceManager _sourceManager;
-  final Ref _ref;
+  final SourceAuthContext _sourceAuthContext;
   Track? _currentTrack;
 
-  TrackDetailNotifier(this._sourceManager, this._ref)
+  TrackDetailNotifier(this._sourceManager, this._sourceAuthContext)
       : super(const TrackDetailState());
 
   /// 加载歌曲详情
@@ -142,7 +143,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     Track track,
     TrackDetailSource source,
   ) async {
-    final authHeaders = await getAuthHeadersForPlatform(track.sourceType, _ref);
+    final authHeaders = await _sourceAuthContext.authForPlay(track.sourceType);
     return source.getVideoDetail(track.sourceId, authHeaders: authHeaders);
   }
 
@@ -181,7 +182,10 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 final trackDetailProvider =
     StateNotifierProvider<TrackDetailNotifier, TrackDetailState>((ref) {
   final sourceManager = ref.watch(sourceManagerProvider);
-  final notifier = TrackDetailNotifier(sourceManager, ref);
+  final notifier = TrackDetailNotifier(
+    sourceManager,
+    ref.watch(sourceAuthContextProvider),
+  );
 
   // 监听当前播放的歌曲变化
   ref.listen<Track?>(currentTrackProvider, (previous, next) {

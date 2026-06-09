@@ -19,7 +19,7 @@ import '../../providers/database/database_provider.dart';
 import '../../providers/database/repository_providers.dart';
 import '../../providers/audio/stream_resolution_provider.dart';
 import '../../providers/lyrics/lyrics_provider.dart';
-import '../../providers/account/account_provider.dart';
+import '../../providers/account/source_auth_context_provider.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/library/library_invalidation_coordinator.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
@@ -3266,14 +3266,9 @@ final queuePersistenceManagerProvider =
 });
 
 final audioStreamManagerProvider = Provider<AudioStreamManager>((ref) {
-  final db = ref.watch(databaseProvider).requireValue;
-
   final manager = AudioStreamManager(
     streamResolutionService: ref.watch(streamResolutionServiceProvider),
-    settingsRepository: SettingsRepository(db),
-    bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-    youtubeAccountService: ref.read(youtubeAccountServiceProvider),
-    neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+    sourceAuthContext: ref.watch(sourceAuthContextProvider),
   );
   ref.onDispose(manager.dispose);
   return manager;

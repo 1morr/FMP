@@ -20,11 +20,8 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_http_policy.dart';
 import '../../data/sources/source_provider.dart';
-import '../../core/utils/auth_headers_utils.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
-import '../account/bilibili_account_service.dart';
-import '../account/netease_account_service.dart';
-import '../account/youtube_account_service.dart';
+import '../account/source_auth_context.dart';
 import '../audio/stream_resolution_service.dart';
 import 'download_media_headers.dart';
 import 'download_path_utils.dart';
@@ -62,9 +59,7 @@ class DownloadService with Logging {
   final SourceManager _sourceManager;
   final StreamResolutionService _streamResolutionService;
   final bool _ownsStreamResolutionService;
-  final BilibiliAccountService? _bilibiliAccountService;
-  final YouTubeAccountService? _youtubeAccountService;
-  final NeteaseAccountService? _neteaseAccountService;
+  final SourceAuthContext _sourceAuthContext;
 
   final Dio _dio;
 
@@ -148,29 +143,40 @@ class DownloadService with Logging {
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     StreamResolutionService? streamResolutionService,
-    BilibiliAccountService? bilibiliAccountService,
-    YouTubeAccountService? youtubeAccountService,
-    NeteaseAccountService? neteaseAccountService,
+    SourceAuthContext? sourceAuthContext,
+  }) : this._(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+          streamResolutionService: streamResolutionService,
+          sourceAuthContext: sourceAuthContext ??
+              DefaultSourceAuthContext.fromRepositories(
+                settingsRepository: settingsRepository,
+                accountAuthLoader: AccountServiceAuthLoader(),
+              ),
+        );
+
+  DownloadService._({
+    required DownloadRepository downloadRepository,
+    required TrackRepository trackRepository,
+    required SettingsRepository settingsRepository,
+    required SourceManager sourceManager,
+    required StreamResolutionService? streamResolutionService,
+    required SourceAuthContext sourceAuthContext,
   })  : _downloadRepository = downloadRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
+        _sourceAuthContext = sourceAuthContext,
         _ownsStreamResolutionService = streamResolutionService == null,
         _streamResolutionService = streamResolutionService ??
             DefaultStreamResolutionService(
               trackRepository: trackRepository,
               settingsRepository: settingsRepository,
               sourceManager: sourceManager,
-              getAuthHeaders: (sourceType) => buildAuthHeaders(
-                sourceType,
-                bilibiliAccountService: bilibiliAccountService,
-                youtubeAccountService: youtubeAccountService,
-                neteaseAccountService: neteaseAccountService,
-              ),
+              sourceAuthContext: sourceAuthContext,
             ),
-        _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService,
-        _neteaseAccountService = neteaseAccountService,
         _dio = Dio(BaseOptions(
           connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
@@ -178,13 +184,6 @@ class DownloadService with Logging {
             'User-Agent': SourceHttpPolicy.mediaUserAgent,
           },
         ));
-
-  /// 获取指定平台的认证 headers
-  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
-      buildAuthHeaders(sourceType,
-          bilibiliAccountService: _bilibiliAccountService,
-          youtubeAccountService: _youtubeAccountService,
-          neteaseAccountService: _neteaseAccountService);
 
   /// 初始化服务
   Future<void> initialize() async {
@@ -877,12 +876,10 @@ class DownloadService with Logging {
       // 获取 VideoDetail（用于保存完整元数据）
       VideoDetail? videoDetail;
       try {
-        final settings = await _settingsRepository.get();
         final detailSource = _sourceManager.trackDetailSource(track.sourceType);
         if (detailSource != null && track.sourceType != SourceType.netease) {
-          final detailAuthHeaders = settings.useAuthForPlay(track.sourceType)
-              ? await _getAuthHeaders(track.sourceType)
-              : null;
+          final detailAuthHeaders =
+              await _sourceAuthContext.authForPlay(track.sourceType);
           videoDetail = await detailSource.getVideoDetail(
             track.sourceId,
             authHeaders: detailAuthHeaders,
@@ -902,7 +899,6 @@ class DownloadService with Logging {
         track,
         savePath,
         videoDetail: videoDetail,
-        authHeaders: authHeaders,
       );
       if (_shouldAbortAfterFinalizationStarted(task.id)) {
         await _clearDownloadPathForTask(task);
@@ -1246,14 +1242,10 @@ class DownloadService with Logging {
     Track track,
     String audioPath, {
     VideoDetail? videoDetail,
-    Map<String, String>? authHeaders,
   }) async {
     final settings = await _settingsRepository.get();
     final videoDir = Directory(p.dirname(audioPath));
-    final imageHeaders = buildDownloadImageHeaders(
-      track.sourceType,
-      authHeaders: authHeaders,
-    );
+    final imageHeaders = _sourceAuthContext.imageHeaders(track.sourceType);
 
     // 保存歌曲元数据
     final metadata = <String, dynamic>{

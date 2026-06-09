@@ -12,8 +12,10 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -116,15 +118,16 @@ class _QueuePageHarness {
       settingsRepository: settingsRepository,
     );
     final sourceManager = SourceManager();
+    final sourceAuthContext = _FakeSourceAuthContext();
     final streamResolutionService = DefaultStreamResolutionService(
       trackRepository: trackRepository,
       settingsRepository: settingsRepository,
       sourceManager: sourceManager,
-      getAuthHeaders: (_) async => null,
+      sourceAuthContext: sourceAuthContext,
     );
     final audioStreamManager = AudioStreamManager(
       streamResolutionService: streamResolutionService,
-      settingsRepository: settingsRepository,
+      sourceAuthContext: sourceAuthContext,
     );
     final queueManager = QueueManager(
       queueRepository: queueRepository,
@@ -183,6 +186,28 @@ class _QueuePageTestAudioController extends AudioController {
   Future<void> moveInQueue(int oldIndex, int newIndex) async {
     moveInQueueCallCount++;
   }
+}
+
+class _FakeSourceAuthContext implements SourceAuthContext {
+  @override
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+
+  @override
+  Future<PlaybackNetworkRequest> playbackNetworkRequest(
+    Track track,
+    String url,
+  ) async {
+    return PlaybackNetworkRequest(
+      url: url,
+      headers: SourceHttpPolicy.mediaHeaders(
+        track.sourceType,
+        requestUrl: url,
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Track _buildTrack({

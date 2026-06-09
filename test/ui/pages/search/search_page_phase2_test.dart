@@ -6,7 +6,6 @@ import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/search/search_service.dart';
 import 'package:isar/isar.dart';
 
@@ -155,7 +154,6 @@ void main() {
         sourceManager: sourceManager,
         trackRepository: TrackRepository(_FakeIsar()),
         isar: _FakeIsar(),
-        bilibiliAccountService: BilibiliAccountService(isar: _FakeIsar()),
       );
       final track = Track()
         ..sourceType = SourceType.youtube
@@ -166,6 +164,23 @@ void main() {
       expect(pages, isEmpty);
       expect(sourceManager.pagedVideoLookupCount, 0);
       expect(pagedSource.getVideoPagesCallCount, 0);
+    });
+
+    test('search service does not pass auth to page lookup', () async {
+      final pagedSource = _RecordingPagedVideoSource(SourceType.bilibili);
+      final sourceManager = _PagedVideoSourceManager(pagedSource);
+      final service = SearchService(
+        sourceManager: sourceManager,
+        trackRepository: TrackRepository(_FakeIsar()),
+        isar: _FakeIsar(),
+      );
+      final track = Track()
+        ..sourceType = SourceType.bilibili
+        ..sourceId = 'BV-no-auth';
+
+      await service.loadVideoPagesForTrack(track);
+
+      expect(pagedSource.lastAuthHeaders, isNull);
     });
 
     test('playlist mix bootstrap goes through the audio controller boundary',
@@ -244,12 +259,14 @@ class _RecordingPagedVideoSource implements PagedVideoSource {
   @override
   final SourceType sourceType;
   int getVideoPagesCallCount = 0;
+  Map<String, String>? lastAuthHeaders;
 
   @override
   Future<List<VideoPage>> getVideoPages(
     String sourceId, {
     Map<String, String>? authHeaders,
   }) async {
+    lastAuthHeaders = authHeaders;
     getVideoPagesCallCount++;
     return const [
       VideoPage(cid: 1, page: 1, part: 'Unexpected page', duration: 1),

@@ -8,7 +8,7 @@ import '../../services/import/import_service.dart';
 import '../../services/library/playlist_mutation_service.dart';
 import '../../core/services/toast_service.dart';
 import '../../data/sources/source_provider.dart';
-import '../account/account_provider.dart';
+import '../account/source_auth_context_provider.dart';
 import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
 import '../library/library_invalidation_coordinator.dart';
@@ -133,9 +133,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       trackRepository: trackRepo,
       isar: isar,
       mutationService: mutationService,
-      bilibiliAccountService: _ref.read(bilibiliAccountServiceProvider),
-      youtubeAccountService: _ref.read(youtubeAccountServiceProvider),
-      neteaseAccountService: _ref.read(neteaseAccountServiceProvider),
+      sourceAuthContext: _ref.read(sourceAuthContextProvider),
     );
     _activeImportServices[playlistId] = importService;
 

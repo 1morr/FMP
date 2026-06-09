@@ -15,10 +15,9 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/services/account/bilibili_account_service.dart';
-import 'package:fmp/services/account/netease_account_service.dart';
-import 'package:fmp/services/account/youtube_account_service.dart';
-import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart'
+    hide PlaybackNetworkRequest, PlaybackUrlResolution, PlaybackUrlResolver;
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
@@ -36,8 +35,7 @@ void main() {
     late QueueManager queueManager;
     late DefaultStreamResolutionService streamResolutionService;
     late AudioStreamManager manager;
-    late Map<String, String>? delegateAuthHeaders;
-    late List<SourceType> authHeaderRequests;
+    late _FakeSourceAuthContext sourceAuthContext;
 
     setUpAll(() async {
       await Isar.initializeIsarCore(
@@ -58,20 +56,16 @@ void main() {
       trackRepository = TrackRepository(isar);
       settingsRepository = SettingsRepository(isar);
       sourceManager = _FakeSourceManager();
-      delegateAuthHeaders = null;
-      authHeaderRequests = [];
+      sourceAuthContext = _FakeSourceAuthContext();
       streamResolutionService = DefaultStreamResolutionService(
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        getAuthHeaders: (sourceType) async {
-          authHeaderRequests.add(sourceType);
-          return delegateAuthHeaders;
-        },
+        sourceAuthContext: sourceAuthContext,
       );
       manager = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
+        sourceAuthContext: sourceAuthContext,
       );
       queueManager = QueueManager(
         queueRepository: QueueRepository(isar),
@@ -94,13 +88,9 @@ void main() {
       }
     });
 
-    test(
-        'selectPlayback passes auth headers to stream fetch when auth-for-play is enabled',
+    test('selectPlayback passes SourceAuthContext headers to stream fetch',
         () async {
-      final settings = await settingsRepository.get();
-      settings.useYoutubeAuthForPlay = true;
-      await settingsRepository.save(settings);
-      delegateAuthHeaders = {
+      sourceAuthContext.authHeaders = {
         'Authorization': 'Bearer sentinel',
       };
 
@@ -110,29 +100,28 @@ void main() {
 
       expect(sourceManager.source.audioStreamRequests.map((r) => r.sourceId),
           ['stream-auth']);
-      expect(authHeaderRequests, [SourceType.youtube]);
+      expect(sourceAuthContext.authForPlayRequests, [
+        SourceType.youtube,
+        SourceType.youtube,
+      ]);
       expect(sourceManager.source.lastAudioAuthHeaders, {
         'Authorization': 'Bearer sentinel',
       });
     });
 
     test(
-        'selectPlayback skips auth header loading when auth-for-play is disabled',
+        'selectPlayback passes null stream auth when SourceAuthContext returns none',
         () async {
-      final settings = await settingsRepository.get();
-      settings.useYoutubeAuthForPlay = false;
-      await settingsRepository.save(settings);
-      delegateAuthHeaders = {
-        'Authorization': 'Bearer sentinel',
-      };
-
       await manager.selectPlayback(
         _track('stream-no-auth', title: 'Stream No Auth'),
       );
 
       expect(sourceManager.source.audioStreamRequests.map((r) => r.sourceId),
           ['stream-no-auth']);
-      expect(authHeaderRequests, isEmpty);
+      expect(sourceAuthContext.authForPlayRequests, [
+        SourceType.youtube,
+        SourceType.youtube,
+      ]);
       expect(sourceManager.source.lastAudioAuthHeaders, isNull);
     });
 
@@ -244,7 +233,7 @@ void main() {
       final missingPath = '${tempDir.path}/missing-manager-stream.m4a';
       final directManager = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
+        sourceAuthContext: sourceAuthContext,
       );
       addTearDown(directManager.dispose);
       final eventFuture = directManager.downloadPathsChangedStream.first;
@@ -270,7 +259,7 @@ void main() {
       final missingPath = '${tempDir.path}/missing-after-dispose.m4a';
       final directManager = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
+        sourceAuthContext: sourceAuthContext,
       );
       final savedTrack = await trackRepository.save(
         _track('stream-disposed-event', title: 'Disposed Event')
@@ -444,7 +433,7 @@ void main() {
       sourceManager.source.throwOnRefresh = true;
       final directManager = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
+        sourceAuthContext: sourceAuthContext,
       );
 
       await expectLater(
@@ -675,12 +664,9 @@ void main() {
     });
 
     test(
-        'selectFallbackPlayback passes auth headers to source alternative streams when auth-for-play is enabled',
+        'selectFallbackPlayback passes SourceAuthContext headers to source alternative streams',
         () async {
-      final settings = await settingsRepository.get();
-      settings.useYoutubeAuthForPlay = true;
-      await settingsRepository.save(settings);
-      delegateAuthHeaders = {
+      sourceAuthContext.authHeaders = {
         'Authorization': 'Bearer fallback-sentinel',
       };
 
@@ -690,7 +676,10 @@ void main() {
       );
 
       expect(selection, isNotNull);
-      expect(authHeaderRequests, [SourceType.youtube]);
+      expect(sourceAuthContext.authForPlayRequests, [
+        SourceType.youtube,
+        SourceType.youtube,
+      ]);
       expect(sourceManager.source.lastAlternativeAuthHeaders, {
         'Authorization': 'Bearer fallback-sentinel',
       });
@@ -759,7 +748,7 @@ void main() {
       sourceManager.source
         ..returnNullAlternative = true
         ..reuseFailedUrlForPrimaryFallback = true;
-      final failedUrl = 'https://example.com/handoff-failed-url-exclusion.m4a';
+      const failedUrl = 'https://example.com/handoff-failed-url-exclusion.m4a';
 
       final selection = await manager.selectFallbackPlayback(
         _track(
@@ -777,12 +766,12 @@ void main() {
     });
 
     test(
-        'playback headers include Netease auth only when auth-for-play is enabled',
+        'playback headers include Netease auth only when SourceAuthContext returns it',
         () async {
+      final neteaseContext = _FakeSourceAuthContext();
       final managerWithNetease = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
-        neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
+        sourceAuthContext: neteaseContext,
       );
       final track = Track()
         ..sourceId = 'netease-song'
@@ -790,15 +779,13 @@ void main() {
         ..audioUrl = 'https://m701.music.126.net/netease-song.m4a'
         ..title = 'Netease Song'
         ..artist = 'Tester';
-      final settings = await settingsRepository.get();
 
-      settings.useNeteaseAuthForPlay = true;
-      await settingsRepository.save(settings);
+      neteaseContext.authHeaders =
+          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=music-u; __csrf=csrf');
       final enabledHeaders = await managerWithNetease.getPlaybackHeaders(track);
       expect(enabledHeaders?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
 
-      settings.useNeteaseAuthForPlay = false;
-      await settingsRepository.save(settings);
+      neteaseContext.authHeaders = null;
       final disabledHeaders =
           await managerWithNetease.getPlaybackHeaders(track);
       expect(
@@ -808,14 +795,10 @@ void main() {
 
     test('prepareNetworkPlayback strips Netease auth after off-domain redirect',
         () async {
-      final settings = await settingsRepository.get();
-      settings.useNeteaseAuthForPlay = true;
-      await settingsRepository.save(settings);
-      final managerWithNetease = AudioStreamManager(
-        streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
-        neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
-        playbackUrlResolver: (sourceType, url, authHeaders) async {
+      final neteaseContext = _FakeSourceAuthContext()
+        ..authHeaders =
+            SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=music-u; __csrf=csrf')
+        ..playbackUrlResolver = (sourceType, url, authHeaders) async {
           expect(sourceType, SourceType.netease);
           expect(url, 'https://m701.music.126.net/netease-song.m4a');
           expect(authHeaders?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
@@ -823,7 +806,10 @@ void main() {
             url: 'https://attacker.example/netease-song.m4a',
             includeCredentials: false,
           );
-        },
+        };
+      final managerWithNetease = AudioStreamManager(
+        streamResolutionService: streamResolutionService,
+        sourceAuthContext: neteaseContext,
       );
 
       final prepared = await managerWithNetease.prepareNetworkPlayback(
@@ -841,21 +827,20 @@ void main() {
     });
 
     test(
-        'playback headers resolve auth by source setting without leaking non-Netease media auth',
+        'playback headers delegate auth without leaking non-Netease media auth',
         () async {
-      final bilibiliAccountService = _HeaderOnlyBilibiliAccountService(isar);
-      final youtubeAccountService = _HeaderOnlyYouTubeAccountService(isar);
+      final accountContext = _FakeSourceAuthContext()
+        ..headersBySource[SourceType.bilibili] = const {
+          'Cookie': 'SESSDATA=bilibili-session',
+        }
+        ..headersBySource[SourceType.youtube] = const {
+          'Cookie': 'SAPISID=youtube-session',
+          'Authorization': 'SAPISIDHASH youtube-auth',
+        };
       final managerWithAccounts = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
-        bilibiliAccountService: bilibiliAccountService,
-        youtubeAccountService: youtubeAccountService,
+        sourceAuthContext: accountContext,
       );
-      final settings = await settingsRepository.get();
-      settings
-        ..useBilibiliAuthForPlay = true
-        ..useYoutubeAuthForPlay = true;
-      await settingsRepository.save(settings);
 
       final bilibiliHeaders = await managerWithAccounts.getPlaybackHeaders(
         Track()
@@ -872,8 +857,10 @@ void main() {
           ..artist = 'Tester',
       );
 
-      expect(bilibiliAccountService.cookieRequests, 1);
-      expect(youtubeAccountService.authHeaderRequests, 1);
+      expect(accountContext.authForPlayRequests, [
+        SourceType.bilibili,
+        SourceType.youtube,
+      ]);
       expect(
           bilibiliHeaders, SourceHttpPolicy.mediaHeaders(SourceType.bilibili));
       expect(youtubeHeaders, SourceHttpPolicy.mediaHeaders(SourceType.youtube));
@@ -1067,46 +1054,51 @@ class _FakeBilibiliSource extends BilibiliSource {
   }
 }
 
-class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
-  _HeaderOnlyNeteaseAccountService(Isar isar) : super(isar: isar);
+class _FakeSourceAuthContext implements SourceAuthContext {
+  final headersBySource = <SourceType, Map<String, String>?>{};
+  final authForPlayRequests = <SourceType>[];
+  final playbackNetworkRequests = <({SourceType sourceType, String url})>[];
+  Map<String, String>? authHeaders;
+  PlaybackUrlResolver? playbackUrlResolver;
 
   @override
-  Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
-
-  @override
-  Future<Map<String, String>?> getAuthHeaders() async => {
-        'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
-        'Origin': 'https://music.163.com',
-        'Referer': 'https://music.163.com/',
-        'User-Agent': NeteaseAccountService.userAgent,
-      };
-}
-
-class _HeaderOnlyBilibiliAccountService extends BilibiliAccountService {
-  _HeaderOnlyBilibiliAccountService(Isar isar) : super(isar: isar);
-
-  int cookieRequests = 0;
-
-  @override
-  Future<String?> getAuthCookieString() async {
-    cookieRequests++;
-    return 'SESSDATA=bilibili-session';
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+    authForPlayRequests.add(sourceType);
+    if (headersBySource.containsKey(sourceType)) {
+      return headersBySource[sourceType];
+    }
+    return authHeaders;
   }
-}
-
-class _HeaderOnlyYouTubeAccountService extends YouTubeAccountService {
-  _HeaderOnlyYouTubeAccountService(Isar isar) : super(isar: isar);
-
-  int authHeaderRequests = 0;
 
   @override
-  Future<Map<String, String>?> getAuthHeaders() async {
-    authHeaderRequests++;
-    return {
-      'Cookie': 'SAPISID=youtube-session',
-      'Authorization': 'SAPISIDHASH youtube-auth',
-    };
+  Future<PlaybackNetworkRequest> playbackNetworkRequest(
+    Track track,
+    String url,
+  ) async {
+    playbackNetworkRequests.add((sourceType: track.sourceType, url: url));
+    final headers = await authForPlay(track.sourceType);
+    final resolver = playbackUrlResolver ??
+        (
+          SourceType sourceType,
+          String url,
+          Map<String, String>? authHeaders,
+        ) async {
+          return PlaybackUrlResolution(url: url);
+        };
+    final resolved = await resolver(track.sourceType, url, headers);
+    return PlaybackNetworkRequest(
+      url: resolved.url,
+      headers: SourceHttpPolicy.mediaHeaders(
+        track.sourceType,
+        authHeaders: headers,
+        requestUrl: resolved.url,
+        includeCredentials: resolved.includeCredentials,
+      ),
+    );
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeSourceException extends SourceApiException {

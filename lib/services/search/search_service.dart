@@ -4,14 +4,12 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:isar/isar.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../core/utils/auth_headers_utils.dart';
 import '../../data/models/search_history.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_provider.dart';
-import '../../services/account/bilibili_account_service.dart';
 
 /// 搜索结果（包含多个音源）
 class MultiSourceSearchResult {
@@ -70,17 +68,14 @@ class SearchService {
   final SourceManager _sourceManager;
   final TrackRepository _trackRepository;
   final Isar _isar;
-  final BilibiliAccountService _bilibiliAccountService;
 
   SearchService({
     required SourceManager sourceManager,
     required TrackRepository trackRepository,
     required Isar isar,
-    required BilibiliAccountService bilibiliAccountService,
   })  : _sourceManager = sourceManager,
         _trackRepository = trackRepository,
-        _isar = isar,
-        _bilibiliAccountService = bilibiliAccountService;
+        _isar = isar;
 
   /// 在线搜索。
   ///
@@ -160,12 +155,7 @@ class SearchService {
       );
     }
 
-    final authHeaders = await buildAuthHeaders(
-      track.sourceType,
-      bilibiliAccountService: _bilibiliAccountService,
-    );
-
-    return source.getVideoPages(track.sourceId, authHeaders: authHeaders);
+    return source.getVideoPages(track.sourceId);
   }
 
   /// 本地搜索（已保存的歌曲）
