@@ -50,9 +50,10 @@ backend events.
   expiry persistence, and prefetch dedupe. It asks
   `SourceAuthContext.authForPlay()` for source auth used during stream
   resolution.
-- `AudioStreamManager` owns playback selection and delegates network URL/header
-  handoff to `SourceAuthContext.playbackNetworkRequest()` before handing a URL
-  to the backend.
+- `AudioStreamManager` owns playback selection and calls
+  `SourceAuthContext.playbackNetworkRequest()` before handing a URL to the
+  backend. `SourceAuthContext` owns the Auth For Play gate; the byte-request
+  URL/header policy is delegated to `MediaHandoff`.
 - `QueueManager` owns queue order, shuffle/loop state, navigation, and
   persistence hooks.
 - `QueuePersistenceManager` owns persisted queue snapshots, saved
