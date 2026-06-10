@@ -23,7 +23,7 @@ import '../../data/sources/source_provider.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
 import '../account/source_auth_context.dart';
 import '../audio/stream_resolution_service.dart';
-import 'download_media_headers.dart';
+import '../media/media_handoff.dart';
 import 'download_path_utils.dart';
 
 /// 下载任务添加结果
@@ -1588,6 +1588,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
   try {
     client = HttpClient();
     client.connectionTimeout = AppConstants.downloadConnectTimeout;
+    final mediaHandoff = DefaultMediaHandoff();
 
     var requestUri = Uri.parse(params.url);
     late HttpClientResponse response;
@@ -1600,20 +1601,18 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       final request = await client.getUrl(requestUri);
       request.followRedirects = false;
 
-      // 添加 headers。每一跳都根据最终请求 URL 重新计算，避免重定向泄漏凭据。
-      final headers = buildDownloadMediaHeaders(
-        params.sourceType,
-        authHeaders: params.authHeaders,
-        requestUrl: requestUri.toString(),
+      // 添加 headers。每一跳都根据当前请求 URL 重新计算，避免重定向泄漏凭据。
+      final handoff = mediaHandoff.prepareDownloadHop(
+        MediaHandoffRequest(
+          sourceType: params.sourceType,
+          url: requestUri,
+          streamResolutionAuth: params.authHeaders,
+          rangeStart: params.resumePosition > 0 ? params.resumePosition : null,
+        ),
       );
-      headers.forEach((key, value) {
+      handoff.headers.forEach((key, value) {
         request.headers.set(key, value);
       });
-
-      // 断点续传
-      if (params.resumePosition > 0) {
-        request.headers.set('Range', 'bytes=${params.resumePosition}-');
-      }
 
       response = await request.close();
       if (!_isRedirectStatus(response.statusCode)) {

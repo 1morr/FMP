@@ -24,16 +24,17 @@ Service-layer guidance. For audio-specific rules, also read
   conflict rather than overwritten.
 - `DownloadService` resolves audio streams through `StreamResolutionService`
   with `StreamResolutionPurpose.download`; stream auth comes from
-  `StreamResolutionService`, while download metadata detail and image/media
-  header policy use `SourceAuthContext`.
-- Download media/image headers should flow through `SourceAuthContext` so
-  Bilibili, YouTube, and Netease keep the correct source Referer/Origin/UA/auth
-  policy. Media headers are URL-aware; only allowlisted HTTPS Netease media URLs
-  may receive `MUSIC_U`, and image downloads must not include Netease cookies.
+  `StreamResolutionService`, while download metadata detail and image header
+  policy use `SourceAuthContext`.
+- Download stream auth comes from `StreamResolutionService`; the download
+  isolate must convert it to Media Request Credentials through the pure
+  `MediaHandoff` module for each redirect hop. Only allowlisted HTTPS Netease
+  media URLs may receive `MUSIC_U`; Bilibili and YouTube account credentials
+  must never reach media/CDN requests.
 - `DownloadService` still owns isolate download loops, progress, pause/failure
-  state, and final path persistence. The isolate recalculates media headers per
-  redirect hop using pure `SourceHttpPolicy` wrappers rather than app-level auth
-  services.
+  state, and final path persistence. The isolate uses `MediaHandoff` for
+  per-hop media headers and resumed-download `Range` headers; it must not use
+  Riverpod, account services, or `SourceAuthContext`.
 - Downloaded metadata cover/avatar images should use
   `ThumbnailUrlUtils.getOptimizedUrlCandidates()` with `ImageTargetSizes.high`
   for covers and `ImageTargetSizes.low` for avatars before falling back through

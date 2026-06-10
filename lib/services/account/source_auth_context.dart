@@ -1,11 +1,10 @@
 import 'dart:io';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_http_policy.dart';
+import '../media/media_handoff.dart' hide NeteasePlaybackRedirectResolver;
 import 'bilibili_account_service.dart';
 import 'netease_account_service.dart';
 import 'youtube_account_service.dart';
@@ -66,9 +65,10 @@ abstract interface class SourceAuthContext {
   ///
   /// These raw headers are for source adapters, stream resolution, and track
   /// detail calls. They are not media request headers and must not be attached
-  /// directly to byte requests. Use [playbackNetworkRequest()],
-  /// [downloadMediaHeaders()], or the image header helpers for actual media or
-  /// image network requests so source media credential rules are enforced.
+  /// directly to byte requests. Use [playbackNetworkRequest()] for playback
+  /// byte requests, `MediaHandoff` for download byte requests, and the image
+  /// header helpers for image requests so source media credential rules are
+  /// enforced.
   Future<Map<String, String>?> authForPlay(SourceType sourceType);
 
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -120,26 +120,32 @@ class PlaybackNetworkRequest {
   final Map<String, String>? headers;
 }
 
-class DefaultSourceAuthContext with Logging implements SourceAuthContext {
+class DefaultSourceAuthContext implements SourceAuthContext {
   DefaultSourceAuthContext({
     required SourceSettingsLoader settingsLoader,
     required SourceAccountAuthLoader accountAuthLoader,
+    MediaHandoff? mediaHandoff,
     PlaybackUrlResolver? playbackUrlResolver,
     NeteasePlaybackRedirectResolver? neteasePlaybackRedirectResolver,
   })  : _settingsLoader = settingsLoader,
         _accountAuthLoader = accountAuthLoader,
-        _playbackUrlResolver = playbackUrlResolver,
-        _neteasePlaybackRedirectResolver = neteasePlaybackRedirectResolver;
+        _mediaHandoff = mediaHandoff ??
+            _createMediaHandoff(
+              playbackUrlResolver: playbackUrlResolver,
+              neteasePlaybackRedirectResolver: neteasePlaybackRedirectResolver,
+            );
 
   factory DefaultSourceAuthContext.fromRepositories({
     required SettingsRepository settingsRepository,
     required SourceAccountAuthLoader accountAuthLoader,
+    MediaHandoff? mediaHandoff,
     PlaybackUrlResolver? playbackUrlResolver,
     NeteasePlaybackRedirectResolver? neteasePlaybackRedirectResolver,
   }) {
     return DefaultSourceAuthContext(
       settingsLoader: settingsRepository.get,
       accountAuthLoader: accountAuthLoader,
+      mediaHandoff: mediaHandoff,
       playbackUrlResolver: playbackUrlResolver,
       neteasePlaybackRedirectResolver: neteasePlaybackRedirectResolver,
     );
@@ -147,17 +153,16 @@ class DefaultSourceAuthContext with Logging implements SourceAuthContext {
 
   final SourceSettingsLoader _settingsLoader;
   final SourceAccountAuthLoader _accountAuthLoader;
-  final PlaybackUrlResolver? _playbackUrlResolver;
-  final NeteasePlaybackRedirectResolver? _neteasePlaybackRedirectResolver;
+  final MediaHandoff _mediaHandoff;
 
   /// Loads source-account headers for source adapter playback purposes.
   ///
   /// The returned raw credentials are for source adapters, stream resolution,
   /// and track detail calls after `Settings.useAuthForPlay()` allows them. They
   /// are not media request headers and must not be attached directly to byte
-  /// requests. Use [playbackNetworkRequest()], [downloadMediaHeaders()], or the
-  /// image header helpers for actual media or image network requests so
-  /// `SourceHttpPolicy` can enforce credential allowlists.
+  /// requests. Use [playbackNetworkRequest()] for playback byte requests,
+  /// `MediaHandoff` for download byte requests, and the image header helpers
+  /// for image requests so `SourceHttpPolicy` can enforce credential allowlists.
   @override
   Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
     final settings = await _settingsLoader();
@@ -171,16 +176,16 @@ class DefaultSourceAuthContext with Logging implements SourceAuthContext {
     String url,
   ) async {
     final authHeaders = await authForPlay(track.sourceType);
-    final resolver = _playbackUrlResolver ?? _resolvePlaybackUrl;
-    final resolved = await resolver(track.sourceType, url, authHeaders);
-    return PlaybackNetworkRequest(
-      url: resolved.url,
-      headers: SourceHttpPolicy.mediaHeaders(
-        track.sourceType,
-        authHeaders: authHeaders,
-        requestUrl: resolved.url,
-        includeCredentials: resolved.includeCredentials,
+    final prepared = await _mediaHandoff.preparePlayback(
+      MediaHandoffRequest(
+        sourceType: track.sourceType,
+        url: Uri.parse(url),
+        streamResolutionAuth: authHeaders,
       ),
+    );
+    return PlaybackNetworkRequest(
+      url: prepared.url.toString(),
+      headers: prepared.headers,
     );
   }
 
@@ -231,142 +236,67 @@ class DefaultSourceAuthContext with Logging implements SourceAuthContext {
     return _accountAuthLoader.load(sourceType);
   }
 
-  Future<PlaybackUrlResolution> _resolvePlaybackUrl(
-    SourceType sourceType,
-    String url,
-    Map<String, String>? authHeaders,
-  ) async {
-    if (sourceType != SourceType.netease ||
-        authHeaders == null ||
-        !SourceHttpPolicy.canAttachNeteaseMediaCredentials(url)) {
-      return PlaybackUrlResolution(url: url);
-    }
-
-    try {
-      final redirectResolver =
-          _neteasePlaybackRedirectResolver ?? _resolveNeteasePlaybackRedirects;
-      return await redirectResolver(url, authHeaders);
-    } catch (_) {
-      logWarning(
-        'Failed to preflight Netease playback redirects; stripping credentials for playback handoff',
-      );
-      return PlaybackUrlResolution(url: url, includeCredentials: false);
-    }
-  }
-
-  Future<PlaybackUrlResolution> _resolveNeteasePlaybackRedirects(
-    String url,
-    Map<String, String> authHeaders,
-  ) async {
-    final initialUri = Uri.tryParse(url);
-    if (initialUri == null) {
-      return PlaybackUrlResolution(url: url, includeCredentials: false);
-    }
-
-    final client = HttpClient()
-      ..connectionTimeout = AppConstants.networkConnectTimeout;
-    try {
-      var currentUri = initialUri;
-      for (var redirectCount = 0;
-          redirectCount <= _maxPlaybackRedirects;
-          redirectCount++) {
-        final response = await _probeNeteasePlaybackUrl(
-          client,
-          currentUri,
-          authHeaders,
-        );
-        final statusCode = response.statusCode;
-        final location = response.headers.value(HttpHeaders.locationHeader);
-        await response.drain<void>();
-
-        if (!_isRedirectStatus(statusCode)) {
-          return PlaybackUrlResolution(url: currentUri.toString());
-        }
-        if (location == null || location.isEmpty) {
-          return PlaybackUrlResolution(
-            url: currentUri.toString(),
-            includeCredentials: false,
-          );
-        }
-        if (redirectCount == _maxPlaybackRedirects) {
-          return PlaybackUrlResolution(
-            url: currentUri.toString(),
-            includeCredentials: false,
-          );
-        }
-
-        final nextUri = currentUri.resolve(location);
-        if (!SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-          nextUri.toString(),
-        )) {
-          return PlaybackUrlResolution(
-            url: nextUri.toString(),
-            includeCredentials: false,
-          );
-        }
-        currentUri = nextUri;
-      }
-    } finally {
-      client.close(force: true);
-    }
-
-    return PlaybackUrlResolution(url: url, includeCredentials: false);
-  }
-
-  Future<HttpClientResponse> _probeNeteasePlaybackUrl(
-    HttpClient client,
-    Uri uri,
-    Map<String, String> authHeaders,
-  ) async {
-    final headResponse = await _sendNeteasePlaybackProbe(
-      client,
-      method: 'HEAD',
-      uri: uri,
-      authHeaders: authHeaders,
-    );
-    if (headResponse.statusCode != HttpStatus.methodNotAllowed) {
-      return headResponse;
-    }
-
-    await headResponse.drain<void>();
-    return _sendNeteasePlaybackProbe(
-      client,
-      method: 'GET',
-      uri: uri,
-      authHeaders: authHeaders,
-      rangeProbe: true,
-    );
-  }
-
-  Future<HttpClientResponse> _sendNeteasePlaybackProbe(
-    HttpClient client, {
-    required String method,
-    required Uri uri,
-    required Map<String, String> authHeaders,
-    bool rangeProbe = false,
-  }) async {
-    final request = await client.openUrl(method, uri);
-    request.followRedirects = false;
-    SourceHttpPolicy.mediaHeaders(
-      SourceType.netease,
-      authHeaders: authHeaders,
-      requestUrl: uri.toString(),
-    ).forEach(request.headers.set);
-    if (rangeProbe) {
-      request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-0');
-    }
-    return request.close().timeout(AppConstants.networkReceiveTimeout);
-  }
-
-  bool _isRedirectStatus(int statusCode) {
-    return statusCode == HttpStatus.movedPermanently ||
-        statusCode == HttpStatus.found ||
-        statusCode == HttpStatus.seeOther ||
-        statusCode == HttpStatus.temporaryRedirect ||
-        statusCode == 308;
-  }
-
-  static const int _maxPlaybackRedirects = 5;
   static const String defaultPlaybackUserAgent =
       SourceHttpPolicy.mediaUserAgent;
+}
+
+MediaHandoff _createMediaHandoff({
+  PlaybackUrlResolver? playbackUrlResolver,
+  NeteasePlaybackRedirectResolver? neteasePlaybackRedirectResolver,
+}) {
+  if (playbackUrlResolver != null) {
+    return _PlaybackUrlResolverMediaHandoff(playbackUrlResolver);
+  }
+  return DefaultMediaHandoff(
+    neteasePlaybackRedirectResolver: neteasePlaybackRedirectResolver == null
+        ? null
+        : (url, streamResolutionAuth) async {
+            final resolution = await neteasePlaybackRedirectResolver(
+              url.toString(),
+              streamResolutionAuth,
+            );
+            return MediaPlaybackRedirectResolution(
+              url: Uri.parse(resolution.url),
+              includeCredentials: resolution.includeCredentials,
+            );
+          },
+  );
+}
+
+class _PlaybackUrlResolverMediaHandoff implements MediaHandoff {
+  _PlaybackUrlResolverMediaHandoff(this._resolver);
+
+  final PlaybackUrlResolver _resolver;
+
+  @override
+  Future<MediaHandoffResult> preparePlayback(
+    MediaHandoffRequest request,
+  ) async {
+    final resolution = await _resolver(
+      request.sourceType,
+      request.url.toString(),
+      request.streamResolutionAuth,
+    );
+    final resolvedUrl = Uri.parse(resolution.url);
+    final headers = SourceHttpPolicy.mediaHeaders(
+      request.sourceType,
+      authHeaders: request.streamResolutionAuth,
+      requestUrl: resolvedUrl.toString(),
+      includeCredentials: resolution.includeCredentials,
+    );
+    return MediaHandoffResult(
+      url: resolvedUrl,
+      headers: headers,
+      credentialsIncluded: headers.keys.any(
+        (key) => key.toLowerCase() == HttpHeaders.cookieHeader,
+      ),
+    );
+  }
+
+  @override
+  MediaHandoffResult prepareDownloadHop(MediaHandoffRequest request) {
+    throw UnsupportedError(
+      'PlaybackUrlResolver compatibility adapter supports playback only',
+    );
+  }
 }

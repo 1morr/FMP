@@ -14,7 +14,9 @@ _Avoid_: auth helper, header utility, account service
 
 **Media Handoff**:
 The transition from a resolved stream URL to the audio or download backend,
-including redirect checks and source-specific media headers.
+including redirect checks, per-hop media headers, resumed-download range
+headers, and Source Auth Context credentials narrowed into Media Request
+Credentials.
 _Avoid_: playback URL helper, download header helper
 
 **Stream Resolution Auth**:

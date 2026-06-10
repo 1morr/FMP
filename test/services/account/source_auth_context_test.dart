@@ -3,6 +3,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
+import 'package:fmp/services/media/media_handoff.dart';
 
 void main() {
   group('SourceAuthContext', () {
@@ -209,6 +210,41 @@ void main() {
       expect(authLoader.requests, [SourceType.netease]);
     });
 
+    test('playbackNetworkRequest delegates media request to MediaHandoff',
+        () async {
+      settings.useNeteaseAuthForPlay = true;
+      final authHeaders =
+          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=delegate');
+      authLoader.headersBySource[SourceType.netease] = authHeaders;
+      final mediaHandoff = _RecordingMediaHandoff(
+        result: MediaHandoffResult(
+          url: Uri.parse('https://m801.music.126.net/delegated.m4a'),
+          headers: const {'User-Agent': 'delegated-media'},
+          credentialsIncluded: true,
+        ),
+      );
+      final context = DefaultSourceAuthContext(
+        settingsLoader: () async => settings,
+        accountAuthLoader: authLoader,
+        mediaHandoff: mediaHandoff,
+      );
+
+      final request = await context.playbackNetworkRequest(
+        _track(SourceType.netease),
+        'https://m701.music.126.net/original.m4a',
+      );
+
+      expect(request.url, 'https://m801.music.126.net/delegated.m4a');
+      expect(request.headers, {'User-Agent': 'delegated-media'});
+      expect(mediaHandoff.requests, hasLength(1));
+      expect(mediaHandoff.requests.single.sourceType, SourceType.netease);
+      expect(
+        mediaHandoff.requests.single.url.toString(),
+        'https://m701.music.126.net/original.m4a',
+      );
+      expect(mediaHandoff.requests.single.streamResolutionAuth, authHeaders);
+    });
+
     test('image headers never include credentials', () {
       for (final sourceType in SourceType.values) {
         final headers = context.imageHeaders(sourceType);
@@ -244,5 +280,25 @@ class _RecordingAccountAuthLoader implements SourceAccountAuthLoader {
   Future<Map<String, String>?> load(SourceType sourceType) async {
     requests.add(sourceType);
     return headersBySource[sourceType];
+  }
+}
+
+class _RecordingMediaHandoff implements MediaHandoff {
+  _RecordingMediaHandoff({required this.result});
+
+  final MediaHandoffResult result;
+  final requests = <MediaHandoffRequest>[];
+
+  @override
+  Future<MediaHandoffResult> preparePlayback(
+    MediaHandoffRequest request,
+  ) async {
+    requests.add(request);
+    return result;
+  }
+
+  @override
+  MediaHandoffResult prepareDownloadHop(MediaHandoffRequest request) {
+    throw UnimplementedError('download hops are not used by this test');
   }
 }
