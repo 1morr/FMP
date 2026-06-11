@@ -187,8 +187,12 @@ Defaults:
 | `useYoutubeAuthForPlay` | `false` | Most content accessible without login |
 | `useNeteaseAuthForPlay` | `true` | Most songs require login for audio URLs |
 
-`SourceAuthContext` owns source auth gates for app-level callers. Do not add
-new direct account-service header helpers in providers, services, or UI.
+`SourceAuthContext` owns source auth gates for app-level callers and implements
+narrow purpose interfaces such as `SourcePlaybackAuthContext`,
+`PlaybackMediaRequestContext`, `DownloadSourceAuthContext`, and
+`PlaylistAuthContext`. Runtime modules should depend on the narrow interface
+for their purpose instead of the full context. Do not add new direct
+account-service header helpers in providers, services, or UI.
 
 `SourceAuthContext.authForPlay()` reads
 `settings.useAuthForPlay(track.sourceType)` and is used for stream resolution,

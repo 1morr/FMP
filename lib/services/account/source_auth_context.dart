@@ -60,22 +60,24 @@ class AccountServiceAuthLoader implements SourceAccountAuthLoader {
   }
 }
 
-abstract interface class SourceAuthContext {
+abstract interface class SourcePlaybackAuthContext {
   /// Returns source-account headers for source adapter playback purposes.
   ///
   /// These raw headers are for source adapters, stream resolution, and track
   /// detail calls. They are not media request headers and must not be attached
-  /// directly to byte requests. Use [playbackNetworkRequest()] for playback
-  /// byte requests, `MediaHandoff` for download byte requests, and the image
-  /// header helpers for image requests so source media credential rules are
-  /// enforced.
+  /// directly to byte requests.
   Future<Map<String, String>?> authForPlay(SourceType sourceType);
+}
 
+abstract interface class PlaybackMediaRequestContext {
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
     Track track,
     String url,
   );
+}
 
+abstract interface class DownloadSourceAuthContext
+    implements SourcePlaybackAuthContext {
   Map<String, String> downloadMediaHeaders(
     SourceType sourceType, {
     Map<String, String>? authHeaders,
@@ -88,7 +90,9 @@ abstract interface class SourceAuthContext {
     String url, {
     bool includeUserAgent = false,
   });
+}
 
+abstract interface class PlaylistAuthContext {
   Future<Map<String, String>?> playlistImportAuth(
     SourceType sourceType, {
     required bool useAuth,
@@ -99,6 +103,13 @@ abstract interface class SourceAuthContext {
     required bool useAuthForRefresh,
   });
 }
+
+abstract interface class SourceAuthContext
+    implements
+        SourcePlaybackAuthContext,
+        PlaybackMediaRequestContext,
+        DownloadSourceAuthContext,
+        PlaylistAuthContext {}
 
 class PlaybackUrlResolution {
   const PlaybackUrlResolution({

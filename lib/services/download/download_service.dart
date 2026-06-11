@@ -59,7 +59,7 @@ class DownloadService with Logging {
   final SourceManager _sourceManager;
   final StreamResolutionService _streamResolutionService;
   final bool _ownsStreamResolutionService;
-  final SourceAuthContext _sourceAuthContext;
+  final DownloadSourceAuthContext _sourceAuthContext;
 
   final Dio _dio;
 
@@ -143,7 +143,7 @@ class DownloadService with Logging {
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     StreamResolutionService? streamResolutionService,
-    SourceAuthContext? sourceAuthContext,
+    DownloadSourceAuthContext? sourceAuthContext,
   }) : this._(
           downloadRepository: downloadRepository,
           trackRepository: trackRepository,
@@ -163,7 +163,7 @@ class DownloadService with Logging {
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     required StreamResolutionService? streamResolutionService,
-    required SourceAuthContext sourceAuthContext,
+    required DownloadSourceAuthContext sourceAuthContext,
   })  : _downloadRepository = downloadRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,

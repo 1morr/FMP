@@ -139,7 +139,9 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
 /// 首頁 Bilibili 音樂排行預覽 Provider（使用緩存服務）
 final homeBilibiliMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
-    rankingCacheServiceProvider.select((state) => state.bilibiliTracks),
+    rankingCacheServiceProvider.select(
+      (state) => state.tracksFor(SourceType.bilibili),
+    ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
 });
@@ -242,7 +244,9 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
 /// 首頁 YouTube 音樂排行預覽 Provider（使用緩存服務）
 final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
-    rankingCacheServiceProvider.select((state) => state.youtubeTracks),
+    rankingCacheServiceProvider.select(
+      (state) => state.tracksFor(SourceType.youtube),
+    ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
 });
@@ -252,7 +256,9 @@ final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
 /// 首頁 Netease 熱歌榜預覽 Provider（使用緩存服務）
 final homeNeteaseHotRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
-    rankingCacheServiceProvider.select((state) => state.neteaseTracks),
+    rankingCacheServiceProvider.select(
+      (state) => state.tracksFor(SourceType.netease),
+    ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
 });
@@ -262,21 +268,27 @@ final homeNeteaseHotRankingProvider = Provider<List<Track>>((ref) {
 /// Bilibili 完整緩存排行榜 Provider（探索頁使用）
 final cachedBilibiliRankingProvider = Provider<List<Track>>((ref) {
   return ref.watch(
-    rankingCacheServiceProvider.select((state) => state.bilibiliTracks),
+    rankingCacheServiceProvider.select(
+      (state) => state.tracksFor(SourceType.bilibili),
+    ),
   );
 });
 
 /// YouTube 完整緩存排行榜 Provider（探索頁使用）
 final cachedYouTubeRankingProvider = Provider<List<Track>>((ref) {
   return ref.watch(
-    rankingCacheServiceProvider.select((state) => state.youtubeTracks),
+    rankingCacheServiceProvider.select(
+      (state) => state.tracksFor(SourceType.youtube),
+    ),
   );
 });
 
 /// Netease 完整緩存排行榜 Provider（探索頁使用）
 final cachedNeteaseRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
-    rankingCacheServiceProvider.select((state) => state.neteaseTracks),
+    rankingCacheServiceProvider.select(
+      (state) => state.tracksFor(SourceType.netease),
+    ),
   );
   return List.unmodifiable(tracks);
 });

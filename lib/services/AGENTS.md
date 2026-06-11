@@ -25,7 +25,8 @@ Service-layer guidance. For audio-specific rules, also read
 - `DownloadService` resolves audio streams through `StreamResolutionService`
   with `StreamResolutionPurpose.download`; stream auth comes from
   `StreamResolutionService`, while download metadata detail and image header
-  policy use `SourceAuthContext`.
+  policy use the narrow `DownloadSourceAuthContext` interface implemented by
+  `SourceAuthContext`.
 - Download stream auth comes from `StreamResolutionService`; the download
   isolate must convert it to Media Request Credentials through the pure
   `MediaHandoff` module for each redirect hop. Only allowlisted HTTPS Netease

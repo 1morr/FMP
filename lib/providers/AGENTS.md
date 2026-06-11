@@ -41,9 +41,11 @@ Rules:
 - Ranking cache UI must watch immutable `RankingCacheState` from
   `rankingCacheServiceProvider`. Refresh/timer methods are called through
   `rankingCacheServiceProvider.notifier`, not by reading mutable service
-  snapshot lists. The ranking cache refreshes Bilibili, YouTube, and Netease
-  sources together; home/explore providers should derive their lists from that
-  shared three-source cache.
+  snapshot lists. The ranking cache stores lists by `SourceType`; home/explore
+  providers should use `tracksFor(sourceType)` and derive their lists from that
+  shared cache. Source-specific `refreshBilibili()` / `refreshYouTube()` /
+  `refreshNetease()` methods are compatibility wrappers around
+  `refreshSource(sourceType)`.
 - Fire-and-forget imported playlist refresh must use the named remote sync path
   and log background failures with `AppLogger`.
 - Search source selection is owned by search page chips: "all" queries

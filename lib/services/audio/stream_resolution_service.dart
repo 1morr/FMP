@@ -83,7 +83,7 @@ class DefaultStreamResolutionService
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
-    required SourceAuthContext sourceAuthContext,
+    required SourcePlaybackAuthContext sourceAuthContext,
   })  : _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
@@ -92,7 +92,7 @@ class DefaultStreamResolutionService
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
-  final SourceAuthContext _sourceAuthContext;
+  final SourcePlaybackAuthContext _sourceAuthContext;
   final Set<int> _prefetchingTrackIds = {};
   final _downloadPathsChangedController =
       StreamController<DownloadPathsChangedEvent>.broadcast();
