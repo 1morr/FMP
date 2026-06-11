@@ -6,6 +6,7 @@ import '../../data/sources/base_source.dart';
 import 'audio_playback_types.dart';
 import 'audio_service.dart';
 import 'audio_stream_manager.dart';
+import 'playback_media.dart';
 
 enum PlaybackSessionResultKind {
   completed,
@@ -530,12 +531,12 @@ class PlaybackRequestSession with Logging {
       if (!isSuperseded(requestId)) {
         try {
           logInfo(
-            'Attempting manager-selected fallback playback for: ${track.title} (failed URL: ${selection.url})',
+            'Attempting manager-selected fallback playback for: ${track.title} (failed URL: ${selection.media.debugUrl})',
           );
           final fallbackSelection =
               await _audioStreamManager.selectFallbackPlayback(
-            selection.track,
-            failedUrl: selection.url,
+            selection.media.track,
+            failedUrl: selection.media.debugUrl,
           );
 
           if (fallbackSelection != null) {
@@ -558,8 +559,8 @@ class PlaybackRequestSession with Logging {
             _prefetchNextIfRequested(prefetchNext);
 
             return _PlaybackRequestExecution(
-              track: fallbackSelection.track,
-              attemptedUrl: fallbackSelection.url,
+              track: fallbackSelection.media.track,
+              attemptedUrl: fallbackSelection.media.debugUrl,
               streamResult: fallbackSelection.streamResult,
             );
           }
@@ -585,8 +586,8 @@ class PlaybackRequestSession with Logging {
     _prefetchNextIfRequested(prefetchNext);
 
     return _PlaybackRequestExecution(
-      track: selection.track,
-      attemptedUrl: selection.url,
+      track: selection.media.track,
+      attemptedUrl: selection.media.debugUrl,
       streamResult: selection.streamResult,
     );
   }
@@ -605,48 +606,24 @@ class PlaybackRequestSession with Logging {
     }
 
     logDebug('Restoring queue track: ${track.title}');
-    final (trackWithUrl, localPath, streamResult) =
-        await _audioStreamManager.ensureAudioStream(track, persist: true);
+    final selection = await _audioStreamManager.selectPlayback(
+      track,
+      persist: true,
+    );
 
     if (isSuperseded(requestId)) {
       logDebug(
-        'Queue restore request $requestId superseded after URL fetch, aborting',
+        'Queue restore request $requestId superseded after playback selection, aborting',
       );
       return null;
     }
 
-    final url = localPath ?? trackWithUrl.audioUrl;
-    if (url == null) {
-      throw Exception('No audio URL available for: ${track.title}');
-    }
-
-    var attemptedUrl = url;
-    if (localPath != null) {
-      await _waitForRequestOperation<void>(
-        requestId: requestId,
-        operation: _audioService.setFile(url, track: trackWithUrl),
-        description: 'setFile',
-      );
-    } else {
-      final networkRequest =
-          await _audioStreamManager.prepareNetworkPlayback(trackWithUrl, url);
-      if (isSuperseded(requestId)) {
-        logDebug(
-          'Queue restore request $requestId superseded after playback preparation, aborting',
-        );
-        return null;
-      }
-      attemptedUrl = networkRequest.url;
-      await _waitForRequestOperation<void>(
-        requestId: requestId,
-        operation: _audioService.setUrl(
-          networkRequest.url,
-          headers: networkRequest.headers,
-          track: trackWithUrl,
-        ),
-        description: 'setUrl',
-      );
-    }
+    final attemptedUrl = selection.media.debugUrl;
+    await _waitForRequestOperation<void>(
+      requestId: requestId,
+      operation: _audioService.setMedia(selection.media),
+      description: 'setMedia',
+    );
 
     if (isSuperseded(requestId)) {
       logDebug(
@@ -684,28 +661,19 @@ class PlaybackRequestSession with Logging {
     }
 
     return _PlaybackRequestExecution(
-      track: trackWithUrl,
+      track: selection.media.track,
       attemptedUrl: attemptedUrl,
-      streamResult: streamResult,
+      streamResult: selection.streamResult,
     );
   }
 
   Future<void> _playSelection(
       int requestId, PlaybackSelection selection) async {
-    final urlType = selection.localPath != null ? 'downloaded' : 'stream';
+    final media = selection.media;
+    final urlType = media is LocalPlaybackMedia ? 'downloaded' : 'stream';
     logDebug(
-      'Playing track: ${selection.track.title}, URL type: $urlType, source: ${selection.track.sourceType}',
+      'Playing track: ${media.track.title}, URL type: $urlType, source: ${media.track.sourceType}',
     );
-
-    if (selection.localPath != null) {
-      await _waitForRequestOperation<void>(
-        requestId: requestId,
-        operation:
-            _audioService.playFile(selection.url, track: selection.track),
-        description: 'playFile',
-      );
-      return;
-    }
 
     if (isSuperseded(requestId)) {
       logDebug(
@@ -716,12 +684,8 @@ class PlaybackRequestSession with Logging {
 
     await _waitForRequestOperation<void>(
       requestId: requestId,
-      operation: _audioService.playUrl(
-        selection.url,
-        headers: selection.headers,
-        track: selection.track,
-      ),
-      description: 'playUrl',
+      operation: _audioService.playMedia(media),
+      description: 'playMedia',
     );
   }
 

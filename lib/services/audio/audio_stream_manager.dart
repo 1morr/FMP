@@ -2,6 +2,7 @@ import '../../data/models/track.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_http_policy.dart';
 import '../account/source_auth_context.dart';
+import 'playback_media.dart';
 import 'stream_resolution_service.dart';
 
 export '../account/source_auth_context.dart'
@@ -24,12 +25,7 @@ abstract class PlaybackRequestStreamAccess {
     bool persist = true,
   });
 
-  Future<Map<String, String>?> getPlaybackHeaders(
-    Track track, {
-    String? requestUrl,
-  });
-
-  Future<PlaybackNetworkRequest> prepareNetworkPlayback(
+  Future<RemotePlaybackMedia> prepareNetworkPlayback(
     Track track,
     String url,
   );
@@ -39,17 +35,11 @@ abstract class PlaybackRequestStreamAccess {
 
 class PlaybackSelection {
   const PlaybackSelection({
-    required this.track,
-    required this.url,
-    required this.localPath,
-    required this.headers,
+    required this.media,
     required this.streamResult,
   });
 
-  final Track track;
-  final String url;
-  final String? localPath;
-  final Map<String, String>? headers;
+  final PreparedPlaybackMedia media;
   final AudioStreamResult? streamResult;
 }
 
@@ -100,14 +90,11 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
       throw Exception('No audio URL available for: ${track.title}');
     }
 
-    final networkRequest = localPath == null
+    final media = localPath == null
         ? await prepareNetworkPlayback(trackWithUrl, url)
-        : null;
+        : LocalPlaybackMedia(path: localPath, track: trackWithUrl);
     return PlaybackSelection(
-      track: trackWithUrl,
-      url: networkRequest?.url ?? url,
-      localPath: localPath,
-      headers: networkRequest?.headers,
+      media: media,
       streamResult: streamResult,
     );
   }
@@ -136,13 +123,10 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
     );
     if (fallback == null) return null;
 
-    final networkRequest =
+    final media =
         await prepareNetworkPlayback(fallback.track, fallback.stream.url);
     return PlaybackSelection(
-      track: fallback.track,
-      url: networkRequest.url,
-      localPath: null,
-      headers: networkRequest.headers,
+      media: media,
       streamResult: fallback.stream,
     );
   }
@@ -161,23 +145,19 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
   }
 
   @override
-  Future<Map<String, String>?> getPlaybackHeaders(
-    Track track, {
-    String? requestUrl,
-  }) async {
-    final prepared = await _sourceAuthContext.playbackNetworkRequest(
-      track,
-      requestUrl ?? track.audioUrl ?? '',
-    );
-    return prepared.headers;
-  }
-
-  @override
-  Future<PlaybackNetworkRequest> prepareNetworkPlayback(
+  Future<RemotePlaybackMedia> prepareNetworkPlayback(
     Track track,
     String url,
-  ) {
-    return _sourceAuthContext.playbackNetworkRequest(track, url);
+  ) async {
+    final prepared = await _sourceAuthContext.playbackNetworkRequest(
+      track,
+      url,
+    );
+    return RemotePlaybackMedia(
+      url: Uri.parse(prepared.url),
+      headers: prepared.headers,
+      track: track,
+    );
   }
 
   @override
