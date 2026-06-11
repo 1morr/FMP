@@ -19,17 +19,6 @@ abstract class PlaybackRequestStreamAccess {
     String? failedUrl,
   });
 
-  Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
-    Track track, {
-    int retryCount = 0,
-    bool persist = true,
-  });
-
-  Future<RemotePlaybackMedia> prepareNetworkPlayback(
-    Track track,
-    String url,
-  );
-
   Future<void> prefetchTrack(Track track);
 }
 
@@ -46,18 +35,17 @@ class PlaybackSelection {
 class AudioStreamManager implements PlaybackRequestStreamAccess {
   AudioStreamManager({
     required StreamResolutionService streamResolutionService,
-    required SourceAuthContext sourceAuthContext,
+    required PlaybackMediaRequestContext sourceAuthContext,
   })  : _streamResolutionService = streamResolutionService,
         _sourceAuthContext = sourceAuthContext;
 
   final StreamResolutionService _streamResolutionService;
-  final SourceAuthContext _sourceAuthContext;
+  final PlaybackMediaRequestContext _sourceAuthContext;
   Stream<DownloadPathsChangedEvent> get downloadPathsChangedStream =>
       _streamResolutionService.downloadPathsChangedStream;
 
   void dispose() {}
 
-  @override
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
     Track track, {
     int retryCount = 0,
@@ -144,7 +132,6 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
     return (trackWithStream, localPath);
   }
 
-  @override
   Future<RemotePlaybackMedia> prepareNetworkPlayback(
     Track track,
     String url,

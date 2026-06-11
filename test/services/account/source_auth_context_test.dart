@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
@@ -261,6 +263,63 @@ void main() {
       expect(urlHeaders, isNotNull);
       expect(urlHeaders!.containsKey('Cookie'), isFalse);
       expect(urlHeaders.containsKey('Authorization'), isFalse);
+    });
+
+    test('production modules depend on purpose-specific auth interfaces', () {
+      final authContextSource =
+          File('lib/services/account/source_auth_context.dart')
+              .readAsStringSync();
+      final streamResolutionSource =
+          File('lib/services/audio/stream_resolution_service.dart')
+              .readAsStringSync();
+      final audioStreamManagerSource =
+          File('lib/services/audio/audio_stream_manager.dart')
+              .readAsStringSync();
+      final downloadServiceSource =
+          File('lib/services/download/download_service.dart')
+              .readAsStringSync();
+      final importServiceSource =
+          File('lib/services/import/import_service.dart').readAsStringSync();
+      final trackDetailSource =
+          File('lib/providers/library/track_detail_provider.dart')
+              .readAsStringSync();
+
+      expect(
+        authContextSource,
+        contains('abstract interface class SourcePlaybackAuthContext'),
+      );
+      expect(
+        authContextSource,
+        contains('abstract interface class PlaybackMediaRequestContext'),
+      );
+      expect(
+        authContextSource,
+        contains('abstract interface class DownloadSourceAuthContext'),
+      );
+      expect(
+        authContextSource,
+        contains('abstract interface class PlaylistAuthContext'),
+      );
+      expect(
+        streamResolutionSource,
+        contains('required SourcePlaybackAuthContext sourceAuthContext'),
+      );
+      expect(
+        audioStreamManagerSource,
+        contains('required PlaybackMediaRequestContext sourceAuthContext'),
+      );
+      expect(
+        downloadServiceSource,
+        contains('DownloadSourceAuthContext? sourceAuthContext'),
+      );
+      expect(
+        importServiceSource,
+        contains('final PlaylistAuthContext _sourceAuthContext'),
+      );
+      expect(
+        trackDetailSource,
+        contains('final SourcePlaybackAuthContext _sourceAuthContext'),
+      );
     });
   });
 }

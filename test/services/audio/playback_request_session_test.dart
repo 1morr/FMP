@@ -89,6 +89,25 @@ void main() {
     });
   });
 
+  group('PlaybackRequestStreamAccess', () {
+    test('exposes only session-level playback operations', () {
+      final source = File('lib/services/audio/audio_stream_manager.dart')
+          .readAsStringSync();
+      final interfaceMatch = RegExp(
+        r'abstract class PlaybackRequestStreamAccess \{([\s\S]*?)\n\}',
+      ).firstMatch(source);
+
+      expect(interfaceMatch, isNotNull);
+      final interfaceBody = interfaceMatch!.group(1)!;
+
+      expect(interfaceBody, contains('selectPlayback'));
+      expect(interfaceBody, contains('selectFallbackPlayback'));
+      expect(interfaceBody, contains('prefetchTrack'));
+      expect(interfaceBody, isNot(contains('ensureAudioStream')));
+      expect(interfaceBody, isNot(contains('prepareNetworkPlayback')));
+    });
+  });
+
   group('PlaybackSessionCommand', () {
     test('normal play command keeps mode and side-effect flags explicit', () {
       final track = Track()
@@ -213,8 +232,8 @@ void main() {
       expect(result.track?.sourceId, 'session-start');
       expect(result.attemptedUrl, 'https://example.com/session-start.m4a');
       expect(audioService.stopCallCount, 1);
-      expect(audioService.playMediaCalls.single.media,
-          isA<RemotePlaybackMedia>());
+      expect(
+          audioService.playMediaCalls.single.media, isA<RemotePlaybackMedia>());
       expect(audioService.playUrlCalls.single.url,
           'https://example.com/session-start.m4a');
       expect(loadingStarted, [1]);

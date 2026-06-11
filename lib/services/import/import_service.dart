@@ -111,7 +111,7 @@ class ImportService with Logging implements ImportServiceFacade {
   final TrackRepository _trackRepository;
   final Isar _isar;
   final PlaylistMutationService _mutationService;
-  final SourceAuthContext _sourceAuthContext;
+  final PlaylistAuthContext _sourceAuthContext;
 
   // 导入进度流
   final _progressController = StreamController<ImportProgress>.broadcast();
@@ -151,7 +151,7 @@ class ImportService with Logging implements ImportServiceFacade {
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required Isar isar,
-    required SourceAuthContext sourceAuthContext,
+    required PlaylistAuthContext sourceAuthContext,
     PlaylistMutationService? mutationService,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,

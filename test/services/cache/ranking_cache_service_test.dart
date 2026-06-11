@@ -15,6 +15,40 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('RankingCacheService lifecycle hardening', () {
+    test('state exposes source-indexed cache accessors', () {
+      final bilibiliTrack = _track('bv-indexed', SourceType.bilibili);
+      final youtubeTrack = _track('yt-indexed', SourceType.youtube);
+      final state = RankingCacheState(
+        tracksBySource: {
+          SourceType.bilibili: [bilibiliTrack],
+          SourceType.youtube: [youtubeTrack],
+        },
+        loadedBySource: const {
+          SourceType.bilibili: true,
+          SourceType.youtube: false,
+        },
+        errorsBySource: const {
+          SourceType.youtube: 'youtube offline',
+        },
+      );
+
+      expect(state.tracksFor(SourceType.bilibili), [bilibiliTrack]);
+      expect(state.tracksFor(SourceType.youtube), [youtubeTrack]);
+      expect(state.tracksFor(SourceType.netease), isEmpty);
+      expect(state.isLoaded(SourceType.bilibili), isTrue);
+      expect(state.isLoaded(SourceType.youtube), isFalse);
+      expect(state.errorFor(SourceType.youtube), 'youtube offline');
+      expect(state.errorFor(SourceType.netease), isNull);
+      expect(state.bilibiliTracks, [bilibiliTrack]);
+      expect(state.youtubeTracks, [youtubeTrack]);
+      expect(
+        () => state.tracksFor(SourceType.bilibili).add(
+              _track('mutate-indexed', SourceType.bilibili),
+            ),
+        throwsUnsupportedError,
+      );
+    });
+
     test('provider exposes immutable ranking state after refresh', () async {
       final bilibiliTrack = _track('bv-1', SourceType.bilibili);
       final youtubeTrack = _track('yt-1', SourceType.youtube, viewCount: 20);
@@ -199,6 +233,33 @@ void main() {
 
       expect(service.state.bilibiliTracks, [oldTrack]);
       expect(service.state.bilibiliError, contains('network down'));
+
+      service.dispose();
+    });
+
+    test('refreshSource sends source-specific requests and stores by source',
+        () async {
+      final low = _track('yt-low-indexed', SourceType.youtube, viewCount: 1);
+      final high = _track('yt-high-indexed', SourceType.youtube, viewCount: 10);
+      final bilibiliSource = _FakeRankingSource(SourceType.bilibili);
+      final youtubeSource = _FakeRankingSource(SourceType.youtube)
+        ..tracks = [low, high];
+      final neteaseSource = _FakeRankingSource(SourceType.netease);
+      final service = RankingCacheService(
+        bilibiliRankingSource: bilibiliSource,
+        youtubeRankingSource: youtubeSource,
+        neteaseRankingSource: neteaseSource,
+      );
+
+      await service.refreshSource(SourceType.youtube);
+
+      _expectRankingRequest(youtubeSource.lastRequest, category: 'music');
+      expect(service.state.tracksFor(SourceType.youtube), [high, low]);
+      expect(service.state.youtubeTracks, [high, low]);
+      expect(service.state.isLoaded(SourceType.youtube), isTrue);
+      expect(service.state.errorFor(SourceType.youtube), isNull);
+      expect(bilibiliSource.fetchCount, 0);
+      expect(neteaseSource.fetchCount, 0);
 
       service.dispose();
     });

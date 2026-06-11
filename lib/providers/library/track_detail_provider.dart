@@ -42,7 +42,7 @@ class TrackDetailState {
 /// 歌曲详情 Notifier
 class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   final SourceManager _sourceManager;
-  final SourceAuthContext _sourceAuthContext;
+  final SourcePlaybackAuthContext _sourceAuthContext;
   Track? _currentTrack;
 
   TrackDetailNotifier(this._sourceManager, this._sourceAuthContext)

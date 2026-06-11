@@ -51,10 +51,14 @@ backend events.
   `SourceAuthContext.authForPlay()` for source auth used during stream
   resolution.
 - `AudioStreamManager` owns playback selection and prepares
-  `PreparedPlaybackMedia` for music playback. It calls
-  `SourceAuthContext.playbackNetworkRequest()` for remote streams before
+  `PreparedPlaybackMedia` for music playback. It depends on the narrow
+  `PlaybackMediaRequestContext` interface for remote-stream handoff before
   producing `RemotePlaybackMedia`. `SourceAuthContext` owns the Auth For Play
   gate; the byte-request URL/header policy is delegated to `MediaHandoff`.
+- `PlaybackRequestStreamAccess` is the session-facing interface and should stay
+  limited to playback selection, fallback selection, and prefetch. Do not expose
+  intermediate stream-resolution or network-handoff phases through that
+  interface.
 - Music playback opens media through `FmpAudioService.playMedia()` /
   `setMedia()`. Direct `playUrl()` / `setUrl()` remain for radio and
   compatibility-only paths; do not add new music playback callers for raw URL
