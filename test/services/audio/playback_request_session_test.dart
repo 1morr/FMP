@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
@@ -6,6 +7,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/playback_media.dart';
 import 'package:fmp/services/audio/playback_request_session.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
@@ -133,6 +135,44 @@ void main() {
     });
   });
 
+  group('FakeAudioService typed media support', () {
+    test('playMedia records typed remote media and delegates to URL loader',
+        () async {
+      final audioService = FakeAudioService();
+      final track = _track('typed-remote');
+      final media = RemotePlaybackMedia(
+        url: Uri.parse('https://example.com/typed-remote.m4a'),
+        headers: const {'X-Typed': 'remote'},
+        track: track,
+      );
+
+      await audioService.playMedia(media);
+
+      expect(audioService.playMediaCalls.single.media, same(media));
+      expect(audioService.playUrlCalls.single.url,
+          'https://example.com/typed-remote.m4a');
+      expect(audioService.playUrlCalls.single.headers, {'X-Typed': 'remote'});
+      expect(audioService.playUrlCalls.single.track, same(track));
+    });
+
+    test('setMedia records typed local media and delegates to file loader',
+        () async {
+      final audioService = FakeAudioService();
+      final track = _track('typed-local');
+      final media = LocalPlaybackMedia(
+        path: '/music/typed-local.m4a',
+        track: track,
+      );
+
+      await audioService.setMedia(media);
+
+      expect(audioService.setMediaCalls.single.media, same(media));
+      expect(
+          audioService.setFileCalls.single.filePath, '/music/typed-local.m4a');
+      expect(audioService.setFileCalls.single.track, same(track));
+    });
+  });
+
   group('PlaybackRequestSession handoff', () {
     late FakeAudioService audioService;
     late _HarnessPlaybackRequestStreamAccess streamManager;
@@ -173,6 +213,8 @@ void main() {
       expect(result.track?.sourceId, 'session-start');
       expect(result.attemptedUrl, 'https://example.com/session-start.m4a');
       expect(audioService.stopCallCount, 1);
+      expect(audioService.playMediaCalls.single.media,
+          isA<RemotePlaybackMedia>());
       expect(audioService.playUrlCalls.single.url,
           'https://example.com/session-start.m4a');
       expect(loadingStarted, [1]);
@@ -183,10 +225,10 @@ void main() {
       streamManager.onSelectPlayback = (track, persist) async {
         expect(persist, isTrue);
         return PlaybackSelection(
-          track: track,
-          url: '/music/local-session.m4a',
-          localPath: '/music/local-session.m4a',
-          headers: null,
+          media: LocalPlaybackMedia(
+            path: '/music/local-session.m4a',
+            track: track,
+          ),
           streamResult: null,
         );
       };
@@ -208,8 +250,12 @@ void main() {
 
     test('start passes manager-owned selection headers to backend', () async {
       final track = _track('headers-owned');
-      streamManager.onGetPlaybackHeaders = (_) async {
-        return const {'X-Test-Header': 'owned-by-manager'};
+      streamManager.onPrepareNetworkPlayback = (track, url) async {
+        return RemotePlaybackMedia(
+          url: Uri.parse(url),
+          headers: const {'X-Test-Header': 'owned-by-manager'},
+          track: track,
+        );
       };
 
       final result = await session.start(
@@ -227,7 +273,6 @@ void main() {
         'X-Test-Header': 'owned-by-manager',
       });
       expect(streamManager.selectionRequests, ['headers-owned']);
-      expect(streamManager.headerRequests, ['headers-owned']);
     });
 
     test('start uses manager fallback and preserves fallback metadata',
@@ -238,10 +283,13 @@ void main() {
       streamManager.onSelectFallbackPlayback = (track, failedUrl) async {
         expect(failedUrl, 'https://example.com/fallback-session.m4a');
         return PlaybackSelection(
-          track: track,
-          url: 'https://example.com/fallback-session-fallback.m3u8',
-          localPath: null,
-          headers: const {'X-Fallback': 'yes'},
+          media: RemotePlaybackMedia(
+            url: Uri.parse(
+              'https://example.com/fallback-session-fallback.m3u8',
+            ),
+            headers: const {'X-Fallback': 'yes'},
+            track: track,
+          ),
           streamResult: const AudioStreamResult(
             url: 'https://example.com/fallback-session-fallback.m3u8',
             container: 'm3u8',
@@ -450,9 +498,10 @@ void main() {
       streamManager.onPrepareNetworkPlayback = (track, url) async {
         expect(track.sourceId, 'restore-prepared');
         expect(url, 'https://example.com/restore-prepared.m4a');
-        return const PlaybackNetworkRequest(
-          url: 'https://cdn.example.com/restore-prepared.m4a',
-          headers: {'X-Prepared': 'yes'},
+        return RemotePlaybackMedia(
+          url: Uri.parse('https://cdn.example.com/restore-prepared.m4a'),
+          headers: const {'X-Prepared': 'yes'},
+          track: track,
         );
       };
 
@@ -471,20 +520,24 @@ void main() {
       expect(audioService.setUrlCalls.single.url,
           'https://cdn.example.com/restore-prepared.m4a');
       expect(audioService.setUrlCalls.single.headers, {'X-Prepared': 'yes'});
-      expect(streamManager.headerRequests, isEmpty);
+      expect(streamManager.selectionRequests, contains('restore-prepared'));
     });
 
-    test('start aborts after async header resolution when superseded',
+    test('start aborts after async media preparation when superseded',
         () async {
       final firstTrack = _track('first-headers');
       final secondTrack = _track('second-headers');
       final secondPlayGate = audioService.enqueuePendingPlayUrl();
-      final headerGate = Completer<void>();
-      streamManager.onGetPlaybackHeaders = (track) async {
+      final preparationGate = Completer<void>();
+      streamManager.onPrepareNetworkPlayback = (track, url) async {
         if (track.sourceId == firstTrack.sourceId) {
-          await headerGate.future;
+          await preparationGate.future;
         }
-        return {'Referer': 'https://example.com/${track.sourceId}'};
+        return RemotePlaybackMedia(
+          url: Uri.parse(url),
+          headers: {'Referer': 'https://example.com/${track.sourceId}'},
+          track: track,
+        );
       };
 
       final firstPlay = session.start(
@@ -494,7 +547,7 @@ void main() {
           positionBeforeLoad: Duration.zero,
         ),
       );
-      await streamManager.waitForHeaderRequest(firstTrack.sourceId);
+      await streamManager.waitForPrepareNetworkPlayback(firstTrack.sourceId);
 
       final secondPlay = session.start(
         PlaybackSessionCommand(
@@ -505,7 +558,7 @@ void main() {
       );
       await audioService.waitForPlayUrlCallCount(1);
 
-      headerGate.complete();
+      preparationGate.complete();
       expect((await firstPlay).isSuperseded, isTrue);
       expect(audioService.playUrlCalls.length, 1);
       expect(audioService.playUrlCalls.single.url,
@@ -519,7 +572,7 @@ void main() {
         'first-headers',
         'second-headers',
       ]);
-      expect(streamManager.headerRequests, [
+      expect(streamManager.prepareNetworkPlaybackRequests, [
         'first-headers',
         'second-headers',
       ]);
@@ -726,6 +779,21 @@ void main() {
       playGate.complete();
       await pumpEventQueue(times: 5);
     });
+
+    test('PlaybackRequestSession opens typed media instead of raw URL methods',
+        () {
+      final source = File('lib/services/audio/playback_request_session.dart')
+          .readAsStringSync();
+
+      expect(source, contains('_audioService.playMedia('));
+      expect(source, contains('_audioService.setMedia('));
+      expect(source, isNot(contains('_audioService.playUrl(')));
+      expect(source, isNot(contains('_audioService.setUrl(')));
+      expect(source, isNot(contains('_audioService.playFile(')));
+      expect(source, isNot(contains('_audioService.setFile(')));
+      expect(source, isNot(contains('headers: selection.headers')));
+      expect(source, isNot(contains('headers: networkRequest.headers')));
+    });
   });
 }
 
@@ -742,25 +810,25 @@ class _HarnessPlaybackRequestStreamAccess
   final List<String> fallbackSelectionTracks = [];
   final List<String?> fallbackSelectionFailedUrls = [];
   final List<String> ensureAudioStreamRequests = [];
-  final List<String> headerRequests = [];
+  final List<String> prepareNetworkPlaybackRequests = [];
   final List<String> prefetchRequests = [];
   final List<Track> prefetchedTracks = [];
-  final Map<String, Completer<void>> _headerRequestWaiters = {};
+  final Map<String, Completer<void>> _prepareNetworkPlaybackWaiters = {};
 
   Future<PlaybackSelection> Function(Track track, bool persist)?
       onSelectPlayback;
   Future<PlaybackSelection?> Function(Track track, String? failedUrl)?
       onSelectFallbackPlayback;
-  Future<PlaybackNetworkRequest> Function(Track track, String url)?
+  Future<RemotePlaybackMedia> Function(Track track, String url)?
       onPrepareNetworkPlayback;
   Future<(Track, String?, AudioStreamResult?)> Function(
     Track track,
     bool persist,
   )? onEnsureAudioStream;
-  Future<Map<String, String>?> Function(Track track)? onGetPlaybackHeaders;
 
-  Future<void> waitForHeaderRequest(String sourceId) {
-    return (_headerRequestWaiters[sourceId] ??= Completer<void>()).future;
+  Future<void> waitForPrepareNetworkPlayback(String sourceId) {
+    return (_prepareNetworkPlaybackWaiters[sourceId] ??= Completer<void>())
+        .future;
   }
 
   @override
@@ -777,13 +845,11 @@ class _HarnessPlaybackRequestStreamAccess
     if (url == null) {
       throw StateError('No playback URL available for ${track.sourceId}');
     }
+    final media = localPath == null
+        ? await prepareNetworkPlayback(trackWithUrl, url)
+        : LocalPlaybackMedia(path: localPath, track: trackWithUrl);
     return PlaybackSelection(
-      track: trackWithUrl,
-      url: url,
-      localPath: localPath,
-      headers: localPath == null
-          ? await getPlaybackHeaders(trackWithUrl, requestUrl: url)
-          : null,
+      media: media,
       streamResult: streamResult,
     );
   }
@@ -822,29 +888,21 @@ class _HarnessPlaybackRequestStreamAccess
   }
 
   @override
-  Future<Map<String, String>?> getPlaybackHeaders(
-    Track track, {
-    String? requestUrl,
-  }) async {
-    headerRequests.add(track.sourceId);
-    final waiter = _headerRequestWaiters[track.sourceId];
-    if (waiter != null && !waiter.isCompleted) {
-      waiter.complete();
-    }
-    return onGetPlaybackHeaders?.call(track) ??
-        const {'Referer': 'https://example.com'};
-  }
-
-  @override
-  Future<PlaybackNetworkRequest> prepareNetworkPlayback(
+  Future<RemotePlaybackMedia> prepareNetworkPlayback(
     Track track,
     String url,
   ) async {
+    prepareNetworkPlaybackRequests.add(track.sourceId);
+    final waiter = _prepareNetworkPlaybackWaiters[track.sourceId];
+    if (waiter != null && !waiter.isCompleted) {
+      waiter.complete();
+    }
     final custom = await onPrepareNetworkPlayback?.call(track, url);
     if (custom != null) return custom;
-    return PlaybackNetworkRequest(
-      url: url,
+    return RemotePlaybackMedia(
+      url: Uri.parse(url),
       headers: const {'Referer': 'https://example.com'},
+      track: track,
     );
   }
 

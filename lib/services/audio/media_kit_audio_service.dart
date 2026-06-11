@@ -10,6 +10,7 @@ import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import 'audio_service.dart';
 import 'audio_types.dart';
+import 'playback_media.dart';
 
 /// 音频播放服务（使用 media_kit 直接实现）
 /// 替代原来的 just_audio + just_audio_media_kit 方案
@@ -688,6 +689,26 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _player.play();
     }
     logDebug('_ensurePlayback completed, playing: $_isPlaying');
+  }
+
+  @override
+  Future<Duration?> playMedia(PreparedPlaybackMedia media) {
+    return switch (media) {
+      LocalPlaybackMedia(:final path, :final track) =>
+        playFile(path, track: track),
+      RemotePlaybackMedia(:final url, :final headers, :final track) =>
+        playUrl(url.toString(), headers: headers, track: track),
+    };
+  }
+
+  @override
+  Future<Duration?> setMedia(PreparedPlaybackMedia media) {
+    return switch (media) {
+      LocalPlaybackMedia(:final path, :final track) =>
+        setFile(path, track: track),
+      RemotePlaybackMedia(:final url, :final headers, :final track) =>
+        setUrl(url.toString(), headers: headers, track: track),
+    };
   }
 
   /// 播放指定 URL

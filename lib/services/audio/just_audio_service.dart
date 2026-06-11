@@ -9,6 +9,7 @@ import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import 'audio_service.dart';
 import 'audio_types.dart';
+import 'playback_media.dart';
 
 /// Android 音频播放服务（使用 just_audio / ExoPlayer）
 /// 比 media_kit 更轻量，节省 ~10-15MB 内存
@@ -469,6 +470,26 @@ class JustAudioService extends FmpAudioService with Logging {
     } catch (_) {
       logWarning('Timeout waiting for idle state, proceeding anyway');
     }
+  }
+
+  @override
+  Future<Duration?> playMedia(PreparedPlaybackMedia media) {
+    return switch (media) {
+      LocalPlaybackMedia(:final path, :final track) =>
+        playFile(path, track: track),
+      RemotePlaybackMedia(:final url, :final headers, :final track) =>
+        playUrl(url.toString(), headers: headers, track: track),
+    };
+  }
+
+  @override
+  Future<Duration?> setMedia(PreparedPlaybackMedia media) {
+    return switch (media) {
+      LocalPlaybackMedia(:final path, :final track) =>
+        setFile(path, track: track),
+      RemotePlaybackMedia(:final url, :final headers, :final track) =>
+        setUrl(url.toString(), headers: headers, track: track),
+    };
   }
 
   @override

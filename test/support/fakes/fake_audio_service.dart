@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/playback_media.dart';
 
 class AudioUrlCall {
   AudioUrlCall({required this.url, this.headers, this.track});
@@ -17,6 +18,12 @@ class AudioFileCall {
 
   final String filePath;
   final Track? track;
+}
+
+class AudioMediaCall {
+  AudioMediaCall({required this.media});
+
+  final PreparedPlaybackMedia media;
 }
 
 class FakeAudioService implements FmpAudioService {
@@ -38,6 +45,8 @@ class FakeAudioService implements FmpAudioService {
   final List<AudioUrlCall> setUrlCalls = [];
   final List<AudioFileCall> playFileCalls = [];
   final List<AudioFileCall> setFileCalls = [];
+  final List<AudioMediaCall> playMediaCalls = [];
+  final List<AudioMediaCall> setMediaCalls = [];
   final List<Duration> seekCalls = [];
   int stopCallCount = 0;
 
@@ -313,6 +322,28 @@ class FakeAudioService implements FmpAudioService {
       _audioDevice = device;
   @override
   Future<void> setAudioDeviceAuto() async => _audioDevice = null;
+
+  @override
+  Future<Duration?> playMedia(PreparedPlaybackMedia media) {
+    playMediaCalls.add(AudioMediaCall(media: media));
+    return switch (media) {
+      LocalPlaybackMedia(:final path, :final track) =>
+        playFile(path, track: track),
+      RemotePlaybackMedia(:final url, :final headers, :final track) =>
+        playUrl(url.toString(), headers: headers, track: track),
+    };
+  }
+
+  @override
+  Future<Duration?> setMedia(PreparedPlaybackMedia media) {
+    setMediaCalls.add(AudioMediaCall(media: media));
+    return switch (media) {
+      LocalPlaybackMedia(:final path, :final track) =>
+        setFile(path, track: track),
+      RemotePlaybackMedia(:final url, :final headers, :final track) =>
+        setUrl(url.toString(), headers: headers, track: track),
+    };
+  }
 
   @override
   Future<Duration?> playUrl(String url,

@@ -50,10 +50,15 @@ backend events.
   expiry persistence, and prefetch dedupe. It asks
   `SourceAuthContext.authForPlay()` for source auth used during stream
   resolution.
-- `AudioStreamManager` owns playback selection and calls
-  `SourceAuthContext.playbackNetworkRequest()` before handing a URL to the
-  backend. `SourceAuthContext` owns the Auth For Play gate; the byte-request
-  URL/header policy is delegated to `MediaHandoff`.
+- `AudioStreamManager` owns playback selection and prepares
+  `PreparedPlaybackMedia` for music playback. It calls
+  `SourceAuthContext.playbackNetworkRequest()` for remote streams before
+  producing `RemotePlaybackMedia`. `SourceAuthContext` owns the Auth For Play
+  gate; the byte-request URL/header policy is delegated to `MediaHandoff`.
+- Music playback opens media through `FmpAudioService.playMedia()` /
+  `setMedia()`. Direct `playUrl()` / `setUrl()` remain for radio and
+  compatibility-only paths; do not add new music playback callers for raw URL
+  methods.
 - `QueueManager` owns queue order, shuffle/loop state, navigation, and
   persistence hooks.
 - `QueuePersistenceManager` owns persisted queue snapshots, saved

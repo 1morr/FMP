@@ -1,5 +1,6 @@
 import 'audio_types.dart';
 import '../../data/models/track.dart';
+import 'playback_media.dart';
 
 /// 音频播放服务抽象接口
 /// Android: JustAudioService (ExoPlayer)
@@ -57,8 +58,12 @@ abstract class FmpAudioService {
   Future<void> setAudioDeviceAuto();
 
   // === Audio Source ===
-  Future<Duration?> playUrl(String url, {Map<String, String>? headers, Track? track});
-  Future<Duration?> setUrl(String url, {Map<String, String>? headers, Track? track});
+  Future<Duration?> playMedia(PreparedPlaybackMedia media);
+  Future<Duration?> setMedia(PreparedPlaybackMedia media);
+  Future<Duration?> playUrl(String url,
+      {Map<String, String>? headers, Track? track});
+  Future<Duration?> setUrl(String url,
+      {Map<String, String>? headers, Track? track});
   Future<Duration?> playFile(String filePath, {Track? track});
   Future<Duration?> setFile(String filePath, {Track? track});
 }

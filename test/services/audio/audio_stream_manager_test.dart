@@ -18,6 +18,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart'
     hide PlaybackNetworkRequest, PlaybackUrlResolution, PlaybackUrlResolver;
+import 'package:fmp/services/audio/playback_media.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
@@ -125,6 +126,62 @@ void main() {
       expect(sourceManager.source.lastAudioAuthHeaders, isNull);
     });
 
+    test('selectPlayback returns local typed media for downloaded files',
+        () async {
+      final audioFile = File('${tempDir.path}/typed-local.m4a');
+      await audioFile.writeAsString('audio-bytes');
+      final savedTrack = await trackRepository.save(
+        _track('typed-local', title: 'Typed Local')
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 1
+              ..playlistName = 'Library'
+              ..downloadPath = audioFile.path,
+          ],
+      );
+
+      final selection = await manager.selectPlayback(savedTrack);
+
+      expect(selection.media, isA<LocalPlaybackMedia>());
+      final media = selection.media as LocalPlaybackMedia;
+      expect(media.path, audioFile.path);
+      expect(media.track.sourceId, 'typed-local');
+      expect(media.debugUrl, audioFile.path);
+      expect(selection.streamResult, isNull);
+    });
+
+    test('selectPlayback returns remote typed media with prepared headers',
+        () async {
+      sourceManager.source.encodeQualityInAudioUrl = true;
+      sourceAuthContext.authHeaders = const {
+        'Authorization': 'Bearer sentinel',
+      };
+
+      final selection = await manager.selectPlayback(
+        _track('typed-remote', title: 'Typed Remote'),
+      );
+
+      expect(selection.media, isA<RemotePlaybackMedia>());
+      final media = selection.media as RemotePlaybackMedia;
+      expect(media.url.toString(), 'https://example.com/typed-remote-high.m4a');
+      expect(media.headers?['Origin'], SourceHttpPolicy.youtubeOrigin);
+      expect(media.debugUrl, 'https://example.com/typed-remote-high.m4a');
+      expect(selection.streamResult?.url,
+          'https://example.com/typed-remote-high.m4a');
+    });
+
+    test('prepareNetworkPlayback returns remote typed media', () async {
+      final prepared = await manager.prepareNetworkPlayback(
+        _track('typed-prepared', title: 'Typed Prepared'),
+        'https://example.com/typed-prepared.m4a',
+      );
+
+      expect(prepared, isA<RemotePlaybackMedia>());
+      expect(prepared.url.toString(), 'https://example.com/typed-prepared.m4a');
+      expect(prepared.track.sourceId, 'typed-prepared');
+      expect(prepared.headers?['Referer'], SourceHttpPolicy.youtubeReferer);
+    });
+
     test(
         'ensureAudioUrl preserves valid download paths and clears only missing ones',
         () async {
@@ -192,10 +249,11 @@ void main() {
       final selection =
           await manager.selectPlayback(savedTrack, persist: false);
 
-      expect(selection.localPath, isNull);
-      expect(selection.url, 'https://example.com/stream-temporary.m4a');
-      expect(selection.track.audioUrl, selection.url);
-      expect(selection.track.playlistInfo.single.downloadPath, isEmpty);
+      expect(selection.media, isA<RemotePlaybackMedia>());
+      final media = selection.media as RemotePlaybackMedia;
+      expect(media.url.toString(), 'https://example.com/stream-temporary.m4a');
+      expect(media.track.audioUrl, media.url.toString());
+      expect(media.track.playlistInfo.single.downloadPath, isEmpty);
       expect(sourceManager.source.audioStreamRequests.map((r) => r.sourceId),
           ['stream-temporary']);
 
@@ -335,10 +393,11 @@ void main() {
       final selection =
           await manager.selectPlayback(transientTrack, persist: false);
 
-      expect(selection.localPath, isNull);
-      expect(selection.url, 'https://example.com/stream-scanned.m4a');
-      expect(selection.track.id, savedTrack.id);
-      expect(selection.track.playlistInfo.single.downloadPath, isEmpty);
+      expect(selection.media, isA<RemotePlaybackMedia>());
+      final media = selection.media as RemotePlaybackMedia;
+      expect(media.url.toString(), 'https://example.com/stream-scanned.m4a');
+      expect(media.track.id, savedTrack.id);
+      expect(media.track.playlistInfo.single.downloadPath, isEmpty);
 
       final persistedTracks = await trackRepository.getAll();
       expect(persistedTracks, hasLength(1));
@@ -386,8 +445,8 @@ void main() {
       final selection =
           await manager.selectPlayback(transientTrack, persist: false);
 
-      expect(selection.track.id, secondTrack.id);
-      expect(selection.track.playlistInfo.single.downloadPath, isEmpty);
+      expect(selection.media.track.id, secondTrack.id);
+      expect(selection.media.track.playlistInfo.single.downloadPath, isEmpty);
       final firstPersisted = await trackRepository.getById(firstTrack.id);
       final secondPersisted = await trackRepository.getById(secondTrack.id);
       expect(
@@ -445,23 +504,27 @@ void main() {
     });
 
     test('playback headers use shared source media policy', () async {
-      final youtube = await manager.getPlaybackHeaders(
+      final youtube = await manager.prepareNetworkPlayback(
         Track()
           ..sourceId = 'yt'
           ..sourceType = SourceType.youtube
           ..title = 'YouTube'
           ..artist = 'Tester',
+        'https://example.com/yt.m4a',
       );
-      final bilibili = await manager.getPlaybackHeaders(
+      final bilibili = await manager.prepareNetworkPlayback(
         Track()
           ..sourceId = 'bv'
           ..sourceType = SourceType.bilibili
           ..title = 'Bilibili'
           ..artist = 'Tester',
+        'https://example.com/bv.m4a',
       );
 
-      expect(youtube, SourceHttpPolicy.mediaHeaders(SourceType.youtube));
-      expect(bilibili, SourceHttpPolicy.mediaHeaders(SourceType.bilibili));
+      expect(
+          youtube.headers, SourceHttpPolicy.mediaHeaders(SourceType.youtube));
+      expect(
+          bilibili.headers, SourceHttpPolicy.mediaHeaders(SourceType.bilibili));
       expect(
         AudioStreamManager.defaultPlaybackUserAgent,
         SourceHttpPolicy.mediaUserAgent,
@@ -474,10 +537,11 @@ void main() {
         _track('stream-headers', title: 'Stream Headers'),
       );
 
-      expect(selection.localPath, isNull);
-      expect(selection.url, 'https://example.com/stream-headers.m4a');
-      expect(selection.track.audioUrl, selection.url);
-      expect(selection.headers, {
+      expect(selection.media, isA<RemotePlaybackMedia>());
+      final media = selection.media as RemotePlaybackMedia;
+      expect(media.url.toString(), 'https://example.com/stream-headers.m4a');
+      expect(media.track.audioUrl, media.url.toString());
+      expect(media.headers, {
         'Origin': 'https://www.youtube.com',
         'Referer': 'https://www.youtube.com/',
         'User-Agent': AudioStreamManager.defaultPlaybackUserAgent,
@@ -493,12 +557,13 @@ void main() {
         _track('stream-expiry', title: 'Stream Expiry'),
       );
 
-      expect(selection.localPath, isNull);
-      expect(selection.url, 'https://example.com/stream-expiry.m4a');
-      expect(selection.track.audioUrl, selection.url);
-      expect(selection.track.audioUrlExpiry, isNotNull);
+      expect(selection.media, isA<RemotePlaybackMedia>());
+      final media = selection.media as RemotePlaybackMedia;
+      expect(media.url.toString(), 'https://example.com/stream-expiry.m4a');
+      expect(media.track.audioUrl, media.url.toString());
+      expect(media.track.audioUrlExpiry, isNotNull);
       final expiryDelta =
-          selection.track.audioUrlExpiry!.difference(DateTime.now());
+          media.track.audioUrlExpiry!.difference(DateTime.now());
       expect(
         expiryDelta.inMinutes,
         inInclusiveRange(15, 16),
@@ -513,9 +578,9 @@ void main() {
         _track('stream-default-expiry', title: 'Stream Default Expiry'),
       );
 
-      expect(selection.track.audioUrlExpiry, isNotNull);
+      expect(selection.media.track.audioUrlExpiry, isNotNull);
       final expiryDelta =
-          selection.track.audioUrlExpiry!.difference(DateTime.now());
+          selection.media.track.audioUrlExpiry!.difference(DateTime.now());
       expect(
         expiryDelta.inMinutes,
         inInclusiveRange(59, 60),
@@ -537,7 +602,10 @@ void main() {
         _track('quality-fallback', title: 'Quality Fallback'),
       );
 
-      expect(selection.url, 'https://example.com/quality-fallback-medium.m4a');
+      expect(selection.media, isA<RemotePlaybackMedia>());
+      final media = selection.media as RemotePlaybackMedia;
+      expect(media.url.toString(),
+          'https://example.com/quality-fallback-medium.m4a');
       expect(selection.streamResult?.bitrate, 192000);
       expect(sourceManager.source.audioStreamQualityRequests, [
         AudioQualityLevel.high,
@@ -577,7 +645,9 @@ void main() {
 
       final selection = await manager.selectPlayback(track);
 
-      expect(selection.url, 'https://example.com/BVmultiPage-24680.m4a');
+      expect(selection.media, isA<RemotePlaybackMedia>());
+      expect((selection.media as RemotePlaybackMedia).url.toString(),
+          'https://example.com/BVmultiPage-24680.m4a');
       expect(
         bilibili.primaryRequests.map((r) => (sourceId: r.sourceId, cid: r.cid)),
         [
@@ -605,7 +675,8 @@ void main() {
       );
 
       expect(selection, isNotNull);
-      expect(selection!.url,
+      expect(selection!.media, isA<RemotePlaybackMedia>());
+      expect((selection.media as RemotePlaybackMedia).url.toString(),
           'https://example.com/BVmultiPage-13579-medium-alternative.m4a');
       expect(
         bilibili.alternativeRequests.map(
@@ -637,20 +708,21 @@ void main() {
       );
 
       expect(selection, isNotNull);
-      expect(selection!.localPath, isNull);
-      expect(
-          selection.url, 'https://example.com/stream-fallback-fallback.m3u8');
-      expect(selection.track, same(track));
-      expect(selection.track.audioUrl,
+      expect(selection!.media, isA<RemotePlaybackMedia>());
+      final media = selection.media as RemotePlaybackMedia;
+      expect(media.url.toString(),
           'https://example.com/stream-fallback-fallback.m3u8');
-      expect(selection.track.audioUrlExpiry, isNotNull);
+      expect(media.track, same(track));
+      expect(media.track.audioUrl,
+          'https://example.com/stream-fallback-fallback.m3u8');
+      expect(media.track.audioUrlExpiry, isNotNull);
       final fallbackExpiryDelta =
-          selection.track.audioUrlExpiry!.difference(DateTime.now());
+          media.track.audioUrlExpiry!.difference(DateTime.now());
       expect(
         fallbackExpiryDelta.inMinutes,
         inInclusiveRange(15, 16),
       );
-      expect(selection.headers, {
+      expect(media.headers, {
         'Origin': 'https://www.youtube.com',
         'Referer': 'https://www.youtube.com/',
         'User-Agent': AudioStreamManager.defaultPlaybackUserAgent,
@@ -728,7 +800,8 @@ void main() {
       );
 
       expect(selection, isNotNull);
-      expect(selection!.url,
+      expect(selection!.media, isA<RemotePlaybackMedia>());
+      expect((selection.media as RemotePlaybackMedia).url.toString(),
           'https://example.com/handoff-quality-fallback-medium.m4a');
       expect(selection.streamResult?.bitrate, 160000);
       expect(sourceManager.source.alternativeQualityRequests, [
@@ -782,15 +855,20 @@ void main() {
 
       neteaseContext.authHeaders =
           SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=music-u; __csrf=csrf');
-      final enabledHeaders = await managerWithNetease.getPlaybackHeaders(track);
-      expect(enabledHeaders?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
+      final enabledMedia = await managerWithNetease.prepareNetworkPlayback(
+        track,
+        track.audioUrl!,
+      );
+      expect(enabledMedia.headers?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
 
       neteaseContext.authHeaders = null;
-      final disabledHeaders =
-          await managerWithNetease.getPlaybackHeaders(track);
-      expect(
-          disabledHeaders, SourceHttpPolicy.mediaHeaders(SourceType.netease));
-      expect(disabledHeaders, isNot(contains('Cookie')));
+      final disabledMedia = await managerWithNetease.prepareNetworkPlayback(
+        track,
+        track.audioUrl!,
+      );
+      expect(disabledMedia.headers,
+          SourceHttpPolicy.mediaHeaders(SourceType.netease));
+      expect(disabledMedia.headers, isNot(contains('Cookie')));
     });
 
     test('prepareNetworkPlayback strips Netease auth after off-domain redirect',
@@ -821,7 +899,8 @@ void main() {
         'https://m701.music.126.net/netease-song.m4a',
       );
 
-      expect(prepared.url, 'https://attacker.example/netease-song.m4a');
+      expect(
+          prepared.url.toString(), 'https://attacker.example/netease-song.m4a');
       expect(prepared.headers, isNot(contains('Cookie')));
       expect(prepared.headers?['Origin'], SourceHttpPolicy.neteaseOrigin);
     });
@@ -842,31 +921,34 @@ void main() {
         sourceAuthContext: accountContext,
       );
 
-      final bilibiliHeaders = await managerWithAccounts.getPlaybackHeaders(
+      final bilibiliMedia = await managerWithAccounts.prepareNetworkPlayback(
         Track()
           ..sourceId = 'BVauth'
           ..sourceType = SourceType.bilibili
           ..title = 'Bilibili Auth'
           ..artist = 'Tester',
+        'https://example.com/BVauth.m4a',
       );
-      final youtubeHeaders = await managerWithAccounts.getPlaybackHeaders(
+      final youtubeMedia = await managerWithAccounts.prepareNetworkPlayback(
         Track()
           ..sourceId = 'yt-auth'
           ..sourceType = SourceType.youtube
           ..title = 'YouTube Auth'
           ..artist = 'Tester',
+        'https://example.com/yt-auth.m4a',
       );
 
       expect(accountContext.authForPlayRequests, [
         SourceType.bilibili,
         SourceType.youtube,
       ]);
-      expect(
-          bilibiliHeaders, SourceHttpPolicy.mediaHeaders(SourceType.bilibili));
-      expect(youtubeHeaders, SourceHttpPolicy.mediaHeaders(SourceType.youtube));
-      expect(bilibiliHeaders, isNot(contains('Cookie')));
-      expect(youtubeHeaders, isNot(contains('Cookie')));
-      expect(youtubeHeaders, isNot(contains('Authorization')));
+      expect(bilibiliMedia.headers,
+          SourceHttpPolicy.mediaHeaders(SourceType.bilibili));
+      expect(youtubeMedia.headers,
+          SourceHttpPolicy.mediaHeaders(SourceType.youtube));
+      expect(bilibiliMedia.headers, isNot(contains('Cookie')));
+      expect(youtubeMedia.headers, isNot(contains('Cookie')));
+      expect(youtubeMedia.headers, isNot(contains('Authorization')));
     });
   });
 }
