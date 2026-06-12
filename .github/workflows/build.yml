@@ -93,7 +93,7 @@ jobs:
 
   build-windows:
     name: Build Windows EXE
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout code
@@ -300,7 +300,7 @@ jobs:
           - os: ubuntu-latest
             platform: android
             output: apk
-          - os: windows-latest
+          - os: windows-2022
             platform: windows
             output: windows
 

@@ -242,6 +242,10 @@ The in-app updater accepts the multi-ABI Android naming format and falls back to
 
 当前 workflow 只监听 tag push 和手动 `workflow_dispatch`。手动在非 tag ref 上触发时会执行 `build-only` job，但不会创建 Release；如果以后重新加入普通 branch push 触发，非 tag push 也会走这条验证路径。
 
+### Windows runner 版本
+
+Windows CI 固定使用 `windows-2022`，避免 `windows-latest` 迁移到新版 Visual Studio/MSVC 后触发原生插件兼容问题。当前 `flutter_inappwebview_windows 0.6.0` 在 VS 2026 / MSVC 14.51 下会因 `<experimental/coroutine>` 弃用检查构建失败；等该插件升级或本项目完成 Windows 插件补丁并验证后，再评估恢复 `windows-latest`。
+
 ---
 
 ## 5. 应用内更新机制
