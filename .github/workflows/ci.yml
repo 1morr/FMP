@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.41.1'
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  validate:
+    name: Analyze and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+      - name: Generate code (Isar models)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Generate i18n (slang)
+        run: dart run slang
+
+      - name: Verify generated files are committed
+        run: git diff --exit-code
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit and widget tests
+        run: flutter test
+
+  build-android:
+    name: Android Build Smoke
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+      - name: Generate code (Isar models)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Generate i18n (slang)
+        run: dart run slang
+
+      - name: Build Android arm64 APK
+        run: flutter build apk --release --target-platform android-arm64
+
+  build-windows:
+    name: Windows Build Smoke
+    needs: validate
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+      - name: Generate code (Isar models)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Generate i18n (slang)
+        run: dart run slang
+
+      - name: Build Windows release
+        run: flutter build windows --release

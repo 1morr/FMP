@@ -19,11 +19,11 @@
 ## 下载安装
 
 <!-- DOWNLOAD_START -->
-| 平台 | 下载 | 说明 |
+| 平台 | 下載 | 說明 |
 |------|------|------|
-| **Android** | [APK 下载](https://github.com/1morr/FMP/releases/download/v1.8.7/fmp-v1.8.7-android-universal.apk) | 直接安装 |
-| **Windows** | [安装包下载（推荐）](https://github.com/1morr/FMP/releases/download/v1.8.7/fmp-v1.8.7-windows-installer.exe) | 完整支持SMTC 显示 |
-| Windows | [免安装版](https://github.com/1morr/FMP/releases/download/v1.8.7/fmp-v1.8.7-windows.zip) | 解压即用 |
+| **Android** | [APK 下載](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-universal.apk) | 直接安裝 |
+| **Windows** | [安裝包下載（推薦）](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows-installer.exe) | 完整支援 SMTC 顯示 |
+| Windows | [免安裝版](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows.zip) | 解壓即用 |
 <!-- DOWNLOAD_END -->
 
 > 💡 Windows 推荐使用安装包版本，以获得最佳的系统集成体验（SMTC、托盘图标等）。
