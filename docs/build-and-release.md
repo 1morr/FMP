@@ -200,7 +200,6 @@ CI
        │
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
-       │   ├─ dart run flutter_launcher_icons
        │   ├─ flutter pub run build_runner build --delete-conflicting-outputs
        │   ├─ dart run slang
        │   ├─ git diff --exit-code
@@ -214,7 +213,7 @@ CI
            └─ flutter build windows --release
 ```
 
-`validate` 會確認生成檔已提交，再執行 analyzer 與測試；兩個 build job 只作為跨平台 release build 煙霧測試，不建立 GitHub Release。
+`validate` 會確認 Isar/slang 生成檔已提交，再執行 analyzer 與測試；兩個 build job 只作為跨平台 release build 煙霧測試，不建立 GitHub Release。圖示資產由維護者在本地執行 `dart run flutter_launcher_icons` 後提交，CI 不在每次驗證時重產圖示。
 
 ### 發布自動化流程
 
