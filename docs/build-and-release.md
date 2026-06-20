@@ -2,7 +2,7 @@
 
 ## 概述
 
-FMP 使用 GitHub Actions 自动构建 Android APK 和 Windows EXE，通过 git tag 触发 Release 发布。也可以手动触发 workflow 做非 Release 构建验证。应用内置检查更新功能，用户可在设置页手动检查并下载新版本。
+FMP 使用 GitHub Actions 分離一般 CI 和正式 Release。`ci.yml` 會在 PR、`main` push 或手動觸發時執行分析、測試與構建煙霧測試；`release.yml` 只負責既有 `v*` tag 的 Android APK、Windows ZIP/Installer 打包與 GitHub Release 發布。應用內建檢查更新功能，使用者可在設定頁手動檢查並下載新版本。
 
 本文件描述 CI 和发布流程。本地构建步骤见 [构建指南](build-guide.md)。
 
@@ -60,7 +60,7 @@ keytool -list -keystore android/release.keystore
 
 ## 2. GitHub Secrets 设置
 
-CI 构建需要 4 个 Repository Secrets。**Secrets 只需设置一次**，设置后永久保存在 GitHub 仓库中。只有在重新生成 keystore 后才需要重新设置。
+Release Android 簽名構建需要 4 個 Repository Secrets。**Secrets 只需設定一次**，設定後永久保存在 GitHub 倉庫中。只有在重新生成 keystore 後才需要重新設定。
 
 ### 前置条件
 
@@ -173,74 +173,115 @@ dart run inno_bundle:build --release --no-app --no-installer
 
 ---
 
-## 4. 发布新版本
+## 4. 發布新版本
 
-### 发布流程
+### 發布流程
 
 ```bash
-# 1. 确保代码已 commit 并 push
+# 1. 確保程式碼已 commit 並 push
 git add .
 git commit -m "feat: ..."
 git push
 
-# 2. 打 tag 并 push（触发 CI 构建和 Release）
+# 2. 打 tag 並 push（觸發 CI 構建和 Release）
 git tag v1.2.0
 git push origin v1.2.0
 ```
 
-### 自动化流程
+### CI 流程
+
+一般驗證由 `.github/workflows/ci.yml` 負責：
+
+```text
+pull_request / main push / workflow_dispatch
+       │
+       ▼
+CI
+       │
+       ├─ validate (ubuntu)
+       │   ├─ flutter pub get
+       │   ├─ dart run flutter_launcher_icons
+       │   ├─ flutter pub run build_runner build --delete-conflicting-outputs
+       │   ├─ dart run slang
+       │   ├─ git diff --exit-code
+       │   ├─ flutter analyze
+       │   └─ flutter test
+       │
+       ├─ build-android (ubuntu)
+       │   └─ flutter build apk --release --target-platform android-arm64
+       │
+       └─ build-windows (windows-2022)
+           └─ flutter build windows --release
+```
+
+`validate` 會確認生成檔已提交，再執行 analyzer 與測試；兩個 build job 只作為跨平台 release build 煙霧測試，不建立 GitHub Release。
+
+### 發布自動化流程
 
 ```
 git push origin v1.2.0
        │
        ▼
-GitHub Actions (build.yml)
+GitHub Actions (release.yml)
+       │
+       ├─ prepare
+       │   ├─ 驗證 tag 格式為 v{major}.{minor}.{patch}
+       │   └─ 確認 tag 已存在
+       │
+       ├─ validate (ubuntu)
+       │   ├─ 確認生成檔已提交
+       │   ├─ flutter analyze
+       │   └─ flutter test
        │
        ├─ build-android (ubuntu)
-       │   ├─ 按 ABI matrix 构建 arm64-v8a / armeabi-v7a / x86_64 / universal
-       │   ├─ 从 tag 提取版本号写入 pubspec.yaml
-       │   ├─ 从 Secrets 解码 keystore
+       │   ├─ 按 ABI matrix 構建 arm64-v8a / armeabi-v7a / x86_64 / universal
+       │   ├─ 從 tag 提取版本號寫入 pubspec.yaml
+       │   ├─ 從 Secrets 解碼 keystore
        │   ├─ flutter build apk --release
-       │   └─ 产物: fmp-v1.2.0-android-{abi}.apk
+       │   └─ 產物: fmp-v1.2.0-android-{abi}.apk
        │
        ├─ build-windows (windows)
-       │   ├─ 从 tag 提取版本号写入 pubspec.yaml
+       │   ├─ 從 tag 提取版本號寫入 pubspec.yaml
        │   ├─ flutter build windows --release
-       │   ├─ 压缩为 ZIP
-       │   ├─ 安装 InnoSetup + 生成安装包
-       │   ├─ 补丁 ISS 脚本（AppUserModelID + 语言修复）
-       │   └─ 产物: fmp-v1.2.0-windows.zip
+       │   ├─ 壓縮為 ZIP
+       │   ├─ 安裝 InnoSetup + 生成安裝包
+       │   ├─ 補丁 ISS 腳本（AppUserModelID + 語言修復）
+       │   └─ 產物: fmp-v1.2.0-windows.zip
        │          fmp-v1.2.0-windows-installer.exe
        │
        └─ release
-           ├─ 下载所有平台的产物
-           ├─ 自动生成 Release Notes
-           └─ 创建 GitHub Release（multi-ABI APK + ZIP + Installer）
+           ├─ 下載所有平台的產物
+           ├─ 自動生成 Release Notes
+           └─ 建立 GitHub Release（multi-ABI APK + ZIP + Installer + latest 穩定下載別名）
 ```
 
-### 版本号规则
+### 版本號規則
 
 - Tag 格式：`v{major}.{minor}.{patch}`，如 `v1.2.0`
-- CI 自动将 tag 版本写入 `pubspec.yaml`：`version: 1.2.0+{run_number}`
-- `pubspec.yaml` 中的版本号无需手动修改，CI 会覆盖
-- `+{run_number}` 是 Android `versionCode`，自动递增
+- CI 自動將 tag 版本寫入 `pubspec.yaml`：`version: 1.2.0+{run_number}`
+- `pubspec.yaml` 中的版本號無需手動修改，CI 會覆蓋
+- `+{run_number}` 是 Android `versionCode`，自動遞增
 
-### Release 产物命名
+### Release 產物命名
 
-| Platform | Asset pattern | Notes |
+| 平台 | 產物命名 | 說明 |
 |----------|---------------|-------|
-| Android | `fmp-v1.2.0-android-arm64-v8a.apk` | ABI-specific APK |
-| Android | `fmp-v1.2.0-android-armeabi-v7a.apk` | ABI-specific APK |
-| Android | `fmp-v1.2.0-android-x86_64.apk` | Emulator/x86_64 APK |
-| Android | `fmp-v1.2.0-android-universal.apk` | Universal fallback and README download link |
-| Windows | `fmp-v1.2.0-windows.zip` | Portable build |
-| Windows | `fmp-v1.2.0-windows-installer.exe` | Installed build |
+| Android | `fmp-v1.2.0-android-arm64-v8a.apk` | ABI 專用 APK |
+| Android | `fmp-v1.2.0-android-armeabi-v7a.apk` | ABI 專用 APK |
+| Android | `fmp-v1.2.0-android-x86_64.apk` | 模擬器 / x86_64 APK |
+| Android | `fmp-v1.2.0-android-universal.apk` | 應用內更新的 universal fallback |
+| Android | `fmp-latest-android-universal.apk` | README 穩定下載連結 |
+| Windows | `fmp-v1.2.0-windows.zip` | 免安裝版 |
+| Windows | `fmp-v1.2.0-windows-installer.exe` | 安裝版 |
+| Windows | `fmp-latest-windows.zip` | README 穩定下載連結 |
+| Windows | `fmp-latest-windows-installer.exe` | README 穩定下載連結 |
 
-The in-app updater accepts the multi-ABI Android naming format and falls back to `universal` when no matching ABI asset is available.
+應用內更新支援 multi-ABI Android 命名格式，找不到符合裝置 ABI 的 asset 時會 fallback 到 `universal`。README 使用 `https://github.com/1morr/FMP/releases/latest/download/fmp-latest-*` 穩定下載連結，因此 Release workflow 不需要 commit 回 `main` 更新版本化下載 URL。
 
-### 非 Release 构建
+### 手動觸發
 
-当前 workflow 只监听 tag push 和手动 `workflow_dispatch`。手动在非 tag ref 上触发时会执行 `build-only` job，但不会创建 Release；如果以后重新加入普通 branch push 触发，非 tag push 也会走这条验证路径。
+- `CI` workflow 可在任意 branch 手動觸發，用於非 Release 驗證。
+- `Release` workflow 手動觸發時必須輸入已存在的 `vX.Y.Z` tag。它會 checkout 該 tag 並發布該 tag 對應的產物，不會從任意 branch 直接發版。
 
 ### Windows runner 版本
 

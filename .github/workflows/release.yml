@@ -1,0 +1,390 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing vX.Y.Z tag to release'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.41.1'
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must use vMAJOR.MINOR.PATCH, for example v1.2.0."
+            exit 1
+          fi
+
+          if ! git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG does not exist."
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  build-android:
+    name: Build Android APK (${{ matrix.abi }})
+    needs: [prepare, validate]
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - abi: arm64-v8a
+            flutter-target: android-arm64
+          - abi: armeabi-v7a
+            flutter-target: android-arm
+          - abi: x86_64
+            flutter-target: android-x64
+          - abi: universal
+            flutter-target: ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+
+      - name: Update version from tag
+        run: |
+          sed -i "s/^version: .*/version: ${{ needs.prepare.outputs.version }}+${{ github.run_number }}/" pubspec.yaml
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          missing=()
+          [ -n "$KEYSTORE_BASE64" ] || missing+=("KEYSTORE_BASE64")
+          [ -n "$KEYSTORE_PASSWORD" ] || missing+=("KEYSTORE_PASSWORD")
+          [ -n "$KEY_PASSWORD" ] || missing+=("KEY_PASSWORD")
+          [ -n "$KEY_ALIAS" ] || missing+=("KEY_ALIAS")
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '::error::Missing required release secrets: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
+          {
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEY_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "storeFile=../release.keystore"
+          } > android/key.properties
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+      - name: Generate code (Isar models)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Generate i18n (slang)
+        run: dart run slang
+
+      - name: Build APK (Release)
+        run: |
+          if [ -n "${{ matrix.flutter-target }}" ]; then
+            flutter build apk --release --target-platform ${{ matrix.flutter-target }}
+          else
+            flutter build apk --release
+          fi
+
+      - name: Rename APK
+        run: |
+          cd build/app/outputs/flutter-apk
+          asset="fmp-${{ needs.prepare.outputs.tag }}-android-${{ matrix.abi }}.apk"
+          mv app-release.apk "$asset"
+
+          if [ "${{ matrix.abi }}" = "universal" ]; then
+            cp "$asset" fmp-latest-android-universal.apk
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ matrix.abi }}
+          path: build/app/outputs/flutter-apk/fmp-*.apk
+          retention-days: 30
+
+  validate:
+    name: Analyze and Test
+    needs: prepare
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+      - name: Generate code (Isar models)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Generate i18n (slang)
+        run: dart run slang
+
+      - name: Verify generated files are committed
+        run: git diff --exit-code
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit and widget tests
+        run: flutter test
+
+  build-windows:
+    name: Build Windows EXE
+    needs: [prepare, validate]
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Update version from tag
+        shell: pwsh
+        run: |
+          $content = Get-Content pubspec.yaml -Raw
+          $content = $content -replace '(?m)^version: .*', "version: ${{ needs.prepare.outputs.version }}+${{ github.run_number }}"
+          Set-Content pubspec.yaml $content
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+      - name: Generate code (Isar models)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Generate i18n (slang)
+        run: dart run slang
+
+      - name: Build Windows (Release)
+        run: flutter build windows --release
+
+      - name: Create release directory
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release
+          Copy-Item -Recurse -Force build\windows\x64\runner\Release\* release\
+
+      - name: Compress to ZIP
+        shell: pwsh
+        run: |
+          $zipPath = "fmp-${{ needs.prepare.outputs.tag }}-windows.zip"
+          Compress-Archive -Path release\* -DestinationPath $zipPath
+          Copy-Item $zipPath "fmp-latest-windows.zip"
+
+      - name: Upload Windows ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: fmp-*.zip
+          retention-days: 30
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Generate InnoSetup script
+        shell: pwsh
+        run: dart run inno_bundle:build --release --no-app --no-installer
+
+      - name: Patch ISS script (AppUserModelID + language fix)
+        shell: pwsh
+        run: |
+          $issPath = "build\windows\x64\installer\Release\inno-script.iss"
+          $content = Get-Content $issPath -Raw
+
+          # Remove Icelandic language entry (missing in some InnoSetup versions).
+          $content = $content -replace '(?m)^Name: "icelandic".*\r?\n', ''
+
+          # Add DefaultGroupName because inno_bundle otherwise shows "(Default)".
+          $content = $content -replace '(?m)^(DefaultDirName=.*)$', "`$1`nDefaultGroupName=FMP"
+
+          # Add AppUserModelID and IconFilename so SMTC uses the installed app identity.
+          $content = $content -replace '(?m)^Name: "\{autoprograms\}\\FMP".*$', 'Name: "{autoprograms}\FMP"; Filename: "{app}\fmp.exe"; IconFilename: "{app}\app_icon.ico"; AppUserModelID: "com.personal.fmp"'
+          $content = $content -replace '(?m)^Name: "\{autodesktop\}\\FMP".*$', 'Name: "{autodesktop}\FMP"; Filename: "{app}\fmp.exe"; IconFilename: "{app}\app_icon.ico"; AppUserModelID: "com.personal.fmp"; Tasks: desktopicon'
+
+          # Let silent in-app updates relaunch the app after installation.
+          $content = $content -replace 'Flags: nowait postinstall skipifsilent', 'Flags: nowait postinstall'
+
+          Set-Content $issPath $content -NoNewline
+
+      - name: Compile installer with ISCC
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "build\windows\x64\installer\Release\inno-script.iss"
+
+      - name: Rename installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "build\windows\x64\installer\Release\FMP-*.exe" | Select-Object -First 1
+          $installerPath = "fmp-${{ needs.prepare.outputs.tag }}-windows-installer.exe"
+          Copy-Item $installer.FullName $installerPath
+          Copy-Item $installerPath "fmp-latest-windows-installer.exe"
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: fmp-*.exe
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: [prepare, build-android, build-windows]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Get previous tag
+        id: prev_tag
+        shell: bash
+        run: |
+          current_commit=$(git rev-list -n 1 "${{ needs.prepare.outputs.tag }}")
+          previous_tag=$(git describe --tags --abbrev=0 "${current_commit}^" 2>/dev/null || true)
+          echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
+          echo "Previous tag: $previous_tag"
+
+      - name: Generate commit changelog
+        id: changelog
+        shell: bash
+        run: |
+          current_tag="${{ needs.prepare.outputs.tag }}"
+          previous_tag="${{ steps.prev_tag.outputs.tag }}"
+
+          if [ -n "$previous_tag" ]; then
+            echo "Generating changelog from $previous_tag to $current_tag"
+            git log --pretty=format:"- %s (%h)" "$previous_tag..$current_tag" > changelog.txt
+            changelog_url="**Full Changelog**: https://github.com/1morr/FMP/compare/$previous_tag...$current_tag"
+          else
+            echo "No previous tag found, listing recent commits"
+            git log --pretty=format:"- %s (%h)" -20 > changelog.txt
+            changelog_url=""
+          fi
+
+          {
+            echo "commits<<EOF"
+            cat changelog.txt
+            echo "EOF"
+            echo "changelog_url=$changelog_url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          draft: false
+          prerelease: false
+          body: |
+            ## What's Changed
+
+            ${{ steps.changelog.outputs.commits }}
+
+            ${{ steps.changelog.outputs.changelog_url }}
+          files: |
+            artifacts/android-apk-*/*.apk
+            artifacts/windows-exe/*.zip
+            artifacts/windows-installer/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
