@@ -130,9 +130,6 @@ jobs:
       - name: Flutter dependencies
         run: flutter pub get
 
-      - name: Generate app icons
-        run: dart run flutter_launcher_icons
-
       - name: Generate code (Isar models)
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
@@ -185,9 +182,6 @@ jobs:
       - name: Flutter dependencies
         run: flutter pub get
 
-      - name: Generate app icons
-        run: dart run flutter_launcher_icons
-
       - name: Generate code (Isar models)
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
@@ -233,9 +227,6 @@ jobs:
 
       - name: Flutter dependencies
         run: flutter pub get
-
-      - name: Generate app icons
-        run: dart run flutter_launcher_icons
 
       - name: Generate code (Isar models)
         run: flutter pub run build_runner build --delete-conflicting-outputs
