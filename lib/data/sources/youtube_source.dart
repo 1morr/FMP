@@ -1658,19 +1658,47 @@ class YouTubeSource
 
       // 解析路徑:
       // contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content
-      //   .sectionListRenderer.contents[0].itemSectionRenderer.contents[0]
-      //   .playlistVideoListRenderer.contents
+      //   .sectionListRenderer.contents[0].itemSectionRenderer.contents
+      //
+      // YouTube 的 InnerTube 回應結構經過改版。新版的影片項目直接以
+      // `lockupViewModel` 形式出現在 itemSectionRenderer.contents 中（不再
+      // 包一層 playlistVideoListRenderer）；舊版則是 playlistVideoListRenderer
+      // .contents 裡的 playlistVideoRenderer。這裡同時支援兩種結構，避免 YouTube
+      // 切換或 A/B 測試時排行榜整個拿不到。
       final tabs =
           data['contents']?['twoColumnBrowseResultsRenderer']?['tabs'] as List?;
       final tabContent = tabs?.firstOrNull?['tabRenderer']?['content'];
       final sectionContents =
           tabContent?['sectionListRenderer']?['contents'] as List?;
-      final itemContents = sectionContents?.firstOrNull?['itemSectionRenderer']
-          ?['contents'] as List?;
-      final videoList = itemContents?.firstOrNull?['playlistVideoListRenderer']
-          ?['contents'] as List?;
+      final itemSectionContents =
+          sectionContents?.firstOrNull?['itemSectionRenderer']?['contents']
+              as List?;
 
-      if (videoList == null || videoList.isEmpty) {
+      // 新版：項目直接是 lockupViewModel；舊版：項目是包在
+      // playlistVideoListRenderer.contents 內的 playlistVideoRenderer。
+      final List<Map<String, dynamic>> rawItems;
+      if (itemSectionContents != null && itemSectionContents.isNotEmpty) {
+        // 若第一個項目是 playlistVideoListRenderer 包裝，則走舊版路徑。
+        final firstItem =
+            itemSectionContents.firstOrNull as Map<String, dynamic>?;
+        final videoList = firstItem?['playlistVideoListRenderer']?['contents']
+            as List?;
+        if (videoList != null) {
+          rawItems = videoList
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        } else {
+          rawItems = itemSectionContents
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      } else {
+        rawItems = const [];
+      }
+
+      if (rawItems.isEmpty) {
         throw const YouTubeApiException(
           code: 'parse_error',
           message: 'New This Week playlist data not found in API response',
@@ -1678,41 +1706,19 @@ class YouTubeSource
       }
 
       final tracks = <Track>[];
-      for (final item in videoList) {
-        final renderer = item['playlistVideoRenderer'] as Map<String, dynamic>?;
-        if (renderer == null) continue;
-
-        final videoId = renderer['videoId'] as String?;
-        if (videoId == null) continue;
-
-        // 標題
-        final titleRuns = renderer['title']?['runs'] as List?;
-        final title = titleRuns?.firstOrNull?['text'] as String? ?? 'Unknown';
-
-        // 藝人/頻道名
-        final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
-        final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
-
-        // 時長
-        final lengthText = renderer['lengthText']?['simpleText'] as String?;
-        final durationMs = _parseDurationText(lengthText);
-
-        // 觀看次數
-        final videoInfoRuns = renderer['videoInfo']?['runs'] as List?;
-        final viewCountText = videoInfoRuns?.firstOrNull?['text'] as String?;
-        final viewCount = _parseViewCountText(viewCountText);
-
-        // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
-        final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
-
-        tracks.add(Track()
-          ..sourceId = videoId
-          ..sourceType = SourceType.youtube
-          ..title = title
-          ..artist = artist
-          ..durationMs = durationMs
-          ..thumbnailUrl = thumbnailUrl
-          ..viewCount = viewCount);
+      for (final item in rawItems) {
+        final Track? track;
+        // 新版 InnerTube 結構
+        final lockup = item['lockupViewModel'] as Map<String, dynamic>?;
+        if (lockup != null) {
+          track = _trackFromLockupViewModel(lockup);
+        } else {
+          // 舊版 InnerTube 結構
+          final renderer =
+              item['playlistVideoRenderer'] as Map<String, dynamic>?;
+          track = renderer != null ? _trackFromPlaylistVideoRenderer(renderer) : null;
+        }
+        if (track != null) tracks.add(track);
       }
 
       logDebug('Parsed New This Week playlist: ${tracks.length} tracks');
@@ -1724,6 +1730,137 @@ class YouTubeSource
       logError('Unexpected error in _fetchNewThisWeekPlaylist: $e');
       throw YouTubeApiException(code: 'error', message: e.toString());
     }
+  }
+
+  /// 由新版 InnerTube `lockupViewModel` 結構解析出 [Track]。
+  ///
+  /// 欄位對應：
+  /// - videoId → `contentId`
+  /// - title → `metadata.lockupMetadataViewModel.title.content`
+  /// - artist → `metadataRows[0].metadataParts[0].text.content`
+  /// - duration → `contentImage.thumbnailViewModel.overlays` 中
+  ///   `thumbnailBottomOverlayViewModel.badges[].thumbnailBadgeViewModel.text`
+  /// - viewCount → `metadataRows` 中含「views」文字的 part
+  Track? _trackFromLockupViewModel(Map<String, dynamic> lockup) {
+    final videoId = lockup['contentId'] as String?;
+    if (videoId == null) return null;
+
+    final metadata =
+        lockup['metadata']?['lockupMetadataViewModel'] as Map<String, dynamic>?;
+
+    // 標題
+    final title = (metadata?['title']?['content'] as String?)?.trim() ??
+        'Unknown';
+
+    // metadataRows 內含藝人與觀看次數等資訊
+    final metadataRows =
+        (metadata?['metadata']?['contentMetadataViewModel']?['metadataRows']
+                as List?)
+            ?.whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+
+    String artist = '';
+    int viewCount = 0;
+    if (metadataRows != null) {
+      for (final row in metadataRows) {
+        final parts = (row['metadataParts'] as List?)
+            ?.whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        if (parts == null || parts.isEmpty) continue;
+        for (final part in parts) {
+          final text = (part['text']?['content'] as String?)?.trim();
+          if (text == null || text.isEmpty) continue;
+          // 藝人名稱通常在第一列、不含 views/time 文字的那個 part
+          if (artist.isEmpty &&
+              !text.toLowerCase().contains('views') &&
+              !text.toLowerCase().contains('ago')) {
+            artist = text;
+          }
+          if (text.toLowerCase().contains('views')) {
+            viewCount = _parseViewCountText(text);
+          }
+        }
+      }
+    }
+
+    // 時長位於縮圖覆蓋層的 badge
+    final overlays =
+        (lockup['contentImage']?['thumbnailViewModel']?['overlays'] as List?)
+            ?.whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e));
+    String? durationText;
+    for (final overlay in overlays ?? <Map<String, dynamic>>[]) {
+      final badges = (overlay['thumbnailBottomOverlayViewModel']?['badges']
+              as List?)
+          ?.whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e));
+      for (final badge in badges ?? <Map<String, dynamic>>[]) {
+        final badgeVm =
+            badge['thumbnailBadgeViewModel'] as Map<String, dynamic>?;
+        final text = badgeVm?['text'] as String?;
+        if (text != null && _looksLikeDuration(text)) {
+          durationText = text;
+          break;
+        }
+      }
+      if (durationText != null) break;
+    }
+    final durationMs = _parseDurationText(durationText);
+
+    // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
+    final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+
+    return Track()
+      ..sourceId = videoId
+      ..sourceType = SourceType.youtube
+      ..title = title
+      ..artist = artist
+      ..durationMs = durationMs
+      ..thumbnailUrl = thumbnailUrl
+      ..viewCount = viewCount;
+  }
+
+  /// 由舊版 InnerTube `playlistVideoRenderer` 結構解析出 [Track]。
+  Track? _trackFromPlaylistVideoRenderer(Map<String, dynamic> renderer) {
+    final videoId = renderer['videoId'] as String?;
+    if (videoId == null) return null;
+
+    // 標題
+    final titleRuns = renderer['title']?['runs'] as List?;
+    final title = titleRuns?.firstOrNull?['text'] as String? ?? 'Unknown';
+
+    // 藝人/頻道名
+    final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
+    final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
+
+    // 時長
+    final lengthText = renderer['lengthText']?['simpleText'] as String?;
+    final durationMs = _parseDurationText(lengthText);
+
+    // 觀看次數
+    final videoInfoRuns = renderer['videoInfo']?['runs'] as List?;
+    final viewCountText = videoInfoRuns?.firstOrNull?['text'] as String?;
+    final viewCount = _parseViewCountText(viewCountText);
+
+    // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
+    final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+
+    return Track()
+      ..sourceId = videoId
+      ..sourceType = SourceType.youtube
+      ..title = title
+      ..artist = artist
+      ..durationMs = durationMs
+      ..thumbnailUrl = thumbnailUrl
+      ..viewCount = viewCount;
+  }
+
+  /// 判斷某段文字是否像時長（例如 "4:13"、"1:02:30"），用於從 badge 中
+  /// 找出時長 badge。
+  bool _looksLikeDuration(String text) {
+    return RegExp(r'^\d{1,2}(:\d{2}){1,2}$').hasMatch(text.trim());
   }
 
   /// 通过 InnerTube /player API 获取音频流（认证路径，androidVr 客户端）
