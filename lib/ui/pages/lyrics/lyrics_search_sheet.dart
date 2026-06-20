@@ -297,25 +297,43 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                       ),
 
                       // 搜索框
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: t.lyrics.searchHint,
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.send),
-                              onPressed: _doSearch,
+                      //
+                      // 注意：外层 Sheet 为桌面端开启了鼠标/触控板拖动滚动
+                      // （见下方 CustomScrollView 的 dragDevices）。该设定会向下
+                      // 传递给 TextField 内部 EditableText 自带的水平 Scrollable，
+                      // 导致在输入框中按住鼠标左键拖动时被识别成“水平滚动查看文字”
+                      // 而无法选中文本。这里用一层 ScrollConfiguration 把 dragDevices
+                      // 还原为默认（不含 mouse/trackpad），恢复正常的鼠标选字手势，
+                      // 且不影响弹窗主体与筛选栏的拖动滚动。
+                      ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          dragDevices: const {
+                            PointerDeviceKind.touch,
+                            PointerDeviceKind.stylus,
+                            PointerDeviceKind.invertedStylus,
+                            PointerDeviceKind.unknown,
+                          },
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: t.lyrics.searchHint,
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.send),
+                                onPressed: _doSearch,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: AppRadius.borderRadiusXl,
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                             ),
-                            border: OutlineInputBorder(
-                              borderRadius: AppRadius.borderRadiusXl,
-                            ),
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 16),
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (_) => _doSearch(),
                           ),
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (_) => _doSearch(),
                         ),
                       ),
 
