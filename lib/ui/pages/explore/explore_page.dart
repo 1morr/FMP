@@ -207,7 +207,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       child: ListView.builder(
         itemCount: tracks.length,
         // 预加载视口外 500px 的项目，减少快速滚动时的空白
-        cacheExtent: 500,
+        scrollCacheExtent: const ScrollCacheExtent.pixels(500),
         itemBuilder: (context, index) {
           final track = tracks[index];
           return RepaintBoundary(

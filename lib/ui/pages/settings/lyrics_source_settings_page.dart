@@ -83,7 +83,6 @@ class _LyricsSourceSettingsPageState
 
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
-      if (newIndex > oldIndex) newIndex--;
       final item = _sourceOrder.removeAt(oldIndex);
       _sourceOrder.insert(newIndex, item);
     });
@@ -289,7 +288,7 @@ class _LyricsSourceSettingsPageState
               slivers: [
                 SliverReorderableList(
                   itemCount: _sourceOrder.length,
-                  onReorder: _onReorder,
+                  onReorderItem: _onReorder,
                   proxyDecorator: (child, index, animation) {
                     final elevation = Tween<double>(begin: 0, end: 4)
                         .animate(CurvedAnimation(

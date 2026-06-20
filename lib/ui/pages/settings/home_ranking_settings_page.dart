@@ -34,7 +34,6 @@ class HomeRankingSettingsPage extends ConsumerWidget {
     int oldIndex,
     int newIndex,
   ) {
-    if (newIndex > oldIndex) newIndex--;
     final order = List<String>.from(currentOrder);
     final item = order.removeAt(oldIndex);
     order.insert(newIndex, item);
@@ -66,7 +65,7 @@ class HomeRankingSettingsPage extends ConsumerWidget {
                 ),
                 SliverReorderableList(
                   itemCount: settings.sourceOrder.length,
-                  onReorder: (oldIndex, newIndex) => _onReorder(
+                  onReorderItem: (oldIndex, newIndex) => _onReorder(
                     ref,
                     settings.sourceOrder,
                     oldIndex,
