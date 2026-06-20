@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  FLUTTER_VERSION: '3.41.9'
+  FLUTTER_VERSION: '3.44.2'
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
 
