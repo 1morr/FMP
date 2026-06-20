@@ -217,7 +217,7 @@ void main() {
       expect(trackThumbnail, isNot(contains('TrackCoverQuality')));
       expect(trackThumbnail, contains('enum TrackCoverVariant'));
       expect(trackThumbnail, isNot(contains('TrackCoverVariant.compact')));
-      expect(trackThumbnail, contains('return ImageTargetSizes.medium;'));
+      expect(trackThumbnail, contains('return ImageTargetSizes.high;'));
       expect(trackThumbnail, contains('return ImageTargetSizes.highest;'));
       expect(
           trackThumbnail, isNot(contains('required this.targetDisplaySize')));

@@ -5,7 +5,6 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/providers/search/search_provider.dart';
-import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/search/search_service.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -446,7 +445,6 @@ class _CompletingSearchService extends SearchService {
           sourceManager: SourceManager(),
           trackRepository: TrackRepository(_FakeIsar()),
           isar: _FakeIsar(),
-          bilibiliAccountService: BilibiliAccountService(isar: _FakeIsar()),
         );
 
   final List<

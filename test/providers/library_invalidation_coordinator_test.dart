@@ -160,7 +160,7 @@ Map<String, String> _task5SourceFiles() {
     'lib/ui/pages/library/import_preview_page.dart',
     'lib/ui/pages/library/playlist_detail_page.dart',
     'lib/ui/pages/settings/widgets/account_playlists_sheet.dart',
-    'lib/ui/pages/settings/settings_page.dart',
+    'lib/ui/pages/settings/widgets/settings_backup.dart',
   ];
 
   return {
