@@ -1144,6 +1144,81 @@ void main() {
       );
       expect(browseCalls, 1);
     });
+
+    test('parses current lockupViewModel response shape', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        expect(options.path, contains('/browse'));
+        return ResponseBody.fromString(
+          jsonEncode(_lockupBrowseResponse(items: [
+            _lockupViewModel(
+              videoId: 'vid-1',
+              title: 'Some Track',
+              artist: 'Some Artist',
+              duration: '4:13',
+              viewCountText: '223K views',
+            ),
+            _lockupViewModel(
+              videoId: 'vid-2',
+              title: 'Other Track',
+              artist: 'Other Artist',
+              duration: '3:02',
+              viewCountText: '1.1M views',
+            ),
+          ])),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(dio: dio);
+      addTearDown(source.dispose);
+
+      final tracks = await source.getTrendingVideos();
+
+      expect(tracks, hasLength(2));
+      expect(tracks[0].sourceId, 'vid-1');
+      expect(tracks[0].title, 'Some Track');
+      expect(tracks[0].artist, 'Some Artist');
+      expect(tracks[0].durationMs, (4 * 60 + 13) * 1000);
+      expect(tracks[0].viewCount, 223000);
+      expect(tracks[1].sourceId, 'vid-2');
+      expect(tracks[1].viewCount, 1100000);
+    });
+
+    test('still parses legacy playlistVideoRenderer shape', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        expect(options.path, contains('/browse'));
+        return ResponseBody.fromString(
+          jsonEncode(_legacyPlaylistBrowseResponse(items: [
+            _legacyPlaylistVideo(
+              videoId: 'legacy-1',
+              title: 'Legacy Track',
+              artist: 'Legacy Artist',
+              duration: '5:30',
+              viewCountText: '500K views',
+            ),
+          ])),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(dio: dio);
+      addTearDown(source.dispose);
+
+      final tracks = await source.getTrendingVideos();
+
+      expect(tracks, hasLength(1));
+      expect(tracks.single.sourceId, 'legacy-1');
+      expect(tracks.single.title, 'Legacy Track');
+      expect(tracks.single.artist, 'Legacy Artist');
+      expect(tracks.single.durationMs, (5 * 60 + 30) * 1000);
+      expect(tracks.single.viewCount, 500000);
+    });
   });
 
   group('YouTubeSource static methods', () {
@@ -1264,6 +1339,53 @@ Map<String, dynamic> _innerTubeMuxedFormat({
 }
 
 Map<String, dynamic> _newThisWeekBrowseResponse() {
+  // YouTube's InnerTube /browse now returns items directly as
+  // lockupViewModel inside itemSectionRenderer.contents (no
+  // playlistVideoListRenderer wrapper). See _lockupBrowseResponse.
+  return _lockupBrowseResponse(items: [
+    _lockupViewModel(
+      videoId: 'retry-video',
+      title: 'Retry Track',
+      artist: 'Retry Artist',
+      duration: '3:21',
+      viewCountText: '1.2M views',
+    ),
+  ]);
+}
+
+/// Builds a browse response whose itemSection items are lockupViewModel
+/// renderers, matching the current YouTube InnerTube shape.
+Map<String, dynamic> _lockupBrowseResponse({
+  required List<Map<String, dynamic>> items,
+}) {
+  return {
+    'contents': {
+      'twoColumnBrowseResultsRenderer': {
+        'tabs': [
+          {
+            'tabRenderer': {
+              'content': {
+                'sectionListRenderer': {
+                  'contents': [
+                    {
+                      'itemSectionRenderer': {'contents': items},
+                    }
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  };
+}
+
+/// Builds a browse response whose items use the legacy
+/// playlistVideoRenderer shape (nested under playlistVideoListRenderer).
+Map<String, dynamic> _legacyPlaylistBrowseResponse({
+  required List<Map<String, dynamic>> items,
+}) {
   return {
     'contents': {
       'twoColumnBrowseResultsRenderer': {
@@ -1277,51 +1399,115 @@ Map<String, dynamic> _newThisWeekBrowseResponse() {
                       'itemSectionRenderer': {
                         'contents': [
                           {
-                            'playlistVideoListRenderer': {
-                              'contents': [
-                                {
-                                  'playlistVideoRenderer': {
-                                    'videoId': 'retry-video',
-                                    'title': {
-                                      'runs': [
-                                        {'text': 'Retry Track'}
-                                      ]
-                                    },
-                                    'shortBylineText': {
-                                      'runs': [
-                                        {'text': 'Retry Artist'}
-                                      ]
-                                    },
-                                    'lengthText': {'simpleText': '3:21'},
-                                    'videoInfo': {
-                                      'runs': [
-                                        {'text': '1.2M views'}
-                                      ]
-                                    },
-                                    'thumbnail': {
-                                      'thumbnails': [
-                                        {
-                                          'url':
-                                              'https://i.ytimg.com/vi/retry-video/hqdefault.jpg'
-                                        }
-                                      ]
-                                    },
-                                  }
-                                }
-                              ]
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
+                            'playlistVideoListRenderer': {'contents': items},
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  };
+}
+
+Map<String, dynamic> _lockupViewModel({
+  required String videoId,
+  required String title,
+  required String artist,
+  required String duration,
+  required String viewCountText,
+}) {
+  return {
+    'lockupViewModel': {
+      'contentId': videoId,
+      'contentType': 'LOCKUP_CONTENT_TYPE_VIDEO',
+      'contentImage': {
+        'thumbnailViewModel': {
+          'image': {
+            'sources': [
+              {
+                'url': 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg',
+                'width': 336,
+                'height': 188,
+              },
+            ],
+          },
+          'overlays': [
+            {
+              'thumbnailBottomOverlayViewModel': {
+                'badges': [
+                  {
+                    'thumbnailBadgeViewModel': {'text': duration},
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      'metadata': {
+        'lockupMetadataViewModel': {
+          'title': {'content': title},
+          'metadata': {
+            'contentMetadataViewModel': {
+              'metadataRows': [
+                {
+                  'metadataParts': [
+                    {'text': {'content': artist}},
+                  ],
+                },
+                {
+                  'metadataParts': [
+                    {'text': {'content': viewCountText}},
+                    {'text': {'content': '2 weeks ago'}},
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+Map<String, dynamic> _legacyPlaylistVideo({
+  required String videoId,
+  required String title,
+  required String artist,
+  required String duration,
+  required String viewCountText,
+}) {
+  return {
+    'playlistVideoRenderer': {
+      'videoId': videoId,
+      'title': {
+        'runs': [
+          {'text': title},
+        ],
+      },
+      'shortBylineText': {
+        'runs': [
+          {'text': artist},
+        ],
+      },
+      'lengthText': {'simpleText': duration},
+      'videoInfo': {
+        'runs': [
+          {'text': viewCountText},
+        ],
+      },
+      'thumbnail': {
+        'thumbnails': [
+          {'url': 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg'},
+        ],
+      },
+    },
   };
 }
 
