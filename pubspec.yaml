@@ -83,7 +83,7 @@ dependencies:
   slang_flutter: ^3.31.0
   flutter_localizations:
     sdk: flutter
-  simple_icons: ^14.6.1
+  simple_icons: ^16.23.0
   reorderable_grid_view: ^2.2.8
   launch_at_startup: ^0.5.1
   desktop_multi_window: ^0.3.0
