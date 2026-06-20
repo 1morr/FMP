@@ -412,7 +412,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           controller: _scrollController,
           itemCount: rows.length,
           // 预加载视口外 500px 的项目，减少快速滚动时的空白
-          cacheExtent: 500,
+          scrollCacheExtent: const ScrollCacheExtent.pixels(500),
           itemBuilder: (context, index) {
             final row = rows[index];
             final key = switch (row) {

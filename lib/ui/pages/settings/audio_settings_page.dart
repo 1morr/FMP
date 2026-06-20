@@ -271,9 +271,8 @@ class _FormatPrioritySection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           buildDefaultDragHandles: false,
           itemCount: formatPriority.length,
-          onReorder: (oldIndex, newIndex) {
+          onReorderItem: (oldIndex, newIndex) {
             final newList = List<AudioFormat>.from(formatPriority);
-            if (newIndex > oldIndex) newIndex--;
             final item = newList.removeAt(oldIndex);
             newList.insert(newIndex, item);
             onReorder(newList);
@@ -361,9 +360,8 @@ class _StreamPrioritySection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           buildDefaultDragHandles: false,
           itemCount: displayList.length,
-          onReorder: (oldIndex, newIndex) {
+          onReorderItem: (oldIndex, newIndex) {
             final newList = List<StreamType>.from(displayList);
-            if (newIndex > oldIndex) newIndex--;
             final item = newList.removeAt(oldIndex);
             newList.insert(newIndex, item);
             onReorder(newList);
