@@ -7,11 +7,53 @@ import '../../core/utils/thumbnail_url_utils.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
 
+class SmtcMetadataFingerprint {
+  const SmtcMetadataFingerprint({
+    required this.title,
+    required this.artist,
+    required this.thumbnail,
+  });
+
+  final String title;
+  final String artist;
+  final String? thumbnail;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is SmtcMetadataFingerprint &&
+            other.title == title &&
+            other.artist == artist &&
+            other.thumbnail == thumbnail;
+  }
+
+  @override
+  int get hashCode => Object.hash(title, artist, thumbnail);
+}
+
+class SmtcMetadataDeduplicator {
+  SmtcMetadataFingerprint? _lastPublished;
+
+  bool shouldPublish(SmtcMetadataFingerprint metadata) {
+    return _lastPublished != metadata;
+  }
+
+  void markPublished(SmtcMetadataFingerprint metadata) {
+    _lastPublished = metadata;
+  }
+
+  void clear() {
+    _lastPublished = null;
+  }
+}
+
 /// Windows SMTC (System Media Transport Controls) 处理器
 /// 提供 Windows 媒体键控制和系统媒体叠层显示
 class WindowsSmtcHandler with Logging {
   SMTCWindows? _smtc;
   StreamSubscription<PressedButton>? _buttonSubscription;
+  final SmtcMetadataDeduplicator _metadataDeduplicator =
+      SmtcMetadataDeduplicator();
 
   // 回调函数，由 AudioController 设置
   Future<void> Function()? onPlay;
@@ -62,6 +104,7 @@ class WindowsSmtcHandler with Logging {
         ),
       );
 
+      _metadataDeduplicator.clear();
       _setupButtonListener();
       logInfo('WindowsSmtcHandler initialized successfully');
     } catch (e, stack) {
@@ -106,14 +149,30 @@ class WindowsSmtcHandler with Logging {
       final smtcThumbnail = (thumbnail != null && thumbnail.isNotEmpty)
           ? ThumbnailUrlUtils.getLargeThumbnail(thumbnail)
           : null;
+      final normalizedThumbnail =
+          (smtcThumbnail != null && smtcThumbnail.isNotEmpty)
+              ? smtcThumbnail
+              : null;
+      final artist = track.artist ?? t.smtc.unknownArtist;
+      final metadataFingerprint = SmtcMetadataFingerprint(
+        title: track.title,
+        artist: artist,
+        thumbnail: normalizedThumbnail,
+      );
+      if (!_metadataDeduplicator.shouldPublish(metadataFingerprint)) {
+        logDebug('SMTC media metadata unchanged: ${track.title}');
+        return;
+      }
+
       logInfo('SMTC thumbnail URL: $smtcThumbnail (original: $thumbnail)');
       _smtc!.updateMetadata(MusicMetadata(
         title: track.title,
         album: '',
         albumArtist: '',
-        artist: track.artist ?? t.smtc.unknownArtist,
-        thumbnail: (smtcThumbnail != null && smtcThumbnail.isNotEmpty) ? smtcThumbnail : null,
+        artist: artist,
+        thumbnail: normalizedThumbnail,
       ));
+      _metadataDeduplicator.markPublished(metadataFingerprint);
       logDebug('SMTC updated media item: ${track.title}');
     } catch (e) {
       logError('Failed to update SMTC metadata: $e');
@@ -125,13 +184,25 @@ class WindowsSmtcHandler with Logging {
     if (_smtc == null) return;
 
     try {
+      final artist = station.hostName ?? t.smtc.unknownStreamer;
+      final metadataFingerprint = SmtcMetadataFingerprint(
+        title: station.title,
+        artist: artist,
+        thumbnail: station.thumbnailUrl,
+      );
+      if (!_metadataDeduplicator.shouldPublish(metadataFingerprint)) {
+        logDebug('SMTC radio metadata unchanged: ${station.title}');
+        return;
+      }
+
       _smtc!.updateMetadata(MusicMetadata(
         title: station.title,
         album: t.smtc.live,
         albumArtist: '',
-        artist: station.hostName ?? t.smtc.unknownStreamer,
+        artist: artist,
         thumbnail: station.thumbnailUrl,
       ));
+      _metadataDeduplicator.markPublished(metadataFingerprint);
       logDebug('SMTC updated radio station: ${station.title}');
     } catch (e) {
       logError('Failed to update SMTC radio metadata: $e');
@@ -198,7 +269,8 @@ class WindowsSmtcHandler with Logging {
 
     try {
       final durationMs = _duration.inMilliseconds;
-      final positionMs = _position.inMilliseconds.clamp(0, durationMs > 0 ? durationMs : 0);
+      final positionMs =
+          _position.inMilliseconds.clamp(0, durationMs > 0 ? durationMs : 0);
 
       _smtc!.updateTimeline(PlaybackTimeline(
         startTimeMs: 0,
@@ -252,6 +324,7 @@ class WindowsSmtcHandler with Logging {
     _buttonSubscription?.cancel();
     _smtc?.dispose();
     _smtc = null;
+    _metadataDeduplicator.clear();
     logInfo('WindowsSmtcHandler disposed');
   }
 }
