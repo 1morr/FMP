@@ -60,6 +60,59 @@ void main() {
   });
 
   group('UpdateService asset integrity', () {
+    test('uses universal checksum when ABI-specific APK falls back', () {
+      final selection = UpdateService.selectAndroidAssetForTest(
+        info: UpdateInfo(
+          version: 'v1.2.0',
+          releaseNotes: '',
+          apkDownloadUrls: const {
+            'universal': 'https://example.test/fmp-universal.apk',
+          },
+          apkSizes: const {
+            'universal': 123,
+          },
+          assetSha256s: const {
+            'fmp-v1.2.0-android-universal.apk':
+                'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          },
+          publishedAt: DateTime(2026),
+        ),
+        abi: 'arm64-v8a',
+      );
+
+      expect(selection.fileName, 'fmp-v1.2.0-android-universal.apk');
+      expect(selection.url, 'https://example.test/fmp-universal.apk');
+      expect(selection.size, 123);
+      expect(
+        selection.sha256,
+        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      );
+    });
+
+    test('requires checksum entries when a checksum manifest exists', () {
+      final info = UpdateInfo(
+        version: 'v1.2.0',
+        releaseNotes: '',
+        apkDownloadUrls: const {
+          'arm64-v8a': 'https://example.test/fmp-arm64.apk',
+        },
+        assetSha256s: const {
+          'fmp-v1.2.0-android-universal.apk':
+              'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        },
+        checksumManifestAvailable: true,
+        publishedAt: DateTime(2026),
+      );
+
+      expect(
+        () => UpdateService.selectAndroidAssetForTest(
+          info: info,
+          abi: 'arm64-v8a',
+        ),
+        throwsA(isA<UpdateIntegrityException>()),
+      );
+    });
+
     test('parses sha256 manifest by release asset filename', () {
       final checksums = UpdateService.parseSha256ManifestForTest('''
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  fmp-v1.2.0-android-arm64-v8a.apk
@@ -141,6 +194,19 @@ not-a-valid-line
       expect(script, contains('fmp_update_backup'));
       expect(script, contains('robocopy'));
       expect(script.toLowerCase(), isNot(contains('xcopy')));
+    });
+
+    test('does not mirror the release ZIP into the app directory', () {
+      final script = UpdateService.buildPortableUpdaterBatchForTest(
+        extractDir: r'C:\Temp\fmp_update',
+        appDir: r'C:\Apps\FMP',
+        exeName: 'fmp.exe',
+        vbsPath: r'C:\Temp\fmp_updater.vbs',
+        appPid: 1234,
+      );
+
+      expect(script, isNot(contains('robocopy "%SRC%" "%DST%" /MIR')));
+      expect(script, contains('robocopy "%SRC%" "%DST%" /E'));
     });
   });
 }

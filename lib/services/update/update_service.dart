@@ -33,6 +33,7 @@ class UpdateInfo {
   final DateTime publishedAt;
   final int? windowsAssetSize;
   final Map<String, String> assetSha256s;
+  final bool checksumManifestAvailable;
   final String? htmlUrl; // GitHub release page URL
 
   const UpdateInfo({
@@ -45,6 +46,7 @@ class UpdateInfo {
     required this.publishedAt,
     this.windowsAssetSize,
     this.assetSha256s = const {},
+    this.checksumManifestAvailable = false,
     this.htmlUrl,
   });
 
@@ -76,25 +78,12 @@ class UpdateInfo {
 
   /// 当前平台的下载 URL
   String? get downloadUrl {
-    if (Platform.isAndroid) {
-      final abi = _deviceAbi ?? 'universal';
-      return apkDownloadUrls[abi] ?? apkDownloadUrls['universal'];
-    }
-    if (Platform.isWindows) {
-      return isInstalledVersion
-          ? windowsInstallerDownloadUrl
-          : windowsZipDownloadUrl;
-    }
-    return null;
+    return selectedAsset?.url;
   }
 
   /// 当前平台的资源大小
   int? get assetSize {
-    if (Platform.isAndroid) {
-      final abi = _deviceAbi ?? 'universal';
-      return apkSizes[abi] ?? apkSizes['universal'];
-    }
-    return windowsAssetSize;
+    return selectedAsset?.size;
   }
 
   /// 当前设备的 ABI 标签（用于 UI 显示）
@@ -102,6 +91,10 @@ class UpdateInfo {
 
   /// 当前平台的资源文件名
   String get assetFileName {
+    return selectedAsset?.fileName ?? _defaultAssetFileName;
+  }
+
+  String get _defaultAssetFileName {
     if (Platform.isAndroid) {
       final abi = _deviceAbi ?? 'universal';
       return 'fmp-$version-android-$abi.apk';
@@ -110,7 +103,98 @@ class UpdateInfo {
     return 'fmp-$version-windows.zip';
   }
 
-  String? get assetSha256 => assetSha256s[assetFileName];
+  String? get assetSha256 => selectedAsset?.sha256;
+
+  UpdateAssetSelection? get selectedAsset {
+    try {
+      if (Platform.isAndroid) {
+        return UpdateAssetSelection.android(
+          info: this,
+          abi: _deviceAbi ?? 'universal',
+        );
+      }
+      if (Platform.isWindows) {
+        return UpdateAssetSelection.windows(
+          info: this,
+          installedVersion: isInstalledVersion,
+        );
+      }
+      return null;
+    } on UpdateAssetUnavailableException {
+      return null;
+    }
+  }
+}
+
+class UpdateAssetUnavailableException implements Exception {
+  final String message;
+
+  const UpdateAssetUnavailableException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+class UpdateAssetSelection {
+  const UpdateAssetSelection({
+    required this.url,
+    required this.fileName,
+    this.size,
+    this.sha256,
+  });
+
+  final String url;
+  final String fileName;
+  final int? size;
+  final String? sha256;
+
+  factory UpdateAssetSelection.android({
+    required UpdateInfo info,
+    required String abi,
+  }) {
+    final selectedAbi = info.apkDownloadUrls.containsKey(abi)
+        ? abi
+        : info.apkDownloadUrls.containsKey('universal')
+            ? 'universal'
+            : null;
+    if (selectedAbi == null) {
+      throw const UpdateAssetUnavailableException(
+        'No Android update asset for current ABI',
+      );
+    }
+    final fileName = 'fmp-${info.version}-android-$selectedAbi.apk';
+    final sha256 = _requiredOrAvailableChecksum(info, fileName);
+    return UpdateAssetSelection(
+      url: info.apkDownloadUrls[selectedAbi]!,
+      fileName: fileName,
+      size: info.apkSizes[selectedAbi],
+      sha256: sha256,
+    );
+  }
+
+  factory UpdateAssetSelection.windows({
+    required UpdateInfo info,
+    required bool installedVersion,
+  }) {
+    final url = installedVersion
+        ? info.windowsInstallerDownloadUrl
+        : info.windowsZipDownloadUrl;
+    if (url == null) {
+      throw const UpdateAssetUnavailableException(
+        'No Windows update asset for current installation type',
+      );
+    }
+    final fileName = installedVersion
+        ? 'fmp-${info.version}-windows-installer.exe'
+        : 'fmp-${info.version}-windows.zip';
+    final sha256 = _requiredOrAvailableChecksum(info, fileName);
+    return UpdateAssetSelection(
+      url: url,
+      fileName: fileName,
+      size: info.windowsAssetSize,
+      sha256: sha256,
+    );
+  }
 }
 
 class UpdateIntegrityException implements Exception {
@@ -220,6 +304,14 @@ class UpdateService {
   @visibleForTesting
   static Map<String, String> parseSha256ManifestForTest(String content) {
     return _parseSha256Manifest(content);
+  }
+
+  @visibleForTesting
+  static UpdateAssetSelection selectAndroidAssetForTest({
+    required UpdateInfo info,
+    required String abi,
+  }) {
+    return UpdateAssetSelection.android(info: info, abi: abi);
   }
 
   @visibleForTesting
@@ -368,6 +460,7 @@ class UpdateService {
         }
       }
 
+      final checksumManifestAvailable = checksumUrl != null;
       final assetSha256s = checksumUrl == null
           ? const <String, String>{}
           : await _fetchSha256Manifest(checksumUrl);
@@ -380,7 +473,7 @@ class UpdateService {
           'Update available: $latestVersion, APK ABIs: ${apkUrls.keys.toList()}',
           _tag);
 
-      return UpdateInfo(
+      final info = UpdateInfo(
         version: tagName,
         releaseNotes: releaseNotes,
         apkDownloadUrls: apkUrls,
@@ -390,8 +483,14 @@ class UpdateService {
         publishedAt: publishedAt,
         windowsAssetSize: windowsAssetSize,
         assetSha256s: assetSha256s,
+        checksumManifestAvailable: checksumManifestAvailable,
         htmlUrl: htmlUrl,
       );
+      // Validate the selected platform asset while still inside checkForUpdate()
+      // so checksum-manifest problems surface as update-check failures instead
+      // of later widget-build exceptions.
+      info.selectedAsset;
+      return info;
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
         AppLogger.warning('No releases found', _tag);
@@ -645,19 +744,35 @@ class UpdateService {
 }
 
 Future<Map<String, String>> _fetchSha256Manifest(String url) async {
-  try {
-    final dio = Dio(BaseOptions(
-      connectTimeout: AppConstants.updateConnectTimeout,
-      receiveTimeout: AppConstants.networkReceiveTimeout,
-    ));
-    final response = await dio.get<String>(url);
-    final body = response.data;
-    if (body == null) return const {};
-    return _parseSha256Manifest(body);
-  } catch (e) {
-    AppLogger.warning('Failed to fetch update checksum manifest: $e', _tag);
-    return const {};
+  final dio = Dio(BaseOptions(
+    connectTimeout: AppConstants.updateConnectTimeout,
+    receiveTimeout: AppConstants.networkReceiveTimeout,
+  ));
+  final response = await dio.get<String>(url);
+  final body = response.data;
+  if (body == null) {
+    throw const UpdateIntegrityException(
+      'Update checksum manifest is empty',
+    );
   }
+  final manifest = _parseSha256Manifest(body);
+  if (manifest.isEmpty) {
+    throw const UpdateIntegrityException(
+      'Update checksum manifest has no valid entries',
+    );
+  }
+  return manifest;
+}
+
+String? _requiredOrAvailableChecksum(UpdateInfo info, String fileName) {
+  final checksum = info.assetSha256s[fileName];
+  if (info.checksumManifestAvailable &&
+      (checksum == null || checksum.isEmpty)) {
+    throw UpdateIntegrityException(
+      'Update checksum missing for $fileName',
+    );
+  }
+  return checksum;
 }
 
 Map<String, String> _parseSha256Manifest(String content) {
@@ -734,7 +849,7 @@ mkdir "%BACKUP%"
 robocopy "%DST%" "%BACKUP%" /MIR /XD fmp_update_backup >nul
 if errorlevel 8 goto rollback
 
-robocopy "%SRC%" "%DST%" /MIR >nul
+robocopy "%SRC%" "%DST%" /E >nul
 if errorlevel 8 goto rollback
 
 start "" "%DST%\\%APP_EXE%"
