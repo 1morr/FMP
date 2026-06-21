@@ -367,10 +367,11 @@ jobs:
             changelog_url=""
           fi
 
+          output_delimiter="CHANGELOG_$(uuidgen)"
           {
-            echo "commits<<EOF"
+            echo "commits<<$output_delimiter"
             cat changelog.txt
-            echo "EOF"
+            printf '\n%s\n' "$output_delimiter"
             echo "changelog_url=$changelog_url"
           } >> "$GITHUB_OUTPUT"
 
