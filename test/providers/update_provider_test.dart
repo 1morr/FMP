@@ -55,6 +55,29 @@ void main() {
       expect(notifier.state.downloadProgress, 0);
       expect(notifier.state.downloadedFilePath, isNull);
     });
+
+    test('Android install waits for package install permission', () async {
+      final service = _FakeUpdateService();
+      service.canInstallPackages = false;
+      final notifier = UpdateNotifier(
+        service: service,
+        isAndroidOverride: true,
+      );
+
+      service.enqueueCheck(_info('v9.9.9')).complete();
+      await notifier.checkForUpdate();
+
+      final download = service.enqueueDownload('/tmp/fmp-update.apk');
+      final downloadFuture = notifier.downloadAndInstall();
+      await pumpEventQueue(times: 2);
+
+      download.complete();
+      await downloadFuture;
+
+      expect(notifier.state.status, UpdateStatus.installPermissionRequired);
+      expect(notifier.state.downloadedFilePath, '/tmp/fmp-update.apk');
+      expect(service.installCalls, 0);
+    });
   });
 }
 
@@ -71,6 +94,8 @@ class _FakeUpdateService extends UpdateService {
   final List<Completer<UpdateInfo?>> _checks = [];
   final List<Completer<String>> _downloads = [];
   final List<void Function(int received, int total)> progressCallbacks = [];
+  bool canInstallPackages = true;
+  int installCalls = 0;
 
   Completer<void> enqueueCheck(UpdateInfo? info) {
     final gate = Completer<void>();
@@ -116,5 +141,13 @@ class _FakeUpdateService extends UpdateService {
   }
 
   @override
-  Future<void> installApk(String filePath) async {}
+  Future<bool> canRequestPackageInstalls() async => canInstallPackages;
+
+  @override
+  Future<void> openInstallPermissionSettings() async {}
+
+  @override
+  Future<void> installApk(String filePath) async {
+    installCalls++;
+  }
 }

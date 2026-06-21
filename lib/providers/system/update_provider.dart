@@ -15,6 +15,7 @@ enum UpdateStatus {
   updateAvailable,
   downloading,
   readyToInstall, // 文件已下载，可以安装
+  installPermissionRequired, // Android 需要允许此来源安装应用
   installing,
   error,
   upToDate,
@@ -56,11 +57,17 @@ class UpdateState {
 /// 更新状态管理器
 class UpdateNotifier extends StateNotifier<UpdateState> {
   final UpdateService _service;
+  final bool? _isAndroidOverride;
   int _operationId = 0;
 
-  UpdateNotifier({UpdateService? service})
-      : _service = service ?? UpdateService(),
+  UpdateNotifier({
+    UpdateService? service,
+    bool? isAndroidOverride,
+  })  : _service = service ?? UpdateService(),
+        _isAndroidOverride = isAndroidOverride,
         super(const UpdateState());
+
+  bool get _isAndroid => _isAndroidOverride ?? Platform.isAndroid;
 
   int _startOperation() => ++_operationId;
 
@@ -134,7 +141,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
       );
 
       if (!_isCurrentOperation(operationId)) return;
-      if (Platform.isAndroid) {
+      if (_isAndroid) {
         state = state.copyWith(
           status: UpdateStatus.readyToInstall,
           downloadedFilePath: filePath,
@@ -159,8 +166,17 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     required int operationId,
   }) async {
     if (!_isCurrentOperation(operationId)) return;
-    state = state.copyWith(status: UpdateStatus.installing);
     try {
+      if (_isAndroid && !await _service.canRequestPackageInstalls()) {
+        if (_isCurrentOperation(operationId)) {
+          state = state.copyWith(
+            status: UpdateStatus.installPermissionRequired,
+            downloadedFilePath: filePath,
+          );
+        }
+        return;
+      }
+      state = state.copyWith(status: UpdateStatus.installing);
       await _service.installApk(filePath);
       // OpenFilex.open() 返回了 — 用户取消安装或安装完成后回到 App
       // 恢复为 readyToInstall，用户可以再次点击安装
@@ -184,6 +200,10 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     if (filePath == null) return;
     final operationId = _startOperation();
     await _triggerInstall(filePath, operationId: operationId);
+  }
+
+  Future<void> openInstallPermissionSettings() async {
+    await _service.openInstallPermissionSettings();
   }
 
   /// 重置状态

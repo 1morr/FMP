@@ -27,6 +27,8 @@ class MainActivity : AudioServiceActivity() {
                 "isStorageGranted" -> result.success(isLegacyStorageGranted())
                 "requestManageExternalStorage" -> requestManageExternalStorage(result)
                 "requestStorage" -> requestLegacyStorage(result)
+                "canRequestPackageInstalls" -> result.success(canRequestPackageInstalls())
+                "openInstallPermissionSettings" -> result.success(openInstallPermissionSettings())
                 "openAppSettings" -> result.success(openAppSettings())
                 else -> result.notImplemented()
             }
@@ -142,6 +144,27 @@ class MainActivity : AudioServiceActivity() {
             true
         } catch (_: Exception) {
             false
+        }
+    }
+
+    private fun canRequestPackageInstalls(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            packageManager.canRequestPackageInstalls()
+    }
+
+    private fun openInstallPermissionSettings(): Boolean {
+        return try {
+            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            } else {
+                Intent(Settings.ACTION_SECURITY_SETTINGS)
+            }
+            startActivity(intent)
+            true
+        } catch (_: Exception) {
+            openAppSettings()
         }
     }
 

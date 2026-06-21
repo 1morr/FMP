@@ -328,6 +328,19 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
+      - name: Generate update checksum manifest
+        shell: bash
+        run: |
+          manifest="fmp-${{ needs.prepare.outputs.tag }}-checksums.sha256"
+          find artifacts -type f \( -name 'fmp-*.apk' -o -name 'fmp-*.zip' -o -name 'fmp-*.exe' \) \
+            ! -name 'fmp-latest-*' -print0 |
+            sort -z |
+            while IFS= read -r -d '' file; do
+              hash=$(sha256sum "$file" | awk '{print $1}')
+              printf '%s  %s\n' "$hash" "$(basename "$file")"
+            done > "$manifest"
+          cat "$manifest"
+
       - name: Get previous tag
         id: prev_tag
         shell: bash
@@ -377,5 +390,6 @@ jobs:
             artifacts/android-apk-*/*.apk
             artifacts/windows-exe/*.zip
             artifacts/windows-installer/*.exe
+            fmp-${{ needs.prepare.outputs.tag }}-checksums.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
