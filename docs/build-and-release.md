@@ -274,8 +274,9 @@ GitHub Actions (release.yml)
 | Windows | `fmp-v1.2.0-windows-installer.exe` | 安裝版 |
 | Windows | `fmp-latest-windows.zip` | README 穩定下載連結 |
 | Windows | `fmp-latest-windows-installer.exe` | README 穩定下載連結 |
+| All | `fmp-v1.2.0-checksums.sha256` | 應用內更新校驗 manifest |
 
-應用內更新支援 multi-ABI Android 命名格式，找不到符合裝置 ABI 的 asset 時會 fallback 到 `universal`。README 使用 `https://github.com/1morr/FMP/releases/latest/download/fmp-latest-*` 穩定下載連結，因此 Release workflow 不需要 commit 回 `main` 更新版本化下載 URL。
+應用內更新支援 multi-ABI Android 命名格式，找不到符合裝置 ABI 的 asset 時會 fallback 到 `universal`。Release workflow 會為版本化 APK、ZIP、installer 產生 `sha256` manifest；App 下載時先寫入 `.part`，完成後驗證 GitHub asset size 和 manifest checksum，通過後才改名成正式檔。README 使用 `https://github.com/1morr/FMP/releases/latest/download/fmp-latest-*` 穩定下載連結，因此 Release workflow 不需要 commit 回 `main` 更新版本化下載 URL。
 
 ### 手動觸發
 
@@ -316,8 +317,14 @@ GET https://api.github.com/repos/1morr/FMP/releases/latest
             │
             └─ Windows:
                  ├─ 安装版: 下载 installer → 静默安装到当前目录 → 重启
-                 └─ 便携版: 下载 ZIP → 解压 → VBS 脚本静默替换文件 → 重启
+                 └─ 便携版: 下载 ZIP → 解压 → VBS/BAT updater 等待旧进程退出 → 备份 → 替换 → 失败回滚 → 重启
 ```
+
+下载与安装安全边界：
+- 所有平台下载都先落到 `.part`，验证完成后才替换成正式文件。
+- 新 Release 附带 `fmp-vX.Y.Z-checksums.sha256`；App 会优先使用 SHA-256 验证，并保留 asset size 检查作为兼容旧版本的最低保护。
+- Android 安装前会检查“允许此来源安装应用”。未授权时，对话框会引导用户打开系统设置，回到 App 后可重新触发安装。
+- Windows 便携版 updater 会等待原 FMP 进程结束，先备份当前目录，再用 `robocopy` 替换；替换失败会尝试从备份回滚。
 
 ### 相关文件
 
@@ -325,7 +332,8 @@ GET https://api.github.com/repos/1morr/FMP/releases/latest
 |------|------|
 | `lib/services/update/update_service.dart` | GitHub API 调用、下载、平台安装逻辑 |
 | `lib/providers/system/update_provider.dart` | Riverpod 状态管理 |
-| `lib/ui/widgets/update_dialog.dart` | 更新对话框 UI |
+| `lib/ui/widgets/dialogs/update_dialog.dart` | 更新对话框 UI |
+| `android/app/src/main/kotlin/com/personal/fmp/MainActivity.kt` | Android 安装来源权限 MethodChannel |
 
 ---
 

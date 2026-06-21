@@ -52,6 +52,21 @@ Service-layer guidance. For audio-specific rules, also read
   register `permission_handler_windows` and trigger the system location
   indicator.
 
+## Update System
+
+- In-app update downloads must write to a `.part` file first, validate the
+  GitHub asset size and available `fmp-vX.Y.Z-checksums.sha256` SHA-256 entry,
+  then rename to the final file path.
+- Android APK installation must check `canRequestPackageInstalls` through the
+  app-owned `com.personal.fmp/platform` MethodChannel before opening the APK.
+  Do not add `permission_handler` for this path.
+- Windows installed builds update through the Inno installer. Windows portable
+  builds update through the generated VBS/BAT helper, which must wait for the
+  old app process, back up the app directory, use `robocopy`, and attempt
+  rollback on replacement failure.
+- Startup cleanup may delete only FMP update artifacts in the temp directory:
+  versioned `fmp-*.exe`/`fmp-*.zip`, updater scripts, and update staging dirs.
+
 ## Lyrics System
 
 Auto-match priority in `LyricsAutoMatchService.tryAutoMatch()`:

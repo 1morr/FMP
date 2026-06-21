@@ -31,6 +31,8 @@ class UpdateDialog extends ConsumerWidget {
     final isDownloading = updateState.status == UpdateStatus.downloading;
     final isInstalling = updateState.status == UpdateStatus.installing;
     final isReadyToInstall = updateState.status == UpdateStatus.readyToInstall;
+    final needsInstallPermission =
+        updateState.status == UpdateStatus.installPermissionRequired;
     final hasError = updateState.status == UpdateStatus.error;
     final isBusy = isDownloading || isInstalling;
 
@@ -74,7 +76,8 @@ class UpdateDialog extends ConsumerWidget {
                 if (Platform.isAndroid) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.secondaryContainer,
                       borderRadius: BorderRadius.circular(4),
@@ -157,7 +160,9 @@ class UpdateDialog extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                t.updateDialog.downloading(percent: (updateState.downloadProgress * 100).toStringAsFixed(0)),
+                t.updateDialog.downloading(
+                    percent: (updateState.downloadProgress * 100)
+                        .toStringAsFixed(0)),
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -167,7 +172,9 @@ class UpdateDialog extends ConsumerWidget {
               const LinearProgressIndicator(),
               const SizedBox(height: 4),
               Text(
-                Platform.isWindows ? t.updateDialog.installingRestart : t.updateDialog.installingOpening,
+                Platform.isWindows
+                    ? t.updateDialog.installingRestart
+                    : t.updateDialog.installingOpening,
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -176,12 +183,34 @@ class UpdateDialog extends ConsumerWidget {
             if (isReadyToInstall) ...[
               Row(
                 children: [
-                  Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
+                  Icon(Icons.check_circle,
+                      size: 16, color: theme.colorScheme.primary),
                   const SizedBox(width: 4),
                   Text(
                     t.updateDialog.readyToInstall,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            if (needsInstallPermission) ...[
+              Row(
+                children: [
+                  Icon(
+                    Icons.settings_applications_outlined,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      t.updateDialog.installPermissionRequired,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
                   ),
                 ],
@@ -219,7 +248,16 @@ class UpdateDialog extends ConsumerWidget {
           ),
 
         // 安装包已就绪 → 直接安装
-        if (isReadyToInstall)
+        if (needsInstallPermission)
+          FilledButton.icon(
+            onPressed: () => ref
+                .read(updateProvider.notifier)
+                .openInstallPermissionSettings(),
+            icon: const Icon(Icons.settings_outlined),
+            label: Text(t.updateDialog.openInstallSettings),
+          ),
+
+        if (isReadyToInstall || needsInstallPermission)
           FilledButton.icon(
             onPressed: () => ref.read(updateProvider.notifier).retryInstall(),
             icon: const Icon(Icons.install_mobile),
@@ -227,13 +265,14 @@ class UpdateDialog extends ConsumerWidget {
           ),
 
         // 下载/重试按钮（非 readyToInstall 时显示）
-        if (!isBusy && !isReadyToInstall)
+        if (!isBusy && !isReadyToInstall && !needsInstallPermission)
           FilledButton.icon(
             onPressed: updateInfo.downloadUrl == null
                 ? null
                 : () => ref.read(updateProvider.notifier).downloadAndInstall(),
             icon: Icon(hasError ? Icons.refresh : Icons.download),
-            label: Text(hasError ? t.updateDialog.retry : t.updateDialog.updateNow),
+            label: Text(
+                hasError ? t.updateDialog.retry : t.updateDialog.updateNow),
           ),
       ],
     );

@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -30,6 +32,7 @@ class UpdateInfo {
   final String? windowsInstallerDownloadUrl;
   final DateTime publishedAt;
   final int? windowsAssetSize;
+  final Map<String, String> assetSha256s;
   final String? htmlUrl; // GitHub release page URL
 
   const UpdateInfo({
@@ -41,6 +44,7 @@ class UpdateInfo {
     this.windowsInstallerDownloadUrl,
     required this.publishedAt,
     this.windowsAssetSize,
+    this.assetSha256s = const {},
     this.htmlUrl,
   });
 
@@ -105,10 +109,24 @@ class UpdateInfo {
     if (isInstalledVersion) return 'fmp-$version-windows-installer.exe';
     return 'fmp-$version-windows.zip';
   }
+
+  String? get assetSha256 => assetSha256s[assetFileName];
+}
+
+class UpdateIntegrityException implements Exception {
+  final String message;
+
+  const UpdateIntegrityException(this.message);
+
+  @override
+  String toString() => message;
 }
 
 /// 应用更新服务
 class UpdateService {
+  static const MethodChannel _platformChannel =
+      MethodChannel('com.personal.fmp/platform');
+
   final Dio _dio;
 
   UpdateService()
@@ -124,10 +142,15 @@ class UpdateService {
     final filePath = '${cacheDir.path}/${info.assetFileName}';
     final file = File(filePath);
     if (!file.existsSync()) return null;
-    final expectedSize = info.assetSize;
-    if (expectedSize != null && file.lengthSync() != expectedSize) {
-      AppLogger.info('Existing APK size mismatch, deleting', _tag);
-      file.deleteSync();
+    try {
+      await _validateDownloadedAsset(
+        filePath,
+        expectedSize: info.assetSize,
+        expectedSha256: info.assetSha256,
+      );
+    } on UpdateIntegrityException catch (e) {
+      AppLogger.info('Existing APK failed integrity check, deleting: $e', _tag);
+      await file.delete();
       return null;
     }
     AppLogger.info('Found existing APK: $filePath', _tag);
@@ -180,6 +203,53 @@ class UpdateService {
       return true;
     }
     return false;
+  }
+
+  Future<bool> canRequestPackageInstalls() async {
+    if (!Platform.isAndroid) return true;
+    final result =
+        await _platformChannel.invokeMethod<bool>('canRequestPackageInstalls');
+    return result ?? false;
+  }
+
+  Future<void> openInstallPermissionSettings() async {
+    if (!Platform.isAndroid) return;
+    await _platformChannel.invokeMethod<bool>('openInstallPermissionSettings');
+  }
+
+  @visibleForTesting
+  static Map<String, String> parseSha256ManifestForTest(String content) {
+    return _parseSha256Manifest(content);
+  }
+
+  @visibleForTesting
+  static Future<void> validateDownloadedAssetForTest(
+    String filePath, {
+    int? expectedSize,
+    String? expectedSha256,
+  }) {
+    return _validateDownloadedAsset(
+      filePath,
+      expectedSize: expectedSize,
+      expectedSha256: expectedSha256,
+    );
+  }
+
+  @visibleForTesting
+  static String buildPortableUpdaterBatchForTest({
+    required String extractDir,
+    required String appDir,
+    required String exeName,
+    required String vbsPath,
+    required int appPid,
+  }) {
+    return _buildPortableUpdaterBatch(
+      extractDir: extractDir,
+      appDir: appDir,
+      exeName: exeName,
+      vbsPath: vbsPath,
+      appPid: appPid,
+    );
   }
 
   @visibleForTesting
@@ -261,6 +331,7 @@ class UpdateService {
       String? windowsZipUrl;
       String? windowsInstallerUrl;
       int? windowsAssetSize;
+      String? checksumUrl;
 
       // ABI pattern: fmp-v1.2.0-android-arm64-v8a.apk (greedy .+ backtracks to last -android-)
       final abiPattern = RegExp(r'fmp-.+-android-(.+)\.apk$');
@@ -292,8 +363,14 @@ class UpdateService {
           if (Platform.isWindows && !UpdateInfo.isInstalledVersion) {
             windowsAssetSize = size;
           }
+        } else if (name.endsWith('-checksums.sha256')) {
+          checksumUrl = url;
         }
       }
+
+      final assetSha256s = checksumUrl == null
+          ? const <String, String>{}
+          : await _fetchSha256Manifest(checksumUrl);
 
       final releaseNotes = data['body'] as String? ?? '';
       final publishedAt = DateTime.parse(data['published_at'] as String);
@@ -312,6 +389,7 @@ class UpdateService {
         windowsInstallerDownloadUrl: windowsInstallerUrl,
         publishedAt: publishedAt,
         windowsAssetSize: windowsAssetSize,
+        assetSha256s: assetSha256s,
         htmlUrl: htmlUrl,
       );
     } on DioException catch (e) {
@@ -340,12 +418,12 @@ class UpdateService {
     }
 
     if (Platform.isAndroid) {
-      return _downloadAndroid(url, info.assetFileName, onProgress);
+      return _downloadAndroid(url, info, onProgress);
     } else if (Platform.isWindows) {
       if (UpdateInfo.isInstalledVersion) {
-        await _downloadAndRunInstaller(url, info.assetFileName, onProgress);
+        await _downloadAndRunInstaller(url, info, onProgress);
       } else {
-        await _downloadAndExtractZip(url, info.assetFileName, onProgress);
+        await _downloadAndExtractZip(url, info, onProgress);
       }
       // Windows paths exit the app, this won't be reached
       return '';
@@ -357,10 +435,11 @@ class UpdateService {
   /// Android: 下载 APK，清理旧文件，返回文件路径
   Future<String> _downloadAndroid(
     String url,
-    String fileName,
+    UpdateInfo info,
     void Function(int, int)? onProgress,
   ) async {
     final cacheDir = await getTemporaryDirectory();
+    final fileName = info.assetFileName;
     final filePath = '${cacheDir.path}/$fileName';
 
     // 清理同目录下的旧 APK（保留当前目标文件名）
@@ -368,9 +447,11 @@ class UpdateService {
 
     AppLogger.info('Downloading APK to $filePath', _tag);
 
-    await _dio.download(
+    await _downloadVerifiedAsset(
       url,
       filePath,
+      expectedSize: info.assetSize,
+      expectedSha256: info.assetSha256,
       onReceiveProgress: onProgress,
     );
 
@@ -401,10 +482,11 @@ class UpdateService {
   /// Windows 安装版: 下载 Installer 并运行（安装到当前目录）
   Future<void> _downloadAndRunInstaller(
     String url,
-    String fileName,
+    UpdateInfo info,
     void Function(int, int)? onProgress,
   ) async {
     final tempDir = await getTemporaryDirectory();
+    final fileName = info.assetFileName;
     final installerPath = '${tempDir.path}/$fileName';
     final appDir = File(Platform.resolvedExecutable).parent.path;
 
@@ -412,9 +494,11 @@ class UpdateService {
         'Installed version detected, downloading installer to $installerPath',
         _tag);
 
-    await _dio.download(
+    await _downloadVerifiedAsset(
       url,
       installerPath,
+      expectedSize: info.assetSize,
+      expectedSha256: info.assetSha256,
       onReceiveProgress: onProgress,
     );
 
@@ -433,19 +517,22 @@ class UpdateService {
   /// Windows 解压版: 下载 ZIP、解压覆盖到当前目录
   Future<void> _downloadAndExtractZip(
     String url,
-    String fileName,
+    UpdateInfo info,
     void Function(int, int)? onProgress,
   ) async {
     final tempDir = await getTemporaryDirectory();
+    final fileName = info.assetFileName;
     final zipPath = '${tempDir.path}/$fileName';
     final extractDir = '${tempDir.path}/fmp_update';
 
     AppLogger.info(
         'Portable version detected, downloading ZIP to $zipPath', _tag);
 
-    await _dio.download(
+    await _downloadVerifiedAsset(
       url,
       zipPath,
+      expectedSize: info.assetSize,
+      expectedSha256: info.assetSha256,
       onReceiveProgress: onProgress,
     );
 
@@ -463,18 +550,18 @@ class UpdateService {
     // 获取当前应用目录
     final appDir = File(Platform.resolvedExecutable).parent.path;
     final exeName = File(Platform.resolvedExecutable).uri.pathSegments.last;
+    final appPid = pid;
 
     // 创建更新批处理脚本
     final batPath = '${tempDir.path}/fmp_updater.bat';
     final vbsPath = '${tempDir.path}/fmp_updater.vbs';
-    final batScript = '''@echo off
-chcp 65001 >nul
-timeout /t 2 /nobreak > nul
-xcopy /s /y /q "$extractDir\\*" "$appDir\\"
-start "" "$appDir\\$exeName"
-del "$vbsPath"
-del "%~f0"
-''';
+    final batScript = _buildPortableUpdaterBatch(
+      extractDir: extractDir,
+      appDir: appDir,
+      exeName: exeName,
+      vbsPath: vbsPath,
+      appPid: appPid,
+    );
 
     // 用 VBScript 隐藏 CMD 窗口启动 bat
     final vbsScript =
@@ -515,6 +602,155 @@ del "%~f0"
     }
     return false;
   }
+
+  Future<void> _downloadVerifiedAsset(
+    String url,
+    String destinationPath, {
+    int? expectedSize,
+    String? expectedSha256,
+    void Function(int, int)? onReceiveProgress,
+  }) async {
+    final partialPath = '$destinationPath.part';
+    final destination = File(destinationPath);
+    final partial = File(partialPath);
+
+    if (await partial.exists()) {
+      await partial.delete();
+    }
+
+    try {
+      await _dio.download(
+        url,
+        partialPath,
+        onReceiveProgress: onReceiveProgress,
+      );
+      await _validateDownloadedAsset(
+        partialPath,
+        expectedSize: expectedSize,
+        expectedSha256: expectedSha256,
+      );
+      if (await destination.exists()) {
+        await destination.delete();
+      }
+      await partial.rename(destinationPath);
+    } catch (_) {
+      if (await partial.exists()) {
+        try {
+          await partial.delete();
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+}
+
+Future<Map<String, String>> _fetchSha256Manifest(String url) async {
+  try {
+    final dio = Dio(BaseOptions(
+      connectTimeout: AppConstants.updateConnectTimeout,
+      receiveTimeout: AppConstants.networkReceiveTimeout,
+    ));
+    final response = await dio.get<String>(url);
+    final body = response.data;
+    if (body == null) return const {};
+    return _parseSha256Manifest(body);
+  } catch (e) {
+    AppLogger.warning('Failed to fetch update checksum manifest: $e', _tag);
+    return const {};
+  }
+}
+
+Map<String, String> _parseSha256Manifest(String content) {
+  final checksums = <String, String>{};
+  final linePattern = RegExp(
+    r'^([a-fA-F0-9]{64})\s+\*?(.+)$',
+  );
+  for (final rawLine in content.split(RegExp(r'\r?\n'))) {
+    final line = rawLine.trim();
+    if (line.isEmpty || line.startsWith('#')) continue;
+    final match = linePattern.firstMatch(line);
+    if (match == null) continue;
+    checksums[p.basename(match.group(2)!.trim())] =
+        match.group(1)!.toLowerCase();
+  }
+  return checksums;
+}
+
+Future<void> _validateDownloadedAsset(
+  String filePath, {
+  int? expectedSize,
+  String? expectedSha256,
+}) async {
+  final file = File(filePath);
+  if (!await file.exists()) {
+    throw const UpdateIntegrityException('Downloaded update file is missing');
+  }
+
+  if (expectedSize != null) {
+    final actualSize = await file.length();
+    if (actualSize != expectedSize) {
+      throw UpdateIntegrityException(
+        'Downloaded update size mismatch: expected $expectedSize, got $actualSize',
+      );
+    }
+  }
+
+  if (expectedSha256 != null && expectedSha256.isNotEmpty) {
+    final digest = await sha256.bind(file.openRead()).first;
+    final actualSha256 = digest.toString().toLowerCase();
+    if (actualSha256 != expectedSha256.toLowerCase()) {
+      throw UpdateIntegrityException(
+        'Downloaded update checksum mismatch: expected $expectedSha256, got $actualSha256',
+      );
+    }
+  }
+}
+
+String _buildPortableUpdaterBatch({
+  required String extractDir,
+  required String appDir,
+  required String exeName,
+  required String vbsPath,
+  required int appPid,
+}) {
+  final backupDir = p.join(p.dirname(extractDir), 'fmp_update_backup');
+  return '''@echo off
+setlocal
+chcp 65001 >nul
+set "SRC=$extractDir"
+set "DST=$appDir"
+set "BACKUP=$backupDir"
+set "APP_EXE=$exeName"
+
+:wait_app
+tasklist /FI "PID eq $appPid" 2>nul | find "$appPid" >nul
+if not errorlevel 1 (
+  timeout /t 1 /nobreak >nul
+  goto wait_app
+)
+
+if exist "%BACKUP%" rmdir /s /q "%BACKUP%"
+mkdir "%BACKUP%"
+robocopy "%DST%" "%BACKUP%" /MIR /XD fmp_update_backup >nul
+if errorlevel 8 goto rollback
+
+robocopy "%SRC%" "%DST%" /MIR >nul
+if errorlevel 8 goto rollback
+
+start "" "%DST%\\%APP_EXE%"
+goto cleanup
+
+:rollback
+if exist "%BACKUP%" robocopy "%BACKUP%" "%DST%" /MIR >nul
+start "" "%DST%\\%APP_EXE%"
+
+:cleanup
+if exist "%SRC%" rmdir /s /q "%SRC%"
+if exist "%BACKUP%" rmdir /s /q "%BACKUP%"
+del "$vbsPath"
+del "%~f0"
+endlocal
+''';
 }
 
 void _extractZipToDirectorySync(String zipPath, String extractDir) {

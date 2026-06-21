@@ -6,6 +6,8 @@
   "installingRestart": "Installing update, app will restart...",
   "installingOpening": "Opening installer...",
   "readyToInstall": "Ready to install",
+  "installPermissionRequired": "Allow FMP to install unknown apps before continuing",
+  "openInstallSettings": "Open install settings",
   "later": "Later",
   "retry": "Retry",
   "updateNow": "Update Now",
