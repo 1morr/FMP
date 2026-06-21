@@ -295,13 +295,13 @@
     "title": "Data Backup",
     "export": {
       "title": "Export Data",
-      "subtitle": "Export all data to a JSON file",
+      "subtitle": "Export playlists, history, radio stations, lyrics matches, and settings to JSON",
       "success": "Data exported to: $path",
       "failed": "Export failed: $error"
     },
     "import": {
       "title": "Import Data",
-      "subtitle": "Import data from a JSON file",
+      "subtitle": "Import backup data from JSON; downloads and login credentials are not included",
       "preview": "Import Preview",
       "previewSubtitle": "The following data will be imported (existing data will be skipped)",
       "playlists": "Playlists",
@@ -313,6 +313,8 @@
       "confirm": "Confirm Import",
       "success": "Import completed",
       "failed": "Import failed: $error",
+      "unsupportedVersion": "Backup format version $backupVersion from app version $appVersion is newer than this app supports. Supported version: $supportedVersion. Update the app first.",
+      "emptyBackup": "The backup file does not contain importable data",
       "result": {
         "playlistsImported": "Playlists: imported $imported, skipped $skipped",
         "tracksImported": "Tracks: imported $imported, skipped $skipped",

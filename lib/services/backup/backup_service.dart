@@ -20,7 +20,7 @@ import '../library/playlist_mutation_service.dart';
 import 'backup_data.dart';
 
 /// 当前备份数据格式版本
-const int kBackupVersion = 1;
+const int kBackupVersion = 2;
 
 /// 备份服务
 ///
@@ -115,12 +115,17 @@ class BackupService {
         sourceUrl: playlist.sourceUrl,
         importSourceType: playlist.importSourceType?.name,
         refreshIntervalHours: playlist.refreshIntervalHours,
+        lastRefreshed: playlist.lastRefreshed,
         notifyOnUpdate: playlist.notifyOnUpdate,
+        ownerName: playlist.ownerName,
+        ownerUserId: playlist.ownerUserId,
+        useAuthForRefresh: playlist.useAuthForRefresh,
         isMix: playlist.isMix,
         mixPlaylistId: playlist.mixPlaylistId,
         mixSeedVideoId: playlist.mixSeedVideoId,
         trackKeys: trackKeys,
         createdAt: playlist.createdAt,
+        updatedAt: playlist.updatedAt,
         sortOrder: playlist.sortOrder,
       ));
     }
@@ -141,9 +146,14 @@ class BackupService {
               cid: t.cid,
               pageNum: t.pageNum,
               parentTitle: t.parentTitle,
+              isAvailable: t.isAvailable,
+              isVip: t.isVip,
+              unavailableReason: t.unavailableReason,
+              bilibiliAid: t.bilibiliAid,
               originalSongId: t.originalSongId,
               originalSource: t.originalSource,
               createdAt: t.createdAt,
+              updatedAt: t.updatedAt,
             ))
         .toList();
 
@@ -185,6 +195,7 @@ class BackupService {
               sourceId: r.sourceId,
               sortOrder: r.sortOrder,
               createdAt: r.createdAt,
+              lastPlayedAt: r.lastPlayedAt,
               isFavorite: r.isFavorite,
               note: r.note,
             ))
@@ -283,6 +294,27 @@ class BackupService {
 
   // ==================== 导入功能 ====================
 
+  BackupValidationResult validateBackupData(BackupData backupData) {
+    if (backupData.version > kBackupVersion) {
+      return BackupValidationResult.unsupportedVersion(
+        backupVersion: backupData.version,
+        supportedVersion: kBackupVersion,
+        appVersion: backupData.appVersion,
+      );
+    }
+    final hasImportableData = backupData.playlists.isNotEmpty ||
+        backupData.tracks.isNotEmpty ||
+        backupData.playHistory.isNotEmpty ||
+        backupData.searchHistory.isNotEmpty ||
+        backupData.radioStations.isNotEmpty ||
+        backupData.lyricsMatches.isNotEmpty ||
+        backupData.settings != null;
+    if (!hasImportableData) {
+      return const BackupValidationResult.emptyBackup();
+    }
+    return const BackupValidationResult.valid();
+  }
+
   /// 选择并解析备份文件
   ///
   /// 返回解析后的备份数据，如果用户取消或文件无效则返回 null
@@ -344,6 +376,11 @@ class BackupService {
 
     // 1. 导入歌曲（歌单依赖歌曲，仅在导入歌单时才导入）
     final trackKeyToId = <String, int>{};
+    final importedTrackKeys = <String>{};
+    final trackBackupByKey = <String, TrackBackup>{
+      for (final trackBackup in backupData.tracks)
+        trackBackup.uniqueKey: trackBackup,
+    };
 
     if (importPlaylists) {
       // 先获取现有歌曲的映射
@@ -374,14 +411,20 @@ class BackupService {
             ..cid = trackBackup.cid
             ..pageNum = trackBackup.pageNum
             ..parentTitle = trackBackup.parentTitle
+            ..isAvailable = trackBackup.isAvailable
+            ..isVip = trackBackup.isVip
+            ..unavailableReason = trackBackup.unavailableReason
+            ..bilibiliAid = trackBackup.bilibiliAid
             ..originalSongId = trackBackup.originalSongId
             ..originalSource = trackBackup.originalSource
-            ..createdAt = trackBackup.createdAt;
+            ..createdAt = trackBackup.createdAt
+            ..updatedAt = trackBackup.updatedAt;
 
           await _isar.writeTxn(() async {
             final id = await _isar.tracks.put(track);
             trackKeyToId[trackBackup.uniqueKey] = id;
           });
+          importedTrackKeys.add(trackBackup.uniqueKey);
           tracksImported++;
         } catch (e) {
           errors.add('导入歌曲失败: ${trackBackup.title} - $e');
@@ -423,11 +466,16 @@ class BackupService {
                 ? _parseSourceType(playlistBackup.importSourceType!)
                 : null
             ..refreshIntervalHours = playlistBackup.refreshIntervalHours
+            ..lastRefreshed = playlistBackup.lastRefreshed
             ..notifyOnUpdate = playlistBackup.notifyOnUpdate
+            ..ownerName = playlistBackup.ownerName
+            ..ownerUserId = playlistBackup.ownerUserId
+            ..useAuthForRefresh = playlistBackup.useAuthForRefresh
             ..isMix = playlistBackup.isMix
             ..mixPlaylistId = playlistBackup.mixPlaylistId
             ..mixSeedVideoId = playlistBackup.mixSeedVideoId
             ..createdAt = playlistBackup.createdAt
+            ..updatedAt = playlistBackup.updatedAt
             ..sortOrder = playlistBackup.sortOrder;
 
           await _isar.writeTxn(() async {
@@ -436,15 +484,40 @@ class BackupService {
           final playlistTracks =
               (await _isar.tracks.getAll(trackIds)).whereType<Track>().toList();
           await _mutationService.addTracks(playlist.id, playlistTracks);
+          final restoredTrackUpdates = <Track>[];
+          for (final trackKey in playlistBackup.trackKeys) {
+            if (!importedTrackKeys.contains(trackKey)) continue;
+            final backupUpdatedAt = trackBackupByKey[trackKey]?.updatedAt;
+            if (backupUpdatedAt == null) continue;
+            final trackId = trackKeyToId[trackKey];
+            if (trackId == null) continue;
+            final restoredTrack = await _isar.tracks.get(trackId);
+            if (restoredTrack == null ||
+                restoredTrack.updatedAt == backupUpdatedAt) {
+              continue;
+            }
+            restoredTrack.updatedAt = backupUpdatedAt;
+            restoredTrackUpdates.add(restoredTrack);
+          }
+          if (restoredTrackUpdates.isNotEmpty) {
+            await _isar.writeTxn(() async {
+              await _isar.tracks.putAll(restoredTrackUpdates);
+            });
+          }
 
           final savedPlaylist = await _isar.playlists.get(playlist.id);
           if (savedPlaylist != null &&
               (savedPlaylist.coverUrl != playlistBackup.coverUrl ||
                   savedPlaylist.hasCustomCover !=
-                      playlistBackup.hasCustomCover)) {
+                      playlistBackup.hasCustomCover ||
+                  (playlistBackup.updatedAt != null &&
+                      savedPlaylist.updatedAt != playlistBackup.updatedAt))) {
             savedPlaylist
               ..coverUrl = playlistBackup.coverUrl
               ..hasCustomCover = playlistBackup.hasCustomCover;
+            if (playlistBackup.updatedAt != null) {
+              savedPlaylist.updatedAt = playlistBackup.updatedAt;
+            }
             await _isar.writeTxn(() async {
               await _isar.playlists.put(savedPlaylist);
             });
@@ -552,6 +625,7 @@ class BackupService {
             ..sourceId = radioBackup.sourceId
             ..sortOrder = radioBackup.sortOrder
             ..createdAt = radioBackup.createdAt
+            ..lastPlayedAt = radioBackup.lastPlayedAt
             ..isFavorite = radioBackup.isFavorite
             ..note = radioBackup.note;
 

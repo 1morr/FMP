@@ -295,13 +295,13 @@
     "title": "資料備份",
     "export": {
       "title": "匯出資料",
-      "subtitle": "將所有資料匯出為 JSON 檔案",
+      "subtitle": "匯出歌單、歷史、電台、歌詞匹配和設定為 JSON 檔案",
       "success": "資料已匯出到: $path",
       "failed": "匯出失敗: $error"
     },
     "import": {
       "title": "匯入資料",
-      "subtitle": "從 JSON 檔案匯入資料",
+      "subtitle": "從 JSON 檔案匯入備份資料（不包含下載檔案和登入憑證）",
       "preview": "匯入預覽",
       "previewSubtitle": "以下資料將被匯入（已存在的資料將被跳過）",
       "playlists": "歌單",
@@ -313,6 +313,8 @@
       "confirm": "確認匯入",
       "success": "匯入完成",
       "failed": "匯入失敗: $error",
+      "unsupportedVersion": "備份格式版本 $backupVersion（來自應用程式 $appVersion）過新；目前支援到版本 $supportedVersion。請先更新應用程式。",
+      "emptyBackup": "備份檔案沒有可匯入的資料",
       "result": {
         "playlistsImported": "歌單: 匯入 $imported 個，跳過 $skipped 個",
         "tracksImported": "歌曲: 匯入 $imported 個，跳過 $skipped 個",

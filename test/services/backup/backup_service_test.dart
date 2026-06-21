@@ -513,6 +513,249 @@ void main() {
       expect(settingsJson.containsKey('lyricsAiApiKey'), isFalse);
       expect(jsonEncode(json).contains('secret'), isFalse);
     });
+
+    test('exportData includes v2 playlist track and radio metadata', () async {
+      final outputPath = '${tempDir.path}/export_v2.json';
+      FilePicker.platform = _FakeFilePicker(saveFilePath: outputPath);
+      final createdAt = DateTime(2026, 6, 1, 12);
+      final updatedAt = DateTime(2026, 6, 2, 13);
+      final refreshedAt = DateTime(2026, 6, 3, 14);
+      final lastPlayedAt = DateTime(2026, 6, 4, 15);
+
+      final track = Track()
+        ..sourceId = 'track-v2'
+        ..sourceType = SourceType.bilibili
+        ..title = 'Track V2'
+        ..isAvailable = false
+        ..isVip = true
+        ..unavailableReason = 'region locked'
+        ..bilibiliAid = 987654321
+        ..createdAt = createdAt
+        ..updatedAt = updatedAt;
+      final playlist = Playlist()
+        ..name = 'Playlist V2'
+        ..sourceUrl = 'https://example.test/playlist'
+        ..importSourceType = SourceType.bilibili
+        ..lastRefreshed = refreshedAt
+        ..ownerName = 'Owner Name'
+        ..ownerUserId = 'owner-1'
+        ..useAuthForRefresh = true
+        ..createdAt = createdAt
+        ..updatedAt = updatedAt;
+      final radio = RadioStation()
+        ..url = 'https://example.test/live'
+        ..title = 'Radio V2'
+        ..sourceType = SourceType.bilibili
+        ..sourceId = 'room-v2'
+        ..createdAt = createdAt
+        ..lastPlayedAt = lastPlayedAt;
+
+      await isar.writeTxn(() async {
+        final trackId = await isar.tracks.put(track);
+        playlist.trackIds = [trackId];
+        await isar.playlists.put(playlist);
+        await isar.radioStations.put(radio);
+      });
+
+      final exportedPath = await backupService.exportData();
+
+      expect(exportedPath, outputPath);
+      final json = jsonDecode(await File(outputPath).readAsString())
+          as Map<String, dynamic>;
+      expect(json['version'], 2);
+      final playlistJson =
+          (json['playlists'] as List<dynamic>).single as Map<String, dynamic>;
+      final trackJson =
+          (json['tracks'] as List<dynamic>).single as Map<String, dynamic>;
+      final radioJson = (json['radioStations'] as List<dynamic>).single
+          as Map<String, dynamic>;
+
+      expect(playlistJson['lastRefreshed'], refreshedAt.toIso8601String());
+      expect(playlistJson['ownerName'], 'Owner Name');
+      expect(playlistJson['ownerUserId'], 'owner-1');
+      expect(playlistJson['useAuthForRefresh'], isTrue);
+      expect(playlistJson['updatedAt'], updatedAt.toIso8601String());
+      expect(trackJson['isAvailable'], isFalse);
+      expect(trackJson['isVip'], isTrue);
+      expect(trackJson['unavailableReason'], 'region locked');
+      expect(trackJson['bilibiliAid'], 987654321);
+      expect(trackJson['updatedAt'], updatedAt.toIso8601String());
+      expect(radioJson['lastPlayedAt'], lastPlayedAt.toIso8601String());
+    });
+
+    test('importData restores v2 playlist track and radio metadata', () async {
+      final createdAt = DateTime(2026, 6, 1, 12);
+      final updatedAt = DateTime(2026, 6, 2, 13);
+      final refreshedAt = DateTime(2026, 6, 3, 14);
+      final lastPlayedAt = DateTime(2026, 6, 4, 15);
+
+      final backupData = BackupData(
+        version: 2,
+        exportedAt: DateTime(2026, 6, 5, 16),
+        appVersion: 'test',
+        playlists: [
+          PlaylistBackup(
+            name: 'Restored Playlist V2',
+            sourceUrl: 'https://example.test/playlist',
+            importSourceType: SourceType.bilibili.name,
+            lastRefreshed: refreshedAt,
+            ownerName: 'Owner Name',
+            ownerUserId: 'owner-1',
+            useAuthForRefresh: true,
+            trackKeys: const ['bilibili:track-v2'],
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+        ],
+        tracks: [
+          TrackBackup(
+            sourceId: 'track-v2',
+            sourceType: SourceType.bilibili.name,
+            title: 'Track V2',
+            isAvailable: false,
+            isVip: true,
+            unavailableReason: 'region locked',
+            bilibiliAid: 987654321,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+        ],
+        playHistory: const [],
+        searchHistory: const [],
+        radioStations: [
+          RadioStationBackup(
+            url: 'https://example.test/live',
+            title: 'Radio V2',
+            sourceType: SourceType.bilibili.name,
+            sourceId: 'room-v2',
+            createdAt: createdAt,
+            lastPlayedAt: lastPlayedAt,
+          ),
+        ],
+      );
+
+      final result = await backupService.importData(
+        backupData,
+        importPlaylists: true,
+        importPlayHistory: false,
+        importSearchHistory: false,
+        importRadioStations: true,
+        importLyricsMatches: false,
+        importSettings: false,
+      );
+
+      final playlist = (await isar.playlists.where().findAll()).single;
+      final track = (await isar.tracks.where().findAll()).single;
+      final radio = (await isar.radioStations.where().findAll()).single;
+
+      expect(result.errors, isEmpty);
+      expect(playlist.lastRefreshed, refreshedAt);
+      expect(playlist.ownerName, 'Owner Name');
+      expect(playlist.ownerUserId, 'owner-1');
+      expect(playlist.useAuthForRefresh, isTrue);
+      expect(playlist.updatedAt, updatedAt);
+      expect(track.isAvailable, isFalse);
+      expect(track.isVip, isTrue);
+      expect(track.unavailableReason, 'region locked');
+      expect(track.bilibiliAid, 987654321);
+      expect(track.updatedAt, updatedAt);
+      expect(radio.lastPlayedAt, lastPlayedAt);
+    });
+
+    test('validateBackupData rejects backups from newer format versions',
+        () async {
+      final backupData = BackupData(
+        version: kBackupVersion + 1,
+        exportedAt: DateTime(2026, 6, 10),
+        appVersion: 'future',
+        playlists: const [],
+        tracks: const [],
+        playHistory: const [],
+        searchHistory: const [],
+        radioStations: const [],
+        settings: SettingsBackup(),
+      );
+
+      final validation = backupService.validateBackupData(backupData);
+
+      expect(validation.isValid, isFalse);
+      expect(validation.code, BackupValidationCode.unsupportedVersion);
+      expect(validation.backupVersion, kBackupVersion + 1);
+      expect(validation.supportedVersion, kBackupVersion);
+      expect(validation.appVersion, 'future');
+      expect(validation.message, isEmpty);
+    });
+
+    test('validateBackupData rejects backups with no importable sections',
+        () async {
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: DateTime(2026, 6, 10),
+        appVersion: 'test',
+        playlists: const [],
+        tracks: const [],
+        playHistory: const [],
+        searchHistory: const [],
+        radioStations: const [],
+      );
+
+      final validation = backupService.validateBackupData(backupData);
+
+      expect(validation.isValid, isFalse);
+      expect(validation.code, BackupValidationCode.emptyBackup);
+    });
+
+    test(
+        'validateBackupData accepts current backup format with importable data',
+        () async {
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: DateTime(2026, 6, 10),
+        appVersion: 'test',
+        playlists: const [],
+        tracks: const [],
+        playHistory: [
+          PlayHistoryBackup(
+            sourceId: 'history',
+            sourceType: SourceType.youtube.name,
+            title: 'History',
+            playedAt: DateTime(2026, 6, 10),
+          ),
+        ],
+        searchHistory: const [],
+        radioStations: const [],
+      );
+
+      final validation = backupService.validateBackupData(backupData);
+
+      expect(validation.isValid, isTrue);
+      expect(validation.code, BackupValidationCode.valid);
+    });
+
+    test('validateBackupData accepts backups containing only tracks', () async {
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: DateTime(2026, 6, 10),
+        appVersion: 'test',
+        playlists: const [],
+        tracks: [
+          TrackBackup(
+            sourceId: 'standalone',
+            sourceType: SourceType.youtube.name,
+            title: 'Standalone Track',
+            createdAt: DateTime(2026, 6, 10),
+          ),
+        ],
+        playHistory: const [],
+        searchHistory: const [],
+        radioStations: const [],
+      );
+
+      final validation = backupService.validateBackupData(backupData);
+
+      expect(validation.isValid, isTrue);
+      expect(validation.code, BackupValidationCode.valid);
+    });
   });
 }
 

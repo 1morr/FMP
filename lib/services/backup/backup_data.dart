@@ -107,6 +107,50 @@ class BackupData {
   }
 }
 
+enum BackupValidationCode {
+  valid,
+  unsupportedVersion,
+  emptyBackup,
+}
+
+class BackupValidationResult {
+  final BackupValidationCode code;
+  final String message;
+  final int? backupVersion;
+  final int? supportedVersion;
+  final String? appVersion;
+
+  const BackupValidationResult._(
+    this.code,
+    this.message, {
+    this.backupVersion,
+    this.supportedVersion,
+    this.appVersion,
+  });
+
+  const BackupValidationResult.valid() : this._(BackupValidationCode.valid, '');
+
+  const BackupValidationResult.unsupportedVersion({
+    required int backupVersion,
+    required int supportedVersion,
+    required String appVersion,
+  }) : this._(
+          BackupValidationCode.unsupportedVersion,
+          '',
+          backupVersion: backupVersion,
+          supportedVersion: supportedVersion,
+          appVersion: appVersion,
+        );
+
+  const BackupValidationResult.emptyBackup()
+      : this._(
+          BackupValidationCode.emptyBackup,
+          'The backup file does not contain importable data.',
+        );
+
+  bool get isValid => code == BackupValidationCode.valid;
+}
+
 /// 歌单备份数据
 class PlaylistBackup {
   final String name;
@@ -116,12 +160,17 @@ class PlaylistBackup {
   final String? sourceUrl;
   final String? importSourceType;
   final int? refreshIntervalHours;
+  final DateTime? lastRefreshed;
   final bool notifyOnUpdate;
+  final String? ownerName;
+  final String? ownerUserId;
+  final bool useAuthForRefresh;
   final bool isMix;
   final String? mixPlaylistId;
   final String? mixSeedVideoId;
   final List<String> trackKeys; // sourceType:sourceId[:cid] 格式
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final int sortOrder;
 
   PlaylistBackup({
@@ -132,12 +181,17 @@ class PlaylistBackup {
     this.sourceUrl,
     this.importSourceType,
     this.refreshIntervalHours,
+    this.lastRefreshed,
     this.notifyOnUpdate = true,
+    this.ownerName,
+    this.ownerUserId,
+    this.useAuthForRefresh = false,
     this.isMix = false,
     this.mixPlaylistId,
     this.mixSeedVideoId,
     required this.trackKeys,
     required this.createdAt,
+    this.updatedAt,
     this.sortOrder = 0,
   });
 
@@ -150,7 +204,13 @@ class PlaylistBackup {
       sourceUrl: json['sourceUrl'] as String?,
       importSourceType: json['importSourceType'] as String?,
       refreshIntervalHours: json['refreshIntervalHours'] as int?,
+      lastRefreshed: json['lastRefreshed'] != null
+          ? DateTime.parse(json['lastRefreshed'] as String)
+          : null,
       notifyOnUpdate: json['notifyOnUpdate'] as bool? ?? true,
+      ownerName: json['ownerName'] as String?,
+      ownerUserId: json['ownerUserId'] as String?,
+      useAuthForRefresh: json['useAuthForRefresh'] as bool? ?? false,
       isMix: json['isMix'] as bool? ?? false,
       mixPlaylistId: json['mixPlaylistId'] as String?,
       mixSeedVideoId: json['mixSeedVideoId'] as String?,
@@ -159,6 +219,9 @@ class PlaylistBackup {
               .toList() ??
           [],
       createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
       sortOrder: json['sortOrder'] as int? ?? 0,
     );
   }
@@ -173,12 +236,18 @@ class PlaylistBackup {
       if (importSourceType != null) 'importSourceType': importSourceType,
       if (refreshIntervalHours != null)
         'refreshIntervalHours': refreshIntervalHours,
+      if (lastRefreshed != null)
+        'lastRefreshed': lastRefreshed!.toIso8601String(),
       'notifyOnUpdate': notifyOnUpdate,
+      if (ownerName != null) 'ownerName': ownerName,
+      if (ownerUserId != null) 'ownerUserId': ownerUserId,
+      'useAuthForRefresh': useAuthForRefresh,
       'isMix': isMix,
       if (mixPlaylistId != null) 'mixPlaylistId': mixPlaylistId,
       if (mixSeedVideoId != null) 'mixSeedVideoId': mixSeedVideoId,
       'trackKeys': trackKeys,
       'createdAt': createdAt.toIso8601String(),
+      if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
       'sortOrder': sortOrder,
     };
   }
@@ -199,9 +268,14 @@ class TrackBackup {
   final int? cid;
   final int? pageNum;
   final String? parentTitle;
+  final bool isAvailable;
+  final bool isVip;
+  final String? unavailableReason;
+  final int? bilibiliAid;
   final String? originalSongId;
   final String? originalSource;
   final DateTime createdAt;
+  final DateTime? updatedAt;
 
   TrackBackup({
     required this.sourceId,
@@ -217,9 +291,14 @@ class TrackBackup {
     this.cid,
     this.pageNum,
     this.parentTitle,
+    this.isAvailable = true,
+    this.isVip = false,
+    this.unavailableReason,
+    this.bilibiliAid,
     this.originalSongId,
     this.originalSource,
     required this.createdAt,
+    this.updatedAt,
   });
 
   /// 生成唯一键（用于匹配）
@@ -241,9 +320,16 @@ class TrackBackup {
       cid: json['cid'] as int?,
       pageNum: json['pageNum'] as int?,
       parentTitle: json['parentTitle'] as String?,
+      isAvailable: json['isAvailable'] as bool? ?? true,
+      isVip: json['isVip'] as bool? ?? false,
+      unavailableReason: json['unavailableReason'] as String?,
+      bilibiliAid: json['bilibiliAid'] as int?,
       originalSongId: json['originalSongId'] as String?,
       originalSource: json['originalSource'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
     );
   }
 
@@ -262,9 +348,14 @@ class TrackBackup {
       if (cid != null) 'cid': cid,
       if (pageNum != null) 'pageNum': pageNum,
       if (parentTitle != null) 'parentTitle': parentTitle,
+      'isAvailable': isAvailable,
+      'isVip': isVip,
+      if (unavailableReason != null) 'unavailableReason': unavailableReason,
+      if (bilibiliAid != null) 'bilibiliAid': bilibiliAid,
       if (originalSongId != null) 'originalSongId': originalSongId,
       if (originalSource != null) 'originalSource': originalSource,
       'createdAt': createdAt.toIso8601String(),
+      if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
     };
   }
 }
@@ -359,6 +450,7 @@ class RadioStationBackup {
   final String sourceId;
   final int sortOrder;
   final DateTime createdAt;
+  final DateTime? lastPlayedAt;
   final bool isFavorite;
   final String? note;
 
@@ -373,6 +465,7 @@ class RadioStationBackup {
     required this.sourceId,
     this.sortOrder = 0,
     required this.createdAt,
+    this.lastPlayedAt,
     this.isFavorite = false,
     this.note,
   });
@@ -389,6 +482,9 @@ class RadioStationBackup {
       sourceId: json['sourceId'] as String,
       sortOrder: json['sortOrder'] as int? ?? 0,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      lastPlayedAt: json['lastPlayedAt'] != null
+          ? DateTime.parse(json['lastPlayedAt'] as String)
+          : null,
       isFavorite: json['isFavorite'] as bool? ?? false,
       note: json['note'] as String?,
     );
@@ -406,6 +502,7 @@ class RadioStationBackup {
       'sourceId': sourceId,
       'sortOrder': sortOrder,
       'createdAt': createdAt.toIso8601String(),
+      if (lastPlayedAt != null) 'lastPlayedAt': lastPlayedAt!.toIso8601String(),
       'isFavorite': isFavorite,
       if (note != null) 'note': note,
     };

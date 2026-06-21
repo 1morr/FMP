@@ -142,6 +142,22 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 - `ImportedTrack.sourceId` -> `Track.originalSongId`
 - `ImportedTrack.source` -> `Track.originalSource`
 
+## Backup System
+
+Backup export/import is a portable JSON data transfer, not a full app clone.
+It includes playlists, tracks needed by playlists, play/search history, radio
+stations, lyrics matches, and portable settings. It intentionally excludes
+downloaded media files, transient download tasks, play queue state, secure
+storage credentials, and device-specific paths/audio devices.
+
+When adding durable user-facing fields to backed-up models, update
+`lib/services/backup/backup_data.dart`, `BackupService` export/import mapping,
+and `test/services/backup/backup_service_test.dart`. Bump `kBackupVersion` when
+the exported JSON shape changes, while keeping older backups readable through
+defaults. Keep `BackupService.validateBackupData()` aligned with supported
+versions and importable sections so unsupported future backups fail before the
+preview/import step.
+
 ## Radio Ownership
 
 Radio distinguishes retained context from active ownership of the shared player:
