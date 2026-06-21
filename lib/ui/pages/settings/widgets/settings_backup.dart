@@ -61,6 +61,17 @@ class _ImportDataListTile extends ConsumerWidget {
 
       if (!context.mounted) return;
 
+      final validation = backupService.validateBackupData(backupData);
+      if (!validation.isValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_formatBackupValidationMessage(validation)),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        return;
+      }
+
       // 显示导入预览对话框
       final result = await showDialog<ImportResult>(
         context: context,
@@ -86,6 +97,21 @@ class _ImportDataListTile extends ConsumerWidget {
           ),
         );
       }
+    }
+  }
+
+  String _formatBackupValidationMessage(BackupValidationResult validation) {
+    switch (validation.code) {
+      case BackupValidationCode.valid:
+        return '';
+      case BackupValidationCode.unsupportedVersion:
+        return t.settings.backup.import.unsupportedVersion(
+          backupVersion: validation.backupVersion ?? 0,
+          supportedVersion: validation.supportedVersion ?? 0,
+          appVersion: validation.appVersion ?? 'unknown',
+        );
+      case BackupValidationCode.emptyBackup:
+        return t.settings.backup.import.emptyBackup;
     }
   }
 }

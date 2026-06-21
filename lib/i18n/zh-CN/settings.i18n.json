@@ -295,13 +295,13 @@
     "title": "数据备份",
     "export": {
       "title": "导出数据",
-      "subtitle": "将所有数据导出为 JSON 文件",
+      "subtitle": "导出歌单、历史、电台、歌词匹配和设置为 JSON 文件",
       "success": "数据已导出到: $path",
       "failed": "导出失败: $error"
     },
     "import": {
       "title": "导入数据",
-      "subtitle": "从 JSON 文件导入数据",
+      "subtitle": "从 JSON 文件导入备份数据（不包含下载文件和登录凭证）",
       "preview": "导入预览",
       "previewSubtitle": "以下数据将被导入（已存在的数据将被跳过）",
       "playlists": "歌单",
@@ -313,6 +313,8 @@
       "confirm": "确认导入",
       "success": "导入完成",
       "failed": "导入失败: $error",
+      "unsupportedVersion": "备份格式版本 $backupVersion（来自应用 $appVersion）过新；当前支持到版本 $supportedVersion。请先更新应用。",
+      "emptyBackup": "备份文件没有可导入的数据",
       "result": {
         "playlistsImported": "歌单: 导入 $imported 个，跳过 $skipped 个",
         "tracksImported": "歌曲: 导入 $imported 个，跳过 $skipped 个",
