@@ -257,9 +257,12 @@ GitHub Actions (release.yml)
 ### 版本號規則
 
 - Tag 格式：`v{major}.{minor}.{patch}`，如 `v1.2.0`
-- CI 自動將 tag 版本寫入 `pubspec.yaml`：`version: 1.2.0+{run_number}`
+- CI 自動將 tag 版本寫入 `pubspec.yaml`：`version: 1.2.0+1002000`
 - `pubspec.yaml` 中的版本號無需手動修改，CI 會覆蓋
-- `+{run_number}` 是 Android `versionCode`，自動遞增
+- `+{versionCode}` 由 tag 計算：`major * 1000000 + minor * 1000 + patch`
+- Android 升級只接受更大的 `versionCode`；不要使用 `github.run_number`
+  作為正式 APK build number，否則 workflow run number 重置或換 workflow
+  可能導致新版 `versionName` 的 APK 被系統視為降級而拒絕安裝。
 
 ### Release 產物命名
 

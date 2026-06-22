@@ -31,6 +31,7 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      version_with_code: ${{ steps.version.outputs.version_with_code }}
 
     steps:
       - name: Checkout code
@@ -58,8 +59,14 @@ jobs:
             exit 1
           fi
 
+          version="${TAG#v}"
+          IFS=. read -r major minor patch <<< "$version"
+          version_code=$((major * 1000000 + minor * 1000 + patch))
+          version_with_code="${version}+${version_code}"
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version_with_code=$version_with_code" >> "$GITHUB_OUTPUT"
 
   build-android:
     name: Build Android APK (${{ matrix.abi }})
@@ -99,7 +106,7 @@ jobs:
 
       - name: Update version from tag
         run: |
-          sed -i "s/^version: .*/version: ${{ needs.prepare.outputs.version }}+${{ github.run_number }}/" pubspec.yaml
+          sed -i "s/^version: .*/version: ${{ needs.prepare.outputs.version_with_code }}/" pubspec.yaml
 
       - name: Decode keystore
         env:
@@ -222,7 +229,7 @@ jobs:
         shell: pwsh
         run: |
           $content = Get-Content pubspec.yaml -Raw
-          $content = $content -replace '(?m)^version: .*', "version: ${{ needs.prepare.outputs.version }}+${{ github.run_number }}"
+          $content = $content -replace '(?m)^version: .*', "version: ${{ needs.prepare.outputs.version_with_code }}"
           Set-Content pubspec.yaml $content
 
       - name: Flutter dependencies
