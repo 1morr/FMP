@@ -1,28 +1,42 @@
-# FMP 文档地图
+# FMP 文件地圖
 
-此目录保存面向开发者和维护者阅读的项目文档。AI coding agent 的强约束规则在仓库根目录 [AGENTS.md](../AGENTS.md)。
+此目錄保存面向使用者、貢獻者與維護者的專案文件。根目錄 [README](../README.md) 是產品入口；AI coding agent 的強約束規則在 [AGENTS.md](../AGENTS.md)。
 
-## 当前文档
+## 先讀哪份文件
 
-| 文档 | 读者 | 用途 |
+| 情境 | 建議文件 |
+|------|----------|
+| 想下載或快速了解 FMP | [專案 README](../README.md) |
+| 想在本機編譯 Android / Windows | [建置指南](build-guide.md) |
+| 想理解專案架構與主要模組 | [開發文件](development.md) |
+| 要發布新版本或調整 Release 流程 | [建置與發布指南](build-and-release.md) |
+| 要用 VM Service / Marionette 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
+| 要查歷史重構背景 | [歷史重構流水](history/refactoring-log.md) |
+| 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
+
+## 目前文件
+
+| 文件 | 讀者 | 用途 |
 |------|------|------|
-| [开发文档](development.md) | 贡献者 | 项目概览、架构地图、当前开发规则摘要 |
-| [构建指南](build-guide.md) | 本地构建者 | Android 和 Windows 本地构建说明 |
-| [构建与发布指南](build-and-release.md) | 维护者 | CI 发布流程、签名、GitHub Releases、更新资产 |
-| [VM Service 调试指南](debugging-with-vm-service.md) | 调试者 / agent | 通过 Dart VM Service 和 Marionette 做运行时检查 |
-| [历史重构流水](history/refactoring-log.md) | 维护者 | 归档记录，仅作背景参考，不作为当前实现规范 |
+| [開發文件](development.md) | 貢獻者 | 專案概覽、技術棧、架構地圖、目前開發規則摘要 |
+| [建置指南](build-guide.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
+| [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
+| [VM Service 調試指南](debugging-with-vm-service.md) | 調試者 / agent | 透過 Dart VM Service、Marionette 與 Isar Inspector 做運行期檢查 |
+| [歷史重構流水](history/refactoring-log.md) | 維護者 | 已歸檔的歷史記錄，只作背景參考，不作為目前實作規範 |
 
-## 权威来源
+## 權威來源
 
-- `AGENTS.md` 是 AI coding agent 的权威规则：架构边界、迁移规则、UI 编码约束，以及会影响代码修改的项目坑点。
-- `docs/development.md` 是人类贡献者的 onboarding 文档，只摘要当前架构并链接到 `AGENTS.md`，不要重复维护每条 agent 规则。
-- `.serena/memories/` 应保持窄而补充。如果某个 memory 变成当前核心规则，应合并到 `AGENTS.md` 或独立文档，并删除重复 memory。
-- 历史记录可以放在 `docs/history/`，但必须标记为归档，不能当作当前实现规范使用。
+- [AGENTS.md](../AGENTS.md) 是 AI coding agent 的權威規則，包含架構邊界、遷移規則、UI 編碼約束，以及會影響程式修改的專案注意事項。
+- [開發文件](development.md) 是人類貢獻者的 onboarding 文件，只摘要目前架構並連回 `AGENTS.md`，不要在兩邊重複維護每條 agent 規則。
+- [建置與發布指南](build-and-release.md) 是 Release 行為的權威文件；下載連結、產物命名與應用內更新規則變更時優先更新它。
+- `.serena/memories/` 應保持狹窄且補充性質。如果某個 memory 變成目前核心規則，應合併到 `AGENTS.md` 或獨立文件，並刪除重複 memory。
+- `docs/history/` 只放歷史脈絡。除非內容已反映在 `AGENTS.md` 或目前文件中，否則不要把歷史記錄當成現行規範。
 
-## 维护规则
+## 維護規則
 
-- 架构、数据模型、迁移、UI 或音源行为变化：优先更新 `AGENTS.md`。
-- 本地构建环境或打包前置条件变化：更新 `build-guide.md`。
-- CI 产物命名、发布 workflow、签名 secrets、应用内更新资产识别变化：更新 `build-and-release.md`。
-- 运行时调试流程、VM Service 脚本或 Marionette 用法变化：更新 `debugging-with-vm-service.md`。
-- 不要把同一条规则复制到多个文件，除非目标文档确实拥有对应读者和维护责任。
+- 架構、資料模型、遷移、UI 或音源行為變更：優先更新 `AGENTS.md`，必要時同步更新 [開發文件](development.md)。
+- 本機建置環境、工具鏈或打包前置條件變更：更新 [建置指南](build-guide.md)。
+- CI 產物命名、Release workflow、簽名 secrets、應用內更新資產識別變更：更新 [建置與發布指南](build-and-release.md)。
+- Runtime 調試流程、VM Service 腳本或 Marionette 用法變更：更新 [VM Service 調試指南](debugging-with-vm-service.md)。
+- 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
+- 不要把同一條規則複製到多個文件，除非目標文件確實擁有對應讀者和維護責任。
