@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/logger.dart';
 import '../../data/models/lyrics_match.dart';
 import '../../data/models/hotkey_config.dart';
 import '../../data/models/play_history.dart';
@@ -25,7 +25,7 @@ const int kBackupVersion = 2;
 /// 备份服务
 ///
 /// 提供数据导出和导入功能
-class BackupService {
+class BackupService with Logging {
   final Isar _isar;
   final PlaylistMutationService _mutationService;
 
@@ -341,7 +341,7 @@ class BackupService {
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       return BackupData.fromJson(json);
     } catch (e) {
-      debugPrint('解析备份文件失败: $e');
+      logWarning('解析备份文件失败: $e');
       return null;
     }
   }
