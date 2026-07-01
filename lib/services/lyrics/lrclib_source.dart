@@ -33,6 +33,9 @@ class LrclibSource with Logging {
               headers: {'User-Agent': _userAgent},
             );
 
+  /// 關閉內部 Dio（釋放連線池）；provider 於 onDispose 呼叫。
+  void dispose() => _dio.close();
+
   /// 搜索歌词
   ///
   /// [q] 全文搜索（匹配 trackName/artistName/albumName 任意字段）
