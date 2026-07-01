@@ -115,6 +115,9 @@ class QQMusicSource with Logging {
               },
             );
 
+  /// 關閉內部 Dio（釋放連線池）；provider 於 onDispose 呼叫。
+  void dispose() => _dio.close();
+
   /// 搜索歌曲
   ///
   /// [keywords] 搜索关键词
