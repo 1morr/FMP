@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:simple_icons/simple_icons.dart';
-
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
+import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/play_history_repository.dart';
@@ -664,9 +663,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                   const SizedBox(width: 8),
                   // 音源標識
                   Icon(
-                    history.sourceType == SourceType.bilibili
-                        ? SimpleIcons.bilibili
-                        : SimpleIcons.youtube,
+                    getImportSourceIcon(history.sourceType),
                     size: 14,
                     color: colorScheme.outline,
                   ),
