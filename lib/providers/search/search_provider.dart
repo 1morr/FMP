@@ -32,11 +32,9 @@ final searchServiceProvider = Provider<SearchService>((ref) {
 
 /// 搜索状态
 class SearchState extends Equatable {
-  static const List<SourceType> allDirectSources = [
-    SourceType.bilibili,
-    SourceType.youtube,
-    SourceType.netease,
-  ];
+  // 所有已註冊音源皆為可直接搜尋的音源；新增音源只要加入 SourceType enum
+  // 即自動涵蓋，避免與 enum 不同步的靜態常數漂移。
+  static List<SourceType> get allDirectSources => SourceType.values;
 
   final String query;
   final List<Track> localResults;

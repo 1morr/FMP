@@ -834,10 +834,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       return;
     }
 
-    if (track.sourceType != SourceType.bilibili) {
-      return;
-    }
-
     setState(() {
       _loadingPages.add(key);
     });

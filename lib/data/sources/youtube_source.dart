@@ -22,6 +22,7 @@ export 'dynamic_playlist_types.dart' show MixFetchResult, MixPlaylistInfo;
 class YouTubeSource
     with Logging
     implements
+        DisposableSource,
         TrackInfoSource,
         AudioStreamSource,
         SearchSource,
@@ -2428,6 +2429,7 @@ class YouTubeSource
         code: classified.code, message: classified.message);
   }
 
+  @override
   void dispose() {
     _youtube.close();
     _dio.close();
