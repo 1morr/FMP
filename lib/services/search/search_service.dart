@@ -142,17 +142,11 @@ class SearchService {
     return source.search(query, page: page, pageSize: pageSize, order: order);
   }
 
-  /// 加载 Bilibili 视频分P信息
+  /// 加载具备 PagedVideoSource 能力音源的视频分P信息；不具备该能力的音源返回空列表。
   Future<List<VideoPage>> loadVideoPagesForTrack(Track track) async {
-    if (track.sourceType != SourceType.bilibili) {
-      return const [];
-    }
-
     final source = _sourceManager.pagedVideoSource(track.sourceType);
     if (source == null) {
-      throw SearchException(
-        t.error.sourceUnavailable(source: SourceType.bilibili.name),
-      );
+      return const [];
     }
 
     return source.getVideoPages(track.sourceId);

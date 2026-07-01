@@ -39,6 +39,7 @@ class _BilibiliApiParams {
 class BilibiliSource
     with Logging
     implements
+        DisposableSource,
         TrackInfoSource,
         AudioStreamSource,
         SearchSource,
@@ -1122,6 +1123,7 @@ class BilibiliSource
     return _liveClient.getSearchStreamUrl(roomId);
   }
 
+  @override
   void dispose() {
     if (_ownsLiveClient) {
       _liveClient.dispose();

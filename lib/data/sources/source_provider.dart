@@ -181,11 +181,12 @@ class SourceManager {
   }
 
   /// 释放所有音源资源（关闭 HTTP 客户端等）
+  ///
+  /// 通过 `DisposableSource` 能力介面释放，避免对具体 source 型别做列举；
+  /// 新音源只要 `implements DisposableSource` 即自动被释放。
   void dispose() {
-    for (final source in _sources) {
-      if (source is BilibiliSource) source.dispose();
-      if (source is YouTubeSource) source.dispose();
-      if (source is NeteaseSource) source.dispose();
+    for (final source in _sources.whereType<DisposableSource>()) {
+      source.dispose();
     }
     _sources.clear();
   }

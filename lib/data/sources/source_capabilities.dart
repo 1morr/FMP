@@ -8,6 +8,14 @@ abstract interface class SourceCapability {
   SourceType get sourceType;
 }
 
+/// Optional capability for sources that own disposable resources (HTTP
+/// clients, live clients, etc.). `SourceManager.dispose()` checks this
+/// interface instead of concrete source types, so a newly registered source
+/// is disposed automatically as long as it implements this.
+abstract interface class DisposableSource {
+  void dispose();
+}
+
 abstract interface class TrackInfoSource implements SourceCapability {
   String? parseId(String url);
   bool isValidId(String id);
