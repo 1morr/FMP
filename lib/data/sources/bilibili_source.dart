@@ -5,6 +5,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../core/utils/duration_formatter.dart';
 import '../models/live_room.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
@@ -1062,18 +1063,8 @@ class BilibiliSource
   }
 
   /// 解析时长字符串为毫秒
-  int _parseDuration(String duration) {
-    // 格式: "3:45" 或 "1:23:45"
-    try {
-      final parts = duration.split(':').map(int.parse).toList();
-      if (parts.length == 2) {
-        return (parts[0] * 60 + parts[1]) * 1000;
-      } else if (parts.length == 3) {
-        return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
-      }
-    } catch (_) {}
-    return 0;
-  }
+  int _parseDuration(String duration) =>
+      DurationFormatter.parseColonDurationToMs(duration);
 
   /// 修复图片 URL（添加协议前缀）
   String? _fixImageUrl(String? url) {
