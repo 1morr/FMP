@@ -6,6 +6,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/providers/search/search_provider.dart';
 import 'package:fmp/services/search/search_service.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:isar/isar.dart';
@@ -444,7 +445,7 @@ class _CompletingSearchService extends SearchService {
       : super(
           sourceManager: SourceManager(),
           trackRepository: TrackRepository(_FakeIsar()),
-          isar: _FakeIsar(),
+          searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
         );
 
   final List<
