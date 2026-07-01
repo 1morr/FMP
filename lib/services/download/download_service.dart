@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/download_filenames.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/download_task.dart';
@@ -1336,7 +1337,7 @@ class DownloadService with Logging {
     // 多P视频使用分P专属的 metadata 文件名，避免覆盖
     final metadataFileName = track.isPartOfMultiPage && track.pageNum != null
         ? 'metadata_P${track.pageNum!.toString().padLeft(2, '0')}.json'
-        : 'metadata.json';
+        : DownloadFileNames.metadata;
     final metadataFile = File(p.join(videoDir.path, metadataFileName));
     try {
       await metadataFile.writeAsString(jsonEncode(metadata));
@@ -1349,7 +1350,7 @@ class DownloadService with Logging {
     if (settings.downloadImageOption != DownloadImageOption.none &&
         track.thumbnailUrl != null) {
       try {
-        final coverPath = p.join(videoDir.path, 'cover.jpg');
+        final coverPath = p.join(videoDir.path, DownloadFileNames.cover);
         final coverUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           track.thumbnailUrl!,
           displaySize: ImageTargetSizes.high,
@@ -1369,7 +1370,7 @@ class DownloadService with Logging {
         videoDetail != null &&
         videoDetail.ownerFace.isNotEmpty) {
       try {
-        final avatarPath = p.join(videoDir.path, 'avatar.jpg');
+        final avatarPath = p.join(videoDir.path, DownloadFileNames.avatar);
         final avatarUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           videoDetail.ownerFace,
           displaySize: ImageTargetSizes.low,

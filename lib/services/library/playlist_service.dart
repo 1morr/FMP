@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/download_filenames.dart';
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
@@ -353,7 +354,7 @@ class PlaylistService with Logging {
       // 异步检查第一首歌的本地封面
       for (final downloadPath in firstTrack.allDownloadPaths) {
         final dir = Directory(downloadPath).parent;
-        final coverPath = p.join(dir.path, 'cover.jpg');
+        final coverPath = p.join(dir.path, DownloadFileNames.cover);
         if (await File(coverPath).exists()) {
           localPath = coverPath;
           break;
