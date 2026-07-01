@@ -75,10 +75,6 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
   // 播放状态
   bool _isPlaying = false;
-  // ignore: unused_field
-  bool _isBuffering = false;
-  // ignore: unused_field
-  bool _isCompleted = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   String? _error;
@@ -110,12 +106,10 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
     _subscriptions.add(_player.stream.buffering.listen((buffering) {
       _log('事件 buffering=$buffering');
-      if (mounted) setState(() => _isBuffering = buffering);
     }));
 
     _subscriptions.add(_player.stream.completed.listen((completed) {
       _log('事件 completed=$completed');
-      if (mounted) setState(() => _isCompleted = completed);
     }));
 
     _subscriptions.add(_player.stream.error.listen((error) {
@@ -253,7 +247,6 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       _isLoading = true;
       _currentStream = stream;
       _error = null;
-      _isCompleted = false;
     });
 
     final headers = _clientHeaders[_selectedHeaderType] ?? {};
@@ -463,7 +456,6 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
         setState(() {
           _selectedHeaderType = headerType;
           _error = null;
-          _isCompleted = false;
         });
 
         final headers = _clientHeaders[headerType] ?? {};
