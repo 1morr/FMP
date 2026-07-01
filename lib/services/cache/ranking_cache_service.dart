@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
@@ -278,7 +278,7 @@ class RankingCacheState {
   }
 }
 
-class RankingCacheService extends StateNotifier<RankingCacheState> {
+class RankingCacheService extends StateNotifier<RankingCacheState> with Logging {
   static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
   final Map<SourceType, RankingSource> _rankingSourcesByType;
@@ -315,7 +315,7 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     await _refreshAll().timeout(
       _initialLoadTimeout,
       onTimeout: () {
-        debugPrint('[RankingCache] 初始加載超時（${_initialLoadTimeout.inSeconds}秒）');
+        logWarning('[RankingCache] 初始加載超時（${_initialLoadTimeout.inSeconds}秒）');
         if (_isDisposed) return;
         // 確保結束 loading 狀態
         if (state.isInitialLoading) {
@@ -352,11 +352,11 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     _networkRecoveredSubscription =
         connectivityNotifier.onNetworkRecovered.listen((_) {
       if (_isDisposed) return;
-      debugPrint('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
+      logInfo('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
       _refreshAll();
     });
 
-    debugPrint('[RankingCache] 網絡恢復監聽已設置');
+    logDebug('[RankingCache] 網絡恢復監聽已設置');
   }
 
   /// 刷新所有數據
@@ -367,7 +367,7 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     await Future.wait(
       _rankingSourcesByType.keys.map(
         (sourceType) => refreshSource(sourceType).catchError((e) {
-          debugPrint(
+          logWarning(
             '[RankingCache] ${sourceType.name} 刷新異常（未預期）: $e',
           );
         }),
@@ -379,7 +379,7 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     // 首次加載完成（無論成功或失敗都結束 loading）
     if (state.isInitialLoading) {
       state = state.copyWith(isInitialLoading: false);
-      debugPrint(
+      logDebug(
           '[RankingCache] 初始加載完成（Bilibili: ${state.bilibiliLoaded}, YouTube: ${state.youtubeLoaded}, Netease: ${state.neteaseLoaded}）');
     }
   }
@@ -420,12 +420,12 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
         loaded: true,
         clearError: true,
       );
-      debugPrint(
+      logDebug(
           '[RankingCache] ${_sourceLabel(sourceType)} 緩存已刷新: ${state.tracksFor(sourceType).length} 首');
     } catch (e) {
       if (_isDisposed || generation != _refreshGenerations[sourceType]) return;
       state = state.updateSource(sourceType, error: e.toString());
-      debugPrint('[RankingCache] ${_sourceLabel(sourceType)} 刷新失敗: $e');
+      logWarning('[RankingCache] ${_sourceLabel(sourceType)} 刷新失敗: $e');
       // 失敗時保留舊緩存
     }
   }
