@@ -6,6 +6,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../core/utils/duration_formatter.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
@@ -1209,18 +1210,8 @@ class YouTubeSource
   }
 
   /// 解析時長字串（如 "4:39" 或 "1:23:45"）為毫秒
-  int _parseDurationText(String? text) {
-    if (text == null || text.isEmpty) return 0;
-    try {
-      final parts = text.split(':').map(int.parse).toList();
-      if (parts.length == 2) {
-        return (parts[0] * 60 + parts[1]) * 1000;
-      } else if (parts.length == 3) {
-        return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
-      }
-    } catch (_) {}
-    return 0;
-  }
+  int _parseDurationText(String? text) =>
+      DurationFormatter.parseColonDurationToMs(text);
 
   String? _extractText(dynamic textObj) {
     if (textObj == null) return null;
