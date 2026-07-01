@@ -203,6 +203,10 @@ class DownloadService with Logging {
     await _downloadRepository.resetDownloadingToPaused();
     if (_isDisposed) return;
 
+    // 清理孤兒 .downloading 暫存檔（崩潰/kill/斷電時 cancel/clear 來不及刪所殘留）
+    await _cleanupOrphanedDownloadingFiles();
+    if (_isDisposed) return;
+
     // 启动调度器
     _startScheduler();
 
@@ -210,6 +214,45 @@ class DownloadService with Logging {
     _startProgressUpdateTimer();
 
     logDebug('DownloadService initialized');
+  }
+
+  /// 啟動期掃描：刪除沒有對應任務的孤兒 `.downloading` 暫存檔
+  ///（崩潰/被 kill/斷電時 cancel/clear 來不及刪所殘留；A5）。
+  ///
+  /// 採 basename 比對——只刪「basename 不屬於任何現存任務」的檔案，
+  /// 絕不誤刪暫停中任務的續傳檔（同名時寧可留著不刪，安全優先於清理率）。
+  /// resetDownloadingToPaused() 已先執行，故所有可續傳任務皆為 paused 並在
+  /// keepBasenames 中。best-effort，例外僅 log 不中斷啟動。
+  Future<void> _cleanupOrphanedDownloadingFiles() async {
+    try {
+      final basePath =
+          await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      final baseDir = Directory(basePath);
+      if (!await baseDir.exists()) return;
+
+      final tasks = await _downloadRepository.getAllTasks();
+      final keepBasenames = <String>{
+        for (final t in tasks)
+          if (t.tempFilePath != null && t.tempFilePath!.isNotEmpty)
+            p.basename(t.tempFilePath!),
+      };
+
+      var deleted = 0;
+      await for (final entity
+          in baseDir.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+        final path = entity.path;
+        if (!path.endsWith('.downloading')) continue;
+        if (keepBasenames.contains(p.basename(path))) continue;
+        await _deletePathIfExists(path);
+        deleted++;
+      }
+      if (deleted > 0) {
+        logDebug('Cleaned up $deleted orphaned .downloading file(s) at startup');
+      }
+    } catch (e) {
+      logWarning('Failed to scan orphaned .downloading files at startup: $e');
+    }
   }
 
   /// 释放资源
