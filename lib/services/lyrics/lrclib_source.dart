@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../core/logger.dart';
+import '../../core/utils/http_client_factory.dart';
 import 'lyrics_result.dart';
 
 
@@ -27,14 +28,10 @@ class LrclibSource with Logging {
 
   LrclibSource({Dio? dio})
       : _dio = dio ??
-            Dio(BaseOptions(
+            HttpClientFactory.create(
               baseUrl: _baseUrl,
-              headers: {
-                'User-Agent': _userAgent,
-              },
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 15),
-            ));
+              headers: {'User-Agent': _userAgent},
+            );
 
   /// 搜索歌词
   ///
