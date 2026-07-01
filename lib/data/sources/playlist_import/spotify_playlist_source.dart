@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../../core/utils/http_client_factory.dart';
 import '../source_url_policy.dart';
 import 'playlist_import_source.dart';
 
@@ -12,7 +13,8 @@ import 'playlist_import_source.dart';
 class SpotifyPlaylistSource implements PlaylistImportSource {
   final Dio _dio;
 
-  SpotifyPlaylistSource({Dio? dio}) : _dio = dio ?? Dio();
+  SpotifyPlaylistSource({Dio? dio})
+      : _dio = dio ?? HttpClientFactory.create();
 
   @override
   PlaylistSource get source => PlaylistSource.spotify;
