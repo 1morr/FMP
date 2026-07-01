@@ -12,21 +12,17 @@ import '../../data/sources/base_source.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart' show sourceManagerProvider;
 import '../../services/search/search_service.dart';
-import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
 
 /// SearchService Provider
 final searchServiceProvider = Provider<SearchService>((ref) {
   final sourceManager = ref.watch(sourceManagerProvider);
   final trackRepo = ref.watch(trackRepositoryProvider);
-  final db = ref.watch(databaseProvider).valueOrNull;
-  if (db == null) {
-    throw StateError('Database not initialized');
-  }
+  final searchHistoryRepo = ref.watch(searchHistoryRepositoryProvider);
   return SearchService(
     sourceManager: sourceManager,
     trackRepository: trackRepo,
-    isar: db,
+    searchHistoryRepository: searchHistoryRepo,
   );
 });
 

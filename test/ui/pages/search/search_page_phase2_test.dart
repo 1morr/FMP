@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -158,7 +159,7 @@ void main() {
       final service = SearchService(
         sourceManager: sourceManager,
         trackRepository: TrackRepository(_FakeIsar()),
-        isar: _FakeIsar(),
+        searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
         ..sourceType = SourceType.youtube
@@ -177,7 +178,7 @@ void main() {
       final service = SearchService(
         sourceManager: sourceManager,
         trackRepository: TrackRepository(_FakeIsar()),
-        isar: _FakeIsar(),
+        searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
         ..sourceType = SourceType.bilibili
