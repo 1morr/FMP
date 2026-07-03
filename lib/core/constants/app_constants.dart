@@ -77,6 +77,13 @@ class AppConstants {
   /// 基于位置检测的切歌阈值（距离结尾多近时触发）
   static const Duration positionCheckThreshold = Duration(milliseconds: 500);
 
+  /// 匯入比對搜尋之間的節流延遲——避免觸發音源限流（B7）。
+  /// all（搜尋多源）需較長間隔；單源（bilibili/youtube）較短。
+  static const Duration importThrottleMultiSourceDelay =
+      Duration(milliseconds: 1000);
+  static const Duration importThrottleSingleSourceDelay =
+      Duration(milliseconds: 800);
+
   // ==================== Mix 播放列表 ====================
 
   /// Mix 模式每次加载的最少新歌曲数

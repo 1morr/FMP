@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import '../../core/constants/app_constants.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/playlist_import/playlist_import_source.dart';
@@ -257,11 +258,14 @@ class PlaylistImportService {
       // Bilibili 对请求频率限制较严格，需要较长间隔
       if (i < tracks.length - 1) {
         final delay = switch (searchSource) {
-          SearchSourceConfig.all => 1000, // 搜索两个源，需要更长间隔
-          SearchSourceConfig.bilibiliOnly => 800, // Bilibili 限制较严
-          SearchSourceConfig.youtubeOnly => 800, // YouTube 相对宽松
+          SearchSourceConfig.all =>
+            AppConstants.importThrottleMultiSourceDelay,
+          SearchSourceConfig.bilibiliOnly =>
+            AppConstants.importThrottleSingleSourceDelay,
+          SearchSourceConfig.youtubeOnly =>
+            AppConstants.importThrottleSingleSourceDelay,
         };
-        await Future.delayed(Duration(milliseconds: delay));
+        await Future.delayed(delay);
       }
     }
 

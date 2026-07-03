@@ -369,13 +369,6 @@ class PlaylistService with Logging {
     return PlaylistCoverData(localPath: localPath, networkUrl: networkUrl);
   }
 
-  /// 获取歌单封面（使用第一首歌的封面或自定义封面）
-  /// @deprecated 使用 [getPlaylistCoverData] 替代
-  Future<String?> getPlaylistCover(int playlistId) async {
-    final coverData = await getPlaylistCoverData(playlistId);
-    return coverData.localPath ?? coverData.networkUrl;
-  }
-
   /// 复制歌单
   Future<Playlist> duplicatePlaylist(int playlistId, String newName) async {
     final original = await _playlistRepository.getById(playlistId);
