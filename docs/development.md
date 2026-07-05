@@ -81,7 +81,7 @@ lib/
 | `PlayHistory` | 播放历史 |
 | `RadioStation` | 电台/直播站点 |
 | `LyricsMatch` | Track 到歌词源的匹配记录 |
-| `LyricsTitleParseCache` | 运行期 AI 标题解析缓存 |
+| `LyricsTitleParseCache` | 运行期 AI 标题解析缓存（运行期暂存、启动时清空、非耐用数据；权威规则见 `lib/data/AGENTS.md`） |
 | `Account` | 平台登录/账号状态 |
 
 ### 非持久化 DTO / Value Objects
