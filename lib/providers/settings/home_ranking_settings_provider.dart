@@ -15,10 +15,10 @@ class HomeRankingSettingsState {
   final bool isLoading;
 
   HomeRankingSettingsState({
-    List<String> sourceOrder = homeRankingSourceIds,
+    List<String>? sourceOrder,
     Set<String> disabledSources = const <String>{},
     this.isLoading = true,
-  })  : sourceOrder = List.unmodifiable(sourceOrder),
+  })  : sourceOrder = List.unmodifiable(sourceOrder ?? homeRankingSourceIds),
         disabledSources = Set.unmodifiable(disabledSources);
 
   List<String> get enabledSourceOrder => List.unmodifiable(
