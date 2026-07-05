@@ -21,6 +21,7 @@
   "streamPriority": {
     "youtubeTitle": "YouTube Stream Priority",
     "bilibiliTitle": "Bilibili Stream Priority",
+    "neteaseTitle": "NetEase Stream Priority",
     "audioOnly": "Audio only",
     "audioOnlyDescription": "Saves data, downloads audio only",
     "muxed": "Muxed",

@@ -73,6 +73,18 @@ class AudioSettingsPage extends ConsumerWidget {
             },
           ),
           const Divider(),
+          // Netease 流优先级
+          _StreamPrioritySection(
+            title: t.audioSettings.streamPriority.neteaseTitle,
+            streamPriority: audioSettings.neteaseStreamPriority,
+            availableTypes: const [StreamType.audioOnly],
+            onReorder: (newPriority) {
+              ref
+                  .read(audioSettingsProvider.notifier)
+                  .setNeteaseStreamPriority(newPriority);
+            },
+          ),
+          const Divider(),
           _AuthForPlaySection(
             useBilibiliAuthForPlay: audioSettings.useBilibiliAuthForPlay,
             useYoutubeAuthForPlay: audioSettings.useYoutubeAuthForPlay,
