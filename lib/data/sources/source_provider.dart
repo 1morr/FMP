@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/logger.dart';
 import '../models/track.dart';
 import 'base_source.dart';
 import 'bilibili_source.dart';
@@ -9,7 +10,7 @@ import 'youtube_source.dart';
 
 /// 音源管理器
 /// 统一注册具体适配器，但调用端只按所需能力取用。
-class SourceManager {
+class SourceManager with Logging {
   SourceManager({List<SourceCapability>? sources})
       : _sources = List<SourceCapability>.of(
           sources ??
@@ -157,8 +158,12 @@ class SourceManager {
         final result =
             await source.search(query, page: page, pageSize: pageSize);
         results[source.sourceType] = result;
-      } catch (_) {
-        // 忽略单个源的错误
+      } catch (e) {
+        // 单源失败不应中断整体搜索（保留「部分结果」语义），但补上日志
+        // 避免限流/网络/程式错误被完全静默吞掉而无法排查。
+        logWarning(
+            '${source.sourceType.name} search failed; returning partial results: '
+            '$e');
       }
     }));
 
