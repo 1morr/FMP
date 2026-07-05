@@ -2271,14 +2271,7 @@ class AudioController extends StateNotifier<PlayerState>
       // 网络错误和超时：走重试逻辑，而非通用错误处理
       if (_shouldRetrySourceError(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
-        _resetLoadingState(requestId: requestId);
-        _scheduleRetryForSessionRequest(
-          requestId,
-          track,
-          positionBeforeLoad,
-          mode,
-        );
-        throw const _RetryScheduledException();
+        _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
       if (requestId == null || _isSessionSuperseded(requestId)) return;
       await _handleSourceError(track, e, mode, requestId);
@@ -2293,14 +2286,7 @@ class AudioController extends StateNotifier<PlayerState>
       // Check if original error is retryable
       if (_isRetryableError(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
-        _resetLoadingState(requestId: requestId);
-        _scheduleRetryForSessionRequest(
-          requestId,
-          track,
-          positionBeforeLoad,
-          mode,
-        );
-        throw const _RetryScheduledException();
+        _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
 
       if (requestId != null && _isSessionSuperseded(requestId)) return;
@@ -2317,6 +2303,21 @@ class AudioController extends StateNotifier<PlayerState>
         _resetLoadingState(requestId: requestId);
       }
     }
+  }
+
+  /// 排程播放請求的重試並擲出 [_RetryScheduledException]（一定 throw）。
+  ///
+  /// 呼叫端須先確認「可重試」且已通過 superseded 檢查（superseded 時呼叫端自行
+  /// return，不可進到此處）。封裝 reset→schedule→throw 三步，取代兩處逐字重複（C12）。
+  Never _scheduleSessionRetry(
+    int requestId,
+    Track track,
+    Duration? positionBeforeLoad,
+    PlayMode mode,
+  ) {
+    _resetLoadingState(requestId: requestId);
+    _scheduleRetryForSessionRequest(requestId, track, positionBeforeLoad, mode);
+    throw const _RetryScheduledException();
   }
 
   /// 處理音源 API 錯誤的統一邏輯
