@@ -4,6 +4,75 @@
 >
 > 閱讀順序：[00-overview](00-overview.md) → **01-action-plan（本檔）** → [02–07 各面向證據]()。
 
+---
+
+## ✅ 執行成果（2026-07 收尾）
+
+分支 `refactor/maturity-action-plan`，**22 個 refactor commit**，每個 commit 皆 `flutter analyze` 0 問題 + 對應 `flutter test` 全綠。本節為實際執行結果；下方原 roadmap（§0 起）保留為長期藍圖。
+
+### 統計
+
+- **29 項實作完成**（橫跨 P0–P6 + 文件），含 1 項測試加固（F3 scoped）。
+- **4 項查證後撤回**（審查 Medium 發現未經對抗驗證，讀實際程式碼後證實為誤報或已緩解）。
+- **2 項修法校正**（審查建議的修法與實際程式碼不符，改採正確修法）。
+- 工作樹乾淨；**未推送**（待審核者決定）。
+
+### 已完成（按 commit）
+
+| Commit | 階段 | 完成項 | 驗證測試 |
+|--------|------|--------|----------|
+| `4dc20735` | P0 | D8（history netease 圖示 bug）、E1（pubspec 補 Netease）、E2（development.md DB catalog）、E3（刪過時 memory） | test/ui 163 |
+| `efead9ed` | P1 | D1（`DisposableSource` 統一 dispose）、D7（分P載入改能力判斷）、D9（`allDirectSources` 衍生自 enum） | 1035 |
+| `db3e8756` | P4 速勝 | C6（radio 重試型別化 `StreamOpenFailedException`）、C5（移除 debug 頁死欄位） | audio+radio 235 |
+| `dff9bc7c` | P2 | B1（歌詞/匯入 Dio 統一 `HttpClientFactory`，+factory `baseUrl` 參數） | 279 |
+| `4f88c568` | P6 | F5（auth 邊界真實行為測試：憑證不送 CDN，對重構免疫） | sources 150 |
+| `c95cae10` | P2 | B5（共用 colon-duration parser） | sources 150 |
+| `d8656fd1` | P3 | A8（歌詞 4 個 singleton provider 補 onDispose，釋放 Dio/flush LRU） | 220 |
+| `0f251dc2`/`dcb5fafc`/`e4c643f4` | P2 B4 | B4 三部曲（RankingCache / LyricsWindow / WindowsDesktop+Backup+RadioRefresh 收斂 `Logging`；`lib/services` 零 `debugPrint`） | 各階段綠 |
+| `44aa6fe5` | P6 | F2（CI 收集 coverage + 上傳 lcov artifact） | yaml valid |
+| `a96c3912` | P3 | A5（啟動期清理孤兒 `.downloading`，basename 安全比對不誤刪續傳檔） | download 102 |
+| `95778852` | P4 | C8 phase1（下載檔名集中 `DownloadFileNames` 常數，6 檔 12 處） | 892 |
+| `73406926` | P4 | C10（抽 `SearchHistoryRepository`，SearchService 不再碰 Isar） | 289 |
+| `b3c31104` | P6 | F3 scoped（SearchHistoryRepository 真實 Isar 整合測試，首度覆蓋去重/上限邏輯） | 7 |
+| `7e46ce87` | P3 | A4（歷史篩選單次巡覽，減少多份 1000 筆副本） | 144 |
+| `3b7335a1` | P2/P4 | C4（刪 deprecated `getPlaylistCover`）+ B7（匯入節流延遲提升常數） | 88 |
+| `b4fc33e4` | E | E5（補 home-ranking 路由）+ E6（refactoring-log 記憶定位修正） | git diff --check |
+| `3f8e5474` | P4 | C11（initialize 串流訂閱收斂 `subscribe<T>`，-46/+14 行） | audio 222 |
+| `c152f0ba` | P4 | C12（retry 排程收斂 `_scheduleSessionRetry`，`Never`） | audio 222 |
+| `4804d9e0` | P4 | C9（delete 重試骨架收斂 `_retryDelete`） | download 102 |
+| `4f6dbfcf` | P3 | A6（dispose 空實作註解）+ A7（logger buffer 改 `Queue`，O(1) 淘汰） | core+audio 274 |
+
+### ⚠️ 撤回（查證為誤報／已緩解）
+
+| 項 | 結論 | 證據 |
+|----|------|------|
+| **A1**（下載 task 啟動不裁剪） | 誤報 | `download_service.dart:194-200` `initialize()` 啟動已 `clearCompletedAndErrorTasks()` |
+| **A3**（LyricsTitleParseCache 無限成長） | 誤報 | `database_provider.dart:186` `_migrateDatabase()` 啟動已 `clear()` |
+| **F4**（backup 嚴格解析中段損壞 DB） | 誤報 | `parseBackupFile` 整包 try/catch 回 null（寫入前）；`importData` 每實體獨立 try/catch + writeTxn |
+| **F6**（checksum 缺失不安裝即跳過驗證） | 已緩解 | `_requiredOrAvailableChecksum` 在 manifest 存在但 checksum 缺時已拋 `UpdateIntegrityException` fail-closed |
+
+### 🔧 修法校正（審查建議與實際程式碼不符）
+
+- **A4**：審查建議「下推 queryHistory」，但 `queryHistory` 本身也是 `where().findAll()` 後 in-memory 篩選（非 DB 端下推），下推不會更省——實際修法是 `_filterAndSortHistory` 改單次巡覽（減副本）。
+- **F6**：審查稱「checksum 選用、不強制」，實際 manifest 在時已 fail-closed；剩餘「無 manifest 時 trust-GitHub」為刻意政策，不實作。
+
+### 剩餘（風險/範圍升高，建議各獨立一輪）
+
+| 類別 | 項目 |
+|------|------|
+| **關鍵路徑方法拆分** | C13（youtube `parsePlaylist` 176/187 行）、C14（mix 載入迴圈） |
+| **架構決策** | B2（歌詞 exception—`SourceType` 門檻，scoped vs 動 enum）、B6（`LyricsSource` 介面，L） |
+| **大型結構** | C2+C3（download_service 重構：`_startDownload` 267 行拆解 + 移除 dead CancelToken）、C1（拆 lyrics_window 1250 行 State）、A2（playlistCoverMap 鏈） |
+| **低打磨/含取捨** | A9（release 日誌量—產品取捨）、A10、B8（catch 語意—逐處判斷）、B9（log level 取捨）、C7（灰階矩陣，3 大檔脆弱）、E4/E7/E8、B3（待驗 dead code）、F7/F8 |
+| **伴 D13／const 門檻** | D2、D4、D5、D6、D11、D12、D13、C8-phase2 |
+| **持續追蹤** | F1（Isar v3 凍結，追蹤上游；v3 為上游官方建議的生產版本） |
+
+### 一句話總結
+
+> 核心抽象層（音源/音訊/auth 邊界）本就穩健、無需重構；本輪完成 **29 項低中風險**的一致性、資源、可維護性與測試改善，並在實作前查證出 **4 筆審查誤報**——剩餘皆為關鍵路徑拆分、架構決策或大型結構，宜各獨立專注一輪。
+
+---
+
 ## 0. 指導原則
 
 1. **守住硬性邊界**（同時是不可逾越的紅線）：不推翻 `SourceManager`/Capability 核心抽象；UI 播放控制走 `AudioController`；不用 `Image.network/file`；不走 ad-hoc 路徑開/遷移 Isar（只 `openFmpDatabase()`）；不加隱藏全域搜尋音源過濾；帳號憑證不送 CDN byte 請求。

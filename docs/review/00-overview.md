@@ -2,7 +2,7 @@
 
 > 唯讀審查（不修改任何原始碼）。本審查由六面向深度調查 + 對抗式驗證兩階段構成：先以並行 subagents 分頭調查 A–F 六面向（D 另以子系統並行掃描 + 彙整），再對所有 Critical/High 發現派獨立 agent 重讀原始碼覆核，避免誇大或誤報。所有發現均附 `file:line` 證據。
 >
-> 行動計畫：[01-action-plan](01-action-plan.md)（把發現轉為分階段可執行 roadmap）
+> 行動計畫：[01-action-plan](01-action-plan.md) — 含 2026-07 **執行成果**：29 項完成、4 筆查證撤回、剩餘藍圖（22 commits，皆 analyze + test 全綠）
 >
 > 詳細報告：[02-memory](02-memory.md) · [03-consistency](03-consistency.md) · [04-simplicity](04-simplicity.md) · [05-architecture](05-architecture.md) · [06-documentation](06-documentation.md) · [07-maturity-gaps](07-maturity-gaps.md)
 
