@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import '../../core/constants/app_constants.dart';
+import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/playlist_import/playlist_import_source.dart';
@@ -109,7 +110,7 @@ class ImportCancelledException implements Exception {
   String toString() => t.importSource.cancelled;
 }
 
-class PlaylistImportService {
+class PlaylistImportService with Logging {
   final SourceManager _sourceManager;
   final List<PlaylistImportSource> _importSources;
 
@@ -248,6 +249,8 @@ class PlaylistImportService {
           ));
         }
       } catch (e) {
+        logWarning('Track "${track.searchQuery}" match failed; '
+            'marking as noResult: $e');
         results.add(MatchedTrack(
           original: track,
           status: MatchStatus.noResult,
@@ -288,10 +291,16 @@ class PlaylistImportService {
         final results = await Future.wait([
           _sourceManager
               .searchFrom(SourceType.youtube, query, pageSize: searchPageSize)
-              .catchError((_) => SearchResult.empty()),
+              .catchError((e) {
+            logWarning('YouTube search failed during import; ignoring: $e');
+            return SearchResult.empty();
+          }),
           _sourceManager
               .searchFrom(SourceType.bilibili, query, pageSize: searchPageSize)
-              .catchError((_) => SearchResult.empty()),
+              .catchError((e) {
+            logWarning('Bilibili search failed during import; ignoring: $e');
+            return SearchResult.empty();
+          }),
         ]);
 
         for (final result in results) {
