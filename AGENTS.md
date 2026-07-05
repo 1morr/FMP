@@ -125,7 +125,7 @@ Key providers:
 - `playlistProvider` / `playlistDetailProvider` - playlist management
 - `libraryInvalidationCoordinatorProvider` - playlist/detail/cover/download invalidation coordinator
 - `searchProvider` - search state; chips select All/Bilibili/YouTube/Netease
-- `neteaseSourceProvider` - `NeteaseSource` singleton
+- `neteaseSourceProvider` - lyrics-layer `NeteaseSource` singleton (`lib/services/lyrics/netease_source.dart`); distinct from the same-named data source adapter in `lib/data/sources/netease_source.dart`, which must not be consumed at runtime per `lib/data/sources/AGENTS.md`
 - `neteaseAccountProvider` / `neteaseAccountServiceProvider` - Netease account
 - `lyricsSearchProvider` - multi-source lyrics search
 - `audioSettingsProvider` - audio quality settings
