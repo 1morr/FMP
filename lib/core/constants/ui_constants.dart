@@ -121,3 +121,20 @@ class DebounceDurations {
   /// 500ms - 长防抖（图片缓存清理等）
   static const Duration long = Duration(milliseconds: 500);
 }
+
+/// REC.709 亮度灰阶矩阵（单一真相）。
+///
+/// 用于把封面去饱和为灰阶（例如离线 / 不可用的电台封面）。不要在 UI 檔
+/// 逐字重复这 20 个值；消费 [kGrayscaleColorFilter] 即可。此 list 单独
+/// 暴露是为了单元测试能锁值。
+const List<double> kGrayscaleColorMatrix = <double>[
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0, 0, 0, 1, 0,
+];
+
+/// REC.709 亮度灰阶 ColorFilter，由 [kGrayscaleColorMatrix] 派生。
+///
+/// 调用端写 `ColorFiltered(colorFilter: kGrayscaleColorFilter, ...)`。
+const ColorFilter kGrayscaleColorFilter = ColorFilter.matrix(kGrayscaleColorMatrix);
