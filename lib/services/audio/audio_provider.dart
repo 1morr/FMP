@@ -379,58 +379,26 @@ class AudioController extends StateNotifier<PlayerState>
       final positionToRestore = _queueManager.savedPosition;
       logDebug('Position to restore: $positionToRestore');
 
-      // 监听播放器状态
-      _subscriptions.add(
-        _audioService.playerStateStream.listen(_onPlayerStateChanged),
-      );
+      // 註冊 audio service 串流訂閱（统一加入 _subscriptions 以便 dispose 取消）。
+      void subscribe<T>(Stream<T> stream, void Function(T) handler) {
+        _subscriptions.add(stream.listen(handler));
+      }
 
-      // 监听进度
-      _subscriptions.add(
-        _audioService.positionStream.listen(_onPositionChanged),
-      );
-
-      // 监听时长
-      _subscriptions.add(
-        _audioService.durationStream.listen(_onDurationChanged),
-      );
-
-      // 监听缓冲进度
-      _subscriptions.add(
-        _audioService.bufferedPositionStream.listen(_onBufferedPositionChanged),
-      );
-
-      // 监听速度
-      _subscriptions.add(
-        _audioService.speedStream.listen(_onSpeedChanged),
-      );
-
-      // 监听音频设备列表变化
-      _subscriptions.add(
-        _audioService.audioDevicesStream.listen(_onAudioDevicesChanged),
-      );
-
-      // 监听当前音频设备变化
-      _subscriptions.add(
-        _audioService.audioDeviceStream.listen(_onAudioDeviceChanged),
-      );
-
-      // 监听歌曲完成事件
-      _subscriptions.add(
-        _audioService.completedStream.listen(_onTrackCompleted),
-      );
-
-      // 监听错误事件（用于网络错误自动重试）
-      _subscriptions.add(
-        _audioService.errorStream.listen(_onAudioError),
-      );
+      subscribe(_audioService.playerStateStream, _onPlayerStateChanged);
+      subscribe(_audioService.positionStream, _onPositionChanged);
+      subscribe(_audioService.durationStream, _onDurationChanged);
+      subscribe(_audioService.bufferedPositionStream, _onBufferedPositionChanged);
+      subscribe(_audioService.speedStream, _onSpeedChanged);
+      subscribe(_audioService.audioDevicesStream, _onAudioDevicesChanged);
+      subscribe(_audioService.audioDeviceStream, _onAudioDeviceChanged);
+      subscribe(_audioService.completedStream, _onTrackCompleted);
+      subscribe(_audioService.errorStream, _onAudioError);
 
       // 启动基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）
       _startPositionCheckTimer();
 
       // 监听队列状态变化
-      _subscriptions.add(
-        _queueManager.stateStream.listen(_onQueueStateChanged),
-      );
+      subscribe(_queueManager.stateStream, _onQueueStateChanged);
 
       // 设置 AudioHandler 回调（仅在 Android/iOS 上有效）
       if (_usesMobileAudioHandler) {
