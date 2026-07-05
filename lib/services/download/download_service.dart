@@ -1171,48 +1171,55 @@ class DownloadService with Logging {
     }
   }
 
-  Future<void> _deletePathIfExists(String path) async {
+  /// 以最多 10 次、每次間隔 50ms 的重試執行刪除操作；FileSystemException 重試，
+  /// 其他例外立即放棄。Windows 上檔案/目錄可能被短暫占用（C9：原兩個方法的重試
+  /// 骨架逐字相同，抽出共用）。 [action] 回傳 true=已完成（停止），false=尚未完成
+  /// （繼續重試，例如檔案尚未出現）。
+  Future<void> _retryDelete({
+    required Future<bool> Function() action,
+    required String label,
+  }) async {
     for (var attempt = 0; attempt < 10; attempt++) {
       try {
-        final file = File(path);
-        if (await file.exists()) {
-          await file.delete();
-          return;
-        }
+        if (await action()) return;
         if (attempt == 9) return;
         await Future<void>.delayed(const Duration(milliseconds: 50));
       } on FileSystemException catch (e) {
         if (attempt == 9) {
-          logDebug('Failed to delete download file $path: $e');
+          logDebug('Failed to $label: $e');
           return;
         }
         await Future<void>.delayed(const Duration(milliseconds: 50));
       } catch (e) {
-        logDebug('Failed to delete download file $path: $e');
+        logDebug('Failed to $label: $e');
         return;
       }
     }
   }
 
-  Future<void> _deleteDirectoryIfEmpty(String path, int taskId) async {
-    for (var attempt = 0; attempt < 10; attempt++) {
-      try {
+  Future<void> _deletePathIfExists(String path) {
+    return _retryDelete(
+      label: 'delete download file $path',
+      action: () async {
+        final file = File(path);
+        if (!await file.exists()) return false; // 檔案尚未出現，重試等待
+        await file.delete();
+        return true;
+      },
+    );
+  }
+
+  Future<void> _deleteDirectoryIfEmpty(String path, int taskId) {
+    return _retryDelete(
+      label: 'delete download directory for task $taskId',
+      action: () async {
         final directory = Directory(path);
-        if (!await directory.exists()) return;
-        if (!await directory.list().isEmpty) return;
+        if (!await directory.exists()) return true;
+        if (!await directory.list().isEmpty) return true; // 非空 → 不刪
         await directory.delete();
-        return;
-      } on FileSystemException catch (e) {
-        if (attempt == 9) {
-          logDebug('Failed to delete download directory for task $taskId: $e');
-          return;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      } catch (e) {
-        logDebug('Failed to delete download directory for task $taskId: $e');
-        return;
-      }
-    }
+        return true;
+      },
+    );
   }
 
   /// 处理下载失败：保存续传进度、更新状态、发送失败事件
