@@ -151,6 +151,7 @@ or design-system values:
 - `AppSizes`
 - `ToastDurations`
 - `DebounceDurations`
+- `kGrayscaleColorMatrix` / `kGrayscaleColorFilter` (REC.709 luma grayscale for desaturating cover art; the matrix is the testable source of truth, the `ColorFilter` is what call sites consume)
 
 Small local layout/animation literals are acceptable when they are one-off
 measurements tied to a single widget interaction. Promote them to
