@@ -40,5 +40,50 @@ void main() {
         isTrue,
       );
     });
+
+    group('avatar path (D13)', () {
+      final baseDir = p.join('C:', 'Users', 'tester', 'Music', 'FMP');
+
+      test('avatar subdir derives from sourceType.name for all sources', () {
+        // 關鍵：不再用 bilibili/youtube 二元分支——netease 必須落到自己的
+        // 目錄段，否則頭像會誤歸 youtube（D13 silent-failure 叢）。
+        for (final type in SourceType.values) {
+          final path = DownloadPathUtils.getAvatarPath(
+            baseDir: baseDir,
+            sourceType: type,
+            creatorId: 'creator-1',
+          );
+          // 路徑內含 .../avatars/{type.name}/creator-1.jpg
+          expect(p.split(path), contains('avatars'));
+          expect(p.split(path), contains(type.name));
+          expect(path, endsWith(p.join('avatars', type.name, 'creator-1.jpg')));
+        }
+      });
+
+      test('netease avatar is not misrouted to the youtube directory', () {
+        final path = DownloadPathUtils.getAvatarPath(
+          baseDir: baseDir,
+          sourceType: SourceType.netease,
+          creatorId: 'up-1',
+        );
+        expect(p.split(path), contains('netease'));
+        expect(p.split(path), isNot(contains('youtube')));
+      });
+
+      test('bilibili and youtube avatar subdirs are unchanged by the fix', () {
+        final bilibili = DownloadPathUtils.getAvatarPath(
+          baseDir: baseDir,
+          sourceType: SourceType.bilibili,
+          creatorId: 'up-1',
+        );
+        final youtube = DownloadPathUtils.getAvatarPath(
+          baseDir: baseDir,
+          sourceType: SourceType.youtube,
+          creatorId: 'up-1',
+        );
+        expect(p.split(bilibili), contains('bilibili'));
+        expect(p.split(youtube), contains('youtube'));
+      });
+    });
   });
 }
