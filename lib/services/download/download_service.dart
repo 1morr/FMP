@@ -859,37 +859,9 @@ class DownloadService with Logging {
         stopped: isolateStopped,
       );
 
-      // 监听来自 Isolate 的消息
-      String? downloadError;
-      bool wasCancelled = false;
-      await for (final message in receivePort) {
-        if (message is _IsolateMessage) {
-          switch (message.type) {
-            case _IsolateMessageType.ready:
-              cancelPortReady.complete(message.data as SendPort);
-              break;
-            case _IsolateMessageType.progress:
-              final data = message.data as Map<String, dynamic>;
-              final progress = data['progress'] as double;
-              final received = data['received'] as int;
-              final total = data['total'] as int;
-              _recordProgressUpdate(
-                  task.id, task.trackId, progress, received, total);
-              break;
-            case _IsolateMessageType.completed:
-              receivePort.close();
-              break;
-            case _IsolateMessageType.error:
-              downloadError = message.data as String;
-              receivePort.close();
-              break;
-          }
-        } else if (message == 'cancelled') {
-          wasCancelled = true;
-          receivePort.close();
-          break;
-        }
-      }
+      // 监听来自 Isolate 的消息（ready/progress/completed/error/cancelled）
+      final outcome =
+          await _drainIsolateMessages(receivePort, task, cancelPortReady);
 
       // 清理 Isolate 引用（不从 map 移除，由 finally 统一处理）
       isolate.kill();
@@ -897,7 +869,7 @@ class DownloadService with Logging {
         isolateStopped.complete();
       }
 
-      if (_shouldAbortFinalization(task.id, wasCancelled: wasCancelled)) {
+      if (_shouldAbortFinalization(task.id, wasCancelled: outcome.cancelled)) {
         logDebug('Download stopped before finalization for task: ${task.id}');
         if (!_isDisposed) {
           await _saveResumeProgress(task);
@@ -905,38 +877,17 @@ class DownloadService with Logging {
         return;
       }
 
-      if (downloadError != null) {
-        throw Exception('Download failed: $downloadError');
+      if (outcome.error != null) {
+        throw Exception('Download failed: ${outcome.error}');
       }
 
       // 下载完成，使用 no-replace finalization，避免覆盖用户已有文件。
       await _promoteTempFileWithoutReplacing(tempFile, savePath, task);
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
+      if (await _abortFinalizationCleanup(task)) return;
 
       // 获取 VideoDetail（用于保存完整元数据）
-      VideoDetail? videoDetail;
-      try {
-        final detailSource = _sourceManager.trackDetailSource(track.sourceType);
-        if (detailSource != null && track.sourceType != SourceType.netease) {
-          final detailAuthHeaders =
-              await _sourceAuthContext.authForPlay(track.sourceType);
-          videoDetail = await detailSource.getVideoDetail(
-            track.sourceId,
-            authHeaders: detailAuthHeaders,
-          );
-        }
-      } catch (e) {
-        logDebug('Failed to get video detail: $e');
-      }
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
+      final videoDetail = await _fetchVideoDetail(track);
+      if (await _abortFinalizationCleanup(task)) return;
 
       // 保存元数据（总是用最新数据覆盖）
       await _saveMetadata(
@@ -944,19 +895,11 @@ class DownloadService with Logging {
         savePath,
         videoDetail: videoDetail,
       );
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
+      if (await _abortFinalizationCleanup(task)) return;
 
       // A3: 验证文件存在后才保存下载路径到 Track
       if (await File(savePath).exists()) {
-        if (_shouldAbortAfterFinalizationStarted(task.id)) {
-          await _clearDownloadPathForTask(task);
-          await _deleteTaskFiles(task);
-          return;
-        }
+        if (await _abortFinalizationCleanup(task)) return;
         await _downloadRepository.completeTaskWithDownloadPath(
           taskId: task.id,
           savePath: savePath,
@@ -965,11 +908,7 @@ class DownloadService with Logging {
         logError('Download completed but file not found at: $savePath');
         throw Exception('Downloaded file not found at expected path');
       }
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
+      if (await _abortFinalizationCleanup(task)) return;
 
       logDebug('Download completed for track: ${track.title}');
 
@@ -1002,6 +941,78 @@ class DownloadService with Logging {
       // 下载完成后触发调度，继续下一个任务（事件驱动）
       _triggerSchedule();
     }
+  }
+
+  /// 消费 Isolate 的 ready/progress/completed/error/cancelled 讯息直到串流结束。
+  ///
+  /// [cancelPortReady] 于收到 ready 讯息时完成（供 cancelTask 取得取消通道）。
+  /// 回传 (error, cancelled)：error 非 null 代表 isolate 回报错误；
+  /// cancelled 代表收到取消讯号。
+  Future<({String? error, bool cancelled})> _drainIsolateMessages(
+    ReceivePort receivePort,
+    DownloadTask task,
+    Completer<SendPort> cancelPortReady,
+  ) async {
+    String? downloadError;
+    bool wasCancelled = false;
+    await for (final message in receivePort) {
+      if (message is _IsolateMessage) {
+        switch (message.type) {
+          case _IsolateMessageType.ready:
+            cancelPortReady.complete(message.data as SendPort);
+            break;
+          case _IsolateMessageType.progress:
+            final data = message.data as Map<String, dynamic>;
+            final progress = data['progress'] as double;
+            final received = data['received'] as int;
+            final total = data['total'] as int;
+            _recordProgressUpdate(
+                task.id, task.trackId, progress, received, total);
+            break;
+          case _IsolateMessageType.completed:
+            receivePort.close();
+            break;
+          case _IsolateMessageType.error:
+            downloadError = message.data as String;
+            receivePort.close();
+            break;
+        }
+      } else if (message == 'cancelled') {
+        wasCancelled = true;
+        receivePort.close();
+        break;
+      }
+    }
+    return (error: downloadError, cancelled: wasCancelled);
+  }
+
+  /// 抓取 VideoDetail 用于保存完整元数据；失败只记录不抛（与原 inline
+  /// 行为一致）。Netease 没有 detail source，直接跳过。
+  Future<VideoDetail?> _fetchVideoDetail(Track track) async {
+    try {
+      final detailSource = _sourceManager.trackDetailSource(track.sourceType);
+      if (detailSource != null && track.sourceType != SourceType.netease) {
+        final detailAuthHeaders =
+            await _sourceAuthContext.authForPlay(track.sourceType);
+        return await detailSource.getVideoDetail(
+          track.sourceId,
+          authHeaders: detailAuthHeaders,
+        );
+      }
+    } catch (e) {
+      logDebug('Failed to get video detail: $e');
+    }
+    return null;
+  }
+
+  /// Finalization 已开始后若任务已取消/丢弃，清掉落盘产物并回传 true；
+  /// 否则回传 false（caller 继续 finalization）。收斂原 _startDownload 内
+  /// 5 处 byte-identical 的 abort 清理区块（C2）。
+  Future<bool> _abortFinalizationCleanup(DownloadTask task) async {
+    if (!_shouldAbortAfterFinalizationStarted(task.id)) return false;
+    await _clearDownloadPathForTask(task);
+    await _deleteTaskFiles(task);
+    return true;
   }
 
   void _clearPendingProgressForTask(int taskId) {
