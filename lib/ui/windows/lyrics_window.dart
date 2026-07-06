@@ -14,6 +14,7 @@ import '../widgets/lyrics/lyrics_styled_text.dart';
 import 'lyrics_display_mode.dart';
 import 'lyrics/lyrics_empty_state.dart';
 import 'lyrics/lyrics_line_item.dart';
+import 'lyrics/lyrics_title_bar.dart';
 import 'lyrics_text_measurer.dart';
 
 /// 歌词弹出窗口入口点
@@ -690,192 +691,58 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildTitleBar() {
-    final t = _transparentMode;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // 透明模式：白色系文字 + 半透明深色背景
-    // 普通模式：跟随主题
-    final iconColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
-    final titleColor = t ? Colors.white : colorScheme.onSurface;
-    final subtitleColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
-    final activeColor = t ? Colors.amber : colorScheme.primary;
-    final bgColor = t ? Colors.black.withValues(alpha: 0.85) : null;
-    final borderColor =
-        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
-
-    return GestureDetector(
-      onPanStart: (_) => windowManager.startDragging(),
-      child: Container(
-        height: LyricsWindowLayout.titleBarHeight,
-        padding: const EdgeInsets.only(left: 16, right: 4, top: 6, bottom: 6),
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border(bottom: BorderSide(color: borderColor)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.lyrics_outlined, size: 18, color: iconColor),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _trackTitle ?? 'Lyrics',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (_trackArtist != null)
-                    Text(
-                      _trackArtist!,
-                      style: TextStyle(fontSize: 11, color: subtitleColor),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            // 播放控制
-            _titleBarButton(
-              Icons.skip_previous_rounded,
-              18,
-              _sendPrevious,
-              color: iconColor,
-              semanticsLabel: _strings.previous,
-            ),
-            _titleBarButton(
-              _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              20,
-              _sendPlayPause,
-              color: titleColor,
-              semanticsLabel: _isPlaying ? _strings.pause : _strings.play,
-            ),
-            _titleBarButton(
-              Icons.skip_next_rounded,
-              18,
-              _sendNext,
-              color: iconColor,
-              semanticsLabel: _strings.next,
-            ),
-            const SizedBox(width: 4),
-            // 歌词显示模式
-            _titleBarButton(
-              _displayModeIcon,
-              16,
-              _cycleLyricsDisplayMode,
-              color: iconColor,
-              tooltip: _displayModeTooltip,
-              semanticsLabel: _displayModeTooltip,
-            ),
-            _titleBarButton(
-              Icons.palette_outlined,
-              16,
-              _showLyricsStyleDialog,
-              color: iconColor,
-              tooltip: _strings.styleSettings,
-              semanticsLabel: _strings.styleSettings,
-            ),
-            // 单行/全部歌词切换
-            _titleBarButton(
-              _singleLineMode ? Icons.view_headline : Icons.short_text,
-              16,
-              () {
-                final wasInSingleLine = _singleLineMode;
-                setState(() => _singleLineMode = !_singleLineMode);
-                // 从单行切换到多行时，ScrollablePositionedList 刚创建，
-                // 需要等下一帧 controller attach 后再滚动
-                if (wasInSingleLine) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _scrollToCurrentLine(jump: true);
-                  });
-                }
-              },
-              color: _singleLineMode ? activeColor : iconColor,
-              tooltip:
-                  _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
-              semanticsLabel:
-                  _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
-            ),
-            // 透明模式切换
-            _titleBarButton(
-              t ? Icons.opacity : Icons.format_color_fill,
-              16,
-              _toggleTransparentMode,
-              color: t ? activeColor : iconColor,
-              tooltip: t ? _strings.normalMode : _strings.transparentMode,
-              semanticsLabel:
-                  t ? _strings.normalMode : _strings.transparentMode,
-            ),
-            // 置顶
-            _titleBarButton(
-              _alwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
-              16,
-              () async {
-                setState(() => _alwaysOnTop = !_alwaysOnTop);
-                await windowManager.setAlwaysOnTop(_alwaysOnTop);
-              },
-              color: _alwaysOnTop ? activeColor : iconColor,
-              tooltip: _alwaysOnTop ? _strings.unpin : _strings.pin,
-              semanticsLabel: _alwaysOnTop ? _strings.unpin : _strings.pin,
-            ),
-            // Offset 调整
-            if (_isSynced && _lines.isNotEmpty)
-              _titleBarButton(
-                Icons.timer_outlined,
-                16,
-                () =>
-                    setState(() => _showOffsetControls = !_showOffsetControls),
-                color: _showOffsetControls ? activeColor : iconColor,
-                tooltip: _strings.offsetAdjust,
-                semanticsLabel: _strings.offsetAdjust,
-              ),
-            // 关闭
-            _titleBarButton(
-              Icons.close,
-              16,
-              _requestHide,
-              color: iconColor,
-              tooltip: _strings.close,
-              semanticsLabel: _strings.close,
-            ),
-          ],
-        ),
+    return LyricsTitleBar(
+      title: _trackTitle,
+      artist: _trackArtist,
+      transparentMode: _transparentMode,
+      isPlaying: _isPlaying,
+      displayModeIcon: _displayModeIcon,
+      displayModeTooltip: _displayModeTooltip,
+      singleLineMode: _singleLineMode,
+      alwaysOnTop: _alwaysOnTop,
+      isSynced: _isSynced,
+      hasLines: _lines.isNotEmpty,
+      showOffsetControls: _showOffsetControls,
+      labels: LyricsTitleBarLabels(
+        previous: _strings.previous,
+        play: _strings.play,
+        pause: _strings.pause,
+        next: _strings.next,
+        styleSettings: _strings.styleSettings,
+        fullLyrics: _strings.fullLyrics,
+        singleLine: _strings.singleLine,
+        normalMode: _strings.normalMode,
+        transparentMode: _strings.transparentMode,
+        unpin: _strings.unpin,
+        pin: _strings.pin,
+        offsetAdjust: _strings.offsetAdjust,
+        close: _strings.close,
       ),
-    );
-  }
-
-  Widget _titleBarButton(
-    IconData icon,
-    double size,
-    VoidCallback onPressed, {
-    Color? color,
-    String? tooltip,
-    required String semanticsLabel,
-  }) {
-    final button = IconButton(
-      icon: ExcludeSemantics(child: Icon(icon, size: size, color: color)),
-      onPressed: onPressed,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-    );
-
-    return Semantics(
-      button: true,
-      label: tooltip ?? semanticsLabel,
-      child: tooltip == null
-          ? button
-          : Tooltip(
-              message: tooltip,
-              excludeFromSemantics: true,
-              child: button,
-            ),
+      onDragStart: (_) => windowManager.startDragging(),
+      onPrevious: _sendPrevious,
+      onPlayPause: _sendPlayPause,
+      onNext: _sendNext,
+      onCycleDisplayMode: _cycleLyricsDisplayMode,
+      onShowStyleDialog: _showLyricsStyleDialog,
+      onToggleSingleLine: () {
+        final wasInSingleLine = _singleLineMode;
+        setState(() => _singleLineMode = !_singleLineMode);
+        // 从单行切换到多行时，ScrollablePositionedList 刚创建，
+        // 需要等下一帧 controller attach 后再滚动
+        if (wasInSingleLine) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToCurrentLine(jump: true);
+          });
+        }
+      },
+      onToggleTransparent: _toggleTransparentMode,
+      onToggleAlwaysOnTop: () async {
+        setState(() => _alwaysOnTop = !_alwaysOnTop);
+        await windowManager.setAlwaysOnTop(_alwaysOnTop);
+      },
+      onToggleOffsetControls: () =>
+          setState(() => _showOffsetControls = !_showOffsetControls),
+      onClose: _requestHide,
     );
   }
 

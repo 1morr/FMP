@@ -91,10 +91,15 @@ void main() {
         () {
       final source = readSource('lib/ui/windows/lyrics_window.dart');
 
+      // 整棵樹不得包 ExcludeSemantics（標題列控制項的語意必須可及）。
       expect(source, isNot(contains('return ExcludeSemantics(')));
-      expect(source, contains('label: tooltip'));
-      expect(source, contains('excludeFromSemantics: true'));
-      expect(source, contains('ExcludeSemantics(child: Icon('));
+
+      // 標題列控制項的 Semantics/Tooltip 邏輯現已抽到 leaf（C1e-2），
+      // 於該檔驗證每個按鈕仍有 label + excludeFromSemantics + ExcludeSemantics。
+      final titleBar = readSource('lib/ui/windows/lyrics/lyrics_title_bar.dart');
+      expect(titleBar, contains('label: tooltip'));
+      expect(titleBar, contains('excludeFromSemantics: true'));
+      expect(titleBar, contains('ExcludeSemantics(child: Icon('));
     });
   });
 }
