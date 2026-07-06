@@ -42,9 +42,9 @@ change:
 | UI patterns, layouts, widgets | `lib/ui/AGENTS.md` |
 | Repo-wide commands or architecture map | this file |
 
-Keep `.serena/memories/` for narrow supplemental notes only. Do not duplicate
-current core guidance there; when a memory becomes core/current, merge it into
-the relevant `AGENTS.md` and delete the duplicate memory.
+Keep scoped `AGENTS.md` files authoritative. Do not maintain a parallel memory
+directory (e.g. the removed `.serena/memories/`); fold supplemental notes into
+the relevant `AGENTS.md` instead, since separate notes drift from the code.
 
 Human-facing documentation lives in `docs/`. Use `docs/README.md` as the
 document map:
