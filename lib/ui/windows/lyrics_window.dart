@@ -13,6 +13,8 @@ import '../widgets/lyrics/lyrics_styled_text.dart';
 import 'lyrics_display_mode.dart';
 import 'lyrics/lyrics_empty_state.dart';
 import 'lyrics/lyrics_line_item.dart';
+import 'lyrics/lyrics_offset_bar.dart';
+import 'lyrics/lyrics_offset_math.dart';
 import 'lyrics/lyrics_single_line_view.dart';
 import 'lyrics/lyrics_title_bar.dart';
 import 'lyrics_text_measurer.dart';
@@ -430,7 +432,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     if (!_isSynced || index < 0 || index >= _lines.length) return;
     final timestamp = _lines[index].timestamp;
     if (timestamp == null) return;
-    _updateOffset(timestamp.inMilliseconds - _positionMs);
+    _updateOffset(
+        LyricsOffsetMath.calibrationOffsetForLine(timestamp, _positionMs));
   }
 
   void _updateOffset(int newOffsetMs) {
@@ -612,12 +615,6 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       case LyricsDisplayMode.preferRomaji:
         return _strings.displayPreferRomaji;
     }
-  }
-
-  String _formatOffset(int offsetMs) {
-    if (offsetMs == 0) return '0.0s';
-    final seconds = offsetMs / 1000;
-    return '${seconds >= 0 ? '+' : ''}${seconds.toStringAsFixed(1)}s';
   }
 
   Widget _buildContent() {
@@ -878,86 +875,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildOffsetBar() {
-    final t = _transparentMode;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final labelColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
-    final valueColor = t ? Colors.white : colorScheme.onSurface;
-    final btnColor = t ? Colors.white : colorScheme.onSurface;
-    final bgColor = t
-        ? Colors.black.withValues(alpha: 0.85)
-        : Theme.of(context).scaffoldBackgroundColor;
-    final borderColor =
-        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
-    final chipBg = t
-        ? Colors.white.withValues(alpha: 0.15)
-        : colorScheme.surfaceContainerHighest;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        border: Border(bottom: BorderSide(color: borderColor)),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_strings.offset,
-                style: TextStyle(fontSize: 12, color: labelColor)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: chipBg,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                _formatOffset(_offsetMs),
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: valueColor),
-              ),
-            ),
-            const SizedBox(width: 12),
-            _offsetButton(Icons.fast_rewind, -1000, btnColor),
-            _offsetButton(Icons.remove, -500, btnColor),
-            _offsetButton(Icons.remove_circle_outline, -100, btnColor),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: _offsetMs != 0 ? _resetOffset : null,
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(
-                  Icons.refresh,
-                  size: 16,
-                  color: _offsetMs != 0
-                      ? btnColor
-                      : btnColor.withValues(alpha: 0.3),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            _offsetButton(Icons.add_circle_outline, 100, btnColor),
-            _offsetButton(Icons.add, 500, btnColor),
-            _offsetButton(Icons.fast_forward, 1000, btnColor),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _offsetButton(IconData icon, int deltaMs, Color color) {
-    return InkWell(
-      onTap: () => _adjustOffset(deltaMs),
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Icon(icon, size: 16, color: color),
-      ),
+    return LyricsOffsetBar(
+      offsetMs: _offsetMs,
+      transparentMode: _transparentMode,
+      offsetLabel: _strings.offset,
+      onAdjust: _adjustOffset,
+      onReset: _resetOffset,
     );
   }
 }
