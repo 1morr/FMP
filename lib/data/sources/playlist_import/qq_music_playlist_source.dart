@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../../core/utils/http_client_factory.dart';
 import '../source_url_policy.dart';
 import 'playlist_import_source.dart';
 import 'qq_music_sign.dart';
@@ -10,7 +11,8 @@ import 'qq_music_sign.dart';
 class QQMusicPlaylistSource implements PlaylistImportSource {
   final Dio _dio;
 
-  QQMusicPlaylistSource({Dio? dio}) : _dio = dio ?? Dio();
+  QQMusicPlaylistSource({Dio? dio})
+      : _dio = dio ?? HttpClientFactory.create();
 
   @override
   PlaylistSource get source => PlaylistSource.qqMusic;

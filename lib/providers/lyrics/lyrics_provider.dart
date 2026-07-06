@@ -24,13 +24,25 @@ import '../database/repository_providers.dart';
 // ---------------------------------------------------------------------------
 
 /// LrclibSource 单例
-final lrclibSourceProvider = Provider<LrclibSource>((ref) => LrclibSource());
+final lrclibSourceProvider = Provider<LrclibSource>((ref) {
+  final source = LrclibSource();
+  ref.onDispose(source.dispose);
+  return source;
+});
 
 /// NeteaseSource 单例
-final neteaseSourceProvider = Provider<NeteaseSource>((ref) => NeteaseSource());
+final neteaseSourceProvider = Provider<NeteaseSource>((ref) {
+  final source = NeteaseSource();
+  ref.onDispose(source.dispose);
+  return source;
+});
 
 /// QQMusicSource 单例
-final qqmusicSourceProvider = Provider<QQMusicSource>((ref) => QQMusicSource());
+final qqmusicSourceProvider = Provider<QQMusicSource>((ref) {
+  final source = QQMusicSource();
+  ref.onDispose(source.dispose);
+  return source;
+});
 
 /// 歌词源筛选
 enum LyricsSourceFilter { all, netease, qqmusic, lrclib }
@@ -61,6 +73,7 @@ final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
       return settings.maxLyricsCacheFiles;
     },
   );
+  ref.onDispose(service.dispose);
   return service;
 });
 

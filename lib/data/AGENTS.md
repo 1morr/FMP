@@ -3,6 +3,23 @@
 Data-layer guidance for models, repositories, and source-adjacent value objects.
 For concrete source adapter rules, also read `lib/data/sources/AGENTS.md`.
 
+## Dependency Note — Isar v3 Freeze
+
+`isar` / `isar_flutter_libs` / `isar_generator` are intentionally pinned at
+`^3.1.0+1` (`pubspec.yaml`). This is a deliberate freeze, not neglect:
+
+- v3 is upstream's recommended production version. The upstream `isar/isar`
+  repository is **not** archived; its README states v4 is not production-ready.
+- No v3 → v4 migration tool exists, so upgrading would risk every persisted
+  collection in `lib/data/models/`.
+- **Do not upgrade to v4** without a migration tool and a tested migration path.
+
+Tracking guidance: monitor v4 stable releases and any official migration tool.
+Before tagging a release, confirm target-platform native libs resolve
+(Android `arm64-v8a` / `armeabi-v7a` / `x86_64`, Windows `x86_64`, and Windows
+`arm64` if supported). Long-term fallback candidates if v3 ever becomes
+unbuildable: `drift`, `sqflite`, or `objectbox`.
+
 ## Models And Repositories
 
 - Isar collections live in `lib/data/models/`.

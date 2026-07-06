@@ -69,11 +69,14 @@ enum LyricsAiTitleParsingMode {
   advancedAiSelect,
 }
 
-const List<String> homeRankingSourceIds = [
-  'bilibili',
-  'youtube',
-  'netease',
-];
+/// 首頁排行榜音源白名單。
+///
+/// 單一真相衍生自 [SourceType.values]：新增音源（加 enum 值）後自動同步，
+/// 不會因為忘了補 literal 而讓新源 id 被 normalize 靜默丟棄（D4）。
+/// 為 getter 而非 const，因為 [SourceType.values.map] 無法在 const 语境求值；
+/// 使用處（含作為狀態預設）皆以可變值形式取用。
+List<String> get homeRankingSourceIds =>
+    [for (final SourceType t in SourceType.values) t.name];
 
 const String defaultHomeRankingSourcePriority = 'bilibili,youtube,netease';
 

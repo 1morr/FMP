@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/download_filenames.dart';
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
@@ -353,7 +354,7 @@ class PlaylistService with Logging {
       // 异步检查第一首歌的本地封面
       for (final downloadPath in firstTrack.allDownloadPaths) {
         final dir = Directory(downloadPath).parent;
-        final coverPath = p.join(dir.path, 'cover.jpg');
+        final coverPath = p.join(dir.path, DownloadFileNames.cover);
         if (await File(coverPath).exists()) {
           localPath = coverPath;
           break;
@@ -366,13 +367,6 @@ class PlaylistService with Logging {
     }
 
     return PlaylistCoverData(localPath: localPath, networkUrl: networkUrl);
-  }
-
-  /// 获取歌单封面（使用第一首歌的封面或自定义封面）
-  /// @deprecated 使用 [getPlaylistCoverData] 替代
-  Future<String?> getPlaylistCover(int playlistId) async {
-    final coverData = await getPlaylistCoverData(playlistId);
-    return coverData.localPath ?? coverData.networkUrl;
   }
 
   /// 复制歌单

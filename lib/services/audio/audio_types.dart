@@ -46,3 +46,18 @@ class FmpAudioDevice {
   /// 自动选择设备（系统默认）
   static const auto = FmpAudioDevice(name: 'auto');
 }
+
+/// media_kit 后端在媒体打开后仍长时间停留在 idle（加载失败）时抛出。
+///
+/// `RadioController` 以型别判断是否要以重新取得串流网址的方式重试，
+/// 取代过去对错误消息子字符串（'Stream failed to open'）的比对——
+/// 跨平台一致且对消息文字变动免疫。
+class StreamOpenFailedException implements Exception {
+  final String? message;
+  const StreamOpenFailedException([this.message]);
+
+  @override
+  String toString() => message != null
+      ? 'StreamOpenFailedException: $message'
+      : 'StreamOpenFailedException';
+}

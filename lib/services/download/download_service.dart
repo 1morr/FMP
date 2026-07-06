@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/download_filenames.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/download_task.dart';
@@ -73,8 +74,13 @@ class DownloadService with Logging {
         Completer<void> stopped,
       })> _activeDownloadIsolates = {};
 
-  /// 旧的取消令牌（保留用于非 Isolate 下载，如果需要回退）
-  final Map<int, CancelToken> _activeCancelTokens = {};
+  /// 測試注入的「活躍任務」標記。
+  ///
+  /// 生產環境永遠為空（下載一律走 [_activeDownloadIsolates]）；僅由
+  /// [debugMarkTaskActiveForTesting] 寫入，讓 bookkeeping 測試（pauseAll /
+  /// 計數 / 並發等待）不必啟動真實 isolate 即可模擬活躍下載。取代舊的 dead
+  /// CancelToken map——cancel 語意已由 isolate kill 承擔，不再需要 token。
+  final Set<int> _injectedActiveTaskIds = {};
 
   /// 已被外部清理的任务 ID（pauseTask/cancelTask 已递减 _activeDownloads）
   final Set<int> _externallyCleaned = {};
@@ -203,6 +209,10 @@ class DownloadService with Logging {
     await _downloadRepository.resetDownloadingToPaused();
     if (_isDisposed) return;
 
+    // 清理孤兒 .downloading 暫存檔（崩潰/kill/斷電時 cancel/clear 來不及刪所殘留）
+    await _cleanupOrphanedDownloadingFiles();
+    if (_isDisposed) return;
+
     // 启动调度器
     _startScheduler();
 
@@ -210,6 +220,45 @@ class DownloadService with Logging {
     _startProgressUpdateTimer();
 
     logDebug('DownloadService initialized');
+  }
+
+  /// 啟動期掃描：刪除沒有對應任務的孤兒 `.downloading` 暫存檔
+  ///（崩潰/被 kill/斷電時 cancel/clear 來不及刪所殘留；A5）。
+  ///
+  /// 採 basename 比對——只刪「basename 不屬於任何現存任務」的檔案，
+  /// 絕不誤刪暫停中任務的續傳檔（同名時寧可留著不刪，安全優先於清理率）。
+  /// resetDownloadingToPaused() 已先執行，故所有可續傳任務皆為 paused 並在
+  /// keepBasenames 中。best-effort，例外僅 log 不中斷啟動。
+  Future<void> _cleanupOrphanedDownloadingFiles() async {
+    try {
+      final basePath =
+          await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      final baseDir = Directory(basePath);
+      if (!await baseDir.exists()) return;
+
+      final tasks = await _downloadRepository.getAllTasks();
+      final keepBasenames = <String>{
+        for (final t in tasks)
+          if (t.tempFilePath != null && t.tempFilePath!.isNotEmpty)
+            p.basename(t.tempFilePath!),
+      };
+
+      var deleted = 0;
+      await for (final entity
+          in baseDir.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+        final path = entity.path;
+        if (!path.endsWith('.downloading')) continue;
+        if (keepBasenames.contains(p.basename(path))) continue;
+        await _deletePathIfExists(path);
+        deleted++;
+      }
+      if (deleted > 0) {
+        logDebug('Cleaned up $deleted orphaned .downloading file(s) at startup');
+      }
+    } catch (e) {
+      logWarning('Failed to scan orphaned .downloading files at startup: $e');
+    }
   }
 
   /// 释放资源
@@ -238,11 +287,7 @@ class DownloadService with Logging {
     }
     _activeDownloadIsolates.clear();
 
-    // 兼容旧的 CancelToken
-    for (final cancelToken in _activeCancelTokens.values.toList()) {
-      cancelToken.cancel('Service disposed');
-    }
-    _activeCancelTokens.clear();
+    _injectedActiveTaskIds.clear();
     _pendingProgressUpdates.clear();
     _externallyCleaned.clear();
     _tasksInSetupWindow.clear();
@@ -616,7 +661,7 @@ class DownloadService with Logging {
 
     final activeTaskIds = {
       ..._activeDownloadIsolates.keys,
-      ..._activeCancelTokens.keys,
+      ..._injectedActiveTaskIds,
     }.toList();
     for (final taskId in activeTaskIds) {
       final task = await _downloadRepository.getTaskById(taskId);
@@ -647,7 +692,7 @@ class DownloadService with Logging {
     final tasksToDelete = tasks.where((task) => !task.isCompleted).toList();
     final activeTaskIds = {
       ..._activeDownloadIsolates.keys,
-      ..._activeCancelTokens.keys,
+      ..._injectedActiveTaskIds,
       ..._tasksInSetupWindow,
     }.toList();
     final guardedTaskIds = tasksToDelete
@@ -695,9 +740,9 @@ class DownloadService with Logging {
   Future<void> _startDownload(DownloadTask task) async {
     if (_discardedTaskIds.contains(task.id)) return;
 
-    // 检查是否已经在下载（Isolate 或旧的 CancelToken）
+    // 检查是否已经在下载
     if (_activeDownloadIsolates.containsKey(task.id) ||
-        _activeCancelTokens.containsKey(task.id)) {
+        _injectedActiveTaskIds.contains(task.id)) {
       logDebug('Task already downloading: ${task.id}');
       return;
     }
@@ -720,66 +765,18 @@ class DownloadService with Logging {
       trackTitle = track.title;
 
       // 获取音频 URL（使用用户设置的音频配置，与播放时逻辑一致）
-      final resolution = await _streamResolutionService.resolvePrimary(
-        track,
-        purpose: StreamResolutionPurpose.download,
-        persist: true,
-      );
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-      if (resolution is! RemoteStreamResolution) {
-        throw StateError(
-          'Download stream resolution returned a local file for '
-          '${track.sourceType.name}:${track.sourceId}',
-        );
-      }
-      final streamResult = resolution.stream;
-      final resolvedTrack = resolution.track;
-      final authHeaders = resolution.authHeaders;
-      final audioUrl = streamResult.url;
+      final stream = await _resolveDownloadStream(task, track);
+      if (stream == null) return;
+      final authHeaders = stream.authHeaders;
+      final audioUrl = stream.audioUrl;
 
-      // 更新 track 的 URL 信息
-      track.audioUrl = resolvedTrack.audioUrl;
-      track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
-      track.updatedAt = resolvedTrack.updatedAt;
-
-      logDebug('Got audio stream for download: ${track.title}, '
-          'bitrate=${streamResult.bitrate}');
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-
-      // 确定保存路径
-      final savePath = await _getDownloadPath(track, task);
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-      final tempPath = '$savePath.downloading';
-      if (await File(savePath).exists()) {
-        await _throwDestinationConflict(task, savePath);
-      }
-
-      // 确保目录存在
-      final dir = Directory(p.dirname(savePath));
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-
-      // 断点续传：检查是否有已下载的部分
-      int resumePosition = 0;
+      // 确定保存路径、目录与断点续传状态
+      final pathPlan = await _prepareDownloadPaths(task, track);
+      if (pathPlan == null) return;
+      final savePath = pathPlan.savePath;
+      final tempPath = pathPlan.tempPath;
+      final resumePosition = pathPlan.resumePosition;
       final tempFile = File(tempPath);
-      if (task.canResume &&
-          task.tempFilePath == tempPath &&
-          await tempFile.exists()) {
-        resumePosition = await tempFile.length();
-        logDebug('Resuming download from position: $resumePosition');
-      } else if (await tempFile.exists()) {
-        // 临时文件存在但不匹配，删除重新下载
-        await tempFile.delete();
-      }
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-
-      // 保存临时文件路径到任务（确保状态正确，因为传入的 task 对象可能是旧状态）
-      task.savePath ??= savePath;
-      task.tempFilePath = tempPath;
-      task.status = DownloadStatus.downloading;
-      await _downloadRepository.saveTask(task);
 
       // 使用 Isolate 进行下载，避免在主线程中进行网络 I/O
       // 这可以解决 Windows 上的 "Failed to post message to main thread" 错误
@@ -815,37 +812,9 @@ class DownloadService with Logging {
         stopped: isolateStopped,
       );
 
-      // 监听来自 Isolate 的消息
-      String? downloadError;
-      bool wasCancelled = false;
-      await for (final message in receivePort) {
-        if (message is _IsolateMessage) {
-          switch (message.type) {
-            case _IsolateMessageType.ready:
-              cancelPortReady.complete(message.data as SendPort);
-              break;
-            case _IsolateMessageType.progress:
-              final data = message.data as Map<String, dynamic>;
-              final progress = data['progress'] as double;
-              final received = data['received'] as int;
-              final total = data['total'] as int;
-              _recordProgressUpdate(
-                  task.id, task.trackId, progress, received, total);
-              break;
-            case _IsolateMessageType.completed:
-              receivePort.close();
-              break;
-            case _IsolateMessageType.error:
-              downloadError = message.data as String;
-              receivePort.close();
-              break;
-          }
-        } else if (message == 'cancelled') {
-          wasCancelled = true;
-          receivePort.close();
-          break;
-        }
-      }
+      // 监听来自 Isolate 的消息（ready/progress/completed/error/cancelled）
+      final outcome =
+          await _drainIsolateMessages(receivePort, task, cancelPortReady);
 
       // 清理 Isolate 引用（不从 map 移除，由 finally 统一处理）
       isolate.kill();
@@ -853,7 +822,7 @@ class DownloadService with Logging {
         isolateStopped.complete();
       }
 
-      if (_shouldAbortFinalization(task.id, wasCancelled: wasCancelled)) {
+      if (_shouldAbortFinalization(task.id, wasCancelled: outcome.cancelled)) {
         logDebug('Download stopped before finalization for task: ${task.id}');
         if (!_isDisposed) {
           await _saveResumeProgress(task);
@@ -861,71 +830,12 @@ class DownloadService with Logging {
         return;
       }
 
-      if (downloadError != null) {
-        throw Exception('Download failed: $downloadError');
+      if (outcome.error != null) {
+        throw Exception('Download failed: ${outcome.error}');
       }
 
-      // 下载完成，使用 no-replace finalization，避免覆盖用户已有文件。
-      await _promoteTempFileWithoutReplacing(tempFile, savePath, task);
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
-
-      // 获取 VideoDetail（用于保存完整元数据）
-      VideoDetail? videoDetail;
-      try {
-        final detailSource = _sourceManager.trackDetailSource(track.sourceType);
-        if (detailSource != null && track.sourceType != SourceType.netease) {
-          final detailAuthHeaders =
-              await _sourceAuthContext.authForPlay(track.sourceType);
-          videoDetail = await detailSource.getVideoDetail(
-            track.sourceId,
-            authHeaders: detailAuthHeaders,
-          );
-        }
-      } catch (e) {
-        logDebug('Failed to get video detail: $e');
-      }
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
-
-      // 保存元数据（总是用最新数据覆盖）
-      await _saveMetadata(
-        track,
-        savePath,
-        videoDetail: videoDetail,
-      );
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
-
-      // A3: 验证文件存在后才保存下载路径到 Track
-      if (await File(savePath).exists()) {
-        if (_shouldAbortAfterFinalizationStarted(task.id)) {
-          await _clearDownloadPathForTask(task);
-          await _deleteTaskFiles(task);
-          return;
-        }
-        await _downloadRepository.completeTaskWithDownloadPath(
-          taskId: task.id,
-          savePath: savePath,
-        );
-      } else {
-        logError('Download completed but file not found at: $savePath');
-        throw Exception('Downloaded file not found at expected path');
-      }
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
+      // 下载完成：promote 暂存档、抓元资料、写下载路径（每步 abort 检查）。
+      if (!await _finalizeDownload(task, track, savePath, tempFile)) return;
 
       logDebug('Download completed for track: ${track.title}');
 
@@ -960,6 +870,188 @@ class DownloadService with Logging {
     }
   }
 
+  /// 消费 Isolate 的 ready/progress/completed/error/cancelled 讯息直到串流结束。
+  ///
+  /// [cancelPortReady] 于收到 ready 讯息时完成（供 cancelTask 取得取消通道）。
+  /// 回传 (error, cancelled)：error 非 null 代表 isolate 回报错误；
+  /// cancelled 代表收到取消讯号。
+  Future<({String? error, bool cancelled})> _drainIsolateMessages(
+    ReceivePort receivePort,
+    DownloadTask task,
+    Completer<SendPort> cancelPortReady,
+  ) async {
+    String? downloadError;
+    bool wasCancelled = false;
+    await for (final message in receivePort) {
+      if (message is _IsolateMessage) {
+        switch (message.type) {
+          case _IsolateMessageType.ready:
+            cancelPortReady.complete(message.data as SendPort);
+            break;
+          case _IsolateMessageType.progress:
+            final data = message.data as Map<String, dynamic>;
+            final progress = data['progress'] as double;
+            final received = data['received'] as int;
+            final total = data['total'] as int;
+            _recordProgressUpdate(
+                task.id, task.trackId, progress, received, total);
+            break;
+          case _IsolateMessageType.completed:
+            receivePort.close();
+            break;
+          case _IsolateMessageType.error:
+            downloadError = message.data as String;
+            receivePort.close();
+            break;
+        }
+      } else if (message == 'cancelled') {
+        wasCancelled = true;
+        receivePort.close();
+        break;
+      }
+    }
+    return (error: downloadError, cancelled: wasCancelled);
+  }
+
+  /// 抓取 VideoDetail 用于保存完整元数据；失败只记录不抛（与原 inline
+  /// 行为一致）。Netease 没有 detail source，直接跳过。
+  Future<VideoDetail?> _fetchVideoDetail(Track track) async {
+    try {
+      final detailSource = _sourceManager.trackDetailSource(track.sourceType);
+      if (detailSource != null && track.sourceType != SourceType.netease) {
+        final detailAuthHeaders =
+            await _sourceAuthContext.authForPlay(track.sourceType);
+        return await detailSource.getVideoDetail(
+          track.sourceId,
+          authHeaders: detailAuthHeaders,
+        );
+      }
+    } catch (e) {
+      logDebug('Failed to get video detail: $e');
+    }
+    return null;
+  }
+
+  /// Finalization 已开始后若任务已取消/丢弃，清掉落盘产物并回传 true；
+  /// 否则回传 false（caller 继续 finalization）。收斂原 _startDownload 内
+  /// 5 处 byte-identical 的 abort 清理区块（C2）。
+  Future<bool> _abortFinalizationCleanup(DownloadTask task) async {
+    if (!_shouldAbortAfterFinalizationStarted(task.id)) return false;
+    await _clearDownloadPathForTask(task);
+    await _deleteTaskFiles(task);
+    return true;
+  }
+
+  /// Finalization 序列：promote 暂存档 → 抓 VideoDetail → 存元资料 → 验证
+  /// 档案存在 → 写入下载路径。每步后检查 abort；任一步 abort 回传 false
+  /// （caller 略过完成事件），全程完成回传 true。档案不存在时抛例外
+  /// （由 _startDownload 的 catch 处理）。
+  Future<bool> _finalizeDownload(
+    DownloadTask task,
+    Track track,
+    String savePath,
+    File tempFile,
+  ) async {
+    // 下载完成，使用 no-replace finalization，避免覆盖用户已有文件。
+    await _promoteTempFileWithoutReplacing(tempFile, savePath, task);
+    if (await _abortFinalizationCleanup(task)) return false;
+
+    final videoDetail = await _fetchVideoDetail(track);
+    if (await _abortFinalizationCleanup(task)) return false;
+
+    // 保存元数据（总是用最新数据覆盖）
+    await _saveMetadata(track, savePath, videoDetail: videoDetail);
+    if (await _abortFinalizationCleanup(task)) return false;
+
+    // A3: 验证文件存在后才保存下载路径到 Track
+    if (await File(savePath).exists()) {
+      if (await _abortFinalizationCleanup(task)) return false;
+      await _downloadRepository.completeTaskWithDownloadPath(
+        taskId: task.id,
+        savePath: savePath,
+      );
+    } else {
+      logError('Download completed but file not found at: $savePath');
+      throw Exception('Downloaded file not found at expected path');
+    }
+    if (await _abortFinalizationCleanup(task)) return false;
+
+    return true;
+  }
+
+  /// 解析下載串流：resolvePrimary + 驗證為 remote + 取出 authHeaders/audioUrl，
+  /// 並把 URL 資訊寫回 track。任一 abort checkpoint 取消時回傳 null（caller
+  /// 隨即 return，由 _startDownload 的 finally 收尾）。
+  Future<({Map<String, String>? authHeaders, String audioUrl})?>
+      _resolveDownloadStream(DownloadTask task, Track track) async {
+    final resolution = await _streamResolutionService.resolvePrimary(
+      track,
+      purpose: StreamResolutionPurpose.download,
+      persist: true,
+    );
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+    if (resolution is! RemoteStreamResolution) {
+      throw StateError(
+        'Download stream resolution returned a local file for '
+        '${track.sourceType.name}:${track.sourceId}',
+      );
+    }
+    final streamResult = resolution.stream;
+    final resolvedTrack = resolution.track;
+
+    // 更新 track 的 URL 信息
+    track.audioUrl = resolvedTrack.audioUrl;
+    track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
+    track.updatedAt = resolvedTrack.updatedAt;
+
+    logDebug('Got audio stream for download: ${track.title}, '
+        'bitrate=${streamResult.bitrate}');
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+
+    return (authHeaders: resolution.authHeaders, audioUrl: streamResult.url);
+  }
+
+  /// 決定儲存路徑、建立目錄、處理斷點續傳，並把 tempPath/status 寫回 task。
+  /// 任務取消時回傳 null。
+  Future<({String savePath, String tempPath, int resumePosition})?>
+      _prepareDownloadPaths(DownloadTask task, Track track) async {
+    final savePath = await _getDownloadPath(track, task);
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+    final tempPath = '$savePath.downloading';
+    if (await File(savePath).exists()) {
+      await _throwDestinationConflict(task, savePath);
+    }
+
+    // 确保目录存在
+    final dir = Directory(p.dirname(savePath));
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+
+    // 断点续传：检查是否有已下载的部分
+    int resumePosition = 0;
+    final tempFile = File(tempPath);
+    if (task.canResume &&
+        task.tempFilePath == tempPath &&
+        await tempFile.exists()) {
+      resumePosition = await tempFile.length();
+      logDebug('Resuming download from position: $resumePosition');
+    } else if (await tempFile.exists()) {
+      // 临时文件存在但不匹配，删除重新下载
+      await tempFile.delete();
+    }
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+
+    // 保存临时文件路径到任务（确保状态正确，因为传入的 task 对象可能是旧状态）
+    task.savePath ??= savePath;
+    task.tempFilePath = tempPath;
+    task.status = DownloadStatus.downloading;
+    await _downloadRepository.saveTask(task);
+
+    return (savePath: savePath, tempPath: tempPath, resumePosition: resumePosition);
+  }
+
   void _clearPendingProgressForTask(int taskId) {
     _pendingProgressUpdates.remove(taskId);
   }
@@ -978,7 +1070,7 @@ class DownloadService with Logging {
 
   bool _isTaskActiveOrStarting(int taskId) {
     return _activeDownloadIsolates.containsKey(taskId) ||
-        _activeCancelTokens.containsKey(taskId) ||
+        _injectedActiveTaskIds.contains(taskId) ||
         _tasksInSetupWindow.contains(taskId) ||
         _externallyCleaned.contains(taskId);
   }
@@ -991,6 +1083,7 @@ class DownloadService with Logging {
     int taskId, {
     required String cancelReason,
   }) async {
+    logDebug('Cleanup active download task=$taskId reason=$cancelReason');
     final isolateInfo = _activeDownloadIsolates.remove(taskId);
     if (isolateInfo != null) {
       if (isolateInfo.cancelPortReady.isCompleted) {
@@ -1005,10 +1098,9 @@ class DownloadService with Logging {
       }
     }
 
-    final cancelToken = _activeCancelTokens.remove(taskId);
-    cancelToken?.cancel(cancelReason);
+    final wasInjected = _injectedActiveTaskIds.remove(taskId);
 
-    if (isolateInfo == null && cancelToken == null) {
+    if (isolateInfo == null && !wasInjected) {
       if (_tasksInSetupWindow.contains(taskId)) {
         _setupAbortedTasks.add(taskId);
         if (!_externallyCleaned.contains(taskId)) {
@@ -1037,7 +1129,7 @@ class DownloadService with Logging {
 
   void _finalizeTaskCleanup(int taskId) {
     final wasStillActive = _activeDownloadIsolates.remove(taskId) != null;
-    _activeCancelTokens.remove(taskId);
+    _injectedActiveTaskIds.remove(taskId);
     _tasksInSetupWindow.remove(taskId);
     final wasSetupAborted = _setupAbortedTasks.remove(taskId);
     final wasExternallyCleaned = _externallyCleaned.remove(taskId);
@@ -1127,48 +1219,55 @@ class DownloadService with Logging {
     }
   }
 
-  Future<void> _deletePathIfExists(String path) async {
+  /// 以最多 10 次、每次間隔 50ms 的重試執行刪除操作；FileSystemException 重試，
+  /// 其他例外立即放棄。Windows 上檔案/目錄可能被短暫占用（C9：原兩個方法的重試
+  /// 骨架逐字相同，抽出共用）。 [action] 回傳 true=已完成（停止），false=尚未完成
+  /// （繼續重試，例如檔案尚未出現）。
+  Future<void> _retryDelete({
+    required Future<bool> Function() action,
+    required String label,
+  }) async {
     for (var attempt = 0; attempt < 10; attempt++) {
       try {
-        final file = File(path);
-        if (await file.exists()) {
-          await file.delete();
-          return;
-        }
+        if (await action()) return;
         if (attempt == 9) return;
         await Future<void>.delayed(const Duration(milliseconds: 50));
       } on FileSystemException catch (e) {
         if (attempt == 9) {
-          logDebug('Failed to delete download file $path: $e');
+          logDebug('Failed to $label: $e');
           return;
         }
         await Future<void>.delayed(const Duration(milliseconds: 50));
       } catch (e) {
-        logDebug('Failed to delete download file $path: $e');
+        logDebug('Failed to $label: $e');
         return;
       }
     }
   }
 
-  Future<void> _deleteDirectoryIfEmpty(String path, int taskId) async {
-    for (var attempt = 0; attempt < 10; attempt++) {
-      try {
+  Future<void> _deletePathIfExists(String path) {
+    return _retryDelete(
+      label: 'delete download file $path',
+      action: () async {
+        final file = File(path);
+        if (!await file.exists()) return false; // 檔案尚未出現，重試等待
+        await file.delete();
+        return true;
+      },
+    );
+  }
+
+  Future<void> _deleteDirectoryIfEmpty(String path, int taskId) {
+    return _retryDelete(
+      label: 'delete download directory for task $taskId',
+      action: () async {
         final directory = Directory(path);
-        if (!await directory.exists()) return;
-        if (!await directory.list().isEmpty) return;
+        if (!await directory.exists()) return true;
+        if (!await directory.list().isEmpty) return true; // 非空 → 不刪
         await directory.delete();
-        return;
-      } on FileSystemException catch (e) {
-        if (attempt == 9) {
-          logDebug('Failed to delete download directory for task $taskId: $e');
-          return;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      } catch (e) {
-        logDebug('Failed to delete download directory for task $taskId: $e');
-        return;
-      }
-    }
+        return true;
+      },
+    );
   }
 
   /// 处理下载失败：保存续传进度、更新状态、发送失败事件
@@ -1293,7 +1392,7 @@ class DownloadService with Logging {
     // 多P视频使用分P专属的 metadata 文件名，避免覆盖
     final metadataFileName = track.isPartOfMultiPage && track.pageNum != null
         ? 'metadata_P${track.pageNum!.toString().padLeft(2, '0')}.json'
-        : 'metadata.json';
+        : DownloadFileNames.metadata;
     final metadataFile = File(p.join(videoDir.path, metadataFileName));
     try {
       await metadataFile.writeAsString(jsonEncode(metadata));
@@ -1306,7 +1405,7 @@ class DownloadService with Logging {
     if (settings.downloadImageOption != DownloadImageOption.none &&
         track.thumbnailUrl != null) {
       try {
-        final coverPath = p.join(videoDir.path, 'cover.jpg');
+        final coverPath = p.join(videoDir.path, DownloadFileNames.cover);
         final coverUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           track.thumbnailUrl!,
           displaySize: ImageTargetSizes.high,
@@ -1326,7 +1425,7 @@ class DownloadService with Logging {
         videoDetail != null &&
         videoDetail.ownerFace.isNotEmpty) {
       try {
-        final avatarPath = p.join(videoDir.path, 'avatar.jpg');
+        final avatarPath = p.join(videoDir.path, DownloadFileNames.avatar);
         final avatarUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           videoDetail.ownerFace,
           displaySize: ImageTargetSizes.low,
@@ -1424,8 +1523,8 @@ class DownloadService with Logging {
   }
 
   @visibleForTesting
-  void debugRegisterLegacyActiveDownloadForTesting(int taskId) {
-    _activeCancelTokens[taskId] = CancelToken();
+  void debugMarkTaskActiveForTesting(int taskId) {
+    _injectedActiveTaskIds.add(taskId);
     _activeDownloads++;
   }
 
@@ -1443,7 +1542,7 @@ class DownloadService with Logging {
   Future<void> debugWaitForTaskToBecomeActiveForTesting(int taskId) async {
     for (var i = 0; i < 100; i++) {
       if (_activeDownloadIsolates.containsKey(taskId) ||
-          _activeCancelTokens.containsKey(taskId)) {
+          _injectedActiveTaskIds.contains(taskId)) {
         return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 10));

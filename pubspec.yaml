@@ -1,5 +1,5 @@
 name: fmp
-description: "Flutter Music Player - 跨平台音乐播放器，支持 Bilibili 和 YouTube 音源"
+description: "Flutter Music Player - 跨平台音乐播放器，支持 Bilibili、YouTube 与网易云音乐音源"
 publish_to: 'none'
 
 version: 1.0.0+1

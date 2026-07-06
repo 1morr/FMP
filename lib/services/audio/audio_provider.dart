@@ -379,58 +379,26 @@ class AudioController extends StateNotifier<PlayerState>
       final positionToRestore = _queueManager.savedPosition;
       logDebug('Position to restore: $positionToRestore');
 
-      // 监听播放器状态
-      _subscriptions.add(
-        _audioService.playerStateStream.listen(_onPlayerStateChanged),
-      );
+      // 註冊 audio service 串流訂閱（统一加入 _subscriptions 以便 dispose 取消）。
+      void subscribe<T>(Stream<T> stream, void Function(T) handler) {
+        _subscriptions.add(stream.listen(handler));
+      }
 
-      // 监听进度
-      _subscriptions.add(
-        _audioService.positionStream.listen(_onPositionChanged),
-      );
-
-      // 监听时长
-      _subscriptions.add(
-        _audioService.durationStream.listen(_onDurationChanged),
-      );
-
-      // 监听缓冲进度
-      _subscriptions.add(
-        _audioService.bufferedPositionStream.listen(_onBufferedPositionChanged),
-      );
-
-      // 监听速度
-      _subscriptions.add(
-        _audioService.speedStream.listen(_onSpeedChanged),
-      );
-
-      // 监听音频设备列表变化
-      _subscriptions.add(
-        _audioService.audioDevicesStream.listen(_onAudioDevicesChanged),
-      );
-
-      // 监听当前音频设备变化
-      _subscriptions.add(
-        _audioService.audioDeviceStream.listen(_onAudioDeviceChanged),
-      );
-
-      // 监听歌曲完成事件
-      _subscriptions.add(
-        _audioService.completedStream.listen(_onTrackCompleted),
-      );
-
-      // 监听错误事件（用于网络错误自动重试）
-      _subscriptions.add(
-        _audioService.errorStream.listen(_onAudioError),
-      );
+      subscribe(_audioService.playerStateStream, _onPlayerStateChanged);
+      subscribe(_audioService.positionStream, _onPositionChanged);
+      subscribe(_audioService.durationStream, _onDurationChanged);
+      subscribe(_audioService.bufferedPositionStream, _onBufferedPositionChanged);
+      subscribe(_audioService.speedStream, _onSpeedChanged);
+      subscribe(_audioService.audioDevicesStream, _onAudioDevicesChanged);
+      subscribe(_audioService.audioDeviceStream, _onAudioDeviceChanged);
+      subscribe(_audioService.completedStream, _onTrackCompleted);
+      subscribe(_audioService.errorStream, _onAudioError);
 
       // 启动基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）
       _startPositionCheckTimer();
 
       // 监听队列状态变化
-      _subscriptions.add(
-        _queueManager.stateStream.listen(_onQueueStateChanged),
-      );
+      subscribe(_queueManager.stateStream, _onQueueStateChanged);
 
       // 设置 AudioHandler 回调（仅在 Android/iOS 上有效）
       if (_usesMobileAudioHandler) {
@@ -2303,14 +2271,7 @@ class AudioController extends StateNotifier<PlayerState>
       // 网络错误和超时：走重试逻辑，而非通用错误处理
       if (_shouldRetrySourceError(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
-        _resetLoadingState(requestId: requestId);
-        _scheduleRetryForSessionRequest(
-          requestId,
-          track,
-          positionBeforeLoad,
-          mode,
-        );
-        throw const _RetryScheduledException();
+        _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
       if (requestId == null || _isSessionSuperseded(requestId)) return;
       await _handleSourceError(track, e, mode, requestId);
@@ -2325,14 +2286,7 @@ class AudioController extends StateNotifier<PlayerState>
       // Check if original error is retryable
       if (_isRetryableError(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
-        _resetLoadingState(requestId: requestId);
-        _scheduleRetryForSessionRequest(
-          requestId,
-          track,
-          positionBeforeLoad,
-          mode,
-        );
-        throw const _RetryScheduledException();
+        _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
 
       if (requestId != null && _isSessionSuperseded(requestId)) return;
@@ -2349,6 +2303,21 @@ class AudioController extends StateNotifier<PlayerState>
         _resetLoadingState(requestId: requestId);
       }
     }
+  }
+
+  /// 排程播放請求的重試並擲出 [_RetryScheduledException]（一定 throw）。
+  ///
+  /// 呼叫端須先確認「可重試」且已通過 superseded 檢查（superseded 時呼叫端自行
+  /// return，不可進到此處）。封裝 reset→schedule→throw 三步，取代兩處逐字重複（C12）。
+  Never _scheduleSessionRetry(
+    int requestId,
+    Track track,
+    Duration? positionBeforeLoad,
+    PlayMode mode,
+  ) {
+    _resetLoadingState(requestId: requestId);
+    _scheduleRetryForSessionRequest(requestId, track, positionBeforeLoad, mode);
+    throw const _RetryScheduledException();
   }
 
   /// 處理音源 API 錯誤的統一邏輯
@@ -2823,9 +2792,9 @@ class AudioController extends StateNotifier<PlayerState>
       if (nextTrack != null) {
         unawaited(_audioStreamManager.prefetchTrack(nextTrack.copy()));
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_isDisposed) return;
-      logError('Failed to prepare track: ${track.title}', e);
+      logError('Failed to prepare track: ${track.title}', e, stack);
       if (requestId != null) {
         _resetLoadingState(requestId: requestId);
       }

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +10,14 @@ import '../../services/lyrics/lyrics_window_style.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lyrics/lyrics_style_dialog.dart';
 import '../widgets/lyrics/lyrics_styled_text.dart';
+import 'lyrics_display_mode.dart';
+import 'lyrics/lyrics_empty_state.dart';
+import 'lyrics/lyrics_line_item.dart';
+import 'lyrics/lyrics_offset_bar.dart';
+import 'lyrics/lyrics_offset_math.dart';
+import 'lyrics/lyrics_single_line_view.dart';
+import 'lyrics/lyrics_title_bar.dart';
+import 'lyrics_text_measurer.dart';
 
 /// 歌词弹出窗口入口点
 ///
@@ -190,7 +197,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   bool _alwaysOnTop = true;
   bool _showOffsetControls = false;
   bool _isPlaying = false;
-  int _displayModeIndex = 0; // 0=original, 1=preferTranslated, 2=preferRomaji
+  LyricsDisplayMode _displayMode = LyricsDisplayMode.original;
   bool _transparentMode = false;
   bool _singleLineMode = false;
   bool _isHovering = false;
@@ -318,9 +325,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
   void _handleUpdateLyricsDisplayMode(String jsonStr) {
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-    final modeIndex = data['modeIndex'] as int? ?? 0;
-    if (_displayModeIndex != modeIndex) {
-      setState(() => _displayModeIndex = modeIndex);
+    final mode = LyricsDisplayMode.fromIndex(data['modeIndex'] as int?);
+    if (_displayMode != mode) {
+      setState(() => _displayMode = mode);
       // 切换显示模式后滚动到当前播放行
       if (!_singleLineMode) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -425,7 +432,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     if (!_isSynced || index < 0 || index >= _lines.length) return;
     final timestamp = _lines[index].timestamp;
     if (timestamp == null) return;
-    _updateOffset(timestamp.inMilliseconds - _positionMs);
+    _updateOffset(
+        LyricsOffsetMath.calibrationOffsetForLine(timestamp, _positionMs));
   }
 
   void _updateOffset(int newOffsetMs) {
@@ -456,12 +464,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   // ─── Actions ───
 
   void _cycleLyricsDisplayMode() {
-    final nextIndex = (_displayModeIndex + 1) % 3;
-    setState(() => _displayModeIndex = nextIndex);
+    final nextMode = _displayMode.next;
+    setState(() => _displayMode = nextMode);
     try {
       _channel.invokeMethod(
         'changeLyricsDisplayMode',
-        jsonEncode({'modeIndex': nextIndex}),
+        jsonEncode({'modeIndex': nextMode.modeIndex}),
       );
     } catch (_) {}
     // 切换显示模式后滚动到当前播放行
@@ -560,33 +568,16 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       return;
     }
 
-    final textDirection = Directionality.of(context);
-    final widths = <double>[];
-
-    for (final line in _lines) {
-      if (line.text.isEmpty) continue;
-      final painter = TextPainter(
-        text: TextSpan(
-          text: line.text,
-          style: LyricsTextStyles.fromTheme(
-            context,
-            fontSize: _refFontSize,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        maxLines: 1,
-        textDirection: textDirection,
-      )..layout();
-      widths.add(painter.width);
-      painter.dispose();
-    }
-
-    if (widths.isEmpty) {
-      _cachedRefWidth = 0;
-    } else {
-      widths.sort();
-      _cachedRefWidth = widths[widths.length ~/ 2];
-    }
+    _cachedRefWidth = LyricsTextMeasurer.medianReferenceWidth(
+      texts: _lines.map((line) => line.text),
+      refFontSize: _refFontSize,
+      styleBuilder: (fontSize, weight) => LyricsTextStyles.fromTheme(
+        context,
+        fontSize: fontSize,
+        fontWeight: weight,
+      ),
+      textDirection: Directionality.of(context),
+    );
     _cachedLineCount = _lines.length;
     _cachedFirstLine = firstLine;
   }
@@ -595,18 +586,15 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       double availableWidth, BuildContext context) {
     _ensureRefWidth(context);
 
-    if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
-      final sub =
-          (_maxFontSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-      return (main: _maxFontSize, sub: sub);
-    }
-
-    final safeWidth = availableWidth * _boldSafetyFactor;
-    final mainSize = (_refFontSize * (safeWidth / _cachedRefWidth!))
-        .clamp(_minFontSize, _maxFontSize);
-    final subSize =
-        (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-    return (main: mainSize, sub: subSize);
+    return LyricsTextMeasurer.fontSizesFromReferenceWidth(
+      referenceWidth: _cachedRefWidth,
+      availableWidth: availableWidth,
+      minFontSize: _minFontSize,
+      maxFontSize: _maxFontSize,
+      refFontSize: _refFontSize,
+      subFontRatio: _subFontRatio,
+      boldSafetyFactor: _boldSafetyFactor,
+    );
   }
 
   // ─── Helpers ───
@@ -616,32 +604,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return appState?.strings ?? _LyricsWindowStrings();
   }
 
-  IconData get _displayModeIcon {
-    switch (_displayModeIndex) {
-      case 1:
-        return Icons.translate;
-      case 2:
-        return Icons.abc;
-      default:
-        return Icons.title;
-    }
-  }
+  IconData get _displayModeIcon => _displayMode.icon;
 
   String get _displayModeTooltip {
-    switch (_displayModeIndex) {
-      case 1:
-        return _strings.displayPreferTranslated;
-      case 2:
-        return _strings.displayPreferRomaji;
-      default:
+    switch (_displayMode) {
+      case LyricsDisplayMode.original:
         return _strings.displayOriginal;
+      case LyricsDisplayMode.preferTranslated:
+        return _strings.displayPreferTranslated;
+      case LyricsDisplayMode.preferRomaji:
+        return _strings.displayPreferRomaji;
     }
-  }
-
-  String _formatOffset(int offsetMs) {
-    if (offsetMs == 0) return '0.0s';
-    final seconds = offsetMs / 1000;
-    return '${seconds >= 0 ? '+' : ''}${seconds.toStringAsFixed(1)}s';
   }
 
   Widget _buildContent() {
@@ -715,238 +688,71 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildTitleBar() {
-    final t = _transparentMode;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // 透明模式：白色系文字 + 半透明深色背景
-    // 普通模式：跟随主题
-    final iconColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
-    final titleColor = t ? Colors.white : colorScheme.onSurface;
-    final subtitleColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
-    final activeColor = t ? Colors.amber : colorScheme.primary;
-    final bgColor = t ? Colors.black.withValues(alpha: 0.85) : null;
-    final borderColor =
-        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
-
-    return GestureDetector(
-      onPanStart: (_) => windowManager.startDragging(),
-      child: Container(
-        height: LyricsWindowLayout.titleBarHeight,
-        padding: const EdgeInsets.only(left: 16, right: 4, top: 6, bottom: 6),
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: Border(bottom: BorderSide(color: borderColor)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.lyrics_outlined, size: 18, color: iconColor),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _trackTitle ?? 'Lyrics',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (_trackArtist != null)
-                    Text(
-                      _trackArtist!,
-                      style: TextStyle(fontSize: 11, color: subtitleColor),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            // 播放控制
-            _titleBarButton(
-              Icons.skip_previous_rounded,
-              18,
-              _sendPrevious,
-              color: iconColor,
-              semanticsLabel: _strings.previous,
-            ),
-            _titleBarButton(
-              _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              20,
-              _sendPlayPause,
-              color: titleColor,
-              semanticsLabel: _isPlaying ? _strings.pause : _strings.play,
-            ),
-            _titleBarButton(
-              Icons.skip_next_rounded,
-              18,
-              _sendNext,
-              color: iconColor,
-              semanticsLabel: _strings.next,
-            ),
-            const SizedBox(width: 4),
-            // 歌词显示模式
-            _titleBarButton(
-              _displayModeIcon,
-              16,
-              _cycleLyricsDisplayMode,
-              color: iconColor,
-              tooltip: _displayModeTooltip,
-              semanticsLabel: _displayModeTooltip,
-            ),
-            _titleBarButton(
-              Icons.palette_outlined,
-              16,
-              _showLyricsStyleDialog,
-              color: iconColor,
-              tooltip: _strings.styleSettings,
-              semanticsLabel: _strings.styleSettings,
-            ),
-            // 单行/全部歌词切换
-            _titleBarButton(
-              _singleLineMode ? Icons.view_headline : Icons.short_text,
-              16,
-              () {
-                final wasInSingleLine = _singleLineMode;
-                setState(() => _singleLineMode = !_singleLineMode);
-                // 从单行切换到多行时，ScrollablePositionedList 刚创建，
-                // 需要等下一帧 controller attach 后再滚动
-                if (wasInSingleLine) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _scrollToCurrentLine(jump: true);
-                  });
-                }
-              },
-              color: _singleLineMode ? activeColor : iconColor,
-              tooltip:
-                  _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
-              semanticsLabel:
-                  _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
-            ),
-            // 透明模式切换
-            _titleBarButton(
-              t ? Icons.opacity : Icons.format_color_fill,
-              16,
-              _toggleTransparentMode,
-              color: t ? activeColor : iconColor,
-              tooltip: t ? _strings.normalMode : _strings.transparentMode,
-              semanticsLabel:
-                  t ? _strings.normalMode : _strings.transparentMode,
-            ),
-            // 置顶
-            _titleBarButton(
-              _alwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
-              16,
-              () async {
-                setState(() => _alwaysOnTop = !_alwaysOnTop);
-                await windowManager.setAlwaysOnTop(_alwaysOnTop);
-              },
-              color: _alwaysOnTop ? activeColor : iconColor,
-              tooltip: _alwaysOnTop ? _strings.unpin : _strings.pin,
-              semanticsLabel: _alwaysOnTop ? _strings.unpin : _strings.pin,
-            ),
-            // Offset 调整
-            if (_isSynced && _lines.isNotEmpty)
-              _titleBarButton(
-                Icons.timer_outlined,
-                16,
-                () =>
-                    setState(() => _showOffsetControls = !_showOffsetControls),
-                color: _showOffsetControls ? activeColor : iconColor,
-                tooltip: _strings.offsetAdjust,
-                semanticsLabel: _strings.offsetAdjust,
-              ),
-            // 关闭
-            _titleBarButton(
-              Icons.close,
-              16,
-              _requestHide,
-              color: iconColor,
-              tooltip: _strings.close,
-              semanticsLabel: _strings.close,
-            ),
-          ],
-        ),
+    return LyricsTitleBar(
+      title: _trackTitle,
+      artist: _trackArtist,
+      transparentMode: _transparentMode,
+      isPlaying: _isPlaying,
+      displayModeIcon: _displayModeIcon,
+      displayModeTooltip: _displayModeTooltip,
+      singleLineMode: _singleLineMode,
+      alwaysOnTop: _alwaysOnTop,
+      isSynced: _isSynced,
+      hasLines: _lines.isNotEmpty,
+      showOffsetControls: _showOffsetControls,
+      labels: LyricsTitleBarLabels(
+        previous: _strings.previous,
+        play: _strings.play,
+        pause: _strings.pause,
+        next: _strings.next,
+        styleSettings: _strings.styleSettings,
+        fullLyrics: _strings.fullLyrics,
+        singleLine: _strings.singleLine,
+        normalMode: _strings.normalMode,
+        transparentMode: _strings.transparentMode,
+        unpin: _strings.unpin,
+        pin: _strings.pin,
+        offsetAdjust: _strings.offsetAdjust,
+        close: _strings.close,
       ),
-    );
-  }
-
-  Widget _titleBarButton(
-    IconData icon,
-    double size,
-    VoidCallback onPressed, {
-    Color? color,
-    String? tooltip,
-    required String semanticsLabel,
-  }) {
-    final button = IconButton(
-      icon: ExcludeSemantics(child: Icon(icon, size: size, color: color)),
-      onPressed: onPressed,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-    );
-
-    return Semantics(
-      button: true,
-      label: tooltip ?? semanticsLabel,
-      child: tooltip == null
-          ? button
-          : Tooltip(
-              message: tooltip,
-              excludeFromSemantics: true,
-              child: button,
-            ),
+      onDragStart: (_) => windowManager.startDragging(),
+      onPrevious: _sendPrevious,
+      onPlayPause: _sendPlayPause,
+      onNext: _sendNext,
+      onCycleDisplayMode: _cycleLyricsDisplayMode,
+      onShowStyleDialog: _showLyricsStyleDialog,
+      onToggleSingleLine: () {
+        final wasInSingleLine = _singleLineMode;
+        setState(() => _singleLineMode = !_singleLineMode);
+        // 从单行切换到多行时，ScrollablePositionedList 刚创建，
+        // 需要等下一帧 controller attach 后再滚动
+        if (wasInSingleLine) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToCurrentLine(jump: true);
+          });
+        }
+      },
+      onToggleTransparent: _toggleTransparentMode,
+      onToggleAlwaysOnTop: () async {
+        setState(() => _alwaysOnTop = !_alwaysOnTop);
+        await windowManager.setAlwaysOnTop(_alwaysOnTop);
+      },
+      onToggleOffsetControls: () =>
+          setState(() => _showOffsetControls = !_showOffsetControls),
+      onClose: _requestHide,
     );
   }
 
   Widget _buildEmpty() {
-    final t = _transparentMode;
-    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
-    final colorScheme = Theme.of(context).colorScheme;
-    final waitingColor = _lyricsStyle.resolveSecondaryColor(
-      isCurrent: true,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurfaceVariant,
-      fallbackInactiveColor: colorScheme.onSurfaceVariant,
-    );
-
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.lyrics_outlined,
-            size: 48,
-            color: t
-                ? Colors.white.withValues(alpha: 0.4)
-                : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-            shadows: t ? _lyricsStyle.shadows : null,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _strings.waitingLyrics,
-            style: TextStyle(
-              fontSize: 14,
-              color: waitingColor,
-              shadows: applyTextStyle ? _lyricsStyle.shadows : null,
-            ),
-          ),
-        ],
-      ),
+    return LyricsEmptyState(
+      transparentMode: _transparentMode,
+      style: _lyricsStyle,
+      waitingText: _strings.waitingLyrics,
     );
   }
 
   Widget _buildSingleLine() {
-    final t = _transparentMode;
-    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // 获取当前行文本
+    // 文字解析（當前行 → 曲名 fallback）留在 State；字級擬合與呈現由 leaf 負責。
     String mainText = '';
     String? subText;
     if (_currentLineIndex >= 0 && _currentLineIndex < _lines.length) {
@@ -958,219 +764,16 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       mainText = _trackTitle ?? '';
     }
 
-    final mainColor = _lyricsStyle.resolveMainColor(
-      isCurrent: true,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface,
-      fallbackInactiveColor: colorScheme.onSurface,
-    );
-    final subColor = _lyricsStyle.resolveSecondaryColor(
-      isCurrent: true,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface.withValues(alpha: 0.6),
-      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.6),
-    );
-    final hasSubText = subText != null && subText.isNotEmpty;
-
-    return GestureDetector(
-      onTap: _isSynced && _currentLineIndex >= 0
-          ? () => _seekToLine(_currentLineIndex)
-          : null,
-      onSecondaryTap: _isSynced && _currentLineIndex >= 0
-          ? () => _calibrateOffsetToLine(_currentLineIndex)
-          : null,
-      behavior: HitTestBehavior.opaque,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxW = constraints.maxWidth - 32;
-          final maxH = constraints.maxHeight - 24;
-          if (maxW <= 0 || maxH <= 0) return const SizedBox.shrink();
-
-          const refSize = 100.0;
-          const subRatio = 0.7;
-          const minFontSize = 24.0;
-          final td = Directionality.of(context);
-          final baseTextStyle = LyricsTextStyles.themeBase(context);
-
-          // 测量主文本单行宽度
-          final mainPainter = TextPainter(
-            text: TextSpan(
-              text: mainText,
-              style: LyricsTextStyles.fromBase(
-                baseTextStyle,
-                fontSize: refSize,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            maxLines: 1,
-            textDirection: td,
-          )..layout();
-          final mainTextW = mainPainter.width;
-          mainPainter.dispose();
-
-          final safeW = maxW * _boldSafetyFactor;
-
-          // 主文本：按宽度缩放（单行填满）
-          double mainFontSize =
-              mainTextW > 0 ? (refSize * safeW / mainTextW) : refSize;
-
-          // 副文本字号
-          double subFontSize = 0;
-          if (hasSubText) {
-            final subPainter = TextPainter(
-              text: TextSpan(
-                text: subText,
-                style: LyricsTextStyles.fromBase(
-                  baseTextStyle,
-                  fontSize: refSize,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              maxLines: 1,
-              textDirection: td,
-            )..layout();
-            final subTextW = subPainter.width;
-            subPainter.dispose();
-
-            final subByWidth =
-                subTextW > 0 ? (refSize * safeW / subTextW) : refSize;
-            final subCap = mainFontSize * subRatio;
-            subFontSize = math.min(subByWidth, subCap).clamp(8.0, 200.0);
-          }
-
-          // 高度约束（单行估算）
-          const lineH = 1.4;
-          final estMainH = mainFontSize * lineH;
-          final estSubH = hasSubText ? subFontSize * lineH : 0.0;
-          if (estMainH + estSubH > maxH && estMainH + estSubH > 0) {
-            final scale = maxH / (estMainH + estSubH);
-            mainFontSize *= scale;
-            subFontSize *= scale;
-          }
-
-          // 应用最小字号 — 低于最小值时允许换行
-          final mainWrap = mainFontSize < minFontSize;
-          final subWrap = hasSubText && subFontSize < minFontSize * subRatio;
-          if (mainWrap) mainFontSize = minFontSize;
-          if (subWrap && hasSubText) subFontSize = minFontSize * subRatio;
-
-          // 换行后用 TextPainter 测量实际高度，再做高度约束
-          if (mainWrap || subWrap) {
-            double actualH = 0;
-            final mp = TextPainter(
-              text: TextSpan(
-                text: mainText,
-                style: LyricsTextStyles.fromBase(
-                  baseTextStyle,
-                  fontSize: mainFontSize,
-                  fontWeight: FontWeight.bold,
-                  height: 1.3,
-                ),
-              ),
-              textDirection: td,
-            )..layout(maxWidth: maxW);
-            actualH += mp.height;
-            mp.dispose();
-
-            if (hasSubText) {
-              final sp = TextPainter(
-                text: TextSpan(
-                  text: subText,
-                  style: LyricsTextStyles.fromBase(
-                    baseTextStyle,
-                    fontSize: subFontSize,
-                    fontWeight: FontWeight.w500,
-                    height: 1.3,
-                  ),
-                ),
-                textDirection: td,
-              )..layout(maxWidth: maxW);
-              actualH += sp.height;
-              sp.dispose();
-            }
-
-            if (actualH > maxH && actualH > 0) {
-              final scale = maxH / actualH;
-              mainFontSize = (mainFontSize * scale).clamp(10.0, 200.0);
-              subFontSize = (subFontSize * scale).clamp(8.0, 200.0);
-            }
-          }
-
-          mainFontSize = mainFontSize.clamp(10.0, 200.0);
-          if (hasSubText) {
-            subFontSize = subFontSize.clamp(8.0, 200.0);
-          }
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (applyTextStyle)
-                    LyricsStyledText(
-                      mainText,
-                      style: LyricsTextStyles.fromBase(
-                        baseTextStyle,
-                        fontSize: mainFontSize,
-                        fontWeight: FontWeight.bold,
-                        color: mainColor,
-                        height: 1.3,
-                      ),
-                      lyricsStyle: _lyricsStyle,
-                      textAlign: TextAlign.center,
-                      maxLines: mainWrap ? 3 : 1,
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  else
-                    Text(
-                      mainText,
-                      style: LyricsTextStyles.fromBase(
-                        baseTextStyle,
-                        fontSize: mainFontSize,
-                        fontWeight: FontWeight.bold,
-                        color: mainColor,
-                        height: 1.3,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: mainWrap ? 3 : 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  if (hasSubText)
-                    applyTextStyle
-                        ? LyricsStyledText(
-                            subText!,
-                            style: LyricsTextStyles.fromBase(
-                              baseTextStyle,
-                              fontSize: subFontSize,
-                              fontWeight: FontWeight.w500,
-                              color: subColor,
-                              height: 1.3,
-                            ),
-                            lyricsStyle: _lyricsStyle,
-                            textAlign: TextAlign.center,
-                            maxLines: subWrap ? 2 : 1,
-                            overflow: TextOverflow.ellipsis,
-                          )
-                        : Text(
-                            subText!,
-                            style: LyricsTextStyles.fromBase(
-                              baseTextStyle,
-                              fontSize: subFontSize,
-                              fontWeight: FontWeight.w500,
-                              color: subColor,
-                              height: 1.3,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: subWrap ? 2 : 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+    return LyricsSingleLineView(
+      mainText: mainText,
+      subText: subText,
+      transparentMode: _transparentMode,
+      style: _lyricsStyle,
+      isSynced: _isSynced,
+      hasCurrentLine: _currentLineIndex >= 0,
+      onTap: () => _seekToLine(_currentLineIndex),
+      onSecondaryTap: () => _calibrateOffsetToLine(_currentLineIndex),
+      boldSafetyFactor: _boldSafetyFactor,
     );
   }
 
@@ -1257,174 +860,27 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   Widget _buildLyricsLine(
       int index, bool isCurrent, ({double main, double sub}) fontSizes) {
     final line = _lines[index];
-    final t = _transparentMode;
-    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final mainColor = _lyricsStyle.resolveMainColor(
+    return LyricsLineItem(
+      text: line.text,
+      subText: line.subText,
       isCurrent: isCurrent,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface,
-      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.4),
-    );
-    final subColor = _lyricsStyle.resolveSecondaryColor(
-      isCurrent: isCurrent,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface.withValues(alpha: 0.7),
-      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.3),
-    );
-
-    return GestureDetector(
-      onTap:
-          _isSynced && line.timestamp != null ? () => _seekToLine(index) : null,
-      onSecondaryTap: _isSynced && line.timestamp != null
-          ? () => _calibrateOffsetToLine(index)
-          : null,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: LyricsTextStyles.fromTheme(
-                context,
-                fontSize: fontSizes.main,
-                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                color: mainColor,
-                height: 1.4,
-              ),
-              child: Builder(
-                builder: (context) {
-                  final style = DefaultTextStyle.of(context).style;
-                  if (!applyTextStyle) {
-                    return Text(line.text, textAlign: TextAlign.center);
-                  }
-                  return LyricsStyledText(
-                    line.text,
-                    style: style,
-                    lyricsStyle: _lyricsStyle,
-                    textAlign: TextAlign.center,
-                  );
-                },
-              ),
-            ),
-            if (line.subText != null && line.subText!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: LyricsTextStyles.fromTheme(
-                    context,
-                    fontSize: fontSizes.sub,
-                    fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
-                    color: subColor,
-                    height: 1.3,
-                  ),
-                  child: Builder(
-                    builder: (context) {
-                      final style = DefaultTextStyle.of(context).style;
-                      if (!applyTextStyle) {
-                        return Text(line.subText!, textAlign: TextAlign.center);
-                      }
-                      return LyricsStyledText(
-                        line.subText!,
-                        style: style,
-                        lyricsStyle: _lyricsStyle,
-                        textAlign: TextAlign.center,
-                      );
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+      fontSizes: fontSizes,
+      transparentMode: _transparentMode,
+      style: _lyricsStyle,
+      isSynced: _isSynced,
+      hasTimestamp: line.timestamp != null,
+      onTap: () => _seekToLine(index),
+      onSecondaryTap: () => _calibrateOffsetToLine(index),
     );
   }
 
   Widget _buildOffsetBar() {
-    final t = _transparentMode;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final labelColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
-    final valueColor = t ? Colors.white : colorScheme.onSurface;
-    final btnColor = t ? Colors.white : colorScheme.onSurface;
-    final bgColor = t
-        ? Colors.black.withValues(alpha: 0.85)
-        : Theme.of(context).scaffoldBackgroundColor;
-    final borderColor =
-        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
-    final chipBg = t
-        ? Colors.white.withValues(alpha: 0.15)
-        : colorScheme.surfaceContainerHighest;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        border: Border(bottom: BorderSide(color: borderColor)),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_strings.offset,
-                style: TextStyle(fontSize: 12, color: labelColor)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: chipBg,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                _formatOffset(_offsetMs),
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: valueColor),
-              ),
-            ),
-            const SizedBox(width: 12),
-            _offsetButton(Icons.fast_rewind, -1000, btnColor),
-            _offsetButton(Icons.remove, -500, btnColor),
-            _offsetButton(Icons.remove_circle_outline, -100, btnColor),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: _offsetMs != 0 ? _resetOffset : null,
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(
-                  Icons.refresh,
-                  size: 16,
-                  color: _offsetMs != 0
-                      ? btnColor
-                      : btnColor.withValues(alpha: 0.3),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            _offsetButton(Icons.add_circle_outline, 100, btnColor),
-            _offsetButton(Icons.add, 500, btnColor),
-            _offsetButton(Icons.fast_forward, 1000, btnColor),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _offsetButton(IconData icon, int deltaMs, Color color) {
-    return InkWell(
-      onTap: () => _adjustOffset(deltaMs),
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Icon(icon, size: 16, color: color),
-      ),
+    return LyricsOffsetBar(
+      offsetMs: _offsetMs,
+      transparentMode: _transparentMode,
+      offsetLabel: _strings.offset,
+      onAdjust: _adjustOffset,
+      onReset: _resetOffset,
     );
   }
 }

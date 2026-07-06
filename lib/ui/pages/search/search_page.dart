@@ -834,10 +834,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       return;
     }
 
-    if (track.sourceType != SourceType.bilibili) {
-      return;
-    }
-
     setState(() {
       _loadingPages.add(key);
     });
@@ -1699,28 +1695,7 @@ class _LiveRoomTile extends StatelessWidget {
                   colorFilter: room.isLive
                       ? const ColorFilter.mode(
                           Colors.transparent, BlendMode.multiply)
-                      : const ColorFilter.matrix(<double>[
-                          0.2126,
-                          0.7152,
-                          0.0722,
-                          0,
-                          0,
-                          0.2126,
-                          0.7152,
-                          0.0722,
-                          0,
-                          0,
-                          0.2126,
-                          0.7152,
-                          0.0722,
-                          0,
-                          0,
-                          0,
-                          0,
-                          0,
-                          1,
-                          0,
-                        ]),
+                      : kGrayscaleColorFilter,
                   child: RadioCoverImage(
                     networkUrl:
                         room.cover?.isNotEmpty == true ? room.cover : room.face,

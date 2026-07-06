@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -146,14 +147,19 @@ void main() {
       );
     });
 
-    test('search service returns empty pages for non-bilibili tracks',
+    test(
+        'search service returns empty pages when the source lacks paged-video '
+        'capability (capability-based, not source identity)',
         () async {
-      final pagedSource = _RecordingPagedVideoSource(SourceType.youtube);
+      // A bilibili paged source is registered, but the track is youtube, so
+      // pagedVideoSource(youtube) is null: pages must be empty and the
+      // registered paged source must not be queried.
+      final pagedSource = _RecordingPagedVideoSource(SourceType.bilibili);
       final sourceManager = _PagedVideoSourceManager(pagedSource);
       final service = SearchService(
         sourceManager: sourceManager,
         trackRepository: TrackRepository(_FakeIsar()),
-        isar: _FakeIsar(),
+        searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
         ..sourceType = SourceType.youtube
@@ -162,7 +168,7 @@ void main() {
       final pages = await service.loadVideoPagesForTrack(track);
 
       expect(pages, isEmpty);
-      expect(sourceManager.pagedVideoLookupCount, 0);
+      expect(sourceManager.pagedVideoLookupCount, 1);
       expect(pagedSource.getVideoPagesCallCount, 0);
     });
 
@@ -172,7 +178,7 @@ void main() {
       final service = SearchService(
         sourceManager: sourceManager,
         trackRepository: TrackRepository(_FakeIsar()),
-        isar: _FakeIsar(),
+        searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
         ..sourceType = SourceType.bilibili
@@ -249,7 +255,9 @@ class _PagedVideoSourceManager extends SourceManager {
   @override
   PagedVideoSource? pagedVideoSource(SourceType type) {
     pagedVideoLookupCount++;
-    return source;
+    // Only serve the registered source's own type, mirroring real
+    // SourceManager behaviour where a capability belongs to a specific source.
+    return type == source.sourceType ? source : null;
   }
 }
 
