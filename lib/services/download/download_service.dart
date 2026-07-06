@@ -74,8 +74,13 @@ class DownloadService with Logging {
         Completer<void> stopped,
       })> _activeDownloadIsolates = {};
 
-  /// 旧的取消令牌（保留用于非 Isolate 下载，如果需要回退）
-  final Map<int, CancelToken> _activeCancelTokens = {};
+  /// 測試注入的「活躍任務」標記。
+  ///
+  /// 生產環境永遠為空（下載一律走 [_activeDownloadIsolates]）；僅由
+  /// [debugMarkTaskActiveForTesting] 寫入，讓 bookkeeping 測試（pauseAll /
+  /// 計數 / 並發等待）不必啟動真實 isolate 即可模擬活躍下載。取代舊的 dead
+  /// CancelToken map——cancel 語意已由 isolate kill 承擔，不再需要 token。
+  final Set<int> _injectedActiveTaskIds = {};
 
   /// 已被外部清理的任务 ID（pauseTask/cancelTask 已递减 _activeDownloads）
   final Set<int> _externallyCleaned = {};
@@ -282,11 +287,7 @@ class DownloadService with Logging {
     }
     _activeDownloadIsolates.clear();
 
-    // 兼容旧的 CancelToken
-    for (final cancelToken in _activeCancelTokens.values.toList()) {
-      cancelToken.cancel('Service disposed');
-    }
-    _activeCancelTokens.clear();
+    _injectedActiveTaskIds.clear();
     _pendingProgressUpdates.clear();
     _externallyCleaned.clear();
     _tasksInSetupWindow.clear();
@@ -660,7 +661,7 @@ class DownloadService with Logging {
 
     final activeTaskIds = {
       ..._activeDownloadIsolates.keys,
-      ..._activeCancelTokens.keys,
+      ..._injectedActiveTaskIds,
     }.toList();
     for (final taskId in activeTaskIds) {
       final task = await _downloadRepository.getTaskById(taskId);
@@ -691,7 +692,7 @@ class DownloadService with Logging {
     final tasksToDelete = tasks.where((task) => !task.isCompleted).toList();
     final activeTaskIds = {
       ..._activeDownloadIsolates.keys,
-      ..._activeCancelTokens.keys,
+      ..._injectedActiveTaskIds,
       ..._tasksInSetupWindow,
     }.toList();
     final guardedTaskIds = tasksToDelete
@@ -739,9 +740,9 @@ class DownloadService with Logging {
   Future<void> _startDownload(DownloadTask task) async {
     if (_discardedTaskIds.contains(task.id)) return;
 
-    // 检查是否已经在下载（Isolate 或旧的 CancelToken）
+    // 检查是否已经在下载
     if (_activeDownloadIsolates.containsKey(task.id) ||
-        _activeCancelTokens.containsKey(task.id)) {
+        _injectedActiveTaskIds.contains(task.id)) {
       logDebug('Task already downloading: ${task.id}');
       return;
     }
@@ -1069,7 +1070,7 @@ class DownloadService with Logging {
 
   bool _isTaskActiveOrStarting(int taskId) {
     return _activeDownloadIsolates.containsKey(taskId) ||
-        _activeCancelTokens.containsKey(taskId) ||
+        _injectedActiveTaskIds.contains(taskId) ||
         _tasksInSetupWindow.contains(taskId) ||
         _externallyCleaned.contains(taskId);
   }
@@ -1082,6 +1083,7 @@ class DownloadService with Logging {
     int taskId, {
     required String cancelReason,
   }) async {
+    logDebug('Cleanup active download task=$taskId reason=$cancelReason');
     final isolateInfo = _activeDownloadIsolates.remove(taskId);
     if (isolateInfo != null) {
       if (isolateInfo.cancelPortReady.isCompleted) {
@@ -1096,10 +1098,9 @@ class DownloadService with Logging {
       }
     }
 
-    final cancelToken = _activeCancelTokens.remove(taskId);
-    cancelToken?.cancel(cancelReason);
+    final wasInjected = _injectedActiveTaskIds.remove(taskId);
 
-    if (isolateInfo == null && cancelToken == null) {
+    if (isolateInfo == null && !wasInjected) {
       if (_tasksInSetupWindow.contains(taskId)) {
         _setupAbortedTasks.add(taskId);
         if (!_externallyCleaned.contains(taskId)) {
@@ -1128,7 +1129,7 @@ class DownloadService with Logging {
 
   void _finalizeTaskCleanup(int taskId) {
     final wasStillActive = _activeDownloadIsolates.remove(taskId) != null;
-    _activeCancelTokens.remove(taskId);
+    _injectedActiveTaskIds.remove(taskId);
     _tasksInSetupWindow.remove(taskId);
     final wasSetupAborted = _setupAbortedTasks.remove(taskId);
     final wasExternallyCleaned = _externallyCleaned.remove(taskId);
@@ -1522,8 +1523,8 @@ class DownloadService with Logging {
   }
 
   @visibleForTesting
-  void debugRegisterLegacyActiveDownloadForTesting(int taskId) {
-    _activeCancelTokens[taskId] = CancelToken();
+  void debugMarkTaskActiveForTesting(int taskId) {
+    _injectedActiveTaskIds.add(taskId);
     _activeDownloads++;
   }
 
@@ -1541,7 +1542,7 @@ class DownloadService with Logging {
   Future<void> debugWaitForTaskToBecomeActiveForTesting(int taskId) async {
     for (var i = 0; i < 100; i++) {
       if (_activeDownloadIsolates.containsKey(taskId) ||
-          _activeCancelTokens.containsKey(taskId)) {
+          _injectedActiveTaskIds.contains(taskId)) {
         return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 10));
