@@ -1408,120 +1408,7 @@ class YouTubeSource
       }
 
       // 回退：使用 youtube_explode_dart
-      final playlist = await _youtube.playlists.get(playlistId);
-
-      // 檢測私人或無法訪問的播放列表
-      // youtube_explode_dart 對於私人播放列表可能返回空標題或拋出異常
-      final playlistTitle = playlist.title.trim();
-      if (playlistTitle.isEmpty) {
-        logWarning(
-            'YouTube playlist appears to be private or inaccessible: $playlistId');
-        throw YouTubeApiException(
-          code: 'private_or_inaccessible',
-          message: t.importSource.playlistEmptyOrInaccessible,
-        );
-      }
-
-      // 获取所有视频
-      final allTracks = <Track>[];
-      await for (final video in _youtube.playlists.getVideos(playlistId)) {
-        // 存 hqdefault 作為穩定 canonical key，而不是 highResUrl
-        // (maxresdefault)。若 canonical 已是最高畫質，ThumbnailUrlUtils
-        // 就無法建立有用的候選鏈；實際顯示仍只使用 16:9 候選，
-        // 避免 default/hqdefault/sddefault 黑邊圖。
-        final thumbnailUrl =
-            'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg';
-        allTracks.add(Track()
-          ..sourceId = video.id.value
-          ..sourceType = SourceType.youtube
-          ..title = video.title
-          ..artist = video.author
-          ..channelId = video.channelId.value
-          ..durationMs = video.duration?.inMilliseconds ?? 0
-          ..thumbnailUrl = thumbnailUrl);
-      }
-
-      logDebug(
-          'Parsed YouTube playlist: ${playlist.title}, ${allTracks.length} tracks');
-
-      // 檢測空播放列表（可能是私人播放列表，元數據可見但內容不可訪問）
-      if (allTracks.isEmpty) {
-        logWarning('YouTube playlist is empty or private: $playlistId');
-        throw YouTubeApiException(
-          code: 'private_or_inaccessible',
-          message: t.importSource.playlistEmptyOrInaccessible,
-        );
-      }
-
-      // 使用第一个视频的缩略图作为歌单封面
-      final coverUrl =
-          allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
-
-      // youtube_explode_dart doesn't provide channel ID, try InnerTube browse to get it
-      String? ownerUserId;
-      try {
-        final browseId = 'VL$playlistId';
-        final response = await _dio.post(
-          '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
-          data: jsonEncode({
-            'browseId': browseId,
-            'context': {
-              'client': {
-                'clientName': _innerTubeClientName,
-                'clientVersion': _innerTubeClientVersion,
-                'hl': 'en',
-                'gl': 'US',
-              },
-            },
-          }),
-          options: _innerTubeRequestOptions(),
-        );
-        final browseData = _parseJsonResponse(response.data);
-        final header = browseData['header'] as Map<String, dynamic>?;
-        final playlistHeaderRenderer =
-            header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
-        if (playlistHeaderRenderer != null) {
-          final ownerRuns =
-              playlistHeaderRenderer['ownerText']?['runs'] as List?;
-          final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
-          ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
-              ?['browseId'] as String?;
-        }
-        // Fallback: sidebar
-        if (ownerUserId == null) {
-          final sidebar = browseData['sidebar']?['playlistSidebarRenderer']
-              ?['items'] as List?;
-          if (sidebar != null && sidebar.length > 1) {
-            final secondaryInfo = sidebar[1]
-                    ?['playlistSidebarSecondaryInfoRenderer']
-                as Map<String, dynamic>?;
-            final videoOwner = secondaryInfo?['videoOwner']
-                ?['videoOwnerRenderer'] as Map<String, dynamic>?;
-            if (videoOwner != null) {
-              final ownerRuns = videoOwner['title']?['runs'] as List?;
-              final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
-              ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
-                  ?['browseId'] as String?;
-              ownerUserId ??= videoOwner['navigationEndpoint']
-                  ?['browseEndpoint']?['browseId'] as String?;
-            }
-          }
-        }
-      } catch (e) {
-        logDebug(
-            'Failed to get owner ID via InnerTube for playlist: $playlistId, error: $e');
-      }
-
-      return PlaylistParseResult(
-        title: playlist.title,
-        description: playlist.description,
-        coverUrl: coverUrl,
-        tracks: allTracks,
-        totalCount: playlist.videoCount ?? allTracks.length,
-        sourceUrl: playlistUrl,
-        ownerName: playlist.author,
-        ownerUserId: ownerUserId,
-      );
+      return _parsePlaylistViaYoutubeExplode(playlistId, playlistUrl);
     } catch (e) {
       if (e is YouTubeApiException) rethrow;
       if (_isRateLimitError(e)) {
@@ -1536,6 +1423,136 @@ class YouTubeSource
         code: 'error',
         message: 'Failed to parse playlist: $e',
       );
+    }
+  }
+
+  /// youtube_explode_dart 回退路徑：匿名 InnerTube 解析失敗時使用。
+  ///
+  /// 抓取播放清單所有影片、偵測私人/空清單，並透過 InnerTube browse 取得
+  /// 擁有者 channel ID（youtube_explode_dart 不提供）。
+  Future<PlaylistParseResult> _parsePlaylistViaYoutubeExplode(
+    String playlistId,
+    String playlistUrl,
+  ) async {
+    final playlist = await _youtube.playlists.get(playlistId);
+
+    // youtube_explode_dart 對私人播放清單可能回傳空標題或拋出例外。
+    final playlistTitle = playlist.title.trim();
+    if (playlistTitle.isEmpty) {
+      logWarning(
+          'YouTube playlist appears to be private or inaccessible: $playlistId');
+      throw YouTubeApiException(
+        code: 'private_or_inaccessible',
+        message: t.importSource.playlistEmptyOrInaccessible,
+      );
+    }
+
+    final allTracks = <Track>[];
+    await for (final video in _youtube.playlists.getVideos(playlistId)) {
+      // 存 hqdefault 作為穩定 canonical key，而不是 highResUrl
+      // (maxresdefault)。若 canonical 已是最高畫質，ThumbnailUrlUtils
+      // 就無法建立有用的候選鏈；實際顯示仍只使用 16:9 候選，
+      // 避免 default/hqdefault/sddefault 黑邊圖。
+      final thumbnailUrl =
+          'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg';
+      allTracks.add(Track()
+        ..sourceId = video.id.value
+        ..sourceType = SourceType.youtube
+        ..title = video.title
+        ..artist = video.author
+        ..channelId = video.channelId.value
+        ..durationMs = video.duration?.inMilliseconds ?? 0
+        ..thumbnailUrl = thumbnailUrl);
+    }
+
+    logDebug(
+        'Parsed YouTube playlist: ${playlist.title}, ${allTracks.length} tracks');
+
+    // 偵測空播放清單（元資料可見但內容不可訪問）。
+    if (allTracks.isEmpty) {
+      logWarning('YouTube playlist is empty or private: $playlistId');
+      throw YouTubeApiException(
+        code: 'private_or_inaccessible',
+        message: t.importSource.playlistEmptyOrInaccessible,
+      );
+    }
+
+    final coverUrl =
+        allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
+    final ownerUserId = await _fetchPlaylistOwnerId(playlistId);
+
+    return PlaylistParseResult(
+      title: playlist.title,
+      description: playlist.description,
+      coverUrl: coverUrl,
+      tracks: allTracks,
+      totalCount: playlist.videoCount ?? allTracks.length,
+      sourceUrl: playlistUrl,
+      ownerName: playlist.author,
+      ownerUserId: ownerUserId,
+    );
+  }
+
+  /// 透過 InnerTube browse 取得播放清單擁有者的 channel ID。
+  ///
+  /// youtube_explode_dart 不提供 channel ID，這裡向 InnerTube browse 端點
+  /// 查詢（先試 header.playlistHeaderRenderer.ownerText，再回退到 sidebar）。
+  /// 任一步失敗只 logDebug 並回傳 null（不影響主解析）。
+  Future<String?> _fetchPlaylistOwnerId(String playlistId) async {
+    try {
+      final browseId = 'VL$playlistId';
+      final response = await _dio.post(
+        '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
+        data: jsonEncode({
+          'browseId': browseId,
+          'context': {
+            'client': {
+              'clientName': _innerTubeClientName,
+              'clientVersion': _innerTubeClientVersion,
+              'hl': 'en',
+              'gl': 'US',
+            },
+          },
+        }),
+        options: _innerTubeRequestOptions(),
+      );
+      final browseData = _parseJsonResponse(response.data);
+      final header = browseData['header'] as Map<String, dynamic>?;
+      final playlistHeaderRenderer =
+          header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
+      String? ownerUserId;
+      if (playlistHeaderRenderer != null) {
+        final ownerRuns =
+            playlistHeaderRenderer['ownerText']?['runs'] as List?;
+        final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+        ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
+            ?['browseId'] as String?;
+      }
+      // Fallback: sidebar
+      if (ownerUserId == null) {
+        final sidebar = browseData['sidebar']?['playlistSidebarRenderer']
+            ?['items'] as List?;
+        if (sidebar != null && sidebar.length > 1) {
+          final secondaryInfo = sidebar[1]
+                  ?['playlistSidebarSecondaryInfoRenderer']
+              as Map<String, dynamic>?;
+          final videoOwner = secondaryInfo?['videoOwner']
+              ?['videoOwnerRenderer'] as Map<String, dynamic>?;
+          if (videoOwner != null) {
+            final ownerRuns = videoOwner['title']?['runs'] as List?;
+            final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+            ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
+                ?['browseId'] as String?;
+            ownerUserId ??= videoOwner['navigationEndpoint']
+                ?['browseEndpoint']?['browseId'] as String?;
+          }
+        }
+      }
+      return ownerUserId;
+    } catch (e) {
+      logDebug(
+          'Failed to get owner ID via InnerTube for playlist: $playlistId, error: $e');
+      return null;
     }
   }
 
