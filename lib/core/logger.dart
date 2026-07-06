@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
@@ -54,8 +55,8 @@ class LogEntry {
 class AppLogger {
   static LogLevel _minLevel = kDebugMode ? LogLevel.debug : LogLevel.info;
 
-  /// 日志缓冲区（最多保留 500 条）
-  static final List<LogEntry> _logBuffer = [];
+  /// 日志缓冲区（最多保留 500 条；用 Queue 讓超出上限時的淘汰為 O(1)，A7）
+  static final Queue<LogEntry> _logBuffer = Queue();
   static const int _maxBufferSize = 500;
 
   /// 日志流控制器（用于实时更新）
@@ -81,12 +82,14 @@ class AppLogger {
     'MUSIC_U',
     'musicU',
     '__csrf',
+    'eparams',
     'SESSDATA',
     'bili_jct',
     'DedeUserID',
     'DedeUserID__ckMd5',
     'refresh_token',
     'access_token',
+    'apiKey',
     'SAPISID',
     'APISID',
     'SID',
@@ -211,7 +214,7 @@ class AppLogger {
     // 添加到缓冲区
     _logBuffer.add(entry);
     if (_logBuffer.length > _maxBufferSize) {
-      _logBuffer.removeAt(0);
+      _logBuffer.removeFirst();
     }
 
     // 发送到流

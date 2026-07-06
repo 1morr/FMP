@@ -292,6 +292,28 @@ jobs:
 
           Set-Content $issPath $content -NoNewline
 
+      - name: Verify ISS patch applied (F8 regression gate)
+        shell: pwsh
+        run: |
+          # 上一步以多個 regex 替換改寫 inno_bundle 產出的 ISS。若上游格式
+          # 變動導致替換 no-op，安裝檔會靜默退回（無 AppUserModelID /
+          # DefaultGroupName），SMTC 與開始功能表群組行為受損。此步把
+          # 「靜默失敗」轉為明確的 CI 失敗。
+          $issPath = "build\windows\x64\installer\Release\inno-script.iss"
+          $content = Get-Content $issPath -Raw
+          $missing = @()
+          if ($content -notlike '*AppUserModelID: "com.personal.fmp"*') {
+            $missing += 'AppUserModelID: "com.personal.fmp"'
+          }
+          if ($content -notlike '*DefaultGroupName=FMP*') {
+            $missing += 'DefaultGroupName=FMP'
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error "ISS patch verification failed; missing: $($missing -join ', '). inno_bundle output format may have changed."
+            exit 1
+          }
+          Write-Host "ISS patch verified: AppUserModelID + DefaultGroupName both present."
+
       - name: Compile installer with ISCC
         shell: pwsh
         run: |

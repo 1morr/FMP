@@ -44,6 +44,8 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
   Stream<DownloadPathsChangedEvent> get downloadPathsChangedStream =>
       _streamResolutionService.downloadPathsChangedStream;
 
+  /// AudioStreamManager 不直接持有可釋放資源（串流解析委由
+  /// [_streamResolutionService]，其生命週期由擁有者管理），故 dispose 刻意為空（A6）。
   void dispose() {}
 
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(

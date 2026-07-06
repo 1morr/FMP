@@ -25,6 +25,7 @@ import 'source_url_policy.dart';
 class NeteaseSource
     with Logging
     implements
+        DisposableSource,
         TrackInfoSource,
         AudioStreamSource,
         SearchSource,
@@ -411,6 +412,7 @@ class NeteaseSource
     }
   }
 
+  @override
   void dispose() {
     _dio.close();
   }

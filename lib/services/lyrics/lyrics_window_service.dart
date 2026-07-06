@@ -6,6 +6,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/logger.dart';
 import '../../i18n/strings.g.dart';
 import '../lyrics/lrc_parser.dart';
 import 'lyrics_window_style.dart';
@@ -86,7 +87,7 @@ class _DesktopLyricsWindowPlatform implements LyricsWindowPlatform {
 ///
 /// 负责创建、管理歌词子窗口，以及主窗口与子窗口之间的数据同步。
 /// 子窗口运行独立 Flutter engine，通过 WindowMethodChannel 双向通信。
-class LyricsWindowService {
+class LyricsWindowService with Logging {
   LyricsWindowService._({LyricsWindowPlatform? platform})
       : _platform = platform ?? const _DesktopLyricsWindowPlatform();
 
@@ -238,14 +239,14 @@ class LyricsWindowService {
       try {
         await _platform.invokeMethod('ping', '');
         _channelReady = true;
-        debugPrint(
+        logDebug(
             'LyricsWindowService: channel ready after ${(i + 1) * 100}ms');
         return;
       } catch (_) {
         // 子窗口还没注册，继续等
       }
     }
-    debugPrint('LyricsWindowService: channel ready timeout');
+    logWarning('LyricsWindowService: channel ready timeout');
   }
 
   /// 关闭歌词窗口（隐藏而非销毁，保持 engine 存活）
@@ -314,7 +315,7 @@ class LyricsWindowService {
         }),
       );
     } catch (e) {
-      debugPrint('LyricsWindowService: sync error: $e');
+      logWarning('LyricsWindowService: sync error: $e');
       _channelReady = false;
     }
   }
@@ -335,7 +336,7 @@ class LyricsWindowService {
         }),
       );
     } catch (e) {
-      debugPrint('LyricsWindowService: position sync error: $e');
+      logWarning('LyricsWindowService: position sync error: $e');
       _channelReady = false;
     }
   }
@@ -396,7 +397,7 @@ class LyricsWindowService {
         }),
       );
     } catch (e) {
-      debugPrint('LyricsWindowService: theme sync error: $e');
+      logWarning('LyricsWindowService: theme sync error: $e');
       _channelReady = false;
     }
   }
@@ -411,7 +412,7 @@ class LyricsWindowService {
         jsonEncode({'isPlaying': isPlaying}),
       );
     } catch (e) {
-      debugPrint('LyricsWindowService: playback state sync error: $e');
+      logWarning('LyricsWindowService: playback state sync error: $e');
       _channelReady = false;
     }
   }
@@ -426,7 +427,7 @@ class LyricsWindowService {
         jsonEncode({'modeIndex': modeIndex}),
       );
     } catch (e) {
-      debugPrint('LyricsWindowService: lyrics display mode sync error: $e');
+      logWarning('LyricsWindowService: lyrics display mode sync error: $e');
       _channelReady = false;
     }
   }
@@ -516,7 +517,7 @@ class LyricsWindowService {
         }
       });
     } catch (e) {
-      debugPrint('LyricsWindowService: register handler error: $e');
+      logWarning('LyricsWindowService: register handler error: $e');
     }
   }
 
@@ -525,7 +526,7 @@ class LyricsWindowService {
     try {
       await _platform.setMethodCallHandler(null);
     } catch (e) {
-      debugPrint('LyricsWindowService: unregister handler error: $e');
+      logWarning('LyricsWindowService: unregister handler error: $e');
     }
   }
 }

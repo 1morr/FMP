@@ -1,6 +1,6 @@
 # FMP 历史重构流水
 
-> 归档说明：此文件保存从 `.serena/memories/` 移出的历史重构记录。它不是当前实现规范。当前规则以 `AGENTS.md` 和 `.serena/memories/` 中的聚焦记忆为准。
+> 归档说明：此文件保存历史重构记录，不是当前实现规范。当前规则一律以 `AGENTS.md`（含子目录 `AGENTS.md`）与 `docs/` 为准；`.serena/memories/` 仅作狭义补充、可能过时，不视为权威。
 
 ## 原始记录
 

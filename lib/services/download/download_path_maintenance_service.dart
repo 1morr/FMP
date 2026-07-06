@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/download_filenames.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../providers/download/download_scanner.dart';
@@ -299,7 +300,7 @@ Future<void> _deleteMetadataForAudioFile(
   final metadataName = audioFileName.startsWith('P') &&
           audioFileName.contains('.')
       ? 'metadata_P${audioFileName.substring(1, audioFileName.indexOf('.'))}.json'
-      : 'metadata.json';
+      : DownloadFileNames.metadata;
   final metadataFile = File(p.join(parentDir.path, metadataName));
   if (await metadataFile.exists()) {
     await metadataFile.delete();

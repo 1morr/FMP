@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/download_filenames.dart';
 import '../../data/models/track.dart';
 import '../../services/download/download_path_utils.dart';
 
@@ -175,11 +176,11 @@ Future<String?> _findFirstCoverInternal(Directory folder) async {
 
     await for (final entity in folder.list()) {
       if (entity is Directory) {
-        final coverFile = File(p.join(entity.path, 'cover.jpg'));
+        final coverFile = File(p.join(entity.path, DownloadFileNames.cover));
         if (await coverFile.exists()) {
           // 读取 metadata.json 获取排序用的 title
           String sortKey = p.basename(entity.path);
-          final metadataFile = File(p.join(entity.path, 'metadata.json'));
+          final metadataFile = File(p.join(entity.path, DownloadFileNames.metadata));
           if (await metadataFile.exists()) {
             try {
               final content = await metadataFile.readAsString();
@@ -328,7 +329,7 @@ class DownloadScanner {
             final pageMetadataFile =
                 File(p.join(entity.path, 'metadata_P$pageNumStr.json'));
             final defaultMetadataFile =
-                File(p.join(entity.path, 'metadata.json'));
+                File(p.join(entity.path, DownloadFileNames.metadata));
 
             if (await pageMetadataFile.exists()) {
               metadataFile = pageMetadataFile;
@@ -336,7 +337,7 @@ class DownloadScanner {
               metadataFile = defaultMetadataFile;
             }
           } else {
-            metadataFile = File(p.join(entity.path, 'metadata.json'));
+            metadataFile = File(p.join(entity.path, DownloadFileNames.metadata));
           }
 
           if (metadataFile != null && await metadataFile.exists()) {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/logger.dart';
+import '../../core/utils/http_client_factory.dart';
 import 'lyrics_result.dart';
 
 // ============================================================
@@ -106,15 +107,16 @@ class QQMusicSource with Logging {
 
   QQMusicSource({Dio? dio})
       : _dio = dio ??
-            Dio(BaseOptions(
+            HttpClientFactory.create(
               headers: {
                 'User-Agent': _userAgent,
                 'Accept': 'application/json, text/plain, */*',
                 'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.3,en;q=0.2',
               },
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 15),
-            ));
+            );
+
+  /// 關閉內部 Dio（釋放連線池）；provider 於 onDispose 呼叫。
+  void dispose() => _dio.close();
 
   /// 搜索歌曲
   ///

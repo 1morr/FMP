@@ -7,6 +7,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../core/logger.dart';
 import '../../data/models/hotkey_config.dart';
 import '../../data/models/track.dart';
 import '../lyrics/lyrics_window_service.dart';
@@ -17,7 +18,7 @@ import '../lyrics/lyrics_window_service.dart';
 /// - 系统托盘（图标、右键菜单、悬停提示）
 /// - 全局快捷键
 /// - 窗口管理（最小化到托盘等）
-class WindowsDesktopService with TrayListener, WindowListener {
+class WindowsDesktopService with TrayListener, WindowListener, Logging {
   WindowsDesktopService();
 
   bool _isInitialized = false;
@@ -56,7 +57,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
     _initWindowListener();
 
     _isInitialized = true;
-    debugPrint('[WindowsDesktopService] Initialized (hotkeys: $enableHotkeys)');
+    logInfo('[WindowsDesktopService] Initialized (hotkeys: $enableHotkeys)');
   }
 
   /// 销毁资源
@@ -106,12 +107,12 @@ class WindowsDesktopService with TrayListener, WindowListener {
     }
     
     if (iconPath != null) {
-      debugPrint('[WindowsDesktopService] Setting tray icon: $iconPath');
+      logDebug('[WindowsDesktopService] Setting tray icon: $iconPath');
       await trayManager.setIcon(iconPath);
     } else {
-      debugPrint('[WindowsDesktopService] Tray icon not found! Tried paths:');
+      logWarning('[WindowsDesktopService] Tray icon not found! Tried paths:');
       for (final path in possiblePaths) {
-        debugPrint('  - $path');
+        logWarning('  - $path');
       }
     }
 
@@ -136,7 +137,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
     const maxTitleLength = 40;
     const maxArtistLength = 30;
 
-    debugPrint('[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
+    logDebug('[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
 
     final menu = Menu(
       items: [
@@ -185,7 +186,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
     );
 
     await trayManager.setContextMenu(menu);
-    debugPrint('[WindowsDesktopService] Tray menu updated');
+    logDebug('[WindowsDesktopService] Tray menu updated');
   }
 
   /// 更新托盘工具提示（显示当前歌曲）
@@ -232,19 +233,19 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
   @override
   void onTrayIconRightMouseDown() {
-    debugPrint('[WindowsDesktopService] Right mouse down on tray icon');
+    logDebug('[WindowsDesktopService] Right mouse down on tray icon');
     // 右键点击：显示菜单
     trayManager.popUpContextMenu();
   }
 
   @override
   void onTrayIconRightMouseUp() {
-    debugPrint('[WindowsDesktopService] Right mouse up on tray icon');
+    logDebug('[WindowsDesktopService] Right mouse up on tray icon');
   }
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
-    debugPrint('[WindowsDesktopService] Menu item clicked: ${menuItem.key}');
+    logDebug('[WindowsDesktopService] Menu item clicked: ${menuItem.key}');
     switch (menuItem.key) {
       case 'play_pause':
         onPlayPause?.call();
@@ -296,7 +297,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
       _hotkeysRegistered = false;
 
       if (!_hotkeysEnabled) {
-        debugPrint('[WindowsDesktopService] Hotkeys disabled');
+        logDebug('[WindowsDesktopService] Hotkeys disabled');
         return;
       }
 
@@ -317,15 +318,15 @@ class WindowsDesktopService with TrayListener, WindowListener {
       }
 
       _hotkeysRegistered = true;
-      debugPrint('[WindowsDesktopService] Hotkeys registered');
+      logInfo('[WindowsDesktopService] Hotkeys registered');
     } catch (e) {
-      debugPrint('[WindowsDesktopService] Failed to sync hotkeys: $e');
+      logWarning('[WindowsDesktopService] Failed to sync hotkeys: $e');
     }
   }
 
   /// 处理快捷键动作
   void _handleHotkeyAction(HotkeyAction action) {
-    debugPrint('[WindowsDesktopService] Hotkey: ${action.label}');
+    logDebug('[WindowsDesktopService] Hotkey: ${action.label}');
     switch (action) {
       case HotkeyAction.playPause:
         onPlayPause?.call();
@@ -422,7 +423,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
     // 异步检查安装程序
     if (await _isInstallerRunning()) {
-      debugPrint('[WindowsDesktopService] Installer detected, exiting app');
+      logInfo('[WindowsDesktopService] Installer detected, exiting app');
       await _forceExit();
     }
   }
@@ -438,7 +439,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
     await windowManager.hide();
     _isMinimizedToTray = true;
-    debugPrint('[WindowsDesktopService] Minimized to tray');
+    logInfo('[WindowsDesktopService] Minimized to tray');
   }
 
   /// 是否已最小化到托盘
@@ -497,13 +498,13 @@ class WindowsDesktopService with TrayListener, WindowListener {
         final lower = line.toLowerCase();
         if (lower.contains('fmp') &&
             (lower.contains('installer') || lower.contains('setup'))) {
-          debugPrint('[WindowsDesktopService] Found installer process: $line');
+          logDebug('[WindowsDesktopService] Found installer process: $line');
           return true;
         }
       }
       return false;
     } catch (e) {
-      debugPrint('[WindowsDesktopService] Failed to check installer: $e');
+      logWarning('[WindowsDesktopService] Failed to check installer: $e');
       return false;
     }
   }

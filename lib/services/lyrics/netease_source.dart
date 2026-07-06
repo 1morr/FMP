@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/logger.dart';
+import '../../core/utils/http_client_factory.dart';
 import 'lyrics_result.dart';
 
 // ============================================================
@@ -132,16 +133,17 @@ class NeteaseSource with Logging {
 
   NeteaseSource({Dio? dio})
       : _dio = dio ??
-            Dio(BaseOptions(
+            HttpClientFactory.create(
               baseUrl: _baseUrl,
               headers: {
                 'User-Agent': _userAgent,
                 'Referer': 'https://music.163.com/',
                 'Origin': 'https://music.163.com',
               },
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 15),
-            ));
+            );
+
+  /// 關閉內部 Dio（釋放連線池）；provider 於 onDispose 呼叫。
+  void dispose() => _dio.close();
 
   /// 搜索歌曲
   ///

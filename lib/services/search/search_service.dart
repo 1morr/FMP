@@ -1,12 +1,11 @@
 import 'dart:async';
 
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:isar/isar.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../data/models/search_history.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
+import '../../data/repositories/search_history_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_provider.dart';
@@ -67,15 +66,15 @@ class MultiSourceSearchResult {
 class SearchService {
   final SourceManager _sourceManager;
   final TrackRepository _trackRepository;
-  final Isar _isar;
+  final SearchHistoryRepository _searchHistoryRepository;
 
   SearchService({
     required SourceManager sourceManager,
     required TrackRepository trackRepository,
-    required Isar isar,
+    required SearchHistoryRepository searchHistoryRepository,
   })  : _sourceManager = sourceManager,
         _trackRepository = trackRepository,
-        _isar = isar;
+        _searchHistoryRepository = searchHistoryRepository;
 
   /// 在线搜索。
   ///
@@ -142,17 +141,11 @@ class SearchService {
     return source.search(query, page: page, pageSize: pageSize, order: order);
   }
 
-  /// 加载 Bilibili 视频分P信息
+  /// 加载具备 PagedVideoSource 能力音源的视频分P信息；不具备该能力的音源返回空列表。
   Future<List<VideoPage>> loadVideoPagesForTrack(Track track) async {
-    if (track.sourceType != SourceType.bilibili) {
-      return const [];
-    }
-
     final source = _sourceManager.pagedVideoSource(track.sourceType);
     if (source == null) {
-      throw SearchException(
-        t.error.sourceUnavailable(source: SourceType.bilibili.name),
-      );
+      return const [];
     }
 
     return source.getVideoPages(track.sourceId);
@@ -198,80 +191,27 @@ class SearchService {
 
   /// 获取搜索历史
   Future<List<SearchHistory>> getSearchHistory({int limit = 20}) async {
-    return _isar.searchHistorys
-        .filter()
-        .queryIsNotEmpty()
-        .sortByTimestampDesc()
-        .limit(limit)
-        .findAll();
+    return _searchHistoryRepository.getRecent(limit: limit);
   }
 
   /// 删除单条搜索历史
   Future<void> deleteSearchHistory(int id) async {
-    await _isar.writeTxn(() => _isar.searchHistorys.delete(id));
+    await _searchHistoryRepository.deleteById(id);
   }
 
   /// 清空搜索历史
   Future<void> clearSearchHistory() async {
-    await _isar.writeTxn(() => _isar.searchHistorys.clear());
+    await _searchHistoryRepository.clear();
   }
 
   /// 保存搜索历史
   Future<void> _saveSearchHistory(String query) async {
-    final trimmedQuery = query.trim();
-    if (trimmedQuery.isEmpty) return;
-
-    // 删除相同的旧记录
-    final existing = await _isar.searchHistorys
-        .filter()
-        .queryEqualTo(trimmedQuery)
-        .findAll();
-
-    await _isar.writeTxn(() async {
-      // 删除旧记录
-      for (final history in existing) {
-        await _isar.searchHistorys.delete(history.id);
-      }
-
-      // 添加新记录
-      final newHistory = SearchHistory()
-        ..query = trimmedQuery
-        ..timestamp = DateTime.now();
-      await _isar.searchHistorys.put(newHistory);
-
-      // 保留最近 100 条
-      final allHistory = await _isar.searchHistorys
-          .filter()
-          .queryIsNotEmpty()
-          .sortByTimestampDesc()
-          .findAll();
-
-      if (allHistory.length > AppConstants.maxSearchHistoryCount) {
-        final toDelete = allHistory.sublist(AppConstants.maxSearchHistoryCount);
-        for (final history in toDelete) {
-          await _isar.searchHistorys.delete(history.id);
-        }
-      }
-    });
+    await _searchHistoryRepository.saveQuery(query);
   }
 
   /// 获取搜索建议
   Future<List<String>> getSearchSuggestions(String prefix) async {
-    if (prefix.trim().isEmpty) {
-      // 返回最近搜索
-      final history = await getSearchHistory(limit: 5);
-      return history.map((h) => h.query).toList();
-    }
-
-    // 从历史记录中匹配
-    final history = await _isar.searchHistorys
-        .filter()
-        .queryContains(prefix, caseSensitive: false)
-        .sortByTimestampDesc()
-        .limit(10)
-        .findAll();
-
-    return history.map((h) => h.query).toList();
+    return _searchHistoryRepository.searchByPrefix(prefix);
   }
 }
 

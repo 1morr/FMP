@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/download_filenames.dart';
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../utils/duration_formatter.dart';
@@ -60,7 +61,7 @@ extension TrackExtensions on Track {
 
     final coverPaths = allDownloadPaths.map((downloadPath) {
       final dir = Directory(downloadPath).parent;
-      return p.join(dir.path, 'cover.jpg');
+      return p.join(dir.path, DownloadFileNames.cover);
     }).toList();
 
     return cache.getFirstExisting(coverPaths);
@@ -76,7 +77,7 @@ extension TrackExtensions on Track {
     // 從所有下載路徑中查找頭像
     final avatarPaths = allDownloadPaths.map((downloadPath) {
       final dir = Directory(downloadPath).parent;
-      return p.join(dir.path, 'avatar.jpg');
+      return p.join(dir.path, DownloadFileNames.avatar);
     }).toList();
 
     return cache.getFirstExisting(avatarPaths);

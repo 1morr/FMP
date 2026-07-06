@@ -531,8 +531,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       if (_isSuperseded(requestId)) return;
 
       // 如果是流打開失敗且不是重試，嘗試重新獲取流地址並重試
-      final errorStr = e.toString();
-      if (!isRetry && errorStr.contains('Stream failed to open')) {
+      if (!isRetry && e is StreamOpenFailedException) {
         logWarning('Stream failed to open, retrying with fresh URL...');
         await play(station, isRetry: true);
         return;

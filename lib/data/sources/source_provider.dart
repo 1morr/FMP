@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/logger.dart';
 import '../models/track.dart';
 import 'base_source.dart';
 import 'bilibili_source.dart';
@@ -9,7 +10,7 @@ import 'youtube_source.dart';
 
 /// 音源管理器
 /// 统一注册具体适配器，但调用端只按所需能力取用。
-class SourceManager {
+class SourceManager with Logging {
   SourceManager({List<SourceCapability>? sources})
       : _sources = List<SourceCapability>.of(
           sources ??
@@ -157,8 +158,12 @@ class SourceManager {
         final result =
             await source.search(query, page: page, pageSize: pageSize);
         results[source.sourceType] = result;
-      } catch (_) {
-        // 忽略单个源的错误
+      } catch (e) {
+        // 单源失败不应中断整体搜索（保留「部分结果」语义），但补上日志
+        // 避免限流/网络/程式错误被完全静默吞掉而无法排查。
+        logWarning(
+            '${source.sourceType.name} search failed; returning partial results: '
+            '$e');
       }
     }));
 
@@ -181,11 +186,12 @@ class SourceManager {
   }
 
   /// 释放所有音源资源（关闭 HTTP 客户端等）
+  ///
+  /// 通过 `DisposableSource` 能力介面释放，避免对具体 source 型别做列举；
+  /// 新音源只要 `implements DisposableSource` 即自动被释放。
   void dispose() {
-    for (final source in _sources) {
-      if (source is BilibiliSource) source.dispose();
-      if (source is YouTubeSource) source.dispose();
-      if (source is NeteaseSource) source.dispose();
+    for (final source in _sources.whereType<DisposableSource>()) {
+      source.dispose();
     }
     _sources.clear();
   }

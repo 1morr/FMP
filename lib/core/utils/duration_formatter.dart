@@ -32,4 +32,18 @@ class DurationFormatter {
   static String formatSeconds(int seconds) {
     return formatMs(seconds * 1000);
   }
+
+  /// 解析冒號時長字串（如 "4:39" 或 "1:23:45"）為毫秒；無法解析時回傳 0。
+  static int parseColonDurationToMs(String? text) {
+    if (text == null || text.isEmpty) return 0;
+    try {
+      final parts = text.split(':').map(int.parse).toList();
+      if (parts.length == 2) {
+        return (parts[0] * 60 + parts[1]) * 1000;
+      } else if (parts.length == 3) {
+        return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+      }
+    } catch (_) {}
+    return 0;
+  }
 }

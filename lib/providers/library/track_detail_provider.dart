@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/download_filenames.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../data/sources/source_capabilities.dart';
@@ -109,7 +110,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     for (final downloadPath in track.allDownloadPaths) {
       try {
         final dir = Directory(downloadPath).parent;
-        final metadataFile = File(p.join(dir.path, 'metadata.json'));
+        final metadataFile = File(p.join(dir.path, DownloadFileNames.metadata));
         if (!await metadataFile.exists()) continue;
 
         final json = jsonDecode(await metadataFile.readAsString())

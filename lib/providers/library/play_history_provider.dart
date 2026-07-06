@@ -116,33 +116,33 @@ List<PlayHistory> _filterAndSortHistory(
   String? searchKeyword,
   DateTime? selectedDate,
 }) {
-  var filtered = List<PlayHistory>.from(records);
-
-  if (selectedSource != null) {
-    filtered = filtered
-        .where((history) => history.sourceType == selectedSource)
-        .toList();
-  }
-
-  if (selectedDate != null) {
+  // 單次巡覽取代 List.from + 多次 where.toList 的多份副本（A4）。
+  // 註：queryHistory 本身也是 load-all + in-memory filter（非真正 DB 端篩選），
+  // 故「下推到 queryHistory」不會更省記憶體；真正可省的是這裡的重複副本/迭代。
+  final bool Function(PlayHistory) dateMatches;
+  if (selectedDate == null) {
+    dateMatches = (_) => true;
+  } else {
     final start =
         DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
     final endExclusive = start.add(const Duration(days: 1));
-    filtered = filtered
-        .where((history) =>
-            !history.playedAt.isBefore(start) &&
-            history.playedAt.isBefore(endExclusive))
-        .toList();
+    dateMatches = (h) =>
+        !h.playedAt.isBefore(start) && h.playedAt.isBefore(endExclusive);
   }
 
-  if (searchKeyword != null && searchKeyword.isNotEmpty) {
-    final lower = searchKeyword.toLowerCase();
-    filtered = filtered
-        .where((history) =>
-            history.title.toLowerCase().contains(lower) ||
-            (history.artist?.toLowerCase().contains(lower) ?? false))
-        .toList();
-  }
+  final lowerKeyword = (searchKeyword != null && searchKeyword.isNotEmpty)
+      ? searchKeyword.toLowerCase()
+      : null;
+
+  final filtered = <PlayHistory>[
+    for (final history in records)
+      if (selectedSource == null || history.sourceType == selectedSource)
+      if (dateMatches(history))
+      if (lowerKeyword == null ||
+          history.title.toLowerCase().contains(lowerKeyword) ||
+          (history.artist?.toLowerCase().contains(lowerKeyword) ?? false))
+        history,
+  ];
 
   switch (sortOrder) {
     case HistorySortOrder.timeDesc:

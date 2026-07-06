@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/repositories/radio_repository.dart';
 import 'radio_source.dart';
@@ -14,7 +14,7 @@ import 'radio_source.dart';
 /// - 每 5 分鐘自動後台刷新
 /// - 用戶進入任何頁面時直接顯示緩存，無需等待
 /// - 緩存直播狀態和電台資訊（封面、標題、主播名）
-class RadioRefreshService {
+class RadioRefreshService with Logging {
   /// 全局單例實例
   static late final RadioRefreshService instance;
 
@@ -96,7 +96,7 @@ class RadioRefreshService {
   Future<void> _refreshAll(int generation) async {
     final repository = _repository;
     if (repository == null) {
-      debugPrint('[RadioRefresh] Repository not set, skipping refresh');
+      logWarning('[RadioRefresh] Repository not set, skipping refresh');
       return;
     }
 
@@ -133,7 +133,7 @@ class RadioRefreshService {
         }
       } catch (e) {
         if (!_isCurrentRefreshAll(generation)) return;
-        debugPrint(
+        logWarning(
             '[RadioRefresh] Failed to check live status for ${station.title}: $e');
         _liveStatus[station.id] = false;
       }
@@ -141,7 +141,7 @@ class RadioRefreshService {
 
     if (!_isCurrentRefreshAll(generation)) return;
     _notifyStateChange();
-    debugPrint('[RadioRefresh] 電台直播狀態已刷新: ${_liveStatus.length} 個電台');
+    logDebug('[RadioRefresh] 電台直播狀態已刷新: ${_liveStatus.length} 個電台');
   }
 
   /// 刷新單個電台的直播狀態
@@ -152,7 +152,7 @@ class RadioRefreshService {
       _notifyStateChange();
       return isLive;
     } catch (e) {
-      debugPrint(
+      logWarning(
           '[RadioRefresh] Failed to refresh station ${station.title}: $e');
       _liveStatus[station.id] = false;
       return false;

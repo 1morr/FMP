@@ -672,7 +672,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       if (state == FmpAudioProcessingState.idle && attempts > 5) {
         // 如果在尝试5次后仍然是 idle，可能加载失败
         logError('Stream failed to open: player in idle state after open()');
-        throw Exception('Stream failed to open');
+        throw const StreamOpenFailedException();
       }
 
       await Future.delayed(const Duration(milliseconds: 100));

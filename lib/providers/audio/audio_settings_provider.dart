@@ -13,6 +13,7 @@ class AudioSettingsState {
   final List<AudioFormat> formatPriority;
   final List<StreamType> youtubeStreamPriority;
   final List<StreamType> bilibiliStreamPriority;
+  final List<StreamType> neteaseStreamPriority;
   final bool autoMatchLyrics;
   final List<String> lyricsSourceOrder;
   final Set<String> disabledLyricsSources;
@@ -42,6 +43,9 @@ class AudioSettingsState {
       StreamType.audioOnly,
       StreamType.muxed,
     ],
+    this.neteaseStreamPriority = const [
+      StreamType.audioOnly,
+    ],
     this.autoMatchLyrics = true,
     this.lyricsSourceOrder = const ['netease', 'qqmusic', 'lrclib'],
     this.disabledLyricsSources = const {'lrclib'},
@@ -67,6 +71,7 @@ class AudioSettingsState {
     List<AudioFormat>? formatPriority,
     List<StreamType>? youtubeStreamPriority,
     List<StreamType>? bilibiliStreamPriority,
+    List<StreamType>? neteaseStreamPriority,
     bool? autoMatchLyrics,
     List<String>? lyricsSourceOrder,
     Set<String>? disabledLyricsSources,
@@ -88,6 +93,8 @@ class AudioSettingsState {
           youtubeStreamPriority ?? this.youtubeStreamPriority,
       bilibiliStreamPriority:
           bilibiliStreamPriority ?? this.bilibiliStreamPriority,
+      neteaseStreamPriority:
+          neteaseStreamPriority ?? this.neteaseStreamPriority,
       autoMatchLyrics: autoMatchLyrics ?? this.autoMatchLyrics,
       lyricsSourceOrder: lyricsSourceOrder ?? this.lyricsSourceOrder,
       disabledLyricsSources:
@@ -135,6 +142,7 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
       formatPriority: _settings!.audioFormatPriorityList,
       youtubeStreamPriority: _settings!.youtubeStreamPriorityList,
       bilibiliStreamPriority: _settings!.bilibiliStreamPriorityList,
+      neteaseStreamPriority: _settings!.neteaseStreamPriorityList,
       autoMatchLyrics: _settings!.autoMatchLyrics,
       lyricsSourceOrder: _settings!.lyricsSourcePriorityList,
       disabledLyricsSources: _settings!.disabledLyricsSourcesSet,
@@ -207,6 +215,22 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
       _settings!.bilibiliStreamPriorityList = priority;
     } catch (_) {
       state = state.copyWith(bilibiliStreamPriority: previous);
+    }
+  }
+
+  /// 设置 Netease 流优先级
+  Future<void> setNeteaseStreamPriority(List<StreamType> priority) async {
+    if (_settings == null) return;
+
+    final previous = state.neteaseStreamPriority;
+    state = state.copyWith(neteaseStreamPriority: priority);
+
+    try {
+      await _settingsRepository
+          .update((s) => s.neteaseStreamPriorityList = priority);
+      _settings!.neteaseStreamPriorityList = priority;
+    } catch (_) {
+      state = state.copyWith(neteaseStreamPriority: previous);
     }
   }
 
@@ -359,6 +383,11 @@ final youtubeStreamPriorityProvider = Provider<List<StreamType>>((ref) {
 /// 便捷 Provider - Bilibili 流优先级
 final bilibiliStreamPriorityProvider = Provider<List<StreamType>>((ref) {
   return ref.watch(audioSettingsProvider).bilibiliStreamPriority;
+});
+
+/// 便捷 Provider - Netease 流优先级
+final neteaseStreamPriorityProvider = Provider<List<StreamType>>((ref) {
+  return ref.watch(audioSettingsProvider).neteaseStreamPriority;
 });
 
 /// 便捷 Provider - 歌词源优先级顺序

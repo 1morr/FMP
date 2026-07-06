@@ -66,7 +66,7 @@ lib/
 
 ### 持久化 Isar Collections
 
-以下 collection 注册在 `lib/providers/database/database_provider.dart`。字段变化时需要检查迁移/default repair，并同步检查数据库查看器。
+以下 collection 注册在 `lib/providers/database/database_catalog.dart`；`database_provider.dart` 只负责 open/迁移/default repair。字段变化时需要检查迁移/default repair，并同步检查数据库查看器。
 
 数据库文件通过 `openFmpDatabase()` 打开，固定存放在应用 documents 目录下的 `FMP/` 子目录中。不要在其他位置手写 `getApplicationDocumentsDirectory()/fmp_database.isar`；需要路径或大小信息时复用 `resolveFmpDatabaseDirectory()` 和 `fmpDatabaseFileName`。
 
@@ -81,7 +81,7 @@ lib/
 | `PlayHistory` | 播放历史 |
 | `RadioStation` | 电台/直播站点 |
 | `LyricsMatch` | Track 到歌词源的匹配记录 |
-| `LyricsTitleParseCache` | 运行期 AI 标题解析缓存 |
+| `LyricsTitleParseCache` | 运行期 AI 标题解析缓存（运行期暂存、启动时清空、非耐用数据；权威规则见 `lib/data/AGENTS.md`） |
 | `Account` | 平台登录/账号状态 |
 
 ### 非持久化 DTO / Value Objects
@@ -127,7 +127,7 @@ lib/
 |------|------|
 | 主导航 | `/`、`/search`、`/explore`、`/queue`、`/history`、`/library`、`/radio`、`/settings` |
 | 详情页 | `/player`、`/radio-player`、`/library/:id`、`/library/downloaded`、`/library/downloaded/:folderName` |
-| 设置 | `/settings/audio`、`/settings/lyrics-source`、`/settings/download-manager`、`/settings/user-guide`、`/settings/account`、`/settings/account/bilibili-login`、`/settings/account/youtube-login`、`/settings/account/netease-login`、`/settings/developer` |
+| 设置 | `/settings/audio`、`/settings/lyrics-source`、`/settings/download-manager`、`/settings/user-guide`、`/settings/home-ranking`、`/settings/account`、`/settings/account/bilibili-login`、`/settings/account/youtube-login`、`/settings/account/netease-login`、`/settings/developer` |
 | 开发者工具 | `/settings/developer/database`、`/settings/developer/logs` |
 
 ## 响应式布局
