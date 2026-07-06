@@ -11,6 +11,7 @@ import '../../services/lyrics/lyrics_window_style.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lyrics/lyrics_style_dialog.dart';
 import '../widgets/lyrics/lyrics_styled_text.dart';
+import 'lyrics_display_mode.dart';
 
 /// 歌词弹出窗口入口点
 ///
@@ -190,7 +191,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   bool _alwaysOnTop = true;
   bool _showOffsetControls = false;
   bool _isPlaying = false;
-  int _displayModeIndex = 0; // 0=original, 1=preferTranslated, 2=preferRomaji
+  LyricsDisplayMode _displayMode = LyricsDisplayMode.original;
   bool _transparentMode = false;
   bool _singleLineMode = false;
   bool _isHovering = false;
@@ -318,9 +319,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
   void _handleUpdateLyricsDisplayMode(String jsonStr) {
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-    final modeIndex = data['modeIndex'] as int? ?? 0;
-    if (_displayModeIndex != modeIndex) {
-      setState(() => _displayModeIndex = modeIndex);
+    final mode = LyricsDisplayMode.fromIndex(data['modeIndex'] as int?);
+    if (_displayMode != mode) {
+      setState(() => _displayMode = mode);
       // 切换显示模式后滚动到当前播放行
       if (!_singleLineMode) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -456,12 +457,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   // ─── Actions ───
 
   void _cycleLyricsDisplayMode() {
-    final nextIndex = (_displayModeIndex + 1) % 3;
-    setState(() => _displayModeIndex = nextIndex);
+    final nextMode = _displayMode.next;
+    setState(() => _displayMode = nextMode);
     try {
       _channel.invokeMethod(
         'changeLyricsDisplayMode',
-        jsonEncode({'modeIndex': nextIndex}),
+        jsonEncode({'modeIndex': nextMode.modeIndex}),
       );
     } catch (_) {}
     // 切换显示模式后滚动到当前播放行
@@ -616,25 +617,16 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return appState?.strings ?? _LyricsWindowStrings();
   }
 
-  IconData get _displayModeIcon {
-    switch (_displayModeIndex) {
-      case 1:
-        return Icons.translate;
-      case 2:
-        return Icons.abc;
-      default:
-        return Icons.title;
-    }
-  }
+  IconData get _displayModeIcon => _displayMode.icon;
 
   String get _displayModeTooltip {
-    switch (_displayModeIndex) {
-      case 1:
-        return _strings.displayPreferTranslated;
-      case 2:
-        return _strings.displayPreferRomaji;
-      default:
+    switch (_displayMode) {
+      case LyricsDisplayMode.original:
         return _strings.displayOriginal;
+      case LyricsDisplayMode.preferTranslated:
+        return _strings.displayPreferTranslated;
+      case LyricsDisplayMode.preferRomaji:
+        return _strings.displayPreferRomaji;
     }
   }
 
