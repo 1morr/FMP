@@ -1062,93 +1062,8 @@ class YouTubeSource
     logDebug('Fetching Mix tracks: $playlistId (current: $currentVideoId)');
 
     try {
-      final response = await _dio.post(
-        '$_innerTubeApiBase/next?key=$_innerTubeApiKey',
-        data: jsonEncode({
-          'videoId': currentVideoId,
-          'playlistId': playlistId,
-          'context': {
-            'client': {
-              'clientName': _innerTubeClientName,
-              'clientVersion': _innerTubeClientVersion,
-              'hl': 'zh-TW',
-              'gl': 'TW',
-            },
-          },
-        }),
-        options: _innerTubeRequestOptions(),
-      );
-
-      if (response.statusCode != 200) {
-        if (response.statusCode == 429) {
-          logWarning('YouTube rate limited (HTTP 429) for Mix playlist');
-          throw YouTubeApiException(
-            code: 'rate_limited',
-            message: t.error.rateLimited,
-          );
-        }
-        throw YouTubeApiException(
-          code: 'api_error',
-          message: 'InnerTube API returned status ${response.statusCode}',
-        );
-      }
-
-      final data = response.data is String
-          ? jsonDecode(response.data as String) as Map<String, dynamic>
-          : response.data as Map<String, dynamic>;
-
-      // 解析播放列表數據
-      final twoColumn = data['contents']?['twoColumnWatchNextResults'];
-      final playlistData = twoColumn?['playlist']?['playlist'];
-
-      if (playlistData == null) {
-        throw const YouTubeApiException(
-          code: 'parse_error',
-          message: 'Mix playlist data not found in API response',
-        );
-      }
-
-      final title = playlistData['title'] as String? ?? 'Mix';
-      final contents = playlistData['contents'] as List? ?? [];
-
-      final tracks = <Track>[];
-      for (final item in contents) {
-        final renderer =
-            item['playlistPanelVideoRenderer'] as Map<String, dynamic>?;
-        if (renderer == null) continue;
-
-        final videoId = renderer['videoId'] as String?;
-        if (videoId == null) continue;
-
-        // 解析標題
-        final titleObj = renderer['title'];
-        final trackTitle = titleObj?['simpleText'] as String? ??
-            (titleObj?['runs'] as List?)?.firstOrNull?['text'] as String? ??
-            'Unknown';
-
-        // 解析頻道名（作為 artist）
-        final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
-        final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
-
-        // 解析時長
-        final lengthText = renderer['lengthText']?['simpleText'] as String?;
-        final durationMs = _parseDurationText(lengthText);
-
-        // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
-        final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
-
-        tracks.add(Track()
-          ..sourceId = videoId
-          ..sourceType = SourceType.youtube
-          ..title = trackTitle
-          ..artist = artist
-          ..durationMs = durationMs
-          ..thumbnailUrl = thumbnailUrl);
-      }
-
-      logDebug('Fetched Mix tracks: $title, ${tracks.length} tracks');
-
-      return MixFetchResult(title: title, tracks: tracks);
+      final data = await _fetchMixResponse(playlistId, currentVideoId);
+      return _parseMixTracksFromData(data);
     } on DioException catch (e) {
       throw _handleDioError(e);
     } catch (e) {
@@ -1156,6 +1071,104 @@ class YouTubeSource
       logError('Unexpected error in fetchMixTracks: $e');
       throw YouTubeApiException(code: 'error', message: e.toString());
     }
+  }
+
+  /// 對 Mix 播放清單 POST InnerTube /next 請求並回傳解碼後的 JSON body。
+  /// rate-limit（429）或非 200 回應直接拋 YouTubeApiException。
+  Future<Map<String, dynamic>> _fetchMixResponse(
+    String playlistId,
+    String currentVideoId,
+  ) async {
+    final response = await _dio.post(
+      '$_innerTubeApiBase/next?key=$_innerTubeApiKey',
+      data: jsonEncode({
+        'videoId': currentVideoId,
+        'playlistId': playlistId,
+        'context': {
+          'client': {
+            'clientName': _innerTubeClientName,
+            'clientVersion': _innerTubeClientVersion,
+            'hl': 'zh-TW',
+            'gl': 'TW',
+          },
+        },
+      }),
+      options: _innerTubeRequestOptions(),
+    );
+
+    if (response.statusCode != 200) {
+      if (response.statusCode == 429) {
+        logWarning('YouTube rate limited (HTTP 429) for Mix playlist');
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
+      }
+      throw YouTubeApiException(
+        code: 'api_error',
+        message: 'InnerTube API returned status ${response.statusCode}',
+      );
+    }
+
+    return response.data is String
+        ? jsonDecode(response.data as String) as Map<String, dynamic>
+        : response.data as Map<String, dynamic>;
+  }
+
+  /// 把 InnerTube /next 回應 body 解析為 MixFetchResult。
+  /// 缺少 playlist 資料時拋 YouTubeApiException(parse_error)。
+  MixFetchResult _parseMixTracksFromData(Map<String, dynamic> data) {
+    final twoColumn = data['contents']?['twoColumnWatchNextResults'];
+    final playlistData = twoColumn?['playlist']?['playlist'];
+
+    if (playlistData == null) {
+      throw const YouTubeApiException(
+        code: 'parse_error',
+        message: 'Mix playlist data not found in API response',
+      );
+    }
+
+    final title = playlistData['title'] as String? ?? 'Mix';
+    final contents = playlistData['contents'] as List? ?? [];
+
+    final tracks = <Track>[];
+    for (final item in contents) {
+      final renderer =
+          item['playlistPanelVideoRenderer'] as Map<String, dynamic>?;
+      if (renderer == null) continue;
+
+      final videoId = renderer['videoId'] as String?;
+      if (videoId == null) continue;
+
+      // 解析標題
+      final titleObj = renderer['title'];
+      final trackTitle = titleObj?['simpleText'] as String? ??
+          (titleObj?['runs'] as List?)?.firstOrNull?['text'] as String? ??
+          'Unknown';
+
+      // 解析頻道名（作為 artist）
+      final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
+      final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
+
+      // 解析時長
+      final lengthText = renderer['lengthText']?['simpleText'] as String?;
+      final durationMs = _parseDurationText(lengthText);
+
+      // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
+      final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+
+      tracks.add(Track()
+        ..sourceId = videoId
+        ..sourceType = SourceType.youtube
+        ..title = trackTitle
+        ..artist = artist
+        ..durationMs = durationMs
+        ..thumbnailUrl = thumbnailUrl);
+    }
+
+    logDebug('Fetched Mix tracks: $title, ${tracks.length} tracks');
+
+    return MixFetchResult(title: title, tracks: tracks);
   }
 
   /// 從 URL 中提取 list= 參數值
