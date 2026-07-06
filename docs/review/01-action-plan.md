@@ -74,20 +74,26 @@ commit `925e334f` 訊息前兩點虛報「Settings 新增欄位（nullable）」
 - **A4**：審查建議「下推 queryHistory」，但 `queryHistory` 本身也是 `where().findAll()` 後 in-memory 篩選（非 DB 端下推），下推不會更省——實際修法是 `_filterAndSortHistory` 改單次巡覽（減副本）。
 - **F6**：審查稱「checksum 選用、不強制」，實際 manifest 在時已 fail-closed；剩餘「無 manifest 時 trust-GitHub」為刻意政策，不實作。
 
-### 剩餘（風險/範圍升高，建議各獨立一輪）
+### 剩餘（按設計 defer，需觸發才該做）
 
-| 類別 | 項目 |
-|------|------|
-| **關鍵路徑方法拆分** | C13（youtube `parsePlaylist` 176/187 行）、C14（mix 載入迴圈） |
-| **架構決策** | B2（歌詞 exception—`SourceType` 門檻，scoped vs 動 enum）、B6（`LyricsSource` 介面，L） |
-| **大型結構** | C2+C3（download_service 重構：`_startDownload` 267 行拆解 + 移除 dead CancelToken）、C1（拆 lyrics_window 1250 行 State）、A2（playlistCoverMap 鏈） |
-| **低打磨/含取捨** | A9（release 日誌量—產品取捨）、A10、B8（catch 語意—逐處判斷）、B9（log level 取捨）、C7（灰階矩陣，3 大檔脆弱）、E4/E7/E8、B3（待驗 dead code）、F7/F8 |
-| **伴 D13／const 門檻** | D2、D4、D5、D6、D11、D12、D13、C8-phase2 |
-| **持續追蹤** | F1（Isar v3 凍結，追蹤上游；v3 為上游官方建議的生產版本） |
+> **原則：defer ≠ 遺漏。** 以下每一項都附明確觸發條件——觸發前做是零或負效益（且常跨 schema/auth/cross-platform 邊界，違反 §0 紅線）；觸發後範圍才清楚、價值才明確。本次審查的**所有可執行重構／修復已完成**。
+
+| 項 | 觸發條件 | 為何現在不做 |
+|----|---------|-------------|
+| **D5 / D6 / D2-data-driven / D13-ext / C8-phase2** | **決定新增第 4 個音源** | 目前僅 3 源，資料驅動化後行為／檔案一字不變＝零效益。剩餘 hardcode 多為 exhaustive switch（加 enum 值編譯器強制改）；真正會靜默失效的字串 hardcode（`homeRankingSourceIds` 等）已收斂。D2-DD 另需 Isar schema migration + `kBackupVersion`。Phase 5 已標「僅當第 4 音源」。 |
+| **C1f**（WindowMethodChannel bridge 收斂） | **channel dispatch 具體 bug，或加新 IPC method** | C1 拆分目標已達（State 1430→886、offset/font/leaf 可測）；bridge 觸 `desktop_multi_window`／`window_manager`（flutter_test 不可測、有 channel-null flakiness，見 A10 workaround），盲改風險高，現無 bug 動機。 |
+| **B2-dedup**（歌詞 `_handleDioError` 改用 `classifyDioError`） | **第 4 個歌詞源，或 consumer 需豐富錯誤語意** | 無 consumer 用 `kind`／`sourceType`／`isRetryable`（歌詞錯誤全是 generic `catch`）；原「extends `SourceApiException`」框架會逼 `SourceType` enum 擴張（schema-adjacent）。 |
+| **B6**（`LyricsSource` 介面） | **第 4 個歌詞源** | 3 源穩定，string key 已是 de-facto 介面（2 個 switch 的分派鍵）；正式介面只 dedup 2 switch 卻要先統一非一致 method 簽名＝premature。 |
+| **A2-deeper**（denormalized `trackCount` 欄位） | **profiling 證實 home 歌單載入為瓶頸** | 需 Isar schema migration + backup round-trip（高 blast radius）；cover-map 已讓 `playlistListProvider` 持有完整 list，故記憶體勝利仍 modest。A2 本體已因 cover-map 依賴結案。 |
+| **F1**（Isar v3 → v4） | **上游 v4 stable + 官方遷移工具** | v3 為上游官方建議的生產版本（非 archived）；v4 非生產可用、無 v3→v4 遷移工具。持續追蹤，見 §持續追蹤 — F1。 |
+
+**已結案（非「未修復」）**：A2（cover-map 依賴 → 零效益）、A9／A10（產品取捨：in-app log viewer／`window_manager` bug workaround）；審查誤報 A1／A3／F4／F6 見前「撤回」表。
+
+**本次已完成、但原列為「剩餘」者**（避免讀者誤以為待辦）：C2（`_startDownload` 267→~138 行）、C3（dead CancelToken 移除）、C13（parsePlaylist 177→64）、C14（fetchMixTracks 102→17）、C1 全系列（lyrics_window 1430→886：C1a/b/c/d/e）、B8／B9／C7／E4／E7／E8／B3／F7／F8、D1／D4／D7／D9／D13-頭像／D2-broken-window。
 
 ### 一句話總結
 
-> 核心抽象層（音源/音訊/auth 邊界）本就穩健、無需重構；本輪完成 **29 項低中風險**的一致性、資源、可維護性與測試改善，並在實作前查證出 **4 筆審查誤報**——剩餘皆為關鍵路徑拆分、架構決策或大型結構，宜各獨立專注一輪。
+> 核心抽象層（音源／音訊／auth 邊界）本就穩健；本次完成**所有可執行**的一致性、資源、可維護性與測試改善（含 C1 全系列、C2／C3、C13／C14），並在實作前查證出 **4 筆審查誤報**——剩餘**全部為按設計 defer**，需明確觸發（第 4 音源／具體 bug／第 4 歌詞源／profiling 瓶頸）才該動，觸發前做是零或負效益。
 
 ---
 
