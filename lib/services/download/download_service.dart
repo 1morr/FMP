@@ -764,66 +764,18 @@ class DownloadService with Logging {
       trackTitle = track.title;
 
       // 获取音频 URL（使用用户设置的音频配置，与播放时逻辑一致）
-      final resolution = await _streamResolutionService.resolvePrimary(
-        track,
-        purpose: StreamResolutionPurpose.download,
-        persist: true,
-      );
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-      if (resolution is! RemoteStreamResolution) {
-        throw StateError(
-          'Download stream resolution returned a local file for '
-          '${track.sourceType.name}:${track.sourceId}',
-        );
-      }
-      final streamResult = resolution.stream;
-      final resolvedTrack = resolution.track;
-      final authHeaders = resolution.authHeaders;
-      final audioUrl = streamResult.url;
+      final stream = await _resolveDownloadStream(task, track);
+      if (stream == null) return;
+      final authHeaders = stream.authHeaders;
+      final audioUrl = stream.audioUrl;
 
-      // 更新 track 的 URL 信息
-      track.audioUrl = resolvedTrack.audioUrl;
-      track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
-      track.updatedAt = resolvedTrack.updatedAt;
-
-      logDebug('Got audio stream for download: ${track.title}, '
-          'bitrate=${streamResult.bitrate}');
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-
-      // 确定保存路径
-      final savePath = await _getDownloadPath(track, task);
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-      final tempPath = '$savePath.downloading';
-      if (await File(savePath).exists()) {
-        await _throwDestinationConflict(task, savePath);
-      }
-
-      // 确保目录存在
-      final dir = Directory(p.dirname(savePath));
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-
-      // 断点续传：检查是否有已下载的部分
-      int resumePosition = 0;
+      // 确定保存路径、目录与断点续传状态
+      final pathPlan = await _prepareDownloadPaths(task, track);
+      if (pathPlan == null) return;
+      final savePath = pathPlan.savePath;
+      final tempPath = pathPlan.tempPath;
+      final resumePosition = pathPlan.resumePosition;
       final tempFile = File(tempPath);
-      if (task.canResume &&
-          task.tempFilePath == tempPath &&
-          await tempFile.exists()) {
-        resumePosition = await tempFile.length();
-        logDebug('Resuming download from position: $resumePosition');
-      } else if (await tempFile.exists()) {
-        // 临时文件存在但不匹配，删除重新下载
-        await tempFile.delete();
-      }
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-
-      // 保存临时文件路径到任务（确保状态正确，因为传入的 task 对象可能是旧状态）
-      task.savePath ??= savePath;
-      task.tempFilePath = tempPath;
-      task.status = DownloadStatus.downloading;
-      await _downloadRepository.saveTask(task);
 
       // 使用 Isolate 进行下载，避免在主线程中进行网络 I/O
       // 这可以解决 Windows 上的 "Failed to post message to main thread" 错误
@@ -1013,6 +965,79 @@ class DownloadService with Logging {
     await _clearDownloadPathForTask(task);
     await _deleteTaskFiles(task);
     return true;
+  }
+
+  /// 解析下載串流：resolvePrimary + 驗證為 remote + 取出 authHeaders/audioUrl，
+  /// 並把 URL 資訊寫回 track。任一 abort checkpoint 取消時回傳 null（caller
+  /// 隨即 return，由 _startDownload 的 finally 收尾）。
+  Future<({Map<String, String>? authHeaders, String audioUrl})?>
+      _resolveDownloadStream(DownloadTask task, Track track) async {
+    final resolution = await _streamResolutionService.resolvePrimary(
+      track,
+      purpose: StreamResolutionPurpose.download,
+      persist: true,
+    );
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+    if (resolution is! RemoteStreamResolution) {
+      throw StateError(
+        'Download stream resolution returned a local file for '
+        '${track.sourceType.name}:${track.sourceId}',
+      );
+    }
+    final streamResult = resolution.stream;
+    final resolvedTrack = resolution.track;
+
+    // 更新 track 的 URL 信息
+    track.audioUrl = resolvedTrack.audioUrl;
+    track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
+    track.updatedAt = resolvedTrack.updatedAt;
+
+    logDebug('Got audio stream for download: ${track.title}, '
+        'bitrate=${streamResult.bitrate}');
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+
+    return (authHeaders: resolution.authHeaders, audioUrl: streamResult.url);
+  }
+
+  /// 決定儲存路徑、建立目錄、處理斷點續傳，並把 tempPath/status 寫回 task。
+  /// 任務取消時回傳 null。
+  Future<({String savePath, String tempPath, int resumePosition})?>
+      _prepareDownloadPaths(DownloadTask task, Track track) async {
+    final savePath = await _getDownloadPath(track, task);
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+    final tempPath = '$savePath.downloading';
+    if (await File(savePath).exists()) {
+      await _throwDestinationConflict(task, savePath);
+    }
+
+    // 确保目录存在
+    final dir = Directory(p.dirname(savePath));
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+
+    // 断点续传：检查是否有已下载的部分
+    int resumePosition = 0;
+    final tempFile = File(tempPath);
+    if (task.canResume &&
+        task.tempFilePath == tempPath &&
+        await tempFile.exists()) {
+      resumePosition = await tempFile.length();
+      logDebug('Resuming download from position: $resumePosition');
+    } else if (await tempFile.exists()) {
+      // 临时文件存在但不匹配，删除重新下载
+      await tempFile.delete();
+    }
+    if (_shouldAbortBeforeRegistration(task.id)) return null;
+
+    // 保存临时文件路径到任务（确保状态正确，因为传入的 task 对象可能是旧状态）
+    task.savePath ??= savePath;
+    task.tempFilePath = tempPath;
+    task.status = DownloadStatus.downloading;
+    await _downloadRepository.saveTask(task);
+
+    return (savePath: savePath, tempPath: tempPath, resumePosition: resumePosition);
   }
 
   void _clearPendingProgressForTask(int taskId) {
