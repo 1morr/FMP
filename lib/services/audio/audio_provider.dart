@@ -2792,9 +2792,9 @@ class AudioController extends StateNotifier<PlayerState>
       if (nextTrack != null) {
         unawaited(_audioStreamManager.prefetchTrack(nextTrack.copy()));
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_isDisposed) return;
-      logError('Failed to prepare track: ${track.title}', e);
+      logError('Failed to prepare track: ${track.title}', e, stack);
       if (requestId != null) {
         _resetLoadingState(requestId: requestId);
       }
