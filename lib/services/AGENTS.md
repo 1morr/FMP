@@ -224,11 +224,18 @@ When you see it: ignore it. To reduce terminal noise:
 ```bash
 # filter inline (Git Bash) — note this breaks flutter run hot-reload interactivity
 flutter run -d windows 2>&1 | grep -vF "Failed to update ui::AXTree"
-# PowerShell — same hot-reload caveat
+# PowerShell — set UTF-8 first or Chinese (zh) output becomes mojibake when
+# GBK-decoded; same hot-reload caveat
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 flutter run -d windows 2>&1 | Select-String -NotMatch "Failed to update ui::AXTree"
 # keep stdout/stdin interactive, send only stderr to a file
 flutter run -d windows 2> run.log
 ```
+
+In Windows PowerShell 5.1, Chinese output through the `Select-String` pipe shows
+as mojibake (UTF-8 bytes decoded as the GBK/CP936 system code page); setting
+`[Console]::OutputEncoding = [Text.Encoding]::UTF8` first fixes it (shown above).
+PowerShell 7 (`pwsh`) defaults to UTF-8 and is unaffected.
 
 VS Code's integrated terminal has no native "hide lines matching a pattern"
 filter (verified through v1.107); use one of the pipes above, redirect stderr to
