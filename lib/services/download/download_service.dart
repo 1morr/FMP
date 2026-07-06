@@ -833,34 +833,8 @@ class DownloadService with Logging {
         throw Exception('Download failed: ${outcome.error}');
       }
 
-      // 下载完成，使用 no-replace finalization，避免覆盖用户已有文件。
-      await _promoteTempFileWithoutReplacing(tempFile, savePath, task);
-      if (await _abortFinalizationCleanup(task)) return;
-
-      // 获取 VideoDetail（用于保存完整元数据）
-      final videoDetail = await _fetchVideoDetail(track);
-      if (await _abortFinalizationCleanup(task)) return;
-
-      // 保存元数据（总是用最新数据覆盖）
-      await _saveMetadata(
-        track,
-        savePath,
-        videoDetail: videoDetail,
-      );
-      if (await _abortFinalizationCleanup(task)) return;
-
-      // A3: 验证文件存在后才保存下载路径到 Track
-      if (await File(savePath).exists()) {
-        if (await _abortFinalizationCleanup(task)) return;
-        await _downloadRepository.completeTaskWithDownloadPath(
-          taskId: task.id,
-          savePath: savePath,
-        );
-      } else {
-        logError('Download completed but file not found at: $savePath');
-        throw Exception('Downloaded file not found at expected path');
-      }
-      if (await _abortFinalizationCleanup(task)) return;
+      // 下载完成：promote 暂存档、抓元资料、写下载路径（每步 abort 检查）。
+      if (!await _finalizeDownload(task, track, savePath, tempFile)) return;
 
       logDebug('Download completed for track: ${track.title}');
 
@@ -964,6 +938,43 @@ class DownloadService with Logging {
     if (!_shouldAbortAfterFinalizationStarted(task.id)) return false;
     await _clearDownloadPathForTask(task);
     await _deleteTaskFiles(task);
+    return true;
+  }
+
+  /// Finalization 序列：promote 暂存档 → 抓 VideoDetail → 存元资料 → 验证
+  /// 档案存在 → 写入下载路径。每步后检查 abort；任一步 abort 回传 false
+  /// （caller 略过完成事件），全程完成回传 true。档案不存在时抛例外
+  /// （由 _startDownload 的 catch 处理）。
+  Future<bool> _finalizeDownload(
+    DownloadTask task,
+    Track track,
+    String savePath,
+    File tempFile,
+  ) async {
+    // 下载完成，使用 no-replace finalization，避免覆盖用户已有文件。
+    await _promoteTempFileWithoutReplacing(tempFile, savePath, task);
+    if (await _abortFinalizationCleanup(task)) return false;
+
+    final videoDetail = await _fetchVideoDetail(track);
+    if (await _abortFinalizationCleanup(task)) return false;
+
+    // 保存元数据（总是用最新数据覆盖）
+    await _saveMetadata(track, savePath, videoDetail: videoDetail);
+    if (await _abortFinalizationCleanup(task)) return false;
+
+    // A3: 验证文件存在后才保存下载路径到 Track
+    if (await File(savePath).exists()) {
+      if (await _abortFinalizationCleanup(task)) return false;
+      await _downloadRepository.completeTaskWithDownloadPath(
+        taskId: task.id,
+        savePath: savePath,
+      );
+    } else {
+      logError('Download completed but file not found at: $savePath');
+      throw Exception('Downloaded file not found at expected path');
+    }
+    if (await _abortFinalizationCleanup(task)) return false;
+
     return true;
   }
 
