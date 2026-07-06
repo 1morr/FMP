@@ -142,7 +142,7 @@ void main() {
           ..totalBytes = 100,
       );
 
-      service.debugRegisterLegacyActiveDownloadForTesting(task.id);
+      service.debugMarkTaskActiveForTesting(task.id);
       service.debugRecordProgressUpdateForTesting(
           task.id, task.trackId, 0.75, 75, 100);
       await service.pauseAll();
@@ -288,7 +288,7 @@ void main() {
       );
       final task = await downloadRepository.saveTask(_task(trackId: 33));
 
-      service.debugRegisterLegacyActiveDownloadForTesting(task.id);
+      service.debugMarkTaskActiveForTesting(task.id);
       expect(service.debugActiveDownloads, 1);
 
       await service.pauseTask(task.id);
@@ -516,7 +516,7 @@ void main() {
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
       );
-      service.debugRegisterLegacyActiveDownloadForTesting(activeTask.id);
+      service.debugMarkTaskActiveForTesting(activeTask.id);
 
       final downloadFuture = service.debugStartDownloadForTesting(setupTask);
       await blockedSource.waitUntilRequested();
