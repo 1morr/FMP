@@ -108,6 +108,8 @@ gh secret list --repo 1morr/FMP
 
 Windows 版本使用 [Inno Setup](https://jrsoftware.org/isinfo.php) 生成 `.exe` 安装包。安装包会创建带有 `AppUserModelID` 的开始菜单和桌面快捷方式，使 Windows SMTC（系统媒体传输控件）能正确显示应用图标和名称。
 
+CI 不直接使用 inno_bundle 的默认输出：`release.yml` 会以多组 regex 改写生成的 `inno-script.iss`（注入 `DefaultGroupName=FMP` 与 `AppUserModelID: "com.personal.fmp"`），并在 ISCC 编译前用一个 verify 步骤断言两者都存在。若上游 inno_bundle 输出格式变动使替换失效，CI 会明确失败，而不是产出静默退回的安装包（那会让 SMTC 身份与开始菜单分组受损）。
+
 ### 前置条件
 
 ```bash
