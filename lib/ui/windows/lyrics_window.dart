@@ -13,6 +13,7 @@ import '../widgets/lyrics/lyrics_style_dialog.dart';
 import '../widgets/lyrics/lyrics_styled_text.dart';
 import 'lyrics_display_mode.dart';
 import 'lyrics/lyrics_empty_state.dart';
+import 'lyrics/lyrics_line_item.dart';
 import 'lyrics_text_measurer.dart';
 
 /// 歌词弹出窗口入口点
@@ -1202,90 +1203,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   Widget _buildLyricsLine(
       int index, bool isCurrent, ({double main, double sub}) fontSizes) {
     final line = _lines[index];
-    final t = _transparentMode;
-    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final mainColor = _lyricsStyle.resolveMainColor(
+    return LyricsLineItem(
+      text: line.text,
+      subText: line.subText,
       isCurrent: isCurrent,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface,
-      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.4),
-    );
-    final subColor = _lyricsStyle.resolveSecondaryColor(
-      isCurrent: isCurrent,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface.withValues(alpha: 0.7),
-      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.3),
-    );
-
-    return GestureDetector(
-      onTap:
-          _isSynced && line.timestamp != null ? () => _seekToLine(index) : null,
-      onSecondaryTap: _isSynced && line.timestamp != null
-          ? () => _calibrateOffsetToLine(index)
-          : null,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: LyricsTextStyles.fromTheme(
-                context,
-                fontSize: fontSizes.main,
-                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                color: mainColor,
-                height: 1.4,
-              ),
-              child: Builder(
-                builder: (context) {
-                  final style = DefaultTextStyle.of(context).style;
-                  if (!applyTextStyle) {
-                    return Text(line.text, textAlign: TextAlign.center);
-                  }
-                  return LyricsStyledText(
-                    line.text,
-                    style: style,
-                    lyricsStyle: _lyricsStyle,
-                    textAlign: TextAlign.center,
-                  );
-                },
-              ),
-            ),
-            if (line.subText != null && line.subText!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: LyricsTextStyles.fromTheme(
-                    context,
-                    fontSize: fontSizes.sub,
-                    fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
-                    color: subColor,
-                    height: 1.3,
-                  ),
-                  child: Builder(
-                    builder: (context) {
-                      final style = DefaultTextStyle.of(context).style;
-                      if (!applyTextStyle) {
-                        return Text(line.subText!, textAlign: TextAlign.center);
-                      }
-                      return LyricsStyledText(
-                        line.subText!,
-                        style: style,
-                        lyricsStyle: _lyricsStyle,
-                        textAlign: TextAlign.center,
-                      );
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+      fontSizes: fontSizes,
+      transparentMode: _transparentMode,
+      style: _lyricsStyle,
+      isSynced: _isSynced,
+      hasTimestamp: line.timestamp != null,
+      onTap: () => _seekToLine(index),
+      onSecondaryTap: () => _calibrateOffsetToLine(index),
     );
   }
 
