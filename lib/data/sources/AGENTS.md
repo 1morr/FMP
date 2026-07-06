@@ -146,6 +146,13 @@ do not expose or consume concrete source getters/providers such as
 `neteaseAudioSourceProvider`. Concrete adapter construction belongs inside
 `SourceManager`; tests may instantiate adapters directly.
 
+Source adapters that own disposable resources (HTTP clients, live-stream
+clients, etc.) should `implements DisposableSource` and release them in
+`dispose()`. `SourceManager.dispose()` cleans up every registered adapter
+that implements `DisposableSource` via `whereType<DisposableSource>()`, so a
+newly registered source is disposed automatically without enumerating
+concrete source types.
+
 `AudioStreamRequest` is passed to source `getAudioStream()` /
 `getAlternativeAudioStream()` and carries source identity (`sourceId`, optional
 `cid` / `pageNum`), `AudioStreamConfig`, auth headers, and the failed media URL

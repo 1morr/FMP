@@ -209,6 +209,14 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
   route boundary.
 - Windows custom title bar and network banner are owned by the app-level
   wrapper in `lib/app.dart`, not individual pages or responsive content layouts.
+- Desktop sub-window UI (e.g. the lyrics window) should be built from public,
+  data-injected leaf widgets under `lib/ui/windows/<feature>/` with widget
+  tests, instead of inlining build methods in a giant State. Keep all
+  `window_manager` / `desktop_multi_window` side effects and channel calls
+  injected as callbacks so the leaves can be pumped in `flutter_test` without
+  the plugin engine. See `lib/ui/windows/lyrics/` (empty / line / title-bar /
+  single-line / offset leaves, plus `LyricsTextMeasurer` and
+  `LyricsDisplayMode`) for the established pattern.
 
 ## Verification
 
