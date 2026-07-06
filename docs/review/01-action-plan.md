@@ -17,6 +17,24 @@
 - **2 項修法校正**（審查建議的修法與實際程式碼不符，改採正確修法）。
 - 工作樹乾淨；**未推送**（待審核者決定）。
 
+### 後續輪次追加（2026-07，Batch 1–3）
+
+原 22 commit 之後再追加 **19 個 commit**（總計 41 commit），每個 analyze + test 全綠（最終全套 1192 測試）。
+
+- **Batch 1（10 commit，Tier 1 速勝）**：F1、E4、E8、B3（刪 dead AppException 平行體系）、C7（灰階 ColorFilter 抽 const）、B9（靜默 catch 補 logWarning）、D4（homeRankingSourceIds 改 `SourceType.values` 衍生）、D13-頭像（avatar 子目錄 `sourceType.name`）、F8（CI ISS patch assertion）、D2-broken-window（netease 串流優先級 state+UI+setter，**不動 schema**）。
+- **Batch 2（5 commit）**：B8（`_prepareTrack` 補 stack）、F7（redact 補 eparams/apiKey）、C1c（LyricsDisplayMode enum）、E7（docs 語系分工）、C1b-多行半（LyricsTextMeasurer）。
+- **Batch 3（4 commit）**：C2 三步拆解 `_startDownload`（267→~138 行，抽 resolve/prepare/drain/VideoDetail/finalize 五 helper + 5 處 abort 收斂為 `_abortFinalizationCleanup`）、C1a 首步（LyricsEmptyState leaf + widget test，建立可注入資料 leaf 的測試模式）。
+
+### ⚠️ 撤回／結案（深入查證後）
+
+- **A2**（首頁歌單 summary provider）：兩度評估後**結案不實作**。`playlistCoverMapProvider`（home 必用）→ `playlistListProvider` 已在 home 持有完整 playlists（含 trackIds）；section 改 summary 無法釋放 playlistListProvider（cover map 仍需它）→ 現有 cover-map 依賴下**幾乎零記憶體效益**。需連 cover map 一併重做才有意義（更大工程，非本輪範圍）。
+- **C1b 單行半**：120 行 two-pass 高度重測、不同常數；無 golden 守護下視覺等價性難保證，留待 C1a leaf-golden harness 完整後一併抽出。
+- **D2 偏離驗證建議**：驗證建議「補 2 cancel-window 測試變體」；`downloadRepository` 為真實 Isar repo，注入阻塞 hook 需子類化、不成比例。5 處 abort 邏輯相同，既有 @935 測試 + 成功完成測試已守護。
+
+### 🔧 D2 commit 訊息更正
+
+commit `925e334f` 訊息前兩點虛報「Settings 新增欄位（nullable）」「SettingsRepository migrate v8→v9」——**並未發生**（該 commit 僅動 provider+UI+i18n+test，無 schema 變更）。`Settings.neteaseStreamPriority` 早已存在、已 migrate、已 backup；D2 只補 state/UI setter。本環境不支援 `rebase -i`、規範禁止擅自 rebase，故不重寫歷史，於此據實更正。
+
 ### 已完成（按 commit）
 
 | Commit | 階段 | 完成項 | 驗證測試 |
