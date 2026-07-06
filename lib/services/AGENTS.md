@@ -185,6 +185,57 @@ Global system hotkeys must require at least one modifier. Validate this in the
 model/import path, not only in the recording dialog, because backups can contain
 raw `hotkeyConfig` JSON.
 
+### Known benign runtime noise: `Failed to update ui::AXTree`
+
+`flutter run -d windows` repeatedly logs
+`[ERROR:flutter/shell/platform/common/accessibility_bridge.cc(114)] Failed to update ui::AXTree, error: <N> will not be in the tree and is not the new root`.
+This is a **known Flutter engine bug, not an FMP defect, and it is benign — do
+not try to fix it.** Every claim below was verified against primary sources
+(engine source, `flutter/flutter` GitHub, Flutter 3.44 release notes) in 2026-07.
+
+- Engine behavior: `AccessibilityBridge::CommitUpdates()` cannot serialize a
+  semantics-node reparent in a single update, so it does `FML_LOG(ERROR) ... ;
+  return;`, drops that one update, and re-sends a corrected tree next frame. No
+  crash, no functional impact. Tracked upstream by `flutter/flutter#182444`
+  (ListView + Tooltip + OverlayPortal, Windows-only, OPEN as of 2026-07) and
+  `flutter/flutter#188662` (bridge leaks its `AXTreeManager`). No Flutter
+  version, including master, fixes it yet.
+- Why FMP triggers it: each `desktop_multi_window` sub-window runs its own
+  Flutter engine (its own `AccessibilityBridge`), and the custom / lyrics title
+  bars use `IconButton` tooltips + `Semantics`/`ExcludeSemantics` — exactly the
+  `#182444` reparent pattern. The package multiplies the surface area but is not
+  itself the bug.
+- Scope: the line is C++ `FML_LOG` on platform stderr. It never enters
+  `AppLogger` / the in-app Log Viewer, and release builds show nothing (no
+  attached console). It only clutters the dev terminal.
+
+None of these "fix" it — do not do them:
+- Upgrade Flutter, `desktop_multi_window`, or `window_manager` solely for this.
+- Globally `setSemanticsEnabled(false)` on the main window (kills Narrator/NVDA
+  a11y app-wide).
+- Use the `FLUTTER_A11Y=off` env var or
+  `FlutterWindows.instance?.setSemanticsEnabled(...)` — these are not real
+  Flutter APIs (forum fabrication; no engine/framework reference exists).
+- Wrap `IconButton` in a `Tooltip(child: ...)` — that is the OverlayPortal
+  anti-pattern from `#182444`.
+
+When you see it: ignore it. To reduce terminal noise:
+
+```bash
+# filter inline (Git Bash) — note this breaks flutter run hot-reload interactivity
+flutter run -d windows 2>&1 | grep -vF "Failed to update ui::AXTree"
+# PowerShell — same hot-reload caveat
+flutter run -d windows 2>&1 | Select-String -NotMatch "Failed to update ui::AXTree"
+# keep stdout/stdin interactive, send only stderr to a file
+flutter run -d windows 2> run.log
+```
+
+VS Code's integrated terminal has no native "hide lines matching a pattern"
+filter (verified through v1.107); use one of the pipes above, redirect stderr to
+a file, or a capture-and-filter extension (e.g. *Better Terminal Logs*). The
+*Filter Lines* extension only operates on editor documents, not the live
+terminal, so it does not apply here.
+
 ## Image Thumbnail Optimization
 
 `ThumbnailUrlUtils` optimizes image URLs by platform:

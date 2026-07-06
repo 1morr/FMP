@@ -104,6 +104,9 @@ Never:
 - Do not open or migrate the Isar database through ad-hoc paths.
 - Do not add hidden global enabled-source filters for search.
 - Do not use direct `Image.network()` / `Image.file()` in UI.
+- Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
+  it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP
+  defect; see `lib/services/AGENTS.md` § Windows Sub-Windows for context.
 - Do not commit, amend, rebase, or push unless the user explicitly requests it.
 
 ## Architecture Map
