@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../widgets/lyrics/lyrics_style_dialog.dart';
 import '../widgets/lyrics/lyrics_styled_text.dart';
 import 'lyrics_display_mode.dart';
+import 'lyrics/lyrics_empty_state.dart';
 import 'lyrics_text_measurer.dart';
 
 /// 歌词弹出窗口入口点
@@ -878,39 +879,10 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildEmpty() {
-    final t = _transparentMode;
-    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
-    final colorScheme = Theme.of(context).colorScheme;
-    final waitingColor = _lyricsStyle.resolveSecondaryColor(
-      isCurrent: true,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurfaceVariant,
-      fallbackInactiveColor: colorScheme.onSurfaceVariant,
-    );
-
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.lyrics_outlined,
-            size: 48,
-            color: t
-                ? Colors.white.withValues(alpha: 0.4)
-                : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-            shadows: t ? _lyricsStyle.shadows : null,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _strings.waitingLyrics,
-            style: TextStyle(
-              fontSize: 14,
-              color: waitingColor,
-              shadows: applyTextStyle ? _lyricsStyle.shadows : null,
-            ),
-          ),
-        ],
-      ),
+    return LyricsEmptyState(
+      transparentMode: _transparentMode,
+      style: _lyricsStyle,
+      waitingText: _strings.waitingLyrics,
     );
   }
 
