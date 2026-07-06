@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../widgets/lyrics/lyrics_style_dialog.dart';
 import '../widgets/lyrics/lyrics_styled_text.dart';
 import 'lyrics_display_mode.dart';
+import 'lyrics_text_measurer.dart';
 
 /// 歌词弹出窗口入口点
 ///
@@ -561,33 +562,16 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       return;
     }
 
-    final textDirection = Directionality.of(context);
-    final widths = <double>[];
-
-    for (final line in _lines) {
-      if (line.text.isEmpty) continue;
-      final painter = TextPainter(
-        text: TextSpan(
-          text: line.text,
-          style: LyricsTextStyles.fromTheme(
-            context,
-            fontSize: _refFontSize,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        maxLines: 1,
-        textDirection: textDirection,
-      )..layout();
-      widths.add(painter.width);
-      painter.dispose();
-    }
-
-    if (widths.isEmpty) {
-      _cachedRefWidth = 0;
-    } else {
-      widths.sort();
-      _cachedRefWidth = widths[widths.length ~/ 2];
-    }
+    _cachedRefWidth = LyricsTextMeasurer.medianReferenceWidth(
+      texts: _lines.map((line) => line.text),
+      refFontSize: _refFontSize,
+      styleBuilder: (fontSize, weight) => LyricsTextStyles.fromTheme(
+        context,
+        fontSize: fontSize,
+        fontWeight: weight,
+      ),
+      textDirection: Directionality.of(context),
+    );
     _cachedLineCount = _lines.length;
     _cachedFirstLine = firstLine;
   }
@@ -596,18 +580,15 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       double availableWidth, BuildContext context) {
     _ensureRefWidth(context);
 
-    if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
-      final sub =
-          (_maxFontSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-      return (main: _maxFontSize, sub: sub);
-    }
-
-    final safeWidth = availableWidth * _boldSafetyFactor;
-    final mainSize = (_refFontSize * (safeWidth / _cachedRefWidth!))
-        .clamp(_minFontSize, _maxFontSize);
-    final subSize =
-        (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-    return (main: mainSize, sub: subSize);
+    return LyricsTextMeasurer.fontSizesFromReferenceWidth(
+      referenceWidth: _cachedRefWidth,
+      availableWidth: availableWidth,
+      minFontSize: _minFontSize,
+      maxFontSize: _maxFontSize,
+      refFontSize: _refFontSize,
+      subFontRatio: _subFontRatio,
+      boldSafetyFactor: _boldSafetyFactor,
+    );
   }
 
   // ─── Helpers ───
