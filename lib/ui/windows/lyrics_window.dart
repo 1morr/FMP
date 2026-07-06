@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +13,7 @@ import '../widgets/lyrics/lyrics_styled_text.dart';
 import 'lyrics_display_mode.dart';
 import 'lyrics/lyrics_empty_state.dart';
 import 'lyrics/lyrics_line_item.dart';
+import 'lyrics/lyrics_single_line_view.dart';
 import 'lyrics/lyrics_title_bar.dart';
 import 'lyrics_text_measurer.dart';
 
@@ -755,11 +755,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildSingleLine() {
-    final t = _transparentMode;
-    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // 获取当前行文本
+    // 文字解析（當前行 → 曲名 fallback）留在 State；字級擬合與呈現由 leaf 負責。
     String mainText = '';
     String? subText;
     if (_currentLineIndex >= 0 && _currentLineIndex < _lines.length) {
@@ -771,219 +767,16 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       mainText = _trackTitle ?? '';
     }
 
-    final mainColor = _lyricsStyle.resolveMainColor(
-      isCurrent: true,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface,
-      fallbackInactiveColor: colorScheme.onSurface,
-    );
-    final subColor = _lyricsStyle.resolveSecondaryColor(
-      isCurrent: true,
-      transparentMode: t,
-      fallbackCurrentColor: colorScheme.onSurface.withValues(alpha: 0.6),
-      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.6),
-    );
-    final hasSubText = subText != null && subText.isNotEmpty;
-
-    return GestureDetector(
-      onTap: _isSynced && _currentLineIndex >= 0
-          ? () => _seekToLine(_currentLineIndex)
-          : null,
-      onSecondaryTap: _isSynced && _currentLineIndex >= 0
-          ? () => _calibrateOffsetToLine(_currentLineIndex)
-          : null,
-      behavior: HitTestBehavior.opaque,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxW = constraints.maxWidth - 32;
-          final maxH = constraints.maxHeight - 24;
-          if (maxW <= 0 || maxH <= 0) return const SizedBox.shrink();
-
-          const refSize = 100.0;
-          const subRatio = 0.7;
-          const minFontSize = 24.0;
-          final td = Directionality.of(context);
-          final baseTextStyle = LyricsTextStyles.themeBase(context);
-
-          // 测量主文本单行宽度
-          final mainPainter = TextPainter(
-            text: TextSpan(
-              text: mainText,
-              style: LyricsTextStyles.fromBase(
-                baseTextStyle,
-                fontSize: refSize,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            maxLines: 1,
-            textDirection: td,
-          )..layout();
-          final mainTextW = mainPainter.width;
-          mainPainter.dispose();
-
-          final safeW = maxW * _boldSafetyFactor;
-
-          // 主文本：按宽度缩放（单行填满）
-          double mainFontSize =
-              mainTextW > 0 ? (refSize * safeW / mainTextW) : refSize;
-
-          // 副文本字号
-          double subFontSize = 0;
-          if (hasSubText) {
-            final subPainter = TextPainter(
-              text: TextSpan(
-                text: subText,
-                style: LyricsTextStyles.fromBase(
-                  baseTextStyle,
-                  fontSize: refSize,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              maxLines: 1,
-              textDirection: td,
-            )..layout();
-            final subTextW = subPainter.width;
-            subPainter.dispose();
-
-            final subByWidth =
-                subTextW > 0 ? (refSize * safeW / subTextW) : refSize;
-            final subCap = mainFontSize * subRatio;
-            subFontSize = math.min(subByWidth, subCap).clamp(8.0, 200.0);
-          }
-
-          // 高度约束（单行估算）
-          const lineH = 1.4;
-          final estMainH = mainFontSize * lineH;
-          final estSubH = hasSubText ? subFontSize * lineH : 0.0;
-          if (estMainH + estSubH > maxH && estMainH + estSubH > 0) {
-            final scale = maxH / (estMainH + estSubH);
-            mainFontSize *= scale;
-            subFontSize *= scale;
-          }
-
-          // 应用最小字号 — 低于最小值时允许换行
-          final mainWrap = mainFontSize < minFontSize;
-          final subWrap = hasSubText && subFontSize < minFontSize * subRatio;
-          if (mainWrap) mainFontSize = minFontSize;
-          if (subWrap && hasSubText) subFontSize = minFontSize * subRatio;
-
-          // 换行后用 TextPainter 测量实际高度，再做高度约束
-          if (mainWrap || subWrap) {
-            double actualH = 0;
-            final mp = TextPainter(
-              text: TextSpan(
-                text: mainText,
-                style: LyricsTextStyles.fromBase(
-                  baseTextStyle,
-                  fontSize: mainFontSize,
-                  fontWeight: FontWeight.bold,
-                  height: 1.3,
-                ),
-              ),
-              textDirection: td,
-            )..layout(maxWidth: maxW);
-            actualH += mp.height;
-            mp.dispose();
-
-            if (hasSubText) {
-              final sp = TextPainter(
-                text: TextSpan(
-                  text: subText,
-                  style: LyricsTextStyles.fromBase(
-                    baseTextStyle,
-                    fontSize: subFontSize,
-                    fontWeight: FontWeight.w500,
-                    height: 1.3,
-                  ),
-                ),
-                textDirection: td,
-              )..layout(maxWidth: maxW);
-              actualH += sp.height;
-              sp.dispose();
-            }
-
-            if (actualH > maxH && actualH > 0) {
-              final scale = maxH / actualH;
-              mainFontSize = (mainFontSize * scale).clamp(10.0, 200.0);
-              subFontSize = (subFontSize * scale).clamp(8.0, 200.0);
-            }
-          }
-
-          mainFontSize = mainFontSize.clamp(10.0, 200.0);
-          if (hasSubText) {
-            subFontSize = subFontSize.clamp(8.0, 200.0);
-          }
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (applyTextStyle)
-                    LyricsStyledText(
-                      mainText,
-                      style: LyricsTextStyles.fromBase(
-                        baseTextStyle,
-                        fontSize: mainFontSize,
-                        fontWeight: FontWeight.bold,
-                        color: mainColor,
-                        height: 1.3,
-                      ),
-                      lyricsStyle: _lyricsStyle,
-                      textAlign: TextAlign.center,
-                      maxLines: mainWrap ? 3 : 1,
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  else
-                    Text(
-                      mainText,
-                      style: LyricsTextStyles.fromBase(
-                        baseTextStyle,
-                        fontSize: mainFontSize,
-                        fontWeight: FontWeight.bold,
-                        color: mainColor,
-                        height: 1.3,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: mainWrap ? 3 : 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  if (hasSubText)
-                    applyTextStyle
-                        ? LyricsStyledText(
-                            subText!,
-                            style: LyricsTextStyles.fromBase(
-                              baseTextStyle,
-                              fontSize: subFontSize,
-                              fontWeight: FontWeight.w500,
-                              color: subColor,
-                              height: 1.3,
-                            ),
-                            lyricsStyle: _lyricsStyle,
-                            textAlign: TextAlign.center,
-                            maxLines: subWrap ? 2 : 1,
-                            overflow: TextOverflow.ellipsis,
-                          )
-                        : Text(
-                            subText!,
-                            style: LyricsTextStyles.fromBase(
-                              baseTextStyle,
-                              fontSize: subFontSize,
-                              fontWeight: FontWeight.w500,
-                              color: subColor,
-                              height: 1.3,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: subWrap ? 2 : 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+    return LyricsSingleLineView(
+      mainText: mainText,
+      subText: subText,
+      transparentMode: _transparentMode,
+      style: _lyricsStyle,
+      isSynced: _isSynced,
+      hasCurrentLine: _currentLineIndex >= 0,
+      onTap: () => _seekToLine(_currentLineIndex),
+      onSecondaryTap: () => _calibrateOffsetToLine(_currentLineIndex),
+      boldSafetyFactor: _boldSafetyFactor,
     );
   }
 
