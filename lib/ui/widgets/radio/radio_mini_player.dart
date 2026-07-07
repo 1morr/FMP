@@ -99,6 +99,9 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
               // 播放/暫停按鈕
               _buildPlayStopButton(radioState, radioController, colorScheme),
 
+              // 重新載入直播按鈕（無條件重連，RadioController.reload）
+              _buildReloadButton(radioState, radioController, colorScheme),
+
               // 桌面端音頻設備選擇器 + 音量控制
               if (isDesktop) ...[
                 const SizedBox(width: 4),
@@ -230,7 +233,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     );
   }
 
-  /// 同步按鈕（重新載入直播流）
+  /// 同步按鈕（跳到直播邊緣，無法 seek 則重連；RadioController.sync）
   Widget _buildSyncButton(
     RadioState state,
     RadioController controller,
@@ -252,6 +255,32 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         ),
         tooltip: t.radio.syncLive,
         onPressed: isDisabled ? null : () => controller.sync(),
+      ),
+    );
+  }
+
+  /// 重新載入按鈕（無條件重連直播流，RadioController.reload）
+  Widget _buildReloadButton(
+    RadioState state,
+    RadioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
+
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(
+          Icons.refresh,
+          size: 22,
+          color: isDisabled
+              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
+              : null,
+        ),
+        tooltip: t.radio.reloadLive,
+        onPressed: isDisabled ? null : () => controller.reload(),
       ),
     );
   }
