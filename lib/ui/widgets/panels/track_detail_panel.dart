@@ -1774,7 +1774,6 @@ class _RadioDetailContent extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final station = radioState.currentStation!;
-    final radioController = ref.read(radioControllerProvider.notifier);
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -1808,7 +1807,9 @@ class _RadioDetailContent extends ConsumerWidget {
 
         const SizedBox(height: 12),
 
-        // 主播信息（头像可点击进入空间）+ 同步按钮
+        // 主播信息（头像可点击进入空间）+ 開播時間
+        // 鏡像音樂側 artist 行（頭像 + 名稱 + 發布時間）：以資訊取代原 reload
+        // 按鈕；reload 操作移至 radio mini player。
         if (station.hostName != null)
           Row(
             children: [
@@ -1827,8 +1828,14 @@ class _RadioDetailContent extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              // 同步按钮
-              _buildSyncButton(radioController, colorScheme),
+              if (radioState.liveStartTime != null)
+                Text(
+                  t.radio.startedBroadcast(
+                      time: _formatDateTime(radioState.liveStartTime!)),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
             ],
           ),
 
@@ -1890,13 +1897,6 @@ class _RadioDetailContent extends ConsumerWidget {
             Icons.visibility_rounded,
             _formatCount(radioState.viewerCount!),
           ),
-        if (radioState.liveStartTime != null)
-          _buildStatItem(
-            context,
-            Icons.play_circle_outline,
-            t.radio.startedBroadcast(
-                time: _formatDateTime(radioState.liveStartTime!)),
-          ),
         if (radioState.areaName != null)
           _buildStatItem(
             context,
@@ -1911,28 +1911,6 @@ class _RadioDetailContent extends ConsumerWidget {
           radioState.isPlaying ? t.trackDetail.isLive : t.trackDetail.isStopped,
         ),
       ],
-    );
-  }
-
-  /// 刷新直播按钮
-  Widget _buildSyncButton(
-    RadioController controller,
-    ColorScheme colorScheme,
-  ) {
-    final isDisabled =
-        radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
-
-    return IconButton(
-      onPressed: isDisabled ? null : () => controller.reload(),
-      icon: Icon(
-        Icons.refresh,
-        size: 20,
-        color: isDisabled
-            ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
-            : colorScheme.primary,
-      ),
-      tooltip: t.trackDetail.reloadLive,
-      visualDensity: VisualDensity.compact,
     );
   }
 
