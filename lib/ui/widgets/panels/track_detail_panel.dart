@@ -2046,7 +2046,13 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
   @override
   void initState() {
     super.initState();
-    _preloadImage();
+    // _preloadImage 會經由 context 取 MediaQuery（裝置像素比），不能在
+    // initState 直接呼叫（Inherited widget 此時尚未可用，會拋
+    // dependOnInheritedWidgetOfExactType）。延後到首幀後執行，與同檔
+    // _ExpandableTextSectionState 的慣例一致。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _preloadImage();
+    });
   }
 
   @override
