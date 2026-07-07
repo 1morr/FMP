@@ -3,30 +3,27 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
-import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 
 import '../../../data/models/radio_station.dart';
-import '../../../core/utils/icon_helpers.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/radio_cover_image.dart';
+import '../../widgets/layout/immersive_player_scaffold.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
+import '../../widgets/player/compact_volume_control.dart';
+import '../../widgets/player/cover_art_container.dart';
+import '../../widgets/player/fmp_audio_device_selector.dart';
+import '../../widgets/player/player_play_pause_button.dart';
 
 /// 電台播放器頁面（全屏）
 class RadioPlayerPage extends ConsumerWidget {
   const RadioPlayerPage({super.key});
-
-  static const double _radioPlayerAppBarHeight = kToolbarHeight;
-  static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;
-  static const double _bodyBackdropContainerOverlayAlpha = 0.08;
-  static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;
-  static const double _appBarBackdropContainerOverlayAlpha = 0.06;
 
   /// 是否為桌面平台
   bool get isDesktop =>
@@ -37,12 +34,9 @@ class RadioPlayerPage extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final radioState = ref.watch(radioControllerProvider);
     final radioController = ref.read(radioControllerProvider.notifier);
-    final audioDevices = ref.watch(
-      audioControllerProvider.select((state) => state.audioDevices),
-    );
-    final currentAudioDevice = ref.watch(
-      audioControllerProvider.select((state) => state.currentAudioDevice),
-    );
+    // 與音樂頁一致，透過共享的 desktopAudioDeviceStateProvider 取得裝置狀態
+    // （provider 內部為窄 select，避免對 audioControllerProvider 做全狀態 watch）。
+    final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
     final volume = ref.watch(
       audioControllerProvider.select((state) => state.volume),
     );
@@ -50,98 +44,45 @@ class RadioPlayerPage extends ConsumerWidget {
 
     final station = radioState.currentStation;
 
-    final appBar = AppBar(
-      primary: false,
-      toolbarHeight: _radioPlayerAppBarHeight,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.keyboard_arrow_down),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      flexibleSpace: _buildAppBarOverlay(colorScheme),
-      actions: [
+    final appBarActions = <Widget>[
         // 桌面端音頻設備選擇器
-        if (isDesktop && audioDevices.length > 1)
-          _buildFmpAudioDeviceSelector(
-            context,
-            audioDevices,
-            currentAudioDevice,
-            audioController,
-            colorScheme,
+        if (isDesktop && desktopAudioDeviceState.hasSelectableDevices)
+          FmpAudioDeviceSelector(
+            state: desktopAudioDeviceState,
+            controller: audioController,
+            colorScheme: colorScheme,
           ),
         // 桌面端音量控制（緊湊版）
         if (isDesktop)
-          _buildCompactVolumeControl(
-              context, volume, audioController, colorScheme),
-        // 更多選項
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          offset: const Offset(0, 48),
-          onSelected: (value) {
-            if (value == 'reload') {
-              radioController.reload();
-            } else if (value == 'info') {
-              Future.delayed(AnimationDurations.fastest, () {
-                if (!context.mounted) return;
-                _showLiveInfoDialog(context, radioState, colorScheme);
-              });
-            }
-          },
-          itemBuilder: (context) {
-            final isDisabled = radioState.isBuffering ||
-                radioState.isLoading ||
-                !radioState.isPlaying;
-            return [
-              PopupMenuItem(
-                value: 'reload',
-                enabled: !isDisabled,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.refresh,
-                      size: 20,
-                      color: isDisabled
-                          ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      t.radio.reloadLive,
-                      style: isDisabled
-                          ? TextStyle(
-                              color: colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.38))
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'info',
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 20),
-                    const SizedBox(width: 12),
-                    Text(t.radio.info),
-                  ],
-                ),
-              ),
-            ];
-          },
+          CompactVolumeControl(
+            volume: volume,
+            controller: audioController,
+            colorScheme: colorScheme,
+            muteTooltip: t.radio.mute,
+            unmuteTooltip: t.radio.unmute,
+          ),
+        // 直播間資訊
+        IconButton(
+          icon: const Icon(Icons.info_outline),
+          tooltip: t.radio.info,
+          onPressed: () =>
+              _showLiveInfoDialog(context, radioState, colorScheme),
         ),
-      ],
-    );
+        const SizedBox(width: 8),
+      ];
 
     return Scaffold(
       appBar: null,
-      body: _buildImmersiveRadioLayout(
-        station: station,
+      body: ImmersivePlayerScaffold(
+        backdrop: RadioBlurredBackdrop(
+          networkUrl: station?.thumbnailUrl,
+          colorScheme: colorScheme,
+          surfaceOverlayAlpha: 0,
+          surfaceContainerOverlayAlpha: 0,
+        ),
+        appBarActions: appBarActions,
         colorScheme: colorScheme,
-        appBar: appBar,
-        child: station == null
+        body: station == null
             ? Center(child: Text(t.radio.noPlaying))
             : Padding(
                 padding: const EdgeInsets.all(24),
@@ -176,106 +117,15 @@ class RadioPlayerPage extends ConsumerWidget {
     );
   }
 
-  /// AppBar 覆盖层：背景图由全页 Stack 统一绘制，避免路由转场不同步。
-  Widget _buildAppBarOverlay(ColorScheme colorScheme) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _buildBackdropOverlay(
-          colorScheme: colorScheme,
-          surfaceOverlayAlpha: _appBarBackdropSurfaceOverlayAlpha,
-          surfaceContainerOverlayAlpha: _appBarBackdropContainerOverlayAlpha,
-        ),
-        if (Platform.isWindows) const DragToMoveArea(child: SizedBox.expand()),
-      ],
-    );
-  }
-
-  /// 沉浸式电台播放器布局：模糊封面背景 + 前景内容
-  Widget _buildImmersiveRadioLayout({
-    required RadioStation? station,
-    required ColorScheme colorScheme,
-    required Widget appBar,
-    required Widget child,
-  }) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        RadioBlurredBackdrop(
-          networkUrl: station?.thumbnailUrl,
-          colorScheme: colorScheme,
-          surfaceOverlayAlpha: 0,
-          surfaceContainerOverlayAlpha: 0,
-        ),
-        _buildBodyBackdropOverlays(colorScheme),
-        Positioned.fill(
-          top: _radioPlayerAppBarHeight,
-          child: child,
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: _radioPlayerAppBarHeight,
-          child: appBar,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBodyBackdropOverlays(ColorScheme colorScheme) {
-    return Positioned.fill(
-      top: _radioPlayerAppBarHeight,
-      child: _buildBackdropOverlay(
-        colorScheme: colorScheme,
-        surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
-        surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
-      ),
-    );
-  }
-
-  Widget _buildBackdropOverlay({
-    required ColorScheme colorScheme,
-    required double surfaceOverlayAlpha,
-    required double surfaceContainerOverlayAlpha,
-  }) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ColoredBox(
-          color: colorScheme.surface.withValues(alpha: surfaceOverlayAlpha),
-        ),
-        ColoredBox(
-          color: colorScheme.surfaceContainerHighest
-              .withValues(alpha: surfaceContainerOverlayAlpha),
-        ),
-      ],
-    );
-  }
-
   /// 封面圖
   Widget _buildCoverArt(RadioStation station, ColorScheme colorScheme) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: AppRadius.borderRadiusXl,
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: RadioCoverImage(
-          networkUrl: station.thumbnailUrl,
-          placeholder: _buildCoverPlaceholder(colorScheme),
-          fit: BoxFit.cover,
-          variant: RadioCoverVariant.hero,
-        ),
+    return CoverArtContainer(
+      colorScheme: colorScheme,
+      child: RadioCoverImage(
+        networkUrl: station.thumbnailUrl,
+        placeholder: _buildCoverPlaceholder(colorScheme),
+        fit: BoxFit.cover,
+        variant: RadioCoverVariant.hero,
       ),
     );
   }
@@ -398,188 +248,48 @@ class RadioPlayerPage extends ConsumerWidget {
     return parts.isEmpty ? t.radio.live : parts.join(' · ');
   }
 
-  /// 播放控制按鈕
+  /// 播放控制按鈕：跳到最新 / 播放-暫停 / 重新載入
   Widget _buildPlaybackControls(
     RadioState state,
     RadioController controller,
     ColorScheme colorScheme,
   ) {
-    const double buttonSize = AppSizes.playerMainButton;
+    // sync/reload 僅在實際播放中可用（與既有 reload 選單、mini sync 一致）。
+    final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // 播放/暫停按鈕（大）
-        SizedBox(
-          width: buttonSize,
-          height: buttonSize,
-          child: state.isBuffering || state.isLoading
-              ? FilledButton(
-                  onPressed: null,
-                  style: FilledButton.styleFrom(
-                    shape: const CircleBorder(),
-                    minimumSize: const Size(buttonSize, buttonSize),
-                    maximumSize: const Size(buttonSize, buttonSize),
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(
-                      color: colorScheme.onPrimary,
-                      strokeWidth: 3,
-                    ),
-                  ),
-                )
-              : FilledButton(
-                  onPressed: () {
-                    if (state.isPlaying) {
-                      controller.pause();
-                    } else {
-                      controller.resume();
-                    }
-                  },
-                  style: FilledButton.styleFrom(
-                    shape: const CircleBorder(),
-                    minimumSize: const Size(buttonSize, buttonSize),
-                    maximumSize: const Size(buttonSize, buttonSize),
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: Icon(
-                    state.isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 40,
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  /// 緊湊音量控制（AppBar 內使用）
-  Widget _buildCompactVolumeControl(
-    BuildContext context,
-    double volume,
-    AudioController controller,
-    ColorScheme colorScheme,
-  ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+        // 跳到最新：先 seek 到直播邊緣，無法 seek 則重連（RadioController.sync）。
         IconButton(
-          icon: Icon(getVolumeIcon(volume), size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: volume > 0 ? t.radio.mute : t.radio.unmute,
-          onPressed: () => controller.toggleMute(),
+          icon: const Icon(Icons.sync),
+          iconSize: 32,
+          tooltip: t.radio.syncLive,
+          onPressed: isDisabled ? null : () => controller.sync(),
         ),
-        SizedBox(
-          width: 100,
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-              activeTrackColor: colorScheme.primary,
-              inactiveTrackColor: colorScheme.surfaceContainerHighest,
-              thumbColor: colorScheme.primary,
-              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
-            ),
-            child: Slider(
-              value: volume,
-              min: 0.0,
-              max: 1.0,
-              onChanged: (value) => controller.setVolume(value),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 音頻輸出設備選擇器（AppBar用，僅桌面端）
-  Widget _buildFmpAudioDeviceSelector(
-    BuildContext context,
-    List<FmpAudioDevice> devices,
-    FmpAudioDevice? currentDevice,
-    AudioController controller,
-    ColorScheme colorScheme,
-  ) {
-    const menuWidth = 220.0;
-
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      alignmentOffset: const Offset(-menuWidth / 2 + 20, 8),
-      builder: (context, menuController, child) {
-        return IconButton(
-          icon: const Icon(Icons.speaker, size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: t.player.audioDevice,
+        // 播放/暫停（大）
+        PlayerPlayPauseButton(
+          isLoading: state.isBuffering || state.isLoading,
+          isPlaying: state.isPlaying,
+          enabled: true,
           onPressed: () {
-            if (menuController.isOpen) {
-              menuController.close();
+            if (state.isPlaying) {
+              controller.pause();
             } else {
-              menuController.open();
+              controller.resume();
             }
           },
-        );
-      },
-      style: MenuStyle(
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
+          colorScheme: colorScheme,
         ),
-      ),
-      menuChildren: [
-        MenuItemButton(
-          onPressed: () => controller.setAudioDeviceAuto(),
-          leadingIcon: currentDevice == null || currentDevice.name == 'auto'
-              ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-              : const SizedBox(width: 18),
-          child: Padding(
-            padding: const EdgeInsets.only(right: 18),
-            child: Text(t.player.audioDeviceAuto),
-          ),
+        // 重新載入：無條件重新連接直播流（RadioController.reload）。
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          iconSize: 32,
+          tooltip: t.radio.reloadLive,
+          onPressed: isDisabled ? null : () => controller.reload(),
         ),
-        const Divider(height: 1),
-        ...devices
-            .where((d) => d.name != 'auto' && d.name != 'openal')
-            .map((device) {
-          final isSelected = currentDevice?.name == device.name;
-          return MenuItemButton(
-            onPressed: () => controller.setAudioDevice(device),
-            leadingIcon: isSelected
-                ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-                : const SizedBox(width: 18),
-            child: Padding(
-              padding: const EdgeInsets.only(right: 18),
-              child: Text(
-                _formatDeviceName(device),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          );
-        }),
       ],
     );
-  }
-
-  /// 格式化設備名稱
-  String _formatDeviceName(FmpAudioDevice device) {
-    final displayName =
-        device.description.isNotEmpty ? device.description : device.name;
-
-    final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
-    if (match != null) {
-      return match.group(1) ?? displayName;
-    }
-
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false)
-        .firstMatch(displayName);
-    if (matchEn != null) {
-      return matchEn.group(1) ?? displayName;
-    }
-
-    return displayName;
   }
 
   /// 顯示直播間信息彈窗

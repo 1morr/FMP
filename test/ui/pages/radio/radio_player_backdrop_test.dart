@@ -11,6 +11,8 @@ void main() {
     test('uses one shared blurred backdrop behind the AppBar', () {
       final radioPlayer =
           readSource('lib/ui/pages/radio/radio_player_page.dart');
+      final scaffoldSource =
+          readSource('lib/ui/widgets/layout/immersive_player_scaffold.dart');
       final sharedBackdrop =
           readSource('lib/ui/widgets/player/blurred_cover_backdrop.dart');
 
@@ -20,34 +22,35 @@ void main() {
           "import '../../widgets/player/blurred_cover_backdrop.dart';",
         ),
       );
-      expect(radioPlayer, contains('body: _buildImmersiveRadioLayout('));
+      expect(radioPlayer, contains('body: ImmersivePlayerScaffold('));
       expect(radioPlayer, contains('appBar: null'));
-      expect(radioPlayer, contains('appBar: appBar'));
-      expect(radioPlayer, contains('flexibleSpace: _buildAppBarOverlay'));
+      expect(radioPlayer, isNot(contains('appBar: appBar')));
+      // AppBar、overlay 常數與方法由共享 scaffold 建立/持有。
+      expect(scaffoldSource, contains('flexibleSpace: _buildAppBarOverlay'));
+      expect(scaffoldSource, contains('backgroundColor: Colors.transparent'));
+      expect(scaffoldSource, contains('surfaceTintColor: Colors.transparent'));
+      expect(scaffoldSource, contains('top: _appBarHeight'));
+      expect(scaffoldSource, contains('height: _appBarHeight'));
+      expect(scaffoldSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
       expect(
-          radioPlayer, isNot(contains('flexibleSpace: _buildAppBarBackdrop')));
-      expect(radioPlayer, contains('backgroundColor: Colors.transparent'));
-      expect(radioPlayer, contains('surfaceTintColor: Colors.transparent'));
-      expect(
-        RegExp(r'RadioBlurredBackdrop\(').allMatches(radioPlayer),
-        hasLength(1),
-      );
-      expect(radioPlayer, contains('top: _radioPlayerAppBarHeight'));
-      expect(radioPlayer, contains('height: _radioPlayerAppBarHeight'));
-      expect(radioPlayer, contains('_buildBodyBackdropOverlays(colorScheme)'));
-      expect(
-        radioPlayer,
+        scaffoldSource,
         contains(
           'static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;',
         ),
       );
       expect(
-        radioPlayer,
+        scaffoldSource,
         contains(
           'static const double _appBarBackdropContainerOverlayAlpha = 0.06;',
         ),
       );
+      expect(
+        RegExp(r'RadioBlurredBackdrop\(').allMatches(radioPlayer),
+        hasLength(1),
+      );
       expect(radioPlayer, contains('RadioCoverImage('));
+      // 電台頁不再自帶沉浸式骨架常數（去重契約）。
+      expect(radioPlayer, isNot(contains('_radioPlayerAppBarHeight')));
 
       expect(sharedBackdrop, contains('class RadioBlurredBackdrop'));
       expect(sharedBackdrop, contains('class TrackBlurredBackdrop'));

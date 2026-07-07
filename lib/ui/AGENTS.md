@@ -203,6 +203,22 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
   the next cover has been preloaded to avoid flashing a placeholder background.
 - Radio player backgrounds should use the current station cover through the same
   single full-page blurred-backdrop behavior as the main player.
+- The fullscreen music and radio players share their immersive layout shell via
+  `lib/ui/widgets/layout/immersive_player_scaffold.dart`
+  (`ImmersivePlayerScaffold`): the full-page `Stack`, the floating transparent
+  AppBar (with Windows drag region), the backdrop overlay tints, and the four
+  overlay alpha constants live there. Each page provides its `backdrop`
+  (`TrackBlurredBackdrop` / `RadioBlurredBackdrop`), `appBarActions`, `body`,
+  and `colorScheme`; do not re-add a private immersive Stack, alpha constants,
+  or AppBar overlay to either page.
+- The fullscreen music and radio players share their duplicated controls via
+  `lib/ui/widgets/player/`: `CompactVolumeControl`, `FmpAudioDeviceSelector`,
+  `PlayerPlayPauseButton`, and `CoverArtContainer`. Change volume, audio-device,
+  play/pause, and the cover-art frame in these shared widgets rather than
+  re-adding private copies to either page. The radio player exposes
+  jump-to-latest (`RadioController.sync()`, `Icons.sync`) and reload
+  (`RadioController.reload()`, `Icons.refresh`) as control-row buttons flanking
+  play/pause; both disable on `isBuffering || isLoading || !isPlaying`.
 - Fullscreen player routes in `lib/ui/router.dart` should use the shared
   `_fullscreenPlayerPage` transition helper so entry uses the slower settling
   curve while dismissal uses a fast reverse curve and clips blurred paint at the
