@@ -92,7 +92,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           java-version: ${{ env.JAVA_VERSION }}
@@ -162,7 +162,7 @@ jobs:
           fi
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-${{ matrix.abi }}
           path: build/app/outputs/flutter-apk/fmp-*.apk
@@ -258,7 +258,7 @@ jobs:
           Copy-Item $zipPath "fmp-latest-windows.zip"
 
       - name: Upload Windows ZIP artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-exe
           path: fmp-*.zip
@@ -328,7 +328,7 @@ jobs:
           Copy-Item $installerPath "fmp-latest-windows-installer.exe"
 
       - name: Upload Windows installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: fmp-*.exe
@@ -350,7 +350,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
