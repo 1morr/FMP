@@ -3,12 +3,9 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
-import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 import '../../../core/extensions/track_extensions.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
-import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
@@ -29,7 +26,12 @@ import '../../../core/constants/ui_constants.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../widgets/indicators/vip_badge.dart';
+import '../../widgets/layout/immersive_player_scaffold.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
+import '../../widgets/player/compact_volume_control.dart';
+import '../../widgets/player/cover_art_container.dart';
+import '../../widgets/player/fmp_audio_device_selector.dart';
+import '../../widgets/player/player_play_pause_button.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../widgets/lyrics/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
@@ -43,12 +45,6 @@ class PlayerPage extends ConsumerStatefulWidget {
 }
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
-  static const double _playerAppBarHeight = kToolbarHeight;
-  static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;
-  static const double _bodyBackdropContainerOverlayAlpha = 0.08;
-  static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;
-  static const double _appBarBackdropContainerOverlayAlpha = 0.06;
-
   /// 打开歌词搜索 BottomSheet
   void _openLyricsSearch(BuildContext context) {
     final playerState = ref.read(audioControllerProvider);
@@ -156,19 +152,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             controlSection: controlSection,
           );
 
-    final appBar = AppBar(
-      primary: false,
-      toolbarHeight: _playerAppBarHeight,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.keyboard_arrow_down),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      flexibleSpace: _buildAppBarOverlay(colorScheme),
-      actions: [
+    final appBarActions = <Widget>[
         // 添加到歌单
         if (currentTrack != null)
           PopupMenuButton<String>(
@@ -209,19 +193,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ),
         // 桌面端音频输出设备选择
         if (isDesktop && desktopAudioDeviceState.hasSelectableDevices)
-          _buildFmpAudioDeviceSelector(
-            context,
-            desktopAudioDeviceState,
-            controller,
-            colorScheme,
+          FmpAudioDeviceSelector(
+            state: desktopAudioDeviceState,
+            controller: controller,
+            colorScheme: colorScheme,
           ),
         // 桌面端音量控制（紧凑版）
         if (isDesktop)
-          _buildCompactVolumeControl(
-            context,
-            playerState.volume,
-            controller,
-            colorScheme,
+          CompactVolumeControl(
+            volume: playerState.volume,
+            controller: controller,
+            colorScheme: colorScheme,
+            muteTooltip: t.player.mute,
+            unmuteTooltip: t.player.unmute,
           ),
         // 更多选项（包含信息、倍速、歌词）
         PopupMenuButton<String>(
@@ -331,34 +315,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             ],
           ],
         ),
-      ],
-    );
+      ];
 
-    final scaffold = Scaffold(
+    return Scaffold(
       appBar: null,
-      body: _buildImmersivePlayerLayout(
-        currentTrack: currentTrack,
-        colorScheme: colorScheme,
-        appBar: appBar,
-        child: playerContent,
-      ),
-    );
-
-    return scaffold;
-  }
-
-  /// AppBar 覆盖层：背景图由全页 Stack 统一绘制，避免路由转场不同步。
-  Widget _buildAppBarOverlay(ColorScheme colorScheme) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _buildBackdropOverlay(
+      body: ImmersivePlayerScaffold(
+        backdrop: TrackBlurredBackdrop(
+          currentTrack: currentTrack,
           colorScheme: colorScheme,
-          surfaceOverlayAlpha: _appBarBackdropSurfaceOverlayAlpha,
-          surfaceContainerOverlayAlpha: _appBarBackdropContainerOverlayAlpha,
+          surfaceOverlayAlpha: 0,
+          surfaceContainerOverlayAlpha: 0,
         ),
-        if (Platform.isWindows) const DragToMoveArea(child: SizedBox.expand()),
-      ],
+        appBarActions: appBarActions,
+        body: playerContent,
+        colorScheme: colorScheme,
+      ),
     );
   }
 
@@ -479,68 +450,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
   }
 
-  /// 沉浸式播放器布局：模糊封面背景 + 前景内容
-  Widget _buildImmersivePlayerLayout({
-    required Track? currentTrack,
-    required ColorScheme colorScheme,
-    required Widget appBar,
-    required Widget child,
-  }) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        TrackBlurredBackdrop(
-          currentTrack: currentTrack,
-          colorScheme: colorScheme,
-          surfaceOverlayAlpha: 0,
-          surfaceContainerOverlayAlpha: 0,
-        ),
-        _buildBodyBackdropOverlays(colorScheme),
-        Positioned.fill(
-          top: _playerAppBarHeight,
-          child: child,
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: _playerAppBarHeight,
-          child: appBar,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBodyBackdropOverlays(ColorScheme colorScheme) {
-    return Positioned.fill(
-      top: _playerAppBarHeight,
-      child: _buildBackdropOverlay(
-        colorScheme: colorScheme,
-        surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
-        surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
-      ),
-    );
-  }
-
-  Widget _buildBackdropOverlay({
-    required ColorScheme colorScheme,
-    required double surfaceOverlayAlpha,
-    required double surfaceContainerOverlayAlpha,
-  }) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ColoredBox(
-          color: colorScheme.surface.withValues(alpha: surfaceOverlayAlpha),
-        ),
-        ColoredBox(
-          color: colorScheme.surfaceContainerHighest
-              .withValues(alpha: surfaceContainerOverlayAlpha),
-        ),
-      ],
-    );
-  }
-
   /// 窄屏媒体区域：长按切换封面 / 歌词
   Widget _buildNarrowMediaSection(
     BuildContext context,
@@ -576,37 +485,23 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     Track? track,
     ColorScheme colorScheme,
   ) {
-    return AspectRatio(
+    return CoverArtContainer(
       key: const ValueKey('cover'),
-      aspectRatio: 1,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: AppRadius.borderRadiusXl,
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: track != null
-            ? TrackCover(
-                track: track,
-                aspectRatio: 1,
-                borderRadius: 0, // Container 已有圆角
-                variant: TrackCoverVariant.hero,
-              )
-            : Center(
-                child: Icon(
-                  Icons.music_note,
-                  size: 120,
-                  color: colorScheme.primary,
-                ),
+      colorScheme: colorScheme,
+      child: track != null
+          ? TrackCover(
+              track: track,
+              aspectRatio: 1,
+              borderRadius: 0, // Container 已有圆角
+              variant: TrackCoverVariant.hero,
+            )
+          : Center(
+              child: Icon(
+                Icons.music_note,
+                size: 120,
+                color: colorScheme.primary,
               ),
-      ),
+            ),
     );
   }
 
@@ -743,14 +638,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ),
 
         // 播放/暂停
-        _buildPlayPauseButton(
-          context,
-          isBuffering,
-          isLoading,
-          hasCurrentTrack,
-          isPlaying,
-          controller,
-          colorScheme,
+        PlayerPlayPauseButton(
+          isLoading: isBuffering || isLoading,
+          isPlaying: isPlaying,
+          enabled: hasCurrentTrack,
+          onPressed: () => controller.togglePlayPause(),
+          colorScheme: colorScheme,
         ),
 
         // 下一首
@@ -768,61 +661,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           tooltip: _getLoopModeTooltip(loopMode),
         ),
       ],
-    );
-  }
-
-  /// 播放/暂停按钮
-  Widget _buildPlayPauseButton(
-    BuildContext context,
-    bool isBuffering,
-    bool isLoading,
-    bool hasCurrentTrack,
-    bool isPlaying,
-    AudioController controller,
-    ColorScheme colorScheme,
-  ) {
-    const double buttonSize = AppSizes.playerMainButton;
-
-    if (isBuffering || isLoading) {
-      return SizedBox(
-        width: buttonSize,
-        height: buttonSize,
-        child: FilledButton(
-          onPressed: null,
-          style: FilledButton.styleFrom(
-            shape: const CircleBorder(),
-            minimumSize: const Size(buttonSize, buttonSize),
-            maximumSize: const Size(buttonSize, buttonSize),
-            padding: EdgeInsets.zero,
-          ),
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: CircularProgressIndicator(
-              color: colorScheme.onPrimary,
-              strokeWidth: 3,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: buttonSize,
-      height: buttonSize,
-      child: FilledButton(
-        onPressed: hasCurrentTrack ? () => controller.togglePlayPause() : null,
-        style: FilledButton.styleFrom(
-          shape: const CircleBorder(),
-          minimumSize: const Size(buttonSize, buttonSize),
-          maximumSize: const Size(buttonSize, buttonSize),
-          padding: EdgeInsets.zero,
-        ),
-        child: Icon(
-          isPlaying ? Icons.pause : Icons.play_arrow,
-          size: 40,
-        ),
-      ),
     );
   }
 
@@ -908,145 +746,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
       }
     });
-  }
-
-  /// 音频输出设备选择器（AppBar用，仅桌面端）
-  Widget _buildFmpAudioDeviceSelector(
-    BuildContext context,
-    DesktopAudioDeviceState state,
-    AudioController controller,
-    ColorScheme colorScheme,
-  ) {
-    final currentDevice = state.currentAudioDevice;
-    final devices = state.audioDevices;
-
-    // 计算菜单宽度以便居中对齐
-    const menuWidth = 220.0;
-
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      // 向左偏移使菜单居中于图标，向下偏移使菜单显示在图标下方
-      alignmentOffset: const Offset(-menuWidth / 2 + 20, 8),
-      builder: (context, menuController, child) {
-        return IconButton(
-          icon: const Icon(Icons.speaker, size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: t.player.audioDevice,
-          onPressed: () {
-            if (menuController.isOpen) {
-              menuController.close();
-            } else {
-              menuController.open();
-            }
-          },
-        );
-      },
-      style: MenuStyle(
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
-        ),
-      ),
-      menuChildren: [
-        // 自动选项（跟随系统默认）
-        MenuItemButton(
-          onPressed: () => controller.setAudioDeviceAuto(),
-          leadingIcon: currentDevice == null || currentDevice.name == 'auto'
-              ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-              : const SizedBox(width: 18),
-          child: Padding(
-            padding: const EdgeInsets.only(right: 18),
-            child: Text(t.player.audioDeviceAuto),
-          ),
-        ),
-        const Divider(height: 1),
-        // 设备列表
-        ...devices
-            .where((d) => d.name != 'auto' && d.name != 'openal')
-            .map((device) {
-          final isSelected = currentDevice?.name == device.name;
-          return MenuItemButton(
-            onPressed: () => controller.setAudioDevice(device),
-            leadingIcon: isSelected
-                ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-                : const SizedBox(width: 18),
-            child: Padding(
-              padding: const EdgeInsets.only(right: 18),
-              child: Text(
-                _formatDeviceName(device),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  /// 格式化设备名称
-  String _formatDeviceName(FmpAudioDevice device) {
-    // 优先使用 description（人类可读名称），如果为空则使用 name
-    final displayName =
-        device.description.isNotEmpty ? device.description : device.name;
-
-    // Windows 设备名称格式通常是 "喇叭 (设备名称)"，提取括号内的实际设备名
-    // 但要排除像 "(R)" 这样的商标符号
-    final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
-    if (match != null) {
-      return match.group(1) ?? displayName;
-    }
-
-    // 英文格式 "Speakers (Device Name)"
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false)
-        .firstMatch(displayName);
-    if (matchEn != null) {
-      return matchEn.group(1) ?? displayName;
-    }
-
-    return displayName;
-  }
-
-  /// 紧凑音量控制（AppBar用，仅桌面端）
-  Widget _buildCompactVolumeControl(
-    BuildContext context,
-    double volume,
-    AudioController controller,
-    ColorScheme colorScheme,
-  ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 音量图标按钮
-        IconButton(
-          icon: Icon(getVolumeIcon(volume), size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: volume > 0 ? t.player.mute : t.player.unmute,
-          onPressed: () => controller.toggleMute(),
-        ),
-        // 音量滑块
-        SizedBox(
-          width: 100,
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-              activeTrackColor: colorScheme.primary,
-              inactiveTrackColor: colorScheme.surfaceContainerHighest,
-              thumbColor: colorScheme.primary,
-              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
-            ),
-            child: Slider(
-              value: volume,
-              min: 0.0,
-              max: 1.0,
-              onChanged: (value) => controller.setVolume(value),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   /// 获取循环模式图标

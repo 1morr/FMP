@@ -51,7 +51,7 @@ void main() {
 
       expect(source, contains('Breakpoints.isDesktop'));
       expect(backdropSource, contains('ImageFilter.blur'));
-      expect(source, contains('_buildImmersivePlayerLayout'));
+      expect(source, contains('ImmersivePlayerScaffold('));
       expect(source, contains('_buildDesktopPlayerContent'));
       expect(source, contains('_buildControlSection'));
       expect(
@@ -73,11 +73,9 @@ void main() {
       final candidatesSource =
           imageServiceSource.substring(candidatesStart, candidatesEnd);
 
-      expect(playerSource, contains('body: _buildImmersivePlayerLayout('));
+      expect(playerSource, contains('body: ImmersivePlayerScaffold('));
       expect(playerSource, contains('appBar: null'));
-      expect(playerSource, contains('appBar: appBar'));
-      expect(playerSource, contains('backgroundColor: Colors.transparent'));
-      expect(playerSource, contains('surfaceTintColor: Colors.transparent'));
+      expect(playerSource, isNot(contains('appBar: appBar')));
       expect(playerSource, contains('TrackBlurredBackdrop('));
       expect(backdropSource, contains('class BlurredCoverBackdrop'));
       expect(backdropSource, contains('precacheImage'));
@@ -103,18 +101,21 @@ void main() {
 
     test('PlayerPage keeps one backdrop image layer behind the AppBar', () {
       final playerSource = readSource('lib/ui/pages/player/player_page.dart');
+      final scaffoldSource =
+          readSource('lib/ui/widgets/layout/immersive_player_scaffold.dart');
 
       expect(playerSource, contains('appBar: null'));
-      expect(playerSource, contains('appBar: appBar'));
-      expect(playerSource, contains('flexibleSpace: _buildAppBarOverlay'));
+      expect(playerSource, isNot(contains('appBar: appBar')));
+      // AppBar 與其 flexibleSpace overlay 由共享 scaffold 建立。
+      expect(scaffoldSource, contains('flexibleSpace: _buildAppBarOverlay'));
       expect(
           playerSource, isNot(contains('flexibleSpace: _buildAppBarBackdrop')));
       expect(
         RegExp(r'TrackBlurredBackdrop\(').allMatches(playerSource),
         hasLength(1),
       );
-      expect(playerSource, contains('top: _playerAppBarHeight'));
-      expect(playerSource, contains('height: _playerAppBarHeight'));
+      expect(scaffoldSource, contains('top: _appBarHeight'));
+      expect(scaffoldSource, contains('height: _appBarHeight'));
     });
 
     test('PlayerPage clears stale cover backdrop when no cover is available',
@@ -156,35 +157,42 @@ void main() {
       expect(source, contains('_loadImage();'));
     });
 
-    test('PlayerPage keeps AppBar overlay opacity independent from body', () {
+    test('ImmersivePlayerScaffold keeps AppBar overlay opacity independent from body', () {
+      final scaffoldSource =
+          readSource('lib/ui/widgets/layout/immersive_player_scaffold.dart');
       final playerSource = readSource('lib/ui/pages/player/player_page.dart');
+      final radioSource = readSource('lib/ui/pages/radio/radio_player_page.dart');
 
+      // 四個 overlay alpha 常數與 overlay 方法由共享 scaffold 單一持有。
       expect(
-        playerSource,
+        scaffoldSource,
         contains(
           'static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;',
         ),
       );
       expect(
-        playerSource,
+        scaffoldSource,
         contains(
           'static const double _bodyBackdropContainerOverlayAlpha = 0.08;',
         ),
       );
       expect(
-        playerSource,
+        scaffoldSource,
         contains(
           'static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;',
         ),
       );
       expect(
-        playerSource,
+        scaffoldSource,
         contains(
           'static const double _appBarBackdropContainerOverlayAlpha = 0.06;',
         ),
       );
-      expect(playerSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
-      expect(playerSource, contains('_buildAppBarOverlay(colorScheme)'));
+      expect(scaffoldSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
+      expect(scaffoldSource, contains('_buildAppBarOverlay(colorScheme)'));
+      // 兩頁都不再自帶沉浸式 overlay 常數（去重契約）。
+      expect(playerSource, isNot(contains('_bodyBackdropSurfaceOverlayAlpha')));
+      expect(radioSource, isNot(contains('_bodyBackdropSurfaceOverlayAlpha')));
     });
 
     test('Windows title bar is owned by the app wrapper', () {

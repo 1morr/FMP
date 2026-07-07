@@ -700,7 +700,7 @@ void main() {
       expect(source, contains("ValueKey('download-empty-slot-\$index')"));
     });
 
-    test('radio UI watches only audio device and volume fields', () {
+    test('radio UI avoids broad audio controller watch', () {
       final miniPlayer = File(
         'lib/ui/widgets/radio/radio_mini_player.dart',
       ).readAsStringSync();
@@ -709,22 +709,29 @@ void main() {
       ).readAsStringSync();
 
       for (final source in [miniPlayer, playerPage]) {
+        // 不得對 audioControllerProvider 做全狀態 watch（會在每次音訊狀態變動重建）。
         expect(source, isNot(contains('ref.watch(audioControllerProvider);')));
+        // 音量一律窄 select。
         expect(
           source,
           contains('audioControllerProvider.select((state) => state.volume)'),
         );
-        expect(
-          source,
-          contains(
-              'audioControllerProvider.select((state) => state.audioDevices)'),
-        );
-        expect(
-          source,
-          contains(
-              'audioControllerProvider.select((state) => state.currentAudioDevice)'),
-        );
       }
+
+      // 全螢幕電台頁與音樂頁一致，透過共享的 desktopAudioDeviceStateProvider
+      // 取得裝置狀態（provider 內部為窄 select）。
+      expect(playerPage, contains('desktopAudioDeviceStateProvider'));
+      // radio mini player 仍以窄 select 直接觀察裝置欄位。
+      expect(
+        miniPlayer,
+        contains(
+            'audioControllerProvider.select((state) => state.audioDevices)'),
+      );
+      expect(
+        miniPlayer,
+        contains(
+            'audioControllerProvider.select((state) => state.currentAudioDevice)'),
+      );
     });
 
     test('search and playlist pages avoid page-wide selection watches', () {
