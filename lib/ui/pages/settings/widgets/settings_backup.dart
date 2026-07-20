@@ -19,20 +19,17 @@ class _ExportDataListTile extends ConsumerWidget {
       final path = await backupService.exportData();
 
       if (path != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(t.settings.backup.export.success(path: path)),
-            duration: const Duration(seconds: 5),
-          ),
+        ToastService.success(
+          context,
+          t.settings.backup.export.success(path: path),
+          duration: const Duration(seconds: 5),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(t.settings.backup.export.failed(error: e.toString())),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        ToastService.error(
+          context,
+          t.settings.backup.export.failed(error: e.toString()),
         );
       }
     }
@@ -63,11 +60,9 @@ class _ImportDataListTile extends ConsumerWidget {
 
       final validation = backupService.validateBackupData(backupData);
       if (!validation.isValid) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_formatBackupValidationMessage(validation)),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        ToastService.error(
+          context,
+          _formatBackupValidationMessage(validation),
         );
         return;
       }
@@ -90,11 +85,9 @@ class _ImportDataListTile extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(t.settings.backup.import.failed(error: e.toString())),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        ToastService.error(
+          context,
+          t.settings.backup.import.failed(error: e.toString()),
         );
       }
     }
@@ -348,11 +341,9 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isImporting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(t.settings.backup.import.failed(error: e.toString())),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        ToastService.error(
+          context,
+          t.settings.backup.import.failed(error: e.toString()),
         );
       }
     }
@@ -374,7 +365,9 @@ class _ImportResultDialog extends StatelessWidget {
         children: [
           Icon(
             result.errors.isEmpty ? Icons.check_circle : Icons.warning,
-            color: result.errors.isEmpty ? Colors.green : Colors.orange,
+            color: result.errors.isEmpty
+                ? ToastService.successColor
+                : ToastService.warningColor,
           ),
           const SizedBox(width: 8),
           Text(t.settings.backup.import.success),

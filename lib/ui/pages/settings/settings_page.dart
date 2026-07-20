@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../services/lyrics/lyrics_cache_service.dart';
 import '../../../providers/lyrics/lyrics_window_style_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';

@@ -44,7 +44,10 @@ class ToastMessage {
 /// toastService.showMessage('消息内容');
 /// ```
 class ToastService {
-  static const Duration _defaultDuration = ToastDurations.short;
+  /// ColorScheme 沒有 success / warning 語意色，統一在此集中定義，
+  /// 供 Toast 與其他需要語意色的 UI（例如匯入結果對話框）引用。
+  static const Color successColor = Colors.green;
+  static const Color warningColor = Colors.orange;
 
   final _messageController = StreamController<ToastMessage>.broadcast();
 
@@ -83,38 +86,98 @@ class ToastService {
 
   // ==================== 静态方法（需要 BuildContext）====================
 
+  /// 全 app 唯一的 SnackBar 建构入口。
+  ///
+  /// 统一外观：floating 行为、整條語意彩底、白字白圖示。
+  /// [duration] 未提供時，error / warning 使用 [ToastDurations.long]，
+  /// 其他類型使用 [ToastDurations.short]。
+  static SnackBar buildSnackBar(
+    BuildContext context, {
+    required String message,
+    ToastType type = ToastType.info,
+    Duration? duration,
+    SnackBarAction? action,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final (backgroundColor, icon) = switch (type) {
+      ToastType.info => (colorScheme.primary, Icons.info),
+      ToastType.success => (successColor, Icons.check_circle),
+      ToastType.warning => (warningColor, Icons.warning),
+      ToastType.error => (colorScheme.error, Icons.error),
+    };
+
+    return SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: backgroundColor,
+      content: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      duration: duration ??
+          (type == ToastType.error || type == ToastType.warning
+              ? ToastDurations.long
+              : ToastDurations.short),
+      action: action,
+    );
+  }
+
   /// 显示普通消息
-  static void show(BuildContext context, String message) {
-    _showSnackBar(context, message);
-  }
-
-  /// 显示成功消息（带绿色图标）
-  static void success(BuildContext context, String message) {
-    _showSnackBar(
+  static void show(BuildContext context, String message,
+      {Duration? duration}) {
+    showSnackBarNow(
       context,
-      message,
-      icon: Icons.check_circle,
-      iconColor: Colors.green,
+      buildSnackBar(context, message: message, duration: duration),
     );
   }
 
-  /// 显示错误消息（带红色图标）
-  static void error(BuildContext context, String message) {
-    _showSnackBar(
+  /// 显示成功消息
+  static void success(BuildContext context, String message,
+      {Duration? duration}) {
+    showSnackBarNow(
       context,
-      message,
-      icon: Icons.error,
-      iconColor: Colors.red,
+      buildSnackBar(
+        context,
+        message: message,
+        type: ToastType.success,
+        duration: duration,
+      ),
     );
   }
 
-  /// 显示警告消息（带橙色图标）
-  static void warning(BuildContext context, String message) {
-    _showSnackBar(
+  /// 显示错误消息
+  static void error(BuildContext context, String message,
+      {Duration? duration}) {
+    showSnackBarNow(
       context,
-      message,
-      icon: Icons.warning,
-      iconColor: Colors.orange,
+      buildSnackBar(
+        context,
+        message: message,
+        type: ToastType.error,
+        duration: duration,
+      ),
+    );
+  }
+
+  /// 显示警告消息
+  static void warning(BuildContext context, String message,
+      {Duration? duration}) {
+    showSnackBarNow(
+      context,
+      buildSnackBar(
+        context,
+        message: message,
+        type: ToastType.warning,
+        duration: duration,
+      ),
     );
   }
 
@@ -124,13 +187,14 @@ class ToastService {
     String message, {
     required String actionLabel,
     required VoidCallback onAction,
+    Duration? duration,
   }) {
     showSnackBarNow(
       context,
-      SnackBar(
-        content: Text(message),
-        persist: false,
-        duration: _defaultDuration,
+      buildSnackBar(
+        context,
+        message: message,
+        duration: duration,
         action: SnackBarAction(
           label: actionLabel,
           onPressed: onAction,
@@ -149,28 +213,6 @@ class ToastService {
     messenger.clearSnackBars();
     messenger.removeCurrentSnackBar();
     return messenger.showSnackBar(snackBar);
-  }
-
-  static void _showSnackBar(
-    BuildContext context,
-    String message, {
-    IconData? icon,
-    Color? iconColor,
-  }) {
-    final content = icon != null
-        ? Row(
-            children: [
-              Icon(icon, color: iconColor, size: 20),
-              const SizedBox(width: 8),
-              Expanded(child: Text(message)),
-            ],
-          )
-        : Text(message);
-
-    showSnackBarNow(
-      context,
-      SnackBar(content: content, duration: _defaultDuration),
-    );
   }
 }
 

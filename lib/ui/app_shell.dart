@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/constants/ui_constants.dart';
 import '../core/services/toast_service.dart';
 import 'layouts/responsive_scaffold.dart';
 import 'router.dart';
@@ -19,47 +18,12 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   void _showSnackBar(ToastMessage message) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    Color backgroundColor;
-    IconData icon;
-
-    switch (message.type) {
-      case ToastType.success:
-        backgroundColor = Colors.green;
-        icon = Icons.check_circle;
-      case ToastType.warning:
-        backgroundColor = Colors.orange;
-        icon = Icons.warning;
-      case ToastType.error:
-        backgroundColor = colorScheme.error;
-        icon = Icons.error;
-      case ToastType.info:
-        backgroundColor = colorScheme.primary;
-        icon = Icons.info;
-    }
-
     ToastService.showSnackBarNow(
       context,
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message.message,
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: backgroundColor,
-        behavior: SnackBarBehavior.floating,
-        duration:
-            message.type == ToastType.error || message.type == ToastType.warning
-                ? ToastDurations.long
-                : ToastDurations.short,
+      ToastService.buildSnackBar(
+        context,
+        message: message.message,
+        type: message.type,
       ),
     );
   }

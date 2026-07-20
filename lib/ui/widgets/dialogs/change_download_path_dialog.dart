@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/library/library_invalidation_coordinator.dart';
 
@@ -218,12 +219,17 @@ class _ChangeDownloadPathDialogState
 
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
+        final snackBar = ToastService.buildSnackBar(
+          context,
+          message: t.changeDownloadPathDialog.pathChanged,
+          type: ToastType.success,
+        );
         Navigator.pop(context, true);
         if (messenger != null) {
           Future.delayed(AnimationDurations.fastest, () {
-            messenger.showSnackBar(
-              SnackBar(content: Text(t.changeDownloadPathDialog.pathChanged)),
-            );
+            messenger
+              ..clearSnackBars()
+              ..showSnackBar(snackBar);
           });
         }
       }
