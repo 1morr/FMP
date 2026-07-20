@@ -30,6 +30,8 @@ double _compensatedIconSize(IconData icon) {
 /// 行動版直播資訊彈窗共用此寫法：單項為 primary 圖示 + onSurfaceVariant
 /// 內文。[alignment] 預設靠左（行動版彈窗）；寬幅的桌面面板可傳
 /// [WrapAlignment.spaceEvenly] 讓統計項均勻撐滿整行。
+/// 只有一個統計項時一律靠左（spaceEvenly 會把單項置中，與面板其他
+/// 左對齊內容不一致）。
 class DetailStatsRow extends StatelessWidget {
   const DetailStatsRow({
     super.key,
@@ -48,7 +50,7 @@ class DetailStatsRow extends StatelessWidget {
     return Wrap(
       spacing: 16,
       runSpacing: 8,
-      alignment: alignment,
+      alignment: items.length > 1 ? alignment : WrapAlignment.start,
       children: [
         for (final item in items)
           Row(
