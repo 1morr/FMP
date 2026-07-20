@@ -213,7 +213,6 @@ class _LogEntryTile extends StatelessWidget {
         ToastService.show(
           context,
           t.logViewer.copied,
-          duration: const Duration(seconds: 1),
         );
       },
       child: Padding(

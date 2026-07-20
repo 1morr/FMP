@@ -26,13 +26,11 @@ class _VersionListTile extends ConsumerWidget {
                 ToastService.show(
                   context,
                   t.settings.version.tapToEnableDev(n: remaining),
-                  duration: const Duration(seconds: 1),
                 );
               } else if (remaining == 0) {
                 ToastService.success(
                   context,
                   t.settings.version.devEnabled,
-                  duration: const Duration(seconds: 2),
                 );
               }
             }
@@ -84,13 +82,11 @@ class _CheckUpdateListTile extends ConsumerWidget {
                 ToastService.show(
                   context,
                   t.settings.update.upToDate,
-                  duration: const Duration(seconds: 2),
                 );
               } else if (state.status == UpdateStatus.error) {
                 ToastService.error(
                   context,
                   state.errorMessage ?? t.settings.update.checkFailed,
-                  duration: const Duration(seconds: 3),
                 );
               }
             },

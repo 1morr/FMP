@@ -22,6 +22,7 @@ class _ExportDataListTile extends ConsumerWidget {
         ToastService.success(
           context,
           t.settings.backup.export.success(path: path),
+          // 含完整匯出路徑，使用者需要時間閱讀/記錄，刻意拉長顯示。
           duration: const Duration(seconds: 5),
         );
       }
