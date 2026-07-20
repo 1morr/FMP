@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/logger.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../core/constants/ui_constants.dart';
 
@@ -86,9 +87,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
   void _copyAllLogs() {
     final text = _filteredLogs.map((e) => e.toString()).join('\n');
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(t.logViewer.logsCopied)),
-    );
+    ToastService.show(context, t.logViewer.logsCopied);
   }
 
   void _clearLogs() {
@@ -211,11 +210,10 @@ class _LogEntryTile extends StatelessWidget {
           : null,
       onLongPress: () {
         Clipboard.setData(ClipboardData(text: entry.toString()));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(t.logViewer.copied),
-            duration: const Duration(seconds: 1),
-          ),
+        ToastService.show(
+          context,
+          t.logViewer.copied,
+          duration: const Duration(seconds: 1),
         );
       },
       child: Padding(
@@ -318,9 +316,7 @@ class _LogEntryTile extends StatelessWidget {
               }
               Clipboard.setData(ClipboardData(text: text.toString()));
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(t.logViewer.copiedToClipboard)),
-              );
+              ToastService.show(context, t.logViewer.copiedToClipboard);
             },
             child: Text(t.logViewer.copy),
           ),

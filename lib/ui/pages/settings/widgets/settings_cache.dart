@@ -109,10 +109,9 @@ class _ImageCacheSizeListTileState extends State<_ImageCacheSizeListTile> {
                   await ImageLoadingService.clearNetworkCache();
                   await _loadCacheSize();
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(t.settings.imageCache.cacheCleared),
-                      ),
+                    ToastService.success(
+                      context,
+                      t.settings.imageCache.cacheCleared,
                     );
                   }
                 },
@@ -223,10 +222,9 @@ class _LyricsCacheSizeListTileState
                   await cache.clear();
                   await _loadStats();
                   if (mounted) {
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      SnackBar(
-                        content: Text(t.settings.lyricsCache.cacheCleared),
-                      ),
+                    ToastService.success(
+                      this.context,
+                      t.settings.lyricsCache.cacheCleared,
                     );
                   }
                 },

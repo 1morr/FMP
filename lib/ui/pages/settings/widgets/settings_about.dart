@@ -23,21 +23,16 @@ class _VersionListTile extends ConsumerWidget {
             if (!devOptions.isEnabled) {
               final remaining = notifier.remainingTaps;
               if (remaining <= 4 && remaining > 0) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content:
-                        Text(t.settings.version.tapToEnableDev(n: remaining)),
-                    duration: const Duration(seconds: 1),
-                  ),
+                ToastService.show(
+                  context,
+                  t.settings.version.tapToEnableDev(n: remaining),
+                  duration: const Duration(seconds: 1),
                 );
               } else if (remaining == 0) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(t.settings.version.devEnabled),
-                    duration: const Duration(seconds: 2),
-                  ),
+                ToastService.success(
+                  context,
+                  t.settings.version.devEnabled,
+                  duration: const Duration(seconds: 2),
                 );
               }
             }
@@ -86,21 +81,16 @@ class _CheckUpdateListTile extends ConsumerWidget {
                   state.updateInfo != null) {
                 UpdateDialog.show(context, state.updateInfo!);
               } else if (state.status == UpdateStatus.upToDate) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(t.settings.update.upToDate),
-                    duration: const Duration(seconds: 2),
-                  ),
+                ToastService.show(
+                  context,
+                  t.settings.update.upToDate,
+                  duration: const Duration(seconds: 2),
                 );
               } else if (state.status == UpdateStatus.error) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        state.errorMessage ?? t.settings.update.checkFailed),
-                    duration: const Duration(seconds: 3),
-                  ),
+                ToastService.error(
+                  context,
+                  state.errorMessage ?? t.settings.update.checkFailed,
+                  duration: const Duration(seconds: 3),
                 );
               }
             },

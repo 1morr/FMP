@@ -13,6 +13,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../router.dart';
@@ -267,11 +268,10 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
   void _clearImageMemoryCache() {
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(t.settings.developerOptions.clearImageMemoryCacheDone),
-        duration: const Duration(seconds: 2),
-      ),
+    ToastService.success(
+      context,
+      t.settings.developerOptions.clearImageMemoryCacheDone,
+      duration: const Duration(seconds: 2),
     );
     _loadMemoryInfo();
   }
@@ -558,13 +558,9 @@ class _ResetDataTile extends ConsumerWidget {
   }
 
   Future<void> _resetAllData(BuildContext context, WidgetRef ref) async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-
     try {
       // 显示进度
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(t.settings.developerOptions.resetting)),
-      );
+      ToastService.show(context, t.settings.developerOptions.resetting);
 
       final isar = await ref.read(databaseProvider.future);
 
@@ -576,19 +572,17 @@ class _ResetDataTile extends ConsumerWidget {
       // 重新创建默认数据
       await initializeDatabaseDefaults(isar);
 
-      scaffoldMessenger.hideCurrentSnackBar();
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(t.settings.developerOptions.resetDone),
-          duration: const Duration(seconds: 3),
-        ),
+      if (!context.mounted) return;
+      ToastService.success(
+        context,
+        t.settings.developerOptions.resetDone,
+        duration: const Duration(seconds: 3),
       );
     } catch (e) {
-      scaffoldMessenger.hideCurrentSnackBar();
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-            content:
-                Text(t.settings.developerOptions.resetFailed(error: '$e'))),
+      if (!context.mounted) return;
+      ToastService.error(
+        context,
+        t.settings.developerOptions.resetFailed(error: '$e'),
       );
     }
   }

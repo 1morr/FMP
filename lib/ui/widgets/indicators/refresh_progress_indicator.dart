@@ -205,32 +205,3 @@ class PlaylistRefreshProgress extends ConsumerWidget {
     );
   }
 }
-
-/// 刷新状态提示组件（用于 Snackbar 等场景）
-class RefreshResultSnackBar {
-  static SnackBar success({
-    required String playlistName,
-    required int addedCount,
-    required int skippedCount,
-  }) {
-    return SnackBar(
-      content: Text(
-        '${t.refreshProvider.completed(name: playlistName)}'
-        '${addedCount > 0 ? t.refreshProgressIndicator.added(count: addedCount) : t.refreshProgressIndicator.noAdded}'
-        '${skippedCount > 0 ? '，${t.library.importPlaylist.skipped(n: skippedCount)}' : ''}',
-      ),
-      duration: const Duration(seconds: 3),
-    );
-  }
-
-  static SnackBar error({
-    required String playlistName,
-    required String errorMessage,
-  }) {
-    return SnackBar(
-      content: Text(t.refreshProvider.failed(name: playlistName, error: errorMessage)),
-      duration: const Duration(seconds: 4),
-      backgroundColor: Colors.red[700],
-    );
-  }
-}
