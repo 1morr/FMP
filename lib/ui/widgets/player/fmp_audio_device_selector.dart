@@ -6,9 +6,9 @@ import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/audio/audio_types.dart';
 
-/// 音訊輸出設備選擇器（AppBar 用，僅桌面端），音樂/電台全螢幕播放器共用。
+/// 音訊輸出設備選擇器（僅桌面端），音樂/電台全螢幕播放器與迷你播放器共用。
 ///
-/// 兩個播放器頁面原本各自維護一份逐字相同的實作（含裝置名稱格式化）；
+/// 各播放器原本各自維護一份逐字相同的實作（含裝置名稱格式化）；
 /// 抽出為單一元件以保證一致。是否顯示由呼叫端以
 /// `DesktopAudioDeviceState.hasSelectableDevices` 判斷。
 class FmpAudioDeviceSelector extends StatelessWidget {

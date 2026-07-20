@@ -727,16 +727,18 @@ void main() {
       // 全螢幕電台頁與音樂頁一致，透過共享的 desktopAudioDeviceStateProvider
       // 取得裝置狀態（provider 內部為窄 select）。
       expect(playerPage, contains('desktopAudioDeviceStateProvider'));
-      // radio mini player 仍以窄 select 直接觀察裝置欄位。
+      // radio mini player 與音樂 mini player 一致，同樣透過共享的
+      // desktopAudioDeviceStateProvider 取得裝置狀態。
+      expect(miniPlayer, contains('desktopAudioDeviceStateProvider'));
       expect(
         miniPlayer,
-        contains(
-            'audioControllerProvider.select((state) => state.audioDevices)'),
+        isNot(contains(
+            'audioControllerProvider.select((state) => state.audioDevices)')),
       );
       expect(
         miniPlayer,
-        contains(
-            'audioControllerProvider.select((state) => state.currentAudioDevice)'),
+        isNot(contains(
+            'audioControllerProvider.select((state) => state.currentAudioDevice)')),
       );
     });
 

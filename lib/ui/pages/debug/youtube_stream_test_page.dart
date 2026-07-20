@@ -11,6 +11,7 @@ import '../../../data/models/track.dart';
 import '../../../data/sources/base_source.dart' as fmp;
 import '../../../data/sources/source_provider.dart';
 import '../../../data/sources/source_http_policy.dart';
+import '../../../core/utils/duration_formatter.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account/account_provider.dart';
 
@@ -298,7 +299,7 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
               '类型: ${stream.type.name} | Headers: $_selectedHeaderType\n'
               '编解码器: ${stream.codec} | 容器: ${stream.container}\n'
               '比特率: ${_formatBitrate(stream.bitrate)}\n'
-              '时长: ${_formatDuration(_duration)}';
+              '时长: ${DurationFormatter.format(_duration)}';
         });
         _log('✅ 成功!');
       } else if (_error != null) {
@@ -845,12 +846,6 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
     return '$bps bps';
   }
 
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes;
-    final s = d.inSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1038,7 +1033,7 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                    '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                                    '${DurationFormatter.format(_position)} / ${DurationFormatter.format(_duration)}',
                                     style: const TextStyle(
                                         fontFamily: 'monospace', fontSize: 12)),
                               ],

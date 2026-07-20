@@ -1,11 +1,12 @@
-import 'dart:io' show Platform;
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/radio_station.dart';
+import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/number_format_utils.dart';
+import '../../../core/utils/platform_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
@@ -26,10 +27,6 @@ import '../../widgets/player/player_play_pause_button.dart';
 class RadioPlayerPage extends ConsumerWidget {
   const RadioPlayerPage({super.key});
 
-  /// 是否為桌面平台
-  bool get isDesktop =>
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -47,14 +44,14 @@ class RadioPlayerPage extends ConsumerWidget {
 
     final appBarActions = <Widget>[
         // 桌面端音頻設備選擇器
-        if (isDesktop && desktopAudioDeviceState.hasSelectableDevices)
+        if (isDesktopPlatform && desktopAudioDeviceState.hasSelectableDevices)
           FmpAudioDeviceSelector(
             state: desktopAudioDeviceState,
             controller: audioController,
             colorScheme: colorScheme,
           ),
         // 桌面端音量控制（緊湊版）
-        if (isDesktop)
+        if (isDesktopPlatform)
           CompactVolumeControl(
             volume: volume,
             controller: audioController,
@@ -185,7 +182,7 @@ class RadioPlayerPage extends ConsumerWidget {
           .startedBroadcast(time: _formatDateTime(state.liveStartTime!)));
     }
     if (state.isPlaying) {
-      parts.add(_formatDuration(state.playDuration));
+      parts.add(DurationFormatter.format(state.playDuration));
     }
 
     return SizedBox(
@@ -303,17 +300,6 @@ class RadioPlayerPage extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => _LiveInfoDialog(state: state),
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   String _formatCount(int count) => formatCount(count);
@@ -578,7 +564,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                                       context,
                                       Icons.schedule_outlined,
                                       t.radio.played(
-                                          duration: _formatDuration(
+                                          duration: DurationFormatter.format(
                                               widget.state.playDuration)),
                                     ),
                                   if (widget.state.liveStartTime != null)
@@ -806,17 +792,6 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
         ),
       ],
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   String _formatCount(int count) => formatCount(count);
