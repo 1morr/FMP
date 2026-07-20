@@ -203,18 +203,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             muteTooltip: t.player.mute,
             unmuteTooltip: t.player.unmute,
           ),
-        // 更多选项（包含信息、倍速、歌词）
+        // 歌曲資訊（比照電台播放器，提升為獨立 AppBar 按鈕）
+        IconButton(
+          icon: const Icon(Icons.info_outline),
+          tooltip: t.player.info,
+          onPressed: () => _showTrackInfoDialog(context, colorScheme),
+        ),
+        // 更多选项（倍速、歌词）
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
           onSelected: (value) async {
-            if (value == 'info') {
-              // 延迟显示弹窗，等主菜单关闭后再显示
-              Future.delayed(AnimationDurations.fastest, () {
-                if (!context.mounted) return;
-                _showTrackInfoDialog(context, colorScheme);
-              });
-            } else if (value == 'speed') {
+            if (value == 'speed') {
               // 延迟显示子菜单，等主菜单关闭后再显示
               Future.delayed(AnimationDurations.fastest, () {
                 if (!context.mounted) return;
@@ -238,16 +238,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             }
           },
           itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'info',
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, size: 20),
-                  const SizedBox(width: 12),
-                  Text(t.player.info),
-                ],
-              ),
-            ),
             PopupMenuItem(
               value: 'speed',
               child: Row(
@@ -630,6 +620,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         IconButton(
           icon: const Icon(Icons.skip_previous),
           iconSize: 40,
+          tooltip: t.player.previous,
           onPressed: canPlayPrevious ? () => controller.previous() : null,
         ),
 
@@ -646,6 +637,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         IconButton(
           icon: const Icon(Icons.skip_next),
           iconSize: 40,
+          tooltip: t.player.next,
           onPressed: canPlayNext ? () => controller.next() : null,
         ),
 

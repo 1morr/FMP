@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/radio_station.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../core/utils/platform_utils.dart';
@@ -41,6 +42,9 @@ class RadioPlayerPage extends ConsumerWidget {
     final audioController = ref.read(audioControllerProvider.notifier);
 
     final station = radioState.currentStation;
+    // 桌面寬版比照音樂播放器：封面限制 maxWidth 420 並置中
+    final isWideLayout =
+        Breakpoints.isDesktop(MediaQuery.sizeOf(context).width);
 
     final appBarActions = <Widget>[
         // 桌面端音頻設備選擇器
@@ -81,7 +85,7 @@ class RadioPlayerPage extends ConsumerWidget {
         appBarActions: appBarActions,
         colorScheme: colorScheme,
         body: station == null
-            ? Center(child: Text(t.radio.noPlaying))
+            ? _buildEmptyState(context, colorScheme)
             : Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -89,7 +93,15 @@ class RadioPlayerPage extends ConsumerWidget {
                     // 封面圖
                     Expanded(
                       flex: 3,
-                      child: _buildCoverArt(station, colorScheme),
+                      child: isWideLayout
+                          ? Center(
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 420),
+                                child: _buildCoverArt(station, colorScheme),
+                              ),
+                            )
+                          : _buildCoverArt(station, colorScheme),
                     ),
                     const SizedBox(height: 32),
 
@@ -133,6 +145,30 @@ class RadioPlayerPage extends ConsumerWidget {
       icon: Icons.radio,
       iconSize: 120,
       iconColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+    );
+  }
+
+  /// 空狀態（無播放中的電台），比照音樂播放器空狀態品質
+  Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.radio,
+            size: 120,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            t.radio.noPlaying,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -192,7 +228,7 @@ class RadioPlayerPage extends ConsumerWidget {
         duration: AnimationDurations.fast,
         child: Text(
           parts.isEmpty ? '' : parts.join(' · '),
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
           textAlign: TextAlign.center,
@@ -213,7 +249,7 @@ class RadioPlayerPage extends ConsumerWidget {
       height: 24, // 固定高度
       child: Text(
         _getStatusText(state),
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: state.isReconnecting
                   ? colorScheme.error
                   : colorScheme.onSurfaceVariant,
@@ -259,7 +295,7 @@ class RadioPlayerPage extends ConsumerWidget {
         // 跳到最新：先 seek 到直播邊緣，無法 seek 則重連（RadioController.sync）。
         IconButton(
           icon: const Icon(Icons.sync),
-          iconSize: 32,
+          iconSize: 40,
           tooltip: t.radio.syncLive,
           onPressed: isDisabled ? null : () => controller.sync(),
         ),
@@ -280,7 +316,7 @@ class RadioPlayerPage extends ConsumerWidget {
         // 重新載入：無條件重新連接直播流（RadioController.reload）。
         IconButton(
           icon: const Icon(Icons.refresh),
-          iconSize: 32,
+          iconSize: 40,
           tooltip: t.radio.reloadLive,
           onPressed: isDisabled ? null : () => controller.reload(),
         ),
