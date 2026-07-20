@@ -8,6 +8,7 @@ import '../../../core/constants/breakpoints.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../core/utils/platform_utils.dart';
+import '../../../core/utils/relative_time_formatter.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
@@ -17,6 +18,8 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/radio_cover_image.dart';
+import '../../widgets/layout/detail_stats_row.dart';
+import '../../widgets/layout/expandable_text_section.dart';
 import '../../widgets/layout/immersive_player_scaffold.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
 import '../../widgets/player/compact_volume_control.dart';
@@ -215,7 +218,7 @@ class RadioPlayerPage extends ConsumerWidget {
 
     if (state.liveStartTime != null) {
       parts.add(t.radio
-          .startedBroadcast(time: _formatDateTime(state.liveStartTime!)));
+          .startedBroadcast(time: formatRelativeTime(state.liveStartTime!)));
     }
     if (state.isPlaying) {
       parts.add(DurationFormatter.format(state.playDuration));
@@ -275,7 +278,7 @@ class RadioPlayerPage extends ConsumerWidget {
 
     final parts = <String>[];
     if (state.viewerCount != null) {
-      parts.add(t.radio.viewersCount(count: _formatCount(state.viewerCount!)));
+      parts.add(t.radio.viewersCount(count: formatCount(state.viewerCount!)));
     }
     return parts.isEmpty ? t.radio.live : parts.join(' · ');
   }
@@ -337,104 +340,19 @@ class RadioPlayerPage extends ConsumerWidget {
       builder: (context) => _LiveInfoDialog(state: state),
     );
   }
-
-  String _formatCount(int count) => formatCount(count);
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-
-    if (diff.inDays > 0) {
-      return t.radio.daysAgo(n: diff.inDays);
-    } else if (diff.inHours > 0) {
-      return t.radio.hoursAgo(n: diff.inHours);
-    } else if (diff.inMinutes > 0) {
-      return t.radio.minutesAgo(n: diff.inMinutes);
-    } else {
-      return t.radio.justNow;
-    }
-  }
 }
 
 /// 直播間信息彈窗
-class _LiveInfoDialog extends StatefulWidget {
+class _LiveInfoDialog extends StatelessWidget {
   final RadioState state;
 
   const _LiveInfoDialog({required this.state});
 
   @override
-  State<_LiveInfoDialog> createState() => _LiveInfoDialogState();
-}
-
-class _LiveInfoDialogState extends State<_LiveInfoDialog> {
-  bool _isAnnouncementExpanded = false;
-  bool _isDescriptionExpanded = false;
-  bool _announcementNeedsExpansion = false;
-  bool _descriptionNeedsExpansion = false;
-  final GlobalKey _announcementKey = GlobalKey();
-  final GlobalKey _descriptionKey = GlobalKey();
-
-  static const int _maxLines = 4;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkIfNeedsExpansion();
-    });
-  }
-
-  void _checkIfNeedsExpansion() {
-    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          height: 1.6,
-        );
-
-    // 檢查公告是否需要展開
-    if (widget.state.announcement != null &&
-        widget.state.announcement!.isNotEmpty) {
-      final announcementPainter = TextPainter(
-        text: TextSpan(text: widget.state.announcement!, style: textStyle),
-        maxLines: _maxLines,
-        textDirection: TextDirection.ltr,
-      );
-      final box =
-          _announcementKey.currentContext?.findRenderObject() as RenderBox?;
-      if (box != null) {
-        announcementPainter.layout(maxWidth: box.size.width);
-        if (mounted) {
-          setState(() {
-            _announcementNeedsExpansion = announcementPainter.didExceedMaxLines;
-          });
-        }
-      }
-    }
-
-    // 檢查簡介是否需要展開
-    if (widget.state.description != null &&
-        widget.state.description!.isNotEmpty) {
-      final descriptionPainter = TextPainter(
-        text: TextSpan(text: widget.state.description!, style: textStyle),
-        maxLines: _maxLines,
-        textDirection: TextDirection.ltr,
-      );
-      final box =
-          _descriptionKey.currentContext?.findRenderObject() as RenderBox?;
-      if (box != null) {
-        descriptionPainter.layout(maxWidth: box.size.width);
-        if (mounted) {
-          setState(() {
-            _descriptionNeedsExpansion = descriptionPainter.didExceedMaxLines;
-          });
-        }
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final station = widget.state.currentStation;
+    final station = state.currentStation;
 
     // 限制最大高度，避免 Windows 全屏时弹窗过高
     final screenHeight = MediaQuery.of(context).size.height;
@@ -520,6 +438,30 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // 封面（點擊跳轉到直播間，與桌面 Detail Panel 一致）
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () => UrlLauncherService.instance
+                                      .openBilibiliLive(station.sourceId),
+                                  child: ClipRRect(
+                                    borderRadius: AppRadius.borderRadiusXl,
+                                    child: AspectRatio(
+                                      aspectRatio: 16 / 9,
+                                      child: RadioCoverImage(
+                                        networkUrl: station.thumbnailUrl,
+                                        placeholder:
+                                            _buildCoverPlaceholder(context),
+                                        fit: BoxFit.cover,
+                                        variant: RadioCoverVariant.hero,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+
                               // 標題（點擊跳轉到直播間）
                               MouseRegion(
                                 cursor: SystemMouseCursors.click,
@@ -583,46 +525,38 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                               const SizedBox(height: 16),
 
                               // 統計數據
-                              Wrap(
-                                spacing: 16,
-                                runSpacing: 8,
-                                children: [
-                                  if (widget.state.viewerCount != null)
-                                    _buildStatItem(
-                                      context,
-                                      Icons.visibility_rounded,
-                                      t.radio.viewersCount(
-                                          count: _formatCount(
-                                              widget.state.viewerCount!)),
+                              DetailStatsRow(
+                                items: [
+                                  if (state.viewerCount != null)
+                                    DetailStatItem(
+                                      icon: Icons.visibility_rounded,
+                                      label:
+                                          formatCount(state.viewerCount!),
                                     ),
-                                  if (widget.state.isPlaying)
-                                    _buildStatItem(
-                                      context,
-                                      Icons.schedule_outlined,
-                                      t.radio.played(
+                                  if (state.isPlaying)
+                                    DetailStatItem(
+                                      icon: Icons.schedule_outlined,
+                                      label: t.radio.played(
                                           duration: DurationFormatter.format(
-                                              widget.state.playDuration)),
+                                              state.playDuration)),
                                     ),
-                                  if (widget.state.liveStartTime != null)
-                                    _buildStatItem(
-                                      context,
-                                      Icons.play_circle_outline,
-                                      t.radio.startedAt(
-                                          time: _formatDateTime(
-                                              widget.state.liveStartTime!)),
+                                  if (state.liveStartTime != null)
+                                    DetailStatItem(
+                                      icon: Icons.play_circle_outline,
+                                      label: t.radio.startedAt(
+                                          time: formatRelativeTime(
+                                              state.liveStartTime!)),
                                     ),
-                                  if (widget.state.areaName != null)
-                                    _buildStatItem(
-                                      context,
-                                      Icons.category_outlined,
-                                      widget.state.areaName!,
+                                  if (state.areaName != null)
+                                    DetailStatItem(
+                                      icon: Icons.category_outlined,
+                                      label: state.areaName!,
                                     ),
-                                  _buildStatItem(
-                                    context,
-                                    widget.state.isPlaying
+                                  DetailStatItem(
+                                    icon: state.isPlaying
                                         ? Icons.radio_button_checked
                                         : Icons.radio_button_off,
-                                    widget.state.isPlaying
+                                    label: state.isPlaying
                                         ? t.radio.live
                                         : t.radio.stopped,
                                   ),
@@ -630,58 +564,38 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                               ),
 
                               // 主播公告
-                              if (widget.state.announcement != null &&
-                                  widget.state.announcement!.isNotEmpty) ...[
+                              if (state.announcement != null &&
+                                  state.announcement!.isNotEmpty) ...[
                                 const SizedBox(height: 20),
                                 const Divider(),
                                 const SizedBox(height: 16),
-                                _buildExpandableSection(
-                                  context,
+                                ExpandableTextSection(
                                   icon: Icons.campaign_outlined,
                                   title: t.radio.announcement,
-                                  content: widget.state.announcement!,
-                                  textKey: _announcementKey,
-                                  isExpanded: _isAnnouncementExpanded,
-                                  needsExpansion: _announcementNeedsExpansion,
-                                  onToggle: () {
-                                    setState(() {
-                                      _isAnnouncementExpanded =
-                                          !_isAnnouncementExpanded;
-                                    });
-                                  },
+                                  content: state.announcement!,
                                 ),
                               ],
 
                               // 直播間簡介
-                              if (widget.state.description != null &&
-                                  widget.state.description!.isNotEmpty) ...[
+                              if (state.description != null &&
+                                  state.description!.isNotEmpty) ...[
                                 const SizedBox(height: 20),
                                 const Divider(),
                                 const SizedBox(height: 16),
-                                _buildExpandableSection(
-                                  context,
+                                ExpandableTextSection(
                                   icon: Icons.info_outline_rounded,
                                   title: t.radio.description,
-                                  content: widget.state.description!,
-                                  textKey: _descriptionKey,
-                                  isExpanded: _isDescriptionExpanded,
-                                  needsExpansion: _descriptionNeedsExpansion,
-                                  onToggle: () {
-                                    setState(() {
-                                      _isDescriptionExpanded =
-                                          !_isDescriptionExpanded;
-                                    });
-                                  },
+                                  content: state.description!,
                                 ),
                               ],
 
                               // 標籤
-                              if (widget.state.tags != null &&
-                                  widget.state.tags!.isNotEmpty) ...[
+                              if (state.tags != null &&
+                                  state.tags!.isNotEmpty) ...[
                                 const SizedBox(height: 20),
                                 const Divider(),
                                 const SizedBox(height: 16),
-                                _buildTagsSection(context, widget.state.tags!),
+                                _buildTagsSection(context, state.tags!),
                               ],
 
                               const SizedBox(height: 20),
@@ -697,67 +611,12 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
     );
   }
 
-  Widget _buildExpandableSection(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String content,
-    required GlobalKey textKey,
-    required bool isExpanded,
-    required bool needsExpansion,
-    required VoidCallback onToggle,
-  }) {
+  Widget _buildCoverPlaceholder(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 18, color: colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: textTheme.titleSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          content,
-          key: textKey,
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            height: 1.6,
-          ),
-          maxLines: isExpanded ? null : _maxLines,
-          overflow: isExpanded ? null : TextOverflow.ellipsis,
-        ),
-        if (needsExpansion)
-          Align(
-            alignment: Alignment.centerRight,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: onToggle,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    isExpanded ? t.radio.collapse : t.radio.expand,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+    return ImagePlaceholder(
+      icon: Icons.radio,
+      iconSize: 64,
+      iconColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
     );
   }
 
@@ -805,45 +664,5 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
         ),
       ],
     );
-  }
-
-  Widget _buildStatItem(BuildContext context, IconData icon, String value) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: colorScheme.primary.withValues(alpha: 0.8),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          value,
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatCount(int count) => formatCount(count);
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-
-    if (diff.inDays > 0) {
-      return t.radio.daysAgo(n: diff.inDays);
-    } else if (diff.inHours > 0) {
-      return t.radio.hoursAgo(n: diff.inHours);
-    } else if (diff.inMinutes > 0) {
-      return t.radio.minutesAgo(n: diff.inMinutes);
-    } else {
-      return t.radio.justNow;
-    }
   }
 }

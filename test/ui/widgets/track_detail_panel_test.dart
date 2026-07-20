@@ -305,7 +305,7 @@ void main() {
       );
 
       final avatarStart = source.indexOf('class _ClickableAvatar extends StatelessWidget');
-      final avatarEnd = source.indexOf('/// 可展开文本区块');
+      final avatarEnd = source.indexOf('/// 评论分页组件');
       final avatarSection = source.substring(avatarStart, avatarEnd);
       expect(avatarSection, contains('networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null'));
       expect(avatarSection.contains('widget.detail.ownerFace'), isFalse);
