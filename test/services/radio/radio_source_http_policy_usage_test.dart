@@ -29,11 +29,14 @@ void main() {
       expect(radioSource, isNot(contains('/room/v1/Room/playUrl')));
     });
 
-    test('radio cover preloader uses Bilibili live policy headers', () {
+    test('radio cover preloader relies on the URL-based header policy', () {
       final source =
           File('lib/ui/widgets/panels/track_detail_panel.dart').readAsStringSync();
 
-      expect(source, contains('SourceHttpPolicy.bilibiliLiveHeaders'));
+      // Radio covers must not pass explicit headers: ImageLoadingService
+      // applies SourceHttpPolicy.imageHeadersForUrl automatically, matching
+      // every other RadioCoverImage call site (see audit finding #52).
+      expect(source, isNot(contains('SourceHttpPolicy.bilibiliLiveHeaders')));
       expect(
         source,
         isNot(contains("headers: {'Referer': 'https://www.bilibili.com'}")),
