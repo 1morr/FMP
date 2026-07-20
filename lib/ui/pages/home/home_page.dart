@@ -21,6 +21,7 @@ import '../../router.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/layout/horizontal_scroll_section.dart';
 import '../../widgets/menus/context_menu_region.dart';
@@ -625,25 +626,11 @@ class _RadioSection extends ConsumerWidget {
 
   Future<void> _showRadioDeleteConfirm(
       BuildContext context, WidgetRef ref, RadioStation station) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.radio.deleteStation),
-        content: Text(t.radio.deleteConfirm(title: station.title)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(t.radio.delete),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.radio.deleteStation,
+      content: t.radio.deleteConfirm(title: station.title),
+      confirmLabel: t.radio.delete,
     );
 
     if (confirmed == true) {
@@ -782,21 +769,17 @@ class _RecentHistorySection extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
-        PopupMenuItem(
+        buildDestructivePopupMenuItem(
           value: 'delete',
-          child: ListTile(
-              leading: Icon(Icons.delete_outline, color: colorScheme.error),
-              title: Text(t.playHistoryPage.deleteThisRecord,
-                  style: TextStyle(color: colorScheme.error)),
-              contentPadding: EdgeInsets.zero),
+          icon: Icons.delete_outline,
+          label: t.playHistoryPage.deleteThisRecord,
+          color: colorScheme.error,
         ),
-        PopupMenuItem(
+        buildDestructivePopupMenuItem(
           value: 'delete_all',
-          child: ListTile(
-              leading: Icon(Icons.delete_sweep, color: colorScheme.error),
-              title: Text(t.playHistoryPage.deleteAllForTrack,
-                  style: TextStyle(color: colorScheme.error)),
-              contentPadding: EdgeInsets.zero),
+          icon: Icons.delete_sweep,
+          label: t.playHistoryPage.deleteAllForTrack,
+          color: colorScheme.error,
         ),
       ];
 
@@ -816,26 +799,31 @@ class _RecentHistorySection extends ConsumerWidget {
 
     switch (action) {
       case 'delete':
-        await ref.read(playHistoryActionsProvider).delete(history.id);
-        if (context.mounted) {
-          ToastService.success(context, t.playHistoryPage.toastDeletedRecord);
+        if (!context.mounted) {
+          return;
+        }
+        final confirmedDelete = await showConfirmDestructiveDialog(
+          context,
+          title: t.playHistoryPage.deleteThisRecord,
+          content: t.radio.deleteConfirm(title: history.title),
+          confirmLabel: t.playHistoryPage.deleteButton,
+        );
+        if (confirmedDelete == true && context.mounted) {
+          await ref.read(playHistoryActionsProvider).delete(history.id);
+          if (context.mounted) {
+            ToastService.success(
+                context, t.playHistoryPage.toastDeletedRecord);
+          }
         }
       case 'delete_all':
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(t.playHistoryPage.deleteAllTitle),
-            content:
-                Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(t.general.cancel)),
-              TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(t.playHistoryPage.deleteButton)),
-            ],
-          ),
+        if (!context.mounted) {
+          return;
+        }
+        final confirmed = await showConfirmDestructiveDialog(
+          context,
+          title: t.playHistoryPage.deleteAllTitle,
+          content: t.playHistoryPage.deleteAllConfirm(title: history.title),
+          confirmLabel: t.playHistoryPage.deleteButton,
         );
         if (confirmed == true && context.mounted) {
           final count = await ref
@@ -1383,26 +1371,11 @@ class _HomePlaylistCard extends ConsumerWidget {
   }
 
   void _showDeleteConfirm(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.library.main.deletePlaylist),
-        content:
-            Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(t.general.delete),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.library.main.deletePlaylist,
+      content: t.library.main.deletePlaylistConfirm(name: playlist.name),
+      confirmLabel: t.general.delete,
     );
     if (confirmed == true) {
       ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);

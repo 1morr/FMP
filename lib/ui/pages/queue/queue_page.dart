@@ -11,6 +11,7 @@ import '../../../providers/audio/playback_settings_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../../i18n/strings.g.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/images/track_thumbnail.dart';
 
@@ -462,27 +463,16 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     );
   }
 
-  void _showClearQueueDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.queue.clear),
-        content: Text(t.queue.clearConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              ref.read(audioControllerProvider.notifier).clearQueue();
-              Navigator.pop(context);
-            },
-            child: Text(t.queue.clearButton),
-          ),
-        ],
-      ),
+  Future<void> _showClearQueueDialog(BuildContext context) async {
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.queue.clear,
+      content: t.queue.clearConfirm,
+      confirmLabel: t.queue.clearButton,
     );
+    if (confirmed == true) {
+      ref.read(audioControllerProvider.notifier).clearQueue();
+    }
   }
 }
 

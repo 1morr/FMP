@@ -17,6 +17,7 @@ import '../../../providers/search/refresh_provider.dart';
 import '../../../services/library/playlist_service.dart';
 import '../../router.dart';
 import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/images/playlist_cover_image.dart';
 import '../../widgets/menus/playlist_card_actions.dart';
@@ -611,26 +612,11 @@ class _PlaylistCard extends ConsumerWidget {
   }
 
   void _showDeleteConfirm(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.library.main.deletePlaylist),
-        content:
-            Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(t.general.delete),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.library.main.deletePlaylist,
+      content: t.library.main.deletePlaylistConfirm(name: playlist.name),
+      confirmLabel: t.general.delete,
     );
     if (confirmed == true) {
       ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
