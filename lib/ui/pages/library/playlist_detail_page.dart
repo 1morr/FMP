@@ -172,7 +172,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     if (state.isLoading && state.playlist == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const LoadingPlaceholder(),
       );
     }
 
@@ -1006,16 +1006,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   Widget _buildTracksLoadingState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 12),
-          Text(t.general.loading),
-        ],
-      ),
-    );
+    return LoadingPlaceholder(message: t.general.loading);
   }
 
   Widget _buildEmptyState(BuildContext context) {

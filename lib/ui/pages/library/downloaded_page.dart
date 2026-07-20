@@ -17,6 +17,8 @@ import '../../router.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/images/playlist_cover_image.dart';
+import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/menus/menu_action.dart';
 
 /// 已下载页面 - 显示分类网格
 class DownloadedPage extends ConsumerStatefulWidget {
@@ -93,7 +95,7 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
         ],
       ),
       body: categoriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingPlaceholder(),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -237,68 +239,111 @@ class _CategoryCard extends ConsumerWidget {
 
   const _CategoryCard({super.key, required this.category});
 
+  static const String _actionAddAll = 'add_all';
+  static const String _actionShuffleAdd = 'shuffle_add';
+  static const String _actionDelete = 'delete';
+
+  /// 右鍵菜單與長按底部選單共用的動作定義
+  List<MenuAction> _menuActions() => [
+        MenuAction(
+          id: _actionAddAll,
+          icon: Icons.play_arrow,
+          label: t.library.addAll,
+        ),
+        MenuAction(
+          id: _actionShuffleAdd,
+          icon: Icons.shuffle,
+          label: t.library.shuffleAdd,
+        ),
+        MenuAction(
+          id: _actionDelete,
+          icon: Icons.delete,
+          label: t.library.downloadedPage.deleteCategory,
+          destructive: true,
+        ),
+      ];
+
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String value) {
+    switch (value) {
+      case _actionAddAll:
+        _addAllToQueue(context, ref);
+      case _actionShuffleAdd:
+        _shuffleAddToQueue(context, ref);
+      case _actionDelete:
+        _showDeleteConfirm(context, ref);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
-          final cat = category;
-          Future.microtask(() {
-            if (context.mounted) {
-              context.push(
-                '${RoutePaths.downloaded}/${Uri.encodeComponent(cat.folderName)}',
-                extra: cat,
-              );
-            }
-          });
-        },
-        onLongPress: () => _showOptionsMenu(context, ref),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 封面区域
-            Expanded(
-              child: _buildCover(colorScheme),
-            ),
-
-            // 信息
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    category.displayName,
-                    style: Theme.of(context).textTheme.titleSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.download_done,
-                        size: 12,
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        t.library.trackCount(n: category.trackCount),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.outline,
-                            ),
-                      ),
-                    ],
-                  ),
-                ],
+    return ContextMenuRegion(
+      menuBuilder: (menuContext) => buildMenuActionPopupEntries(
+        _menuActions(),
+        Theme.of(menuContext).colorScheme.error,
+      ),
+      onSelected: (value) => _handleMenuAction(context, ref, value),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
+            final cat = category;
+            Future.microtask(() {
+              if (context.mounted) {
+                context.push(
+                  '${RoutePaths.downloaded}/${Uri.encodeComponent(cat.folderName)}',
+                  extra: cat,
+                );
+              }
+            });
+          },
+          onLongPress: () => _showOptionsMenu(context, ref),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面区域
+              Expanded(
+                child: _buildCover(colorScheme),
               ),
-            ),
-          ],
+
+              // 信息
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      category.displayName,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.download_done,
+                          size: 12,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          t.library.trackCount(n: category.trackCount),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.outline,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -344,38 +389,17 @@ class _CategoryCard extends ConsumerWidget {
 
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.play_arrow),
-                title: Text(t.library.addAll),
-                onTap: () {
-                  Navigator.pop(context);
-                  _addAllToQueue(context, ref);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.shuffle),
-                title: Text(t.library.shuffleAdd),
-                onTap: () {
-                  Navigator.pop(context);
-                  _shuffleAddToQueue(context, ref);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.library.downloadedPage.deleteCategory,
-                    style: TextStyle(color: colorScheme.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteConfirm(context, ref);
-                },
-              ),
-            ],
+            children: buildMenuActionListTiles(
+              sheetContext,
+              _menuActions(),
+              (value) => _handleMenuAction(context, ref, value),
+              colorScheme.error,
+            ),
           ),
         ),
       ),

@@ -99,7 +99,7 @@ class DownloadManagerPage extends ConsumerWidget {
         ],
       ),
       body: tasksAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingPlaceholder(),
         error: (error, stack) => Center(
             child:
                 Text(t.settings.downloadManager.loadFailed(error: '$error'))),

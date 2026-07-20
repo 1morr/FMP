@@ -117,7 +117,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       body: Stack(
         children: [
           state.isLoading && displayPlaylists.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+              ? const LoadingPlaceholder()
               : displayPlaylists.isEmpty
                   ? _buildEmptyState(context, ref)
                   : _isReorderMode
@@ -313,14 +313,13 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
                       ? PlaylistCoverImage(
                           localPath: coverData.localPath,
                           networkUrl: coverData.networkUrl,
-                          placeholder: const ImagePlaceholder.track(),
                           fit: BoxFit.cover,
                           width: 200,
                           variant: PlaylistCoverVariant.card,
                         )
-                      : const ImagePlaceholder.track(),
-                  loading: () => const ImagePlaceholder.track(),
-                  error: (error, stack) => const ImagePlaceholder.track(),
+                      : const ImagePlaceholder.playlist(),
+                  loading: () => const ImagePlaceholder.playlist(),
+                  error: (error, stack) => const ImagePlaceholder.playlist(),
                 ),
               ),
               // 信息
@@ -446,14 +445,14 @@ class _PlaylistCard extends ConsumerWidget {
                           ? PlaylistCoverImage(
                               localPath: coverData.localPath,
                               networkUrl: coverData.networkUrl,
-                              placeholder: const ImagePlaceholder.track(),
                               fit: BoxFit.cover,
                               width: 200,
                               variant: PlaylistCoverVariant.card,
                             )
-                          : const ImagePlaceholder.track(),
-                      loading: () => const ImagePlaceholder.track(),
-                      error: (error, stack) => const ImagePlaceholder.track(),
+                          : const ImagePlaceholder.playlist(),
+                      loading: () => const ImagePlaceholder.playlist(),
+                      error: (error, stack) =>
+                          const ImagePlaceholder.playlist(),
                     ),
                     // 刷新指示器覆盖层
                     if (isRefreshing)

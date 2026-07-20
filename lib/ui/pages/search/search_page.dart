@@ -4,7 +4,6 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
@@ -19,7 +18,9 @@ import '../../../services/radio/radio_controller.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
+import '../../widgets/feedback/error_display.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
+import '../../widgets/indicators/source_badge.dart';
 import '../../widgets/images/radio_cover_image.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/images/track_thumbnail.dart';
@@ -358,27 +359,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   Widget _buildSearchHistory(BuildContext context) {
     final history = ref.watch(searchHistoryManagerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     if (history.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search,
-              size: 64,
-              color: colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              t.searchPage.searchMusic,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-            ),
-          ],
-        ),
+      return ErrorDisplay.empty(
+        icon: Icons.search,
+        message: t.searchPage.searchMusic,
       );
     }
 
@@ -440,28 +425,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final mixedOnlineTracks = state.mixedOnlineTracks;
 
     if (state.isLoading && state.allOnlineTracks.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingPlaceholder();
     }
 
     if (state.error != null && state.allOnlineTracks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 16),
-            Text(state.error!),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => _performSearch(state.query),
-              child: Text(t.searchPage.retry),
-            ),
-          ],
-        ),
+      return ErrorDisplay(
+        type: ErrorType.general,
+        message: state.error!,
+        onRetry: () => _performSearch(state.query),
       );
     }
 
@@ -620,22 +591,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           // 无结果
           if (!state.hasResults && !state.isLoading)
             SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.search_off,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      t.searchPage.noResults(query: state.query),
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ],
-                ),
+              child: ErrorDisplay.notFound(
+                message: t.searchPage.noResults(query: state.query),
               ),
             ),
         ],
@@ -660,48 +617,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final rooms = state.liveRoomResults?.rooms ?? [];
 
     if (state.isLoading && rooms.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingPlaceholder();
     }
 
     if (state.error != null && rooms.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 16),
-            Text(state.error!),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => _performSearch(state.query),
-              child: Text(t.searchPage.retry),
-            ),
-          ],
-        ),
+      return ErrorDisplay(
+        type: ErrorType.general,
+        message: state.error!,
+        onRetry: () => _performSearch(state.query),
       );
     }
 
     if (rooms.isEmpty && !state.isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.live_tv_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              t.searchPage.noLiveRooms(query: state.query),
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ],
-        ),
+      return ErrorDisplay.empty(
+        icon: Icons.live_tv_outlined,
+        message: t.searchPage.noLiveRooms(query: state.query),
       );
     }
 
@@ -1068,7 +998,7 @@ class _SearchResultTile extends ConsumerWidget {
                 ],
                 // 音源标识（播放数右边）
                 const SizedBox(width: 8),
-                _SourceBadge(sourceType: track.sourceType),
+                SourceBadge(sourceType: track.sourceType),
                 if (hasMultiplePages) ...[
                   const SizedBox(width: 8),
                   Container(
@@ -1575,29 +1505,6 @@ class _LocalTrackTile extends ConsumerWidget {
   List<PopupMenuEntry<String>> _buildMenuItems() {
     return buildTrackActionPopupMenuEntries(
       buildCommonTrackActionMenuItems(translations: t),
-    );
-  }
-}
-
-/// 音源标识徽章
-class _SourceBadge extends StatelessWidget {
-  final SourceType sourceType;
-
-  const _SourceBadge({required this.sourceType});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final icon = switch (sourceType) {
-      SourceType.bilibili => SimpleIcons.bilibili,
-      SourceType.youtube => SimpleIcons.youtube,
-      SourceType.netease => SimpleIcons.neteasecloudmusic,
-    };
-
-    return Icon(
-      icon,
-      size: 14,
-      color: colorScheme.outline,
     );
   }
 }
