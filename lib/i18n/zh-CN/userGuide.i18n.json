@@ -3,8 +3,8 @@
     "title": "快速开始",
     "importPlaylist": "导入歌单",
     "importPlaylistDesc": "音乐库右上角点击导入，支持 哔哩哔哩、YouTube、网易云、QQ音乐、Spotify 歌单链接",
-    "addToQueue": "添加到队列",
-    "addToQueueDesc": "打开歌单，点击「添加所有」将歌曲加入播放队列",
+    "addToQueue": "加入队列",
+    "addToQueueDesc": "打开歌单，点击「加入所有」将歌曲加入播放队列",
     "startPlayback": "开始播放",
     "startPlaybackDesc": "点击任意歌曲即可播放，或使用底部播放器控制"
   },

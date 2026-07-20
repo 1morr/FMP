@@ -245,10 +245,9 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           const SizedBox(width: 8),
           Text(
             radioState.reconnectMessage!,
-            style: TextStyle(
-              color: colorScheme.onSecondaryContainer,
-              fontSize: 13,
-            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSecondaryContainer,
+                ),
           ),
         ],
       ),

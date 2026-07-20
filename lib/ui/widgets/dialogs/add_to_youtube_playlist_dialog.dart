@@ -48,7 +48,6 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   bool _isCheckingMulti = false; // 多選時異步檢查狀態
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _submitProgress;
   final _newPlaylistController = TextEditingController();
 
   List<Track> get _tracks => widget.tracks;
@@ -298,9 +297,6 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
 
     setState(() {
       _isSubmitting = true;
-      if (_isMulti) {
-        _submitProgress = '${_tracks.length}/${_tracks.length}';
-      }
     });
     try {
       final result = await ref
@@ -342,21 +338,18 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       }
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     } on YouTubePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     } catch (e) {
       if (!mounted) return;
       ToastService.error(context, t.remote.error.unknown(code: 'UNKNOWN'));
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     }
   }
@@ -412,20 +405,11 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
                   child: FilledButton(
                     onPressed: _isSubmitting || _isLoading ? null : _submit,
                     child: _isSubmitting
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              if (_submitProgress != null) ...[
-                                const SizedBox(width: 8),
-                                Text(_submitProgress!),
-                              ],
-                            ],
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Text(_getButtonText()),
                   ),
@@ -454,8 +438,14 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       );
     }
     final playlists = _playlists;
-    if (playlists == null || playlists.isEmpty) {
-      return Center(child: Text(t.remote.loading));
+    if (playlists == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (playlists.isEmpty) {
+      return RemotePlaylistEmptyState(
+        title: t.remote.noPlaylists,
+        hint: t.remote.noPlaylistsHint,
+      );
     }
 
     return ListView.builder(

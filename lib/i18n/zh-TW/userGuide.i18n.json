@@ -4,7 +4,7 @@
     "importPlaylist": "匯入歌單",
     "importPlaylistDesc": "音樂庫右上角點擊匯入，支援 嗶哩嗶哩、YouTube、網易雲、QQ音樂、Spotify 歌單連結",
     "addToQueue": "加入佇列",
-    "addToQueueDesc": "開啟歌單，點擊「加入全部」將歌曲加入播放佇列",
+    "addToQueueDesc": "開啟歌單，點擊「加入所有」將歌曲加入播放佇列",
     "startPlayback": "開始播放",
     "startPlaybackDesc": "點擊任意歌曲即可播放，或使用底部播放器控制"
   },

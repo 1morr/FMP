@@ -12,9 +12,6 @@
   "nowPlaying": "Now Playing",
   "topComments": "Top Comments",
   "streamerAnnouncement": "Streamer Announcement",
-  "isLive": "Live",
-  "isStopped": "Stopped",
   "reloadLive": "Reload live",
-  "tags": "Tags",
-  "justNow": "Just now"
+  "tags": "Tags"
 }

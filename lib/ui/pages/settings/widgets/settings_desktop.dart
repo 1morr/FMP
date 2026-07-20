@@ -167,8 +167,9 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
           children: [
             Text(
               t.settings.hotkeys.hint,
-              style: TextStyle(
-                  fontSize: 12, color: Theme.of(context).colorScheme.outline),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
             ),
             const SizedBox(height: 16),
             ...HotkeyAction.values.map(

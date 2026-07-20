@@ -149,7 +149,10 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
             children: [
               Text(
                 t.settings.backup.import.previewSubtitle,
-                style: TextStyle(color: colorScheme.outline, fontSize: 12),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 16),
 
@@ -456,8 +459,10 @@ class _ImportResultDialog extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       '... ${result.errors.length - 5} more errors',
-                      style:
-                          TextStyle(fontSize: 12, color: colorScheme.outline),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: colorScheme.outline),
                     ),
                   ),
               ],

@@ -9,6 +9,7 @@
   "emptySubtitle": "加入歌曲到佇列開始播放",
   "goSearch": "去搜尋",
   "nowPlaying": "正在播放第 $index 首",
+  "mixTitle": "Mix · $title",
   "totalCount": "共 $count 首",
   "removeFromQueue": "從佇列移除",
   "scrollToTop": "跳轉到頂部",

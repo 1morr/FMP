@@ -13,6 +13,11 @@ import '../../widgets/images/avatar_image.dart';
 import 'widgets/account_playlists_sheet.dart';
 import 'widgets/account_radio_import_sheet.dart';
 
+/// 平台品牌色（帳號卡片圖示用）
+const Color kBrandBilibili = Color(0xFFFF6699);
+const Color kBrandYoutube = Color(0xFFFF0000);
+const Color kBrandNetease = Color(0xFFE60026);
+
 /// 帳號管理頁面
 class AccountManagementPage extends ConsumerStatefulWidget {
   const AccountManagementPage({super.key});
@@ -56,7 +61,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
           _PlatformCard(
             platformName: t.importPlatform.bilibili,
             icon: SimpleIcons.bilibili,
-            iconColor: const Color(0xFFFF6699),
+            iconColor: kBrandBilibili,
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
@@ -78,7 +83,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
           _PlatformCard(
             platformName: t.importPlatform.youtube,
             icon: SimpleIcons.youtube,
-            iconColor: Colors.red,
+            iconColor: kBrandYoutube,
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
             userName: youtubeAccount?.userName,
             avatarUrl: youtubeAccount?.avatarUrl,
@@ -99,7 +104,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
           _PlatformCard(
             platformName: t.importPlatform.netease,
             icon: SimpleIcons.neteasecloudmusic,
-            iconColor: const Color(0xFFE60026),
+            iconColor: kBrandNetease,
             isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
             userName: neteaseAccount?.userName,
             avatarUrl: neteaseAccount?.avatarUrl,

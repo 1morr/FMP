@@ -11,6 +11,7 @@ import '../../../providers/library/playlist_provider.dart';
 import '../../../providers/database/repository_providers.dart';
 import '../images/playlist_cover_image.dart';
 import '../images/track_thumbnail.dart';
+import 'remote_playlist_dialog_widgets.dart';
 
 /// 显示添加到歌单对话框（单个track）
 Future<bool> showAddToPlaylistDialog({
@@ -112,8 +113,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     });
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.8,
-      minChildSize: 0.5,
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) {
@@ -130,21 +131,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               ),
             ),
             // 标题
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Text(
-                    t.addToPlaylistDialog.title,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context, false),
-                  ),
-                ],
-              ),
+            RemotePlaylistDialogHeader(
+              title: t.addToPlaylistDialog.title,
+              onClose: () => Navigator.pop(context, false),
             ),
             // 歌曲信息
             Container(
@@ -201,27 +190,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
             ),
             const SizedBox(height: 8),
             // 创建新歌单
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                leading: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: AppRadius.borderRadiusMd,
-                  ),
-                  child: Icon(
-                    Icons.add,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                title: Text(t.addToPlaylistDialog.createNew),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.borderRadiusLg,
-                ),
-                onTap: () => _showCreatePlaylistDialog(context),
-              ),
+            RemotePlaylistCreateTile(
+              title: t.addToPlaylistDialog.createNew,
+              onTap: () => _showCreatePlaylistDialog(context),
             ),
             const Divider(),
             // 多选提示
@@ -267,37 +238,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                         lists.where((p) => !p.isImported).toList();
 
                     if (manualPlaylists.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.library_music,
-                              size: 48,
-                              color: colorScheme.outline,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              t.addToPlaylistDialog.noPlaylists,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    color: colorScheme.outline,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              t.addToPlaylistDialog.createHint,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color: colorScheme.outline,
-                                  ),
-                            ),
-                          ],
-                        ),
+                      return RemotePlaylistEmptyState(
+                        title: t.addToPlaylistDialog.noPlaylists,
+                        hint: t.addToPlaylistDialog.createHint,
                       );
                     }
 
@@ -316,8 +259,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                           leading: Stack(
                             children: [
                               Container(
-                                width: 48,
-                                height: 48,
+                                width: 40,
+                                height: 40,
                                 decoration: BoxDecoration(
                                   borderRadius: AppRadius.borderRadiusMd,
                                   color: colorScheme.surfaceContainerHighest,
@@ -339,8 +282,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                             color: colorScheme.outline,
                                           ),
                                           fit: BoxFit.cover,
-                                          width: 48,
-                                          height: 48,
+                                          width: 40,
+                                          height: 40,
                                           variant: PlaylistCoverVariant.compact,
                                         )
                                       : Icon(
@@ -421,7 +364,6 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
                             ),
                           )
                         : const Icon(Icons.save),

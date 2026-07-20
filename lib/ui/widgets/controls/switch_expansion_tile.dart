@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/ui_constants.dart';
+
 class SwitchExpansionTile extends StatelessWidget {
   final String title;
   final bool expanded;
@@ -23,7 +25,7 @@ class SwitchExpansionTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.borderRadiusMd,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.7),
         ),
@@ -56,7 +58,7 @@ class SwitchExpansionTile extends StatelessWidget {
               ),
               AnimatedRotation(
                 turns: expanded ? 0.5 : 0,
-                duration: const Duration(milliseconds: 160),
+                duration: AnimationDurations.fast,
                 child: const Icon(Icons.expand_more, size: 20),
               ),
             ],

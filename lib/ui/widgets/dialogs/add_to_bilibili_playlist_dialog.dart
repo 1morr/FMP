@@ -46,7 +46,6 @@ class _BilibiliRemoteFavSheetState
   bool _isCheckingMulti = false;
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _submitProgress;
   final _newFolderController = TextEditingController();
 
   List<Track> get _tracks => widget.tracks;
@@ -268,9 +267,6 @@ class _BilibiliRemoteFavSheetState
 
     setState(() {
       _isSubmitting = true;
-      if (_isMulti) {
-        _submitProgress = '${_tracks.length}/${_tracks.length}';
-      }
     });
     try {
       final result = await ref
@@ -318,21 +314,18 @@ class _BilibiliRemoteFavSheetState
       }
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     } on BilibiliFavoritesException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     } catch (_) {
       if (!mounted) return;
       ToastService.error(context, t.remote.error.unknown(code: 'UNKNOWN'));
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     }
   }
@@ -384,20 +377,11 @@ class _BilibiliRemoteFavSheetState
                   child: FilledButton(
                     onPressed: _isSubmitting || _isLoading ? null : _submit,
                     child: _isSubmitting
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              if (_submitProgress != null) ...[
-                                const SizedBox(width: 8),
-                                Text(_submitProgress!),
-                              ],
-                            ],
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Text(_getButtonText()),
                   ),
@@ -430,8 +414,14 @@ class _BilibiliRemoteFavSheetState
       );
     }
     final folders = _folders;
-    if (folders == null || folders.isEmpty) {
-      return Center(child: Text(t.remote.loading));
+    if (folders == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (folders.isEmpty) {
+      return RemotePlaylistEmptyState(
+        title: t.remote.noPlaylists,
+        hint: t.remote.noPlaylistsHint,
+      );
     }
 
     return ListView.builder(

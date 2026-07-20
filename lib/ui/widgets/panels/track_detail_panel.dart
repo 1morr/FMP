@@ -1118,10 +1118,9 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
           const SizedBox(width: 5),
           Text(
             label,
-            style: textTheme.bodySmall?.copyWith(
+            style: textTheme.labelSmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
-              fontSize: 11,
             ),
           ),
         ],
