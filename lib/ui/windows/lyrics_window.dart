@@ -6,18 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../core/constants/ui_constants.dart';
 import '../../services/lyrics/lyrics_window_style.dart';
 import '../theme/app_theme.dart';
+import '../widgets/lyrics/lyrics_offset_bar.dart';
+import '../widgets/lyrics/lyrics_offset_math.dart';
 import '../widgets/lyrics/lyrics_style_dialog.dart';
 import '../widgets/lyrics/lyrics_styled_text.dart';
+import '../widgets/lyrics/lyrics_text_measurer.dart';
 import 'lyrics_display_mode.dart';
 import 'lyrics/lyrics_empty_state.dart';
 import 'lyrics/lyrics_line_item.dart';
-import 'lyrics/lyrics_offset_bar.dart';
-import 'lyrics/lyrics_offset_math.dart';
 import 'lyrics/lyrics_single_line_view.dart';
 import 'lyrics/lyrics_title_bar.dart';
-import 'lyrics_text_measurer.dart';
 
 /// 歌词弹出窗口入口点
 ///
@@ -213,12 +214,6 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   double? _cachedRefWidth;
   int _cachedLineCount = -1;
   String _cachedFirstLine = '';
-
-  static const double _minFontSize = 14.0;
-  static const double _maxFontSize = 30.0;
-  static const double _subFontRatio = 0.65;
-  static const double _refFontSize = 20.0;
-  static const double _boldSafetyFactor = 0.95;
 
   /// 透明/普通模式切换时保留滚动位置
   final _lyricsListKey = GlobalKey();
@@ -518,7 +513,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
   Future<void> _toggleTransparentMode() async {
     final newMode = !_transparentMode;
-    final brightness = Theme.of(context).brightness;
+    // 跟隨當前主題的表面色（歌詞窗是獨立 window，主題由主視窗經
+    // updateTheme 推送，MaterialApp 已套用同一 AppTheme）。在 async gap 前取值。
+    final surfaceColor = Theme.of(context).colorScheme.surface;
     setState(() {
       _transparentMode = newMode;
       if (!newMode) _isHovering = false;
@@ -530,10 +527,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     } else {
       await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
       await windowManager.setHasShadow(true);
-      final bgColor = brightness == Brightness.dark
-          ? const Color(0xFF1C1B1F)
-          : const Color(0xFFFFFBFE);
-      await windowManager.setBackgroundColor(bgColor);
+      await windowManager.setBackgroundColor(surfaceColor);
     }
   }
 
@@ -550,7 +544,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       _scrollController
           .scrollTo(
             index: _currentLineIndex,
-            duration: const Duration(milliseconds: 300),
+            duration: AnimationDurations.normal,
             curve: Curves.easeOutCubic,
             alignment: 0.35,
           )
@@ -570,7 +564,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
     _cachedRefWidth = LyricsTextMeasurer.medianReferenceWidth(
       texts: _lines.map((line) => line.text),
-      refFontSize: _refFontSize,
+      refFontSize: LyricsTextMeasurer.refFontSize,
       styleBuilder: (fontSize, weight) => LyricsTextStyles.fromTheme(
         context,
         fontSize: fontSize,
@@ -589,11 +583,6 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return LyricsTextMeasurer.fontSizesFromReferenceWidth(
       referenceWidth: _cachedRefWidth,
       availableWidth: availableWidth,
-      minFontSize: _minFontSize,
-      maxFontSize: _maxFontSize,
-      refFontSize: _refFontSize,
-      subFontRatio: _subFontRatio,
-      boldSafetyFactor: _boldSafetyFactor,
     );
   }
 
@@ -634,7 +623,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
         child: DragToResizeArea(
           resizeEdgeSize: 12,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: AnimationDurations.medium,
             color: _isHovering
                 ? Colors.black.withValues(alpha: 0.45)
                 : Colors.transparent,
@@ -644,7 +633,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 children: [
                   Positioned.fill(
                     child: AnimatedPadding(
-                      duration: const Duration(milliseconds: 200),
+                      duration: AnimationDurations.medium,
                       padding: EdgeInsets.only(
                         top: LyricsWindowLayout.contentTopInset(
                           transparentMode: true,
@@ -664,7 +653,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                       ignoring: !_isHovering,
                       child: AnimatedOpacity(
                         opacity: _isHovering ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 200),
+                        duration: AnimationDurations.medium,
                         child: _buildTitleBar(),
                       ),
                     ),
@@ -773,7 +762,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       hasCurrentLine: _currentLineIndex >= 0,
       onTap: () => _seekToLine(_currentLineIndex),
       onSecondaryTap: () => _calibrateOffsetToLine(_currentLineIndex),
-      boldSafetyFactor: _boldSafetyFactor,
+      boldSafetyFactor: LyricsTextMeasurer.boldSafetyFactor,
     );
   }
 
@@ -847,7 +836,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                     ignoring: !_isHovering,
                     child: AnimatedOpacity(
                       opacity: _isHovering ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 200),
+                      duration: AnimationDurations.medium,
                       child: _buildOffsetBar(),
                     ),
                   )
@@ -875,12 +864,30 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildOffsetBar() {
-    return LyricsOffsetBar(
-      offsetMs: _offsetMs,
-      transparentMode: _transparentMode,
-      offsetLabel: _strings.offset,
-      onAdjust: _adjustOffset,
-      onReset: _resetOffset,
+    // 外層容器（背景 + 底部邊框）為桌面視窗專用；內容列共用 LyricsOffsetBar。
+    final t = _transparentMode;
+    final colorScheme = Theme.of(context).colorScheme;
+    final bgColor = t
+        ? Colors.black.withValues(alpha: 0.85)
+        : Theme.of(context).scaffoldBackgroundColor;
+    final borderColor =
+        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border(bottom: BorderSide(color: borderColor)),
+      ),
+      child: LyricsOffsetBar(
+        offsetMs: _offsetMs,
+        transparentMode: t,
+        compact: true,
+        offsetLabel: _strings.offset,
+        resetTooltip: _strings.reset,
+        onAdjust: _adjustOffset,
+        onReset: _resetOffset,
+      ),
     );
   }
 }

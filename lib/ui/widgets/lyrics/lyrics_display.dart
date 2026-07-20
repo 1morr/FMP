@@ -10,7 +10,9 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/lyrics/lrc_parser.dart';
+import 'lyrics_offset_bar.dart';
 import 'lyrics_styled_text.dart';
+import 'lyrics_text_measurer.dart';
 
 /// 歌词滚动显示组件
 ///
@@ -65,15 +67,6 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   int _cachedLineCount = -1;
   String _cachedFirstLine = '';
 
-  /// 字号范围
-  static const double _minFontSize = 14.0;
-  static const double _maxFontSize = 30.0;
-  static const double _subFontRatio = 0.65;
-  static const double _refFontSize = 20.0;
-
-  /// bold 相对 normal 的宽度安全系数（避免 bold 当前行溢出）
-  static const double _boldSafetyFactor = 0.95;
-
   @override
   void initState() {
     super.initState();
@@ -105,6 +98,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   ///
   /// 使用中位数行宽：约一半的行刚好单行显示，较长的行自动换行。
   /// 不受少数异常长行（版权声明等）影响，也不受整体歌词偏长影响。
+  /// 量测与字级推算统一走 [LyricsTextMeasurer]（与桌面歌词窗口共用）。
   void _ensureRefWidth(List<LyricsLine> lines, BuildContext context) {
     final firstLine = lines.isNotEmpty ? lines.first.text : '';
     if (_cachedRefWidth != null &&
@@ -113,38 +107,16 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       return;
     }
 
-    final textDirection = Directionality.of(context);
-    final widths = <double>[];
-
-    for (final line in lines) {
-      if (line.text.isEmpty) continue;
-      final painter = TextPainter(
-        text: TextSpan(
-          text: line.text,
-          style: LyricsTextStyles.fromTheme(
-            context,
-            fontSize: _refFontSize,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        maxLines: 1,
-        textDirection: textDirection,
-      )..layout();
-      widths.add(painter.width);
-      painter.dispose();
-    }
-
-    if (widths.isEmpty) {
-      _cachedRefWidth = 0;
-      _cachedLineCount = lines.length;
-      _cachedFirstLine = firstLine;
-      return;
-    }
-
-    widths.sort();
-    // 中位数
-    final medianIndex = widths.length ~/ 2;
-    _cachedRefWidth = widths[medianIndex];
+    _cachedRefWidth = LyricsTextMeasurer.medianReferenceWidth(
+      texts: lines.map((line) => line.text),
+      refFontSize: LyricsTextMeasurer.refFontSize,
+      styleBuilder: (fontSize, weight) => LyricsTextStyles.fromTheme(
+        context,
+        fontSize: fontSize,
+        fontWeight: weight,
+      ),
+      textDirection: Directionality.of(context),
+    );
     _cachedLineCount = lines.length;
     _cachedFirstLine = firstLine;
   }
@@ -160,21 +132,10 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   ) {
     _ensureRefWidth(lyrics.lines, context);
 
-    if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
-      final sub =
-          (_maxFontSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-      return (main: _maxFontSize, sub: sub);
-    }
-
-    final safeWidth = availableWidth * _boldSafetyFactor;
-    final mainSize = (_refFontSize * (safeWidth / _cachedRefWidth!)).clamp(
-      _minFontSize,
-      _maxFontSize,
+    return LyricsTextMeasurer.fontSizesFromReferenceWidth(
+      referenceWidth: _cachedRefWidth,
+      availableWidth: availableWidth,
     );
-
-    final subSize =
-        (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-    return (main: mainSize, sub: subSize);
   }
 
   @override
@@ -403,7 +364,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
               line.text,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.8),
-                    fontSize: widget.compact ? 17 : 15,
+                    fontSize: widget.compact ? 14 : 16,
                     height: 1.5,
                   ),
               textAlign: TextAlign.center,
@@ -535,14 +496,14 @@ class _LyricsLineWidget extends StatelessWidget {
             color: colorScheme.primary,
             fontSize: mainFontSize,
             fontWeight: FontWeight.bold,
-            height: 1.4,
+            height: LyricsTextStyles.lineHeight,
           )
         : LyricsTextStyles.fromTheme(
             context,
             color: colorScheme.onSurface.withValues(alpha: 0.4),
             fontSize: mainFontSize,
             fontWeight: FontWeight.normal,
-            height: 1.4,
+            height: LyricsTextStyles.lineHeight,
           );
 
     final hasSubText = subText != null && subText!.isNotEmpty;
@@ -575,7 +536,7 @@ class _LyricsLineWidget extends StatelessWidget {
                       : colorScheme.onSurface.withValues(alpha: 0.25),
                   fontSize: subFontSize,
                   fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
-                  height: 1.4,
+                  height: LyricsTextStyles.lineHeight,
                 ),
                 child: Text(
                   subText!,
@@ -590,6 +551,9 @@ class _LyricsLineWidget extends StatelessWidget {
 }
 
 /// 歌词偏移调整控制栏
+///
+/// 内容列共用 [LyricsOffsetBar]（与桌面歌词窗口同一实现）；本类只负责
+/// 播放器侧的外层容器样式与 provider 接线（updateOffset）。
 class _OffsetAdjustmentBar extends ConsumerWidget {
   final String trackUniqueKey;
   final int currentOffsetMs;
@@ -604,7 +568,6 @@ class _OffsetAdjustmentBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -615,149 +578,15 @@ class _OffsetAdjustmentBar extends ConsumerWidget {
         color: colorScheme.surfaceContainerHighest,
         borderRadius: AppRadius.borderRadiusLg,
       ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Label
-            Text(
-              t.lyrics.offset,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: compact ? 12 : 13,
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Current offset display
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                borderRadius: AppRadius.borderRadiusXs,
-              ),
-              child: Text(
-                _formatOffset(currentOffsetMs),
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: compact ? 12 : 13,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Adjustment buttons
-            _buildOffsetButton(
-              context,
-              ref,
-              icon: Icons.fast_rewind,
-              deltaMs: -1000,
-              label: '-1s',
-              compact: compact,
-            ),
-            _buildOffsetButton(
-              context,
-              ref,
-              icon: Icons.remove,
-              deltaMs: -500,
-              label: '-0.5s',
-              compact: compact,
-            ),
-            _buildOffsetButton(
-              context,
-              ref,
-              icon: Icons.remove_circle_outline,
-              deltaMs: -100,
-              label: '-0.1s',
-              compact: compact,
-            ),
-            const SizedBox(width: 4),
-            // Reset button
-            _buildResetButton(context, ref, compact),
-            const SizedBox(width: 4),
-            _buildOffsetButton(
-              context,
-              ref,
-              icon: Icons.add_circle_outline,
-              deltaMs: 100,
-              label: '+0.1s',
-              compact: compact,
-            ),
-            _buildOffsetButton(
-              context,
-              ref,
-              icon: Icons.add,
-              deltaMs: 500,
-              label: '+0.5s',
-              compact: compact,
-            ),
-            _buildOffsetButton(
-              context,
-              ref,
-              icon: Icons.fast_forward,
-              deltaMs: 1000,
-              label: '+1s',
-              compact: compact,
-            ),
-          ],
-        ),
+      child: LyricsOffsetBar(
+        offsetMs: currentOffsetMs,
+        offsetLabel: t.lyrics.offset,
+        resetTooltip: t.lyrics.resetOffset,
+        compact: compact,
+        onAdjust: (deltaMs) => _adjustOffset(ref, deltaMs),
+        onReset: () => _resetOffset(ref),
       ),
     );
-  }
-
-  Widget _buildOffsetButton(
-    BuildContext context,
-    WidgetRef ref, {
-    required IconData icon,
-    required int deltaMs,
-    required String label,
-    required bool compact,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Tooltip(
-      message: label,
-      child: InkWell(
-        onTap: () => _adjustOffset(ref, deltaMs),
-        borderRadius: AppRadius.borderRadiusXs,
-        child: Container(
-          padding: EdgeInsets.all(compact ? 4 : 6),
-          child: Icon(
-            icon,
-            size: compact ? 16 : 18,
-            color: colorScheme.primary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResetButton(BuildContext context, WidgetRef ref, bool compact) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Tooltip(
-      message: t.lyrics.resetOffset,
-      child: InkWell(
-        onTap: currentOffsetMs != 0 ? () => _resetOffset(ref) : null,
-        borderRadius: AppRadius.borderRadiusXs,
-        child: Container(
-          padding: EdgeInsets.all(compact ? 4 : 6),
-          child: Icon(
-            Icons.refresh,
-            size: compact ? 16 : 18,
-            color: currentOffsetMs != 0
-                ? colorScheme.primary
-                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatOffset(int offsetMs) {
-    if (offsetMs == 0) return '0.0s';
-    final seconds = offsetMs / 1000;
-    return '${seconds >= 0 ? '+' : ''}${seconds.toStringAsFixed(1)}s';
   }
 
   Future<void> _adjustOffset(WidgetRef ref, int deltaMs) async {

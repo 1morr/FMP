@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/windows/lyrics_text_measurer.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_text_measurer.dart';
 
 void main() {
   group('LyricsTextMeasurer.fontSizesFromReferenceWidth (C1b)', () {

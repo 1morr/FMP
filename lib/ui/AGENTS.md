@@ -231,8 +231,10 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
   `window_manager` / `desktop_multi_window` side effects and channel calls
   injected as callbacks so the leaves can be pumped in `flutter_test` without
   the plugin engine. See `lib/ui/windows/lyrics/` (empty / line / title-bar /
-  single-line / offset leaves, plus `LyricsTextMeasurer` and
-  `LyricsDisplayMode`) for the established pattern.
+  single-line leaves, plus `LyricsDisplayMode`) for the established pattern;
+  lyrics building blocks shared with the in-app player (`LyricsTextMeasurer`,
+  `LyricsOffsetBar`, `LyricsOffsetMath`, styled text) live in
+  `lib/ui/widgets/lyrics/`.
 
 ## Verification
 

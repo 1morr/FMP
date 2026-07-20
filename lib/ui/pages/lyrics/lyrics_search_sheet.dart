@@ -122,6 +122,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
             children: [
               // "全部" chip 始终可用
               ChoiceChip(
+                showCheckmark: false,
                 label: Text(t.lyrics.sourceAll),
                 selected: _selectedFilter == LyricsSourceFilter.all,
                 onSelected: (_) => _setFilter(LyricsSourceFilter.all),
@@ -488,10 +489,10 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.lyrics_outlined, size: 48, color: colorScheme.outline),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 t.lyrics.noLyricsFound,
-                style: TextStyle(color: colorScheme.outline),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -532,7 +533,7 @@ class _LyricsResultTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // 时长匹配度指示
-    final durationMatch = _getDurationMatch();
+    final durationMatch = _getDurationMatch(colorScheme);
 
     return ListTile(
       onTap: onTap,
@@ -562,7 +563,7 @@ class _LyricsResultTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          _buildSourceIcon(),
+          _buildSourceIcon(colorScheme),
         ],
       ),
       trailing: Row(
@@ -596,13 +597,13 @@ class _LyricsResultTile extends StatelessWidget {
     );
   }
 
-  Widget _buildSourceIcon() {
+  Widget _buildSourceIcon(ColorScheme colorScheme) {
     final icon = switch (result.source) {
       'netease' => SimpleIcons.neteasecloudmusic,
       'qqmusic' => SimpleIcons.qq,
       _ => Icons.library_music_outlined,
     };
-    return Icon(icon, size: 14, color: Colors.grey);
+    return Icon(icon, size: 14, color: colorScheme.outline);
   }
 
   /// 格式化秒数为 mm:ss 或 h:mm:ss
@@ -619,13 +620,15 @@ class _LyricsResultTile extends StatelessWidget {
   }
 
   /// 返回时长匹配颜色，null 表示无法比较
-  Color? _getDurationMatch() {
+  ///
+  /// 语义色：匹配好 → tertiary；接近 → Toast 警告色；差 → error。
+  Color? _getDurationMatch(ColorScheme colorScheme) {
     if (trackDurationMs == null || result.duration == 0) return null;
     final trackSeconds = trackDurationMs! ~/ 1000;
     final diff = (trackSeconds - result.duration).abs();
-    if (diff <= 3) return Colors.green;
-    if (diff <= 10) return Colors.orange;
-    return Colors.red;
+    if (diff <= 3) return colorScheme.tertiary;
+    if (diff <= 10) return ToastService.warningColor;
+    return colorScheme.error;
   }
 }
 

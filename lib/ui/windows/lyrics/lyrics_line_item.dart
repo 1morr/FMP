@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../services/lyrics/lyrics_window_style.dart';
 import '../../widgets/lyrics/lyrics_styled_text.dart';
 
@@ -66,13 +67,13 @@ class LyricsLineItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
+              duration: AnimationDurations.medium,
               style: LyricsTextStyles.fromTheme(
                 context,
                 fontSize: fontSizes.main,
                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                 color: mainColor,
-                height: 1.4,
+                height: LyricsTextStyles.lineHeight,
               ),
               child: Builder(
                 builder: (context) {
@@ -93,13 +94,13 @@ class LyricsLineItem extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
+                  duration: AnimationDurations.medium,
                   style: LyricsTextStyles.fromTheme(
                     context,
                     fontSize: fontSizes.sub,
                     fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                     color: subColor,
-                    height: 1.3,
+                    height: LyricsTextStyles.lineHeight,
                   ),
                   child: Builder(
                     builder: (context) {

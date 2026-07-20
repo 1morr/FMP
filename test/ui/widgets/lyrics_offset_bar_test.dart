@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/windows/lyrics/lyrics_offset_bar.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_offset_bar.dart';
 
 Widget host({required LyricsOffsetBar child}) =>
     MaterialApp(home: Scaffold(body: child));
 
 void main() {
-  group('LyricsOffsetBar (C1d leaf)', () {
+  group('LyricsOffsetBar (C1d leaf, shared)', () {
     testWidgets('renders label and formatted offset value', (tester) async {
       await tester.pumpWidget(host(
         child: const LyricsOffsetBar(
           offsetMs: 1500,
           transparentMode: false,
           offsetLabel: 'Offset',
+          resetTooltip: 'Reset',
           onAdjust: _noop,
           onReset: _noopReset,
         ),
@@ -30,6 +31,7 @@ void main() {
           offsetMs: 0,
           transparentMode: false,
           offsetLabel: 'Offset',
+          resetTooltip: 'Reset',
           onAdjust: (d) => lastDelta = d,
           onReset: () {},
         ),
@@ -45,6 +47,30 @@ void main() {
       expect(lastDelta, -1000);
     });
 
+    testWidgets('adjust buttons expose delta tooltips', (tester) async {
+      await tester.pumpWidget(host(
+        child: const LyricsOffsetBar(
+          offsetMs: 0,
+          transparentMode: false,
+          offsetLabel: 'Offset',
+          resetTooltip: 'Reset',
+          onAdjust: _noop,
+          onReset: _noopReset,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final messages = tester
+          .widgetList<Tooltip>(find.byType(Tooltip))
+          .map((t) => t.message)
+          .toList();
+      expect(
+        messages,
+        containsAll(<String>['-1s', '-0.5s', '-0.1s', '+0.1s', '+0.5s', '+1s']),
+      );
+      expect(messages, contains('Reset'));
+    });
+
     testWidgets('reset fires onReset when offset != 0', (tester) async {
       var resets = 0;
       await tester.pumpWidget(host(
@@ -52,6 +78,7 @@ void main() {
           offsetMs: 800,
           transparentMode: false,
           offsetLabel: 'Offset',
+          resetTooltip: 'Reset',
           onAdjust: (_) {},
           onReset: () => resets++,
         ),
@@ -70,6 +97,7 @@ void main() {
           offsetMs: 0,
           transparentMode: false,
           offsetLabel: 'Offset',
+          resetTooltip: 'Reset',
           onAdjust: (_) {},
           onReset: () => resets++,
         ),
