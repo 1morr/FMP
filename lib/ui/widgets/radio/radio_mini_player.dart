@@ -70,7 +70,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
           child: Row(
             children: [
               // 封面
-              _buildThumbnail(station, colorScheme),
+              _buildThumbnail(station),
               const SizedBox(width: 8),
 
               // 電台資訊
@@ -124,7 +124,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     );
   }
 
-  Widget _buildThumbnail(dynamic station, ColorScheme colorScheme) {
+  Widget _buildThumbnail(dynamic station) {
     return ClipRRect(
       borderRadius: AppRadius.borderRadiusMd,
       child: SizedBox(
@@ -132,25 +132,11 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         height: 48,
         child: RadioCoverImage(
           networkUrl: station.thumbnailUrl,
-          placeholder: _buildPlaceholder(colorScheme),
           fit: BoxFit.cover,
           width: 48,
           height: 48,
           variant: RadioCoverVariant.compact,
         ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder(ColorScheme colorScheme) {
-    return Container(
-      width: 48,
-      height: 48,
-      color: colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.radio,
-        color: colorScheme.onSurfaceVariant,
-        size: 24,
       ),
     );
   }
@@ -186,7 +172,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     }
 
     return Text(
-      parts.isEmpty ? t.radio.isLive : parts.join(' · '),
+      parts.isEmpty ? t.radio.live : parts.join(' · '),
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),

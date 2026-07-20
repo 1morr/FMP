@@ -11,6 +11,7 @@ import '../../../services/radio/radio_controller.dart';
 import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
+import '../../widgets/indicators/live_badge.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
 import '../../widgets/images/radio_cover_image.dart';
@@ -391,7 +392,6 @@ class _RadioStationCard extends StatelessWidget {
                               : kGrayscaleColorFilter,
                           child: RadioCoverImage(
                             networkUrl: station.thumbnailUrl,
-                            placeholder: _buildPlaceholder(colorScheme),
                             fit: BoxFit.cover,
                             width: coverSize,
                             height: coverSize,
@@ -403,27 +403,9 @@ class _RadioStationCard extends StatelessWidget {
                       // 正在直播红点
                       if (isLive)
                         Positioned(
-                          top: 4,
-                          right: 4,
-                          child: Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: colorScheme.surface,
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withValues(alpha: 0.5),
-                                  blurRadius: 4,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                          ),
+                          top: LiveBadge.dotOffset(16),
+                          right: LiveBadge.dotOffset(16),
+                          child: const LiveBadge.dot(size: 16),
                         ),
 
                       // 播放中指示器
@@ -500,18 +482,6 @@ class _RadioStationCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildPlaceholder(ColorScheme colorScheme) {
-    return Container(
-      color: colorScheme.surfaceContainerHighest,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.radio,
-        size: 40,
-        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-      ),
-    );
-  }
 }
 
 /// 可拖動排序的電台卡片（保持與原卡片相同的顯示樣式）
@@ -568,7 +538,6 @@ class _ReorderableRadioStationCard extends StatelessWidget {
                                 : kGrayscaleColorFilter,
                             child: RadioCoverImage(
                               networkUrl: station.thumbnailUrl,
-                              placeholder: _buildPlaceholder(colorScheme),
                               fit: BoxFit.cover,
                               width: coverSize,
                               height: coverSize,
@@ -580,27 +549,9 @@ class _ReorderableRadioStationCard extends StatelessWidget {
                         // 正在直播紅點
                         if (isLive)
                           Positioned(
-                            top: 4,
-                            right: 4,
-                            child: Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colorScheme.surface,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.red.withValues(alpha: 0.5),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
+                            top: LiveBadge.dotOffset(16),
+                            right: LiveBadge.dotOffset(16),
+                            child: const LiveBadge.dot(size: 16),
                           ),
 
                         // 播放中指示器
@@ -695,18 +646,6 @@ class _ReorderableRadioStationCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPlaceholder(ColorScheme colorScheme) {
-    return Container(
-      color: colorScheme.surfaceContainerHighest,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.radio,
-        size: 40,
-        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-      ),
     );
   }
 }

@@ -8,12 +8,12 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
-import '../../../data/sources/source_http_policy.dart';
 import '../../../providers/download/download_providers.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/library/track_detail_provider.dart';
@@ -26,6 +26,7 @@ import '../../../data/models/radio_station.dart';
 import '../images/avatar_image.dart';
 import '../images/radio_cover_image.dart';
 import '../images/track_thumbnail.dart';
+import '../indicators/live_badge.dart';
 import '../indicators/vip_badge.dart';
 import '../lyrics/lyrics_display.dart';
 import '../dialogs/add_to_playlist_dialog.dart';
@@ -2050,7 +2051,6 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
       context: context,
       networkUrl: url,
       variant: RadioCoverVariant.hero,
-      headers: SourceHttpPolicy.bilibiliLiveHeaders(),
     );
 
     if (!mounted || imageProvider == null) return;
@@ -2079,31 +2079,13 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
                   placeholder: _buildCoverPlaceholder(context),
                   fit: BoxFit.cover,
                   variant: RadioCoverVariant.hero,
-                  headers: SourceHttpPolicy.bilibiliLiveHeaders(),
                 ),
                 // LIVE 标签 - 仅在图片加载完成且正在播放时显示
                 if (_isImageLoaded && widget.isPlaying)
-                  Positioned(
+                  const Positioned(
                     left: 10,
                     top: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: AppRadius.borderRadiusSm,
-                      ),
-                      child: const Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    child: LiveBadge.text(),
                   ),
                 // 未播放时的半透明遮罩（加载时带动画）
                 if (!widget.isPlaying)
@@ -2120,22 +2102,21 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
                           : null,
                     ),
                   ),
-                // 悬停遮罩（仅播放时显示）
-                if (widget.isPlaying)
-                  AnimatedOpacity(
-                    opacity: _isHovered ? 1.0 : 0.0,
-                    duration: AnimationDurations.fast,
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      child: const Center(
-                        child: Icon(
-                          Icons.open_in_new,
-                          color: Colors.white,
-                          size: 48,
-                        ),
+                // 悬停遮罩
+                AnimatedOpacity(
+                  opacity: _isHovered ? 1.0 : 0.0,
+                  duration: AnimationDurations.fast,
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    child: const Center(
+                      child: Icon(
+                        Icons.open_in_new,
+                        color: Colors.white,
+                        size: 48,
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),
@@ -2146,15 +2127,10 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
 
   Widget _buildCoverPlaceholder(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      color: colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          Icons.radio,
-          size: 64,
-          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-        ),
-      ),
+    return ImagePlaceholder(
+      icon: Icons.radio,
+      iconSize: 64,
+      iconColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
     );
   }
 }
