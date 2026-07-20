@@ -13,6 +13,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
@@ -126,16 +127,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 ),
               ),
               const PopupMenuDivider(),
-              PopupMenuItem(
+              buildDestructivePopupMenuItem(
                 value: 'delete',
-                child: ListTile(
-                  leading: Icon(Icons.delete_outline,
-                      color: Theme.of(context).colorScheme.error),
-                  title: Text(t.playHistoryPage.deleteRecord,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
-                  contentPadding: EdgeInsets.zero,
-                ),
+                icon: Icons.delete_outline,
+                label: t.playHistoryPage.deleteRecord,
+                color: Theme.of(context).colorScheme.error,
               ),
             ],
           ),
@@ -588,7 +584,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         (history.cid == null || currentTrack.cid == history.cid);
 
     return ContextMenuRegion(
-      menuBuilder: (_) => _buildHistoryItemMenuItems(),
+      menuBuilder: (menuContext) => _buildHistoryItemMenuItems(menuContext),
       onSelected: (value) =>
           _handleItemMenuAction(context, ref, history, value),
       child: Row(
@@ -678,31 +674,32 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildHistoryItemMenuItems() => [
-        ...buildTrackActionPopupMenuEntries(
-          buildCommonTrackActionMenuItems(
-            translations: t,
-            options: const TrackActionMenuOptions(includeAddToRemote: false),
-          ),
+  List<PopupMenuEntry<String>> _buildHistoryItemMenuItems(
+    BuildContext context,
+  ) {
+    final destructiveColor = Theme.of(context).colorScheme.error;
+    return [
+      ...buildTrackActionPopupMenuEntries(
+        buildCommonTrackActionMenuItems(
+          translations: t,
+          options: const TrackActionMenuOptions(includeAddToRemote: false),
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'delete',
-          child: ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: Text(t.playHistoryPage.deleteThisRecord),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete_all',
-          child: ListTile(
-            leading: const Icon(Icons.delete_sweep),
-            title: Text(t.playHistoryPage.deleteAllForTrack),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ];
+      ),
+      const PopupMenuDivider(),
+      buildDestructivePopupMenuItem(
+        value: 'delete',
+        icon: Icons.delete_outline,
+        label: t.playHistoryPage.deleteThisRecord,
+        color: destructiveColor,
+      ),
+      buildDestructivePopupMenuItem(
+        value: 'delete_all',
+        icon: Icons.delete_sweep,
+        label: t.playHistoryPage.deleteAllForTrack,
+        color: destructiveColor,
+      ),
+    ];
+  }
 
   Widget _buildTrailing(
     BuildContext context,
@@ -739,7 +736,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             icon: const Icon(Icons.more_vert),
             onSelected: (value) =>
                 _handleItemMenuAction(context, ref, history, value),
-            itemBuilder: (_) => _buildHistoryItemMenuItems(),
+            itemBuilder: (menuContext) =>
+                _buildHistoryItemMenuItems(menuContext),
           ),
       ],
     );
@@ -870,22 +868,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   void _handleAppBarMenuAction(BuildContext context, String action) async {
     switch (action) {
       case 'clear_all':
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(t.playHistoryPage.clearAllHistory),
-            content: Text(t.playHistoryPage.clearAllConfirm),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t.general.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t.playHistoryPage.clearButton),
-              ),
-            ],
-          ),
+        final confirmed = await showConfirmDestructiveDialog(
+          context,
+          title: t.playHistoryPage.clearAllHistory,
+          content: t.playHistoryPage.clearAllConfirm,
+          confirmLabel: t.playHistoryPage.clearButton,
         );
         if (confirmed == true && context.mounted) {
           await ref.read(playHistoryActionsProvider).clearAll();
@@ -916,32 +903,32 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
     switch (action) {
       case 'delete':
-        await ref.read(playHistoryActionsProvider).delete(history.id);
-        if (context.mounted) {
-          ToastService.success(context, t.playHistoryPage.toastDeletedRecord);
+        if (!context.mounted) {
+          return;
+        }
+        final confirmedDelete = await showConfirmDestructiveDialog(
+          context,
+          title: t.playHistoryPage.deleteThisRecord,
+          content: t.radio.deleteConfirm(title: history.title),
+          confirmLabel: t.playHistoryPage.deleteButton,
+        );
+        if (confirmedDelete == true && context.mounted) {
+          await ref.read(playHistoryActionsProvider).delete(history.id);
+          if (context.mounted) {
+            ToastService.success(
+                context, t.playHistoryPage.toastDeletedRecord);
+          }
         }
         break;
       case 'delete_all':
         if (!context.mounted) {
           return;
         }
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(t.playHistoryPage.deleteAllTitle),
-            content:
-                Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t.general.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t.playHistoryPage.deleteButton),
-              ),
-            ],
-          ),
+        final confirmed = await showConfirmDestructiveDialog(
+          context,
+          title: t.playHistoryPage.deleteAllTitle,
+          content: t.playHistoryPage.deleteAllConfirm(title: history.title),
+          confirmLabel: t.playHistoryPage.deleteButton,
         );
         if (confirmed == true && context.mounted) {
           final count = await ref

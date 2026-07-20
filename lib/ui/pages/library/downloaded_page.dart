@@ -14,6 +14,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../router.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/images/playlist_cover_image.dart';
 
@@ -422,31 +423,17 @@ class _CategoryCard extends ConsumerWidget {
     }
   }
 
-  void _showDeleteConfirm(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.library.downloadedPage.deleteCategoryTitle),
-        content: Text(t.library.downloadedPage
-            .deleteCategoryConfirm(name: category.displayName)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _deleteCategory(context, ref);
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(t.general.delete),
-          ),
-        ],
-      ),
+  Future<void> _showDeleteConfirm(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.library.downloadedPage.deleteCategoryTitle,
+      content: t.library.downloadedPage
+          .deleteCategoryConfirm(name: category.displayName),
+      confirmLabel: t.general.delete,
     );
+    if (confirmed == true && context.mounted) {
+      await _deleteCategory(context, ref);
+    }
   }
 
   Future<void> _deleteCategory(BuildContext context, WidgetRef ref) async {

@@ -8,6 +8,7 @@ import '../../../providers/ui/selection_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
+import '../dialogs/confirm_destructive_dialog.dart';
 
 /// 多選模式下可用的操作類型
 const selectionActionAddToQueue = addToQueueTrackActionId;
@@ -130,16 +131,11 @@ class SelectionModeAppBar extends ConsumerWidget
     return [
       ...buildTrackActionPopupMenuEntries(commonItems),
       if (availableActions.contains(selectionActionRemoveFromRemotePlaylist))
-        PopupMenuItem(
+        buildDestructivePopupMenuItem(
           value: selectionActionRemoveFromRemotePlaylist,
-          child: ListTile(
-            leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
-            title: Text(
-              t.remote.removeFromFavorites,
-              style: TextStyle(color: colorScheme.error),
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
+          icon: Icons.cloud_off_outlined,
+          label: t.remote.removeFromFavorites,
+          color: colorScheme.error,
         ),
       if (availableActions.contains(selectionActionDownload))
         PopupMenuItem(
@@ -151,16 +147,11 @@ class SelectionModeAppBar extends ConsumerWidget
           ),
         ),
       if (availableActions.contains(selectionActionDelete))
-        PopupMenuItem(
+        buildDestructivePopupMenuItem(
           value: selectionActionDelete,
-          child: ListTile(
-            leading: Icon(Icons.delete_outline, color: colorScheme.error),
-            title: Text(
-              t.selectionMode.removeFromPlaylist,
-              style: TextStyle(color: colorScheme.error),
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
+          icon: Icons.delete_outline,
+          label: t.selectionMode.removeFromPlaylist,
+          color: colorScheme.error,
         ),
     ];
   }
@@ -229,23 +220,11 @@ class SelectionModeAppBar extends ConsumerWidget
     final notifier = ref.read(selectionProvider.notifier);
 
     // 確認對話框
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.selectionMode.confirmRemove),
-        content:
-            Text(t.selectionMode.confirmRemoveContent(count: tracks.length)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(t.general.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(t.selectionMode.remove),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.selectionMode.confirmRemove,
+      content: t.selectionMode.confirmRemoveContent(count: tracks.length),
+      confirmLabel: t.selectionMode.remove,
     );
 
     if (confirmed == true && onDelete != null) {

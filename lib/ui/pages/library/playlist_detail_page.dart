@@ -16,6 +16,7 @@ import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/ui/selection_provider.dart';
 import '../../widgets/dialogs/download_path_setup_dialog.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_service.dart'
     show DownloadBatchAddSummary;
@@ -570,22 +571,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Future<void> _confirmAndDeleteTracks(List<Track> tracks) async {
     final notifier = ref.read(playlistDetailSelectionProvider.notifier);
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.library.detail.confirmRemoveTitle),
-        content: Text(t.library.detail.confirmDeleteSongs(n: tracks.length)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(t.general.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(t.library.detail.remove),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.library.detail.confirmRemoveTitle,
+      content: t.library.detail.confirmDeleteSongs(n: tracks.length),
+      confirmLabel: t.library.detail.remove,
     );
 
     if (confirmed == true) {
@@ -602,22 +592,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Future<void> _confirmAndBatchRemoveFromRemote(List<Track> tracks) async {
     final notifier = ref.read(playlistDetailSelectionProvider.notifier);
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.remote.confirmRemove),
-        content: Text(t.remote.confirmRemoveContent),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(t.general.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(t.general.confirm),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.remote.confirmRemove,
+      content: t.remote.confirmRemoveContent,
+      confirmLabel: t.general.confirm,
     );
     if (confirmed != true || !mounted) return;
 

@@ -9,6 +9,7 @@ import '../../../data/models/radio_station.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
@@ -313,25 +314,11 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
   Future<void> _showDeleteConfirm(
       BuildContext context, RadioStation station) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.radio.deleteStation),
-        content: Text(t.radio.deleteConfirm(title: station.title)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(t.radio.delete),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.radio.deleteStation,
+      content: t.radio.deleteConfirm(title: station.title),
+      confirmLabel: t.radio.delete,
     );
 
     if (confirmed == true) {

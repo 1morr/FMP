@@ -17,6 +17,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../router.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../debug/youtube_stream_test_page.dart';
 
 /// 开发者选项页面
@@ -531,30 +532,16 @@ class _ResetDataTile extends ConsumerWidget {
     );
   }
 
-  void _showResetConfirmDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.settings.developerOptions.confirmReset),
-        content: Text(t.settings.developerOptions.resetWarning),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _resetAllData(context, ref);
-            },
-            child: Text(t.settings.developerOptions.confirmReset),
-          ),
-        ],
-      ),
+  Future<void> _showResetConfirmDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.settings.developerOptions.confirmReset,
+      content: t.settings.developerOptions.resetWarning,
+      confirmLabel: t.settings.developerOptions.confirmReset,
     );
+    if (confirmed == true && context.mounted) {
+      await _resetAllData(context, ref);
+    }
   }
 
   Future<void> _resetAllData(BuildContext context, WidgetRef ref) async {

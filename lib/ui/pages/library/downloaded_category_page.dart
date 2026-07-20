@@ -12,6 +12,7 @@ import '../../../providers/library/library_invalidation_coordinator.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_menu.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/images/playlist_cover_image.dart';
@@ -650,23 +651,12 @@ class _GroupHeader extends ConsumerWidget {
         break;
 
       case 'delete_all':
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(t.library.deleteDownload),
-            content: Text(t.library.downloadedCategory
-                .confirmDeleteParts(n: group.tracks.length)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t.general.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t.general.delete),
-              ),
-            ],
-          ),
+        final confirmed = await showConfirmDestructiveDialog(
+          context,
+          title: t.library.deleteDownload,
+          content: t.library.downloadedCategory
+              .confirmDeleteParts(n: group.tracks.length),
+          confirmLabel: t.general.delete,
         );
         if (confirmed == true && context.mounted) {
           await _deleteAllDownloads(ref);
@@ -821,22 +811,11 @@ class _DownloadedTrackTile extends ConsumerWidget {
   void _handleMenuAction(
       BuildContext context, WidgetRef ref, String action) async {
     if (action == 'delete') {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(t.library.deleteDownload),
-          content: Text(t.library.downloadedCategory.confirmDeleteTrack),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(t.general.cancel),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(t.general.delete),
-            ),
-          ],
-        ),
+      final confirmed = await showConfirmDestructiveDialog(
+        context,
+        title: t.library.deleteDownload,
+        content: t.library.downloadedCategory.confirmDeleteTrack,
+        confirmLabel: t.general.delete,
       );
       if (confirmed == true && context.mounted) {
         await _deleteDownload(ref);

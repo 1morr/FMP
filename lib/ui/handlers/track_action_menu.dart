@@ -146,3 +146,23 @@ List<PopupMenuEntry<String>> buildTrackActionPopupMenuEntries(
       ),
   ];
 }
+
+/// 頁面專用破壞性選單項（不屬於 TrackAction 體系，如刪除記錄、
+/// 從遠程收藏夾移除）的共用寫法：icon 與 label 皆以 [color]
+/// （通常是 colorScheme.error）呈現，與
+/// [buildTrackActionPopupMenuEntries] 的 destructive 項目視覺一致。
+PopupMenuItem<String> buildDestructivePopupMenuItem({
+  required String value,
+  required IconData icon,
+  required String label,
+  required Color color,
+}) {
+  return PopupMenuItem(
+    value: value,
+    child: ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(label, style: TextStyle(color: color)),
+      contentPadding: EdgeInsets.zero,
+    ),
+  );
+}
