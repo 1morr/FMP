@@ -148,10 +148,9 @@ class _HomeRankingSourceTile extends StatelessWidget {
         isEnabled
             ? t.settings.homeRankingSettings.enabled
             : t.settings.homeRankingSettings.disabled,
-        style: TextStyle(
-          color: isEnabled ? colorScheme.primary : disabledColor,
-          fontSize: 12,
-        ),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: isEnabled ? colorScheme.primary : disabledColor,
+            ),
       ),
       trailing: Switch(
         value: isEnabled,

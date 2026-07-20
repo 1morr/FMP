@@ -411,12 +411,11 @@ class _LyricsSourceTile extends StatelessWidget {
         isEnabled
             ? t.settings.lyricsSourceSettings.enabled
             : t.settings.lyricsSourceSettings.disabled,
-        style: TextStyle(
-          color: isEnabled
-              ? colorScheme.primary
-              : colorScheme.onSurface.withValues(alpha: disabledAlpha),
-          fontSize: 12,
-        ),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: isEnabled
+                  ? colorScheme.primary
+                  : colorScheme.onSurface.withValues(alpha: disabledAlpha),
+            ),
       ),
       trailing: Switch(
         value: isEnabled,

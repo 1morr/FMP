@@ -9,6 +9,7 @@
   "emptySubtitle": "Add songs to the queue to start playing",
   "goSearch": "Search",
   "nowPlaying": "Now playing #$index",
+  "mixTitle": "Mix · $title",
   "totalCount": "$count tracks",
   "removeFromQueue": "Remove from queue",
   "scrollToTop": "Scroll to top",

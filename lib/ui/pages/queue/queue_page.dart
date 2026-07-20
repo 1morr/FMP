@@ -300,7 +300,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             return ConstrainedBox(
               constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.8),
               child: Text(
-                isMixMode ? 'Mix · ${mixTitle ?? ''}' : t.queue.title,
+                isMixMode
+                    ? t.queue.mixTitle(title: mixTitle ?? '')
+                    : t.queue.title,
                 overflow: TextOverflow.ellipsis,
               ),
             );

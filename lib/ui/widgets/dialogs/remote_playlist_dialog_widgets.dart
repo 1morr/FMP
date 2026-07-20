@@ -207,6 +207,49 @@ class RemotePlaylistListTile extends StatelessWidget {
   }
 }
 
+/// 播放清單空態：本地與遠端「加入播放清單」對話框共用。
+class RemotePlaylistEmptyState extends StatelessWidget {
+  final String title;
+  final String hint;
+
+  const RemotePlaylistEmptyState({
+    super.key,
+    required this.title,
+    required this.hint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.library_music,
+            size: 48,
+            color: colorScheme.outline,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.outline,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            hint,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.outline,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class RemotePlaylistSelectionIndicator extends StatelessWidget {
   final bool isChecking;
   final bool isSelected;

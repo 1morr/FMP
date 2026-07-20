@@ -45,7 +45,6 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
   bool _isCheckingMulti = false;
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _submitProgress;
   final _newPlaylistController = TextEditingController();
 
   List<Track> get _tracks => widget.tracks;
@@ -259,10 +258,6 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
 
     setState(() {
       _isSubmitting = true;
-      if (toAdd.length + toRemove.length > 1) {
-        final total = toAdd.length + toRemove.length;
-        _submitProgress = '$total/$total';
-      }
     });
     try {
       final result = await ref
@@ -304,21 +299,18 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
       }
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     } on NeteasePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     } catch (_) {
       if (!mounted) return;
       ToastService.error(context, t.remote.error.unknown(code: 'UNKNOWN'));
       setState(() {
         _isSubmitting = false;
-        _submitProgress = null;
       });
     }
   }
@@ -370,20 +362,11 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
                   child: FilledButton(
                     onPressed: _isSubmitting || _isLoading ? null : _submit,
                     child: _isSubmitting
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              if (_submitProgress != null) ...[
-                                const SizedBox(width: 8),
-                                Text(_submitProgress!),
-                              ],
-                            ],
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Text(_getButtonText()),
                   ),
@@ -416,8 +399,14 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
       );
     }
     final playlists = _playlists;
-    if (playlists == null || playlists.isEmpty) {
-      return Center(child: Text(t.remote.loading));
+    if (playlists == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (playlists.isEmpty) {
+      return RemotePlaylistEmptyState(
+        title: t.remote.noPlaylists,
+        hint: t.remote.noPlaylistsHint,
+      );
     }
 
     return ListView.builder(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/constants/ui_constants.dart';
+
 class ColorPaletteButton extends StatelessWidget {
   static const paletteKey = ValueKey('color-palette-dialog');
   static const paletteContentKey = ValueKey('color-palette-dialog-content');
@@ -349,7 +351,7 @@ class _ColorSwatch extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppRadius.borderRadiusMd,
         border: Border.all(color: colorScheme.outline),
       ),
     );
@@ -507,11 +509,11 @@ class _HuePainter extends CustomPainter {
       height: size.height + 2,
     );
     canvas.drawRRect(
-      BorderRadius.circular(3).toRRect(handleRect),
+      AppRadius.borderRadiusXs.toRRect(handleRect),
       Paint()..color = Colors.white,
     );
     canvas.drawRRect(
-      BorderRadius.circular(3).toRRect(handleRect),
+      AppRadius.borderRadiusXs.toRRect(handleRect),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1

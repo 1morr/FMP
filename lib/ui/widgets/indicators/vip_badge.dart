@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/ui_constants.dart';
+
 class VipBadge extends StatelessWidget {
   const VipBadge({super.key});
 
@@ -10,7 +12,7 @@ class VipBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppRadius.borderRadiusSm,
         border: Border.all(
           color: colorScheme.primary.withValues(alpha: 0.4),
           width: 0.5,
