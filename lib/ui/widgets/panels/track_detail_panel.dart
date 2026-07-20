@@ -982,6 +982,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
 
     if (isNetease) {
       return DetailStatsRow(
+        alignment: WrapAlignment.spaceEvenly,
         items: [
           if (widget.detail.albumName.isNotEmpty)
             DetailStatItem(
@@ -998,6 +999,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
     }
 
     return DetailStatsRow(
+      alignment: WrapAlignment.spaceEvenly,
       items: [
         DetailStatItem(
           icon: Icons.play_arrow_rounded,
@@ -1730,6 +1732,7 @@ class _RadioDetailContent extends ConsumerWidget {
   /// 简化的统计数据
   Widget _buildSimpleStats(BuildContext context) {
     return DetailStatsRow(
+      alignment: WrapAlignment.spaceEvenly,
       items: [
         if (radioState.viewerCount != null)
           DetailStatItem(

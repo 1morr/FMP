@@ -27,12 +27,18 @@ double _compensatedIconSize(IconData icon) {
 /// 詳情面板/彈窗共用的統計列。
 ///
 /// 音樂 Detail Panel、電台 Detail Panel、行動版歌曲資訊彈窗、
-/// 行動版直播資訊彈窗共用此寫法：Wrap(spacing: 16, runSpacing: 8)，
-/// 單項為 primary 圖示 + onSurfaceVariant 內文。
+/// 行動版直播資訊彈窗共用此寫法：單項為 primary 圖示 + onSurfaceVariant
+/// 內文。[alignment] 預設靠左（行動版彈窗）；寬幅的桌面面板可傳
+/// [WrapAlignment.spaceEvenly] 讓統計項均勻撐滿整行。
 class DetailStatsRow extends StatelessWidget {
-  const DetailStatsRow({super.key, required this.items});
+  const DetailStatsRow({
+    super.key,
+    required this.items,
+    this.alignment = WrapAlignment.start,
+  });
 
   final List<DetailStatItem> items;
+  final WrapAlignment alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +48,7 @@ class DetailStatsRow extends StatelessWidget {
     return Wrap(
       spacing: 16,
       runSpacing: 8,
+      alignment: alignment,
       children: [
         for (final item in items)
           Row(
