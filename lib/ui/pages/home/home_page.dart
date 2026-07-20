@@ -22,6 +22,7 @@ import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
+import '../../widgets/indicators/live_badge.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/layout/horizontal_scroll_section.dart';
 import '../../widgets/menus/context_menu_region.dart';
@@ -1086,7 +1087,6 @@ class _HomeRadioStationCard extends StatelessWidget {
                         : kGrayscaleColorFilter,
                     child: RadioCoverImage(
                       networkUrl: station.thumbnailUrl,
-                      placeholder: _buildPlaceholder(colorScheme),
                       fit: BoxFit.cover,
                       width: 100,
                       height: 100,
@@ -1098,27 +1098,9 @@ class _HomeRadioStationCard extends StatelessWidget {
                 // 正在直播红点
                 if (isLive)
                   Positioned(
-                    top: 3,
-                    right: 3,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: colorScheme.surface,
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.red.withValues(alpha: 0.5),
-                            blurRadius: 3,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
+                    top: LiveBadge.dotOffset(14),
+                    right: LiveBadge.dotOffset(14),
+                    child: const LiveBadge.dot(size: 14),
                   ),
 
                 // 播放中指示器
@@ -1167,18 +1149,6 @@ class _HomeRadioStationCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder(ColorScheme colorScheme) {
-    return Container(
-      color: colorScheme.surfaceContainerHighest,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.radio,
-        size: 40,
-        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     );
   }

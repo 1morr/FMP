@@ -43,7 +43,6 @@
   "hoursAgo": "$n hours ago",
   "minutesAgo": "$n minutes ago",
   "justNow": "Just now",
-  "isLive": "Live",
   "volume": "Volume",
   "notLive": "Stream is not live",
   "playFailed": "Playback failed: $error",

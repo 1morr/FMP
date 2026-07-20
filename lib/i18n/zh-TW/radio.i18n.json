@@ -43,7 +43,6 @@
   "hoursAgo": "$n 小時前",
   "minutesAgo": "$n 分鐘前",
   "justNow": "剛剛",
-  "isLive": "直播中",
   "volume": "音量",
   "notLive": "直播間尚未開播",
   "playFailed": "播放失敗: $error",

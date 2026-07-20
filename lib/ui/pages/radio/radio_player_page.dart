@@ -11,6 +11,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/services/image_loading_service.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/radio_cover_image.dart';
@@ -131,12 +132,10 @@ class RadioPlayerPage extends ConsumerWidget {
   }
 
   Widget _buildCoverPlaceholder(ColorScheme colorScheme) {
-    return Center(
-      child: Icon(
-        Icons.radio,
-        size: 120,
-        color: colorScheme.primary,
-      ),
+    return ImagePlaceholder(
+      icon: Icons.radio,
+      iconSize: 120,
+      iconColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
     );
   }
 
