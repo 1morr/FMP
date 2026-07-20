@@ -1,4 +1,4 @@
-import 'package:fmp/ui/windows/lyrics/lyrics_offset_math.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_offset_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 
 import '../../../services/lyrics/lyrics_window_style.dart';
 import '../../widgets/lyrics/lyrics_styled_text.dart';
+import '../../widgets/lyrics/lyrics_text_measurer.dart';
 
 /// 單行歌詞檢視（放大呈現當前行，含兩段式字級擬合）。
 ///
 /// 從 `lyrics_window.dart` 的 `_buildSingleLine` 抽出（C1a/C1e + C1b 單行半）。
 /// caller 預先解析好 [mainText]/[subText]（含「當前行空則退回曲名」邏輯）並
-/// 注入；本 leaf 負責 LayoutBuilder 內的字級擬合（refSize=100、subRatio=0.7、
-/// minFontSize=24、寬度縮放 → 高度限制 → 換行後 TextPainter 重測的 two-pass
+/// 注入；本 leaf 負責 LayoutBuilder 內的字級擬合（refSize=100、minFontSize=24、
+/// 寬度縮放 → 高度限制 → 換行後 TextPainter 重測的 two-pass
 /// 流程）與呈現。點擊/右鍵回呼僅在 [isSynced] 且 [hasCurrentLine] 時啟用。
+///
+/// 副行字級比例與行高沿用共用常數（[LyricsTextMeasurer.subFontRatio]、
+/// [LyricsTextStyles.lineHeight]），與播放器內嵌歌詞及多行模式一致。
 class LyricsSingleLineView extends StatelessWidget {
   const LyricsSingleLineView({
     super.key,
@@ -23,7 +27,7 @@ class LyricsSingleLineView extends StatelessWidget {
     required this.hasCurrentLine,
     this.onTap,
     this.onSecondaryTap,
-    this.boldSafetyFactor = 0.95,
+    this.boldSafetyFactor = LyricsTextMeasurer.boldSafetyFactor,
   });
 
   final String mainText;
@@ -68,7 +72,7 @@ class LyricsSingleLineView extends StatelessWidget {
           if (maxW <= 0 || maxH <= 0) return const SizedBox.shrink();
 
           const refSize = 100.0;
-          const subRatio = 0.7;
+          const subRatio = LyricsTextMeasurer.subFontRatio;
           const minFontSize = 24.0;
           final td = Directionality.of(context);
           final baseTextStyle = LyricsTextStyles.themeBase(context);
@@ -120,7 +124,7 @@ class LyricsSingleLineView extends StatelessWidget {
           }
 
           // 高度约束（单行估算）
-          const lineH = 1.4;
+          const lineH = LyricsTextStyles.lineHeight;
           final estMainH = mainFontSize * lineH;
           final estSubH = hasSubText ? subFontSize * lineH : 0.0;
           if (estMainH + estSubH > maxH && estMainH + estSubH > 0) {
@@ -145,7 +149,7 @@ class LyricsSingleLineView extends StatelessWidget {
                   baseTextStyle,
                   fontSize: mainFontSize,
                   fontWeight: FontWeight.bold,
-                  height: 1.3,
+                  height: LyricsTextStyles.lineHeight,
                 ),
               ),
               textDirection: td,
@@ -161,7 +165,7 @@ class LyricsSingleLineView extends StatelessWidget {
                     baseTextStyle,
                     fontSize: subFontSize,
                     fontWeight: FontWeight.w500,
-                    height: 1.3,
+                    height: LyricsTextStyles.lineHeight,
                   ),
                 ),
                 textDirection: td,
@@ -196,7 +200,7 @@ class LyricsSingleLineView extends StatelessWidget {
                         fontSize: mainFontSize,
                         fontWeight: FontWeight.bold,
                         color: mainColor,
-                        height: 1.3,
+                        height: LyricsTextStyles.lineHeight,
                       ),
                       lyricsStyle: style,
                       textAlign: TextAlign.center,
@@ -211,7 +215,7 @@ class LyricsSingleLineView extends StatelessWidget {
                         fontSize: mainFontSize,
                         fontWeight: FontWeight.bold,
                         color: mainColor,
-                        height: 1.3,
+                        height: LyricsTextStyles.lineHeight,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: mainWrap ? 3 : 1,
@@ -226,7 +230,7 @@ class LyricsSingleLineView extends StatelessWidget {
                               fontSize: subFontSize,
                               fontWeight: FontWeight.w500,
                               color: subColor,
-                              height: 1.3,
+                              height: LyricsTextStyles.lineHeight,
                             ),
                             lyricsStyle: style,
                             textAlign: TextAlign.center,
@@ -240,7 +244,7 @@ class LyricsSingleLineView extends StatelessWidget {
                               fontSize: subFontSize,
                               fontWeight: FontWeight.w500,
                               color: subColor,
-                              height: 1.3,
+                              height: LyricsTextStyles.lineHeight,
                             ),
                             textAlign: TextAlign.center,
                             maxLines: subWrap ? 2 : 1,

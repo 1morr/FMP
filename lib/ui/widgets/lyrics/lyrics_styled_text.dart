@@ -5,6 +5,10 @@ import '../../../services/lyrics/lyrics_window_style.dart';
 class LyricsTextStyles {
   const LyricsTextStyles._();
 
+  /// 歌詞主/副行的統一行高（倍率）。播放器內嵌歌詞、桌面歌詞視窗多行與
+  /// 單行模式皆引用此值，避免各介面行高漂移。
+  static const double lineHeight = 1.4;
+
   static TextStyle themeBase(BuildContext context) {
     return Theme.of(context).textTheme.bodyLarge ??
         DefaultTextStyle.of(context).style;
