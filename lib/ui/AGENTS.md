@@ -10,15 +10,20 @@ add new `.dart` files directly under `lib/ui/widgets/`.
 Current folders:
 - `app_bars/` - app-level bars such as custom title bars and selection bars.
 - `controls/` - reusable controls such as color pickers and compound toggles.
-- `dialogs/` - shared dialog widgets.
+- `dialogs/` - shared dialog widgets, including `showConfirmDestructiveDialog`.
 - `feedback/` - error and app-status feedback surfaces.
 - `images/` - semantic image loading widgets.
-- `indicators/` - compact state indicators and badges.
-- `layout/` - reusable layout sections.
-- `lyrics/` - lyrics display and lyrics styling widgets.
-- `menus/` - menu/action helpers.
+- `indicators/` - compact state indicators and badges (`LiveBadge`,
+  `SourceBadge`, `NowPlayingIndicator`, ...).
+- `layout/` - reusable layout sections (`ExpandableTextSection`,
+  `DetailStatsRow`, ...).
+- `lyrics/` - lyrics display/styling plus shared lyrics logic
+  (`LyricsTextMeasurer`, `LyricsOffsetBar`, `LyricsOffsetMath`; moved from
+  `lib/ui/windows/`).
+- `menus/` - menu/action helpers (`MenuAction` dual popup/sheet builders).
 - `panels/` - large persistent panels such as `TrackDetailPanel`.
-- `player/`, `radio/`, `track_group/` - domain-specific widget groups.
+- `player/`, `radio/`, `track_group/`, `track_tiles/` - domain-specific
+  widget groups.
 
 ## Image Components
 
@@ -101,6 +106,34 @@ Use a stronger key when the page has a more precise track identity, such as
 - Page-specific actions such as download, delete, remove-from-playlist,
   remove-from-remote, and group actions should be appended/injected locally
   instead of duplicating common queue/playlist/lyrics/remote actions.
+- Destructive menu entries (delete, remove) must render in
+  `colorScheme.error`: use `buildDestructivePopupMenuItem()` from
+  `lib/ui/handlers/track_action_menu.dart` for one-off entries, or the
+  `TrackActionMenuItem(destructive: true)` flag inside
+  `buildTrackActionPopupMenuEntries(destructiveColor:)`.
+- When the same actions appear both in a right-click context menu and a
+  long-press bottom sheet, define them once as `List<MenuAction>`
+  (`lib/ui/widgets/menus/menu_action.dart`) and render via
+  `buildMenuActionPopupEntries()` / `buildMenuActionListTiles()`.
+
+## Toast / SnackBar
+
+All snackbars must go through `ToastService` (`lib/core/services/toast_service.dart`).
+Never call `ScaffoldMessenger.showSnackBar` directly from UI code.
+`ToastService.buildSnackBar()` is the single SnackBar construction entry
+(floating, semantic type color, white icon/text); error/warning default to
+`ToastDurations.long`, everything else to `ToastDurations.short`, and callers
+may pass an explicit `duration` for longer display needs (e.g. export paths).
+Background services emit through the toast stream; `AppShell` renders those
+with the same builder.
+
+## Destructive Confirmations
+
+Delete/clear confirmations must use `showConfirmDestructiveDialog()`
+(`lib/ui/widgets/dialogs/confirm_destructive_dialog.dart`), which renders the
+confirm button as `FilledButton` with `colorScheme.error`. Do not hand-roll
+AlertDialogs with plain TextButton or primary-colored confirm buttons for
+destructive actions.
 
 ## Refresh And Provider Invalidation
 
@@ -186,6 +219,27 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
 - Tablet: `600-1200dp` (side navigation)
 - Desktop: `>= 1200dp` (collapsible side navigation + optional detail panel)
 
+Never hardcode `600`/`1200` width literals; use `Breakpoints.isMobile` /
+`isTablet` / `isDesktop`. For OS-level desktop checks (Windows/macOS/Linux)
+use `isDesktopPlatform` from `lib/core/utils/platform_utils.dart` — do not
+repeat `Platform.isWindows || Platform.isMacOS || Platform.isLinux` or
+`defaultTargetPlatform` chains per file.
+
+## Page Conventions
+
+- HomePage is intentionally an AppBar-less dashboard page; the other five
+  top-level destinations have titled AppBars. Do not "fix" this.
+- ExplorePage is a pushed sub-page (default slide transition, automatic back
+  button) entered from Home; the bottom-nav highlight staying on Home while
+  inside it is intended, same as PlayHistoryPage.
+- Multi-select pages must wrap their scaffold in
+  `PopScope(canPop: !isSelectionMode, ...)` so the system back button exits
+  selection mode instead of leaving the page.
+- PlayHistoryPage intentionally keeps its own multi-select app bar: its
+  selection is id-based (`Set<int>` history-row ids, duplicate tracks are
+  distinct rows) and cannot reuse the Track-based `SelectionModeAppBar`
+  without breaking delete semantics.
+
 ## Player Layout
 
 - `lib/ui/pages/player/player_page.dart` should use a single-column cover/lyrics
@@ -219,6 +273,15 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
   jump-to-latest (`RadioController.sync()`, `Icons.sync`) and reload
   (`RadioController.reload()`, `Icons.refresh`) as control-row buttons flanking
   play/pause; both disable on `isBuffering || isLoading || !isPlaying`.
+- Both mini players share the same desktop controls:
+  `MiniPlayerVolumeControl` (narrow popup + wide inline variants, same slider
+  spec as `CompactVolumeControl`) and `FmpAudioDeviceSelector` driven by
+  `desktopAudioDeviceStateProvider`. Do not re-add private volume/device menus
+  to either mini player. Music mini player control order matches the
+  fullscreen player (shuffle, previous, play, next, loop).
+- Both fullscreen players expose track/station info through a standalone
+  AppBar info `IconButton`; do not tuck it back into the overflow menu.
+  Control-row buttons should have tooltips.
 - Fullscreen player routes in `lib/ui/router.dart` should use the shared
   `_fullscreenPlayerPage` transition helper so entry uses the slower settling
   curve while dismissal uses a fast reverse curve and clips blurred paint at the
