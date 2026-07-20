@@ -122,8 +122,10 @@ All snackbars must go through `ToastService` (`lib/core/services/toast_service.d
 Never call `ScaffoldMessenger.showSnackBar` directly from UI code.
 `ToastService.buildSnackBar()` is the single SnackBar construction entry
 (floating, semantic type color, white icon/text); error/warning default to
-`ToastDurations.long`, everything else to `ToastDurations.short`, and callers
-may pass an explicit `duration` for longer display needs (e.g. export paths).
+`ToastDurations.long`, everything else to `ToastDurations.short`. Do not pass
+`duration` for ordinary toasts — the type decides, keeping timing uniform
+across the app. Reserve the override for long-read content only (e.g. the
+backup export path toast) and add a comment when you use it.
 Background services emit through the toast stream; `AppShell` renders those
 with the same builder.
 

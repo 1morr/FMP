@@ -272,7 +272,6 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
     ToastService.success(
       context,
       t.settings.developerOptions.clearImageMemoryCacheDone,
-      duration: const Duration(seconds: 2),
     );
     _loadMemoryInfo();
   }
@@ -563,7 +562,6 @@ class _ResetDataTile extends ConsumerWidget {
       ToastService.success(
         context,
         t.settings.developerOptions.resetDone,
-        duration: const Duration(seconds: 3),
       );
     } catch (e) {
       if (!context.mounted) return;

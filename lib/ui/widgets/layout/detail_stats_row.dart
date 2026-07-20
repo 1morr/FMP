@@ -8,6 +8,22 @@ class DetailStatItem {
   final String label;
 }
 
+/// 依圖示的光學佔比回傳補償後的尺寸。
+///
+/// Material 的 play_arrow / star 字形在 24dp 網格內的視覺佔比小於
+/// thumb_up、comment 等填滿型圖示，同尺寸並排時看起來明顯偏小。
+/// 沿用重構前音樂詳情面板的補償比例（基準 18、播放 26、收藏 24，
+/// 約 1.44x / 1.33x），換算到目前的基準 16。
+double _compensatedIconSize(IconData icon) {
+  if (icon == Icons.play_arrow_rounded || icon == Icons.play_arrow) {
+    return 23;
+  }
+  if (icon == Icons.star_rounded || icon == Icons.star) {
+    return 21;
+  }
+  return 16;
+}
+
 /// 詳情面板/彈窗共用的統計列。
 ///
 /// 音樂 Detail Panel、電台 Detail Panel、行動版歌曲資訊彈窗、
@@ -33,7 +49,7 @@ class DetailStatsRow extends StatelessWidget {
             children: [
               Icon(
                 item.icon,
-                size: 16,
+                size: _compensatedIconSize(item.icon),
                 color: colorScheme.primary.withValues(alpha: 0.8),
               ),
               const SizedBox(width: 6),
