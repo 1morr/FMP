@@ -17,6 +17,9 @@ class DurationFormatter {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
+  /// 格式化 Duration 为 "mm:ss" 或 "h:mm:ss"（小时不补零，与 formatMs 一致）
+  static String format(Duration duration) => formatMs(duration.inMilliseconds);
+
   /// 格式化 Duration 为 "X 小时 Y 分钟"
   static String formatLong(Duration duration) {
     final hours = duration.inHours;

@@ -1,17 +1,19 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/utils/icon_helpers.dart';
+import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/number_format_utils.dart';
+import '../../../core/utils/platform_utils.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../images/radio_cover_image.dart';
+import '../player/fmp_audio_device_selector.dart';
+import '../player/mini_player_volume_control.dart';
 
 /// 電台迷你播放器
 /// 顯示在頁面底部，展示當前播放的電台資訊和控制按鈕
@@ -24,22 +26,15 @@ class RadioMiniPlayer extends ConsumerStatefulWidget {
 }
 
 class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
-  /// 是否為桌面平台
-  bool get isDesktop =>
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final radioState = ref.watch(radioControllerProvider);
     final radioController = ref.read(radioControllerProvider.notifier);
     // 使用 AudioController 管理音量（共享同一個 AudioService）
-    final audioDevices = ref.watch(
-      audioControllerProvider.select((state) => state.audioDevices),
-    );
-    final currentAudioDevice = ref.watch(
-      audioControllerProvider.select((state) => state.currentAudioDevice),
-    );
+    // 與音樂迷你播放器一致，透過共享的 desktopAudioDeviceStateProvider 取得裝置狀態
+    // （provider 內部為窄 select，避免對 audioControllerProvider 做全狀態 watch）。
+    final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
     final volume = ref.watch(
       audioControllerProvider.select((state) => state.volume),
     );
@@ -94,28 +89,32 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
               ),
 
               // 同步按鈕
-              _buildSyncButton(radioState, radioController, colorScheme),
+              _buildSyncButton(radioState, radioController),
 
               // 播放/暫停按鈕
               _buildPlayStopButton(radioState, radioController, colorScheme),
 
               // 重新載入直播按鈕（無條件重連，RadioController.reload）
-              _buildReloadButton(radioState, radioController, colorScheme),
+              _buildReloadButton(radioState, radioController),
 
               // 桌面端音頻設備選擇器 + 音量控制
-              if (isDesktop) ...[
+              if (isDesktopPlatform) ...[
                 const SizedBox(width: 4),
                 // 音頻設備選擇器
-                if (audioDevices.length > 1)
-                  _buildFmpAudioDeviceSelector(
-                    context,
-                    audioDevices,
-                    currentAudioDevice,
-                    audioController,
-                    colorScheme,
+                if (desktopAudioDeviceState.hasSelectableDevices)
+                  FmpAudioDeviceSelector(
+                    state: desktopAudioDeviceState,
+                    controller: audioController,
+                    colorScheme: colorScheme,
                   ),
-                _buildVolumeControl(
-                    context, volume, audioController, colorScheme),
+                MiniPlayerVolumeControl(
+                  volume: volume,
+                  controller: audioController,
+                  colorScheme: colorScheme,
+                  volumeTooltip: t.radio.volume,
+                  muteTooltip: t.radio.mute,
+                  unmuteTooltip: t.radio.unmute,
+                ),
               ],
             ],
           ),
@@ -155,7 +154,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
     // 已播放時長
     if (radioState.isPlaying) {
-      parts.add(_formatDuration(radioState.playDuration));
+      parts.add(DurationFormatter.format(radioState.playDuration));
     }
 
     // 觀眾數
@@ -223,7 +222,6 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   Widget _buildSyncButton(
     RadioState state,
     RadioController controller,
-    ColorScheme colorScheme,
   ) {
     final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
 
@@ -232,12 +230,9 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       height: 40,
       child: IconButton(
         padding: EdgeInsets.zero,
-        icon: Icon(
+        icon: const Icon(
           Icons.sync,
           size: 22,
-          color: isDisabled
-              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
-              : null,
         ),
         tooltip: t.radio.syncLive,
         onPressed: isDisabled ? null : () => controller.sync(),
@@ -249,7 +244,6 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   Widget _buildReloadButton(
     RadioState state,
     RadioController controller,
-    ColorScheme colorScheme,
   ) {
     final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
 
@@ -258,222 +252,14 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       height: 40,
       child: IconButton(
         padding: EdgeInsets.zero,
-        icon: Icon(
+        icon: const Icon(
           Icons.refresh,
           size: 22,
-          color: isDisabled
-              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
-              : null,
         ),
         tooltip: t.radio.reloadLive,
         onPressed: isDisabled ? null : () => controller.reload(),
       ),
     );
-  }
-
-  /// 音頻輸出設備選擇器（僅桌面端）
-  Widget _buildFmpAudioDeviceSelector(
-    BuildContext context,
-    List<FmpAudioDevice> devices,
-    FmpAudioDevice? currentDevice,
-    AudioController controller,
-    ColorScheme colorScheme,
-  ) {
-    const menuWidth = 220.0;
-
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      alignmentOffset: const Offset(-menuWidth / 2 + 20, 16),
-      builder: (context, menuController, child) {
-        return IconButton(
-          icon: const Icon(Icons.speaker, size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: t.player.audioDevice,
-          onPressed: () {
-            if (menuController.isOpen) {
-              menuController.close();
-            } else {
-              menuController.open();
-            }
-          },
-        );
-      },
-      style: MenuStyle(
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
-        ),
-      ),
-      menuChildren: [
-        MenuItemButton(
-          onPressed: () => controller.setAudioDeviceAuto(),
-          leadingIcon: currentDevice == null || currentDevice.name == 'auto'
-              ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-              : const SizedBox(width: 18),
-          child: Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: Text(t.player.audioDeviceAuto),
-          ),
-        ),
-        const Divider(height: 1),
-        ...devices
-            .where((d) => d.name != 'auto' && d.name != 'openal')
-            .map((device) {
-          final isSelected = currentDevice?.name == device.name;
-          return MenuItemButton(
-            onPressed: () => controller.setAudioDevice(device),
-            leadingIcon: isSelected
-                ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-                : const SizedBox(width: 18),
-            child: Padding(
-              padding: const EdgeInsets.only(right: 18),
-              child: Text(
-                _formatDeviceName(device),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  /// 格式化設備名稱
-  String _formatDeviceName(FmpAudioDevice device) {
-    final displayName =
-        device.description.isNotEmpty ? device.description : device.name;
-
-    final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
-    if (match != null) {
-      return match.group(1) ?? displayName;
-    }
-
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false)
-        .firstMatch(displayName);
-    if (matchEn != null) {
-      return matchEn.group(1) ?? displayName;
-    }
-
-    return displayName;
-  }
-
-  /// 音量控制（僅桌面端）
-  Widget _buildVolumeControl(
-    BuildContext context,
-    double volume,
-    AudioController controller,
-    ColorScheme colorScheme,
-  ) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isNarrow = screenWidth < 600;
-
-    // 窄屏時使用彈出式音量控制
-    if (isNarrow) {
-      return MenuAnchor(
-        builder: (context, menuController, child) {
-          return IconButton(
-            icon: Icon(
-              getVolumeIcon(volume),
-              size: 20,
-            ),
-            visualDensity: VisualDensity.compact,
-            tooltip: t.radio.volume,
-            onPressed: () {
-              if (menuController.isOpen) {
-                menuController.close();
-              } else {
-                menuController.open();
-              }
-            },
-          );
-        },
-        style: MenuStyle(
-          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
-          ),
-        ),
-        alignmentOffset: const Offset(0, -170),
-        menuChildren: [
-          SizedBox(
-            width: 40,
-            height: 120,
-            child: RotatedBox(
-              quarterTurns: 3,
-              child: SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: 4,
-                  thumbShape:
-                      const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  overlayShape:
-                      const RoundSliderOverlayShape(overlayRadius: 12),
-                  activeTrackColor: colorScheme.primary,
-                  inactiveTrackColor: colorScheme.surfaceContainerHighest,
-                  thumbColor: colorScheme.primary,
-                  overlayColor: colorScheme.primary.withValues(alpha: 0.2),
-                ),
-                child: Slider(
-                  value: volume,
-                  min: 0.0,
-                  max: 1.0,
-                  onChanged: (value) => controller.setVolume(value),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // 寬屏時顯示完整音量控制
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 靜音/音量圖標按鈕
-        IconButton(
-          icon: Icon(
-            getVolumeIcon(volume),
-            size: 20,
-          ),
-          visualDensity: VisualDensity.compact,
-          tooltip: volume > 0 ? t.radio.mute : t.radio.unmute,
-          onPressed: () => controller.toggleMute(),
-        ),
-        // 音量滑塊
-        SizedBox(
-          width: 100,
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: colorScheme.primary,
-              inactiveTrackColor: colorScheme.surfaceContainerHighest,
-              thumbColor: colorScheme.primary,
-              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
-            ),
-            child: Slider(
-              value: volume,
-              min: 0.0,
-              max: 1.0,
-              onChanged: (value) => controller.setVolume(value),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   String _formatCount(int count) => formatCount(count);

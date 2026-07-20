@@ -1,16 +1,16 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 import 'package:fmp/i18n/strings.g.dart';
-import '../../../core/utils/icon_helpers.dart';
+import '../../../core/utils/platform_utils.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
 import '../../router.dart';
 import '../images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
+import 'fmp_audio_device_selector.dart';
+import 'mini_player_volume_control.dart';
 
 /// 迷你播放器
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮
@@ -42,10 +42,6 @@ class _MiniPlayerContent extends ConsumerStatefulWidget {
 class _MiniPlayerContentState extends ConsumerState<_MiniPlayerContent> {
   /// 鼠标是否悬停在迷你播放器上
   bool _isHovering = false;
-
-  /// 是否为桌面平台
-  bool get isDesktop =>
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +85,7 @@ class _MiniPlayerContentState extends ConsumerState<_MiniPlayerContent> {
                           const _MiniPlayerControls(),
 
                           // 桌面端音频设备选择和音量控制
-                          if (isDesktop) ...[
+                          if (isDesktopPlatform) ...[
                             const SizedBox(width: 8),
                             _MiniPlayerVolumeControl(colorScheme: colorScheme),
                           ],
@@ -418,191 +414,26 @@ class _MiniPlayerVolumeControl extends ConsumerWidget {
     final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
 
     final controller = ref.read(audioControllerProvider.notifier);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isNarrow = screenWidth < 600;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         // 音频设备选择器
         if (desktopAudioDeviceState.hasSelectableDevices)
-          _buildFmpAudioDeviceSelector(
-            context,
-            desktopAudioDeviceState.audioDevices,
-            desktopAudioDeviceState.currentAudioDevice,
-            controller,
+          FmpAudioDeviceSelector(
+            state: desktopAudioDeviceState,
+            controller: controller,
+            colorScheme: colorScheme,
           ),
 
         // 音量控制
-        if (isNarrow)
-          _buildCompactVolumeControl(context, volume, controller)
-        else
-          _buildFullVolumeControl(volume, controller),
-      ],
-    );
-  }
-
-  Widget _buildFmpAudioDeviceSelector(
-    BuildContext context,
-    List<FmpAudioDevice> devices,
-    FmpAudioDevice? currentDevice,
-    AudioController controller,
-  ) {
-    const menuWidth = 220.0;
-
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      alignmentOffset: const Offset(-menuWidth / 2 + 20, 16),
-      builder: (context, menuController, child) {
-        return IconButton(
-          icon: const Icon(Icons.speaker, size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: t.player.audioDevice,
-          onPressed: () {
-            if (menuController.isOpen) {
-              menuController.close();
-            } else {
-              menuController.open();
-            }
-          },
-        );
-      },
-      style: MenuStyle(
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
-        ),
-      ),
-      menuChildren: [
-        MenuItemButton(
-          onPressed: () => controller.setAudioDeviceAuto(),
-          leadingIcon: currentDevice == null || currentDevice.name == 'auto'
-              ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-              : const SizedBox(width: 18),
-          child: Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: Text(t.player.audioDeviceAuto),
-          ),
-        ),
-        const Divider(height: 1),
-        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((device) {
-          final isSelected = currentDevice?.name == device.name;
-          return MenuItemButton(
-            onPressed: () => controller.setAudioDevice(device),
-            leadingIcon: isSelected
-                ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-                : const SizedBox(width: 18),
-            child: Padding(
-              padding: const EdgeInsets.only(right: 18),
-              child: Text(
-                _formatDeviceName(device),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  String _formatDeviceName(FmpAudioDevice device) {
-    final displayName = device.description.isNotEmpty ? device.description : device.name;
-
-    final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
-    if (match != null) {
-      return match.group(1) ?? displayName;
-    }
-
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
-    if (matchEn != null) {
-      return matchEn.group(1) ?? displayName;
-    }
-
-    return displayName;
-  }
-
-  Widget _buildCompactVolumeControl(BuildContext context, double volume, AudioController controller) {
-    return MenuAnchor(
-      builder: (context, menuController, child) {
-        return IconButton(
-          icon: Icon(getVolumeIcon(volume), size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: t.player.volume,
-          onPressed: () {
-            if (menuController.isOpen) {
-              menuController.close();
-            } else {
-              menuController.open();
-            }
-          },
-        );
-      },
-      style: MenuStyle(
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
-        ),
-      ),
-      alignmentOffset: const Offset(0, -170),
-      menuChildren: [
-        SizedBox(
-          width: 40,
-          height: 120,
-          child: RotatedBox(
-            quarterTurns: 3,
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 4,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                activeTrackColor: colorScheme.primary,
-                inactiveTrackColor: colorScheme.surfaceContainerHighest,
-                thumbColor: colorScheme.primary,
-                overlayColor: colorScheme.primary.withValues(alpha: 0.2),
-              ),
-              child: Slider(
-                value: volume,
-                min: 0.0,
-                max: 1.0,
-                onChanged: (value) => controller.setVolume(value),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFullVolumeControl(double volume, AudioController controller) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: Icon(getVolumeIcon(volume), size: 20),
-          visualDensity: VisualDensity.compact,
-          tooltip: volume > 0 ? t.player.mute : t.player.unmute,
-          onPressed: () => controller.toggleMute(),
-        ),
-        SizedBox(
-          width: 100,
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: colorScheme.primary,
-              inactiveTrackColor: colorScheme.surfaceContainerHighest,
-              thumbColor: colorScheme.primary,
-              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
-            ),
-            child: Slider(
-              value: volume,
-              min: 0.0,
-              max: 1.0,
-              onChanged: (value) => controller.setVolume(value),
-            ),
-          ),
+        MiniPlayerVolumeControl(
+          volume: volume,
+          controller: controller,
+          colorScheme: colorScheme,
+          volumeTooltip: t.player.volume,
+          muteTooltip: t.player.mute,
+          unmuteTooltip: t.player.unmute,
         ),
       ],
     );

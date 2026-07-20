@@ -1,9 +1,9 @@
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/utils/platform_utils.dart';
 
 /// A horizontal scroll section with:
 /// - Gradient indicators on edges when more content exists
@@ -48,11 +48,7 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
   double? _lastViewportWidth;
 
   /// Check if we're on a desktop platform (not mobile)
-  bool get _isDesktop {
-    return defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux ||
-        defaultTargetPlatform == TargetPlatform.macOS;
-  }
+  bool get _isDesktop => isDesktopPlatform;
 
   @override
   void initState() {

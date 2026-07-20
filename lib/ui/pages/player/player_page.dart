@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
@@ -6,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/extensions/track_extensions.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
+import '../../../core/utils/platform_utils.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
@@ -70,10 +70,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       showAddToRemotePlaylistDialog(context: context, track: track);
     }
   }
-
-  /// 是否为桌面平台
-  bool get isDesktop =>
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   /// 是否正在拖动进度条
   bool _isDragging = false;
@@ -192,14 +188,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             },
           ),
         // 桌面端音频输出设备选择
-        if (isDesktop && desktopAudioDeviceState.hasSelectableDevices)
+        if (isDesktopPlatform && desktopAudioDeviceState.hasSelectableDevices)
           FmpAudioDeviceSelector(
             state: desktopAudioDeviceState,
             controller: controller,
             colorScheme: colorScheme,
           ),
         // 桌面端音量控制（紧凑版）
-        if (isDesktop)
+        if (isDesktopPlatform)
           CompactVolumeControl(
             volume: playerState.volume,
             controller: controller,

@@ -27,5 +27,26 @@ void main() {
         isNot(contains("ref.watch(audioControllerProvider.select((s) => s.currentAudioDevice))")),
       );
     });
+
+    test('both mini players delegate desktop controls to shared widgets', () {
+      final music = readSource('lib/ui/widgets/player/mini_player.dart');
+      final radio = readSource('lib/ui/widgets/radio/radio_mini_player.dart');
+      final shared =
+          readSource('lib/ui/widgets/player/mini_player_volume_control.dart');
+
+      expect(shared, contains('class MiniPlayerVolumeControl'));
+
+      for (final source in [music, radio]) {
+        expect(source, contains('MiniPlayerVolumeControl('));
+        expect(source, contains('FmpAudioDeviceSelector('));
+        expect(source, contains('desktopAudioDeviceStateProvider'));
+        // 逐字重複的私有實作已移除。
+        expect(source, isNot(contains('_buildCompactVolumeControl')));
+        expect(source, isNot(contains('_buildFullVolumeControl')));
+        expect(source, isNot(contains('_buildVolumeControl')));
+        expect(source, isNot(contains('_buildFmpAudioDeviceSelector')));
+        expect(source, isNot(contains('_formatDeviceName')));
+      }
+    });
   });
 }
