@@ -21,5 +21,7 @@
   "volume": "Volume",
   "mixShuffleDisabled": "Shuffle is not supported in Mix mode",
   "audioDevice": "Audio Output Device",
-  "audioDeviceAuto": "Auto (System Default)"
+  "audioDeviceAuto": "Auto (System Default)",
+  "previous": "Previous",
+  "next": "Next"
 }

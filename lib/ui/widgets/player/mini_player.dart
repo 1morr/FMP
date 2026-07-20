@@ -342,22 +342,6 @@ class _MiniPlayerControls extends ConsumerWidget {
           onPressed: isMixMode ? null : () => controller.toggleShuffle(),
         ),
 
-        // 循环模式按钮
-        IconButton(
-          icon: Icon(
-            loopMode == LoopMode.one ? Icons.repeat_one : Icons.repeat,
-            size: 20,
-          ),
-          color: loopMode != LoopMode.none ? colorScheme.primary : null,
-          tooltip: switch (loopMode) {
-            LoopMode.none => t.player.loopOff,
-            LoopMode.all => t.player.loopAll,
-            LoopMode.one => t.player.loopOne,
-          },
-          visualDensity: VisualDensity.compact,
-          onPressed: () => controller.cycleLoopMode(),
-        ),
-
         // 上一首按钮
         IconButton(
           icon: const Icon(Icons.skip_previous, size: 24),
@@ -395,6 +379,22 @@ class _MiniPlayerControls extends ConsumerWidget {
           icon: const Icon(Icons.skip_next, size: 24),
           visualDensity: VisualDensity.compact,
           onPressed: canPlayNext ? () => controller.next() : null,
+        ),
+
+        // 循环模式按钮（與全螢幕播放器一致，置於最右）
+        IconButton(
+          icon: Icon(
+            loopMode == LoopMode.one ? Icons.repeat_one : Icons.repeat,
+            size: 20,
+          ),
+          color: loopMode != LoopMode.none ? colorScheme.primary : null,
+          tooltip: switch (loopMode) {
+            LoopMode.none => t.player.loopOff,
+            LoopMode.all => t.player.loopAll,
+            LoopMode.one => t.player.loopOne,
+          },
+          visualDensity: VisualDensity.compact,
+          onPressed: () => controller.cycleLoopMode(),
         ),
       ],
     );
