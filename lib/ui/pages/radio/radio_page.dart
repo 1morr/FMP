@@ -9,12 +9,11 @@ import '../../../data/models/radio_station.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/menus/menu_action.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
-import '../../widgets/indicators/live_badge.dart';
-import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
-import '../../widgets/images/radio_cover_image.dart';
+import '../../widgets/radio/radio_station_card.dart';
 
 /// 电台页面
 class RadioPage extends ConsumerStatefulWidget {
@@ -153,29 +152,17 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
         return ContextMenuRegion(
           key: ValueKey(station.id),
-          menuBuilder: (_) => [
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete,
-                      size: 20, color: Theme.of(context).colorScheme.error),
-                  const SizedBox(width: 12),
-                  Text(t.radio.deleteStation,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
-                ],
-              ),
-            ),
-          ],
-          onSelected: (value) {
-            if (value == 'delete') _showDeleteConfirm(context, station);
-          },
-          child: _RadioStationCard(
+          menuBuilder: (_) => buildMenuActionPopupEntries(
+            _stationMenuActions(),
+            Theme.of(context).colorScheme.error,
+          ),
+          onSelected: (value) => _onStationMenuAction(context, station, value),
+          child: RadioStationCard(
             station: station,
             isLive: isLive,
             isPlaying: isCurrentPlaying && radioState.isPlaying,
             isLoading: radioState.loadingStationId == station.id,
+            showAnchor: true,
             onTap: () => _onStationTap(station, isCurrentPlaying, radioState),
             onLongPress: () => _showOptionsMenu(context, station),
           ),
@@ -224,12 +211,14 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         final isLive = radioState.isStationLive(station.id);
         final isCurrentPlaying = radioState.currentStation?.id == station.id;
 
-        return _ReorderableRadioStationCard(
+        return RadioStationCard(
           key: ValueKey(station.id),
           station: station,
           isLive: isLive,
           isPlaying: isCurrentPlaying && radioState.isPlaying,
           isLoading: radioState.loadingStationId == station.id,
+          showAnchor: true,
+          trailing: const RadioStationDragHandle(),
         );
       },
     );
@@ -286,27 +275,39 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     }
   }
 
+  List<MenuAction> _stationMenuActions() => [
+        MenuAction(
+          id: 'delete',
+          icon: Icons.delete,
+          label: t.radio.deleteStation,
+          destructive: true,
+        ),
+      ];
+
+  void _onStationMenuAction(
+    BuildContext context,
+    RadioStation station,
+    String value,
+  ) {
+    if (value == 'delete') _showDeleteConfirm(context, station);
+  }
+
   void _showOptionsMenu(BuildContext context, RadioStation station) {
     final colorScheme = Theme.of(context).colorScheme;
 
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.radio.deleteStation,
-                    style: TextStyle(color: colorScheme.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteConfirm(context, station);
-                },
-              ),
-            ],
+            children: buildMenuActionListTiles(
+              sheetContext,
+              _stationMenuActions(),
+              (value) => _onStationMenuAction(context, station, value),
+              colorScheme.error,
+            ),
           ),
         ),
       ),
@@ -333,319 +334,3 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   }
 }
 
-/// 电台卡片
-class _RadioStationCard extends StatelessWidget {
-  final RadioStation station;
-  final bool isLive;
-  final bool isPlaying;
-  final bool isLoading;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  const _RadioStationCard({
-    required this.station,
-    required this.isLive,
-    required this.isPlaying,
-    required this.isLoading,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: AppRadius.borderRadiusLg,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // 封面大小 = 卡片宽度 - 水平padding
-          final coverSize = constraints.maxWidth - 40; // 20 * 2
-
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              // 圆形封面
-              Padding(
-                padding: const EdgeInsets.only(left: 20, right: 20, top: 20),
-                child: SizedBox(
-                  width: coverSize,
-                  height: coverSize,
-                  child: Stack(
-                    children: [
-                      // 封面图
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colorScheme.surfaceContainerHighest,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: ColorFiltered(
-                          colorFilter: isLive
-                              ? const ColorFilter.mode(
-                                  Colors.transparent,
-                                  BlendMode.multiply,
-                                )
-                              : kGrayscaleColorFilter,
-                          child: RadioCoverImage(
-                            networkUrl: station.thumbnailUrl,
-                            fit: BoxFit.cover,
-                            width: coverSize,
-                            height: coverSize,
-                            variant: RadioCoverVariant.card,
-                          ),
-                        ),
-                      ),
-
-                      // 正在直播红点
-                      if (isLive)
-                        Positioned(
-                          top: LiveBadge.dotOffset(16),
-                          right: LiveBadge.dotOffset(16),
-                          child: const LiveBadge.dot(size: 16),
-                        ),
-
-                      // 播放中指示器
-                      if (isPlaying || isLoading)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: colorScheme.primary.withValues(alpha: 0.4),
-                            ),
-                            child: Center(
-                              child: isLoading
-                                  ? SizedBox(
-                                      width: coverSize * 0.32,
-                                      height: coverSize * 0.32,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        color: colorScheme.onPrimary,
-                                      ),
-                                    )
-                                  : NowPlayingIndicator(
-                                      color: colorScheme.onPrimary,
-                                      size: coverSize * 0.32,
-                                      isPlaying: true,
-                                    ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // 标题
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  station.title,
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: isPlaying ? FontWeight.bold : null,
-                    color: isLive
-                        ? (isPlaying
-                            ? colorScheme.primary
-                            : colorScheme.onSurface)
-                        : colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-
-              // 主播名称
-              if (station.hostName != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    station.hostName!,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: isLive
-                          ? colorScheme.onSurfaceVariant
-                          : colorScheme.outline,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// 可拖動排序的電台卡片（保持與原卡片相同的顯示樣式）
-class _ReorderableRadioStationCard extends StatelessWidget {
-  final RadioStation station;
-  final bool isLive;
-  final bool isPlaying;
-  final bool isLoading;
-
-  const _ReorderableRadioStationCard({
-    super.key,
-    required this.station,
-    required this.isLive,
-    required this.isPlaying,
-    required this.isLoading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Stack(
-      children: [
-        // 主體內容（與原卡片相同）
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final coverSize = constraints.maxWidth - 40;
-
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                // 圓形封面
-                Padding(
-                  padding: const EdgeInsets.only(left: 20, right: 20, top: 20),
-                  child: SizedBox(
-                    width: coverSize,
-                    height: coverSize,
-                    child: Stack(
-                      children: [
-                        // 封面圖
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: colorScheme.surfaceContainerHighest,
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: ColorFiltered(
-                            colorFilter: isLive
-                                ? const ColorFilter.mode(
-                                    Colors.transparent,
-                                    BlendMode.multiply,
-                                  )
-                                : kGrayscaleColorFilter,
-                            child: RadioCoverImage(
-                              networkUrl: station.thumbnailUrl,
-                              fit: BoxFit.cover,
-                              width: coverSize,
-                              height: coverSize,
-                              variant: RadioCoverVariant.card,
-                            ),
-                          ),
-                        ),
-
-                        // 正在直播紅點
-                        if (isLive)
-                          Positioned(
-                            top: LiveBadge.dotOffset(16),
-                            right: LiveBadge.dotOffset(16),
-                            child: const LiveBadge.dot(size: 16),
-                          ),
-
-                        // 播放中指示器
-                        if (isPlaying || isLoading)
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color:
-                                    colorScheme.primary.withValues(alpha: 0.4),
-                              ),
-                              child: Center(
-                                child: isLoading
-                                    ? SizedBox(
-                                        width: coverSize * 0.32,
-                                        height: coverSize * 0.32,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                          color: colorScheme.onPrimary,
-                                        ),
-                                      )
-                                    : NowPlayingIndicator(
-                                        color: colorScheme.onPrimary,
-                                        size: coverSize * 0.32,
-                                        isPlaying: true,
-                                      ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                // 標題
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    station.title,
-                    style: textTheme.titleSmall?.copyWith(
-                      fontWeight: isPlaying ? FontWeight.bold : null,
-                      color: isLive
-                          ? (isPlaying
-                              ? colorScheme.primary
-                              : colorScheme.onSurface)
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-
-                // 主播名稱
-                if (station.hostName != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      station.hostName!,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: isLive
-                            ? colorScheme.onSurfaceVariant
-                            : colorScheme.outline,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-
-        // 拖動把手
-        Positioned(
-          right: 4,
-          top: 4,
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.7),
-              borderRadius: AppRadius.borderRadiusSm,
-            ),
-            child: Icon(
-              Icons.drag_indicator,
-              size: 16,
-              color: colorScheme.onPrimary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}

@@ -22,15 +22,14 @@ import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
-import '../../widgets/indicators/live_badge.dart';
-import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/layout/horizontal_scroll_section.dart';
 import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/menus/menu_action.dart';
 import '../../widgets/menus/playlist_card_actions.dart';
+import '../../widgets/radio/radio_station_card.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/images/playlist_cover_image.dart';
-import '../../widgets/images/radio_cover_image.dart';
 import '../../widgets/images/recent_play_cover_image.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../widgets/indicators/vip_badge.dart';
@@ -548,29 +547,19 @@ class _RadioSection extends ConsumerWidget {
             return SizedBox(
               width: 120,
               child: ContextMenuRegion(
-                menuBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete,
-                          color: Theme.of(context).colorScheme.error),
-                      title: Text(t.radio.deleteStation,
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.error)),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'delete') {
-                    _showRadioDeleteConfirm(context, ref, station);
-                  }
-                },
-                child: _HomeRadioStationCard(
+                menuBuilder: (_) => buildMenuActionPopupEntries(
+                  _radioMenuActions(),
+                  Theme.of(context).colorScheme.error,
+                ),
+                onSelected: (value) =>
+                    _handleRadioMenuAction(context, ref, station, value),
+                child: RadioStationCard(
                   station: station,
                   isLive: isLive,
                   isPlaying: isPlaying,
                   isLoading: isLoading,
+                  coverSize: 100,
+                  dense: true,
                   onTap: () => _onRadioStationTap(
                       ref, station, isCurrentPlaying, radioState),
                   onLongPress: () =>
@@ -598,27 +587,38 @@ class _RadioSection extends ConsumerWidget {
     }
   }
 
+  List<MenuAction> _radioMenuActions() => [
+        MenuAction(
+          id: 'delete',
+          icon: Icons.delete,
+          label: t.radio.deleteStation,
+          destructive: true,
+        ),
+      ];
+
+  void _handleRadioMenuAction(BuildContext context, WidgetRef ref,
+      RadioStation station, String value) {
+    if (value == 'delete') {
+      _showRadioDeleteConfirm(context, ref, station);
+    }
+  }
+
   void _showRadioOptionsMenu(
       BuildContext context, WidgetRef ref, RadioStation station) {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.radio.deleteStation,
-                    style: TextStyle(color: colorScheme.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showRadioDeleteConfirm(context, ref, station);
-                },
-              ),
-            ],
+            children: buildMenuActionListTiles(
+              sheetContext,
+              _radioMenuActions(),
+              (value) => _handleRadioMenuAction(context, ref, station, value),
+              colorScheme.error,
+            ),
           ),
         ),
       ),
@@ -757,6 +757,21 @@ class _RecentHistorySection extends ConsumerWidget {
     );
   }
 
+  List<MenuAction> _historyDestructiveActions() => [
+        MenuAction(
+          id: 'delete',
+          icon: Icons.delete_outline,
+          label: t.playHistoryPage.deleteThisRecord,
+          destructive: true,
+        ),
+        MenuAction(
+          id: 'delete_all',
+          icon: Icons.delete_sweep,
+          label: t.playHistoryPage.deleteAllForTrack,
+          destructive: true,
+        ),
+      ];
+
   List<PopupMenuEntry<String>> _buildHistoryMenuItems(
           ColorScheme colorScheme) =>
       [
@@ -770,17 +785,9 @@ class _RecentHistorySection extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
-        buildDestructivePopupMenuItem(
-          value: 'delete',
-          icon: Icons.delete_outline,
-          label: t.playHistoryPage.deleteThisRecord,
-          color: colorScheme.error,
-        ),
-        buildDestructivePopupMenuItem(
-          value: 'delete_all',
-          icon: Icons.delete_sweep,
-          label: t.playHistoryPage.deleteAllForTrack,
-          color: colorScheme.error,
+        ...buildMenuActionPopupEntries(
+          _historyDestructiveActions(),
+          colorScheme.error,
         ),
       ];
 
@@ -866,23 +873,13 @@ class _RecentHistorySection extends ConsumerWidget {
                 ),
               ),
               const Divider(),
-              ListTile(
-                  leading: Icon(Icons.delete_outline, color: colorScheme.error),
-                  title: Text(t.playHistoryPage.deleteThisRecord,
-                      style: TextStyle(color: colorScheme.error)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _handleHistoryMenuAction(context, ref, history, 'delete');
-                  }),
-              ListTile(
-                  leading: Icon(Icons.delete_sweep, color: colorScheme.error),
-                  title: Text(t.playHistoryPage.deleteAllForTrack,
-                      style: TextStyle(color: colorScheme.error)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _handleHistoryMenuAction(
-                        context, ref, history, 'delete_all');
-                  }),
+              ...buildMenuActionListTiles(
+                context,
+                _historyDestructiveActions(),
+                (value) =>
+                    _handleHistoryMenuAction(context, ref, history, value),
+                colorScheme.error,
+              ),
             ],
           ),
         ),
@@ -1032,124 +1029,6 @@ class _RankingTrackTile extends ConsumerWidget {
       ref: ref,
       track: track,
       actionId: action,
-    );
-  }
-}
-
-/// 首頁電台卡片（簡化版）
-class _HomeRadioStationCard extends StatelessWidget {
-  final RadioStation station;
-  final bool isLive;
-  final bool isPlaying;
-  final bool isLoading;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  const _HomeRadioStationCard({
-    required this.station,
-    required this.isLive,
-    required this.isPlaying,
-    required this.isLoading,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: AppRadius.borderRadiusLg,
-      child: Column(
-        children: [
-          // 圆形封面
-          SizedBox(
-            width: 100,
-            height: 100,
-            child: Stack(
-              children: [
-                // 封面图
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: colorScheme.surfaceContainerHighest,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: ColorFiltered(
-                    colorFilter: isLive
-                        ? const ColorFilter.mode(
-                            Colors.transparent,
-                            BlendMode.multiply,
-                          )
-                        : kGrayscaleColorFilter,
-                    child: RadioCoverImage(
-                      networkUrl: station.thumbnailUrl,
-                      fit: BoxFit.cover,
-                      width: 100,
-                      height: 100,
-                      variant: RadioCoverVariant.card,
-                    ),
-                  ),
-                ),
-
-                // 正在直播红点
-                if (isLive)
-                  Positioned(
-                    top: LiveBadge.dotOffset(14),
-                    right: LiveBadge.dotOffset(14),
-                    child: const LiveBadge.dot(size: 14),
-                  ),
-
-                // 播放中指示器
-                if (isPlaying || isLoading)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.primary.withValues(alpha: 0.4),
-                      ),
-                      child: Center(
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 30,
-                                height: 30,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const NowPlayingIndicator(
-                                color: Colors.white,
-                                size: 30,
-                                isPlaying: true,
-                              ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // 标题
-          Text(
-            station.title,
-            style: textTheme.bodySmall?.copyWith(
-              fontWeight: isPlaying ? FontWeight.bold : null,
-              color: isLive
-                  ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
-                  : colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }
