@@ -83,6 +83,9 @@ void main() {
       final radioMiniPlayer =
           File('lib/ui/widgets/radio/radio_mini_player.dart')
               .readAsStringSync();
+      final radioStationCard =
+          File('lib/ui/widgets/radio/radio_station_card.dart')
+              .readAsStringSync();
       final radioPlayer =
           File('lib/ui/pages/radio/radio_player_page.dart').readAsStringSync();
       final playerPage =
@@ -112,7 +115,7 @@ void main() {
       );
       expect(
         home,
-        contains('variant: RadioCoverVariant.card'),
+        contains('RadioStationCard('),
       );
       expect(
         downloaded,
@@ -144,6 +147,10 @@ void main() {
       );
       expect(
         radioPage,
+        contains('RadioStationCard('),
+      );
+      expect(
+        radioStationCard,
         contains('variant: RadioCoverVariant.card'),
       );
       expect(
@@ -337,8 +344,7 @@ void main() {
       }
 
       final expectedRadioUsers = <String>[
-        'lib/ui/pages/home/home_page.dart',
-        'lib/ui/pages/radio/radio_page.dart',
+        'lib/ui/widgets/radio/radio_station_card.dart',
         'lib/ui/pages/radio/radio_player_page.dart',
         'lib/ui/pages/search/search_page.dart',
         'lib/ui/widgets/radio/radio_mini_player.dart',
