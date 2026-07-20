@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
@@ -14,6 +13,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/images/track_thumbnail.dart';
+import '../../widgets/indicators/source_badge.dart';
 
 /// 显示导入预览弹窗
 Future<void> showImportPreviewDialog(
@@ -654,7 +654,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                   ),
                   if (hasSelection) ...[
                     const SizedBox(width: 8),
-                    _SourceBadge(sourceType: selectedTrack.sourceType),
+                    SourceBadge(sourceType: selectedTrack.sourceType),
                   ],
                 ],
               ),
@@ -865,7 +865,7 @@ class _ImportMatchTile extends StatelessWidget {
                   ],
                   // 音源标识（播放数右边，灰色）
                   const SizedBox(width: 8),
-                  _SourceBadge(sourceType: track.sourceType),
+                  SourceBadge(sourceType: track.sourceType),
                 ],
               ),
               // 第二行：原曲信息（使用淡色圆形badge）
@@ -1006,7 +1006,7 @@ class _AlternativeTrackTile extends ConsumerWidget {
             ],
             // 音源标识（播放数右边，灰色）
             const SizedBox(width: 6),
-            _SourceBadge(sourceType: track.sourceType),
+            SourceBadge(sourceType: track.sourceType),
           ],
         ),
         trailing: Row(
@@ -1066,29 +1066,6 @@ class _AlternativeTrackTile extends ConsumerWidget {
         ),
         onTap: onSelect,
       ),
-    );
-  }
-}
-
-/// 音源标识 - 使用灰色图标（与搜索页面一致）
-class _SourceBadge extends StatelessWidget {
-  final SourceType sourceType;
-
-  const _SourceBadge({required this.sourceType});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final icon = switch (sourceType) {
-      SourceType.bilibili => SimpleIcons.bilibili,
-      SourceType.youtube => SimpleIcons.youtube,
-      SourceType.netease => SimpleIcons.neteasecloudmusic,
-    };
-
-    return Icon(
-      icon,
-      size: 14,
-      color: colorScheme.outline,
     );
   }
 }

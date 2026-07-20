@@ -27,12 +27,12 @@ import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/menus/menu_action.dart';
 import '../../widgets/menus/playlist_card_actions.dart';
 import '../../widgets/radio/radio_station_card.dart';
-import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
+import '../../widgets/feedback/error_display.dart';
 import '../../widgets/images/playlist_cover_image.dart';
 import '../../widgets/images/recent_play_cover_image.dart';
 import '../../widgets/images/track_thumbnail.dart';
-import '../../widgets/indicators/vip_badge.dart';
+import '../../widgets/track_tiles/ranking_track_tile.dart';
 import '../../../data/models/playlist.dart';
 import '../../../providers/search/refresh_provider.dart';
 import '../../../services/library/playlist_service.dart';
@@ -192,7 +192,7 @@ class HomeRankingsSection extends ConsumerWidget {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => context.go(RoutePaths.explore),
+                onPressed: () => context.push(RoutePaths.explore),
                 child: Text(t.home.viewAll),
               ),
             ],
@@ -253,7 +253,7 @@ class HomeRankingsSection extends ConsumerWidget {
           if (candidateSources.isEmpty) return const SizedBox.shrink();
           return const SizedBox(
             height: 200,
-            child: Center(child: CircularProgressIndicator()),
+            child: LoadingPlaceholder(),
           );
         }
 
@@ -339,7 +339,7 @@ class HomeRankingsSection extends ConsumerWidget {
         Column(
           children: [
             for (int i = 0; i < displayTracks.length; i++)
-              _RankingTrackTile(
+              RankingTrackTile(
                 key: ValueKey(
                   '${displayTracks[i].sourceId}_${displayTracks[i].pageNum}',
                 ),
@@ -884,151 +884,6 @@ class _RecentHistorySection extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// 排行榜歌曲項目（類似搜索結果項目）
-class _RankingTrackTile extends ConsumerWidget {
-  final Track track;
-  final int rank;
-
-  const _RankingTrackTile({super.key, required this.track, required this.rank});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final currentTrack = ref.watch(currentTrackProvider);
-    final isPlaying = currentTrack != null &&
-        currentTrack.sourceId == track.sourceId &&
-        currentTrack.pageNum == track.pageNum;
-
-    return ContextMenuRegion(
-      menuBuilder: (_) => _buildMenuItems(),
-      onSelected: (value) => _handleMenuAction(context, ref, value),
-      child: InkWell(
-        onTap: () {
-          ref.read(audioControllerProvider.notifier).playTemporary(track);
-        },
-        borderRadius: AppRadius.borderRadiusMd,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 8,
-            horizontal: 16,
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 28,
-                child: Text(
-                  '$rank',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              TrackThumbnail(
-                track: track,
-                size: AppSizes.thumbnailMedium,
-                borderRadius: 4,
-                isPlaying: isPlaying,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge
-                                ?.copyWith(
-                                  color: isPlaying ? colorScheme.primary : null,
-                                  fontWeight:
-                                      isPlaying ? FontWeight.w600 : null,
-                                ),
-                          ),
-                        ),
-                        if (track.isVip) ...[
-                          const SizedBox(width: 4),
-                          const VipBadge(),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            track.artist ?? t.general.unknownArtist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ),
-                        if (track.viewCount != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.play_arrow,
-                            size: 14,
-                            color: colorScheme.outline,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            formatCount(track.viewCount!),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.outline,
-                                    ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (_) => _buildMenuItems(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<PopupMenuEntry<String>> _buildMenuItems() {
-    return buildTrackActionPopupMenuEntries(
-      buildCommonTrackActionMenuItems(translations: t),
-    );
-  }
-
-  Future<void> _handleMenuAction(
-    BuildContext context,
-    WidgetRef ref,
-    String action,
-  ) async {
-    await TrackActionCoordinator.handleSingle(
-      context: context,
-      ref: ref,
-      track: track,
-      actionId: action,
     );
   }
 }

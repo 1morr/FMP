@@ -123,7 +123,11 @@ void main() {
       );
       expect(
         downloadedCategory,
-        contains('variant: PlaylistCoverVariant.card'),
+        contains('variant: PlaylistCoverVariant.hero'),
+      );
+      expect(
+        downloadedCategory,
+        contains('variant: PlaylistCoverVariant.compact'),
       );
       expect(
         coverPicker,
@@ -406,6 +410,7 @@ void main() {
         'lib/ui/widgets/player',
         'lib/ui/widgets/radio',
         'lib/ui/widgets/track_group',
+        'lib/ui/widgets/track_tiles',
       ];
 
       for (final path in expectedDirectories) {
@@ -628,7 +633,7 @@ void main() {
           File('lib/ui/pages/home/home_page.dart').readAsStringSync();
 
       expect(source, contains('class HomeRankingsSection'));
-      expect(source, contains('CircularProgressIndicator'));
+      expect(source, contains('LoadingPlaceholder'));
       expect(source, isNot(contains('ForTest')));
     });
 

@@ -14,6 +14,7 @@ import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
+import '../../widgets/feedback/error_display.dart';
 import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
@@ -55,21 +56,30 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     final pageState = ref.watch(playHistoryPageProvider);
     final notifier = ref.read(playHistoryPageProvider.notifier);
 
-    return Scaffold(
-      appBar: _buildAppBar(context, pageState, notifier),
-      body: Column(
-        children: [
-          // 统计卡片
-          _buildStatsCard(context),
-          // 筛选和排序栏
-          _buildFilterBar(context, pageState, notifier),
-          // 历史列表
-          Expanded(
-            child: pageState.isMultiSelectMode
-                ? _buildMultiSelectList(context)
-                : _buildTimelineList(context),
-          ),
-        ],
+    // 多選模式下攔截返回鍵，先退出多選再允許離開頁面
+    return PopScope(
+      canPop: !pageState.isMultiSelectMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && pageState.isMultiSelectMode) {
+          notifier.exitMultiSelectMode();
+        }
+      },
+      child: Scaffold(
+        appBar: _buildAppBar(context, pageState, notifier),
+        body: Column(
+          children: [
+            // 统计卡片
+            _buildStatsCard(context),
+            // 筛选和排序栏
+            _buildFilterBar(context, pageState, notifier),
+            // 历史列表
+            Expanded(
+              child: pageState.isMultiSelectMode
+                  ? _buildMultiSelectList(context)
+                  : _buildTimelineList(context),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -374,28 +384,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
   Widget _buildTimelineList(BuildContext context) {
     final groupedAsync = ref.watch(groupedPlayHistoryProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     return groupedAsync.when(
       skipLoadingOnReload: true,
       data: (grouped) {
         if (grouped.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.history,
-                  size: 64,
-                  color: colorScheme.outline,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  t.playHistoryPage.noRecords,
-                  style: TextStyle(color: colorScheme.outline),
-                ),
-              ],
-            ),
+          return ErrorDisplay.empty(
+            icon: Icons.history,
+            message: t.playHistoryPage.noRecords,
           );
         }
 
@@ -443,16 +439,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-            const SizedBox(height: 16),
-            Text(t.playHistoryPage.loadFailed(error: e.toString())),
-          ],
-        ),
+      loading: () => const LoadingPlaceholder(),
+      error: (e, _) => ErrorDisplay(
+        type: ErrorType.general,
+        message: t.playHistoryPage.loadFailed(error: e.toString()),
+        onRetry: () => ref.invalidate(playHistorySnapshotProvider),
       ),
     );
   }
@@ -1001,7 +992,7 @@ class _GroupSelectionCheckbox extends StatelessWidget {
       icon = Icons.check_circle;
       color = colorScheme.primary;
     } else if (isPartiallySelected) {
-      icon = Icons.remove_circle;
+      icon = Icons.remove_circle_outline;
       color = colorScheme.primary;
     } else {
       icon = Icons.radio_button_unchecked;

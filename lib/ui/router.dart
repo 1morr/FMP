@@ -146,13 +146,11 @@ final appRouter = GoRouter(
             child: SearchPage(),
           ),
         ),
-        // 探索
+        // 探索（作為 push 子頁，使用預設滑入轉場與自動返回鈕）
         GoRoute(
           path: RoutePaths.explore,
           name: RouteNames.explore,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: ExplorePage(),
-          ),
+          builder: (context, state) => const ExplorePage(),
         ),
         // 队列
         GoRoute(

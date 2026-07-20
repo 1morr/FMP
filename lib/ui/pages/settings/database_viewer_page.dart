@@ -7,6 +7,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_catalog.dart';
 import '../../../providers/database/database_provider.dart';
+import '../../widgets/feedback/error_display.dart';
 
 /// 数据库查看页面
 class DatabaseViewerPage extends ConsumerStatefulWidget {
@@ -166,22 +167,8 @@ Widget _buildList(
   required Widget Function(int index) itemBuilder,
 }) {
   if (itemCount == 0) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 64,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            t.databaseViewer.noData,
-            style: TextStyle(color: Theme.of(context).colorScheme.outline),
-          ),
-        ],
-      ),
+    return ErrorDisplay.empty(
+      message: t.databaseViewer.noData,
     );
   }
 

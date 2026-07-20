@@ -341,7 +341,7 @@ class _DownloadedCategoryPageState
           networkUrl: null,
           placeholder: gradientPlaceholder,
           fit: BoxFit.cover,
-          variant: PlaylistCoverVariant.card,
+          variant: PlaylistCoverVariant.hero,
         ),
       );
     }
@@ -364,7 +364,7 @@ class _DownloadedCategoryPageState
         networkUrl: null,
         placeholder: placeholder,
         fit: BoxFit.cover,
-        variant: PlaylistCoverVariant.card,
+        variant: PlaylistCoverVariant.compact,
       );
     }
     return placeholder;
