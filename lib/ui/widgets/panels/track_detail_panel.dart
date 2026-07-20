@@ -11,6 +11,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/number_format_utils.dart';
+import '../../../core/utils/relative_time_formatter.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
@@ -28,6 +29,8 @@ import '../images/radio_cover_image.dart';
 import '../images/track_thumbnail.dart';
 import '../indicators/live_badge.dart';
 import '../indicators/vip_badge.dart';
+import '../layout/detail_stats_row.dart';
+import '../layout/expandable_text_section.dart';
 import '../lyrics/lyrics_display.dart';
 import '../dialogs/add_to_playlist_dialog.dart';
 import '../dialogs/add_to_remote_playlist_dialog.dart';
@@ -830,25 +833,35 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
 
         const SizedBox(height: 20),
 
-        // 标题
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                widget.detail.title,
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  height: 1.3,
+        // 标题（点击跳转到视频页面，与电台面板/行动版弹窗一致）
+        MouseRegion(
+          cursor: currentTrack != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: GestureDetector(
+            onTap: currentTrack != null
+                ? () => UrlLauncherService.instance.openVideo(currentTrack)
+                : null,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.detail.title,
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+                if (currentTrack?.isVip == true) ...[
+                  const SizedBox(width: 6),
+                  const VipBadge(),
+                ],
+              ],
             ),
-            if (currentTrack?.isVip == true) ...[
-              const SizedBox(width: 6),
-              const VipBadge(),
-            ],
-          ],
+          ),
         ),
 
         const SizedBox(height: 12),
@@ -931,7 +944,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _ExpandableTextSection(
+          ExpandableTextSection(
             icon: Icons.info_outline_rounded,
             title: t.trackDetail.description,
             content: widget.detail.description,
@@ -968,81 +981,38 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
     final isNetease = track?.sourceType == SourceType.netease;
 
     if (isNetease) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
+      return DetailStatsRow(
+        items: [
           if (widget.detail.albumName.isNotEmpty)
-            Flexible(
-              child: _buildStatChip(
-                context,
-                Icons.album_rounded,
-                widget.detail.albumName,
-              ),
+            DetailStatItem(
+              icon: Icons.album_rounded,
+              label: widget.detail.albumName,
             ),
           if (widget.detail.commentCount > 0)
-            _buildStatChip(
-              context,
-              Icons.comment_rounded,
-              widget.detail.formattedCommentCount,
+            DetailStatItem(
+              icon: Icons.comment_rounded,
+              label: widget.detail.formattedCommentCount,
             ),
         ],
       );
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildStatChip(
-          context,
-          Icons.play_arrow_rounded,
-          widget.detail.formattedViewCount,
-          iconSize: 26,
-          offsetY: 1.2,
+    return DetailStatsRow(
+      items: [
+        DetailStatItem(
+          icon: Icons.play_arrow_rounded,
+          label: widget.detail.formattedViewCount,
         ),
-        _buildStatChip(
-          context,
-          Icons.thumb_up_rounded,
-          widget.detail.formattedLikeCount,
+        DetailStatItem(
+          icon: Icons.thumb_up_rounded,
+          label: widget.detail.formattedLikeCount,
         ),
         // YouTube 不显示收藏数
         if (!isYouTube)
-          _buildStatChip(
-            context,
-            Icons.star_rounded,
-            widget.detail.formattedFavoriteCount,
-            iconSize: 24,
+          DetailStatItem(
+            icon: Icons.star_rounded,
+            label: widget.detail.formattedFavoriteCount,
           ),
-      ],
-    );
-  }
-
-  Widget _buildStatChip(BuildContext context, IconData icon, String value,
-      {double iconSize = 18, double offsetY = 0}) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Transform.translate(
-          offset: Offset(0, offsetY),
-          child: Icon(
-            icon,
-            size: iconSize,
-            color: colorScheme.primary.withValues(alpha: 0.8),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            value,
-            style: textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-        ),
       ],
     );
   }
@@ -1367,132 +1337,6 @@ class _ClickableAvatar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// 可展开文本区块（支持展开/收起，用于简介/公告等）
-class _ExpandableTextSection extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final String content;
-  final int maxLines;
-
-  const _ExpandableTextSection({
-    required this.icon,
-    required this.title,
-    required this.content,
-    this.maxLines = 6,
-  });
-
-  @override
-  State<_ExpandableTextSection> createState() => _ExpandableTextSectionState();
-}
-
-class _ExpandableTextSectionState extends State<_ExpandableTextSection> {
-  bool _isExpanded = false;
-  bool _needsExpansion = false;
-  final GlobalKey _textKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkIfNeedsExpansion();
-    });
-  }
-
-  @override
-  void didUpdateWidget(_ExpandableTextSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.content != widget.content) {
-      _isExpanded = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkIfNeedsExpansion();
-      });
-    }
-  }
-
-  void _checkIfNeedsExpansion() {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: widget.content,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              height: 1.6,
-            ),
-      ),
-      maxLines: widget.maxLines,
-      textDirection: TextDirection.ltr,
-    );
-
-    final renderBox = _textKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
-      textPainter.layout(maxWidth: renderBox.size.width);
-      if (mounted) {
-        setState(() {
-          _needsExpansion = textPainter.didExceedMaxLines;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(widget.icon, size: 18, color: colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              widget.title,
-              style: textTheme.titleSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          widget.content,
-          key: _textKey,
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            height: 1.6,
-          ),
-          maxLines: _isExpanded ? null : widget.maxLines,
-          overflow: _isExpanded ? null : TextOverflow.ellipsis,
-        ),
-        if (_needsExpansion)
-          Align(
-            alignment: Alignment.centerRight,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    _isExpanded ? t.trackDetail.collapse : t.trackDetail.expand,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -1832,7 +1676,7 @@ class _RadioDetailContent extends ConsumerWidget {
               if (radioState.liveStartTime != null)
                 Text(
                   t.radio.startedBroadcast(
-                      time: _formatDateTime(radioState.liveStartTime!)),
+                      time: formatRelativeTime(radioState.liveStartTime!)),
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
@@ -1851,11 +1695,10 @@ class _RadioDetailContent extends ConsumerWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _ExpandableTextSection(
+          ExpandableTextSection(
             icon: Icons.campaign_outlined,
             title: t.trackDetail.streamerAnnouncement,
             content: radioState.announcement!,
-            maxLines: 4,
           ),
         ],
 
@@ -1865,11 +1708,10 @@ class _RadioDetailContent extends ConsumerWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _ExpandableTextSection(
+          ExpandableTextSection(
             icon: Icons.info_outline_rounded,
             title: t.trackDetail.description,
             content: radioState.description!,
-            maxLines: 4,
           ),
         ],
 
@@ -1888,51 +1730,23 @@ class _RadioDetailContent extends ConsumerWidget {
 
   /// 简化的统计数据
   Widget _buildSimpleStats(BuildContext context) {
-    return Wrap(
-      spacing: 16,
-      runSpacing: 8,
-      children: [
+    return DetailStatsRow(
+      items: [
         if (radioState.viewerCount != null)
-          _buildStatItem(
-            context,
-            Icons.visibility_rounded,
-            _formatCount(radioState.viewerCount!),
+          DetailStatItem(
+            icon: Icons.visibility_rounded,
+            label: formatCount(radioState.viewerCount!),
           ),
         if (radioState.areaName != null)
-          _buildStatItem(
-            context,
-            Icons.category_outlined,
-            radioState.areaName!,
+          DetailStatItem(
+            icon: Icons.category_outlined,
+            label: radioState.areaName!,
           ),
-        _buildStatItem(
-          context,
-          radioState.isPlaying
+        DetailStatItem(
+          icon: radioState.isPlaying
               ? Icons.radio_button_checked
               : Icons.radio_button_off,
-          radioState.isPlaying ? t.trackDetail.isLive : t.trackDetail.isStopped,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(BuildContext context, IconData icon, String value) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 18,
-          color: colorScheme.primary.withValues(alpha: 0.8),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          value,
-          style: textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          label: radioState.isPlaying ? t.radio.live : t.radio.stopped,
         ),
       ],
     );
@@ -1983,23 +1797,6 @@ class _RadioDetailContent extends ConsumerWidget {
       ],
     );
   }
-
-  String _formatCount(int count) => formatCount(count);
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-
-    if (diff.inDays > 0) {
-      return t.radio.daysAgo(n: diff.inDays);
-    } else if (diff.inHours > 0) {
-      return t.radio.hoursAgo(n: diff.inHours);
-    } else if (diff.inMinutes > 0) {
-      return t.radio.minutesAgo(n: diff.inMinutes);
-    } else {
-      return t.trackDetail.justNow;
-    }
-  }
 }
 
 /// 电台可点击封面
@@ -2027,8 +1824,8 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
     super.initState();
     // _preloadImage 會經由 context 取 MediaQuery（裝置像素比），不能在
     // initState 直接呼叫（Inherited widget 此時尚未可用，會拋
-    // dependOnInheritedWidgetOfExactType）。延後到首幀後執行，與同檔
-    // _ExpandableTextSectionState 的慣例一致。
+    // dependOnInheritedWidgetOfExactType）。延後到首幀後執行，與共用元件
+    // ExpandableTextSection 的慣例一致。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _preloadImage();
     });

@@ -26,6 +26,8 @@ import '../../../core/constants/ui_constants.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../widgets/indicators/vip_badge.dart';
+import '../../widgets/layout/detail_stats_row.dart';
+import '../../widgets/layout/expandable_text_section.dart';
 import '../../widgets/layout/immersive_player_scaffold.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
 import '../../widgets/player/compact_volume_control.dart';
@@ -922,9 +924,33 @@ class _DetailContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    // 網易雲封面為 1:1，其餘為 16:9（與桌面 Detail Panel 一致）
+    final coverAspectRatio = isNetease ? 1.0 : 16 / 9;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 封面（点击跳转到视频页面，与桌面 Detail Panel 一致）
+        MouseRegion(
+          cursor: track != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: GestureDetector(
+            onTap: track != null
+                ? () => UrlLauncherService.instance.openVideo(track!)
+                : null,
+            child: TrackCover(
+              track: track,
+              networkUrl: detail.coverUrl,
+              aspectRatio: coverAspectRatio,
+              borderRadius: AppRadius.xl,
+              variant: TrackCoverVariant.hero,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
         // 标题（点击跳转到视频页面）
         MouseRegion(
           cursor: track != null
@@ -1026,62 +1052,51 @@ class _DetailContent extends StatelessWidget {
         const SizedBox(height: 16),
 
         // 统计数据
-        Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          children: [
+        DetailStatsRow(
+          items: [
             if (isNetease) ...[
               // 網易雲：專輯、評論數、發布日期、時長
               if (detail.albumName.isNotEmpty)
-                _buildStatItem(
-                  context,
-                  Icons.album_rounded,
-                  detail.albumName,
+                DetailStatItem(
+                  icon: Icons.album_rounded,
+                  label: detail.albumName,
                 ),
               if (detail.commentCount > 0)
-                _buildStatItem(
-                  context,
-                  Icons.comment_rounded,
-                  detail.formattedCommentCount,
+                DetailStatItem(
+                  icon: Icons.comment_rounded,
+                  label: detail.formattedCommentCount,
                 ),
-              _buildStatItem(
-                context,
-                Icons.calendar_today_outlined,
-                detail.formattedPublishDate,
+              DetailStatItem(
+                icon: Icons.calendar_today_outlined,
+                label: detail.formattedPublishDate,
               ),
-              _buildStatItem(
-                context,
-                Icons.schedule_outlined,
-                detail.formattedDuration,
+              DetailStatItem(
+                icon: Icons.schedule_outlined,
+                label: detail.formattedDuration,
               ),
             ] else ...[
               // Bilibili/YouTube：播放數、點讚數等
-              _buildStatItem(
-                context,
-                Icons.play_arrow_rounded,
-                detail.formattedViewCount,
+              DetailStatItem(
+                icon: Icons.play_arrow_rounded,
+                label: detail.formattedViewCount,
               ),
-              _buildStatItem(
-                context,
-                Icons.thumb_up_rounded,
-                detail.formattedLikeCount,
+              DetailStatItem(
+                icon: Icons.thumb_up_rounded,
+                label: detail.formattedLikeCount,
               ),
               // YouTube 不显示收藏数
               if (!isYouTube)
-                _buildStatItem(
-                  context,
-                  Icons.star_rounded,
-                  detail.formattedFavoriteCount,
+                DetailStatItem(
+                  icon: Icons.star_rounded,
+                  label: detail.formattedFavoriteCount,
                 ),
-              _buildStatItem(
-                context,
-                Icons.calendar_today_outlined,
-                detail.formattedPublishDate,
+              DetailStatItem(
+                icon: Icons.calendar_today_outlined,
+                label: detail.formattedPublishDate,
               ),
-              _buildStatItem(
-                context,
-                Icons.schedule_outlined,
-                detail.formattedDuration,
+              DetailStatItem(
+                icon: Icons.schedule_outlined,
+                label: detail.formattedDuration,
               ),
             ],
           ],
@@ -1092,7 +1107,11 @@ class _DetailContent extends StatelessWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _DescriptionSection(description: detail.description),
+          ExpandableTextSection(
+            icon: Icons.info_outline_rounded,
+            title: t.trackDetail.description,
+            content: detail.description,
+          ),
         ],
 
         // 热门评论（带翻页）
@@ -1104,29 +1123,6 @@ class _DetailContent extends StatelessWidget {
         ],
 
         const SizedBox(height: 20),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(BuildContext context, IconData icon, String value) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: colorScheme.primary.withValues(alpha: 0.8),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          value,
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
       ],
     );
   }
@@ -1601,128 +1597,6 @@ class _AudioInfoSection extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// 简介部分（支持展开/收起）
-class _DescriptionSection extends StatefulWidget {
-  final String description;
-
-  const _DescriptionSection({required this.description});
-
-  @override
-  State<_DescriptionSection> createState() => _DescriptionSectionState();
-}
-
-class _DescriptionSectionState extends State<_DescriptionSection> {
-  bool _isExpanded = false;
-  bool _needsExpansion = false;
-  final GlobalKey _textKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkIfNeedsExpansion();
-    });
-  }
-
-  @override
-  void didUpdateWidget(_DescriptionSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.description != widget.description) {
-      _isExpanded = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkIfNeedsExpansion();
-      });
-    }
-  }
-
-  void _checkIfNeedsExpansion() {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: widget.description,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              height: 1.6,
-            ),
-      ),
-      maxLines: 6,
-      textDirection: TextDirection.ltr,
-    );
-
-    final renderBox = _textKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
-      textPainter.layout(maxWidth: renderBox.size.width);
-      setState(() {
-        _needsExpansion = textPainter.didExceedMaxLines;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.info_outline_rounded,
-              size: 18,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              t.trackDetail.description,
-              style: textTheme.titleSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // 简介文本
-        Text(
-          widget.description,
-          key: _textKey,
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            height: 1.6,
-          ),
-          maxLines: _isExpanded ? null : 6,
-          overflow: _isExpanded ? null : TextOverflow.ellipsis,
-        ),
-        // 展开/收起按钮 - 固定在右下角
-        if (_needsExpansion)
-          Align(
-            alignment: Alignment.centerRight,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    _isExpanded ? t.trackDetail.collapse : t.trackDetail.expand,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
