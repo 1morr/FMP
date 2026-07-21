@@ -146,8 +146,8 @@ class _RewindSettingsDialog extends ConsumerWidget {
           children: [
             Text(
               t.settings.rewindSettings.description,
-              style: TextStyle(
-                  fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             _buildRewindRow(
@@ -196,8 +196,8 @@ class _RewindSettingsDialog extends ConsumerWidget {
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 2),
         Text(subtitle,
-            style: TextStyle(
-                fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,

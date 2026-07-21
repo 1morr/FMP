@@ -126,7 +126,7 @@ class TrackThumbnail extends ConsumerWidget {
       child: Center(
         child: NowPlayingIndicator(
           size: size * 0.5,
-          color: Colors.white,
+          color: colorScheme.onPrimary,
         ),
       ),
     );

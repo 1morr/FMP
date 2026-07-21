@@ -261,8 +261,8 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12)),
-          Text(value, style: const TextStyle(fontSize: 12)),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(value, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
@@ -447,10 +447,10 @@ class _ImportResultDialog extends StatelessWidget {
                         .take(5)
                         .map((e) => Text(
                               e,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colorScheme.onErrorContainer,
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: colorScheme.onErrorContainer),
                             ))
                         .toList(),
                   ),

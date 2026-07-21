@@ -79,7 +79,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
     return switch (level) {
       LogLevel.debug => colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       LogLevel.info => colorScheme.primary,
-      LogLevel.warning => Colors.orange,
+      LogLevel.warning => ToastService.warningColor,
       LogLevel.error => colorScheme.error,
     };
   }
