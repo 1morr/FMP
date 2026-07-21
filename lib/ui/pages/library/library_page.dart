@@ -7,7 +7,6 @@ import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
-import '../../../core/utils/icon_helpers.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download/download_provider.dart';
 
@@ -20,6 +19,7 @@ import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/images/playlist_cover_image.dart';
+import '../../widgets/layout/playlist_card.dart';
 import '../../widgets/menus/playlist_card_actions.dart';
 import '../../widgets/indicators/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
@@ -298,102 +298,35 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 封面
-              Expanded(
-                child: coverAsync.when(
-                  skipLoadingOnReload: true,
-                  data: (coverData) => coverData.hasCover
-                      ? PlaylistCoverImage(
-                          localPath: coverData.localPath,
-                          networkUrl: coverData.networkUrl,
-                          fit: BoxFit.cover,
-                          width: 200,
-                          variant: PlaylistCoverVariant.card,
-                        )
-                      : const ImagePlaceholder.playlist(),
-                  loading: () => const ImagePlaceholder.playlist(),
-                  error: (error, stack) => const ImagePlaceholder.playlist(),
-                ),
-              ),
-              // 信息
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      playlist.name,
-                      style: Theme.of(context).textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        if (playlist.isMix) ...[
-                          Icon(
-                            Icons.radio,
-                            size: 12,
-                            color: colorScheme.tertiary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Mix',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.tertiary,
-                                    ),
-                          ),
-                        ] else ...[
-                          if (playlist.isImported) ...[
-                            Icon(
-                              getImportSourceIcon(playlist.importSourceType),
-                              size: 12,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(
-                            t.library.trackCount(n: playlist.trackCount),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.outline,
-                                    ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          // 拖拽指示器
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.7),
-                borderRadius: AppRadius.borderRadiusSm,
-              ),
-              child: Icon(
-                Icons.drag_handle,
-                size: 20,
-                color: colorScheme.onPrimary,
-              ),
-            ),
-          ),
-        ],
+    return PlaylistCard(
+      playlist: playlist,
+      enableInkWell: false,
+      // 拖拽指示器
+      dragHandle: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withValues(alpha: 0.7),
+          borderRadius: AppRadius.borderRadiusSm,
+        ),
+        child: Icon(
+          Icons.drag_handle,
+          size: 20,
+          color: colorScheme.onPrimary,
+        ),
+      ),
+      cover: coverAsync.when(
+        skipLoadingOnReload: true,
+        data: (coverData) => coverData.hasCover
+            ? PlaylistCoverImage(
+                localPath: coverData.localPath,
+                networkUrl: coverData.networkUrl,
+                fit: BoxFit.cover,
+                width: 200,
+                variant: PlaylistCoverVariant.card,
+              )
+            : const ImagePlaceholder.playlist(),
+        loading: () => const ImagePlaceholder.playlist(),
+        error: (error, stack) => const ImagePlaceholder.playlist(),
       ),
     );
   }
@@ -412,118 +345,37 @@ class _PlaylistCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isRefreshing = ref.watch(isPlaylistRefreshingProvider(playlist.id));
 
     return ContextMenuRegion(
       menuBuilder: (context) => _buildContextMenuItems(context, ref),
       onSelected: (value) => _handleContextMenuAction(context, ref, value),
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
-            final id = playlist.id;
-            Future.microtask(() {
-              if (context.mounted) {
-                context.push('${RoutePaths.library}/$id');
-              }
-            });
-          },
-          onLongPress: () => _showOptionsMenu(context, ref),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 封面 - 使用 Expanded 填充剩余空间
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    coverAsync.when(
-                      skipLoadingOnReload: true,
-                      data: (coverData) => coverData.hasCover
-                          ? PlaylistCoverImage(
-                              localPath: coverData.localPath,
-                              networkUrl: coverData.networkUrl,
-                              fit: BoxFit.cover,
-                              width: 200,
-                              variant: PlaylistCoverVariant.card,
-                            )
-                          : const ImagePlaceholder.playlist(),
-                      loading: () => const ImagePlaceholder.playlist(),
-                      error: (error, stack) =>
-                          const ImagePlaceholder.playlist(),
-                    ),
-                    // 刷新指示器覆盖层
-                    if (isRefreshing)
-                      Container(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              // 信息
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      playlist.name,
-                      style: Theme.of(context).textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        if (playlist.isMix) ...[
-                          Icon(
-                            Icons.radio,
-                            size: 12,
-                            color: colorScheme.tertiary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Mix',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.tertiary,
-                                    ),
-                          ),
-                        ] else ...[
-                          if (playlist.isImported) ...[
-                            Icon(
-                              getImportSourceIcon(playlist.importSourceType),
-                              size: 12,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(
-                            t.library.trackCount(n: playlist.trackCount),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.outline,
-                                    ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+      child: PlaylistCard(
+        playlist: playlist,
+        isRefreshing: isRefreshing,
+        onTap: () {
+          // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
+          final id = playlist.id;
+          Future.microtask(() {
+            if (context.mounted) {
+              context.push('${RoutePaths.library}/$id');
+            }
+          });
+        },
+        onLongPress: () => _showOptionsMenu(context, ref),
+        cover: coverAsync.when(
+          skipLoadingOnReload: true,
+          data: (coverData) => coverData.hasCover
+              ? PlaylistCoverImage(
+                  localPath: coverData.localPath,
+                  networkUrl: coverData.networkUrl,
+                  fit: BoxFit.cover,
+                  width: 200,
+                  variant: PlaylistCoverVariant.card,
+                )
+              : const ImagePlaceholder.playlist(),
+          loading: () => const ImagePlaceholder.playlist(),
+          error: (error, stack) => const ImagePlaceholder.playlist(),
         ),
       ),
     );

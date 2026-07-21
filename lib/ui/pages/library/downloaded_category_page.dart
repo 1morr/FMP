@@ -12,6 +12,7 @@ import '../../../providers/library/library_invalidation_coordinator.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_menu.dart';
+import '../../widgets/app_bars/collapsing_hero_sliver_app_bar.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
@@ -170,18 +171,45 @@ class _DownloadedCategoryPageState
     final colorScheme = Theme.of(context).colorScheme;
     final totalDuration = _calculateTotalDuration(tracks);
 
-    // 根据滚动位置决定图标颜色：展开时白色，收起时使用主题色
     final isCollapsed = _scrollOffset >= _collapseThreshold;
-    final iconColor = isCollapsed ? colorScheme.onSurface : Colors.white;
+    final gradientPlaceholder = _buildCoverPlaceholder(colorScheme);
 
-    return SliverAppBar(
-      expandedHeight: 280,
-      pinned: true,
-      leading: IconButton(
+    return CollapsingHeroSliverAppBar(
+      isCollapsed: isCollapsed,
+      backgroundCover: widget.category.coverPath != null
+          ? PlaylistCoverImage(
+              localPath: widget.category.coverPath,
+              networkUrl: null,
+              placeholder: gradientPlaceholder,
+              fit: BoxFit.cover,
+              variant: PlaylistCoverVariant.hero,
+            )
+          : null,
+      backgroundPlaceholder: gradientPlaceholder,
+      cover: _buildCover(colorScheme),
+      title: widget.category.displayName,
+      infoRows: [
+        const SizedBox(height: 8),
+        Text(
+          t.library.downloadedCategory.trackCountDuration(
+              count: tracks.length,
+              duration: DurationFormatter.formatLong(totalDuration)),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white60,
+              ),
+        ),
+      ],
+      badge: CollapsingHeroBadge(
+        icon: Icons.download_done,
+        label: t.library.downloaded,
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
+      ),
+      leadingBuilder: (context, iconColor) => IconButton(
         icon: Icon(Icons.arrow_back, color: iconColor),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      actions: [
+      actionsBuilder: (context, iconColor) => [
         IconButton(
           icon: Icon(Icons.refresh, color: iconColor),
           onPressed: _refresh,
@@ -189,127 +217,11 @@ class _DownloadedCategoryPageState
         ),
         const SizedBox(width: 8),
       ],
-      flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 封面背景
-            _buildCoverBackground(colorScheme),
-
-            // 渐变遮罩
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    colorScheme.surface.withValues(alpha: 0.8),
-                  ],
-                ),
-              ),
-            ),
-
-            // 分类信息
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 70,
-              child: Row(
-                children: [
-                  // 封面
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      borderRadius: AppRadius.borderRadiusMd,
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.shadow.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _buildCover(colorScheme),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // 信息
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 分类名称
-                        Text(
-                          widget.category.displayName,
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          t.library.downloadedCategory.trackCountDuration(
-                              count: tracks.length,
-                              duration:
-                                  DurationFormatter.formatLong(totalDuration)),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white60,
-                                  ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer,
-                            borderRadius: AppRadius.borderRadiusLg,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.download_done,
-                                size: 14,
-                                color: colorScheme.onPrimaryContainer,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                t.library.downloaded,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
-                                    ?.copyWith(
-                                      color: colorScheme.onPrimaryContainer,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildCoverBackground(ColorScheme colorScheme) {
-    final gradientPlaceholder = Container(
+  Widget _buildCoverPlaceholder(ColorScheme colorScheme) {
+    return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -321,23 +233,6 @@ class _DownloadedCategoryPageState
         ),
       ),
     );
-
-    if (widget.category.coverPath != null) {
-      return ColorFiltered(
-        colorFilter: const ColorFilter.mode(
-          Colors.black54,
-          BlendMode.darken,
-        ),
-        child: PlaylistCoverImage(
-          localPath: widget.category.coverPath,
-          networkUrl: null,
-          placeholder: gradientPlaceholder,
-          fit: BoxFit.cover,
-          variant: PlaylistCoverVariant.hero,
-        ),
-      );
-    }
-    return gradientPlaceholder;
   }
 
   Widget _buildCover(ColorScheme colorScheme) {

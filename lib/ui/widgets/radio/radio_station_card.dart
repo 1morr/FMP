@@ -244,7 +244,12 @@ class RadioStationCard extends StatelessWidget {
       );
     }
 
-    return content;
+    // Card 表面與首頁/音樂庫網格卡片一致，InkWell 的 hover/ripple 畫在卡片上
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: content,
+    );
   }
 }
 

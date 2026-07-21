@@ -17,6 +17,7 @@ import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/ui/selection_provider.dart';
 import '../../widgets/dialogs/download_path_setup_dialog.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
+import '../../widgets/app_bars/collapsing_hero_sliver_app_bar.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_service.dart'
     show DownloadBatchAddSummary;
@@ -630,18 +631,117 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final coverAsync = ref.watch(playlistCoverProvider(widget.playlistId));
 
-    // 根据滚动位置决定图标颜色：展开时白色，收起时使用主题色
     final isCollapsed = _scrollOffset >= _collapseThreshold;
-    final iconColor = isCollapsed ? colorScheme.onSurface : Colors.white;
 
     final selectionNotifier =
         ref.read(playlistDetailSelectionProvider.notifier);
 
-    return SliverAppBar(
-      expandedHeight: 280,
-      pinned: true,
+    final coverData = coverAsync.when(
+      skipLoadingOnReload: true,
+      data: (data) => data.hasCover ? data : null,
+      loading: () => null,
+      error: (error, stack) => null,
+    );
+
+    return CollapsingHeroSliverAppBar(
+      isCollapsed: isCollapsed,
+      backgroundCover: coverData == null
+          ? null
+          : PlaylistCoverImage(
+              localPath: coverData.localPath,
+              networkUrl: coverData.networkUrl,
+              placeholder: Container(color: colorScheme.primaryContainer),
+              fit: BoxFit.cover,
+              variant: PlaylistCoverVariant.hero,
+            ),
+      backgroundPlaceholder: Container(color: colorScheme.primaryContainer),
+      cover: coverAsync.when(
+        skipLoadingOnReload: true,
+        data: (coverData) => coverData.hasCover
+            ? PlaylistCoverImage(
+                localPath: coverData.localPath,
+                networkUrl: coverData.networkUrl,
+                placeholder: Container(
+                  color: colorScheme.primaryContainer,
+                  child: Center(
+                    child: Icon(
+                      Icons.music_note,
+                      size: 48,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+                fit: BoxFit.cover,
+                width: 120,
+                height: 120,
+                variant: PlaylistCoverVariant.compact,
+              )
+            : Container(
+                color: colorScheme.primaryContainer,
+                child: Center(
+                  child: Icon(
+                    Icons.music_note,
+                    size: 48,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+        loading: () =>
+            Container(color: colorScheme.surfaceContainerHighest),
+        error: (error, stack) =>
+            Container(color: colorScheme.surfaceContainerHighest),
+      ),
+      title: playlist.name,
+      infoRows: [
+        if (playlist.description != null &&
+            playlist.description!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            playlist.description!,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white70,
+                ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+        if (playlist.ownerName != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${t.library.detail.owner}: ${playlist.ownerName}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white60,
+                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+        if (!playlist.isMix) ...[
+          const SizedBox(height: 8),
+          Text(
+            '${t.library.trackCountSongs(n: state.totalTrackCount)} · ${DurationFormatter.formatLong(state.totalDuration)}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white60,
+                ),
+          ),
+        ],
+      ],
+      badge: (playlist.isImported || playlist.isMix)
+          ? CollapsingHeroBadge(
+              icon: playlist.isMix
+                  ? Icons.radio
+                  : getImportSourceIcon(playlist.importSourceType),
+              label: playlist.isMix ? 'Mix' : t.library.detail.imported,
+              backgroundColor: playlist.isMix
+                  ? colorScheme.tertiaryContainer
+                  : colorScheme.primaryContainer,
+              foregroundColor: playlist.isMix
+                  ? colorScheme.onTertiaryContainer
+                  : colorScheme.onPrimaryContainer,
+            )
+          : null,
       // 返回/關閉按钮 - 根据收起状态切换颜色
-      leading: isSelectionMode
+      leadingBuilder: (context, iconColor) => isSelectionMode
           ? IconButton(
               icon: Icon(Icons.close, color: iconColor),
               tooltip: t.library.detail.exitSelectionMode,
@@ -652,7 +752,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               onPressed: () => Navigator.of(context).pop(),
             ),
       // 標題（多選模式下顯示選擇數量）
-      title: isSelectionMode
+      titleBuilder: (context, iconColor) => isSelectionMode
           ? Consumer(
               builder: (context, ref, child) {
                 final selectedCount = ref.watch(
@@ -667,7 +767,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             )
           : null,
       // 操作按鈕
-      actions: isSelectionMode
+      actionsBuilder: (context, iconColor) => isSelectionMode
           ? [
               Consumer(
                 builder: (context, ref, child) {
@@ -709,215 +809,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 ),
               const SizedBox(width: 8),
             ],
-      flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 封面背景
-            coverAsync.when(
-              skipLoadingOnReload: true,
-              data: (coverData) => coverData.hasCover
-                  ? ColorFiltered(
-                      colorFilter: const ColorFilter.mode(
-                        Colors.black54,
-                        BlendMode.darken,
-                      ),
-                      child: PlaylistCoverImage(
-                        localPath: coverData.localPath,
-                        networkUrl: coverData.networkUrl,
-                        placeholder:
-                            Container(color: colorScheme.primaryContainer),
-                        fit: BoxFit.cover,
-                        variant: PlaylistCoverVariant.hero,
-                      ),
-                    )
-                  : Container(color: colorScheme.primaryContainer),
-              loading: () => Container(color: colorScheme.primaryContainer),
-              error: (error, stack) =>
-                  Container(color: colorScheme.primaryContainer),
-            ),
-
-            // 渐变遮罩
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    colorScheme.surface.withValues(alpha: 0.8),
-                  ],
-                ),
-              ),
-            ),
-
-            // 歌单信息
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 70,
-              child: Row(
-                children: [
-                  // 封面
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      borderRadius: AppRadius.borderRadiusMd,
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.shadow.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: coverAsync.when(
-                      skipLoadingOnReload: true,
-                      data: (coverData) => coverData.hasCover
-                          ? PlaylistCoverImage(
-                              localPath: coverData.localPath,
-                              networkUrl: coverData.networkUrl,
-                              placeholder: Container(
-                                color: colorScheme.primaryContainer,
-                                child: Center(
-                                  child: Icon(
-                                    Icons.music_note,
-                                    size: 48,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                              fit: BoxFit.cover,
-                              width: 120,
-                              height: 120,
-                              variant: PlaylistCoverVariant.compact,
-                            )
-                          : Container(
-                              color: colorScheme.primaryContainer,
-                              child: Center(
-                                child: Icon(
-                                  Icons.music_note,
-                                  size: 48,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                      loading: () =>
-                          Container(color: colorScheme.surfaceContainerHighest),
-                      error: (error, stack) =>
-                          Container(color: colorScheme.surfaceContainerHighest),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // 信息
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 歌单名称
-                        Text(
-                          playlist.name,
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (playlist.description != null &&
-                            playlist.description!.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            playlist.description!,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.white70,
-                                    ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                        if (playlist.ownerName != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${t.library.detail.owner}: ${playlist.ownerName}',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.white60,
-                                    ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                        if (!playlist.isMix) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            '${t.library.trackCountSongs(n: state.totalTrackCount)} · ${DurationFormatter.formatLong(state.totalDuration)}',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.white60,
-                                    ),
-                          ),
-                        ],
-                        if (playlist.isImported || playlist.isMix) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: playlist.isMix
-                                  ? colorScheme.tertiaryContainer
-                                  : colorScheme.primaryContainer,
-                              borderRadius: AppRadius.borderRadiusLg,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  playlist.isMix
-                                      ? Icons.radio
-                                      : getImportSourceIcon(
-                                          playlist.importSourceType),
-                                  size: 14,
-                                  color: playlist.isMix
-                                      ? colorScheme.onTertiaryContainer
-                                      : colorScheme.onPrimaryContainer,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  playlist.isMix
-                                      ? 'Mix'
-                                      : t.library.detail.imported,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: playlist.isMix
-                                            ? colorScheme.onTertiaryContainer
-                                            : colorScheme.onPrimaryContainer,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
