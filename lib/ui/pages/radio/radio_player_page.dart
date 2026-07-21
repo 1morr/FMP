@@ -1,5 +1,3 @@
-import 'dart:ui' show PointerDeviceKind;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,7 +19,7 @@ import '../../widgets/images/radio_cover_image.dart';
 import '../../widgets/layout/detail_stats_row.dart';
 import '../../widgets/layout/expandable_text_section.dart';
 import '../../widgets/layout/immersive_player_scaffold.dart';
-import '../../widgets/layout/sheet_drag_handle.dart';
+import '../../widgets/layout/capped_draggable_sheet.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
 import '../../widgets/player/compact_volume_control.dart';
 import '../../widgets/player/cover_art_container.dart';
@@ -355,76 +353,13 @@ class _LiveInfoDialog extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final station = state.currentStation;
 
-    // 限制最大高度，避免 Windows 全屏时弹窗过高
-    final screenHeight = MediaQuery.of(context).size.height;
-    const maxSheetHeight = 800.0;
-    final maxRatio = (maxSheetHeight / screenHeight).clamp(0.4, 0.95);
-    final initRatio = maxRatio < 0.6 ? maxRatio : 0.6;
-
-    return DraggableScrollableSheet(
-      initialChildSize: initRatio,
-      minChildSize: 0.0,
-      maxChildSize: maxRatio,
-      snap: true,
-      snapSizes: [0.0, initRatio, if (maxRatio > initRatio) maxRatio],
-      builder: (context, scrollController) {
-        return Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {
-                PointerDeviceKind.touch,
-                PointerDeviceKind.mouse,
-                PointerDeviceKind.trackpad,
-              },
-            ),
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                // 頂部拖動手柄和標題欄
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      // 拖動手柄
-                      const SheetDragHandle(
-                        margin: EdgeInsets.only(top: 12),
-                      ),
-                      // 標題欄
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              t.radio.liveRoomInfo,
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                    ],
-                  ),
-                ),
-
-                // 內容區域
-                SliverPadding(
+    return CappedDraggableSheet(
+      icon: Icons.info_outline_rounded,
+      title: t.radio.liveRoomInfo,
+      onClose: () => Navigator.of(context).pop(),
+      bodySlivers: (context, scrollController) => [
+        // 內容區域
+        SliverPadding(
                   padding: const EdgeInsets.all(20),
                   sliver: SliverToBoxAdapter(
                     child: station == null
@@ -597,11 +532,7 @@ class _LiveInfoDialog extends StatelessWidget {
                           ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+      ],
     );
   }
 

@@ -12,7 +12,7 @@ import '../../../providers/audio/audio_settings_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../services/lyrics/lyrics_result.dart';
 import '../../widgets/images/track_thumbnail.dart';
-import '../../widgets/layout/sheet_drag_handle.dart';
+import '../../widgets/layout/capped_draggable_sheet.dart';
 
 /// 显示歌词搜索匹配 BottomSheet
 void showLyricsSearchSheet({
@@ -212,139 +212,80 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     final searchState = ref.watch(lyricsSearchProvider);
     final existingMatch =
         ref.watch(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
-    // 限制最大高度，避免 Windows 全屏时弹窗过高
-    final screenHeight = MediaQuery.of(context).size.height;
-    const maxSheetHeight = 800.0;
-    final sheetRatio = (maxSheetHeight / screenHeight).clamp(0.4, 0.95);
+    return CappedDraggableSheet(
+      icon: Icons.lyrics_outlined,
+      title: t.lyrics.searchLyrics,
+      onClose: () => Navigator.of(context).pop(),
+      mode: CappedSheetMode.fitContent,
+      headerPadding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
+      bodySlivers: (context, scrollController) => [
+        // 顶部固定区域（Track 信息 + 搜索框 + 筛选）
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              // Track 信息
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: _buildTrackInfo(
+                  colorScheme,
+                  hasMatch: existingMatch.valueOrNull != null,
+                ),
+              ),
 
-    return DraggableScrollableSheet(
-      initialChildSize: sheetRatio,
-      minChildSize: 0.0,
-      maxChildSize: sheetRatio,
-      snap: true,
-      snapSizes: const [],
-      expand: false,
-      builder: (context, scrollController) {
-        return Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {
-                PointerDeviceKind.touch,
-                PointerDeviceKind.mouse,
-                PointerDeviceKind.trackpad,
-              },
-            ),
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                // 顶部固定区域（手柄 + 标题 + 搜索框 + 筛选）
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      // 拖动手柄
-                      const SheetDragHandle(
-                        margin: EdgeInsets.only(top: 12),
+              // 搜索框
+              //
+              // 注意：外层 Sheet 为桌面端开启了鼠标/触控板拖动滚动
+              // （见 CappedDraggableSheet 的 dragDevices）。该设定会向下
+              // 传递给 TextField 内部 EditableText 自带的水平 Scrollable，
+              // 导致在输入框中按住鼠标左键拖动时被识别成“水平滚动查看文字”
+              // 而无法选中文本。这里用一层 ScrollConfiguration 把 dragDevices
+              // 还原为默认（不含 mouse/trackpad），恢复正常的鼠标选字手势，
+              // 且不影响弹窗主体与筛选栏的拖动滚动。
+              ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: const {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.stylus,
+                    PointerDeviceKind.invertedStylus,
+                    PointerDeviceKind.unknown,
+                  },
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: t.lyrics.searchHint,
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.send),
+                        onPressed: _doSearch,
                       ),
-                      // 标题栏
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.lyrics_outlined,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              t.lyrics.searchLyrics,
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ],
-                        ),
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadius.borderRadiusXl,
                       ),
-                      const Divider(height: 1),
-
-                      // Track 信息
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                        child: _buildTrackInfo(
-                          colorScheme,
-                          hasMatch: existingMatch.valueOrNull != null,
-                        ),
-                      ),
-
-                      // 搜索框
-                      //
-                      // 注意：外层 Sheet 为桌面端开启了鼠标/触控板拖动滚动
-                      // （见下方 CustomScrollView 的 dragDevices）。该设定会向下
-                      // 传递给 TextField 内部 EditableText 自带的水平 Scrollable，
-                      // 导致在输入框中按住鼠标左键拖动时被识别成“水平滚动查看文字”
-                      // 而无法选中文本。这里用一层 ScrollConfiguration 把 dragDevices
-                      // 还原为默认（不含 mouse/trackpad），恢复正常的鼠标选字手势，
-                      // 且不影响弹窗主体与筛选栏的拖动滚动。
-                      ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(context).copyWith(
-                          dragDevices: const {
-                            PointerDeviceKind.touch,
-                            PointerDeviceKind.stylus,
-                            PointerDeviceKind.invertedStylus,
-                            PointerDeviceKind.unknown,
-                          },
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: t.lyrics.searchHint,
-                              prefixIcon: const Icon(Icons.search),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.send),
-                                onPressed: _doSearch,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: AppRadius.borderRadiusXl,
-                              ),
-                              contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                            ),
-                            textInputAction: TextInputAction.search,
-                            onSubmitted: (_) => _doSearch(),
-                          ),
-                        ),
-                      ),
-
-                      // 歌词源筛选
-                      _buildFilterChips(context),
-                    ],
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _doSearch(),
                   ),
                 ),
+              ),
 
-                // 结果列表
-                _buildResultsSliver(searchState, colorScheme),
-              ],
-            ),
+              // 歌词源筛选
+              _buildFilterChips(context),
+            ],
           ),
-        );
-      },
+        ),
+
+        // 结果列表
+        _buildResultsSliver(searchState, colorScheme),
+      ],
     );
   }
 
