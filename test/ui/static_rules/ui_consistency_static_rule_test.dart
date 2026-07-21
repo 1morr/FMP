@@ -718,23 +718,32 @@ void main() {
       final playerPage = File(
         'lib/ui/pages/radio/radio_player_page.dart',
       ).readAsStringSync();
+      // 迷你播放器的音量/裝置 watch 已隨桌面控制群抽出到共享元件。
+      final desktopControls = File(
+        'lib/ui/widgets/player/mini_player_desktop_controls.dart',
+      ).readAsStringSync();
 
       for (final source in [miniPlayer, playerPage]) {
         // 不得對 audioControllerProvider 做全狀態 watch（會在每次音訊狀態變動重建）。
         expect(source, isNot(contains('ref.watch(audioControllerProvider);')));
-        // 音量一律窄 select。
-        expect(
-          source,
-          contains('audioControllerProvider.select((state) => state.volume)'),
-        );
       }
+
+      // 音量一律窄 select。
+      expect(
+        playerPage,
+        contains('audioControllerProvider.select((state) => state.volume)'),
+      );
+      expect(
+        desktopControls,
+        contains('audioControllerProvider.select((state) => state.volume)'),
+      );
 
       // 全螢幕電台頁與音樂頁一致，透過共享的 desktopAudioDeviceStateProvider
       // 取得裝置狀態（provider 內部為窄 select）。
       expect(playerPage, contains('desktopAudioDeviceStateProvider'));
-      // radio mini player 與音樂 mini player 一致，同樣透過共享的
+      // 兩個 mini player 的桌面控制群同樣透過共享的
       // desktopAudioDeviceStateProvider 取得裝置狀態。
-      expect(miniPlayer, contains('desktopAudioDeviceStateProvider'));
+      expect(desktopControls, contains('desktopAudioDeviceStateProvider'));
       expect(
         miniPlayer,
         isNot(contains(

@@ -23,5 +23,6 @@
   "audioDevice": "音訊輸出裝置",
   "audioDeviceAuto": "自動（跟隨系統）",
   "previous": "上一首",
-  "next": "下一首"
+  "next": "下一首",
+  "collapse": "收起播放器"
 }

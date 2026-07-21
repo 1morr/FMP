@@ -7,13 +7,11 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../core/utils/platform_utils.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
-import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../images/radio_cover_image.dart';
-import '../player/fmp_audio_device_selector.dart';
-import '../player/mini_player_volume_control.dart';
+import '../player/mini_player_desktop_controls.dart';
+import '../player/mini_player_play_pause_button.dart';
 
 /// 電台迷你播放器
 /// 顯示在頁面底部，展示當前播放的電台資訊和控制按鈕
@@ -31,14 +29,6 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     final colorScheme = Theme.of(context).colorScheme;
     final radioState = ref.watch(radioControllerProvider);
     final radioController = ref.read(radioControllerProvider.notifier);
-    // 使用 AudioController 管理音量（共享同一個 AudioService）
-    // 與音樂迷你播放器一致，透過共享的 desktopAudioDeviceStateProvider 取得裝置狀態
-    // （provider 內部為窄 select，避免對 audioControllerProvider 做全狀態 watch）。
-    final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
-    final volume = ref.watch(
-      audioControllerProvider.select((state) => state.volume),
-    );
-    final audioController = ref.read(audioControllerProvider.notifier);
 
     // 沒有電台在播放時不顯示
     if (!radioState.hasCurrentStation) {
@@ -92,30 +82,13 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
               _buildSyncButton(radioState, radioController),
 
               // 播放/暫停按鈕
-              _buildPlayStopButton(radioState, radioController, colorScheme),
+              _buildPlayStopButton(radioState, radioController),
 
               // 重新載入直播按鈕（無條件重連，RadioController.reload）
               _buildReloadButton(radioState, radioController),
 
-              // 桌面端音頻設備選擇器 + 音量控制
-              if (isDesktopPlatform) ...[
-                const SizedBox(width: 4),
-                // 音頻設備選擇器
-                if (desktopAudioDeviceState.hasSelectableDevices)
-                  FmpAudioDeviceSelector(
-                    state: desktopAudioDeviceState,
-                    controller: audioController,
-                    colorScheme: colorScheme,
-                  ),
-                MiniPlayerVolumeControl(
-                  volume: volume,
-                  controller: audioController,
-                  colorScheme: colorScheme,
-                  volumeTooltip: t.radio.volume,
-                  muteTooltip: t.radio.mute,
-                  unmuteTooltip: t.radio.unmute,
-                ),
-              ],
+              // 桌面端音頻設備選擇器 + 音量控制（與音樂迷你播放器共用）
+              if (isDesktopPlatform) const MiniPlayerDesktopControls(),
             ],
           ),
         ),
@@ -184,37 +157,18 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   Widget _buildPlayStopButton(
     RadioState state,
     RadioController controller,
-    ColorScheme colorScheme,
   ) {
-    // 使用固定尺寸的 SizedBox 包裝，確保載入和正常狀態下大小一致
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: state.isBuffering || state.isLoading
-          ? Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: colorScheme.primary,
-                  strokeWidth: 2,
-                ),
-              ),
-            )
-          : IconButton(
-              padding: EdgeInsets.zero,
-              icon: Icon(
-                state.isPlaying ? Icons.pause : Icons.play_arrow,
-                size: 28,
-              ),
-              onPressed: () {
-                if (state.isPlaying) {
-                  controller.pause();
-                } else {
-                  controller.resume();
-                }
-              },
-            ),
+    return MiniPlayerPlayPauseButton(
+      isPlaying: state.isPlaying,
+      isLoading: state.isBuffering || state.isLoading,
+      tooltip: state.isPlaying ? t.general.pause : t.general.play,
+      onPressed: () {
+        if (state.isPlaying) {
+          controller.pause();
+        } else {
+          controller.resume();
+        }
+      },
     );
   }
 
@@ -225,18 +179,14 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   ) {
     final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
 
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        icon: const Icon(
-          Icons.sync,
-          size: 22,
-        ),
-        tooltip: t.radio.syncLive,
-        onPressed: isDisabled ? null : () => controller.sync(),
+    return IconButton(
+      icon: const Icon(
+        Icons.sync,
+        size: 24,
       ),
+      visualDensity: VisualDensity.compact,
+      tooltip: t.radio.syncLive,
+      onPressed: isDisabled ? null : () => controller.sync(),
     );
   }
 
@@ -247,18 +197,14 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   ) {
     final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
 
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        icon: const Icon(
-          Icons.refresh,
-          size: 22,
-        ),
-        tooltip: t.radio.reloadLive,
-        onPressed: isDisabled ? null : () => controller.reload(),
+    return IconButton(
+      icon: const Icon(
+        Icons.refresh,
+        size: 24,
       ),
+      visualDensity: VisualDensity.compact,
+      tooltip: t.radio.reloadLive,
+      onPressed: isDisabled ? null : () => controller.reload(),
     );
   }
 

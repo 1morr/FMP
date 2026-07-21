@@ -5,12 +5,11 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/utils/platform_utils.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
 import '../../router.dart';
 import '../images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
-import 'fmp_audio_device_selector.dart';
-import 'mini_player_volume_control.dart';
+import 'mini_player_desktop_controls.dart';
+import 'mini_player_play_pause_button.dart';
 
 /// 迷你播放器
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮
@@ -85,10 +84,8 @@ class _MiniPlayerContentState extends ConsumerState<_MiniPlayerContent> {
                           const _MiniPlayerControls(),
 
                           // 桌面端音频设备选择和音量控制
-                          if (isDesktopPlatform) ...[
-                            const SizedBox(width: 8),
-                            _MiniPlayerVolumeControl(colorScheme: colorScheme),
-                          ],
+                          if (isDesktopPlatform)
+                            const MiniPlayerDesktopControls(),
                         ],
                       ),
                     ),
@@ -345,38 +342,23 @@ class _MiniPlayerControls extends ConsumerWidget {
         // 上一首按钮
         IconButton(
           icon: const Icon(Icons.skip_previous, size: 24),
+          tooltip: t.player.previous,
           visualDensity: VisualDensity.compact,
           onPressed: canPlayPrevious ? () => controller.previous() : null,
         ),
 
         // 播放/暂停按钮
-        SizedBox(
-          width: 40,
-          height: 40,
-          child: isBuffering || isLoading
-              ? Center(
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: colorScheme.primary,
-                      strokeWidth: 2,
-                    ),
-                  ),
-                )
-              : IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 28,
-                  ),
-                  onPressed: () => controller.togglePlayPause(),
-                ),
+        MiniPlayerPlayPauseButton(
+          isPlaying: isPlaying,
+          isLoading: isBuffering || isLoading,
+          onPressed: () => controller.togglePlayPause(),
+          tooltip: isPlaying ? t.general.pause : t.general.play,
         ),
 
         // 下一首按钮
         IconButton(
           icon: const Icon(Icons.skip_next, size: 24),
+          tooltip: t.player.next,
           visualDensity: VisualDensity.compact,
           onPressed: canPlayNext ? () => controller.next() : null,
         ),
@@ -395,45 +377,6 @@ class _MiniPlayerControls extends ConsumerWidget {
           },
           visualDensity: VisualDensity.compact,
           onPressed: () => controller.cycleLoopMode(),
-        ),
-      ],
-    );
-  }
-}
-
-/// 迷你播放器 - 音量控制组件（桌面端）
-class _MiniPlayerVolumeControl extends ConsumerWidget {
-  final ColorScheme colorScheme;
-
-  const _MiniPlayerVolumeControl({required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // 只监听音量和音频设备
-    final volume = ref.watch(audioControllerProvider.select((s) => s.volume));
-    final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
-
-    final controller = ref.read(audioControllerProvider.notifier);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 音频设备选择器
-        if (desktopAudioDeviceState.hasSelectableDevices)
-          FmpAudioDeviceSelector(
-            state: desktopAudioDeviceState,
-            controller: controller,
-            colorScheme: colorScheme,
-          ),
-
-        // 音量控制
-        MiniPlayerVolumeControl(
-          volume: volume,
-          controller: controller,
-          colorScheme: colorScheme,
-          volumeTooltip: t.player.volume,
-          muteTooltip: t.player.mute,
-          unmuteTooltip: t.player.unmute,
         ),
       ],
     );
