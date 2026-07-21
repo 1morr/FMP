@@ -22,7 +22,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_service.dart'
     show DownloadBatchAddSummary;
 import '../../widgets/feedback/error_display.dart';
-import '../../widgets/indicators/now_playing_indicator.dart';
+import '../../widgets/indicators/part_number_badge.dart';
 import '../../widgets/images/playlist_cover_image.dart';
 import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/menus/selection_menu_items.dart';
@@ -1368,26 +1368,10 @@ class _TrackListTile extends ConsumerWidget {
           onLongPress: onLongPress,
           leading: isPartOfMultiPage
               // 分P使用与搜索页面相同的样式
-              ? (isPlaying
-                  ? NowPlayingIndicator(
-                      size: 24,
-                      color: colorScheme.primary,
-                    )
-                  : Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: AppRadius.borderRadiusSm,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'P${track.pageNum ?? 1}',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.outline,
-                            ),
-                      ),
-                    ))
+              ? PartNumberBadge(
+                  partNumber: track.pageNum ?? 1,
+                  isPlaying: isPlaying,
+                )
               : TrackThumbnail(
                   track: track,
                   size: 48,

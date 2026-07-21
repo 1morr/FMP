@@ -45,7 +45,6 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
   bool _isCheckingMulti = false;
   bool _isSubmitting = false;
   String? _errorMessage;
-  final _newPlaylistController = TextEditingController();
 
   List<Track> get _tracks => widget.tracks;
 
@@ -53,12 +52,6 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
   void initState() {
     super.initState();
     _loadPlaylists();
-  }
-
-  @override
-  void dispose() {
-    _newPlaylistController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadPlaylists() async {
@@ -142,81 +135,20 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
   }
 
   Future<void> _showCreatePlaylistDialog() async {
-    bool isPrivate = false;
-    final result = await showDialog<({String name, bool isPrivate})>(
+    final result = await showCreateRemotePlaylistDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(t.remote.createPlaylist),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _newPlaylistController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: t.remote.playlistNameHint,
-                ),
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    Navigator.pop(
-                      context,
-                      (name: value.trim(), isPrivate: isPrivate),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(
-                    value: false,
-                    label: Text(t.remote.privacyPublic),
-                    icon: const Icon(Icons.public, size: 18),
-                  ),
-                  ButtonSegment(
-                    value: true,
-                    label: Text(t.remote.privacyPrivate),
-                    icon: const Icon(Icons.lock, size: 18),
-                  ),
-                ],
-                selected: {isPrivate},
-                onSelectionChanged: (values) {
-                  setDialogState(() => isPrivate = values.first);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(t.general.cancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = _newPlaylistController.text.trim();
-                if (name.isNotEmpty) {
-                  Navigator.pop(
-                    context,
-                    (name: name, isPrivate: isPrivate),
-                  );
-                }
-              },
-              child: Text(t.general.confirm),
-            ),
-          ],
-        ),
-      ),
+      title: t.remote.createPlaylist,
+      hint: t.remote.playlistNameHint,
+      initialPrivacy: false,
+      privacySegments: remotePlaylistPrivacySegments(),
     );
-
-    _newPlaylistController.clear();
 
     if (result != null && mounted) {
       try {
         final service = ref.read(neteasePlaylistServiceProvider);
         final playlistId = await service.createPlaylist(
           title: result.name,
-          isPrivate: result.isPrivate,
+          isPrivate: result.privacy,
         );
         if (!mounted) return;
         setState(() {
@@ -272,34 +204,17 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
           );
 
       if (!mounted) return;
-      if (result.changedRemote && result.hasFailures) {
-        final summary = result.summary;
-        final successCount =
-            summary.addedTrackCount + summary.removedTrackCount;
-        final totalCount = successCount + summary.failedTrackCount;
-        ToastService.warning(
-          context,
-          t.addToPlaylistDialog.partiallyCompleted(
-            success: successCount,
-            total: totalCount,
-          ),
-        );
-        Navigator.pop(context, true);
-        return;
+      reportRemotePlaylistEditResult(
+        context,
+        result,
+        onSuccess: () => Navigator.pop(context, true),
+      );
+      // 成功路徑已 pop；僅失敗/無變更時需重置提交狀態
+      if (mounted && !result.changedRemote) {
+        setState(() {
+          _isSubmitting = false;
+        });
       }
-      if (result.changedRemote) {
-        ToastService.success(context, t.remote.updated);
-        Navigator.pop(context, true);
-        return;
-      }
-      if (result.hasFailures) {
-        ToastService.error(context, result.failures.first.error.toString());
-      } else {
-        ToastService.show(context, t.remote.noChanges);
-      }
-      setState(() {
-        _isSubmitting = false;
-      });
     } on NeteasePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);

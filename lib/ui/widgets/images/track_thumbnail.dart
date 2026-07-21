@@ -7,7 +7,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download/file_exists_cache.dart';
-import '../indicators/now_playing_indicator.dart';
+import '../indicators/now_playing_cover_overlay.dart';
 
 /// 统一的歌曲封面缩略图组件
 ///
@@ -84,8 +84,7 @@ class TrackThumbnail extends ConsumerWidget {
           fit: StackFit.expand,
           children: [
             _buildImage(colorScheme, localCoverPath, ref),
-            if (showPlayingIndicator && isPlaying)
-              _buildPlayingOverlay(colorScheme),
+            if (showPlayingIndicator && isPlaying) _buildPlayingOverlay(),
           ],
         ),
       ),
@@ -117,18 +116,10 @@ class TrackThumbnail extends ConsumerWidget {
     );
   }
 
-  Widget _buildPlayingOverlay(ColorScheme colorScheme) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        color: colorScheme.primary.withValues(alpha: 0.8),
-      ),
-      child: Center(
-        child: NowPlayingIndicator(
-          size: size * 0.5,
-          color: colorScheme.onPrimary,
-        ),
-      ),
+  Widget _buildPlayingOverlay() {
+    return NowPlayingCoverOverlay(
+      coverSize: size,
+      borderRadius: BorderRadius.circular(borderRadius),
     );
   }
 }

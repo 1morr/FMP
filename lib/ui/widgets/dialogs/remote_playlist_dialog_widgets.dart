@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
+import '../../../services/library/remote_playlist_edit_result.dart';
 import '../images/playlist_cover_image.dart';
 import '../images/track_thumbnail.dart';
 
@@ -279,5 +281,126 @@ class RemotePlaylistSelectionIndicator extends StatelessWidget {
       return Icon(Icons.remove_circle_outline, color: colorScheme.primary);
     }
     return Icon(Icons.circle_outlined, color: colorScheme.outline);
+  }
+}
+
+/// Bilibili / NetEase 建立遠端播放清單共用的公開/私人兩段隱私選項。
+/// YouTube 另有 UNLISTED 段，由呼叫端自行組裝 segments。
+List<ButtonSegment<bool>> remotePlaylistPrivacySegments() => [
+      ButtonSegment(
+        value: false,
+        label: Text(t.remote.privacyPublic),
+        icon: const Icon(Icons.public, size: 18),
+      ),
+      ButtonSegment(
+        value: true,
+        label: Text(t.remote.privacyPrivate),
+        icon: const Icon(Icons.lock, size: 18),
+      ),
+    ];
+
+/// 三個遠端「加入播放清單」對話框共用的建立播放清單 AlertDialog。
+///
+/// 隱私選項以泛型 [T] 表示（Bilibili/NetEase 用 bool，YouTube 用
+/// privacyStatus 字串），呼叫端提供 [privacySegments] 與 [initialPrivacy]。
+/// 回傳輸入的名稱與所選隱私值；取消時回傳 null。
+Future<({String name, T privacy})?> showCreateRemotePlaylistDialog<T>({
+  required BuildContext context,
+  required String title,
+  required String hint,
+  required T initialPrivacy,
+  required List<ButtonSegment<T>> privacySegments,
+}) async {
+  final controller = TextEditingController();
+  try {
+    var privacy = initialPrivacy;
+    return await showDialog<({String name, T privacy})>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: hint,
+                ),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    Navigator.pop(
+                      context,
+                      (name: value.trim(), privacy: privacy),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              SegmentedButton<T>(
+                segments: privacySegments,
+                selected: {privacy},
+                onSelectionChanged: (values) =>
+                    setDialogState(() => privacy = values.first),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(t.general.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = controller.text.trim();
+                if (name.isNotEmpty) {
+                  Navigator.pop(context, (name: name, privacy: privacy));
+                }
+              },
+              child: Text(t.general.confirm),
+            ),
+          ],
+        ),
+      ),
+    );
+  } finally {
+    controller.dispose();
+  }
+}
+
+/// 三個遠端「加入播放清單」對話框 `_submit` 共用的結果回報序列。
+///
+/// 部分成功（有遠端變更但也有失敗）必須先於完全成功提示；
+/// [onSuccess] 在兩種成功路徑下呼叫（通常是 pop(true)）。
+/// 失敗或無變更時只提示，不呼叫 [onSuccess]，由呼叫端重置提交狀態。
+void reportRemotePlaylistEditResult(
+  BuildContext context,
+  RemotePlaylistEditResult result, {
+  required VoidCallback onSuccess,
+}) {
+  if (result.changedRemote && result.hasFailures) {
+    final summary = result.summary;
+    final successCount = summary.addedTrackCount + summary.removedTrackCount;
+    final totalCount = successCount + summary.failedTrackCount;
+    ToastService.warning(
+      context,
+      t.addToPlaylistDialog.partiallyCompleted(
+        success: successCount,
+        total: totalCount,
+      ),
+    );
+    onSuccess();
+    return;
+  }
+  if (result.changedRemote) {
+    ToastService.success(context, t.remote.updated);
+    onSuccess();
+    return;
+  }
+  if (result.hasFailures) {
+    ToastService.error(context, result.failures.first.error.toString());
+  } else {
+    ToastService.show(context, t.remote.noChanges);
   }
 }

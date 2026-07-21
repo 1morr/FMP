@@ -48,7 +48,6 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   bool _isCheckingMulti = false; // 多選時異步檢查狀態
   bool _isSubmitting = false;
   String? _errorMessage;
-  final _newPlaylistController = TextEditingController();
 
   List<Track> get _tracks => widget.tracks;
   bool get _isMulti => _tracks.length > 1;
@@ -57,12 +56,6 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   void initState() {
     super.initState();
     _loadPlaylists();
-  }
-
-  @override
-  void dispose() {
-    _newPlaylistController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadPlaylists() async {
@@ -181,81 +174,36 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   }
 
   Future<void> _showCreatePlaylistDialog() async {
-    String privacyStatus = 'UNLISTED';
-    final result = await showDialog<({String name, String privacyStatus})>(
+    final result = await showCreateRemotePlaylistDialog<String>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(t.remote.createPlaylist),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _newPlaylistController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: t.remote.playlistNameHint,
-                ),
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    Navigator.pop(context,
-                        (name: value.trim(), privacyStatus: privacyStatus));
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              SegmentedButton<String>(
-                segments: [
-                  ButtonSegment(
-                    value: 'PUBLIC',
-                    label: Text(t.remote.privacyPublic),
-                    icon: const Icon(Icons.public, size: 18),
-                  ),
-                  ButtonSegment(
-                    value: 'UNLISTED',
-                    label: Text(t.remote.privacyUnlisted),
-                    icon: const Icon(Icons.link, size: 18),
-                  ),
-                  ButtonSegment(
-                    value: 'PRIVATE',
-                    label: Text(t.remote.privacyPrivate),
-                    icon: const Icon(Icons.lock, size: 18),
-                  ),
-                ],
-                selected: {privacyStatus},
-                onSelectionChanged: (v) =>
-                    setDialogState(() => privacyStatus = v.first),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(t.general.cancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = _newPlaylistController.text.trim();
-                if (name.isNotEmpty) {
-                  Navigator.pop(
-                      context, (name: name, privacyStatus: privacyStatus));
-                }
-              },
-              child: Text(t.general.confirm),
-            ),
-          ],
+      title: t.remote.createPlaylist,
+      hint: t.remote.playlistNameHint,
+      initialPrivacy: 'UNLISTED',
+      privacySegments: [
+        ButtonSegment(
+          value: 'PUBLIC',
+          label: Text(t.remote.privacyPublic),
+          icon: const Icon(Icons.public, size: 18),
         ),
-      ),
+        ButtonSegment(
+          value: 'UNLISTED',
+          label: Text(t.remote.privacyUnlisted),
+          icon: const Icon(Icons.link, size: 18),
+        ),
+        ButtonSegment(
+          value: 'PRIVATE',
+          label: Text(t.remote.privacyPrivate),
+          icon: const Icon(Icons.lock, size: 18),
+        ),
+      ],
     );
-
-    _newPlaylistController.clear();
 
     if (result != null && mounted) {
       try {
         final service = ref.read(youtubePlaylistServiceProvider);
         final playlistId = await service.createPlaylist(
           title: result.name,
-          privacyStatus: result.privacyStatus,
+          privacyStatus: result.privacy,
         );
         if (!mounted || playlistId == null) return;
         setState(() {
@@ -311,34 +259,17 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
           );
 
       if (!mounted) return;
-      if (result.changedRemote && result.hasFailures) {
-        final summary = result.summary;
-        final successCount =
-            summary.addedTrackCount + summary.removedTrackCount;
-        final totalCount = successCount + summary.failedTrackCount;
-        ToastService.warning(
-          context,
-          t.addToPlaylistDialog.partiallyCompleted(
-            success: successCount,
-            total: totalCount,
-          ),
-        );
-        Navigator.pop(context, true);
-        return;
+      reportRemotePlaylistEditResult(
+        context,
+        result,
+        onSuccess: () => Navigator.pop(context, true),
+      );
+      // 成功路徑已 pop；僅失敗/無變更時需重置提交狀態
+      if (mounted && !result.changedRemote) {
+        setState(() {
+          _isSubmitting = false;
+        });
       }
-      if (result.changedRemote) {
-        ToastService.success(context, t.remote.updated);
-        Navigator.pop(context, true);
-        return;
-      }
-      if (result.hasFailures) {
-        ToastService.error(context, result.failures.first.error.toString());
-      } else {
-        ToastService.show(context, t.remote.noChanges);
-      }
-      setState(() {
-        _isSubmitting = false;
-      });
     } on YouTubePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);

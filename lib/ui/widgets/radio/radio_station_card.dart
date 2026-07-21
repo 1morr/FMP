@@ -4,7 +4,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../data/models/radio_station.dart';
 import '../images/radio_cover_image.dart';
 import '../indicators/live_badge.dart';
-import '../indicators/now_playing_indicator.dart';
+import '../indicators/now_playing_cover_overlay.dart';
 
 /// 純視覺的圓形電台封面：非直播灰階、直播紅點、播放中/載入中遮罩。
 ///
@@ -80,27 +80,20 @@ class RadioStationCover extends StatelessWidget {
               // 播放中/載入中遮罩
               if (isPlaying || isLoading)
                 Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.primary.withValues(alpha: 0.4),
-                    ),
-                    child: Center(
-                      child: isLoading
-                          ? SizedBox(
-                              width: indicatorSize,
-                              height: indicatorSize,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: colorScheme.onPrimary,
-                              ),
-                            )
-                          : NowPlayingIndicator(
+                  child: NowPlayingCoverOverlay(
+                    coverSize: coverSize,
+                    scrimAlpha: 0.4,
+                    shape: BoxShape.circle,
+                    child: isLoading
+                        ? SizedBox(
+                            width: indicatorSize,
+                            height: indicatorSize,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
                               color: colorScheme.onPrimary,
-                              size: indicatorSize,
-                              isPlaying: true,
                             ),
-                    ),
+                          )
+                        : null,
                   ),
                 ),
             ],

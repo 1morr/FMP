@@ -619,20 +619,25 @@ class _DraggableQueueItem extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 16),
               ),
             // 实际的列表项
-            LongPressDraggable<int>(
-              data: index,
-              delay: AnimationDurations.fast, // 缩短长按延迟
-              onDragStarted: onDragStart,
-              onDraggableCanceled: (_, __) => onDragCancel(),
-              feedback: SizedBox(
-                width: MediaQuery.of(context).size.width - 32,
-                child: buildTileContent(isFeedback: true),
-              ),
-              childWhenDragging: Opacity(
-                opacity: 0.3,
-                child: buildTileContent(),
-              ),
-              child: buildTileContent(),
+            // LayoutBuilder 取得隊列列表實際寬度，拖曳回饋不超出列表區域
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return LongPressDraggable<int>(
+                  data: index,
+                  delay: AnimationDurations.fast, // 缩短长按延迟
+                  onDragStarted: onDragStart,
+                  onDraggableCanceled: (_, __) => onDragCancel(),
+                  feedback: SizedBox(
+                    width: constraints.maxWidth,
+                    child: buildTileContent(isFeedback: true),
+                  ),
+                  childWhenDragging: Opacity(
+                    opacity: 0.3,
+                    child: buildTileContent(),
+                  ),
+                  child: buildTileContent(),
+                );
+              },
             ),
           ],
         );

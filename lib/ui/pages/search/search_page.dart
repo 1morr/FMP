@@ -19,7 +19,7 @@ import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/feedback/error_display.dart';
-import '../../widgets/indicators/now_playing_indicator.dart';
+import '../../widgets/indicators/part_number_badge.dart';
 import '../../widgets/indicators/source_badge.dart';
 import '../../widgets/images/radio_cover_image.dart';
 import '../../widgets/track_group/track_group.dart';
@@ -1117,26 +1117,10 @@ class _PageTile extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.only(left: 56),
         child: ListTile(
-          leading: isPlaying
-              ? NowPlayingIndicator(
-                  size: 24,
-                  color: colorScheme.primary,
-                )
-              : Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.borderRadiusSm,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'P${page.page}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
-                  ),
-                ),
+          leading: PartNumberBadge(
+            partNumber: page.page,
+            isPlaying: isPlaying,
+          ),
           title: Text(
             page.part,
             maxLines: 1,
@@ -1439,26 +1423,10 @@ class _LocalTrackTile extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.only(left: 56),
         child: ListTile(
-          leading: isPlaying
-              ? NowPlayingIndicator(
-                  size: 24,
-                  color: colorScheme.primary,
-                )
-              : Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.borderRadiusSm,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'P${track.pageNum ?? 1}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
-                  ),
-                ),
+          leading: PartNumberBadge(
+            partNumber: track.pageNum ?? 1,
+            isPlaying: isPlaying,
+          ),
           onLongPress: onLongPress,
           title: Text(
             track.title,

@@ -14,6 +14,7 @@ import '../../../../providers/library/library_invalidation_coordinator.dart';
 import '../../../../providers/database/repository_providers.dart';
 import '../../../../services/import/import_service.dart';
 import '../../../widgets/images/playlist_cover_image.dart';
+import '../../../widgets/dialogs/remote_playlist_dialog_widgets.dart';
 import '../../../widgets/layout/sheet_drag_handle.dart';
 
 /// 帳號歌單列表項
@@ -332,22 +333,9 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
           // 拖拽指示條
           const SheetDragHandle(),
           // 標題
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Text(
-                  t.account.selectPlaylists,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
+          RemotePlaylistDialogHeader(
+            title: t.account.selectPlaylists,
+            onClose: () => Navigator.pop(context),
           ),
           const Divider(),
           // Content

@@ -10,6 +10,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account/account_provider.dart';
 import '../../../services/account/bilibili_account_service.dart';
+import '../../widgets/dialogs/qr_login_card.dart';
 
 /// Bilibili 登錄頁面（WebView + QR 碼）
 class BilibiliLoginPage extends ConsumerStatefulWidget {
@@ -299,8 +300,6 @@ class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -315,58 +314,16 @@ class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (_qrData != null)
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+              QrLoginCard(
+                qrWidget: QrImageView(
+                  data: _qrData!.url,
+                  version: QrVersions.auto,
+                  size: 200,
                 ),
-                padding: const EdgeInsets.all(16),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    QrImageView(
-                      data: _qrData!.url,
-                      version: QrVersions.auto,
-                      size: 200,
-                    ),
-                    if (_status == QrCodeStatus.expired)
-                      Container(
-                        width: 200,
-                        height: 200,
-                        color: Colors.white.withValues(alpha: 0.85),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.refresh,
-                                  size: 40, color: colorScheme.primary),
-                              const SizedBox(height: 8),
-                              Text(t.account.qrExpired,
-                                  style:
-                                      TextStyle(color: colorScheme.onSurface)),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 24),
-            // 狀態文字
-            Text(
-              _statusText,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            // 重新生成按鈕
-            if (_status == QrCodeStatus.expired)
-              FilledButton.icon(
-                onPressed: _generateQrCode,
-                icon: const Icon(Icons.refresh),
-                label: Text(t.account.qrRefresh),
+                isExpired: _status == QrCodeStatus.expired,
+                statusText: _statusText,
+                expiredText: t.account.qrExpired,
+                onRefresh: _generateQrCode,
               ),
           ],
         ),
