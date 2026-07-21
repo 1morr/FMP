@@ -23,8 +23,8 @@ import '../../../services/download/download_service.dart'
 import '../../widgets/feedback/error_display.dart';
 import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/images/playlist_cover_image.dart';
-import '../../widgets/app_bars/selection_mode_app_bar.dart';
 import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/menus/selection_menu_items.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../widgets/indicators/vip_badge.dart';
@@ -487,51 +487,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   List<PopupMenuEntry<String>> _buildSelectionMenuItems(
       Set<String> availableActions) {
     final colorScheme = Theme.of(context).colorScheme;
-    final commonItems = buildCommonTrackActionMenuItems(
-      translations: t,
-      scope: TrackActionMenuScope.multi,
-      options: TrackActionMenuOptions(
-        includeAddToQueue: availableActions.contains(selectionActionAddToQueue),
-        includePlayNext: availableActions.contains(selectionActionPlayNext),
-        includeAddToPlaylist:
-            availableActions.contains(selectionActionAddToPlaylist),
-        includeAddToRemote:
-            availableActions.contains(selectionActionAddToRemotePlaylist),
-      ),
+    return buildSelectionMenuEntries(
+      colorScheme: colorScheme,
+      availableActions: availableActions,
     );
-
-    return [
-      ...buildTrackActionPopupMenuEntries(commonItems),
-      if (availableActions.contains(selectionActionRemoveFromRemotePlaylist))
-        PopupMenuItem(
-          value: selectionActionRemoveFromRemotePlaylist,
-          child: ListTile(
-            leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
-            title: Text(t.remote.removeFromFavorites,
-                style: TextStyle(color: colorScheme.error)),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      if (availableActions.contains(selectionActionDownload))
-        PopupMenuItem(
-          value: selectionActionDownload,
-          child: ListTile(
-            leading: const Icon(Icons.download),
-            title: Text(t.library.detail.download),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      if (availableActions.contains(selectionActionDelete))
-        PopupMenuItem(
-          value: selectionActionDelete,
-          child: ListTile(
-            leading: Icon(Icons.delete_outline, color: colorScheme.error),
-            title: Text(t.library.detail.removeFromPlaylist,
-                style: TextStyle(color: colorScheme.error)),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-    ];
   }
 
   /// 處理多選菜單操作
@@ -1303,7 +1262,7 @@ class _GroupHeader extends ConsumerWidget {
             t.pageNum == currentTrack.pageNum);
 
     return ContextMenuRegion(
-      menuBuilder: (_) => _buildMenuItems(),
+      menuBuilder: (_) => _buildMenuItems(colorScheme),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: ListTile(
         onTap: onToggle,
@@ -1373,7 +1332,7 @@ class _GroupHeader extends ConsumerWidget {
                     icon: const Icon(Icons.more_vert),
                     onSelected: (value) =>
                         _handleMenuAction(context, ref, value),
-                    itemBuilder: (_) => _buildMenuItems(),
+                    itemBuilder: (_) => _buildMenuItems(colorScheme),
                   ),
                 ],
               ),
@@ -1381,7 +1340,7 @@ class _GroupHeader extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
+  List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) => [
         PopupMenuItem(
             value: 'play_first',
             child: ListTile(
@@ -1412,12 +1371,12 @@ class _GroupHeader extends ConsumerWidget {
           ),
         ),
         if (!isImported)
-          PopupMenuItem(
-              value: 'remove_all',
-              child: ListTile(
-                  leading: const Icon(Icons.remove_circle_outline),
-                  title: Text(t.library.detail.removeAllFromPlaylist),
-                  contentPadding: EdgeInsets.zero)),
+          buildDestructivePopupMenuItem(
+            value: 'remove_all',
+            icon: Icons.remove_circle_outline,
+            label: t.library.detail.removeAllFromPlaylist,
+            color: colorScheme.error,
+          ),
       ];
 
   void _handleMenuAction(
@@ -1651,25 +1610,18 @@ class _TrackListTile extends ConsumerWidget {
           ),
         ),
       if (isImported && !isMix)
-        PopupMenuItem(
+        buildDestructivePopupMenuItem(
           value: selectionActionRemoveFromRemotePlaylist,
-          child: ListTile(
-            leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
-            title: Text(
-              t.remote.removeFromFavorites,
-              style: TextStyle(color: colorScheme.error),
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
+          icon: Icons.cloud_off_outlined,
+          label: t.remote.removeFromFavorites,
+          color: colorScheme.error,
         ),
       if (!isImported)
-        PopupMenuItem(
+        buildDestructivePopupMenuItem(
           value: 'remove',
-          child: ListTile(
-            leading: const Icon(Icons.remove_circle_outline),
-            title: Text(t.library.detail.removeFromPlaylist),
-            contentPadding: EdgeInsets.zero,
-          ),
+          icon: Icons.remove_circle_outline,
+          label: t.library.detail.removeFromPlaylist,
+          color: colorScheme.error,
         ),
     ];
   }

@@ -525,7 +525,7 @@ class _GroupHeader extends ConsumerWidget {
             t.pageNum == currentTrack.pageNum);
 
     return ContextMenuRegion(
-      menuBuilder: (_) => _buildMenuItems(),
+      menuBuilder: (_) => _buildMenuItems(colorScheme),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: ListTile(
         onTap: onToggle,
@@ -579,33 +579,7 @@ class _GroupHeader extends ConsumerWidget {
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               onSelected: (value) => _handleMenuAction(context, ref, value),
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'play_first',
-                  child: ListTile(
-                    leading: const Icon(Icons.play_arrow),
-                    title: Text(t.library.downloadedCategory.playFirstPart),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'add_all_to_queue',
-                  child: ListTile(
-                    leading: const Icon(Icons.add_to_queue),
-                    title: Text(t.library.downloadedCategory.addAllToQueue),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete_all',
-                  child: ListTile(
-                    leading: const Icon(Icons.delete_outline),
-                    title:
-                        Text(t.library.downloadedCategory.deleteAllDownloads),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
+              itemBuilder: (_) => _buildMenuItems(colorScheme),
             ),
           ],
         ),
@@ -613,7 +587,7 @@ class _GroupHeader extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
+  List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) => [
         PopupMenuItem(
           value: 'play_first',
           child: ListTile(
@@ -630,13 +604,11 @@ class _GroupHeader extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        PopupMenuItem(
+        buildDestructivePopupMenuItem(
           value: 'delete_all',
-          child: ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: Text(t.library.downloadedCategory.deleteAllDownloads),
-            contentPadding: EdgeInsets.zero,
-          ),
+          icon: Icons.delete_outline,
+          label: t.library.downloadedCategory.deleteAllDownloads,
+          color: colorScheme.error,
         ),
       ];
 
@@ -710,7 +682,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
         currentTrack.pageNum == track.pageNum;
 
     return ContextMenuRegion(
-      menuBuilder: (_) => _buildMenuItems(),
+      menuBuilder: (_) => _buildMenuItems(colorScheme),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: Padding(
         padding: EdgeInsets.only(left: indent ? 56 : 0),
@@ -775,7 +747,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20),
                 onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (_) => _buildMenuItems(),
+                itemBuilder: (_) => _buildMenuItems(colorScheme),
               ),
             ],
           ),
@@ -785,7 +757,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() {
+  List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) {
     return [
       ...buildTrackActionPopupMenuEntries(
         buildCommonTrackActionMenuItems(
@@ -797,13 +769,11 @@ class _DownloadedTrackTile extends ConsumerWidget {
         ),
       ),
       const PopupMenuDivider(),
-      PopupMenuItem(
+      buildDestructivePopupMenuItem(
         value: 'delete',
-        child: ListTile(
-          leading: const Icon(Icons.delete_outline),
-          title: Text(t.library.deleteDownload),
-          contentPadding: EdgeInsets.zero,
-        ),
+        icon: Icons.delete_outline,
+        label: t.library.deleteDownload,
+        color: colorScheme.error,
       ),
     ];
   }

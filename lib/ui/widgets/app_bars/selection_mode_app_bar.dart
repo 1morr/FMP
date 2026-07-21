@@ -7,17 +7,20 @@ import '../../../data/models/track.dart';
 import '../../../providers/ui/selection_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
-import '../../handlers/track_action_menu.dart';
 import '../dialogs/confirm_destructive_dialog.dart';
+import '../menus/selection_menu_items.dart';
 
-/// 多選模式下可用的操作類型
-const selectionActionAddToQueue = addToQueueTrackActionId;
-const selectionActionPlayNext = playNextTrackActionId;
-const selectionActionAddToPlaylist = addToPlaylistTrackActionId;
-const selectionActionAddToRemotePlaylist = addToRemoteTrackActionId;
-const selectionActionRemoveFromRemotePlaylist = 'remove_from_remote';
-const selectionActionDownload = 'download';
-const selectionActionDelete = 'delete';
+// 操作 id 常數定義於 selection_menu_items.dart，此處 re-export
+// 供既有呼叫方（歌單詳情頁、探索頁、搜索頁）沿用原 import。
+export '../menus/selection_menu_items.dart'
+    show
+        selectionActionAddToQueue,
+        selectionActionPlayNext,
+        selectionActionAddToPlaylist,
+        selectionActionAddToRemotePlaylist,
+        selectionActionRemoveFromRemotePlaylist,
+        selectionActionDownload,
+        selectionActionDelete;
 
 /// 多選模式 AppBar
 ///
@@ -114,47 +117,11 @@ class SelectionModeAppBar extends ConsumerWidget
 
   List<PopupMenuEntry<String>> _buildSelectionMenuEntries(
     ColorScheme colorScheme,
-  ) {
-    final commonItems = buildCommonTrackActionMenuItems(
-      translations: t,
-      scope: TrackActionMenuScope.multi,
-      options: TrackActionMenuOptions(
-        includePlayNext: availableActions.contains(selectionActionPlayNext),
-        includeAddToQueue: availableActions.contains(selectionActionAddToQueue),
-        includeAddToPlaylist:
-            availableActions.contains(selectionActionAddToPlaylist),
-        includeAddToRemote:
-            availableActions.contains(selectionActionAddToRemotePlaylist),
-      ),
-    );
-
-    return [
-      ...buildTrackActionPopupMenuEntries(commonItems),
-      if (availableActions.contains(selectionActionRemoveFromRemotePlaylist))
-        buildDestructivePopupMenuItem(
-          value: selectionActionRemoveFromRemotePlaylist,
-          icon: Icons.cloud_off_outlined,
-          label: t.remote.removeFromFavorites,
-          color: colorScheme.error,
-        ),
-      if (availableActions.contains(selectionActionDownload))
-        PopupMenuItem(
-          value: selectionActionDownload,
-          child: ListTile(
-            leading: const Icon(Icons.download),
-            title: Text(t.selectionMode.download),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      if (availableActions.contains(selectionActionDelete))
-        buildDestructivePopupMenuItem(
-          value: selectionActionDelete,
-          icon: Icons.delete_outline,
-          label: t.selectionMode.removeFromPlaylist,
-          color: colorScheme.error,
-        ),
-    ];
-  }
+  ) =>
+      buildSelectionMenuEntries(
+        colorScheme: colorScheme,
+        availableActions: availableActions,
+      );
 
   void _handleMenuAction(
     BuildContext context,
