@@ -168,22 +168,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               return [
                 PopupMenuItem(
                   value: 'local',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.playlist_add, size: 20),
-                      const SizedBox(width: 12),
-                      Text(t.general.addToPlaylist),
-                    ],
+                  child: ListTile(
+                    leading: const Icon(Icons.playlist_add),
+                    title: Text(t.general.addToPlaylist),
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
                 PopupMenuItem(
                   value: 'remote',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.cloud_upload_outlined, size: 20),
-                      const SizedBox(width: 12),
-                      Text(t.remote.addToFavorites),
-                    ],
+                  child: ListTile(
+                    leading: const Icon(Icons.cloud_upload_outlined),
+                    title: Text(t.remote.addToFavorites),
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ];
@@ -242,18 +238,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           itemBuilder: (context) => [
             PopupMenuItem(
               value: 'speed',
-              child: Row(
-                children: [
-                  const Icon(Icons.speed, size: 20),
-                  const SizedBox(width: 12),
-                  Text('${playbackSpeed}x'),
-                  const Spacer(),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ],
+              child: ListTile(
+                leading: const Icon(Icons.speed),
+                title: Text('${playbackSpeed}x'),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                contentPadding: EdgeInsets.zero,
               ),
             ),
             // 歌词选项（仅在显示歌词时显示）
@@ -261,43 +254,35 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               const PopupMenuDivider(),
               PopupMenuItem(
                 value: 'lyrics_search',
-                child: Row(
-                  children: [
-                    const Icon(Icons.search, size: 20),
-                    const SizedBox(width: 12),
-                    Text(t.lyrics.searchLyrics),
-                  ],
+                child: ListTile(
+                  leading: const Icon(Icons.search),
+                  title: Text(t.lyrics.searchLyrics),
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
               PopupMenuItem(
                 value: 'lyrics_offset',
-                child: Row(
-                  children: [
-                    Icon(
-                      _showOffsetControls
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(t.lyrics.adjustOffset),
-                  ],
+                child: ListTile(
+                  leading: Icon(
+                    _showOffsetControls
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                  ),
+                  title: Text(t.lyrics.adjustOffset),
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
               PopupMenuItem(
                 value: 'lyrics_display_mode',
-                child: Row(
-                  children: [
-                    const Icon(Icons.translate, size: 20),
-                    const SizedBox(width: 12),
-                    Text(t.lyrics.displayMode),
-                    const Spacer(),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ],
+                child: ListTile(
+                  leading: const Icon(Icons.translate),
+                  title: Text(t.lyrics.displayMode),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
             ],
