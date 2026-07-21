@@ -182,8 +182,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         body: ErrorDisplay(
           type: ErrorType.general,
           message: state.error!,
-          onRetry: () =>
-              ref.invalidate(playlistDetailProvider(widget.playlistId)),
+          onRetry: () => ref
+              .read(libraryInvalidationCoordinatorProvider)
+              .startRefreshLoadedPlaylistDetails(
+            [widget.playlistId],
+            reason: 'playlistDetailErrorRetry',
+          ),
         ),
       );
     }
