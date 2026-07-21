@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 
+import '../../../i18n/strings.g.dart';
+
 /// 全螢幕播放器的沉浸式版面骨架，音樂/電台播放器共用。
 ///
 /// 統一「模糊封面背板 + 兩層 overlay 色調 + 浮動透明 AppBar（含 Windows 拖曳
@@ -43,6 +45,7 @@ class ImmersivePlayerScaffold extends StatelessWidget {
       scrolledUnderElevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.keyboard_arrow_down),
+        tooltip: t.player.collapse,
         onPressed: () => Navigator.of(context).pop(),
       ),
       flexibleSpace: _buildAppBarOverlay(colorScheme),

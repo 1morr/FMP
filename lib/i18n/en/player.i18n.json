@@ -23,5 +23,6 @@
   "audioDevice": "Audio Output Device",
   "audioDeviceAuto": "Auto (System Default)",
   "previous": "Previous",
-  "next": "Next"
+  "next": "Next",
+  "collapse": "Collapse player"
 }

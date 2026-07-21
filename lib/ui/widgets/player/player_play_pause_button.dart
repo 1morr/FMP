@@ -15,6 +15,9 @@ class PlayerPlayPauseButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final ColorScheme colorScheme;
 
+  /// 可選的 tooltip；非空時以 Tooltip 包裹按鈕。
+  final String? tooltip;
+
   const PlayerPlayPauseButton({
     super.key,
     required this.isLoading,
@@ -22,14 +25,16 @@ class PlayerPlayPauseButton extends StatelessWidget {
     required this.enabled,
     required this.onPressed,
     required this.colorScheme,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
     const double buttonSize = AppSizes.playerMainButton;
 
+    final Widget button;
     if (isLoading) {
-      return SizedBox(
+      button = SizedBox(
         width: buttonSize,
         height: buttonSize,
         child: FilledButton(
@@ -50,24 +55,30 @@ class PlayerPlayPauseButton extends StatelessWidget {
           ),
         ),
       );
+    } else {
+      button = SizedBox(
+        width: buttonSize,
+        height: buttonSize,
+        child: FilledButton(
+          onPressed: enabled ? onPressed : null,
+          style: FilledButton.styleFrom(
+            shape: const CircleBorder(),
+            minimumSize: const Size(buttonSize, buttonSize),
+            maximumSize: const Size(buttonSize, buttonSize),
+            padding: EdgeInsets.zero,
+          ),
+          child: Icon(
+            isPlaying ? Icons.pause : Icons.play_arrow,
+            size: 40,
+          ),
+        ),
+      );
     }
 
-    return SizedBox(
-      width: buttonSize,
-      height: buttonSize,
-      child: FilledButton(
-        onPressed: enabled ? onPressed : null,
-        style: FilledButton.styleFrom(
-          shape: const CircleBorder(),
-          minimumSize: const Size(buttonSize, buttonSize),
-          maximumSize: const Size(buttonSize, buttonSize),
-          padding: EdgeInsets.zero,
-        ),
-        child: Icon(
-          isPlaying ? Icons.pause : Icons.play_arrow,
-          size: 40,
-        ),
-      ),
-    );
+    final tooltip = this.tooltip;
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: button);
+    }
+    return button;
   }
 }
