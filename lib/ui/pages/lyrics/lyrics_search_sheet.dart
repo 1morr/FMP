@@ -12,6 +12,7 @@ import '../../../providers/audio/audio_settings_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../services/lyrics/lyrics_result.dart';
 import '../../widgets/images/track_thumbnail.dart';
+import '../../widgets/layout/sheet_drag_handle.dart';
 
 /// 显示歌词搜索匹配 BottomSheet
 void showLyricsSearchSheet({
@@ -251,15 +252,8 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                   child: Column(
                     children: [
                       // 拖动手柄
-                      Container(
-                        margin: const EdgeInsets.only(top: 12),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.4),
-                          borderRadius: AppRadius.borderRadiusXs,
-                        ),
+                      const SheetDragHandle(
+                        margin: EdgeInsets.only(top: 12),
                       ),
                       // 标题栏
                       Padding(

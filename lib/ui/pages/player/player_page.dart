@@ -29,6 +29,7 @@ import '../../widgets/indicators/vip_badge.dart';
 import '../../widgets/layout/detail_stats_row.dart';
 import '../../widgets/layout/expandable_text_section.dart';
 import '../../widgets/layout/immersive_player_scaffold.dart';
+import '../../widgets/layout/sheet_drag_handle.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
 import '../../widgets/player/compact_volume_control.dart';
 import '../../widgets/player/cover_art_container.dart';
@@ -802,15 +803,8 @@ class _TrackInfoDialog extends ConsumerWidget {
                   child: Column(
                     children: [
                       // 拖动手柄
-                      Container(
-                        margin: const EdgeInsets.only(top: 12),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.4),
-                          borderRadius: AppRadius.borderRadiusXs,
-                        ),
+                      const SheetDragHandle(
+                        margin: EdgeInsets.only(top: 12),
                       ),
                       // 标题栏
                       Padding(

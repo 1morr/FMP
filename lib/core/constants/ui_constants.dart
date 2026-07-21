@@ -24,6 +24,9 @@ class AppRadius {
   /// 28dp - 导航栏指示器等特殊元素
   static const double pill = 28.0;
 
+  /// 20dp - 底部弹窗顶部圆角
+  static const double sheet = 20.0;
+
   /// 预构建的 BorderRadius 常量（避免重复创建对象）
   static final BorderRadius borderRadiusXs = BorderRadius.circular(xs);
   static final BorderRadius borderRadiusSm = BorderRadius.circular(sm);
@@ -77,6 +80,9 @@ class AppSizes {
 
   /// 卡片宽高比
   static const double cardAspectRatio = 0.8;
+
+  /// 底部弹窗最大高度
+  static const double maxBottomSheetHeight = 800.0;
 }
 
 /// 图片源尺寸目标。
