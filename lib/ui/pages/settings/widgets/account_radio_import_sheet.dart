@@ -7,6 +7,7 @@ import '../../../../i18n/strings.g.dart';
 import '../../../../services/radio/radio_controller.dart';
 import '../../../../services/radio/radio_refresh_service.dart';
 import '../../../widgets/images/avatar_image.dart';
+import '../../../widgets/layout/sheet_drag_handle.dart';
 
 /// 電台列表項（內部使用）
 class _RadioItem {
@@ -137,7 +138,6 @@ class _AccountRadioImportSheetState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final importedIds = _stations == null
         ? <String>{}
         : {for (final s in _stations!) if (s.isImported) s.roomId};
@@ -152,15 +152,7 @@ class _AccountRadioImportSheetState
       builder: (context, scrollController) => Column(
         children: [
           // 拖拽指示條
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: colorScheme.outline.withValues(alpha: 0.3),
-              borderRadius: AppRadius.borderRadiusXs,
-            ),
-          ),
+          const SheetDragHandle(),
           // 標題
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

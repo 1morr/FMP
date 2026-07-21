@@ -11,6 +11,7 @@ import '../../../providers/library/playlist_provider.dart';
 import '../../../providers/database/repository_providers.dart';
 import '../images/playlist_cover_image.dart';
 import '../images/track_thumbnail.dart';
+import '../layout/sheet_drag_handle.dart';
 import 'remote_playlist_dialog_widgets.dart';
 
 /// 显示添加到歌单对话框（单个track）
@@ -121,15 +122,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         return Column(
           children: [
             // 拖拽指示条
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.outline.withValues(alpha: 0.3),
-                borderRadius: AppRadius.borderRadiusXs,
-              ),
-            ),
+            const SheetDragHandle(),
             // 标题
             RemotePlaylistDialogHeader(
               title: t.addToPlaylistDialog.title,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -9,6 +8,7 @@ import '../../../providers/account/account_provider.dart';
 import '../../../providers/library/remote_playlist_sync_provider.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/library/remote_playlist_selection_changes.dart';
+import '../layout/sheet_drag_handle.dart';
 import 'remote_playlist_dialog_widgets.dart';
 
 /// 顯示添加到 YouTube 播放列表對話框
@@ -367,15 +367,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
         return Column(
           children: [
             // 拖拽指示條
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.outline.withValues(alpha: 0.3),
-                borderRadius: AppRadius.borderRadiusXs,
-              ),
-            ),
+            const SheetDragHandle(),
             // 標題
             RemotePlaylistDialogHeader(
               title: t.remote.dialogTitleYoutube,
