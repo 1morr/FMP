@@ -8,22 +8,33 @@ Shared widgets live in semantic subdirectories under `lib/ui/widgets/`; do not
 add new `.dart` files directly under `lib/ui/widgets/`.
 
 Current folders:
-- `app_bars/` - app-level bars such as custom title bars and selection bars.
+- `app_bars/` - app-level bars such as custom title bars, selection bars, and
+  `CollapsingHeroSliverAppBar` (shared 280dp library hero header used by
+  playlist-detail and downloaded-category pages).
 - `controls/` - reusable controls such as color pickers and compound toggles.
-- `dialogs/` - shared dialog widgets, including `showConfirmDestructiveDialog`.
-- `feedback/` - error and app-status feedback surfaces.
+- `dialogs/` - shared dialog widgets, including `showConfirmDestructiveDialog`,
+  `QrLoginCard`, and the remote-playlist helpers in
+  `remote_playlist_dialog_widgets.dart` (`showCreateRemotePlaylistDialog`,
+  `reportRemotePlaylistEditResult`).
+- `feedback/` - error and app-status feedback surfaces (`ErrorDisplay`).
 - `images/` - semantic image loading widgets.
-- `indicators/` - compact state indicators and badges (`LiveBadge`,
-  `SourceBadge`, `NowPlayingIndicator`, ...).
-- `layout/` - reusable layout sections (`ExpandableTextSection`,
-  `DetailStatsRow`, ...).
+- `indicators/` - compact state indicators and badges (`LiveBadge` (+ `.compact`),
+  `SourceBadge`, `NowPlayingIndicator`, `NowPlayingCoverOverlay`,
+  `PartNumberBadge`, ...).
+- `layout/` - reusable layout sections and sheet chrome (`ExpandableTextSection`,
+  `DetailStatsRow`, `TagsSection`, `SheetDragHandle`, `CappedDraggableSheet`,
+  `PlaylistCard`, ...).
 - `lyrics/` - lyrics display/styling plus shared lyrics logic
   (`LyricsTextMeasurer`, `LyricsOffsetBar`, `LyricsOffsetMath`; moved from
   `lib/ui/windows/`).
-- `menus/` - menu/action helpers (`MenuAction` dual popup/sheet builders).
-- `panels/` - large persistent panels such as `TrackDetailPanel`.
+- `menus/` - menu/action helpers (`MenuAction` dual popup/sheet builders,
+  `buildSelectionMenuEntries`).
+- `panels/` - large persistent panels and their shared building blocks
+  (`TrackDetailPanel`, `CommentPager`, `ClickableSourceCover`).
 - `player/`, `radio/`, `track_group/`, `track_tiles/` - domain-specific
-  widget groups.
+  widget groups. Notable shared pieces: `MiniPlayerPlayPauseButton` /
+  `MiniPlayerDesktopControls` (both mini players), `AudioStreamInfoSection`
+  (player + detail panel), `RadioDetailBody` (radio sheet + detail panel).
 
 ## Image Components
 
@@ -186,6 +197,7 @@ or design-system values:
 - `AppSizes`
 - `ToastDurations`
 - `DebounceDurations`
+- `AppShadows` (`heroCover(colorScheme)` - the 120x120 hero-cover shadow token)
 - `kGrayscaleColorMatrix` / `kGrayscaleColorFilter` (REC.709 luma grayscale for desaturating cover art; the matrix is the testable source of truth, the `ColorFilter` is what call sites consume)
 
 Small local layout/animation literals are acceptable when they are one-off
