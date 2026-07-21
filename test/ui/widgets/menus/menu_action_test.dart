@@ -32,6 +32,61 @@ void main() {
     expect((secondTile.title as Text).style, isNull);
   });
 
+  test('disabled action popup entry is not enabled', () {
+    const disabledActions = [
+      MenuAction(
+        id: 'refresh',
+        icon: Icons.refresh,
+        label: 'Refreshing',
+        enabled: false,
+        showProgress: true,
+      ),
+    ];
+
+    final entries = buildMenuActionPopupEntries(disabledActions, Colors.red);
+
+    final item = entries.single as PopupMenuItem<String>;
+    expect(item.enabled, isFalse);
+  });
+
+  testWidgets('showProgress renders progress indicator in popup and sheet',
+      (tester) async {
+    const progressActions = [
+      MenuAction(
+        id: 'refresh',
+        icon: Icons.refresh,
+        label: 'Refreshing',
+        enabled: false,
+        showProgress: true,
+      ),
+    ];
+
+    final entries = buildMenuActionPopupEntries(progressActions, Colors.red);
+    final popupTile = (entries.single as PopupMenuItem<String>).child!;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: [
+                popupTile,
+                ...buildMenuActionListTiles(
+                  context,
+                  progressActions,
+                  (_) {},
+                  Colors.red,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsNWidgets(2));
+    expect(find.byIcon(Icons.refresh), findsNothing);
+  });
+
   testWidgets('list tiles pop the sheet and dispatch the action id',
       (tester) async {
     String? selected;

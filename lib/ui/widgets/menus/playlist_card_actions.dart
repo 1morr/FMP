@@ -7,24 +7,7 @@ import '../../../data/models/track.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../providers/library/playlist_provider.dart';
 import '../../../i18n/strings.g.dart';
-
-class PlaylistCardMenuItem {
-  const PlaylistCardMenuItem({
-    required this.id,
-    required this.icon,
-    required this.label,
-    this.enabled = true,
-    this.destructive = false,
-    this.showProgress = false,
-  });
-
-  final String id;
-  final IconData icon;
-  final String label;
-  final bool enabled;
-  final bool destructive;
-  final bool showProgress;
-}
+import 'menu_action.dart';
 
 /// PlaylistCard 共享操作工具类
 class PlaylistCardActions {
@@ -35,45 +18,45 @@ class PlaylistCardActions {
   static const String actionRefresh = 'refresh';
   static const String actionDelete = 'delete';
 
-  static List<PlaylistCardMenuItem> buildMenuItems({
+  static List<MenuAction> buildMenuItems({
     required Playlist playlist,
     required bool isRefreshing,
   }) {
     return [
       if (playlist.isMix)
-        PlaylistCardMenuItem(
+        MenuAction(
           id: actionPlayMix,
           icon: Icons.play_arrow,
           label: t.library.main.playMix,
         )
       else ...[
-        PlaylistCardMenuItem(
+        MenuAction(
           id: actionAddAll,
           icon: Icons.play_arrow,
           label: t.library.addAll,
         ),
-        PlaylistCardMenuItem(
+        MenuAction(
           id: actionShuffleAdd,
           icon: Icons.shuffle,
           label: t.library.shuffleAdd,
         ),
       ],
-      PlaylistCardMenuItem(
+      MenuAction(
         id: actionEdit,
         icon: Icons.edit,
         label: t.library.main.editPlaylist,
       ),
       if (playlist.isImported && !playlist.isMix)
-        PlaylistCardMenuItem(
+        MenuAction(
           id: actionRefresh,
-          icon: isRefreshing ? Icons.hourglass_empty : Icons.refresh,
+          icon: Icons.refresh,
           label: isRefreshing
               ? t.library.main.refreshing
               : t.library.main.refreshPlaylist,
           enabled: !isRefreshing,
           showProgress: isRefreshing,
         ),
-      PlaylistCardMenuItem(
+      MenuAction(
         id: actionDelete,
         icon: Icons.delete,
         label: t.library.main.deletePlaylist,
@@ -84,68 +67,25 @@ class PlaylistCardActions {
 
   static List<PopupMenuEntry<String>> buildPopupMenuEntries({
     required BuildContext context,
-    required List<PlaylistCardMenuItem> items,
+    required List<MenuAction> items,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return [
-      for (final item in items)
-        PopupMenuItem(
-          value: item.id,
-          enabled: item.enabled,
-          child: ListTile(
-            leading: Icon(
-              item.icon,
-              color: item.destructive ? colorScheme.error : null,
-            ),
-            title: Text(
-              item.label,
-              style:
-                  item.destructive ? TextStyle(color: colorScheme.error) : null,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-    ];
+    return buildMenuActionPopupEntries(
+      items,
+      Theme.of(context).colorScheme.error,
+    );
   }
 
   static List<Widget> buildBottomSheetTiles({
     required BuildContext context,
-    required List<PlaylistCardMenuItem> items,
+    required List<MenuAction> items,
     required ValueChanged<String> onSelected,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return [
-      for (final item in items)
-        ListTile(
-          leading: item.showProgress
-              ? SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      colorScheme.primary,
-                    ),
-                  ),
-                )
-              : Icon(
-                  item.icon,
-                  color: item.destructive ? colorScheme.error : null,
-                ),
-          title: Text(
-            item.label,
-            style:
-                item.destructive ? TextStyle(color: colorScheme.error) : null,
-          ),
-          enabled: item.enabled,
-          onTap: item.enabled
-              ? () {
-                  Navigator.pop(context);
-                  onSelected(item.id);
-                }
-              : null,
-        ),
-    ];
+    return buildMenuActionListTiles(
+      context,
+      items,
+      onSelected,
+      Theme.of(context).colorScheme.error,
+    );
   }
 
   /// 添加歌单所有歌曲到队列

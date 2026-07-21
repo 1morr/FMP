@@ -779,7 +779,6 @@ class _RecentHistorySection extends ConsumerWidget {
           buildCommonTrackActionMenuItems(
             translations: t,
             options: const TrackActionMenuOptions(
-              includeMatchLyrics: false,
               includeAddToRemote: false,
             ),
           ),
@@ -856,21 +855,16 @@ class _RecentHistorySection extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ...buildCommonTrackActionMenuItems(
-                translations: t,
-                options: const TrackActionMenuOptions(
-                  includeMatchLyrics: false,
-                  includeAddToRemote: false,
+              ...buildTrackActionListTiles(
+                context,
+                buildCommonTrackActionMenuItems(
+                  translations: t,
+                  options: const TrackActionMenuOptions(
+                    includeAddToRemote: false,
+                  ),
                 ),
-              ).map(
-                (item) => ListTile(
-                  leading: Icon(item.icon),
-                  title: Text(item.label),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _handleHistoryMenuAction(context, ref, history, item.id);
-                  },
-                ),
+                (item) =>
+                    _handleHistoryMenuAction(context, ref, history, item.id),
               ),
               const Divider(),
               ...buildMenuActionListTiles(

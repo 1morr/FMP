@@ -66,4 +66,113 @@ void main() {
       expect(items.any((item) => item.id == matchLyricsTrackActionId), isFalse);
     });
   });
+
+  group('buildTrackActionListTiles', () {
+    TrackActionMenuItem findItem(String id) =>
+        buildCommonTrackActionMenuItems(
+          translations: AppLocale.en.translations,
+        ).firstWhere((item) => item.id == id);
+
+    testWidgets('tapping a tile pops the sheet and dispatches the item',
+        (tester) async {
+      TrackActionMenuItem? selected;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  builder: (sheetContext) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: buildTrackActionListTiles(
+                      sheetContext,
+                      [findItem(addToQueueTrackActionId)],
+                      (item) => selected = item,
+                    ),
+                  ),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final label = findItem(addToQueueTrackActionId).label;
+      expect(find.text(label), findsOneWidget);
+
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+
+      expect(selected?.id, addToQueueTrackActionId);
+      expect(find.text(label), findsNothing);
+    });
+
+    testWidgets('destructive item uses destructiveColor', (tester) async {
+      const destructiveItem = TrackActionMenuItem(
+        id: 'delete',
+        label: 'Delete',
+        icon: Icons.delete,
+        trackAction: TrackAction.addToQueue,
+        destructive: true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Column(
+                children: buildTrackActionListTiles(
+                  context,
+                  [destructiveItem],
+                  (_) {},
+                  destructiveColor: Colors.red,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final icon = tester.widget<Icon>(find.byIcon(Icons.delete));
+      expect(icon.color, Colors.red);
+      final text = tester.widget<Text>(find.text('Delete'));
+      expect(text.style?.color, Colors.red);
+    });
+
+    testWidgets('disabled item has no onTap', (tester) async {
+      const disabledItem = TrackActionMenuItem(
+        id: 'play',
+        label: 'Play',
+        icon: Icons.play_arrow,
+        trackAction: TrackAction.play,
+        enabled: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Column(
+                children: buildTrackActionListTiles(
+                  context,
+                  [disabledItem],
+                  (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final tile = tester.widget<ListTile>(find.byType(ListTile));
+      expect(tile.enabled, isFalse);
+      expect(tile.onTap, isNull);
+    });
+  });
 }
