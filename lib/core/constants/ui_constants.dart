@@ -59,6 +59,20 @@ class AnimationDurations {
   static const Duration loop = Duration(milliseconds: 1600);
 }
 
+/// 统一阴影规格
+class AppShadows {
+  AppShadows._();
+
+  /// Hero 封面（120x120）阴影：colorScheme.shadow alpha 0.3, blur 10, offset (0,5)
+  static List<BoxShadow> heroCover(ColorScheme colorScheme) => [
+        BoxShadow(
+          color: colorScheme.shadow.withValues(alpha: 0.3),
+          blurRadius: 10,
+          offset: const Offset(0, 5),
+        ),
+      ];
+}
+
 /// UI 尺寸常量
 class AppSizes {
   AppSizes._();

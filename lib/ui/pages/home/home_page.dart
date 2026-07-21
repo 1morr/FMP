@@ -6,7 +6,6 @@ import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
-import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/library/playlist_provider.dart';
@@ -23,6 +22,7 @@ import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/layout/horizontal_scroll_section.dart';
+import '../../widgets/layout/playlist_card.dart';
 import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/menus/menu_action.dart';
 import '../../widgets/menus/playlist_card_actions.dart';
@@ -897,93 +897,24 @@ class _HomePlaylistCard extends ConsumerWidget {
     return ContextMenuRegion(
       menuBuilder: (_) => _buildContextMenuItems(context, ref),
       onSelected: (value) => _handleContextMenuAction(context, ref, value),
-      child: Card(
+      child: PlaylistCard(
+        playlist: playlist,
         margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => context.push(RoutePaths.playlistDetailPath(playlist.id)),
-          onLongPress: () => _showOptionsMenu(context, ref),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    coverAsync.when(
-                      skipLoadingOnReload: true,
-                      data: (coverData) => coverData.hasCover
-                          ? PlaylistCoverImage(
-                              localPath: coverData.localPath,
-                              networkUrl: coverData.networkUrl,
-                              placeholder: const ImagePlaceholder.playlist(),
-                              fit: BoxFit.cover,
-                              variant: PlaylistCoverVariant.card,
-                            )
-                          : const ImagePlaceholder.playlist(),
-                      loading: () => const ImagePlaceholder.playlist(),
-                      error: (e, s) => const ImagePlaceholder.playlist(),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      playlist.name,
-                      style: Theme.of(context).textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        if (playlist.isMix) ...[
-                          Icon(
-                            Icons.radio,
-                            size: 12,
-                            color: Theme.of(context).colorScheme.tertiary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Mix',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.tertiary,
-                                ),
-                          ),
-                        ] else ...[
-                          if (playlist.isImported) ...[
-                            Icon(
-                              getImportSourceIcon(playlist.importSourceType),
-                              size: 12,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(
-                            t.library.trackCount(n: playlist.trackCount),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        onTap: () => context.push(RoutePaths.playlistDetailPath(playlist.id)),
+        onLongPress: () => _showOptionsMenu(context, ref),
+        cover: coverAsync.when(
+          skipLoadingOnReload: true,
+          data: (coverData) => coverData.hasCover
+              ? PlaylistCoverImage(
+                  localPath: coverData.localPath,
+                  networkUrl: coverData.networkUrl,
+                  placeholder: const ImagePlaceholder.playlist(),
+                  fit: BoxFit.cover,
+                  variant: PlaylistCoverVariant.card,
+                )
+              : const ImagePlaceholder.playlist(),
+          loading: () => const ImagePlaceholder.playlist(),
+          error: (e, s) => const ImagePlaceholder.playlist(),
         ),
       ),
     );
