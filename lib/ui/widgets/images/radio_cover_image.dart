@@ -16,6 +16,10 @@ enum RadioCoverVariant {
 
   /// 电台播放器、Detail Panel 等大图场景。
   hero,
+
+  /// 电台全螢幕播放器主封面（高 DPI 大屏放大显示，需要超过 hero 的源尺寸，
+  /// 對齊 Bilibili 最高檔位 1280，避免被降解析後再放大而模糊）。
+  fullscreenHero,
 }
 
 extension RadioCoverVariantTarget on RadioCoverVariant {
@@ -29,6 +33,8 @@ extension RadioCoverVariantTarget on RadioCoverVariant {
         return ImageTargetSizes.high;
       case RadioCoverVariant.hero:
         return ImageTargetSizes.highest;
+      case RadioCoverVariant.fullscreenHero:
+        return 1280;
     }
   }
 }

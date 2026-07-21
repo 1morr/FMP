@@ -159,7 +159,7 @@ void main() {
       );
       expect(
         radioPlayer,
-        contains('variant: RadioCoverVariant.hero'),
+        contains('variant: RadioCoverVariant.fullscreenHero'),
       );
       expect(
         radioMiniPlayer,
