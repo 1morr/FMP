@@ -44,10 +44,16 @@ class RadioPlayerPage extends ConsumerWidget {
     final audioController = ref.read(audioControllerProvider.notifier);
 
     final station = radioState.currentStation;
-    // 桌面寬版比照音樂播放器：整個內容欄（封面 + 資訊 + 控制列）限制
-    // maxWidth 420 並置中，而非只限制封面。
-    final isWideLayout =
-        Breakpoints.isDesktop(MediaQuery.sizeOf(context).width);
+    // 桌面寬版比照音樂播放器：整個內容欄（封面 + 資訊 + 控制列）置中。封面為
+    // 1:1，理想邊長由可用高度驅動（4K 全屏時放大、小視窗時縮小），但實際大小
+    // 由 Flexible 依剩餘空間收斂，從結構上避免 Column 溢出（不依賴高度常數估算）。
+    final size = MediaQuery.sizeOf(context);
+    final isWideLayout = Breakpoints.isDesktop(size.width);
+    // 封面理想邊長：可用高度（扣除外距）的 52%，夾在 [280, 680]。僅作上限——
+    // 空間不足時 Flexible 會把它壓到實際可用高度。
+    final coverIdealSide =
+        ((size.height - 48) * 0.52).clamp(280.0, 680.0).toDouble();
+    final contentMaxWidth = isWideLayout ? 720.0 : 420.0;
 
     final appBarActions = <Widget>[
         // 桌面端音頻設備選擇器
@@ -91,43 +97,51 @@ class RadioPlayerPage extends ConsumerWidget {
         // 停用控制列呈現空狀態。
         body: Padding(
           padding: const EdgeInsets.all(24),
-          child: isWideLayout
-              ? Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: _buildPlayerColumn(
-                      context,
-                      radioState,
-                      radioController,
-                      colorScheme,
-                    ),
-                  ),
-                )
-              : _buildPlayerColumn(
-                  context,
-                  radioState,
-                  radioController,
-                  colorScheme,
-                ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              child: _buildPlayerColumn(
+                context,
+                radioState,
+                radioController,
+                colorScheme,
+                coverIdealSide: isWideLayout ? coverIdealSide : null,
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
   /// 播放器內容欄：封面 + 電台資訊 + 開播標記 + 狀態列 + 播放控制。
+  ///
+  /// [coverIdealSide] 不為 null 時（桌面寬版），封面以此為理想邊長、並包在
+  /// Flexible 內：空間足夠（如 4K 全屏）時用滿理想邊長，空間不足時自動縮小以
+  /// 避免溢出。為 null 時（窄版）封面以 Expanded 液態隨欄寬。
   Widget _buildPlayerColumn(
     BuildContext context,
     RadioState radioState,
     RadioController radioController,
-    ColorScheme colorScheme,
-  ) {
+    ColorScheme colorScheme, {
+    double? coverIdealSide,
+  }) {
+    final cover = _buildCoverArt(radioState.currentStation, colorScheme);
     return Column(
       children: [
-        // 封面圖
-        Expanded(
-          flex: 3,
-          child: _buildCoverArt(radioState.currentStation, colorScheme),
-        ),
+        // 封面圖：寬版以理想邊長為上限、Flexible 依剩餘空間收斂；窄版液態。
+        if (coverIdealSide != null)
+          Flexible(
+            child: Center(
+              child: SizedBox(
+                width: coverIdealSide,
+                height: coverIdealSide,
+                child: cover,
+              ),
+            ),
+          )
+        else
+          Expanded(flex: 3, child: cover),
         const SizedBox(height: 32),
 
         // 電台資訊
