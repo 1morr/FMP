@@ -907,7 +907,7 @@ class _HomePlaylistCard extends ConsumerWidget {
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => context.go('/library/${playlist.id}'),
+          onTap: () => context.push(RoutePaths.playlistDetailPath(playlist.id)),
           onLongPress: () => _showOptionsMenu(context, ref),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

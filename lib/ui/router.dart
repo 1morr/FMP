@@ -58,6 +58,8 @@ class RoutePaths {
   static const String bilibiliLogin = '/settings/account/bilibili-login';
   static const String youtubeLogin = '/settings/account/youtube-login';
   static const String neteaseLogin = '/settings/account/netease-login';
+
+  static String playlistDetailPath(int id) => '/library/$id';
 }
 
 /// 路由名称常量

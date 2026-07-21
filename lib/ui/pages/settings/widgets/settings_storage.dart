@@ -124,10 +124,10 @@ class _DownloadPathListTile extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       t.settings.downloadPath.pathChangeWarning,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ],

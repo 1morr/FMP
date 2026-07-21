@@ -79,7 +79,7 @@ class UpdateDialog extends ConsumerWidget {
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.borderRadiusSm,
                     ),
                     child: Text(
                       updateInfo.deviceAbiLabel,

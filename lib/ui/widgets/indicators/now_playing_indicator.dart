@@ -71,7 +71,7 @@ class _NowPlayingIndicatorState extends State<NowPlayingIndicator>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.color ?? Colors.white;
+    final color = widget.color ?? Theme.of(context).colorScheme.primary;
     final barWidth = widget.size * 0.18;
     final gap = widget.size * 0.08;
     final maxBarHeight = widget.size * 0.7;
