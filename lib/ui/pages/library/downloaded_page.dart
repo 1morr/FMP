@@ -75,7 +75,6 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(downloadedCategoriesProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -96,21 +95,10 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
       ),
       body: categoriesAsync.when(
         loading: () => const LoadingPlaceholder(),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: colorScheme.error),
-              const SizedBox(height: 16),
-              Text(t.library.loadFailedWithError(error: error.toString())),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _syncLocalFiles,
-                icon: const Icon(Icons.sync),
-                label: Text(t.library.retry),
-              ),
-            ],
-          ),
+        error: (error, stack) => ErrorDisplay(
+          type: ErrorType.general,
+          message: t.library.loadFailedWithError(error: error.toString()),
+          onRetry: _syncLocalFiles,
         ),
         data: (categories) {
           if (categories.isEmpty) {
