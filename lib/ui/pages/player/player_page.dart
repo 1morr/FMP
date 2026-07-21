@@ -1,5 +1,3 @@
-import 'dart:ui' show PointerDeviceKind;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/extensions/track_extensions.dart';
@@ -29,7 +27,7 @@ import '../../widgets/indicators/vip_badge.dart';
 import '../../widgets/layout/detail_stats_row.dart';
 import '../../widgets/layout/expandable_text_section.dart';
 import '../../widgets/layout/immersive_player_scaffold.dart';
-import '../../widgets/layout/sheet_drag_handle.dart';
+import '../../widgets/layout/capped_draggable_sheet.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
 import '../../widgets/player/compact_volume_control.dart';
 import '../../widgets/player/cover_art_container.dart';
@@ -757,8 +755,6 @@ class _TrackInfoDialog extends ConsumerWidget {
     final detailState = ref.watch(trackDetailProvider);
     final currentTrack = ref.watch(currentTrackProvider);
     final currentStreamMetadata = ref.watch(currentStreamMetadataProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     // Watch 文件存在缓存和下载基础目录
     ref.watch(fileExistsCacheProvider);
@@ -768,115 +764,48 @@ class _TrackInfoDialog extends ConsumerWidget {
 
     final isYouTube = currentTrack?.sourceType == SourceType.youtube;
 
-    // 限制最大高度，避免 Windows 全屏时弹窗过高
-    final screenHeight = MediaQuery.of(context).size.height;
-    const maxSheetHeight = 800.0;
-    final maxRatio = (maxSheetHeight / screenHeight).clamp(0.4, 0.95);
-    final initRatio = maxRatio < 0.6 ? maxRatio : 0.6;
-
-    return DraggableScrollableSheet(
-      initialChildSize: initRatio,
-      minChildSize: 0.0,
-      maxChildSize: maxRatio,
-      snap: true,
-      snapSizes: [0.0, initRatio, if (maxRatio > initRatio) maxRatio],
-      builder: (context, scrollController) {
-        return Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {
-                PointerDeviceKind.touch,
-                PointerDeviceKind.mouse,
-                PointerDeviceKind.trackpad,
-              },
-            ),
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                // 顶部拖动手柄和标题栏（固定在顶部）
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      // 拖动手柄
-                      const SheetDragHandle(
-                        margin: EdgeInsets.only(top: 12),
-                      ),
-                      // 标题栏
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              currentTrack?.sourceType == SourceType.netease
-                                  ? t.player.songInfo
-                                  : t.player.videoInfo,
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                    ],
-                  ),
-                ),
-
-                // 内容区域
-                SliverPadding(
-                  padding: const EdgeInsets.all(20),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 视频详情内容
-                        if (detailState.detail != null)
-                          _DetailContent(
-                            detail: detailState.detail!,
-                            isYouTube: isYouTube,
-                            isNetease:
-                                currentTrack?.sourceType == SourceType.netease,
-                            track: currentTrack,
-                            cache: cache,
-                            baseDir: baseDir,
-                          )
-                        else if (detailState.isLoading)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(40),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        else
-                          _BasicInfoContent(track: currentTrack),
-                        // 音频技术信息
-                        if (currentStreamMetadata.hasAnyInfo)
-                          _AudioInfoSection(metadata: currentStreamMetadata),
-                      ],
+    return CappedDraggableSheet(
+      icon: Icons.info_outline_rounded,
+      title: currentTrack?.sourceType == SourceType.netease
+          ? t.player.songInfo
+          : t.player.videoInfo,
+      onClose: () => Navigator.of(context).pop(),
+      bodySlivers: (context, scrollController) => [
+        // 内容区域
+        SliverPadding(
+          padding: const EdgeInsets.all(20),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 视频详情内容
+                if (detailState.detail != null)
+                  _DetailContent(
+                    detail: detailState.detail!,
+                    isYouTube: isYouTube,
+                    isNetease:
+                        currentTrack?.sourceType == SourceType.netease,
+                    track: currentTrack,
+                    cache: cache,
+                    baseDir: baseDir,
+                  )
+                else if (detailState.isLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40),
+                      child: CircularProgressIndicator(),
                     ),
-                  ),
-                ),
+                  )
+                else
+                  _BasicInfoContent(track: currentTrack),
+                // 音频技术信息
+                if (currentStreamMetadata.hasAnyInfo)
+                  _AudioInfoSection(metadata: currentStreamMetadata),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
