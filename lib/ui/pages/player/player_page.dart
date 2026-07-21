@@ -28,6 +28,9 @@ import '../../widgets/layout/detail_stats_row.dart';
 import '../../widgets/layout/expandable_text_section.dart';
 import '../../widgets/layout/immersive_player_scaffold.dart';
 import '../../widgets/layout/capped_draggable_sheet.dart';
+import '../../widgets/panels/clickable_source_cover.dart';
+import '../../widgets/panels/comment_pager.dart';
+import '../../widgets/player/audio_stream_info_section.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
 import '../../widgets/player/compact_volume_control.dart';
 import '../../widgets/player/cover_art_container.dart';
@@ -800,7 +803,7 @@ class _TrackInfoDialog extends ConsumerWidget {
                   _BasicInfoContent(track: currentTrack),
                 // 音频技术信息
                 if (currentStreamMetadata.hasAnyInfo)
-                  _AudioInfoSection(metadata: currentStreamMetadata),
+                  AudioStreamInfoSection(metadata: currentStreamMetadata),
               ],
             ),
           ),
@@ -839,21 +842,17 @@ class _DetailContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 封面（点击跳转到视频页面，与桌面 Detail Panel 一致）
-        MouseRegion(
-          cursor: track != null
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
-          child: GestureDetector(
-            onTap: track != null
-                ? () => UrlLauncherService.instance.openVideo(track!)
-                : null,
-            child: TrackCover(
-              track: track,
-              networkUrl: detail.coverUrl,
-              aspectRatio: coverAspectRatio,
-              borderRadius: AppRadius.xl,
-              variant: TrackCoverVariant.hero,
-            ),
+        ClickableSourceCover(
+          aspectRatio: coverAspectRatio,
+          onOpenSource: track != null
+              ? () => UrlLauncherService.instance.openVideo(track!)
+              : null,
+          cover: TrackCover(
+            track: track,
+            networkUrl: detail.coverUrl,
+            aspectRatio: coverAspectRatio,
+            borderRadius: 0,
+            variant: TrackCoverVariant.hero,
           ),
         ),
 
@@ -1027,225 +1026,14 @@ class _DetailContent extends StatelessWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _CommentPager(comments: detail.hotComments),
+          CommentPager(
+            comments: detail.hotComments,
+            title: t.player.topComments,
+          ),
         ],
 
         const SizedBox(height: 20),
       ],
-    );
-  }
-}
-
-/// 评论分页组件（手动翻页 + 动画）
-class _CommentPager extends StatefulWidget {
-  final List<VideoComment> comments;
-
-  const _CommentPager({required this.comments});
-
-  @override
-  State<_CommentPager> createState() => _CommentPagerState();
-}
-
-class _CommentPagerState extends State<_CommentPager> {
-  int _currentIndex = 0;
-  bool _isForward = true;
-  final GlobalKey _containerKey = GlobalKey();
-
-  List<VideoComment> get _commentsToShow =>
-      widget.comments.take(AppConstants.commentsPreviewCount).toList();
-
-  bool get _hasPrevious => _currentIndex > 0;
-  bool get _hasNext => _currentIndex < _commentsToShow.length - 1;
-
-  @override
-  void didUpdateWidget(_CommentPager oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.comments != widget.comments) {
-      setState(() {
-        _currentIndex = 0;
-        _isForward = true;
-      });
-    }
-  }
-
-  void _goToPrevious() {
-    if (_hasPrevious) {
-      setState(() {
-        _isForward = false;
-        _currentIndex--;
-      });
-    }
-  }
-
-  void _goToNext() {
-    setState(() {
-      _isForward = true;
-      if (_hasNext) {
-        _currentIndex++;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final comments = _commentsToShow;
-
-    if (comments.isEmpty) return const SizedBox.shrink();
-
-    final currentComment = comments[_currentIndex];
-
-    return Column(
-      key: _containerKey,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 标题栏
-        Row(
-          children: [
-            Icon(
-              Icons.format_quote_rounded,
-              size: 18,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                t.player.topComments,
-                style: textTheme.titleSmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // 翻页按钮（小圆形）
-            if (comments.length > 1) ...[
-              _buildSmallNavButton(
-                icon: Icons.chevron_left_rounded,
-                onPressed: _hasPrevious ? _goToPrevious : null,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  '${_currentIndex + 1}/${comments.length}',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              _buildSmallNavButton(
-                icon: Icons.chevron_right_rounded,
-                onPressed: _hasNext ? () => _goToNext() : null,
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        // 评论内容（带动画）
-        ClipRect(
-          child: AnimatedSwitcher(
-            duration: AnimationDurations.normal,
-            transitionBuilder: (child, animation) {
-              final offsetAnimation = Tween<Offset>(
-                begin: Offset(_isForward ? 1.0 : -1.0, 0.0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              ));
-              return SlideTransition(
-                position: offsetAnimation,
-                child: FadeTransition(
-                  opacity: animation,
-                  child: child,
-                ),
-              );
-            },
-            child: Container(
-              key: ValueKey(_currentIndex),
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh,
-                borderRadius: AppRadius.borderRadiusLg,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    currentComment.content,
-                    style: textTheme.bodyMedium?.copyWith(
-                      height: 1.6,
-                    ),
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.thumb_up_outlined,
-                        size: 14,
-                        color:
-                            colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        currentComment.formattedLikeCount,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.6),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        currentComment.memberName,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSmallNavButton({
-    required IconData icon,
-    required VoidCallback? onPressed,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isEnabled = onPressed != null;
-
-    return Material(
-      color: isEnabled
-          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: AppRadius.borderRadiusLg,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: AppRadius.borderRadiusLg,
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: Icon(
-            icon,
-            size: 16,
-            color: isEnabled
-                ? colorScheme.primary
-                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1382,129 +1170,6 @@ class _BasicInfoContent extends StatelessWidget {
 
         const SizedBox(height: 20),
       ],
-    );
-  }
-}
-
-/// 音频技术信息部分
-class _AudioInfoSection extends StatelessWidget {
-  final CurrentStreamMetadata metadata;
-
-  const _AudioInfoSection({required this.metadata});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    // 格式化码率显示
-    String? formatBitrate(int? bitrate) {
-      if (bitrate == null) return null;
-      if (bitrate >= 1000) {
-        return '${(bitrate / 1000).toStringAsFixed(0)} kbps';
-      }
-      return '$bitrate bps';
-    }
-
-    // 格式化流类型显示
-    String? formatStreamType(StreamType? type) {
-      if (type == null) return null;
-      switch (type) {
-        case StreamType.audioOnly:
-          return t.player.audioOnly;
-        case StreamType.muxed:
-          return t.player.muxedStream;
-        case StreamType.hls:
-          return 'HLS';
-      }
-    }
-
-    final bitrate = formatBitrate(metadata.bitrate);
-    final container = metadata.container?.toUpperCase();
-    final codec = metadata.codec?.toUpperCase();
-    final streamType = formatStreamType(metadata.streamType);
-
-    // 如果没有任何信息，不显示此部分
-    if (bitrate == null &&
-        container == null &&
-        codec == null &&
-        streamType == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        const Divider(),
-        const SizedBox(height: 16),
-
-        // 标题
-        Row(
-          children: [
-            Icon(
-              Icons.graphic_eq,
-              size: 18,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              t.player.audioInfo,
-              style: textTheme.titleSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // 信息标签
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (bitrate != null) _buildInfoChip(context, Icons.speed, bitrate),
-            if (container != null)
-              _buildInfoChip(context, Icons.folder_outlined, container),
-            if (codec != null)
-              _buildInfoChip(context, Icons.audiotrack_outlined, codec),
-            if (streamType != null)
-              _buildInfoChip(context, Icons.stream, streamType),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoChip(BuildContext context, IconData icon, String label) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.borderRadiusXl,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

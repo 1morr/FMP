@@ -18,6 +18,7 @@ import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/radio_cover_image.dart';
 import '../../widgets/layout/detail_stats_row.dart';
 import '../../widgets/layout/expandable_text_section.dart';
+import '../../widgets/layout/tags_section.dart';
 import '../../widgets/layout/immersive_player_scaffold.dart';
 import '../../widgets/layout/capped_draggable_sheet.dart';
 import '../../widgets/player/blurred_cover_backdrop.dart';
@@ -524,7 +525,10 @@ class _LiveInfoDialog extends StatelessWidget {
                                 const SizedBox(height: 20),
                                 const Divider(),
                                 const SizedBox(height: 16),
-                                _buildTagsSection(context, state.tags!),
+                                TagsSection(
+                                  tags: state.tags!,
+                                  title: t.radio.tags,
+                                ),
                               ],
 
                               const SizedBox(height: 20),
@@ -542,52 +546,6 @@ class _LiveInfoDialog extends StatelessWidget {
       icon: Icons.radio,
       iconSize: 64,
       iconColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-    );
-  }
-
-  Widget _buildTagsSection(BuildContext context, String tags) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final tagList = tags.split(',').where((t) => t.trim().isNotEmpty).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.tag, size: 18, color: colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              t.radio.tags,
-              style: textTheme.titleSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: tagList
-              .map((tag) => Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: AppRadius.borderRadiusXl,
-                    ),
-                    child: Text(
-                      tag.trim(),
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ))
-              .toList(),
-        ),
-      ],
     );
   }
 }
