@@ -7,6 +7,8 @@ import '../../../../i18n/strings.g.dart';
 import '../../../../services/radio/radio_controller.dart';
 import '../../../../services/radio/radio_refresh_service.dart';
 import '../../../widgets/images/avatar_image.dart';
+import '../../../widgets/dialogs/remote_playlist_dialog_widgets.dart';
+import '../../../widgets/indicators/live_badge.dart';
 import '../../../widgets/layout/sheet_drag_handle.dart';
 
 /// 電台列表項（內部使用）
@@ -154,22 +156,9 @@ class _AccountRadioImportSheetState
           // 拖拽指示條
           const SheetDragHandle(),
           // 標題
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Text(
-                  t.account.selectRadioStations,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
+          RemotePlaylistDialogHeader(
+            title: t.account.selectRadioStations,
+            onClose: () => Navigator.pop(context),
           ),
           const Divider(),
           // Content
@@ -231,20 +220,7 @@ class _AccountRadioImportSheetState
           ),
           if (item.isLive) ...[
             const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: AppRadius.borderRadiusXs,
-              ),
-              child: Text(
-                t.account.liveStatus,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
-              ),
-            ),
+            LiveBadge.compact(label: t.account.liveStatus),
           ],
         ],
       ),
