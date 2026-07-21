@@ -147,6 +147,39 @@ List<PopupMenuEntry<String>> buildTrackActionPopupMenuEntries(
   ];
 }
 
+/// 長按底部選單版本的 track action 項目：與
+/// [buildTrackActionPopupMenuEntries] 相同的上色規則，點擊後 pop
+/// 底部選單並回呼 [onSelected]。[context] 需為底部選單的 context。
+List<Widget> buildTrackActionListTiles(
+  BuildContext context,
+  List<TrackActionMenuItem> items,
+  void Function(TrackActionMenuItem item) onSelected, {
+  Color? destructiveColor,
+}) {
+  return [
+    for (final item in items)
+      ListTile(
+        leading: Icon(
+          item.icon,
+          color: item.destructive ? destructiveColor : null,
+        ),
+        title: Text(
+          item.label,
+          style: item.destructive && destructiveColor != null
+              ? TextStyle(color: destructiveColor)
+              : null,
+        ),
+        enabled: item.enabled,
+        onTap: item.enabled
+            ? () {
+                Navigator.pop(context);
+                onSelected(item);
+              }
+            : null,
+      ),
+  ];
+}
+
 /// 頁面專用破壞性選單項（不屬於 TrackAction 體系，如刪除記錄、
 /// 從遠程收藏夾移除）的共用寫法：icon 與 label 皆以 [color]
 /// （通常是 colorScheme.error）呈現，與
