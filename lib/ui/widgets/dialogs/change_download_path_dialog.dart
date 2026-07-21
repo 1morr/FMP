@@ -227,9 +227,7 @@ class _ChangeDownloadPathDialogState
         Navigator.pop(context, true);
         if (messenger != null) {
           Future.delayed(AnimationDurations.fastest, () {
-            messenger
-              ..clearSnackBars()
-              ..showSnackBar(snackBar);
+            ToastService.showSnackBarWithMessenger(messenger, snackBar);
           });
         }
       }

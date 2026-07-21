@@ -167,7 +167,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       playlistDetailSelectionProvider.select((state) => state.isSelectionMode),
     );
     final cacheEpoch = ref.watch(fileExistsCacheEpochProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.playlist == null) {
       return Scaffold(
@@ -179,15 +178,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     if (state.error != null && state.playlist == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: colorScheme.error),
-              const SizedBox(height: 16),
-              Text(state.error!),
-            ],
-          ),
+        body: ErrorDisplay(
+          type: ErrorType.general,
+          message: state.error!,
+          onRetry: () =>
+              ref.invalidate(playlistDetailProvider(widget.playlistId)),
         ),
       );
     }

@@ -104,7 +104,6 @@ class _DownloadedCategoryPageState
   Widget build(BuildContext context) {
     final tracksAsync =
         ref.watch(downloadedCategoryTracksProvider(widget.category.folderPath));
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: tracksAsync.when(
@@ -122,17 +121,10 @@ class _DownloadedCategoryPageState
           slivers: [
             _buildSliverAppBar(context, []),
             SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline,
-                        size: 64, color: colorScheme.error),
-                    const SizedBox(height: 16),
-                    Text(
-                        t.library.loadFailedWithError(error: error.toString())),
-                  ],
-                ),
+              child: ErrorDisplay(
+                type: ErrorType.general,
+                message:
+                    t.library.loadFailedWithError(error: error.toString()),
               ),
             ),
           ],

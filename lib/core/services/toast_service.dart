@@ -214,6 +214,21 @@ class ToastService {
     messenger.removeCurrentSnackBar();
     return messenger.showSnackBar(snackBar);
   }
+
+  /// 使用预先捕获的 [messenger] 立即显示 [snackBar]。
+  ///
+  /// 用于必须在对话框/底部表单 pop 之前捕获 ScaffoldMessenger 的场景：
+  /// pop 之后原 BuildContext 已失效，无法再透过 `ScaffoldMessenger.of`
+  /// 取得 messenger。清除/替换语义与 [showSnackBarNow] 一致。
+  static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
+      showSnackBarWithMessenger(
+    ScaffoldMessengerState messenger,
+    SnackBar snackBar,
+  ) {
+    messenger.clearSnackBars();
+    messenger.removeCurrentSnackBar();
+    return messenger.showSnackBar(snackBar);
+  }
 }
 
 /// Toast 服务 Provider
