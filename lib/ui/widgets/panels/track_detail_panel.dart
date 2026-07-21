@@ -30,9 +30,9 @@ import '../indicators/live_badge.dart';
 import '../indicators/vip_badge.dart';
 import '../layout/detail_stats_row.dart';
 import '../layout/expandable_text_section.dart';
-import '../layout/tags_section.dart';
 import '../lyrics/lyrics_display.dart';
 import '../player/audio_stream_info_section.dart';
+import '../radio/radio_detail_body.dart';
 import 'clickable_source_cover.dart';
 import 'comment_pager.dart';
 import '../dialogs/add_to_playlist_dialog.dart';
@@ -1203,139 +1203,66 @@ class _RadioDetailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     final station = radioState.currentStation!;
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // 封面（可点击打开直播间）
-        _RadioClickableCover(
-          station: station,
-          isPlaying: radioState.isPlaying,
-          isLoading: radioState.isLoading || radioState.isBuffering,
-        ),
-
-        const SizedBox(height: 20),
-
-        // 标题（可点击跳转到直播间）
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () =>
-                UrlLauncherService.instance.openBilibiliLive(station.sourceId),
-            child: Text(
-              station.title,
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                height: 1.3,
+        RadioDetailBody(
+          // 封面（可点击打开直播间）
+          cover: _RadioClickableCover(
+            station: station,
+            isPlaying: radioState.isPlaying,
+            isLoading: radioState.isLoading || radioState.isBuffering,
+          ),
+          // 标题（可点击跳转到直播间）
+          title: station.title,
+          onTitleTap: () =>
+              UrlLauncherService.instance.openBilibiliLive(station.sourceId),
+          // 主播信息（头像可点击进入空间）+ 開播時間
+          // 鏡像音樂側 artist 行（頭像 + 名稱 + 發布時間）：以資訊取代原 reload
+          // 按鈕；reload 操作移至 radio mini player。
+          hostName: station.hostName,
+          hostAvatar: _RadioClickableAvatar(
+            hostAvatarUrl: station.hostAvatarUrl,
+            hostUid: station.hostUid,
+          ),
+          hostSubtitle: radioState.liveStartTime != null
+              ? t.radio.startedBroadcast(
+                  time: formatRelativeTime(radioState.liveStartTime!))
+              : null,
+          // 统计数据
+          stats: [
+            if (radioState.viewerCount != null)
+              DetailStatItem(
+                icon: Icons.visibility_rounded,
+                label: formatCount(radioState.viewerCount!),
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            if (radioState.areaName != null)
+              DetailStatItem(
+                icon: Icons.category_outlined,
+                label: radioState.areaName!,
+              ),
+            DetailStatItem(
+              icon: radioState.isPlaying
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_off,
+              label: radioState.isPlaying ? t.radio.live : t.radio.stopped,
             ),
-          ),
+          ],
+          statsAlignment: WrapAlignment.spaceEvenly,
+          // 公告
+          announcement: radioState.announcement,
+          announcementTitle: t.trackDetail.streamerAnnouncement,
+          // 简介
+          description: radioState.description,
+          descriptionTitle: t.trackDetail.description,
+          // 标签
+          tags: radioState.tags,
+          tagsTitle: t.trackDetail.tags,
         ),
-
-        const SizedBox(height: 12),
-
-        // 主播信息（头像可点击进入空间）+ 開播時間
-        // 鏡像音樂側 artist 行（頭像 + 名稱 + 發布時間）：以資訊取代原 reload
-        // 按鈕；reload 操作移至 radio mini player。
-        if (station.hostName != null)
-          Row(
-            children: [
-              _RadioClickableAvatar(
-                hostAvatarUrl: station.hostAvatarUrl,
-                hostUid: station.hostUid,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  station.hostName!,
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (radioState.liveStartTime != null)
-                Text(
-                  t.radio.startedBroadcast(
-                      time: formatRelativeTime(radioState.liveStartTime!)),
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                  ),
-                ),
-            ],
-          ),
-
-        const SizedBox(height: 16),
-
-        // 统计数据
-        _buildSimpleStats(context),
-
-        // 公告
-        if (radioState.announcement != null &&
-            radioState.announcement!.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 16),
-          ExpandableTextSection(
-            icon: Icons.campaign_outlined,
-            title: t.trackDetail.streamerAnnouncement,
-            content: radioState.announcement!,
-          ),
-        ],
-
-        // 简介
-        if (radioState.description != null &&
-            radioState.description!.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 16),
-          ExpandableTextSection(
-            icon: Icons.info_outline_rounded,
-            title: t.trackDetail.description,
-            content: radioState.description!,
-          ),
-        ],
-
-        // 标签
-        if (radioState.tags != null && radioState.tags!.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 16),
-          TagsSection(tags: radioState.tags!, title: t.trackDetail.tags),
-        ],
 
         const SizedBox(height: 32),
-      ],
-    );
-  }
-
-  /// 简化的统计数据
-  Widget _buildSimpleStats(BuildContext context) {
-    return DetailStatsRow(
-      alignment: WrapAlignment.spaceEvenly,
-      items: [
-        if (radioState.viewerCount != null)
-          DetailStatItem(
-            icon: Icons.visibility_rounded,
-            label: formatCount(radioState.viewerCount!),
-          ),
-        if (radioState.areaName != null)
-          DetailStatItem(
-            icon: Icons.category_outlined,
-            label: radioState.areaName!,
-          ),
-        DetailStatItem(
-          icon: radioState.isPlaying
-              ? Icons.radio_button_checked
-              : Icons.radio_button_off,
-          label: radioState.isPlaying ? t.radio.live : t.radio.stopped,
-        ),
       ],
     );
   }
