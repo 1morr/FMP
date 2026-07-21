@@ -6,6 +6,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/download/download_provider.dart';
 import '../../../providers/download/download_settings_provider.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/feedback/error_display.dart';
 
 /// 下载管理页面
@@ -36,23 +37,11 @@ class DownloadManagerPage extends ConsumerWidget {
                   await downloadService.clearCompleted();
                   break;
                 case 'clear_queue':
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text(t.settings.downloadManager.clearQueue),
-                      content:
-                          Text(t.settings.downloadManager.clearQueueConfirm),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: Text(t.general.cancel),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: Text(t.general.confirm),
-                        ),
-                      ],
-                    ),
+                  final confirmed = await showConfirmDestructiveDialog(
+                    context,
+                    title: t.settings.downloadManager.clearQueue,
+                    content: t.settings.downloadManager.clearQueueConfirm,
+                    confirmLabel: t.settings.downloadManager.clearQueue,
                   );
                   if (confirmed == true) {
                     await downloadService.clearQueue();
