@@ -168,6 +168,9 @@ class RadioPlayerPage extends ConsumerWidget {
   }
 
   /// 封面圖（無電台時顯示佔位圖，與音樂播放器空狀態一致）
+  ///
+  /// 全螢幕主封面使用 fullscreenHero 變體：其源尺寸對齊 Bilibili 最高檔位，
+  /// 避免高 DPI 大屏放大顯示時被降解析後再放大而模糊。
   Widget _buildCoverArt(RadioStation? station, ColorScheme colorScheme) {
     return CoverArtContainer(
       colorScheme: colorScheme,
@@ -177,7 +180,7 @@ class RadioPlayerPage extends ConsumerWidget {
               networkUrl: station.thumbnailUrl,
               placeholder: _buildCoverPlaceholder(colorScheme),
               fit: BoxFit.cover,
-              variant: RadioCoverVariant.hero,
+              variant: RadioCoverVariant.fullscreenHero,
             ),
     );
   }
