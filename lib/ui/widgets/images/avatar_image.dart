@@ -5,7 +5,8 @@ import '../../../core/services/image_loading_service.dart';
 
 /// 统一头像组件。
 ///
-/// 头像固定使用最低图片源档位；调用方只负责提供头像来源和显示尺寸。
+/// 头像固定使用 thumbnail 图片源档位（32–48dp 头像在最高 DPR 下约需
+/// 128–160px 源图）；调用方只负责提供头像来源和显示尺寸。
 class AvatarImage extends StatelessWidget {
   final String? localPath;
   final String? networkUrl;
@@ -24,7 +25,7 @@ class AvatarImage extends StatelessWidget {
       localPath: localPath,
       networkUrl: networkUrl,
       size: size,
-      targetDisplaySize: ImageTargetSizes.low,
+      targetDisplaySize: ImageTargetSizes.thumbnail,
     );
   }
 }

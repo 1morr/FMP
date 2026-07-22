@@ -195,7 +195,7 @@ void main() {
       );
       expect(
         recentPlayCover,
-        contains('targetDisplaySize: ImageTargetSizes.high'),
+        contains('targetDisplaySize: ImageTargetSizes.medium'),
       );
       expect(
         recentPlayCover,
@@ -256,11 +256,11 @@ void main() {
       expect(avatarSource, contains('ImageLoadingService.loadAvatar('));
       expect(
         avatarSource,
-        contains('targetDisplaySize: ImageTargetSizes.low'),
+        contains('targetDisplaySize: ImageTargetSizes.thumbnail'),
       );
 
       final directAvatarCalls = <String>[];
-      final lowTargetsOutsideAvatar = <String>[];
+      final thumbnailTargetsOutsideSmallImageWidgets = <String>[];
       final files = Directory('lib/ui')
           .listSync(recursive: true)
           .whereType<File>()
@@ -268,19 +268,22 @@ void main() {
 
       for (final file in files) {
         final normalizedPath = file.path.replaceAll('\\', '/');
+        // thumbnail 是小图专用档：仅 AvatarImage（头像）与 TrackThumbnail
+        // （列表小图）允许直接引用；其他 UI 必须经由语义化 variant 组件选档。
         if (normalizedPath.endsWith('/images/avatar_image.dart')) continue;
+        if (normalizedPath.endsWith('/images/track_thumbnail.dart')) continue;
 
         final source = file.readAsStringSync();
         if (source.contains('ImageLoadingService.loadAvatar(')) {
           directAvatarCalls.add(file.path);
         }
-        if (source.contains('targetDisplaySize: ImageTargetSizes.low')) {
-          lowTargetsOutsideAvatar.add(file.path);
+        if (source.contains('targetDisplaySize: ImageTargetSizes.thumbnail')) {
+          thumbnailTargetsOutsideSmallImageWidgets.add(file.path);
         }
       }
 
       expect(directAvatarCalls, isEmpty);
-      expect(lowTargetsOutsideAvatar, isEmpty);
+      expect(thumbnailTargetsOutsideSmallImageWidgets, isEmpty);
     });
 
     test('playlist and radio covers use shared semantic image widgets', () {

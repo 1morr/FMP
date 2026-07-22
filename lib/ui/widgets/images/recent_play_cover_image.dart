@@ -5,7 +5,8 @@ import '../../../core/services/image_loading_service.dart';
 
 /// 首页最近播放封面。
 ///
-/// 最近播放卡片在首页以较大的封面展示，固定使用高画质档位。
+/// 最近播放卡片在首页以约 140dp 的封面展示，固定使用中等画质档位
+/// （140 × 2.666 ≈ 373，取 medium 的 400）。
 class RecentPlayCoverImage extends StatelessWidget {
   final String? networkUrl;
   final Widget? placeholder;
@@ -30,7 +31,7 @@ class RecentPlayCoverImage extends StatelessWidget {
       fit: fit,
       width: width,
       height: height,
-      targetDisplaySize: ImageTargetSizes.high,
+      targetDisplaySize: ImageTargetSizes.medium,
     );
   }
 }
