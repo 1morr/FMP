@@ -60,6 +60,16 @@ class NetworkImageCacheFileStore {
 
   Future<int> deleteOldestToFit(int maxSizeBytes) async {
     final scanResult = await scan();
+    return deleteToFitFromScan(scanResult, maxSizeBytes);
+  }
+
+  /// 基于已有扫描结果删除最旧文件直到满足预算，返回剩余大小。
+  ///
+  /// 供调用方复用自己已完成的扫描，避免 trim 路径重复遍历目录。
+  Future<int> deleteToFitFromScan(
+    NetworkImageCacheScanResult scanResult,
+    int maxSizeBytes,
+  ) async {
     if (scanResult.totalSize <= maxSizeBytes) return scanResult.totalSize;
 
     final filesToDelete = <String>[];
@@ -234,9 +244,12 @@ class NetworkImageCacheService {
 
     _isTrimming = true;
     try {
-      await trimCacheIfNeeded(_maxCacheSizeMB);
-      // 更新估算值为实际值
-      _estimatedCacheSizeBytes = await getCacheSizeBytes();
+      // trimCacheIfNeeded 复用同一次目录扫描返回实际剩余大小，
+      // 避免再做一次 getCacheSizeBytes() 目录遍历。
+      final remainingSize = await trimCacheIfNeeded(_maxCacheSizeMB);
+      if (remainingSize != null) {
+        _estimatedCacheSizeBytes = remainingSize;
+      }
     } finally {
       _isTrimming = false;
     }
@@ -315,23 +328,28 @@ class NetworkImageCacheService {
     return bytes / (1024 * 1024);
   }
 
-  /// 检查并清理超出大小限制的缓存
+  /// 检查并清理超出大小限制的缓存，返回 trim 后（或无需 trim 时）的
+  /// 实际缓存大小（字节）；目录不存在时返回 null。
   ///
-  /// 当缓存超过 [maxSizeMB] 时，删除最旧的文件直到缓存小于限制
-  /// 使用 compute 在后台 Isolate 中执行，避免阻塞 UI
-  static Future<void> trimCacheIfNeeded(int maxSizeMB) async {
+  /// 当缓存超过 [maxSizeMB] 时，删除最旧的文件直到缓存小于限制。
+  /// 整个过程复用同一次目录扫描，使用 compute 在后台 Isolate 中执行，
+  /// 避免阻塞 UI。
+  static Future<int?> trimCacheIfNeeded(int maxSizeMB) async {
     final store = await _getFileStore();
-    if (!await store.exists()) return;
+    if (!await store.exists()) return null;
 
     final maxSizeBytes = _megabytesToBytes(maxSizeMB);
-    final beforeSize = (await store.scan()).totalSize;
+    final scanResult = await store.scan();
+    final beforeSize = scanResult.totalSize;
 
-    if (beforeSize <= maxSizeBytes) return;
+    if (beforeSize <= maxSizeBytes) return beforeSize;
 
-    final remainingSize = await store.deleteOldestToFit(maxSizeBytes);
+    final remainingSize =
+        await store.deleteToFitFromScan(scanResult, maxSizeBytes);
     if (remainingSize < beforeSize) {
       _markTrimmed(remainingSize);
     }
+    return remainingSize;
   }
 
   static int _megabytesToBytes(int megabytes) => megabytes * 1024 * 1024;
@@ -403,10 +421,13 @@ class NetworkImageCacheService {
   }
 }
 
-/// 支援磁碟圖片縮放的快取管理器
+/// 自訂的圖片快取管理器
 ///
-/// 整合 [ImageCacheManager] 以啟用 maxWidthDiskCache / maxHeightDiskCache 功能，
-/// 在存入磁碟前將圖片縮放到顯示尺寸，節省磁碟空間。
+/// 整合 [ImageCacheManager] 以啟用 maxWidthDiskCache / maxHeightDiskCache 功能。
+/// 目前只有 provider 候選（precache）路徑仍透過 CachedNetworkImageProvider 的
+/// maxWidth/maxHeight 使用磁碟縮放；主顯示路徑（CachedNetworkImage widget）
+/// 已移除磁碟縮放——URL 分檔已限制下載尺寸，磁碟縮放會同時存放原始圖與
+/// PNG 重編碼副本，造成雙份磁碟佔用。
 class _FmpImageCacheManager extends CacheManager with ImageCacheManager {
   _FmpImageCacheManager()
       : super(
