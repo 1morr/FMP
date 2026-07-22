@@ -53,12 +53,15 @@ Image components live under `lib/ui/widgets/images/`.
   which are layout-only. Use `ImageTargetSizes` from
   `lib/core/constants/ui_constants.dart` only inside image components or core
   image services, not page call sites.
-- Current target-size mapping: `low` is only for avatars through
-  `AvatarImage`; `medium` is the default for compact non-avatar images;
-  `high` is for home playlist/radio/recent-play cards, radio list pages,
-  library pages, and player blurred backdrop preloading; `highest` is for
-  player cover art, radio player cover art,
-  playlist-detail backgrounds, and Detail Panel large images.
+- Current target-size mapping: `low` is only for downloaded metadata avatars;
+  `thumbnail` is for UI avatars (`AvatarImage`), list-track tiles
+  (`TrackThumbnail`), and radio compact images; `medium` is for card-size
+  covers (~100–140dp: recent-play cards, radio station cards, playlist
+  compact/dialog covers, card-size track covers); `high` is for home/library
+  playlist cards (~200dp) and player blurred backdrops; `fullscreen` is for
+  large panel/detail-dialog covers (~460dp, radio hero); `highest` is for
+  player cover art, radio fullscreen player cover art, and playlist-detail
+  hero backgrounds.
 - Image pipeline: semantic image widget -> `ImageLoadingService` -> local file,
   then optimized network URL candidates with source-specific headers, then
   placeholder. Network images use `NetworkImageCacheService` for shared memory

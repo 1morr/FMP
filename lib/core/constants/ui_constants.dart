@@ -110,11 +110,12 @@ class AppSizes {
 class ImageTargetSizes {
   ImageTargetSizes._();
 
-  /// 低画质：仅用于头像（最大约 30dp；30 × 2.666 ≈ 80）。
+  /// 低画质：仅用于下载 metadata 的头像图（最大约 30dp；30 × 2.666 ≈ 80）。
+  /// UI 头像使用 [thumbnail] 档，见 AvatarImage。
   static const double low = 80.0;
 
-  /// 缩略图画质：列表小缩略图（约 32–56dp）与小型电台/头像周边图片
-  /// （56 × 2.666 ≈ 149，留余量取 160）。
+  /// 缩略图画质：UI 头像（约 32–48dp）、列表小缩略图（约 32–56dp）与
+  /// 电台 compact 小图（56 × 2.666 ≈ 149，留余量取 160）。
   static const double thumbnail = 160.0;
 
   /// 中等画质：中等卡片与大号列表缩略图（约 100–140dp；
@@ -124,6 +125,10 @@ class ImageTargetSizes {
   /// 高画质：大卡片（约 200dp）与播放器模糊背景
   /// （200 × 2.666 ≈ 533；模糊背景需要更高源尺寸以减少色带，取 720）。
   static const double high = 720.0;
+
+  /// 全屏面板画质：Detail Panel、全屏详情对话框等大型封面
+  /// （约 360–460dp；360 × 2.666 ≈ 960，460dp 在 DPR ≤ 2.1 时无需再放大）。
+  static const double fullscreen = 960.0;
 
   /// 最高画质：主封面、全屏封面与 Hero 背景
   /// （最大显示约 480dp；480 × 2.666 ≈ 1280）。

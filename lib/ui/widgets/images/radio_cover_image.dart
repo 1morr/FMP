@@ -28,11 +28,11 @@ extension RadioCoverVariantTarget on RadioCoverVariant {
       case RadioCoverVariant.backdrop:
         return ImageTargetSizes.high;
       case RadioCoverVariant.compact:
-        return ImageTargetSizes.medium;
+        return ImageTargetSizes.thumbnail;
       case RadioCoverVariant.card:
-        return ImageTargetSizes.high;
+        return ImageTargetSizes.medium;
       case RadioCoverVariant.hero:
-        return ImageTargetSizes.highest;
+        return ImageTargetSizes.fullscreen;
       case RadioCoverVariant.fullscreenHero:
         return ImageTargetSizes.highest;
     }

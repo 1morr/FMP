@@ -95,6 +95,20 @@ class TrackThumbnail extends ConsumerWidget {
       ColorScheme colorScheme, String? localCoverPath, WidgetRef ref) {
     final placeholder = _buildPlaceholder(colorScheme);
 
+    // 卡片级大尺寸（>=100dp）在高 DPR 下需要 medium 档源图，避免解码后再
+    // 放大而模糊；列表小缩略图（32–56dp）走 thumbnail 档即可。
+    if (size >= 100) {
+      return ImageLoadingService.loadImage(
+        localPath: localCoverPath,
+        networkUrl: track.thumbnailUrl,
+        placeholder: placeholder,
+        fit: BoxFit.cover,
+        width: size,
+        height: size,
+        targetDisplaySize: ImageTargetSizes.medium,
+      );
+    }
+
     return ImageLoadingService.loadImage(
       localPath: localCoverPath,
       networkUrl: track.thumbnailUrl,
@@ -102,7 +116,7 @@ class TrackThumbnail extends ConsumerWidget {
       fit: BoxFit.cover,
       width: size,
       height: size,
-      targetDisplaySize: ImageTargetSizes.medium,
+      targetDisplaySize: ImageTargetSizes.thumbnail,
     );
   }
 
@@ -129,6 +143,9 @@ enum TrackCoverVariant {
   /// 播放器模糊背景，使用高画质图片源减少全屏模糊后的色带和条纹。
   backdrop,
 
+  /// 首页、详情等卡片封面（约 100–140dp）。
+  card,
+
   /// 播放器、Detail Panel 等大图场景。
   hero,
 }
@@ -138,6 +155,8 @@ extension TrackCoverVariantTarget on TrackCoverVariant {
     switch (this) {
       case TrackCoverVariant.backdrop:
         return ImageTargetSizes.high;
+      case TrackCoverVariant.card:
+        return ImageTargetSizes.medium;
       case TrackCoverVariant.hero:
         return ImageTargetSizes.highest;
     }
