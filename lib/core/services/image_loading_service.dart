@@ -29,8 +29,9 @@ import 'network_image_cache_service.dart';
 ///   fluttercandies 维护，内置缓存、手势、编辑功能，API 接近
 /// - 或直接使用 `flutter_cache_manager` + `Image.network` 封装
 ///
-/// `_FmpImageCacheManager` 已整合 `ImageCacheManager` mixin，
-/// 支持 `maxWidthDiskCache` / `maxHeightDiskCache` 磁盘缩放。
+/// `_FmpImageCacheManager` 已整合 `ImageCacheManager` mixin；
+/// 磁盘缩放仅保留给 provider 候选（precache）路径，
+/// 主显示路径不再使用 `maxWidthDiskCache` / `maxHeightDiskCache`。
 /// 迁移时只需替换 Widget 层（`_CachedNetworkImage` → 新实现），
 /// 缓存管理层可保持不变。
 class ImageLoadingService {
@@ -319,6 +320,15 @@ class ImageLoadingService {
     return (logicalSize * devicePixelRatio).round().clamp(1, 8192).toInt();
   }
 
+  /// 将 DPR 量化到最接近的 0.5。
+  ///
+  /// 磁盘缓存键若使用全精度 DPR，同一 URL 在不同设备或细微 DPR 差异下
+  /// 会生成不同的 key，导致重复下载和重复缓存条目。量化到 0.5 可收敛
+  /// 这些差异；内存解码尺寸（memCache）仍使用全精度 DPR。
+  static double _quantizeDevicePixelRatio(double devicePixelRatio) {
+    return (devicePixelRatio * 2).round() / 2;
+  }
+
   static String? _networkImageCacheKey(
     String url, {
     required int cacheExtent,
@@ -337,12 +347,18 @@ class ImageLoadingService {
 
 class _NetworkImageRequest {
   final List<String> urls;
+
+  /// 解码/内存缓存目标尺寸（全精度 DPR）
   final int cacheExtent;
+
+  /// 磁盘缓存键使用的尺寸（DPR 量化到 0.5，收敛跨设备重复条目）
+  final int diskCacheExtent;
   final Map<String, String>? headers;
 
   const _NetworkImageRequest({
     required this.urls,
     required this.cacheExtent,
+    required this.diskCacheExtent,
     required this.headers,
   });
 
@@ -352,14 +368,20 @@ class _NetworkImageRequest {
     required double targetDisplaySize,
     Map<String, String>? headers,
   }) {
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final cacheExtent = ImageLoadingService._cacheExtent(
+      targetDisplaySize,
+      devicePixelRatio,
+    );
     return _NetworkImageRequest(
       urls: ThumbnailUrlUtils.getOptimizedUrlCandidates(
         networkUrl,
         displaySize: targetDisplaySize,
       ),
-      cacheExtent: ImageLoadingService._cacheExtent(
+      cacheExtent: cacheExtent,
+      diskCacheExtent: ImageLoadingService._cacheExtent(
         targetDisplaySize,
-        MediaQuery.devicePixelRatioOf(context),
+        ImageLoadingService._quantizeDevicePixelRatio(devicePixelRatio),
       ),
       headers: headers ?? ImageLoadingService._defaultImageHeaders(networkUrl),
     );
@@ -368,7 +390,7 @@ class _NetworkImageRequest {
   String? cacheKey(String url) {
     return ImageLoadingService._networkImageCacheKey(
       url,
-      cacheExtent: cacheExtent,
+      cacheExtent: diskCacheExtent,
     );
   }
 }
@@ -600,9 +622,9 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       // 限制内存缓存中的图片尺寸，减少内存占用
       memCacheWidth: widget.request.cacheExtent,
       memCacheHeight: widget.request.cacheExtent,
-      // 限制磁盘缓存中的图片尺寸，减少磁盘占用
-      maxWidthDiskCache: widget.request.cacheExtent,
-      maxHeightDiskCache: widget.request.cacheExtent,
+      // 不在主显示路径做磁盘缩放：URL 分档已限制下载尺寸，磁盘缩放会让
+      // flutter_cache_manager 同时存原始图和 PNG 重编码副本（双份磁盘占用）。
+      // 磁盘缩放仅保留在 imageProviderCandidates 的 precache 路径。
       placeholder: (context, url) => widget.showLoadingIndicator
           ? const Center(
               child: CircularProgressIndicator(strokeWidth: 2),
