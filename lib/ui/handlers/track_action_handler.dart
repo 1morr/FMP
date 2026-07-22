@@ -1,6 +1,16 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/services/toast_service.dart';
+import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
+import '../../i18n/strings.g.dart';
+import '../../providers/account/account_provider.dart';
+import '../../providers/lyrics/lyrics_provider.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/library/remote_playlist_track_filter.dart';
+import '../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 
 const playTrackActionId = 'play';
 const playNextTrackActionId = 'play_next';
@@ -279,4 +289,64 @@ class TrackActionHandler {
         return;
     }
   }
+}
+
+/// 處理「加入歌單」選單選擇（本地 + 遠端）。
+///
+/// 全屏播放器與桌面 Detail Panel 共用；遠端分支先檢查登入，未登入只提示。
+void handleAddToPlaylistSelection(
+  BuildContext context,
+  WidgetRef ref,
+  Track track,
+  String value,
+) {
+  if (value == 'local') {
+    showAddToPlaylistDialog(context: context, track: track);
+  } else if (value == 'remote') {
+    final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
+    if (!isLoggedIn) {
+      ToastService.show(context, t.remote.pleaseLogin);
+      return;
+    }
+    showAddToRemotePlaylistDialog(context: context, track: track);
+  }
+}
+
+/// 顯示歌詞顯示模式選擇選單（原文 / 優先翻譯 / 優先羅馬音）。
+///
+/// 全屏播放器與桌面 Detail Panel 共用；[position] 由呼叫端依自身按鈕位置計算。
+void showLyricsDisplayModeMenu(
+  BuildContext context,
+  WidgetRef ref, {
+  required RelativeRect position,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final currentMode = ref.read(lyricsDisplayModeProvider);
+
+  final modes = [
+    (LyricsDisplayMode.original, t.lyrics.displayOriginal),
+    (LyricsDisplayMode.preferTranslated, t.lyrics.displayPreferTranslated),
+    (LyricsDisplayMode.preferRomaji, t.lyrics.displayPreferRomaji),
+  ];
+
+  showMenu<LyricsDisplayMode>(
+    context: context,
+    position: position,
+    items: modes
+        .map((entry) => PopupMenuItem(
+              value: entry.$1,
+              child: ListTile(
+                leading: currentMode == entry.$1
+                    ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+                    : const SizedBox(width: 18),
+                title: Text(entry.$2),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ))
+        .toList(),
+  ).then((value) {
+    if (value != null) {
+      ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
+    }
+  });
 }

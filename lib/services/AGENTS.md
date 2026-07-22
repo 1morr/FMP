@@ -267,6 +267,9 @@ terminal, so it does not apply here.
 - YouTube avatar: `=s{size}` parameter.
 - Netease: `?param={size}y{size}` parameter.
 
-Disk cache resize is enabled via `_FmpImageCacheManager` (`ImageCacheManager`
-mixin) so `maxWidthDiskCache` / `maxHeightDiskCache` constrain the stored file
-size as well as the in-memory decode size.
+Disk cache resize differs by path. The main display path (the `CachedNetworkImage`
+widget in `image_loading_service.dart`) stores raw downloaded bytes — URL tier
+selection already bounds the download size, and disk-resize would double-store the
+original plus a PNG-reencoded copy. Only the `imageProviderCandidates` precache
+path resizes on disk, via `_FmpImageCacheManager` (`ImageCacheManager` mixin) and
+`maxWidthDiskCache` / `maxHeightDiskCache`.

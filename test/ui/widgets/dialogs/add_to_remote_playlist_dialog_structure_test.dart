@@ -95,6 +95,15 @@ void main() {
     expect(sharedSource, contains('class RemotePlaylistListTile'));
     expect(sharedSource, contains('class RemotePlaylistSelectionIndicator'));
 
+    // The shared sheet shell composes the leaf widgets so individual dialogs
+    // do not rebuild the header/summary/create-tile/list-tile scaffold.
+    expect(sharedSource, contains('class RemotePlaylistSheetBody'));
+    expect(sharedSource, contains('RemotePlaylistDialogHeader('));
+    expect(sharedSource, contains('RemotePlaylistTrackSummary('));
+    expect(sharedSource, contains('RemotePlaylistCreateTile('));
+    expect(sharedSource, contains('class RemotePlaylistSelectionListView'));
+    expect(sharedSource, contains('RemotePlaylistListTile('));
+
     for (final path in [
       'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
       'lib/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart',
@@ -102,10 +111,8 @@ void main() {
     ]) {
       final source = File(path).readAsStringSync();
       expect(source, contains("import 'remote_playlist_dialog_widgets.dart';"));
-      expect(source, contains('RemotePlaylistDialogHeader('), reason: path);
-      expect(source, contains('RemotePlaylistTrackSummary('), reason: path);
-      expect(source, contains('RemotePlaylistCreateTile('), reason: path);
-      expect(source, contains('RemotePlaylistListTile('), reason: path);
+      expect(source, contains('RemotePlaylistSheetBody('), reason: path);
+      expect(source, contains('RemotePlaylistSelectionListView<'), reason: path);
       expect(source, isNot(contains('ImageLoadingService.loadImage(')),
           reason: path);
       expect(source, isNot(contains('TrackThumbnail(')), reason: path);

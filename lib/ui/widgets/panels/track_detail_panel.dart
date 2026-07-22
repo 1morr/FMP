@@ -8,7 +8,6 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
-import '../../../core/services/toast_service.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../core/utils/relative_time_formatter.dart';
 import '../../../data/models/settings.dart';
@@ -35,10 +34,8 @@ import '../player/audio_stream_info_section.dart';
 import '../radio/radio_detail_body.dart';
 import 'clickable_source_cover.dart';
 import 'comment_pager.dart';
-import '../dialogs/add_to_playlist_dialog.dart';
-import '../dialogs/add_to_remote_playlist_dialog.dart';
+import '../../handlers/track_action_handler.dart';
 import '../../pages/lyrics/lyrics_search_sheet.dart';
-import '../../../providers/account/account_provider.dart';
 import '../../../providers/settings/locale_provider.dart';
 import '../../../providers/settings/theme_provider.dart';
 import '../../../providers/lyrics/lyrics_window_style_provider.dart';
@@ -60,16 +57,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 
   /// 显示添加到歌单选项（本地 + 远程）
   void _handleAddToPlaylist(BuildContext context, Track track, String value) {
-    if (value == 'local') {
-      showAddToPlaylistDialog(context: context, track: track);
-    } else if (value == 'remote') {
-      final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
-      if (!isLoggedIn) {
-        ToastService.show(context, t.remote.pleaseLogin);
-        return;
-      }
-      showAddToRemotePlaylistDialog(context: context, track: track);
-    }
+    handleAddToPlaylistSelection(context, ref, track, value);
   }
 
   /// 打开歌词搜索 BottomSheet
@@ -85,8 +73,6 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 
   /// 显示歌词显示模式选择菜单
   void _showLyricsDisplayModeMenu(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final currentMode = ref.read(lyricsDisplayModeProvider);
     final renderBox =
         _lyricsMenuKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
@@ -95,40 +81,16 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     // 菜单右边缘对齐按钮右边缘
     final buttonRight = buttonOffset.dx + renderBox.size.width;
 
-    final modes = [
-      (LyricsDisplayMode.original, t.lyrics.displayOriginal),
-      (LyricsDisplayMode.preferTranslated, t.lyrics.displayPreferTranslated),
-      (LyricsDisplayMode.preferRomaji, t.lyrics.displayPreferRomaji),
-    ];
-
-    showMenu<LyricsDisplayMode>(
-      context: context,
+    showLyricsDisplayModeMenu(
+      context,
+      ref,
       position: RelativeRect.fromLTRB(
         buttonRight - 200, // 菜单宽度约 200，左边缘 = 按钮右边缘 - 菜单宽度
         buttonOffset.dy + renderBox.size.height,
         screenWidth - buttonRight,
         0,
       ),
-      items: modes
-          .map((entry) => PopupMenuItem(
-                value: entry.$1,
-                child: Row(
-                  children: [
-                    if (currentMode == entry.$1)
-                      Icon(Icons.check, size: 18, color: colorScheme.primary)
-                    else
-                      const SizedBox(width: 18),
-                    const SizedBox(width: 8),
-                    Text(entry.$2),
-                  ],
-                ),
-              ))
-          .toList(),
-    ).then((value) {
-      if (value != null) {
-        ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
-      }
-    });
+    );
   }
 
   /// 是否显示歌词（切换信息/歌词）
@@ -530,43 +492,36 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'search',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.search, size: 20),
-                        const SizedBox(width: 12),
-                        Text(t.lyrics.searchLyrics),
-                      ],
+                    child: ListTile(
+                      leading: const Icon(Icons.search, size: 20),
+                      title: Text(t.lyrics.searchLyrics),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                   PopupMenuItem(
                     value: 'offset',
-                    child: Row(
-                      children: [
-                        Icon(
-                          _showOffsetControls
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(t.lyrics.adjustOffset),
-                      ],
+                    child: ListTile(
+                      leading: Icon(
+                        _showOffsetControls
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                        size: 20,
+                      ),
+                      title: Text(t.lyrics.adjustOffset),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                   PopupMenuItem(
                     value: 'display_mode',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.translate, size: 20),
-                        const SizedBox(width: 12),
-                        Text(t.lyrics.displayMode),
-                        const Spacer(),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ],
+                    child: ListTile(
+                      leading: const Icon(Icons.translate, size: 20),
+                      title: Text(t.lyrics.displayMode),
+                      trailing: Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ],
@@ -637,22 +592,18 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                 return [
                   PopupMenuItem(
                     value: 'local',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.playlist_add, size: 20),
-                        const SizedBox(width: 12),
-                        Text(t.general.addToPlaylist),
-                      ],
+                    child: ListTile(
+                      leading: const Icon(Icons.playlist_add, size: 20),
+                      title: Text(t.general.addToPlaylist),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                   PopupMenuItem(
                     value: 'remote',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.cloud_upload_outlined, size: 20),
-                        const SizedBox(width: 12),
-                        Text(t.remote.addToFavorites),
-                      ],
+                    child: ListTile(
+                      leading: const Icon(Icons.cloud_upload_outlined, size: 20),
+                      title: Text(t.remote.addToFavorites),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ];

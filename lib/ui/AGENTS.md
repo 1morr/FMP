@@ -15,7 +15,9 @@ Current folders:
 - `dialogs/` - shared dialog widgets, including `showConfirmDestructiveDialog`,
   `QrLoginCard`, and the remote-playlist helpers in
   `remote_playlist_dialog_widgets.dart` (`showCreateRemotePlaylistDialog`,
-  `reportRemotePlaylistEditResult`).
+  `reportRemotePlaylistEditResult`, plus the shared sheet scaffold
+  `RemotePlaylistSheetBody`, the selection list `RemotePlaylistSelectionListView`,
+  and `remotePlaylistSubmitButtonText` used by all three add-to-remote dialogs).
 - `feedback/` - error and app-status feedback surfaces (`ErrorDisplay`).
 - `images/` - semantic image loading widgets.
 - `indicators/` - compact state indicators and badges (`LiveBadge` (+ `.compact`),

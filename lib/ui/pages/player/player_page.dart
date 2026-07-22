@@ -1,21 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/extensions/track_extensions.dart';
-import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/platform_utils.dart';
 import '../../../data/models/play_queue.dart';
-import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
-import '../../../providers/account/account_provider.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
+import '../../handlers/track_action_handler.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../providers/library/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -36,7 +32,6 @@ import '../../widgets/player/compact_volume_control.dart';
 import '../../widgets/player/cover_art_container.dart';
 import '../../widgets/player/fmp_audio_device_selector.dart';
 import '../../widgets/player/player_play_pause_button.dart';
-import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../widgets/lyrics/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 
@@ -63,16 +58,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 处理添加到歌单选项
   void _handleAddToPlaylist(BuildContext context, Track track, String value) {
-    if (value == 'local') {
-      showAddToPlaylistDialog(context: context, track: track);
-    } else if (value == 'remote') {
-      final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
-      if (!isLoggedIn) {
-        ToastService.show(context, t.remote.pleaseLogin);
-        return;
-      }
-      showAddToRemotePlaylistDialog(context: context, track: track);
-    }
+    handleAddToPlaylistSelection(context, ref, track, value);
   }
 
   /// 是否正在拖动进度条
@@ -685,7 +671,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 显示歌词显示模式选择菜单
   void _showLyricsDisplayModeMenu(
       BuildContext context, ColorScheme colorScheme) {
-    final currentMode = ref.read(lyricsDisplayModeProvider);
     final screenSize = MediaQuery.of(context).size;
     final position = RelativeRect.fromLTRB(
       screenSize.width - 200,
@@ -694,35 +679,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       0,
     );
 
-    final modes = [
-      (LyricsDisplayMode.original, t.lyrics.displayOriginal),
-      (LyricsDisplayMode.preferTranslated, t.lyrics.displayPreferTranslated),
-      (LyricsDisplayMode.preferRomaji, t.lyrics.displayPreferRomaji),
-    ];
-
-    showMenu<LyricsDisplayMode>(
-      context: context,
-      position: position,
-      items: modes
-          .map((entry) => PopupMenuItem(
-                value: entry.$1,
-                child: Row(
-                  children: [
-                    if (currentMode == entry.$1)
-                      Icon(Icons.check, size: 18, color: colorScheme.primary)
-                    else
-                      const SizedBox(width: 18),
-                    const SizedBox(width: 8),
-                    Text(entry.$2),
-                  ],
-                ),
-              ))
-          .toList(),
-    ).then((value) {
-      if (value != null) {
-        ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
-      }
-    });
+    showLyricsDisplayModeMenu(context, ref, position: position);
   }
 
   /// 获取循环模式图标
