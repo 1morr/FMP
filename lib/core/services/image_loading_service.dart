@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -340,6 +341,12 @@ class ImageLoadingService {
   ///
   /// Bilibili / YouTube / Netease 的图片 CDN 可能檢查 Referer，
   /// 預設帶上對應平台的 Referer 以避免請求被拒絕。
+  ///
+  /// 刻意不帶 User-Agent（見 [SourceHttpPolicy.imageHeadersForUrl] 的
+  /// 預設 `includeUserAgent: false`）：這三個 CDN 的圖片資源不要求特定
+  /// UA，預設 UA 即可正常載入；只有下載管線（`imageHeaders` 預設
+  /// `includeUserAgent: true` / `mediaHeaders`）需要顯式
+  /// mediaUserAgent 以對齊媒體流請求。此非對稱是刻意為之，不是遺漏。
   static Map<String, String>? _defaultImageHeaders(String url) {
     return SourceHttpPolicy.imageHeadersForUrl(url);
   }
@@ -569,6 +576,18 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
   bool _retryScheduled = false;
   int _urlIndex = 0;
 
+  /// 当前 URL 已原地重试的次数。瞬时网络错误先重试当前 URL（有限次数、
+  /// 短退避），耗尽后才降级到下一个候选，避免单次抖动直接降到低画质候选
+  /// 或占位符。
+  int _retryAttempt = 0;
+  Timer? _retryTimer;
+
+  /// 每个 URL 的原地重试退避（共重试 2 次：300ms 后第一次、900ms 后第二次）
+  static const List<Duration> _retryDelays = [
+    Duration(milliseconds: 300),
+    Duration(milliseconds: 900),
+  ];
+
   String get _currentUrl => widget.request.urls[_urlIndex];
 
   @override
@@ -579,10 +598,18 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       _notified = false;
       _retryScheduled = false;
       _urlIndex = 0;
+      _resetRetry();
     } else if (_urlIndex >= widget.request.urls.length) {
       _retryScheduled = false;
       _urlIndex = 0;
+      _resetRetry();
     }
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
   }
 
   bool _sameUrlList(List<String> a, List<String> b) {
@@ -594,8 +621,31 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
     return true;
   }
 
+  void _resetRetry() {
+    _retryAttempt = 0;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+  }
+
+  /// 延迟后重试当前 URL。通过递增 [_retryAttempt] 改变下方
+  /// CachedNetworkImage 的 key，强制创建新 state 重新发起请求
+  /// （同参数 rebuild 不会触发 CachedNetworkImage 重新解析）。
+  void _retryCurrentUrl() {
+    final delay =
+        _retryDelays[_retryAttempt.clamp(0, _retryDelays.length - 1)];
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      if (!mounted) return;
+      setState(() {
+        _retryAttempt += 1;
+        _retryScheduled = false;
+      });
+    });
+  }
+
   void _advanceToNextUrl() {
     if (_urlIndex >= widget.request.urls.length - 1) return;
+    _resetRetry();
     setState(() {
       _urlIndex += 1;
       _notified = false;
@@ -610,6 +660,8 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
     }
 
     return CachedNetworkImage(
+      // key 随重试次数变化：原地重试时强制创建新 state 重新发起加载。
+      key: ValueKey<String>('$_urlIndex#$_retryAttempt'),
       imageUrl: _currentUrl,
       fit: widget.fit,
       width: widget.width,
@@ -631,13 +683,20 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
             )
           : widget.placeholder,
       errorWidget: (context, url, error) {
-        if (_urlIndex < widget.request.urls.length - 1 && !_retryScheduled) {
-          _retryScheduled = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _advanceToNextUrl();
-            }
-          });
+        if (!_retryScheduled) {
+          if (_retryAttempt < _retryDelays.length) {
+            // 瞬时错误：短退避后原地重试当前 URL，不立即降级候选。
+            _retryScheduled = true;
+            _retryCurrentUrl();
+          } else if (_urlIndex < widget.request.urls.length - 1) {
+            // 重试耗尽后才降级到下一个候选 URL。
+            _retryScheduled = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _advanceToNextUrl();
+              }
+            });
+          }
         }
         return widget.placeholder;
       },
