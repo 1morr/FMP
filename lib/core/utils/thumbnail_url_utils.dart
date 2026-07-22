@@ -130,8 +130,12 @@ class ThumbnailUrlUtils {
       String url, int targetSize) {
     const sizes = [1280, 640, 400, 200];
 
-    final baseUrl =
-        url.contains('@') ? url.substring(0, url.indexOf('@')) : url;
+    // 先去掉 query string（如 ?t=123），再去掉已有的 @ 尺寸后缀，
+    // 避免生成 `...jpg?t=123@1280w.jpg` 这类错误 URL（与 NetEase 路径一致）。
+    final withoutQuery = url.split('?').first;
+    final baseUrl = withoutQuery.contains('@')
+        ? withoutQuery.substring(0, withoutQuery.indexOf('@'))
+        : withoutQuery;
     final desiredSize = _selectBilibiliSize(targetSize);
 
     final candidates = <String>[];

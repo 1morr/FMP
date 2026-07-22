@@ -34,7 +34,7 @@ extension RadioCoverVariantTarget on RadioCoverVariant {
       case RadioCoverVariant.hero:
         return ImageTargetSizes.highest;
       case RadioCoverVariant.fullscreenHero:
-        return 1280;
+        return ImageTargetSizes.highest;
     }
   }
 }

@@ -82,6 +82,34 @@ void main() {
         expect(
             result.first, 'https://i0.hdslb.com/bfs/archive/test.jpg@200w.jpg');
       });
+
+      test('strips query string before appending size suffix', () {
+        const url = 'https://i0.hdslb.com/bfs/archive/test.jpg?t=123';
+
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 100,
+        );
+
+        // query 必须被移除，不能生成 `...jpg?t=123@200w.jpg`
+        expect(
+            result.first, 'https://i0.hdslb.com/bfs/archive/test.jpg@200w.jpg');
+        // 原始 URL（含 query）仍作为最终回退
+        expect(result.last, url);
+      });
+
+      test('strips existing size suffix and query string together', () {
+        const url = 'https://i0.hdslb.com/bfs/archive/test.jpg@640w.jpg?t=123';
+
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 100,
+        );
+
+        expect(
+            result.first, 'https://i0.hdslb.com/bfs/archive/test.jpg@200w.jpg');
+        expect('@'.allMatches(result.first).length, 1);
+      });
     });
 
     group('YouTube URL optimization', () {
