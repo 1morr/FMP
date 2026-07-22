@@ -295,43 +295,6 @@ class ImageLoadingService {
     );
   }
 
-  /// 构建图标占位符
-  static Widget _buildIconPlaceholder({
-    required ColorScheme colorScheme,
-    required IconData icon,
-    required double iconSize,
-    Color? backgroundColor,
-  }) {
-    return Container(
-      color: backgroundColor ?? colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          icon,
-          size: iconSize,
-          color: colorScheme.outline,
-        ),
-      ),
-    );
-  }
-
-  /// 构建主题化占位符
-  ///
-  /// 用于需要自定义背景色或样式的场景
-  static Widget buildPlaceholder({
-    required BuildContext context,
-    IconData icon = Icons.music_note,
-    double? iconSize,
-    Color? backgroundColor,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _buildIconPlaceholder(
-      colorScheme: colorScheme,
-      icon: icon,
-      iconSize: iconSize ?? 24,
-      backgroundColor: backgroundColor,
-    );
-  }
-
   static ImageProvider _localImageProvider(
     BuildContext context,
     File file, {
@@ -342,7 +305,14 @@ class ImageLoadingService {
     final fileImage = FileImage(file);
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final cacheExtent = _cacheExtent(targetDisplaySize, devicePixelRatio);
-    return ResizeImage(fileImage, width: cacheExtent, height: cacheExtent);
+    // 使用 fit 策略保持宽高比：在 cacheExtent 边界框内等比缩放、只缩小不放大。
+    // 默认的 exact 策略会把非方形（如 16:9）的本地封面强制压成正方形。
+    return ResizeImage(
+      fileImage,
+      policy: ResizeImagePolicy.fit,
+      width: cacheExtent,
+      height: cacheExtent,
+    );
   }
 
   static int _cacheExtent(double logicalSize, double devicePixelRatio) {
@@ -665,21 +635,6 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       },
     );
   }
-}
-
-/// 图片占位符样式
-enum ImagePlaceholderStyle {
-  /// 音乐封面（music_note 图标）
-  track,
-
-  /// 头像（person 图标）
-  avatar,
-
-  /// 文件夹（folder 图标）
-  folder,
-
-  /// 歌单（album 图标）
-  playlist,
 }
 
 /// 图片占位符 Widget

@@ -269,11 +269,6 @@ class NetworkImageCacheService {
     }
   }
 
-  /// 删除指定 URL 的缓存
-  static Future<void> removeFile(String url) async {
-    await cacheManager.removeFile(url);
-  }
-
   /// 获取缓存目录
   static Future<Directory> _getCacheDirectory() async {
     final tempDir = await getTemporaryDirectory();
