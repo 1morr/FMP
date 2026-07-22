@@ -89,8 +89,9 @@ class _ClickableSourceCoverState extends State<ClickableSourceCover> {
                   ),
                 if (widget.overlay != null)
                   Positioned.fill(child: widget.overlay!),
-                // 悬停时显示的遮罩提示（仅桌面）
-                if (!widget.isLoading)
+                // 悬停时显示的遮罩提示（仅桌面）；僅在可點擊開啟來源時顯示，
+                // 否則遮罩會暗示一個實際上不存在的點擊動作。
+                if (!widget.isLoading && widget.onOpenSource != null)
                   AnimatedOpacity(
                     opacity: _isHovered ? 1.0 : 0.0,
                     duration: AnimationDurations.fast,

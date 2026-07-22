@@ -7,6 +7,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../services/library/remote_playlist_edit_result.dart';
 import '../images/playlist_cover_image.dart';
 import '../images/track_thumbnail.dart';
+import '../layout/sheet_drag_handle.dart';
 
 class RemotePlaylistDialogHeader extends StatelessWidget {
   final String title;
@@ -402,5 +403,194 @@ void reportRemotePlaylistEditResult(
     ToastService.error(context, result.failures.first.error.toString());
   } else {
     ToastService.show(context, t.remote.noChanges);
+  }
+}
+
+/// 三個遠端「加入播放清單」對話框共用的送出按鈕文字。
+///
+/// 僅在有新增且無移除時顯示計數（加入 N）；其餘情況一律顯示確認。
+String remotePlaylistSubmitButtonText({
+  required int toAddCount,
+  required int toRemoveCount,
+}) {
+  if (toAddCount == 0 && toRemoveCount == 0) return t.remote.confirm;
+  if (toAddCount > 0 && toRemoveCount == 0) {
+    return t.remote.addToCount(count: toAddCount.toString());
+  }
+  return t.remote.confirm;
+}
+
+/// 三個遠端「加入播放清單」對話框共用的 bottom-sheet 外殼：
+/// 拖拽把手 + 標題 + 曲目摘要 + 新建 tile + 分隔線 + 清單區 + 底部送出按鈕。
+///
+/// 清單內容由 [listBuilder] 提供（通常是 [RemotePlaylistSelectionListView]）；
+/// 送出按鈕文字由 [buttonText] 提供（通常是 [remotePlaylistSubmitButtonText]）。
+class RemotePlaylistSheetBody extends StatelessWidget {
+  final String title;
+  final List<Track> tracks;
+  final String createTitle;
+  final VoidCallback? onCreate;
+  final bool isSubmitting;
+  final bool isLoading;
+  final VoidCallback onSubmit;
+  final String buttonText;
+  final Widget Function(BuildContext, ScrollController) listBuilder;
+
+  const RemotePlaylistSheetBody({
+    super.key,
+    required this.title,
+    required this.tracks,
+    required this.createTitle,
+    required this.onCreate,
+    required this.isSubmitting,
+    required this.isLoading,
+    required this.onSubmit,
+    required this.buttonText,
+    required this.listBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            const SheetDragHandle(),
+            RemotePlaylistDialogHeader(
+              title: title,
+              onClose: () => Navigator.pop(context, false),
+            ),
+            RemotePlaylistTrackSummary(tracks: tracks),
+            const SizedBox(height: 8),
+            RemotePlaylistCreateTile(
+              title: createTitle,
+              onTap: isSubmitting ? null : onCreate,
+            ),
+            const Divider(),
+            Expanded(
+              child: Material(
+                type: MaterialType.transparency,
+                clipBehavior: Clip.hardEdge,
+                child: listBuilder(context, scrollController),
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: isSubmitting || isLoading ? null : onSubmit,
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(buttonText),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 三個遠端「加入播放清單」對話框共用的清單區：
+/// 載入中 / 錯誤 / 空態 / 播放清單 ListView。
+///
+/// 每筆項目的圖片、圖示、標題、副標、選取狀態與點擊行為由呼叫端透過
+/// [itemImageUrl]、[itemIcon]、[itemTitle]、[itemSubtitle]、[isSelected]、
+/// [isPartial] 與 [onToggle] 提供；勾選指示的載入態由 [isChecking] 控制。
+class RemotePlaylistSelectionListView<T> extends StatelessWidget {
+  final bool isLoading;
+  final String? errorMessage;
+  final List<T>? items;
+  final ScrollController scrollController;
+  final bool isChecking;
+  final String? Function(T) itemImageUrl;
+  final IconData Function(T) itemIcon;
+  final String Function(T) itemTitle;
+  final String Function(T) itemSubtitle;
+  final bool Function(T) isSelected;
+  final bool Function(T) isPartial;
+  final void Function(T) onToggle;
+
+  /// 逐筆項目的額外勾選檢查中狀態（例如 YouTube 單曲模式逐筆確認 containsVideo）。
+  /// 回傳 true 時該筆顯示載入指示；為 null 時僅依全域 [isChecking] 判斷。
+  final bool Function(T)? isCheckingItem;
+
+  const RemotePlaylistSelectionListView({
+    super.key,
+    required this.isLoading,
+    required this.errorMessage,
+    required this.items,
+    required this.scrollController,
+    required this.isChecking,
+    required this.itemImageUrl,
+    required this.itemIcon,
+    required this.itemTitle,
+    required this.itemSubtitle,
+    required this.isSelected,
+    required this.isPartial,
+    required this.onToggle,
+    this.isCheckingItem,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final error = errorMessage;
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            error,
+            style: TextStyle(color: colorScheme.error),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final list = items;
+    if (list == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (list.isEmpty) {
+      return RemotePlaylistEmptyState(
+        title: t.remote.noPlaylists,
+        hint: t.remote.noPlaylistsHint,
+      );
+    }
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: list.length,
+      itemBuilder: (context, index) {
+        final item = list[index];
+        return RemotePlaylistListTile(
+          imageUrl: itemImageUrl(item),
+          fallbackIcon: itemIcon(item),
+          title: itemTitle(item),
+          subtitle: itemSubtitle(item),
+          isSelected: isSelected(item),
+          isPartial: isPartial(item),
+          isChecking: isChecking || (isCheckingItem?.call(item) ?? false),
+          onTap: () => onToggle(item),
+        );
+      },
+    );
   }
 }

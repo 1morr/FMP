@@ -8,7 +8,6 @@ import '../../../providers/account/account_provider.dart';
 import '../../../providers/library/remote_playlist_sync_provider.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/library/remote_playlist_selection_changes.dart';
-import '../layout/sheet_drag_handle.dart';
 import 'remote_playlist_dialog_widgets.dart';
 
 /// 顯示添加到 YouTube 播放列表對話框
@@ -287,138 +286,68 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            // 拖拽指示條
-            const SheetDragHandle(),
-            // 標題
-            RemotePlaylistDialogHeader(
-              title: t.remote.dialogTitleYoutube,
-              onClose: () => Navigator.pop(context, false),
-            ),
-            RemotePlaylistTrackSummary(tracks: _tracks),
-            const SizedBox(height: 8),
-            RemotePlaylistCreateTile(
-              title: t.remote.createPlaylist,
-              onTap: _isSubmitting ? null : _showCreatePlaylistDialog,
-            ),
-            const Divider(),
-            // 播放列表列表
-            Expanded(
-              child: Material(
-                type: MaterialType.transparency,
-                clipBehavior: Clip.hardEdge,
-                child: _buildPlaylistList(colorScheme, scrollController),
-              ),
-            ),
-            // 確認按鈕
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _isSubmitting || _isLoading ? null : _submit,
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_getButtonText()),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    return RemotePlaylistSheetBody(
+      title: t.remote.dialogTitleYoutube,
+      tracks: _tracks,
+      createTitle: t.remote.createPlaylist,
+      onCreate: _showCreatePlaylistDialog,
+      isSubmitting: _isSubmitting,
+      isLoading: _isLoading,
+      onSubmit: _submit,
+      buttonText: _getButtonText(),
+      listBuilder: (context, scrollController) =>
+          RemotePlaylistSelectionListView<YouTubePlaylistInfo>(
+        isLoading: _isLoading,
+        errorMessage: _errorMessage,
+        items: _playlists,
+        scrollController: scrollController,
+        isChecking: _isCheckingMulti,
+        itemImageUrl: (playlist) => playlist.thumbnailUrl,
+        itemIcon: (playlist) => Icons.playlist_play,
+        itemTitle: (playlist) => playlist.title,
+        itemSubtitle: (playlist) => '${playlist.videoCount}',
+        isSelected: (playlist) => _selectedIds.contains(playlist.playlistId),
+        isPartial: (playlist) =>
+            !_selectedIds.contains(playlist.playlistId) &&
+            _partialIds.contains(playlist.playlistId) &&
+            !_deselectedPartialIds.contains(playlist.playlistId),
+        onToggle: _togglePlaylist,
+        // 單曲模式：逐筆確認 containsVideo，尚未回應的播放清單顯示載入指示
+        isCheckingItem: (playlist) =>
+            !_isMulti &&
+            _playlists != null &&
+            _containsStatus[playlist.playlistId] == null,
+      ),
     );
   }
 
-  Widget _buildPlaylistList(
-      ColorScheme colorScheme, ScrollController scrollController) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(_errorMessage!,
-              style: TextStyle(color: colorScheme.error),
-              textAlign: TextAlign.center),
-        ),
-      );
-    }
-    final playlists = _playlists;
-    if (playlists == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (playlists.isEmpty) {
-      return RemotePlaylistEmptyState(
-        title: t.remote.noPlaylists,
-        hint: t.remote.noPlaylistsHint,
-      );
-    }
-
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: playlists.length,
-      itemBuilder: (context, index) {
-        final playlist = playlists[index];
-        final isSelected = _selectedIds.contains(playlist.playlistId);
-        final isPartial = !isSelected &&
-            _partialIds.contains(playlist.playlistId) &&
-            !_deselectedPartialIds.contains(playlist.playlistId);
-        final containsStatus = _containsStatus[playlist.playlistId];
-
-        return RemotePlaylistListTile(
-          imageUrl: playlist.thumbnailUrl,
-          fallbackIcon: Icons.playlist_play,
-          title: playlist.title,
-          subtitle: '${playlist.videoCount}',
-          isSelected: isSelected,
-          isPartial: isPartial,
-          isChecking: _isCheckingMulti ||
-              (!_isMulti && containsStatus == null && _playlists != null),
-          onTap: () {
-            setState(() {
-              if (isSelected) {
-                _selectedIds.remove(playlist.playlistId);
-                if (_partialIds.contains(playlist.playlistId)) {
-                  _deselectedPartialIds.add(playlist.playlistId);
-                }
-              } else if (isPartial) {
-                _selectedIds.add(playlist.playlistId);
-              } else if (_deselectedPartialIds.contains(playlist.playlistId)) {
-                _deselectedPartialIds.remove(playlist.playlistId);
-              } else {
-                _selectedIds.add(playlist.playlistId);
-              }
-            });
-          },
-        );
-      },
-    );
+  void _togglePlaylist(YouTubePlaylistInfo playlist) {
+    final id = playlist.playlistId;
+    final isSelected = _selectedIds.contains(id);
+    final isPartial = !isSelected &&
+        _partialIds.contains(id) &&
+        !_deselectedPartialIds.contains(id);
+    setState(() {
+      if (isSelected) {
+        _selectedIds.remove(id);
+        if (_partialIds.contains(id)) {
+          _deselectedPartialIds.add(id);
+        }
+      } else if (isPartial) {
+        _selectedIds.add(id);
+      } else if (_deselectedPartialIds.contains(id)) {
+        _deselectedPartialIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
   }
 
   String _getButtonText() {
     final (:toAdd, :toRemove) = _computeChanges();
-    if (toAdd.isEmpty && toRemove.isEmpty) return t.remote.confirm;
-    if (toAdd.isNotEmpty && toRemove.isEmpty) {
-      return t.remote.addToCount(count: toAdd.length.toString());
-    }
-    return t.remote.confirm;
+    return remotePlaylistSubmitButtonText(
+      toAddCount: toAdd.length,
+      toRemoveCount: toRemove.length,
+    );
   }
 }

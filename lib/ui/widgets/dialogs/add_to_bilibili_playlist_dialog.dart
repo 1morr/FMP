@@ -8,7 +8,6 @@ import '../../../providers/account/account_provider.dart';
 import '../../../providers/library/remote_playlist_sync_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/library/remote_playlist_selection_changes.dart';
-import '../layout/sheet_drag_handle.dart';
 import 'remote_playlist_dialog_widgets.dart';
 
 Future<bool> showAddToBilibiliPlaylistDialog({
@@ -251,136 +250,63 @@ class _BilibiliRemoteFavSheetState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            const SheetDragHandle(),
-            RemotePlaylistDialogHeader(
-              title: t.remote.dialogTitle,
-              onClose: () => Navigator.pop(context, false),
-            ),
-            RemotePlaylistTrackSummary(tracks: _tracks),
-            const SizedBox(height: 8),
-            RemotePlaylistCreateTile(
-              title: t.remote.createFolder,
-              onTap: _isSubmitting ? null : _showCreateFolderDialog,
-            ),
-            const Divider(),
-            Expanded(
-              child: Material(
-                type: MaterialType.transparency,
-                clipBehavior: Clip.hardEdge,
-                child: _buildFolderList(colorScheme, scrollController),
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _isSubmitting || _isLoading ? null : _submit,
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_getButtonText()),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    return RemotePlaylistSheetBody(
+      title: t.remote.dialogTitle,
+      tracks: _tracks,
+      createTitle: t.remote.createFolder,
+      onCreate: _showCreateFolderDialog,
+      isSubmitting: _isSubmitting,
+      isLoading: _isLoading,
+      onSubmit: _submit,
+      buttonText: _getButtonText(),
+      listBuilder: (context, scrollController) =>
+          RemotePlaylistSelectionListView<BilibiliFavFolder>(
+        isLoading: _isLoading,
+        errorMessage: _errorMessage,
+        items: _folders,
+        scrollController: scrollController,
+        isChecking: _isCheckingMulti,
+        itemImageUrl: (folder) => folder.coverUrl,
+        itemIcon: (folder) =>
+            folder.isDefault ? Icons.star : Icons.folder_outlined,
+        itemTitle: (folder) => folder.title,
+        itemSubtitle: (folder) => '${folder.mediaCount}',
+        isSelected: (folder) => _selectedIds.contains(folder.id),
+        isPartial: (folder) =>
+            !_selectedIds.contains(folder.id) &&
+            _partialIds.contains(folder.id) &&
+            !_deselectedPartialIds.contains(folder.id),
+        onToggle: _toggleFolder,
+      ),
     );
   }
 
-  Widget _buildFolderList(
-    ColorScheme colorScheme,
-    ScrollController scrollController,
-  ) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            _errorMessage!,
-            style: TextStyle(color: colorScheme.error),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-    final folders = _folders;
-    if (folders == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (folders.isEmpty) {
-      return RemotePlaylistEmptyState(
-        title: t.remote.noPlaylists,
-        hint: t.remote.noPlaylistsHint,
-      );
-    }
-
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: folders.length,
-      itemBuilder: (context, index) {
-        final folder = folders[index];
-        final isSelected = _selectedIds.contains(folder.id);
-        final isPartial = !isSelected &&
-            _partialIds.contains(folder.id) &&
-            !_deselectedPartialIds.contains(folder.id);
-
-        return RemotePlaylistListTile(
-          imageUrl: folder.coverUrl,
-          fallbackIcon: folder.isDefault ? Icons.star : Icons.folder_outlined,
-          title: folder.title,
-          subtitle: '${folder.mediaCount}',
-          isSelected: isSelected,
-          isPartial: isPartial,
-          isChecking: _isCheckingMulti,
-          onTap: () {
-            setState(() {
-              if (isSelected) {
-                _selectedIds.remove(folder.id);
-                if (_partialIds.contains(folder.id)) {
-                  _deselectedPartialIds.add(folder.id);
-                }
-              } else if (isPartial) {
-                _selectedIds.add(folder.id);
-              } else if (_deselectedPartialIds.contains(folder.id)) {
-                _deselectedPartialIds.remove(folder.id);
-              } else {
-                _selectedIds.add(folder.id);
-              }
-            });
-          },
-        );
-      },
-    );
+  void _toggleFolder(BilibiliFavFolder folder) {
+    final isSelected = _selectedIds.contains(folder.id);
+    final isPartial = !isSelected &&
+        _partialIds.contains(folder.id) &&
+        !_deselectedPartialIds.contains(folder.id);
+    setState(() {
+      if (isSelected) {
+        _selectedIds.remove(folder.id);
+        if (_partialIds.contains(folder.id)) {
+          _deselectedPartialIds.add(folder.id);
+        }
+      } else if (isPartial) {
+        _selectedIds.add(folder.id);
+      } else if (_deselectedPartialIds.contains(folder.id)) {
+        _deselectedPartialIds.remove(folder.id);
+      } else {
+        _selectedIds.add(folder.id);
+      }
+    });
   }
 
   String _getButtonText() {
     final (:toAdd, :toRemove) = _computeChanges();
-    if (toAdd.isEmpty && toRemove.isEmpty) return t.remote.confirm;
-    if (toAdd.isNotEmpty && toRemove.isEmpty) {
-      return t.remote.addToCount(count: toAdd.length.toString());
-    }
-    return t.remote.confirm;
+    return remotePlaylistSubmitButtonText(
+      toAddCount: toAdd.length,
+      toRemoveCount: toRemove.length,
+    );
   }
 }
