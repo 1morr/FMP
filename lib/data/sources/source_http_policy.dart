@@ -93,6 +93,14 @@ class SourceHttpPolicy {
     return headers;
   }
 
+  /// 依 URL 主機回傳圖片請求標頭。
+  ///
+  /// [includeUserAgent] 預設為 false：UI 圖片載入（ImageLoadingService）
+  /// 依賴各圖片 CDN（hdslb.com / ytimg.com / music.126.net）對預設 UA 的
+  /// 容忍，實測僅 Referer 是必需的；下載路徑傳 true（或直接使用
+  /// [imageHeaders] 的預設）帶上 mediaUserAgent，與媒體流請求保持一致。
+  /// 此 UA 非對稱是刻意為之；若未來某 CDN 開始對無 UA 請求回 403，
+  /// 應在此補齊並回報，而不是默默放行。
   static Map<String, String>? imageHeadersForUrl(
     String url, {
     bool includeUserAgent = false,

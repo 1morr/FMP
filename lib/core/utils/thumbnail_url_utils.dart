@@ -80,7 +80,9 @@ class ThumbnailUrlUtils {
     }
 
     // 最后回退到原始 URL。YouTube 的 default/hqdefault/sddefault 是 4:3
-    // 档位，常带黑边；用户界面只显示 16:9 候选，避免任何黑边封面。
+    // 档位，16:9 视频在这些档位会被 YouTube 加上下黑边；用户界面只显示
+    // 16:9 候选，避免为 16:9 内容额外引入黑边。原生 4:3 视频的 16:9 档位
+    // 本身可能被 YouTube 预制黑边，这属于源端限制，本层无法消除。
     if (!(_isYouTubeUrl(url) && _isYouTubeBlackBarThumbnail(url))) {
       addCandidate(url);
     }
@@ -188,9 +190,11 @@ class ThumbnailUrlUtils {
 
   /// 生成 YouTube 缩略图多级质量候选 URL（从高到低）
   ///
-  /// 仅生成 16:9 质量档位的候选（maxresdefault、mqdefault），
-  /// 排除 4:3 档位（sddefault、hqdefault、default）以避免黑边。
-  /// 4:3 原始 URL 不会作为最终回退添加，以避免显示黑边。
+  /// 仅生成 16:9 质量档位的候选（maxresdefault、mqdefault），排除 4:3 档位
+  /// （sddefault、hqdefault、default）：YouTube 会给 16:9 视频的 4:3 档位
+  /// 加上下黑边，排除它们可避免为 16:9 内容额外引入黑边。原生 4:3 视频的
+  /// 16:9 档位仍可能带有 YouTube 预制黑边，这属于源端限制。
+  /// 4:3 原始 URL 不会作为最终回退添加，以免优先显示带预制黑边的版本。
   static List<String> _optimizeYouTubeThumbnailCandidates(
       String url, int targetSize) {
     const qualityOrder = ['maxresdefault', 'mqdefault'];

@@ -147,6 +147,11 @@ enum TrackCoverVariant {
   card,
 
   /// 播放器、Detail Panel 等大图场景。
+  ///
+  /// 各源可用封面尺寸上限：Bilibili 1280w、NetEase 800、YouTube 720 高
+  /// （maxresdefault）。因此 NetEase / YouTube 的播放器封面在高 DPR
+  /// 手机上会被 GPU 放大约 1.4–1.6 倍而略软；这是源端尺寸上限，
+  /// 图片管线无法再提升，请勿通过调高本档目标尺寸来"修复"。
   hero,
 }
 
