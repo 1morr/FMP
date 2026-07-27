@@ -5,7 +5,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
@@ -62,13 +61,7 @@ void main(List<String> args) async {
   };
 
   runZonedGuarded(() async {
-    // 初始化 Marionette（debug + profile 模式，用于 AI 代理运行时交互）
-    // kReleaseMode 为 false 时包含 debug 和 profile 两种模式
-    if (!kReleaseMode) {
-      MarionetteBinding.ensureInitialized();
-    } else {
-      WidgetsFlutterBinding.ensureInitialized();
-    }
+    WidgetsFlutterBinding.ensureInitialized();
 
     launchMinimized = args.contains('--minimized');
 
