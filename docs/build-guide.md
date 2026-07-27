@@ -47,7 +47,7 @@ cd FMP
 flutter pub get
 
 # 代码生成（Isar models、i18n 等）
-flutter pub run build_runner build --delete-conflicting-outputs
+dart run build_runner build --delete-conflicting-outputs
 
 # 生成应用图标
 dart run flutter_launcher_icons
@@ -211,7 +211,7 @@ flutter analyze
 flutter test
 
 # 重新生成代码（修改 Isar model 后必须执行）
-flutter pub run build_runner build --delete-conflicting-outputs
+dart run build_runner build --delete-conflicting-outputs
 ```
 
 ## Windows 构建排错

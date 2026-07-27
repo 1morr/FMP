@@ -11,6 +11,7 @@
 | 想理解專案架構與主要模組 | [開發文件](development.md) |
 | 要發布新版本或調整 Release 流程 | [建置與發布指南](build-and-release.md) |
 | 要用 VM Service / Marionette 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
+| 遇到看起來像錯誤的 runtime log 噪音 | [疑難排解](troubleshooting.md) |
 | 要查歷史重構背景 | [歷史重構流水](history/refactoring-log.md) |
 | 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
 
@@ -22,6 +23,8 @@
 | [建置指南](build-guide.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
 | [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
 | [VM Service 調試指南](debugging-with-vm-service.md) | 調試者 / agent | 透過 Dart VM Service、Marionette 與 Isar Inspector 做運行期檢查 |
+| [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性 runtime 噪音（如 Windows `Failed to update ui::AXTree`）與其成因 |
+| [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
 | [歷史重構流水](history/refactoring-log.md) | 維護者 | 已歸檔的歷史記錄，只作背景參考，不作為目前實作規範 |
 
 ## 權威來源
@@ -30,7 +33,8 @@
 - [開發文件](development.md) 是人類貢獻者的 onboarding 文件，只摘要目前架構並連回 `AGENTS.md`，不要在兩邊重複維護每條 agent 規則。
 - [建置與發布指南](build-and-release.md) 是 Release 行為的權威文件；下載連結、產物命名與應用內更新規則變更時優先更新它。
 - `docs/history/` 只放歷史脈絡。除非內容已反映在 `AGENTS.md` 或目前文件中，否則不要把歷史記錄當成現行規範。
-- **語系分工是刻意的**：`AGENTS.md`（根目錄與各子樹）維持英文，與程式碼、commit、識別字一致，方便 agent 與跨語言貢獻者比對；`docs/` 與根目錄 `README` 以中文撰寫，面向人類使用者與貢獻者。不強制統一語系。
+- **語系分工是刻意的**：`AGENTS.md`（根目錄與各子樹）與 `docs/agents/` 維持英文，與程式碼、commit、識別字一致，方便 agent 與跨語言貢獻者比對；`docs/` 其餘文件與根目錄 `README` 以中文撰寫，面向人類使用者與貢獻者。不強制統一語系。
+- `docs/agents/` 是 engineering skills（`/triage`、`/to-tickets`、`/to-spec`、`/qa`、`/wayfinder` 等）讀取的專案設定，不是給人讀的說明文件；要換 issue 追蹤系統或標籤詞彙時直接改這裡的檔案即可。
 
 ## 維護規則
 
