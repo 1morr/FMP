@@ -10,7 +10,7 @@
 | 想在本機編譯 Android / Windows | [建置指南](build-guide.md) |
 | 想理解專案架構與主要模組 | [開發文件](development.md) |
 | 要發布新版本或調整 Release 流程 | [建置與發布指南](build-and-release.md) |
-| 要用 VM Service / Marionette 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
+| 要用 VM Service 做 Runtime 調試，或在 Linux 上截圖驗證 UI | [VM Service 調試指南](debugging-with-vm-service.md) |
 | 遇到看起來像錯誤的 runtime log 噪音 | [疑難排解](troubleshooting.md) |
 | 要查歷史重構背景 | [歷史重構流水](history/refactoring-log.md) |
 | 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
@@ -22,7 +22,7 @@
 | [開發文件](development.md) | 貢獻者 | 專案概覽、技術棧、架構地圖、目前開發規則摘要 |
 | [建置指南](build-guide.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
 | [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
-| [VM Service 調試指南](debugging-with-vm-service.md) | 調試者 / agent | 透過 Dart VM Service、Marionette 與 Isar Inspector 做運行期檢查 |
+| [VM Service 調試指南](debugging-with-vm-service.md) | 調試者 / agent | 透過 Dart VM Service 與 Isar Inspector 做運行期檢查，以及 Linux 桌面 UI 截圖 |
 | [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性 runtime 噪音（如 Windows `Failed to update ui::AXTree`）與其成因 |
 | [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
 | [歷史重構流水](history/refactoring-log.md) | 維護者 | 已歸檔的歷史記錄，只作背景參考，不作為目前實作規範 |
@@ -41,6 +41,6 @@
 - 架構、資料模型、遷移、UI 或音源行為變更：優先更新 `AGENTS.md`，必要時同步更新 [開發文件](development.md)。
 - 本機建置環境、工具鏈或打包前置條件變更：更新 [建置指南](build-guide.md)。
 - CI 產物命名、Release workflow、簽名 secrets、應用內更新資產識別變更：更新 [建置與發布指南](build-and-release.md)。
-- Runtime 調試流程、VM Service 腳本或 Marionette 用法變更：更新 [VM Service 調試指南](debugging-with-vm-service.md)。
+- Runtime 調試流程、VM Service 腳本或 Linux UI 截圖方式變更：更新 [VM Service 調試指南](debugging-with-vm-service.md)。
 - 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
 - 不要把同一條規則複製到多個文件，除非目標文件確實擁有對應讀者和維護責任。

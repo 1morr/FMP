@@ -136,7 +136,7 @@ flutter test
 - [建置指南](docs/build-guide.md)：Android APK 與 Windows 安裝包的本機建置流程。
 - [開發文件](docs/development.md)：架構、技術棧、音源與資料模型概覽。
 - [建置與發布指南](docs/build-and-release.md)：CI、Release、簽名與應用內更新資產。
-- [VM Service 調試指南](docs/debugging-with-vm-service.md)：Runtime 調試、Marionette 與 Isar 檢查流程。
+- [VM Service 調試指南](docs/debugging-with-vm-service.md)：Runtime 調試、Isar 檢查與 Linux UI 截圖流程。
 
 ## 隱私與資料
 

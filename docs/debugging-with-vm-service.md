@@ -1,18 +1,19 @@
 # Flutter VM Service API 调试指南（AI Agent 专用）
 
-本文档指导 AI Agent 如何通过 Dart VM Service API 和 Marionette MCP 对 FMP 应用进行运行时调试、性能分析和 UI 交互。
+本文档指导 AI Agent 如何通过 Dart VM Service API 对 FMP 应用进行运行时调试与性能分析。
+
+> UI 层面的目视验证不走 VM Service，见[第 8 节](#8-linux-桌面-ui-截图)。
 
 ## 目录
 
 1. [前置条件](#1-前置条件)
 2. [连接方式](#2-连接方式)
-3. [Marionette MCP — UI 交互](#3-marionette-mcp--ui-交互)
-4. [VM Service HTTP API — 数据获取](#4-vm-service-http-api--数据获取)
-5. [Flutter Extension API](#5-flutter-extension-api)
-6. [Isar 数据库调试](#6-isar-数据库调试)
-7. [常用调试脚本](#7-常用调试脚本)
-8. [注意事项](#8-注意事项)
-9. [Linux 桌面 UI 截图](#9-linux-桌面-ui-截图)
+3. [VM Service HTTP API — 数据获取](#3-vm-service-http-api-数据获取)
+4. [Flutter Extension API](#4-flutter-extension-api)
+5. [Isar 数据库调试](#5-isar-数据库调试)
+6. [常用调试脚本](#6-常用调试脚本)
+7. [注意事项](#7-注意事项)
+8. [Linux 桌面 UI 截图](#8-linux-桌面-ui-截图)
 
 ---
 
@@ -42,7 +43,7 @@ http://127.0.0.1:<PORT>/<TOKEN>/devtools/?uri=ws://127.0.0.1:<PORT>/<TOKEN>/ws
 
 需要提取两个值：
 - **BASE URL**: `http://127.0.0.1:<PORT>/<TOKEN>=`（用于 HTTP API）
-- **WS URI**: `ws://127.0.0.1:<PORT>/<TOKEN>=/ws`（用于 Marionette 连接）
+- **WS URI**: `ws://127.0.0.1:<PORT>/<TOKEN>=/ws`（DevTools 与其他 WebSocket 客户端使用；本文档的命令只需要 BASE URL）
 
 > VM Service URL 中的 token 等同于本机调试访问凭证。不要把完整 URL、token、DevTools 链接或 websocket URI 贴到 issue、日志、截图、agent 报告或聊天记录中。需要分享时只保留端口和用途，删掉 token 路径；调试结束后关闭 app 或重新启动以失效旧 URI。
 
@@ -98,59 +99,11 @@ curl.exe -s "$BASE/getMemoryUsage?isolateId=$ISOLATE" -o "$env:TEMP\mem.json"
 
 ---
 
-## 3. Marionette MCP — UI 交互
-
-Marionette MCP 通过 Flutter VM Service Extension 与应用通信，提供 UI 级别的交互能力。
-
-### 连接
-
-```
-mcp__marionette__connect(uri: "ws://127.0.0.1:<PORT>/<TOKEN>=/ws")
-```
-
-### 可用工具
-
-| 工具 | 用途 | 典型场景 |
-|------|------|----------|
-| `connect` | 连接到 Flutter 应用 | 开始调试前 |
-| `disconnect` | 断开连接 | 结束调试 |
-| `get_interactive_elements` | 获取所有可交互元素 | 了解当前页面结构 |
-| `tap` | 点击元素（by key/text/type/coordinates） | 导航、按钮点击 |
-| `enter_text` | 输入文本（by key） | 搜索、表单填写 |
-| `scroll_to` | 滚动到指定元素（by key/text） | 查找不可见元素 |
-| `get_logs` | 获取应用日志 | 查看错误、调试输出 |
-| `take_screenshots` | 截图 | 视觉验证 |
-| `hot_reload` | 热重载 | 代码修改后刷新 |
-
-### 元素匹配优先级
-
-1. **key**（最可靠）— 使用 `ValueKey<String>`
-2. **text** — 匹配可见文本内容
-3. **type** — 匹配 Widget 类型名
-4. **coordinates** — 屏幕坐标点击（最后手段）
-
-### 示例：导航到搜索页并搜索
-
-```
-mcp__marionette__tap(text: "Search")
-mcp__marionette__enter_text(key: "search_field", input: "周杰伦")
-mcp__marionette__take_screenshots()
-```
-
-### 限制
-
-- 只能在 debug/profile 模式下工作
-- 不能获取内存、性能等系统级数据
-- 自定义 Widget 需要在 `MarionetteConfiguration` 中注册才能被识别
-- `get_interactive_elements` 返回数据量可能很大（100+ 元素）
-
----
-
-## 4. VM Service HTTP API — 数据获取
+## 3. VM Service HTTP API — 数据获取
 
 所有 API 通过 HTTP GET 请求调用，返回 JSON。
 
-### 4.1 VM 信息
+### 3.1 VM 信息
 
 ```bash
 curl -s "$BASE/getVM"
@@ -171,7 +124,7 @@ curl -s "$BASE/getVM"
 | `isolates` | 应用 Isolate 列表 | `[{id, name, number}]` |
 | `systemIsolates` | 系统 Isolate 列表 | vm-service 等 |
 
-### 4.2 内存使用
+### 3.2 内存使用
 
 #### Isolate 级别
 
@@ -197,7 +150,7 @@ curl -s "$BASE/getIsolateGroupMemoryUsage?isolateGroupId=$ISOGROUP"
 
 返回字段同上，但是整个 Isolate Group 的汇总。
 
-### 4.3 对象分配概况（Allocation Profile）
+### 3.3 对象分配概况（Allocation Profile）
 
 ```bash
 curl -s "$BASE/_getAllocationProfile?isolateId=$ISOLATE"
@@ -226,7 +179,7 @@ for m in sorted_m[:20]:
     print(f"{cls}: {instances} instances, {size_kb:.1f} KB")
 ```
 
-### 4.4 Timeline（帧性能 + GC + 事件追踪）
+### 3.4 Timeline（帧性能 + GC + 事件追踪）
 
 #### 获取 Timeline 数据
 
@@ -300,7 +253,7 @@ curl -s "$BASE/getVMTimelineFlags"
 
 **注意：** `setVMTimelineFlags` 的 `recordedStreams` 参数需要 JSON 数组格式，通过 HTTP GET 传递时格式复杂，建议保持默认流即可。
 
-### 4.5 HTTP 网络请求
+### 3.5 HTTP 网络请求
 
 ```bash
 curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
@@ -324,7 +277,7 @@ curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
 curl -s "$BASE/ext.dart.io.httpEnableTimelineLogging?isolateId=$ISOLATE&enabled=true"
 ```
 
-### 4.6 Socket 和文件
+### 3.6 Socket 和文件
 
 ```bash
 # Socket 连接
@@ -337,11 +290,11 @@ curl -s "$BASE/ext.dart.io.getOpenFiles?isolateId=$ISOLATE"
 curl -s "$BASE/ext.dart.io.getOpenFileById?isolateId=$ISOLATE&id=<FILE_ID>"
 ```
 
-## 5. Flutter Extension API
+## 4. Flutter Extension API
 
 通过 `ext.flutter.*` 扩展可以控制 Flutter 框架的调试功能。
 
-### 5.1 性能分析开关
+### 4.1 性能分析开关
 
 这些扩展控制是否在 Timeline 中记录额外的性能数据：
 
@@ -363,7 +316,7 @@ curl -s "$BASE/ext.flutter.profileWidgetBuilds?isolateId=$ISOLATE&enabled=true"
 
 **启用后需要触发 UI 操作（如滚动、切换页面），然后通过 `getVMTimeline` 获取新的 Timeline 数据来分析。**
 
-### 5.2 视觉调试
+### 4.2 视觉调试
 
 ```bash
 # 显示性能覆盖层（帧率图表）
@@ -382,7 +335,7 @@ curl -s "$BASE/ext.flutter.invertOversizedImages?isolateId=$ISOLATE&enabled=true
 curl -s "$BASE/ext.flutter.timeDilation?isolateId=$ISOLATE&timeDilation=5.0"
 ```
 
-### 5.3 Widget/Render/Layer Tree Dump
+### 4.3 Widget/Render/Layer Tree Dump
 
 ```bash
 # Widget 树（完整，可能非常大 ~900KB）
@@ -405,7 +358,7 @@ curl -s "$BASE/ext.flutter.debugDumpSemanticsTreeInTraversalOrder?isolateId=$ISO
 
 **注意：** 这些 dump 数据量很大，建议保存到文件后用 grep 搜索特定 Widget。
 
-### 5.4 Widget Inspector
+### 4.4 Widget Inspector
 
 ```bash
 # 获取 Widget 树根节点
@@ -428,7 +381,7 @@ curl -s "$BASE/ext.flutter.inspector.trackRebuildDirtyWidgets?isolateId=$ISOLATE
 curl -s "$BASE/ext.flutter.inspector.trackRepaintWidgets?isolateId=$ISOLATE&enabled=true"
 ```
 
-### 5.5 渲染引擎信息
+### 4.5 渲染引擎信息
 
 ```bash
 # 检查是否使用 Impeller 渲染引擎
@@ -436,7 +389,7 @@ curl -s "$BASE/ext.ui.window.impellerEnabled?isolateId=$ISOLATE"
 # 返回 enabled: true/false
 ```
 
-### 5.6 应用状态
+### 4.6 应用状态
 
 ```bash
 # 首帧是否已发送
@@ -451,7 +404,7 @@ curl -s "$BASE/ext.flutter.inspector.structuredErrors?isolateId=$ISOLATE"
 
 ---
 
-## 6. Isar 数据库调试
+## 5. Isar 数据库调试
 
 FMP 使用 Isar 数据库，debug 模式下暴露了 Isar Inspector 扩展。
 
@@ -478,9 +431,9 @@ curl -s "$BASE/ext.isar.watchInstance?isolateId=$ISOLATE&instance=fmp_database"
 
 ---
 
-## 7. 常用调试脚本
+## 6. 常用调试脚本
 
-### 7.1 一键内存快照
+### 6.1 一键内存快照
 
 ```bash
 BASE="http://127.0.0.1:<PORT>/<TOKEN>="
@@ -534,7 +487,7 @@ print(f"External:        {mem['externalUsage']/1024/1024:.1f} MB")
 '@ | python -
 ```
 
-### 7.2 一键帧性能分析
+### 6.2 一键帧性能分析
 
 ```bash
 BASE="http://127.0.0.1:<PORT>/<TOKEN>="
@@ -596,7 +549,7 @@ PYEOF
 
 PowerShell 中把第一行替换为 `$BASE = "http://127.0.0.1:<PORT>/<TOKEN>="`，把输出路径改成 `$env:TEMP\timeline.json`，并用 `@' ... '@ | python -` 执行 Python 代码。
 
-### 7.3 内存变化监控（前后对比）
+### 6.3 内存变化监控（前后对比）
 
 ```bash
 # 操作前快照
@@ -629,14 +582,13 @@ PowerShell 中同样使用 `curl.exe`、`$env:TEMP` 和 here-string 执行 Pytho
 
 ---
 
-## 8. 注意事项
+## 7. 注意事项
 
-### 8.1 Debug vs Profile vs Release
+### 7.1 Debug vs Profile vs Release
 
 | 能力 | Debug | Profile | Release |
 |------|-------|---------|---------|
 | VM Service API | ✅ | ✅ | ❌ |
-| Marionette MCP | ✅ | ✅ | ❌ |
 | 类名可见（Allocation Profile） | 部分 | ✅ | ❌ |
 | Widget 创建位置追踪 | ✅ | ❌ | ❌ |
 | 性能数据准确性 | 低（有调试开销） | 高 | N/A |
@@ -644,13 +596,13 @@ PowerShell 中同样使用 `curl.exe`、`$env:TEMP` 和 here-string 执行 Pytho
 
 **建议：** 性能分析用 profile 模式 (`flutter run --profile`)，功能调试用 debug 模式。
 
-### 8.2 模拟器 vs 真机
+### 7.2 模拟器 vs 真机
 
 - 模拟器的帧时间和内存数据不代表真机表现
 - 模拟器上的 jank 可能在真机上不存在（反之亦然）
 - RSS 在模拟器上通常偏高
 
-### 8.3 VM Service URI 会变
+### 7.3 VM Service URI 会变
 
 - 每次 `flutter run` 会生成新的 URI
 - URI 中的 token 必须视为临时 secret；复制命令、截图和日志时先脱敏
@@ -659,28 +611,27 @@ PowerShell 中同样使用 `curl.exe`、`$env:TEMP` 和 here-string 执行 Pytho
 - 完全重启应用会生成新 URI
 - **如果 API 调用无响应或返回空，先确认 URI 是否仍然有效**
 
-### 8.4 Timeline Ring Buffer
+### 7.4 Timeline Ring Buffer
 
 - Timeline 使用环形缓冲区，旧事件会被覆盖
 - 如果需要长时间录制，考虑定期导出
 - `getVMTimeline` 的 `timeOriginMicros=0&timeExtentMicros=999999999999` 获取所有缓冲区内的事件
 
-### 8.5 API 调用不会阻塞应用
+### 7.5 API 调用不会阻塞应用
 
 - 所有 VM Service API 调用都是非侵入性的
 - 但启用 profiling 扩展（如 `profileWidgetBuilds`）会增加运行时开销
 - 调试完成后建议关闭不需要的 profiling 扩展
 
-### 8.6 完整 API 参考
+### 7.6 完整 API 参考
 
 - [Dart VM Service Protocol](https://github.com/dart-lang/sdk/blob/main/runtime/vm/service/service.md)
 - [Flutter Engine Service Extensions](https://github.com/flutter/flutter/wiki/Engine-specific-Service-Protocol-extensions)
 - [Flutter Framework Service Extensions](https://github.com/flutter/flutter/wiki/Framework-specific-Service-Protocol-extensions)
-- [Marionette MCP](https://github.com/leancodepl/marionette_mcp)
 
 ---
 
-## 9. Linux 桌面 UI 截图
+## 8. Linux 桌面 UI 截图
 
 在 Linux 上目视确认 UI 有个前提陷阱：**GNOME 下无法非交互地截取原生 Wayland 窗口**。GNOME 41+ 把 `org.gnome.Shell.Screenshot` D-Bus 接口限制为白名单调用者，直接调用返回
 `AccessDenied`；`gnome-screenshot` 因此退回 X11 后端，抓到零尺寸窗口并报
