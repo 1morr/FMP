@@ -14,6 +14,7 @@
 6. [常用调试脚本](#6-常用调试脚本)
 7. [注意事项](#7-注意事项)
 8. [Linux 桌面 UI 截图](#8-linux-桌面-ui-截图)
+9. [崩溃捕捉（Linux）](#9-崩溃捕捉linux)
 
 ---
 
@@ -159,11 +160,15 @@ curl -s "$BASE/_getAllocationProfile?isolateId=$ISOLATE"
 **返回结构：**
 - `memoryUsage` — 同 getMemoryUsage
 - `members[]` — 每个类的分配统计：
-  - `classRef.name` — 类名（debug 模式下可见，release 模式显示 `?`）
+  - `class.name` — 类名
   - `instancesCurrent` — 当前实例数
   - `bytesCurrent` — 当前占用字节
   - `instancesAccumulated` — 累计分配实例数
-  - `bytesAccumulated` — 累计分配字节
+  - `accumulatedSize` — 累计分配字节
+
+> ⚠️ 字段名是 **`class`**，不是 `classRef`。实测（Dart 3.12.2，2026-07-27）单个 member 的完整键为
+> `['_new', '_old', 'accumulatedSize', 'bytesCurrent', 'class', 'instancesAccumulated', 'instancesCurrent', 'type']`。
+> 用 `m['classRef']` 会直接 `KeyError`。
 
 **注意：** debug 模式下类名可能显示为 `?`，这是正常的。profile 模式下类名更完整。
 
@@ -173,7 +178,7 @@ curl -s "$BASE/_getAllocationProfile?isolateId=$ISOLATE"
 members = result['members']
 sorted_m = sorted(members, key=lambda m: m.get('bytesCurrent', 0), reverse=True)
 for m in sorted_m[:20]:
-    cls = m['classRef']['name']
+    cls = (m.get('class') or {}).get('name', '?')
     instances = m['instancesCurrent']
     size_kb = m['bytesCurrent'] / 1024
     print(f"{cls}: {instances} instances, {size_kb:.1f} KB")
@@ -270,14 +275,25 @@ curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
 | `startTime` | 开始时间（微秒） |
 | `endTime` | 结束时间（微秒） |
 
-**注意：** FMP 使用 Dio 库，HTTP profile 可能不会捕获所有请求。如果返回 0 个请求，可能需要启用 `ext.dart.io.httpEnableTimelineLogging`。
+> 🔴 **实测对 FMP 无效，不要在这里花时间。** 2026-07-27 在 Linux debug 会话实测：应用刚从三个音源
+> 载入上百首排行榜数据，`getHttpProfile` 仍返回 **0 个请求**；按下面的方法启用
+> `httpEnableTimelineLogging`（返回 `{'enabled': True}`）后重查，依然 **0 个**；
+> `getVMTimeline` 的 12934 个事件里 HTTP/Socket 相关也是 **0 个**。
+>
+> 需要看 FMP 的网络行为，用 `AppLogger` 的 source adapter 日志，或在 Dio 上挂 interceptor。
 
 ```bash
-# 启用 HTTP timeline 日志
+# 启用 HTTP timeline 日志（实测未能让 FMP 的请求出现）
 curl -s "$BASE/ext.dart.io.httpEnableTimelineLogging?isolateId=$ISOLATE&enabled=true"
 ```
 
+> 保留一个未验证的可能：上述实测是在流量发生**之后**才启用 logging 的。严格的复测应先启用再产生流量。
+> 但同一次实测中 `getSocketProfile` 对**当下存活**的连接也返回 0，这一点无法用启用时机解释。
+
 ### 3.6 Socket 和文件
+
+> 🔴 **同样实测返回空。** `getSocketProfile` → 0 sockets，`getOpenFiles` → 0 files，
+> 而当时 Isar 已打开、三个音源的 HTTP 连接刚完成。与 §3.5 一并视为对 FMP 不可用。
 
 ```bash
 # Socket 连接
@@ -356,7 +372,17 @@ curl -s "$BASE/ext.flutter.debugDumpSemanticsTreeInTraversalOrder?isolateId=$ISO
 
 **返回格式：** `result.data` 为纯文本字符串。
 
-**注意：** 这些 dump 数据量很大，建议保存到文件后用 grep 搜索特定 Widget。
+**实测体积**（2026-07-27，Linux debug，首页已加载三个音源的排行榜）：
+
+| 端点 | 返回大小 | agent 可直读？ |
+|------|---------|--------------|
+| `debugDumpRenderTree` | **3.85 MB** | ❌ 会灌爆 context |
+| `debugDumpApp` | **1.37 MB** | ❌ |
+| `inspector.getRootWidgetSummaryTree` | 345 KB | ⚠️ 勉强，建议仍落盘 |
+| `debugDumpLayerTree` | 43 KB | ✅ |
+| `debugDumpSemanticsTreeInTraversalOrder` | 22 KB | ✅ |
+
+**永远先落盘再 grep，不要把前两个直接读进对话。** 体积随页面复杂度增长，上面的数字是下限不是上限。
 
 ### 4.4 Widget Inspector
 
@@ -664,9 +690,14 @@ Wayland 专属行为必须在原生会话下验证，此时只能靠 accessibili
 
 ### 补充手段：accessibility tree
 
-Orca computer-use 可以读窗口的 accessibility tree，但 **Flutter 的 Linux embedder 默认不通过
-AT-SPI 暴露 widget tree**，只能看到 GTK 外壳（标题栏与 Minimize/Maximize/Close）。它足以确认
-窗口存在、标题正确、尺寸正常，不足以确认内容渲染。
+Orca computer-use 可以读窗口的 accessibility tree，但 **Flutter 的 Linux embedder 不把 widget
+语义树桥接到 AT-SPI**，只能看到 GTK 外壳（标题栏与 Minimize/Maximize/Close，共 10 个节点）。
+它足以确认窗口存在、标题正确、尺寸正常，不足以确认内容渲染。
+
+问题不在 Flutter 没建树：`ext.flutter.debugDumpSemanticsTreeInTraversalOrder` 能正常返回约 22 KB
+的语义树，缺的是 AT-SPI 桥接。实测 `SemanticsBinding.instance.ensureSemantics()` 与系统
+`toolkit-accessibility=true` 都不能让它出现；上游 [flutter/flutter#159460](https://github.com/flutter/flutter/issues/159460)
+（open）正提议替换这条路依赖的 ATK 实现。
 
 ### 两个会静默失败的陷阱
 
@@ -674,3 +705,72 @@ AT-SPI 暴露 widget tree**，只能看到 GTK 外壳（标题栏与 Minimize/Ma
    命令的 shell 的命令行本身就含有该字符串。用 `pgrep -x fmp` 拿到 pid 后逐个 `kill`。
 2. **复合命令里的 `nohup ... &` 会随 shell 退出被杀**，日志留空、进程不存在，看起来像启动失败。
    用 `setsid`，或让启动命令独占一次调用。
+
+---
+
+## 9. 崩溃捕捉（Linux）
+
+应用「突然消失、什么日志都没有」时，**VM Service 帮不上忙**——进程死了它跟着死，没有事后分析能力。
+Linux 上要靠系统层记录。
+
+### 为什么默认什么都没记下
+
+Ubuntu 默认的 `core_pattern` 指向 apport，而 **apport 只处理由软件包安装的程序**。
+`build/linux/x64/release/bundle/fmp` 是本机编出来的裸二进制，apport 直接忽略它，
+`/var/crash/` 里不会出现任何 FMP 的记录。同时 `ulimit -c` 默认为 `0`，core dump 也是关的。
+三条记录通路同时关着，所以崩溃看起来「无声无息」。
+
+### 装上 systemd-coredump
+
+```bash
+sudo apt install -y systemd-coredump
+```
+
+它会接管 `core_pattern`（变成 `|/usr/lib/systemd/systemd-coredump ...`），**不管程序是不是包装过的都记录**。
+
+### 两级能力，取决于 `ulimit -c`
+
+实测（2026-07-27，Ubuntu 26.04）：
+
+| `ulimit -c` | 崩溃是否记录 | `COREFILE` | 能否取堆栈 |
+|-------------|------------|-----------|-----------|
+| `0`（默认） | ✅ 时间 / PID / 信号 / 可执行文件 | `none` | ❌ |
+| `unlimited` | ✅ | `present` | ✅ |
+
+**默认值就够回答最重要的那个问题**：信号是 `SIGKILL` 还是 `SIGSEGV`。
+
+- **SIGKILL（信号 9）** — 多半是内核 OOM killer。Dart 层不会抛异常、没有机会写日志，
+  表现就是「突然消失」。对照 §3.2 的 heap 利用率与 `_currentRSS` / `_maxRSS`。
+- **SIGSEGV（信号 11）／SIGABRT（6）** — 原生层崩溃，通常在插件或引擎里。需要堆栈才能定位。
+
+### 用法
+
+```bash
+# 列出崩溃记录
+coredumpctl list
+
+# 最近一次的详情（含堆栈，需要 COREFILE present）
+coredumpctl info
+
+# 指定进程
+coredumpctl info <PID>
+
+# 进 gdb 深挖
+coredumpctl gdb <PID>
+```
+
+要拿到堆栈，启动应用的那个 shell 必须放宽限制：
+
+```bash
+ulimit -c unlimited
+./build/linux/x64/release/bundle/fmp
+```
+
+> 注意：`ulimit` 只影响当前 shell 及其子进程。从桌面图标或 `.desktop` 启动的实例不受影响，
+> 需要在对应的启动配置里设置。
+
+### 与内存诊断配合
+
+怀疑 OOM 时，先用 §3.2 与 §3.3 量当前压力：heap 利用率 > 90%（见 §3.2 的健康指标）
+且 `_maxRSS` 明显高于常态，就与 OOM 假设一致。崩溃后再用 `coredumpctl list` 确认信号是不是
+`SIGKILL`——两边对上才算证实，单看任何一边都只是推测。
