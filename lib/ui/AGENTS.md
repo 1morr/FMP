@@ -5,76 +5,68 @@ UI guidance for Flutter pages, widgets, layouts, and windows.
 ## Widget Directory Layout
 
 Shared widgets live in semantic subdirectories under `lib/ui/widgets/`; do not
-add new `.dart` files directly under `lib/ui/widgets/`.
+add new `.dart` files directly under `lib/ui/widgets/`. Current folders:
+`app_bars`, `controls`, `dialogs`, `feedback`, `images`, `indicators`, `layout`,
+`lyrics`, `menus`, `panels`, `player`, `radio`, `track_group`, `track_tiles`.
+Use `rg`/`ls` for the current inventory rather than trusting a list here.
 
-Current folders:
-- `app_bars/` - app-level bars such as custom title bars, selection bars, and
-  `CollapsingHeroSliverAppBar` (shared 280dp library hero header used by
-  playlist-detail and downloaded-category pages).
-- `controls/` - reusable controls such as color pickers and compound toggles.
-- `dialogs/` - shared dialog widgets, including `showConfirmDestructiveDialog`,
-  `QrLoginCard`, and the remote-playlist helpers in
-  `remote_playlist_dialog_widgets.dart` (`showCreateRemotePlaylistDialog`,
-  `reportRemotePlaylistEditResult`, plus the shared sheet scaffold
-  `RemotePlaylistSheetBody`, the selection list `RemotePlaylistSelectionListView`,
-  and `remotePlaylistSubmitButtonText` used by all three add-to-remote dialogs).
-- `feedback/` - error and app-status feedback surfaces (`ErrorDisplay`).
-- `images/` - semantic image loading widgets.
-- `indicators/` - compact state indicators and badges (`LiveBadge` (+ `.compact`),
-  `SourceBadge`, `NowPlayingIndicator`, `NowPlayingCoverOverlay`,
-  `PartNumberBadge`, ...).
-- `layout/` - reusable layout sections and sheet chrome (`ExpandableTextSection`,
-  `DetailStatsRow`, `TagsSection`, `SheetDragHandle`, `CappedDraggableSheet`,
-  `PlaylistCard`, ...).
-- `lyrics/` - lyrics display/styling plus shared lyrics logic
-  (`LyricsTextMeasurer`, `LyricsOffsetBar`, `LyricsOffsetMath`; moved from
-  `lib/ui/windows/`).
-- `menus/` - menu/action helpers (`MenuAction` dual popup/sheet builders,
-  `buildSelectionMenuEntries`).
-- `panels/` - large persistent panels and their shared building blocks
-  (`TrackDetailPanel`, `CommentPager`, `ClickableSourceCover`).
-- `player/`, `radio/`, `track_group/`, `track_tiles/` - domain-specific
-  widget groups. Notable shared pieces: `MiniPlayerPlayPauseButton` /
-  `MiniPlayerDesktopControls` (both mini players), `AudioStreamInfoSection`
-  (player + detail panel), `RadioDetailBody` (radio sheet + detail panel).
+Widgets that are easy to accidentally duplicate — check these before writing a
+new one:
+
+- `CollapsingHeroSliverAppBar` (`app_bars/`) — the shared 280dp library hero
+  header used by playlist-detail and downloaded-category pages.
+- `remote_playlist_dialog_widgets.dart` (`dialogs/`) — `RemotePlaylistSheetBody`,
+  `RemotePlaylistSelectionListView`, and `remotePlaylistSubmitButtonText` back
+  all three add-to-remote dialogs.
+- `lyrics/` — `LyricsTextMeasurer`, `LyricsOffsetBar`, `LyricsOffsetMath` are
+  shared between the in-app player and the desktop lyrics sub-window.
+- `MiniPlayerPlayPauseButton` / `MiniPlayerDesktopControls` (both mini players),
+  `AudioStreamInfoSection` (player + detail panel), `RadioDetailBody` (radio
+  sheet + detail panel).
 
 ## Image Components
 
-Image components live under `lib/ui/widgets/images/`.
+Image components live under `lib/ui/widgets/images/`. **Never use
+`Image.network()` or `Image.file()` directly.**
 
-- Song cover -> `TrackThumbnail` / `TrackCover`
-- Playlist cover -> `PlaylistCoverImage`
-- Radio/live cover -> `RadioCoverImage`
-- Home recent-play cover -> `RecentPlayCoverImage`
-- Avatar -> `AvatarImage`
-- Other images -> a small semantic widget wrapping `ImageLoadingService`.
-- Never use `Image.network()` or `Image.file()` directly.
-- Page code should pass semantic variants, not raw `targetDisplaySize`.
-  `targetDisplaySize` belongs inside semantic image widgets and
-  `ImageLoadingService`; never infer image quality from `width` or `height`,
-  which are layout-only. Use `ImageTargetSizes` from
-  `lib/core/constants/ui_constants.dart` only inside image components or core
-  image services, not page call sites.
-- Current target-size mapping: `low` is only for downloaded metadata avatars;
-  `thumbnail` is for UI avatars (`AvatarImage`), list-track tiles
-  (`TrackThumbnail`), and radio compact images; `medium` is for card-size
-  covers (~100–140dp: recent-play cards, radio station cards, playlist
-  compact/dialog covers, card-size track covers); `high` is for home/library
-  playlist cards (~200dp) and player blurred backdrops; `fullscreen` is for
-  large panel/detail-dialog covers (~460dp, radio hero); `highest` is for
-  player cover art, radio fullscreen player cover art, and playlist-detail
-  hero backgrounds.
-- Image pipeline: semantic image widget -> `ImageLoadingService` -> local file,
-  then optimized network URL candidates with source-specific headers, then
-  placeholder. Network images use `NetworkImageCacheService` for shared memory
-  and disk cache management.
-- Downloaded metadata images use the same `ImageTargetSizes` semantics as UI:
-  covers use `high`, avatars use `low`. Do not introduce a separate download
-  image quality enum unless the product requirements actually diverge.
-- `ImageLoadingService` should use the current `MediaQuery.devicePixelRatio`
-  for decode and disk-cache sizing only. URL candidate selection is controlled
-  by the semantic widget's target size; use larger variants for covers and
-  backgrounds that must stay sharp when scaled or blurred.
+| Use | Widget |
+|-----|--------|
+| Song cover | `TrackThumbnail` / `TrackCover` |
+| Playlist cover | `PlaylistCoverImage` |
+| Radio/live cover | `RadioCoverImage` |
+| Home recent-play cover | `RecentPlayCoverImage` |
+| Avatar | `AvatarImage` |
+| Anything else | a small semantic widget wrapping `ImageLoadingService` |
+
+Page code passes **semantic variants**, not raw `targetDisplaySize`. That
+belongs inside semantic image widgets and `ImageLoadingService`. Never infer
+image quality from `width`/`height` — those are layout-only. Use
+`ImageTargetSizes` (`lib/core/constants/ui_constants.dart`) only inside image
+components or core image services, never at page call sites; this is enforced by
+`test/ui/static_rules/ui_consistency_static_rule_test.dart`.
+
+Current target-size mapping:
+
+| Tier | Used for |
+|------|----------|
+| `low` (80) | downloaded metadata avatars only |
+| `thumbnail` (160) | UI avatars, list-track tiles, radio compact images |
+| `medium` (400) | card-size covers ~100–140dp (recent-play, radio station, playlist compact/dialog, card-size track covers) |
+| `high` (720) | home/library playlist cards ~200dp, player blurred backdrops, downloaded metadata covers |
+| `fullscreen` (960) | large panel/detail-dialog covers ~460dp, radio hero |
+| `highest` (1280) | player cover art, radio fullscreen cover art, playlist-detail hero backgrounds |
+
+Downloaded metadata images use the same semantics as UI (covers `high`, avatars
+`low`). Do not introduce a separate download image quality enum unless product
+requirements actually diverge.
+
+Pipeline: semantic widget -> `ImageLoadingService` -> local file, then optimized
+network URL candidates with source-specific headers, then placeholder. Network
+images use `NetworkImageCacheService` for shared memory/disk cache.
+`ImageLoadingService` uses the current `MediaQuery.devicePixelRatio` for decode
+and disk-cache sizing **only** — URL candidate selection is controlled by the
+semantic widget's target size. URL optimization rules live in
+`lib/services/AGENTS.md` § Image Thumbnail Optimization.
 
 File existence cache pattern:
 
@@ -89,18 +81,16 @@ path state.
 
 ## Provider Watch Scope
 
-- Prefer `.select(...)` for UI that only needs a few fields from a large state
-  object, especially audio volume/device controls and ranking cache error/loading
-  flags.
+- Prefer `.select(...)` for UI needing only a few fields from a large state
+  object, especially audio volume/device controls and ranking cache
+  error/loading flags.
 - Keep long-list rows keyed by stable source/task/group identity so insertions,
   expansion, progress updates, and section changes do not churn element state.
 - Cache expensive derived lists inside a build method when the same getter is
-  used multiple times in one frame; move it into provider/notifier state only
-  after profiling shows the getter itself is a hot path.
+  used several times in one frame; move it into provider/notifier state only
+  after profiling shows the getter is a hot path.
 
 ## Play State
-
-Default unified logic:
 
 ```dart
 final currentTrack = ref.watch(currentTrackProvider);
@@ -119,206 +109,192 @@ Use a stronger key when the page has a more precise track identity, such as
 - Common track actions must use `buildCommonTrackActionMenuItems()` /
   `buildTrackActionPopupMenuEntries()` and dispatch through
   `TrackActionCoordinator`.
-- Page-specific actions such as download, delete, remove-from-playlist,
-  remove-from-remote, and group actions should be appended/injected locally
-  instead of duplicating common queue/playlist/lyrics/remote actions.
-- Destructive menu entries (delete, remove) must render in
-  `colorScheme.error`: use `buildDestructivePopupMenuItem()` from
-  `lib/ui/handlers/track_action_menu.dart` for one-off entries, or the
-  `TrackActionMenuItem(destructive: true)` flag inside
+- Page-specific actions (download, delete, remove-from-playlist,
+  remove-from-remote, group actions) are appended/injected locally instead of
+  duplicating the common queue/playlist/lyrics/remote actions.
+- Destructive menu entries must render in `colorScheme.error`: use
+  `buildDestructivePopupMenuItem()` (`lib/ui/handlers/track_action_menu.dart`)
+  for one-offs, or `TrackActionMenuItem(destructive: true)` inside
   `buildTrackActionPopupMenuEntries(destructiveColor:)`.
-- When the same actions appear both in a right-click context menu and a
+- When the same actions appear in both a right-click context menu and a
   long-press bottom sheet, define them once as `List<MenuAction>`
   (`lib/ui/widgets/menus/menu_action.dart`) and render via
   `buildMenuActionPopupEntries()` / `buildMenuActionListTiles()`.
+- Multi-select overflow menus use the shared `buildSelectionMenuEntries()`
+  (`lib/ui/widgets/menus/selection_menu_items.dart`), which backs both
+  `SelectionModeAppBar` and the playlist-detail selection bar.
 
 ## Toast / SnackBar
 
-All snackbars must go through `ToastService` (`lib/core/services/toast_service.dart`).
-Never call `ScaffoldMessenger.showSnackBar` directly from UI code.
-`ToastService.buildSnackBar()` is the single SnackBar construction entry
-(floating, semantic type color, white icon/text); error/warning default to
-`ToastDurations.long`, everything else to `ToastDurations.short`. Do not pass
-`duration` for ordinary toasts — the type decides, keeping timing uniform
-across the app. Reserve the override for long-read content only (e.g. the
-backup export path toast) and add a comment when you use it.
-Background services emit through the toast stream; `AppShell` renders those
-with the same builder.
+All snackbars go through `ToastService`
+(`lib/core/services/toast_service.dart`). Never call
+`ScaffoldMessenger.showSnackBar` directly from UI code.
+`ToastService.buildSnackBar()` is the single construction entry (floating,
+semantic type color, white icon/text); error/warning default to
+`ToastDurations.long`, everything else to `ToastDurations.short`.
+
+Do not pass `duration` for ordinary toasts — the type decides, which keeps
+timing uniform across the app. Reserve the override for long-read content only
+(e.g. the backup export path toast) and add a comment when you use it.
+Background services emit through the toast stream; `AppShell` renders those with
+the same builder.
 
 ## Destructive Confirmations
 
 Delete/clear confirmations must use `showConfirmDestructiveDialog()`
 (`lib/ui/widgets/dialogs/confirm_destructive_dialog.dart`), which renders the
-confirm button as `FilledButton` with `colorScheme.error`. Do not hand-roll
-AlertDialogs with plain TextButton or primary-colored confirm buttons for
+confirm button as a `FilledButton` with `colorScheme.error`. Do not hand-roll
+AlertDialogs with plain `TextButton` or primary-colored confirm buttons for
 destructive actions.
 
 ## Refresh And Provider Invalidation
 
 Use `RefreshIndicator` + `ref.invalidate()` or cache service refresh APIs.
 Downloaded/library flows often use explicit invalidation/buttons instead of
-pull-to-refresh; follow existing page behavior.
+pull-to-refresh; follow existing page behavior. Cross-family invalidation goes
+through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.md`.
 
-## Home Rankings
+## Settings And Home Rankings
 
-Home ranking UI is source-configurable. Use
-`enabledHomeRankingSourceOrderProvider` for display order, keep malformed empty
-settings from producing an empty header, and keep the settings UI from disabling
-the final enabled ranking source.
+- Home ranking UI is source-configurable. Use
+  `enabledHomeRankingSourceOrderProvider` for display order, keep malformed
+  empty settings from producing an empty header, and keep the settings UI from
+  disabling the final enabled ranking source.
+- Playback auth toggles (`useBilibiliAuthForPlay`, `useYoutubeAuthForPlay`,
+  `useNeteaseAuthForPlay`) belong in Audio Settings because they control stream
+  resolution behavior. Keep Account pages focused on login/account state; do not
+  add per-platform auth-for-play buttons there.
+- `lib/ui/pages/settings/settings_page.dart` owns the top-level settings layout.
+  Keep feature-specific tiles in its `part` files under
+  `lib/ui/pages/settings/widgets/settings_*.dart`, grouped by section
+  (`appearance`, `playback`, `cache`, `storage`, `desktop`, `backup`, `about`).
+  Use this split for private settings-page-only widgets; promote reusable
+  widgets to `lib/ui/widgets/`.
 
-## Settings Boundaries
+## Layout Conventions
 
-Playback auth toggles (`useBilibiliAuthForPlay`, `useYoutubeAuthForPlay`,
-`useNeteaseAuthForPlay`) belong in Audio Settings because they control stream
-resolution behavior. Keep Account pages focused on login/account state and do
-not add per-platform auth-for-play buttons there.
-
-`lib/ui/pages/settings/settings_page.dart` owns the top-level settings page
-layout. Keep feature-specific settings tiles in its `part` files under
-`lib/ui/pages/settings/widgets/settings_*.dart`, grouped by section
-(`appearance`, `playback`, `cache`, `storage`, `desktop`, `backup`, `about`).
-Use this split for private settings-page-only widgets; promote reusable widgets
-to `lib/ui/widgets/` instead.
-
-## AppBar Actions
-
-All `AppBar` actions lists should end with `const SizedBox(width: 8)` when the
-last action is an `IconButton`. `PopupMenuButton` has built-in padding, so the
-spacer is optional and should be used only when that app bar needs an explicit
-trailing gutter to match nearby actions.
-
-## ListTile Performance
-
-Avoid `Row` inside `ListTile.leading`; it causes layout jitter. Use flat
-`InkWell` + `Padding` + `Row` instead. Existing exceptions should be fixed when
-touching the affected page unless there is a clear layout reason to keep them.
+- **AppBar actions**: end the list with `const SizedBox(width: 8)` when the last
+  action is an `IconButton`. `PopupMenuButton` has built-in padding, so the
+  spacer is optional there and should be used only when that app bar needs an
+  explicit trailing gutter to match nearby actions.
+- **ListTile performance**: avoid `Row` inside `ListTile.leading` — it causes
+  layout jitter. Use flat `InkWell` + `Padding` + `Row` instead. Enforced by
+  `test/ui/static_rules/list_tile_leading_static_rule_test.dart`; fix existing
+  exceptions when touching the affected page unless there is a clear layout
+  reason to keep them.
+- **Responsive breakpoints** — source of truth
+  `lib/core/constants/breakpoints.dart`: mobile `< 600dp` (bottom nav), tablet
+  `600–1200dp` (side nav), desktop `>= 1200dp` (collapsible side nav + optional
+  detail panel). Never hardcode `600`/`1200`; use `Breakpoints.isMobile` /
+  `isTablet` / `isDesktop`. For OS-level desktop checks use `isDesktopPlatform`
+  (`lib/core/utils/platform_utils.dart`) — do not repeat
+  `Platform.isWindows || Platform.isMacOS || Platform.isLinux` or
+  `defaultTargetPlatform` chains per file.
 
 ## UI Constants
 
 Prefer shared constants from `lib/core/constants/ui_constants.dart` for repeated
-or design-system values:
-- `AppRadius`
-- `AnimationDurations`
-- `AppSizes`
-- `ToastDurations`
-- `DebounceDurations`
-- `AppShadows` (`heroCover(colorScheme)` - the 120x120 hero-cover shadow token)
-- `kGrayscaleColorMatrix` / `kGrayscaleColorFilter` (REC.709 luma grayscale for desaturating cover art; the matrix is the testable source of truth, the `ColorFilter` is what call sites consume)
+or design-system values: `AppRadius`, `AnimationDurations`, `AppSizes`,
+`ToastDurations`, `DebounceDurations`, `AppShadows`
+(`heroCover(colorScheme)` — the 120x120 hero-cover shadow token), and
+`kGrayscaleColorMatrix` / `kGrayscaleColorFilter` (REC.709 luma grayscale for
+desaturating cover art; the matrix is the testable source of truth, the
+`ColorFilter` is what call sites consume).
 
-Small local layout/animation literals are acceptable when they are one-off
-measurements tied to a single widget interaction. Promote them to
-`ui_constants.dart` when reused, part of the design system, or needed across
-pages.
+Small local layout/animation literals are fine when they are one-off
+measurements tied to a single widget interaction. Promote them when reused, part
+of the design system, or needed across pages.
 
-`AppRadius.borderRadiusXl` and similar values are `static final`, not `const`;
+`AppRadius.borderRadiusXl` and similar values are `static final`, not `const` —
 do not use them in `const` contexts.
 
 ## Database Viewer Maintenance
 
-When adding, removing, or changing an Isar collection, persisted field,
-embedded object, or schema registration, update
+When adding, removing, or changing an Isar collection, persisted field, embedded
+object, or schema registration, update
 `lib/providers/database/database_catalog.dart` so schema registration and the
 developer database viewer stay in sync. Keep
 `lib/ui/pages/settings/database_viewer_page.dart` as a generic catalog-backed
-viewer shell.
-Settings persisted fields and debug getters should also be covered by the
-database viewer coverage test.
-
-Run:
+viewer shell. Settings persisted fields and debug getters should also be covered
+by the coverage test:
 
 ```bash
 flutter test test/ui/pages/settings/database_viewer_page_coverage_test.dart
 ```
 
-## Responsive Breakpoints
-
-Source of truth: `lib/core/constants/breakpoints.dart`.
-
-- Mobile: `< 600dp` (bottom navigation)
-- Tablet: `600-1200dp` (side navigation)
-- Desktop: `>= 1200dp` (collapsible side navigation + optional detail panel)
-
-Never hardcode `600`/`1200` width literals; use `Breakpoints.isMobile` /
-`isTablet` / `isDesktop`. For OS-level desktop checks (Windows/macOS/Linux)
-use `isDesktopPlatform` from `lib/core/utils/platform_utils.dart` — do not
-repeat `Platform.isWindows || Platform.isMacOS || Platform.isLinux` or
-`defaultTargetPlatform` chains per file.
-
 ## Page Conventions
 
-- HomePage is intentionally an AppBar-less dashboard page; the other five
-  top-level destinations have titled AppBars. Do not "fix" this.
+These are deliberate — do not "fix" them:
+
+- HomePage is intentionally an AppBar-less dashboard; the other five top-level
+  destinations have titled AppBars.
 - ExplorePage is a pushed sub-page (default slide transition, automatic back
   button) entered from Home; the bottom-nav highlight staying on Home while
   inside it is intended, same as PlayHistoryPage.
-- Multi-select pages must wrap their scaffold in
-  `PopScope(canPop: !isSelectionMode, ...)` so the system back button exits
-  selection mode instead of leaving the page.
-- PlayHistoryPage intentionally keeps its own multi-select app bar: its
-  selection is id-based (`Set<int>` history-row ids, duplicate tracks are
-  distinct rows) and cannot reuse the Track-based `SelectionModeAppBar`
-  without breaking delete semantics.
+- PlayHistoryPage keeps its own multi-select app bar: its selection is id-based
+  (`Set<int>` history-row ids, where duplicate tracks are distinct rows) and
+  cannot reuse the `Track`-based `SelectionModeAppBar` without breaking delete
+  semantics.
+
+Multi-select pages must wrap their scaffold in
+`PopScope(canPop: !isSelectionMode, ...)` so the system back button exits
+selection mode instead of leaving the page.
 
 ## Player Layout
 
-- `lib/ui/pages/player/player_page.dart` should use a single-column cover/lyrics
-  toggle on narrow layouts.
-- On desktop widths, the player page should show cover art on the left and
-  lyrics on the right. Keep track info, progress bar, and playback controls in
-  the left column below the cover so the lyrics column can use the full content
-  height.
-- Player backgrounds should use the current track cover as a single full-page
-  blurred backdrop on all widths. Keep the player AppBar transparent and embed
-  it inside the same immersive body Stack, with only its overlay/drag region
-  above that shared backdrop; do not use `Scaffold.appBar` for these fullscreen
-  player AppBars because route transitions can expose separate Scaffold paint
-  regions. When tracks change, keep the previous loaded backdrop visible until
-  the next cover has been preloaded to avoid flashing a placeholder background.
-- Radio player backgrounds should use the current station cover through the same
-  single full-page blurred-backdrop behavior as the main player.
-- The fullscreen music and radio players share their immersive layout shell via
+- `player_page.dart` uses a single-column cover/lyrics toggle on narrow layouts.
+  On desktop widths it shows cover art left and lyrics right; keep track info,
+  progress bar, and playback controls in the left column below the cover so the
+  lyrics column can use the full content height.
+- Player backgrounds use the current track cover as a single full-page blurred
+  backdrop at all widths. Keep the player AppBar transparent and embedded inside
+  the same immersive body `Stack`, with only its overlay/drag region above the
+  shared backdrop. **Do not use `Scaffold.appBar` for these fullscreen player
+  AppBars** — route transitions can expose separate Scaffold paint regions. When
+  tracks change, keep the previous loaded backdrop visible until the next cover
+  has been preloaded, to avoid flashing a placeholder background. The radio
+  player uses the same behavior with the station cover.
+- The fullscreen music and radio players share their immersive shell via
   `lib/ui/widgets/layout/immersive_player_scaffold.dart`
   (`ImmersivePlayerScaffold`): the full-page `Stack`, the floating transparent
   AppBar (with Windows drag region), the backdrop overlay tints, and the four
-  overlay alpha constants live there. Each page provides its `backdrop`
+  overlay alpha constants live there. Each page supplies its `backdrop`
   (`TrackBlurredBackdrop` / `RadioBlurredBackdrop`), `appBarActions`, `body`,
-  and `colorScheme`; do not re-add a private immersive Stack, alpha constants,
+  and `colorScheme`. Do not re-add a private immersive Stack, alpha constants,
   or AppBar overlay to either page.
-- The fullscreen music and radio players share their duplicated controls via
-  `lib/ui/widgets/player/`: `CompactVolumeControl`, `FmpAudioDeviceSelector`,
-  `PlayerPlayPauseButton`, and `CoverArtContainer`. Change volume, audio-device,
-  play/pause, and the cover-art frame in these shared widgets rather than
-  re-adding private copies to either page. The radio player exposes
-  jump-to-latest (`RadioController.sync()`, `Icons.sync`) and reload
+- They also share controls via `lib/ui/widgets/player/`:
+  `CompactVolumeControl`, `FmpAudioDeviceSelector`, `PlayerPlayPauseButton`, and
+  `CoverArtContainer`. Change volume, audio-device, play/pause, and the
+  cover-art frame there rather than re-adding private copies. The radio player
+  exposes jump-to-latest (`RadioController.sync()`, `Icons.sync`) and reload
   (`RadioController.reload()`, `Icons.refresh`) as control-row buttons flanking
   play/pause; both disable on `isBuffering || isLoading || !isPlaying`.
-- Both mini players share the same desktop controls:
-  `MiniPlayerVolumeControl` (narrow popup + wide inline variants, same slider
-  spec as `CompactVolumeControl`) and `FmpAudioDeviceSelector` driven by
-  `desktopAudioDeviceStateProvider`. Do not re-add private volume/device menus
-  to either mini player. Music mini player control order matches the
-  fullscreen player (shuffle, previous, play, next, loop).
-- Both fullscreen players expose track/station info through a standalone
-  AppBar info `IconButton`; do not tuck it back into the overflow menu.
-  Control-row buttons should have tooltips.
-- Fullscreen player routes in `lib/ui/router.dart` should use the shared
-  `_fullscreenPlayerPage` transition helper so entry uses the slower settling
+- Both mini players share `MiniPlayerVolumeControl` (narrow popup + wide inline
+  variants, same slider spec as `CompactVolumeControl`) and
+  `FmpAudioDeviceSelector` driven by `desktopAudioDeviceStateProvider`. Do not
+  re-add private volume/device menus. Music mini player control order matches
+  the fullscreen player (shuffle, previous, play, next, loop).
+- Both fullscreen players expose track/station info through a standalone AppBar
+  info `IconButton`; do not tuck it back into the overflow menu. Control-row
+  buttons should have tooltips.
+- Fullscreen player routes in `lib/ui/router.dart` use the shared
+  `_fullscreenPlayerPage` transition helper, so entry uses the slower settling
   curve while dismissal uses a fast reverse curve and clips blurred paint at the
   route boundary.
-- Windows custom title bar and network banner are owned by the app-level
+- The Windows custom title bar and network banner are owned by the app-level
   wrapper in `lib/app.dart`, not individual pages or responsive content layouts.
-- Desktop sub-window UI (e.g. the lyrics window) should be built from public,
-  data-injected leaf widgets under `lib/ui/windows/<feature>/` with widget
-  tests, instead of inlining build methods in a giant State. Keep all
-  `window_manager` / `desktop_multi_window` side effects and channel calls
-  injected as callbacks so the leaves can be pumped in `flutter_test` without
-  the plugin engine. See `lib/ui/windows/lyrics/` (empty / line / title-bar /
-  single-line leaves, plus `LyricsDisplayMode`) for the established pattern;
-  lyrics building blocks shared with the in-app player (`LyricsTextMeasurer`,
-  `LyricsOffsetBar`, `LyricsOffsetMath`, styled text) live in
-  `lib/ui/widgets/lyrics/`.
+
+## Desktop Sub-Windows
+
+Desktop sub-window UI (e.g. the lyrics window) is built from public,
+data-injected leaf widgets under `lib/ui/windows/<feature>/` with widget tests,
+instead of inlining build methods in a giant `State`. Keep all `window_manager` /
+`desktop_multi_window` side effects and channel calls injected as callbacks so
+the leaves can be pumped in `flutter_test` without the plugin engine. See
+`lib/ui/windows/lyrics/` (empty / line / title-bar / single-line leaves, plus
+`LyricsDisplayMode`) for the established pattern.
 
 ## Verification
 
-For UI changes, run focused tests under `test/ui` when available, then
-`flutter analyze` for broader static coverage.
+Run focused tests under `test/ui` when available, then `flutter analyze` for
+broader static coverage.

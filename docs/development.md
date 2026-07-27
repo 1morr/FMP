@@ -147,7 +147,7 @@ flutter run
 flutter run -d windows
 flutter analyze
 flutter test
-flutter pub run build_runner build --delete-conflicting-outputs
+dart run build_runner build --delete-conflicting-outputs
 dart run slang
 ```
 
