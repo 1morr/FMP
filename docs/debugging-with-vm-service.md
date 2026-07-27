@@ -12,6 +12,7 @@
 6. [Isar 数据库调试](#6-isar-数据库调试)
 7. [常用调试脚本](#7-常用调试脚本)
 8. [注意事项](#8-注意事项)
+9. [Linux 桌面 UI 截图](#9-linux-桌面-ui-截图)
 
 ---
 
@@ -676,3 +677,49 @@ PowerShell 中同样使用 `curl.exe`、`$env:TEMP` 和 here-string 执行 Pytho
 - [Flutter Engine Service Extensions](https://github.com/flutter/flutter/wiki/Engine-specific-Service-Protocol-extensions)
 - [Flutter Framework Service Extensions](https://github.com/flutter/flutter/wiki/Framework-specific-Service-Protocol-extensions)
 - [Marionette MCP](https://github.com/leancodepl/marionette_mcp)
+
+---
+
+## 9. Linux 桌面 UI 截图
+
+在 Linux 上目视确认 UI 有个前提陷阱：**GNOME 下无法非交互地截取原生 Wayland 窗口**。GNOME 41+ 把 `org.gnome.Shell.Screenshot` D-Bus 接口限制为白名单调用者，直接调用返回
+`AccessDenied`；`gnome-screenshot` 因此退回 X11 后端，抓到零尺寸窗口并报
+`gdk_pixbuf_get_from_surface: assertion 'width > 0 && height > 0' failed`。`grim` 只支持
+wlroots（sway/Hyprland），GNOME 不实现 `wlr-screencopy`。XDG portal 的 Screenshot 接口需要交互授权。
+
+### 可用配方：走 XWayland
+
+让应用跑在 XWayland 上，X11 截图完全不需要授权：
+
+```bash
+# 1. 用 GDK_BACKEND=x11 启动（必须让进程完全脱离当前 shell，见下方陷阱）
+GDK_BACKEND=x11 ./build/linux/x64/release/bundle/fmp &
+
+# 2. 取窗口 id
+xwininfo -name "FMP - Flutter Music Player" | grep 'Window id'
+#   xwininfo: Window id: 0x180000a "FMP - Flutter Music Player"
+
+# 3. 激活并截图（HiDPI 下尺寸是逻辑尺寸的 2 倍）
+xdotool windowactivate 0x180000a && sleep 2
+import -window 0x180000a /tmp/fmp.png
+convert /tmp/fmp.png -resize 50% /tmp/fmp-half.png   # 缩到逻辑尺寸便于查看
+```
+
+依赖：`imagemagick`（`import`/`convert`）、`x11-utils`（`xwininfo`）、`xdotool`。
+
+**这条路径测的是 XWayland，不是原生 Wayland。** 托盘、窗口置顶、header bar 这类
+Wayland 专属行为必须在原生会话下验证，此时只能靠 accessibility tree（见下）与启动日志，
+或由人工目视。参见 [ADR 0002](adr/0002-linux-dependency-and-degradation.md) 记录的降级清单。
+
+### 补充手段：accessibility tree
+
+Orca computer-use 可以读窗口的 accessibility tree，但 **Flutter 的 Linux embedder 默认不通过
+AT-SPI 暴露 widget tree**，只能看到 GTK 外壳（标题栏与 Minimize/Maximize/Close）。它足以确认
+窗口存在、标题正确、尺寸正常，不足以确认内容渲染。
+
+### 两个会静默失败的陷阱
+
+1. **`pkill -f 'release/bundle/fmp'` 会杀掉自己的 shell**——`-f` 匹配完整命令行，而执行这条
+   命令的 shell 的命令行本身就含有该字符串。用 `pgrep -x fmp` 拿到 pid 后逐个 `kill`。
+2. **复合命令里的 `nohup ... &` 会随 shell 退出被杀**，日志留空、进程不存在，看起来像启动失败。
+   用 `setsid`，或让启动命令独占一次调用。
