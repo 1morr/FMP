@@ -34,6 +34,12 @@ audio sources. Target platforms are Android and Windows.
   name. See `docs/agents/triage-labels.md`.
 - **Domain docs** — single-context: root `CONTEXT.md` + `docs/adr/`. See
   `docs/agents/domain.md`.
+- **Runtime debugging** — `docs/debugging-with-vm-service.md`. Reach for it when
+  a question needs the running app rather than the source: memory pressure and
+  GC (§3.2–3.3), frame timing (§3.4), widget/render trees (§4.3 — dump to a file
+  first, the render tree measured 3.85 MB), and Isar contents (§5). The
+  `dart:io` HTTP/socket profiling in §3.5–3.6 is marked non-functional for FMP;
+  do not spend time there.
 
 ## Documentation Maintenance
 

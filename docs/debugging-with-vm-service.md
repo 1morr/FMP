@@ -156,11 +156,15 @@ curl -s "$BASE/_getAllocationProfile?isolateId=$ISOLATE"
 **返回结构：**
 - `memoryUsage` — 同 getMemoryUsage
 - `members[]` — 每个类的分配统计：
-  - `classRef.name` — 类名（debug 模式下可见，release 模式显示 `?`）
+  - `class.name` — 类名
   - `instancesCurrent` — 当前实例数
   - `bytesCurrent` — 当前占用字节
   - `instancesAccumulated` — 累计分配实例数
-  - `bytesAccumulated` — 累计分配字节
+  - `accumulatedSize` — 累计分配字节
+
+> ⚠️ 字段名是 **`class`**，不是 `classRef`。实测（Dart 3.12.2，2026-07-27）单个 member 的完整键为
+> `['_new', '_old', 'accumulatedSize', 'bytesCurrent', 'class', 'instancesAccumulated', 'instancesCurrent', 'type']`。
+> 用 `m['classRef']` 会直接 `KeyError`。
 
 **注意：** debug 模式下类名可能显示为 `?`，这是正常的。profile 模式下类名更完整。
 
@@ -170,7 +174,7 @@ curl -s "$BASE/_getAllocationProfile?isolateId=$ISOLATE"
 members = result['members']
 sorted_m = sorted(members, key=lambda m: m.get('bytesCurrent', 0), reverse=True)
 for m in sorted_m[:20]:
-    cls = m['classRef']['name']
+    cls = (m.get('class') or {}).get('name', '?')
     instances = m['instancesCurrent']
     size_kb = m['bytesCurrent'] / 1024
     print(f"{cls}: {instances} instances, {size_kb:.1f} KB")
@@ -267,14 +271,25 @@ curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
 | `startTime` | 开始时间（微秒） |
 | `endTime` | 结束时间（微秒） |
 
-**注意：** FMP 使用 Dio 库，HTTP profile 可能不会捕获所有请求。如果返回 0 个请求，可能需要启用 `ext.dart.io.httpEnableTimelineLogging`。
+> 🔴 **实测对 FMP 无效，不要在这里花时间。** 2026-07-27 在 debug 会话实测：应用刚从三个音源
+> 载入上百首排行榜数据，`getHttpProfile` 仍返回 **0 个请求**；按下面的方法启用
+> `httpEnableTimelineLogging`（返回 `{'enabled': True}`）后重查，依然 **0 个**；
+> `getVMTimeline` 的 12934 个事件里 HTTP/Socket 相关也是 **0 个**。
+>
+> 需要看 FMP 的网络行为，用 `AppLogger` 的 source adapter 日志，或在 Dio 上挂 interceptor。
 
 ```bash
-# 启用 HTTP timeline 日志
+# 启用 HTTP timeline 日志（实测未能让 FMP 的请求出现）
 curl -s "$BASE/ext.dart.io.httpEnableTimelineLogging?isolateId=$ISOLATE&enabled=true"
 ```
 
+> 保留一个未验证的可能：上述实测是在流量发生**之后**才启用 logging 的。严格的复测应先启用再产生流量。
+> 但同一次实测中 `getSocketProfile` 对**当下存活**的连接也返回 0，这一点无法用启用时机解释。
+
 ### 3.6 Socket 和文件
+
+> 🔴 **同样实测返回空。** `getSocketProfile` → 0 sockets，`getOpenFiles` → 0 files，
+> 而当时 Isar 已打开、三个音源的 HTTP 连接刚完成。与 §3.5 一并视为对 FMP 不可用。
 
 ```bash
 # Socket 连接
@@ -353,7 +368,17 @@ curl -s "$BASE/ext.flutter.debugDumpSemanticsTreeInTraversalOrder?isolateId=$ISO
 
 **返回格式：** `result.data` 为纯文本字符串。
 
-**注意：** 这些 dump 数据量很大，建议保存到文件后用 grep 搜索特定 Widget。
+**实测体积**（2026-07-27，debug 模式，首页已加载三个音源的排行榜）：
+
+| 端点 | 返回大小 | agent 可直读？ |
+|------|---------|--------------|
+| `debugDumpRenderTree` | **3.85 MB** | ❌ 会灌爆 context |
+| `debugDumpApp` | **1.37 MB** | ❌ |
+| `inspector.getRootWidgetSummaryTree` | 345 KB | ⚠️ 勉强，建议仍落盘 |
+| `debugDumpLayerTree` | 43 KB | ✅ |
+| `debugDumpSemanticsTreeInTraversalOrder` | 22 KB | ✅ |
+
+**永远先落盘再 grep，不要把前两个直接读进对话。** 体积随页面复杂度增长，上面的数字是下限不是上限。
 
 ### 4.4 Widget Inspector
 
