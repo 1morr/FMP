@@ -686,7 +686,8 @@ convert /tmp/fmp.png -resize 50% /tmp/fmp-half.png   # 缩到逻辑尺寸便于�
 
 **这条路径测的是 XWayland，不是原生 Wayland。** 托盘、窗口置顶、header bar 这类
 Wayland 专属行为必须在原生会话下验证，此时只能靠 accessibility tree（见下）与启动日志，
-或由人工目视。参见 [ADR 0002](adr/0002-linux-dependency-and-degradation.md) 记录的降级清单。
+或由人工目视。已知的硬限制：Wayland 下 `setAlwaysOnTop` 无效、`setPosition()` 被
+compositor 忽略、`trayManager.setToolTip()` 在 Linux 不可用。
 
 ### 补充手段：accessibility tree
 
