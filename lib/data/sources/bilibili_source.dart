@@ -916,6 +916,10 @@ class BilibiliSource
     try {
       var response = await _fetchRankingVideosResponse(rid);
       if (_isBilibiliRiskControlResponse(response.data)) {
+        // 換發指紋後重試。實測已證明這修不了 UA 造成的 -352（見
+        // _isBilibiliRiskControlResponse），保留是因為量測只涵蓋匿名、低流量的
+        // 桌面情境，無法排除高頻請求或 IP 信譽不佳時換 buvid 仍有幫助；代價僅
+        // 一次請求。要移除請先在真實觸發情境下複驗，別只依文檔推論。
         logWarning(
             'Bilibili ranking hit risk control; refreshing fingerprint and retrying');
         await _refreshBrowserFingerprintCookie();
@@ -965,6 +969,17 @@ class BilibiliSource
     );
   }
 
+  /// Bilibili 風控碼 -352。
+  ///
+  /// 實測（2026-07-29，對 ranking/v2 發匿名請求）：觸發條件是 User-Agent
+  /// 黑名單，與 buvid 無關。
+  /// - `curl/8.5.0`、`okhttp/4.9.0` 必定回 -352（20/20），補上 buvid 也救不回
+  ///   來（10/10）；`python-requests` 甚至直接收到 HTML 攔截頁而非 JSON。
+  /// - 瀏覽器 UA 即使完全不帶 Cookie 也一律通過（30/30）。
+  /// - 黑名單而非白名單：`FMP/1.0`、`Dart/3.5 (dart:io)` 都能通過。
+  ///
+  /// 因此不要把 -352 當成「buvid 失效」的訊號。FMP 送的是 Chrome UA，正常情況
+  /// 下不會踩到；真的踩到時最可能的原因是 UA 被改動，而不是指紋過期。
   bool _isBilibiliRiskControlResponse(Object? data) {
     return data is Map && data['code'] == -352;
   }
