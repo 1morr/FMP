@@ -113,7 +113,6 @@ Never:
 - Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
   it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
   See `docs/troubleshooting.md`.
-- Do not commit, amend, rebase, or push unless the user explicitly requests it.
 
 ## Architecture Map
 
