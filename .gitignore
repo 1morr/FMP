@@ -99,7 +99,9 @@ secrets.json
 /test/.test_coverage.dart
 
 # Local agent/tool state
-/.claude/
+# Track shared agent skills; everything else under /.claude/ stays local.
+/.claude/*
+!/.claude/skills/
 /.codex/
 /.gstack/
 /.agents/

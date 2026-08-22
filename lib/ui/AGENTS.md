@@ -298,3 +298,7 @@ the leaves can be pumped in `flutter_test` without the plugin engine. See
 
 Run focused tests under `test/ui` when available, then `flutter analyze` for
 broader static coverage.
+
+Anything a user can see is not verified until it has been seen. Root
+`AGENTS.md` requires an on-device check on the Android emulator for UI changes;
+`.claude/skills/verify-on-device/SKILL.md` is the procedure.

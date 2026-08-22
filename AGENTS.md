@@ -34,6 +34,14 @@ audio sources. Target platforms are Android and Windows.
   name. See `docs/agents/triage-labels.md`.
 - **Domain docs** — single-context: root `CONTEXT.md` + `docs/adr/`. See
   `docs/agents/domain.md`.
+- **On-device verification** — `.claude/skills/verify-on-device/SKILL.md`. How
+  to boot the emulator detached, own `flutter run` in an Orca terminal, drive
+  the UI with `orca emulator ax` / `tap`, read Dart logs, and hot reload.
+  Required for user-visible changes (see Targeted verification below), not
+  optional. Two hard constraints: the Windows build exposes no semantics tree
+  (screenshot and window-local coordinates only), and non-ASCII input on Android
+  is unavailable — cover CJK input with `integration_test` and
+  `WidgetTester.enterText` instead.
 - **Runtime debugging** — `docs/debugging-with-vm-service.md`. Reach for it when
   a question needs the running app rather than the source: memory pressure and
   GC (§3.2–3.3), frame timing (§3.4), widget/render trees (§4.3 — dump to a file
@@ -52,6 +60,7 @@ Update the relevant instruction file in the same change as the code:
 | New model fields, schemas, migrations | `lib/data/AGENTS.md` + `lib/providers/AGENTS.md`, and `lib/ui/AGENTS.md` if the database viewer changes |
 | Download, lyrics, account, import, backup, radio, update | `lib/services/AGENTS.md` |
 | UI patterns, layouts, widgets | `lib/ui/AGENTS.md` |
+| Emulator/desktop verification steps, device limitations | `.claude/skills/verify-on-device/SKILL.md` |
 | Repo-wide commands or architecture map | this file |
 
 Scoped `AGENTS.md` files are authoritative. Do not maintain a parallel memory
@@ -82,9 +91,23 @@ flutter test                         # Run tests
 | Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
 | Download pipeline | `flutter test test/services/download test/providers/download` |
 | Isar models / migrations | `dart run build_runner build --delete-conflicting-outputs` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
-| UI widgets/pages | Targeted tests under `test/ui` + `flutter analyze` |
+| UI widgets/pages | Targeted tests under `test/ui` + `flutter analyze` + the on-device check below |
 | i18n JSON changes | `dart run slang` + `flutter analyze` |
 | Documentation-only changes | `git diff --check` |
+
+**On-device verification is mandatory for user-visible changes.** When a change
+alters UI pages or widgets, playback controls, how source results render, or a
+user-facing string in a way that can affect layout, tests and `flutter analyze`
+are not sufficient on their own — run the app and confirm the change on screen
+before reporting it. Follow `.claude/skills/verify-on-device/SKILL.md`.
+
+- **Android emulator is the required platform.** Its semantics tree lets you
+  assert on real elements and text; the Windows build yields screenshots only.
+  Verify on Windows as well only when the change is Windows-specific.
+- Report what you drove and what you observed — the element, log line, or
+  screenshot path. "Should work" is not a verification.
+- If the emulator cannot be brought up or the change cannot be reached in the
+  UI, say so explicitly and name the blocker. Never silently downgrade to tests.
 
 ## Hard Boundaries
 

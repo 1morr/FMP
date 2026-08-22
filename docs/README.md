@@ -11,6 +11,7 @@
 | 想理解專案架構與主要模組 | [開發文件](development.md) |
 | 要發布新版本或調整 Release 流程 | [建置與發布指南](build-and-release.md) |
 | 要用 VM Service 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
+| 改了 UI／使用者可見行為，要做強制的 Android 模擬器實機驗證 | [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md) |
 | 遇到看起來像錯誤的 runtime log 噪音 | [疑難排解](troubleshooting.md) |
 | 要查歷史重構背景 | [歷史重構流水](history/refactoring-log.md) |
 | 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
@@ -34,6 +35,7 @@
 - [建置與發布指南](build-and-release.md) 是 Release 行為的權威文件；下載連結、產物命名與應用內更新規則變更時優先更新它。
 - `docs/history/` 只放歷史脈絡。除非內容已反映在 `AGENTS.md` 或目前文件中，否則不要把歷史記錄當成現行規範。
 - **語系分工是刻意的**：`AGENTS.md`（根目錄與各子樹）與 `docs/agents/` 維持英文，與程式碼、commit、識別字一致，方便 agent 與跨語言貢獻者比對；`docs/` 其餘文件與根目錄 `README` 以中文撰寫，面向人類使用者與貢獻者。不強制統一語系。
+- `.claude/skills/` 放可被 Claude Code 直接叫用的專案 skill（目前只有 `verify-on-device`：模擬器與桌面版的實機驗證迴圈）。`.gitignore` 只追蹤這個子目錄，`.claude/` 其餘內容是本機狀態，不進版控。
 - `docs/agents/` 是 engineering skills（`/triage`、`/to-tickets`、`/to-spec`、`/qa`、`/wayfinder` 等）讀取的專案設定，不是給人讀的說明文件；要換 issue 追蹤系統或標籤詞彙時直接改這裡的檔案即可。
 
 ## 維護規則
@@ -42,5 +44,6 @@
 - 本機建置環境、工具鏈或打包前置條件變更：更新 [建置指南](build-guide.md)。
 - CI 產物命名、Release workflow、簽名 secrets、應用內更新資產識別變更：更新 [建置與發布指南](build-and-release.md)。
 - Runtime 調試流程或 VM Service 腳本變更：更新 [VM Service 調試指南](debugging-with-vm-service.md)。
+- 模擬器啟動方式、實機驗證流程或裝置端限制變更：更新 [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md)，並讓 `AGENTS.md` 的 Agent Skills 只保留一行指引。
 - 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
 - 不要把同一條規則複製到多個文件，除非目標文件確實擁有對應讀者和維護責任。
