@@ -57,6 +57,21 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# flutter_inappwebview_windows 0.6.0 compiles with /std:c++17, so its co_await code
+# pulls in <experimental/coroutine>. MSVC 14.5x (Visual Studio 2026) promoted that
+# header's deprecation (STL1011) from a warning to a hard error C2338, which breaks
+# the plugin build. The plugin also compiles ~95 sources under /MP that all write the
+# same PDB; without /FS those writes race and fail with C1041.
+#
+# Both are scoped to the plugin target and are no-ops on the VS 2022 toolchain, so
+# they stay safe for CI. Drop this block once upstream ships the fix:
+# https://github.com/pichillilorenzo/flutter_inappwebview/pull/2869
+if(TARGET flutter_inappwebview_windows_plugin)
+  target_compile_definitions(flutter_inappwebview_windows_plugin PRIVATE
+    _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+  target_compile_options(flutter_inappwebview_windows_plugin PRIVATE /FS)
+endif()
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can
