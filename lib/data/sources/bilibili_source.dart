@@ -268,7 +268,7 @@ class BilibiliSource
           );
       logDebug('Got cid: $cid for bvid: $bvid');
 
-      return _resolveAudioStreamForCid(
+      return await _resolveAudioStreamForCid(
         bvid,
         cid,
         request.config,
@@ -743,7 +743,7 @@ class BilibiliSource
             bvid,
             authHeaders: request.authHeaders,
           );
-      return _resolveAlternativeAudioStreamForCid(
+      return await _resolveAlternativeAudioStreamForCid(
         bvid,
         cid,
         failedUrl: request.failedUrl,

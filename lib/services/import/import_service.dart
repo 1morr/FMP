@@ -190,7 +190,7 @@ class ImportService with Logging implements ImportServiceFacade {
           _sourceManager.dynamicPlaylistSourceForUrl(normalizedUrl);
       if (dynamicPlaylistSource != null &&
           dynamicPlaylistSource.sourceType == source.sourceType) {
-        return _importMixPlaylist(
+        return await _importMixPlaylist(
           source: dynamicPlaylistSource,
           url: normalizedUrl,
           customName: customName,

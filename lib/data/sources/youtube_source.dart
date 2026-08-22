@@ -1395,13 +1395,13 @@ class YouTubeSource
 
       // Mix/Radio 播放列表使用 InnerTube API
       if (isMixPlaylistId(playlistId)) {
-        return _parseMixPlaylist(playlistUrl, playlistId);
+        return await _parseMixPlaylist(playlistUrl, playlistId);
       }
 
       // 優先使用 InnerTube 解析普通播放列表。
       // 匿名路徑下若 InnerTube 失敗，再回退到 youtube_explode_dart。
       if (authHeaders != null) {
-        return _parsePlaylistViaInnerTube(
+        return await _parsePlaylistViaInnerTube(
           playlistId,
           authHeaders: authHeaders,
           playlistUrl: playlistUrl,
@@ -1421,7 +1421,7 @@ class YouTubeSource
       }
 
       // 回退：使用 youtube_explode_dart
-      return _parsePlaylistViaYoutubeExplode(playlistId, playlistUrl);
+      return await _parsePlaylistViaYoutubeExplode(playlistId, playlistUrl);
     } catch (e) {
       if (e is YouTubeApiException) rethrow;
       if (_isRateLimitError(e)) {
