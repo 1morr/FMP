@@ -144,7 +144,6 @@ void main() {
         playbackUrlResolver: (sourceType, url, authHeaders) async {
           return const PlaybackUrlResolution(
             url: 'https://attacker.example/audio.m4a',
-            includeCredentials: false,
           );
         },
       );
@@ -157,58 +156,7 @@ void main() {
       expect(request.url, 'https://attacker.example/audio.m4a');
       expect(request.headers!.containsKey('Cookie'), isFalse);
       expect(
-          request.headers,
-          SourceHttpPolicy.mediaHeaders(
-            SourceType.netease,
-            authHeaders: SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token'),
-            requestUrl: 'https://attacker.example/audio.m4a',
-            includeCredentials: false,
-          ));
-      expect(authLoader.requests, [SourceType.netease]);
-    });
-
-    test(
-        'default playbackNetworkRequest preflights Netease redirects and strips unsafe auth',
-        () async {
-      settings.useNeteaseAuthForPlay = true;
-      final authHeaders = SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
-      authLoader.headersBySource[SourceType.netease] = authHeaders;
-      var preflightCalls = 0;
-      String? preflightUrl;
-      Map<String, String>? preflightAuthHeaders;
-      final context = DefaultSourceAuthContext(
-        settingsLoader: () async => settings,
-        accountAuthLoader: authLoader,
-        neteasePlaybackRedirectResolver: (url, authHeaders) async {
-          preflightCalls++;
-          preflightUrl = url;
-          preflightAuthHeaders = authHeaders;
-          return const PlaybackUrlResolution(
-            url: 'https://attacker.example/audio.m4a',
-            includeCredentials: false,
-          );
-        },
-      );
-
-      final request = await context.playbackNetworkRequest(
-        _track(SourceType.netease),
-        'https://m701.music.126.net/audio.m4a',
-      );
-
-      expect(preflightCalls, 1);
-      expect(preflightUrl, 'https://m701.music.126.net/audio.m4a');
-      expect(preflightAuthHeaders, authHeaders);
-      expect(request.url, 'https://attacker.example/audio.m4a');
-      expect(request.headers!.containsKey('Cookie'), isFalse);
-      expect(
-        request.headers,
-        SourceHttpPolicy.mediaHeaders(
-          SourceType.netease,
-          authHeaders: authHeaders,
-          requestUrl: 'https://attacker.example/audio.m4a',
-          includeCredentials: false,
-        ),
-      );
+          request.headers, SourceHttpPolicy.mediaHeaders(SourceType.netease));
       expect(authLoader.requests, [SourceType.netease]);
     });
 
@@ -222,7 +170,6 @@ void main() {
         result: MediaHandoffResult(
           url: Uri.parse('https://m801.music.126.net/delegated.m4a'),
           headers: const {'User-Agent': 'delegated-media'},
-          credentialsIncluded: true,
         ),
       );
       final context = DefaultSourceAuthContext(

@@ -1692,7 +1692,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
   try {
     client = HttpClient();
     client.connectionTimeout = AppConstants.downloadConnectTimeout;
-    final mediaHandoff = DefaultMediaHandoff();
+    const mediaHandoff = DefaultMediaHandoff();
 
     var requestUri = Uri.parse(params.url);
     late HttpClientResponse response;

@@ -1936,19 +1936,6 @@ class _FakeSourceAuthContext implements SourceAuthContext {
   }
 
   @override
-  Map<String, String> downloadMediaHeaders(
-    SourceType sourceType, {
-    Map<String, String>? authHeaders,
-    String? requestUrl,
-  }) {
-    return SourceHttpPolicy.mediaHeaders(
-      sourceType,
-      authHeaders: authHeaders,
-      requestUrl: requestUrl,
-    );
-  }
-
-  @override
   Map<String, String> imageHeaders(SourceType sourceType) {
     imageHeaderRequests.add(sourceType);
     return imageHeadersBySource[sourceType] ??

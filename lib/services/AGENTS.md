@@ -33,12 +33,12 @@ Auth and header boundary:
   with `StreamResolutionPurpose.download`. Download metadata detail and image
   header policy use the narrow `DownloadSourceAuthContext` interface implemented
   by `SourceAuthContext`.
-- The download isolate must convert stream auth to Media Request Credentials
-  through the pure `MediaHandoff` module for **each redirect hop**, and it must
-  not use Riverpod, account services, or `SourceAuthContext`. `MediaHandoff`
-  also owns resumed-download `Range` headers. Only allowlisted
-  HTTPS Netease media URLs may receive `MUSIC_U`; Bilibili and YouTube account
-  credentials must never reach media/CDN requests. Full policy:
+- The download isolate must build media headers through the pure `MediaHandoff`
+  module for **each redirect hop**, and it must not use Riverpod, account
+  services, or `SourceAuthContext`. `MediaHandoff` also owns resumed-download
+  `Range` headers. No account credential reaches a media/CDN request for any
+  source — `SourceHttpPolicy.mediaHeaders()` takes only a `SourceType`, so there
+  is no parameter to leak one through. Full policy:
   `lib/data/sources/AGENTS.md` § Auth For Playback And Headers.
 - `DownloadService` still owns isolate download loops, progress, pause/failure
   state, and final path persistence.

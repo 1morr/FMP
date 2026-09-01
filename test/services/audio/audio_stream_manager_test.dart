@@ -839,8 +839,11 @@ void main() {
     });
 
     test(
-        'playback headers include Netease auth only when SourceAuthContext returns it',
+        'playback headers never carry Netease auth, with or without an account',
         () async {
+      // 這條測試原本斷言的是相反的事：登入時 Cookie 會出現在播放 header 裡。
+      // 實測 eapi 回的媒體 URL 是 http://，那條附加憑證的分支在生產環境從未執
+      // 行過，已整段移除 —— 現在無論帳號狀態如何，位元組請求都不帶憑證。
       final neteaseContext = _FakeSourceAuthContext();
       final managerWithNetease = AudioStreamManager(
         streamResolutionService: streamResolutionService,
@@ -853,26 +856,23 @@ void main() {
         ..title = 'Netease Song'
         ..artist = 'Tester';
 
-      neteaseContext.authHeaders =
-          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=music-u; __csrf=csrf');
-      final enabledMedia = await managerWithNetease.prepareNetworkPlayback(
-        track,
-        track.audioUrl!,
-      );
-      expect(enabledMedia.headers?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
-
-      neteaseContext.authHeaders = null;
-      final disabledMedia = await managerWithNetease.prepareNetworkPlayback(
-        track,
-        track.audioUrl!,
-      );
-      expect(disabledMedia.headers,
-          SourceHttpPolicy.mediaHeaders(SourceType.netease));
-      expect(disabledMedia.headers, isNot(contains('Cookie')));
+      for (final authHeaders in [
+        SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=music-u; __csrf=csrf'),
+        null,
+      ]) {
+        neteaseContext.authHeaders = authHeaders;
+        final media = await managerWithNetease.prepareNetworkPlayback(
+          track,
+          track.audioUrl!,
+        );
+        expect(media.headers, SourceHttpPolicy.mediaHeaders(SourceType.netease),
+            reason: 'authHeaders=$authHeaders');
+        expect(media.headers, isNot(contains('Cookie')),
+            reason: 'authHeaders=$authHeaders');
+      }
     });
 
-    test('prepareNetworkPlayback strips Netease auth after off-domain redirect',
-        () async {
+    test('prepareNetworkPlayback follows the resolved playback URL', () async {
       final neteaseContext = _FakeSourceAuthContext()
         ..authHeaders =
             SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=music-u; __csrf=csrf')
@@ -882,7 +882,6 @@ void main() {
           expect(authHeaders?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
           return const PlaybackUrlResolution(
             url: 'https://attacker.example/netease-song.m4a',
-            includeCredentials: false,
           );
         };
       final managerWithNetease = AudioStreamManager(
@@ -1170,12 +1169,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
     final resolved = await resolver(track.sourceType, url, headers);
     return PlaybackNetworkRequest(
       url: resolved.url,
-      headers: SourceHttpPolicy.mediaHeaders(
-        track.sourceType,
-        authHeaders: headers,
-        requestUrl: resolved.url,
-        includeCredentials: resolved.includeCredentials,
-      ),
+      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
     );
   }
 

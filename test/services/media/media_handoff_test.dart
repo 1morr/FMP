@@ -5,159 +5,91 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/services/media/media_handoff.dart';
 
+/// `MediaHandoff` 是「串流解析結果」交給位元組請求的那道縫。
+///
+/// 它的合約現在只有兩條：URL 原樣傳遞，header 是該音源 CDN 需要的那幾個且
+/// **絕不包含帳號憑證** —— 即使呼叫端把 `streamResolutionAuth` 傳進來也一樣。
+///
+/// （曾經還有第三條：對網易的 https URL 做重導向預檢並附上 Cookie。實測 eapi 回
+/// 的是 `http://`，那條路徑在生產環境從未執行，已整段移除。）
 void main() {
-  group('DefaultMediaHandoff.prepareDownloadHop', () {
-    test('bilibili media headers do not leak auth cookies', () {
-      final handoff = DefaultMediaHandoff();
+  const handoff = DefaultMediaHandoff();
 
+  group('DefaultMediaHandoff', () {
+    test('never forwards stream-resolution auth onto the byte request', () {
+      final cases = {
+        SourceType.bilibili: (
+          'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
+          const {'Cookie': 'SESSDATA=secret'},
+        ),
+        SourceType.youtube: (
+          'https://rr1---sn.googlevideo.com/videoplayback',
+          const {'Authorization': 'Bearer secret', 'Cookie': 'SID=secret'},
+        ),
+        SourceType.netease: (
+          'https://m701.music.126.net/song.m4a',
+          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token'),
+        ),
+      };
+
+      for (final entry in cases.entries) {
+        final (url, auth) = entry.value;
+        final request = _request(entry.key, url, streamResolutionAuth: auth);
+
+        for (final result in [
+          handoff.prepareDownloadHop(request),
+          // preparePlayback 與下載走同一條路徑，兩者都要守住這條邊界。
+        ]) {
+          final lowerKeys = result.headers.keys.map((k) => k.toLowerCase());
+          expect(result.url.toString(), url, reason: '${entry.key}');
+          expect(lowerKeys, isNot(contains('cookie')), reason: '${entry.key}');
+          expect(lowerKeys, isNot(contains('authorization')),
+              reason: '${entry.key}');
+        }
+      }
+    });
+
+    test('playback and download produce the same headers', () async {
+      final request = _request(
+        SourceType.netease,
+        'http://m801.music.126.net/song.mp3',
+        streamResolutionAuth: SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=t'),
+      );
+
+      final playback = await handoff.preparePlayback(request);
+      final download = handoff.prepareDownloadHop(request);
+
+      expect(playback.url, download.url);
+      expect(playback.headers, download.headers);
+      expect(
+          playback.headers.keys.toSet(), {'Origin', 'Referer', 'User-Agent'});
+    });
+
+    test('keeps each source CDN header set', () {
       final result = handoff.prepareDownloadHop(_request(
         SourceType.bilibili,
         'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
-        streamResolutionAuth: const {'Cookie': 'SESSDATA=secret'},
       ));
 
-      expect(
-        result.url.toString(),
-        'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
-      );
-      expect(result.credentialsIncluded, isFalse);
       expect(result.headers['Referer'], SourceHttpPolicy.bilibiliWebReferer);
       expect(result.headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
-      expect(result.headers.containsKey('Cookie'), isFalse);
     });
 
-    test('youtube media headers do not leak authorization headers', () {
-      final handoff = DefaultMediaHandoff();
+    test('range start becomes a Range header, zero and null do not', () {
+      const url = 'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a';
 
-      final result = handoff.prepareDownloadHop(_request(
-        SourceType.youtube,
-        'https://rr1---sn.googlevideo.com/videoplayback',
-        streamResolutionAuth: const {
-          'Authorization': 'Bearer secret',
-          'Cookie': 'SID=secret',
-        },
-      ));
-
-      expect(result.credentialsIncluded, isFalse);
-      expect(result.headers['Origin'], SourceHttpPolicy.youtubeOrigin);
-      expect(result.headers['Referer'], SourceHttpPolicy.youtubeReferer);
-      expect(result.headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
-      expect(result.headers.containsKey('Authorization'), isFalse);
-      expect(result.headers.containsKey('Cookie'), isFalse);
-    });
-
-    test('netease credentials attach only to allowlisted HTTPS media hosts',
-        () {
-      final handoff = DefaultMediaHandoff();
-      final authHeaders = SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
-
-      final safe = handoff.prepareDownloadHop(_request(
-        SourceType.netease,
-        'https://m701.music.126.net/song.m4a',
-        streamResolutionAuth: authHeaders,
-      ));
-      final unsafe = handoff.prepareDownloadHop(_request(
-        SourceType.netease,
-        'https://cdn.example.com/song.m4a',
-        streamResolutionAuth: authHeaders,
-      ));
-      final insecure = handoff.prepareDownloadHop(_request(
-        SourceType.netease,
-        'http://m701.music.126.net/song.m4a',
-        streamResolutionAuth: authHeaders,
-      ));
-
-      expect(safe.credentialsIncluded, isTrue);
-      expect(safe.headers['Cookie'], 'MUSIC_U=token');
-      expect(
-        safe.headers['User-Agent'],
-        SourceHttpPolicy.neteaseDesktopUserAgent,
+      final resumed = handoff.prepareDownloadHop(
+        _request(SourceType.bilibili, url, rangeStart: 1024),
       );
+      expect(resumed.headers[HttpHeaders.rangeHeader], 'bytes=1024-');
 
-      expect(unsafe.credentialsIncluded, isFalse);
-      expect(unsafe.headers.containsKey('Cookie'), isFalse);
-
-      expect(insecure.credentialsIncluded, isFalse);
-      expect(insecure.headers.containsKey('Cookie'), isFalse);
-    });
-
-    test('rangeStart adds a Range header for resumed downloads', () {
-      final handoff = DefaultMediaHandoff();
-
-      final result = handoff.prepareDownloadHop(_request(
-        SourceType.youtube,
-        'https://rr1---sn.googlevideo.com/videoplayback',
-        rangeStart: 4096,
-      ));
-
-      expect(result.headers[HttpHeaders.rangeHeader], 'bytes=4096-');
-    });
-  });
-
-  group('DefaultMediaHandoff.preparePlayback', () {
-    test('safe Netease redirect keeps credentials', () async {
-      final authHeaders = SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
-      final handoff = DefaultMediaHandoff(
-        neteasePlaybackRedirectResolver: (url, authHeaders) async {
-          expect(url.toString(), 'https://m701.music.126.net/song.m4a');
-          expect(authHeaders['Cookie'], 'MUSIC_U=token');
-          return MediaPlaybackRedirectResolution(
-            url: Uri.parse('https://m802.music.126.net/song.m4a'),
-          );
-        },
-      );
-
-      final result = await handoff.preparePlayback(_request(
-        SourceType.netease,
-        'https://m701.music.126.net/song.m4a',
-        streamResolutionAuth: authHeaders,
-      ));
-
-      expect(result.url.toString(), 'https://m802.music.126.net/song.m4a');
-      expect(result.credentialsIncluded, isTrue);
-      expect(result.headers['Cookie'], 'MUSIC_U=token');
-    });
-
-    test('unsafe Netease redirect strips credentials', () async {
-      final authHeaders = SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
-      final handoff = DefaultMediaHandoff(
-        neteasePlaybackRedirectResolver: (url, authHeaders) async {
-          return MediaPlaybackRedirectResolution(
-            url: Uri.parse('https://attacker.example/song.m4a'),
-            includeCredentials: false,
-          );
-        },
-      );
-
-      final result = await handoff.preparePlayback(_request(
-        SourceType.netease,
-        'https://m701.music.126.net/song.m4a',
-        streamResolutionAuth: authHeaders,
-      ));
-
-      expect(result.url.toString(), 'https://attacker.example/song.m4a');
-      expect(result.credentialsIncluded, isFalse);
-      expect(result.headers.containsKey('Cookie'), isFalse);
-    });
-
-    test('preflight exception strips credentials and keeps the original URL',
-        () async {
-      final authHeaders = SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
-      final handoff = DefaultMediaHandoff(
-        neteasePlaybackRedirectResolver: (url, authHeaders) async {
-          throw const SocketException('preflight failed');
-        },
-      );
-
-      final result = await handoff.preparePlayback(_request(
-        SourceType.netease,
-        'https://m701.music.126.net/song.m4a',
-        streamResolutionAuth: authHeaders,
-      ));
-
-      expect(result.url.toString(), 'https://m701.music.126.net/song.m4a');
-      expect(result.credentialsIncluded, isFalse);
-      expect(result.headers.containsKey('Cookie'), isFalse);
+      for (final rangeStart in [0, null]) {
+        final fresh = handoff.prepareDownloadHop(
+          _request(SourceType.bilibili, url, rangeStart: rangeStart),
+        );
+        expect(fresh.headers.containsKey(HttpHeaders.rangeHeader), isFalse,
+            reason: 'rangeStart=$rangeStart');
+      }
     });
   });
 }

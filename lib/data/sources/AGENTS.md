@@ -217,13 +217,25 @@ details stay local: Bilibili keeps generated buvid cookies and search-host
 defaults; YouTube keeps SAPISIDHASH/InnerTube auth headers; Netease keeps
 eapi/weapi encryption plus Cookie-only per-request auth merging.
 
-**The media byte-request boundary is narrower than stream-resolution auth.**
+**Account credentials never reach a media byte request — for any source.**
 `MediaHandoff` (`lib/services/media/`) is the byte-request seam for playback and
-download; it delegates final source header defaults and Netease allowlist checks
-to the pure `SourceHttpPolicy.mediaHeaders()`. Only HTTPS Netease media URLs
-whose host is explicitly allowlisted (`music.163.com` / `*.music.163.com` /
-`music.126.net` / `*.music.126.net`) may receive Netease cookies. Bilibili and
-YouTube account credentials are source API / stream URL resolution credentials,
-not media/CDN headers — do not forward them to media/CDN requests unless a
-future design explicitly changes that security boundary. Image/header helpers
-must not attach credential cookies, including the Netease `Cookie`, by default.
+download, and it asks `SourceHttpPolicy.mediaHeaders(sourceType)` for the
+headers. That function takes nothing but the source type, so there is no
+parameter through which a caller could pass a cookie: the boundary is enforced
+by the signature rather than by a runtime check.
+
+Account auth belongs to stream *resolution*. Every source signs its media URL
+during resolution, so quality and entitlement are already decided by the time
+the bytes are fetched; the CDN only wants `Origin` / `Referer` / `User-Agent`.
+
+`MediaHandoffRequest.streamResolutionAuth` still exists so playback and download
+can share one request object, but nothing downstream reads it for headers.
+
+> Netease used to be an exception: HTTPS media URLs on an allowlisted host were
+> given the account cookie, behind a redirect preflight that walked up to five
+> hops. Measured 2026-09-01, signed in: eapi returns `http://m801.music.126.net/…`,
+> so the HTTPS gate rejected every real URL and the whole path — preflight,
+> resolver injection point and cookie branch — never ran in production. Playback
+> works without it, and the signed URL redirects zero times. Removed rather than
+> repaired; do not reintroduce it without evidence that the CDN needs the cookie.
+> Image helpers must likewise never attach credential cookies.

@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 
 import '../../core/utils/http_client_factory.dart';
 import '../models/track.dart';
-import 'source_url_policy.dart';
 
 class SourceHttpPolicy {
   SourceHttpPolicy._();
@@ -31,12 +30,13 @@ class SourceHttpPolicy {
   static const String neteaseOrigin = 'https://music.163.com';
   static const String neteaseReferer = 'https://music.163.com/';
 
-  static Map<String, String> mediaHeaders(
-    SourceType sourceType, {
-    Map<String, String>? authHeaders,
-    String? requestUrl,
-    bool includeCredentials = true,
-  }) {
+  /// 媒體位元組請求的 header。
+  ///
+  /// **刻意不帶任何帳號憑證。** 三個音源的媒體 URL 都是簽名過的：音質與播放權
+  /// 限在串流解析當下就決定了，CDN 只需要 Origin/Referer/User-Agent。曾經有一
+  /// 段「對網易的 https URL 附上 Cookie」的分支，實測 eapi 回的是 `http://`，
+  /// 那段程式碼在生產環境一次都沒執行過，已移除。
+  static Map<String, String> mediaHeaders(SourceType sourceType) {
     final headers = switch (sourceType) {
       SourceType.bilibili => <String, String>{
           'Referer': bilibiliWebReferer,
@@ -53,18 +53,6 @@ class SourceHttpPolicy {
           'User-Agent': mediaUserAgent,
         },
     };
-
-    if (sourceType == SourceType.netease &&
-        authHeaders != null &&
-        includeCredentials &&
-        canAttachNeteaseMediaCredentials(requestUrl)) {
-      for (final key in const ['Cookie', 'Origin', 'Referer', 'User-Agent']) {
-        final value = authHeaders[key];
-        if (value != null && value.isNotEmpty) {
-          headers[key] = value;
-        }
-      }
-    }
 
     return headers;
   }
@@ -130,20 +118,6 @@ class SourceHttpPolicy {
       );
     }
     return null;
-  }
-
-  static bool canAttachNeteaseMediaCredentials(String? requestUrl) {
-    if (requestUrl == null || requestUrl.isEmpty) return false;
-    final uri = Uri.tryParse(requestUrl);
-    if (uri == null || uri.scheme.toLowerCase() != 'https') return false;
-
-    final host = SourceUrlPolicy.normalizeHost(uri.host);
-    if (host.isEmpty) return false;
-
-    return host == 'music.163.com' ||
-        host.endsWith('.music.163.com') ||
-        host == 'music.126.net' ||
-        host.endsWith('.music.126.net');
   }
 
   static bool _isHostOrSubdomain(String host, String domain) {
