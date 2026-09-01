@@ -55,7 +55,7 @@ dependencies:
 
   # 图片缓存
   cached_network_image: ^3.4.1
-  flutter_cache_manager: ^3.4.1
+  flutter_cache_manager: ^3.4.2
 
   # 桌面平台
   tray_manager: ^0.2.3
