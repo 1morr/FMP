@@ -1074,6 +1074,55 @@ void main() {
       expect(tracks.single.sourceId, 'retry-video');
     });
 
+    // 榜單排序屬於 YouTube 自己的語意（InnerTube 不保證按播放數回傳），
+    // 因此由 adapter 負責，而不是留給 RankingCacheService 特判。
+    test('getRankingTracks sorts trending results by view count descending',
+        () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        return ResponseBody.fromString(
+          jsonEncode(_lockupBrowseResponse(items: [
+            _lockupViewModel(
+              videoId: 'low',
+              title: 'Low',
+              artist: 'A',
+              duration: '1:00',
+              viewCountText: '1 view',
+            ),
+            _lockupViewModel(
+              videoId: 'high',
+              title: 'High',
+              artist: 'A',
+              duration: '1:00',
+              viewCountText: '100 views',
+            ),
+            _lockupViewModel(
+              videoId: 'middle',
+              title: 'Middle',
+              artist: 'A',
+              duration: '1:00',
+              viewCountText: '50 views',
+            ),
+          ])),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(dio: dio);
+      addTearDown(source.dispose);
+
+      final tracks =
+          await source.getRankingTracks(source.defaultRankingRequest);
+
+      expect(
+        tracks.map((track) => track.sourceId),
+        ['high', 'middle', 'low'],
+      );
+      expect(source.defaultRankingRequest.category, 'music');
+    });
+
     test('retries New This Week browse when accepted response is server error',
         () async {
       var browseCalls = 0;

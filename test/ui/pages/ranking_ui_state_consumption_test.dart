@@ -116,6 +116,8 @@ void main() {
         'lib/ui/pages/explore/explore_page.dart',
       ).readAsStringSync();
 
+      // 只比對 select 片段，不含 provider 名稱：`dart format` 會把長行折在
+      // provider 與 .select 之間，把兩者綁在同一個字串會讓這條測試隨格式化紅燈。
       expect(
           source, isNot(contains('ref.watch(rankingCacheServiceProvider);')));
       expect(
@@ -125,18 +127,15 @@ void main() {
       );
       expect(
         source,
-        contains(
-            'rankingCacheServiceProvider.select((state) => state.bilibiliError)'),
+        contains('.select((state) => state.errorFor(SourceType.bilibili))'),
       );
       expect(
         source,
-        contains(
-            'rankingCacheServiceProvider.select((state) => state.youtubeError)'),
+        contains('.select((state) => state.errorFor(SourceType.youtube))'),
       );
       expect(
         source,
-        contains(
-            'rankingCacheServiceProvider.select((state) => state.neteaseError)'),
+        contains('.select((state) => state.errorFor(SourceType.netease))'),
       );
     });
   });
@@ -148,29 +147,29 @@ class _StaticRankingCacheService extends RankingCacheService {
     required List<Track> youtubeTracks,
     required List<Track> neteaseTracks,
   }) : super(
-          bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
-          youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
-          neteaseRankingSource: _FakeRankingSource(SourceType.netease),
+          rankingSources: {
+            SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
+            SourceType.youtube: _FakeRankingSource(SourceType.youtube),
+            SourceType.netease: _FakeRankingSource(SourceType.netease),
+          },
         ) {
     state = RankingCacheState(
-      bilibiliTracks: List.unmodifiable(bilibiliTracks),
-      youtubeTracks: List.unmodifiable(youtubeTracks),
-      neteaseTracks: List.unmodifiable(neteaseTracks),
+      tracksBySource: {
+        SourceType.bilibili: bilibiliTracks,
+        SourceType.youtube: youtubeTracks,
+        SourceType.netease: neteaseTracks,
+      },
+      loadedBySource: const {
+        SourceType.bilibili: true,
+        SourceType.youtube: true,
+        SourceType.netease: true,
+      },
       isInitialLoading: false,
-      bilibiliLoaded: true,
-      youtubeLoaded: true,
-      neteaseLoaded: true,
     );
   }
 
   @override
-  Future<void> refreshBilibili() async {}
-
-  @override
-  Future<void> refreshYouTube() async {}
-
-  @override
-  Future<void> refreshNetease() async {}
+  Future<void> refreshSource(SourceType sourceType) async {}
 }
 
 class _FakeRankingSource implements RankingSource {
@@ -178,6 +177,16 @@ class _FakeRankingSource implements RankingSource {
 
   @override
   final SourceType sourceType;
+
+  @override
+  SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
+        SourceType.bilibili => const SourceRankingRequest(regionId: 1003),
+        SourceType.youtube => const SourceRankingRequest(category: 'music'),
+        SourceType.netease => const SourceRankingRequest(limit: 50),
+      };
+
+  @override
+  String get rankingLabel => '${sourceType.name} ranking';
 
   @override
   Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {

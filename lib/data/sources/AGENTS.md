@@ -132,6 +132,14 @@ construction belongs inside `SourceManager`; tests may instantiate adapters
 directly. This rule is enforced by
 `test/data/sources/source_ownership_phase3_test.dart`.
 
+`RankingSource` additionally carries its own `defaultRankingRequest` and
+`rankingLabel`, and must return its tracks **already ordered** the way that
+platform's chart is meant to read (YouTube sorts by view count, for example).
+`RankingCacheService` is registry-driven and knows nothing about individual
+sources: it refreshes whatever `SourceManager.registeredSourceTypes` exposes a
+`RankingSource` for. Adding a fourth ranked source must not require editing the
+cache service — if it does, the per-source knowledge leaked into the wrong layer.
+
 Adapters owning disposable resources (HTTP clients, live-stream clients) should
 `implements DisposableSource` and release them in `dispose()`.
 `SourceManager.dispose()` cleans up every registered adapter implementing it via

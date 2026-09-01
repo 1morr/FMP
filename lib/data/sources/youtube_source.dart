@@ -1632,9 +1632,23 @@ class YouTubeSource
   }
 
   @override
-  Future<List<Track>> getRankingTracks(SourceRankingRequest request) {
-    return getTrendingVideos(category: request.category ?? 'music');
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
+    final tracks =
+        await getTrendingVideos(category: request.category ?? 'music');
+    // InnerTube 回的順序不是播放數順序，排序屬於 YouTube 自己的榜單語意，
+    // 因此在這裡完成，而不是留給快取層特判。
+    return List.unmodifiable(
+      List<Track>.of(tracks)
+        ..sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0)),
+    );
   }
+
+  @override
+  SourceRankingRequest get defaultRankingRequest =>
+      const SourceRankingRequest(category: 'music');
+
+  @override
+  String get rankingLabel => 'YouTube';
 
   /// 使用 InnerTube Browse API 獲取 "New This Week" 播放列表
   Future<List<Track>> _fetchNewThisWeekPlaylist() async {

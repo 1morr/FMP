@@ -219,9 +219,12 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
       // 数据缓存统计
       final queueTrackCount = ref.read(queueProvider).length;
       final rankingCache = ref.read(rankingCacheServiceProvider);
-      final bilibiliCacheCount = rankingCache.bilibiliTracks.length;
-      final youtubeCacheCount = rankingCache.youtubeTracks.length;
-      final neteaseCacheCount = rankingCache.neteaseTracks.length;
+      final bilibiliCacheCount =
+          rankingCache.tracksFor(SourceType.bilibili).length;
+      final youtubeCacheCount =
+          rankingCache.tracksFor(SourceType.youtube).length;
+      final neteaseCacheCount =
+          rankingCache.tracksFor(SourceType.netease).length;
 
       // 歌词缓存
       int lyricsCacheCount = 0;

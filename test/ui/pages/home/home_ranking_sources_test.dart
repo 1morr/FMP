@@ -187,9 +187,11 @@ Widget _testApp({required List<Override> overrides}) {
 class _StaticRankingCacheService extends RankingCacheService {
   _StaticRankingCacheService({required bool isInitialLoading})
       : super(
-          bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
-          youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
-          neteaseRankingSource: _FakeRankingSource(SourceType.netease),
+          rankingSources: {
+            SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
+            SourceType.youtube: _FakeRankingSource(SourceType.youtube),
+            SourceType.netease: _FakeRankingSource(SourceType.netease),
+          },
         ) {
     state = RankingCacheState(isInitialLoading: isInitialLoading);
   }
@@ -200,6 +202,16 @@ class _FakeRankingSource implements RankingSource {
 
   @override
   final SourceType sourceType;
+
+  @override
+  SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
+        SourceType.bilibili => const SourceRankingRequest(regionId: 1003),
+        SourceType.youtube => const SourceRankingRequest(category: 'music'),
+        SourceType.netease => const SourceRankingRequest(limit: 50),
+      };
+
+  @override
+  String get rankingLabel => '${sourceType.name} ranking';
 
   @override
   Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {

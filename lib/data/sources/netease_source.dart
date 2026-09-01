@@ -378,6 +378,13 @@ class NeteaseSource
     return getHotRankingTracks(limit: request.limit ?? 50);
   }
 
+  @override
+  SourceRankingRequest get defaultRankingRequest =>
+      const SourceRankingRequest(limit: 50);
+
+  @override
+  String get rankingLabel => 'Netease 熱歌榜';
+
   // ========== 刷新 / 可用性 ==========
 
   @override

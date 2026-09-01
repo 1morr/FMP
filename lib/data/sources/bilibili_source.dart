@@ -959,6 +959,14 @@ class BilibiliSource
     return getRankingVideos(rid: request.regionId ?? 0);
   }
 
+  // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
+  @override
+  SourceRankingRequest get defaultRankingRequest =>
+      const SourceRankingRequest(regionId: 1003);
+
+  @override
+  String get rankingLabel => 'Bilibili 音樂排行榜';
+
   Future<Response<dynamic>> _fetchRankingVideosResponse(int rid) {
     return _dio.get(
       _rankingApi,

@@ -39,8 +39,8 @@ void main() {
       expect(state.isLoaded(SourceType.youtube), isFalse);
       expect(state.errorFor(SourceType.youtube), 'youtube offline');
       expect(state.errorFor(SourceType.netease), isNull);
-      expect(state.bilibiliTracks, [bilibiliTrack]);
-      expect(state.youtubeTracks, [youtubeTrack]);
+      expect(state.tracksFor(SourceType.bilibili), [bilibiliTrack]);
+      expect(state.tracksFor(SourceType.youtube), [youtubeTrack]);
       expect(
         () => state.tracksFor(SourceType.bilibili).add(
               _track('mutate-indexed', SourceType.bilibili),
@@ -78,23 +78,29 @@ void main() {
       final state = container.read(rankingCacheServiceProvider);
 
       expect(state.isInitialLoading, isFalse);
-      expect(state.bilibiliTracks, [bilibiliTrack]);
-      expect(state.youtubeTracks, [youtubeTrack]);
-      expect(state.neteaseTracks, [neteaseTrack]);
-      expect(state.bilibiliLoaded, isTrue);
-      expect(state.youtubeLoaded, isTrue);
-      expect(state.neteaseLoaded, isTrue);
+      expect(state.tracksFor(SourceType.bilibili), [bilibiliTrack]);
+      expect(state.tracksFor(SourceType.youtube), [youtubeTrack]);
+      expect(state.tracksFor(SourceType.netease), [neteaseTrack]);
+      expect(state.isLoaded(SourceType.bilibili), isTrue);
+      expect(state.isLoaded(SourceType.youtube), isTrue);
+      expect(state.isLoaded(SourceType.netease), isTrue);
 
       expect(
-        () => state.bilibiliTracks.add(_track('mutate', SourceType.bilibili)),
+        () => state
+            .tracksFor(SourceType.bilibili)
+            .add(_track('mutate', SourceType.bilibili)),
         throwsUnsupportedError,
       );
       expect(
-        () => state.youtubeTracks.add(_track('mutate', SourceType.youtube)),
+        () => state
+            .tracksFor(SourceType.youtube)
+            .add(_track('mutate', SourceType.youtube)),
         throwsUnsupportedError,
       );
       expect(
-        () => state.neteaseTracks.add(_track('mutate', SourceType.netease)),
+        () => state
+            .tracksFor(SourceType.netease)
+            .add(_track('mutate', SourceType.netease)),
         throwsUnsupportedError,
       );
 
@@ -219,20 +225,23 @@ void main() {
       final youtubeSource = _FakeRankingSource(SourceType.youtube);
       final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliRankingSource: bilibiliSource,
-        youtubeRankingSource: youtubeSource,
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: bilibiliSource,
+          SourceType.youtube: youtubeSource,
+          SourceType.netease: neteaseSource,
+        },
       );
 
-      await service.refreshBilibili();
-      expect(service.state.bilibiliTracks, [oldTrack]);
-      expect(service.state.bilibiliError, isNull);
+      await service.refreshSource(SourceType.bilibili);
+      expect(service.state.tracksFor(SourceType.bilibili), [oldTrack]);
+      expect(service.state.errorFor(SourceType.bilibili), isNull);
 
       bilibiliSource.nextError = Exception('network down');
-      await service.refreshBilibili();
+      await service.refreshSource(SourceType.bilibili);
 
-      expect(service.state.bilibiliTracks, [oldTrack]);
-      expect(service.state.bilibiliError, contains('network down'));
+      expect(service.state.tracksFor(SourceType.bilibili), [oldTrack]);
+      expect(service.state.errorFor(SourceType.bilibili),
+          contains('network down'));
 
       service.dispose();
     });
@@ -246,16 +255,18 @@ void main() {
         ..tracks = [low, high];
       final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliRankingSource: bilibiliSource,
-        youtubeRankingSource: youtubeSource,
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: bilibiliSource,
+          SourceType.youtube: youtubeSource,
+          SourceType.netease: neteaseSource,
+        },
       );
 
       await service.refreshSource(SourceType.youtube);
 
       _expectRankingRequest(youtubeSource.lastRequest, category: 'music');
-      expect(service.state.tracksFor(SourceType.youtube), [high, low]);
-      expect(service.state.youtubeTracks, [high, low]);
+      // 順序原樣來自 adapter（排序責任已移入 YouTubeSource）。
+      expect(service.state.tracksFor(SourceType.youtube), [low, high]);
       expect(service.state.isLoaded(SourceType.youtube), isTrue);
       expect(service.state.errorFor(SourceType.youtube), isNull);
       expect(bilibiliSource.fetchCount, 0);
@@ -269,14 +280,16 @@ void main() {
       final youtubeSource = _FakeRankingSource(SourceType.youtube);
       final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliRankingSource: bilibiliSource,
-        youtubeRankingSource: youtubeSource,
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: bilibiliSource,
+          SourceType.youtube: youtubeSource,
+          SourceType.netease: neteaseSource,
+        },
       );
 
-      await service.refreshBilibili();
-      await service.refreshYouTube();
-      await service.refreshNetease();
+      await service.refreshSource(SourceType.bilibili);
+      await service.refreshSource(SourceType.youtube);
+      await service.refreshSource(SourceType.netease);
 
       _expectRankingRequest(bilibiliSource.lastRequest, regionId: 1003);
       _expectRankingRequest(youtubeSource.lastRequest, category: 'music');
@@ -291,20 +304,23 @@ void main() {
       final neteaseSource = _FakeRankingSource(SourceType.netease)
         ..tracks = [oldTrack];
       final service = RankingCacheService(
-        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
-        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
+          SourceType.youtube: _FakeRankingSource(SourceType.youtube),
+          SourceType.netease: neteaseSource,
+        },
       );
 
-      await service.refreshNetease();
-      expect(service.state.neteaseTracks, [oldTrack]);
-      expect(service.state.neteaseError, isNull);
+      await service.refreshSource(SourceType.netease);
+      expect(service.state.tracksFor(SourceType.netease), [oldTrack]);
+      expect(service.state.errorFor(SourceType.netease), isNull);
 
       neteaseSource.nextError = Exception('network down');
-      await service.refreshNetease();
+      await service.refreshSource(SourceType.netease);
 
-      expect(service.state.neteaseTracks, [oldTrack]);
-      expect(service.state.neteaseError, contains('network down'));
+      expect(service.state.tracksFor(SourceType.netease), [oldTrack]);
+      expect(
+          service.state.errorFor(SourceType.netease), contains('network down'));
 
       service.dispose();
     });
@@ -317,25 +333,27 @@ void main() {
         ..enqueueFetch(completer: oldCompleter, tracks: [oldTrack])
         ..enqueueFetch(tracks: [newTrack]);
       final service = RankingCacheService(
-        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
-        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
+          SourceType.youtube: _FakeRankingSource(SourceType.youtube),
+          SourceType.netease: neteaseSource,
+        },
       );
 
-      final oldRefresh = service.refreshNetease();
+      final oldRefresh = service.refreshSource(SourceType.netease);
       await pumpEventQueue();
 
-      await service.refreshNetease();
-      expect(service.state.neteaseTracks, [newTrack]);
-      expect(service.state.neteaseLoaded, isTrue);
-      expect(service.state.neteaseError, isNull);
+      await service.refreshSource(SourceType.netease);
+      expect(service.state.tracksFor(SourceType.netease), [newTrack]);
+      expect(service.state.isLoaded(SourceType.netease), isTrue);
+      expect(service.state.errorFor(SourceType.netease), isNull);
 
       oldCompleter.complete();
       await oldRefresh;
 
-      expect(service.state.neteaseTracks, [newTrack]);
-      expect(service.state.neteaseLoaded, isTrue);
-      expect(service.state.neteaseError, isNull);
+      expect(service.state.tracksFor(SourceType.netease), [newTrack]);
+      expect(service.state.isLoaded(SourceType.netease), isTrue);
+      expect(service.state.errorFor(SourceType.netease), isNull);
 
       service.dispose();
     });
@@ -347,25 +365,29 @@ void main() {
         ..enqueueFetch(completer: oldCompleter, tracks: [oldTrack])
         ..enqueueFetch(error: Exception('new failure'));
       final service = RankingCacheService(
-        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
-        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
+          SourceType.youtube: _FakeRankingSource(SourceType.youtube),
+          SourceType.netease: neteaseSource,
+        },
       );
 
-      final oldRefresh = service.refreshNetease();
+      final oldRefresh = service.refreshSource(SourceType.netease);
       await pumpEventQueue();
 
-      await service.refreshNetease();
-      expect(service.state.neteaseTracks, isEmpty);
-      expect(service.state.neteaseLoaded, isFalse);
-      expect(service.state.neteaseError, contains('new failure'));
+      await service.refreshSource(SourceType.netease);
+      expect(service.state.tracksFor(SourceType.netease), isEmpty);
+      expect(service.state.isLoaded(SourceType.netease), isFalse);
+      expect(
+          service.state.errorFor(SourceType.netease), contains('new failure'));
 
       oldCompleter.complete();
       await oldRefresh;
 
-      expect(service.state.neteaseTracks, isEmpty);
-      expect(service.state.neteaseLoaded, isFalse);
-      expect(service.state.neteaseError, contains('new failure'));
+      expect(service.state.tracksFor(SourceType.netease), isEmpty);
+      expect(service.state.isLoaded(SourceType.netease), isFalse);
+      expect(
+          service.state.errorFor(SourceType.netease), contains('new failure'));
 
       service.dispose();
     });
@@ -376,9 +398,11 @@ void main() {
       final youtubeSource = _FakeRankingSource(SourceType.youtube);
       final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliRankingSource: bilibiliSource,
-        youtubeRankingSource: youtubeSource,
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: bilibiliSource,
+          SourceType.youtube: youtubeSource,
+          SourceType.netease: neteaseSource,
+        },
       );
       final firstNotifier = _TestConnectivityNotifier();
       final secondNotifier = _TestConnectivityNotifier();
@@ -407,9 +431,11 @@ void main() {
 
     test('dispose is idempotent', () {
       final service = RankingCacheService(
-        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
-        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
-        neteaseRankingSource: _FakeRankingSource(SourceType.netease),
+        rankingSources: {
+          SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
+          SourceType.youtube: _FakeRankingSource(SourceType.youtube),
+          SourceType.netease: _FakeRankingSource(SourceType.netease),
+        },
       );
 
       service.dispose();
@@ -507,9 +533,11 @@ void main() {
       final youtubeSource = _FakeRankingSource(SourceType.youtube);
       final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliRankingSource: bilibiliSource,
-        youtubeRankingSource: youtubeSource,
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: bilibiliSource,
+          SourceType.youtube: youtubeSource,
+          SourceType.netease: neteaseSource,
+        },
       );
 
       service.updateRefreshInterval(const Duration(milliseconds: 20));
@@ -538,9 +566,11 @@ void main() {
       final neteaseSource = _FakeRankingSource(SourceType.netease)
         ..nextFetchCompleter = neteaseCompleter;
       final service = RankingCacheService(
-        bilibiliRankingSource: bilibiliSource,
-        youtubeRankingSource: youtubeSource,
-        neteaseRankingSource: neteaseSource,
+        rankingSources: {
+          SourceType.bilibili: bilibiliSource,
+          SourceType.youtube: youtubeSource,
+          SourceType.netease: neteaseSource,
+        },
         initialLoadTimeout: const Duration(milliseconds: 10),
       );
 
@@ -564,31 +594,54 @@ void main() {
       expect(neteaseSource.fetchCount, 1);
     });
 
-    test('refreshYouTube keeps sorting by view count descending', () async {
+    test('refresh preserves the order the ranking source returns', () async {
       final low = _track('yt-low', SourceType.youtube, viewCount: 1);
       final high = _track('yt-high', SourceType.youtube, viewCount: 100);
       final middle = _track('yt-middle', SourceType.youtube, viewCount: 50);
       final service = RankingCacheService(
-        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
-        youtubeRankingSource: _FakeRankingSource(SourceType.youtube)
-          ..tracks = [low, high, middle],
-        neteaseRankingSource: _FakeRankingSource(SourceType.netease),
+        rankingSources: {
+          SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
+          SourceType.youtube: _FakeRankingSource(SourceType.youtube)
+            ..tracks = [low, high, middle],
+          SourceType.netease: _FakeRankingSource(SourceType.netease),
+        },
       );
 
-      await service.refreshYouTube();
+      await service.refreshSource(SourceType.youtube);
 
-      expect(service.state.youtubeTracks, [high, middle, low]);
+      // 快取層不再對任何音源做排序特判：它原樣保留 adapter 回傳的順序。
+      // YouTube 依播放數降序的規則已移入 YouTubeSource.getRankingTracks，
+      // 由 test/data/sources/youtube_source_test.dart 覆蓋。
+      expect(service.state.tracksFor(SourceType.youtube), [low, high, middle]);
 
       service.dispose();
     });
 
-    test('provider error names missing ranking sources', () {
+    test('provider only refreshes sources that expose a RankingSource', () {
       final container = ProviderContainer(
         overrides: [
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(
               sources: [_FakeRankingSource(SourceType.bilibili)],
             ),
+          ),
+          connectivityProvider
+              .overrideWith((ref) => _TestConnectivityNotifier()),
+        ],
+      );
+
+      // 註冊表驅動：沒有排行榜能力的音源被略過，不再是啟動時的硬性錯誤。
+      final service = container.read(rankingCacheServiceProvider.notifier);
+      expect(service.rankedSourceTypes, [SourceType.bilibili]);
+
+      container.dispose();
+    });
+
+    test('provider throws when no source exposes a RankingSource', () {
+      final container = ProviderContainer(
+        overrides: [
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(sources: const []),
           ),
         ],
       );
@@ -599,7 +652,7 @@ void main() {
           isA<StateError>().having(
             (error) => error.message,
             'message',
-            'Ranking source not registered: youtube, netease',
+            'No ranking source registered',
           ),
         ),
       );
@@ -660,6 +713,16 @@ class _FakeRankingSource implements RankingSource {
 
   @override
   final SourceType sourceType;
+
+  @override
+  SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
+        SourceType.bilibili => const SourceRankingRequest(regionId: 1003),
+        SourceType.youtube => const SourceRankingRequest(category: 'music'),
+        SourceType.netease => const SourceRankingRequest(limit: 50),
+      };
+
+  @override
+  String get rankingLabel => '${sourceType.name} ranking';
 
   int fetchCount = 0;
   Completer<void>? nextFetchCompleter;

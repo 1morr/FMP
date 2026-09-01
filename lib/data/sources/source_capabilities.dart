@@ -90,6 +90,17 @@ class SourceRankingRequest {
 }
 
 abstract interface class RankingSource implements SourceCapability {
+  /// 該音源排行榜的預設請求參數。
+  ///
+  /// 由 adapter 自己決定，呼叫端（`RankingCacheService`）因此不必為每個音源
+  /// 各寫一個 switch 分支 —— 新增音源只要實作這個 getter。
+  SourceRankingRequest get defaultRankingRequest;
+
+  /// 排行榜的顯示名稱，目前僅用於日誌。
+  String get rankingLabel;
+
+  /// 回傳已經排好序的榜單：排序規則屬於各平台自己的語意（例如 YouTube 依播放
+  /// 數降序），不該由快取層代為判斷。
   Future<List<Track>> getRankingTracks(SourceRankingRequest request);
 }
 
