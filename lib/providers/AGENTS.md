@@ -43,8 +43,10 @@ Rules:
   `rankingCacheServiceProvider`; refresh/timer methods go through
   `.notifier`, not by reading mutable service snapshot lists. The cache stores
   lists by `SourceType`, so home/explore providers derive their lists from
-  `tracksFor(sourceType)`. `refreshBilibili()` / `refreshYouTube()` /
-  `refreshNetease()` are compatibility wrappers around `refreshSource()`.
+  `tracksFor(sourceType)` / `isLoaded(sourceType)` / `errorFor(sourceType)`.
+  `refreshSource(SourceType)` is the only refresh entry point; the cache is
+  built from whatever `SourceManager` registers a `RankingSource` for, so
+  neither the service nor this provider names individual sources.
 - Fire-and-forget imported playlist refresh must use the named remote sync path
   and log background failures with `AppLogger`.
 - Search source selection is owned by the search page chips: "all" queries

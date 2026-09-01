@@ -25,6 +25,7 @@
 | [VM Service 調試指南](debugging-with-vm-service.md) | 調試者 / agent | 透過 Dart VM Service 與 Isar Inspector 做運行期檢查 |
 | [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性建置與 runtime 噪音（如 Windows `Failed to update ui::AXTree`、`resolve_symlinks.ps1` 的 `Get-Item` 警告）與其成因 |
 | [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
+| [review/](review/) | 維護者 | 分輪次的深度審查記錄；每條結論附 `file:line`、指令輸出或實機觀察，未能驗證的明確標示 |
 
 ## 權威來源
 
@@ -43,4 +44,6 @@
 - Runtime 調試流程或 VM Service 腳本變更：更新 [VM Service 調試指南](debugging-with-vm-service.md)。
 - 模擬器啟動方式、實機驗證流程或裝置端限制變更：更新 [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md)，並讓 `AGENTS.md` 的 Agent Skills 只保留一行指引。
 - 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
+- `review/` 是**歷史快照**，記錄某一輪審查當下的事實與量測；後續改動不必回頭修訂它，
+  但若某條結論已被推翻，應在該輪報告內原地標注更正，而不是刪掉原文。
 - 不要把同一條規則複製到多個文件，除非目標文件確實擁有對應讀者和維護責任。
