@@ -211,9 +211,7 @@ List<String> _playlistOrder(WidgetTester tester) {
 }
 
 bool _sortButtonIsLeftOfTitle(WidgetTester tester) {
-  final sortButtonRight = tester
-      .getTopRight(find.byIcon(Icons.swap_vert))
-      .dx;
+  final sortButtonRight = tester.getTopRight(find.byIcon(Icons.swap_vert)).dx;
   final titleLeft = tester.getTopLeft(find.text(t.library.title)).dx;
   return sortButtonRight <= titleLeft;
 }
@@ -243,8 +241,8 @@ Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile = File(
     '${Directory.current.path}/.dart_tool/package_config.json',
   );
-  final packageConfig =
-      jsonDecode(await packageConfigFile.readAsString()) as Map<String, dynamic>;
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
 

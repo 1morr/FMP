@@ -254,7 +254,8 @@ class DownloadService with Logging {
         deleted++;
       }
       if (deleted > 0) {
-        logDebug('Cleaned up $deleted orphaned .downloading file(s) at startup');
+        logDebug(
+            'Cleaned up $deleted orphaned .downloading file(s) at startup');
       }
     } catch (e) {
       logWarning('Failed to scan orphaned .downloading files at startup: $e');
@@ -1049,7 +1050,11 @@ class DownloadService with Logging {
     task.status = DownloadStatus.downloading;
     await _downloadRepository.saveTask(task);
 
-    return (savePath: savePath, tempPath: tempPath, resumePosition: resumePosition);
+    return (
+      savePath: savePath,
+      tempPath: tempPath,
+      resumePosition: resumePosition
+    );
   }
 
   void _clearPendingProgressForTask(int taskId) {

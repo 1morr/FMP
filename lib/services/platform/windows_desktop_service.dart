@@ -85,10 +85,10 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
   Future<void> _initTray() async {
     // 设置托盘图标 - Windows API 需要绝对路径
     String? iconPath;
-    
+
     // 获取可执行文件所在目录（适用于打包后的应用）
     final exeDir = File(Platform.resolvedExecutable).parent.path;
-    
+
     // 可能的图标路径（按优先级排序）
     final possiblePaths = [
       // 打包后：图标在可执行文件同级目录
@@ -98,14 +98,14 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
       // 开发模式：项目目录下
       '${Directory.current.path}\\windows\\runner\\resources\\app_icon.ico',
     ];
-    
+
     for (final path in possiblePaths) {
       if (File(path).existsSync()) {
         iconPath = path;
         break;
       }
     }
-    
+
     if (iconPath != null) {
       logDebug('[WindowsDesktopService] Setting tray icon: $iconPath');
       await trayManager.setIcon(iconPath);
@@ -137,7 +137,8 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
     const maxTitleLength = 40;
     const maxArtistLength = 30;
 
-    logDebug('[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
+    logDebug(
+        '[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
 
     final menu = Menu(
       items: [
@@ -196,8 +197,8 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
     String tooltip = t.tray.appName;
     if (_currentTrack != null) {
       final title = _truncate(_currentTrack!.title, 50);
-      final artist = _truncate(
-          _currentTrack!.artist ?? t.tray.unknownArtist, 30);
+      final artist =
+          _truncate(_currentTrack!.artist ?? t.tray.unknownArtist, 30);
       tooltip = '$title\n$artist';
       if (_isPlaying) {
         tooltip = '▶ $tooltip';

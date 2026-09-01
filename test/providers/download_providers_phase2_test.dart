@@ -11,7 +11,8 @@ import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/database/database_provider.dart';
-import 'package:fmp/providers/download/download_providers.dart' as download_providers;
+import 'package:fmp/providers/download/download_providers.dart'
+    as download_providers;
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:isar/isar.dart';
 
@@ -25,7 +26,8 @@ void main() {
       );
     });
 
-    test('download track provider reuses shared repository provider instance', () async {
+    test('download track provider reuses shared repository provider instance',
+        () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
 
@@ -96,8 +98,8 @@ Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile = File(
     '${Directory.current.path}/.dart_tool/package_config.json',
   );
-  final packageConfig =
-      jsonDecode(await packageConfigFile.readAsString()) as Map<String, dynamic>;
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
 

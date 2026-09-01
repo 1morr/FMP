@@ -31,7 +31,8 @@ void main() {
       expect(radio, contains('PlayerPlayPauseButton('));
     });
 
-    test('promotes live info to an AppBar icon and drops the overflow menu', () {
+    test('promotes live info to an AppBar icon and drops the overflow menu',
+        () {
       final radio = readSource('lib/ui/pages/radio/radio_player_page.dart');
 
       expect(radio, contains('Icons.info_outline'));

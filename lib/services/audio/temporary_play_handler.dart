@@ -85,8 +85,9 @@ class TemporaryPlayHandler {
 
     return RestorePlaybackPlan(
       savedIndex: savedIndex,
-      savedPosition:
-          rememberPosition ? (state.savedPosition ?? Duration.zero) : Duration.zero,
+      savedPosition: rememberPosition
+          ? (state.savedPosition ?? Duration.zero)
+          : Duration.zero,
       savedWasPlaying: state.savedWasPlaying ?? false,
       rewindSeconds: rememberPosition ? rewindSeconds : 0,
     );

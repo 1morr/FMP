@@ -43,8 +43,7 @@ abstract class TitleParser {
 class RegexTitleParser implements TitleParser {
   // ========== 标签词（共享，用于多种括号类型） ==========
 
-  static const _tagWords =
-      r'翻唱|cover|MV|PV|歌ってみた|弾いてみた|叩いてみた|演奏してみた|'
+  static const _tagWords = r'翻唱|cover|MV|PV|歌ってみた|弾いてみた|叩いてみた|演奏してみた|'
       r'Official|官方|自制|手书|MAD|AMV|MMD|VOCALOID|ボカロ|初音ミク|'
       r'オリジナル曲?|原创|原創|完整版|高音质|Hi-?Res|FLAC|4K|1080P|'
       r'中文字幕|歌词|Lyrics?|字幕|CC|合集|精选|剪辑|Clip|Live|现场|'

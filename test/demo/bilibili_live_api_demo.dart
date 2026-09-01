@@ -27,7 +27,8 @@ void main(List<String> args) async {
 
   dio = Dio(BaseOptions(
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       'Referer': 'https://live.bilibili.com/',
     },
     connectTimeout: const Duration(seconds: 10),
@@ -150,7 +151,6 @@ Future<void> testXliveGetInfoByRoom(String roomId) async {
       print('\n📋 關鍵字段:');
       print('  room_info.online: ${data['room_info']?['online']}');
       print('  watched_show: ${data['watched_show']}');
-
     } else {
       print('❌ 請求失敗: ${response.data['message']}');
       print('  (這個 API 可能需要登錄或 WBI 簽名)');
@@ -409,7 +409,8 @@ Future<void> testWebSocket(String roomId) async {
                 } else if (cmd == 'SEND_GIFT') {
                   // 禮物
                   final data = body['data'];
-                  print('  [禮物] ${data['uname']} 送出 ${data['giftName']} x${data['num']}');
+                  print(
+                      '  [禮物] ${data['uname']} 送出 ${data['giftName']} x${data['num']}');
                 } else if (cmd == 'INTERACT_WORD') {
                   // 用戶進入
                   final data = body['data'];
@@ -421,18 +422,20 @@ Future<void> testWebSocket(String roomId) async {
                 } else if (cmd == 'ONLINE_RANK_V2') {
                   // 在線排名
                   final data = body['data'];
-                  print('  ⭐ [在線排名] online_list 人數: ${(data['online_list'] as List?)?.length}');
+                  print(
+                      '  ⭐ [在線排名] online_list 人數: ${(data['online_list'] as List?)?.length}');
                 } else if (cmd == 'WATCHED_CHANGE') {
                   // 觀看人數變化
                   final data = body['data'];
-                  print('  ⭐ [觀看人數] num: ${data['num']}, text_small: ${data['text_small']}');
+                  print(
+                      '  ⭐ [觀看人數] num: ${data['num']}, text_small: ${data['text_small']}');
                 } else if (cmd == 'LIKE_INFO_V3_UPDATE') {
                   // 點讚數更新
                   final data = body['data'];
                   print('  [點讚] count: ${data['click_count']}');
                 } else if (cmd?.startsWith('ONLINE') == true ||
-                           cmd?.contains('WATCH') == true ||
-                           cmd?.contains('RANK') == true) {
+                    cmd?.contains('WATCH') == true ||
+                    cmd?.contains('RANK') == true) {
                   // 其他可能包含觀眾數的命令
                   print('  ⭐ [$cmd] ${_truncateJson(body)}');
                 }
@@ -462,7 +465,6 @@ Future<void> testWebSocket(String roomId) async {
     await ws.close();
 
     print('\n收到 $messageCount 個數據包');
-
   } catch (e) {
     print('❌ WebSocket 測試失敗: $e');
   }
@@ -493,11 +495,11 @@ Uint8List _buildPacket(int operation, List<int> body) {
   final totalLength = headerLength + body.length;
 
   final packet = ByteData(totalLength);
-  packet.setUint32(0, totalLength, Endian.big);  // 總長度
-  packet.setUint16(4, headerLength, Endian.big);  // 頭部長度
-  packet.setUint16(6, 1, Endian.big);             // 協議版本
-  packet.setUint32(8, operation, Endian.big);     // 操作碼
-  packet.setUint32(12, 1, Endian.big);            // 序列號
+  packet.setUint32(0, totalLength, Endian.big); // 總長度
+  packet.setUint16(4, headerLength, Endian.big); // 頭部長度
+  packet.setUint16(6, 1, Endian.big); // 協議版本
+  packet.setUint32(8, operation, Endian.big); // 操作碼
+  packet.setUint32(12, 1, Endian.big); // 序列號
 
   final result = Uint8List(totalLength);
   result.setRange(0, headerLength, packet.buffer.asUint8List());
@@ -529,7 +531,8 @@ List<Map<String, dynamic>> _parsePackets(Uint8List data) {
     if (operation == 3) {
       // 心跳回應，body 是 4 字節的人氣值
       if (bodyData.length >= 4) {
-        body = ByteData.view(bodyData.buffer, bodyData.offsetInBytes).getUint32(0, Endian.big);
+        body = ByteData.view(bodyData.buffer, bodyData.offsetInBytes)
+            .getUint32(0, Endian.big);
       }
     } else if (operation == 5) {
       // 普通消息

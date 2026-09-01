@@ -1458,13 +1458,19 @@ Map<String, dynamic> _lockupViewModel({
               'metadataRows': [
                 {
                   'metadataParts': [
-                    {'text': {'content': artist}},
+                    {
+                      'text': {'content': artist}
+                    },
                   ],
                 },
                 {
                   'metadataParts': [
-                    {'text': {'content': viewCountText}},
-                    {'text': {'content': '2 weeks ago'}},
+                    {
+                      'text': {'content': viewCountText}
+                    },
+                    {
+                      'text': {'content': '2 weeks ago'}
+                    },
                   ],
                 },
               ],

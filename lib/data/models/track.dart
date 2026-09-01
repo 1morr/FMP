@@ -12,9 +12,12 @@ enum SourceType {
 
   String get displayName {
     switch (this) {
-      case SourceType.bilibili: return t.importPlatform.bilibili;
-      case SourceType.youtube: return t.importPlatform.youtube;
-      case SourceType.netease: return t.importPlatform.netease;
+      case SourceType.bilibili:
+        return t.importPlatform.bilibili;
+      case SourceType.youtube:
+        return t.importPlatform.youtube;
+      case SourceType.netease:
+        return t.importPlatform.netease;
     }
   }
 }
@@ -156,8 +159,8 @@ class Track {
 
   /// 从歌单中移除（同时移除下载路径关联）
   void removeFromPlaylist(int playlistId) {
-    playlistInfo =
-        List.from(playlistInfo)..removeWhere((i) => i.playlistId == playlistId);
+    playlistInfo = List.from(playlistInfo)
+      ..removeWhere((i) => i.playlistId == playlistId);
   }
 
   /// 检查是否属于指定歌单
@@ -179,13 +182,15 @@ class Track {
   bool isDownloadedForPlaylist(int playlistId, {String? playlistName}) {
     // 优先按名称匹配
     if (playlistName != null && playlistName.isNotEmpty) {
-      final byName = playlistInfo.where((i) => i.playlistName == playlistName).firstOrNull;
+      final byName =
+          playlistInfo.where((i) => i.playlistName == playlistName).firstOrNull;
       if (byName != null && byName.downloadPath.isNotEmpty) {
         return true;
       }
     }
     // 降级按 ID 匹配（兼容旧数据）
-    final byId = playlistInfo.where((i) => i.playlistId == playlistId).firstOrNull;
+    final byId =
+        playlistInfo.where((i) => i.playlistId == playlistId).firstOrNull;
     return byId != null && byId.downloadPath.isNotEmpty;
   }
 
@@ -209,7 +214,8 @@ class Track {
         .map((info) => PlaylistDownloadInfo()
           ..playlistId = info.playlistId
           ..playlistName = info.playlistName
-          ..downloadPath = info.playlistId == playlistId ? '' : info.downloadPath)
+          ..downloadPath =
+              info.playlistId == playlistId ? '' : info.downloadPath)
         .toList();
   }
 
@@ -217,12 +223,15 @@ class Track {
 
   /// 所有歌单ID列表
   @ignore
-  List<int> get allPlaylistIds => playlistInfo.map((i) => i.playlistId).toList();
+  List<int> get allPlaylistIds =>
+      playlistInfo.map((i) => i.playlistId).toList();
 
   /// 所有下载路径列表（不含空字符串）
   @ignore
-  List<String> get allDownloadPaths =>
-      playlistInfo.map((i) => i.downloadPath).where((p) => p.isNotEmpty).toList();
+  List<String> get allDownloadPaths => playlistInfo
+      .map((i) => i.downloadPath)
+      .where((p) => p.isNotEmpty)
+      .toList();
 
   /// 是否有任何下载
   @ignore
@@ -341,5 +350,6 @@ class Track {
   }
 
   @override
-  String toString() => 'Track(id: $id, title: $title, artist: $artist, source: $sourceType)';
+  String toString() =>
+      'Track(id: $id, title: $title, artist: $artist, source: $sourceType)';
 }

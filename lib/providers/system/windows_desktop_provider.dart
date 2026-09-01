@@ -19,7 +19,7 @@ final windowsDesktopServiceProvider = Provider<WindowsDesktopService?>((ref) {
     // 只有当播放状态或当前曲目真正变化时才更新
     final isPlayingChanged = previous?.isPlaying != next.isPlaying;
     final trackChanged = previous?.currentTrack?.id != next.currentTrack?.id;
-    
+
     if (isPlayingChanged || trackChanged) {
       service.updatePlaybackState(
         isPlaying: next.isPlaying,

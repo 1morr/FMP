@@ -387,7 +387,8 @@ class AudioController extends StateNotifier<PlayerState>
       subscribe(_audioService.playerStateStream, _onPlayerStateChanged);
       subscribe(_audioService.positionStream, _onPositionChanged);
       subscribe(_audioService.durationStream, _onDurationChanged);
-      subscribe(_audioService.bufferedPositionStream, _onBufferedPositionChanged);
+      subscribe(
+          _audioService.bufferedPositionStream, _onBufferedPositionChanged);
       subscribe(_audioService.speedStream, _onSpeedChanged);
       subscribe(_audioService.audioDevicesStream, _onAudioDevicesChanged);
       subscribe(_audioService.audioDeviceStream, _onAudioDeviceChanged);

@@ -31,7 +31,8 @@ void main() {
       expect(scaffoldSource, contains('surfaceTintColor: Colors.transparent'));
       expect(scaffoldSource, contains('top: _appBarHeight'));
       expect(scaffoldSource, contains('height: _appBarHeight'));
-      expect(scaffoldSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
+      expect(
+          scaffoldSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
       expect(
         scaffoldSource,
         contains(

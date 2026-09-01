@@ -4,7 +4,6 @@ import '../../core/logger.dart';
 import '../../core/utils/http_client_factory.dart';
 import 'lyrics_result.dart';
 
-
 /// lrclib.net API 异常
 class LrclibException implements Exception {
   final int? statusCode;
@@ -69,10 +68,8 @@ class LrclibSource with Logging {
         return [];
       }
 
-      final results = data
-          .cast<Map<String, dynamic>>()
-          .map(LyricsResult.fromJson)
-          .toList();
+      final results =
+          data.cast<Map<String, dynamic>>().map(LyricsResult.fromJson).toList();
 
       logDebug('Found ${results.length} results');
       return results;

@@ -69,7 +69,8 @@ class PlaylistRefreshProgress extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  t.refreshProgressIndicator.refreshingPlaylist(name: refreshState.playlistName),
+                  t.refreshProgressIndicator
+                      .refreshingPlaylist(name: refreshState.playlistName),
                   style: Theme.of(context).textTheme.bodyMedium,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -133,7 +134,8 @@ class PlaylistRefreshProgress extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                t.refreshProgressIndicator.refreshingPlaylists(count: refreshList.length),
+                t.refreshProgressIndicator
+                    .refreshingPlaylists(count: refreshList.length),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),

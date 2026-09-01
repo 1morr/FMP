@@ -95,10 +95,10 @@ void main() {
 
       final elapsed = stopwatch.elapsedMilliseconds;
       // ignore: avoid_print
-      print('Performed ${100 * timestamps.length * 3} date operations in ${elapsed}ms');
+      print(
+          'Performed ${100 * timestamps.length * 3} date operations in ${elapsed}ms');
 
-      expect(elapsed, lessThan(2000),
-          reason: 'Date operations should be fast');
+      expect(elapsed, lessThan(2000), reason: 'Date operations should be fast');
     });
 
     test('String operations performance (title truncation, etc)', () async {
@@ -151,7 +151,8 @@ void main() {
 
       final elapsed = stopwatch.elapsedMilliseconds;
       // ignore: avoid_print
-      print('Checked ${100 * testPaths.length} directory existence in ${elapsed}ms');
+      print(
+          'Checked ${100 * testPaths.length} directory existence in ${elapsed}ms');
 
       // File system operations are inherently slower
       expect(elapsed, lessThan(10000),

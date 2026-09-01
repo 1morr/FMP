@@ -631,8 +631,7 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
   /// CachedNetworkImage 的 key，强制创建新 state 重新发起请求
   /// （同参数 rebuild 不会触发 CachedNetworkImage 重新解析）。
   void _retryCurrentUrl() {
-    final delay =
-        _retryDelays[_retryAttempt.clamp(0, _retryDelays.length - 1)];
+    final delay = _retryDelays[_retryAttempt.clamp(0, _retryDelays.length - 1)];
     _retryTimer = Timer(delay, () {
       _retryTimer = null;
       if (!mounted) return;

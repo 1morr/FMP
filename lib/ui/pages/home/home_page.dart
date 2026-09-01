@@ -596,8 +596,8 @@ class _RadioSection extends ConsumerWidget {
         ),
       ];
 
-  void _handleRadioMenuAction(BuildContext context, WidgetRef ref,
-      RadioStation station, String value) {
+  void _handleRadioMenuAction(
+      BuildContext context, WidgetRef ref, RadioStation station, String value) {
     if (value == 'delete') {
       _showRadioDeleteConfirm(context, ref, station);
     }
@@ -818,8 +818,7 @@ class _RecentHistorySection extends ConsumerWidget {
         if (confirmedDelete == true && context.mounted) {
           await ref.read(playHistoryActionsProvider).delete(history.id);
           if (context.mounted) {
-            ToastService.success(
-                context, t.playHistoryPage.toastDeletedRecord);
+            ToastService.success(context, t.playHistoryPage.toastDeletedRecord);
           }
         }
       case 'delete_all':

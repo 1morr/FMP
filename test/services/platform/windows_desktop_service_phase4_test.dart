@@ -52,7 +52,8 @@ void main() {
     });
 
     test('custom title bar close button uses unified close-intent handler', () {
-      final source = readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
+      final source =
+          readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
 
       expect(source,
           contains('service.handleCloseIntent(fromSystemClose: false)'));
@@ -62,7 +63,8 @@ void main() {
     test(
         'custom title bar exposes explicit semantics labels for window controls',
         () {
-      final source = readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
+      final source =
+          readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
 
       expect(source, contains('tooltip: t.general.minimize'));
       expect(
@@ -96,7 +98,8 @@ void main() {
 
       // 標題列控制項的 Semantics/Tooltip 邏輯現已抽到 leaf（C1e-2），
       // 於該檔驗證每個按鈕仍有 label + excludeFromSemantics + ExcludeSemantics。
-      final titleBar = readSource('lib/ui/windows/lyrics/lyrics_title_bar.dart');
+      final titleBar =
+          readSource('lib/ui/windows/lyrics/lyrics_title_bar.dart');
       expect(titleBar, contains('label: tooltip'));
       expect(titleBar, contains('excludeFromSemantics: true'));
       expect(titleBar, contains('ExcludeSemantics(child: Icon('));

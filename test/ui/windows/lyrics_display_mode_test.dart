@@ -5,19 +5,23 @@ void main() {
   group('LyricsDisplayMode (C1c)', () {
     test('fromIndex maps the three wire values', () {
       expect(LyricsDisplayMode.fromIndex(0), LyricsDisplayMode.original);
-      expect(LyricsDisplayMode.fromIndex(1), LyricsDisplayMode.preferTranslated);
+      expect(
+          LyricsDisplayMode.fromIndex(1), LyricsDisplayMode.preferTranslated);
       expect(LyricsDisplayMode.fromIndex(2), LyricsDisplayMode.preferRomaji);
     });
 
-    test('fromIndex is lenient: out-of-range and null fall back to original', () {
+    test('fromIndex is lenient: out-of-range and null fall back to original',
+        () {
       expect(LyricsDisplayMode.fromIndex(null), LyricsDisplayMode.original);
       expect(LyricsDisplayMode.fromIndex(-1), LyricsDisplayMode.original);
       expect(LyricsDisplayMode.fromIndex(3), LyricsDisplayMode.original);
       expect(LyricsDisplayMode.fromIndex(99), LyricsDisplayMode.original);
     });
 
-    test('next cycles original → preferTranslated → preferRomaji → original', () {
-      expect(LyricsDisplayMode.original.next, LyricsDisplayMode.preferTranslated);
+    test('next cycles original → preferTranslated → preferRomaji → original',
+        () {
+      expect(
+          LyricsDisplayMode.original.next, LyricsDisplayMode.preferTranslated);
       expect(
         LyricsDisplayMode.preferTranslated.next,
         LyricsDisplayMode.preferRomaji,

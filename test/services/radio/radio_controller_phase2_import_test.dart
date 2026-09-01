@@ -58,11 +58,14 @@ void main() {
       final items = await harness.controller.loadAccountImportCandidates();
 
       expect(items.map((item) => item.roomId), ['101', '202']);
-      expect(items.where((item) => item.isLive).map((item) => item.name), ['Alpha']);
+      expect(items.where((item) => item.isLive).map((item) => item.name),
+          ['Alpha']);
       expect(items.every((item) => !item.isImported), isTrue);
     });
 
-    test('marks already imported candidates even before radio state finishes loading', () async {
+    test(
+        'marks already imported candidates even before radio state finishes loading',
+        () async {
       final harness = await createHarness(
         medalWallItems: const [
           MedalWallItem(
@@ -91,19 +94,25 @@ void main() {
       expect(harness.controller.state.stations, isEmpty);
 
       final items = await harness.controller.loadAccountImportCandidates();
-      final importedCandidate = items.firstWhere((item) => item.roomId == '101');
+      final importedCandidate =
+          items.firstWhere((item) => item.roomId == '101');
       final newCandidate = items.firstWhere((item) => item.roomId == '202');
 
       expect(importedCandidate.isImported, isTrue);
       expect(newCandidate.isImported, isFalse);
     });
 
-    test('imports only unique stations and applies sequential ordering', () async {
+    test('imports only unique stations and applies sequential ordering',
+        () async {
       final harness = await createHarness(
-        initialStations: [_buildStation(sourceId: '101', title: 'Existing', sortOrder: 4)],
+        initialStations: [
+          _buildStation(sourceId: '101', title: 'Existing', sortOrder: 4)
+        ],
         sourceStationsByUrl: {
-          'https://live.bilibili.com/101': _buildStation(sourceId: '101', title: 'Existing duplicate'),
-          'https://live.bilibili.com/202': _buildStation(sourceId: '202', title: 'Imported 202'),
+          'https://live.bilibili.com/101':
+              _buildStation(sourceId: '101', title: 'Existing duplicate'),
+          'https://live.bilibili.com/202':
+              _buildStation(sourceId: '202', title: 'Imported 202'),
         },
       );
       addTearDown(harness.dispose);
@@ -134,14 +143,20 @@ void main() {
 }
 
 class RadioControllerImportHarness {
-  RadioControllerImportHarness({required this.controller, required this.repository, required this.isar, required this.tempDir});
+  RadioControllerImportHarness(
+      {required this.controller,
+      required this.repository,
+      required this.isar,
+      required this.tempDir});
 
   final RadioController controller;
   final RadioRepository repository;
   final Isar isar;
   final Directory tempDir;
 
-  Future<void> pumpUntil(bool Function() condition, {required String reason, Duration timeout = const Duration(seconds: 2)}) async {
+  Future<void> pumpUntil(bool Function() condition,
+      {required String reason,
+      Duration timeout = const Duration(seconds: 2)}) async {
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
       if (condition()) return;
@@ -164,23 +179,32 @@ Future<RadioControllerImportHarness> createHarness({
   Duration initialLoadDelay = Duration.zero,
   bool waitForInitialLoad = true,
 }) async {
-  final tempDir = await Directory.systemTemp.createTemp('radio_controller_phase2_import_test_');
-  final isar = await Isar.open([RadioStationSchema], directory: tempDir.path, name: 'radio_controller_phase2_import_test');
+  final tempDir = await Directory.systemTemp
+      .createTemp('radio_controller_phase2_import_test_');
+  final isar = await Isar.open([RadioStationSchema],
+      directory: tempDir.path, name: 'radio_controller_phase2_import_test');
   final repository = RadioRepository(isar);
   if (initialStations.isNotEmpty) await repository.saveAll(initialStations);
 
   final controller = RadioController(
-    _FakeRef(_FakeBilibiliAccountService(isar: isar, medalWallItems: medalWallItems)),
+    _FakeRef(_FakeBilibiliAccountService(
+        isar: isar, medalWallItems: medalWallItems)),
     repository,
     _FakeRadioSource(sourceStationsByUrl),
     FakeAudioService(),
     initialLoadDelay: initialLoadDelay,
   );
 
-  final harness = RadioControllerImportHarness(controller: controller, repository: repository, isar: isar, tempDir: tempDir);
+  final harness = RadioControllerImportHarness(
+      controller: controller,
+      repository: repository,
+      isar: isar,
+      tempDir: tempDir);
   await Future<void>.delayed(const Duration(milliseconds: 50));
   if (waitForInitialLoad) {
-    await harness.pumpUntil(() => controller.state.stations.length == initialStations.length, reason: 'controller should load initial radio state');
+    await harness.pumpUntil(
+        () => controller.state.stations.length == initialStations.length,
+        reason: 'controller should load initial radio state');
   }
   return harness;
 }
@@ -201,7 +225,8 @@ class _FakeRef implements Ref {
 }
 
 class _FakeBilibiliAccountService extends BilibiliAccountService {
-  _FakeBilibiliAccountService({required super.isar, required this.medalWallItems});
+  _FakeBilibiliAccountService(
+      {required super.isar, required this.medalWallItems});
 
   final List<MedalWallItem> medalWallItems;
 
@@ -225,11 +250,15 @@ class _FakeRadioSource extends RadioSource {
   Future<RadioStation> createStationFromUrl(String url) async {
     final station = sourceStationsByUrl[url];
     if (station == null) throw Exception('Missing fake station for $url');
-    return _buildStation(sourceId: station.sourceId, title: station.title, sortOrder: station.sortOrder);
+    return _buildStation(
+        sourceId: station.sourceId,
+        title: station.title,
+        sortOrder: station.sortOrder);
   }
 }
 
-RadioStation _buildStation({required String sourceId, required String title, int sortOrder = 0}) {
+RadioStation _buildStation(
+    {required String sourceId, required String title, int sortOrder = 0}) {
   return RadioStation()
     ..url = 'https://live.bilibili.com/$sourceId'
     ..sourceType = SourceType.bilibili
@@ -239,12 +268,17 @@ RadioStation _buildStation({required String sourceId, required String title, int
 }
 
 Future<String> _resolveIsarLibraryPath() async {
-  final packageConfig = jsonDecode(await File('${Directory.current.path}/.dart_tool/package_config.json').readAsString()) as Map<String, dynamic>;
+  final packageConfig = jsonDecode(
+      await File('${Directory.current.path}/.dart_tool/package_config.json')
+          .readAsString()) as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
   for (final package in packages) {
-    if (package is! Map<String, dynamic> || package['name'] != 'isar_flutter_libs') continue;
-    final packageDir = Directory(packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath());
+    if (package is! Map<String, dynamic> ||
+        package['name'] != 'isar_flutter_libs') continue;
+    final packageDir = Directory(packageConfigDir.uri
+        .resolve(package['rootUri'] as String)
+        .toFilePath());
     if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
     if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
     if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';

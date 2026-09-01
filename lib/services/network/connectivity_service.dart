@@ -74,8 +74,10 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
     );
 
     // 启动定时轮询
-    _pollingTimer = Timer.periodic(AppConstants.connectivityPollingInterval, (_) => _poll());
-    logDebug('DNS polling started (interval: ${AppConstants.connectivityPollingInterval.inSeconds}s)');
+    _pollingTimer = Timer.periodic(
+        AppConstants.connectivityPollingInterval, (_) => _poll());
+    logDebug(
+        'DNS polling started (interval: ${AppConstants.connectivityPollingInterval.inSeconds}s)');
   }
 
   Future<void> _poll() async {

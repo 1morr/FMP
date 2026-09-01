@@ -7,7 +7,8 @@ import 'package:fmp/providers/audio/audio_settings_provider.dart';
 import 'package:isar/isar.dart';
 
 void main() {
-  test('audio settings expose netease stream priority default (D2 broken window)',
+  test(
+      'audio settings expose netease stream priority default (D2 broken window)',
       () async {
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
     final repository = _FakeSettingsRepository(Settings());

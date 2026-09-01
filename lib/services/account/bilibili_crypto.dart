@@ -72,7 +72,8 @@ class BilibiliCrypto {
     }
     offset++;
     if (offset >= bytes.length) {
-      throw FormatException('Unexpected end of DER data after tag at offset $offset');
+      throw FormatException(
+          'Unexpected end of DER data after tag at offset $offset');
     }
     // 讀取 length
     if (bytes[offset] & 0x80 != 0) {
@@ -81,7 +82,8 @@ class BilibiliCrypto {
         throw FormatException('DER length too large: $numLenBytes bytes');
       }
       if (offset + 1 + numLenBytes > bytes.length) {
-        throw FormatException('DER length bytes exceed data size at offset $offset');
+        throw FormatException(
+            'DER length bytes exceed data size at offset $offset');
       }
       offset += 1 + numLenBytes;
     } else {
@@ -102,7 +104,8 @@ class BilibiliCrypto {
     }
     offset++;
     if (offset >= bytes.length) {
-      throw FormatException('Unexpected end of DER data after tag at offset $offset');
+      throw FormatException(
+          'Unexpected end of DER data after tag at offset $offset');
     }
     int length;
     if (bytes[offset] & 0x80 != 0) {
@@ -112,7 +115,8 @@ class BilibiliCrypto {
       }
       offset++;
       if (offset + numLenBytes > bytes.length) {
-        throw FormatException('DER length bytes exceed data size at offset $offset');
+        throw FormatException(
+            'DER length bytes exceed data size at offset $offset');
       }
       length = 0;
       for (var i = 0; i < numLenBytes; i++) {
@@ -122,7 +126,8 @@ class BilibiliCrypto {
       length = bytes[offset++];
     }
     if (length > bytes.length - offset) {
-      throw FormatException('DER content length $length exceeds remaining data at offset $offset');
+      throw FormatException(
+          'DER content length $length exceeds remaining data at offset $offset');
     }
     return (contentOffset: offset, length: length);
   }
@@ -131,8 +136,8 @@ class BilibiliCrypto {
   static ({BigInt value, int nextOffset}) _readInteger(
       Uint8List bytes, int offset) {
     final result = _readTagLength(bytes, offset, 0x02);
-    final valueBytes =
-        bytes.sublist(result.contentOffset, result.contentOffset + result.length);
+    final valueBytes = bytes.sublist(
+        result.contentOffset, result.contentOffset + result.length);
 
     var value = BigInt.zero;
     for (final byte in valueBytes) {

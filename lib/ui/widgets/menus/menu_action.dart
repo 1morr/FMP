@@ -112,8 +112,7 @@ List<Widget> buildMenuActionListTiles(
               ),
         title: Text(
           action.label,
-          style:
-              action.destructive ? TextStyle(color: destructiveColor) : null,
+          style: action.destructive ? TextStyle(color: destructiveColor) : null,
         ),
         trailing: _buildTrailing(action),
         enabled: action.enabled,

@@ -180,7 +180,8 @@ Future<String?> _findFirstCoverInternal(Directory folder) async {
         if (await coverFile.exists()) {
           // 读取 metadata.json 获取排序用的 title
           String sortKey = p.basename(entity.path);
-          final metadataFile = File(p.join(entity.path, DownloadFileNames.metadata));
+          final metadataFile =
+              File(p.join(entity.path, DownloadFileNames.metadata));
           if (await metadataFile.exists()) {
             try {
               final content = await metadataFile.readAsString();
@@ -337,7 +338,8 @@ class DownloadScanner {
               metadataFile = defaultMetadataFile;
             }
           } else {
-            metadataFile = File(p.join(entity.path, DownloadFileNames.metadata));
+            metadataFile =
+                File(p.join(entity.path, DownloadFileNames.metadata));
           }
 
           if (metadataFile != null && await metadataFile.exists()) {

@@ -11,8 +11,7 @@ import 'qq_music_sign.dart';
 class QQMusicPlaylistSource implements PlaylistImportSource {
   final Dio _dio;
 
-  QQMusicPlaylistSource({Dio? dio})
-      : _dio = dio ?? HttpClientFactory.create();
+  QQMusicPlaylistSource({Dio? dio}) : _dio = dio ?? HttpClientFactory.create();
 
   @override
   PlaylistSource get source => PlaylistSource.qqMusic;

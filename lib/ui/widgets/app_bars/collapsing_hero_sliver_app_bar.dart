@@ -66,8 +66,7 @@ class CollapsingHeroSliverAppBar extends StatelessWidget {
   final CollapsingHeroBadge? badge;
 
   /// 返回/關閉按鈕；接收當前圖標色（展開白色、折疊 onSurface）。
-  final Widget Function(BuildContext context, Color iconColor)?
-      leadingBuilder;
+  final Widget Function(BuildContext context, Color iconColor)? leadingBuilder;
 
   /// 折疊欄標題（如多選模式的已選數量）；返回 null 表示無標題。
   final Widget? Function(BuildContext context, Color iconColor)? titleBuilder;

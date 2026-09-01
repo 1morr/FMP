@@ -13,8 +13,7 @@ import 'playlist_import_source.dart';
 class SpotifyPlaylistSource implements PlaylistImportSource {
   final Dio _dio;
 
-  SpotifyPlaylistSource({Dio? dio})
-      : _dio = dio ?? HttpClientFactory.create();
+  SpotifyPlaylistSource({Dio? dio}) : _dio = dio ?? HttpClientFactory.create();
 
   @override
   PlaylistSource get source => PlaylistSource.spotify;

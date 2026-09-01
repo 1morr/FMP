@@ -36,7 +36,8 @@ void main() {
 
       expect(
         appSource,
-        contains("import 'providers/download/startup_download_sync_provider.dart';"),
+        contains(
+            "import 'providers/download/startup_download_sync_provider.dart';"),
       );
       expect(appSource, contains('ref.watch(startupDownloadSyncProvider);'));
     });

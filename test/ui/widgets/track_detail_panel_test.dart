@@ -54,7 +54,8 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('Error state shows error icon and retry button', (tester) async {
+    testWidgets('Error state shows error icon and retry button',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -226,7 +227,8 @@ void main() {
   });
 
   group('Description Section Tests', () {
-    testWidgets('Short description shows without expand button', (tester) async {
+    testWidgets('Short description shows without expand button',
+        (tester) async {
       const shortDescription = 'This is a short description.';
 
       await tester.pumpWidget(
@@ -304,10 +306,14 @@ void main() {
         isFalse,
       );
 
-      final avatarStart = source.indexOf('class _ClickableAvatar extends StatelessWidget');
+      final avatarStart =
+          source.indexOf('class _ClickableAvatar extends StatelessWidget');
       final avatarEnd = source.indexOf('/// 评论分页组件');
       final avatarSection = source.substring(avatarStart, avatarEnd);
-      expect(avatarSection, contains('networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null'));
+      expect(
+          avatarSection,
+          contains(
+              'networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null'));
       expect(avatarSection.contains('widget.detail.ownerFace'), isFalse);
     });
   });

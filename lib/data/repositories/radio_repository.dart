@@ -24,7 +24,8 @@ class RadioRepository {
   }
 
   /// 根據源 ID 獲取電台
-  Future<RadioStation?> getBySourceId(SourceType sourceType, String sourceId) async {
+  Future<RadioStation?> getBySourceId(
+      SourceType sourceType, String sourceId) async {
     return _isar.radioStations
         .filter()
         .sourceTypeEqualTo(sourceType)

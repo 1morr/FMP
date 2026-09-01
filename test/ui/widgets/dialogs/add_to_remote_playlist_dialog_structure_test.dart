@@ -112,7 +112,8 @@ void main() {
       final source = File(path).readAsStringSync();
       expect(source, contains("import 'remote_playlist_dialog_widgets.dart';"));
       expect(source, contains('RemotePlaylistSheetBody('), reason: path);
-      expect(source, contains('RemotePlaylistSelectionListView<'), reason: path);
+      expect(source, contains('RemotePlaylistSelectionListView<'),
+          reason: path);
       expect(source, isNot(contains('ImageLoadingService.loadImage(')),
           reason: path);
       expect(source, isNot(contains('TrackThumbnail(')), reason: path);

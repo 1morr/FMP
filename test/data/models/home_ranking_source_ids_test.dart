@@ -4,7 +4,8 @@ import 'package:fmp/data/models/track.dart';
 
 void main() {
   group('home ranking source id whitelist (D4)', () {
-    test('homeRankingSourceIds derives from SourceType.values, not a literal', () {
+    test('homeRankingSourceIds derives from SourceType.values, not a literal',
+        () {
       // 單一真相：白名單必須隨 SourceType enum 同步。
       // 新增 enum 值未補到此 list 時，此測試應失敗（D4 防靜默丟棄）。
       final expected =
@@ -13,7 +14,8 @@ void main() {
       expect(homeRankingSourceIds, hasLength(SourceType.values.length));
     });
 
-    test('defaultHomeRankingSourcePriority stays in sync with the whitelist', () {
+    test('defaultHomeRankingSourcePriority stays in sync with the whitelist',
+        () {
       // 預設排序字串與白名單順序一致；若將來改成衍生，此測試仍應成立。
       expect(
         defaultHomeRankingSourcePriority,

@@ -16,8 +16,7 @@ void main() {
           contains('class CompactVolumeControl'));
       expect(readSource('lib/ui/widgets/player/fmp_audio_device_selector.dart'),
           contains('class FmpAudioDeviceSelector'));
-      expect(
-          readSource('lib/ui/widgets/player/player_play_pause_button.dart'),
+      expect(readSource('lib/ui/widgets/player/player_play_pause_button.dart'),
           contains('class PlayerPlayPauseButton'));
       expect(readSource('lib/ui/widgets/player/cover_art_container.dart'),
           contains('class CoverArtContainer'));

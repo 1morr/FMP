@@ -18,7 +18,8 @@ class QueueRepository with Logging {
       await _isar.writeTxn(() => _isar.playQueues.put(queue!));
       logDebug('Created new queue with id: ${queue.id}');
     } else {
-      logDebug('Found existing queue with ${queue.trackIds.length} tracks, currentIndex: ${queue.currentIndex}');
+      logDebug(
+          'Found existing queue with ${queue.trackIds.length} tracks, currentIndex: ${queue.currentIndex}');
     }
     return queue;
   }
@@ -78,8 +79,10 @@ class QueueRepository with Logging {
       // 调整当前索引
       if (index < queue.currentIndex) {
         queue.currentIndex--;
-      } else if (index == queue.currentIndex && queue.currentIndex >= queue.trackIds.length) {
-        queue.currentIndex = queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
+      } else if (index == queue.currentIndex &&
+          queue.currentIndex >= queue.trackIds.length) {
+        queue.currentIndex =
+            queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
       }
       await save(queue);
     }
@@ -96,8 +99,10 @@ class QueueRepository with Logging {
       // 调整当前索引
       if (index < queue.currentIndex) {
         queue.currentIndex--;
-      } else if (index == queue.currentIndex && queue.currentIndex >= queue.trackIds.length) {
-        queue.currentIndex = queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
+      } else if (index == queue.currentIndex &&
+          queue.currentIndex >= queue.trackIds.length) {
+        queue.currentIndex =
+            queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
       }
       await save(queue);
     }
@@ -106,8 +111,10 @@ class QueueRepository with Logging {
   /// 移动歌曲位置
   Future<void> moveTrack(int oldIndex, int newIndex) async {
     final queue = await getOrCreate();
-    if (oldIndex >= 0 && oldIndex < queue.trackIds.length &&
-        newIndex >= 0 && newIndex < queue.trackIds.length) {
+    if (oldIndex >= 0 &&
+        oldIndex < queue.trackIds.length &&
+        newIndex >= 0 &&
+        newIndex < queue.trackIds.length) {
       // 创建可变列表副本，避免 fixed-length list 错误
       final newTrackIds = List<int>.from(queue.trackIds);
       final trackId = newTrackIds.removeAt(oldIndex);
@@ -117,9 +124,11 @@ class QueueRepository with Logging {
       // 调整当前索引
       if (queue.currentIndex == oldIndex) {
         queue.currentIndex = newIndex;
-      } else if (oldIndex < queue.currentIndex && newIndex >= queue.currentIndex) {
+      } else if (oldIndex < queue.currentIndex &&
+          newIndex >= queue.currentIndex) {
         queue.currentIndex--;
-      } else if (oldIndex > queue.currentIndex && newIndex <= queue.currentIndex) {
+      } else if (oldIndex > queue.currentIndex &&
+          newIndex <= queue.currentIndex) {
         queue.currentIndex++;
       }
 
@@ -141,7 +150,8 @@ class QueueRepository with Logging {
   /// 更新当前播放索引
   Future<void> updateCurrentIndex(int index) async {
     final queue = await getOrCreate();
-    queue.currentIndex = index.clamp(0, queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1);
+    queue.currentIndex =
+        index.clamp(0, queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1);
     await save(queue);
   }
 
@@ -179,7 +189,7 @@ class QueueRepository with Logging {
 
     // 创建可变列表副本，避免 fixed-length list 错误
     final newTrackIds = List<int>.from(queue.trackIds);
-    
+
     // 打乱
     newTrackIds.shuffle();
 
@@ -189,7 +199,7 @@ class QueueRepository with Logging {
       newTrackIds.insert(0, currentTrackId);
       queue.currentIndex = 0;
     }
-    
+
     queue.trackIds = newTrackIds;
     await save(queue);
   }

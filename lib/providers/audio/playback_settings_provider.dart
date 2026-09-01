@@ -26,10 +26,13 @@ class PlaybackSettingsState {
     bool? isLoading,
   }) {
     return PlaybackSettingsState(
-      autoScrollToCurrentTrack: autoScrollToCurrentTrack ?? this.autoScrollToCurrentTrack,
-      rememberPlaybackPosition: rememberPlaybackPosition ?? this.rememberPlaybackPosition,
+      autoScrollToCurrentTrack:
+          autoScrollToCurrentTrack ?? this.autoScrollToCurrentTrack,
+      rememberPlaybackPosition:
+          rememberPlaybackPosition ?? this.rememberPlaybackPosition,
       restartRewindSeconds: restartRewindSeconds ?? this.restartRewindSeconds,
-      tempPlayRewindSeconds: tempPlayRewindSeconds ?? this.tempPlayRewindSeconds,
+      tempPlayRewindSeconds:
+          tempPlayRewindSeconds ?? this.tempPlayRewindSeconds,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -95,7 +98,8 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
 
 /// 播放设置 Provider
 final playbackSettingsProvider =
-    StateNotifierProvider<PlaybackSettingsNotifier, PlaybackSettingsState>((ref) {
+    StateNotifierProvider<PlaybackSettingsNotifier, PlaybackSettingsState>(
+        (ref) {
   return PlaybackSettingsNotifier(ref);
 });
 

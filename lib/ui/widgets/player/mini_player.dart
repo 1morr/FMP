@@ -116,10 +116,12 @@ class _MiniPlayerProgressBar extends ConsumerStatefulWidget {
   final bool isParentHovering;
 
   @override
-  ConsumerState<_MiniPlayerProgressBar> createState() => _MiniPlayerProgressBarState();
+  ConsumerState<_MiniPlayerProgressBar> createState() =>
+      _MiniPlayerProgressBarState();
 }
 
-class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> {
+class _MiniPlayerProgressBarState
+    extends ConsumerState<_MiniPlayerProgressBar> {
   /// 是否正在拖动进度条
   bool _isDragging = false;
 
@@ -130,11 +132,13 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     // 只监听进度值
-    final progress = ref.watch(audioControllerProvider.select((s) => s.progress));
+    final progress =
+        ref.watch(audioControllerProvider.select((s) => s.progress));
     final controller = ref.read(audioControllerProvider.notifier);
 
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
-    final displayProgress = _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
+    final displayProgress =
+        _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
 
     // 是否应该展开：父组件悬停或正在拖动
     final isExpanded = widget.isParentHovering || _isDragging;
@@ -172,7 +176,9 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapUp: (details) {
-                final progress = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+                final progress =
+                    (details.localPosition.dx / constraints.maxWidth)
+                        .clamp(0.0, 1.0);
                 controller.seekToProgress(progress);
               },
               // 悬停时扩大点击区域，视觉元素锚定在顶部
@@ -226,7 +232,8 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: colorScheme.shadow.withValues(alpha: 0.3),
+                                  color:
+                                      colorScheme.shadow.withValues(alpha: 0.3),
                                   blurRadius: 4,
                                   offset: const Offset(0, 1),
                                 ),
@@ -311,14 +318,22 @@ class _MiniPlayerControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     // 只监听播放状态相关字段
-    final isPlaying = ref.watch(audioControllerProvider.select((s) => s.isPlaying));
-    final isBuffering = ref.watch(audioControllerProvider.select((s) => s.isBuffering));
-    final isLoading = ref.watch(audioControllerProvider.select((s) => s.isLoading));
-    final isShuffleEnabled = ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
-    final loopMode = ref.watch(audioControllerProvider.select((s) => s.loopMode));
-    final isMixMode = ref.watch(audioControllerProvider.select((s) => s.isMixMode));
-    final canPlayPrevious = ref.watch(audioControllerProvider.select((s) => s.canPlayPrevious));
-    final canPlayNext = ref.watch(audioControllerProvider.select((s) => s.canPlayNext));
+    final isPlaying =
+        ref.watch(audioControllerProvider.select((s) => s.isPlaying));
+    final isBuffering =
+        ref.watch(audioControllerProvider.select((s) => s.isBuffering));
+    final isLoading =
+        ref.watch(audioControllerProvider.select((s) => s.isLoading));
+    final isShuffleEnabled =
+        ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
+    final loopMode =
+        ref.watch(audioControllerProvider.select((s) => s.loopMode));
+    final isMixMode =
+        ref.watch(audioControllerProvider.select((s) => s.isMixMode));
+    final canPlayPrevious =
+        ref.watch(audioControllerProvider.select((s) => s.canPlayPrevious));
+    final canPlayNext =
+        ref.watch(audioControllerProvider.select((s) => s.canPlayNext));
 
     final controller = ref.read(audioControllerProvider.notifier);
 

@@ -24,7 +24,8 @@ void main() {
 
       expect(source.contains('class AudioRuntimeSettings'), isTrue);
       expect(
-          source.contains('Future<AudioRuntimeSettings> getPositionRestoreSettings()'),
+          source.contains(
+              'Future<AudioRuntimeSettings> getPositionRestoreSettings()'),
           isTrue);
     });
 
@@ -85,7 +86,9 @@ void main() {
       }
     });
 
-    test('restoreState returns queue snapshot, saved position, volume, and mix metadata', () async {
+    test(
+        'restoreState returns queue snapshot, saved position, volume, and mix metadata',
+        () async {
       final savedTracks = await trackRepository.getOrCreateAll([
         _track('restore-a', title: 'Restore A'),
         _track('restore-b', title: 'Restore B'),
@@ -96,7 +99,8 @@ void main() {
 
       currentQueue.trackIds = savedTracks.map((track) => track.id).toList();
       currentQueue.currentIndex = 1;
-      currentQueue.lastPositionMs = const Duration(minutes: 1, seconds: 15).inMilliseconds;
+      currentQueue.lastPositionMs =
+          const Duration(minutes: 1, seconds: 15).inMilliseconds;
       currentQueue.lastVolume = 0.35;
       currentQueue.isMixMode = true;
       currentQueue.mixPlaylistId = 'RDrestore123';
@@ -107,7 +111,8 @@ void main() {
       final restored = await manager.restoreState();
 
       expect(restored.queue.trackIds, currentQueue.trackIds);
-      expect(restored.tracks.map((track) => track.sourceId), ['restore-a', 'restore-b']);
+      expect(restored.tracks.map((track) => track.sourceId),
+          ['restore-a', 'restore-b']);
       expect(restored.currentIndex, 1);
       expect(restored.savedPosition, const Duration(minutes: 1, seconds: 15));
       expect(restored.savedVolume, 0.35);
@@ -131,23 +136,28 @@ void main() {
       );
 
       final persistedQueue = await queueRepository.getOrCreate();
-      expect(persistedQueue.trackIds, savedTracks.map((track) => track.id).toList());
+      expect(persistedQueue.trackIds,
+          savedTracks.map((track) => track.id).toList());
       expect(persistedQueue.currentIndex, 1);
-      expect(persistedQueue.lastPositionMs, const Duration(seconds: 42).inMilliseconds);
+      expect(persistedQueue.lastPositionMs,
+          const Duration(seconds: 42).inMilliseconds);
     });
 
-    test('savePositionNow persists both currentIndex and lastPositionMs', () async {
+    test('savePositionNow persists both currentIndex and lastPositionMs',
+        () async {
       await manager.savePositionNow(
         queue: currentQueue,
         currentIndex: 3,
-        currentPosition: const Duration(minutes: 2, seconds: 5, milliseconds: 400),
+        currentPosition:
+            const Duration(minutes: 2, seconds: 5, milliseconds: 400),
       );
 
       final persistedQueue = await queueRepository.getOrCreate();
       expect(persistedQueue.currentIndex, 3);
       expect(
         persistedQueue.lastPositionMs,
-        const Duration(minutes: 2, seconds: 5, milliseconds: 400).inMilliseconds,
+        const Duration(minutes: 2, seconds: 5, milliseconds: 400)
+            .inMilliseconds,
       );
     });
 
@@ -187,7 +197,8 @@ void main() {
       expect(persistedQueue.mixTitle, isNull);
     });
 
-    test('getPositionRestoreSettings returns repository-backed values', () async {
+    test('getPositionRestoreSettings returns repository-backed values',
+        () async {
       final settings = await settingsRepository.get();
       settings.rememberPlaybackPosition = false;
       settings.restartRewindSeconds = 7;
@@ -213,7 +224,8 @@ Track _track(String sourceId, {required String title}) {
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfig = await _loadPackageConfig();
-  final packageDir = _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
+  final packageDir =
+      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
 
   if (Platform.isWindows) {
     return '${packageDir.path}/windows/isar.dll';
@@ -225,7 +237,8 @@ Future<String> _resolveIsarLibraryPath() async {
     return '${packageDir.path}/macos/libisar.dylib';
   }
 
-  throw UnsupportedError('Unsupported platform for Isar tests: ${Platform.operatingSystem}');
+  throw UnsupportedError(
+      'Unsupported platform for Isar tests: ${Platform.operatingSystem}');
 }
 
 Future<Map<String, dynamic>> _loadPackageConfig() async {

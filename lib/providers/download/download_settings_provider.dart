@@ -31,7 +31,8 @@ class DownloadSettingsState {
     bool? isLoading,
   }) {
     return DownloadSettingsState(
-      maxConcurrentDownloads: maxConcurrentDownloads ?? this.maxConcurrentDownloads,
+      maxConcurrentDownloads:
+          maxConcurrentDownloads ?? this.maxConcurrentDownloads,
       downloadImageOption: downloadImageOption ?? this.downloadImageOption,
       maxCacheSizeMB: maxCacheSizeMB ?? this.maxCacheSizeMB,
       maxLyricsCacheFiles: maxLyricsCacheFiles ?? this.maxLyricsCacheFiles,
@@ -46,7 +47,8 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
   final LyricsCacheService _lyricsCacheService;
   Settings? _settings;
 
-  DownloadSettingsNotifier(this._settingsRepository, this._lyricsCacheService) : super(const DownloadSettingsState()) {
+  DownloadSettingsNotifier(this._settingsRepository, this._lyricsCacheService)
+      : super(const DownloadSettingsState()) {
     _loadSettings();
   }
 
@@ -122,7 +124,9 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
 }
 
 /// 下载设置 Provider
-final downloadSettingsProvider = StateNotifierProvider<DownloadSettingsNotifier, DownloadSettingsState>((ref) {
+final downloadSettingsProvider =
+    StateNotifierProvider<DownloadSettingsNotifier, DownloadSettingsState>(
+        (ref) {
   final settingsRepository = ref.watch(settingsRepositoryProvider);
   final lyricsCacheService = ref.watch(lyricsCacheServiceProvider);
   return DownloadSettingsNotifier(settingsRepository, lyricsCacheService);

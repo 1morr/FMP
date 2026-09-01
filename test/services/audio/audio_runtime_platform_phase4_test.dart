@@ -7,7 +7,8 @@ import 'package:fmp/services/audio/media_kit_audio_service.dart';
 
 void main() {
   group('Audio runtime platform phase 4', () {
-    test('selectAudioRuntimePlatform chooses desktop for windows and linux', () {
+    test('selectAudioRuntimePlatform chooses desktop for windows and linux',
+        () {
       expect(
         selectAudioRuntimePlatform('windows'),
         AudioRuntimePlatform.desktop,
@@ -29,7 +30,8 @@ void main() {
       );
     });
 
-    test('audioServiceProvider selects desktop backend for desktop override', () {
+    test('audioServiceProvider selects desktop backend for desktop override',
+        () {
       final container = ProviderContainer(
         overrides: [
           audioRuntimePlatformProvider.overrideWithValue(

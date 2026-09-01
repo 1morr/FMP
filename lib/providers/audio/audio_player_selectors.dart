@@ -28,7 +28,8 @@ class DesktopAudioDeviceState {
   @override
   int get hashCode => Object.hash(
         Object.hashAll(
-          audioDevices.map((device) => Object.hash(device.name, device.description)),
+          audioDevices
+              .map((device) => Object.hash(device.name, device.description)),
         ),
         currentAudioDevice == null
             ? null
@@ -53,7 +54,11 @@ class CurrentStreamMetadata {
   final String? codec;
   final StreamType? streamType;
 
-  bool get hasAnyInfo => bitrate != null || container != null || codec != null || streamType != null;
+  bool get hasAnyInfo =>
+      bitrate != null ||
+      container != null ||
+      codec != null ||
+      streamType != null;
 
   @override
   bool operator ==(Object other) {
@@ -73,7 +78,8 @@ final playbackSpeedProvider = Provider<double>((ref) {
   return ref.watch(audioControllerProvider.select((state) => state.speed));
 });
 
-final desktopAudioDeviceStateProvider = Provider<DesktopAudioDeviceState>((ref) {
+final desktopAudioDeviceStateProvider =
+    Provider<DesktopAudioDeviceState>((ref) {
   return ref.watch(
     audioControllerProvider.select(
       (state) => DesktopAudioDeviceState(

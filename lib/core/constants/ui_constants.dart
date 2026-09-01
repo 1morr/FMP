@@ -163,13 +163,30 @@ class DebounceDurations {
 /// 逐字重复这 20 个值；消费 [kGrayscaleColorFilter] 即可。此 list 单独
 /// 暴露是为了单元测试能锁值。
 const List<double> kGrayscaleColorMatrix = <double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0, 0, 0, 1, 0,
+  0.2126,
+  0.7152,
+  0.0722,
+  0,
+  0,
+  0.2126,
+  0.7152,
+  0.0722,
+  0,
+  0,
+  0.2126,
+  0.7152,
+  0.0722,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
 ];
 
 /// REC.709 亮度灰阶 ColorFilter，由 [kGrayscaleColorMatrix] 派生。
 ///
 /// 调用端写 `ColorFiltered(colorFilter: kGrayscaleColorFilter, ...)`。
-const ColorFilter kGrayscaleColorFilter = ColorFilter.matrix(kGrayscaleColorMatrix);
+const ColorFilter kGrayscaleColorFilter =
+    ColorFilter.matrix(kGrayscaleColorMatrix);

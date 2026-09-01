@@ -68,8 +68,11 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
       id: track.uniqueKey,
       title: track.title,
       artist: track.artist ?? t.smtc.unknownArtist,
-      artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
-      duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
+      artUri:
+          track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+      duration: track.durationMs != null
+          ? Duration(milliseconds: track.durationMs!)
+          : null,
     );
     mediaItem.add(item);
     logDebug('Updated media item: ${track.title}');
@@ -81,7 +84,9 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
       id: 'radio_${station.id}',
       title: station.title,
       artist: t.smtc.liveRadio,
-      artUri: station.thumbnailUrl != null ? Uri.parse(station.thumbnailUrl!) : null,
+      artUri: station.thumbnailUrl != null
+          ? Uri.parse(station.thumbnailUrl!)
+          : null,
     );
     mediaItem.add(item);
     logDebug('Updated media item for radio: ${station.title}');

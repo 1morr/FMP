@@ -149,8 +149,7 @@ void main() {
 
     test(
         'search service returns empty pages when the source lacks paged-video '
-        'capability (capability-based, not source identity)',
-        () async {
+        'capability (capability-based, not source identity)', () async {
       // A bilibili paged source is registered, but the track is youtube, so
       // pagedVideoSource(youtube) is null: pages must be empty and the
       // registered paged source must not be queried.

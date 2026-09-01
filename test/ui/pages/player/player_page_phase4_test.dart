@@ -157,11 +157,14 @@ void main() {
       expect(source, contains('_loadImage();'));
     });
 
-    test('ImmersivePlayerScaffold keeps AppBar overlay opacity independent from body', () {
+    test(
+        'ImmersivePlayerScaffold keeps AppBar overlay opacity independent from body',
+        () {
       final scaffoldSource =
           readSource('lib/ui/widgets/layout/immersive_player_scaffold.dart');
       final playerSource = readSource('lib/ui/pages/player/player_page.dart');
-      final radioSource = readSource('lib/ui/pages/radio/radio_player_page.dart');
+      final radioSource =
+          readSource('lib/ui/pages/radio/radio_player_page.dart');
 
       // 四個 overlay alpha 常數與 overlay 方法由共享 scaffold 單一持有。
       expect(
@@ -188,7 +191,8 @@ void main() {
           'static const double _appBarBackdropContainerOverlayAlpha = 0.06;',
         ),
       );
-      expect(scaffoldSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
+      expect(
+          scaffoldSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
       expect(scaffoldSource, contains('_buildAppBarOverlay(colorScheme)'));
       // 兩頁都不再自帶沉浸式 overlay 常數（去重契約）。
       expect(playerSource, isNot(contains('_bodyBackdropSurfaceOverlayAlpha')));

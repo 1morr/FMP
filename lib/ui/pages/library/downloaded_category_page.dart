@@ -124,8 +124,7 @@ class _DownloadedCategoryPageState
             SliverFillRemaining(
               child: ErrorDisplay(
                 type: ErrorType.general,
-                message:
-                    t.library.loadFailedWithError(error: error.toString()),
+                message: t.library.loadFailedWithError(error: error.toString()),
               ),
             ),
           ],

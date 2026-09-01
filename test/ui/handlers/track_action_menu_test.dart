@@ -68,8 +68,7 @@ void main() {
   });
 
   group('buildTrackActionListTiles', () {
-    TrackActionMenuItem findItem(String id) =>
-        buildCommonTrackActionMenuItems(
+    TrackActionMenuItem findItem(String id) => buildCommonTrackActionMenuItems(
           translations: AppLocale.en.translations,
         ).firstWhere((item) => item.id == id);
 

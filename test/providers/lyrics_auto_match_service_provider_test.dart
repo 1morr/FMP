@@ -45,7 +45,8 @@ void main() {
         lyricsTitleParseCacheRepositoryProvider.overrideWith(
           (ref) => _FakeLyricsTitleParseCacheRepository(),
         ),
-        lyricsCacheServiceProvider.overrideWith((ref) => _RecordingLyricsCache()),
+        lyricsCacheServiceProvider
+            .overrideWith((ref) => _RecordingLyricsCache()),
         titleParserProvider.overrideWith((ref) => _FakeTitleParser()),
         neteaseSourceProvider.overrideWith((ref) => netease),
         qqmusicSourceProvider.overrideWith((ref) => _FakeQQMusicSource()),
@@ -79,7 +80,8 @@ Future<LyricsAutoMatchService> _readServiceAfterSettingsLoad(
   while (container.read(audioSettingsProvider).isLoading) {
     await Future<void>.delayed(Duration.zero);
   }
-  expect(container.read(audioSettingsProvider).allowPlainLyricsAutoMatch, isTrue);
+  expect(
+      container.read(audioSettingsProvider).allowPlainLyricsAutoMatch, isTrue);
   return container.read(lyricsAutoMatchServiceProvider);
 }
 

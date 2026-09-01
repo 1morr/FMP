@@ -2,12 +2,16 @@
 enum FmpAudioProcessingState {
   /// 没有加载音频
   idle,
+
   /// 正在加载音频源
   loading,
+
   /// 播放过程中缓冲
   buffering,
+
   /// 准备好播放
   ready,
+
   /// 播放完成
   completed,
 }

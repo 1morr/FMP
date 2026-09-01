@@ -35,7 +35,11 @@ class NeteaseAuthInterceptor extends Interceptor with Logging {
     final data = response.data;
     if (data is Map<String, dynamic>) {
       final code = data['code'];
-      if (code is int && code != 200 && code != 801 && code != 802 && code != 803) {
+      if (code is int &&
+          code != 200 &&
+          code != 801 &&
+          code != 802 &&
+          code != 803) {
         logWarning('Netease response returned non-success code: $code');
       }
     }

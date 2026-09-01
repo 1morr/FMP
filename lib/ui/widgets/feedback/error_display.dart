@@ -6,14 +6,19 @@ import '../../../core/constants/ui_constants.dart';
 enum ErrorType {
   /// 网络错误
   network,
+
   /// 服务器错误
   server,
+
   /// 未找到
   notFound,
+
   /// 权限错误
   permission,
+
   /// 通用错误
   general,
+
   /// 空状态（无数据）
   empty,
 }
@@ -328,7 +333,8 @@ class ImageErrorPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bgColor = backgroundColor ?? colorScheme.surfaceContainerHighest;
-    final fgColor = iconColor ?? colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
+    final fgColor =
+        iconColor ?? colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
 
     return Container(
       width: size,

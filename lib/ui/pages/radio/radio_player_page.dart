@@ -56,31 +56,30 @@ class RadioPlayerPage extends ConsumerWidget {
     final contentMaxWidth = isWideLayout ? 720.0 : 420.0;
 
     final appBarActions = <Widget>[
-        // 桌面端音頻設備選擇器
-        if (isDesktopPlatform && desktopAudioDeviceState.hasSelectableDevices)
-          FmpAudioDeviceSelector(
-            state: desktopAudioDeviceState,
-            controller: audioController,
-            colorScheme: colorScheme,
-          ),
-        // 桌面端音量控制（緊湊版）
-        if (isDesktopPlatform)
-          CompactVolumeControl(
-            volume: volume,
-            controller: audioController,
-            colorScheme: colorScheme,
-            muteTooltip: t.radio.mute,
-            unmuteTooltip: t.radio.unmute,
-          ),
-        // 直播間資訊
-        IconButton(
-          icon: const Icon(Icons.info_outline),
-          tooltip: t.radio.info,
-          onPressed: () =>
-              _showLiveInfoDialog(context, radioState, colorScheme),
+      // 桌面端音頻設備選擇器
+      if (isDesktopPlatform && desktopAudioDeviceState.hasSelectableDevices)
+        FmpAudioDeviceSelector(
+          state: desktopAudioDeviceState,
+          controller: audioController,
+          colorScheme: colorScheme,
         ),
-        const SizedBox(width: 8),
-      ];
+      // 桌面端音量控制（緊湊版）
+      if (isDesktopPlatform)
+        CompactVolumeControl(
+          volume: volume,
+          controller: audioController,
+          colorScheme: colorScheme,
+          muteTooltip: t.radio.mute,
+          unmuteTooltip: t.radio.unmute,
+        ),
+      // 直播間資訊
+      IconButton(
+        icon: const Icon(Icons.info_outline),
+        tooltip: t.radio.info,
+        onPressed: () => _showLiveInfoDialog(context, radioState, colorScheme),
+      ),
+      const SizedBox(width: 8),
+    ];
 
     return Scaffold(
       appBar: null,
@@ -319,8 +318,7 @@ class RadioPlayerPage extends ConsumerWidget {
           icon: const Icon(Icons.sync),
           iconSize: 40,
           tooltip: t.radio.syncLive,
-          onPressed:
-              isDisabled || !hasStation ? null : () => controller.sync(),
+          onPressed: isDisabled || !hasStation ? null : () => controller.sync(),
         ),
         // 播放/暫停（大）；無電台時停用（比照音樂播放器空狀態）。
         PlayerPlayPauseButton(
@@ -381,108 +379,106 @@ class _LiveInfoDialog extends StatelessWidget {
       bodySlivers: (context, scrollController) => [
         // 內容區域
         SliverPadding(
-                  padding: const EdgeInsets.all(20),
-                  sliver: SliverToBoxAdapter(
-                    child: station == null
-                        ? Text(t.radio.unableToGetInfo)
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              RadioDetailBody(
-                                // 封面（點擊跳轉到直播間，與桌面 Detail Panel 一致）
-                                cover: MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GestureDetector(
-                                    onTap: () => UrlLauncherService.instance
-                                        .openBilibiliLive(station.sourceId),
-                                    child: ClipRRect(
-                                      borderRadius: AppRadius.borderRadiusXl,
-                                      child: AspectRatio(
-                                        aspectRatio: 16 / 9,
-                                        child: RadioCoverImage(
-                                          networkUrl: station.thumbnailUrl,
-                                          placeholder:
-                                              _buildCoverPlaceholder(context),
-                                          fit: BoxFit.cover,
-                                          variant: RadioCoverVariant.hero,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+          padding: const EdgeInsets.all(20),
+          sliver: SliverToBoxAdapter(
+            child: station == null
+                ? Text(t.radio.unableToGetInfo)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RadioDetailBody(
+                        // 封面（點擊跳轉到直播間，與桌面 Detail Panel 一致）
+                        cover: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () => UrlLauncherService.instance
+                                .openBilibiliLive(station.sourceId),
+                            child: ClipRRect(
+                              borderRadius: AppRadius.borderRadiusXl,
+                              child: AspectRatio(
+                                aspectRatio: 16 / 9,
+                                child: RadioCoverImage(
+                                  networkUrl: station.thumbnailUrl,
+                                  placeholder: _buildCoverPlaceholder(context),
+                                  fit: BoxFit.cover,
+                                  variant: RadioCoverVariant.hero,
                                 ),
-                                title: station.title,
-                                titleMaxLines: 3,
-                                onTitleTap: () => UrlLauncherService.instance
-                                    .openBilibiliLive(station.sourceId),
-                                // 主播列（點擊跳轉到個人空間）
-                                hostName: station.hostName,
-                                hostAvatar: AvatarImage(
-                                  networkUrl: station.hostAvatarUrl,
-                                  size: 40,
-                                ),
-                                avatarSize: 40,
-                                avatarGap: 12,
-                                compactHostName: false,
-                                onHostTap: station.hostUid != null
-                                    ? () => UrlLauncherService.instance
-                                        .openBilibiliSpace(station.hostUid!)
-                                    : null,
-                                hostTrailing: station.hostUid != null
-                                    ? Icon(
-                                        Icons.chevron_right,
-                                        size: 20,
-                                        color: colorScheme.onSurfaceVariant,
-                                      )
-                                    : null,
-                                stats: [
-                                  if (state.viewerCount != null)
-                                    DetailStatItem(
-                                      icon: Icons.visibility_rounded,
-                                      label:
-                                          formatCount(state.viewerCount!),
-                                    ),
-                                  if (state.isPlaying)
-                                    DetailStatItem(
-                                      icon: Icons.schedule_outlined,
-                                      label: t.radio.played(
-                                          duration: DurationFormatter.format(
-                                              state.playDuration)),
-                                    ),
-                                  if (state.liveStartTime != null)
-                                    DetailStatItem(
-                                      icon: Icons.play_circle_outline,
-                                      label: t.radio.startedAt(
-                                          time: formatRelativeTime(
-                                              state.liveStartTime!)),
-                                    ),
-                                  if (state.areaName != null)
-                                    DetailStatItem(
-                                      icon: Icons.category_outlined,
-                                      label: state.areaName!,
-                                    ),
-                                  DetailStatItem(
-                                    icon: state.isPlaying
-                                        ? Icons.radio_button_checked
-                                        : Icons.radio_button_off,
-                                    label: state.isPlaying
-                                        ? t.radio.live
-                                        : t.radio.stopped,
-                                  ),
-                                ],
-                                announcement: state.announcement,
-                                announcementTitle: t.radio.announcement,
-                                description: state.description,
-                                descriptionTitle: t.radio.description,
-                                tags: state.tags,
-                                tagsTitle: t.radio.tags,
-                                spacingAfterCover: 16,
-                                spacingAfterTitle: 16,
                               ),
-                              const SizedBox(height: 20),
-                            ],
+                            ),
                           ),
+                        ),
+                        title: station.title,
+                        titleMaxLines: 3,
+                        onTitleTap: () => UrlLauncherService.instance
+                            .openBilibiliLive(station.sourceId),
+                        // 主播列（點擊跳轉到個人空間）
+                        hostName: station.hostName,
+                        hostAvatar: AvatarImage(
+                          networkUrl: station.hostAvatarUrl,
+                          size: 40,
+                        ),
+                        avatarSize: 40,
+                        avatarGap: 12,
+                        compactHostName: false,
+                        onHostTap: station.hostUid != null
+                            ? () => UrlLauncherService.instance
+                                .openBilibiliSpace(station.hostUid!)
+                            : null,
+                        hostTrailing: station.hostUid != null
+                            ? Icon(
+                                Icons.chevron_right,
+                                size: 20,
+                                color: colorScheme.onSurfaceVariant,
+                              )
+                            : null,
+                        stats: [
+                          if (state.viewerCount != null)
+                            DetailStatItem(
+                              icon: Icons.visibility_rounded,
+                              label: formatCount(state.viewerCount!),
+                            ),
+                          if (state.isPlaying)
+                            DetailStatItem(
+                              icon: Icons.schedule_outlined,
+                              label: t.radio.played(
+                                  duration: DurationFormatter.format(
+                                      state.playDuration)),
+                            ),
+                          if (state.liveStartTime != null)
+                            DetailStatItem(
+                              icon: Icons.play_circle_outline,
+                              label: t.radio.startedAt(
+                                  time:
+                                      formatRelativeTime(state.liveStartTime!)),
+                            ),
+                          if (state.areaName != null)
+                            DetailStatItem(
+                              icon: Icons.category_outlined,
+                              label: state.areaName!,
+                            ),
+                          DetailStatItem(
+                            icon: state.isPlaying
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            label: state.isPlaying
+                                ? t.radio.live
+                                : t.radio.stopped,
+                          ),
+                        ],
+                        announcement: state.announcement,
+                        announcementTitle: t.radio.announcement,
+                        description: state.description,
+                        descriptionTitle: t.radio.description,
+                        tags: state.tags,
+                        tagsTitle: t.radio.tags,
+                        spacingAfterCover: 16,
+                        spacingAfterTitle: 16,
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ),
-                ),
+          ),
+        ),
       ],
     );
   }

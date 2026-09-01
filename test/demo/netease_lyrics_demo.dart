@@ -157,8 +157,7 @@ Future<void> _testSearch(
 
     print('找到 ${songs.length} 首歌曲:');
     for (final song in songs.take(5)) {
-      print(
-          '  [${song.id}] ${song.name} - ${song.artistsJoined} '
+      print('  [${song.id}] ${song.name} - ${song.artistsJoined} '
           '(${song.albumName}, ${song.durationSeconds}s)');
     }
 

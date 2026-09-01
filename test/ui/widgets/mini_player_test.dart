@@ -21,11 +21,13 @@ void main() {
       expect(source, contains('ref.watch(desktopAudioDeviceStateProvider)'));
       expect(
         source,
-        isNot(contains("ref.watch(audioControllerProvider.select((s) => s.audioDevices))")),
+        isNot(contains(
+            "ref.watch(audioControllerProvider.select((s) => s.audioDevices))")),
       );
       expect(
         source,
-        isNot(contains("ref.watch(audioControllerProvider.select((s) => s.currentAudioDevice))")),
+        isNot(contains(
+            "ref.watch(audioControllerProvider.select((s) => s.currentAudioDevice))")),
       );
     });
 

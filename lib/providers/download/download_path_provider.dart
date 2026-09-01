@@ -26,8 +26,7 @@ final downloadPathMaintenanceServiceProvider =
   return DownloadPathMaintenanceService(
     trackRepository: trackRepo,
     pathManager: pathManager,
-    clearCompletedAndErrorTasks:
-        downloadRepository.clearCompletedAndErrorTasks,
+    clearCompletedAndErrorTasks: downloadRepository.clearCompletedAndErrorTasks,
   );
 });
 

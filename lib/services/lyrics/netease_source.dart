@@ -57,8 +57,7 @@ class NeteaseSong {
   int get durationSeconds => (durationMs / 1000).round();
 
   @override
-  String toString() =>
-      'NeteaseSong(id: $id, "$name" by "$artistsJoined", '
+  String toString() => 'NeteaseSong(id: $id, "$name" by "$artistsJoined", '
       'album: "$albumName", ${durationSeconds}s)';
 }
 
@@ -97,12 +96,10 @@ class NeteaseLyrics {
 
   /// 是否为纯音乐（无歌词）
   bool get isInstrumental =>
-      !hasLrc ||
-      (lrc != null && lrc!.contains('纯音乐，请欣赏'));
+      !hasLrc || (lrc != null && lrc!.contains('纯音乐，请欣赏'));
 
   @override
-  String toString() =>
-      'NeteaseLyrics(songId: $songId, lrc: $hasLrc, '
+  String toString() => 'NeteaseLyrics(songId: $songId, lrc: $hasLrc, '
       'tlyric: $hasTranslation, romalrc: $hasRomaji)';
 }
 
@@ -112,7 +109,8 @@ class NeteaseException implements Exception {
   final int? apiCode;
   final String message;
 
-  const NeteaseException({this.statusCode, this.apiCode, required this.message});
+  const NeteaseException(
+      {this.statusCode, this.apiCode, required this.message});
 
   @override
   String toString() =>
@@ -186,10 +184,8 @@ class NeteaseSource with Logging {
         return [];
       }
 
-      final results = songs
-          .cast<Map<String, dynamic>>()
-          .map(NeteaseSong.fromJson)
-          .toList();
+      final results =
+          songs.cast<Map<String, dynamic>>().map(NeteaseSong.fromJson).toList();
 
       logDebug('Found ${results.length} songs');
       return results;
@@ -267,7 +263,9 @@ class NeteaseSource with Logging {
   }) async {
     // 构建搜索关键词
     final keywords = query ??
-        [trackName, artistName].where((s) => s != null && s.isNotEmpty).join(' ');
+        [trackName, artistName]
+            .where((s) => s != null && s.isNotEmpty)
+            .join(' ');
     if (keywords.isEmpty) return [];
 
     final songs = await searchSongs(keywords: keywords, limit: limit);

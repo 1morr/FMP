@@ -109,8 +109,8 @@ class CappedDraggableSheet extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
+            borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppRadius.sheet)),
           ),
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(

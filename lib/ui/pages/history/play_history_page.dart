@@ -906,8 +906,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         if (confirmedDelete == true && context.mounted) {
           await ref.read(playHistoryActionsProvider).delete(history.id);
           if (context.mounted) {
-            ToastService.success(
-                context, t.playHistoryPage.toastDeletedRecord);
+            ToastService.success(context, t.playHistoryPage.toastDeletedRecord);
           }
         }
         break;

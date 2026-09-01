@@ -30,8 +30,8 @@ void main() {
     });
 
     test('radio cover preloader relies on the URL-based header policy', () {
-      final source =
-          File('lib/ui/widgets/panels/track_detail_panel.dart').readAsStringSync();
+      final source = File('lib/ui/widgets/panels/track_detail_panel.dart')
+          .readAsStringSync();
 
       // Radio covers must not pass explicit headers: ImageLoadingService
       // applies SourceHttpPolicy.imageHeadersForUrl automatically, matching

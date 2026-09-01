@@ -261,8 +261,7 @@ class PlaylistImportService with Logging {
       // Bilibili 对请求频率限制较严格，需要较长间隔
       if (i < tracks.length - 1) {
         final delay = switch (searchSource) {
-          SearchSourceConfig.all =>
-            AppConstants.importThrottleMultiSourceDelay,
+          SearchSourceConfig.all => AppConstants.importThrottleMultiSourceDelay,
           SearchSourceConfig.bilibiliOnly =>
             AppConstants.importThrottleSingleSourceDelay,
           SearchSourceConfig.youtubeOnly =>

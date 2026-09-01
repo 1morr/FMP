@@ -108,10 +108,15 @@ class VideoDetail {
 
     return VideoDetail(
       bvid: json['sourceId']?.toString() ?? track.sourceId,
-      title: json['parentTitle']?.toString() ?? json['title']?.toString() ?? track.title,
+      title: json['parentTitle']?.toString() ??
+          json['title']?.toString() ??
+          track.title,
       description: json['description']?.toString() ?? '',
       coverUrl: json['thumbnailUrl']?.toString() ?? track.thumbnailUrl ?? '',
-      ownerName: json['ownerName']?.toString() ?? json['artist']?.toString() ?? track.artist ?? '',
+      ownerName: json['ownerName']?.toString() ??
+          json['artist']?.toString() ??
+          track.artist ??
+          '',
       ownerFace: json['ownerFace']?.toString() ?? '',
       ownerId: json['ownerId'] as int? ?? 0,
       channelId: json['channelId']?.toString() ?? '',
@@ -125,7 +130,8 @@ class VideoDetail {
       publishDate: json['publishDate'] != null
           ? DateTime.tryParse(json['publishDate'].toString()) ?? DateTime.now()
           : DateTime.now(),
-      durationSeconds: (json['durationMs'] as int? ?? track.durationMs ?? 0) ~/ 1000,
+      durationSeconds:
+          (json['durationMs'] as int? ?? track.durationMs ?? 0) ~/ 1000,
       hotComments: hotComments,
       pages: [],
     );

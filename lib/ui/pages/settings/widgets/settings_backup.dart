@@ -450,7 +450,8 @@ class _ImportResultDialog extends StatelessWidget {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
-                                  ?.copyWith(color: colorScheme.onErrorContainer),
+                                  ?.copyWith(
+                                      color: colorScheme.onErrorContainer),
                             ))
                         .toList(),
                   ),

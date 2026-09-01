@@ -43,7 +43,11 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/some/path/audio.m4a'];
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/some/path/audio.m4a'
+          ];
 
         // Empty set = no files exist
         final cache = TestFileExistsCache({});
@@ -55,29 +59,40 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/some/path/audio.m4a'];
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/some/path/audio.m4a'
+          ];
 
         final cache = TestFileExistsCache({
           p.join('/some/path', 'cover.jpg'),
         });
-        expect(track.getLocalCoverPath(cache), equals(p.join('/some/path', 'cover.jpg')));
+        expect(track.getLocalCoverPath(cache),
+            equals(p.join('/some/path', 'cover.jpg')));
       });
 
-      test('returns first existing cover path from multiple download paths', () {
+      test('returns first existing cover path from multiple download paths',
+          () {
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
-            PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/path1/audio.m4a',
-            PlaylistDownloadInfo()..playlistId = 1..downloadPath = '/path2/audio.m4a',
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/path1/audio.m4a',
+            PlaylistDownloadInfo()
+              ..playlistId = 1
+              ..downloadPath = '/path2/audio.m4a',
           ];
 
         // Only /path2/cover.jpg exists
         final cache = TestFileExistsCache({
           p.join('/path2', 'cover.jpg'),
         });
-        expect(track.getLocalCoverPath(cache), equals(p.join('/path2', 'cover.jpg')));
+        expect(track.getLocalCoverPath(cache),
+            equals(p.join('/path2', 'cover.jpg')));
       });
     });
 
@@ -133,7 +148,11 @@ void main() {
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
           ..ownerId = 12345
-          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/downloads/video/audio.m4a'];
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/downloads/video/audio.m4a'
+          ];
 
         final cache = TestFileExistsCache({
           p.join('/downloads/video', 'avatar.jpg'),
@@ -150,7 +169,11 @@ void main() {
           ..sourceType = SourceType.youtube
           ..title = 'Test Track'
           ..channelId = 'UCq-Fj5jknLsUf-MWSy4_brA'
-          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/downloads/video/audio.m4a'];
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/downloads/video/audio.m4a'
+          ];
 
         final cache = TestFileExistsCache({
           p.join('/downloads/video', 'avatar.jpg'),
@@ -249,7 +272,11 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/non/existent/path/audio.m4a'];
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/non/existent/path/audio.m4a'
+          ];
 
         expect(track.localAudioPath, isNull);
       });
@@ -269,7 +296,11 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = audioPath];
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = audioPath
+          ];
 
         expect(track.localAudioPath, equals(audioPath));
 

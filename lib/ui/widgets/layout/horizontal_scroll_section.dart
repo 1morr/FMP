@@ -105,7 +105,9 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
   int _calculateVisibleItemCount(double viewportWidth) {
     final availableWidth = viewportWidth - widget.horizontalPadding * 2;
     final itemWithSpacing = widget.itemWidth + widget.itemSpacing;
-    return (availableWidth / itemWithSpacing).floor().clamp(1, widget.children.length);
+    return (availableWidth / itemWithSpacing)
+        .floor()
+        .clamp(1, widget.children.length);
   }
 
   /// Scroll by a specific number of items with easing animation
@@ -143,8 +145,10 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
         _onViewportWidthChanged(viewportWidth);
 
         return MouseRegion(
-          onEnter: _isDesktop ? (_) => setState(() => _isHovering = true) : null,
-          onExit: _isDesktop ? (_) => setState(() => _isHovering = false) : null,
+          onEnter:
+              _isDesktop ? (_) => setState(() => _isHovering = true) : null,
+          onExit:
+              _isDesktop ? (_) => setState(() => _isHovering = false) : null,
           child: SizedBox(
             height: widget.height,
             child: Stack(

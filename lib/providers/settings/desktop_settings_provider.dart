@@ -11,7 +11,8 @@ import '../database/repository_providers.dart';
 import '../system/windows_desktop_provider.dart';
 
 /// 最小化到托盘设置 Provider
-final minimizeToTrayProvider = StateNotifierProvider<_MinimizeToTrayNotifier, bool>((ref) {
+final minimizeToTrayProvider =
+    StateNotifierProvider<_MinimizeToTrayNotifier, bool>((ref) {
   final settingsRepo = ref.watch(settingsRepositoryProvider);
   return _MinimizeToTrayNotifier(settingsRepo);
 });
@@ -39,7 +40,8 @@ class _MinimizeToTrayNotifier extends StateNotifier<bool> {
 }
 
 /// 全局快捷键设置 Provider
-final globalHotkeysEnabledProvider = StateNotifierProvider<_GlobalHotkeysNotifier, bool>((ref) {
+final globalHotkeysEnabledProvider =
+    StateNotifierProvider<_GlobalHotkeysNotifier, bool>((ref) {
   final settingsRepo = ref.watch(settingsRepositoryProvider);
   final desktopService = ref.watch(windowsDesktopServiceProvider);
   return _GlobalHotkeysNotifier(settingsRepo, desktopService);

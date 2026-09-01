@@ -54,38 +54,34 @@ class LyricsResult {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'trackName': trackName,
-    'artistName': artistName,
-    'albumName': albumName,
-    'duration': duration,
-    'instrumental': instrumental,
-    'plainLyrics': plainLyrics,
-    'syncedLyrics': syncedLyrics,
-    'source': source,
-    'translatedLyrics': translatedLyrics,
-    'romajiLyrics': romajiLyrics,
-  };
+        'id': id,
+        'trackName': trackName,
+        'artistName': artistName,
+        'albumName': albumName,
+        'duration': duration,
+        'instrumental': instrumental,
+        'plainLyrics': plainLyrics,
+        'syncedLyrics': syncedLyrics,
+        'source': source,
+        'translatedLyrics': translatedLyrics,
+        'romajiLyrics': romajiLyrics,
+      };
 
   /// 是否有同步歌词（LRC 格式）
-  bool get hasSyncedLyrics =>
-      syncedLyrics != null && syncedLyrics!.isNotEmpty;
+  bool get hasSyncedLyrics => syncedLyrics != null && syncedLyrics!.isNotEmpty;
 
   /// 是否有纯文本歌词
-  bool get hasPlainLyrics =>
-      plainLyrics != null && plainLyrics!.isNotEmpty;
+  bool get hasPlainLyrics => plainLyrics != null && plainLyrics!.isNotEmpty;
 
   /// 是否有翻译歌词
   bool get hasTranslatedLyrics =>
       translatedLyrics != null && translatedLyrics!.isNotEmpty;
 
   /// 是否有罗马音歌词
-  bool get hasRomajiLyrics =>
-      romajiLyrics != null && romajiLyrics!.isNotEmpty;
+  bool get hasRomajiLyrics => romajiLyrics != null && romajiLyrics!.isNotEmpty;
 
   @override
-  String toString() =>
-      'LyricsResult(id: $id, "$trackName" by "$artistName", '
+  String toString() => 'LyricsResult(id: $id, "$trackName" by "$artistName", '
       'source: $source, album: "$albumName", ${duration}s, '
       'synced: $hasSyncedLyrics, plain: $hasPlainLyrics, '
       'translated: $hasTranslatedLyrics, romaji: $hasRomajiLyrics, '

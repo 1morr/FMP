@@ -164,10 +164,7 @@ Future<List<QQMusicSong>> searchSongs(Dio dio, String keyword,
       data['req']?['data']?['body']?['song'] as Map<String, dynamic>?;
   final list = (songBody?['list'] as List<dynamic>?) ?? [];
 
-  return list
-      .cast<Map<String, dynamic>>()
-      .map(QQMusicSong.fromJson)
-      .toList();
+  return list.cast<Map<String, dynamic>>().map(QQMusicSong.fromJson).toList();
 }
 
 /// 获取歌词（方式一：nobase64=1，直接返回明文）
@@ -276,9 +273,8 @@ Future<QQMusicLyrics> getLyricsViaMusicu(Dio dio, String songmid) async {
 Future<void> main() async {
   final dio = Dio(BaseOptions(
     headers: {
-      'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) '
-              'Gecko/20100101 Firefox/115.0',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) '
+          'Gecko/20100101 Firefox/115.0',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.3,en;q=0.2',
     },
@@ -352,7 +348,8 @@ Future<void> _testMusicuLyric(Dio dio, String keyword) async {
     }
 
     final song = songs.first;
-    print('歌曲: ${song.songname} - ${song.singersJoined} (mid: ${song.songmid})');
+    print(
+        '歌曲: ${song.songname} - ${song.singersJoined} (mid: ${song.songmid})');
 
     final lyrics = await getLyricsViaMusicu(dio, song.songmid);
     _printLyrics(lyrics);

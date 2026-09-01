@@ -58,13 +58,13 @@ class _NowPlayingIndicatorState extends State<NowPlayingIndicator>
   double _getBarHeight(int index, double progress) {
     // 从左到右：index 越小，延迟越小（先动）
     const delayPerBar = 0.2;
-    
+
     // 计算这个条形的相位（负号让动画从左到右传播）
     final barPhase = (progress - index * delayPerBar) % 1.0;
-    
+
     // 使用正弦波创建平滑的上下波动
     final wave = math.sin(barPhase * 2 * math.pi);
-    
+
     // 基础高度 0.5，波动幅度 0.4
     return 0.5 + 0.4 * ((wave + 1) / 2);
   }
@@ -91,7 +91,8 @@ class _NowPlayingIndicatorState extends State<NowPlayingIndicator>
               gap: gap,
               maxBarHeight: maxBarHeight,
               borderRadius: 2.0,
-              heights: List.generate(3, (i) => _getBarHeight(i, _controller.value)),
+              heights:
+                  List.generate(3, (i) => _getBarHeight(i, _controller.value)),
             ),
           );
         },
@@ -141,5 +142,6 @@ class _BarsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BarsPainter old) => true; // always repaint during animation
+  bool shouldRepaint(_BarsPainter old) =>
+      true; // always repaint during animation
 }

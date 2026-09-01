@@ -278,7 +278,8 @@ class RankingCacheState {
   }
 }
 
-class RankingCacheService extends StateNotifier<RankingCacheState> with Logging {
+class RankingCacheService extends StateNotifier<RankingCacheState>
+    with Logging {
   static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
   final Map<SourceType, RankingSource> _rankingSourcesByType;

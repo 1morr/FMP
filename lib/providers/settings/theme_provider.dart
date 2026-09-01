@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/settings.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../main.dart' show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
+import '../../main.dart'
+    show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
 import '../database/repository_providers.dart';
 
 /// 主题状态
@@ -29,7 +30,8 @@ class ThemeState {
   }) {
     return ThemeState(
       themeMode: themeMode ?? this.themeMode,
-      primaryColor: clearPrimaryColor ? null : (primaryColor ?? this.primaryColor),
+      primaryColor:
+          clearPrimaryColor ? null : (primaryColor ?? this.primaryColor),
       fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
       isLoading: isLoading ?? this.isLoading,
     );
@@ -41,11 +43,12 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   final SettingsRepository _settingsRepository;
   Settings? _settings;
 
-  ThemeNotifier(this._settingsRepository) : super(ThemeState(
-    themeMode: preloadedThemeMode,
-    primaryColor: preloadedPrimaryColor,
-    fontFamily: preloadedFontFamily,
-  )) {
+  ThemeNotifier(this._settingsRepository)
+      : super(ThemeState(
+          themeMode: preloadedThemeMode,
+          primaryColor: preloadedPrimaryColor,
+          fontFamily: preloadedFontFamily,
+        )) {
     _loadSettings();
   }
 

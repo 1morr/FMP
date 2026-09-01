@@ -126,7 +126,8 @@ void main() {
               'https://music.163.com.evil.com/x'),
           isFalse);
       expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials('https://evil.com/x'),
+          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
+              'https://evil.com/x'),
           isFalse);
       expect(
           SourceHttpPolicy.canAttachNeteaseMediaCredentials(
@@ -134,8 +135,7 @@ void main() {
           isFalse);
       expect(SourceHttpPolicy.canAttachNeteaseMediaCredentials(null), isFalse);
       expect(SourceHttpPolicy.canAttachNeteaseMediaCredentials(''), isFalse);
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials('not a url'),
+      expect(SourceHttpPolicy.canAttachNeteaseMediaCredentials('not a url'),
           isFalse);
     });
   });

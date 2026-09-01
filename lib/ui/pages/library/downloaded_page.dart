@@ -9,7 +9,8 @@ import '../../../data/models/track.dart';
 import '../../../providers/download/download_provider.dart';
 import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/library/library_invalidation_coordinator.dart';
-import '../../../providers/library/playlist_provider.dart' show allPlaylistsProvider;
+import '../../../providers/library/playlist_provider.dart'
+    show allPlaylistsProvider;
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';

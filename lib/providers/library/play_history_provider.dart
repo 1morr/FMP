@@ -126,8 +126,8 @@ List<PlayHistory> _filterAndSortHistory(
     final start =
         DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
     final endExclusive = start.add(const Duration(days: 1));
-    dateMatches = (h) =>
-        !h.playedAt.isBefore(start) && h.playedAt.isBefore(endExclusive);
+    dateMatches =
+        (h) => !h.playedAt.isBefore(start) && h.playedAt.isBefore(endExclusive);
   }
 
   final lowerKeyword = (searchKeyword != null && searchKeyword.isNotEmpty)
@@ -137,11 +137,11 @@ List<PlayHistory> _filterAndSortHistory(
   final filtered = <PlayHistory>[
     for (final history in records)
       if (selectedSource == null || history.sourceType == selectedSource)
-      if (dateMatches(history))
-      if (lowerKeyword == null ||
-          history.title.toLowerCase().contains(lowerKeyword) ||
-          (history.artist?.toLowerCase().contains(lowerKeyword) ?? false))
-        history,
+        if (dateMatches(history))
+          if (lowerKeyword == null ||
+              history.title.toLowerCase().contains(lowerKeyword) ||
+              (history.artist?.toLowerCase().contains(lowerKeyword) ?? false))
+            history,
   ];
 
   switch (sortOrder) {

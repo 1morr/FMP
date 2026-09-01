@@ -131,8 +131,7 @@ class ToastService {
   }
 
   /// 显示普通消息
-  static void show(BuildContext context, String message,
-      {Duration? duration}) {
+  static void show(BuildContext context, String message, {Duration? duration}) {
     showSnackBarNow(
       context,
       buildSnackBar(context, message: message, duration: duration),

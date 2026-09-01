@@ -52,7 +52,8 @@ class UrlLauncherService {
     if (track.sourceType == SourceType.bilibili && owner == null) {
       return false;
     }
-    if (track.sourceType == SourceType.youtube && (channel == null || channel.isEmpty)) {
+    if (track.sourceType == SourceType.youtube &&
+        (channel == null || channel.isEmpty)) {
       return false;
     }
 
@@ -149,7 +150,9 @@ class UrlLauncherService {
     } else if (sourceType == SourceType.youtube) {
       if (type == _LaunchType.video && videoId != null) {
         return 'youtube://watch?v=$videoId';
-      } else if (type == _LaunchType.channel && channelId != null && channelId.isNotEmpty) {
+      } else if (type == _LaunchType.channel &&
+          channelId != null &&
+          channelId.isNotEmpty) {
         return 'youtube://channel/$channelId';
       }
     } else if (sourceType == SourceType.netease) {
@@ -177,7 +180,9 @@ class UrlLauncherService {
     } else if (sourceType == SourceType.youtube) {
       if (type == _LaunchType.video && videoId != null) {
         return 'https://www.youtube.com/watch?v=$videoId';
-      } else if (type == _LaunchType.channel && channelId != null && channelId.isNotEmpty) {
+      } else if (type == _LaunchType.channel &&
+          channelId != null &&
+          channelId.isNotEmpty) {
         return 'https://www.youtube.com/channel/$channelId';
       }
     } else if (sourceType == SourceType.netease) {

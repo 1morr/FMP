@@ -48,7 +48,8 @@ class LyricsCacheService with Logging {
   Future<void> initialize({Future<int> Function()? initialMaxCacheFiles}) =>
       _initFuture ??= _doInitialize(initialMaxCacheFiles: initialMaxCacheFiles);
 
-  Future<void> _doInitialize({Future<int> Function()? initialMaxCacheFiles}) async {
+  Future<void> _doInitialize(
+      {Future<int> Function()? initialMaxCacheFiles}) async {
     // 在缓存目录就绪之前，先读取用户设置的缓存上限
     if (initialMaxCacheFiles != null) {
       try {
@@ -162,7 +163,8 @@ class LyricsCacheService with Logging {
     try {
       final files = await _cacheDir!
           .list()
-          .where((entity) => entity is File &&
+          .where((entity) =>
+              entity is File &&
               entity.path.endsWith('.json') &&
               !entity.path.endsWith('_metadata.json'))
           .cast<File>()
@@ -200,7 +202,8 @@ class LyricsCacheService with Logging {
     while (true) {
       final files = await _cacheDir!
           .list()
-          .where((entity) => entity is File &&
+          .where((entity) =>
+              entity is File &&
               entity.path.endsWith('.json') &&
               !entity.path.endsWith('_metadata.json'))
           .cast<File>()
@@ -289,7 +292,8 @@ class LyricsCacheService with Logging {
           _accessTimes.remove(key);
         }
         await _saveAccessTimesNow();
-        logDebug('Cleaned ${keysToRemove.length} ghost entries from access times');
+        logDebug(
+            'Cleaned ${keysToRemove.length} ghost entries from access times');
       }
 
       logDebug('Loaded ${_accessTimes.length} cache access times');

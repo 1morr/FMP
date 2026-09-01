@@ -16,6 +16,7 @@ class BilibiliLiveApiTest {
       const chars = '0123456789ABCDEF';
       return List.generate(length, (i) => chars[(random + i) % 16]).join();
     }
+
     return '${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}infoc';
   }
 
@@ -303,10 +304,13 @@ void main() async {
 
   // 测试通过 UID 获取直播间信息
   // 使用一个知名主播的 UID 进行测试
-  final roomInfo = await BilibiliLiveApiTest.testGetRoomInfoByUid(36081646); // 示例 UID
+  final roomInfo =
+      await BilibiliLiveApiTest.testGetRoomInfoByUid(36081646); // 示例 UID
 
   // 如果有直播间，获取详细信息
-  if (roomInfo != null && roomInfo['roomid'] != null && roomInfo['roomid'] != 0) {
+  if (roomInfo != null &&
+      roomInfo['roomid'] != null &&
+      roomInfo['roomid'] != 0) {
     final roomId = roomInfo['roomid'] as int;
     await BilibiliLiveApiTest.testGetRoomInfo(roomId);
     await BilibiliLiveApiTest.testGetAnchorInfo(roomId);

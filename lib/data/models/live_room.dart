@@ -5,16 +5,16 @@ import 'track.dart';
 
 /// 直播间状态筛选
 enum LiveRoomFilter {
-  all,      // 全部直播间
-  offline,  // 未开播
-  online,   // 已开播
+  all, // 全部直播间
+  offline, // 未开播
+  online, // 已开播
 }
 
 /// 直播状态
 enum LiveStatus {
-  offline,  // 未开播 (0)
-  live,     // 直播中 (1)
-  replay,   // 轮播中 (2)
+  offline, // 未开播 (0)
+  live, // 直播中 (1)
+  replay, // 轮播中 (2)
 }
 
 /// 直播间信息
@@ -56,8 +56,12 @@ class LiveRoom {
       face: _fixImageUrl(json['uface'] as String?),
       isLive: true, // live_room 搜索结果都是正在直播的
       online: json['online'] as int?,
-      areaName: (json['cate_name'] as String?) != null ? _cleanHtmlTags(json['cate_name'] as String) : null,
-      tags: (json['tags'] as String?) != null ? _cleanHtmlTags(json['tags'] as String) : null,
+      areaName: (json['cate_name'] as String?) != null
+          ? _cleanHtmlTags(json['cate_name'] as String)
+          : null,
+      tags: (json['tags'] as String?) != null
+          ? _cleanHtmlTags(json['tags'] as String)
+          : null,
       liveStatus: LiveStatus.live,
     );
   }
@@ -92,14 +96,19 @@ class LiveRoom {
       face: _fixImageUrl(json['uface'] as String?),
       isLive: isLive,
       online: json['online'] as int?,
-      areaName: (json['cate_name'] as String?) != null ? _cleanHtmlTags(json['cate_name'] as String) : null,
-      tags: (json['tags'] as String?) != null ? _cleanHtmlTags(json['tags'] as String) : null,
+      areaName: (json['cate_name'] as String?) != null
+          ? _cleanHtmlTags(json['cate_name'] as String)
+          : null,
+      tags: (json['tags'] as String?) != null
+          ? _cleanHtmlTags(json['tags'] as String)
+          : null,
       liveStatus: isLive ? LiveStatus.live : LiveStatus.offline,
     );
   }
 
   /// 从直播间详情 API 创建
-  factory LiveRoom.fromRoomInfo(Map<String, dynamic> json, {String? uname, String? face}) {
+  factory LiveRoom.fromRoomInfo(Map<String, dynamic> json,
+      {String? uname, String? face}) {
     final statusCode = json['live_status'] as int? ?? 0;
     final liveStatus = switch (statusCode) {
       1 => LiveStatus.live,
@@ -152,13 +161,14 @@ class LiveRoom {
 
   /// 获取直播状态文本
   String get liveStatusText => switch (liveStatus) {
-    LiveStatus.live => t.live.statusLive,
-    LiveStatus.replay => t.live.statusReplay,
-    LiveStatus.offline => t.live.statusOffline,
-  };
+        LiveStatus.live => t.live.statusLive,
+        LiveStatus.replay => t.live.statusReplay,
+        LiveStatus.offline => t.live.statusOffline,
+      };
 
   /// 是否可以播放（直播中或轮播中）
-  bool get canPlay => liveStatus == LiveStatus.live || liveStatus == LiveStatus.replay;
+  bool get canPlay =>
+      liveStatus == LiveStatus.live || liveStatus == LiveStatus.replay;
 
   /// 转换为 Track 对象（用于播放器显示）
   Track toTrack({String? streamUrl}) {
@@ -237,12 +247,12 @@ class LiveSearchResult {
   /// 合并两个搜索结果（去重）
   LiveSearchResult merge(LiveSearchResult other) {
     final mergedRooms = <int, LiveRoom>{};
-    
+
     // 先添加当前结果
     for (final room in rooms) {
       mergedRooms[room.roomId] = room;
     }
-    
+
     // 添加其他结果（如果 roomId 相同，优先保留 isLive=true 的）
     for (final room in other.rooms) {
       final existing = mergedRooms[room.roomId];
@@ -269,7 +279,7 @@ class LiveSearchResult {
   /// 按筛选条件过滤
   LiveSearchResult filter(LiveRoomFilter filterType) {
     if (filterType == LiveRoomFilter.all) return this;
-    
+
     final filteredRooms = rooms.where((room) {
       return switch (filterType) {
         LiveRoomFilter.all => true,

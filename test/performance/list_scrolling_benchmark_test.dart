@@ -55,8 +55,7 @@ void main() {
       // ignore: avoid_print
       print('Initial render of 100 items: ${elapsed}ms');
 
-      expect(elapsed, lessThan(5000),
-          reason: 'Initial render should be fast');
+      expect(elapsed, lessThan(5000), reason: 'Initial render should be fast');
 
       // Verify list rendered correctly
       expect(find.byType(ListTile), findsWidgets);
@@ -150,8 +149,7 @@ void main() {
       // ignore: avoid_print
       print('Average: ${elapsed / 10}ms per scroll');
 
-      expect(elapsed, lessThan(5000),
-          reason: 'Scrolling should be smooth');
+      expect(elapsed, lessThan(5000), reason: 'Scrolling should be smooth');
     });
 
     testWidgets('Complex list item rendering', (tester) async {
@@ -280,8 +278,7 @@ void main() {
       print('Average: ${elapsed / 100}ms per rebuild');
 
       expect(buildCount, equals(101)); // Initial + 100 taps
-      expect(elapsed, lessThan(5000),
-          reason: 'Rebuilds should be fast');
+      expect(elapsed, lessThan(5000), reason: 'Rebuilds should be fast');
     });
   });
 
@@ -305,8 +302,7 @@ void main() {
           tracks.where((t) => t.sourceType == SourceType.youtube).toList();
 
       // Filter by title
-      final evenTracks =
-          tracks.where((t) => t.title.contains('Even')).toList();
+      final evenTracks = tracks.where((t) => t.title.contains('Even')).toList();
 
       // Sort by duration
       final sortedByDuration = List<Track>.from(tracks)
@@ -318,7 +314,8 @@ void main() {
       // ignore: avoid_print
       print('Filtered and sorted 10000 tracks in ${elapsed}ms');
       // ignore: avoid_print
-      print('Bilibili: ${bilibiliTracks.length}, YouTube: ${youtubeTracks.length}');
+      print(
+          'Bilibili: ${bilibiliTracks.length}, YouTube: ${youtubeTracks.length}');
       // ignore: avoid_print
       print('Even tracks: ${evenTracks.length}');
       // ignore: avoid_print
@@ -333,7 +330,8 @@ void main() {
         return Track()
           ..sourceId = 'BV${i.toString().padLeft(10, '0')}'
           ..sourceType = SourceType.bilibili
-          ..title = 'Track $i - ${['Rock', 'Pop', 'Jazz', 'Classical'][i % 4]} Music'
+          ..title =
+              'Track $i - ${['Rock', 'Pop', 'Jazz', 'Classical'][i % 4]} Music'
           ..artist = 'Artist ${['Alpha', 'Beta', 'Gamma', 'Delta'][i % 4]}';
       });
 
@@ -356,7 +354,8 @@ void main() {
 
       final elapsed = stopwatch.elapsedMilliseconds;
       // ignore: avoid_print
-      print('${100 * searchTerms.length} searches on 5000 tracks: ${elapsed}ms');
+      print(
+          '${100 * searchTerms.length} searches on 5000 tracks: ${elapsed}ms');
 
       expect(elapsed, lessThan(3000),
           reason: 'Search operations should be efficient');

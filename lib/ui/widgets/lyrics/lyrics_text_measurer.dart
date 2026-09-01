@@ -77,15 +77,13 @@ class LyricsTextMeasurer {
     double boldSafetyFactor = boldSafetyFactor,
   }) {
     if (referenceWidth == null || referenceWidth <= 0) {
-      final sub =
-          (maxFontSize * subFontRatio).clamp(minFontSize, maxFontSize);
+      final sub = (maxFontSize * subFontRatio).clamp(minFontSize, maxFontSize);
       return (main: maxFontSize, sub: sub);
     }
     final safeWidth = availableWidth * boldSafetyFactor;
     final mainSize = (refFontSize * (safeWidth / referenceWidth))
         .clamp(minFontSize, maxFontSize);
-    final subSize =
-        (mainSize * subFontRatio).clamp(minFontSize, maxFontSize);
+    final subSize = (mainSize * subFontRatio).clamp(minFontSize, maxFontSize);
     return (main: mainSize, sub: subSize);
   }
 }

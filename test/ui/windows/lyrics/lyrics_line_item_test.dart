@@ -28,7 +28,8 @@ void main() {
       expect(find.text('translation'), findsOneWidget);
     });
 
-    testWidgets('omits sub text area when subText is null/empty', (tester) async {
+    testWidgets('omits sub text area when subText is null/empty',
+        (tester) async {
       await tester.pumpWidget(host(
         child: const LyricsLineItem(
           text: 'only main',

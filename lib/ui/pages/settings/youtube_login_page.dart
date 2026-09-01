@@ -338,8 +338,7 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
               if (mounted) setState(() => _isLoading = true);
             },
           ),
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator()),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

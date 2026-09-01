@@ -690,8 +690,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   ),
                 ),
               ),
-        loading: () =>
-            Container(color: colorScheme.surfaceContainerHighest),
+        loading: () => Container(color: colorScheme.surfaceContainerHighest),
         error: (error, stack) =>
             Container(color: colorScheme.surfaceContainerHighest),
       ),

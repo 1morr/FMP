@@ -139,96 +139,132 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           );
 
     final appBarActions = <Widget>[
-        // 添加到歌单
-        if (currentTrack != null)
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.playlist_add),
-            tooltip: t.general.addToPlaylist,
-            offset: const Offset(0, 48),
-            onSelected: (value) {
-              final track = currentTrack;
-              Future.delayed(AnimationDurations.fastest, () {
-                if (!context.mounted) return;
-                _handleAddToPlaylist(context, track, value);
-              });
-            },
-            itemBuilder: (context) {
-              return [
-                PopupMenuItem(
-                  value: 'local',
-                  child: ListTile(
-                    leading: const Icon(Icons.playlist_add),
-                    title: Text(t.general.addToPlaylist),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'remote',
-                  child: ListTile(
-                    leading: const Icon(Icons.cloud_upload_outlined),
-                    title: Text(t.remote.addToFavorites),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ];
-            },
-          ),
-        // 桌面端音频输出设备选择
-        if (isDesktopPlatform && desktopAudioDeviceState.hasSelectableDevices)
-          FmpAudioDeviceSelector(
-            state: desktopAudioDeviceState,
-            controller: controller,
-            colorScheme: colorScheme,
-          ),
-        // 桌面端音量控制（紧凑版）
-        if (isDesktopPlatform)
-          CompactVolumeControl(
-            volume: playerState.volume,
-            controller: controller,
-            colorScheme: colorScheme,
-            muteTooltip: t.player.mute,
-            unmuteTooltip: t.player.unmute,
-          ),
-        // 歌曲資訊（比照電台播放器，提升為獨立 AppBar 按鈕）
-        IconButton(
-          icon: const Icon(Icons.info_outline),
-          tooltip: t.player.info,
-          onPressed: () => _showTrackInfoDialog(context, colorScheme),
-        ),
-        // 更多选项（倍速、歌词）
+      // 添加到歌单
+      if (currentTrack != null)
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
-          onSelected: (value) async {
-            if (value == 'speed') {
-              // 延迟显示子菜单，等主菜单关闭后再显示
-              Future.delayed(AnimationDurations.fastest, () {
-                if (!context.mounted) return;
-                _showSpeedMenu(context, controller, playbackSpeed, colorScheme);
-              });
-            } else if (value == 'lyrics_search') {
-              // 打开歌词搜索
-              Future.delayed(AnimationDurations.fastest, () {
-                if (!context.mounted) return;
-                _openLyricsSearch(context);
-              });
-            } else if (value == 'lyrics_offset') {
-              // 切换 offset 控件显示
-              setState(() => _showOffsetControls = !_showOffsetControls);
-            } else if (value == 'lyrics_display_mode') {
-              // 打开歌词显示模式子菜单
-              Future.delayed(AnimationDurations.fastest, () {
-                if (!context.mounted) return;
-                _showLyricsDisplayModeMenu(context, colorScheme);
-              });
-            }
+          icon: const Icon(Icons.playlist_add),
+          tooltip: t.general.addToPlaylist,
+          offset: const Offset(0, 48),
+          onSelected: (value) {
+            final track = currentTrack;
+            Future.delayed(AnimationDurations.fastest, () {
+              if (!context.mounted) return;
+              _handleAddToPlaylist(context, track, value);
+            });
           },
-          itemBuilder: (context) => [
+          itemBuilder: (context) {
+            return [
+              PopupMenuItem(
+                value: 'local',
+                child: ListTile(
+                  leading: const Icon(Icons.playlist_add),
+                  title: Text(t.general.addToPlaylist),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'remote',
+                child: ListTile(
+                  leading: const Icon(Icons.cloud_upload_outlined),
+                  title: Text(t.remote.addToFavorites),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ];
+          },
+        ),
+      // 桌面端音频输出设备选择
+      if (isDesktopPlatform && desktopAudioDeviceState.hasSelectableDevices)
+        FmpAudioDeviceSelector(
+          state: desktopAudioDeviceState,
+          controller: controller,
+          colorScheme: colorScheme,
+        ),
+      // 桌面端音量控制（紧凑版）
+      if (isDesktopPlatform)
+        CompactVolumeControl(
+          volume: playerState.volume,
+          controller: controller,
+          colorScheme: colorScheme,
+          muteTooltip: t.player.mute,
+          unmuteTooltip: t.player.unmute,
+        ),
+      // 歌曲資訊（比照電台播放器，提升為獨立 AppBar 按鈕）
+      IconButton(
+        icon: const Icon(Icons.info_outline),
+        tooltip: t.player.info,
+        onPressed: () => _showTrackInfoDialog(context, colorScheme),
+      ),
+      // 更多选项（倍速、歌词）
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
+        offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
+        onSelected: (value) async {
+          if (value == 'speed') {
+            // 延迟显示子菜单，等主菜单关闭后再显示
+            Future.delayed(AnimationDurations.fastest, () {
+              if (!context.mounted) return;
+              _showSpeedMenu(context, controller, playbackSpeed, colorScheme);
+            });
+          } else if (value == 'lyrics_search') {
+            // 打开歌词搜索
+            Future.delayed(AnimationDurations.fastest, () {
+              if (!context.mounted) return;
+              _openLyricsSearch(context);
+            });
+          } else if (value == 'lyrics_offset') {
+            // 切换 offset 控件显示
+            setState(() => _showOffsetControls = !_showOffsetControls);
+          } else if (value == 'lyrics_display_mode') {
+            // 打开歌词显示模式子菜单
+            Future.delayed(AnimationDurations.fastest, () {
+              if (!context.mounted) return;
+              _showLyricsDisplayModeMenu(context, colorScheme);
+            });
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'speed',
+            child: ListTile(
+              leading: const Icon(Icons.speed),
+              title: Text('${playbackSpeed}x'),
+              trailing: Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          // 歌词选项（仅在显示歌词时显示）
+          if (showLyricsActions) ...[
+            const PopupMenuDivider(),
             PopupMenuItem(
-              value: 'speed',
+              value: 'lyrics_search',
               child: ListTile(
-                leading: const Icon(Icons.speed),
-                title: Text('${playbackSpeed}x'),
+                leading: const Icon(Icons.search),
+                title: Text(t.lyrics.searchLyrics),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'lyrics_offset',
+              child: ListTile(
+                leading: Icon(
+                  _showOffsetControls
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                ),
+                title: Text(t.lyrics.adjustOffset),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'lyrics_display_mode',
+              child: ListTile(
+                leading: const Icon(Icons.translate),
+                title: Text(t.lyrics.displayMode),
                 trailing: Icon(
                   Icons.chevron_right,
                   size: 18,
@@ -237,46 +273,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 contentPadding: EdgeInsets.zero,
               ),
             ),
-            // 歌词选项（仅在显示歌词时显示）
-            if (showLyricsActions) ...[
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'lyrics_search',
-                child: ListTile(
-                  leading: const Icon(Icons.search),
-                  title: Text(t.lyrics.searchLyrics),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'lyrics_offset',
-                child: ListTile(
-                  leading: Icon(
-                    _showOffsetControls
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
-                  ),
-                  title: Text(t.lyrics.adjustOffset),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'lyrics_display_mode',
-                child: ListTile(
-                  leading: const Icon(Icons.translate),
-                  title: Text(t.lyrics.displayMode),
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
           ],
-        ),
-      ];
+        ],
+      ),
+    ];
 
     return Scaffold(
       appBar: null,
@@ -743,8 +743,7 @@ class _TrackInfoDialog extends ConsumerWidget {
                   _DetailContent(
                     detail: detailState.detail!,
                     isYouTube: isYouTube,
-                    isNetease:
-                        currentTrack?.sourceType == SourceType.netease,
+                    isNetease: currentTrack?.sourceType == SourceType.netease,
                     track: currentTrack,
                     cache: cache,
                     baseDir: baseDir,

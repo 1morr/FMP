@@ -239,8 +239,7 @@ class LyricsWindowService with Logging {
       try {
         await _platform.invokeMethod('ping', '');
         _channelReady = true;
-        logDebug(
-            'LyricsWindowService: channel ready after ${(i + 1) * 100}ms');
+        logDebug('LyricsWindowService: channel ready after ${(i + 1) * 100}ms');
         return;
       } catch (_) {
         // 子窗口还没注册，继续等

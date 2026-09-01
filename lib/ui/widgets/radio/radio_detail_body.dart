@@ -213,8 +213,9 @@ class RadioDetailBody extends StatelessWidget {
         Expanded(
           child: Text(
             hostName!,
-            style: (compactHostName ? textTheme.bodyMedium : textTheme.bodyLarge)
-                ?.copyWith(
+            style:
+                (compactHostName ? textTheme.bodyMedium : textTheme.bodyLarge)
+                    ?.copyWith(
               fontWeight: FontWeight.w500,
             ),
             maxLines: 1,

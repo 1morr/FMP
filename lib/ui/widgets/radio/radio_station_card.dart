@@ -180,16 +180,15 @@ class RadioStationCard extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: dense ? 0 : 8),
               child: Text(
                 station.title,
-                style:
-                    (dense ? textTheme.bodySmall : textTheme.titleSmall)
-                        ?.copyWith(
-                      fontWeight: isPlaying ? FontWeight.bold : null,
-                      color: isLive
-                          ? (isPlaying
-                              ? colorScheme.primary
-                              : colorScheme.onSurface)
-                          : colorScheme.onSurfaceVariant,
-                    ),
+                style: (dense ? textTheme.bodySmall : textTheme.titleSmall)
+                    ?.copyWith(
+                  fontWeight: isPlaying ? FontWeight.bold : null,
+                  color: isLive
+                      ? (isPlaying
+                          ? colorScheme.primary
+                          : colorScheme.onSurface)
+                      : colorScheme.onSurfaceVariant,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,

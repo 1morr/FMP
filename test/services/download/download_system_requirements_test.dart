@@ -19,12 +19,12 @@ void main() {
     test('DownloadPathManager.hasConfiguredPath 未配置时返回 false', () {
       // DownloadPathManager 检查 settings.customDownloadDir
       // 当为 null 或空字符串时返回 false
-      
+
       // 模拟：settings.customDownloadDir == null
       const String? customDownloadDir = null;
-      final hasConfiguredPath = customDownloadDir != null &&
-          customDownloadDir.isNotEmpty;
-      
+      final hasConfiguredPath =
+          customDownloadDir != null && customDownloadDir.isNotEmpty;
+
       expect(hasConfiguredPath, isFalse);
     });
 
@@ -32,14 +32,14 @@ void main() {
       // 当有有效路径时返回 true
       const customDownloadDir = '/storage/emulated/0/Music';
       final hasConfiguredPath = customDownloadDir.isNotEmpty;
-      
+
       expect(hasConfiguredPath, isTrue);
     });
 
     test('空字符串路径应视为未配置', () {
       const customDownloadDir = '';
       final hasConfiguredPath = customDownloadDir.isNotEmpty;
-      
+
       expect(hasConfiguredPath, isFalse);
     });
   });
@@ -83,7 +83,11 @@ void main() {
         ..sourceId = 'BV123456789'
         ..sourceType = SourceType.bilibili
         ..title = 'Test Song'
-        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 1..downloadPath = '/path/to/downloaded/audio.m4a'];
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = 1
+            ..downloadPath = '/path/to/downloaded/audio.m4a'
+        ];
 
       expect(track.hasAnyDownload, isTrue);
       expect(track.isDownloaded, isTrue);
@@ -93,15 +97,23 @@ void main() {
   group('Requirement 3: 修改下载路径时清空所有数据库路径', () {
     test('clearAllDownloadPaths 应清空所有 Track 的路径（保留歌单关联）', () {
       // 模拟清空操作前后的状态
-      
+
       // 清空前
       final tracksBefore = [
         Track()
-          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 1..downloadPath = '/old/path/song1.m4a'],
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 1
+              ..downloadPath = '/old/path/song1.m4a'
+          ],
         Track()
           ..playlistInfo = [
-            PlaylistDownloadInfo()..playlistId = 1..downloadPath = '/old/path/song2.m4a',
-            PlaylistDownloadInfo()..playlistId = 2..downloadPath = '/old/path2/song2.m4a',
+            PlaylistDownloadInfo()
+              ..playlistId = 1
+              ..downloadPath = '/old/path/song2.m4a',
+            PlaylistDownloadInfo()
+              ..playlistId = 2
+              ..downloadPath = '/old/path2/song2.m4a',
           ],
       ];
 
@@ -123,7 +135,11 @@ void main() {
   group('Requirement 4: 简化已下载标记显示机制', () {
     test('isDownloaded: 有下载路径就返回 true', () {
       final track = Track()
-        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/path/to/audio.m4a'];
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = 0
+            ..downloadPath = '/path/to/audio.m4a'
+        ];
 
       // TrackExtensions.isDownloaded 简化逻辑
       expect(track.isDownloaded, isTrue);
@@ -159,7 +175,7 @@ void main() {
 
     test('hasLocalAudio: localAudioPath 存在时返回 true', () {
       // hasLocalAudio = localAudioPath != null
-      
+
       // 当 localAudioPath 存在时
       const localAudioPath = '/existing/audio.m4a';
       final hasLocalAudio = localAudioPath.isNotEmpty;
@@ -184,7 +200,11 @@ void main() {
         ..sourceType = SourceType.bilibili
         ..cid = 12345
         ..title = 'Local Song'
-        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/local/path/audio.m4a'];
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = 0
+            ..downloadPath = '/local/path/audio.m4a'
+        ];
 
       // 数据库中的 Track
       final existingTrack = Track()
@@ -198,7 +218,7 @@ void main() {
       expect(existingTrack.sourceId, equals(scannedTrack.sourceId));
       expect(existingTrack.sourceType, equals(scannedTrack.sourceType));
       expect(existingTrack.cid, equals(scannedTrack.cid));
-      
+
       // 添加路径后
       existingTrack.setDownloadPath(0, '/local/path/audio.m4a');
       expect(existingTrack.isDownloaded, isTrue);
@@ -238,10 +258,10 @@ void main() {
     test('下载完成后 UI 应收到更新事件', () {
       // completionStream.listen((event) => ...)
       // 下载完成时 _completionController.add(event)
-      
+
       // 模拟事件流
       final events = <_MockDownloadCompletionEvent>[];
-      
+
       // 下载完成，触发事件
       events.add(_MockDownloadCompletionEvent(
         taskId: 1,
@@ -287,8 +307,18 @@ void main() {
     test('修改下载路径后所有 Track 应失去已下载标记', () {
       // 修改路径前
       final tracks = [
-        Track()..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/old/path1.m4a'],
-        Track()..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/old/path2.m4a'],
+        Track()
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/old/path1.m4a'
+          ],
+        Track()
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 0
+              ..downloadPath = '/old/path2.m4a'
+          ],
       ];
 
       expect(tracks.every((t) => t.isDownloaded), isTrue);
@@ -313,7 +343,11 @@ void main() {
         ..sourceId = 'BV123'
         ..sourceType = SourceType.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
-        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/local/audio.m4a'];
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = 0
+            ..downloadPath = '/local/audio.m4a'
+        ];
 
       // 模拟选择播放源的逻辑
       String? getPlaySource(Track t) {
@@ -343,7 +377,11 @@ void main() {
         ..sourceId = 'BV123'
         ..sourceType = SourceType.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
-        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/nonexistent/audio.m4a'];
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = 0
+            ..downloadPath = '/nonexistent/audio.m4a'
+        ];
 
       // 模拟 localAudioPath 为 null（文件不存在）
       String? localAudioPath;

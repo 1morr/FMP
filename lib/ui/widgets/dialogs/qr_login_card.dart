@@ -69,8 +69,7 @@ class QrLoginCard extends StatelessWidget {
                             size: 40, color: colorScheme.primary),
                         const SizedBox(height: 8),
                         Text(expiredText,
-                            style:
-                                TextStyle(color: colorScheme.onSurface)),
+                            style: TextStyle(color: colorScheme.onSurface)),
                       ],
                     ),
                   ),

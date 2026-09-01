@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AppLogger.redactSensitive', () {
-    test('redacts eparams (netease encrypted payload) key=value pairs (F7)', () {
+    test('redacts eparams (netease encrypted payload) key=value pairs (F7)',
+        () {
       // 對應 netease_playlist_service.dart:373 data: {'eparams': <加密 blob>}。
       const json = "{'eparams': 'ENC-12345abcdef=='}";
       const form = 'eparams=ENC-12345abcdef&foo=bar';
@@ -19,8 +20,10 @@ void main() {
       const query = 'apiKey=sk-live-abcdef123';
 
       expect(AppLogger.redactSensitive(json), contains('[REDACTED]'));
-      expect(AppLogger.redactSensitive(json), isNot(contains('sk-live-abcdef123')));
-      expect(AppLogger.redactSensitive(query), isNot(contains('sk-live-abcdef123')));
+      expect(AppLogger.redactSensitive(json),
+          isNot(contains('sk-live-abcdef123')));
+      expect(AppLogger.redactSensitive(query),
+          isNot(contains('sk-live-abcdef123')));
     });
 
     test('preserves existing coverage: SESSDATA / MUSIC_U / Authorization', () {

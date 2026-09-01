@@ -23,7 +23,8 @@ void main() {
       expect(source, isNot(contains('entry ?? (0.0, 0, null)')));
     });
 
-    test('task-scoped progress provider returns null when no live progress exists',
+    test(
+        'task-scoped progress provider returns null when no live progress exists',
         () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -33,12 +34,15 @@ void main() {
       expect(progress, isNull);
     });
 
-    test('task-scoped progress provider returns live progress for matching task id',
+    test(
+        'task-scoped progress provider returns live progress for matching task id',
         () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      container.read(downloadProgressStateProvider.notifier).update(7, 0.5, 50, 100);
+      container
+          .read(downloadProgressStateProvider.notifier)
+          .update(7, 0.5, 50, 100);
 
       final progress = container.read(downloadTaskProgressProvider(7));
 
@@ -60,7 +64,9 @@ void main() {
       );
       addTearDown(subscription.close);
 
-      container.read(downloadProgressStateProvider.notifier).update(8, 0.25, 25, 100);
+      container
+          .read(downloadProgressStateProvider.notifier)
+          .update(8, 0.25, 25, 100);
 
       expect(container.read(downloadTaskProgressProvider(7)), isNull);
       expect(values, hasLength(1));

@@ -99,9 +99,12 @@ enum PlaylistSource {
 
   String get displayName {
     switch (this) {
-      case PlaylistSource.netease: return t.importPlatform.neteaseMusic;
-      case PlaylistSource.qqMusic: return t.importPlatform.qqMusic;
-      case PlaylistSource.spotify: return t.importPlatform.spotify;
+      case PlaylistSource.netease:
+        return t.importPlatform.neteaseMusic;
+      case PlaylistSource.qqMusic:
+        return t.importPlatform.qqMusic;
+      case PlaylistSource.spotify:
+        return t.importPlatform.spotify;
     }
   }
 }

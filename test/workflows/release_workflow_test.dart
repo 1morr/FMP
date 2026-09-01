@@ -24,7 +24,8 @@ void main() {
 
       expect(workflow, isNot(contains(r'+${{ github.run_number }}')));
       expect(workflow, contains(r'version_code=$((major * 1000000'));
-      expect(workflow, contains(r'version_with_code="${version}+${version_code}"'));
+      expect(workflow,
+          contains(r'version_with_code="${version}+${version_code}"'));
       expect(workflow, contains('version_with_code'));
     });
   });

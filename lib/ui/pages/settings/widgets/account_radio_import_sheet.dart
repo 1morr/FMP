@@ -71,15 +71,17 @@ class _AccountRadioImportSheetState
       if (!mounted) return;
 
       setState(() {
-        _stations = candidates.map((item) => _RadioItem(
-          roomId: item.roomId,
-          name: item.name,
-          avatarUrl: item.avatarUrl,
-          uid: item.uid,
-          isLive: item.isLive,
-          link: item.link,
-          isImported: item.isImported,
-        )).toList();
+        _stations = candidates
+            .map((item) => _RadioItem(
+                  roomId: item.roomId,
+                  name: item.name,
+                  avatarUrl: item.avatarUrl,
+                  uid: item.uid,
+                  isLive: item.isLive,
+                  link: item.link,
+                  isImported: item.isImported,
+                ))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -142,7 +144,10 @@ class _AccountRadioImportSheetState
   Widget build(BuildContext context) {
     final importedIds = _stations == null
         ? <String>{}
-        : {for (final s in _stations!) if (s.isImported) s.roomId};
+        : {
+            for (final s in _stations!)
+              if (s.isImported) s.roomId
+          };
     final selectedCount =
         _selectedIds.where((id) => !importedIds.contains(id)).length;
 
@@ -216,7 +221,8 @@ class _AccountRadioImportSheetState
       title: Row(
         children: [
           Flexible(
-            child: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            child:
+                Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           if (item.isLive) ...[
             const SizedBox(width: 6),
@@ -252,15 +258,16 @@ class _AccountRadioImportSheetState
                     child: Text(
                       t.account.importingRadio,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ),
                   Text(
                     '$_importCurrent/$_importTotal',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                 ],
               ),

@@ -45,9 +45,8 @@ class LyricsEmptyState extends StatelessWidget {
           Icon(
             Icons.lyrics_outlined,
             size: 48,
-            color: t
-                ? Colors.white.withValues(alpha: 0.4)
-                : colorScheme.outline,
+            color:
+                t ? Colors.white.withValues(alpha: 0.4) : colorScheme.outline,
             shadows: t ? style.shadows : null,
           ),
           const SizedBox(height: 12),
