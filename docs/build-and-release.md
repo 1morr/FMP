@@ -1,27 +1,29 @@
-# FMP 构建与发布指南
+# FMP 建置與發布指南
 
 ## 概述
 
-FMP 使用 GitHub Actions 分離一般 CI 和正式 Release。`ci.yml` 會在 PR、`main` push 或手動觸發時執行分析、測試與構建煙霧測試；`release.yml` 只負責既有 `v*` tag 的 Android APK、Windows ZIP/Installer 打包與 GitHub Release 發布。應用內建檢查更新功能，使用者可在設定頁手動檢查並下載新版本。
+FMP 使用 GitHub Actions 分離一般 CI 和正式 Release。`ci.yml` 會在 PR、`main` push 或手動觸發時執行分析、測試與建置煙霧測試；`release.yml` 只負責既有 `v*` tag 的 Android APK、Windows ZIP/Installer 打包與 GitHub Release 發布。應用程式內建檢查更新功能，使用者可在設定頁手動檢查並下載新版本。
 
-本文件描述 CI 和发布流程。本地构建步骤见 [构建指南](build-guide.md)。
+本文件描述 CI 和發布流程。本機建置步驟見〈[建置指南](building.md)〉。
 
-## 目录
+## 目錄
 
-1. [Android 签名配置](#1-android-签名配置)
-2. [GitHub Secrets 设置](#2-github-secrets-设置)
-3. [Windows 安装包 (InnoSetup)](#3-windows-安装包-innosetup)
-4. [发布新版本](#4-发布新版本)
-5. [应用内更新机制](#5-应用内更新机制)
-6. [常见问题](#6-常见问题)
+1. [Android 簽名配置](#1-android-簽名配置)
+2. [GitHub Secrets 設定](#2-github-secrets-設定)
+3. [Windows 安裝包 (InnoSetup)](#3-windows-安裝包-innosetup)
+4. [發布新版本](#4-發布新版本)
+5. [應用內更新機制](#5-應用內更新機制)
+6. [常見問題](#6-常見問題)
 
 ---
 
-## 1. Android 签名配置
+## 1. Android 簽名配置
 
-Android APK 必须使用固定的签名密钥。不同密钥签名的 APK 无法覆盖安装（系统报 "package conflicts"）。
+Android APK 必須使用固定的簽名金鑰。不同金鑰簽名的 APK 無法覆蓋安裝（系統顯示 "package conflicts"）。
 
-### 生成 Keystore（仅首次）
+本機建置預設使用 debug 簽名即可運作；只有在需要固定簽名（覆蓋安裝更新、或要準備上傳到 CI Secrets）時才需要以下步驟。
+
+### 產生 Keystore（僅首次）
 
 ```bash
 keytool -genkey -v \
@@ -32,146 +34,120 @@ keytool -genkey -v \
   -dname "CN=FMP,OU=Personal,O=Personal,L=Unknown,ST=Unknown,C=US"
 ```
 
-> Windows 上 `keytool` 路径通常在 `C:\Program Files\Java\jdk-17\bin\keytool.exe`
-> 让 `keytool` 交互式提示输入密码。不要把 keystore 密码写在命令行、日志、issue、截图或 agent 对话中。
+> `keytool` 是 Java JDK 自帶的命令列工具，安裝 JDK 後即可使用；Windows 上完整路徑通常在 `C:\Program Files\Java\jdk-17\bin\keytool.exe`。
+> 讓 `keytool` 互動式提示輸入密碼。不要把 keystore 密碼寫在命令列、日誌、issue、螢幕截圖或 agent 對話中。
 
-### 创建 key.properties（本地构建用）
+### 建立 key.properties（本機建置用）
 
-在 `android/key.properties` 写入：
+在 `android/key.properties` 寫入：
 
 ```properties
-storePassword=<你的密码>
-keyPassword=<你的密码>
+storePassword=<你的密碼>
+keyPassword=<你的密碼>
 keyAlias=fmp
 storeFile=../release.keystore
 ```
 
-> `key.properties` 和 `release.keystore` 均已在 `.gitignore` 中，不会被提交。仍需把它们当作签名密钥保管，不要复制到日志、工单、agent 报告或临时公开目录。
+`build.gradle.kts` 會自動偵測該檔案：存在則使用你的 keystore 簽名，不存在則 fallback 到 debug 簽名。
 
-### 验证 Keystore
+> `key.properties` 和 `release.keystore` 均已在 `.gitignore` 中，不會被提交。仍需把它們當作簽名金鑰保管，不要複製到日誌、工單、agent 報告或暫時公開的目錄。
+
+### 驗證 Keystore
 
 ```bash
 keytool -list -keystore android/release.keystore
 ```
 
-应输出包含 `fmp` alias 和 `PrivateKeyEntry` 的信息。
+應輸出包含 `fmp` alias 和 `PrivateKeyEntry` 的資訊。
 
 ---
 
-## 2. GitHub Secrets 设置
+## 2. GitHub Secrets 設定
 
-Release Android 簽名構建需要 4 個 Repository Secrets。**Secrets 只需設定一次**，設定後永久保存在 GitHub 倉庫中。只有在重新生成 keystore 後才需要重新設定。
+Release Android 簽名建置需要 4 個 Repository Secrets。**Secrets 只需設定一次**，設定後永久保存在 GitHub 儲存庫中。只有在重新產生 keystore 後才需要重新設定。
 
-### 前置条件
+### 前置條件
 
 ```bash
-# 确认已登录
+# 確認已登入
 gh auth status
 ```
 
-### 一键设置所有 Secrets
+### 一鍵設定所有 Secrets
 
 ```powershell
-# 1. 上传 Keystore（使用 certutil 编码为 base64）
+# 1. 上傳 Keystore（使用 certutil 編碼為 base64）
 certutil -encode android/release.keystore "$env:TEMP\ks.txt"
 Get-Content "$env:TEMP\ks.txt" |
   Where-Object { $_ -notmatch 'CERTIFICATE' } |
   gh secret set KEYSTORE_BASE64 --repo 1morr/FMP --body-file -
 Remove-Item -LiteralPath "$env:TEMP\ks.txt" -Force
 
-# 2. 设置密码和别名（逐条输入 secret 内容，不要把密码放在命令行）
+# 2. 設定密碼和別名（逐條輸入 secret 內容，不要把密碼放在命令列）
 gh secret set KEYSTORE_PASSWORD --repo 1morr/FMP
 gh secret set KEY_PASSWORD --repo 1morr/FMP
 "fmp" | gh secret set KEY_ALIAS --repo 1morr/FMP --body-file -
 ```
 
 > Linux/macOS 用 `base64 android/release.keystore | gh secret set KEYSTORE_BASE64 --body-file -`
-> 临时 base64 文件、终端 scrollback 和 agent transcript 都可能泄漏签名密钥。上传后确认 `$env:TEMP\ks.txt` 已删除，不要把 secret 值贴到报告中。
+> 暫存 base64 檔案、終端機 scrollback 和 agent transcript 都可能洩漏簽名金鑰。上傳後確認 `$env:TEMP\ks.txt` 已刪除，不要把 secret 值貼到報告中。
 
-### 验证 Secrets
+### 驗證 Secrets
 
 ```bash
 gh secret list --repo 1morr/FMP
 ```
 
-应显示 4 个 Secrets：`KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_PASSWORD`、`KEY_ALIAS`。
+應顯示 4 個 Secrets：`KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_PASSWORD`、`KEY_ALIAS`。
 
-### 更换 Keystore 后
+### 更換 Keystore 後
 
-如果重新生成了 keystore，只需重新运行上面的命令即可。Secrets 会被覆盖更新。
+如果重新產生了 keystore，只需重新執行上面的指令即可。Secrets 會被覆蓋更新。
 
-> 注意：更换签名密钥后，用户需要先卸载旧 APK 再安装新的。
+> 注意：更換簽名金鑰後，使用者需要先解除安裝舊 APK 再安裝新的。
 
 ---
 
-## 3. Windows 安装包 (InnoSetup)
+## 3. Windows 安裝包 (InnoSetup)
 
-Windows 版本使用 [Inno Setup](https://jrsoftware.org/isinfo.php) 生成 `.exe` 安装包。安装包会创建带有 `AppUserModelID` 的开始菜单和桌面快捷方式，使 Windows SMTC（系统媒体传输控件）能正确显示应用图标和名称。
+Windows 版本使用 [Inno Setup](https://jrsoftware.org/isinfo.php) 產生 `.exe` 安裝包。安裝包會建立帶有 `AppUserModelID` 的開始功能表和桌面捷徑，讓 Windows SMTC（系統媒體傳輸控制項）能正確顯示應用程式圖示和名稱。
 
-CI 不直接使用 inno_bundle 的默认输出：`release.yml` 会以多组 regex 改写生成的 `inno-script.iss`（注入 `DefaultGroupName=FMP` 与 `AppUserModelID: "com.personal.fmp"`），并在 ISCC 编译前用一个 verify 步骤断言两者都存在。若上游 inno_bundle 输出格式变动使替换失效，CI 会明确失败，而不是产出静默退回的安装包（那会让 SMTC 身份与开始菜单分组受损）。
+CI 不直接使用 inno_bundle 的預設輸出：`release.yml` 會以多組 regex 改寫產生的 `inno-script.iss`（注入 `DefaultGroupName=FMP` 與 `AppUserModelID: "com.personal.fmp"`），並在 ISCC 編譯前用一個 verify 步驟斷言兩者都存在。若上游 inno_bundle 輸出格式變動使替換失效，CI 會明確失敗，而不是產出靜默退回的安裝包（那會讓 SMTC 身分與開始功能表分組受損）。
 
-### 前置条件
+本機安裝 Inno Setup 與建置安裝包的步驟見〈[建置指南 §建置安裝包](building.md#建置安裝包)〉；本節只說明 CI 特有的修補與驗證邏輯，以及 AppUserModelID 的完整原理。
 
-```bash
-# 安装 Inno Setup
-winget install -e --id JRSoftware.InnoSetup
-```
+### 設定
 
-### 配置
+安裝包設定位於 `pubspec.yaml` 的 `inno_bundle` 區塊，完整欄位說明見〈[建置指南 §安裝包設定](building.md#安裝包設定)〉。
 
-安装包配置位于 `pubspec.yaml` 的 `inno_bundle` 节：
-
-```yaml
-inno_bundle:
-  id: BAF6CE8D-E1C8-4C29-AE0B-EDE98D5F8FAA  # AppId，发布后不可更改
-  name: FMP
-  description: "Flutter Music Player - 跨平台音乐播放器"
-  publisher: FMP
-  installer_icon: windows/runner/resources/app_icon.ico
-  admin: false  # 不需要管理员权限安装
-```
-
-> **重要**：`id` 是 GUID 格式的 AppId，**发布后不可更改**。更改会导致用户机器将更新视为不同应用。
+> **重要**：`id` 是 GUID 格式的 AppId，**發布後不可更改**。更改會導致使用者機器將更新視為不同的應用程式。
 
 ### SMTC AppUserModelID
 
-`windows/runner/main.cpp` 中设置了进程级 `AppUserModelID`：
+Windows SMTC 透過 `AppUserModelID` 識別應用程式身分。本專案在兩個位置設定了該 ID：
+
+1. **行程層級**（`windows/runner/main.cpp`）：
 
 ```cpp
 #include <shobjidl.h>
 
-// 在 wWinMain 开头
+// 在 wWinMain 開頭
 ::SetCurrentProcessExplicitAppUserModelID(L"com.personal.fmp");
 ```
 
-安装包的快捷方式也需要匹配的 `AppUserModelID`。`inno_bundle` 生成的 ISS 脚本默认不包含此项，CI 构建时会自动补丁。
+2. **捷徑層級**（InnoSetup 安裝包）：
 
-### 本地构建安装包
+安裝包建立的開始功能表和桌面捷徑包含相符的 `AppUserModelID: "com.personal.fmp"`。`inno_bundle` 預設不會產生此屬性，CI 建置時會自動修補。
 
-```bash
-# 方法一：一键构建（构建 Flutter + 生成安装包）
-dart run inno_bundle:build --release
+> 兩者必須一致，否則 SMTC 無法正確顯示應用程式資訊。
 
-# 方法二：分步构建（如果 inno_bundle 无法找到 ISCC.exe）
-# 1. 构建 Flutter
-flutter build windows --release
+### 相關檔案
 
-# 2. 生成 ISS 脚本（跳过 Flutter 构建和 ISCC 编译）
-dart run inno_bundle:build --release --no-app --no-installer
-
-# 3. 手动编译 ISS 脚本
-& "C:\Users\<用户名>\AppData\Local\Programs\Inno Setup 6\ISCC.exe" build\windows\x64\installer\Release\inno-script.iss
-```
-
-产物路径：`build\windows\x64\installer\Release\FMP-x86_64-<版本>-Installer.exe`
-
-### 相关文件
-
-| 文件 | 说明 |
+| 檔案 | 說明 |
 |------|------|
-| `pubspec.yaml` (`inno_bundle` 节) | 安装包配置 |
+| `pubspec.yaml` (`inno_bundle` 區塊) | 安裝包設定 |
 | `windows/runner/main.cpp` | `SetCurrentProcessExplicitAppUserModelID` |
-| `windows/runner/resources/app_icon.ico` | 安装包和快捷方式图标 |
+| `windows/runner/resources/app_icon.ico` | 安裝包和捷徑圖示 |
 
 ---
 
@@ -185,7 +161,7 @@ git add .
 git commit -m "feat: ..."
 git push
 
-# 2. 打 tag 並 push（觸發 CI 構建和 Release）
+# 2. 打 tag 並 push（觸發 CI 建置和 Release）
 git tag v1.2.0
 git push origin v1.2.0
 ```
@@ -202,9 +178,9 @@ CI
        │
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
-       │   ├─ flutter pub run build_runner build --delete-conflicting-outputs
+       │   ├─ dart format --output=none --set-exit-if-changed .
+       │   ├─ dart run build_runner build --delete-conflicting-outputs
        │   ├─ dart run slang
-       │   ├─ git diff --exit-code
        │   ├─ flutter analyze
        │   └─ flutter test
        │
@@ -215,9 +191,9 @@ CI
            └─ flutter build windows --release
 ```
 
-`validate` 會確認 Isar/slang 生成檔已提交，再執行 analyzer 與測試；兩個 build job 只作為跨平台 release build 煙霧測試，不建立 GitHub Release。圖示資產由維護者在本地執行 `dart run flutter_launcher_icons` 後提交，CI 不在每次驗證時重產圖示。
+`validate` 會執行程式碼產生、格式檢查、analyzer 與測試；兩個 build job 只作為跨平臺 release build 煙霧測試，不建立 GitHub Release。`*.g.dart` 等產生檔不進版本控制（見 `.gitignore`），所以本流程不對「產生檔已提交」做檢查——那類檢查在 git 從未追蹤這些檔案的情況下永遠會通過，無法真正偵測任何問題。圖示資產由維護者在本機執行 `dart run flutter_launcher_icons` 後提交，CI 不在每次驗證時重產圖示。
 
-> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平台（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意凍結於 v3（見 `lib/data/AGENTS.md` 的 Dependency Note），不自行升級 v4。
+> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平臺（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意凍結於 v3（見 `lib/data/AGENTS.md` 的 Dependency Note），不自行升級 v4。
 
 ### 發布自動化流程
 
@@ -232,12 +208,11 @@ GitHub Actions (release.yml)
        │   └─ 確認 tag 已存在
        │
        ├─ validate (ubuntu)
-       │   ├─ 確認生成檔已提交
        │   ├─ flutter analyze
        │   └─ flutter test
        │
        ├─ build-android (ubuntu)
-       │   ├─ 按 ABI matrix 構建 arm64-v8a / armeabi-v7a / x86_64 / universal
+       │   ├─ 按 ABI matrix 建置 arm64-v8a / armeabi-v7a / x86_64 / universal
        │   ├─ 從 tag 提取版本號寫入 pubspec.yaml
        │   ├─ 從 Secrets 解碼 keystore
        │   ├─ flutter build apk --release
@@ -247,14 +222,14 @@ GitHub Actions (release.yml)
        │   ├─ 從 tag 提取版本號寫入 pubspec.yaml
        │   ├─ flutter build windows --release
        │   ├─ 壓縮為 ZIP
-       │   ├─ 安裝 InnoSetup + 生成安裝包
-       │   ├─ 補丁 ISS 腳本（AppUserModelID + 語言修復）
+       │   ├─ 安裝 InnoSetup + 產生安裝包
+       │   ├─ 修補 ISS 指令碼（AppUserModelID + 語言修復）
        │   └─ 產物: fmp-v1.2.0-windows.zip
        │          fmp-v1.2.0-windows-installer.exe
        │
        └─ release
-           ├─ 下載所有平台的產物
-           ├─ 自動生成 Release Notes
+           ├─ 下載所有平臺的產物
+           ├─ 自動產生 Release Notes
            └─ 建立 GitHub Release（multi-ABI APK + ZIP + Installer + latest 穩定下載別名）
 ```
 
@@ -270,7 +245,7 @@ GitHub Actions (release.yml)
 
 ### Release 產物命名
 
-| 平台 | 產物命名 | 說明 |
+| 平臺 | 產物命名 | 說明 |
 |----------|---------------|-------|
 | Android | `fmp-v1.2.0-android-arm64-v8a.apk` | ABI 專用 APK |
 | Android | `fmp-v1.2.0-android-armeabi-v7a.apk` | ABI 專用 APK |
@@ -292,71 +267,71 @@ GitHub Actions (release.yml)
 
 ### Windows runner 版本
 
-Windows CI 固定使用 `windows-2022`，避免 `windows-latest` 迁移到新版 Visual Studio/MSVC 后触发原生插件兼容问题。当前 `flutter_inappwebview_windows 0.6.0` 在 VS 2026 / MSVC 14.51 下会因 `<experimental/coroutine>` 弃用检查构建失败；等该插件升级或本项目完成 Windows 插件补丁并验证后，再评估恢复 `windows-latest`。
+Windows CI 固定使用 `windows-2022`，避免 `windows-latest` 遷移到新版 Visual Studio/MSVC 後觸發原生外掛相容性問題。目前 `flutter_inappwebview_windows 0.6.0` 在 VS 2026 / MSVC 14.51 下會因 `<experimental/coroutine>` 棄用檢查而建置失敗；等該外掛升級或本專案完成 Windows 外掛修補並驗證後，再評估恢復 `windows-latest`。
 
 ---
 
-## 5. 应用内更新机制
+## 5. 應用內更新機制
 
-### 用户操作
+### 使用者操作
 
-设置 → 关于 → 检查更新
+設定 → 關於 → 檢查更新
 
-### 技术实现
+### 技術實作
 
 ```
-检查更新
+檢查更新
   │
   ▼
 GET https://api.github.com/repos/1morr/FMP/releases/latest
   │
-  ├─ 比较 tag_name 与当前 app 版本
+  ├─ 比較 tag_name 與目前 app 版本
   │
-  ├─ 无更新 → 提示"已是最新版本"
+  ├─ 無更新 → 提示「已是最新版本」
   │
-  └─ 有更新 → 弹出对话框
+  └─ 有更新 → 彈出對話方塊
        │
-       ├─ 显示版本号、Release Notes、文件大小
+       ├─ 顯示版本號、Release Notes、檔案大小
        │
-       └─ 用户点击"立即更新"
+       └─ 使用者點選「立即更新」
             │
-            ├─ Android: 下载 APK → 调用系统安装器
+            ├─ Android: 下載 APK → 呼叫系統安裝器
             │
             └─ Windows:
-                 ├─ 安装版: 下载 installer → 静默安装到当前目录 → 重启
-                 └─ 便携版: 下载 ZIP → 解压 → VBS/BAT updater 等待旧进程退出 → 备份 → 替换 → 失败回滚 → 重启
+                 ├─ 安裝版: 下載 installer → 靜默安裝到目前目錄 → 重啟
+                 └─ 免安裝版: 下載 ZIP → 解壓 → VBS/BAT updater 等待舊行程結束 → 備份 → 替換 → 失敗回滾 → 重啟
 ```
 
-下载与安装安全边界：
-- 所有平台下载都先落到 `.part`，验证完成后才替换成正式文件。
-- 新 Release 附带 `fmp-vX.Y.Z-checksums.sha256`；App 会优先使用 SHA-256 验证，并保留 asset size 检查作为兼容旧版本的最低保护。
-- Android 安装前会检查“允许此来源安装应用”。未授权时，对话框会引导用户打开系统设置，回到 App 后可重新触发安装。
-- Windows 便携版 updater 会等待原 FMP 进程结束，先备份当前目录，再用 `robocopy` 替换；替换失败会尝试从备份回滚。
+下載與安裝安全邊界：
+- 所有平臺下載都先落到 `.part`，驗證完成後才替換成正式檔案。
+- 新 Release 附帶 `fmp-vX.Y.Z-checksums.sha256`；App 會優先使用 SHA-256 驗證，並保留 asset size 檢查作為相容舊版本的最低保護。
+- Android 安裝前會檢查「允許此來源安裝應用程式」。未授權時，對話方塊會引導使用者開啟系統設定，回到 App 後可重新觸發安裝。
+- Windows 免安裝版 updater 會等待原 FMP 行程結束，先備份目前目錄，再用 `robocopy` 替換；替換失敗會嘗試從備份回滾。
 
-### 相关文件
+### 相關檔案
 
-| 文件 | 说明 |
+| 檔案 | 說明 |
 |------|------|
-| `lib/services/update/update_service.dart` | GitHub API 调用、下载、平台安装逻辑 |
-| `lib/providers/system/update_provider.dart` | Riverpod 状态管理 |
-| `lib/ui/widgets/dialogs/update_dialog.dart` | 更新对话框 UI |
-| `android/app/src/main/kotlin/com/personal/fmp/MainActivity.kt` | Android 安装来源权限 MethodChannel |
+| `lib/services/update/update_service.dart` | GitHub API 呼叫、下載、平臺安裝邏輯 |
+| `lib/providers/system/update_provider.dart` | Riverpod 狀態管理 |
+| `lib/ui/widgets/dialogs/update_dialog.dart` | 更新對話方塊 UI |
+| `android/app/src/main/kotlin/com/personal/fmp/MainActivity.kt` | Android 安裝來源權限 MethodChannel |
 
 ---
 
-## 6. 常见问题
+## 6. 常見問題
 
-### Q: APK 安装时报 "package conflicts with an existing package"
-**A:** 新旧 APK 签名密钥不同。需要先卸载旧版本再安装。确保本地和 CI 使用同一个 `release.keystore`。
+### Q: APK 安裝時報 "package conflicts with an existing package"
+**A:** 新舊 APK 簽名金鑰不同。需要先解除安裝舊版本再安裝。確保本機和 CI 使用同一個 `release.keystore`。
 
-### Q: CI 构建失败 "Keystore file not found"
-**A:** 检查 `key.properties` 中 `storeFile` 路径是否为 `../release.keystore`（相对于 `android/app/` 目录）。
+### Q: CI 建置失敗 "Keystore file not found"
+**A:** 檢查 `key.properties` 中 `storeFile` 路徑是否為 `../release.keystore`（相對於 `android/app/` 目錄）。
 
-### Q: CI 构建失败 "Tag number over 30 is not supported"
-**A:** `KEYSTORE_BASE64` Secret 损坏。重新运行 `certutil` 编码命令上传。
+### Q: CI 建置失敗 "Tag number over 30 is not supported"
+**A:** `KEYSTORE_BASE64` Secret 損壞。重新執行 `certutil` 編碼指令上傳。
 
-### Q: 版本号没有更新
-**A:** 确认使用 `v` 开头的 tag（如 `v1.2.0`）。非 tag push 不会更新版本号。
+### Q: 版本號沒有更新
+**A:** 確認使用 `v` 開頭的 tag（如 `v1.2.0`）。非 tag push 不會更新版本號。
 
-### Q: Windows 更新时弹出 CMD 窗口
-**A:** 已通过 VBScript 包装解决。更新脚本通过 `wscript` 隐藏启动。
+### Q: Windows 更新時彈出 CMD 視窗
+**A:** 已透過 VBScript 包裝解決。更新指令碼透過 `wscript` 隱藏啟動。

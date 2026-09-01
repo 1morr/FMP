@@ -1,24 +1,24 @@
-# Flutter VM Service API 调试指南（AI Agent 专用）
+# Flutter VM Service API 除錯指南（AI Agent 專用）
 
-本文档指导 AI Agent 如何通过 Dart VM Service API 对 FMP 应用进行运行时调试与性能分析。
+本文件指導 AI Agent 如何透過 Dart VM Service API 對 FMP 應用進行執行時除錯與效能分析。
 
-## 目录
+## 目錄
 
-1. [前置条件](#1-前置条件)
-2. [连接方式](#2-连接方式)
-3. [VM Service HTTP API — 数据获取](#3-vm-service-http-api-数据获取)
+1. [前置條件](#1-前置條件)
+2. [連線方式](#2-連線方式)
+3. [VM Service HTTP API — 資料獲取](#3-vm-service-http-api-資料獲取)
 4. [Flutter Extension API](#4-flutter-extension-api)
-5. [Isar 数据库调试](#5-isar-数据库调试)
-6. [常用调试脚本](#6-常用调试脚本)
-7. [注意事项](#7-注意事项)
+5. [Isar 資料庫除錯](#5-isar-資料庫除錯)
+6. [常用除錯指令碼](#6-常用除錯指令碼)
+7. [注意事項](#7-注意事項)
 
 ---
 
-## 1. 前置条件
+## 1. 前置條件
 
-### 启动应用
+### 啟動應用
 
-先启动应用。若当前 agent/session 不适合托管长期进程，可让用户在终端手动运行；如果可以启动并保持进程，则直接运行对应命令。
+先啟動應用。若當前 agent/session 不適合託管長期程序，可讓使用者在終端手動執行；如果可以啟動並保持程序，則直接執行對應命令。
 
 ```bash
 # Android
@@ -28,9 +28,9 @@ flutter run -d <device_id>
 flutter run -d windows
 ```
 
-### 获取 VM Service URI
+### 獲取 VM Service URI
 
-启动后控制台会输出：
+啟動後主控台會輸出：
 
 ```
 A Dart VM Service on <device> is available at: http://127.0.0.1:<PORT>/<TOKEN>/
@@ -38,13 +38,13 @@ The Flutter DevTools debugger and profiler is available at:
 http://127.0.0.1:<PORT>/<TOKEN>/devtools/?uri=ws://127.0.0.1:<PORT>/<TOKEN>/ws
 ```
 
-需要提取两个值：
-- **BASE URL**: `http://127.0.0.1:<PORT>/<TOKEN>=`（用于 HTTP API）
-- **WS URI**: `ws://127.0.0.1:<PORT>/<TOKEN>=/ws`（DevTools 与其他 WebSocket 客户端使用；本文档的命令只需要 BASE URL）
+需要提取兩個值：
+- **BASE URL**: `http://127.0.0.1:<PORT>/<TOKEN>=`（用於 HTTP API）
+- **WS URI**: `ws://127.0.0.1:<PORT>/<TOKEN>=/ws`（DevTools 與其他 WebSocket 客戶端使用；本文件的命令只需要 BASE URL）
 
-> VM Service URL 中的 token 等同于本机调试访问凭证。不要把完整 URL、token、DevTools 链接或 websocket URI 贴到 issue、日志、截图、agent 报告或聊天记录中。需要分享时只保留端口和用途，删掉 token 路径；调试结束后关闭 app 或重新启动以失效旧 URI。
+> VM Service URL 中的 token 等同於本機除錯訪問憑證。不要把完整 URL、token、DevTools 連結或 websocket URI 貼到 issue、日誌、截圖、agent 報告或聊天記錄中。需要分享時只保留埠和用途，刪掉 token 路徑；除錯結束後關閉 app 或重新啟動以失效舊 URI。
 
-### 获取 Isolate ID
+### 獲取 Isolate ID
 
 ```bash
 curl -s "$BASE/getVM" | python -c "
@@ -54,29 +54,29 @@ for iso in vm['isolates']:
     print(f\"{iso['name']}: {iso['id']}\")"
 ```
 
-通常 main isolate ID 格式为 `isolates/<number>`。
+通常 main isolate ID 格式為 `isolates/<number>`。
 
 ---
 
-## 2. 连接方式
+## 2. 連線方式
 
-### 变量约定
+### 變數約定
 
-文档中所有命令使用以下变量：
+文件中所有命令使用以下變數：
 
 ```bash
 BASE="http://127.0.0.1:<PORT>/<TOKEN>="
 ISOLATE="isolates/<ISOLATE_NUMBER>"
 ```
 
-### Python 注意事项（Windows）
+### Python 注意事項（Windows）
 
 - 使用 `python`（不是 `python3`，Windows 上 `python3` 可能不存在）
-- PowerShell 临时目录变量是 `$env:TEMP`；Bash/CMD 示例里的 `$TEMP` / `%TEMP%` 不可直接混用
-- 读取 JSON 文件时使用 `encoding='utf-8'`（避免 GBK 编码错误）
-- 输出含 Unicode 时可能报 GBK 编码错误，用 `PYTHONIOENCODING=utf-8` 或重定向到文件
-- PowerShell 中 `curl` 可能是 alias；需要原生命令时用 `curl.exe`，或改用 `Invoke-RestMethod`
-- Bash here-doc（`python << 'PYEOF'`）不能直接在 PowerShell 中运行；PowerShell 用 here-string：`@' ... '@ | python -`
+- PowerShell 臨時目錄變數是 `$env:TEMP`；Bash/CMD 示例裡的 `$TEMP` / `%TEMP%` 不可直接混用
+- 讀取 JSON 檔案時使用 `encoding='utf-8'`（避免 GBK 編碼錯誤）
+- 輸出含 Unicode 時可能報 GBK 編碼錯誤，用 `PYTHONIOENCODING=utf-8` 或重定向到檔案
+- PowerShell 中 `curl` 可能是 alias；需要原生命令時用 `curl.exe`，或改用 `Invoke-RestMethod`
+- Bash here-doc（`python << 'PYEOF'`）不能直接在 PowerShell 中執行；PowerShell 用 here-string：`@' ... '@ | python -`
 
 ### PowerShell HTTP 示例
 
@@ -92,83 +92,83 @@ $vm.result.isolates | ForEach-Object { "$($_.name): $($_.id)" }
 curl.exe -s "$BASE/getMemoryUsage?isolateId=$ISOLATE" -o "$env:TEMP\mem.json"
 ```
 
-后续命令如果写成 `curl -s "$BASE/..."`，在 PowerShell 中优先替换为 `curl.exe -s "$BASE/..."`。
+後續命令如果寫成 `curl -s "$BASE/..."`，在 PowerShell 中優先替換為 `curl.exe -s "$BASE/..."`。
 
 ---
 
-## 3. VM Service HTTP API — 数据获取
+## 3. VM Service HTTP API — 資料獲取
 
-所有 API 通过 HTTP GET 请求调用，返回 JSON。
+所有 API 透過 HTTP GET 請求呼叫，返回 JSON。
 
-### 3.1 VM 信息
+### 3.1 VM 資訊
 
 ```bash
 curl -s "$BASE/getVM"
 ```
 
-**返回字段：**
+**返回欄位：**
 
-| 字段 | 说明 | 示例 |
+| 欄位 | 說明 | 示例 |
 |------|------|------|
-| `operatingSystem` | 运行平台 | `"android"` / `"windows"` |
+| `operatingSystem` | 執行平臺 | `"android"` / `"windows"` |
 | `hostCPU` | 宿主 CPU | `"13th Gen Intel Core i9-13900HX"` |
-| `targetCPU` | 目标架构 | `"x64"` / `"arm64"` |
+| `targetCPU` | 目標架構 | `"x64"` / `"arm64"` |
 | `version` | Dart 版本 | `"3.11.0 (stable)"` |
-| `pid` | 进程 ID | `11792` |
-| `_maxRSS` | 峰值 RSS（字节） | `577212416` (550 MB) |
-| `_currentRSS` | 当前 RSS（字节） | `507367424` (484 MB) |
-| `_currentMemory` | 当前 Dart 内存（字节） | `198184960` (189 MB) |
-| `isolates` | 应用 Isolate 列表 | `[{id, name, number}]` |
-| `systemIsolates` | 系统 Isolate 列表 | vm-service 等 |
+| `pid` | 程序 ID | `11792` |
+| `_maxRSS` | 峰值 RSS（位元組） | `577212416` (550 MB) |
+| `_currentRSS` | 當前 RSS（位元組） | `507367424` (484 MB) |
+| `_currentMemory` | 當前 Dart 記憶體（位元組） | `198184960` (189 MB) |
+| `isolates` | 應用 Isolate 列表 | `[{id, name, number}]` |
+| `systemIsolates` | 系統 Isolate 列表 | vm-service 等 |
 
-### 3.2 内存使用
+### 3.2 記憶體使用
 
-#### Isolate 级别
+#### Isolate 級別
 
 ```bash
 curl -s "$BASE/getMemoryUsage?isolateId=$ISOLATE"
 ```
 
-| 字段 | 说明 |
+| 欄位 | 說明 |
 |------|------|
-| `heapUsage` | Dart Heap 已用字节 |
-| `heapCapacity` | Dart Heap 总容量字节 |
-| `externalUsage` | 外部（native）内存字节 |
+| `heapUsage` | Dart Heap 已用位元組 |
+| `heapCapacity` | Dart Heap 總容量位元組 |
+| `externalUsage` | 外部（native）記憶體位元組 |
 
-**健康指标：**
-- Heap 利用率 (`heapUsage / heapCapacity`) > 90% 表示 GC 压力大
-- `externalUsage` 过高可能是图片/native 资源泄漏
+**健康指標：**
+- Heap 利用率 (`heapUsage / heapCapacity`) > 90% 表示 GC 壓力大
+- `externalUsage` 過高可能是圖片/native 資源洩漏
 
-#### Isolate Group 级别
+#### Isolate Group 級別
 
 ```bash
 curl -s "$BASE/getIsolateGroupMemoryUsage?isolateGroupId=$ISOGROUP"
 ```
 
-返回字段同上，但是整个 Isolate Group 的汇总。
+返回欄位同上，但是整個 Isolate Group 的彙總。
 
-### 3.3 对象分配概况（Allocation Profile）
+### 3.3 物件分配概況（Allocation Profile）
 
 ```bash
 curl -s "$BASE/_getAllocationProfile?isolateId=$ISOLATE"
 ```
 
-**返回结构：**
+**返回結構：**
 - `memoryUsage` — 同 getMemoryUsage
-- `members[]` — 每个类的分配统计：
-  - `class.name` — 类名
-  - `instancesCurrent` — 当前实例数
-  - `bytesCurrent` — 当前占用字节
-  - `instancesAccumulated` — 累计分配实例数
-  - `accumulatedSize` — 累计分配字节
+- `members[]` — 每個類的分配統計：
+  - `class.name` — 類名
+  - `instancesCurrent` — 當前例項數
+  - `bytesCurrent` — 當前佔用位元組
+  - `instancesAccumulated` — 累計分配例項數
+  - `accumulatedSize` — 累計分配位元組
 
-> ⚠️ 字段名是 **`class`**，不是 `classRef`。实测（Dart 3.12.2，2026-07-27）单个 member 的完整键为
+> ⚠️ 欄位名是 **`class`**，不是 `classRef`。實測（Dart 3.12.2，2026-07-27）單個 member 的完整鍵為
 > `['_new', '_old', 'accumulatedSize', 'bytesCurrent', 'class', 'instancesAccumulated', 'instancesCurrent', 'type']`。
-> 用 `m['classRef']` 会直接 `KeyError`。
+> 用 `m['classRef']` 會直接 `KeyError`。
 
-**注意：** debug 模式下类名可能显示为 `?`，这是正常的。profile 模式下类名更完整。
+**注意：** debug 模式下類名可能顯示為 `?`，這是正常的。profile 模式下類名更完整。
 
-**分析脚本：**
+**分析指令碼：**
 
 ```python
 members = result['members']
@@ -180,44 +180,44 @@ for m in sorted_m[:20]:
     print(f"{cls}: {instances} instances, {size_kb:.1f} KB")
 ```
 
-### 3.4 Timeline（帧性能 + GC + 事件追踪）
+### 3.4 Timeline（幀效能 + GC + 事件追蹤）
 
-#### 获取 Timeline 数据
+#### 獲取 Timeline 資料
 
 ```bash
 curl -s "$BASE/getVMTimeline?timeOriginMicros=0&timeExtentMicros=999999999999" -o timeline.json
 ```
 
-**返回 `traceEvents[]`，每个事件包含：**
+**返回 `traceEvents[]`，每個事件包含：**
 
-| 字段 | 说明 |
+| 欄位 | 說明 |
 |------|------|
-| `name` | 事件名称 |
-| `cat` | 分类（`Embedder`, `GC`, `Dart`） |
+| `name` | 事件名稱 |
+| `cat` | 分類（`Embedder`, `GC`, `Dart`） |
 | `ph` | Phase: `B`=Begin, `E`=End, `X`=Complete, `b`/`e`=async |
-| `ts` | 时间戳（微秒） |
-| `dur` | 持续时间（微秒，仅 `ph=X`） |
-| `tid` | 线程 ID |
-| `args` | 附加参数 |
+| `ts` | 時間戳（微秒） |
+| `dur` | 持續時間（微秒，僅 `ph=X`） |
+| `tid` | 執行緒 ID |
+| `args` | 附加引數 |
 
-#### 帧性能分析
+#### 幀效能分析
 
-关键事件（都是 `B`/`E` 配对）：
+關鍵事件（都是 `B`/`E` 配對）：
 
-| 事件名 | 线程 | 含义 |
+| 事件名 | 執行緒 | 含義 |
 |--------|------|------|
-| `Animator::BeginFrame` | UI Thread | UI 帧处理时间 |
-| `GPURasterizer::Draw` | Raster Thread | 光栅化时间 |
-| `VsyncProcessCallback` | UI Thread | Vsync 回调总时间 |
-| `PipelineProduce` | UI Thread | Pipeline 生产（async b/e） |
-| `Frame Request Pending` | UI Thread | 帧请求等待（async b/e） |
+| `Animator::BeginFrame` | UI Thread | UI 幀處理時間 |
+| `GPURasterizer::Draw` | Raster Thread | 光柵化時間 |
+| `VsyncProcessCallback` | UI Thread | Vsync 回撥總時間 |
+| `PipelineProduce` | UI Thread | Pipeline 生產（async b/e） |
+| `Frame Request Pending` | UI Thread | 幀請求等待（async b/e） |
 
-**Jank 判定标准：**
-- `> 16.67ms` (60fps) — Jank（掉帧）
-- `> 33.34ms` (30fps) — Severe Jank（严重掉帧）
-- `> 100ms` — 可能是启动/大量数据加载
+**Jank 判定標準：**
+- `> 16.67ms` (60fps) — Jank（掉幀）
+- `> 33.34ms` (30fps) — Severe Jank（嚴重掉幀）
+- `> 100ms` — 可能是啟動/大量資料載入
 
-**帧时间计算（B/E 配对）：**
+**幀時間計算（B/E 配對）：**
 
 ```python
 def calc_frame_durations(events, name):
@@ -228,33 +228,33 @@ def calc_frame_durations(events, name):
 
 #### GC 事件分析
 
-GC 事件 `cat` 为 `"GC"`，也是 `B`/`E` 配对。
+GC 事件 `cat` 為 `"GC"`，也是 `B`/`E` 配對。
 
-**关键 GC 阶段：**
+**關鍵 GC 階段：**
 
-| GC 阶段 | 说明 | 关注阈值 |
+| GC 階段 | 說明 | 關注閾值 |
 |---------|------|----------|
-| `ConcurrentMark` | 并发标记 | > 10ms 需关注 |
-| `CollectOldGeneration` | 老年代回收 | > 10ms 可能造成卡顿 |
-| `CollectNewGeneration` | 新生代回收 | > 5ms 需关注 |
-| `Scavenge` | 新生代清扫 | > 3ms 需关注 |
-| `Sweep` / `ConcurrentSweep` | 清扫 | 通常较快 |
-| `FinishIncrementalCompact` | 增量压缩完成 | > 10ms 需关注 |
-| `NotifyIdle` | 空闲通知触发 GC | 正常 |
+| `ConcurrentMark` | 併發標記 | > 10ms 需關注 |
+| `CollectOldGeneration` | 老年代回收 | > 10ms 可能造成卡頓 |
+| `CollectNewGeneration` | 新生代回收 | > 5ms 需關注 |
+| `Scavenge` | 新生代清掃 | > 3ms 需關注 |
+| `Sweep` / `ConcurrentSweep` | 清掃 | 通常較快 |
+| `FinishIncrementalCompact` | 增量壓縮完成 | > 10ms 需關注 |
+| `NotifyIdle` | 空閒通知觸發 GC | 正常 |
 
 #### Timeline 流控制
 
 ```bash
-# 查看当前录制的流
+# 檢視當前錄製的流
 curl -s "$BASE/getVMTimelineFlags"
 
 # 可用流: API, Compiler, CompilerVerbose, Dart, Debugger, Embedder, GC, Isolate, Microtask, VM
-# 默认录制: Dart, Embedder, GC
+# 預設錄製: Dart, Embedder, GC
 ```
 
-**注意：** `setVMTimelineFlags` 的 `recordedStreams` 参数需要 JSON 数组格式，通过 HTTP GET 传递时格式复杂，建议保持默认流即可。
+**注意：** `setVMTimelineFlags` 的 `recordedStreams` 引數需要 JSON 陣列格式，透過 HTTP GET 傳遞時格式複雜，建議保持預設流即可。
 
-### 3.5 HTTP 网络请求
+### 3.5 HTTP 網路請求
 
 ```bash
 curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
@@ -262,200 +262,200 @@ curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
 
 **返回 `requests[]`：**
 
-| 字段 | 说明 |
+| 欄位 | 說明 |
 |------|------|
-| `id` | 请求 ID |
-| `uri` | 请求 URL |
+| `id` | 請求 ID |
+| `uri` | 請求 URL |
 | `method` | HTTP 方法 |
-| `status` | 状态码 |
-| `startTime` | 开始时间（微秒） |
-| `endTime` | 结束时间（微秒） |
+| `status` | 狀態碼 |
+| `startTime` | 開始時間（微秒） |
+| `endTime` | 結束時間（微秒） |
 
-> 🔴 **实测对 FMP 无效，不要在这里花时间。** 2026-07-27 在 debug 会话实测：应用刚从三个音源
-> 载入上百首排行榜数据，`getHttpProfile` 仍返回 **0 个请求**；按下面的方法启用
-> `httpEnableTimelineLogging`（返回 `{'enabled': True}`）后重查，依然 **0 个**；
-> `getVMTimeline` 的 12934 个事件里 HTTP/Socket 相关也是 **0 个**。
+> 🔴 **實測對 FMP 無效，不要在這裡花時間。** 2026-07-27 在 debug 會話實測：應用剛從三個音源
+> 載入上百首排行榜資料，`getHttpProfile` 仍返回 **0 個請求**；按下面的方法啟用
+> `httpEnableTimelineLogging`（返回 `{'enabled': True}`）後重查，依然 **0 個**；
+> `getVMTimeline` 的 12934 個事件裡 HTTP/Socket 相關也是 **0 個**。
 >
-> 需要看 FMP 的网络行为，用 `AppLogger` 的 source adapter 日志，或在 Dio 上挂 interceptor。
+> 需要看 FMP 的網路行為，用 `AppLogger` 的 source adapter 日誌，或在 Dio 上掛 interceptor。
 
 ```bash
-# 启用 HTTP timeline 日志（实测未能让 FMP 的请求出现）
+# 啟用 HTTP timeline 日誌（實測未能讓 FMP 的請求出現）
 curl -s "$BASE/ext.dart.io.httpEnableTimelineLogging?isolateId=$ISOLATE&enabled=true"
 ```
 
-> 保留一个未验证的可能：上述实测是在流量发生**之后**才启用 logging 的。严格的复测应先启用再产生流量。
-> 但同一次实测中 `getSocketProfile` 对**当下存活**的连接也返回 0，这一点无法用启用时机解释。
+> 保留一個未驗證的可能：上述實測是在流量發生**之後**才啟用 logging 的。嚴格的複測應先啟用再產生流量。
+> 但同一次實測中 `getSocketProfile` 對**當下存活**的連線也返回 0，這一點無法用啟用時機解釋。
 
-### 3.6 Socket 和文件
+### 3.6 Socket 和檔案
 
-> 🔴 **同样实测返回空。** `getSocketProfile` → 0 sockets，`getOpenFiles` → 0 files，
-> 而当时 Isar 已打开、三个音源的 HTTP 连接刚完成。与 §3.5 一并视为对 FMP 不可用。
+> 🔴 **同樣實測返回空。** `getSocketProfile` → 0 sockets，`getOpenFiles` → 0 files，
+> 而當時 Isar 已開啟、三個音源的 HTTP 連線剛完成。與 §3.5 一併視為對 FMP 不可用。
 
 ```bash
-# Socket 连接
+# Socket 連線
 curl -s "$BASE/ext.dart.io.getSocketProfile?isolateId=$ISOLATE"
 
-# 打开的文件
+# 開啟的檔案
 curl -s "$BASE/ext.dart.io.getOpenFiles?isolateId=$ISOLATE"
 
-# 单个文件详情
+# 單個檔案詳情
 curl -s "$BASE/ext.dart.io.getOpenFileById?isolateId=$ISOLATE&id=<FILE_ID>"
 ```
 
 ## 4. Flutter Extension API
 
-通过 `ext.flutter.*` 扩展可以控制 Flutter 框架的调试功能。
+透過 `ext.flutter.*` 擴充套件可以控制 Flutter 框架的除錯功能。
 
-### 4.1 性能分析开关
+### 4.1 效能分析開關
 
-这些扩展控制是否在 Timeline 中记录额外的性能数据：
+這些擴充套件控制是否在 Timeline 中記錄額外的效能資料：
 
 ```bash
-# 查询当前状态（返回 enabled: true/false）
+# 查詢當前狀態（返回 enabled: true/false）
 curl -s "$BASE/ext.flutter.profileWidgetBuilds?isolateId=$ISOLATE"
 
-# 启用（在 Timeline 中记录每个 Widget 的 build 时间）
+# 啟用（在 Timeline 中記錄每個 Widget 的 build 時間）
 curl -s "$BASE/ext.flutter.profileWidgetBuilds?isolateId=$ISOLATE&enabled=true"
 ```
 
-| 扩展 | 说明 | 性能影响 |
+| 擴充套件 | 說明 | 效能影響 |
 |------|------|----------|
-| `profileWidgetBuilds` | 记录 Widget build 时间 | 中等 |
-| `profileUserWidgetBuilds` | 仅记录用户 Widget build | 较低 |
-| `profileRenderObjectPaints` | 记录 RenderObject paint 时间 | 中等 |
-| `profileRenderObjectLayouts` | 记录 RenderObject layout 时间 | 中等 |
-| `profilePlatformChannels` | 记录 Platform Channel 调用 | 低 |
+| `profileWidgetBuilds` | 記錄 Widget build 時間 | 中等 |
+| `profileUserWidgetBuilds` | 僅記錄使用者 Widget build | 較低 |
+| `profileRenderObjectPaints` | 記錄 RenderObject paint 時間 | 中等 |
+| `profileRenderObjectLayouts` | 記錄 RenderObject layout 時間 | 中等 |
+| `profilePlatformChannels` | 記錄 Platform Channel 呼叫 | 低 |
 
-**启用后需要触发 UI 操作（如滚动、切换页面），然后通过 `getVMTimeline` 获取新的 Timeline 数据来分析。**
+**啟用後需要觸發 UI 操作（如滾動、切換頁面），然後透過 `getVMTimeline` 獲取新的 Timeline 資料來分析。**
 
-### 4.2 视觉调试
+### 4.2 視覺除錯
 
 ```bash
-# 显示性能覆盖层（帧率图表）
+# 顯示效能覆蓋層（幀率圖表）
 curl -s "$BASE/ext.flutter.showPerformanceOverlay?isolateId=$ISOLATE&enabled=true"
 
-# 显示重绘彩虹（每次重绘变色）
+# 顯示重繪彩虹（每次重繪變色）
 curl -s "$BASE/ext.flutter.repaintRainbow?isolateId=$ISOLATE&enabled=true"
 
-# 显示调试绘制（边框、间距等）
+# 顯示除錯繪製（邊框、間距等）
 curl -s "$BASE/ext.flutter.debugPaint?isolateId=$ISOLATE&enabled=true"
 
-# 反转过大图片（帮助发现未优化的图片）
+# 反轉過大圖片（幫助發現未最佳化的圖片）
 curl -s "$BASE/ext.flutter.invertOversizedImages?isolateId=$ISOLATE&enabled=true"
 
-# 时间膨胀（慢动画，值 > 1.0 减慢，< 1.0 加速）
+# 時間膨脹（慢動畫，值 > 1.0 減慢，< 1.0 加速）
 curl -s "$BASE/ext.flutter.timeDilation?isolateId=$ISOLATE&timeDilation=5.0"
 ```
 
 ### 4.3 Widget/Render/Layer Tree Dump
 
 ```bash
-# Widget 树（完整，可能非常大 ~900KB）
+# Widget 樹（完整，可能非常大 ~900KB）
 curl -s "$BASE/ext.flutter.debugDumpApp?isolateId=$ISOLATE"
 
-# Render 树（完整，可能非常大 ~2MB）
+# Render 樹（完整，可能非常大 ~2MB）
 curl -s "$BASE/ext.flutter.debugDumpRenderTree?isolateId=$ISOLATE"
 
-# Layer 树
+# Layer 樹
 curl -s "$BASE/ext.flutter.debugDumpLayerTree?isolateId=$ISOLATE"
 
-# Focus 树
+# Focus 樹
 curl -s "$BASE/ext.flutter.debugDumpFocusTree?isolateId=$ISOLATE"
 
-# Semantics 树（无障碍）
+# Semantics 樹（無障礙）
 curl -s "$BASE/ext.flutter.debugDumpSemanticsTreeInTraversalOrder?isolateId=$ISOLATE"
 ```
 
-**返回格式：** `result.data` 为纯文本字符串。
+**返回格式：** `result.data` 為純文字字串。
 
-**实测体积**（2026-07-27，debug 模式，首页已加载三个音源的排行榜）：
+**實測體積**（2026-07-27，debug 模式，首頁已載入三個音源的排行榜）：
 
-| 端点 | 返回大小 | agent 可直读？ |
+| 端點 | 返回大小 | agent 可直讀？ |
 |------|---------|--------------|
-| `debugDumpRenderTree` | **3.85 MB** | ❌ 会灌爆 context |
+| `debugDumpRenderTree` | **3.85 MB** | ❌ 會灌爆 context |
 | `debugDumpApp` | **1.37 MB** | ❌ |
-| `inspector.getRootWidgetSummaryTree` | 345 KB | ⚠️ 勉强，建议仍落盘 |
+| `inspector.getRootWidgetSummaryTree` | 345 KB | ⚠️ 勉強，建議仍落盤 |
 | `debugDumpLayerTree` | 43 KB | ✅ |
 | `debugDumpSemanticsTreeInTraversalOrder` | 22 KB | ✅ |
 
-**永远先落盘再 grep，不要把前两个直接读进对话。** 体积随页面复杂度增长，上面的数字是下限不是上限。
+**永遠先落盤再 grep，不要把前兩個直接讀進對話。** 體積隨頁面複雜度增長，上面的數字是下限不是上限。
 
 ### 4.4 Widget Inspector
 
 ```bash
-# 获取 Widget 树根节点
+# 獲取 Widget 樹根節點
 curl -s "$BASE/ext.flutter.inspector.getRootWidgetSummaryTree?isolateId=$ISOLATE"
 
-# 获取子节点
+# 獲取子節點
 curl -s "$BASE/ext.flutter.inspector.getChildren?isolateId=$ISOLATE&objectGroup=<GROUP>&arg=<NODE_ID>"
 
-# 获取详细子树
+# 獲取詳細子樹
 curl -s "$BASE/ext.flutter.inspector.getDetailsSubtree?isolateId=$ISOLATE&objectGroup=<GROUP>&arg=<NODE_ID>"
 
-# 检查 Widget 创建位置是否被追踪
+# 檢查 Widget 建立位置是否被追蹤
 curl -s "$BASE/ext.flutter.inspector.isWidgetCreationTracked?isolateId=$ISOLATE"
-# 返回 result: true 表示可以看到 Widget 的源码位置
+# 返回 result: true 表示可以看到 Widget 的原始碼位置
 
-# 追踪 dirty Widget rebuild
+# 追蹤 dirty Widget rebuild
 curl -s "$BASE/ext.flutter.inspector.trackRebuildDirtyWidgets?isolateId=$ISOLATE&enabled=true"
 
-# 追踪 repaint Widget
+# 追蹤 repaint Widget
 curl -s "$BASE/ext.flutter.inspector.trackRepaintWidgets?isolateId=$ISOLATE&enabled=true"
 ```
 
-### 4.5 渲染引擎信息
+### 4.5 渲染引擎資訊
 
 ```bash
-# 检查是否使用 Impeller 渲染引擎
+# 檢查是否使用 Impeller 渲染引擎
 curl -s "$BASE/ext.ui.window.impellerEnabled?isolateId=$ISOLATE"
 # 返回 enabled: true/false
 ```
 
-### 4.6 应用状态
+### 4.6 應用狀態
 
 ```bash
-# 首帧是否已发送
+# 首幀是否已傳送
 curl -s "$BASE/ext.flutter.didSendFirstFrameEvent?isolateId=$ISOLATE"
 
-# 首帧是否已光栅化
+# 首幀是否已光柵化
 curl -s "$BASE/ext.flutter.didSendFirstFrameRasterizedEvent?isolateId=$ISOLATE"
 
-# 结构化错误是否启用
+# 結構化錯誤是否啟用
 curl -s "$BASE/ext.flutter.inspector.structuredErrors?isolateId=$ISOLATE"
 ```
 
 ---
 
-## 5. Isar 数据库调试
+## 5. Isar 資料庫除錯
 
-FMP 使用 Isar 数据库，debug 模式下暴露了 Isar Inspector 扩展。
+FMP 使用 Isar 資料庫，debug 模式下暴露了 Isar Inspector 擴充套件。
 
-Isar 查询和导出可能包含用户搜索词、播放历史、本地下载路径、账号元数据、设置项和其他本地隐私数据。只查询最小必要 collection 和字段；不要把完整 export、schema dump、查询结果、VM Service token 或临时 JSON 文件直接附到报告中。分享前应删掉 token、绝对路径、用户标识和历史记录，并清理 `$TEMP` 中的调试输出。
+Isar 查詢和匯出可能包含使用者搜尋詞、播放歷史、本地下載路徑、帳號後設資料、設定項和其他本地隱私資料。只查詢最小必要 collection 和欄位；不要把完整 export、schema dump、查詢結果、VM Service token 或臨時 JSON 檔案直接附到報告中。分享前應刪掉 token、絕對路徑、使用者標識和歷史記錄，並清理 `$TEMP` 中的除錯輸出。
 
 ```bash
-# 列出所有 Isar 实例
+# 列出所有 Isar 例項
 curl -s "$BASE/ext.isar.listInstances?isolateId=$ISOLATE"
 # 返回: {"result": ["fmp_database"]}
 
-# 获取数据库 Schema（所有 Collection 的字段定义）
+# 獲取資料庫 Schema（所有 Collection 的欄位定義）
 curl -s "$BASE/ext.isar.getSchema?isolateId=$ISOLATE"
 # 返回完整的 Schema JSON，包含所有 Collection 的 properties
 
-# 执行查询
+# 執行查詢
 curl -s "$BASE/ext.isar.executeQuery?isolateId=$ISOLATE&instance=fmp_database&collection=Track&filter=..."
 
-# 导出 JSON
+# 匯出 JSON
 curl -s "$BASE/ext.isar.exportJson?isolateId=$ISOLATE&instance=fmp_database&collection=Track"
 
-# 监听实例变化
+# 監聽例項變化
 curl -s "$BASE/ext.isar.watchInstance?isolateId=$ISOLATE&instance=fmp_database"
 ```
 
 ---
 
-## 6. 常用调试脚本
+## 6. 常用除錯指令碼
 
-### 6.1 一键内存快照
+### 6.1 一鍵記憶體快照
 
 ```bash
 BASE="http://127.0.0.1:<PORT>/<TOKEN>="
@@ -509,7 +509,7 @@ print(f"External:        {mem['externalUsage']/1024/1024:.1f} MB")
 '@ | python -
 ```
 
-### 6.2 一键帧性能分析
+### 6.2 一鍵幀效能分析
 
 ```bash
 BASE="http://127.0.0.1:<PORT>/<TOKEN>="
@@ -542,7 +542,7 @@ analyze_frames(events, 'Animator::BeginFrame')
 analyze_frames(events, 'GPURasterizer::Draw')
 analyze_frames(events, 'VsyncProcessCallback')
 
-# GC 汇总
+# GC 彙總
 gc_pairs = {}
 for e in events:
     if e.get('cat') != 'GC': continue
@@ -569,17 +569,17 @@ if gc_totals:
 PYEOF
 ```
 
-PowerShell 中把第一行替换为 `$BASE = "http://127.0.0.1:<PORT>/<TOKEN>="`，把输出路径改成 `$env:TEMP\timeline.json`，并用 `@' ... '@ | python -` 执行 Python 代码。
+PowerShell 中把第一行替換為 `$BASE = "http://127.0.0.1:<PORT>/<TOKEN>="`，把輸出路徑改成 `$env:TEMP\timeline.json`，並用 `@' ... '@ | python -` 執行 Python 程式碼。
 
-### 6.3 内存变化监控（前后对比）
+### 6.3 記憶體變化監控（前後對比）
 
 ```bash
 # 操作前快照
 curl -s "$BASE/getMemoryUsage?isolateId=$ISOLATE" -o "$TEMP/mem_before.json"
 
-# ... 执行操作（如切换页面、播放音乐等）...
+# ... 執行操作（如切換頁面、播放音樂等）...
 
-# 操作后快照
+# 操作後快照
 curl -s "$BASE/getMemoryUsage?isolateId=$ISOLATE" -o "$TEMP/mem_after.json"
 
 python << 'PYEOF'
@@ -600,52 +600,52 @@ for key in ['heapUsage', 'heapCapacity', 'externalUsage']:
 PYEOF
 ```
 
-PowerShell 中同样使用 `curl.exe`、`$env:TEMP` 和 here-string 执行 Python。
+PowerShell 中同樣使用 `curl.exe`、`$env:TEMP` 和 here-string 執行 Python。
 
 ---
 
-## 7. 注意事项
+## 7. 注意事項
 
 ### 7.1 Debug vs Profile vs Release
 
 | 能力 | Debug | Profile | Release |
 |------|-------|---------|---------|
 | VM Service API | ✅ | ✅ | ❌ |
-| 类名可见（Allocation Profile） | 部分 | ✅ | ❌ |
-| Widget 创建位置追踪 | ✅ | ❌ | ❌ |
-| 性能数据准确性 | 低（有调试开销） | 高 | N/A |
+| 類名可見（Allocation Profile） | 部分 | ✅ | ❌ |
+| Widget 建立位置追蹤 | ✅ | ❌ | ❌ |
+| 效能資料準確性 | 低（有除錯開銷） | 高 | N/A |
 | Isar Inspector | ✅ | ❌ | ❌ |
 
-**建议：** 性能分析用 profile 模式 (`flutter run --profile`)，功能调试用 debug 模式。
+**建議：** 效能分析用 profile 模式 (`flutter run --profile`)，功能除錯用 debug 模式。
 
-### 7.2 模拟器 vs 真机
+### 7.2 模擬器 vs 真機
 
-- 模拟器的帧时间和内存数据不代表真机表现
-- 模拟器上的 jank 可能在真机上不存在（反之亦然）
-- RSS 在模拟器上通常偏高
+- 模擬器的幀時間和記憶體資料不代表真機表現
+- 模擬器上的 jank 可能在真機上不存在（反之亦然）
+- RSS 在模擬器上通常偏高
 
-### 7.3 VM Service URI 会变
+### 7.3 VM Service URI 會變
 
-- 每次 `flutter run` 会生成新的 URI
-- URI 中的 token 必须视为临时 secret；复制命令、截图和日志时先脱敏
-- 调试导出的 VM/Isar JSON 应只保存在本机临时目录，使用完立即删除
-- Hot restart 不会改变 URI，但 hot reload 也不会
-- 完全重启应用会生成新 URI
-- **如果 API 调用无响应或返回空，先确认 URI 是否仍然有效**
+- 每次 `flutter run` 會生成新的 URI
+- URI 中的 token 必須視為臨時 secret；複製命令、截圖和日誌時先脫敏
+- 除錯匯出的 VM/Isar JSON 應只儲存在本機臨時目錄，使用完立即刪除
+- Hot restart 不會改變 URI，但 hot reload 也不會
+- 完全重啟應用會生成新 URI
+- **如果 API 呼叫無響應或返回空，先確認 URI 是否仍然有效**
 
 ### 7.4 Timeline Ring Buffer
 
-- Timeline 使用环形缓冲区，旧事件会被覆盖
-- 如果需要长时间录制，考虑定期导出
-- `getVMTimeline` 的 `timeOriginMicros=0&timeExtentMicros=999999999999` 获取所有缓冲区内的事件
+- Timeline 使用環形緩衝區，舊事件會被覆蓋
+- 如果需要長時間錄製，考慮定期匯出
+- `getVMTimeline` 的 `timeOriginMicros=0&timeExtentMicros=999999999999` 獲取所有緩衝區內的事件
 
-### 7.5 API 调用不会阻塞应用
+### 7.5 API 呼叫不會阻塞應用
 
-- 所有 VM Service API 调用都是非侵入性的
-- 但启用 profiling 扩展（如 `profileWidgetBuilds`）会增加运行时开销
-- 调试完成后建议关闭不需要的 profiling 扩展
+- 所有 VM Service API 呼叫都是非侵入性的
+- 但啟用 profiling 擴充套件（如 `profileWidgetBuilds`）會增加執行時開銷
+- 除錯完成後建議關閉不需要的 profiling 擴充套件
 
-### 7.6 完整 API 参考
+### 7.6 完整 API 參考
 
 - [Dart VM Service Protocol](https://github.com/dart-lang/sdk/blob/main/runtime/vm/service/service.md)
 - [Flutter Engine Service Extensions](https://github.com/flutter/flutter/wiki/Engine-specific-Service-Protocol-extensions)

@@ -69,7 +69,6 @@ code. State each rule in exactly one file and cross-reference it from the others
 instead of restating it.
 
 Human-facing documentation lives in `docs/`; `docs/README.md` is the map.
-`docs/history/refactoring-log.md` is archived background, not current guidance.
 
 ## Common Commands
 
