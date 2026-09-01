@@ -2453,14 +2453,23 @@ logWarning('Unclassified playback error, not retrying: ${error.runtimeType} $err
 
 `flutter analyze` 乾淨、`dart format` 乾淨、**1244 條測試全過**（新增 Q34 的回歸守門）。Windows 實機複驗 Q34、Q24 兩條路徑與正常播放。
 
-本輪四個 commit（分支 `refactor/playback-end-reasons`）：
+本輪的 commit（分支 `refactor/playback-end-reasons`）：
 
 ```
+afecf91e  docs: drop the removed ranking refresh wrappers and map review/
+82d9cc27  docs(review): add round 02 audit of playback and source adapters
 ecbaeb91  fix(audio): stop re-firing completion after the queue ends
 d0282a25  docs(agents): correct the dart:io profiling claim
 056f20c3  fix(audio): stop blaming the track when the audio output fails
 583eef90  refactor(sources): drive ranking cache from the source registry
 ```
+
+> **【自我更正】** `afecf91e` 是補洞的：§7.4 第 3 步刪掉了
+> `refreshBilibili()` / `refreshYouTube()` / `refreshNetease()`，但我當時只更新了
+> `lib/data/sources/AGENTS.md`，漏掉 `lib/providers/AGENTS.md` —— 那裡還寫著這三個
+> 方法是「compatibility wrappers」，指向一組已經不存在的 API。根 `AGENTS.md` 要求
+> 「Update the relevant instruction file in the same change as the code」，我沒做到，
+> 事後補上。同一個 commit 也把 `docs/review/` 收進 `docs/README.md` 的文件地圖。
 
 ## 附錄：本輪未完成的部分
 
