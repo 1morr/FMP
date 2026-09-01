@@ -31,7 +31,7 @@ dependencies:
   media_kit: ^1.1.11              # Windows/Linux 音频后端
   media_kit_libs_windows_audio: ^1.0.9  # Windows 音频支持
   rxdart: ^0.28.0  # 用于流组合（BehaviorSubject 等）
-  audio_service: ^0.18.15  # Android 媒体通知控制
+  audio_service: ^0.18.19  # Android 媒体通知控制
   audio_session: ^0.1.25
   smtc_windows: ^1.1.0    # Windows 媒体键和 SMTC 控制
 
