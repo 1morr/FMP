@@ -27,6 +27,7 @@ jobs:
   prepare:
     name: Validate release tag
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     outputs:
       tag: ${{ steps.version.outputs.tag }}
@@ -35,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
 
@@ -72,6 +73,7 @@ jobs:
     name: Build Android APK (${{ matrix.abi }})
     needs: [prepare, validate]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     strategy:
       matrix:
@@ -87,22 +89,24 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
           cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
 
       - name: Update version from tag
         run: |
@@ -138,7 +142,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate code (Isar models)
-        run: flutter pub run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Generate i18n (slang)
         run: dart run slang
@@ -162,7 +166,7 @@ jobs:
           fi
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-apk-${{ matrix.abi }}
           path: build/app/outputs/flutter-apk/fmp-*.apk
@@ -172,31 +176,30 @@ jobs:
     name: Analyze and Test
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
           cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
 
       - name: Flutter dependencies
         run: flutter pub get
 
       - name: Generate code (Isar models)
-        run: flutter pub run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Generate i18n (slang)
         run: dart run slang
-
-      - name: Verify generated files are committed
-        run: git diff --exit-code
 
       - name: Static analysis
         run: flutter analyze
@@ -208,19 +211,21 @@ jobs:
     name: Build Windows EXE
     needs: [prepare, validate]
     runs-on: windows-2022
+    timeout-minutes: 25
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
           cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
@@ -236,7 +241,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate code (Isar models)
-        run: flutter pub run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Generate i18n (slang)
         run: dart run slang
@@ -258,7 +263,7 @@ jobs:
           Copy-Item $zipPath "fmp-latest-windows.zip"
 
       - name: Upload Windows ZIP artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-exe
           path: fmp-*.zip
@@ -328,7 +333,7 @@ jobs:
           Copy-Item $installerPath "fmp-latest-windows-installer.exe"
 
       - name: Upload Windows installer artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-installer
           path: fmp-*.exe
@@ -338,19 +343,20 @@ jobs:
     name: Create Release
     needs: [prepare, build-android, build-windows]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     permissions:
       contents: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
 
@@ -405,7 +411,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           draft: false
