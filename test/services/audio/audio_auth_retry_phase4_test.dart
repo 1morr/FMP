@@ -118,7 +118,7 @@ void main() {
       await pumpEventQueue(times: 10);
 
       audioService.emitPosition(const Duration(seconds: 47));
-      audioService.emitError('network timeout during playback');
+      audioService.emitTransportFailure('network timeout during playback');
       await pumpEventQueue(times: 10);
 
       expect(controller.state.isRetrying, isTrue);
@@ -146,7 +146,7 @@ void main() {
       await pumpEventQueue(times: 10);
 
       audioService.emitPosition(const Duration(seconds: 31));
-      audioService.emitError('network timeout during playback');
+      audioService.emitTransportFailure('network timeout during playback');
       await pumpEventQueue(times: 10);
 
       expect(controller.state.isRetrying, isTrue);
@@ -181,7 +181,7 @@ void main() {
       await pumpEventQueue(times: 10);
 
       audioService.emitPosition(const Duration(seconds: 29));
-      audioService.emitError('network timeout during playback');
+      audioService.emitTransportFailure('network timeout during playback');
       await pumpEventQueue(times: 10);
 
       expect(controller.state.currentTrack?.sourceId, track.sourceId);
@@ -196,7 +196,7 @@ void main() {
       await audioService.waitForPlayUrlCallCount(1);
       await pumpEventQueue(times: 2);
 
-      audioService.emitError('tcp: ffurl_read returned 0xffffd8ba');
+      audioService.emitTransportFailure('tcp: ffurl_read returned 0xffffd8ba');
       await pumpEventQueue(times: 10);
 
       retryHandoff.complete();
@@ -223,7 +223,7 @@ void main() {
       audioService.emitPosition(const Duration(minutes: 1));
 
       audioService.emitCompleted();
-      audioService.emitError('tcp: ffurl_read returned 0xffffd8ba');
+      audioService.emitTransportFailure('tcp: ffurl_read returned 0xffffd8ba');
       await pumpEventQueue(times: 20);
 
       expect(controller.state.currentTrack?.sourceId, 'network-error-current');
@@ -267,7 +267,7 @@ void main() {
       await pumpEventQueue(times: 10);
 
       audioService.emitPosition(const Duration(seconds: 19));
-      audioService.emitError('network timeout during playback');
+      audioService.emitTransportFailure('network timeout during playback');
       await pumpEventQueue(times: 10);
 
       expect(controller.state.isRetrying, isTrue);
@@ -304,7 +304,7 @@ void main() {
 
       audioService.emitPosition(const Duration(seconds: 21));
       final delayedStop = audioService.enqueuePendingStop();
-      audioService.emitError('network timeout during playback');
+      audioService.emitTransportFailure('network timeout during playback');
       await pumpEventQueue(times: 2);
 
       expect(controller.state.currentTrack?.sourceId, 'old-delayed-stop-track');

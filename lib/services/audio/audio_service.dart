@@ -18,10 +18,15 @@ abstract class FmpAudioService {
   Stream<Duration?> get durationStream;
   Stream<Duration> get bufferedPositionStream;
   Stream<double> get speedStream;
-  Stream<void> get completedStream;
   Stream<List<FmpAudioDevice>> get audioDevicesStream;
   Stream<FmpAudioDevice?> get audioDeviceStream;
-  Stream<String> get errorStream;
+
+  /// 播放為什麼停下來 —— 正常播完與各種失敗走同一條通道。
+  ///
+  /// 取代先前的 `completedStream` + `Stream<String> errorStream`：實測顯示兩個
+  /// 後端對同一個網路條件會選用不同的通道（一邊 completed、一邊 error），
+  /// 分成兩條流會逼上層去猜。翻譯成 [PlaybackEndReason] 的責任在後端。
+  Stream<PlaybackEndReason> get endReasons;
 
   // === State Getters ===
   bool get isPlaying;

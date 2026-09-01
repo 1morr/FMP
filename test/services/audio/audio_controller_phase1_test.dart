@@ -269,7 +269,7 @@ void main() {
       final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
       final restoreSeek = audioService.waitForSeekCallCount(1);
 
-      audioService.emitCompleted();
+      audioService.emitNaturalCompletion();
       await restoreSetUrl;
       await restoreSeek;
       await pumpEventQueue(times: 20);
@@ -702,7 +702,7 @@ void main() {
       final blockedSeek = audioService.enqueuePendingSeek();
       final restoreSeekCount = audioService.seekCalls.length + 1;
 
-      audioService.emitCompleted();
+      audioService.emitNaturalCompletion();
       await audioService.waitForSetUrlCallCount(1);
       await audioService.waitForSeekCallCount(restoreSeekCount);
       await pumpEventQueue(times: 5);
@@ -904,6 +904,52 @@ void main() {
       expect(toasts.last.type, ToastType.error);
     });
 
+    // issue #41 的回歸守門。
+    //
+    // mpv 在音訊輸出裝置初始化失敗時會吐
+    // `Could not open/initialize audio device -> no sound.`，過去這句話會命中
+    // `_isStringMediaOpenError` 的 'could not open' 關鍵字，被當成「這首歌開不
+    // 起來」，使用者看到「播放失敗: <歌名>」。改成型別分派之後，後端把它翻成
+    // OutputDeviceFailed，上層就不能再去怪那首歌。
+    test('output device failure does not blame the track', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      final playGate = audioService.enqueuePendingPlayUrl();
+      final playFuture = controller.playTrack(
+        _track('output-device-failure', title: 'Output Device Failure'),
+      );
+      await audioService.waitForPlayUrlCallCount(1);
+
+      audioService.emitOutputDeviceFailure(
+        'Could not open/initialize audio device -> no sound.',
+      );
+      await pumpEventQueue(times: 10);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.type, ToastType.error);
+      // 訊息談的是裝置，不是這首歌
+      expect(toasts.last.message, isNot(contains('Output Device Failure')));
+      expect(
+        toasts.last.message,
+        anyOf(
+          contains('Audio output device'),
+          contains('音訊輸出裝置'),
+          contains('音频输出设备'),
+        ),
+      );
+      // 媒體本身沒問題，所以不清掉播放請求；只是別讓 UI 停在「正在播放」。
+      expect(controller.state.error, isNull);
+
+      playGate.complete();
+      await playFuture;
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await pumpEventQueue(times: 5);
+
+      expect(audioService.pauseCallCount, greaterThan(0));
+    });
+
     test('terminal media open error aborts the active play request', () async {
       final toasts = <ToastMessage>[];
       final subscription = toastService.messageStream.listen(toasts.add);
@@ -915,7 +961,7 @@ void main() {
       );
       await audioService.waitForPlayUrlCallCount(1);
 
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/media-open-failure.m4a.',
       );
       await Future<void>.delayed(const Duration(milliseconds: 2200));
@@ -954,7 +1000,7 @@ void main() {
 
       audioService.setPlayingValue(false);
       audioService.setPositionValue(Duration.zero);
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/media-open-post-handoff.m4a.',
       );
       await Future<void>.delayed(const Duration(milliseconds: 2200));
@@ -981,7 +1027,7 @@ void main() {
 
       audioService.setPlayingValue(false);
       audioService.setPositionValue(Duration.zero);
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/media-open-old-pending.m4a.',
       );
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -1017,7 +1063,7 @@ void main() {
           .then((_) => playCompleted = true);
       await audioService.waitForPlayUrlCallCount(1);
 
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/media-open-active.m4a.',
       );
 
@@ -1045,7 +1091,7 @@ void main() {
       );
       await audioService.waitForPlayUrlCallCount(1);
 
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/media-open-stale-loading.m4a.',
       );
       await Future<void>.delayed(const Duration(milliseconds: 2200));
@@ -1079,7 +1125,7 @@ void main() {
       await audioService.waitForPlayUrlCallCount(1);
       final stopGate = audioService.enqueuePendingStop();
 
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/media-open-cleanup.m4a.',
       );
       await Future<void>.delayed(const Duration(milliseconds: 2200));
@@ -1111,7 +1157,7 @@ void main() {
       await audioService.waitForPlayUrlCallCount(1);
 
       final terminalStopGate = audioService.enqueuePendingStop();
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/media-open-old-active.m4a.',
       );
       oldPlayGate.complete();
@@ -1154,7 +1200,7 @@ void main() {
       await pumpEventQueue(times: 10);
 
       audioService.emitPosition(const Duration(seconds: 19));
-      audioService.emitError('network timeout during playback');
+      audioService.emitTransportFailure('network timeout during playback');
       await pumpEventQueue(times: 10);
 
       expect(controller.state.isRetrying, isTrue);
@@ -1165,7 +1211,7 @@ void main() {
       final retry = controller.retryManually();
       await audioService.waitForPlayUrlCallCount(1);
 
-      audioService.emitError(
+      audioService.emitMediaOpenError(
         'Failed to open https://example.com/retry-media-open-terminal.m4a.',
       );
       await Future<void>.delayed(const Duration(milliseconds: 2200));
@@ -1319,7 +1365,7 @@ void main() {
       audioService.setUrlCalls.clear();
       final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
 
-      audioService.emitCompleted();
+      audioService.emitNaturalCompletion();
       await restoreSetUrl;
       await pumpEventQueue(times: 20);
 

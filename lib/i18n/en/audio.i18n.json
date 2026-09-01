@@ -16,5 +16,6 @@
   "sourceErrorBilibiliPermissionDenied": "Bilibili private or restricted video needs logged-in playback",
   "sourceErrorPermissionDenied": "No playback permission for this track",
   "sourceErrorNetwork": "Network connection failed",
-  "sourceErrorTimeout": "Connection timed out"
+  "sourceErrorTimeout": "Connection timed out",
+  "audioOutputFailed": "Audio output device unavailable - playback stopped"
 }

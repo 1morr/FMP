@@ -35,11 +35,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   bool _hasPlayer = false;
   bool _disposed = false;
 
-  // 完成事件控制器
-  final _completedController = StreamController<void>.broadcast();
-
-  // 错误事件控制器
-  final _errorController = StreamController<String>.broadcast();
+  // 播放结束原因控制器（正常播完与各种失败共用同一条通道）
+  final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
 
   // 流订阅列表（用于 dispose 时取消）
   final List<StreamSubscription> _subscriptions = [];
@@ -106,10 +103,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   @override
   Stream<bool> get playingStream => _playingController.stream;
 
-  /// 歌曲播放完成事件流
-  @override
-  Stream<void> get completedStream => _completedController.stream;
-
   /// 可用音频设备列表流
   @override
   Stream<List<FmpAudioDevice>> get audioDevicesStream =>
@@ -120,9 +113,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   Stream<FmpAudioDevice?> get audioDeviceStream =>
       _audioDeviceController.stream;
 
-  /// 错误事件流
+  /// 播放结束原因流
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -347,8 +340,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         _isCompleted = completed;
         if (completed && !_hasCompletionFired) {
           _hasCompletionFired = true;
-          logDebug('Track completed');
-          _completedController.add(null);
+          final reason = _classifyCompletion();
+          logDebug('Track completed: $reason');
+          _emitEndReason(reason);
         } else if (!completed) {
           _hasCompletionFired = false;
         }
@@ -384,8 +378,23 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _subscriptions.add(
       _player.stream.error.listen((error) {
         logError('media_kit error: $error');
-        // 将错误传播到 AudioController
-        _errorController.add(error);
+        _emitEndReason(_classifyMpvMessage(error));
+      }),
+    );
+
+    // 监听 mpv 原始日志
+    //
+    // media_kit 的 errorController 只转发 prefix 属于
+    // file / ffmpeg(tcp:) / vd / ad / cplayer / stream 的 error 级消息
+    // （media_kit 1.2.6 real.dart:2085-2117）。**`ao` 不在名单里**，所以
+    // `AO: [wasapi] init failed` 这类音频输出失败根本到不了 errorStream。
+    // 实测：设备失效时只有 cplayer 的 "Could not open/initialize audio device"
+    // 会送出来，另外两条 ao 消息被丢弃。这里补上那一半。
+    _subscriptions.add(
+      _player.stream.log.listen((log) {
+        if (log.level != 'error' || log.prefix != 'ao') return;
+        logError('media_kit ao error: ${log.text}');
+        _emitEndReason(OutputDeviceFailed(raw: log.text));
       }),
     );
 
@@ -420,6 +429,87 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         name: device.name,
         description: device.description,
       );
+
+  void _emitEndReason(PlaybackEndReason reason) {
+    if (_endReasonController.isClosed) return;
+    _endReasonController.add(reason);
+  }
+
+  /// mpv 宣告 completed 時，判斷是「真的播完」還是「提前結束」。
+  ///
+  /// 位置與時長由後端自己看得最準，上層只需要結論。`duration` 為 null 或 0 代
+  /// 表引擎從未回報過時長 —— 實測「連得上但零位元組」的串流正是這個形狀，而它
+  /// 過去會被當成正常播完、直接跳下一首。
+  PlaybackEndReason _classifyCompletion() {
+    final duration = _duration;
+    final position = _position;
+    if (duration == null || duration.inMilliseconds <= 0) {
+      return EndedPrematurely(at: position, expected: null);
+    }
+    if (duration - position > AppConstants.completionTolerance) {
+      return EndedPrematurely(at: position, expected: duration);
+    }
+    return const EndedNaturally();
+  }
+
+  /// 把 mpv 的錯誤訊息翻成型別。
+  ///
+  /// 關鍵字表留在這裡（貼著它要翻譯的引擎），不再由 `AudioController` 猜：
+  /// `could not open` 這個子字串在「媒體開不起來」與「音訊裝置開不起來」兩種
+  /// 語意上都成立，只有知道自己是哪個引擎的人分得出來。音訊裝置的判斷因此必
+  /// 須排在媒體開啟之前 —— 這正是 issue #41 的修法。
+  PlaybackEndReason _classifyMpvMessage(String raw) {
+    final text = raw.toLowerCase();
+
+    if (text.contains('audio device') ||
+        text.contains('audio output') ||
+        text.contains('audio driver') ||
+        text.contains('[ao]') ||
+        text.startsWith('ao:')) {
+      return OutputDeviceFailed(raw: raw);
+    }
+
+    if (text.startsWith('tcp:') ||
+        text.contains('ffurl_read') ||
+        text.contains('connection') ||
+        text.contains('socket') ||
+        text.contains('timed out') ||
+        text.contains('unreachable')) {
+      return TransportFailed(kind: _transportKind(text), raw: raw);
+    }
+
+    if (text.contains('failed to open') ||
+        text.contains('cannot open') ||
+        text.contains('could not open') ||
+        text.contains('no such file')) {
+      return MediaUnopenable(raw: raw);
+    }
+
+    if (text.contains('decoder') || text.contains('could not decode')) {
+      return DecoderFailed(raw: raw);
+    }
+
+    return UnclassifiedFailure(raw: raw);
+  }
+
+  static TransportFailureKind _transportKind(String text) {
+    if (text.contains('timed out') || text.contains('timeout')) {
+      return TransportFailureKind.timeout;
+    }
+    if (text.contains('reset')) return TransportFailureKind.reset;
+    if (text.contains('failed host lookup') ||
+        text.contains('name resolution') ||
+        text.contains('dns')) {
+      return TransportFailureKind.dns;
+    }
+    if (text.contains('tls') ||
+        text.contains('ssl') ||
+        text.contains('certificate')) {
+      return TransportFailureKind.tls;
+    }
+    if (text.contains('refused')) return TransportFailureKind.refused;
+    return TransportFailureKind.unknown;
+  }
 
   /// 更新合成的播放器状态
   void _updatePlayerState() {
@@ -461,8 +551,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     }
     _subscriptions.clear();
 
-    await _completedController.close();
-    await _errorController.close();
+    await _endReasonController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();

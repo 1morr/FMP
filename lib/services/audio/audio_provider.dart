@@ -392,8 +392,7 @@ class AudioController extends StateNotifier<PlayerState>
       subscribe(_audioService.speedStream, _onSpeedChanged);
       subscribe(_audioService.audioDevicesStream, _onAudioDevicesChanged);
       subscribe(_audioService.audioDeviceStream, _onAudioDeviceChanged);
-      subscribe(_audioService.completedStream, _onTrackCompleted);
-      subscribe(_audioService.errorStream, _onAudioError);
+      subscribe(_audioService.endReasons, _onPlaybackEnded);
 
       // 启动基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）
       _startPositionCheckTimer();
@@ -1486,7 +1485,8 @@ class AudioController extends StateNotifier<PlayerState>
     if (remaining <= AppConstants.positionCheckThreshold) {
       logDebug(
           'Position check triggered auto-next: position=$position, duration=$duration');
-      _onTrackCompleted(null);
+      // 走到這裡代表 remaining 已在容忍窗內，是真的播完。
+      _onPlaybackEnded(const EndedNaturally());
     }
   }
 
@@ -2431,7 +2431,10 @@ class AudioController extends StateNotifier<PlayerState>
   bool _shouldSkipSourceError(SourceApiException error) =>
       error.kind.shouldSkipTrack;
 
-  /// 判断是否为网络错误
+  /// 判斷「串流解析階段」拋出的例外是不是網路問題。
+  ///
+  /// 注意這裡處理的是 dio / socket 拋出的 **Dart 例外**，不是後端播放器的事件
+  /// —— 後者已改由 [PlaybackEndReason] 型別化，不再比對字串。
   bool _isStringNetworkError(Object error) {
     final errorStr = error.toString().toLowerCase();
     return errorStr.contains('socket') ||
@@ -2813,6 +2816,14 @@ class AudioController extends StateNotifier<PlayerState>
       return;
     }
 
+    // 音訊裝置剛失敗：引擎可能仍宣稱在播（mpv 沒有輸出裝置也會把 playing
+    // 翻真），把它收回，否則 UI 會停在「正在播放」卻完全沒有聲音。
+    if (playerState.playing && _isWithinOutputDeviceFailureGuard) {
+      logDebug('Pausing: audio output device failed moments ago');
+      unawaited(_audioService.pause());
+      return;
+    }
+
     final isBackendIdleDuringControllerLoad = _context.isInLoadingState &&
         playerState.processingState == FmpAudioProcessingState.idle;
     final effectiveProcessingState = isBackendIdleDuringControllerLoad
@@ -2894,30 +2905,9 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 处理音频错误事件（来自 AudioService 错误流）
-  void _onAudioError(String error) {
-    if (_isDisposed) return;
-    // 電台播放中的錯誤由 RadioController 處理
-    if (isRadioPlaying?.call() == true) return;
-
-    logError('Audio error from service: $error');
-
-    // 检查是否为网络错误
-    if (!_isStringNetworkError(error)) {
-      if (_isStringMediaOpenError(error)) {
-        final track = state.playingTrack;
-        if (track != null) {
-          unawaited(_playbackRequestSession.onMediaOpenError(
-            error: error,
-            track: track,
-            positionAtError: state.position,
-          ));
-          return;
-        }
-      }
-      logDebug('Non-network error, ignoring: $error');
-      return;
-    }
+  /// 傳輸層失敗：連線中斷、逾時、DNS、TLS。分類由後端完成。
+  void _onTransportFailure(TransportFailed failure) {
+    logError('Transport failure during playback: $failure');
 
     // 获取当前播放的歌曲
     final track = state.playingTrack;
@@ -2972,13 +2962,6 @@ class AudioController extends StateNotifier<PlayerState>
     });
   }
 
-  bool _isStringMediaOpenError(Object error) {
-    final errorStr = error.toString().toLowerCase();
-    return errorStr.contains('failed to open') ||
-        errorStr.contains('cannot open') ||
-        errorStr.contains('could not open');
-  }
-
   bool _isAudioErrorRetryContextCurrent(
     Track track,
     int requestGeneration,
@@ -2987,31 +2970,6 @@ class AudioController extends StateNotifier<PlayerState>
         _playbackRequestSession.activeRequestId == requestGeneration &&
         state.playingTrack?.uniqueKey == track.uniqueKey &&
         state.currentTrack?.uniqueKey == track.uniqueKey;
-  }
-
-  bool _shouldHandleTrackCompleted() {
-    if (_context.isInLoadingState || state.isRetrying || state.isNetworkError) {
-      logDebug('Track completion ignored during loading/retry state');
-      return false;
-    }
-
-    final duration = _audioService.duration;
-    if (duration == null || duration.inMilliseconds <= 0) {
-      return true;
-    }
-
-    final position = _audioService.position;
-    final remaining = duration - position;
-    final completionTolerance = AppConstants.positionCheckInterval +
-        AppConstants.positionCheckThreshold;
-    if (remaining > completionTolerance) {
-      logWarning(
-          'Track completion occurred before natural end; scheduling retry: position=$position, duration=$duration, remaining=$remaining');
-      _recoverFromPrematureCompletion(position);
-      return false;
-    }
-
-    return true;
   }
 
   void _recoverFromPrematureCompletion(Duration position) {
@@ -3087,18 +3045,105 @@ class AudioController extends StateNotifier<PlayerState>
     return true;
   }
 
-  void _onTrackCompleted(void _) {
+  /// 後端回報「播放停下來了」的統一入口。
+  ///
+  /// 這裡只做型別分派：**判斷是哪一種結束是後端的責任**，因為只有後端知道自己
+  /// 面對的是 mpv 還是 ExoPlayer。上層過去靠比對錯誤字串，實測會把「音訊輸出
+  /// 裝置開不起來」誤判成「這首歌開不起來」（issue #41），而且兩個後端連走哪
+  /// 條通道都不一致。
+  void _onPlaybackEnded(PlaybackEndReason reason) {
     if (_isDisposed) return;
-    // 防止重复处理
-    if (_isHandlingCompletion) return;
 
-    // 電台播放中的流結束由 RadioController 自行處理（重連等），AudioController 不應介入
+    // 電台的結束與失敗由 RadioController 自行處理（重連等），這裡不介入
     if (isRadioPlaying?.call() == true) {
-      logDebug('Track completed ignored: radio is playing');
+      logDebug('Playback end ignored: radio is playing ($reason)');
       return;
     }
 
-    if (!_shouldHandleTrackCompleted()) return;
+    switch (reason) {
+      case EndedNaturally():
+        _onTrackCompleted();
+      case EndedPrematurely(:final at, :final expected):
+        if (!_canHandlePlaybackEnd()) return;
+        logWarning(
+            'Track ended before its natural end; scheduling retry: at=$at, expected=$expected');
+        _recoverFromPrematureCompletion(at);
+      case TransportFailed():
+        _onTransportFailure(reason);
+      case OutputDeviceFailed(:final raw):
+        _onOutputDeviceFailure(raw);
+      case MediaUnopenable(:final raw):
+      case DecoderFailed(:final raw):
+        _onMediaOpenFailure(raw);
+      case UnclassifiedFailure(:final raw):
+        // 顯性地丟棄：至少留下一行，而不是消失在一串字串比對之後。
+        logWarning('Unclassified playback failure, ignoring: $raw');
+    }
+  }
+
+  /// 播放結束事件是否該被處理（載入中／重試中／網路錯誤狀態下一律不處理）。
+  bool _canHandlePlaybackEnd() {
+    if (_context.isInLoadingState || state.isRetrying || state.isNetworkError) {
+      logDebug('Playback end ignored during loading/retry state');
+      return false;
+    }
+    return true;
+  }
+
+  /// 音訊「輸出裝置」失敗 —— 與這首歌無關，所以不能報「播放失敗: <歌名>」。
+  ///
+  /// 一次裝置失敗會連續產生多則訊息（實測 mpv 一次吐三條：`ao` 的兩條加上
+  /// `cplayer` 的一條），所以這裡只對第一條做事，其餘在抑制窗內併掉。
+  void _onOutputDeviceFailure(String raw) {
+    logError('Audio output device failed: $raw');
+
+    final now = DateTime.now();
+    final last = _lastOutputDeviceFailureAt;
+    _lastOutputDeviceFailureAt = now;
+    if (last != null &&
+        now.difference(last) < _outputDeviceFailureSuppressWindow) {
+      return;
+    }
+
+    _toastService.showError(t.audio.audioOutputFailed);
+  }
+
+  /// 同一次裝置失敗的連續訊息在這個窗內只處理第一條（實測 mpv 一次吐三條）。
+  static const _outputDeviceFailureSuppressWindow = Duration(seconds: 3);
+  DateTime? _lastOutputDeviceFailureAt;
+
+  /// 裝置失敗之後，這段時間內任何「開始播放」都要立刻收回。
+  ///
+  /// 失敗訊息會在播放 handoff **完成之前**抵達（實測：錯誤 48.68，
+  /// `_ensurePlayback` 49.81 才把 playing 設回 true），所以不能用定時暫停去賭
+  /// 順序 —— 改成看到 playing 翻真就收回。不 stop、不 cancelActive：媒體本身是
+  /// 好的，使用者修好裝置後按播放即可繼續。
+  static const _outputDeviceFailureGuardWindow = Duration(seconds: 5);
+
+  bool get _isWithinOutputDeviceFailureGuard {
+    final last = _lastOutputDeviceFailureAt;
+    return last != null &&
+        DateTime.now().difference(last) < _outputDeviceFailureGuardWindow;
+  }
+
+  void _onMediaOpenFailure(String raw) {
+    final track = state.playingTrack;
+    if (track == null) {
+      logDebug('Media open failure ignored: no playing track ($raw)');
+      return;
+    }
+    unawaited(_playbackRequestSession.onMediaOpenError(
+      error: raw,
+      track: track,
+      positionAtError: state.position,
+    ));
+  }
+
+  void _onTrackCompleted() {
+    // 防止重复处理
+    if (_isHandlingCompletion) return;
+
+    if (!_canHandlePlaybackEnd()) return;
 
     _isHandlingCompletion = true;
 

@@ -115,24 +115,46 @@ offset.
   `savedWasPlaying`.
 - Position restore is controlled by `Settings.rememberPlaybackPosition`.
 
-## Playback Network Error Recovery
+## Playback End Reasons
 
-`AudioController` owns recovery for `FmpAudioService.errorStream` failures.
+`FmpAudioService` exposes a single `Stream<PlaybackEndReason> endReasons`
+(`audio_types.dart`). It replaced the old `Stream<void> completedStream` plus
+`Stream<String> errorStream` pair.
 
-- Runtime backend network errors, including media_kit `tcp:` / `ffurl_read`
-  errors, must retry or refetch the current track URL from the saved position,
-  **not** advance the queue.
-- Runtime backend media-open errors such as media_kit `Failed to open https://`
-  must not be silently ignored. Delay briefly to allow backend self-recovery; if
-  playback does not advance, stop and surface a playback error to the user.
+**Backends translate; `AudioController` only dispatches.** Each backend turns its
+engine's native message into a `PlaybackEndReason`, because only the backend
+knows whether it is looking at mpv or ExoPlayer. Never re-introduce error-string
+matching in `AudioController` — that is what produced issue #41: mpv's
+`Could not open/initialize audio device -> no sound.` matched the `could not
+open` keyword meant for *media* open failures, so a dead audio device was
+reported to the user as `播放失敗: <song>`.
+
+The variants and who must produce them:
+
+| Variant | Backend must emit it when | Controller does |
+|---|---|---|
+| `EndedNaturally` | position is within `AppConstants.completionTolerance` of duration | advance the queue |
+| `EndedPrematurely` | engine says completed but position is far from duration, **or duration was never reported** | retry the current track from the saved position |
+| `TransportFailed` | connection reset/timeout/DNS/TLS (mpv `tcp:` / `ffurl_read`, ExoPlayer `Source error`) | retry or refetch the URL, **not** advance |
+| `OutputDeviceFailed` | the audio *output* failed — nothing to do with the media | stop and show the audio-output message; **must not** blame the track |
+| `MediaUnopenable` / `DecoderFailed` | the media itself cannot be opened or decoded | delay briefly for self-recovery, then surface a terminal playback error |
+| `UnclassifiedFailure` | anything the backend cannot place | log it and ignore — but visibly |
+
+`duration == null` counts as `EndedPrematurely`, not as a natural end. A stream
+that connects but delivers zero bytes reports exactly that shape, and treating it
+as "finished" makes the player skip through the whole queue in silence.
+
+`MediaKitAudioService` must subscribe to **both** `player.stream.error` and
+`player.stream.log`: media_kit only forwards log messages whose prefix is
+`file` / `ffmpeg` / `vd` / `ad` / `cplayer` / `stream` to its error stream, so
+`ao`-prefixed audio-output failures never reach `errorStream` at all.
+
+Other rules that survive the change:
+
 - Retry suppression must be generation/current-track aware. A fresh backend
   network error during manual or automatic retry handoff schedules a new retry
   generation; stale handoff completion must not clear the fresh retry state.
-- `completedStream` is not always natural song completion — media_kit can emit
-  completed around stream read failures or network transitions such as VPN
-  changes. Ignore completion while in loading/retrying/network-error state. If
-  completion arrives while the current position is not close to duration,
-  schedule a retry for the current track from the saved position.
+- Ignore every end reason while in loading/retrying/network-error state.
 - Only source availability failures marked with `SourceErrorKind.shouldSkipTrack`
   should auto-skip to the next queue item.
 - Playback-visible stream metadata (`currentBitrate`, `currentContainer`,

@@ -317,7 +317,7 @@ void main() {
         controller,
         3,
       );
-      audioService.emitCompleted();
+      audioService.emitNaturalCompletion();
       await pumpEventQueue(times: 5);
       loadMoreGate.complete();
 

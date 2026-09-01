@@ -207,7 +207,7 @@ void main() {
         final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
         final restoreSeek = audioService.waitForSeekCallCount(1);
 
-        audioService.emitCompleted();
+        audioService.emitNaturalCompletion();
         await restoreSetUrl;
         await restoreSeek;
         await pumpEventQueue(times: 20);

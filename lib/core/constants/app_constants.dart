@@ -77,6 +77,13 @@ class AppConstants {
   /// 基于位置检测的切歌阈值（距离结尾多近时触发）
   static const Duration positionCheckThreshold = Duration(milliseconds: 500);
 
+  /// 「引擎宣告播完」的容忍窗：位置離時長還差這麼多以上，就判定為提前結束。
+  ///
+  /// 兩個音訊後端各自在翻譯 `PlaybackEndReason` 時使用同一個值，避免 Android
+  /// 與 Windows 對「算不算播完」給出不同答案。
+  static final Duration completionTolerance =
+      positionCheckInterval + positionCheckThreshold;
+
   /// 匯入比對搜尋之間的節流延遲——避免觸發音源限流（B7）。
   /// all（搜尋多源）需較長間隔；單源（bilibili/youtube）較短。
   static const Duration importThrottleMultiSourceDelay =

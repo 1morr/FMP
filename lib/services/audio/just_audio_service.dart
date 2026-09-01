@@ -19,11 +19,8 @@ class JustAudioService extends FmpAudioService with Logging {
   bool _hasPlayer = false;
   bool _disposed = false;
 
-  // 完成事件控制器
-  final _completedController = StreamController<void>.broadcast();
-
-  // 错误事件控制器
-  final _errorController = StreamController<String>.broadcast();
+  // 播放结束原因控制器（正常播完与各种失败共用同一条通道）
+  final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
 
   // 流订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -84,15 +81,13 @@ class JustAudioService extends FmpAudioService with Logging {
   @override
   Stream<bool> get playingStream => _playingController.stream;
   @override
-  Stream<void> get completedStream => _completedController.stream;
-  @override
   Stream<List<FmpAudioDevice>> get audioDevicesStream =>
       _audioDevicesController.stream;
   @override
   Stream<FmpAudioDevice?> get audioDeviceStream =>
       _audioDeviceController.stream;
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -224,8 +219,9 @@ class JustAudioService extends FmpAudioService with Logging {
         if (state.processingState == ja.ProcessingState.completed &&
             !_hasCompletionFired) {
           _hasCompletionFired = true;
-          logDebug('Track completed');
-          _completedController.add(null);
+          final reason = _classifyCompletion();
+          logDebug('Track completed: $reason');
+          _emitEndReason(reason);
         } else if (state.processingState != ja.ProcessingState.completed) {
           _hasCompletionFired = false;
         }
@@ -268,17 +264,77 @@ class JustAudioService extends FmpAudioService with Logging {
           final msg =
               'PlayerException: code=${error.code}, message=${error.message}';
           logError(msg);
-          _errorController.add(msg);
+          _emitEndReason(_classifyPlayerException(error, msg));
         } else if (error is ja.PlayerInterruptedException) {
           logDebug('Playback interrupted: ${error.message}');
-          // 中断不视为错误，不转发
+          // 中断是「这次载入被下一次取代」，不是失败，不转发
         } else {
           final msg = 'Playback error: $error';
           logError(msg);
-          _errorController.add(msg);
+          _emitEndReason(UnclassifiedFailure(raw: msg));
         }
       }).listen((_) {}),
     );
+  }
+
+  void _emitEndReason(PlaybackEndReason reason) {
+    if (_endReasonController.isClosed) return;
+    _endReasonController.add(reason);
+  }
+
+  /// ExoPlayer 宣告 completed 時，判斷是「真的播完」還是「提前結束」。
+  PlaybackEndReason _classifyCompletion() {
+    final duration = _player.duration;
+    final position = _player.position;
+    if (duration == null || duration.inMilliseconds <= 0) {
+      return EndedPrematurely(at: position, expected: null);
+    }
+    if (duration - position > AppConstants.completionTolerance) {
+      return EndedPrematurely(at: position, expected: duration);
+    }
+    return const EndedNaturally();
+  }
+
+  /// 把 just_audio 的 `PlayerException` 翻成型別。
+  ///
+  /// ExoPlayer 把幾乎所有網路層問題都壓成 `code=0, message=Source error`，
+  /// 因此這裡以 code 為主、訊息為輔；分不出來的一律回 [UnclassifiedFailure]，
+  /// 而不是猜。
+  PlaybackEndReason _classifyPlayerException(
+      ja.PlayerException error, String raw) {
+    final text = (error.message ?? '').toLowerCase();
+
+    if (text.contains('audio track') ||
+        text.contains('audio sink') ||
+        text.contains('audiotrack')) {
+      return OutputDeviceFailed(raw: raw);
+    }
+
+    if (text.contains('source error') ||
+        text.contains('unable to connect') ||
+        text.contains('socket') ||
+        text.contains('timeout') ||
+        text.contains('unexpected end of stream')) {
+      return TransportFailed(
+        kind: text.contains('timeout')
+            ? TransportFailureKind.timeout
+            : TransportFailureKind.reset,
+        raw: raw,
+      );
+    }
+
+    if (text.contains('response code: 40') ||
+        text.contains('response code: 41') ||
+        text.contains('unrecognized input format') ||
+        text.contains('none of the available extractors')) {
+      return MediaUnopenable(raw: raw);
+    }
+
+    if (text.contains('decoder') || text.contains('decoding')) {
+      return DecoderFailed(raw: raw);
+    }
+
+    return UnclassifiedFailure(raw: raw);
   }
 
   @override
@@ -291,8 +347,7 @@ class JustAudioService extends FmpAudioService with Logging {
     }
     _subscriptions.clear();
 
-    await _completedController.close();
-    await _errorController.close();
+    await _endReasonController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();

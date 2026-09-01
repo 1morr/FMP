@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/playback_media.dart';
@@ -35,11 +36,10 @@ class FakeAudioService implements FmpAudioService {
   final _durationController = StreamController<Duration?>.broadcast();
   final _bufferedPositionController = StreamController<Duration>.broadcast();
   final _speedController = StreamController<double>.broadcast();
-  final _completedController = StreamController<void>.broadcast();
   final _audioDevicesController =
       StreamController<List<FmpAudioDevice>>.broadcast();
   final _audioDeviceController = StreamController<FmpAudioDevice?>.broadcast();
-  final _errorController = StreamController<String>.broadcast();
+  final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
 
   final List<AudioUrlCall> playUrlCalls = [];
   final List<AudioUrlCall> setUrlCalls = [];
@@ -49,6 +49,7 @@ class FakeAudioService implements FmpAudioService {
   final List<AudioMediaCall> setMediaCalls = [];
   final List<Duration> seekCalls = [];
   int stopCallCount = 0;
+  int pauseCallCount = 0;
 
   final List<Completer<void>> _pendingPlayUrl = [];
   final List<Completer<void>> _pendingSetUrl = [];
@@ -140,12 +141,49 @@ class FakeAudioService implements FmpAudioService {
     _emitState();
   }
 
+  /// 模擬後端宣告播放完成。
+  ///
+  /// 與真實後端一樣，由 fake 自己依 position/duration 判斷是「播完」還是「提前
+  /// 結束」—— 這正是 `PlaybackEndReason` 把責任放在後端的意思。
   void emitCompleted() {
-    _completedController.add(null);
+    _endReasonController.add(_classifyCompletion());
   }
 
-  void emitError(String error) {
-    _errorController.add(error);
+  /// 明確表示「這首歌正常播完了」，不依賴 fake 的 position/duration。
+  void emitNaturalCompletion() {
+    _endReasonController.add(const EndedNaturally());
+  }
+
+  PlaybackEndReason _classifyCompletion() {
+    final duration = _duration;
+    if (duration == null || duration.inMilliseconds <= 0) {
+      return EndedPrematurely(at: _position, expected: null);
+    }
+    if (duration - _position > AppConstants.completionTolerance) {
+      return EndedPrematurely(at: _position, expected: duration);
+    }
+    return const EndedNaturally();
+  }
+
+  /// 媒體本身開不起來（URL 過期、404、格式不支援）。
+  void emitMediaOpenError(String raw) {
+    _endReasonController.add(MediaUnopenable(raw: raw));
+  }
+
+  /// 音訊輸出裝置失敗 —— 與媒體無關（issue #41）。
+  void emitOutputDeviceFailure(String raw) {
+    _endReasonController.add(OutputDeviceFailed(raw: raw));
+  }
+
+  void emitEndReason(PlaybackEndReason reason) {
+    _endReasonController.add(reason);
+  }
+
+  /// 模擬傳輸層失敗（連線中斷／逾時），讓測試不必自己建構型別。
+  void emitTransportFailure(String error) {
+    _endReasonController.add(
+      TransportFailed(kind: TransportFailureKind.unknown, raw: error),
+    );
   }
 
   void emitPosition(Duration position) {
@@ -220,15 +258,13 @@ class FakeAudioService implements FmpAudioService {
   @override
   Stream<double> get speedStream => _speedController.stream;
   @override
-  Stream<void> get completedStream => _completedController.stream;
-  @override
   Stream<List<FmpAudioDevice>> get audioDevicesStream =>
       _audioDevicesController.stream;
   @override
   Stream<FmpAudioDevice?> get audioDeviceStream =>
       _audioDeviceController.stream;
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
 
   @override
   bool get isPlaying => _isPlaying;
@@ -260,10 +296,9 @@ class FakeAudioService implements FmpAudioService {
     await _durationController.close();
     await _bufferedPositionController.close();
     await _speedController.close();
-    await _completedController.close();
     await _audioDevicesController.close();
     await _audioDeviceController.close();
-    await _errorController.close();
+    await _endReasonController.close();
   }
 
   @override
@@ -275,6 +310,7 @@ class FakeAudioService implements FmpAudioService {
 
   @override
   Future<void> pause() async {
+    pauseCallCount++;
     _isPlaying = false;
     _emitState();
   }
