@@ -1,6 +1,23 @@
-/// InnerTube API 共用工具方法
+/// InnerTube API 共用工具方法與設定值
 class InnerTubeUtils {
   InnerTubeUtils._();
+
+  /// InnerTube WEB 用戶端的 API 基礎 URL。
+  static const String apiBase = 'https://www.youtube.com/youtubei/v1';
+
+  /// InnerTube WEB 用戶端的公開 API key。
+  ///
+  /// 這**不是**外洩的私密金鑰：它是 youtube.com 前端自己硬編碼在
+  /// `ytcfg.INNERTUBE_API_KEY` 裡的公開 WEB client key，pytube、NewPipe、
+  /// YouTube.js 等專案也都原樣照抄同一組值。它不綁定任何 Google Cloud
+  /// 專案、不計費，且對所有使用者都相同，因此不需要（也無法）保密。
+  static const String apiKey = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+
+  /// InnerTube 用戶端名稱。
+  static const String clientName = 'WEB';
+
+  /// InnerTube 用戶端版本，需與 youtube.com 前端保持同步。
+  static const String clientVersion = '2.20260128.05.00';
 
   /// 從 InnerTube Text 對象中提取文本（支持 simpleText 和 runs）
   static String? extractText(dynamic textObj) {

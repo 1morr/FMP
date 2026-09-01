@@ -24,11 +24,12 @@ class YouTubeAccountService extends AccountService with Logging {
   YouTubeCredentials? _cachedCredentials;
 
   static const String _storageKey = 'account_youtube_credentials';
-  static const String _innerTubeApiBase = 'https://www.youtube.com/youtubei/v1';
-  static const String _innerTubeApiKey =
-      'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
-  static const String _innerTubeClientName = 'WEB';
-  static const String _innerTubeClientVersion = '2.20260128.05.00';
+  // InnerTube API 配置（共用常數見 InnerTubeUtils；API key 說明見該處註解，
+  // 它是 youtube.com 前端自帶的公開 WEB client key，不是外洩的私密金鑰）
+  static const String _innerTubeApiBase = InnerTubeUtils.apiBase;
+  static const String _innerTubeApiKey = InnerTubeUtils.apiKey;
+  static const String _innerTubeClientName = InnerTubeUtils.clientName;
+  static const String _innerTubeClientVersion = InnerTubeUtils.clientVersion;
   static const Set<String> requiredCookieNames = {
     'SAPISID',
     '__Secure-1PSID',

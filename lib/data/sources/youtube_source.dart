@@ -7,6 +7,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../core/utils/duration_formatter.dart';
+import '../../core/utils/innertube_utils.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
@@ -35,12 +36,12 @@ class YouTubeSource
   late final yt.YoutubeExplode _youtube;
   late final Dio _dio;
 
-  // InnerTube API 配置
-  static const String _innerTubeApiBase = 'https://www.youtube.com/youtubei/v1';
-  static const String _innerTubeApiKey =
-      'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
-  static const String _innerTubeClientName = 'WEB';
-  static const String _innerTubeClientVersion = '2.20260128.05.00';
+  // InnerTube API 配置（共用常數見 InnerTubeUtils；API key 說明見該處註解，
+  // 它是 youtube.com 前端自帶的公開 WEB client key，不是外洩的私密金鑰）
+  static const String _innerTubeApiBase = InnerTubeUtils.apiBase;
+  static const String _innerTubeApiKey = InnerTubeUtils.apiKey;
+  static const String _innerTubeClientName = InnerTubeUtils.clientName;
+  static const String _innerTubeClientVersion = InnerTubeUtils.clientVersion;
 
   // YouTube Music 頻道 "New This Week" 播放列表 ID
   // https://www.youtube.com/playlist?list=OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag
@@ -1490,8 +1491,7 @@ class YouTubeSource
       );
     }
 
-    final coverUrl =
-        allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
+    final coverUrl = allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
     final ownerUserId = await _fetchPlaylistOwnerId(playlistId);
 
     return PlaylistParseResult(
@@ -1535,8 +1535,7 @@ class YouTubeSource
           header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
       String? ownerUserId;
       if (playlistHeaderRenderer != null) {
-        final ownerRuns =
-            playlistHeaderRenderer['ownerText']?['runs'] as List?;
+        final ownerRuns = playlistHeaderRenderer['ownerText']?['runs'] as List?;
         final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
         ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
             ?['browseId'] as String?;
@@ -1549,15 +1548,15 @@ class YouTubeSource
           final secondaryInfo = sidebar[1]
                   ?['playlistSidebarSecondaryInfoRenderer']
               as Map<String, dynamic>?;
-          final videoOwner = secondaryInfo?['videoOwner']
-              ?['videoOwnerRenderer'] as Map<String, dynamic>?;
+          final videoOwner = secondaryInfo?['videoOwner']?['videoOwnerRenderer']
+              as Map<String, dynamic>?;
           if (videoOwner != null) {
             final ownerRuns = videoOwner['title']?['runs'] as List?;
             final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
             ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
                 ?['browseId'] as String?;
-            ownerUserId ??= videoOwner['navigationEndpoint']
-                ?['browseEndpoint']?['browseId'] as String?;
+            ownerUserId ??= videoOwner['navigationEndpoint']?['browseEndpoint']
+                ?['browseId'] as String?;
           }
         }
       }
@@ -1692,9 +1691,8 @@ class YouTubeSource
       final tabContent = tabs?.firstOrNull?['tabRenderer']?['content'];
       final sectionContents =
           tabContent?['sectionListRenderer']?['contents'] as List?;
-      final itemSectionContents =
-          sectionContents?.firstOrNull?['itemSectionRenderer']?['contents']
-              as List?;
+      final itemSectionContents = sectionContents
+          ?.firstOrNull?['itemSectionRenderer']?['contents'] as List?;
 
       // 新版：項目直接是 lockupViewModel；舊版：項目是包在
       // playlistVideoListRenderer.contents 內的 playlistVideoRenderer。
@@ -1703,8 +1701,8 @@ class YouTubeSource
         // 若第一個項目是 playlistVideoListRenderer 包裝，則走舊版路徑。
         final firstItem =
             itemSectionContents.firstOrNull as Map<String, dynamic>?;
-        final videoList = firstItem?['playlistVideoListRenderer']?['contents']
-            as List?;
+        final videoList =
+            firstItem?['playlistVideoListRenderer']?['contents'] as List?;
         if (videoList != null) {
           rawItems = videoList
               .whereType<Map>()
@@ -1738,7 +1736,9 @@ class YouTubeSource
           // 舊版 InnerTube 結構
           final renderer =
               item['playlistVideoRenderer'] as Map<String, dynamic>?;
-          track = renderer != null ? _trackFromPlaylistVideoRenderer(renderer) : null;
+          track = renderer != null
+              ? _trackFromPlaylistVideoRenderer(renderer)
+              : null;
         }
         if (track != null) tracks.add(track);
       }
@@ -1771,16 +1771,15 @@ class YouTubeSource
         lockup['metadata']?['lockupMetadataViewModel'] as Map<String, dynamic>?;
 
     // 標題
-    final title = (metadata?['title']?['content'] as String?)?.trim() ??
-        'Unknown';
+    final title =
+        (metadata?['title']?['content'] as String?)?.trim() ?? 'Unknown';
 
     // metadataRows 內含藝人與觀看次數等資訊
-    final metadataRows =
-        (metadata?['metadata']?['contentMetadataViewModel']?['metadataRows']
-                as List?)
-            ?.whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
+    final metadataRows = (metadata?['metadata']?['contentMetadataViewModel']
+            ?['metadataRows'] as List?)
+        ?.whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
 
     String artist = '';
     int viewCount = 0;
@@ -1814,10 +1813,10 @@ class YouTubeSource
             .map((e) => Map<String, dynamic>.from(e));
     String? durationText;
     for (final overlay in overlays ?? <Map<String, dynamic>>[]) {
-      final badges = (overlay['thumbnailBottomOverlayViewModel']?['badges']
-              as List?)
-          ?.whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e));
+      final badges =
+          (overlay['thumbnailBottomOverlayViewModel']?['badges'] as List?)
+              ?.whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e));
       for (final badge in badges ?? <Map<String, dynamic>>[]) {
         final badgeVm =
             badge['thumbnailBadgeViewModel'] as Map<String, dynamic>?;
