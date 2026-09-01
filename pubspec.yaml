@@ -65,7 +65,7 @@ dependencies:
   # 应用更新
   package_info_plus: ^8.0.0
   open_filex: ^4.5.0
-  archive: ^4.0.2
+  archive: ^4.2.0
 
   # 帐号管理
   flutter_inappwebview: ^6.1.5   # WebView 登录（WebView2 on Windows）
