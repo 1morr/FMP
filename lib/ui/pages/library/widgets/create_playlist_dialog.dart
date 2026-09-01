@@ -399,6 +399,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
       ),
     );
 
+    if (!mounted) return;
     if (result != null) {
       setState(() {
         if (result.useDefault) {

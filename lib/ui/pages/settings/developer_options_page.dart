@@ -231,6 +231,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
         lyricsCacheCount = stats.fileCount;
       } catch (_) {}
 
+      if (!mounted) return;
       setState(() {
         _memoryInfo = _MemoryInfo(
           // Flutter 图片内存缓存
@@ -253,6 +254,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -531,7 +533,8 @@ class _ResetDataTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _showResetConfirmDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showResetConfirmDialog(
+      BuildContext context, WidgetRef ref) async {
     final confirmed = await showConfirmDestructiveDialog(
       context,
       title: t.settings.developerOptions.confirmReset,

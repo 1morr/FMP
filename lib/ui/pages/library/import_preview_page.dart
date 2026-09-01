@@ -355,11 +355,13 @@ class _UnmatchedSectionState extends ConsumerState<_UnmatchedSection> {
       final notifier = ref.read(playlistImportProvider.notifier);
       final results = await notifier.searchForUnmatched(query);
 
+      if (!mounted) return;
       setState(() {
         _searchResults[index] = results;
         _isSearching[index] = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _searchResults[index] = [];
         _isSearching[index] = false;

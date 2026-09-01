@@ -544,6 +544,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   final service = LyricsWindowService.instance;
                   if (service.isOpen) {
                     await service.close();
+                    if (!mounted) return;
                     _clearWindowCallbacks();
                     setState(() {});
                   } else {
@@ -552,6 +553,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                       if (mounted) setState(() {});
                     };
                     await service.open();
+                    if (!mounted) return;
                     _syncThemeToWindow();
                     _syncPlaybackStateToWindow(
                       ref.read(audioControllerProvider).isPlaying,
@@ -601,7 +603,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   PopupMenuItem(
                     value: 'remote',
                     child: ListTile(
-                      leading: const Icon(Icons.cloud_upload_outlined, size: 20),
+                      leading:
+                          const Icon(Icons.cloud_upload_outlined, size: 20),
                       title: Text(t.remote.addToFavorites),
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -1212,7 +1215,6 @@ class _RadioDetailContent extends ConsumerWidget {
           tags: radioState.tags,
           tagsTitle: t.trackDetail.tags,
         ),
-
         const SizedBox(height: 32),
       ],
     );
@@ -1277,8 +1279,8 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
   Widget build(BuildContext context) {
     return ClickableSourceCover(
       aspectRatio: 16 / 9,
-      onOpenSource: () => UrlLauncherService.instance
-          .openBilibiliLive(widget.station.sourceId),
+      onOpenSource: () =>
+          UrlLauncherService.instance.openBilibiliLive(widget.station.sourceId),
       // 封面图片
       cover: RadioCoverImage(
         networkUrl: widget.station.thumbnailUrl,
@@ -1287,9 +1289,8 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
         variant: RadioCoverVariant.hero,
       ),
       // LIVE 标签 - 仅在图片加载完成且正在播放时显示
-      topBadge: _isImageLoaded && widget.isPlaying
-          ? const LiveBadge.text()
-          : null,
+      topBadge:
+          _isImageLoaded && widget.isPlaying ? const LiveBadge.text() : null,
       // 未播放时的半透明遮罩（加载时带动画）
       overlay: !widget.isPlaying
           ? Container(
