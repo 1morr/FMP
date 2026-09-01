@@ -663,7 +663,9 @@ void main() {
           debugPrint('Network error, skipping test: ${e.message}');
           return;
         }
-      });
+        // 风控码(-412/-429/-352)会走到上面的 rethrow，所以这个测试在 B 站限流时
+        // 必然变红。它打真实网络，因此标成 live 让 CI 用 --exclude-tags 排除。
+      }, tags: 'live');
 
       test('should throw BilibiliApiException for invalid bvid', () async {
         const invalidBvid = 'BV1234567890'; // 无效的BV号
@@ -792,7 +794,8 @@ void main() {
           debugPrint('Network error, skipping test: ${e.message}');
           return;
         }
-      });
+        // 同上：打真实网络，B 站风控时会失败，不该拦住无关的 PR。
+      }, tags: 'live');
     });
 
     group('URL expiry', () {

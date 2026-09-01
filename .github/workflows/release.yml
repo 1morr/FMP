@@ -204,8 +204,9 @@ jobs:
       - name: Static analysis
         run: flutter analyze
 
+      # See ci.yml: the live-network suite is deliberately not a release gate.
       - name: Unit and widget tests
-        run: flutter test
+        run: flutter test --exclude-tags live
 
   build-windows:
     name: Build Windows EXE

@@ -1,0 +1,7 @@
+tags:
+  # test/live/ talks to Bilibili, YouTube and NetEase over the real network.
+  # Declared here so `flutter test` stops warning about an unknown tag; CI
+  # excludes it with --exclude-tags live, because an upstream API change must
+  # not turn an unrelated pull request red. Run it by hand when playback breaks:
+  #   flutter test test/live/sources_live_test.dart
+  live:

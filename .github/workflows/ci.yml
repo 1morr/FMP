@@ -57,8 +57,11 @@ jobs:
       - name: Static analysis
         run: flutter analyze
 
+      # test/live/ talks to Bilibili, YouTube and NetEase for real. Excluded
+      # here because an upstream API change must not turn an unrelated pull
+      # request red; run it by hand when playback breaks.
       - name: Unit and widget tests
-        run: flutter test --coverage
+        run: flutter test --coverage --exclude-tags live
 
       - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
