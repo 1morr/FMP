@@ -844,8 +844,15 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         await Future.delayed(AppConstants.audioServicePollingDelay);
       }
 
-      logDebug(
-          'URL loaded successfully, duration: $resultDuration (may update later)');
+      if (resultDuration == null) {
+        // 引擎在容忍窗內從未回報時長。這**不是**一次乾淨的成功：實測「連得上
+        // 但零位元組」與「音訊裝置開不起來」都長這個樣子，而兩者過去都被記成
+        // `URL loaded successfully`。降級成 warning，讓 log 誠實。
+        logWarning('URL opened but the engine never reported a duration; '
+            'treating playback as started with unknown length');
+      } else {
+        logDebug('URL loaded successfully, duration: $resultDuration');
+      }
 
       // 确保播放并等待状态确认
       await _ensurePlayback();

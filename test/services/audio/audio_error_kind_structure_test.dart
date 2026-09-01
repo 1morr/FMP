@@ -14,8 +14,11 @@ void main() {
       expect(source,
           contains('bool _shouldSkipSourceError(SourceApiException error)'));
       expect(source, contains('error.kind.shouldSkipTrack'));
-      expect(source, contains('bool _isStringNetworkError(Object error)'));
       expect(source, contains('bool _isRetryableError(Object error)'));
+      // 解析層的例外也已型別化：不再有任何字串比對的分類器。
+      expect(source, isNot(contains('_isStringNetworkError')));
+      expect(source, contains('error is SocketException'));
+      expect(source, contains('error is TimeoutException'));
       expect(
           source,
           contains(
@@ -41,7 +44,7 @@ void main() {
           source.indexOf('void _onPlaybackEnded(PlaybackEndReason reason)');
       expect(dispatchStart, isNot(-1));
       final dispatchBody = source.substring(dispatchStart);
-      expect(dispatchBody, isNot(contains('_isStringNetworkError')));
+      expect(dispatchBody, isNot(contains('.contains(')));
     });
 
     test('dispose handles async backend cleanup errors', () {

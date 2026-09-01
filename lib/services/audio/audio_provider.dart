@@ -2431,28 +2431,26 @@ class AudioController extends StateNotifier<PlayerState>
   bool _shouldSkipSourceError(SourceApiException error) =>
       error.kind.shouldSkipTrack;
 
-  /// 判斷「串流解析階段」拋出的例外是不是網路問題。
+  /// 「串流解析階段」拋出的例外可不可以重試。
   ///
-  /// 注意這裡處理的是 dio / socket 拋出的 **Dart 例外**，不是後端播放器的事件
-  /// —— 後者已改由 [PlaybackEndReason] 型別化，不再比對字串。
-  bool _isStringNetworkError(Object error) {
-    final errorStr = error.toString().toLowerCase();
-    return errorStr.contains('socket') ||
-        errorStr.contains('tcp:') ||
-        errorStr.contains('ffurl_read') ||
-        errorStr.contains('connection') ||
-        errorStr.contains('network') ||
-        errorStr.contains('timeout') ||
-        errorStr.contains('unreachable') ||
-        errorStr.contains('host') ||
-        errorStr.contains('dns') ||
-        errorStr.contains('errno') ||
-        errorStr.contains('failed host lookup');
-  }
-
+  /// 這裡處理的是 Dart 例外（音源 adapter 或 `MediaHandoff` 拋的），不是後端播
+  /// 放器的事件 —— 後者已由 [PlaybackEndReason] 型別化。判斷一律看型別：
+  ///
+  /// - 音源 adapter 把 dio 的錯誤全部包成 [SourceApiException]（三個 adapter
+  ///   共 22 處 `on DioException catch`），所以 `DioException` 不會逃到這裡；
+  /// - `MediaHandoff` 直接用 `dart:io` 的 `HttpClient`，會拋下面那幾種。
   bool _isRetryableError(Object error) {
     if (error is SourceApiException) return error.kind.isRetryable;
-    return _isStringNetworkError(error);
+    if (error is SocketException) return true;
+    if (error is HttpException) return true;
+    if (error is TlsException) return true;
+    if (error is TimeoutException) return true;
+
+    // 沒有列舉到的型別一律不重試，但要留下痕跡 —— 靜默地「猜它是網路錯誤」
+    // 正是 issue #41 那類 bug 的來源。看到這行就把該型別補進上面的清單。
+    logWarning(
+        'Unclassified playback error, not retrying: ${error.runtimeType} $error');
+    return false;
   }
 
   PlayMode get _currentRecoveryMode =>
@@ -3179,6 +3177,11 @@ class AudioController extends StateNotifier<PlayerState>
           }
         } else if (!await _advanceAfterPendingMixLoadMore()) {
           logDebug('No next track available');
+          // 隊列播完了，但後端仍可能回報 playing（位置停在結尾）。不暫停的話
+          // 位置檢查計時器每秒都會再判定一次「播完」—— 實測會無限重複觸發。
+          if (_audioService.isPlaying) {
+            await _audioService.pause();
+          }
         }
       } catch (e, stack) {
         logError('Track completion handler failed', e, stack);

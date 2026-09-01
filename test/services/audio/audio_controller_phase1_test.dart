@@ -904,6 +904,25 @@ void main() {
       expect(toasts.last.type, ToastType.error);
     });
 
+    // Q34 的回歸守門。
+    //
+    // 隊列播完最後一首之後，後端仍可能回報 playing（位置停在結尾），而位置檢查
+    // 計時器每秒都會再判定一次「播完」—— Android 實測會無限重複觸發 82 次。
+    test('reaching the end of the queue stops reporting playback', () async {
+      await controller.playAll([_track('last-track', title: 'Last Track')]);
+      await pumpEventQueue(times: 10);
+
+      audioService.setDurationValue(const Duration(minutes: 3));
+      audioService.emitPosition(const Duration(minutes: 3));
+      final pausesBefore = audioService.pauseCallCount;
+
+      audioService.emitNaturalCompletion();
+      await pumpEventQueue(times: 20);
+
+      expect(audioService.pauseCallCount, greaterThan(pausesBefore));
+      expect(audioService.isPlaying, isFalse);
+    });
+
     // issue #41 的回歸守門。
     //
     // mpv 在音訊輸出裝置初始化失敗時會吐
