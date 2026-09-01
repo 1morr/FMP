@@ -271,28 +271,42 @@ curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
 | `startTime` | 開始時間（微秒） |
 | `endTime` | 結束時間（微秒） |
 
-> 🔴 **實測對 FMP 無效，不要在這裡花時間。** 2026-07-27 在 debug 會話實測：應用剛從三個音源
-> 載入上百首排行榜資料，`getHttpProfile` 仍返回 **0 個請求**；按下面的方法啟用
-> `httpEnableTimelineLogging`（返回 `{'enabled': True}`）後重查，依然 **0 個**；
-> `getVMTimeline` 的 12934 個事件裡 HTTP/Socket 相關也是 **0 個**。
->
-> 需要看 FMP 的網路行為，用 `AppLogger` 的 source adapter 日誌，或在 Dio 上掛 interceptor。
+> ⚠️ **必須先啟用，再產生流量。** profiling 只記錄啟用之後發生的請求，對已經結束的請求
+> 一無所知 —— 這就是為什麼「開著應用跑一陣子再來查」永遠是 0 個。
 
 ```bash
-# 啟用 HTTP timeline 日誌（實測未能讓 FMP 的請求出現）
+# 先啟用（回傳 {"type":"HttpTimelineLoggingState","enabled":true}）
 curl -s "$BASE/ext.dart.io.httpEnableTimelineLogging?isolateId=$ISOLATE&enabled=true"
+# 然後才去操作應用，最後再 getHttpProfile
 ```
 
-> 保留一個未驗證的可能：上述實測是在流量發生**之後**才啟用 logging 的。嚴格的複測應先啟用再產生流量。
-> 但同一次實測中 `getSocketProfile` 對**當下存活**的連線也返回 0，這一點無法用啟用時機解釋。
+**單筆請求的完整內容**用 `getHttpProfileRequest`，它給的比上表多得多 —— 逐階段時間軸
+（`Connection established` / `Request sent` / `Waiting (TTFB)` / `Content Download`）、
+完整的 request/response header，以及 request/response body：
+
+```bash
+curl -s "$BASE/ext.dart.io.getHttpProfileRequest?isolateId=$ISOLATE&id=<REQUEST_ID>"
+```
+
+> **2026-09-01 實測（本節結論的依據）**：先啟用、再觸發一次 Netease eapi 與一次 Bilibili
+> 搜尋，`getHttpProfile` 回 **2 筆**，正是那兩個請求（`POST interface3.music.163.com 200`、
+> `GET api.bilibili.com 200`）。單筆詳情 117 KB，含完整 body。另一次在 profile build 上做
+> 一次搜尋則抓到 **15 筆**，涵蓋三個音源的 API 與圖片 CDN。
+>
+> **歷史更正**：本節原本寫「實測對 FMP 無效，不要在這裡花時間」。那個結論來自 2026-07-27
+> 的一次實測，而該次是在流量發生**之後**才啟用 logging —— 順序錯了。原文自己保留了這個
+> 可能性，事後證明它就是唯一原因。FMP 的 dio 沒有安裝任何自訂 `httpClientAdapter`，走的
+> 就是 `dart:io HttpClient`，所以會被完整攔到。
 
 ### 3.6 Socket 和檔案
 
-> 🔴 **同樣實測返回空。** `getSocketProfile` → 0 sockets，`getOpenFiles` → 0 files，
-> 而當時 Isar 已開啟、三個音源的 HTTP 連線剛完成。與 §3.5 一併視為對 FMP 不可用。
+Socket profiling 跟 §3.5 一樣**必須先啟用**：
 
 ```bash
-# Socket 連線
+# 先啟用（回傳 {"type":"SocketProfilingState","enabled":true}）
+curl -s "$BASE/ext.dart.io.socketProfilingEnabled?isolateId=$ISOLATE&enabled=true"
+
+# Socket 連線（含每條連線的 readBytes / writeBytes）
 curl -s "$BASE/ext.dart.io.getSocketProfile?isolateId=$ISOLATE"
 
 # 開啟的檔案
@@ -301,6 +315,16 @@ curl -s "$BASE/ext.dart.io.getOpenFiles?isolateId=$ISOLATE"
 # 單個檔案詳情
 curl -s "$BASE/ext.dart.io.getOpenFileById?isolateId=$ISOLATE&id=<FILE_ID>"
 ```
+
+> **2026-09-01 實測**：先啟用再產生流量，`getSocketProfile` 回 **2 條 tcp 連線**，
+> 各自帶 `readBytes` / `writeBytes`。`getOpenFiles` 在同一時刻回 **0** —— 但那不是壞掉：
+> 當下沒有任何 `dart:io` 檔案握柄存活。刻意開一個 `File` 並持有之後再查，它就出現了。
+>
+> **Isar 的資料庫檔案不會出現在 `getOpenFiles` 裡**，因為 Isar 透過原生程式碼開檔，
+> 不走 `dart:io`。要看 Isar 內容請用 §5。
+>
+> **歷史更正**：本節原本寫「同樣實測返回空⋯視為對 FMP 不可用」。socket 那一半的成因與
+> §3.5 相同（啟用時機）；檔案那一半是把「當下沒有 dart:io 檔案開著」誤讀成「功能無效」。
 
 ## 4. Flutter Extension API
 

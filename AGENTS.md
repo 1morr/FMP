@@ -45,9 +45,10 @@ audio sources. Target platforms are Android and Windows.
 - **Runtime debugging** — `docs/debugging-with-vm-service.md`. Reach for it when
   a question needs the running app rather than the source: memory pressure and
   GC (§3.2–3.3), frame timing (§3.4), widget/render trees (§4.3 — dump to a file
-  first, the render tree measured 3.85 MB), and Isar contents (§5). The
-  `dart:io` HTTP/socket profiling in §3.5–3.6 is marked non-functional for FMP;
-  do not spend time there.
+  first, the render tree measured 3.85 MB), Isar contents (§5), and `dart:io`
+  HTTP/socket profiling (§3.5–3.6 — enable it *before* the traffic you want to
+  see, or it records nothing). `getHttpProfileRequest` gives per-request timing
+  plus full headers and bodies, which beats adding a Dio interceptor.
 
 ## Documentation Maintenance
 
