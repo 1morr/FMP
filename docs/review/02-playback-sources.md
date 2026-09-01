@@ -951,6 +951,12 @@ abstract interface class PlaybackObserver {
 
 **D8（第六輪新增）— Netease 的播放前預檢／媒體憑證機制要刪還是要修？** 第六輪實測 eapi 回的是 `http://`，而閘門要求 https，所以這整套（`media_handoff.dart:142-242` 的 preflight 迴圈、`NeteasePlaybackRedirectResolver` 注入點、`mediaHeaders` 的 Cookie 分支）在生產環境一次都不會執行，而測試把它們全測成會執行（§12.18d）。三個選項：**(a) 刪掉**——若確認媒體位元組不需要 Cookie（音質已在 eapi 解析當下由帳號決定，那一步的 Cookie 有送），成本 S，收益是少 ~150 行死碼與一組假覆蓋率；**(b) 保留但把測試改成用真實的 `http://` URL 形狀**，讓測試誠實反映「這段不會跑」，成本 S；**(c) 改成在 http 上也能運作**——**不建議**，那等於允許把工作階段 Cookie 送上明文連線。**不可以用「放寬 https 檢查」當作修法。**
 
+> **【第八輪已執行 —— 選了 (a) 刪除，commit `c09aec10`】** 實際刪掉的範圍比原本估的大：preflight 迴圈、`NeteasePlaybackRedirectResolver` 注入點（連同 `source_auth_context.dart` 那一層的轉接）、`canAttachNeteaseMediaCredentials`、`mediaHeaders` 的 `authHeaders` / `requestUrl` / `includeCredentials` 三個參數、`MediaHandoffResult.credentialsIncluded`（只寫不讀）、以及零呼叫端的 `downloadMediaHeaders`。**淨刪 547 行**（20 檔，+205/−752），其中 10 條測試隨機制一起消失 —— 它們測的正是那段跑不到的程式碼。
+>
+> `mediaHeaders` 現在只收 `SourceType`：**憑證邊界由函式簽章保證，不再是執行期檢查**，沒有任何參數可以讓呼叫端把 Cookie 傳進來。
+>
+> 實機複驗（Windows，已登入 Netease）：Netease `playing=true pos=0:00:05.940843 err=null`、YouTube `playing=true pos=0:00:07.950194 err=null`，兩者的 header 都是 `Origin, Referer, User-Agent`。1234 條測試全過。
+>
 > **【第七輪傾向 (a)】** 已登入帳號的實測（§12.19a）補齊了最後一塊：真實簽名 URL **0 跳轉**（preflight 就算跑也找不到東西可跟），且**登入狀態下 Cookie 一樣被剝掉而播放正常** —— 也就是媒體位元組確實不需要憑證。三個問號都指向刪除。
 
 ---
@@ -2537,6 +2543,8 @@ d0282a25  docs(agents): correct the dart:io profiling claim
 - ✅ **提交** —— 四個 commit 在分支 `refactor/playback-end-reasons`，1244 條測試全過。報告本身未提交（依原本的約定）。
 
 仍未完成（第八輪之後）：
+
+0. ~~**D8 —— Netease 死碼的處置**~~ —— 第八輪已執行刪除，見 §9 的 D8。
 
 1. **§8.1 的 B–F 五個介面** —— 你這輪只要 A，B（`NowPlayingPublisher`，收掉 8 處平台分支並修 #40）、C（載入狀態機）、D（Mix）、E（seek 穩定化）、F（周邊服務）仍是規劃。
 2. **§7.4 的第 1、2 步** —— `SourceType` 的字串雙軌與 `Settings` 的 map 化都會動到持久化格式，你這輪選擇不做。做的時候需要 Isar migration + `backup_service` 格式同步（對應 D6）。
