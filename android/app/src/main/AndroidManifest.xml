@@ -22,11 +22,20 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage"/>
 
+    <!--
+      allowBackup=false is required, not a preference. Android auto-backup can
+      restore the app's shared preferences onto a device whose keystore holds a
+      different key, after which flutter_secure_storage cannot decrypt the
+      credentials it finds and every account read throws PlatformException.
+      This is the trigger the flutter_secure_storage README names, and the root
+      cause behind the permanent loading states tracked in issue #35.
+    -->
     <application
         android:label="FMP"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:allowBackup="false">
 
         <!-- 主 Activity - 用于 audio_service -->
         <activity

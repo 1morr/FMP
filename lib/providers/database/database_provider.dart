@@ -296,7 +296,12 @@ Future<Isar> openFmpDatabase() async {
     fmpDatabaseSchemas,
     directory: databaseDir.path,
     name: fmpDatabaseName,
-    maxSizeMiB: 64,
+    // Isar 的默认值是 1024 MiB（isar 3.1.0+1 的 Isar.defaultMaxSizeMiB）。
+    // 这里曾经写 64，比默认值小 16 倍，而写满之后 Isar 直接抛错、FMP 没有
+    // 任何溢出处理 —— 对一个会随使用时间单调增长的播放历史 / 下载记录库来说
+    // 是迟早会踩到的上限。maxSizeMiB 是 mmap 的地址空间上限而非预分配，
+    // 调大不会立刻占用磁盘。
+    maxSizeMiB: 2048,
     compactOnLaunch: const CompactCondition(
       minFileSize: 8 * 1024 * 1024,
       minRatio: 2.0,

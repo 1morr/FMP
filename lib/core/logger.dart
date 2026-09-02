@@ -82,6 +82,9 @@ class AppLogger {
     'MUSIC_U',
     'musicU',
     '__csrf',
+    // Bilibili 的写操作把 bili_jct 的值作为裸 csrf 参数发出
+    // （bilibili_favorites_service.dart:131 等），只遮 __csrf 漏掉这一路。
+    'csrf',
     'eparams',
     'SESSDATA',
     'bili_jct',

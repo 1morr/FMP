@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar/isar.dart';
 
@@ -277,6 +278,16 @@ class NeteaseAccountService extends AccountService with Logging {
     _cachedCredentials = null;
     _credentialsLoaded = false;
     await _updateAccount(isLoggedIn: false);
+
+    // 清除 WebView cookies，避免重新登入時自動使用舊帳號。
+    // 域名與 netease_login_page.dart 載入的一致。
+    try {
+      await CookieManager.instance()
+          .deleteCookies(url: WebUri('https://music.163.com'));
+    } catch (e) {
+      logWarning('Failed to clear WebView cookies: $e');
+    }
+
     logInfo('Netease logged out');
   }
 

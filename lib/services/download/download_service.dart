@@ -20,6 +20,7 @@ import '../../data/repositories/download_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_http_policy.dart';
+import '../../data/sources/source_url_policy.dart';
 import '../../data/sources/source_provider.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
 import '../account/source_auth_context.dart';
@@ -1695,11 +1696,24 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     const mediaHandoff = DefaultMediaHandoff();
 
     var requestUri = Uri.parse(params.url);
+    // 起点是 FMP 自己解析出来的地址，允许它本来就是本机（本地测试服务器、
+    // 自建代理）。要挡的是从公网主机跳进内网 —— 那是 Location 头能做到、
+    // 而调用方控制不了的一步。
+    final startedOnPrivateHost =
+        SourceUrlPolicy.isLocalOrPrivateHost(requestUri.host);
     late HttpClientResponse response;
     for (var redirectCount = 0; redirectCount <= 5; redirectCount++) {
       if (requestUri.scheme != 'http' && requestUri.scheme != 'https') {
         throw HttpException(
             'Unsupported redirect scheme: ${requestUri.scheme}');
+      }
+      // 每一跳都带着音源的 auth header。只检查 scheme 不够：一个公网 CDN
+      // 把我们重定向到 127.0.0.1 或 169.254.169.254，凭据就进了内网 /
+      // 云端 metadata 端点。
+      if (!startedOnPrivateHost &&
+          SourceUrlPolicy.isLocalOrPrivateHost(requestUri.host)) {
+        throw HttpException(
+            'Refusing redirect to local or private host: ${requestUri.host}');
       }
 
       final request = await client.getUrl(requestUri);
