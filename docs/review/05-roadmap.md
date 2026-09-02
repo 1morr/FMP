@@ -869,6 +869,19 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 **新測得的基準（`9bb0b8e5` 之後）**：`flutter test --exclude-tags live` = **1220 passed**，
 連跑 3 次一致，耗時 31–33 秒。01/02/03 報告的 1241 / 1242 / 1234 全部作廢。
 
+**執行到一半才發現的另外四條**（都是報告的判斷有誤，不是失效）：
+
+| 原條目 | 更正 |
+|---|---|
+| QW-10「刪未使用的 `nav.explore` key」 | **有在用** —— `explore_page.dart:92` 的 `t.nav.explore`。不刪 |
+| QW-9「`youtube_stream_test_page` 的 Cookie 探測加 `kDebugMode` gate」 | **指控不成立**。`_formatHeaderKeys()`（`:818`）只印 `key(長度)`，不印值；該頁還在 `developerOptionsProvider` 解鎖之後。加 gate 只會拿掉 release 版的診斷工具，不改 |
+| QW-7「8 個 tooltip + 2 個播放鍵」 | 機械掃描全 `lib/ui`：**96 個 `IconButton` 裡 26 個缺 tooltip**，不是 10 個。已全部補上（`lyrics_title_bar.dart:188` 是掃描誤報，它用 `Semantics(label:)` 已經是可存取的） |
+| QW-8「刪 6 個死依賴」只列了 Dart 層 | **Dart 零 import 不足以判定**。`windows/runner/flutter_window.cpp:8` 手寫 include 並註冊了 `dynamic_color` 的原生外掛，只有 **release build 才會抓到**（`error C1083`）。往後刪依賴必須兩平台各 build 一次 |
+
+**Phase 0 的最終基準（`104bd8d3`）**：1222 passed（1220 + 新增的 `csrf` 遮蔽與
+`isLocalOrPrivateHost` 分類器兩條測試），`flutter analyze` 全綠，
+`flutter build apk` / `flutter build windows` 皆成功。
+
 ---
 
 ## 7. 10 個 issue 的處置
