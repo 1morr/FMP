@@ -227,9 +227,11 @@ than the 37.7s Android block this work exists to remove.
 T1 is a backstop against waiting forever, not a gate to force speed — P0-2 asked
 for *bounded*, not *short*. It has to clear the slowest path that still works:
 when YouTube's androidVr audio-only is refused by the bot check, falling back to
-muxed measured 22.7s on the emulator and 9.9s on a desktop host, and that
-refusal is the common case rather than the exception. A T1 that cannot cover it
-does not make playback fast, it makes those videos unplayable.
+muxed measured 21.3-22.7s on the Android emulator and 9.9s on a desktop host,
+and that refusal is the common case rather than the exception. A T1 that cannot
+cover it does not make playback fast, it makes those videos unplayable, so the
+value is set generously. The common path — audio-only succeeding — takes 1-2s
+and never approaches it.
 
 T1 is what stops the three retry layers from multiplying. The inner resolution
 retry (once, after `AppConstants.streamResolutionRetryDelay`) and the

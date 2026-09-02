@@ -1070,6 +1070,26 @@ $ gh issue list --repo 1morr/FMP --state open --limit 30
 androidVr 的 audio-only 被擋下之後，退到 muxed 實測要 22.7 秒（報告在 Windows 上量到 9.9 秒），
 兩者都遠大於 6 秒。而 audio-only 被擋是常態不是例外。
 
-三個選項：(a) T1 放寬到 15–25 秒（會讓「不逾時跳過」的體感回來一部分）；
-(b) 維持 6 秒，接受 bot 檢查下的 YouTube 影片直接失敗（至少現在是**快速**失敗且有訊息，
-不再是 22 秒轉圈後拿到含視訊的串流）；(c) T1 分源設定（YouTube 給更長的預算）。
+**已定案並複驗：T1 = 25 秒，且整個請求共用一個總期限。**
+
+逾時是「別無限等下去」的兜底，不是逼快的閘門，所以取值偏寬：太緊的代價是那些影片
+一律播不出來，太鬆只是多轉一下才誠實失敗。20 秒實測仍會卡掉模擬器上 21.3–21.8 秒的
+muxed 退路，25 秒才過。單獨放寬 T1 會讓最壞等待變成 (T1+T2)×2 —— 比原本要修的
+Android 37.7 秒阻塞還糟 —— 所以同批加上每次請求一個 `budget.total` 期限，
+fallback 只能用剩下的時間。
+
+**實機複驗（Android 模擬器，`Medium_Phone`）**：
+
+```
+首次解析   Resolved stream for youtube:I-5e_J3LWS8 in 21137ms (muxed, 736575bps)
+           Playback selection ready in 21167ms
+重播同曲   Reusing resolved stream for youtube:I-5e_J3LWS8 (playback)
+           Playback selection ready in 25ms
+背景預取   Resolving stream for youtube:s466YCiHfKw (prefetch)
+           Resolved stream for youtube:s466YCiHfKw in 19275ms
+切下一首   Reusing resolved stream for youtube:s466YCiHfKw (playback)
+           Playback selection ready in 32ms
+```
+
+P0-1 的兩半都成立：同一首歌重播從 21,167ms 降到 25ms；下一首因為預取寫回了佇列實例，
+切歌時的解析從約 20 秒降到 32ms。

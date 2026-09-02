@@ -190,17 +190,18 @@ class AppConstants {
 /// 可注入，測試才不必真的等 6 秒。
 class PlaybackTimeoutBudget {
   const PlaybackTimeoutBudget({
-    this.streamResolution = const Duration(seconds: 20),
+    this.streamResolution = const Duration(seconds: 25),
     this.mediaOpen = const Duration(seconds: 8),
     this.bufferStarvation = const Duration(seconds: 15),
   });
 
   /// T1：把 track 解析成一個可播的 URL。
   ///
-  /// 6 秒實測太緊：YouTube 的 androidVr audio-only 被 bot 檢查擋下之後，退到
-  /// muxed 在模擬器上要 22.7 秒、在主機上要 9.9 秒，而被擋是常態不是例外。
-  /// 6 秒等於讓那些影片一律播不出來。這一層是「別無限等下去」的兜底，不是
-  /// 用來逼快的閘門 —— P0-2 要的是**有界**，不是短。
+  /// 實測：YouTube 的 androidVr audio-only 被 bot 檢查擋下之後（那是常態不是
+  /// 例外），退到 muxed 在 Android 模擬器上量到 21.3–22.7 秒、在 Windows 主機上
+  /// 9.9 秒。這一層是「別無限等下去」的兜底，不是用來逼快的閘門 —— P0-2 要的是
+  /// **有界**，不是短。太緊的代價是那些影片一律播不出來，太鬆只是多轉一下才
+  /// 誠實失敗，所以取值偏寬。命中 audio-only 的常見路徑只要 1–2 秒。
   final Duration streamResolution;
 
   /// T2：把那個 URL 交給後端開流。
