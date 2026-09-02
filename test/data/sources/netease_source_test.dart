@@ -4,6 +4,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/netease_exception.dart';
 import 'package:fmp/data/sources/netease_source.dart';
+import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
   group('NeteaseSource URL parsing', () {
@@ -264,7 +265,9 @@ void main() {
       );
     });
 
-    test('classifies stream 404 with VIP flag as VIP required', () async {
+    test('a bare flag bit 4 is not treated as a VIP restriction', () async {
+      // 實測歌曲 139774 是 flag=6（含 bit 4）、code=200，匿名就能拿到 320kbps。
+      // 那個位元不帶 VIP 資訊，用它判斷等於叫使用者去付一筆不必要的錢。
       final source = NeteaseSource(
         dio: _dioReturning({
           'code': 200,
@@ -274,7 +277,7 @@ void main() {
               'url': null,
               'code': 404,
               'fee': 0,
-              'flag': 260,
+              'flag': 4,
             },
           ],
         }),
@@ -286,8 +289,59 @@ void main() {
         ),
         throwsA(
           isA<NeteaseApiException>()
-              .having((e) => e.isVipRequired, 'isVipRequired', isTrue)
-              .having((e) => e.code, 'code', 'vip_required'),
+              .having((e) => e.isVipRequired, 'isVipRequired', isFalse),
+        ),
+      );
+    });
+
+    test('login required wins over a VIP-looking message', () async {
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {
+              'id': 123,
+              'url': null,
+              'code': 301,
+              'fee': 0,
+              'flag': 4,
+              'message': '登录后享受 VIP 音质',
+            },
+          ],
+        }),
+      );
+
+      // 同一個回應兩邊都像，但「需要登入」是使用者真的能處理的那一個。
+      await expectLater(
+        source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
+        throwsA(
+          isA<NeteaseApiException>()
+              .having((e) => e.kind, 'kind', SourceErrorKind.loginRequired)
+              .having((e) => e.isVipRequired, 'isVipRequired', isFalse),
+        ),
+      );
+    });
+
+    test('a paid song is still reported as VIP required', () async {
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {
+              'id': 123,
+              'url': null,
+              'code': 404,
+              'fee': 1,
+            },
+          ],
+        }),
+      );
+
+      await expectLater(
+        source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
+        throwsA(
+          isA<NeteaseApiException>()
+              .having((e) => e.isVipRequired, 'isVipRequired', isTrue),
         ),
       );
     });

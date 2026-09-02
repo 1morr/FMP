@@ -899,7 +899,16 @@ class NeteaseSource
     final flag = _asInt(streamInfo['flag']);
     final message = _streamErrorMessage(streamInfo);
 
-    if (_isVipRequiredStreamError(fee: fee, flag: flag, message: message)) {
+    // 未登入要排在 VIP 之前。同一個回應可能兩邊都像，而「需要登入」是使用者
+    // 真的能處理的那一個 —— 反過來會把他引導去付錢。
+    if (itemCode == 301) {
+      return NeteaseApiException(
+        numericCode: 301,
+        message: message ?? 'Login required',
+      );
+    }
+
+    if (_isVipRequiredStreamError(fee: fee, message: message)) {
       return NeteaseApiException(
         numericCode: -10,
         message: message ?? 'VIP song, payment required',
@@ -918,12 +927,6 @@ class NeteaseSource
       );
     }
 
-    if (itemCode == 301) {
-      return NeteaseApiException(
-        numericCode: 301,
-        message: message ?? 'Login required',
-      );
-    }
     if (itemCode == 403) {
       return NeteaseApiException(
         numericCode: 403,
@@ -966,13 +969,17 @@ class NeteaseSource
     return null;
   }
 
+  /// 這首歌是不是真的需要 VIP。
+  ///
+  /// 刻意**不看** `flag & 4`。實測歌曲 `139774` 是 `flag=6, code=200`，匿名就能
+  /// 拿到 320kbps 的 URL —— 那個位元根本不帶 VIP 資訊，拿它當判準會把「沒登入
+  /// 所以拿不到 URL」說成「要付費」，把使用者導向一個錯誤的結論。
+  /// 判斷留給 `fee` 與訊息本身。
   bool _isVipRequiredStreamError({
     required int? fee,
-    required int? flag,
     required String? message,
   }) {
     if (fee == 1 || fee == 4) return true;
-    if (flag != null && (flag & 4) != 0) return true;
     final normalized = message?.toLowerCase();
     if (normalized == null) return false;
     return normalized.contains('vip') ||
