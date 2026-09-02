@@ -154,6 +154,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: t.general.back,
           onPressed: () {
             notifier.setSearching(false);
             _searchController.clear();
@@ -168,6 +169,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear),
+                    tooltip: t.general.clear,
                     onPressed: () {
                       _searchController.clear();
                       notifier.setSearchKeyword(null);
@@ -963,6 +965,7 @@ class _SelectionCheckbox extends StatelessWidget {
         isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
         color: isSelected ? colorScheme.primary : colorScheme.outline,
       ),
+      tooltip: isSelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }

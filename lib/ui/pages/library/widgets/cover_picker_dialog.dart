@@ -84,6 +84,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: t.general.close,
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -224,6 +225,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
               suffixIcon: _urlController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear),
+                      tooltip: t.general.clear,
                       onPressed: () {
                         setState(() {
                           _urlController.clear();

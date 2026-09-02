@@ -72,6 +72,13 @@ void main(List<String> args) async {
 
     launchMinimized = args.contains('--minimized');
 
+    // 初始化 i18n（先使用设备语言，后续由 LocaleProvider 加载用户设置覆盖）。
+    // 必须排在任何读 t.* 的程式码之前 —— 这一行原本在 runApp() 前才跑，
+    // 而 AudioService.init() 早在它之前就把 t.notification.channelName
+    // 读走了，于是 Android 的通知频道名永远落在 fallback 的英文。
+    // 频道名只在首次建立时写入系统，之后改语言也不会更新。
+    LocaleSettings.useDeviceLocale();
+
     // 预读主题设置，避免启动时主题闪烁（白→黑→白）
     await _preloadThemeSettings();
 
@@ -164,9 +171,6 @@ void main(List<String> args) async {
       // 初始化電台刷新服務（後台加載）
       RadioRefreshService.instance = RadioRefreshService();
     });
-
-    // 初始化 i18n（先使用设备语言，后续由 LocaleProvider 加载用户设置覆盖）
-    LocaleSettings.useDeviceLocale();
 
     runApp(
       ProviderScope(

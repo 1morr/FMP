@@ -216,7 +216,9 @@ class RadioPlayerPage extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            station?.hostName ?? t.radio.live,
+            station == null
+                ? t.radio.live
+                : (station.hostName ?? t.radio.unknownHost),
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -325,6 +327,7 @@ class RadioPlayerPage extends ConsumerWidget {
           isLoading: state.isBuffering || state.isLoading,
           isPlaying: state.isPlaying,
           enabled: hasStation,
+          tooltip: state.isPlaying ? t.general.pause : t.general.play,
           onPressed: () {
             if (state.isPlaying) {
               controller.pause();

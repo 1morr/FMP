@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../i18n/strings.g.dart';
 import 'sheet_drag_handle.dart';
 
 /// [CappedDraggableSheet] 的高度模式。
@@ -143,6 +144,7 @@ class CappedDraggableSheet extends StatelessWidget {
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.close),
+                          tooltip: t.general.close,
                           onPressed: onClose,
                         ),
                       ],

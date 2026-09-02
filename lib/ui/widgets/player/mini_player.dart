@@ -342,8 +342,8 @@ class _MiniPlayerControls extends ConsumerWidget {
       children: [
         // 顺序/乱序按钮
         IconButton(
-          icon: Icon(
-            isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward,
+          icon: const Icon(
+            Icons.shuffle,
             size: 20,
           ),
           color: isShuffleEnabled ? colorScheme.primary : null,

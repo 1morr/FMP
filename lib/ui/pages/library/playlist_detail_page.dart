@@ -752,6 +752,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             )
           : IconButton(
               icon: Icon(Icons.arrow_back, color: iconColor),
+              tooltip: t.general.back,
               onPressed: () => Navigator.of(context).pop(),
             ),
       // 標題（多選模式下顯示選擇數量）
@@ -1214,6 +1215,7 @@ class _GroupHeader extends ConsumerWidget {
                     icon: Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
                     ),
+                    tooltip: isExpanded ? t.general.collapse : t.general.expand,
                     onPressed: onToggle,
                   ),
                   // 菜单（Mix 歌單不會有多P視頻，但保留基本菜單）
@@ -1634,6 +1636,7 @@ class _SelectionCheckbox extends StatelessWidget {
         isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
         color: isSelected ? colorScheme.primary : colorScheme.outline,
       ),
+      tooltip: isSelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }
@@ -1670,6 +1673,7 @@ class _SelectionGroupCheckbox extends StatelessWidget {
 
     return IconButton(
       icon: Icon(icon, color: color),
+      tooltip: isFullySelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }

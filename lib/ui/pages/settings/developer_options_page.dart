@@ -301,6 +301,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
         subtitle: Text(t.settings.developerOptions.memoryUnavailable),
         trailing: IconButton(
           icon: const Icon(Icons.refresh),
+          tooltip: t.general.refresh,
           onPressed: _loadMemoryInfo,
         ),
       );

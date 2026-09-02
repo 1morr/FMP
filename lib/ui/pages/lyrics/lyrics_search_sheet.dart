@@ -263,6 +263,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.send),
+                        tooltip: t.lyrics.searchLyrics,
                         onPressed: _doSearch,
                       ),
                       border: OutlineInputBorder(
