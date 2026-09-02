@@ -51,6 +51,11 @@ class DataIntegrityRepository {
   final Isar _isar;
   final PlaylistMutationRepository _mutationService;
 
+  /// 清空所有集合。開發者選項的「重設所有資料」唯一的入口。
+  Future<void> clearEverything() async {
+    await _isar.writeTxn(() => _isar.clear());
+  }
+
   Future<DataIntegrityReport> scan() async {
     final tracks = await _isar.tracks.where().findAll();
     final tasks = await _isar.downloadTasks.where().findAll();

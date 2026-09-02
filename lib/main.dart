@@ -12,7 +12,6 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/constants/app_constants.dart';
 import 'core/logger.dart';
-import 'data/models/settings.dart';
 import 'i18n/strings.g.dart';
 import 'providers/database/database_provider.dart';
 import 'services/audio/audio_handler.dart';
@@ -20,6 +19,7 @@ import 'services/audio/windows_smtc_handler.dart';
 import 'services/radio/radio_refresh_service.dart';
 import 'services/update/update_service.dart';
 import 'ui/windows/lyrics_window.dart';
+import 'data/repositories/settings_repository.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
 late FmpAudioHandler audioHandler;
@@ -247,7 +247,7 @@ Future<void> _initializeWindowManager() async {
 Future<void> _preloadThemeSettings() async {
   try {
     final isar = await openFmpDatabase();
-    final settings = await isar.settings.get(0);
+    final settings = await SettingsRepository(isar).getOrNull();
     if (settings != null) {
       preloadedThemeMode = settings.themeMode;
       preloadedPrimaryColor = settings.primaryColorValue;

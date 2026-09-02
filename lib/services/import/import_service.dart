@@ -109,7 +109,6 @@ class ImportService with Logging implements ImportServiceFacade {
   final SourceManager _sourceManager;
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
-  final Isar _isar;
   final PlaylistMutationRepository _mutationService;
   final PlaylistAuthContext _sourceAuthContext;
 
@@ -156,7 +155,6 @@ class ImportService with Logging implements ImportServiceFacade {
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
-        _isar = isar,
         _sourceAuthContext = sourceAuthContext,
         _mutationService = mutationService ??
             PlaylistMutationRepository(
@@ -637,11 +635,7 @@ class ImportService with Logging implements ImportServiceFacade {
   /// 生成唯一歌单名称，同名时自动添加后缀 (2), (3), ...
   Future<String> _generateUniqueName(String baseName) async {
     // Single query: fetch all names starting with baseName
-    final existingNames = await _isar.playlists
-        .filter()
-        .nameStartsWith(baseName)
-        .nameProperty()
-        .findAll();
+    final existingNames = await _playlistRepository.namesStartingWith(baseName);
     final nameSet = existingNames.toSet();
 
     if (!nameSet.contains(baseName)) return baseName;

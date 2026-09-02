@@ -48,6 +48,23 @@ candidates if v3 ever becomes unbuildable: `drift`, `sqflite`, or `objectbox`.
 
 ## Models And Repositories
 
+**`isar.` / `_isar.` may appear only under `lib/data/repositories/`**, plus two
+named exemptions: `lib/providers/database/database_provider.dart` (it opens and
+migrates the database — it is by definition the layer holding the `Isar`
+handle) and `lib/providers/database/database_catalog.dart` (its eleven
+`query: (isar) => …` closures *are* the debug viewer). Anything else that needs
+Isar gets a repository method.
+
+A repository is **not** "one per collection". `TrackRepository` reads
+`playlists`, `playQueues` and `lyricsMatchs` for its orphan sweep;
+`DownloadRepository` reads `tracks`; `PlaylistMutationRepository` and
+`DataIntegrityRepository` own write transactions spanning up to five
+collections. Cross-collection atomic writes are the data layer's job — a
+service that opens its own `writeTxn` has the boundary in the wrong place.
+
+**Do not add an `abstract interface class Repository` layer.** Immich spent
+20+ PRs deleting theirs. The existing classes are already the thin abstraction.
+
 - Isar collections live in `lib/data/models/`; `models.dart` is the barrel
   export for persisted model types, including `Account`.
 - CRUD repositories live in `lib/data/repositories/`.

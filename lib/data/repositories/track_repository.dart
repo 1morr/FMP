@@ -47,6 +47,19 @@ class TrackRepository with Logging {
   TrackRepository(this._isar);
 
   /// 获取所有歌曲
+  /// 曲目總數（偵錯檢視器用）。
+  Future<int> count() => _isar.tracks.count();
+
+  /// 回寫 Bilibili 的 aid（只在曲目已經持久化時）。
+  Future<void> updateBilibiliAid(int id, int aid) async {
+    await _isar.writeTxn(() async {
+      final saved = await _isar.tracks.get(id);
+      if (saved == null) return;
+      saved.bilibiliAid = aid;
+      await _isar.tracks.put(saved);
+    });
+  }
+
   Future<List<Track>> getAll() async {
     return _isar.tracks.where().findAll();
   }

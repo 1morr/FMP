@@ -177,7 +177,6 @@ lib/services/account/      Bilibili/YouTube/Netease login, SourceAuthContext
 lib/services/radio/        Radio/live playback ownership and Bilibili live streams
 lib/services/backup/       Portable JSON backup export/import
 lib/services/cache/        Ranking and search result caches
-lib/services/database/     Isar open/close lifecycle helpers
 lib/services/import/       Playlist import pipeline
 lib/services/library/      Playlist CRUD and remote playlist sync
 lib/services/network/      Shared Dio setup and connectivity
@@ -186,7 +185,8 @@ lib/services/refresh/      Stale-data refresh coordination
 lib/services/search/       Search orchestration across sources
 lib/services/update/       In-app update check and installer handoff
 lib/data/models/           Isar collections and DTOs
-lib/data/repositories/     Isar data access
+lib/data/repositories/     Isar data access — the only place `isar.` may
+                           appear, apart from lib/providers/database/
 lib/data/sources/          Bilibili/YouTube/Netease adapters, SourceHttpPolicy
 lib/providers/             Riverpod providers and database initialization
 lib/ui/                    Pages, widgets, layouts, windows

@@ -7,6 +7,7 @@ import '../../data/sources/source_http_policy.dart';
 import '../../i18n/strings.g.dart';
 import 'bilibili_account_service.dart';
 import 'bilibili_auth_interceptor.dart';
+import '../../data/repositories/track_repository.dart';
 
 /// Bilibili 收藏夾數據模型
 class BilibiliFavFolder {
@@ -229,13 +230,7 @@ class BilibiliFavoritesService with Logging {
     // 緩存回 Track（如果 track 已持久化）
     if (track.id > 0) {
       try {
-        await _isar.writeTxn(() async {
-          final saved = await _isar.tracks.get(track.id);
-          if (saved != null) {
-            saved.bilibiliAid = aid;
-            await _isar.tracks.put(saved);
-          }
-        });
+        await TrackRepository(_isar).updateBilibiliAid(track.id, aid);
       } catch (e) {
         logWarning('Failed to cache bilibiliAid for track ${track.id}: $e');
       }

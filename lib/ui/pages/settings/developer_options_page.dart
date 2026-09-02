@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_provider.dart';
@@ -19,6 +18,7 @@ import '../../../services/cache/ranking_cache_service.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../debug/youtube_stream_test_page.dart';
+import '../../../data/repositories/repositories.dart';
 
 /// 开发者选项页面
 class DeveloperOptionsPage extends ConsumerWidget {
@@ -143,8 +143,8 @@ class _DatabaseInfoTile extends ConsumerWidget {
     final file = File(dbPath);
     final size = await file.exists() ? await file.length() : 0;
 
-    final trackCount = await isar.tracks.count();
-    final playlistCount = await isar.playlists.count();
+    final trackCount = await TrackRepository(isar).count();
+    final playlistCount = await PlaylistRepository(isar).count();
 
     return _DatabaseInfo(
       path: dir.path,
@@ -558,9 +558,7 @@ class _ResetDataTile extends ConsumerWidget {
       final isar = await ref.read(databaseProvider.future);
 
       // 清空所有集合
-      await isar.writeTxn(() async {
-        await isar.clear();
-      });
+      await DataIntegrityRepository(isar).clearEverything();
 
       // 重新创建默认数据
       await initializeDatabaseDefaults(isar);
