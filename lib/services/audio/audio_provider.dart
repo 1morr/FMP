@@ -1471,11 +1471,48 @@ class AudioController extends StateNotifier<PlayerState>
   /// 设置音频输出设备
   Future<void> setAudioDevice(FmpAudioDevice device) async {
     await _audioService.setAudioDevice(device);
+    await _settingsRepository?.update((s) {
+      s.preferredAudioDeviceId = device.name;
+      s.preferredAudioDeviceName = device.description;
+    });
   }
 
   /// 设置为自动选择音频设备（跟随系统默认）
   Future<void> setAudioDeviceAuto() async {
     await _audioService.setAudioDeviceAuto();
+    await _settingsRepository?.update((s) {
+      s.preferredAudioDeviceId = null;
+      s.preferredAudioDeviceName = null;
+    });
+  }
+
+  /// 裝置清單就緒之後套用記住的輸出裝置。
+  ///
+  /// 只在啟動後套用一次：之後使用者自己選的裝置優先，而且裝置清單會因為
+  /// 插拔而反覆變動，每次都套用會把使用者的當下選擇蓋掉。
+  bool _restoredPreferredAudioDevice = false;
+
+  Future<void> _restorePreferredAudioDevice(
+      List<FmpAudioDevice> devices) async {
+    if (_restoredPreferredAudioDevice || devices.isEmpty) return;
+    final repo = _settingsRepository;
+    if (repo == null) return;
+    _restoredPreferredAudioDevice = true;
+
+    final settings = await repo.get();
+    final preferredId = settings.preferredAudioDeviceId;
+    if (preferredId == null || preferredId.isEmpty) return;
+    if (_isDisposed) return;
+
+    // 裝置可能已經拔掉了 —— 找不到就維持系統預設，不要把設定清掉，
+    // 使用者把耳機插回來時還會想要它。
+    final match = devices.where((d) => d.name == preferredId).firstOrNull;
+    if (match == null) {
+      logInfo('Preferred audio device "$preferredId" is not connected');
+      return;
+    }
+    logInfo('Restoring preferred audio device: ${match.name}');
+    await _audioService.setAudioDevice(match);
   }
 
   // ========== 基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）========== //
@@ -3123,6 +3160,7 @@ class AudioController extends StateNotifier<PlayerState>
     if (_isDisposed) return;
     logDebug('Audio devices updated: ${devices.length} devices');
     state = state.copyWith(audioDevices: devices, error: state.error);
+    unawaited(_restorePreferredAudioDevice(devices));
   }
 
   void _onAudioDeviceChanged(FmpAudioDevice? device) {

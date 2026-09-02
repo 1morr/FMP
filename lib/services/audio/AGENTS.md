@@ -3,6 +3,23 @@
 Audio guidance for `AudioController`, playback backends, queue, stream handoff,
 temporary playback, Mix mode, and network error recovery.
 
+## Preferred Audio Device
+
+`setAudioDevice` / `setAudioDeviceAuto` persist the choice into
+`Settings.preferredAudioDeviceId` / `preferredAudioDeviceName`, and
+`_restorePreferredAudioDevice` reapplies it **once**, the first time the
+device list arrives.
+
+Two deliberate behaviours, both easy to break:
+
+- It restores once per session. The device list changes whenever something is
+  plugged in or out; reapplying every time would overwrite whatever the user
+  just chose.
+- A remembered device that is not currently connected is left in Settings, not
+  cleared. The user plugs the headphones back in and expects them selected.
+
+Desktop only — Android exposes no device picker.
+
 ## Architecture
 
 ```text
