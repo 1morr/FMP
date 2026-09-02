@@ -119,6 +119,7 @@ class DefaultStreamResolutionService
       }
 
       if (localFileState.localPath != null) {
+        logDebug('Using local file for ${_describe(track)}');
         return LocalStreamResolution(
           track: track,
           path: localFileState.localPath!,
@@ -147,6 +148,8 @@ class DefaultStreamResolutionService
       );
     }
 
+    final stopwatch = Stopwatch()..start();
+    logDebug('Resolving stream for ${_describe(track)} (${purpose.name})');
     try {
       final requestContext = await _buildRequestContext(track);
       final streamResult = await fetchAudioStreamWithQualityFallback(
@@ -158,15 +161,22 @@ class DefaultStreamResolutionService
         streamResult,
         persist: persist,
       );
+      logDebug('Resolved stream for ${_describe(track)} in '
+          '${stopwatch.elapsedMilliseconds}ms '
+          '(${streamResult.streamType.name}, ${streamResult.bitrate ?? '?'}bps)');
       return RemoteStreamResolution(
         track: updatedTrack,
         stream: streamResult,
         authHeaders: requestContext.authHeaders,
       );
-    } on SourceApiException {
+    } on SourceApiException catch (error) {
+      logWarning('Stream resolution failed for ${_describe(track)} after '
+          '${stopwatch.elapsedMilliseconds}ms: ${error.kind.name}');
       rethrow;
     } catch (_) {
       if (retryCount < 1) {
+        logWarning('Retrying stream resolution for ${_describe(track)} after '
+            '${stopwatch.elapsedMilliseconds}ms');
         await Future.delayed(AppConstants.queueSaveRetryDelay);
         return _resolveRemotePrimary(
           track,
@@ -193,6 +203,8 @@ class DefaultStreamResolutionService
       );
     }
 
+    final stopwatch = Stopwatch()..start();
+    logDebug('Resolving fallback stream for ${_describe(track)}');
     final requestContext = await _buildRequestContext(
       track,
       failedUrl: failedUrl,
@@ -201,7 +213,13 @@ class DefaultStreamResolutionService
       source: source,
       request: requestContext.request,
     );
-    if (streamResult == null) return null;
+    if (streamResult == null) {
+      logWarning('No fallback stream for ${_describe(track)} after '
+          '${stopwatch.elapsedMilliseconds}ms');
+      return null;
+    }
+    logDebug('Resolved fallback stream for ${_describe(track)} in '
+        '${stopwatch.elapsedMilliseconds}ms');
 
     final updatedTrack = await _applyStreamResult(
       track,
@@ -238,6 +256,13 @@ class DefaultStreamResolutionService
       _prefetchingTrackIds.remove(track.id);
     }
   }
+
+  /// 解析路徑所有 log 的統一識別碼。
+  ///
+  /// 不用 title：同名曲目在三個源之間分不開，而排查解析問題時要的正是
+  /// 「哪一個源的哪一支 id」。與既有的 prefetch 錯誤訊息格式一致。
+  String _describe(Track track) =>
+      '${track.sourceType.name}:${track.sourceId}';
 
   Future<_StreamRequestContext> _buildRequestContext(
     Track track, {

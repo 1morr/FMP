@@ -1,3 +1,4 @@
+import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_http_policy.dart';
@@ -32,7 +33,7 @@ class PlaybackSelection {
   final AudioStreamResult? streamResult;
 }
 
-class AudioStreamManager implements PlaybackRequestStreamAccess {
+class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   AudioStreamManager({
     required StreamResolutionService streamResolutionService,
     required PlaybackMediaRequestContext sourceAuthContext,
@@ -73,6 +74,7 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
     Track track, {
     bool persist = true,
   }) async {
+    final stopwatch = Stopwatch()..start();
     final (trackWithUrl, localPath, streamResult) =
         await ensureAudioStream(track, persist: persist);
     final url = localPath ?? trackWithUrl.audioUrl;
@@ -83,6 +85,9 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
     final media = localPath == null
         ? await prepareNetworkPlayback(trackWithUrl, url)
         : LocalPlaybackMedia(path: localPath, track: trackWithUrl);
+    logDebug('Playback selection ready for ${_describe(track)} in '
+        '${stopwatch.elapsedMilliseconds}ms '
+        '(${localPath == null ? 'remote' : 'local'})');
     return PlaybackSelection(
       media: media,
       streamResult: streamResult,
@@ -111,10 +116,14 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
       purpose: StreamResolutionPurpose.playback,
       failedUrl: failedUrl ?? '',
     );
-    if (fallback == null) return null;
+    if (fallback == null) {
+      logWarning('No fallback playback selection for ${_describe(track)}');
+      return null;
+    }
 
     final media =
         await prepareNetworkPlayback(fallback.track, fallback.stream.url);
+    logInfo('Falling back to an alternative stream for ${_describe(track)}');
     return PlaybackSelection(
       media: media,
       streamResult: fallback.stream,
@@ -153,6 +162,11 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
   Future<void> prefetchTrack(Track track) async {
     return _streamResolutionService.prefetchTrack(track);
   }
+
+  /// 與 [DefaultStreamResolutionService] 共用同一種 log 識別碼，
+  /// 這樣同一次播放在兩個類別的 log 行之間可以直接串起來。
+  String _describe(Track track) =>
+      '${track.sourceType.name}:${track.sourceId}';
 
   static const String defaultPlaybackUserAgent =
       SourceHttpPolicy.mediaUserAgent;
