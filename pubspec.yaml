@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.9.1+1009001
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: '>=3.9.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -15,8 +15,8 @@ dependencies:
   flutter_riverpod: ^2.6.1
 
   # 本地存储
-  isar: ^3.1.0+1
-  isar_flutter_libs: ^3.1.0+1
+  isar_community: ^3.3.2
+  isar_community_flutter_libs: ^3.3.2
   path_provider: ^2.1.5
   path: ^1.9.0
 
@@ -72,7 +72,10 @@ dependencies:
   file_picker: ^8.3.7
   collection: ^1.19.1
   equatable: ^2.0.7
-  slang_flutter: ^3.31.0
+  slang_flutter: ^4.19.0
+  # slang 4 生成的 strings.g.dart 直接 import package:intl（DateFormat /
+  # NumberFormat）。版本交給 flutter_localizations 決定，不要自己釘。
+  intl: any
   flutter_localizations:
     sdk: flutter
   simple_icons: ^16.23.0
@@ -84,9 +87,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   build_runner: ^2.4.13
-  isar_generator: ^3.1.0+1
+  isar_community_generator: ^3.3.2
   flutter_lints: ^6.0.0
-  slang_build_runner: ^3.31.0
+  # i18n 走 `dart run slang` 的獨立 CLI（設定在 slang.yaml），不經 build_runner。
+  # slang_build_runner 因此是純負擔：它會把 dart_style/analyzer 的上界一起拖進解析。
+  slang: ^4.19.0
   flutter_launcher_icons: ^0.14.1
   inno_bundle: ^0.11.2
 

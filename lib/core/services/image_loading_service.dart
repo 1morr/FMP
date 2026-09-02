@@ -206,7 +206,7 @@ class ImageLoadingService {
       await precacheImage(
         candidate,
         context,
-        onError: (_, __) => failed = true,
+        onError: (_, _) => failed = true,
       );
       if (!failed) return candidate;
     }

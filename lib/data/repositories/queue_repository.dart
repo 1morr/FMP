@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../models/play_queue.dart';
 import '../../core/logger.dart';
 

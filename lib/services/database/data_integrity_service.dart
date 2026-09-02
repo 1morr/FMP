@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../data/models/account.dart';
 import '../../data/models/download_task.dart';

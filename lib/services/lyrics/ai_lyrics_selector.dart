@@ -104,8 +104,7 @@ class AiLyricsSelector with Logging {
       'title': title,
       if (uploader != null && uploader.trim().isNotEmpty)
         'uploader': uploader.trim(),
-      if (normalizedVideoDescription != null)
-        'videoDescription': normalizedVideoDescription,
+      'videoDescription': ?normalizedVideoDescription,
       'durationSeconds': durationSeconds,
       'sourcePriority': sourcePriority,
       'allowPlainLyricsAutoMatch': allowPlainLyricsAutoMatch,

@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../models/download_task.dart';
 import '../models/track.dart';
 import '../../core/logger.dart';

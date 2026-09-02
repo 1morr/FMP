@@ -4,7 +4,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   test('audio settings expose auth-for-play defaults', () async {

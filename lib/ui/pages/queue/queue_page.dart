@@ -626,7 +626,7 @@ class _DraggableQueueItem extends StatelessWidget {
                   data: index,
                   delay: AnimationDurations.fast, // 缩短长按延迟
                   onDragStarted: onDragStart,
-                  onDraggableCanceled: (_, __) => onDragCancel(),
+                  onDraggableCanceled: (_, _) => onDragCancel(),
                   feedback: SizedBox(
                     width: constraints.maxWidth,
                     child: buildTileContent(isFeedback: true),

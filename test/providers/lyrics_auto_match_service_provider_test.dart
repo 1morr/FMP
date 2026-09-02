@@ -17,7 +17,7 @@ import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
 import 'package:fmp/services/lyrics/title_parser.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

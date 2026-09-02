@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../data/models/models.dart';
 import '../../i18n/strings.g.dart';

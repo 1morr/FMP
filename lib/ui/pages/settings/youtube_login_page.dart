@@ -334,7 +334,7 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
               userAgent: _userAgent,
             ),
             onLoadStop: _onPageLoaded,
-            onLoadStart: (_, __) {
+            onLoadStart: (_, _) {
               if (mounted) setState(() => _isLoading = true);
             },
           ),

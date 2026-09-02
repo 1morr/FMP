@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -26,7 +24,8 @@ import 'package:fmp/providers/download/download_providers.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/download/download_path_utils.dart';
 import 'package:fmp/services/download/download_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import '../../support/isar_test_harness.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -40,9 +39,7 @@ void main() {
     late SettingsRepository settingsRepository;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -1715,30 +1712,6 @@ Track _downloadTrack(String sourceId) {
     ..title = sourceId
     ..artist = 'Test Artist'
     ..createdAt = DateTime.now();
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(packageConfigDir.uri
-        .resolve(package['rootUri'] as String)
-        .toFilePath());
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }
 
 class _DelayedDownloadRepository extends DownloadRepository {

@@ -269,8 +269,7 @@ final rankingCacheServiceProvider =
   final manager = ref.watch(sourceManagerProvider);
   final rankingSources = <SourceType, RankingSource>{
     for (final sourceType in manager.registeredSourceTypes)
-      if (manager.rankingSource(sourceType) case final source?)
-        sourceType: source,
+      sourceType: ?manager.rankingSource(sourceType),
   };
   if (rankingSources.isEmpty) {
     throw StateError('No ranking source registered');

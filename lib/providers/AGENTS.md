@@ -78,7 +78,7 @@ When model schemas or persisted defaults change:
 
 1. Read `lib/data/AGENTS.md` § Migration And Default Repair.
 2. Update the model and migration/default repair together when needed.
-3. Run `dart run build_runner build --delete-conflicting-outputs`.
+3. Run `dart run build_runner build`.
 4. Run `flutter test test/providers/database_migration_test.dart`.
 5. If collection/schema visibility changes, update `database_catalog.dart` and
    run `flutter test test/ui/pages/settings/database_viewer_page_coverage_test.dart`.

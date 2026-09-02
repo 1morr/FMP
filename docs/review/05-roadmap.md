@@ -242,7 +242,10 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 ---
 
-### Phase 2 — 依賴天花板（★阻塞 Phase 3）
+### Phase 2 — 依賴天花板（★阻塞 Phase 3）—— **已執行（2026-09-02）**
+
+> 執行時的重核推翻了下表的兩條主張、補上五件沒寫到的事，**見 §6.3**。
+> 下表保留原樣以便對照。
 
 **目標**：把 analyzer 從 5.13.0 解到 10.x、解鎖 Riverpod 3、修 Android 16KB page size 對齊、
 脫離停擺 14 個月的上游 `isar/isar`。
@@ -256,11 +259,12 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 | 步 | 內容 | 為什麼是這個順序 |
 |---|---|---|
 | 2.0 | 抽 `test/support/isar_test_harness.dart`，消掉 40 個測試檔各自複製的 `_resolveIsarLibraryPath()` | 它是**任何** Isar 變動的固定稅，先做掉 |
-| 2.1 | `slang_flutter` / `slang_build_runner` **3.32 → 4.19**，獨立 commit 並穩定 | `isar_community_generator ≥3.3.1` 依賴 `build ^4`，`slang_build_runner <4.8.0` 依賴 `build ^2.2.1` —— 不先升 slang，`flutter pub get` 就會 version solving failed |
-| 2.2 | 修 slang 4 的 8 個呼叫點：`slang.yaml` 的 `output_file_name`、`main.dart` 與 `locale_provider.dart` 的 `setLocale`/`useDeviceLocale`（4.x 回傳 `Future`，同步版要 `-Sync` 後綴） | **與 Phase 0 的 P1-9 修法有交互作用**：0 期把 `useDeviceLocale()` 上移到 `AudioService.init()` 之前，這裡要改成 `useDeviceLocaleSync()`，否則會變成未 await 的 Future 而 `flutter analyze` 完全沉默 |
-| 2.3 | `isar` / `isar_flutter_libs` / `isar_generator` → `isar_community*`，85 個 import 機械替換 | 純 `sed`，約 90 行變動 |
-| 2.4 | `pubspec.yaml` SDK 下限 `>=3.5.0` → `>=3.9.0` | `isar_community` 3.3.2 的要求 |
-| 2.5 | `dart run build_runner build --delete-conflicting-outputs` + `dart run slang` | |
+| 2.1 | ~~`slang_flutter` / `slang_build_runner` **3.32 → 4.19**~~ → 實際做法：`slang_flutter` 升 4.19 並**移除** `slang_build_runner`、改直接依賴 `slang` CLI（§6.3 #1） | `isar_community_generator ≥3.3.1` 依賴 `build ^4`，`slang_build_runner <4.8.0` 依賴 `build ^2.2.1` —— 不先升 slang，`flutter pub get` 就會 version solving failed |
+| 2.2 | 修 slang 4 的呼叫點：~~`slang.yaml` 的 `output_file_name`~~（那個鍵沒變，要加的是 `lazy: false`，§6.3 #2–#3）、`main.dart` 與 `locale_provider.dart` 的 `setLocale`/`useDeviceLocale`（4.x 回傳 `Future`，同步版要 `-Sync` 後綴） | **與 Phase 0 的 P1-9 修法有交互作用**：0 期把 `useDeviceLocale()` 上移到 `AudioService.init()` 之前，這裡要改成 `useDeviceLocaleSync()`，否則會變成未 await 的 Future 而 `flutter analyze` 完全沉默 |
+| 2.3 | `isar` / `isar_flutter_libs` / `isar_generator` → `isar_community*`，85 個 import 機械替換 | ~~純 `sed`~~ —— 還要改 Windows 動態庫檔名（`isar.dll` → `libisar.dll`）與 `flutter_window.cpp` 的 plugin header 路徑（§6.3 #5） |
+| 2.4 | `pubspec.yaml` SDK 下限 `>=3.5.0` → `>=3.9.0` | `isar_community_generator` 3.3.2 的要求（Flutter >= 3.35.1） |
+| 2.4b | 把 `intl` 加回直接依賴 | slang 4 生成碼直接 import 它（§6.3 #4） |
+| 2.5 | `dart run build_runner build` + `dart run slang` | build_runner 2.15 已移除 `--delete-conflicting-outputs`（§6.3 #7） |
 
 **驗收**：
 - `flutter analyze` 全綠、完整測試套件全綠（**基準需要在 Phase 0 結束後重新量一次**，見 §8.3）。
@@ -340,6 +344,12 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 **同時做**：`AudioController` / `RadioController` 的 `StateNotifier` → `Notifier` 改寫
 （03 §9.2 明說這屬於拆分計畫，不屬於 Riverpod 升級 —— 這兩個類別就佔了改寫工作量的一半以上）。
+
+**這裡也是佇列語意該落地的地方**：`FmpAudioService` 現在的開媒體介面一次只吃一個媒體，
+沒有 `setQueue` / `supportsQueue`（02 §6.3 階段 4）。**兩個後端的佇列 API 現在就有**
+（just_audio 0.9.46 的 `ConcatenatingAudioSource`、media_kit 1.2.6 的 `Playlist`，
+查證見 §5.2 展開），所以這件事的阻礙一直是 FMP 自己的介面，不是套件版本。做掉之後
+gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3）也才知道該接在哪一層。
 
 **驗收**：
 - `audio_provider.dart` ≤ 800 行（目前 3,429）。
@@ -641,8 +651,8 @@ registry **外圍**的硬編碼。三個阻塞裡**最大的一個已經解掉**
 每 ABI +2.9–3.1MB、Namida 這個最接近的對照組音訊也走 just_audio），但把平台知識從 `Platform.isX`
 改成介面上的能力查詢。
 **建議**：**Phase 1 是整份路線圖裡投報比最高的一段** —— 成本 M，使用者立刻有感。
-**決策點**：D1 逾時數值（傾向 T1=8s / T2=10s / T3=20s）、D2 逾時後的行為、
-D3 位元組快取走哪條路（傾向先只做 URL 快取，位元組快取延後）、D4 要不要升 just_audio 0.10.x（gapless 的前提）。
+**決策點**：D1（逾時數值）與 D2（逾時後行為）**已於 Phase 1 定案並實機複驗**，見 §6.2。
+D3（位元組快取）與 D4（just_audio 升級）**已於 2026-09-02 重新查證並定案**，見 §5.2 對應列。
 
 ### 4.4 MIT 授權
 
@@ -790,8 +800,8 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 | 0 | 01-6 | `analysis_options.yaml` 要不要收緊（開 `unawaited_futures`、移除 `exclude: test/**`）？ | 要。這是 37 處空 catch 的唯一機制解，且扣掉單一 demo 檔的 95 條 `avoid_print` 只剩約 50 條要清 |
 | 1 | 02-D1 | 逾時預算 T1/T2/T3 | T1=8s（解析）/ T2=10s（開流）/ T3=20s（緩衝耗盡） |
 | 1 | 02-D2 | 逾時之後做什麼？ | 先換 fallback 串流試一次，仍失敗才停下並通知（介於 Auxio 的「直接跳」與 Finamp 的 `maxSkipsOnError:0` 之間） |
-| 1 | 02-D3 | 位元組快取走哪條路？ | **(c) 先只做 URL 快取**。收益已經很大（實測省 1.25–1.74s/次），位元組快取延後到 Phase 4 之後重新評估 |
-| 1 | 02-D4 | 升 just_audio 0.9.46 → 0.10.6？ | 先讀 0.10.0 CHANGELOG 評估破壞面。它是 gapless 的前提，但 0.10.x 有 open issue #1486（release build 無聲音）。**不要跟 Phase 2 混在一起** |
+| 1 | 02-D3 | 位元組快取走哪條路？ | **✅ 已定案（2026-09-02）：(c) 先只做 URL 快取，位元組快取延後到 Phase 4 之後。** 重新查證推翻了原本的成本假設，也找到了真正的阻礙 —— 見下方展開 |
+| 1 | 02-D4 | 升 just_audio 0.9.46 → 0.10.6？ | **⚠️ 前提敘述有誤，已更正（2026-09-02）：升級不是 gapless 的前提。** 兩個後端現在就有佇列 API —— 見下方展開。升級本身仍可做（0.10.x 有 open issue #1486，release build 無聲音），但它是「要不要」而非「必須先」，且**不要跟 Phase 2 混在一起** |
 | 1 | 02-D7 | crossfade 要不要明確放棄並寫進文檔？ | 放棄並寫進文檔。四個對照專案裡三個明說不做 |
 | 3 | 03-D2 | 導入 `Settings.schemaVersion`？ | 要。它把不可證偽的形狀猜測換成可測試的版本遷移 |
 | 3 | 03-D3 | `maxSizeMiB` 調到多少？`PlayHistory` 要不要加保留上限？ | 調到 2048（Immich 的答案）。保留上限**先不做** —— 它會主動刪使用者資料，需要一個設定項與明確預設值 |
@@ -813,6 +823,58 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 | 3/5 | 03-D9 | `youtube_stream_test_page` 的 Cookie 探測怎麼處置？ | (a) 加 `kDebugMode` gate，並把守門測試掃描範圍擴到 `lib/ui/` |
 | **9** | **新** | **「出廠空殼」要做到什麼程度？**（這是「降低法律風險」動機唯一有效的措施，且是產品決策） | **折衷**：三個內建源維持內建（它們不是插件），**插件系統出廠不帶任何 repo URL**。既保留開箱可用，又讓插件生態在架構論述上與主 repo 分離。完整版（連內建源都拿掉）代價是新使用者第一次打開是一個空的 app |
 | **9** | **新** | 插件執行環境選 `flutter_js`（能力完整、無正式沙箱）還是 `dart_eval`（有權限模型、不能用 pub 套件）？ | **`flutter_js`**。`dart_eval` 的限制直接卡死 DASH XML 解析與 HTTP；沙箱改由「宿主注入的能力面」收斂（插件拿不到 `dart:io`，只能用宿主給的 `http`）。**但要把 `flutter_js` 0.8.7 在 Android 上開箱即壞這筆維護債算進排期** |
+
+#### 5.2 展開：D3（位元組快取）與 D4（just_audio 升級）的重新查證
+
+2026-09-02 重查了實際安裝的套件原始碼（不是 pub.dev 頁面、也不是記憶），三條事實與原本的敘述不符：
+
+| 查證項 | 原本的敘述 | 實際 |
+|---|---|---|
+| `LockCachingAudioSource` | 隱含「要升級才有」 | **just_audio 0.9.46 就有**（`just_audio.dart:2908`）。API：`LockCachingAudioSource(Uri, {headers, cacheFile, tag})`，邊播邊寫磁碟、支援 range 請求，另有 `resolve()` / `clearCache()` / `downloadProgressStream`。官方文檔仍標 **Experimental** |
+| `setAudioSources(preload:)` 是 gapless 的前提 | D4 這樣寫 | **0.9.46 沒有這個方法，但有 `ConcatenatingAudioSource(children:, useLazyPreparation: true)`**（`just_audio.dart:2550`），那就是 0.9.x 的佇列 API |
+| Windows 側 | 未查 | media_kit 1.2.6 有 `Playlist`（`media_kit/lib/src/models/playlist.dart:32`） |
+
+**所以 gapless 與「切歌立刻有聲」的真正阻礙不是套件版本，而是 `FmpAudioService` 的介面**：
+它的開媒體方法一次只吃一個媒體，沒有 `setQueue` / `supportsQueue`。那是 Phase 4 的範圍
+（02 §6.3 階段 4 已經列了這兩個方法）。升 just_audio 因此降級成「要不要」，不是「必須先」。
+
+**D3 維持 (c) 的理由改變了**，原本是「成本高」，實際是兩個更硬的前提：
+
+1. **`LockCachingAudioSource` 只有 Android 有。** Windows 走 media_kit，沒有對等物。而 Phase 1
+   整段都在收斂「兩平台行為不一致」（型別化 `PlaybackEndReason`、統一逾時預算）——
+   加一個只有一半平台生效的快取是往反方向走。
+2. **自建 loopback 代理要接的介面正在被改。** 它掛在 `FmpAudioService` 這一層，正是 Phase 4 要拆的。
+   現在做等於做兩次。
+
+補充一個現實面：FMP 已經有明確的下載功能，想離線的使用者現在就能下載。自動位元組快取的
+邊際價值是「最近播過的自動留著」，比原本估的小。
+
+#### 5.2 展開：預取深度維持 1（2026-09-02 新增決策）
+
+Phase 1 修好預取之後（結果寫回佇列實例而不是被丟棄的 `copy()`），出現一個新問題：
+要不要往前多預取幾首，因為使用者可能連按下一首？**結論：維持 1。**
+
+四個對照專案（02 §5 逐檔案考據）**沒有一個做「往前預取 3–5 首」**，只有兩種模式：
+
+| | 做法 | 深度 |
+|---|---|---|
+| Auxio | 整條佇列丟給 ExoPlayer Timeline | 引擎決定 |
+| Finamp | `setAudioSources(preload: true)` | 引擎決定 |
+| Symphony | 手刻雙 `MediaPlayer`，提前 prepare 下一個 | 1 |
+| Spotube | 播放進度到 **80%** 才解析下一首 | 1（更晚） |
+| FMP | 播放成功後解析下一首（`_nextTrackForPrefetch`） | 1 |
+
+不加深的三個理由，都可驗證：
+
+1. **風控。** 每次預取是一次真實的來源 API 呼叫。Phase 1 實機驗證期間 Bilibili 就對該機器回了
+   HTTP 412 `request was banned`（深度 1 的情況下）。加深等於加倍風控風險。
+2. **URL 會過期。** Netease 實測 1200s、Bilibili 約 2 小時。預取第 5 首而使用者十分鐘後才走到，
+   那次呼叫是白打的。
+3. **shuffle 下「下下首」不穩定。** `QueueManager.getNextIndex()` 有定義，再往後會隨 shuffle order
+   重算而失效。
+
+而且加深解不了原本擔心的情境：使用者連按十次下一首，任何深度都追不上。**對「切歌立刻有聲」
+真正有效的是把佇列交給引擎**（見上一節），那是 Phase 4 的工作。
 
 ---
 
@@ -1093,3 +1155,48 @@ fallback 只能用剩下的時間。
 
 P0-1 的兩半都成立：同一首歌重播從 21,167ms 降到 25ms；下一首因為預取寫回了佇列實例，
 切歌時的解析從約 20 秒降到 32ms。
+
+---
+
+### 6.3 執行時的失效重核（2026-09-02，Phase 2 開工當天）
+
+仍然成立的：85 個檔案 `import 'package:isar/isar.dart'`（全庫只有這一種寫法）、
+40 份複製的 `_resolveIsarLibraryPath()`（9 種拼法，行為完全一樣）、
+analyzer 被釘在 5.13.0、`riverpod_annotation` 已在 Phase 0d 移除。
+
+**兩條主張是錯的，五件事報告沒寫**：
+
+| # | 原本的說法 | 實況 |
+|---|---|---|
+| 1 | 「slang 先、isar 後，拆成兩個獨立 commit」 | **這個順序做不出兩個可運作的中間狀態。** 反向也擋：`slang_build_runner >=4.4.2` 依賴 `dart_style >=2.3.7`，那需要 `analyzer ^6.5.0`，而 `isar_generator 3.1.0+1` 透過 `dart_style ^2.2.3` 把 analyzer 壓在 `<6.0.0`。真正的解法是**把 `slang_build_runner` 移除**：這個 repo 沒有 `build.yaml`，i18n 走 `slang.yaml` + `dart run slang` 的獨立 CLI，那個 build_runner shim 從來沒做過事。改成直接依賴 `slang`（它不依賴 analyzer / build / dart_style）之後，兩步就真的拆得開 |
+| 2 | 「要改 `slang.yaml` 的 `output_file_name`」 | **`output_file_name` 在 slang 4 仍然有效且必填**（README 設定表）。4.0 移除的是 `output_format`，而 FMP 沒設過它。真正要加的是 `lazy: false` |
+| 3 | （沒寫）`-Sync` 後綴 | 官方 MIGRATION.md 明說：4.0 預設非同步載入，**要讓 `setLocaleSync` / `useDeviceLocaleSync` 正常運作必須同時設 `lazy: false`**。只改後綴不改設定會拿到還沒載入的語言。FMP 只出 Android 與 Windows，兩者都不支援 deferred loading，`lazy` 換不到任何東西 |
+| 4 | （沒寫）`intl` | slang 4 的生成碼直接 `import 'package:intl/intl.dart'`（`DateFormat` / `NumberFormat`）。Phase 0 把 `intl` 當死依賴刪掉了，這裡要加回來（`intl: any`，版本交給 `flutter_localizations`） |
+| 5 | 「2.3 是純 `sed`，約 90 行變動」 | **低估。** 換 package 還牽動兩處原生設定：Windows 動態庫從 `isar.dll` 改名成 `libisar.dll`（`Abi.localName` 的回傳值也跟著改），plugin header 目錄變成 `<isar_community_flutter_libs/...>`，`windows/runner/flutter_window.cpp:8` 要跟著改。plugin class 與 registrar 名稱（`IsarFlutterLibsPlugin`）沒變 |
+| 6 | 「11 collection 生成碼逐字相同」 | **逐字比對是 11 個檔全不同**，因為 analyzer 解禁把 dart_style 一起帶到 3.1.7，尾逗號排版整批改寫。但把空白、尾逗號、`version:` 字串正規化之後**完全一致** —— schema id hash、property id、index / link 定義一個都沒動。`CollectionSchema.version` 是 build-time 的 `assert(Isar.version == version)`，不是磁碟格式檢查 |
+| 7 | （沒寫）解禁之後才看得見的東西 | analyzer 5.13 → 10.2 多出 **18 條新 lint**（13 條 `unnecessary_underscores`、5 條 `use_null_aware_elements`），而 CI 跑的是裸 `flutter analyze`（exit 1）；build_runner 2.15 **移除了 `--delete-conflicting-outputs`**，10 個檔案與兩支 workflow 都還寫著它 |
+
+**驗收記錄**：
+
+| 項目 | 結果 |
+|---|---|
+| analyzer 天花板 | `5.13.0 → 10.2.0`；`build 2.4.1 → 4.0.7`、`source_gen 1.5.0 → 4.2.4`、`build_runner 2.4.13 → 2.15.1` |
+| `flutter analyze` | 全綠（修掉 18 條新 lint 之後） |
+| 測試 | 1254 條全過，與 Phase 2 開工前的基準相同 |
+| 生成碼 | 11 個 collection 正規化後逐字一致（見上表 #6） |
+| 16 KB 對齊 | `libisar.so` 四個 ABI 的 LOAD align `0x1000 → 0x4000`（先在 pub cache 裡驗，再從建好的 APK 裡驗 3 個實際打包的 ABI）。APK 內其餘原生庫本來就是 `0x10000`，也合規 |
+| 真實資料庫 | `Documents/FMP/fmp_database.isar`（5.2 MB）複製一份，用 isar_community 3.3.2 原地開啟：11 個 collection 共 **1,534 列**全部讀得出來、Track 反序列化正常、寫入 + 刪除來回一次成功 |
+| Android 實機 | AVD 是 `sdk gphone16k`（`ro.boot.hardware.cpu.pagesize = 16384`）—— 正是會觸發對齊對話框的映像。app 正常啟動、Isar 開啟、YouTube 曲目播放成功並寫入播放歷史，logcat 沒有任何對齊抱怨 |
+| slang 4 語系切換 | 設定頁選「繁體中文」後整棵 UI 立即切換（`setLocaleSync`）；`pm clear` + `cmd locale set-app-locales zh-TW` 之後重啟，通知頻道名稱是 **`FMP 音訊播放`**（zh-TW），裝置語系為英文時是 `FMP Audio Playback` —— 兩個方向都對，證明 `useDeviceLocaleSync()` 在 `AudioService.init()` 之前同步生效，P1-9 的修法沒被弄壞（若失效會落到 base locale 的 `FMP 音频播放`） |
+| Riverpod 3 解鎖 | `flutter pub add --dry-run flutter_riverpod:^3.0.0` 解得開（會動 13 個依賴），不再 version solving failed。**實際升級仍留在 Phase 3**（03-D4 方案 A） |
+| Windows | `flutter build windows` 成功（原生 include 改動有編譯與連結驗證）；跑起來開啟真實資料庫，關閉後 11 個 collection 列數與備份完全一致 |
+
+**兩件據實記錄的事**：
+
+1. **Windows 子視窗的執行期路徑沒有實際驅動過。** `flutter_window.cpp` 改的是給歌詞子視窗用的
+   plugin 註冊，只有編譯 + 連結驗證（header 路徑錯會編不過，符號錯會連不起來），
+   registrar 名稱沒變。要驅動它得先在 Windows 上成功播放一首歌，而這台機器目前
+   被 Bilibili 限流（HTTP 412）、YouTube 擋 bot 檢查。Windows 端也沒有語意樹可用。
+2. **開啟後資料庫檔案從 5,242,880 縮到 2,686,976 bytes。** 列數逐項不變（1,534），
+   所以是回收空閒空間不是掉資料。縮的比例（約 1.95）與 FMP 自己既有的
+   `compactOnLaunch(minRatio: 2.0)` 吻合，那段設定這一期沒動過。

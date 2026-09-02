@@ -8,7 +8,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/ui/pages/settings/lyrics_source_settings_page.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

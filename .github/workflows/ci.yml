@@ -63,7 +63,7 @@ jobs:
         run: dart format --output=none --set-exit-if-changed lib test
 
       - name: Generate code (Isar models)
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build
 
       - name: Generate i18n (slang)
         run: dart run slang
@@ -114,7 +114,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate code (Isar models)
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build
 
       - name: Generate i18n (slang)
         run: dart run slang
@@ -147,7 +147,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate code (Isar models)
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build
 
       - name: Generate i18n (slang)
         run: dart run slang

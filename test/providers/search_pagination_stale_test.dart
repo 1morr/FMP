@@ -9,7 +9,7 @@ import 'package:fmp/services/search/search_service.dart';
 import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   group('SearchNotifier stale pagination guards', () {
