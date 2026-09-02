@@ -118,6 +118,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   if (_searchController.text.isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.close),
+                      tooltip: t.general.clear,
                       onPressed: () {
                         _searchController.clear();
                         ref.read(searchProvider.notifier).clear();
@@ -398,6 +399,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 title: Text(item.query),
                 trailing: IconButton(
                   icon: const Icon(Icons.close, size: 20),
+                  tooltip: t.general.delete,
                   onPressed: () {
                     ref
                         .read(searchHistoryManagerProvider.notifier)
@@ -1046,6 +1048,7 @@ class _SearchResultTile extends ConsumerWidget {
                     icon: Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
                     ),
+                    tooltip: isExpanded ? t.general.collapse : t.general.expand,
                     onPressed: onToggleExpand,
                   ),
                 if (isSelectionMode)
@@ -1276,6 +1279,7 @@ class _LocalGroupTile extends ConsumerWidget {
                     icon: Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
                     ),
+                    tooltip: isExpanded ? t.general.collapse : t.general.expand,
                     onPressed: onToggleExpand,
                   ),
                 // 菜单
@@ -1495,6 +1499,7 @@ class _SelectionCheckbox extends StatelessWidget {
         isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
         color: isSelected ? colorScheme.primary : colorScheme.outline,
       ),
+      tooltip: isSelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }
@@ -1531,6 +1536,7 @@ class _SelectionGroupCheckbox extends StatelessWidget {
 
     return IconButton(
       icon: Icon(icon, color: color),
+      tooltip: isFullySelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }

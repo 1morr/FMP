@@ -96,6 +96,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: t.general.close,
                     onPressed: () {
                       Navigator.pop(context);
                     },
@@ -707,6 +708,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                   isExpanded ? Icons.expand_less : Icons.expand_more,
                   size: 20,
                 ),
+                tooltip: isExpanded ? t.general.collapse : t.general.expand,
                 onPressed: onToggleExpand,
                 visualDensity: VisualDensity.compact,
               ),
@@ -911,6 +913,7 @@ class _ImportMatchTile extends StatelessWidget {
                     isExpanded ? Icons.expand_less : Icons.expand_more,
                     size: 20,
                   ),
+                  tooltip: isExpanded ? t.general.collapse : t.general.expand,
                   onPressed: onToggleExpand,
                   visualDensity: VisualDensity.compact,
                 ),

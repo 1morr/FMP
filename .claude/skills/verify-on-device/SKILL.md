@@ -159,6 +159,43 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
   images (`libisar.so` LOAD segment not aligned). Dismiss it via `ax` before
   asserting on the first screen.
 
+### Measured during the round-02 playback audit
+
+Each of these cost real time to discover. They change what a timing or audio
+observation on the emulator is worth.
+
+- **Emulator audio runs ~1.68x faster than wall clock.** A track that should
+  take 60s of playback reaches its end in ~36s. Never quote an emulator figure
+  as a playback duration, and never assert gapless timing there — measure
+  playback timing on Windows or a physical device.
+- **The AVD resolver does not cache.** Every DNS lookup costs ~1s, on every
+  request, so a "slow first play" on the emulator is usually resolver overhead
+  rather than an FMP regression. Subtract it before reporting a stream-resolution
+  measurement.
+- **`adb emu network speed` does not affect Wi-Fi.** The emulator's Wi-Fi
+  interface ignores the throttle, so it cannot be used to reproduce slow-network
+  playback. Shape traffic on the host, or point the app at a deliberately slow
+  local server instead.
+- **Prefer the VM Service over screenshots for reading state.** Evaluating an
+  expression against the running isolate
+  (`docs/debugging-with-vm-service.md`) answers "what is the controller's state"
+  directly, in one call, and returns text. A screenshot answers it indirectly,
+  costs context, and cannot see anything off-screen. Reach for pixels only when
+  the question is genuinely about layout.
+- **The Windows `flutter run` terminal is unreadable.** `Failed to update
+  ui::AXTree` spam (`flutter/flutter#182444`) scrolls Dart logs away within
+  seconds. On Windows, read state through the VM Service and confirm visuals by
+  screenshot — and raise the window to the foreground first, or the capture is
+  of whatever is on top.
+- **Read SMTC through WinRT, not the flyout.** Querying
+  `GlobalSystemMediaTransportControlsSessionManager` returns the actual session
+  properties as text; screenshotting the media flyout is unreliable because the
+  popup dismisses on focus change. `scripts/smtc_probe.ps1` is not in the repo
+  yet — see Phase 0 of `docs/review/05-roadmap.md`.
+- **CMake scratch projects must not sit deep in the path.** Building a probe
+  under the session scratchpad exceeds the Windows path limit and fails with
+  confusing compiler errors. Use a short root such as `C:/t/`.
+
 ## 8. Tear down
 
 Leaving an emulator plus two `flutter run` sessions alive is expensive. Unless

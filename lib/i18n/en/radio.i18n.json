@@ -20,6 +20,7 @@
   "reloadLive": "Reload Live",
   "info": "Info",
   "unknownStation": "Unknown station",
+  "unknownHost": "Unknown host",
   "live": "Live",
   "reconnecting": "Reconnecting...",
   "buffering": "Buffering...",

@@ -120,9 +120,13 @@ hosts. Do not detect platforms with substring checks against the raw input URL.
 ## Source Capabilities And Registry
 
 Source adapters implement narrow capabilities from `source_capabilities.dart`
-instead of a broad shared base interface: `AudioStreamSource` (stream
-resolution), `TrackInfoSource` (direct track metadata), `SearchSource`,
-`PlaylistParsingSource` (playlist import), and `AvailabilitySource`.
+instead of a broad shared base interface. Ten of them extend `SourceCapability`:
+`TrackInfoSource` (direct track metadata), `AudioStreamSource` (stream
+resolution), `TrackDetailSource`, `PagedVideoSource`, `DynamicPlaylistSource`,
+`RankingSource`, `LiveSource`, `SearchSource`, `PlaylistParsingSource`, and
+`AvailabilitySource`. `DisposableSource` is separate — it is a lifecycle
+interface, not a capability. Adding a capability means adding a getter to
+`SourceManager`; keep this list in step with `source_capabilities.dart`.
 
 `SourceManager` (`source_provider.dart`) is the registry. Runtime callers must
 request the narrow capability they need from it, and must not expose or consume

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar/isar.dart';
 
@@ -287,6 +288,21 @@ class BilibiliAccountService extends AccountService with Logging {
 
     // 更新 Account 記錄
     await _updateAccount(isLoggedIn: false);
+
+    // 清除 WebView cookies，避免重新登入時自動使用舊帳號。
+    // 域名與 bilibili_login_page.dart 載入的三個一致。
+    try {
+      final cookieManager = CookieManager.instance();
+      for (final url in const [
+        'https://bilibili.com',
+        'https://www.bilibili.com',
+        'https://passport.bilibili.com',
+      ]) {
+        await cookieManager.deleteCookies(url: WebUri(url));
+      }
+    } catch (e) {
+      logWarning('Failed to clear WebView cookies: $e');
+    }
 
     logInfo('Bilibili logged out');
   }

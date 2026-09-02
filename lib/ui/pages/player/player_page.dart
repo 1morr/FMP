@@ -485,7 +485,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          track?.artist ?? t.player.selectTrackToPlay,
+          track == null
+              ? t.player.selectTrackToPlay
+              : (track.artist ?? t.general.unknownArtist),
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -525,6 +527,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ),
           child: Slider(
             value: displayProgress,
+            // 不设时读屏软件会念"50%"。进度条上有意义的是时间位置，
+            // 而 Slider 的值是 0..1 的比例，没人能从"50%"知道跳到哪里。
+            semanticFormatterCallback: (value) => DurationFormatter.formatMs(
+              ((duration ?? Duration.zero).inMilliseconds * value).round(),
+            ),
             onChangeStart: (value) {
               setState(() {
                 _isDragging = true;
@@ -582,8 +589,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // 顺序/乱序按钮（Mix 模式下禁用）
+        // 关闭态曾经换成 Icons.arrow_forward，紧挨着 skip_previous /
+        // skip_next 时读起来像"下一首"。状态改由颜色 + tooltip 表达，
+        // 和 Spotify / YouTube Music / Apple Music 的做法一致。
         IconButton(
-          icon: Icon(isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward),
+          icon: const Icon(Icons.shuffle),
           color: isShuffleEnabled ? colorScheme.primary : null,
           onPressed: isMixMode ? null : () => controller.toggleShuffle(),
           tooltip: isMixMode
@@ -606,6 +616,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           enabled: hasCurrentTrack,
           onPressed: () => controller.togglePlayPause(),
           colorScheme: colorScheme,
+          tooltip: isPlaying ? t.general.pause : t.general.play,
         ),
 
         // 下一首

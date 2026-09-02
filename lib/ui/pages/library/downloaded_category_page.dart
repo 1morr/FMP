@@ -206,6 +206,7 @@ class _DownloadedCategoryPageState
       ),
       leadingBuilder: (context, iconColor) => IconButton(
         icon: Icon(Icons.arrow_back, color: iconColor),
+        tooltip: t.general.back,
         onPressed: () => Navigator.of(context).pop(),
       ),
       actionsBuilder: (context, iconColor) => [
@@ -459,6 +460,7 @@ class _GroupHeader extends ConsumerWidget {
               icon: Icon(
                 isExpanded ? Icons.expand_less : Icons.expand_more,
               ),
+              tooltip: isExpanded ? t.general.collapse : t.general.expand,
               onPressed: onToggle,
             ),
             // 菜单

@@ -3,10 +3,16 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/download/download_scanner.dart';
 import 'dart:io';
 
-/// Performance benchmark tests for startup and initialization operations.
+/// Performance benchmarks for startup and initialization operations.
+///
+/// Deliberately NOT named `*_test.dart`: every assertion here is an absolute
+/// wall-clock millisecond budget, which is a property of the machine rather
+/// than of the code. On a 4 vCPU GitHub Actions runner these fail without any
+/// regression having occurred, so they must stay out of the default
+/// `flutter test` sweep and be run by hand on a known-idle machine.
 ///
 /// These tests measure execution time of critical operations.
-/// Run with: flutter test test/performance/startup_benchmark_test.dart
+/// Run with: flutter test test/performance/startup_benchmark.dart
 void main() {
   group('Startup Performance Benchmarks', () {
     test('Track model creation performance', () async {

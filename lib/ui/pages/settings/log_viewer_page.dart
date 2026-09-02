@@ -165,6 +165,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
+                        tooltip: t.general.clear,
                         onPressed: () => setState(() => _searchQuery = ''),
                       )
                     : null,

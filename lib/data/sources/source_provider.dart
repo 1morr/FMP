@@ -205,17 +205,3 @@ final sourceManagerProvider = Provider<SourceManager>((ref) {
   ref.onDispose(manager.dispose);
   return manager;
 });
-
-/// URL 解析 Provider
-final parseUrlProvider =
-    FutureProvider.family<Track?, String>((ref, url) async {
-  final manager = ref.watch(sourceManagerProvider);
-  return manager.parseUrl(url);
-});
-
-/// 播放列表解析 Provider
-final parsePlaylistProvider =
-    FutureProvider.family<PlaylistParseResult?, String>((ref, url) async {
-  final manager = ref.watch(sourceManagerProvider);
-  return manager.parsePlaylist(url);
-});

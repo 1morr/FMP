@@ -4,8 +4,19 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    # Actions are pinned by commit SHA, so every bump is a separate PR by
+    # default. One grouped PR per week keeps the digest churn reviewable.
+    groups:
+      github-actions:
+        patterns: ['*']
 
   - package-ecosystem: 'pub'
     directory: '/'
     schedule:
       interval: 'weekly'
+    # Major bumps stay ungrouped: they need their own PR because each one can
+    # carry breaking changes that have to be reviewed and verified separately.
+    groups:
+      pub-minor-and-patch:
+        patterns: ['*']
+        update-types: ['minor', 'patch']

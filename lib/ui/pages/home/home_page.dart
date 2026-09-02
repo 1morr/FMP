@@ -1101,6 +1101,8 @@ class _NowPlayingSection extends ConsumerWidget {
                       icon: Icon(
                         isMusicPlaying ? Icons.pause : Icons.play_arrow,
                       ),
+                      tooltip:
+                          isMusicPlaying ? t.general.pause : t.general.play,
                       onPressed: () {
                         if (hasRadioContext) {
                           ref

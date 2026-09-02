@@ -146,7 +146,8 @@ the one intentional exception.
 **State** — Riverpod is the app state layer. Key providers:
 
 - `audioControllerProvider` — main audio state (`PlayerState`)
-- `playlistProvider` / `playlistDetailProvider` — playlist management
+- `playlistListProvider` / `playlistDetailProvider` — playlist management
+  (`lib/providers/library/playlist_provider.dart`)
 - `libraryInvalidationCoordinatorProvider` — playlist/detail/cover/download
   invalidation coordinator
 - `searchProvider` — search state; chips select All/Bilibili/YouTube/Netease
@@ -175,6 +176,15 @@ lib/services/lyrics/       Lyrics search, cache, AI matching, desktop popup
 lib/services/account/      Bilibili/YouTube/Netease login, SourceAuthContext
 lib/services/radio/        Radio/live playback ownership and Bilibili live streams
 lib/services/backup/       Portable JSON backup export/import
+lib/services/cache/        Ranking and search result caches
+lib/services/database/     Isar open/close lifecycle helpers
+lib/services/import/       Playlist import pipeline
+lib/services/library/      Playlist CRUD and remote playlist sync
+lib/services/network/      Shared Dio setup and connectivity
+lib/services/platform/     Storage permissions, autostart, platform shims
+lib/services/refresh/      Stale-data refresh coordination
+lib/services/search/       Search orchestration across sources
+lib/services/update/       In-app update check and installer handoff
 lib/data/models/           Isar collections and DTOs
 lib/data/repositories/     Isar data access
 lib/data/sources/          Bilibili/YouTube/Netease adapters, SourceHttpPolicy

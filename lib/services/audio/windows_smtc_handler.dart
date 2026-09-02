@@ -295,30 +295,6 @@ class WindowsSmtcHandler with Logging {
     }
   }
 
-  /// 启用 SMTC
-  void enable() {
-    if (_smtc == null) return;
-
-    try {
-      _smtc!.enableSmtc();
-      logDebug('SMTC enabled');
-    } catch (e) {
-      logError('Failed to enable SMTC: $e');
-    }
-  }
-
-  /// 禁用 SMTC
-  void disable() {
-    if (_smtc == null) return;
-
-    try {
-      _smtc!.disableSmtc();
-      logDebug('SMTC disabled');
-    } catch (e) {
-      logError('Failed to disable SMTC: $e');
-    }
-  }
-
   /// 清理资源
   void dispose() {
     _buttonSubscription?.cancel();
