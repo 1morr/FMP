@@ -6,14 +6,14 @@ import 'package:fmp/data/models/download_task.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/services/database/data_integrity_service.dart';
+import 'package:fmp/data/repositories/data_integrity_repository.dart';
 import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('DataIntegrityService', () {
+  group('DataIntegrityRepository', () {
     setUpAll(() async {
       await initializeIsarForTests();
     });
@@ -237,10 +237,10 @@ void main() {
 }
 
 class _Harness {
-  _Harness(this.isar) : service = DataIntegrityService(isar);
+  _Harness(this.isar) : service = DataIntegrityRepository(isar);
 
   final Isar isar;
-  final DataIntegrityService service;
+  final DataIntegrityRepository service;
   final trackIdsByTitle = <String, int>{};
 
   Future<void> seedDuplicates() async {

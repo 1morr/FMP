@@ -1,10 +1,10 @@
 import 'package:isar_community/isar.dart';
 
-import '../../data/models/account.dart';
-import '../../data/models/download_task.dart';
-import '../../data/models/play_queue.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/playlist_mutation_repository.dart';
+import '../models/account.dart';
+import '../models/download_task.dart';
+import '../models/play_queue.dart';
+import '../models/track.dart';
+import 'playlist_mutation_repository.dart';
 
 class DataIntegrityReport {
   const DataIntegrityReport({
@@ -40,8 +40,8 @@ class DataIntegrityRepairResult {
   final List<int> removedPlayQueueIds;
 }
 
-class DataIntegrityService {
-  DataIntegrityService(
+class DataIntegrityRepository {
+  DataIntegrityRepository(
     Isar isar, {
     PlaylistMutationRepository? mutationService,
   })  : _isar = isar,
