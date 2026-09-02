@@ -19,9 +19,9 @@ class LocaleNotifier extends StateNotifier<AppLocale?> {
     // 先更新 slang 的全局 t，再更新 Riverpod state
     // 确保 Riverpod 触发 rebuild 时 t.xxx 已指向新 locale
     if (locale != null) {
-      LocaleSettings.instance.setLocale(locale);
+      LocaleSettings.instance.setLocaleSync(locale);
     } else {
-      LocaleSettings.instance.useDeviceLocale();
+      LocaleSettings.instance.useDeviceLocaleSync();
     }
     state = locale;
   }
@@ -33,9 +33,9 @@ class LocaleNotifier extends StateNotifier<AppLocale?> {
     // 先更新 slang 的全局 t，再更新 Riverpod state
     // 确保 Riverpod 触发 rebuild 时 t.xxx 已指向新 locale
     if (locale != null) {
-      LocaleSettings.instance.setLocale(locale);
+      LocaleSettings.instance.setLocaleSync(locale);
     } else {
-      LocaleSettings.instance.useDeviceLocale();
+      LocaleSettings.instance.useDeviceLocaleSync();
     }
     state = locale;
   }
