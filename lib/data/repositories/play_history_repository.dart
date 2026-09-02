@@ -3,6 +3,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../models/play_history.dart';
 import '../models/track.dart';
+import '../models/track_key.dart';
 
 /// 播放历史仓库
 class PlayHistoryRepository {
@@ -22,9 +23,7 @@ class PlayHistoryRepository {
   /// 获取歌曲播放次数
   Future<int> getPlayCount(String sourceId, SourceType sourceType,
       {int? cid}) async {
-    final trackKey = cid != null
-        ? '${sourceType.name}:$sourceId:$cid'
-        : '${sourceType.name}:$sourceId';
+    final trackKey = TrackKey.format(sourceType.name, sourceId, cid: cid);
 
     final all = await _isar.playHistorys.where().findAll();
     return all.where((h) => h.trackKey == trackKey).length;

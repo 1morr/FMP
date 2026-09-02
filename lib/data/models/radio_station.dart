@@ -1,4 +1,5 @@
 import 'package:isar_community/isar.dart';
+import 'track_key.dart';
 
 import 'track.dart'; // for SourceType enum
 
@@ -55,7 +56,7 @@ class RadioStation {
   String? note;
 
   /// 獲取唯一鍵（用於去重）
-  String get uniqueKey => '${sourceType.name}:$sourceId';
+  String get uniqueKey => TrackKey.formatGroup(sourceType.name, sourceId);
 
   @override
   String toString() =>

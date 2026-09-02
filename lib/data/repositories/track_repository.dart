@@ -6,6 +6,7 @@ import '../models/playlist.dart';
 import '../models/play_queue.dart';
 import '../models/lyrics_match.dart';
 import '../../core/logger.dart';
+import '../models/track_key.dart';
 
 class TrackSourceIdentity {
   final SourceType sourceType;
@@ -24,9 +25,8 @@ class TrackSourceIdentity {
         cid: track.cid,
       );
 
-  String get sourcePageKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  String get sourcePageKey =>
+      TrackKey.format(sourceType.name, sourceId, cid: cid);
 
   @override
   bool operator ==(Object other) =>

@@ -1,4 +1,5 @@
 import 'package:isar_community/isar.dart';
+import 'track_key.dart';
 
 import 'track.dart';
 
@@ -39,9 +40,7 @@ class PlayHistory {
   DateTime playedAt = DateTime.now();
 
   /// 歌曲唯一标识（用于统计播放次数）
-  String get trackKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  String get trackKey => TrackKey.format(sourceType.name, sourceId, cid: cid);
 
   /// 从 Track 创建播放历史记录
   static PlayHistory fromTrack(Track track) {

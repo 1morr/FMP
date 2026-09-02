@@ -4,6 +4,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
+import '../../data/models/track_key.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../providers/download/download_scanner.dart';
 import 'download_path_manager.dart';
@@ -261,7 +262,7 @@ class DownloadPathSyncService with Logging {
   }
 
   String _sourceKey(SourceType sourceType, String sourceId) =>
-      '${sourceType.name}:$sourceId';
+      TrackKey.formatGroup(sourceType.name, sourceId);
 
   /// 扫描单个文件夹
   Future<_ScanResult> _scanAndMatchFolder(Directory folder) async {

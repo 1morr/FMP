@@ -2,6 +2,7 @@ import 'dart:io';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/settings.dart';
+import '../../data/models/track_key.dart';
 
 /// 备份数据模型
 /// 导出数据的根结构
@@ -302,8 +303,7 @@ class TrackBackup {
   });
 
   /// 生成唯一键（用于匹配）
-  String get uniqueKey =>
-      cid != null ? '$sourceType:$sourceId:$cid' : '$sourceType:$sourceId';
+  String get uniqueKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   factory TrackBackup.fromJson(Map<String, dynamic> json) {
     return TrackBackup(
@@ -383,8 +383,7 @@ class PlayHistoryBackup {
   });
 
   /// 生成唯一键（用于去重）
-  String get trackKey =>
-      cid != null ? '$sourceType:$sourceId:$cid' : '$sourceType:$sourceId';
+  String get trackKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   factory PlayHistoryBackup.fromJson(Map<String, dynamic> json) {
     return PlayHistoryBackup(

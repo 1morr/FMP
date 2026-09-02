@@ -112,6 +112,25 @@ database through an ad-hoc path.
 
 ## Stable Keys
 
+`lib/data/models/track_key.dart` is the **only** implementation of the track
+identity key. Never inline `'${sourceType.name}:$sourceId'` again — call
+`TrackKey.format` (with `cid`) or `TrackKey.formatGroup` (without).
+
+That string is part of the persisted format, not an internal detail:
+
+- `Track.sourcePageKey` is an Isar composite-index getter, and Isar only
+  recomputes index entries on `put`. Changing the literal output silently
+  desynchronises existing rows from new queries.
+- `TrackBackup.uniqueKey` and `PlayHistoryBackup.trackKey` are the foreign key
+  the backup format uses to reattach play history to tracks.
+
+`test/data/models/track_key_test.dart` pins the literal output and asserts all
+nine producers agree. Keep it that way.
+
+The key discriminates parts by **`cid`, not `pageNum`**. Callers that need
+pageNum (the in-process stream-resolution cache) append it themselves — see
+`stream_resolution_service.dart`.
+
 List/grid items should use stable identity keys. For persisted models,
 `ValueKey(item.id)` is usually enough. For tracks that may be unpersisted,
 grouped, or multi-page, prefer source/group/page identity such as `sourceId` +

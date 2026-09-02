@@ -1,4 +1,5 @@
 import 'package:isar_community/isar.dart';
+import 'track_key.dart';
 
 import '../../i18n/strings.g.dart';
 
@@ -277,13 +278,12 @@ class Track {
 
   /// 复合索引用于快速查找
   @Index(composite: [CompositeIndex('sourceType')])
-  String get sourceKey => '${sourceType.name}:$sourceId';
+  String get sourceKey => TrackKey.formatGroup(sourceType.name, sourceId);
 
   /// 分P唯一索引（用于查找特定分P）
   @Index(composite: [CompositeIndex('cid')])
-  String get sourcePageKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  String get sourcePageKey =>
+      TrackKey.format(sourceType.name, sourceId, cid: cid);
 
   /// URL 過期前的安全邊界：距離過期不到這段時間就當作已經不可用。
   ///
@@ -336,12 +336,10 @@ class Track {
   bool get isPartOfMultiPage => (pageCount ?? 0) > 1;
 
   /// 用于分组的key（同一视频的分P有相同的key）
-  String get groupKey => '${sourceType.name}:$sourceId';
+  String get groupKey => TrackKey.formatGroup(sourceType.name, sourceId);
 
   /// 唯一标识（包含cid用于区分分P）
-  String get uniqueKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  String get uniqueKey => TrackKey.format(sourceType.name, sourceId, cid: cid);
 
   /// 格式化时长显示
   String get formattedDuration {
