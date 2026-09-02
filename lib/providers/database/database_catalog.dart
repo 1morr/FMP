@@ -366,8 +366,12 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       title: t.databaseViewer.themeSettings,
       data: {
         'id': setting.id.toString(),
+        'schemaVersion': setting.schemaVersion.toString(),
         'themeModeIndex': setting.themeModeIndex.toString(),
         'themeMode': setting.themeMode.name,
+        'railExpanded': setting.railExpanded.toString(),
+        'detailPanelExpanded': setting.detailPanelExpanded.toString(),
+        'detailPanelWidth': setting.detailPanelWidth.toString(),
       },
     ),
     DatabaseViewerSection(

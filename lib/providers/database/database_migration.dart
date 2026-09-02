@@ -120,6 +120,13 @@ void _migrateV0ToV1(Settings settings) {
     settings.useNeteaseAuthForPlay = true;
     settings.neteaseStreamPriority = 'audioOnly';
   }
+
+  // 版面欄位是 Phase 3 新增的，舊列一律讀成 Isar 的預設（bool false、
+  // double NaN）。detailPanelExpanded 的業務預設是 true，而 false 在這裡
+  // 不可能是使用者的選擇 —— 這一列從來沒有寫過這個欄位。
+  settings.railExpanded = false;
+  settings.detailPanelExpanded = true;
+  settings.detailPanelWidth = 380;
 }
 
 bool _hasLegacyPlaybackAndLyricsDefaultsSignature(Settings settings) {
@@ -195,6 +202,15 @@ bool repairSettingsInvariants(Settings settings) {
 
   fix(settings.radioRefreshIntervalMinutes < 1,
       () => settings.radioRefreshIntervalMinutes = 5);
+
+  // 版面欄位：Isar 給舊列的 double 是 NaN、bool 是 false，兩者都不是業務預設。
+  // detailPanelExpanded 的 false 無法與「使用者真的收起了」區分，所以只在
+  // 整列還沒有版本號時才救 —— 那是 v0 步驟的事，這裡只擋掉不合法的寬度。
+  fix(
+      !settings.detailPanelWidth.isFinite ||
+          settings.detailPanelWidth < 280 ||
+          settings.detailPanelWidth > 500,
+      () => settings.detailPanelWidth = 380);
 
   return changed;
 }

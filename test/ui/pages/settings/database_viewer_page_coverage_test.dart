@@ -92,6 +92,10 @@ void main() {
   test('database viewer exposes current model fields and debug getters', () {
     final catalog = read(catalogPath);
     const expectedTokens = <String>{
+      'schemaVersion',
+      'railExpanded',
+      'detailPanelExpanded',
+      'detailPanelWidth',
       'bilibiliAid',
       'uniqueKey',
       'groupKey',

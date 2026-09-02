@@ -342,6 +342,44 @@ void main() {
       expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
     });
 
+    test('rescues layout fields from their Isar upgrade defaults', () async {
+      await openTestDatabase();
+
+      // 模擬 Phase 3 之前的那一列：新欄位讀出來會是 bool false / double NaN，
+      // 而 detailPanelExpanded 的業務預設是 true。
+      final legacySettings = Settings()
+        ..schemaVersion = -9223372036854775808
+        ..railExpanded = false
+        ..detailPanelExpanded = false
+        ..detailPanelWidth = double.nan;
+      await isar.writeTxn(() async {
+        await isar.settings.put(legacySettings);
+      });
+
+      await runDatabaseMigration(isar);
+
+      final migrated = await isar.settings.get(0);
+      expect(migrated!.railExpanded, isFalse);
+      expect(migrated.detailPanelExpanded, isTrue);
+      expect(migrated.detailPanelWidth, 380);
+    });
+
+    test('clamps a layout width that is out of range on every launch',
+        () async {
+      await openTestDatabase();
+
+      final settings = Settings()
+        ..schemaVersion = 1
+        ..detailPanelWidth = 9999;
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      await runDatabaseMigration(isar);
+
+      expect((await isar.settings.get(0))!.detailPanelWidth, 380);
+    });
+
     test('treats Isar minLong as version zero', () async {
       await openTestDatabase();
 

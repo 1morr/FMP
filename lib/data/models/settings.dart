@@ -127,6 +127,19 @@ class Settings {
 
   /// 自定义颜色 (ARGB int)
   int? primaryColor;
+  // ========== 桌面版面（每次啟動要記得上次的樣子）==========
+
+  /// 側欄是否展開。預設收起，與 `_DesktopLayoutState` 的初值一致。
+  bool railExpanded = false;
+
+  /// 詳情面板是否展開。**業務預設是 true**，而 Isar 對舊列的 bool 補 false，
+  /// 所以 `repairSettingsInvariants` 必須把它從舊資料庫救回來。
+  bool detailPanelExpanded = true;
+
+  /// 詳情面板寬度（像素）。Isar 對舊列的 double 補 NaN 而不是 0，
+  /// 同樣要在不變式修復裡處理。
+  double detailPanelWidth = 380;
+
   /// 缓存设置
   int maxCacheSizeMB = 32; // 默认 32MB
 

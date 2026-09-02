@@ -2,6 +2,21 @@
 
 UI guidance for Flutter pages, widgets, layouts, and windows.
 
+## Desktop Layout Persistence
+
+The desktop shell's rail-expanded flag, detail-panel expanded flag and panel
+width live in `Settings` and are read/written through
+`layoutSettingsProvider` (`lib/providers/settings/layout_settings_provider.dart`).
+`_DesktopLayoutState` holds no copy of them — it reads the provider.
+
+Panel width is written on drag **end**, not on every drag update: the update
+path only calls `previewDetailPanelWidth`, which touches memory. Keep it that
+way, or a resize writes hundreds of transactions.
+
+These three are deliberately **not** in the backup: like `customDownloadDir`
+and `preferredAudioDevice*` they describe one machine's window, not the user's
+library.
+
 ## Widget Directory Layout
 
 Shared widgets live in semantic subdirectories under `lib/ui/widgets/`; do not
