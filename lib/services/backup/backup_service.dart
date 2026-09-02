@@ -15,7 +15,7 @@ import '../../data/models/radio_station.dart';
 import '../../data/models/search_history.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
-import '../../providers/database/database_provider.dart';
+import '../../providers/database/database_migration.dart';
 import '../../data/repositories/playlist_mutation_repository.dart';
 import 'backup_data.dart';
 

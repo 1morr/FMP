@@ -98,10 +98,20 @@ Isar upgrade defaults for a newly added field:
 
 | Type | Upgrades to |
 |------|-------------|
-| `int` | `0` |
+| `int` (non-nullable) | **`Isar.minLong`** (`-9223372036854775808`), *not* `0` |
+| `double` (non-nullable) | `double.nan`, *not* `0.0` |
 | `bool` | `false` |
+| `String` (non-nullable) | `''` |
 | `String?` | `null` |
 | `List` | `[]` |
+
+The two numeric rows were measured against a real pre-Phase-3 database when
+`Settings.schemaVersion` was added: the existing row read back as
+`-9223372036854775808`. Isar's generated reader calls `readLong`/`readDouble`,
+which return the type's null sentinel for a property the stored schema does not
+have — it does not fall back to the Dart field initialiser. **A new
+non-nullable numeric field therefore always needs repair**, even when its
+business default looks like zero.
 
 **Repair is needed only when Isar's type default does not match the business
 default.** `bool isVip = false` upgrades to `false` automatically, so no repair.

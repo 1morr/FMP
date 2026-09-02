@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/providers/database/database_migration.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
@@ -39,7 +40,7 @@ void main() {
     test('initializes bootstrap defaults for settings and queue', () async {
       await openTestDatabase();
 
-      await initializeDatabaseDefaults(isar);
+      await runDatabaseMigration(isar);
 
       final settings = await isar.settings.get(0);
       final queues = await isar.playQueues.where().findAll();
@@ -57,7 +58,7 @@ void main() {
     test('initializes Home ranking source defaults', () async {
       await openTestDatabase();
 
-      await initializeDatabaseDefaults(isar);
+      await runDatabaseMigration(isar);
 
       final settings = await isar.settings.get(0);
       expect(settings, isNotNull);
@@ -339,6 +340,86 @@ void main() {
       expect(migratedSettings, isNotNull);
       expect(migratedSettings!.useNeteaseAuthForPlay, isFalse);
       expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
+    });
+
+    test('treats Isar minLong as version zero', () async {
+      await openTestDatabase();
+
+      // Isar 對舊列缺少的非空 int 欄位回傳 minLong 而不是 0 —— 在真實資料庫上
+      // 實測過。版本比對如果只看 == 0 就會漏掉所有真正的舊資料庫。
+      final legacySettings = Settings()
+        ..schemaVersion = -9223372036854775808
+        ..useNeteaseAuthForPlay = false
+        ..neteaseStreamPriority = '';
+      await isar.writeTxn(() async {
+        await isar.settings.put(legacySettings);
+      });
+
+      await runDatabaseMigration(isar);
+
+      final migrated = await isar.settings.get(0);
+      expect(migrated!.schemaVersion, 1);
+      expect(migrated.useNeteaseAuthForPlay, isTrue,
+          reason: 'the v0 step must have run');
+    });
+
+    test('stamps the current schema version on a fresh install', () async {
+      await openTestDatabase();
+
+      await runDatabaseMigration(isar);
+
+      final settings = await isar.settings.get(0);
+      expect(settings!.schemaVersion, kFmpSchemaVersion);
+    });
+
+    test('applies the v0 step once and stamps the version', () async {
+      await openTestDatabase();
+
+      final legacySettings = Settings()
+        ..useNeteaseAuthForPlay = false
+        ..neteaseStreamPriority = ''
+        ..rememberPlaybackPosition = false
+        ..tempPlayRewindSeconds = 0
+        ..disabledLyricsSources = '';
+      await isar.writeTxn(() async {
+        await isar.settings.put(legacySettings);
+      });
+
+      await runDatabaseMigration(isar);
+
+      final migrated = await isar.settings.get(0);
+      expect(migrated!.schemaVersion, 1);
+      expect(migrated.rememberPlaybackPosition, isTrue);
+      expect(migrated.tempPlayRewindSeconds, 10);
+      expect(migrated.disabledLyricsSources, 'lrclib');
+    });
+
+    test('leaves a database already at v1 alone', () async {
+      await openTestDatabase();
+
+      // 一個使用者刻意把設定調成「長得像未遷移」的形狀，但版本號已經是 1。
+      // v0 的推斷絕對不可以再碰它 —— 這正是形狀猜測修不掉的那個 bug。
+      final modern = Settings()
+        ..schemaVersion = 1
+        ..useNeteaseAuthForPlay = false
+        ..neteaseStreamPriority = ''
+        ..rememberPlaybackPosition = false
+        ..tempPlayRewindSeconds = 0
+        ..disabledLyricsSources = '';
+      await isar.writeTxn(() async {
+        await isar.settings.put(modern);
+      });
+
+      await runDatabaseMigration(isar);
+
+      final after = await isar.settings.get(0);
+      expect(after!.schemaVersion, 1);
+      expect(after.rememberPlaybackPosition, isFalse);
+      expect(after.tempPlayRewindSeconds, 0);
+      expect(after.disabledLyricsSources, '');
+      expect(after.useNeteaseAuthForPlay, isFalse);
+      // 不變式修復與版本無關，所以空的優先級仍然會被補回預設。
+      expect(after.neteaseStreamPriority, 'audioOnly');
     });
 
     test('repairs legacy queue volume without changing current queue state',

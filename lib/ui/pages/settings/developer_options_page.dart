@@ -19,6 +19,7 @@ import '../../router.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../debug/youtube_stream_test_page.dart';
 import '../../../data/repositories/repositories.dart';
+import '../../../providers/database/database_migration.dart';
 
 /// 开发者选项页面
 class DeveloperOptionsPage extends ConsumerWidget {
@@ -561,7 +562,7 @@ class _ResetDataTile extends ConsumerWidget {
       await DataIntegrityRepository(isar).clearEverything();
 
       // 重新创建默认数据
-      await initializeDatabaseDefaults(isar);
+      await runDatabaseMigration(isar);
 
       if (!context.mounted) return;
       ToastService.success(

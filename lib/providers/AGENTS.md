@@ -102,7 +102,16 @@ This file owns the open/registration wiring; `lib/data/AGENTS.md` owns the
   `fmp_database` directly from `getApplicationDocumentsDirectory()` elsewhere.
 - Collection registration is catalog-owned in
   `lib/providers/database/database_catalog.dart`. `database_provider.dart` owns
-  opening, migration/default repair (`_migrateDatabase()`), and path handling.
+  opening and path handling; `database_migration.dart` owns migration.
+- `database_migration.dart` separates two things that used to be one:
+  - **Versioned steps** (`fmpMigrationSteps`, gated on `Settings.schemaVersion`)
+    run once each, in order, and stamp the version. Add a step and bump
+    `kFmpSchemaVersion` together.
+  - **Invariants** (`repairSettingsInvariants`, `hasUnwrittenQueueSignature`)
+    run on every launch regardless of version. They also defend against a bad
+    backup import and a downgrade round-trip, so never version-gate them.
+- Read the stored version through `effectiveSchemaVersion()`, never the raw
+  field: Isar returns `Isar.minLong` for an int column an old row does not have.
 - `runDatabaseMigrationForTesting()` is the test hook.
 - Home ranking settings fields must stay in sync with migration/default repair.
 
