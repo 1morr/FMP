@@ -1492,6 +1492,55 @@ void main() {
       expect(controller.state.isLoadingMoreMix, isFalse);
     });
 
+    test('sustained buffering recovers once without entering the retry ladder',
+        () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      controller.dispose();
+      final trackRepository = TrackRepository(isar);
+      final settingsRepository = SettingsRepository(isar);
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: _createAudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+        ),
+        toastService: toastService,
+        audioHandler: FmpAudioHandler(),
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        mixTracksFetcher: mixTracksFetcher.call,
+        budget: const PlaybackTimeoutBudget(
+          bufferStarvation: Duration(milliseconds: 30),
+        ),
+      );
+      await controller.initialize();
+
+      await controller.playSingle(_track('starved', title: 'Starved'));
+      await pumpEventQueue(times: 10);
+
+      final playsBeforeStarvation = audioService.playUrlCalls.length;
+      audioService.setPlayingValue(true);
+      audioService.emitProcessingState(FmpAudioProcessingState.buffering);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await pumpEventQueue(times: 20);
+
+      // 只救一次，而且救的方式是重發一次請求（內含 _execute 的 fallback 一次）。
+      expect(audioService.playUrlCalls.length,
+          greaterThan(playsBeforeStarvation));
+
+      // D2 的核心：逾時**不**進 1/2/4/8/16 的退避階梯。走到階梯上就代表
+      // 每次緩衝抖動都會變成五次完整重新解析，也就是症狀 c 的放大迴圈。
+      expect(controller.state.nextRetryAt, isNull);
+      expect(controller.state.isRetrying, isFalse);
+      expect(toasts.where((toast) => toast.type == ToastType.error), isEmpty);
+    });
+
     test('playback prefetch fills the queue-owned next track url', () async {
       final tracks = [
         _track('prefetch-play-current', title: 'Prefetch Play Current'),

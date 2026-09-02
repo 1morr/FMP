@@ -28,6 +28,7 @@ import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import 'audio_handler.dart';
 import 'windows_smtc_handler.dart';
 import 'audio_types.dart';
+import 'buffer_starvation_watchdog.dart';
 import 'audio_service.dart';
 import 'media_kit_audio_service.dart';
 import 'just_audio_service.dart';
@@ -309,7 +310,9 @@ class AudioController extends StateNotifier<PlayerState>
     QueuePersistenceManager? queuePersistenceManager,
     MixTracksFetcher? mixTracksFetcher,
     AudioRuntimePlatform? runtimePlatform,
-  })  : _audioService = audioService,
+    PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
+  })  : _budget = budget,
+        _audioService = audioService,
         _queueManager = queueManager,
         _audioStreamManager = audioStreamManager,
         _toastService = toastService,
@@ -323,6 +326,7 @@ class AudioController extends StateNotifier<PlayerState>
         _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
     _playbackRequestSession = PlaybackRequestSession(
+      budget: _budget,
       audioService: _audioService,
       audioStreamManager: _audioStreamManager,
       getNextTrack: _nextTrackForPrefetch,
@@ -349,9 +353,19 @@ class AudioController extends StateNotifier<PlayerState>
       onRecoveryEvent: _applyRecoveryEvent,
       isRetryableError: _isRetryableError,
     );
+    _bufferWatchdog = BufferStarvationWatchdog(
+      onStarved: _onBufferStarvation,
+      budget: _budget,
+    );
     _temporaryPlayHandler = const TemporaryPlayHandler();
     _mixPlaylistHandler = MixPlaylistHandler();
   }
+
+  final PlaybackTimeoutBudget _budget;
+  late final BufferStarvationWatchdog _bufferWatchdog;
+
+  /// 已經為哪一首歌出手救過一次。同一首只救一次，否則就變成無限重載。
+  String? _bufferStarvationTrackKey;
 
   bool get _usesMobileAudioHandler =>
       _runtimePlatform == AudioRuntimePlatform.mobile;
@@ -502,6 +516,7 @@ class AudioController extends StateNotifier<PlayerState>
     onLyricsAutoMatchStateChanged = null;
     _stopPositionCheckTimer();
     _cancelRetryTimer();
+    _bufferWatchdog.dispose();
     _recoveryCoordinator.dispose();
     _playbackRequestSession.dispose();
     _networkRecoverySubscription?.cancel();
@@ -660,6 +675,8 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   Future<void> _performSeek(Duration position) async {
+    // seek 之後重新緩衝是理所當然的，該給它完整的一份預算重新起算。
+    _bufferWatchdog.cancel();
     await _audioService.seekTo(position);
     // 立即保存位置，避免 seek 后马上关闭应用导致进度丢失
     await _queueManager.savePositionNow();
@@ -1636,6 +1653,12 @@ class AudioController extends StateNotifier<PlayerState>
   /// 更新正在播放的歌曲（UI 显示用）
   void _updatePlayingTrack(Track track, {bool recordHistory = false}) {
     if (_isDisposed) return;
+    // 換歌才清掉「已經救過一次」的記號。刻意不放在 _startSessionLoadingState：
+    // 那條路連 T3 自己發起的重試也會走到，等於每次重試都把自己的護欄清掉。
+    if (_bufferStarvationTrackKey != null &&
+        _bufferStarvationTrackKey != track.uniqueKey) {
+      _bufferStarvationTrackKey = null;
+    }
     _playingTrack = track;
     state = state.copyWith(playingTrack: track);
 
@@ -1886,6 +1909,7 @@ class AudioController extends StateNotifier<PlayerState>
     _terminalMediaOpenErrorTrackKey = null;
     _seekStabilizationWindow = null;
     _discardPendingSeek(reason: 'new playback request started');
+    _bufferWatchdog.cancel();
     state = state.copyWith(
       isLoading: true,
       position: Duration.zero,
@@ -2822,7 +2846,11 @@ class AudioController extends StateNotifier<PlayerState>
   void _onPlayerStateChanged(FmpPlayerState playerState) {
     if (_isDisposed) return;
     // 電台播放中的狀態變化由 RadioController 處理，AudioController 不應更新自身狀態
-    if (isRadioPlaying?.call() == true) return;
+    if (isRadioPlaying?.call() == true) {
+      // 進電台時如果計時器正在跑，之後就再也收不到事件來取消它了。
+      _bufferWatchdog.cancel();
+      return;
+    }
     if (_terminalMediaOpenErrorTrackKey != null &&
         state.playingTrack?.uniqueKey == _terminalMediaOpenErrorTrackKey &&
         state.error != null) {
@@ -2859,6 +2887,17 @@ class AudioController extends StateNotifier<PlayerState>
           effectiveProcessingState == FmpAudioProcessingState.loading,
       processingState: effectiveProcessingState,
       error: state.error,
+    );
+
+    // 重新緩衝屬於 playing 的子狀態：這裡只餵資料，升不升級成失敗由 watchdog 判斷。
+    _bufferWatchdog.onPlayerStateChanged(
+      isBuffering:
+          effectiveProcessingState == FmpAudioProcessingState.buffering,
+      isPlaying: effectiveIsPlaying,
+      isSuppressed: _context.isInLoadingState ||
+          state.isRetrying ||
+          state.isNetworkError ||
+          _isWithinOutputDeviceFailureGuard,
     );
 
     // 更新 AudioHandler 的播放状态（用于通知栏）
@@ -2917,6 +2956,51 @@ class AudioController extends StateNotifier<PlayerState>
         duration: _audioService.duration,
       );
     }
+  }
+
+  /// T3：連續緩衝超過預算 —— 引擎還沒喊失敗，但已經播不動了。
+  ///
+  /// 政策與 T1/T2 一致（D2）：換一次串流再試，仍失敗就停下並通知。**不進
+  /// 1/2/4/8/16 的退避階梯**，也不自動跳下一首。這裡刻意不自己開流 ——
+  /// 那會變成繞過 [PlaybackRequestSession] 的第二條播放路徑。作廢快取的解析
+  /// 結果之後交給 retryPlayback 重發一次請求，`_execute` 內建的「fallback
+  /// 一次」就是那一次機會。
+  Future<void> _onBufferStarvation() async {
+    if (_isDisposed) return;
+    final track = state.playingTrack;
+    if (track == null) return;
+    if (_context.isInLoadingState || state.isRetrying || state.isNetworkError) {
+      return;
+    }
+
+    if (_bufferStarvationTrackKey == track.uniqueKey) {
+      _failStalledPlayback(track);
+      return;
+    }
+    _bufferStarvationTrackKey = track.uniqueKey;
+
+    logWarning('Buffer starved during playback: ${track.title}');
+    // 卡住的多半就是這條串流本身，重試前先讓它重新解析。
+    _audioStreamManager.invalidateResolvedStream(track);
+
+    final result = await retryPlayback(
+      track: track,
+      position: state.position,
+      mode: _currentRecoveryMode,
+    );
+    if (_isDisposed || result.isCompleted || result.isSuperseded) return;
+    _failStalledPlayback(track);
+  }
+
+  void _failStalledPlayback(Track track) {
+    if (_isDisposed) return;
+    state = state.copyWith(isPlaying: false, isLoading: false);
+    _toastService.showError(
+      t.audio.cannotPlayReason(
+        title: track.title,
+        reason: t.audio.sourceErrorTimeout,
+      ),
+    );
   }
 
   /// 傳輸層失敗：連線中斷、逾時、DNS、TLS。分類由後端完成。

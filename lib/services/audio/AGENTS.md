@@ -189,7 +189,7 @@ muxed took 9.9-20s.
 |---|---|---|
 | `streamResolution` (T1) | turning a track into a playable URL | `PlaybackRequestSession._withBudget` around `selectPlayback` / `selectFallbackPlayback` |
 | `mediaOpen` (T2) | handing that URL to the backend | `_waitForRequestOperation(phase: mediaOpen)` |
-| `bufferStarvation` (T3) | continuous re-buffering during playback | see below |
+| `bufferStarvation` (T3) | continuous re-buffering during playback | `BufferStarvationWatchdog`, fed from `_onPlayerStateChanged` |
 
 Exceeding a budget throws `PlaybackTimeoutException`, **not** `TimeoutException`.
 The distinction carries the policy: a budget overrun means FMP chose to stop
@@ -200,6 +200,24 @@ waiting, so it gets one fallback stream and then stops with a message; a
 into five full re-resolutions.
 
 A superseded request never reports a timeout — being replaced is not a failure.
+
+**Re-buffering is a substate of playing.** `BufferStarvationWatchdog` never tears
+playback down; it only reports that buffering has been *continuous* for longer
+than T3, which is the backstop for the case where the engine says nothing at all
+(a stream that connects and sends zero bytes reports `playing: true`, no
+duration, and never emits an error). The countdown starts when buffering begins
+and is not restarted by further buffering events — restarting it on every event
+means it never fires. It is disarmed by leaving buffering, by a seek, by a new
+playback request, by radio taking over, and by dispose.
+
+Starvation recovery follows the same policy as T1/T2: discard the reusable
+resolution, re-issue the request once through `retryPlayback` (whose `_execute`
+supplies the one fallback attempt), and stop with a timeout message if that
+fails too. It deliberately does **not** call
+`PlaybackRecoveryCoordinator.scheduleRetry`, so it never enters the backoff
+ladder. A track is rescued at most once; the guard clears when the playing track
+changes, not when a request starts, or the rescue attempt would clear its own
+guard and loop.
 
 Worst case for one play is T1+T2 twice (original attempt plus the one fallback).
 That ceiling is the point; P0-2 asked for *bounded*, not *short*.
