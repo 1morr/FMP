@@ -166,6 +166,49 @@ void main() {
       );
     });
 
+    test('uses the expi the API reports as the stream expiry', () async {
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {
+              'id': 123,
+              'url': 'http://m801.music.126.net/song.mp3',
+              'br': 320000,
+              'type': 'mp3',
+              'expi': 1200,
+            },
+          ],
+        }),
+      );
+
+      final result =
+          await source.getAudioStream(const AudioStreamRequest(sourceId: '123'));
+
+      expect(result.expiry, const Duration(seconds: 1200));
+    });
+
+    test('falls back to a fixed expiry when the API omits expi', () async {
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {
+              'id': 123,
+              'url': 'http://m801.music.126.net/song.mp3',
+              'br': 320000,
+              'type': 'mp3',
+            },
+          ],
+        }),
+      );
+
+      final result =
+          await source.getAudioStream(const AudioStreamRequest(sourceId: '123'));
+
+      expect(result.expiry, const Duration(minutes: 16));
+    });
+
     test('classifies stream item VIP message as VIP required', () async {
       final source = NeteaseSource(
         dio: _dioReturning({
