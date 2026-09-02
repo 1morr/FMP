@@ -42,8 +42,15 @@ Page code passes **semantic variants**, not raw `targetDisplaySize`. That
 belongs inside semantic image widgets and `ImageLoadingService`. Never infer
 image quality from `width`/`height` — those are layout-only. Use
 `ImageTargetSizes` (`lib/core/constants/ui_constants.dart`) only inside image
-components or core image services, never at page call sites; this is enforced by
-`test/ui/static_rules/ui_consistency_static_rule_test.dart`.
+components or core image services, never at page call sites.
+
+Only part of that rule is machine-checked:
+`test/ui/static_rules/ui_consistency_static_rule_test.dart` sweeps every UI file
+for `ImageTargetSizes.thumbnail` and for direct `ImageLoadingService.loadAvatar(`
+calls. The other tiers (`medium` / `high` / `highest`) are asserted only against
+a fixed list of named widget files, so a new page using them directly would pass
+CI. `lib/ui/pages`, `lib/ui/layouts` and `lib/ui/windows` currently hold zero
+`ImageTargetSizes.` references — the convention holds by review, not by test.
 
 Current target-size mapping:
 

@@ -181,6 +181,24 @@ options (`reconnect=1`, `reconnect_streamed=1`, `reconnect_on_network_error=1`,
 enabled so muxed fallback streams do not decode video while the larger buffer
 absorbs VPN/CDN stalls.
 
+`_configureForAudioOnly()` also sets four properties that are easy to drop by
+accident because their purpose is not obvious from the name:
+
+| Property | Why |
+|---|---|
+| `cache=yes` | Required for `cache-secs` to take effect at all |
+| `cache-pause-initial=no` | Start playing immediately instead of waiting for the 7200s cache target to fill |
+| `demuxer-donate-buffer=no` | Stops the demuxer handing used buffers to other threads, which fragments the heap |
+| `demuxer-lavf-o=icy=0` | Disables ICY metadata parsing; FMP never reads it |
+
+The method applies these unconditionally — it carries no platform check. That is
+safe only because `audioServiceProvider`
+(`lib/services/audio/audio_provider.dart:3267`) hands mobile to
+`JustAudioService`, so `MediaKitAudioService` never initializes on Android. The
+`Platform.isAndroid || Platform.isIOS` branch at `media_kit_audio_service.dart:150`
+is therefore unreachable in production; keep it as a guard, but do not read it as
+evidence that this backend is exercised on mobile.
+
 Android `JustAudioService` uses a smaller ExoPlayer load-control profile to
 avoid live or muxed high-bitrate streams buffering hundreds of MB: 10s min
 buffer, 20s max buffer, 3s back buffer, 2MB `targetBufferBytes` fallback. Do not

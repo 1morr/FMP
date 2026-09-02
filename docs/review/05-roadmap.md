@@ -844,6 +844,31 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 02 Q1–Q8, Q15, Q17, Q22, Q23, Q25, Q29（→ Phase 1）；02 Q19, Q20（→ Phase 4B）；
 03 Q39（→ Phase 2.0）、Q51, Q55–Q62（→ Phase 3）；04 Q5, Q6, Q7, Q14（→ Phase 5a/5b）。
 
+### 6.1 執行時的失效重核（2026-09-02，Phase 0 開工當天）
+
+報告寫成之後樹上又動過，開工前逐條 `rg` 過一遍。**以下 6 條已失效或當初就判斷錯誤，
+不可照抄**——記在這裡是為了讓後面幾個 Phase 開工時同樣先做這一步。
+
+| 原條目 | 開工當天的實況 | 處置 |
+|---|---|---|
+| QW-2 `flutter pub run` → `dart run`（4 處） | `rg "flutter pub run" .github/` 零命中 | 撤銷，已是對的 |
+| QW-2 補 `timeout-minutes` | `ci.yml:28,78,115` 與 `release.yml` 5 處都已有 | 撤銷，已是對的 |
+| QW-2 test step 補 `--coverage` | `ci.yml:64` 已是 `flutter test --coverage --exclude-tags live` | 撤銷，已是對的 |
+| QW-5 `docs/README.md` 的 `/qa` | 零命中 | 撤銷，已是對的 |
+| QW-5 `refactoring-log.md` banner | 檔案已不存在 | 撤銷 |
+| QW-5 `docs/build-and-release.md:293-295` 失效敘述 | 該檔引用的 6 個 `.dart` 路徑全部存在，找不到失效處 | 撤銷，原判斷有誤 |
+
+另外三條需要修正描述，不是失效而是**當初判斷錯了**：
+
+| 原條目 | 更正 |
+|---|---|
+| QW-8「`SourceManager` 5 個死方法」 | 實際零引用的只有 `parseUrlProvider` / `parsePlaylistProvider` 兩個 provider。`trackInfoSourceForUrl` **有內部呼叫**（`source_provider.dart:99,104`），不是死碼；`isPlaylistUrl` / `refreshAudioUrl` 只被測試呼叫；`needsRefresh` 零引用但**是 Phase 1.1 要復活的那段 5 分鐘邊界邏輯，不可刪** |
+| QW-8「`mobilePlayerBufferSizeBytes` 是死常數」 | `media_kit_audio_service.dart:154` 有引用。但 `audio_provider.dart:3267` 的 `audioServiceProvider` 讓 mobile 一律走 `JustAudioService`，所以那個分支在生產環境**不可達**——是「有引用但走不到」，不是「無引用」。保留為防禦性 guard，已在 `lib/services/audio/AGENTS.md` 記明 |
+| 01 P0-3 / QW-4「AGENTS.md 13 條錯誤斷言」 | 機械抽驗全部 `AGENTS.md` + `CONTEXT.md`：**317 個識別符裡只有 1 個真的不存在**（`playlistProvider`），**所有 `.dart` / `.json` 路徑引用零錯誤**。其餘問題是語意層的（數量過期、過度宣稱「is enforced by」、Key Paths 漏列 9 個 `lib/services/` 子目錄、`CONTEXT.md` 的 allowlist），符號檢查抓不到 |
+
+**新測得的基準（`9bb0b8e5` 之後）**：`flutter test --exclude-tags live` = **1220 passed**，
+連跑 3 次一致，耗時 31–33 秒。01/02/03 報告的 1241 / 1242 / 1234 全部作廢。
+
 ---
 
 ## 7. 10 個 issue 的處置
