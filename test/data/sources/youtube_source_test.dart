@@ -42,6 +42,92 @@ void main() {
       );
     });
 
+    test('each stream type is retried with auth before moving to the next',
+        () async {
+      var playerCalls = 0;
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+        playerCalls++;
+        return ResponseBody.fromString(
+          jsonEncode(_innerTubePlayerResponse(
+            adaptiveFormats: [
+              _innerTubeAudioFormat(
+                url: 'https://example.com/authed-audio.webm',
+                mimeType: 'audio/webm; codecs="opus"',
+                bitrate: 130000,
+              ),
+            ],
+            formats: [
+              _innerTubeMuxedFormat(
+                url: 'https://example.com/authed-muxed.mp4',
+                bitrate: 700000,
+              ),
+            ],
+          )),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        // 匿名路徑全部失敗，就像 audio-only 被 bot 檢查擋下時那樣。
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous stream',
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      final result = await source.getAudioStream(
+        const AudioStreamRequest(
+          sourceId: 'per-type-auth',
+          config: AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          ),
+          authHeaders: {'Authorization': 'SAPISIDHASH test'},
+        ),
+      );
+
+      // 舊順序會先讓匿名 muxed 成功，帶登入的 audio-only 永遠到不了。
+      expect(result.streamType, StreamType.audioOnly);
+      expect(result.url, 'https://example.com/authed-audio.webm');
+      // 三個 streamType 共用同一份 streamingData，不該每個都打一次 /player。
+      expect(playerCalls, 1);
+    });
+
+    test('anonymous users never reach the InnerTube player endpoint', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+        fail('anonymous playback must not call ${options.path}');
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous stream',
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      await expectLater(
+        source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'anonymous-only',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
+          ),
+        ),
+        throwsA(isA<YouTubeApiException>()),
+      );
+    });
+
     test('InnerTube fallback honors stream priority before audio-only formats',
         () async {
       final dio = Dio();
