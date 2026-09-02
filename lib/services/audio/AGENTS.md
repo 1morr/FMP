@@ -245,3 +245,17 @@ flutter test test/services/audio
 
 If stream resolution, source fallback, or auth headers changed, also run the
 relevant tests under `test/data/sources`.
+
+Loading, timeout and recovery behaviour cannot be covered by unit tests alone —
+what is under test is how mpv and ExoPlayer react to a sick connection, which
+FMP cannot fake and a real CDN will not perform on request. Use the two
+deliberately broken servers instead:
+
+```bash
+dart run test/manual/pathological_stream_servers.dart
+```
+
+`hold` connects and then sends nothing forever; `stall` sends four seconds of
+audio and cuts the socket, refusing every reconnect. See `test/manual/README.md`
+for the URLs and `docs/review/02-playback-sources.md` §12.14 for the per-platform
+baselines a change has to improve on.
