@@ -34,6 +34,10 @@ void main() {
         LyricsWindowLayout.titleBarHeight,
       );
     });
+
+    test('minimum window width leaves room for title bar controls', () {
+      expect(LyricsWindowLayout.minWindowWidth, greaterThanOrEqualTo(400));
+    });
   });
 
   group('LyricsWindowStyle', () {

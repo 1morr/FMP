@@ -1,5 +1,6 @@
+// ignore_for_file: avoid_print
 // Bilibili 直播间 API 测试 Demo
-// 运行方式: dart run test/bilibili_live_api_test.dart
+// 运行方式: dart run test/demo/bilibili_live_api_lookup_demo.dart
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;

@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 
-/// Performance benchmark tests for list scrolling and widget rendering.
+/// Performance benchmarks for list scrolling and widget rendering.
+///
+/// Deliberately NOT named `*_test.dart` — see the note in
+/// `startup_benchmark.dart`: absolute wall-clock budgets measure the machine,
+/// not the code, so they are opt-in rather than part of `flutter test`.
 ///
 /// These tests measure UI rendering performance with large data sets.
-/// Run with: flutter test test/performance/list_scrolling_benchmark_test.dart
+/// Run with: flutter test test/performance/list_scrolling_benchmark.dart
 void main() {
   group('List Rendering Performance', () {
     /// Generate test tracks for benchmarking

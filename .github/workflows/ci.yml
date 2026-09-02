@@ -1,12 +1,26 @@
 name: CI
 
+# Documentation-only commits skip the whole workflow: the Android and Windows
+# build jobs cost ~40 minutes of runner time and cannot be affected by a prose
+# change. `main` is not a protected branch, so no required check is left
+# hanging by the filter.
 on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
 permissions:
