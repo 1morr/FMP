@@ -512,6 +512,9 @@ class AudioController extends StateNotifier<PlayerState>
     _subscriptions.clear();
     _mixPlaylistHandler.clear();
     _queueManager.dispose();
+    // 未清理时 SMTC 的按钮订阅与原生句柄会活过 controller，
+    // 令已释放的 controller 继续收到系统媒体键事件。
+    _windowsSmtcHandler.dispose();
     unawaited(_audioService.dispose().catchError((Object e, StackTrace stack) {
       logError('Failed to dispose audio service', e, stack);
     }));
