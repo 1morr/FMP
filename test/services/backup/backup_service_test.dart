@@ -17,7 +17,7 @@ import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/services/backup/backup_service.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../support/isar_test_harness.dart';
 

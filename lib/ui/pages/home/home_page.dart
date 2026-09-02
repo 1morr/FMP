@@ -150,8 +150,7 @@ class HomeRankingsSection extends ConsumerWidget {
 
     final tracksBySource = {
       for (final source in enabledSourceOrder)
-        if (_tracksForRankingSource(ref, source) case final tracks?)
-          source: tracks,
+        source: ?_tracksForRankingSource(ref, source),
     };
     if (tracksBySource.isEmpty) {
       return const SizedBox.shrink();

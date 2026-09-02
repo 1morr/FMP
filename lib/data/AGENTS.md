@@ -4,22 +4,47 @@ Data-layer guidance for models, repositories, and migration decisions. For
 concrete source adapter rules, read `lib/data/sources/AGENTS.md`. For database
 startup/open wiring, read `lib/providers/AGENTS.md`.
 
-## Dependency Note — Isar v3 Freeze
+## Dependency Note — Isar v3 On The Community Fork
 
-`isar` / `isar_flutter_libs` / `isar_generator` are intentionally pinned at
-`^3.1.0+1` (`pubspec.yaml`). This is a deliberate freeze, not neglect:
+`isar_community` / `isar_community_flutter_libs` / `isar_community_generator`
+are pinned at `^3.3.2` (`pubspec.yaml`). FMP moved off the upstream
+`isar` packages in Phase 2 (see `docs/review/05-roadmap.md`).
 
-- v3 is upstream's recommended production version. The upstream `isar/isar`
-  repository is **not** archived; its README states v4 is not production-ready.
-- No v3 → v4 migration tool exists, so upgrading would risk every persisted
-  collection in `lib/data/models/`.
-- **Do not upgrade to v4** without a migration tool and a tested migration path.
+Why the fork:
 
-Tracking guidance: monitor v4 stable releases and any official migration tool.
-Before tagging a release, confirm target-platform native libs resolve
-(Android `arm64-v8a` / `armeabi-v7a` / `x86_64`, Windows `x86_64`, and Windows
-`arm64` if supported). Long-term fallback candidates if v3 ever becomes
-unbuildable: `drift`, `sqflite`, or `objectbox`.
+- Upstream `isar/isar` has been dormant since 2025-07; its `isar_generator`
+  constrains `analyzer >=4.6.0 <6.0.0`, which froze the whole toolchain at
+  analyzer 5.13.0 / build 2.4.1. The fork's generator wants
+  `analyzer >=8.0.0 <11.0.0`, which is what unblocked analyzer 10.x.
+- The fork also ships 16 KB-aligned Android libraries: every `libisar.so`
+  LOAD segment moved from `0x1000` to `0x4000` across all four ABIs, which is
+  what Android 15+ requires.
+
+Why it is safe for existing databases:
+
+- Still Isar **v3** on disk. All eleven collections regenerate to semantically
+  identical code — the schema id hashes, property ids, and index/link
+  definitions are unchanged; only formatting and the embedded generator
+  version string differ.
+- `CollectionSchema.version` is a build-time `assert(Isar.version == version)`
+  guarding stale generated files. It is not an on-disk format check.
+
+What differs and bites if forgotten:
+
+- The Windows dynamic library is named `libisar.dll`, not `isar.dll`. Linux
+  and macOS names are unchanged.
+- The Windows plugin header moved to
+  `<isar_community_flutter_libs/isar_flutter_libs_plugin.h>`; the plugin class
+  and registrar name (`IsarFlutterLibsPlugin`) did not change. FMP registers it
+  by hand for sub-windows in `windows/runner/flutter_window.cpp`.
+- `test/support/isar_test_harness.dart` is the only place in `test/` that knows
+  the package name and per-platform library file names. Keep it that way.
+
+Honest limitation: the fork is *maintained*, not actively developed — five
+releases total, the last one months old. It solves "nobody is minding the
+upstream", not "back under active development". **Do not upgrade to v4**
+without a migration tool and a tested migration path. Long-term fallback
+candidates if v3 ever becomes unbuildable: `drift`, `sqflite`, or `objectbox`.
 
 ## Models And Repositories
 
@@ -77,7 +102,7 @@ When adding a persisted field:
 1. Modify the model in `lib/data/models/`.
 2. Decide whether the Isar default equals the business default.
 3. If not, add repair logic in `_migrateDatabase()`.
-4. Run `dart run build_runner build --delete-conflicting-outputs`.
+4. Run `dart run build_runner build`.
 5. Run `flutter test test/providers/database_migration_test.dart` and test
    old-version to new-version upgrade behavior.
 

@@ -107,7 +107,7 @@ CLI** (pulled in by `flutter_inappwebview_windows`) and a **Rust toolchain**
 
 ```bash
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 dart run slang
 flutter analyze
 flutter test
@@ -144,7 +144,7 @@ and [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music).
 Built on [media_kit](https://github.com/media-kit/media-kit),
 [just_audio](https://github.com/ryanheise/just_audio),
 [youtube_explode_dart](https://github.com/Hexer10/youtube_explode_dart),
-[Isar](https://github.com/isar/isar) and [Riverpod](https://github.com/rrousselGit/riverpod).
+[Isar](https://github.com/isar-community/isar-community) and [Riverpod](https://github.com/rrousselGit/riverpod).
 
 ## License
 

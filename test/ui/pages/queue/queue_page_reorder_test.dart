@@ -22,7 +22,7 @@ import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/ui/pages/queue/queue_page.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import 'package:fmp/providers/audio/playback_settings_provider.dart';
 

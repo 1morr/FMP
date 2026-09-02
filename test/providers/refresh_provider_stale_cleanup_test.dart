@@ -17,7 +17,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/search/refresh_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
 
 void main() {

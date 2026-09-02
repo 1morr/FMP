@@ -15,7 +15,7 @@ import 'package:fmp/providers/download/download_providers.dart'
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/download/startup_download_sync_provider.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
 import 'package:path/path.dart' as p;
 

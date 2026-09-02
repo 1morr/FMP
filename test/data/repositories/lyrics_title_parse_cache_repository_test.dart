@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/repositories/lyrics_title_parse_cache_repository.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

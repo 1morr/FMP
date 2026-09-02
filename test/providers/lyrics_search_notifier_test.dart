@@ -9,7 +9,7 @@ import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
 import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
 
 void main() {

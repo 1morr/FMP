@@ -12,7 +12,7 @@ import 'package:fmp/ui/pages/settings/home_ranking_settings_page.dart';
 import 'package:fmp/ui/pages/settings/settings_page.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:go_router/go_router.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

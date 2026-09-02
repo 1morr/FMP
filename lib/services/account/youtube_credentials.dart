@@ -82,7 +82,7 @@ class YouTubeCredentials {
       '__Secure-1PAPISID': secure1Papisid,
       '__Secure-3PAPISID': secure3Papisid,
       'LOGIN_INFO': loginInfo,
-      if (datasyncId != null) 'DATASYNC_ID': datasyncId!,
+      'DATASYNC_ID': ?datasyncId,
     };
 
     return cookieMap.entries

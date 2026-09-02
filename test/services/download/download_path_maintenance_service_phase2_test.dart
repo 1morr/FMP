@@ -16,7 +16,7 @@ import 'package:fmp/providers/database/repository_providers.dart'
     as repository_providers;
 import 'package:fmp/services/download/download_path_maintenance_service.dart';
 import 'package:fmp/services/download/download_path_manager.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

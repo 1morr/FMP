@@ -200,7 +200,7 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
             preferredContentMode: UserPreferredContentMode.MOBILE,
           ),
           onLoadStop: _onPageLoaded,
-          onLoadStart: (_, __) {
+          onLoadStart: (_, _) {
             if (mounted) setState(() => _isLoading = true);
           },
         ),

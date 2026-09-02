@@ -12,7 +12,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

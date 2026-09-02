@@ -267,17 +267,17 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     final textTheme = Theme.of(context).textTheme;
 
     // 歌词窗口同步：监听位置变化（高频，仅同步行索引）
-    ref.listen(audioControllerProvider.select((s) => s.position), (_, __) {
+    ref.listen(audioControllerProvider.select((s) => s.position), (_, _) {
       _syncLyricsToWindow();
     });
 
     // 歌词窗口同步：歌词内容变化时全量同步
-    ref.listen(parsedLyricsProvider, (_, __) {
+    ref.listen(parsedLyricsProvider, (_, _) {
       _fullSyncLyricsToWindow();
     });
 
     // 歌词窗口同步：歌曲切换时全量同步
-    ref.listen(currentTrackProvider, (_, __) {
+    ref.listen(currentTrackProvider, (_, _) {
       _lastSyncedLineIndex = -1;
       _fullSyncLyricsToWindow();
     });
@@ -289,13 +289,13 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     });
 
     // 歌词窗口同步：主题/字体/语言变化时同步
-    ref.listen(themeProvider, (_, __) {
+    ref.listen(themeProvider, (_, _) {
       _syncThemeToWindow();
     });
-    ref.listen(localeProvider, (_, __) {
+    ref.listen(localeProvider, (_, _) {
       _syncThemeToWindow();
     });
-    ref.listen(lyricsWindowStyleProvider, (_, __) {
+    ref.listen(lyricsWindowStyleProvider, (_, _) {
       _syncThemeToWindow();
     });
 
@@ -307,7 +307,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
     ref.listen(
         currentLyricsMatchProvider.select((v) => v.valueOrNull?.offsetMs),
-        (_, __) {
+        (_, _) {
       _fullSyncLyricsToWindow();
     });
 

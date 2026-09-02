@@ -8,7 +8,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

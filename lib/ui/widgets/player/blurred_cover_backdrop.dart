@@ -236,7 +236,7 @@ class _BlurredCoverBackdropState extends State<BlurredCoverBackdrop> {
     await precacheImage(
       candidate,
       context,
-      onError: (_, __) => failed = true,
+      onError: (_, _) => failed = true,
     );
     return !failed;
   }

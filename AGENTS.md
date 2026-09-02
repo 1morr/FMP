@@ -77,7 +77,7 @@ Human-facing documentation lives in `docs/`; `docs/README.md` is the map.
 flutter run                          # Run the app
 flutter build apk                    # Android APK
 flutter build windows                # Windows executable
-dart run build_runner build --delete-conflicting-outputs  # Isar code generation
+dart run build_runner build  # Isar code generation
 dart run slang                       # Regenerate i18n after lib/i18n/**/*.json changes
 flutter analyze                      # Static analysis
 flutter test                         # Run tests
@@ -90,7 +90,7 @@ flutter test                         # Run tests
 | Audio playback/controller/queue | `flutter test test/services/audio` (+ `test/data/sources` when stream resolution changes) |
 | Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
 | Download pipeline | `flutter test test/services/download test/providers/download` |
-| Isar models / migrations | `dart run build_runner build --delete-conflicting-outputs` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
+| Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
 | UI widgets/pages | Targeted tests under `test/ui` + `flutter analyze` + the on-device check below |
 | i18n JSON changes | `dart run slang` + `flutter analyze` |
 | Documentation-only changes | `git diff --check` |

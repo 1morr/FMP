@@ -179,7 +179,7 @@ CI
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
        │   ├─ dart format --output=none --set-exit-if-changed .
-       │   ├─ dart run build_runner build --delete-conflicting-outputs
+       │   ├─ dart run build_runner build
        │   ├─ dart run slang
        │   ├─ flutter analyze
        │   └─ flutter test

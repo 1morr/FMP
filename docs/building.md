@@ -8,7 +8,7 @@
 
 | 工具 | 版本要求 | 用途 |
 |------|---------|------|
-| [Flutter SDK](https://flutter.dev/docs/get-started/install) | >= 3.5.0 | 跨平臺框架 |
+| [Flutter SDK](https://flutter.dev/docs/get-started/install) | >= 3.35.1（Dart >= 3.9.0，isar_community_generator 的要求） | 跨平臺框架 |
 | [Java JDK](https://adoptium.net/) | 17 | Android 建置（同時提供 `keytool` 指令） |
 
 ### Windows 本機建置額外要求
@@ -47,7 +47,7 @@ cd FMP
 flutter pub get
 
 # 程式碼產生（Isar models、i18n 等）
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 
 # 產生應用程式圖示
 dart run flutter_launcher_icons
@@ -167,7 +167,7 @@ flutter analyze
 flutter test
 
 # 重新產生程式碼（修改 Isar model 後必須執行）
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 ```
 
 ## Windows 建置排錯

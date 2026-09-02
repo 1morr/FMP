@@ -11,7 +11,7 @@ import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

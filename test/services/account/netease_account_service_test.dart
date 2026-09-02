@@ -8,7 +8,7 @@ import 'package:fmp/data/models/account.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/account/account_service.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

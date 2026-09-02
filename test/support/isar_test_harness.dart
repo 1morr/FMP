@@ -2,18 +2,18 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 /// 提供原生 Isar 動態庫的 package 名稱。
 ///
 /// `flutter test` 跑在桌面 VM 上，Flutter 的 plugin 註冊機制不會發生，所以動態庫
 /// 必須手動指給 [Isar.initializeIsarCore]。整個測試套件裡只有這一份定義知道那個庫
 /// 來自哪個 package、叫什麼檔名 —— 換套件時只要改這裡。
-const String _isarLibsPackage = 'isar_flutter_libs';
+const String _isarLibsPackage = 'isar_community_flutter_libs';
 
 /// 各平台的動態庫檔名。Windows 與其他平台的命名慣例不同，且會隨 package 改變。
 const Map<String, String> _isarLibraryFile = {
-  'windows': 'windows/isar.dll',
+  'windows': 'windows/libisar.dll',
   'linux': 'linux/libisar.so',
   'macos': 'macos/libisar.dylib',
 };

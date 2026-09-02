@@ -7,7 +7,7 @@ import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/database/data_integrity_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

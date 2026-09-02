@@ -10,7 +10,7 @@ import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/radio/radio_controller.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/radio/radio_source.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';

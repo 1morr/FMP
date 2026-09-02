@@ -14,7 +14,7 @@ import 'package:fmp/providers/library/playlist_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/services/library/playlist_service.dart';
 import 'package:fmp/ui/pages/library/library_page.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import '../../../support/isar_test_harness.dart';
 

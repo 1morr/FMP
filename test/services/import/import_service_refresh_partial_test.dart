@@ -13,7 +13,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/library/playlist_mutation_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {

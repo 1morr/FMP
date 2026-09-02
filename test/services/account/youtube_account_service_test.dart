@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/account.dart';
 import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:fmp/services/account/youtube_credentials.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {
