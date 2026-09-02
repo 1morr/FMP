@@ -271,12 +271,18 @@ class DefaultStreamResolutionService
 
   @override
   Future<void> prefetchTrack(Track track) async {
-    if (track.hasValidAudioUrl || _prefetchingTrackIds.contains(track.id)) {
+    if (_isDisposed ||
+        track.hasValidAudioUrl ||
+        _prefetchingTrackIds.contains(track.id)) {
       return;
     }
 
     _prefetchingTrackIds.add(track.id);
     try {
+      // 刻意不落盤。預取要的是「下一次播放不用再打網路」，而那靠的是把 URL
+      // 寫進佇列裡那個 track 實例（_applyStreamResult 會就地改）加上行程內的
+      // 解析快取 —— 兩者都在記憶體。預取是 fire-and-forget，讓它去寫 Isar 等於
+      // 讓一個沒人等的寫入去撞正在關閉的資料庫。真正播放時才會落盤。
       await resolvePrimary(
         track,
         purpose: StreamResolutionPurpose.prefetch,
@@ -398,7 +404,9 @@ class DefaultStreamResolutionService
     track.updatedAt = now;
     _rememberResolution(track, streamResult, requestContext);
 
-    if (!persist) return track;
+    // 預取是 fire-and-forget，關閉之後還在飛的那一次不可以再碰資料庫 ——
+    // 它會撞上正在關閉的 Isar。
+    if (!persist || _isDisposed) return track;
 
     final persistedTrack = await _findPersistedTrack(track);
     if (persistedTrack != null) {

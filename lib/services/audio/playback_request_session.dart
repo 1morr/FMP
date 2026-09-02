@@ -660,6 +660,9 @@ class PlaybackRequestSession with Logging {
       }
     }
 
+    // 佇列恢復之後幾乎一定會往下一首走，而恢復是啟動路徑上最慢的一段。
+    _prefetchNextIfRequested(true);
+
     return _PlaybackRequestExecution(
       track: selection.media.track,
       attemptedUrl: attemptedUrl,
@@ -727,11 +730,15 @@ class PlaybackRequestSession with Logging {
     ]);
   }
 
+  /// 預取下一首的串流 URL。
+  ///
+  /// 傳的是佇列裡**那個**實例，不是 copy()。解析會就地把 URL 寫進 track，寫進
+  /// 一個 copy() 等於解析完就丟掉 —— 網路照打、風控額度照燒、下次播放照樣重解析。
   void _prefetchNextIfRequested(bool prefetchNext) {
     if (!prefetchNext) return;
     final nextTrack = _getNextTrack();
     if (nextTrack != null) {
-      unawaited(_audioStreamManager.prefetchTrack(nextTrack.copy()));
+      unawaited(_audioStreamManager.prefetchTrack(nextTrack));
     }
   }
 }

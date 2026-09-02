@@ -2795,7 +2795,8 @@ class AudioController extends StateNotifier<PlayerState>
 
       final nextTrack = _nextTrackForPrefetch();
       if (nextTrack != null) {
-        unawaited(_audioStreamManager.prefetchTrack(nextTrack.copy()));
+        // 佇列裡的實例，不是 copy() —— 見 _prefetchNextIfRequested 的說明。
+        unawaited(_audioStreamManager.prefetchTrack(nextTrack));
       }
     } catch (e, stack) {
       if (_isDisposed) return;

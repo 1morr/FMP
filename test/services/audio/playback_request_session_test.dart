@@ -389,7 +389,8 @@ void main() {
       ]);
     });
 
-    test('start prefetches a copied next track when requested', () async {
+    test('start prefetches the live next track so its url is reusable',
+        () async {
       final currentTrack = _track('prefetch-current');
       final nextTrack = _track('prefetch-next')
         ..audioUrl = 'https://stale.example/prefetch-next.m4a';
@@ -414,9 +415,9 @@ void main() {
 
       expect(result.isCompleted, isTrue);
       expect(streamManager.prefetchRequests, ['prefetch-next']);
-      expect(streamManager.prefetchedTracks.single, isNot(same(nextTrack)));
-      expect(streamManager.prefetchedTracks.single.audioUrl,
-          'https://stale.example/prefetch-next.m4a');
+      // 佇列裡那個實例，不是 copy()。解析會就地把 URL 寫進 track，寫進一個 copy()
+      // 就等於解析完就丟掉：網路照打，下一次播放照樣要重解析一遍。
+      expect(streamManager.prefetchedTracks.single, same(nextTrack));
     });
 
     test('start skips next-track prefetch when disabled', () async {
