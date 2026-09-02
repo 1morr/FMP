@@ -52,9 +52,6 @@ class RadioStation {
   @Index()
   bool isFavorite = false;
 
-  /// 額外備註
-  String? note;
-
   /// 獲取唯一鍵（用於去重）
   String get uniqueKey => TrackKey.formatGroup(sourceType.name, sourceId);
 

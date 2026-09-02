@@ -276,10 +276,6 @@ class Track {
   @Index()
   DateTime? updatedAt;
 
-  /// 复合索引用于快速查找
-  @Index(composite: [CompositeIndex('sourceType')])
-  String get sourceKey => TrackKey.formatGroup(sourceType.name, sourceId);
-
   /// 分P唯一索引（用于查找特定分P）
   @Index(composite: [CompositeIndex('cid')])
   String get sourcePageKey =>

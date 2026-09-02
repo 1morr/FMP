@@ -20,7 +20,12 @@ import '../../data/repositories/playlist_mutation_repository.dart';
 import 'backup_data.dart';
 
 /// 当前备份数据格式版本
-const int kBackupVersion = 2;
+/// 備份 JSON 的格式版本。
+///
+/// v3（Phase 3）：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
+/// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，而被移除的欄位
+/// 在任何既有備份裡都是 null。
+const int kBackupVersion = 3;
 
 /// 备份服务
 ///
@@ -197,7 +202,6 @@ class BackupService with Logging {
               createdAt: r.createdAt,
               lastPlayedAt: r.lastPlayedAt,
               isFavorite: r.isFavorite,
-              note: r.note,
             ))
         .toList();
 
@@ -208,11 +212,6 @@ class BackupService with Logging {
       settingsBackup = SettingsBackup(
         themeModeIndex: settings.themeModeIndex,
         primaryColor: settings.primaryColor,
-        secondaryColor: settings.secondaryColor,
-        backgroundColor: settings.backgroundColor,
-        surfaceColor: settings.surfaceColor,
-        textColor: settings.textColor,
-        cardColor: settings.cardColor,
         maxCacheSizeMB: settings.maxCacheSizeMB,
         autoScrollToCurrentTrack: settings.autoScrollToCurrentTrack,
         rememberPlaybackPosition: settings.rememberPlaybackPosition,
@@ -626,8 +625,7 @@ class BackupService with Logging {
             ..sortOrder = radioBackup.sortOrder
             ..createdAt = radioBackup.createdAt
             ..lastPlayedAt = radioBackup.lastPlayedAt
-            ..isFavorite = radioBackup.isFavorite
-            ..note = radioBackup.note;
+            ..isFavorite = radioBackup.isFavorite;
 
           await _isar.writeTxn(() async {
             await _isar.radioStations.put(radio);
@@ -686,11 +684,6 @@ class BackupService with Logging {
           // 通用设置 - 从备份导入
           ..themeModeIndex = settingsBackup.themeModeIndex
           ..primaryColor = settingsBackup.primaryColor
-          ..secondaryColor = settingsBackup.secondaryColor
-          ..backgroundColor = settingsBackup.backgroundColor
-          ..surfaceColor = settingsBackup.surfaceColor
-          ..textColor = settingsBackup.textColor
-          ..cardColor = settingsBackup.cardColor
           ..maxCacheSizeMB = settingsBackup.maxCacheSizeMB
           ..autoScrollToCurrentTrack = settingsBackup.autoScrollToCurrentTrack
           ..rememberPlaybackPosition = settingsBackup.rememberPlaybackPosition

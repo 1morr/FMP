@@ -561,7 +561,7 @@ void main() {
       expect(exportedPath, outputPath);
       final json = jsonDecode(await File(outputPath).readAsString())
           as Map<String, dynamic>;
-      expect(json['version'], 2);
+      expect(json['version'], kBackupVersion);
       final playlistJson =
           (json['playlists'] as List<dynamic>).single as Map<String, dynamic>;
       final trackJson =

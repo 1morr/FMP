@@ -451,7 +451,6 @@ class RadioStationBackup {
   final DateTime createdAt;
   final DateTime? lastPlayedAt;
   final bool isFavorite;
-  final String? note;
 
   RadioStationBackup({
     required this.url,
@@ -466,7 +465,6 @@ class RadioStationBackup {
     required this.createdAt,
     this.lastPlayedAt,
     this.isFavorite = false,
-    this.note,
   });
 
   factory RadioStationBackup.fromJson(Map<String, dynamic> json) {
@@ -485,7 +483,6 @@ class RadioStationBackup {
           ? DateTime.parse(json['lastPlayedAt'] as String)
           : null,
       isFavorite: json['isFavorite'] as bool? ?? false,
-      note: json['note'] as String?,
     );
   }
 
@@ -503,7 +500,6 @@ class RadioStationBackup {
       'createdAt': createdAt.toIso8601String(),
       if (lastPlayedAt != null) 'lastPlayedAt': lastPlayedAt!.toIso8601String(),
       'isFavorite': isFavorite,
-      if (note != null) 'note': note,
     };
   }
 }
@@ -530,11 +526,6 @@ int _normalizeLyricsAiTimeoutSeconds(int? timeoutSeconds) {
 class SettingsBackup {
   final int themeModeIndex;
   final int? primaryColor;
-  final int? secondaryColor;
-  final int? backgroundColor;
-  final int? surfaceColor;
-  final int? textColor;
-  final int? cardColor;
   final int maxCacheSizeMB;
   final bool autoScrollToCurrentTrack;
   final bool rememberPlaybackPosition;
@@ -586,11 +577,6 @@ class SettingsBackup {
   SettingsBackup({
     this.themeModeIndex = 0,
     this.primaryColor,
-    this.secondaryColor,
-    this.backgroundColor,
-    this.surfaceColor,
-    this.textColor,
-    this.cardColor,
     int? maxCacheSizeMB,
     this.autoScrollToCurrentTrack = false,
     this.rememberPlaybackPosition = true,
@@ -655,11 +641,6 @@ class SettingsBackup {
     return SettingsBackup(
       themeModeIndex: json['themeModeIndex'] as int? ?? 0,
       primaryColor: json['primaryColor'] as int?,
-      secondaryColor: json['secondaryColor'] as int?,
-      backgroundColor: json['backgroundColor'] as int?,
-      surfaceColor: json['surfaceColor'] as int?,
-      textColor: json['textColor'] as int?,
-      cardColor: json['cardColor'] as int?,
       maxCacheSizeMB:
           json['maxCacheSizeMB'] as int? ?? _defaultBackupCacheSizeMB(),
       autoScrollToCurrentTrack:
@@ -737,11 +718,6 @@ class SettingsBackup {
     return {
       'themeModeIndex': themeModeIndex,
       if (primaryColor != null) 'primaryColor': primaryColor,
-      if (secondaryColor != null) 'secondaryColor': secondaryColor,
-      if (backgroundColor != null) 'backgroundColor': backgroundColor,
-      if (surfaceColor != null) 'surfaceColor': surfaceColor,
-      if (textColor != null) 'textColor': textColor,
-      if (cardColor != null) 'cardColor': cardColor,
       'maxCacheSizeMB': maxCacheSizeMB,
       'autoScrollToCurrentTrack': autoScrollToCurrentTrack,
       'rememberPlaybackPosition': rememberPlaybackPosition,

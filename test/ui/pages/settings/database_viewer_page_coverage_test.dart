@@ -95,7 +95,6 @@ void main() {
       'bilibiliAid',
       'uniqueKey',
       'groupKey',
-      'sourceKey',
       'sourcePageKey',
       'formattedDuration',
       'lyricsDisplayModeIndex',

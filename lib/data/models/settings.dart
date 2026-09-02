@@ -127,12 +127,6 @@ class Settings {
 
   /// 自定义颜色 (ARGB int)
   int? primaryColor;
-  int? secondaryColor;
-  int? backgroundColor;
-  int? surfaceColor;
-  int? textColor;
-  int? cardColor;
-
   /// 缓存设置
   int maxCacheSizeMB = 32; // 默认 32MB
 

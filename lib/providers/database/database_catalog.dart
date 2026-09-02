@@ -234,7 +234,6 @@ List<DatabaseViewerSection> _trackSections(Track track) {
       data: {
         'uniqueKey': track.uniqueKey,
         'groupKey': track.groupKey,
-        'sourceKey': track.sourceKey,
         'sourcePageKey': track.sourcePageKey,
         'formattedDuration': track.formattedDuration,
       },
@@ -375,11 +374,6 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       title: t.databaseViewer.colorSettings,
       data: {
         'primaryColor': _formatNullableColor(setting.primaryColor),
-        'secondaryColor': _formatNullableColor(setting.secondaryColor),
-        'backgroundColor': _formatNullableColor(setting.backgroundColor),
-        'surfaceColor': _formatNullableColor(setting.surfaceColor),
-        'textColor': _formatNullableColor(setting.textColor),
-        'cardColor': _formatNullableColor(setting.cardColor),
       },
     ),
     DatabaseViewerSection(
@@ -648,7 +642,6 @@ List<DatabaseViewerSection> _radioStationSections(RadioStation station) {
       data: {
         'sortOrder': station.sortOrder.toString(),
         'isFavorite': station.isFavorite.toString(),
-        'note': station.note ?? 'null',
       },
     ),
     DatabaseViewerSection(

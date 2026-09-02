@@ -38,7 +38,6 @@ void main() {
       expect(track.uniqueKey, expected);
       expect(track.sourcePageKey, expected);
       expect(track.groupKey, expected);
-      expect(track.sourceKey, expected);
 
       final history = PlayHistory.fromTrack(track);
       expect(history.trackKey, expected);
@@ -96,9 +95,8 @@ void main() {
         expected,
       );
 
-      // groupKey / sourceKey 刻意不含 cid —— 同一支影片的分 P 要落在同一組。
+      // groupKey 刻意不含 cid —— 同一支影片的分 P 要落在同一組。
       expect(track.groupKey, 'bilibili:BV123456');
-      expect(track.sourceKey, 'bilibili:BV123456');
     });
   });
 
