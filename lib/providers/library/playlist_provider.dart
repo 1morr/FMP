@@ -8,7 +8,7 @@ import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/source_provider.dart';
-import '../../services/library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import '../../services/library/playlist_service.dart';
 
 // 导出 PlaylistUpdateResult 供 UI 使用
@@ -29,7 +29,7 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
   if (db == null) {
     throw StateError('Database not initialized');
   }
-  final mutationService = PlaylistMutationService(isar: db);
+  final mutationService = PlaylistMutationRepository(isar: db);
   return PlaylistService(
     playlistRepository: playlistRepo,
     trackRepository: trackRepo,

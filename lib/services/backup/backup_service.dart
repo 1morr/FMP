@@ -16,7 +16,7 @@ import '../../data/models/search_history.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../providers/database/database_provider.dart';
-import '../library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import 'backup_data.dart';
 
 /// 当前备份数据格式版本
@@ -27,14 +27,14 @@ const int kBackupVersion = 2;
 /// 提供数据导出和导入功能
 class BackupService with Logging {
   final Isar _isar;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
 
   BackupService(
     Isar isar, {
-    PlaylistMutationService? mutationService,
+    PlaylistMutationRepository? mutationService,
   })  : _isar = isar,
         _mutationService =
-            mutationService ?? PlaylistMutationService(isar: isar);
+            mutationService ?? PlaylistMutationRepository(isar: isar);
 
   // ==================== 导出功能 ====================
 

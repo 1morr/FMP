@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/misc.dart';
 
 import '../../data/sources/source_provider.dart';
 import '../../services/import/import_service.dart';
-import '../../services/library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import '../account/source_auth_context_provider.dart';
 import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
@@ -211,7 +211,7 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
     // 被釋放之後才被呼叫，而 Riverpod 3 那時會拋 UnmountedRefException。
     final sourceAuthContext = ref.read(sourceAuthContextProvider);
     final isar = await ref.read(databaseProvider.future);
-    final mutationService = PlaylistMutationService(isar: isar);
+    final mutationService = PlaylistMutationRepository(isar: isar);
 
     return ImportService(
       sourceManager: sourceManager,

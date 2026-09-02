@@ -6,14 +6,14 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
-import 'package:fmp/services/library/playlist_mutation_service.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('PlaylistMutationService', () {
+  group('PlaylistMutationRepository', () {
     setUpAll(() async {
       await initializeIsarForTests();
     });
@@ -613,13 +613,13 @@ class _Harness {
   _Harness(this.isar)
       : playlists = PlaylistRepository(isar),
         tracks = TrackRepository(isar) {
-    mutations = PlaylistMutationService(isar: isar);
+    mutations = PlaylistMutationRepository(isar: isar);
   }
 
   final Isar isar;
   final PlaylistRepository playlists;
   final TrackRepository tracks;
-  late final PlaylistMutationService mutations;
+  late final PlaylistMutationRepository mutations;
 
   Future<void> dispose() async {
     final dir = Directory(isar.directory!);

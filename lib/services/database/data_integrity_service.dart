@@ -4,7 +4,7 @@ import '../../data/models/account.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/models/track.dart';
-import '../library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 
 class DataIntegrityReport {
   const DataIntegrityReport({
@@ -43,13 +43,13 @@ class DataIntegrityRepairResult {
 class DataIntegrityService {
   DataIntegrityService(
     Isar isar, {
-    PlaylistMutationService? mutationService,
+    PlaylistMutationRepository? mutationService,
   })  : _isar = isar,
         _mutationService =
-            mutationService ?? PlaylistMutationService(isar: isar);
+            mutationService ?? PlaylistMutationRepository(isar: isar);
 
   final Isar _isar;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
 
   Future<DataIntegrityReport> scan() async {
     final tracks = await _isar.tracks.where().findAll();

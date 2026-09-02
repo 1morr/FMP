@@ -1,10 +1,10 @@
 import 'package:isar_community/isar.dart';
 
 import '../../core/logger.dart';
-import '../../data/models/playlist.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/track_repository.dart';
-import 'playlist_exceptions.dart';
+import '../models/playlist.dart';
+import '../models/track.dart';
+import 'track_repository.dart';
+import '../../services/library/playlist_exceptions.dart';
 
 class PlaylistMutationResult {
   final int playlistId;
@@ -70,10 +70,10 @@ class RemoteRefreshMutationPolicy {
   });
 }
 
-class PlaylistMutationService with Logging {
+class PlaylistMutationRepository with Logging {
   final Isar _isar;
 
-  PlaylistMutationService({required Isar isar}) : _isar = isar;
+  PlaylistMutationRepository({required Isar isar}) : _isar = isar;
 
   Future<PlaylistMutationResult> addTrack(int playlistId, Track track) {
     return addTracks(playlistId, [track]);

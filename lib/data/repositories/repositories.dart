@@ -12,3 +12,4 @@ export 'lyrics_repository.dart';
 export 'lyrics_title_parse_cache_repository.dart';
 export 'search_history_repository.dart';
 export 'account_repository.dart';
+export 'playlist_mutation_repository.dart';

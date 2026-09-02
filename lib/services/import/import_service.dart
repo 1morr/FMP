@@ -10,7 +10,7 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
 import '../account/source_auth_context.dart';
-import '../library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import 'youtube_mix_shorthand.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -110,7 +110,7 @@ class ImportService with Logging implements ImportServiceFacade {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final Isar _isar;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
   final PlaylistAuthContext _sourceAuthContext;
 
   // 导入进度流
@@ -152,14 +152,14 @@ class ImportService with Logging implements ImportServiceFacade {
     required TrackRepository trackRepository,
     required Isar isar,
     required PlaylistAuthContext sourceAuthContext,
-    PlaylistMutationService? mutationService,
+    PlaylistMutationRepository? mutationService,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
         _isar = isar,
         _sourceAuthContext = sourceAuthContext,
         _mutationService = mutationService ??
-            PlaylistMutationService(
+            PlaylistMutationRepository(
               isar: isar,
             );
 

@@ -6,7 +6,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../data/models/playlist.dart';
 import '../../services/import/import_service.dart';
-import '../../services/library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import '../../core/services/toast_service.dart';
 import '../../data/sources/source_provider.dart';
 import '../account/source_auth_context_provider.dart';
@@ -129,7 +129,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final sourceAuthContext = _ref.read(sourceAuthContextProvider);
 
     final isar = await _ref.read(databaseProvider.future);
-    final mutationService = PlaylistMutationService(isar: isar);
+    final mutationService = PlaylistMutationRepository(isar: isar);
 
     final importService = ImportService(
       sourceManager: sourceManager,
