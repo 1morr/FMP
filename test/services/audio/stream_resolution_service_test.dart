@@ -321,6 +321,34 @@ void main() {
     expect(source.primaryRequests.map((request) => request.pageNum), [1, 2]);
   });
 
+  test('resolvePrimary writes a resolved cid back onto the track', () async {
+    source.nextCid = 998877;
+    final track = _track('cid-writeback');
+
+    final result = await service.resolvePrimary(
+      track,
+      purpose: StreamResolutionPurpose.playback,
+    );
+
+    expect(result.track.cid, 998877);
+    final persisted = await trackRepository.getById(result.track.id);
+    expect(persisted!.cid, 998877);
+  });
+
+  test('resolvePrimary never overwrites a cid the track already has',
+      () async {
+    source.nextCid = 998877;
+    final track = _track('cid-keep')..cid = 12345;
+
+    final result = await service.resolvePrimary(
+      track,
+      purpose: StreamResolutionPurpose.playback,
+    );
+
+    // cid 是分 P 的身分，不是可以被解析結果蓋掉的快取值。
+    expect(result.track.cid, 12345);
+  });
+
   test('resolveFallback passes failedUrl and updates track URL', () async {
     final track = _track('fallback')..cid = 13579;
 
@@ -352,6 +380,7 @@ class _RecordingAudioStreamSource implements AudioStreamSource {
   final alternativeRequests = <AudioStreamRequest>[];
   final failingQualities = <AudioQualityLevel>{};
   Duration? nextExpiry;
+  int? nextCid;
 
   @override
   SourceType get sourceType => SourceType.youtube;
@@ -367,6 +396,7 @@ class _RecordingAudioStreamSource implements AudioStreamSource {
           'https://example.com/${request.sourceId}-${request.config.qualityLevel.name}.m4a',
       streamType: StreamType.audioOnly,
       expiry: nextExpiry,
+      cid: nextCid,
     );
   }
 

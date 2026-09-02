@@ -414,6 +414,7 @@ class BilibiliSource
       codec: 'aac',
       streamType: StreamType.audioOnly,
       expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+      cid: cid,
     );
   }
 
@@ -457,6 +458,7 @@ class BilibiliSource
       codec: null,
       streamType: StreamType.muxed,
       expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+      cid: cid,
     );
   }
 

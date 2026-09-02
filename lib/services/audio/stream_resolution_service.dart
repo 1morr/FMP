@@ -401,6 +401,10 @@ class DefaultStreamResolutionService
     track.audioUrl = streamResult.url;
     track.audioUrlExpiry =
         now.add(streamResult.expiry ?? const Duration(hours: 1));
+    // cid 是不變值。回寫之後下一次解析就會把它帶進請求裡，Bilibili 因此少打
+    // 一支 /x/web-interface/view。已經有值的不覆蓋 —— 那是分 P 的身分。
+    // 必須排在 _rememberResolution 之前：cid 會進 uniqueKey，也就進快取 key。
+    track.cid ??= streamResult.cid;
     track.updatedAt = now;
     _rememberResolution(track, streamResult, requestContext);
 
@@ -412,6 +416,7 @@ class DefaultStreamResolutionService
     if (persistedTrack != null) {
       persistedTrack.audioUrl = track.audioUrl;
       persistedTrack.audioUrlExpiry = track.audioUrlExpiry;
+      persistedTrack.cid ??= track.cid;
       await _trackRepository.save(persistedTrack);
       _syncPlaylistInfo(track, persistedTrack);
       return track;
