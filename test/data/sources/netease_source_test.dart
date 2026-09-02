@@ -265,9 +265,39 @@ void main() {
       );
     });
 
-    test('a bare flag bit 4 is not treated as a VIP restriction', () async {
-      // 實測歌曲 139774 是 flag=6（含 bit 4）、code=200，匿名就能拿到 320kbps。
-      // 那個位元不帶 VIP 資訊，用它判斷等於叫使用者去付一筆不必要的錢。
+    test('not logged in wins over the VIP flag bit', () async {
+      // 沒登入的失敗常常同時帶著 flag bit 4，而該位元本身不是 VIP 標記
+      // （實測歌曲 139774 是 flag=6、code=200，匿名就拿得到 320kbps）。
+      // 先看它就會把「登入即可播放」說成「要付費」。
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {
+              'id': 1831476071,
+              'url': null,
+              'code': 301,
+              'fee': 0,
+              'flag': 4,
+            },
+          ],
+        }),
+      );
+
+      await expectLater(
+        source.getAudioStream(
+          const AudioStreamRequest(sourceId: '1831476071'),
+        ),
+        throwsA(
+          isA<NeteaseApiException>()
+              .having((e) => e.kind, 'kind', SourceErrorKind.loginRequired)
+              .having((e) => e.isVipRequired, 'isVipRequired', isFalse),
+        ),
+      );
+    });
+
+    test('a VIP song that is not a login failure is still reported as VIP',
+        () async {
       final source = NeteaseSource(
         dio: _dioReturning({
           'code': 200,
@@ -289,7 +319,7 @@ void main() {
         ),
         throwsA(
           isA<NeteaseApiException>()
-              .having((e) => e.isVipRequired, 'isVipRequired', isFalse),
+              .having((e) => e.isVipRequired, 'isVipRequired', isTrue),
         ),
       );
     });

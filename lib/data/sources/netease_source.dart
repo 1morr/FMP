@@ -908,7 +908,7 @@ class NeteaseSource
       );
     }
 
-    if (_isVipRequiredStreamError(fee: fee, message: message)) {
+    if (_isVipRequiredStreamError(fee: fee, flag: flag, message: message)) {
       return NeteaseApiException(
         numericCode: -10,
         message: message ?? 'VIP song, payment required',
@@ -971,15 +971,17 @@ class NeteaseSource
 
   /// 這首歌是不是真的需要 VIP。
   ///
-  /// 刻意**不看** `flag & 4`。實測歌曲 `139774` 是 `flag=6, code=200`，匿名就能
-  /// 拿到 320kbps 的 URL —— 那個位元根本不帶 VIP 資訊，拿它當判準會把「沒登入
-  /// 所以拿不到 URL」說成「要付費」，把使用者導向一個錯誤的結論。
-  /// 判斷留給 `fee` 與訊息本身。
+  /// `flag & 4` **不是** VIP 標記：實測歌曲 `139774` 是 `flag=6, code=200`，
+  /// 匿名就拿得到 320kbps 的 URL。它只在「本來就取不到串流」時當補充線索用，
+  /// 而且**必須排在未登入（`code == 301`）判斷之後** —— 沒登入的失敗常常同時
+  /// 帶著這個位元，先看它就會把「登入即可」說成「要付費」。
   bool _isVipRequiredStreamError({
     required int? fee,
+    required int? flag,
     required String? message,
   }) {
     if (fee == 1 || fee == 4) return true;
+    if (flag != null && (flag & 4) != 0) return true;
     final normalized = message?.toLowerCase();
     if (normalized == null) return false;
     return normalized.contains('vip') ||
