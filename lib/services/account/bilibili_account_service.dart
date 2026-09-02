@@ -15,6 +15,7 @@ import 'account_service.dart';
 import 'bilibili_credentials.dart';
 import 'bilibili_crypto.dart';
 import 'http_cookie_parser.dart';
+import '../../data/repositories/account_repository.dart';
 
 /// QR 碼數據
 class QrCodeData {
@@ -66,7 +67,7 @@ class BilibiliAccountService extends AccountService with Logging {
   final Dio _dio;
   final BilibiliLiveClient _liveClient;
   final FlutterSecureStorage _secureStorage;
-  final Isar _isar;
+  final AccountRepository _accounts;
   BilibiliCredentials? _cachedCredentials;
 
   static const String _storageKey = 'account_bilibili_credentials';
@@ -76,7 +77,7 @@ class BilibiliAccountService extends AccountService with Logging {
   BilibiliAccountService({
     required Isar isar,
     BilibiliLiveClient? liveClient,
-  })  : _isar = isar,
+  })  : _accounts = AccountRepository(isar),
         _secureStorage = const FlutterSecureStorage(),
         _dio = SourceHttpPolicy.createApiDio(SourceType.bilibili),
         _liveClient = liveClient ?? BilibiliLiveClient();
@@ -274,10 +275,7 @@ class BilibiliAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _isar.accounts
-        .filter()
-        .platformEqualTo(SourceType.bilibili)
-        .findFirst();
+    return _accounts.getByPlatform(SourceType.bilibili);
   }
 
   @override
@@ -560,24 +558,15 @@ class BilibiliAccountService extends AccountService with Logging {
     DateTime? loginAt,
     bool? isVip,
   }) async {
-    await _isar.writeTxn(() async {
-      var account = await _isar.accounts
-          .filter()
-          .platformEqualTo(SourceType.bilibili)
-          .findFirst();
-
-      account ??= Account()..platform = SourceType.bilibili;
-
-      if (isLoggedIn != null) account.isLoggedIn = isLoggedIn;
-      if (userId != null) account.userId = userId;
-      if (userName != null) account.userName = userName;
-      if (avatarUrl != null) account.avatarUrl = avatarUrl;
-      if (loginAt != null) account.loginAt = loginAt;
-      if (isVip != null) account.isVip = isVip;
-      account.lastRefreshed = DateTime.now();
-
-      await _isar.accounts.put(account);
-    });
+    await _accounts.upsert(
+      SourceType.bilibili,
+      isLoggedIn: isLoggedIn,
+      userId: userId,
+      userName: userName,
+      avatarUrl: avatarUrl,
+      loginAt: loginAt,
+      isVip: isVip,
+    );
   }
 
   /// 從 HTTP 響應中提取 Set-Cookie

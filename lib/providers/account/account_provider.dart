@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:isar_community/isar.dart';
 
 import '../../core/logger.dart';
 import '../../core/services/toast_service.dart';
@@ -17,6 +16,8 @@ import '../../services/account/netease_playlist_service.dart';
 import '../../services/account/youtube_account_service.dart';
 import '../../services/account/youtube_playlist_service.dart';
 import '../database/database_provider.dart';
+import '../database/repository_providers.dart';
+import '../../data/repositories/account_repository.dart';
 
 /// Bilibili 帳號服務 Provider（單例）
 final bilibiliAccountServiceProvider = Provider<BilibiliAccountService>((ref) {
@@ -35,8 +36,8 @@ final bilibiliFavoritesServiceProvider =
 /// Bilibili 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final bilibiliAccountProvider =
     StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
-  return AccountNotifier(isar, SourceType.bilibili);
+  final accounts = ref.watch(accountRepositoryProvider);
+  return AccountNotifier(accounts, SourceType.bilibili);
 });
 
 /// 是否已登錄 Bilibili（便捷 Provider）
@@ -62,8 +63,8 @@ final youtubePlaylistServiceProvider = Provider<YouTubePlaylistService>((ref) {
 /// YouTube 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final youtubeAccountProvider =
     StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
-  return AccountNotifier(isar, SourceType.youtube);
+  final accounts = ref.watch(accountRepositoryProvider);
+  return AccountNotifier(accounts, SourceType.youtube);
 });
 
 /// 是否已登錄 YouTube（便捷 Provider）
@@ -97,8 +98,8 @@ final neteaseAccountServiceProvider = Provider<NeteaseAccountService>((ref) {
 /// 網易雲帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final neteaseAccountProvider =
     StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
-  return AccountNotifier(isar, SourceType.netease);
+  final accounts = ref.watch(accountRepositoryProvider);
+  return AccountNotifier(accounts, SourceType.netease);
 });
 
 /// 是否已登錄網易雲（便捷 Provider）
@@ -216,25 +217,20 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
 
 /// 通用帳號狀態管理（監聽 Isar Account 變化）
 class AccountNotifier extends StateNotifier<Account?> {
-  final Isar _isar;
+  final AccountRepository _accounts;
   final SourceType _platform;
   StreamSubscription? _subscription;
 
-  AccountNotifier(this._isar, this._platform) : super(null) {
+  AccountNotifier(this._accounts, this._platform) : super(null) {
     _init();
   }
 
   void _init() {
-    final account =
-        _isar.accounts.filter().platformEqualTo(_platform).findFirstSync();
-    state = account;
-
-    _subscription = _isar.accounts
-        .filter()
-        .platformEqualTo(_platform)
-        .watch(fireImmediately: true)
-        .listen((accounts) {
-      state = accounts.isNotEmpty ? accounts.first : null;
+    // 同步先取一次，讓第一幀就有正確的登入狀態，再接上串流。
+    state = _accounts.getByPlatformSync(_platform);
+    _subscription =
+        _accounts.watchByPlatform(_platform).listen((account) {
+      state = account;
     });
   }
 

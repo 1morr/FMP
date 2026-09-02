@@ -75,3 +75,12 @@ final lyricsTitleParseCacheRepositoryProvider =
   }
   return LyricsTitleParseCacheRepository(db);
 });
+
+/// Account Repository Provider
+final accountRepositoryProvider = Provider<AccountRepository>((ref) {
+  final db = ref.watch(databaseProvider).value;
+  if (db == null) {
+    throw StateError('Database not initialized');
+  }
+  return AccountRepository(db);
+});
