@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +26,7 @@ import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -73,9 +72,7 @@ void main() {
     late AudioController controller;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -223,60 +220,6 @@ void main() {
       expect(controller.state.isLoadingMoreMix, isFalse);
     });
   });
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfig = await _loadPackageConfig();
-  final packageDir =
-      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
-
-  if (Platform.isWindows) {
-    return '${packageDir.path}/windows/isar.dll';
-  }
-  if (Platform.isLinux) {
-    return '${packageDir.path}/linux/libisar.so';
-  }
-  if (Platform.isMacOS) {
-    return '${packageDir.path}/macos/libisar.dylib';
-  }
-  throw UnsupportedError(
-      'Unsupported platform for Isar test setup: ${Platform.operatingSystem}');
-}
-
-Future<Map<String, dynamic>> _loadPackageConfig() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  if (!await packageConfigFile.exists()) {
-    throw StateError(
-      'Could not find .dart_tool/package_config.json for test package resolution',
-    );
-  }
-
-  final content = await packageConfigFile.readAsString();
-  return jsonDecode(content) as Map<String, dynamic>;
-}
-
-Directory _resolvePackageDirectory(
-  Map<String, dynamic> packageConfig,
-  String packageName,
-) {
-  final packages = packageConfig['packages'];
-  if (packages is! List) {
-    throw StateError('Invalid package_config.json format');
-  }
-
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-  for (final package in packages) {
-    if (package is! Map<String, dynamic>) continue;
-    if (package['name'] != packageName) continue;
-
-    final rootUri = package['rootUri'];
-    if (rootUri is! String) break;
-
-    return Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
-  }
-
-  throw StateError('Package not found in package_config.json: $packageName');
 }
 
 Track _track(String sourceId, {required String title}) {

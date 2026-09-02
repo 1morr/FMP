@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +6,7 @@ import 'package:isar/isar.dart';
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/search_history.dart';
 import 'package:fmp/data/repositories/search_history_repository.dart';
+import '../../support/isar_test_harness.dart';
 
 /// 真實 Isar 整合測試——驗證 SearchHistoryRepository 的去重、修剪、上限淘汰、
 /// 排序、刪除、清空與前綴建議邏輯（C10 從 SearchService 搬過來的業務規則）。
@@ -21,9 +20,7 @@ void main() {
     late SearchHistoryRepository repo;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -130,28 +127,4 @@ void main() {
       expect(upper.toSet(), {'apricot', 'Application', 'apple'});
     });
   });
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }

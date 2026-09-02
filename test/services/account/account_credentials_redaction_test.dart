@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -10,6 +8,7 @@ import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:isar/isar.dart';
+import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -19,9 +18,7 @@ void main() {
   late Map<String, String> secureStorageData;
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(
-      libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-    );
+    await initializeIsarForTests();
   });
 
   setUp(() async {
@@ -110,27 +107,3 @@ String _allLogText() {
 const _bilibiliStorageKey = 'account_bilibili_credentials';
 const _youtubeStorageKey = 'account_youtube_credentials';
 const _neteaseStorageKey = 'account_netease_credentials';
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
-}

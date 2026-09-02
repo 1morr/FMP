@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,15 +16,14 @@ import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/download/startup_download_sync_provider.dart';
 import 'package:isar/isar.dart';
+import '../support/isar_test_harness.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(
-      libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-    );
+    await initializeIsarForTests();
   });
 
   group('startup download sync', () {
@@ -298,29 +296,4 @@ Future<_Harness> _createHarness(
     isar: isar,
     tempDir: tempDir,
   );
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile = File(
-    '${Directory.current.path}/.dart_tool/package_config.json',
-  );
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }
