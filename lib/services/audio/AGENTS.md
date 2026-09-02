@@ -177,6 +177,33 @@ Other rules that survive the change:
   dispose can cancel controller subscriptions synchronously, but async
   `FmpAudioService.dispose()` failures must not become unhandled async errors.
 
+### Timeout budget
+
+`PlaybackTimeoutBudget` (`lib/core/constants/app_constants.dart`) puts an upper
+bound on each loading stage. Without it the wait is decided entirely by the
+engine: a stream that connects but sends nothing measured 6.1s of *apparent
+success* on Windows and a 37.7s block on Android, and a YouTube fall back to
+muxed took 9.9-20s.
+
+| Budget | Bounds | Enforced in |
+|---|---|---|
+| `streamResolution` (T1) | turning a track into a playable URL | `PlaybackRequestSession._withBudget` around `selectPlayback` / `selectFallbackPlayback` |
+| `mediaOpen` (T2) | handing that URL to the backend | `_waitForRequestOperation(phase: mediaOpen)` |
+| `bufferStarvation` (T3) | continuous re-buffering during playback | see below |
+
+Exceeding a budget throws `PlaybackTimeoutException`, **not** `TimeoutException`.
+The distinction carries the policy: a budget overrun means FMP chose to stop
+waiting, so it gets one fallback stream and then stops with a message; a
+`TimeoutException` from an adapter is one network hiccup and goes through the
+1/2/4/8/16s ladder. `_isRetryableError` must keep checking
+`PlaybackTimeoutException` **before** `TimeoutException`, or every timeout turns
+into five full re-resolutions.
+
+A superseded request never reports a timeout — being replaced is not a failure.
+
+Worst case for one play is T1+T2 twice (original attempt plus the one fallback).
+That ceiling is the point; P0-2 asked for *bounded*, not *short*.
+
 ### Buffer profiles (deliberate, do not revert casually)
 
 Desktop `MediaKitAudioService` uses an aggressive network buffer profile for
@@ -196,6 +223,7 @@ accident because their purpose is not obvious from the name:
 | `cache-pause-initial=no` | Start playing immediately instead of waiting for the 7200s cache target to fill |
 | `demuxer-donate-buffer=no` | Stops the demuxer handing used buffers to other threads, which fragments the heap |
 | `demuxer-lavf-o=icy=0` | Disables ICY metadata parsing; FMP never reads it |
+| `network-timeout` | mpv's own default is 60s, far above every FMP budget. Set deliberately *above* T2 so FMP's budget expires first and the failure comes back as a typed `PlaybackTimeoutException` instead of an mpv message that would have to be guessed at from its text |
 
 The method applies these unconditionally — it carries no platform check. That is
 safe only because `audioServiceProvider`

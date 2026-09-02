@@ -175,6 +175,30 @@ class AppConstants {
   static const int lyricsAiDefaultTimeoutSeconds = 20;
 }
 
+/// 播放載入路徑的逾時預算。
+///
+/// 沒有它的時候，「等多久」完全由音訊引擎內部策略決定，FMP 既不設定也不知道
+/// ——實測 YouTube 退到 muxed 要 9.9–20 秒，而一條「連得上但零位元組」的串流
+/// 在 Windows 上 6.1 秒就假裝成功、在 Android 上阻塞 37.7 秒才拋。
+///
+/// 可注入，測試才不必真的等 6 秒。
+class PlaybackTimeoutBudget {
+  const PlaybackTimeoutBudget({
+    this.streamResolution = const Duration(seconds: 6),
+    this.mediaOpen = const Duration(seconds: 8),
+    this.bufferStarvation = const Duration(seconds: 15),
+  });
+
+  /// T1：把 track 解析成一個可播的 URL。
+  final Duration streamResolution;
+
+  /// T2：把那個 URL 交給後端開流。
+  final Duration mediaOpen;
+
+  /// T3：播放中連續緩衝多久才算「播不動了」。
+  final Duration bufferStarvation;
+}
+
 /// 网络重试配置（播放失败后的渐进式重试）
 class NetworkRetryConfig {
   NetworkRetryConfig._();

@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/base_source.dart';
 import 'audio_playback_types.dart';
 import 'audio_service.dart';
 import 'audio_stream_manager.dart';
+import 'audio_types.dart';
 import 'playback_media.dart';
 
 enum PlaybackSessionResultKind {
@@ -152,7 +154,9 @@ class PlaybackRequestSession with Logging {
     required PlaybackSessionTerminalMessage terminalMediaOpenMessage,
     PlaybackSessionTerminalMediaOpen? onTerminalMediaOpenError,
     PlaybackSessionDelay? delay,
-  })  : _audioService = audioService,
+    PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
+  })  : _budget = budget,
+        _audioService = audioService,
         _audioStreamManager = audioStreamManager,
         _getNextTrack = getNextTrack,
         _onLoadingStarted = onLoadingStarted,
@@ -172,6 +176,7 @@ class PlaybackRequestSession with Logging {
   final PlaybackSessionTerminalMessage _terminalMediaOpenMessage;
   final PlaybackSessionTerminalMediaOpen? _onTerminalMediaOpenError;
   final PlaybackSessionDelay _delay;
+  final PlaybackTimeoutBudget _budget;
 
   int _requestId = 0;
   _SessionLock? _playLock;
@@ -515,8 +520,10 @@ class PlaybackRequestSession with Logging {
     }
 
     logDebug('Selecting playback for: ${track.title}');
-    final selection =
-        await _audioStreamManager.selectPlayback(track, persist: persist);
+    final selection = await _withBudget(
+      _audioStreamManager.selectPlayback(track, persist: persist),
+      PlaybackTimeoutPhase.streamResolution,
+    );
 
     if (isSuperseded(requestId)) {
       logDebug(
@@ -533,10 +540,12 @@ class PlaybackRequestSession with Logging {
           logInfo(
             'Attempting manager-selected fallback playback for: ${track.title} (failed URL: ${selection.media.debugUrl})',
           );
-          final fallbackSelection =
-              await _audioStreamManager.selectFallbackPlayback(
-            selection.media.track,
-            failedUrl: selection.media.debugUrl,
+          final fallbackSelection = await _withBudget(
+            _audioStreamManager.selectFallbackPlayback(
+              selection.media.track,
+              failedUrl: selection.media.debugUrl,
+            ),
+            PlaybackTimeoutPhase.streamResolution,
           );
 
           if (fallbackSelection != null) {
@@ -606,9 +615,9 @@ class PlaybackRequestSession with Logging {
     }
 
     logDebug('Restoring queue track: ${track.title}');
-    final selection = await _audioStreamManager.selectPlayback(
-      track,
-      persist: true,
+    final selection = await _withBudget(
+      _audioStreamManager.selectPlayback(track, persist: true),
+      PlaybackTimeoutPhase.streamResolution,
     );
 
     if (isSuperseded(requestId)) {
@@ -689,13 +698,33 @@ class PlaybackRequestSession with Logging {
       requestId: requestId,
       operation: _audioService.playMedia(media),
       description: 'playMedia',
+      phase: PlaybackTimeoutPhase.mediaOpen,
     );
+  }
+
+  /// 給一個沒有時鐘的等待加上上界。
+  ///
+  /// 逾時拋 [PlaybackTimeoutException] 而不是 [TimeoutException]：前者是
+  /// 「FMP 決定不再等」，走 fallback 一次就停下；後者是 adapter 的網路抖動，
+  /// 走退避階梯。見 audio_types.dart 的說明。
+  Future<T> _withBudget<T>(Future<T> operation, PlaybackTimeoutPhase phase) {
+    final budget = switch (phase) {
+      PlaybackTimeoutPhase.streamResolution => _budget.streamResolution,
+      PlaybackTimeoutPhase.mediaOpen => _budget.mediaOpen,
+      PlaybackTimeoutPhase.bufferStarvation => _budget.bufferStarvation,
+    };
+    return operation.timeout(budget, onTimeout: () {
+      logWarning(
+          '${phase.name} exceeded its ${budget.inMilliseconds}ms budget');
+      throw PlaybackTimeoutException(phase, budget);
+    });
   }
 
   Future<T?> _waitForRequestOperation<T>({
     required int requestId,
     required Future<T> operation,
     required String description,
+    PlaybackTimeoutPhase? phase,
   }) async {
     final operationCompleter = Completer<T?>();
     unawaited(operation.then((value) {
@@ -720,14 +749,22 @@ class PlaybackRequestSession with Logging {
     }));
 
     final lock = _playLock;
-    if (lock == null || lock.requestId != requestId) {
-      return operationCompleter.future;
-    }
+    final waited = (lock == null || lock.requestId != requestId)
+        ? operationCompleter.future
+        : Future.any([
+            operationCompleter.future,
+            lock.completer.future.then<T?>((_) => null),
+          ]);
 
-    return Future.any([
-      operationCompleter.future,
-      lock.completer.future.then<T?>((_) => null),
-    ]);
+    if (phase == null) return waited;
+    // 被新請求取代要先於逾時解決：那不是失敗，只是這一次不再重要了。
+    return _withBudget(waited, phase)
+        .catchError((Object error, StackTrace stackTrace) {
+      if (error is PlaybackTimeoutException && isSuperseded(requestId)) {
+        return null;
+      }
+      throw error;
+    });
   }
 
   /// 預取下一首的串流 URL。

@@ -2298,7 +2298,16 @@ class AudioController extends StateNotifier<PlayerState>
       if (requestId != null) {
         _resetSourceErrorLoadingState(requestId);
       }
-      _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
+      // 逾時要說是逾時。「播放失敗」對使用者來說看不出下一步該做什麼，
+      // 「連線逾時」至少指向網路。
+      _toastService.showError(
+        e is PlaybackTimeoutException
+            ? t.audio.cannotPlayReason(
+                title: track.title,
+                reason: t.audio.sourceErrorTimeout,
+              )
+            : t.audio.playbackFailedTrack(title: track.title),
+      );
     } finally {
       if (requestId != null &&
           !completedSuccessfully &&
@@ -2443,6 +2452,9 @@ class AudioController extends StateNotifier<PlayerState>
   ///   共 22 處 `on DioException catch`），所以 `DioException` 不會逃到這裡；
   /// - `MediaHandoff` 直接用 `dart:io` 的 `HttpClient`，會拋下面那幾種。
   bool _isRetryableError(Object error) {
+    // 預算逾時走的是「已經換過一次 fallback 了，停下並通知」，不進退避階梯。
+    // 必須排在 TimeoutException 之前 —— 這一行就是 D2 的決策本身。
+    if (error is PlaybackTimeoutException) return false;
     if (error is SourceApiException) return error.kind.isRetryable;
     if (error is SocketException) return true;
     if (error is HttpException) return true;

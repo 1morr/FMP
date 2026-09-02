@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 import 'package:fmp/services/audio/playback_request_session.dart';
 
@@ -472,6 +474,99 @@ void main() {
       expect(audioService.playFileCalls, isEmpty);
       expect(audioService.setUrlCalls, isEmpty);
       expect(audioService.setFileCalls, isEmpty);
+    });
+
+    group('timeout budget', () {
+      late PlaybackRequestSession budgeted;
+
+      /// 預算以毫秒計，測試才不必真的等六秒。
+      PlaybackRequestSession build({Track? Function()? getNextTrack}) {
+        session.dispose();
+        budgeted = PlaybackRequestSession(
+          audioService: audioService,
+          audioStreamManager: streamManager,
+          getNextTrack: getNextTrack ?? () => null,
+          onLoadingStarted: loadingStarted.add,
+          onLoadingFinished: (_, __) {},
+          terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+          delay: (_) async {},
+          budget: const PlaybackTimeoutBudget(
+            streamResolution: Duration(milliseconds: 40),
+            mediaOpen: Duration(milliseconds: 40),
+          ),
+        );
+        session = budgeted;
+        return budgeted;
+      }
+
+      test('stream selection that outlives its budget fails with a timeout',
+          () async {
+        build();
+        streamManager.onSelectPlayback = (_, __) => Completer<PlaybackSelection>()
+            .future; // 永不完成，就像一個卡住的 CDN
+
+        final result = await budgeted.start(
+          PlaybackSessionCommand(
+            track: _track('t1-timeout'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+        expect((result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.streamResolution);
+      });
+
+      test('media open that outlives its budget falls back exactly once',
+          () async {
+        build();
+        // 第一次開流永遠不返回；fallback 那一次正常。
+        audioService.enqueuePendingPlayUrl();
+        streamManager.onSelectFallbackPlayback = (track, _) async =>
+            PlaybackSelection(
+              media: RemotePlaybackMedia(
+                url: Uri.parse(
+                    'https://example.com/${track.sourceId}-fallback.m4a'),
+                headers: const {},
+                track: track,
+              ),
+              streamResult: null,
+            );
+
+        final result = await budgeted.start(
+          PlaybackSessionCommand(
+            track: _track('t2-fallback'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        expect(result.isCompleted, isTrue);
+        expect(streamManager.fallbackSelectionTracks, hasLength(1));
+        expect(audioService.playUrlCalls, hasLength(2));
+      });
+
+      test('media open timeout with no fallback surfaces the timeout',
+          () async {
+        build();
+        audioService.enqueuePendingPlayUrl();
+        streamManager.onSelectFallbackPlayback = (_, __) async => null;
+
+        final result = await budgeted.start(
+          PlaybackSessionCommand(
+            track: _track('t2-terminal'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+        expect((result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.mediaOpen);
+      });
     });
 
     test('restore prepares URL, seeks, and resumes when requested', () async {
