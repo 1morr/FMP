@@ -413,7 +413,8 @@ class BilibiliSource
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
-      expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+      expiry: _expiryFromUrl(audioUrl),
+      cid: cid,
     );
   }
 
@@ -456,8 +457,26 @@ class BilibiliSource
       container: 'flv',
       codec: null,
       streamType: StreamType.muxed,
-      expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+      expiry: _expiryFromUrl(url),
+      cid: cid,
     );
+  }
+
+  /// Bilibili 把有效期直接寫在媒體 URL 的 `deadline`（unix 秒）裡。
+  ///
+  /// 實測約 7178 秒 ≈ 1.99 小時 —— 跟寫死的 2 小時很接近，而「接近」在邊界上
+  /// 就等於偶爾拿著一個剛失效的 URL 去開流。已經過期的回 [Duration.zero]，
+  /// 讓它下次一定重新解析，而不是退回一個憑空的 2 小時。
+  Duration _expiryFromUrl(String url) {
+    final deadline =
+        int.tryParse(Uri.tryParse(url)?.queryParameters['deadline'] ?? '');
+    if (deadline == null) {
+      return const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours);
+    }
+
+    final remaining = DateTime.fromMillisecondsSinceEpoch(deadline * 1000)
+        .difference(DateTime.now());
+    return remaining > Duration.zero ? remaining : Duration.zero;
   }
 
   List<String> _dashAudioUrls(Map<String, dynamic> audio) {

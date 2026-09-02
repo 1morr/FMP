@@ -37,7 +37,8 @@ class NeteaseSource
 
   static const String _musicBase = 'https://music.163.com';
   static const String _interfaceBase = 'https://interface3.music.163.com';
-  static const Duration _audioUrlExpiry = Duration(minutes: 16);
+  /// API 沒回 `expi` 時的退路。實測 eapi 一直有回（1200s），所以這是防守值。
+  static const Duration _fallbackAudioUrlExpiry = Duration(minutes: 16);
   static const String _hotRankingPlaylistId = '3778678';
   static const int _songDetailBatchSize = 400;
 
@@ -110,7 +111,9 @@ class NeteaseSource
           ),
         );
         track.audioUrl = audioUrl;
-        track.audioUrlExpiry = DateTime.now().add(_audioUrlExpiry);
+        // 這條路只拿得到 URL 字串，沒有 expi，只能用退路值。
+        track.audioUrlExpiry =
+            DateTime.now().add(_fallbackAudioUrlExpiry);
       } catch (_) {
         // 音頻 URL 獲取失敗不影響歌曲信息
       }
@@ -189,7 +192,11 @@ class NeteaseSource
         container: type ?? 'mp3',
         codec: _mapCodec(type),
         streamType: StreamType.audioOnly,
-        expiry: _audioUrlExpiry,
+        // 用 API 自己回報的有效期，不要寫死。寫死太短會白白重解析，寫死太長
+        // 則會拿著一個已經失效的 URL 去開流。
+        expiry: expi != null && expi > 0
+            ? Duration(seconds: expi)
+            : _fallbackAudioUrlExpiry,
       );
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -402,7 +409,10 @@ class NeteaseSource
       ),
     );
     track.audioUrl = result.url;
-    track.audioUrlExpiry = DateTime.now().add(_audioUrlExpiry);
+    // 跟 AudioStreamResult 回報的 TTL 一致 —— 兩邊各算各的，就會出現
+    // 「解析說還有 20 分鐘、track 說只剩 16 分鐘」這種對不上的狀態。
+    track.audioUrlExpiry =
+        DateTime.now().add(result.expiry ?? _fallbackAudioUrlExpiry);
     track.updatedAt = DateTime.now();
     return track;
   }
@@ -889,6 +899,15 @@ class NeteaseSource
     final flag = _asInt(streamInfo['flag']);
     final message = _streamErrorMessage(streamInfo);
 
+    // 未登入要排在 VIP 之前。同一個回應可能兩邊都像，而「需要登入」是使用者
+    // 真的能處理的那一個 —— 反過來會把他引導去付錢。
+    if (itemCode == 301) {
+      return NeteaseApiException(
+        numericCode: 301,
+        message: message ?? 'Login required',
+      );
+    }
+
     if (_isVipRequiredStreamError(fee: fee, flag: flag, message: message)) {
       return NeteaseApiException(
         numericCode: -10,
@@ -908,12 +927,6 @@ class NeteaseSource
       );
     }
 
-    if (itemCode == 301) {
-      return NeteaseApiException(
-        numericCode: 301,
-        message: message ?? 'Login required',
-      );
-    }
     if (itemCode == 403) {
       return NeteaseApiException(
         numericCode: 403,
@@ -956,6 +969,12 @@ class NeteaseSource
     return null;
   }
 
+  /// 這首歌是不是真的需要 VIP。
+  ///
+  /// `flag & 4` **不是** VIP 標記：實測歌曲 `139774` 是 `flag=6, code=200`，
+  /// 匿名就拿得到 320kbps 的 URL。它只在「本來就取不到串流」時當補充線索用，
+  /// 而且**必須排在未登入（`code == 301`）判斷之後** —— 沒登入的失敗常常同時
+  /// 帶著這個位元，先看它就會把「登入即可」說成「要付費」。
   bool _isVipRequiredStreamError({
     required int? fee,
     required int? flag,

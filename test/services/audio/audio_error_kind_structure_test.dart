@@ -24,6 +24,14 @@ void main() {
           contains(
               'if (error is SourceApiException) return error.kind.isRetryable;'));
       expect(source, isNot(contains('bool _isNetworkError(dynamic error)')));
+
+      // D2：預算逾時不進退避階梯，adapter 的 TimeoutException 才進。兩者
+      // 順序寫反的話，逾時就會變成「重試五次、每次都重新完整解析」。
+      final budgetCheck =
+          source.indexOf('if (error is PlaybackTimeoutException) return false;');
+      final timeoutCheck = source.indexOf('error is TimeoutException');
+      expect(budgetCheck, isNot(-1));
+      expect(budgetCheck, lessThan(timeoutCheck));
     });
 
     test('backend playback events are dispatched by type, not by string', () {

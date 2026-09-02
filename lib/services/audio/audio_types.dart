@@ -146,6 +146,25 @@ final class UnclassifiedFailure extends PlaybackEndReason {
   String toString() => 'UnclassifiedFailure(raw: $raw)';
 }
 
+/// 播放載入的哪一個階段吃掉了預算。
+enum PlaybackTimeoutPhase { streamResolution, mediaOpen, bufferStarvation }
+
+/// FMP 自己決定不再等下去。
+///
+/// 刻意**不是** [TimeoutException] 的子類：那個代表 adapter 遇到一次網路抖動，
+/// 該進 1/2/4/8/16 秒的退避階梯；這個代表預算用完了，政策是「換一次 fallback
+/// 串流，仍失敗就停下並通知」。兩者共用一個型別，這個政策差別就寫不出來。
+class PlaybackTimeoutException implements Exception {
+  const PlaybackTimeoutException(this.phase, this.budget);
+
+  final PlaybackTimeoutPhase phase;
+  final Duration budget;
+
+  @override
+  String toString() =>
+      'PlaybackTimeoutException: ${phase.name} exceeded ${budget.inSeconds}s';
+}
+
 /// media_kit 后端在媒体打开后仍长时间停留在 idle（加载失败）时抛出。
 ///
 /// `RadioController` 以型别判断是否要以重新取得串流网址的方式重试，

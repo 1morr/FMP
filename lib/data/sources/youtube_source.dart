@@ -383,35 +383,30 @@ class YouTubeSource
       'qualityLevel=${config.qualityLevel}, streamPriority=${config.streamPriority}',
     );
 
-    // Always try youtube_explode first (most reliable)
+    // 每個 streamType 先匿名試一次，失敗才用**同一個** streamType 帶 auth 再試。
+    //
+    // 舊寫法是「所有 streamType 匿名跑完，才整批帶 auth」。那個順序下只要匿名
+    // muxed 成功，帶登入的 audio-only 就結構上永遠到不了 —— 而 audio-only 只有
+    // androidVr 客戶端拿得到，正是最容易被擋下的那一個。結果是音質讓位給了
+    // 「哪一種取法先成功」，實測拿到的是位元率 3–5 倍的含視訊串流。
+    final innerTube = _InnerTubeAttempt();
     for (final streamType in config.streamPriority) {
-      try {
-        final result = await _tryGetStream(videoId, streamType, config);
-        if (result != null) {
-          return result;
-        }
-      } catch (e) {
-        if (_isRateLimitError(e)) {
-          logWarning('YouTube rate limited when getting stream for $videoId');
-          throw YouTubeApiException(
-            code: 'rate_limited',
-            message: t.error.rateLimited,
-          );
-        }
-        if (_shouldAbortStreamFallback(e)) {
-          logWarning(
-              'YouTube stream type $streamType hit non-fallbackable error for $videoId: $e');
-          rethrow;
-        }
-        logDebug('Stream type $streamType failed for $videoId: $e');
-      }
-    }
+      final anonymous = await _tryStreamOrNull(videoId, streamType, config);
+      if (anonymous != null) return anonymous;
 
-    // youtube_explode failed — fall back to InnerTube with auth if available
-    if (authHeaders != null) {
-      logDebug(
-          'youtube_explode failed for $videoId, trying InnerTube with auth');
-      return _getAudioStreamViaInnerTube(videoId, authHeaders, config);
+      // 未開「播放時使用登入狀態」的使用者在這裡直接跳過，一輪延遲都不多付。
+      if (authHeaders == null) continue;
+
+      final streamingData =
+          await innerTube.streamingData(this, videoId, authHeaders);
+      if (streamingData == null) continue;
+
+      final authenticated =
+          _selectInnerTubeStream(streamingData, streamType, config);
+      if (authenticated != null) {
+        logDebug('Got ${streamType.name} stream via InnerTube for $videoId');
+        return authenticated;
+      }
     }
 
     logError('No audio stream available for YouTube video: $videoId');
@@ -419,6 +414,53 @@ class YouTubeSource
       code: 'no_stream',
       message: 'No audio stream available',
     );
+  }
+
+  /// 匿名取一次串流。可以退而求其次的失敗回 null，其餘照舊往上拋。
+  Future<AudioStreamResult?> _tryStreamOrNull(
+    String videoId,
+    StreamType streamType,
+    AudioStreamConfig config,
+  ) async {
+    try {
+      return await _tryGetStream(videoId, streamType, config);
+    } catch (e) {
+      if (_isRateLimitError(e)) {
+        logWarning('YouTube rate limited when getting stream for $videoId');
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
+      }
+      if (_shouldAbortStreamFallback(e)) {
+        logWarning(
+            'YouTube stream type $streamType hit non-fallbackable error for $videoId: $e');
+        rethrow;
+      }
+      logDebug('Stream type $streamType failed for $videoId: $e');
+      return null;
+    }
+  }
+
+  /// 帶登入的 InnerTube `/player` 回應裡的 `streamingData`。
+  ///
+  /// 用的是 **WEB** 客戶端：ANDROID_VR 配上網頁 cookie 會得到 400
+  /// （client/auth 不匹配）。
+  Future<Map<String, dynamic>?> _innerTubeStreamingData(
+    String videoId,
+    Map<String, String> authHeaders,
+  ) async {
+    logDebug('Getting authenticated streaming data via InnerTube: $videoId');
+    try {
+      final data = await _innerTubePlayerRequest(videoId, authHeaders);
+      return data['streamingData'] as Map<String, dynamic>?;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (_shouldAbortStreamFallback(e)) rethrow;
+      logDebug('InnerTube streaming data failed for $videoId: $e');
+      return null;
+    }
   }
 
   /// 尝试获取指定类型的流
@@ -642,7 +684,9 @@ class YouTubeSource
     final failedUrl = request.failedUrl;
     logDebug('Getting alternative audio stream for YouTube video: $videoId');
     try {
-      // 按流类型优先级尝试，跳过已失败的 URL
+      // 與 getAudioStream 同一個順序：每個 streamType 匿名先試，失敗才帶 auth
+      // 再試同一個。兩邊留成不同形狀就等於同一個 bug 修一半。
+      final innerTube = _InnerTubeAttempt();
       for (final streamType in config.streamPriority) {
         try {
           final result = await _tryGetAlternativeStream(
@@ -659,26 +703,21 @@ class YouTubeSource
           logDebug(
               'Alternative stream type $streamType failed for $videoId: $e');
         }
-      }
 
-      if (authHeaders != null) {
-        try {
-          final result = await _getAudioStreamViaInnerTube(
-            videoId,
-            authHeaders,
-            config,
-            failedUrl: failedUrl,
-          );
-          if (result.url != failedUrl) {
-            return result;
-          }
-        } catch (e) {
-          if (_shouldAbortStreamFallback(e)) {
-            logWarning(
-                'Authenticated alternative stream hit non-fallbackable error for $videoId: $e');
-            rethrow;
-          }
-          logDebug('Authenticated alternative stream failed for $videoId: $e');
+        if (authHeaders == null) continue;
+
+        final streamingData =
+            await innerTube.streamingData(this, videoId, authHeaders);
+        if (streamingData == null) continue;
+
+        final authenticated = _selectInnerTubeStream(
+          streamingData,
+          streamType,
+          config,
+          failedUrl: failedUrl,
+        );
+        if (authenticated != null && authenticated.url != failedUrl) {
+          return authenticated;
         }
       }
 
@@ -1898,52 +1937,6 @@ class YouTubeSource
     return RegExp(r'^\d{1,2}(:\d{2}){1,2}$').hasMatch(text.trim());
   }
 
-  /// 通过 InnerTube /player API 获取音频流（认证路径，androidVr 客户端）
-  Future<AudioStreamResult> _getAudioStreamViaInnerTube(
-    String videoId,
-    Map<String, String> authHeaders,
-    AudioStreamConfig config, {
-    String? failedUrl,
-  }) async {
-    logDebug('Getting audio stream via InnerTube for: $videoId');
-    try {
-      // Use WEB client with auth headers directly.
-      // ANDROID_VR + web cookies causes 400 errors (client/auth mismatch),
-      // and this path is only reached as fallback for restricted content.
-      final data = await _innerTubePlayerRequest(videoId, authHeaders);
-
-      final streamingData = data['streamingData'] as Map<String, dynamic>?;
-      if (streamingData == null) {
-        throw const YouTubeApiException(
-            code: 'no_stream', message: 'No streaming data from InnerTube');
-      }
-
-      for (final streamType in config.streamPriority) {
-        final result = _selectInnerTubeStream(
-          streamingData,
-          streamType,
-          config,
-          failedUrl: failedUrl,
-        );
-        if (result != null) {
-          logDebug('Got ${streamType.name} stream via InnerTube for $videoId');
-          return result;
-        }
-      }
-
-      throw const YouTubeApiException(
-          code: 'no_stream',
-          message: 'No audio stream available via InnerTube');
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      if (e is YouTubeApiException) rethrow;
-      logError('Failed to get audio stream via InnerTube: $videoId, error: $e');
-      throw YouTubeApiException(
-          code: 'error', message: 'Failed to get audio stream: $e');
-    }
-  }
-
   AudioStreamResult? _selectInnerTubeStream(
     Map<String, dynamic> streamingData,
     StreamType streamType,
@@ -2467,5 +2460,25 @@ class YouTubeSource
   void dispose() {
     _youtube.close();
     _dio.close();
+  }
+}
+
+/// 一次 `getAudioStream` 呼叫裡最多打一次 InnerTube `/player`。
+///
+/// 每個 streamType 各打一次的話，已登入使用者的最壞延遲會是原本的三倍 ——
+/// 而三次拿到的是同一份 `streamingData`。
+class _InnerTubeAttempt {
+  Map<String, dynamic>? _data;
+  bool _attempted = false;
+
+  Future<Map<String, dynamic>?> streamingData(
+    YouTubeSource source,
+    String videoId,
+    Map<String, String> authHeaders,
+  ) async {
+    if (_attempted) return _data;
+    _attempted = true;
+    _data = await source._innerTubeStreamingData(videoId, authHeaders);
+    return _data;
   }
 }

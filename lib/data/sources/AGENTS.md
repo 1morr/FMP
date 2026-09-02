@@ -49,7 +49,18 @@ header boundary; other subtrees cross-reference it rather than restating it.
 - Stream priority: audio-only (`androidVr`) > muxed > HLS. Only
   `YoutubeApiClient.androidVr` produces accessible audio-only URLs; other
   clients can return 403. Supports Opus / AAC format selection.
-- Authenticated InnerTube fallback must respect `AudioStreamConfig.streamPriority`
+- Stream selection tries each `streamPriority` entry anonymously and, only if
+  that entry failed, retries **the same entry** with auth through InnerTube.
+  Running every type anonymously first and then falling back to auth once makes
+  the authenticated audio-only path unreachable whenever anonymous muxed
+  succeeds — which is the common case, because audio-only is the flakiest of the
+  three. `getAudioStream` and `getAlternativeAudioStream` must keep the same
+  shape.
+- The authenticated InnerTube path uses the **WEB** client, not `androidVr`:
+  ANDROID_VR combined with web cookies returns 400 (client/auth mismatch).
+- One `/player` request per call, shared across stream types — they all read the
+  same `streamingData`.
+- Authenticated InnerTube selection must respect `AudioStreamConfig.streamPriority`
   and `formatPriority`. Do not hard-code audio-only before muxed, or bitrate
   before the configured codec order.
 - Alternative stream fallback must pass and exclude the failed media URL while

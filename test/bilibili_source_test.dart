@@ -634,6 +634,187 @@ void main() {
         expect(result?.streamType, StreamType.audioOnly);
       });
 
+      test('reads the URL deadline as the stream expiry', () async {
+        final deadline =
+            DateTime.now().add(const Duration(hours: 3)).millisecondsSinceEpoch ~/
+                1000;
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 42},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+          return ResponseBody.fromString(
+            jsonEncode({
+              'code': 0,
+              'data': {
+                'dash': {
+                  'audio': [
+                    {
+                      'baseUrl':
+                          'https://example.com/a.m4s?deadline=$deadline',
+                      'bandwidth': 192000,
+                    }
+                  ]
+                }
+              },
+            }),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final result = await source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'BVdeadline',
+            config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+          ),
+        );
+
+        // 寫死的 2 小時會在這裡答錯一小時。
+        expect(result.expiry!.inMinutes, greaterThan(170));
+        expect(result.expiry!.inMinutes, lessThanOrEqualTo(180));
+      });
+
+      test('falls back to the fixed expiry when the URL has no deadline',
+          () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 42},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+          return ResponseBody.fromString(
+            jsonEncode({
+              'code': 0,
+              'data': {
+                'dash': {
+                  'audio': [
+                    {
+                      'baseUrl': 'https://example.com/no-deadline.m4s',
+                      'bandwidth': 192000,
+                    }
+                  ]
+                }
+              },
+            }),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final result = await source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'BVnodeadline',
+            config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+          ),
+        );
+
+        expect(result.expiry,
+            const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
+      });
+
+      test('carries the resolved cid so a repeat play skips the view call',
+          () async {
+        final paths = <String>[];
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          paths.add(options.path);
+
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 55667788},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'dash': {
+                    'audio': [
+                      {
+                        'baseUrl': 'https://example.com/cid-carry.m4s',
+                        'bandwidth': 192000,
+                      }
+                    ]
+                  }
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+        const config =
+            AudioStreamConfig(streamPriority: [StreamType.audioOnly]);
+
+        final first = await source.getAudioStream(
+          const AudioStreamRequest(sourceId: 'BVcidcarry', config: config),
+        );
+
+        expect(first.cid, 55667788);
+        expect(paths.where((path) => path.endsWith('/x/web-interface/view')),
+            hasLength(1));
+
+        // 第二次帶著 cid 進來，就不該再為了查同一個不變值多打一支 view。
+        paths.clear();
+        await source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'BVcidcarry',
+            cid: 55667788,
+            config: config,
+          ),
+        );
+
+        expect(paths.where((path) => path.endsWith('/x/web-interface/view')),
+            isEmpty);
+      });
+
       test('should fetch audio URL for valid bvid', () async {
         // 此测试需要网络连接和有效的视频
         // 在CI/CD中可能需要跳过

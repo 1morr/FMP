@@ -26,6 +26,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   static const int desktopDemuxerMaxBytes = 24 * 1024 * 1024;
   static const int desktopDemuxerMaxBackBytes = 8 * 1024 * 1024;
   static const int desktopBufferSeconds = 7200;
+
+  /// mpv 自己的網路逾時（秒）。預設是 60，遠大於 FMP 的任何一層預算。
+  ///
+  /// 刻意設得比 T2（開流 8s）大：讓 FMP 的預算先到期，失敗才會以可分類的
+  /// [PlaybackTimeoutException] 回來，而不是一則要靠字串猜的 mpv 錯誤。
+  static const int desktopNetworkTimeoutSeconds = 15;
   static const String desktopLavfReconnectOptions =
       'reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,'
       'reconnect_delay_max=2,reconnect_max_retries=3';
@@ -289,6 +295,10 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await (nativePlayer as dynamic).setProperty(
         'stream-lavf-o',
         desktopLavfReconnectOptions,
+      );
+      await (nativePlayer as dynamic).setProperty(
+        'network-timeout',
+        desktopNetworkTimeoutSeconds.toString(),
       );
 
       logInfo(

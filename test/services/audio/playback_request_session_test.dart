@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 import 'package:fmp/services/audio/playback_request_session.dart';
 
@@ -389,7 +391,8 @@ void main() {
       ]);
     });
 
-    test('start prefetches a copied next track when requested', () async {
+    test('start prefetches the live next track so its url is reusable',
+        () async {
       final currentTrack = _track('prefetch-current');
       final nextTrack = _track('prefetch-next')
         ..audioUrl = 'https://stale.example/prefetch-next.m4a';
@@ -414,9 +417,9 @@ void main() {
 
       expect(result.isCompleted, isTrue);
       expect(streamManager.prefetchRequests, ['prefetch-next']);
-      expect(streamManager.prefetchedTracks.single, isNot(same(nextTrack)));
-      expect(streamManager.prefetchedTracks.single.audioUrl,
-          'https://stale.example/prefetch-next.m4a');
+      // 佇列裡那個實例，不是 copy()。解析會就地把 URL 寫進 track，寫進一個 copy()
+      // 就等於解析完就丟掉：網路照打，下一次播放照樣要重解析一遍。
+      expect(streamManager.prefetchedTracks.single, same(nextTrack));
     });
 
     test('start skips next-track prefetch when disabled', () async {
@@ -471,6 +474,143 @@ void main() {
       expect(audioService.playFileCalls, isEmpty);
       expect(audioService.setUrlCalls, isEmpty);
       expect(audioService.setFileCalls, isEmpty);
+    });
+
+    group('timeout budget', () {
+      late PlaybackRequestSession budgeted;
+
+      /// 預算以毫秒計，測試才不必真的等六秒。
+      PlaybackRequestSession build({Track? Function()? getNextTrack}) {
+        session.dispose();
+        budgeted = PlaybackRequestSession(
+          audioService: audioService,
+          audioStreamManager: streamManager,
+          getNextTrack: getNextTrack ?? () => null,
+          onLoadingStarted: loadingStarted.add,
+          onLoadingFinished: (_, __) {},
+          terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+          delay: (_) async {},
+          budget: const PlaybackTimeoutBudget(
+            streamResolution: Duration(milliseconds: 40),
+            mediaOpen: Duration(milliseconds: 40),
+          ),
+        );
+        session = budgeted;
+        return budgeted;
+      }
+
+      test('stream selection that outlives its budget fails with a timeout',
+          () async {
+        build();
+        streamManager.onSelectPlayback = (_, __) => Completer<PlaybackSelection>()
+            .future; // 永不完成，就像一個卡住的 CDN
+
+        final result = await budgeted.start(
+          PlaybackSessionCommand(
+            track: _track('t1-timeout'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+        expect((result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.streamResolution);
+      });
+
+      test('media open that outlives its budget falls back exactly once',
+          () async {
+        build();
+        // 第一次開流永遠不返回；fallback 那一次正常。
+        audioService.enqueuePendingPlayUrl();
+        streamManager.onSelectFallbackPlayback = (track, _) async =>
+            PlaybackSelection(
+              media: RemotePlaybackMedia(
+                url: Uri.parse(
+                    'https://example.com/${track.sourceId}-fallback.m4a'),
+                headers: const {},
+                track: track,
+              ),
+              streamResult: null,
+            );
+
+        final result = await budgeted.start(
+          PlaybackSessionCommand(
+            track: _track('t2-fallback'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        expect(result.isCompleted, isTrue);
+        expect(streamManager.fallbackSelectionTracks, hasLength(1));
+        expect(audioService.playUrlCalls, hasLength(2));
+      });
+
+      test('the fallback attempt shares the request budget, not a fresh one',
+          () async {
+        session.dispose();
+        session = PlaybackRequestSession(
+          audioService: audioService,
+          audioStreamManager: streamManager,
+          getNextTrack: () => null,
+          onLoadingStarted: loadingStarted.add,
+          onLoadingFinished: (_, __) {},
+          terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+          delay: (_) async {},
+          budget: const PlaybackTimeoutBudget(
+            streamResolution: Duration(milliseconds: 100),
+            mediaOpen: Duration(milliseconds: 100),
+          ),
+        );
+        // 兩次開流都不返回，所以只有預算會決定何時放棄。
+        audioService.enqueuePendingPlayUrl();
+        audioService.enqueuePendingPlayUrl();
+        streamManager.onSelectFallbackPlayback = (track, _) async =>
+            PlaybackSelection(
+              media: RemotePlaybackMedia(
+                url: Uri.parse('https://example.com/${track.sourceId}-fb.m4a'),
+                headers: const {},
+                track: track,
+              ),
+              streamResult: null,
+            );
+
+        final stopwatch = Stopwatch()..start();
+        final result = await session.start(
+          PlaybackSessionCommand(
+            track: _track('shared-budget'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+        stopwatch.stop();
+
+        expect(result.isFailed, isTrue);
+        // 各拿一份完整預算的話這裡會是 400ms 上下；共用總預算則落在 200ms 附近。
+        expect(stopwatch.elapsedMilliseconds, lessThan(350));
+      });
+
+      test('media open timeout with no fallback surfaces the timeout',
+          () async {
+        build();
+        audioService.enqueuePendingPlayUrl();
+        streamManager.onSelectFallbackPlayback = (_, __) async => null;
+
+        final result = await budgeted.start(
+          PlaybackSessionCommand(
+            track: _track('t2-terminal'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+        expect((result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.mediaOpen);
+      });
     });
 
     test('restore prepares URL, seeks, and resumes when requested', () async {

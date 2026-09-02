@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/base_source.dart';
 import 'audio_playback_types.dart';
 import 'audio_service.dart';
 import 'audio_stream_manager.dart';
+import 'audio_types.dart';
 import 'playback_media.dart';
 
 enum PlaybackSessionResultKind {
@@ -152,7 +154,9 @@ class PlaybackRequestSession with Logging {
     required PlaybackSessionTerminalMessage terminalMediaOpenMessage,
     PlaybackSessionTerminalMediaOpen? onTerminalMediaOpenError,
     PlaybackSessionDelay? delay,
-  })  : _audioService = audioService,
+    PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
+  })  : _budget = budget,
+        _audioService = audioService,
         _audioStreamManager = audioStreamManager,
         _getNextTrack = getNextTrack,
         _onLoadingStarted = onLoadingStarted,
@@ -172,6 +176,10 @@ class PlaybackRequestSession with Logging {
   final PlaybackSessionTerminalMessage _terminalMediaOpenMessage;
   final PlaybackSessionTerminalMediaOpen? _onTerminalMediaOpenError;
   final PlaybackSessionDelay _delay;
+  final PlaybackTimeoutBudget _budget;
+
+  /// 目前這次請求的總期限。每次 `_execute` / `_executeQueueRestore` 進來時重設。
+  DateTime? _requestDeadline;
 
   int _requestId = 0;
   _SessionLock? _playLock;
@@ -514,9 +522,12 @@ class PlaybackRequestSession with Logging {
       return null;
     }
 
+    _requestDeadline = DateTime.now().add(_budget.total);
     logDebug('Selecting playback for: ${track.title}');
-    final selection =
-        await _audioStreamManager.selectPlayback(track, persist: persist);
+    final selection = await _withBudget(
+      _audioStreamManager.selectPlayback(track, persist: persist),
+      PlaybackTimeoutPhase.streamResolution,
+    );
 
     if (isSuperseded(requestId)) {
       logDebug(
@@ -533,10 +544,12 @@ class PlaybackRequestSession with Logging {
           logInfo(
             'Attempting manager-selected fallback playback for: ${track.title} (failed URL: ${selection.media.debugUrl})',
           );
-          final fallbackSelection =
-              await _audioStreamManager.selectFallbackPlayback(
-            selection.media.track,
-            failedUrl: selection.media.debugUrl,
+          final fallbackSelection = await _withBudget(
+            _audioStreamManager.selectFallbackPlayback(
+              selection.media.track,
+              failedUrl: selection.media.debugUrl,
+            ),
+            PlaybackTimeoutPhase.streamResolution,
           );
 
           if (fallbackSelection != null) {
@@ -605,10 +618,11 @@ class PlaybackRequestSession with Logging {
       return null;
     }
 
+    _requestDeadline = DateTime.now().add(_budget.total);
     logDebug('Restoring queue track: ${track.title}');
-    final selection = await _audioStreamManager.selectPlayback(
-      track,
-      persist: true,
+    final selection = await _withBudget(
+      _audioStreamManager.selectPlayback(track, persist: true),
+      PlaybackTimeoutPhase.streamResolution,
     );
 
     if (isSuperseded(requestId)) {
@@ -660,6 +674,9 @@ class PlaybackRequestSession with Logging {
       }
     }
 
+    // 佇列恢復之後幾乎一定會往下一首走，而恢復是啟動路徑上最慢的一段。
+    _prefetchNextIfRequested(true);
+
     return _PlaybackRequestExecution(
       track: selection.media.track,
       attemptedUrl: attemptedUrl,
@@ -686,13 +703,49 @@ class PlaybackRequestSession with Logging {
       requestId: requestId,
       operation: _audioService.playMedia(media),
       description: 'playMedia',
+      phase: PlaybackTimeoutPhase.mediaOpen,
     );
+  }
+
+  /// 給一個沒有時鐘的等待加上上界。
+  ///
+  /// 逾時拋 [PlaybackTimeoutException] 而不是 [TimeoutException]：前者是
+  /// 「FMP 決定不再等」，走 fallback 一次就停下；後者是 adapter 的網路抖動，
+  /// 走退避階梯。見 audio_types.dart 的說明。
+  ///
+  /// 每個階段除了自己的預算，還受這次請求的總期限拘束 —— 否則 fallback 那一輪
+  /// 會再拿一份完整的 T1+T2，最壞等待直接翻倍。
+  Future<T> _withBudget<T>(Future<T> operation, PlaybackTimeoutPhase phase) {
+    final phaseBudget = switch (phase) {
+      PlaybackTimeoutPhase.streamResolution => _budget.streamResolution,
+      PlaybackTimeoutPhase.mediaOpen => _budget.mediaOpen,
+      PlaybackTimeoutPhase.bufferStarvation => _budget.bufferStarvation,
+    };
+    final budget = _remainingBudget(phaseBudget);
+    if (budget <= Duration.zero) {
+      logWarning('${phase.name} started with no budget left');
+      return Future.error(PlaybackTimeoutException(phase, Duration.zero));
+    }
+    return operation.timeout(budget, onTimeout: () {
+      logWarning(
+          '${phase.name} exceeded its ${budget.inMilliseconds}ms budget');
+      throw PlaybackTimeoutException(phase, budget);
+    });
+  }
+
+  /// 這次請求還剩多少時間，上限是該階段自己的預算。
+  Duration _remainingBudget(Duration phaseBudget) {
+    final deadline = _requestDeadline;
+    if (deadline == null) return phaseBudget;
+    final remaining = deadline.difference(DateTime.now());
+    return remaining < phaseBudget ? remaining : phaseBudget;
   }
 
   Future<T?> _waitForRequestOperation<T>({
     required int requestId,
     required Future<T> operation,
     required String description,
+    PlaybackTimeoutPhase? phase,
   }) async {
     final operationCompleter = Completer<T?>();
     unawaited(operation.then((value) {
@@ -717,21 +770,33 @@ class PlaybackRequestSession with Logging {
     }));
 
     final lock = _playLock;
-    if (lock == null || lock.requestId != requestId) {
-      return operationCompleter.future;
-    }
+    final waited = (lock == null || lock.requestId != requestId)
+        ? operationCompleter.future
+        : Future.any([
+            operationCompleter.future,
+            lock.completer.future.then<T?>((_) => null),
+          ]);
 
-    return Future.any([
-      operationCompleter.future,
-      lock.completer.future.then<T?>((_) => null),
-    ]);
+    if (phase == null) return waited;
+    // 被新請求取代要先於逾時解決：那不是失敗，只是這一次不再重要了。
+    return _withBudget(waited, phase)
+        .catchError((Object error, StackTrace stackTrace) {
+      if (error is PlaybackTimeoutException && isSuperseded(requestId)) {
+        return null;
+      }
+      throw error;
+    });
   }
 
+  /// 預取下一首的串流 URL。
+  ///
+  /// 傳的是佇列裡**那個**實例，不是 copy()。解析會就地把 URL 寫進 track，寫進
+  /// 一個 copy() 等於解析完就丟掉 —— 網路照打、風控額度照燒、下次播放照樣重解析。
   void _prefetchNextIfRequested(bool prefetchNext) {
     if (!prefetchNext) return;
     final nextTrack = _getNextTrack();
     if (nextTrack != null) {
-      unawaited(_audioStreamManager.prefetchTrack(nextTrack.copy()));
+      unawaited(_audioStreamManager.prefetchTrack(nextTrack));
     }
   }
 }

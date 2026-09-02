@@ -1031,3 +1031,65 @@ $ gh issue list --repo 1morr/FMP --state open --limit 30
 | 逐條複驗四份報告的所有【事實】 | 本輪只複驗了 §8.2–8.6 的 20 餘條（矛盾點、時效性、路線圖排序所依賴的關鍵前提）。**四份報告本身的證據鏈以各輪的驗證記錄為準** |
 | 成本估算的人日數字 | 除了 03 已經給出人日估計的幾項（Riverpod 3 = 2–4、Linux = 14–22、macOS = 8–14）之外，其餘的 S/M/L 沿用各輪報告的標註，**未做獨立的工時估算**。標「工作日」的地方是我的推估，未驗證 |
 ```
+
+### 6.2 執行時的失效重核（2026-09-02，Phase 1 開工當天）
+
+同樣先逐條 `rg` 過現況。**兩條主張已經失效**（都是被更早的 commit 修掉了），
+其餘成立但有多處行號位移：
+
+| 原條目 | 開工當天的實況 | 處置 |
+|---|---|---|
+| 1.7 後半：`_shouldHandleTrackCompleted` 的 `duration == null` 直接放行 | **函式已不存在**（全庫零命中）。`056f20c3` 換成兩個後端各自的 `_classifyCompletion()`，`duration == null` 現在回 `EndedPrematurely` | 撤銷，已是對的 |
+| P0-4「Android 播放期間的網路錯誤被完全丟棄」 | **已修**。`just_audio_service.dart:303-335` 把 `source error` 映射成 `TransportFailed(reset)` | 撤銷；T3 watchdog 仍要做（它管的是「引擎什麼都不說」的情況） |
+| 1.3「`track.cid` 從不回寫」引用 `bilibili_source.dart:720, 819` | 那兩行是 `VideoPage.cid` 的建構。`Track.cid` 全庫唯一寫入點是 `import_service.dart:592` | 更正引用，結論不變 |
+| 1.9 `stallsrv.py` / `holdsrv.py` 收進 repo | **全 git 歷史零命中**，只活在 scratchpad 裡 | 改成用 Dart 重寫 |
+
+**執行中發現的三件事**（報告沒寫、實作時才浮現）：
+
+| # | 發現 |
+|---|---|
+| 1 | **`Track.uniqueKey` 不含 `pageNum`**（`track.dart:334`）。解析快取只用它當 key 會把 Bilibili 分 P1 的 URL 餵給 P2 —— cid 還沒解析出來時兩者同 key。快取 key 必須另外併上 `pageNum` |
+| 2 | **預取不可以落盤**。改成傳佇列實例之後若同時開 `persist: true`，這個 fire-and-forget 的寫入會撞上正在關閉的 Isar（測試 teardown 直接重現）。預取只寫記憶體，真正播放時才落盤 |
+| 3 | **URL 沒過期不等於 URL 還能用**。短路必須配一個「播放失敗就作廢」的出口，否則被 CDN 403 掉但還沒過期的 URL 會在每次重試被交還回去，比不做快取還糟 |
+
+**實機量到、需要你拍板的一項** —— **T1 = 6 秒讓 YouTube 在 bot 檢查下完全播不了**：
+
+```
+[YouTubeSource] Audio-only stream failed for s466YCiHfKw:
+  Reason: Sign in to confirm you're not a bot
+[PlaybackRequestSession] streamResolution exceeded its 6000ms budget
+[AudioController] Failed to play track: JENNIE - FALLEN ANGEL
+  Error: PlaybackTimeoutException: streamResolution exceeded 6s
+（被放棄的解析在背景跑完）
+[DefaultStreamResolutionService] Resolved stream for youtube:s466YCiHfKw
+  in 22713ms (muxed, 446754bps)
+```
+
+逾時機制本身完全正確：6000ms 準時攔下、型別化例外、不跳歌、不進退避階梯、
+畫面出現 `Cannot play "...": Connection timed out`。問題是**數值**：
+androidVr 的 audio-only 被擋下之後，退到 muxed 實測要 22.7 秒（報告在 Windows 上量到 9.9 秒），
+兩者都遠大於 6 秒。而 audio-only 被擋是常態不是例外。
+
+**已定案並複驗：T1 = 25 秒，且整個請求共用一個總期限。**
+
+逾時是「別無限等下去」的兜底，不是逼快的閘門，所以取值偏寬：太緊的代價是那些影片
+一律播不出來，太鬆只是多轉一下才誠實失敗。20 秒實測仍會卡掉模擬器上 21.3–21.8 秒的
+muxed 退路，25 秒才過。單獨放寬 T1 會讓最壞等待變成 (T1+T2)×2 —— 比原本要修的
+Android 37.7 秒阻塞還糟 —— 所以同批加上每次請求一個 `budget.total` 期限，
+fallback 只能用剩下的時間。
+
+**實機複驗（Android 模擬器，`Medium_Phone`）**：
+
+```
+首次解析   Resolved stream for youtube:I-5e_J3LWS8 in 21137ms (muxed, 736575bps)
+           Playback selection ready in 21167ms
+重播同曲   Reusing resolved stream for youtube:I-5e_J3LWS8 (playback)
+           Playback selection ready in 25ms
+背景預取   Resolving stream for youtube:s466YCiHfKw (prefetch)
+           Resolved stream for youtube:s466YCiHfKw in 19275ms
+切下一首   Reusing resolved stream for youtube:s466YCiHfKw (playback)
+           Playback selection ready in 32ms
+```
+
+P0-1 的兩半都成立：同一首歌重播從 21,167ms 降到 25ms；下一首因為預取寫回了佇列實例，
+切歌時的解析從約 20 秒降到 32ms。

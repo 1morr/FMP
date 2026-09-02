@@ -135,6 +135,12 @@ class AppConstants {
   /// 队列保存重试延迟
   static const Duration queueSaveRetryDelay = Duration(seconds: 1);
 
+  /// 串流解析內層重試前的等待。
+  ///
+  /// 過去這裡借用 [queueSaveRetryDelay]，兩個不相干的東西共用一個數字 ——
+  /// 調整佇列保存的節奏會連帶改到播放解析的重試。
+  static const Duration streamResolutionRetryDelay = Duration(seconds: 1);
+
   // ==================== 后台服务 ====================
 
   /// 自动刷新检查间隔
@@ -173,6 +179,43 @@ class AppConstants {
 
   /// AI 歌词匹配请求默认超时（秒）
   static const int lyricsAiDefaultTimeoutSeconds = 20;
+}
+
+/// 播放載入路徑的逾時預算。
+///
+/// 沒有它的時候，「等多久」完全由音訊引擎內部策略決定，FMP 既不設定也不知道
+/// ——實測 YouTube 退到 muxed 要 9.9–20 秒，而一條「連得上但零位元組」的串流
+/// 在 Windows 上 6.1 秒就假裝成功、在 Android 上阻塞 37.7 秒才拋。
+///
+/// 可注入，測試才不必真的等 6 秒。
+class PlaybackTimeoutBudget {
+  const PlaybackTimeoutBudget({
+    this.streamResolution = const Duration(seconds: 25),
+    this.mediaOpen = const Duration(seconds: 8),
+    this.bufferStarvation = const Duration(seconds: 15),
+  });
+
+  /// T1：把 track 解析成一個可播的 URL。
+  ///
+  /// 實測：YouTube 的 androidVr audio-only 被 bot 檢查擋下之後（那是常態不是
+  /// 例外），退到 muxed 在 Android 模擬器上量到 21.3–22.7 秒、在 Windows 主機上
+  /// 9.9 秒。這一層是「別無限等下去」的兜底，不是用來逼快的閘門 —— P0-2 要的是
+  /// **有界**，不是短。太緊的代價是那些影片一律播不出來，太鬆只是多轉一下才
+  /// 誠實失敗，所以取值偏寬。命中 audio-only 的常見路徑只要 1–2 秒。
+  final Duration streamResolution;
+
+  /// T2：把那個 URL 交給後端開流。
+  final Duration mediaOpen;
+
+  /// T3：播放中連續緩衝多久才算「播不動了」。
+  final Duration bufferStarvation;
+
+  /// 一次播放請求從頭到尾的總上限。
+  ///
+  /// 沒有它的話「原始一輪 + fallback 一輪」各拿一份完整預算，最壞是
+  /// (T1+T2)×2 —— 放寬 T1 之後那會變成 56 秒，比原本要修的 Android 37.7 秒
+  /// 阻塞還糟。fallback 只能用總預算剩下的時間。
+  Duration get total => streamResolution + mediaOpen;
 }
 
 /// 网络重试配置（播放失败后的渐进式重试）

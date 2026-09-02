@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
@@ -74,6 +76,12 @@ abstract interface class StreamResolutionService {
   });
 
   Future<void> prefetchTrack(Track track);
+
+  /// 丟棄這首歌可重用的解析結果，強制下一次解析重新打網路。
+  ///
+  /// 播放失敗時必須呼叫：URL 還沒過期**不等於**它還能用（CDN 可能已經 403），
+  /// 而沒有這個出口的話，短路會把同一個死 URL 無限次交還回去。
+  void invalidateStream(Track track);
 }
 
 class DefaultStreamResolutionService
@@ -94,6 +102,18 @@ class DefaultStreamResolutionService
   final SourceManager _sourceManager;
   final SourcePlaybackAuthContext _sourceAuthContext;
   final Set<int> _prefetchingTrackIds = {};
+
+  /// 行程內的串流解析快取。
+  ///
+  /// 短路命中時沒有新的 [AudioStreamResult]，但「播放中的位元率/編碼/容器來自
+  /// 本次請求的 AudioStreamResult」是寫在 AGENTS.md 裡的契約，而 [Track] 沒有
+  /// 這些欄位、這一期也不能加（schema 變更集中在後續階段）。所以中繼資料只能
+  /// 留在記憶體裡：重啟之後會落空，那一次照常重新解析。
+  final _resolvedStreams = <String, _ResolvedStream>{};
+
+  /// 佇列可以有上千首，快取不能無界成長。夠裝「目前這首 + 預取的下一首 +
+  /// 一個隨機播放的來回窗口」即可。
+  static const int _maxResolvedStreams = 32;
   final _downloadPathsChangedController =
       StreamController<DownloadPathsChangedEvent>.broadcast();
   var _isDisposed = false;
@@ -119,6 +139,7 @@ class DefaultStreamResolutionService
       }
 
       if (localFileState.localPath != null) {
+        logDebug('Using local file for ${_describe(track)}');
         return LocalStreamResolution(
           track: track,
           path: localFileState.localPath!,
@@ -126,8 +147,21 @@ class DefaultStreamResolutionService
       }
     }
 
+    final requestContext = await _buildRequestContext(track);
+    // 下載刻意不重用：一次下載可能跑得比 5 分鐘的安全邊界還久，中途 URL 失效
+    // 會讓整個檔案廢掉，而下載本來就不在意多付一次解析。
+    final reusable = purpose == StreamResolutionPurpose.download
+        ? null
+        : _reusableResolution(track, requestContext);
+    if (reusable != null) {
+      logDebug('Reusing resolved stream for ${_describe(track)} '
+          '(${purpose.name})');
+      return reusable;
+    }
+
     return _resolveRemotePrimary(
       track,
+      requestContext: requestContext,
       purpose: purpose,
       persist: persist,
       retryCount: 0,
@@ -136,6 +170,7 @@ class DefaultStreamResolutionService
 
   Future<RemoteStreamResolution> _resolveRemotePrimary(
     Track track, {
+    required _StreamRequestContext requestContext,
     required StreamResolutionPurpose purpose,
     required bool persist,
     required int retryCount,
@@ -147,8 +182,9 @@ class DefaultStreamResolutionService
       );
     }
 
+    final stopwatch = Stopwatch()..start();
+    logDebug('Resolving stream for ${_describe(track)} (${purpose.name})');
     try {
-      final requestContext = await _buildRequestContext(track);
       final streamResult = await fetchAudioStreamWithQualityFallback(
         source: source,
         request: requestContext.request,
@@ -156,20 +192,29 @@ class DefaultStreamResolutionService
       final updatedTrack = await _applyStreamResult(
         track,
         streamResult,
+        requestContext: requestContext,
         persist: persist,
       );
+      logDebug('Resolved stream for ${_describe(track)} in '
+          '${stopwatch.elapsedMilliseconds}ms '
+          '(${streamResult.streamType.name}, ${streamResult.bitrate ?? '?'}bps)');
       return RemoteStreamResolution(
         track: updatedTrack,
         stream: streamResult,
         authHeaders: requestContext.authHeaders,
       );
-    } on SourceApiException {
+    } on SourceApiException catch (error) {
+      logWarning('Stream resolution failed for ${_describe(track)} after '
+          '${stopwatch.elapsedMilliseconds}ms: ${error.kind.name}');
       rethrow;
     } catch (_) {
       if (retryCount < 1) {
-        await Future.delayed(AppConstants.queueSaveRetryDelay);
+        logWarning('Retrying stream resolution for ${_describe(track)} after '
+            '${stopwatch.elapsedMilliseconds}ms');
+        await Future.delayed(AppConstants.streamResolutionRetryDelay);
         return _resolveRemotePrimary(
           track,
+          requestContext: await _buildRequestContext(track),
           purpose: purpose,
           persist: persist,
           retryCount: retryCount + 1,
@@ -193,6 +238,8 @@ class DefaultStreamResolutionService
       );
     }
 
+    final stopwatch = Stopwatch()..start();
+    logDebug('Resolving fallback stream for ${_describe(track)}');
     final requestContext = await _buildRequestContext(
       track,
       failedUrl: failedUrl,
@@ -201,11 +248,18 @@ class DefaultStreamResolutionService
       source: source,
       request: requestContext.request,
     );
-    if (streamResult == null) return null;
+    if (streamResult == null) {
+      logWarning('No fallback stream for ${_describe(track)} after '
+          '${stopwatch.elapsedMilliseconds}ms');
+      return null;
+    }
+    logDebug('Resolved fallback stream for ${_describe(track)} in '
+        '${stopwatch.elapsedMilliseconds}ms');
 
     final updatedTrack = await _applyStreamResult(
       track,
       streamResult,
+      requestContext: requestContext,
       persist: persist,
     );
     return RemoteStreamResolution(
@@ -217,12 +271,18 @@ class DefaultStreamResolutionService
 
   @override
   Future<void> prefetchTrack(Track track) async {
-    if (track.hasValidAudioUrl || _prefetchingTrackIds.contains(track.id)) {
+    if (_isDisposed ||
+        track.hasValidAudioUrl ||
+        _prefetchingTrackIds.contains(track.id)) {
       return;
     }
 
     _prefetchingTrackIds.add(track.id);
     try {
+      // 刻意不落盤。預取要的是「下一次播放不用再打網路」，而那靠的是把 URL
+      // 寫進佇列裡那個 track 實例（_applyStreamResult 會就地改）加上行程內的
+      // 解析快取 —— 兩者都在記憶體。預取是 fire-and-forget，讓它去寫 Isar 等於
+      // 讓一個沒人等的寫入去撞正在關閉的資料庫。真正播放時才會落盤。
       await resolvePrimary(
         track,
         purpose: StreamResolutionPurpose.prefetch,
@@ -238,6 +298,78 @@ class DefaultStreamResolutionService
       _prefetchingTrackIds.remove(track.id);
     }
   }
+
+  @override
+  void invalidateStream(Track track) {
+    if (_resolvedStreams.remove(_resolutionKey(track)) != null) {
+      logDebug('Discarded the reusable stream for ${_describe(track)}');
+    }
+  }
+
+  /// 快取 key。
+  ///
+  /// 不能只用 [Track.uniqueKey]：它是 `sourceType:sourceId[:cid]`，**不含
+  /// pageNum**，所以 cid 還沒解析出來的 Bilibili 分 P 曲目彼此撞 key ——
+  /// 那會把 P1 的 URL 餵給 P2。
+  String _resolutionKey(Track track) =>
+      '${track.uniqueKey}|${track.pageNum ?? ''}';
+
+  /// 這次請求可以直接重用先前的解析結果嗎？
+  ///
+  /// 五個條件全中才算數，任何一個不中都寧可重打網路。設定與登入狀態每次都
+  /// 重新讀（`_buildRequestContext` 只碰本機），所以換音質或登入／登出會讓
+  /// 快取自然失效，不需要額外訂閱任何變更事件。
+  RemoteStreamResolution? _reusableResolution(
+    Track track,
+    _StreamRequestContext requestContext,
+  ) {
+    if (!track.hasValidAudioUrl) return null;
+
+    final key = _resolutionKey(track);
+    final cached = _resolvedStreams.remove(key);
+    if (cached == null) return null;
+    if (cached.stream.url != track.audioUrl) return null;
+    if (!_sameConfig(cached.config, requestContext.request.config)) return null;
+    if (!mapEquals(cached.authHeaders, requestContext.authHeaders)) return null;
+
+    // 重新插入 = 更新 LRU 順序（Dart 的 Map 保有插入順序）。
+    _resolvedStreams[key] = cached;
+    return RemoteStreamResolution(
+      track: track,
+      stream: cached.stream,
+      authHeaders: requestContext.authHeaders,
+    );
+  }
+
+  void _rememberResolution(
+    Track track,
+    AudioStreamResult streamResult,
+    _StreamRequestContext requestContext,
+  ) {
+    final key = _resolutionKey(track);
+    _resolvedStreams.remove(key);
+    _resolvedStreams[key] = _ResolvedStream(
+      stream: streamResult,
+      config: requestContext.request.config,
+      authHeaders: requestContext.authHeaders,
+    );
+    while (_resolvedStreams.length > _maxResolvedStreams) {
+      _resolvedStreams.remove(_resolvedStreams.keys.first);
+    }
+  }
+
+  /// [AudioStreamConfig] 沒有值相等，所以逐欄位比。
+  bool _sameConfig(AudioStreamConfig a, AudioStreamConfig b) =>
+      a.qualityLevel == b.qualityLevel &&
+      listEquals(a.formatPriority, b.formatPriority) &&
+      listEquals(a.streamPriority, b.streamPriority);
+
+  /// 解析路徑所有 log 的統一識別碼。
+  ///
+  /// 不用 title：同名曲目在三個源之間分不開，而排查解析問題時要的正是
+  /// 「哪一個源的哪一支 id」。與既有的 prefetch 錯誤訊息格式一致。
+  String _describe(Track track) =>
+      '${track.sourceType.name}:${track.sourceId}';
 
   Future<_StreamRequestContext> _buildRequestContext(
     Track track, {
@@ -262,20 +394,29 @@ class DefaultStreamResolutionService
   Future<Track> _applyStreamResult(
     Track track,
     AudioStreamResult streamResult, {
+    required _StreamRequestContext requestContext,
     required bool persist,
   }) async {
     final now = DateTime.now();
     track.audioUrl = streamResult.url;
     track.audioUrlExpiry =
         now.add(streamResult.expiry ?? const Duration(hours: 1));
+    // cid 是不變值。回寫之後下一次解析就會把它帶進請求裡，Bilibili 因此少打
+    // 一支 /x/web-interface/view。已經有值的不覆蓋 —— 那是分 P 的身分。
+    // 必須排在 _rememberResolution 之前：cid 會進 uniqueKey，也就進快取 key。
+    track.cid ??= streamResult.cid;
     track.updatedAt = now;
+    _rememberResolution(track, streamResult, requestContext);
 
-    if (!persist) return track;
+    // 預取是 fire-and-forget，關閉之後還在飛的那一次不可以再碰資料庫 ——
+    // 它會撞上正在關閉的 Isar。
+    if (!persist || _isDisposed) return track;
 
     final persistedTrack = await _findPersistedTrack(track);
     if (persistedTrack != null) {
       persistedTrack.audioUrl = track.audioUrl;
       persistedTrack.audioUrlExpiry = track.audioUrlExpiry;
+      persistedTrack.cid ??= track.cid;
       await _trackRepository.save(persistedTrack);
       _syncPlaylistInfo(track, persistedTrack);
       return track;
@@ -387,8 +528,21 @@ class DefaultStreamResolutionService
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _resolvedStreams.clear();
     _downloadPathsChangedController.close();
   }
+}
+
+class _ResolvedStream {
+  const _ResolvedStream({
+    required this.stream,
+    required this.config,
+    required this.authHeaders,
+  });
+
+  final AudioStreamResult stream;
+  final AudioStreamConfig config;
+  final Map<String, String>? authHeaders;
 }
 
 class _StreamRequestContext {

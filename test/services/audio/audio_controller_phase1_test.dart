@@ -1492,7 +1492,56 @@ void main() {
       expect(controller.state.isLoadingMoreMix, isFalse);
     });
 
-    test('playback prefetch uses a detached next-track copy', () async {
+    test('sustained buffering recovers once without entering the retry ladder',
+        () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      controller.dispose();
+      final trackRepository = TrackRepository(isar);
+      final settingsRepository = SettingsRepository(isar);
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: _createAudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+        ),
+        toastService: toastService,
+        audioHandler: FmpAudioHandler(),
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        mixTracksFetcher: mixTracksFetcher.call,
+        budget: const PlaybackTimeoutBudget(
+          bufferStarvation: Duration(milliseconds: 30),
+        ),
+      );
+      await controller.initialize();
+
+      await controller.playSingle(_track('starved', title: 'Starved'));
+      await pumpEventQueue(times: 10);
+
+      final playsBeforeStarvation = audioService.playUrlCalls.length;
+      audioService.setPlayingValue(true);
+      audioService.emitProcessingState(FmpAudioProcessingState.buffering);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await pumpEventQueue(times: 20);
+
+      // 只救一次，而且救的方式是重發一次請求（內含 _execute 的 fallback 一次）。
+      expect(audioService.playUrlCalls.length,
+          greaterThan(playsBeforeStarvation));
+
+      // D2 的核心：逾時**不**進 1/2/4/8/16 的退避階梯。走到階梯上就代表
+      // 每次緩衝抖動都會變成五次完整重新解析，也就是症狀 c 的放大迴圈。
+      expect(controller.state.nextRetryAt, isNull);
+      expect(controller.state.isRetrying, isFalse);
+      expect(toasts.where((toast) => toast.type == ToastType.error), isEmpty);
+    });
+
+    test('playback prefetch fills the queue-owned next track url', () async {
       final tracks = [
         _track('prefetch-play-current', title: 'Prefetch Play Current'),
         _track('prefetch-play-next', title: 'Prefetch Play Next')
@@ -1507,12 +1556,13 @@ void main() {
       expect(controller.state.queue.length, 2);
       final nextQueueTrack = controller.state.queue[1];
       expect(nextQueueTrack.sourceId, 'prefetch-play-next');
+      // 預取的成果必須落在佇列自己的實例上，否則下一首照樣要重解析一次。
       expect(nextQueueTrack.audioUrl,
-          'https://stale.example/prefetch-play-next.m4a');
+          'https://example.com/prefetch-play-next.m4a');
     });
 
     test(
-        'prepareCurrentTrack prefetch keeps queue-owned next track unchanged until explicit replacement',
+        'prepareCurrentTrack prefetch fills the next track in memory without persisting it',
         () async {
       final tracks = [
         _track('prefetch-current', title: 'Prefetch Current'),
@@ -1525,8 +1575,14 @@ void main() {
       await controller.playAll(tracks, startIndex: 0);
       await pumpEventQueue(times: 20);
 
+      // 第一次播放就已經把下一首預取好了（見上一條測試）。這裡要驗的是
+      // 「重啟之後的佇列恢復也會預取」，而它的起點是資料庫裡那個過期的 URL。
       final nextTrackBeforePrepare = controller.state.queue[1];
       expect(nextTrackBeforePrepare.audioUrl,
+          'https://example.com/prefetch-next.m4a');
+      final persistedBeforePrepare =
+          await TrackRepository(isar).getById(nextTrackBeforePrepare.id);
+      expect(persistedBeforePrepare!.audioUrl,
           'https://stale.example/prefetch-next.m4a');
 
       controller.dispose();
@@ -1566,8 +1622,10 @@ void main() {
       final nextTrackAfterPrepare = controller.state.queue[1];
       expect(nextTrackAfterPrepare.id, nextTrackBeforePrepare.id);
       expect(nextTrackAfterPrepare.audioUrl,
-          'https://stale.example/prefetch-next.m4a');
+          'https://example.com/prefetch-next.m4a');
 
+      // 預取刻意只寫記憶體：它是 fire-and-forget，沒有人等它，讓它去寫 Isar
+      // 等於讓一個無人等待的寫入去撞正在關閉的資料庫。真正播放時才落盤。
       final persistedNextTrack =
           await trackRepository.getById(nextTrackAfterPrepare.id);
       expect(persistedNextTrack, isNotNull);
