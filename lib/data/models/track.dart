@@ -285,11 +285,19 @@ class Track {
       ? '${sourceType.name}:$sourceId:$cid'
       : '${sourceType.name}:$sourceId';
 
+  /// URL 過期前的安全邊界：距離過期不到這段時間就當作已經不可用。
+  ///
+  /// 解析加開流本身要數百毫秒到數秒，卡在邊界上拿到的 URL 會在開流途中失效，
+  /// 使用者看到的是「剛按下播放就失敗」。這是全 app 唯一一份邊界定義 ——
+  /// 原本還有一份躺在零呼叫的 `SourceManager.needsRefresh`，已隨此改動刪除。
+  static const Duration audioUrlRefreshMargin = Duration(minutes: 5);
+
   /// 检查音频 URL 是否有效
   bool get hasValidAudioUrl {
     if (audioUrl == null) return false;
-    if (audioUrlExpiry == null) return true;
-    return DateTime.now().isBefore(audioUrlExpiry!);
+    final expiry = audioUrlExpiry;
+    if (expiry == null) return true;
+    return DateTime.now().isBefore(expiry.subtract(audioUrlRefreshMargin));
   }
 
   Track copy() {

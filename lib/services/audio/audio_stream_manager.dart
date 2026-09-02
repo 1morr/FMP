@@ -163,6 +163,14 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     return _streamResolutionService.prefetchTrack(track);
   }
 
+  /// 丟棄這首歌可重用的解析結果。
+  ///
+  /// 刻意不放在 [PlaybackRequestStreamAccess] 上 —— 那個介面只該有選擇、
+  /// fallback 與預取（見 lib/services/audio/AGENTS.md），而作廢是控制器層在
+  /// 播放失敗後做的決定。
+  void invalidateResolvedStream(Track track) =>
+      _streamResolutionService.invalidateStream(track);
+
   /// 與 [DefaultStreamResolutionService] 共用同一種 log 識別碼，
   /// 這樣同一次播放在兩個類別的 log 行之間可以直接串起來。
   String _describe(Track track) =>

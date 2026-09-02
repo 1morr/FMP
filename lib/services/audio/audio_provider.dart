@@ -2919,6 +2919,10 @@ class AudioController extends StateNotifier<PlayerState>
 
     logWarning('Network error detected during playback: ${track.title}');
 
+    // URL 沒過期不等於 URL 還能用。失敗過的那一個必須從可重用的解析結果裡拿掉，
+    // 否則重試會一次又一次拿到同一個死 URL。
+    _audioStreamManager.invalidateResolvedStream(track);
+
     final activeRetryRequestId = state.isRetrying && _context.isInLoadingState
         ? _context.activeRequestId
         : null;
@@ -2982,6 +2986,9 @@ class AudioController extends StateNotifier<PlayerState>
 
     state = state.copyWith(isLoading: false, isPlaying: false);
     _resetLoadingState();
+    // 提前結束多半是這條串流本身出了問題（實測「零位元組」就長這樣），
+    // 重試前先讓它重新解析，別再拿同一個 URL。
+    _audioStreamManager.invalidateResolvedStream(track);
     final event = _recoveryCoordinator.onPrematureCompletion(
       track: track,
       position: position,
@@ -3133,6 +3140,7 @@ class AudioController extends StateNotifier<PlayerState>
       logDebug('Media open failure ignored: no playing track ($raw)');
       return;
     }
+    _audioStreamManager.invalidateResolvedStream(track);
     unawaited(_playbackRequestSession.onMediaOpenError(
       error: raw,
       track: track,

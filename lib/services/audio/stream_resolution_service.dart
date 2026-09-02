@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
@@ -74,6 +76,12 @@ abstract interface class StreamResolutionService {
   });
 
   Future<void> prefetchTrack(Track track);
+
+  /// 丟棄這首歌可重用的解析結果，強制下一次解析重新打網路。
+  ///
+  /// 播放失敗時必須呼叫：URL 還沒過期**不等於**它還能用（CDN 可能已經 403），
+  /// 而沒有這個出口的話，短路會把同一個死 URL 無限次交還回去。
+  void invalidateStream(Track track);
 }
 
 class DefaultStreamResolutionService
@@ -94,6 +102,18 @@ class DefaultStreamResolutionService
   final SourceManager _sourceManager;
   final SourcePlaybackAuthContext _sourceAuthContext;
   final Set<int> _prefetchingTrackIds = {};
+
+  /// 行程內的串流解析快取。
+  ///
+  /// 短路命中時沒有新的 [AudioStreamResult]，但「播放中的位元率/編碼/容器來自
+  /// 本次請求的 AudioStreamResult」是寫在 AGENTS.md 裡的契約，而 [Track] 沒有
+  /// 這些欄位、這一期也不能加（schema 變更集中在後續階段）。所以中繼資料只能
+  /// 留在記憶體裡：重啟之後會落空，那一次照常重新解析。
+  final _resolvedStreams = <String, _ResolvedStream>{};
+
+  /// 佇列可以有上千首，快取不能無界成長。夠裝「目前這首 + 預取的下一首 +
+  /// 一個隨機播放的來回窗口」即可。
+  static const int _maxResolvedStreams = 32;
   final _downloadPathsChangedController =
       StreamController<DownloadPathsChangedEvent>.broadcast();
   var _isDisposed = false;
@@ -127,8 +147,21 @@ class DefaultStreamResolutionService
       }
     }
 
+    final requestContext = await _buildRequestContext(track);
+    // 下載刻意不重用：一次下載可能跑得比 5 分鐘的安全邊界還久，中途 URL 失效
+    // 會讓整個檔案廢掉，而下載本來就不在意多付一次解析。
+    final reusable = purpose == StreamResolutionPurpose.download
+        ? null
+        : _reusableResolution(track, requestContext);
+    if (reusable != null) {
+      logDebug('Reusing resolved stream for ${_describe(track)} '
+          '(${purpose.name})');
+      return reusable;
+    }
+
     return _resolveRemotePrimary(
       track,
+      requestContext: requestContext,
       purpose: purpose,
       persist: persist,
       retryCount: 0,
@@ -137,6 +170,7 @@ class DefaultStreamResolutionService
 
   Future<RemoteStreamResolution> _resolveRemotePrimary(
     Track track, {
+    required _StreamRequestContext requestContext,
     required StreamResolutionPurpose purpose,
     required bool persist,
     required int retryCount,
@@ -151,7 +185,6 @@ class DefaultStreamResolutionService
     final stopwatch = Stopwatch()..start();
     logDebug('Resolving stream for ${_describe(track)} (${purpose.name})');
     try {
-      final requestContext = await _buildRequestContext(track);
       final streamResult = await fetchAudioStreamWithQualityFallback(
         source: source,
         request: requestContext.request,
@@ -159,6 +192,7 @@ class DefaultStreamResolutionService
       final updatedTrack = await _applyStreamResult(
         track,
         streamResult,
+        requestContext: requestContext,
         persist: persist,
       );
       logDebug('Resolved stream for ${_describe(track)} in '
@@ -180,6 +214,7 @@ class DefaultStreamResolutionService
         await Future.delayed(AppConstants.queueSaveRetryDelay);
         return _resolveRemotePrimary(
           track,
+          requestContext: await _buildRequestContext(track),
           purpose: purpose,
           persist: persist,
           retryCount: retryCount + 1,
@@ -224,6 +259,7 @@ class DefaultStreamResolutionService
     final updatedTrack = await _applyStreamResult(
       track,
       streamResult,
+      requestContext: requestContext,
       persist: persist,
     );
     return RemoteStreamResolution(
@@ -257,6 +293,71 @@ class DefaultStreamResolutionService
     }
   }
 
+  @override
+  void invalidateStream(Track track) {
+    if (_resolvedStreams.remove(_resolutionKey(track)) != null) {
+      logDebug('Discarded the reusable stream for ${_describe(track)}');
+    }
+  }
+
+  /// 快取 key。
+  ///
+  /// 不能只用 [Track.uniqueKey]：它是 `sourceType:sourceId[:cid]`，**不含
+  /// pageNum**，所以 cid 還沒解析出來的 Bilibili 分 P 曲目彼此撞 key ——
+  /// 那會把 P1 的 URL 餵給 P2。
+  String _resolutionKey(Track track) =>
+      '${track.uniqueKey}|${track.pageNum ?? ''}';
+
+  /// 這次請求可以直接重用先前的解析結果嗎？
+  ///
+  /// 五個條件全中才算數，任何一個不中都寧可重打網路。設定與登入狀態每次都
+  /// 重新讀（`_buildRequestContext` 只碰本機），所以換音質或登入／登出會讓
+  /// 快取自然失效，不需要額外訂閱任何變更事件。
+  RemoteStreamResolution? _reusableResolution(
+    Track track,
+    _StreamRequestContext requestContext,
+  ) {
+    if (!track.hasValidAudioUrl) return null;
+
+    final key = _resolutionKey(track);
+    final cached = _resolvedStreams.remove(key);
+    if (cached == null) return null;
+    if (cached.stream.url != track.audioUrl) return null;
+    if (!_sameConfig(cached.config, requestContext.request.config)) return null;
+    if (!mapEquals(cached.authHeaders, requestContext.authHeaders)) return null;
+
+    // 重新插入 = 更新 LRU 順序（Dart 的 Map 保有插入順序）。
+    _resolvedStreams[key] = cached;
+    return RemoteStreamResolution(
+      track: track,
+      stream: cached.stream,
+      authHeaders: requestContext.authHeaders,
+    );
+  }
+
+  void _rememberResolution(
+    Track track,
+    AudioStreamResult streamResult,
+    _StreamRequestContext requestContext,
+  ) {
+    final key = _resolutionKey(track);
+    _resolvedStreams.remove(key);
+    _resolvedStreams[key] = _ResolvedStream(
+      stream: streamResult,
+      config: requestContext.request.config,
+      authHeaders: requestContext.authHeaders,
+    );
+    while (_resolvedStreams.length > _maxResolvedStreams) {
+      _resolvedStreams.remove(_resolvedStreams.keys.first);
+    }
+  }
+
+  /// [AudioStreamConfig] 沒有值相等，所以逐欄位比。
+  bool _sameConfig(AudioStreamConfig a, AudioStreamConfig b) =>
+      a.qualityLevel == b.qualityLevel &&
+      listEquals(a.formatPriority, b.formatPriority) &&
+      listEquals(a.streamPriority, b.streamPriority);
+
   /// 解析路徑所有 log 的統一識別碼。
   ///
   /// 不用 title：同名曲目在三個源之間分不開，而排查解析問題時要的正是
@@ -287,6 +388,7 @@ class DefaultStreamResolutionService
   Future<Track> _applyStreamResult(
     Track track,
     AudioStreamResult streamResult, {
+    required _StreamRequestContext requestContext,
     required bool persist,
   }) async {
     final now = DateTime.now();
@@ -294,6 +396,7 @@ class DefaultStreamResolutionService
     track.audioUrlExpiry =
         now.add(streamResult.expiry ?? const Duration(hours: 1));
     track.updatedAt = now;
+    _rememberResolution(track, streamResult, requestContext);
 
     if (!persist) return track;
 
@@ -412,8 +515,21 @@ class DefaultStreamResolutionService
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _resolvedStreams.clear();
     _downloadPathsChangedController.close();
   }
+}
+
+class _ResolvedStream {
+  const _ResolvedStream({
+    required this.stream,
+    required this.config,
+    required this.authHeaders,
+  });
+
+  final AudioStreamResult stream;
+  final AudioStreamConfig config;
+  final Map<String, String>? authHeaders;
 }
 
 class _StreamRequestContext {

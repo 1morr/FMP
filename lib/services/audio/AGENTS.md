@@ -43,7 +43,13 @@ backend events.
   recovery.
 - `StreamResolutionService` — stream URL resolution, local-file selection and
   stale download-path cleanup, quality fallback, alternative stream lookup, URL
-  expiry persistence, prefetch dedupe. Asks `SourceAuthContext.authForPlay()`
+  expiry persistence, prefetch dedupe, and in-process reuse of an already
+  resolved stream. Reuse requires a still-fresh `Track.audioUrl`, a cached
+  `AudioStreamResult` whose URL still matches it, and an unchanged stream config
+  and auth header set; downloads never reuse. `invalidateStream()` must be
+  called whenever playback fails on a URL — an unexpired URL is not necessarily
+  a working one, and without that call a dead CDN URL is handed back on every
+  retry. Asks `SourceAuthContext.authForPlay()`
   for the auth used during stream resolution.
 - `AudioStreamManager` — playback selection; prepares `PreparedPlaybackMedia`.
   Depends on the narrow `PlaybackMediaRequestContext` interface for remote-stream

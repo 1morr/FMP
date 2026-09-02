@@ -136,14 +136,6 @@ class SourceManager with Logging {
     return source.refreshAudioUrl(track);
   }
 
-  /// 检查歌曲是否需要刷新 URL
-  bool needsRefresh(Track track) {
-    if (track.audioUrl == null) return true;
-    if (track.audioUrlExpiry == null) return false;
-    // 提前5分钟刷新
-    return DateTime.now()
-        .isAfter(track.audioUrlExpiry!.subtract(const Duration(minutes: 5)));
-  }
 
   /// 搜索
   Future<Map<SourceType, SearchResult>> searchAll(
