@@ -219,8 +219,17 @@ ladder. A track is rescued at most once; the guard clears when the playing track
 changes, not when a request starts, or the rescue attempt would clear its own
 guard and loop.
 
-Worst case for one play is T1+T2 twice (original attempt plus the one fallback).
-That ceiling is the point; P0-2 asked for *bounded*, not *short*.
+Every request also carries a single deadline of `budget.total` (T1+T2), so the
+fallback attempt spends what is left rather than starting a fresh budget.
+Without it the worst case is (T1+T2)x2, which at the current T1 would be worse
+than the 37.7s Android block this work exists to remove.
+
+T1 is a backstop against waiting forever, not a gate to force speed — P0-2 asked
+for *bounded*, not *short*. It has to clear the slowest path that still works:
+when YouTube's androidVr audio-only is refused by the bot check, falling back to
+muxed measured 22.7s on the emulator and 9.9s on a desktop host, and that
+refusal is the common case rather than the exception. A T1 that cannot cover it
+does not make playback fast, it makes those videos unplayable.
 
 T1 is what stops the three retry layers from multiplying. The inner resolution
 retry (once, after `AppConstants.streamResolutionRetryDelay`) and the

@@ -548,6 +548,50 @@ void main() {
         expect(audioService.playUrlCalls, hasLength(2));
       });
 
+      test('the fallback attempt shares the request budget, not a fresh one',
+          () async {
+        session.dispose();
+        session = PlaybackRequestSession(
+          audioService: audioService,
+          audioStreamManager: streamManager,
+          getNextTrack: () => null,
+          onLoadingStarted: loadingStarted.add,
+          onLoadingFinished: (_, __) {},
+          terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+          delay: (_) async {},
+          budget: const PlaybackTimeoutBudget(
+            streamResolution: Duration(milliseconds: 100),
+            mediaOpen: Duration(milliseconds: 100),
+          ),
+        );
+        // 兩次開流都不返回，所以只有預算會決定何時放棄。
+        audioService.enqueuePendingPlayUrl();
+        audioService.enqueuePendingPlayUrl();
+        streamManager.onSelectFallbackPlayback = (track, _) async =>
+            PlaybackSelection(
+              media: RemotePlaybackMedia(
+                url: Uri.parse('https://example.com/${track.sourceId}-fb.m4a'),
+                headers: const {},
+                track: track,
+              ),
+              streamResult: null,
+            );
+
+        final stopwatch = Stopwatch()..start();
+        final result = await session.start(
+          PlaybackSessionCommand(
+            track: _track('shared-budget'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+        stopwatch.stop();
+
+        expect(result.isFailed, isTrue);
+        // 各拿一份完整預算的話這裡會是 400ms 上下；共用總預算則落在 200ms 附近。
+        expect(stopwatch.elapsedMilliseconds, lessThan(350));
+      });
+
       test('media open timeout with no fallback surfaces the timeout',
           () async {
         build();

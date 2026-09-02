@@ -190,12 +190,17 @@ class AppConstants {
 /// 可注入，測試才不必真的等 6 秒。
 class PlaybackTimeoutBudget {
   const PlaybackTimeoutBudget({
-    this.streamResolution = const Duration(seconds: 6),
+    this.streamResolution = const Duration(seconds: 20),
     this.mediaOpen = const Duration(seconds: 8),
     this.bufferStarvation = const Duration(seconds: 15),
   });
 
   /// T1：把 track 解析成一個可播的 URL。
+  ///
+  /// 6 秒實測太緊：YouTube 的 androidVr audio-only 被 bot 檢查擋下之後，退到
+  /// muxed 在模擬器上要 22.7 秒、在主機上要 9.9 秒，而被擋是常態不是例外。
+  /// 6 秒等於讓那些影片一律播不出來。這一層是「別無限等下去」的兜底，不是
+  /// 用來逼快的閘門 —— P0-2 要的是**有界**，不是短。
   final Duration streamResolution;
 
   /// T2：把那個 URL 交給後端開流。
@@ -203,6 +208,13 @@ class PlaybackTimeoutBudget {
 
   /// T3：播放中連續緩衝多久才算「播不動了」。
   final Duration bufferStarvation;
+
+  /// 一次播放請求從頭到尾的總上限。
+  ///
+  /// 沒有它的話「原始一輪 + fallback 一輪」各拿一份完整預算，最壞是
+  /// (T1+T2)×2 —— 放寬 T1 之後那會變成 56 秒，比原本要修的 Android 37.7 秒
+  /// 阻塞還糟。fallback 只能用總預算剩下的時間。
+  Duration get total => streamResolution + mediaOpen;
 }
 
 /// 网络重试配置（播放失败后的渐进式重试）

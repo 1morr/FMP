@@ -178,6 +178,9 @@ class PlaybackRequestSession with Logging {
   final PlaybackSessionDelay _delay;
   final PlaybackTimeoutBudget _budget;
 
+  /// 目前這次請求的總期限。每次 `_execute` / `_executeQueueRestore` 進來時重設。
+  DateTime? _requestDeadline;
+
   int _requestId = 0;
   _SessionLock? _playLock;
   final Map<int, _PendingMediaOpenError> _pendingMediaOpenErrors = {};
@@ -519,6 +522,7 @@ class PlaybackRequestSession with Logging {
       return null;
     }
 
+    _requestDeadline = DateTime.now().add(_budget.total);
     logDebug('Selecting playback for: ${track.title}');
     final selection = await _withBudget(
       _audioStreamManager.selectPlayback(track, persist: persist),
@@ -614,6 +618,7 @@ class PlaybackRequestSession with Logging {
       return null;
     }
 
+    _requestDeadline = DateTime.now().add(_budget.total);
     logDebug('Restoring queue track: ${track.title}');
     final selection = await _withBudget(
       _audioStreamManager.selectPlayback(track, persist: true),
@@ -707,17 +712,33 @@ class PlaybackRequestSession with Logging {
   /// 逾時拋 [PlaybackTimeoutException] 而不是 [TimeoutException]：前者是
   /// 「FMP 決定不再等」，走 fallback 一次就停下；後者是 adapter 的網路抖動，
   /// 走退避階梯。見 audio_types.dart 的說明。
+  ///
+  /// 每個階段除了自己的預算，還受這次請求的總期限拘束 —— 否則 fallback 那一輪
+  /// 會再拿一份完整的 T1+T2，最壞等待直接翻倍。
   Future<T> _withBudget<T>(Future<T> operation, PlaybackTimeoutPhase phase) {
-    final budget = switch (phase) {
+    final phaseBudget = switch (phase) {
       PlaybackTimeoutPhase.streamResolution => _budget.streamResolution,
       PlaybackTimeoutPhase.mediaOpen => _budget.mediaOpen,
       PlaybackTimeoutPhase.bufferStarvation => _budget.bufferStarvation,
     };
+    final budget = _remainingBudget(phaseBudget);
+    if (budget <= Duration.zero) {
+      logWarning('${phase.name} started with no budget left');
+      return Future.error(PlaybackTimeoutException(phase, Duration.zero));
+    }
     return operation.timeout(budget, onTimeout: () {
       logWarning(
           '${phase.name} exceeded its ${budget.inMilliseconds}ms budget');
       throw PlaybackTimeoutException(phase, budget);
     });
+  }
+
+  /// 這次請求還剩多少時間，上限是該階段自己的預算。
+  Duration _remainingBudget(Duration phaseBudget) {
+    final deadline = _requestDeadline;
+    if (deadline == null) return phaseBudget;
+    final remaining = deadline.difference(DateTime.now());
+    return remaining < phaseBudget ? remaining : phaseBudget;
   }
 
   Future<T?> _waitForRequestOperation<T>({
