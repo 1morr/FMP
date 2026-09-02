@@ -91,7 +91,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   ) {
     // 多选模式的 AppBar
     if (pageState.isMultiSelectMode) {
-      final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
+      final grouped = ref.read(groupedPlayHistoryProvider).value;
       final allHistories = grouped?.values.expand((e) => e).toList() ?? [];
       final isAllSelected =
           pageState.selectedIds.length == allHistories.length &&
@@ -847,7 +847,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
   List<PlayHistory> _selectedHistories() {
     final pageState = ref.read(playHistoryPageProvider);
-    final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
+    final grouped = ref.read(groupedPlayHistoryProvider).value;
     if (grouped == null) {
       return const [];
     }

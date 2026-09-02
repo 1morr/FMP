@@ -12,6 +12,7 @@ import 'package:fmp/services/radio/radio_source.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/riverpod_test_ref.dart';
 
 void main() {
   setUpAll(() {
@@ -29,7 +30,7 @@ void main() {
       () async {
     final source = _CompletingRadioSource();
     final controller = RadioController(
-      _FakeRef(),
+      _testRef(),
       _FakeRadioRepository(),
       source,
       FakeAudioService(),
@@ -108,7 +109,7 @@ void main() {
         _station(id: 1, sourceId: '101', title: 'Station A'),
       ];
     final controller = RadioController(
-      _FakeRef(),
+      _testRef(),
       repository,
       _CompletingRadioSource(),
       FakeAudioService(),
@@ -208,7 +209,13 @@ class _CompletingLiveInfoSource extends RadioSource {
   }
 }
 
-class _FakeRef extends Fake implements Ref {}
+/// Riverpod 3 的 `Ref` 是 sealed class，不能再 fake。這兩個測試從來沒用過
+/// `_ref` 的任何行為（RadioController 只在播放路徑上讀它），所以給一個真的就好。
+Ref _testRef() {
+  final handle = createTestRef();
+  addTearDown(handle.dispose);
+  return handle.ref;
+}
 
 class _FakeRadioRepository extends Fake implements RadioRepository {
   @override

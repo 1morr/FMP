@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -220,7 +221,12 @@ class RadioState {
 
 /// 電台控制器
 class RadioController extends StateNotifier<RadioState> with Logging {
-  final Ref _ref;
+  /// 正常構造函數一定會賦值；`RadioController.forLoading()` 刻意不賦值 ——
+  /// 那個狀態只是資料庫載入中的空殼，不會有人讀它。
+  /// Riverpod 3 把 `Ref` 改成 sealed class，不能再用 `_DummyRef` 佔位，
+  /// 所以改用 late final：誤用時拋 LateInitializationError，
+  /// 語意與原本 `_DummyRef` 拋 UnimplementedError 相同。
+  late final Ref _ref;
   final RadioRepository _repository;
   final RadioSource _radioSource;
   final FmpAudioService _audioService;
@@ -258,21 +264,21 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
   /// 正常構造函數
   RadioController(
-    this._ref,
+    Ref ref,
     this._repository,
     this._radioSource,
     this._audioService, {
     Duration initialLoadDelay = Duration.zero,
   })  : _initialLoadDelay = initialLoadDelay,
         super(const RadioState()) {
+    _ref = ref;
     _initialize();
     _setupMutualExclusion();
   }
 
   /// 用於數據庫加載中的構造函數（返回空狀態）
   RadioController.forLoading()
-      : _ref = _DummyRef(),
-        _repository = _DummyRadioRepository(),
+      : _repository = _DummyRadioRepository(),
         _radioSource = RadioSource(),
         _audioService = _DummyAudioService(),
         _initialLoadDelay = Duration.zero,
@@ -1116,7 +1122,7 @@ final radioSourceProvider = Provider<RadioSource>((ref) {
 
 /// RadioRepository Provider
 final radioRepositoryProvider = Provider<RadioRepository?>((ref) {
-  final isar = ref.watch(databaseProvider).valueOrNull;
+  final isar = ref.watch(databaseProvider).value;
   if (isar == null) return null;
   return RadioRepository(isar);
 });
@@ -1157,24 +1163,6 @@ final radioStationsProvider = Provider<List<RadioStation>>((ref) {
 });
 
 // ========== Dummy Classes for Loading State ==========
-
-/// Dummy Ref for loading state
-class _DummyRef implements Ref {
-  @override
-  T watch<T>(ProviderListenable<T> provider) =>
-      throw UnimplementedError('DummyRef should not be used');
-
-  @override
-  T read<T>(ProviderListenable<T> provider) =>
-      throw UnimplementedError('DummyRef should not be used');
-
-  @override
-  void invalidate(ProviderOrFamily provider) =>
-      throw UnimplementedError('DummyRef should not be used');
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
 
 /// Dummy RadioRepository for loading state
 class _DummyRadioRepository implements RadioRepository {

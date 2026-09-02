@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';

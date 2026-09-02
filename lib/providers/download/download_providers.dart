@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/track.dart';

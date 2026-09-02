@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
@@ -646,13 +648,19 @@ void main() {
         ],
       );
 
+      // Riverpod 3 把 provider 拋出的例外包成 ProviderException，
+      // 原始例外在 .exception。斷言仍然釘住同一個 StateError。
       expect(
         () => container.read(rankingCacheServiceProvider),
         throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            'No ranking source registered',
+          isA<ProviderException>().having(
+            (wrapped) => wrapped.exception,
+            'exception',
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              'No ranking source registered',
+            ),
           ),
         ),
       );

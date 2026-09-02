@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/services/toast_service.dart';
@@ -28,7 +29,7 @@ export '../menus/selection_menu_items.dart'
 class SelectionModeAppBar extends ConsumerWidget
     implements PreferredSizeWidget {
   /// 選擇狀態 Provider
-  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState>
+  final StateNotifierProvider<SelectionNotifier, SelectionState>
       selectionProvider;
 
   /// 所有可選擇的 tracks（用於全選功能）
@@ -222,7 +223,7 @@ class SelectionModeAppBar extends ConsumerWidget
 
 /// 多選模式下的 Checkbox 組件
 class SelectionCheckbox extends ConsumerWidget {
-  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState>
+  final StateNotifierProvider<SelectionNotifier, SelectionState>
       selectionProvider;
   final Track track;
 
@@ -250,7 +251,7 @@ class SelectionCheckbox extends ConsumerWidget {
 
 /// 多選模式下的組 Checkbox 組件（用於多P視頻組）
 class SelectionGroupCheckbox extends ConsumerWidget {
-  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState>
+  final StateNotifierProvider<SelectionNotifier, SelectionState>
       selectionProvider;
   final List<Track> tracks;
 

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/settings.dart';
 import '../../services/cache/ranking_cache_service.dart';
 import '../../services/radio/radio_refresh_service.dart';

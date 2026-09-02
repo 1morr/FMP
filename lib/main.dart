@@ -174,6 +174,12 @@ void main(List<String> args) async {
 
     runApp(
       ProviderScope(
+        // Riverpod 3 預設會自動重試失敗的 provider（10 次、200ms→6.4s、共約 38 秒）。
+        // FMP 關掉它，因為重試已經有兩層明示的實作：source_http_policy / Dio 的
+        // 網路層重試，以及 AudioController 量測過的 T1/T2/T3 載入預算。再疊一層
+        // 看不見的重試會讓那些預算失效，而且 UnmountedRefException 實作的是
+        // Exception 不是 Error，預設策略會把它也重試 10 次。
+        retry: (retryCount, error) => null,
         child: TranslationProvider(
           child: const FMPApp(),
         ),

@@ -59,6 +59,38 @@ Rules:
   providers consume that provider directly; download providers must not import
   `lib/services/audio/audio_provider.dart` just to resolve streams.
 
+## Riverpod 3
+
+FMP is on `flutter_riverpod` 3.x. Four rules follow from its behaviour changes.
+
+- **Legacy providers come from a second import.** `StateNotifier`,
+  `StateNotifierProvider`, `StateProvider`, `StateController` and
+  `ChangeNotifierProvider` live in `package:flutter_riverpod/legacy.dart`; add it
+  alongside the main barrel. `KeepAliveLink`, `Override`, `ProviderOrFamily`,
+  `ProviderListenable` and `ProviderException` live in
+  `package:flutter_riverpod/misc.dart`. Rewriting the remaining
+  `StateNotifierProvider`s into `Notifier` is a separate, later change — do not
+  start it opportunistically.
+- **Automatic retry is off, globally.** `ProviderScope` in `lib/main.dart` passes
+  `retry: (retryCount, error) => null`. Retry belongs where it is visible and
+  testable: `SourceHttpPolicy`/Dio for network calls, and `AudioController`'s
+  measured load budget for playback. Do not re-enable it per provider without
+  reconciling it against those two.
+- **A provider that performs a side effect must be anchored above
+  `MaterialApp`** — by a `ref.watch` in `FMPApp.build` (`lib/app.dart`) or by a
+  `ref.listen`. Never anchor one by a `ref.watch` on a page. Riverpod 3 pauses
+  the `ref.watch` subscriptions of consumers whose subtree sits under a
+  disabled `TickerMode` (an `Overlay` entry covered by an opaque route), so a
+  page-anchored side effect stops when the user opens the full-screen player.
+  `ref.listen` subscriptions are never paused.
+- **`Ref` is a sealed class.** Tests cannot fake it. Use
+  `test/support/riverpod_test_ref.dart` (`createTestRef`), which hands back a
+  real `Ref` from a `ProviderContainer`, and replace dependencies with
+  `overrides` rather than by overriding `read`.
+- **Errors thrown by a provider arrive wrapped in `ProviderException`**; the
+  original is in `.exception`. Assertions and `catch` blocks that match on a
+  concrete exception type must unwrap it first.
+
 ## Database Startup And Migration
 
 This file owns the open/registration wiring; `lib/data/AGENTS.md` owns the

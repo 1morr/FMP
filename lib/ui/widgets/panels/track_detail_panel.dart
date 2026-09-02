@@ -113,7 +113,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     if (!LyricsWindowService.instance.isOpen) return;
 
     final parsedLyrics = ref.read(parsedLyricsProvider);
-    final match = ref.read(currentLyricsMatchProvider).valueOrNull;
+    final match = ref.read(currentLyricsMatchProvider).value;
     final playerState = ref.read(audioControllerProvider);
 
     // 计算当前行
@@ -142,7 +142,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     if (!LyricsWindowService.instance.isOpen) return;
 
     final parsedLyrics = ref.read(parsedLyricsProvider);
-    final match = ref.read(currentLyricsMatchProvider).valueOrNull;
+    final match = ref.read(currentLyricsMatchProvider).value;
     final playerState = ref.read(audioControllerProvider);
     final currentTrack = playerState.currentTrack;
 
@@ -306,7 +306,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 
     // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
     ref.listen(
-        currentLyricsMatchProvider.select((v) => v.valueOrNull?.offsetMs),
+        currentLyricsMatchProvider.select((v) => v.value?.offsetMs),
         (_, _) {
       _fullSyncLyricsToWindow();
     });
@@ -776,7 +776,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
 
     // 獲取下載基礎目錄（用於頭像路徑查找）
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
-    final baseDir = baseDirAsync.valueOrNull;
+    final baseDir = baseDirAsync.value;
 
     return ListView(
       padding: const EdgeInsets.all(20),

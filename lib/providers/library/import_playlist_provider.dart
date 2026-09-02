@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/misc.dart';
 
 import '../../data/sources/source_provider.dart';
 import '../../services/import/import_service.dart';
@@ -53,7 +55,7 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
   ImportPlaylistNotifier(this._ref, this._createService)
       : super(const ImportPlaylistState());
 
-  final Ref<ImportPlaylistState> _ref;
+  final Ref _ref;
   final ImportServiceFactory _createService;
 
   ImportServiceFacade? _service;

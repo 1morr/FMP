@@ -12,7 +12,7 @@ dependencies:
     sdk: flutter
 
   # 状态管理
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^3.4.2
 
   # 本地存储
   isar_community: ^3.3.2

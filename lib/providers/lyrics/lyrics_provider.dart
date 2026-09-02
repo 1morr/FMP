@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../../data/models/lyrics_match.dart';
 import '../../data/models/settings.dart';
@@ -116,13 +117,13 @@ final currentLyricsMatchProvider =
 
 /// 当前歌词的 externalId（用于触发内容加载，避免 offset 变化时重新加载）
 final _currentLyricsExternalIdProvider = Provider.autoDispose<String?>((ref) {
-  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  final match = ref.watch(currentLyricsMatchProvider).value;
   return match?.externalId;
 });
 
 /// 当前歌词源标识（用于决定从哪个源获取歌词内容）
 final _currentLyricsSourceProvider = Provider.autoDispose<String?>((ref) {
-  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  final match = ref.watch(currentLyricsMatchProvider).value;
   return match?.lyricsSource;
 });
 
@@ -225,7 +226,7 @@ String? _selectSubLyricsText(LyricsResult content, LyricsDisplayMode mode) {
 ///
 /// 始终解析原文歌词，根据 lyricsDisplayMode 合并附加文本（翻译/罗马音）到每行的 subText。
 final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
-  final content = ref.watch(currentLyricsContentProvider).valueOrNull;
+  final content = ref.watch(currentLyricsContentProvider).value;
   if (content == null) return null;
 
   // 始终解析原文
@@ -262,7 +263,7 @@ int calculateCurrentLyricsLineIndex({
 /// should watch this provider instead of watching raw playback position.
 final currentLyricsLineIndexProvider = Provider.autoDispose<int>((ref) {
   final lyrics = ref.watch(parsedLyricsProvider);
-  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  final match = ref.watch(currentLyricsMatchProvider).value;
   final position = ref.watch(
     audioControllerProvider.select((state) => state.position),
   );

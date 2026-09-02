@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/logger.dart';
@@ -24,7 +25,7 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
   final playlistRepo = ref.watch(playlistRepositoryProvider);
   final trackRepo = ref.watch(trackRepositoryProvider);
   final settingsRepo = ref.watch(settingsRepositoryProvider);
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }

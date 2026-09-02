@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 import 'package:fmp/i18n/strings.g.dart';
 

@@ -731,7 +731,7 @@ class _TrackInfoDialog extends ConsumerWidget {
     ref.watch(fileExistsCacheProvider);
     final cache = ref.read(fileExistsCacheProvider.notifier);
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
-    final baseDir = baseDirAsync.valueOrNull;
+    final baseDir = baseDirAsync.value;
 
     final isYouTube = currentTrack?.sourceType == SourceType.youtube;
 

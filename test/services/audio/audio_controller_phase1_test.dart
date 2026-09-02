@@ -320,14 +320,14 @@ void main() {
         _track('notification-next', title: 'Notification Next'),
       ]);
       await controller.playAt(0);
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification First');
+      expect(handler.mediaItem.value?.title, 'Notification First');
 
       final pendingNextLoad = audioService.enqueuePendingPlayUrl();
       final nextFuture = controller.next();
       await audioService.waitForPlayUrlCallCount(2);
       await pumpEventQueue(times: 5);
 
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification Next');
+      expect(handler.mediaItem.value?.title, 'Notification Next');
       expect(
         handler.playbackState.value.processingState,
         AudioProcessingState.loading,
@@ -378,7 +378,7 @@ void main() {
         _track('notification-fail-next', title: 'Notification Fail Next'),
       ]);
       await controller.playAt(0);
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification Fail First');
+      expect(handler.mediaItem.value?.title, 'Notification Fail First');
       await pumpEventQueue(times: 20);
 
       sourceManager.throwGetAudioStreamOnce(
@@ -391,7 +391,7 @@ void main() {
       await controller.next();
       await pumpEventQueue(times: 10);
 
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification Fail Next');
+      expect(handler.mediaItem.value?.title, 'Notification Fail Next');
       expect(
         handler.playbackState.value.processingState,
         isNot(AudioProcessingState.loading),
