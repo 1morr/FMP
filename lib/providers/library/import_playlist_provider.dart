@@ -207,6 +207,9 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
     final sourceManager = ref.read(sourceManagerProvider);
     final playlistRepository = ref.read(playlistRepositoryProvider);
     final trackRepository = ref.read(trackRepositoryProvider);
+    // 在 await 之前讀完：這個工廠回傳的閉包捕獲了 ref，可能在 provider
+    // 被釋放之後才被呼叫，而 Riverpod 3 那時會拋 UnmountedRefException。
+    final sourceAuthContext = ref.read(sourceAuthContextProvider);
     final isar = await ref.read(databaseProvider.future);
     final mutationService = PlaylistMutationService(isar: isar);
 
@@ -216,7 +219,7 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
       trackRepository: trackRepository,
       isar: isar,
       mutationService: mutationService,
-      sourceAuthContext: ref.read(sourceAuthContextProvider),
+      sourceAuthContext: sourceAuthContext,
     );
   };
 });

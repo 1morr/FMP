@@ -102,6 +102,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         description: description,
         coverUrl: coverUrl,
       );
+      // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
+      // dispose 之後的 Ref 會拋 UnmountedRefException。
+      if (!mounted) return playlist;
       // watch 自动更新列表
       _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
         [playlist.id],
@@ -136,6 +139,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         refreshIntervalHours: refreshIntervalHours,
         useAuthForRefresh: useAuthForRefresh,
       );
+      // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
+      // dispose 之後的 Ref 會拋 UnmountedRefException。
+      if (!mounted) return result;
       // watch 自动更新列表
       _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
             playlistId,
@@ -153,6 +159,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   Future<bool> deletePlaylist(int playlistId) async {
     try {
       final result = await _service.deletePlaylist(playlistId);
+      // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
+      // dispose 之後的 Ref 會拋 UnmountedRefException。
+      if (!mounted) return true;
       // watch 自动更新列表
       _ref
           .read(libraryInvalidationCoordinatorProvider)
@@ -168,6 +177,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   Future<Playlist?> duplicatePlaylist(int playlistId, String newName) async {
     try {
       final playlist = await _service.duplicatePlaylist(playlistId, newName);
+      // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
+      // dispose 之後的 Ref 會拋 UnmountedRefException。
+      if (!mounted) return playlist;
       // watch 自动更新列表
       _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
         [playlist.id],

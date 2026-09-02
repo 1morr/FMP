@@ -141,15 +141,18 @@ final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
 /// 在 app.dart 中 watch 此 Provider。內部先等待 Cookie 刷新完成，
 /// 再依序檢查各平台，避免併發網絡請求。
 final accountStatusCheckProvider = FutureProvider<void>((ref) async {
-  // 先完成 Bilibili Cookie 刷新
-  await ref.watch(accountCookieRefreshProvider.future);
-
+  // 這四個都不依賴 Cookie 刷新的結果，所以在 await 之前就讀完。
+  // Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException（2.x 只有
+  // debug assert），在 await 之前讀完比事後補 ref.mounted 護欄更直接。
   final toastService = ref.read(toastServiceProvider);
   final services = <AccountService>[
     ref.read(bilibiliAccountServiceProvider),
     ref.read(youtubeAccountServiceProvider),
     ref.read(neteaseAccountServiceProvider),
   ];
+
+  // 先完成 Bilibili Cookie 刷新
+  await ref.watch(accountCookieRefreshProvider.future);
 
   await verifyAllAccountStatuses(services, toastService);
 });

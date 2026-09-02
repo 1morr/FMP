@@ -124,6 +124,9 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final sourceManager = _ref.read(sourceManagerProvider);
     final playlistRepo = _ref.read(playlistRepositoryProvider);
     final trackRepo = _ref.read(trackRepositoryProvider);
+    // 在 await 之前讀完 —— Riverpod 3 對 dispose 之後的 Ref 會拋
+    // UnmountedRefException，而這個值不依賴資料庫。
+    final sourceAuthContext = _ref.read(sourceAuthContextProvider);
 
     final isar = await _ref.read(databaseProvider.future);
     final mutationService = PlaylistMutationService(isar: isar);
@@ -134,7 +137,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       trackRepository: trackRepo,
       isar: isar,
       mutationService: mutationService,
-      sourceAuthContext: _ref.read(sourceAuthContextProvider),
+      sourceAuthContext: sourceAuthContext,
     );
     _activeImportServices[playlistId] = importService;
 

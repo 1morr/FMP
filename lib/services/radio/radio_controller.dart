@@ -591,11 +591,13 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     final savedQueueIndex = _savedMusicQueueIndex;
     final savedPosition = _savedMusicPosition;
     final savedWasPlaying = _savedMusicWasPlaying;
+    // 在 await 之前讀完：stop() 之後這個 controller 可能已經被釋放，
+    // 而 Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException。
+    final audioController = _ref.read(audioControllerProvider.notifier);
 
     await stop();
 
     try {
-      final audioController = _ref.read(audioControllerProvider.notifier);
       await audioController.returnFromRadio(
         savedQueueIndex: savedQueueIndex,
         savedPosition: savedPosition,
