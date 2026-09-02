@@ -134,6 +134,7 @@ void main() {
       'trackCount',
       'LyricsTitleParseCache',
       'trackUniqueKey',
+      'trackKey',
       'sourceType',
       'parsedTrackName',
       'parsedArtistName',

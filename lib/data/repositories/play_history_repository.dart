@@ -24,9 +24,7 @@ class PlayHistoryRepository {
   Future<int> getPlayCount(String sourceId, SourceType sourceType,
       {int? cid}) async {
     final trackKey = TrackKey.format(sourceType.name, sourceId, cid: cid);
-
-    final all = await _isar.playHistorys.where().findAll();
-    return all.where((h) => h.trackKey == trackKey).length;
+    return _isar.playHistorys.where().trackKeyEqualTo(trackKey).count();
   }
 
   /// 获取播放次数最多的歌曲（去重）
@@ -193,21 +191,19 @@ class PlayHistoryRepository {
 
   /// 删除某首歌的所有播放记录
   Future<int> deleteAllForTrack(String trackKey) async {
-    final all = await _isar.playHistorys.where().findAll();
-    final toDelete =
-        all.where((h) => h.trackKey == trackKey).map((h) => h.id).toList();
-
+    var deleted = 0;
     await _isar.writeTxn(() async {
-      await _isar.playHistorys.deleteAll(toDelete);
+      deleted = await _isar.playHistorys
+          .where()
+          .trackKeyEqualTo(trackKey)
+          .deleteAll();
     });
-
-    return toDelete.length;
+    return deleted;
   }
 
   /// 获取某首歌的播放次数（通过 trackKey）
-  Future<int> getPlayCountByKey(String trackKey) async {
-    final all = await _isar.playHistorys.where().findAll();
-    return all.where((h) => h.trackKey == trackKey).length;
+  Future<int> getPlayCountByKey(String trackKey) {
+    return _isar.playHistorys.where().trackKeyEqualTo(trackKey).count();
   }
 
   /// 获取播放历史统计

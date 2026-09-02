@@ -40,6 +40,11 @@ class PlayHistory {
   DateTime playedAt = DateTime.now();
 
   /// 歌曲唯一标识（用于统计播放次数）
+  ///
+  /// Isar 會持久化並索引 getter（`Track.sourcePageKey` 是同樣的做法），
+  /// 但索引項只在 `put` 時重算 —— 這個索引加上去之前就存在的列不會有索引項，
+  /// 所以 v0 → v1 的遷移必須把所有既有列重寫一次。
+  @Index()
   String get trackKey => TrackKey.format(sourceType.name, sourceId, cid: cid);
 
   /// 从 Track 创建播放历史记录
