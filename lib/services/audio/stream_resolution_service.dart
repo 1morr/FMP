@@ -211,7 +211,7 @@ class DefaultStreamResolutionService
       if (retryCount < 1) {
         logWarning('Retrying stream resolution for ${_describe(track)} after '
             '${stopwatch.elapsedMilliseconds}ms');
-        await Future.delayed(AppConstants.queueSaveRetryDelay);
+        await Future.delayed(AppConstants.streamResolutionRetryDelay);
         return _resolveRemotePrimary(
           track,
           requestContext: await _buildRequestContext(track),

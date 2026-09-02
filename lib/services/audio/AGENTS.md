@@ -222,6 +222,14 @@ guard and loop.
 Worst case for one play is T1+T2 twice (original attempt plus the one fallback).
 That ceiling is the point; P0-2 asked for *bounded*, not *short*.
 
+T1 is what stops the three retry layers from multiplying. The inner resolution
+retry (once, after `AppConstants.streamResolutionRetryDelay`) and the
+high/medium/low quality ladder both run *inside* `selectPlayback`, so T1 caps
+their combined cost rather than each of them separately. The third layer, the
+backoff ladder in `PlaybackRecoveryCoordinator`, is deliberately outside it: it
+answers a different question (playback failed after it had started), and
+timeouts never reach it.
+
 ### Buffer profiles (deliberate, do not revert casually)
 
 Desktop `MediaKitAudioService` uses an aggressive network buffer profile for

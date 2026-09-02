@@ -135,6 +135,12 @@ class AppConstants {
   /// 队列保存重试延迟
   static const Duration queueSaveRetryDelay = Duration(seconds: 1);
 
+  /// 串流解析內層重試前的等待。
+  ///
+  /// 過去這裡借用 [queueSaveRetryDelay]，兩個不相干的東西共用一個數字 ——
+  /// 調整佇列保存的節奏會連帶改到播放解析的重試。
+  static const Duration streamResolutionRetryDelay = Duration(seconds: 1);
+
   // ==================== 后台服务 ====================
 
   /// 自动刷新检查间隔
