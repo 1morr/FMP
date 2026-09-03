@@ -145,6 +145,13 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 
 ## 7. Known limitations
 
+- **`adb shell input text` silently composes instead of committing when
+  Gboard's active language is Zhuyin**, which is the default on this AVD. The
+  characters land in the candidate strip, the Flutter field stays empty, and the
+  semantics tree shows an empty `EditText` either way — so it looks like the tap
+  missed. Screenshot the keyboard to spot it: the spacebar reads `注音`. Tap the
+  globe key (bottom-right) to switch to English, then retype. This applies to
+  plain ASCII, so it is a separate problem from the CJK limitation below.
 - **Non-ASCII input on Android is unavailable.** `orca emulator type` shells out
   to `adb shell input text`, which throws `NullPointerException` on CJK. Three
   workarounds were tested and all failed on SDK 37: ADBKeyboard (broadcast
@@ -158,6 +165,29 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 - Android's 16 KB page-size dialog appears on first launch on modern emulator
   images (`libisar.so` LOAD segment not aligned). Dismiss it via `ax` before
   asserting on the first screen.
+
+### Measured during the phase 3 acceptance run
+
+- **Back at the root route exits the app; it does not background it.** Use
+  `adb shell input keyevent 3` (HOME) to background. Pressing back and then
+  relaunching from the launcher restarts the process and loses playback, which
+  reads as "playback stopped in the background" if you are not watching for it.
+- **`dumpsys media_session` is the cheapest continuous playback probe.** Grep for
+  `state=PLAYING(3), position=` — position is in ms and advances monotonically,
+  so polling it every minute shows both continuity and the wrap-around at a
+  track/loop boundary without any UI interaction.
+- **Setting up state the UI cannot reach: use `ext.isar.editProperty`.** The
+  download path can only be chosen through the Android SAF picker, which does
+  not respond to synthetic taps. Writing `Settings.customDownloadDir` through the
+  Isar inspector extension sets up the precondition without faking the thing
+  being verified. See `docs/debugging-with-vm-service.md` §5.
+- **A directory created with `adb shell mkdir` belongs to `shell`, not the app**,
+  so the app gets `PathAccessException ... errno = 13`. Create it with
+  `adb shell run-as <package> mkdir -p files/<dir>` and point the setting at
+  `/data/user/0/<package>/files/<dir>`.
+- **Git Bash rewrites `/storage/...` and `/sdcard/...` into Windows paths.**
+  Prefix `adb shell` calls with `MSYS_NO_PATHCONV=1`, or the argument arrives as
+  `C:/Program Files/Git/storage/...`.
 
 ### Measured during the round-02 playback audit
 
