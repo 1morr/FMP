@@ -601,6 +601,9 @@ class SettingsBackup {
   final bool enableGlobalHotkeys;
   final bool launchAtStartup;
   final bool launchMinimized;
+  final bool railExpanded;
+  final bool detailPanelExpanded;
+  final double detailPanelWidth;
   final String? fontFamily;
   final String? locale;
   final int audioQualityLevelIndex;
@@ -648,6 +651,9 @@ class SettingsBackup {
     this.enableGlobalHotkeys = false,
     this.launchAtStartup = false,
     this.launchMinimized = false,
+    this.railExpanded = false,
+    this.detailPanelExpanded = true,
+    this.detailPanelWidth = 380,
     this.fontFamily,
     this.locale,
     this.audioQualityLevelIndex = 0,
@@ -713,6 +719,12 @@ class SettingsBackup {
           _settingsBackupDefaults.enableGlobalHotkeys,
       launchAtStartup: json['launchAtStartup'] as bool? ?? false,
       launchMinimized: json['launchMinimized'] as bool? ?? false,
+      railExpanded: json['railExpanded'] as bool? ??
+          _settingsBackupDefaults.railExpanded,
+      detailPanelExpanded: json['detailPanelExpanded'] as bool? ??
+          _settingsBackupDefaults.detailPanelExpanded,
+      detailPanelWidth: (json['detailPanelWidth'] as num?)?.toDouble() ??
+          _settingsBackupDefaults.detailPanelWidth,
       fontFamily: json['fontFamily'] as String?,
       locale: json['locale'] as String?,
       audioQualityLevelIndex: json['audioQualityLevelIndex'] as int? ?? 0,
@@ -778,6 +790,9 @@ class SettingsBackup {
       'enableGlobalHotkeys': enableGlobalHotkeys,
       'launchAtStartup': launchAtStartup,
       'launchMinimized': launchMinimized,
+      'railExpanded': railExpanded,
+      'detailPanelExpanded': detailPanelExpanded,
+      'detailPanelWidth': detailPanelWidth,
       if (fontFamily != null) 'fontFamily': fontFamily,
       if (locale != null) 'locale': locale,
       'audioQualityLevelIndex': audioQualityLevelIndex,

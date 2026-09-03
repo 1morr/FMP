@@ -161,6 +161,9 @@ void main() {
         ..customDownloadDir = '/device/downloads'
         ..preferredAudioDeviceId = 'device-1'
         ..preferredAudioDeviceName = 'USB DAC'
+        ..railExpanded = false
+        ..detailPanelExpanded = true
+        ..detailPanelWidth = 380
         ..minimizeToTrayOnClose = false
         ..enableGlobalHotkeys = false
         ..launchAtStartup = false
@@ -227,6 +230,9 @@ void main() {
           enableGlobalHotkeys: true,
           launchAtStartup: true,
           launchMinimized: true,
+          railExpanded: true,
+          detailPanelExpanded: false,
+          detailPanelWidth: 420,
           hotkeyConfig: jsonEncode({'next': 'Ctrl+Alt+Right'}),
         ),
       );
@@ -290,6 +296,12 @@ void main() {
       expect(restoredSettings.customDownloadDir, '/device/downloads');
       expect(restoredSettings.preferredAudioDeviceId, 'device-1');
       expect(restoredSettings.preferredAudioDeviceName, 'USB DAC');
+
+      // 版面欄位無條件還原：`_DesktopLayout` 由螢幕寬度斷點選出，不是桌面平台
+      // 專屬能力，所以不跟著 `Platform.isWindows` 走。
+      expect(restoredSettings.railExpanded, isTrue);
+      expect(restoredSettings.detailPanelExpanded, isFalse);
+      expect(restoredSettings.detailPanelWidth, 420);
 
       if (Platform.isWindows) {
         expect(restoredSettings.minimizeToTrayOnClose, isTrue);

@@ -23,8 +23,12 @@ import 'backup_data.dart';
 /// 備份 JSON 的格式版本。
 ///
 /// v3（Phase 3）：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
-/// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，而被移除的欄位
-/// 在任何既有備份裡都是 null。
+/// v4（Phase 3）：6 個每源具名設定欄位收成 `sourceSettings` 清單；補上
+/// `railExpanded` / `detailPanelExpanded` / `detailPanelWidth` 三個版面欄位。
+///
+/// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，被移除的欄位
+/// 在任何既有備份裡都是 null，而 v3 以前的每源設定由 `_readSourceSettings`
+/// 折進 `sourceSettings`。
 const int kBackupVersion = 4;
 
 /// 备份服务
@@ -223,6 +227,9 @@ class BackupService with Logging {
         enableGlobalHotkeys: settings.enableGlobalHotkeys,
         launchAtStartup: settings.launchAtStartup,
         launchMinimized: settings.launchMinimized,
+        railExpanded: settings.railExpanded,
+        detailPanelExpanded: settings.detailPanelExpanded,
+        detailPanelWidth: settings.detailPanelWidth,
         fontFamily: settings.fontFamily,
         locale: settings.locale,
         audioQualityLevelIndex: settings.audioQualityLevelIndex,
@@ -729,6 +736,14 @@ class BackupService with Logging {
           ..hotkeyConfig = Platform.isWindows
               ? _sanitizeHotkeyConfig(settingsBackup.hotkeyConfig)
               : currentSettings?.hotkeyConfig
+          // 版面狀態 - 無條件還原。這三個欄位不是桌面平台專屬能力，
+          // `_DesktopLayout` 是由螢幕寬度斷點選出來的
+          // (`responsive_scaffold.dart:78`)，Android 平板在寬版面下
+          // 同樣會用到側欄與詳情面板。寬度的合法範圍由
+          // `repairSettingsInvariants` 每次啟動夾住，匯入端不必再夾。
+          ..railExpanded = settingsBackup.railExpanded
+          ..detailPanelExpanded = settingsBackup.detailPanelExpanded
+          ..detailPanelWidth = settingsBackup.detailPanelWidth
           // 歌词设置 - 从备份导入
           ..autoMatchLyrics = settingsBackup.autoMatchLyrics
           ..maxLyricsCacheFiles = settingsBackup.maxLyricsCacheFiles
