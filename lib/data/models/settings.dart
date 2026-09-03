@@ -40,6 +40,14 @@ enum AudioFormat {
 }
 
 /// 流类型
+/// 沒有專屬設定的音源使用的串流優先序。
+///
+/// `audioOnly` 放第一位是因為它對所有音源都成立；`hls` 目前只有 YouTube 會回。
+const List<StreamType> kDefaultStreamPriority = [
+  StreamType.audioOnly,
+  StreamType.muxed,
+];
+
 enum StreamType {
   /// 纯音频流
   audioOnly,
@@ -71,12 +79,11 @@ enum LyricsAiTitleParsingMode {
 
 /// 首頁排行榜音源白名單。
 ///
-/// 單一真相衍生自 [SourceType.values]：新增音源（加 enum 值）後自動同步，
+/// 單一真相衍生自 [SourceIds.values]：新增內建音源後自動同步，
 /// 不會因為忘了補 literal 而讓新源 id 被 normalize 靜默丟棄（D4）。
-/// 為 getter 而非 const，因為 [SourceType.values.map] 無法在 const 语境求值；
-/// 使用處（含作為狀態預設）皆以可變值形式取用。
+/// 回傳可變副本，因為使用處（含作為狀態預設）皆以可變值形式取用。
 List<String> get homeRankingSourceIds =>
-    [for (final SourceType t in SourceType.values) t.name];
+    List<String>.of(SourceIds.values);
 
 const String defaultHomeRankingSourcePriority = 'bilibili,youtube,netease';
 
@@ -601,26 +608,40 @@ class Settings {
   }
 
   /// 獲取指定音源的播放認證設定
-  bool useAuthForPlay(SourceType sourceType) {
+  ///
+  /// 沒有對應設定的音源回傳 `false` —— 認不得的來源不該拿到憑證。
+  bool useAuthForPlay(String sourceType) {
     switch (sourceType) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         return useBilibiliAuthForPlay;
-      case SourceType.youtube:
+      case SourceIds.youtube:
         return useYoutubeAuthForPlay;
-      case SourceType.netease:
+      case SourceIds.netease:
         return useNeteaseAuthForPlay;
+      default:
+        return false;
     }
   }
 
   /// 設置指定音源的播放認證設定
-  void setUseAuthForPlay(SourceType sourceType, bool value) {
+  ///
+  /// 認不得的音源直接拋錯而不是靜默忽略：呼叫端
+  /// （`audio_settings_provider`）會先做樂觀狀態更新，靜默 no-op 會留下
+  /// 「開關看起來開著、其實沒存進去」的狀態。每源設定目前仍是三個具名欄位。
+  void setUseAuthForPlay(String sourceType, bool value) {
     switch (sourceType) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         useBilibiliAuthForPlay = value;
-      case SourceType.youtube:
+      case SourceIds.youtube:
         useYoutubeAuthForPlay = value;
-      case SourceType.netease:
+      case SourceIds.netease:
         useNeteaseAuthForPlay = value;
+      default:
+        throw ArgumentError.value(
+          sourceType,
+          'sourceType',
+          'no per-source auth setting',
+        );
     }
   }
 

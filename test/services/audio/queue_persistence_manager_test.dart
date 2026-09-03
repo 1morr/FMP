@@ -214,7 +214,7 @@ void main() {
 Track _track(String sourceId, {required String title}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..artist = 'Tester';
 }

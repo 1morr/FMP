@@ -85,7 +85,7 @@ void main() {
       final refreshed = await playlistRepository.getById(playlist.id);
       expect(refreshed!.trackIds, playlist.trackIds);
       expect(
-        await trackRepository.getBySourceId('stale', SourceType.youtube),
+        await trackRepository.getBySourceId('stale', SourceIds.youtube),
         isNotNull,
       );
     });
@@ -230,26 +230,26 @@ void main() {
       expect(result.errors, isEmpty);
       final refreshed = await playlistRepository.getById(playlist.id);
       expect(refreshed!.trackIds, playlist.trackIds);
-      expect(await trackRepository.getBySourceId('stale', SourceType.youtube),
+      expect(await trackRepository.getBySourceId('stale', SourceIds.youtube),
           isNotNull);
     });
 
     test('skips pruning when Bilibili parsed item count is partial', () async {
       final trackRepository = TrackRepository(isar);
       final bilibiliSource = _FakeBilibiliRefreshSource(
-        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        tracks: [_track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2)],
         totalCount: 2,
       );
       sourceManager = _FakeSourceManager(bilibiliSource);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
         tracks: [
-          _track('BV1234567890', 'Page 1', SourceType.bilibili)
+          _track('BV1234567890', 'Page 1', SourceIds.bilibili)
             ..cid = 101
             ..pageNum = 1,
-          _track('BVstale0000', 'Stale', SourceType.bilibili),
+          _track('BVstale0000', 'Stale', SourceIds.bilibili),
         ],
       );
       final service = ImportService(
@@ -269,7 +269,7 @@ void main() {
       expect(refreshed!.trackIds, containsAll(playlist.trackIds));
       expect(
           await trackRepository.getBySourceId(
-              'BVstale0000', SourceType.bilibili),
+              'BVstale0000', SourceIds.bilibili),
           isNotNull);
     });
 
@@ -278,17 +278,17 @@ void main() {
       final trackRepository = TrackRepository(isar);
       final bilibiliSource = _FakeBilibiliRefreshSource(
         failVideoPages: true,
-        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        tracks: [_track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2)],
         totalCount: 1,
       );
       sourceManager = _FakeSourceManager(bilibiliSource);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
         tracks: [
-          _track('BV1234567890', 'Multi-page', SourceType.bilibili, 2),
-          _track('BVstale0000', 'Stale', SourceType.bilibili),
+          _track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2),
+          _track('BVstale0000', 'Stale', SourceIds.bilibili),
         ],
       );
       final service = ImportService(
@@ -308,23 +308,23 @@ void main() {
       expect(refreshed!.trackIds, playlist.trackIds);
       expect(
           await trackRepository.getBySourceId(
-              'BVstale0000', SourceType.bilibili),
+              'BVstale0000', SourceIds.bilibili),
           isNotNull);
     });
 
     test('refresh multi-page expansion reuses refresh auth headers', () async {
       final trackRepository = TrackRepository(isar);
       final bilibiliSource = _FakeBilibiliRefreshSource(
-        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        tracks: [_track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2)],
         totalCount: 1,
       );
       sourceManager = _FakeSourceManager(bilibiliSource);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
         tracks: [
-          _track('BV1234567890', 'Multi-page', SourceType.bilibili, 2),
+          _track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2),
         ],
       );
       playlist.useAuthForRefresh = true;
@@ -380,7 +380,7 @@ class _FakeSourceManager extends SourceManager {
   PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  PagedVideoSource? pagedVideoSource(SourceType type) {
+  PagedVideoSource? pagedVideoSource(String type) {
     final Object candidate = source;
     if (type == source.sourceType && candidate is PagedVideoSource) {
       return candidate;
@@ -396,7 +396,7 @@ class _FakeRefreshSource implements PlaylistParsingSource {
   PlaylistParseResult? result;
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   bool isPlaylistUrl(String url) => true;
@@ -426,7 +426,7 @@ class _FakeBilibiliRefreshSource extends BilibiliSource {
   Map<String, String>? lastPageAuthHeaders;
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
@@ -460,7 +460,7 @@ Future<Playlist> _createImportedPlaylist({
   required PlaylistRepository playlistRepository,
   required TrackRepository trackRepository,
   required List<Track> tracks,
-  SourceType sourceType = SourceType.youtube,
+  String sourceType = SourceIds.youtube,
 }) async {
   final playlist = Playlist()
     ..name = 'Imported playlist'
@@ -483,7 +483,7 @@ Future<Playlist> _createImportedPlaylist({
 Track _track(
   String sourceId,
   String title, [
-  SourceType sourceType = SourceType.youtube,
+  String sourceType = SourceIds.youtube,
   int? pageCount,
 ]) =>
     Track()
@@ -498,7 +498,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
 
   @override
   Future<Map<String, String>?> playlistRefreshAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuthForRefresh,
   }) async {
     return useAuthForRefresh ? playlistRefreshHeaders : null;

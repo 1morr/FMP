@@ -20,36 +20,36 @@ import '../network/connectivity_service.dart';
 /// 本服務對音源種類完全不知情：要刷新哪些榜單由 `SourceManager` 註冊的
 /// `RankingSource` 決定，每個榜單的請求參數與名稱由 adapter 自己提供。
 class RankingCacheState {
-  final Map<SourceType, List<Track>> _tracksBySource;
-  final Map<SourceType, bool> _loadedBySource;
-  final Map<SourceType, String> _errorsBySource;
+  final Map<String, List<Track>> _tracksBySource;
+  final Map<String, bool> _loadedBySource;
+  final Map<String, String> _errorsBySource;
   final bool isInitialLoading;
 
   RankingCacheState({
-    Map<SourceType, List<Track>> tracksBySource = const {},
-    Map<SourceType, bool> loadedBySource = const {},
-    Map<SourceType, String> errorsBySource = const {},
+    Map<String, List<Track>> tracksBySource = const {},
+    Map<String, bool> loadedBySource = const {},
+    Map<String, String> errorsBySource = const {},
     this.isInitialLoading = true,
   })  : _tracksBySource = _freezeTracks(tracksBySource),
         _loadedBySource = Map.unmodifiable(loadedBySource),
         _errorsBySource = Map.unmodifiable(errorsBySource);
 
-  List<Track> tracksFor(SourceType sourceType) {
+  List<Track> tracksFor(String sourceType) {
     return _tracksBySource[sourceType] ?? const [];
   }
 
-  bool isLoaded(SourceType sourceType) {
+  bool isLoaded(String sourceType) {
     return _loadedBySource[sourceType] ?? false;
   }
 
-  String? errorFor(SourceType sourceType) {
+  String? errorFor(String sourceType) {
     return _errorsBySource[sourceType];
   }
 
   RankingCacheState copyWith({
-    Map<SourceType, List<Track>>? tracksBySource,
-    Map<SourceType, bool>? loadedBySource,
-    Map<SourceType, String>? errorsBySource,
+    Map<String, List<Track>>? tracksBySource,
+    Map<String, bool>? loadedBySource,
+    Map<String, String>? errorsBySource,
     bool? isInitialLoading,
   }) {
     return RankingCacheState(
@@ -61,23 +61,23 @@ class RankingCacheState {
   }
 
   RankingCacheState updateSource(
-    SourceType sourceType, {
+    String sourceType, {
     List<Track>? tracks,
     bool? loaded,
     String? error,
     bool clearError = false,
   }) {
-    final nextTracks = Map<SourceType, List<Track>>.from(_tracksBySource);
+    final nextTracks = Map<String, List<Track>>.from(_tracksBySource);
     if (tracks != null) {
       nextTracks[sourceType] = List<Track>.unmodifiable(tracks);
     }
 
-    final nextLoaded = Map<SourceType, bool>.from(_loadedBySource);
+    final nextLoaded = Map<String, bool>.from(_loadedBySource);
     if (loaded != null) {
       nextLoaded[sourceType] = loaded;
     }
 
-    final nextErrors = Map<SourceType, String>.from(_errorsBySource);
+    final nextErrors = Map<String, String>.from(_errorsBySource);
     if (clearError) {
       nextErrors.remove(sourceType);
     } else if (error != null) {
@@ -92,16 +92,16 @@ class RankingCacheState {
     );
   }
 
-  static Map<SourceType, List<Track>> _freezeTracks(
-    Map<SourceType, List<Track>> tracksBySource,
+  static Map<String, List<Track>> _freezeTracks(
+    Map<String, List<Track>> tracksBySource,
   ) {
     // 型別參數必須寫出來：在 map literal 裡 `List.unmodifiable(...)` 沒有向下
     // 推導的目標型別，會推成 `List<dynamic>`，之後讀取時才炸。
-    final frozen = <SourceType, List<Track>>{
+    final frozen = <String, List<Track>>{
       for (final entry in tracksBySource.entries)
         entry.key: List<Track>.unmodifiable(entry.value),
     };
-    return Map<SourceType, List<Track>>.unmodifiable(frozen);
+    return Map<String, List<Track>>.unmodifiable(frozen);
   }
 }
 
@@ -109,25 +109,25 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
     with Logging {
   static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
-  final Map<SourceType, RankingSource> _rankingSourcesByType;
+  final Map<String, RankingSource> _rankingSourcesByType;
   final Duration _initialLoadTimeout;
 
   Timer? _refreshTimer;
   StreamSubscription<void>? _networkRecoveredSubscription;
   Duration _refreshInterval = const Duration(hours: 1);
 
-  final Map<SourceType, int> _refreshGenerations = {};
+  final Map<String, int> _refreshGenerations = {};
   bool _isDisposed = false;
 
   RankingCacheService({
-    required Map<SourceType, RankingSource> rankingSources,
+    required Map<String, RankingSource> rankingSources,
     Duration initialLoadTimeout = _defaultInitialLoadTimeout,
   })  : _rankingSourcesByType = Map.unmodifiable(rankingSources),
         _initialLoadTimeout = initialLoadTimeout,
         super(RankingCacheState());
 
   /// 目前會被刷新的音源類型。
-  Iterable<SourceType> get rankedSourceTypes => _rankingSourcesByType.keys;
+  Iterable<String> get rankedSourceTypes => _rankingSourcesByType.keys;
 
   /// 初始化服務：立即獲取數據並啟動定時刷新
   Future<void> initialize({Duration? refreshInterval}) async {
@@ -193,7 +193,7 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
       _rankingSourcesByType.keys.map(
         (sourceType) => refreshSource(sourceType).catchError((e) {
           logWarning(
-            '[RankingCache] ${sourceType.name} 刷新異常（未預期）: $e',
+            '[RankingCache] $sourceType 刷新異常（未預期）: $e',
           );
         }),
       ),
@@ -205,17 +205,17 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
     if (state.isInitialLoading) {
       state = state.copyWith(isInitialLoading: false);
       final summary = _rankingSourcesByType.keys
-          .map((type) => '${type.name}: ${state.isLoaded(type)}')
+          .map((type) => '$type: ${state.isLoaded(type)}')
           .join(', ');
       logDebug('[RankingCache] 初始加載完成（$summary）');
     }
   }
 
-  Future<void> refreshSource(SourceType sourceType) async {
+  Future<void> refreshSource(String sourceType) async {
     if (_isDisposed) return;
     final source = _rankingSourcesByType[sourceType];
     if (source == null) {
-      throw StateError('Ranking source not registered: ${sourceType.name}');
+      throw StateError('Ranking source not registered: $sourceType');
     }
 
     final generation = _nextRefreshGeneration(sourceType);
@@ -240,7 +240,7 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
     }
   }
 
-  int _nextRefreshGeneration(SourceType sourceType) {
+  int _nextRefreshGeneration(String sourceType) {
     final next = (_refreshGenerations[sourceType] ?? 0) + 1;
     _refreshGenerations[sourceType] = next;
     return next;
@@ -267,7 +267,7 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
 final rankingCacheServiceProvider =
     StateNotifierProvider<RankingCacheService, RankingCacheState>((ref) {
   final manager = ref.watch(sourceManagerProvider);
-  final rankingSources = <SourceType, RankingSource>{
+  final rankingSources = <String, RankingSource>{
     for (final sourceType in manager.registeredSourceTypes)
       sourceType: ?manager.rankingSource(sourceType),
   };

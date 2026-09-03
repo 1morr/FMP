@@ -30,7 +30,7 @@ void main() {
       expect(report.duplicateTrackKeys, contains('youtube:same'));
       expect(report.duplicateDownloadSavePaths,
           contains('/downloads/Playlist/Song/audio.m4a'));
-      expect(report.duplicateAccountPlatforms, contains(SourceType.youtube));
+      expect(report.duplicateAccountPlatforms, contains(SourceIds.youtube));
       expect(report.playQueueCount, 2);
       expect(report.hasIssues, isTrue);
 
@@ -248,19 +248,19 @@ class _Harness {
       final trackIds = await isar.tracks.putAll([
         Track()
           ..sourceId = 'same'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Sparse Track'
           ..createdAt = DateTime(2026, 4, 24),
         Track()
           ..sourceId = 'same'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Complete Track'
           ..thumbnailUrl = 'https://img.example/cover.jpg'
           ..durationMs = 180000
           ..createdAt = DateTime(2026, 4, 25),
         Track()
           ..sourceId = 'other'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Other Track'
           ..createdAt = DateTime(2026, 4, 25),
       ]);
@@ -290,12 +290,12 @@ class _Harness {
       ]);
       await isar.accounts.putAll([
         Account()
-          ..platform = SourceType.youtube
+          ..platform = SourceIds.youtube
           ..isLoggedIn = false
           ..userName = 'Logged Out'
           ..lastRefreshed = DateTime(2026, 4, 24),
         Account()
-          ..platform = SourceType.youtube
+          ..platform = SourceIds.youtube
           ..isLoggedIn = true
           ..userName = 'Logged In'
           ..lastRefreshed = DateTime(2026, 4, 25),
@@ -316,7 +316,7 @@ class _Harness {
       await isar.tracks.putAll([
         Track()
           ..sourceId = 'merge'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Removed Download Track'
           ..artist = 'Recovered Artist'
           ..playlistInfo = [
@@ -329,7 +329,7 @@ class _Harness {
           ..createdAt = DateTime(2026, 4, 24),
         Track()
           ..sourceId = 'merge'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Kept Rich Track'
           ..thumbnailUrl = 'https://img.example/rich.jpg'
           ..durationMs = 240000
@@ -349,18 +349,18 @@ class _Harness {
       final trackIds = await isar.tracks.putAll([
         Track()
           ..sourceId = 'queue'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Sparse Queue Track'
           ..createdAt = DateTime(2026, 4, 24),
         Track()
           ..sourceId = 'queue'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Complete Queue Track'
           ..thumbnailUrl = 'https://img.example/queue.jpg'
           ..createdAt = DateTime(2026, 4, 25),
         Track()
           ..sourceId = 'other'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Queue Other Track'
           ..createdAt = DateTime(2026, 4, 25),
       ]);
@@ -383,12 +383,12 @@ class _Harness {
       final trackIds = await isar.tracks.putAll([
         Track()
           ..sourceId = 'invalid-index'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Sparse Invalid Index Track'
           ..createdAt = DateTime(2026, 4, 24),
         Track()
           ..sourceId = 'invalid-index'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Complete Invalid Index Track'
           ..thumbnailUrl = 'https://img.example/invalid-index.jpg'
           ..createdAt = DateTime(2026, 4, 25),
@@ -407,7 +407,7 @@ class _Harness {
       await isar.tracks.putAll([
         Track()
           ..sourceId = 'state'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Removed State Track'
           ..isVip = true
           ..isAvailable = false
@@ -416,7 +416,7 @@ class _Harness {
           ..updatedAt = DateTime(2026, 4, 26),
         Track()
           ..sourceId = 'state'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Kept Default State Track'
           ..thumbnailUrl = 'https://img.example/state.jpg'
           ..createdAt = DateTime(2026, 4, 25)
@@ -430,18 +430,18 @@ class _Harness {
       final trackIds = await isar.tracks.putAll([
         Track()
           ..sourceId = 'repair-only-affected'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Removed Duplicate'
           ..createdAt = DateTime(2026, 4, 24),
         Track()
           ..sourceId = 'repair-only-affected'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Kept Duplicate'
           ..thumbnailUrl = 'https://img.example/kept.jpg'
           ..createdAt = DateTime(2026, 4, 25),
         Track()
           ..sourceId = 'unaffected'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Unaffected Track'
           ..createdAt = DateTime(2026, 4, 25),
       ]);
@@ -462,12 +462,12 @@ class _Harness {
     await isar.writeTxn(() async {
       await isar.accounts.putAll([
         Account()
-          ..platform = SourceType.netease
+          ..platform = SourceIds.netease
           ..isLoggedIn = true
           ..loginAt = DateTime(2026, 4, 25)
           ..lastRefreshed = DateTime(2026, 4, 25),
         Account()
-          ..platform = SourceType.netease
+          ..platform = SourceIds.netease
           ..isLoggedIn = false
           ..userId = 'rich-user-id'
           ..userName = 'Rich User'
@@ -484,7 +484,7 @@ class _Harness {
       final trackId = await isar.tracks.put(
         Track()
           ..sourceId = 'queue-populated'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Queue Populated Track'
           ..createdAt = DateTime(2026, 4, 25),
       );

@@ -116,7 +116,7 @@ void main() {
       final savedTrack = await trackRepo.save(
         Track()
           ..sourceId = 'video-a'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Video A'
           ..artist = 'Artist',
       );
@@ -171,7 +171,7 @@ void main() {
       final savedTrack = await trackRepo.save(
         Track()
           ..sourceId = 'video-b'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Video B P2'
           ..artist = 'Artist'
           ..cid = 2002

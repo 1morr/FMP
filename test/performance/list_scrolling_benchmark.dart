@@ -17,7 +17,7 @@ void main() {
       return List.generate(count, (i) {
         return Track()
           ..sourceId = 'BV${i.toString().padLeft(10, '0')}'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Track $i - Test Song Title'
           ..artist = 'Artist $i'
           ..durationMs = (180 + (i % 300)) * 1000
@@ -291,7 +291,7 @@ void main() {
       final tracks = List.generate(10000, (i) {
         return Track()
           ..sourceId = 'BV${i.toString().padLeft(10, '0')}'
-          ..sourceType = i % 3 == 0 ? SourceType.bilibili : SourceType.youtube
+          ..sourceType = i % 3 == 0 ? SourceIds.bilibili : SourceIds.youtube
           ..title = i % 2 == 0 ? 'Even Track $i' : 'Odd Track $i'
           ..artist = 'Artist ${i % 100}'
           ..durationMs = (180 + (i % 300)) * 1000;
@@ -301,9 +301,9 @@ void main() {
 
       // Filter by source
       final bilibiliTracks =
-          tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
+          tracks.where((t) => t.sourceType == SourceIds.bilibili).toList();
       final youtubeTracks =
-          tracks.where((t) => t.sourceType == SourceType.youtube).toList();
+          tracks.where((t) => t.sourceType == SourceIds.youtube).toList();
 
       // Filter by title
       final evenTracks = tracks.where((t) => t.title.contains('Even')).toList();
@@ -333,7 +333,7 @@ void main() {
       final tracks = List.generate(5000, (i) {
         return Track()
           ..sourceId = 'BV${i.toString().padLeft(10, '0')}'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title =
               'Track $i - ${['Rock', 'Pop', 'Jazz', 'Classical'][i % 4]} Music'
           ..artist = 'Artist ${['Alpha', 'Beta', 'Gamma', 'Delta'][i % 4]}';

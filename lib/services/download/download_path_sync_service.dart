@@ -261,8 +261,8 @@ class DownloadPathSyncService with Logging {
     return true;
   }
 
-  String _sourceKey(SourceType sourceType, String sourceId) =>
-      TrackKey.formatGroup(sourceType.name, sourceId);
+  String _sourceKey(String sourceType, String sourceId) =>
+      TrackKey.formatGroup(sourceType, sourceId);
 
   /// 扫描单个文件夹
   Future<_ScanResult> _scanAndMatchFolder(Directory folder) async {

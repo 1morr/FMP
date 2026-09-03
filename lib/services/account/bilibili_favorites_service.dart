@@ -44,7 +44,7 @@ class BilibiliFavoritesService with Logging {
         _dio = _createDio(accountService);
 
   static Dio _createDio(BilibiliAccountService accountService) {
-    final dio = SourceHttpPolicy.createApiDio(SourceType.bilibili);
+    final dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili);
     dio.interceptors.add(BilibiliAuthInterceptor(accountService));
     return dio;
   }

@@ -42,13 +42,13 @@ class NeteaseAccountService extends AccountService with Logging {
       : _accounts = AccountRepository(isar),
         _secureStorage = const FlutterSecureStorage(),
         _dio = SourceHttpPolicy.createApiDio(
-          SourceType.netease,
+          SourceIds.netease,
           extraHeaders: const {'Cookie': _anonymousCookie},
           contentType: Headers.formUrlEncodedContentType,
         );
 
   @override
-  SourceType get platform => SourceType.netease;
+  String get platform => SourceIds.netease;
 
   // ===== 登錄 =====
 
@@ -267,7 +267,7 @@ class NeteaseAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _accounts.getByPlatform(SourceType.netease);
+    return _accounts.getByPlatform(SourceIds.netease);
   }
 
   @override
@@ -434,7 +434,7 @@ class NeteaseAccountService extends AccountService with Logging {
     bool? isVip,
   }) async {
     await _accounts.upsert(
-      SourceType.netease,
+      SourceIds.netease,
       isLoggedIn: isLoggedIn,
       userId: userId,
       userName: userName,
@@ -510,7 +510,7 @@ class NeteaseAccountService extends AccountService with Logging {
       _credentialsLoaded = true;
     }
 
-    await _accounts.replaceForPlatform(SourceType.netease, snapshot.account);
+    await _accounts.replaceForPlatform(SourceIds.netease, snapshot.account);
   }
 
   /// 從 HTTP 響應中提取 Set-Cookie

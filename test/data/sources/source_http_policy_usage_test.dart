@@ -6,9 +6,9 @@ void main() {
   group('direct source HTTP policy usage', () {
     test('audio source adapters use SourceHttpPolicy for Dio defaults', () {
       final files = {
-        'lib/data/sources/bilibili_source.dart': 'SourceType.bilibili',
-        'lib/data/sources/youtube_source.dart': 'SourceType.youtube',
-        'lib/data/sources/netease_source.dart': 'SourceType.netease',
+        'lib/data/sources/bilibili_source.dart': 'SourceIds.bilibili',
+        'lib/data/sources/youtube_source.dart': 'SourceIds.youtube',
+        'lib/data/sources/netease_source.dart': 'SourceIds.netease',
       };
 
       for (final entry in files.entries) {

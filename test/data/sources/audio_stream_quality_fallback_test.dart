@@ -109,7 +109,7 @@ class _RecordingSource implements AudioStreamSource {
   var returnNullAlternativeForHigh = false;
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -156,5 +156,5 @@ class _FakeSourceException extends SourceApiException {
   String get message => 'fake failure';
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 }

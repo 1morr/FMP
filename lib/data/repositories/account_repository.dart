@@ -1,7 +1,6 @@
 import 'package:isar_community/isar.dart';
 
 import '../models/account.dart';
-import '../models/track.dart';
 
 /// Account 數據倉庫。
 ///
@@ -13,17 +12,17 @@ class AccountRepository {
   final Isar _isar;
 
   /// 取得某平台的帳號。
-  Future<Account?> getByPlatform(SourceType platform) {
+  Future<Account?> getByPlatform(String platform) {
     return _isar.accounts.filter().platformEqualTo(platform).findFirst();
   }
 
   /// 同步版本 —— 供需要在建構期立刻拿到初始狀態的呼叫端使用。
-  Account? getByPlatformSync(SourceType platform) {
+  Account? getByPlatformSync(String platform) {
     return _isar.accounts.filter().platformEqualTo(platform).findFirstSync();
   }
 
   /// 監聽某平台的帳號變化；沒有帳號時發出 null。
-  Stream<Account?> watchByPlatform(SourceType platform) {
+  Stream<Account?> watchByPlatform(String platform) {
     return _isar.accounts
         .filter()
         .platformEqualTo(platform)
@@ -38,7 +37,7 @@ class AccountRepository {
   ///
   /// `lastRefreshed` 每次都會更新 —— 這個方法就是「剛跟來源確認過」的意思。
   Future<void> upsert(
-    SourceType platform, {
+    String platform, {
     bool? isLoggedIn,
     String? userId,
     String? userName,
@@ -65,7 +64,7 @@ class AccountRepository {
   /// 用 [account] 整個取代某平台的帳號；傳 null 表示刪除該平台的帳號。
   ///
   /// 給「從備份 / 憑證快照還原」用 —— 那條路徑要的是覆蓋而不是合併。
-  Future<void> replaceForPlatform(SourceType platform, Account? account) async {
+  Future<void> replaceForPlatform(String platform, Account? account) async {
     await _isar.writeTxn(() async {
       final existing =
           await _isar.accounts.filter().platformEqualTo(platform).findAll();

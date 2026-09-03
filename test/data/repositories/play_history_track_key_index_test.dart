@@ -29,10 +29,10 @@ void main() {
     if (await tempDir.exists()) await tempDir.delete(recursive: true);
   });
 
-  PlayHistory entry(String sourceId, {int? cid, SourceType? type}) =>
+  PlayHistory entry(String sourceId, {int? cid, String? type}) =>
       PlayHistory()
         ..sourceId = sourceId
-        ..sourceType = type ?? SourceType.bilibili
+        ..sourceType = type ?? SourceIds.bilibili
         ..cid = cid
         ..title = 'T'
         ..playedAt = DateTime(2026, 1, 1);
@@ -44,7 +44,7 @@ void main() {
         entry('BV1'),
         entry('BV1', cid: 7),
         entry('BV2'),
-        entry('BV1', type: SourceType.youtube),
+        entry('BV1', type: SourceIds.youtube),
       ]);
     });
   }
@@ -52,11 +52,11 @@ void main() {
   test('getPlayCount counts only the exact key', () async {
     await seed();
 
-    expect(await repository.getPlayCount('BV1', SourceType.bilibili), 2);
-    expect(await repository.getPlayCount('BV1', SourceType.bilibili, cid: 7), 1);
-    expect(await repository.getPlayCount('BV2', SourceType.bilibili), 1);
-    expect(await repository.getPlayCount('BV1', SourceType.youtube), 1);
-    expect(await repository.getPlayCount('nope', SourceType.bilibili), 0);
+    expect(await repository.getPlayCount('BV1', SourceIds.bilibili), 2);
+    expect(await repository.getPlayCount('BV1', SourceIds.bilibili, cid: 7), 1);
+    expect(await repository.getPlayCount('BV2', SourceIds.bilibili), 1);
+    expect(await repository.getPlayCount('BV1', SourceIds.youtube), 1);
+    expect(await repository.getPlayCount('nope', SourceIds.bilibili), 0);
   });
 
   test('getPlayCountByKey agrees with getPlayCount', () async {

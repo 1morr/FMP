@@ -334,14 +334,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: Text(t.importPlatform.bilibili),
-                    selected: pageState.selectedSource == SourceType.bilibili,
-                    onSelected: (_) => notifier.setSource(SourceType.bilibili),
+                    selected: pageState.selectedSource == SourceIds.bilibili,
+                    onSelected: (_) => notifier.setSource(SourceIds.bilibili),
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: const Text('YouTube'),
-                    selected: pageState.selectedSource == SourceType.youtube,
-                    onSelected: (_) => notifier.setSource(SourceType.youtube),
+                    selected: pageState.selectedSource == SourceIds.youtube,
+                    onSelected: (_) => notifier.setSource(SourceIds.youtube),
                   ),
                   if (pageState.selectedDate != null) ...[
                     const SizedBox(width: 8),

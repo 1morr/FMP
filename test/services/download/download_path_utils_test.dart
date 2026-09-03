@@ -9,7 +9,7 @@ void main() {
       final baseDir = p.join('C:', 'Users', 'tester', 'Music', 'FMP');
       final track = Track()
         ..sourceId = '..\\..\\secret'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Title'
         ..createdAt = DateTime(2026);
 
@@ -44,26 +44,26 @@ void main() {
     group('avatar path (D13)', () {
       final baseDir = p.join('C:', 'Users', 'tester', 'Music', 'FMP');
 
-      test('avatar subdir derives from sourceType.name for all sources', () {
+      test('avatar subdir derives from sourceType for all sources', () {
         // 關鍵：不再用 bilibili/youtube 二元分支——netease 必須落到自己的
         // 目錄段，否則頭像會誤歸 youtube（D13 silent-failure 叢）。
-        for (final type in SourceType.values) {
+        for (final type in SourceIds.values) {
           final path = DownloadPathUtils.getAvatarPath(
             baseDir: baseDir,
             sourceType: type,
             creatorId: 'creator-1',
           );
-          // 路徑內含 .../avatars/{type.name}/creator-1.jpg
+          // 路徑內含 .../avatars/{sourceId}/creator-1.jpg
           expect(p.split(path), contains('avatars'));
-          expect(p.split(path), contains(type.name));
-          expect(path, endsWith(p.join('avatars', type.name, 'creator-1.jpg')));
+          expect(p.split(path), contains(type));
+          expect(path, endsWith(p.join('avatars', type, 'creator-1.jpg')));
         }
       });
 
       test('netease avatar is not misrouted to the youtube directory', () {
         final path = DownloadPathUtils.getAvatarPath(
           baseDir: baseDir,
-          sourceType: SourceType.netease,
+          sourceType: SourceIds.netease,
           creatorId: 'up-1',
         );
         expect(p.split(path), contains('netease'));
@@ -73,12 +73,12 @@ void main() {
       test('bilibili and youtube avatar subdirs are unchanged by the fix', () {
         final bilibili = DownloadPathUtils.getAvatarPath(
           baseDir: baseDir,
-          sourceType: SourceType.bilibili,
+          sourceType: SourceIds.bilibili,
           creatorId: 'up-1',
         );
         final youtube = DownloadPathUtils.getAvatarPath(
           baseDir: baseDir,
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           creatorId: 'up-1',
         );
         expect(p.split(bilibili), contains('bilibili'));

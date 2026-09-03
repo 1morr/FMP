@@ -9,7 +9,7 @@ import '../../core/logger.dart';
 import '../models/track_key.dart';
 
 class TrackSourceIdentity {
-  final SourceType sourceType;
+  final String sourceType;
   final String sourceId;
   final int? cid;
 
@@ -26,7 +26,7 @@ class TrackSourceIdentity {
       );
 
   String get sourcePageKey =>
-      TrackKey.format(sourceType.name, sourceId, cid: cid);
+      TrackKey.format(sourceType, sourceId, cid: cid);
 
   @override
   bool operator ==(Object other) =>
@@ -86,7 +86,7 @@ class TrackRepository with Logging {
   }
 
   /// 根据源ID和类型获取歌曲
-  Future<Track?> getBySourceId(String sourceId, SourceType sourceType) async {
+  Future<Track?> getBySourceId(String sourceId, String sourceType) async {
     return _isar.tracks
         .where()
         .sourceIdEqualTo(sourceId)
@@ -127,7 +127,7 @@ class TrackRepository with Logging {
   /// 根据源ID、类型和cid获取歌曲（支持分P唯一性检查）
   Future<Track?> getBySourceIdAndCid(
     String sourceId,
-    SourceType sourceType, {
+    String sourceType, {
     int? cid,
   }) async {
     if (cid == null) {

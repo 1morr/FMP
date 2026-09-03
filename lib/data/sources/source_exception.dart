@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import '../../i18n/strings.g.dart';
-import '../models/track.dart';
 
 enum SourceErrorKind {
   network,
@@ -40,7 +39,7 @@ abstract class SourceApiException implements Exception {
   String get message;
 
   /// 错误来源
-  SourceType get sourceType;
+  String get sourceType;
 
   SourceErrorKind get kind => SourceErrorKind.unknown;
 

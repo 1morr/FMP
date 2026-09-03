@@ -88,7 +88,7 @@ class RankingState {
 final rankingVideosProvider =
     StateNotifierProvider<RankingVideosNotifier, RankingState>((ref) {
   final source =
-      ref.watch(sourceManagerProvider).rankingSource(SourceType.bilibili);
+      ref.watch(sourceManagerProvider).rankingSource(SourceIds.bilibili);
   if (source == null) {
     throw StateError('Bilibili ranking source not registered');
   }
@@ -141,7 +141,7 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
 final homeBilibiliMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.bilibili),
+      (state) => state.tracksFor(SourceIds.bilibili),
     ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
@@ -195,7 +195,7 @@ class YouTubeTrendingState {
 final youtubeTrendingProvider =
     StateNotifierProvider<YouTubeTrendingNotifier, YouTubeTrendingState>((ref) {
   final source =
-      ref.watch(sourceManagerProvider).rankingSource(SourceType.youtube);
+      ref.watch(sourceManagerProvider).rankingSource(SourceIds.youtube);
   if (source == null) throw StateError('YouTube ranking source not registered');
   return YouTubeTrendingNotifier(source);
 });
@@ -246,7 +246,7 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
 final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.youtube),
+      (state) => state.tracksFor(SourceIds.youtube),
     ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
@@ -258,7 +258,7 @@ final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
 final homeNeteaseHotRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.netease),
+      (state) => state.tracksFor(SourceIds.netease),
     ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
@@ -270,7 +270,7 @@ final homeNeteaseHotRankingProvider = Provider<List<Track>>((ref) {
 final cachedBilibiliRankingProvider = Provider<List<Track>>((ref) {
   return ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.bilibili),
+      (state) => state.tracksFor(SourceIds.bilibili),
     ),
   );
 });
@@ -279,7 +279,7 @@ final cachedBilibiliRankingProvider = Provider<List<Track>>((ref) {
 final cachedYouTubeRankingProvider = Provider<List<Track>>((ref) {
   return ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.youtube),
+      (state) => state.tracksFor(SourceIds.youtube),
     ),
   );
 });
@@ -288,7 +288,7 @@ final cachedYouTubeRankingProvider = Provider<List<Track>>((ref) {
 final cachedNeteaseRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.netease),
+      (state) => state.tracksFor(SourceIds.netease),
     ),
   );
   return List.unmodifiable(tracks);

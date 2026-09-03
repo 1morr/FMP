@@ -16,8 +16,8 @@ void main() {
       );
 
       final result = await controller.submitSelectionEdit(
-        sourceType: SourceType.youtube,
-        tracks: [_track(SourceType.youtube, 1, 'a')],
+        sourceType: SourceIds.youtube,
+        tracks: [_track(SourceIds.youtube, 1, 'a')],
         selectedPlaylistIds: {'PL'},
         originalPlaylistIds: const {},
         deselectedPartialPlaylistIds: const {},
@@ -34,7 +34,7 @@ void main() {
         ..id = 9
         ..name = 'Imported'
         ..sourceUrl = 'https://www.youtube.com/playlist?list=PL'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       final syncedLocalIds = <int>[];
       final refreshedIds = <String>[];
       final controller = _controller(
@@ -51,8 +51,8 @@ void main() {
       final result = await controller.removeTracksFromImportedPlaylist(
         playlist: playlist,
         tracks: [
-          _track(SourceType.youtube, 1, 'ok'),
-          _track(SourceType.youtube, 2, 'missing')
+          _track(SourceIds.youtube, 1, 'ok'),
+          _track(SourceIds.youtube, 2, 'missing')
         ],
       );
 
@@ -69,7 +69,7 @@ void main() {
         ..id = 9
         ..name = 'Imported'
         ..sourceUrl = 'https://www.youtube.com/playlist?list=PL'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       final syncedLocalIds = <int>[];
       final refreshedIds = <String>[];
       final controller = _controller(
@@ -86,7 +86,7 @@ void main() {
 
       final result = await controller.removeTracksFromImportedPlaylist(
         playlist: playlist,
-        tracks: [_track(SourceType.youtube, 1, 'ok')],
+        tracks: [_track(SourceIds.youtube, 1, 'ok')],
       );
 
       expect(result.confirmedRemovedTrackIds, [1]);
@@ -101,7 +101,7 @@ void main() {
         ..id = 9
         ..name = 'Imported'
         ..sourceUrl = 'https://www.youtube.com/playlist?list=PL'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       final syncedLocalIds = <int>[];
       final refreshedIds = <String>[];
       final controller = _controller(
@@ -116,7 +116,7 @@ void main() {
 
       final result = await controller.removeTracksFromImportedPlaylist(
         playlist: playlist,
-        tracks: [_track(SourceType.youtube, 1, 'ok')],
+        tracks: [_track(SourceIds.youtube, 1, 'ok')],
       );
 
       expect(result.confirmedRemovedTrackIds, [1]);
@@ -135,8 +135,8 @@ void main() {
           ..id = 1
           ..name = 'Bad'
           ..sourceUrl = 'https://example.test/no-id'
-          ..importSourceType = SourceType.youtube,
-        tracks: [_track(SourceType.youtube, 7, 'yt')],
+          ..importSourceType = SourceIds.youtube,
+        tracks: [_track(SourceIds.youtube, 7, 'yt')],
       );
 
       expect(result.changedRemote, isFalse);
@@ -169,10 +169,10 @@ void main() {
       );
 
       final result = await adapter.submit(RemotePlaylistEditPlan(
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
         editableTracks: [
-          _track(SourceType.bilibili, 1, 'BV1'),
-          _track(SourceType.bilibili, 2, 'BV2')
+          _track(SourceIds.bilibili, 1, 'BV1'),
+          _track(SourceIds.bilibili, 2, 'BV2')
         ],
         skippedTrackIds: const [],
         playlistIdsToAdd: const [],
@@ -201,10 +201,10 @@ void main() {
       );
 
       final result = await adapter.submit(RemotePlaylistEditPlan(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         editableTracks: [
-          _track(SourceType.youtube, 1, 'ok'),
-          _track(SourceType.youtube, 2, 'missing')
+          _track(SourceIds.youtube, 1, 'ok'),
+          _track(SourceIds.youtube, 2, 'missing')
         ],
         skippedTrackIds: const [],
         playlistIdsToAdd: const [],
@@ -228,10 +228,10 @@ void main() {
       );
 
       final result = await adapter.submit(RemotePlaylistEditPlan(
-        sourceType: SourceType.netease,
+        sourceType: SourceIds.netease,
         editableTracks: [
-          _track(SourceType.netease, 1, '11'),
-          _track(SourceType.netease, 2, '22')
+          _track(SourceIds.netease, 1, '11'),
+          _track(SourceIds.netease, 2, '22')
         ],
         skippedTrackIds: const [],
         playlistIdsToAdd: const ['P'],
@@ -255,10 +255,10 @@ void main() {
       );
 
       final result = await adapter.submit(RemotePlaylistEditPlan(
-        sourceType: SourceType.netease,
+        sourceType: SourceIds.netease,
         editableTracks: [
-          _track(SourceType.netease, 1, '11'),
-          _track(SourceType.netease, 2, '22')
+          _track(SourceIds.netease, 1, '11'),
+          _track(SourceIds.netease, 2, '22')
         ],
         skippedTrackIds: const [99],
         playlistIdsToAdd: const [],
@@ -277,7 +277,7 @@ void main() {
 
 RemotePlaylistEditController _controller({
   RemotePlaylistEditAdapter? adapter,
-  Future<void> Function(SourceType sourceType, Iterable<String> remoteIds)?
+  Future<void> Function(String sourceType, Iterable<String> remoteIds)?
       refreshRemoteIds,
   Future<bool> Function(int playlistId, List<int> trackIds)? removeLocalTracks,
 }) {
@@ -318,7 +318,7 @@ class _FakeAdapter implements RemotePlaylistEditAdapter {
   }
 }
 
-Track _track(SourceType sourceType, int id, String sourceId) => Track()
+Track _track(String sourceType, int id, String sourceId) => Track()
   ..id = id
   ..sourceType = sourceType
   ..sourceId = sourceId

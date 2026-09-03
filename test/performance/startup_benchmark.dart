@@ -22,7 +22,7 @@ void main() {
       final tracks = List.generate(1000, (i) {
         return Track()
           ..sourceId = 'BV${i.toString().padLeft(10, '0')}'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track $i - A Long Title That Might Be Common'
           ..artist = 'Test Artist $i'
           ..durationMs = Duration(minutes: 3, seconds: 30).inMilliseconds

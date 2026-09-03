@@ -12,14 +12,14 @@ void main() {
   group('Audio settings defaults', () {
     test('search source selection follows the current chip state', () {
       const allSourcesState = SearchState();
-      const singleSourceState = SearchState(selectedSource: SourceType.youtube);
+      const singleSourceState = SearchState(selectedSource: SourceIds.youtube);
 
       expect(allSourcesState.sourceTypesForSearch, [
-        SourceType.bilibili,
-        SourceType.youtube,
-        SourceType.netease,
+        SourceIds.bilibili,
+        SourceIds.youtube,
+        SourceIds.netease,
       ]);
-      expect(singleSourceState.sourceTypesForSearch, [SourceType.youtube]);
+      expect(singleSourceState.sourceTypesForSearch, [SourceIds.youtube]);
     });
 
     test('legacy search source backup field is ignored on restore', () {

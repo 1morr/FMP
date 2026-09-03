@@ -41,12 +41,12 @@ class YouTubeAccountService extends AccountService with Logging {
       : _accounts = AccountRepository(isar),
         _secureStorage = const FlutterSecureStorage(),
         _dio = SourceHttpPolicy.createApiDio(
-          SourceType.youtube,
+          SourceIds.youtube,
           contentType: 'application/json',
         );
 
   @override
-  SourceType get platform => SourceType.youtube;
+  String get platform => SourceIds.youtube;
 
   // ===== 登錄 =====
 
@@ -120,7 +120,7 @@ class YouTubeAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _accounts.getByPlatform(SourceType.youtube);
+    return _accounts.getByPlatform(SourceIds.youtube);
   }
 
   @override
@@ -541,7 +541,7 @@ class YouTubeAccountService extends AccountService with Logging {
     bool? isVip,
   }) async {
     await _accounts.upsert(
-      SourceType.youtube,
+      SourceIds.youtube,
       isLoggedIn: isLoggedIn,
       userId: userId,
       userName: userName,

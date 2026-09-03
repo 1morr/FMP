@@ -4,14 +4,18 @@ import '../../data/sources/source_url_policy.dart';
 class RemotePlaylistIdParser {
   const RemotePlaylistIdParser._();
 
-  static String? parse(SourceType sourceType, String url) {
+  static String? parse(String sourceType, String url) {
     switch (sourceType) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         return SourceUrlPolicy.parseBilibiliFavoritesId(url);
-      case SourceType.youtube:
+      case SourceIds.youtube:
         return parseYoutubePlaylistId(url);
-      case SourceType.netease:
+      case SourceIds.netease:
         return parseNeteasePlaylistId(url);
+      default:
+        // 認不得的音源沒有可用的解析規則。拿別家的 regex 去套只會憑空
+        // 生出一個不存在的歌單 id。
+        return null;
     }
   }
 

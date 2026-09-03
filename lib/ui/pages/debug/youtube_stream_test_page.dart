@@ -675,8 +675,8 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
     try {
       final manager = ref.read(sourceManagerProvider);
-      final detailSource = manager.trackDetailSource(SourceType.youtube);
-      final streamSource = manager.audioStreamSource(SourceType.youtube);
+      final detailSource = manager.trackDetailSource(SourceIds.youtube);
+      final streamSource = manager.audioStreamSource(SourceIds.youtube);
       if (detailSource == null || streamSource == null) {
         _log('❌ YouTube source capabilities unavailable');
         setState(() => _status = 'YouTube source unavailable');
@@ -738,7 +738,7 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
       _log('');
       _log('--- 3. HTTP range probe ---');
-      final appMediaHeaders = SourceHttpPolicy.mediaHeaders(SourceType.youtube);
+      final appMediaHeaders = SourceHttpPolicy.mediaHeaders(SourceIds.youtube);
       final authMediaHeaders = <String, String>{
         ...appMediaHeaders,
         if ((authHeaders['Cookie'] ?? '').isNotEmpty)

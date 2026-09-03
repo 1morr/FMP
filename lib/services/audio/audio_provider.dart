@@ -780,7 +780,7 @@ class AudioController extends StateNotifier<PlayerState>
     } on SourceApiException catch (e) {
       // 音源 API 错误：尝试恢复原队列
       logWarning(
-          '${e.sourceType.name} API error for temporary track ${track.title}: ${e.message}');
+          '${e.sourceType} API error for temporary track ${track.title}: ${e.message}');
       if (_shouldSkipSourceError(e)) {
         _toastService.showWarning(_sourceCannotPlayMessage(track, e));
       } else {
@@ -882,7 +882,7 @@ class AudioController extends StateNotifier<PlayerState>
       logInfo('$debugLabel completed successfully');
     } on SourceApiException catch (e) {
       logWarning(
-          '$debugLabel failed: ${e.sourceType.name} API error: ${e.message}');
+          '$debugLabel failed: ${e.sourceType} API error: ${e.message}');
       if (clearSavedState) {
         _context = _context.copyWith(clearSavedState: true);
       }
@@ -2333,7 +2333,7 @@ class AudioController extends StateNotifier<PlayerState>
           '_executePlayRequest completed successfully for: ${track.title}');
     } on SourceApiException catch (e) {
       logWarning(
-          '${e.sourceType.name} API error for ${track.title}: ${e.message}');
+          '${e.sourceType} API error for ${track.title}: ${e.message}');
       // 网络错误和超时：走重试逻辑，而非通用错误处理
       if (_shouldRetrySourceError(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
@@ -2400,7 +2400,7 @@ class AudioController extends StateNotifier<PlayerState>
       Track track, SourceApiException e, PlayMode mode, int requestId) async {
     final cannotPlayMessage = _sourceCannotPlayMessage(track, e);
     if (_shouldSkipSourceError(e)) {
-      logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
+      logInfo('Track unavailable (${e.sourceType}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
         _resetLoadingState(requestId: requestId);
@@ -2431,7 +2431,7 @@ class AudioController extends StateNotifier<PlayerState>
         _toastService.showError(cannotPlayMessage);
       }
     } else if (e.kind == SourceErrorKind.rateLimited) {
-      logWarning('Rate limited (${e.sourceType.name}): ${track.title}');
+      logWarning('Rate limited (${e.sourceType}): ${track.title}');
       state = state.copyWith(
         error: e.message,
         isLoading: false,
@@ -2472,7 +2472,7 @@ class AudioController extends StateNotifier<PlayerState>
       SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
       SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
       SourceErrorKind.permissionDenied =>
-        error.sourceType == SourceType.bilibili
+        error.sourceType == SourceIds.bilibili
             ? t.audio.sourceErrorBilibiliPermissionDenied
             : t.audio.sourceErrorPermissionDenied,
       SourceErrorKind.network => t.audio.sourceErrorNetwork,
@@ -3482,7 +3482,7 @@ final audioControllerProvider =
     queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
     mixTracksFetcher: ref
         .watch(sourceManagerProvider)
-        .dynamicPlaylistSource(SourceType.youtube)
+        .dynamicPlaylistSource(SourceIds.youtube)
         ?.fetchMixTracks,
     runtimePlatform: runtimePlatform,
   );

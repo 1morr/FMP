@@ -72,7 +72,7 @@ void main() {
     );
 
     expect(result, isA<RemoteStreamResolution>());
-    expect(sourceAuthContext.authForPlayRequests, [SourceType.youtube]);
+    expect(sourceAuthContext.authForPlayRequests, [SourceIds.youtube]);
     expect(source.primaryRequests.single.authHeaders, {
       'Authorization': 'Bearer sentinel',
     });
@@ -367,7 +367,7 @@ void main() {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId
     ..artist = 'Tester';
 }
@@ -380,7 +380,7 @@ class _RecordingAudioStreamSource implements AudioStreamSource {
   int? nextCid;
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -413,10 +413,10 @@ class _RecordingAudioStreamSource implements AudioStreamSource {
 
 class _RecordingSourceAuthContext implements SourceAuthContext {
   Map<String, String>? authHeaders;
-  final authForPlayRequests = <SourceType>[];
+  final authForPlayRequests = <String>[];
 
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
     authForPlayRequests.add(sourceType);
     return authHeaders;
   }
@@ -440,5 +440,5 @@ class _FakeSourceException extends SourceApiException {
   String get message => 'fake failure';
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 }

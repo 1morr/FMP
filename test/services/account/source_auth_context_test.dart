@@ -30,66 +30,66 @@ void main() {
         ..useBilibiliAuthForPlay = true
         ..useYoutubeAuthForPlay = false
         ..useNeteaseAuthForPlay = true;
-      authLoader.headersBySource[SourceType.bilibili] = const {
+      authLoader.headersBySource[SourceIds.bilibili] = const {
         'Cookie': 'SESSDATA=bilibili',
       };
-      authLoader.headersBySource[SourceType.youtube] = const {
+      authLoader.headersBySource[SourceIds.youtube] = const {
         'Authorization': 'Bearer youtube',
       };
-      authLoader.headersBySource[SourceType.netease] = const {
+      authLoader.headersBySource[SourceIds.netease] = const {
         'Cookie': 'MUSIC_U=netease',
       };
 
-      final bilibili = await context.authForPlay(SourceType.bilibili);
-      final youtube = await context.authForPlay(SourceType.youtube);
-      final netease = await context.authForPlay(SourceType.netease);
+      final bilibili = await context.authForPlay(SourceIds.bilibili);
+      final youtube = await context.authForPlay(SourceIds.youtube);
+      final netease = await context.authForPlay(SourceIds.netease);
 
       expect(bilibili, {'Cookie': 'SESSDATA=bilibili'});
       expect(youtube, isNull);
       expect(netease, {'Cookie': 'MUSIC_U=netease'});
       expect(authLoader.requests, [
-        SourceType.bilibili,
-        SourceType.netease,
+        SourceIds.bilibili,
+        SourceIds.netease,
       ]);
     });
 
     test('playlist import auth follows caller useAuth only', () async {
-      authLoader.headersBySource[SourceType.netease] = const {
+      authLoader.headersBySource[SourceIds.netease] = const {
         'Cookie': 'MUSIC_U=token',
       };
 
       final disabled = await context.playlistImportAuth(
-        SourceType.netease,
+        SourceIds.netease,
         useAuth: false,
       );
       final enabled = await context.playlistImportAuth(
-        SourceType.netease,
+        SourceIds.netease,
         useAuth: true,
       );
 
       expect(disabled, isNull);
       expect(enabled, {'Cookie': 'MUSIC_U=token'});
-      expect(authLoader.requests, [SourceType.netease]);
+      expect(authLoader.requests, [SourceIds.netease]);
     });
 
     test('playlist refresh auth follows persisted refresh setting only',
         () async {
-      authLoader.headersBySource[SourceType.bilibili] = const {
+      authLoader.headersBySource[SourceIds.bilibili] = const {
         'Cookie': 'SESSDATA=token',
       };
 
       final disabled = await context.playlistRefreshAuth(
-        SourceType.bilibili,
+        SourceIds.bilibili,
         useAuthForRefresh: false,
       );
       final enabled = await context.playlistRefreshAuth(
-        SourceType.bilibili,
+        SourceIds.bilibili,
         useAuthForRefresh: true,
       );
 
       expect(disabled, isNull);
       expect(enabled, {'Cookie': 'SESSDATA=token'});
-      expect(authLoader.requests, [SourceType.bilibili]);
+      expect(authLoader.requests, [SourceIds.bilibili]);
     });
 
     test('playbackNetworkRequest does not leak Bilibili or YouTube media auth',
@@ -97,46 +97,46 @@ void main() {
       settings
         ..useBilibiliAuthForPlay = true
         ..useYoutubeAuthForPlay = true;
-      authLoader.headersBySource[SourceType.bilibili] = const {
+      authLoader.headersBySource[SourceIds.bilibili] = const {
         'Cookie': 'SESSDATA=bilibili',
       };
-      authLoader.headersBySource[SourceType.youtube] = const {
+      authLoader.headersBySource[SourceIds.youtube] = const {
         'Authorization': 'Bearer youtube',
         'Cookie': 'SID=youtube',
       };
 
       final bilibili = await context.playbackNetworkRequest(
-        _track(SourceType.bilibili),
+        _track(SourceIds.bilibili),
         'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
       );
       final youtube = await context.playbackNetworkRequest(
-        _track(SourceType.youtube),
+        _track(SourceIds.youtube),
         'https://rr1---sn.googlevideo.com/videoplayback',
       );
 
       expect(
           bilibili.headers,
           SourceHttpPolicy.mediaHeaders(
-            SourceType.bilibili,
+            SourceIds.bilibili,
           ));
       expect(
           youtube.headers,
           SourceHttpPolicy.mediaHeaders(
-            SourceType.youtube,
+            SourceIds.youtube,
           ));
       expect(bilibili.headers!.containsKey('Cookie'), isFalse);
       expect(youtube.headers!.containsKey('Authorization'), isFalse);
       expect(youtube.headers!.containsKey('Cookie'), isFalse);
       expect(authLoader.requests, [
-        SourceType.bilibili,
-        SourceType.youtube,
+        SourceIds.bilibili,
+        SourceIds.youtube,
       ]);
     });
 
     test('playbackNetworkRequest strips Netease auth after unsafe redirect',
         () async {
       settings.useNeteaseAuthForPlay = true;
-      authLoader.headersBySource[SourceType.netease] =
+      authLoader.headersBySource[SourceIds.netease] =
           SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
       final context = DefaultSourceAuthContext(
         settingsLoader: () async => settings,
@@ -149,15 +149,15 @@ void main() {
       );
 
       final request = await context.playbackNetworkRequest(
-        _track(SourceType.netease),
+        _track(SourceIds.netease),
         'https://m701.music.126.net/audio.m4a',
       );
 
       expect(request.url, 'https://attacker.example/audio.m4a');
       expect(request.headers!.containsKey('Cookie'), isFalse);
       expect(
-          request.headers, SourceHttpPolicy.mediaHeaders(SourceType.netease));
-      expect(authLoader.requests, [SourceType.netease]);
+          request.headers, SourceHttpPolicy.mediaHeaders(SourceIds.netease));
+      expect(authLoader.requests, [SourceIds.netease]);
     });
 
     test('playbackNetworkRequest delegates media request to MediaHandoff',
@@ -165,7 +165,7 @@ void main() {
       settings.useNeteaseAuthForPlay = true;
       final authHeaders =
           SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=delegate');
-      authLoader.headersBySource[SourceType.netease] = authHeaders;
+      authLoader.headersBySource[SourceIds.netease] = authHeaders;
       final mediaHandoff = _RecordingMediaHandoff(
         result: MediaHandoffResult(
           url: Uri.parse('https://m801.music.126.net/delegated.m4a'),
@@ -179,14 +179,14 @@ void main() {
       );
 
       final request = await context.playbackNetworkRequest(
-        _track(SourceType.netease),
+        _track(SourceIds.netease),
         'https://m701.music.126.net/original.m4a',
       );
 
       expect(request.url, 'https://m801.music.126.net/delegated.m4a');
       expect(request.headers, {'User-Agent': 'delegated-media'});
       expect(mediaHandoff.requests, hasLength(1));
-      expect(mediaHandoff.requests.single.sourceType, SourceType.netease);
+      expect(mediaHandoff.requests.single.sourceType, SourceIds.netease);
       expect(
         mediaHandoff.requests.single.url.toString(),
         'https://m701.music.126.net/original.m4a',
@@ -195,7 +195,7 @@ void main() {
     });
 
     test('image headers never include credentials', () {
-      for (final sourceType in SourceType.values) {
+      for (final sourceType in SourceIds.values) {
         final headers = context.imageHeaders(sourceType);
 
         expect(headers.containsKey('Cookie'), isFalse);
@@ -271,19 +271,19 @@ void main() {
   });
 }
 
-Track _track(SourceType sourceType) {
+Track _track(String sourceType) {
   return Track()
     ..sourceType = sourceType
-    ..sourceId = '${sourceType.name}-id'
-    ..title = '${sourceType.name} title';
+    ..sourceId = '${sourceType}-id'
+    ..title = '${sourceType} title';
 }
 
 class _RecordingAccountAuthLoader implements SourceAccountAuthLoader {
-  final headersBySource = <SourceType, Map<String, String>?>{};
-  final requests = <SourceType>[];
+  final headersBySource = <String, Map<String, String>?>{};
+  final requests = <String>[];
 
   @override
-  Future<Map<String, String>?> load(SourceType sourceType) async {
+  Future<Map<String, String>?> load(String sourceType) async {
     requests.add(sourceType);
     return headersBySource[sourceType];
   }

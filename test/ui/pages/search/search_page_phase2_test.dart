@@ -153,7 +153,7 @@ void main() {
       // A bilibili paged source is registered, but the track is youtube, so
       // pagedVideoSource(youtube) is null: pages must be empty and the
       // registered paged source must not be queried.
-      final pagedSource = _RecordingPagedVideoSource(SourceType.bilibili);
+      final pagedSource = _RecordingPagedVideoSource(SourceIds.bilibili);
       final sourceManager = _PagedVideoSourceManager(pagedSource);
       final service = SearchService(
         sourceManager: sourceManager,
@@ -161,7 +161,7 @@ void main() {
         searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..sourceId = 'youtube-video';
 
       final pages = await service.loadVideoPagesForTrack(track);
@@ -172,7 +172,7 @@ void main() {
     });
 
     test('search service does not pass auth to page lookup', () async {
-      final pagedSource = _RecordingPagedVideoSource(SourceType.bilibili);
+      final pagedSource = _RecordingPagedVideoSource(SourceIds.bilibili);
       final sourceManager = _PagedVideoSourceManager(pagedSource);
       final service = SearchService(
         sourceManager: sourceManager,
@@ -180,7 +180,7 @@ void main() {
         searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..sourceId = 'BV-no-auth';
 
       await service.loadVideoPagesForTrack(track);
@@ -252,7 +252,7 @@ class _PagedVideoSourceManager extends SourceManager {
   int pagedVideoLookupCount = 0;
 
   @override
-  PagedVideoSource? pagedVideoSource(SourceType type) {
+  PagedVideoSource? pagedVideoSource(String type) {
     pagedVideoLookupCount++;
     // Only serve the registered source's own type, mirroring real
     // SourceManager behaviour where a capability belongs to a specific source.
@@ -264,7 +264,7 @@ class _RecordingPagedVideoSource implements PagedVideoSource {
   _RecordingPagedVideoSource(this.sourceType);
 
   @override
-  final SourceType sourceType;
+  final String sourceType;
   int getVideoPagesCallCount = 0;
   Map<String, String>? lastAuthHeaders;
 

@@ -9,7 +9,7 @@ void main() {
     testWidgets('renders with correct size', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -34,7 +34,7 @@ void main() {
         (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -56,7 +56,7 @@ void main() {
     testWidgets('applies custom border radius', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -82,7 +82,7 @@ void main() {
         (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -112,7 +112,7 @@ void main() {
         (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -143,7 +143,7 @@ void main() {
     testWidgets('applies default size of 48', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -166,7 +166,7 @@ void main() {
     testWidgets('renders with 16:9 aspect ratio by default', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -191,7 +191,7 @@ void main() {
     testWidgets('renders with custom aspect ratio', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -234,7 +234,7 @@ void main() {
     testWidgets('uses networkUrl over track thumbnailUrl', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track'
         ..thumbnailUrl = 'https://example.com/track.jpg';
 

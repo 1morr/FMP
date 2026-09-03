@@ -38,7 +38,7 @@ class _PlaylistItem {
 
 /// 帳號歌單導入 BottomSheet
 class AccountPlaylistsSheet extends ConsumerStatefulWidget {
-  final SourceType platform;
+  final String platform;
 
   const AccountPlaylistsSheet({super.key, required this.platform});
 
@@ -131,7 +131,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
 
   Future<List<_PlaylistItem>> _fetchPlaylists() async {
     switch (widget.platform) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         final service = ref.read(bilibiliFavoritesServiceProvider);
         final folders = await service.getFavFolders();
         return folders
@@ -143,7 +143,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
                   importUrl: 'https://space.bilibili.com/0/favlist?fid=${f.id}',
                 ))
             .toList();
-      case SourceType.youtube:
+      case SourceIds.youtube:
         final service = ref.read(youtubePlaylistServiceProvider);
         final playlists = await service.getPlaylists();
         return playlists
@@ -156,7 +156,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
                       'https://www.youtube.com/playlist?list=${p.playlistId}',
                 ))
             .toList();
-      case SourceType.netease:
+      case SourceIds.netease:
         final service = ref.read(neteasePlaylistServiceProvider);
         final playlists = await service.getPlaylists();
         return playlists
@@ -169,6 +169,10 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
                       'https://music.163.com/playlist?id=${p.playlistId}',
                 ))
             .toList();
+      default:
+        // 回空清單會在畫面上謊稱「這個帳號沒有歌單」。外層 try 已經會把
+        // 例外轉成錯誤訊息，所以拋出去才是誠實的。
+        throw StateError('no playlist service for source ${widget.platform}');
     }
   }
 
@@ -240,7 +244,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
       if (!mounted || _isCancelled) break;
 
       final scopeId =
-          'account-import-${widget.platform.name}-${item.id}-${identityHashCode(_importScopeToken)}';
+          'account-import-${widget.platform}-${item.id}-${identityHashCode(_importScopeToken)}';
       final provider = importPlaylistProvider(scopeId);
       final notifier = ref.read(provider.notifier);
 

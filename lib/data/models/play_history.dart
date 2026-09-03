@@ -17,8 +17,7 @@ class PlayHistory {
 
   /// 音源类型
   @Index()
-  @Enumerated(EnumType.name)
-  late SourceType sourceType;
+  late String sourceType;
 
   /// Bilibili cid（分P唯一标识）
   int? cid;
@@ -45,7 +44,7 @@ class PlayHistory {
   /// 但索引項只在 `put` 時重算 —— 這個索引加上去之前就存在的列不會有索引項，
   /// 所以 v0 → v1 的遷移必須把所有既有列重寫一次。
   @Index()
-  String get trackKey => TrackKey.format(sourceType.name, sourceId, cid: cid);
+  String get trackKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   /// 从 Track 创建播放历史记录
   static PlayHistory fromTrack(Track track) {

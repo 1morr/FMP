@@ -315,18 +315,18 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   }
 
   /// 设置播放时是否使用指定音源的登录凭证
-  Future<void> setAuthForPlay(SourceType sourceType, bool enabled) async {
+  Future<void> setAuthForPlay(String sourceType, bool enabled) async {
     if (_settings == null) return;
 
     final previous = state;
     state = state.copyWith(
-      useBilibiliAuthForPlay: sourceType == SourceType.bilibili
+      useBilibiliAuthForPlay: sourceType == SourceIds.bilibili
           ? enabled
           : state.useBilibiliAuthForPlay,
-      useYoutubeAuthForPlay: sourceType == SourceType.youtube
+      useYoutubeAuthForPlay: sourceType == SourceIds.youtube
           ? enabled
           : state.useYoutubeAuthForPlay,
-      useNeteaseAuthForPlay: sourceType == SourceType.netease
+      useNeteaseAuthForPlay: sourceType == SourceIds.netease
           ? enabled
           : state.useNeteaseAuthForPlay,
     );

@@ -36,43 +36,47 @@ class SourceHttpPolicy {
   /// 限在串流解析當下就決定了，CDN 只需要 Origin/Referer/User-Agent。曾經有一
   /// 段「對網易的 https URL 附上 Cookie」的分支，實測 eapi 回的是 `http://`，
   /// 那段程式碼在生產環境一次都沒執行過，已移除。
-  static Map<String, String> mediaHeaders(SourceType sourceType) {
+  static Map<String, String> mediaHeaders(String sourceType) {
     final headers = switch (sourceType) {
-      SourceType.bilibili => <String, String>{
+      SourceIds.bilibili => <String, String>{
           'Referer': bilibiliWebReferer,
           'User-Agent': mediaUserAgent,
         },
-      SourceType.youtube => <String, String>{
+      SourceIds.youtube => <String, String>{
           'Origin': youtubeOrigin,
           'Referer': youtubeReferer,
           'User-Agent': mediaUserAgent,
         },
-      SourceType.netease => <String, String>{
+      SourceIds.netease => <String, String>{
           'Origin': neteaseOrigin,
           'Referer': neteaseReferer,
           'User-Agent': mediaUserAgent,
         },
+      // 認不得的音源只拿得到 User-Agent。送錯的 Referer/Origin 會讓 CDN
+      // 拒絕，還會把來源洩漏給不相干的主機；漏送只是退化成匿名請求。
+      _ => <String, String>{'User-Agent': mediaUserAgent},
     };
 
     return headers;
   }
 
   static Map<String, String> imageHeaders(
-    SourceType sourceType, {
+    String sourceType, {
     bool includeUserAgent = true,
   }) {
     final headers = switch (sourceType) {
-      SourceType.bilibili => <String, String>{
+      SourceIds.bilibili => <String, String>{
           'Referer': bilibiliWebReferer,
         },
-      SourceType.youtube => <String, String>{
+      SourceIds.youtube => <String, String>{
           'Origin': youtubeOrigin,
           'Referer': youtubeReferer,
         },
-      SourceType.netease => <String, String>{
+      SourceIds.netease => <String, String>{
           'Origin': neteaseOrigin,
           'Referer': neteaseReferer,
         },
+      _ => <String, String>{},
     };
 
     if (includeUserAgent) {
@@ -99,7 +103,7 @@ class SourceHttpPolicy {
     if (_isHostOrSubdomain(host, 'hdslb.com') ||
         _isHostOrSubdomain(host, 'bilibili.com')) {
       return imageHeaders(
-        SourceType.bilibili,
+        SourceIds.bilibili,
         includeUserAgent: includeUserAgent,
       );
     }
@@ -107,13 +111,13 @@ class SourceHttpPolicy {
         _isHostOrSubdomain(host, 'ggpht.com') ||
         _isHostOrSubdomain(host, 'googleusercontent.com')) {
       return imageHeaders(
-        SourceType.youtube,
+        SourceIds.youtube,
         includeUserAgent: includeUserAgent,
       );
     }
     if (_isHostOrSubdomain(host, 'music.126.net')) {
       return imageHeaders(
-        SourceType.netease,
+        SourceIds.netease,
         includeUserAgent: includeUserAgent,
       );
     }
@@ -125,28 +129,29 @@ class SourceHttpPolicy {
   }
 
   static Map<String, String> apiHeaders(
-    SourceType sourceType, {
+    String sourceType, {
     Map<String, String>? extraHeaders,
     String? userAgent,
   }) {
     final headers = switch (sourceType) {
-      SourceType.bilibili => <String, String>{
+      SourceIds.bilibili => <String, String>{
           'User-Agent': userAgent ?? webUserAgent,
           'Referer': bilibiliReferer,
           'Origin': bilibiliOrigin,
           'Accept': 'application/json, text/plain, */*',
         },
-      SourceType.youtube => <String, String>{
+      SourceIds.youtube => <String, String>{
           'User-Agent': userAgent ?? mediaUserAgent,
           'Origin': youtubeOrigin,
           'Referer': youtubeReferer,
         },
-      SourceType.netease => <String, String>{
+      SourceIds.netease => <String, String>{
           'User-Agent': userAgent ?? neteaseDesktopUserAgent,
           'Referer': neteaseReferer,
           'Origin': neteaseOrigin,
           'Accept': 'application/json, text/plain, */*',
         },
+      _ => <String, String>{'User-Agent': userAgent ?? webUserAgent},
     };
 
     headers.addAll(extraHeaders ?? const <String, String>{});
@@ -158,7 +163,7 @@ class SourceHttpPolicy {
     String? userAgent,
   }) {
     return apiHeaders(
-      SourceType.bilibili,
+      SourceIds.bilibili,
       userAgent: userAgent,
       extraHeaders: {
         'Referer': bilibiliSearchReferer,
@@ -186,7 +191,7 @@ class SourceHttpPolicy {
   }
 
   static Dio createApiDio(
-    SourceType sourceType, {
+    String sourceType, {
     Map<String, String>? extraHeaders,
     String? userAgent,
     String? contentType,

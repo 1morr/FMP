@@ -289,13 +289,13 @@ class PlaylistImportService with Logging {
         // 并行搜索 YouTube 和 Bilibili
         final results = await Future.wait([
           _sourceManager
-              .searchFrom(SourceType.youtube, query, pageSize: searchPageSize)
+              .searchFrom(SourceIds.youtube, query, pageSize: searchPageSize)
               .catchError((e) {
             logWarning('YouTube search failed during import; ignoring: $e');
             return SearchResult.empty();
           }),
           _sourceManager
-              .searchFrom(SourceType.bilibili, query, pageSize: searchPageSize)
+              .searchFrom(SourceIds.bilibili, query, pageSize: searchPageSize)
               .catchError((e) {
             logWarning('Bilibili search failed during import; ignoring: $e');
             return SearchResult.empty();
@@ -312,7 +312,7 @@ class PlaylistImportService with Logging {
 
       case SearchSourceConfig.bilibiliOnly:
         final result = await _sourceManager.searchFrom(
-          SourceType.bilibili,
+          SourceIds.bilibili,
           query,
           pageSize: searchPageSize,
         );
@@ -322,7 +322,7 @@ class PlaylistImportService with Logging {
 
       case SearchSourceConfig.youtubeOnly:
         final result = await _sourceManager.searchFrom(
-          SourceType.youtube,
+          SourceIds.youtube,
           query,
           pageSize: searchPageSize,
         );
@@ -1124,7 +1124,7 @@ class PlaylistImportService with Logging {
 
       case SearchSourceConfig.bilibiliOnly:
         final result = await _sourceManager.searchFrom(
-          SourceType.bilibili,
+          SourceIds.bilibili,
           query,
           pageSize: maxResults,
         );
@@ -1133,7 +1133,7 @@ class PlaylistImportService with Logging {
 
       case SearchSourceConfig.youtubeOnly:
         final result = await _sourceManager.searchFrom(
-          SourceType.youtube,
+          SourceIds.youtube,
           query,
           pageSize: maxResults,
         );

@@ -23,7 +23,7 @@ void main() {
       final trackId = await harness.isar.writeTxn(() async {
         return harness.isar.tracks.put(Track()
           ..sourceId = 'yt-complete'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Complete Track'
           ..createdAt = DateTime.now());
       });
@@ -78,7 +78,7 @@ void main() {
       final trackId = await harness.isar.writeTxn(() async {
         return harness.isar.tracks.put(Track()
           ..sourceId = 'yt-missing-task'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Missing Task Track'
           ..createdAt = DateTime.now());
       });

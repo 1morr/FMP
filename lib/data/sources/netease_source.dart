@@ -45,12 +45,12 @@ class NeteaseSource
   NeteaseSource({Dio? dio}) {
     _dio = dio ??
         SourceHttpPolicy.createApiDio(
-          SourceType.netease,
+          SourceIds.netease,
         );
   }
 
   @override
-  SourceType get sourceType => SourceType.netease;
+  String get sourceType => SourceIds.netease;
 
   // ========== URL 解析 ==========
 
@@ -397,7 +397,7 @@ class NeteaseSource
   @override
   Future<Track> refreshAudioUrl(Track track,
       {Map<String, String>? authHeaders}) async {
-    if (track.sourceType != SourceType.netease) {
+    if (track.sourceType != SourceIds.netease) {
       throw const NeteaseApiException(
           numericCode: -3, message: 'Invalid source type for NeteaseSource');
     }
@@ -755,7 +755,7 @@ class NeteaseSource
 
     return Track()
       ..sourceId = songId.toString()
-      ..sourceType = SourceType.netease
+      ..sourceType = SourceIds.netease
       ..title = name
       ..artist = artists.isNotEmpty ? artists : null
       ..durationMs = dt

@@ -380,7 +380,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 
       final dynamicSource = _ref
           .read(sourceManagerProvider)
-          .dynamicPlaylistSource(SourceType.youtube);
+          .dynamicPlaylistSource(SourceIds.youtube);
       if (dynamicSource == null) {
         throw StateError(t.importSource.mixLoadFailed);
       }

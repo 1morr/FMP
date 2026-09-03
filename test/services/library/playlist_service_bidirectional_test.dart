@@ -32,7 +32,7 @@ void main() {
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       final savedTrack = await harness.tracks.getBySourceId(
         'yt-single',
-        SourceType.youtube,
+        SourceIds.youtube,
       );
       expect(savedPlaylist!.trackIds, [savedTrack!.id]);
       expect(savedTrack.belongsToPlaylist(playlist.id), isTrue);
@@ -88,7 +88,7 @@ void main() {
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       final savedTrack = await harness.tracks.getBySourceId(
         'yt-duplicate-input',
-        SourceType.youtube,
+        SourceIds.youtube,
       );
       expect(savedPlaylist!.trackIds, [savedTrack!.id]);
       expect(
@@ -309,7 +309,7 @@ Future<Playlist> _createPlaylist(_Harness harness, String name) async {
 Track _newTrack(String sourceId, String title) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..createdAt = DateTime.now();
 }

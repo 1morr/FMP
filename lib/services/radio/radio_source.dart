@@ -2,7 +2,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
-import '../../data/models/track.dart'; // for SourceType
+import '../../data/models/track.dart'; // for String
 import '../../data/sources/bilibili_live_client.dart';
 
 /// 直播間資訊
@@ -157,7 +157,7 @@ class RadioSource with Logging {
     // 創建基本 station（只支持 Bilibili）
     final station = RadioStation()
       ..url = parseResult.normalizedUrl
-      ..sourceType = SourceType.bilibili
+      ..sourceType = SourceIds.bilibili
       ..sourceId = parseResult.sourceId
       ..title = t.radio.loading
       ..createdAt = DateTime.now();

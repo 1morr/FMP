@@ -7,21 +7,21 @@ void main() {
       'filters tracks to logged-in remote sources without requiring the first track',
       () {
     final tracks = [
-      _track(SourceType.youtube, 'yt'),
-      _track(SourceType.netease, 'ne'),
-      _track(SourceType.bilibili, 'bi'),
+      _track(SourceIds.youtube, 'yt'),
+      _track(SourceIds.netease, 'ne'),
+      _track(SourceIds.bilibili, 'bi'),
     ];
 
     final filtered = filterLoggedInRemoteTracks(
       tracks,
-      isLoggedIn: (sourceType) => sourceType == SourceType.netease,
+      isLoggedIn: (sourceType) => sourceType == SourceIds.netease,
     );
 
     expect(filtered.map((track) => track.sourceId), ['ne']);
   });
 }
 
-Track _track(SourceType sourceType, String sourceId) {
+Track _track(String sourceType, String sourceId) {
   return Track()
     ..sourceType = sourceType
     ..sourceId = sourceId

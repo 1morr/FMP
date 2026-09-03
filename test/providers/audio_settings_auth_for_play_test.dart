@@ -24,8 +24,8 @@ void main() {
     final notifier = AudioSettingsNotifier(repository);
     await Future<void>.delayed(Duration.zero);
 
-    await notifier.setAuthForPlay(SourceType.youtube, true);
-    await notifier.setAuthForPlay(SourceType.netease, false);
+    await notifier.setAuthForPlay(SourceIds.youtube, true);
+    await notifier.setAuthForPlay(SourceIds.netease, false);
 
     expect(notifier.state.useYoutubeAuthForPlay, isTrue);
     expect(notifier.state.useNeteaseAuthForPlay, isFalse);

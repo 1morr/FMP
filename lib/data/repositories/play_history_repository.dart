@@ -21,9 +21,9 @@ class PlayHistoryRepository {
   }
 
   /// 获取歌曲播放次数
-  Future<int> getPlayCount(String sourceId, SourceType sourceType,
+  Future<int> getPlayCount(String sourceId, String sourceType,
       {int? cid}) async {
-    final trackKey = TrackKey.format(sourceType.name, sourceId, cid: cid);
+    final trackKey = TrackKey.format(sourceType, sourceId, cid: cid);
     return _isar.playHistorys.where().trackKeyEqualTo(trackKey).count();
   }
 
@@ -138,7 +138,7 @@ class PlayHistoryRepository {
   Future<List<PlayHistory>> getHistoryByDateRange(
     DateTime start,
     DateTime end, {
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
   }) async {
     var query = _isar.playHistorys.where().filter().playedAtBetween(start, end);
 
@@ -154,7 +154,7 @@ class PlayHistoryRepository {
 
   /// 按音源类型获取历史记录
   Future<List<PlayHistory>> getHistoryBySource(
-    SourceType sourceType, {
+    String sourceType, {
     int offset = 0,
     int limit = 50,
   }) async {
@@ -171,7 +171,7 @@ class PlayHistoryRepository {
   /// 搜索历史记录（标题或艺术家）
   Future<List<PlayHistory>> searchHistory(
     String keyword, {
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     int limit = 50,
   }) async {
     var query = _isar.playHistorys.where().filter().group((q) => q
@@ -246,7 +246,7 @@ class PlayHistoryRepository {
 
   /// 共享历史快照加载入口
   Future<List<PlayHistory>> loadHistorySnapshot({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     DateTime? startDate,
     DateTime? endDate,
     String? searchKeyword,
@@ -263,7 +263,7 @@ class PlayHistoryRepository {
 
   /// 综合查询历史记录
   Future<List<PlayHistory>> queryHistory({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     DateTime? startDate,
     DateTime? endDate,
     String? searchKeyword,
@@ -353,7 +353,7 @@ class PlayHistoryRepository {
 
   /// 按日期分组获取历史记录
   Future<Map<DateTime, List<PlayHistory>>> getHistoryGroupedByDate({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     String? searchKeyword,
     HistorySortOrder sortOrder = HistorySortOrder.timeDesc,
   }) async {

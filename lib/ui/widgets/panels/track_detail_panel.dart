@@ -824,7 +824,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
         const SizedBox(height: 12),
 
         // UP主/歌手信息
-        if (currentTrack?.sourceType == SourceType.netease)
+        if (currentTrack?.sourceType == SourceIds.netease)
           // 網易雲：歌手頭像 + 歌手名 + 發布時間
           Row(
             children: [
@@ -941,8 +941,8 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
   /// YouTube: 播放数、点赞数（无收藏数）
   /// Netease: 专辑名、评论数
   Widget _buildSimpleStats(BuildContext context, Track? track) {
-    final isYouTube = track?.sourceType == SourceType.youtube;
-    final isNetease = track?.sourceType == SourceType.netease;
+    final isYouTube = track?.sourceType == SourceIds.youtube;
+    final isNetease = track?.sourceType == SourceIds.netease;
 
     if (isNetease) {
       return DetailStatsRow(
@@ -1062,7 +1062,7 @@ class _ClickableCover extends StatelessWidget {
     required this.detailState,
   });
 
-  bool get _isNetease => track?.sourceType == SourceType.netease;
+  bool get _isNetease => track?.sourceType == SourceIds.netease;
 
   @override
   Widget build(BuildContext context) {

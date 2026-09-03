@@ -231,9 +231,9 @@ class _FakeNeteaseAccountService extends NeteaseAccountService {
       await _isar.writeTxn(() async {
         final existing = await _isar.accounts
             .filter()
-            .platformEqualTo(SourceType.netease)
+            .platformEqualTo(SourceIds.netease)
             .findFirst();
-        final account = existing ?? (Account()..platform = SourceType.netease);
+        final account = existing ?? (Account()..platform = SourceIds.netease);
         account.isLoggedIn = true;
         account.userId = validatedUserId;
         account.userName = validatedUserName;

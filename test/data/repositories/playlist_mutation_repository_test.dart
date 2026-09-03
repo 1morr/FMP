@@ -371,7 +371,7 @@ void main() {
       expect(result.addedCount, 1);
       expect(result.removedCount, 1);
       expect(
-        await harness.tracks.getBySourceId('stale', SourceType.youtube),
+        await harness.tracks.getBySourceId('stale', SourceIds.youtube),
         isNull,
       );
       final savedTracks =
@@ -400,7 +400,7 @@ void main() {
 
       final keepTrack = await harness.tracks.getBySourceId(
         'keep',
-        SourceType.youtube,
+        SourceIds.youtube,
       );
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       expect(savedPlaylist!.trackIds, [keepTrack!.id]);
@@ -447,7 +447,7 @@ void main() {
       );
       final brokenTrack = Track()
         ..sourceId = 'broken'
-        ..sourceType = SourceType.youtube;
+        ..sourceType = SourceIds.youtube;
 
       final result = await harness.mutations.replaceTracksFromRemoteRefresh(
         playlist.id,
@@ -464,7 +464,7 @@ void main() {
       expect(
           savedTracks.map((track) => track.sourceId), ['keep', 'stale', 'new']);
       expect(
-        await harness.tracks.getBySourceId('broken', SourceType.youtube),
+        await harness.tracks.getBySourceId('broken', SourceIds.youtube),
         isNull,
       );
     });
@@ -651,7 +651,7 @@ Future<Playlist> _createPlaylist(_Harness harness, String name) async {
 Track _track(String sourceId, String title) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..thumbnailUrl = 'https://example.com/$sourceId.jpg'
     ..createdAt = DateTime.now();

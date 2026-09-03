@@ -33,14 +33,14 @@ void main() {
       );
       expect(
         RegExp(
-          r"ValueKey\(\s*'alternative-search-\$\{result\.sourceType\.name\}:\$\{result\.sourceId\}:\$\{result\.pageNum\s*\?\?\s*result\.cid\s*\?\?\s*0\}'\s*\)",
+          r"ValueKey\(\s*'alternative-search-\$\{result\.sourceType\}:\$\{result\.sourceId\}:\$\{result\.pageNum\s*\?\?\s*result\.cid\s*\?\?\s*0\}'\s*\)",
           dotAll: true,
         ).hasMatch(source),
         isTrue,
       );
       expect(
         RegExp(
-          r"ValueKey\(\s*'alternative-expanded-\$\{altTrack\.sourceType\.name\}:\$\{altTrack\.sourceId\}:\$\{altTrack\.pageNum\s*\?\?\s*altTrack\.cid\s*\?\?\s*0\}'\s*\)",
+          r"ValueKey\(\s*'alternative-expanded-\$\{altTrack\.sourceType\}:\$\{altTrack\.sourceId\}:\$\{altTrack\.pageNum\s*\?\?\s*altTrack\.cid\s*\?\?\s*0\}'\s*\)",
           dotAll: true,
         ).hasMatch(source),
         isTrue,
@@ -655,7 +655,7 @@ void main() {
       expect(
         search,
         contains(
-            "'page-\${track.sourceType.name}:\${track.sourceId}:\${page.page}'"),
+            "'page-\${track.sourceType}:\${track.sourceId}:\${page.page}'"),
       );
       expect(
         playlistDetail,

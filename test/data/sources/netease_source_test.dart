@@ -104,7 +104,7 @@ void main() {
 
       expect(tracks, hasLength(2));
       expect(tracks.map((track) => track.sourceId), ['101', '102']);
-      expect(tracks.every((track) => track.sourceType == SourceType.netease),
+      expect(tracks.every((track) => track.sourceType == SourceIds.netease),
           isTrue);
       expect(tracks.first.title, 'First Song');
       expect(tracks.first.artist, 'Artist A, Artist B');

@@ -238,7 +238,7 @@ class DownloadPathMaintenanceService {
   }
 
   String _sourceKey(Track track) =>
-      TrackKey.formatGroup(track.sourceType.name, track.sourceId);
+      TrackKey.formatGroup(track.sourceType, track.sourceId);
 
   String _normalizePath(String path) {
     if (path.isEmpty) {

@@ -14,12 +14,12 @@ void main() {
     final result = await verifyAllAccountStatuses(
       [
         _FakeAccountService(
-          platform: SourceType.bilibili,
+          platform: SourceIds.bilibili,
           loggedIn: true,
           check: () => throw StateError('network down'),
         ),
         _FakeAccountService(
-          platform: SourceType.youtube,
+          platform: SourceIds.youtube,
           loggedIn: true,
           check: () async => const AccountCheckResult(
             status: AccountStatus.valid,
@@ -30,8 +30,8 @@ void main() {
       toastService,
     );
 
-    expect(result.checkedPlatforms, [SourceType.youtube]);
-    expect(result.failedPlatforms, [SourceType.bilibili]);
+    expect(result.checkedPlatforms, [SourceIds.youtube]);
+    expect(result.failedPlatforms, [SourceIds.bilibili]);
     expect(result.hasFailures, isTrue);
   });
 }
@@ -44,7 +44,7 @@ class _FakeAccountService extends AccountService {
   }) : _check = check;
 
   @override
-  final SourceType platform;
+  final String platform;
 
   final bool loggedIn;
   final Future<AccountCheckResult> Function() _check;

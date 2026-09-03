@@ -733,11 +733,11 @@ class _TrackInfoDialog extends ConsumerWidget {
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
     final baseDir = baseDirAsync.value;
 
-    final isYouTube = currentTrack?.sourceType == SourceType.youtube;
+    final isYouTube = currentTrack?.sourceType == SourceIds.youtube;
 
     return CappedDraggableSheet(
       icon: Icons.info_outline_rounded,
-      title: currentTrack?.sourceType == SourceType.netease
+      title: currentTrack?.sourceType == SourceIds.netease
           ? t.player.songInfo
           : t.player.videoInfo,
       onClose: () => Navigator.of(context).pop(),
@@ -754,7 +754,7 @@ class _TrackInfoDialog extends ConsumerWidget {
                   _DetailContent(
                     detail: detailState.detail!,
                     isYouTube: isYouTube,
-                    isNetease: currentTrack?.sourceType == SourceType.netease,
+                    isNetease: currentTrack?.sourceType == SourceIds.netease,
                     track: currentTrack,
                     cache: cache,
                     baseDir: baseDir,

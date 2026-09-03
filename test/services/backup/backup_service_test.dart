@@ -358,7 +358,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'restored',
-            sourceType: SourceType.youtube.name,
+            sourceType: SourceIds.youtube,
             title: 'Restored Track',
             thumbnailUrl: 'https://img.example/track-cover.jpg',
             createdAt: DateTime(2026, 5, 3),
@@ -400,7 +400,7 @@ void main() {
         playlists: [
           PlaylistBackup(
             name: 'Netease Import',
-            importSourceType: SourceType.netease.name,
+            importSourceType: SourceIds.netease,
             trackKeys: const ['netease:netease-song'],
             createdAt: exportedAt,
           ),
@@ -408,7 +408,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'netease-song',
-            sourceType: SourceType.netease.name,
+            sourceType: SourceIds.netease,
             title: 'Netease Track',
             createdAt: exportedAt,
           ),
@@ -416,7 +416,7 @@ void main() {
         playHistory: [
           PlayHistoryBackup(
             sourceId: 'netease-history',
-            sourceType: SourceType.netease.name,
+            sourceType: SourceIds.netease,
             title: 'Netease History',
             playedAt: exportedAt,
           ),
@@ -426,7 +426,7 @@ void main() {
           RadioStationBackup(
             url: 'https://music.163.com/radio/test',
             title: 'Netease Radio',
-            sourceType: SourceType.netease.name,
+            sourceType: SourceIds.netease,
             sourceId: 'netease-radio',
             createdAt: exportedAt,
           ),
@@ -449,10 +449,75 @@ void main() {
       final radio = (await isar.radioStations.where().findAll()).single;
 
       expect(result.errors, isEmpty);
-      expect(track.sourceType, SourceType.netease);
-      expect(playlist.importSourceType, SourceType.netease);
-      expect(history.sourceType, SourceType.netease);
-      expect(radio.sourceType, SourceType.netease);
+      expect(track.sourceType, SourceIds.netease);
+      expect(playlist.importSourceType, SourceIds.netease);
+      expect(history.sourceType, SourceIds.netease);
+      expect(radio.sourceType, SourceIds.netease);
+    });
+
+    test('importData keeps a source id it does not recognise', () async {
+      // 別人用更新版本（多了第四個音源）匯出的備份，不能在匯入時被靜默
+      // 改寫成 B 站 —— 那會產生永遠播不出來的假 B 站曲目，而且不可逆。
+      final exportedAt = DateTime(2026, 6, 1);
+      const unknown = 'soundcloud';
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: exportedAt,
+        appVersion: 'test',
+        playlists: [
+          PlaylistBackup(
+            name: 'Future Import',
+            importSourceType: unknown,
+            trackKeys: const ['$unknown:future-song'],
+            createdAt: exportedAt,
+          ),
+        ],
+        tracks: [
+          TrackBackup(
+            sourceId: 'future-song',
+            sourceType: unknown,
+            title: 'Future Track',
+            createdAt: exportedAt,
+          ),
+        ],
+        playHistory: [
+          PlayHistoryBackup(
+            sourceId: 'future-history',
+            sourceType: unknown,
+            title: 'Future History',
+            playedAt: exportedAt,
+          ),
+        ],
+        searchHistory: const [],
+        radioStations: [
+          RadioStationBackup(
+            url: 'https://example.invalid/radio/1',
+            title: 'Future Radio',
+            sourceType: unknown,
+            sourceId: 'future-radio',
+            createdAt: exportedAt,
+          ),
+        ],
+      );
+
+      final result = await backupService.importData(
+        backupData,
+        importPlaylists: true,
+        importPlayHistory: true,
+        importSearchHistory: false,
+        importRadioStations: true,
+        importLyricsMatches: false,
+        importSettings: false,
+      );
+
+      expect(result.errors, isEmpty);
+      expect((await isar.tracks.where().findAll()).single.sourceType, unknown);
+      expect((await isar.playlists.where().findAll()).single.importSourceType,
+          unknown);
+      expect((await isar.playHistorys.where().findAll()).single.sourceType,
+          unknown);
+      expect((await isar.radioStations.where().findAll()).single.sourceType,
+          unknown);
     });
 
     test('exportData includes lyrics AI settings without secure API key',
@@ -523,7 +588,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'track-v2'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Track V2'
         ..isAvailable = false
         ..isVip = true
@@ -534,7 +599,7 @@ void main() {
       final playlist = Playlist()
         ..name = 'Playlist V2'
         ..sourceUrl = 'https://example.test/playlist'
-        ..importSourceType = SourceType.bilibili
+        ..importSourceType = SourceIds.bilibili
         ..lastRefreshed = refreshedAt
         ..ownerName = 'Owner Name'
         ..ownerUserId = 'owner-1'
@@ -544,7 +609,7 @@ void main() {
       final radio = RadioStation()
         ..url = 'https://example.test/live'
         ..title = 'Radio V2'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..sourceId = 'room-v2'
         ..createdAt = createdAt
         ..lastPlayedAt = lastPlayedAt;
@@ -596,7 +661,7 @@ void main() {
           PlaylistBackup(
             name: 'Restored Playlist V2',
             sourceUrl: 'https://example.test/playlist',
-            importSourceType: SourceType.bilibili.name,
+            importSourceType: SourceIds.bilibili,
             lastRefreshed: refreshedAt,
             ownerName: 'Owner Name',
             ownerUserId: 'owner-1',
@@ -609,7 +674,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'track-v2',
-            sourceType: SourceType.bilibili.name,
+            sourceType: SourceIds.bilibili,
             title: 'Track V2',
             isAvailable: false,
             isVip: true,
@@ -625,7 +690,7 @@ void main() {
           RadioStationBackup(
             url: 'https://example.test/live',
             title: 'Radio V2',
-            sourceType: SourceType.bilibili.name,
+            sourceType: SourceIds.bilibili,
             sourceId: 'room-v2',
             createdAt: createdAt,
             lastPlayedAt: lastPlayedAt,
@@ -716,7 +781,7 @@ void main() {
         playHistory: [
           PlayHistoryBackup(
             sourceId: 'history',
-            sourceType: SourceType.youtube.name,
+            sourceType: SourceIds.youtube,
             title: 'History',
             playedAt: DateTime(2026, 6, 10),
           ),
@@ -740,7 +805,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'standalone',
-            sourceType: SourceType.youtube.name,
+            sourceType: SourceIds.youtube,
             title: 'Standalone Track',
             createdAt: DateTime(2026, 6, 10),
           ),

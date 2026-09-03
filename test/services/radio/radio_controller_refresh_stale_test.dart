@@ -141,7 +141,7 @@ RadioStation _station({
   return RadioStation()
     ..id = id
     ..url = 'https://live.bilibili.com/$sourceId'
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..sourceId = sourceId
     ..title = title;
 }

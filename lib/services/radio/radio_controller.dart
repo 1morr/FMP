@@ -9,7 +9,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
-import '../../data/models/track_key.dart'; // for SourceType
+import '../../data/models/track_key.dart'; // for String
 import '../../data/repositories/radio_repository.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import '../../providers/account/account_provider.dart';
@@ -777,7 +777,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     final stations = await _repository.getAll();
     return {
       for (final station in stations)
-        if (station.sourceType == SourceType.bilibili) station.sourceId,
+        if (station.sourceType == SourceIds.bilibili) station.sourceId,
     };
   }
 
@@ -791,9 +791,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       throw Exception(t.radio.cannotParseUrl);
     }
 
-    const sourceType = SourceType.bilibili;
+    const sourceType = SourceIds.bilibili;
     final uniqueKey =
-        TrackKey.formatGroup(sourceType.name, parseResult.sourceId);
+        TrackKey.formatGroup(sourceType, parseResult.sourceId);
     if (reservedKeys?.contains(uniqueKey) == true) {
       return null;
     }

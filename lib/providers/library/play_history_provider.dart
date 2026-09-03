@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../data/models/play_history.dart';
-import '../../data/models/track.dart';
 import '../../data/repositories/play_history_repository.dart';
 import '../database/repository_providers.dart';
 
@@ -112,7 +111,7 @@ final playHistoryStatsProvider =
 
 List<PlayHistory> _filterAndSortHistory(
   List<PlayHistory> records, {
-  SourceType? selectedSource,
+  String? selectedSource,
   HistorySortOrder sortOrder = HistorySortOrder.timeDesc,
   String? searchKeyword,
   DateTime? selectedDate,
@@ -227,7 +226,7 @@ List<HistoryTimelineRow> buildHistoryTimelineRows(
 
 /// 播放历史页面状态
 class PlayHistoryPageState {
-  final SourceType? selectedSource; // null = 全部
+  final String? selectedSource; // null = 全部
   final HistorySortOrder sortOrder;
   final String? searchKeyword;
   final DateTime? selectedDate;
@@ -246,7 +245,7 @@ class PlayHistoryPageState {
   });
 
   PlayHistoryPageState copyWith({
-    SourceType? selectedSource,
+    String? selectedSource,
     HistorySortOrder? sortOrder,
     String? searchKeyword,
     DateTime? selectedDate,
@@ -279,7 +278,7 @@ class PlayHistoryPageNotifier extends StateNotifier<PlayHistoryPageState> {
   PlayHistoryPageNotifier(this._repo) : super(const PlayHistoryPageState());
 
   /// 设置音源筛选（null = 全部）
-  void setSource(SourceType? sourceType) {
+  void setSource(String? sourceType) {
     state = state.copyWith(
       selectedSource: sourceType,
       clearSelectedSource: sourceType == null,

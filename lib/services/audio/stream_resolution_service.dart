@@ -179,7 +179,7 @@ class DefaultStreamResolutionService
     final source = _sourceManager.audioStreamSource(track.sourceType);
     if (source == null) {
       throw StateError(
-        'No audio stream source available for ${track.sourceType.name}',
+        'No audio stream source available for ${track.sourceType}',
       );
     }
 
@@ -235,7 +235,7 @@ class DefaultStreamResolutionService
     final source = _sourceManager.audioStreamSource(track.sourceType);
     if (source == null) {
       throw StateError(
-        'No audio stream source available for ${track.sourceType.name}',
+        'No audio stream source available for ${track.sourceType}',
       );
     }
 
@@ -291,7 +291,7 @@ class DefaultStreamResolutionService
       );
     } catch (error, stackTrace) {
       logError(
-        'Failed to prefetch audio URL for ${track.sourceType.name}:${track.sourceId}',
+        'Failed to prefetch audio URL for ${track.sourceType}:${track.sourceId}',
         error,
         stackTrace,
       );
@@ -370,7 +370,7 @@ class DefaultStreamResolutionService
   /// 不用 title：同名曲目在三個源之間分不開，而排查解析問題時要的正是
   /// 「哪一個源的哪一支 id」。與既有的 prefetch 錯誤訊息格式一致。
   String _describe(Track track) =>
-      TrackKey.formatGroup(track.sourceType.name, track.sourceId);
+      TrackKey.formatGroup(track.sourceType, track.sourceId);
 
   Future<_StreamRequestContext> _buildRequestContext(
     Track track, {

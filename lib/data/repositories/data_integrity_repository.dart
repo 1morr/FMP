@@ -16,7 +16,7 @@ class DataIntegrityReport {
 
   final List<String> duplicateTrackKeys;
   final List<String> duplicateDownloadSavePaths;
-  final List<SourceType> duplicateAccountPlatforms;
+  final List<String> duplicateAccountPlatforms;
   final int playQueueCount;
 
   bool get hasIssues =>

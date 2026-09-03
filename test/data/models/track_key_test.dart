@@ -14,7 +14,7 @@ void main() {
 
   Track buildTrack({int? cid}) => Track()
     ..sourceId = 'BV123456'
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..title = 'T'
     ..cid = cid
     ..createdAt = createdAt;
@@ -62,7 +62,7 @@ void main() {
 
       final station = RadioStation()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili;
+        ..sourceType = SourceIds.bilibili;
       expect(station.uniqueKey, expected);
     });
 

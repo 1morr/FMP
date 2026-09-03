@@ -1,27 +1,9 @@
 import 'package:isar_community/isar.dart';
 import 'track_key.dart';
 
-import '../../i18n/strings.g.dart';
+export 'source_ids.dart';
 
 part 'track.g.dart';
-
-/// 音源类型枚举
-enum SourceType {
-  bilibili,
-  youtube,
-  netease;
-
-  String get displayName {
-    switch (this) {
-      case SourceType.bilibili:
-        return t.importPlatform.bilibili;
-      case SourceType.youtube:
-        return t.importPlatform.youtube;
-      case SourceType.netease:
-        return t.importPlatform.netease;
-    }
-  }
-}
 
 /// 歌单归属与下载路径信息（嵌入式对象）
 @embedded
@@ -61,8 +43,7 @@ class Track {
 
   /// 音源类型
   @Index()
-  @Enumerated(EnumType.name)
-  late SourceType sourceType;
+  late String sourceType;
 
   /// 歌曲标题
   late String title;
@@ -279,7 +260,7 @@ class Track {
   /// 分P唯一索引（用于查找特定分P）
   @Index(composite: [CompositeIndex('cid')])
   String get sourcePageKey =>
-      TrackKey.format(sourceType.name, sourceId, cid: cid);
+      TrackKey.format(sourceType, sourceId, cid: cid);
 
   /// URL 過期前的安全邊界：距離過期不到這段時間就當作已經不可用。
   ///
@@ -332,10 +313,10 @@ class Track {
   bool get isPartOfMultiPage => (pageCount ?? 0) > 1;
 
   /// 用于分组的key（同一视频的分P有相同的key）
-  String get groupKey => TrackKey.formatGroup(sourceType.name, sourceId);
+  String get groupKey => TrackKey.formatGroup(sourceType, sourceId);
 
   /// 唯一标识（包含cid用于区分分P）
-  String get uniqueKey => TrackKey.format(sourceType.name, sourceId, cid: cid);
+  String get uniqueKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   /// 格式化时长显示
   String get formattedDuration {

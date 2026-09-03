@@ -19,19 +19,19 @@ void main() {
       'select all uses visible ranking tab after switching tabs in selection mode',
       (tester) async {
         final bilibiliTracks = [
-          _track('bv-a', SourceType.bilibili, 'Bili A'),
-          _track('bv-b', SourceType.bilibili, 'Bili B'),
+          _track('bv-a', SourceIds.bilibili, 'Bili A'),
+          _track('bv-b', SourceIds.bilibili, 'Bili B'),
         ];
         final youtubeTracks = [
-          _track('yt-a', SourceType.youtube, 'YT A'),
-          _track('yt-b', SourceType.youtube, 'YT B'),
-          _track('yt-c', SourceType.youtube, 'YT C'),
+          _track('yt-a', SourceIds.youtube, 'YT A'),
+          _track('yt-b', SourceIds.youtube, 'YT B'),
+          _track('yt-c', SourceIds.youtube, 'YT C'),
         ];
         final neteaseTracks = [
-          _track('ne-a', SourceType.netease, 'NE A'),
-          _track('ne-b', SourceType.netease, 'NE B'),
-          _track('ne-c', SourceType.netease, 'NE C'),
-          _track('ne-d', SourceType.netease, 'NE D'),
+          _track('ne-a', SourceIds.netease, 'NE A'),
+          _track('ne-b', SourceIds.netease, 'NE B'),
+          _track('ne-c', SourceIds.netease, 'NE C'),
+          _track('ne-d', SourceIds.netease, 'NE D'),
         ];
         final container = ProviderContainer(
           overrides: [
@@ -127,15 +127,15 @@ void main() {
       );
       expect(
         source,
-        contains('.select((state) => state.errorFor(SourceType.bilibili))'),
+        contains('.select((state) => state.errorFor(SourceIds.bilibili))'),
       );
       expect(
         source,
-        contains('.select((state) => state.errorFor(SourceType.youtube))'),
+        contains('.select((state) => state.errorFor(SourceIds.youtube))'),
       );
       expect(
         source,
-        contains('.select((state) => state.errorFor(SourceType.netease))'),
+        contains('.select((state) => state.errorFor(SourceIds.netease))'),
       );
     });
   });
@@ -148,45 +148,46 @@ class _StaticRankingCacheService extends RankingCacheService {
     required List<Track> neteaseTracks,
   }) : super(
           rankingSources: {
-            SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
-            SourceType.youtube: _FakeRankingSource(SourceType.youtube),
-            SourceType.netease: _FakeRankingSource(SourceType.netease),
+            SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
+            SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
+            SourceIds.netease: _FakeRankingSource(SourceIds.netease),
           },
         ) {
     state = RankingCacheState(
       tracksBySource: {
-        SourceType.bilibili: bilibiliTracks,
-        SourceType.youtube: youtubeTracks,
-        SourceType.netease: neteaseTracks,
+        SourceIds.bilibili: bilibiliTracks,
+        SourceIds.youtube: youtubeTracks,
+        SourceIds.netease: neteaseTracks,
       },
       loadedBySource: const {
-        SourceType.bilibili: true,
-        SourceType.youtube: true,
-        SourceType.netease: true,
+        SourceIds.bilibili: true,
+        SourceIds.youtube: true,
+        SourceIds.netease: true,
       },
       isInitialLoading: false,
     );
   }
 
   @override
-  Future<void> refreshSource(SourceType sourceType) async {}
+  Future<void> refreshSource(String sourceType) async {}
 }
 
 class _FakeRankingSource implements RankingSource {
   _FakeRankingSource(this.sourceType);
 
   @override
-  final SourceType sourceType;
+  final String sourceType;
 
   @override
   SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
-        SourceType.bilibili => const SourceRankingRequest(regionId: 1003),
-        SourceType.youtube => const SourceRankingRequest(category: 'music'),
-        SourceType.netease => const SourceRankingRequest(limit: 50),
+        SourceIds.bilibili => const SourceRankingRequest(regionId: 1003),
+        SourceIds.youtube => const SourceRankingRequest(category: 'music'),
+        SourceIds.netease => const SourceRankingRequest(limit: 50),
+        _ => throw StateError('unconfigured fake source: $sourceType'),
       };
 
   @override
-  String get rankingLabel => '${sourceType.name} ranking';
+  String get rankingLabel => '${sourceType} ranking';
 
   @override
   Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
@@ -194,7 +195,7 @@ class _FakeRankingSource implements RankingSource {
   }
 }
 
-Track _track(String sourceId, SourceType sourceType, String title) {
+Track _track(String sourceId, String sourceType, String title) {
   return Track()
     ..sourceId = sourceId
     ..sourceType = sourceType

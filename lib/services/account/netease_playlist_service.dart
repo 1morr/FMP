@@ -85,7 +85,7 @@ class NeteasePlaylistService with Logging {
 
   static Dio _createDio(NeteaseAccountService accountService) {
     final dio = SourceHttpPolicy.createApiDio(
-      SourceType.netease,
+      SourceIds.netease,
       userAgent: SourceHttpPolicy.neteaseLinuxUserAgent,
     );
     dio.interceptors.add(NeteaseAuthInterceptor(accountService));

@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import '../../data/models/track.dart';
 import '../../data/sources/source_http_policy.dart';
 
 class MediaHandoffRequest {
@@ -11,7 +10,7 @@ class MediaHandoffRequest {
     this.rangeStart,
   });
 
-  final SourceType sourceType;
+  final String sourceType;
   final Uri url;
 
   /// 音源帳號的 header，僅用於**串流解析**（見 `SourceAuthContext.authForPlay`）。

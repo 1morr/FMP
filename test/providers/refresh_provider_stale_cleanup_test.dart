@@ -36,7 +36,7 @@ void main() {
       final playlist = Playlist()
         ..name = 'Cancelled Playlist'
         ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       playlist.id = await harness.isar.writeTxn(
         () => harness.isar.playlists.put(playlist),
       );
@@ -66,7 +66,7 @@ void main() {
       final playlist = Playlist()
         ..name = 'Duplicate Refresh Playlist'
         ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       playlist.id = await harness.isar.writeTxn(
         () => harness.isar.playlists.put(playlist),
       );
@@ -97,7 +97,7 @@ void main() {
       final playlist = Playlist()
         ..name = 'Partial Cancel Playlist'
         ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       playlist.id = await harness.isar.writeTxn(
         () => harness.isar.playlists.put(playlist),
       );
@@ -134,7 +134,7 @@ void main() {
       final playlist = Playlist()
         ..name = 'Refreshable Playlist'
         ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       playlist.id = await harness.isar.writeTxn(
         () => harness.isar.playlists.put(playlist),
       );
@@ -255,8 +255,8 @@ class _RefreshSourceManager extends SourceManager {
   PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  PagedVideoSource? pagedVideoSource(SourceType type) {
-    return type == SourceType.bilibili ? source : null;
+  PagedVideoSource? pagedVideoSource(String type) {
+    return type == SourceIds.bilibili ? source : null;
   }
 
   @override
@@ -275,7 +275,7 @@ class _ControllableRefreshSource extends BilibiliSource {
   }
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   @override
   Future<PlaylistParseResult> parsePlaylist(
@@ -354,7 +354,7 @@ PlaylistParseResult _parseResult(String sourceId, {int? pageCount}) {
 Track _track(String sourceId, {int? pageCount}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..pageCount = pageCount
     ..title = 'Track $sourceId'
     ..artist = 'Refresh Tester';

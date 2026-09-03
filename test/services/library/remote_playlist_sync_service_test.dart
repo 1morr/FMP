@@ -9,18 +9,18 @@ void main() {
       final startedIds = <int>[];
       final service = RemotePlaylistSyncService(
         getImportedPlaylists: () async => [
-          _playlist(1, SourceType.youtube,
+          _playlist(1, SourceIds.youtube,
               'https://www.youtube.com/playlist?list=PL_MATCH'),
-          _playlist(2, SourceType.youtube,
+          _playlist(2, SourceIds.youtube,
               'https://www.youtube.com/playlist?list=PL_OTHER'),
-          _playlist(3, SourceType.bilibili,
+          _playlist(3, SourceIds.bilibili,
               'https://space.bilibili.com/1/favlist?fid=123'),
         ],
         startPlaylistRefresh: (playlist) => startedIds.add(playlist.id),
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         remotePlaylistIds: ['PL_MATCH'],
       );
 
@@ -32,14 +32,14 @@ void main() {
       final started = <int>[];
       final service = RemotePlaylistSyncService(
         getImportedPlaylists: () async => [
-          _playlist(4, SourceType.netease,
+          _playlist(4, SourceIds.netease,
               'https://music.163.com/#/playlist?id=24680'),
         ],
         startPlaylistRefresh: (playlist) => started.add(playlist.id),
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(
-        sourceType: SourceType.netease,
+        sourceType: SourceIds.netease,
         remotePlaylistIds: ['24680'],
       );
 
@@ -50,13 +50,13 @@ void main() {
     test('parses Bilibili favorites URLs and skips mix playlists', () async {
       final started = <int>[];
       final mix = _playlist(
-          7, SourceType.youtube, 'https://www.youtube.com/playlist?list=PL_MIX')
+          7, SourceIds.youtube, 'https://www.youtube.com/playlist?list=PL_MIX')
         ..isMix = true;
       final service = RemotePlaylistSyncService(
         getImportedPlaylists: () async => [
-          _playlist(5, SourceType.bilibili,
+          _playlist(5, SourceIds.bilibili,
               'https://space.bilibili.com/1/favlist?fid=13579'),
-          _playlist(6, SourceType.bilibili,
+          _playlist(6, SourceIds.bilibili,
               'https://www.bilibili.com/medialist/detail/ml24680'),
           mix,
         ],
@@ -64,7 +64,7 @@ void main() {
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
         remotePlaylistIds: ['13579', '24680'],
       );
 
@@ -84,7 +84,7 @@ void main() {
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         remotePlaylistIds: ['', '   '],
       );
 
@@ -95,7 +95,7 @@ void main() {
   });
 }
 
-Playlist _playlist(int id, SourceType sourceType, String sourceUrl) {
+Playlist _playlist(int id, String sourceType, String sourceUrl) {
   return Playlist()
     ..id = id
     ..name = 'Playlist $id'

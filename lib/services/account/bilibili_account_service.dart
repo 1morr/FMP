@@ -79,11 +79,11 @@ class BilibiliAccountService extends AccountService with Logging {
     BilibiliLiveClient? liveClient,
   })  : _accounts = AccountRepository(isar),
         _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(SourceType.bilibili),
+        _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili),
         _liveClient = liveClient ?? BilibiliLiveClient();
 
   @override
-  SourceType get platform => SourceType.bilibili;
+  String get platform => SourceIds.bilibili;
 
   // ===== 登錄 =====
 
@@ -275,7 +275,7 @@ class BilibiliAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _accounts.getByPlatform(SourceType.bilibili);
+    return _accounts.getByPlatform(SourceIds.bilibili);
   }
 
   @override
@@ -559,7 +559,7 @@ class BilibiliAccountService extends AccountService with Logging {
     bool? isVip,
   }) async {
     await _accounts.upsert(
-      SourceType.bilibili,
+      SourceIds.bilibili,
       isLoggedIn: isLoggedIn,
       userId: userId,
       userName: userName,

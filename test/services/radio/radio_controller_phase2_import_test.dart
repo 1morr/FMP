@@ -252,7 +252,7 @@ RadioStation _buildStation(
     {required String sourceId, required String title, int sortOrder = 0}) {
   return RadioStation()
     ..url = 'https://live.bilibili.com/$sourceId'
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..sourceId = sourceId
     ..title = title
     ..sortOrder = sortOrder;

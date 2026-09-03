@@ -373,7 +373,7 @@ class ImportService with Logging implements ImportServiceFacade {
           ..description = t.importSource.mixPlaylistDescription
           ..coverUrl = mixInfo.coverUrl
           ..sourceUrl = url
-          ..importSourceType = SourceType.youtube
+          ..importSourceType = SourceIds.youtube
           ..isMix = true
           ..mixPlaylistId = mixInfo.playlistId
           ..mixSeedVideoId = mixInfo.seedVideoId

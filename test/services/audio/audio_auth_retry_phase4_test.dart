@@ -361,7 +361,7 @@ void main() {
         () async {
       final headers = await AccountServiceAuthLoader(
         neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
-      ).load(SourceType.netease);
+      ).load(SourceIds.netease);
 
       expect(headers, {
         'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
@@ -376,7 +376,7 @@ void main() {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'Track $sourceId'
     ..artist = 'Tester';
 }
@@ -387,7 +387,7 @@ class _RetryAwareSourceManager extends SourceManager {
   final source = _RetryAwareSource();
 
   @override
-  AudioStreamSource? audioStreamSource(SourceType type) => source;
+  AudioStreamSource? audioStreamSource(String type) => source;
 
   @override
   void dispose() {}
@@ -402,7 +402,7 @@ class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -432,7 +432,7 @@ class _KindOnlySourceException extends SourceApiException {
   String get message => 'semantic only';
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   String toString() => 'semantic source failure';
@@ -442,7 +442,7 @@ class _RetryAwareSource implements AudioStreamSource {
   Object? nextStreamError;
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {

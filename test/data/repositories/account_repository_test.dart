@@ -28,10 +28,10 @@ void main() {
   });
 
   test('upsert creates a row for a platform that has none', () async {
-    await repository.upsert(SourceType.bilibili,
+    await repository.upsert(SourceIds.bilibili,
         isLoggedIn: true, userId: 'u1', userName: 'name');
 
-    final account = await repository.getByPlatform(SourceType.bilibili);
+    final account = await repository.getByPlatform(SourceIds.bilibili);
     expect(account, isNotNull);
     expect(account!.isLoggedIn, isTrue);
     expect(account.userId, 'u1');
@@ -40,11 +40,11 @@ void main() {
   });
 
   test('upsert leaves fields it is not given alone', () async {
-    await repository.upsert(SourceType.netease,
+    await repository.upsert(SourceIds.netease,
         isLoggedIn: true, userId: 'u1', userName: 'first', isVip: true);
-    await repository.upsert(SourceType.netease, userName: 'second');
+    await repository.upsert(SourceIds.netease, userName: 'second');
 
-    final account = await repository.getByPlatform(SourceType.netease);
+    final account = await repository.getByPlatform(SourceIds.netease);
     expect(account!.userName, 'second');
     expect(account.userId, 'u1', reason: 'omitted fields must be preserved');
     expect(account.isVip, isTrue);
@@ -53,47 +53,47 @@ void main() {
   });
 
   test('platforms do not see each other', () async {
-    await repository.upsert(SourceType.bilibili, userId: 'b');
-    await repository.upsert(SourceType.youtube, userId: 'y');
+    await repository.upsert(SourceIds.bilibili, userId: 'b');
+    await repository.upsert(SourceIds.youtube, userId: 'y');
 
-    expect((await repository.getByPlatform(SourceType.bilibili))!.userId, 'b');
-    expect((await repository.getByPlatform(SourceType.youtube))!.userId, 'y');
-    expect(await repository.getByPlatform(SourceType.netease), isNull);
+    expect((await repository.getByPlatform(SourceIds.bilibili))!.userId, 'b');
+    expect((await repository.getByPlatform(SourceIds.youtube))!.userId, 'y');
+    expect(await repository.getByPlatform(SourceIds.netease), isNull);
     expect((await repository.getAll()).length, 2);
   });
 
   test('getByPlatformSync matches the async read', () async {
-    await repository.upsert(SourceType.youtube, userId: 'y');
-    expect(repository.getByPlatformSync(SourceType.youtube)!.userId, 'y');
-    expect(repository.getByPlatformSync(SourceType.netease), isNull);
+    await repository.upsert(SourceIds.youtube, userId: 'y');
+    expect(repository.getByPlatformSync(SourceIds.youtube)!.userId, 'y');
+    expect(repository.getByPlatformSync(SourceIds.netease), isNull);
   });
 
   test('replaceForPlatform overwrites, and null deletes', () async {
-    await repository.upsert(SourceType.netease,
+    await repository.upsert(SourceIds.netease,
         userId: 'old', userName: 'old', isVip: true);
 
     await repository.replaceForPlatform(
-      SourceType.netease,
+      SourceIds.netease,
       Account()
-        ..platform = SourceType.netease
+        ..platform = SourceIds.netease
         ..userId = 'new',
     );
-    final replaced = await repository.getByPlatform(SourceType.netease);
+    final replaced = await repository.getByPlatform(SourceIds.netease);
     expect(replaced!.userId, 'new');
     expect(replaced.isVip, isFalse, reason: 'replace is not a merge');
 
-    await repository.replaceForPlatform(SourceType.netease, null);
-    expect(await repository.getByPlatform(SourceType.netease), isNull);
+    await repository.replaceForPlatform(SourceIds.netease, null);
+    expect(await repository.getByPlatform(SourceIds.netease), isNull);
   });
 
   test('watchByPlatform emits the current row and then every change', () async {
     final seen = <String?>[];
     final subscription = repository
-        .watchByPlatform(SourceType.bilibili)
+        .watchByPlatform(SourceIds.bilibili)
         .listen((account) => seen.add(account?.userId));
 
-    await repository.upsert(SourceType.bilibili, userId: 'first');
-    await repository.upsert(SourceType.bilibili, userId: 'second');
+    await repository.upsert(SourceIds.bilibili, userId: 'first');
+    await repository.upsert(SourceIds.bilibili, userId: 'second');
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await subscription.cancel();
 

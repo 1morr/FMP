@@ -110,18 +110,18 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     super.dispose();
   }
 
-  /// 将内部 _SourcePlatform 映射到 SourceType（用于查询登录状态）
-  SourceType _sourcePlatformToSourceType(_SourcePlatform platform) {
+  /// 将内部 _SourcePlatform 映射到 String（用于查询登录状态）
+  String _sourcePlatformToSourceType(_SourcePlatform platform) {
     switch (platform) {
       case _SourcePlatform.bilibili:
-        return SourceType.bilibili;
+        return SourceIds.bilibili;
       case _SourcePlatform.youtube:
-        return SourceType.youtube;
+        return SourceIds.youtube;
       case _SourcePlatform.netease:
-        return SourceType.netease;
+        return SourceIds.netease;
       default:
-        return SourceType
-            .bilibili; // fallback, should not happen for internal sources
+        // fallback, should not happen for internal sources
+        return SourceIds.bilibili;
     }
   }
 
@@ -167,12 +167,15 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     //    内部来源直接导入，NeteaseSource 注册后网易云 URL 走内部流程
     final sourceManager = ref.read(sourceManagerProvider);
     final internalSourceType = sourceManager.sourceTypeForUrl(trimmed);
-    if (internalSourceType != null) {
-      final platform = switch (internalSourceType) {
-        SourceType.bilibili => _SourcePlatform.bilibili,
-        SourceType.youtube => _SourcePlatform.youtube,
-        SourceType.netease => _SourcePlatform.netease,
-      };
+    // 認不得的音源 id 代表「有註冊 adapter 但這個對話框沒有對應的分頁」，
+    // 落到 null 之後會繼續往下走外部來源檢查，最後顯示「無法識別的連結」。
+    final platform = switch (internalSourceType) {
+      SourceIds.bilibili => _SourcePlatform.bilibili,
+      SourceIds.youtube => _SourcePlatform.youtube,
+      SourceIds.netease => _SourcePlatform.netease,
+      _ => null,
+    };
+    if (platform != null) {
       final newDetected =
           _DetectedUrl(type: _UrlType.internal, platform: platform);
       if (_detected?.type != newDetected.type ||

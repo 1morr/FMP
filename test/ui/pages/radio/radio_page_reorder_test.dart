@@ -128,7 +128,7 @@ RadioStation _buildStation({
     ..id = id
     ..url = 'https://example.com/$id'
     ..title = title
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..sourceId = '$id'
     ..sortOrder = sortOrder;
 }

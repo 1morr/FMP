@@ -309,7 +309,7 @@ void main() {
 
 Track _track(String sourceId) => Track()
   ..sourceId = sourceId
-  ..sourceType = SourceType.youtube
+  ..sourceType = SourceIds.youtube
   ..title = sourceId
   ..artist = 'Artist';
 

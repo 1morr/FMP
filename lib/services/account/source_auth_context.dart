@@ -10,13 +10,13 @@ import 'youtube_account_service.dart';
 typedef SourceSettingsLoader = Future<Settings> Function();
 
 typedef PlaybackUrlResolver = Future<PlaybackUrlResolution> Function(
-  SourceType sourceType,
+  String sourceType,
   String url,
   Map<String, String>? authHeaders,
 );
 
 abstract interface class SourceAccountAuthLoader {
-  Future<Map<String, String>?> load(SourceType sourceType);
+  Future<Map<String, String>?> load(String sourceType);
 }
 
 /// Compatibility adapter for existing account-service header shapes.
@@ -37,20 +37,24 @@ class AccountServiceAuthLoader implements SourceAccountAuthLoader {
   final NeteaseAccountService? _neteaseAccountService;
 
   @override
-  Future<Map<String, String>?> load(SourceType sourceType) async {
+  Future<Map<String, String>?> load(String sourceType) async {
     switch (sourceType) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         final cookies = await _bilibiliAccountService?.getAuthCookieString();
         if (cookies == null) return null;
         return {'Cookie': cookies};
-      case SourceType.youtube:
+      case SourceIds.youtube:
         final youtubeAccountService = _youtubeAccountService;
         if (youtubeAccountService == null) return null;
         return youtubeAccountService.getAuthHeaders();
-      case SourceType.netease:
+      case SourceIds.netease:
         final cookies = await _neteaseAccountService?.getAuthCookieString();
         if (cookies == null) return null;
         return SourceHttpPolicy.neteaseAuthHeaders(cookies);
+      default:
+        // 認不得的音源拿不到任何憑證。這裡若 fallback 到 B 站，等於把
+        // SESSDATA 送給一個我們不認識的主機。
+        return null;
     }
   }
 }
@@ -61,7 +65,7 @@ abstract interface class SourcePlaybackAuthContext {
   /// These raw headers are for source adapters, stream resolution, and track
   /// detail calls. They are not media request headers and must not be attached
   /// directly to byte requests.
-  Future<Map<String, String>?> authForPlay(SourceType sourceType);
+  Future<Map<String, String>?> authForPlay(String sourceType);
 }
 
 abstract interface class PlaybackMediaRequestContext {
@@ -73,7 +77,7 @@ abstract interface class PlaybackMediaRequestContext {
 
 abstract interface class DownloadSourceAuthContext
     implements SourcePlaybackAuthContext {
-  Map<String, String> imageHeaders(SourceType sourceType);
+  Map<String, String> imageHeaders(String sourceType);
 
   Map<String, String>? imageHeadersForUrl(
     String url, {
@@ -83,12 +87,12 @@ abstract interface class DownloadSourceAuthContext
 
 abstract interface class PlaylistAuthContext {
   Future<Map<String, String>?> playlistImportAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuth,
   });
 
   Future<Map<String, String>?> playlistRefreshAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuthForRefresh,
   });
 }
@@ -154,7 +158,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
   /// `MediaHandoff` for download byte requests, and the image header helpers
   /// for image requests so `SourceHttpPolicy` can enforce credential allowlists.
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
     final settings = await _settingsLoader();
     if (!settings.useAuthForPlay(sourceType)) return null;
     return _accountAuthLoader.load(sourceType);
@@ -180,7 +184,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
   }
 
   @override
-  Map<String, String> imageHeaders(SourceType sourceType) {
+  Map<String, String> imageHeaders(String sourceType) {
     return SourceHttpPolicy.imageHeaders(sourceType);
   }
 
@@ -197,7 +201,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
 
   @override
   Future<Map<String, String>?> playlistImportAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuth,
   }) async {
     if (!useAuth) return null;
@@ -206,7 +210,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
 
   @override
   Future<Map<String, String>?> playlistRefreshAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuthForRefresh,
   }) async {
     if (!useAuthForRefresh) return null;

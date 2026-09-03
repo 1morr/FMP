@@ -207,7 +207,7 @@ class _BilibiliRemoteFavSheetState
       final result = await ref
           .read(remotePlaylistEditControllerProvider)
           .submitSelectionEdit(
-            sourceType: SourceType.bilibili,
+            sourceType: SourceIds.bilibili,
             tracks: _tracks,
             selectedPlaylistIds:
                 _selectedIds.map((id) => id.toString()).toSet(),

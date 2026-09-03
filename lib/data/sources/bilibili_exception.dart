@@ -14,7 +14,7 @@ class BilibiliApiException extends SourceApiException {
   String get code => _mapCode(numericCode);
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   @override
   String toString() => 'BilibiliApiException($numericCode): $message';

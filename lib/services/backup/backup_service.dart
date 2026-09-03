@@ -118,7 +118,7 @@ class BackupService with Logging {
         coverUrl: playlist.coverUrl,
         hasCustomCover: playlist.hasCustomCover,
         sourceUrl: playlist.sourceUrl,
-        importSourceType: playlist.importSourceType?.name,
+        importSourceType: playlist.importSourceType,
         refreshIntervalHours: playlist.refreshIntervalHours,
         lastRefreshed: playlist.lastRefreshed,
         notifyOnUpdate: playlist.notifyOnUpdate,
@@ -139,7 +139,7 @@ class BackupService with Logging {
     final trackBackups = tracks
         .map((t) => TrackBackup(
               sourceId: t.sourceId,
-              sourceType: t.sourceType.name,
+              sourceType: t.sourceType,
               title: t.title,
               artist: t.artist,
               ownerId: t.ownerId,
@@ -167,7 +167,7 @@ class BackupService with Logging {
     final playHistoryBackups = playHistory
         .map((h) => PlayHistoryBackup(
               sourceId: h.sourceId,
-              sourceType: h.sourceType.name,
+              sourceType: h.sourceType,
               cid: h.cid,
               title: h.title,
               artist: h.artist,
@@ -196,7 +196,7 @@ class BackupService with Logging {
               hostName: r.hostName,
               hostAvatarUrl: r.hostAvatarUrl,
               hostUid: r.hostUid,
-              sourceType: r.sourceType.name,
+              sourceType: r.sourceType,
               sourceId: r.sourceId,
               sortOrder: r.sortOrder,
               createdAt: r.createdAt,
@@ -398,7 +398,7 @@ class BackupService with Logging {
         try {
           final track = Track()
             ..sourceId = trackBackup.sourceId
-            ..sourceType = _parseSourceType(trackBackup.sourceType)
+            ..sourceType = trackBackup.sourceType
             ..title = trackBackup.title
             ..artist = trackBackup.artist
             ..ownerId = trackBackup.ownerId
@@ -461,9 +461,7 @@ class BackupService with Logging {
             ..coverUrl = playlistBackup.coverUrl
             ..hasCustomCover = playlistBackup.hasCustomCover
             ..sourceUrl = playlistBackup.sourceUrl
-            ..importSourceType = playlistBackup.importSourceType != null
-                ? _parseSourceType(playlistBackup.importSourceType!)
-                : null
+            ..importSourceType = playlistBackup.importSourceType
             ..refreshIntervalHours = playlistBackup.refreshIntervalHours
             ..lastRefreshed = playlistBackup.lastRefreshed
             ..notifyOnUpdate = playlistBackup.notifyOnUpdate
@@ -549,7 +547,7 @@ class BackupService with Logging {
         try {
           final history = PlayHistory()
             ..sourceId = historyBackup.sourceId
-            ..sourceType = _parseSourceType(historyBackup.sourceType)
+            ..sourceType = historyBackup.sourceType
             ..cid = historyBackup.cid
             ..title = historyBackup.title
             ..artist = historyBackup.artist
@@ -620,7 +618,7 @@ class BackupService with Logging {
             ..hostName = radioBackup.hostName
             ..hostAvatarUrl = radioBackup.hostAvatarUrl
             ..hostUid = radioBackup.hostUid
-            ..sourceType = _parseSourceType(radioBackup.sourceType)
+            ..sourceType = radioBackup.sourceType
             ..sourceId = radioBackup.sourceId
             ..sortOrder = radioBackup.sortOrder
             ..createdAt = radioBackup.createdAt
@@ -801,16 +799,4 @@ class BackupService with Logging {
     return hotkeyConfig;
   }
 
-  /// 解析 SourceType 枚举
-  SourceType _parseSourceType(String value) {
-    switch (value.toLowerCase()) {
-      case 'youtube':
-        return SourceType.youtube;
-      case 'netease':
-        return SourceType.netease;
-      case 'bilibili':
-      default:
-        return SourceType.bilibili;
-    }
-  }
 }

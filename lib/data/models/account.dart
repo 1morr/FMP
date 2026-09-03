@@ -1,6 +1,5 @@
 import 'package:isar_community/isar.dart';
 
-import 'track.dart';
 
 part 'account.g.dart';
 
@@ -13,8 +12,7 @@ class Account {
   Id id = Isar.autoIncrement;
 
   /// 平台類型
-  @Enumerated(EnumType.name)
-  late SourceType platform;
+  late String platform;
 
   /// 平台用戶 ID（Bilibili: DedeUserID）
   String? userId;

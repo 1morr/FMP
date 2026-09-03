@@ -31,7 +31,7 @@ void main() {
       test('returns null when no download path', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         final cache = TestFileExistsCache({});
@@ -41,7 +41,7 @@ void main() {
       test('returns null when cover.jpg does not exist in cache', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
@@ -57,7 +57,7 @@ void main() {
       test('returns cover path when cover.jpg exists in cache', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
@@ -76,7 +76,7 @@ void main() {
           () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
@@ -100,7 +100,7 @@ void main() {
       test('returns null when baseDir is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..ownerId = 12345;
 
@@ -111,7 +111,7 @@ void main() {
       test('returns null when ownerId is null for Bilibili', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         final cache = TestFileExistsCache({});
@@ -121,7 +121,7 @@ void main() {
       test('returns null when channelId is null for YouTube', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Test Track';
 
         final cache = TestFileExistsCache({});
@@ -133,7 +133,7 @@ void main() {
 
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..ownerId = 12345;
 
@@ -145,7 +145,7 @@ void main() {
       test('returns avatar path for Bilibili when file exists', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..ownerId = 12345
           ..playlistInfo = [
@@ -166,7 +166,7 @@ void main() {
       test('returns avatar path for YouTube when file exists', () {
         final track = Track()
           ..sourceId = 'testYT123'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Test Track'
           ..channelId = 'UCq-Fj5jknLsUf-MWSy4_brA'
           ..playlistInfo = [
@@ -189,7 +189,7 @@ void main() {
       test('returns --:-- when durationMs is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.formattedDuration, equals('--:--'));
@@ -198,7 +198,7 @@ void main() {
       test('formats seconds correctly', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..durationMs = 45000; // 45 seconds
 
@@ -208,7 +208,7 @@ void main() {
       test('formats minutes and seconds correctly', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..durationMs = 185000; // 3:05
 
@@ -218,7 +218,7 @@ void main() {
       test('formats hours correctly', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..durationMs = 3725000; // 1:02:05
 
@@ -230,7 +230,7 @@ void main() {
       test('returns false when thumbnailUrl is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.hasNetworkCover, isFalse);
@@ -239,7 +239,7 @@ void main() {
       test('returns false when thumbnailUrl is empty', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..thumbnailUrl = '';
 
@@ -249,7 +249,7 @@ void main() {
       test('returns true when thumbnailUrl is not empty', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..thumbnailUrl = 'https://example.com/cover.jpg';
 
@@ -261,7 +261,7 @@ void main() {
       test('returns null when no download path', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.localAudioPath, isNull);
@@ -270,7 +270,7 @@ void main() {
       test('returns null when audio file does not exist', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
@@ -294,7 +294,7 @@ void main() {
 
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
@@ -313,7 +313,7 @@ void main() {
       test('returns false when localAudioPath is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.hasLocalAudio, isFalse);
@@ -324,7 +324,7 @@ void main() {
       test('returns false when no local audio', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.isDownloaded, isFalse);

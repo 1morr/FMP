@@ -106,7 +106,7 @@ class _AuthForPlaySection extends StatelessWidget {
   final bool useBilibiliAuthForPlay;
   final bool useYoutubeAuthForPlay;
   final bool useNeteaseAuthForPlay;
-  final void Function(SourceType sourceType, bool enabled) onChanged;
+  final void Function(String sourceType, bool enabled) onChanged;
 
   const _AuthForPlaySection({
     required this.useBilibiliAuthForPlay,
@@ -144,19 +144,19 @@ class _AuthForPlaySection extends StatelessWidget {
           title: Text(t.importPlatform.bilibili),
           subtitle: Text(t.audioSettings.authForPlay.bilibiliDescription),
           value: useBilibiliAuthForPlay,
-          onChanged: (enabled) => onChanged(SourceType.bilibili, enabled),
+          onChanged: (enabled) => onChanged(SourceIds.bilibili, enabled),
         ),
         SwitchListTile(
           title: const Text('YouTube'),
           subtitle: Text(t.audioSettings.authForPlay.youtubeDescription),
           value: useYoutubeAuthForPlay,
-          onChanged: (enabled) => onChanged(SourceType.youtube, enabled),
+          onChanged: (enabled) => onChanged(SourceIds.youtube, enabled),
         ),
         SwitchListTile(
           title: Text(t.importPlatform.netease),
           subtitle: Text(t.audioSettings.authForPlay.neteaseDescription),
           value: useNeteaseAuthForPlay,
-          onChanged: (enabled) => onChanged(SourceType.netease, enabled),
+          onChanged: (enabled) => onChanged(SourceIds.netease, enabled),
         ),
       ],
     );

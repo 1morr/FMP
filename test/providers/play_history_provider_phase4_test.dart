@@ -142,7 +142,7 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
 
   @override
   Future<List<PlayHistory>> loadHistorySnapshot({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     DateTime? startDate,
     DateTime? endDate,
     String? searchKeyword,
@@ -219,7 +219,7 @@ PlayHistory _history({
   return PlayHistory()
     ..id = id
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..playedAt = playedAt;
 }

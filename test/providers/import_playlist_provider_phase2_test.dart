@@ -20,7 +20,7 @@ void main() {
       final selected = Track()
         ..id = 42
         ..sourceId = 'matched-bv'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Matched Song'
         ..artist = 'Matched Artist';
 
@@ -377,7 +377,7 @@ legacy_import.PlaylistImportResult _playlistImportResult(String name) {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId;
 }
 

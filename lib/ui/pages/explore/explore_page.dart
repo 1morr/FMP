@@ -118,7 +118,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     );
     final error = ref.watch(
       rankingCacheServiceProvider
-          .select((state) => state.errorFor(SourceType.bilibili)),
+          .select((state) => state.errorFor(SourceIds.bilibili)),
     );
     return _buildRankingContent(
       tracks: tracks,
@@ -126,7 +126,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       error: error,
       onRefresh: () =>
           ref.read(rankingCacheServiceProvider.notifier).refreshSource(
-                SourceType.bilibili,
+                SourceIds.bilibili,
               ),
     );
   }
@@ -138,7 +138,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     );
     final error = ref.watch(
       rankingCacheServiceProvider
-          .select((state) => state.errorFor(SourceType.youtube)),
+          .select((state) => state.errorFor(SourceIds.youtube)),
     );
     return _buildRankingContent(
       tracks: tracks,
@@ -146,7 +146,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       error: error,
       onRefresh: () =>
           ref.read(rankingCacheServiceProvider.notifier).refreshSource(
-                SourceType.youtube,
+                SourceIds.youtube,
               ),
     );
   }
@@ -158,7 +158,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     );
     final error = ref.watch(
       rankingCacheServiceProvider
-          .select((state) => state.errorFor(SourceType.netease)),
+          .select((state) => state.errorFor(SourceIds.netease)),
     );
     return _buildRankingContent(
       tracks: tracks,
@@ -166,7 +166,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       error: error,
       onRefresh: () =>
           ref.read(rankingCacheServiceProvider.notifier).refreshSource(
-                SourceType.netease,
+                SourceIds.netease,
               ),
     );
   }
