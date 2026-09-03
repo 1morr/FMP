@@ -182,9 +182,9 @@ through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.m
   `enabledHomeRankingSourceOrderProvider` for display order, keep malformed
   empty settings from producing an empty header, and keep the settings UI from
   disabling the final enabled ranking source.
-- Playback auth toggles (`useBilibiliAuthForPlay`, `useYoutubeAuthForPlay`,
-  `useNeteaseAuthForPlay`) belong in Audio Settings because they control stream
-  resolution behavior. Keep Account pages focused on login/account state; do not
+- Playback auth toggles (`Settings.useAuthForPlay(sourceId)`, one row per
+  source) belong in Audio Settings because they control stream resolution
+  behavior. Keep Account pages focused on login/account state; do not
   add per-platform auth-for-play buttons there.
 - `lib/ui/pages/settings/settings_page.dart` owns the top-level settings layout.
   Keep feature-specific tiles in its `part` files under

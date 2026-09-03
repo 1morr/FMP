@@ -42,9 +42,9 @@ Rules:
 - Ranking cache UI must watch the immutable `RankingCacheState` from
   `rankingCacheServiceProvider`; refresh/timer methods go through
   `.notifier`, not by reading mutable service snapshot lists. The cache stores
-  lists by `SourceType`, so home/explore providers derive their lists from
+  lists by source id, so home/explore providers derive their lists from
   `tracksFor(sourceType)` / `isLoaded(sourceType)` / `errorFor(sourceType)`.
-  `refreshSource(SourceType)` is the only refresh entry point; the cache is
+  `refreshSource(String sourceType)` is the only refresh entry point; the cache is
   built from whatever `SourceManager` registers a `RankingSource` for, so
   neither the service nor this provider names individual sources.
 - Fire-and-forget imported playlist refresh must use the named remote sync path
@@ -110,6 +110,13 @@ This file owns the open/registration wiring; `lib/data/AGENTS.md` owns the
   - **Invariants** (`repairSettingsInvariants`, `hasUnwrittenQueueSignature`)
     run on every launch regardless of version. They also defend against a bad
     backup import and a downgrade round-trip, so never version-gate them.
+- Steps so far: v0 to v1 rewrites every `PlayHistory` row so the `trackKey`
+  index exists; v1 to v2 folds the six per-source `Settings` columns into
+  `sourceSettings`. The v1 to v2 step **copies without clearing** — the old
+  columns stay populated so installing an older build back over the database
+  keeps per-source settings. They are `@Deprecated` and
+  `deprecated_member_use_from_same_package` makes "only the migration reads
+  them" a compiler rule rather than a convention.
 - Read the stored version through `effectiveSchemaVersion()`, never the raw
   field: Isar returns `Isar.minLong` for an int column an old row does not have.
 - `runDatabaseMigrationForTesting()` is the test hook.

@@ -35,8 +35,8 @@ _Avoid_: import auth, search auth
 
 **Media Request Credentials**:
 Credentials that are allowed on the actual audio byte request. In current FMP
-policy there are none: `SourceHttpPolicy.mediaHeaders(SourceType)`
-(`lib/data/sources/source_http_policy.dart:39`) takes only the source enum, so
+policy there are none: `SourceHttpPolicy.mediaHeaders(String sourceType)`
+(`lib/data/sources/source_http_policy.dart:39`) takes only the source id, so
 no cookie or token can reach the media host through it. The former Netease
 media allowlist was removed in `c09aec10`.
 _Avoid_: stream auth, source auth
@@ -48,7 +48,7 @@ playable URL."
 
 Reviewer: "That does not mean the isolate can send all source auth to the media
 host. Media Request Credentials are empty by construction — `mediaHeaders()`
-takes a `SourceType` and nothing else."
+takes a source id and nothing else."
 
 Developer: "The Source Auth Context will return the resolution auth for the
 source adapter, then Media Handoff will recompute headers for each redirect

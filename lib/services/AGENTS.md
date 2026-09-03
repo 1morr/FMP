@@ -37,7 +37,7 @@ Auth and header boundary:
   module for **each redirect hop**, and it must not use Riverpod, account
   services, or `SourceAuthContext`. `MediaHandoff` also owns resumed-download
   `Range` headers. No account credential reaches a media/CDN request for any
-  source — `SourceHttpPolicy.mediaHeaders()` takes only a `SourceType`, so there
+  source — `SourceHttpPolicy.mediaHeaders()` takes only a source id, so there
   is no parameter to leak one through. Full policy:
   `lib/data/sources/AGENTS.md` § Auth For Playback And Headers.
 - `DownloadService` still owns isolate download loops, progress, pause/failure
@@ -156,6 +156,35 @@ the exported JSON shape changes, while keeping older backups readable through
 defaults. Keep `BackupService.validateBackupData()` aligned with supported
 versions and importable sections so unsupported future backups fail before the
 preview/import step.
+
+`test/services/backup/settings_backup_coverage_static_rule_test.dart` fails when
+a persisted `Settings` column reaches neither `SettingsBackup` nor the named
+exclusion list, because the field list is repeated in six places across two
+files. Add the field or add the exclusion with a reason; the rule also fails on
+an exclusion that no longer names a real column.
+
+**Import is atomic.** Parsing, per-item `try`/`catch` and the skip decisions
+stay in `BackupService`, and touch nothing. Every survivor is then written by
+`BackupRepository.writeImport` inside a single `writeTxn`, so a failure part way
+through rolls the whole import back and throws — the UI shows the failure rather
+than a result dialog claiming counts nobody wrote. Isar rejects a nested
+`writeTxn` from a Zone check, which is why `PlaylistMutationRepository` exposes
+`addTracksInTxn`.
+
+## Log Persistence
+
+`AppLogger` writes to `<app documents>/FMP/logs/fmp.log` through `LogFileSink`
+(`lib/core/log_file_sink.dart`), rotating at 2 MB across three files.
+
+- What lands on disk is the same `redactSensitive()` output the in-memory
+  buffer holds — `_log` redacts before it buffers, so there is no second path
+  to audit.
+- The sink can only open after `WidgetsFlutterBinding.ensureInitialized()`
+  because `path_provider` needs it, while `main.dart` installs its error
+  handlers before that. `attachFileSink` therefore flushes the existing buffer
+  first; do not "simplify" that away, it is what keeps startup logs.
+- Writes are queued and failures are swallowed. Logging must never be a source
+  of app failure.
 
 ## Radio Ownership
 

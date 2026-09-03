@@ -83,10 +83,10 @@ service that opens its own `writeTxn` has the boundary in the wrong place.
 
 | Model | Description |
 |-------|-------------|
-| `Track` | Song entity (`SourceType`, `isVip`, `originalSongId`/`originalSource`, `bilibiliAid` populated on demand) |
+| `Track` | Song entity (`sourceType` as a `SourceIds` string, `isVip`, `originalSongId`/`originalSource`, `bilibiliAid` populated on demand) |
 | `Playlist` | Playlist (`ownerName`, `ownerUserId`, `useAuthForRefresh`) |
 | `PlayQueue` | Play queue, Mix state, position persistence, volume persistence |
-| `Settings` | Quality, auth, lyrics, AI modes, popup style, refresh intervals, per-source stream priority |
+| `Settings` | Quality, lyrics, AI modes, popup style, refresh intervals, desktop layout, and one embedded `sourceSettings` entry per source (stream priority + play auth) |
 | `Account` | Platform account login/VIP state |
 | `RadioStation` | Radio/live station |
 | `PlayHistory` | Play history record |
