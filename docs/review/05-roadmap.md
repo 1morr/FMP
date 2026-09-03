@@ -307,7 +307,7 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 加：PlayHistory.trackKey 的 @Index()                （Q58，讓 6 個全表掃描變索引查詢）
 改：preferredAudioDevice* 從死欄位變成真的會被讀寫  （issue #42）
 改：SourceType 封閉 enum → 「內建常數 + 字串 id」雙軌    （★Phase 9.1 的前置）
-改：每源具名欄位 → Map<String, SourceSettings>          （★Phase 9.1 的前置，02 D6）
+改：每源具名欄位 → List<SourceSettingsEntry>（@embedded）（★Phase 9.1 的前置，02 D6）
 同步：SettingsBackup / RadioStationBackup / database_catalog.dart
 ```
 
@@ -479,8 +479,8 @@ sources」，同類的 Spotube 從未上架。
 | 阻塞 | 狀態 | 內容 |
 |---|---|---|
 | `ranking_cache_service.dart` 的 49 處硬編碼 | ✅ **已完成**（`583eef90`） | 改成 `for (final sourceType in manager.registeredSourceTypes)`，該檔從約 500 行降到 288 行 |
-| `SourceType` 封閉 enum | ❌ | 改成「內建常數 + 字串 id」雙軌（Isar 存字串，i18n 有 fallback）。**這一步要併進 Phase 3c 的批次 schema 變更** —— 那時候做幾乎沒有邊際成本 |
-| `Settings` 每源具名欄位 | ❌ | 改成 `Map<String, SourceSettings>`。**持久化格式的破壞性變更**，需要 migration，且 `backup_service` 的格式要跟著改。同樣併進 Phase 3c |
+| `SourceType` 封閉 enum | ✅ **已完成**（`0b93e61d`） | 換成 `SourceIds` 字串常數，i18n 走 slang flat map 有 fallback。磁碟格式逐位元不變，不需要 migration —— 「併進 3c 才沒有邊際成本」的理由是錯的，見 §6.4 #2 與 ADR 0001 |
+| `Settings` 每源具名欄位 | ✅ **已完成**（`8ffa7d4f`） | 交付的是 `List<SourceSettingsEntry>`（`@embedded`）而不是 `Map` —— Isar 的 `@embedded` 只支援 `List`。schema v1 → v2，舊欄位只搬不刪所以降級無損。備份格式同步到 v4 |
 
 做完這兩件事，**「新增第四個內建源」從「改 20 個檔案」變成「加一個 adapter」——
 這個收益不需要真的做外掛化就先拿到了**（你的動機一，提前兌現）。
@@ -1200,3 +1200,62 @@ analyzer 被釘在 5.13.0、`riverpod_annotation` 已在 Phase 0d 移除。
 2. **開啟後資料庫檔案從 5,242,880 縮到 2,686,976 bytes。** 列數逐項不變（1,534），
    所以是回收空閒空間不是掉資料。縮的比例（約 1.95）與 FMP 自己既有的
    `compactOnLaunch(minRatio: 2.0)` 吻合，那段設定這一期沒動過。
+
+---
+
+### 6.4 執行時的失效重核（2026-09-03 / 04，Phase 3 後半開工當天）
+
+仍然成立的：`@Enumerated(EnumType.name)` 本來就寫字串所以 M5.5 不改磁碟格式、
+Isar 的 `_requireNotInTxn()` 是 Zone 層級判斷所以匯入不能只加一層外層交易、
+`docs/adr/` 是空的（這輪寫了頭兩份）。
+
+**九條改變做法**：
+
+| # | 原本的說法 | 實況 |
+|---|---|---|
+| 1 | 「備份今天沒有靜默遺失，缺的 3 個是刻意排除的裝置設定」 | **前提是錯的。** `Settings` 有 57 個持久化欄位，`SettingsBackup` 只涵蓋 44，缺 13。程式碼裡的註解只涵蓋裝置組與桌面平台閘控組；`railExpanded` / `detailPanelExpanded` / `detailPanelWidth` / `schemaVersion` **零說明**，而且每次匯入都被 `createBootstrapSettings()` 重設。前三個已補進備份 |
+| 2 | 「M5.5 併進批次 schema 變更，邊際成本近零」（`:482`） | **前提不成立。** 這項改動不改磁碟格式、不需 migration、不碰備份格式與 catalog，它與那個批次共用的成本是 0。真正的理由是 Phase 9.1 前置 ＋ 修掉 **7 條**靜默改寫路徑（5 個 collection 的生成 reader 各一，加 `backup_service` 與 `download_scanner` 兩處手寫），不是 2 條 |
+| 3 | 「`SettingsBackup` 把欄位手抄 4 遍」 | **6 處**。DTO 沒有 `fromSettings` / `applyTo`，那兩個方向被內聯進 `BackupService`。加一個欄位要改 2 個檔案 6 個地方 |
+| 4 | 「守門測試掃 `settings.dart` 的欄位宣告」 | **會誤判。** `Settings.useAuthForPlay(String)` 是方法，`SourceSettingsEntry.useAuthForPlay` 是欄位，同名。改掃 `settings.g.dart` 的 `PropertySchema`，並限定在 `SettingsSchema` 區塊（該檔共 60 個，其中 3 個屬於 embedded 物件） |
+| 5 | 「面板欄位跟桌面設定一樣做平台閘控」 | **錯的。** `_DesktopLayout` 由螢幕寬度斷點選出（`responsive_scaffold.dart:78`），不是平台；Android 平板在寬版面同樣會用到側欄與詳情面板。改成無條件還原 |
+| 6 | 「`addTracks` 的交易本體 321 行」 | **129 行**（`:289-417`）。原本的量測把它跟後面的 `replaceTracksFromRemoteRefresh` 併在一起算了 |
+| 7 | 「`Isar.isOpen` 存在」 | 是**實例 getter**（`isar.dart:148` 的 `bool get isOpen`），不是靜態成員 |
+| 8 | 「#43 的根因是 `tearDown` 不 drain」（`:961` 的改判） | **只對一半，而且原 issue 的推測也只對一半。** 兩條根因獨立存在：(a) `audio_controller_phase1_test.dart:1310` 寫死的 `pumpEventQueue(times: 1)`，(b) `queue_manager.dart:212` 用 `Future.delayed(10s)` 排的孤立 track 清理沒有 handle 所以 `dispose()` 取消不了。兩條都修了 |
+| 9 | 「3d 邊界收斂待驗收」 | 開工當天量測已經是 54（驗收線 < 60）。M6.2 之後降到 **19** |
+
+**執行中發現，報告寫的時候不知道的**：
+
+| # | 發現 |
+|---|---|
+| A | `backup_service.dart:502` 與 `:520` 兩筆交易只是在補償 `addTracks` 蓋掉的 `updatedAt` / `coverUrl`。補償邏輯仍然需要，但可以收進同一筆交易 |
+| B | `existingHistoryKeys`（`backup_service.dart:534`）在迴圈內從不 `add`，同一份備份裡重複的播放紀錄會重覆插入。已修 |
+| C | `kBackupVersion` 的說明註解只描述到 v3，M5.6 把常數改成 4 時沒更新。已補 |
+| D | **本機 `dart format` 與 CI 的結果不一致**：同一套 Flutter 3.47.1 / Dart 3.13.1，本機判定 `lib/` 333 檔有 250 檔要重排（Dart 3.7 tall style），CI 的 `Check formatting` 卻是 success。已開 issue #53。在查清楚之前不要對舊檔跑整檔 `dart format` —— 這輪已經害過一次，那個 commit 被改寫掉了 |
+| E | 全庫**沒有**單檔輪替的先例可沿用。`lyrics_cache_service` 的 `_evictOldest` 是多檔 LRU 淘汰，形狀不同 |
+| F | `main.dart:51/66` 的錯誤處理器掛在 `ensureInitialized()`（`:71`）之前，而 `path_provider` 要等 binding。log sink 因此必須延遲初始化，並在掛上時回填記憶體緩衝 |
+
+**驗收記錄**：
+
+| 項目 | 結果 |
+|---|---|
+| `flutter analyze` | ✅ No issues found |
+| `flutter test --exclude-tags live` | ✅ **1322 條全過**（Phase 3 前半結束時是 1289） |
+| `dart run slang` | ✅ 重新生成後 analyze 仍綠 |
+| repository 邊界 | ✅ 152 → **19**，且由 `isar_boundary_static_rule_test.dart` 釘住 |
+| 真實資料庫副本 v1 → v2 | ✅ 11 個 collection 1,534 列不變，三筆 entry 值與舊欄位一致，舊欄位未被清空，連跑三次逐字相同 |
+| M5.5 未知 source id（實機） | ✅ 用 VM Service 寫入 `sourceType: 'unknown'` 的 PlayHistory，冷關 app 後重啟讀回仍是 `unknown` |
+| M5.6 每源設定（實機） | ✅ 三個音源的預設串流優先級與播放認證與 `kDefault*` 一致；改值後重啟保持 |
+| M7 log 落盤（實機） | ✅ `app_flutter/FMP/logs/fmp.log` 有內容，第一行是 sink 掛上前的啟動 log（緩衝回填有效），全檔無敏感 pattern |
+| #43 的 `IsarError` 噪音 | ✅ 同一個測試檔從 33 筆降到 **0** |
+
+**三件據實記錄的事**：
+
+1. **`bilibili_source_test` 有 2 條 `tags: 'live'` 的測試在本機是紅的。** 它們打真實
+   B 站 API，這台機器被風控（HTTP 412）。專案的驗收指令本來就是
+   `--exclude-tags live`，同檔其餘用 mock 的測試全過。
+2. **#43 沒有證明修好。** 修掉兩條可證實的根因之後，失敗率從 19 次 3 次紅降到
+   24 次 1 次紅，但沒有降到零，而且那一次的失敗細節沒抓到。issue 保持開啟。
+3. **log 匯出沒有在裝置上走完存檔。** 點按鈕會開啟 Android 系統目錄選擇器（證明
+   Android 分支有跑到），但 `USE THIS FOLDER` 用合成點擊按不動。之後的寫檔是
+   `File(path).writeAsString(...)`，與既有的備份匯出同一條路。輪替與落盤 redaction
+   由單元測試涵蓋，沒有在裝置上用真實憑證驗過。
