@@ -35,6 +35,9 @@ linter:
   rules:
     prefer_const_constructors: true
     prefer_const_declarations: true
+    # Schema 遷移期間會刻意留著「只給 migration 讀」的舊欄位。這條讓
+    # 「還有誰在讀它」變成編譯器問題，而不是靠註解自律。
+    deprecated_member_use_from_same_package: true
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 

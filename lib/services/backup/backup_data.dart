@@ -2,6 +2,7 @@ import 'dart:io';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/settings.dart';
+import '../../data/models/source_ids.dart';
 import '../../data/models/track_key.dart';
 
 /// 备份数据模型
@@ -523,6 +524,69 @@ int _normalizeLyricsAiTimeoutSeconds(int? timeoutSeconds) {
 }
 
 /// 设置备份数据
+/// 備份格式裡的單一音源設定。
+///
+/// v4 起取代 `youtubeStreamPriority` / `useBilibiliAuthForPlay` 那六個具名鍵。
+/// 舊備份（v3 以前）由 [SettingsBackup.fromJson] 折疊過來。
+class SourceSettingsBackup {
+  final String sourceId;
+  final String streamPriority;
+  final bool useAuthForPlay;
+
+  const SourceSettingsBackup({
+    required this.sourceId,
+    required this.streamPriority,
+    required this.useAuthForPlay,
+  });
+
+  factory SourceSettingsBackup.fromJson(Map<String, dynamic> json) {
+    return SourceSettingsBackup(
+      sourceId: json['sourceId'] as String? ?? '',
+      streamPriority: json['streamPriority'] as String? ?? '',
+      useAuthForPlay: json['useAuthForPlay'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'sourceId': sourceId,
+        'streamPriority': streamPriority,
+        'useAuthForPlay': useAuthForPlay,
+      };
+}
+
+/// 讀出備份裡的每源設定。
+///
+/// v4 起是 `sourceSettings` 陣列。v3 以前是六個具名鍵，這裡折疊過來 ——
+/// 匯入舊備份是必須支援的（`validateBackupData` 只擋比當前版本**新**的備份）。
+List<SourceSettingsBackup> _readSourceSettings(Map<String, dynamic> json) {
+  final raw = json['sourceSettings'];
+  if (raw is List) {
+    return [
+      for (final entry in raw)
+        if (entry is Map<String, dynamic>) SourceSettingsBackup.fromJson(entry),
+    ];
+  }
+
+  const legacyKeys = <String, (String, String, bool)>{
+    SourceIds.bilibili: (
+      'bilibiliStreamPriority',
+      'useBilibiliAuthForPlay',
+      false
+    ),
+    SourceIds.youtube: ('youtubeStreamPriority', 'useYoutubeAuthForPlay', false),
+    SourceIds.netease: ('neteaseStreamPriority', 'useNeteaseAuthForPlay', true),
+  };
+  return [
+    for (final MapEntry(key: sourceId, value: keys) in legacyKeys.entries)
+      SourceSettingsBackup(
+        sourceId: sourceId,
+        streamPriority: json[keys.$1] as String? ??
+            kDefaultStreamPriorityBySource[sourceId]!,
+        useAuthForPlay: json[keys.$2] as bool? ?? keys.$3,
+      ),
+  ];
+}
+
 class SettingsBackup {
   final int themeModeIndex;
   final int? primaryColor;
@@ -541,9 +605,7 @@ class SettingsBackup {
   final String? locale;
   final int audioQualityLevelIndex;
   final String audioFormatPriority;
-  final String youtubeStreamPriority;
-  final String bilibiliStreamPriority;
-  final String neteaseStreamPriority;
+  final List<SourceSettingsBackup> sourceSettings;
   final String? hotkeyConfig;
   final bool autoMatchLyrics;
   final int maxLyricsCacheFiles;
@@ -566,9 +628,7 @@ class SettingsBackup {
   final double? lyricsWindowShadowBlurRadius;
   final double? lyricsWindowShadowOffsetX;
   final double? lyricsWindowShadowOffsetY;
-  final bool useBilibiliAuthForPlay;
-  final bool useYoutubeAuthForPlay;
-  final bool useNeteaseAuthForPlay;
+
   final int rankingRefreshIntervalMinutes;
   final String homeRankingSourcePriority;
   final String disabledHomeRankingSources;
@@ -592,9 +652,7 @@ class SettingsBackup {
     this.locale,
     this.audioQualityLevelIndex = 0,
     this.audioFormatPriority = 'opus,aac',
-    this.youtubeStreamPriority = 'audioOnly,muxed,hls',
-    this.bilibiliStreamPriority = 'audioOnly,muxed',
-    this.neteaseStreamPriority = 'audioOnly',
+    this.sourceSettings = const [],
     this.hotkeyConfig,
     this.autoMatchLyrics = false,
     this.maxLyricsCacheFiles = 50,
@@ -617,9 +675,7 @@ class SettingsBackup {
     this.lyricsWindowShadowBlurRadius,
     this.lyricsWindowShadowOffsetX,
     this.lyricsWindowShadowOffsetY,
-    this.useBilibiliAuthForPlay = false,
-    this.useYoutubeAuthForPlay = false,
-    this.useNeteaseAuthForPlay = true,
+
     this.rankingRefreshIntervalMinutes = 60,
     String? homeRankingSourcePriority,
     String? disabledHomeRankingSources,
@@ -661,12 +717,7 @@ class SettingsBackup {
       locale: json['locale'] as String?,
       audioQualityLevelIndex: json['audioQualityLevelIndex'] as int? ?? 0,
       audioFormatPriority: json['audioFormatPriority'] as String? ?? 'opus,aac',
-      youtubeStreamPriority:
-          json['youtubeStreamPriority'] as String? ?? 'audioOnly,muxed,hls',
-      bilibiliStreamPriority:
-          json['bilibiliStreamPriority'] as String? ?? 'audioOnly,muxed',
-      neteaseStreamPriority:
-          json['neteaseStreamPriority'] as String? ?? 'audioOnly',
+      sourceSettings: _readSourceSettings(json),
       hotkeyConfig: json['hotkeyConfig'] as String?,
       autoMatchLyrics: json['autoMatchLyrics'] as bool? ?? false,
       maxLyricsCacheFiles: json['maxLyricsCacheFiles'] as int? ?? 50,
@@ -700,9 +751,7 @@ class SettingsBackup {
           (json['lyricsWindowShadowOffsetX'] as num?)?.toDouble(),
       lyricsWindowShadowOffsetY:
           (json['lyricsWindowShadowOffsetY'] as num?)?.toDouble(),
-      useBilibiliAuthForPlay: json['useBilibiliAuthForPlay'] as bool? ?? false,
-      useYoutubeAuthForPlay: json['useYoutubeAuthForPlay'] as bool? ?? false,
-      useNeteaseAuthForPlay: json['useNeteaseAuthForPlay'] as bool? ?? true,
+
       rankingRefreshIntervalMinutes:
           json['rankingRefreshIntervalMinutes'] as int? ?? 60,
       homeRankingSourcePriority: json['homeRankingSourcePriority'] as String? ??
@@ -733,9 +782,7 @@ class SettingsBackup {
       if (locale != null) 'locale': locale,
       'audioQualityLevelIndex': audioQualityLevelIndex,
       'audioFormatPriority': audioFormatPriority,
-      'youtubeStreamPriority': youtubeStreamPriority,
-      'bilibiliStreamPriority': bilibiliStreamPriority,
-      'neteaseStreamPriority': neteaseStreamPriority,
+      'sourceSettings': [for (final e in sourceSettings) e.toJson()],
       if (hotkeyConfig != null) 'hotkeyConfig': hotkeyConfig,
       'autoMatchLyrics': autoMatchLyrics,
       'maxLyricsCacheFiles': maxLyricsCacheFiles,
@@ -769,9 +816,7 @@ class SettingsBackup {
         'lyricsWindowShadowOffsetX': lyricsWindowShadowOffsetX,
       if (lyricsWindowShadowOffsetY != null)
         'lyricsWindowShadowOffsetY': lyricsWindowShadowOffsetY,
-      'useBilibiliAuthForPlay': useBilibiliAuthForPlay,
-      'useYoutubeAuthForPlay': useYoutubeAuthForPlay,
-      'useNeteaseAuthForPlay': useNeteaseAuthForPlay,
+
       'rankingRefreshIntervalMinutes': rankingRefreshIntervalMinutes,
       'homeRankingSourcePriority': homeRankingSourcePriority,
       'disabledHomeRankingSources': disabledHomeRankingSources,

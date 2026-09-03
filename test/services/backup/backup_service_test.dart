@@ -91,10 +91,23 @@ void main() {
       expect(settingsBackup.lyricsWindowShadowOffsetX, isNull);
       expect(settingsBackup.lyricsWindowShadowOffsetY, isNull);
       expect(settingsBackup.disabledLyricsSources, 'lrclib');
-      expect(settingsBackup.neteaseStreamPriority, 'audioOnly');
-      expect(settingsBackup.useBilibiliAuthForPlay, isFalse);
-      expect(settingsBackup.useYoutubeAuthForPlay, isFalse);
-      expect(settingsBackup.useNeteaseAuthForPlay, isTrue);
+      // 沒有 sourceSettings 也沒有 v3 具名鍵時，折疊出的是每源預設。
+      final netease = settingsBackup.sourceSettings
+          .firstWhere((e) => e.sourceId == SourceIds.netease);
+      expect(netease.streamPriority, 'audioOnly');
+      expect(netease.useAuthForPlay, isTrue);
+      expect(
+        settingsBackup.sourceSettings
+            .firstWhere((e) => e.sourceId == SourceIds.bilibili)
+            .useAuthForPlay,
+        isFalse,
+      );
+      expect(
+        settingsBackup.sourceSettings
+            .firstWhere((e) => e.sourceId == SourceIds.youtube)
+            .useAuthForPlay,
+        isFalse,
+      );
       expect(settingsBackup.rankingRefreshIntervalMinutes, 60);
       expect(
         settingsBackup.homeRankingSourcePriority,
@@ -171,7 +184,23 @@ void main() {
           maxCacheSizeMB: 48,
           rememberPlaybackPosition: false,
           tempPlayRewindSeconds: 7,
-          neteaseStreamPriority: 'audioOnly',
+          sourceSettings: const [
+            SourceSettingsBackup(
+              sourceId: SourceIds.bilibili,
+              streamPriority: 'audioOnly,muxed',
+              useAuthForPlay: true,
+            ),
+            SourceSettingsBackup(
+              sourceId: SourceIds.youtube,
+              streamPriority: 'audioOnly,muxed,hls',
+              useAuthForPlay: true,
+            ),
+            SourceSettingsBackup(
+              sourceId: SourceIds.netease,
+              streamPriority: 'audioOnly',
+              useAuthForPlay: false,
+            ),
+          ],
           autoMatchLyrics: true,
           lyricsAiTitleParsingModeIndex: 3,
           allowPlainLyricsAutoMatch: true,
@@ -190,9 +219,6 @@ void main() {
           lyricsWindowShadowOffsetX: 1,
           lyricsWindowShadowOffsetY: 2,
           disabledLyricsSources: 'qqmusic',
-          useBilibiliAuthForPlay: true,
-          useYoutubeAuthForPlay: true,
-          useNeteaseAuthForPlay: false,
           rankingRefreshIntervalMinutes: 15,
           homeRankingSourcePriority: 'youtube,unknown,bilibili,youtube',
           disabledHomeRankingSources: 'netease,unknown',
@@ -223,7 +249,8 @@ void main() {
       expect(restoredSettings.maxCacheSizeMB, 48);
       expect(restoredSettings.rememberPlaybackPosition, isFalse);
       expect(restoredSettings.tempPlayRewindSeconds, 7);
-      expect(restoredSettings.neteaseStreamPriority, 'audioOnly');
+      expect(restoredSettings.streamPriorityFor(SourceIds.netease),
+          [StreamType.audioOnly]);
       expect(restoredSettings.autoMatchLyrics, isTrue);
       expect(restoredSettings.lyricsAiTitleParsingModeIndex, 3);
       expect(restoredSettings.lyricsAiTitleParsingMode,
@@ -244,9 +271,9 @@ void main() {
       expect(restoredSettings.lyricsWindowShadowOffsetX, 1);
       expect(restoredSettings.lyricsWindowShadowOffsetY, 2);
       expect(restoredSettings.disabledLyricsSources, 'qqmusic');
-      expect(restoredSettings.useBilibiliAuthForPlay, isTrue);
-      expect(restoredSettings.useYoutubeAuthForPlay, isTrue);
-      expect(restoredSettings.useNeteaseAuthForPlay, isFalse);
+      expect(restoredSettings.useAuthForPlay(SourceIds.bilibili), isTrue);
+      expect(restoredSettings.useAuthForPlay(SourceIds.youtube), isTrue);
+      expect(restoredSettings.useAuthForPlay(SourceIds.netease), isFalse);
       expect(restoredSettings.rankingRefreshIntervalMinutes, 15);
       expect(
         restoredSettings.homeRankingSourcePriority,

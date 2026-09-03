@@ -13,9 +13,9 @@ void main() {
     final notifier = AudioSettingsNotifier(repository);
     await Future<void>.delayed(Duration.zero);
 
-    expect(notifier.state.useBilibiliAuthForPlay, isFalse);
-    expect(notifier.state.useYoutubeAuthForPlay, isFalse);
-    expect(notifier.state.useNeteaseAuthForPlay, isTrue);
+    expect(notifier.state.authForPlay(SourceIds.bilibili), isFalse);
+    expect(notifier.state.authForPlay(SourceIds.youtube), isFalse);
+    expect(notifier.state.authForPlay(SourceIds.netease), isTrue);
   });
 
   test('audio settings update auth-for-play per source', () async {
@@ -27,10 +27,10 @@ void main() {
     await notifier.setAuthForPlay(SourceIds.youtube, true);
     await notifier.setAuthForPlay(SourceIds.netease, false);
 
-    expect(notifier.state.useYoutubeAuthForPlay, isTrue);
-    expect(notifier.state.useNeteaseAuthForPlay, isFalse);
-    expect(repository.settings.useYoutubeAuthForPlay, isTrue);
-    expect(repository.settings.useNeteaseAuthForPlay, isFalse);
+    expect(notifier.state.authForPlay(SourceIds.youtube), isTrue);
+    expect(notifier.state.authForPlay(SourceIds.netease), isFalse);
+    expect(repository.settings.useAuthForPlay(SourceIds.youtube), isTrue);
+    expect(repository.settings.useAuthForPlay(SourceIds.netease), isFalse);
   });
 }
 

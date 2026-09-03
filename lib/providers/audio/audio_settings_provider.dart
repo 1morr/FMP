@@ -12,9 +12,8 @@ import '../database/repository_providers.dart';
 class AudioSettingsState {
   final AudioQualityLevel qualityLevel;
   final List<AudioFormat> formatPriority;
-  final List<StreamType> youtubeStreamPriority;
-  final List<StreamType> bilibiliStreamPriority;
-  final List<StreamType> neteaseStreamPriority;
+  /// 每個音源的串流優先序，key 是 [SourceIds] 的音源 id。
+  final Map<String, List<StreamType>> streamPriority;
   final bool autoMatchLyrics;
   final List<String> lyricsSourceOrder;
   final Set<String> disabledLyricsSources;
@@ -24,9 +23,8 @@ class AudioSettingsState {
   final String lyricsAiModel;
   final int lyricsAiTimeoutSeconds;
   final bool lyricsAiApiKeyConfigured;
-  final bool useBilibiliAuthForPlay;
-  final bool useYoutubeAuthForPlay;
-  final bool useNeteaseAuthForPlay;
+  /// 每個音源是否在播放時帶上登入狀態，key 是 [SourceIds] 的音源 id。
+  final Map<String, bool> useAuthForPlay;
   final bool isLoading;
 
   const AudioSettingsState({
@@ -35,18 +33,7 @@ class AudioSettingsState {
       AudioFormat.opus,
       AudioFormat.aac,
     ],
-    this.youtubeStreamPriority = const [
-      StreamType.audioOnly,
-      StreamType.muxed,
-      StreamType.hls,
-    ],
-    this.bilibiliStreamPriority = const [
-      StreamType.audioOnly,
-      StreamType.muxed,
-    ],
-    this.neteaseStreamPriority = const [
-      StreamType.audioOnly,
-    ],
+    this.streamPriority = const {},
     this.autoMatchLyrics = true,
     this.lyricsSourceOrder = const ['netease', 'qqmusic', 'lrclib'],
     this.disabledLyricsSources = const {'lrclib'},
@@ -56,11 +43,17 @@ class AudioSettingsState {
     this.lyricsAiModel = '',
     this.lyricsAiTimeoutSeconds = AppConstants.lyricsAiDefaultTimeoutSeconds,
     this.lyricsAiApiKeyConfigured = false,
-    this.useBilibiliAuthForPlay = false,
-    this.useYoutubeAuthForPlay = false,
-    this.useNeteaseAuthForPlay = true,
+    this.useAuthForPlay = const {},
     this.isLoading = true,
   });
+
+  /// 指定音源的串流優先序；還沒載入完成時回傳該音源的預設。
+  List<StreamType> streamPriorityFor(String sourceId) =>
+      streamPriority[sourceId] ?? defaultStreamPriorityFor(sourceId);
+
+  /// 指定音源是否帶上登入狀態；還沒載入完成時回傳該音源的預設。
+  bool authForPlay(String sourceId) =>
+      useAuthForPlay[sourceId] ?? defaultUseAuthForPlayFor(sourceId);
 
   /// 获取启用的歌词源（按优先级排序，排除禁用的）
   List<String> get enabledLyricsSourceOrder => lyricsSourceOrder
@@ -70,9 +63,7 @@ class AudioSettingsState {
   AudioSettingsState copyWith({
     AudioQualityLevel? qualityLevel,
     List<AudioFormat>? formatPriority,
-    List<StreamType>? youtubeStreamPriority,
-    List<StreamType>? bilibiliStreamPriority,
-    List<StreamType>? neteaseStreamPriority,
+    Map<String, List<StreamType>>? streamPriority,
     bool? autoMatchLyrics,
     List<String>? lyricsSourceOrder,
     Set<String>? disabledLyricsSources,
@@ -82,20 +73,13 @@ class AudioSettingsState {
     String? lyricsAiModel,
     int? lyricsAiTimeoutSeconds,
     bool? lyricsAiApiKeyConfigured,
-    bool? useBilibiliAuthForPlay,
-    bool? useYoutubeAuthForPlay,
-    bool? useNeteaseAuthForPlay,
+    Map<String, bool>? useAuthForPlay,
     bool? isLoading,
   }) {
     return AudioSettingsState(
       qualityLevel: qualityLevel ?? this.qualityLevel,
       formatPriority: formatPriority ?? this.formatPriority,
-      youtubeStreamPriority:
-          youtubeStreamPriority ?? this.youtubeStreamPriority,
-      bilibiliStreamPriority:
-          bilibiliStreamPriority ?? this.bilibiliStreamPriority,
-      neteaseStreamPriority:
-          neteaseStreamPriority ?? this.neteaseStreamPriority,
+      streamPriority: streamPriority ?? this.streamPriority,
       autoMatchLyrics: autoMatchLyrics ?? this.autoMatchLyrics,
       lyricsSourceOrder: lyricsSourceOrder ?? this.lyricsSourceOrder,
       disabledLyricsSources:
@@ -110,12 +94,7 @@ class AudioSettingsState {
           lyricsAiTimeoutSeconds ?? this.lyricsAiTimeoutSeconds,
       lyricsAiApiKeyConfigured:
           lyricsAiApiKeyConfigured ?? this.lyricsAiApiKeyConfigured,
-      useBilibiliAuthForPlay:
-          useBilibiliAuthForPlay ?? this.useBilibiliAuthForPlay,
-      useYoutubeAuthForPlay:
-          useYoutubeAuthForPlay ?? this.useYoutubeAuthForPlay,
-      useNeteaseAuthForPlay:
-          useNeteaseAuthForPlay ?? this.useNeteaseAuthForPlay,
+      useAuthForPlay: useAuthForPlay ?? this.useAuthForPlay,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -141,9 +120,10 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
     state = AudioSettingsState(
       qualityLevel: _settings!.audioQualityLevel,
       formatPriority: _settings!.audioFormatPriorityList,
-      youtubeStreamPriority: _settings!.youtubeStreamPriorityList,
-      bilibiliStreamPriority: _settings!.bilibiliStreamPriorityList,
-      neteaseStreamPriority: _settings!.neteaseStreamPriorityList,
+      streamPriority: {
+        for (final sourceId in SourceIds.values)
+          sourceId: _settings!.streamPriorityFor(sourceId),
+      },
       autoMatchLyrics: _settings!.autoMatchLyrics,
       lyricsSourceOrder: _settings!.lyricsSourcePriorityList,
       disabledLyricsSources: _settings!.disabledLyricsSourcesSet,
@@ -155,9 +135,10 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
           ? AppConstants.lyricsAiDefaultTimeoutSeconds
           : _settings!.lyricsAiTimeoutSeconds,
       lyricsAiApiKeyConfigured: lyricsAiApiKey.isNotEmpty,
-      useBilibiliAuthForPlay: _settings!.useBilibiliAuthForPlay,
-      useYoutubeAuthForPlay: _settings!.useYoutubeAuthForPlay,
-      useNeteaseAuthForPlay: _settings!.useNeteaseAuthForPlay,
+      useAuthForPlay: {
+        for (final sourceId in SourceIds.values)
+          sourceId: _settings!.useAuthForPlay(sourceId),
+      },
       isLoading: false,
     );
   }
@@ -187,51 +168,24 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
     }
   }
 
-  /// 设置 YouTube 流优先级
-  Future<void> setYoutubeStreamPriority(List<StreamType> priority) async {
+  /// 设置指定音源的流优先级
+  Future<void> setStreamPriority(
+    String sourceId,
+    List<StreamType> priority,
+  ) async {
     if (_settings == null) return;
 
-    final previous = state.youtubeStreamPriority;
-    state = state.copyWith(youtubeStreamPriority: priority);
+    final previous = state.streamPriority;
+    state = state.copyWith(
+      streamPriority: {...previous, sourceId: priority},
+    );
 
     try {
       await _settingsRepository
-          .update((s) => s.youtubeStreamPriorityList = priority);
-      _settings!.youtubeStreamPriorityList = priority;
+          .update((s) => s.setStreamPriorityFor(sourceId, priority));
+      _settings!.setStreamPriorityFor(sourceId, priority);
     } catch (_) {
-      state = state.copyWith(youtubeStreamPriority: previous);
-    }
-  }
-
-  /// 设置 Bilibili 流优先级
-  Future<void> setBilibiliStreamPriority(List<StreamType> priority) async {
-    if (_settings == null) return;
-
-    final previous = state.bilibiliStreamPriority;
-    state = state.copyWith(bilibiliStreamPriority: priority);
-
-    try {
-      await _settingsRepository
-          .update((s) => s.bilibiliStreamPriorityList = priority);
-      _settings!.bilibiliStreamPriorityList = priority;
-    } catch (_) {
-      state = state.copyWith(bilibiliStreamPriority: previous);
-    }
-  }
-
-  /// 设置 Netease 流优先级
-  Future<void> setNeteaseStreamPriority(List<StreamType> priority) async {
-    if (_settings == null) return;
-
-    final previous = state.neteaseStreamPriority;
-    state = state.copyWith(neteaseStreamPriority: priority);
-
-    try {
-      await _settingsRepository
-          .update((s) => s.neteaseStreamPriorityList = priority);
-      _settings!.neteaseStreamPriorityList = priority;
-    } catch (_) {
-      state = state.copyWith(neteaseStreamPriority: previous);
+      state = state.copyWith(streamPriority: previous);
     }
   }
 
@@ -320,15 +274,7 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
 
     final previous = state;
     state = state.copyWith(
-      useBilibiliAuthForPlay: sourceType == SourceIds.bilibili
-          ? enabled
-          : state.useBilibiliAuthForPlay,
-      useYoutubeAuthForPlay: sourceType == SourceIds.youtube
-          ? enabled
-          : state.useYoutubeAuthForPlay,
-      useNeteaseAuthForPlay: sourceType == SourceIds.netease
-          ? enabled
-          : state.useNeteaseAuthForPlay,
+      useAuthForPlay: {...state.useAuthForPlay, sourceType: enabled},
     );
 
     try {
@@ -374,21 +320,6 @@ final audioQualityLevelProvider = Provider<AudioQualityLevel>((ref) {
 /// 便捷 Provider - 格式优先级
 final audioFormatPriorityProvider = Provider<List<AudioFormat>>((ref) {
   return ref.watch(audioSettingsProvider).formatPriority;
-});
-
-/// 便捷 Provider - YouTube 流优先级
-final youtubeStreamPriorityProvider = Provider<List<StreamType>>((ref) {
-  return ref.watch(audioSettingsProvider).youtubeStreamPriority;
-});
-
-/// 便捷 Provider - Bilibili 流优先级
-final bilibiliStreamPriorityProvider = Provider<List<StreamType>>((ref) {
-  return ref.watch(audioSettingsProvider).bilibiliStreamPriority;
-});
-
-/// 便捷 Provider - Netease 流优先级
-final neteaseStreamPriorityProvider = Provider<List<StreamType>>((ref) {
-  return ref.watch(audioSettingsProvider).neteaseStreamPriority;
 });
 
 /// 便捷 Provider - 歌词源优先级顺序

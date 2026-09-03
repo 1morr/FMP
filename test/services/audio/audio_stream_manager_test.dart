@@ -758,7 +758,8 @@ void main() {
         'getAlternativeAudioStream uses configured stream priority for fallback selection',
         () async {
       final settings = await settingsRepository.get();
-      settings.youtubeStreamPriority = 'hls,muxed,audioOnly';
+      settings.setStreamPriorityFor(SourceIds.youtube,
+          [StreamType.hls, StreamType.muxed, StreamType.audioOnly]);
       await settingsRepository.save(settings);
 
       final result = await manager.getAlternativeAudioStream(

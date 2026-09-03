@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/source_ids.dart';
 import 'package:fmp/providers/database/database_migration.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:isar_community/isar.dart';
@@ -215,8 +216,10 @@ void main() {
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings, isNotNull);
       expect(migratedSettings!.audioFormatPriority, 'opus,aac');
-      expect(migratedSettings.youtubeStreamPriority, 'audioOnly,muxed,hls');
-      expect(migratedSettings.bilibiliStreamPriority, 'audioOnly,muxed');
+      expect(migratedSettings.streamPriorityFor(SourceIds.youtube),
+          [StreamType.audioOnly, StreamType.muxed, StreamType.hls]);
+      expect(migratedSettings.streamPriorityFor(SourceIds.bilibili),
+          [StreamType.audioOnly, StreamType.muxed]);
     });
 
     test('repairs legacy fallback AI mode index to off', () async {
@@ -396,9 +399,75 @@ void main() {
       await runDatabaseMigration(isar);
 
       final migrated = await isar.settings.get(0);
-      expect(migrated!.schemaVersion, 1);
-      expect(migrated.useNeteaseAuthForPlay, isTrue,
-          reason: 'the v0 step must have run');
+      expect(migrated!.schemaVersion, kFmpSchemaVersion);
+      expect(migrated.useAuthForPlay(SourceIds.netease), isTrue,
+          reason: 'the v0 step must have run and been folded by v1 to v2');
+    });
+
+    test('the v1 to v2 step folds the six named fields into sourceSettings',
+        () async {
+      await openTestDatabase();
+
+      final v1 = Settings()
+        ..schemaVersion = 1
+        ..bilibiliStreamPriority = 'muxed'
+        ..youtubeStreamPriority = 'hls,audioOnly'
+        ..neteaseStreamPriority = 'audioOnly,muxed'
+        ..useBilibiliAuthForPlay = true
+        ..useYoutubeAuthForPlay = false
+        ..useNeteaseAuthForPlay = false;
+      await isar.writeTxn(() async => isar.settings.put(v1));
+
+      await runDatabaseMigration(isar);
+
+      final after = (await isar.settings.get(0))!;
+      expect(after.schemaVersion, 2);
+      expect(after.streamPriorityFor(SourceIds.bilibili), [StreamType.muxed]);
+      expect(after.streamPriorityFor(SourceIds.youtube),
+          [StreamType.hls, StreamType.audioOnly]);
+      expect(after.streamPriorityFor(SourceIds.netease),
+          [StreamType.audioOnly, StreamType.muxed]);
+      expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
+      expect(after.useAuthForPlay(SourceIds.youtube), isFalse);
+      expect(after.useAuthForPlay(SourceIds.netease), isFalse);
+    });
+
+    test('the v1 to v2 step leaves the legacy fields untouched', () async {
+      // 降級（裝回舊版 APK）時舊版只讀得到這六個欄位。折疊如果把它們清空，
+      // 舊版的不變式修復會把使用者的選擇覆蓋成預設 —— 每源設定就這樣沒了。
+      await openTestDatabase();
+
+      final v1 = Settings()
+        ..schemaVersion = 1
+        ..bilibiliStreamPriority = 'muxed'
+        ..useBilibiliAuthForPlay = true;
+      await isar.writeTxn(() async => isar.settings.put(v1));
+
+      await runDatabaseMigration(isar);
+
+      final after = (await isar.settings.get(0))!;
+      expect(after.bilibiliStreamPriority, 'muxed');
+      expect(after.useBilibiliAuthForPlay, isTrue);
+    });
+
+    test('a database already at v2 is not folded again', () async {
+      await openTestDatabase();
+
+      // 使用者在 v2 之後改了設定，舊欄位仍停在遷移當下的舊值。
+      // 再跑一次遷移絕對不可以拿舊欄位覆蓋回去。
+      final v2 = Settings()
+        ..schemaVersion = 2
+        ..bilibiliStreamPriority = 'audioOnly,muxed'
+        ..useBilibiliAuthForPlay = false;
+      v2.setStreamPriorityFor(SourceIds.bilibili, [StreamType.muxed]);
+      v2.setUseAuthForPlay(SourceIds.bilibili, true);
+      await isar.writeTxn(() async => isar.settings.put(v2));
+
+      await runDatabaseMigration(isar);
+
+      final after = (await isar.settings.get(0))!;
+      expect(after.streamPriorityFor(SourceIds.bilibili), [StreamType.muxed]);
+      expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
     });
 
     test('stamps the current schema version on a fresh install', () async {
@@ -426,13 +495,13 @@ void main() {
       await runDatabaseMigration(isar);
 
       final migrated = await isar.settings.get(0);
-      expect(migrated!.schemaVersion, 1);
+      expect(migrated!.schemaVersion, kFmpSchemaVersion);
       expect(migrated.rememberPlaybackPosition, isTrue);
       expect(migrated.tempPlayRewindSeconds, 10);
       expect(migrated.disabledLyricsSources, 'lrclib');
     });
 
-    test('leaves a database already at v1 alone', () async {
+    test('does not re-run the v0 step on a database already past it', () async {
       await openTestDatabase();
 
       // 一個使用者刻意把設定調成「長得像未遷移」的形狀，但版本號已經是 1。
@@ -451,13 +520,14 @@ void main() {
       await runDatabaseMigration(isar);
 
       final after = await isar.settings.get(0);
-      expect(after!.schemaVersion, 1);
+      expect(after!.schemaVersion, kFmpSchemaVersion);
       expect(after.rememberPlaybackPosition, isFalse);
       expect(after.tempPlayRewindSeconds, 0);
       expect(after.disabledLyricsSources, '');
-      expect(after.useNeteaseAuthForPlay, isFalse);
+      expect(after.useAuthForPlay(SourceIds.netease), isFalse);
       // 不變式修復與版本無關，所以空的優先級仍然會被補回預設。
-      expect(after.neteaseStreamPriority, 'audioOnly');
+      expect(after.streamPriorityFor(SourceIds.netease),
+          [StreamType.audioOnly]);
     });
 
     test('repairs legacy queue volume without changing current queue state',

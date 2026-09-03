@@ -412,25 +412,30 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'audioFormatPriority': setting.audioFormatPriority,
         'audioFormatPriorityList':
             setting.audioFormatPriorityList.map((e) => e.name).join(', '),
-        'youtubeStreamPriority': setting.youtubeStreamPriority,
-        'youtubeStreamPriorityList':
-            setting.youtubeStreamPriorityList.map((e) => e.name).join(', '),
-        'bilibiliStreamPriority': setting.bilibiliStreamPriority,
-        'bilibiliStreamPriorityList':
-            setting.bilibiliStreamPriorityList.map((e) => e.name).join(', '),
-        'neteaseStreamPriority': setting.neteaseStreamPriority,
-        'neteaseStreamPriorityList':
-            setting.neteaseStreamPriorityList.map((e) => e.name).join(', '),
       },
     ),
     DatabaseViewerSection(
-      title: 'Auth Settings',
+      title: 'Source Settings',
       data: {
-        'useBilibiliAuthForPlay': setting.useBilibiliAuthForPlay.toString(),
-        'useYoutubeAuthForPlay': setting.useYoutubeAuthForPlay.toString(),
-        'useNeteaseAuthForPlay': setting.useNeteaseAuthForPlay.toString(),
+        'sourceSettings':
+            setting.sourceSettings.map((e) => e.sourceId).join(', '),
       },
     ),
+    // 逐筆列出實際存進 sourceSettings 的內容，而不是照 SourceIds 硬列 ——
+    // 偵錯檢視器要顯示資料庫裡真正有什麼，包含認不得的音源。
+    for (final entry in setting.sourceSettings)
+      DatabaseViewerSection(
+        title: 'Source Settings: ${entry.sourceId}',
+        data: {
+          'sourceId': entry.sourceId,
+          'streamPriority': entry.streamPriority,
+          'streamPriorityList': setting
+              .streamPriorityFor(entry.sourceId)
+              .map((e) => e.name)
+              .join(', '),
+          'useAuthForPlay': entry.useAuthForPlay.toString(),
+        },
+      ),
     DatabaseViewerSection(
       title: 'Refresh Settings',
       data: {

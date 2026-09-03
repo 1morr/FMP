@@ -27,9 +27,9 @@ void main() {
 
     test('authForPlay follows per-source useAuthForPlay settings', () async {
       settings
-        ..useBilibiliAuthForPlay = true
-        ..useYoutubeAuthForPlay = false
-        ..useNeteaseAuthForPlay = true;
+        ..setUseAuthForPlay(SourceIds.bilibili, true)
+        ..setUseAuthForPlay(SourceIds.youtube, false)
+        ..setUseAuthForPlay(SourceIds.netease, true);
       authLoader.headersBySource[SourceIds.bilibili] = const {
         'Cookie': 'SESSDATA=bilibili',
       };
@@ -95,8 +95,8 @@ void main() {
     test('playbackNetworkRequest does not leak Bilibili or YouTube media auth',
         () async {
       settings
-        ..useBilibiliAuthForPlay = true
-        ..useYoutubeAuthForPlay = true;
+        ..setUseAuthForPlay(SourceIds.bilibili, true)
+        ..setUseAuthForPlay(SourceIds.youtube, true);
       authLoader.headersBySource[SourceIds.bilibili] = const {
         'Cookie': 'SESSDATA=bilibili',
       };
@@ -135,7 +135,7 @@ void main() {
 
     test('playbackNetworkRequest strips Netease auth after unsafe redirect',
         () async {
-      settings.useNeteaseAuthForPlay = true;
+      settings.setUseAuthForPlay(SourceIds.netease, true);
       authLoader.headersBySource[SourceIds.netease] =
           SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
       final context = DefaultSourceAuthContext(
@@ -162,7 +162,7 @@ void main() {
 
     test('playbackNetworkRequest delegates media request to MediaHandoff',
         () async {
-      settings.useNeteaseAuthForPlay = true;
+      settings.setUseAuthForPlay(SourceIds.netease, true);
       final authHeaders =
           SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=delegate');
       authLoader.headersBySource[SourceIds.netease] = authHeaders;

@@ -40,14 +40,6 @@ enum AudioFormat {
 }
 
 /// 流类型
-/// 沒有專屬設定的音源使用的串流優先序。
-///
-/// `audioOnly` 放第一位是因為它對所有音源都成立；`hls` 目前只有 YouTube 會回。
-const List<StreamType> kDefaultStreamPriority = [
-  StreamType.audioOnly,
-  StreamType.muxed,
-];
-
 enum StreamType {
   /// 纯音频流
   audioOnly,
@@ -57,6 +49,98 @@ enum StreamType {
 
   /// HLS 分段流 (仅 YouTube)
   hls,
+}
+
+/// 每個內建音源的預設串流優先序。
+///
+/// 這是**資料**而不是 schema：新增音源只要多一筆，不必再走一輪
+/// `build_runner` + migration + 備份格式同步。
+const Map<String, String> kDefaultStreamPriorityBySource = {
+  SourceIds.bilibili: 'audioOnly,muxed',
+  SourceIds.youtube: 'audioOnly,muxed,hls',
+  SourceIds.netease: 'audioOnly',
+};
+
+/// 沒有專屬預設的音源使用的串流優先序。
+///
+/// `audioOnly` 放第一位是因為它對所有音源都成立；`hls` 目前只有 YouTube 會回。
+const String kFallbackStreamPriority = 'audioOnly,muxed';
+
+/// 預設就啟用播放認證的音源。
+///
+/// 網易雲不帶登入狀態時大量歌曲只回試聽片段，所以它的預設是 true；
+/// 其餘音源預設 false。
+const Map<String, bool> kDefaultUseAuthForPlayBySource = {
+  SourceIds.netease: true,
+};
+
+/// 指定音源的預設串流優先序。
+///
+/// `Settings` 與 `audio_settings_provider` 的預設值都從這裡來，避免兩邊各寫
+/// 一份 literal 然後悄悄漂移。
+List<StreamType> defaultStreamPriorityFor(String sourceId) =>
+    parseStreamPriority(
+      kDefaultStreamPriorityBySource[sourceId] ?? kFallbackStreamPriority,
+    );
+
+/// 指定音源是否預設啟用播放認證。
+bool defaultUseAuthForPlayFor(String sourceId) =>
+    kDefaultUseAuthForPlayBySource[sourceId] ?? false;
+
+/// 解析逗號分隔的串流優先序字串。
+///
+/// 認不得的 token 直接丟掉。舊版把它當成 audioOnly，那會在清單裡塞出重複項；
+/// 丟掉之後若整串都無效，呼叫端會落回該音源的預設。
+List<StreamType> parseStreamPriority(String value) {
+  final result = <StreamType>[];
+  for (final raw in value.split(',')) {
+    final type = switch (raw.trim()) {
+      'audioOnly' => StreamType.audioOnly,
+      'muxed' => StreamType.muxed,
+      'hls' => StreamType.hls,
+      _ => null,
+    };
+    if (type != null && !result.contains(type)) result.add(type);
+  }
+  return result;
+}
+
+/// 串流類型在持久化字串裡的名稱。
+String streamTypeName(StreamType type) => switch (type) {
+      StreamType.audioOnly => 'audioOnly',
+      StreamType.muxed => 'muxed',
+      StreamType.hls => 'hls',
+    };
+
+/// 單一音源的設定。
+///
+/// 取代原本六個具名欄位（三個 `*StreamPriority` + 三個 `use*AuthForPlay`）。
+/// 依 `Track.playlistInfo` 的先例用 `@embedded`，而不是塞成一坨 JSON 字串：
+/// 偵錯檢視器能逐欄位列出，備份 DTO 也能結構化對映。
+///
+/// ⚠️ 跟所有 `@embedded` 物件一樣，**改值必須建新的物件與新的 list**，
+/// 否則 Isar 偵測不到變更（同 `track.dart` 的註解）。
+@embedded
+class SourceSettingsEntry {
+  /// 音源 id，對應 [SourceIds]。
+  String sourceId = '';
+
+  /// 串流優先序，逗號分隔（語意與舊的 `*StreamPriority` 欄位相同）。
+  String streamPriority = '';
+
+  /// 播放時是否帶上該音源的登入狀態。
+  bool useAuthForPlay = false;
+
+  SourceSettingsEntry();
+
+  SourceSettingsEntry copy() => SourceSettingsEntry()
+    ..sourceId = sourceId
+    ..streamPriority = streamPriority
+    ..useAuthForPlay = useAuthForPlay;
+
+  @override
+  String toString() => 'SourceSettingsEntry($sourceId, '
+      'streamPriority: $streamPriority, useAuthForPlay: $useAuthForPlay)';
 }
 
 /// 歌词显示模式
@@ -205,13 +289,21 @@ class Settings {
   /// 按顺序尝试，第一个可用的格式被选中
   String audioFormatPriority = 'opus,aac';
 
+  /// 每個音源的設定（串流優先序、播放認證）。
+  ///
+  /// v2 之後這是唯一的真相來源；下面六個具名欄位只留給 v1→v2 遷移讀。
+  List<SourceSettingsEntry> sourceSettings = [];
+
   /// YouTube 流优先级 (逗号分隔: "audioOnly,muxed,hls")
+  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
   String youtubeStreamPriority = 'audioOnly,muxed,hls';
 
   /// Bilibili 流优先级 (逗号分隔: "audioOnly,muxed")
+  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
   String bilibiliStreamPriority = 'audioOnly,muxed';
 
   /// 網易雲流優先級 (逗號分隔: "audioOnly")
+  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
   String neteaseStreamPriority = 'audioOnly';
 
   /// 首选音频输出设备 ID (null = 自动/跟随系统)
@@ -290,12 +382,15 @@ class Settings {
   // ========== 播放認證設置 ==========
 
   /// Bilibili 播放時使用登入狀態
+  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
   bool useBilibiliAuthForPlay = false;
 
   /// YouTube 播放時使用登入狀態
+  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
   bool useYoutubeAuthForPlay = false;
 
   /// 網易雲播放時使用登入狀態
+  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
   bool useNeteaseAuthForPlay = true;
 
   // ========== 刷新间隔设置 ==========
@@ -434,68 +529,6 @@ class Settings {
     }).join(',');
   }
 
-  /// 获取 YouTube 流优先级列表
-  @ignore
-  List<StreamType> get youtubeStreamPriorityList {
-    if (youtubeStreamPriority.isEmpty) {
-      return [StreamType.audioOnly, StreamType.muxed, StreamType.hls];
-    }
-    return youtubeStreamPriority.split(',').map((s) {
-      switch (s.trim()) {
-        case 'muxed':
-          return StreamType.muxed;
-        case 'hls':
-          return StreamType.hls;
-        default:
-          return StreamType.audioOnly;
-      }
-    }).toList();
-  }
-
-  /// 设置 YouTube 流优先级列表
-  set youtubeStreamPriorityList(List<StreamType> list) {
-    youtubeStreamPriority = list.map((t) {
-      switch (t) {
-        case StreamType.audioOnly:
-          return 'audioOnly';
-        case StreamType.muxed:
-          return 'muxed';
-        case StreamType.hls:
-          return 'hls';
-      }
-    }).join(',');
-  }
-
-  /// 获取 Bilibili 流优先级列表
-  @ignore
-  List<StreamType> get bilibiliStreamPriorityList {
-    if (bilibiliStreamPriority.isEmpty) {
-      return [StreamType.audioOnly, StreamType.muxed];
-    }
-    return bilibiliStreamPriority.split(',').map((s) {
-      switch (s.trim()) {
-        case 'muxed':
-          return StreamType.muxed;
-        default:
-          return StreamType.audioOnly;
-      }
-    }).toList();
-  }
-
-  /// 设置 Bilibili 流优先级列表
-  set bilibiliStreamPriorityList(List<StreamType> list) {
-    bilibiliStreamPriority = list.map((t) {
-      switch (t) {
-        case StreamType.audioOnly:
-          return 'audioOnly';
-        case StreamType.muxed:
-          return 'muxed';
-        case StreamType.hls:
-          return 'hls';
-      }
-    }).join(',');
-  }
-
   /// 获取歌词显示模式
   @ignore
   LyricsDisplayMode get lyricsDisplayMode {
@@ -607,71 +640,53 @@ class Settings {
     }
   }
 
-  /// 獲取指定音源的播放認證設定
-  ///
-  /// 沒有對應設定的音源回傳 `false` —— 認不得的來源不該拿到憑證。
-  bool useAuthForPlay(String sourceType) {
-    switch (sourceType) {
-      case SourceIds.bilibili:
-        return useBilibiliAuthForPlay;
-      case SourceIds.youtube:
-        return useYoutubeAuthForPlay;
-      case SourceIds.netease:
-        return useNeteaseAuthForPlay;
-      default:
-        return false;
+  // ========== 每源設定 ==========
+
+  /// 取得指定音源的設定；沒有就依預設建一筆（不寫回）。
+  SourceSettingsEntry _entryFor(String sourceId) {
+    for (final entry in sourceSettings) {
+      if (entry.sourceId == sourceId) return entry;
     }
+    return SourceSettingsEntry()
+      ..sourceId = sourceId
+      ..streamPriority =
+          kDefaultStreamPriorityBySource[sourceId] ?? kFallbackStreamPriority
+      ..useAuthForPlay = defaultUseAuthForPlayFor(sourceId);
   }
 
-  /// 設置指定音源的播放認證設定
+  /// 覆寫指定音源的設定。
   ///
-  /// 認不得的音源直接拋錯而不是靜默忽略：呼叫端
-  /// （`audio_settings_provider`）會先做樂觀狀態更新，靜默 no-op 會留下
-  /// 「開關看起來開著、其實沒存進去」的狀態。每源設定目前仍是三個具名欄位。
-  void setUseAuthForPlay(String sourceType, bool value) {
-    switch (sourceType) {
-      case SourceIds.bilibili:
-        useBilibiliAuthForPlay = value;
-      case SourceIds.youtube:
-        useYoutubeAuthForPlay = value;
-      case SourceIds.netease:
-        useNeteaseAuthForPlay = value;
-      default:
-        throw ArgumentError.value(
-          sourceType,
-          'sourceType',
-          'no per-source auth setting',
-        );
-    }
+  /// Isar 對 `@embedded` 物件只比較 list 的識別，所以這裡**必須**建新的 list
+  /// 與新的 entry，就地改欄位不會被持久化（同 `Track.playlistInfo` 的坑）。
+  void _putEntry(SourceSettingsEntry entry) {
+    sourceSettings = [
+      for (final existing in sourceSettings)
+        if (existing.sourceId != entry.sourceId) existing.copy(),
+      entry,
+    ];
   }
 
-  /// 獲取網易雲流優先級列表
-  @ignore
-  List<StreamType> get neteaseStreamPriorityList {
-    if (neteaseStreamPriority.isEmpty) return [StreamType.audioOnly];
-    return neteaseStreamPriority.split(',').map((s) {
-      switch (s.trim()) {
-        case 'muxed':
-          return StreamType.muxed;
-        default:
-          return StreamType.audioOnly;
-      }
-    }).toList();
+  /// 指定音源的串流優先序。
+  List<StreamType> streamPriorityFor(String sourceId) {
+    final parsed = parseStreamPriority(_entryFor(sourceId).streamPriority);
+    if (parsed.isNotEmpty) return parsed;
+    return defaultStreamPriorityFor(sourceId);
   }
 
-  /// 設置網易雲流優先級列表
-  set neteaseStreamPriorityList(List<StreamType> list) {
-    neteaseStreamPriority = list.map((t) {
-      switch (t) {
-        case StreamType.audioOnly:
-          return 'audioOnly';
-        case StreamType.muxed:
-          return 'muxed';
-        case StreamType.hls:
-          return 'hls';
-      }
-    }).join(',');
+  /// 設定指定音源的串流優先序。
+  void setStreamPriorityFor(String sourceId, List<StreamType> list) {
+    _putEntry(_entryFor(sourceId).copy()
+      ..streamPriority = list.map(streamTypeName).join(','));
   }
+
+  /// 指定音源是否在播放時帶上登入狀態。
+  bool useAuthForPlay(String sourceId) => _entryFor(sourceId).useAuthForPlay;
+
+  /// 設定指定音源是否在播放時帶上登入狀態。
+  void setUseAuthForPlay(String sourceId, bool value) {
+    _putEntry(_entryFor(sourceId).copy()..useAuthForPlay = value);
+  }
+
 
   @override
   String toString() =>

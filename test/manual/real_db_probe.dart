@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/models.dart';
 import 'package:fmp/providers/database/database_catalog.dart';
+import 'package:fmp/providers/database/database_migration.dart';
 import 'package:isar_community/isar.dart';
 
 import '../support/isar_test_harness.dart';
@@ -17,6 +18,9 @@ import '../support/isar_test_harness.dart';
 ///
 /// 那個目錄裡要有 `fmp_database.isar`。**永遠給副本，不要給正在用的資料庫** ——
 /// Isar 開啟時會寫入 lock 檔，也可能觸發 compaction。
+///
+/// 加 `FMP_PROBE_MIGRATE=1` 會在傾印之前跑一次 `runDatabaseMigration`，用來驗證
+/// 遷移在真實資料上的結果（前後各跑一次、diff 兩份 JSON）。
 ///
 /// 輸出夾在 `PROBE_JSON_START` / `PROBE_JSON_END` 之間，方便前後兩次 diff。
 void main() {
@@ -35,6 +39,10 @@ void main() {
       name: 'fmp_database',
       maxSizeMiB: 2048,
     );
+
+    if (Platform.environment['FMP_PROBE_MIGRATE'] == '1') {
+      await runDatabaseMigration(isar);
+    }
 
     final counts = <String, int>{};
     for (final collection in fmpDatabaseCollections) {
@@ -71,6 +79,30 @@ void main() {
       'counts': counts,
       'total': counts.values.fold<int>(0, (sum, value) => sum + value),
       'schemaVersion': settings?.schemaVersion,
+      'sourceSettings': [
+        for (final entry in settings?.sourceSettings ?? const [])
+          {
+            'sourceId': entry.sourceId,
+            'streamPriority': entry.streamPriority,
+            'useAuthForPlay': entry.useAuthForPlay,
+          },
+      ],
+      'legacyPerSourceFields': settings == null
+          ? null
+          : {
+              // ignore: deprecated_member_use_from_same_package
+              'bilibiliStreamPriority': settings.bilibiliStreamPriority,
+              // ignore: deprecated_member_use_from_same_package
+              'youtubeStreamPriority': settings.youtubeStreamPriority,
+              // ignore: deprecated_member_use_from_same_package
+              'neteaseStreamPriority': settings.neteaseStreamPriority,
+              // ignore: deprecated_member_use_from_same_package
+              'useBilibiliAuthForPlay': settings.useBilibiliAuthForPlay,
+              // ignore: deprecated_member_use_from_same_package
+              'useYoutubeAuthForPlay': settings.useYoutubeAuthForPlay,
+              // ignore: deprecated_member_use_from_same_package
+              'useNeteaseAuthForPlay': settings.useNeteaseAuthForPlay,
+            },
       'histograms': histograms,
       'schemaIds': {
         'Track': TrackSchema.id,

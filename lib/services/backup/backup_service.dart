@@ -25,7 +25,7 @@ import 'backup_data.dart';
 /// v3（Phase 3）：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
 /// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，而被移除的欄位
 /// 在任何既有備份裡都是 null。
-const int kBackupVersion = 3;
+const int kBackupVersion = 4;
 
 /// 备份服务
 ///
@@ -227,9 +227,14 @@ class BackupService with Logging {
         locale: settings.locale,
         audioQualityLevelIndex: settings.audioQualityLevelIndex,
         audioFormatPriority: settings.audioFormatPriority,
-        youtubeStreamPriority: settings.youtubeStreamPriority,
-        bilibiliStreamPriority: settings.bilibiliStreamPriority,
-        neteaseStreamPriority: settings.neteaseStreamPriority,
+        sourceSettings: [
+          for (final entry in settings.sourceSettings)
+            SourceSettingsBackup(
+              sourceId: entry.sourceId,
+              streamPriority: entry.streamPriority,
+              useAuthForPlay: entry.useAuthForPlay,
+            ),
+        ],
         hotkeyConfig: settings.hotkeyConfig,
         autoMatchLyrics: settings.autoMatchLyrics,
         maxLyricsCacheFiles: settings.maxLyricsCacheFiles,
@@ -253,9 +258,6 @@ class BackupService with Logging {
         lyricsWindowShadowBlurRadius: settings.lyricsWindowShadowBlurRadius,
         lyricsWindowShadowOffsetX: settings.lyricsWindowShadowOffsetX,
         lyricsWindowShadowOffsetY: settings.lyricsWindowShadowOffsetY,
-        useBilibiliAuthForPlay: settings.useBilibiliAuthForPlay,
-        useYoutubeAuthForPlay: settings.useYoutubeAuthForPlay,
-        useNeteaseAuthForPlay: settings.useNeteaseAuthForPlay,
         rankingRefreshIntervalMinutes: settings.rankingRefreshIntervalMinutes,
         homeRankingSourcePriority:
             settings.homeRankingSourcePriorityList.join(','),
@@ -693,12 +695,13 @@ class BackupService with Logging {
           ..locale = settingsBackup.locale
           ..audioQualityLevelIndex = settingsBackup.audioQualityLevelIndex
           ..audioFormatPriority = settingsBackup.audioFormatPriority
-          ..youtubeStreamPriority = settingsBackup.youtubeStreamPriority
-          ..bilibiliStreamPriority = settingsBackup.bilibiliStreamPriority
-          ..neteaseStreamPriority = settingsBackup.neteaseStreamPriority
-          ..useBilibiliAuthForPlay = settingsBackup.useBilibiliAuthForPlay
-          ..useYoutubeAuthForPlay = settingsBackup.useYoutubeAuthForPlay
-          ..useNeteaseAuthForPlay = settingsBackup.useNeteaseAuthForPlay
+          ..sourceSettings = [
+            for (final entry in settingsBackup.sourceSettings)
+              SourceSettingsEntry()
+                ..sourceId = entry.sourceId
+                ..streamPriority = entry.streamPriority
+                ..useAuthForPlay = entry.useAuthForPlay,
+          ]
           ..rankingRefreshIntervalMinutes =
               settingsBackup.rankingRefreshIntervalMinutes
           ..homeRankingSourcePriorityList =

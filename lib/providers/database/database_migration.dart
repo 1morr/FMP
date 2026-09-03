@@ -1,3 +1,8 @@
+// 這個檔案是 `Settings` 上那些 @Deprecated 每源欄位的**唯一**合法讀者：遷移
+// 必須讀得到舊值才能把它們折進 `sourceSettings`。其他任何地方讀到它們都會被
+// deprecated_member_use_from_same_package 擋下來，那正是我們要的。
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:io';
 
 import 'package:isar_community/isar.dart';
@@ -7,9 +12,10 @@ import '../../core/logger.dart';
 import '../../data/models/lyrics_title_parse_cache.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/models/settings.dart';
+import '../../data/models/source_ids.dart';
 
 /// 目前的持久化 schema 版本。每加一個遷移步驟就 +1。
-const int kFmpSchemaVersion = 1;
+const int kFmpSchemaVersion = 2;
 
 /// 資料庫啟動時的唯一入口：套用未跑過的遷移步驟，再修復與版本無關的不變式。
 ///
@@ -92,6 +98,12 @@ const List<NamedMigrationStep> fmpMigrationSteps = <NamedMigrationStep>[
     name: 'infer pre-versioning defaults',
     run: _migrateV0ToV1,
   ),
+  NamedMigrationStep(
+    from: 1,
+    to: 2,
+    name: 'fold per-source settings into one list',
+    run: _migrateV1ToV2,
+  ),
 ];
 
 /// 讀出這一列真正的 schema 版本。
@@ -127,6 +139,34 @@ void _migrateV0ToV1(Settings settings) {
   settings.railExpanded = false;
   settings.detailPanelExpanded = true;
   settings.detailPanelWidth = 380;
+}
+
+/// v1 → v2：把六個每源具名欄位折成一份 `sourceSettings`。
+///
+/// **只搬不刪。** 舊欄位刻意保留原值，理由有二：
+///
+/// 1. 遷移是在 `Isar.open(fmpDatabaseSchemas)` **之後**才跑的。欄位一旦從
+///    `settings.dart` 刪掉，生成的反序列化器裡就沒有它，這個函式會讀不到，
+///    三筆 entry 全部拿到空值 —— 直接的使用者設定遺失。
+/// 2. 不清空舊欄位，降級（裝回舊版 APK）時每源設定是**無損**的。若在這裡把
+///    它們清成 ''，舊版的預設值修復會把使用者的選擇覆蓋掉。
+///
+/// 舊欄位在 schema v3 才刪。
+void _migrateV1ToV2(Settings settings) {
+  settings.sourceSettings = [
+    SourceSettingsEntry()
+      ..sourceId = SourceIds.bilibili
+      ..streamPriority = settings.bilibiliStreamPriority
+      ..useAuthForPlay = settings.useBilibiliAuthForPlay,
+    SourceSettingsEntry()
+      ..sourceId = SourceIds.youtube
+      ..streamPriority = settings.youtubeStreamPriority
+      ..useAuthForPlay = settings.useYoutubeAuthForPlay,
+    SourceSettingsEntry()
+      ..sourceId = SourceIds.netease
+      ..streamPriority = settings.neteaseStreamPriority
+      ..useAuthForPlay = settings.useNeteaseAuthForPlay,
+  ];
 }
 
 bool _hasLegacyPlaybackAndLyricsDefaultsSignature(Settings settings) {
@@ -178,12 +218,20 @@ bool repairSettingsInvariants(Settings settings) {
 
   fix(settings.audioFormatPriority.isEmpty,
       () => settings.audioFormatPriority = 'opus,aac');
-  fix(settings.youtubeStreamPriority.isEmpty,
-      () => settings.youtubeStreamPriority = 'audioOnly,muxed,hls');
-  fix(settings.bilibiliStreamPriority.isEmpty,
-      () => settings.bilibiliStreamPriority = 'audioOnly,muxed');
-  fix(settings.neteaseStreamPriority.isEmpty,
-      () => settings.neteaseStreamPriority = 'audioOnly');
+  // 每個內建音源都要有一筆設定，而且串流優先序不能是空字串。
+  // 這是不變式不是遷移：它也要擋下壞掉的備份匯入與降級後的往返。
+  for (final sourceId in SourceIds.values) {
+    final stored = settings.sourceSettings
+        .where((entry) => entry.sourceId == sourceId)
+        .firstOrNull;
+    fix(
+      stored == null || stored.streamPriority.trim().isEmpty,
+      () => settings.setStreamPriorityFor(
+        sourceId,
+        settings.streamPriorityFor(sourceId),
+      ),
+    );
+  }
   fix(settings.lyricsSourcePriority.isEmpty,
       () => settings.lyricsSourcePriority = 'netease,qqmusic,lrclib');
 

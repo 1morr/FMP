@@ -43,16 +43,10 @@ class AudioStreamConfig {
   /// 从 Settings 构建指定音源的配置
   factory AudioStreamConfig.fromSettings(
       Settings settings, String sourceType) {
-    final streamPriority = switch (sourceType) {
-      SourceIds.youtube => settings.youtubeStreamPriorityList,
-      SourceIds.bilibili => settings.bilibiliStreamPriorityList,
-      SourceIds.netease => settings.neteaseStreamPriorityList,
-      _ => kDefaultStreamPriority,
-    };
     return AudioStreamConfig(
       qualityLevel: settings.audioQualityLevel,
       formatPriority: settings.audioFormatPriorityList,
-      streamPriority: streamPriority,
+      streamPriority: settings.streamPriorityFor(sourceType),
     );
   }
 }

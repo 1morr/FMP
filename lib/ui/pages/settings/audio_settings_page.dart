@@ -48,7 +48,7 @@ class AudioSettingsPage extends ConsumerWidget {
           // YouTube 流优先级
           _StreamPrioritySection(
             title: t.audioSettings.streamPriority.youtubeTitle,
-            streamPriority: audioSettings.youtubeStreamPriority,
+            streamPriority: audioSettings.streamPriorityFor(SourceIds.youtube),
             availableTypes: const [
               StreamType.audioOnly,
               StreamType.muxed,
@@ -57,38 +57,41 @@ class AudioSettingsPage extends ConsumerWidget {
             onReorder: (newPriority) {
               ref
                   .read(audioSettingsProvider.notifier)
-                  .setYoutubeStreamPriority(newPriority);
+                  .setStreamPriority(SourceIds.youtube, newPriority);
             },
           ),
           const Divider(),
           // Bilibili 流优先级
           _StreamPrioritySection(
             title: t.audioSettings.streamPriority.bilibiliTitle,
-            streamPriority: audioSettings.bilibiliStreamPriority,
+            streamPriority: audioSettings.streamPriorityFor(SourceIds.bilibili),
             availableTypes: const [StreamType.audioOnly, StreamType.muxed],
             onReorder: (newPriority) {
               ref
                   .read(audioSettingsProvider.notifier)
-                  .setBilibiliStreamPriority(newPriority);
+                  .setStreamPriority(SourceIds.bilibili, newPriority);
             },
           ),
           const Divider(),
           // Netease 流优先级
           _StreamPrioritySection(
             title: t.audioSettings.streamPriority.neteaseTitle,
-            streamPriority: audioSettings.neteaseStreamPriority,
+            streamPriority: audioSettings.streamPriorityFor(SourceIds.netease),
             availableTypes: const [StreamType.audioOnly],
             onReorder: (newPriority) {
               ref
                   .read(audioSettingsProvider.notifier)
-                  .setNeteaseStreamPriority(newPriority);
+                  .setStreamPriority(SourceIds.netease, newPriority);
             },
           ),
           const Divider(),
           _AuthForPlaySection(
-            useBilibiliAuthForPlay: audioSettings.useBilibiliAuthForPlay,
-            useYoutubeAuthForPlay: audioSettings.useYoutubeAuthForPlay,
-            useNeteaseAuthForPlay: audioSettings.useNeteaseAuthForPlay,
+            useBilibiliAuthForPlay:
+                audioSettings.authForPlay(SourceIds.bilibili),
+            useYoutubeAuthForPlay:
+                audioSettings.authForPlay(SourceIds.youtube),
+            useNeteaseAuthForPlay:
+                audioSettings.authForPlay(SourceIds.netease),
             onChanged: (sourceType, enabled) {
               ref
                   .read(audioSettingsProvider.notifier)
