@@ -111,6 +111,19 @@ void main() {
       );
     });
 
+    test('guard tolerates a member access that dart format split across lines',
+        () {
+      final generated = _syntheticSettingsSchema(['newKnob']);
+      const dto = "'newKnob': newKnob,\n json['newKnob'] as bool?";
+      const service = 'newKnob: settings\n    .newKnob\n'
+          '..newKnob = settingsBackup\n    .newKnob';
+
+      expect(
+        settingsBackupCoverageOffenders(generated, dto, service),
+        isEmpty,
+      );
+    });
+
     test('guard stays silent for an excluded field', () {
       final generated = _syntheticSettingsSchema(['customDownloadDir']);
 
@@ -173,16 +186,28 @@ List<String> settingsBackupCoverageOffenders(
       );
     }
     // 建構子參數不用查 —— final 欄位少了參數本來就編不過。
-    if (!backupServiceSource.contains('settings.$field')) {
+    //
+    // 用 regex 而不是 `contains`：dart format 會在 `.` 前面斷行，
+    // 把 `settingsBackup.homeRankingSourcePriority` 拆成兩行 —— 那是真的
+    // 發生過、而且讓這條規則誤報過的形狀。
+    if (!_memberAccess('settings', field).hasMatch(backupServiceSource)) {
       offenders.add('$field: never read out of Settings on export');
     }
-    if (!backupServiceSource.contains('settingsBackup.$field')) {
+    if (!_memberAccess('settingsBackup', field).hasMatch(backupServiceSource)) {
       offenders.add('$field: never written back into Settings on import');
     }
   }
 
   return offenders;
 }
+
+/// `<receiver>.<member>`，容忍 dart format 在點號前後插入的換行與縮排。
+///
+/// 允許 `List` / `Set` 後綴：`Settings` 上有幾個 `@ignore` 的衍生 getter
+/// （`homeRankingSourcePriorityList`、`disabledHomeRankingSourcesSet` 等），
+/// 匯出讀的是那些 getter 而不是原始欄位，值一樣進得了備份。
+RegExp _memberAccess(String receiver, String member) =>
+    RegExp('\\b$receiver\\s*\\.\\s*$member(?:List|Set)?\\b');
 
 /// 排除清單自己的衛生檢查：不讓它指向已經不存在的欄位而慢慢腐爛。
 List<String> staleSettingsExclusions(String settingsGeneratedSource) {
