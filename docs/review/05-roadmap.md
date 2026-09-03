@@ -1245,8 +1245,24 @@ Isar 的 `_requireNotInTxn()` 是 Zone 層級判斷所以匯入不能只加一�
 | 真實資料庫副本 v1 → v2 | ✅ 11 個 collection 1,534 列不變，三筆 entry 值與舊欄位一致，舊欄位未被清空，連跑三次逐字相同 |
 | M5.5 未知 source id（實機） | ✅ 用 VM Service 寫入 `sourceType: 'unknown'` 的 PlayHistory，冷關 app 後重啟讀回仍是 `unknown` |
 | M5.6 每源設定（實機） | ✅ 三個音源的預設串流優先級與播放認證與 `kDefault*` 一致；改值後重啟保持 |
-| M7 log 落盤（實機） | ✅ `app_flutter/FMP/logs/fmp.log` 有內容，第一行是 sink 掛上前的啟動 log（緩衝回填有效），全檔無敏感 pattern |
+| M7 log 落盤（實機） | ✅ Android `app_flutter/FMP/logs/fmp.log` 與 Windows `Documents/FMP/logs/fmp.log` 都有內容，第一行是 sink 掛上前的啟動 log（緩衝回填有效），跨行程重啟 append（10,865 → 30,332 bytes），全檔無敏感 pattern |
 | #43 的 `IsarError` 噪音 | ✅ 同一個測試檔從 33 筆降到 **0** |
+
+**Phase 3 自己的實機驗收（`:325`）**：
+
+| 項目 | 結果 |
+|---|---|
+| Android 背景播放 5 分鐘不中斷 | ✅ **5 分 14 秒**連續（03:28:12 → 03:33:26），`dumpsys media_session` 的 position 單調推進 6,547 → 135,548 ms，並在 03:31:22 掉回 6,751 —— **單曲循環的「播完→重播」轉換在完全沒有 UI 的情況下發生**。另一次獨立觀察：整首 5:42 在背景播到 `EndedNaturally()`。最後停止的原因是模擬器掉網（`BufferStarvationWatchdog` 偵測緩衝 15 秒 → 自動重試 → `網路連線失敗`），不是 out-of-view pause —— 而那套停滯偵測與重試本身也是在背景跑的 |
+| Android 下載進度持續更新 | ✅ 觸發下載後立刻離開歌單頁，檔案 8 KB → 4,164 KB → 16,284 KB 完成落地，`已下載` 頁反映結果 |
+| Windows 最小化到 tray 後播放不停 | ❌ **沒驗到**。縮到系統列本身成立（視窗數 0、行程存活、log `Minimized to tray`），但第一次嘗試時歌曲已在 04:10:36 自然播完（`No next track available`），我 04:11:13 才關視窗。後續三次都卡在 Windows GUI 驅動：用 Win32 `ShowWindow` 從托盤還原會讓 Flutter 停止繪製、熱重啟兩次讓 app 直接退出、`orca computer click` 的座標落到了其他視窗。**這是工具鏈阻塞，不是程式碼結論** |
+
+**Windows 上的意外收穫 —— 真實生產資料庫**：
+
+| 項目 | 結果 |
+|---|---|
+| v1 → v2 遷移 | ✅ `schemaVersion = 2`，`sourceSettings` 三筆的值與六個舊欄位**逐項一致**，而六個舊欄位**原封未動** —— 降級無損的保證在真實使用者資料上成立，不是在副本上 |
+| M5.2 面板持久化 | ✅ `detailPanelWidth = 438.67`，是使用者自己拖出來的值，不是預設的 380 |
+| M7 的實際價值 | log 檔是唯一讓人分辨「被托盤暫停」與「歌自然播完」的證據；沒有它只能看到位置停住 |
 
 **三件據實記錄的事**：
 
@@ -1255,7 +1271,8 @@ Isar 的 `_requireNotInTxn()` 是 Zone 層級判斷所以匯入不能只加一�
    `--exclude-tags live`，同檔其餘用 mock 的測試全過。
 2. **#43 沒有證明修好。** 修掉兩條可證實的根因之後，失敗率從 19 次 3 次紅降到
    24 次 1 次紅，但沒有降到零，而且那一次的失敗細節沒抓到。issue 保持開啟。
-3. **log 匯出沒有在裝置上走完存檔。** 點按鈕會開啟 Android 系統目錄選擇器（證明
+3. **Windows 的三項驗證沒做到**：#42 的輸出裝置記憶、log 匯出、備份匯出。**備份匯入是刻意不做的** —— Windows 上跑的是使用者的真實音樂庫（1,194 首），匯入會實際寫進去。匯入的回滾行為由 `backup_service_test.dart` 涵蓋，而且那條測試做過反向驗證（把 track 寫入拆成獨立交易後它立刻紅）。
+4. **log 匯出沒有在裝置上走完存檔。** 點按鈕會開啟 Android 系統目錄選擇器（證明
    Android 分支有跑到），但 `USE THIS FOLDER` 用合成點擊按不動。之後的寫檔是
    `File(path).writeAsString(...)`，與既有的備份匯出同一條路。輪替與落盤 redaction
    由單元測試涵蓋，沒有在裝置上用真實憑證驗過。
