@@ -49,11 +49,18 @@ candidates if v3 ever becomes unbuildable: `drift`, `sqflite`, or `objectbox`.
 ## Models And Repositories
 
 **`isar.` / `_isar.` may appear only under `lib/data/repositories/`**, plus two
-named exemptions: `lib/providers/database/database_provider.dart` (it opens and
-migrates the database — it is by definition the layer holding the `Isar`
-handle) and `lib/providers/database/database_catalog.dart` (its eleven
-`query: (isar) => …` closures *are* the debug viewer). Anything else that needs
-Isar gets a repository method.
+named exemptions: `lib/providers/database/database_migration.dart` (it runs
+after `Isar.open()` and is by definition the layer holding the `Isar` handle)
+and `lib/providers/database/database_catalog.dart` (its `query: (isar) => …`
+closures *are* the debug viewer). Anything else that needs Isar gets a
+repository method.
+
+`test/data/repositories/isar_boundary_static_rule_test.dart` pins this rule and
+carries the same allowlist. Measured counts, import lines excluded:
+`database_catalog.dart` 11, `database_migration.dart` 8, everything else outside
+`lib/data/repositories/` zero. `database_provider.dart` and
+`database_viewer_page.dart` import the `Isar` **type** but never touch an
+instance, so neither needs an exemption.
 
 A repository is **not** "one per collection". `TrackRepository` reads
 `playlists`, `playQueues` and `lyricsMatchs` for its orphan sweep;
