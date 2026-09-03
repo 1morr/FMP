@@ -11,6 +11,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/constants/app_constants.dart';
+import 'core/log_file_sink.dart';
 import 'core/logger.dart';
 import 'i18n/strings.g.dart';
 import 'providers/database/database_provider.dart';
@@ -69,6 +70,15 @@ void main(List<String> args) async {
 
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+
+    // log 落盤。必須排在 binding 之後（path_provider 需要它），而上面兩個
+    // 錯誤處理器掛在 binding 之前 —— 那段時間的 log 先進記憶體緩衝，
+    // `attachFileSink` 掛上時會整個倒進檔案，所以一筆都不會丟。
+    try {
+      await AppLogger.attachFileSink(await LogFileSink.inAppDocuments());
+    } catch (e) {
+      AppLogger.warning('Failed to enable file logging: $e', 'Startup');
+    }
 
     launchMinimized = args.contains('--minimized');
 

@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
@@ -90,6 +93,54 @@ class _LogViewerPageState extends State<LogViewerPage> {
     ToastService.show(context, t.logViewer.logsCopied);
   }
 
+  /// 匯出落盤的 log 檔。
+  ///
+  /// 存檔位置沿用 `BackupService.exportData()` 的做法：Android 選目錄，
+  /// 其餘平台走系統的儲存對話框。匯出的是輪替檔由舊到新串接的全部內容，
+  /// 不是畫面上那 500 筆記憶體緩衝。
+  Future<void> _exportLogFile() async {
+    final sink = AppLogger.fileSink;
+    if (sink == null) {
+      ToastService.show(context, t.logViewer.exportNoFile);
+      return;
+    }
+
+    try {
+      final contents = await sink.readAll();
+      if (contents.isEmpty) {
+        if (!mounted) return;
+        ToastService.show(context, t.logViewer.exportNoFile);
+        return;
+      }
+
+      final fileName = 'fmp_log_'
+          '${DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first}'
+          '.log';
+
+      String? outputPath;
+      if (Platform.isAndroid) {
+        final directory = await FilePicker.platform.getDirectoryPath();
+        if (directory == null) return;
+        outputPath = p.join(directory, fileName);
+      } else {
+        outputPath = await FilePicker.platform.saveFile(
+          dialogTitle: t.logViewer.exportFile,
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: const ['log'],
+        );
+      }
+      if (outputPath == null) return;
+
+      await File(outputPath).writeAsString(contents, flush: true);
+      if (!mounted) return;
+      ToastService.show(context, t.logViewer.exportSucceeded(path: outputPath));
+    } catch (e) {
+      if (!mounted) return;
+      ToastService.error(context, t.logViewer.exportFailed(error: e.toString()));
+    }
+  }
+
   void _clearLogs() {
     setState(() {
       _logs.clear();
@@ -122,6 +173,12 @@ class _LogViewerPageState extends State<LogViewerPage> {
             icon: const Icon(Icons.copy),
             tooltip: t.logViewer.copyAll,
             onPressed: filteredLogs.isEmpty ? null : _copyAllLogs,
+          ),
+          // 导出日志文件
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            tooltip: t.logViewer.exportFile,
+            onPressed: _exportLogFile,
           ),
           // 清空日志
           IconButton(

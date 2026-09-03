@@ -153,6 +153,8 @@
     "debugTools": "调试工具",
     "liveLog": "实时日志",
     "liveLogSubtitle": "查看应用运行日志",
+    "logLevel": "日志级别",
+    "logLevelSubtitle": "仅影响本次运行，重启后回到默认",
     "dbViewer": "数据库查看器",
     "dbViewerSubtitle": "查看和浏览 Isar 数据库内容",
     "ytStreamTest": "YouTube 流测试",

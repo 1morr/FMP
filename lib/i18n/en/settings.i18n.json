@@ -153,6 +153,8 @@
     "debugTools": "Debug Tools",
     "liveLog": "Live Log",
     "liveLogSubtitle": "View app runtime logs",
+    "logLevel": "Log level",
+    "logLevelSubtitle": "Applies to this run only; resets on restart",
     "dbViewer": "Database Viewer",
     "dbViewerSubtitle": "Browse Isar database contents",
     "ytStreamTest": "YouTube Stream Test",

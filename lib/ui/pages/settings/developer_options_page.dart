@@ -7,10 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../core/logger.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
+import '../../../providers/settings/developer_options_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -45,6 +47,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(RouteNames.logViewer),
               ),
+              const _LogLevelTile(),
               ListTile(
                 leading: const Icon(Icons.storage_outlined),
                 title: Text(t.settings.developerOptions.dbViewer),
@@ -605,6 +608,39 @@ class _SettingsSection extends StatelessWidget {
         ),
         ...children,
       ],
+    );
+  }
+}
+
+/// 執行期的最小日誌級別。調高之後落盤的 log 也跟著變少。
+class _LogLevelTile extends ConsumerWidget {
+  const _LogLevelTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final level = ref.watch(
+      developerOptionsProvider.select((state) => state.logLevel),
+    );
+
+    return ListTile(
+      leading: const Icon(Icons.tune),
+      title: Text(t.settings.developerOptions.logLevel),
+      subtitle: Text(t.settings.developerOptions.logLevelSubtitle),
+      trailing: DropdownButton<LogLevel>(
+        value: level,
+        underline: const SizedBox.shrink(),
+        onChanged: (next) {
+          if (next == null) return;
+          ref.read(developerOptionsProvider.notifier).setLogLevel(next);
+        },
+        items: [
+          for (final option in LogLevel.values)
+            DropdownMenuItem(
+              value: option,
+              child: Text(option.name.toUpperCase()),
+            ),
+        ],
+      ),
     );
   }
 }
