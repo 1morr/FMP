@@ -13,6 +13,7 @@ import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/search_history.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 import 'package:fmp/providers/database/database_migration.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
@@ -427,6 +428,105 @@ void main() {
       expect(playlist.hasCustomCover, isTrue);
       expect(track.belongsToPlaylist(playlist.id), isTrue);
       expect(track.playlistInfo.single.playlistName, 'Restored Playlist');
+    });
+
+    test('a write failure leaves the database exactly as it was', () async {
+      final seedTrack = Track()
+        ..sourceId = 'kept'
+        ..sourceType = SourceIds.youtube
+        ..title = 'Kept Track'
+        ..createdAt = DateTime(2026, 5, 1);
+      final seedRadio = RadioStation()
+        ..url = 'https://radio.example/kept'
+        ..title = 'Kept Radio'
+        ..sourceType = SourceIds.bilibili
+        ..sourceId = 'kept-room'
+        ..createdAt = DateTime(2026, 5, 1);
+      await isar.writeTxn(() async {
+        await isar.tracks.put(seedTrack);
+        await isar.radioStations.put(seedRadio);
+      });
+
+      final before = await _snapshot(isar);
+
+      // 寫入階段中途炸掉：歌單成員寫到一半，後面還有電台與設定沒寫。
+      final failing = BackupService(
+        isar,
+        mutationService: _ThrowingMutationRepository(isar),
+      );
+
+      await expectLater(
+        failing.importData(
+          BackupData(
+            version: kBackupVersion,
+            exportedAt: DateTime(2026, 5, 4),
+            appVersion: 'test',
+            playlists: [
+              PlaylistBackup(
+                name: 'Half Written',
+                trackKeys: const ['youtube:incoming'],
+                createdAt: DateTime(2026, 5, 4),
+              ),
+            ],
+            tracks: [
+              TrackBackup(
+                sourceId: 'incoming',
+                sourceType: SourceIds.youtube,
+                title: 'Incoming Track',
+                createdAt: DateTime(2026, 5, 4),
+              ),
+            ],
+            playHistory: const [],
+            searchHistory: const [],
+            radioStations: [
+              RadioStationBackup(
+                url: 'https://radio.example/new',
+                title: 'New Radio',
+                sourceType: SourceIds.bilibili,
+                sourceId: 'new-room',
+                createdAt: DateTime(2026, 5, 4),
+              ),
+            ],
+            settings: SettingsBackup(themeModeIndex: 2),
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await _snapshot(isar), before);
+    });
+
+    test('duplicate play history inside one backup is inserted once', () async {
+      final playedAt = DateTime(2026, 5, 5, 12, 30);
+      final entry = PlayHistoryBackup(
+        sourceId: 'dup',
+        sourceType: SourceIds.youtube,
+        title: 'Duplicated',
+        playedAt: playedAt,
+      );
+
+      final result = await backupService.importData(
+        BackupData(
+          version: kBackupVersion,
+          exportedAt: DateTime(2026, 5, 5),
+          appVersion: 'test',
+          playlists: const [],
+          tracks: const [],
+          playHistory: [entry, entry],
+          searchHistory: const [],
+          radioStations: const [],
+        ),
+        importPlaylists: false,
+        importPlayHistory: true,
+        importSearchHistory: false,
+        importRadioStations: false,
+        importLyricsMatches: false,
+        importSettings: false,
+      );
+
+      expect(result.playHistoryImported, 1);
+      expect(result.playHistorySkipped, 1);
+      expect(await isar.playHistorys.where().findAll(), hasLength(1));
     });
 
     test('importData restores Netease source types without falling back',
@@ -878,5 +978,52 @@ class _FakeFilePicker extends FilePicker {
     bool lockParentWindow = false,
   }) async {
     return saveFilePath;
+  }
+}
+
+/// 逐 collection 的內容快照，用來斷言「一列都沒動」。
+Future<Map<String, List<String>>> _snapshot(Isar isar) async {
+  return {
+    'playlists': [
+      for (final p in await isar.playlists.where().findAll())
+        '${p.id}|${p.name}|${p.trackIds}|${p.coverUrl}|${p.updatedAt}',
+    ],
+    'tracks': [
+      for (final t in await isar.tracks.where().findAll())
+        '${t.id}|${t.uniqueKey}|${t.title}|${t.updatedAt}',
+    ],
+    'playHistory': [
+      for (final h in await isar.playHistorys.where().findAll())
+        '${h.id}|${h.trackKey}|${h.playedAt}',
+    ],
+    'searchHistory': [
+      for (final q in await isar.searchHistorys.where().findAll())
+        '${q.id}|${q.query}',
+    ],
+    'radioStations': [
+      for (final r in await isar.radioStations.where().findAll())
+        '${r.id}|${r.url}|${r.title}',
+    ],
+    'lyricsMatches': [
+      for (final m in await isar.lyricsMatchs.where().findAll())
+        '${m.id}|${m.trackUniqueKey}|${m.lyricsSource}',
+    ],
+    'settings': [
+      for (final s in [await isar.settings.get(0)])
+        if (s != null) '${s.themeModeIndex}|${s.maxCacheSizeMB}',
+    ],
+  };
+}
+
+/// 在寫入交易的中途拋錯，用來驗證整批回滾。
+class _ThrowingMutationRepository extends PlaylistMutationRepository {
+  _ThrowingMutationRepository(Isar isar) : super(isar: isar);
+
+  @override
+  Future<PlaylistMutationResult> addTracksInTxn(
+    int playlistId,
+    List<Track> tracks,
+  ) async {
+    throw StateError('write phase blew up');
   }
 }

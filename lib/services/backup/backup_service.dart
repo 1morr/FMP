@@ -36,17 +36,12 @@ const int kBackupVersion = 4;
 ///
 /// 提供数据导出和导入功能
 class BackupService with Logging {
-  final Isar _isar;
   final BackupRepository _repository;
-  final PlaylistMutationRepository _mutationService;
 
   BackupService(
     Isar isar, {
     PlaylistMutationRepository? mutationService,
-  })  : _isar = isar,
-        _repository = BackupRepository(isar),
-        _mutationService =
-            mutationService ?? PlaylistMutationRepository(isar: isar);
+  }) : _repository = BackupRepository(isar, mutations: mutationService);
 
   // ==================== 导出功能 ====================
 
@@ -385,24 +380,31 @@ class BackupService with Logging {
     bool settingsImportedFlag = false;
     final errors = <String>[];
 
+    // 解析階段：把每一筆備份轉成待寫入的物件，跳過與失敗的語意都留在這裡。
+    // 資料庫在這個階段完全不動，寫入集中在最後一次 `writeImport`。
+    final existingTrackIdsByKey = <String, int>{};
+    final plannedTrackKeys = <String>{};
+    final preparedTracks = <BackupImportTrack>[];
+    final preparedPlaylists = <BackupImportPlaylist>[];
+    final preparedPlayHistory = <PlayHistory>[];
+    final preparedSearchHistory = <SearchHistory>[];
+    final preparedRadioStations = <RadioStation>[];
+    final preparedLyricsMatches = <LyricsMatch>[];
+    Settings? preparedSettings;
+
     // 1. 导入歌曲（歌单依赖歌曲，仅在导入歌单时才导入）
-    final trackKeyToId = <String, int>{};
-    final importedTrackKeys = <String>{};
-    final trackBackupByKey = <String, TrackBackup>{
-      for (final trackBackup in backupData.tracks)
-        trackBackup.uniqueKey: trackBackup,
-    };
 
     if (importPlaylists) {
       // 先获取现有歌曲的映射
       final existingTracks = await _repository.allTracks();
       for (final track in existingTracks) {
-        trackKeyToId[track.uniqueKey] = track.id;
+        existingTrackIdsByKey[track.uniqueKey] = track.id;
+        plannedTrackKeys.add(track.uniqueKey);
       }
 
       // 导入新歌曲
       for (final trackBackup in backupData.tracks) {
-        if (trackKeyToId.containsKey(trackBackup.uniqueKey)) {
+        if (plannedTrackKeys.contains(trackBackup.uniqueKey)) {
           tracksSkipped++;
           continue;
         }
@@ -431,11 +433,11 @@ class BackupService with Logging {
             ..createdAt = trackBackup.createdAt
             ..updatedAt = trackBackup.updatedAt;
 
-          await _isar.writeTxn(() async {
-            final id = await _isar.tracks.put(track);
-            trackKeyToId[trackBackup.uniqueKey] = id;
-          });
-          importedTrackKeys.add(trackBackup.uniqueKey);
+          preparedTracks.add(BackupImportTrack(
+            uniqueKey: trackBackup.uniqueKey,
+            track: track,
+          ));
+          plannedTrackKeys.add(trackBackup.uniqueKey);
           tracksImported++;
         } catch (e) {
           errors.add('导入歌曲失败: ${trackBackup.title} - $e');
@@ -458,15 +460,6 @@ class BackupService with Logging {
         }
 
         try {
-          // 解析歌曲 ID 列表
-          final trackIds = <int>[];
-          for (final trackKey in playlistBackup.trackKeys) {
-            final trackId = trackKeyToId[trackKey];
-            if (trackId != null) {
-              trackIds.add(trackId);
-            }
-          }
-
           final playlist = Playlist()
             ..name = playlistBackup.name
             ..description = playlistBackup.description
@@ -487,50 +480,15 @@ class BackupService with Logging {
             ..updatedAt = playlistBackup.updatedAt
             ..sortOrder = playlistBackup.sortOrder;
 
-          await _isar.writeTxn(() async {
-            await _isar.playlists.put(playlist);
-          });
-          final playlistTracks =
-              (await _isar.tracks.getAll(trackIds)).whereType<Track>().toList();
-          await _mutationService.addTracks(playlist.id, playlistTracks);
-          final restoredTrackUpdates = <Track>[];
-          for (final trackKey in playlistBackup.trackKeys) {
-            if (!importedTrackKeys.contains(trackKey)) continue;
-            final backupUpdatedAt = trackBackupByKey[trackKey]?.updatedAt;
-            if (backupUpdatedAt == null) continue;
-            final trackId = trackKeyToId[trackKey];
-            if (trackId == null) continue;
-            final restoredTrack = await _isar.tracks.get(trackId);
-            if (restoredTrack == null ||
-                restoredTrack.updatedAt == backupUpdatedAt) {
-              continue;
-            }
-            restoredTrack.updatedAt = backupUpdatedAt;
-            restoredTrackUpdates.add(restoredTrack);
-          }
-          if (restoredTrackUpdates.isNotEmpty) {
-            await _isar.writeTxn(() async {
-              await _isar.tracks.putAll(restoredTrackUpdates);
-            });
-          }
-
-          final savedPlaylist = await _isar.playlists.get(playlist.id);
-          if (savedPlaylist != null &&
-              (savedPlaylist.coverUrl != playlistBackup.coverUrl ||
-                  savedPlaylist.hasCustomCover !=
-                      playlistBackup.hasCustomCover ||
-                  (playlistBackup.updatedAt != null &&
-                      savedPlaylist.updatedAt != playlistBackup.updatedAt))) {
-            savedPlaylist
-              ..coverUrl = playlistBackup.coverUrl
-              ..hasCustomCover = playlistBackup.hasCustomCover;
-            if (playlistBackup.updatedAt != null) {
-              savedPlaylist.updatedAt = playlistBackup.updatedAt;
-            }
-            await _isar.writeTxn(() async {
-              await _isar.playlists.put(savedPlaylist);
-            });
-          }
+          // 成員要等歌曲寫進去才有 id，所以只帶 key；封面與 updatedAt 會被
+          // `addTracksInTxn` 依政策改寫，備份裡的原值一併交給寫入階段還原。
+          preparedPlaylists.add(BackupImportPlaylist(
+            playlist: playlist,
+            trackKeys: playlistBackup.trackKeys,
+            coverUrl: playlistBackup.coverUrl,
+            hasCustomCover: playlistBackup.hasCustomCover,
+            updatedAt: playlistBackup.updatedAt,
+          ));
           playlistsImported++;
           existingPlaylistNames.add(playlistBackup.name);
         } catch (e) {
@@ -567,9 +525,10 @@ class BackupService with Logging {
             ..thumbnailUrl = historyBackup.thumbnailUrl
             ..playedAt = historyBackup.playedAt;
 
-          await _isar.writeTxn(() async {
-            await _isar.playHistorys.put(history);
-          });
+          preparedPlayHistory.add(history);
+          // 同一份備份裡重複的紀錄以前會重覆插入 —— 這個 set 原本只在迴圈外
+          // 填過一次，迴圈內從來沒有再 add。
+          existingHistoryKeys.add(key);
           playHistoryImported++;
         } catch (e) {
           errors.add('导入播放历史失败: ${historyBackup.title} - $e');
@@ -597,9 +556,7 @@ class BackupService with Logging {
             ..query = searchBackup.query
             ..timestamp = searchBackup.timestamp;
 
-          await _isar.writeTxn(() async {
-            await _isar.searchHistorys.put(search);
-          });
+          preparedSearchHistory.add(search);
           searchHistoryImported++;
           existingSearchQueries.add(searchBackup.query);
         } catch (e) {
@@ -637,9 +594,7 @@ class BackupService with Logging {
             ..lastPlayedAt = radioBackup.lastPlayedAt
             ..isFavorite = radioBackup.isFavorite;
 
-          await _isar.writeTxn(() async {
-            await _isar.radioStations.put(radio);
-          });
+          preparedRadioStations.add(radio);
           radioStationsImported++;
           existingRadioUrls.add(radioBackup.url);
         } catch (e) {
@@ -670,9 +625,7 @@ class BackupService with Logging {
             ..offsetMs = matchBackup.offsetMs
             ..matchedAt = matchBackup.matchedAt;
 
-          await _isar.writeTxn(() async {
-            await _isar.lyricsMatchs.put(match);
-          });
+          preparedLyricsMatches.add(match);
           lyricsMatchesImported++;
           existingMatchKeys.add(matchBackup.trackUniqueKey);
         } catch (e) {
@@ -780,14 +733,25 @@ class BackupService with Logging {
           ..preferredAudioDeviceName =
               currentSettings?.preferredAudioDeviceName;
 
-        await _isar.writeTxn(() async {
-          await _isar.settings.put(settings);
-        });
+        preparedSettings = settings;
         settingsImportedFlag = true;
       } catch (e) {
         errors.add('导入设置失败: $e');
       }
     }
+
+    // 寫入階段：一筆交易寫完所有倖存者。任何一步失敗都會整批回滾，而且例外
+    // 直接往上拋 —— 回一個宣稱匯入了多少筆的結果對話框會是謊話。
+    await _repository.writeImport(BackupImportBatch(
+      existingTrackIdsByKey: existingTrackIdsByKey,
+      tracks: preparedTracks,
+      playlists: preparedPlaylists,
+      playHistory: preparedPlayHistory,
+      searchHistory: preparedSearchHistory,
+      radioStations: preparedRadioStations,
+      lyricsMatches: preparedLyricsMatches,
+      settings: preparedSettings,
+    ));
 
     return ImportResult(
       playlistsImported: playlistsImported,
