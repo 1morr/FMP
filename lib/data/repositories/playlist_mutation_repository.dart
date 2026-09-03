@@ -289,131 +289,141 @@ class PlaylistMutationRepository with Logging {
   Future<PlaylistMutationResult> addTracks(
     int playlistId,
     List<Track> tracks,
+  ) {
+    return _isar.writeTxn(() => addTracksInTxn(playlistId, tracks));
+  }
+
+  /// `addTracks` 的交易本體。呼叫端必須已經在 `_isar.writeTxn` 裡面。
+  ///
+  /// 命名沿用 `mergeDuplicateTrackMembershipsInTxn` /
+  /// `remapPlaylistTrackReferencesInTxn`：後綴是給人看的約定，不傳交易
+  /// handle。Isar 不支援巢狀交易（`isar_common.dart` 的 `_requireNotInTxn`
+  /// 是 Zone 層級判斷），所以要把加歌併進更大的一筆交易時只能走這個入口。
+  Future<PlaylistMutationResult> addTracksInTxn(
+    int playlistId,
+    List<Track> tracks,
   ) async {
     final candidateTracks = _dedupeTracksByUniqueKey(tracks);
+    final playlist = await _isar.playlists.get(playlistId);
+    if (playlist == null) {
+      throw PlaylistNotFoundException(playlistId);
+    }
 
-    return _isar.writeTxn(() async {
-      final playlist = await _isar.playlists.get(playlistId);
-      if (playlist == null) {
-        throw PlaylistNotFoundException(playlistId);
-      }
-
-      if (candidateTracks.isEmpty) {
-        return PlaylistMutationResult(
-          playlistId: playlistId,
-          affectedPlaylistIds: [playlistId],
-        );
-      }
-
-      final now = DateTime.now();
-      final trackIds = List<int>.from(playlist.trackIds);
-      final trackIdSet = trackIds.toSet();
-      final addedTrackIds = <int>[];
-      final repairedTrackIds = <int>[];
-      final skippedTrackIds = <int>[];
-      final updatedTrackIds = <int>[];
-      Track? firstNewPlaylistTrack;
-      final wasEmpty = trackIds.isEmpty;
-      var playlistChanged = false;
-      var coverChanged = false;
-
-      final existingByIdentity = await _findTracksByIdentity(candidateTracks);
-      final tracksToSave = <Track>[];
-      final playlistLinksToAppend = <Track>[];
-      final addedTrackRefs = <Track>[];
-
-      for (final inputTrack in candidateTracks) {
-        final existingTrack =
-            existingByIdentity[TrackSourceIdentity.fromTrack(inputTrack)];
-        final trackToSave = existingTrack ?? inputTrack;
-        final metadataChanged = existingTrack != null &&
-            _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
-        final trackLinked = trackToSave.belongsToPlaylist(playlistId);
-        final playlistLinked =
-            existingTrack != null && trackIdSet.contains(trackToSave.id);
-
-        final trackMembershipChanged = _ensureSinglePlaylistInfo(
-          trackToSave,
-          playlistId,
-          playlist.name,
-        );
-        final trackChanged = metadataChanged || trackMembershipChanged;
-
-        if (existingTrack == null) {
-          trackToSave.updatedAt = now;
-          tracksToSave.add(trackToSave);
-          addedTrackRefs.add(trackToSave);
-        } else if (trackChanged) {
-          trackToSave.updatedAt = now;
-          tracksToSave.add(trackToSave);
-          if (metadataChanged) {
-            updatedTrackIds.add(trackToSave.id);
-          }
-        }
-        if (!playlistLinked) {
-          playlistLinksToAppend.add(trackToSave);
-        }
-
-        if (existingTrack != null) {
-          if (!trackLinked && !playlistLinked) {
-            addedTrackRefs.add(trackToSave);
-          } else if (trackMembershipChanged || !playlistLinked) {
-            repairedTrackIds.add(trackToSave.id);
-          } else if (!metadataChanged) {
-            skippedTrackIds.add(trackToSave.id);
-          }
-        }
-      }
-
-      if (tracksToSave.isNotEmpty) {
-        final savedIds = await _isar.tracks.putAll(tracksToSave);
-        for (var i = 0; i < savedIds.length; i++) {
-          tracksToSave[i].id = savedIds[i];
-        }
-      }
-      for (final track in playlistLinksToAppend) {
-        if (trackIdSet.add(track.id)) {
-          trackIds.add(track.id);
-          firstNewPlaylistTrack ??= track;
-          playlistChanged = true;
-        }
-      }
-      addedTrackIds.addAll(addedTrackRefs.map((track) => track.id));
-
-      if (playlistChanged) {
-        playlist.trackIds = trackIds;
-      }
-      if (wasEmpty &&
-          !playlist.hasCustomCover &&
-          firstNewPlaylistTrack != null) {
-        final newCoverUrl = firstNewPlaylistTrack.thumbnailUrl;
-        if (playlist.coverUrl != newCoverUrl) {
-          playlist.coverUrl = newCoverUrl;
-          coverChanged = true;
-        }
-      }
-      if (playlistChanged || coverChanged) {
-        playlist.updatedAt = now;
-        await _isar.playlists.put(playlist);
-      }
-
-      if (addedTrackIds.isNotEmpty || repairedTrackIds.isNotEmpty) {
-        logDebug(
-          'Mutated playlist $playlistId: added ${addedTrackIds.length}, repaired ${repairedTrackIds.length}',
-        );
-      }
-
+    if (candidateTracks.isEmpty) {
       return PlaylistMutationResult(
         playlistId: playlistId,
         affectedPlaylistIds: [playlistId],
-        addedTrackIds: addedTrackIds,
-        repairedTrackIds: repairedTrackIds,
-        skippedTrackIds: skippedTrackIds,
-        updatedTrackIds: updatedTrackIds,
-        playlistChanged: playlistChanged,
-        coverChanged: coverChanged,
       );
-    });
+    }
+
+    final now = DateTime.now();
+    final trackIds = List<int>.from(playlist.trackIds);
+    final trackIdSet = trackIds.toSet();
+    final addedTrackIds = <int>[];
+    final repairedTrackIds = <int>[];
+    final skippedTrackIds = <int>[];
+    final updatedTrackIds = <int>[];
+    Track? firstNewPlaylistTrack;
+    final wasEmpty = trackIds.isEmpty;
+    var playlistChanged = false;
+    var coverChanged = false;
+
+    final existingByIdentity = await _findTracksByIdentity(candidateTracks);
+    final tracksToSave = <Track>[];
+    final playlistLinksToAppend = <Track>[];
+    final addedTrackRefs = <Track>[];
+
+    for (final inputTrack in candidateTracks) {
+      final existingTrack =
+          existingByIdentity[TrackSourceIdentity.fromTrack(inputTrack)];
+      final trackToSave = existingTrack ?? inputTrack;
+      final metadataChanged = existingTrack != null &&
+          _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
+      final trackLinked = trackToSave.belongsToPlaylist(playlistId);
+      final playlistLinked =
+          existingTrack != null && trackIdSet.contains(trackToSave.id);
+
+      final trackMembershipChanged = _ensureSinglePlaylistInfo(
+        trackToSave,
+        playlistId,
+        playlist.name,
+      );
+      final trackChanged = metadataChanged || trackMembershipChanged;
+
+      if (existingTrack == null) {
+        trackToSave.updatedAt = now;
+        tracksToSave.add(trackToSave);
+        addedTrackRefs.add(trackToSave);
+      } else if (trackChanged) {
+        trackToSave.updatedAt = now;
+        tracksToSave.add(trackToSave);
+        if (metadataChanged) {
+          updatedTrackIds.add(trackToSave.id);
+        }
+      }
+      if (!playlistLinked) {
+        playlistLinksToAppend.add(trackToSave);
+      }
+
+      if (existingTrack != null) {
+        if (!trackLinked && !playlistLinked) {
+          addedTrackRefs.add(trackToSave);
+        } else if (trackMembershipChanged || !playlistLinked) {
+          repairedTrackIds.add(trackToSave.id);
+        } else if (!metadataChanged) {
+          skippedTrackIds.add(trackToSave.id);
+        }
+      }
+    }
+
+    if (tracksToSave.isNotEmpty) {
+      final savedIds = await _isar.tracks.putAll(tracksToSave);
+      for (var i = 0; i < savedIds.length; i++) {
+        tracksToSave[i].id = savedIds[i];
+      }
+    }
+    for (final track in playlistLinksToAppend) {
+      if (trackIdSet.add(track.id)) {
+        trackIds.add(track.id);
+        firstNewPlaylistTrack ??= track;
+        playlistChanged = true;
+      }
+    }
+    addedTrackIds.addAll(addedTrackRefs.map((track) => track.id));
+
+    if (playlistChanged) {
+      playlist.trackIds = trackIds;
+    }
+    if (wasEmpty &&
+        !playlist.hasCustomCover &&
+        firstNewPlaylistTrack != null) {
+      final newCoverUrl = firstNewPlaylistTrack.thumbnailUrl;
+      if (playlist.coverUrl != newCoverUrl) {
+        playlist.coverUrl = newCoverUrl;
+        coverChanged = true;
+      }
+    }
+    if (playlistChanged || coverChanged) {
+      playlist.updatedAt = now;
+      await _isar.playlists.put(playlist);
+    }
+
+    if (addedTrackIds.isNotEmpty || repairedTrackIds.isNotEmpty) {
+      logDebug(
+        'Mutated playlist $playlistId: added ${addedTrackIds.length}, repaired ${repairedTrackIds.length}',
+      );
+    }
+
+    return PlaylistMutationResult(
+      playlistId: playlistId,
+      affectedPlaylistIds: [playlistId],
+      addedTrackIds: addedTrackIds,
+      repairedTrackIds: repairedTrackIds,
+      skippedTrackIds: skippedTrackIds,
+      updatedTrackIds: updatedTrackIds,
+      playlistChanged: playlistChanged,
+      coverChanged: coverChanged,
+    );
   }
 
   Future<PlaylistMutationResult> replaceTracksFromRemoteRefresh(

@@ -45,6 +45,46 @@ void main() {
       }
     });
 
+    test('addTracksInTxn runs inside a caller-owned transaction', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Outer Txn Add');
+
+      // 巢狀 writeTxn 會拋 IsarError，所以這條同時證明了本體真的沒有自己開交易。
+      final result = await harness.isar.writeTxn(
+        () => harness.mutations.addTracksInTxn(
+          playlist.id,
+          [_track('a', 'A'), _track('b', 'B')],
+        ),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(result.addedCount, 2);
+      expect(savedPlaylist!.trackIds, hasLength(2));
+    });
+
+    test('a failure after addTracksInTxn rolls the whole transaction back',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Rollback');
+
+      await expectLater(
+        harness.isar.writeTxn(() async {
+          await harness.mutations.addTracksInTxn(
+            playlist.id,
+            [_track('a', 'A')],
+          );
+          throw StateError('boom');
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(savedPlaylist!.trackIds, isEmpty);
+      expect(await harness.tracks.getBySourceIds(['a']), isEmpty);
+    });
+
     test('addTracks counts existing unlinked library track as added', () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
