@@ -16,6 +16,7 @@ import '../../data/models/search_history.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../providers/database/database_migration.dart';
+import '../../data/repositories/backup_repository.dart';
 import '../../data/repositories/playlist_mutation_repository.dart';
 import 'backup_data.dart';
 
@@ -36,12 +37,14 @@ const int kBackupVersion = 4;
 /// 提供数据导出和导入功能
 class BackupService with Logging {
   final Isar _isar;
+  final BackupRepository _repository;
   final PlaylistMutationRepository _mutationService;
 
   BackupService(
     Isar isar, {
     PlaylistMutationRepository? mutationService,
   })  : _isar = isar,
+        _repository = BackupRepository(isar),
         _mutationService =
             mutationService ?? PlaylistMutationRepository(isar: isar);
 
@@ -93,10 +96,10 @@ class BackupService with Logging {
     final packageInfo = await PackageInfo.fromPlatform();
 
     // 获取所有歌单
-    final playlists = await _isar.playlists.where().findAll();
+    final playlists = await _repository.allPlaylists();
 
     // 获取所有歌曲
-    final tracks = await _isar.tracks.where().findAll();
+    final tracks = await _repository.allTracks();
 
     // 构建 track ID -> Track 的映射
     final trackMap = <int, Track>{};
@@ -167,7 +170,7 @@ class BackupService with Logging {
         .toList();
 
     // 获取播放历史
-    final playHistory = await _isar.playHistorys.where().findAll();
+    final playHistory = await _repository.allPlayHistory();
     final playHistoryBackups = playHistory
         .map((h) => PlayHistoryBackup(
               sourceId: h.sourceId,
@@ -182,7 +185,7 @@ class BackupService with Logging {
         .toList();
 
     // 获取搜索历史
-    final searchHistory = await _isar.searchHistorys.where().findAll();
+    final searchHistory = await _repository.allSearchHistory();
     final searchHistoryBackups = searchHistory
         .map((s) => SearchHistoryBackup(
               query: s.query,
@@ -191,7 +194,7 @@ class BackupService with Logging {
         .toList();
 
     // 获取电台收藏
-    final radioStations = await _isar.radioStations.where().findAll();
+    final radioStations = await _repository.allRadioStations();
     final radioStationBackups = radioStations
         .map((r) => RadioStationBackup(
               url: r.url,
@@ -210,7 +213,7 @@ class BackupService with Logging {
         .toList();
 
     // 获取设置
-    final settings = await _isar.settings.get(0);
+    final settings = await _repository.settings();
     SettingsBackup? settingsBackup;
     if (settings != null) {
       settingsBackup = SettingsBackup(
@@ -275,7 +278,7 @@ class BackupService with Logging {
     }
 
     // 获取歌词匹配记录
-    final lyricsMatches = await _isar.lyricsMatchs.where().findAll();
+    final lyricsMatches = await _repository.allLyricsMatches();
     final lyricsMatchBackups = lyricsMatches
         .map((m) => LyricsMatchBackup(
               trackUniqueKey: m.trackUniqueKey,
@@ -392,7 +395,7 @@ class BackupService with Logging {
 
     if (importPlaylists) {
       // 先获取现有歌曲的映射
-      final existingTracks = await _isar.tracks.where().findAll();
+      final existingTracks = await _repository.allTracks();
       for (final track in existingTracks) {
         trackKeyToId[track.uniqueKey] = track.id;
       }
@@ -443,7 +446,7 @@ class BackupService with Logging {
     // 2. 导入歌单
     if (importPlaylists) {
       final existingPlaylistNames = <String>{};
-      final existingPlaylists = await _isar.playlists.where().findAll();
+      final existingPlaylists = await _repository.allPlaylists();
       for (final playlist in existingPlaylists) {
         existingPlaylistNames.add(playlist.name);
       }
@@ -539,7 +542,7 @@ class BackupService with Logging {
     // 3. 导入播放历史
     if (importPlayHistory) {
       final existingHistoryKeys = <String>{};
-      final existingHistory = await _isar.playHistorys.where().findAll();
+      final existingHistory = await _repository.allPlayHistory();
       for (final history in existingHistory) {
         existingHistoryKeys.add(
             '${history.trackKey}:${history.playedAt.millisecondsSinceEpoch}');
@@ -578,7 +581,7 @@ class BackupService with Logging {
     if (importSearchHistory) {
       final existingSearchQueries = <String>{};
       final existingSearchHistory =
-          await _isar.searchHistorys.where().findAll();
+          await _repository.allSearchHistory();
       for (final search in existingSearchHistory) {
         existingSearchQueries.add(search.query);
       }
@@ -608,7 +611,7 @@ class BackupService with Logging {
     // 5. 导入电台收藏
     if (importRadioStations) {
       final existingRadioUrls = <String>{};
-      final existingRadios = await _isar.radioStations.where().findAll();
+      final existingRadios = await _repository.allRadioStations();
       for (final radio in existingRadios) {
         existingRadioUrls.add(radio.url);
       }
@@ -648,7 +651,7 @@ class BackupService with Logging {
     // 6. 导入歌词匹配记录
     if (importLyricsMatches) {
       final existingMatchKeys = <String>{};
-      final existingMatches = await _isar.lyricsMatchs.where().findAll();
+      final existingMatches = await _repository.allLyricsMatches();
       for (final match in existingMatches) {
         existingMatchKeys.add(match.trackUniqueKey);
       }
@@ -684,7 +687,7 @@ class BackupService with Logging {
         final settingsBackup = backupData.settings!;
 
         // 获取当前设置，用于保留设备相关的配置
-        final currentSettings = await _isar.settings.get(0);
+        final currentSettings = await _repository.settings();
         final settings = createBootstrapSettings()..id = 0;
 
         settings
