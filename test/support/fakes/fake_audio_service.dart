@@ -68,7 +68,7 @@ class FakeAudioService implements FmpAudioService {
   double _speed = 1.0;
   double _volume = 1.0;
   FmpAudioProcessingState _processingState = FmpAudioProcessingState.idle;
-  final List<FmpAudioDevice> _audioDevices = const [];
+  List<FmpAudioDevice> _audioDevices = const [];
   FmpAudioDevice? _audioDevice;
 
   Completer<void> enqueuePendingPlayUrl() {
@@ -189,6 +189,11 @@ class FakeAudioService implements FmpAudioService {
   void emitPosition(Duration position) {
     _position = position;
     _positionController.add(position);
+  }
+
+  void emitAudioDevices(List<FmpAudioDevice> devices) {
+    _audioDevices = devices;
+    _audioDevicesController.add(devices);
   }
 
   void _notifyPlayUrlWaiters() {

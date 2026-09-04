@@ -20,6 +20,10 @@ Two deliberate behaviours, both easy to break:
 
 Desktop only — Android exposes no device picker.
 
+Both behaviours are pinned by
+`test/services/audio/audio_device_preference_test.dart`; the fake's
+`emitAudioDevices` is what stands in for a plug event.
+
 ## Architecture
 
 ```text
