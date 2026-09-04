@@ -122,14 +122,18 @@ business default looks like zero.
 
 **Repair is needed only when Isar's type default does not match the business
 default.** `bool isVip = false` upgrades to `false` automatically, so no repair.
-`useNeteaseAuthForPlay`, whose business default is `true` while Isar upgrades to
-`false`, must be repaired. Nullable sentinels (e.g. the lyrics popup style
-fields, where `null` means "built-in default") also need no repair.
+Netease's `useAuthForPlay`, whose business default is `true`
+(`kDefaultUseAuthForPlayBySource`) while Isar upgrades to `false`, must be
+repaired — since v2 that happens in the `SourceIds.values` loop of
+`repairSettingsInvariants`, which also guards against a bad backup import and a
+downgrade round-trip. Nullable sentinels (e.g. the lyrics popup style fields,
+where `null` means "built-in default") also need no repair.
 
-`_migrateDatabase()` in `lib/providers/database/database_provider.dart` is the
-single entry point and the authoritative list of repaired fields — read it
+`runDatabaseMigration()` in `lib/providers/database/database_migration.dart` is
+the single entry point and the authoritative list of repaired fields — read it
 rather than maintaining a duplicate list here. `runDatabaseMigrationForTesting()`
-is the test hook, covered by `test/providers/database_migration_test.dart`.
+in `database_provider.dart` is the test hook, covered by
+`test/providers/database_migration_test.dart`.
 
 When adding a persisted field:
 
