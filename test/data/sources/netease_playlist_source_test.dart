@@ -65,7 +65,7 @@ void main() {
       );
 
       expect(playlist.tracks, hasLength(1));
-      final expected = SourceHttpPolicy.apiHeaders(SourceType.netease);
+      final expected = SourceHttpPolicy.apiHeaders(SourceIds.netease);
       for (final headers in seenHeaders.values) {
         expect(headers['User-Agent'], expected['User-Agent']);
         expect(headers['Referer'], expected['Referer']);

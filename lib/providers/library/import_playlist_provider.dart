@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/misc.dart';
 
 import '../../data/sources/source_provider.dart';
 import '../../services/import/import_service.dart';
-import '../../services/library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import '../account/source_auth_context_provider.dart';
 import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
@@ -53,7 +55,7 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
   ImportPlaylistNotifier(this._ref, this._createService)
       : super(const ImportPlaylistState());
 
-  final Ref<ImportPlaylistState> _ref;
+  final Ref _ref;
   final ImportServiceFactory _createService;
 
   ImportServiceFacade? _service;
@@ -205,8 +207,11 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
     final sourceManager = ref.read(sourceManagerProvider);
     final playlistRepository = ref.read(playlistRepositoryProvider);
     final trackRepository = ref.read(trackRepositoryProvider);
+    // 在 await 之前讀完：這個工廠回傳的閉包捕獲了 ref，可能在 provider
+    // 被釋放之後才被呼叫，而 Riverpod 3 那時會拋 UnmountedRefException。
+    final sourceAuthContext = ref.read(sourceAuthContextProvider);
     final isar = await ref.read(databaseProvider.future);
-    final mutationService = PlaylistMutationService(isar: isar);
+    final mutationService = PlaylistMutationRepository(isar: isar);
 
     return ImportService(
       sourceManager: sourceManager,
@@ -214,7 +219,7 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
       trackRepository: trackRepository,
       isar: isar,
       mutationService: mutationService,
-      sourceAuthContext: ref.read(sourceAuthContextProvider),
+      sourceAuthContext: sourceAuthContext,
     );
   };
 });

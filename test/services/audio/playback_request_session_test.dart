@@ -19,7 +19,7 @@ void main() {
     test('completed result exposes track and stream metadata', () {
       final track = Track()
         ..sourceId = 'session-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Session Track';
       const streamResult = AudioStreamResult(
         url: 'https://example.com/session-track.m4a',
@@ -58,7 +58,7 @@ void main() {
     test('terminal media-open error carries track and visible message', () {
       final track = Track()
         ..sourceId = 'terminal-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Terminal Track';
 
       final result = PlaybackSessionResult.terminalMediaOpenError(
@@ -114,7 +114,7 @@ void main() {
     test('normal play command keeps mode and side-effect flags explicit', () {
       final track = Track()
         ..sourceId = 'cmd-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Command Track';
 
       final command = PlaybackSessionCommand(
@@ -139,7 +139,7 @@ void main() {
     test('restore command keeps seek and resume policy explicit', () {
       final track = Track()
         ..sourceId = 'restore-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Restore Track';
 
       final command = PlaybackRestoreCommand(
@@ -299,7 +299,7 @@ void main() {
     test('start uses manager fallback and preserves fallback metadata',
         () async {
       final track = _track('fallback-session')
-        ..sourceType = SourceType.bilibili;
+        ..sourceType = SourceIds.bilibili;
       audioService.enqueuePlayUrlError(Exception('primary failed'));
       streamManager.onSelectFallbackPlayback = (track, failedUrl) async {
         expect(failedUrl, 'https://example.com/fallback-session.m4a');
@@ -959,7 +959,7 @@ void main() {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId;
 }
 

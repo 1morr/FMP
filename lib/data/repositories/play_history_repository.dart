@@ -3,6 +3,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../models/play_history.dart';
 import '../models/track.dart';
+import '../models/track_key.dart';
 
 /// 播放历史仓库
 class PlayHistoryRepository {
@@ -20,14 +21,10 @@ class PlayHistoryRepository {
   }
 
   /// 获取歌曲播放次数
-  Future<int> getPlayCount(String sourceId, SourceType sourceType,
+  Future<int> getPlayCount(String sourceId, String sourceType,
       {int? cid}) async {
-    final trackKey = cid != null
-        ? '${sourceType.name}:$sourceId:$cid'
-        : '${sourceType.name}:$sourceId';
-
-    final all = await _isar.playHistorys.where().findAll();
-    return all.where((h) => h.trackKey == trackKey).length;
+    final trackKey = TrackKey.format(sourceType, sourceId, cid: cid);
+    return _isar.playHistorys.where().trackKeyEqualTo(trackKey).count();
   }
 
   /// 获取播放次数最多的歌曲（去重）
@@ -141,7 +138,7 @@ class PlayHistoryRepository {
   Future<List<PlayHistory>> getHistoryByDateRange(
     DateTime start,
     DateTime end, {
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
   }) async {
     var query = _isar.playHistorys.where().filter().playedAtBetween(start, end);
 
@@ -157,7 +154,7 @@ class PlayHistoryRepository {
 
   /// 按音源类型获取历史记录
   Future<List<PlayHistory>> getHistoryBySource(
-    SourceType sourceType, {
+    String sourceType, {
     int offset = 0,
     int limit = 50,
   }) async {
@@ -174,7 +171,7 @@ class PlayHistoryRepository {
   /// 搜索历史记录（标题或艺术家）
   Future<List<PlayHistory>> searchHistory(
     String keyword, {
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     int limit = 50,
   }) async {
     var query = _isar.playHistorys.where().filter().group((q) => q
@@ -194,21 +191,19 @@ class PlayHistoryRepository {
 
   /// 删除某首歌的所有播放记录
   Future<int> deleteAllForTrack(String trackKey) async {
-    final all = await _isar.playHistorys.where().findAll();
-    final toDelete =
-        all.where((h) => h.trackKey == trackKey).map((h) => h.id).toList();
-
+    var deleted = 0;
     await _isar.writeTxn(() async {
-      await _isar.playHistorys.deleteAll(toDelete);
+      deleted = await _isar.playHistorys
+          .where()
+          .trackKeyEqualTo(trackKey)
+          .deleteAll();
     });
-
-    return toDelete.length;
+    return deleted;
   }
 
   /// 获取某首歌的播放次数（通过 trackKey）
-  Future<int> getPlayCountByKey(String trackKey) async {
-    final all = await _isar.playHistorys.where().findAll();
-    return all.where((h) => h.trackKey == trackKey).length;
+  Future<int> getPlayCountByKey(String trackKey) {
+    return _isar.playHistorys.where().trackKeyEqualTo(trackKey).count();
   }
 
   /// 获取播放历史统计
@@ -251,7 +246,7 @@ class PlayHistoryRepository {
 
   /// 共享历史快照加载入口
   Future<List<PlayHistory>> loadHistorySnapshot({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     DateTime? startDate,
     DateTime? endDate,
     String? searchKeyword,
@@ -268,7 +263,7 @@ class PlayHistoryRepository {
 
   /// 综合查询历史记录
   Future<List<PlayHistory>> queryHistory({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     DateTime? startDate,
     DateTime? endDate,
     String? searchKeyword,
@@ -358,7 +353,7 @@ class PlayHistoryRepository {
 
   /// 按日期分组获取历史记录
   Future<Map<DateTime, List<PlayHistory>>> getHistoryGroupedByDate({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     String? searchKeyword,
     HistorySortOrder sortOrder = HistorySortOrder.timeDesc,
   }) async {

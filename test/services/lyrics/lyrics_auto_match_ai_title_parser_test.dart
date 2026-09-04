@@ -115,7 +115,7 @@ void main() {
           artistName: 'AI Artist',
         ),
       ];
-      final track = _track('fallback-match')..sourceType = SourceType.netease;
+      final track = _track('fallback-match')..sourceType = SourceIds.netease;
 
       final matched = await buildService().tryAutoMatch(
         track,
@@ -146,7 +146,7 @@ void main() {
     test('alwaysAi reuses cached AI parse without calling AI', () async {
       await titleParseCacheRepo.save(
         trackUniqueKey: 'youtube:cached-ai',
-        sourceType: SourceType.youtube.name,
+        sourceType: SourceIds.youtube,
         parsedTrackName: 'Cached Song',
         parsedArtistName: 'Cached Artist',
         confidence: 0.91,
@@ -177,7 +177,7 @@ void main() {
     test('low-confidence cached AI artist is ignored for search', () async {
       await titleParseCacheRepo.save(
         trackUniqueKey: 'youtube:cached-low-confidence-artist',
-        sourceType: SourceType.youtube.name,
+        sourceType: SourceIds.youtube,
         parsedTrackName: 'Cached Song',
         parsedArtistName: 'Wrong Uploader',
         confidence: 0.79,
@@ -220,7 +220,7 @@ void main() {
           artistName: 'AI Artist',
         ),
       ];
-      final track = _track('always-ai')..sourceType = SourceType.netease;
+      final track = _track('always-ai')..sourceType = SourceIds.netease;
 
       final matched = await buildService().tryAutoMatch(
         track,
@@ -244,7 +244,7 @@ void main() {
         id: 'netease-direct',
         source: 'netease',
       );
-      final track = _track('netease-direct')..sourceType = SourceType.netease;
+      final track = _track('netease-direct')..sourceType = SourceIds.netease;
 
       final matched = await buildService().tryAutoMatch(
         track,
@@ -346,7 +346,7 @@ void main() {
     test('invalid cached AI parse is ignored and refreshed', () async {
       await titleParseCacheRepo.save(
         trackUniqueKey: 'youtube:invalid-cache',
-        sourceType: SourceType.youtube.name,
+        sourceType: SourceIds.youtube,
         parsedTrackName: '',
         parsedArtistName: 'Cached Artist',
         confidence: 0.95,
@@ -941,7 +941,7 @@ LyricsAiConfig _config({required LyricsAiTitleParsingMode mode}) {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'Video Title'
     ..artist = 'Uploader'
     ..durationMs = 180000;

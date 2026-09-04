@@ -194,7 +194,7 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
       final result = await ref
           .read(remotePlaylistEditControllerProvider)
           .submitSelectionEdit(
-            sourceType: SourceType.netease,
+            sourceType: SourceIds.netease,
             tracks: _tracks,
             selectedPlaylistIds: _selectedIds,
             originalPlaylistIds: _originalIds,

@@ -18,7 +18,7 @@ class NeteaseApiException extends SourceApiException {
   String get code => _mapCode(numericCode);
 
   @override
-  SourceType get sourceType => SourceType.netease;
+  String get sourceType => SourceIds.netease;
 
   @override
   String toString() => 'NeteaseApiException($numericCode): $message';

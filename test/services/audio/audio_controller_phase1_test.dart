@@ -320,14 +320,14 @@ void main() {
         _track('notification-next', title: 'Notification Next'),
       ]);
       await controller.playAt(0);
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification First');
+      expect(handler.mediaItem.value?.title, 'Notification First');
 
       final pendingNextLoad = audioService.enqueuePendingPlayUrl();
       final nextFuture = controller.next();
       await audioService.waitForPlayUrlCallCount(2);
       await pumpEventQueue(times: 5);
 
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification Next');
+      expect(handler.mediaItem.value?.title, 'Notification Next');
       expect(
         handler.playbackState.value.processingState,
         AudioProcessingState.loading,
@@ -378,7 +378,7 @@ void main() {
         _track('notification-fail-next', title: 'Notification Fail Next'),
       ]);
       await controller.playAt(0);
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification Fail First');
+      expect(handler.mediaItem.value?.title, 'Notification Fail First');
       await pumpEventQueue(times: 20);
 
       sourceManager.throwGetAudioStreamOnce(
@@ -391,7 +391,7 @@ void main() {
       await controller.next();
       await pumpEventQueue(times: 10);
 
-      expect(handler.mediaItem.valueOrNull?.title, 'Notification Fail Next');
+      expect(handler.mediaItem.value?.title, 'Notification Fail Next');
       expect(
         handler.playbackState.value.processingState,
         isNot(AudioProcessingState.loading),
@@ -1307,8 +1307,13 @@ void main() {
         const YouTubeApiException(code: 'unavailable', message: 'gone'),
       );
 
+      final resolvedBefore = sourceManager.getAudioStreamCallCount;
       final firstPlay = controller.playTrack(firstTrack);
-      await pumpEventQueue(times: 1);
+      // 等到第一個請求真的走進串流解析，而不是猜「一圈事件迴圈應該夠」——
+      // 圈數在滿載的機器上不夠，那正是 issue #43 的其中一條根因。
+      await _pumpUntil(
+        () => sourceManager.getAudioStreamCallCount > resolvedBefore,
+      );
 
       final secondPlay = controller.playTrack(secondTrack);
       await audioService.waitForPlayUrlCallCount(1);
@@ -1704,7 +1709,7 @@ void main() {
 Track _track(String sourceId, {required String title}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..artist = 'Tester';
 }
@@ -1729,7 +1734,7 @@ AudioStreamManager _createAudioStreamManager({
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -1751,6 +1756,8 @@ class _FakeSourceManager extends SourceManager {
 
   final _source = _FakeSource();
 
+  int get getAudioStreamCallCount => _source.getAudioStreamCallCount;
+
   void throwGetAudioStreamOnce(Object error) {
     _source.throwGetAudioStreamOnce(error);
   }
@@ -1764,7 +1771,7 @@ class _FakeSourceManager extends SourceManager {
   }
 
   @override
-  AudioStreamSource? audioStreamSource(SourceType type) => _source;
+  AudioStreamSource? audioStreamSource(String type) => _source;
 
   @override
   void dispose() {}
@@ -1891,6 +1898,9 @@ class _FakeSource implements AudioStreamSource {
   Object? _alwaysGetAudioStreamError;
   Duration? nextAudioExpiry;
 
+  /// 已經被要求解析串流幾次。單調遞增，所以 `_pumpUntil` 不會錯過某個瞬間。
+  int getAudioStreamCallCount = 0;
+
   void throwGetAudioStreamOnce(Object error) {
     _nextGetAudioStreamError = error;
   }
@@ -1900,10 +1910,11 @@ class _FakeSource implements AudioStreamSource {
   }
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    getAudioStreamCallCount++;
     final error = _alwaysGetAudioStreamError ?? _nextGetAudioStreamError;
     if (error != null) {
       if (_alwaysGetAudioStreamError == null) {

@@ -12,7 +12,7 @@ void main() {
       const e = BilibiliApiException(numericCode: -404, message: 'Not found');
       expect(e.isUnavailable, isTrue);
       expect(e.code, 'unavailable');
-      expect(e.sourceType, SourceType.bilibili);
+      expect(e.sourceType, SourceIds.bilibili);
     });
 
     test('isUnavailable for 62002', () {
@@ -178,7 +178,7 @@ void main() {
 
     test('sourceType is youtube', () {
       const e = YouTubeApiException(code: 'test', message: 'test');
-      expect(e.sourceType, SourceType.youtube);
+      expect(e.sourceType, SourceIds.youtube);
     });
 
     test('maps YouTube diagnostic codes to shared kinds', () {
@@ -277,7 +277,7 @@ void main() {
 
     test('sourceType is netease', () {
       const e = NeteaseApiException(numericCode: 0, message: 'test');
-      expect(e.sourceType, SourceType.netease);
+      expect(e.sourceType, SourceIds.netease);
     });
 
     test('isGeoRestricted for copyright or region restriction', () {
@@ -390,9 +390,9 @@ void main() {
       const y = YouTubeApiException(code: 'test', message: 'test');
       const n = NeteaseApiException(numericCode: 0, message: 'test');
 
-      expect(b.sourceType, SourceType.bilibili);
-      expect(y.sourceType, SourceType.youtube);
-      expect(n.sourceType, SourceType.netease);
+      expect(b.sourceType, SourceIds.bilibili);
+      expect(y.sourceType, SourceIds.youtube);
+      expect(n.sourceType, SourceIds.netease);
     });
   });
 }

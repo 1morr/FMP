@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/constants/download_filenames.dart';
 import '../../data/models/track.dart';
+import '../../data/models/track_key.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../providers/download/download_scanner.dart';
 import 'download_path_manager.dart';
@@ -237,7 +238,7 @@ class DownloadPathMaintenanceService {
   }
 
   String _sourceKey(Track track) =>
-      '${track.sourceType.name}:${track.sourceId}';
+      TrackKey.formatGroup(track.sourceType, track.sourceId);
 
   String _normalizePath(String path) {
     if (path.isEmpty) {

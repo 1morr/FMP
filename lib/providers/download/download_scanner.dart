@@ -84,13 +84,10 @@ class DownloadedTrackDto {
   final String createdAtIso;
 
   Track toTrack() {
-    final sourceType = SourceType.values.firstWhere(
-      (e) => e.name == sourceTypeName,
-      orElse: () => SourceType.bilibili,
-    );
     return Track()
       ..sourceId = sourceId
-      ..sourceType = sourceType
+      // 掃到的目錄名原值保留：認不得的音源不再被靜默改寫成 B 站。
+      ..sourceType = sourceTypeName
       ..title = title
       ..artist = artist
       ..durationMs = durationMs
@@ -386,7 +383,7 @@ class DownloadScanner {
 
           track ??= DownloadedTrackDto(
             sourceId: sourceIdFromFolder ?? p.basename(entity.path),
-            sourceTypeName: SourceType.bilibili.name,
+            sourceTypeName: SourceIds.bilibili,
             title: extractDisplayName(p.basename(entity.path)),
             audioPath: audioPath,
             createdAtIso: DateTime.now().toIso8601String(),

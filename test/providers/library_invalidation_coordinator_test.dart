@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
-import 'package:fmp/services/library/playlist_mutation_service.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 
 void main() {
   group('LibraryInvalidationCoordinator', () {

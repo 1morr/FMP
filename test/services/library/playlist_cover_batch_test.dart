@@ -69,7 +69,7 @@ void main() {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId
     ..thumbnailUrl = 'https://example.com/$sourceId.jpg'
     ..createdAt = DateTime.now();

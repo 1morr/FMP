@@ -14,6 +14,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/riverpod_test_ref.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -144,12 +145,14 @@ class RadioControllerImportHarness {
       {required this.controller,
       required this.repository,
       required this.isar,
-      required this.tempDir});
+      required this.tempDir,
+      required this.refHandle});
 
   final RadioController controller;
   final RadioRepository repository;
   final Isar isar;
   final Directory tempDir;
+  final TestRefHandle refHandle;
 
   Future<void> pumpUntil(bool Function() condition,
       {required String reason,
@@ -164,6 +167,7 @@ class RadioControllerImportHarness {
 
   Future<void> dispose() async {
     controller.dispose();
+    refHandle.dispose();
     await isar.close(deleteFromDisk: true);
     if (await tempDir.exists()) await tempDir.delete(recursive: true);
   }
@@ -183,9 +187,13 @@ Future<RadioControllerImportHarness> createHarness({
   final repository = RadioRepository(isar);
   if (initialStations.isNotEmpty) await repository.saveAll(initialStations);
 
+  final refHandle = createTestRef(overrides: [
+    bilibiliAccountServiceProvider.overrideWithValue(
+      _FakeBilibiliAccountService(isar: isar, medalWallItems: medalWallItems),
+    ),
+  ]);
   final controller = RadioController(
-    _FakeRef(_FakeBilibiliAccountService(
-        isar: isar, medalWallItems: medalWallItems)),
+    refHandle.ref,
     repository,
     _FakeRadioSource(sourceStationsByUrl),
     FakeAudioService(),
@@ -196,7 +204,8 @@ Future<RadioControllerImportHarness> createHarness({
       controller: controller,
       repository: repository,
       isar: isar,
-      tempDir: tempDir);
+      tempDir: tempDir,
+      refHandle: refHandle);
   await Future<void>.delayed(const Duration(milliseconds: 50));
   if (waitForInitialLoad) {
     await harness.pumpUntil(
@@ -204,21 +213,6 @@ Future<RadioControllerImportHarness> createHarness({
         reason: 'controller should load initial radio state');
   }
   return harness;
-}
-
-class _FakeRef implements Ref {
-  _FakeRef(this.accountService);
-
-  final BilibiliAccountService accountService;
-
-  @override
-  T read<T>(ProviderListenable<T> provider) {
-    if (provider == bilibiliAccountServiceProvider) return accountService as T;
-    throw UnimplementedError('Unexpected provider: $provider');
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeBilibiliAccountService extends BilibiliAccountService {
@@ -258,7 +252,7 @@ RadioStation _buildStation(
     {required String sourceId, required String title, int sortOrder = 0}) {
   return RadioStation()
     ..url = 'https://live.bilibili.com/$sourceId'
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..sourceId = sourceId
     ..title = title
     ..sortOrder = sortOrder;

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/source_ids.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/providers/search/search_provider.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
@@ -12,14 +13,14 @@ void main() {
   group('Audio settings defaults', () {
     test('search source selection follows the current chip state', () {
       const allSourcesState = SearchState();
-      const singleSourceState = SearchState(selectedSource: SourceType.youtube);
+      const singleSourceState = SearchState(selectedSource: SourceIds.youtube);
 
       expect(allSourcesState.sourceTypesForSearch, [
-        SourceType.bilibili,
-        SourceType.youtube,
-        SourceType.netease,
+        SourceIds.bilibili,
+        SourceIds.youtube,
+        SourceIds.netease,
       ]);
-      expect(singleSourceState.sourceTypesForSearch, [SourceType.youtube]);
+      expect(singleSourceState.sourceTypesForSearch, [SourceIds.youtube]);
     });
 
     test('legacy search source backup field is ignored on restore', () {
@@ -31,7 +32,13 @@ void main() {
       });
 
       expect(settingsBackup.audioFormatPriority, 'aac,opus');
-      expect(settingsBackup.youtubeStreamPriority, 'muxed,audioOnly');
+      // v3 以前的具名鍵會被折成 sourceSettings。
+      expect(
+        settingsBackup.sourceSettings
+            .firstWhere((e) => e.sourceId == SourceIds.youtube)
+            .streamPriority,
+        'muxed,audioOnly',
+      );
       expect(
           settingsBackup.toJson(), isNot(contains(legacySearchSourcesField)));
     });
@@ -69,13 +76,14 @@ void main() {
       final settings = Settings();
       const state = AudioSettingsState();
 
-      expect(settings.youtubeStreamPriority, 'audioOnly,muxed,hls');
-      expect(settings.youtubeStreamPriorityList, [
+      expect(kDefaultStreamPriorityBySource[SourceIds.youtube],
+          'audioOnly,muxed,hls');
+      expect(settings.streamPriorityFor(SourceIds.youtube), [
         StreamType.audioOnly,
         StreamType.muxed,
         StreamType.hls,
       ]);
-      expect(state.youtubeStreamPriority, [
+      expect(state.streamPriorityFor(SourceIds.youtube), [
         StreamType.audioOnly,
         StreamType.muxed,
         StreamType.hls,
@@ -86,12 +94,13 @@ void main() {
         StreamType.hls,
       ]);
 
-      expect(settings.bilibiliStreamPriority, 'audioOnly,muxed');
-      expect(settings.bilibiliStreamPriorityList, [
+      expect(kDefaultStreamPriorityBySource[SourceIds.bilibili],
+          'audioOnly,muxed');
+      expect(settings.streamPriorityFor(SourceIds.bilibili), [
         StreamType.audioOnly,
         StreamType.muxed,
       ]);
-      expect(state.bilibiliStreamPriority, [
+      expect(state.streamPriorityFor(SourceIds.bilibili), [
         StreamType.audioOnly,
         StreamType.muxed,
       ]);

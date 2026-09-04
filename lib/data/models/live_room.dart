@@ -174,7 +174,7 @@ class LiveRoom {
   Track toTrack({String? streamUrl}) {
     return Track()
       ..sourceId = 'live_$roomId'
-      ..sourceType = SourceType.bilibili
+      ..sourceType = SourceIds.bilibili
       ..title = title.isNotEmpty ? title : t.live.roomTitle(uname: uname)
       ..artist = uname
       ..ownerId = uid
@@ -193,7 +193,7 @@ class LiveRoom {
       ..hostName = uname
       ..hostAvatarUrl = face
       ..hostUid = uid
-      ..sourceType = SourceType.bilibili
+      ..sourceType = SourceIds.bilibili
       ..sourceId = roomId.toString();
   }
 

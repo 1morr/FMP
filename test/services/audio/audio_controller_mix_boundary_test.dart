@@ -366,7 +366,7 @@ Future<void> _waitForPlayUrlCallCount(
 Track _track(String sourceId, {required String title}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..artist = 'Tester';
 }
@@ -377,7 +377,7 @@ class _FakeSourceManager extends SourceManager {
   final _source = _FakeSource();
 
   @override
-  AudioStreamSource? audioStreamSource(SourceType type) => _source;
+  AudioStreamSource? audioStreamSource(String type) => _source;
 
   @override
   void dispose() {}
@@ -442,7 +442,7 @@ class _MixFetchCall {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -461,7 +461,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
 
 class _FakeSource implements AudioStreamSource {
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {

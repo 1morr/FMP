@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../data/models/playlist.dart';
 import '../../services/import/import_service.dart';
-import '../../services/library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import '../../core/services/toast_service.dart';
 import '../../data/sources/source_provider.dart';
 import '../account/source_auth_context_provider.dart';
@@ -123,9 +124,12 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final sourceManager = _ref.read(sourceManagerProvider);
     final playlistRepo = _ref.read(playlistRepositoryProvider);
     final trackRepo = _ref.read(trackRepositoryProvider);
+    // 在 await 之前讀完 —— Riverpod 3 對 dispose 之後的 Ref 會拋
+    // UnmountedRefException，而這個值不依賴資料庫。
+    final sourceAuthContext = _ref.read(sourceAuthContextProvider);
 
     final isar = await _ref.read(databaseProvider.future);
-    final mutationService = PlaylistMutationService(isar: isar);
+    final mutationService = PlaylistMutationRepository(isar: isar);
 
     final importService = ImportService(
       sourceManager: sourceManager,
@@ -133,7 +137,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       trackRepository: trackRepo,
       isar: isar,
       mutationService: mutationService,
-      sourceAuthContext: _ref.read(sourceAuthContextProvider),
+      sourceAuthContext: sourceAuthContext,
     );
     _activeImportServices[playlistId] = importService;
 

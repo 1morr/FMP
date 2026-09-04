@@ -13,6 +13,8 @@ import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/search_history.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
+import 'package:fmp/providers/database/database_migration.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/services/backup/backup_service.dart';
@@ -90,10 +92,23 @@ void main() {
       expect(settingsBackup.lyricsWindowShadowOffsetX, isNull);
       expect(settingsBackup.lyricsWindowShadowOffsetY, isNull);
       expect(settingsBackup.disabledLyricsSources, 'lrclib');
-      expect(settingsBackup.neteaseStreamPriority, 'audioOnly');
-      expect(settingsBackup.useBilibiliAuthForPlay, isFalse);
-      expect(settingsBackup.useYoutubeAuthForPlay, isFalse);
-      expect(settingsBackup.useNeteaseAuthForPlay, isTrue);
+      // 沒有 sourceSettings 也沒有 v3 具名鍵時，折疊出的是每源預設。
+      final netease = settingsBackup.sourceSettings
+          .firstWhere((e) => e.sourceId == SourceIds.netease);
+      expect(netease.streamPriority, 'audioOnly');
+      expect(netease.useAuthForPlay, isTrue);
+      expect(
+        settingsBackup.sourceSettings
+            .firstWhere((e) => e.sourceId == SourceIds.bilibili)
+            .useAuthForPlay,
+        isFalse,
+      );
+      expect(
+        settingsBackup.sourceSettings
+            .firstWhere((e) => e.sourceId == SourceIds.youtube)
+            .useAuthForPlay,
+        isFalse,
+      );
       expect(settingsBackup.rankingRefreshIntervalMinutes, 60);
       expect(
         settingsBackup.homeRankingSourcePriority,
@@ -147,6 +162,9 @@ void main() {
         ..customDownloadDir = '/device/downloads'
         ..preferredAudioDeviceId = 'device-1'
         ..preferredAudioDeviceName = 'USB DAC'
+        ..railExpanded = false
+        ..detailPanelExpanded = true
+        ..detailPanelWidth = 380
         ..minimizeToTrayOnClose = false
         ..enableGlobalHotkeys = false
         ..launchAtStartup = false
@@ -170,7 +188,23 @@ void main() {
           maxCacheSizeMB: 48,
           rememberPlaybackPosition: false,
           tempPlayRewindSeconds: 7,
-          neteaseStreamPriority: 'audioOnly',
+          sourceSettings: const [
+            SourceSettingsBackup(
+              sourceId: SourceIds.bilibili,
+              streamPriority: 'audioOnly,muxed',
+              useAuthForPlay: true,
+            ),
+            SourceSettingsBackup(
+              sourceId: SourceIds.youtube,
+              streamPriority: 'audioOnly,muxed,hls',
+              useAuthForPlay: true,
+            ),
+            SourceSettingsBackup(
+              sourceId: SourceIds.netease,
+              streamPriority: 'audioOnly',
+              useAuthForPlay: false,
+            ),
+          ],
           autoMatchLyrics: true,
           lyricsAiTitleParsingModeIndex: 3,
           allowPlainLyricsAutoMatch: true,
@@ -189,9 +223,6 @@ void main() {
           lyricsWindowShadowOffsetX: 1,
           lyricsWindowShadowOffsetY: 2,
           disabledLyricsSources: 'qqmusic',
-          useBilibiliAuthForPlay: true,
-          useYoutubeAuthForPlay: true,
-          useNeteaseAuthForPlay: false,
           rankingRefreshIntervalMinutes: 15,
           homeRankingSourcePriority: 'youtube,unknown,bilibili,youtube',
           disabledHomeRankingSources: 'netease,unknown',
@@ -200,6 +231,9 @@ void main() {
           enableGlobalHotkeys: true,
           launchAtStartup: true,
           launchMinimized: true,
+          railExpanded: true,
+          detailPanelExpanded: false,
+          detailPanelWidth: 420,
           hotkeyConfig: jsonEncode({'next': 'Ctrl+Alt+Right'}),
         ),
       );
@@ -222,7 +256,8 @@ void main() {
       expect(restoredSettings.maxCacheSizeMB, 48);
       expect(restoredSettings.rememberPlaybackPosition, isFalse);
       expect(restoredSettings.tempPlayRewindSeconds, 7);
-      expect(restoredSettings.neteaseStreamPriority, 'audioOnly');
+      expect(restoredSettings.streamPriorityFor(SourceIds.netease),
+          [StreamType.audioOnly]);
       expect(restoredSettings.autoMatchLyrics, isTrue);
       expect(restoredSettings.lyricsAiTitleParsingModeIndex, 3);
       expect(restoredSettings.lyricsAiTitleParsingMode,
@@ -243,9 +278,9 @@ void main() {
       expect(restoredSettings.lyricsWindowShadowOffsetX, 1);
       expect(restoredSettings.lyricsWindowShadowOffsetY, 2);
       expect(restoredSettings.disabledLyricsSources, 'qqmusic');
-      expect(restoredSettings.useBilibiliAuthForPlay, isTrue);
-      expect(restoredSettings.useYoutubeAuthForPlay, isTrue);
-      expect(restoredSettings.useNeteaseAuthForPlay, isFalse);
+      expect(restoredSettings.useAuthForPlay(SourceIds.bilibili), isTrue);
+      expect(restoredSettings.useAuthForPlay(SourceIds.youtube), isTrue);
+      expect(restoredSettings.useAuthForPlay(SourceIds.netease), isFalse);
       expect(restoredSettings.rankingRefreshIntervalMinutes, 15);
       expect(
         restoredSettings.homeRankingSourcePriority,
@@ -262,6 +297,12 @@ void main() {
       expect(restoredSettings.customDownloadDir, '/device/downloads');
       expect(restoredSettings.preferredAudioDeviceId, 'device-1');
       expect(restoredSettings.preferredAudioDeviceName, 'USB DAC');
+
+      // 版面欄位無條件還原：`_DesktopLayout` 由螢幕寬度斷點選出，不是桌面平台
+      // 專屬能力，所以不跟著 `Platform.isWindows` 走。
+      expect(restoredSettings.railExpanded, isTrue);
+      expect(restoredSettings.detailPanelExpanded, isFalse);
+      expect(restoredSettings.detailPanelWidth, 420);
 
       if (Platform.isWindows) {
         expect(restoredSettings.minimizeToTrayOnClose, isTrue);
@@ -357,7 +398,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'restored',
-            sourceType: SourceType.youtube.name,
+            sourceType: SourceIds.youtube,
             title: 'Restored Track',
             thumbnailUrl: 'https://img.example/track-cover.jpg',
             createdAt: DateTime(2026, 5, 3),
@@ -389,6 +430,105 @@ void main() {
       expect(track.playlistInfo.single.playlistName, 'Restored Playlist');
     });
 
+    test('a write failure leaves the database exactly as it was', () async {
+      final seedTrack = Track()
+        ..sourceId = 'kept'
+        ..sourceType = SourceIds.youtube
+        ..title = 'Kept Track'
+        ..createdAt = DateTime(2026, 5, 1);
+      final seedRadio = RadioStation()
+        ..url = 'https://radio.example/kept'
+        ..title = 'Kept Radio'
+        ..sourceType = SourceIds.bilibili
+        ..sourceId = 'kept-room'
+        ..createdAt = DateTime(2026, 5, 1);
+      await isar.writeTxn(() async {
+        await isar.tracks.put(seedTrack);
+        await isar.radioStations.put(seedRadio);
+      });
+
+      final before = await _snapshot(isar);
+
+      // 寫入階段中途炸掉：歌單成員寫到一半，後面還有電台與設定沒寫。
+      final failing = BackupService(
+        isar,
+        mutationService: _ThrowingMutationRepository(isar),
+      );
+
+      await expectLater(
+        failing.importData(
+          BackupData(
+            version: kBackupVersion,
+            exportedAt: DateTime(2026, 5, 4),
+            appVersion: 'test',
+            playlists: [
+              PlaylistBackup(
+                name: 'Half Written',
+                trackKeys: const ['youtube:incoming'],
+                createdAt: DateTime(2026, 5, 4),
+              ),
+            ],
+            tracks: [
+              TrackBackup(
+                sourceId: 'incoming',
+                sourceType: SourceIds.youtube,
+                title: 'Incoming Track',
+                createdAt: DateTime(2026, 5, 4),
+              ),
+            ],
+            playHistory: const [],
+            searchHistory: const [],
+            radioStations: [
+              RadioStationBackup(
+                url: 'https://radio.example/new',
+                title: 'New Radio',
+                sourceType: SourceIds.bilibili,
+                sourceId: 'new-room',
+                createdAt: DateTime(2026, 5, 4),
+              ),
+            ],
+            settings: SettingsBackup(themeModeIndex: 2),
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(await _snapshot(isar), before);
+    });
+
+    test('duplicate play history inside one backup is inserted once', () async {
+      final playedAt = DateTime(2026, 5, 5, 12, 30);
+      final entry = PlayHistoryBackup(
+        sourceId: 'dup',
+        sourceType: SourceIds.youtube,
+        title: 'Duplicated',
+        playedAt: playedAt,
+      );
+
+      final result = await backupService.importData(
+        BackupData(
+          version: kBackupVersion,
+          exportedAt: DateTime(2026, 5, 5),
+          appVersion: 'test',
+          playlists: const [],
+          tracks: const [],
+          playHistory: [entry, entry],
+          searchHistory: const [],
+          radioStations: const [],
+        ),
+        importPlaylists: false,
+        importPlayHistory: true,
+        importSearchHistory: false,
+        importRadioStations: false,
+        importLyricsMatches: false,
+        importSettings: false,
+      );
+
+      expect(result.playHistoryImported, 1);
+      expect(result.playHistorySkipped, 1);
+      expect(await isar.playHistorys.where().findAll(), hasLength(1));
+    });
+
     test('importData restores Netease source types without falling back',
         () async {
       final exportedAt = DateTime(2026, 5, 18);
@@ -399,7 +539,7 @@ void main() {
         playlists: [
           PlaylistBackup(
             name: 'Netease Import',
-            importSourceType: SourceType.netease.name,
+            importSourceType: SourceIds.netease,
             trackKeys: const ['netease:netease-song'],
             createdAt: exportedAt,
           ),
@@ -407,7 +547,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'netease-song',
-            sourceType: SourceType.netease.name,
+            sourceType: SourceIds.netease,
             title: 'Netease Track',
             createdAt: exportedAt,
           ),
@@ -415,7 +555,7 @@ void main() {
         playHistory: [
           PlayHistoryBackup(
             sourceId: 'netease-history',
-            sourceType: SourceType.netease.name,
+            sourceType: SourceIds.netease,
             title: 'Netease History',
             playedAt: exportedAt,
           ),
@@ -425,7 +565,7 @@ void main() {
           RadioStationBackup(
             url: 'https://music.163.com/radio/test',
             title: 'Netease Radio',
-            sourceType: SourceType.netease.name,
+            sourceType: SourceIds.netease,
             sourceId: 'netease-radio',
             createdAt: exportedAt,
           ),
@@ -448,10 +588,75 @@ void main() {
       final radio = (await isar.radioStations.where().findAll()).single;
 
       expect(result.errors, isEmpty);
-      expect(track.sourceType, SourceType.netease);
-      expect(playlist.importSourceType, SourceType.netease);
-      expect(history.sourceType, SourceType.netease);
-      expect(radio.sourceType, SourceType.netease);
+      expect(track.sourceType, SourceIds.netease);
+      expect(playlist.importSourceType, SourceIds.netease);
+      expect(history.sourceType, SourceIds.netease);
+      expect(radio.sourceType, SourceIds.netease);
+    });
+
+    test('importData keeps a source id it does not recognise', () async {
+      // 別人用更新版本（多了第四個音源）匯出的備份，不能在匯入時被靜默
+      // 改寫成 B 站 —— 那會產生永遠播不出來的假 B 站曲目，而且不可逆。
+      final exportedAt = DateTime(2026, 6, 1);
+      const unknown = 'soundcloud';
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: exportedAt,
+        appVersion: 'test',
+        playlists: [
+          PlaylistBackup(
+            name: 'Future Import',
+            importSourceType: unknown,
+            trackKeys: const ['$unknown:future-song'],
+            createdAt: exportedAt,
+          ),
+        ],
+        tracks: [
+          TrackBackup(
+            sourceId: 'future-song',
+            sourceType: unknown,
+            title: 'Future Track',
+            createdAt: exportedAt,
+          ),
+        ],
+        playHistory: [
+          PlayHistoryBackup(
+            sourceId: 'future-history',
+            sourceType: unknown,
+            title: 'Future History',
+            playedAt: exportedAt,
+          ),
+        ],
+        searchHistory: const [],
+        radioStations: [
+          RadioStationBackup(
+            url: 'https://example.invalid/radio/1',
+            title: 'Future Radio',
+            sourceType: unknown,
+            sourceId: 'future-radio',
+            createdAt: exportedAt,
+          ),
+        ],
+      );
+
+      final result = await backupService.importData(
+        backupData,
+        importPlaylists: true,
+        importPlayHistory: true,
+        importSearchHistory: false,
+        importRadioStations: true,
+        importLyricsMatches: false,
+        importSettings: false,
+      );
+
+      expect(result.errors, isEmpty);
+      expect((await isar.tracks.where().findAll()).single.sourceType, unknown);
+      expect((await isar.playlists.where().findAll()).single.importSourceType,
+          unknown);
+      expect((await isar.playHistorys.where().findAll()).single.sourceType,
+          unknown);
+      expect((await isar.radioStations.where().findAll()).single.sourceType,
+          unknown);
     });
 
     test('exportData includes lyrics AI settings without secure API key',
@@ -522,7 +727,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'track-v2'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Track V2'
         ..isAvailable = false
         ..isVip = true
@@ -533,7 +738,7 @@ void main() {
       final playlist = Playlist()
         ..name = 'Playlist V2'
         ..sourceUrl = 'https://example.test/playlist'
-        ..importSourceType = SourceType.bilibili
+        ..importSourceType = SourceIds.bilibili
         ..lastRefreshed = refreshedAt
         ..ownerName = 'Owner Name'
         ..ownerUserId = 'owner-1'
@@ -543,7 +748,7 @@ void main() {
       final radio = RadioStation()
         ..url = 'https://example.test/live'
         ..title = 'Radio V2'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..sourceId = 'room-v2'
         ..createdAt = createdAt
         ..lastPlayedAt = lastPlayedAt;
@@ -560,7 +765,7 @@ void main() {
       expect(exportedPath, outputPath);
       final json = jsonDecode(await File(outputPath).readAsString())
           as Map<String, dynamic>;
-      expect(json['version'], 2);
+      expect(json['version'], kBackupVersion);
       final playlistJson =
           (json['playlists'] as List<dynamic>).single as Map<String, dynamic>;
       final trackJson =
@@ -595,7 +800,7 @@ void main() {
           PlaylistBackup(
             name: 'Restored Playlist V2',
             sourceUrl: 'https://example.test/playlist',
-            importSourceType: SourceType.bilibili.name,
+            importSourceType: SourceIds.bilibili,
             lastRefreshed: refreshedAt,
             ownerName: 'Owner Name',
             ownerUserId: 'owner-1',
@@ -608,7 +813,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'track-v2',
-            sourceType: SourceType.bilibili.name,
+            sourceType: SourceIds.bilibili,
             title: 'Track V2',
             isAvailable: false,
             isVip: true,
@@ -624,7 +829,7 @@ void main() {
           RadioStationBackup(
             url: 'https://example.test/live',
             title: 'Radio V2',
-            sourceType: SourceType.bilibili.name,
+            sourceType: SourceIds.bilibili,
             sourceId: 'room-v2',
             createdAt: createdAt,
             lastPlayedAt: lastPlayedAt,
@@ -715,7 +920,7 @@ void main() {
         playHistory: [
           PlayHistoryBackup(
             sourceId: 'history',
-            sourceType: SourceType.youtube.name,
+            sourceType: SourceIds.youtube,
             title: 'History',
             playedAt: DateTime(2026, 6, 10),
           ),
@@ -739,7 +944,7 @@ void main() {
         tracks: [
           TrackBackup(
             sourceId: 'standalone',
-            sourceType: SourceType.youtube.name,
+            sourceType: SourceIds.youtube,
             title: 'Standalone Track',
             createdAt: DateTime(2026, 6, 10),
           ),
@@ -773,5 +978,52 @@ class _FakeFilePicker extends FilePicker {
     bool lockParentWindow = false,
   }) async {
     return saveFilePath;
+  }
+}
+
+/// 逐 collection 的內容快照，用來斷言「一列都沒動」。
+Future<Map<String, List<String>>> _snapshot(Isar isar) async {
+  return {
+    'playlists': [
+      for (final p in await isar.playlists.where().findAll())
+        '${p.id}|${p.name}|${p.trackIds}|${p.coverUrl}|${p.updatedAt}',
+    ],
+    'tracks': [
+      for (final t in await isar.tracks.where().findAll())
+        '${t.id}|${t.uniqueKey}|${t.title}|${t.updatedAt}',
+    ],
+    'playHistory': [
+      for (final h in await isar.playHistorys.where().findAll())
+        '${h.id}|${h.trackKey}|${h.playedAt}',
+    ],
+    'searchHistory': [
+      for (final q in await isar.searchHistorys.where().findAll())
+        '${q.id}|${q.query}',
+    ],
+    'radioStations': [
+      for (final r in await isar.radioStations.where().findAll())
+        '${r.id}|${r.url}|${r.title}',
+    ],
+    'lyricsMatches': [
+      for (final m in await isar.lyricsMatchs.where().findAll())
+        '${m.id}|${m.trackUniqueKey}|${m.lyricsSource}',
+    ],
+    'settings': [
+      for (final s in [await isar.settings.get(0)])
+        if (s != null) '${s.themeModeIndex}|${s.maxCacheSizeMB}',
+    ],
+  };
+}
+
+/// 在寫入交易的中途拋錯，用來驗證整批回滾。
+class _ThrowingMutationRepository extends PlaylistMutationRepository {
+  _ThrowingMutationRepository(Isar isar) : super(isar: isar);
+
+  @override
+  Future<PlaylistMutationResult> addTracksInTxn(
+    int playlistId,
+    List<Track> tracks,
+  ) async {
+    throw StateError('write phase blew up');
   }
 }

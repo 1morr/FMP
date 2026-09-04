@@ -127,15 +127,15 @@ void main() {
         feedbackSink: sink,
       );
       final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
-        ..sourceType = SourceType.bilibili;
+        ..sourceType = SourceIds.bilibili;
       final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
-        ..sourceType = SourceType.youtube;
+        ..sourceType = SourceIds.youtube;
       var remoteTracks = <Track>[];
 
       final result = await handler.handle(
         TrackAction.addToRemote,
         tracks: [bilibiliTrack, youtubeTrack],
-        isLoggedIn: (sourceType) => sourceType == SourceType.bilibili,
+        isLoggedIn: (sourceType) => sourceType == SourceIds.bilibili,
         onAddToPlaylist: () async {},
         onAddToRemote: (tracks) async {
           remoteTracks = tracks;
@@ -146,7 +146,7 @@ void main() {
       expect(remoteTracks, [bilibiliTrack]);
       expect(
         sink.skippedPlatformMessages.single,
-        contains(SourceType.youtube.displayName),
+        contains(SourceIds.displayNameFor(SourceIds.youtube)),
       );
     });
 
@@ -160,9 +160,9 @@ void main() {
         feedbackSink: sink,
       );
       final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
-        ..sourceType = SourceType.bilibili;
+        ..sourceType = SourceIds.bilibili;
       final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
-        ..sourceType = SourceType.youtube;
+        ..sourceType = SourceIds.youtube;
       var remoteCalls = 0;
 
       final result = await handler.handle(
@@ -188,7 +188,7 @@ Track buildTrack({
 }) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..title = title;
 }
 

@@ -11,7 +11,7 @@ void main() {
       final selected = Track()
         ..id = 42
         ..sourceId = 'matched-bv'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Matched Song'
         ..artist = 'Matched Artist';
 

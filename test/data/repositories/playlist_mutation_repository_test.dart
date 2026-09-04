@@ -6,14 +6,14 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
-import 'package:fmp/services/library/playlist_mutation_service.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('PlaylistMutationService', () {
+  group('PlaylistMutationRepository', () {
     setUpAll(() async {
       await initializeIsarForTests();
     });
@@ -43,6 +43,46 @@ void main() {
         expect(track.belongsToPlaylist(playlist.id), isTrue);
         expect(track.playlistInfo.single.playlistName, 'Canonical Add');
       }
+    });
+
+    test('addTracksInTxn runs inside a caller-owned transaction', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Outer Txn Add');
+
+      // 巢狀 writeTxn 會拋 IsarError，所以這條同時證明了本體真的沒有自己開交易。
+      final result = await harness.isar.writeTxn(
+        () => harness.mutations.addTracksInTxn(
+          playlist.id,
+          [_track('a', 'A'), _track('b', 'B')],
+        ),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(result.addedCount, 2);
+      expect(savedPlaylist!.trackIds, hasLength(2));
+    });
+
+    test('a failure after addTracksInTxn rolls the whole transaction back',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Rollback');
+
+      await expectLater(
+        harness.isar.writeTxn(() async {
+          await harness.mutations.addTracksInTxn(
+            playlist.id,
+            [_track('a', 'A')],
+          );
+          throw StateError('boom');
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(savedPlaylist!.trackIds, isEmpty);
+      expect(await harness.tracks.getBySourceIds(['a']), isEmpty);
     });
 
     test('addTracks counts existing unlinked library track as added', () async {
@@ -371,7 +411,7 @@ void main() {
       expect(result.addedCount, 1);
       expect(result.removedCount, 1);
       expect(
-        await harness.tracks.getBySourceId('stale', SourceType.youtube),
+        await harness.tracks.getBySourceId('stale', SourceIds.youtube),
         isNull,
       );
       final savedTracks =
@@ -400,7 +440,7 @@ void main() {
 
       final keepTrack = await harness.tracks.getBySourceId(
         'keep',
-        SourceType.youtube,
+        SourceIds.youtube,
       );
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       expect(savedPlaylist!.trackIds, [keepTrack!.id]);
@@ -447,7 +487,7 @@ void main() {
       );
       final brokenTrack = Track()
         ..sourceId = 'broken'
-        ..sourceType = SourceType.youtube;
+        ..sourceType = SourceIds.youtube;
 
       final result = await harness.mutations.replaceTracksFromRemoteRefresh(
         playlist.id,
@@ -464,7 +504,7 @@ void main() {
       expect(
           savedTracks.map((track) => track.sourceId), ['keep', 'stale', 'new']);
       expect(
-        await harness.tracks.getBySourceId('broken', SourceType.youtube),
+        await harness.tracks.getBySourceId('broken', SourceIds.youtube),
         isNull,
       );
     });
@@ -613,13 +653,13 @@ class _Harness {
   _Harness(this.isar)
       : playlists = PlaylistRepository(isar),
         tracks = TrackRepository(isar) {
-    mutations = PlaylistMutationService(isar: isar);
+    mutations = PlaylistMutationRepository(isar: isar);
   }
 
   final Isar isar;
   final PlaylistRepository playlists;
   final TrackRepository tracks;
-  late final PlaylistMutationService mutations;
+  late final PlaylistMutationRepository mutations;
 
   Future<void> dispose() async {
     final dir = Directory(isar.directory!);
@@ -651,7 +691,7 @@ Future<Playlist> _createPlaylist(_Harness harness, String name) async {
 Track _track(String sourceId, String title) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..thumbnailUrl = 'https://example.com/$sourceId.jpg'
     ..createdAt = DateTime.now();

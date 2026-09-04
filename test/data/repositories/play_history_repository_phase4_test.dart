@@ -24,21 +24,21 @@ void main() {
       await harness.seed(
         _history(
           sourceId: 'yt-new',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Focus Track',
           artist: 'Alpha',
           playedAt: DateTime(2026, 4, 20, 18),
         ),
         _history(
           sourceId: 'yt-old',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Focus Track Archive',
           artist: 'Alpha',
           playedAt: DateTime(2026, 4, 19, 9),
         ),
         _history(
           sourceId: 'bili-hit',
-          sourceType: SourceType.bilibili,
+          sourceType: SourceIds.bilibili,
           title: 'Other Song',
           artist: 'Beta',
           playedAt: DateTime(2026, 4, 20, 12),
@@ -46,7 +46,7 @@ void main() {
       );
 
       final records = await harness.repository.loadHistorySnapshot(
-        sourceTypes: {SourceType.youtube},
+        sourceTypes: {SourceIds.youtube},
         startDate: DateTime(2026, 4, 20),
         searchKeyword: 'focus',
       );
@@ -62,7 +62,7 @@ void main() {
       final records = List.generate(75, (index) {
         return _history(
           sourceId: 'song-$index',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Song $index',
           playedAt:
               DateTime(2026, 4, 20, 12).subtract(Duration(minutes: index)),
@@ -88,19 +88,19 @@ void main() {
       await harness.seedMany([
         _history(
           sourceId: 'repeat',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Repeat Latest',
           playedAt: DateTime(2026, 4, 20, 12),
         ),
         _history(
           sourceId: 'repeat',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Repeat Older',
           playedAt: DateTime(2026, 4, 20, 11),
         ),
         _history(
           sourceId: 'unique',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Unique',
           playedAt: DateTime(2026, 4, 20, 10),
         ),
@@ -125,21 +125,21 @@ void main() {
       await harness.seedMany([
         _history(
           sourceId: 'today-start',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Today Start',
           playedAt: todayStart,
           durationMs: 1000,
         ),
         _history(
           sourceId: 'week-start',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Week Start',
           playedAt: weekStart,
           durationMs: 2000,
         ),
         _history(
           sourceId: 'before-week',
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           title: 'Before Week',
           playedAt: weekStart.subtract(const Duration(milliseconds: 1)),
           durationMs: 4000,
@@ -163,7 +163,7 @@ void main() {
       for (var i = 0; i < AppConstants.maxPlayHistoryCount + 1; i++) {
         await harness.repository.addHistory(Track()
           ..sourceId = 'song-$i'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Song $i'
           ..durationMs = 1000);
       }
@@ -231,7 +231,7 @@ Future<_Harness> _createHarness() async {
 
 PlayHistory _history({
   required String sourceId,
-  required SourceType sourceType,
+  required String sourceType,
   required String title,
   String? artist,
   required DateTime playedAt,

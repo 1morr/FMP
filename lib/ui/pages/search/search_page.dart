@@ -198,11 +198,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           ChoiceChip(
                             label: Text(t.importPlatform.bilibili),
                             selected:
-                                state.selectedSource == SourceType.bilibili &&
+                                state.selectedSource == SourceIds.bilibili &&
                                     !state.isLiveSearchMode,
                             onSelected: (_) {
                               ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                                    sourceType: SourceIds.bilibili,
                                     clearLiveRoomFilter: true,
                                   );
                             },
@@ -211,10 +211,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           ChoiceChip(
                             label: const Text('YouTube'),
                             selected:
-                                state.selectedSource == SourceType.youtube,
+                                state.selectedSource == SourceIds.youtube,
                             onSelected: (_) {
                               ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.youtube,
+                                    sourceType: SourceIds.youtube,
                                     clearLiveRoomFilter: true,
                                   );
                             },
@@ -223,10 +223,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           ChoiceChip(
                             label: Text(t.importPlatform.netease),
                             selected:
-                                state.selectedSource == SourceType.netease,
+                                state.selectedSource == SourceIds.netease,
                             onSelected: (_) {
                               ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.netease,
+                                    sourceType: SourceIds.netease,
                                     clearLiveRoomFilter: true,
                                   );
                             },
@@ -249,7 +249,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 state.liveRoomFilter == LiveRoomFilter.all,
                             onSelected: (_) {
                               ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                                    sourceType: SourceIds.bilibili,
                                     liveRoomFilter: LiveRoomFilter.all,
                                   );
                             },
@@ -261,7 +261,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 state.liveRoomFilter == LiveRoomFilter.online,
                             onSelected: (_) {
                               ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                                    sourceType: SourceIds.bilibili,
                                     liveRoomFilter: LiveRoomFilter.online,
                                   );
                             },
@@ -273,7 +273,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 state.liveRoomFilter == LiveRoomFilter.offline,
                             onSelected: (_) {
                               ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                                    sourceType: SourceIds.bilibili,
                                     liveRoomFilter: LiveRoomFilter.offline,
                                   );
                             },
@@ -1072,7 +1072,7 @@ class _SearchResultTile extends ConsumerWidget {
         if (isExpanded && pages != null && pages!.length > 1)
           ...pages!.map((page) => _PageTile(
                 key: ValueKey(
-                  'page-${track.sourceType.name}:${track.sourceId}:${page.page}',
+                  'page-${track.sourceType}:${track.sourceId}:${page.page}',
                 ),
                 page: page,
                 parentTrack: track,

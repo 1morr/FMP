@@ -49,10 +49,10 @@ class UrlLauncherService {
     final owner = ownerId ?? track.ownerId;
     final channel = channelId ?? track.channelId;
 
-    if (track.sourceType == SourceType.bilibili && owner == null) {
+    if (track.sourceType == SourceIds.bilibili && owner == null) {
       return false;
     }
-    if (track.sourceType == SourceType.youtube &&
+    if (track.sourceType == SourceIds.youtube &&
         (channel == null || channel.isEmpty)) {
       return false;
     }
@@ -98,7 +98,7 @@ class UrlLauncherService {
   /// 内部启动方法
   Future<bool> _launch({
     required _LaunchType type,
-    required SourceType sourceType,
+    required String sourceType,
     String? videoId,
     int? ownerId,
     String? channelId,
@@ -136,18 +136,18 @@ class UrlLauncherService {
   /// 获取 App Scheme URL（仅移动平台）
   String? _getAppScheme({
     required _LaunchType type,
-    required SourceType sourceType,
+    required String sourceType,
     String? videoId,
     int? ownerId,
     String? channelId,
   }) {
-    if (sourceType == SourceType.bilibili) {
+    if (sourceType == SourceIds.bilibili) {
       if (type == _LaunchType.video && videoId != null) {
         return 'bilibili://video/$videoId';
       } else if (type == _LaunchType.channel && ownerId != null) {
         return 'bilibili://space/$ownerId';
       }
-    } else if (sourceType == SourceType.youtube) {
+    } else if (sourceType == SourceIds.youtube) {
       if (type == _LaunchType.video && videoId != null) {
         return 'youtube://watch?v=$videoId';
       } else if (type == _LaunchType.channel &&
@@ -155,7 +155,7 @@ class UrlLauncherService {
           channelId.isNotEmpty) {
         return 'youtube://channel/$channelId';
       }
-    } else if (sourceType == SourceType.netease) {
+    } else if (sourceType == SourceIds.netease) {
       if (type == _LaunchType.video && videoId != null) {
         return 'orpheus://song/$videoId';
       }
@@ -166,18 +166,18 @@ class UrlLauncherService {
   /// 获取网页 URL
   String? _getWebUrl({
     required _LaunchType type,
-    required SourceType sourceType,
+    required String sourceType,
     String? videoId,
     int? ownerId,
     String? channelId,
   }) {
-    if (sourceType == SourceType.bilibili) {
+    if (sourceType == SourceIds.bilibili) {
       if (type == _LaunchType.video && videoId != null) {
         return 'https://www.bilibili.com/video/$videoId';
       } else if (type == _LaunchType.channel && ownerId != null) {
         return 'https://space.bilibili.com/$ownerId';
       }
-    } else if (sourceType == SourceType.youtube) {
+    } else if (sourceType == SourceIds.youtube) {
       if (type == _LaunchType.video && videoId != null) {
         return 'https://www.youtube.com/watch?v=$videoId';
       } else if (type == _LaunchType.channel &&
@@ -185,7 +185,7 @@ class UrlLauncherService {
           channelId.isNotEmpty) {
         return 'https://www.youtube.com/channel/$channelId';
       }
-    } else if (sourceType == SourceType.netease) {
+    } else if (sourceType == SourceIds.netease) {
       if (type == _LaunchType.video && videoId != null) {
         return 'https://music.163.com/song?id=$videoId';
       }

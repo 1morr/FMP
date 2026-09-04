@@ -29,7 +29,7 @@ void main() {
         SearchState(
           query: 'old query',
           onlineResults: {
-            SourceType.youtube: SearchResult(
+            SourceIds.youtube: SearchResult(
               tracks: [_track('old-page-1')],
               totalCount: 2,
               page: 1,
@@ -37,11 +37,11 @@ void main() {
               hasMore: true,
             ),
           },
-          currentPages: const {SourceType.youtube: 1},
+          currentPages: const {SourceIds.youtube: 1},
         ),
       );
 
-      final loadMoreFuture = notifier.loadMore(SourceType.youtube);
+      final loadMoreFuture = notifier.loadMore(SourceIds.youtube);
       await pumpEventQueue(times: 2);
       expect(service.sourceCalls.single.query, 'old query');
 
@@ -49,7 +49,7 @@ void main() {
         SearchState(
           query: 'new query',
           onlineResults: {
-            SourceType.youtube: SearchResult(
+            SourceIds.youtube: SearchResult(
               tracks: [_track('new-page-1')],
               totalCount: 1,
               page: 1,
@@ -57,11 +57,11 @@ void main() {
               hasMore: false,
             ),
           },
-          currentPages: const {SourceType.youtube: 1},
+          currentPages: const {SourceIds.youtube: 1},
         ),
       );
       service.completeSource(
-        SourceType.youtube,
+        SourceIds.youtube,
         'old query',
         2,
         SearchResult(
@@ -76,7 +76,7 @@ void main() {
 
       expect(notifier.state.query, 'new query');
       expect(
-        notifier.state.onlineResults[SourceType.youtube]!.tracks
+        notifier.state.onlineResults[SourceIds.youtube]!.tracks
             .map((track) => track.sourceId),
         ['new-page-1'],
       );
@@ -90,14 +90,14 @@ void main() {
           query: 'same query',
           searchOrder: SearchOrder.relevance,
           onlineResults: {
-            SourceType.bilibili: SearchResult(
-              tracks: [_track('bili-page-1', sourceType: SourceType.bilibili)],
+            SourceIds.bilibili: SearchResult(
+              tracks: [_track('bili-page-1', sourceType: SourceIds.bilibili)],
               totalCount: 2,
               page: 1,
               pageSize: 1,
               hasMore: true,
             ),
-            SourceType.youtube: SearchResult(
+            SourceIds.youtube: SearchResult(
               tracks: [_track('yt-page-1')],
               totalCount: 2,
               page: 1,
@@ -106,8 +106,8 @@ void main() {
             ),
           },
           currentPages: const {
-            SourceType.bilibili: 1,
-            SourceType.youtube: 1,
+            SourceIds.bilibili: 1,
+            SourceIds.youtube: 1,
           },
         ),
       );
@@ -121,11 +121,11 @@ void main() {
         isLoading: false,
       ));
       service.completeSource(
-        SourceType.bilibili,
+        SourceIds.bilibili,
         'same query',
         2,
         SearchResult(
-          tracks: [_track('stale-bili-2', sourceType: SourceType.bilibili)],
+          tracks: [_track('stale-bili-2', sourceType: SourceIds.bilibili)],
           totalCount: 2,
           page: 2,
           pageSize: 1,
@@ -133,7 +133,7 @@ void main() {
         ),
       );
       service.completeSource(
-        SourceType.youtube,
+        SourceIds.youtube,
         'same query',
         2,
         SearchResult(
@@ -148,12 +148,12 @@ void main() {
 
       expect(notifier.state.searchOrder, SearchOrder.playCount);
       expect(
-        notifier.state.onlineResults[SourceType.bilibili]!.tracks
+        notifier.state.onlineResults[SourceIds.bilibili]!.tracks
             .map((track) => track.sourceId),
         ['bili-page-1'],
       );
       expect(
-        notifier.state.onlineResults[SourceType.youtube]!.tracks
+        notifier.state.onlineResults[SourceIds.youtube]!.tracks
             .map((track) => track.sourceId),
         ['yt-page-1'],
       );
@@ -210,49 +210,49 @@ void main() {
       expect(
         service.onlineCalls.single.sourceTypes,
         [
-          SourceType.bilibili,
-          SourceType.youtube,
-          SourceType.netease,
+          SourceIds.bilibili,
+          SourceIds.youtube,
+          SourceIds.netease,
         ],
       );
       expect(notifier.state.currentPages.keys, [
-        SourceType.bilibili,
-        SourceType.youtube,
-        SourceType.netease,
+        SourceIds.bilibili,
+        SourceIds.youtube,
+        SourceIds.netease,
       ]);
       expect(notifier.state.onlineResults.keys, [
-        SourceType.bilibili,
-        SourceType.youtube,
-        SourceType.netease,
+        SourceIds.bilibili,
+        SourceIds.youtube,
+        SourceIds.netease,
       ]);
     });
 
     test('single-source chip searches only the selected source', () async {
-      notifier.setSource(SourceType.netease, autoSearch: false);
+      notifier.setSource(SourceIds.netease, autoSearch: false);
 
       await notifier.search('chip query');
 
       expect(
         service.onlineCalls.single.sourceTypes,
-        [SourceType.netease],
+        [SourceIds.netease],
       );
-      expect(notifier.state.currentPages.keys, [SourceType.netease]);
-      expect(notifier.state.onlineResults.keys, [SourceType.netease]);
+      expect(notifier.state.currentPages.keys, [SourceIds.netease]);
+      expect(notifier.state.onlineResults.keys, [SourceIds.netease]);
     });
 
     test('single-source chip filters visible local results', () async {
       service.localResults = [
-        _track('local-bili', sourceType: SourceType.bilibili),
-        _track('local-netease', sourceType: SourceType.netease),
-        _track('local-youtube', sourceType: SourceType.youtube),
+        _track('local-bili', sourceType: SourceIds.bilibili),
+        _track('local-netease', sourceType: SourceIds.netease),
+        _track('local-youtube', sourceType: SourceIds.youtube),
       ];
-      notifier.setSource(SourceType.netease, autoSearch: false);
+      notifier.setSource(SourceIds.netease, autoSearch: false);
 
       await notifier.search('chip query');
 
       expect(
         notifier.state.localResults.map((track) => track.sourceType),
-        [SourceType.netease],
+        [SourceIds.netease],
       );
     });
 
@@ -261,7 +261,7 @@ void main() {
       notifier.setSeedState(SearchState(
         query: 'chip query',
         onlineResults: {
-          SourceType.youtube: SearchResult(
+          SourceIds.youtube: SearchResult(
             tracks: [_track('old-youtube')],
             totalCount: 1,
             page: 1,
@@ -269,14 +269,14 @@ void main() {
             hasMore: false,
           ),
         },
-        currentPages: const {SourceType.youtube: 1},
+        currentPages: const {SourceIds.youtube: 1},
       ));
       final gate = service.enqueueOnlineSearchResult(
         MultiSourceSearchResult(
           query: 'chip query',
           results: {
-            SourceType.netease: SearchResult(
-              tracks: [_track('new-netease', sourceType: SourceType.netease)],
+            SourceIds.netease: SearchResult(
+              tracks: [_track('new-netease', sourceType: SourceIds.netease)],
               totalCount: 1,
               page: 1,
               pageSize: 20,
@@ -286,12 +286,12 @@ void main() {
         ),
       );
 
-      notifier.setSource(SourceType.netease);
+      notifier.setSource(SourceIds.netease);
       await pumpEventQueue(times: 2);
 
       expect(notifier.state.isLoading, isTrue);
       expect(
-        notifier.state.onlineResults[SourceType.youtube]?.tracks
+        notifier.state.onlineResults[SourceIds.youtube]?.tracks
             .map((track) => track.sourceId),
         ['old-youtube'],
       );
@@ -300,7 +300,7 @@ void main() {
       await pumpEventQueue(times: 2);
 
       expect(notifier.state.isLoading, isFalse);
-      expect(notifier.state.onlineResults.keys, [SourceType.netease]);
+      expect(notifier.state.onlineResults.keys, [SourceIds.netease]);
     });
 
     test(
@@ -310,7 +310,7 @@ void main() {
         query: 'sort query',
         searchOrder: SearchOrder.relevance,
         onlineResults: {
-          SourceType.youtube: SearchResult(
+          SourceIds.youtube: SearchResult(
             tracks: [_track('old-youtube')],
             totalCount: 1,
             page: 1,
@@ -318,13 +318,13 @@ void main() {
             hasMore: false,
           ),
         },
-        currentPages: const {SourceType.youtube: 1},
+        currentPages: const {SourceIds.youtube: 1},
       ));
       final gate = service.enqueueOnlineSearchResult(
         MultiSourceSearchResult(
           query: 'sort query',
           results: {
-            SourceType.youtube: SearchResult(
+            SourceIds.youtube: SearchResult(
               tracks: [_track('new-youtube')],
               totalCount: 1,
               page: 1,
@@ -341,7 +341,7 @@ void main() {
       expect(notifier.state.searchOrder, SearchOrder.playCount);
       expect(notifier.state.isLoading, isTrue);
       expect(
-        notifier.state.onlineResults[SourceType.youtube]?.tracks
+        notifier.state.onlineResults[SourceIds.youtube]?.tracks
             .map((track) => track.sourceId),
         ['old-youtube'],
       );
@@ -351,7 +351,7 @@ void main() {
 
       expect(notifier.state.isLoading, isFalse);
       expect(
-        notifier.state.onlineResults[SourceType.youtube]?.tracks
+        notifier.state.onlineResults[SourceIds.youtube]?.tracks
             .map((track) => track.sourceId),
         ['new-youtube'],
       );
@@ -362,7 +362,7 @@ void main() {
         MultiSourceSearchResult(
           query: 'slow query',
           results: {
-            SourceType.youtube: SearchResult(
+            SourceIds.youtube: SearchResult(
               tracks: [_track('late-video-result')],
               totalCount: 1,
               page: 1,
@@ -415,7 +415,7 @@ void main() {
   });
 }
 
-Track _track(String sourceId, {SourceType sourceType = SourceType.youtube}) {
+Track _track(String sourceId, {String sourceType = SourceIds.youtube}) {
   return Track()
     ..sourceType = sourceType
     ..sourceId = sourceId
@@ -449,9 +449,9 @@ class _CompletingSearchService extends SearchService {
         );
 
   final List<
-          ({SourceType sourceType, String query, int page, SearchOrder order})>
+          ({String sourceType, String query, int page, SearchOrder order})>
       sourceCalls = [];
-  final List<({String query, List<SourceType> sourceTypes, SearchOrder order})>
+  final List<({String query, List<String> sourceTypes, SearchOrder order})>
       onlineCalls = [];
   final List<_PendingOnlineSearch> _pendingOnlineSearches = [];
   final Map<String, Completer<SearchResult>> _sourceCompleters = {};
@@ -469,12 +469,12 @@ class _CompletingSearchService extends SearchService {
   @override
   Future<MultiSourceSearchResult> searchOnline(
     String query, {
-    List<SourceType>? sourceTypes,
+    List<String>? sourceTypes,
     int page = 1,
     int pageSize = 20,
     SearchOrder order = SearchOrder.relevance,
   }) async {
-    final requestedSources = List<SourceType>.from(sourceTypes ?? const []);
+    final requestedSources = List<String>.from(sourceTypes ?? const []);
     onlineCalls.add((
       query: query,
       sourceTypes: requestedSources,
@@ -491,7 +491,7 @@ class _CompletingSearchService extends SearchService {
         for (final sourceType in requestedSources)
           sourceType: SearchResult(
             tracks: [
-              _track('${sourceType.name}-$query', sourceType: sourceType)
+              _track('${sourceType}-$query', sourceType: sourceType)
             ],
             totalCount: 1,
             page: page,
@@ -504,7 +504,7 @@ class _CompletingSearchService extends SearchService {
 
   @override
   Future<SearchResult> searchSource(
-    SourceType sourceType,
+    String sourceType,
     String query, {
     int page = 1,
     int pageSize = 20,
@@ -522,7 +522,7 @@ class _CompletingSearchService extends SearchService {
   }
 
   void completeSource(
-    SourceType sourceType,
+    String sourceType,
     String query,
     int page,
     SearchResult result,
@@ -530,8 +530,8 @@ class _CompletingSearchService extends SearchService {
     _sourceCompleters[_sourceKey(sourceType, query, page)]!.complete(result);
   }
 
-  String _sourceKey(SourceType sourceType, String query, int page) =>
-      '${sourceType.name}|$query|$page';
+  String _sourceKey(String sourceType, String query, int page) =>
+      '${sourceType}|$query|$page';
 }
 
 class _PendingOnlineSearch {
@@ -543,7 +543,7 @@ class _PendingOnlineSearch {
 
 class _CompletingLiveSource implements LiveSource {
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   final calls = <String>[];
   final Map<String, Completer<LiveSearchResult>> _liveCompleters = {};

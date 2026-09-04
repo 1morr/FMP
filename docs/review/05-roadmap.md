@@ -307,7 +307,7 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 加：PlayHistory.trackKey 的 @Index()                （Q58，讓 6 個全表掃描變索引查詢）
 改：preferredAudioDevice* 從死欄位變成真的會被讀寫  （issue #42）
 改：SourceType 封閉 enum → 「內建常數 + 字串 id」雙軌    （★Phase 9.1 的前置）
-改：每源具名欄位 → Map<String, SourceSettings>          （★Phase 9.1 的前置，02 D6）
+改：每源具名欄位 → List<SourceSettingsEntry>（@embedded）（★Phase 9.1 的前置，02 D6）
 同步：SettingsBackup / RadioStationBackup / database_catalog.dart
 ```
 
@@ -479,8 +479,8 @@ sources」，同類的 Spotube 從未上架。
 | 阻塞 | 狀態 | 內容 |
 |---|---|---|
 | `ranking_cache_service.dart` 的 49 處硬編碼 | ✅ **已完成**（`583eef90`） | 改成 `for (final sourceType in manager.registeredSourceTypes)`，該檔從約 500 行降到 288 行 |
-| `SourceType` 封閉 enum | ❌ | 改成「內建常數 + 字串 id」雙軌（Isar 存字串，i18n 有 fallback）。**這一步要併進 Phase 3c 的批次 schema 變更** —— 那時候做幾乎沒有邊際成本 |
-| `Settings` 每源具名欄位 | ❌ | 改成 `Map<String, SourceSettings>`。**持久化格式的破壞性變更**，需要 migration，且 `backup_service` 的格式要跟著改。同樣併進 Phase 3c |
+| `SourceType` 封閉 enum | ✅ **已完成**（`0b93e61d`） | 換成 `SourceIds` 字串常數，i18n 走 slang flat map 有 fallback。磁碟格式逐位元不變，不需要 migration —— 「併進 3c 才沒有邊際成本」的理由是錯的，見 §6.4 #2 與 ADR 0001 |
+| `Settings` 每源具名欄位 | ✅ **已完成**（`8ffa7d4f`） | 交付的是 `List<SourceSettingsEntry>`（`@embedded`）而不是 `Map` —— Isar 的 `@embedded` 只支援 `List`。schema v1 → v2，舊欄位只搬不刪所以降級無損。備份格式同步到 v4 |
 
 做完這兩件事，**「新增第四個內建源」從「改 20 個檔案」變成「加一個 adapter」——
 這個收益不需要真的做外掛化就先拿到了**（你的動機一，提前兌現）。
@@ -1200,3 +1200,141 @@ analyzer 被釘在 5.13.0、`riverpod_annotation` 已在 Phase 0d 移除。
 2. **開啟後資料庫檔案從 5,242,880 縮到 2,686,976 bytes。** 列數逐項不變（1,534），
    所以是回收空閒空間不是掉資料。縮的比例（約 1.95）與 FMP 自己既有的
    `compactOnLaunch(minRatio: 2.0)` 吻合，那段設定這一期沒動過。
+
+---
+
+### 6.4 執行時的失效重核（2026-09-03 / 04，Phase 3 後半開工當天）
+
+仍然成立的：`@Enumerated(EnumType.name)` 本來就寫字串所以 M5.5 不改磁碟格式、
+Isar 的 `_requireNotInTxn()` 是 Zone 層級判斷所以匯入不能只加一層外層交易、
+`docs/adr/` 是空的（這輪寫了頭兩份）。
+
+**九條改變做法**：
+
+| # | 原本的說法 | 實況 |
+|---|---|---|
+| 1 | 「備份今天沒有靜默遺失，缺的 3 個是刻意排除的裝置設定」 | **前提是錯的。** `Settings` 有 57 個持久化欄位，`SettingsBackup` 只涵蓋 44，缺 13。程式碼裡的註解只涵蓋裝置組與桌面平台閘控組；`railExpanded` / `detailPanelExpanded` / `detailPanelWidth` / `schemaVersion` **零說明**，而且每次匯入都被 `createBootstrapSettings()` 重設。前三個已補進備份 |
+| 2 | 「M5.5 併進批次 schema 變更，邊際成本近零」（`:482`） | **前提不成立。** 這項改動不改磁碟格式、不需 migration、不碰備份格式與 catalog，它與那個批次共用的成本是 0。真正的理由是 Phase 9.1 前置 ＋ 修掉 **7 條**靜默改寫路徑（5 個 collection 的生成 reader 各一，加 `backup_service` 與 `download_scanner` 兩處手寫），不是 2 條 |
+| 3 | 「`SettingsBackup` 把欄位手抄 4 遍」 | **6 處**。DTO 沒有 `fromSettings` / `applyTo`，那兩個方向被內聯進 `BackupService`。加一個欄位要改 2 個檔案 6 個地方 |
+| 4 | 「守門測試掃 `settings.dart` 的欄位宣告」 | **會誤判。** `Settings.useAuthForPlay(String)` 是方法，`SourceSettingsEntry.useAuthForPlay` 是欄位，同名。改掃 `settings.g.dart` 的 `PropertySchema`，並限定在 `SettingsSchema` 區塊（該檔共 60 個，其中 3 個屬於 embedded 物件） |
+| 5 | 「面板欄位跟桌面設定一樣做平台閘控」 | **錯的。** `_DesktopLayout` 由螢幕寬度斷點選出（`responsive_scaffold.dart:78`），不是平台；Android 平板在寬版面同樣會用到側欄與詳情面板。改成無條件還原 |
+| 6 | 「`addTracks` 的交易本體 321 行」 | **129 行**（`:289-417`）。原本的量測把它跟後面的 `replaceTracksFromRemoteRefresh` 併在一起算了 |
+| 7 | 「`Isar.isOpen` 存在」 | 是**實例 getter**（`isar.dart:148` 的 `bool get isOpen`），不是靜態成員 |
+| 8 | 「#43 的根因是 `tearDown` 不 drain」（`:961` 的改判） | **只對一半，而且原 issue 的推測也只對一半。** 兩條根因獨立存在：(a) `audio_controller_phase1_test.dart:1310` 寫死的 `pumpEventQueue(times: 1)`，(b) `queue_manager.dart:212` 用 `Future.delayed(10s)` 排的孤立 track 清理沒有 handle 所以 `dispose()` 取消不了。兩條都修了 |
+| 9 | 「3d 邊界收斂待驗收」 | 開工當天量測已經是 54（驗收線 < 60）。M6.2 之後降到 **19** |
+
+**執行中發現，報告寫的時候不知道的**：
+
+| # | 發現 |
+|---|---|
+| A | `backup_service.dart:502` 與 `:520` 兩筆交易只是在補償 `addTracks` 蓋掉的 `updatedAt` / `coverUrl`。補償邏輯仍然需要，但可以收進同一筆交易 |
+| B | `existingHistoryKeys`（`backup_service.dart:534`）在迴圈內從不 `add`，同一份備份裡重複的播放紀錄會重覆插入。已修 |
+| C | `kBackupVersion` 的說明註解只描述到 v3，M5.6 把常數改成 4 時沒更新。已補 |
+| D | **本機 `dart format` 與 CI 的結果不一致**：同一套 Flutter 3.47.1 / Dart 3.13.1，本機判定 `lib/` 333 檔有 250 檔要重排（Dart 3.7 tall style），CI 的 `Check formatting` 卻是 success。已開 issue #53。在查清楚之前不要對舊檔跑整檔 `dart format` —— 這輪已經害過一次，那個 commit 被改寫掉了 |
+| E | 全庫**沒有**單檔輪替的先例可沿用。`lyrics_cache_service` 的 `_evictOldest` 是多檔 LRU 淘汰，形狀不同 |
+| F | `main.dart:51/66` 的錯誤處理器掛在 `ensureInitialized()`（`:71`）之前，而 `path_provider` 要等 binding。log sink 因此必須延遲初始化，並在掛上時回填記憶體緩衝 |
+
+**驗收記錄**：
+
+| 項目 | 結果 |
+|---|---|
+| `flutter analyze` | ✅ No issues found |
+| `flutter test --exclude-tags live` | ✅ **1322 條全過**（Phase 3 前半結束時是 1289） |
+| `dart run slang` | ✅ 重新生成後 analyze 仍綠 |
+| repository 邊界 | ✅ 152 → **19**，且由 `isar_boundary_static_rule_test.dart` 釘住 |
+| 真實資料庫副本 v1 → v2 | ✅ 11 個 collection 1,534 列不變，三筆 entry 值與舊欄位一致，舊欄位未被清空，連跑三次逐字相同 |
+| M5.5 未知 source id（實機） | ✅ 用 VM Service 寫入 `sourceType: 'unknown'` 的 PlayHistory，冷關 app 後重啟讀回仍是 `unknown` |
+| M5.6 每源設定（實機） | ✅ 三個音源的預設串流優先級與播放認證與 `kDefault*` 一致；改值後重啟保持 |
+| M7 log 落盤（實機） | ✅ Android `app_flutter/FMP/logs/fmp.log` 與 Windows `Documents/FMP/logs/fmp.log` 都有內容，第一行是 sink 掛上前的啟動 log（緩衝回填有效），跨行程重啟 append（10,865 → 30,332 bytes），全檔無敏感 pattern |
+| #43 的 `IsarError` 噪音 | ✅ 同一個測試檔從 33 筆降到 **0** |
+
+**Phase 3 自己的實機驗收（`:325`）**：
+
+| 項目 | 結果 |
+|---|---|
+| Android 背景播放 5 分鐘不中斷 | ✅ **5 分 14 秒**連續（03:28:12 → 03:33:26），`dumpsys media_session` 的 position 單調推進 6,547 → 135,548 ms，並在 03:31:22 掉回 6,751 —— **單曲循環的「播完→重播」轉換在完全沒有 UI 的情況下發生**。另一次獨立觀察：整首 5:42 在背景播到 `EndedNaturally()`。最後停止的原因是模擬器掉網（`BufferStarvationWatchdog` 偵測緩衝 15 秒 → 自動重試 → `網路連線失敗`），不是 out-of-view pause —— 而那套停滯偵測與重試本身也是在背景跑的 |
+| Android 下載進度持續更新 | ✅ 觸發下載後立刻離開歌單頁，檔案 8 KB → 4,164 KB → 16,284 KB 完成落地，`已下載` 頁反映結果 |
+| Windows 最小化到 tray 後播放不停 | ❌ **沒驗到**。縮到系統列本身成立（視窗數 0、行程存活、log `Minimized to tray`），但第一次嘗試時歌曲已在 04:10:36 自然播完（`No next track available`），我 04:11:13 才關視窗。後續三次都卡在 Windows GUI 驅動：用 Win32 `ShowWindow` 從托盤還原會讓 Flutter 停止繪製、熱重啟兩次讓 app 直接退出、`orca computer click` 的座標落到了其他視窗。**這是工具鏈阻塞，不是程式碼結論** |
+
+**Windows 上的意外收穫 —— 真實生產資料庫**：
+
+| 項目 | 結果 |
+|---|---|
+| v1 → v2 遷移 | ✅ `schemaVersion = 2`，`sourceSettings` 三筆的值與六個舊欄位**逐項一致**，而六個舊欄位**原封未動** —— 降級無損的保證在真實使用者資料上成立，不是在副本上 |
+| M5.2 面板持久化 | ✅ `detailPanelWidth = 438.67`，是使用者自己拖出來的值，不是預設的 380 |
+| M7 的實際價值 | log 檔是唯一讓人分辨「被托盤暫停」與「歌自然播完」的證據；沒有它只能看到位置停住 |
+
+**三件據實記錄的事**：
+
+1. **`bilibili_source_test` 有 2 條 `tags: 'live'` 的測試在本機是紅的。** 它們打真實
+   B 站 API，這台機器被風控（HTTP 412）。專案的驗收指令本來就是
+   `--exclude-tags live`，同檔其餘用 mock 的測試全過。
+2. **#43 沒有證明修好。** 修掉兩條可證實的根因之後，失敗率從 19 次 3 次紅降到
+   24 次 1 次紅，但沒有降到零，而且那一次的失敗細節沒抓到。issue 保持開啟。
+3. **Windows 的三項驗證沒做到**：#42 的輸出裝置記憶、log 匯出、備份匯出。**備份匯入是刻意不做的** —— Windows 上跑的是使用者的真實音樂庫（1,194 首），匯入會實際寫進去。匯入的回滾行為由 `backup_service_test.dart` 涵蓋，而且那條測試做過反向驗證（把 track 寫入拆成獨立交易後它立刻紅）。
+4. **log 匯出沒有在裝置上走完存檔。** 點按鈕會開啟 Android 系統目錄選擇器（證明
+   Android 分支有跑到），但 `USE THIS FOLDER` 用合成點擊按不動。之後的寫檔是
+   `File(path).writeAsString(...)`，與既有的備份匯出同一條路。輪替與落盤 redaction
+   由單元測試涵蓋，沒有在裝置上用真實憑證驗過。
+
+---
+
+#### 6.4.1 Windows 驗收補完（2026-09-04 下午）
+
+上面那張表把 Windows 的四項記成「工具鏈阻塞」。**其中「Windows GUI 驅動不了」這條
+結論是錯的** —— 缺的只是一步：點擊之前要先把視窗提到前景。補上
+`SetForegroundWindow`（用 `AttachThreadInput` 包住）之後，`orca computer click
+--app pid:<n>` 的視窗座標一路都正確，四項全部驗完。做法記在
+`.claude/skills/verify-on-device/SKILL.md`。
+
+| 項目 | 結果 |
+|---|---|
+| Windows 最小化到 tray 後播放不停 | ✅ 14:07:02 `WM_CLOSE` → `Minimized to tray`、`IsWindowVisible` 轉 false、行程存活；隱藏期間 `PlayQueue.lastPositionMs` 從 76,771 走到 196,830，**牆鐘 120 秒、播放前進 120.1 秒**，零暫停事件；14:12:01 用使用者自己的 toggle 快捷鍵叫回視窗 |
+| #42 輸出裝置記憶（還原半邊） | ✅ 在真實硬體上兩次獨立出現完整鏈路：`Restoring preferred audio device: wasapi/{2350b26b-…}` → `Setting audio device: … (喇叭 (Creative Stage SE))` → **`Audio device changed`（libmpv 自己回報切換成功）**。不是「程式碼有跑」，是輸出裝置真的換了 |
+| 備份匯出 | ✅ 原生存檔對話框 → 828,868 bytes。`version = 4`；**M6.1a 的三個面板欄位都在**；`schemaVersion` 與 `preferredAudioDevice*` 正確不在 —— 與守門測試的排除清單逐項相符；`sourceSettings` 三個音源齊全 |
+| log 匯出 | ✅ 原生存檔對話框 → 123,379 bytes，**等於磁碟上 `fmp.log` 的完整 1,228 行**；`Authorization` / `SAPISIDHASH` / `Bearer` / `Cookie:` / `SESSDATA` / `bili_jct` / `MUSIC_U` / `csrf` 掃描全為 **0**，`REDACTED` 出現 **11 次** —— 在有登入帳號的真實 session 上實際觸發過 |
+| M7 日誌級別 UI | ✅ 開發者選項裡有「日誌級別 DEBUG」，副標「只影響這次執行，重啟後回到預設」 |
+
+**#42 的另一半補的是測試，不是實機。** `4ca35a6d feat(audio): remember the chosen
+output device` **一條測試都沒加**。本輪補上
+`test/services/audio/audio_device_preference_test.dart`（6 條），涵蓋寫入、回到
+auto、清單到齊時套用、裝置拔掉時不動也不清設定、只套用一次、沒存過就不動。做過反向
+驗證：同時拿掉寫入與還原兩半之後，6 條裡有 3 條立刻紅。
+
+**#42 的寫入半邊隨後也在實機上補驗了**（同日 14:44，上面那句「沒有用滑鼠點過裝置
+選單」已不成立）：迷你播放器的輸出裝置選單 →「Realtek(R) Audio」，`Settings` 立刻寫入
+`preferredAudioDeviceId = 'wasapi/{2698a574-…}'` 與
+`preferredAudioDeviceName = '喇叭 (Realtek(R) Audio)'`，log 跟著出現
+`Setting audio device` → `Audio device changed`；再點回「自動（跟隨系統）」兩個欄位都
+回到 `null`，`Setting audio device to auto` → `Audio device changed: auto`。**issue #42
+本輪關閉。**
+
+驗這一項時另外修正了一條做法：`orca computer` 的 `--restore-window` 才是把視窗提到前景
+的正確方式。我先寫進 skill 的 Win32 `SetForegroundWindow` 做法**時靈時不靈** —— 它在前景
+鎖規則不允許時會靜默失敗，而接下來的 `get-app-state` 就會截到別的視窗（這次確實誤截了
+使用者的另一個視窗一次，已刪除）。skill 已更正。
+
+**仍然沒驗到的**：
+
+1. **log 輪替沒有在裝置上驗**（要 2 MB，實測檔案只有 123 KB）。單元測試涵蓋。
+2. **備份匯入仍然刻意不做** —— 理由同上：Windows 上是使用者的真實音樂庫。
+3. **tray 測試期間三個音源都播不了**：Bilibili `playurl` 回 HTTP 412 `request was
+   banned`、曲庫 1,194 首**沒有任何一首下載到本機**。tray 測試最後是用一段本機 WAV 走
+   `_inspectLocalFiles` 的離線路徑跑的。這是環境限制，不是 FMP 的缺陷。（YouTube 稍後
+   在 14:43 的裝置選單驗證裡是能正常播放的 —— 之前擋住的是評論 API，不是串流。）
+
+**兩件據實記錄的事**：
+
+- **redaction 有一個誤報**：`libmpv configured for audio-only mode (vid=no,
+  sid=[REDACTED], …)`。那是 mpv 的字幕軌選項 `sid=no`，不是 session id。只影響 log
+  可讀性，方向是安全的那一邊，本輪不改。
+- **我弄丟了一筆資料**：佇列裡原本留著上一輪我自己建的測試曲目（唯一一首 youtube
+  來源），把佇列換走之後被孤立清理刪掉了。使用者的 1,194 首 bilibili 曲目與 1 個歌單
+  完好無損，已逐項核對。驗證期間改過的每一項（`minimizeToTrayOnClose`、
+  `preferredAudioDevice*`、track 1 的 `playlistInfo`、佇列與循環模式）都已還原並確認。
+
+**issue 動態**：本輪關掉兩張。**#44**（isar_community 遷移）—— 用 NDK 28.2 的
+`llvm-readelf -l` 重量 release APK，三個 ABI 的 `libisar.so` 都從 `0x1000` 變成
+`0x4000`，達到 issue 自己的驗收條件。**#42**（輸出裝置記憶）—— 寫入、清除、重啟還原
+三條路徑都在真實硬體上走過，並補上原本缺席的 6 條測試。#43 與 #53 維持開啟。
+

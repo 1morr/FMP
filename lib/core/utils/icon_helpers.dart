@@ -11,11 +11,14 @@ IconData getVolumeIcon(double volume) {
 }
 
 /// 根据导入源类型获取对应的平台图标
-IconData getImportSourceIcon(SourceType? sourceType) {
+IconData getImportSourceIcon(String? sourceType) {
   return switch (sourceType) {
-    SourceType.bilibili => SimpleIcons.bilibili,
-    SourceType.youtube => SimpleIcons.youtube,
-    SourceType.netease => SimpleIcons.neteasecloudmusic,
+    SourceIds.bilibili => SimpleIcons.bilibili,
+    SourceIds.youtube => SimpleIcons.youtube,
+    SourceIds.netease => SimpleIcons.neteasecloudmusic,
+    // null 代表「沒有匯入來源」（本地建立的歌單）；認不得的 id 代表
+    // 「有來源但沒有圖示」。兩者刻意用不同圖示，別合併。
     null => Icons.link,
+    _ => Icons.source_outlined,
   };
 }

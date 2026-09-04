@@ -45,7 +45,7 @@ void main() {
     expect(client.parsedUrls, ['https://live.bilibili.com/123']);
     expect(client.roomInfoLookups, ['123']);
     expect(station.url, 'https://live.bilibili.com/123');
-    expect(station.sourceType, SourceType.bilibili);
+    expect(station.sourceType, SourceIds.bilibili);
     expect(station.sourceId, '123');
     expect(station.title, 'Live title');
     expect(station.thumbnailUrl, 'https://i0.hdslb.com/cover.jpg');
@@ -117,7 +117,7 @@ RadioStation _station(String sourceId) {
   return RadioStation()
     ..url = 'https://live.bilibili.com/$sourceId'
     ..title = 'Station $sourceId'
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..sourceId = sourceId;
 }
 

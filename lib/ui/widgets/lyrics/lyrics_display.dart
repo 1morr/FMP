@@ -72,7 +72,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     super.initState();
     _matchSubscription = ref.listenManual<AsyncValue<LyricsMatch?>>(
       currentLyricsMatchProvider,
-      (_, next) => _resetForMatch(next.valueOrNull?.id),
+      (_, next) => _resetForMatch(next.value?.id),
       fireImmediately: true,
     );
   }
@@ -143,7 +143,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     final colorScheme = Theme.of(context).colorScheme;
     final lyricsContent = ref.watch(currentLyricsContentProvider);
     final parsedLyrics = ref.watch(parsedLyricsProvider);
-    final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+    final match = ref.watch(currentLyricsMatchProvider).value;
 
     final isAutoMatching = ref.watch(lyricsAutoMatchingProvider);
 
@@ -192,7 +192,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       );
     }
 
-    final content = lyricsContent.valueOrNull;
+    final content = lyricsContent.value;
 
     // 纯音乐
     if (content?.instrumental == true) {

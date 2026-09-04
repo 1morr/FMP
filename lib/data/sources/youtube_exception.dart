@@ -11,7 +11,7 @@ class YouTubeApiException extends SourceApiException {
   const YouTubeApiException({required this.code, required this.message});
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   String toString() => 'YouTubeApiException($code): $message';

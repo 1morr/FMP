@@ -11,8 +11,8 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/constants/app_constants.dart';
+import 'core/log_file_sink.dart';
 import 'core/logger.dart';
-import 'data/models/settings.dart';
 import 'i18n/strings.g.dart';
 import 'providers/database/database_provider.dart';
 import 'services/audio/audio_handler.dart';
@@ -20,6 +20,7 @@ import 'services/audio/windows_smtc_handler.dart';
 import 'services/radio/radio_refresh_service.dart';
 import 'services/update/update_service.dart';
 import 'ui/windows/lyrics_window.dart';
+import 'data/repositories/settings_repository.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
 late FmpAudioHandler audioHandler;
@@ -69,6 +70,15 @@ void main(List<String> args) async {
 
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+
+    // log 落盤。必須排在 binding 之後（path_provider 需要它），而上面兩個
+    // 錯誤處理器掛在 binding 之前 —— 那段時間的 log 先進記憶體緩衝，
+    // `attachFileSink` 掛上時會整個倒進檔案，所以一筆都不會丟。
+    try {
+      await AppLogger.attachFileSink(await LogFileSink.inAppDocuments());
+    } catch (e) {
+      AppLogger.warning('Failed to enable file logging: $e', 'Startup');
+    }
 
     launchMinimized = args.contains('--minimized');
 
@@ -174,6 +184,12 @@ void main(List<String> args) async {
 
     runApp(
       ProviderScope(
+        // Riverpod 3 預設會自動重試失敗的 provider（10 次、200ms→6.4s、共約 38 秒）。
+        // FMP 關掉它，因為重試已經有兩層明示的實作：source_http_policy / Dio 的
+        // 網路層重試，以及 AudioController 量測過的 T1/T2/T3 載入預算。再疊一層
+        // 看不見的重試會讓那些預算失效，而且 UnmountedRefException 實作的是
+        // Exception 不是 Error，預設策略會把它也重試 10 次。
+        retry: (retryCount, error) => null,
         child: TranslationProvider(
           child: const FMPApp(),
         ),
@@ -241,7 +257,7 @@ Future<void> _initializeWindowManager() async {
 Future<void> _preloadThemeSettings() async {
   try {
     final isar = await openFmpDatabase();
-    final settings = await isar.settings.get(0);
+    final settings = await SettingsRepository(isar).getOrNull();
     if (settings != null) {
       preloadedThemeMode = settings.themeMode;
       preloadedPrimaryColor = settings.primaryColorValue;

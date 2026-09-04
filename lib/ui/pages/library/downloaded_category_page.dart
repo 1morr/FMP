@@ -711,7 +711,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
 
 String _downloadedTrackKey(Track track) {
   return [
-    track.sourceType.name,
+    track.sourceType,
     track.sourceId,
     track.cid?.toString() ?? '',
     track.pageNum?.toString() ?? '',

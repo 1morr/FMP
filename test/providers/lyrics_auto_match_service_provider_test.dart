@@ -69,7 +69,7 @@ void main() {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'Song Name'
     ..durationMs = 180000;
 }

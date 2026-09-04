@@ -187,7 +187,7 @@ class _QueuePageTestAudioController extends AudioController {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -212,7 +212,7 @@ Track _buildTrack({
   return Track()
     ..id = id
     ..sourceId = sourceId
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..title = title
     ..artist = '$title Artist'
     ..durationMs = 180000;

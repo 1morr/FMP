@@ -5,7 +5,7 @@ import 'base_source.dart';
 import 'dynamic_playlist_types.dart';
 
 abstract interface class SourceCapability {
-  SourceType get sourceType;
+  String get sourceType;
 }
 
 /// Optional capability for sources that own disposable resources (HTTP

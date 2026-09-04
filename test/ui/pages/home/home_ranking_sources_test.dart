@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
@@ -19,9 +20,9 @@ void main() {
         maxWidth: 1200,
         enabledSourceOrder: const ['netease', 'youtube', 'bilibili'],
         tracksBySource: {
-          'bilibili': [_track('bili', SourceType.bilibili)],
-          'youtube': [_track('yt', SourceType.youtube)],
-          'netease': [_track('ne', SourceType.netease)],
+          'bilibili': [_track('bili', SourceIds.bilibili)],
+          'youtube': [_track('yt', SourceIds.youtube)],
+          'netease': [_track('ne', SourceIds.netease)],
         },
       );
 
@@ -37,9 +38,9 @@ void main() {
         maxWidth: 1200,
         enabledSourceOrder: const ['netease', 'bilibili'],
         tracksBySource: {
-          'bilibili': [_track('bili', SourceType.bilibili)],
-          'youtube': [_track('yt', SourceType.youtube)],
-          'netease': [_track('ne', SourceType.netease)],
+          'bilibili': [_track('bili', SourceIds.bilibili)],
+          'youtube': [_track('yt', SourceIds.youtube)],
+          'netease': [_track('ne', SourceIds.netease)],
         },
       );
 
@@ -54,8 +55,8 @@ void main() {
         maxWidth: 800,
         enabledSourceOrder: const ['netease', 'youtube', 'bilibili'],
         tracksBySource: {
-          'bilibili': [_track('bili', SourceType.bilibili)],
-          'youtube': [_track('yt', SourceType.youtube)],
+          'bilibili': [_track('bili', SourceIds.bilibili)],
+          'youtube': [_track('yt', SourceIds.youtube)],
           'netease': const <Track>[],
         },
       );
@@ -160,12 +161,12 @@ void main() {
 }
 
 Map<String, List<Track>> get _allTracks => {
-      'bilibili': [_track('bili', SourceType.bilibili)],
-      'youtube': [_track('yt', SourceType.youtube)],
-      'netease': [_track('ne', SourceType.netease)],
+      'bilibili': [_track('bili', SourceIds.bilibili)],
+      'youtube': [_track('yt', SourceIds.youtube)],
+      'netease': [_track('ne', SourceIds.netease)],
     };
 
-Track _track(String sourceId, SourceType sourceType) {
+Track _track(String sourceId, String sourceType) {
   return Track()
     ..sourceId = sourceId
     ..sourceType = sourceType
@@ -188,9 +189,9 @@ class _StaticRankingCacheService extends RankingCacheService {
   _StaticRankingCacheService({required bool isInitialLoading})
       : super(
           rankingSources: {
-            SourceType.bilibili: _FakeRankingSource(SourceType.bilibili),
-            SourceType.youtube: _FakeRankingSource(SourceType.youtube),
-            SourceType.netease: _FakeRankingSource(SourceType.netease),
+            SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
+            SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
+            SourceIds.netease: _FakeRankingSource(SourceIds.netease),
           },
         ) {
     state = RankingCacheState(isInitialLoading: isInitialLoading);
@@ -201,17 +202,18 @@ class _FakeRankingSource implements RankingSource {
   _FakeRankingSource(this.sourceType);
 
   @override
-  final SourceType sourceType;
+  final String sourceType;
 
   @override
   SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
-        SourceType.bilibili => const SourceRankingRequest(regionId: 1003),
-        SourceType.youtube => const SourceRankingRequest(category: 'music'),
-        SourceType.netease => const SourceRankingRequest(limit: 50),
+        SourceIds.bilibili => const SourceRankingRequest(regionId: 1003),
+        SourceIds.youtube => const SourceRankingRequest(category: 'music'),
+        SourceIds.netease => const SourceRankingRequest(limit: 50),
+        _ => throw StateError('unconfigured fake source: $sourceType'),
       };
 
   @override
-  String get rankingLabel => '${sourceType.name} ranking';
+  String get rankingLabel => '${sourceType} ranking';
 
   @override
   Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {

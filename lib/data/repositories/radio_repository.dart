@@ -1,6 +1,5 @@
 import 'package:isar_community/isar.dart';
 import '../models/radio_station.dart';
-import '../models/track.dart';
 
 /// RadioStation 數據倉庫
 class RadioRepository {
@@ -25,7 +24,7 @@ class RadioRepository {
 
   /// 根據源 ID 獲取電台
   Future<RadioStation?> getBySourceId(
-      SourceType sourceType, String sourceId) async {
+      String sourceType, String sourceId) async {
     return _isar.radioStations
         .filter()
         .sourceTypeEqualTo(sourceType)
@@ -35,7 +34,7 @@ class RadioRepository {
   }
 
   /// 檢查電台是否已存在（按源類型和源ID）
-  Future<bool> exists(SourceType sourceType, String sourceId) async {
+  Future<bool> exists(String sourceType, String sourceId) async {
     final station = await getBySourceId(sourceType, sourceId);
     return station != null;
   }

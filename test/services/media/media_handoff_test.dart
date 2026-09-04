@@ -18,15 +18,15 @@ void main() {
   group('DefaultMediaHandoff', () {
     test('never forwards stream-resolution auth onto the byte request', () {
       final cases = {
-        SourceType.bilibili: (
+        SourceIds.bilibili: (
           'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
           const {'Cookie': 'SESSDATA=secret'},
         ),
-        SourceType.youtube: (
+        SourceIds.youtube: (
           'https://rr1---sn.googlevideo.com/videoplayback',
           const {'Authorization': 'Bearer secret', 'Cookie': 'SID=secret'},
         ),
-        SourceType.netease: (
+        SourceIds.netease: (
           'https://m701.music.126.net/song.m4a',
           SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token'),
         ),
@@ -51,7 +51,7 @@ void main() {
 
     test('playback and download produce the same headers', () async {
       final request = _request(
-        SourceType.netease,
+        SourceIds.netease,
         'http://m801.music.126.net/song.mp3',
         streamResolutionAuth: SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=t'),
       );
@@ -67,7 +67,7 @@ void main() {
 
     test('keeps each source CDN header set', () {
       final result = handoff.prepareDownloadHop(_request(
-        SourceType.bilibili,
+        SourceIds.bilibili,
         'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
       ));
 
@@ -79,13 +79,13 @@ void main() {
       const url = 'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a';
 
       final resumed = handoff.prepareDownloadHop(
-        _request(SourceType.bilibili, url, rangeStart: 1024),
+        _request(SourceIds.bilibili, url, rangeStart: 1024),
       );
       expect(resumed.headers[HttpHeaders.rangeHeader], 'bytes=1024-');
 
       for (final rangeStart in [0, null]) {
         final fresh = handoff.prepareDownloadHop(
-          _request(SourceType.bilibili, url, rangeStart: rangeStart),
+          _request(SourceIds.bilibili, url, rangeStart: rangeStart),
         );
         expect(fresh.headers.containsKey(HttpHeaders.rangeHeader), isFalse,
             reason: 'rangeStart=$rangeStart');
@@ -95,7 +95,7 @@ void main() {
 }
 
 MediaHandoffRequest _request(
-  SourceType sourceType,
+  String sourceType,
   String url, {
   Map<String, String>? streamResolutionAuth,
   int? rangeStart,

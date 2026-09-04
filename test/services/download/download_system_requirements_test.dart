@@ -48,7 +48,7 @@ void main() {
     test('新创建的 Track 应没有下载路径', () {
       final track = Track()
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Song';
 
       // 新 Track 的 playlistInfo 应为空
@@ -67,7 +67,7 @@ void main() {
       final track = Track()
         ..id = 1
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Song'
         ..playlistInfo = [PlaylistDownloadInfo()..playlistId = playlist.id];
 
@@ -81,7 +81,7 @@ void main() {
       // 模拟下载完成后的状态
       final track = Track()
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Song'
         ..playlistInfo = [
           PlaylistDownloadInfo()
@@ -197,7 +197,7 @@ void main() {
       // 模拟扫描到的本地 Track
       final scannedTrack = Track()
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 12345
         ..title = 'Local Song'
         ..playlistInfo = [
@@ -210,7 +210,7 @@ void main() {
       final existingTrack = Track()
         ..id = 1
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 12345
         ..title = 'Local Song';
 
@@ -230,7 +230,7 @@ void main() {
         title: 'Orphan Song',
         path: '/local/orphan/audio.m4a',
         sourceId: 'BV999999999',
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
       );
 
       // getOrphanFiles() 返回这些信息供 UI 显示
@@ -294,7 +294,7 @@ void main() {
       final track = Track()
         ..id = 1
         ..sourceId = 'BV123'
-        ..sourceType = SourceType.bilibili;
+        ..sourceType = SourceIds.bilibili;
 
       expect(track.isDownloaded, isFalse);
 
@@ -341,7 +341,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'BV123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
         ..playlistInfo = [
           PlaylistDownloadInfo()
@@ -375,7 +375,7 @@ void main() {
       final track = Track()
         ..id = 1
         ..sourceId = 'BV123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
         ..playlistInfo = [
           PlaylistDownloadInfo()
@@ -412,7 +412,7 @@ class _OrphanFileInfo {
   final String title;
   final String? path;
   final String sourceId;
-  final SourceType sourceType;
+  final String sourceType;
 
   _OrphanFileInfo({
     required this.title,

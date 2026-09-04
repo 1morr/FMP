@@ -5,9 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('playlist mutation bulk paths resolve identities once per batch', () {
     final source = File(
-      'lib/services/library/playlist_mutation_service.dart',
+      'lib/data/repositories/playlist_mutation_repository.dart',
     ).readAsStringSync();
-    final addTracksBody = _methodBody(source, 'addTracks');
+    // 交易本體住在 `addTracksInTxn`；`addTracks` 只剩一行 writeTxn wrapper。
+    final addTracksBody = _methodBody(source, 'addTracksInTxn');
     final refreshBody = _methodBody(source, 'replaceTracksFromRemoteRefresh');
 
     expect(source, contains('_findTracksByIdentity('));

@@ -1,5 +1,6 @@
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
+import '../../data/models/track_key.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_http_policy.dart';
 import '../account/source_auth_context.dart';
@@ -174,7 +175,7 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   /// 與 [DefaultStreamResolutionService] 共用同一種 log 識別碼，
   /// 這樣同一次播放在兩個類別的 log 行之間可以直接串起來。
   String _describe(Track track) =>
-      '${track.sourceType.name}:${track.sourceId}';
+      TrackKey.formatGroup(track.sourceType, track.sourceId);
 
   static const String defaultPlaybackUserAgent =
       SourceHttpPolicy.mediaUserAgent;

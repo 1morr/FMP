@@ -249,7 +249,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       final result = await ref
           .read(remotePlaylistEditControllerProvider)
           .submitSelectionEdit(
-            sourceType: SourceType.youtube,
+            sourceType: SourceIds.youtube,
             tracks: _tracks,
             selectedPlaylistIds: _selectedIds,
             originalPlaylistIds: _originalIds,

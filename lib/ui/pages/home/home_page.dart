@@ -270,7 +270,7 @@ class HomeRankingsSection extends ConsumerWidget {
                     child: _buildRankingCard(
                       context,
                       colorScheme,
-                      title: _titleForRankingSource(plan.sources[i].id),
+                      title: SourceIds.displayNameFor(plan.sources[i].id),
                       tracks: plan.sources[i].tracks,
                     ),
                   ),
@@ -289,7 +289,7 @@ class HomeRankingsSection extends ConsumerWidget {
                 _buildRankingCard(
                   context,
                   colorScheme,
-                  title: _titleForRankingSource(plan.sources[i].id),
+                  title: SourceIds.displayNameFor(plan.sources[i].id),
                   tracks: plan.sources[i].tracks,
                 ),
               ],
@@ -298,19 +298,6 @@ class HomeRankingsSection extends ConsumerWidget {
         );
       },
     );
-  }
-
-  String _titleForRankingSource(String source) {
-    switch (source) {
-      case 'bilibili':
-        return t.importPlatform.bilibili;
-      case 'youtube':
-        return 'YouTube';
-      case 'netease':
-        return t.importPlatform.netease;
-      default:
-        return source;
-    }
   }
 
   Widget _buildRankingCard(

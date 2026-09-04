@@ -201,7 +201,7 @@ void main() {
       await downloadFile.writeAsBytes([1, 2, 3]);
       final track = Track()
         ..sourceId = 'completed-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Completed Track'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -351,13 +351,13 @@ void main() {
 
       final track1 = Track()
         ..sourceId = 'yt-active'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Active Task'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
       final track2 = Track()
         ..sourceId = 'yt-resume-after-pause'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Resume After Pause'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -436,7 +436,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'yt-clear-queue-setup'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Clear Queue Setup Race'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -455,7 +455,7 @@ void main() {
       final sourceManager = _SingleSourceManager(
         _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
       );
-      final blockedSource = sourceManager.audioStreamSource(SourceType.youtube)!
+      final blockedSource = sourceManager.audioStreamSource(SourceIds.youtube)!
           as _BlockingAudioSource;
       final service = DownloadService(
         downloadRepository: downloadRepository,
@@ -487,7 +487,7 @@ void main() {
         () async {
       final track = Track()
         ..sourceId = 'yt-setup-double-cleanup'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Setup Double Cleanup Race'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -505,7 +505,7 @@ void main() {
       final sourceManager = _SingleSourceManager(
         _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
       );
-      final blockedSource = sourceManager.audioStreamSource(SourceType.youtube)!
+      final blockedSource = sourceManager.audioStreamSource(SourceIds.youtube)!
           as _BlockingAudioSource;
       final service = DownloadService(
         downloadRepository: downloadRepository,
@@ -555,7 +555,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'yt-setup-cancel'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Setup Cancel Race'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -574,7 +574,7 @@ void main() {
       final sourceManager = _SingleSourceManager(
         _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
       );
-      final blockedSource = sourceManager.audioStreamSource(SourceType.youtube)!
+      final blockedSource = sourceManager.audioStreamSource(SourceIds.youtube)!
           as _BlockingAudioSource;
       final service = DownloadService(
         downloadRepository: downloadRepository,
@@ -655,7 +655,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'yt-active-cancel'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Active Cancel Race'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -740,7 +740,7 @@ void main() {
       final releaseDetail = Completer<void>();
       final track = Track()
         ..sourceId = 'yt-cancel-finalization'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Cancel During Finalization'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -854,7 +854,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'yt-dispose'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Dispose Race'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -952,7 +952,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'yt-resume-http200'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Resume HTTP 200'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -1020,7 +1020,7 @@ void main() {
       Future<DownloadTask> createTaskForTrack(String sourceId) async {
         final track = Track()
           ..sourceId = sourceId
-          ..sourceType = SourceType.netease
+          ..sourceType = SourceIds.netease
           ..title = sourceId
           ..artist = 'Test Artist'
           ..createdAt = DateTime.now();
@@ -1038,7 +1038,7 @@ void main() {
 
       final recordingSource = _RecordingAudioSource(
         'http://127.0.0.1:1/audio.mp3',
-        sourceTypeOverride: SourceType.netease,
+        sourceTypeOverride: SourceIds.netease,
       );
       final sourceAuthContext = _FakeSourceAuthContext()
         ..authHeaders = const {
@@ -1068,7 +1068,7 @@ void main() {
         'Referer': 'https://music.163.com/',
         'User-Agent': 'Netease-UA',
       });
-      expect(sourceAuthContext.authForPlayRequests, [SourceType.netease]);
+      expect(sourceAuthContext.authForPlayRequests, [SourceIds.netease]);
 
       recordingSource.recordedAuthHeaders.clear();
       sourceAuthContext
@@ -1078,7 +1078,7 @@ void main() {
       final disabledTask = await createTaskForTrack('netease-auth-disabled');
       await service.debugStartDownloadForTesting(disabledTask);
       expect(recordingSource.recordedAuthHeaders.single, isNull);
-      expect(sourceAuthContext.authForPlayRequests, [SourceType.netease]);
+      expect(sourceAuthContext.authForPlayRequests, [SourceIds.netease]);
     });
 
     test('download metadata detail auth comes from SourceAuthContext',
@@ -1116,7 +1116,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'yt-detail-auth'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Detail Auth'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -1149,7 +1149,7 @@ void main() {
       await _waitUntil(() async => service.debugActiveDownloads == 0);
 
       expect(sourceAuthContext.authForPlayRequests,
-          [SourceType.youtube, SourceType.youtube]);
+          [SourceIds.youtube, SourceIds.youtube]);
       expect(
           source.detailAuthHeaders.single, {'Authorization': 'Bearer detail'});
     });
@@ -1208,7 +1208,7 @@ void main() {
           'http://${server.address.address}:${server.port}/cover.jpg';
       final track = Track()
         ..sourceId = 'yt-image-headers'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Image Headers'
         ..artist = 'Test Artist'
         ..thumbnailUrl = imageUrl
@@ -1229,7 +1229,7 @@ void main() {
           'Authorization': 'Bearer stream',
           'Cookie': 'SID=stream',
         }
-        ..imageHeadersBySource[SourceType.youtube] = const {
+        ..imageHeadersBySource[SourceIds.youtube] = const {
           'X-Source-Image': 'context',
         };
       final service = DownloadService(
@@ -1253,7 +1253,7 @@ void main() {
         _DirectHttpOverrides(),
       );
 
-      expect(sourceAuthContext.imageHeaderRequests, [SourceType.youtube]);
+      expect(sourceAuthContext.imageHeaderRequests, [SourceIds.youtube]);
       expect(imageRequests, isNotEmpty);
       for (final imageRequest in imageRequests) {
         expect(imageRequest.headers['x-source-image'], 'context');
@@ -1293,7 +1293,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'existing-destination'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Existing Destination'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -1362,7 +1362,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'final-conflict'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Final Conflict'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -1465,7 +1465,7 @@ void main() {
       final bilibiliSource = _RecordingBilibiliSource(audioUrl);
       final track = Track()
         ..sourceId = 'BVmultiPage'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 24680
         ..pageNum = 2
         ..pageCount = 3
@@ -1539,7 +1539,7 @@ void main() {
 
       final track = Track()
         ..sourceId = 'netease-expiry'
-        ..sourceType = SourceType.netease
+        ..sourceType = SourceIds.netease
         ..title = 'Netease Expiry'
         ..artist = 'Test Artist'
         ..createdAt = DateTime.now();
@@ -1564,7 +1564,7 @@ void main() {
         sourceManager: _SingleSourceManager(
           _StaticAudioSource(
             audioUrl,
-            sourceTypeOverride: SourceType.netease,
+            sourceTypeOverride: SourceIds.netease,
             streamExpiry: const Duration(minutes: 16),
           ),
         ),
@@ -1708,7 +1708,7 @@ DownloadTask _task({required int trackId}) => DownloadTask()
 Track _downloadTrack(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId
     ..artist = 'Test Artist'
     ..createdAt = DateTime.now();
@@ -1736,13 +1736,13 @@ class _SingleSourceManager extends SourceManager {
   final AudioStreamSource _source;
 
   @override
-  AudioStreamSource? audioStreamSource(SourceType type) {
+  AudioStreamSource? audioStreamSource(String type) {
     if (type == _source.sourceType) return _source;
     return null;
   }
 
   @override
-  TrackDetailSource? trackDetailSource(SourceType type) {
+  TrackDetailSource? trackDetailSource(String type) {
     final Object source = _source;
     if (type == _source.sourceType && source is TrackDetailSource) {
       return source;
@@ -1761,16 +1761,16 @@ class _SingleSourceManager extends SourceManager {
 class _StaticAudioSource implements AudioStreamSource {
   _StaticAudioSource(
     this.audioUrl, {
-    this.sourceTypeOverride = SourceType.youtube,
+    this.sourceTypeOverride = SourceIds.youtube,
     this.streamExpiry,
   });
 
   final String audioUrl;
-  final SourceType sourceTypeOverride;
+  final String sourceTypeOverride;
   final Duration? streamExpiry;
 
   @override
-  SourceType get sourceType => sourceTypeOverride;
+  String get sourceType => sourceTypeOverride;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -1898,18 +1898,18 @@ class _RecordingBilibiliSource extends BilibiliSource {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   Map<String, String>? authHeaders;
-  final authForPlayRequests = <SourceType>[];
-  final imageHeaderRequests = <SourceType>[];
-  final imageHeadersBySource = <SourceType, Map<String, String>>{};
+  final authForPlayRequests = <String>[];
+  final imageHeaderRequests = <String>[];
+  final imageHeadersBySource = <String, Map<String, String>>{};
 
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
     authForPlayRequests.add(sourceType);
     return authHeaders;
   }
 
   @override
-  Map<String, String> imageHeaders(SourceType sourceType) {
+  Map<String, String> imageHeaders(String sourceType) {
     imageHeaderRequests.add(sourceType);
     return imageHeadersBySource[sourceType] ??
         SourceHttpPolicy.imageHeaders(sourceType);

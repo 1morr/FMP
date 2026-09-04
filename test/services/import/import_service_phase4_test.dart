@@ -13,7 +13,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/import/import_service.dart';
-import 'package:fmp/services/library/playlist_mutation_service.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 
@@ -78,7 +78,7 @@ void main() {
 
     test('importFromUrl passes auth headers to playlist parser when enabled',
         () async {
-      final source = _FakeGenericSource(SourceType.youtube);
+      final source = _FakeGenericSource(SourceIds.youtube);
       sourceManager.detectedSource = source;
       final authContext = _FakeSourceAuthContext()
         ..playlistImportHeaders = const {
@@ -110,7 +110,7 @@ void main() {
 
     test('importFromUrl leaves auth headers null when auth is disabled',
         () async {
-      final source = _FakeGenericSource(SourceType.netease);
+      final source = _FakeGenericSource(SourceIds.netease);
       sourceManager.detectedSource = source;
       final service = ImportService(
         sourceManager: sourceManager,
@@ -131,7 +131,7 @@ void main() {
 
     test('importFromUrl keeps RD-list non-youtube URLs on parser path',
         () async {
-      final source = _FakeGenericSource(SourceType.netease);
+      final source = _FakeGenericSource(SourceIds.netease);
       final mixSource = _FakeYouTubeSource()
         ..mixInfo = const MixPlaylistInfo(
           title: 'Wrong Mix',
@@ -342,7 +342,7 @@ void main() {
       );
       final savedTrack = await trackRepository.getBySourceId(
         'metadata-track',
-        SourceType.youtube,
+        SourceIds.youtube,
       );
 
       expect(first.addedCount, 1);
@@ -374,7 +374,7 @@ void main() {
         ..name = 'User Chosen Name'
         ..description = 'Old local description'
         ..sourceUrl = 'https://example.com/playlist/existing'
-        ..importSourceType = SourceType.youtube
+        ..importSourceType = SourceIds.youtube
         ..ownerName = 'Old Owner'
         ..ownerUserId = 'old-owner-id'
         ..useAuthForRefresh = false
@@ -400,11 +400,11 @@ void main() {
       expect(savedPlaylist.useAuthForRefresh, isTrue);
       expect(savedPlaylist.refreshIntervalHours, 6);
       expect(savedPlaylist.notifyOnUpdate, isFalse);
-      expect(savedPlaylist.importSourceType, SourceType.youtube);
+      expect(savedPlaylist.importSourceType, SourceIds.youtube);
     });
 
     test('import multi-page expansion reuses import auth headers', () async {
-      final source = _PagedPlaylistSource(SourceType.bilibili);
+      final source = _PagedPlaylistSource(SourceIds.bilibili);
       sourceManager.detectedSource = source;
       final authContext = _FakeSourceAuthContext()
         ..playlistImportHeaders = const {'Cookie': 'SESSDATA=import'};
@@ -450,7 +450,7 @@ class _FakeSourceManager extends SourceManager {
   }
 
   @override
-  PagedVideoSource? pagedVideoSource(SourceType type) {
+  PagedVideoSource? pagedVideoSource(String type) {
     final source = detectedSource;
     if (source == null || source.sourceType != type) return null;
     final Object candidate = source;
@@ -464,11 +464,11 @@ class _FakeSourceManager extends SourceManager {
 class _FakeGenericSource implements PlaylistParsingSource {
   _FakeGenericSource(this._sourceType);
 
-  final SourceType _sourceType;
+  final String _sourceType;
   Map<String, String>? lastParseAuthHeaders;
 
   @override
-  SourceType get sourceType => _sourceType;
+  String get sourceType => _sourceType;
 
   @override
   bool isPlaylistUrl(String url) => true;
@@ -525,7 +525,7 @@ class _PlaylistSource implements PlaylistParsingSource {
   final String? ownerName;
   final String? ownerUserId;
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   bool isPlaylistUrl(String url) => true;
@@ -550,12 +550,12 @@ class _PlaylistSource implements PlaylistParsingSource {
 class _PagedPlaylistSource implements PlaylistParsingSource, PagedVideoSource {
   _PagedPlaylistSource(this._sourceType);
 
-  final SourceType _sourceType;
+  final String _sourceType;
   Map<String, String>? lastParseAuthHeaders;
   Map<String, String>? lastPageAuthHeaders;
 
   @override
-  SourceType get sourceType => _sourceType;
+  String get sourceType => _sourceType;
 
   @override
   bool isPlaylistUrl(String url) => true;
@@ -604,7 +604,7 @@ class _DynamicPlaylistSource implements PlaylistParsingSource {
   final String title;
   final List<Track> Function() buildTracks;
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   bool isPlaylistUrl(String url) => true;
@@ -666,7 +666,7 @@ class _CancellingPlaylistRepository extends PlaylistRepository {
   }
 }
 
-class _CancellingMutationService extends PlaylistMutationService {
+class _CancellingMutationService extends PlaylistMutationRepository {
   _CancellingMutationService({
     required super.isar,
     required this.onAfterMutation,
@@ -686,7 +686,7 @@ class _CancellingMutationService extends PlaylistMutationService {
 Track _track(String sourceId, String title) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..thumbnailUrl = 'https://example.com/$sourceId.jpg'
     ..createdAt = DateTime.now();
@@ -702,13 +702,13 @@ class _FakeSourceAuthContext implements SourceAuthContext {
   Map<String, String>? playHeaders;
 
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
     return playHeaders;
   }
 
   @override
   Future<Map<String, String>?> playlistImportAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuth,
   }) async {
     return useAuth ? playlistImportHeaders : null;
@@ -716,7 +716,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
 
   @override
   Future<Map<String, String>?> playlistRefreshAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuthForRefresh,
   }) async {
     return useAuthForRefresh ? playlistRefreshHeaders : null;

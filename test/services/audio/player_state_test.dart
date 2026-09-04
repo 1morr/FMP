@@ -114,7 +114,7 @@ void main() {
       test('clearPlayingTrack removes track', () {
         final track = Track()
           ..sourceId = 'test'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test';
 
         final state = PlayerState(playingTrack: track);
@@ -140,7 +140,7 @@ void main() {
       test('currentTrack returns playingTrack', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Test Song';
 
         final state = PlayerState(playingTrack: track);

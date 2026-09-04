@@ -5,10 +5,10 @@ void main() {
   group('models barrel exports', () {
     test('exports Account with the persisted model set', () {
       final account = Account()
-        ..platform = SourceType.netease
+        ..platform = SourceIds.netease
         ..userName = 'tester';
 
-      expect(account.platform, SourceType.netease);
+      expect(account.platform, SourceIds.netease);
       expect(account.userName, 'tester');
     });
   });

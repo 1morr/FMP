@@ -941,7 +941,7 @@ void main() {
         const originalUrl = 'https://expired-url.com/audio.m4s';
         final track = Track()
           ..sourceId = 'BV1xx411c79H'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..audioUrl = originalUrl
           ..audioUrlExpiry = DateTime.now().subtract(const Duration(hours: 1));

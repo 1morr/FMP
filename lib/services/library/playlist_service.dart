@@ -12,7 +12,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../download/download_path_utils.dart';
 import 'playlist_exceptions.dart';
-import 'playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 
 export 'playlist_exceptions.dart';
 
@@ -57,19 +57,19 @@ class PlaylistService with Logging {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
 
   PlaylistService({
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required Isar isar,
-    PlaylistMutationService? mutationService,
+    PlaylistMutationRepository? mutationService,
   })  : _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _mutationService =
-            mutationService ?? PlaylistMutationService(isar: isar);
+            mutationService ?? PlaylistMutationRepository(isar: isar);
 
   /// 获取所有歌单
   Future<List<Playlist>> getAllPlaylists() async {

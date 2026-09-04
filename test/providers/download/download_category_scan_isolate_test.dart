@@ -41,7 +41,7 @@ void main() {
 
       expect(dtos, hasLength(1));
       expect(track.sourceId, 'yt-1');
-      expect(track.sourceType, SourceType.youtube);
+      expect(track.sourceType, SourceIds.youtube);
       expect(track.title, 'Test Video');
       expect(track.artist, 'Tester');
       expect(

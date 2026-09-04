@@ -12,6 +12,7 @@ import '../../data/models/track.dart';
 import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'youtube_credentials.dart';
+import '../../data/repositories/account_repository.dart';
 
 /// YouTube 帳號服務實現
 ///
@@ -20,7 +21,7 @@ import 'youtube_credentials.dart';
 class YouTubeAccountService extends AccountService with Logging {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
-  final Isar _isar;
+  final AccountRepository _accounts;
   YouTubeCredentials? _cachedCredentials;
 
   static const String _storageKey = 'account_youtube_credentials';
@@ -37,15 +38,15 @@ class YouTubeAccountService extends AccountService with Logging {
   };
 
   YouTubeAccountService({required Isar isar})
-      : _isar = isar,
+      : _accounts = AccountRepository(isar),
         _secureStorage = const FlutterSecureStorage(),
         _dio = SourceHttpPolicy.createApiDio(
-          SourceType.youtube,
+          SourceIds.youtube,
           contentType: 'application/json',
         );
 
   @override
-  SourceType get platform => SourceType.youtube;
+  String get platform => SourceIds.youtube;
 
   // ===== 登錄 =====
 
@@ -119,10 +120,7 @@ class YouTubeAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _isar.accounts
-        .filter()
-        .platformEqualTo(SourceType.youtube)
-        .findFirst();
+    return _accounts.getByPlatform(SourceIds.youtube);
   }
 
   @override
@@ -542,23 +540,14 @@ class YouTubeAccountService extends AccountService with Logging {
     DateTime? loginAt,
     bool? isVip,
   }) async {
-    await _isar.writeTxn(() async {
-      var account = await _isar.accounts
-          .filter()
-          .platformEqualTo(SourceType.youtube)
-          .findFirst();
-
-      account ??= Account()..platform = SourceType.youtube;
-
-      if (isLoggedIn != null) account.isLoggedIn = isLoggedIn;
-      if (userId != null) account.userId = userId;
-      if (userName != null) account.userName = userName;
-      if (avatarUrl != null) account.avatarUrl = avatarUrl;
-      if (loginAt != null) account.loginAt = loginAt;
-      if (isVip != null) account.isVip = isVip;
-      account.lastRefreshed = DateTime.now();
-
-      await _isar.accounts.put(account);
-    });
+    await _accounts.upsert(
+      SourceIds.youtube,
+      isLoggedIn: isLoggedIn,
+      userId: userId,
+      userName: userName,
+      avatarUrl: avatarUrl,
+      loginAt: loginAt,
+      isVip: isVip,
+    );
   }
 }

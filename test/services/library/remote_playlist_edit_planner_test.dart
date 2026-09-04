@@ -7,7 +7,7 @@ void main() {
   group('RemotePlaylistEditResult', () {
     test('summary counts dedupe duplicate track and playlist IDs', () {
       final result = RemotePlaylistEditResult(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         confirmedAddedTrackIds: [1, 1, 2],
         confirmedRemovedTrackIds: [3, 3, 4],
         skippedTrackIds: [5, 5, 6],
@@ -40,7 +40,7 @@ void main() {
 
     test('failedTrackIds dedupes duplicate failures', () {
       final result = RemotePlaylistEditResult(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         failures: [
           RemotePlaylistEditFailure(
             trackId: 1,
@@ -67,7 +67,7 @@ void main() {
         'merge preserves deterministic first-result-then-other-result ordering',
         () {
       final result = RemotePlaylistEditResult(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         confirmedAddedTrackIds: [2, 1],
         confirmedRemovedTrackIds: [4, 3],
         skippedTrackIds: [6, 5],
@@ -81,7 +81,7 @@ void main() {
         changedRemotePlaylistIds: ['B', 'A'],
       ).merge(
         RemotePlaylistEditResult(
-          sourceType: SourceType.youtube,
+          sourceType: SourceIds.youtube,
           confirmedAddedTrackIds: [1, 9],
           confirmedRemovedTrackIds: [3, 10],
           skippedTrackIds: [5, 11],
@@ -104,11 +104,11 @@ void main() {
     });
 
     test('merge rejects different SourceTypes', () {
-      final result = RemotePlaylistEditResult(sourceType: SourceType.youtube);
+      final result = RemotePlaylistEditResult(sourceType: SourceIds.youtube);
 
       expect(
         () => result.merge(
-          RemotePlaylistEditResult(sourceType: SourceType.bilibili),
+          RemotePlaylistEditResult(sourceType: SourceIds.bilibili),
         ),
         throwsArgumentError,
       );
@@ -128,7 +128,7 @@ void main() {
       final changedRemotePlaylistIds = ['PL1'];
 
       final result = RemotePlaylistEditResult(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         confirmedAddedTrackIds: confirmedAddedTrackIds,
         confirmedRemovedTrackIds: confirmedRemovedTrackIds,
         skippedTrackIds: skippedTrackIds,
@@ -176,11 +176,11 @@ void main() {
   group('RemotePlaylistEditPlanner', () {
     test('plans add/remove transitions and missing tracks per playlist', () {
       final tracks = [
-        _track(SourceType.youtube, 1, 'a'),
-        _track(SourceType.youtube, 2, 'b'),
+        _track(SourceIds.youtube, 1, 'a'),
+        _track(SourceIds.youtube, 2, 'b'),
       ];
       final plan = RemotePlaylistEditPlanner.planSelectionEdit(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         tracks: tracks,
         selectedPlaylistIds: {'full', 'partial'},
         originalPlaylistIds: {'full', 'removed'},
@@ -200,24 +200,24 @@ void main() {
 
     test('represents mixed-source and logged-out tracks as skipped', () {
       final plan = RemotePlaylistEditPlanner.planSelectionEdit(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         tracks: [
-          _track(SourceType.youtube, 1, 'yt'),
-          _track(SourceType.bilibili, 2, 'BV'),
-          _track(SourceType.netease, 3, 'ne'),
+          _track(SourceIds.youtube, 1, 'yt'),
+          _track(SourceIds.bilibili, 2, 'BV'),
+          _track(SourceIds.netease, 3, 'ne'),
         ],
         selectedPlaylistIds: {'PL'},
         originalPlaylistIds: const {},
         deselectedPartialPlaylistIds: const {},
         existingTrackSourceIdsByPlaylist: const {},
-        isLoggedIn: (sourceType) => sourceType == SourceType.youtube,
+        isLoggedIn: (sourceType) => sourceType == SourceIds.youtube,
       );
 
       expect(plan.editableTracks.map((track) => track.id), [1]);
       expect(plan.skippedTrackIds, [2, 3]);
     });
     test('constructor defensively copies list map and nested set inputs', () {
-      final editableTracks = [_track(SourceType.youtube, 1, 'a')];
+      final editableTracks = [_track(SourceIds.youtube, 1, 'a')];
       final skippedTrackIds = [2];
       final playlistIdsToAdd = ['add'];
       final playlistIdsToRemove = ['remove'];
@@ -225,7 +225,7 @@ void main() {
       final existingTrackSourceIdsByPlaylist = {'partial': existingTrackIds};
 
       final plan = RemotePlaylistEditPlan(
-        sourceType: SourceType.youtube,
+        sourceType: SourceIds.youtube,
         editableTracks: editableTracks,
         skippedTrackIds: skippedTrackIds,
         playlistIdsToAdd: playlistIdsToAdd,
@@ -233,7 +233,7 @@ void main() {
         existingTrackSourceIdsByPlaylist: existingTrackSourceIdsByPlaylist,
       );
 
-      editableTracks.add(_track(SourceType.youtube, 3, 'b'));
+      editableTracks.add(_track(SourceIds.youtube, 3, 'b'));
       skippedTrackIds.add(3);
       playlistIdsToAdd.add('new-add');
       playlistIdsToRemove.add('new-remove');
@@ -246,7 +246,7 @@ void main() {
       expect(plan.playlistIdsToRemove, ['remove']);
       expect(plan.existingTrackSourceIdsByPlaylist.keys, ['partial']);
       expect(plan.existingTrackSourceIdsByPlaylist['partial'], {'a'});
-      expect(() => plan.editableTracks.add(_track(SourceType.youtube, 4, 'c')),
+      expect(() => plan.editableTracks.add(_track(SourceIds.youtube, 4, 'c')),
           throwsUnsupportedError);
       expect(() => plan.skippedTrackIds.add(4), throwsUnsupportedError);
       expect(
@@ -265,7 +265,7 @@ void main() {
   });
 }
 
-Track _track(SourceType sourceType, int id, String sourceId) => Track()
+Track _track(String sourceType, int id, String sourceId) => Track()
   ..id = id
   ..sourceType = sourceType
   ..sourceId = sourceId

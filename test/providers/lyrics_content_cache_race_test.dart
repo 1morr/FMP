@@ -53,7 +53,7 @@ void main() {
 
 Track _track(String sourceId) {
   return Track()
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..sourceId = sourceId
     ..title = 'Video Title';
 }

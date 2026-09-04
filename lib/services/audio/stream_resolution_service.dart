@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
+import '../../data/models/track_key.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/audio_stream_quality_fallback.dart';
@@ -178,7 +179,7 @@ class DefaultStreamResolutionService
     final source = _sourceManager.audioStreamSource(track.sourceType);
     if (source == null) {
       throw StateError(
-        'No audio stream source available for ${track.sourceType.name}',
+        'No audio stream source available for ${track.sourceType}',
       );
     }
 
@@ -234,7 +235,7 @@ class DefaultStreamResolutionService
     final source = _sourceManager.audioStreamSource(track.sourceType);
     if (source == null) {
       throw StateError(
-        'No audio stream source available for ${track.sourceType.name}',
+        'No audio stream source available for ${track.sourceType}',
       );
     }
 
@@ -290,7 +291,7 @@ class DefaultStreamResolutionService
       );
     } catch (error, stackTrace) {
       logError(
-        'Failed to prefetch audio URL for ${track.sourceType.name}:${track.sourceId}',
+        'Failed to prefetch audio URL for ${track.sourceType}:${track.sourceId}',
         error,
         stackTrace,
       );
@@ -369,7 +370,7 @@ class DefaultStreamResolutionService
   /// 不用 title：同名曲目在三個源之間分不開，而排查解析問題時要的正是
   /// 「哪一個源的哪一支 id」。與既有的 prefetch 錯誤訊息格式一致。
   String _describe(Track track) =>
-      '${track.sourceType.name}:${track.sourceId}';
+      TrackKey.formatGroup(track.sourceType, track.sourceId);
 
   Future<_StreamRequestContext> _buildRequestContext(
     Track track, {

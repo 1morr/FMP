@@ -1,5 +1,4 @@
 import '../../data/models/account.dart';
-import '../../data/models/track.dart';
 
 /// 帳號狀態
 enum AccountStatus { valid, invalid, error }
@@ -17,7 +16,7 @@ class AccountCheckResult {
 
 /// 帳號服務抽象接口（可擴展到 YouTube、網易雲等）
 abstract class AccountService {
-  SourceType get platform;
+  String get platform;
 
   /// 檢查是否已登錄
   Future<bool> isLoggedIn();

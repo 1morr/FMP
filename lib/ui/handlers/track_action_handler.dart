@@ -185,7 +185,7 @@ class MultiTrackActionHandler {
   Future<MultiTrackActionResult> handle(
     TrackAction action, {
     required List<Track> tracks,
-    required bool Function(SourceType sourceType) isLoggedIn,
+    required bool Function(String sourceType) isLoggedIn,
     required Future<void> Function() onAddToPlaylist,
     required Future<void> Function(List<Track> tracks) onAddToRemote,
   }) async {
@@ -228,7 +228,7 @@ class MultiTrackActionHandler {
 
         final skippedPlatforms = tracks
             .where((track) => !isLoggedIn(track.sourceType))
-            .map((track) => track.sourceType.displayName)
+            .map((track) => SourceIds.displayNameFor(track.sourceType))
             .toSet();
         if (skippedPlatforms.isNotEmpty) {
           _feedbackSink.showSkippedNotLoggedIn(skippedPlatforms);

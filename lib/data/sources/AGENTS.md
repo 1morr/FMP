@@ -91,7 +91,8 @@ header boundary; other subtrees cross-reference it rather than restating it.
   Availability: `st == -200` -> unavailable.
 - Audio URL expiry is 16 minutes. Requires `Referer: https://music.163.com/`.
 - Account login supports QR code and WebView cookie extraction; `MUSIC_U` is the
-  long-lived token. Default `useNeteaseAuthForPlay = true`.
+  long-lived token. Play auth defaults to on for Netease
+  (`kDefaultUseAuthForPlayBySource`, `lib/data/models/settings.dart`).
 
 ## External Playlist Import
 
@@ -200,11 +201,16 @@ fallback quality.
 
 Defaults:
 
-| Setting | Default | Rationale |
-|---------|---------|-----------|
-| `useBilibiliAuthForPlay` | `false` | Most content accessible without login |
-| `useYoutubeAuthForPlay` | `false` | Most content accessible without login |
-| `useNeteaseAuthForPlay` | `true` | Most songs require login for audio URLs |
+Read and write these through `Settings.useAuthForPlay(sourceId)` /
+`setUseAuthForPlay(sourceId, value)`; the defaults live in
+`kDefaultUseAuthForPlayBySource`. The three `use*AuthForPlay` columns still
+exist but are `@Deprecated` and read only by the v1 to v2 migration.
+
+| Source | Play auth default | Rationale |
+|--------|-------------------|-----------|
+| `SourceIds.bilibili` | `false` | Most content accessible without login |
+| `SourceIds.youtube` | `false` | Most content accessible without login |
+| `SourceIds.netease` | `true` | Most songs require login for audio URLs |
 
 `SourceAuthContext` (`lib/services/account/`) owns source auth gates and
 implements narrow purpose interfaces — `SourcePlaybackAuthContext`,

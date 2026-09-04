@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/play_queue.dart';
@@ -403,7 +404,7 @@ class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(

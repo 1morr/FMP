@@ -96,7 +96,7 @@ void main() {
         id: 'netease-song-1',
         source: 'netease',
       );
-      final track = _track('netease-song-1')..sourceType = SourceType.netease;
+      final track = _track('netease-song-1')..sourceType = SourceIds.netease;
 
       final matched = await service.tryAutoMatch(
         track,
@@ -122,7 +122,7 @@ void main() {
         id: 'netease-disabled',
         source: 'netease',
       );
-      final track = _track('netease-disabled')..sourceType = SourceType.netease;
+      final track = _track('netease-disabled')..sourceType = SourceIds.netease;
 
       final matched = await service.tryAutoMatch(
         track,
@@ -147,7 +147,7 @@ void main() {
         plainLyrics: 'plain line',
       );
       final track = _track('netease-plain-default')
-        ..sourceType = SourceType.netease;
+        ..sourceType = SourceIds.netease;
 
       final matched = await service.tryAutoMatch(
         track,
@@ -179,7 +179,7 @@ void main() {
         plainLyrics: 'plain line',
       );
       final track = _track('netease-plain-allowed')
-        ..sourceType = SourceType.netease;
+        ..sourceType = SourceIds.netease;
 
       final matched = await service.tryAutoMatch(
         track,
@@ -213,7 +213,7 @@ void main() {
         plainLyrics: '',
       );
       final track = _track('netease-empty-plain')
-        ..sourceType = SourceType.netease;
+        ..sourceType = SourceIds.netease;
 
       final matched = await service.tryAutoMatch(
         track,
@@ -348,7 +348,7 @@ void main() {
         () async {
       parser.artistName = null;
       final track = _track('netease-artist')
-        ..sourceType = SourceType.netease
+        ..sourceType = SourceIds.netease
         ..artist = 'Real Artist';
 
       final matched = await service.tryAutoMatch(
@@ -506,7 +506,7 @@ void main() {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'Song Name'
     ..artist = 'Singer'
     ..durationMs = 180000;

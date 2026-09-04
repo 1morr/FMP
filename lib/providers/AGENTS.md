@@ -42,9 +42,9 @@ Rules:
 - Ranking cache UI must watch the immutable `RankingCacheState` from
   `rankingCacheServiceProvider`; refresh/timer methods go through
   `.notifier`, not by reading mutable service snapshot lists. The cache stores
-  lists by `SourceType`, so home/explore providers derive their lists from
+  lists by source id, so home/explore providers derive their lists from
   `tracksFor(sourceType)` / `isLoaded(sourceType)` / `errorFor(sourceType)`.
-  `refreshSource(SourceType)` is the only refresh entry point; the cache is
+  `refreshSource(String sourceType)` is the only refresh entry point; the cache is
   built from whatever `SourceManager` registers a `RankingSource` for, so
   neither the service nor this provider names individual sources.
 - Fire-and-forget imported playlist refresh must use the named remote sync path
@@ -59,6 +59,38 @@ Rules:
   providers consume that provider directly; download providers must not import
   `lib/services/audio/audio_provider.dart` just to resolve streams.
 
+## Riverpod 3
+
+FMP is on `flutter_riverpod` 3.x. Four rules follow from its behaviour changes.
+
+- **Legacy providers come from a second import.** `StateNotifier`,
+  `StateNotifierProvider`, `StateProvider`, `StateController` and
+  `ChangeNotifierProvider` live in `package:flutter_riverpod/legacy.dart`; add it
+  alongside the main barrel. `KeepAliveLink`, `Override`, `ProviderOrFamily`,
+  `ProviderListenable` and `ProviderException` live in
+  `package:flutter_riverpod/misc.dart`. Rewriting the remaining
+  `StateNotifierProvider`s into `Notifier` is a separate, later change — do not
+  start it opportunistically.
+- **Automatic retry is off, globally.** `ProviderScope` in `lib/main.dart` passes
+  `retry: (retryCount, error) => null`. Retry belongs where it is visible and
+  testable: `SourceHttpPolicy`/Dio for network calls, and `AudioController`'s
+  measured load budget for playback. Do not re-enable it per provider without
+  reconciling it against those two.
+- **A provider that performs a side effect must be anchored above
+  `MaterialApp`** — by a `ref.watch` in `FMPApp.build` (`lib/app.dart`) or by a
+  `ref.listen`. Never anchor one by a `ref.watch` on a page. Riverpod 3 pauses
+  the `ref.watch` subscriptions of consumers whose subtree sits under a
+  disabled `TickerMode` (an `Overlay` entry covered by an opaque route), so a
+  page-anchored side effect stops when the user opens the full-screen player.
+  `ref.listen` subscriptions are never paused.
+- **`Ref` is a sealed class.** Tests cannot fake it. Use
+  `test/support/riverpod_test_ref.dart` (`createTestRef`), which hands back a
+  real `Ref` from a `ProviderContainer`, and replace dependencies with
+  `overrides` rather than by overriding `read`.
+- **Errors thrown by a provider arrive wrapped in `ProviderException`**; the
+  original is in `.exception`. Assertions and `catch` blocks that match on a
+  concrete exception type must unwrap it first.
+
 ## Database Startup And Migration
 
 This file owns the open/registration wiring; `lib/data/AGENTS.md` owns the
@@ -70,7 +102,23 @@ This file owns the open/registration wiring; `lib/data/AGENTS.md` owns the
   `fmp_database` directly from `getApplicationDocumentsDirectory()` elsewhere.
 - Collection registration is catalog-owned in
   `lib/providers/database/database_catalog.dart`. `database_provider.dart` owns
-  opening, migration/default repair (`_migrateDatabase()`), and path handling.
+  opening and path handling; `database_migration.dart` owns migration.
+- `database_migration.dart` separates two things that used to be one:
+  - **Versioned steps** (`fmpMigrationSteps`, gated on `Settings.schemaVersion`)
+    run once each, in order, and stamp the version. Add a step and bump
+    `kFmpSchemaVersion` together.
+  - **Invariants** (`repairSettingsInvariants`, `hasUnwrittenQueueSignature`)
+    run on every launch regardless of version. They also defend against a bad
+    backup import and a downgrade round-trip, so never version-gate them.
+- Steps so far: v0 to v1 rewrites every `PlayHistory` row so the `trackKey`
+  index exists; v1 to v2 folds the six per-source `Settings` columns into
+  `sourceSettings`. The v1 to v2 step **copies without clearing** — the old
+  columns stay populated so installing an older build back over the database
+  keeps per-source settings. They are `@Deprecated` and
+  `deprecated_member_use_from_same_package` makes "only the migration reads
+  them" a compiler rule rather than a convention.
+- Read the stored version through `effectiveSchemaVersion()`, never the raw
+  field: Isar returns `Isar.minLong` for an int column an old row does not have.
 - `runDatabaseMigrationForTesting()` is the test hook.
 - Home ranking settings fields must stay in sync with migration/default repair.
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -779,7 +780,7 @@ class AudioController extends StateNotifier<PlayerState>
     } on SourceApiException catch (e) {
       // 音源 API 错误：尝试恢复原队列
       logWarning(
-          '${e.sourceType.name} API error for temporary track ${track.title}: ${e.message}');
+          '${e.sourceType} API error for temporary track ${track.title}: ${e.message}');
       if (_shouldSkipSourceError(e)) {
         _toastService.showWarning(_sourceCannotPlayMessage(track, e));
       } else {
@@ -881,7 +882,7 @@ class AudioController extends StateNotifier<PlayerState>
       logInfo('$debugLabel completed successfully');
     } on SourceApiException catch (e) {
       logWarning(
-          '$debugLabel failed: ${e.sourceType.name} API error: ${e.message}');
+          '$debugLabel failed: ${e.sourceType} API error: ${e.message}');
       if (clearSavedState) {
         _context = _context.copyWith(clearSavedState: true);
       }
@@ -1470,11 +1471,48 @@ class AudioController extends StateNotifier<PlayerState>
   /// 设置音频输出设备
   Future<void> setAudioDevice(FmpAudioDevice device) async {
     await _audioService.setAudioDevice(device);
+    await _settingsRepository?.update((s) {
+      s.preferredAudioDeviceId = device.name;
+      s.preferredAudioDeviceName = device.description;
+    });
   }
 
   /// 设置为自动选择音频设备（跟随系统默认）
   Future<void> setAudioDeviceAuto() async {
     await _audioService.setAudioDeviceAuto();
+    await _settingsRepository?.update((s) {
+      s.preferredAudioDeviceId = null;
+      s.preferredAudioDeviceName = null;
+    });
+  }
+
+  /// 裝置清單就緒之後套用記住的輸出裝置。
+  ///
+  /// 只在啟動後套用一次：之後使用者自己選的裝置優先，而且裝置清單會因為
+  /// 插拔而反覆變動，每次都套用會把使用者的當下選擇蓋掉。
+  bool _restoredPreferredAudioDevice = false;
+
+  Future<void> _restorePreferredAudioDevice(
+      List<FmpAudioDevice> devices) async {
+    if (_restoredPreferredAudioDevice || devices.isEmpty) return;
+    final repo = _settingsRepository;
+    if (repo == null) return;
+    _restoredPreferredAudioDevice = true;
+
+    final settings = await repo.get();
+    final preferredId = settings.preferredAudioDeviceId;
+    if (preferredId == null || preferredId.isEmpty) return;
+    if (_isDisposed) return;
+
+    // 裝置可能已經拔掉了 —— 找不到就維持系統預設，不要把設定清掉，
+    // 使用者把耳機插回來時還會想要它。
+    final match = devices.where((d) => d.name == preferredId).firstOrNull;
+    if (match == null) {
+      logInfo('Preferred audio device "$preferredId" is not connected');
+      return;
+    }
+    logInfo('Restoring preferred audio device: ${match.name}');
+    await _audioService.setAudioDevice(match);
   }
 
   // ========== 基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）========== //
@@ -2295,7 +2333,7 @@ class AudioController extends StateNotifier<PlayerState>
           '_executePlayRequest completed successfully for: ${track.title}');
     } on SourceApiException catch (e) {
       logWarning(
-          '${e.sourceType.name} API error for ${track.title}: ${e.message}');
+          '${e.sourceType} API error for ${track.title}: ${e.message}');
       // 网络错误和超时：走重试逻辑，而非通用错误处理
       if (_shouldRetrySourceError(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
@@ -2362,7 +2400,7 @@ class AudioController extends StateNotifier<PlayerState>
       Track track, SourceApiException e, PlayMode mode, int requestId) async {
     final cannotPlayMessage = _sourceCannotPlayMessage(track, e);
     if (_shouldSkipSourceError(e)) {
-      logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
+      logInfo('Track unavailable (${e.sourceType}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
         _resetLoadingState(requestId: requestId);
@@ -2393,7 +2431,7 @@ class AudioController extends StateNotifier<PlayerState>
         _toastService.showError(cannotPlayMessage);
       }
     } else if (e.kind == SourceErrorKind.rateLimited) {
-      logWarning('Rate limited (${e.sourceType.name}): ${track.title}');
+      logWarning('Rate limited (${e.sourceType}): ${track.title}');
       state = state.copyWith(
         error: e.message,
         isLoading: false,
@@ -2434,7 +2472,7 @@ class AudioController extends StateNotifier<PlayerState>
       SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
       SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
       SourceErrorKind.permissionDenied =>
-        error.sourceType == SourceType.bilibili
+        error.sourceType == SourceIds.bilibili
             ? t.audio.sourceErrorBilibiliPermissionDenied
             : t.audio.sourceErrorPermissionDenied,
       SourceErrorKind.network => t.audio.sourceErrorNetwork,
@@ -3122,6 +3160,7 @@ class AudioController extends StateNotifier<PlayerState>
     if (_isDisposed) return;
     logDebug('Audio devices updated: ${devices.length} devices');
     state = state.copyWith(audioDevices: devices, error: state.error);
+    unawaited(_restorePreferredAudioDevice(devices));
   }
 
   void _onAudioDeviceChanged(FmpAudioDevice? device) {
@@ -3443,7 +3482,7 @@ final audioControllerProvider =
     queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
     mixTracksFetcher: ref
         .watch(sourceManagerProvider)
-        .dynamicPlaylistSource(SourceType.youtube)
+        .dynamicPlaylistSource(SourceIds.youtube)
         ?.fetchMixTracks,
     runtimePlatform: runtimePlatform,
   );

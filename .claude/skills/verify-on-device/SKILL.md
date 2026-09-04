@@ -145,6 +145,13 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 
 ## 7. Known limitations
 
+- **`adb shell input text` silently composes instead of committing when
+  Gboard's active language is Zhuyin**, which is the default on this AVD. The
+  characters land in the candidate strip, the Flutter field stays empty, and the
+  semantics tree shows an empty `EditText` either way — so it looks like the tap
+  missed. Screenshot the keyboard to spot it: the spacebar reads `注音`. Tap the
+  globe key (bottom-right) to switch to English, then retype. This applies to
+  plain ASCII, so it is a separate problem from the CJK limitation below.
 - **Non-ASCII input on Android is unavailable.** `orca emulator type` shells out
   to `adb shell input text`, which throws `NullPointerException` on CJK. Three
   workarounds were tested and all failed on SDK 37: ADBKeyboard (broadcast
@@ -158,6 +165,29 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 - Android's 16 KB page-size dialog appears on first launch on modern emulator
   images (`libisar.so` LOAD segment not aligned). Dismiss it via `ax` before
   asserting on the first screen.
+
+### Measured during the phase 3 acceptance run
+
+- **Back at the root route exits the app; it does not background it.** Use
+  `adb shell input keyevent 3` (HOME) to background. Pressing back and then
+  relaunching from the launcher restarts the process and loses playback, which
+  reads as "playback stopped in the background" if you are not watching for it.
+- **`dumpsys media_session` is the cheapest continuous playback probe.** Grep for
+  `state=PLAYING(3), position=` — position is in ms and advances monotonically,
+  so polling it every minute shows both continuity and the wrap-around at a
+  track/loop boundary without any UI interaction.
+- **Setting up state the UI cannot reach: use `ext.isar.editProperty`.** The
+  download path can only be chosen through the Android SAF picker, which does
+  not respond to synthetic taps. Writing `Settings.customDownloadDir` through the
+  Isar inspector extension sets up the precondition without faking the thing
+  being verified. See `docs/debugging-with-vm-service.md` §5.
+- **A directory created with `adb shell mkdir` belongs to `shell`, not the app**,
+  so the app gets `PathAccessException ... errno = 13`. Create it with
+  `adb shell run-as <package> mkdir -p files/<dir>` and point the setting at
+  `/data/user/0/<package>/files/<dir>`.
+- **Git Bash rewrites `/storage/...` and `/sdcard/...` into Windows paths.**
+  Prefix `adb shell` calls with `MSYS_NO_PATHCONV=1`, or the argument arrives as
+  `C:/Program Files/Git/storage/...`.
 
 ### Measured during the round-02 playback audit
 
@@ -195,6 +225,80 @@ observation on the emulator is worth.
 - **CMake scratch projects must not sit deep in the path.** Building a probe
   under the session scratchpad exceeds the Windows path limit and fails with
   confusing compiler errors. Use a short root such as `C:/t/`.
+
+### Driving the Windows build (measured in the phase 3 Windows run)
+
+§6 says Windows gives you screenshots and window coordinates only. That is still
+true of the Flutter view — but the round that wrote §6 concluded the window
+could not be driven at all, and that was wrong. It can. The missing step was
+raising the window first.
+
+- **Pass `--restore-window` on every click, scroll and capture.**
+  `orca computer get-app-state --app pid:<n>` reports
+  `coordinateSpace: "window"`, so `--x/--y` are window-local and correct — but
+  without the flag the operation lands on whatever is topmost at that screen
+  point, and `get-app-state` screenshots whatever is on top, which in this run
+  meant capturing one of the user's unrelated windows. `--restore-window`
+  brings the target forward first and is the whole fix.
+  Win32 `SetForegroundWindow` + `AttachThreadInput` also works, but only
+  sometimes — it silently no-ops when the foreground-lock rules say no, and the
+  next capture is then of the wrong window. Prefer the flag; if you do use
+  Win32, assert `GetForegroundWindow()` returns your HWND before you click.
+- **Pin the window with `--window-id`.** An app can own several top-level
+  windows (FMP has the SMTC message window and two IME windows), and a modal
+  file dialog is a window of its own.
+- **Native dialogs *do* expose a full UIA tree.** The Flutter view is still
+  `window > pane FLUTTERVIEW`, but a `FilePicker.saveFile` dialog comes back
+  with ~100 real elements. Address it with `--window-id` from
+  `orca computer list-windows` and click by `--element-index`. Both file exports
+  (backup, log) were driven this way.
+- **The save dialog's filename field rejects `set-value`**
+  (`value_not_settable`), and `orca computer hotkey Control+a` does not reach
+  it. What works: click the field's element, then `Set-Clipboard` the full path
+  and send Ctrl+A / Ctrl+V with Win32 `keybd_event`. Typing a full path into the
+  filename box is how you redirect an export away from the user's Documents.
+- **`orca computer scroll` needs `--pages`.** There is no `--amount`; passing
+  one is silently ignored and nothing scrolls.
+- **Global hotkeys are the one input path that needs no focus at all.**
+  `RegisterHotKey` combinations are swallowed by the system and delivered only
+  to the registering app, so `keybd_event` cannot leak them into another window.
+  **Read `Settings.hotkeyConfig` first** — it is a JSON string of custom
+  bindings and the user's may differ from `HotkeyConfig.defaults()`. Decode the
+  `keyId` numbers against `keyboard_key.g.dart`; in this run `toggleWindow` was
+  Alt + numpadDivide (`0x20000022f`), not the default Ctrl+Alt+W.
+- **`WM_CLOSE` to the main HWND is the honest "user clicked X".** `PostMessage`
+  it to the specific window handle — no coordinates, nothing else on the desktop
+  touched. With `minimizeToTrayOnClose`, `IsWindowVisible` flips to false while
+  the process stays alive; that pair is the tray assertion.
+
+### Getting media to play when every source is blocked
+
+Playback verification needs playing media, and all three sources can be
+unavailable at once on a dev machine (Bilibili `playurl` answering HTTP 412
+`request was banned`, YouTube demanding sign-in, and a library with nothing
+downloaded). `Track.audioUrl` does not rescue you — the reuse cache
+(`stream_resolution_service.dart:326`) also requires an in-memory entry.
+
+What works offline: `_inspectLocalFiles` (`:428`) plays the first
+`Track.allDownloadPaths` entry that exists on disk, with **no playlist-id
+match** and no network. Generate a long near-silent WAV, point one track's
+`playlistInfo[].downloadPath` at it, and playback is real, local, and silent.
+Save the original `playlistInfo` first and put it back afterwards.
+
+Two traps around that:
+
+- **Orphan cleanup deletes tracks you swap out of the queue.** `QueueManager`
+  runs `TrackRepository.deleteOrphanTracks` ~10 s after start, excluding only
+  the current queue. A track that is in no playlist and no longer in the queue
+  is **gone** — this run destroyed a leftover test track that way.
+- **A DB edit under a running app is not durable.** See the write-race note in
+  `docs/debugging-with-vm-service.md` §5: reading the new value back proves
+  nothing. Kill the process immediately after the edit, or make the change
+  through the app's own UI. Restoring the play queue at the end only stuck once
+  it went through the queue page's clear button and the mini player's loop
+  toggle.
+- **The VM Service URI scrolls out of the terminal tail.** Read it with
+  `orca terminal read --cursor 0 --limit 5000`, not from the default tail.
 
 ## 8. Tear down
 

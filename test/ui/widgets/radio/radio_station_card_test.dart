@@ -13,7 +13,7 @@ void main() {
       ..id = 1
       ..url = 'https://example.com/1'
       ..title = 'Test Station'
-      ..sourceType = SourceType.bilibili
+      ..sourceType = SourceIds.bilibili
       ..sourceId = '1'
       ..hostName = hostName;
   }

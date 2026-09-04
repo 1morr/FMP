@@ -7,11 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../data/models/playlist.dart';
+import '../../../core/logger.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
+import '../../../providers/settings/developer_options_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -19,6 +20,8 @@ import '../../../services/cache/ranking_cache_service.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../debug/youtube_stream_test_page.dart';
+import '../../../data/repositories/repositories.dart';
+import '../../../providers/database/database_migration.dart';
 
 /// 开发者选项页面
 class DeveloperOptionsPage extends ConsumerWidget {
@@ -44,6 +47,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(RouteNames.logViewer),
               ),
+              const _LogLevelTile(),
               ListTile(
                 leading: const Icon(Icons.storage_outlined),
                 title: Text(t.settings.developerOptions.dbViewer),
@@ -143,8 +147,8 @@ class _DatabaseInfoTile extends ConsumerWidget {
     final file = File(dbPath);
     final size = await file.exists() ? await file.length() : 0;
 
-    final trackCount = await isar.tracks.count();
-    final playlistCount = await isar.playlists.count();
+    final trackCount = await TrackRepository(isar).count();
+    final playlistCount = await PlaylistRepository(isar).count();
 
     return _DatabaseInfo(
       path: dir.path,
@@ -220,11 +224,11 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
       final queueTrackCount = ref.read(queueProvider).length;
       final rankingCache = ref.read(rankingCacheServiceProvider);
       final bilibiliCacheCount =
-          rankingCache.tracksFor(SourceType.bilibili).length;
+          rankingCache.tracksFor(SourceIds.bilibili).length;
       final youtubeCacheCount =
-          rankingCache.tracksFor(SourceType.youtube).length;
+          rankingCache.tracksFor(SourceIds.youtube).length;
       final neteaseCacheCount =
-          rankingCache.tracksFor(SourceType.netease).length;
+          rankingCache.tracksFor(SourceIds.netease).length;
 
       // 歌词缓存
       int lyricsCacheCount = 0;
@@ -558,12 +562,10 @@ class _ResetDataTile extends ConsumerWidget {
       final isar = await ref.read(databaseProvider.future);
 
       // 清空所有集合
-      await isar.writeTxn(() async {
-        await isar.clear();
-      });
+      await DataIntegrityRepository(isar).clearEverything();
 
       // 重新创建默认数据
-      await initializeDatabaseDefaults(isar);
+      await runDatabaseMigration(isar);
 
       if (!context.mounted) return;
       ToastService.success(
@@ -606,6 +608,39 @@ class _SettingsSection extends StatelessWidget {
         ),
         ...children,
       ],
+    );
+  }
+}
+
+/// 執行期的最小日誌級別。調高之後落盤的 log 也跟著變少。
+class _LogLevelTile extends ConsumerWidget {
+  const _LogLevelTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final level = ref.watch(
+      developerOptionsProvider.select((state) => state.logLevel),
+    );
+
+    return ListTile(
+      leading: const Icon(Icons.tune),
+      title: Text(t.settings.developerOptions.logLevel),
+      subtitle: Text(t.settings.developerOptions.logLevelSubtitle),
+      trailing: DropdownButton<LogLevel>(
+        value: level,
+        underline: const SizedBox.shrink(),
+        onChanged: (next) {
+          if (next == null) return;
+          ref.read(developerOptionsProvider.notifier).setLogLevel(next);
+        },
+        items: [
+          for (final option in LogLevel.values)
+            DropdownMenuItem(
+              value: option,
+              child: Text(option.name.toUpperCase()),
+            ),
+        ],
+      ),
     );
   }
 }

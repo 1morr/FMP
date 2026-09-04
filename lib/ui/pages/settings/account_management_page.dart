@@ -73,9 +73,9 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
                 : t.account.bilibiliNotVip,
             vipIcon: Icons.verified_outlined,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
-            onLogout: () => _confirmLogout(SourceType.bilibili),
+            onLogout: () => _confirmLogout(SourceIds.bilibili),
             onManagePlaylists: () =>
-                _showPlaylistSheet(context, SourceType.bilibili),
+                _showPlaylistSheet(context, SourceIds.bilibili),
             onImportRadio: () => _showRadioImportSheet(context),
           ),
           const SizedBox(height: 12),
@@ -95,9 +95,9 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
                 : t.account.youtubeNotVip,
             vipIcon: Icons.workspace_premium_outlined,
             onLogin: () => context.push(RoutePaths.youtubeLogin),
-            onLogout: () => _confirmLogout(SourceType.youtube),
+            onLogout: () => _confirmLogout(SourceIds.youtube),
             onManagePlaylists: () =>
-                _showPlaylistSheet(context, SourceType.youtube),
+                _showPlaylistSheet(context, SourceIds.youtube),
           ),
           const SizedBox(height: 12),
           // 網易雲卡片
@@ -115,9 +115,9 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
                 ? t.account.neteaseVip
                 : t.account.neteaseNotVip,
             onLogin: () => context.push(RoutePaths.neteaseLogin),
-            onLogout: () => _confirmLogout(SourceType.netease),
+            onLogout: () => _confirmLogout(SourceIds.netease),
             onManagePlaylists: () =>
-                _showPlaylistSheet(context, SourceType.netease),
+                _showPlaylistSheet(context, SourceIds.netease),
           ),
         ],
       ),
@@ -140,7 +140,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
       final result = await verifyAllAccountStatuses(services, toastService);
       if (result.hasFailures) {
         final platforms = result.failedPlatforms
-            .map((platform) => platform.displayName)
+            .map((platform) => SourceIds.displayNameFor(platform))
             .join(', ');
         toastService.showWarning(
           t.account.accountsVerifiedWithFailures(platforms: platforms),
@@ -155,8 +155,8 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
     }
   }
 
-  Future<void> _confirmLogout(SourceType platform) async {
-    final platformName = platform.displayName;
+  Future<void> _confirmLogout(String platform) async {
+    final platformName = SourceIds.displayNameFor(platform);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -177,11 +177,11 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
 
     if (confirmed == true) {
       switch (platform) {
-        case SourceType.bilibili:
+        case SourceIds.bilibili:
           await ref.read(bilibiliAccountServiceProvider).logout();
-        case SourceType.youtube:
+        case SourceIds.youtube:
           await ref.read(youtubeAccountServiceProvider).logout();
-        case SourceType.netease:
+        case SourceIds.netease:
           await ref.read(neteaseAccountServiceProvider).logout();
       }
       if (mounted) {
@@ -190,7 +190,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
     }
   }
 
-  void _showPlaylistSheet(BuildContext context, SourceType platform) {
+  void _showPlaylistSheet(BuildContext context, String platform) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

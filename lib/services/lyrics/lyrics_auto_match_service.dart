@@ -101,7 +101,7 @@ class LyricsAutoMatchService with Logging {
       }
 
       // 1.5a. 网易云歌曲直接用 sourceId 获取歌词（跳过搜索）
-      if (track.sourceType == SourceType.netease &&
+      if (track.sourceType == SourceIds.netease &&
           enabledSourceSet.contains('netease')) {
         try {
           final result = await _netease
@@ -577,7 +577,7 @@ class LyricsAutoMatchService with Logging {
 
       await titleParseCacheRepo.save(
         trackUniqueKey: track.uniqueKey,
-        sourceType: track.sourceType.name,
+        sourceType: track.sourceType,
         parsedTrackName: parsed.trackName,
         parsedArtistName: parsed.artistName,
         confidence: parsed.artistConfidence,

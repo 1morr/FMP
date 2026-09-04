@@ -13,7 +13,7 @@ void main() {
   group('Phase 4 Task 4 play history providers', () {
     test('play history providers expose a shared snapshot provider', () {
       final source = playHistorySnapshotProvider;
-      expect(source, isA<AutoDisposeStreamProvider<List<PlayHistory>>>());
+      expect(source, isA<StreamProvider<List<PlayHistory>>>());
     });
 
     test('filtered and grouped history derive from one shared snapshot stream',
@@ -45,6 +45,13 @@ void main() {
       );
       addTearDown(container.dispose);
       addTearDown(repository.dispose);
+
+      // Riverpod 3 下，對 autoDispose provider 只做 `read(.future)` 不會維持
+      // 訂閱 —— 串流還在 loading 就被 dispose 了。抓一個真的訂閱在手上，
+      // 這也才是這條測試想斷言的事：兩個衍生 provider 共用同一條快照串流。
+      final subscription =
+          container.listen(playHistorySnapshotProvider, (_, _) {});
+      addTearDown(subscription.close);
 
       await container.read(playHistorySnapshotProvider.future);
       final grouped = container.read(groupedPlayHistoryProvider).requireValue;
@@ -135,7 +142,7 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
 
   @override
   Future<List<PlayHistory>> loadHistorySnapshot({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     DateTime? startDate,
     DateTime? endDate,
     String? searchKeyword,
@@ -212,7 +219,7 @@ PlayHistory _history({
   return PlayHistory()
     ..id = id
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..playedAt = playedAt;
 }

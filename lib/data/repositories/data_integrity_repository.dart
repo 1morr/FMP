@@ -1,10 +1,10 @@
 import 'package:isar_community/isar.dart';
 
-import '../../data/models/account.dart';
-import '../../data/models/download_task.dart';
-import '../../data/models/play_queue.dart';
-import '../../data/models/track.dart';
-import '../library/playlist_mutation_service.dart';
+import '../models/account.dart';
+import '../models/download_task.dart';
+import '../models/play_queue.dart';
+import '../models/track.dart';
+import 'playlist_mutation_repository.dart';
 
 class DataIntegrityReport {
   const DataIntegrityReport({
@@ -16,7 +16,7 @@ class DataIntegrityReport {
 
   final List<String> duplicateTrackKeys;
   final List<String> duplicateDownloadSavePaths;
-  final List<SourceType> duplicateAccountPlatforms;
+  final List<String> duplicateAccountPlatforms;
   final int playQueueCount;
 
   bool get hasIssues =>
@@ -40,16 +40,21 @@ class DataIntegrityRepairResult {
   final List<int> removedPlayQueueIds;
 }
 
-class DataIntegrityService {
-  DataIntegrityService(
+class DataIntegrityRepository {
+  DataIntegrityRepository(
     Isar isar, {
-    PlaylistMutationService? mutationService,
+    PlaylistMutationRepository? mutationService,
   })  : _isar = isar,
         _mutationService =
-            mutationService ?? PlaylistMutationService(isar: isar);
+            mutationService ?? PlaylistMutationRepository(isar: isar);
 
   final Isar _isar;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
+
+  /// 清空所有集合。開發者選項的「重設所有資料」唯一的入口。
+  Future<void> clearEverything() async {
+    await _isar.writeTxn(() => _isar.clear());
+  }
 
   Future<DataIntegrityReport> scan() async {
     final tracks = await _isar.tracks.where().findAll();

@@ -1,5 +1,4 @@
 import 'package:isar_community/isar.dart';
-import 'track.dart';
 
 part 'playlist.g.dart';
 
@@ -25,8 +24,7 @@ class Playlist {
   String? sourceUrl;
 
   /// 导入源类型
-  @Enumerated(EnumType.name)
-  SourceType? importSourceType;
+  String? importSourceType;
 
   /// 刷新间隔（小时）
   int? refreshIntervalHours;

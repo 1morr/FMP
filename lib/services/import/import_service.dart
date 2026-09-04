@@ -10,7 +10,7 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
 import '../account/source_auth_context.dart';
-import '../library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import 'youtube_mix_shorthand.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -109,8 +109,7 @@ class ImportService with Logging implements ImportServiceFacade {
   final SourceManager _sourceManager;
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
-  final Isar _isar;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
   final PlaylistAuthContext _sourceAuthContext;
 
   // 导入进度流
@@ -152,14 +151,13 @@ class ImportService with Logging implements ImportServiceFacade {
     required TrackRepository trackRepository,
     required Isar isar,
     required PlaylistAuthContext sourceAuthContext,
-    PlaylistMutationService? mutationService,
+    PlaylistMutationRepository? mutationService,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
-        _isar = isar,
         _sourceAuthContext = sourceAuthContext,
         _mutationService = mutationService ??
-            PlaylistMutationService(
+            PlaylistMutationRepository(
               isar: isar,
             );
 
@@ -375,7 +373,7 @@ class ImportService with Logging implements ImportServiceFacade {
           ..description = t.importSource.mixPlaylistDescription
           ..coverUrl = mixInfo.coverUrl
           ..sourceUrl = url
-          ..importSourceType = SourceType.youtube
+          ..importSourceType = SourceIds.youtube
           ..isMix = true
           ..mixPlaylistId = mixInfo.playlistId
           ..mixSeedVideoId = mixInfo.seedVideoId
@@ -637,11 +635,7 @@ class ImportService with Logging implements ImportServiceFacade {
   /// 生成唯一歌单名称，同名时自动添加后缀 (2), (3), ...
   Future<String> _generateUniqueName(String baseName) async {
     // Single query: fetch all names starting with baseName
-    final existingNames = await _isar.playlists
-        .filter()
-        .nameStartsWith(baseName)
-        .nameProperty()
-        .findAll();
+    final existingNames = await _playlistRepository.namesStartingWith(baseName);
     final nameSet = existingNames.toSet();
 
     if (!nameSet.contains(baseName)) return baseName;

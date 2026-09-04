@@ -2,6 +2,8 @@ import 'dart:io';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/settings.dart';
+import '../../data/models/source_ids.dart';
+import '../../data/models/track_key.dart';
 
 /// 备份数据模型
 /// 导出数据的根结构
@@ -302,8 +304,7 @@ class TrackBackup {
   });
 
   /// 生成唯一键（用于匹配）
-  String get uniqueKey =>
-      cid != null ? '$sourceType:$sourceId:$cid' : '$sourceType:$sourceId';
+  String get uniqueKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   factory TrackBackup.fromJson(Map<String, dynamic> json) {
     return TrackBackup(
@@ -383,8 +384,7 @@ class PlayHistoryBackup {
   });
 
   /// 生成唯一键（用于去重）
-  String get trackKey =>
-      cid != null ? '$sourceType:$sourceId:$cid' : '$sourceType:$sourceId';
+  String get trackKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   factory PlayHistoryBackup.fromJson(Map<String, dynamic> json) {
     return PlayHistoryBackup(
@@ -452,7 +452,6 @@ class RadioStationBackup {
   final DateTime createdAt;
   final DateTime? lastPlayedAt;
   final bool isFavorite;
-  final String? note;
 
   RadioStationBackup({
     required this.url,
@@ -467,7 +466,6 @@ class RadioStationBackup {
     required this.createdAt,
     this.lastPlayedAt,
     this.isFavorite = false,
-    this.note,
   });
 
   factory RadioStationBackup.fromJson(Map<String, dynamic> json) {
@@ -486,7 +484,6 @@ class RadioStationBackup {
           ? DateTime.parse(json['lastPlayedAt'] as String)
           : null,
       isFavorite: json['isFavorite'] as bool? ?? false,
-      note: json['note'] as String?,
     );
   }
 
@@ -504,7 +501,6 @@ class RadioStationBackup {
       'createdAt': createdAt.toIso8601String(),
       if (lastPlayedAt != null) 'lastPlayedAt': lastPlayedAt!.toIso8601String(),
       'isFavorite': isFavorite,
-      if (note != null) 'note': note,
     };
   }
 }
@@ -528,14 +524,72 @@ int _normalizeLyricsAiTimeoutSeconds(int? timeoutSeconds) {
 }
 
 /// 设置备份数据
+/// 備份格式裡的單一音源設定。
+///
+/// v4 起取代 `youtubeStreamPriority` / `useBilibiliAuthForPlay` 那六個具名鍵。
+/// 舊備份（v3 以前）由 [SettingsBackup.fromJson] 折疊過來。
+class SourceSettingsBackup {
+  final String sourceId;
+  final String streamPriority;
+  final bool useAuthForPlay;
+
+  const SourceSettingsBackup({
+    required this.sourceId,
+    required this.streamPriority,
+    required this.useAuthForPlay,
+  });
+
+  factory SourceSettingsBackup.fromJson(Map<String, dynamic> json) {
+    return SourceSettingsBackup(
+      sourceId: json['sourceId'] as String? ?? '',
+      streamPriority: json['streamPriority'] as String? ?? '',
+      useAuthForPlay: json['useAuthForPlay'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'sourceId': sourceId,
+        'streamPriority': streamPriority,
+        'useAuthForPlay': useAuthForPlay,
+      };
+}
+
+/// 讀出備份裡的每源設定。
+///
+/// v4 起是 `sourceSettings` 陣列。v3 以前是六個具名鍵，這裡折疊過來 ——
+/// 匯入舊備份是必須支援的（`validateBackupData` 只擋比當前版本**新**的備份）。
+List<SourceSettingsBackup> _readSourceSettings(Map<String, dynamic> json) {
+  final raw = json['sourceSettings'];
+  if (raw is List) {
+    return [
+      for (final entry in raw)
+        if (entry is Map<String, dynamic>) SourceSettingsBackup.fromJson(entry),
+    ];
+  }
+
+  const legacyKeys = <String, (String, String, bool)>{
+    SourceIds.bilibili: (
+      'bilibiliStreamPriority',
+      'useBilibiliAuthForPlay',
+      false
+    ),
+    SourceIds.youtube: ('youtubeStreamPriority', 'useYoutubeAuthForPlay', false),
+    SourceIds.netease: ('neteaseStreamPriority', 'useNeteaseAuthForPlay', true),
+  };
+  return [
+    for (final MapEntry(key: sourceId, value: keys) in legacyKeys.entries)
+      SourceSettingsBackup(
+        sourceId: sourceId,
+        streamPriority: json[keys.$1] as String? ??
+            kDefaultStreamPriorityBySource[sourceId]!,
+        useAuthForPlay: json[keys.$2] as bool? ?? keys.$3,
+      ),
+  ];
+}
+
 class SettingsBackup {
   final int themeModeIndex;
   final int? primaryColor;
-  final int? secondaryColor;
-  final int? backgroundColor;
-  final int? surfaceColor;
-  final int? textColor;
-  final int? cardColor;
   final int maxCacheSizeMB;
   final bool autoScrollToCurrentTrack;
   final bool rememberPlaybackPosition;
@@ -547,13 +601,14 @@ class SettingsBackup {
   final bool enableGlobalHotkeys;
   final bool launchAtStartup;
   final bool launchMinimized;
+  final bool railExpanded;
+  final bool detailPanelExpanded;
+  final double detailPanelWidth;
   final String? fontFamily;
   final String? locale;
   final int audioQualityLevelIndex;
   final String audioFormatPriority;
-  final String youtubeStreamPriority;
-  final String bilibiliStreamPriority;
-  final String neteaseStreamPriority;
+  final List<SourceSettingsBackup> sourceSettings;
   final String? hotkeyConfig;
   final bool autoMatchLyrics;
   final int maxLyricsCacheFiles;
@@ -576,9 +631,7 @@ class SettingsBackup {
   final double? lyricsWindowShadowBlurRadius;
   final double? lyricsWindowShadowOffsetX;
   final double? lyricsWindowShadowOffsetY;
-  final bool useBilibiliAuthForPlay;
-  final bool useYoutubeAuthForPlay;
-  final bool useNeteaseAuthForPlay;
+
   final int rankingRefreshIntervalMinutes;
   final String homeRankingSourcePriority;
   final String disabledHomeRankingSources;
@@ -587,11 +640,6 @@ class SettingsBackup {
   SettingsBackup({
     this.themeModeIndex = 0,
     this.primaryColor,
-    this.secondaryColor,
-    this.backgroundColor,
-    this.surfaceColor,
-    this.textColor,
-    this.cardColor,
     int? maxCacheSizeMB,
     this.autoScrollToCurrentTrack = false,
     this.rememberPlaybackPosition = true,
@@ -603,13 +651,14 @@ class SettingsBackup {
     this.enableGlobalHotkeys = false,
     this.launchAtStartup = false,
     this.launchMinimized = false,
+    this.railExpanded = false,
+    this.detailPanelExpanded = true,
+    this.detailPanelWidth = 380,
     this.fontFamily,
     this.locale,
     this.audioQualityLevelIndex = 0,
     this.audioFormatPriority = 'opus,aac',
-    this.youtubeStreamPriority = 'audioOnly,muxed,hls',
-    this.bilibiliStreamPriority = 'audioOnly,muxed',
-    this.neteaseStreamPriority = 'audioOnly',
+    this.sourceSettings = const [],
     this.hotkeyConfig,
     this.autoMatchLyrics = false,
     this.maxLyricsCacheFiles = 50,
@@ -632,9 +681,7 @@ class SettingsBackup {
     this.lyricsWindowShadowBlurRadius,
     this.lyricsWindowShadowOffsetX,
     this.lyricsWindowShadowOffsetY,
-    this.useBilibiliAuthForPlay = false,
-    this.useYoutubeAuthForPlay = false,
-    this.useNeteaseAuthForPlay = true,
+
     this.rankingRefreshIntervalMinutes = 60,
     String? homeRankingSourcePriority,
     String? disabledHomeRankingSources,
@@ -656,11 +703,6 @@ class SettingsBackup {
     return SettingsBackup(
       themeModeIndex: json['themeModeIndex'] as int? ?? 0,
       primaryColor: json['primaryColor'] as int?,
-      secondaryColor: json['secondaryColor'] as int?,
-      backgroundColor: json['backgroundColor'] as int?,
-      surfaceColor: json['surfaceColor'] as int?,
-      textColor: json['textColor'] as int?,
-      cardColor: json['cardColor'] as int?,
       maxCacheSizeMB:
           json['maxCacheSizeMB'] as int? ?? _defaultBackupCacheSizeMB(),
       autoScrollToCurrentTrack:
@@ -677,16 +719,17 @@ class SettingsBackup {
           _settingsBackupDefaults.enableGlobalHotkeys,
       launchAtStartup: json['launchAtStartup'] as bool? ?? false,
       launchMinimized: json['launchMinimized'] as bool? ?? false,
+      railExpanded: json['railExpanded'] as bool? ??
+          _settingsBackupDefaults.railExpanded,
+      detailPanelExpanded: json['detailPanelExpanded'] as bool? ??
+          _settingsBackupDefaults.detailPanelExpanded,
+      detailPanelWidth: (json['detailPanelWidth'] as num?)?.toDouble() ??
+          _settingsBackupDefaults.detailPanelWidth,
       fontFamily: json['fontFamily'] as String?,
       locale: json['locale'] as String?,
       audioQualityLevelIndex: json['audioQualityLevelIndex'] as int? ?? 0,
       audioFormatPriority: json['audioFormatPriority'] as String? ?? 'opus,aac',
-      youtubeStreamPriority:
-          json['youtubeStreamPriority'] as String? ?? 'audioOnly,muxed,hls',
-      bilibiliStreamPriority:
-          json['bilibiliStreamPriority'] as String? ?? 'audioOnly,muxed',
-      neteaseStreamPriority:
-          json['neteaseStreamPriority'] as String? ?? 'audioOnly',
+      sourceSettings: _readSourceSettings(json),
       hotkeyConfig: json['hotkeyConfig'] as String?,
       autoMatchLyrics: json['autoMatchLyrics'] as bool? ?? false,
       maxLyricsCacheFiles: json['maxLyricsCacheFiles'] as int? ?? 50,
@@ -720,9 +763,7 @@ class SettingsBackup {
           (json['lyricsWindowShadowOffsetX'] as num?)?.toDouble(),
       lyricsWindowShadowOffsetY:
           (json['lyricsWindowShadowOffsetY'] as num?)?.toDouble(),
-      useBilibiliAuthForPlay: json['useBilibiliAuthForPlay'] as bool? ?? false,
-      useYoutubeAuthForPlay: json['useYoutubeAuthForPlay'] as bool? ?? false,
-      useNeteaseAuthForPlay: json['useNeteaseAuthForPlay'] as bool? ?? true,
+
       rankingRefreshIntervalMinutes:
           json['rankingRefreshIntervalMinutes'] as int? ?? 60,
       homeRankingSourcePriority: json['homeRankingSourcePriority'] as String? ??
@@ -738,11 +779,6 @@ class SettingsBackup {
     return {
       'themeModeIndex': themeModeIndex,
       if (primaryColor != null) 'primaryColor': primaryColor,
-      if (secondaryColor != null) 'secondaryColor': secondaryColor,
-      if (backgroundColor != null) 'backgroundColor': backgroundColor,
-      if (surfaceColor != null) 'surfaceColor': surfaceColor,
-      if (textColor != null) 'textColor': textColor,
-      if (cardColor != null) 'cardColor': cardColor,
       'maxCacheSizeMB': maxCacheSizeMB,
       'autoScrollToCurrentTrack': autoScrollToCurrentTrack,
       'rememberPlaybackPosition': rememberPlaybackPosition,
@@ -754,13 +790,14 @@ class SettingsBackup {
       'enableGlobalHotkeys': enableGlobalHotkeys,
       'launchAtStartup': launchAtStartup,
       'launchMinimized': launchMinimized,
+      'railExpanded': railExpanded,
+      'detailPanelExpanded': detailPanelExpanded,
+      'detailPanelWidth': detailPanelWidth,
       if (fontFamily != null) 'fontFamily': fontFamily,
       if (locale != null) 'locale': locale,
       'audioQualityLevelIndex': audioQualityLevelIndex,
       'audioFormatPriority': audioFormatPriority,
-      'youtubeStreamPriority': youtubeStreamPriority,
-      'bilibiliStreamPriority': bilibiliStreamPriority,
-      'neteaseStreamPriority': neteaseStreamPriority,
+      'sourceSettings': [for (final e in sourceSettings) e.toJson()],
       if (hotkeyConfig != null) 'hotkeyConfig': hotkeyConfig,
       'autoMatchLyrics': autoMatchLyrics,
       'maxLyricsCacheFiles': maxLyricsCacheFiles,
@@ -794,9 +831,7 @@ class SettingsBackup {
         'lyricsWindowShadowOffsetX': lyricsWindowShadowOffsetX,
       if (lyricsWindowShadowOffsetY != null)
         'lyricsWindowShadowOffsetY': lyricsWindowShadowOffsetY,
-      'useBilibiliAuthForPlay': useBilibiliAuthForPlay,
-      'useYoutubeAuthForPlay': useYoutubeAuthForPlay,
-      'useNeteaseAuthForPlay': useNeteaseAuthForPlay,
+
       'rankingRefreshIntervalMinutes': rankingRefreshIntervalMinutes,
       'homeRankingSourcePriority': homeRankingSourcePriority,
       'disabledHomeRankingSources': disabledHomeRankingSources,

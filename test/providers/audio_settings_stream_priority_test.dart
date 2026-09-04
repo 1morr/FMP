@@ -15,8 +15,8 @@ void main() {
     final notifier = AudioSettingsNotifier(repository);
     await Future<void>.delayed(Duration.zero);
 
-    // 預設與 Settings.neteaseStreamPriorityList 預設一致（[audioOnly]）。
-    expect(notifier.state.neteaseStreamPriority, [StreamType.audioOnly]);
+    // 預設與 Settings.streamPriorityFor(SourceIds.netease) 預設一致（[audioOnly]）。
+    expect(notifier.state.streamPriorityFor(SourceIds.netease), [StreamType.audioOnly]);
   });
 
   test('setNeteaseStreamPriority updates state and persists', () async {
@@ -26,11 +26,11 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     const updated = [StreamType.muxed, StreamType.audioOnly];
-    await notifier.setNeteaseStreamPriority(updated);
+    await notifier.setStreamPriority(SourceIds.netease, updated);
 
-    expect(notifier.state.neteaseStreamPriority, updated);
+    expect(notifier.state.streamPriorityFor(SourceIds.netease), updated);
     // 持久化寫回底層 Settings（與 youtube/bilibili setter 同契約）。
-    expect(repository.settings.neteaseStreamPriorityList, updated);
+    expect(repository.settings.streamPriorityFor(SourceIds.netease), updated);
   });
 }
 

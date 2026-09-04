@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/settings.dart';
 import '../../services/cache/ranking_cache_service.dart';
 import '../../services/radio/radio_refresh_service.dart';
@@ -43,6 +44,9 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
   Future<void> _loadSettings() async {
     final settingsRepository = _ref.read(settingsRepositoryProvider);
     _settings = await settingsRepository.get();
+    // Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException，
+    // 而 StateNotifier 對 dispose 之後的 state 賦值本來就會拋。
+    if (!mounted) return;
     final rankingMinutes = _settings!.rankingRefreshIntervalMinutes;
     final radioMinutes = _settings!.radioRefreshIntervalMinutes;
 
@@ -67,6 +71,7 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
     final settingsRepository = _ref.read(settingsRepositoryProvider);
     await settingsRepository
         .update((s) => s.rankingRefreshIntervalMinutes = minutes);
+    if (!mounted) return;
     _settings!.rankingRefreshIntervalMinutes = minutes;
     state = state.copyWith(rankingRefreshIntervalMinutes: minutes);
 
@@ -81,6 +86,7 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
     final settingsRepository = _ref.read(settingsRepositoryProvider);
     await settingsRepository
         .update((s) => s.radioRefreshIntervalMinutes = minutes);
+    if (!mounted) return;
     _settings!.radioRefreshIntervalMinutes = minutes;
     state = state.copyWith(radioRefreshIntervalMinutes: minutes);
 

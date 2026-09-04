@@ -9,6 +9,7 @@ import '../../services/radio/radio_controller.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/radio/radio_mini_player.dart';
 import '../widgets/panels/track_detail_panel.dart';
+import '../../providers/settings/layout_settings_provider.dart';
 
 /// 导航目的地定义
 class NavDestination {
@@ -199,9 +200,16 @@ class _DesktopLayout extends ConsumerStatefulWidget {
 }
 
 class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
-  bool _isNavExpanded = false; // 默认收起
-  bool _isDetailPanelExpanded = true; // 详情面板默认展开
-  double _detailPanelWidth = 380; // 默认宽度
+  // 版面狀態持久化在 Settings 裡，由 layoutSettingsProvider 讀寫 ——
+  // 這三個值以前是純 widget state，每次啟動都重置。
+  LayoutSettingsState get _layout => ref.watch(layoutSettingsProvider);
+  LayoutSettingsNotifier get _layoutNotifier =>
+      ref.read(layoutSettingsProvider.notifier);
+
+  bool get _isNavExpanded => _layout.railExpanded;
+  bool get _isDetailPanelExpanded => _layout.detailPanelExpanded;
+  double get _detailPanelWidth => _layout.detailPanelWidth;
+
   static const double _minPanelWidth = 280.0;
   static const double _maxPanelWidth = 500.0;
   bool _isHoveredOnCollapsedBar = false;
@@ -273,7 +281,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.menu_open),
-                  onPressed: () => setState(() => _isNavExpanded = false),
+                  onPressed: () => _layoutNotifier.setRailExpanded(false),
                   tooltip: t.nav.collapseNav,
                 ),
               ],
@@ -361,7 +369,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
         onTap: _isDetailPanelExpanded
             ? null
             : () => setState(() {
-                  _isDetailPanelExpanded = true;
+                  _layoutNotifier.setDetailPanelExpanded(true);
                   _isHoveredOnCollapsedBar = false;
                 }),
         child: AnimatedContainer(
@@ -394,16 +402,16 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                             _isDraggingPanelWidth = true;
                           },
                           onHorizontalDragUpdate: (details) {
-                            setState(() {
-                              _detailPanelWidth -= details.delta.dx;
-                              _detailPanelWidth = _detailPanelWidth.clamp(
-                                _minPanelWidth,
-                                _maxPanelWidth,
-                              );
-                            });
+                            // 拖曳期間只更新記憶體，放開時才寫資料庫。
+                            _layoutNotifier.previewDetailPanelWidth(
+                              (_detailPanelWidth - details.delta.dx)
+                                  .clamp(_minPanelWidth, _maxPanelWidth),
+                            );
                           },
                           onHorizontalDragEnd: (_) {
                             _isDraggingPanelWidth = false;
+                            _layoutNotifier
+                                .commitDetailPanelWidth(_detailPanelWidth);
                           },
                           child: Container(
                             width: 6,
@@ -421,9 +429,8 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                       // 详情面板
                       Expanded(
                         child: TrackDetailPanel(
-                          onCollapse: () => setState(() {
-                            _isDetailPanelExpanded = false;
-                          }),
+                          onCollapse: () =>
+                              _layoutNotifier.setDetailPanelExpanded(false),
                         ),
                       ),
                     ],
@@ -464,7 +471,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           const SizedBox(height: 8),
           IconButton(
             icon: const Icon(Icons.menu),
-            onPressed: () => setState(() => _isNavExpanded = true),
+            onPressed: () => _layoutNotifier.setRailExpanded(true),
             tooltip: t.nav.expandNav,
           ),
           const SizedBox(height: 8),

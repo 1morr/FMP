@@ -1,6 +1,6 @@
 import 'package:isar_community/isar.dart';
+import 'track_key.dart';
 
-import 'track.dart'; // for SourceType enum
 
 part 'radio_station.g.dart';
 
@@ -30,8 +30,7 @@ class RadioStation {
 
   /// 音源類型 (bilibili, youtube)
   @Index()
-  @Enumerated(EnumType.name)
-  late SourceType sourceType;
+  late String sourceType;
 
   /// 源平台的房間/視頻 ID (roomId for Bilibili, videoId for YouTube)
   @Index()
@@ -51,13 +50,10 @@ class RadioStation {
   @Index()
   bool isFavorite = false;
 
-  /// 額外備註
-  String? note;
-
   /// 獲取唯一鍵（用於去重）
-  String get uniqueKey => '${sourceType.name}:$sourceId';
+  String get uniqueKey => TrackKey.formatGroup(sourceType, sourceId);
 
   @override
   String toString() =>
-      'RadioStation(id: $id, title: $title, sourceType: ${sourceType.name}, sourceId: $sourceId)';
+      'RadioStation(id: $id, title: $title, sourceType: $sourceType, sourceId: $sourceId)';
 }

@@ -5,24 +5,24 @@ import 'package:fmp/data/sources/source_http_policy.dart';
 void main() {
   group('SourceHttpPolicy', () {
     test('media headers carry no credentials for any source', () {
-      // `mediaHeaders` 只收 SourceType —— 憑證進不來是簽章保證的，不是執行期
+      // `mediaHeaders` 只收 String —— 憑證進不來是簽章保證的，不是執行期
       // 檢查。詳細的邊界斷言在 source_http_policy_credentials_test.dart。
-      for (final sourceType in SourceType.values) {
+      for (final sourceType in SourceIds.values) {
         final headers = SourceHttpPolicy.mediaHeaders(sourceType);
         expect(
             headers.keys.map((k) => k.toLowerCase()), isNot(contains('cookie')),
             reason: '$sourceType');
       }
 
-      final bilibili = SourceHttpPolicy.mediaHeaders(SourceType.bilibili);
+      final bilibili = SourceHttpPolicy.mediaHeaders(SourceIds.bilibili);
       expect(bilibili['Referer'], SourceHttpPolicy.bilibiliWebReferer);
       expect(bilibili['User-Agent'], SourceHttpPolicy.mediaUserAgent);
 
-      final youtube = SourceHttpPolicy.mediaHeaders(SourceType.youtube);
+      final youtube = SourceHttpPolicy.mediaHeaders(SourceIds.youtube);
       expect(youtube['Origin'], SourceHttpPolicy.youtubeOrigin);
       expect(youtube['Referer'], SourceHttpPolicy.youtubeReferer);
 
-      final netease = SourceHttpPolicy.mediaHeaders(SourceType.netease);
+      final netease = SourceHttpPolicy.mediaHeaders(SourceIds.netease);
       expect(netease['Origin'], SourceHttpPolicy.neteaseOrigin);
       expect(netease['Referer'], SourceHttpPolicy.neteaseReferer);
       expect(netease['User-Agent'], SourceHttpPolicy.mediaUserAgent);
@@ -30,19 +30,19 @@ void main() {
 
     test('api headers keep source-specific referer origin and user agent', () {
       expect(
-          SourceHttpPolicy.apiHeaders(SourceType.bilibili),
+          SourceHttpPolicy.apiHeaders(SourceIds.bilibili),
           containsPair(
             'Referer',
             SourceHttpPolicy.bilibiliReferer,
           ));
       expect(
-          SourceHttpPolicy.apiHeaders(SourceType.youtube),
+          SourceHttpPolicy.apiHeaders(SourceIds.youtube),
           containsPair(
             'Origin',
             SourceHttpPolicy.youtubeOrigin,
           ));
       expect(
-          SourceHttpPolicy.apiHeaders(SourceType.netease),
+          SourceHttpPolicy.apiHeaders(SourceIds.netease),
           containsPair(
             'User-Agent',
             SourceHttpPolicy.neteaseDesktopUserAgent,
@@ -95,7 +95,7 @@ void main() {
 
     test('createApiDio applies source defaults and optional content type', () {
       final dio = SourceHttpPolicy.createApiDio(
-        SourceType.youtube,
+        SourceIds.youtube,
         contentType: 'application/json',
       );
 

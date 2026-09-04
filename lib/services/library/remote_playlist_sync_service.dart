@@ -1,5 +1,4 @@
 import '../../data/models/playlist.dart';
-import '../../data/models/track.dart';
 import 'remote_playlist_id_parser.dart';
 
 class RemotePlaylistSyncService {
@@ -12,7 +11,7 @@ class RemotePlaylistSyncService {
   });
 
   Future<List<Playlist>> refreshMatchingImportedPlaylists({
-    required SourceType sourceType,
+    required String sourceType,
     required Iterable<String> remotePlaylistIds,
     Iterable<Playlist>? playlists,
   }) async {
@@ -29,7 +28,7 @@ class RemotePlaylistSyncService {
   }
 
   Future<List<Playlist>> findMatchingImportedPlaylists({
-    required SourceType sourceType,
+    required String sourceType,
     required Iterable<String> remotePlaylistIds,
     Iterable<Playlist>? playlists,
   }) async {

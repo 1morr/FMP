@@ -7,6 +7,12 @@ class SettingsRepository {
 
   SettingsRepository(this._isar);
 
+  /// 讀取設定，沒有就回 null —— 刻意不建立。
+  ///
+  /// 給 `runApp()` 之前的主題預讀用：那時候 migration 還沒跑，
+  /// 這條路徑不可以先寫進一列預設值。
+  Future<Settings?> getOrNull() => _isar.settings.get(0);
+
   /// 获取设置（单例，ID始终为0）
   Future<Settings> get() async {
     var settings = await _isar.settings.get(0);

@@ -19,11 +19,11 @@ Future<bool> showAddToRemotePlaylistDialogMulti({
   if (tracks.isEmpty) return false;
 
   final bilibiliTracks =
-      tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
+      tracks.where((t) => t.sourceType == SourceIds.bilibili).toList();
   final youtubeTracks =
-      tracks.where((t) => t.sourceType == SourceType.youtube).toList();
+      tracks.where((t) => t.sourceType == SourceIds.youtube).toList();
   final neteaseTracks =
-      tracks.where((t) => t.sourceType == SourceType.netease).toList();
+      tracks.where((t) => t.sourceType == SourceIds.netease).toList();
 
   // 提前捕獲 navigator，避免調用方 widget dispose 後 context 失效
   final navigator = Navigator.of(context);

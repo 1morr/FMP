@@ -13,7 +13,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
   final Dio _dio;
 
   NeteasePlaylistSource({Dio? dio})
-      : _dio = dio ?? SourceHttpPolicy.createApiDio(SourceType.netease);
+      : _dio = dio ?? SourceHttpPolicy.createApiDio(SourceIds.netease);
 
   @override
   PlaylistSource get source => PlaylistSource.netease;
@@ -147,7 +147,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       options: Options(
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
-        headers: SourceHttpPolicy.apiHeaders(SourceType.netease),
+        headers: SourceHttpPolicy.apiHeaders(SourceIds.netease),
       ),
     );
 
@@ -193,7 +193,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       options: Options(
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
-        headers: SourceHttpPolicy.apiHeaders(SourceType.netease),
+        headers: SourceHttpPolicy.apiHeaders(SourceIds.netease),
       ),
     );
 

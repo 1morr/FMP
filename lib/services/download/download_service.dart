@@ -920,7 +920,7 @@ class DownloadService with Logging {
   Future<VideoDetail?> _fetchVideoDetail(Track track) async {
     try {
       final detailSource = _sourceManager.trackDetailSource(track.sourceType);
-      if (detailSource != null && track.sourceType != SourceType.netease) {
+      if (detailSource != null && track.sourceType != SourceIds.netease) {
         final detailAuthHeaders =
             await _sourceAuthContext.authForPlay(track.sourceType);
         return await detailSource.getVideoDetail(
@@ -995,7 +995,7 @@ class DownloadService with Logging {
     if (resolution is! RemoteStreamResolution) {
       throw StateError(
         'Download stream resolution returned a local file for '
-        '${track.sourceType.name}:${track.sourceId}',
+        '${track.sourceType}:${track.sourceId}',
       );
     }
     final streamResult = resolution.stream;
@@ -1356,7 +1356,7 @@ class DownloadService with Logging {
     final metadata = <String, dynamic>{
       // 基础信息
       'sourceId': track.sourceId,
-      'sourceType': track.sourceType.name,
+      'sourceType': track.sourceType,
       'title': track.title,
       'artist': track.artist,
       'durationMs': track.durationMs,
@@ -1636,7 +1636,7 @@ class DownloadDirInfo {
 class _IsolateDownloadParams {
   final String url;
   final String savePath;
-  final SourceType sourceType;
+  final String sourceType;
   final Map<String, String>? authHeaders;
   final int resumePosition;
   final SendPort sendPort;

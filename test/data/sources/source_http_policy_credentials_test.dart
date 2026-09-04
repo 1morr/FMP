@@ -14,7 +14,7 @@ import 'package:fmp/data/sources/source_http_policy.dart';
 void main() {
   group('mediaHeaders credential boundary', () {
     test('no source can put credentials on a media byte request', () {
-      for (final sourceType in SourceType.values) {
+      for (final sourceType in SourceIds.values) {
         final headers = SourceHttpPolicy.mediaHeaders(sourceType);
         final lowerKeys = headers.keys.map((k) => k.toLowerCase()).toList();
 
@@ -30,21 +30,21 @@ void main() {
       // 簽章保證：沒有 authHeaders / requestUrl / includeCredentials 可以傳，
       // 所以不存在「某個呼叫端不小心把憑證傳進來」的可能。這條測試存在的意義
       // 是：如果有人把那些參數加回去，它會編譯失敗而不是靜靜地通過。
-      final headers = SourceHttpPolicy.mediaHeaders(SourceType.netease);
+      final headers = SourceHttpPolicy.mediaHeaders(SourceIds.netease);
       expect(headers.keys.toSet(), {'Origin', 'Referer', 'User-Agent'});
     });
 
     test('each source still carries the headers its CDN requires', () {
-      final netease = SourceHttpPolicy.mediaHeaders(SourceType.netease);
+      final netease = SourceHttpPolicy.mediaHeaders(SourceIds.netease);
       expect(netease['Origin'], 'https://music.163.com');
       expect(netease['Referer'], 'https://music.163.com/');
       expect(netease.containsKey('User-Agent'), isTrue);
 
-      final bilibili = SourceHttpPolicy.mediaHeaders(SourceType.bilibili);
+      final bilibili = SourceHttpPolicy.mediaHeaders(SourceIds.bilibili);
       expect(bilibili.containsKey('Referer'), isTrue);
       expect(bilibili.containsKey('User-Agent'), isTrue);
 
-      final youtube = SourceHttpPolicy.mediaHeaders(SourceType.youtube);
+      final youtube = SourceHttpPolicy.mediaHeaders(SourceIds.youtube);
       expect(youtube['Origin'], 'https://www.youtube.com');
       expect(youtube.containsKey('Referer'), isTrue);
       expect(youtube.containsKey('User-Agent'), isTrue);

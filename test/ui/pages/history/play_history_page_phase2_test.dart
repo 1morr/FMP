@@ -163,7 +163,7 @@ String _methodBody(String source, String name) {
 Track _buildTrack() {
   return Track()
     ..sourceId = 'history-track'
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'History Track';
 }
 
@@ -174,7 +174,7 @@ PlayHistory _buildHistory({
   return PlayHistory()
     ..id = id
     ..sourceId = 'history-track-$id'
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'History Track $id'
     ..playedAt = playedAt;
 }

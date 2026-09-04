@@ -113,7 +113,7 @@ final List<FmpDatabaseCollection> fmpDatabaseCollections = [
     schema: RadioStationSchema,
     query: (isar) => isar.radioStations.where().findAll(),
     title: (station) => station.title,
-    subtitle: (station) => 'ID: ${station.id} | ${station.sourceType.name}',
+    subtitle: (station) => 'ID: ${station.id} | ${station.sourceType}',
     sections: _radioStationSections,
   ),
   _collection<LyricsMatch>(
@@ -136,8 +136,8 @@ final List<FmpDatabaseCollection> fmpDatabaseCollections = [
     name: 'Account',
     schema: AccountSchema,
     query: (isar) => isar.accounts.where().findAll(),
-    title: (account) => account.userName ?? account.platform.name,
-    subtitle: (account) => 'ID: ${account.id} | ${account.platform.name}',
+    title: (account) => account.userName ?? account.platform,
+    subtitle: (account) => 'ID: ${account.id} | ${account.platform}',
     sections: _accountSections,
   ),
 ];
@@ -153,7 +153,7 @@ List<DatabaseViewerSection> _trackSections(Track track) {
       data: {
         'id': track.id.toString(),
         'sourceId': track.sourceId,
-        'sourceType': track.sourceType.name,
+        'sourceType': track.sourceType,
         'title': track.title,
         'artist': track.artist ?? 'null',
         'ownerId': track.ownerId?.toString() ?? 'null',
@@ -234,7 +234,6 @@ List<DatabaseViewerSection> _trackSections(Track track) {
       data: {
         'uniqueKey': track.uniqueKey,
         'groupKey': track.groupKey,
-        'sourceKey': track.sourceKey,
         'sourcePageKey': track.sourcePageKey,
         'formattedDuration': track.formattedDuration,
       },
@@ -264,7 +263,7 @@ List<DatabaseViewerSection> _playlistSections(Playlist playlist) {
       data: {
         'isImported': playlist.isImported.toString(),
         'sourceUrl': _truncate(playlist.sourceUrl, 60),
-        'importSourceType': playlist.importSourceType?.name ?? 'null',
+        'importSourceType': playlist.importSourceType ?? 'null',
         'refreshIntervalHours':
             playlist.refreshIntervalHours?.toString() ?? 'null',
         'lastRefreshed': playlist.lastRefreshed?.toIso8601String() ?? 'null',
@@ -367,19 +366,18 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       title: t.databaseViewer.themeSettings,
       data: {
         'id': setting.id.toString(),
+        'schemaVersion': setting.schemaVersion.toString(),
         'themeModeIndex': setting.themeModeIndex.toString(),
         'themeMode': setting.themeMode.name,
+        'railExpanded': setting.railExpanded.toString(),
+        'detailPanelExpanded': setting.detailPanelExpanded.toString(),
+        'detailPanelWidth': setting.detailPanelWidth.toString(),
       },
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.colorSettings,
       data: {
         'primaryColor': _formatNullableColor(setting.primaryColor),
-        'secondaryColor': _formatNullableColor(setting.secondaryColor),
-        'backgroundColor': _formatNullableColor(setting.backgroundColor),
-        'surfaceColor': _formatNullableColor(setting.surfaceColor),
-        'textColor': _formatNullableColor(setting.textColor),
-        'cardColor': _formatNullableColor(setting.cardColor),
       },
     ),
     DatabaseViewerSection(
@@ -414,25 +412,30 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'audioFormatPriority': setting.audioFormatPriority,
         'audioFormatPriorityList':
             setting.audioFormatPriorityList.map((e) => e.name).join(', '),
-        'youtubeStreamPriority': setting.youtubeStreamPriority,
-        'youtubeStreamPriorityList':
-            setting.youtubeStreamPriorityList.map((e) => e.name).join(', '),
-        'bilibiliStreamPriority': setting.bilibiliStreamPriority,
-        'bilibiliStreamPriorityList':
-            setting.bilibiliStreamPriorityList.map((e) => e.name).join(', '),
-        'neteaseStreamPriority': setting.neteaseStreamPriority,
-        'neteaseStreamPriorityList':
-            setting.neteaseStreamPriorityList.map((e) => e.name).join(', '),
       },
     ),
     DatabaseViewerSection(
-      title: 'Auth Settings',
+      title: 'Source Settings',
       data: {
-        'useBilibiliAuthForPlay': setting.useBilibiliAuthForPlay.toString(),
-        'useYoutubeAuthForPlay': setting.useYoutubeAuthForPlay.toString(),
-        'useNeteaseAuthForPlay': setting.useNeteaseAuthForPlay.toString(),
+        'sourceSettings':
+            setting.sourceSettings.map((e) => e.sourceId).join(', '),
       },
     ),
+    // 逐筆列出實際存進 sourceSettings 的內容，而不是照 SourceIds 硬列 ——
+    // 偵錯檢視器要顯示資料庫裡真正有什麼，包含認不得的音源。
+    for (final entry in setting.sourceSettings)
+      DatabaseViewerSection(
+        title: 'Source Settings: ${entry.sourceId}',
+        data: {
+          'sourceId': entry.sourceId,
+          'streamPriority': entry.streamPriority,
+          'streamPriorityList': setting
+              .streamPriorityFor(entry.sourceId)
+              .map((e) => e.name)
+              .join(', '),
+          'useAuthForPlay': entry.useAuthForPlay.toString(),
+        },
+      ),
     DatabaseViewerSection(
       title: 'Refresh Settings',
       data: {
@@ -526,7 +529,7 @@ List<DatabaseViewerSection> _playHistorySections(PlayHistory history) {
       data: {
         'id': history.id.toString(),
         'sourceId': history.sourceId,
-        'sourceType': history.sourceType.name,
+        'sourceType': history.sourceType,
         'cid': history.cid?.toString() ?? 'null',
         'trackKey': history.trackKey,
       },
@@ -625,7 +628,7 @@ List<DatabaseViewerSection> _radioStationSections(RadioStation station) {
         'uniqueKey': station.uniqueKey,
         'url': _truncate(station.url, 60),
         'title': station.title,
-        'sourceType': station.sourceType.name,
+        'sourceType': station.sourceType,
         'sourceId': station.sourceId,
       },
     ),
@@ -648,7 +651,6 @@ List<DatabaseViewerSection> _radioStationSections(RadioStation station) {
       data: {
         'sortOrder': station.sortOrder.toString(),
         'isFavorite': station.isFavorite.toString(),
-        'note': station.note ?? 'null',
       },
     ),
     DatabaseViewerSection(
@@ -725,7 +727,7 @@ List<DatabaseViewerSection> _accountSections(Account account) {
       title: t.databaseViewer.basicInfo,
       data: {
         'id': account.id.toString(),
-        'platform': account.platform.name,
+        'platform': account.platform,
         'userId': account.userId ?? 'null',
         'userName': account.userName ?? 'null',
         'avatarUrl': _truncate(account.avatarUrl, 60),

@@ -232,7 +232,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                 child: _buildTrackInfo(
                   colorScheme,
-                  hasMatch: existingMatch.valueOrNull != null,
+                  hasMatch: existingMatch.value != null,
                 ),
               ),
 

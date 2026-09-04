@@ -1,4 +1,3 @@
-import '../../data/models/track.dart';
 
 class RemotePlaylistEditFailure {
   final int trackId;
@@ -29,7 +28,7 @@ class RemotePlaylistEditSummary {
 }
 
 class RemotePlaylistEditResult {
-  final SourceType sourceType;
+  final String sourceType;
   final List<int> confirmedAddedTrackIds;
   final List<int> confirmedRemovedTrackIds;
   final List<int> skippedTrackIds;

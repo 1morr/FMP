@@ -255,7 +255,7 @@ Future<PlaylistPhase2Harness> createPlaylistPhase2Harness() async {
 Track _buildTrack({required String sourceId, required String title}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..artist = 'Phase 2 Artist'
     ..durationMs = 180000

@@ -54,7 +54,7 @@ class YouTubeSource
     _youtube = youtube ?? yt.YoutubeExplode();
     _dio = dio ??
         SourceHttpPolicy.createApiDio(
-          SourceType.youtube,
+          SourceIds.youtube,
           contentType: 'application/json',
         );
   }
@@ -66,7 +66,7 @@ class YouTubeSource
   Options _innerTubeRequestOptions([Map<String, String>? headers]) {
     return Options(
       headers: SourceHttpPolicy.apiHeaders(
-        SourceType.youtube,
+        SourceIds.youtube,
         extraHeaders: headers,
       ),
     );
@@ -146,7 +146,7 @@ class YouTubeSource
   }
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   String? parseId(String url) {
@@ -216,7 +216,7 @@ class YouTubeSource
 
       final track = Track()
         ..sourceId = videoId
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = video.title
         ..artist = video.author
         ..channelId = video.channelId.value
@@ -887,7 +887,7 @@ class YouTubeSource
   @override
   Future<Track> refreshAudioUrl(Track track,
       {Map<String, String>? authHeaders}) async {
-    if (track.sourceType != SourceType.youtube) {
+    if (track.sourceType != SourceIds.youtube) {
       throw const YouTubeApiException(
           code: 'invalid_source',
           message: 'Invalid source type for YouTubeSource');
@@ -956,7 +956,7 @@ class YouTubeSource
       for (final video in searchList) {
         tracks.add(Track()
           ..sourceId = video.id.value
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = video.title
           ..artist = video.author
           ..channelId = video.channelId.value
@@ -975,7 +975,7 @@ class YouTubeSource
           for (final video in nextPageResult) {
             tracks.add(Track()
               ..sourceId = video.id.value
-              ..sourceType = SourceType.youtube
+              ..sourceType = SourceIds.youtube
               ..title = video.title
               ..artist = video.author
               ..channelId = video.channelId.value
@@ -1199,7 +1199,7 @@ class YouTubeSource
 
       tracks.add(Track()
         ..sourceId = videoId
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = trackTitle
         ..artist = artist
         ..durationMs = durationMs
@@ -1510,7 +1510,7 @@ class YouTubeSource
           'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg';
       allTracks.add(Track()
         ..sourceId = video.id.value
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = video.title
         ..artist = video.author
         ..channelId = video.channelId.value
@@ -1888,7 +1888,7 @@ class YouTubeSource
 
     return Track()
       ..sourceId = videoId
-      ..sourceType = SourceType.youtube
+      ..sourceType = SourceIds.youtube
       ..title = title
       ..artist = artist
       ..durationMs = durationMs
@@ -1923,7 +1923,7 @@ class YouTubeSource
 
     return Track()
       ..sourceId = videoId
-      ..sourceType = SourceType.youtube
+      ..sourceType = SourceIds.youtube
       ..title = title
       ..artist = artist
       ..durationMs = durationMs
@@ -2218,7 +2218,7 @@ class YouTubeSource
 
             tracks.add(Track()
               ..sourceId = videoId
-              ..sourceType = SourceType.youtube
+              ..sourceType = SourceIds.youtube
               ..title = title
               ..artist = artist
               ..durationMs = durationMs
@@ -2300,7 +2300,7 @@ class YouTubeSource
 
       final track = Track()
         ..sourceId = videoId
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = videoDetails['title'] as String? ?? 'Unknown'
         ..artist = videoDetails['author'] as String? ?? ''
         ..channelId = videoDetails['channelId'] as String? ?? ''

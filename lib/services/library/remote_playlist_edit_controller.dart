@@ -6,7 +6,7 @@ import 'remote_playlist_edit_result.dart';
 import 'remote_playlist_id_parser.dart';
 
 typedef RefreshMatchingImportedPlaylists = Future<void> Function({
-  required SourceType sourceType,
+  required String sourceType,
   required Iterable<String> remotePlaylistIds,
 });
 
@@ -15,7 +15,7 @@ typedef RemoveTracksFromLocalPlaylist = Future<bool> Function(
   List<int> trackIds,
 );
 
-typedef IsRemoteSourceLoggedIn = bool Function(SourceType sourceType);
+typedef IsRemoteSourceLoggedIn = bool Function(String sourceType);
 
 abstract class RemotePlaylistEditAdapter {
   Future<RemotePlaylistEditResult> submit(RemotePlaylistEditPlan plan);
@@ -39,7 +39,7 @@ class RemotePlaylistEditController {
   });
 
   Future<RemotePlaylistEditResult> submitSelectionEdit({
-    required SourceType sourceType,
+    required String sourceType,
     required List<Track> tracks,
     required Set<String> selectedPlaylistIds,
     required Set<String> originalPlaylistIds,
@@ -97,7 +97,11 @@ class RemotePlaylistEditController {
     RemotePlaylistEditPlan plan, {
     int? localRemovalPlaylistId,
   }) async {
-    var result = await _adapterFor(plan.sourceType).submit(plan);
+    final adapter = _adapterFor(plan.sourceType);
+    if (adapter == null) {
+      return _unsupportedSourceResult(plan);
+    }
+    var result = await adapter.submit(plan);
     if (localRemovalPlaylistId != null &&
         result.confirmedRemovedTrackIds.isNotEmpty) {
       try {
@@ -173,28 +177,60 @@ class RemotePlaylistEditController {
     );
   }
 
-  RemotePlaylistEditAdapter _adapterFor(SourceType sourceType) {
+  /// 沒有遠端編輯器時，把整批要動的歌曲回報成失敗而不是靜默成功。
+  RemotePlaylistEditResult _unsupportedSourceResult(
+    RemotePlaylistEditPlan plan,
+  ) {
+    final error = StateError(
+      'No remote playlist editor for source ${plan.sourceType}',
+    );
+    final remotePlaylistIds = [
+      ...plan.playlistIdsToAdd,
+      ...plan.playlistIdsToRemove,
+    ];
+    return RemotePlaylistEditResult(
+      sourceType: plan.sourceType,
+      skippedTrackIds: plan.skippedTrackIds,
+      failures: [
+        for (final track in plan.editableTracks)
+          for (final remotePlaylistId in remotePlaylistIds)
+            RemotePlaylistEditFailure(
+              trackId: track.id,
+              remotePlaylistId: remotePlaylistId,
+              error: error,
+            ),
+      ],
+    );
+  }
+
+  /// 認不得的音源沒有遠端編輯器。
+  ///
+  /// 這裡**刻意不 fallback** —— 隨便挑一個 adapter 會把歌曲加到／刪掉
+  /// 另一個平台的歌單，那是無法復原的遠端寫入。
+  RemotePlaylistEditAdapter? _adapterFor(String sourceType) {
     switch (sourceType) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         return bilibiliAdapter;
-      case SourceType.youtube:
+      case SourceIds.youtube:
         return youtubeAdapter;
-      case SourceType.netease:
+      case SourceIds.netease:
         return neteaseAdapter;
+      default:
+        return null;
     }
   }
 
-  SourceType _sourceTypeForImportedPlaylist(
+  String _sourceTypeForImportedPlaylist(
     Playlist playlist,
     List<Track> tracks,
   ) {
     final sourceType = playlist.importSourceType;
     if (sourceType != null) return sourceType;
     if (tracks.isNotEmpty) return tracks.first.sourceType;
-    return SourceType.youtube;
+    return SourceIds.youtube;
   }
 
-  List<int> _matchingTrackIds(List<Track> tracks, SourceType sourceType) {
+  List<int> _matchingTrackIds(List<Track> tracks, String sourceType) {
     return tracks
         .where((track) => track.sourceType == sourceType)
         .map((track) => track.id)
@@ -435,7 +471,7 @@ bool _isMissingForPlaylist(
 }
 
 class _RemotePlaylistEditResultBuilder {
-  final SourceType sourceType;
+  final String sourceType;
   final Set<int> _confirmedAddedTrackIds = <int>{};
   final Set<int> _confirmedRemovedTrackIds = <int>{};
   final Set<int> _skippedTrackIds = <int>{};

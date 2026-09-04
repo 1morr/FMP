@@ -211,21 +211,21 @@ class DownloadPathUtils {
   /// 格式: {baseDir}/avatars/{platform}/{creatorId}.jpg
   ///
   /// [baseDir] 下載根目錄
-  /// [sourceType] 音源類型（目錄段直接取 `sourceType.name`，新音源自動正確歸位）
+  /// [sourceType] 音源類型（目錄段直接取 `sourceType`，新音源自動正確歸位）
   /// [creatorId] 創作者 ID（Bilibili ownerId 或 YouTube channelId）
   static String getAvatarPath({
     required String baseDir,
-    required SourceType sourceType,
+    required String sourceType,
     required String creatorId,
   }) {
-    final platform = sourceType.name;
+    final platform = sourceType;
     return p.join(baseDir, 'avatars', platform, '$creatorId.jpg');
   }
 
   /// 確保頭像目錄存在
   static Future<void> ensureAvatarDirExists(
-      String baseDir, SourceType sourceType) async {
-    final platform = sourceType.name;
+      String baseDir, String sourceType) async {
+    final platform = sourceType;
     final dir = Directory(p.join(baseDir, 'avatars', platform));
     if (!await dir.exists()) {
       await dir.create(recursive: true);

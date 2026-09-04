@@ -90,7 +90,7 @@ class BilibiliSource
 
     _dio = dio ??
         SourceHttpPolicy.createApiDio(
-          SourceType.bilibili,
+          SourceIds.bilibili,
           extraHeaders: {'Cookie': _browserCookie},
         );
     _dio.options.headers.putIfAbsent('Cookie', () => _browserCookie);
@@ -163,7 +163,7 @@ class BilibiliSource
   }
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   /// Helper: create Options that merge auth headers with base Dio headers.
   /// Dio's Options.headers override BaseOptions.headers per-key,
@@ -224,7 +224,7 @@ class BilibiliSource
       final data = response.data['data'];
       final track = Track()
         ..sourceId = bvid
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = data['title'] ?? 'Unknown'
         ..artist = data['owner']?['name']
         ..ownerId = data['owner']?['mid'] as int?
@@ -522,7 +522,7 @@ class BilibiliSource
   @override
   Future<Track> refreshAudioUrl(Track track,
       {Map<String, String>? authHeaders}) async {
-    if (track.sourceType != SourceType.bilibili) {
+    if (track.sourceType != SourceIds.bilibili) {
       throw const BilibiliApiException(
           numericCode: -3, message: 'Invalid source type for BilibiliSource');
     }
@@ -575,7 +575,7 @@ class BilibiliSource
       final tracks = results.map((item) {
         return Track()
           ..sourceId = item['bvid'] ?? ''
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = _cleanHtmlTags(item['title'] ?? 'Unknown')
           ..artist = item['author']
           ..ownerId = item['mid'] as int?
@@ -643,7 +643,7 @@ class BilibiliSource
       for (final item in firstMedias) {
         allTracks.add(Track()
           ..sourceId = item['bvid'] ?? ''
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = item['title'] ?? 'Unknown'
           ..artist = item['upper']?['name']
           ..ownerId = item['upper']?['mid'] as int?
@@ -675,7 +675,7 @@ class BilibiliSource
         for (final item in medias) {
           allTracks.add(Track()
             ..sourceId = item['bvid'] ?? ''
-            ..sourceType = SourceType.bilibili
+            ..sourceType = SourceIds.bilibili
             ..title = item['title'] ?? 'Unknown'
             ..artist = item['upper']?['name']
             ..ownerId = item['upper']?['mid'] as int?
@@ -955,7 +955,7 @@ class BilibiliSource
 
         return Track()
           ..sourceId = item['bvid'] ?? ''
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = item['title'] ?? ''
           ..artist = owner['name'] ?? ''
           ..ownerId = owner['mid'] as int?

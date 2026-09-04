@@ -30,12 +30,12 @@ void main() {
     final repo = TrackRepository(isar);
 
     final youtubeNull =
-        await repo.save(_track('same', SourceType.youtube, 'YT'));
+        await repo.save(_track('same', SourceIds.youtube, 'YT'));
     final youtubeCid = await repo.save(
-      _track('same', SourceType.youtube, 'YT P2')..cid = 22,
+      _track('same', SourceIds.youtube, 'YT P2')..cid = 22,
     );
     final bilibiliNull = await repo.save(
-      _track('same', SourceType.bilibili, 'BV'),
+      _track('same', SourceIds.bilibili, 'BV'),
     );
 
     final result = await repo.getBySourceIdentities([
@@ -70,7 +70,7 @@ void main() {
     await validFile.writeAsString('audio');
 
     final track = await repo.save(
-      _track('cleanup-track', SourceType.youtube, 'Cleanup Track')
+      _track('cleanup-track', SourceIds.youtube, 'Cleanup Track')
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 1
@@ -112,7 +112,7 @@ void main() {
   });
 }
 
-Track _track(String sourceId, SourceType sourceType, String title) {
+Track _track(String sourceId, String sourceType, String title) {
   return Track()
     ..sourceId = sourceId
     ..sourceType = sourceType

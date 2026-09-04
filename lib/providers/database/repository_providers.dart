@@ -5,7 +5,7 @@ import 'database_provider.dart';
 
 /// Track Repository Provider
 final trackRepositoryProvider = Provider<TrackRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
@@ -14,7 +14,7 @@ final trackRepositoryProvider = Provider<TrackRepository>((ref) {
 
 /// Playlist Repository Provider
 final playlistRepositoryProvider = Provider<PlaylistRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
@@ -23,7 +23,7 @@ final playlistRepositoryProvider = Provider<PlaylistRepository>((ref) {
 
 /// Queue Repository Provider
 final queueRepositoryProvider = Provider<QueueRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
@@ -32,7 +32,7 @@ final queueRepositoryProvider = Provider<QueueRepository>((ref) {
 
 /// Settings Repository Provider
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
@@ -41,7 +41,7 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 
 /// Play History Repository Provider
 final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
@@ -51,7 +51,7 @@ final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>((ref) {
 /// Search History Repository Provider
 final searchHistoryRepositoryProvider =
     Provider<SearchHistoryRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
@@ -60,7 +60,7 @@ final searchHistoryRepositoryProvider =
 
 /// Lyrics Repository Provider
 final lyricsRepositoryProvider = Provider<LyricsRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
@@ -69,9 +69,18 @@ final lyricsRepositoryProvider = Provider<LyricsRepository>((ref) {
 
 final lyricsTitleParseCacheRepositoryProvider =
     Provider<LyricsTitleParseCacheRepository>((ref) {
-  final db = ref.watch(databaseProvider).valueOrNull;
+  final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
   }
   return LyricsTitleParseCacheRepository(db);
+});
+
+/// Account Repository Provider
+final accountRepositoryProvider = Provider<AccountRepository>((ref) {
+  final db = ref.watch(databaseProvider).value;
+  if (db == null) {
+    throw StateError('Database not initialized');
+  }
+  return AccountRepository(db);
 });

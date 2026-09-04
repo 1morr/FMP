@@ -279,7 +279,7 @@ void main() {
     test('uniqueKey includes cid when present', () {
       final track = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track'
         ..cid = 12345;
 
@@ -290,7 +290,7 @@ void main() {
     test('uniqueKey without cid uses sourceId only', () {
       final track = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       expect(track.uniqueKey, equals('bilibili:BV123456'));
@@ -300,13 +300,13 @@ void main() {
       final track1 = Track()
         ..id = 1
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 111;
 
       final track2 = Track()
         ..id = 2
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 111;
 
       expect(track1.uniqueKey, equals(track2.uniqueKey));
@@ -315,12 +315,12 @@ void main() {
     test('tracks with different cid have different uniqueKey', () {
       final track1 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 111;
 
       final track2 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 222;
 
       expect(track1.uniqueKey, isNot(equals(track2.uniqueKey)));
@@ -331,7 +331,7 @@ void main() {
     test('hasValidAudioUrl returns false when url is null', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test';
 
       expect(track.hasValidAudioUrl, isFalse);
@@ -340,7 +340,7 @@ void main() {
     test('hasValidAudioUrl returns true when url exists without expiry', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test'
         ..audioUrl = 'https://example.com/audio.m4a';
 
@@ -350,7 +350,7 @@ void main() {
     test('hasValidAudioUrl returns true when not expired', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test'
         ..audioUrl = 'https://example.com/audio.m4a'
         ..audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
@@ -361,7 +361,7 @@ void main() {
     test('hasValidAudioUrl returns false when expired', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test'
         ..audioUrl = 'https://example.com/audio.m4a'
         ..audioUrlExpiry = DateTime.now().subtract(const Duration(hours: 1));
@@ -374,7 +374,7 @@ void main() {
     test('isPartOfMultiPage returns false for single page', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Single Video';
 
       expect(track.isPartOfMultiPage, isFalse);
@@ -383,7 +383,7 @@ void main() {
     test('isPartOfMultiPage returns true for multi-page', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P01 - Intro'
         ..pageNum = 1
         ..pageCount = 3;
@@ -394,14 +394,14 @@ void main() {
     test('groupKey is same for pages of same video', () {
       final page1 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P01'
         ..pageNum = 1
         ..cid = 111;
 
       final page2 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P02'
         ..pageNum = 2
         ..cid = 222;
@@ -412,13 +412,13 @@ void main() {
     test('uniqueKey is different for pages of same video', () {
       final page1 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P01'
         ..cid = 111;
 
       final page2 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P02'
         ..cid = 222;
 
@@ -430,7 +430,7 @@ void main() {
 Track _queueTrack(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId
     ..artist = 'Tester';
 }

@@ -126,7 +126,7 @@ class BilibiliLiveClient with Logging {
     this.liveApiBase = defaultLiveApiBase,
   })  : _ownsApiDio = apiDio == null,
         _ownsLiveDio = liveDio == null,
-        apiDio = apiDio ?? SourceHttpPolicy.createApiDio(SourceType.bilibili),
+        apiDio = apiDio ?? SourceHttpPolicy.createApiDio(SourceIds.bilibili),
         liveDio = liveDio ?? SourceHttpPolicy.createBilibiliLiveDio(),
         searchOptions = searchOptions ?? Options(),
         _searchOptionsProvider =

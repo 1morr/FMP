@@ -113,7 +113,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     if (!LyricsWindowService.instance.isOpen) return;
 
     final parsedLyrics = ref.read(parsedLyricsProvider);
-    final match = ref.read(currentLyricsMatchProvider).valueOrNull;
+    final match = ref.read(currentLyricsMatchProvider).value;
     final playerState = ref.read(audioControllerProvider);
 
     // 计算当前行
@@ -142,7 +142,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     if (!LyricsWindowService.instance.isOpen) return;
 
     final parsedLyrics = ref.read(parsedLyricsProvider);
-    final match = ref.read(currentLyricsMatchProvider).valueOrNull;
+    final match = ref.read(currentLyricsMatchProvider).value;
     final playerState = ref.read(audioControllerProvider);
     final currentTrack = playerState.currentTrack;
 
@@ -306,7 +306,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 
     // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
     ref.listen(
-        currentLyricsMatchProvider.select((v) => v.valueOrNull?.offsetMs),
+        currentLyricsMatchProvider.select((v) => v.value?.offsetMs),
         (_, _) {
       _fullSyncLyricsToWindow();
     });
@@ -776,7 +776,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
 
     // 獲取下載基礎目錄（用於頭像路徑查找）
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
-    final baseDir = baseDirAsync.valueOrNull;
+    final baseDir = baseDirAsync.value;
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -824,7 +824,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
         const SizedBox(height: 12),
 
         // UP主/歌手信息
-        if (currentTrack?.sourceType == SourceType.netease)
+        if (currentTrack?.sourceType == SourceIds.netease)
           // 網易雲：歌手頭像 + 歌手名 + 發布時間
           Row(
             children: [
@@ -941,8 +941,8 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
   /// YouTube: 播放数、点赞数（无收藏数）
   /// Netease: 专辑名、评论数
   Widget _buildSimpleStats(BuildContext context, Track? track) {
-    final isYouTube = track?.sourceType == SourceType.youtube;
-    final isNetease = track?.sourceType == SourceType.netease;
+    final isYouTube = track?.sourceType == SourceIds.youtube;
+    final isNetease = track?.sourceType == SourceIds.netease;
 
     if (isNetease) {
       return DetailStatsRow(
@@ -1062,7 +1062,7 @@ class _ClickableCover extends StatelessWidget {
     required this.detailState,
   });
 
-  bool get _isNetease => track?.sourceType == SourceType.netease;
+  bool get _isNetease => track?.sourceType == SourceIds.netease;
 
   @override
   Widget build(BuildContext context) {

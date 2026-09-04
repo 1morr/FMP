@@ -50,7 +50,7 @@ class YouTubePlaylistService with Logging {
 
   static Dio _createDio(YouTubeAccountService accountService) {
     final dio = SourceHttpPolicy.createApiDio(
-      SourceType.youtube,
+      SourceIds.youtube,
       contentType: 'application/json',
     );
     dio.interceptors.add(YouTubeAuthInterceptor(accountService));

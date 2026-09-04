@@ -92,10 +92,13 @@ void main() {
   test('database viewer exposes current model fields and debug getters', () {
     final catalog = read(catalogPath);
     const expectedTokens = <String>{
+      'schemaVersion',
+      'railExpanded',
+      'detailPanelExpanded',
+      'detailPanelWidth',
       'bilibiliAid',
       'uniqueKey',
       'groupKey',
-      'sourceKey',
       'sourcePageKey',
       'formattedDuration',
       'lyricsDisplayModeIndex',
@@ -117,9 +120,12 @@ void main() {
       'disabledHomeRankingSourcesSet',
       'radioRefreshIntervalMinutes',
       'audioFormatPriorityList',
-      'youtubeStreamPriorityList',
-      'bilibiliStreamPriorityList',
-      'neteaseStreamPriorityList',
+      // 每源設定在 v2 之後是一份 sourceSettings，偵錯檢視器逐筆列出實際
+      // 存了什麼（含認不得的音源），而不是照 SourceIds 硬列三個。
+      'sourceSettings',
+      'streamPriority',
+      'streamPriorityList',
+      'useAuthForPlay',
       'isDownloading',
       'isCompleted',
       'isFailed',
@@ -131,6 +137,7 @@ void main() {
       'trackCount',
       'LyricsTitleParseCache',
       'trackUniqueKey',
+      'trackKey',
       'sourceType',
       'parsedTrackName',
       'parsedArtistName',

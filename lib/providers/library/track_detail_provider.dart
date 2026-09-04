@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/download_filenames.dart';
@@ -81,7 +81,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
         detail = await _loadNetworkDetail(track, source);
       } catch (_) {
         // 网络获取失败，已下载歌曲回退到本地 metadata（Bilibili/YouTube）
-        if (track.hasAnyDownload && track.sourceType != SourceType.netease) {
+        if (track.hasAnyDownload && track.sourceType != SourceIds.netease) {
           detail = await _loadFromLocalMetadata(track);
         }
         // 本地也没有则重新抛出原始异常
@@ -133,7 +133,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     final source = _sourceManager.trackDetailSource(track.sourceType);
     if (source == null) {
       throw StateError(
-        'Track detail source not registered: ${track.sourceType.name}',
+        'Track detail source not registered: ${track.sourceType}',
       );
     }
 
