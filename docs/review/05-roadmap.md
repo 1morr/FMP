@@ -1276,3 +1276,53 @@ Isar 的 `_requireNotInTxn()` 是 Zone 層級判斷所以匯入不能只加一�
    Android 分支有跑到），但 `USE THIS FOLDER` 用合成點擊按不動。之後的寫檔是
    `File(path).writeAsString(...)`，與既有的備份匯出同一條路。輪替與落盤 redaction
    由單元測試涵蓋，沒有在裝置上用真實憑證驗過。
+
+---
+
+#### 6.4.1 Windows 驗收補完（2026-09-04 下午）
+
+上面那張表把 Windows 的四項記成「工具鏈阻塞」。**其中「Windows GUI 驅動不了」這條
+結論是錯的** —— 缺的只是一步：點擊之前要先把視窗提到前景。補上
+`SetForegroundWindow`（用 `AttachThreadInput` 包住）之後，`orca computer click
+--app pid:<n>` 的視窗座標一路都正確，四項全部驗完。做法記在
+`.claude/skills/verify-on-device/SKILL.md`。
+
+| 項目 | 結果 |
+|---|---|
+| Windows 最小化到 tray 後播放不停 | ✅ 14:07:02 `WM_CLOSE` → `Minimized to tray`、`IsWindowVisible` 轉 false、行程存活；隱藏期間 `PlayQueue.lastPositionMs` 從 76,771 走到 196,830，**牆鐘 120 秒、播放前進 120.1 秒**，零暫停事件；14:12:01 用使用者自己的 toggle 快捷鍵叫回視窗 |
+| #42 輸出裝置記憶（還原半邊） | ✅ 在真實硬體上兩次獨立出現完整鏈路：`Restoring preferred audio device: wasapi/{2350b26b-…}` → `Setting audio device: … (喇叭 (Creative Stage SE))` → **`Audio device changed`（libmpv 自己回報切換成功）**。不是「程式碼有跑」，是輸出裝置真的換了 |
+| 備份匯出 | ✅ 原生存檔對話框 → 828,868 bytes。`version = 4`；**M6.1a 的三個面板欄位都在**；`schemaVersion` 與 `preferredAudioDevice*` 正確不在 —— 與守門測試的排除清單逐項相符；`sourceSettings` 三個音源齊全 |
+| log 匯出 | ✅ 原生存檔對話框 → 123,379 bytes，**等於磁碟上 `fmp.log` 的完整 1,228 行**；`Authorization` / `SAPISIDHASH` / `Bearer` / `Cookie:` / `SESSDATA` / `bili_jct` / `MUSIC_U` / `csrf` 掃描全為 **0**，`REDACTED` 出現 **11 次** —— 在有登入帳號的真實 session 上實際觸發過 |
+| M7 日誌級別 UI | ✅ 開發者選項裡有「日誌級別 DEBUG」，副標「只影響這次執行，重啟後回到預設」 |
+
+**#42 的另一半補的是測試，不是實機。** `4ca35a6d feat(audio): remember the chosen
+output device` **一條測試都沒加**。本輪補上
+`test/services/audio/audio_device_preference_test.dart`（6 條），涵蓋寫入、回到
+auto、清單到齊時套用、裝置拔掉時不動也不清設定、只套用一次、沒存過就不動。做過反向
+驗證：同時拿掉寫入與還原兩半之後，6 條裡有 3 條立刻紅。
+
+**仍然沒驗到的**：
+
+1. **log 輪替沒有在裝置上驗**（要 2 MB，實測檔案只有 123 KB）。單元測試涵蓋。
+2. **#42 的「選裝置時寫入」沒有用滑鼠點過裝置選單**。單元測試涵蓋，實機驗的是還原那半。
+3. **備份匯入仍然刻意不做** —— 理由同上：Windows 上是使用者的真實音樂庫。
+4. **這台機器上三個音源都播不了**：Bilibili `playurl` 回 HTTP 412 `request was
+   banned`、YouTube 要求登入驗證、曲庫 1,194 首**沒有任何一首下載到本機**。tray
+   測試最後是用一段本機 WAV 走 `_inspectLocalFiles` 的離線路徑跑的。這是環境限制，
+   不是 FMP 的缺陷。
+
+**兩件據實記錄的事**：
+
+- **redaction 有一個誤報**：`libmpv configured for audio-only mode (vid=no,
+  sid=[REDACTED], …)`。那是 mpv 的字幕軌選項 `sid=no`，不是 session id。只影響 log
+  可讀性，方向是安全的那一邊，本輪不改。
+- **我弄丟了一筆資料**：佇列裡原本留著上一輪我自己建的測試曲目（唯一一首 youtube
+  來源），把佇列換走之後被孤立清理刪掉了。使用者的 1,194 首 bilibili 曲目與 1 個歌單
+  完好無損，已逐項核對。驗證期間改過的每一項（`minimizeToTrayOnClose`、
+  `preferredAudioDevice*`、track 1 的 `playlistInfo`、佇列與循環模式）都已還原並確認。
+
+**issue 動態**：#44（isar_community 遷移）本輪**關閉** —— 用 NDK 28.2 的
+`llvm-readelf -l` 重量 release APK，三個 ABI 的 `libisar.so` 都從 `0x1000` 變成
+`0x4000`，達到 issue 自己的驗收條件。#42 的還原半邊已驗、寫入半邊有測試，但
+`preferredAudioDevice*` 在**沒有實機點過裝置選單**之前先不關。
+

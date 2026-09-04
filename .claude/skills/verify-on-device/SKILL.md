@@ -226,6 +226,73 @@ observation on the emulator is worth.
   under the session scratchpad exceeds the Windows path limit and fails with
   confusing compiler errors. Use a short root such as `C:/t/`.
 
+### Driving the Windows build (measured in the phase 3 Windows run)
+
+§6 says Windows gives you screenshots and window coordinates only. That is still
+true of the Flutter view — but the round that wrote §6 concluded the window
+could not be driven at all, and that was wrong. It can. The missing step was
+raising the window first.
+
+- **Raise the window before every click.** `orca computer get-app-state --app
+  pid:<n>` reports `coordinateSpace: "window"`, so `--x/--y` are window-local
+  and correct — but the click still lands on whatever is topmost at that screen
+  point. Bring FMP forward with Win32 `SetForegroundWindow`, wrapped in
+  `AttachThreadInput(foregroundThread, ourThread, true)` so the call is allowed,
+  and confirm `GetForegroundWindow()` returns the target before clicking.
+  Skipping this is how clicks end up in the user's other windows.
+- **Native dialogs *do* expose a full UIA tree.** The Flutter view is still
+  `window > pane FLUTTERVIEW`, but a `FilePicker.saveFile` dialog comes back
+  with ~100 real elements. Address it with `--window-id` from
+  `orca computer list-windows` and click by `--element-index`. Both file exports
+  (backup, log) were driven this way.
+- **The save dialog's filename field rejects `set-value`**
+  (`value_not_settable`), and `orca computer hotkey Control+a` does not reach
+  it. What works: click the field's element, then `Set-Clipboard` the full path
+  and send Ctrl+A / Ctrl+V with Win32 `keybd_event`. Typing a full path into the
+  filename box is how you redirect an export away from the user's Documents.
+- **`orca computer scroll` needs `--pages`.** There is no `--amount`; passing
+  one is silently ignored and nothing scrolls.
+- **Global hotkeys are the one input path that needs no focus at all.**
+  `RegisterHotKey` combinations are swallowed by the system and delivered only
+  to the registering app, so `keybd_event` cannot leak them into another window.
+  **Read `Settings.hotkeyConfig` first** — it is a JSON string of custom
+  bindings and the user's may differ from `HotkeyConfig.defaults()`. Decode the
+  `keyId` numbers against `keyboard_key.g.dart`; in this run `toggleWindow` was
+  Alt + numpadDivide (`0x20000022f`), not the default Ctrl+Alt+W.
+- **`WM_CLOSE` to the main HWND is the honest "user clicked X".** `PostMessage`
+  it to the specific window handle — no coordinates, nothing else on the desktop
+  touched. With `minimizeToTrayOnClose`, `IsWindowVisible` flips to false while
+  the process stays alive; that pair is the tray assertion.
+
+### Getting media to play when every source is blocked
+
+Playback verification needs playing media, and all three sources can be
+unavailable at once on a dev machine (Bilibili `playurl` answering HTTP 412
+`request was banned`, YouTube demanding sign-in, and a library with nothing
+downloaded). `Track.audioUrl` does not rescue you — the reuse cache
+(`stream_resolution_service.dart:326`) also requires an in-memory entry.
+
+What works offline: `_inspectLocalFiles` (`:428`) plays the first
+`Track.allDownloadPaths` entry that exists on disk, with **no playlist-id
+match** and no network. Generate a long near-silent WAV, point one track's
+`playlistInfo[].downloadPath` at it, and playback is real, local, and silent.
+Save the original `playlistInfo` first and put it back afterwards.
+
+Two traps around that:
+
+- **Orphan cleanup deletes tracks you swap out of the queue.** `QueueManager`
+  runs `TrackRepository.deleteOrphanTracks` ~10 s after start, excluding only
+  the current queue. A track that is in no playlist and no longer in the queue
+  is **gone** — this run destroyed a leftover test track that way.
+- **A DB edit under a running app is not durable.** See the write-race note in
+  `docs/debugging-with-vm-service.md` §5: reading the new value back proves
+  nothing. Kill the process immediately after the edit, or make the change
+  through the app's own UI. Restoring the play queue at the end only stuck once
+  it went through the queue page's clear button and the mini player's loop
+  toggle.
+- **The VM Service URI scrolls out of the terminal tail.** Read it with
+  `orca terminal read --cursor 0 --limit 5000`, not from the default tail.
+
 ## 8. Tear down
 
 Leaving an emulator plus two `flutter run` sessions alive is expensive. Unless
