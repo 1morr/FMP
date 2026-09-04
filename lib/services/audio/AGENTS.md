@@ -34,14 +34,29 @@ AudioController (audio_provider.dart)
   - PlayerState, business logic
   - temporary/mix/detached playback modes
   - mute memory, notification/SMTC coordination
-        |                         |
-        v                         v
-FmpAudioService (abstract)    QueueManager
-  |                           - queue order, shuffle/loop
-  v                           - navigation, persistence hooks
+        |            |            |
+        v            v            v
+FmpAudioService  QueueCommands  QueueManager
+  (abstract)     - mix gate     - queue order, shuffle/loop
+  |              - full/throw   - navigation, persistence hooks
+  v                 -> result
 JustAudioService (Android)
 MediaKitAudioService (Desktop)
 ```
+
+`QueueCommands` (`queue_commands.dart`) is the first collaborator pulled out of
+the controller. It owns the template the seven queue methods used to repeat —
+the mix-mode gate, the queue-full toast, and turning an exception into a
+`QueueMutation` instead of letting it escape — and returns
+`applied` / `blocked` / `failed`. It deliberately touches neither `PlayerState`
+nor the playback context: **projection stays in `AudioController`**, and mix
+mode is passed in rather than inferred.
+
+`clearQueue` is the one command with controller-side after-effects (leaving mix
+mode, dropping the still-playing track into detached mode); those stay in
+`AudioController` because they are session state, not queue state. `playAt` was
+deliberately left behind too — it starts playback, so it belongs with the
+transport commands, not with the queue mutations.
 
 **Key rule: UI must call `AudioController` methods, never `FmpAudioService`
 directly.** This is an architectural convention rather than a compile-time

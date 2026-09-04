@@ -38,6 +38,7 @@ import 'audio_runtime_platform.dart';
 import 'audio_stream_manager.dart';
 import 'playback_recovery_coordinator.dart';
 import 'playback_request_session.dart';
+import 'queue_commands.dart';
 import 'queue_manager.dart';
 import 'queue_persistence_manager.dart';
 import '../network/connectivity_service.dart';
@@ -235,6 +236,7 @@ class AudioController extends StateNotifier<PlayerState>
 
   final FmpAudioService _audioService;
   final QueueManager _queueManager;
+  late final QueueCommands _queueCommands;
   final AudioStreamManager _audioStreamManager;
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
@@ -326,6 +328,10 @@ class AudioController extends StateNotifier<PlayerState>
         _queuePersistenceManager = queuePersistenceManager,
         _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
+    _queueCommands = QueueCommands(
+      queueManager: _queueManager,
+      toastService: _toastService,
+    );
     _playbackRequestSession = PlaybackRequestSession(
       budget: _budget,
       audioService: _audioService,
@@ -1242,28 +1248,8 @@ class AudioController extends StateNotifier<PlayerState>
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addToQueue(Track track) async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止添加歌曲
-    if (_context.isMix) {
-      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
-      return false;
-    }
-
-    logInfo('Adding to queue: ${track.title}');
-    try {
-      final added = await _queueManager.add(track);
-      if (!added) {
-        _toastService
-            .showError(t.audio.queueFull(count: AppConstants.maxQueueSize));
-        return false;
-      }
-      _updateQueueState();
-      return true;
-    } catch (e, stack) {
-      logError('Failed to add track to queue', e, stack);
-      state = state.copyWith(error: e.toString());
-      return false;
-    }
+    return _applyQueueMutation(
+        await _queueCommands.add(track, isMixMode: _context.isMix));
   }
 
   /// 批量添加到队列
@@ -1271,23 +1257,8 @@ class AudioController extends StateNotifier<PlayerState>
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addAllToQueue(List<Track> tracks) async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止添加歌曲
-    if (_context.isMix) {
-      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
-      return false;
-    }
-
-    logInfo('Adding ${tracks.length} tracks to queue');
-    try {
-      await _queueManager.addAll(tracks);
-      _updateQueueState();
-      return true;
-    } catch (e, stack) {
-      logError('Failed to add tracks to queue', e, stack);
-      state = state.copyWith(error: e.toString());
-      return false;
-    }
+    return _applyQueueMutation(
+        await _queueCommands.addAll(tracks, isMixMode: _context.isMix));
   }
 
   /// 添加到下一首
@@ -1295,89 +1266,64 @@ class AudioController extends StateNotifier<PlayerState>
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addNext(Track track) async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止添加歌曲
-    if (_context.isMix) {
-      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
-      return false;
-    }
-
-    logInfo('Adding next: ${track.title}');
-    try {
-      await _queueManager.addNext(track);
-      _updateQueueState();
-      return true;
-    } catch (e, stack) {
-      logError('Failed to add track as next', e, stack);
-      state = state.copyWith(error: e.toString());
-      return false;
-    }
+    return _applyQueueMutation(
+        await _queueCommands.addNext(track, isMixMode: _context.isMix));
   }
 
   /// 从队列移除
   Future<void> removeFromQueue(int index) async {
     await _ensureInitialized();
-    logDebug('Removing from queue at index: $index');
-    try {
-      await _queueManager.removeAt(index);
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to remove from queue at index $index', e, stack);
-      state = state.copyWith(error: e.toString());
-    }
+    _applyQueueMutation(await _queueCommands.removeAt(index));
   }
 
   /// 移动队列中的歌曲
   Future<void> moveInQueue(int oldIndex, int newIndex) async {
     await _ensureInitialized();
-    logDebug('Moving in queue: $oldIndex -> $newIndex');
-    try {
-      await _queueManager.move(oldIndex, newIndex);
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to move in queue', e, stack);
-      state = state.copyWith(error: e.toString());
-    }
+    _applyQueueMutation(await _queueCommands.move(oldIndex, newIndex));
   }
 
   /// 随机打乱队列（破坏性）
   Future<void> shuffleQueue() async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止隨機播放（UI 應該已禁用按鈕，這是額外保護）
-    if (_context.isMix) return;
-
-    logInfo('Shuffling queue');
-    try {
-      await _queueManager.shuffle();
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to shuffle queue', e, stack);
-      state = state.copyWith(error: e.toString());
-    }
+    _applyQueueMutation(
+        await _queueCommands.shuffle(isMixMode: _context.isMix));
   }
 
   /// 清空队列
+  ///
+  /// 清空之後的兩件事留在這裡：退出 Mix 模式、以及讓還在響的那首歌進入
+  /// detached 模式。兩者都是播放工作階段的狀態，不屬於佇列本身。
   Future<void> clearQueue() async {
     await _ensureInitialized();
-    logInfo('Clearing queue');
-    try {
-      await _queueManager.clear();
+    final mutation = await _queueCommands.clear();
+    if (!mutation.isApplied) {
+      _applyQueueMutation(mutation);
+      return;
+    }
 
-      // 退出 Mix 模式（如果有）
-      if (_context.isMix) {
-        _exitMixMode();
-      }
+    if (_context.isMix) {
+      _exitMixMode();
+    }
+    if (_playingTrack != null && !_context.isTemporary) {
+      _context = _context.copyWith(mode: PlayMode.detached);
+      logDebug('Entered detached mode after clearing queue');
+    }
+    _updateQueueState();
+  }
 
-      // 如果還有歌曲在播放，且不是臨時播放模式，則進入 detached 模式
-      if (_playingTrack != null && !_context.isTemporary) {
-        _context = _context.copyWith(mode: PlayMode.detached);
-        logDebug('Entered detached mode after clearing queue');
-      }
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to clear queue', e, stack);
-      state = state.copyWith(error: e.toString());
+  /// 把一次佇列變更的結果投影到 `PlayerState`。
+  ///
+  /// 回傳值沿用原本的語意：只有真的改到佇列才算成功，被擋下與失敗都是 false。
+  bool _applyQueueMutation(QueueMutation mutation) {
+    switch (mutation.status) {
+      case QueueMutationStatus.applied:
+        _updateQueueState();
+        return true;
+      case QueueMutationStatus.blocked:
+        return false;
+      case QueueMutationStatus.failed:
+        state = state.copyWith(error: mutation.error.toString());
+        return false;
     }
   }
 
