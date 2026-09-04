@@ -1301,15 +1301,27 @@ output device` **一條測試都沒加**。本輪補上
 auto、清單到齊時套用、裝置拔掉時不動也不清設定、只套用一次、沒存過就不動。做過反向
 驗證：同時拿掉寫入與還原兩半之後，6 條裡有 3 條立刻紅。
 
+**#42 的寫入半邊隨後也在實機上補驗了**（同日 14:44，上面那句「沒有用滑鼠點過裝置
+選單」已不成立）：迷你播放器的輸出裝置選單 →「Realtek(R) Audio」，`Settings` 立刻寫入
+`preferredAudioDeviceId = 'wasapi/{2698a574-…}'` 與
+`preferredAudioDeviceName = '喇叭 (Realtek(R) Audio)'`，log 跟著出現
+`Setting audio device` → `Audio device changed`；再點回「自動（跟隨系統）」兩個欄位都
+回到 `null`，`Setting audio device to auto` → `Audio device changed: auto`。**issue #42
+本輪關閉。**
+
+驗這一項時另外修正了一條做法：`orca computer` 的 `--restore-window` 才是把視窗提到前景
+的正確方式。我先寫進 skill 的 Win32 `SetForegroundWindow` 做法**時靈時不靈** —— 它在前景
+鎖規則不允許時會靜默失敗，而接下來的 `get-app-state` 就會截到別的視窗（這次確實誤截了
+使用者的另一個視窗一次，已刪除）。skill 已更正。
+
 **仍然沒驗到的**：
 
 1. **log 輪替沒有在裝置上驗**（要 2 MB，實測檔案只有 123 KB）。單元測試涵蓋。
-2. **#42 的「選裝置時寫入」沒有用滑鼠點過裝置選單**。單元測試涵蓋，實機驗的是還原那半。
-3. **備份匯入仍然刻意不做** —— 理由同上：Windows 上是使用者的真實音樂庫。
-4. **這台機器上三個音源都播不了**：Bilibili `playurl` 回 HTTP 412 `request was
-   banned`、YouTube 要求登入驗證、曲庫 1,194 首**沒有任何一首下載到本機**。tray
-   測試最後是用一段本機 WAV 走 `_inspectLocalFiles` 的離線路徑跑的。這是環境限制，
-   不是 FMP 的缺陷。
+2. **備份匯入仍然刻意不做** —— 理由同上：Windows 上是使用者的真實音樂庫。
+3. **tray 測試期間三個音源都播不了**：Bilibili `playurl` 回 HTTP 412 `request was
+   banned`、曲庫 1,194 首**沒有任何一首下載到本機**。tray 測試最後是用一段本機 WAV 走
+   `_inspectLocalFiles` 的離線路徑跑的。這是環境限制，不是 FMP 的缺陷。（YouTube 稍後
+   在 14:43 的裝置選單驗證裡是能正常播放的 —— 之前擋住的是評論 API，不是串流。）
 
 **兩件據實記錄的事**：
 
@@ -1321,8 +1333,8 @@ auto、清單到齊時套用、裝置拔掉時不動也不清設定、只套用�
   完好無損，已逐項核對。驗證期間改過的每一項（`minimizeToTrayOnClose`、
   `preferredAudioDevice*`、track 1 的 `playlistInfo`、佇列與循環模式）都已還原並確認。
 
-**issue 動態**：#44（isar_community 遷移）本輪**關閉** —— 用 NDK 28.2 的
+**issue 動態**：本輪關掉兩張。**#44**（isar_community 遷移）—— 用 NDK 28.2 的
 `llvm-readelf -l` 重量 release APK，三個 ABI 的 `libisar.so` 都從 `0x1000` 變成
-`0x4000`，達到 issue 自己的驗收條件。#42 的還原半邊已驗、寫入半邊有測試，但
-`preferredAudioDevice*` 在**沒有實機點過裝置選單**之前先不關。
+`0x4000`，達到 issue 自己的驗收條件。**#42**（輸出裝置記憶）—— 寫入、清除、重啟還原
+三條路徑都在真實硬體上走過，並補上原本缺席的 6 條測試。#43 與 #53 維持開啟。
 

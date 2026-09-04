@@ -233,13 +233,20 @@ true of the Flutter view — but the round that wrote §6 concluded the window
 could not be driven at all, and that was wrong. It can. The missing step was
 raising the window first.
 
-- **Raise the window before every click.** `orca computer get-app-state --app
-  pid:<n>` reports `coordinateSpace: "window"`, so `--x/--y` are window-local
-  and correct — but the click still lands on whatever is topmost at that screen
-  point. Bring FMP forward with Win32 `SetForegroundWindow`, wrapped in
-  `AttachThreadInput(foregroundThread, ourThread, true)` so the call is allowed,
-  and confirm `GetForegroundWindow()` returns the target before clicking.
-  Skipping this is how clicks end up in the user's other windows.
+- **Pass `--restore-window` on every click, scroll and capture.**
+  `orca computer get-app-state --app pid:<n>` reports
+  `coordinateSpace: "window"`, so `--x/--y` are window-local and correct — but
+  without the flag the operation lands on whatever is topmost at that screen
+  point, and `get-app-state` screenshots whatever is on top, which in this run
+  meant capturing one of the user's unrelated windows. `--restore-window`
+  brings the target forward first and is the whole fix.
+  Win32 `SetForegroundWindow` + `AttachThreadInput` also works, but only
+  sometimes — it silently no-ops when the foreground-lock rules say no, and the
+  next capture is then of the wrong window. Prefer the flag; if you do use
+  Win32, assert `GetForegroundWindow()` returns your HWND before you click.
+- **Pin the window with `--window-id`.** An app can own several top-level
+  windows (FMP has the SMTC message window and two IME windows), and a modal
+  file dialog is a window of its own.
 - **Native dialogs *do* expose a full UIA tree.** The Flutter view is still
   `window > pane FLUTTERVIEW`, but a `FilePicker.saveFile` dialog comes back
   with ~100 real elements. Address it with `--window-id` from
