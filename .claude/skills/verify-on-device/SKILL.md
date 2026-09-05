@@ -145,6 +145,11 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 
 ## 7. Known limitations
 
+- **Gboard's "Try out your stylus" tutorial overlay steals `adb shell input
+  text`.** On a fresh AVD the first tap into any text field can raise this
+  overlay; the typed characters land in *its* field and the Flutter field stays
+  empty, so it reads as a missed tap. The `ax` tree does not show the overlay.
+  Screenshot to spot it, tap its Cancel, then retype.
 - **`adb shell input text` silently composes instead of committing when
   Gboard's active language is Zhuyin**, which is the default on this AVD. The
   characters land in the candidate strip, the Flutter field stays empty, and the

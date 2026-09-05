@@ -1338,3 +1338,110 @@ auto、清單到齊時套用、裝置拔掉時不動也不清設定、只套用�
 `0x4000`，達到 issue 自己的驗收條件。**#42**（輸出裝置記憶）—— 寫入、清除、重啟還原
 三條路徑都在真實硬體上走過，並補上原本缺席的 6 條測試。#43 與 #53 維持開啟。
 
+
+---
+
+### 6.5 執行時的失效重核（2026-09-05，Phase 4 步驟 B 開工當天）
+
+Phase 4 的順序是 E→B→D→C。E（`QueueCommands`）已於 `fe0ee475` 落地。這一節記
+步驟 B（`NowPlayingPublisher` + `PlaybackCapabilities`）開工前的重核與執行中發現。
+
+#### 開工重核：三條說法被推翻
+
+| # | 原本的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | `:958`「seek/shuffle/repeat 事件沒到，是 `smtc_windows` 1.1.0 的 Dart wrapper 沒 export —— 只能改成不要對外宣稱有」 | **兩邊都錯。** wrapper **有** `shuffleChangeStream` / `repeatModeChangeStream`（`smtc_windows_base.dart:102-103`），Rust 端也接了 `ShuffleEnabledChangeRequested` / `AutoRepeatModeChangeRequested`（`smtc_internal.rs:226/245`）—— FMP 只是從沒訂閱。而且 `SMTCConfig` **根本沒有** shuffle/repeat 的開關欄位，所以「不宣告」這條路**不存在** | 修法反過來：**去接事件**。已實作並實機證實兩個事件都送達（見下） |
+| 2 | issue #40 是「Windows SMTC 的兩個控制項」 | **Android 有同一個 bug，而且更多。** `_getControls()` 無條件回傳三顆按鈕；`systemActions` 的 `skipToNext`/`skipToPrevious` 也是 `const`；更糟的是電台**從不清掉** `onSetRepeatMode` / `onSetShuffleMode`，所以在 Android 上聽電台時按通知欄的循環／隨機鍵，會去改**音樂的** loop mode | 兩平台一起修 |
+| 3 | issue #40 附帶：「`enable()` `:299`、`disable()` `:311`、`dispose()` `:323` 三個成員從未被呼叫」 | **已過期。** 檔案在 `481acda8` 之後重排，`enable()`/`disable()` 已不存在，`dispose()` **有**呼叫點 | 更新 issue 時撤下這段 |
+
+另外兩件決定設計的事實：
+
+- **`androidCompactActionIndices` 的正解是「不要設」，不是「算出來」。**
+  `AudioService.java:614-617` 在該欄位為 `null` 時自己算 `[0..min(3, 按鈕數))`，
+  而 `:641` 顯示 SDK 33+ 根本不讀它。寫死的 `[0,1,2]` 才是越界來源。
+- **`AudioRuntimePlatform` 只有 `mobile` / `desktop`**，而 `WindowsSmtcHandler`
+  在 `_smtc == null` 時每個方法自己早退。所以 publisher **完全不需要
+  `Platform.isWindows`**，`desktop` 涵蓋 Linux/macOS 是安全的 —— 這正是 §4.3 說的
+  「把平台知識從 `Platform.isX` 改成介面上的能力查詢」。
+
+#### 執行中發現
+
+1. **`AudioController.dispose()` 直接 dispose 掉 SMTC 是一個潛在 bug。**
+   原生 session 只在 `main.dart` 建立一次、沒有任何程式碼會重建它，所以只要
+   `audioControllerProvider` 重建過一次，SMTC 就在該 session 裡永久死掉。改成
+   `release(music)`：解綁回呼、留著原生控制代碼。
+2. **交還擁有權的舊路徑有一個吞噬式 `catch`。** 電台停止時呼
+   `AudioController.restoreMediaControlOwnership()`，外面包著 `catch (e) {
+   logDebug(...) }`（release 模式看不見）。加上能力之後，那個 catch 一旦觸發，
+   後果會從「回呼沒重綁」升級成「能力永遠停在電台的全關狀態」。改成 publisher
+   自己記住音樂綁定並還原，那條跨 controller 呼叫與那個 catch 一起刪除。
+3. **「非現任擁有者的發佈要丟棄」不是潔癖，是修一個真 bug** —— 而且**實機拍到了**：
+   `Ignored publishPlaybackState from radio; owner is music`。點歌之後立刻點電台，
+   `RadioController` 只 `pause()` 音樂、不取消進行中的請求，那個請求完成後會把歌名
+   蓋到電台的通知欄／SMTC 上。
+4. **步驟 B 不可能是「純位移」，三處不對稱必須收斂**：載入狀態與三條 reset 路徑
+   過去只送到 Android 通知欄不送 SMTC；`_onPlayerStateChanged` 送給通知欄的是
+   effective 值、送給 SMTC 的是後端原始值。AGENTS.md 那條「控制器擁有的載入階段，
+   後端 idle 事件不得覆蓋 loading 狀態」沒有理由只保護一個平台。
+
+#### 實機驗收（Windows，2026-09-05）
+
+用新寫的 `.claude/skills/verify-on-device/scripts/smtc_probe.ps1` 直接讀 WinRT 的
+`GlobalSystemMediaTransportControlsSessionManager`，不截系統浮出視窗。**探針從任何
+行程都讀得到，所以完全繞開 FMP 守不住前景的問題。**（必須跑在 `powershell.exe`
+5.1，pwsh 7 沒有 WinRT 投影。）
+
+| 時間點 | `IsNextEnabled` | `IsPreviousEnabled` | `IsPlaybackPositionEnabled` |
+|---|---|---|---|
+| 音樂（啟動後） | **True** | True | False |
+| 電台播放中 | **False** | **False** | False |
+| 電台停止後 | **True** | True | False |
+
+路線圖的驗收條件是「電台播放時 `IsNextEnabled` 為 `False`」——**達成**。回程也驗了，
+因為「離開電台後能力沒還原」是比 #40 本身更糟的失敗模式，而它只在回程出現。
+
+- **禁用不只是視覺**：電台播放中用 `TrySkipNextAsync()` 送 next（WinRT 回
+  `accepted=True`），FMP 的 log **沒有**任何 `SMTC button pressed` —— 按鈕真的是惰性的。
+  同一時間送 stop 則拍到 `SMTC button pressed: PressedButton.stop`，證明通道本身是通的。
+- **Q19 的前提複驗**：`IsPlaybackPositionEnabled` 在三個時間點都是 `False`，
+  與 §12.13a 一致。timeline 的 `maxSeekTimeMs` 已改為 0。
+- **Q20 兩個事件都送達，並且真的接上了**：
+  `SMTC repeat mode requested: RepeatMode.list` → `Setting loop mode: LoopMode.all`；
+  `SMTC shuffle requested: false` → `Toggling shuffle`。兩個死鍵現在是活的。
+  （WinRT 會把「與現值相同」的請求吃掉，所以測試要送反向值才看得到事件。）
+- **`IsShuffleEnabled` / `IsRepeatEnabled` 恆為 `True`**，因為 `SMTCConfig` 沒有這兩個
+  旗標。這正是「不宣告」做不到、只能去接事件的證據。
+
+**讀 log 的通道要換**：Windows 的 `flutter run` terminal 被 `AXTree` spam 洗掉 ——
+本輪量到 1,714 行的 buffer 撐不到 4 分鐘。改讀 Phase 3 M7 落盤的
+`Documents/FMP/logs/fmp.log`，那裡完整。
+
+**清理**：驗證用的電台（Bilibili 房間 6）已從資料庫刪除，回到「還沒有電台」；
+shuffle 被測試切掉之後已切回原本的 `true`（loop mode 原本就是 `all`，未改動）。
+
+#### 實機驗收（Android 模擬器 `Medium_Phone`，2026-09-05）
+
+判準是**通知欄實際的按鈕數**（`dumpsys notification --noredact` 的 `actions=`），
+不是 media session 的 bitmask —— 後者被 `audio_service` 混了一堆固定值（見下）。
+
+| 時間點 | 通知欄按鈕 | session 有 `SKIP_TO_NEXT` / `SKIP_TO_PREVIOUS` / `SEEK_TO` |
+|---|---|---|
+| 音樂（YouTube 播放中） | **3**（上一首／暫停／下一首） | 是 |
+| 電台播放中 | **1**（只剩播放／暫停） | **否** |
+| 播回音樂 | **3** | 是 |
+
+- **`AUTO_ENABLED_ACTIONS` 是套件寫死的常數**（`AudioService.java:99-100`），
+  無條件 OR 進 `ACTION_SET_REPEAT_MODE | ACTION_SET_SHUFFLE_MODE`。所以在 media
+  session 這一層，FMP **收不回**這兩項 —— 與 Windows `SMTCConfig` 沒有對應旗標
+  是同一種結構限制。但通知欄的按鈕與 `SKIP_TO_*` / `SEEK_TO` 都正確撤下，而且
+  電台期間 `onSetLoopMode` / `onSetShuffleEnabled` 為 null，**跨模式改到音樂
+  loop mode 的那個 bug 已經修掉** —— 只是「不宣告」在這一層做不到。
+- **擁有權檢查在真機上兩個平台各拍到一次**。Android 這邊是
+  `Ignored publishTrack from music; owner is radio` —— 沒有它，音樂請求完成時
+  會把歌名蓋到電台的通知欄上。這正是加這道檢查的理由。
+- `androidCompactActionIndices` 維持 `null`，按鈕數從 3 掉到 1 沒有任何越界。
+
+**模擬器新陷阱**：Gboard 的「Try out your stylus」教學浮層會攔截
+`adb shell input text`，字進了教學的輸入框、FMP 的欄位仍是空的 —— 看起來就像
+點擊沒中。截圖才看得出來，按 Cancel 關掉後重打即可。已補進
+`.claude/skills/verify-on-device/SKILL.md`。
