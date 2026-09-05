@@ -13,7 +13,6 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -21,11 +20,11 @@ import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/temporary_play_handler.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -84,8 +83,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
       );
 

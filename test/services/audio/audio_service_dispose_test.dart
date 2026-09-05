@@ -15,21 +15,19 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/main.dart' as app_main;
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/audio/now_playing_publisher.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
@@ -41,6 +39,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -54,9 +53,6 @@ void main() {
     });
 
     setUp(() async {
-      app_main.audioHandler = FmpAudioHandler();
-      app_main.windowsSmtcHandler = WindowsSmtcHandler();
-
       tempDir = await Directory.systemTemp.createTemp('audio_dispose_test_');
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema],
@@ -235,6 +231,7 @@ ProviderContainer _createContainer({
   return ProviderContainer(
     overrides: [
       audioServiceProvider.overrideWith((ref) => audioService),
+      nowPlayingPublisherProvider.overrideWithValue(testNowPlayingPublisher()),
       queueManagerProvider.overrideWith((ref) => queueManager),
       queuePersistenceManagerProvider
           .overrideWith((ref) => queuePersistenceManager),

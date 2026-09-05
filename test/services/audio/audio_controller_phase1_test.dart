@@ -37,11 +37,11 @@ import 'package:fmp/services/lyrics/title_parser.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -104,8 +104,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: toastService,
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
       );
@@ -145,8 +144,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         lyricsAutoMatchService: lyricsService,
         mixTracksFetcher: mixTracksFetcher.call,
@@ -206,8 +204,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         lyricsAutoMatchService: lyricsService,
         mixTracksFetcher: mixTracksFetcher.call,
@@ -307,11 +304,12 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: handler,
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(
+          platform: AudioRuntimePlatform.mobile,
+          audioHandler: handler,
+        ),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
-        runtimePlatform: AudioRuntimePlatform.mobile,
       );
       await controller.initialize();
 
@@ -365,11 +363,12 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: handler,
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(
+          platform: AudioRuntimePlatform.mobile,
+          audioHandler: handler,
+        ),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
-        runtimePlatform: AudioRuntimePlatform.mobile,
       );
       await controller.initialize();
 
@@ -1513,8 +1512,7 @@ void main() {
           sourceManager: sourceManager,
         ),
         toastService: toastService,
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
         budget: const PlaybackTimeoutBudget(
@@ -1612,8 +1610,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
       );

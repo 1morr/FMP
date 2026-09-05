@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
@@ -25,9 +24,6 @@ import '../../providers/download/file_exists_cache.dart';
 import '../../providers/library/library_invalidation_coordinator.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
-import '../../main.dart' show audioHandler, windowsSmtcHandler;
-import 'audio_handler.dart';
-import 'windows_smtc_handler.dart';
 import 'audio_types.dart';
 import 'buffer_starvation_watchdog.dart';
 import 'audio_service.dart';
@@ -38,6 +34,8 @@ import 'audio_runtime_platform.dart';
 import 'audio_stream_manager.dart';
 import 'playback_recovery_coordinator.dart';
 import 'playback_request_session.dart';
+import 'playback_capabilities.dart';
+import 'now_playing_publisher.dart';
 import 'queue_commands.dart';
 import 'queue_manager.dart';
 import 'queue_persistence_manager.dart';
@@ -239,9 +237,7 @@ class AudioController extends StateNotifier<PlayerState>
   late final QueueCommands _queueCommands;
   final AudioStreamManager _audioStreamManager;
   final ToastService _toastService;
-  final FmpAudioHandler _audioHandler;
-  final WindowsSmtcHandler _windowsSmtcHandler;
-  final AudioRuntimePlatform _runtimePlatform;
+  final NowPlayingPublisher _publisher;
   final PlayHistoryRepository? _playHistoryRepository;
   final LyricsAutoMatchService? _lyricsAutoMatchService;
   final SettingsRepository? _settingsRepository;
@@ -305,23 +301,19 @@ class AudioController extends StateNotifier<PlayerState>
     required QueueManager queueManager,
     required AudioStreamManager audioStreamManager,
     required ToastService toastService,
-    required FmpAudioHandler audioHandler,
-    required WindowsSmtcHandler windowsSmtcHandler,
+    required NowPlayingPublisher nowPlayingPublisher,
     PlayHistoryRepository? playHistoryRepository,
     LyricsAutoMatchService? lyricsAutoMatchService,
     SettingsRepository? settingsRepository,
     QueuePersistenceManager? queuePersistenceManager,
     MixTracksFetcher? mixTracksFetcher,
-    AudioRuntimePlatform? runtimePlatform,
     PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
   })  : _budget = budget,
         _audioService = audioService,
         _queueManager = queueManager,
         _audioStreamManager = audioStreamManager,
         _toastService = toastService,
-        _audioHandler = audioHandler,
-        _windowsSmtcHandler = windowsSmtcHandler,
-        _runtimePlatform = runtimePlatform ?? detectAudioRuntimePlatform(),
+        _publisher = nowPlayingPublisher,
         _playHistoryRepository = playHistoryRepository,
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
@@ -348,7 +340,7 @@ class AudioController extends StateNotifier<PlayerState>
         if (_context.activeRequestId == requestId && result.isSuperseded) {
           state = state.copyWith(isLoading: false);
           _context = _context.copyWith(activeRequestId: 0);
-          _publishMobileAudioHandlerCurrentPlaybackState();
+          _publishCurrentPlaybackState();
         }
       },
       terminalMediaOpenMessage: (track) =>
@@ -373,9 +365,6 @@ class AudioController extends StateNotifier<PlayerState>
 
   /// 已經為哪一首歌出手救過一次。同一首只救一次，否則就變成無限重載。
   String? _bufferStarvationTrackKey;
-
-  bool get _usesMobileAudioHandler =>
-      _runtimePlatform == AudioRuntimePlatform.mobile;
 
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
@@ -421,15 +410,8 @@ class AudioController extends StateNotifier<PlayerState>
       // 监听队列状态变化
       subscribe(_queueManager.stateStream, _onQueueStateChanged);
 
-      // 设置 AudioHandler 回调（仅在 Android/iOS 上有效）
-      if (_usesMobileAudioHandler) {
-        _setupAudioHandler();
-      }
-
-      // 设置 Windows SMTC 回调（仅在 Windows 上有效）
-      if (Platform.isWindows) {
-        _setupWindowsSmtc();
-      }
+      // 接管系统媒体控制（通知栏 / SMTC），平台分流由 publisher 负责
+      _claimMediaControls();
 
       // 更新初始状态
       _updateQueueState();
@@ -534,9 +516,11 @@ class AudioController extends StateNotifier<PlayerState>
     _subscriptions.clear();
     _mixPlaylistHandler.clear();
     _queueManager.dispose();
-    // 未清理时 SMTC 的按钮订阅与原生句柄会活过 controller，
-    // 令已释放的 controller 继续收到系统媒体键事件。
-    _windowsSmtcHandler.dispose();
+    // 交还系统媒体控制。刻意**不** dispose 原生句柄：需要跟着 controller
+    // 一起消失的是回调绑定，不是 SMTC 本身 —— 原生 session 只在 main.dart
+    // 建立一次，dispose 掉之后没有任何程式码会重建它。按钮订阅留着，解绑后
+    // 它派发到 null，正是 app 启动时的状态。
+    _publisher.release(NowPlayingOwner.music);
     unawaited(_audioService.dispose().catchError((Object e, StackTrace stack) {
       logError('Failed to dispose audio service', e, stack);
     }));
@@ -1009,10 +993,7 @@ class AudioController extends StateNotifier<PlayerState>
       playAll(tracks, startIndex: startIndex);
 
   /// 重新綁定歌曲播放的全局媒體控制回調
-  void restoreMediaControlOwnership() {
-    _setupAudioHandler();
-    _setupWindowsSmtc();
-  }
+  void restoreMediaControlOwnership() => _claimMediaControls();
 
   Future<void> startMixFromPlaylist(Playlist playlist) async {
     final playlistId = playlist.mixPlaylistId;
@@ -1349,11 +1330,7 @@ class AudioController extends StateNotifier<PlayerState>
     logDebug('Toggling shuffle');
     await _queueManager.toggleShuffle();
     state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
-
-    // 更新 AudioHandler 的随机播放状态（用于通知栏）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateShuffleMode(_queueManager.isShuffleEnabled);
-    }
+    _publishPlayModes();
   }
 
   /// 设置循环模式
@@ -1361,22 +1338,14 @@ class AudioController extends StateNotifier<PlayerState>
     logDebug('Setting loop mode: $mode');
     await _queueManager.setLoopMode(mode);
     state = state.copyWith(loopMode: mode);
-
-    // 更新 AudioHandler 的循环模式（用于通知栏）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateRepeatMode(mode);
-    }
+    _publishPlayModes();
   }
 
   /// 循环切换循环模式
   Future<void> cycleLoopMode() async {
     await _queueManager.cycleLoopMode();
     state = state.copyWith(loopMode: _queueManager.loopMode);
-
-    // 更新 AudioHandler 的循环模式（用于通知栏）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateRepeatMode(_queueManager.loopMode);
-    }
+    _publishPlayModes();
   }
 
   // ========== 音量 ==========
@@ -1566,72 +1535,38 @@ class AudioController extends StateNotifier<PlayerState>
     onQueueStateChanged?.call(_createQueueStateFromCurrentState());
   }
 
-  /// 设置 AudioHandler 回调函数
-  void _setupAudioHandler() {
-    _audioHandler.onPlay = play;
-    _audioHandler.onPause = pause;
-    _audioHandler.onStop = stop;
-    _audioHandler.onSkipToNext = next;
-    _audioHandler.onSkipToPrevious = previous;
-    _audioHandler.onSeek = seekTo;
-    _audioHandler.onSetRepeatMode = (repeatMode) async {
-      final loopMode = _repeatModeToLoopMode(repeatMode);
-      await setLoopMode(loopMode);
-    };
-    _audioHandler.onSetShuffleMode = (shuffleMode) async {
-      final shouldShuffle = shuffleMode != AudioServiceShuffleMode.none;
-      if (shouldShuffle != _queueManager.isShuffleEnabled) {
-        await toggleShuffle();
-      }
-    };
-
-    // 初始化播放状态
-    _audioHandler.initPlaybackState(
-      isPlaying: _audioService.isPlaying,
-      repeatMode: _loopModeToRepeatMode(_queueManager.loopMode),
-      shuffleMode: _queueManager.isShuffleEnabled
-          ? AudioServiceShuffleMode.all
-          : AudioServiceShuffleMode.none,
+  /// 接管系统媒体控制。
+  ///
+  /// 通知栏与 SMTC 的差异、以及哪些按钮该出现，全部由 [NowPlayingPublisher]
+  /// 依 [PlaybackCapabilities] 决定 —— 这里只负责说「音乐这个模式支援什么」。
+  void _claimMediaControls() {
+    _publisher.claim(
+      NowPlayingOwner.music,
+      commands: MediaControlCommands(
+        play: play,
+        pause: pause,
+        stop: stop,
+        skipToNext: next,
+        skipToPrevious: previous,
+        seek: seekTo,
+        setLoopMode: setLoopMode,
+        setShuffleEnabled: (enabled) async {
+          if (enabled != _queueManager.isShuffleEnabled) {
+            await toggleShuffle();
+          }
+        },
+      ),
+      capabilities: PlaybackCapabilities.music,
     );
-
-    logDebug('AudioHandler callbacks set up');
+    _publishPlayModes();
   }
 
-  /// 设置 Windows SMTC 回调函数
-  void _setupWindowsSmtc() {
-    _windowsSmtcHandler.onPlay = play;
-    _windowsSmtcHandler.onPause = pause;
-    _windowsSmtcHandler.onStop = stop;
-    _windowsSmtcHandler.onSkipToNext = next;
-    _windowsSmtcHandler.onSkipToPrevious = previous;
-    _windowsSmtcHandler.onSeek = seekTo;
-
-    logDebug('Windows SMTC callbacks set up');
-  }
-
-  /// 转换 LoopMode 到 AudioServiceRepeatMode
-  AudioServiceRepeatMode _loopModeToRepeatMode(LoopMode loopMode) {
-    switch (loopMode) {
-      case LoopMode.none:
-        return AudioServiceRepeatMode.none;
-      case LoopMode.one:
-        return AudioServiceRepeatMode.one;
-      case LoopMode.all:
-        return AudioServiceRepeatMode.all;
-    }
-  }
-
-  /// 转换 AudioServiceRepeatMode 到 LoopMode
-  LoopMode _repeatModeToLoopMode(AudioServiceRepeatMode repeatMode) {
-    switch (repeatMode) {
-      case AudioServiceRepeatMode.none:
-        return LoopMode.none;
-      case AudioServiceRepeatMode.one:
-        return LoopMode.one;
-      case AudioServiceRepeatMode.all:
-      case AudioServiceRepeatMode.group:
-        return LoopMode.all;
-    }
+  void _publishPlayModes() {
+    _publisher.publishPlayModes(
+      NowPlayingOwner.music,
+      loopMode: _queueManager.loopMode,
+      shuffleEnabled: _queueManager.isShuffleEnabled,
+    );
   }
 
   /// 更新正在播放的歌曲（UI 显示用）
@@ -1646,15 +1581,8 @@ class AudioController extends StateNotifier<PlayerState>
     _playingTrack = track;
     state = state.copyWith(playingTrack: track);
 
-    // 更新 AudioHandler 的媒体信息（用于通知栏显示）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateCurrentMediaItem(track);
-    }
-
-    // 更新 Windows SMTC 的媒体信息
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.updateCurrentMediaItem(track);
-    }
+    // 更新系统媒体控制的媒体信息（通知栏 / SMTC）
+    _publisher.publishTrack(NowPlayingOwner.music, track);
 
     // 只在明确要求时记录到播放历史（避免重复记录）
     if (recordHistory) {
@@ -1735,10 +1663,8 @@ class AudioController extends StateNotifier<PlayerState>
       replaceCurrentStreamMetadata: true,
     );
 
-    // 更新 Windows SMTC 为停止状态
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.setStoppedState();
-    }
+    // 系统媒体控制转为停止状态
+    _publisher.publishStopped(NowPlayingOwner.music);
 
     logDebug('Cleared playing track');
   }
@@ -1903,24 +1829,26 @@ class AudioController extends StateNotifier<PlayerState>
       replaceCurrentStreamMetadata: true,
     );
     _context = _context.copyWith(activeRequestId: requestId);
-    _publishMobileAudioHandlerLoadingState();
+    _publishLoadingState();
   }
 
-  void _publishMobileAudioHandlerLoadingState() {
-    _publishMobileAudioHandlerPlaybackState(
+  void _publishLoadingState() {
+    _publishPlaybackState(
       isPlaying: false,
       position: Duration.zero,
       processingState: FmpAudioProcessingState.loading,
     );
   }
 
-  void _publishMobileAudioHandlerPlaybackState({
+  /// 速度与缓冲位置在这里读好再传出去 —— [NowPlayingPublisher] 刻意不认识
+  /// [FmpAudioService]，维持成纯 sink。
+  void _publishPlaybackState({
     required bool isPlaying,
     required Duration position,
     required FmpAudioProcessingState processingState,
   }) {
-    if (!_usesMobileAudioHandler) return;
-    _audioHandler.updatePlaybackState(
+    _publisher.publishPlaybackState(
+      NowPlayingOwner.music,
       isPlaying: isPlaying,
       position: position,
       bufferedPosition: _audioService.bufferedPosition,
@@ -1930,8 +1858,8 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 
-  void _publishMobileAudioHandlerCurrentPlaybackState() {
-    _publishMobileAudioHandlerPlaybackState(
+  void _publishCurrentPlaybackState() {
+    _publishPlaybackState(
       isPlaying: _audioService.isPlaying,
       position: _audioService.position,
       processingState: _audioService.processingState,
@@ -1990,7 +1918,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
     state = state.copyWith(isLoading: false);
     _context = _context.copyWith(activeRequestId: 0);
-    _publishMobileAudioHandlerCurrentPlaybackState();
+    _publishCurrentPlaybackState();
   }
 
   void _resetSourceErrorLoadingState(int requestId) {
@@ -2000,7 +1928,7 @@ class AudioController extends StateNotifier<PlayerState>
       reason: 'source error reset playback loading state',
     );
     _context = _context.copyWith(activeRequestId: 0);
-    _publishMobileAudioHandlerCurrentPlaybackState();
+    _publishCurrentPlaybackState();
   }
 
   void _clearMatchingSessionLoadingContext(int requestId) {
@@ -2010,7 +1938,7 @@ class AudioController extends StateNotifier<PlayerState>
       reason: 'playback loading context cleared',
     );
     _context = _context.copyWith(activeRequestId: 0);
-    _publishMobileAudioHandlerCurrentPlaybackState();
+    _publishCurrentPlaybackState();
   }
 
   Future<void> _applyPendingSeekIfCurrent(int requestId) async {
@@ -2884,21 +2812,16 @@ class AudioController extends StateNotifier<PlayerState>
           _isWithinOutputDeviceFailureGuard,
     );
 
-    // 更新 AudioHandler 的播放状态（用于通知栏）
-    _publishMobileAudioHandlerPlaybackState(
+    // 更新系统媒体控制的播放状态（通知栏 / SMTC）
+    //
+    // 两个表面统一送 effective 值。过去 SMTC 收的是后端原始值，所以
+    // AGENTS.md 那条「控制器拥有的载入阶段，后端 idle 事件不得覆盖
+    // loading 状态」只在 Android 通知栏成立 —— 没有理由只保护一个平台。
+    _publishPlaybackState(
       isPlaying: effectiveIsPlaying,
       position: effectivePosition,
       processingState: effectiveProcessingState,
     );
-
-    // 更新 Windows SMTC 的播放状态
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.updatePlaybackState(
-        isPlaying: playerState.playing,
-        position: _audioService.position,
-        duration: _audioService.duration,
-      );
-    }
   }
 
   void _onPositionChanged(Duration position) {
@@ -2920,26 +2843,12 @@ class AudioController extends StateNotifier<PlayerState>
     if (!shouldUpdateNotification) return;
     _lastNotificationPosition = position;
 
-    // 更新 AudioHandler 的播放状态（用于通知栏进度显示）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updatePlaybackState(
-        isPlaying: _audioService.isPlaying,
-        position: position,
-        bufferedPosition: _audioService.bufferedPosition,
-        processingState: _audioService.processingState,
-        duration: _audioService.duration,
-        speed: _audioService.speed,
-      );
-    }
-
-    // 更新 Windows SMTC 的播放状态（用于进度显示）
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.updatePlaybackState(
-        isPlaying: _audioService.isPlaying,
-        position: position,
-        duration: _audioService.duration,
-      );
-    }
+    // 更新系统媒体控制的进度（通知栏 / SMTC）
+    _publishPlaybackState(
+      isPlaying: _audioService.isPlaying,
+      position: position,
+      processingState: _audioService.processingState,
+    );
   }
 
   /// T3：連續緩衝超過預算 —— 引擎還沒喊失敗，但已經播不動了。
@@ -3403,7 +3312,6 @@ final audioControllerProvider =
   final audioService = ref.watch(audioServiceProvider);
   final queueManager = ref.watch(queueManagerProvider);
   final toastService = ref.watch(toastServiceProvider);
-  final runtimePlatform = ref.watch(audioRuntimePlatformProvider);
 
   // 获取播放历史仓库（可能为 null，如果数据库未初始化）
   PlayHistoryRepository? playHistoryRepository;
@@ -3418,8 +3326,7 @@ final audioControllerProvider =
     queueManager: queueManager,
     audioStreamManager: ref.watch(audioStreamManagerProvider),
     toastService: toastService,
-    audioHandler: audioHandler,
-    windowsSmtcHandler: windowsSmtcHandler,
+    nowPlayingPublisher: ref.watch(nowPlayingPublisherProvider),
     playHistoryRepository: playHistoryRepository,
     // Lyrics settings must not rebuild the playback controller. The latest
     // values are read from SettingsRepository when auto-match actually runs.
@@ -3430,7 +3337,6 @@ final audioControllerProvider =
         .watch(sourceManagerProvider)
         .dynamicPlaylistSource(SourceIds.youtube)
         ?.fetchMixTracks,
-    runtimePlatform: runtimePlatform,
   );
 
   // 设置网络恢复监听（用于断网重连自动恢复播放）

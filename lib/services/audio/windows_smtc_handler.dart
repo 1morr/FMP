@@ -6,6 +6,7 @@ import '../../core/logger.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
+import 'playback_capabilities.dart';
 
 class SmtcMetadataFingerprint {
   const SmtcMetadataFingerprint({
@@ -45,6 +46,29 @@ class SmtcMetadataDeduplicator {
   void clear() {
     _lastPublished = null;
   }
+}
+
+/// 把 [PlaybackCapabilities] 映射成 SMTC 的按钮开关。
+///
+/// `SMTCConfig` 只有这七个旗标 —— **没有** shuffle / repeat / seek 的开关。
+/// 所以 `canShuffle` / `canRepeat` / `canSeek` 在 Windows 上无处可放：
+/// seek 靠 [WindowsSmtcHandler._updateTimeline] 不宣告可拖曳区间来处理，
+/// shuffle / repeat 只能靠真的去处理 `shuffleChangeStream` /
+/// `repeatModeChangeStream`。
+///
+/// 纯函数，方便单元测试 —— 真正的 `SMTCWindows` 调用需要 Windows 媒体
+/// 工作阶段，测试里碰不到。
+SMTCConfig smtcConfigForCapabilities(PlaybackCapabilities capabilities) {
+  return SMTCConfig(
+    playEnabled: true,
+    pauseEnabled: true,
+    stopEnabled: true,
+    nextEnabled: capabilities.canSkipNext,
+    prevEnabled: capabilities.canSkipPrevious,
+    // smtc_windows 1.1.0 从不派发这两个 PressedButton，宣告了也是死键。
+    fastForwardEnabled: false,
+    rewindEnabled: false,
+  );
 }
 
 /// Windows SMTC (System Media Transport Controls) 处理器
@@ -93,15 +117,9 @@ class WindowsSmtcHandler with Logging {
           minSeekTimeMs: 0,
           maxSeekTimeMs: 0,
         ),
-        config: const SMTCConfig(
-          fastForwardEnabled: false,
-          nextEnabled: true,
-          pauseEnabled: true,
-          playEnabled: true,
-          rewindEnabled: false,
-          prevEnabled: true,
-          stopEnabled: true,
-        ),
+        // 还没有人接管之前什么都不宣告 —— 过去这里是写死的「全部可用」，
+        // 于是 SMTC 在 AudioController 绑上回调之前就画出了上／下一首。
+        config: smtcConfigForCapabilities(PlaybackCapabilities.none),
       );
 
       _metadataDeduplicator.clear();
@@ -136,6 +154,31 @@ class WindowsSmtcHandler with Logging {
           break;
       }
     });
+  }
+
+  /// 更新对外宣告的按钮能力。
+  ///
+  /// 去重直接用 `SMTCWindows` 自己缓存的 `config` 与套件自带的 `==`
+  /// （`smtc_windows/src/rust/internal/config.dart`），不另开一个
+  /// `SmtcConfigDeduplicator`：`SmtcMetadataDeduplicator` 存在是因为
+  /// metadata 的 fingerprint（正规化过的缩图 URL）不存在于套件里、必须自己记；
+  /// config 不一样，套件已经记了。
+  ///
+  /// 能力只在接管／交还时变一次，不在每 500ms 的位置 tick 路径上 ——
+  /// 这里的比较是保险，不是主要防线。
+  void updateCapabilities(PlaybackCapabilities capabilities) {
+    final smtc = _smtc;
+    if (smtc == null) return;
+
+    final next = smtcConfigForCapabilities(capabilities);
+    if (smtc.config == next) return;
+
+    try {
+      smtc.updateConfig(next);
+      logDebug('SMTC updated capabilities: $capabilities');
+    } catch (e) {
+      logError('Failed to update SMTC capabilities: $e');
+    }
   }
 
   /// 更新当前播放的媒体元数据
