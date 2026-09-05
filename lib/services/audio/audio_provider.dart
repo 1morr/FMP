@@ -43,6 +43,7 @@ import '../network/connectivity_service.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
 import 'mix_playlist_handler.dart';
+import 'play_history_recorder.dart';
 import 'mix_playlist_types.dart';
 import 'temporary_play_handler.dart';
 
@@ -238,7 +239,7 @@ class AudioController extends StateNotifier<PlayerState>
   final AudioStreamManager _audioStreamManager;
   final ToastService _toastService;
   final NowPlayingPublisher _publisher;
-  final PlayHistoryRepository? _playHistoryRepository;
+  late final PlayHistoryRecorder _playHistory;
   final LyricsAutoMatchService? _lyricsAutoMatchService;
   final SettingsRepository? _settingsRepository;
   final QueuePersistenceManager? _queuePersistenceManager;
@@ -314,12 +315,12 @@ class AudioController extends StateNotifier<PlayerState>
         _audioStreamManager = audioStreamManager,
         _toastService = toastService,
         _publisher = nowPlayingPublisher,
-        _playHistoryRepository = playHistoryRepository,
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
         _queuePersistenceManager = queuePersistenceManager,
         _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
+    _playHistory = PlayHistoryRecorder(repository: playHistoryRepository);
     _queueCommands = QueueCommands(
       queueManager: _queueManager,
       toastService: _toastService,
@@ -1587,26 +1588,10 @@ class AudioController extends StateNotifier<PlayerState>
     // 一次播放請求裡這個方法會被呼叫兩次（先更新 UI，拿到 URL 後再補記），
     // 靠旗標避免記兩筆。這不是「聽滿幾秒才算」的門檻。
     if (countsAsNewPlay) {
-      _recordPlayHistory(track);
+      _playHistory.record(track);
     }
 
     logDebug('Updated playing track: ${track.title}');
-  }
-
-  /// 记录播放历史（异步，不阻塞播放）
-  void _recordPlayHistory(Track track) {
-    final repo = _playHistoryRepository;
-    if (repo == null) return;
-
-    // 异步记录，不阻塞播放
-    Future.microtask(() async {
-      try {
-        await repo.addHistory(track);
-        logDebug('Recorded play history: ${track.title}');
-      } catch (e) {
-        logWarning('Failed to record play history: $e');
-      }
-    });
   }
 
   /// 尝试自动匹配歌词（异步，不阻塞播放）
