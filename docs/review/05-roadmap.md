@@ -1445,3 +1445,76 @@ shuffle 被測試切掉之後已切回原本的 `true`（loop mode 原本就是 
 `adb shell input text`，字進了教學的輸入框、FMP 的欄位仍是空的 —— 看起來就像
 點擊沒中。截圖才看得出來，按 Cancel 關掉後重打即可。已補進
 `.claude/skills/verify-on-device/SKILL.md`。
+
+### 6.6 執行時的失效重核（2026-09-05，Phase 4 步驟 D）
+
+步驟 D（把播放歷史、歌詞自動比對、Mix 預取摘出 `AudioController`）。commit
+`76fe5abf`…`d3bed14b`。`audio_provider.dart` **3,436 → 3,209 行**（淨減 227）。
+
+#### 開工重核：三條說法要更正
+
+| # | 原本的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | `:342`：D 的價值是「把副作用從播放路徑上摘下來，**播放不再等它們**」 | **前提已經成立。** 三者當時都已非阻塞：歷史 `Future.microtask`、歌詞 `unawaited`、Mix `unawaited`。唯一 `await` 的是 `_advanceAfterPendingMixLoadMore()`（播到隊尾剛好有預取在飛就等它），那是**刻意的**，而且被 `audio_controller_mix_boundary_test.dart` 的 `completion at mix queue end waits for pending load-more tracks` 鎖住 | D **沒有**動那個 await。價值改述為：縮小 god class、讓三件事可單獨測、拆掉隱藏耦合 |
+| 2 | 02 §8.1-D：`abstract interface class PlaybackObserver` ＋ `List<PlaybackObserver>` 廣播 | **三個方法只有一個有人實作。** 三者都只掛「播放請求成功」一個事件；`onTrackEnded` / `onQueuePositionChanged` 零實作。而且 Mix 必須對外曝露進行中的 `Future`，回傳 `void` 的 observer 做不到 | **介面未採用**，改成三個具體協作者，形狀照 `QueueCommands` / `NowPlayingPublisher`。02 §8.1-D 已標註 |
+| 3 | — | **`PlaybackSessionCommand.recordHistory` 是死欄位。** 整個 `lib/` 沒有一處讀它；唯一的讀取者是測試裡一行「斷言它 round-trip 回自己」 | 連同那行斷言一起刪 |
+
+另外兩件決定設計的事實：
+
+- **`recordHistory` 這個名字在說謊。** 它同時閘住播放歷史**與**歌詞自動比對
+  （`audio_provider.dart` 舊 `:2199`）。這個耦合是對的（重試與啟動還原都不算一次
+  新的播放，兩者都不該重跑），但名字讓人以為它只管歷史。改名 `countsAsNewPlay`。
+- **`_mixLoadMoreFuture` 與 `MixPlaylistHandler._current` 是兩組必須手動同步的狀態。**
+  `_exitMixMode()` 與 `dispose()` 都得記得同時清兩邊。合併成 `MixSessionCoordinator`
+  之後 `exit()` 一次做完，這個 bug 形狀消失。
+
+#### 執行中發現
+
+1. **`audio_controller_mix_boundary_test.dart` 的守門斷言差點被自己搬走。**
+   它讀 `lib/services/audio/audio_provider.dart` 的原始碼字串，斷言其中不含
+   `_queueManager.mixPlaylistId` 等四個 getter。Mix 程式碼搬到新檔之後，這個斷言
+   會**變成恆真**——守門形同解除，而且測試照樣是綠的。已改成掃
+   `lib/services/audio/` 整個目錄，並加一條 `expect(sources, isNotEmpty)` 防掃空。
+   這正是 §Phase 6 那條「掃描型測試的路徑不得硬編」紀律要防的失效模式。
+2. **播放歷史在 `AudioController` 這一層本來完全沒有測試。** repository 與 provider
+   各有自己的單元測試，中間那條轉接沒有人守。D1 補上（4 條）。
+3. **Isar 寫入不能用固定次數的 `pumpEventQueue` 當同步點。** 兩次 `record()` 排出
+   兩個序列化的 `writeTxn`，單次 pump 只等得到第一筆 —— 這恰好證明了它不阻塞呼叫端，
+   但也意味著測試要輪詢到落地為止。三個新測試檔都用這個模式。
+4. **`startMixFromPlaylist` 的第一次抓取與預取用的是同一個 fetcher。** 為了不讓
+   `MixTracksFetcher` 同時掛在 controller 與 coordinator 上，coordinator 開了
+   `canFetch` / `fetch()`，controller 不再持有 fetcher。
+
+#### 實機驗收（Android 模擬器 `Medium_Phone`，2026-09-05）
+
+三個協作者都用新的 logger tag，實機拍到的就是新程式碼在跑。
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| 播放歷史真的有寫 | `[PlayHistoryRecorder] Recorded play history: Cardi B - AH HA…`；播放歷史頁 **11 → 13 首** |
+| 啟動還原**不**重複記 | hot restart 走 `_prepareCurrentTrack`（`countsAsNewPlay: false`）→ 仍是 **13 首**，未增加 |
+| 歌詞閘門（關閉） | `[LyricsAutoMatchCoordinator] Auto-match lyrics disabled in settings` |
+| 歌詞閘門（開啟） | 暫時打開設定後：`[LyricsAutoMatchService] Auto-matching: "AH HA…" by "Cardi B"`，並依使用者的來源優先序打了 Netease |
+| **Mix 預取** | `[MixSessionCoordinator] Mix mode: 0 tracks remaining, loading more…` → `Attempt 1/10: using last track as seed` → `adding 11 new tracks`；佇列頁 **25 → 36 → 54 → 67 首**，三輪都在畫面上確認 |
+| Mix 還原路徑 | 持久化的 Mix 在 `initialize()` 還原到隊尾時自動排入預取，**不需要播放成功** |
+
+**沒驗到的一項**：`isLoadingMoreMix` 的載入指示器渲染在佇列列表**底部**，而單次抓取
+一輪就湊滿，視窗太短沒截到。它的 `[true, false]` 轉換由
+`mix_session_coordinator_test.dart` 鎖住，同一組回呼的另一半（`onQueueChanged` →
+佇列變長）則在畫面上確認了三次。
+
+**當天的音源狀況（影響可驗範圍）**：Bilibili `playurl` 回 HTTP 412
+`request was banned`；YouTube 的 **audio-only** 串流回 `Sign in to confirm you're
+not a bot`，但**muxed 串流與所有 metadata API（排行榜、Mix 播放列表、Mix 追加）
+完全正常**。所以 Mix 全程可驗，只有純音訊解析被擋。第一輪播放驗證改用本地已下載檔
+（`_inspectLocalFiles`，無網路）。
+
+**模擬器新陷阱**：從 snapshot 還原的 `Medium_Phone` 會整個卡死 —— 畫面凍結、
+`orca emulator tap` 與 `adb shell input` 都沒有反應、`ax` tree 恆為 `nodes=0`，
+連 hot restart 之後畫面都不變，logcat 只留下 `F/bluetooth … on_hardware_error
+… code 0x42`。**`-no-snapshot-load` 冷開機即可**；不要在凍結的 snapshot 上耗時間。
+
+**清理**：匯入的測試 Mix 歌單（`RDI-5e_J3LWS8`）已刪除，音樂庫回到原本只有
+`DownloadProbe`；「自動匹配歌詞」已切回原本的關閉。**未還原**：驗證用的播放佇列
+清空後沒有復原原本那 2 首（原佇列來自更早一輪的 YouTube 排行榜點擊），播放歷史多出
+的紀錄也保留著 —— 那些是裝置上真的發生過的播放。

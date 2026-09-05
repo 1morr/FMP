@@ -167,6 +167,13 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 - **No element tree on Windows** (§6).
 - `orca screenshot` (Orca's embedded browser) returns inline base64 and burns
   context. For device pixels always use `adb exec-out screencap -p > file.png`.
+- **A snapshot-restored `Medium_Phone` can come up wedged.** The screen is a
+  frozen frame, `orca emulator tap` and `adb shell input` both do nothing, the
+  `ax` tree reads `nodes=0`, and even a hot restart leaves the display
+  unchanged; logcat shows only `F/bluetooth ... on_hardware_error ... code
+  0x42`. Relaunch with `-no-snapshot-load` — do not spend time debugging the
+  app, it is the emulator. `topResumedActivity` still names the app, so that
+  check will not tell you either.
 - Android's 16 KB page-size dialog appears on first launch on modern emulator
   images (`libisar.so` LOAD segment not aligned). Dismiss it via `ax` before
   asserting on the first screen.

@@ -895,6 +895,13 @@ abstract interface class PlaybackObserver {
 
 【建議・成本 M・風險低・可逆】
 
+> **【第九輪執行 —— 介面未採用，三個具體協作者取而代之】** 開工查證推翻了這一節的兩個前提，見 05 §6.6：
+>
+> 1. **「這些都不該讓播放等它們」的前提已經成立。** 三者當時都已是非阻塞（`Future.microtask` / `unawaited` ×2）。唯一 `await` 的是 `_advanceAfterPendingMixLoadMore()`，那是刻意的且被測試鎖住，**不能**拿掉。
+> 2. **上面這個介面三個方法只有一個有人實作。** 三者都只掛「播放請求成功」一個事件，`onTrackEnded` / `onQueuePositionChanged` 零實作；而且 Mix 必須對外曝露進行中的 `Future` 供隊尾等待，回傳 `void` 的 observer 做不到。
+>
+> 落地的是 `PlayHistoryRecorder`、`LyricsAutoMatchCoordinator`、`MixSessionCoordinator` 三個具體類別，無共用介面、無廣播清單，形狀照 `QueueCommands` / `NowPlayingPublisher`。
+
 ---
 
 #### E. `QueueCommands` —— 佇列命令從 controller 分離

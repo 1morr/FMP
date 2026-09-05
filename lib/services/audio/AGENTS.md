@@ -31,7 +31,7 @@ UI playback controls          RadioController
         |                            |
         v                            |
 AudioController (audio_provider.dart)|
-  - PlayerState, business logic      |
+  - PlayerState projection           |
   - temporary/mix/detached modes     |
         |         |         |        |
         v         v         v        v
@@ -42,6 +42,12 @@ FmpAudioService  Queue-   Queue-  NowPlayingPublisher
 JustAudioService   - full            v            v
 MediaKitAudioService -> result  FmpAudioHandler  WindowsSmtcHandler
                                 (Android)        (Windows)
+
+AudioController also fans a started track out to three side-effect
+collaborators, none of which the playback path waits for:
+
+  PlayHistoryRecorder        LyricsAutoMatchCoordinator   MixSessionCoordinator
+  - one write, no state      - own request generation     - session + prefetch
 ```
 
 `QueueCommands` (`queue_commands.dart`) is the first collaborator pulled out of
@@ -57,6 +63,30 @@ mode, dropping the still-playing track into detached mode); those stay in
 `AudioController` because they are session state, not queue state. `playAt` was
 deliberately left behind too — it starts playback, so it belongs with the
 transport commands, not with the queue mutations.
+
+## Playback Side Effects
+
+Three things happen because a track started, not as part of starting it. All
+three are fire-and-forget; none of them may make playback wait.
+
+- `PlayHistoryRecorder` (`play_history_recorder.dart`) — one `addHistory` write
+  per counted play, on a microtask. It decides nothing: *what counts as a play*
+  is the caller's `countsAsNewPlay` flag, because only `AudioController` knows
+  whether this is a user skip, a retry, or a startup restore.
+- `LyricsAutoMatchCoordinator` (`lyrics_auto_match_coordinator.dart`) — reads the
+  settings gate, calls `LyricsAutoMatchService`, and reports the busy flag to the
+  UI. It owns its own request generation: switching tracks is far faster than
+  matching, and without it the previous track's result clears the indicator while
+  the new one is still matching.
+- `MixSessionCoordinator` (`mix_session_coordinator.dart`) — see below.
+
+`countsAsNewPlay` gates **both** history and lyrics. That is deliberate: a retry
+or a startup restore is not a new play, and neither should record a second row
+nor re-run a match. The flag was called `recordHistory` until Phase 4 D, which
+understated what turning it off skips.
+
+`AudioController` keeps the projection: the collaborators report through
+callbacks and never touch `PlayerState`, the same rule `QueueCommands` follows.
 
 ## System Media Controls
 
@@ -116,10 +146,19 @@ backend events.
 ## Ownership
 
 - `AudioController` (`audio_provider.dart`) — user-facing state,
-  temporary/mix/detached modes, queue-visible playback decisions, history/lyrics
-  side effects, source-error UI decisions. It also owns the 500 ms notification
-  throttle: position updates may be dropped, state transitions may not, so the
-  two cannot share a throttle and it does not belong in the publisher.
+  temporary/mix/detached modes, queue-visible playback decisions, source-error
+  UI decisions, and *when* each side effect fires (but not what it does). It also
+  owns the 500 ms notification throttle: position updates may be dropped, state
+  transitions may not, so the two cannot share a throttle and it does not belong
+  in the publisher.
+- `PlayHistoryRecorder` / `LyricsAutoMatchCoordinator` — see Playback Side
+  Effects. Deliberately own no `PlayerState`, no queue access, and no rule about
+  what counts as a play.
+- `MixSessionCoordinator` (`mix_session_coordinator.dart`) — the Mix session
+  identity, its seen-video set, the load-more retry loop, and the in-flight
+  prefetch future. Deliberately owns neither `PlayerState` nor starting playback:
+  `startMixFromPlaylist` / `playMixPlaylist` stay in `AudioController` for the
+  same reason `playAt` did.
 - `NowPlayingPublisher` (`now_playing_publisher.dart`) — media-control ownership
   arbitration, capability publication, and platform routing to the notification
   or SMTC. Deliberately owns no `PlayerState`, no timers, and no reference to
@@ -380,10 +419,19 @@ YouTube Mix/Radio playlists are dynamic infinite playlists:
 - IDs start with `RD`. `AudioController.startMixFromPlaylist()` currently trusts
   stored Mix metadata and does not validate the prefix itself.
 - Shuffle is disabled; `addToQueue`, `addAll`, and `addNext` are blocked.
-- Loads more tracks near the queue end using
+- `MixSessionCoordinator` loads more tracks near the queue end using
   `AppConstants.mixLoadMoreRemainingThreshold`. If the final queued track
   completes while load-more is pending, completion handling waits for the
-  pending load and advances into newly appended tracks.
+  pending load (`pendingLoad`) and advances into newly appended tracks. **That
+  wait is deliberate** — it is the only place playback waits on a side effect,
+  and `audio_controller_mix_boundary_test.dart` pins it.
+- The session and its in-flight prefetch are one object. They used to be two
+  fields (`MixPlaylistHandler._current` and `AudioController._mixLoadMoreFuture`)
+  that every exit path had to remember to clear twice; `exit()` does both.
+- Mix metadata may only be read through `QueuePersistenceManager.restoreState()`.
+  `audio_controller_mix_boundary_test.dart` scans **every** file under
+  `lib/services/audio/` for `_queueManager.mixPlaylistId` and friends — scoped to
+  one file the guard would go vacuous the moment the code moved.
 - Mix state is persisted through `PlayQueue` fields.
 
 ## Mute And Seek
