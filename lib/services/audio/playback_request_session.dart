@@ -23,7 +23,6 @@ class PlaybackSessionCommand {
     required this.mode,
     required this.positionBeforeLoad,
     this.persist = true,
-    this.recordHistory = true,
     this.prefetchNext = true,
     this.onPlaybackStarting,
   });
@@ -32,7 +31,6 @@ class PlaybackSessionCommand {
   final PlayMode mode;
   final Duration positionBeforeLoad;
   final bool persist;
-  final bool recordHistory;
   final bool prefetchNext;
   final Future<void> Function()? onPlaybackStarting;
 }

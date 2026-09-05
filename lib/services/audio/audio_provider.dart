@@ -764,7 +764,7 @@ class AudioController extends StateNotifier<PlayerState>
         track: track,
         mode: PlayMode.temporary,
         persist: false,
-        recordHistory: true,
+        countsAsNewPlay: true,
         prefetchNext: false,
       );
     } on SourceApiException catch (e) {
@@ -1106,7 +1106,7 @@ class AudioController extends StateNotifier<PlayerState>
           track: currentTrack,
           mode: PlayMode.mix,
           persist: true,
-          recordHistory: true,
+          countsAsNewPlay: true,
         );
       }
     } catch (e, stack) {
@@ -1570,7 +1570,7 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   /// 更新正在播放的歌曲（UI 显示用）
-  void _updatePlayingTrack(Track track, {bool recordHistory = false}) {
+  void _updatePlayingTrack(Track track, {bool countsAsNewPlay = false}) {
     if (_isDisposed) return;
     // 換歌才清掉「已經救過一次」的記號。刻意不放在 _startSessionLoadingState：
     // 那條路連 T3 自己發起的重試也會走到，等於每次重試都把自己的護欄清掉。
@@ -1584,8 +1584,9 @@ class AudioController extends StateNotifier<PlayerState>
     // 更新系统媒体控制的媒体信息（通知栏 / SMTC）
     _publisher.publishTrack(NowPlayingOwner.music, track);
 
-    // 只在明确要求时记录到播放历史（避免重复记录）
-    if (recordHistory) {
+    // 一次播放請求裡這個方法會被呼叫兩次（先更新 UI，拿到 URL 後再補記），
+    // 靠旗標避免記兩筆。這不是「聽滿幾秒才算」的門檻。
+    if (countsAsNewPlay) {
       _recordPlayHistory(track);
     }
 
@@ -1870,13 +1871,14 @@ class AudioController extends StateNotifier<PlayerState>
   /// [requestId] - 當前請求的 ID，用於驗證是否應該退出
   /// [trackWithUrl] - 成功獲取 URL 後的歌曲（用於更新 playingTrack）
   /// [mode] - 播放模式（用於更新 _context）
-  /// [recordHistory] - 是否記錄播放歷史
+  /// [countsAsNewPlay] - 這次是否算一次新的播放。同時閘住播放歷史與歌詞
+  ///   自動匹配 —— 重試與啟動還原都不算，否則會重複記錄、重複配歌詞
   /// [streamResult] - 音頻流選擇結果（碼率、格式等信息）
   void _exitLoadingState(
     int requestId,
     Track? trackWithUrl, {
     PlayMode? mode,
-    bool recordHistory = false,
+    bool countsAsNewPlay = false,
     AudioStreamResult? streamResult,
     bool stabilizeSeekAfterReady = false,
   }) {
@@ -1894,7 +1896,7 @@ class AudioController extends StateNotifier<PlayerState>
     _context = _context.copyWith(activeRequestId: 0, mode: mode);
 
     if (trackWithUrl != null) {
-      _updatePlayingTrack(trackWithUrl, recordHistory: recordHistory);
+      _updatePlayingTrack(trackWithUrl, countsAsNewPlay: countsAsNewPlay);
       if (stabilizeSeekAfterReady) {
         _startSeekStabilizationWindow(requestId, trackWithUrl);
       }
@@ -2128,13 +2130,14 @@ class AudioController extends StateNotifier<PlayerState>
   /// [track] - 要播放的歌曲
   /// [mode] - 播放模式（queue/temporary/detached）
   /// [persist] - 是否將 URL 保存到數據庫
-  /// [recordHistory] - 是否記錄播放歷史
+  /// [countsAsNewPlay] - 這次是否算一次新的播放。同時閘住播放歷史與歌詞
+  ///   自動匹配 —— 重試與啟動還原都不算，否則會重複記錄、重複配歌詞
   /// [prefetchNext] - 是否預取下一首
   Future<void> _executePlayRequest({
     required Track track,
     required PlayMode mode,
     bool persist = true,
-    bool recordHistory = true,
+    bool countsAsNewPlay = true,
     bool prefetchNext = true,
   }) async {
     // 保存當前播放位置，用於網路錯誤重試時恢復
@@ -2157,7 +2160,6 @@ class AudioController extends StateNotifier<PlayerState>
           track: requestTrack,
           mode: mode,
           persist: persist,
-          recordHistory: recordHistory,
           prefetchNext: prefetchNext,
           positionBeforeLoad: positionBeforeLoad,
           onPlaybackStarting: onPlaybackStarting,
@@ -2187,7 +2189,7 @@ class AudioController extends StateNotifier<PlayerState>
       // 階段 6：完成
       _exitLoadingState(result.requestId, trackWithUrl,
           mode: mode,
-          recordHistory: recordHistory,
+          countsAsNewPlay: countsAsNewPlay,
           streamResult: streamResult,
           stabilizeSeekAfterReady: stabilizeSeekAfterReady);
       completedSuccessfully = true;
@@ -2196,7 +2198,7 @@ class AudioController extends StateNotifier<PlayerState>
       _updateQueueState();
 
       // 自动匹配歌词（后台执行，不阻塞播放）
-      if (recordHistory) {
+      if (countsAsNewPlay) {
         unawaited(_tryAutoMatchLyrics(track));
       }
 
@@ -2424,7 +2426,6 @@ class AudioController extends StateNotifier<PlayerState>
         track: requestTrack,
         mode: mode,
         persist: false,
-        recordHistory: false,
         prefetchNext: true,
         positionBeforeLoad: position ?? state.position,
         onPlaybackStarting: onPlaybackStarting,
@@ -2441,7 +2442,7 @@ class AudioController extends StateNotifier<PlayerState>
         result.requestId,
         trackWithUrl,
         mode: mode,
-        recordHistory: false,
+        countsAsNewPlay: false,
         streamResult: result.streamResult,
       );
       _updateQueueState();
@@ -2672,7 +2673,7 @@ class AudioController extends StateNotifier<PlayerState>
       track: track,
       mode: currentMode,
       persist: true,
-      recordHistory: true,
+      countsAsNewPlay: true,
       prefetchNext: true,
     );
   }

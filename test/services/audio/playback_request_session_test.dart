@@ -121,7 +121,6 @@ void main() {
         track: track,
         mode: PlayMode.temporary,
         persist: false,
-        recordHistory: false,
         prefetchNext: false,
         positionBeforeLoad: const Duration(seconds: 12),
         onPlaybackStarting: () async {},
@@ -130,7 +129,6 @@ void main() {
       expect(command.track, same(track));
       expect(command.mode, PlayMode.temporary);
       expect(command.persist, isFalse);
-      expect(command.recordHistory, isFalse);
       expect(command.prefetchNext, isFalse);
       expect(command.positionBeforeLoad, const Duration(seconds: 12));
       expect(command.onPlaybackStarting, isNotNull);
