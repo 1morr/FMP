@@ -27,21 +27,21 @@ Both behaviours are pinned by
 ## Architecture
 
 ```text
-UI playback controls
-        |
-        v
-AudioController (audio_provider.dart)
-  - PlayerState, business logic
-  - temporary/mix/detached playback modes
-  - mute memory, notification/SMTC coordination
-        |            |            |
-        v            v            v
-FmpAudioService  QueueCommands  QueueManager
-  (abstract)     - mix gate     - queue order, shuffle/loop
-  |              - full/throw   - navigation, persistence hooks
-  v                 -> result
-JustAudioService (Android)
-MediaKitAudioService (Desktop)
+UI playback controls          RadioController
+        |                            |
+        v                            |
+AudioController (audio_provider.dart)|
+  - PlayerState, business logic      |
+  - temporary/mix/detached modes     |
+        |         |         |        |
+        v         v         v        v
+FmpAudioService  Queue-   Queue-  NowPlayingPublisher
+  (abstract)     Commands Manager   - owner arbitration
+  |              - mix    - order    - PlaybackCapabilities
+  v                gate   - nav      |            |
+JustAudioService   - full            v            v
+MediaKitAudioService -> result  FmpAudioHandler  WindowsSmtcHandler
+                                (Android)        (Windows)
 ```
 
 `QueueCommands` (`queue_commands.dart`) is the first collaborator pulled out of
@@ -58,6 +58,53 @@ mode, dropping the still-playing track into detached mode); those stay in
 deliberately left behind too — it starts playback, so it belongs with the
 transport commands, not with the queue mutations.
 
+## System Media Controls
+
+`NowPlayingPublisher` (`now_playing_publisher.dart`) is the only way anything
+reaches the Android notification or Windows SMTC. Both `AudioController` and
+`RadioController` go through it; nothing else may touch `FmpAudioHandler` or
+`WindowsSmtcHandler`, and the two process-global singletons in `main.dart` are
+referenced from exactly one place — the providers at the bottom of that file.
+
+Three invariants, each of which existed as a bug before:
+
+- **Callbacks and advertised capabilities change together.** `claim()` takes
+  `MediaControlCommands` and a `PlaybackCapabilities` in one call and applies
+  both; a command is bound only when its capability is true. Radio used to null
+  `onSkipToNext`/`onSkipToPrevious` with no way to withdraw the buttons, so both
+  platforms drew enabled keys that dispatched into `null` (issue #40 symptom 1).
+  Capabilities are a property of the **mode**, not of the moment — `canSkipNext`
+  means "this kind of playback has a next", not `PlayerState.canPlayNext`.
+  Wiring it to the queue boundary would make the buttons flicker on every track
+  change and hit the FFI bridge each time.
+- **Publishing from a stale owner is dropped.** Tapping a song and then a radio
+  station leaves the music request resolving; `RadioController` only pauses
+  music, it does not cancel it. Without the owner check that request overwrites
+  radio's metadata and capabilities when it lands.
+- **`release()` restores from the publisher's own memory.** It never calls back
+  into `AudioController`. The old path went through a catch-all that logged at
+  debug level, so a failure there would strand the controls in radio's all-off
+  state with no trace.
+
+`NowPlayingPublisher` has no `dispose()`. Both handlers are process-global and
+never rebuilt; what must not outlive a controller is the callback binding, which
+`release()` clears. Disposing `WindowsSmtcHandler` — as `AudioController` used
+to — kills SMTC for the rest of the session if the provider is ever rebuilt.
+
+Platform routing uses the injected `AudioRuntimePlatform`, never `Platform.isX`.
+`desktop` covers Linux/macOS as well as Windows; that is safe only because every
+`WindowsSmtcHandler` method early-returns while `_smtc == null`, and `_smtc` is
+assigned only inside the `Platform.isWindows` branch of `main.dart`.
+
+Per-platform notes that are easy to undo by accident:
+
+| Rule | Why |
+|---|---|
+| Never set `androidCompactActionIndices` | `null` makes the plugin compute `[0..min(3, controls.length))` (`AudioService.java:614-617`). A hardcoded `[0,1,2]` goes out of range as soon as the control list shrinks, and SDK 33+ ignores the field entirely |
+| SMTC publishes duration and position but `maxSeekTimeMs: 0` | `smtc_windows` 1.1.0 has no seek variant in `PressedButton`, so `PlaybackPositionChangeRequested` never reaches Dart. Advertising a seek range is a lie |
+| Shuffle/repeat on Windows are handled, not withdrawn | `SMTCConfig` has no flags for them, so the keys are drawn regardless. Their events arrive on `shuffleChangeStream`/`repeatModeChangeStream`, not `buttonPressStream` |
+| Capability dedup uses `SMTCWindows.config ==` | The package already caches the config and writes its own `==`. `SmtcMetadataDeduplicator` exists only because the thumbnail fingerprint has no package-side equivalent |
+
 **Key rule: UI must call `AudioController` methods, never `FmpAudioService`
 directly.** This is an architectural convention rather than a compile-time
 boundary — use `rg` when reviewing UI playback changes.
@@ -69,8 +116,15 @@ backend events.
 ## Ownership
 
 - `AudioController` (`audio_provider.dart`) — user-facing state,
-  temporary/mix/detached modes, notification/SMTC coordination, queue-visible
-  playback decisions, history/lyrics side effects, source-error UI decisions.
+  temporary/mix/detached modes, queue-visible playback decisions, history/lyrics
+  side effects, source-error UI decisions. It also owns the 500 ms notification
+  throttle: position updates may be dropped, state transitions may not, so the
+  two cannot share a throttle and it does not belong in the publisher.
+- `NowPlayingPublisher` (`now_playing_publisher.dart`) — media-control ownership
+  arbitration, capability publication, and platform routing to the notification
+  or SMTC. Deliberately owns no `PlayerState`, no timers, and no reference to
+  `FmpAudioService` — speed and buffered position are read by the caller and
+  passed in, keeping it a pure sink.
 - `PlaybackRequestSession` — playback request tokens, supersession, active
   loading request state, backend stop/handoff, queue restore handoff, fallback
   handoff, media-open pending recovery.
@@ -178,7 +232,7 @@ The variants and who must produce them:
 | `EndedNaturally` | position is within `AppConstants.completionTolerance` of duration | advance the queue |
 | `EndedPrematurely` | engine says completed but position is far from duration, **or duration was never reported** | retry the current track from the saved position |
 | `TransportFailed` | connection reset/timeout/DNS/TLS (mpv `tcp:` / `ffurl_read`, ExoPlayer `Source error`) | retry or refetch the URL, **not** advance |
-| `OutputDeviceFailed` | the audio *output* failed — nothing to do with the media | stop and show the audio-output message; **must not** blame the track |
+| `OutputDeviceFailed` | the audio *output* failed — nothing to do with the media | stop and show the audio-output message; **must not** blame the track. This is the one end reason that is **not** ignored while radio owns playback — the device is broken regardless of who is playing, and `RadioController` has never subscribed to `endReasons` (issue #41 symptom 2) |
 | `MediaUnopenable` / `DecoderFailed` | the media itself cannot be opened or decoded | delay briefly for self-recovery, then surface a terminal playback error |
 | `UnclassifiedFailure` | anything the backend cannot place | log it and ignore — but visibly |
 

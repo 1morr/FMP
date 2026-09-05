@@ -201,7 +201,14 @@ Radio distinguishes retained context from active ownership of the shared player:
 
 Radio intentionally consumes the shared `audioServiceProvider` and calls the
 backend directly, while ownership hooks keep `AudioController` from reacting to
-radio events.
+radio events. The one end reason that still reaches `AudioController` during
+radio is `OutputDeviceFailed` — see `lib/services/audio/AGENTS.md`.
+
+System media controls are **not** part of that exception. `RadioController`
+reaches the notification and SMTC through `nowPlayingPublisherProvider` like
+everything else, claiming `PlaybackCapabilities.liveRadio` so the skip controls
+are withdrawn rather than left pointing at null callbacks. It no longer imports
+the globals from `main.dart`, and it carries no `Platform.isX` branches.
 
 ## Windows Sub-Windows
 

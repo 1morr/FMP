@@ -220,8 +220,18 @@ observation on the emulator is worth.
 - **Read SMTC through WinRT, not the flyout.** Querying
   `GlobalSystemMediaTransportControlsSessionManager` returns the actual session
   properties as text; screenshotting the media flyout is unreliable because the
-  popup dismisses on focus change. `scripts/smtc_probe.ps1` is not in the repo
-  yet — see Phase 0 of `docs/review/05-roadmap.md`.
+  popup dismisses on focus change. Use `scripts/smtc_probe.ps1`:
+
+  ```bash
+  powershell.exe -NoProfile -ExecutionPolicy Bypass     -File .claude/skills/verify-on-device/scripts/smtc_probe.ps1 -AppFilter fmp
+  ```
+
+  It prints `IsNextEnabled` / `IsPreviousEnabled` / `IsPlaybackPositionEnabled` /
+  `IsShuffleEnabled` / `IsRepeatEnabled` per session. **It must run under
+  `powershell.exe` (Windows PowerShell 5.1)** — `pwsh` 7 has no WinRT projection
+  and `Add-Type -AssemblyName System.Runtime.WindowsRuntime` fails there. The
+  session manager is readable from any process, so this sidesteps the
+  foreground-focus problem entirely: FMP does not need to be visible.
 - **CMake scratch projects must not sit deep in the path.** Building a probe
   under the session scratchpad exceeds the Windows path limit and fails with
   confusing compiler errors. Use a short root such as `C:/t/`.
