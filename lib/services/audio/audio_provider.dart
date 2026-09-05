@@ -625,8 +625,7 @@ class AudioController extends StateNotifier<PlayerState>
     final requestId = _context.activeRequestId;
     if (requestId <= 0) return null;
 
-    final trackKey =
-        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
+    final trackKey = _playingTrack?.uniqueKey;
     if (trackKey == null) return null;
 
     _discardPendingSeek(reason: 'newer seek queued during playback handoff');
@@ -646,8 +645,7 @@ class AudioController extends StateNotifier<PlayerState>
     final window = _seekStabilizationWindow;
     if (window == null) return null;
 
-    final trackKey =
-        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
+    final trackKey = _playingTrack?.uniqueKey;
     final remaining = _remainingSeekStabilizationDelay(
       requestId: window.requestId,
       trackKey: window.trackKey,
@@ -1731,8 +1729,7 @@ class AudioController extends StateNotifier<PlayerState>
       if (_pendingSeek != pending) return;
     }
 
-    final currentTrackKey =
-        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
+    final currentTrackKey = _playingTrack?.uniqueKey;
     if (_isSessionSuperseded(requestId) ||
         currentTrackKey != pending.trackKey) {
       _discardPendingSeekForRequest(
@@ -2741,7 +2738,7 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   void _recoverFromPrematureCompletion(Duration position) {
-    final track = state.playingTrack ?? state.currentTrack;
+    final track = _playingTrack;
     if (track == null) {
       logDebug('Premature completion ignored: no current track to recover');
       return;
