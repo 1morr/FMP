@@ -42,7 +42,7 @@ import 'queue_persistence_manager.dart';
 import '../network/connectivity_service.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
-import 'mix_playlist_handler.dart';
+import 'mix_session_coordinator.dart';
 import 'lyrics_auto_match_coordinator.dart';
 import 'play_history_recorder.dart';
 import 'mix_playlist_types.dart';
@@ -244,7 +244,6 @@ class AudioController extends StateNotifier<PlayerState>
   late final LyricsAutoMatchCoordinator _lyricsAutoMatch;
   final SettingsRepository? _settingsRepository;
   final QueuePersistenceManager? _queuePersistenceManager;
-  final MixTracksFetcher? _mixTracksFetcher;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -270,8 +269,7 @@ class AudioController extends StateNotifier<PlayerState>
   late final PlaybackRequestSession _playbackRequestSession;
   late final PlaybackRecoveryCoordinator _recoveryCoordinator;
   late final TemporaryPlayHandler _temporaryPlayHandler;
-  late final MixPlaylistHandler _mixPlaylistHandler;
-  Future<void>? _mixLoadMoreFuture;
+  late final MixSessionCoordinator _mixSession;
   int _mixStartRequestId = 0;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
@@ -320,7 +318,6 @@ class AudioController extends StateNotifier<PlayerState>
         _publisher = nowPlayingPublisher,
         _settingsRepository = settingsRepository,
         _queuePersistenceManager = queuePersistenceManager,
-        _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
     _playHistory = PlayHistoryRecorder(repository: playHistoryRepository);
     _lyricsAutoMatch = LyricsAutoMatchCoordinator(
@@ -364,7 +361,13 @@ class AudioController extends StateNotifier<PlayerState>
       budget: _budget,
     );
     _temporaryPlayHandler = const TemporaryPlayHandler();
-    _mixPlaylistHandler = MixPlaylistHandler();
+    _mixSession = MixSessionCoordinator(
+      queueManager: _queueManager,
+      toastService: _toastService,
+      fetcher: mixTracksFetcher,
+      onLoadingChanged: _onMixLoadingChanged,
+      onQueueChanged: _updateQueueState,
+    );
   }
 
   final PlaybackTimeoutBudget _budget;
@@ -444,7 +447,7 @@ class AudioController extends StateNotifier<PlayerState>
           state = state.copyWith(isShuffleEnabled: false);
         }
 
-        final mixState = _mixPlaylistHandler.start(
+        final mixState = _mixSession.start(
           playlistId: playlistId,
           seedVideoId: seedVideoId,
           title: title,
@@ -459,7 +462,7 @@ class AudioController extends StateNotifier<PlayerState>
           mixTitle: title,
         );
         _publishCurrentQueueState();
-        _triggerMixLoadMoreIfNearQueueEnd(PlayMode.mix);
+        _mixSession.onTrackStarted(PlayMode.mix);
       }
 
       // 恢复音量
@@ -515,12 +518,11 @@ class AudioController extends StateNotifier<PlayerState>
     _recoveryCoordinator.dispose();
     _playbackRequestSession.dispose();
     _networkRecoverySubscription?.cancel();
-    _mixLoadMoreFuture = null;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
     _subscriptions.clear();
-    _mixPlaylistHandler.clear();
+    _mixSession.exit();
     _queueManager.dispose();
     // 交还系统媒体控制。刻意**不** dispose 原生句柄：需要跟着 controller
     // 一起消失的是回调绑定，不是 SMTC 本身 —— 原生 session 只在 main.dart
@@ -1008,8 +1010,7 @@ class AudioController extends StateNotifier<PlayerState>
       throw StateError(t.library.main.mixInfoIncomplete);
     }
 
-    final fetcher = _mixTracksFetcher;
-    if (fetcher == null) {
+    if (!_mixSession.canFetch) {
       throw StateError(t.library.main.cannotLoadMix);
     }
 
@@ -1019,7 +1020,7 @@ class AudioController extends StateNotifier<PlayerState>
     _context = _context.copyWith(activeRequestId: 0);
     final mixStartRequestId = ++_mixStartRequestId;
     final playRequestGeneration = _playbackRequestSession.activeRequestId;
-    final result = await fetcher(
+    final result = await _mixSession.fetch(
       playlistId: playlistId,
       currentVideoId: seedVideoId,
     );
@@ -1079,7 +1080,7 @@ class AudioController extends StateNotifier<PlayerState>
       }
 
       // 初始化 Mix 狀態
-      final mixState = _mixPlaylistHandler.start(
+      final mixState = _mixSession.start(
         playlistId: playlistId,
         seedVideoId: seedVideoId,
         title: title,
@@ -1124,11 +1125,10 @@ class AudioController extends StateNotifier<PlayerState>
 
   /// 退出 Mix 模式
   void _exitMixMode() {
-    final mixState = _mixPlaylistHandler.current;
+    final mixState = _mixSession.current;
     if (mixState != null) {
       logDebug('Exiting Mix mode');
-      _mixPlaylistHandler.clear();
-      _mixLoadMoreFuture = null;
+      _mixSession.exit();
       _context = _context.copyWith(mode: PlayMode.queue);
       state = state.copyWith(
         isMixMode: false,
@@ -1481,45 +1481,6 @@ class AudioController extends StateNotifier<PlayerState>
     _queueManager.replaceTrack(updatedTrack.copy());
   }
 
-  void _triggerMixLoadMoreIfNearQueueEnd(PlayMode mode) {
-    if (!_shouldLoadMoreMixTracks(mode)) return;
-
-    final remaining =
-        _queueManager.tracks.length - 1 - _queueManager.currentIndex;
-    logDebug(
-        'Mix mode: $remaining tracks remaining, loading more before queue end...');
-    _scheduleMixLoadMore();
-  }
-
-  bool _shouldLoadMoreMixTracks(PlayMode mode) {
-    if (mode != PlayMode.mix) return false;
-    if (_mixLoadMoreFuture != null) return false;
-
-    final queueLength = _queueManager.tracks.length;
-    if (queueLength == 0) return false;
-
-    final remaining = queueLength - 1 - _queueManager.currentIndex;
-    final threshold =
-        queueLength > AppConstants.mixLoadMoreRemainingThreshold + 1
-            ? AppConstants.mixLoadMoreRemainingThreshold
-            : 0;
-    return remaining <= threshold;
-  }
-
-  void _scheduleMixLoadMore() {
-    if (_mixLoadMoreFuture != null) return;
-
-    final future = _loadMoreMixTracks();
-    _mixLoadMoreFuture = future;
-    unawaited(
-      future.whenComplete(() {
-        if (identical(_mixLoadMoreFuture, future)) {
-          _mixLoadMoreFuture = null;
-        }
-      }),
-    );
-  }
-
   QueueState _createQueueStateFromCurrentState({int? queueVersion}) {
     return QueueState(
       queue: state.queue,
@@ -1539,6 +1500,14 @@ class AudioController extends StateNotifier<PlayerState>
 
   void _publishCurrentQueueState() {
     onQueueStateChanged?.call(_createQueueStateFromCurrentState());
+  }
+
+  /// `MixSessionCoordinator` 回報預取的載入中狀態。投影成兩份鏡像（`PlayerState`
+  /// 給播放頁，`QueueState` 給佇列頁）的責任留在 controller。
+  void _onMixLoadingChanged(bool isLoading) {
+    if (_isDisposed) return;
+    state = state.copyWith(isLoadingMoreMix: isLoading);
+    _publishCurrentQueueState();
   }
 
   /// 接管系统媒体控制。
@@ -1614,149 +1583,6 @@ class AudioController extends StateNotifier<PlayerState>
     _publisher.publishStopped(NowPlayingOwner.music);
 
     logDebug('Cleared playing track');
-  }
-
-  /// 加載更多 Mix 播放列表歌曲
-  ///
-  /// 使用重試機制確保每次至少獲取 10 首新歌曲：
-  /// 1. 先用最後一首歌曲作為種子重試 3 次
-  /// 2. 如果仍不足，嘗試用隊列中其他歌曲作為種子
-  /// 3. 最多嘗試 10 次，每次間隔 1 秒
-  /// 4. 收集所有新歌曲後一次性添加到隊列
-  Future<void> _loadMoreMixTracks() async {
-    final mixState = _mixPlaylistHandler.current;
-    if (mixState == null || !_mixPlaylistHandler.markLoading(mixState)) {
-      return;
-    }
-
-    final queue = _queueManager.tracks;
-    if (queue.isEmpty) {
-      _mixPlaylistHandler.finishLoading(mixState);
-      return;
-    }
-
-    state = state.copyWith(isLoadingMoreMix: true);
-    _publishCurrentQueueState();
-    logInfo('Loading more Mix tracks...');
-
-    const minNewTracksRequired = AppConstants.mixMinNewTracksRequired;
-    const maxAttempts = AppConstants.mixMaxLoadAttempts;
-    const sameVideoRetries = AppConstants.mixSameVideoRetries;
-    const retryDelay = AppConstants.mixRetryDelay;
-
-    // 收集所有新歌曲，最後一次性添加
-    final collectedTracks = <Track>[];
-    final collectedVideoIds = <String>{};
-    int attempt = 0;
-    final fetcher = _mixTracksFetcher;
-    if (fetcher == null) {
-      logWarning('Mix load failed: YouTube source unavailable');
-      _toastService.showInfo(t.audio.mixLoadMoreError);
-      _mixPlaylistHandler.finishLoading(mixState);
-      if (_mixPlaylistHandler.isCurrent(mixState)) {
-        state = state.copyWith(isLoadingMoreMix: false);
-        _publishCurrentQueueState();
-      }
-      return;
-    }
-
-    try {
-      while (collectedTracks.length < minNewTracksRequired &&
-          attempt < maxAttempts) {
-        if (!_mixPlaylistHandler.isCurrent(mixState)) {
-          logDebug('Mix mode exited during load-more, aborting');
-          return;
-        }
-
-        attempt++;
-
-        // 選擇種子視頻：前 3 次用最後一首，之後用不同的視頻
-        String seedVideoId;
-        if (attempt <= sameVideoRetries) {
-          seedVideoId = queue.last.sourceId;
-          logDebug(
-              'Attempt $attempt/$maxAttempts: using last track as seed ($seedVideoId)');
-        } else {
-          // 從隊列倒數第 2 ~ 倒數第 10 首中選擇一個不同的種子
-          final seedIndex = queue.length - 1 - (attempt - sameVideoRetries);
-          if (seedIndex >= 0) {
-            seedVideoId = queue[seedIndex].sourceId;
-            logDebug(
-                'Attempt $attempt/$maxAttempts: using track at index $seedIndex as seed ($seedVideoId)');
-          } else {
-            seedVideoId = queue.last.sourceId;
-            logDebug(
-                'Attempt $attempt/$maxAttempts: fallback to last track as seed ($seedVideoId)');
-          }
-        }
-
-        try {
-          final result = await fetcher(
-            playlistId: mixState.playlistId,
-            currentVideoId: seedVideoId,
-          );
-
-          if (!_mixPlaylistHandler.isCurrent(mixState)) {
-            logDebug('Mix mode exited after load-more fetch, aborting');
-            return;
-          }
-
-          // 過濾已存在的歌曲（包括已在隊列中的和本輪已收集的）
-          final newTracks = result.tracks
-              .where((t) =>
-                  !mixState.seenVideoIds.contains(t.sourceId) &&
-                  !collectedVideoIds.contains(t.sourceId))
-              .toList();
-
-          if (newTracks.isNotEmpty) {
-            logDebug(
-                'Attempt $attempt: got ${newTracks.length} new tracks (total: ${collectedTracks.length + newTracks.length})');
-            collectedTracks.addAll(newTracks);
-            collectedVideoIds.addAll(newTracks.map((t) => t.sourceId));
-          } else {
-            logDebug('Attempt $attempt: no new tracks (all duplicates)');
-          }
-
-          // 如果還沒達到目標且還有重試次數，等待後繼續
-          if (collectedTracks.length < minNewTracksRequired &&
-              attempt < maxAttempts) {
-            await Future.delayed(retryDelay);
-          }
-        } catch (e) {
-          logWarning('Attempt $attempt failed: $e');
-          // 單次請求失敗，等待後繼續嘗試
-          if (attempt < maxAttempts) {
-            await Future.delayed(retryDelay);
-          }
-        }
-      }
-
-      if (!_mixPlaylistHandler.isCurrent(mixState)) {
-        logDebug('Mix mode exited before applying load-more results, aborting');
-        return;
-      }
-
-      // 一次性添加所有收集到的新歌曲
-      if (collectedTracks.isNotEmpty) {
-        logInfo(
-            'Mix load complete: adding ${collectedTracks.length} new tracks in $attempt attempts');
-        mixState.addSeenVideoIds(collectedTracks.map((t) => t.sourceId));
-        await _queueManager.addAll(collectedTracks);
-        _updateQueueState();
-      } else {
-        logWarning('Mix load failed: no new tracks after $attempt attempts');
-        _toastService.showInfo(t.audio.mixLoadMoreFailed);
-      }
-    } catch (e, stack) {
-      logError('Failed to load more Mix tracks', e, stack);
-      _toastService.showInfo(t.audio.mixLoadMoreError);
-    } finally {
-      _mixPlaylistHandler.finishLoading(mixState);
-      if (_mixPlaylistHandler.isCurrent(mixState)) {
-        state = state.copyWith(isLoadingMoreMix: false);
-        _publishCurrentQueueState();
-      }
-    }
   }
 
   // ========== 統一播放入口 ========== //
@@ -2149,7 +1975,7 @@ class AudioController extends StateNotifier<PlayerState>
       }
 
       // Mix 模式：接近尾端時提前加載更多歌曲
-      _triggerMixLoadMoreIfNearQueueEnd(mode);
+      _mixSession.onTrackStarted(mode);
 
       logDebug(
           '_executePlayRequest completed successfully for: ${track.title}');
@@ -2974,7 +2800,7 @@ class AudioController extends StateNotifier<PlayerState>
   Future<bool> _advanceAfterPendingMixLoadMore() async {
     if (!_context.isMix) return false;
 
-    final pendingLoad = _mixLoadMoreFuture;
+    final pendingLoad = _mixSession.pendingLoad;
     if (pendingLoad == null) return false;
 
     logDebug('Mix queue end reached while load-more is pending; waiting...');

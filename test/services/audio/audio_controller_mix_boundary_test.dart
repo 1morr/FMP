@@ -129,13 +129,28 @@ void main() {
       persistedQueue.mixTitle = 'Restored Mix';
       await queueRepository.save(persistedQueue);
 
-      final source = await File(
-        '${Directory.current.path}/lib/services/audio/audio_provider.dart',
-      ).readAsString();
-      expect(source.contains('_queueManager.isMixMode'), isFalse);
-      expect(source.contains('_queueManager.mixPlaylistId'), isFalse);
-      expect(source.contains('_queueManager.mixSeedVideoId'), isFalse);
-      expect(source.contains('_queueManager.mixTitle'), isFalse);
+      // Mix metadata 只能經由 `QueuePersistenceManager.restoreState()` 取得，
+      // 不可以繞回 `QueueManager` 上直接讀那幾個 getter。掃整個目錄而不是單一
+      // 檔案 —— 步驟 D 把 Mix 預取搬到 `mix_session_coordinator.dart` 之後，
+      // 只掃 `audio_provider.dart` 的斷言會變成恆真，守門形同解除。
+      final audioSources = Directory(
+        '${Directory.current.path}/lib/services/audio',
+      ).listSync(recursive: true).whereType<File>().where(
+            (file) => file.path.endsWith('.dart'),
+          );
+      expect(audioSources, isNotEmpty);
+      for (final file in audioSources) {
+        final source = await file.readAsString();
+        for (final forbidden in const [
+          '_queueManager.isMixMode',
+          '_queueManager.mixPlaylistId',
+          '_queueManager.mixSeedVideoId',
+          '_queueManager.mixTitle',
+        ]) {
+          expect(source.contains(forbidden), isFalse,
+              reason: '${file.path} reads $forbidden directly');
+        }
+      }
 
       final loadMoreTracks = List.generate(
         10,

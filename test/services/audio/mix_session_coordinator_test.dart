@@ -15,9 +15,10 @@ import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
+import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
-import 'package:fmp/services/audio/mix_playlist_handler.dart';
+import 'package:fmp/services/audio/mix_session_coordinator.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
@@ -30,35 +31,185 @@ import '../../support/now_playing.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('MixPlaylistHandler', () {
-    test(
-        'finishLoading ignores stale session and leaves active session loading',
-        () {
-      final handler = MixPlaylistHandler();
-      final stale = handler.start(
-        playlistId: 'RD-stale',
-        seedVideoId: 'seed-stale',
-        title: 'Stale Mix',
+  /// `MixSessionCoordinator` 是 Phase 4 步驟 D 抽出來的第三個副作用協作者。
+  ///
+  /// 它吸收了原本的 `MixPlaylistHandler`（工作階段身分 + 載入旗標）與原本留在
+  /// `AudioController` 的預取（觸發門檻、重試迴圈、in-flight future）。合併的理由
+  /// 就是這裡第一條測試在守的東西：那兩組狀態過去是分開的欄位，每一條離開 Mix 的
+  /// 路徑都得記得清兩次。
+  group('MixSessionCoordinator', () {
+    late Directory coordinatorTempDir;
+    late Isar coordinatorIsar;
+    late QueueManager coordinatorQueue;
+    late _TestMixTracksFetcher fetcher;
+    late List<bool> loadingStates;
+    late int queueChangedCount;
+
+    setUpAll(() async {
+      await initializeIsarForTests();
+    });
+
+    setUp(() async {
+      coordinatorTempDir =
+          await Directory.systemTemp.createTemp('mix_coordinator_');
+      coordinatorIsar = await Isar.open(
+        [TrackSchema, PlayQueueSchema, SettingsSchema],
+        directory: coordinatorTempDir.path,
+        name: 'mix_coordinator_test',
       );
-      expect(handler.markLoading(stale), isTrue);
+      coordinatorQueue = _buildQueueManager(coordinatorIsar);
+      await coordinatorQueue.initialize();
+      fetcher = _TestMixTracksFetcher();
+      loadingStates = [];
+      queueChangedCount = 0;
+    });
 
-      final active = handler.start(
-        playlistId: 'RD-active',
-        seedVideoId: 'seed-active',
-        title: 'Active Mix',
+    tearDown(() async {
+      coordinatorQueue.dispose();
+      await coordinatorIsar.close(deleteFromDisk: true);
+      if (await coordinatorTempDir.exists()) {
+        await coordinatorTempDir.delete(recursive: true);
+      }
+    });
+
+    MixSessionCoordinator build({bool withFetcher = true}) =>
+        MixSessionCoordinator(
+          queueManager: coordinatorQueue,
+          toastService: ToastService(),
+          fetcher: withFetcher ? fetcher.call : null,
+          onLoadingChanged: loadingStates.add,
+          onQueueChanged: () => queueChangedCount++,
+        );
+
+    Future<void> seedQueue(int count) async {
+      await coordinatorQueue.playAll(
+        List.generate(count, (i) => _track('seed-$i', title: 'Seed $i')),
+        startIndex: count - 1,
       );
-      expect(handler.markLoading(active), isTrue);
+    }
 
-      const fetchResult = MixFetchResult(title: 'Ignored Result', tracks: []);
-      expect(fetchResult.title, 'Ignored Result');
+    test('exit clears the session and the in-flight prefetch together',
+        () async {
+      final coordinator = build();
+      await seedQueue(2);
+      final gate = fetcher.enqueuePendingResult(
+        const MixFetchResult(title: 'Mix', tracks: []),
+      );
+      coordinator.start(
+        playlistId: 'RD-1',
+        seedVideoId: 'seed-0',
+        title: 'Mix',
+      );
+      coordinator.onTrackStarted(PlayMode.mix);
+      expect(coordinator.pendingLoad, isNotNull);
 
-      handler.finishLoading(stale);
+      coordinator.exit();
 
-      expect(handler.current, same(active));
-      expect(handler.current?.isLoadingMore, isTrue);
+      // 過去這兩件事是兩個欄位，離開路徑要記得各清一次。
+      expect(coordinator.current, isNull);
+      expect(coordinator.pendingLoad, isNull);
+      gate.complete();
+      await pumpEventQueue(times: 20);
+    });
+
+    test('a stale session cannot append into the queue of a new one', () async {
+      final coordinator = build();
+      await seedQueue(2);
+      final staleGate = fetcher.enqueuePendingResult(
+        MixFetchResult(
+          title: 'Stale',
+          tracks: [_track('stale-0', title: 'Stale 0')],
+        ),
+      );
+      coordinator.start(
+          playlistId: 'RD-stale', seedVideoId: 'seed-0', title: 'Stale');
+      coordinator.onTrackStarted(PlayMode.mix);
+
+      // 舊工作階段還在抓的時候換成新的。
+      coordinator.start(
+          playlistId: 'RD-active', seedVideoId: 'seed-1', title: 'Active');
+      staleGate.complete();
+      await pumpEventQueue(times: 20);
+
+      expect(
+        coordinatorQueue.tracks.map((t) => t.sourceId),
+        isNot(contains('stale-0')),
+      );
+      expect(queueChangedCount, 0);
+    });
+
+    test('only mix mode prefetches', () async {
+      final coordinator = build();
+      await seedQueue(2);
+      coordinator.start(
+          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
+
+      coordinator.onTrackStarted(PlayMode.queue);
+
+      expect(coordinator.pendingLoad, isNull);
+      expect(fetcher.callCount, 0);
+    });
+
+    test('a second trigger while one is in flight does not start another',
+        () async {
+      final coordinator = build();
+      await seedQueue(2);
+      final gate = fetcher.enqueuePendingResult(
+        const MixFetchResult(title: 'Mix', tracks: []),
+      );
+      coordinator.start(
+          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
+
+      coordinator.onTrackStarted(PlayMode.mix);
+      final first = coordinator.pendingLoad;
+      coordinator.onTrackStarted(PlayMode.mix);
+
+      expect(coordinator.pendingLoad, same(first));
+      gate.complete();
+      await pumpEventQueue(times: 20);
+    });
+
+    test('reports loading back to the caller instead of touching state',
+        () async {
+      final coordinator = build();
+      await seedQueue(2);
+      final gate = fetcher.enqueuePendingResult(
+        MixFetchResult(
+          title: 'Mix',
+          tracks: List.generate(
+              10, (i) => _track('new-$i', title: 'New $i')),
+        ),
+      );
+      coordinator.start(
+          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
+
+      coordinator.onTrackStarted(PlayMode.mix);
+      await pumpEventQueue(times: 5);
+      expect(loadingStates, [true]);
+
+      gate.complete();
+      // 佇列寫入是真的 Isar 交易，固定次數的 pump 不是可靠的同步點。
+      await _waitFor(() => loadingStates.length >= 2);
+
+      expect(loadingStates, [true, false]);
+      expect(queueChangedCount, 1);
+      expect(coordinatorQueue.tracks, hasLength(12));
+    });
+
+    test('without a fetcher it gives up instead of hanging', () async {
+      final coordinator = build(withFetcher: false);
+      await seedQueue(2);
+      coordinator.start(
+          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
+
+      coordinator.onTrackStarted(PlayMode.mix);
+      await _waitFor(() => loadingStates.length >= 2);
+
+      expect(coordinator.canFetch, isFalse);
+      expect(loadingStates, [true, false]);
+      expect(coordinator.pendingLoad, isNull);
     });
   });
-
   group('Mix session Task 3 regression', () {
     late Directory tempDir;
     late Isar isar;
@@ -261,6 +412,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
 
 class _TestMixTracksFetcher {
   final List<_PendingMixFetch> _pending = [];
+  int callCount = 0;
 
   Completer<void> enqueuePendingResult(MixFetchResult result) {
     final completer = Completer<void>();
@@ -272,6 +424,7 @@ class _TestMixTracksFetcher {
     required String playlistId,
     required String currentVideoId,
   }) async {
+    callCount++;
     if (_pending.isEmpty) {
       return const MixFetchResult(title: 'My Mix', tracks: []);
     }
@@ -314,4 +467,27 @@ class _FakeSource implements AudioStreamSource {
       streamType: StreamType.muxed,
     );
   }
+}
+
+/// 等到 [condition] 成立，或 5 秒逾時。
+Future<void> _waitFor(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    if (condition()) return;
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+}
+
+QueueManager _buildQueueManager(Isar isar) {
+  final queueRepository = QueueRepository(isar);
+  final trackRepository = TrackRepository(isar);
+  return QueueManager(
+    queueRepository: queueRepository,
+    trackRepository: trackRepository,
+    queuePersistenceManager: QueuePersistenceManager(
+      queueRepository: queueRepository,
+      trackRepository: trackRepository,
+      settingsRepository: SettingsRepository(isar),
+    ),
+  );
 }
