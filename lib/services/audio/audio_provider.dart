@@ -3053,8 +3053,16 @@ class AudioController extends StateNotifier<PlayerState>
   void _onPlaybackEnded(PlaybackEndReason reason) {
     if (_isDisposed) return;
 
-    // 電台的結束與失敗由 RadioController 自行處理（重連等），這裡不介入
+    // 電台的結束與失敗由 RadioController 自行處理（重連等），這裡不介入 ——
+    // **輸出裝置失效除外**。裝置壞掉與現在播的是歌還是電台無關，而
+    // RadioController 從來沒有訂閱過 endReasons，所以過去電台播放中拔掉音效
+    // 裝置是零回饋（issue #41 症狀二）。_onOutputDeviceFailure 只發 toast、
+    // 不動任何播放狀態，在電台情境下安全。
     if (isRadioPlaying?.call() == true) {
+      if (reason case OutputDeviceFailed(:final raw)) {
+        _onOutputDeviceFailure(raw);
+        return;
+      }
       logDebug('Playback end ignored: radio is playing ($reason)');
       return;
     }

@@ -965,6 +965,49 @@ void main() {
       expect(audioService.pauseCallCount, greaterThan(0));
     });
 
+    // issue #41 症狀二：電台播放中 `_onPlaybackEnded` 整段早退，而
+    // RadioController 從來沒有訂閱 endReasons —— 拔掉音效裝置完全沒有回饋。
+    test('output device failure still reaches the user during radio', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      controller.isRadioPlaying = () => true;
+      addTearDown(() => controller.isRadioPlaying = null);
+
+      audioService.emitOutputDeviceFailure(
+        'Could not open/initialize audio device -> no sound.',
+      );
+      await pumpEventQueue(times: 10);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.type, ToastType.error);
+      expect(
+        toasts.last.message,
+        anyOf(
+          contains('Audio output device'),
+          contains('音訊輸出裝置'),
+          contains('音频输出设备'),
+        ),
+      );
+    });
+
+    // 其餘的結束原因在電台播放時仍然不介入 —— 重連是 RadioController 的事。
+    test('other end reasons stay ignored during radio', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      controller.isRadioPlaying = () => true;
+      addTearDown(() => controller.isRadioPlaying = null);
+
+      audioService.emitTransportFailure('tcp: connection reset');
+      audioService.emitMediaOpenError('Failed to open https://example.com');
+      await pumpEventQueue(times: 10);
+
+      expect(toasts, isEmpty);
+    });
+
     test('terminal media open error aborts the active play request', () async {
       final toasts = <ToastMessage>[];
       final subscription = toastService.messageStream.listen(toasts.add);
