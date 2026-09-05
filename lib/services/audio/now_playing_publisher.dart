@@ -204,7 +204,7 @@ class NowPlayingPublisher with Logging {
   /// 發佈循環／隨機模式。
   ///
   /// 兩個模式一起送：它們在 Android 上共用同一則 `PlaybackState`，分開送等於
-  /// 白發一次。Windows 端不接受這兩個模式（`SMTCConfig` 沒有對應旗標）。
+  /// 白發一次。
   void publishPlayModes(
     NowPlayingOwner owner, {
     required LoopMode loopMode,
@@ -218,7 +218,10 @@ class NowPlayingPublisher with Logging {
           shuffleEnabled: shuffleEnabled,
         );
       case AudioRuntimePlatform.desktop:
-        break;
+        _smtcHandler.updatePlayModes(
+          loopMode: loopMode,
+          shuffleEnabled: shuffleEnabled,
+        );
     }
   }
 
@@ -272,6 +275,8 @@ class NowPlayingPublisher with Logging {
               capabilities.canShuffle ? commands?.setShuffleEnabled : null
           ..updateCapabilities(capabilities);
       case AudioRuntimePlatform.desktop:
+        // SMTC 收不到 seek 請求（`PressedButton` 沒有對應變體），所以
+        // `canSeek` 在這裡無處可放 —— 改由時間軸不宣告可 seek 區間表達。
         _smtcHandler
           ..onPlay = commands?.play
           ..onPause = commands?.pause
@@ -280,7 +285,9 @@ class NowPlayingPublisher with Logging {
               capabilities.canSkipNext ? commands?.skipToNext : null
           ..onSkipToPrevious =
               capabilities.canSkipPrevious ? commands?.skipToPrevious : null
-          ..onSeek = capabilities.canSeek ? commands?.seek : null
+          ..onSetLoopMode = capabilities.canRepeat ? commands?.setLoopMode : null
+          ..onSetShuffleEnabled =
+              capabilities.canShuffle ? commands?.setShuffleEnabled : null
           ..updateCapabilities(capabilities);
     }
   }

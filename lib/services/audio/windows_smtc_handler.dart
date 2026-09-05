@@ -5,6 +5,7 @@ import 'package:smtc_windows/smtc_windows.dart';
 import '../../core/logger.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
 import '../../data/models/radio_station.dart';
+import '../../data/models/play_queue.dart';
 import '../../data/models/track.dart';
 import 'playback_capabilities.dart';
 
@@ -76,6 +77,8 @@ SMTCConfig smtcConfigForCapabilities(PlaybackCapabilities capabilities) {
 class WindowsSmtcHandler with Logging {
   SMTCWindows? _smtc;
   StreamSubscription<PressedButton>? _buttonSubscription;
+  StreamSubscription<bool>? _shuffleSubscription;
+  StreamSubscription<RepeatMode>? _repeatModeSubscription;
   final SmtcMetadataDeduplicator _metadataDeduplicator =
       SmtcMetadataDeduplicator();
 
@@ -85,7 +88,8 @@ class WindowsSmtcHandler with Logging {
   Future<void> Function()? onStop;
   Future<void> Function()? onSkipToNext;
   Future<void> Function()? onSkipToPrevious;
-  Future<void> Function(Duration position)? onSeek;
+  Future<void> Function(LoopMode mode)? onSetLoopMode;
+  Future<void> Function(bool enabled)? onSetShuffleEnabled;
 
   // 当前状态缓存
   Duration _position = Duration.zero;
@@ -124,6 +128,7 @@ class WindowsSmtcHandler with Logging {
 
       _metadataDeduplicator.clear();
       _setupButtonListener();
+      _setupPlayModeListeners();
       logInfo('WindowsSmtcHandler initialized successfully');
     } catch (e, stack) {
       logError('Failed to initialize WindowsSmtcHandler: $e', e, stack);
@@ -178,6 +183,39 @@ class WindowsSmtcHandler with Logging {
       logDebug('SMTC updated capabilities: $capabilities');
     } catch (e) {
       logError('Failed to update SMTC capabilities: $e');
+    }
+  }
+
+  /// 监听 shuffle / repeat 请求。
+  ///
+  /// `SMTCConfig` 没有这两项的开关，Windows 永远会画出这两颗键，所以「不宣告」
+  /// 这条路不存在 —— 唯一能让它们不是死键的办法就是真的去处理。事件不走
+  /// `buttonPressStream`（`PressedButton` 没有对应变体），而是走这两条独立的
+  /// stream，FMP 过去从来没有订阅。
+  void _setupPlayModeListeners() {
+    _shuffleSubscription = _smtc?.shuffleChangeStream.listen((enabled) {
+      logDebug('SMTC shuffle requested: $enabled');
+      onSetShuffleEnabled?.call(enabled);
+    });
+    _repeatModeSubscription = _smtc?.repeatModeChangeStream.listen((mode) {
+      logDebug('SMTC repeat mode requested: $mode');
+      onSetLoopMode?.call(_repeatModeToLoopMode(mode));
+    });
+  }
+
+  /// 发布当前的循环与随机状态，让系统 UI 的两颗键显示正确。
+  void updatePlayModes({
+    required LoopMode loopMode,
+    required bool shuffleEnabled,
+  }) {
+    final smtc = _smtc;
+    if (smtc == null) return;
+
+    try {
+      smtc.setShuffleEnabled(shuffleEnabled);
+      smtc.setRepeatMode(_loopModeToRepeatMode(loopMode));
+    } catch (e) {
+      logError('Failed to update SMTC play modes: $e');
     }
   }
 
@@ -315,12 +353,16 @@ class WindowsSmtcHandler with Logging {
       final positionMs =
           _position.inMilliseconds.clamp(0, durationMs > 0 ? durationMs : 0);
 
+      // 时长与位置照发（浮出视窗要显示进度），但**不宣告可 seek 区间**：
+      // smtc_windows 1.1.0 的 PressedButton 没有 seek 变体，
+      // PlaybackPositionChangeRequested 根本到不了 Dart 侧，宣告
+      // [0, duration] 是纯谎话。等套件转发该事件时再放出来。
       _smtc!.updateTimeline(PlaybackTimeline(
         startTimeMs: 0,
         endTimeMs: durationMs,
         positionMs: positionMs,
         minSeekTimeMs: 0,
-        maxSeekTimeMs: durationMs,
+        maxSeekTimeMs: 0,
       ));
     } catch (e) {
       logError('Failed to update SMTC timeline: $e');
@@ -338,9 +380,34 @@ class WindowsSmtcHandler with Logging {
     }
   }
 
+  /// SMTC 的 RepeatMode 与 FMP 的 LoopMode 是同一组概念，只是命名不同。
+  LoopMode _repeatModeToLoopMode(RepeatMode mode) {
+    switch (mode) {
+      case RepeatMode.none:
+        return LoopMode.none;
+      case RepeatMode.track:
+        return LoopMode.one;
+      case RepeatMode.list:
+        return LoopMode.all;
+    }
+  }
+
+  RepeatMode _loopModeToRepeatMode(LoopMode mode) {
+    switch (mode) {
+      case LoopMode.none:
+        return RepeatMode.none;
+      case LoopMode.one:
+        return RepeatMode.track;
+      case LoopMode.all:
+        return RepeatMode.list;
+    }
+  }
+
   /// 清理资源
   void dispose() {
     _buttonSubscription?.cancel();
+    _shuffleSubscription?.cancel();
+    _repeatModeSubscription?.cancel();
     _smtc?.dispose();
     _smtc = null;
     _metadataDeduplicator.clear();
