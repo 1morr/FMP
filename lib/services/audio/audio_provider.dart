@@ -43,6 +43,7 @@ import '../network/connectivity_service.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
 import 'mix_playlist_handler.dart';
+import 'lyrics_auto_match_coordinator.dart';
 import 'play_history_recorder.dart';
 import 'mix_playlist_types.dart';
 import 'temporary_play_handler.dart';
@@ -240,7 +241,7 @@ class AudioController extends StateNotifier<PlayerState>
   final ToastService _toastService;
   final NowPlayingPublisher _publisher;
   late final PlayHistoryRecorder _playHistory;
-  final LyricsAutoMatchService? _lyricsAutoMatchService;
+  late final LyricsAutoMatchCoordinator _lyricsAutoMatch;
   final SettingsRepository? _settingsRepository;
   final QueuePersistenceManager? _queuePersistenceManager;
   final MixTracksFetcher? _mixTracksFetcher;
@@ -256,9 +257,6 @@ class AudioController extends StateNotifier<PlayerState>
 
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
   int _navRequestId = 0;
-
-  // 歌词自动匹配请求ID - 防止旧匹配任务覆盖新匹配任务的 UI 状态
-  int _lyricsAutoMatchRequestId = 0;
 
   // 統一的播放上下文（管理所有播放狀態，包括臨時播放、加載狀態等）
   _PlaybackContext _context = const _PlaybackContext();
@@ -288,8 +286,13 @@ class AudioController extends StateNotifier<PlayerState>
   /// 檢查電台是否正在播放（由 RadioController 設置，用於避免電台斷流時誤觸發隊列播放）
   bool Function()? isRadioPlaying;
 
-  /// 歌词自动匹配状态回调（用于 UI 显示加载动画）
-  void Function(bool isMatching)? onLyricsAutoMatchStateChanged;
+  /// 歌詞自動比對狀態回呼（UI 用來顯示載入動畫）。
+  ///
+  /// 轉發給 `LyricsAutoMatchCoordinator` —— 接線點留在 controller 上，provider
+  /// 那頭不需要知道這件事已經搬家了。
+  set onLyricsAutoMatchStateChanged(void Function(bool isMatching)? callback) {
+    _lyricsAutoMatch.onStateChanged = callback;
+  }
 
   void Function(QueueState queueState)? onQueueStateChanged;
 
@@ -315,12 +318,15 @@ class AudioController extends StateNotifier<PlayerState>
         _audioStreamManager = audioStreamManager,
         _toastService = toastService,
         _publisher = nowPlayingPublisher,
-        _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
         _queuePersistenceManager = queuePersistenceManager,
         _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
     _playHistory = PlayHistoryRecorder(repository: playHistoryRepository);
+    _lyricsAutoMatch = LyricsAutoMatchCoordinator(
+      service: lyricsAutoMatchService,
+      settingsRepository: settingsRepository,
+    );
     _queueCommands = QueueCommands(
       queueManager: _queueManager,
       toastService: _toastService,
@@ -502,8 +508,7 @@ class AudioController extends StateNotifier<PlayerState>
     _isDisposed = true;
     _discardPendingSeek(reason: 'controller disposed');
     _clearSeekStabilizationWindow();
-    _lyricsAutoMatchRequestId++;
-    onLyricsAutoMatchStateChanged = null;
+    _lyricsAutoMatch.dispose();
     _stopPositionCheckTimer();
     _cancelRetryTimer();
     _bufferWatchdog.dispose();
@@ -1594,50 +1599,6 @@ class AudioController extends StateNotifier<PlayerState>
     logDebug('Updated playing track: ${track.title}');
   }
 
-  /// 尝试自动匹配歌词（异步，不阻塞播放）
-  Future<void> _tryAutoMatchLyrics(Track track) async {
-    final requestId = ++_lyricsAutoMatchRequestId;
-    final autoMatchService = _lyricsAutoMatchService;
-    final settingsRepo = _settingsRepository;
-
-    if (autoMatchService == null || settingsRepo == null) return;
-
-    try {
-      // 检查设置是否启用自动匹配
-      final settings = await settingsRepo.get();
-      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
-      if (!settings.autoMatchLyrics) {
-        logDebug('Auto-match lyrics disabled in settings');
-        return;
-      }
-
-      // 通知 UI 开始自动匹配
-      onLyricsAutoMatchStateChanged?.call(true);
-
-      // 后台执行自动匹配（按用户配置的源优先级）
-      final enabledSources = settings.lyricsSourcePriorityList
-          .where((s) => !settings.disabledLyricsSourcesSet.contains(s))
-          .toList();
-      final matched = await autoMatchService.tryAutoMatch(
-        track,
-        enabledSources: enabledSources,
-        allowPlainLyricsAutoMatch: settings.allowPlainLyricsAutoMatch,
-      );
-      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
-      if (matched) {
-        logInfo('Auto-matched lyrics for: ${track.title}');
-      }
-    } catch (e) {
-      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
-        logWarning('Auto-match lyrics failed for ${track.title}: $e');
-      }
-    } finally {
-      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
-        onLyricsAutoMatchStateChanged?.call(false);
-      }
-    }
-  }
-
   /// 清除正在播放的歌曲
   void _clearPlayingTrack() {
     _playingTrack = null;
@@ -2184,7 +2145,7 @@ class AudioController extends StateNotifier<PlayerState>
 
       // 自动匹配歌词（后台执行，不阻塞播放）
       if (countsAsNewPlay) {
-        unawaited(_tryAutoMatchLyrics(track));
+        _lyricsAutoMatch.onTrackStarted(track);
       }
 
       // Mix 模式：接近尾端時提前加載更多歌曲
