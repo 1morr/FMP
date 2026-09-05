@@ -1518,3 +1518,114 @@ not a bot`，但**muxed 串流與所有 metadata API（排行榜、Mix 播放列
 `DownloadProbe`；「自動匹配歌詞」已切回原本的關閉。**未還原**：驗證用的播放佇列
 清空後沒有復原原本那 2 首（原佇列來自更早一輪的 YouTube 排行榜點擊），播放歷史多出
 的紀錄也保留著 —— 那些是裝置上真的發生過的播放。
+
+### 6.7 執行時的失效重核（2026-09-06，Phase 4 步驟 C）
+
+步驟 C（拆掉 `_PlaybackContext`，把載入閂存與延後 seek 收進一個協作者）。commit
+`c19e505e`…`d8afc346`。`audio_provider.dart` **3,209 → 2,942 行**（淨減 267）。
+
+#### 開工重核：三條說法要更正
+
+| # | 原本的說法 | 實況（file:line） | 處置 |
+|---|---|---|---|
+| 1 | 「Phase 1 的逾時預算收斂到這裡的單一 `budget`」（`05:343`）、「`budget` 是唯一一個『多久算太久』的定義點」（`02:874`） | **已經做完了。** `PlaybackTimeoutBudget`（`app_constants.dart:191`，`total` 是 `streamResolution + mediaOpen` 的 getter）就是那個定義點；`PlaybackRequestSession` 的 `_budget:177`、`_requestDeadline:180`（`:523`/`:619` 設定）、`_withBudget:716`、`_remainingBudget:735` 已經讓原始一輪與 fallback 共用同一份。commit `262657bc` + `591cb2b0`，由 `playback_request_session_test.dart:500/520/549/593` 釘住 | **C 不碰逾時。** 這一項移出 C 的範圍 |
+| 2 | 介面 `abstract interface class PlaybackSessionCoordinator { start / cancel / states }`（`02:866-871`） | **`PlaybackRequestSession` 已經是這個東西**（852 行）：`start:214`、`restore:282`、`cancelActive:206`、`isSuperseded:204`、`dispose:191`。再造一個同名類別只會變成「兩個都叫 session 的東西」；而 `Stream<PlaybackSessionState>` 只會有一個消費者 | **介面不採用**，理由與 D 相同。`02 §8.1-C` 已標註 |
+| 3 | 「`_context` 整包搬走」（`02:861`） | **`_PlaybackContext`（`:120-185`）裝的是三件無關的事**：播放模式（28 處）、載入閂存（21 處）、臨時播放快照（21 處）。整包搬會把另外兩件拖進去 | 分三個歸屬：模式留成普通欄位、快照交給 `TemporaryPlayHandler`、閂存與延後 seek 合成 `PlaybackHandoffGate` |
+
+#### 執行中發現
+
+1. **`_context.activeRequestId` 與 `PlaybackRequestSession.activeRequestId` 是同一個
+   計數器。** `_enterLoading()`（`playback_request_session.dart:463-470`）做
+   `++_requestId` 後把 id 交給 `onLoadingStarted` → `_startSessionLoadingState` 原樣
+   存起來。它是**閂存副本**，交接結束歸零 —— 回答「控制器現在為哪一次請求做投影」，
+   不是「哪一次才是最新的」。兩者不可互換：`_clearMatchingSessionLoadingContext`
+   是唯一以閂存為準的路徑，其餘一律問 `isSuperseded`。
+2. **閂存與延後 seek 從來沒有分開改過。** 11 個寫入點（建構子的 `onLoadingFinished`
+   閉包、四個起播前導、`_startSessionLoadingState`、`_exitLoadingState`、三個
+   `_reset*`）每一個都同時動兩者。這正是 D 在 Mix 上消掉的形狀，所以合成一個
+   `PlaybackHandoffGate` 而不是兩個類別。
+3. **`state.currentTrack` 是 `playingTrack` 的別名**（`player_state.dart:114`），
+   所以 seek 那三處 `?? state.currentTrack?.uniqueKey` 是死程式碼。拿掉之後 gate
+   完全不需要 `PlayerState`，這才讓它符合既有協作者的形狀。
+4. **`copyWith` 藏了兩個行為**，拆開時必須寫出來：`copyWith(mode: null)` 會保持原
+   模式（重試與啟動還原靠它才不會把臨時播放或 Mix 打回 queue）；`clearSavedState`
+   會覆蓋另外三個具名參數。兩者都在 commit `f02a2ef5` 裡顯式化。
+5. **`_startSessionLoadingState` 刻意只清視窗、不清「下一次要穩定化」旗標**
+   （`:1519` 直接 `= null` 而不是呼叫 `_clearSeekStabilizationWindow()`）。gate 因此
+   把 `prepareForRequest`（不清旗標）與 `cancel`（清）分成兩個方法，並由
+   `playback_handoff_gate_test.dart` 的
+   `the stabilize-next flag survives beginRequest but not cancel` 釘住。
+6. **`AudioController.seekForward` / `seekBackward` 是死程式碼**，`lib/` 與 `test/`
+   都沒有呼叫者；而 `audio_handler.dart:59-60` 仍向系統宣告
+   `MediaAction.seekForward` / `seekBackward`，`FmpAudioHandler` 卻沒有覆寫
+   `fastForward()` / `rewind()`。**通知列上那兩個動作按下去沒有任何反應。**
+   這是能力宣告的缺陷不是重構題目，C 沒有動它。
+
+#### 新測試的變異驗證
+
+`playback_handoff_gate_test.dart` 有 11 條在守同一件事：**任何作廢路徑都必須
+`complete()`**，否則 `seekTo` 的呼叫端永遠 await 不到。把 `discardPending` 裡的
+`pending.complete()` 拿掉重跑，**12 條中有 7 條失敗**（而且是掛住到逾時，不是斷言
+失敗），確認這組測試真的守得住。
+
+#### 實機驗收（Android 模擬器 `Medium_Phone`，`-no-snapshot-load` 冷開機）
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| 一般 seek（無交接） | 進度條點 75% → 位置 264101ms；點 25% → 87753ms。兩次都精確落在 351–352 秒曲目的對應比例上 |
+| **交接期間的 seek 會延後** | `[PlaybackHandoffGate] Deferring seek to 0:01:56.367000 until playback request 2 is ready` |
+| **穩定化視窗** | `[PlaybackHandoffGate] Stabilizing seeks for request 2 until …` → `Waiting 0:00:00.498569 before applying deferred seek`（500ms 視窗只剩 498ms） |
+| **延後的 seek 落在新歌上** | `[PlaybackHandoffGate] Applying deferred seek to 0:01:56.367000 for request 2`，隨後 `dumpsys media_session` 讀到 132612ms（1:56 ＋ 已播的 16 秒） |
+| 臨時播放快照 | `[TemporaryPlayHandler] Saved playback state: index: 0, position: 0:01:18.124453` 等三次，每次都與點擊前一刻的 `dumpsys` 位置吻合 |
+| 步驟 D 的協作者沒被弄壞 | `[PlayHistoryRecorder] Recorded play history: …`、`[LyricsAutoMatchCoordinator] Auto-match lyrics disabled in settings` 照常 |
+
+**沒在畫面上捕捉到的一項**：被新請求取代時的 `Discarding deferred seek`。要湊出
+「延後中 → 立刻再切一次歌」需要兩次點擊都落在載入視窗內，而模擬器後段對合成點擊
+的反應變得不穩（`ax` 樹正常但點擊不進 Flutter view）。這條由
+`playback_handoff_gate_test.dart` 的四條作廢測試與既有的端到端
+`audio_controller_phase1_test.dart:519` 覆蓋。
+
+#### 順手發現的既有缺陷（**不是 C 造成的**）
+
+**臨時播放按「下一首」返回佇列時，還原有機率卡在載入中**：mini player 的播放鍵變成
+無限轉圈，通知列位置停在 0，`_restoreSavedState` 只印出 `started` 而沒有
+`completed successfully`。log 停在
+`PlaybackRequestSession: Restoring queue track` → `JustAudioService: File set` →
+`playing=true, ready`，之後就沒有下文 —— `restore()` 的 future 沒有回來。
+
+**A/B 驗證**：把工作區切到步驟 C 之前的 `29eaaad6` 熱重啟後跑同一組操作，
+**症狀完全相同**（log 最後一行是舊的 `[AudioController] Saved playback state` tag，
+證明跑的是舊 build；位置同樣停在 0、轉圈同樣不停）。所以這是既有缺陷，應另開 issue
+追蹤，不在 C 的範圍。
+
+#### 誠實的預期：Phase 4 的驗收線需要重述
+
+**C 做完是 2,942 行，離 ≤800 還差 2,140 行，而路線圖的 A–E 五步到此就用完了。**
+實測目前的行數分布（`AudioController` 本體）：
+
+| 群 | ~行數 | 狀態 |
+|---|---|---|
+| 後端事件處理與失敗分類（`_onPlayerStateChanged` / `_onPositionChanged` / `_onTrackCompleted` / `_onPlaybackEnded` / `_onTransportFailure` / `_onBufferStarvation` / 輸出裝置） | 420 | 未規劃 |
+| 起播命令與 transport（play\* / playAt / next / previous / 音量 / 靜音 / 循環 / 裝置） | 500 | 大部分該留 |
+| 啟動與還原（`initialize` / `_prepareCurrentTrack` / `_restoreQueuePlayback` / `_restoreSavedState` / `returnFromRadio`） | 370 | 未規劃 |
+| `_executePlayRequest` 與音源錯誤處理 | 215 | 未規劃 |
+| 重試階梯投影 | 168 | 未規劃 |
+| `PlayerState` / `QueueState` 投影助手 | 190 | 該留（就是投影本身） |
+| Mix 起播與退出 | 156 | 該留 |
+| 載入狀態投影與 publisher | 120 | 該留 |
+| 錯誤 → toast 翻譯 | 91 | 未規劃 |
+| 同檔案裡不屬於 controller 的（`QueueState` ＋ 12 個 provider） | 230 | **純檔案切分即可** |
+
+要接近 800 至少還需要：
+
+- **最便宜的 230 行根本不是重構** —— 把 `QueueState` ＋ `queueStateProvider` 移到
+  `queue_state.dart`、12 個 provider 移到 `audio_providers.dart`，零行為變更，
+  搬走的行數比 C 還多。建議優先做。
+- **F — `PlaybackEventRouter`**（後端事件，約 −300）：注意它**無法照既有協作者的
+  規矩寫** —— 那些 handler 本身就是 `PlayerState` 投影，要嘛讓它吐 typed intent 由
+  controller 重播，那是新的設計決定，不是位移。
+- **G — `PlaybackStartupRestorer`**（啟動與還原，約 −320）
+- **H — `PlaybackErrorPresenter`**（錯誤翻譯，約 −140）
+
+三步加檔案切分之後樂觀估計 **1,000–1,200 行**。**≤800 只有在投影本身被重構
+（`02 §8.1-F` 的 `_project()`）之後才可能成立，Phase 4 的驗收線應該按這個重述。**

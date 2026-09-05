@@ -43,6 +43,13 @@ JustAudioService   - full            v            v
 MediaKitAudioService -> result  FmpAudioHandler  WindowsSmtcHandler
                                 (Android)        (Windows)
 
+One play request at a time runs through two collaborators the controller
+never bypasses:
+
+  PlaybackRequestSession       PlaybackHandoffGate
+  - request generation         - the controller's latch on that request
+  - supersession, budget       - deferred seeks, stabilization window
+
 AudioController also fans a started track out to three side-effect
 collaborators, none of which the playback path waits for:
 
@@ -151,6 +158,19 @@ backend events.
   owns the 500 ms notification throttle: position updates may be dropped, state
   transitions may not, so the two cannot share a throttle and it does not belong
   in the publisher.
+- `QueueCommands` (`queue_commands.dart`) — the mix-mode gate, the queue-full
+  toast, and turning an exception into a `QueueMutation`. See Architecture.
+- `PlaybackHandoffGate` (`playback_handoff_gate.dart`) — the controller's latch
+  on the in-flight play request, deferred seeks, and the post-navigation
+  stabilization window. Deliberately owns no `PlayerState`, does not perform the
+  seek (the backend, the buffer watchdog and the position save stay with the
+  controller, reached through one `performSeek` callback), and does not decide
+  supersession — it borrows that predicate from `PlaybackRequestSession`.
+- `TemporaryPlayHandler` (`temporary_play_handler.dart`) — the queue position
+  saved before temporary playback, and the restore plan built from it.
+  Deliberately owns neither `PlayMode` (mode is read by mix/detached/queue code
+  that has nothing to do with the snapshot) nor restore execution, which starts
+  playback and therefore stays with the transport commands.
 - `PlayHistoryRecorder` / `LyricsAutoMatchCoordinator` — see Playback Side
   Effects. Deliberately own no `PlayerState`, no queue access, and no rule about
   what counts as a play.
@@ -164,9 +184,10 @@ backend events.
   or SMTC. Deliberately owns no `PlayerState`, no timers, and no reference to
   `FmpAudioService` — speed and buffered position are read by the caller and
   passed in, keeping it a pure sink.
-- `PlaybackRequestSession` — playback request tokens, supersession, active
-  loading request state, backend stop/handoff, queue restore handoff, fallback
-  handoff, media-open pending recovery.
+- `PlaybackRequestSession` — playback request tokens, supersession, the timeout
+  budget, backend stop/handoff, queue restore handoff, fallback handoff,
+  media-open pending recovery. The controller's *view* of which request it is
+  projecting is the gate's latch, not this — see Playback Context And Play Lock.
 - `PlaybackRecoveryCoordinator` — playback network retry generation, scheduled
   retry state, manual retry, network-recovered retry, premature completion
   recovery.
@@ -218,20 +239,28 @@ request/mode DTOs).
 
 ## Playback Context And Play Lock
 
-`AudioController` uses `_PlaybackContext` to manage playback state and prevent
-race conditions.
-
 ```dart
 enum PlayMode { queue, temporary, detached, mix }
-
-class _PlaybackContext {
-  final PlayMode mode;
-  final int activeRequestId; // > 0 = loading
-  final int? savedQueueIndex;
-  final Duration? savedPosition;
-  final bool? savedWasPlaying;
-}
 ```
+
+`AudioController` keeps `PlayMode _mode` as a plain field. It used to live in a
+`_PlaybackContext` value class alongside the loading latch and the
+temporary-play snapshot; those three had no shared lifecycle, and the `copyWith`
+hid two behaviours that are now written out — passing a null mode kept the old
+one, and `clearSavedState` overrode the saved fields whatever else was passed.
+
+**There are two request-id predicates and they are not interchangeable:**
+
+| Question | Ask |
+|---|---|
+| Is this still the newest request? | `PlaybackRequestSession.isSuperseded(id)` |
+| Is the controller currently projecting *this* handoff? | `PlaybackHandoffGate.isCurrent(id)` |
+
+The gate's `activeRequestId` is a **latch**, not a second counter: the session
+mints the id in `_enterLoading()` and hands it over through `onLoadingStarted`,
+and the latch is zeroed when the controller finishes projecting. Only
+`_clearMatchingSessionLoadingContext` judges by the latch; everything else asks
+the session.
 
 Any method that starts backend playback or fetches playback URLs outside
 `PlaybackRequestSession` must either move into the session or use an explicit
@@ -246,8 +275,11 @@ offset.
 
 - Uses `playTemporary()`, not `playTrack()`, via `_executePlayRequest()` with
   `mode: PlayMode.temporary`.
-- Saved state in `_PlaybackContext`: `savedQueueIndex`, `savedPosition`,
-  `savedWasPlaying`.
+- The snapshot lives in `TemporaryPlayHandler`, which is the only thing that
+  clears it. Entering while already temporary keeps the *first* snapshot —
+  clicking two search results in a row must return to the original queue slot.
+- `buildQueueRestorePlan` deliberately reads its arguments, not that snapshot:
+  returning from radio restores `RadioController`'s saved position.
 - Position restore is controlled by `Settings.rememberPlaybackPosition`.
 
 ## Playback End Reasons
@@ -393,7 +425,7 @@ accident because their purpose is not obvious from the name:
 
 The method applies these unconditionally — it carries no platform check. That is
 safe only because `audioServiceProvider`
-(`lib/services/audio/audio_provider.dart:3267`) hands mobile to
+(`lib/services/audio/audio_provider.dart`, `audioServiceProvider`) hands mobile to
 `JustAudioService`, so `MediaKitAudioService` never initializes on Android. The
 `Platform.isAndroid || Platform.isIOS` branch at `media_kit_audio_service.dart:150`
 is therefore unreachable in production; keep it as a guard, but do not read it as
@@ -441,10 +473,15 @@ YouTube Mix/Radio playlists are dynamic infinite playlists:
 - Progress slider `onChanged` must not call `seekToProgress()`. Only seek in
   `onChangeEnd`.
 - User seeks during a playback request handoff, or during the short
-  post-navigation seek stabilization window, must stay in `AudioController` as a
-  current-track-checked pending seek. Do not send these seeks directly to the
-  backend; stale pending seeks must be discarded when another request supersedes
-  the target track.
+  post-navigation seek stabilization window, are held by `PlaybackHandoffGate`
+  as a current-track-checked pending seek. Do not send these seeks directly to
+  the backend.
+- **Every discard path must complete the pending seek's future.** `seekTo`
+  awaits it, so a discard that forgets to complete leaves the caller waiting
+  forever — that is what most of `playback_handoff_gate_test.dart` is guarding.
+- `_PendingSeek` is compared by object identity on purpose: `applyPendingIfCurrent`
+  re-checks it after awaiting the stabilization delay. Giving it `==` would make
+  two seeks to the same position on the same request indistinguishable.
 
 ## Verification
 

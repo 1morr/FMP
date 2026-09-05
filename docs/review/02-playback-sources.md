@@ -877,6 +877,24 @@ abstract interface class PlaybackSessionCoordinator {
 
 【建議・成本 M–L・風險中・可逆但需要測試同步更新】
 
+> **【第十輪執行 —— 介面未採用，逾時那一項早已完成】** 開工查證推翻了這一節的三個
+> 前提，見 05 §6.7：
+>
+> 1. **「順便把 P0-2 的逾時放在這裡」已經做完了。** `PlaybackTimeoutBudget`
+>    （`app_constants.dart`）就是這裡說的單一定義點，`PlaybackRequestSession`
+>    的 `_requestDeadline` / `_withBudget` / `_remainingBudget` 已經把解析、開流與
+>    fallback 綁在同一份預算上（commit `262657bc` + `591cb2b0`），四條測試釘住。
+> 2. **上面這個介面就是 `PlaybackRequestSession`。** 它已經有 `start` / `restore` /
+>    `cancelActive` / `isSuperseded` 與逾時，再造一個叫 `PlaybackSessionCoordinator`
+>    的類別只會變成「兩個都叫 session 的東西」；而 `Stream<PlaybackSessionState>`
+>    只有一個消費者（controller 自己）。
+> 3. **`_context` 不是一包東西。** `_PlaybackContext` 裝的是播放模式、載入閂存、
+>    臨時播放快照三件無關的事，整包搬會把另外兩件拖進去。
+>
+> 落地的是：`PlayMode` 變成 `AudioController` 的普通欄位；臨時播放快照交給既有的
+> `TemporaryPlayHandler`；**載入閂存與延後 seek 合成 `PlaybackHandoffGate`** ——
+> 這兩者在既有程式碼裡的 11 個寫入點沒有一次是分開改的。
+
 ---
 
 #### D. `PlaybackObserver` —— 把副作用從播放路徑上摘下來（歷史 / 歌詞 / Mix）
