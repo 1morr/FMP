@@ -287,10 +287,19 @@ and the latch is zeroed when the controller finishes projecting. Only
 `_clearMatchingSessionLoadingContext` judges by the latch; everything else asks
 the session.
 
+**There is a third counter, and it is not one of those two.**
+`AudioController._navRequestId` is a raw monotonic counter guarding the async
+window inside `next()` / `previous()` only: those two await a queue move before
+they reach `PlaybackRequestSession`, so during that await there is no session id
+to ask about yet. It answers "did the user press skip again while this one was
+still deciding", not "is this playback request current". It predates the
+session and stays because folding it in would mean minting a session id before
+the controller knows which track it is starting.
+
 Any method that starts backend playback or fetches playback URLs outside
 `PlaybackRequestSession` must either move into the session or use an explicit
-session handle/cancellation check. **Do not add new raw request-id counters in
-`AudioController`.**
+session handle/cancellation check. **Do not add further raw request-id counters
+in `AudioController`** — the three above are the complete set.
 
 ## Temporary Play
 

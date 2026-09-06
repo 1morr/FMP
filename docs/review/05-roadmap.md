@@ -209,7 +209,10 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 ---
 
-### Phase 1 — 播放體驗（tracer bullet）
+### Phase 1 — 播放體驗（tracer bullet）—— **已執行（2026-09-02）**
+
+> 執行時的重核推翻了下表的部分估算、並把 D1／D2 兩個決策點定案，**見 §6.2**。
+> 下表保留原樣以便對照。
 
 **目標**：消滅每次播放固定多付的 1.25–1.74 秒、給載入路徑一個上界、修掉 YouTube 每次 20 秒的退化。
 **涉及模組**：`lib/services/audio/`（`stream_resolution_service` / `playback_request_session` / `media_kit_audio_service`）、`lib/data/sources/`。
@@ -282,7 +285,11 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 ---
 
-### Phase 3 — 狀態層與資料層治理
+### Phase 3 — 狀態層與資料層治理 —— **已執行（2026-09-03 / 04）**
+
+> 執行時的重核推翻了 3c「合成一次批次才沒有邊際成本」的理由，並改變了
+> auto-retry 的處理方式（改成 `ProviderScope` 一個全域關閉，不逐個 provider
+> 決定），**見 §6.4** 與 ADR 0001／0002。下表保留原樣以便對照。
 
 **目標**：把 migration 從不可證偽的形狀猜測換成版本號、一次做完所有 `Settings` schema 變更、
 把 152 個 repository 邊界外呼叫點的 63% 收回去、升 Riverpod 3。
@@ -326,7 +333,14 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 ---
 
-### Phase 4 — `AudioController` 拆分
+### Phase 4 — `AudioController` 拆分 —— **部分執行（2026-09-05 / 06）**
+
+> 執行時的重核否決了下表之外追加的 F／G 兩步，並**推翻了下方的 ≤800 行驗收線**，
+> **見 §6.5–§6.8**。下表保留原樣以便對照。
+>
+> **本節列出但尚未開始的兩項**：`StateNotifier` → `Notifier` 改寫、
+> `FmpAudioService.setQueue` / `supportsQueue`。Phase 4 已合進 `main`，
+> 但按本節的定義並未完成。
 
 **目標**：把 3,429 行、90+ 欄位的 god class 拆成「投影 + 轉發 + 接線」，目標 400–800 行。
 **涉及模組**：`lib/services/audio/` 全部。
@@ -352,7 +366,12 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3）也才知道該接在哪一層。
 
 **驗收**：
-- `audio_provider.dart` ≤ 800 行（目前 3,429）。
+- ~~`audio_provider.dart` ≤ 800 行（目前 3,429）。~~ **這條已作廢，見 §6.8。**
+  實際落點 2,573 行，而剩下的 2,573 行裡有 1,080 行是投影與 transport 命令 ——
+  它們就是 `AudioController` 這個類別的定義，再抽協作者只會產出 15–26 個回呼的
+  假邊界。**重述為：`AudioController` 不再持有任何可以獨立測試的規則。**
+  要再往下需要改變控制器*是什麼*（拆 `PlayerState` 本身、或 `Notifier` 改寫），
+  不是把東西搬出去。
 - `test/services/audio` 全綠；每一步結束都重跑 Phase 1 的零位元組伺服器實驗當回歸。
 - 實機：Windows 上電台播放時 SMTC 的 `IsNextEnabled` 為 `False`（用 WinRT 的
   `GlobalSystemMediaTransportControlsSessionManager` 直接讀，不截系統浮出視窗）。
