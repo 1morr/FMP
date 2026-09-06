@@ -28,40 +28,18 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  /// 根据当前路由路径获取导航索引
-  int _getSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-
-    if (location.startsWith(RoutePaths.settings)) return 5;
-    if (location.startsWith(RoutePaths.radio)) return 4;
-    if (location.startsWith(RoutePaths.library)) return 3;
-    if (location.startsWith(RoutePaths.queue)) return 2;
-    if (location.startsWith(RoutePaths.search)) return 1;
-    return 0; // home
-  }
-
   /// 导航到指定分支
   void _onDestinationSelected(int index) {
+    _goTo(destinations[index].path);
+  }
+
+  void _goTo(String path) {
     // 關閉所有 popup 菜單（PopupMenuButton 等）
     // Shell 內的頁面切換使用 context.go()，不會觸發 Navigator.pop()
     // 因此需要手動關閉 popup 類型的路由
     // 使用 shellNavigatorKey 直接訪問 Shell Navigator 來關閉 popup
     shellNavigatorKey.currentState?.popUntil((route) => route is! PopupRoute);
-
-    switch (index) {
-      case 0:
-        context.go(RoutePaths.home);
-      case 1:
-        context.go(RoutePaths.search);
-      case 2:
-        context.go(RoutePaths.queue);
-      case 3:
-        context.go(RoutePaths.library);
-      case 4:
-        context.go(RoutePaths.radio);
-      case 5:
-        context.go(RoutePaths.settings);
-    }
+    context.go(path);
   }
 
   @override
@@ -75,8 +53,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
 
     return ResponsiveScaffold(
-      selectedIndex: _getSelectedIndex(context),
+      selectedIndex: navIndexForLocation(GoRouterState.of(context).uri.path),
       onDestinationSelected: _onDestinationSelected,
+      onSettingsSelected: () => _goTo(settingsDestination.path),
       child: widget.child,
     );
   }
