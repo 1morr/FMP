@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../services/lyrics/lyrics_window_style.dart';
 
-/// 歌詞空狀態（等待歌詞）。
+/// 歌詞空狀態。
 ///
 /// 從 `lyrics_window.dart` 的 `_buildEmpty` 抽出為可注入資料的 leaf widget
 /// （C1a/C1e：讓歌詞視窗的純展示元件可脫離 desktop_multi_window engine 單獨
 /// 做 widget 測試）。不持有任何生命週期或 channel，只依賴傳入的樣式與文案。
+///
+/// 文案由呼叫端決定：抓取中是「等待歌詞…」，已經確定這首沒有歌詞則是
+/// 「暫無歌詞」。這個 leaf 不知道差別，也不該知道 —— 它只畫一句話。
 ///
 /// 配色規格與其他歌詞介面的「無歌詞」空態一致：非透明模式圖示
 /// `colorScheme.outline`、文案 `colorScheme.onSurfaceVariant`、圖文間距 12。
@@ -17,19 +20,19 @@ class LyricsEmptyState extends StatelessWidget {
     super.key,
     required this.transparentMode,
     required this.style,
-    required this.waitingText,
+    required this.message,
   });
 
   final bool transparentMode;
   final LyricsWindowStyle style;
-  final String waitingText;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     final t = transparentMode;
     final applyTextStyle = style.shouldApplyToText(transparentMode: t);
     final colorScheme = Theme.of(context).colorScheme;
-    final waitingColor = t
+    final messageColor = t
         ? style.resolveSecondaryColor(
             isCurrent: true,
             transparentMode: t,
@@ -51,9 +54,9 @@ class LyricsEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            waitingText,
+            message,
             style: TextStyle(
-              color: waitingColor,
+              color: messageColor,
               shadows: applyTextStyle ? style.shadows : null,
             ),
           ),

@@ -33,6 +33,7 @@ void lyricsWindowMain(List<String> args) {
 /// 歌词窗口翻译字符串（从主窗口同步）
 class _LyricsWindowStrings {
   String waitingLyrics = '等待歌词...';
+  String noLyrics = '暂无歌词';
   String previous = '上一首';
   String play = '播放';
   String pause = '暂停';
@@ -66,6 +67,7 @@ class _LyricsWindowStrings {
 
   void updateFrom(Map<String, dynamic> map) {
     waitingLyrics = map['waitingLyrics'] as String? ?? waitingLyrics;
+    noLyrics = map['noLyrics'] as String? ?? noLyrics;
     previous = map['previous'] as String? ?? previous;
     play = map['play'] as String? ?? play;
     pause = map['pause'] as String? ?? pause;
@@ -195,6 +197,11 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   String? _trackTitle;
   String? _trackArtist;
   String? _trackUniqueKey;
+
+  /// 主視窗是否已經停止找歌詞。子視窗自己只看得到「沒有行」，分不出「還在抓」
+  /// 和「這首沒有歌詞」—— 沒有這個旗標，沒歌詞的曲目會永遠停在「等待歌詞…」，
+  /// 而同一時刻 App 內的面板已經正確顯示「暫無歌詞」（04 報告 P0-4）。
+  bool _lyricsSettled = false;
   bool _alwaysOnTop = true;
   bool _showOffsetControls = false;
   bool _isPlaying = false;
@@ -355,6 +362,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       _trackTitle = data['trackTitle'] as String?;
       _trackArtist = data['trackArtist'] as String?;
       _trackUniqueKey = data['trackUniqueKey'] as String?;
+      _lyricsSettled = data['lyricsSettled'] as bool? ?? false;
     });
 
     _userScrolling = false;
@@ -736,7 +744,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return LyricsEmptyState(
       transparentMode: _transparentMode,
       style: _lyricsStyle,
-      waitingText: _strings.waitingLyrics,
+      message: _lyricsSettled ? _strings.noLyrics : _strings.waitingLyrics,
     );
   }
 

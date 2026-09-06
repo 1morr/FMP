@@ -288,6 +288,7 @@ class LyricsWindowService with Logging {
     required String? trackTitle,
     required String? trackArtist,
     required String? trackUniqueKey,
+    required bool lyricsSettled,
   }) async {
     if (_controller == null || !_channelReady || _isHidden) return;
 
@@ -311,6 +312,7 @@ class LyricsWindowService with Logging {
           'trackTitle': trackTitle,
           'trackArtist': trackArtist,
           'trackUniqueKey': trackUniqueKey,
+          'lyricsSettled': lyricsSettled,
         }),
       );
     } catch (e) {
@@ -352,6 +354,7 @@ class LyricsWindowService with Logging {
     // 收集歌词窗口需要的翻译字符串
     final strings = {
       'waitingLyrics': t.lyrics.windowWaitingLyrics,
+      'noLyrics': t.lyrics.windowNoLyrics,
       'previous': t.tray.previous,
       'play': t.tray.play,
       'pause': t.tray.pause,

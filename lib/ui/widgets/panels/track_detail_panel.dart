@@ -157,6 +157,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     }
     _lastSyncedLineIndex = currentLineIndex;
 
+    // 子視窗只看得到「沒有行」。這個旗標告訴它「還在抓」與「這首沒有歌詞」的
+    // 差別，判斷條件與 `lyrics_display.dart` 的面板分支同一組 provider。
+    final lyricsSettled = !ref.read(currentLyricsContentProvider).isLoading &&
+        !ref.read(lyricsAutoMatchingProvider);
+
     LyricsWindowService.instance.syncLyrics(
       lyrics: parsedLyrics,
       currentLineIndex: currentLineIndex,
@@ -165,6 +170,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       trackTitle: currentTrack?.title,
       trackArtist: currentTrack?.artist,
       trackUniqueKey: currentTrack?.uniqueKey,
+      lyricsSettled: lyricsSettled,
     );
   }
 
@@ -274,6 +280,15 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 
     // 歌词窗口同步：歌词内容变化时全量同步
     ref.listen(parsedLyricsProvider, (_, _) {
+      _fullSyncLyricsToWindow();
+    });
+
+    // 抓取結束（含「找不到」）時也要同步。沒有這兩條，`parsedLyrics` 從 null
+    // 變成 null 不會通知，子視窗就永遠停在「等待歌詞…」（P0-4）。
+    ref.listen(currentLyricsContentProvider, (_, _) {
+      _fullSyncLyricsToWindow();
+    });
+    ref.listen(lyricsAutoMatchingProvider, (_, _) {
       _fullSyncLyricsToWindow();
     });
 

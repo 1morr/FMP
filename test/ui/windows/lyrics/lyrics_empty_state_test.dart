@@ -10,14 +10,14 @@ void main() {
         body: LyricsEmptyState(
           transparentMode: transparent,
           style: LyricsWindowStyle.defaults,
-          waitingText: text,
+          message: text,
         ),
       ),
     );
   }
 
   group('LyricsEmptyState (C1a leaf)', () {
-    testWidgets('renders the waiting text and lyrics icon', (tester) async {
+    testWidgets('renders whichever message it is given', (tester) async {
       await tester.pumpWidget(host(transparent: false, text: '等待歌詞'));
       await tester.pumpAndSettle();
 
