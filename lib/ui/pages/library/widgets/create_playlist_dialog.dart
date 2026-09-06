@@ -382,10 +382,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             )
           : const ImagePlaceholder.track(),
       loading: () => const ImagePlaceholder.track(),
-      error: (error, stack) {
-        debugPrint('Failed to load playlist cover: $error');
-        return const ImagePlaceholder.track();
-      },
+      // 封面失敗退回 placeholder 是對的；log 由 `playlistCoverProvider` 寫，
+      // 不寫在這裡 —— 這個分支每次 rebuild 都會跑。
+      error: (error, stack) => const ImagePlaceholder.track(),
     );
   }
 

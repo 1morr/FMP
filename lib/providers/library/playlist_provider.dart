@@ -593,7 +593,16 @@ final playlistDetailProvider = StateNotifierProvider.family<
 final playlistCoverProvider =
     FutureProvider.family<PlaylistCoverData, int>((ref, playlistId) async {
   final service = ref.watch(playlistServiceProvider);
-  return service.getPlaylistCoverData(playlistId);
+  try {
+    return await service.getPlaylistCoverData(playlistId);
+  } catch (e, stack) {
+    // 呼叫端一律退回 placeholder，畫面上看不出封面失敗與「沒有封面」的差別 ——
+    // 沒有這行就一點痕跡都不會留下。log 寫在這裡而不是 UI 的 `error:` 分支，
+    // 因為那個分支每次 rebuild 都會跑。
+    AppLogger.warning(
+        'Loading the cover of playlist $playlistId failed: $e', 'Playlist');
+    Error.throwWithStackTrace(e, stack);
+  }
 });
 
 /// 歌单封面批量 Provider
@@ -601,7 +610,13 @@ final playlistCoverMapProvider =
     FutureProvider<Map<int, PlaylistCoverData>>((ref) async {
   final service = ref.watch(playlistServiceProvider);
   final playlists = ref.watch(playlistListProvider).playlists;
-  return service.getPlaylistCoverDataForPlaylists(playlists);
+  try {
+    return await service.getPlaylistCoverDataForPlaylists(playlists);
+  } catch (e, stack) {
+    // 同上：封面批量失敗在畫面上與「都沒有封面」長得一樣。
+    AppLogger.warning('Loading the playlist cover map failed: $e', 'Playlist');
+    Error.throwWithStackTrace(e, stack);
+  }
 });
 
 /// 所有歌单列表 Provider (简化版)

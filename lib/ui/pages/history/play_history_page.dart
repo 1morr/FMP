@@ -264,10 +264,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           ],
         ),
       ),
-      error: (error, stack) {
-        debugPrint('Failed to load play history stats: $error');
-        return const SizedBox.shrink();
-      },
+      error: (error, stack) => ErrorDisplay(
+        compact: true,
+        message: userMessageFor(error),
+        onRetry: () => ref.invalidate(playHistoryStatsProvider),
+      ),
     );
   }
 

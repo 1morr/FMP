@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/play_history.dart';
@@ -372,7 +373,12 @@ class _RecentPlaylistsSection extends ConsumerWidget {
 
     return playlists.when(
       loading: () => const SizedBox.shrink(),
-      error: (e, s) => const SizedBox.shrink(),
+      // 區塊級的失敗不能靜靜消失 —— 使用者會以為自己沒有歌單。
+      error: (e, s) => ErrorDisplay(
+        compact: true,
+        message: userMessageFor(e),
+        onRetry: () => ref.invalidate(allPlaylistsProvider),
+      ),
       data: (lists) {
         final recentLists =
             lists.take(AppConstants.homeListPreviewCount).toList();
@@ -662,7 +668,11 @@ class _RecentHistorySection extends ConsumerWidget {
 
     return historyAsync.when(
       loading: () => const SizedBox.shrink(),
-      error: (e, s) => const SizedBox.shrink(),
+      error: (e, s) => ErrorDisplay(
+        compact: true,
+        message: userMessageFor(e),
+        onRetry: () => ref.invalidate(recentPlayHistoryProvider),
+      ),
       data: (historyList) {
         final displayList =
             historyList.take(AppConstants.homeListPreviewCount).toList();
