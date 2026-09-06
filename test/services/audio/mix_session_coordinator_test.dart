@@ -88,6 +88,62 @@ void main() {
       );
     }
 
+    QueueRestoreState restoreState({
+      required bool isMixMode,
+      String? playlistId = 'RD-restored',
+      String? seedVideoId = 'seed-restored',
+      String? title = 'Restored Mix',
+    }) {
+      final queue = PlayQueue()..isMixMode = isMixMode;
+      return QueueRestoreState(
+        queue: queue,
+        tracks: const [],
+        currentIndex: 0,
+        savedPosition: Duration.zero,
+        savedVolume: 1,
+        mixPlaylistId: playlistId,
+        mixSeedVideoId: seedVideoId,
+        mixTitle: title,
+      );
+    }
+
+    test('restoreFrom picks the session back up and marks the queue seen',
+        () async {
+      final coordinator = build();
+      await seedQueue(2);
+
+      final session = coordinator.restoreFrom(restoreState(isMixMode: true));
+
+      expect(session, isNotNull);
+      expect(session!.title, 'Restored Mix');
+      expect(coordinator.current, same(session));
+      // 佇列裡已經有的兩首不該再被抓一次。
+      expect(session.seenVideoIds, containsAll(<String>['seed-0', 'seed-1']));
+    });
+
+    test('restoreFrom refuses a mix whose metadata is incomplete', () {
+      final coordinator = build();
+
+      // 少了任何一個欄位，之後的預取都抓不到東西 —— 寧可退回一般佇列，也不要
+      // 一個永遠加載不出下一批的假 Mix。
+      expect(coordinator.restoreFrom(restoreState(isMixMode: true, playlistId: null)),
+          isNull);
+      expect(
+          coordinator.restoreFrom(restoreState(isMixMode: true, seedVideoId: null)),
+          isNull);
+      expect(coordinator.restoreFrom(restoreState(isMixMode: true, title: null)),
+          isNull);
+      expect(coordinator.current, isNull);
+    });
+
+    test('restoreFrom ignores a queue that was not in mix mode', () {
+      final coordinator = build();
+
+      expect(coordinator.restoreFrom(null), isNull);
+      expect(coordinator.restoreFrom(restoreState(isMixMode: false)), isNull);
+      expect(coordinator.current, isNull);
+    });
+
     test('exit clears the session and the in-flight prefetch together',
         () async {
       final coordinator = build();

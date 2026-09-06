@@ -8,6 +8,7 @@ import '../../i18n/strings.g.dart';
 import 'audio_playback_types.dart';
 import 'mix_playlist_types.dart';
 import 'queue_manager.dart';
+import 'queue_persistence_manager.dart';
 
 /// 一次 Mix 工作階段。
 ///
@@ -103,6 +104,34 @@ class MixSessionCoordinator with Logging {
     // 那個抓取自己會在下一個 isCurrent 檢查點放棄。
     _loadMoreFuture = null;
     return _current!;
+  }
+
+  /// 從持久化的佇列狀態接回上一次的 Mix 工作階段。
+  ///
+  /// 回傳 null 代表「上一次不是 Mix，或 metadata 不完整」，呼叫端據此決定要不要
+  /// 把模式切成 Mix。三個欄位少一個都不算數 —— 只有 title 沒有 playlistId 的話
+  /// 之後的預取會抓不到任何東西，寧可退回一般佇列，也不要一個永遠加載不出下一
+  /// 批的假 Mix。
+  ///
+  /// 這是 `mixPlaylistId` / `mixSeedVideoId` / `mixTitle` 三個持久化欄位在這個
+  /// 類別之外的最後一個讀取點，收進來之後 Mix 身分只有一個來源。
+  MixPlaylistSession? restoreFrom(QueueRestoreState? restored) {
+    if (restored == null || !restored.queue.isMixMode) return null;
+
+    final playlistId = restored.mixPlaylistId;
+    final seedVideoId = restored.mixSeedVideoId;
+    final title = restored.mixTitle;
+    if (playlistId == null || seedVideoId == null || title == null) return null;
+
+    logDebug('Restoring Mix mode: $title');
+    final session = start(
+      playlistId: playlistId,
+      seedVideoId: seedVideoId,
+      title: title,
+    );
+    // 佇列裡已經有的歌不要再抓一次。
+    session.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
+    return session;
   }
 
   /// 離開 Mix 模式。工作階段與進行中的預取一起清掉 —— 這兩者過去是分開的欄位，

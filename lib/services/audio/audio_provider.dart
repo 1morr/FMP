@@ -259,19 +259,12 @@ class AudioController extends StateNotifier<PlayerState>
       _updateQueueState();
 
       // 恢復 Mix 播放模式（如果之前有持久化的 Mix metadata）
-      final restoredQueueState = _queuePersistenceManager == null
-          ? null
-          : await _queuePersistenceManager.restoreState();
-      final isRestoredMixMode = restoredQueueState?.queue.isMixMode ?? false;
-      final playlistId = restoredQueueState?.mixPlaylistId;
-      final seedVideoId = restoredQueueState?.mixSeedVideoId;
-      final title = restoredQueueState?.mixTitle;
-      if (isRestoredMixMode &&
-          playlistId != null &&
-          seedVideoId != null &&
-          title != null) {
-        logDebug('Restoring Mix mode: $title');
-
+      final restoredMix = _mixSession.restoreFrom(
+        _queuePersistenceManager == null
+            ? null
+            : await _queuePersistenceManager.restoreState(),
+      );
+      if (restoredMix != null) {
         // Mix 模式不支持隨機播放，確保關閉
         if (_queueManager.isShuffleEnabled) {
           await _queueManager.setShuffle(false);
@@ -279,19 +272,10 @@ class AudioController extends StateNotifier<PlayerState>
           state = state.copyWith(isShuffleEnabled: false);
         }
 
-        final mixState = _mixSession.start(
-          playlistId: playlistId,
-          seedVideoId: seedVideoId,
-          title: title,
-        );
-        // 將已有的歌曲添加到 seenVideoIds（避免重複加載）
-        mixState.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
-
-        // 更新 context 和 state
         _mode = PlayMode.mix;
         state = state.copyWith(
           isMixMode: true,
-          mixTitle: title,
+          mixTitle: restoredMix.title,
         );
         _publishCurrentQueueState();
         _mixSession.onTrackStarted(PlayMode.mix);
