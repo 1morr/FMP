@@ -629,26 +629,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     await _player.seek(position);
   }
 
-  /// 快进
-  @override
-  Future<void> seekForward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _position + seekDuration;
-    final maxPosition = _duration ?? Duration.zero;
-    await _player.seek(newPosition > maxPosition ? maxPosition : newPosition);
-  }
-
-  /// 快退
-  @override
-  Future<void> seekBackward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _position - seekDuration;
-    await _player
-        .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
-  }
-
   /// 嘗試跳到直播流的最新位置
   /// 返回 true 表示成功 seek，false 表示無法 seek（需要重新連接）
   @override

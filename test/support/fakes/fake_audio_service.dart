@@ -351,13 +351,6 @@ class FakeAudioService implements FmpAudioService {
     _position = position;
     _emitState();
   }
-
-  @override
-  Future<void> seekForward([Duration? duration]) async =>
-      seekTo(_position + (duration ?? const Duration(seconds: 10)));
-  @override
-  Future<void> seekBackward([Duration? duration]) async =>
-      seekTo(_position - (duration ?? const Duration(seconds: 10)));
   @override
   Future<bool> seekToLive() async => false;
   @override

@@ -410,24 +410,6 @@ class JustAudioService extends FmpAudioService with Logging {
   }
 
   @override
-  Future<void> seekForward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _player.position + seekDuration;
-    final maxPosition = _player.duration ?? Duration.zero;
-    await _player.seek(newPosition > maxPosition ? maxPosition : newPosition);
-  }
-
-  @override
-  Future<void> seekBackward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _player.position - seekDuration;
-    await _player
-        .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
-  }
-
-  @override
   Future<bool> seekToLive() async {
     // 策略 1：用 duration（有些流会提供）
     final currentDuration = _player.duration;

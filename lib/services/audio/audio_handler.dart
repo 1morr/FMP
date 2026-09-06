@@ -56,6 +56,9 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
     return {
       if (_capabilities.canSeek) ...{
         MediaAction.seek,
+        // 這兩個沒有對應的 override，是刻意的：SeekHandler（見 class 宣告的
+        // mixin）已經實作 seekForward / seekBackward / fastForward / rewind，
+        // 全部收斂到底下那個 seek()。別以為沒人處理就把它們拿掉。
         MediaAction.seekForward,
         MediaAction.seekBackward,
       },

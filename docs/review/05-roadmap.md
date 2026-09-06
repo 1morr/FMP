@@ -1556,10 +1556,22 @@ not a bot`，但**muxed 串流與所有 metadata API（排行榜、Mix 播放列
    `playback_handoff_gate_test.dart` 的
    `the stabilize-next flag survives beginRequest but not cancel` 釘住。
 6. **`AudioController.seekForward` / `seekBackward` 是死程式碼**，`lib/` 與 `test/`
-   都沒有呼叫者；而 `audio_handler.dart:59-60` 仍向系統宣告
-   `MediaAction.seekForward` / `seekBackward`，`FmpAudioHandler` 卻沒有覆寫
-   `fastForward()` / `rewind()`。**通知列上那兩個動作按下去沒有任何反應。**
-   這是能力宣告的缺陷不是重構題目，C 沒有動它。
+   都沒有呼叫者。連同 `FmpAudioService` 的兩個介面宣告、`JustAudioService` 與
+   `MediaKitAudioService` 的實作、測試 fake 的樁與
+   `AppConstants.seekDurationSeconds`，整條鏈都沒有入口 —— 六個檔案 70 行，已在
+   第十一輪刪除。
+
+   > **更正（第十一輪）**：本項原本斷言「`audio_handler.dart:59-60` 宣告了
+   > `MediaAction.seekForward` / `seekBackward` 但 `FmpAudioHandler` 沒有覆寫
+   > `fastForward()` / `rewind()`，所以通知列上那兩個動作按下去沒有任何反應」。
+   > **這是錯的。** `FmpAudioHandler` 的宣告是
+   > `extends BaseAudioHandler with SeekHandler`（`audio_handler.dart:16`），而
+   > `SeekHandler`（`audio_service-0.18.18/lib/audio_service.dart:3220-3260`）
+   > 已經實作了那四個方法，全部收斂到 `seek()` —— 而 `seek()` 正是
+   > `FmpAudioHandler` 有覆寫的那個。系統動作是通的，能力宣告沒有缺陷。
+   > `main.dart:125-126` 的 `fastForwardInterval` / `rewindInterval` 就是餵給
+   > `SeekHandler._seekRelative` 的。已在 `audio_handler.dart` 就地加註，避免
+   > 下一個讀者重蹈覆轍。
 
 #### 新測試的變異驗證
 

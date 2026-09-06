@@ -552,32 +552,6 @@ class AudioController extends StateNotifier<PlayerState>
     await _queueManager.savePositionNow();
   }
 
-  /// 快进
-  Future<void> seekForward([Duration? duration]) async {
-    try {
-      final seekDuration =
-          duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-      await _audioService.seekForward(seekDuration);
-      // 立即保存位置
-      await _queueManager.savePositionNow();
-    } catch (e, stack) {
-      logError('Failed to seekForward', e, stack);
-    }
-  }
-
-  /// 快退
-  Future<void> seekBackward([Duration? duration]) async {
-    try {
-      final seekDuration =
-          duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-      await _audioService.seekBackward(seekDuration);
-      // 立即保存位置
-      await _queueManager.savePositionNow();
-    } catch (e, stack) {
-      logError('Failed to seekBackward', e, stack);
-    }
-  }
-
   // ========== 队列控制 ==========
 
   /// 播放单首歌曲
