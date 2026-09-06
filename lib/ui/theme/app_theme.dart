@@ -104,10 +104,19 @@ class AppTheme {
     return const ['Noto Sans SC'];
   }
 
-  /// 创建浅色主题
-  static ThemeData lightTheme({Color? primaryColor, String? fontFamily}) {
+  /// 淺色與深色只差一個 [Brightness]。
+  ///
+  /// 這兩個主題以前是兩個 93 行的函式，**全文只差三行**，而其中兩行是同一個
+  /// `Brightness`（一次傳給 [_colorScheme]，一次多餘地傳給 `ThemeData`）。
+  /// 八個 sub-theme 全部只讀 `colorScheme` 與 `AppRadius`，沒有一處看亮度 ——
+  /// 所以分成兩份買不到任何東西，只保證了改一個 sub-theme 要記得改兩次。
+  static ThemeData _theme({
+    required Brightness brightness,
+    Color? primaryColor,
+    String? fontFamily,
+  }) {
     final colorScheme = _colorScheme(
-      brightness: Brightness.light,
+      brightness: brightness,
       primaryColor: primaryColor,
     );
 
@@ -116,7 +125,7 @@ class AppTheme {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      brightness: Brightness.light,
+      brightness: brightness,
       fontFamily:
           (fontFamily != null && fontFamily.isNotEmpty) ? fontFamily : null,
 
@@ -198,99 +207,20 @@ class AppTheme {
       textTheme: base.textTheme.apply(fontFamilyFallback: fallback),
     );
   }
+
+  /// 创建浅色主题
+  static ThemeData lightTheme({Color? primaryColor, String? fontFamily}) =>
+      _theme(
+        brightness: Brightness.light,
+        primaryColor: primaryColor,
+        fontFamily: fontFamily,
+      );
 
   /// 创建深色主题
-  static ThemeData darkTheme({Color? primaryColor, String? fontFamily}) {
-    final colorScheme = _colorScheme(
-      brightness: Brightness.dark,
-      primaryColor: primaryColor,
-    );
-
-    final fallback = _buildFontFallback(fontFamily);
-
-    final base = ThemeData(
-      useMaterial3: true,
-      colorScheme: colorScheme,
-      brightness: Brightness.dark,
-      fontFamily:
-          (fontFamily != null && fontFamily.isNotEmpty) ? fontFamily : null,
-
-      // AppBar 主题
-      appBarTheme: AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-      ),
-
-      // 卡片主题
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-        ),
-        color: colorScheme.surfaceContainerHighest,
-      ),
-
-      // 列表瓦片主题
-      listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusMd,
-        ),
-      ),
-
-      // 导航栏主题
-      navigationBarTheme: NavigationBarThemeData(
-        elevation: 0,
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.secondaryContainer,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      ),
-
-      // 导航轨道主题
-      navigationRailTheme: NavigationRailThemeData(
-        elevation: 0,
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.secondaryContainer,
-      ),
-
-      // 导航抽屉主题
-      navigationDrawerTheme: NavigationDrawerThemeData(
-        elevation: 0,
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.secondaryContainer,
-      ),
-
-      // 输入框主题
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: colorScheme.surfaceContainerHighest,
-        border: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-          borderSide: BorderSide(color: colorScheme.primary, width: 2),
-        ),
-      ),
-
-      // 滑块主题
-      sliderTheme: SliderThemeData(
-        activeTrackColor: colorScheme.primary,
-        inactiveTrackColor: colorScheme.surfaceContainerHighest,
-        thumbColor: colorScheme.primary,
-        overlayColor: colorScheme.primary.withValues(alpha: 0.12),
-      ),
-    );
-
-    return base.copyWith(
-      textTheme: base.textTheme.apply(fontFamilyFallback: fallback),
-    );
-  }
+  static ThemeData darkTheme({Color? primaryColor, String? fontFamily}) =>
+      _theme(
+        brightness: Brightness.dark,
+        primaryColor: primaryColor,
+        fontFamily: fontFamily,
+      );
 }
