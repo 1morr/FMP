@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/ui_constants.dart';
+import '../errors/user_message.dart';
+import '../logger.dart';
 
 /// Toast 消息类型
 enum ToastType {
@@ -164,6 +166,26 @@ class ToastService {
         duration: duration,
       ),
     );
+  }
+
+  /// 顯示一個例外，並把原文寫進 log。
+  ///
+  /// 這是 UI 顯示例外的唯一入口。畫面上只會出現 [userMessageFor] 翻出來的一句
+  /// 話，例外原文與 stack 進 `AppLogger.error` —— App 內的日誌檢視頁看得到，
+  /// 使用者看不到。直接把 `e.toString()` 交給 [error] 是 04 報告的 P1-7，
+  /// `test/ui/static_rules/error_presentation_static_rule_test.dart` 守著它。
+  ///
+  /// [tag] 是 log 的分類標籤，通常給呼叫端的頁面或服務名。
+  static void failure(
+    BuildContext context,
+    Object error, {
+    StackTrace? stackTrace,
+    String? tag,
+    Duration? duration,
+  }) {
+    // 原文放 LogEntry.error（會走 redactSensitive），不要再抄進 message 一份。
+    AppLogger.error('Reported to the user as a toast', error, stackTrace, tag);
+    ToastService.error(context, userMessageFor(error), duration: duration);
   }
 
   /// 显示警告消息
