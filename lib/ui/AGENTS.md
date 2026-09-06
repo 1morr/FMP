@@ -201,6 +201,36 @@ error on the pre-`runApp` init failure screen (the app has not started, so the
 log page is unreachable and that text is the user's only clue — issue #37), and
 `log_viewer_page.dart` renders `entry.error` because it *is* the log viewer.
 
+## Accessibility
+
+`lib/ui` is not accessible by default — assume a hand-rolled control is
+invisible to a screen reader until you have proved otherwise in the semantics
+tree.
+
+- **A hand-rolled control needs explicit `Semantics`.** A bare `GestureDetector`
+  produces a tap node with no role and no label, and a `CustomPaint` + `onPan`
+  produces nothing at all. `IconButton`'s `tooltip:` already covers the icon
+  buttons; the gap is the custom widgets.
+- **A control that cannot be made 48dp still needs a non-tap route.** The mini
+  player's seek bar is 2dp tall on touch (it only expands on mouse hover) and
+  cannot grow without covering the player. It is exposed as
+  `Semantics(container: true, slider: true, …)` with `onIncrease`/`onDecrease`,
+  which are not subject to the tap-target size rule — and both of its
+  `GestureDetector`s set `excludeFromSemantics: true` so no 2dp tap node
+  survives. `container: true` matters: without it the annotations merge into
+  the enclosing button node and you get one node that is both a button and a
+  slider.
+- **Announce a position, not a percentage.** Progress controls format their
+  `value`/`increasedValue`/`decreasedValue` with `DurationFormatter` — the
+  player page's `Slider` does the same through `semanticFormatterCallback`.
+  "50%" tells the user nothing about where a seek lands.
+- `test/ui/widgets/mini_player_accessibility_test.dart` renders the real
+  semantics tree and asserts `meetsGuideline(androidTapTargetGuideline)` and
+  `labeledTapTargetGuideline`. Both were verified to fail against a deliberate
+  regression (a 20dp tap target, and a removed label). Extend that file rather
+  than asserting on source text — the older `*_phase4_test.dart` files compare
+  source strings, which cannot see the semantics tree at all.
+
 ## Toast / SnackBar
 
 All snackbars go through `ToastService`
