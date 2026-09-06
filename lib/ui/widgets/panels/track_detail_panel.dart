@@ -41,6 +41,7 @@ import '../../../providers/settings/theme_provider.dart';
 import '../../../providers/lyrics/lyrics_window_style_provider.dart';
 import '../../../services/lyrics/lyrics_window_service.dart';
 import '../../../services/lyrics/lrc_parser.dart';
+import '../../../services/audio/queue_state.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
 class TrackDetailPanel extends ConsumerStatefulWidget {
@@ -751,7 +752,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
     final currentTrack = ref.watch(currentTrackProvider);
     final currentStreamMetadata = ref.watch(currentStreamMetadataProvider);
     final nextTrack = ref.watch(
-      audioControllerProvider.select(
+      queueStateProvider.select(
         (state) =>
             state.upcomingTracks.isNotEmpty ? state.upcomingTracks.first : null,
       ),

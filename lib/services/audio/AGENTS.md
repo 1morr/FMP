@@ -162,12 +162,21 @@ backend events.
   in the publisher.
 - `QueueCommands` (`queue_commands.dart`) — the mix-mode gate, the queue-full
   toast, and turning an exception into a `QueueMutation`. See Architecture.
-- `QueueState` (`queue_state.dart`) — the queue's projection for the UI,
-  pushed through `onQueueStateChanged`. Deliberately separate from
-  `PlayerState`: the queue changes far more rarely than the position, and
-  merging them would rebuild every queue list on the once-a-second position
-  tick. The class and `queueStateProvider` live in their own file so that
-  reading the queue's shape does not mean opening the controller.
+- `QueueState` (`queue_state.dart`) — the queue's projection for the UI, and
+  the **only** place its shape lives: contents, index, shuffle/loop and the
+  mix identity. `PlayerState` describes the track being played and shares no
+  field with it. They are separate because the queue changes far more rarely
+  than the position, and merging them would rebuild every queue list on the
+  once-a-second position tick.
+
+  Those twelve fields used to exist in **both**, with the controller copying
+  them across one at a time on every queue change. Nothing forced the two
+  copies to agree, and consumers were split arbitrarily between them —
+  `queueProvider` read one, `isShuffleEnabledProvider` the other. Writes now
+  go through `AudioController._emitQueueState`, the current value is readable
+  as `AudioController.queueState`, and
+  `audio_queue_state_provider_test.dart` fails if a queue field reappears on
+  `PlayerState`.
 - `PlaybackHandoffGate` (`playback_handoff_gate.dart`) — the controller's latch
   on the in-flight play request, deferred seeks, and the post-navigation
   stabilization window. Deliberately owns no `PlayerState`, does not perform the
@@ -287,10 +296,19 @@ and the latch is zeroed when the controller finishes projecting. Only
 `_clearMatchingSessionLoadingContext` judges by the latch; everything else asks
 the session.
 
+**There is a third counter, and it is not one of those two.**
+`AudioController._navRequestId` is a raw monotonic counter guarding the async
+window inside `next()` / `previous()` only: those two await a queue move before
+they reach `PlaybackRequestSession`, so during that await there is no session id
+to ask about yet. It answers "did the user press skip again while this one was
+still deciding", not "is this playback request current". It predates the
+session and stays because folding it in would mean minting a session id before
+the controller knows which track it is starting.
+
 Any method that starts backend playback or fetches playback URLs outside
 `PlaybackRequestSession` must either move into the session or use an explicit
-session handle/cancellation check. **Do not add new raw request-id counters in
-`AudioController`.**
+session handle/cancellation check. **Do not add further raw request-id counters
+in `AudioController`** — the three above are the complete set.
 
 ## Temporary Play
 

@@ -43,6 +43,44 @@ class DesktopAudioDeviceState {
       );
 }
 
+/// 播放控制列需要的佇列面向狀態。
+@immutable
+class QueueControlState {
+  const QueueControlState({
+    required this.isShuffleEnabled,
+    required this.loopMode,
+    required this.isMixMode,
+    required this.canPlayPrevious,
+    required this.canPlayNext,
+  });
+
+  final bool isShuffleEnabled;
+  final LoopMode loopMode;
+  final bool isMixMode;
+  final bool canPlayPrevious;
+  final bool canPlayNext;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is QueueControlState &&
+            isShuffleEnabled == other.isShuffleEnabled &&
+            loopMode == other.loopMode &&
+            isMixMode == other.isMixMode &&
+            canPlayPrevious == other.canPlayPrevious &&
+            canPlayNext == other.canPlayNext;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        isShuffleEnabled,
+        loopMode,
+        isMixMode,
+        canPlayPrevious,
+        canPlayNext,
+      );
+}
+
 @immutable
 class CurrentStreamMetadata {
   const CurrentStreamMetadata({
@@ -158,12 +196,32 @@ final queueTrackProvider = Provider<Track?>((ref) {
   return ref.watch(queueStateProvider.select((s) => s.queueTrack));
 });
 
-/// 是否启用随机播放
+/// 是否啟用隨機播放
 final isShuffleEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
+  return ref.watch(queueStateProvider.select((s) => s.isShuffleEnabled));
 });
 
-/// 循环模式
+/// 迴圈模式
 final loopModeProvider = Provider<LoopMode>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.loopMode));
+  return ref.watch(queueStateProvider.select((s) => s.loopMode));
+});
+
+/// 接下來要播的曲目
+final upcomingTracksProvider = Provider<List<Track>>((ref) {
+  return ref.watch(queueStateProvider.select((s) => s.upcomingTracks));
+});
+
+/// 佇列導覽能力與 Mix 身分，播放控制列一次讀完。
+final queueControlStateProvider = Provider<QueueControlState>((ref) {
+  return ref.watch(
+    queueStateProvider.select(
+      (s) => QueueControlState(
+        isShuffleEnabled: s.isShuffleEnabled,
+        loopMode: s.loopMode,
+        isMixMode: s.isMixMode,
+        canPlayPrevious: s.canPlayPrevious,
+        canPlayNext: s.canPlayNext,
+      ),
+    ),
+  );
 });

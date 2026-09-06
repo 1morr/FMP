@@ -39,13 +39,13 @@ import 'temporary_play_handler.dart';
 
 export 'player_state.dart';
 
-/// 内部异常：表示重试已被安排，调用者不应再次安排重试
+/// 內部異常：表示重試已被安排，呼叫者不應再次安排重試
 class _RetryScheduledException implements Exception {
   const _RetryScheduledException();
 }
 
-/// 音频控制器 - 管理所有播放相关的状态和操作
-/// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
+/// 音訊控制器 - 管理所有播放相關的狀態和操作
+/// 協調 AudioService（單曲播放）和 QueueManager（佇列管理）
 class AudioController extends StateNotifier<PlayerState>
     with Logging
     implements PlaybackRetryExecutor {
@@ -68,11 +68,11 @@ class AudioController extends StateNotifier<PlayerState>
   bool _isInitializing = false;
   bool _isDisposed = false;
 
-  // 防止重复处理完成事件
+  // 防止重複處理完成事件
   bool _isHandlingCompletion = false;
   String? _terminalMediaOpenErrorTrackKey;
 
-  // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
+  // 導航請求ID - 防止快速點擊 next/previous 時的競態條件
   int _navRequestId = 0;
 
   // 統一的播放上下文（管理所有播放狀態，包括臨時播放、加載狀態等）
@@ -90,7 +90,7 @@ class AudioController extends StateNotifier<PlayerState>
   bool get _isMixMode => _mode == PlayMode.mix;
   bool get _isLoadingPlayback => _handoff.isLoading;
 
-  // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
+  // 基於位置檢測的備選切歌定時器（解決後台播放 completed 事件丟失問題）
   Timer? _positionCheckTimer;
 
   late final PlaybackRequestSession _playbackRequestSession;
@@ -99,16 +99,16 @@ class AudioController extends StateNotifier<PlayerState>
   late final MixSessionCoordinator _mixSession;
   int _mixStartRequestId = 0;
 
-  // 通知栏/SMTC 更新节流：上次更新的位置
+  // 通知欄/SMTC 更新節流：上次更新的位置
   Duration _lastNotificationPosition = Duration.zero;
 
-  // 当前正在播放的歌曲（独立于队列，确保 UI 显示与实际播放一致）
+  // 當前正在播放的歌曲（獨立於佇列，確保 UI 顯示與實際播放一致）
   Track? _playingTrack;
 
-  /// 播放開始前的回調（用於互斥機制，如停止電台播放）
+  /// 播放開始前的回呼（用於互斥機制，如停止電台播放）
   Future<void> Function()? onPlaybackStarting;
 
-  /// 檢查電台是否正在播放（由 RadioController 設置，用於避免電台斷流時誤觸發隊列播放）
+  /// 檢查電台是否正在播放（由 RadioController 設定，用於避免電台斷流時誤觸發佇列播放）
   bool Function()? isRadioPlaying;
 
   /// 歌詞自動比對狀態回呼（UI 用來顯示載入動畫）。
@@ -121,8 +121,27 @@ class AudioController extends StateNotifier<PlayerState>
 
   void Function(QueueState queueState)? onQueueStateChanged;
 
-  // ========== 网络重试相关 ==========
-  /// 网络恢复监听订阅
+  /// 佇列面向 UI 的投影，唯一一份。
+  ///
+  /// `PlayerState` 只描述「正在播的那一首」；佇列的形狀（內容、索引、隨機／
+  /// 迴圈、Mix 身分）一律住在這裡。兩邊曾經各存一份同樣的 12 個欄位，靠
+  /// `_updateQueueState` 每次逐欄位抄過去維持一致 —— 抄漏一個就是一個看不見的
+  /// bug，而消費端會因為問了不同的 provider 拿到不同的答案。
+  QueueState _queueState = const QueueState();
+
+  /// 目前的佇列投影。與 `state` 平行的第二個唯讀出口，生產環境的訂閱者走
+  /// `onQueueStateChanged` → `queueStateProvider`，這個 getter 是給不架
+  /// container 的呼叫端直接讀的。
+  QueueState get queueState => _queueState;
+
+  /// 改一次佇列投影並推給訂閱者。所有佇列欄位的寫入都要走這裡。
+  void _emitQueueState(QueueState next) {
+    _queueState = next;
+    onQueueStateChanged?.call(next);
+  }
+
+  // ========== 網路重試相關 ==========
+  /// 網路恢復監聽訂閱
   StreamSubscription<void>? _networkRecoverySubscription;
 
   AudioController({
@@ -168,13 +187,14 @@ class AudioController extends StateNotifier<PlayerState>
       getNextTrack: _nextTrackForPrefetch,
       onLoadingStarted: _startSessionLoadingState,
       onLoadingFinished: (requestId, result) {
-        if (result.isSuperseded) {
-          _handoff.discardPending(
-            requestId: requestId,
-            reason: 'playback request was superseded',
-          );
-        }
-        if (_handoff.isCurrent(requestId) && result.isSuperseded) {
+        if (!result.isSuperseded) return;
+        _handoff.discardPending(
+          requestId: requestId,
+          reason: 'playback request was superseded',
+        );
+        // 閂存還停在這一次請求上時才收投影：被取代的請求如果早就不是控制器
+        // 手上那一次，收 loading 會把新請求的轉圈關掉。
+        if (_handoff.isCurrent(requestId)) {
           state = state.copyWith(isLoading: false);
           _handoff.endRequest();
           _publishCurrentPlaybackState();
@@ -228,11 +248,11 @@ class AudioController extends StateNotifier<PlayerState>
       if (_isDisposed) return;
       logDebug('QueueManager initialized');
 
-      // 保存需要恢复的位置（在设置监听器之前，避免被位置流覆盖）
+      // 儲存需要恢復的位置（在設定監聽器之前，避免被位置流覆蓋）
       final positionToRestore = _queueManager.savedPosition;
       logDebug('Position to restore: $positionToRestore');
 
-      // 註冊 audio service 串流訂閱（统一加入 _subscriptions 以便 dispose 取消）。
+      // 註冊 audio service 串流訂閱（統一加入 _subscriptions 以便 dispose 取消）。
       void subscribe<T>(Stream<T> stream, void Function(T) handler) {
         _subscriptions.add(stream.listen(handler));
       }
@@ -247,16 +267,16 @@ class AudioController extends StateNotifier<PlayerState>
       subscribe(_audioService.audioDeviceStream, _onAudioDeviceChanged);
       subscribe(_audioService.endReasons, _onPlaybackEnded);
 
-      // 启动基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）
+      // 啟動基於位置檢測的備選切歌機制（解決後台播放 completed 事件丟失問題）
       _startPositionCheckTimer();
 
-      // 监听队列状态变化
+      // 監聽佇列狀態變化
       subscribe(_queueManager.stateStream, _onQueueStateChanged);
 
-      // 接管系统媒体控制（通知栏 / SMTC），平台分流由 publisher 负责
+      // 接管系統媒體控制（通知欄 / SMTC），平台分流由 publisher 負責
       _claimMediaControls();
 
-      // 更新初始状态
+      // 更新初始狀態
       _updateQueueState();
 
       // 恢復 Mix 播放模式（如果之前有持久化的 Mix metadata）
@@ -270,29 +290,28 @@ class AudioController extends StateNotifier<PlayerState>
         if (_queueManager.isShuffleEnabled) {
           await _queueManager.setShuffle(false);
           if (_isDisposed) return;
-          state = state.copyWith(isShuffleEnabled: false);
+          _emitQueueState(_queueState.copyWith(isShuffleEnabled: false));
         }
 
         _mode = PlayMode.mix;
-        state = state.copyWith(
+        _emitQueueState(_queueState.copyWith(
           isMixMode: true,
           mixTitle: restoredMix.title,
-        );
-        _publishCurrentQueueState();
+        ));
         _mixSession.onTrackStarted(PlayMode.mix);
       }
 
-      // 恢复音量
+      // 恢復音量
       final savedVolume = _queueManager.savedVolume;
       await _audioService.setVolume(savedVolume);
       if (_isDisposed) return;
       state = state.copyWith(volume: savedVolume);
       logDebug('Restored volume: $savedVolume');
 
-      // 恢复播放（如果有保存的歌曲）
+      // 恢復播放（如果有儲存的歌曲）
       if (_queueManager.currentTrack != null) {
         logDebug('Restoring saved track: ${_queueManager.currentTrack!.title}');
-        // 不自动播放，只设置 URL，传入保存的位置
+        // 不自動播放，只設定 URL，傳入儲存的位置
         await _prepareCurrentTrack(
             autoPlay: false, initialPosition: positionToRestore);
         if (_isDisposed) return;
@@ -313,7 +332,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 确保已初始化
+  /// 確保已初始化
   Future<void> _ensureInitialized() async {
     if (!_isInitialized) {
       logWarning('AudioController not initialized, initializing now...');
@@ -321,7 +340,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 释放资源
+  /// 釋放資源
   @override
   void dispose() {
     if (_isDisposed) return;
@@ -340,10 +359,10 @@ class AudioController extends StateNotifier<PlayerState>
     _subscriptions.clear();
     _mixSession.exit();
     _queueManager.dispose();
-    // 交还系统媒体控制。刻意**不** dispose 原生句柄：需要跟着 controller
-    // 一起消失的是回调绑定，不是 SMTC 本身 —— 原生 session 只在 main.dart
-    // 建立一次，dispose 掉之后没有任何程式码会重建它。按钮订阅留着，解绑后
-    // 它派发到 null，正是 app 启动时的状态。
+    // 交還系統媒體控制。刻意**不** dispose 原生控制代碼：需要跟著 controller
+    // 一起消失的是回呼繫結，不是 SMTC 本身 —— 原生 session 只在 main.dart
+    // 建立一次，dispose 掉之後沒有任何程式碼會重建它。按鈕訂閱留著，解綁後
+    // 它派發到 null，正是 app 啟動時的狀態。
     _publisher.release(NowPlayingOwner.music);
     unawaited(_audioService.dispose().catchError((Object e, StackTrace stack) {
       logError('Failed to dispose audio service', e, stack);
@@ -356,7 +375,7 @@ class AudioController extends StateNotifier<PlayerState>
   /// 播放
   Future<void> play() async {
     try {
-      // 如果当前歌曲的 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
+      // 如果當前歌曲的 URL 已過期（如暫停過夜），重新獲取 URL 並從當前位置恢復
       if (await _resumeWithFreshUrlIfNeeded()) return;
       await _audioService.play();
     } catch (e, stack) {
@@ -365,7 +384,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 暂停
+  /// 暫停
   Future<void> pause() async {
     try {
       await _audioService.pause();
@@ -374,25 +393,25 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 切换播放/暂停
-  /// 如果当前歌曲有错误状态，尝试重新播放当前歌曲
+  /// 切換播放/暫停
+  /// 如果當前歌曲有錯誤狀態，嘗試重新播放當前歌曲
   Future<void> togglePlayPause() async {
     try {
-      // 如果当前有网络错误状态，触发手动重试
+      // 如果當前有網路錯誤狀態，觸發手動重試
       if (state.isNetworkError && state.currentTrack != null) {
         logDebug(
             'Manual retry for network error: ${state.currentTrack!.title}');
         await retryManually();
         return;
       }
-      // 如果当前有错误状态，尝试重新播放当前歌曲
+      // 如果當前有錯誤狀態，嘗試重新播放當前歌曲
       if (state.error != null && state.currentTrack != null) {
         logDebug(
             'Retrying playback for track with error: ${state.currentTrack!.title}');
         await _playTrack(state.currentTrack!);
         return;
       }
-      // 如果当前是暂停状态且 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
+      // 如果當前是暫停狀態且 URL 已過期（如暫停過夜），重新獲取 URL 並從當前位置恢復
       if (!state.isPlaying && await _resumeWithFreshUrlIfNeeded()) return;
       await _audioService.togglePlayPause();
     } catch (e, stack) {
@@ -408,9 +427,9 @@ class AudioController extends StateNotifier<PlayerState>
     _clearPlayingTrack();
   }
 
-  // ========== 进度控制 ==========
+  // ========== 進度控制 ==========
 
-  /// 跳转到指定位置
+  /// 跳轉到指定位置
   Future<void> seekTo(Duration position) async {
     try {
       final deferredSeek = _handoff.deferSeek(position);
@@ -424,7 +443,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 跳转到百分比位置
+  /// 跳轉到百分比位置
   Future<void> seekToProgress(double progress) async {
     final duration = state.duration;
     if (duration != null) {
@@ -447,16 +466,16 @@ class AudioController extends StateNotifier<PlayerState>
     // seek 之後重新緩衝是理所當然的，該給它完整的一份預算重新起算。
     _bufferWatchdog.cancel();
     await _audioService.seekTo(position);
-    // 立即保存位置，避免 seek 后马上关闭应用导致进度丢失
+    // 立即儲存位置，避免 seek 後馬上關閉應用導致進度丟失
     await _queueManager.savePositionNow();
   }
 
-  // ========== 队列控制 ==========
+  // ========== 佇列控制 ==========
 
-  /// 播放单首歌曲
+  /// 播放單首歌曲
   Future<void> playSingle(Track track) async {
     await _ensureInitialized();
-    _resetRetryState(); // 重置网络重试状态
+    _resetRetryState(); // 重置網路重試狀態
     _cancelActivePlaybackRequest(reason: 'single-track playback started');
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing single track: ${track.title}');
@@ -471,14 +490,14 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 播放单首歌曲 (别名方法)
+  /// 播放單首歌曲 (別名方法)
   Future<void> playTrack(Track track) => playSingle(track);
 
-  /// 临时播放单首歌曲（播放完成后恢复原队列位置）
-  /// 用于搜索页面和歌单页面点击歌曲时的行为
+  /// 臨時播放單首歌曲（播放完成後恢復原佇列位置）
+  /// 用於搜尋頁面和歌單頁面點擊歌曲時的行為
   Future<void> playTemporary(Track track) async {
     await _ensureInitialized();
-    _resetRetryState(); // 重置网络重试状态
+    _resetRetryState(); // 重置網路重試狀態
     _cancelActivePlaybackRequest(reason: 'temporary playback started');
 
     logInfo('Playing temporary track: ${track.title}');
@@ -501,7 +520,7 @@ class AudioController extends StateNotifier<PlayerState>
         prefetchNext: false,
       );
     } on SourceApiException catch (e) {
-      // 音源 API 错误：尝试恢复原队列
+      // 音源 API 錯誤：嘗試恢復原佇列
       logWarning(
           '${e.sourceType} API error for temporary track ${track.title}: ${e.message}');
       if (_errorPresenter.shouldSkipTrack(e)) {
@@ -641,8 +660,8 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 恢复保存的播放状态
-  /// 注意：直接使用当前队列，不恢复队列内容（用户可能在临时播放期间修改了队列）
+  /// 恢復儲存的播放狀態
+  /// 注意：直接使用當前佇列，不恢復佇列內容（使用者可能在臨時播放期間修改了佇列）
   Future<void> _restoreSavedState() async {
     if (!_temporaryPlayHandler.hasSavedState) {
       logDebug('No saved state to restore');
@@ -723,7 +742,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 播放歌单 (别名方法)
+  /// 播放歌單 (別名方法)
   Future<void> playPlaylist(List<Track> tracks, {int startIndex = 0}) =>
       playAll(tracks, startIndex: startIndex);
 
@@ -785,12 +804,8 @@ class AudioController extends StateNotifier<PlayerState>
     int startIndex = 0,
   }) async {
     await _ensureInitialized();
-    state = state.copyWith(
-      isLoading: true,
-      error: null,
-      isLoadingMoreMix: false,
-    );
-    _publishCurrentQueueState();
+    state = state.copyWith(isLoading: true, error: null);
+    _emitQueueState(_queueState.copyWith(isLoadingMoreMix: false));
     logInfo('Playing Mix playlist: $title with ${tracks.length} tracks');
 
     try {
@@ -800,7 +815,7 @@ class AudioController extends StateNotifier<PlayerState>
       // Mix 模式不支持隨機播放，強制關閉
       if (_queueManager.isShuffleEnabled) {
         await _queueManager.setShuffle(false);
-        state = state.copyWith(isShuffleEnabled: false);
+        _emitQueueState(_queueState.copyWith(isShuffleEnabled: false));
       }
 
       // 初始化 Mix 狀態
@@ -823,12 +838,11 @@ class AudioController extends StateNotifier<PlayerState>
         title: title,
       );
 
-      // 更新 PlayerState（先設置，因為 _executePlayRequest 會重置 isLoading）
-      state = state.copyWith(
+      // 先設置，因為 _executePlayRequest 會重置 isLoading
+      _emitQueueState(_queueState.copyWith(
         isMixMode: true,
         mixTitle: title,
-      );
-      _publishCurrentQueueState();
+      ));
 
       // 播放第一首（使用 PlayMode.mix 以保持 Mix 模式）
       final currentTrack = _queueManager.currentTrack;
@@ -854,21 +868,20 @@ class AudioController extends StateNotifier<PlayerState>
       logDebug('Exiting Mix mode');
       _mixSession.exit();
       _mode = PlayMode.queue;
-      state = state.copyWith(
+      _emitQueueState(_queueState.copyWith(
         isMixMode: false,
         clearMixTitle: true,
         isLoadingMoreMix: false,
-      );
-      _publishCurrentQueueState();
+      ));
       // 清除持久化的 Mix 狀態
       _queueManager.clearMixMode();
     }
   }
 
-  /// 播放队列中指定索引的歌曲
+  /// 播放佇列中指定索引的歌曲
   Future<void> playAt(int index) async {
     await _ensureInitialized();
-    _resetRetryState(); // 重置网络重试状态
+    _resetRetryState(); // 重置網路重試狀態
     logDebug('Playing at index: $index');
     try {
       _queueManager.setCurrentIndex(index);
@@ -886,14 +899,14 @@ class AudioController extends StateNotifier<PlayerState>
   /// 下一首
   Future<void> next() async {
     await _ensureInitialized();
-    _resetRetryState(); // 重置网络重试状态
+    _resetRetryState(); // 重置網路重試狀態
 
-    // 获取导航请求 ID，防止快速点击导致竞态条件
+    // 獲取導航請求 ID，防止快速點擊導致競態條件
     final navId = ++_navRequestId;
     logDebug(
         'next() called, navId: $navId, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
 
-    // 检测是否脱离队列播放
+    // 檢測是否脫離佇列播放
     if (_isPlayingOutOfQueue) {
       logDebug('Playing out of queue: returning to queue');
       await _returnToQueue();
@@ -902,7 +915,7 @@ class AudioController extends StateNotifier<PlayerState>
 
     final nextIdx = _queueManager.moveToNext();
     if (nextIdx != null) {
-      // 检查是否被更新的导航请求取代
+      // 檢查是否被更新的導航請求取代
       if (navId != _navRequestId) {
         logDebug('next() navId $navId superseded by $_navRequestId, aborting');
         return;
@@ -918,28 +931,28 @@ class AudioController extends StateNotifier<PlayerState>
   /// 上一首
   Future<void> previous() async {
     await _ensureInitialized();
-    _resetRetryState(); // 重置网络重试状态
+    _resetRetryState(); // 重置網路重試狀態
 
-    // 获取导航请求 ID，防止快速点击导致竞态条件
+    // 獲取導航請求 ID，防止快速點擊導致競態條件
     final navId = ++_navRequestId;
     logDebug(
         'previous() called, navId: $navId, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
 
-    // 检测是否脱离队列播放
+    // 檢測是否脫離佇列播放
     if (_isPlayingOutOfQueue) {
       logDebug('Playing out of queue: returning to queue');
       await _returnToQueue();
       return;
     }
 
-    // 如果播放超过3秒，重新开始当前歌曲
+    // 如果播放超過3秒，重新開始當前歌曲
     if (_audioService.position.inSeconds >
         AppConstants.previousTrackThresholdSeconds) {
       await _audioService.seekTo(Duration.zero);
     } else {
       final prevIdx = _queueManager.moveToPrevious();
       if (prevIdx != null) {
-        // 检查是否被更新的导航请求取代
+        // 檢查是否被更新的導航請求取代
         if (navId != _navRequestId) {
           logDebug(
               'previous() navId $navId superseded by $_navRequestId, aborting');
@@ -954,7 +967,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  /// 添加到队列
+  /// 新增到佇列
   ///
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addToQueue(Track track) async {
@@ -963,7 +976,7 @@ class AudioController extends StateNotifier<PlayerState>
         await _queueCommands.add(track, isMixMode: _isMixMode));
   }
 
-  /// 批量添加到队列
+  /// 批次新增到佇列
   ///
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addAllToQueue(List<Track> tracks) async {
@@ -981,26 +994,26 @@ class AudioController extends StateNotifier<PlayerState>
         await _queueCommands.addNext(track, isMixMode: _isMixMode));
   }
 
-  /// 从队列移除
+  /// 從佇列移除
   Future<void> removeFromQueue(int index) async {
     await _ensureInitialized();
     _applyQueueMutation(await _queueCommands.removeAt(index));
   }
 
-  /// 移动队列中的歌曲
+  /// 移動佇列中的歌曲
   Future<void> moveInQueue(int oldIndex, int newIndex) async {
     await _ensureInitialized();
     _applyQueueMutation(await _queueCommands.move(oldIndex, newIndex));
   }
 
-  /// 随机打乱队列（破坏性）
+  /// 隨機打亂佇列（破壞性）
   Future<void> shuffleQueue() async {
     await _ensureInitialized();
     _applyQueueMutation(
         await _queueCommands.shuffle(isMixMode: _isMixMode));
   }
 
-  /// 清空队列
+  /// 清空佇列
   ///
   /// 清空之後的兩件事留在這裡：退出 Mix 模式、以及讓還在響的那首歌進入
   /// detached 模式。兩者都是播放工作階段的狀態，不屬於佇列本身。
@@ -1040,7 +1053,7 @@ class AudioController extends StateNotifier<PlayerState>
 
   // ========== 播放速度 ==========
 
-  /// 设置播放速度
+  /// 設定播放速度
   Future<void> setSpeed(double speed) async {
     await _audioService.setSpeed(speed);
   }
@@ -1052,68 +1065,69 @@ class AudioController extends StateNotifier<PlayerState>
 
   // ========== 播放模式 ==========
 
-  /// 切换随机播放
+  /// 切換隨機播放
   Future<void> toggleShuffle() async {
     // Mix 模式下禁止隨機播放（UI 應該已禁用按鈕，這是額外保護）
     if (_isMixMode) return;
 
     logDebug('Toggling shuffle');
     await _queueManager.toggleShuffle();
-    state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
+    _emitQueueState(
+        _queueState.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled));
     _publishPlayModes();
   }
 
-  /// 设置循环模式
+  /// 設定迴圈模式
   Future<void> setLoopMode(LoopMode mode) async {
     logDebug('Setting loop mode: $mode');
     await _queueManager.setLoopMode(mode);
-    state = state.copyWith(loopMode: mode);
+    _emitQueueState(_queueState.copyWith(loopMode: mode));
     _publishPlayModes();
   }
 
-  /// 循环切换循环模式
+  /// 迴圈切換迴圈模式
   Future<void> cycleLoopMode() async {
     await _queueManager.cycleLoopMode();
-    state = state.copyWith(loopMode: _queueManager.loopMode);
+    _emitQueueState(_queueState.copyWith(loopMode: _queueManager.loopMode));
     _publishPlayModes();
   }
 
   // ========== 音量 ==========
 
-  // 静音前的音量（用于恢复）
+  // 靜音前的音量（用於恢復）
   double _volumeBeforeMute = 1.0;
 
-  /// 设置音量
+  /// 設定音量
   Future<void> setVolume(double volume) async {
     await _audioService.setVolume(volume);
     state = state.copyWith(volume: volume);
-    // 保存音量设置
+    // 儲存音量設定
     await _queueManager.saveVolume(volume);
   }
 
-  /// 静音切换
+  /// 靜音切換
   Future<void> toggleMute() async {
     if (state.volume > 0) {
-      // 保存静音前的音量
+      // 儲存靜音前的音量
       _volumeBeforeMute = state.volume;
       await setVolume(0);
     } else {
-      // 恢复静音前的音量
+      // 恢復靜音前的音量
       await setVolume(_volumeBeforeMute);
     }
   }
 
-  /// 调整音量
+  /// 調整音量
   ///
-  /// [delta] - 音量变化量，正数增加，负数减少
+  /// [delta] - 音量變化量，正數增加，負數減少
   Future<void> adjustVolume(double delta) async {
     final newVolume = (state.volume + delta).clamp(0.0, 1.0);
     await setVolume(newVolume);
   }
 
-  // ========== 音频输出设备 ========== //
+  // ========== 音訊輸出裝置 ========== //
 
-  /// 设置音频输出设备
+  /// 設定音訊輸出裝置
   Future<void> setAudioDevice(FmpAudioDevice device) async {
     await _audioService.setAudioDevice(device);
     await _settingsRepository?.update((s) {
@@ -1122,7 +1136,7 @@ class AudioController extends StateNotifier<PlayerState>
     });
   }
 
-  /// 设置为自动选择音频设备（跟随系统默认）
+  /// 設定為自動選擇音訊裝置（跟隨系統預設）
   Future<void> setAudioDeviceAuto() async {
     await _audioService.setAudioDeviceAuto();
     await _settingsRepository?.update((s) {
@@ -1160,7 +1174,7 @@ class AudioController extends StateNotifier<PlayerState>
     await _audioService.setAudioDevice(match);
   }
 
-  // ========== 基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）========== //
+  // ========== 基於位置檢測的備選切歌機制（解決後台播放 completed 事件丟失問題）========== //
 
   void _startPositionCheckTimer() {
     _stopPositionCheckTimer();
@@ -1205,39 +1219,16 @@ class AudioController extends StateNotifier<PlayerState>
     _queueManager.replaceTrack(updatedTrack.copy());
   }
 
-  QueueState _createQueueStateFromCurrentState({int? queueVersion}) {
-    return QueueState(
-      queue: state.queue,
-      upcomingTracks: state.upcomingTracks,
-      currentIndex: state.currentIndex,
-      queueTrack: state.queueTrack,
-      isShuffleEnabled: state.isShuffleEnabled,
-      loopMode: state.loopMode,
-      canPlayPrevious: state.canPlayPrevious,
-      canPlayNext: state.canPlayNext,
-      queueVersion: queueVersion ?? state.queueVersion,
-      isMixMode: state.isMixMode,
-      mixTitle: state.mixTitle,
-      isLoadingMoreMix: state.isLoadingMoreMix,
-    );
-  }
-
-  void _publishCurrentQueueState() {
-    onQueueStateChanged?.call(_createQueueStateFromCurrentState());
-  }
-
-  /// `MixSessionCoordinator` 回報預取的載入中狀態。投影成兩份鏡像（`PlayerState`
-  /// 給播放頁，`QueueState` 給佇列頁）的責任留在 controller。
+  /// `MixSessionCoordinator` 回報預取的載入中狀態。
   void _onMixLoadingChanged(bool isLoading) {
     if (_isDisposed) return;
-    state = state.copyWith(isLoadingMoreMix: isLoading);
-    _publishCurrentQueueState();
+    _emitQueueState(_queueState.copyWith(isLoadingMoreMix: isLoading));
   }
 
-  /// 接管系统媒体控制。
+  /// 接管系統媒體控制。
   ///
-  /// 通知栏与 SMTC 的差异、以及哪些按钮该出现，全部由 [NowPlayingPublisher]
-  /// 依 [PlaybackCapabilities] 决定 —— 这里只负责说「音乐这个模式支援什么」。
+  /// 通知欄與 SMTC 的差異、以及哪些按鈕該出現，全部由 [NowPlayingPublisher]
+  /// 依 [PlaybackCapabilities] 決定 —— 這裡只負責說「音樂這個模式支援什麼」。
   void _claimMediaControls() {
     _publisher.claim(
       NowPlayingOwner.music,
@@ -1268,7 +1259,7 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 
-  /// 更新正在播放的歌曲（UI 显示用）
+  /// 更新正在播放的歌曲（UI 顯示用）
   void _updatePlayingTrack(Track track, {bool countsAsNewPlay = false}) {
     if (_isDisposed) return;
     // 換歌才清掉「已經救過一次」的記號。刻意不放在 _startSessionLoadingState：
@@ -1280,7 +1271,7 @@ class AudioController extends StateNotifier<PlayerState>
     _playingTrack = track;
     state = state.copyWith(playingTrack: track);
 
-    // 更新系统媒体控制的媒体信息（通知栏 / SMTC）
+    // 更新系統媒體控制的媒體資訊（通知欄 / SMTC）
     _publisher.publishTrack(NowPlayingOwner.music, track);
 
     // 一次播放請求裡這個方法會被呼叫兩次（先更新 UI，拿到 URL 後再補記），
@@ -1303,7 +1294,7 @@ class AudioController extends StateNotifier<PlayerState>
       replaceCurrentStreamMetadata: true,
     );
 
-    // 系统媒体控制转为停止状态
+    // 系統媒體控制轉為停止狀態
     _publisher.publishStopped(NowPlayingOwner.music);
 
     logDebug('Cleared playing track');
@@ -1336,8 +1327,8 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 
-  /// 速度与缓冲位置在这里读好再传出去 —— [NowPlayingPublisher] 刻意不认识
-  /// [FmpAudioService]，维持成纯 sink。
+  /// 速度與緩衝位置在這裡讀好再傳出去 —— [NowPlayingPublisher] 刻意不認識
+  /// [FmpAudioService]，維持成純 sink。
   void _publishPlaybackState({
     required bool isPlaying,
     required Duration position,
@@ -1585,7 +1576,7 @@ class AudioController extends StateNotifier<PlayerState>
       // 更新隊列狀態
       _updateQueueState();
 
-      // 自动匹配歌词（后台执行，不阻塞播放）
+      // 自動匹配歌詞（後台執行，不阻塞播放）
       if (countsAsNewPlay) {
         _lyricsAutoMatch.onTrackStarted(track);
       }
@@ -1598,7 +1589,7 @@ class AudioController extends StateNotifier<PlayerState>
     } on SourceApiException catch (e) {
       logWarning(
           '${e.sourceType} API error for ${track.title}: ${e.message}');
-      // 网络错误和超时：走重试逻辑，而非通用错误处理
+      // 網路錯誤和超時：走重試邏輯，而非通用錯誤處理
       if (_errorPresenter.shouldRetrySource(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
         _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
@@ -1689,8 +1680,9 @@ class AudioController extends StateNotifier<PlayerState>
         state = state.copyWith(
           error: cannotPlayMessage,
           isLoading: false,
-          queueTrack: _queueManager.currentTrack,
         );
+        _emitQueueState(
+            _queueState.copyWith(queueTrack: _queueManager.currentTrack));
         _resetSourceErrorLoadingState(requestId);
         _toastService.showError(cannotPlayMessage);
       }
@@ -1713,7 +1705,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  // ========== 网络重试逻辑 ========== //
+  // ========== 網路重試邏輯 ========== //
 
   PlayMode get _currentRecoveryMode =>
       _isMixMode ? PlayMode.mix : PlayMode.queue;
@@ -1834,7 +1826,7 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 
-  /// 安排重试（漸進式延遲）
+  /// 安排重試（漸進式延遲）
   void _scheduleRetry(Track track, Duration? position, PlayMode mode) {
     final event = _recoveryCoordinator.scheduleRetry(
       track: track,
@@ -1844,7 +1836,7 @@ class AudioController extends StateNotifier<PlayerState>
     _applyRecoveryEvent(event);
   }
 
-  /// 网络恢复时自动恢复播放
+  /// 網路恢復時自動恢復播放
   Future<void> _onNetworkRecovered() async {
     logInfo(
         '_onNetworkRecovered called, recoveryTrack: ${_recoveryCoordinator.recoveryTrack?.title}');
@@ -1854,17 +1846,17 @@ class AudioController extends StateNotifier<PlayerState>
     _applyRecoveryEvent(event, showNonRetryableToast: true);
   }
 
-  /// 重置重试状态
+  /// 重置重試狀態
   void _resetRetryState() {
     _applyRecoveryEvent(_recoveryCoordinator.reset());
   }
 
-  /// 取消待处理的重试
+  /// 取消待處理的重試
   void _cancelRetryTimer() {
     _recoveryCoordinator.reset();
   }
 
-  /// 设置网络恢复监听（需要在初始化时从外部传入 Ref）
+  /// 設定網路恢復監聽（需要在初始化時從外部傳入 Ref）
   void setupNetworkRecoveryListener(Stream<void> networkRecoveredStream) {
     logDebug('Setting up network recovery listener');
     _networkRecoverySubscription?.cancel();
@@ -1875,7 +1867,7 @@ class AudioController extends StateNotifier<PlayerState>
     logDebug('Network recovery listener set up successfully');
   }
 
-  /// 手动触发重试（用户点击重试按钮）
+  /// 手動觸發重試（使用者點擊重試按鈕）
   Future<void> retryManually() async {
     final event = await _recoveryCoordinator.retryManually(
       fallbackTrack: state.playingTrack,
@@ -1931,19 +1923,19 @@ class AudioController extends StateNotifier<PlayerState>
     _updateQueueState();
   }
 
-  /// 检查当前歌曲的 URL 是否已过期，如果过期则重新获取 URL 并从当前位置恢复播放。
-  /// 返回 true 表示已处理（调用方应 return），false 表示无需处理。
+  /// 檢查當前歌曲的 URL 是否已過期，如果過期則重新獲取 URL 並從當前位置恢復播放。
+  /// 返回 true 表示已處理（呼叫方應 return），false 表示無需處理。
   ///
-  /// 典型场景：用户暂停后长时间不操作（如过夜），音频 URL 已过期，
-  /// 直接调用 player.play() 会导致 "Error decoding audio"。
+  /// 典型場景：使用者暫停後長時間不操作（如過夜），音訊 URL 已過期，
+  /// 直接呼叫 player.play() 會導致 "Error decoding audio"。
   Future<bool> _resumeWithFreshUrlIfNeeded() async {
     final track = state.currentTrack;
     if (track == null) return false;
 
-    // 只在 URL 确实过期时触发（有 URL 但已过期）
+    // 只在 URL 確實過期時觸發（有 URL 但已過期）
     if (track.audioUrl == null || track.hasValidAudioUrl) return false;
 
-    // 排除已下载的本地文件（本地文件不会过期）
+    // 排除已下載的本地檔案（本地檔案不會過期）
     if (track.allDownloadPaths.any((p) => File(p).existsSync())) return false;
 
     logDebug(
@@ -1962,7 +1954,7 @@ class AudioController extends StateNotifier<PlayerState>
     }
     if (state.currentTrack?.uniqueKey != trackKey) return true;
 
-    // 播放成功后恢复到之前的位置
+    // 播放成功後恢復到之前的位置
     if (position.inSeconds > 0) {
       await Future.delayed(AppConstants.seekStabilizationDelay);
       if (_isDisposed) return true;
@@ -1988,7 +1980,7 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 
-  /// 准备当前歌曲（不自动播放）
+  /// 準備當前歌曲（不自動播放）
   Future<void> _prepareCurrentTrack(
       {bool autoPlay = false, Duration? initialPosition}) async {
     if (_isDisposed) return;
@@ -2115,11 +2107,11 @@ class AudioController extends StateNotifier<PlayerState>
           _isWithinOutputDeviceFailureGuard,
     );
 
-    // 更新系统媒体控制的播放状态（通知栏 / SMTC）
+    // 更新系統媒體控制的播放狀態（通知欄 / SMTC）
     //
-    // 两个表面统一送 effective 值。过去 SMTC 收的是后端原始值，所以
-    // AGENTS.md 那条「控制器拥有的载入阶段，后端 idle 事件不得覆盖
-    // loading 状态」只在 Android 通知栏成立 —— 没有理由只保护一个平台。
+    // 兩個表面統一送 effective 值。過去 SMTC 收的是後端原始值，所以
+    // AGENTS.md 那條「控制器擁有的載入階段，後端 idle 事件不得覆蓋
+    // loading 狀態」只在 Android 通知欄成立 —— 沒有理由只保護一個平台。
     _publishPlaybackState(
       isPlaying: effective.isPlaying,
       position: effective.position,
@@ -2131,14 +2123,14 @@ class AudioController extends StateNotifier<PlayerState>
     if (_isDisposed) return;
     // 電台播放中的位置變化與音樂播放器無關
     if (isRadioPlaying?.call() == true) return;
-    // 加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
+    // 載入期間忽略位置更新（防止舊歌曲的位置覆蓋已重置的進度條）
     if (_isLoadingPlayback) return;
 
     state = state.copyWith(position: position, error: state.error);
-    // 更新 QueueManager 的位置（用于恢复播放）
+    // 更新 QueueManager 的位置（用於恢復播放）
     _queueManager.updatePosition(position);
 
-    // 节流通知栏/SMTC 更新：每 500ms 最多更新一次，减少 IPC 开销
+    // 節流通知欄/SMTC 更新：每 500ms 最多更新一次，減少 IPC 開銷
     final shouldUpdateNotification =
         (position.inMilliseconds - _lastNotificationPosition.inMilliseconds)
                 .abs() >=
@@ -2146,7 +2138,7 @@ class AudioController extends StateNotifier<PlayerState>
     if (!shouldUpdateNotification) return;
     _lastNotificationPosition = position;
 
-    // 更新系统媒体控制的进度（通知栏 / SMTC）
+    // 更新系統媒體控制的進度（通知欄 / SMTC）
     _publishPlaybackState(
       isPlaying: _audioService.isPlaying,
       position: position,
@@ -2203,7 +2195,7 @@ class AudioController extends StateNotifier<PlayerState>
   void _onTransportFailure(TransportFailed failure) {
     logError('Transport failure during playback: $failure');
 
-    // 获取当前播放的歌曲
+    // 獲取當前播放的歌曲
     final track = state.playingTrack;
     if (track == null) {
       logDebug('No playing track, ignoring error');
@@ -2228,7 +2220,7 @@ class AudioController extends StateNotifier<PlayerState>
     // 保存當前位置，stop() 可能會透過 positionStream 將 position 重置為 zero
     final positionBeforeStop = state.position;
 
-    // 停止播放并触发重试
+    // 停止播放並觸發重試
     _audioService.stop().then((_) {
       if (!_isAudioErrorRetryContextCurrent(track, retryRequestGeneration)) {
         return;
@@ -2247,7 +2239,7 @@ class AudioController extends StateNotifier<PlayerState>
         return;
       }
       logError('Failed to stop player after error', e);
-      // stop() 失败时仍需触发重试，否则播放器会卡在错误状态
+      // stop() 失敗時仍需觸發重試，否則播放器會卡在錯誤狀態
       state = state.copyWith(isLoading: false, isPlaying: false);
       _resetLoadingState();
       final event = _recoveryCoordinator.onBackendNetworkError(
@@ -2451,21 +2443,21 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   void _onTrackCompleted() {
-    // 防止重复处理
+    // 防止重複處理
     if (_isHandlingCompletion) return;
 
     if (!_canHandlePlaybackEnd()) return;
 
     _isHandlingCompletion = true;
 
-    // 使用 Future.microtask 来避免在流监听器中直接操作
+    // 使用 Future.microtask 來避免在流監聽器中直接操作
     Future.microtask(() async {
       try {
         logDebug(
             'Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
-        // 单曲循环优先：即使在临时播放模式下也继续循环播放
+        // 單曲迴圈優先：即使在臨時播放模式下也繼續迴圈播放
         if (_queueManager.loopMode == LoopMode.one) {
-          // 单曲循环：重新播放当前歌曲
+          // 單曲迴圈：重新播放當前歌曲
           logDebug('LoopOne mode: replaying current track');
           final track = _playingTrack;
           if (track != null) {
@@ -2474,14 +2466,14 @@ class AudioController extends StateNotifier<PlayerState>
           return;
         }
 
-        // 检测是否脱离队列播放
+        // 檢測是否脫離佇列播放
         if (_isPlayingOutOfQueue) {
           logDebug('Track completed while playing out of queue');
           await _returnToQueue();
           return;
         }
 
-        // 正常队列播放：移动到下一首
+        // 正常佇列播放：移動到下一首
         final nextIdx = _queueManager.moveToNext();
         if (nextIdx != null) {
           final track = _queueManager.currentTrack;
@@ -2513,37 +2505,37 @@ class AudioController extends StateNotifier<PlayerState>
     final queue = _queueManager.tracks;
     final currentIndex = _queueManager.currentIndex;
 
-    // 队列中当前位置的歌曲（注意：这与 playingTrack 可能不同）
+    // 佇列中當前位置的歌曲（注意：這與 playingTrack 可能不同）
     final queueTrack = _queueManager.currentTrack;
 
-    // 计算 upcomingTracks 和导航按钮状态
+    // 計算 upcomingTracks 和導航按鈕狀態
     List<Track> upcomingTracks;
     bool canPlayPrevious;
     bool canPlayNext;
 
-    // 检测是否脱离队列播放
+    // 檢測是否脫離佇列播放
     if (_isPlayingOutOfQueue) {
-      // 当前播放的歌曲脱离队列：点击"下一首"会去到队列中保存的索引位置
+      // 當前播放的歌曲脫離佇列：點擊"下一首"會去到佇列中儲存的索引位置
       if (_isTemporaryMode && _temporaryPlayHandler.hasSavedState && queue.isNotEmpty) {
-        // 临时播放模式：显示当前队列中从保存位置开始的歌曲
+        // 臨時播放模式：顯示當前佇列中從儲存位置開始的歌曲
         final targetIndex =
             _temporaryPlayHandler.savedQueueIndex!.clamp(0, queue.length - 1);
         if (_queueManager.isShuffleEnabled) {
-          // Shuffle 模式：从当前 shuffle 索引获取后续歌曲
+          // Shuffle 模式：從當前 shuffle 索引獲取後續歌曲
           upcomingTracks =
               _queueManager.getUpcomingTracksFromIndex(targetIndex, count: 5);
         } else {
-          // 顺序模式：显示当前队列中从保存位置开始的歌曲（最多5首）
+          // 順序模式：顯示當前佇列中從儲存位置開始的歌曲（最多5首）
           final endIndex = (targetIndex + 5).clamp(0, queue.length);
           upcomingTracks = queue.sublist(targetIndex, endIndex);
         }
       } else {
-        // 没有保存的状态，或非临时播放但脱离队列：显示当前队列从索引 0 开始的歌曲
+        // 沒有儲存的狀態，或非臨時播放但脫離佇列：顯示當前佇列從索引 0 開始的歌曲
         final endIdx = 5.clamp(0, queue.length);
         upcomingTracks = queue.sublist(0, endIdx);
       }
 
-      // 脱离队列模式下，上一首/下一首都会去到队列，所以只要队列不为空就可用
+      // 脫離佇列模式下，上一首/下一首都會去到佇列，所以只要佇列不為空就可用
       canPlayPrevious = queue.isNotEmpty;
       canPlayNext = queue.isNotEmpty;
     } else {
@@ -2554,8 +2546,7 @@ class AudioController extends StateNotifier<PlayerState>
 
     logDebug(
         'Updating queue state: ${queue.length} tracks, index: $currentIndex, queueTrack: ${queueTrack?.title ?? "null"}, playingTrack: ${_playingTrack?.title ?? "null"}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
-    final nextQueueVersion = state.queueVersion + 1;
-    state = state.copyWith(
+    _emitQueueState(_queueState.copyWith(
       queue: queue,
       upcomingTracks: upcomingTracks,
       currentIndex: currentIndex,
@@ -2564,10 +2555,7 @@ class AudioController extends StateNotifier<PlayerState>
       loopMode: _queueManager.loopMode,
       canPlayPrevious: canPlayPrevious,
       canPlayNext: canPlayNext,
-      queueVersion: nextQueueVersion,
-    );
-    onQueueStateChanged?.call(
-      _createQueueStateFromCurrentState(queueVersion: nextQueueVersion),
-    );
+      queueVersion: _queueState.queueVersion + 1,
+    ));
   }
 }

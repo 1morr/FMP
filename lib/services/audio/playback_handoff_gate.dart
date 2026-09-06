@@ -119,14 +119,14 @@ class PlaybackHandoffGate with Logging {
   /// 上一次交接的所有殘留一次收乾淨。
   void cancel({required String reason}) {
     discardPending(reason: reason);
-    clearStabilizationWindow();
+    _clearStabilizationWindow();
     _activeRequestId = 0;
   }
 
   /// 只丟掉延後中的 seek 與穩定化視窗，**不動閂存** —— `stop()` 用這條。
   void cancelDeferredSeeks({required String reason}) {
     discardPending(reason: reason);
-    clearStabilizationWindow();
+    _clearStabilizationWindow();
   }
 
   // ========== seek 延後 ==========
@@ -171,7 +171,7 @@ class PlaybackHandoffGate with Logging {
     if (remaining <= Duration.zero ||
         trackKey != window.trackKey ||
         _isRequestSuperseded(window.requestId)) {
-      clearStabilizationWindow();
+      _clearStabilizationWindow();
       return null;
     }
 
@@ -295,13 +295,13 @@ class PlaybackHandoffGate with Logging {
     return remaining;
   }
 
-  void clearStabilizationWindow() {
+  void _clearStabilizationWindow() {
     _window = null;
     _stabilizeNextRequest = false;
   }
 
   void dispose() {
     discardPending(reason: 'controller disposed');
-    clearStabilizationWindow();
+    _clearStabilizationWindow();
   }
 }

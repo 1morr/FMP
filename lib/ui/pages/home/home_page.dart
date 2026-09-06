@@ -39,6 +39,7 @@ import '../../../providers/search/refresh_provider.dart';
 import '../../../services/library/playlist_service.dart';
 import '../library/widgets/create_playlist_dialog.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../services/audio/queue_state.dart';
 
 class HomeRankingSourcePlan {
   final String id;
@@ -1119,9 +1120,8 @@ class _QueuePreviewSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 只监听即将播放的曲目
-    final upcomingTracks =
-        ref.watch(audioControllerProvider.select((s) => s.upcomingTracks));
+    // 只監聽即將播放的曲目
+    final upcomingTracks = ref.watch(upcomingTracksProvider);
     final upNext =
         upcomingTracks.take(AppConstants.upcomingTracksPreviewCount).toList();
 
@@ -1169,8 +1169,8 @@ class _QueuePreviewSection extends ConsumerWidget {
                       ),
                       dense: true,
                       onTap: () {
-                        final playerState = ref.read(audioControllerProvider);
-                        final trackIndex = playerState.queue.indexOf(track);
+                        final trackIndex =
+                            ref.read(queueStateProvider).queue.indexOf(track);
                         if (trackIndex >= 0) {
                           ref
                               .read(audioControllerProvider.notifier)

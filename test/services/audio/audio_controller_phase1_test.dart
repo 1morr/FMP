@@ -255,7 +255,7 @@ void main() {
       await controller.playTemporary(tempOne);
       await controller.playTemporary(tempTwo);
 
-      expect(controller.state.upcomingTracks.map((track) => track.sourceId),
+      expect(controller.queueState.upcomingTracks.map((track) => track.sourceId),
           orderedEquals(['queue-b', 'queue-c']));
 
       audioService.setUrlCalls.clear();
@@ -1421,7 +1421,7 @@ void main() {
       final tempTrack = _track('restore-temp', title: 'Restore Temp');
 
       await controller.playAll(queueTracks, startIndex: 1);
-      final queueTrackBeforeTemporary = controller.state.queueTrack;
+      final queueTrackBeforeTemporary = controller.queueState.queueTrack;
       expect(queueTrackBeforeTemporary, isNotNull);
 
       await controller.playTemporary(tempTrack);
@@ -1432,7 +1432,7 @@ void main() {
       await restoreSetUrl;
       await pumpEventQueue(times: 20);
 
-      final queueTrackAfterRestore = controller.state.queueTrack;
+      final queueTrackAfterRestore = controller.queueState.queueTrack;
       final playingTrackAfterRestore = controller.state.playingTrack;
       expect(queueTrackAfterRestore, isNotNull);
       expect(playingTrackAfterRestore, isNotNull);
@@ -1462,9 +1462,9 @@ void main() {
       );
       await pumpEventQueue(times: 5);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'My Mix');
-      expect(controller.state.isLoadingMoreMix, isTrue);
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'My Mix');
+      expect(controller.queueState.isLoadingMoreMix, isTrue);
 
       await controller.clearQueue();
       await pumpEventQueue(times: 5);
@@ -1474,9 +1474,9 @@ void main() {
 
       final persistedQueue = await queueRepository.getOrCreate();
 
-      expect(controller.state.isMixMode, isFalse);
-      expect(controller.state.mixTitle, isNull);
-      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(controller.queueState.isMixMode, isFalse);
+      expect(controller.queueState.mixTitle, isNull);
+      expect(controller.queueState.isLoadingMoreMix, isFalse);
       expect(persistedQueue.trackIds, isEmpty);
       expect(persistedQueue.isMixMode, isFalse);
       expect(persistedQueue.mixPlaylistId, isNull);
@@ -1508,8 +1508,8 @@ void main() {
       );
       await pumpEventQueue(times: 5);
 
-      expect(controller.state.mixTitle, 'Old Mix');
-      expect(controller.state.isLoadingMoreMix, isTrue);
+      expect(controller.queueState.mixTitle, 'Old Mix');
+      expect(controller.queueState.isLoadingMoreMix, isTrue);
 
       await controller.playMixPlaylist(
         playlistId: 'RDnewmix',
@@ -1520,20 +1520,20 @@ void main() {
       );
       await pumpEventQueue(times: 5);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'New Mix');
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'New Mix');
       expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
       expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
-      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(controller.queueState.isLoadingMoreMix, isFalse);
 
       oldLoadMoreGate.complete();
       await pumpEventQueue(times: 20);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'New Mix');
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'New Mix');
       expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
       expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
-      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(controller.queueState.isLoadingMoreMix, isFalse);
     });
 
     test('sustained buffering recovers once without entering the retry ladder',
@@ -1596,8 +1596,8 @@ void main() {
       await controller.playAll(tracks, startIndex: 0);
       await pumpEventQueue(times: 20);
 
-      expect(controller.state.queue.length, 2);
-      final nextQueueTrack = controller.state.queue[1];
+      expect(controller.queueState.queue.length, 2);
+      final nextQueueTrack = controller.queueState.queue[1];
       expect(nextQueueTrack.sourceId, 'prefetch-play-next');
       // 預取的成果必須落在佇列自己的實例上，否則下一首照樣要重解析一次。
       expect(nextQueueTrack.audioUrl,
@@ -1620,7 +1620,7 @@ void main() {
 
       // 第一次播放就已經把下一首預取好了（見上一條測試）。這裡要驗的是
       // 「重啟之後的佇列恢復也會預取」，而它的起點是資料庫裡那個過期的 URL。
-      final nextTrackBeforePrepare = controller.state.queue[1];
+      final nextTrackBeforePrepare = controller.queueState.queue[1];
       expect(nextTrackBeforePrepare.audioUrl,
           'https://example.com/prefetch-next.m4a');
       final persistedBeforePrepare =
@@ -1660,8 +1660,8 @@ void main() {
       await controller.initialize();
       await pumpEventQueue(times: 20);
 
-      expect(controller.state.queue.length, 2);
-      final nextTrackAfterPrepare = controller.state.queue[1];
+      expect(controller.queueState.queue.length, 2);
+      final nextTrackAfterPrepare = controller.queueState.queue[1];
       expect(nextTrackAfterPrepare.id, nextTrackBeforePrepare.id);
       expect(nextTrackAfterPrepare.audioUrl,
           'https://example.com/prefetch-next.m4a');
@@ -1683,9 +1683,9 @@ void main() {
       await controller.playSingle(track);
       await pumpEventQueue(times: 20);
 
-      final queueTrackAfterPlay = controller.state.queueTrack;
+      final queueTrackAfterPlay = controller.queueState.queueTrack;
       final playingTrackAfterPlay = controller.state.playingTrack;
-      final queueVersionAfterPlay = controller.state.queueVersion;
+      final queueVersionAfterPlay = controller.queueState.queueVersion;
       expect(queueTrackAfterPlay, isNotNull);
       expect(playingTrackAfterPlay, isNotNull);
       expect(queueTrackAfterPlay!.id, playingTrackAfterPlay!.id);
@@ -1698,7 +1698,7 @@ void main() {
       final replacementNotified = Completer<void>();
       late final StreamSubscription<void> queueSub;
       queueSub = queueManager.stateStream.listen((_) {
-        if (controller.state.queueTrack?.audioUrl ==
+        if (controller.queueState.queueTrack?.audioUrl ==
                 'https://manual.example/runtime-boundary.m4a' &&
             !replacementNotified.isCompleted) {
           replacementNotified.complete();
@@ -1713,13 +1713,13 @@ void main() {
       await pumpEventQueue(times: 5);
       await queueSub.cancel();
 
-      expect(controller.state.queueTrack?.audioUrl,
+      expect(controller.queueState.queueTrack?.audioUrl,
           'https://manual.example/runtime-boundary.m4a');
-      expect(controller.state.queueTrack?.audioUrlExpiry,
+      expect(controller.queueState.queueTrack?.audioUrlExpiry,
           DateTime.utc(2031, 1, 1));
       expect(controller.state.playingTrack?.audioUrl,
           'https://example.com/runtime-boundary.m4a');
-      expect(controller.state.queueVersion, greaterThan(queueVersionAfterPlay));
+      expect(controller.queueState.queueVersion, greaterThan(queueVersionAfterPlay));
       expect(audioService.playUrlCalls.single.track, isNotNull);
       expect(audioService.playUrlCalls.single.track,
           isNot(same(queueTrackAfterPlay)));
