@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_layout.dart';
 import '../../core/constants/breakpoints.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
@@ -76,17 +77,20 @@ class ResponsiveScaffold extends StatelessWidget {
     // 使用 MediaQuery 而不是 LayoutBuilder 来避免与 go_router Navigator 的布局冲突
     final width = MediaQuery.of(context).size.width;
     final layout = switch (WindowClass.of(width)) {
-      WindowClass.compact => _MobileLayout(
+      WindowClass.compact => _CompactLayout(
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
           child: child,
         ),
-      WindowClass.medium || WindowClass.expanded => _TabletLayout(
+      WindowClass.medium => _MediumLayout(
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
           child: child,
         ),
-      WindowClass.large || WindowClass.extraLarge => _DesktopLayout(
+      WindowClass.expanded ||
+      WindowClass.large ||
+      WindowClass.extraLarge =>
+        _ExpandedLayout(
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
           child: child,
@@ -98,12 +102,12 @@ class ResponsiveScaffold extends StatelessWidget {
 }
 
 /// 手机布局 - 底部导航栏
-class _MobileLayout extends StatelessWidget {
+class _CompactLayout extends StatelessWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
 
-  const _MobileLayout({
+  const _CompactLayout({
     required this.child,
     required this.selectedIndex,
     required this.onDestinationSelected,
@@ -135,12 +139,12 @@ class _MobileLayout extends StatelessWidget {
 }
 
 /// 平板布局 - 侧边导航栏（与桌面模式收起状态一致）
-class _TabletLayout extends StatelessWidget {
+class _MediumLayout extends StatelessWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
 
-  const _TabletLayout({
+  const _MediumLayout({
     required this.child,
     required this.selectedIndex,
     required this.onDestinationSelected,
@@ -154,7 +158,7 @@ class _TabletLayout extends StatelessWidget {
       body: Row(
         children: [
           SizedBox(
-            width: 72, // 与桌面模式收起状态一致
+            width: AppLayout.railCollapsed,
             child: Container(
               color: colorScheme.surfaceContainerLow,
               child: NavigationRail(
@@ -182,22 +186,22 @@ class _TabletLayout extends StatelessWidget {
 }
 
 /// 桌面布局 - 可收起的侧边导航栏 + 三栏布局 + 可拖动分割线
-class _DesktopLayout extends ConsumerStatefulWidget {
+class _ExpandedLayout extends ConsumerStatefulWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
 
-  const _DesktopLayout({
+  const _ExpandedLayout({
     required this.child,
     required this.selectedIndex,
     required this.onDestinationSelected,
   });
 
   @override
-  ConsumerState<_DesktopLayout> createState() => _DesktopLayoutState();
+  ConsumerState<_ExpandedLayout> createState() => _ExpandedLayoutState();
 }
 
-class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
+class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
   // 版面狀態持久化在 Settings 裡，由 layoutSettingsProvider 讀寫 ——
   // 這三個值以前是純 widget state，每次啟動都重置。
   LayoutSettingsState get _layout => ref.watch(layoutSettingsProvider);
@@ -208,8 +212,6 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   bool get _isDetailPanelExpanded => _layout.detailPanelExpanded;
   double get _detailPanelWidth => _layout.detailPanelWidth;
 
-  static const double _minPanelWidth = 280.0;
-  static const double _maxPanelWidth = 500.0;
   bool _isHoveredOnCollapsedBar = false;
   bool _isDraggingPanelWidth = false;
 
@@ -219,6 +221,12 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
     final currentTrack = ref.watch(currentTrackProvider);
     final showRadioPlaybackUi = ref.watch(showRadioPlaybackUiProvider);
     final hasTrack = currentTrack != null || showRadioPlaybackUi;
+    final windowWidth = MediaQuery.sizeOf(context).width;
+    // 存下來的寬度只有相對於視窗才有意義：同一個 412 在 840dp 上該渲染成 336。
+    final panelWidth = AppLayout.detailPanelWidthFor(
+      _detailPanelWidth,
+      windowWidth,
+    );
 
     return Scaffold(
       body: Row(
@@ -228,15 +236,17 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
             child: AnimatedAlign(
               duration: AnimationDurations.medium,
               alignment: Alignment.centerLeft,
-              widthFactor: _isNavExpanded ? 1.0 : 72 / 256,
+              widthFactor: _isNavExpanded
+                  ? 1.0
+                  : AppLayout.railCollapsed / AppLayout.railExpanded,
               child: SizedBox(
-                width: 256,
+                width: AppLayout.railExpanded,
                 child: _isNavExpanded
                     ? _buildExpandedNav()
                     : Align(
                         alignment: Alignment.centerLeft,
                         child: SizedBox(
-                          width: 72,
+                          width: AppLayout.railCollapsed,
                           child: _buildCollapsedNav(),
                         ),
                       ),
@@ -245,13 +255,10 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           ),
           const VerticalDivider(width: 1, thickness: 1),
           // 主内容区
-          Expanded(
-            flex: 2,
-            child: widget.child,
-          ),
+          Expanded(child: widget.child),
           // 仅当有歌曲时显示右侧面板
-          // 仅当有歌曲时显示右侧面板
-          if (hasTrack) _buildDetailPanelContainer(colorScheme),
+          if (hasTrack)
+            _buildDetailPanelContainer(colorScheme, panelWidth, windowWidth),
         ],
       ),
       bottomNavigationBar: const _MiniPlayerSwitch(),
@@ -345,13 +352,20 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
     );
   }
 
-  /// 统一的详情面板容器 — 分割线 + TrackDetailPanel 始终在 widget tree 中
-  Widget _buildDetailPanelContainer(ColorScheme colorScheme) {
-    // 展开时总宽度 = 分割线(6) + 面板宽度
-    // 收起时总宽度 = 48 / 120（hover）
+  /// 统一的详情面板容器 — spacer + TrackDetailPanel 始终在 widget tree 中
+  Widget _buildDetailPanelContainer(
+    ColorScheme colorScheme,
+    double panelWidth,
+    double windowWidth,
+  ) {
+    // 展開時總寬 = pane spacer + 面板寬；收起時是一條 36dp 的長條（滑鼠停留
+    // 時 54dp）。整個面板始終以完整寬度佈局、由外層裁切，所以收合不會重排
+    // 面板內容。
     final totalWidth = _isDetailPanelExpanded
-        ? _detailPanelWidth + 6
-        : (_isHoveredOnCollapsedBar ? 54.0 : 36.0);
+        ? panelWidth + AppLayout.paneSpacer
+        : (_isHoveredOnCollapsedBar
+            ? AppLayout.collapsedStripHovered
+            : AppLayout.collapsedStrip);
 
     return MouseRegion(
       cursor: _isDetailPanelExpanded
@@ -381,49 +395,18 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           decoration: const BoxDecoration(),
           child: Stack(
             children: [
-              // 底层：分割线 + 真实的 TrackDetailPanel
+              // 底层：spacer + 真实的 TrackDetailPanel
               // 使用 OverflowBox 让内容忽略父级宽度约束，
               // 始终按完整宽度布局，外层 clip 裁剪溢出部分。
               Align(
                 alignment: Alignment.topLeft,
                 child: OverflowBox(
-                  maxWidth: _detailPanelWidth + 6,
-                  minWidth: _detailPanelWidth + 6,
+                  maxWidth: panelWidth + AppLayout.paneSpacer,
+                  minWidth: panelWidth + AppLayout.paneSpacer,
                   alignment: Alignment.topLeft,
                   child: Row(
                     children: [
-                      // 可拖动的分割线
-                      MouseRegion(
-                        cursor: SystemMouseCursors.resizeColumn,
-                        child: GestureDetector(
-                          onHorizontalDragStart: (_) {
-                            _isDraggingPanelWidth = true;
-                          },
-                          onHorizontalDragUpdate: (details) {
-                            // 拖曳期間只更新記憶體，放開時才寫資料庫。
-                            _layoutNotifier.previewDetailPanelWidth(
-                              (_detailPanelWidth - details.delta.dx)
-                                  .clamp(_minPanelWidth, _maxPanelWidth),
-                            );
-                          },
-                          onHorizontalDragEnd: (_) {
-                            _isDraggingPanelWidth = false;
-                            _layoutNotifier
-                                .commitDetailPanelWidth(_detailPanelWidth);
-                          },
-                          child: Container(
-                            width: 6,
-                            color: Colors.transparent,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                width: 1,
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      _buildPaneSpacer(colorScheme, panelWidth, windowWidth),
                       // 详情面板
                       Expanded(
                         child: TrackDetailPanel(
@@ -454,6 +437,59 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 兩個 pane 之間的間隔，裡面是拖動把手。
+  ///
+  /// M3 規定 large / extra-large 版面的 pane spacer 是 24dp，且「pane 可以調整
+  /// 大小時 spacer 內要放一個 drag handle」。這裡原本是 6dp 的命中區裡一條 1dp
+  /// 的線：只有滑鼠移上去游標會變，觸控與鍵盤使用者無從發現它可以拖。
+  Widget _buildPaneSpacer(
+    ColorScheme colorScheme,
+    double panelWidth,
+    double windowWidth,
+  ) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        onHorizontalDragStart: (_) {
+          setState(() => _isDraggingPanelWidth = true);
+        },
+        onHorizontalDragUpdate: (details) {
+          // 拖曳期間只更新記憶體，放開時才寫資料庫 —— 否則一次調整會寫進
+          // 數百個交易。從渲染寬度（不是存下來的值）起算，兩者在視窗變窄
+          // 之後會不一樣，用存的值會讓把手在第一下就跳走。
+          _layoutNotifier.previewDetailPanelWidth(
+            (panelWidth - details.delta.dx).clamp(
+              AppLayout.detailPanelMin,
+              AppLayout.detailPanelMaxFor(windowWidth),
+            ),
+          );
+        },
+        onHorizontalDragEnd: (_) {
+          setState(() => _isDraggingPanelWidth = false);
+          _layoutNotifier.commitDetailPanelWidth(_detailPanelWidth);
+        },
+        // 沒有這一條，被取消的拖曳會讓動畫永遠停在 Duration.zero。
+        onHorizontalDragCancel: () {
+          setState(() => _isDraggingPanelWidth = false);
+        },
+        child: Container(
+          width: AppLayout.paneSpacer,
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              width: 4,
+              height: 32,
+              decoration: BoxDecoration(
+                color: colorScheme.outlineVariant,
+                borderRadius: AppRadius.borderRadiusXs,
+              ),
+            ),
           ),
         ),
       ),

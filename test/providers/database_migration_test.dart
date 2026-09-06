@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_layout.dart';
 import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
@@ -380,7 +381,44 @@ void main() {
 
       await runDatabaseMigration(isar);
 
-      expect((await isar.settings.get(0))!.detailPanelWidth, 380);
+      // 夾到邊界，不是重設成預設值：這條不變式只負責「不是垃圾值」，真正的
+      // 上限是視窗寬的一個比例，由 AppLayout.detailPanelWidthFor 在渲染期收斂。
+      expect((await isar.settings.get(0))!.detailPanelWidth,
+          AppLayout.detailPanelStoredMax);
+    });
+
+    test('lifts a stored width that is below the new minimum', () async {
+      await openTestDatabase();
+
+      // 面板下限從 280 提到 320。停在 300 的使用者應該得到 320，而不是被丟回
+      // 預設值 —— 重設會抹掉他們真的做過的選擇。
+      final settings = Settings()
+        ..schemaVersion = 1
+        ..detailPanelWidth = 300;
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      await runDatabaseMigration(isar);
+
+      expect((await isar.settings.get(0))!.detailPanelWidth,
+          AppLayout.detailPanelMin);
+    });
+
+    test('a non-finite width falls back to the default', () async {
+      await openTestDatabase();
+
+      final settings = Settings()
+        ..schemaVersion = 1
+        ..detailPanelWidth = double.nan;
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      await runDatabaseMigration(isar);
+
+      expect((await isar.settings.get(0))!.detailPanelWidth,
+          AppLayout.detailPanelDefault);
     });
 
     test('treats Isar minLong as version zero', () async {

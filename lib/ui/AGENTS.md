@@ -7,17 +7,30 @@ UI guidance for Flutter pages, widgets, layouts, and windows.
 The desktop shell's rail-expanded flag, detail-panel expanded flag and panel
 width live in `Settings` and are read/written through
 `layoutSettingsProvider` (`lib/providers/settings/layout_settings_provider.dart`).
-`_DesktopLayoutState` holds no copy of them — it reads the provider.
+`_ExpandedLayoutState` holds no copy of them — it reads the provider.
 
 Panel width is written on drag **end**, not on every drag update: the update
 path only calls `previewDetailPanelWidth`, which touches memory. Keep it that
 way, or a resize writes hundreds of transactions.
 
+**The stored width is not the rendered width.** The panel's upper bound is a
+fraction of the window (`AppLayout.detailPanelMaxFor`), which the database
+layer cannot see, so `repairSettingsInvariants` only rejects garbage — it
+clamps to `[detailPanelMin, detailPanelStoredMax]` rather than resetting to the
+default, because resetting throws away a width the user actually chose. Render
+and drag both go through `AppLayout.detailPanelWidthFor`; if they ever use
+different bounds, the handle drags to a width that cannot be drawn.
+
+`detailPanelExpanded` defaults to **false** for new rows (04-D2): the panel is
+offered from `WindowClass.expanded` (840dp) upward, where it would take 40% of
+the content. Existing rows keep whatever they stored, and the v0 migration
+still rescues pre-Phase-3 rows to `true` — those users did have it open.
+
 These three **are** in the backup (`6efcefc7`). They were dropped silently on
 every import at first, with nothing in the code saying that was deliberate, so
 they are now restored unconditionally rather than gated on `Platform.isWindows`
-— `_DesktopLayout` is picked by a width breakpoint, so an Android tablet in the
-wide layout uses them too. `customDownloadDir` and `preferredAudioDevice*`
+— `_ExpandedLayout` is picked by a width breakpoint, so an Android tablet in
+the wide layout uses them too. `customDownloadDir` and `preferredAudioDevice*`
 remain excluded: those name a path and a device on one machine.
 
 ## Widget Directory Layout
@@ -262,7 +275,7 @@ through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.m
 
   | Question | API | Values |
   |---|---|---|
-  | What does the **window** chrome look like? | `WindowClass.of(width)`, `.atLeast(...)` | `compact` <600, `medium` 600–839, `expanded` 840–1199, `large` 1200–1599, `extraLarge` >=1600 (M3 / `androidx.window`) |
+  | What does the **window** chrome look like? | `WindowClass.of(width)`, `.atLeast(...)` | `compact` <600 (bottom nav), `medium` 600–839 (rail), `expanded` 840–1199 / `large` 1200–1599 / `extraLarge` >=1600 (collapsible rail + optional detail panel) |
   | How many columns fit in **this container**? | `columnsFor(containerWidth)` | one column per 400dp, capped at 3 |
 
   `responsive_scaffold.dart` picks the chrome from `MediaQuery` (the window);

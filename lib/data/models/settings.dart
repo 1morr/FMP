@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/app_layout.dart';
 import 'track.dart';
 
 part 'settings.g.dart';
@@ -223,13 +224,18 @@ class Settings {
   /// 側欄是否展開。預設收起，與 `_DesktopLayoutState` 的初值一致。
   bool railExpanded = false;
 
-  /// 詳情面板是否展開。**業務預設是 true**，而 Isar 對舊列的 bool 補 false，
-  /// 所以 `repairSettingsInvariants` 必須把它從舊資料庫救回來。
-  bool detailPanelExpanded = true;
+  /// 詳情面板是否展開。
+  ///
+  /// **業務預設從 true 改成 false**（決策 04-D2）：面板現在從 840dp 就開始
+  /// 提供，而在 840–1199dp 上它會吃掉 40% 的主內容，所以讓使用者自己展開。
+  /// 這只影響新建的列 —— 既有使用者存下來的值原封不動，而
+  /// `database_migration.dart` 的 v0 救援仍然把舊列補成 true，因為那些列在
+  /// 這個改動之前確實是展開的。
+  bool detailPanelExpanded = false;
 
   /// 詳情面板寬度（像素）。Isar 對舊列的 double 補 NaN 而不是 0，
   /// 同樣要在不變式修復裡處理。
-  double detailPanelWidth = 380;
+  double detailPanelWidth = AppLayout.detailPanelDefault;
 
   /// 缓存设置
   int maxCacheSizeMB = 32; // 默认 32MB

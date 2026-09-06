@@ -693,10 +693,12 @@ class BackupService with Logging {
               ? _sanitizeHotkeyConfig(settingsBackup.hotkeyConfig)
               : currentSettings?.hotkeyConfig
           // 版面狀態 - 無條件還原。這三個欄位不是桌面平台專屬能力，
-          // `_DesktopLayout` 是由螢幕寬度斷點選出來的
-          // (`responsive_scaffold.dart:78`)，Android 平板在寬版面下
-          // 同樣會用到側欄與詳情面板。寬度的合法範圍由
-          // `repairSettingsInvariants` 每次啟動夾住，匯入端不必再夾。
+          // `_ExpandedLayout` 是由螢幕寬度斷點選出來的
+          // (`responsive_scaffold.dart`)，Android 平板在寬版面下
+          // 同樣會用到側欄與詳情面板。匯入端不必夾寬度：
+          // `repairSettingsInvariants` 每次啟動會擋掉垃圾值，而真正的範圍
+          // （視窗寬的一個比例）本來就只有渲染期算得出來 —— 從別台機器帶進來
+          // 的寬度在這台機器上合不合法，匯入的當下沒有答案。
           ..railExpanded = settingsBackup.railExpanded
           ..detailPanelExpanded = settingsBackup.detailPanelExpanded
           ..detailPanelWidth = settingsBackup.detailPanelWidth

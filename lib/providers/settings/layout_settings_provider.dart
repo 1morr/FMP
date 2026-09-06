@@ -1,43 +1,38 @@
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../core/constants/app_layout.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../database/repository_providers.dart';
 
 /// 桌面版面狀態（側欄展開、詳情面板展開與寬度）。
 ///
-/// 這三個值以前是 `_DesktopLayoutState` 的 widget state，每次啟動都重置。
+/// 這三個值以前是 `_ExpandedLayoutState` 的 widget state，每次啟動都重置。
 class LayoutSettingsState {
   const LayoutSettingsState({
     required this.railExpanded,
     required this.detailPanelExpanded,
     required this.detailPanelWidth,
-    required this.isLoaded,
   });
 
+  /// 設定讀進來之前的暫時值，與 `Settings` 的業務預設一致。
   const LayoutSettingsState.initial()
       : railExpanded = false,
-        detailPanelExpanded = true,
-        detailPanelWidth = 380,
-        isLoaded = false;
+        detailPanelExpanded = false,
+        detailPanelWidth = AppLayout.detailPanelDefault;
 
   final bool railExpanded;
   final bool detailPanelExpanded;
   final double detailPanelWidth;
 
-  /// 設定讀進來之前不要覆寫使用者正在操作的版面。
-  final bool isLoaded;
-
   LayoutSettingsState copyWith({
     bool? railExpanded,
     bool? detailPanelExpanded,
     double? detailPanelWidth,
-    bool? isLoaded,
   }) {
     return LayoutSettingsState(
       railExpanded: railExpanded ?? this.railExpanded,
       detailPanelExpanded: detailPanelExpanded ?? this.detailPanelExpanded,
       detailPanelWidth: detailPanelWidth ?? this.detailPanelWidth,
-      isLoaded: isLoaded ?? this.isLoaded,
     );
   }
 }
@@ -57,7 +52,6 @@ class LayoutSettingsNotifier extends StateNotifier<LayoutSettingsState> {
       railExpanded: settings.railExpanded,
       detailPanelExpanded: settings.detailPanelExpanded,
       detailPanelWidth: settings.detailPanelWidth,
-      isLoaded: true,
     );
   }
 

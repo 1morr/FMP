@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/app_layout.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/source_ids.dart';
 import '../../data/models/track_key.dart';
@@ -652,8 +653,8 @@ class SettingsBackup {
     this.launchAtStartup = false,
     this.launchMinimized = false,
     this.railExpanded = false,
-    this.detailPanelExpanded = true,
-    this.detailPanelWidth = 380,
+    this.detailPanelExpanded = false,
+    this.detailPanelWidth = AppLayout.detailPanelDefault,
     this.fontFamily,
     this.locale,
     this.audioQualityLevelIndex = 0,

@@ -7,6 +7,8 @@ import 'dart:io';
 
 import 'package:isar_community/isar.dart';
 
+import '../../core/constants/app_layout.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/lyrics_title_parse_cache.dart';
@@ -137,6 +139,8 @@ void _migrateV0ToV1(Settings settings) {
   // double NaN）。detailPanelExpanded 的業務預設是 true，而 false 在這裡
   // 不可能是使用者的選擇 —— 這一列從來沒有寫過這個欄位。
   settings.railExpanded = false;
+  // 業務預設後來改成 false（見 `Settings.detailPanelExpanded`），但這些列在
+  // 那之前就存在，而它們當時的面板確實是展開的 —— 救援要還原當時的樣子。
   settings.detailPanelExpanded = true;
   settings.detailPanelWidth = 380;
 }
@@ -254,11 +258,22 @@ bool repairSettingsInvariants(Settings settings) {
   // 版面欄位：Isar 給舊列的 double 是 NaN、bool 是 false，兩者都不是業務預設。
   // detailPanelExpanded 的 false 無法與「使用者真的收起了」區分，所以只在
   // 整列還沒有版本號時才救 —— 那是 v0 步驟的事，這裡只擋掉不合法的寬度。
+  //
+  // 真正的上限是視窗寬的一個比例，而這裡看不到視窗，所以這條不變式只負責
+  // 「不是垃圾值」，實際範圍由 `AppLayout.detailPanelWidthFor` 在渲染期收斂。
+  // 越界的值**夾到邊界**而不是重設成預設值：把面板拖到 300 的使用者應該得到
+  // 下限 320，不是被丟回 412。
+  final storedPanelWidth = settings.detailPanelWidth;
+  fix(!storedPanelWidth.isFinite,
+      () => settings.detailPanelWidth = AppLayout.detailPanelDefault);
   fix(
-      !settings.detailPanelWidth.isFinite ||
-          settings.detailPanelWidth < 280 ||
-          settings.detailPanelWidth > 500,
-      () => settings.detailPanelWidth = 380);
+      storedPanelWidth.isFinite &&
+          (storedPanelWidth < AppLayout.detailPanelMin ||
+              storedPanelWidth > AppLayout.detailPanelStoredMax),
+      () => settings.detailPanelWidth = storedPanelWidth.clamp(
+            AppLayout.detailPanelMin,
+            AppLayout.detailPanelStoredMax,
+          ));
 
   return changed;
 }
