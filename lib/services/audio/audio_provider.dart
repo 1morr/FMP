@@ -750,6 +750,17 @@ class AudioController extends StateNotifier<PlayerState>
       if (clearSavedState) {
         _temporaryPlayHandler.clear();
       }
+      // 還原逾時要說出來。finally 會把轉圈停掉，但停掉而不說任何話，使用者只會
+      // 看到播放鍵自己不轉了、歌也沒播 —— 與起播路徑同一句文案。
+      if (e is PlaybackTimeoutException) {
+        final track = _queueManager.currentTrack;
+        if (track != null) {
+          _toastService.showError(t.audio.cannotPlayReason(
+            title: track.title,
+            reason: t.audio.sourceErrorTimeout,
+          ));
+        }
+      }
     } finally {
       if (requestId != null) {
         _resetLoadingState(requestId: requestId);
