@@ -196,14 +196,18 @@ backend events.
   account. A pure value, no state, no backend reference: the position is read
   by the caller and passed in. It exists so the rule above can be tested
   without a running player.
-- `PlaybackErrorPresenter` (`playback_error_presenter.dart`) — everything that
-  follows from the error object alone: skip, retry, and the user-facing
-  wording. Classification and wording sit together on purpose — both are a
-  switch on the same `SourceErrorKind`, and splitting them would leave the
-  next person adding a kind changing only one half. Deliberately owns no
-  `PlayerState`, no queue and no toast: *acting* on the verdict (skipping to
-  the next track, stopping the backend, writing `state.error`) stays with the
-  controller.
+- `PlaybackErrorPresenter` (`playback_error_presenter.dart`) — what follows
+  from the error object alone for *playback*: skip this track, enter the
+  backoff ladder, retry a resolution failure. **The wording no longer lives
+  here** — `sourceErrorReason` in `lib/core/errors/user_message.dart` owns the
+  `SourceErrorKind` switch, because the login pages, search, import and the
+  playlist dialogs all ask the same question. `reasonFor` forwards to it.
+  Nothing was split that was together: the skip/retry predicates are getters
+  on `SourceErrorKind` itself in `source_exception.dart`, and the wording
+  switch is exhaustive, so a new kind fails to compile until it is handled.
+  Deliberately owns no `PlayerState`, no queue and no toast: *acting* on the
+  verdict (skipping to the next track, stopping the backend, writing
+  `state.error`) stays with the controller.
 - `MixSessionCoordinator` (`mix_session_coordinator.dart`) — the Mix session
   identity, its seen-video set, the load-more retry loop, and the in-flight
   prefetch future. Deliberately owns neither `PlayerState` nor starting playback:

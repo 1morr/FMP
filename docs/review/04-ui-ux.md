@@ -338,6 +338,11 @@ final playerContent = isWideLayout ? _buildDesktopPlayerContent(...) : _buildNar
 
 ### 4.2 錯誤被吞掉的 9 個地方【事實】
 
+> **數字已失效（2026-09-07）**：實際是 10 處，本節的表漏了
+> `add_to_playlist_dialog.dart:291`；而「8 處連 log 都沒有」也要更正 —— 有 2 處
+> 用了 `debugPrint`，但 `debugPrint` 進不了 App 內的日誌檢視頁。全部已修，
+> 見 `05-roadmap.md` §6.10。
+
 `.when(error: ...)` 直接回傳空 widget、且多數連 log 都沒有：
 
 | file:line | 吞掉的內容 |
@@ -357,6 +362,10 @@ final playerContent = isWideLayout ? _buildDesktopPlayerContent(...) : _buildNar
 - `player_page.dart:742-759` —— `if (detail != null) … else if (isLoading) … else _BasicInfoContent(...)`，載入失敗會靜默掉進「基本資訊」分支，一個字的錯誤提示都沒有。
 
 ### 4.3 錯誤文案把原始例外丟給使用者【事實】
+
+> **規模已失效（2026-09-07）**：追到真正的 UI sink 之後是約 54 個呼叫點、
+> 33 個檔（UI 27 + provider 27 + service 3），不是 9 個檔。其中兩處在 `lib/ui`
+> 之外，是實機驗收才發現的。全部已修，見 `05-roadmap.md` §6.10。
 
 - **完全沒有 i18n 包裝、直接把 `e.toString()` 顯示出來**的有 9 個檔案：`lyrics_search_sheet.dart:387`、`bilibili_login_page.dart:182,263,289,296`、`youtube_login_page.dart:118`、`netease_login_page.dart:251`、`search_page.dart:742,789`、`import_playlist_dialog.dart:380`。
 - `import_playlist_dialog.dart:380` 最糟：`_errorMessage = e.toString()`（`:536,591`），而上游拋的是 `Exception(state.errorMessage ?? ...)`（`:575-576`），所以畫面上可以真的出現 `"Exception: <伺服器原文>"`。
@@ -398,6 +407,11 @@ ImageView txt='1\n华强见宋老虎 但是唱跳RAP 【多梦综合征】【AI�
 排名、標題、上傳者、播放數沒有語意分界，節點角色是 `ImageView` 而不是按鈕。
 
 ### 5.2 主要控制項的語意缺口【事實】
+
+> **兩項已失效（2026-09-07）**：`semanticFormatterCallback` 現在存在於
+> `player_page.dart:529`；97 個 `IconButton` 只有 1 個沒有 `tooltip:`，而那一個
+> 用 `ExcludeSemantics` + `Semantics(button:, label:)` 手動補齊，不是缺口。
+> 下表其餘各項仍然成立。見 `05-roadmap.md` §6.10。
 
 | file:line | 控制項 | 問題 |
 |---|---|---|

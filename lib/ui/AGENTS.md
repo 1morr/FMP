@@ -13,9 +13,12 @@ Panel width is written on drag **end**, not on every drag update: the update
 path only calls `previewDetailPanelWidth`, which touches memory. Keep it that
 way, or a resize writes hundreds of transactions.
 
-These three are deliberately **not** in the backup: like `customDownloadDir`
-and `preferredAudioDevice*` they describe one machine's window, not the user's
-library.
+These three **are** in the backup (`6efcefc7`). They were dropped silently on
+every import at first, with nothing in the code saying that was deliberate, so
+they are now restored unconditionally rather than gated on `Platform.isWindows`
+— `_DesktopLayout` is picked by a width breakpoint, so an Android tablet in the
+wide layout uses them too. `customDownloadDir` and `preferredAudioDevice*`
+remain excluded: those name a path and a device on one machine.
 
 ## Widget Directory Layout
 
@@ -145,6 +148,45 @@ Use a stronger key when the page has a more precise track identity, such as
 - Multi-select overflow menus use the shared `buildSelectionMenuEntries()`
   (`lib/ui/widgets/menus/selection_menu_items.dart`), which backs both
   `SelectionModeAppBar` and the playlist-detail selection bar.
+
+## Error Presentation
+
+**A raw exception never reaches the screen.** `e.toString()` in a toast, a
+`Text`, or an i18n template's `error:` slot shows the user an untranslated Dart
+or platform message — at worst literally `Exception: <server text>`. Map it
+first:
+
+| Where the exception is caught | Use |
+|---|---|
+| A UI handler that shows a toast | `ToastService.failure(context, e, tag: '…')` — maps *and* logs the original |
+| A provider or notifier writing `state.error` | `failureMessage(e, stack, 'what failed', tag: '…')` (`lib/core/errors/user_message.dart`) |
+| A `build` method rendering an `AsyncValue` error | `userMessageFor(error)` — mapping only, never log here |
+
+`userMessageFor` knows `SourceApiException` (delegating to `sourceErrorReason`,
+the one `SourceErrorKind` switch), unwrapped `DioException`, the `dart:io`
+network and path exceptions and `TimeoutException`; everything else becomes
+"an error occurred". Add a type there rather than special-casing a call site.
+
+**The original always goes to `AppLogger`, never `debugPrint`** — only
+`AppLogger` reaches the in-app log page, which is the one place a user can read
+it back. Log where the exception is caught, not in `build`: a build branch runs
+again on every rebuild.
+
+**An async error branch must not render as nothing.** A section that vanishes
+reads as "I have no data". Use `ErrorDisplay(compact: true, …)` with an
+`onRetry` that invalidates the provider. Covers and avatars are the exception:
+a placeholder is what a missing cover looks like, so keep it and log in the
+provider that produced the error.
+
+Both rules are machine-checked by
+`test/ui/static_rules/error_presentation_static_rule_test.dart`. The
+i18n-template rule scans all of `lib/`, not just `lib/ui` — the leak this round
+actually shipped was in `lib/services/search/search_service.dart`.
+
+Two deliberate exceptions, both outside `lib/ui`: `lib/app.dart` shows the raw
+error on the pre-`runApp` init failure screen (the app has not started, so the
+log page is unreachable and that text is the user's only clue — issue #37), and
+`log_viewer_page.dart` renders `entry.error` because it *is* the log viewer.
 
 ## Toast / SnackBar
 

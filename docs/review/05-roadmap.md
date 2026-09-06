@@ -379,7 +379,13 @@ gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3�
 
 ---
 
-### Phase 5 — UI / UX（與 Phase 1–4 平行）
+### Phase 5 — UI / UX（與 Phase 1–4 平行）—— **部分執行（2026-09-06 / 07）**
+
+> 執行時的重核推翻了下表 5a 的兩個計數與 5b、5f 的三條說法，**見 §6.10**。
+> **已完成**：5a 全部四項（P0-1 在 `9557e03f`，P0-2 / P0-3 / P0-4 在
+> `bcb76014` / `609cc41c` / `1c5a4e4d`）＋ 5g（錯誤呈現，`0483bf8b`…`2421f73d`）。
+> **未開始**：5b（token 層）、5c（面板與斷點）、5d（播放頁）、5e（導覽）、
+> 5f（無障礙，因重核縮到只剩兩項）。
 
 **目標**：修掉「播一首歌就少掉一個內容來源」的 P0、建立 design token 層、把面板與播放頁的版面決策改成有依據的。
 **涉及模組**：`lib/ui/` 全部、`lib/core/constants/ui_constants.dart`。
@@ -388,13 +394,13 @@ gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3�
 
 | 子階段 | 內容 | 成本 | 依賴 |
 |---|---|---|---|
-| **5a** 止血（先做） | ① `home_page.dart:67-69` 改用容器級 `columnsFor(constraints.maxWidth)` —— **一行修法直接消滅 P0-1**（1280dp 平板一播歌就掉一個音源）② `download_manager_page.dart:343-350` 拆開 loading 與 error ③ 9 處 `.when(error:)` 吞錯誤分兩類處理 ④ 桌面歌詞子視窗補「無歌詞」空狀態 | S–M | 無 |
+| ~~**5a** 止血（先做）~~ **已完成** | ① `home_page.dart:67-69` 改用容器級 `columnsFor(constraints.maxWidth)` —— **一行修法直接消滅 P0-1**（1280dp 平板一播歌就掉一個音源）② `download_manager_page.dart:343-350` 拆開 loading 與 error ③ ~~9 處~~ **10 處** `.when(error:)` 吞錯誤分兩類處理 ④ 桌面歌詞子視窗補「無歌詞」空狀態 | S–M | 無 |
 | **5b** Design token | `AppSpacing`(4/8/12/16/24/32) + `AppLayout`(pane 寬 / rail 寬 / 內容 max-width / grid extent) + `app_theme.dart` 八個 sub-theme 抽成 `_componentThemes(ColorScheme)`（消 85 行重複）+ `AppMotion` | S 建 + M 遷移 | 無。**是 5c/5d 的前置** |
 | **5c** 面板與斷點 | 面板改「像素下限 320 + 比例上限 40% + 預設 `min(412, 視窗寬/4)` + 24dp spacer 含真的 drag handle + 持久化」；斷點補 840dp，並把**視窗級 `WindowClass`** 與**容器級 `columnsFor`** 分開 | M | **Phase 3c**（持久化欄位） |
 | **5d** 播放頁 P-A | 門檻從 `width >= 1200` 改成 `width >= 840 && height >= 520`；比例隨「有無歌詞」變（現在無歌詞時 58% 畫面留給一句「暫無歌詞」）；窄版封面加寬度上限（800dp 平板上現在撐到 742dp） | S–M | 5b |
 | **5e** 導覽 | 底部導覽 6 → 5，「設定」移到首頁右上角或側欄底部 | S | 無 |
 | **5f** 無障礙（最小可行集） | ① `mini_player.dart:145-183` 的手刻 seek bar 改 `Slider` 或包 `Semantics(slider:true)` —— **這是唯一「完全無法操作」的控制項** ② `semanticFormatterCallback` ③ 27 個缺 tooltip 的 `IconButton` ④ 一條 `meetsGuideline` 冒煙測試 | S | 無 |
-| **5g** 錯誤呈現 | `ToastService` / `ErrorDisplay` 入口加 `userMessageFor(Object e)`，把已知例外映射成 i18n、未知的統一並把原文寫進 log（現在 9 個檔把 `e.toString()` 直接顯示給使用者） | M | 無 |
+| ~~**5g** 錯誤呈現~~ **已完成** | `ToastService` / `ErrorDisplay` 入口加 `userMessageFor(Object e)`，把已知例外映射成 i18n、未知的統一並把原文寫進 log（~~現在 9 個檔~~ **實際 33 個檔、約 54 個呼叫點**把 `e.toString()` 直接顯示給使用者） | ~~M~~ **L** | 無 |
 
 **驗收**：
 - **實機（Android 模擬器，手機 + 1280dp 平板橫向 + Windows 三種尺寸）**：
@@ -834,6 +840,7 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 | 5 | 04-D3 | 底部導覽 6→5，「設定」搬去哪？ | 最小版本：側欄底部（桌面）+ 首頁右上角（手機） |
 | 5 | 04-D4 / D9 | 首頁方案 / 播放頁方案（**必須一起決定**） | 首頁 **A**、播放頁 **P-A**。C 與 P-C 互斥，兩者都先不做 |
 | 5 | 04-D5 | Design token 做到第幾層？ | 1–3，不做 4 |
+| 5 | **04-D10（新）** | `AppSpacing` 要不要全量遷移既有的 312 處 `EdgeInsets`？ | **只建常數，不掃舊碼。** 新程式碼與本來就要動的檔案改用它。全量遷移是零行為變更的巨大 diff，會把真正的改動淹掉，而 76% 的數值本來就落在 4/8/12/16/24/32；「換得動」靠的是 `AppLayout` 與元件 theme，不是把每個 `EdgeInsets` 都換掉 |
 | 5 | 04-D6 | 液態玻璃現在放棄還是留條件？ | 放棄，但記下等待條件（該套件發出 stable 且 pub 平台加上 Windows） |
 | 5 | 04-D7 | 字級鉗制要不要做？ | **不鉗制**，改為修掉三處固定高度 |
 | 5 | 04-D8 | issue #36 的範圍 | 拆兩張，先做 #36a（成本差 2.5 倍） |
@@ -1898,3 +1905,116 @@ merging them would rebuild every queue list on the once-a-second position tick�
 裝置狀態已還原：兩台的佇列都清空（確認顯示「播放佇列為空」／`Queue is empty`）、
 旋轉設定復原、Orca 終端關閉、`adb emu kill`、`adb devices` 為空且無殘留
 emulator 行程。本輪新增的播放歷史列沒有清除。
+
+---
+
+### 6.10 執行時的失效重核（2026-09-06 / 07，Phase 5a 剩餘三項 + 5g）
+
+commit `0483bf8b`…`2421f73d`。測試 1,411 → 1,429。`flutter analyze` 全綠。
+本輪清掉全部剩餘 P0（P0-2 / P0-3 / P0-4）並把原始例外擋在 UI 之外（P1-7）。
+
+#### 五條說法要更正
+
+| # | 原本的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | 「9 處 `.when(error:)` 吞錯誤，8 處連 log 都沒有」（`05:391`、`04 §4.2`） | `lib/` 共 **21** 個 `.when(error:)` 呼叫點：**10 個吞掉**（04 的表漏了 `add_to_playlist_dialog.dart:291`）、2 個是 provider 轉包、9 個有顯示給使用者（其中只有 3 個走共用 `ErrorDisplay`）。吞掉的 10 個裡有 2 個 `debugPrint` —— 而 `debugPrint` **進不了 App 內的日誌檢視頁**，只有 `AppLogger` 會 | 處理 10 個，`debugPrint` 一併改掉 |
+| 2 | 「9 個檔把 `e.toString()` 直接顯示給使用者」（`05:391`、`04 §4.3`） | 追到真正的 UI sink 之後是 UI 層 27 處、provider 層 27 處、service 層 3 處，**合計約 54 個呼叫點、33 個檔** | 5g 從 M 改判為 **L**，拆成三個 commit |
+| 3 | 「27 個 `IconButton` 缺 tooltip」「`semanticFormatterCallback` 缺」（5f ②③） | **已經不成立。** 97 個 `IconButton` 只有 1 個沒有 `tooltip:`，而那一個（`lyrics_title_bar.dart:188`）用 `ExcludeSemantics` + `Semantics(button:, label:)` 手動補齊。`semanticFormatterCallback` 在 `player_page.dart:529` 已經有了 | **5f 縮到只剩兩項**：迷你播放器手刻 seek bar（`mini_player.dart:147-253`，仍無 `Semantics`）＋ 一條 `meetsGuideline` 冒煙測試 |
+| 4 | 「`app_theme.dart` 逐字重複約 85 行」「260 個 `EdgeInsets`」 | 重複區塊是 **71 行且逐位元組相同**（`:124-194` vs `:219-289`）；`EdgeInsets` 是 **312 個構造呼叫、79 個檔**，其中約 76% 的數值本來就落在 4/8/12/16/24/32 | 本輪不做 5b，數字改對，並補 §5.2 的 04-D10 |
+| 5 | `lib/ui/AGENTS.md:16-18`：「三個版面欄位刻意**不**進備份」 | **與程式碼相反。** `6efcefc7` 已經把它們加進備份，理由寫在 commit message 裡，AGENTS.md 沒跟著改 | 規則檔過期比沒有規則危險，本輪改正 |
+
+#### 設計上的一件事：映射層已經存在，只是被關在播放層
+
+`PlaybackErrorPresenter.reasonFor` 是一個對 `SourceErrorKind` 的窮舉 switch，
+接了 8 個翻譯鍵、有低訊號過濾與合成診斷抑制 —— 而登入頁、搜尋、匯入、歌單對話框
+全都在問同一個問題卻各自 `e.toString()`。第二份會漂移，所以**措辭那一半搬到
+`lib/core/errors/user_message.dart`**，presenter 只轉發。
+
+這推翻了 presenter 自己在 Phase 4 步驟 H 寫下的理由（「拆開會讓下一次新增 kind
+的人改一半就走」）：重試判斷本來就是 `SourceErrorKind.isRetryable` /
+`.shouldSkipTrack` 兩個 getter，住在 `source_exception.dart` 的 enum 上，
+presenter 只是轉發；而措辭的 switch 是窮舉的，少一個 kind 分析器會先擋下來。
+註釋改寫成新的理由，不是刪掉。
+
+`lib/core` 可以 import `lib/data`（既有 3 個檔這樣做）但從不 import
+`lib/services`，所以映射層放 `lib/core/errors/` 拿得到 `SourceApiException`，
+而 `ToastService`（也在 `lib/core/services/`）可以直接用它。
+
+#### 實機驗收抓到的兩個漏網路徑
+
+**只掃 `lib/ui` 的 sweep 是不夠的。** Android 模擬器上關掉網路搜尋，畫面印出的是：
+
+```
+bilibili: BilibiliApiException(-2): 網路連線失敗
+netease: NeteaseApiException(-998): 網路連線失敗
+youtube: YouTubeApiException(search_error): Search failed: ClientException with
+SocketException: Failed host lookup: 'www.youtube.com' ... uri=https://www.youtube.com/results?search_query=hello
+```
+
+兩個成因都在 UI 之外：
+
+1. `search_service.dart:113` 用 `errors.add('$type: ${e.toString()}')` 組出整段
+   文字，而那段文字會原封不動畫進搜尋頁的 `ErrorDisplay`。
+2. YouTube adapter 的搜尋 catch 把底層例外包成 `message: 'Search failed: $e'`，
+   而 `sourceErrorReason` 會把 adapter 的 `message` 當成「有意義的診斷」照顯示。
+   同一個檔案裡本來就有一個分類器（`_classifyStreamFallbackError`，只用在串流
+   fallback），改名為 `_classifySourceError` 並讓搜尋也走它。
+
+修完之後同一條路徑是 `bilibili: 網路連線失敗 / netease: 網路連線失敗 /
+youtube: 網路連線失敗`，而完整原文（含 URL）仍在 log 裡。
+**靜態規則因此擴大到掃整個 `lib/`**，不只 `lib/ui`。
+
+第三個：電台播放失敗的 toast 是一整條五行的 `DioException`（含
+`api.live.bilibili.com`）。那是一個沒有被任何 adapter 包成 `SourceApiException`
+的裸 `DioException`，`userMessageFor` 認不得它而退回「未知錯誤」。Dio 是全 App
+的 HTTP 層，裸的 `DioException` 逃到 UI 是常態不是例外，所以 `userMessageFor`
+接上 `classifyDioError`（adapter 用的同一份），toast 變成
+**「播放失敗: 網路連線失敗」**。
+
+#### 靜態規則
+
+新檔 `test/ui/static_rules/error_presentation_static_rule_test.dart`，三條：
+`lib/ui` 的 async error 分支不得回傳 `SizedBox.shrink()`；`lib/` 全樹的
+`t.x(error: …)` 不得收到原始例外；`lib/ui` 的 `ToastService.*` /
+`ErrorDisplay(message:)` 引數不得含 `e.toString()`。
+**三條都用刻意寫的違規檔驗證過會失敗**，不是「跑起來是綠的」就算數。
+
+**沒有採用** 04 §10.5-1 的「`Center`+`Column`+`Icon`+`Text` 不得繞過
+`ErrorDisplay`」：樹上還有 17 處手刻空狀態，那條規則上線就要嘛一次改完 17 處
+（超出本輪），要嘛帶一份 17 筆白名單（AGENTS.md 明文反對的平行清單）。
+
+#### 實機驗收
+
+**Android（`Medium_Phone`，冷開機 `-no-snapshot-load`）** ——
+錯誤路徑靠 `adb shell svc wifi disable && svc data disable` 誘發：
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| 搜尋失敗的錯誤區塊 | 修前：三段原文含 `ClientException`、`SocketException` 與完整 URL。修後：`bilibili: 網路連線失敗 / netease: 網路連線失敗 / youtube: 網路連線失敗` |
+| 原文有沒有留下 | log 裡仍有完整的 `ClientException with SocketException: Failed host lookup: 'www.youtube.com' ... uri=…`，並帶 `[ERROR] [Search] Searching youtube failed` |
+| 電台播放失敗的 toast | 修前：五行 `DioException [connection error] … api.live.bilibili.com`。修後：**「播放失敗: 網路連線失敗」** 一行 |
+| 恢復網路後沒有回歸 | 同一條搜尋回 43 筆線上結果；首頁三個排行榜音源都在 |
+
+**Windows（P0-4 是 Windows-only，Android 構不到）**：播一首沒有歌詞匹配的曲目
+→ Detail Panel 切歌詞模式顯示「暫無歌詞」→ 開浮動歌詞視窗 →
+**視窗同樣顯示「暫無歌詞」**，與面板一致（修前會永遠停在「等待歌詞…」）。
+
+**驗不到的三項，照實記錄**：
+
+- **P0-2**（下載管理員的 error 分支）要 `trackByIdProvider` 這一次 Isar 讀取真的
+  拋例外才會出現，裝置上沒有安全的誘發方式（Isar 寫爆是 §4.8 那顆雷）。只有
+  widget 測試覆蓋，實機只確認正常列沒有回歸。
+- **P0-3 的三個區塊級分支**（首頁歌單／最近播放／播放歷史統計）讀的都是本地
+  Isar，關網路對它們沒有作用，一樣構不到。同樣只有測試覆蓋。
+- **P0-4 的反向情況**（有歌詞的曲目仍正常渲染歌詞）沒驗到：Orca 在會話中途丟失
+  了 FMP 主視窗的 UIA handle，而 Win32 合成點擊送不進 Flutter view；能構到的
+  排行榜曲目在這台機器上都沒有歌詞匹配。
+
+順帶記進 `verify-on-device`：`adb shell am force-stop` 會把 `flutter run` 的連線
+斷掉，之後每一次 hot restart 都是**靜默的空操作** —— 本輪因此拍到兩張修前行為的
+截圖，差點被當成修不好。終端只印一次 `Lost connection to device.` 就沒了。
+
+裝置狀態：Android 模擬器已 `adb emu kill`、`adb devices` 為空、無殘留行程，
+網路已恢復。Windows 的 FMP 已 `q` 結束、視窗幾何還原成原本的 640,296 1280x800；
+本輪在這台機器上播過兩首歌，播放佇列與播放歷史因此各多了記錄，未清除。
+過程中誤點開了使用者的記事本設定頁，已導覽回文件，未更動任何設定。
