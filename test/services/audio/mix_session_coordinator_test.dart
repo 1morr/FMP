@@ -357,9 +357,9 @@ void main() {
       );
       await pumpEventQueue(times: 5);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'First Mix');
-      expect(controller.state.isLoadingMoreMix, isTrue);
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'First Mix');
+      expect(controller.queueState.isLoadingMoreMix, isTrue);
 
       await controller.clearQueue();
       await pumpEventQueue(times: 5);
@@ -367,10 +367,10 @@ void main() {
       loadMoreGate.complete();
       await pumpEventQueue(times: 20);
 
-      expect(controller.state.isMixMode, isFalse);
-      expect(controller.state.mixTitle, isNull);
-      expect(controller.state.isLoadingMoreMix, isFalse);
-      expect(controller.state.upcomingTracks, isEmpty);
+      expect(controller.queueState.isMixMode, isFalse);
+      expect(controller.queueState.mixTitle, isNull);
+      expect(controller.queueState.isLoadingMoreMix, isFalse);
+      expect(controller.queueState.upcomingTracks, isEmpty);
     });
 
     test(
@@ -392,10 +392,10 @@ void main() {
       );
       await pumpEventQueue(times: 5);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'Old Mix');
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'Old Mix');
       expect(controller.state.currentTrack?.sourceId, 'old-b');
-      expect(controller.state.isLoadingMoreMix, isTrue);
+      expect(controller.queueState.isLoadingMoreMix, isTrue);
 
       await controller.playMixPlaylist(
         playlistId: 'RDmix-new',
@@ -409,20 +409,20 @@ void main() {
       );
       await pumpEventQueue(times: 5);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'New Mix');
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'New Mix');
       expect(controller.state.currentTrack?.sourceId, 'new-a');
       expect(controller.state.playingTrack?.sourceId, 'new-a');
-      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(controller.queueState.isLoadingMoreMix, isFalse);
 
       staleLoadGate.complete();
       await pumpEventQueue(times: 20);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'New Mix');
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'New Mix');
       expect(controller.state.currentTrack?.sourceId, 'new-a');
       expect(controller.state.playingTrack?.sourceId, 'new-a');
-      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(controller.queueState.isLoadingMoreMix, isFalse);
     });
   });
 }

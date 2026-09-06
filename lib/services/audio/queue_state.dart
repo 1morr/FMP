@@ -3,11 +3,17 @@ import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/models/track.dart';
 
-/// 佇列面向 UI 的投影。
+/// 佇列面向 UI 的投影，唯一一份。
 ///
-/// 由 [AudioController] 在每次佇列變動後重算並經 `onQueueStateChanged` 推出來，
-/// 與 `PlayerState`（單曲播放狀態）分開：佇列變動遠比播放位置稀疏，兩者合併會讓
-/// 每秒一次的位置更新去重建整個佇列清單。
+/// 由 [AudioController] 在每次佇列變動後重算並經 `onQueueStateChanged` 推出來。
+/// 佇列的形狀只住在這裡；`PlayerState` 描述的是「正在播的那一首」，兩者沒有
+/// 重疊的欄位。分開的理由是位置每秒更新一次而佇列很少變，合併會讓每次位置
+/// 更新都重建整個佇列清單。
+///
+/// **這裡的 12 個欄位曾經在 `PlayerState` 裡各存一份**，靠控制器每次逐欄位抄
+/// 過去維持一致，而消費端會因為問了不同的 provider 拿到不同的答案。
+/// `audio_queue_state_provider_test.dart` 的
+/// `PlayerState declares none of the queue fields` 守著它不要長回來。
 class QueueState {
   final List<Track> queue;
   final List<Track> upcomingTracks;

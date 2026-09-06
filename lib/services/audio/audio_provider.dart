@@ -121,6 +121,25 @@ class AudioController extends StateNotifier<PlayerState>
 
   void Function(QueueState queueState)? onQueueStateChanged;
 
+  /// 佇列面向 UI 的投影，唯一一份。
+  ///
+  /// `PlayerState` 只描述「正在播的那一首」；佇列的形狀（內容、索引、隨機／
+  /// 迴圈、Mix 身分）一律住在這裡。兩邊曾經各存一份同樣的 12 個欄位，靠
+  /// `_updateQueueState` 每次逐欄位抄過去維持一致 —— 抄漏一個就是一個看不見的
+  /// bug，而消費端會因為問了不同的 provider 拿到不同的答案。
+  QueueState _queueState = const QueueState();
+
+  /// 目前的佇列投影。與 `state` 平行的第二個唯讀出口，生產環境的訂閱者走
+  /// `onQueueStateChanged` → `queueStateProvider`，這個 getter 是給不架
+  /// container 的呼叫端直接讀的。
+  QueueState get queueState => _queueState;
+
+  /// 改一次佇列投影並推給訂閱者。所有佇列欄位的寫入都要走這裡。
+  void _emitQueueState(QueueState next) {
+    _queueState = next;
+    onQueueStateChanged?.call(next);
+  }
+
   // ========== 網路重試相關 ==========
   /// 網路恢復監聽訂閱
   StreamSubscription<void>? _networkRecoverySubscription;
@@ -271,15 +290,14 @@ class AudioController extends StateNotifier<PlayerState>
         if (_queueManager.isShuffleEnabled) {
           await _queueManager.setShuffle(false);
           if (_isDisposed) return;
-          state = state.copyWith(isShuffleEnabled: false);
+          _emitQueueState(_queueState.copyWith(isShuffleEnabled: false));
         }
 
         _mode = PlayMode.mix;
-        state = state.copyWith(
+        _emitQueueState(_queueState.copyWith(
           isMixMode: true,
           mixTitle: restoredMix.title,
-        );
-        _publishCurrentQueueState();
+        ));
         _mixSession.onTrackStarted(PlayMode.mix);
       }
 
@@ -786,12 +804,8 @@ class AudioController extends StateNotifier<PlayerState>
     int startIndex = 0,
   }) async {
     await _ensureInitialized();
-    state = state.copyWith(
-      isLoading: true,
-      error: null,
-      isLoadingMoreMix: false,
-    );
-    _publishCurrentQueueState();
+    state = state.copyWith(isLoading: true, error: null);
+    _emitQueueState(_queueState.copyWith(isLoadingMoreMix: false));
     logInfo('Playing Mix playlist: $title with ${tracks.length} tracks');
 
     try {
@@ -801,7 +815,7 @@ class AudioController extends StateNotifier<PlayerState>
       // Mix 模式不支持隨機播放，強制關閉
       if (_queueManager.isShuffleEnabled) {
         await _queueManager.setShuffle(false);
-        state = state.copyWith(isShuffleEnabled: false);
+        _emitQueueState(_queueState.copyWith(isShuffleEnabled: false));
       }
 
       // 初始化 Mix 狀態
@@ -824,12 +838,11 @@ class AudioController extends StateNotifier<PlayerState>
         title: title,
       );
 
-      // 更新 PlayerState（先設置，因為 _executePlayRequest 會重置 isLoading）
-      state = state.copyWith(
+      // 先設置，因為 _executePlayRequest 會重置 isLoading
+      _emitQueueState(_queueState.copyWith(
         isMixMode: true,
         mixTitle: title,
-      );
-      _publishCurrentQueueState();
+      ));
 
       // 播放第一首（使用 PlayMode.mix 以保持 Mix 模式）
       final currentTrack = _queueManager.currentTrack;
@@ -855,12 +868,11 @@ class AudioController extends StateNotifier<PlayerState>
       logDebug('Exiting Mix mode');
       _mixSession.exit();
       _mode = PlayMode.queue;
-      state = state.copyWith(
+      _emitQueueState(_queueState.copyWith(
         isMixMode: false,
         clearMixTitle: true,
         isLoadingMoreMix: false,
-      );
-      _publishCurrentQueueState();
+      ));
       // 清除持久化的 Mix 狀態
       _queueManager.clearMixMode();
     }
@@ -1060,7 +1072,8 @@ class AudioController extends StateNotifier<PlayerState>
 
     logDebug('Toggling shuffle');
     await _queueManager.toggleShuffle();
-    state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
+    _emitQueueState(
+        _queueState.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled));
     _publishPlayModes();
   }
 
@@ -1068,14 +1081,14 @@ class AudioController extends StateNotifier<PlayerState>
   Future<void> setLoopMode(LoopMode mode) async {
     logDebug('Setting loop mode: $mode');
     await _queueManager.setLoopMode(mode);
-    state = state.copyWith(loopMode: mode);
+    _emitQueueState(_queueState.copyWith(loopMode: mode));
     _publishPlayModes();
   }
 
   /// 迴圈切換迴圈模式
   Future<void> cycleLoopMode() async {
     await _queueManager.cycleLoopMode();
-    state = state.copyWith(loopMode: _queueManager.loopMode);
+    _emitQueueState(_queueState.copyWith(loopMode: _queueManager.loopMode));
     _publishPlayModes();
   }
 
@@ -1206,33 +1219,10 @@ class AudioController extends StateNotifier<PlayerState>
     _queueManager.replaceTrack(updatedTrack.copy());
   }
 
-  QueueState _createQueueStateFromCurrentState({int? queueVersion}) {
-    return QueueState(
-      queue: state.queue,
-      upcomingTracks: state.upcomingTracks,
-      currentIndex: state.currentIndex,
-      queueTrack: state.queueTrack,
-      isShuffleEnabled: state.isShuffleEnabled,
-      loopMode: state.loopMode,
-      canPlayPrevious: state.canPlayPrevious,
-      canPlayNext: state.canPlayNext,
-      queueVersion: queueVersion ?? state.queueVersion,
-      isMixMode: state.isMixMode,
-      mixTitle: state.mixTitle,
-      isLoadingMoreMix: state.isLoadingMoreMix,
-    );
-  }
-
-  void _publishCurrentQueueState() {
-    onQueueStateChanged?.call(_createQueueStateFromCurrentState());
-  }
-
-  /// `MixSessionCoordinator` 回報預取的載入中狀態。投影成兩份鏡像（`PlayerState`
-  /// 給播放頁，`QueueState` 給佇列頁）的責任留在 controller。
+  /// `MixSessionCoordinator` 回報預取的載入中狀態。
   void _onMixLoadingChanged(bool isLoading) {
     if (_isDisposed) return;
-    state = state.copyWith(isLoadingMoreMix: isLoading);
-    _publishCurrentQueueState();
+    _emitQueueState(_queueState.copyWith(isLoadingMoreMix: isLoading));
   }
 
   /// 接管系統媒體控制。
@@ -1690,8 +1680,9 @@ class AudioController extends StateNotifier<PlayerState>
         state = state.copyWith(
           error: cannotPlayMessage,
           isLoading: false,
-          queueTrack: _queueManager.currentTrack,
         );
+        _emitQueueState(
+            _queueState.copyWith(queueTrack: _queueManager.currentTrack));
         _resetSourceErrorLoadingState(requestId);
         _toastService.showError(cannotPlayMessage);
       }
@@ -2555,8 +2546,7 @@ class AudioController extends StateNotifier<PlayerState>
 
     logDebug(
         'Updating queue state: ${queue.length} tracks, index: $currentIndex, queueTrack: ${queueTrack?.title ?? "null"}, playingTrack: ${_playingTrack?.title ?? "null"}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
-    final nextQueueVersion = state.queueVersion + 1;
-    state = state.copyWith(
+    _emitQueueState(_queueState.copyWith(
       queue: queue,
       upcomingTracks: upcomingTracks,
       currentIndex: currentIndex,
@@ -2565,10 +2555,7 @@ class AudioController extends StateNotifier<PlayerState>
       loopMode: _queueManager.loopMode,
       canPlayPrevious: canPlayPrevious,
       canPlayNext: canPlayNext,
-      queueVersion: nextQueueVersion,
-    );
-    onQueueStateChanged?.call(
-      _createQueueStateFromCurrentState(queueVersion: nextQueueVersion),
-    );
+      queueVersion: _queueState.queueVersion + 1,
+    ));
   }
 }

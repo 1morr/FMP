@@ -190,19 +190,19 @@ void main() {
       await controller.initialize();
       await pumpEventQueue(times: 10);
 
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'Restored Mix');
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'Restored Mix');
       expect(controller.state.currentTrack?.sourceId, 'restored-b');
       expect(controller.state.playingTrack?.sourceId, 'restored-b');
-      expect(controller.state.isLoadingMoreMix, isTrue);
+      expect(controller.queueState.isLoadingMoreMix, isTrue);
 
       final loadMoreApplied = Completer<void>();
       late final StreamSubscription<void> queueSub;
       queueSub = queueManager.stateStream.listen((_) {
-        final hasNewTrack = controller.state.queue
+        final hasNewTrack = controller.queueState.queue
             .any((track) => track.sourceId == 'restored-new-0');
         if (hasNewTrack &&
-            !controller.state.isLoadingMoreMix &&
+            !controller.queueState.isLoadingMoreMix &&
             !loadMoreApplied.isCompleted) {
           loadMoreApplied.complete();
         }
@@ -213,9 +213,9 @@ void main() {
       await queueSub.cancel();
       await pumpEventQueue(times: 5);
 
-      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(controller.queueState.isLoadingMoreMix, isFalse);
       expect(
-        controller.state.queue.map((track) => track.sourceId),
+        controller.queueState.queue.map((track) => track.sourceId),
         contains('restored-new-0'),
       );
     });
@@ -245,11 +245,11 @@ void main() {
           ),
         ],
       );
-      expect(controller.state.isMixMode, isTrue);
-      expect(controller.state.mixTitle, 'Focus Mix');
+      expect(controller.queueState.isMixMode, isTrue);
+      expect(controller.queueState.mixTitle, 'Focus Mix');
       expect(controller.state.currentTrack?.sourceId, 'mix-a');
       expect(
-        controller.state.queue.map((track) => track.sourceId),
+        controller.queueState.queue.map((track) => track.sourceId),
         orderedEquals(['mix-a', 'mix-b']),
       );
       expect(audioService.playUrlCalls.single.url,
@@ -281,7 +281,7 @@ void main() {
       await pumpEventQueue(times: 10);
 
       expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
-      expect(controller.state.isMixMode, isFalse);
+      expect(controller.queueState.isMixMode, isFalse);
       expect(
         audioService.playUrlCalls.map((call) => call.url),
         isNot(contains('https://example.com/slow-mix-a.m4a')),
@@ -319,7 +319,7 @@ void main() {
       await pumpEventQueue(times: 5);
 
       expect(controller.state.currentTrack?.sourceId, 'mix-b');
-      expect(controller.state.isLoadingMoreMix, isTrue);
+      expect(controller.queueState.isLoadingMoreMix, isTrue);
 
       final nextTrackPlayed = _waitForPlayUrlCallCount(
         audioService,

@@ -325,16 +325,12 @@ class _MiniPlayerControls extends ConsumerWidget {
         ref.watch(audioControllerProvider.select((s) => s.isBuffering));
     final isLoading =
         ref.watch(audioControllerProvider.select((s) => s.isLoading));
-    final isShuffleEnabled =
-        ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
-    final loopMode =
-        ref.watch(audioControllerProvider.select((s) => s.loopMode));
-    final isMixMode =
-        ref.watch(audioControllerProvider.select((s) => s.isMixMode));
-    final canPlayPrevious =
-        ref.watch(audioControllerProvider.select((s) => s.canPlayPrevious));
-    final canPlayNext =
-        ref.watch(audioControllerProvider.select((s) => s.canPlayNext));
+    final queueControls = ref.watch(queueControlStateProvider);
+    final isShuffleEnabled = queueControls.isShuffleEnabled;
+    final loopMode = queueControls.loopMode;
+    final isMixMode = queueControls.isMixMode;
+    final canPlayPrevious = queueControls.canPlayPrevious;
+    final canPlayNext = queueControls.canPlayNext;
 
     final controller = ref.read(audioControllerProvider.notifier);
 
