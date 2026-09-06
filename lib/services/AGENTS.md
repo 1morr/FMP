@@ -199,7 +199,8 @@ Radio distinguishes retained context from active ownership of the shared player:
   user-configured interval; UI pages must not create their own periodic
   full-status refresh timers.
 
-Radio intentionally consumes the shared `audioServiceProvider` and calls the
+Radio intentionally consumes the shared `audioServiceProvider`
+(`lib/providers/audio/audio_controller_provider.dart`) and calls the
 backend directly, while ownership hooks keep `AudioController` from reacting to
 radio events. The one end reason that still reaches `AudioController` during
 radio is `OutputDeviceFailed` — see `lib/services/audio/AGENTS.md`.

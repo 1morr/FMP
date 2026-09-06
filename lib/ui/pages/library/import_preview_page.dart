@@ -9,7 +9,7 @@ import '../../../data/sources/playlist_import/playlist_import_source.dart';
 import '../../../providers/library/library_invalidation_coordinator.dart';
 import '../../../providers/library/playlist_import_provider.dart';
 import '../../../providers/library/playlist_provider.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/images/track_thumbnail.dart';

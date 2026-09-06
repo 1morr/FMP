@@ -16,7 +16,7 @@ import '../../providers/account/account_provider.dart';
 import '../../providers/database/database_provider.dart';
 import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
-import '../audio/audio_provider.dart';
+import '../../providers/audio/audio_controller_provider.dart';
 import 'radio_source.dart';
 import 'radio_refresh_service.dart';
 

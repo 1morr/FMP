@@ -14,6 +14,8 @@ import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/services/audio/queue_state.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';

@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/play_queue.dart';
 import '../../data/models/settings.dart';
-import '../../services/audio/audio_provider.dart';
+import '../../data/models/track.dart';
 import '../../services/audio/audio_types.dart';
+import '../../services/audio/queue_state.dart';
+import 'audio_controller_provider.dart';
 
 @immutable
 class DesktopAudioDeviceState {
@@ -121,3 +124,46 @@ bool _sameAudioDeviceList(List<FmpAudioDevice> a, List<FmpAudioDevice> b) {
 
   return true;
 }
+
+/// 当前播放状态
+final isPlayingProvider = Provider<bool>((ref) {
+  return ref.watch(audioControllerProvider).isPlaying;
+});
+
+/// 当前歌曲
+final currentTrackProvider = Provider<Track?>((ref) {
+  return ref.watch(audioControllerProvider.select((s) => s.currentTrack));
+});
+
+/// 当前进度
+final positionProvider = Provider<Duration>((ref) {
+  return ref.watch(audioControllerProvider.select((s) => s.position));
+});
+
+/// 总时长
+final durationProvider = Provider<Duration?>((ref) {
+  return ref.watch(audioControllerProvider.select((s) => s.duration));
+});
+
+/// 播放队列
+final queueProvider = Provider<List<Track>>((ref) {
+  return ref.watch(queueStateProvider.select((s) => s.queue));
+});
+
+final queueVersionProvider = Provider<int>((ref) {
+  return ref.watch(queueStateProvider.select((s) => s.queueVersion));
+});
+
+final queueTrackProvider = Provider<Track?>((ref) {
+  return ref.watch(queueStateProvider.select((s) => s.queueTrack));
+});
+
+/// 是否启用随机播放
+final isShuffleEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
+});
+
+/// 循环模式
+final loopModeProvider = Provider<LoopMode>((ref) {
+  return ref.watch(audioControllerProvider.select((s) => s.loopMode));
+});

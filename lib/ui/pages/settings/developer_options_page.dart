@@ -15,7 +15,7 @@ import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../providers/settings/developer_options_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../core/services/toast_service.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../services/network/connectivity_service.dart';
 

@@ -145,7 +145,12 @@ the one intentional exception.
 
 **State** — Riverpod is the app state layer. Key providers:
 
-- `audioControllerProvider` — main audio state (`PlayerState`)
+- `audioControllerProvider` — main audio state (`PlayerState`). It and the
+  four providers that build the controller's collaborators live in
+  `lib/providers/audio/audio_controller_provider.dart`; the derived
+  selectors over it live in `audio_player_selectors.dart` beside it. The
+  controller class itself stays in `lib/services/audio/audio_provider.dart`
+  and declares no provider.
 - `playlistListProvider` / `playlistDetailProvider` — playlist management
   (`lib/providers/library/playlist_provider.dart`)
 - `libraryInvalidationCoordinatorProvider` — playlist/detail/cover/download

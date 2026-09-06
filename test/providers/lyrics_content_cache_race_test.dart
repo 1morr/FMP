@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/lyrics_match.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
-import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
 import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
 import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';

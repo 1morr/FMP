@@ -7,7 +7,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/ui/selection_provider.dart';
-import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/ui/pages/explore/explore_page.dart';
 

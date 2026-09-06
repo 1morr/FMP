@@ -33,6 +33,8 @@ UI playback controls          RadioController
 AudioController (audio_provider.dart)|
   - PlayerState projection           |
   - temporary/mix/detached modes     |
+  - declares no provider: those live |
+    in providers/audio/              |
         |         |         |        |
         v         v         v        v
 FmpAudioService  Queue-   Queue-  NowPlayingPublisher
@@ -160,6 +162,12 @@ backend events.
   in the publisher.
 - `QueueCommands` (`queue_commands.dart`) — the mix-mode gate, the queue-full
   toast, and turning an exception into a `QueueMutation`. See Architecture.
+- `QueueState` (`queue_state.dart`) — the queue's projection for the UI,
+  pushed through `onQueueStateChanged`. Deliberately separate from
+  `PlayerState`: the queue changes far more rarely than the position, and
+  merging them would rebuild every queue list on the once-a-second position
+  tick. The class and `queueStateProvider` live in their own file so that
+  reading the queue's shape does not mean opening the controller.
 - `PlaybackHandoffGate` (`playback_handoff_gate.dart`) — the controller's latch
   on the in-flight play request, deferred seeks, and the post-navigation
   stabilization window. Deliberately owns no `PlayerState`, does not perform the
@@ -224,8 +232,8 @@ do not add new music playback callers for raw URL methods.
 - Android: `JustAudioService` (ExoPlayer via `just_audio`, smaller binary).
 - Desktop: `MediaKitAudioService` (libmpv via `media_kit`, supports device
   switching). `MediaKit.ensureInitialized()` is called only on desktop.
-- `audioServiceProvider` selects the implementation through
-  `audioRuntimePlatformProvider`.
+- `audioServiceProvider` (`lib/providers/audio/audio_controller_provider.dart`)
+  selects the implementation through `audioRuntimePlatformProvider`.
 - Mobile notification state is owned by `AudioController`/`FmpAudioHandler`.
   During controller-owned load phases such as queue next/previous URL
   resolution, backend `idle` events from `FmpAudioService.stop()` must not
@@ -425,7 +433,7 @@ accident because their purpose is not obvious from the name:
 
 The method applies these unconditionally — it carries no platform check. That is
 safe only because `audioServiceProvider`
-(`lib/services/audio/audio_provider.dart`, `audioServiceProvider`) hands mobile to
+(`lib/providers/audio/audio_controller_provider.dart`) hands mobile to
 `JustAudioService`, so `MediaKitAudioService` never initializes on Android. The
 `Platform.isAndroid || Platform.isIOS` branch at `media_kit_audio_service.dart:150`
 is therefore unreachable in production; keep it as a guard, but do not read it as

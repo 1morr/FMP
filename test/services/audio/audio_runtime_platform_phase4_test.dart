@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/audio/audio_runtime_platform.dart';
 import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';

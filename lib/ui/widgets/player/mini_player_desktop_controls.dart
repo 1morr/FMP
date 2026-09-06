@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../providers/audio/audio_player_selectors.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import 'fmp_audio_device_selector.dart';
 import 'mini_player_volume_control.dart';
 

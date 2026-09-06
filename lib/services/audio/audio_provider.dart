@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
@@ -10,27 +9,14 @@ import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_exception.dart';
-import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/play_history_repository.dart';
-import '../../data/sources/source_provider.dart';
-import '../../providers/database/database_provider.dart';
-import '../../providers/database/repository_providers.dart';
-import '../../providers/audio/stream_resolution_provider.dart';
-import '../../providers/lyrics/lyrics_provider.dart';
-import '../../providers/account/source_auth_context_provider.dart';
-import '../../providers/download/file_exists_cache.dart';
-import '../../providers/library/library_invalidation_coordinator.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import 'audio_types.dart';
 import 'buffer_starvation_watchdog.dart';
 import 'audio_service.dart';
-import 'media_kit_audio_service.dart';
-import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'audio_runtime_platform.dart';
 import 'audio_stream_manager.dart';
 import 'playback_recovery_coordinator.dart';
 import 'playback_request_session.dart';
@@ -40,7 +26,7 @@ import 'now_playing_publisher.dart';
 import 'queue_commands.dart';
 import 'queue_manager.dart';
 import 'queue_persistence_manager.dart';
-import '../network/connectivity_service.dart';
+import 'queue_state.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
 import 'mix_session_coordinator.dart';
@@ -55,70 +41,6 @@ export 'player_state.dart';
 class _RetryScheduledException implements Exception {
   const _RetryScheduledException();
 }
-
-class QueueState {
-  final List<Track> queue;
-  final List<Track> upcomingTracks;
-  final int? currentIndex;
-  final Track? queueTrack;
-  final bool canPlayPrevious;
-  final bool canPlayNext;
-  final bool isShuffleEnabled;
-  final LoopMode loopMode;
-  final int queueVersion;
-  final bool isMixMode;
-  final String? mixTitle;
-  final bool isLoadingMoreMix;
-
-  const QueueState({
-    this.queue = const [],
-    this.upcomingTracks = const [],
-    this.currentIndex,
-    this.queueTrack,
-    this.canPlayPrevious = false,
-    this.canPlayNext = false,
-    this.isShuffleEnabled = false,
-    this.loopMode = LoopMode.none,
-    this.queueVersion = 0,
-    this.isMixMode = false,
-    this.mixTitle,
-    this.isLoadingMoreMix = false,
-  });
-
-  QueueState copyWith({
-    List<Track>? queue,
-    List<Track>? upcomingTracks,
-    int? currentIndex,
-    Track? queueTrack,
-    bool? canPlayPrevious,
-    bool? canPlayNext,
-    bool? isShuffleEnabled,
-    LoopMode? loopMode,
-    int? queueVersion,
-    bool? isMixMode,
-    String? mixTitle,
-    bool clearMixTitle = false,
-    bool? isLoadingMoreMix,
-  }) {
-    return QueueState(
-      queue: queue ?? this.queue,
-      upcomingTracks: upcomingTracks ?? this.upcomingTracks,
-      currentIndex: currentIndex ?? this.currentIndex,
-      queueTrack: queueTrack ?? this.queueTrack,
-      canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
-      canPlayNext: canPlayNext ?? this.canPlayNext,
-      isShuffleEnabled: isShuffleEnabled ?? this.isShuffleEnabled,
-      loopMode: loopMode ?? this.loopMode,
-      queueVersion: queueVersion ?? this.queueVersion,
-      isMixMode: isMixMode ?? this.isMixMode,
-      mixTitle: clearMixTitle ? null : (mixTitle ?? this.mixTitle),
-      isLoadingMoreMix: isLoadingMoreMix ?? this.isLoadingMoreMix,
-    );
-  }
-}
-
-final queueStateProvider =
-    StateProvider<QueueState>((ref) => const QueueState());
 
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
@@ -2759,169 +2681,3 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 }
-
-// ========== Providers ==========
-
-/// AudioService Provider（平台条件选择）
-/// Android/iOS: JustAudioService (ExoPlayer, 更轻量)
-/// Windows/Linux: MediaKitAudioService (libmpv, 支持设备切换)
-final audioServiceProvider = Provider<FmpAudioService>((ref) {
-  final runtimePlatform = ref.watch(audioRuntimePlatformProvider);
-  if (runtimePlatform == AudioRuntimePlatform.mobile) {
-    return JustAudioService();
-  }
-  return MediaKitAudioService();
-});
-
-final queuePersistenceManagerProvider =
-    Provider<QueuePersistenceManager>((ref) {
-  final db = ref.watch(databaseProvider).requireValue;
-
-  return QueuePersistenceManager(
-    queueRepository: QueueRepository(db),
-    trackRepository: TrackRepository(db),
-    settingsRepository: SettingsRepository(db),
-  );
-});
-
-final audioStreamManagerProvider = Provider<AudioStreamManager>((ref) {
-  final manager = AudioStreamManager(
-    streamResolutionService: ref.watch(streamResolutionServiceProvider),
-    sourceAuthContext: ref.watch(sourceAuthContextProvider),
-  );
-  ref.onDispose(manager.dispose);
-  return manager;
-});
-
-/// QueueManager Provider
-final queueManagerProvider = Provider<QueueManager>((ref) {
-  final db = ref.watch(databaseProvider).requireValue;
-  final queuePersistenceManager = ref.watch(queuePersistenceManagerProvider);
-
-  return QueueManager(
-    queueRepository: QueueRepository(db),
-    trackRepository: TrackRepository(db),
-    queuePersistenceManager: queuePersistenceManager,
-  );
-});
-
-/// AudioController Provider
-final audioControllerProvider =
-    StateNotifierProvider<AudioController, PlayerState>((ref) {
-  final audioService = ref.watch(audioServiceProvider);
-  final queueManager = ref.watch(queueManagerProvider);
-  final toastService = ref.watch(toastServiceProvider);
-
-  // 获取播放历史仓库（可能为 null，如果数据库未初始化）
-  PlayHistoryRepository? playHistoryRepository;
-  try {
-    playHistoryRepository = ref.watch(playHistoryRepositoryProvider);
-  } catch (_) {
-    // 数据库未初始化时忽略
-  }
-
-  final controller = AudioController(
-    audioService: audioService,
-    queueManager: queueManager,
-    audioStreamManager: ref.watch(audioStreamManagerProvider),
-    toastService: toastService,
-    nowPlayingPublisher: ref.watch(nowPlayingPublisherProvider),
-    playHistoryRepository: playHistoryRepository,
-    // Lyrics settings must not rebuild the playback controller. The latest
-    // values are read from SettingsRepository when auto-match actually runs.
-    lyricsAutoMatchService: ref.read(lyricsAutoMatchServiceProvider),
-    settingsRepository: ref.watch(settingsRepositoryProvider),
-    queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
-    mixTracksFetcher: ref
-        .watch(sourceManagerProvider)
-        .dynamicPlaylistSource(SourceIds.youtube)
-        ?.fetchMixTracks,
-  );
-
-  // 设置网络恢复监听（用于断网重连自动恢复播放）
-  final connectivityNotifier = ref.watch(connectivityProvider.notifier);
-  controller
-      .setupNetworkRecoveryListener(connectivityNotifier.onNetworkRecovered);
-
-  // 设置歌词自动匹配状态回调
-  controller.onLyricsAutoMatchStateChanged = (isMatching) {
-    ref.read(lyricsAutoMatchingProvider.notifier).state = isMatching;
-  };
-
-  controller.onQueueStateChanged = (queueState) {
-    ref.read(queueStateProvider.notifier).state = queueState;
-  };
-
-  final downloadPathSubscription =
-      ref.watch(audioStreamManagerProvider).downloadPathsChangedStream.listen(
-    (event) {
-      final playlistIds = <int>{};
-      for (final info in event.track.playlistInfo) {
-        if (info.playlistId > 0) {
-          playlistIds.add(info.playlistId);
-        }
-      }
-      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
-            savePaths: event.removedPaths,
-            affectedPlaylistIds: playlistIds,
-            includeDownloadedCategories: event.removedPaths.isNotEmpty,
-            fileExistsChanged: false,
-          );
-      for (final path in event.removedPaths) {
-        ref.read(fileExistsCacheProvider.notifier).remove(path);
-      }
-    },
-  );
-  ref.onDispose(downloadPathSubscription.cancel);
-
-  // 启动初始化（异步，但不阻塞）
-  // _ensureInitialized 会在每个操作前确保初始化完成
-  Future.microtask(() => controller.initialize());
-
-  return controller;
-});
-
-/// 便捷 Providers
-
-/// 当前播放状态
-final isPlayingProvider = Provider<bool>((ref) {
-  return ref.watch(audioControllerProvider).isPlaying;
-});
-
-/// 当前歌曲
-final currentTrackProvider = Provider<Track?>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.currentTrack));
-});
-
-/// 当前进度
-final positionProvider = Provider<Duration>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.position));
-});
-
-/// 总时长
-final durationProvider = Provider<Duration?>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.duration));
-});
-
-/// 播放队列
-final queueProvider = Provider<List<Track>>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queue));
-});
-
-final queueVersionProvider = Provider<int>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queueVersion));
-});
-
-final queueTrackProvider = Provider<Track?>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queueTrack));
-});
-
-/// 是否启用随机播放
-final isShuffleEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
-});
-
-/// 循环模式
-final loopModeProvider = Provider<LoopMode>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.loopMode));
-});

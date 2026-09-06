@@ -10,7 +10,7 @@ import '../../data/models/video_detail.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/account/source_auth_context.dart';
-import '../../services/audio/audio_provider.dart';
+import '../audio/audio_player_selectors.dart';
 import '../account/source_auth_context_provider.dart';
 
 /// 当前播放歌曲详情状态

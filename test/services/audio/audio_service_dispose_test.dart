@@ -20,7 +20,7 @@ import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/just_audio_service.dart';

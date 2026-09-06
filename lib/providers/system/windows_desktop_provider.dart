@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../services/audio/audio_provider.dart';
+import '../audio/audio_controller_provider.dart';
 import '../../services/platform/windows_desktop_service.dart';
 
 /// Windows 桌面服务 Provider
