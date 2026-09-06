@@ -29,7 +29,8 @@ class _DownloadPathListTile extends ConsumerWidget {
       error: (e, _) => ListTile(
         leading: const Icon(Icons.folder_outlined),
         title: Text(t.settings.downloadPath.title),
-        subtitle: Text(t.settings.downloadPath.loadFailed(error: e.toString())),
+        subtitle:
+            Text(t.settings.downloadPath.loadFailed(error: userMessageFor(e))),
       ),
       data: (downloadPath) => ListTile(
         leading: const Icon(Icons.folder_outlined),

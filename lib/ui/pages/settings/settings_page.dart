@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../core/services/toast_service.dart';

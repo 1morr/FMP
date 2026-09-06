@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -306,10 +308,12 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
           t.library.importPreview.createSuccess(n: tracks.length),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+          'Creating the imported playlist failed', e, stack, 'ImportPreview');
       if (mounted) {
-        ToastService.error(
-            context, t.library.importPreview.createError(error: e.toString()));
+        ToastService.error(context,
+            t.library.importPreview.createError(error: userMessageFor(e)));
       }
     } finally {
       if (mounted) {

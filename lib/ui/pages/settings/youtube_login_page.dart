@@ -115,7 +115,7 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
     } catch (e) {
       _loginHandled = false;
       if (mounted) {
-        ToastService.error(context, e.toString());
+        ToastService.failure(context, e, tag: 'YouTubeLogin');
       }
     }
   }

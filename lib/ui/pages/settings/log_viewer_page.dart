@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../core/errors/user_message.dart';
 import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
@@ -135,9 +136,11 @@ class _LogViewerPageState extends State<LogViewerPage> {
       await File(outputPath).writeAsString(contents, flush: true);
       if (!mounted) return;
       ToastService.show(context, t.logViewer.exportSucceeded(path: outputPath));
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Exporting the log file failed', e, stack, 'LogViewer');
       if (!mounted) return;
-      ToastService.error(context, t.logViewer.exportFailed(error: e.toString()));
+      ToastService.error(
+          context, t.logViewer.exportFailed(error: userMessageFor(e)));
     }
   }
 

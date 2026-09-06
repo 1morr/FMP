@@ -26,11 +26,12 @@ class _ExportDataListTile extends ConsumerWidget {
           duration: const Duration(seconds: 5),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Backup export failed', e, stack, 'Backup');
       if (context.mounted) {
         ToastService.error(
           context,
-          t.settings.backup.export.failed(error: e.toString()),
+          t.settings.backup.export.failed(error: userMessageFor(e)),
         );
       }
     }
@@ -84,11 +85,12 @@ class _ImportDataListTile extends ConsumerWidget {
           builder: (context) => _ImportResultDialog(result: result),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Backup import failed', e, stack, 'Backup');
       if (context.mounted) {
         ToastService.error(
           context,
-          t.settings.backup.import.failed(error: e.toString()),
+          t.settings.backup.import.failed(error: userMessageFor(e)),
         );
       }
     }
@@ -342,12 +344,13 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
       if (mounted) {
         Navigator.pop(context, result);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Backup import failed', e, stack, 'Backup');
       if (mounted) {
         setState(() => _isImporting = false);
         ToastService.error(
           context,
-          t.settings.backup.import.failed(error: e.toString()),
+          t.settings.backup.import.failed(error: userMessageFor(e)),
         );
       }
     }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/library/library_invalidation_coordinator.dart';
@@ -231,11 +233,13 @@ class _ChangeDownloadPathDialogState
           });
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Changing the download path failed', e, stack,
+          'DownloadPath');
       if (mounted) {
         setState(() {
           _state = _DialogState.error;
-          _error = e.toString();
+          _error = userMessageFor(e);
         });
       }
     }

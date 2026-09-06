@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/icon_helpers.dart';
@@ -445,7 +446,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       loading: () => const LoadingPlaceholder(),
       error: (e, _) => ErrorDisplay(
         type: ErrorType.general,
-        message: t.playHistoryPage.loadFailed(error: e.toString()),
+        message: t.playHistoryPage.loadFailed(error: userMessageFor(e)),
         onRetry: () => ref.invalidate(playHistorySnapshotProvider),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -125,7 +126,7 @@ class _DownloadedCategoryPageState
             SliverFillRemaining(
               child: ErrorDisplay(
                 type: ErrorType.general,
-                message: t.library.loadFailedWithError(error: error.toString()),
+                message: t.library.loadFailedWithError(error: userMessageFor(error)),
               ),
             ),
           ],

@@ -179,7 +179,7 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
         _loginHandled = false;
         if (mounted) {
           setState(() => _isLoading = false);
-          ToastService.error(context, e.toString());
+          ToastService.failure(context, e, tag: 'BilibiliLogin');
         }
       }
     }
@@ -260,7 +260,7 @@ class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
     } catch (e) {
       if (mounted) {
         setState(() => _isGenerating = false);
-        ToastService.show(context, e.toString());
+        ToastService.failure(context, e, tag: 'BilibiliLogin');
       }
     }
   }
@@ -286,14 +286,15 @@ class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
           } catch (e) {
             if (!mounted) return;
             setState(() => _status = QrCodeStatus.waiting);
-            ToastService.error(context, e.toString());
+            ToastService.failure(context, e, tag: 'BilibiliLogin');
           }
         }
       },
       onError: (Object error, StackTrace stackTrace) {
         if (!mounted) return;
         setState(() => _status = QrCodeStatus.expired);
-        ToastService.error(context, error.toString());
+        ToastService.failure(context, error,
+            stackTrace: stackTrace, tag: 'BilibiliLogin');
       },
     );
   }

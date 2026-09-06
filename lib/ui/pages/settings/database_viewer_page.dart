@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_catalog.dart';
 import '../../../providers/database/database_provider.dart';
@@ -89,8 +90,8 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
 
     return dbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) =>
-          Center(child: Text(t.databaseViewer.loadFailed(error: e.toString()))),
+      error: (e, _) => Center(
+          child: Text(t.databaseViewer.loadFailed(error: userMessageFor(e)))),
       data: (isar) => _buildCollectionData(isar),
     );
   }
@@ -135,7 +136,8 @@ class _DatabaseCollectionListView extends StatelessWidget {
         if (snapshot.hasError) {
           return Center(
             child: Text(
-              t.databaseViewer.loadFailed(error: snapshot.error.toString()),
+              t.databaseViewer.loadFailed(
+                  error: userMessageFor(snapshot.error!)),
             ),
           );
         }

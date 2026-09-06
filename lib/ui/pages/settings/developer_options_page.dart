@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../core/errors/user_message.dart';
 import '../../../core/logger.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -115,7 +116,8 @@ class _DatabaseInfoTile extends ConsumerWidget {
       error: (e, _) => ListTile(
         leading: const Icon(Icons.error_outline),
         title: Text(t.settings.developerOptions.dbInfo),
-        subtitle: Text(t.settings.developerOptions.dbInfoError(error: '$e')),
+        subtitle: Text(
+            t.settings.developerOptions.dbInfoError(error: userMessageFor(e))),
       ),
       data: (isar) => FutureBuilder<_DatabaseInfo>(
         future: _getDatabaseInfo(isar),
@@ -572,11 +574,12 @@ class _ResetDataTile extends ConsumerWidget {
         context,
         t.settings.developerOptions.resetDone,
       );
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Resetting the database failed', e, stack, 'DevOptions');
       if (!context.mounted) return;
       ToastService.error(
         context,
-        t.settings.developerOptions.resetFailed(error: '$e'),
+        t.settings.developerOptions.resetFailed(error: userMessageFor(e)),
       );
     }
   }

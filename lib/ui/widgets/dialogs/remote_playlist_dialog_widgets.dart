@@ -400,7 +400,8 @@ void reportRemotePlaylistEditResult(
     return;
   }
   if (result.hasFailures) {
-    ToastService.error(context, result.failures.first.error.toString());
+    ToastService.failure(context, result.failures.first.error,
+        tag: 'RemotePlaylist');
   } else {
     ToastService.show(context, t.remote.noChanges);
   }

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -172,9 +174,11 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
         Navigator.of(context).pop();
         ToastService.success(context, t.lyrics.lyricsMatched);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Saving the lyrics match failed', e, stack, 'Lyrics');
       if (mounted) {
-        ToastService.error(context, t.lyrics.saveFailed(error: e.toString()));
+        ToastService.error(
+            context, t.lyrics.saveFailed(error: userMessageFor(e)));
       }
     } finally {
       if (mounted) {
@@ -198,9 +202,11 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
         Navigator.of(context).pop();
         ToastService.success(context, t.lyrics.lyricsRemoved);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Removing the lyrics match failed', e, stack, 'Lyrics');
       if (mounted) {
-        ToastService.error(context, t.lyrics.removeFailed(error: e.toString()));
+        ToastService.error(
+            context, t.lyrics.removeFailed(error: userMessageFor(e)));
       }
     } finally {
       if (mounted) {

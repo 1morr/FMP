@@ -742,7 +742,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ToastService.success(context, t.searchPage.toast.addedToRadio);
       }
     } catch (e) {
-      if (mounted) ToastService.error(context, e.toString());
+      if (mounted) ToastService.failure(context, e, tag: 'Search');
     }
   }
 
@@ -789,7 +789,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         setState(() {
           _loadingPages.remove(key);
         });
-        ToastService.error(context, e.toString());
+        ToastService.failure(context, e, tag: 'Search');
       }
     }
   }

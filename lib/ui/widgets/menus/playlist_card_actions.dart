@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
@@ -153,9 +155,11 @@ class PlaylistCardActions {
     try {
       final controller = ref.read(audioControllerProvider.notifier);
       await controller.startMixFromPlaylist(playlist);
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Starting a playlist mix failed', e, stack, 'Library');
       if (context.mounted) {
-        ToastService.error(context, '${t.library.main.playMixFailed}: $e');
+        ToastService.error(
+            context, '${t.library.main.playMixFailed}: ${userMessageFor(e)}');
       }
     }
   }

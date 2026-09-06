@@ -248,7 +248,7 @@ class _NeteaseQrCodeLoginTabState
     } catch (e) {
       if (mounted) {
         setState(() => _isGenerating = false);
-        ToastService.show(context, e.toString());
+        ToastService.failure(context, e, tag: 'NeteaseLogin');
       }
     }
   }

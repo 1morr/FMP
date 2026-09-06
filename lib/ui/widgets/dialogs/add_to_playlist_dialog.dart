@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/track_repository.dart';
@@ -223,7 +225,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                       const Center(child: CircularProgressIndicator()),
                   error: (error, _) => Center(
                     child: Text(t.addToPlaylistDialog
-                        .loadFailed(error: error.toString())),
+                        .loadFailed(error: userMessageFor(error))),
                   ),
                   data: (lists) {
                     // 过滤掉导入的歌单，只显示手动创建的歌单
@@ -436,10 +438,11 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
             _selectedPlaylistIds.add(playlist.id);
           });
         }
-      } catch (e) {
+      } catch (e, stack) {
+        AppLogger.error('Creating a playlist failed', e, stack, 'AddToPlaylist');
         if (mounted) {
-          ToastService.error(
-              context, t.addToPlaylistDialog.createFailed(error: e.toString()));
+          ToastService.error(context,
+              t.addToPlaylistDialog.createFailed(error: userMessageFor(e)));
         }
       }
     }
@@ -566,10 +569,12 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         }
         Navigator.pop(context, true);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+          'Adding tracks to a playlist failed', e, stack, 'AddToPlaylist');
       if (mounted) {
         ToastService.error(context,
-            t.addToPlaylistDialog.operationFailed(error: e.toString()));
+            t.addToPlaylistDialog.operationFailed(error: userMessageFor(e)));
       }
     } finally {
       if (mounted) {

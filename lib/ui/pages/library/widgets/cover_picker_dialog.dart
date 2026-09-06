@@ -144,8 +144,8 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(
-              t.library.loadFailedWithError(error: state.error.toString())),
+          // state.error 已經是 provider 映射過的一句話，不是例外原文。
+          child: Text(t.library.loadFailedWithError(error: state.error!)),
         ),
       );
     }

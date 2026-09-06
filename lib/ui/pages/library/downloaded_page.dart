@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download/download_provider.dart';
@@ -98,7 +100,7 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
         loading: () => const LoadingPlaceholder(),
         error: (error, stack) => ErrorDisplay(
           type: ErrorType.general,
-          message: t.library.loadFailedWithError(error: error.toString()),
+          message: t.library.loadFailedWithError(error: userMessageFor(error)),
           onRetry: _syncLocalFiles,
         ),
         data: (categories) {
@@ -468,10 +470,12 @@ class _CategoryCard extends ConsumerWidget {
           t.library.downloadedPage.categoryDeleted(name: category.displayName),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+          'Deleting a downloaded category failed', e, stack, 'Downloaded');
       if (context.mounted) {
         ToastService.error(context,
-            t.library.downloadedPage.deleteFailed(error: e.toString()));
+            t.library.downloadedPage.deleteFailed(error: userMessageFor(e)));
       }
     }
   }

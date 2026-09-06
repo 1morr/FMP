@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 import '../../../../core/constants/ui_constants.dart';
+import '../../../../core/errors/user_message.dart';
+import '../../../../core/logger.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../data/sources/playlist_import/playlist_import_source.dart';
@@ -532,11 +534,12 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
           '${result.skippedCount > 0 ? ', ${t.library.importPlaylist.skipped(n: result.skippedCount)}' : ''}',
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Playlist import failed', e, stack, 'Import');
       if (mounted) {
         setState(() {
           _isImporting = false;
-          _errorMessage = e.toString();
+          _errorMessage = userMessageFor(e);
         });
       }
     } finally {
@@ -587,11 +590,12 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         );
         ref.read(playlistImportProvider.notifier).reset();
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Playlist import failed', e, stack, 'Import');
       if (mounted) {
         setState(() {
           _isImporting = false;
-          _errorMessage = e.toString();
+          _errorMessage = userMessageFor(e);
         });
       }
     } finally {

@@ -804,16 +804,20 @@ void main() {
       final lyricsSearch = File('lib/ui/pages/lyrics/lyrics_search_sheet.dart')
           .readAsStringSync();
 
-      expect(_methodBody(search, '_loadVideoPages'),
-          contains('ToastService.error'));
-      expect(_methodBody(downloadPathDialog, '_selectPath'),
-          contains('ToastService.error'));
-      expect(_methodBody(bilibiliLogin, '_onPageLoaded'),
-          contains('ToastService.error'));
+      // 走哪一個入口不重要，重要的是使用者看得到。`failure` 是把例外翻成
+      // 訊息並寫 log 的那一個（`ToastService.failure`），`error` 是已經有
+      // 現成文案時用的那一個。
+      final surfaced = anyOf(
+        contains('ToastService.error'),
+        contains('ToastService.failure'),
+      );
+
+      expect(_methodBody(search, '_loadVideoPages'), surfaced);
+      expect(_methodBody(downloadPathDialog, '_selectPath'), surfaced);
+      expect(_methodBody(bilibiliLogin, '_onPageLoaded'), surfaced);
       expect(_methodBody(bilibiliLogin, '_startPolling'), contains('onError'));
       expect(_methodBody(lyricsSearch, '_selectResult'), contains('_isSaving'));
-      expect(_methodBody(lyricsSearch, '_removeMatch'),
-          contains('ToastService.error'));
+      expect(_methodBody(lyricsSearch, '_removeMatch'), surfaced);
     });
   });
 }

@@ -591,7 +591,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       }
       if (result.hasFailures) {
         if (mounted) {
-          ToastService.error(context, result.failures.first.error.toString());
+          ToastService.failure(context, result.failures.first.error,
+              tag: 'PlaylistDetail');
         }
         return;
       }
@@ -620,7 +621,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       }
     } catch (e) {
       if (mounted) {
-        ToastService.error(context, e.toString());
+        ToastService.failure(context, e, tag: 'PlaylistDetail');
       }
     }
   }
@@ -1585,7 +1586,8 @@ class _TrackListTile extends ConsumerWidget {
       }
       if (result.hasFailures) {
         if (context.mounted) {
-          ToastService.error(context, result.failures.first.error.toString());
+          ToastService.failure(context, result.failures.first.error,
+              tag: 'PlaylistDetail');
         }
         return;
       }
@@ -1613,7 +1615,7 @@ class _TrackListTile extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ToastService.error(context, e.toString());
+        ToastService.failure(context, e, tag: 'PlaylistDetail');
       }
     }
   }

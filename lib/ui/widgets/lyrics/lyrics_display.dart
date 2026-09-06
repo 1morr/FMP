@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../data/models/lyrics_match.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
@@ -184,7 +185,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
             Icon(Icons.error_outline, size: 48, color: colorScheme.error),
             const SizedBox(height: 12),
             Text(
-              lyricsContent.error.toString(),
+              userMessageFor(lyricsContent.error!),
               style: TextStyle(color: colorScheme.error),
               textAlign: TextAlign.center,
             ),
