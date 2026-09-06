@@ -53,15 +53,7 @@ void main() {
         child: ProviderScope(
           overrides: [
             audioControllerProvider.overrideWith((ref) => harness.controller),
-            queueStateProvider.overrideWith(
-              (ref) => QueueState(
-                queue: harness.controller.state.queue,
-                currentIndex: harness.controller.state.currentIndex,
-                queueTrack: harness.controller.state.queue.first,
-                isShuffleEnabled: true,
-                queueVersion: harness.controller.state.queueVersion,
-              ),
-            ),
+            queueStateProvider.overrideWith((ref) => harness.queueState),
             autoScrollToCurrentTrackProvider.overrideWith((ref) => false),
           ],
           child: const MaterialApp(home: QueuePage()),
@@ -91,12 +83,17 @@ class _QueuePageHarness {
   _QueuePageHarness({
     required this.isar,
     required this.controller,
+    required this.queueState,
     required this.sourceManager,
     required this.streamResolutionService,
   });
 
   final Isar isar;
   final _QueuePageTestAudioController controller;
+
+  /// 佇列的形狀住在 `QueueState`，不在 `PlayerState`。頁面讀的是
+  /// `queueStateProvider`，所以測試也從這裡餵。
+  final QueueState queueState;
   final SourceManager sourceManager;
   final DefaultStreamResolutionService streamResolutionService;
 
@@ -136,16 +133,24 @@ class _QueuePageHarness {
     final controller = _QueuePageTestAudioController(
       queueManager: queueManager,
       audioStreamManager: audioStreamManager,
-      queue: [
-        _buildTrack(id: 1, sourceId: 'alpha', title: 'Alpha'),
-        _buildTrack(id: 2, sourceId: 'bravo', title: 'Bravo'),
-        _buildTrack(id: 3, sourceId: 'charlie', title: 'Charlie'),
-      ],
     );
+
+    final queue = [
+      _buildTrack(id: 1, sourceId: 'alpha', title: 'Alpha'),
+      _buildTrack(id: 2, sourceId: 'bravo', title: 'Bravo'),
+      _buildTrack(id: 3, sourceId: 'charlie', title: 'Charlie'),
+    ];
 
     return _QueuePageHarness(
       isar: isar,
       controller: controller,
+      queueState: QueueState(
+        queue: queue,
+        currentIndex: 0,
+        queueTrack: queue.first,
+        isShuffleEnabled: true,
+        queueVersion: 1,
+      ),
       sourceManager: sourceManager,
       streamResolutionService: streamResolutionService,
     );
@@ -163,19 +168,11 @@ class _QueuePageTestAudioController extends AudioController {
   _QueuePageTestAudioController({
     required super.queueManager,
     required super.audioStreamManager,
-    required List<Track> queue,
   }) : super(
           audioService: FakeAudioService(),
           toastService: ToastService(),
           nowPlayingPublisher: testNowPlayingPublisher(),
-        ) {
-    state = PlayerState(
-      queue: queue,
-      currentIndex: 0,
-      queueVersion: 1,
-      isShuffleEnabled: true,
-    );
-  }
+        );
 
   int moveInQueueCallCount = 0;
 

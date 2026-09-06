@@ -65,6 +65,12 @@ Rules:
   `audio_player_selectors.dart` beside it. `AudioController` itself declares
   no provider, so importing the controller class and subscribing to its
   state are two separate imports — keep them separate.
+- **Ask the right state object.** Playback fields (position, buffering,
+  volume, stream metadata, output device) come off `audioControllerProvider`;
+  the queue's shape (contents, index, shuffle/loop, mix identity) comes off
+  `queueStateProvider`. They share no field, so there is exactly one right
+  answer per field — see `lib/services/audio/AGENTS.md` for why both used to
+  carry the same twelve.
 
 ## Riverpod 3
 

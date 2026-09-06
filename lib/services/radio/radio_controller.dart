@@ -19,6 +19,7 @@ import '../audio/audio_types.dart';
 import '../../providers/audio/audio_controller_provider.dart';
 import 'radio_source.dart';
 import 'radio_refresh_service.dart';
+import '../audio/queue_state.dart';
 
 class RadioAccountImportResult {
   const RadioAccountImportResult({
@@ -1001,7 +1002,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     try {
       final musicState = _ref.read(audioControllerProvider);
-      _savedMusicQueueIndex = musicState.currentIndex;
+      _savedMusicQueueIndex = _ref.read(queueStateProvider).currentIndex;
       _savedMusicPosition = musicState.position;
       _savedMusicWasPlaying = musicState.isPlaying;
     } catch (e) {

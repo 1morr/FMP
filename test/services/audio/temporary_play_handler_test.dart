@@ -281,9 +281,9 @@ void main() {
 
         await controller.playTemporary(tempTwo);
 
-        expect(controller.state.currentIndex, 2);
+        expect(controller.queueState.currentIndex, 2);
         expect(
-          controller.state.upcomingTracks.map((track) => track.sourceId),
+          controller.queueState.upcomingTracks.map((track) => track.sourceId),
           orderedEquals(['queue-b', 'queue-c']),
         );
 
@@ -297,7 +297,7 @@ void main() {
         await restoreSeek;
         await pumpEventQueue(times: 20);
 
-        expect(controller.state.currentIndex, 1);
+        expect(controller.queueState.currentIndex, 1);
         expect(controller.state.playingTrack?.sourceId, 'queue-b');
         expect(controller.state.currentTrack?.sourceId, 'queue-b');
         expect(audioService.setUrlCalls.single.url,

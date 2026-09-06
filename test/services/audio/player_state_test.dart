@@ -14,14 +14,8 @@ void main() {
       expect(state.duration, isNull);
       expect(state.speed, 1.0);
       expect(state.volume, 1.0);
-      expect(state.isShuffleEnabled, isFalse);
       expect(state.currentTrack, isNull);
       expect(state.hasCurrentTrack, isFalse);
-      expect(state.queue, isEmpty);
-      expect(state.upcomingTracks, isEmpty);
-      expect(state.canPlayPrevious, isFalse);
-      expect(state.canPlayNext, isFalse);
-      expect(state.isMixMode, isFalse);
       expect(state.error, isNull);
       expect(state.isNetworkError, isFalse);
       expect(state.isRetrying, isFalse);

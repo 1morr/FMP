@@ -209,7 +209,10 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 ---
 
-### Phase 1 — 播放體驗（tracer bullet）
+### Phase 1 — 播放體驗（tracer bullet）—— **已執行（2026-09-02）**
+
+> 執行時的重核推翻了下表的部分估算、並把 D1／D2 兩個決策點定案，**見 §6.2**。
+> 下表保留原樣以便對照。
 
 **目標**：消滅每次播放固定多付的 1.25–1.74 秒、給載入路徑一個上界、修掉 YouTube 每次 20 秒的退化。
 **涉及模組**：`lib/services/audio/`（`stream_resolution_service` / `playback_request_session` / `media_kit_audio_service`）、`lib/data/sources/`。
@@ -282,7 +285,11 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 ---
 
-### Phase 3 — 狀態層與資料層治理
+### Phase 3 — 狀態層與資料層治理 —— **已執行（2026-09-03 / 04）**
+
+> 執行時的重核推翻了 3c「合成一次批次才沒有邊際成本」的理由，並改變了
+> auto-retry 的處理方式（改成 `ProviderScope` 一個全域關閉，不逐個 provider
+> 決定），**見 §6.4** 與 ADR 0001／0002。下表保留原樣以便對照。
 
 **目標**：把 migration 從不可證偽的形狀猜測換成版本號、一次做完所有 `Settings` schema 變更、
 把 152 個 repository 邊界外呼叫點的 63% 收回去、升 Riverpod 3。
@@ -326,7 +333,14 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 
 ---
 
-### Phase 4 — `AudioController` 拆分
+### Phase 4 — `AudioController` 拆分 —— **部分執行（2026-09-05 / 06）**
+
+> 執行時的重核否決了下表之外追加的 F／G 兩步，並**推翻了下方的 ≤800 行驗收線**，
+> **見 §6.5–§6.8**。下表保留原樣以便對照。
+>
+> **本節列出但尚未開始的兩項**：`StateNotifier` → `Notifier` 改寫、
+> `FmpAudioService.setQueue` / `supportsQueue`。Phase 4 已合進 `main`，
+> 但按本節的定義並未完成。
 
 **目標**：把 3,429 行、90+ 欄位的 god class 拆成「投影 + 轉發 + 接線」，目標 400–800 行。
 **涉及模組**：`lib/services/audio/` 全部。
@@ -352,7 +366,12 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3）也才知道該接在哪一層。
 
 **驗收**：
-- `audio_provider.dart` ≤ 800 行（目前 3,429）。
+- ~~`audio_provider.dart` ≤ 800 行（目前 3,429）。~~ **這條已作廢，見 §6.8。**
+  實際落點 2,573 行，而剩下的 2,573 行裡有 1,080 行是投影與 transport 命令 ——
+  它們就是 `AudioController` 這個類別的定義，再抽協作者只會產出 15–26 個回呼的
+  假邊界。**重述為：`AudioController` 不再持有任何可以獨立測試的規則。**
+  要再往下需要改變控制器*是什麼*（拆 `PlayerState` 本身、或 `Notifier` 改寫），
+  不是把東西搬出去。
 - `test/services/audio` 全綠；每一步結束都重跑 Phase 1 的零位元組伺服器實驗當回歸。
 - 實機：Windows 上電台播放時 SMTC 的 `IsNextEnabled` 為 `False`（用 WinRT 的
   `GlobalSystemMediaTransportControlsSessionManager` 直接讀，不截系統浮出視窗）。
@@ -1766,3 +1785,116 @@ loading 狀態」，程式碼註釋還記著「過去 SMTC 收的是後端原始
 **Phase 4 的驗收線應該重述為：`AudioController` 不再持有任何可以獨立測試的規則。**
 以行數計已經沒有意義 —— 這一輪搬走的 369 行裡，真正的邊界改善（H、Mix、
 `EffectivePlaybackState`）只有 110 行，其餘 259 行是檔案切分與刪死碼。
+
+### 6.9 Phase 1–4 收尾複審（2026-09-06）
+
+commit `eeca7dd5`…`312c803d`。全面複審 Phase 1–4 之後補的五件事。
+`audio_provider.dart` 2,573 → 2,561 行，`player_state.dart` 222 → 163 行。
+測試 1,408 → 1,409（`main` 基準；`feat/phase-5-ui-ux` 另有排行榜的 +2）。
+
+#### 複審確認成立的部分
+
+- **Phase 3 的驗收超標**：`rg "\bisar\.[a-z]|_isar\.[a-z]"` 在 repository 之外
+  從 152 降到 **21**（目標 < 60），而那 21 筆全是 `import 'package:isar_community/isar.dart'`
+  這種 import 行 —— 真正的 `isar.<method>` 呼叫是 **0**。
+- **協作者模式統一**：11 個新檔的形狀一致，跨 6 個協作者共注入 13 個函數參數。
+  11 個裡 10 個在 `lib/services/audio/AGENTS.md` 的 Ownership 有專屬條目。
+- **偏離計劃有寫理由**：Riverpod 3 的 auto-retry，計劃寫「26 個 `FutureProvider`
+  逐一決定」，實際是 `main.dart:192` 一個全域關閉，理由寫在程式碼註釋與
+  `lib/providers/AGENTS.md:81`。
+
+#### 補上的五件事
+
+1. **階段章節從未標記已執行**（`eeca7dd5`）。§6.2–§6.8 共約 600 行執行記錄修正的
+   是階段表的內容，但只有 Phase 2 有「已執行 ＋ 見 §6.3」的回指。Phase 1、3、4
+   沒有，讀者翻到階段表看到的是原計劃，要往下 1,300 行才會知道被推翻過。
+   三個章節補上標記。**Phase 4 的 ≤800 行驗收線改成刪除線 ＋ §6.8 的重述**，
+   並註明本節列出但未開始的兩項（`Notifier` 改寫、`setQueue` / `supportsQueue`）。
+
+2. **文檔說「兩個 request-id 述詞」，實際有三個**（`eeca7dd5`）。
+   `AudioController._navRequestId`（`:76`、`:892-945`）就是一個 raw 計數器，而
+   同一節寫著「不要新增 raw request-id 計數器」。它早於 session（`b9b4d6b2`），
+   守的是 `next()` / `previous()` 在拿到 session id 之前的那段 await 視窗。
+   `AGENTS.md` 補上它，並說明為什麼不併進來。
+
+3. **控制器同時講簡體和繁體**（`1f7cb99b`）。Phase 4 寫了 11 個全繁體的協作者檔，
+   留下的控制器是 190 簡 / 152 繁，相鄰的區塊標題用不同字體。133 行註釋轉繁，
+   **只動註釋**。用語照 `lib/` 既有多數：佇列 86/23、網路 28/8、音訊 31/9、
+   點擊 37/1、回呼 17/5、台 363/0。OpenCC `s2twp` 前五個對、最後一個錯
+   （會轉成「臺」），並且會把「只」誤轉成「隻」—— 兩者一律還原。
+   已經是繁體的註釋一律跳過，否則「回調」會被改成「回撥」。
+
+4. **兩個抽取殘留**（`d240c431`）。`PlaybackHandoffGate.clearStabilizationWindow`
+   在步驟 C 的計劃裡是公開 API，實際接線沒用到，四個呼叫者全在類別內 → 改私有。
+   `onLoadingFinished` 用兩個並列 `if` 測同一個 `result.isSuperseded` → 一個
+   guard ＋ 一個巢狀分支。
+
+5. **★`QueueState` 是投影的第二份副本**（`312c803d`）。這是本次複審最實在的一項。
+
+#### 第 5 項：兩份佇列投影
+
+`QueueState` 的 12 個欄位**全部**同時存在於 `PlayerState`，零個獨有。
+`_updateQueueState()` 一次寫兩份，而 `_createQueueStateFromCurrentState()` 是逐欄位
+從 `state` 抄過去。消費端因此裂成兩邊：
+
+| 讀 `queueStateProvider` | 讀 `PlayerState` |
+|---|---|
+| `queueProvider` `queueVersionProvider` `queueTrackProvider` | `isShuffleEnabledProvider` `loopModeProvider`、`mini_player.dart:329-337`、`player_page.dart:93-100`、`home_page.dart:1124/1173`、`track_detail_panel.dart:756` |
+
+**這個重複早於 Phase 1**（`9f2bed8f:55` 就有 `class QueueState`），Phase 4 沒有製造
+它，只是把它搬進獨立檔案。問題是搬的同時寫了一段程式碼並不支持的理由 ——
+`queue_state.dart` 與 `AGENTS.md` 都說「Deliberately separate from `PlayerState`…
+merging them would rebuild every queue list on the once-a-second position tick」。
+它們不是分開的，是重複的；而且 `PlayerState` 仍帶著 `queue` 與 `upcomingTracks`，
+那個效能理由沒有兌現。`QueueState.copyWith` 的 `clearMixTitle` 當時也沒有呼叫者。
+
+修法採「刪掉舊路徑」而不是改文案：`PlayerState` 的 12 個欄位全部刪除，
+控制器改持有 `QueueState _queueState` 並用 `_emitQueueState()` 單點寫入，
+`_createQueueStateFromCurrentState()` 刪除。新增 `AudioController.queueState`
+唯讀 getter 給不架 container 的呼叫端。選擇器補 `upcomingTracksProvider` 與
+`queueControlStateProvider`（後者讓播放控制列一次讀完五個佇列欄位，
+取代 mini player 原本的五次 `.select`）。
+
+**順手修掉一個時序缺陷**：`toggleShuffle` / `setLoopMode` / `cycleLoopMode` 過去只寫
+`PlayerState`，`queueStateProvider` 要等 `QueueManager.stateStream` 的下一次事件才會
+跟上。現在是同步送出。
+
+`analysis_options.yaml` 排除 `test/**`，所以 `flutter analyze` 全綠時 7 個測試檔仍
+編不過 —— 這個陷阱又踩到一次，唯一的守門是實際跑測試。原本釘住這份重複的測試
+（`queueProvider follows queueStateProvider instead of PlayerState queue`）改寫成
+反向守門 `PlayerState declares none of the queue fields`。
+
+#### 實機驗收（Android，`-no-snapshot-load` 冷開機）
+
+`Medium_Phone`（1080×2400，繁中）：
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| `queueControlStateProvider` 的 shuffle / loop | mini player「順序播放」→ 點一下變「隨機播放」；「單曲循環」→ 點一下變「不循環」。這正是 `toggleShuffle` / `cycleLoopMode` 改成同步送出的那條路徑 |
+| 播放頁讀同一份 | 展開播放頁顯示「隨機播放」「不循環」，與 mini player 一致 |
+| `queueStateProvider.queue` / `currentIndex` | 佇列頁「正在播放第 1 首／共 2 首」＋兩個列項 |
+| `upcomingTracksProvider` | 首頁「接下來播放」渲染佇列裡的兩首 |
+| 脫離佇列分支 | 第三次點選誤中「播放」→ log `isPlayingOutOfQueue: true`，佇列投影與 playingTrack 刻意不一致，兩者各自正確 |
+| `canPlayPrevious` / `canPlayNext` | 脫離佇列且佇列非空 → 上一首／下一首皆 `click=True` |
+
+`Medium_Tablet`（2560×1600 橫向 = 1280dp，英文）：
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| 空佇列的能力投影 | 佇列只有 1 首時 `Previous` / `Next` 為 `click=False`；加到 3 首後翻成 `click=True` |
+| **`track_detail_panel` 的下一首**（只在 desktop 佈局出現，≥1200dp） | 播 JENNIE、佇列有 3 首 → 右側面板渲染 `Next / DECO*27 - 洗脳 feat. 初音未来`，即 `queueStateProvider.upcomingTracks.first` |
+| 佇列頁 | `Now playing #1 / 3 tracks` ＋三個列項 |
+
+**沒能驗到的一項**：`radio_controller.dart:1004` 的
+`_ref.read(queueStateProvider).currentIndex`。這台 AVD 沒有電台，而 Bilibili 整輪
+都在 HTTP 412 `request was banned` 風控狀態（log 可見），加不了直播間，
+電台返回那條路徑構不到。它是同一個值換讀取來源的一行改動，由編譯器覆蓋，
+`queueStateProvider` 本身則由上面每一條驗證證明是活的。
+
+另外，平板上的彈出選單 **uiautomator 取不到**（`orca emulator ax` 完全看不到
+`MenuItem`，截圖裡選單是開著的），要靠截圖定座標再 `adb shell input tap` 驅動。
+這一點記進 `verify-on-device` 的限制。
+
+裝置狀態已還原：兩台的佇列都清空（確認顯示「播放佇列為空」／`Queue is empty`）、
+旋轉設定復原、Orca 終端關閉、`adb emu kill`、`adb devices` 為空且無殘留
+emulator 行程。本輪新增的播放歷史列沒有清除。

@@ -49,23 +49,50 @@ void main() {
       await harness.dispose();
     });
 
-    test(
-        'queueProvider follows queueStateProvider instead of PlayerState queue',
-        () async {
+    test('queueProvider reads the queue projection', () async {
       final firstQueue = [_track('one')];
-      final secondQueue = [_track('two')];
 
       harness.container.read(queueStateProvider.notifier).state =
           QueueState(queue: firstQueue, queueVersion: 1);
       expect(harness.container.read(queueProvider), firstQueue);
 
-      harness.container.read(audioControllerProvider.notifier).state =
-          harness.container.read(audioControllerProvider).copyWith(
-                queue: secondQueue,
-                position: const Duration(seconds: 30),
-              );
+      // 位置每秒更新一次，佇列不該跟著動。
+      harness.container.read(audioControllerProvider.notifier).state = harness
+          .container
+          .read(audioControllerProvider)
+          .copyWith(position: const Duration(seconds: 30));
 
       expect(harness.container.read(queueProvider), firstQueue);
+    });
+
+    test('PlayerState declares none of the queue fields', () {
+      // 這兩個型別曾經各存一份同樣的 12 個欄位，靠 controller 每次逐欄位抄過去
+      // 維持一致。抄漏一個就是一個看不見的 bug，而消費端會因為問了不同的
+      // provider 拿到不同的答案。長回來的話這條會先掛。
+      final source =
+          File('lib/services/audio/player_state.dart').readAsStringSync();
+
+      for (final field in const [
+        'queue',
+        'upcomingTracks',
+        'currentIndex',
+        'queueTrack',
+        'canPlayPrevious',
+        'canPlayNext',
+        'isShuffleEnabled',
+        'loopMode',
+        'queueVersion',
+        'isMixMode',
+        'mixTitle',
+        'isLoadingMoreMix',
+      ]) {
+        expect(
+          source.contains(
+              RegExp('^' + r'\s+final .* ' + field + ';', multiLine: true)),
+          isFalse,
+          reason: 'PlayerState.$field belongs to QueueState',
+        );
+      }
     });
 
     test('controller queue updates publish through queueStateProvider wiring',

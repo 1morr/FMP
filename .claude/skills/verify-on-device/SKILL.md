@@ -164,6 +164,14 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
   clipboard + `KEYCODE_PASTE` (Flutter ignores it). For Chinese-input coverage
   write an `integration_test` and use `WidgetTester.enterText`. Windows is
   unaffected — `orca computer paste-text` handles CJK.
+- **Popup menus do not reach uiautomator on the tablet AVD.** An open
+  `PopupMenuButton` is plainly visible in a screenshot while
+  `orca emulator ax` reports zero `MenuItem` nodes — the tree looks exactly
+  like the menu never opened, so the natural next move (tap the row again) is
+  wrong and plays the track instead. Screenshot first, read the item's pixel
+  centre off it, and drive with `adb shell input tap <x> <y>`. Measured on
+  `Medium_Tablet` (2560x1600); the same menus come back fine on
+  `Medium_Phone`.
 - **No element tree on Windows** (§6).
 - `orca screenshot` (Orca's embedded browser) returns inline base64 and burns
   context. For device pixels always use `adb exec-out screencap -p > file.png`.
