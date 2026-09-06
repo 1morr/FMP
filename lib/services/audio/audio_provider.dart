@@ -168,13 +168,14 @@ class AudioController extends StateNotifier<PlayerState>
       getNextTrack: _nextTrackForPrefetch,
       onLoadingStarted: _startSessionLoadingState,
       onLoadingFinished: (requestId, result) {
-        if (result.isSuperseded) {
-          _handoff.discardPending(
-            requestId: requestId,
-            reason: 'playback request was superseded',
-          );
-        }
-        if (_handoff.isCurrent(requestId) && result.isSuperseded) {
+        if (!result.isSuperseded) return;
+        _handoff.discardPending(
+          requestId: requestId,
+          reason: 'playback request was superseded',
+        );
+        // 閂存還停在這一次請求上時才收投影：被取代的請求如果早就不是控制器
+        // 手上那一次，收 loading 會把新請求的轉圈關掉。
+        if (_handoff.isCurrent(requestId)) {
           state = state.copyWith(isLoading: false);
           _handoff.endRequest();
           _publishCurrentPlaybackState();
