@@ -182,6 +182,14 @@ backend events.
 - `PlayHistoryRecorder` / `LyricsAutoMatchCoordinator` — see Playback Side
   Effects. Deliberately own no `PlayerState`, no queue access, and no rule about
   what counts as a play.
+- `PlaybackErrorPresenter` (`playback_error_presenter.dart`) — everything that
+  follows from the error object alone: skip, retry, and the user-facing
+  wording. Classification and wording sit together on purpose — both are a
+  switch on the same `SourceErrorKind`, and splitting them would leave the
+  next person adding a kind changing only one half. Deliberately owns no
+  `PlayerState`, no queue and no toast: *acting* on the verdict (skipping to
+  the next track, stopping the backend, writing `state.error`) stays with the
+  controller.
 - `MixSessionCoordinator` (`mix_session_coordinator.dart`) — the Mix session
   identity, its seen-video set, the load-more retry loop, and the in-flight
   prefetch future. Deliberately owns neither `PlayerState` nor starting playback:
@@ -364,7 +372,7 @@ Exceeding a budget throws `PlaybackTimeoutException`, **not** `TimeoutException`
 The distinction carries the policy: a budget overrun means FMP chose to stop
 waiting, so it gets one fallback stream and then stops with a message; a
 `TimeoutException` from an adapter is one network hiccup and goes through the
-1/2/4/8/16s ladder. `_isRetryableError` must keep checking
+1/2/4/8/16s ladder. `PlaybackErrorPresenter.isRetryable` must keep checking
 `PlaybackTimeoutException` **before** `TimeoutException`, or every timeout turns
 into five full re-resolutions.
 

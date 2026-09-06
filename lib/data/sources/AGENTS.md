@@ -116,9 +116,11 @@ hosts. Do not detect platforms with substring checks against the raw input URL.
 `BilibiliApiException`, `YouTubeApiException`, and `NeteaseApiException` extend
 `SourceApiException` from `source_exception.dart`.
 
-- `AudioController` catches `on SourceApiException` for unified error handling;
-  `_handleSourceError()` uses `SourceErrorKind` through helpers such as
-  `_shouldSkipSourceError(e)` and checks like `e.kind == SourceErrorKind.rateLimited`.
+- `AudioController` catches `on SourceApiException` for unified error handling.
+  What that error *means* — skip, retry, and the wording the user sees — is
+  `PlaybackErrorPresenter` (`lib/services/audio/playback_error_presenter.dart`),
+  which reads `SourceErrorKind` and nothing else. The controller only decides
+  what to do with the answer.
 - Base getters (`isUnavailable`, `isRateLimited`, `isGeoRestricted`,
   `isVipRequired`) are convenience views over `kind`.
 - Playback toasts must preserve the semantic reason (`cannotPlayReason` /

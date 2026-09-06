@@ -4,34 +4,41 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AudioController source error kind usage', () {
-    test('typed source errors use kind helpers before string fallback', () {
+    /// 這一條只守「字串分類器不准長回來」。分類本身的行為由
+    /// `playback_error_presenter_test.dart` 用真的例外物件釘住 —— 那比比對
+    /// 原始碼字面強，所以原本在這裡的正向簽名斷言已經移過去了。
+    ///
+    /// 掃整個目錄而不是單一檔案：分類器搬到 `playback_error_presenter.dart`
+    /// 之後，只掃 `audio_provider.dart` 的斷言會變成恆真，守門形同解除。
+    test('no playback error is classified by string matching', () {
+      final audioSources = Directory(
+        '${Directory.current.path}/lib/services/audio',
+      ).listSync(recursive: true).whereType<File>().where(
+            (file) => file.path.endsWith('.dart'),
+          );
+      expect(audioSources, isNotEmpty);
+
+      for (final file in audioSources) {
+        final source = file.readAsStringSync();
+        for (final forbidden in const [
+          '_isStringNetworkError',
+          '_isStringMediaOpenError',
+          'bool _isNetworkError(dynamic error)',
+          '_shouldHandleTrackCompleted',
+        ]) {
+          expect(source.contains(forbidden), isFalse,
+              reason: '${file.path} still classifies by string: $forbidden');
+        }
+      }
+    });
+
+    test('the error presenter keeps the kind helpers it was given', () {
       final source =
-          File('lib/services/audio/audio_provider.dart').readAsStringSync();
+          File('lib/services/audio/playback_error_presenter.dart')
+              .readAsStringSync();
 
-      expect(source,
-          contains('bool _shouldRetrySourceError(SourceApiException error)'));
       expect(source, contains('error.kind.isRetryable'));
-      expect(source,
-          contains('bool _shouldSkipSourceError(SourceApiException error)'));
       expect(source, contains('error.kind.shouldSkipTrack'));
-      expect(source, contains('bool _isRetryableError(Object error)'));
-      // 解析層的例外也已型別化：不再有任何字串比對的分類器。
-      expect(source, isNot(contains('_isStringNetworkError')));
-      expect(source, contains('error is SocketException'));
-      expect(source, contains('error is TimeoutException'));
-      expect(
-          source,
-          contains(
-              'if (error is SourceApiException) return error.kind.isRetryable;'));
-      expect(source, isNot(contains('bool _isNetworkError(dynamic error)')));
-
-      // D2：預算逾時不進退避階梯，adapter 的 TimeoutException 才進。兩者
-      // 順序寫反的話，逾時就會變成「重試五次、每次都重新完整解析」。
-      final budgetCheck =
-          source.indexOf('if (error is PlaybackTimeoutException) return false;');
-      final timeoutCheck = source.indexOf('error is TimeoutException');
-      expect(budgetCheck, isNot(-1));
-      expect(budgetCheck, lessThan(timeoutCheck));
     });
 
     test('backend playback events are dispatched by type, not by string', () {

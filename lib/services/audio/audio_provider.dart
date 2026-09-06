@@ -21,6 +21,7 @@ import 'audio_stream_manager.dart';
 import 'playback_recovery_coordinator.dart';
 import 'playback_request_session.dart';
 import 'playback_capabilities.dart';
+import 'playback_error_presenter.dart';
 import 'playback_handoff_gate.dart';
 import 'now_playing_publisher.dart';
 import 'queue_commands.dart';
@@ -47,17 +48,8 @@ class _RetryScheduledException implements Exception {
 class AudioController extends StateNotifier<PlayerState>
     with Logging
     implements PlaybackRetryExecutor {
-  static const _syntheticSourceDiagnostics = <String>{
-    'VIP song, payment required',
-    'No playback rights due to copyright or region restrictions',
-    'Login required',
-    'Playback permission denied',
-    'No stream URL available',
-    'Video unavailable',
-    'Access forbidden (HTTP 403)',
-    'Resource not found (HTTP 404)',
-    'Service temporarily unavailable (HTTP 503)',
-  };
+  /// 失敗分類與文案。無狀態，所以 const 一份就夠。
+  static const _errorPresenter = PlaybackErrorPresenter();
 
   final FmpAudioService _audioService;
   final QueueManager _queueManager;
@@ -194,7 +186,7 @@ class AudioController extends StateNotifier<PlayerState>
     _recoveryCoordinator = PlaybackRecoveryCoordinator(
       retryExecutor: this,
       onRecoveryEvent: _applyRecoveryEvent,
-      isRetryableError: _isRetryableError,
+      isRetryableError: _errorPresenter.isRetryable,
     );
     _bufferWatchdog = BufferStarvationWatchdog(
       onStarved: _onBufferStarvation,
@@ -527,11 +519,11 @@ class AudioController extends StateNotifier<PlayerState>
       // 音源 API 错误：尝试恢复原队列
       logWarning(
           '${e.sourceType} API error for temporary track ${track.title}: ${e.message}');
-      if (_shouldSkipSourceError(e)) {
-        _toastService.showWarning(_sourceCannotPlayMessage(track, e));
+      if (_errorPresenter.shouldSkipTrack(e)) {
+        _toastService.showWarning(_errorPresenter.cannotPlay(track, e));
       } else {
         _toastService
-            .showError(t.audio.playbackFailed(message: _sourceErrorReason(e)));
+            .showError(_errorPresenter.playbackFailed(e));
       }
       if (_temporaryPlayHandler.hasSavedState) {
         await _restoreSavedState();
@@ -1622,7 +1614,7 @@ class AudioController extends StateNotifier<PlayerState>
       logWarning(
           '${e.sourceType} API error for ${track.title}: ${e.message}');
       // 网络错误和超时：走重试逻辑，而非通用错误处理
-      if (_shouldRetrySourceError(e)) {
+      if (_errorPresenter.shouldRetrySource(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
         _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
@@ -1637,7 +1629,7 @@ class AudioController extends StateNotifier<PlayerState>
       logError('Failed to play track: ${track.title}', e, stack);
 
       // Check if original error is retryable
-      if (_isRetryableError(e)) {
+      if (_errorPresenter.isRetryable(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
         _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
@@ -1685,14 +1677,14 @@ class AudioController extends StateNotifier<PlayerState>
   /// 處理音源 API 錯誤的統一邏輯
   Future<void> _handleSourceError(
       Track track, SourceApiException e, PlayMode mode, int requestId) async {
-    final cannotPlayMessage = _sourceCannotPlayMessage(track, e);
-    if (_shouldSkipSourceError(e)) {
+    final cannotPlayMessage = _errorPresenter.cannotPlay(track, e);
+    if (_errorPresenter.shouldSkipTrack(e)) {
       logInfo('Track unavailable (${e.sourceType}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
         _resetLoadingState(requestId: requestId);
         _toastService.showWarning(
-          _sourceCannotPlayMessage(track, e, skipped: true),
+          _errorPresenter.cannotPlay(track, e, skipped: true),
         );
         Future.delayed(const Duration(milliseconds: 300), () {
           if (!_isSessionSuperseded(requestId)) {
@@ -1726,7 +1718,7 @@ class AudioController extends StateNotifier<PlayerState>
       _resetSourceErrorLoadingState(requestId);
       _toastService.showWarning(e.message);
     } else {
-      final message = t.audio.playbackFailed(message: _sourceErrorReason(e));
+      final message = _errorPresenter.playbackFailed(e);
       state = state.copyWith(
         error: message,
         isLoading: false,
@@ -1737,85 +1729,6 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   // ========== 网络重试逻辑 ========== //
-
-  String _sourceCannotPlayMessage(
-    Track track,
-    SourceApiException error, {
-    bool skipped = false,
-  }) {
-    final reason = _sourceErrorReason(error);
-    return skipped
-        ? t.audio.cannotPlaySkippedReason(title: track.title, reason: reason)
-        : t.audio.cannotPlayReason(title: track.title, reason: reason);
-  }
-
-  String _sourceErrorReason(SourceApiException error) {
-    final diagnostic = _sourceDiagnosticOrNull(error);
-    if (diagnostic != null) return diagnostic;
-
-    return switch (error.kind) {
-      SourceErrorKind.unavailable => t.audio.sourceErrorUnavailable,
-      SourceErrorKind.geoRestricted => t.audio.sourceErrorGeoRestricted,
-      SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
-      SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
-      SourceErrorKind.permissionDenied =>
-        error.sourceType == SourceIds.bilibili
-            ? t.audio.sourceErrorBilibiliPermissionDenied
-            : t.audio.sourceErrorPermissionDenied,
-      SourceErrorKind.network => t.audio.sourceErrorNetwork,
-      SourceErrorKind.timeout => t.audio.sourceErrorTimeout,
-      SourceErrorKind.rateLimited => error.message,
-      SourceErrorKind.unknown =>
-        error.message.trim().isNotEmpty ? error.message : t.error.unknownError,
-    };
-  }
-
-  String? _sourceDiagnosticOrNull(SourceApiException error) {
-    final message = error.message.trim();
-    if (message.isEmpty) return null;
-    if (_isLowSignalSourceDiagnostic(error, message)) return null;
-    if (_syntheticSourceDiagnostics.contains(message)) return null;
-    return message;
-  }
-
-  bool _isLowSignalSourceDiagnostic(
-    SourceApiException error,
-    String message,
-  ) {
-    if (message == error.code) return true;
-    return RegExp(r'^-?\d+$').hasMatch(message);
-  }
-
-  bool _shouldRetrySourceError(SourceApiException error) =>
-      error.kind.isRetryable;
-
-  bool _shouldSkipSourceError(SourceApiException error) =>
-      error.kind.shouldSkipTrack;
-
-  /// 「串流解析階段」拋出的例外可不可以重試。
-  ///
-  /// 這裡處理的是 Dart 例外（音源 adapter 或 `MediaHandoff` 拋的），不是後端播
-  /// 放器的事件 —— 後者已由 [PlaybackEndReason] 型別化。判斷一律看型別：
-  ///
-  /// - 音源 adapter 把 dio 的錯誤全部包成 [SourceApiException]（三個 adapter
-  ///   共 22 處 `on DioException catch`），所以 `DioException` 不會逃到這裡；
-  /// - `MediaHandoff` 直接用 `dart:io` 的 `HttpClient`，會拋下面那幾種。
-  bool _isRetryableError(Object error) {
-    // 預算逾時走的是「已經換過一次 fallback 了，停下並通知」，不進退避階梯。
-    // 必須排在 TimeoutException 之前 —— 這一行就是 D2 的決策本身。
-    if (error is PlaybackTimeoutException) return false;
-    if (error is SourceApiException) return error.kind.isRetryable;
-    if (error is SocketException) return true;
-    if (error is HttpException) return true;
-    if (error is TlsException) return true;
-    if (error is TimeoutException) return true;
-
-    // 沒有列舉到的型別一律不重試，但要留下痕跡 —— 靜默地「猜它是網路錯誤」
-    // 正是 issue #41 那類 bug 的來源。看到這行就把該型別補進上面的清單。
-    logWarning(
-        'Unclassified playback error, not retrying: ${error.runtimeType} $error');
-    return false;
-  }
 
   PlayMode get _currentRecoveryMode =>
       _isMixMode ? PlayMode.mix : PlayMode.queue;
