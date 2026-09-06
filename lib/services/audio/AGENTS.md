@@ -182,6 +182,11 @@ backend events.
 - `PlayHistoryRecorder` / `LyricsAutoMatchCoordinator` — see Playback Side
   Effects. Deliberately own no `PlayerState`, no queue access, and no rule about
   what counts as a play.
+- `EffectivePlaybackState` (`effective_playback_state.dart`) — what the
+  backend's own report means once the controller's load phase is taken into
+  account. A pure value, no state, no backend reference: the position is read
+  by the caller and passed in. It exists so the rule above can be tested
+  without a running player.
 - `PlaybackErrorPresenter` (`playback_error_presenter.dart`) — everything that
   follows from the error object alone: skip, retry, and the user-facing
   wording. Classification and wording sit together on purpose — both are a
@@ -246,6 +251,10 @@ do not add new music playback callers for raw URL methods.
   During controller-owned load phases such as queue next/previous URL
   resolution, backend `idle` events from `FmpAudioService.stop()` must not
   overwrite notification `loading` state or clear the next track media item.
+  That correction is `EffectivePlaybackState.from`
+  (`effective_playback_state.dart`), and **both** surfaces are fed from it —
+  SMTC used to receive the backend's raw values, so this rule held on Android
+  only. `effective_playback_state_test.dart` pins it.
 - Volume conversion: `media_kit` uses 0–100, `just_audio` uses 0–1.
 
 Custom types: `audio_types.dart` (backend processing/device types such as

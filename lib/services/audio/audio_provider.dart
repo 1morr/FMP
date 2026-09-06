@@ -15,6 +15,7 @@ import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import 'audio_types.dart';
 import 'buffer_starvation_watchdog.dart';
+import 'effective_playback_state.dart';
 import 'audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'audio_stream_manager.dart';
@@ -2088,34 +2089,26 @@ class AudioController extends StateNotifier<PlayerState>
       return;
     }
 
-    final isBackendIdleDuringControllerLoad = _isLoadingPlayback &&
-        playerState.processingState == FmpAudioProcessingState.idle;
-    final effectiveProcessingState = isBackendIdleDuringControllerLoad
-        ? FmpAudioProcessingState.loading
-        : playerState.processingState;
-    final effectiveIsPlaying =
-        isBackendIdleDuringControllerLoad ? false : playerState.playing;
-    final effectivePosition =
-        _isLoadingPlayback ? Duration.zero : _audioService.position;
+    final effective = EffectivePlaybackState.from(
+      backend: playerState,
+      controllerIsLoading: _isLoadingPlayback,
+      backendPosition: _audioService.position,
+    );
 
     logDebug(
         'PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
     state = state.copyWith(
-      isPlaying: effectiveIsPlaying,
-      isBuffering:
-          effectiveProcessingState == FmpAudioProcessingState.buffering,
-      // 防止播放器状态事件覆盖 URL 获取期间的 loading 状态
-      isLoading: _isLoadingPlayback ||
-          effectiveProcessingState == FmpAudioProcessingState.loading,
-      processingState: effectiveProcessingState,
+      isPlaying: effective.isPlaying,
+      isBuffering: effective.isBuffering,
+      isLoading: effective.isLoading,
+      processingState: effective.processingState,
       error: state.error,
     );
 
     // 重新緩衝屬於 playing 的子狀態：這裡只餵資料，升不升級成失敗由 watchdog 判斷。
     _bufferWatchdog.onPlayerStateChanged(
-      isBuffering:
-          effectiveProcessingState == FmpAudioProcessingState.buffering,
-      isPlaying: effectiveIsPlaying,
+      isBuffering: effective.isBuffering,
+      isPlaying: effective.isPlaying,
       isSuppressed: _isLoadingPlayback ||
           state.isRetrying ||
           state.isNetworkError ||
@@ -2128,9 +2121,9 @@ class AudioController extends StateNotifier<PlayerState>
     // AGENTS.md 那条「控制器拥有的载入阶段，后端 idle 事件不得覆盖
     // loading 状态」只在 Android 通知栏成立 —— 没有理由只保护一个平台。
     _publishPlaybackState(
-      isPlaying: effectiveIsPlaying,
-      position: effectivePosition,
-      processingState: effectiveProcessingState,
+      isPlaying: effective.isPlaying,
+      position: effective.position,
+      processingState: effective.processingState,
     );
   }
 
