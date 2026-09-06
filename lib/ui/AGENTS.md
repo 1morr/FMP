@@ -294,8 +294,9 @@ through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.m
 ## UI Constants
 
 Prefer shared constants from `lib/core/constants/ui_constants.dart` for repeated
-or design-system values: `AppRadius`, `AnimationDurations`, `AppSizes`,
-`ToastDurations`, `DebounceDurations`, `AppShadows`
+or design-system values: `AppRadius`, `AppSpacing` (the 4/8/12/16/24/32 scale),
+`AnimationDurations`, `AppSizes`, `ToastDurations`, `DebounceDurations`,
+`AppShadows`
 (`heroCover(colorScheme)` — the 120x120 hero-cover shadow token), and
 `kGrayscaleColorMatrix` / `kGrayscaleColorFilter` (REC.709 luma grayscale for
 desaturating cover art; the matrix is the testable source of truth, the
@@ -304,6 +305,16 @@ desaturating cover art; the matrix is the testable source of truth, the
 Small local layout/animation literals are fine when they are one-off
 measurements tied to a single widget interaction. Promote them when reused, part
 of the design system, or needed across pages.
+
+Layout sizes live in `lib/core/constants/app_layout.dart` (`AppLayout`), which
+is kept free of Flutter imports so the data and migration layers can share the
+detail-panel bounds with the shell. Rail widths, panel bounds, the pane spacer
+and the player content/cover caps belong there, not in a page.
+
+`AppSpacing` is **not** swept over the existing `EdgeInsets` literals
+(decision 04-D10): a zero-behaviour-change diff across 260 call sites buries
+real changes, and 76% of those values are already on the scale. Use it in new
+code and in files you are already editing.
 
 `AppRadius.borderRadiusXl` and similar values are `static final`, not `const` —
 do not use them in `const` contexts.
@@ -342,10 +353,20 @@ selection mode instead of leaving the page.
 
 ## Player Layout
 
-- `player_page.dart` uses a single-column cover/lyrics toggle on narrow layouts.
-  On desktop widths it shows cover art left and lyrics right; keep track info,
-  progress bar, and playback controls in the left column below the cover so the
-  lyrics column can use the full content height.
+- `player_page.dart` picks between three layouts through the pure
+  `resolvePlayerLayout(size, hasLyrics:)`; keep the decision there rather than
+  inlining conditions in `build`, and test it directly.
+  `narrow` is the single-column cover/lyrics long-press toggle. `wideSplit`
+  puts cover art left and lyrics right — keep track info, progress bar and
+  playback controls in the left column below the cover so the lyrics column can
+  use the full content height. `wideSingle` is a wide window whose track has no
+  lyrics: it reuses the narrow content centred inside
+  `AppLayout.playerContentMaxWide`, because a fixed `flex: 7` lyrics column
+  gave 58% of the screen to one "no lyrics" line. Both dimensions matter — a
+  wide but short window (landscape phone) stays `narrow`.
+  Whether the lyrics pane has anything to show is
+  `lyricsPaneHasContentProvider`; its branches must stay in step with
+  `lyrics_display.dart`, or the layout opens a column that renders empty.
 - Player backgrounds use the current track cover as a single full-page blurred
   backdrop at all widths. Keep the player AppBar transparent and embedded inside
   the same immersive body `Stack`, with only its overlay/drag region above the

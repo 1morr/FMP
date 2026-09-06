@@ -243,6 +243,28 @@ final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
   return LrcParser.mergeSubLyrics(parsed, subText);
 });
 
+/// 歌詞欄現在有沒有東西可以顯示。
+///
+/// 播放頁的寬版版面用它決定要不要開右欄：以前右欄是寫死的 `flex: 7`，於是
+/// 沒有歌詞的曲目會把 58% 的畫面留給一句「暫無歌詞」。
+///
+/// 判斷條件必須跟 `lyrics_display.dart` 的分支一致，否則會出現「開了欄位卻是
+/// 空的」或「明明有歌詞卻沒開欄位」。抓取中與自動匹配中都算有內容 —— 抓完才
+/// 收欄位會讓版面在載入結束的瞬間跳一下。
+final lyricsPaneHasContentProvider = Provider.autoDispose<bool>((ref) {
+  final content = ref.watch(currentLyricsContentProvider);
+  if (content.isLoading) return true;
+
+  final match = ref.watch(currentLyricsMatchProvider).value;
+  if (match == null) return ref.watch(lyricsAutoMatchingProvider);
+
+  // 載入失敗時歌詞欄會畫出錯誤狀態，那也是內容。
+  if (content.hasError) return true;
+
+  final parsed = ref.watch(parsedLyricsProvider);
+  return parsed != null && parsed.isNotEmpty;
+});
+
 int calculateCurrentLyricsLineIndex({
   required ParsedLyrics? lyrics,
   required Duration position,

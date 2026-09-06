@@ -9,10 +9,12 @@ import '../../../data/models/video_detail.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
+import '../../../core/constants/app_layout.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
+import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../providers/library/track_detail_provider.dart';
 import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -35,6 +37,35 @@ import '../../widgets/player/fmp_audio_device_selector.dart';
 import '../../widgets/player/player_play_pause_button.dart';
 import '../../widgets/lyrics/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
+
+/// 播放頁的三種版面。
+enum PlayerLayoutMode {
+  /// 單欄：封面與歌詞長按互相切換。
+  narrow,
+
+  /// 寬版單欄：空間夠，但這首曲目沒有歌詞可放，所以內容置中、封面吃到上限。
+  wideSingle,
+
+  /// 寬版雙欄：左邊封面與控制列，右邊歌詞。
+  wideSplit,
+}
+
+/// [size] 這個視窗、這首曲目該用哪一套播放頁版面。
+///
+/// 兩個維度都要看。只看寬度會讓橫向手機（寬但矮）拿到雙欄版面，而
+/// 六個對照專案裡 FMP 是唯一只看單一維度的；`height >= 520` 抄 Auxio 的
+/// `layout-h520dp`。門檻從 `>= 1200` 降到 [WindowClass.expanded]（840），
+/// 因為 840 開始就放得下封面加歌詞兩欄。
+///
+/// [hasLyrics] 讓比例跟著內容走：以前右欄是寫死的 `flex: 7`，沒有歌詞的曲目
+/// 會把 58% 的畫面留給一句「暫無歌詞」。
+PlayerLayoutMode resolvePlayerLayout(Size size, {required bool hasLyrics}) {
+  final fitsTwoColumns =
+      WindowClass.of(size.width).atLeast(WindowClass.expanded) &&
+          size.height >= AppLayout.playerWideMinHeight;
+  if (!fitsTwoColumns) return PlayerLayoutMode.narrow;
+  return hasLyrics ? PlayerLayoutMode.wideSplit : PlayerLayoutMode.wideSingle;
+}
 
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerStatefulWidget {
@@ -79,8 +110,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     final playbackSpeed = ref.watch(playbackSpeedProvider);
-    final isWideLayout = WindowClass.of(MediaQuery.sizeOf(context).width)
-        .atLeast(WindowClass.large);
+    final layoutMode = resolvePlayerLayout(
+      MediaQuery.sizeOf(context),
+      hasLyrics: ref.watch(lyricsPaneHasContentProvider),
+    );
+    final isWideLayout = layoutMode != PlayerLayoutMode.narrow;
+    // 沒有歌詞時工具列的「搜尋歌詞」反而更需要在，所以這裡看的是版面寬不寬，
+    // 不是右欄開了沒有。
     final showLyricsActions = isWideLayout || _showLyrics;
     final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
     final playerState = ref.watch(
@@ -121,19 +157,31 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       controlsGap: isWideLayout ? 16 : 24,
     );
 
-    final playerContent = isWideLayout
-        ? _buildDesktopPlayerContent(
-            context: context,
-            currentTrack: currentTrack,
-            colorScheme: colorScheme,
-            controlSection: controlSection,
-          )
-        : _buildNarrowPlayerContent(
-            context: context,
-            currentTrack: currentTrack,
-            colorScheme: colorScheme,
-            controlSection: controlSection,
-          );
+    final narrowContent = _buildNarrowPlayerContent(
+      context: context,
+      currentTrack: currentTrack,
+      colorScheme: colorScheme,
+      controlSection: controlSection,
+    );
+    final playerContent = switch (layoutMode) {
+      PlayerLayoutMode.wideSplit => _buildDesktopPlayerContent(
+          context: context,
+          currentTrack: currentTrack,
+          colorScheme: colorScheme,
+          controlSection: controlSection,
+        ),
+      // 寬但沒有歌詞：用同一套單欄內容，置中並收在內容寬度上限內，
+      // 免得標題與進度條在 1700dp 的視窗上橫跨整個螢幕。
+      PlayerLayoutMode.wideSingle => Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppLayout.playerContentMaxWide,
+            ),
+            child: narrowContent,
+          ),
+        ),
+      PlayerLayoutMode.narrow => narrowContent,
+    };
 
     final appBarActions = <Widget>[
       // 添加到歌单
@@ -303,7 +351,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       child: Column(
         children: [
           Expanded(
-            flex: 3,
             child: _buildNarrowMediaSection(
               context,
               currentTrack,
@@ -336,8 +383,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 Expanded(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: _buildCoverArt(context, currentTrack, colorScheme),
+                      constraints: const BoxConstraints(
+                        maxWidth: AppLayout.playerCoverMax,
+                      ),
+                      child:
+                          _buildCoverArt(context, currentTrack, colorScheme),
                     ),
                   ),
                 ),
@@ -422,9 +472,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               onLongPress: () => setState(() => _showLyrics = false),
               showOffsetControls: _showOffsetControls,
             )
-          : GestureDetector(
-              onLongPress: () => setState(() => _showLyrics = true),
-              child: _buildCoverArt(context, track, colorScheme),
+          : Center(
+              child: ConstrainedBox(
+                // 窄版一直沒有上限，於是 800dp 的直向平板上封面撐到 752dp。
+                // 寬版本來就有同一個上限。
+                constraints: const BoxConstraints(
+                  maxWidth: AppLayout.playerCoverMax,
+                ),
+                child: GestureDetector(
+                  onLongPress: () => setState(() => _showLyrics = true),
+                  child: _buildCoverArt(context, track, colorScheme),
+                ),
+              ),
             ),
     );
   }

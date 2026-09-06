@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/radio_station.dart';
+import '../../../core/constants/app_layout.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/number_format_utils.dart';
@@ -55,7 +56,9 @@ class RadioPlayerPage extends ConsumerWidget {
     // 空間不足時 Flexible 會把它壓到實際可用高度。
     final coverIdealSide =
         ((size.height - 48) * 0.52).clamp(280.0, 680.0).toDouble();
-    final contentMaxWidth = isWideLayout ? 720.0 : 420.0;
+    final contentMaxWidth = isWideLayout
+        ? AppLayout.playerContentMaxWide
+        : AppLayout.playerCoverMax;
 
     final appBarActions = <Widget>[
       // 桌面端音頻設備選擇器

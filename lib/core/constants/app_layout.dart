@@ -49,6 +49,13 @@ class AppLayout {
   /// 寬版一直有這個上限，窄版沒有 —— 於是 800dp 的直向平板上封面撐到 752dp。
   static const double playerCoverMax = 420.0;
 
+  /// 播放頁寬版單欄的內容寬度上限。
+  ///
+  /// 電台播放頁本來就用這個值（`isWideLayout ? 720 : 420`），音樂播放頁在
+  /// 沒有歌詞而收成單欄時用同一個 —— 兩個全螢幕播放器共用同一個沉浸式外殼，
+  /// 內容欄寬度不該各寫一個數字。
+  static const double playerContentMaxWide = 720.0;
+
   /// 播放頁切到雙欄所需的最小高度。
   ///
   /// 只看寬度會讓橫向手機（寬但矮）拿到雙欄版面。抄 Auxio 的 `layout-h520dp`。
