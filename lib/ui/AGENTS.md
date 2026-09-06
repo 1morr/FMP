@@ -182,6 +182,14 @@ through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.m
   `enabledHomeRankingSourceOrderProvider` for display order, keep malformed
   empty settings from producing an empty header, and keep the settings UI from
   disabling the final enabled ranking source.
+- **Layout decides how the rankings are arranged, never which ones appear.**
+  `buildHomeRankingLayoutPlan` returns every source that has data, chunked
+  into rows of `rankingColumnsFor(width)`; a source that does not fit wraps
+  to the next row. It used to `take(maxSources)`, which silently hid a source
+  the user had enabled whenever the content container narrowed — opening the
+  detail panel on a 1280dp tablet was enough. No setting caps the number of
+  rankings, so nothing may drop one. Pad the last row to `columns` slots so
+  its cards stay aligned with the row above.
 - Playback auth toggles (`Settings.useAuthForPlay(sourceId)`, one row per
   source) belong in Audio Settings because they control stream resolution
   behavior. Keep Account pages focused on login/account state; do not
@@ -208,7 +216,13 @@ through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.m
   `lib/core/constants/breakpoints.dart`: mobile `< 600dp` (bottom nav), tablet
   `600–1200dp` (side nav), desktop `>= 1200dp` (collapsible side nav + optional
   detail panel). Never hardcode `600`/`1200`; use `Breakpoints.isMobile` /
-  `isTablet` / `isDesktop`. For OS-level desktop checks use `isDesktopPlatform`
+  `isTablet` / `isDesktop`.
+  **Window width and container width are different questions.**
+  `responsive_scaffold.dart` picks the chrome from `MediaQuery` (the window);
+  content inside measures its own `LayoutBuilder` constraints. A 1280dp window
+  hands the ranking section roughly 950dp once the rail and detail panel take
+  their share, so it lands one breakpoint lower than the window does. That is
+  correct — just never let a content-level breakpoint remove content. For OS-level desktop checks use `isDesktopPlatform`
   (`lib/core/utils/platform_utils.dart`) — do not repeat
   `Platform.isWindows || Platform.isMacOS || Platform.isLinux` or
   `defaultTargetPlatform` chains per file.

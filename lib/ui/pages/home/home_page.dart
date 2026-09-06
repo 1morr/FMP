@@ -50,25 +50,57 @@ class HomeRankingSourcePlan {
   }) : tracks = List.unmodifiable(tracks);
 }
 
+/// 首頁排行榜的版面計畫。
+///
+/// [rows] 永遠包含**每一個**有資料的音源。版面只決定它們怎麼排，不決定誰要不要
+/// 出現 —— 這裡原本是 `sources.take(maxSources)`，於是：
+///
+/// - 1280dp 平板上開啟曲目詳情面板後內容區縮到約 868dp，斷點掉到 tablet，
+///   使用者在設定裡開著的第三個音源整個消失（P0-1）；
+/// - 手機上永遠只看得到兩個，而垂直堆疊根本沒有寬度限制。
+///
+/// 沒有任何設定說「最多顯示 N 個排行榜」，那個上限純粹是版面產物。放不下就換到
+/// 下一列，不要把使用者自己開啟的內容藏起來。
 class HomeRankingLayoutPlan {
-  final Axis axis;
-  final List<HomeRankingSourcePlan> sources;
-
   HomeRankingLayoutPlan({
-    required this.axis,
-    required List<HomeRankingSourcePlan> sources,
-  }) : sources = List.unmodifiable(sources);
+    required this.columns,
+    required this.hasCandidateSources,
+    required List<List<HomeRankingSourcePlan>> rows,
+  }) : rows = List.unmodifiable(
+          rows.map(List<HomeRankingSourcePlan>.unmodifiable),
+        );
+
+  /// 一列放幾個。最後一列可能不滿，渲染時要補空欄位維持對齊。
+  final int columns;
+
+  /// 有沒有任何已啟用的音源（即使它們都還沒有資料）。載入中要不要顯示佔位符看
+  /// 這個，看 [sources] 會在第一次載入時把整段藏起來。
+  final bool hasCandidateSources;
+
+  final List<List<HomeRankingSourcePlan>> rows;
+
+  /// 攤平後的所有音源，順序與 `enabledSourceOrder` 一致。
+  List<HomeRankingSourcePlan> get sources =>
+      [for (final row in rows) ...row];
 }
+
+/// 一列放得下幾個排行榜。
+///
+/// 沿用既有斷點，刻意不改任何寬度下的欄數 —— 要修的是「放不下就丟掉」，不是
+/// 「一列放幾個」。
+int rankingColumnsFor(double maxWidth) =>
+    switch (Breakpoints.getLayoutType(maxWidth)) {
+      LayoutType.mobile => 1,
+      LayoutType.tablet => 2,
+      LayoutType.desktop => 3,
+    };
 
 HomeRankingLayoutPlan buildHomeRankingLayoutPlan({
   required double maxWidth,
   required List<String> enabledSourceOrder,
   required Map<String, List<Track>> tracksBySource,
 }) {
-  final layoutType = Breakpoints.getLayoutType(maxWidth);
-  final axis =
-      layoutType == LayoutType.mobile ? Axis.vertical : Axis.horizontal;
-  final maxSources = layoutType == LayoutType.desktop ? 3 : 2;
+  final columns = rankingColumnsFor(maxWidth);
 
   final candidateSources = enabledSourceOrder
       .where(tracksBySource.containsKey)
@@ -82,9 +114,15 @@ HomeRankingLayoutPlan buildHomeRankingLayoutPlan({
   final availableSources =
       candidateSources.where((source) => source.tracks.isNotEmpty).toList();
 
+  final rows = <List<HomeRankingSourcePlan>>[
+    for (var i = 0; i < availableSources.length; i += columns)
+      availableSources.skip(i).take(columns).toList(),
+  ];
+
   return HomeRankingLayoutPlan(
-    axis: axis,
-    sources: availableSources.take(maxSources).toList(),
+    columns: columns,
+    hasCandidateSources: candidateSources.isNotEmpty,
+    rows: rows,
   );
 }
 
@@ -236,21 +274,8 @@ class HomeRankingsSection extends ConsumerWidget {
           enabledSourceOrder: enabledSourceOrder,
           tracksBySource: tracksBySource,
         );
-        final candidateSources = enabledSourceOrder
-            .where(tracksBySource.containsKey)
-            .map(
-              (source) => HomeRankingSourcePlan(
-                id: source,
-                tracks: tracksBySource[source] ?? const <Track>[],
-              ),
-            )
-            .toList();
-        final availableSources = candidateSources
-            .where((source) => source.tracks.isNotEmpty)
-            .toList();
-
-        if (isLoading && availableSources.isEmpty) {
-          if (candidateSources.isEmpty) return const SizedBox.shrink();
+        if (isLoading && plan.sources.isEmpty) {
+          if (!plan.hasCandidateSources) return const SizedBox.shrink();
           return const SizedBox(
             height: 200,
             child: LoadingPlaceholder(),
@@ -259,39 +284,33 @@ class HomeRankingsSection extends ConsumerWidget {
 
         if (plan.sources.isEmpty) return const SizedBox.shrink();
 
-        if (plan.axis == Axis.horizontal) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < plan.sources.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildRankingCard(
-                      context,
-                      colorScheme,
-                      title: SourceIds.displayNameFor(plan.sources[i].id),
-                      tracks: plan.sources[i].tracks,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        }
-
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
-              for (var i = 0; i < plan.sources.length; i++) ...[
-                if (i > 0) const SizedBox(height: 12),
-                _buildRankingCard(
-                  context,
-                  colorScheme,
-                  title: SourceIds.displayNameFor(plan.sources[i].id),
-                  tracks: plan.sources[i].tracks,
+              for (var rowIndex = 0; rowIndex < plan.rows.length; rowIndex++)
+                ...[
+                if (rowIndex > 0) const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 補到 plan.columns 個欄位而不是只放這一列有的，最後一列不
+                    // 滿時才不會把僅有的那個排行榜拉成整列寬、與上一列錯開。
+                    for (var column = 0; column < plan.columns; column++) ...[
+                      if (column > 0) const SizedBox(width: 16),
+                      Expanded(
+                        child: column < plan.rows[rowIndex].length
+                            ? _buildRankingCard(
+                                context,
+                                colorScheme,
+                                title: SourceIds.displayNameFor(
+                                    plan.rows[rowIndex][column].id),
+                                tracks: plan.rows[rowIndex][column].tracks,
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ],
