@@ -379,13 +379,12 @@ gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3�
 
 ---
 
-### Phase 5 — UI / UX（與 Phase 1–4 平行）—— **部分執行（2026-09-06 / 07）**
+### Phase 5 — UI / UX（與 Phase 1–4 平行）—— **已執行（2026-09-06 / 07）**
 
-> 執行時的重核推翻了下表 5a 的兩個計數與 5b、5f 的三條說法，**見 §6.10**。
-> **已完成**：5a 全部四項（P0-1 在 `9557e03f`，P0-2 / P0-3 / P0-4 在
-> `bcb76014` / `609cc41c` / `1c5a4e4d`）＋ 5g（錯誤呈現，`0483bf8b`…`2421f73d`）。
-> **未開始**：5b（token 層）、5c（面板與斷點）、5d（播放頁）、5e（導覽）、
-> 5f（無障礙，因重核縮到只剩兩項）。
+> 執行時的重核推翻了下表 5a 的兩個計數與 5b、5f 的三條說法（**§6.10**），
+> 第二輪又推翻了八條（**§6.11**）。
+> **5a / 5g** 在 `9557e03f`、`bcb76014`…`1c5a4e4d`、`0483bf8b`…`2421f73d`。
+> **5b–5f** 在 `81d8fc1f`…`063a5b73`。Phase 5 到此收尾。
 
 **目標**：修掉「播一首歌就少掉一個內容來源」的 P0、建立 design token 層、把面板與播放頁的版面決策改成有依據的。
 **涉及模組**：`lib/ui/` 全部、`lib/core/constants/ui_constants.dart`。
@@ -395,11 +394,11 @@ gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3�
 | 子階段 | 內容 | 成本 | 依賴 |
 |---|---|---|---|
 | ~~**5a** 止血（先做）~~ **已完成** | ① `home_page.dart:67-69` 改用容器級 `columnsFor(constraints.maxWidth)` —— **一行修法直接消滅 P0-1**（1280dp 平板一播歌就掉一個音源）② `download_manager_page.dart:343-350` 拆開 loading 與 error ③ ~~9 處~~ **10 處** `.when(error:)` 吞錯誤分兩類處理 ④ 桌面歌詞子視窗補「無歌詞」空狀態 | S–M | 無 |
-| **5b** Design token | `AppSpacing`(4/8/12/16/24/32) + `AppLayout`(pane 寬 / rail 寬 / 內容 max-width / grid extent) + `app_theme.dart` 八個 sub-theme 抽成 `_componentThemes(ColorScheme)`（消 85 行重複）+ `AppMotion` | S 建 + M 遷移 | 無。**是 5c/5d 的前置** |
-| **5c** 面板與斷點 | 面板改「像素下限 320 + 比例上限 40% + 預設 `min(412, 視窗寬/4)` + 24dp spacer 含真的 drag handle + 持久化」；斷點補 840dp，並把**視窗級 `WindowClass`** 與**容器級 `columnsFor`** 分開 | M | **Phase 3c**（持久化欄位） |
-| **5d** 播放頁 P-A | 門檻從 `width >= 1200` 改成 `width >= 840 && height >= 520`；比例隨「有無歌詞」變（現在無歌詞時 58% 畫面留給一句「暫無歌詞」）；窄版封面加寬度上限（800dp 平板上現在撐到 742dp） | S–M | 5b |
-| **5e** 導覽 | 底部導覽 6 → 5，「設定」移到首頁右上角或側欄底部 | S | 無 |
-| **5f** 無障礙（最小可行集） | ① `mini_player.dart:145-183` 的手刻 seek bar 改 `Slider` 或包 `Semantics(slider:true)` —— **這是唯一「完全無法操作」的控制項** ② `semanticFormatterCallback` ③ 27 個缺 tooltip 的 `IconButton` ④ 一條 `meetsGuideline` 冒煙測試 | S | 無 |
+| ~~**5b** Design token~~ **已完成** | `AppSpacing`(4/8/12/16/24/32) + `AppLayout`（獨立成 `lib/core/constants/app_layout.dart`，不 import Flutter，資料層才共用得到面板界限）+ `app_theme.dart` 的 `lightTheme`/`darkTheme` 收成一個私有建構器（~~85~~ **實際 −97/+27 行**）。~~+ `AppMotion`~~ **不建**，見 04-D11 | S | 無。**是 5c/5d 的前置** |
+| ~~**5c** 面板與斷點~~ **已完成** | 面板改「像素下限 320 + 比例上限 40% + 24dp spacer 含 drag handle」；~~預設 `min(412, 視窗寬/4)`~~ **不需要**（渲染期的比例夾擠已經等價，見 §6.11）；斷點補 840 / 1600，`WindowClass` 與 `columnsFor` 分開 | M | **Phase 3c**（持久化欄位） |
+| ~~**5d** 播放頁 P-A~~ **已完成** | 門檻改成 `WindowClass.expanded && height >= 520`；比例隨「有無歌詞」變（`lyricsPaneHasContentProvider`）；窄版封面補 `AppLayout.playerCoverMax` | S–M | 5b |
+| ~~**5e** 導覽~~ **已完成** | 底部導覽 6 → 5，「設定」到導覽軌底部（`medium` 以上）＋首頁捲動內容頂端（`compact`） | S | 無 |
+| ~~**5f** 無障礙~~ **已完成（縮到兩項）** | ① `mini_player.dart` 的手刻 seek bar 包 `Semantics(container:, slider:)` ~~② `semanticFormatterCallback` ③ 27 個缺 tooltip 的 `IconButton`~~ **兩條在開工時已經不成立**（§6.10）④ 一條 `meetsGuideline` 冒煙測試 | S | 無 |
 | ~~**5g** 錯誤呈現~~ **已完成** | `ToastService` / `ErrorDisplay` 入口加 `userMessageFor(Object e)`，把已知例外映射成 i18n、未知的統一並把原文寫進 log（~~現在 9 個檔~~ **實際 33 個檔、約 54 個呼叫點**把 `e.toString()` 直接顯示給使用者） | ~~M~~ **L** | 無 |
 
 **驗收**：
@@ -840,6 +839,7 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 | 5 | 04-D3 | 底部導覽 6→5，「設定」搬去哪？ | 最小版本：側欄底部（桌面）+ 首頁右上角（手機） |
 | 5 | 04-D4 / D9 | 首頁方案 / 播放頁方案（**必須一起決定**） | 首頁 **A**、播放頁 **P-A**。C 與 P-C 互斥，兩者都先不做 |
 | 5 | 04-D5 | Design token 做到第幾層？ | 1–3，不做 4 |
+| 5 | **04-D11（新）** | 要不要建 `AppMotion`（曲線 + 時長配對）？ | **不建。** 前提只成立一半：時長早就是 `AnimationDurations`（19 個檔、36 處在用），`lib/ui` 只剩 17 處字面值而其中 10 處在同一個 debug 頁；曲線是 13 處、4 個值（`easeOutCubic` 5 / `easeInOut` 4 / `easeOut` 3 / `easeInCubic` 1）。4 個值 13 處不構成一個 token 層，而換掉曲線是使用者看得見的變更。真的要做的時候正確做法是採 Flutter 內建的 M3 `Easing`，不是再定義一組自己的 |
 | 5 | **04-D10（新）** | `AppSpacing` 要不要全量遷移既有的 312 處 `EdgeInsets`？ | **只建常數，不掃舊碼。** 新程式碼與本來就要動的檔案改用它。全量遷移是零行為變更的巨大 diff，會把真正的改動淹掉，而 76% 的數值本來就落在 4/8/12/16/24/32；「換得動」靠的是 `AppLayout` 與元件 theme，不是把每個 `EdgeInsets` 都換掉 |
 | 5 | 04-D6 | 液態玻璃現在放棄還是留條件？ | 放棄，但記下等待條件（該套件發出 stable 且 pub 平台加上 Windows） |
 | 5 | 04-D7 | 字級鉗制要不要做？ | **不鉗制**，改為修掉三處固定高度 |
@@ -2018,3 +2018,82 @@ youtube: 網路連線失敗`，而完整原文（含 URL）仍在 log 裡。
 網路已恢復。Windows 的 FMP 已 `q` 結束、視窗幾何還原成原本的 640,296 1280x800；
 本輪在這台機器上播過兩首歌，播放佇列與播放歷史因此各多了記錄，未清除。
 過程中誤點開了使用者的記事本設定頁，已導覽回文件，未更動任何設定。
+
+### 6.11 執行時的失效重核（2026-09-07，Phase 5b–5f）
+
+commit `81d8fc1f`…`063a5b73`。測試 1,429 → 1,459。`flutter analyze` 全綠。
+本輪把 Phase 5 剩下的五個子項一次做完，Phase 5 收尾。
+
+#### 八條說法要更正
+
+| # | 原本的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | 5a① 是「改用容器級 `columnsFor(constraints.maxWidth)` —— 一行修法」，已由 `9557e03f` 完成 | **兩處都不對。** `columnsFor` 這個名字**全樹不存在**；`LayoutBuilder` + `constraints.maxWidth` 在 `9557e03f` **之前就有**（`git show 9557e03f^` 可證）。那個 commit 做的是「放不下換行而不是丟掉」＋把 inline 的斷點 switch 抽成具名的 `rankingColumnsFor`，而且註釋明說欄數刻意不改。容器級的「量測」是舊的，容器級的「函式名」是新的，它查的門檻仍然是視窗級的 600/1200 | 5c 要做的分離本輪才做 |
+| 2 | 「312 個 `EdgeInsets`、79 個檔」 | 嚴格的構造呼叫是 **260 處 / 71 檔**（symmetric 99、all 74、only 48、fromLTRB 39）；312 = 260 + 52 個 `EdgeInsets.zero`。**76% 落在 4/8/12/16/24/32 是精確的**（347/457 個數值引數 = 75.9%） | 數字改對，04-D10 不變 |
+| 3 | 5b 要建 `AppMotion`，因為有「13 個 inline `Curves.*`」 | **前提只成立一半。** 時長早就 token 化：`AnimationDurations` 被 19 個檔、36 處使用，`lib/ui` 只剩 17 處字面值而其中 10 處在同一個 debug 頁。曲線確實是 13 處、4 個值 | **不建。** 記為 04-D11 |
+| 4 | 「`app_theme.dart` 逐字重複 71 行」，檔案在 `lib/core/theme/` | 檔案在 **`lib/ui/theme/app_theme.dart`**。重複的不只 71 行：`lightTheme` 與 `darkTheme` 兩個 93 行的函式**全文只差三行**，而其中兩行是同一個 `Brightness`（一次給 `_colorScheme`，一次多餘地給 `ThemeData`） | 不是抽 sub-theme，是整個函式體收成一個私有建構器（−97/+27） |
+| 5 | 04 §5.2：「兩個全螢幕播放頁的主播放／暫停鍵完全沒有語意標籤」 | **已失效。** `PlayerPlayPauseButton` 的四個呼叫點現在都傳了 `tooltip` | 5f 只剩迷你播放器那一條進度條 ＋ 冒煙測試 |
+| 6 | `repairSettingsInvariants` 會「夾住」不合法的面板寬度 | 它是**重設為預設值**，不是夾到邊界（`9999 → 380`），而 `database_migration_test.dart:370` 把這個行為釘住了 | 下限提到 320 時，停在 280–319 的使用者會被重設而不是變成 320 —— 本輪改成 clamp，並補兩條測試 |
+| 7 | — | `LayoutSettingsState.isLoaded` **寫了但全樹沒有人讀** | 刪掉 |
+| 8 | — | `responsive_scaffold.dart` 的註釋說收起寬度是 48/120，程式碼是 **36/54**（還重複了一行）；`Expanded(flex: 2)` 與播放頁的 `Expanded(flex: 3)` 都是各自 `Row`/`Column` 裡唯一的 flex child，flex 值無作用 | 順手改正 |
+
+#### 執行中發現
+
+- **`columnsFor` 的常數不是自由的。** `(w / 400).floor().clamp(1, 3)` 精確重現
+  `home_ranking_sources_test.dart` 現有的四條斷言（1200→3、868→2、800→2、
+  599→1），所以那六條測試一行不改就是這一步的驗收。04 §10.2 提的
+  `idealColumn = 420` 會讓 800→1，直接弄紅測試。**唯一刻意的差異**在容器寬
+  600–799 這一帶：2 欄變 1 欄（兩個 300dp 的排行榜欄位低於卡片的舒適寬度）。
+- **「預設寬度 `min(412, 視窗寬/4)`」不需要存在。** 現有 schema 的
+  `double detailPanelWidth = 380` 不可為 null，沒有「使用者從未選過」的哨兵值，
+  而加一個欄位還會踩 `settings_backup_coverage_static_rule_test.dart`。但加上
+  渲染期的 40% 夾擠之後這個公式就多餘了：存 412、在 840dp 視窗上渲染成 336
+  （= 840 × 0.4），結果與公式一致。**所以不加欄位。**
+- **`AppLayout` 搬進自己的檔案。** 面板界限同時被 UI 層（拖曳與渲染）和資料層
+  （`repairSettingsInvariants`、備份 DTO）讀取，而 `ui_constants.dart` import
+  了 `package:flutter/material.dart`。`lib/core/constants/app_layout.dart` 只
+  import `dart:math`，資料層才共用得到同一組數字，不必再抄一份 280/500。
+- **`Semantics(slider:)` 少了 `container: true` 會併進按鈕節點。** 沒有它，
+  迷你播放器的語意樹上會出現**一個同時是 button 又是 slider、標籤是兩句話黏
+  在一起**的節點（`label: "Open player\nPlayback progress"`）。實際 dump 出來
+  才看到。順帶：`find.bySemanticsLabel` 找不到「不擁有節點」的標註，所以那條
+  測試一開始怎麼寫都找不到東西。
+- **兩條 guideline 都用刻意的回歸驗證過會失敗**：把迷你播放器高度從 64 改成
+  20 → `androidTapTargetGuideline` 紅；拿掉 `label:` → `labeledTapTargetGuideline`
+  紅。不是「跑起來是綠的」就算數。
+
+#### 實機驗收（Android 模擬器）
+
+`Medium_Phone`（411dp）與 `Medium_Tablet`（1280×800dp，並用
+`adb shell wm size` + 重啟 App 覆蓋其餘級距）。**本輪沒有 Windows 專屬的改動**，
+`_ExpandedLayout` 由寬度斷點選出、與平台無關，所以只驗 Android。
+
+| 視窗 | WindowClass | 觀察到什麼 |
+|---|---|---|
+| 411 × 914 | `compact` | 底部導覽**五個**分頁（`第 N 個分頁 (共 5 個)`），沒有「設定」；首頁右上角的「設定」按鈕進得去設定頁，而且**高亮留在首頁**；迷你播放器的進度條在 uiautomator 上是 `android.widget.SeekBar`、`focusable=true`、`content-desc="0:52, 播放進度"` —— 改動前這個節點**完全不存在** |
+| 720 × 600 | `medium` | 固定 72dp 導覽軌、無收合鍵、無面板（不變）；排行榜 1 欄（容器 648dp），三個音源全在 |
+| 900 × 700 | `expanded`（**新的一段**） | 可收合導覽軌 ＋ 軌底的設定鍵 ＋ 右側 36dp 的面板收合條 —— 這一帶以前**完全拿不到面板**；排行榜 2 欄 |
+| 1280 × 800 | `large` | 排行榜 3 欄；把把手拖到底停在 **512dp = 1280 × 0.4**（舊模型是絕對值 500）；面板吃到 512dp 之後內容區 672dp、排行榜收成 1 欄而**三個音源一個都沒有消失**；沒有歌詞的曲目播放頁是**單欄置中**（舊版會把 58% 畫面留給一句「暫無歌詞」） |
+| 1700 × 800 | `extraLarge` | 面板上限 **682dp ≈ 1700 × 0.4**（舊模型仍是 500，只佔 29%）；面板拖到底時排行榜 2 欄，三個音源全在 —— 這正是路線圖驗收要的「1700 + 面板拖到上限，排行榜不變」 |
+| 1200 × 500 | `large` 但矮 | 播放頁**維持單欄**。舊的 `width >= 1200` 會在這裡給雙欄；`height >= 520` 擋掉了（抄 Auxio 的 `layout-h520dp`） |
+
+持久化：既有安裝（有舊資料庫）保留存下來的 380dp 與展開狀態；
+`pm clear` 之後的全新安裝，面板是 36dp 的收合條 —— 決策 04-D2 的「預設收起」
+只作用於新建的列，既有使用者的選擇沒有被改寫。
+
+#### 順帶發現的一個既有缺陷（本輪不修）
+
+1200 × **500dp** 時收合的導覽軌會 `OVERFLOWED BY 64` 像素。量到的每個目的地
+高 64dp：新的軌需要 5 × 64 + 56（設定鍵）+ 65（漢堡鍵與分隔線）= 441dp，
+舊的六個目的地需要 6 × 64 + 65 = 449dp，而可用高度是 500 − 64（迷你播放器）
+− 24（狀態列）= 412dp。**兩者都放不下，新的還少 8dp**，所以這是矮視窗的既有
+問題而不是本輪造成的。它屬於 P1-2 那一類（固定高度遇上空間不足），本輪沒有
+處理短視窗，照實記在這裡。
+
+#### 驗不到的
+
+`detailPanelStoredMax`（1600）只有在手改資料庫或匯入壞掉的備份時才碰得到，
+裝置上沒有誘發路徑；它只有單元測試覆蓋（`database_migration_test.dart` 三條）。
+
+裝置狀態：模擬器已 `adb emu kill`，`adb devices` 為空，無殘留行程，
+`wm size` 已 `reset`。**本輪沒有動使用者的 Windows 機器。**

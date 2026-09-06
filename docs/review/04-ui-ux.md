@@ -146,6 +146,12 @@ static const double tablet = 1200;  // 600–1199 → tablet；>= 1200 → deskt
 
 ### 1.3 尺寸常數集中度：只有一半【事實】
 
+> **已失效（2026-09-07）**：`AppSpacing` 與 `AppLayout` 已建立（後者在
+> `lib/core/constants/app_layout.dart`，刻意不 import Flutter）。下面的
+> `EdgeInsets` 計數也要更正：嚴格的構造呼叫是 260 處 / 71 檔，312 是把
+> `EdgeInsets.zero` 也算進去的數字。`AppMotion` **決定不建**（04-D11）。
+> 見 `05-roadmap.md` §6.11。
+
 `lib/core/constants/ui_constants.dart` 提供 `AppRadius`(7 階)、`AnimationDurations`(6 階)、`AppSizes`(7 個)、`ImageTargetSizes`(6 階)、`ToastDurations`、`DebounceDurations`、`AppShadows`(1 個)、灰階矩陣。
 
 沒有提供、因此散落在各檔的：
@@ -182,6 +188,10 @@ static const double _maxPanelWidth = 500.0;
 
 ### 2.2 「上限 50%」不存在【事實】
 
+> **已修正（2026-09-07）**：上限改成視窗寬的 40%（`AppLayout.detailPanelMaxFor`），
+> 下限 320dp，拖曳與渲染共用同一個界限。實機量到 1280dp 視窗上限 512dp、
+> 1700dp 上限 682dp。見 `05-roadmap.md` §6.11。
+
 `_maxPanelWidth = 500.0` 是**絕對像素**，與視窗寬度無關。實際佔比：
 
 | 視窗寬 | 面板 500dp 佔比 |
@@ -203,6 +213,9 @@ static const double _maxPanelWidth = 500.0;
 同一份 `State` 還有另外幾個「應該記住但沒記」的欄位（`lyrics_window.dart:198,202,203` 的 `_alwaysOnTop` / `_transparentMode` / `_singleLineMode`；`player_page.dart:71` 與 `track_detail_panel.dart:97` 各自一份 `_showLyrics`）。
 
 ### 2.4 拖動把手的可用性【事實 ＋ 推論】
+
+> **已修正（2026-09-07）**：spacer 從 6dp 改成 M3 規定的 24dp，中間放了一個
+> 實際可見的 drag handle。見 `05-roadmap.md` §6.11。
 
 - 命中區只有 **6dp 寬**（`:406`），視覺上只有 **1dp** 的線。M3 規定 large / extra-large 佈局的 pane spacer 是 **24dp**，且「如果 pane 可以調整大小，spacer 內要放一個 drag handle」。FMP 的 6dp 沒有任何 drag handle 圖形。
 - **只有 hover 游標會變**，沒有任何靜態視覺提示。**【推論】** 觸控／鍵盤使用者無從發現這條線可以拖；6dp 也遠低於任何觸控目標建議值。
@@ -268,6 +281,9 @@ return LayoutBuilder(builder: (context, constraints) {
 
 ### 3.3 底部導覽 6 個目的地【事實】
 
+> **已修正（2026-09-07）**：改成五個，「設定」移到導覽軌底部與首頁捲動內容
+> 頂端。見 `05-roadmap.md` §6.11。
+
 `responsive_scaffold.dart:28-58` 定義 6 個 `NavDestination`：首頁／搜尋／佇列／音樂庫／電台／設定。
 
 M3 Navigation bar guidelines（`m3.material.io/components/navigation-bar/guidelines`）：
@@ -293,6 +309,10 @@ Android 411dp 實測（`and-03-search-empty.png`）：可見的是「All Sources
 `SizedBox(height: 40)` 是寫死的行高；配合 §5.3 的「全 App 不限制字級」，放大系統字體時 chip 會被垂直裁切。
 
 ### 3.6 播放頁的版面：一個 bool 切兩套，中間 600dp 沒有著落【事實，已實測】
+
+> **已修正（2026-09-07）**：門檻改成 `WindowClass.expanded && height >= 520`，
+> 比例隨「有沒有歌詞」變，窄版封面補上 420dp 上限。
+> 見 `05-roadmap.md` §6.11。
 
 播放頁只有兩套版面，由**單一布林值**決定（`player_page.dart:81-82,127`）：
 
@@ -514,11 +534,19 @@ rg 'meetsGuideline|AccessibilityGuideline|textContrastGuideline|androidTapTarget
 
 ### 6.2 主題實作是兩份幾乎相同的巨大字面值【事實】
 
+> **已修正（2026-09-07）**：兩個函式收成一個私有建構器（−97/+27 行）。檔案在
+> `lib/ui/theme/app_theme.dart`（不是 `lib/core/theme/`），而兩份的差異其實只有
+> 三行、其中兩行是同一個 `Brightness`。見 `05-roadmap.md` §6.11。
+
 `app_theme.dart` 共 296 行，`lightTheme()`（`:105-195`）與 `darkTheme()`（`:198-288`）**逐字重複約 85 行**：appBarTheme、cardTheme、listTileTheme、navigationBarTheme、navigationRailTheme、navigationDrawerTheme、inputDecorationTheme、sliderTheme 八個 sub-theme 在兩個函式裡一模一樣，唯一差別是 `brightness` 與 `_colorScheme` 的參數。
 
 **【推論】** 這代表**沒有 component token 層**：元件外觀直接寫在兩個 `ThemeData` 字面值裡，任何一次視覺調整都要改兩個地方且無法保證同步。
 
 ### 6.3 token 層的實際覆蓋率【事實】
+
+> **部分失效（2026-09-07）**：間距與版面尺寸兩層已經建立；動效層
+> **決定不建**，理由是時長早就是 `AnimationDurations`（19 個檔在用），
+> 曲線只有 13 處 4 個值（04-D11）。見 `05-roadmap.md` §6.11。
 
 | Token 類別 | 有沒有 | 證據 |
 |---|---|---|
@@ -611,7 +639,7 @@ Opacity(
 
 | # | 問題 | 證據 | 影響 |
 |---|---|---|---|
-| **P1-1** | 無障礙近乎為零：`lib/ui` 只有 2 個 `Semantics(`、0 個 `semanticLabel:`；迷你播放器 seek bar 是裸 `GestureDetector` | §5.1–5.2 | 讀屏使用者無法操作播放進度，曲目列在語意樹上是一個沒有角色的 `ImageView` |
+| **P1-1** | 無障礙近乎為零：`lib/ui` 只有 2 個 `Semantics(`、0 個 `semanticLabel:`；迷你播放器 seek bar 是裸 `GestureDetector` | §5.1–5.2 | 讀屏使用者無法操作播放進度，曲目列在語意樹上是一個沒有角色的 `ImageView`。**部分修正（2026-09-07）**：seek bar 現在是 slider 節點、兩個迷你播放器有按鈕標籤，並有第一條 `meetsGuideline` 測試；曲目列的 `MergeSemantics` 仍未做 |
 | **P1-2** | 全 App 不限制系統字級，且有 3 處固定高度直接包 `Text` | §5.3 | 放大字級時電台頁與匯入對話框的文字會被垂直裁切 |
 | **P1-3** | Detail Panel 寬度／展開狀態／導覽軌展開狀態都不持久化 | `responsive_scaffold.dart:202-206` ＋ `Settings` model 無對應欄位 | 每次開 App 都要重調 |
 | **P1-4** | Detail Panel 上限是絕對值 500dp | `responsive_scaffold.dart:206` | 1200dp 視窗吃掉 42% 主內容；3440dp 只剩 14.5%，方向與需求相反 |
