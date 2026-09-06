@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/lyrics_match.dart';
 import '../../data/models/settings.dart';
 import '../../data/repositories/lyrics_repository.dart';
@@ -440,10 +441,13 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       // 检查是否被新的搜索取代
       if (!mounted || requestId != _searchRequestId) return;
       state = state.copyWith(isLoading: false, results: results);
-    } catch (e) {
+    } catch (e, stack) {
       // 检查是否被新的搜索取代
       if (!mounted || requestId != _searchRequestId) return;
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: failureMessage(e, stack, 'Lyrics search failed', tag: 'Lyrics'),
+      );
     }
   }
 

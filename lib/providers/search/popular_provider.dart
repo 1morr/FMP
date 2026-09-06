@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/errors/user_message.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
@@ -119,10 +120,11 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
         tracksByCategory: {...state.tracksByCategory, category: tracks},
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'Loading the popular list failed',
+            tag: 'Popular'),
       );
     }
   }
@@ -224,10 +226,11 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
         tracksByCategory: {...state.tracksByCategory, category: tracks},
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'Loading the popular list failed',
+            tag: 'Popular'),
       );
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/live_room.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
@@ -288,13 +289,13 @@ class SearchNotifier extends StateNotifier<SearchState> {
         currentPages: pages,
         error: onlineResult.error,
       );
-    } catch (e) {
+    } catch (e, stack) {
       // 检查是否被新的搜索取代
       if (!mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'search failed', tag: 'Search'),
       );
     }
   }
@@ -372,7 +373,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         currentPages: updatedPages,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isSearchStateCurrent(
         requestId: requestId,
         query: query,
@@ -384,7 +385,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'loadMore failed', tag: 'Search'),
       );
     }
   }
@@ -491,7 +492,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         currentPages: updatedPages,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isSearchStateCurrent(
         requestId: requestId,
         query: query,
@@ -503,7 +504,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'loadMoreAll failed', tag: 'Search'),
       );
     }
   }
@@ -653,13 +654,14 @@ class SearchNotifier extends StateNotifier<SearchState> {
         liveRoomPage: 1,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       // 检查是否被新的搜索取代
       if (!mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'searchLiveRooms failed',
+            tag: 'Search'),
       );
     }
   }
@@ -711,7 +713,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         liveRoomPage: nextPage,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isSearchStateCurrent(
         requestId: requestId,
         query: query,
@@ -723,7 +725,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'loadMoreLiveRooms failed',
+            tag: 'Search'),
       );
     }
   }

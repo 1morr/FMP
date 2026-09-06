@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/playlist_import/playlist_import_source.dart';
 import '../../data/sources/source_provider.dart';
@@ -172,13 +173,14 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
         _activeImportOperationId = null;
       }
       return;
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isImportOperationCurrent(operationId)) return;
 
       state = state.copyWith(
         isLoading: false,
         phase: ImportPhase.error,
-        errorMessage: e.toString(),
+        errorMessage:
+            failureMessage(e, stack, 'Playlist import failed', tag: 'Import'),
       );
       _activeImportOperationId = null;
     }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_riverpod/misc.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/import/import_service.dart';
 import '../../data/repositories/playlist_mutation_repository.dart';
@@ -143,24 +144,26 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
       );
       _activeOperationId = null;
       return result;
-    } on ImportException catch (error) {
+    } on ImportException catch (error, stack) {
       if (!_isActiveOperation(operationId)) {
         return null;
       }
       state = state.copyWith(
         isImporting: false,
-        errorMessage: error.toString(),
+        errorMessage: failureMessage(error, stack, 'Playlist import failed',
+            tag: 'Import'),
         wasCancelled: false,
       );
       _activeOperationId = null;
       rethrow;
-    } catch (error) {
+    } catch (error, stack) {
       if (!_isActiveOperation(operationId)) {
         return null;
       }
       state = state.copyWith(
         isImporting: false,
-        errorMessage: error.toString(),
+        errorMessage: failureMessage(error, stack, 'Playlist import failed',
+            tag: 'Import'),
         wasCancelled: false,
       );
       _activeOperationId = null;

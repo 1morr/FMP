@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
@@ -112,8 +113,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         coverChanged: false,
       );
       return playlist;
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
+    } catch (e, stack) {
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'createPlaylist failed',
+            tag: 'Playlist'),
+      );
       return null;
     }
   }
@@ -149,8 +153,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
           );
       _ref.read(fileExistsCacheProvider.notifier).clearAll();
       return result;
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
+    } catch (e, stack) {
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'updatePlaylist failed',
+            tag: 'Playlist'),
+      );
       return null;
     }
   }
@@ -167,8 +174,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
+    } catch (e, stack) {
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'deletePlaylist failed',
+            tag: 'Playlist'),
+      );
       return false;
     }
   }
@@ -187,8 +197,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         coverChanged: true,
       );
       return playlist;
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
+    } catch (e, stack) {
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'duplicatePlaylist failed',
+            tag: 'Playlist'),
+      );
       return null;
     }
   }
@@ -326,9 +339,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
           error: t.importSource.playlistNotFound,
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return;
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: failureMessage(e, stack, 'loadPlaylist failed',
+            tag: 'Playlist'),
+      );
     }
   }
 
@@ -352,9 +369,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       } else {
         state = state.copyWith(isLoadingMore: false);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return;
-      state = state.copyWith(isLoadingMore: false, error: e.toString());
+      state = state.copyWith(
+        isLoadingMore: false,
+        error: failureMessage(e, stack, 'loadMore failed',
+            tag: 'Playlist'),
+      );
     }
   }
 
@@ -394,11 +415,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         tracks: result.tracks,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return;
+      final reason =
+          failureMessage(e, stack, 'loadMixTracks failed', tag: 'Playlist');
       state = state.copyWith(
         isLoading: false,
-        error: '${t.importSource.mixLoadFailed}: $e',
+        error: '${t.importSource.mixLoadFailed}: $reason',
       );
     }
   }
@@ -448,11 +471,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return false;
       // 回滚
       await loadPlaylist();
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'addTrack failed',
+            tag: 'Playlist'),
+      );
       return false;
     }
   }
@@ -476,11 +502,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return false;
       // 回滚
       await loadPlaylist();
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'removeTrack failed',
+            tag: 'Playlist'),
+      );
       return false;
     }
   }
@@ -508,11 +537,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return false;
       // 回滚
       await loadPlaylist();
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'removeTracks failed',
+            tag: 'Playlist'),
+      );
       return false;
     }
   }
@@ -536,11 +568,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
-    } catch (e) {
+    } catch (e, stack) {
       if (!mounted) return false;
       // 回滚
       await loadPlaylist();
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(
+        error: failureMessage(e, stack, 'reorderTracks failed',
+            tag: 'Playlist'),
+      );
       return false;
     }
   }

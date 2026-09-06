@@ -187,10 +187,12 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
       if (mounted) {
         Navigator.pop(context, (added, removed));
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Syncing downloaded files failed', e, stack, 'Downloaded');
       if (mounted) {
         setState(() {
-          _status = t.library.downloadedPage.syncFailed(error: e.toString());
+          _status =
+              t.library.downloadedPage.syncFailed(error: userMessageFor(e));
           _isComplete = true;
         });
       }

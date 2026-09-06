@@ -122,7 +122,10 @@ void main() {
 
     expect(notifier.state.isLoading, isFalse);
     expect(notifier.state.detail, isNull);
-    expect(notifier.state.error, contains('blocked'));
+    // `state.error` 被 UI 直接畫成文字，所以它現在是翻譯過的一句話，不是例外
+    // 原文（原文進 log）。斷言改成「有錯誤，而且不是原文」。
+    expect(notifier.state.error, isNotNull);
+    expect(notifier.state.error, isNot(contains('blocked')));
   });
 
   test('refresh retries current track after first detail load fails', () async {
@@ -147,7 +150,8 @@ void main() {
     await loadFuture;
 
     expect(notifier.state.detail, isNull);
-    expect(notifier.state.error, contains('blocked'));
+    expect(notifier.state.error, isNotNull);
+    expect(notifier.state.error, isNot(contains('blocked')));
 
     final refreshFuture = notifier.refresh();
     await pumpEventQueue(times: 2);
@@ -187,11 +191,10 @@ void main() {
 
     await notifier.loadDetail(track);
 
+    // 這一條測的是「沒有靜默退回本地 metadata」，不是錯誤文案的內容 ——
+    // 後者現在是翻譯過的句子，內部診斷只留在 log。
     expect(notifier.state.detail, isNull);
-    expect(
-      notifier.state.error,
-      contains('Track detail source not registered: bilibili'),
-    );
+    expect(notifier.state.error, isNotNull);
   });
 
   test('loadDetail falls back to metadata for registered source StateError',

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/download_filenames.dart';
+import '../../core/errors/user_message.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../data/sources/source_capabilities.dart';
@@ -92,11 +93,12 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
-          error: e.toString(),
+          error: failureMessage(e, stack, 'Loading the track detail failed',
+              tag: 'TrackDetail'),
         );
       }
     }
@@ -162,11 +164,12 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
-          error: e.toString(),
+          error: failureMessage(e, stack, 'Loading the track detail failed',
+              tag: 'TrackDetail'),
         );
       }
     }

@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../data/models/source_ids.dart';
 import '../../data/sources/source_exception.dart';
 import '../../i18n/strings.g.dart';
+import '../logger.dart';
 
 /// 音源 adapter 對這幾種情況會回一句固定的英文診斷。它們不比 kind 對應的翻譯
 /// 更有資訊量，卻會讓使用者看到一句沒翻譯的英文，所以一律當作「沒有診斷」。
@@ -62,6 +63,24 @@ String userMessageFor(Object error) => switch (error) {
       PathAccessException() => t.error.noPermission,
       _ => t.error.unknownError,
     };
+
+/// 記錄一個例外，並回傳要放進 `state.error` 給 UI 渲染的那一句。
+///
+/// provider 的 `state.error` 會被直接畫成文字，所以存進去的必須是翻譯過的句子；
+/// 原文與 stack 進 log。這兩件事在既有程式碼裡沒有一次是分開改的 —— 把它們綁在
+/// 同一次呼叫，就不會有人只做了映射而讓原文從 log 消失。
+///
+/// [what] 是 log 用的一句英文描述，通常是失敗的那個動作。toast 的對應入口是
+/// `ToastService.failure`。
+String failureMessage(
+  Object error,
+  StackTrace stackTrace,
+  String what, {
+  String? tag,
+}) {
+  AppLogger.error(what, error, stackTrace, tag);
+  return userMessageFor(error);
+}
 
 String? _diagnosticOrNull(SourceApiException error) {
   final message = error.message.trim();

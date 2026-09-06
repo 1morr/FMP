@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/playlist.dart';
 import '../../services/import/import_service.dart';
 import '../../data/repositories/playlist_mutation_repository.dart';
@@ -214,22 +215,24 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       );
 
       return result;
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isRefreshGenerationCurrent(playlistId, generation)) return null;
+      final reason = failureMessage(e, stack, 'Refreshing a playlist failed',
+          tag: 'Refresh');
       final refreshState = state.getRefreshState(playlistId);
       if (refreshState == null) return null;
       _updatePlaylistState(
         playlistId,
         refreshState.copyWith(
           status: ImportStatus.failed,
-          error: e.toString(),
+          error: reason,
         ),
       );
 
       // 使用 ToastService 显示错误提示
       final toastService = _ref.read(toastServiceProvider);
       toastService.showError(
-          t.refreshProvider.failed(name: playlist.name, error: e.toString()));
+          t.refreshProvider.failed(name: playlist.name, error: reason));
 
       _schedulePlaylistStateRemoval(
         playlistId,
