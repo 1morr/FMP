@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/user_message.dart';
 import '../../../data/models/download_task.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download/download_provider.dart';
@@ -89,9 +90,12 @@ class DownloadManagerPage extends ConsumerWidget {
       ),
       body: tasksAsync.when(
         loading: () => const LoadingPlaceholder(),
-        error: (error, stack) => Center(
-            child:
-                Text(t.settings.downloadManager.loadFailed(error: '$error'))),
+        error: (error, stack) => ErrorDisplay(
+          type: ErrorType.general,
+          message: t.settings.downloadManager
+              .loadFailed(error: userMessageFor(error)),
+          onRetry: () => ref.invalidate(downloadTasksProvider),
+        ),
         data: (tasks) {
           if (tasks.isEmpty) {
             return ErrorDisplay.empty(
@@ -340,9 +344,12 @@ class _DownloadTaskTile extends ConsumerWidget {
     final downloadedBytes = effectiveProgress.$2;
     final totalBytes = effectiveProgress.$3;
 
-    final title = trackAsync.maybeWhen(
+    // loading 與 error 不能收斂成同一個字串：查詢永久失敗的那一列會一直顯示
+    // 「載入中…」，使用者永遠不知道它壞了（04 報告 P0-2）。
+    final title = trackAsync.when(
       data: (track) => track?.title ?? t.settings.downloadManager.unknownTrack,
-      orElse: () => t.general.loading,
+      loading: () => t.general.loading,
+      error: (_, _) => t.settings.downloadManager.trackLoadFailed,
     );
     final artist = trackAsync.maybeWhen(
       data: (track) => track?.artist ?? '',

@@ -203,6 +203,7 @@
     "failed": "Failed",
     "completed": "Completed",
     "unknownTrack": "Unknown track",
+    "trackLoadFailed": "Track info unavailable",
     "pause": "Pause",
     "resume": "Resume",
     "retry": "Retry",

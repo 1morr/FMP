@@ -203,6 +203,7 @@
     "failed": "失败",
     "completed": "已完成",
     "unknownTrack": "未知歌曲",
+    "trackLoadFailed": "曲目信息读取失败",
     "pause": "暂停",
     "resume": "继续",
     "retry": "重试",
