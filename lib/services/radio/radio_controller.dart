@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/errors/user_message.dart';
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
@@ -518,7 +519,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       state = state.copyWith(
         isLoading: false,
         clearLoadingStationId: true,
-        error: t.radio.playFailed(error: e.toString()),
+        error: t.radio.playFailed(error: userMessageFor(e)),
       );
       _activePlayRequestId = null;
     }

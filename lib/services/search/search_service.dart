@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/search_history.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
@@ -109,8 +110,12 @@ class SearchService {
             );
             results[type] = result;
           }
-        } catch (e) {
-          errors.add('$type: ${e.toString()}');
+        } catch (e, stack) {
+          // 這一行的產物會整段畫進搜尋頁的 ErrorDisplay，所以不能是例外原文
+          // —— 實機上它曾經顯示一整條含 URL 的 ClientException。
+          final reason = failureMessage(e, stack, 'Searching $type failed',
+              tag: 'Search');
+          errors.add('$type: $reason');
         }
       }),
     );

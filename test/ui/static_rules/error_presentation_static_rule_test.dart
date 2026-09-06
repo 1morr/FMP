@@ -36,6 +36,35 @@ void main() {
           reason: 'use ErrorDisplay(compact: true) with a retry instead');
     });
 
+    test('no i18n error template is filled with raw exception text', () {
+      // `t.x.loadFailed(error: ...)` 翻譯的是外面那幾個字，`error:` 收到什麼就
+      // 原樣顯示什麼。這條掃整個 `lib/`，不只 `lib/ui` —— 實機驗收時搜尋頁
+      // 顯示了一整條含 URL 的 ClientException，來源在 `lib/services` 裡，
+      // 只掃 UI 的規則看不到它。
+      final offenders = <String>[];
+      final template = RegExp(r't\.[A-Za-z0-9_.]+\(\s*error:[^)]*\)');
+      final raw = RegExp(
+        r"\b(e|err|error|exception)\.toString\(\)"
+        r"|\$\{?(e|error)\}?(?![A-Za-z0-9_])",
+      );
+
+      for (final file in Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))) {
+        if (file.path.contains('i18n')) continue;
+        final source = file.readAsStringSync();
+        for (final call in template.allMatches(source)) {
+          if (raw.hasMatch(call.group(0)!)) {
+            offenders.add('${file.path}: ${call.group(0)}');
+          }
+        }
+      }
+
+      expect(offenders, isEmpty,
+          reason: 'pass userMessageFor(e) into the template, not the exception');
+    });
+
     test('no raw exception text is handed to a user-facing widget', () {
       // P1-7：`Exception: <伺服器原文>` 不該出現在畫面上。原文走 AppLogger，
       // 畫面走 userMessageFor。

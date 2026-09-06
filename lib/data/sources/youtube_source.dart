@@ -508,7 +508,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -554,7 +554,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -607,7 +607,7 @@ class YouTubeSource
           }
         }
       } catch (e) {
-        final sourceError = _classifyStreamFallbackError(e);
+        final sourceError = _classifySourceError(e);
         if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
           throw sourceError;
         }
@@ -777,7 +777,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -822,7 +822,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -873,7 +873,7 @@ class YouTubeSource
           }
         }
       } catch (e) {
-        final sourceError = _classifyStreamFallbackError(e);
+        final sourceError = _classifySourceError(e);
         if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
           throw sourceError;
         }
@@ -1011,10 +1011,14 @@ class YouTubeSource
         );
       }
       logError('YouTube search failed for query: "$query"', e, st);
-      throw YouTubeApiException(
-        code: 'search_error',
-        message: 'Search failed: $e',
-      );
+      // `message` 會被 `sourceErrorReason` 當成「adapter 給的診斷」原樣顯示給
+      // 使用者，所以不能是 `$e`。實機驗收時搜尋頁曾經整條印出
+      // `ClientException with SocketException ... uri=https://...`。
+      throw _classifySourceError(e) ??
+          YouTubeApiException(
+            code: 'search_error',
+            message: t.error.unknownError,
+          );
     }
   }
 
@@ -2377,7 +2381,12 @@ class YouTubeSource
         errorStr.contains('too many');
   }
 
-  YouTubeApiException? _classifyStreamFallbackError(Object error) {
+  /// 把任意例外歸類成 [YouTubeApiException]，歸不了回 null。
+  ///
+  /// YouTube 走的是 `youtube_explode_dart` 與 `http`，不是 Dio，所以
+  /// `SourceApiException.classifyDioError` 覆蓋不到它 —— 這裡是 YouTube 的
+  /// 對應物。串流 fallback 與搜尋共用它。
+  YouTubeApiException? _classifySourceError(Object error) {
     if (error is YouTubeApiException) return error;
     if (error is DioException) {
       if (error.response?.statusCode == 403) return null;

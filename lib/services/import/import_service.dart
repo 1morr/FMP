@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:isar_community/isar.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
@@ -321,7 +322,7 @@ class ImportService with Logging implements ImportServiceFacade {
         errors: errors,
       );
     } catch (e) {
-      _updateProgress(status: ImportStatus.failed, error: e.toString());
+      _updateProgress(status: ImportStatus.failed, error: userMessageFor(e));
       rethrow;
     }
   }
@@ -397,7 +398,7 @@ class ImportService with Logging implements ImportServiceFacade {
         errors: [],
       );
     } catch (e) {
-      _updateProgress(status: ImportStatus.failed, error: e.toString());
+      _updateProgress(status: ImportStatus.failed, error: userMessageFor(e));
       rethrow;
     }
   }
@@ -525,7 +526,7 @@ class ImportService with Logging implements ImportServiceFacade {
         errors: mutationResult.errors.map((error) => error.toString()).toList(),
       );
     } catch (e) {
-      _updateProgress(status: ImportStatus.failed, error: e.toString());
+      _updateProgress(status: ImportStatus.failed, error: userMessageFor(e));
       rethrow;
     }
   }
