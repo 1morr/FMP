@@ -55,6 +55,7 @@ class FakeAudioService implements FmpAudioService {
   final List<Completer<void>> _pendingSetUrl = [];
   final List<Completer<void>> _pendingSeek = [];
   final List<Completer<void>> _pendingStop = [];
+  final List<Completer<void>> _pendingPlay = [];
   final List<Object> _stopErrors = [];
   final List<Object> _playUrlErrors = [];
   final List<_CountWaiter> _playUrlWaiters = [];
@@ -92,6 +93,12 @@ class FakeAudioService implements FmpAudioService {
   Completer<void> enqueuePendingStop() {
     final completer = Completer<void>();
     _pendingStop.add(completer);
+    return completer;
+  }
+
+  Completer<void> enqueuePendingPlay() {
+    final completer = Completer<void>();
+    _pendingPlay.add(completer);
     return completer;
   }
 
@@ -308,6 +315,7 @@ class FakeAudioService implements FmpAudioService {
 
   @override
   Future<void> play() async {
+    await _awaitPending(_pendingPlay);
     _isPlaying = true;
     _processingState = FmpAudioProcessingState.ready;
     _emitState();
@@ -343,13 +351,6 @@ class FakeAudioService implements FmpAudioService {
     _position = position;
     _emitState();
   }
-
-  @override
-  Future<void> seekForward([Duration? duration]) async =>
-      seekTo(_position + (duration ?? const Duration(seconds: 10)));
-  @override
-  Future<void> seekBackward([Duration? duration]) async =>
-      seekTo(_position - (duration ?? const Duration(seconds: 10)));
   @override
   Future<bool> seekToLive() async => false;
   @override

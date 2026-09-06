@@ -121,7 +121,6 @@ void main() {
         track: track,
         mode: PlayMode.temporary,
         persist: false,
-        recordHistory: false,
         prefetchNext: false,
         positionBeforeLoad: const Duration(seconds: 12),
         onPlaybackStarting: () async {},
@@ -130,7 +129,6 @@ void main() {
       expect(command.track, same(track));
       expect(command.mode, PlayMode.temporary);
       expect(command.persist, isFalse);
-      expect(command.recordHistory, isFalse);
       expect(command.prefetchNext, isFalse);
       expect(command.positionBeforeLoad, const Duration(seconds: 12));
       expect(command.onPlaybackStarting, isNotNull);
@@ -610,6 +608,53 @@ void main() {
         expect(result.error, isA<PlaybackTimeoutException>());
         expect((result.error as PlaybackTimeoutException).phase,
             PlaybackTimeoutPhase.mediaOpen);
+      });
+
+      /// 佇列還原的三個交接等待點也必須有預算。它們原本一個都沒有，於是後端只要
+      /// 有一個 future 不回來，`restore()` 就永遠不返回，呼叫端的載入中轉圈到天荒
+      /// 地老 —— issue #54。三條分開寫，是為了讓漏掉其中任何一個 `phase:` 的改動
+      /// 都會有一條測試掛住。
+      Future<PlaybackSessionResult> restoreWithResume(String id) =>
+          budgeted.restore(
+            PlaybackRestoreCommand(
+              track: _track(id),
+              mode: PlayMode.queue,
+              position: const Duration(seconds: 35),
+              shouldResume: true,
+            ),
+          );
+
+      test('a queue restore whose media open never returns times out',
+          () async {
+        build();
+        audioService.enqueuePendingSetUrl();
+
+        final result = await restoreWithResume('restore-t2-setmedia');
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+        expect((result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.mediaOpen);
+      });
+
+      test('a queue restore whose seek never returns times out', () async {
+        build();
+        audioService.enqueuePendingSeek();
+
+        final result = await restoreWithResume('restore-t2-seek');
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+      });
+
+      test('a queue restore whose resume never returns times out', () async {
+        build();
+        audioService.enqueuePendingPlay();
+
+        final result = await restoreWithResume('restore-t2-play');
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
       });
     });
 

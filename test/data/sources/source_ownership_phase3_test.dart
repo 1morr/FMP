@@ -35,6 +35,9 @@ void main() {
     test('runtime code does not construct ad-hoc YouTubeSource instances', () {
       const checkedFiles = [
         'lib/services/audio/audio_provider.dart',
+        // 起播 provider 連同 mixTracksFetcher 的接線搬到這裡之後，臨時 new 一個
+        // YouTubeSource 最有可能長回來的地方就是它，不是控制器本體。
+        'lib/providers/audio/audio_controller_provider.dart',
         'lib/providers/library/playlist_provider.dart',
         'lib/providers/search/popular_provider.dart',
         'lib/services/import/import_service.dart',

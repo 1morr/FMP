@@ -1338,3 +1338,431 @@ auto、清單到齊時套用、裝置拔掉時不動也不清設定、只套用�
 `0x4000`，達到 issue 自己的驗收條件。**#42**（輸出裝置記憶）—— 寫入、清除、重啟還原
 三條路徑都在真實硬體上走過，並補上原本缺席的 6 條測試。#43 與 #53 維持開啟。
 
+
+---
+
+### 6.5 執行時的失效重核（2026-09-05，Phase 4 步驟 B 開工當天）
+
+Phase 4 的順序是 E→B→D→C。E（`QueueCommands`）已於 `fe0ee475` 落地。這一節記
+步驟 B（`NowPlayingPublisher` + `PlaybackCapabilities`）開工前的重核與執行中發現。
+
+#### 開工重核：三條說法被推翻
+
+| # | 原本的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | `:958`「seek/shuffle/repeat 事件沒到，是 `smtc_windows` 1.1.0 的 Dart wrapper 沒 export —— 只能改成不要對外宣稱有」 | **兩邊都錯。** wrapper **有** `shuffleChangeStream` / `repeatModeChangeStream`（`smtc_windows_base.dart:102-103`），Rust 端也接了 `ShuffleEnabledChangeRequested` / `AutoRepeatModeChangeRequested`（`smtc_internal.rs:226/245`）—— FMP 只是從沒訂閱。而且 `SMTCConfig` **根本沒有** shuffle/repeat 的開關欄位，所以「不宣告」這條路**不存在** | 修法反過來：**去接事件**。已實作並實機證實兩個事件都送達（見下） |
+| 2 | issue #40 是「Windows SMTC 的兩個控制項」 | **Android 有同一個 bug，而且更多。** `_getControls()` 無條件回傳三顆按鈕；`systemActions` 的 `skipToNext`/`skipToPrevious` 也是 `const`；更糟的是電台**從不清掉** `onSetRepeatMode` / `onSetShuffleMode`，所以在 Android 上聽電台時按通知欄的循環／隨機鍵，會去改**音樂的** loop mode | 兩平台一起修 |
+| 3 | issue #40 附帶：「`enable()` `:299`、`disable()` `:311`、`dispose()` `:323` 三個成員從未被呼叫」 | **已過期。** 檔案在 `481acda8` 之後重排，`enable()`/`disable()` 已不存在，`dispose()` **有**呼叫點 | 更新 issue 時撤下這段 |
+
+另外兩件決定設計的事實：
+
+- **`androidCompactActionIndices` 的正解是「不要設」，不是「算出來」。**
+  `AudioService.java:614-617` 在該欄位為 `null` 時自己算 `[0..min(3, 按鈕數))`，
+  而 `:641` 顯示 SDK 33+ 根本不讀它。寫死的 `[0,1,2]` 才是越界來源。
+- **`AudioRuntimePlatform` 只有 `mobile` / `desktop`**，而 `WindowsSmtcHandler`
+  在 `_smtc == null` 時每個方法自己早退。所以 publisher **完全不需要
+  `Platform.isWindows`**，`desktop` 涵蓋 Linux/macOS 是安全的 —— 這正是 §4.3 說的
+  「把平台知識從 `Platform.isX` 改成介面上的能力查詢」。
+
+#### 執行中發現
+
+1. **`AudioController.dispose()` 直接 dispose 掉 SMTC 是一個潛在 bug。**
+   原生 session 只在 `main.dart` 建立一次、沒有任何程式碼會重建它，所以只要
+   `audioControllerProvider` 重建過一次，SMTC 就在該 session 裡永久死掉。改成
+   `release(music)`：解綁回呼、留著原生控制代碼。
+2. **交還擁有權的舊路徑有一個吞噬式 `catch`。** 電台停止時呼
+   `AudioController.restoreMediaControlOwnership()`，外面包著 `catch (e) {
+   logDebug(...) }`（release 模式看不見）。加上能力之後，那個 catch 一旦觸發，
+   後果會從「回呼沒重綁」升級成「能力永遠停在電台的全關狀態」。改成 publisher
+   自己記住音樂綁定並還原，那條跨 controller 呼叫與那個 catch 一起刪除。
+3. **「非現任擁有者的發佈要丟棄」不是潔癖，是修一個真 bug** —— 而且**實機拍到了**：
+   `Ignored publishPlaybackState from radio; owner is music`。點歌之後立刻點電台，
+   `RadioController` 只 `pause()` 音樂、不取消進行中的請求，那個請求完成後會把歌名
+   蓋到電台的通知欄／SMTC 上。
+4. **步驟 B 不可能是「純位移」，三處不對稱必須收斂**：載入狀態與三條 reset 路徑
+   過去只送到 Android 通知欄不送 SMTC；`_onPlayerStateChanged` 送給通知欄的是
+   effective 值、送給 SMTC 的是後端原始值。AGENTS.md 那條「控制器擁有的載入階段，
+   後端 idle 事件不得覆蓋 loading 狀態」沒有理由只保護一個平台。
+
+#### 實機驗收（Windows，2026-09-05）
+
+用新寫的 `.claude/skills/verify-on-device/scripts/smtc_probe.ps1` 直接讀 WinRT 的
+`GlobalSystemMediaTransportControlsSessionManager`，不截系統浮出視窗。**探針從任何
+行程都讀得到，所以完全繞開 FMP 守不住前景的問題。**（必須跑在 `powershell.exe`
+5.1，pwsh 7 沒有 WinRT 投影。）
+
+| 時間點 | `IsNextEnabled` | `IsPreviousEnabled` | `IsPlaybackPositionEnabled` |
+|---|---|---|---|
+| 音樂（啟動後） | **True** | True | False |
+| 電台播放中 | **False** | **False** | False |
+| 電台停止後 | **True** | True | False |
+
+路線圖的驗收條件是「電台播放時 `IsNextEnabled` 為 `False`」——**達成**。回程也驗了，
+因為「離開電台後能力沒還原」是比 #40 本身更糟的失敗模式，而它只在回程出現。
+
+- **禁用不只是視覺**：電台播放中用 `TrySkipNextAsync()` 送 next（WinRT 回
+  `accepted=True`），FMP 的 log **沒有**任何 `SMTC button pressed` —— 按鈕真的是惰性的。
+  同一時間送 stop 則拍到 `SMTC button pressed: PressedButton.stop`，證明通道本身是通的。
+- **Q19 的前提複驗**：`IsPlaybackPositionEnabled` 在三個時間點都是 `False`，
+  與 §12.13a 一致。timeline 的 `maxSeekTimeMs` 已改為 0。
+- **Q20 兩個事件都送達，並且真的接上了**：
+  `SMTC repeat mode requested: RepeatMode.list` → `Setting loop mode: LoopMode.all`；
+  `SMTC shuffle requested: false` → `Toggling shuffle`。兩個死鍵現在是活的。
+  （WinRT 會把「與現值相同」的請求吃掉，所以測試要送反向值才看得到事件。）
+- **`IsShuffleEnabled` / `IsRepeatEnabled` 恆為 `True`**，因為 `SMTCConfig` 沒有這兩個
+  旗標。這正是「不宣告」做不到、只能去接事件的證據。
+
+**讀 log 的通道要換**：Windows 的 `flutter run` terminal 被 `AXTree` spam 洗掉 ——
+本輪量到 1,714 行的 buffer 撐不到 4 分鐘。改讀 Phase 3 M7 落盤的
+`Documents/FMP/logs/fmp.log`，那裡完整。
+
+**清理**：驗證用的電台（Bilibili 房間 6）已從資料庫刪除，回到「還沒有電台」；
+shuffle 被測試切掉之後已切回原本的 `true`（loop mode 原本就是 `all`，未改動）。
+
+#### 實機驗收（Android 模擬器 `Medium_Phone`，2026-09-05）
+
+判準是**通知欄實際的按鈕數**（`dumpsys notification --noredact` 的 `actions=`），
+不是 media session 的 bitmask —— 後者被 `audio_service` 混了一堆固定值（見下）。
+
+| 時間點 | 通知欄按鈕 | session 有 `SKIP_TO_NEXT` / `SKIP_TO_PREVIOUS` / `SEEK_TO` |
+|---|---|---|
+| 音樂（YouTube 播放中） | **3**（上一首／暫停／下一首） | 是 |
+| 電台播放中 | **1**（只剩播放／暫停） | **否** |
+| 播回音樂 | **3** | 是 |
+
+- **`AUTO_ENABLED_ACTIONS` 是套件寫死的常數**（`AudioService.java:99-100`），
+  無條件 OR 進 `ACTION_SET_REPEAT_MODE | ACTION_SET_SHUFFLE_MODE`。所以在 media
+  session 這一層，FMP **收不回**這兩項 —— 與 Windows `SMTCConfig` 沒有對應旗標
+  是同一種結構限制。但通知欄的按鈕與 `SKIP_TO_*` / `SEEK_TO` 都正確撤下，而且
+  電台期間 `onSetLoopMode` / `onSetShuffleEnabled` 為 null，**跨模式改到音樂
+  loop mode 的那個 bug 已經修掉** —— 只是「不宣告」在這一層做不到。
+- **擁有權檢查在真機上兩個平台各拍到一次**。Android 這邊是
+  `Ignored publishTrack from music; owner is radio` —— 沒有它，音樂請求完成時
+  會把歌名蓋到電台的通知欄上。這正是加這道檢查的理由。
+- `androidCompactActionIndices` 維持 `null`，按鈕數從 3 掉到 1 沒有任何越界。
+
+**模擬器新陷阱**：Gboard 的「Try out your stylus」教學浮層會攔截
+`adb shell input text`，字進了教學的輸入框、FMP 的欄位仍是空的 —— 看起來就像
+點擊沒中。截圖才看得出來，按 Cancel 關掉後重打即可。已補進
+`.claude/skills/verify-on-device/SKILL.md`。
+
+### 6.6 執行時的失效重核（2026-09-05，Phase 4 步驟 D）
+
+步驟 D（把播放歷史、歌詞自動比對、Mix 預取摘出 `AudioController`）。commit
+`76fe5abf`…`d3bed14b`。`audio_provider.dart` **3,436 → 3,209 行**（淨減 227）。
+
+#### 開工重核：三條說法要更正
+
+| # | 原本的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | `:342`：D 的價值是「把副作用從播放路徑上摘下來，**播放不再等它們**」 | **前提已經成立。** 三者當時都已非阻塞：歷史 `Future.microtask`、歌詞 `unawaited`、Mix `unawaited`。唯一 `await` 的是 `_advanceAfterPendingMixLoadMore()`（播到隊尾剛好有預取在飛就等它），那是**刻意的**，而且被 `audio_controller_mix_boundary_test.dart` 的 `completion at mix queue end waits for pending load-more tracks` 鎖住 | D **沒有**動那個 await。價值改述為：縮小 god class、讓三件事可單獨測、拆掉隱藏耦合 |
+| 2 | 02 §8.1-D：`abstract interface class PlaybackObserver` ＋ `List<PlaybackObserver>` 廣播 | **三個方法只有一個有人實作。** 三者都只掛「播放請求成功」一個事件；`onTrackEnded` / `onQueuePositionChanged` 零實作。而且 Mix 必須對外曝露進行中的 `Future`，回傳 `void` 的 observer 做不到 | **介面未採用**，改成三個具體協作者，形狀照 `QueueCommands` / `NowPlayingPublisher`。02 §8.1-D 已標註 |
+| 3 | — | **`PlaybackSessionCommand.recordHistory` 是死欄位。** 整個 `lib/` 沒有一處讀它；唯一的讀取者是測試裡一行「斷言它 round-trip 回自己」 | 連同那行斷言一起刪 |
+
+另外兩件決定設計的事實：
+
+- **`recordHistory` 這個名字在說謊。** 它同時閘住播放歷史**與**歌詞自動比對
+  （`audio_provider.dart` 舊 `:2199`）。這個耦合是對的（重試與啟動還原都不算一次
+  新的播放，兩者都不該重跑），但名字讓人以為它只管歷史。改名 `countsAsNewPlay`。
+- **`_mixLoadMoreFuture` 與 `MixPlaylistHandler._current` 是兩組必須手動同步的狀態。**
+  `_exitMixMode()` 與 `dispose()` 都得記得同時清兩邊。合併成 `MixSessionCoordinator`
+  之後 `exit()` 一次做完，這個 bug 形狀消失。
+
+#### 執行中發現
+
+1. **`audio_controller_mix_boundary_test.dart` 的守門斷言差點被自己搬走。**
+   它讀 `lib/services/audio/audio_provider.dart` 的原始碼字串，斷言其中不含
+   `_queueManager.mixPlaylistId` 等四個 getter。Mix 程式碼搬到新檔之後，這個斷言
+   會**變成恆真**——守門形同解除，而且測試照樣是綠的。已改成掃
+   `lib/services/audio/` 整個目錄，並加一條 `expect(sources, isNotEmpty)` 防掃空。
+   這正是 §Phase 6 那條「掃描型測試的路徑不得硬編」紀律要防的失效模式。
+2. **播放歷史在 `AudioController` 這一層本來完全沒有測試。** repository 與 provider
+   各有自己的單元測試，中間那條轉接沒有人守。D1 補上（4 條）。
+3. **Isar 寫入不能用固定次數的 `pumpEventQueue` 當同步點。** 兩次 `record()` 排出
+   兩個序列化的 `writeTxn`，單次 pump 只等得到第一筆 —— 這恰好證明了它不阻塞呼叫端，
+   但也意味著測試要輪詢到落地為止。三個新測試檔都用這個模式。
+4. **`startMixFromPlaylist` 的第一次抓取與預取用的是同一個 fetcher。** 為了不讓
+   `MixTracksFetcher` 同時掛在 controller 與 coordinator 上，coordinator 開了
+   `canFetch` / `fetch()`，controller 不再持有 fetcher。
+
+#### 實機驗收（Android 模擬器 `Medium_Phone`，2026-09-05）
+
+三個協作者都用新的 logger tag，實機拍到的就是新程式碼在跑。
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| 播放歷史真的有寫 | `[PlayHistoryRecorder] Recorded play history: Cardi B - AH HA…`；播放歷史頁 **11 → 13 首** |
+| 啟動還原**不**重複記 | hot restart 走 `_prepareCurrentTrack`（`countsAsNewPlay: false`）→ 仍是 **13 首**，未增加 |
+| 歌詞閘門（關閉） | `[LyricsAutoMatchCoordinator] Auto-match lyrics disabled in settings` |
+| 歌詞閘門（開啟） | 暫時打開設定後：`[LyricsAutoMatchService] Auto-matching: "AH HA…" by "Cardi B"`，並依使用者的來源優先序打了 Netease |
+| **Mix 預取** | `[MixSessionCoordinator] Mix mode: 0 tracks remaining, loading more…` → `Attempt 1/10: using last track as seed` → `adding 11 new tracks`；佇列頁 **25 → 36 → 54 → 67 首**，三輪都在畫面上確認 |
+| Mix 還原路徑 | 持久化的 Mix 在 `initialize()` 還原到隊尾時自動排入預取，**不需要播放成功** |
+
+**沒驗到的一項**：`isLoadingMoreMix` 的載入指示器渲染在佇列列表**底部**，而單次抓取
+一輪就湊滿，視窗太短沒截到。它的 `[true, false]` 轉換由
+`mix_session_coordinator_test.dart` 鎖住，同一組回呼的另一半（`onQueueChanged` →
+佇列變長）則在畫面上確認了三次。
+
+**當天的音源狀況（影響可驗範圍）**：Bilibili `playurl` 回 HTTP 412
+`request was banned`；YouTube 的 **audio-only** 串流回 `Sign in to confirm you're
+not a bot`，但**muxed 串流與所有 metadata API（排行榜、Mix 播放列表、Mix 追加）
+完全正常**。所以 Mix 全程可驗，只有純音訊解析被擋。第一輪播放驗證改用本地已下載檔
+（`_inspectLocalFiles`，無網路）。
+
+**模擬器新陷阱**：從 snapshot 還原的 `Medium_Phone` 會整個卡死 —— 畫面凍結、
+`orca emulator tap` 與 `adb shell input` 都沒有反應、`ax` tree 恆為 `nodes=0`，
+連 hot restart 之後畫面都不變，logcat 只留下 `F/bluetooth … on_hardware_error
+… code 0x42`。**`-no-snapshot-load` 冷開機即可**；不要在凍結的 snapshot 上耗時間。
+
+**清理**：匯入的測試 Mix 歌單（`RDI-5e_J3LWS8`）已刪除，音樂庫回到原本只有
+`DownloadProbe`；「自動匹配歌詞」已切回原本的關閉。**未還原**：驗證用的播放佇列
+清空後沒有復原原本那 2 首（原佇列來自更早一輪的 YouTube 排行榜點擊），播放歷史多出
+的紀錄也保留著 —— 那些是裝置上真的發生過的播放。
+
+### 6.7 執行時的失效重核（2026-09-06，Phase 4 步驟 C）
+
+步驟 C（拆掉 `_PlaybackContext`，把載入閂存與延後 seek 收進一個協作者）。commit
+`c19e505e`…`d8afc346`。`audio_provider.dart` **3,209 → 2,942 行**（淨減 267）。
+
+#### 開工重核：三條說法要更正
+
+| # | 原本的說法 | 實況（file:line） | 處置 |
+|---|---|---|---|
+| 1 | 「Phase 1 的逾時預算收斂到這裡的單一 `budget`」（`05:343`）、「`budget` 是唯一一個『多久算太久』的定義點」（`02:874`） | **已經做完了。** `PlaybackTimeoutBudget`（`app_constants.dart:191`，`total` 是 `streamResolution + mediaOpen` 的 getter）就是那個定義點；`PlaybackRequestSession` 的 `_budget:177`、`_requestDeadline:180`（`:523`/`:619` 設定）、`_withBudget:716`、`_remainingBudget:735` 已經讓原始一輪與 fallback 共用同一份。commit `262657bc` + `591cb2b0`，由 `playback_request_session_test.dart:500/520/549/593` 釘住 | **C 不碰逾時。** 這一項移出 C 的範圍 |
+| 2 | 介面 `abstract interface class PlaybackSessionCoordinator { start / cancel / states }`（`02:866-871`） | **`PlaybackRequestSession` 已經是這個東西**（852 行）：`start:214`、`restore:282`、`cancelActive:206`、`isSuperseded:204`、`dispose:191`。再造一個同名類別只會變成「兩個都叫 session 的東西」；而 `Stream<PlaybackSessionState>` 只會有一個消費者 | **介面不採用**，理由與 D 相同。`02 §8.1-C` 已標註 |
+| 3 | 「`_context` 整包搬走」（`02:861`） | **`_PlaybackContext`（`:120-185`）裝的是三件無關的事**：播放模式（28 處）、載入閂存（21 處）、臨時播放快照（21 處）。整包搬會把另外兩件拖進去 | 分三個歸屬：模式留成普通欄位、快照交給 `TemporaryPlayHandler`、閂存與延後 seek 合成 `PlaybackHandoffGate` |
+
+#### 執行中發現
+
+1. **`_context.activeRequestId` 與 `PlaybackRequestSession.activeRequestId` 是同一個
+   計數器。** `_enterLoading()`（`playback_request_session.dart:463-470`）做
+   `++_requestId` 後把 id 交給 `onLoadingStarted` → `_startSessionLoadingState` 原樣
+   存起來。它是**閂存副本**，交接結束歸零 —— 回答「控制器現在為哪一次請求做投影」，
+   不是「哪一次才是最新的」。兩者不可互換：`_clearMatchingSessionLoadingContext`
+   是唯一以閂存為準的路徑，其餘一律問 `isSuperseded`。
+2. **閂存與延後 seek 從來沒有分開改過。** 11 個寫入點（建構子的 `onLoadingFinished`
+   閉包、四個起播前導、`_startSessionLoadingState`、`_exitLoadingState`、三個
+   `_reset*`）每一個都同時動兩者。這正是 D 在 Mix 上消掉的形狀，所以合成一個
+   `PlaybackHandoffGate` 而不是兩個類別。
+3. **`state.currentTrack` 是 `playingTrack` 的別名**（`player_state.dart:114`），
+   所以 seek 那三處 `?? state.currentTrack?.uniqueKey` 是死程式碼。拿掉之後 gate
+   完全不需要 `PlayerState`，這才讓它符合既有協作者的形狀。
+4. **`copyWith` 藏了兩個行為**，拆開時必須寫出來：`copyWith(mode: null)` 會保持原
+   模式（重試與啟動還原靠它才不會把臨時播放或 Mix 打回 queue）；`clearSavedState`
+   會覆蓋另外三個具名參數。兩者都在 commit `f02a2ef5` 裡顯式化。
+5. **`_startSessionLoadingState` 刻意只清視窗、不清「下一次要穩定化」旗標**
+   （`:1519` 直接 `= null` 而不是呼叫 `_clearSeekStabilizationWindow()`）。gate 因此
+   把 `prepareForRequest`（不清旗標）與 `cancel`（清）分成兩個方法，並由
+   `playback_handoff_gate_test.dart` 的
+   `the stabilize-next flag survives beginRequest but not cancel` 釘住。
+6. **`AudioController.seekForward` / `seekBackward` 是死程式碼**，`lib/` 與 `test/`
+   都沒有呼叫者。連同 `FmpAudioService` 的兩個介面宣告、`JustAudioService` 與
+   `MediaKitAudioService` 的實作、測試 fake 的樁與
+   `AppConstants.seekDurationSeconds`，整條鏈都沒有入口 —— 六個檔案 70 行，已在
+   第十一輪刪除。
+
+   > **更正（第十一輪）**：本項原本斷言「`audio_handler.dart:59-60` 宣告了
+   > `MediaAction.seekForward` / `seekBackward` 但 `FmpAudioHandler` 沒有覆寫
+   > `fastForward()` / `rewind()`，所以通知列上那兩個動作按下去沒有任何反應」。
+   > **這是錯的。** `FmpAudioHandler` 的宣告是
+   > `extends BaseAudioHandler with SeekHandler`（`audio_handler.dart:16`），而
+   > `SeekHandler`（`audio_service-0.18.18/lib/audio_service.dart:3220-3260`）
+   > 已經實作了那四個方法，全部收斂到 `seek()` —— 而 `seek()` 正是
+   > `FmpAudioHandler` 有覆寫的那個。系統動作是通的，能力宣告沒有缺陷。
+   > `main.dart:125-126` 的 `fastForwardInterval` / `rewindInterval` 就是餵給
+   > `SeekHandler._seekRelative` 的。已在 `audio_handler.dart` 就地加註，避免
+   > 下一個讀者重蹈覆轍。
+
+#### 新測試的變異驗證
+
+`playback_handoff_gate_test.dart` 有 11 條在守同一件事：**任何作廢路徑都必須
+`complete()`**，否則 `seekTo` 的呼叫端永遠 await 不到。把 `discardPending` 裡的
+`pending.complete()` 拿掉重跑，**12 條中有 7 條失敗**（而且是掛住到逾時，不是斷言
+失敗），確認這組測試真的守得住。
+
+#### 實機驗收（Android 模擬器 `Medium_Phone`，`-no-snapshot-load` 冷開機）
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| 一般 seek（無交接） | 進度條點 75% → 位置 264101ms；點 25% → 87753ms。兩次都精確落在 351–352 秒曲目的對應比例上 |
+| **交接期間的 seek 會延後** | `[PlaybackHandoffGate] Deferring seek to 0:01:56.367000 until playback request 2 is ready` |
+| **穩定化視窗** | `[PlaybackHandoffGate] Stabilizing seeks for request 2 until …` → `Waiting 0:00:00.498569 before applying deferred seek`（500ms 視窗只剩 498ms） |
+| **延後的 seek 落在新歌上** | `[PlaybackHandoffGate] Applying deferred seek to 0:01:56.367000 for request 2`，隨後 `dumpsys media_session` 讀到 132612ms（1:56 ＋ 已播的 16 秒） |
+| 臨時播放快照 | `[TemporaryPlayHandler] Saved playback state: index: 0, position: 0:01:18.124453` 等三次，每次都與點擊前一刻的 `dumpsys` 位置吻合 |
+| 步驟 D 的協作者沒被弄壞 | `[PlayHistoryRecorder] Recorded play history: …`、`[LyricsAutoMatchCoordinator] Auto-match lyrics disabled in settings` 照常 |
+
+**沒在畫面上捕捉到的一項**：被新請求取代時的 `Discarding deferred seek`。要湊出
+「延後中 → 立刻再切一次歌」需要兩次點擊都落在載入視窗內，而模擬器後段對合成點擊
+的反應變得不穩（`ax` 樹正常但點擊不進 Flutter view）。這條由
+`playback_handoff_gate_test.dart` 的四條作廢測試與既有的端到端
+`audio_controller_phase1_test.dart:519` 覆蓋。
+
+#### 順手發現的既有缺陷（**不是 C 造成的**）
+
+**臨時播放按「下一首」返回佇列時，還原有機率卡在載入中**：mini player 的播放鍵變成
+無限轉圈，通知列位置停在 0，`_restoreSavedState` 只印出 `started` 而沒有
+`completed successfully`。log 停在
+`PlaybackRequestSession: Restoring queue track` → `JustAudioService: File set` →
+`playing=true, ready`，之後就沒有下文 —— `restore()` 的 future 沒有回來。
+
+**A/B 驗證**：把工作區切到步驟 C 之前的 `29eaaad6` 熱重啟後跑同一組操作，
+**症狀完全相同**（log 最後一行是舊的 `[AudioController] Saved playback state` tag，
+證明跑的是舊 build；位置同樣停在 0、轉圈同樣不停）。所以這是既有缺陷，應另開 issue
+追蹤，不在 C 的範圍。
+
+#### 誠實的預期：Phase 4 的驗收線需要重述
+
+**C 做完是 2,942 行，離 ≤800 還差 2,140 行，而路線圖的 A–E 五步到此就用完了。**
+實測目前的行數分布（`AudioController` 本體）：
+
+| 群 | ~行數 | 狀態 |
+|---|---|---|
+| 後端事件處理與失敗分類（`_onPlayerStateChanged` / `_onPositionChanged` / `_onTrackCompleted` / `_onPlaybackEnded` / `_onTransportFailure` / `_onBufferStarvation` / 輸出裝置） | 420 | 未規劃 |
+| 起播命令與 transport（play\* / playAt / next / previous / 音量 / 靜音 / 循環 / 裝置） | 500 | 大部分該留 |
+| 啟動與還原（`initialize` / `_prepareCurrentTrack` / `_restoreQueuePlayback` / `_restoreSavedState` / `returnFromRadio`） | 370 | 未規劃 |
+| `_executePlayRequest` 與音源錯誤處理 | 215 | 未規劃 |
+| 重試階梯投影 | 168 | 未規劃 |
+| `PlayerState` / `QueueState` 投影助手 | 190 | 該留（就是投影本身） |
+| Mix 起播與退出 | 156 | 該留 |
+| 載入狀態投影與 publisher | 120 | 該留 |
+| 錯誤 → toast 翻譯 | 91 | 未規劃 |
+| 同檔案裡不屬於 controller 的（`QueueState` ＋ 12 個 provider） | 230 | **純檔案切分即可** |
+
+要接近 800 至少還需要：
+
+- **最便宜的 230 行根本不是重構** —— 把 `QueueState` ＋ `queueStateProvider` 移到
+  `queue_state.dart`、12 個 provider 移到 `audio_providers.dart`，零行為變更，
+  搬走的行數比 C 還多。建議優先做。
+- **F — `PlaybackEventRouter`**（後端事件，約 −300）：注意它**無法照既有協作者的
+  規矩寫** —— 那些 handler 本身就是 `PlayerState` 投影，要嘛讓它吐 typed intent 由
+  controller 重播，那是新的設計決定，不是位移。
+- **G — `PlaybackStartupRestorer`**（啟動與還原，約 −320）
+- **H — `PlaybackErrorPresenter`**（錯誤翻譯，約 −140）
+
+三步加檔案切分之後樂觀估計 **1,000–1,200 行**。**≤800 只有在投影本身被重構
+（`02 §8.1-F` 的 `_project()`）之後才可能成立，Phase 4 的驗收線應該按這個重述。**
+
+### 6.8 執行時的失效重核（2026-09-06，Phase 4 步驟 F / G / H 與檔案切分）
+
+commit `b952ccdf`…`fd8a64b6`。`audio_provider.dart` **2,942 → 2,573 行**（淨減 369）。
+測試 1,382 → 1,408。
+
+#### 開工重核：F 與 G 都寫不出來，H 只有一半能寫
+
+路線圖 §6.7 把剩下的三步估成 F −300、G −320、H −140。逐項量過之後：
+
+| 步 | 原估 | 實際可搬 | 為什麼 |
+|---|---|---|---|
+| **H** | −140 | **−87** | 「錯誤 → 文案」可以整包搬；`_handleSourceError` 不行 —— 它跳下一首、停後端、寫 `state.error`，那是**用**結論不是**得出**結論 |
+| **G** | −320 | **−16** | 見下表：345 行引用了 **41 個**控制器成員 |
+| **F** | −300 | **−7** | 167 行引用了 **29 個**控制器成員 |
+
+判準不是感覺，是「要注入幾個回呼」。既有五個協作者的實測值：
+
+| 協作者 | 建構子注入的外部相依 |
+|---|---|
+| `EffectivePlaybackState` | 0（純值） |
+| `PlaybackErrorPresenter` | 0（純函數） |
+| `PlaybackHandoffGate` | 3 |
+| `MixSessionCoordinator` | 5 |
+| **`PlaybackEventRouter`（F，若要寫）** | **約 15** |
+| **`PlaybackStartupRestorer`（G，若要寫）** | **約 26** |
+
+15 個回呼的建構子不是邊界，是把控制器換個名字再傳一次。這兩步**不執行**，改成
+只取其中真正獨立的部分。
+
+#### 實際做了什麼
+
+1. **issue #54 的根因與修法**（`b952ccdf`）—— 不是重構題目，是查步驟 C 的實機
+   異常時挖出來的：`_waitForRequestOperation` 只在 `phase != null` 時套預算，而
+   `_executeQueueRestore` 的 `setMedia` / `seekTo` / `play` **三個都沒傳**。後端
+   任一個 future 不回來，`restore()` 就永遠不返回 → 呼叫端 `requestId` 停在
+   `null` → `finally` 的 `_resetLoadingState` 不執行 → 轉圈到天荒地老。
+   Phase 1 的 `637aa276` 只覆蓋了一般起播路徑。三條新測試各對一個等待點，把
+   `phase:` 拿掉重跑會**各掛住 30 秒到逾時**。
+2. **死路徑刪除**（`6175812d`）—— `seekForward` / `seekBackward` 從控制器、
+   `FmpAudioService` 介面、兩個後端實作、測試 fake 到
+   `AppConstants.seekDurationSeconds`，六個檔案 70 行，全鏈無呼叫者。
+3. **純檔案切分**（`34daba59`，−244）—— `QueueState` ＋ `queueStateProvider` 出去
+   成 `queue_state.dart`；5 個建構 provider 進
+   `lib/providers/audio/audio_controller_provider.dart`；9 個衍生 provider 併入既
+   有的 `audio_player_selectors.dart`。**沒有留 re-export**：43 個匯入端逐一改
+   完，編譯器全程覆蓋。
+4. **H —— `PlaybackErrorPresenter`**（`74c50fb0`，−87）。
+5. **Mix 還原歸位**（`7d197130`，−16）—— `mixPlaylistId` / `mixSeedVideoId` /
+   `mixTitle` 在 `MixSessionCoordinator` 之外的最後一個讀取點收掉了。
+6. **F 唯一真正能抽的東西**（`fd8a64b6`）—— `EffectivePlaybackState`。
+
+#### 更正 §6.7 的一項
+
+§6.7 執行中發現第 6 項斷言通知列的快轉／倒退「按下去沒有任何反應」。**那是錯的**，
+已就地更正：`FmpAudioHandler` mix 了 `SeekHandler`，那四個方法都有實作。原本要
+為此開的 issue 沒有開。
+
+#### 順手守到的兩個洞
+
+- **`audio_error_kind_structure_test.dart` 會變成恆真**：它比對
+  `audio_provider.dart` 裡的字面簽名，分類器搬走之後三條斷言全部失效而測試仍綠。
+  改成掃整個 `lib/services/audio/` 找字串分類器，正向行為交給
+  `playback_error_presenter_test.dart` 用真的例外物件釘。
+- **`source_ownership_phase3_test.dart` 的檢查清單**：`mixTracksFetcher` 的接線
+  搬到 `audio_controller_provider.dart` 之後，臨時 `new YouTubeSource(` 最可能長
+  回來的地方變成它，已加進清單。
+
+#### 沒有測試守著的一條規則，現在有了
+
+`AGENTS.md` 的 Platform Split 寫著「控制器擁有的載入階段，後端 idle 事件不得覆蓋
+loading 狀態」，程式碼註釋還記著「過去 SMTC 收的是後端原始值，這條只在 Android
+成立」。**這條規則一個測試都沒有**，只活在 `_onPlayerStateChanged` 的三個區域變數
+裡。抽成 `EffectivePlaybackState.from` 之後由 7 條測試釘住。
+
+#### 實機驗收（Android 模擬器 `Medium_Phone`，`-no-snapshot-load` 冷開機）
+
+| 要驗什麼 | 觀察到什麼 |
+|---|---|
+| **`EffectivePlaybackState` 把後端 idle 改寫成 loading** | 切歌時 log 連兩行 `PlayerState changed: playing=false, processingState=idle`（控制器自己的 `stop()`），同一時間 `dumpsys media_session` 連六次都讀到 **`state=CONNECTING(8), position=0`** —— 不是 `STOPPED`，位置也沒殘留上一首。這正是 `AGENTS.md` 寫了很久卻沒有測試的那條規則 |
+| 交接完成後回到播放 | 22 秒後 `state=PLAYING(3), position=20696`；8 秒間隔的兩次取樣 34241 → 42041 |
+| **檔案切分沒有拆斷投影** | 加三首進佇列 → 佇列頁渲染「正在播放第 3 首／共 3 首」與三個列項；mini player 的「上一首」「下一首」由 `click=False` 變 `click=True`（`QueueState.canPlayPrevious/canPlayNext` 經搬到 `queue_state.dart` 的 `queueStateProvider` 走完整條路） |
+| **`PlaybackErrorPresenter.shouldRetrySource` 分類正確** | 飛航模式下播 YouTube 曲目 → `Scheduling retry 1/5` … `5/5` → `Max retry attempts reached`，退避階梯完整跑完 |
+| 失敗後載入狀態有清掉 | 重試耗盡後 mini player 的轉圈變回 ▶（截圖），沒有卡住 —— issue #54 的症狀類別 |
+| 錯誤 toast 有渲染 | 限流：橘色警告「請求過於頻繁，請稍後再試」（`rateLimited` 分支，不經 presenter，作為對照組）；離線：紅色「播放失敗: 这次是真玩爽了」 |
+
+**沒能在裝置上構到的一項**：presenter 自己產的文案（`cannotPlay` /
+`playbackFailed`）。網路錯誤是可重試的，走退避階梯，耗盡之後不經過
+`_handleSourceError`；要觸發得有一支**地區限制或 VIP** 的影片，這台模擬器上沒有
+穩定的來源。這條由 `playback_error_presenter_test.dart` 的 12 條測試覆蓋 ——
+它們斷言的是「挑了哪一個 i18n key」，不是字面文字。
+
+**Mix 還原（`7d197130`）沒有做實機驗收**，因為它對外行為零變化：原本的 `if` 也
+是三個欄位缺一就整段不做，搬進 `MixSessionCoordinator.restoreFrom` 之後判斷完全
+相同，由三條新測試逐欄位釘住。
+
+裝置狀態已還原：佇列清空（確認顯示「播放佇列為空」）、飛航模式關閉、Orca 終端
+關閉、`adb emu kill`、`adb devices` 為空且無殘留 emulator 行程。本輪驗收過程新增
+的播放歷史列沒有清除。
+
+#### 誠實的行數帳（取代 §6.7 的估算）
+
+| 群 | ~行數 | 狀態 |
+|---|---|---|
+| 起播命令與 transport | 500 | 該留 |
+| 啟動與還原 | 345 | **G 寫不出來**（41 個相依） |
+| `PlayerState` / `QueueState` 投影助手 | 190 | 該留（就是投影本身） |
+| 後端事件處理 | 167 | **F 寫不出來**（29 個相依） |
+| 重試階梯投影 | 168 | 未評估 |
+| Mix 起播與退出 | 140 | 該留 |
+| `_executePlayRequest` | 130 | 該留 |
+| 載入狀態投影與 publisher | 120 | 該留 |
+
+**≤800 不可能靠繼續抽協作者達成。** 剩下的 2,573 行有 1,080 行是投影與 transport
+命令 —— 它們就是 `AudioController` 這個類別的定義。要再往下只有兩條路，兩條都是
+改變控制器**是什麼**，不是把東西搬出去：
+
+- **拆 `PlayerState` 本身**（`02 §8.1-F` 的 `_project()`）：把播放狀態拆成幾個各自
+  獨立的 notifier，投影助手才有地方去。
+- **`StateNotifier` → `Notifier` 改寫**（路線圖同節已列）：Riverpod 3 的 `Notifier`
+  可以把 `ref` 拿進來，起播 provider 的接線就不必全擠在 provider 工廠裡。
+
+**Phase 4 的驗收線應該重述為：`AudioController` 不再持有任何可以獨立測試的規則。**
+以行數計已經沒有意義 —— 這一輪搬走的 369 行裡，真正的邊界改善（H、Mix、
+`EffectivePlaybackState`）只有 110 行，其餘 259 行是檔案切分與刪死碼。

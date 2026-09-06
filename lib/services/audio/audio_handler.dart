@@ -6,60 +6,67 @@ import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import 'audio_types.dart';
+import 'playback_capabilities.dart';
 
 /// 自定义 AudioHandler，用于 Android 媒体通知控制
-/// 提供上一首、下一首、随机播放、循环模式等控制按钮
+///
+/// 按钮与 `systemActions` 一律由 [PlaybackCapabilities] 决定，绑定则由
+/// [NowPlayingPublisher] 一并设置。过去这里是写死的 `const`，导致电台播放时
+/// 通知栏照样画出上／下一首（issue #40 症状一）。
 class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
-  // 回调函数，由 AudioController 设置
+  // 回调函数，由 NowPlayingPublisher 设置
   Future<void> Function()? onPlay;
   Future<void> Function()? onPause;
   Future<void> Function()? onStop;
   Future<void> Function()? onSkipToNext;
   Future<void> Function()? onSkipToPrevious;
   Future<void> Function(Duration position)? onSeek;
-  Future<void> Function(AudioServiceRepeatMode mode)? onSetRepeatMode;
-  Future<void> Function(AudioServiceShuffleMode mode)? onSetShuffleMode;
+  Future<void> Function(LoopMode mode)? onSetLoopMode;
+  Future<void> Function(bool enabled)? onSetShuffleEnabled;
 
   FmpAudioHandler() {
     logInfo('FmpAudioHandler created');
   }
 
-  /// 初始化播放状态
-  void initPlaybackState({
-    bool isPlaying = false,
-    AudioServiceRepeatMode repeatMode = AudioServiceRepeatMode.none,
-    AudioServiceShuffleMode shuffleMode = AudioServiceShuffleMode.none,
-  }) {
-    playbackState.add(PlaybackState(
-      controls: _getControls(isPlaying),
-      systemActions: const {
-        MediaAction.seek,
-        MediaAction.seekForward,
-        MediaAction.seekBackward,
-        MediaAction.skipToNext,
-        MediaAction.skipToPrevious,
-        MediaAction.setRepeatMode,
-        MediaAction.setShuffleMode,
-      },
-      androidCompactActionIndices: const [0, 1, 2], // 紧凑视图中显示的按钮索引
-      processingState: AudioProcessingState.idle,
-      playing: isPlaying,
-      updatePosition: Duration.zero,
-      bufferedPosition: Duration.zero,
-      speed: 1.0,
-      repeatMode: repeatMode,
-      shuffleMode: shuffleMode,
+  PlaybackCapabilities _capabilities = PlaybackCapabilities.none;
+
+  /// 目前对外宣告的能力。
+  PlaybackCapabilities get capabilities => _capabilities;
+
+  /// 更新对外宣告的能力，并立刻重发一次 `PlaybackState`。
+  void updateCapabilities(PlaybackCapabilities capabilities) {
+    _capabilities = capabilities;
+    playbackState.add(playbackState.value.copyWith(
+      controls: _controlsFor(playbackState.value.playing),
+      systemActions: _systemActionsFor(),
     ));
+    logDebug('Updated capabilities: $capabilities');
   }
 
   /// 获取媒体控制按钮列表
-  List<MediaControl> _getControls(bool isPlaying) {
+  List<MediaControl> _controlsFor(bool isPlaying) {
     return [
-      MediaControl.skipToPrevious,
+      if (_capabilities.canSkipPrevious) MediaControl.skipToPrevious,
       if (isPlaying) MediaControl.pause else MediaControl.play,
-      MediaControl.skipToNext,
-      // MediaControl.stop, // 可选：添加停止按钮
+      if (_capabilities.canSkipNext) MediaControl.skipToNext,
     ];
+  }
+
+  Set<MediaAction> _systemActionsFor() {
+    return {
+      if (_capabilities.canSeek) ...{
+        MediaAction.seek,
+        // 這兩個沒有對應的 override，是刻意的：SeekHandler（見 class 宣告的
+        // mixin）已經實作 seekForward / seekBackward / fastForward / rewind，
+        // 全部收斂到底下那個 seek()。別以為沒人處理就把它們拿掉。
+        MediaAction.seekForward,
+        MediaAction.seekBackward,
+      },
+      if (_capabilities.canSkipNext) MediaAction.skipToNext,
+      if (_capabilities.canSkipPrevious) MediaAction.skipToPrevious,
+      if (_capabilities.canRepeat) MediaAction.setRepeatMode,
+      if (_capabilities.canShuffle) MediaAction.setShuffleMode,
+    };
   }
 
   /// 更新当前播放的媒体项（从 Track 转换）
@@ -93,18 +100,22 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
   }
 
   /// 更新播放状态
+  ///
+  /// `androidCompactActionIndices` 刻意**不设定**：留成 `null` 时 audio_service
+  /// 的 Android 端自己算 `[0..min(3, 按钮数))`（`AudioService.java:614-617`），
+  /// 所以按钮数缩到 1–2 个时不可能越界。写死 `[0,1,2]` 才会。
   void updatePlaybackState({
     required bool isPlaying,
     required Duration position,
     required Duration bufferedPosition,
     required FmpAudioProcessingState processingState,
-    Duration? duration,
     double speed = 1.0,
   }) {
     final audioProcessingState = _mapProcessingState(processingState);
 
     playbackState.add(playbackState.value.copyWith(
-      controls: _getControls(isPlaying),
+      controls: _controlsFor(isPlaying),
+      systemActions: _systemActionsFor(),
       processingState: audioProcessingState,
       playing: isPlaying,
       updatePosition: position,
@@ -113,24 +124,20 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
     ));
   }
 
-  /// 更新循环模式
-  void updateRepeatMode(LoopMode loopMode) {
-    final audioRepeatMode = _loopModeToRepeatMode(loopMode);
+  /// 更新循环与随机模式
+  ///
+  /// 两个模式一起发：它们共用同一则 `PlaybackState`，分开发等于白发一次。
+  void updatePlayModes({
+    required LoopMode loopMode,
+    required bool shuffleEnabled,
+  }) {
     playbackState.add(playbackState.value.copyWith(
-      repeatMode: audioRepeatMode,
+      repeatMode: _loopModeToRepeatMode(loopMode),
+      shuffleMode: shuffleEnabled
+          ? AudioServiceShuffleMode.all
+          : AudioServiceShuffleMode.none,
     ));
-    logDebug('Updated repeat mode: $audioRepeatMode');
-  }
-
-  /// 更新随机播放模式
-  void updateShuffleMode(bool isShuffleEnabled) {
-    final audioShuffleMode = isShuffleEnabled
-        ? AudioServiceShuffleMode.all
-        : AudioServiceShuffleMode.none;
-    playbackState.add(playbackState.value.copyWith(
-      shuffleMode: audioShuffleMode,
-    ));
-    logDebug('Updated shuffle mode: $audioShuffleMode');
+    logDebug('Updated play modes: loop=$loopMode shuffle=$shuffleEnabled');
   }
 
   /// 映射 FmpAudioProcessingState 到 AudioProcessingState
@@ -158,6 +165,21 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
         return AudioServiceRepeatMode.one;
       case LoopMode.all:
         return AudioServiceRepeatMode.all;
+    }
+  }
+
+  /// 转换 AudioServiceRepeatMode 到 LoopMode
+  ///
+  /// `group` 是 audio_service 的分组循环，FMP 没有这个概念，按「全部循环」处理。
+  LoopMode _repeatModeToLoopMode(AudioServiceRepeatMode repeatMode) {
+    switch (repeatMode) {
+      case AudioServiceRepeatMode.none:
+        return LoopMode.none;
+      case AudioServiceRepeatMode.one:
+        return LoopMode.one;
+      case AudioServiceRepeatMode.all:
+      case AudioServiceRepeatMode.group:
+        return LoopMode.all;
     }
   }
 
@@ -203,12 +225,12 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
   @override
   Future<void> setRepeatMode(AudioServiceRepeatMode repeatMode) async {
     logDebug('AudioHandler.setRepeatMode() called: $repeatMode');
-    await onSetRepeatMode?.call(repeatMode);
+    await onSetLoopMode?.call(_repeatModeToLoopMode(repeatMode));
   }
 
   @override
   Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
     logDebug('AudioHandler.setShuffleMode() called: $shuffleMode');
-    await onSetShuffleMode?.call(shuffleMode);
+    await onSetShuffleEnabled?.call(shuffleMode != AudioServiceShuffleMode.none);
   }
 }

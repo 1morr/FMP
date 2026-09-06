@@ -8,7 +8,7 @@ import '../../../core/utils/number_format_utils.dart';
 import '../../../core/utils/platform_utils.dart';
 import '../../../core/utils/relative_time_formatter.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';

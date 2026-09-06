@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,12 +10,13 @@ import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
 import '../../data/models/track_key.dart'; // for String
 import '../../data/repositories/radio_repository.dart';
-import '../../main.dart' show audioHandler, windowsSmtcHandler;
+import '../audio/now_playing_publisher.dart';
+import '../audio/playback_capabilities.dart';
 import '../../providers/account/account_provider.dart';
 import '../../providers/database/database_provider.dart';
 import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
-import '../audio/audio_provider.dart';
+import '../../providers/audio/audio_controller_provider.dart';
 import 'radio_source.dart';
 import 'radio_refresh_service.dart';
 
@@ -232,6 +232,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   final RadioSource _radioSource;
   final FmpAudioService _audioService;
 
+  /// 系統媒體控制。電台與音樂共用同一組，由 publisher 仲裁擁有權。
+  NowPlayingPublisher get _publisher => _ref.read(nowPlayingPublisherProvider);
+
   // 定時器
   Timer? _playDurationTimer;
   Timer? _infoRefreshTimer;
@@ -321,83 +324,50 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     // 初始化時同步一次直播狀態
     _syncLiveStatusFromRefreshService();
 
-    // 設置 SMTC 回調（僅 Windows）
-    _setupSmtcCallbacks();
   }
 
-  /// 設置 Windows SMTC 回調
-  void _setupSmtcCallbacks() {
-    if (!Platform.isWindows) return;
-
-    // 注意：電台不需要上一首/下一首功能
-    // 這些回調會在電台播放時覆蓋音樂播放的回調
+  /// 接管系統媒體控制並顯示當前電台。
+  ///
+  /// 直播沒有下一首、沒有時間軸，所以宣告 [PlaybackCapabilities.liveRadio] ——
+  /// 過去這裡只把回呼設成 null，按鈕照樣畫得出來、按下去打進 null，那就是
+  /// issue #40 的症狀一。回呼與能力現在是同一次 claim，分不開。
+  void _claimMediaControls(RadioStation station) {
+    _publisher.claim(
+      NowPlayingOwner.radio,
+      commands: MediaControlCommands(
+        play: resume,
+        pause: pause,
+        stop: stop,
+      ),
+      capabilities: PlaybackCapabilities.liveRadio,
+    );
+    _publisher.publishRadioStation(NowPlayingOwner.radio, station);
+    _publishRadioPlaybackState(isPlaying: true);
   }
 
-  /// 更新 Android 通知欄顯示當前電台
-  void _updateAudioHandler(RadioStation station) {
-    if (!Platform.isAndroid) return;
-
-    audioHandler.onPlay = resume;
-    audioHandler.onPause = pause;
-    audioHandler.onStop = stop;
-    audioHandler.onSkipToNext = null;
-    audioHandler.onSkipToPrevious = null;
-    audioHandler.onSeek = null;
-
-    audioHandler.updateCurrentRadioStation(station);
-    audioHandler.updatePlaybackState(
-      isPlaying: true,
+  /// 直播沒有時長，時間軸一律送 0。
+  void _publishRadioPlaybackState({
+    required bool isPlaying,
+    FmpAudioProcessingState processingState = FmpAudioProcessingState.ready,
+  }) {
+    _publisher.publishPlaybackState(
+      NowPlayingOwner.radio,
+      isPlaying: isPlaying,
       position: Duration.zero,
       bufferedPosition: Duration.zero,
-      processingState: FmpAudioProcessingState.ready,
+      processingState: processingState,
+      duration: Duration.zero,
     );
   }
 
-  /// 清除 Android 通知欄狀態
-  void _clearAudioHandler() {
-    if (!Platform.isAndroid) return;
-
-    audioHandler.updatePlaybackState(
-      isPlaying: false,
-      position: Duration.zero,
-      bufferedPosition: Duration.zero,
-      processingState: FmpAudioProcessingState.idle,
-    );
-  }
-
-  /// 更新 SMTC 顯示當前電台（僅 Windows）
-  void _updateSmtc(RadioStation station) {
-    if (!Platform.isWindows) return;
-
-    // 設置電台的 SMTC 回調
-    windowsSmtcHandler.onPlay = resume;
-    windowsSmtcHandler.onPause = pause;
-    windowsSmtcHandler.onStop = stop;
-    // 電台不需要上一首/下一首
-    windowsSmtcHandler.onSkipToNext = null;
-    windowsSmtcHandler.onSkipToPrevious = null;
-    windowsSmtcHandler.onSeek = null;
-
-    // 更新元數據和播放狀態
-    windowsSmtcHandler.updateCurrentRadioStation(station);
-    windowsSmtcHandler.updateRadioPlaybackState(isPlaying: true);
-  }
-
-  /// 清除 SMTC 狀態（僅 Windows）
-  void _clearSmtc() {
-    if (!Platform.isWindows) return;
-
-    windowsSmtcHandler.setStoppedState();
-  }
-
-  void _restoreMusicMediaControlOwnership() {
-    try {
-      _ref
-          .read(audioControllerProvider.notifier)
-          .restoreMediaControlOwnership();
-    } catch (e) {
-      logDebug('Skipping music media-control ownership restore: $e');
-    }
+  /// 交還系統媒體控制。
+  ///
+  /// publisher 自己記得音樂的綁定，所以這裡不需要回頭找 `AudioController`
+  /// ——過去那條路包著一個吞掉一切的 try/catch，一旦它拋了，能力會永遠停在
+  /// 電台的全關狀態，離開電台後上下一首再也回不來。
+  void _releaseMediaControls() {
+    _publisher.publishStopped(NowPlayingOwner.radio);
+    _publisher.release(NowPlayingOwner.radio);
   }
 
   /// 設置互斥機制：音樂播放時自動停止電台
@@ -530,9 +500,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       // 啟動定時器
       _startTimers();
 
-      // 更新平台媒體控制
-      _updateSmtc(station);
-      _updateAudioHandler(station);
+      // 接管系統媒體控制
+      _claimMediaControls(station);
       _activePlayRequestId = null;
     } catch (e) {
       if (_isSuperseded(requestId)) return;
@@ -581,10 +550,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _currentStreamInfo = null;
     _clearMusicRestoreState();
 
-    // 更新平台媒體控制為停止狀態
-    _clearSmtc();
-    _clearAudioHandler();
-    _restoreMusicMediaControlOwnership();
+    // 交還系統媒體控制
+    _releaseMediaControls();
   }
 
   /// 返回歌曲播放
@@ -627,18 +594,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playStartTime = null;
     // 保留 _currentStreamInfo 以便快速恢復
 
-    // 更新平台媒體控制為暫停狀態
-    if (Platform.isWindows && state.currentStation != null) {
-      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: false);
-    }
-    if (Platform.isAndroid) {
-      audioHandler.updatePlaybackState(
-        isPlaying: false,
-        position: Duration.zero,
-        bufferedPosition: Duration.zero,
-        processingState: FmpAudioProcessingState.ready,
-      );
-    }
+    // 更新系統媒體控制為暫停狀態
+    _publishRadioPlaybackState(isPlaying: false);
   }
 
   /// 恢復播放當前電台
@@ -903,10 +860,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
           playerState.processingState == FmpAudioProcessingState.buffering,
     );
 
-    if (Platform.isWindows && wasPlaying != playerState.playing) {
-      windowsSmtcHandler.updateRadioPlaybackState(
-        isPlaying: playerState.playing,
-      );
+    if (wasPlaying != playerState.playing) {
+      _publishRadioPlaybackState(isPlaying: playerState.playing);
     }
   }
 
@@ -1000,18 +955,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       reconnectMessage: t.radio.streamEnded,
     );
 
-    // 更新平台媒體控制
-    if (Platform.isWindows) {
-      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: false);
-    }
-    if (Platform.isAndroid) {
-      audioHandler.updatePlaybackState(
-        isPlaying: false,
-        position: Duration.zero,
-        bufferedPosition: Duration.zero,
-        processingState: FmpAudioProcessingState.ready,
-      );
-    }
+    // 更新系統媒體控制
+    _publishRadioPlaybackState(isPlaying: false);
 
     logInfo(
         'Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume');
@@ -1102,6 +1047,13 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playerStateSubscription?.cancel();
     _stationsSubscription?.cancel();
     _refreshServiceSubscription?.cancel();
+
+    try {
+      // 電台如果還握著系統媒體控制，交還給音樂，否則按鈕會停在電台的全關狀態。
+      _publisher.release(NowPlayingOwner.radio);
+    } catch (_) {
+      // provider 容器可能已先被銷毀
+    }
 
     try {
       final audioController = _ref.read(audioControllerProvider.notifier);

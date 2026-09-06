@@ -13,7 +13,6 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -21,11 +20,11 @@ import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/temporary_play_handler.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -84,8 +83,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
       );
 
@@ -109,7 +107,7 @@ void main() {
     test(
       'buildQueueRestorePlan keeps queue restore shape inside handler',
       () {
-        const handler = TemporaryPlayHandler();
+        final handler = TemporaryPlayHandler();
 
         final restorePlan = handler.buildQueueRestorePlan(
           savedQueueIndex: 2,
@@ -128,25 +126,19 @@ void main() {
     test(
       'buildRestorePlan keeps original queue target across chained temporary play',
       () {
-        const handler = TemporaryPlayHandler();
-        const originalState = TemporaryPlaybackState(
-          savedQueueIndex: null,
-          savedPosition: null,
-          savedWasPlaying: null,
-        );
+        final handler = TemporaryPlayHandler();
 
-        final firstTemporary = handler.enterTemporary(
+        handler.enterTemporary(
           currentMode: PlayMode.queue,
-          currentState: originalState,
           hasQueueTrack: true,
           currentIndex: 1,
           currentPosition: const Duration(seconds: 45),
           currentWasPlaying: false,
         );
 
-        final secondTemporary = handler.enterTemporary(
+        // 已經在臨時播放中：第二次進來必須保留最早那份快照。
+        handler.enterTemporary(
           currentMode: PlayMode.temporary,
-          currentState: firstTemporary,
           hasQueueTrack: true,
           currentIndex: 2,
           currentPosition: const Duration(seconds: 7),
@@ -154,17 +146,113 @@ void main() {
         );
 
         final restorePlan = handler.buildRestorePlan(
-          state: secondTemporary,
           rememberPosition: true,
           rewindSeconds: 10,
         );
 
-        expect(secondTemporary.savedQueueIndex, 1);
+        expect(handler.savedQueueIndex, 1);
         expect(restorePlan, isNotNull);
         expect(restorePlan!.savedIndex, 1);
         expect(restorePlan.savedPosition, const Duration(seconds: 45));
         expect(restorePlan.savedWasPlaying, isFalse);
         expect(restorePlan.rewindSeconds, 10);
+      },
+    );
+
+    test(
+      'entering with no queue track leaves nothing to restore',
+      () {
+        final handler = TemporaryPlayHandler();
+
+        handler.enterTemporary(
+          currentMode: PlayMode.queue,
+          hasQueueTrack: false,
+          currentIndex: 3,
+          currentPosition: const Duration(seconds: 12),
+          currentWasPlaying: true,
+        );
+
+        expect(handler.hasSavedState, isFalse);
+        expect(
+          handler.buildRestorePlan(rememberPosition: true, rewindSeconds: 10),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'clear drops the snapshot so nothing can be restored from it',
+      () {
+        final handler = TemporaryPlayHandler();
+
+        handler.enterTemporary(
+          currentMode: PlayMode.queue,
+          hasQueueTrack: true,
+          currentIndex: 4,
+          currentPosition: const Duration(seconds: 33),
+          currentWasPlaying: true,
+        );
+        expect(handler.hasSavedState, isTrue);
+
+        handler.clear();
+
+        expect(handler.hasSavedState, isFalse);
+        expect(handler.savedQueueIndex, isNull);
+        expect(
+          handler.buildRestorePlan(rememberPosition: true, rewindSeconds: 10),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'buildQueueRestorePlan ignores the handler own snapshot',
+      () {
+        final handler = TemporaryPlayHandler();
+
+        handler.enterTemporary(
+          currentMode: PlayMode.queue,
+          hasQueueTrack: true,
+          currentIndex: 1,
+          currentPosition: const Duration(seconds: 45),
+          currentWasPlaying: false,
+        );
+
+        // 電台返回帶的是 RadioController 存的快照，不是這個 handler 存的。
+        final restorePlan = handler.buildQueueRestorePlan(
+          savedQueueIndex: 7,
+          savedPosition: const Duration(seconds: 5),
+          savedWasPlaying: true,
+        );
+
+        expect(restorePlan!.savedIndex, 7);
+        expect(restorePlan.savedPosition, const Duration(seconds: 5));
+        expect(restorePlan.savedWasPlaying, isTrue);
+      },
+    );
+
+    test(
+      'forgetting position restores from the queue start without rewind',
+      () {
+        final handler = TemporaryPlayHandler();
+
+        handler.enterTemporary(
+          currentMode: PlayMode.queue,
+          hasQueueTrack: true,
+          currentIndex: 2,
+          currentPosition: const Duration(seconds: 45),
+          currentWasPlaying: true,
+        );
+
+        final restorePlan = handler.buildRestorePlan(
+          rememberPosition: false,
+          rewindSeconds: 10,
+        );
+
+        expect(restorePlan!.savedIndex, 2);
+        expect(restorePlan.savedPosition, Duration.zero);
+        expect(restorePlan.savedWasPlaying, isTrue);
+        expect(restorePlan.rewindSeconds, 0);
       },
     );
 

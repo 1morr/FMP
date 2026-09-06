@@ -145,6 +145,11 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 
 ## 7. Known limitations
 
+- **Gboard's "Try out your stylus" tutorial overlay steals `adb shell input
+  text`.** On a fresh AVD the first tap into any text field can raise this
+  overlay; the typed characters land in *its* field and the Flutter field stays
+  empty, so it reads as a missed tap. The `ax` tree does not show the overlay.
+  Screenshot to spot it, tap its Cancel, then retype.
 - **`adb shell input text` silently composes instead of committing when
   Gboard's active language is Zhuyin**, which is the default on this AVD. The
   characters land in the candidate strip, the Flutter field stays empty, and the
@@ -162,6 +167,13 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
 - **No element tree on Windows** (§6).
 - `orca screenshot` (Orca's embedded browser) returns inline base64 and burns
   context. For device pixels always use `adb exec-out screencap -p > file.png`.
+- **A snapshot-restored `Medium_Phone` can come up wedged.** The screen is a
+  frozen frame, `orca emulator tap` and `adb shell input` both do nothing, the
+  `ax` tree reads `nodes=0`, and even a hot restart leaves the display
+  unchanged; logcat shows only `F/bluetooth ... on_hardware_error ... code
+  0x42`. Relaunch with `-no-snapshot-load` — do not spend time debugging the
+  app, it is the emulator. `topResumedActivity` still names the app, so that
+  check will not tell you either.
 - Android's 16 KB page-size dialog appears on first launch on modern emulator
   images (`libisar.so` LOAD segment not aligned). Dismiss it via `ax` before
   asserting on the first screen.
@@ -220,8 +232,18 @@ observation on the emulator is worth.
 - **Read SMTC through WinRT, not the flyout.** Querying
   `GlobalSystemMediaTransportControlsSessionManager` returns the actual session
   properties as text; screenshotting the media flyout is unreliable because the
-  popup dismisses on focus change. `scripts/smtc_probe.ps1` is not in the repo
-  yet — see Phase 0 of `docs/review/05-roadmap.md`.
+  popup dismisses on focus change. Use `scripts/smtc_probe.ps1`:
+
+  ```bash
+  powershell.exe -NoProfile -ExecutionPolicy Bypass     -File .claude/skills/verify-on-device/scripts/smtc_probe.ps1 -AppFilter fmp
+  ```
+
+  It prints `IsNextEnabled` / `IsPreviousEnabled` / `IsPlaybackPositionEnabled` /
+  `IsShuffleEnabled` / `IsRepeatEnabled` per session. **It must run under
+  `powershell.exe` (Windows PowerShell 5.1)** — `pwsh` 7 has no WinRT projection
+  and `Add-Type -AssemblyName System.Runtime.WindowsRuntime` fails there. The
+  session manager is readable from any process, so this sidesteps the
+  foreground-focus problem entirely: FMP does not need to be visible.
 - **CMake scratch projects must not sit deep in the path.** Building a probe
   under the session scratchpad exceeds the Windows path limit and fails with
   confusing compiler errors. Use a short root such as `C:/t/`.

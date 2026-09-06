@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:audio_service/audio_service.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
@@ -11,39 +9,31 @@ import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_exception.dart';
-import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/play_history_repository.dart';
-import '../../data/sources/source_provider.dart';
-import '../../providers/database/database_provider.dart';
-import '../../providers/database/repository_providers.dart';
-import '../../providers/audio/stream_resolution_provider.dart';
-import '../../providers/lyrics/lyrics_provider.dart';
-import '../../providers/account/source_auth_context_provider.dart';
-import '../../providers/download/file_exists_cache.dart';
-import '../../providers/library/library_invalidation_coordinator.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
-import '../../main.dart' show audioHandler, windowsSmtcHandler;
-import 'audio_handler.dart';
-import 'windows_smtc_handler.dart';
 import 'audio_types.dart';
 import 'buffer_starvation_watchdog.dart';
+import 'effective_playback_state.dart';
 import 'audio_service.dart';
-import 'media_kit_audio_service.dart';
-import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'audio_runtime_platform.dart';
 import 'audio_stream_manager.dart';
 import 'playback_recovery_coordinator.dart';
 import 'playback_request_session.dart';
+import 'playback_capabilities.dart';
+import 'playback_error_presenter.dart';
+import 'playback_handoff_gate.dart';
+import 'now_playing_publisher.dart';
+import 'queue_commands.dart';
 import 'queue_manager.dart';
 import 'queue_persistence_manager.dart';
-import '../network/connectivity_service.dart';
+import 'queue_state.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
-import 'mix_playlist_handler.dart';
+import 'mix_session_coordinator.dart';
+import 'lyrics_auto_match_coordinator.dart';
+import 'play_history_recorder.dart';
 import 'mix_playlist_types.dart';
 import 'temporary_play_handler.dart';
 
@@ -54,197 +44,24 @@ class _RetryScheduledException implements Exception {
   const _RetryScheduledException();
 }
 
-class QueueState {
-  final List<Track> queue;
-  final List<Track> upcomingTracks;
-  final int? currentIndex;
-  final Track? queueTrack;
-  final bool canPlayPrevious;
-  final bool canPlayNext;
-  final bool isShuffleEnabled;
-  final LoopMode loopMode;
-  final int queueVersion;
-  final bool isMixMode;
-  final String? mixTitle;
-  final bool isLoadingMoreMix;
-
-  const QueueState({
-    this.queue = const [],
-    this.upcomingTracks = const [],
-    this.currentIndex,
-    this.queueTrack,
-    this.canPlayPrevious = false,
-    this.canPlayNext = false,
-    this.isShuffleEnabled = false,
-    this.loopMode = LoopMode.none,
-    this.queueVersion = 0,
-    this.isMixMode = false,
-    this.mixTitle,
-    this.isLoadingMoreMix = false,
-  });
-
-  QueueState copyWith({
-    List<Track>? queue,
-    List<Track>? upcomingTracks,
-    int? currentIndex,
-    Track? queueTrack,
-    bool? canPlayPrevious,
-    bool? canPlayNext,
-    bool? isShuffleEnabled,
-    LoopMode? loopMode,
-    int? queueVersion,
-    bool? isMixMode,
-    String? mixTitle,
-    bool clearMixTitle = false,
-    bool? isLoadingMoreMix,
-  }) {
-    return QueueState(
-      queue: queue ?? this.queue,
-      upcomingTracks: upcomingTracks ?? this.upcomingTracks,
-      currentIndex: currentIndex ?? this.currentIndex,
-      queueTrack: queueTrack ?? this.queueTrack,
-      canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
-      canPlayNext: canPlayNext ?? this.canPlayNext,
-      isShuffleEnabled: isShuffleEnabled ?? this.isShuffleEnabled,
-      loopMode: loopMode ?? this.loopMode,
-      queueVersion: queueVersion ?? this.queueVersion,
-      isMixMode: isMixMode ?? this.isMixMode,
-      mixTitle: clearMixTitle ? null : (mixTitle ?? this.mixTitle),
-      isLoadingMoreMix: isLoadingMoreMix ?? this.isLoadingMoreMix,
-    );
-  }
-}
-
-final queueStateProvider =
-    StateProvider<QueueState>((ref) => const QueueState());
-
-/// 統一的內部播放上下文
-/// 管理播放模式、臨時播放狀態、加載狀態等
-class _PlaybackContext {
-  /// 當前播放模式
-  final PlayMode mode;
-
-  /// 活動的請求 ID（用於防止競態條件）
-  /// 當 > 0 時，表示正在進行播放請求（通過 isInLoadingState 檢查）
-  final int activeRequestId;
-
-  /// 臨時播放保存的隊列索引
-  final int? savedQueueIndex;
-
-  /// 臨時播放保存的播放位置
-  final Duration? savedPosition;
-
-  /// 臨時播放保存的播放狀態（是否正在播放）
-  final bool? savedWasPlaying;
-
-  const _PlaybackContext({
-    this.mode = PlayMode.queue,
-    this.activeRequestId = 0,
-    this.savedQueueIndex,
-    this.savedPosition,
-    this.savedWasPlaying,
-  });
-
-  /// 是否處於臨時播放模式
-  bool get isTemporary => mode == PlayMode.temporary;
-
-  /// 是否處於 Mix 播放模式
-  bool get isMix => mode == PlayMode.mix;
-
-  /// 是否處於加載狀態（正在進行播放請求）
-  bool get isInLoadingState => activeRequestId > 0;
-
-  /// 是否有保存的臨時播放狀態
-  bool get hasSavedState => savedQueueIndex != null;
-
-  _PlaybackContext copyWith({
-    PlayMode? mode,
-    int? activeRequestId,
-    int? savedQueueIndex,
-    Duration? savedPosition,
-    bool? savedWasPlaying,
-    bool clearSavedState = false,
-  }) {
-    return _PlaybackContext(
-      mode: mode ?? this.mode,
-      activeRequestId: activeRequestId ?? this.activeRequestId,
-      savedQueueIndex:
-          clearSavedState ? null : (savedQueueIndex ?? this.savedQueueIndex),
-      savedPosition:
-          clearSavedState ? null : (savedPosition ?? this.savedPosition),
-      savedWasPlaying:
-          clearSavedState ? null : (savedWasPlaying ?? this.savedWasPlaying),
-    );
-  }
-
-  @override
-  String toString() {
-    return '_PlaybackContext(mode: $mode, activeRequestId: $activeRequestId, savedQueueIndex: $savedQueueIndex, savedPosition: $savedPosition, savedWasPlaying: $savedWasPlaying)';
-  }
-}
-
-class _PendingSeekRequest {
-  _PendingSeekRequest({
-    required this.position,
-    required this.trackKey,
-    required this.requestId,
-  });
-
-  final Duration position;
-  final String trackKey;
-  final int requestId;
-  final Completer<void> _completer = Completer<void>();
-
-  Future<void> get future => _completer.future;
-
-  void complete() {
-    if (!_completer.isCompleted) {
-      _completer.complete();
-    }
-  }
-}
-
-class _SeekStabilizationWindow {
-  const _SeekStabilizationWindow({
-    required this.requestId,
-    required this.trackKey,
-    required this.until,
-  });
-
-  final int requestId;
-  final String trackKey;
-  final DateTime until;
-}
-
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState>
     with Logging
     implements PlaybackRetryExecutor {
-  static const _syntheticSourceDiagnostics = <String>{
-    'VIP song, payment required',
-    'No playback rights due to copyright or region restrictions',
-    'Login required',
-    'Playback permission denied',
-    'No stream URL available',
-    'Video unavailable',
-    'Access forbidden (HTTP 403)',
-    'Resource not found (HTTP 404)',
-    'Service temporarily unavailable (HTTP 503)',
-  };
+  /// 失敗分類與文案。無狀態，所以 const 一份就夠。
+  static const _errorPresenter = PlaybackErrorPresenter();
 
   final FmpAudioService _audioService;
   final QueueManager _queueManager;
+  late final QueueCommands _queueCommands;
   final AudioStreamManager _audioStreamManager;
   final ToastService _toastService;
-  final FmpAudioHandler _audioHandler;
-  final WindowsSmtcHandler _windowsSmtcHandler;
-  final AudioRuntimePlatform _runtimePlatform;
-  final PlayHistoryRepository? _playHistoryRepository;
-  final LyricsAutoMatchService? _lyricsAutoMatchService;
+  final NowPlayingPublisher _publisher;
+  late final PlayHistoryRecorder _playHistory;
+  late final LyricsAutoMatchCoordinator _lyricsAutoMatch;
   final SettingsRepository? _settingsRepository;
   final QueuePersistenceManager? _queuePersistenceManager;
-  final MixTracksFetcher? _mixTracksFetcher;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -258,14 +75,20 @@ class AudioController extends StateNotifier<PlayerState>
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
   int _navRequestId = 0;
 
-  // 歌词自动匹配请求ID - 防止旧匹配任务覆盖新匹配任务的 UI 状态
-  int _lyricsAutoMatchRequestId = 0;
-
   // 統一的播放上下文（管理所有播放狀態，包括臨時播放、加載狀態等）
-  _PlaybackContext _context = const _PlaybackContext();
-  _PendingSeekRequest? _pendingSeek;
-  _SeekStabilizationWindow? _seekStabilizationWindow;
-  bool _stabilizeSeekAfterNextPlaybackRequest = false;
+  /// 目前的播放模式。臨時播放、Mix、脫離佇列的分支都讀它。
+  PlayMode _mode = PlayMode.queue;
+
+  /// 控制器正在投影哪一次播放請求的交接，0 代表不在交接中。
+  ///
+  /// 這是 `PlaybackRequestSession` 那個單調遞增請求 id 的**閂存副本**
+  /// （`_enterLoading()` → `onLoadingStarted` 原樣傳過來），交接結束就歸零。
+  /// 它不是第二個計數器。
+  late final PlaybackHandoffGate _handoff;
+
+  bool get _isTemporaryMode => _mode == PlayMode.temporary;
+  bool get _isMixMode => _mode == PlayMode.mix;
+  bool get _isLoadingPlayback => _handoff.isLoading;
 
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
@@ -273,8 +96,7 @@ class AudioController extends StateNotifier<PlayerState>
   late final PlaybackRequestSession _playbackRequestSession;
   late final PlaybackRecoveryCoordinator _recoveryCoordinator;
   late final TemporaryPlayHandler _temporaryPlayHandler;
-  late final MixPlaylistHandler _mixPlaylistHandler;
-  Future<void>? _mixLoadMoreFuture;
+  late final MixSessionCoordinator _mixSession;
   int _mixStartRequestId = 0;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
@@ -289,8 +111,13 @@ class AudioController extends StateNotifier<PlayerState>
   /// 檢查電台是否正在播放（由 RadioController 設置，用於避免電台斷流時誤觸發隊列播放）
   bool Function()? isRadioPlaying;
 
-  /// 歌词自动匹配状态回调（用于 UI 显示加载动画）
-  void Function(bool isMatching)? onLyricsAutoMatchStateChanged;
+  /// 歌詞自動比對狀態回呼（UI 用來顯示載入動畫）。
+  ///
+  /// 轉發給 `LyricsAutoMatchCoordinator` —— 接線點留在 controller 上，provider
+  /// 那頭不需要知道這件事已經搬家了。
+  set onLyricsAutoMatchStateChanged(void Function(bool isMatching)? callback) {
+    _lyricsAutoMatch.onStateChanged = callback;
+  }
 
   void Function(QueueState queueState)? onQueueStateChanged;
 
@@ -303,29 +130,37 @@ class AudioController extends StateNotifier<PlayerState>
     required QueueManager queueManager,
     required AudioStreamManager audioStreamManager,
     required ToastService toastService,
-    required FmpAudioHandler audioHandler,
-    required WindowsSmtcHandler windowsSmtcHandler,
+    required NowPlayingPublisher nowPlayingPublisher,
     PlayHistoryRepository? playHistoryRepository,
     LyricsAutoMatchService? lyricsAutoMatchService,
     SettingsRepository? settingsRepository,
     QueuePersistenceManager? queuePersistenceManager,
     MixTracksFetcher? mixTracksFetcher,
-    AudioRuntimePlatform? runtimePlatform,
     PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
   })  : _budget = budget,
         _audioService = audioService,
         _queueManager = queueManager,
         _audioStreamManager = audioStreamManager,
         _toastService = toastService,
-        _audioHandler = audioHandler,
-        _windowsSmtcHandler = windowsSmtcHandler,
-        _runtimePlatform = runtimePlatform ?? detectAudioRuntimePlatform(),
-        _playHistoryRepository = playHistoryRepository,
-        _lyricsAutoMatchService = lyricsAutoMatchService,
+        _publisher = nowPlayingPublisher,
         _settingsRepository = settingsRepository,
         _queuePersistenceManager = queuePersistenceManager,
-        _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
+    _playHistory = PlayHistoryRecorder(repository: playHistoryRepository);
+    _lyricsAutoMatch = LyricsAutoMatchCoordinator(
+      service: lyricsAutoMatchService,
+      settingsRepository: settingsRepository,
+    );
+    _queueCommands = QueueCommands(
+      queueManager: _queueManager,
+      toastService: _toastService,
+    );
+    _handoff = PlaybackHandoffGate(
+      currentTrackKey: () => _playingTrack?.uniqueKey,
+      performSeek: _performSeek,
+      isRequestSuperseded: (requestId) =>
+          _playbackRequestSession.isSuperseded(requestId),
+    );
     _playbackRequestSession = PlaybackRequestSession(
       budget: _budget,
       audioService: _audioService,
@@ -334,15 +169,15 @@ class AudioController extends StateNotifier<PlayerState>
       onLoadingStarted: _startSessionLoadingState,
       onLoadingFinished: (requestId, result) {
         if (result.isSuperseded) {
-          _discardPendingSeekForRequest(
-            requestId,
+          _handoff.discardPending(
+            requestId: requestId,
             reason: 'playback request was superseded',
           );
         }
-        if (_context.activeRequestId == requestId && result.isSuperseded) {
+        if (_handoff.isCurrent(requestId) && result.isSuperseded) {
           state = state.copyWith(isLoading: false);
-          _context = _context.copyWith(activeRequestId: 0);
-          _publishMobileAudioHandlerCurrentPlaybackState();
+          _handoff.endRequest();
+          _publishCurrentPlaybackState();
         }
       },
       terminalMediaOpenMessage: (track) =>
@@ -352,14 +187,20 @@ class AudioController extends StateNotifier<PlayerState>
     _recoveryCoordinator = PlaybackRecoveryCoordinator(
       retryExecutor: this,
       onRecoveryEvent: _applyRecoveryEvent,
-      isRetryableError: _isRetryableError,
+      isRetryableError: _errorPresenter.isRetryable,
     );
     _bufferWatchdog = BufferStarvationWatchdog(
       onStarved: _onBufferStarvation,
       budget: _budget,
     );
-    _temporaryPlayHandler = const TemporaryPlayHandler();
-    _mixPlaylistHandler = MixPlaylistHandler();
+    _temporaryPlayHandler = TemporaryPlayHandler();
+    _mixSession = MixSessionCoordinator(
+      queueManager: _queueManager,
+      toastService: _toastService,
+      fetcher: mixTracksFetcher,
+      onLoadingChanged: _onMixLoadingChanged,
+      onQueueChanged: _updateQueueState,
+    );
   }
 
   final PlaybackTimeoutBudget _budget;
@@ -367,9 +208,6 @@ class AudioController extends StateNotifier<PlayerState>
 
   /// 已經為哪一首歌出手救過一次。同一首只救一次，否則就變成無限重載。
   String? _bufferStarvationTrackKey;
-
-  bool get _usesMobileAudioHandler =>
-      _runtimePlatform == AudioRuntimePlatform.mobile;
 
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
@@ -415,33 +253,19 @@ class AudioController extends StateNotifier<PlayerState>
       // 监听队列状态变化
       subscribe(_queueManager.stateStream, _onQueueStateChanged);
 
-      // 设置 AudioHandler 回调（仅在 Android/iOS 上有效）
-      if (_usesMobileAudioHandler) {
-        _setupAudioHandler();
-      }
-
-      // 设置 Windows SMTC 回调（仅在 Windows 上有效）
-      if (Platform.isWindows) {
-        _setupWindowsSmtc();
-      }
+      // 接管系统媒体控制（通知栏 / SMTC），平台分流由 publisher 负责
+      _claimMediaControls();
 
       // 更新初始状态
       _updateQueueState();
 
       // 恢復 Mix 播放模式（如果之前有持久化的 Mix metadata）
-      final restoredQueueState = _queuePersistenceManager == null
-          ? null
-          : await _queuePersistenceManager.restoreState();
-      final isRestoredMixMode = restoredQueueState?.queue.isMixMode ?? false;
-      final playlistId = restoredQueueState?.mixPlaylistId;
-      final seedVideoId = restoredQueueState?.mixSeedVideoId;
-      final title = restoredQueueState?.mixTitle;
-      if (isRestoredMixMode &&
-          playlistId != null &&
-          seedVideoId != null &&
-          title != null) {
-        logDebug('Restoring Mix mode: $title');
-
+      final restoredMix = _mixSession.restoreFrom(
+        _queuePersistenceManager == null
+            ? null
+            : await _queuePersistenceManager.restoreState(),
+      );
+      if (restoredMix != null) {
         // Mix 模式不支持隨機播放，確保關閉
         if (_queueManager.isShuffleEnabled) {
           await _queueManager.setShuffle(false);
@@ -449,22 +273,13 @@ class AudioController extends StateNotifier<PlayerState>
           state = state.copyWith(isShuffleEnabled: false);
         }
 
-        final mixState = _mixPlaylistHandler.start(
-          playlistId: playlistId,
-          seedVideoId: seedVideoId,
-          title: title,
-        );
-        // 將已有的歌曲添加到 seenVideoIds（避免重複加載）
-        mixState.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
-
-        // 更新 context 和 state
-        _context = _context.copyWith(mode: PlayMode.mix);
+        _mode = PlayMode.mix;
         state = state.copyWith(
           isMixMode: true,
-          mixTitle: title,
+          mixTitle: restoredMix.title,
         );
         _publishCurrentQueueState();
-        _triggerMixLoadMoreIfNearQueueEnd(PlayMode.mix);
+        _mixSession.onTrackStarted(PlayMode.mix);
       }
 
       // 恢复音量
@@ -511,26 +326,25 @@ class AudioController extends StateNotifier<PlayerState>
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
-    _discardPendingSeek(reason: 'controller disposed');
-    _clearSeekStabilizationWindow();
-    _lyricsAutoMatchRequestId++;
-    onLyricsAutoMatchStateChanged = null;
+    _handoff.dispose();
+    _lyricsAutoMatch.dispose();
     _stopPositionCheckTimer();
     _cancelRetryTimer();
     _bufferWatchdog.dispose();
     _recoveryCoordinator.dispose();
     _playbackRequestSession.dispose();
     _networkRecoverySubscription?.cancel();
-    _mixLoadMoreFuture = null;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
     _subscriptions.clear();
-    _mixPlaylistHandler.clear();
+    _mixSession.exit();
     _queueManager.dispose();
-    // 未清理时 SMTC 的按钮订阅与原生句柄会活过 controller，
-    // 令已释放的 controller 继续收到系统媒体键事件。
-    _windowsSmtcHandler.dispose();
+    // 交还系统媒体控制。刻意**不** dispose 原生句柄：需要跟着 controller
+    // 一起消失的是回调绑定，不是 SMTC 本身 —— 原生 session 只在 main.dart
+    // 建立一次，dispose 掉之后没有任何程式码会重建它。按钮订阅留着，解绑后
+    // 它派发到 null，正是 app 启动时的状态。
+    _publisher.release(NowPlayingOwner.music);
     unawaited(_audioService.dispose().catchError((Object e, StackTrace stack) {
       logError('Failed to dispose audio service', e, stack);
     }));
@@ -589,8 +403,7 @@ class AudioController extends StateNotifier<PlayerState>
 
   /// 停止
   Future<void> stop() async {
-    _discardPendingSeek(reason: 'playback stopped');
-    _clearSeekStabilizationWindow();
+    _handoff.cancelDeferredSeeks(reason: 'playback stopped');
     await _audioService.stop();
     _clearPlayingTrack();
   }
@@ -600,8 +413,7 @@ class AudioController extends StateNotifier<PlayerState>
   /// 跳转到指定位置
   Future<void> seekTo(Duration position) async {
     try {
-      final deferredSeek = _deferSeekIfPlaybackLoading(position) ??
-          _deferSeekIfPlaybackStabilizing(position);
+      final deferredSeek = _handoff.deferSeek(position);
       if (deferredSeek != null) {
         await deferredSeek;
         return;
@@ -623,56 +435,12 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  Future<void>? _deferSeekIfPlaybackLoading(Duration position) {
-    final requestId = _context.activeRequestId;
-    if (requestId <= 0) return null;
-
-    final trackKey =
-        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
-    if (trackKey == null) return null;
-
-    _discardPendingSeek(reason: 'newer seek queued during playback handoff');
-    final pending = _PendingSeekRequest(
-      position: position,
-      trackKey: trackKey,
-      requestId: requestId,
-    );
-    _pendingSeek = pending;
-    logDebug(
-      'Deferring seek to $position until playback request $requestId is ready',
-    );
-    return pending.future;
-  }
-
-  Future<void>? _deferSeekIfPlaybackStabilizing(Duration position) {
-    final window = _seekStabilizationWindow;
-    if (window == null) return null;
-
-    final trackKey =
-        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
-    final remaining = _remainingSeekStabilizationDelay(
-      requestId: window.requestId,
-      trackKey: window.trackKey,
-    );
-    if (remaining <= Duration.zero ||
-        trackKey != window.trackKey ||
-        _playbackRequestSession.activeRequestId != window.requestId) {
-      _clearSeekStabilizationWindow();
-      return null;
-    }
-
-    _discardPendingSeek(reason: 'newer seek queued during seek stabilization');
-    final pending = _PendingSeekRequest(
-      position: position,
-      trackKey: window.trackKey,
-      requestId: window.requestId,
-    );
-    _pendingSeek = pending;
-    logDebug(
-      'Deferring seek to $position for $remaining after playback request ${window.requestId}',
-    );
-    unawaited(_applyPendingSeekIfCurrent(window.requestId));
-    return pending.future;
+  /// 開一次新的播放請求之前，把上一次交接整個收乾淨。
+  ///
+  /// 順序有意義：先讓 session 作廢舊的請求 id，再清掉綁在那個 id 上的延後 seek。
+  void _cancelActivePlaybackRequest({required String reason}) {
+    _playbackRequestSession.cancelActive();
+    _handoff.cancel(reason: reason);
   }
 
   Future<void> _performSeek(Duration position) async {
@@ -683,42 +451,13 @@ class AudioController extends StateNotifier<PlayerState>
     await _queueManager.savePositionNow();
   }
 
-  /// 快进
-  Future<void> seekForward([Duration? duration]) async {
-    try {
-      final seekDuration =
-          duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-      await _audioService.seekForward(seekDuration);
-      // 立即保存位置
-      await _queueManager.savePositionNow();
-    } catch (e, stack) {
-      logError('Failed to seekForward', e, stack);
-    }
-  }
-
-  /// 快退
-  Future<void> seekBackward([Duration? duration]) async {
-    try {
-      final seekDuration =
-          duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-      await _audioService.seekBackward(seekDuration);
-      // 立即保存位置
-      await _queueManager.savePositionNow();
-    } catch (e, stack) {
-      logError('Failed to seekBackward', e, stack);
-    }
-  }
-
   // ========== 队列控制 ==========
 
   /// 播放单首歌曲
   Future<void> playSingle(Track track) async {
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
-    _playbackRequestSession.cancelActive();
-    _discardPendingSeek(reason: 'single-track playback started');
-    _clearSeekStabilizationWindow();
-    _context = _context.copyWith(activeRequestId: 0);
+    _cancelActivePlaybackRequest(reason: 'single-track playback started');
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing single track: ${track.title}');
     try {
@@ -740,67 +479,51 @@ class AudioController extends StateNotifier<PlayerState>
   Future<void> playTemporary(Track track) async {
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
-    _playbackRequestSession.cancelActive();
-    _discardPendingSeek(reason: 'temporary playback started');
-    _clearSeekStabilizationWindow();
-    _context = _context.copyWith(activeRequestId: 0);
+    _cancelActivePlaybackRequest(reason: 'temporary playback started');
 
     logInfo('Playing temporary track: ${track.title}');
 
-    final nextSnapshot = _temporaryPlayHandler.enterTemporary(
-      currentMode: _context.mode,
-      currentState: _currentTemporaryPlaybackState(),
+    _temporaryPlayHandler.enterTemporary(
+      currentMode: _mode,
       hasQueueTrack: _queueManager.currentTrack != null,
       currentIndex: _queueManager.currentIndex,
       currentPosition: _audioService.position,
       currentWasPlaying: _audioService.isPlaying,
     );
-
-    _context = _context.copyWith(
-      mode: PlayMode.temporary,
-      savedQueueIndex: nextSnapshot.savedQueueIndex,
-      savedPosition: nextSnapshot.savedPosition,
-      savedWasPlaying: nextSnapshot.savedWasPlaying,
-      clearSavedState: !nextSnapshot.hasSavedState,
-    );
-
-    if (_context.hasSavedState) {
-      logDebug(
-          'Saved playback state: index: ${_context.savedQueueIndex}, position: ${_context.savedPosition}');
-    }
+    _mode = PlayMode.temporary;
 
     try {
       await _executePlayRequest(
         track: track,
         mode: PlayMode.temporary,
         persist: false,
-        recordHistory: true,
+        countsAsNewPlay: true,
         prefetchNext: false,
       );
     } on SourceApiException catch (e) {
       // 音源 API 错误：尝试恢复原队列
       logWarning(
           '${e.sourceType} API error for temporary track ${track.title}: ${e.message}');
-      if (_shouldSkipSourceError(e)) {
-        _toastService.showWarning(_sourceCannotPlayMessage(track, e));
+      if (_errorPresenter.shouldSkipTrack(e)) {
+        _toastService.showWarning(_errorPresenter.cannotPlay(track, e));
       } else {
         _toastService
-            .showError(t.audio.playbackFailed(message: _sourceErrorReason(e)));
+            .showError(_errorPresenter.playbackFailed(e));
       }
-      if (_context.hasSavedState) {
+      if (_temporaryPlayHandler.hasSavedState) {
         await _restoreSavedState();
       } else {
-        _context =
-            _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+        _mode = PlayMode.queue;
+        _temporaryPlayHandler.clear();
       }
     } catch (e, stack) {
       logError('Failed to play temporary track: ${track.title}', e, stack);
       _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
-      if (_context.hasSavedState) {
+      if (_temporaryPlayHandler.hasSavedState) {
         await _restoreSavedState();
       } else {
-        _context =
-            _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+        _mode = PlayMode.queue;
+        _temporaryPlayHandler.clear();
       }
     }
   }
@@ -820,7 +543,8 @@ class AudioController extends StateNotifier<PlayerState>
       if (queue.isEmpty) {
         logDebug('$debugLabel aborted: queue is empty');
         if (clearSavedState) {
-          _context = _context.copyWith(mode: targetMode, clearSavedState: true);
+          _mode = targetMode;
+          _temporaryPlayHandler.clear();
         }
         _updateQueueState();
         return;
@@ -869,7 +593,7 @@ class AudioController extends StateNotifier<PlayerState>
       _replaceQueueTrackIfCurrent(executionTrack);
 
       if (clearSavedState) {
-        _context = _context.copyWith(clearSavedState: true);
+        _temporaryPlayHandler.clear();
       }
 
       _exitLoadingState(
@@ -884,7 +608,7 @@ class AudioController extends StateNotifier<PlayerState>
       logWarning(
           '$debugLabel failed: ${e.sourceType} API error: ${e.message}');
       if (clearSavedState) {
-        _context = _context.copyWith(clearSavedState: true);
+        _temporaryPlayHandler.clear();
       }
       if (requestId == null || _isSessionSuperseded(requestId)) return;
       final track = _queueManager.currentTrack;
@@ -897,7 +621,18 @@ class AudioController extends StateNotifier<PlayerState>
     } catch (e, stack) {
       logError('Failed during $debugLabel', e, stack);
       if (clearSavedState) {
-        _context = _context.copyWith(clearSavedState: true);
+        _temporaryPlayHandler.clear();
+      }
+      // 還原逾時要說出來。finally 會把轉圈停掉，但停掉而不說任何話，使用者只會
+      // 看到播放鍵自己不轉了、歌也沒播 —— 與起播路徑同一句文案。
+      if (e is PlaybackTimeoutException) {
+        final track = _queueManager.currentTrack;
+        if (track != null) {
+          _toastService.showError(t.audio.cannotPlayReason(
+            title: track.title,
+            reason: t.audio.sourceErrorTimeout,
+          ));
+        }
       }
     } finally {
       if (requestId != null) {
@@ -906,33 +641,26 @@ class AudioController extends StateNotifier<PlayerState>
     }
   }
 
-  TemporaryPlaybackState _currentTemporaryPlaybackState() {
-    return TemporaryPlaybackState(
-      savedQueueIndex: _context.savedQueueIndex,
-      savedPosition: _context.savedPosition,
-      savedWasPlaying: _context.savedWasPlaying,
-    );
-  }
-
   /// 恢复保存的播放状态
   /// 注意：直接使用当前队列，不恢复队列内容（用户可能在临时播放期间修改了队列）
   Future<void> _restoreSavedState() async {
-    if (!_context.hasSavedState) {
+    if (!_temporaryPlayHandler.hasSavedState) {
       logDebug('No saved state to restore');
-      _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+      _mode = PlayMode.queue;
+      _temporaryPlayHandler.clear();
       return;
     }
 
     final positionSettings = await _queueManager.getPositionRestoreSettings();
     final restorePlan = _temporaryPlayHandler.buildRestorePlan(
-      state: _currentTemporaryPlaybackState(),
       rememberPosition: positionSettings.enabled,
       rewindSeconds: positionSettings.tempPlayRewindSeconds,
     );
 
     if (restorePlan == null) {
       logDebug('No restore plan available');
-      _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+      _mode = PlayMode.queue;
+      _temporaryPlayHandler.clear();
       return;
     }
 
@@ -953,7 +681,7 @@ class AudioController extends StateNotifier<PlayerState>
     await _ensureInitialized();
     _resetRetryState();
 
-    if (_context.isTemporary && _context.hasSavedState) {
+    if (_isTemporaryMode && _temporaryPlayHandler.hasSavedState) {
       await _returnToQueue();
       return;
     }
@@ -980,10 +708,7 @@ class AudioController extends StateNotifier<PlayerState>
   /// 播放多首歌曲
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
     await _ensureInitialized();
-    _playbackRequestSession.cancelActive();
-    _discardPendingSeek(reason: 'queue playback started');
-    _clearSeekStabilizationWindow();
-    _context = _context.copyWith(activeRequestId: 0);
+    _cancelActivePlaybackRequest(reason: 'queue playback started');
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing ${tracks.length} tracks, starting at index $startIndex');
     try {
@@ -1003,10 +728,7 @@ class AudioController extends StateNotifier<PlayerState>
       playAll(tracks, startIndex: startIndex);
 
   /// 重新綁定歌曲播放的全局媒體控制回調
-  void restoreMediaControlOwnership() {
-    _setupAudioHandler();
-    _setupWindowsSmtc();
-  }
+  void restoreMediaControlOwnership() => _claimMediaControls();
 
   Future<void> startMixFromPlaylist(Playlist playlist) async {
     final playlistId = playlist.mixPlaylistId;
@@ -1015,18 +737,14 @@ class AudioController extends StateNotifier<PlayerState>
       throw StateError(t.library.main.mixInfoIncomplete);
     }
 
-    final fetcher = _mixTracksFetcher;
-    if (fetcher == null) {
+    if (!_mixSession.canFetch) {
       throw StateError(t.library.main.cannotLoadMix);
     }
 
-    _playbackRequestSession.cancelActive();
-    _discardPendingSeek(reason: 'Mix playback started');
-    _clearSeekStabilizationWindow();
-    _context = _context.copyWith(activeRequestId: 0);
+    _cancelActivePlaybackRequest(reason: 'Mix playback started');
     final mixStartRequestId = ++_mixStartRequestId;
     final playRequestGeneration = _playbackRequestSession.activeRequestId;
-    final result = await fetcher(
+    final result = await _mixSession.fetch(
       playlistId: playlistId,
       currentVideoId: seedVideoId,
     );
@@ -1086,7 +804,7 @@ class AudioController extends StateNotifier<PlayerState>
       }
 
       // 初始化 Mix 狀態
-      final mixState = _mixPlaylistHandler.start(
+      final mixState = _mixSession.start(
         playlistId: playlistId,
         seedVideoId: seedVideoId,
         title: title,
@@ -1119,7 +837,7 @@ class AudioController extends StateNotifier<PlayerState>
           track: currentTrack,
           mode: PlayMode.mix,
           persist: true,
-          recordHistory: true,
+          countsAsNewPlay: true,
         );
       }
     } catch (e, stack) {
@@ -1131,12 +849,11 @@ class AudioController extends StateNotifier<PlayerState>
 
   /// 退出 Mix 模式
   void _exitMixMode() {
-    final mixState = _mixPlaylistHandler.current;
+    final mixState = _mixSession.current;
     if (mixState != null) {
       logDebug('Exiting Mix mode');
-      _mixPlaylistHandler.clear();
-      _mixLoadMoreFuture = null;
-      _context = _context.copyWith(mode: PlayMode.queue);
+      _mixSession.exit();
+      _mode = PlayMode.queue;
       state = state.copyWith(
         isMixMode: false,
         clearMixTitle: true,
@@ -1157,7 +874,7 @@ class AudioController extends StateNotifier<PlayerState>
       _queueManager.setCurrentIndex(index);
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack != null) {
-        _requestSeekStabilizationForNextPlaybackRequest();
+        _handoff.requestStabilizationForNextRequest();
         await _playTrack(currentTrack);
       }
     } catch (e, stack) {
@@ -1192,7 +909,7 @@ class AudioController extends StateNotifier<PlayerState>
       }
       final track = _queueManager.currentTrack;
       if (track != null) {
-        _requestSeekStabilizationForNextPlaybackRequest();
+        _handoff.requestStabilizationForNextRequest();
         await _playTrack(track);
       }
     }
@@ -1230,7 +947,7 @@ class AudioController extends StateNotifier<PlayerState>
         }
         final track = _queueManager.currentTrack;
         if (track != null) {
-          _requestSeekStabilizationForNextPlaybackRequest();
+          _handoff.requestStabilizationForNextRequest();
           await _playTrack(track);
         }
       }
@@ -1242,28 +959,8 @@ class AudioController extends StateNotifier<PlayerState>
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addToQueue(Track track) async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止添加歌曲
-    if (_context.isMix) {
-      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
-      return false;
-    }
-
-    logInfo('Adding to queue: ${track.title}');
-    try {
-      final added = await _queueManager.add(track);
-      if (!added) {
-        _toastService
-            .showError(t.audio.queueFull(count: AppConstants.maxQueueSize));
-        return false;
-      }
-      _updateQueueState();
-      return true;
-    } catch (e, stack) {
-      logError('Failed to add track to queue', e, stack);
-      state = state.copyWith(error: e.toString());
-      return false;
-    }
+    return _applyQueueMutation(
+        await _queueCommands.add(track, isMixMode: _isMixMode));
   }
 
   /// 批量添加到队列
@@ -1271,23 +968,8 @@ class AudioController extends StateNotifier<PlayerState>
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addAllToQueue(List<Track> tracks) async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止添加歌曲
-    if (_context.isMix) {
-      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
-      return false;
-    }
-
-    logInfo('Adding ${tracks.length} tracks to queue');
-    try {
-      await _queueManager.addAll(tracks);
-      _updateQueueState();
-      return true;
-    } catch (e, stack) {
-      logError('Failed to add tracks to queue', e, stack);
-      state = state.copyWith(error: e.toString());
-      return false;
-    }
+    return _applyQueueMutation(
+        await _queueCommands.addAll(tracks, isMixMode: _isMixMode));
   }
 
   /// 添加到下一首
@@ -1295,89 +977,64 @@ class AudioController extends StateNotifier<PlayerState>
   /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
   Future<bool> addNext(Track track) async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止添加歌曲
-    if (_context.isMix) {
-      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
-      return false;
-    }
-
-    logInfo('Adding next: ${track.title}');
-    try {
-      await _queueManager.addNext(track);
-      _updateQueueState();
-      return true;
-    } catch (e, stack) {
-      logError('Failed to add track as next', e, stack);
-      state = state.copyWith(error: e.toString());
-      return false;
-    }
+    return _applyQueueMutation(
+        await _queueCommands.addNext(track, isMixMode: _isMixMode));
   }
 
   /// 从队列移除
   Future<void> removeFromQueue(int index) async {
     await _ensureInitialized();
-    logDebug('Removing from queue at index: $index');
-    try {
-      await _queueManager.removeAt(index);
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to remove from queue at index $index', e, stack);
-      state = state.copyWith(error: e.toString());
-    }
+    _applyQueueMutation(await _queueCommands.removeAt(index));
   }
 
   /// 移动队列中的歌曲
   Future<void> moveInQueue(int oldIndex, int newIndex) async {
     await _ensureInitialized();
-    logDebug('Moving in queue: $oldIndex -> $newIndex');
-    try {
-      await _queueManager.move(oldIndex, newIndex);
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to move in queue', e, stack);
-      state = state.copyWith(error: e.toString());
-    }
+    _applyQueueMutation(await _queueCommands.move(oldIndex, newIndex));
   }
 
   /// 随机打乱队列（破坏性）
   Future<void> shuffleQueue() async {
     await _ensureInitialized();
-
-    // Mix 模式下禁止隨機播放（UI 應該已禁用按鈕，這是額外保護）
-    if (_context.isMix) return;
-
-    logInfo('Shuffling queue');
-    try {
-      await _queueManager.shuffle();
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to shuffle queue', e, stack);
-      state = state.copyWith(error: e.toString());
-    }
+    _applyQueueMutation(
+        await _queueCommands.shuffle(isMixMode: _isMixMode));
   }
 
   /// 清空队列
+  ///
+  /// 清空之後的兩件事留在這裡：退出 Mix 模式、以及讓還在響的那首歌進入
+  /// detached 模式。兩者都是播放工作階段的狀態，不屬於佇列本身。
   Future<void> clearQueue() async {
     await _ensureInitialized();
-    logInfo('Clearing queue');
-    try {
-      await _queueManager.clear();
+    final mutation = await _queueCommands.clear();
+    if (!mutation.isApplied) {
+      _applyQueueMutation(mutation);
+      return;
+    }
 
-      // 退出 Mix 模式（如果有）
-      if (_context.isMix) {
-        _exitMixMode();
-      }
+    if (_isMixMode) {
+      _exitMixMode();
+    }
+    if (_playingTrack != null && !_isTemporaryMode) {
+      _mode = PlayMode.detached;
+      logDebug('Entered detached mode after clearing queue');
+    }
+    _updateQueueState();
+  }
 
-      // 如果還有歌曲在播放，且不是臨時播放模式，則進入 detached 模式
-      if (_playingTrack != null && !_context.isTemporary) {
-        _context = _context.copyWith(mode: PlayMode.detached);
-        logDebug('Entered detached mode after clearing queue');
-      }
-      _updateQueueState();
-    } catch (e, stack) {
-      logError('Failed to clear queue', e, stack);
-      state = state.copyWith(error: e.toString());
+  /// 把一次佇列變更的結果投影到 `PlayerState`。
+  ///
+  /// 回傳值沿用原本的語意：只有真的改到佇列才算成功，被擋下與失敗都是 false。
+  bool _applyQueueMutation(QueueMutation mutation) {
+    switch (mutation.status) {
+      case QueueMutationStatus.applied:
+        _updateQueueState();
+        return true;
+      case QueueMutationStatus.blocked:
+        return false;
+      case QueueMutationStatus.failed:
+        state = state.copyWith(error: mutation.error.toString());
+        return false;
     }
   }
 
@@ -1398,16 +1055,12 @@ class AudioController extends StateNotifier<PlayerState>
   /// 切换随机播放
   Future<void> toggleShuffle() async {
     // Mix 模式下禁止隨機播放（UI 應該已禁用按鈕，這是額外保護）
-    if (_context.isMix) return;
+    if (_isMixMode) return;
 
     logDebug('Toggling shuffle');
     await _queueManager.toggleShuffle();
     state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
-
-    // 更新 AudioHandler 的随机播放状态（用于通知栏）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateShuffleMode(_queueManager.isShuffleEnabled);
-    }
+    _publishPlayModes();
   }
 
   /// 设置循环模式
@@ -1415,22 +1068,14 @@ class AudioController extends StateNotifier<PlayerState>
     logDebug('Setting loop mode: $mode');
     await _queueManager.setLoopMode(mode);
     state = state.copyWith(loopMode: mode);
-
-    // 更新 AudioHandler 的循环模式（用于通知栏）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateRepeatMode(mode);
-    }
+    _publishPlayModes();
   }
 
   /// 循环切换循环模式
   Future<void> cycleLoopMode() async {
     await _queueManager.cycleLoopMode();
     state = state.copyWith(loopMode: _queueManager.loopMode);
-
-    // 更新 AudioHandler 的循环模式（用于通知栏）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateRepeatMode(_queueManager.loopMode);
-    }
+    _publishPlayModes();
   }
 
   // ========== 音量 ==========
@@ -1560,45 +1205,6 @@ class AudioController extends StateNotifier<PlayerState>
     _queueManager.replaceTrack(updatedTrack.copy());
   }
 
-  void _triggerMixLoadMoreIfNearQueueEnd(PlayMode mode) {
-    if (!_shouldLoadMoreMixTracks(mode)) return;
-
-    final remaining =
-        _queueManager.tracks.length - 1 - _queueManager.currentIndex;
-    logDebug(
-        'Mix mode: $remaining tracks remaining, loading more before queue end...');
-    _scheduleMixLoadMore();
-  }
-
-  bool _shouldLoadMoreMixTracks(PlayMode mode) {
-    if (mode != PlayMode.mix) return false;
-    if (_mixLoadMoreFuture != null) return false;
-
-    final queueLength = _queueManager.tracks.length;
-    if (queueLength == 0) return false;
-
-    final remaining = queueLength - 1 - _queueManager.currentIndex;
-    final threshold =
-        queueLength > AppConstants.mixLoadMoreRemainingThreshold + 1
-            ? AppConstants.mixLoadMoreRemainingThreshold
-            : 0;
-    return remaining <= threshold;
-  }
-
-  void _scheduleMixLoadMore() {
-    if (_mixLoadMoreFuture != null) return;
-
-    final future = _loadMoreMixTracks();
-    _mixLoadMoreFuture = future;
-    unawaited(
-      future.whenComplete(() {
-        if (identical(_mixLoadMoreFuture, future)) {
-          _mixLoadMoreFuture = null;
-        }
-      }),
-    );
-  }
-
   QueueState _createQueueStateFromCurrentState({int? queueVersion}) {
     return QueueState(
       queue: state.queue,
@@ -1620,76 +1226,50 @@ class AudioController extends StateNotifier<PlayerState>
     onQueueStateChanged?.call(_createQueueStateFromCurrentState());
   }
 
-  /// 设置 AudioHandler 回调函数
-  void _setupAudioHandler() {
-    _audioHandler.onPlay = play;
-    _audioHandler.onPause = pause;
-    _audioHandler.onStop = stop;
-    _audioHandler.onSkipToNext = next;
-    _audioHandler.onSkipToPrevious = previous;
-    _audioHandler.onSeek = seekTo;
-    _audioHandler.onSetRepeatMode = (repeatMode) async {
-      final loopMode = _repeatModeToLoopMode(repeatMode);
-      await setLoopMode(loopMode);
-    };
-    _audioHandler.onSetShuffleMode = (shuffleMode) async {
-      final shouldShuffle = shuffleMode != AudioServiceShuffleMode.none;
-      if (shouldShuffle != _queueManager.isShuffleEnabled) {
-        await toggleShuffle();
-      }
-    };
+  /// `MixSessionCoordinator` 回報預取的載入中狀態。投影成兩份鏡像（`PlayerState`
+  /// 給播放頁，`QueueState` 給佇列頁）的責任留在 controller。
+  void _onMixLoadingChanged(bool isLoading) {
+    if (_isDisposed) return;
+    state = state.copyWith(isLoadingMoreMix: isLoading);
+    _publishCurrentQueueState();
+  }
 
-    // 初始化播放状态
-    _audioHandler.initPlaybackState(
-      isPlaying: _audioService.isPlaying,
-      repeatMode: _loopModeToRepeatMode(_queueManager.loopMode),
-      shuffleMode: _queueManager.isShuffleEnabled
-          ? AudioServiceShuffleMode.all
-          : AudioServiceShuffleMode.none,
+  /// 接管系统媒体控制。
+  ///
+  /// 通知栏与 SMTC 的差异、以及哪些按钮该出现，全部由 [NowPlayingPublisher]
+  /// 依 [PlaybackCapabilities] 决定 —— 这里只负责说「音乐这个模式支援什么」。
+  void _claimMediaControls() {
+    _publisher.claim(
+      NowPlayingOwner.music,
+      commands: MediaControlCommands(
+        play: play,
+        pause: pause,
+        stop: stop,
+        skipToNext: next,
+        skipToPrevious: previous,
+        seek: seekTo,
+        setLoopMode: setLoopMode,
+        setShuffleEnabled: (enabled) async {
+          if (enabled != _queueManager.isShuffleEnabled) {
+            await toggleShuffle();
+          }
+        },
+      ),
+      capabilities: PlaybackCapabilities.music,
     );
-
-    logDebug('AudioHandler callbacks set up');
+    _publishPlayModes();
   }
 
-  /// 设置 Windows SMTC 回调函数
-  void _setupWindowsSmtc() {
-    _windowsSmtcHandler.onPlay = play;
-    _windowsSmtcHandler.onPause = pause;
-    _windowsSmtcHandler.onStop = stop;
-    _windowsSmtcHandler.onSkipToNext = next;
-    _windowsSmtcHandler.onSkipToPrevious = previous;
-    _windowsSmtcHandler.onSeek = seekTo;
-
-    logDebug('Windows SMTC callbacks set up');
-  }
-
-  /// 转换 LoopMode 到 AudioServiceRepeatMode
-  AudioServiceRepeatMode _loopModeToRepeatMode(LoopMode loopMode) {
-    switch (loopMode) {
-      case LoopMode.none:
-        return AudioServiceRepeatMode.none;
-      case LoopMode.one:
-        return AudioServiceRepeatMode.one;
-      case LoopMode.all:
-        return AudioServiceRepeatMode.all;
-    }
-  }
-
-  /// 转换 AudioServiceRepeatMode 到 LoopMode
-  LoopMode _repeatModeToLoopMode(AudioServiceRepeatMode repeatMode) {
-    switch (repeatMode) {
-      case AudioServiceRepeatMode.none:
-        return LoopMode.none;
-      case AudioServiceRepeatMode.one:
-        return LoopMode.one;
-      case AudioServiceRepeatMode.all:
-      case AudioServiceRepeatMode.group:
-        return LoopMode.all;
-    }
+  void _publishPlayModes() {
+    _publisher.publishPlayModes(
+      NowPlayingOwner.music,
+      loopMode: _queueManager.loopMode,
+      shuffleEnabled: _queueManager.isShuffleEnabled,
+    );
   }
 
   /// 更新正在播放的歌曲（UI 显示用）
-  void _updatePlayingTrack(Track track, {bool recordHistory = false}) {
+  void _updatePlayingTrack(Track track, {bool countsAsNewPlay = false}) {
     if (_isDisposed) return;
     // 換歌才清掉「已經救過一次」的記號。刻意不放在 _startSessionLoadingState：
     // 那條路連 T3 自己發起的重試也會走到，等於每次重試都把自己的護欄清掉。
@@ -1700,82 +1280,16 @@ class AudioController extends StateNotifier<PlayerState>
     _playingTrack = track;
     state = state.copyWith(playingTrack: track);
 
-    // 更新 AudioHandler 的媒体信息（用于通知栏显示）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updateCurrentMediaItem(track);
-    }
+    // 更新系统媒体控制的媒体信息（通知栏 / SMTC）
+    _publisher.publishTrack(NowPlayingOwner.music, track);
 
-    // 更新 Windows SMTC 的媒体信息
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.updateCurrentMediaItem(track);
-    }
-
-    // 只在明确要求时记录到播放历史（避免重复记录）
-    if (recordHistory) {
-      _recordPlayHistory(track);
+    // 一次播放請求裡這個方法會被呼叫兩次（先更新 UI，拿到 URL 後再補記），
+    // 靠旗標避免記兩筆。這不是「聽滿幾秒才算」的門檻。
+    if (countsAsNewPlay) {
+      _playHistory.record(track);
     }
 
     logDebug('Updated playing track: ${track.title}');
-  }
-
-  /// 记录播放历史（异步，不阻塞播放）
-  void _recordPlayHistory(Track track) {
-    final repo = _playHistoryRepository;
-    if (repo == null) return;
-
-    // 异步记录，不阻塞播放
-    Future.microtask(() async {
-      try {
-        await repo.addHistory(track);
-        logDebug('Recorded play history: ${track.title}');
-      } catch (e) {
-        logWarning('Failed to record play history: $e');
-      }
-    });
-  }
-
-  /// 尝试自动匹配歌词（异步，不阻塞播放）
-  Future<void> _tryAutoMatchLyrics(Track track) async {
-    final requestId = ++_lyricsAutoMatchRequestId;
-    final autoMatchService = _lyricsAutoMatchService;
-    final settingsRepo = _settingsRepository;
-
-    if (autoMatchService == null || settingsRepo == null) return;
-
-    try {
-      // 检查设置是否启用自动匹配
-      final settings = await settingsRepo.get();
-      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
-      if (!settings.autoMatchLyrics) {
-        logDebug('Auto-match lyrics disabled in settings');
-        return;
-      }
-
-      // 通知 UI 开始自动匹配
-      onLyricsAutoMatchStateChanged?.call(true);
-
-      // 后台执行自动匹配（按用户配置的源优先级）
-      final enabledSources = settings.lyricsSourcePriorityList
-          .where((s) => !settings.disabledLyricsSourcesSet.contains(s))
-          .toList();
-      final matched = await autoMatchService.tryAutoMatch(
-        track,
-        enabledSources: enabledSources,
-        allowPlainLyricsAutoMatch: settings.allowPlainLyricsAutoMatch,
-      );
-      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
-      if (matched) {
-        logInfo('Auto-matched lyrics for: ${track.title}');
-      }
-    } catch (e) {
-      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
-        logWarning('Auto-match lyrics failed for ${track.title}: $e');
-      }
-    } finally {
-      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
-        onLyricsAutoMatchStateChanged?.call(false);
-      }
-    }
   }
 
   /// 清除正在播放的歌曲
@@ -1789,155 +1303,10 @@ class AudioController extends StateNotifier<PlayerState>
       replaceCurrentStreamMetadata: true,
     );
 
-    // 更新 Windows SMTC 为停止状态
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.setStoppedState();
-    }
+    // 系统媒体控制转为停止状态
+    _publisher.publishStopped(NowPlayingOwner.music);
 
     logDebug('Cleared playing track');
-  }
-
-  /// 加載更多 Mix 播放列表歌曲
-  ///
-  /// 使用重試機制確保每次至少獲取 10 首新歌曲：
-  /// 1. 先用最後一首歌曲作為種子重試 3 次
-  /// 2. 如果仍不足，嘗試用隊列中其他歌曲作為種子
-  /// 3. 最多嘗試 10 次，每次間隔 1 秒
-  /// 4. 收集所有新歌曲後一次性添加到隊列
-  Future<void> _loadMoreMixTracks() async {
-    final mixState = _mixPlaylistHandler.current;
-    if (mixState == null || !_mixPlaylistHandler.markLoading(mixState)) {
-      return;
-    }
-
-    final queue = _queueManager.tracks;
-    if (queue.isEmpty) {
-      _mixPlaylistHandler.finishLoading(mixState);
-      return;
-    }
-
-    state = state.copyWith(isLoadingMoreMix: true);
-    _publishCurrentQueueState();
-    logInfo('Loading more Mix tracks...');
-
-    const minNewTracksRequired = AppConstants.mixMinNewTracksRequired;
-    const maxAttempts = AppConstants.mixMaxLoadAttempts;
-    const sameVideoRetries = AppConstants.mixSameVideoRetries;
-    const retryDelay = AppConstants.mixRetryDelay;
-
-    // 收集所有新歌曲，最後一次性添加
-    final collectedTracks = <Track>[];
-    final collectedVideoIds = <String>{};
-    int attempt = 0;
-    final fetcher = _mixTracksFetcher;
-    if (fetcher == null) {
-      logWarning('Mix load failed: YouTube source unavailable');
-      _toastService.showInfo(t.audio.mixLoadMoreError);
-      _mixPlaylistHandler.finishLoading(mixState);
-      if (_mixPlaylistHandler.isCurrent(mixState)) {
-        state = state.copyWith(isLoadingMoreMix: false);
-        _publishCurrentQueueState();
-      }
-      return;
-    }
-
-    try {
-      while (collectedTracks.length < minNewTracksRequired &&
-          attempt < maxAttempts) {
-        if (!_mixPlaylistHandler.isCurrent(mixState)) {
-          logDebug('Mix mode exited during load-more, aborting');
-          return;
-        }
-
-        attempt++;
-
-        // 選擇種子視頻：前 3 次用最後一首，之後用不同的視頻
-        String seedVideoId;
-        if (attempt <= sameVideoRetries) {
-          seedVideoId = queue.last.sourceId;
-          logDebug(
-              'Attempt $attempt/$maxAttempts: using last track as seed ($seedVideoId)');
-        } else {
-          // 從隊列倒數第 2 ~ 倒數第 10 首中選擇一個不同的種子
-          final seedIndex = queue.length - 1 - (attempt - sameVideoRetries);
-          if (seedIndex >= 0) {
-            seedVideoId = queue[seedIndex].sourceId;
-            logDebug(
-                'Attempt $attempt/$maxAttempts: using track at index $seedIndex as seed ($seedVideoId)');
-          } else {
-            seedVideoId = queue.last.sourceId;
-            logDebug(
-                'Attempt $attempt/$maxAttempts: fallback to last track as seed ($seedVideoId)');
-          }
-        }
-
-        try {
-          final result = await fetcher(
-            playlistId: mixState.playlistId,
-            currentVideoId: seedVideoId,
-          );
-
-          if (!_mixPlaylistHandler.isCurrent(mixState)) {
-            logDebug('Mix mode exited after load-more fetch, aborting');
-            return;
-          }
-
-          // 過濾已存在的歌曲（包括已在隊列中的和本輪已收集的）
-          final newTracks = result.tracks
-              .where((t) =>
-                  !mixState.seenVideoIds.contains(t.sourceId) &&
-                  !collectedVideoIds.contains(t.sourceId))
-              .toList();
-
-          if (newTracks.isNotEmpty) {
-            logDebug(
-                'Attempt $attempt: got ${newTracks.length} new tracks (total: ${collectedTracks.length + newTracks.length})');
-            collectedTracks.addAll(newTracks);
-            collectedVideoIds.addAll(newTracks.map((t) => t.sourceId));
-          } else {
-            logDebug('Attempt $attempt: no new tracks (all duplicates)');
-          }
-
-          // 如果還沒達到目標且還有重試次數，等待後繼續
-          if (collectedTracks.length < minNewTracksRequired &&
-              attempt < maxAttempts) {
-            await Future.delayed(retryDelay);
-          }
-        } catch (e) {
-          logWarning('Attempt $attempt failed: $e');
-          // 單次請求失敗，等待後繼續嘗試
-          if (attempt < maxAttempts) {
-            await Future.delayed(retryDelay);
-          }
-        }
-      }
-
-      if (!_mixPlaylistHandler.isCurrent(mixState)) {
-        logDebug('Mix mode exited before applying load-more results, aborting');
-        return;
-      }
-
-      // 一次性添加所有收集到的新歌曲
-      if (collectedTracks.isNotEmpty) {
-        logInfo(
-            'Mix load complete: adding ${collectedTracks.length} new tracks in $attempt attempts');
-        mixState.addSeenVideoIds(collectedTracks.map((t) => t.sourceId));
-        await _queueManager.addAll(collectedTracks);
-        _updateQueueState();
-      } else {
-        logWarning('Mix load failed: no new tracks after $attempt attempts');
-        _toastService.showInfo(t.audio.mixLoadMoreFailed);
-      }
-    } catch (e, stack) {
-      logError('Failed to load more Mix tracks', e, stack);
-      _toastService.showInfo(t.audio.mixLoadMoreError);
-    } finally {
-      _mixPlaylistHandler.finishLoading(mixState);
-      if (_mixPlaylistHandler.isCurrent(mixState)) {
-        state = state.copyWith(isLoadingMoreMix: false);
-        _publishCurrentQueueState();
-      }
-    }
   }
 
   // ========== 統一播放入口 ========== //
@@ -1945,8 +1314,7 @@ class AudioController extends StateNotifier<PlayerState>
   /// 進入 session 加載狀態（統一的 UI 更新邏輯）
   void _startSessionLoadingState(int requestId) {
     _terminalMediaOpenErrorTrackKey = null;
-    _seekStabilizationWindow = null;
-    _discardPendingSeek(reason: 'new playback request started');
+    _handoff.prepareForRequest(reason: 'new playback request started');
     _bufferWatchdog.cancel();
     state = state.copyWith(
       isLoading: true,
@@ -1956,25 +1324,27 @@ class AudioController extends StateNotifier<PlayerState>
       clearDuration: true,
       replaceCurrentStreamMetadata: true,
     );
-    _context = _context.copyWith(activeRequestId: requestId);
-    _publishMobileAudioHandlerLoadingState();
+    _handoff.beginRequest(requestId);
+    _publishLoadingState();
   }
 
-  void _publishMobileAudioHandlerLoadingState() {
-    _publishMobileAudioHandlerPlaybackState(
+  void _publishLoadingState() {
+    _publishPlaybackState(
       isPlaying: false,
       position: Duration.zero,
       processingState: FmpAudioProcessingState.loading,
     );
   }
 
-  void _publishMobileAudioHandlerPlaybackState({
+  /// 速度与缓冲位置在这里读好再传出去 —— [NowPlayingPublisher] 刻意不认识
+  /// [FmpAudioService]，维持成纯 sink。
+  void _publishPlaybackState({
     required bool isPlaying,
     required Duration position,
     required FmpAudioProcessingState processingState,
   }) {
-    if (!_usesMobileAudioHandler) return;
-    _audioHandler.updatePlaybackState(
+    _publisher.publishPlaybackState(
+      NowPlayingOwner.music,
       isPlaying: isPlaying,
       position: position,
       bufferedPosition: _audioService.bufferedPosition,
@@ -1984,8 +1354,8 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 
-  void _publishMobileAudioHandlerCurrentPlaybackState() {
-    _publishMobileAudioHandlerPlaybackState(
+  void _publishCurrentPlaybackState() {
+    _publishPlaybackState(
       isPlaying: _audioService.isPlaying,
       position: _audioService.position,
       processingState: _audioService.processingState,
@@ -1995,14 +1365,15 @@ class AudioController extends StateNotifier<PlayerState>
   /// 退出加載狀態
   /// [requestId] - 當前請求的 ID，用於驗證是否應該退出
   /// [trackWithUrl] - 成功獲取 URL 後的歌曲（用於更新 playingTrack）
-  /// [mode] - 播放模式（用於更新 _context）
-  /// [recordHistory] - 是否記錄播放歷史
+  /// [mode] - 播放模式；為 null 代表保持現有模式不變
+  /// [countsAsNewPlay] - 這次是否算一次新的播放。同時閘住播放歷史與歌詞
+  ///   自動匹配 —— 重試與啟動還原都不算，否則會重複記錄、重複配歌詞
   /// [streamResult] - 音頻流選擇結果（碼率、格式等信息）
   void _exitLoadingState(
     int requestId,
     Track? trackWithUrl, {
     PlayMode? mode,
-    bool recordHistory = false,
+    bool countsAsNewPlay = false,
     AudioStreamResult? streamResult,
     bool stabilizeSeekAfterReady = false,
   }) {
@@ -2017,15 +1388,18 @@ class AudioController extends StateNotifier<PlayerState>
       currentStreamType: streamResult?.streamType,
       replaceCurrentStreamMetadata: true,
     );
-    _context = _context.copyWith(activeRequestId: 0, mode: mode);
+    _handoff.endRequest();
+    // mode 為 null 時刻意保持原模式 —— 重試與啟動還原不該把臨時播放或
+    // Mix 打回 queue。原本靠 copyWith 的 `??` 預設達成，拆開後要寫出來。
+    if (mode != null) _mode = mode;
 
     if (trackWithUrl != null) {
-      _updatePlayingTrack(trackWithUrl, recordHistory: recordHistory);
+      _updatePlayingTrack(trackWithUrl, countsAsNewPlay: countsAsNewPlay);
       if (stabilizeSeekAfterReady) {
-        _startSeekStabilizationWindow(requestId, trackWithUrl);
+        _handoff.startStabilizationWindow(requestId, trackWithUrl.uniqueKey);
       }
     }
-    unawaited(_applyPendingSeekIfCurrent(requestId));
+    _handoff.applyPendingIfCurrent(requestId);
   }
 
   /// 重置加載狀態（在請求被取代或失敗時使用）
@@ -2035,146 +1409,36 @@ class AudioController extends StateNotifier<PlayerState>
       return;
     }
     if (requestId != null) {
-      _discardPendingSeekForRequest(
-        requestId,
+      _handoff.discardPending(
+        requestId: requestId,
         reason: 'playback loading state reset',
       );
     } else {
-      _discardPendingSeek(reason: 'playback loading state reset');
+      _handoff.discardPending(reason: 'playback loading state reset');
     }
     state = state.copyWith(isLoading: false);
-    _context = _context.copyWith(activeRequestId: 0);
-    _publishMobileAudioHandlerCurrentPlaybackState();
+    _handoff.endRequest();
+    _publishCurrentPlaybackState();
   }
 
   void _resetSourceErrorLoadingState(int requestId) {
     if (_isDisposed || _isSessionSuperseded(requestId)) return;
-    _discardPendingSeekForRequest(
-      requestId,
+    _handoff.discardPending(
+      requestId: requestId,
       reason: 'source error reset playback loading state',
     );
-    _context = _context.copyWith(activeRequestId: 0);
-    _publishMobileAudioHandlerCurrentPlaybackState();
+    _handoff.endRequest();
+    _publishCurrentPlaybackState();
   }
 
   void _clearMatchingSessionLoadingContext(int requestId) {
-    if (_isDisposed || _context.activeRequestId != requestId) return;
-    _discardPendingSeekForRequest(
-      requestId,
+    if (_isDisposed || !_handoff.isCurrent(requestId)) return;
+    _handoff.discardPending(
+      requestId: requestId,
       reason: 'playback loading context cleared',
     );
-    _context = _context.copyWith(activeRequestId: 0);
-    _publishMobileAudioHandlerCurrentPlaybackState();
-  }
-
-  Future<void> _applyPendingSeekIfCurrent(int requestId) async {
-    final pending = _pendingSeek;
-    if (pending == null || pending.requestId != requestId) return;
-
-    final stabilizationDelay = _remainingSeekStabilizationDelay(
-      requestId: requestId,
-      trackKey: pending.trackKey,
-    );
-    if (stabilizationDelay > Duration.zero) {
-      logDebug(
-        'Waiting $stabilizationDelay before applying deferred seek for request $requestId',
-      );
-      await Future<void>.delayed(stabilizationDelay);
-      if (_pendingSeek != pending) return;
-    }
-
-    final currentTrackKey =
-        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
-    if (_isSessionSuperseded(requestId) ||
-        currentTrackKey != pending.trackKey) {
-      _discardPendingSeekForRequest(
-        requestId,
-        reason: 'pending seek no longer matches current track',
-      );
-      return;
-    }
-
-    _pendingSeek = null;
-    logDebug(
-      'Applying deferred seek to ${pending.position} for request $requestId',
-    );
-    try {
-      await _performSeek(pending.position);
-    } catch (e, stack) {
-      logError(
-          'Failed to apply deferred seek to ${pending.position}', e, stack);
-    } finally {
-      pending.complete();
-    }
-  }
-
-  void _requestSeekStabilizationForNextPlaybackRequest() {
-    _stabilizeSeekAfterNextPlaybackRequest = true;
-  }
-
-  bool _consumeSeekStabilizationForNextPlaybackRequest() {
-    final shouldStabilize = _stabilizeSeekAfterNextPlaybackRequest;
-    _stabilizeSeekAfterNextPlaybackRequest = false;
-    return shouldStabilize;
-  }
-
-  void _startSeekStabilizationWindow(int requestId, Track track) {
-    final until = DateTime.now().add(AppConstants.seekStabilizationDelay);
-    _seekStabilizationWindow = _SeekStabilizationWindow(
-      requestId: requestId,
-      trackKey: track.uniqueKey,
-      until: until,
-    );
-    logDebug(
-      'Stabilizing seeks for request $requestId until $until',
-    );
-  }
-
-  Duration _remainingSeekStabilizationDelay({
-    required int requestId,
-    required String trackKey,
-  }) {
-    final window = _seekStabilizationWindow;
-    if (window == null ||
-        window.requestId != requestId ||
-        window.trackKey != trackKey) {
-      return Duration.zero;
-    }
-
-    final remaining = window.until.difference(DateTime.now());
-    if (remaining <= Duration.zero) {
-      _seekStabilizationWindow = null;
-      return Duration.zero;
-    }
-    return remaining;
-  }
-
-  void _clearSeekStabilizationWindow() {
-    _seekStabilizationWindow = null;
-    _stabilizeSeekAfterNextPlaybackRequest = false;
-  }
-
-  void _discardPendingSeekForRequest(
-    int requestId, {
-    required String reason,
-  }) {
-    final pending = _pendingSeek;
-    if (pending == null || pending.requestId != requestId) return;
-    _pendingSeek = null;
-    logDebug(
-      'Discarding deferred seek to ${pending.position} for request $requestId: $reason',
-    );
-    pending.complete();
-  }
-
-  void _discardPendingSeek({required String reason}) {
-    final pending = _pendingSeek;
-    if (pending == null) return;
-    _pendingSeek = null;
-    logDebug(
-      'Discarding deferred seek to ${pending.position} for request ${pending.requestId}: $reason',
-    );
-    pending.complete();
+    _handoff.endRequest();
+    _publishCurrentPlaybackState();
   }
 
   void _handleTerminalMediaOpenResult(PlaybackSessionResult result) {
@@ -2254,13 +1518,14 @@ class AudioController extends StateNotifier<PlayerState>
   /// [track] - 要播放的歌曲
   /// [mode] - 播放模式（queue/temporary/detached）
   /// [persist] - 是否將 URL 保存到數據庫
-  /// [recordHistory] - 是否記錄播放歷史
+  /// [countsAsNewPlay] - 這次是否算一次新的播放。同時閘住播放歷史與歌詞
+  ///   自動匹配 —— 重試與啟動還原都不算，否則會重複記錄、重複配歌詞
   /// [prefetchNext] - 是否預取下一首
   Future<void> _executePlayRequest({
     required Track track,
     required PlayMode mode,
     bool persist = true,
-    bool recordHistory = true,
+    bool countsAsNewPlay = true,
     bool prefetchNext = true,
   }) async {
     // 保存當前播放位置，用於網路錯誤重試時恢復
@@ -2274,7 +1539,7 @@ class AudioController extends StateNotifier<PlayerState>
     bool completedSuccessfully = false;
     int? requestId;
     final stabilizeSeekAfterReady =
-        _consumeSeekStabilizationForNextPlaybackRequest();
+        _handoff.consumeStabilizationForNextRequest();
 
     try {
       final requestTrack = _createPlaybackRequestTrack(track);
@@ -2283,7 +1548,6 @@ class AudioController extends StateNotifier<PlayerState>
           track: requestTrack,
           mode: mode,
           persist: persist,
-          recordHistory: recordHistory,
           prefetchNext: prefetchNext,
           positionBeforeLoad: positionBeforeLoad,
           onPlaybackStarting: onPlaybackStarting,
@@ -2313,7 +1577,7 @@ class AudioController extends StateNotifier<PlayerState>
       // 階段 6：完成
       _exitLoadingState(result.requestId, trackWithUrl,
           mode: mode,
-          recordHistory: recordHistory,
+          countsAsNewPlay: countsAsNewPlay,
           streamResult: streamResult,
           stabilizeSeekAfterReady: stabilizeSeekAfterReady);
       completedSuccessfully = true;
@@ -2322,12 +1586,12 @@ class AudioController extends StateNotifier<PlayerState>
       _updateQueueState();
 
       // 自动匹配歌词（后台执行，不阻塞播放）
-      if (recordHistory) {
-        unawaited(_tryAutoMatchLyrics(track));
+      if (countsAsNewPlay) {
+        _lyricsAutoMatch.onTrackStarted(track);
       }
 
       // Mix 模式：接近尾端時提前加載更多歌曲
-      _triggerMixLoadMoreIfNearQueueEnd(mode);
+      _mixSession.onTrackStarted(mode);
 
       logDebug(
           '_executePlayRequest completed successfully for: ${track.title}');
@@ -2335,7 +1599,7 @@ class AudioController extends StateNotifier<PlayerState>
       logWarning(
           '${e.sourceType} API error for ${track.title}: ${e.message}');
       // 网络错误和超时：走重试逻辑，而非通用错误处理
-      if (_shouldRetrySourceError(e)) {
+      if (_errorPresenter.shouldRetrySource(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
         _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
@@ -2350,7 +1614,7 @@ class AudioController extends StateNotifier<PlayerState>
       logError('Failed to play track: ${track.title}', e, stack);
 
       // Check if original error is retryable
-      if (_isRetryableError(e)) {
+      if (_errorPresenter.isRetryable(e)) {
         if (requestId == null || _isSessionSuperseded(requestId)) return;
         _scheduleSessionRetry(requestId, track, positionBeforeLoad, mode);
       }
@@ -2398,14 +1662,14 @@ class AudioController extends StateNotifier<PlayerState>
   /// 處理音源 API 錯誤的統一邏輯
   Future<void> _handleSourceError(
       Track track, SourceApiException e, PlayMode mode, int requestId) async {
-    final cannotPlayMessage = _sourceCannotPlayMessage(track, e);
-    if (_shouldSkipSourceError(e)) {
+    final cannotPlayMessage = _errorPresenter.cannotPlay(track, e);
+    if (_errorPresenter.shouldSkipTrack(e)) {
       logInfo('Track unavailable (${e.sourceType}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
         _resetLoadingState(requestId: requestId);
         _toastService.showWarning(
-          _sourceCannotPlayMessage(track, e, skipped: true),
+          _errorPresenter.cannotPlay(track, e, skipped: true),
         );
         Future.delayed(const Duration(milliseconds: 300), () {
           if (!_isSessionSuperseded(requestId)) {
@@ -2439,7 +1703,7 @@ class AudioController extends StateNotifier<PlayerState>
       _resetSourceErrorLoadingState(requestId);
       _toastService.showWarning(e.message);
     } else {
-      final message = t.audio.playbackFailed(message: _sourceErrorReason(e));
+      final message = _errorPresenter.playbackFailed(e);
       state = state.copyWith(
         error: message,
         isLoading: false,
@@ -2451,87 +1715,8 @@ class AudioController extends StateNotifier<PlayerState>
 
   // ========== 网络重试逻辑 ========== //
 
-  String _sourceCannotPlayMessage(
-    Track track,
-    SourceApiException error, {
-    bool skipped = false,
-  }) {
-    final reason = _sourceErrorReason(error);
-    return skipped
-        ? t.audio.cannotPlaySkippedReason(title: track.title, reason: reason)
-        : t.audio.cannotPlayReason(title: track.title, reason: reason);
-  }
-
-  String _sourceErrorReason(SourceApiException error) {
-    final diagnostic = _sourceDiagnosticOrNull(error);
-    if (diagnostic != null) return diagnostic;
-
-    return switch (error.kind) {
-      SourceErrorKind.unavailable => t.audio.sourceErrorUnavailable,
-      SourceErrorKind.geoRestricted => t.audio.sourceErrorGeoRestricted,
-      SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
-      SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
-      SourceErrorKind.permissionDenied =>
-        error.sourceType == SourceIds.bilibili
-            ? t.audio.sourceErrorBilibiliPermissionDenied
-            : t.audio.sourceErrorPermissionDenied,
-      SourceErrorKind.network => t.audio.sourceErrorNetwork,
-      SourceErrorKind.timeout => t.audio.sourceErrorTimeout,
-      SourceErrorKind.rateLimited => error.message,
-      SourceErrorKind.unknown =>
-        error.message.trim().isNotEmpty ? error.message : t.error.unknownError,
-    };
-  }
-
-  String? _sourceDiagnosticOrNull(SourceApiException error) {
-    final message = error.message.trim();
-    if (message.isEmpty) return null;
-    if (_isLowSignalSourceDiagnostic(error, message)) return null;
-    if (_syntheticSourceDiagnostics.contains(message)) return null;
-    return message;
-  }
-
-  bool _isLowSignalSourceDiagnostic(
-    SourceApiException error,
-    String message,
-  ) {
-    if (message == error.code) return true;
-    return RegExp(r'^-?\d+$').hasMatch(message);
-  }
-
-  bool _shouldRetrySourceError(SourceApiException error) =>
-      error.kind.isRetryable;
-
-  bool _shouldSkipSourceError(SourceApiException error) =>
-      error.kind.shouldSkipTrack;
-
-  /// 「串流解析階段」拋出的例外可不可以重試。
-  ///
-  /// 這裡處理的是 Dart 例外（音源 adapter 或 `MediaHandoff` 拋的），不是後端播
-  /// 放器的事件 —— 後者已由 [PlaybackEndReason] 型別化。判斷一律看型別：
-  ///
-  /// - 音源 adapter 把 dio 的錯誤全部包成 [SourceApiException]（三個 adapter
-  ///   共 22 處 `on DioException catch`），所以 `DioException` 不會逃到這裡；
-  /// - `MediaHandoff` 直接用 `dart:io` 的 `HttpClient`，會拋下面那幾種。
-  bool _isRetryableError(Object error) {
-    // 預算逾時走的是「已經換過一次 fallback 了，停下並通知」，不進退避階梯。
-    // 必須排在 TimeoutException 之前 —— 這一行就是 D2 的決策本身。
-    if (error is PlaybackTimeoutException) return false;
-    if (error is SourceApiException) return error.kind.isRetryable;
-    if (error is SocketException) return true;
-    if (error is HttpException) return true;
-    if (error is TlsException) return true;
-    if (error is TimeoutException) return true;
-
-    // 沒有列舉到的型別一律不重試，但要留下痕跡 —— 靜默地「猜它是網路錯誤」
-    // 正是 issue #41 那類 bug 的來源。看到這行就把該型別補進上面的清單。
-    logWarning(
-        'Unclassified playback error, not retrying: ${error.runtimeType} $error');
-    return false;
-  }
-
   PlayMode get _currentRecoveryMode =>
-      _context.isMix ? PlayMode.mix : PlayMode.queue;
+      _isMixMode ? PlayMode.mix : PlayMode.queue;
 
   @override
   Future<PlaybackSessionResult> retryPlayback({
@@ -2550,7 +1735,6 @@ class AudioController extends StateNotifier<PlayerState>
         track: requestTrack,
         mode: mode,
         persist: false,
-        recordHistory: false,
         prefetchNext: true,
         positionBeforeLoad: position ?? state.position,
         onPlaybackStarting: onPlaybackStarting,
@@ -2567,7 +1751,7 @@ class AudioController extends StateNotifier<PlayerState>
         result.requestId,
         trackWithUrl,
         mode: mode,
-        recordHistory: false,
+        countsAsNewPlay: false,
         streamResult: result.streamResult,
       );
       _updateQueueState();
@@ -2711,8 +1895,8 @@ class AudioController extends StateNotifier<PlayerState>
     final queueTrack = _queueManager.currentTrack;
     final queue = _queueManager.tracks;
 
-    return _context.mode == PlayMode.temporary ||
-        _context.mode == PlayMode.detached ||
+    return _mode == PlayMode.temporary ||
+        _mode == PlayMode.detached ||
         (_playingTrack != null &&
             queueTrack != null &&
             _playingTrack!.id != queueTrack.id) ||
@@ -2723,7 +1907,7 @@ class AudioController extends StateNotifier<PlayerState>
   /// 如果有保存的臨時播放狀態，恢復到該位置
   /// 否則播放隊列第一首
   Future<void> _returnToQueue() async {
-    if (_context.isTemporary && _context.hasSavedState) {
+    if (_isTemporaryMode && _temporaryPlayHandler.hasSavedState) {
       await _restoreSavedState();
     } else {
       await _playFirstInQueue();
@@ -2733,7 +1917,8 @@ class AudioController extends StateNotifier<PlayerState>
   /// 播放隊列第一首歌曲
   Future<void> _playFirstInQueue() async {
     // 清除臨時播放狀態
-    _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+    _mode = PlayMode.queue;
+    _temporaryPlayHandler.clear();
 
     final queue = _queueManager.tracks;
     if (queue.isNotEmpty) {
@@ -2793,12 +1978,12 @@ class AudioController extends StateNotifier<PlayerState>
   /// 播放指定歌曲（委託給統一入口）
   Future<void> _playTrack(Track track) async {
     // 保持當前模式：如果在 Mix 模式，繼續使用 Mix 模式
-    final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
+    final currentMode = _isMixMode ? PlayMode.mix : PlayMode.queue;
     await _executePlayRequest(
       track: track,
       mode: currentMode,
       persist: true,
-      recordHistory: true,
+      countsAsNewPlay: true,
       prefetchNext: true,
     );
   }
@@ -2834,7 +2019,7 @@ class AudioController extends StateNotifier<PlayerState>
         logDebug('No saved position to restore (position is zero)');
       }
 
-      final mode = _context.isMix ? PlayMode.mix : PlayMode.queue;
+      final mode = _isMixMode ? PlayMode.mix : PlayMode.queue;
       final result = await _playbackRequestSession.restore(
         PlaybackRestoreCommand(
           track: requestTrack,
@@ -2904,55 +2089,42 @@ class AudioController extends StateNotifier<PlayerState>
       return;
     }
 
-    final isBackendIdleDuringControllerLoad = _context.isInLoadingState &&
-        playerState.processingState == FmpAudioProcessingState.idle;
-    final effectiveProcessingState = isBackendIdleDuringControllerLoad
-        ? FmpAudioProcessingState.loading
-        : playerState.processingState;
-    final effectiveIsPlaying =
-        isBackendIdleDuringControllerLoad ? false : playerState.playing;
-    final effectivePosition =
-        _context.isInLoadingState ? Duration.zero : _audioService.position;
+    final effective = EffectivePlaybackState.from(
+      backend: playerState,
+      controllerIsLoading: _isLoadingPlayback,
+      backendPosition: _audioService.position,
+    );
 
     logDebug(
         'PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
     state = state.copyWith(
-      isPlaying: effectiveIsPlaying,
-      isBuffering:
-          effectiveProcessingState == FmpAudioProcessingState.buffering,
-      // 防止播放器状态事件覆盖 URL 获取期间的 loading 状态
-      isLoading: _context.isInLoadingState ||
-          effectiveProcessingState == FmpAudioProcessingState.loading,
-      processingState: effectiveProcessingState,
+      isPlaying: effective.isPlaying,
+      isBuffering: effective.isBuffering,
+      isLoading: effective.isLoading,
+      processingState: effective.processingState,
       error: state.error,
     );
 
     // 重新緩衝屬於 playing 的子狀態：這裡只餵資料，升不升級成失敗由 watchdog 判斷。
     _bufferWatchdog.onPlayerStateChanged(
-      isBuffering:
-          effectiveProcessingState == FmpAudioProcessingState.buffering,
-      isPlaying: effectiveIsPlaying,
-      isSuppressed: _context.isInLoadingState ||
+      isBuffering: effective.isBuffering,
+      isPlaying: effective.isPlaying,
+      isSuppressed: _isLoadingPlayback ||
           state.isRetrying ||
           state.isNetworkError ||
           _isWithinOutputDeviceFailureGuard,
     );
 
-    // 更新 AudioHandler 的播放状态（用于通知栏）
-    _publishMobileAudioHandlerPlaybackState(
-      isPlaying: effectiveIsPlaying,
-      position: effectivePosition,
-      processingState: effectiveProcessingState,
+    // 更新系统媒体控制的播放状态（通知栏 / SMTC）
+    //
+    // 两个表面统一送 effective 值。过去 SMTC 收的是后端原始值，所以
+    // AGENTS.md 那条「控制器拥有的载入阶段，后端 idle 事件不得覆盖
+    // loading 状态」只在 Android 通知栏成立 —— 没有理由只保护一个平台。
+    _publishPlaybackState(
+      isPlaying: effective.isPlaying,
+      position: effective.position,
+      processingState: effective.processingState,
     );
-
-    // 更新 Windows SMTC 的播放状态
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.updatePlaybackState(
-        isPlaying: playerState.playing,
-        position: _audioService.position,
-        duration: _audioService.duration,
-      );
-    }
   }
 
   void _onPositionChanged(Duration position) {
@@ -2960,7 +2132,7 @@ class AudioController extends StateNotifier<PlayerState>
     // 電台播放中的位置變化與音樂播放器無關
     if (isRadioPlaying?.call() == true) return;
     // 加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
-    if (_context.isInLoadingState) return;
+    if (_isLoadingPlayback) return;
 
     state = state.copyWith(position: position, error: state.error);
     // 更新 QueueManager 的位置（用于恢复播放）
@@ -2974,26 +2146,12 @@ class AudioController extends StateNotifier<PlayerState>
     if (!shouldUpdateNotification) return;
     _lastNotificationPosition = position;
 
-    // 更新 AudioHandler 的播放状态（用于通知栏进度显示）
-    if (_usesMobileAudioHandler) {
-      _audioHandler.updatePlaybackState(
-        isPlaying: _audioService.isPlaying,
-        position: position,
-        bufferedPosition: _audioService.bufferedPosition,
-        processingState: _audioService.processingState,
-        duration: _audioService.duration,
-        speed: _audioService.speed,
-      );
-    }
-
-    // 更新 Windows SMTC 的播放状态（用于进度显示）
-    if (Platform.isWindows) {
-      _windowsSmtcHandler.updatePlaybackState(
-        isPlaying: _audioService.isPlaying,
-        position: position,
-        duration: _audioService.duration,
-      );
-    }
+    // 更新系统媒体控制的进度（通知栏 / SMTC）
+    _publishPlaybackState(
+      isPlaying: _audioService.isPlaying,
+      position: position,
+      processingState: _audioService.processingState,
+    );
   }
 
   /// T3：連續緩衝超過預算 —— 引擎還沒喊失敗，但已經播不動了。
@@ -3007,7 +2165,7 @@ class AudioController extends StateNotifier<PlayerState>
     if (_isDisposed) return;
     final track = state.playingTrack;
     if (track == null) return;
-    if (_context.isInLoadingState || state.isRetrying || state.isNetworkError) {
+    if (_isLoadingPlayback || state.isRetrying || state.isNetworkError) {
       return;
     }
 
@@ -3058,12 +2216,12 @@ class AudioController extends StateNotifier<PlayerState>
     // 否則重試會一次又一次拿到同一個死 URL。
     _audioStreamManager.invalidateResolvedStream(track);
 
-    final activeRetryRequestId = state.isRetrying && _context.isInLoadingState
-        ? _context.activeRequestId
+    final activeRetryRequestId = state.isRetrying && _isLoadingPlayback
+        ? _handoff.activeRequestId
         : null;
     if (activeRetryRequestId != null) {
       _playbackRequestSession.cancelActive();
-      _discardPendingSeek(reason: 'active retry handoff cancelled');
+      _handoff.discardPending(reason: 'active retry handoff cancelled');
     }
     final retryRequestGeneration = _playbackRequestSession.activeRequestId;
 
@@ -3113,7 +2271,7 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   void _recoverFromPrematureCompletion(Duration position) {
-    final track = state.playingTrack ?? state.currentTrack;
+    final track = _playingTrack;
     if (track == null) {
       logDebug('Premature completion ignored: no current track to recover');
       return;
@@ -3170,14 +2328,14 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   Future<bool> _advanceAfterPendingMixLoadMore() async {
-    if (!_context.isMix) return false;
+    if (!_isMixMode) return false;
 
-    final pendingLoad = _mixLoadMoreFuture;
+    final pendingLoad = _mixSession.pendingLoad;
     if (pendingLoad == null) return false;
 
     logDebug('Mix queue end reached while load-more is pending; waiting...');
     await pendingLoad;
-    if (_isDisposed || !_context.isMix) return false;
+    if (_isDisposed || !_isMixMode) return false;
 
     final nextIdx = _queueManager.moveToNext();
     if (nextIdx == null) return false;
@@ -3198,8 +2356,16 @@ class AudioController extends StateNotifier<PlayerState>
   void _onPlaybackEnded(PlaybackEndReason reason) {
     if (_isDisposed) return;
 
-    // 電台的結束與失敗由 RadioController 自行處理（重連等），這裡不介入
+    // 電台的結束與失敗由 RadioController 自行處理（重連等），這裡不介入 ——
+    // **輸出裝置失效除外**。裝置壞掉與現在播的是歌還是電台無關，而
+    // RadioController 從來沒有訂閱過 endReasons，所以過去電台播放中拔掉音效
+    // 裝置是零回饋（issue #41 症狀二）。_onOutputDeviceFailure 只發 toast、
+    // 不動任何播放狀態，在電台情境下安全。
     if (isRadioPlaying?.call() == true) {
+      if (reason case OutputDeviceFailed(:final raw)) {
+        _onOutputDeviceFailure(raw);
+        return;
+      }
       logDebug('Playback end ignored: radio is playing ($reason)');
       return;
     }
@@ -3227,7 +2393,7 @@ class AudioController extends StateNotifier<PlayerState>
 
   /// 播放結束事件是否該被處理（載入中／重試中／網路錯誤狀態下一律不處理）。
   bool _canHandlePlaybackEnd() {
-    if (_context.isInLoadingState || state.isRetrying || state.isNetworkError) {
+    if (_isLoadingPlayback || state.isRetrying || state.isNetworkError) {
       logDebug('Playback end ignored during loading/retry state');
       return false;
     }
@@ -3358,10 +2524,10 @@ class AudioController extends StateNotifier<PlayerState>
     // 检测是否脱离队列播放
     if (_isPlayingOutOfQueue) {
       // 当前播放的歌曲脱离队列：点击"下一首"会去到队列中保存的索引位置
-      if (_context.isTemporary && _context.hasSavedState && queue.isNotEmpty) {
+      if (_isTemporaryMode && _temporaryPlayHandler.hasSavedState && queue.isNotEmpty) {
         // 临时播放模式：显示当前队列中从保存位置开始的歌曲
         final targetIndex =
-            _context.savedQueueIndex!.clamp(0, queue.length - 1);
+            _temporaryPlayHandler.savedQueueIndex!.clamp(0, queue.length - 1);
         if (_queueManager.isShuffleEnabled) {
           // Shuffle 模式：从当前 shuffle 索引获取后续歌曲
           upcomingTracks =
@@ -3405,172 +2571,3 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 }
-
-// ========== Providers ==========
-
-/// AudioService Provider（平台条件选择）
-/// Android/iOS: JustAudioService (ExoPlayer, 更轻量)
-/// Windows/Linux: MediaKitAudioService (libmpv, 支持设备切换)
-final audioServiceProvider = Provider<FmpAudioService>((ref) {
-  final runtimePlatform = ref.watch(audioRuntimePlatformProvider);
-  if (runtimePlatform == AudioRuntimePlatform.mobile) {
-    return JustAudioService();
-  }
-  return MediaKitAudioService();
-});
-
-final queuePersistenceManagerProvider =
-    Provider<QueuePersistenceManager>((ref) {
-  final db = ref.watch(databaseProvider).requireValue;
-
-  return QueuePersistenceManager(
-    queueRepository: QueueRepository(db),
-    trackRepository: TrackRepository(db),
-    settingsRepository: SettingsRepository(db),
-  );
-});
-
-final audioStreamManagerProvider = Provider<AudioStreamManager>((ref) {
-  final manager = AudioStreamManager(
-    streamResolutionService: ref.watch(streamResolutionServiceProvider),
-    sourceAuthContext: ref.watch(sourceAuthContextProvider),
-  );
-  ref.onDispose(manager.dispose);
-  return manager;
-});
-
-/// QueueManager Provider
-final queueManagerProvider = Provider<QueueManager>((ref) {
-  final db = ref.watch(databaseProvider).requireValue;
-  final queuePersistenceManager = ref.watch(queuePersistenceManagerProvider);
-
-  return QueueManager(
-    queueRepository: QueueRepository(db),
-    trackRepository: TrackRepository(db),
-    queuePersistenceManager: queuePersistenceManager,
-  );
-});
-
-/// AudioController Provider
-final audioControllerProvider =
-    StateNotifierProvider<AudioController, PlayerState>((ref) {
-  final audioService = ref.watch(audioServiceProvider);
-  final queueManager = ref.watch(queueManagerProvider);
-  final toastService = ref.watch(toastServiceProvider);
-  final runtimePlatform = ref.watch(audioRuntimePlatformProvider);
-
-  // 获取播放历史仓库（可能为 null，如果数据库未初始化）
-  PlayHistoryRepository? playHistoryRepository;
-  try {
-    playHistoryRepository = ref.watch(playHistoryRepositoryProvider);
-  } catch (_) {
-    // 数据库未初始化时忽略
-  }
-
-  final controller = AudioController(
-    audioService: audioService,
-    queueManager: queueManager,
-    audioStreamManager: ref.watch(audioStreamManagerProvider),
-    toastService: toastService,
-    audioHandler: audioHandler,
-    windowsSmtcHandler: windowsSmtcHandler,
-    playHistoryRepository: playHistoryRepository,
-    // Lyrics settings must not rebuild the playback controller. The latest
-    // values are read from SettingsRepository when auto-match actually runs.
-    lyricsAutoMatchService: ref.read(lyricsAutoMatchServiceProvider),
-    settingsRepository: ref.watch(settingsRepositoryProvider),
-    queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
-    mixTracksFetcher: ref
-        .watch(sourceManagerProvider)
-        .dynamicPlaylistSource(SourceIds.youtube)
-        ?.fetchMixTracks,
-    runtimePlatform: runtimePlatform,
-  );
-
-  // 设置网络恢复监听（用于断网重连自动恢复播放）
-  final connectivityNotifier = ref.watch(connectivityProvider.notifier);
-  controller
-      .setupNetworkRecoveryListener(connectivityNotifier.onNetworkRecovered);
-
-  // 设置歌词自动匹配状态回调
-  controller.onLyricsAutoMatchStateChanged = (isMatching) {
-    ref.read(lyricsAutoMatchingProvider.notifier).state = isMatching;
-  };
-
-  controller.onQueueStateChanged = (queueState) {
-    ref.read(queueStateProvider.notifier).state = queueState;
-  };
-
-  final downloadPathSubscription =
-      ref.watch(audioStreamManagerProvider).downloadPathsChangedStream.listen(
-    (event) {
-      final playlistIds = <int>{};
-      for (final info in event.track.playlistInfo) {
-        if (info.playlistId > 0) {
-          playlistIds.add(info.playlistId);
-        }
-      }
-      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
-            savePaths: event.removedPaths,
-            affectedPlaylistIds: playlistIds,
-            includeDownloadedCategories: event.removedPaths.isNotEmpty,
-            fileExistsChanged: false,
-          );
-      for (final path in event.removedPaths) {
-        ref.read(fileExistsCacheProvider.notifier).remove(path);
-      }
-    },
-  );
-  ref.onDispose(downloadPathSubscription.cancel);
-
-  // 启动初始化（异步，但不阻塞）
-  // _ensureInitialized 会在每个操作前确保初始化完成
-  Future.microtask(() => controller.initialize());
-
-  return controller;
-});
-
-/// 便捷 Providers
-
-/// 当前播放状态
-final isPlayingProvider = Provider<bool>((ref) {
-  return ref.watch(audioControllerProvider).isPlaying;
-});
-
-/// 当前歌曲
-final currentTrackProvider = Provider<Track?>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.currentTrack));
-});
-
-/// 当前进度
-final positionProvider = Provider<Duration>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.position));
-});
-
-/// 总时长
-final durationProvider = Provider<Duration?>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.duration));
-});
-
-/// 播放队列
-final queueProvider = Provider<List<Track>>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queue));
-});
-
-final queueVersionProvider = Provider<int>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queueVersion));
-});
-
-final queueTrackProvider = Provider<Track?>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queueTrack));
-});
-
-/// 是否启用随机播放
-final isShuffleEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
-});
-
-/// 循环模式
-final loopModeProvider = Provider<LoopMode>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.loopMode));
-});

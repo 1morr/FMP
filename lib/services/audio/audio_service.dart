@@ -47,8 +47,6 @@ abstract class FmpAudioService {
 
   // === Seeking ===
   Future<void> seekTo(Duration position);
-  Future<void> seekForward([Duration? duration]);
-  Future<void> seekBackward([Duration? duration]);
   Future<bool> seekToLive();
 
   // === Speed ===

@@ -18,7 +18,8 @@ import '../../../providers/ui/selection_provider.dart';
 import '../../widgets/dialogs/download_path_setup_dialog.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/app_bars/collapsing_hero_sliver_app_bar.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/download/download_service.dart'
     show DownloadBatchAddSummary;
 import '../../widgets/feedback/error_display.dart';

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../providers/library/playlist_provider.dart';
 import '../../../i18n/strings.g.dart';
 import 'menu_action.dart';

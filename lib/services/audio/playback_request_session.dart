@@ -23,7 +23,6 @@ class PlaybackSessionCommand {
     required this.mode,
     required this.positionBeforeLoad,
     this.persist = true,
-    this.recordHistory = true,
     this.prefetchNext = true,
     this.onPlaybackStarting,
   });
@@ -32,7 +31,6 @@ class PlaybackSessionCommand {
   final PlayMode mode;
   final Duration positionBeforeLoad;
   final bool persist;
-  final bool recordHistory;
   final bool prefetchNext;
   final Future<void> Function()? onPlaybackStarting;
 }
@@ -620,6 +618,10 @@ class PlaybackRequestSession with Logging {
 
     _requestDeadline = DateTime.now().add(_budget.total);
     logDebug('Restoring queue track: ${track.title}');
+    // 底下三個交接等待點都要帶 phase。沒有 phase 的 _waitForRequestOperation 完全
+    // 不設限，後端只要有一個 future 不回來，restore() 就永遠不返回 —— 呼叫端的
+    // requestId 停在 null、finally 的 _resetLoadingState 不執行、載入中轉圈到天荒
+    // 地老。issue #54 就是這樣來的。
     final selection = await _withBudget(
       _audioStreamManager.selectPlayback(track, persist: true),
       PlaybackTimeoutPhase.streamResolution,
@@ -637,6 +639,7 @@ class PlaybackRequestSession with Logging {
       requestId: requestId,
       operation: _audioService.setMedia(selection.media),
       description: 'setMedia',
+      phase: PlaybackTimeoutPhase.mediaOpen,
     );
 
     if (isSuperseded(requestId)) {
@@ -651,6 +654,7 @@ class PlaybackRequestSession with Logging {
         requestId: requestId,
         operation: _audioService.seekTo(position),
         description: 'seekTo',
+        phase: PlaybackTimeoutPhase.mediaOpen,
       );
       if (isSuperseded(requestId)) {
         logDebug(
@@ -665,6 +669,7 @@ class PlaybackRequestSession with Logging {
         requestId: requestId,
         operation: _audioService.play(),
         description: 'play',
+        phase: PlaybackTimeoutPhase.mediaOpen,
       );
       if (isSuperseded(requestId)) {
         logDebug(

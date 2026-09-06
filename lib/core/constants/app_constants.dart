@@ -39,9 +39,6 @@ class AppConstants {
 
   // ==================== 播放控制 ====================
 
-  /// 快进/快退时间 (秒)
-  static const int seekDurationSeconds = 10;
-
   /// 点击"上一首"时，如果当前播放超过此秒数则重新开始当前歌曲，否则切换到上一首
   static const int previousTrackThresholdSeconds = 3;
 

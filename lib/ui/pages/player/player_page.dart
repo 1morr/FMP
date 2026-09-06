@@ -14,6 +14,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../providers/library/track_detail_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';

@@ -37,11 +37,11 @@ import 'package:fmp/services/lyrics/title_parser.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -104,8 +104,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: toastService,
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
       );
@@ -145,8 +144,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         lyricsAutoMatchService: lyricsService,
         mixTracksFetcher: mixTracksFetcher.call,
@@ -206,8 +204,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         lyricsAutoMatchService: lyricsService,
         mixTracksFetcher: mixTracksFetcher.call,
@@ -307,11 +304,12 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: handler,
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(
+          platform: AudioRuntimePlatform.mobile,
+          audioHandler: handler,
+        ),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
-        runtimePlatform: AudioRuntimePlatform.mobile,
       );
       await controller.initialize();
 
@@ -365,11 +363,12 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: handler,
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(
+          platform: AudioRuntimePlatform.mobile,
+          audioHandler: handler,
+        ),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
-        runtimePlatform: AudioRuntimePlatform.mobile,
       );
       await controller.initialize();
 
@@ -966,6 +965,49 @@ void main() {
       expect(audioService.pauseCallCount, greaterThan(0));
     });
 
+    // issue #41 症狀二：電台播放中 `_onPlaybackEnded` 整段早退，而
+    // RadioController 從來沒有訂閱 endReasons —— 拔掉音效裝置完全沒有回饋。
+    test('output device failure still reaches the user during radio', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      controller.isRadioPlaying = () => true;
+      addTearDown(() => controller.isRadioPlaying = null);
+
+      audioService.emitOutputDeviceFailure(
+        'Could not open/initialize audio device -> no sound.',
+      );
+      await pumpEventQueue(times: 10);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.type, ToastType.error);
+      expect(
+        toasts.last.message,
+        anyOf(
+          contains('Audio output device'),
+          contains('音訊輸出裝置'),
+          contains('音频输出设备'),
+        ),
+      );
+    });
+
+    // 其餘的結束原因在電台播放時仍然不介入 —— 重連是 RadioController 的事。
+    test('other end reasons stay ignored during radio', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      controller.isRadioPlaying = () => true;
+      addTearDown(() => controller.isRadioPlaying = null);
+
+      audioService.emitTransportFailure('tcp: connection reset');
+      audioService.emitMediaOpenError('Failed to open https://example.com');
+      await pumpEventQueue(times: 10);
+
+      expect(toasts, isEmpty);
+    });
+
     test('terminal media open error aborts the active play request', () async {
       final toasts = <ToastMessage>[];
       final subscription = toastService.messageStream.listen(toasts.add);
@@ -1513,8 +1555,7 @@ void main() {
           sourceManager: sourceManager,
         ),
         toastService: toastService,
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
         budget: const PlaybackTimeoutBudget(
@@ -1612,8 +1653,7 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
       );

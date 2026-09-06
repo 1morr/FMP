@@ -58,6 +58,13 @@ Rules:
   `lib/providers/audio/stream_resolution_provider.dart`. Audio and download
   providers consume that provider directly; download providers must not import
   `lib/services/audio/audio_provider.dart` just to resolve streams.
+- **Audio providers live here, not next to the controller.**
+  `audioControllerProvider` and the four providers that build its
+  collaborators are in `lib/providers/audio/audio_controller_provider.dart`;
+  every provider derived from the controller's state belongs in
+  `audio_player_selectors.dart` beside it. `AudioController` itself declares
+  no provider, so importing the controller class and subscribing to its
+  state are two separate imports — keep them separate.
 
 ## Riverpod 3
 

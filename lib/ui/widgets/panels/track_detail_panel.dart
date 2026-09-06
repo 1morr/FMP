@@ -18,7 +18,7 @@ import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/library/track_detail_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../../data/models/radio_station.dart';

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/breakpoints.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
-import '../../services/audio/audio_provider.dart';
+import '../../providers/audio/audio_player_selectors.dart';
 import '../../services/radio/radio_controller.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/radio/radio_mini_player.dart';
