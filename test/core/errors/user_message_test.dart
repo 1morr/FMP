@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/user_message.dart';
 import 'package:fmp/data/models/source_ids.dart';
@@ -69,6 +70,16 @@ void main() {
       expect(userMessageFor(const HttpException('failed')),
           t.error.networkError);
       expect(userMessageFor(const TlsException('failed')), t.error.networkError);
+    });
+
+    test('classifies a DioException that no adapter wrapped', () {
+      // 實機驗收：電台播放失敗時一整條 DioException 走到了 toast。
+      final error = DioException.connectionError(
+        requestOptions: RequestOptions(path: '/x'),
+        reason: "Failed host lookup: 'api.live.bilibili.com'",
+      );
+      expect(userMessageFor(error), t.error.networkError);
+      expect(userMessageFor(error), isNot(contains('api.live.bilibili.com')));
     });
 
     test('maps a timeout', () {

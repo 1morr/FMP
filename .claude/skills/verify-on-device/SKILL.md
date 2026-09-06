@@ -348,3 +348,29 @@ with `adb devices` and `tasklist`.
 Report what was observed, not what should have happened: quote the log line, the
 tree node, or attach the screenshot path. Say explicitly when a step was skipped
 or a limitation blocked it.
+
+### Measured during the phase 5a/5g acceptance run
+
+- **`adb shell am force-stop` detaches `flutter run`, and every later `r` / `R`
+  is then a silent no-op.** The terminal prints `Lost connection to device.`
+  once and nothing after, so the app keeps running from the *last installed*
+  kernel while you think you are driving your edits. This run produced two
+  screenshots of pre-fix behaviour that looked like the fix had failed. If you
+  need a cold process start, close the run terminal and start a new
+  `flutter run` instead — and read the tail for `Lost connection` before
+  trusting any observation that follows a force-stop.
+- **Toast assertions need the state to change, not just the action to repeat.**
+  Error toasts here fire from `ref.listen(... next.error != previous?.error)`,
+  so a second identical failure shows nothing. Hot restart (`R`) between
+  attempts, or drive a different failure.
+- **Catch a toast by burst-screenshotting, not by sleeping.** `adb exec-out
+  screencap -p` costs ~0.4 s, so a bare `for i in $(seq 1 20)` loop covers ~8 s
+  with no gaps; fire the taps in a backgrounded subshell so the loop is already
+  running. Then score the frames for the toast's colour rather than eyeballing
+  twenty images.
+- **Turn the network off with `adb shell svc wifi disable && adb shell svc data
+  disable`** (`adb emu network speed` does not touch Wi-Fi, see above). It is
+  the cheapest way to reach real error paths: search, radio playback, login and
+  remote playlist refresh all fail immediately with `Failed host lookup`. Local
+  Isar reads do not, so provider-backed sections that read only the database
+  cannot be failed this way at all — say so rather than claiming coverage.

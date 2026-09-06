@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
+
 import '../../data/models/source_ids.dart';
 import '../../data/sources/source_exception.dart';
 import '../../i18n/strings.g.dart';
@@ -56,6 +58,11 @@ String sourceErrorReason(SourceApiException error) {
 /// 「發生錯誤」** —— 靜默地猜它是網路錯誤正是 issue #41 那類 bug 的來源。
 String userMessageFor(Object error) => switch (error) {
       SourceApiException() => sourceErrorReason(error),
+      // Dio 是全 App 的 HTTP 層，而沒被 adapter 包成 SourceApiException 的
+      // DioException 確實會逃到 UI —— 實機驗收時電台播放失敗的 toast 就是一整條
+      // `DioException [connection error] ... Failed host lookup`。分類沿用
+      // adapter 用的同一個 classifyDioError，不另立一套詞彙。
+      DioException() => SourceApiException.classifyDioError(error).message,
       SocketException() || HttpException() || TlsException() =>
         t.error.networkError,
       TimeoutException() => t.error.connectionTimeout,
