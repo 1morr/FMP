@@ -48,7 +48,9 @@ class RadioPlayerPage extends ConsumerWidget {
     // 1:1，理想邊長由可用高度驅動（4K 全屏時放大、小視窗時縮小），但實際大小
     // 由 Flexible 依剩餘空間收斂，從結構上避免 Column 溢出（不依賴高度常數估算）。
     final size = MediaQuery.sizeOf(context);
-    final isWideLayout = Breakpoints.isDesktop(size.width);
+    final isWideLayout = WindowClass.of(size.width).atLeast(
+      WindowClass.large,
+    );
     // 封面理想邊長：可用高度（扣除外距）的 52%，夾在 [280, 680]。僅作上限——
     // 空間不足時 Flexible 會把它壓到實際可用高度。
     final coverIdealSide =

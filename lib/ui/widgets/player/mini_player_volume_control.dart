@@ -8,7 +8,7 @@ import '../../../services/audio/audio_provider.dart';
 /// 迷你播放器音量控制（僅桌面端顯示），音樂/電台迷你播放器共用。
 ///
 /// 兩個迷你播放器原本各自維護一份逐字相同的實作；抽出為單一元件以保證
-/// 樣式一致。窄屏（`Breakpoints.isMobile`）使用彈出式直式滑塊，寬屏使用
+/// 樣式一致。窄屏（`WindowClass.compact`）使用彈出式直式滑塊，寬屏使用
 /// 靜音鈕 + 橫式滑塊。滑塊規格與 `CompactVolumeControl` 相同
 /// （trackHeight 3、thumbRadius 5、overlayRadius 10）。tooltip 文案因
 /// i18n namespace 不同（音樂用 t.player、電台用 t.radio）由呼叫端傳入。
@@ -32,7 +32,9 @@ class MiniPlayerVolumeControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNarrow = Breakpoints.isMobile(MediaQuery.sizeOf(context).width);
+    final isNarrow =
+        WindowClass.of(MediaQuery.sizeOf(context).width) ==
+            WindowClass.compact;
 
     // 窄屏時使用彈出式直式滑塊。
     if (isNarrow) {

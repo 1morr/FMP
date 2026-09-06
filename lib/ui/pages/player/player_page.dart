@@ -79,8 +79,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     final playbackSpeed = ref.watch(playbackSpeedProvider);
-    final isWideLayout =
-        Breakpoints.isDesktop(MediaQuery.sizeOf(context).width);
+    final isWideLayout = WindowClass.of(MediaQuery.sizeOf(context).width)
+        .atLeast(WindowClass.large);
     final showLyricsActions = isWideLayout || _showLyrics;
     final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
     final playerState = ref.watch(

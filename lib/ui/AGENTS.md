@@ -226,7 +226,7 @@ through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.m
   disabling the final enabled ranking source.
 - **Layout decides how the rankings are arranged, never which ones appear.**
   `buildHomeRankingLayoutPlan` returns every source that has data, chunked
-  into rows of `rankingColumnsFor(width)`; a source that does not fit wraps
+  into rows of `columnsFor(width)`; a source that does not fit wraps
   to the next row. It used to `take(maxSources)`, which silently hid a source
   the user had enabled whenever the content container narrowed — opening the
   detail panel on a 1280dp tablet was enough. No setting caps the number of
@@ -254,17 +254,26 @@ through `libraryInvalidationCoordinatorProvider` — see `lib/providers/AGENTS.m
   `test/ui/static_rules/list_tile_leading_static_rule_test.dart`; fix existing
   exceptions when touching the affected page unless there is a clear layout
   reason to keep them.
-- **Responsive breakpoints** — source of truth
-  `lib/core/constants/breakpoints.dart`: mobile `< 600dp` (bottom nav), tablet
-  `600–1200dp` (side nav), desktop `>= 1200dp` (collapsible side nav + optional
-  detail panel). Never hardcode `600`/`1200`; use `Breakpoints.isMobile` /
-  `isTablet` / `isDesktop`.
-  **Window width and container width are different questions.**
+- **Responsive layout asks two different questions**, and
+  `lib/core/constants/breakpoints.dart` answers them with two different APIs.
+  Never hardcode a width literal, and never use one answer for the other
+  question — mixing them is what caused P0-1 (widening the detail panel made a
+  ranking source vanish).
+
+  | Question | API | Values |
+  |---|---|---|
+  | What does the **window** chrome look like? | `WindowClass.of(width)`, `.atLeast(...)` | `compact` <600, `medium` 600–839, `expanded` 840–1199, `large` 1200–1599, `extraLarge` >=1600 (M3 / `androidx.window`) |
+  | How many columns fit in **this container**? | `columnsFor(containerWidth)` | one column per 400dp, capped at 3 |
+
   `responsive_scaffold.dart` picks the chrome from `MediaQuery` (the window);
   content inside measures its own `LayoutBuilder` constraints. A 1280dp window
   hands the ranking section roughly 950dp once the rail and detail panel take
-  their share, so it lands one breakpoint lower than the window does. That is
-  correct — just never let a content-level breakpoint remove content. For OS-level desktop checks use `isDesktopPlatform`
+  their share, so the container legitimately answers "2" where the window says
+  `large` — that is correct, just never let a content-level answer *remove*
+  content. There is deliberately no `LayoutType`/`isMobile`/`isTablet`/
+  `isDesktop`: naming window sizes after hardware violates Flutter's *Avoid
+  checking for hardware types*, and a 600dp desktop window is not a tablet.
+  For OS-level desktop checks use `isDesktopPlatform`
   (`lib/core/utils/platform_utils.dart`) — do not repeat
   `Platform.isWindows || Platform.isMacOS || Platform.isLinux` or
   `defaultTargetPlatform` chains per file.

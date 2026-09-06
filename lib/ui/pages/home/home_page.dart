@@ -86,23 +86,12 @@ class HomeRankingLayoutPlan {
       [for (final row in rows) ...row];
 }
 
-/// 一列放得下幾個排行榜。
-///
-/// 沿用既有斷點，刻意不改任何寬度下的欄數 —— 要修的是「放不下就丟掉」，不是
-/// 「一列放幾個」。
-int rankingColumnsFor(double maxWidth) =>
-    switch (Breakpoints.getLayoutType(maxWidth)) {
-      LayoutType.mobile => 1,
-      LayoutType.tablet => 2,
-      LayoutType.desktop => 3,
-    };
-
 HomeRankingLayoutPlan buildHomeRankingLayoutPlan({
   required double maxWidth,
   required List<String> enabledSourceOrder,
   required Map<String, List<Track>> tracksBySource,
 }) {
-  final columns = rankingColumnsFor(maxWidth);
+  final columns = columnsFor(maxWidth);
 
   final candidateSources = enabledSourceOrder
       .where(tracksBySource.containsKey)

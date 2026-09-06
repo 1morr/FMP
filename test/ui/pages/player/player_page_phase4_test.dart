@@ -49,7 +49,7 @@ void main() {
       final backdropSource =
           readSource('lib/ui/widgets/player/blurred_cover_backdrop.dart');
 
-      expect(source, contains('Breakpoints.isDesktop'));
+      expect(source, contains('WindowClass.large'));
       expect(backdropSource, contains('ImageFilter.blur'));
       expect(source, contains('ImmersivePlayerScaffold('));
       expect(source, contains('_buildDesktopPlayerContent'));
