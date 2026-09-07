@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/settings.dart';
@@ -101,16 +100,19 @@ class AudioSettingsState {
 }
 
 /// 音频设置管理器
-class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
-  final SettingsRepository _settingsRepository;
-  late final LyricsAiConfigService _lyricsAiConfigService;
+class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
+  late SettingsRepository _settingsRepository;
+  // `late`，不是 `late final`：`build()` 會重跑，而重跑時實例是同一個。
+  late LyricsAiConfigService _lyricsAiConfigService;
   Settings? _settings;
 
-  AudioSettingsNotifier(this._settingsRepository)
-      : super(const AudioSettingsState()) {
+  @override
+  AudioSettingsState build() {
+    _settingsRepository = ref.watch(settingsRepositoryProvider);
     _lyricsAiConfigService =
         LyricsAiConfigService(loadSettings: _settingsRepository.get);
     _loadSettings();
+    return const AudioSettingsState();
   }
 
   /// 加载设置
@@ -307,10 +309,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
 
 /// 音频设置 Provider
 final audioSettingsProvider =
-    StateNotifierProvider<AudioSettingsNotifier, AudioSettingsState>((ref) {
-  final settingsRepository = ref.watch(settingsRepositoryProvider);
-  return AudioSettingsNotifier(settingsRepository);
-});
+    NotifierProvider<AudioSettingsNotifier, AudioSettingsState>(
+        AudioSettingsNotifier.new);
 
 /// 便捷 Provider - 音质等级
 final audioQualityLevelProvider = Provider<AudioQualityLevel>((ref) {

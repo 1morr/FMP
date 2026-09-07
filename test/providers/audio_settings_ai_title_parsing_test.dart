@@ -4,6 +4,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
 import 'package:isar_community/isar.dart';
+import '../support/audio_settings_notifier.dart';
 
 void main() {
   group('AudioSettingsState AI title parsing settings', () {
@@ -51,7 +52,7 @@ void main() {
     test('normalizes timeout and API key configured state', () async {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
       final repository = _FakeSettingsRepository(Settings());
-      final notifier = AudioSettingsNotifier(repository);
+      final notifier = audioSettingsNotifierFor(repository);
       await Future<void>.delayed(Duration.zero);
 
       await notifier.setLyricsAiTimeoutSeconds(0);
@@ -68,7 +69,7 @@ void main() {
     test('updates plain lyrics automatic matching setting', () async {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
       final repository = _FakeSettingsRepository(Settings());
-      final notifier = AudioSettingsNotifier(repository);
+      final notifier = audioSettingsNotifierFor(repository);
       await Future<void>.delayed(Duration.zero);
 
       await notifier.setAllowPlainLyricsAutoMatch(true);

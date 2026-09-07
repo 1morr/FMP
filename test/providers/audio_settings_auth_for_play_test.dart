@@ -5,12 +5,13 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
 import 'package:isar_community/isar.dart';
+import '../support/audio_settings_notifier.dart';
 
 void main() {
   test('audio settings expose auth-for-play defaults', () async {
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
     final repository = _FakeSettingsRepository(Settings());
-    final notifier = AudioSettingsNotifier(repository);
+    final notifier = audioSettingsNotifierFor(repository);
     await Future<void>.delayed(Duration.zero);
 
     expect(notifier.state.authForPlay(SourceIds.bilibili), isFalse);
@@ -21,7 +22,7 @@ void main() {
   test('audio settings update auth-for-play per source', () async {
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
     final repository = _FakeSettingsRepository(Settings());
-    final notifier = AudioSettingsNotifier(repository);
+    final notifier = audioSettingsNotifierFor(repository);
     await Future<void>.delayed(Duration.zero);
 
     await notifier.setAuthForPlay(SourceIds.youtube, true);

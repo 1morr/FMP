@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../core/errors/user_message.dart';
 import '../../data/models/lyrics_match.dart';
@@ -184,24 +183,24 @@ final currentLyricsContentProvider =
 
 /// 歌词显示模式 Provider（持久化到 Settings）
 final lyricsDisplayModeProvider =
-    StateNotifierProvider<LyricsDisplayModeNotifier, LyricsDisplayMode>((ref) {
-  final settingsRepo = ref.watch(settingsRepositoryProvider);
-  return LyricsDisplayModeNotifier(settingsRepo);
-});
+    NotifierProvider<LyricsDisplayModeNotifier, LyricsDisplayMode>(
+        LyricsDisplayModeNotifier.new);
 
 /// 歌词显示模式管理器
-class LyricsDisplayModeNotifier extends StateNotifier<LyricsDisplayMode> {
-  final SettingsRepository _settingsRepository;
+class LyricsDisplayModeNotifier extends Notifier<LyricsDisplayMode> {
+  late SettingsRepository _settingsRepository;
   Settings? _settings;
 
-  LyricsDisplayModeNotifier(this._settingsRepository)
-      : super(LyricsDisplayMode.original) {
+  @override
+  LyricsDisplayMode build() {
+    _settingsRepository = ref.watch(settingsRepositoryProvider);
     _loadSettings();
+    return LyricsDisplayMode.original;
   }
 
   Future<void> _loadSettings() async {
     _settings = await _settingsRepository.get();
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = _settings!.lyricsDisplayMode;
   }
 
@@ -344,28 +343,29 @@ class LyricsSearchState {
 }
 
 /// 歌词搜索 Notifier
-class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
-  final LrclibSource _lrclib;
-  final NeteaseSource _netease;
-  final QQMusicSource _qqmusic;
-  final LyricsRepository _repo;
-  final LyricsCacheService _cache;
-  final List<String> _sourceOrder;
-  final Set<String> _disabledSources;
+class LyricsSearchNotifier extends Notifier<LyricsSearchState> {
+  late LrclibSource _lrclib;
+  late NeteaseSource _netease;
+  late QQMusicSource _qqmusic;
+  late LyricsRepository _repo;
+  late LyricsCacheService _cache;
+  late List<String> _sourceOrder;
+  late Set<String> _disabledSources;
 
   int _searchRequestId = 0;
 
-  LyricsSearchNotifier(
-    this._lrclib,
-    this._netease,
-    this._qqmusic,
-    this._repo,
-    this._cache, {
-    List<String> sourceOrder = const ['netease', 'qqmusic', 'lrclib'],
-    Set<String> disabledSources = const {},
-  })  : _sourceOrder = sourceOrder,
-        _disabledSources = disabledSources,
-        super(const LyricsSearchState());
+  @override
+  LyricsSearchState build() {
+    _lrclib = ref.watch(lrclibSourceProvider);
+    _netease = ref.watch(neteaseSourceProvider);
+    _qqmusic = ref.watch(qqmusicSourceProvider);
+    _repo = ref.watch(lyricsRepositoryProvider);
+    _cache = ref.watch(lyricsCacheServiceProvider);
+    final audioSettings = ref.watch(audioSettingsProvider);
+    _sourceOrder = audioSettings.lyricsSourceOrder;
+    _disabledSources = audioSettings.disabledLyricsSources;
+    return const LyricsSearchState();
+  }
 
   /// 设置筛选源
   void setFilter(LyricsSourceFilter filter) {
@@ -390,7 +390,7 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
         LyricsSourceFilter.all => null,
       };
       if (selectedSource != null && _disabledSources.contains(selectedSource)) {
-        if (!mounted || requestId != _searchRequestId) return;
+        if (!ref.mounted || requestId != _searchRequestId) return;
         state = state.copyWith(isLoading: false, results: const []);
         return;
       }
@@ -472,11 +472,11 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       }
 
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
       state = state.copyWith(isLoading: false, results: results);
     } catch (e, stack) {
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
       state = state.copyWith(
         isLoading: false,
         error: failureMessage(e, stack, 'Lyrics search failed', tag: 'Lyrics'),
@@ -520,24 +520,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
 
 /// 歌词搜索 Provider
 final lyricsSearchProvider =
-    StateNotifierProvider.autoDispose<LyricsSearchNotifier, LyricsSearchState>(
-        (ref) {
-  final lrclib = ref.watch(lrclibSourceProvider);
-  final netease = ref.watch(neteaseSourceProvider);
-  final qqmusic = ref.watch(qqmusicSourceProvider);
-  final repo = ref.watch(lyricsRepositoryProvider);
-  final cache = ref.watch(lyricsCacheServiceProvider);
-  final audioSettings = ref.watch(audioSettingsProvider);
-  return LyricsSearchNotifier(
-    lrclib,
-    netease,
-    qqmusic,
-    repo,
-    cache,
-    sourceOrder: audioSettings.lyricsSourceOrder,
-    disabledSources: audioSettings.disabledLyricsSources,
-  );
-});
+    NotifierProvider.autoDispose<LyricsSearchNotifier, LyricsSearchState>(
+        LyricsSearchNotifier.new);
 
 /// 查询指定 track 的歌词匹配（用于菜单显示"已匹配"状态）
 final lyricsMatchForTrackProvider =

@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/track.dart';
 
@@ -76,8 +76,9 @@ class SelectionState {
 }
 
 /// 多選模式控制器
-class SelectionNotifier extends StateNotifier<SelectionState> {
-  SelectionNotifier() : super(const SelectionState());
+class SelectionNotifier extends Notifier<SelectionState> {
+  @override
+  SelectionState build() => const SelectionState();
 
   /// 進入多選模式，並選中初始項目
   void enterSelectionMode(Track initialTrack) {
@@ -241,18 +242,15 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
 
 /// 歌單詳情頁的多選狀態 Provider
 final playlistDetailSelectionProvider =
-    StateNotifierProvider.autoDispose<SelectionNotifier, SelectionState>((ref) {
-  return SelectionNotifier();
-});
+    NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
+        SelectionNotifier.new);
 
 /// 探索頁的多選狀態 Provider
 final exploreSelectionProvider =
-    StateNotifierProvider.autoDispose<SelectionNotifier, SelectionState>((ref) {
-  return SelectionNotifier();
-});
+    NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
+        SelectionNotifier.new);
 
 /// 搜索頁的多選狀態 Provider
 final searchSelectionProvider =
-    StateNotifierProvider.autoDispose<SelectionNotifier, SelectionState>((ref) {
-  return SelectionNotifier();
-});
+    NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
+        SelectionNotifier.new);

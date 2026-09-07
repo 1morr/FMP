@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/track.dart';
@@ -104,7 +103,12 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     completionSubscription?.cancel();
     progressSubscription?.cancel();
     failureSubscription?.cancel();
-    progressState.clear();
+    // 服務沒了，上一輪的進度就全部作廢。以前這裡直接呼叫 `progressState.clear()`，
+    // 但 Riverpod 3 禁止在生命週期回呼裡碰任何別的 provider
+    // （`riverpod/src/core/ref.dart:235`，`state =` 與 `ref.invalidate` 都擋）；
+    // `StateNotifier` 時代是允許的。排到回呼堆疊之外就合法，而整個 container
+    // 被釋放的情況由 `clear()` 自己的 mounted 守衛擋掉。
+    scheduleMicrotask(progressState.clear);
     service.dispose();
   });
 
@@ -142,8 +146,9 @@ final completedDownloadsProvider = Provider<List<DownloadTask>>((ref) {
 /// 内存中的下载进度状态（避免频繁写数据库触发 Isar watch）
 /// Key: taskId, Value: (progress, downloadedBytes, totalBytes)
 class DownloadProgressState
-    extends StateNotifier<Map<int, (double, int, int?)>> {
-  DownloadProgressState() : super({});
+    extends Notifier<Map<int, (double, int, int?)>> {
+  @override
+  Map<int, (double, int, int?)> build() => {};
 
   void update(
       int taskId, double progress, int downloadedBytes, int? totalBytes) {
@@ -155,6 +160,9 @@ class DownloadProgressState
   }
 
   void clear() {
+    // 呼叫端是 `downloadServiceProvider` 釋放時排的一個 microtask，那時整個
+    // container 可能已經沒了。
+    if (!ref.mounted) return;
     state = {};
   }
 
@@ -162,10 +170,8 @@ class DownloadProgressState
 }
 
 final downloadProgressStateProvider =
-    StateNotifierProvider<DownloadProgressState, Map<int, (double, int, int?)>>(
-        (ref) {
-  return DownloadProgressState();
-});
+    NotifierProvider<DownloadProgressState, Map<int, (double, int, int?)>>(
+        DownloadProgressState.new);
 
 final downloadTaskProgressProvider =
     Provider.family<(double, int, int?)?, int>((ref, taskId) {

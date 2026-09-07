@@ -1,16 +1,25 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:path/path.dart' as p;
 
-/// Test helper: FileExistsCache with pre-populated state
+/// Test helper: FileExistsCache with pre-populated state.
+///
+/// `FileExistsCache` 是 `Notifier`，它的 `state` 需要一個 provider element，
+/// 所以初始值改由 `build()` 回傳，實例從 container 取。
 class TestFileExistsCache extends FileExistsCache {
-  TestFileExistsCache(Set<String> initialState)
-      : super(onEpochChanged: (_) {}) {
-    state = initialState;
+  TestFileExistsCache(this._initialState);
+
+  final Set<String> _initialState;
+
+  @override
+  Set<String> build() {
+    super.build();
+    return _initialState;
   }
 
   /// Mark a path as existing or not
@@ -34,7 +43,7 @@ void main() {
           ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalCoverPath(cache), isNull);
       });
 
@@ -50,7 +59,7 @@ void main() {
           ];
 
         // Empty set = no files exist
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalCoverPath(cache), isNull);
       });
 
@@ -65,7 +74,7 @@ void main() {
               ..downloadPath = '/some/path/audio.m4a'
           ];
 
-        final cache = TestFileExistsCache({
+        final cache = _cache({
           p.join('/some/path', 'cover.jpg'),
         });
         expect(track.getLocalCoverPath(cache),
@@ -88,7 +97,7 @@ void main() {
           ];
 
         // Only /path2/cover.jpg exists
-        final cache = TestFileExistsCache({
+        final cache = _cache({
           p.join('/path2', 'cover.jpg'),
         });
         expect(track.getLocalCoverPath(cache),
@@ -104,7 +113,7 @@ void main() {
           ..title = 'Test Track'
           ..ownerId = 12345;
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: null), isNull);
       });
 
@@ -114,7 +123,7 @@ void main() {
           ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
       });
 
@@ -124,7 +133,7 @@ void main() {
           ..sourceType = SourceIds.youtube
           ..title = 'Test Track';
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
       });
 
@@ -138,7 +147,7 @@ void main() {
           ..ownerId = 12345;
 
         // Empty set = file does not exist
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: baseDir), isNull);
       });
 
@@ -154,7 +163,7 @@ void main() {
               ..downloadPath = '/downloads/video/audio.m4a'
           ];
 
-        final cache = TestFileExistsCache({
+        final cache = _cache({
           p.join('/downloads/video', 'avatar.jpg'),
         });
         expect(
@@ -175,7 +184,7 @@ void main() {
               ..downloadPath = '/downloads/video/audio.m4a'
           ];
 
-        final cache = TestFileExistsCache({
+        final cache = _cache({
           p.join('/downloads/video', 'avatar.jpg'),
         });
         expect(
@@ -331,4 +340,13 @@ void main() {
       });
     });
   });
+}
+
+TestFileExistsCache _cache(Set<String> initial) {
+  final container = ProviderContainer(overrides: [
+    fileExistsCacheProvider.overrideWith(() => TestFileExistsCache(initial)),
+  ]);
+  addTearDown(container.dispose);
+  return container.read(fileExistsCacheProvider.notifier)
+      as TestFileExistsCache;
 }

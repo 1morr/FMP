@@ -5,6 +5,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
 import 'package:isar_community/isar.dart';
+import '../support/audio_settings_notifier.dart';
 
 void main() {
   test(
@@ -12,7 +13,7 @@ void main() {
       () async {
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
     final repository = _FakeSettingsRepository(Settings());
-    final notifier = AudioSettingsNotifier(repository);
+    final notifier = audioSettingsNotifierFor(repository);
     await Future<void>.delayed(Duration.zero);
 
     // 預設與 Settings.streamPriorityFor(SourceIds.netease) 預設一致（[audioOnly]）。
@@ -22,7 +23,7 @@ void main() {
   test('setNeteaseStreamPriority updates state and persists', () async {
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
     final repository = _FakeSettingsRepository(Settings());
-    final notifier = AudioSettingsNotifier(repository);
+    final notifier = audioSettingsNotifierFor(repository);
     await Future<void>.delayed(Duration.zero);
 
     const updated = [StreamType.muxed, StreamType.audioOnly];

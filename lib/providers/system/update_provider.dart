@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/errors/user_message.dart';
@@ -56,24 +56,26 @@ class UpdateState {
 }
 
 /// 更新状态管理器
-class UpdateNotifier extends StateNotifier<UpdateState> {
-  final UpdateService _service;
-  final bool? _isAndroidOverride;
-  int _operationId = 0;
-
+class UpdateNotifier extends Notifier<UpdateState> {
   UpdateNotifier({
     UpdateService? service,
     bool? isAndroidOverride,
   })  : _service = service ?? UpdateService(),
-        _isAndroidOverride = isAndroidOverride,
-        super(const UpdateState());
+        _isAndroidOverride = isAndroidOverride;
+
+  final UpdateService _service;
+  final bool? _isAndroidOverride;
+  int _operationId = 0;
+
+  @override
+  UpdateState build() => const UpdateState();
 
   bool get _isAndroid => _isAndroidOverride ?? Platform.isAndroid;
 
   int _startOperation() => ++_operationId;
 
   bool _isCurrentOperation(int operationId) {
-    return mounted && _operationId == operationId;
+    return ref.mounted && _operationId == operationId;
   }
 
   /// 检查更新
@@ -222,6 +224,4 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
 
 /// 更新 Provider
 final updateProvider =
-    StateNotifierProvider<UpdateNotifier, UpdateState>((ref) {
-  return UpdateNotifier();
-});
+    NotifierProvider<UpdateNotifier, UpdateState>(UpdateNotifier.new);

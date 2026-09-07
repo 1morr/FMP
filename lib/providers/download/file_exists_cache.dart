@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 /// 文件存在检查缓存（简化版）
 ///
@@ -13,12 +12,18 @@ import 'package:flutter_riverpod/legacy.dart';
 /// - 移除 Track 相关方法，使用 TrackExtensions 代替
 /// - 保留核心缓存功能
 /// - 添加大小限制防止内存泄漏（最多 5000 条）
-class FileExistsCache extends StateNotifier<Set<String>> {
-  FileExistsCache({required void Function(int epoch) onEpochChanged})
-      : _onEpochChanged = onEpochChanged,
-        super({});
+class FileExistsCache extends Notifier<Set<String>> {
+  @override
+  Set<String> build() {
+    // 世代編號以前靠一個 `onEpochChanged` 回呼往外送，因為 `StateNotifier`
+    // 拿不到 `ref`。現在拿得到，中間那一層就沒有理由存在了。
+    ref.onDispose(() {
+      _pendingRefreshPaths.clear();
+      _missingPaths.clear();
+    });
+    return {};
+  }
 
-  final void Function(int epoch) _onEpochChanged;
   final Set<String> _pendingRefreshPaths = <String>{};
   final Set<String> _missingPaths = <String>{};
   int _cacheEpoch = 0;
@@ -80,7 +85,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
           }
         }),
       );
-      if (!mounted) return;
+      if (!ref.mounted) return;
 
       for (final result in results) {
         if (result.exists) {
@@ -157,14 +162,14 @@ class FileExistsCache extends StateNotifier<Set<String>> {
   }
 
   void _updateState(Set<String> newState) {
-    if (!mounted) return;
+    if (!ref.mounted) return;
     _cacheEpoch++;
-    _onEpochChanged(_cacheEpoch);
+    ref.read(fileExistsCacheEpochProvider.notifier).set(_cacheEpoch);
     state = _trimToMaxSize(newState);
   }
 
   void _markAsMissing(String path) {
-    if (!mounted) return;
+    if (!ref.mounted) return;
     if (_missingPaths.contains(path)) return;
     _missingPaths.add(path);
     if (_missingPaths.length <= _maxMissingCacheSize) return;
@@ -185,7 +190,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
     Future.microtask(() async {
       try {
         if (await File(path).exists()) {
-          if (!mounted) return;
+          if (!ref.mounted) return;
           _missingPaths.remove(path);
           _updateState({...state, path});
         } else {
@@ -221,7 +226,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
             } else {
               missing.add(path);
             }
-            if (!mounted) return;
+            if (!ref.mounted) return;
           } catch (_) {
             missing.add(path);
           }
@@ -239,12 +244,6 @@ class FileExistsCache extends StateNotifier<Set<String>> {
     });
   }
 
-  @override
-  void dispose() {
-    _pendingRefreshPaths.clear();
-    _missingPaths.clear();
-    super.dispose();
-  }
 }
 
 /// 文件存在检查缓存 Provider
@@ -261,13 +260,7 @@ class FileExistsCacheEpoch extends Notifier<int> {
 }
 
 final fileExistsCacheProvider =
-    StateNotifierProvider<FileExistsCache, Set<String>>((ref) {
-  return FileExistsCache(
-    onEpochChanged: (epoch) {
-      ref.read(fileExistsCacheEpochProvider.notifier).set(epoch);
-    },
-  );
-});
+    NotifierProvider<FileExistsCache, Set<String>>(FileExistsCache.new);
 
 final filePathExistsProvider = Provider.family<bool, String>((ref, path) {
   return ref

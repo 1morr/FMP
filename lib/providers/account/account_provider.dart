@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../core/logger.dart';
 import '../../core/services/toast_service.dart';
@@ -35,10 +34,8 @@ final bilibiliFavoritesServiceProvider =
 
 /// Bilibili 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final bilibiliAccountProvider =
-    StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final accounts = ref.watch(accountRepositoryProvider);
-  return AccountNotifier(accounts, SourceIds.bilibili);
-});
+    NotifierProvider<AccountNotifier, Account?>(
+        () => AccountNotifier(SourceIds.bilibili));
 
 /// 是否已登錄 Bilibili（便捷 Provider）
 final isBilibiliLoggedInProvider = Provider<bool>((ref) {
@@ -62,10 +59,8 @@ final youtubePlaylistServiceProvider = Provider<YouTubePlaylistService>((ref) {
 
 /// YouTube 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final youtubeAccountProvider =
-    StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final accounts = ref.watch(accountRepositoryProvider);
-  return AccountNotifier(accounts, SourceIds.youtube);
-});
+    NotifierProvider<AccountNotifier, Account?>(
+        () => AccountNotifier(SourceIds.youtube));
 
 /// 是否已登錄 YouTube（便捷 Provider）
 final isYouTubeLoggedInProvider = Provider<bool>((ref) {
@@ -100,10 +95,8 @@ final neteaseAccountServiceProvider = Provider<NeteaseAccountService>((ref) {
 
 /// 網易雲帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final neteaseAccountProvider =
-    StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final accounts = ref.watch(accountRepositoryProvider);
-  return AccountNotifier(accounts, SourceIds.netease);
-});
+    NotifierProvider<AccountNotifier, Account?>(
+        () => AccountNotifier(SourceIds.netease));
 
 /// 是否已登錄網易雲（便捷 Provider）
 final isNeteaseLoggedInProvider = Provider<bool>((ref) {
@@ -219,27 +212,21 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
 }
 
 /// 通用帳號狀態管理（監聽 Isar Account 變化）
-class AccountNotifier extends StateNotifier<Account?> {
-  final AccountRepository _accounts;
+class AccountNotifier extends Notifier<Account?> {
+  AccountNotifier(this._platform);
+
   final String _platform;
+  late AccountRepository _accounts;
   StreamSubscription? _subscription;
 
-  AccountNotifier(this._accounts, this._platform) : super(null) {
-    _init();
-  }
-
-  void _init() {
-    // 同步先取一次，讓第一幀就有正確的登入狀態，再接上串流。
-    state = _accounts.getByPlatformSync(_platform);
-    _subscription =
-        _accounts.watchByPlatform(_platform).listen((account) {
+  @override
+  Account? build() {
+    _accounts = ref.watch(accountRepositoryProvider);
+    _subscription = _accounts.watchByPlatform(_platform).listen((account) {
       state = account;
     });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
+    ref.onDispose(() => _subscription?.cancel());
+    // 同步先取一次，讓第一幀就有正確的登入狀態，再接上串流。
+    return _accounts.getByPlatformSync(_platform);
   }
 }

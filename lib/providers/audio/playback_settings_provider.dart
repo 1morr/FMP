@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../../data/models/settings.dart';
 import '../database/repository_providers.dart';
 
@@ -40,16 +39,17 @@ class PlaybackSettingsState {
 }
 
 /// 播放设置管理器
-class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
-  final Ref _ref;
+class PlaybackSettingsNotifier extends Notifier<PlaybackSettingsState> {
   Settings? _settings;
 
-  PlaybackSettingsNotifier(this._ref) : super(const PlaybackSettingsState()) {
+  @override
+  PlaybackSettingsState build() {
     _loadSettings();
+    return const PlaybackSettingsState();
   }
 
   Future<void> _loadSettings() async {
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
     _settings = await settingsRepository.get();
     state = PlaybackSettingsState(
       autoScrollToCurrentTrack: _settings!.autoScrollToCurrentTrack,
@@ -63,7 +63,7 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
   Future<void> setAutoScrollToCurrentTrack(bool value) async {
     if (_settings == null) return;
 
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
     await settingsRepository.update((s) => s.autoScrollToCurrentTrack = value);
     _settings!.autoScrollToCurrentTrack = value;
     state = state.copyWith(autoScrollToCurrentTrack: value);
@@ -72,7 +72,7 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
   Future<void> setRememberPlaybackPosition(bool value) async {
     if (_settings == null) return;
 
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
     await settingsRepository.update((s) => s.rememberPlaybackPosition = value);
     _settings!.rememberPlaybackPosition = value;
     state = state.copyWith(rememberPlaybackPosition: value);
@@ -81,7 +81,7 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
   Future<void> setRestartRewindSeconds(int value) async {
     if (_settings == null) return;
 
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
     await settingsRepository.update((s) => s.restartRewindSeconds = value);
     _settings!.restartRewindSeconds = value;
     state = state.copyWith(restartRewindSeconds: value);
@@ -90,7 +90,7 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
   Future<void> setTempPlayRewindSeconds(int value) async {
     if (_settings == null) return;
 
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
     await settingsRepository.update((s) => s.tempPlayRewindSeconds = value);
     _settings!.tempPlayRewindSeconds = value;
     state = state.copyWith(tempPlayRewindSeconds: value);
@@ -99,10 +99,8 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
 
 /// 播放设置 Provider
 final playbackSettingsProvider =
-    StateNotifierProvider<PlaybackSettingsNotifier, PlaybackSettingsState>(
-        (ref) {
-  return PlaybackSettingsNotifier(ref);
-});
+    NotifierProvider<PlaybackSettingsNotifier, PlaybackSettingsState>(
+        PlaybackSettingsNotifier.new);
 
 /// 便捷 Provider - 是否自动跳转到当前播放
 final autoScrollToCurrentTrackProvider = Provider<bool>((ref) {

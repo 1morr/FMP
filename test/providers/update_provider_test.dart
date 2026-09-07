@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/services/update/update_service.dart';
@@ -9,7 +10,7 @@ void main() {
     test('older checkForUpdate completion cannot overwrite newer check',
         () async {
       final service = _FakeUpdateService();
-      final notifier = UpdateNotifier(service: service);
+      final notifier = _notifier(service: service);
 
       final oldCheck = service.enqueueCheck(_info('v9.9.8'));
       final oldFuture = notifier.checkForUpdate();
@@ -33,7 +34,7 @@ void main() {
     test('reset cancels delayed download progress and completion writes',
         () async {
       final service = _FakeUpdateService();
-      final notifier = UpdateNotifier(service: service);
+      final notifier = _notifier(service: service);
 
       service.enqueueCheck(_info('v9.9.9')).complete();
       await notifier.checkForUpdate();
@@ -59,7 +60,7 @@ void main() {
     test('Android install waits for package install permission', () async {
       final service = _FakeUpdateService();
       service.canInstallPackages = false;
-      final notifier = UpdateNotifier(
+      final notifier = _notifier(
         service: service,
         isAndroidOverride: true,
       );
@@ -150,4 +151,20 @@ class _FakeUpdateService extends UpdateService {
   Future<void> installApk(String filePath) async {
     installCalls++;
   }
+}
+
+/// `UpdateNotifier` 保留了建構子的可選參數，但 `Notifier` 需要 provider
+/// element，所以測試從 container 取實例。
+UpdateNotifier _notifier({
+  UpdateService? service,
+  bool? isAndroidOverride,
+}) {
+  final container = ProviderContainer(overrides: [
+    updateProvider.overrideWith(() => UpdateNotifier(
+      service: service,
+      isAndroidOverride: isAndroidOverride,
+    )),
+  ]);
+  addTearDown(container.dispose);
+  return container.read(updateProvider.notifier);
 }
