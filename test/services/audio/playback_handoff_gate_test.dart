@@ -126,7 +126,10 @@ void main() {
     });
 
     test('a seek is sent once the stabilization window passes', () async {
-      buildGate(stabilizationDelay: const Duration(milliseconds: 1));
+      // 500ms 不是「夠快」而是「夠慢」：`deferSeek` 只要在視窗還開著的時候被呼叫
+      // 到就行，而它就在下一行。壓到 1ms 反而讓視窗可能先關掉、`deferSeek` 回 null
+      // —— 本輪的壓力跑 20 次抓到 1 次，是同一種競態換了個方向。
+      buildGate(stabilizationDelay: const Duration(milliseconds: 500));
       gate.startStabilizationWindow(7, 'track-a');
       final deferred = gate.deferSeek(const Duration(seconds: 120))!;
 
