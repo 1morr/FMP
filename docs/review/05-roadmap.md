@@ -2191,15 +2191,21 @@ provider 工廠裡」。實際兌現的：
 
 **本輪發現、未修的既有問題**（都與本輪無關，記在這裡以免下一輪重新診斷）：
 
-1. **`test/bilibili_source_test.dart` 有兩條真連網測試沒有標 `tags: 'live'`**
+1. ~~**`test/bilibili_source_test.dart` 有兩條真連網測試沒有標 `tags: 'live'`**
    （`should fetch audio URL for valid bvid`、`refreshAudioUrl should refresh
-   audio URL for track with expired URL`；`:819` 的註釋自承「此测试需要网络连接」）。
-   同一個檔裡另有兩條**有**標。連續跑套件會被 Bilibili 風控擋成 HTTP 412 而變紅。
-   該檔零 Riverpod 使用。
+   audio URL for track with expired URL`；`:819` 的註釋自承「此测试需要网络连接」）。~~
+   **這一條寫錯了，Round B 開工時更正**：被點名的那兩條**早就標了** ——
+   `git blame` 顯示 `:849` 與 `:979` 的 `tags: 'live'` 來自 2026-09-01 的
+   `598fce27`。真正沒標的是**另一條**：`should throw BilibiliApiException for
+   invalid bvid`（`:851`），它同樣用 `setUp`（`:31`）建的無假 adapter
+   `BilibiliSource()`，而且 `expect(() => ..., throwsA(...))`（`:854`）沒有
+   `await expectLater`。→ **issue #56**。
 2. **`test/services/audio/playback_handoff_gate_test.dart` 的
    `a seek right after navigation waits out the stabilization window`
-   在完整套件負載下偶發失敗**，單獨跑通過。它斷言的是一段 wall-clock 穩定化
-   視窗，與 issue #43 同一類。
+   在完整套件負載下偶發失敗**，單獨跑通過。原因是 `stabilizationDelay` 是
+   40ms 的真計時器（`:19`、`:29`），而 `settled()` 用固定 10 圈的
+   `pumpEventQueue`（`:37`）去斷言「還沒完成」。與 issue #43 同一類。
+   → **issue #55**。
 3. 首頁的 Bilibili 排行榜在本輪實機期間一直是
    `BilibiliApiException(-352): 請求過於頻繁` —— 開發機的風控狀態，不是回歸。
 
