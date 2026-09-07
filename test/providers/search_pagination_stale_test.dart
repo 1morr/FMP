@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
@@ -15,13 +16,24 @@ void main() {
   group('SearchNotifier stale pagination guards', () {
     late _CompletingSearchService service;
     late _CompletingLiveSource liveSource;
+    late ProviderContainer container;
     late SearchNotifier notifier;
 
     setUp(() {
       service = _CompletingSearchService();
       liveSource = _CompletingLiveSource();
-      notifier = SearchNotifier(service, liveSource);
+      // `SearchNotifier` 以前吃兩個建構子參數；`Notifier.new` 不吃，所以兩個
+      // 相依都從 container 進去。直播源走 `SourceManager` 的窄能力查詢，
+      // 不另外開一個具體來源的 provider。
+      container = ProviderContainer(overrides: [
+        searchServiceProvider.overrideWith((ref) => service),
+        sourceManagerProvider
+            .overrideWith((ref) => SourceManager(sources: [liveSource])),
+      ]);
+      notifier = container.read(searchProvider.notifier);
     });
+
+    tearDown(() => container.dispose());
 
     test('loadMore ignores results when query changes before completion',
         () async {

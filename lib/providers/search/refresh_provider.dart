@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -100,15 +99,21 @@ class RefreshManagerState extends Equatable {
 }
 
 /// 刷新管理器控制器
-class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
-  final Ref _ref;
+class RefreshManagerNotifier extends Notifier<RefreshManagerState> {
   final Set<int> _refreshingPlaylistIds = {};
   final Map<int, StreamSubscription<ImportProgress>> _subscriptions = {};
   final Map<int, ImportService> _activeImportServices = {};
   final Map<int, int> _refreshGenerations = {};
   int _refreshOperationId = 0;
 
-  RefreshManagerNotifier(this._ref) : super(const RefreshManagerState());
+  @override
+  RefreshManagerState build() {
+    // `ref.onDispose` 在「provider 即將 rebuild」時也會跑（riverpod
+    // `ref.dart:513-518`），所以清理與建立它的那一次 build 成對，
+    // 這正是舊 `dispose()` override 的語意。
+    ref.onDispose(_cancelActiveRefreshes);
+    return const RefreshManagerState();
+  }
 
   /// 刷新单个歌单
   Future<ImportResult?> refreshPlaylist(Playlist playlist) async {
@@ -122,14 +127,14 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final generation = _nextRefreshGeneration(playlistId);
 
     // 创建新的 ImportService 实例（每个刷新任务独立）
-    final sourceManager = _ref.read(sourceManagerProvider);
-    final playlistRepo = _ref.read(playlistRepositoryProvider);
-    final trackRepo = _ref.read(trackRepositoryProvider);
+    final sourceManager = ref.read(sourceManagerProvider);
+    final playlistRepo = ref.read(playlistRepositoryProvider);
+    final trackRepo = ref.read(trackRepositoryProvider);
     // 在 await 之前讀完 —— Riverpod 3 對 dispose 之後的 Ref 會拋
     // UnmountedRefException，而這個值不依賴資料庫。
-    final sourceAuthContext = _ref.read(sourceAuthContextProvider);
+    final sourceAuthContext = ref.read(sourceAuthContextProvider);
 
-    final isar = await _ref.read(databaseProvider.future);
+    final isar = await ref.read(databaseProvider.future);
     final mutationService = PlaylistMutationRepository(isar: isar);
 
     final importService = ImportService(
@@ -188,12 +193,12 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       );
 
       // watch 自动更新歌单列表，只需刷新详情和封面
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
             playlistId,
           );
 
       // 使用 ToastService 显示成功提示（不依赖 context）
-      final toastService = _ref.read(toastServiceProvider);
+      final toastService = ref.read(toastServiceProvider);
       final parts = <String>[];
       if (result.addedCount > 0) {
         parts.add(t.refreshProvider.added(count: result.addedCount));
@@ -230,7 +235,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       );
 
       // 使用 ToastService 显示错误提示
-      final toastService = _ref.read(toastServiceProvider);
+      final toastService = ref.read(toastServiceProvider);
       toastService.showError(
           t.refreshProvider.failed(name: playlist.name, error: reason));
 
@@ -280,7 +285,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   }
 
   bool _isRefreshGenerationCurrent(int playlistId, int generation) {
-    return mounted && _refreshGenerations[playlistId] == generation;
+    return ref.mounted && _refreshGenerations[playlistId] == generation;
   }
 
   void _updatePlaylistState(int playlistId, PlaylistRefreshState refreshState) {
@@ -307,7 +312,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   }
 
   void _removePlaylistState(int playlistId) {
-    if (!mounted) return;
+    if (!ref.mounted) return;
     final newMap =
         Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
     newMap.remove(playlistId);
@@ -315,8 +320,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
-  @override
-  void dispose() {
+  void _cancelActiveRefreshes() {
     for (final playlistId in _activeImportServices.keys.toList()) {
       _nextRefreshGeneration(playlistId);
     }
@@ -330,15 +334,13 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     _activeImportServices.clear();
     _refreshingPlaylistIds.clear();
     _refreshGenerations.clear();
-    super.dispose();
   }
 }
 
 /// 刷新管理器 Provider
 final refreshManagerProvider =
-    StateNotifierProvider<RefreshManagerNotifier, RefreshManagerState>((ref) {
-  return RefreshManagerNotifier(ref);
-});
+    NotifierProvider<RefreshManagerNotifier, RefreshManagerState>(
+        RefreshManagerNotifier.new);
 
 /// 检查特定歌单是否正在刷新
 final isPlaylistRefreshingProvider =

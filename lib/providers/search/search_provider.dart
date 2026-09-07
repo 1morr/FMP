@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/errors/user_message.dart';
@@ -201,16 +200,18 @@ class SearchState extends Equatable {
 }
 
 /// 搜索控制器
-class SearchNotifier extends StateNotifier<SearchState> {
-  final SearchService _service;
-  final LiveSource? _liveSource;
+class SearchNotifier extends Notifier<SearchState> {
+  late SearchService _service;
+  LiveSource? _liveSource;
 
   int _searchRequestId = 0;
 
-  SearchNotifier(
-    this._service,
-    this._liveSource,
-  ) : super(const SearchState());
+  @override
+  SearchState build() {
+    _service = ref.watch(searchServiceProvider);
+    _liveSource = ref.watch(sourceManagerProvider).liveSource(SourceIds.bilibili);
+    return const SearchState();
+  }
 
   LiveSource _requireLiveSource() {
     final source = _liveSource;
@@ -267,7 +268,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       final results = await Future.wait([localFuture, onlineFuture]);
 
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       final localTracks = results[0] as List<Track>;
       final visibleLocalTracks = _filterLocalResultsBySource(
@@ -291,7 +292,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       );
     } catch (e, stack) {
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         isLoading: false,
@@ -397,7 +398,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
     required SearchOrder searchOrder,
     required LiveRoomFilter? liveRoomFilter,
   }) {
-    return mounted &&
+    return ref.mounted &&
         requestId == _searchRequestId &&
         state.query == query &&
         state.selectedSource == selectedSource &&
@@ -647,7 +648,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       );
 
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         liveRoomResults: result,
@@ -656,7 +657,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       );
     } catch (e, stack) {
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         isLoading: false,
@@ -739,15 +740,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
 /// 搜索 Provider
 final searchProvider =
-    StateNotifierProvider<SearchNotifier, SearchState>((ref) {
-  final service = ref.watch(searchServiceProvider);
-  final liveSource =
-      ref.watch(sourceManagerProvider).liveSource(SourceIds.bilibili);
-  return SearchNotifier(
-    service,
-    liveSource,
-  );
-});
+    NotifierProvider<SearchNotifier, SearchState>(SearchNotifier.new);
 
 /// 搜索建议 Provider
 final searchSuggestionsProvider =
@@ -757,11 +750,14 @@ final searchSuggestionsProvider =
 });
 
 /// 搜索历史管理器
-class SearchHistoryNotifier extends StateNotifier<List<SearchHistory>> {
-  final SearchService _service;
+class SearchHistoryNotifier extends Notifier<List<SearchHistory>> {
+  late SearchService _service;
 
-  SearchHistoryNotifier(this._service) : super([]) {
+  @override
+  List<SearchHistory> build() {
+    _service = ref.watch(searchServiceProvider);
     loadHistory();
+    return [];
   }
 
   Future<void> loadHistory() async {
@@ -782,7 +778,5 @@ class SearchHistoryNotifier extends StateNotifier<List<SearchHistory>> {
 
 /// 搜索历史管理 Provider
 final searchHistoryManagerProvider =
-    StateNotifierProvider<SearchHistoryNotifier, List<SearchHistory>>((ref) {
-  final service = ref.watch(searchServiceProvider);
-  return SearchHistoryNotifier(service);
-});
+    NotifierProvider<SearchHistoryNotifier, List<SearchHistory>>(
+        SearchHistoryNotifier.new);
