@@ -28,6 +28,7 @@ import 'effective_playback_state.dart';
 import 'audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'audio_stream_manager.dart';
+import 'playback_media.dart';
 import 'playback_recovery_coordinator.dart';
 import 'playback_request_session.dart';
 import 'playback_capabilities.dart';
@@ -84,6 +85,18 @@ class AudioController extends Notifier<PlayerState>
 
   // 防止重複處理完成事件
   bool _isHandlingCompletion = false;
+
+  /// 已經交給後端的下一首。非 null = **推進權在後端手上**：交界處不會有
+  /// [EndedNaturally]，改成後端發 `advancedToNext`，控制器負責跟上。
+  Track? _armedNextTrack;
+  PreparedPlaybackMedia? _armedMedia;
+  AudioStreamResult? _armedStreamResult;
+
+  /// arm 期間輪詢備援連續看到「已經到結尾」的次數。
+  int _armedEndTicks = 0;
+
+  /// 讓給後端幾格之後就收回推進權。1 秒一格，所以是 3 秒。
+  static const _armedAdvanceGraceTicks = 3;
   String? _terminalMediaOpenErrorTrackKey;
 
   // 導航請求ID - 防止快速點擊 next/previous 時的競態條件
@@ -248,6 +261,7 @@ class AudioController extends Notifier<PlayerState>
       terminalMediaOpenMessage: (track) =>
           t.audio.playbackFailedTrack(title: track.title),
       onTerminalMediaOpenError: _handlePostHandoffTerminalMediaOpen,
+      onNextTrackPrefetched: _armNextMedia,
     );
     _recoveryCoordinator = PlaybackRecoveryCoordinator(
       retryExecutor: this,
@@ -347,6 +361,7 @@ class AudioController extends Notifier<PlayerState>
       subscribe(_audioService.audioDevicesStream, _onAudioDevicesChanged);
       subscribe(_audioService.audioDeviceStream, _onAudioDeviceChanged);
       subscribe(_audioService.endReasons, _onPlaybackEnded);
+      subscribe(_audioService.advancedToNext, _onBackendAdvanced);
 
       // 啟動基於位置檢測的備選切歌機制（解決後台播放 completed 事件丟失問題）
       _startPositionCheckTimer();
@@ -1278,12 +1293,25 @@ class AudioController extends Notifier<PlayerState>
     if (duration == null || duration.inMilliseconds <= 0) return;
 
     final remaining = duration - position;
-    if (remaining <= AppConstants.positionCheckThreshold) {
-      logDebug(
-          'Position check triggered auto-next: position=$position, duration=$duration');
-      // 走到這裡代表 remaining 已在容忍窗內，是真的播完。
-      _onPlaybackEnded(const EndedNaturally());
+    if (remaining > AppConstants.positionCheckThreshold) {
+      _armedEndTicks = 0;
+      return;
     }
+
+    if (_armedNextTrack != null) {
+      // 推進權在後端手上，這裡再合成一次「播完」就是二次前進。但這個備援本來
+      // 就是為了「後台 completed 事件丟失」而存在的，所以不是無限期讓路：
+      // 連續三格還停在結尾就當後端沒接上去，把推進權收回來。
+      if (++_armedEndTicks < _armedAdvanceGraceTicks) return;
+      logWarning('The backend did not advance within $_armedAdvanceGraceTicks '
+          'position checks; taking the queue back');
+      _disarmNextMedia('the backend did not advance at the boundary');
+    }
+
+    logDebug(
+        'Position check triggered auto-next: position=$position, duration=$duration');
+    // 走到這裡代表 remaining 已在容忍窗內，是真的播完。
+    _onPlaybackEnded(const EndedNaturally());
   }
 
   // ========== 私有方法 ==========
@@ -1383,6 +1411,9 @@ class AudioController extends Notifier<PlayerState>
 
   /// 進入 session 加載狀態（統一的 UI 更新邏輯）
   void _startSessionLoadingState(int requestId) {
+    // 每一次請求都以 `_stopForRequest` 的無條件 `stop()` 開場，後端的播放清單
+    // 會被清掉，所以控制器這邊的帳也要跟著平。
+    _forgetArmedNextMedia();
     _terminalMediaOpenErrorTrackKey = null;
     _handoff.prepareForRequest(reason: 'new playback request started');
     _bufferWatchdog.cancel();
@@ -1574,6 +1605,135 @@ class AudioController extends Notifier<PlayerState>
       return null;
     }
     return tracks[nextIndex];
+  }
+
+  // ========== 前瞻媒體：把推進權借給後端 ========== //
+
+  /// arm 的身分。
+  ///
+  /// 不能只用 `uniqueKey`：它是 `sourceType:sourceId[:cid]`，**不含 pageNum**，
+  /// 所以 cid 還沒解析出來的 Bilibili 分 P 曲目彼此撞 key（同
+  /// `StreamResolutionService._resolutionKey` 的理由）。撞了就會漏掉一次
+  /// disarm，然後把 P1 的媒體當成 P2 播下去。
+  String _armKey(Track track) => '${track.uniqueKey}|${track.pageNum ?? ''}';
+
+  /// 現在可以把推進權交給後端嗎？
+  ///
+  /// 每一條都是「下一首是什麼」會被別的規則決定的情況。任何一條成立就走原本的
+  /// `_onTrackCompleted` 路徑 —— 那是完整的，不是降級版本。
+  bool _canArmNextMedia() {
+    if (_isDisposed || _isPlayingOutOfQueue) return false;
+    // `QueueManager.getNextIndex()` 根本不看 loop-one，所以預取本來就會指到
+    // 再下一首。照著它 arm 等於直接播錯歌。
+    if (_queueManager.loopMode == LoopMode.one) return false;
+    // 電台占用後端時播放清單是它的。
+    if (isRadioPlaying?.call() ?? false) return false;
+    // Mix 還在補歌，佇列尾端隨時會變。
+    if (_mixSession.pendingLoad != null) return false;
+    return true;
+  }
+
+  /// 預取完成之後由 [PlaybackRequestSession] 呼叫。
+  Future<void> _armNextMedia(Track nextTrack) async {
+    if (!_canArmNextMedia()) return;
+    if (_armKey(_nextTrackForPrefetch() ?? nextTrack) != _armKey(nextTrack)) {
+      return;
+    }
+
+    try {
+      // 不落盤：與預取同一個理由，這是一次沒人等的解析。命中預取留下的行程內
+      // 快取時不會再打網路（`StreamResolutionService._reusableResolution`
+      // 讀完會把項目放回去，不是取用一次就丟）。
+      final selection =
+          await _audioStreamManager.selectPlayback(nextTrack, persist: false);
+      // 解析期間佇列可能又動過了。
+      if (!_canArmNextMedia() ||
+          _armKey(_nextTrackForPrefetch() ?? nextTrack) !=
+              _armKey(nextTrack)) {
+        return;
+      }
+
+      await _audioService.setNextMedia(selection.media);
+      _armedNextTrack = nextTrack;
+      _armedMedia = selection.media;
+      _armedStreamResult = selection.streamResult;
+      _armedEndTicks = 0;
+      logDebug('Armed the next medium: ${nextTrack.title}');
+    } catch (error, stackTrace) {
+      // arm 失敗不是播放失敗 —— 交界時照樣走 `_onTrackCompleted`。
+      logWarning('Could not arm the next medium: $error');
+      logDebug('Arm failure stack: $stackTrace');
+      _forgetArmedNextMedia();
+    }
+  }
+
+  /// 只清控制器這邊的帳，不碰後端。
+  ///
+  /// 給「後端的播放清單本來就已經沒了」的路徑用（`stop()` 之後、跟隨完成之後）。
+  void _forgetArmedNextMedia() {
+    _armedNextTrack = null;
+    _armedMedia = null;
+    _armedStreamResult = null;
+    _armedEndTicks = 0;
+  }
+
+  /// 收回推進權，並且明確叫後端把前瞻項目丟掉。
+  void _disarmNextMedia(String reason) {
+    if (_armedNextTrack == null) return;
+    logDebug('Disarming the next medium: $reason');
+    _forgetArmedNextMedia();
+    unawaited(
+      _audioService.setNextMedia(null).catchError((Object error) {
+        logWarning('Failed to clear the next medium: $error');
+      }),
+    );
+  }
+
+  /// 後端自己接上了前瞻媒體。這裡不發起播放，只把控制器的帳跟上去。
+  void _onBackendAdvanced(PreparedPlaybackMedia media) {
+    if (_isDisposed) return;
+
+    final armed = _armedNextTrack;
+    final streamResult = _armedStreamResult;
+    final wasArmed = identical(media, _armedMedia);
+    _forgetArmedNextMedia();
+
+    if (armed == null || !wasArmed) {
+      // 後端接上去的不是我們交出去的那一個。沒有安全的跟隨方式，交還推進權。
+      logWarning('The backend advanced to a medium this controller did not '
+          'arm (${media.debugUrl}); falling back to the completion path');
+      _onTrackCompleted();
+      return;
+    }
+
+    logDebug('Following the backend across a gapless boundary: ${armed.title}');
+
+    // 順序照抄 `_executePlayRequest` 的成功路徑，少掉的只有「發起一次請求」
+    // 那幾步 —— 後端已經在播了，`stop()` 更是碰不得。
+    final movedTo = _queueManager.moveToNext();
+    if (movedTo == null) {
+      // 走到這裡代表 disarm 的網有漏。留一行看得見的紀錄，不要靜靜地錯下去。
+      logWarning('The queue could not advance after a gapless boundary; '
+          'the armed track is now playing outside the queue');
+    }
+    final track = _queueManager.currentTrack ?? armed;
+
+    // 這四個值屬於當前播放請求。跟隨路徑不經過 `_exitLoadingState`，
+    // 不在這裡補就會一直顯示上一首的碼率與格式。
+    state = state.copyWith(
+      isLoading: false,
+      error: null,
+      currentBitrate: streamResult?.bitrate,
+      currentContainer: streamResult?.container,
+      currentCodec: streamResult?.codec,
+      currentStreamType: streamResult?.streamType,
+      replaceCurrentStreamMetadata: true,
+    );
+
+    _updatePlayingTrack(track, countsAsNewPlay: true);
+    _updateQueueState();
+    _lyricsAutoMatch.onTrackStarted(track);
+    _mixSession.onTrackStarted(_isMixMode ? PlayMode.mix : PlayMode.queue);
   }
 
   void _scheduleRetryForSessionRequest(
@@ -2581,6 +2741,15 @@ class AudioController extends Notifier<PlayerState>
   }
 
   void _updateQueueState() {
+    // 佇列的每一次變動都會走到這裡（命令、shuffle、loop、Mix 補歌），所以這一個
+    // 純比較就是 disarm 的網 —— 不必在七個命令上各掛一次。
+    final armed = _armedNextTrack;
+    if (armed != null &&
+        (!_canArmNextMedia() ||
+            _armKey(_nextTrackForPrefetch() ?? armed) != _armKey(armed))) {
+      _disarmNextMedia('the next track is no longer the armed one');
+    }
+
     final queue = _queueManager.tracks;
     final currentIndex = _queueManager.currentIndex;
 

@@ -142,6 +142,9 @@ typedef PlaybackSessionPosition = Duration Function();
 typedef PlaybackSessionIsPlaying = bool Function();
 typedef PlaybackSessionDelay = Future<void> Function(Duration duration);
 
+/// 下一首的串流已經預取好了。回傳的 future 完成之前不會有第二次通知。
+typedef PlaybackSessionNextPrefetched = Future<void> Function(Track nextTrack);
+
 class PlaybackRequestSession with Logging {
   PlaybackRequestSession({
     required FmpAudioService audioService,
@@ -151,6 +154,7 @@ class PlaybackRequestSession with Logging {
     required PlaybackSessionLoadingFinished onLoadingFinished,
     required PlaybackSessionTerminalMessage terminalMediaOpenMessage,
     PlaybackSessionTerminalMediaOpen? onTerminalMediaOpenError,
+    PlaybackSessionNextPrefetched? onNextTrackPrefetched,
     PlaybackSessionDelay? delay,
     PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
   })  : _budget = budget,
@@ -161,6 +165,7 @@ class PlaybackRequestSession with Logging {
         _onLoadingFinished = onLoadingFinished,
         _terminalMediaOpenMessage = terminalMediaOpenMessage,
         _onTerminalMediaOpenError = onTerminalMediaOpenError,
+        _onNextTrackPrefetched = onNextTrackPrefetched,
         _delay = delay ?? Future<void>.delayed;
 
   static const _mediaOpenRecoveryDelay = Duration(seconds: 2);
@@ -173,6 +178,7 @@ class PlaybackRequestSession with Logging {
   final PlaybackSessionLoadingFinished _onLoadingFinished;
   final PlaybackSessionTerminalMessage _terminalMediaOpenMessage;
   final PlaybackSessionTerminalMediaOpen? _onTerminalMediaOpenError;
+  final PlaybackSessionNextPrefetched? _onNextTrackPrefetched;
   final PlaybackSessionDelay _delay;
   final PlaybackTimeoutBudget _budget;
 
@@ -801,8 +807,18 @@ class PlaybackRequestSession with Logging {
     if (!prefetchNext) return;
     final nextTrack = _getNextTrack();
     if (nextTrack != null) {
-      unawaited(_audioStreamManager.prefetchTrack(nextTrack));
+      unawaited(_prefetchAndAnnounce(nextTrack));
     }
+  }
+
+  /// 預取本身仍然是 fire-and-forget，完成之後多通知一次擁有者。
+  ///
+  /// 「要不要把這一首交給後端」是控制器的決定（loop-one、脫離佇列、電台占用
+  /// 後端……都在那一層），所以這裡只負責說「下一首的串流準備好了」。
+  Future<void> _prefetchAndAnnounce(Track nextTrack) async {
+    await _audioStreamManager.prefetchTrack(nextTrack);
+    if (_isDisposed) return;
+    await _onNextTrackPrefetched?.call(nextTrack);
   }
 }
 
