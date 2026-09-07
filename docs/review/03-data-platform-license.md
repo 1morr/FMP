@@ -381,6 +381,11 @@ List<String> get homeRankingSourceIds =>
 
 **`NotifierProvider` / `AsyncNotifierProvider` = 0，`@riverpod` = 0。** 整個可變狀態層 100% 建立在 Riverpod 2 的 legacy `StateNotifier` 家族上（35 個 `extends StateNotifier<...>` 類別），連 Riverpod 2 自己就已經推薦的 `Notifier` 都沒用過。
 
+> **已失效（2026-09-07）**：改寫完成，現況反過來 —— legacy 家族 0，
+> `NotifierProvider` 43、`Notifier` 類別 39。開工時的精確數字是
+> 40 個 `StateNotifierProvider` ＋ 3 個 `StateProvider` / 36 個類別，
+> 不是本行的 39 / 35。見 `05-roadmap.md` §6.12。
+
 **`riverpod_annotation: ^2.6.1` 是死依賴**【事實，我獨立複驗】：`rg "riverpod_annotation|@riverpod" lib/ test/` → **0 命中**；`dev_dependencies` 裡沒有 `riverpod_generator`（`pubspec.yaml:90-98`）；沒有 `build.yaml`。它唯一的作用是把自己拖進依賴圖並多綁一個版本約束 —— 而這個約束**實測會擋住 `flutter_riverpod` 拿到最新的 3.4.2**（見 §14.2 探針 D）。
 
 35 個 provider 定義散落在 `lib/providers/` 之外（`lib/services/audio/audio_provider.dart` 15 個、`lib/services/radio/radio_controller.dart` 7 個…），其中 1 個定義在 `lib/ui/` 底下（`network_status_banner.dart:28`）。
@@ -1214,7 +1219,7 @@ Immich 也有 `codeql-analysis.yml` 與 `org-zizmor.yml`（zizmor 專掃 GitHub 
 | **migration 機制** | **換掉機制，但漸進** | 這是唯一我建議「換掉現有做法」的地方。形狀猜測（`_hasLegacy*Signature`）本質上不可證偽，而且每加一個欄位就多一份心智負擔。改成 `Settings.schemaVersion` + 具名遷移步驟。**但要漸進**：既有使用者的資料沒有版本號，所以第一版遷移必須保留現有的形狀啟發式當作「推斷 v0」的一次性入口，之後永遠走版本號。 |
 | **repository 邊界** | **漸進收斂** | 152 個邊界外呼叫點集中在 3 個檔案（39 + 36 + 20 = 95，佔 63%）。先把 `playlist_mutation_service` / `backup_service` / `data_integrity_service` 三個收進 repository，就消掉三分之二。這是可以分次做、每次都留下可運作 repo 的工作。 |
 | **備份格式** | **不動** | 有版本號、有相容性閘門、刻意排除易失效欄位、用 `sourceType:sourceId[:cid]` 而非 Isar id 當跨機器識別 —— 這一塊設計是對的。**它反而應該當成換資料庫時的資料橋。** |
-| **狀態管理（Riverpod）** | **漸進（走 legacy import）** | 官方就是為此提供 `flutter_riverpod/legacy.dart`。39 個 `StateNotifierProvider` 改寫成 `Notifier` 是 12–20 人日，而且其中一半的工作量在兩個上一輪已經點名要拆的 god provider 裡 —— **那是拆分計畫的事，不是升級的事。** |
+| **狀態管理（Riverpod）** | ~~**漸進（走 legacy import）**~~ **已全數改寫（2026-09-07）** | 官方就是為此提供 `flutter_riverpod/legacy.dart`。~~39 個 `StateNotifierProvider` 改寫成 `Notifier` 是 12–20 人日~~，而且其中一半的工作量在兩個上一輪已經點名要拆的 god provider 裡 —— **那是拆分計畫的事，不是升級的事。** 後半段說對了：那兩個類別確實是最後、最貴的兩個 commit。見 `05-roadmap.md` §6.12 |
 | **失效協調** | **漸進擴展 + 一次結構性收斂** | 協調器本身寫得好（函式注入、可脫離 Riverpod 測試、有 `ref.exists()` 守衛）。要做的是把 settings 域與 lyrics 域也納進來，以及讓 `allPlaylistsProvider` 從 `playlistListProvider` 衍生（一步同時消掉一條循環邊與一個手動快取）。 |
 | **平台層** | **需要一次結構性重構，但不是重寫** | 50 處 `Platform.isWindows` 需要重新分類成「真 Windows 專屬」與「桌面通用」。但架構方向已經是對的 —— `AudioRuntimePlatform` + 兩個 `FmpAudioService` 實作，正是 Harmonoid 用的那個模式。**要補的是把同樣的抽象套到系統整合層**（托盤、媒體控制、自啟、更新），不是推倒重來。 |
 | **repository 抽象層** | **不要加** | Immich 在 2025-06 用 20+ 個 PR 把 `domain/interfaces/` 整層刪掉，現在的 repository 就是 drift DAO 本身。真的要換 DB 時他們用的是撐 3 個月的臨時介面，不是長期抽象層。FMP 現有的 10 個 repository 已經是一層薄抽象 —— 在不換引擎的前提下再包一層只是空轉。**該做的是把 152 個邊界外呼叫點收進現有的 repository，不是再蓋一層。** |

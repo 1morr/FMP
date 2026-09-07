@@ -338,9 +338,12 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 > 執行時的重核否決了下表之外追加的 F／G 兩步，並**推翻了下方的 ≤800 行驗收線**，
 > **見 §6.5–§6.8**。下表保留原樣以便對照。
 >
-> **本節列出但尚未開始的兩項**：`StateNotifier` → `Notifier` 改寫、
-> `FmpAudioService.setQueue` / `supportsQueue`。Phase 4 已合進 `main`，
-> 但按本節的定義並未完成。
+> ~~**本節列出但尚未開始的兩項**：`StateNotifier` → `Notifier` 改寫、
+> `FmpAudioService.setQueue` / `supportsQueue`。~~
+> **`Notifier` 改寫已於 2026-09-07 完成（Round A，見 §6.12）**：43 個 legacy
+> provider 全部改寫，`lib/` 已無 `flutter_riverpod/legacy.dart`。
+> **佇列語意（`setQueue`）仍未開始**，那是 Round B。Phase 4 按本節的定義
+> 還差這一項。
 
 **目標**：把 3,429 行、90+ 欄位的 god class 拆成「投影 + 轉發 + 接線」，目標 400–800 行。
 **涉及模組**：`lib/services/audio/` 全部。
@@ -356,8 +359,11 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 | **D** | `PlaybackObserver` ×3（`PlayHistoryObserver` / `LyricsAutoMatchObserver` / `MixPrefetchObserver`，搬走 33 處 `_mix*`） | M | 把副作用從播放路徑上摘下來，播放不再等它們 |
 | **C** | `PlaybackSessionCoordinator`（`_context` 65 處 + `_pendingSeek` 22 處 + **Phase 1 的逾時預算收斂到這裡的單一 `budget`**） | M–L | 最大、最後做，因為它會動到 seek 與逾時語意 |
 
-**同時做**：`AudioController` / `RadioController` 的 `StateNotifier` → `Notifier` 改寫
-（03 §9.2 明說這屬於拆分計畫，不屬於 Riverpod 升級 —— 這兩個類別就佔了改寫工作量的一半以上）。
+~~**同時做**：`AudioController` / `RadioController` 的 `StateNotifier` → `Notifier` 改寫
+（03 §9.2 明說這屬於拆分計畫，不屬於 Riverpod 升級 —— 這兩個類別就佔了改寫工作量的一半以上）。~~
+**已執行（2026-09-07，Round A）**，但不是「同時做」而是獨立的一輪 ——
+`lib/providers/AGENTS.md` 當時有一條「do not start it opportunistically」與這裡
+矛盾，四輪 Phase 4 因此都被禁止順手做它。**那條矛盾已一併移除，見 §6.12。**
 
 **這裡也是佇列語意該落地的地方**：`FmpAudioService` 現在的開媒體介面一次只吃一個媒體，
 沒有 `setQueue` / `supportsQueue`（02 §6.3 階段 4）。**兩個後端的佇列 API 現在就有**
@@ -2097,3 +2103,104 @@ commit `81d8fc1f`…`063a5b73`。測試 1,429 → 1,459。`flutter analyze` 全�
 
 裝置狀態：模擬器已 `adb emu kill`，`adb devices` 為空，無殘留行程，
 `wm size` 已 `reset`。**本輪沒有動使用者的 Windows 機器。**
+
+---
+
+### 6.12 執行時的失效重核（2026-09-07，Phase 4 收尾 Round A：`Notifier` 改寫）
+
+Phase 4 列出但從未開工的兩項裡的第一項。**這一輪是零行為變更**，但它動了
+`lib/providers/` 底下的每一個檔案，以及 `lib/services/` 的四個。
+
+#### 為什麼四輪 Phase 4 都沒做它
+
+不是因為技術上做不到，也沒有任何文件記錄過「決定不做」。是**兩份文件互相矛盾**：
+路線圖 Phase 4 寫「**同時做**」，而 `lib/providers/AGENTS.md` § Riverpod 3 寫
+「Rewriting the remaining `StateNotifierProvider`s into `Notifier` is a separate,
+later change — **do not start it opportunistically**」。`AGENTS.md` 是有約束力的
+規則檔（根 `AGENTS.md` 明文），所以每一輪都被它擋住，而它自己從來沒有被排成
+獨立的一輪。**本輪把那句話刪掉，換成「lib 已無 legacy，由靜態測試守著」。**
+
+#### 十條要更正的說法
+
+| # | 開工前的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | 「39 個 `StateNotifierProvider`」（03 §1217） | **43 個 legacy provider**：40 個 `StateNotifierProvider`（33 plain、5 `.autoDispose`、1 `.family`、1 `.autoDispose.family`）＋ 3 個 `StateProvider`，由 36 個 notifier 類別支撐。`lib` 裡 33 個檔 import `legacy.dart` | 全部改完；現況 43 個 `NotifierProvider`（36 plain、5 `.autoDispose`、2 `.family`）＋ 39 個 `Notifier` 類別 |
+| 2 | `AGENTS.md` 列了 `StateController`、`ChangeNotifierProvider` | **兩者實際用量都是 0** | 規則檔的清單縮掉 |
+| 3 | 本輪計畫：「兩個 `.family` 是唯一不機械的一組」，並準備了退路 | **不成立。** `NotifierProvider.family` 的 create 函式**吃 family 參數**（riverpod `builder.dart:669`），所以 id 照樣走建構子 | 兩個 family 都是機械翻譯，退路沒有用上 |
+| 4 | 本輪計畫：A2 是 `lib/providers/settings/` 的「11 個」 | 該目錄只有 **10 個**；被誤算進去的 `audio_settings_provider` / `playback_settings_provider` 住在 `lib/providers/audio/` | 那兩個併進 A5 |
+| 5 | — | **`ref.onDispose` 在「provider 即將 rebuild」時也會跑**（riverpod `ref.dart:513-518`）。這正是「每次 build 開的訂閱都成對關掉」成立的原因 | 寫進規則檔；`PlaylistImportNotifier` 的訂閱洩漏由 `notifier_rebuild_test.dart` 守著（拿掉 `ref.onDispose` 那條測試會紅，已實測） |
+| 6 | — | **生命週期回呼裡不能碰任何別的 provider**：`state =` 與 `ref.invalidate` 都會撞上 `riverpod/src/core/ref.dart:235` 的斷言。`StateNotifier` 時代是允許的 | `downloadServiceProvider` 釋放時清空下載進度那一行改成排到回呼堆疊之外並加 `ref.mounted` 守衛；`RadioController._teardown` 要碰的兩個物件改在 `build()` 先抓在手上 |
+| 7 | — | **provider 建立期間也不能改別的 provider**（`element.dart:804`）。把第 6 點那行搬到工廠開頭同樣被擋 | 只有「排出回呼堆疊」這一條路 |
+| 8 | — | **最貴的一條**：`AudioController._teardown` 做的是**所有權釋放**（dispose 後端音訊服務、交還系統媒體控制）。`onDispose` 既然在 rebuild 前也跑，用 `ref.watch` 取協作者就等於「任何一個相依變動都會在控制器還活著的時候把播放器關掉」。實測症狀是 `Cannot add new events after calling close` | `AudioController.build()` 的協作者一律 `ref.read`。`RadioController` 相反 —— 它**需要** `watch`（等資料庫開好），而它的 teardown 只取消自己重建得回來的訂閱 |
+| 9 | — | `Ref.mounted` 存在（`ref.dart:112`）；`Notifier.state` 是 `@protected @visibleForTesting`（`notifier_provider.dart:79-81`） | 13 個檔約 58 處 `mounted` 機械改成 `ref.mounted`（`AudioController` / `RankingCacheService` 保留自己的 `_isDisposed`）；`lib` 裡三處外部 `state =` 改成具名方法 |
+| 10 | — | **`Notifier.new` 不吃參數**，所以每一處「測試用建構子注入」都要改。實際規模：**51 個直接 new 的呼叫點、15 處 `overrideWith`、9 個測試替身** | 見下 |
+
+#### `Notifier.new` 不吃參數帶來的結構後果
+
+這是本輪唯一真正改變了介面形狀的地方，全部都是被框架逼出來的，不是預先抽象：
+
+- 三個窄 provider：`mixTracksFetcherProvider`、
+  `optionalLyricsAutoMatchServiceProvider`、`homeRankingSettingsStoreProvider`。
+  前兩個讓播放測試不必為了一個可選協作者把整條歌詞／設定鏈拉起來（那條鏈會碰
+  secure storage，測試環境沒有實作）。
+- `RankingCacheService` 拆出 `bindSources()`：初次載入與網路監聽以前寫在
+  provider 工廠的 body 裡，測試直接 new 就能跳過；`NotifierProvider` 沒有 body，
+  所以接線與啟動分成兩半，測試子類只呼叫前一半。
+- 兩個測試支援檔：`test/support/audio_controller_harness.dart`（把
+  `AudioController` 舊建構子的十個具名參數翻譯成 override）與
+  `test/support/audio_settings_notifier.dart`。
+
+#### 反過來拿掉的東西（§6.8 預言的那一半）
+
+§6.8 說「`Notifier` 可以把 `ref` 拿進來，起播 provider 的接線就不必全擠在
+provider 工廠裡」。實際兌現的：
+
+- `audioControllerProvider` 的工廠從 **74 行變成 1 行**（8 個 `ref.watch`、
+  3 個回呼接線、1 條訂閱 ＋ `ref.onDispose`、`Future.microtask` 全部進 `build()`）。
+- `FileExistsCache` 的 `onEpochChanged` 回呼**整個刪掉** —— 它存在的唯一理由是
+  `StateNotifier` 拿不到 `ref`。
+- `RadioController.forLoading()` 這個第二建構子、`_DummyRadioRepository`、
+  `_DummyAudioService` **三個一起刪掉**：資料庫還沒開的分支變成 `build()` 的一條
+  早退路徑。（順帶解決了 Round B 原本要處理的「`_DummyAudioService` 的
+  `noSuchMethod` 會靜默吞掉新介面成員」。）
+- 七個類別不再需要在建構子吃 `Ref`。
+
+規模：**69 個檔、+1601 / −1105**（lib +826 / −769，test +775 / −336）。
+
+#### 驗收
+
+`flutter analyze` 全綠；`flutter test --exclude-tags live` **1466 通過**
+（基準 1459 ＋ 7 條新測試），九個 commit 每一個都跑過完整套件。
+
+**實機（Android 模擬器 `Medium_Phone`，1080×2400）**：完整走過首頁、設定、
+音訊品質、音樂庫、歌單詳情、播放、電台、搜尋、全螢幕播放頁。506 行 Dart log 裡
+**零個** `LateInitializationError` / `UnmountedRefException` /
+`Cannot use Ref` / 未處理例外。逐項證據：
+
+| 觀察到的 | 證明了哪一批 |
+|---|---|
+| 首頁 YouTube／網易雲排行榜載入（Netease 50 首）、`[RankingCache] 網絡恢復監聽已設置` | A6 的 `bindSources()` ＋ 初次載入 ＋ 網路監聽 |
+| `[ConnectivityNotifier] DNS polling started (interval: 15s)` | A6 |
+| 設定頁主題／主題色／字體／語言四項都顯示已載入的值 | A2 |
+| 音訊品質頁三組優先級都填好 | A5（`audioSettingsProvider`，會碰 secure storage 的那一個） |
+| 音樂庫列出歌單、歌單詳情載入曲目與時長 | A4（`playlistListProvider` 的 Isar `watchAll()` 訂閱、`playlistDetailProvider` family） |
+| 播放本機檔案成功，`dumpsys media_session` = `state=PLAYING(3), position=8389`；迷你播放器語意節點 `'0:07, 播放進度'` | A8 ＋ A1（`queueStateProvider` 投影）；順帶確認 Phase 5f 的 slider 語意沒有回歸 |
+| `[RadioController] 載入 1 個電台` / `watchAll 觸發`，且**進電台頁時音樂持續播放** | A7 的 `build()` 分支；同時是第 8 點那個坑的反證 —— 沒有誤觸 `AudioController` 的 teardown |
+| 搜尋紀錄「hello」顯示、搜尋回「線上結果 (60)」 | A3 |
+| 曲目播完 → `playing=false, processingState=ready` | `_onTrackCompleted` 在單曲佇列末端暫停，行為未變 |
+
+**本輪發現、未修的既有問題**（都與本輪無關，記在這裡以免下一輪重新診斷）：
+
+1. **`test/bilibili_source_test.dart` 有兩條真連網測試沒有標 `tags: 'live'`**
+   （`should fetch audio URL for valid bvid`、`refreshAudioUrl should refresh
+   audio URL for track with expired URL`；`:819` 的註釋自承「此测试需要网络连接」）。
+   同一個檔裡另有兩條**有**標。連續跑套件會被 Bilibili 風控擋成 HTTP 412 而變紅。
+   該檔零 Riverpod 使用。
+2. **`test/services/audio/playback_handoff_gate_test.dart` 的
+   `a seek right after navigation waits out the stabilization window`
+   在完整套件負載下偶發失敗**，單獨跑通過。它斷言的是一段 wall-clock 穩定化
+   視窗，與 issue #43 同一類。
+3. 首頁的 Bilibili 排行榜在本輪實機期間一直是
+   `BilibiliApiException(-352): 請求過於頻繁` —— 開發機的風控狀態，不是回歸。
+
+**沒有做的**：`FmpAudioService` 的佇列語意（Round B）。Phase 4 按其本節定義仍差這一項。
