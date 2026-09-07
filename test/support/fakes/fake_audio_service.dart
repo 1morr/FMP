@@ -40,6 +40,8 @@ class FakeAudioService implements FmpAudioService {
       StreamController<List<FmpAudioDevice>>.broadcast();
   final _audioDeviceController = StreamController<FmpAudioDevice?>.broadcast();
   final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
+  final _advancedToNextController =
+      StreamController<PreparedPlaybackMedia>.broadcast();
 
   final List<AudioUrlCall> playUrlCalls = [];
   final List<AudioUrlCall> setUrlCalls = [];
@@ -47,6 +49,11 @@ class FakeAudioService implements FmpAudioService {
   final List<AudioFileCall> setFileCalls = [];
   final List<AudioMediaCall> playMediaCalls = [];
   final List<AudioMediaCall> setMediaCalls = [];
+
+  /// 每一次 `setNextMedia` 的參數，包含清除用的 null。
+  ///
+  /// arm / disarm 的條件表就是靠逐條斷言這個清單來釘住的。
+  final List<PreparedPlaybackMedia?> setNextMediaCalls = [];
   final List<Duration> seekCalls = [];
   int stopCallCount = 0;
   int pauseCallCount = 0;
@@ -277,6 +284,9 @@ class FakeAudioService implements FmpAudioService {
       _audioDeviceController.stream;
   @override
   Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
+  @override
+  Stream<PreparedPlaybackMedia> get advancedToNext =>
+      _advancedToNextController.stream;
 
   @override
   bool get isPlaying => _isPlaying;
@@ -311,6 +321,7 @@ class FakeAudioService implements FmpAudioService {
     await _audioDevicesController.close();
     await _audioDeviceController.close();
     await _endReasonController.close();
+    await _advancedToNextController.close();
   }
 
   @override
@@ -364,6 +375,21 @@ class FakeAudioService implements FmpAudioService {
       _audioDevice = device;
   @override
   Future<void> setAudioDeviceAuto() async => _audioDevice = null;
+
+  @override
+  Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
+    setNextMediaCalls.add(media);
+  }
+
+  /// 假裝後端自己接上了前瞻媒體。
+  ///
+  /// 真的後端是靠播放清單索引往前走發現這件事的；這裡直接給事件，測試才不必
+  /// 去模擬 ExoPlayer / mpv 的清單行為。
+  void emitAdvancedToNext(PreparedPlaybackMedia media) {
+    _position = Duration.zero;
+    _isPlaying = true;
+    _advancedToNextController.add(media);
+  }
 
   @override
   Future<Duration?> playMedia(PreparedPlaybackMedia media) {

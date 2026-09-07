@@ -44,6 +44,16 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   // 播放结束原因控制器（正常播完与各种失败共用同一条通道）
   final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
 
+  // 後端自行接上前瞻媒體時的通道
+  final _advancedToNextController =
+      StreamController<PreparedPlaybackMedia>.broadcast();
+
+  /// 已經交給後端、還沒被接上去的下一個媒體。
+  PreparedPlaybackMedia? _nextMedia;
+
+  /// 最後看到的播放清單索引。索引往前走就是後端自己接上去了。
+  int _playlistIndex = 0;
+
   // 流订阅列表（用于 dispose 时取消）
   final List<StreamSubscription> _subscriptions = [];
 
@@ -122,6 +132,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// 播放结束原因流
   @override
   Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
+  @override
+  Stream<PreparedPlaybackMedia> get advancedToNext =>
+      _advancedToNextController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -286,6 +299,15 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       // 不等待緩衝填滿，立即開始播放
       await (nativePlayer as dynamic).setProperty('cache-pause-initial', 'no');
 
+      // 播放清單裡有第二個項目時，先把它開起來 —— 這是 `setNextMedia` 在桌面端
+      // 之所以能省掉交界處開流延遲的原因。mpv 預設是 `no`，media_kit 從不設它。
+      //
+      // mpv 手冊自稱這個選項 "Highly experimental"，並警告 "This can give
+      // subtly wrong results if per-file options are used" —— 而 media_kit 正是
+      // 用 per-file 的 `http-header-fields`（`on_load` hook）送出 Referer /
+      // Origin。實測結果記在 docs/review/05-roadmap.md §6.13。
+      await (nativePlayer as dynamic).setProperty('prefetch-playlist', 'yes');
+
       // 禁止 demuxer 将已用 buffer 捐赠给其他线程（减少内存碎片）
       await (nativePlayer as dynamic)
           .setProperty('demuxer-donate-buffer', 'no');
@@ -317,6 +339,30 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         _isPlaying = playing;
         _playingController.add(playing);
         _updatePlayerState();
+      }),
+    );
+
+    // 監聽播放清單索引 —— 後端自行接上前瞻媒體的唯一信號。
+    //
+    // 接上第二個項目之後，第一首播完不會走 `stream.completed`（那是整串播完才
+    // 有），只有索引會往前走，所以「自然播完」在 arm 期間改由這裡表達。
+    _subscriptions.add(
+      _player.stream.playlist.listen((playlist) {
+        final previousIndex = _playlistIndex;
+        _playlistIndex = playlist.index;
+        if (playlist.index <= previousIndex) return;
+
+        final advanced = _nextMedia;
+        _nextMedia = null;
+        if (advanced == null) return;
+
+        logDebug('Backend advanced to next medium: ${advanced.debugUrl}');
+        _hasCompletionFired = false;
+        _isCompleted = false;
+        if (!_advancedToNextController.isClosed) {
+          _advancedToNextController.add(advanced);
+        }
+        unawaited(_trimPlayedEntry());
       }),
     );
 
@@ -562,6 +608,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _subscriptions.clear();
 
     await _endReasonController.close();
+    await _advancedToNextController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();
@@ -597,6 +644,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   @override
   Future<void> stop() async {
     _cancelEnsurePlayback();
+    // 停下來等於清空後端的播放清單，前瞻項目跟著作廢。
+    _nextMedia = null;
+    _playlistIndex = 0;
     await _player.stop();
     // 释放音频焦点
     await _session.setActive(false);
@@ -822,6 +872,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 使用 media_kit 直接打开 URL，原生支持 httpHeaders（不需要代理）
       final media = Media(url, httpHeaders: headers);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息（流媒体可能需要播放后才能获取）
@@ -872,6 +925,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _session.setActive(true);
 
       final media = Media(url, httpHeaders: headers);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息
@@ -918,6 +974,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 使用 media_kit 打开本地文件
       final media = Media(filePath);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息
@@ -955,6 +1014,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _session.setActive(true);
 
       final media = Media(filePath);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息
@@ -996,5 +1058,53 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     }
 
     logWarning('Timeout waiting for idle state, proceeding anyway');
+  }
+  // ========== 前瞻媒體 ==========
+
+  @override
+  Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
+    if (!_hasPlayer || _player.state.playlist.medias.isEmpty) {
+      // 還沒有東西在播，沒有可以接上去的位置。
+      _nextMedia = null;
+      return;
+    }
+
+    // 清單永遠是「當前項目 ＋ 最多一個前瞻」。
+    final currentIndex = _player.state.playlist.index;
+    while (_player.state.playlist.medias.length > currentIndex + 1) {
+      await _player.remove(_player.state.playlist.medias.length - 1);
+    }
+    _nextMedia = null;
+
+    if (media == null) {
+      logDebug('Next medium cleared');
+      return;
+    }
+
+    await _player.add(_mediaFor(media));
+    _nextMedia = media;
+    logDebug('Next medium armed: ${media.debugUrl}');
+  }
+
+  /// headers 掛在 `Media` 上，由 mpv 的 `on_load` hook 在開檔時取出來設成
+  /// `http-header-fields`（media_kit `native/player/real.dart:2137`）——
+  /// `loadfile ... append` 這個命令本身不帶 headers。
+  Media _mediaFor(PreparedPlaybackMedia media) => switch (media) {
+        LocalPlaybackMedia(:final path) => Media(path),
+        RemotePlaybackMedia(:final url, :final headers) =>
+          Media(url.toString(), httpHeaders: headers),
+      };
+
+  /// 移掉剛剛播完、留在清單前面的那一個項目，讓當前項目回到 index 0。
+  Future<void> _trimPlayedEntry() async {
+    if (_player.state.playlist.medias.length <= 1) return;
+    try {
+      await _player.remove(0);
+      // 同步更新，不要等 `stream.playlist` 的事件 —— 事件晚到的話下一次前進
+      // 會被誤判成「索引沒有往前走」。
+      _playlistIndex = _player.state.playlist.index;
+    } catch (e, stack) {
+      logError('Failed to trim the played playlist entry', e, stack);
+    }
   }
 }

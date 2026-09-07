@@ -69,4 +69,20 @@ abstract class FmpAudioService {
       {Map<String, String>? headers, Track? track});
   Future<Duration?> playFile(String filePath, {Track? track});
   Future<Duration?> setFile(String filePath, {Track? track});
+
+  // === Next Medium ===
+
+  /// 交給後端「緊接著這一個之後要播的媒體」。傳 null 清除。
+  ///
+  /// 後端會把它先開起來，並在目前媒體自然播完時**自己**接上去。這段期間推進權
+  /// 屬於後端 —— 控制器不會收到 [EndedNaturally]，改為收到 [advancedToNext]。
+  ///
+  /// 只有在目前已經有媒體在播（或已設定）時才有意義；沒有的話後端會忽略它。
+  Future<void> setNextMedia(PreparedPlaybackMedia? media);
+
+  /// 後端自行接上前瞻媒體時發出，帶著當初交出去的那一個。
+  ///
+  /// 帶著身分而不是 `void`：交出去之後佇列還可能被改動，收到事件的一方要能
+  /// 確認接上去的是不是自己當初交出去的那一個。
+  Stream<PreparedPlaybackMedia> get advancedToNext;
 }

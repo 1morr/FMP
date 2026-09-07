@@ -38,4 +38,36 @@ void main() {
           contains('playUrl(url.toString(), headers: headers, track: track)'));
     });
   });
+
+  group('audio backend next-medium capability', () {
+    test('FmpAudioService exposes the next-medium pair', () {
+      final source =
+          File('lib/services/audio/audio_service.dart').readAsStringSync();
+
+      expect(source, contains('setNextMedia(PreparedPlaybackMedia? media)'));
+      expect(source,
+          contains('Stream<PreparedPlaybackMedia> get advancedToNext'));
+    });
+
+    test('JustAudioService keeps the media inside a playlist', () {
+      // 換回單一 `AudioSource.uri` 的話 `setNextMedia` 會變成沒有東西可以接的
+      // no-op —— 不會有編譯錯誤，也不會有執行期錯誤，只是再也不 gapless。
+      final source =
+          File('lib/services/audio/just_audio_service.dart').readAsStringSync();
+
+      expect(source, contains('ja.ConcatenatingAudioSource('));
+      expect(source, contains('useLazyPreparation: false'));
+      expect(source, contains('_player.currentIndexStream.listen'));
+    });
+
+    test('MediaKitAudioService asks mpv to prefetch the next entry', () {
+      // mpv 的 `prefetch-playlist` 預設是 `no`，media_kit 從不設它。少了這一行
+      // 第二個項目要等交界才開流，gapless 的說法就不成立 —— 同樣不會有任何錯誤。
+      final source = File('lib/services/audio/media_kit_audio_service.dart')
+          .readAsStringSync();
+
+      expect(source, contains("setProperty('prefetch-playlist', 'yes')"));
+      expect(source, contains('_player.stream.playlist.listen'));
+    });
+  });
 }

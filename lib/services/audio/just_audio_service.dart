@@ -22,6 +22,20 @@ class JustAudioService extends FmpAudioService with Logging {
   // 播放结束原因控制器（正常播完与各种失败共用同一条通道）
   final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
 
+  // 後端自行接上前瞻媒體時的通道
+  final _advancedToNextController =
+      StreamController<PreparedPlaybackMedia>.broadcast();
+
+  /// 當前的播放清單。
+  ///
+  /// 平常只有一個 child —— 包一層 `ConcatenatingAudioSource` 是為了讓
+  /// [setNextMedia] 有東西可以接。單一 `AudioSource.uri` 沒有辦法在播放中追加，
+  /// 只能整個重設，而重設就是重新開媒體，正好是要避免的那件事。
+  ja.ConcatenatingAudioSource? _playlist;
+
+  /// 已經交給後端、還沒被接上去的下一個媒體。
+  PreparedPlaybackMedia? _nextMedia;
+
   // 流订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
@@ -88,6 +102,9 @@ class JustAudioService extends FmpAudioService with Logging {
       _audioDeviceController.stream;
   @override
   Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
+  @override
+  Stream<PreparedPlaybackMedia> get advancedToNext =>
+      _advancedToNextController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -228,6 +245,26 @@ class JustAudioService extends FmpAudioService with Logging {
       }),
     );
 
+    // 監聽播放清單索引 —— 後端自行接上前瞻媒體的唯一信號。
+    //
+    // 接上第二個 child 之後，第一首播完**不會**發 `completed`（那要整串播完才
+    // 有），只有索引會往前走，所以「自然播完」在 arm 期間改由這裡表達。
+    _subscriptions.add(
+      _player.currentIndexStream.listen((index) {
+        if (index == null || index <= 0) return;
+        final advanced = _nextMedia;
+        _nextMedia = null;
+        if (advanced == null) return;
+
+        logDebug('Backend advanced to next medium: ${advanced.debugUrl}');
+        _hasCompletionFired = false;
+        if (!_advancedToNextController.isClosed) {
+          _advancedToNextController.add(advanced);
+        }
+        unawaited(_trimPlayedEntry());
+      }),
+    );
+
     // 监听位置
     _subscriptions.add(
       _player.positionStream.listen((pos) {
@@ -348,6 +385,7 @@ class JustAudioService extends FmpAudioService with Logging {
     _subscriptions.clear();
 
     await _endReasonController.close();
+    await _advancedToNextController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();
@@ -377,6 +415,8 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> stop() async {
+    // 停下來等於清空後端的播放清單，前瞻項目跟著作廢。
+    _nextMedia = null;
     await _player.stop();
     // 释放音频焦点
     await _session.setActive(false);
@@ -553,11 +593,9 @@ class JustAudioService extends FmpAudioService with Logging {
       await _session.setActive(true);
 
       // 使用 just_audio 的 AudioSource.uri（支持 headers）
-      final source = ja.AudioSource.uri(
-        Uri.parse(url),
-        headers: headers,
+      final duration = await _setSingleSource(
+        ja.AudioSource.uri(Uri.parse(url), headers: headers),
       );
-      final duration = await _player.setAudioSource(source);
 
       logDebug('URL loaded successfully, duration: $duration');
 
@@ -584,11 +622,9 @@ class JustAudioService extends FmpAudioService with Logging {
       _processingStateController.add(FmpAudioProcessingState.loading);
       await _session.setActive(true);
 
-      final source = ja.AudioSource.uri(
-        Uri.parse(url),
-        headers: headers,
+      final duration = await _setSingleSource(
+        ja.AudioSource.uri(Uri.parse(url), headers: headers),
       );
-      final duration = await _player.setAudioSource(source);
 
       logDebug('URL set, duration: $duration');
       return duration;
@@ -614,8 +650,8 @@ class JustAudioService extends FmpAudioService with Logging {
 
       await _session.setActive(true);
 
-      final source = ja.AudioSource.file(filePath);
-      final duration = await _player.setAudioSource(source);
+      final duration =
+          await _setSingleSource(ja.AudioSource.file(filePath));
 
       // 与 playUrl() 同理，不 await play()
       unawaited(_player.play());
@@ -635,14 +671,79 @@ class JustAudioService extends FmpAudioService with Logging {
       _processingStateController.add(FmpAudioProcessingState.loading);
       await _session.setActive(true);
 
-      final source = ja.AudioSource.file(filePath);
-      final duration = await _player.setAudioSource(source);
+      final duration =
+          await _setSingleSource(ja.AudioSource.file(filePath));
 
       logDebug('File set, duration: $duration');
       return duration;
     } catch (e, stack) {
       logError('Failed to set file', e, stack);
       rethrow;
+    }
+  }
+  // ========== 前瞻媒體 ==========
+
+  /// 開一份只有一個項目的播放清單。
+  ///
+  /// 包一層 `ConcatenatingAudioSource` 而不是直接設單一來源，是因為單一來源
+  /// 沒有辦法在播放中追加第二個項目，只能整個重設 —— 而重設就是重新開媒體，
+  /// 正是 [setNextMedia] 要避免的那件事。只有一個 child 時兩者行為相同。
+  Future<Duration?> _setSingleSource(ja.AudioSource source) {
+    _nextMedia = null;
+    final playlist = ja.ConcatenatingAudioSource(
+      children: [source],
+      // 第二個項目一接上就要開始準備，否則交界處還是要等它開媒體。
+      useLazyPreparation: false,
+    );
+    _playlist = playlist;
+    return _player.setAudioSource(playlist);
+  }
+
+  /// headers 隨每個項目走，沒有全域狀態 —— 這是 Android 側能安全前瞻的原因。
+  ja.AudioSource _sourceFor(PreparedPlaybackMedia media) => switch (media) {
+        LocalPlaybackMedia(:final path) => ja.AudioSource.file(path),
+        RemotePlaybackMedia(:final url, :final headers) =>
+          ja.AudioSource.uri(url, headers: headers),
+      };
+
+  @override
+  Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
+    final playlist = _playlist;
+    if (playlist == null) {
+      // 還沒有東西在播，沒有可以接上去的位置。
+      _nextMedia = null;
+      return;
+    }
+
+    // 清單永遠是「當前項目 ＋ 最多一個前瞻」。
+    final currentIndex = _player.currentIndex ?? 0;
+    while (playlist.children.length > currentIndex + 1) {
+      await playlist.removeAt(playlist.children.length - 1);
+    }
+    _nextMedia = null;
+
+    if (media == null) {
+      logDebug('Next medium cleared');
+      return;
+    }
+
+    await playlist.add(_sourceFor(media));
+    _nextMedia = media;
+    logDebug('Next medium armed: ${media.debugUrl}');
+  }
+
+  /// 移掉剛剛播完、留在清單前面的那一個項目。
+  ///
+  /// 不移的話清單每首歌長一個 child，而 `useLazyPreparation: false` 代表每個
+  /// child 都是一條已經開著的連線。移完之後當前項目回到 index 0，
+  /// 「下一首」永遠是 index 1。
+  Future<void> _trimPlayedEntry() async {
+    final playlist = _playlist;
+    if (playlist == null || playlist.children.length <= 1) return;
+    try {
+      await playlist.removeAt(0);
+    } catch (e, stack) {
+      logError('Failed to trim the played playlist entry', e, stack);
     }
   }
 }
