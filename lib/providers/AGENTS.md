@@ -131,10 +131,11 @@ FMP is on `flutter_riverpod` 3.x. Four rules follow from its behaviour changes.
   disabled `TickerMode` (an `Overlay` entry covered by an opaque route), so a
   page-anchored side effect stops when the user opens the full-screen player.
   `ref.listen` subscriptions are never paused.
-- **`Ref` is a sealed class.** Tests cannot fake it. Use
-  `test/support/riverpod_test_ref.dart` (`createTestRef`), which hands back a
-  real `Ref` from a `ProviderContainer`, and replace dependencies with
-  `overrides` rather than by overriding `read`.
+- **`Ref` is a sealed class.** Tests cannot fake it. Take a real one out of a
+  real container -- `Provider<Ref>((ref) => ref)` read from a
+  `ProviderContainer` -- and keep the container alive longer than the `Ref`,
+  which throws `UnmountedRefException` once its container is disposed. Replace
+  dependencies with `overrides`, never by overriding `read`.
 - **Errors thrown by a provider arrive wrapped in `ProviderException`**; the
   original is in `.exception`. Assertions and `catch` blocks that match on a
   concrete exception type must unwrap it first.
