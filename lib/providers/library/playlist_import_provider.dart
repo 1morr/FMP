@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/playlist_import/playlist_import_source.dart';
 import '../../data/sources/source_provider.dart';
@@ -49,9 +50,11 @@ class PlaylistImportState {
 
   /// 获取已匹配的歌曲数量
   int get matchedCount => matchedTracks
-      .where((t) =>
-          t.status == MatchStatus.matched ||
-          t.status == MatchStatus.userSelected)
+      .where(
+        (t) =>
+            t.status == MatchStatus.matched ||
+            t.status == MatchStatus.userSelected,
+      )
       .length;
 
   /// 获取未匹配的歌曲数量
@@ -60,29 +63,34 @@ class PlaylistImportState {
 
   /// 获取已选中的歌曲（用于创建歌单）
   List<Track> get selectedTracks => matchedTracks
-          .where((t) => t.isIncluded && t.selectedTrack != null)
-          .map((t) {
+      .where((t) => t.isIncluded && t.selectedTrack != null)
+      .map((t) {
         final track = t.selectedTrack!.copy();
         if (t.original.sourceId != null) {
           track.originalSongId = t.original.sourceId;
           track.originalSource = _mapSourceToString(t.original.source);
         }
         return track;
-      }).toList();
+      })
+      .toList();
 
   /// 获取未匹配的原始歌曲（包括用户手动选择的）
   List<ImportedTrack> get unmatchedOriginalTracks => matchedTracks
-      .where((t) =>
-          t.status == MatchStatus.noResult ||
-          t.status == MatchStatus.userSelected)
+      .where(
+        (t) =>
+            t.status == MatchStatus.noResult ||
+            t.status == MatchStatus.userSelected,
+      )
       .map((t) => t.original)
       .toList();
 
   /// 获取未匹配的 MatchedTrack（包括用户手动选择的，用于 UI 显示选中状态）
   List<MatchedTrack> get unmatchedMatchedTracks => matchedTracks
-      .where((t) =>
-          t.status == MatchStatus.noResult ||
-          t.status == MatchStatus.userSelected)
+      .where(
+        (t) =>
+            t.status == MatchStatus.noResult ||
+            t.status == MatchStatus.userSelected,
+      )
       .toList();
 
   /// PlaylistSource → 歌词系统兼容的字符串
@@ -101,23 +109,27 @@ class PlaylistImportState {
 }
 
 /// 歌单导入状态管理
-class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
-  final PlaylistImportService _service;
+class PlaylistImportNotifier extends Notifier<PlaylistImportState> {
+  late PlaylistImportService _service;
   StreamSubscription<ImportProgress>? _progressSubscription;
   int _importOperationId = 0;
   int? _activeImportOperationId;
   int _manualSearchOperationId = 0;
   final Map<int, int> _manualSearchOperations = {};
 
-  PlaylistImportNotifier(this._service) : super(const PlaylistImportState()) {
+  @override
+  PlaylistImportState build() {
+    _service = ref.watch(playlistImportServiceProvider);
     _progressSubscription = _service.progressStream.listen((progress) {
-      if (_activeImportOperationId != null && mounted) {
-        state = state.copyWith(
-          progress: progress,
-          phase: progress.phase,
-        );
+      if (_activeImportOperationId != null && ref.mounted) {
+        state = state.copyWith(progress: progress, phase: progress.phase);
       }
     });
+    // 這條訂閱以前開在建構子、關在 `dispose()`。`ref.onDispose` 在 provider
+    // 即將 rebuild 時也會跑，所以每一次 build 開的訂閱都成對關掉 —— 漏了這行
+    // 就是每次 rebuild 洩一條，而且不會有任何錯誤訊息。
+    ref.onDispose(_teardown);
+    return const PlaylistImportState();
   }
 
   /// 取消当前导入
@@ -171,20 +183,25 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
         _activeImportOperationId = null;
       }
       return;
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isImportOperationCurrent(operationId)) return;
 
       state = state.copyWith(
         isLoading: false,
         phase: ImportPhase.error,
-        errorMessage: e.toString(),
+        errorMessage: failureMessage(
+          e,
+          stack,
+          'Playlist import failed',
+          tag: 'Import',
+        ),
       );
       _activeImportOperationId = null;
     }
   }
 
   bool _isImportOperationCurrent(int operationId) {
-    return mounted && _activeImportOperationId == operationId;
+    return ref.mounted && _activeImportOperationId == operationId;
   }
 
   /// 更新匹配结果（用户选择其他搜索结果）
@@ -264,7 +281,7 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
   }
 
   bool _isManualSearchCurrent(int index, int operationId) {
-    return mounted && _manualSearchOperations[index] == operationId;
+    return ref.mounted && _manualSearchOperations[index] == operationId;
   }
 
   /// 为未匹配歌曲搜索（仅返回结果，不更新状态）
@@ -278,7 +295,10 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
 
   /// 用手动搜索结果更新未匹配歌曲（保留在未匹配区域，使用 userSelected 状态）
   void updateWithManualMatch(
-      int index, Track selectedTrack, List<Track> searchResults) {
+    int index,
+    Track selectedTrack,
+    List<Track> searchResults,
+  ) {
     if (index < 0 || index >= state.matchedTracks.length) return;
 
     final updatedTracks = List<MatchedTrack>.from(state.matchedTracks);
@@ -301,14 +321,12 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
     state = const PlaylistImportState();
   }
 
-  @override
-  void dispose() {
+  void _teardown() {
     _importOperationId++;
     _activeImportOperationId = null;
     _manualSearchOperations.clear();
     _progressSubscription?.cancel();
     _service.dispose();
-    super.dispose();
   }
 }
 
@@ -319,7 +337,6 @@ final playlistImportServiceProvider = Provider<PlaylistImportService>((ref) {
 });
 
 final playlistImportProvider =
-    StateNotifierProvider<PlaylistImportNotifier, PlaylistImportState>((ref) {
-  final service = ref.watch(playlistImportServiceProvider);
-  return PlaylistImportNotifier(service);
-});
+    NotifierProvider<PlaylistImportNotifier, PlaylistImportState>(
+      PlaylistImportNotifier.new,
+    );

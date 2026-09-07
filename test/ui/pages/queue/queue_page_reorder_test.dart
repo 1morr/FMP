@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,31 +14,30 @@ import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/services/audio/queue_state.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/ui/pages/queue/queue_page.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import 'package:fmp/providers/audio/playback_settings_provider.dart';
 
 import '../../../support/fakes/fake_audio_service.dart';
+import '../../../support/isar_test_harness.dart';
+import '../../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(
-      libraries: {ffi.Abi.current(): await _resolveIsarLibraryPath()},
-    );
+    await initializeIsarForTests();
   });
 
-  testWidgets('QueuePage keeps drag reorder available while shuffle is enabled',
-      (
+  testWidgets('QueuePage keeps drag reorder available while shuffle is enabled', (
     tester,
   ) async {
     final harness = (await tester.runAsync(_QueuePageHarness.create))!;
@@ -54,15 +51,9 @@ void main() {
       TranslationProvider(
         child: ProviderScope(
           overrides: [
-            audioControllerProvider.overrideWith((ref) => harness.controller),
+            audioControllerProvider.overrideWith(() => harness.controller),
             queueStateProvider.overrideWith(
-              (ref) => QueueState(
-                queue: harness.controller.state.queue,
-                currentIndex: harness.controller.state.currentIndex,
-                queueTrack: harness.controller.state.queue.first,
-                isShuffleEnabled: true,
-                queueVersion: harness.controller.state.queueVersion,
-              ),
+              () => _FixedQueueState(harness.queueState),
             ),
             autoScrollToCurrentTrackProvider.overrideWith((ref) => false),
           ],
@@ -93,12 +84,17 @@ class _QueuePageHarness {
   _QueuePageHarness({
     required this.isar,
     required this.controller,
+    required this.queueState,
     required this.sourceManager,
     required this.streamResolutionService,
   });
 
   final Isar isar;
   final _QueuePageTestAudioController controller;
+
+  /// 佇列的形狀住在 `QueueState`，不在 `PlayerState`。頁面讀的是
+  /// `queueStateProvider`，所以測試也從這裡餵。
+  final QueueState queueState;
   final SourceManager sourceManager;
   final DefaultStreamResolutionService streamResolutionService;
 
@@ -135,52 +131,54 @@ class _QueuePageHarness {
       queuePersistenceManager: queuePersistenceManager,
     );
 
-    final controller = _QueuePageTestAudioController(
-      queueManager: queueManager,
-      audioStreamManager: audioStreamManager,
-      queue: [
-        _buildTrack(id: 1, sourceId: 'alpha', title: 'Alpha'),
-        _buildTrack(id: 2, sourceId: 'bravo', title: 'Bravo'),
-        _buildTrack(id: 3, sourceId: 'charlie', title: 'Charlie'),
-      ],
-    );
+    final controller = _QueuePageTestAudioController();
+
+    final queue = [
+      _buildTrack(id: 1, sourceId: 'alpha', title: 'Alpha'),
+      _buildTrack(id: 2, sourceId: 'bravo', title: 'Bravo'),
+      _buildTrack(id: 3, sourceId: 'charlie', title: 'Charlie'),
+    ];
 
     return _QueuePageHarness(
       isar: isar,
       controller: controller,
+      queueState: QueueState(
+        queue: queue,
+        currentIndex: 0,
+        queueTrack: queue.first,
+        isShuffleEnabled: true,
+        queueVersion: 1,
+      ),
       sourceManager: sourceManager,
       streamResolutionService: streamResolutionService,
     );
   }
 
   Future<void> dispose() async {
-    controller.dispose();
     streamResolutionService.dispose();
     sourceManager.dispose();
     await isar.close(deleteFromDisk: true);
   }
 }
 
-class _QueuePageTestAudioController extends AudioController {
-  _QueuePageTestAudioController({
-    required super.queueManager,
-    required super.audioStreamManager,
-    required List<Track> queue,
-  }) : super(
-          audioService: FakeAudioService(),
-          toastService: ToastService(),
-          audioHandler: FmpAudioHandler(),
-          windowsSmtcHandler: WindowsSmtcHandler(),
-        ) {
-    state = PlayerState(
-      queue: queue,
-      currentIndex: 0,
-      queueVersion: 1,
-      isShuffleEnabled: true,
-    );
-  }
+/// `queueStateProvider` 是 `NotifierProvider`，override 要給 notifier 工廠而
+/// 不是一個值 —— 這個子類就是「build() 直接回傳固定投影」。
+class _FixedQueueState extends QueueStateNotifier {
+  _FixedQueueState(this._value);
 
+  final QueueState _value;
+
+  @override
+  QueueState build() => _value;
+}
+
+/// 不呼叫 `super.build()`：這一頁只讀被覆寫掉的 `queueStateProvider`，
+/// 真的那個 `build()` 會把整條播放鏈拉起來。
+class _QueuePageTestAudioController extends AudioController {
   int moveInQueueCallCount = 0;
+
+  @override
+  PlayerState build() => const PlayerState();
 
   @override
   Future<void> moveInQueue(int oldIndex, int newIndex) async {
@@ -190,7 +188,7 @@ class _QueuePageTestAudioController extends AudioController {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -199,10 +197,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
   ) async {
     return PlaybackNetworkRequest(
       url: url,
-      headers: SourceHttpPolicy.mediaHeaders(
-        track.sourceType,
-        requestUrl: url,
-      ),
+      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
     );
   }
 
@@ -218,7 +213,7 @@ Track _buildTrack({
   return Track()
     ..id = id
     ..sourceId = sourceId
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..title = title
     ..artist = '$title Artist'
     ..durationMs = 180000;
@@ -232,28 +227,4 @@ List<String> _queueOrder(WidgetTester tester) {
   final ordered = positions.entries.toList()
     ..sort((a, b) => a.value.compareTo(b.value));
   return ordered.map((entry) => entry.key).toList();
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic>) continue;
-    if (package['name'] != 'isar_flutter_libs') continue;
-
-    final rootUri = package['rootUri'] as String;
-    final packageDir =
-        Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
-
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }

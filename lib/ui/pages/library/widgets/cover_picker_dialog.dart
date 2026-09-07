@@ -19,9 +19,7 @@ class CoverPickerResult {
   const CoverPickerResult({this.coverUrl, this.useDefault = false});
 
   /// 使用默認封面
-  const CoverPickerResult.useDefault()
-      : coverUrl = null,
-        useDefault = true;
+  const CoverPickerResult.useDefault() : coverUrl = null, useDefault = true;
 
   /// 使用指定的封面 URL
   const CoverPickerResult.custom(this.coverUrl) : useDefault = false;
@@ -84,6 +82,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: t.general.close,
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -118,7 +117,9 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(
-                        context, const CoverPickerResult.useDefault());
+                      context,
+                      const CoverPickerResult.useDefault(),
+                    );
                   },
                   icon: const Icon(Icons.restore),
                   label: Text(t.library.coverPicker.useDefault),
@@ -143,8 +144,8 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(
-              t.library.loadFailedWithError(error: state.error.toString())),
+          // state.error 已經是 provider 映射過的一句話，不是例外原文。
+          child: Text(t.library.loadFailedWithError(error: state.error!)),
         ),
       );
     }
@@ -224,6 +225,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
               suffixIcon: _urlController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear),
+                      tooltip: t.general.clear,
                       onPressed: () {
                         setState(() {
                           _urlController.clear();
@@ -322,8 +324,9 @@ class _CoverGridItem extends StatelessWidget {
                 : null,
           ),
           child: ClipRRect(
-            borderRadius:
-                BorderRadius.circular(isSelected ? AppRadius.sm : AppRadius.md),
+            borderRadius: BorderRadius.circular(
+              isSelected ? AppRadius.sm : AppRadius.md,
+            ),
             child: Stack(
               fit: StackFit.expand,
               children: [

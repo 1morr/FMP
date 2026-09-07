@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/library/library_invalidation_coordinator.dart';
@@ -50,16 +52,16 @@ class _ChangeDownloadPathDialogState
   Widget? _buildIcon(ColorScheme colorScheme) {
     return switch (_state) {
       _DialogState.confirmation => Icon(
-          Icons.folder_copy_outlined,
-          color: colorScheme.primary,
-          size: 32,
-        ),
+        Icons.folder_copy_outlined,
+        color: colorScheme.primary,
+        size: 32,
+      ),
       _DialogState.selecting || _DialogState.processing => null,
       _DialogState.error => Icon(
-          Icons.error_outline,
-          color: colorScheme.error,
-          size: 32,
-        ),
+        Icons.error_outline,
+        color: colorScheme.error,
+        size: 32,
+      ),
     };
   }
 
@@ -150,19 +152,14 @@ class _ChangeDownloadPathDialogState
           ),
           FilledButton(
             onPressed: _onContinue,
-            style: FilledButton.styleFrom(
-              backgroundColor: colorScheme.error,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
             child: Text(t.changeDownloadPathDialog.continueButton),
           ),
         ];
       case _DialogState.selecting:
       case _DialogState.processing:
         return [
-          TextButton(
-            onPressed: null,
-            child: Text(t.general.cancel),
-          ),
+          TextButton(onPressed: null, child: Text(t.general.cancel)),
           FilledButton(
             onPressed: null,
             child: SizedBox(
@@ -213,7 +210,9 @@ class _ChangeDownloadPathDialogState
 
       ref.invalidate(downloadPathProvider);
 
-      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .downloadStateChanged(
             affectedPlaylistIds: result.affectedPlaylistIds,
           );
 
@@ -231,11 +230,17 @@ class _ChangeDownloadPathDialogState
           });
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+        'Changing the download path failed',
+        e,
+        stack,
+        'DownloadPath',
+      );
       if (mounted) {
         setState(() {
           _state = _DialogState.error;
-          _error = e.toString();
+          _error = userMessageFor(e);
         });
       }
     }

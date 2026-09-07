@@ -13,7 +13,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
   final Dio _dio;
 
   NeteasePlaylistSource({Dio? dio})
-      : _dio = dio ?? SourceHttpPolicy.createApiDio(SourceType.netease);
+    : _dio = dio ?? SourceHttpPolicy.createApiDio(SourceIds.netease);
 
   @override
   PlaylistSource get source => PlaylistSource.netease;
@@ -147,7 +147,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       options: Options(
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
-        headers: SourceHttpPolicy.apiHeaders(SourceType.netease),
+        headers: SourceHttpPolicy.apiHeaders(SourceIds.netease),
       ),
     );
 
@@ -156,7 +156,8 @@ class NeteasePlaylistSource implements PlaylistImportSource {
     final code = data['code'];
     if (code != 200) {
       throw Exception(
-          '${t.importSource.fetchPlaylistFailed}: ${data['message'] ?? t.error.unknownError}');
+        '${t.importSource.fetchPlaylistFailed}: ${data['message'] ?? t.error.unknownError}',
+      );
     }
 
     final playlist = data['playlist'];
@@ -193,7 +194,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       options: Options(
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
-        headers: SourceHttpPolicy.apiHeaders(SourceType.netease),
+        headers: SourceHttpPolicy.apiHeaders(SourceIds.netease),
       ),
     );
 
@@ -220,8 +221,9 @@ class NeteasePlaylistSource implements PlaylistImportSource {
             title: name,
             artists: artists,
             album: album,
-            duration:
-                duration != null ? Duration(milliseconds: duration) : null,
+            duration: duration != null
+                ? Duration(milliseconds: duration)
+                : null,
             sourceId: songId?.toString(),
             source: PlaylistSource.netease,
           );

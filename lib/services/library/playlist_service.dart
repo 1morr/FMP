@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/download_filenames.dart';
@@ -12,7 +12,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../download/download_path_utils.dart';
 import 'playlist_exceptions.dart';
-import 'playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 
 export 'playlist_exceptions.dart';
 
@@ -57,19 +57,19 @@ class PlaylistService with Logging {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
 
   PlaylistService({
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required Isar isar,
-    PlaylistMutationService? mutationService,
-  })  : _playlistRepository = playlistRepository,
-        _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository,
-        _mutationService =
-            mutationService ?? PlaylistMutationService(isar: isar);
+    PlaylistMutationRepository? mutationService,
+  }) : _playlistRepository = playlistRepository,
+       _trackRepository = trackRepository,
+       _settingsRepository = settingsRepository,
+       _mutationService =
+           mutationService ?? PlaylistMutationRepository(isar: isar);
 
   /// 获取所有歌单
   Future<List<Playlist>> getAllPlaylists() async {
@@ -164,8 +164,9 @@ class PlaylistService with Logging {
       playlist.name = name;
 
       // 检查旧文件夹是否存在（有下载文件）
-      final baseDir =
-          await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(
+        _settingsRepository,
+      );
       final oldFolderName = DownloadPathUtils.sanitizeFileName(oldName);
       final oldFolder = Directory(p.join(baseDir, oldFolderName));
       if (await oldFolder.exists()) {
@@ -182,7 +183,8 @@ class PlaylistService with Logging {
         if (tracks.isNotEmpty) {
           await _trackRepository.saveAll(tracks);
           logDebug(
-              'Cleared download paths for ${tracks.length} tracks in renamed playlist');
+            'Cleared download paths for ${tracks.length} tracks in renamed playlist',
+          );
         }
       }
     }
@@ -205,8 +207,9 @@ class PlaylistService with Logging {
 
     // 更新自動刷新設置
     if (refreshIntervalHours != null) {
-      playlist.refreshIntervalHours =
-          refreshIntervalHours > 0 ? refreshIntervalHours : null;
+      playlist.refreshIntervalHours = refreshIntervalHours > 0
+          ? refreshIntervalHours
+          : null;
     }
 
     // 更新使用登入狀態刷新
@@ -257,10 +260,12 @@ class PlaylistService with Logging {
     final result = await _mutationService.addTracks(playlistId, tracks);
     if (result.addedCount == 0 && result.repairedCount == 0) {
       logDebug(
-          'All ${tracks.length} tracks already in playlist $playlistId, skipping');
+        'All ${tracks.length} tracks already in playlist $playlistId, skipping',
+      );
     } else if (result.addedCount + result.repairedCount < tracks.length) {
       logDebug(
-          'Added or repaired ${result.addedCount + result.repairedCount}/${tracks.length} tracks in playlist $playlistId');
+        'Added or repaired ${result.addedCount + result.repairedCount}/${tracks.length} tracks in playlist $playlistId',
+      );
     }
     return result;
   }

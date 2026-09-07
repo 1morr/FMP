@@ -5,11 +5,14 @@ import '../../i18n/strings.g.dart';
 import '../database/repository_providers.dart';
 
 /// Locale 管理器
-class LocaleNotifier extends StateNotifier<AppLocale?> {
-  final SettingsRepository _settingsRepository;
+class LocaleNotifier extends Notifier<AppLocale?> {
+  late SettingsRepository _settingsRepository;
 
-  LocaleNotifier(this._settingsRepository) : super(null) {
+  @override
+  AppLocale? build() {
+    _settingsRepository = ref.watch(settingsRepositoryProvider);
     _loadSettings();
+    return null;
   }
 
   /// 加载语言设置
@@ -19,9 +22,9 @@ class LocaleNotifier extends StateNotifier<AppLocale?> {
     // 先更新 slang 的全局 t，再更新 Riverpod state
     // 确保 Riverpod 触发 rebuild 时 t.xxx 已指向新 locale
     if (locale != null) {
-      LocaleSettings.instance.setLocale(locale);
+      LocaleSettings.instance.setLocaleSync(locale);
     } else {
-      LocaleSettings.instance.useDeviceLocale();
+      LocaleSettings.instance.useDeviceLocaleSync();
     }
     state = locale;
   }
@@ -33,9 +36,9 @@ class LocaleNotifier extends StateNotifier<AppLocale?> {
     // 先更新 slang 的全局 t，再更新 Riverpod state
     // 确保 Riverpod 触发 rebuild 时 t.xxx 已指向新 locale
     if (locale != null) {
-      LocaleSettings.instance.setLocale(locale);
+      LocaleSettings.instance.setLocaleSync(locale);
     } else {
-      LocaleSettings.instance.useDeviceLocale();
+      LocaleSettings.instance.useDeviceLocaleSync();
     }
     state = locale;
   }
@@ -69,10 +72,9 @@ class LocaleNotifier extends StateNotifier<AppLocale?> {
 }
 
 /// Locale Provider
-final localeProvider = StateNotifierProvider<LocaleNotifier, AppLocale?>((ref) {
-  final settingsRepository = ref.watch(settingsRepositoryProvider);
-  return LocaleNotifier(settingsRepository);
-});
+final localeProvider = NotifierProvider<LocaleNotifier, AppLocale?>(
+  LocaleNotifier.new,
+);
 
 /// 便捷 Provider - 当前 locale 显示名称
 final localeDisplayNameProvider = Provider<String>((ref) {

@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/import/import_service.dart';
-import '../../services/library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import '../account/source_auth_context_provider.dart';
 import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
@@ -49,12 +51,8 @@ class ImportPlaylistState {
 
 const _copySentinel = Object();
 
-class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
-  ImportPlaylistNotifier(this._ref, this._createService)
-      : super(const ImportPlaylistState());
-
-  final Ref<ImportPlaylistState> _ref;
-  final ImportServiceFactory _createService;
+class ImportPlaylistNotifier extends Notifier<ImportPlaylistState> {
+  late ImportServiceFactory _createService;
 
   ImportServiceFacade? _service;
   StreamSubscription<ImportProgress>? _progressSubscription;
@@ -62,12 +60,20 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
   int _operationId = 0;
   int? _activeOperationId;
 
+  @override
+  ImportPlaylistState build() {
+    _createService = ref.watch(importServiceFactoryProvider);
+    ref.onDispose(_teardown);
+    return const ImportPlaylistState();
+  }
+
   bool _isActiveOperation(int operationId) {
-    return mounted && _activeOperationId == operationId;
+    return ref.mounted && _activeOperationId == operationId;
   }
 
   Future<ImportServiceFacade> _createServiceForOperation(
-      int operationId) async {
+    int operationId,
+  ) async {
     final createdService = _createService();
     final service = createdService is Future<ImportServiceFacade>
         ? await createdService
@@ -108,7 +114,7 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
     _service?.cancelImport();
     _progressSubscription?.cancel();
     _progressSubscription = null;
-    _keepAliveLink ??= _ref.keepAlive();
+    _keepAliveLink ??= ref.keepAlive();
     state = state.copyWith(
       isImporting: true,
       progress: const ImportProgress(),
@@ -141,24 +147,34 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
       );
       _activeOperationId = null;
       return result;
-    } on ImportException catch (error) {
+    } on ImportException catch (error, stack) {
       if (!_isActiveOperation(operationId)) {
         return null;
       }
       state = state.copyWith(
         isImporting: false,
-        errorMessage: error.toString(),
+        errorMessage: failureMessage(
+          error,
+          stack,
+          'Playlist import failed',
+          tag: 'Import',
+        ),
         wasCancelled: false,
       );
       _activeOperationId = null;
       rethrow;
-    } catch (error) {
+    } catch (error, stack) {
       if (!_isActiveOperation(operationId)) {
         return null;
       }
       state = state.copyWith(
         isImporting: false,
-        errorMessage: error.toString(),
+        errorMessage: failureMessage(
+          error,
+          stack,
+          'Playlist import failed',
+          tag: 'Import',
+        ),
         wasCancelled: false,
       );
       _activeOperationId = null;
@@ -169,7 +185,7 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
       if (identical(_service, service)) {
         _service = null;
       }
-      if (_activeOperationId == null && mounted) {
+      if (_activeOperationId == null && ref.mounted) {
         _keepAliveLink?.close();
         _keepAliveLink = null;
       }
@@ -190,13 +206,11 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
     state = const ImportPlaylistState();
   }
 
-  @override
-  void dispose() {
+  void _teardown() {
     _operationId++;
     _activeOperationId = null;
     _progressSubscription?.cancel();
     _service?.dispose();
-    super.dispose();
   }
 }
 
@@ -205,8 +219,11 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
     final sourceManager = ref.read(sourceManagerProvider);
     final playlistRepository = ref.read(playlistRepositoryProvider);
     final trackRepository = ref.read(trackRepositoryProvider);
+    // 在 await 之前讀完：這個工廠回傳的閉包捕獲了 ref，可能在 provider
+    // 被釋放之後才被呼叫，而 Riverpod 3 那時會拋 UnmountedRefException。
+    final sourceAuthContext = ref.read(sourceAuthContextProvider);
     final isar = await ref.read(databaseProvider.future);
-    final mutationService = PlaylistMutationService(isar: isar);
+    final mutationService = PlaylistMutationRepository(isar: isar);
 
     return ImportService(
       sourceManager: sourceManager,
@@ -214,13 +231,15 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
       trackRepository: trackRepository,
       isar: isar,
       mutationService: mutationService,
-      sourceAuthContext: ref.read(sourceAuthContextProvider),
+      sourceAuthContext: sourceAuthContext,
     );
   };
 });
 
-final importPlaylistProvider = StateNotifierProvider.autoDispose
-    .family<ImportPlaylistNotifier, ImportPlaylistState, String>(
-        (ref, scopeId) {
-  return ImportPlaylistNotifier(ref, ref.watch(importServiceFactoryProvider));
-});
+/// family 參數只是作用域鍵，notifier 自己用不到它。
+final importPlaylistProvider =
+    NotifierProvider.family<
+      ImportPlaylistNotifier,
+      ImportPlaylistState,
+      String
+    >((scopeId) => ImportPlaylistNotifier(), isAutoDispose: true);

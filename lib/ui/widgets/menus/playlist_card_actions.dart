@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../providers/library/playlist_provider.dart';
 import '../../../i18n/strings.g.dart';
 import 'menu_action.dart';
@@ -109,7 +111,9 @@ class PlaylistCardActions {
 
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.addedToQueue(n: result.tracks.length));
+        context,
+        t.library.addedToQueue(n: result.tracks.length),
+      );
     }
   }
 
@@ -135,7 +139,9 @@ class PlaylistCardActions {
 
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.shuffledAddedToQueue(n: result.tracks.length));
+        context,
+        t.library.shuffledAddedToQueue(n: result.tracks.length),
+      );
     }
   }
 
@@ -153,9 +159,13 @@ class PlaylistCardActions {
     try {
       final controller = ref.read(audioControllerProvider.notifier);
       await controller.startMixFromPlaylist(playlist);
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Starting a playlist mix failed', e, stack, 'Library');
       if (context.mounted) {
-        ToastService.error(context, '${t.library.main.playMixFailed}: $e');
+        ToastService.error(
+          context,
+          '${t.library.main.playMixFailed}: ${userMessageFor(e)}',
+        );
       }
     }
   }

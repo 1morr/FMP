@@ -1,4 +1,5 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import 'track_key.dart';
 
 import 'track.dart';
 
@@ -16,8 +17,7 @@ class PlayHistory {
 
   /// 音源类型
   @Index()
-  @Enumerated(EnumType.name)
-  late SourceType sourceType;
+  late String sourceType;
 
   /// Bilibili cid（分P唯一标识）
   int? cid;
@@ -39,9 +39,12 @@ class PlayHistory {
   DateTime playedAt = DateTime.now();
 
   /// 歌曲唯一标识（用于统计播放次数）
-  String get trackKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  ///
+  /// Isar 會持久化並索引 getter（`Track.sourcePageKey` 是同樣的做法），
+  /// 但索引項只在 `put` 時重算 —— 這個索引加上去之前就存在的列不會有索引項，
+  /// 所以 v0 → v1 的遷移必須把所有既有列重寫一次。
+  @Index()
+  String get trackKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   /// 从 Track 创建播放历史记录
   static PlayHistory fromTrack(Track track) {

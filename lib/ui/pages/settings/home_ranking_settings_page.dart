@@ -1,32 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/utils/icon_helpers.dart';
+import '../../../data/models/source_ids.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/settings/home_ranking_settings_provider.dart';
 
 /// Home recent trending ranking source settings page.
 class HomeRankingSettingsPage extends ConsumerWidget {
   const HomeRankingSettingsPage({super.key});
-
-  String _sourceDisplayName(String source) {
-    return switch (source) {
-      'bilibili' => t.importPlatform.bilibili,
-      'youtube' => t.importPlatform.youtube,
-      'netease' => t.importPlatform.netease,
-      _ => source,
-    };
-  }
-
-  IconData _sourceIcon(String source) {
-    return switch (source) {
-      'bilibili' => SimpleIcons.bilibili,
-      'youtube' => SimpleIcons.youtube,
-      'netease' => SimpleIcons.neteasecloudmusic,
-      _ => Icons.source_outlined,
-    };
-  }
 
   void _onReorder(
     WidgetRef ref,
@@ -45,9 +28,7 @@ class HomeRankingSettingsPage extends ConsumerWidget {
     final settings = ref.watch(homeRankingSettingsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.settings.homeRankingSettings.title),
-      ),
+      appBar: AppBar(title: Text(t.settings.homeRankingSettings.title)),
       body: settings.isLoading
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
@@ -58,25 +39,23 @@ class HomeRankingSettingsPage extends ConsumerWidget {
                     child: Text(
                       t.settings.homeRankingSettings.hint,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                   ),
                 ),
                 SliverReorderableList(
                   itemCount: settings.sourceOrder.length,
-                  onReorderItem: (oldIndex, newIndex) => _onReorder(
-                    ref,
-                    settings.sourceOrder,
-                    oldIndex,
-                    newIndex,
-                  ),
+                  onReorderItem: (oldIndex, newIndex) =>
+                      _onReorder(ref, settings.sourceOrder, oldIndex, newIndex),
                   proxyDecorator: (child, index, animation) {
                     final elevation = Tween<double>(begin: 0, end: 4)
-                        .animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        ))
+                        .animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeInOut,
+                          ),
+                        )
                         .value;
                     return Material(
                       elevation: elevation,
@@ -86,21 +65,22 @@ class HomeRankingSettingsPage extends ConsumerWidget {
                   },
                   itemBuilder: (context, index) {
                     final source = settings.sourceOrder[index];
-                    final isEnabled =
-                        !settings.disabledSources.contains(source);
+                    final isEnabled = !settings.disabledSources.contains(
+                      source,
+                    );
                     final enabledCount = settings.enabledSourceOrder.length;
                     final canToggleOff = !isEnabled || enabledCount > 1;
 
                     return _HomeRankingSourceTile(
                       key: ValueKey(source),
                       index: index,
-                      displayName: _sourceDisplayName(source),
-                      icon: _sourceIcon(source),
+                      displayName: SourceIds.displayNameFor(source),
+                      icon: getImportSourceIcon(source),
                       isEnabled: isEnabled,
                       onToggle: canToggleOff
                           ? (enabled) => ref
-                              .read(homeRankingSettingsProvider.notifier)
-                              .toggleSource(source, enabled)
+                                .read(homeRankingSettingsProvider.notifier)
+                                .toggleSource(source, enabled)
                           : null,
                     );
                   },
@@ -131,8 +111,9 @@ class _HomeRankingSourceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     const disabledAlpha = 0.38;
-    final disabledColor =
-        colorScheme.onSurface.withValues(alpha: disabledAlpha);
+    final disabledColor = colorScheme.onSurface.withValues(
+      alpha: disabledAlpha,
+    );
 
     return ListTile(
       leading: _HomeRankingSourceLeading(
@@ -149,13 +130,10 @@ class _HomeRankingSourceTile extends StatelessWidget {
             ? t.settings.homeRankingSettings.enabled
             : t.settings.homeRankingSettings.disabled,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isEnabled ? colorScheme.primary : disabledColor,
-            ),
+          color: isEnabled ? colorScheme.primary : disabledColor,
+        ),
       ),
-      trailing: Switch(
-        value: isEnabled,
-        onChanged: onToggle,
-      ),
+      trailing: Switch(value: isEnabled, onChanged: onToggle),
     );
   }
 }

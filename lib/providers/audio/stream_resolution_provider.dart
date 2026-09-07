@@ -7,8 +7,9 @@ import '../../services/audio/stream_resolution_service.dart';
 import '../account/source_auth_context_provider.dart';
 import '../database/database_provider.dart';
 
-final streamResolutionServiceProvider =
-    Provider<StreamResolutionService>((ref) {
+final streamResolutionServiceProvider = Provider<StreamResolutionService>((
+  ref,
+) {
   final db = ref.watch(databaseProvider).requireValue;
 
   final service = DefaultStreamResolutionService(

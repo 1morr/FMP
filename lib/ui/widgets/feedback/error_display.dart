@@ -65,10 +65,10 @@ class ErrorDisplay extends StatelessWidget {
     this.message,
     this.onRetry,
     this.compact = false,
-  })  : type = ErrorType.network,
-        icon = null,
-        title = null,
-        action = null;
+  }) : type = ErrorType.network,
+       icon = null,
+       title = null,
+       action = null;
 
   /// 服务器错误
   const ErrorDisplay.server({
@@ -76,10 +76,10 @@ class ErrorDisplay extends StatelessWidget {
     this.message,
     this.onRetry,
     this.compact = false,
-  })  : type = ErrorType.server,
-        icon = null,
-        title = null,
-        action = null;
+  }) : type = ErrorType.server,
+       icon = null,
+       title = null,
+       action = null;
 
   /// 未找到
   const ErrorDisplay.notFound({
@@ -87,10 +87,10 @@ class ErrorDisplay extends StatelessWidget {
     this.message,
     this.onRetry,
     this.compact = false,
-  })  : type = ErrorType.notFound,
-        icon = null,
-        title = null,
-        action = null;
+  }) : type = ErrorType.notFound,
+       icon = null,
+       title = null,
+       action = null;
 
   /// 权限错误
   const ErrorDisplay.permission({
@@ -98,10 +98,10 @@ class ErrorDisplay extends StatelessWidget {
     this.message,
     this.onRetry,
     this.compact = false,
-  })  : type = ErrorType.permission,
-        icon = null,
-        title = null,
-        action = null;
+  }) : type = ErrorType.permission,
+       icon = null,
+       title = null,
+       action = null;
 
   /// 空状态
   const ErrorDisplay.empty({
@@ -262,9 +262,7 @@ class ErrorDisplay extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               displayMessage,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.outline,
-              ),
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
               textAlign: TextAlign.center,
             ),
             if (action != null) ...[
@@ -362,11 +360,7 @@ class LoadingPlaceholder extends StatelessWidget {
   /// 是否紧凑模式
   final bool compact;
 
-  const LoadingPlaceholder({
-    super.key,
-    this.message,
-    this.compact = false,
-  });
+  const LoadingPlaceholder({super.key, this.message, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -402,9 +396,7 @@ class LoadingPlaceholder extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(
-            color: colorScheme.primary,
-          ),
+          CircularProgressIndicator(color: colorScheme.primary),
           if (message != null) ...[
             const SizedBox(height: 16),
             Text(

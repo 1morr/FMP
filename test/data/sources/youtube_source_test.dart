@@ -36,38 +36,80 @@ void main() {
         throwsA(
           isA<YouTubeApiException>()
               .having(
-                  (error) => error.kind, 'kind', SourceErrorKind.loginRequired)
+                (error) => error.kind,
+                'kind',
+                SourceErrorKind.loginRequired,
+              )
               .having((error) => error.code, 'code', 'login_required'),
         ),
       );
     });
 
-    test('InnerTube fallback honors stream priority before audio-only formats',
-        () async {
-      final dio = Dio();
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        expect(options.path, contains('/player'));
-        return ResponseBody.fromString(
-          jsonEncode(_innerTubePlayerResponse(
-            adaptiveFormats: [
-              _innerTubeAudioFormat(
-                url: 'https://example.com/audio-opus.webm',
-                mimeType: 'audio/webm; codecs="opus"',
-                bitrate: 251000,
+    test(
+      'each stream type is retried with auth before moving to the next',
+      () async {
+        var playerCalls = 0;
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          playerCalls++;
+          return ResponseBody.fromString(
+            jsonEncode(
+              _innerTubePlayerResponse(
+                adaptiveFormats: [
+                  _innerTubeAudioFormat(
+                    url: 'https://example.com/authed-audio.webm',
+                    mimeType: 'audio/webm; codecs="opus"',
+                    bitrate: 130000,
+                  ),
+                ],
+                formats: [
+                  _innerTubeMuxedFormat(
+                    url: 'https://example.com/authed-muxed.mp4',
+                    bitrate: 700000,
+                  ),
+                ],
               ),
-            ],
-            formats: [
-              _innerTubeMuxedFormat(
-                url: 'https://example.com/muxed.mp4',
-                bitrate: 128000,
-              ),
-            ],
-          )),
-          200,
-          headers: {
-            Headers.contentTypeHeader: ['application/json'],
-          },
+            ),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = YouTubeSource(
+          // 匿名路徑全部失敗，就像 audio-only 被 bot 檢查擋下時那樣。
+          youtube: _FakeYoutubeExplode(
+            const YouTubeApiException(
+              code: 'no_stream',
+              message: 'No anonymous stream',
+            ),
+          ),
+          dio: dio,
         );
+        addTearDown(source.dispose);
+
+        final result = await source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'per-type-auth',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
+            authHeaders: {'Authorization': 'SAPISIDHASH test'},
+          ),
+        );
+
+        // 舊順序會先讓匿名 muxed 成功，帶登入的 audio-only 永遠到不了。
+        expect(result.streamType, StreamType.audioOnly);
+        expect(result.url, 'https://example.com/authed-audio.webm');
+        // 三個 streamType 共用同一份 streamingData，不該每個都打一次 /player。
+        expect(playerCalls, 1);
+      },
+    );
+
+    test('anonymous users never reach the InnerTube player endpoint', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+        fail('anonymous playback must not call ${options.path}');
       });
       final source = YouTubeSource(
         youtube: _FakeYoutubeExplode(
@@ -80,93 +122,154 @@ void main() {
       );
       addTearDown(source.dispose);
 
-      final result = await source.getAudioStream(
-        const AudioStreamRequest(
-          sourceId: 'auth-priority-video',
-          config: AudioStreamConfig(
-            streamPriority: [StreamType.muxed, StreamType.audioOnly],
+      await expectLater(
+        source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'anonymous-only',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
           ),
-          authHeaders: {'Authorization': 'SAPISIDHASH test'},
         ),
+        throwsA(isA<YouTubeApiException>()),
       );
-
-      expect(result.url, 'https://example.com/muxed.mp4');
-      expect(result.streamType, StreamType.muxed);
     });
 
-    test('InnerTube fallback honors configured audio format priority',
-        () async {
-      final dio = Dio();
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        expect(options.path, contains('/player'));
-        return ResponseBody.fromString(
-          jsonEncode(_innerTubePlayerResponse(
-            adaptiveFormats: [
-              _innerTubeAudioFormat(
-                url: 'https://example.com/audio-opus.webm',
-                mimeType: 'audio/webm; codecs="opus"',
-                bitrate: 251000,
+    test(
+      'InnerTube fallback honors stream priority before audio-only formats',
+      () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          expect(options.path, contains('/player'));
+          return ResponseBody.fromString(
+            jsonEncode(
+              _innerTubePlayerResponse(
+                adaptiveFormats: [
+                  _innerTubeAudioFormat(
+                    url: 'https://example.com/audio-opus.webm',
+                    mimeType: 'audio/webm; codecs="opus"',
+                    bitrate: 251000,
+                  ),
+                ],
+                formats: [
+                  _innerTubeMuxedFormat(
+                    url: 'https://example.com/muxed.mp4',
+                    bitrate: 128000,
+                  ),
+                ],
               ),
-              _innerTubeAudioFormat(
-                url: 'https://example.com/audio-aac.mp4',
-                mimeType: 'audio/mp4; codecs="mp4a.40.2"',
-                bitrate: 128000,
-              ),
-            ],
-          )),
-          200,
-          headers: {
-            Headers.contentTypeHeader: ['application/json'],
-          },
+            ),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = YouTubeSource(
+          youtube: _FakeYoutubeExplode(
+            const YouTubeApiException(
+              code: 'no_stream',
+              message: 'No anonymous stream',
+            ),
+          ),
+          dio: dio,
         );
-      });
-      final source = YouTubeSource(
-        youtube: _FakeYoutubeExplode(
-          const YouTubeApiException(
-            code: 'no_stream',
-            message: 'No anonymous stream',
-          ),
-        ),
-        dio: dio,
-      );
-      addTearDown(source.dispose);
+        addTearDown(source.dispose);
 
-      final result = await source.getAudioStream(
-        const AudioStreamRequest(
-          sourceId: 'auth-format-video',
-          config: AudioStreamConfig(
-            formatPriority: [AudioFormat.aac, AudioFormat.opus],
-            streamPriority: [StreamType.audioOnly],
+        final result = await source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'auth-priority-video',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.muxed, StreamType.audioOnly],
+            ),
+            authHeaders: {'Authorization': 'SAPISIDHASH test'},
           ),
-          authHeaders: {'Authorization': 'SAPISIDHASH test'},
-        ),
-      );
+        );
 
-      expect(result.url, 'https://example.com/audio-aac.mp4');
-      expect(result.container, 'mp4');
-      expect(result.codec, 'mp4a.40.2');
-    });
+        expect(result.url, 'https://example.com/muxed.mp4');
+        expect(result.streamType, StreamType.muxed);
+      },
+    );
+
+    test(
+      'InnerTube fallback honors configured audio format priority',
+      () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          expect(options.path, contains('/player'));
+          return ResponseBody.fromString(
+            jsonEncode(
+              _innerTubePlayerResponse(
+                adaptiveFormats: [
+                  _innerTubeAudioFormat(
+                    url: 'https://example.com/audio-opus.webm',
+                    mimeType: 'audio/webm; codecs="opus"',
+                    bitrate: 251000,
+                  ),
+                  _innerTubeAudioFormat(
+                    url: 'https://example.com/audio-aac.mp4',
+                    mimeType: 'audio/mp4; codecs="mp4a.40.2"',
+                    bitrate: 128000,
+                  ),
+                ],
+              ),
+            ),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = YouTubeSource(
+          youtube: _FakeYoutubeExplode(
+            const YouTubeApiException(
+              code: 'no_stream',
+              message: 'No anonymous stream',
+            ),
+          ),
+          dio: dio,
+        );
+        addTearDown(source.dispose);
+
+        final result = await source.getAudioStream(
+          const AudioStreamRequest(
+            sourceId: 'auth-format-video',
+            config: AudioStreamConfig(
+              formatPriority: [AudioFormat.aac, AudioFormat.opus],
+              streamPriority: [StreamType.audioOnly],
+            ),
+            authHeaders: {'Authorization': 'SAPISIDHASH test'},
+          ),
+        );
+
+        expect(result.url, 'https://example.com/audio-aac.mp4');
+        expect(result.container, 'mp4');
+        expect(result.codec, 'mp4a.40.2');
+      },
+    );
 
     test('authenticated alternative skips failed InnerTube URL', () async {
       final dio = Dio();
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
         expect(options.path, contains('/player'));
         return ResponseBody.fromString(
-          jsonEncode(_innerTubePlayerResponse(
-            adaptiveFormats: [
-              _innerTubeAudioFormat(
-                url: 'https://example.com/failed-audio.webm',
-                mimeType: 'audio/webm; codecs="opus"',
-                bitrate: 251000,
-              ),
-            ],
-            formats: [
-              _innerTubeMuxedFormat(
-                url: 'https://example.com/auth-muxed.mp4',
-                bitrate: 128000,
-              ),
-            ],
-          )),
+          jsonEncode(
+            _innerTubePlayerResponse(
+              adaptiveFormats: [
+                _innerTubeAudioFormat(
+                  url: 'https://example.com/failed-audio.webm',
+                  mimeType: 'audio/webm; codecs="opus"',
+                  bitrate: 251000,
+                ),
+              ],
+              formats: [
+                _innerTubeMuxedFormat(
+                  url: 'https://example.com/auth-muxed.mp4',
+                  bitrate: 128000,
+                ),
+              ],
+            ),
+          ),
           200,
           headers: {
             Headers.contentTypeHeader: ['application/json'],
@@ -223,7 +326,10 @@ void main() {
         throwsA(
           isA<YouTubeApiException>()
               .having(
-                  (error) => error.kind, 'kind', SourceErrorKind.loginRequired)
+                (error) => error.kind,
+                'kind',
+                SourceErrorKind.loginRequired,
+              )
               .having((error) => error.code, 'code', 'login_required'),
         ),
       );
@@ -262,15 +368,17 @@ void main() {
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
         expect(options.path, contains('/player'));
         return ResponseBody.fromString(
-          jsonEncode(_innerTubePlayerResponse(
-            adaptiveFormats: [
-              _innerTubeAudioFormat(
-                url: 'https://example.com/auth-audio.webm',
-                mimeType: 'audio/webm; codecs="opus"',
-                bitrate: 251000,
-              ),
-            ],
-          )),
+          jsonEncode(
+            _innerTubePlayerResponse(
+              adaptiveFormats: [
+                _innerTubeAudioFormat(
+                  url: 'https://example.com/auth-audio.webm',
+                  mimeType: 'audio/webm; codecs="opus"',
+                  bitrate: 251000,
+                ),
+              ],
+            ),
+          ),
           200,
           headers: {
             Headers.contentTypeHeader: ['application/json'],
@@ -353,15 +461,17 @@ void main() {
       final dio = Dio();
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
         return ResponseBody.fromString(
-          jsonEncode(_innerTubePlayerResponse(
-            adaptiveFormats: [
-              _innerTubeAudioFormat(
-                url: 'https://example.com/audio-opus.webm',
-                mimeType: 'audio/webm; codecs="opus"',
-                bitrate: 251000,
-              ),
-            ],
-          )),
+          jsonEncode(
+            _innerTubePlayerResponse(
+              adaptiveFormats: [
+                _innerTubeAudioFormat(
+                  url: 'https://example.com/audio-opus.webm',
+                  mimeType: 'audio/webm; codecs="opus"',
+                  bitrate: 251000,
+                ),
+              ],
+            ),
+          ),
           200,
           headers: {
             Headers.contentTypeHeader: ['application/json'],
@@ -394,210 +504,216 @@ void main() {
   });
 
   group('YouTubeSource video detail', () {
-    test('authenticated detail falls back to InnerTube when video is private',
-        () async {
-      Object? postedBody;
-      final dio = Dio();
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        expect(options.path, contains('/player'));
-        expect(options.headers['Authorization'], 'SAPISIDHASH test');
-        postedBody = requestBody;
-        return ResponseBody.fromString(
-          jsonEncode(_innerTubePlayerResponse(
-            videoDetails: {
-              'title': 'Private Auth Video',
-              'author': 'Auth Channel',
-              'channelId': 'UC-auth',
-              'lengthSeconds': '167',
-              'viewCount': '1234',
-              'shortDescription': 'Visible with auth',
-              'thumbnail': {
-                'thumbnails': [
-                  {'url': 'https://i.ytimg.com/vi/private/hqdefault.jpg'},
-                ],
-              },
+    test(
+      'authenticated detail falls back to InnerTube when video is private',
+      () async {
+        Object? postedBody;
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          expect(options.path, contains('/player'));
+          expect(options.headers['Authorization'], 'SAPISIDHASH test');
+          postedBody = requestBody;
+          return ResponseBody.fromString(
+            jsonEncode(
+              _innerTubePlayerResponse(
+                videoDetails: {
+                  'title': 'Private Auth Video',
+                  'author': 'Auth Channel',
+                  'channelId': 'UC-auth',
+                  'lengthSeconds': '167',
+                  'viewCount': '1234',
+                  'shortDescription': 'Visible with auth',
+                  'thumbnail': {
+                    'thumbnails': [
+                      {'url': 'https://i.ytimg.com/vi/private/hqdefault.jpg'},
+                    ],
+                  },
+                },
+              ),
+            ),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
             },
-          )),
-          200,
-          headers: {
-            Headers.contentTypeHeader: ['application/json'],
-          },
-        );
-      });
-      final source = YouTubeSource(
-        youtube: _FakeYoutubeExplode(
-          const YouTubeApiException(
-            code: 'no_stream',
-            message: 'No anonymous stream',
+          );
+        });
+        final source = YouTubeSource(
+          youtube: _FakeYoutubeExplode(
+            const YouTubeApiException(
+              code: 'no_stream',
+              message: 'No anonymous stream',
+            ),
+            videoError: yt.VideoUnplayableException('private video'),
           ),
-          videoError: yt.VideoUnplayableException('private video'),
-        ),
-        dio: dio,
-      );
-      addTearDown(source.dispose);
+          dio: dio,
+        );
+        addTearDown(source.dispose);
 
-      final detail = await source.getVideoDetail(
-        'private-auth',
-        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
-      );
+        final detail = await source.getVideoDetail(
+          'private-auth',
+          authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+        );
 
-      expect(detail.title, 'Private Auth Video');
-      expect(detail.ownerName, 'Auth Channel');
-      expect(detail.durationSeconds, 167);
-      expect(detail.viewCount, 1234);
-      expect(postedBody.toString(), contains('"videoId":"private-auth"'));
-    });
+        expect(detail.title, 'Private Auth Video');
+        expect(detail.ownerName, 'Auth Channel');
+        expect(detail.durationSeconds, 167);
+        expect(detail.viewCount, 1234);
+        expect(postedBody.toString(), contains('"videoId":"private-auth"'));
+      },
+    );
   });
 
   group('YouTubeSource playlist parsing', () {
-    test('uses InnerTube pagination for anonymous playlists before fallback',
-        () async {
-      final dio = Dio();
-      final requests = <Map<String, dynamic>>[];
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        requests.add(
-          jsonDecode(requestBody as String) as Map<String, dynamic>,
+    test(
+      'uses InnerTube pagination for anonymous playlists before fallback',
+      () async {
+        final dio = Dio();
+        final requests = <Map<String, dynamic>>[];
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          requests.add(
+            jsonDecode(requestBody as String) as Map<String, dynamic>,
+          );
+
+          final request = requests.last;
+          if (request['browseId'] == 'VLPLANON') {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'header': {
+                  'playlistHeaderRenderer': {
+                    'title': {'simpleText': 'Anonymous Playlist'},
+                    'ownerText': {
+                      'runs': [
+                        {
+                          'text': 'Anon Channel',
+                          'navigationEndpoint': {
+                            'browseEndpoint': {'browseId': 'UCANON'},
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+                'contents': {
+                  'twoColumnBrowseResultsRenderer': {
+                    'tabs': [
+                      {
+                        'tabRenderer': {
+                          'content': {
+                            'sectionListRenderer': {
+                              'contents': [
+                                {
+                                  'itemSectionRenderer': {
+                                    'contents': [
+                                      {
+                                        'playlistVideoListRenderer': {
+                                          'contents': [
+                                            {
+                                              'playlistVideoRenderer': {
+                                                'videoId': 'anon-1',
+                                                'isPlayable': true,
+                                                'title': {
+                                                  'runs': [
+                                                    {'text': 'Anon Track 1'},
+                                                  ],
+                                                },
+                                                'shortBylineText': {
+                                                  'runs': [
+                                                    {'text': 'Anon Artist 1'},
+                                                  ],
+                                                },
+                                                'lengthText': {
+                                                  'simpleText': '1:11',
+                                                },
+                                              },
+                                            },
+                                            {
+                                              'continuationItemRenderer': {
+                                                'continuationEndpoint': {
+                                                  'continuationCommand': {
+                                                    'token': 'ANON_TOKEN_2',
+                                                  },
+                                                },
+                                              },
+                                            },
+                                          ],
+                                        },
+                                      },
+                                    ],
+                                  },
+                                },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (request['continuation'] == 'ANON_TOKEN_2') {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'onResponseReceivedActions': [
+                  {
+                    'appendContinuationItemsAction': {
+                      'continuationItems': [
+                        {
+                          'playlistVideoRenderer': {
+                            'videoId': 'anon-2',
+                            'isPlayable': true,
+                            'title': {
+                              'runs': [
+                                {'text': 'Anon Track 2'},
+                              ],
+                            },
+                            'shortBylineText': {
+                              'runs': [
+                                {'text': 'Anon Artist 2'},
+                              ],
+                            },
+                            'lengthText': {'simpleText': '2:22'},
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: $request');
+        });
+
+        final source = YouTubeSource(dio: dio);
+        final result = await source.parsePlaylist(
+          'https://www.youtube.com/playlist?list=PLANON',
         );
 
-        final request = requests.last;
-        if (request['browseId'] == 'VLPLANON') {
-          return ResponseBody.fromString(
-            jsonEncode({
-              'header': {
-                'playlistHeaderRenderer': {
-                  'title': {'simpleText': 'Anonymous Playlist'},
-                  'ownerText': {
-                    'runs': [
-                      {
-                        'text': 'Anon Channel',
-                        'navigationEndpoint': {
-                          'browseEndpoint': {'browseId': 'UCANON'}
-                        }
-                      }
-                    ]
-                  }
-                }
-              },
-              'contents': {
-                'twoColumnBrowseResultsRenderer': {
-                  'tabs': [
-                    {
-                      'tabRenderer': {
-                        'content': {
-                          'sectionListRenderer': {
-                            'contents': [
-                              {
-                                'itemSectionRenderer': {
-                                  'contents': [
-                                    {
-                                      'playlistVideoListRenderer': {
-                                        'contents': [
-                                          {
-                                            'playlistVideoRenderer': {
-                                              'videoId': 'anon-1',
-                                              'isPlayable': true,
-                                              'title': {
-                                                'runs': [
-                                                  {'text': 'Anon Track 1'}
-                                                ]
-                                              },
-                                              'shortBylineText': {
-                                                'runs': [
-                                                  {'text': 'Anon Artist 1'}
-                                                ]
-                                              },
-                                              'lengthText': {
-                                                'simpleText': '1:11'
-                                              }
-                                            }
-                                          },
-                                          {
-                                            'continuationItemRenderer': {
-                                              'continuationEndpoint': {
-                                                'continuationCommand': {
-                                                  'token': 'ANON_TOKEN_2'
-                                                }
-                                              }
-                                            }
-                                          }
-                                        ]
-                                      }
-                                    }
-                                  ]
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }),
-            200,
-            headers: {
-              Headers.contentTypeHeader: ['application/json'],
-            },
-          );
-        }
-
-        if (request['continuation'] == 'ANON_TOKEN_2') {
-          return ResponseBody.fromString(
-            jsonEncode({
-              'onResponseReceivedActions': [
-                {
-                  'appendContinuationItemsAction': {
-                    'continuationItems': [
-                      {
-                        'playlistVideoRenderer': {
-                          'videoId': 'anon-2',
-                          'isPlayable': true,
-                          'title': {
-                            'runs': [
-                              {'text': 'Anon Track 2'}
-                            ]
-                          },
-                          'shortBylineText': {
-                            'runs': [
-                              {'text': 'Anon Artist 2'}
-                            ]
-                          },
-                          'lengthText': {'simpleText': '2:22'}
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }),
-            200,
-            headers: {
-              Headers.contentTypeHeader: ['application/json'],
-            },
-          );
-        }
-
-        throw StateError('Unexpected request: $request');
-      });
-
-      final source = YouTubeSource(dio: dio);
-      final result = await source.parsePlaylist(
-        'https://www.youtube.com/playlist?list=PLANON',
-      );
-
-      expect(result.title, 'Anonymous Playlist');
-      expect(result.ownerName, 'Anon Channel');
-      expect(result.ownerUserId, 'UCANON');
-      expect(result.totalCount, 2);
-      expect(result.tracks.map((track) => track.sourceId).toList(), [
-        'anon-1',
-        'anon-2',
-      ]);
-      expect(requests, hasLength(2));
-      expect(requests.first['browseId'], 'VLPLANON');
-      expect(requests.last['continuation'], 'ANON_TOKEN_2');
-    });
+        expect(result.title, 'Anonymous Playlist');
+        expect(result.ownerName, 'Anon Channel');
+        expect(result.ownerUserId, 'UCANON');
+        expect(result.totalCount, 2);
+        expect(result.tracks.map((track) => track.sourceId).toList(), [
+          'anon-1',
+          'anon-2',
+        ]);
+        expect(requests, hasLength(2));
+        expect(requests.first['browseId'], 'VLPLANON');
+        expect(requests.last['continuation'], 'ANON_TOKEN_2');
+      },
+    );
 
     test('counts skipped unavailable videos in totalCount', () async {
       final dio = Dio();
@@ -610,7 +726,7 @@ void main() {
             'header': {
               'playlistHeaderRenderer': {
                 'title': {'simpleText': 'Partial Playlist'},
-              }
+              },
             },
             'contents': {
               'twoColumnBrowseResultsRenderer': {
@@ -632,16 +748,18 @@ void main() {
                                             'isPlayable': true,
                                             'title': {
                                               'runs': [
-                                                {'text': 'Playable Track'}
-                                              ]
+                                                {'text': 'Playable Track'},
+                                              ],
                                             },
                                             'shortBylineText': {
                                               'runs': [
-                                                {'text': 'Artist'}
-                                              ]
+                                                {'text': 'Artist'},
+                                              ],
                                             },
-                                            'lengthText': {'simpleText': '1:00'}
-                                          }
+                                            'lengthText': {
+                                              'simpleText': '1:00',
+                                            },
+                                          },
                                         },
                                         {
                                           'playlistVideoRenderer': {
@@ -649,25 +767,25 @@ void main() {
                                             'isPlayable': false,
                                             'title': {
                                               'runs': [
-                                                {'text': 'Unavailable Track'}
-                                              ]
-                                            }
-                                          }
-                                        }
-                                      ]
-                                    }
-                                  }
-                                ]
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
+                                                {'text': 'Unavailable Track'},
+                                              ],
+                                            },
+                                          },
+                                        },
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
           }),
           200,
           headers: {
@@ -689,9 +807,7 @@ void main() {
       final dio = Dio();
       final requests = <Map<String, dynamic>>[];
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        requests.add(
-          jsonDecode(requestBody as String) as Map<String, dynamic>,
-        );
+        requests.add(jsonDecode(requestBody as String) as Map<String, dynamic>);
 
         final request = requests.last;
         if (request['browseId'] == 'VLPL123') {
@@ -705,12 +821,12 @@ void main() {
                       {
                         'text': 'Channel',
                         'navigationEndpoint': {
-                          'browseEndpoint': {'browseId': 'UC123'}
-                        }
-                      }
-                    ]
-                  }
-                }
+                          'browseEndpoint': {'browseId': 'UC123'},
+                        },
+                      },
+                    ],
+                  },
+                },
               },
               'contents': {
                 'twoColumnBrowseResultsRenderer': {
@@ -732,42 +848,42 @@ void main() {
                                               'isPlayable': true,
                                               'title': {
                                                 'runs': [
-                                                  {'text': 'Track 1'}
-                                                ]
+                                                  {'text': 'Track 1'},
+                                                ],
                                               },
                                               'shortBylineText': {
                                                 'runs': [
-                                                  {'text': 'Artist 1'}
-                                                ]
+                                                  {'text': 'Artist 1'},
+                                                ],
                                               },
                                               'lengthText': {
-                                                'simpleText': '1:23'
-                                              }
-                                            }
+                                                'simpleText': '1:23',
+                                              },
+                                            },
                                           },
                                           {
                                             'continuationItemRenderer': {
                                               'continuationEndpoint': {
                                                 'continuationCommand': {
-                                                  'token': 'TOKEN_2'
-                                                }
-                                              }
-                                            }
-                                          }
-                                        ]
-                                      }
-                                    }
-                                  ]
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
+                                                  'token': 'TOKEN_2',
+                                                },
+                                              },
+                                            },
+                                          },
+                                        ],
+                                      },
+                                    },
+                                  ],
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
             }),
             200,
             headers: {
@@ -789,25 +905,25 @@ void main() {
                           'isPlayable': true,
                           'title': {
                             'runs': [
-                              {'text': 'Track 2'}
-                            ]
+                              {'text': 'Track 2'},
+                            ],
                           },
                           'shortBylineText': {
                             'runs': [
-                              {'text': 'Artist 2'}
-                            ]
+                              {'text': 'Artist 2'},
+                            ],
                           },
                           'lengthText': {
                             'runs': [
-                              {'text': '2:34'}
-                            ]
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
+                              {'text': '2:34'},
+                            ],
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
             }),
             200,
             headers: {
@@ -855,7 +971,7 @@ void main() {
               'header': {
                 'playlistHeaderRenderer': {
                   'title': {'simpleText': 'Auth Playlist 2'},
-                }
+                },
               },
               'contents': {
                 'twoColumnBrowseResultsRenderer': {
@@ -877,43 +993,43 @@ void main() {
                                               'isPlayable': true,
                                               'title': {
                                                 'runs': [
-                                                  {'text': 'Track A'}
-                                                ]
+                                                  {'text': 'Track A'},
+                                                ],
                                               },
                                               'shortBylineText': {
                                                 'runs': [
-                                                  {'text': 'Artist A'}
-                                                ]
+                                                  {'text': 'Artist A'},
+                                                ],
                                               },
                                               'lengthText': {
-                                                'simpleText': '0:45'
-                                              }
-                                            }
+                                                'simpleText': '0:45',
+                                              },
+                                            },
                                           },
                                           {
                                             'continuationItemRenderer': {
                                               'continuationEndpoint': {
                                                 'clickTrackingParams': 'CTP_B',
                                                 'continuationCommand': {
-                                                  'token': 'TOKEN_B'
-                                                }
-                                              }
-                                            }
-                                          }
-                                        ]
-                                      }
-                                    }
-                                  ]
-                                }
-                              }
-                            ]
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
+                                                  'token': 'TOKEN_B',
+                                                },
+                                              },
+                                            },
+                                          },
+                                        ],
+                                      },
+                                    },
+                                  ],
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
             }),
             200,
             headers: {
@@ -923,12 +1039,7 @@ void main() {
         }
 
         if (request['continuation'] == 'TOKEN_B') {
-          expect(
-            request['clickTracking'],
-            {
-              'clickTrackingParams': 'CTP_B',
-            },
-          );
+          expect(request['clickTracking'], {'clickTrackingParams': 'CTP_B'});
           return ResponseBody.fromString(
             jsonEncode({
               'continuationContents': {
@@ -940,28 +1051,28 @@ void main() {
                         'isPlayable': true,
                         'title': {
                           'runs': [
-                            {'text': 'Track B'}
-                          ]
+                            {'text': 'Track B'},
+                          ],
                         },
                         'shortBylineText': {
                           'runs': [
-                            {'text': 'Artist B'}
-                          ]
+                            {'text': 'Artist B'},
+                          ],
                         },
-                        'lengthText': {'simpleText': '3:21'}
-                      }
-                    }
+                        'lengthText': {'simpleText': '3:21'},
+                      },
+                    },
                   ],
                   'continuations': [
                     {
                       'nextContinuationData': {
                         'continuation': 'TOKEN_C',
                         'clickTrackingParams': 'CTP_C',
-                      }
-                    }
-                  ]
-                }
-              }
+                      },
+                    },
+                  ],
+                },
+              },
             }),
             200,
             headers: {
@@ -971,12 +1082,7 @@ void main() {
         }
 
         if (request['continuation'] == 'TOKEN_C') {
-          expect(
-            request['clickTracking'],
-            {
-              'clickTrackingParams': 'CTP_C',
-            },
-          );
+          expect(request['clickTracking'], {'clickTrackingParams': 'CTP_C'});
           return ResponseBody.fromString(
             jsonEncode({
               'onResponseReceivedEndpoints': [
@@ -989,21 +1095,21 @@ void main() {
                           'isPlayable': true,
                           'title': {
                             'runs': [
-                              {'text': 'Track C'}
-                            ]
+                              {'text': 'Track C'},
+                            ],
                           },
                           'shortBylineText': {
                             'runs': [
-                              {'text': 'Artist C'}
-                            ]
+                              {'text': 'Artist C'},
+                            ],
                           },
-                          'lengthText': {'simpleText': '4:56'}
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
+                          'lengthText': {'simpleText': '4:56'},
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
             }),
             200,
             headers: {
@@ -1035,137 +1141,206 @@ void main() {
   });
 
   group('YouTubeSource trending videos', () {
-    test('retries New This Week browse once after transient server failure',
-        () async {
-      var browseCalls = 0;
-      final dio = Dio();
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        final request =
-            jsonDecode(requestBody as String) as Map<String, dynamic>;
-        expect(request['browseId'], 'VLOLPPnm121Qlcoo7kKykmswKG0IepmDUVpag');
-        expect(options.path, contains('/browse'));
+    test(
+      'retries New This Week browse once after transient server failure',
+      () async {
+        var browseCalls = 0;
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          final request =
+              jsonDecode(requestBody as String) as Map<String, dynamic>;
+          expect(request['browseId'], 'VLOLPPnm121Qlcoo7kKykmswKG0IepmDUVpag');
+          expect(options.path, contains('/browse'));
 
-        browseCalls++;
-        if (browseCalls == 1) {
+          browseCalls++;
+          if (browseCalls == 1) {
+            return ResponseBody.fromString(
+              jsonEncode({'error': 'temporary unavailable'}),
+              503,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
           return ResponseBody.fromString(
-            jsonEncode({'error': 'temporary unavailable'}),
-            503,
+            jsonEncode(_newThisWeekBrowseResponse()),
+            200,
             headers: {
               Headers.contentTypeHeader: ['application/json'],
             },
           );
-        }
+        });
+        final source = YouTubeSource(dio: dio);
+        addTearDown(source.dispose);
 
-        return ResponseBody.fromString(
-          jsonEncode(_newThisWeekBrowseResponse()),
-          200,
-          headers: {
-            Headers.contentTypeHeader: ['application/json'],
-          },
-        );
-      });
-      final source = YouTubeSource(dio: dio);
-      addTearDown(source.dispose);
+        final tracks = await source.getTrendingVideos();
 
-      final tracks = await source.getTrendingVideos();
+        expect(browseCalls, 2);
+        expect(tracks, hasLength(1));
+        expect(tracks.single.sourceId, 'retry-video');
+      },
+    );
 
-      expect(browseCalls, 2);
-      expect(tracks, hasLength(1));
-      expect(tracks.single.sourceId, 'retry-video');
-    });
-
-    test('retries New This Week browse when accepted response is server error',
-        () async {
-      var browseCalls = 0;
-      final dio = Dio(BaseOptions(
-        validateStatus: (status) => status != null && status < 600,
-      ));
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        browseCalls++;
-        if (browseCalls == 1) {
+    // 榜單排序屬於 YouTube 自己的語意（InnerTube 不保證按播放數回傳），
+    // 因此由 adapter 負責，而不是留給 RankingCacheService 特判。
+    test(
+      'getRankingTracks sorts trending results by view count descending',
+      () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
           return ResponseBody.fromString(
-            jsonEncode({'error': 'temporary unavailable'}),
-            500,
-            headers: {
-              Headers.contentTypeHeader: ['application/json'],
-            },
-          );
-        }
-
-        return ResponseBody.fromString(
-          jsonEncode(_newThisWeekBrowseResponse()),
-          200,
-          headers: {
-            Headers.contentTypeHeader: ['application/json'],
-          },
-        );
-      });
-      final source = YouTubeSource(dio: dio);
-      addTearDown(source.dispose);
-
-      final tracks = await source.getTrendingVideos();
-
-      expect(browseCalls, 2);
-      expect(tracks.single.sourceId, 'retry-video');
-    });
-
-    test('does not immediately retry New This Week browse after rate limit',
-        () async {
-      var browseCalls = 0;
-      final dio = Dio();
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        final request =
-            jsonDecode(requestBody as String) as Map<String, dynamic>;
-        expect(request['browseId'], 'VLOLPPnm121Qlcoo7kKykmswKG0IepmDUVpag');
-
-        browseCalls++;
-        return ResponseBody.fromString(
-          jsonEncode({'error': 'too many requests'}),
-          429,
-          headers: {
-            Headers.contentTypeHeader: ['application/json'],
-          },
-        );
-      });
-      final source = YouTubeSource(dio: dio);
-      addTearDown(source.dispose);
-
-      await expectLater(
-        source.getTrendingVideos(),
-        throwsA(
-          isA<YouTubeApiException>()
-              .having((error) => error.code, 'code', 'rate_limited')
-              .having(
-                (error) => error.kind,
-                'kind',
-                SourceErrorKind.rateLimited,
+            jsonEncode(
+              _lockupBrowseResponse(
+                items: [
+                  _lockupViewModel(
+                    videoId: 'low',
+                    title: 'Low',
+                    artist: 'A',
+                    duration: '1:00',
+                    viewCountText: '1 view',
+                  ),
+                  _lockupViewModel(
+                    videoId: 'high',
+                    title: 'High',
+                    artist: 'A',
+                    duration: '1:00',
+                    viewCountText: '100 views',
+                  ),
+                  _lockupViewModel(
+                    videoId: 'middle',
+                    title: 'Middle',
+                    artist: 'A',
+                    duration: '1:00',
+                    viewCountText: '50 views',
+                  ),
+                ],
               ),
-        ),
-      );
-      expect(browseCalls, 1);
-    });
+            ),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = YouTubeSource(dio: dio);
+        addTearDown(source.dispose);
+
+        final tracks = await source.getRankingTracks(
+          source.defaultRankingRequest,
+        );
+
+        expect(tracks.map((track) => track.sourceId), [
+          'high',
+          'middle',
+          'low',
+        ]);
+        expect(source.defaultRankingRequest.category, 'music');
+      },
+    );
+
+    test(
+      'retries New This Week browse when accepted response is server error',
+      () async {
+        var browseCalls = 0;
+        final dio = Dio(
+          BaseOptions(
+            validateStatus: (status) => status != null && status < 600,
+          ),
+        );
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          browseCalls++;
+          if (browseCalls == 1) {
+            return ResponseBody.fromString(
+              jsonEncode({'error': 'temporary unavailable'}),
+              500,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          return ResponseBody.fromString(
+            jsonEncode(_newThisWeekBrowseResponse()),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = YouTubeSource(dio: dio);
+        addTearDown(source.dispose);
+
+        final tracks = await source.getTrendingVideos();
+
+        expect(browseCalls, 2);
+        expect(tracks.single.sourceId, 'retry-video');
+      },
+    );
+
+    test(
+      'does not immediately retry New This Week browse after rate limit',
+      () async {
+        var browseCalls = 0;
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          final request =
+              jsonDecode(requestBody as String) as Map<String, dynamic>;
+          expect(request['browseId'], 'VLOLPPnm121Qlcoo7kKykmswKG0IepmDUVpag');
+
+          browseCalls++;
+          return ResponseBody.fromString(
+            jsonEncode({'error': 'too many requests'}),
+            429,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = YouTubeSource(dio: dio);
+        addTearDown(source.dispose);
+
+        await expectLater(
+          source.getTrendingVideos(),
+          throwsA(
+            isA<YouTubeApiException>()
+                .having((error) => error.code, 'code', 'rate_limited')
+                .having(
+                  (error) => error.kind,
+                  'kind',
+                  SourceErrorKind.rateLimited,
+                ),
+          ),
+        );
+        expect(browseCalls, 1);
+      },
+    );
 
     test('parses current lockupViewModel response shape', () async {
       final dio = Dio();
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
         expect(options.path, contains('/browse'));
         return ResponseBody.fromString(
-          jsonEncode(_lockupBrowseResponse(items: [
-            _lockupViewModel(
-              videoId: 'vid-1',
-              title: 'Some Track',
-              artist: 'Some Artist',
-              duration: '4:13',
-              viewCountText: '223K views',
+          jsonEncode(
+            _lockupBrowseResponse(
+              items: [
+                _lockupViewModel(
+                  videoId: 'vid-1',
+                  title: 'Some Track',
+                  artist: 'Some Artist',
+                  duration: '4:13',
+                  viewCountText: '223K views',
+                ),
+                _lockupViewModel(
+                  videoId: 'vid-2',
+                  title: 'Other Track',
+                  artist: 'Other Artist',
+                  duration: '3:02',
+                  viewCountText: '1.1M views',
+                ),
+              ],
             ),
-            _lockupViewModel(
-              videoId: 'vid-2',
-              title: 'Other Track',
-              artist: 'Other Artist',
-              duration: '3:02',
-              viewCountText: '1.1M views',
-            ),
-          ])),
+          ),
           200,
           headers: {
             Headers.contentTypeHeader: ['application/json'],
@@ -1192,15 +1367,19 @@ void main() {
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
         expect(options.path, contains('/browse'));
         return ResponseBody.fromString(
-          jsonEncode(_legacyPlaylistBrowseResponse(items: [
-            _legacyPlaylistVideo(
-              videoId: 'legacy-1',
-              title: 'Legacy Track',
-              artist: 'Legacy Artist',
-              duration: '5:30',
-              viewCountText: '500K views',
+          jsonEncode(
+            _legacyPlaylistBrowseResponse(
+              items: [
+                _legacyPlaylistVideo(
+                  videoId: 'legacy-1',
+                  title: 'Legacy Track',
+                  artist: 'Legacy Artist',
+                  duration: '5:30',
+                  viewCountText: '500K views',
+                ),
+              ],
             ),
-          ])),
+          ),
           200,
           headers: {
             Headers.contentTypeHeader: ['application/json'],
@@ -1239,7 +1418,8 @@ void main() {
       test('returns true for Mix URL', () {
         expect(
           YouTubeSource.isMixPlaylistUrl(
-              'https://www.youtube.com/watch?v=abc&list=RDabc'),
+            'https://www.youtube.com/watch?v=abc&list=RDabc',
+          ),
           isTrue,
         );
       });
@@ -1247,7 +1427,8 @@ void main() {
       test('returns false for normal playlist URL', () {
         expect(
           YouTubeSource.isMixPlaylistUrl(
-              'https://www.youtube.com/playlist?list=PLabc'),
+            'https://www.youtube.com/playlist?list=PLabc',
+          ),
           isFalse,
         );
       });
@@ -1267,7 +1448,8 @@ void main() {
     group('extractMixInfo', () {
       test('extracts playlistId and seedVideoId', () {
         final result = YouTubeSource.extractMixInfo(
-            'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ');
+          'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ',
+        );
 
         expect(result.playlistId, 'RDdQw4w9WgXcQ');
         expect(result.seedVideoId, 'dQw4w9WgXcQ');
@@ -1275,7 +1457,8 @@ void main() {
 
       test('derives seedVideoId from playlistId when no v param', () {
         final result = YouTubeSource.extractMixInfo(
-            'https://www.youtube.com/playlist?list=RDdQw4w9WgXcQ');
+          'https://www.youtube.com/playlist?list=RDdQw4w9WgXcQ',
+        );
 
         expect(result.playlistId, 'RDdQw4w9WgXcQ');
         // seed should be derived from playlist ID by removing RD prefix
@@ -1290,8 +1473,9 @@ void main() {
       });
 
       test('returns null playlistId when no list param', () {
-        final result =
-            YouTubeSource.extractMixInfo('https://www.youtube.com/watch?v=abc');
+        final result = YouTubeSource.extractMixInfo(
+          'https://www.youtube.com/watch?v=abc',
+        );
 
         expect(result.playlistId, isNull);
         expect(result.seedVideoId, 'abc');
@@ -1308,10 +1492,7 @@ Map<String, dynamic> _innerTubePlayerResponse({
   return {
     'playabilityStatus': {'status': 'OK'},
     if (videoDetails != null) 'videoDetails': videoDetails,
-    'streamingData': {
-      'adaptiveFormats': adaptiveFormats,
-      'formats': formats,
-    },
+    'streamingData': {'adaptiveFormats': adaptiveFormats, 'formats': formats},
   };
 }
 
@@ -1320,11 +1501,7 @@ Map<String, dynamic> _innerTubeAudioFormat({
   required String mimeType,
   required int bitrate,
 }) {
-  return {
-    'url': url,
-    'mimeType': mimeType,
-    'bitrate': bitrate,
-  };
+  return {'url': url, 'mimeType': mimeType, 'bitrate': bitrate};
 }
 
 Map<String, dynamic> _innerTubeMuxedFormat({
@@ -1342,15 +1519,17 @@ Map<String, dynamic> _newThisWeekBrowseResponse() {
   // YouTube's InnerTube /browse now returns items directly as
   // lockupViewModel inside itemSectionRenderer.contents (no
   // playlistVideoListRenderer wrapper). See _lockupBrowseResponse.
-  return _lockupBrowseResponse(items: [
-    _lockupViewModel(
-      videoId: 'retry-video',
-      title: 'Retry Track',
-      artist: 'Retry Artist',
-      duration: '3:21',
-      viewCountText: '1.2M views',
-    ),
-  ]);
+  return _lockupBrowseResponse(
+    items: [
+      _lockupViewModel(
+        videoId: 'retry-video',
+        title: 'Retry Track',
+        artist: 'Retry Artist',
+        duration: '3:21',
+        viewCountText: '1.2M views',
+      ),
+    ],
+  );
 }
 
 /// Builds a browse response whose itemSection items are lockupViewModel
@@ -1369,7 +1548,7 @@ Map<String, dynamic> _lockupBrowseResponse({
                   'contents': [
                     {
                       'itemSectionRenderer': {'contents': items},
-                    }
+                    },
                   ],
                 },
               },
@@ -1459,17 +1638,17 @@ Map<String, dynamic> _lockupViewModel({
                 {
                   'metadataParts': [
                     {
-                      'text': {'content': artist}
+                      'text': {'content': artist},
                     },
                   ],
                 },
                 {
                   'metadataParts': [
                     {
-                      'text': {'content': viewCountText}
+                      'text': {'content': viewCountText},
                     },
                     {
-                      'text': {'content': '2 weeks ago'}
+                      'text': {'content': '2 weeks ago'},
                     },
                   ],
                 },
@@ -1521,7 +1700,7 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
   _FakeHttpClientAdapter(this._handler);
 
   final ResponseBody Function(RequestOptions options, Object? requestBody)
-      _handler;
+  _handler;
 
   @override
   Future<ResponseBody> fetch(
@@ -1531,9 +1710,7 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
   ) async {
     final requestBody = requestStream == null
         ? null
-        : utf8.decode(
-            (await requestStream.expand((chunk) => chunk).toList()),
-          );
+        : utf8.decode((await requestStream.expand((chunk) => chunk).toList()));
     return _handler(options, requestBody);
   }
 
@@ -1543,16 +1720,18 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
 
 class _FakeYoutubeExplode extends yt.YoutubeExplode {
   _FakeYoutubeExplode(Object manifestError, {Object? videoError})
-      : _streams = _ThrowingStreamClient(manifestError),
-        _videoError = videoError,
-        super(httpClient: yt.YoutubeHttpClient());
+    : _streams = _ThrowingStreamClient(manifestError),
+      _videoError = videoError,
+      super(httpClient: yt.YoutubeHttpClient());
 
   final _ThrowingStreamClient _streams;
   final Object? _videoError;
 
   @override
-  late final yt.VideoClient videos =
-      _FakeVideoClient(_streams, videoError: _videoError);
+  late final yt.VideoClient videos = _FakeVideoClient(
+    _streams,
+    videoError: _videoError,
+  );
 
   @override
   void close() {}
@@ -1560,8 +1739,8 @@ class _FakeYoutubeExplode extends yt.YoutubeExplode {
 
 class _FakeVideoClient extends yt.VideoClient {
   _FakeVideoClient(this._streams, {Object? videoError})
-      : _videoError = videoError,
-        super(yt.YoutubeHttpClient());
+    : _videoError = videoError,
+      super(yt.YoutubeHttpClient());
 
   final yt.StreamClient _streams;
   final Object? _videoError;

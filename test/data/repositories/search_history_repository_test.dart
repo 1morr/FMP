@@ -1,13 +1,12 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/search_history.dart';
 import 'package:fmp/data/repositories/search_history_repository.dart';
+import '../../support/isar_test_harness.dart';
 
 /// 真實 Isar 整合測試——驗證 SearchHistoryRepository 的去重、修剪、上限淘汰、
 /// 排序、刪除、清空與前綴建議邏輯（C10 從 SearchService 搬過來的業務規則）。
@@ -21,9 +20,7 @@ void main() {
     late SearchHistoryRepository repo;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -51,19 +48,21 @@ void main() {
       expect(recent.first.query, 'hello');
     });
 
-    test('saveQuery dedups by query (re-saving moves entry to most recent)',
-        () async {
-      await repo.saveQuery('foo');
-      await Future.delayed(const Duration(milliseconds: 2));
-      await repo.saveQuery('bar');
-      await Future.delayed(const Duration(milliseconds: 2));
-      await repo.saveQuery('foo'); // 重新儲存已存在查詢 → 去重後成為最新
+    test(
+      'saveQuery dedups by query (re-saving moves entry to most recent)',
+      () async {
+        await repo.saveQuery('foo');
+        await Future.delayed(const Duration(milliseconds: 2));
+        await repo.saveQuery('bar');
+        await Future.delayed(const Duration(milliseconds: 2));
+        await repo.saveQuery('foo'); // 重新儲存已存在查詢 → 去重後成為最新
 
-      final recent = await repo.getRecent();
-      expect(recent.length, 2);
-      expect(recent.first.query, 'foo'); // 最新
-      expect(recent.map((h) => h.query).toSet(), {'foo', 'bar'});
-    });
+        final recent = await repo.getRecent();
+        expect(recent.length, 2);
+        expect(recent.first.query, 'foo'); // 最新
+        expect(recent.map((h) => h.query).toSet(), {'foo', 'bar'});
+      },
+    );
 
     test('getRecent returns newest-first and respects limit', () async {
       for (final q in ['a', 'b', 'c', 'd']) {
@@ -74,21 +73,23 @@ void main() {
       expect(recent.map((h) => h.query).toList(), ['d', 'c', 'b']);
     });
 
-    test('saveQuery caps history to maxSearchHistoryCount (evicts oldest)',
-        () async {
-      final cap = AppConstants.maxSearchHistoryCount;
-      // 存入 cap + 5 個相異查詢，時間戳嚴格遞增（2ms 間隔）。
-      for (var i = 0; i < cap + 5; i++) {
-        await repo.saveQuery('query-$i');
-        await Future.delayed(const Duration(milliseconds: 2));
-      }
+    test(
+      'saveQuery caps history to maxSearchHistoryCount (evicts oldest)',
+      () async {
+        final cap = AppConstants.maxSearchHistoryCount;
+        // 存入 cap + 5 個相異查詢，時間戳嚴格遞增（2ms 間隔）。
+        for (var i = 0; i < cap + 5; i++) {
+          await repo.saveQuery('query-$i');
+          await Future.delayed(const Duration(milliseconds: 2));
+        }
 
-      final all = await repo.getRecent(limit: 1000);
-      expect(all.length, cap);
-      // 最近的保留、最舊的被淘汰。
-      expect(all.any((h) => h.query == 'query-${cap + 4}'), isTrue);
-      expect(all.any((h) => h.query == 'query-0'), isFalse);
-    });
+        final all = await repo.getRecent(limit: 1000);
+        expect(all.length, cap);
+        // 最近的保留、最舊的被淘汰。
+        expect(all.any((h) => h.query == 'query-${cap + 4}'), isTrue);
+        expect(all.any((h) => h.query == 'query-0'), isFalse);
+      },
+    );
 
     test('deleteById removes a single entry', () async {
       await repo.saveQuery('keep');
@@ -110,48 +111,31 @@ void main() {
     });
 
     test(
-        'searchByPrefix: empty prefix returns recent 5; otherwise case-insensitive contains',
-        () async {
-      for (final q in ['apple', 'Application', 'banana', 'apricot', 'cherry']) {
-        await repo.saveQuery(q);
-        await Future.delayed(const Duration(milliseconds: 2));
-      }
+      'searchByPrefix: empty prefix returns recent 5; otherwise case-insensitive contains',
+      () async {
+        for (final q in [
+          'apple',
+          'Application',
+          'banana',
+          'apricot',
+          'cherry',
+        ]) {
+          await repo.saveQuery(q);
+          await Future.delayed(const Duration(milliseconds: 2));
+        }
 
-      // 空前綴 → 最近 5 筆查詢（最新在前）。
-      final empty = await repo.searchByPrefix('');
-      expect(empty.length, 5);
-      expect(empty.first, 'cherry');
+        // 空前綴 → 最近 5 筆查詢（最新在前）。
+        final empty = await repo.searchByPrefix('');
+        expect(empty.length, 5);
+        expect(empty.first, 'cherry');
 
-      // 'ap' 比對 apple、Application（不分大小寫）、apricot。
-      final ap = await repo.searchByPrefix('ap');
-      expect(ap.toSet(), {'apricot', 'Application', 'apple'});
-      // 'AP' 不分大小寫 → 同一組。
-      final upper = await repo.searchByPrefix('AP');
-      expect(upper.toSet(), {'apricot', 'Application', 'apple'});
-    });
-  });
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
+        // 'ap' 比對 apple、Application（不分大小寫）、apricot。
+        final ap = await repo.searchByPrefix('ap');
+        expect(ap.toSet(), {'apricot', 'Application', 'apple'});
+        // 'AP' 不分大小寫 → 同一組。
+        final upper = await repo.searchByPrefix('AP');
+        expect(upper.toSet(), {'apricot', 'Application', 'apple'});
+      },
     );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
+  });
 }

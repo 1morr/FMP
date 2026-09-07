@@ -26,14 +26,8 @@ class ThumbnailUrlUtils {
   /// OS media metadata. It does not perform fallback loading. UI and download
   /// paths should use [getOptimizedUrlCandidates] so they can try the next
   /// source-specific candidate when the preferred thumbnail does not exist.
-  static String getOptimizedUrl(
-    String? url, {
-    double? displaySize,
-  }) {
-    final candidates = getOptimizedUrlCandidates(
-      url,
-      displaySize: displaySize,
-    );
+  static String getOptimizedUrl(String? url, {double? displaySize}) {
+    final candidates = getOptimizedUrlCandidates(url, displaySize: displaySize);
     return candidates.isNotEmpty ? candidates.first : '';
   }
 
@@ -67,8 +61,10 @@ class ThumbnailUrlUtils {
     } else if (_isYouTubeUrl(url) &&
         _isHostOrSubdomain(_hostOf(url), 'ytimg.com')) {
       // YouTube 视频缩略图：生成从高到低多级质量候选，逐级回退
-      for (final candidate
-          in _optimizeYouTubeThumbnailCandidates(url, targetSize)) {
+      for (final candidate in _optimizeYouTubeThumbnailCandidates(
+        url,
+        targetSize,
+      )) {
         addCandidate(candidate);
       }
     } else if (_isYouTubeUrl(url)) {
@@ -105,8 +101,9 @@ class ThumbnailUrlUtils {
   }
 
   static bool _isYouTubeBlackBarThumbnail(String url) {
-    final match =
-        RegExp(r'/vi(?:_webp)?/[^/]+/([^/]+)\.(?:jpg|webp)').firstMatch(url);
+    final match = RegExp(
+      r'/vi(?:_webp)?/[^/]+/([^/]+)\.(?:jpg|webp)',
+    ).firstMatch(url);
     final quality = match?.group(1);
     return quality == 'default' ||
         quality == 'hqdefault' ||
@@ -129,7 +126,9 @@ class ThumbnailUrlUtils {
   ///
   /// 从期望尺寸向下逐级生成候选，避免直接回退到原始大图。
   static List<String> _optimizeBilibiliUrlCandidates(
-      String url, int targetSize) {
+    String url,
+    int targetSize,
+  ) {
     const sizes = [1280, 640, 400, 200];
 
     // 先去掉 query string（如 ?t=123），再去掉已有的 @ 尺寸后缀，
@@ -196,7 +195,9 @@ class ThumbnailUrlUtils {
   /// 16:9 档位仍可能带有 YouTube 预制黑边，这属于源端限制。
   /// 4:3 原始 URL 不会作为最终回退添加，以免优先显示带预制黑边的版本。
   static List<String> _optimizeYouTubeThumbnailCandidates(
-      String url, int targetSize) {
+    String url,
+    int targetSize,
+  ) {
     const qualityOrder = ['maxresdefault', 'mqdefault'];
 
     final pattern = RegExp(r'/vi(_webp)?/([^/]+)/([^/]+)\.(jpg|webp)');
@@ -332,7 +333,9 @@ class ThumbnailUrlUtils {
 
   /// 生成网易云缩略图多级尺寸候选 URL（从高到低）
   static List<String> _optimizeNeteaseUrlCandidates(
-      String url, int targetSize) {
+    String url,
+    int targetSize,
+  ) {
     const sizes = [800, 400, 200, 100];
 
     final baseUrl = url.split('?').first;

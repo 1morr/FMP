@@ -7,10 +7,7 @@ void main() {
     test('local media exposes track and debug path', () {
       final track = _track('local');
 
-      final media = LocalPlaybackMedia(
-        path: '/music/local.m4a',
-        track: track,
-      );
+      final media = LocalPlaybackMedia(path: '/music/local.m4a', track: track);
 
       expect(media.track, same(track));
       expect(media.path, '/music/local.m4a');
@@ -37,7 +34,7 @@ void main() {
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'Track $sourceId'
     ..artist = 'Tester';
 }

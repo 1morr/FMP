@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/playback_media.dart';
@@ -35,11 +36,12 @@ class FakeAudioService implements FmpAudioService {
   final _durationController = StreamController<Duration?>.broadcast();
   final _bufferedPositionController = StreamController<Duration>.broadcast();
   final _speedController = StreamController<double>.broadcast();
-  final _completedController = StreamController<void>.broadcast();
   final _audioDevicesController =
       StreamController<List<FmpAudioDevice>>.broadcast();
   final _audioDeviceController = StreamController<FmpAudioDevice?>.broadcast();
-  final _errorController = StreamController<String>.broadcast();
+  final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
+  final _advancedToNextController =
+      StreamController<PreparedPlaybackMedia>.broadcast();
 
   final List<AudioUrlCall> playUrlCalls = [];
   final List<AudioUrlCall> setUrlCalls = [];
@@ -47,13 +49,20 @@ class FakeAudioService implements FmpAudioService {
   final List<AudioFileCall> setFileCalls = [];
   final List<AudioMediaCall> playMediaCalls = [];
   final List<AudioMediaCall> setMediaCalls = [];
+
+  /// 每一次 `setNextMedia` 的參數，包含清除用的 null。
+  ///
+  /// arm / disarm 的條件表就是靠逐條斷言這個清單來釘住的。
+  final List<PreparedPlaybackMedia?> setNextMediaCalls = [];
   final List<Duration> seekCalls = [];
   int stopCallCount = 0;
+  int pauseCallCount = 0;
 
   final List<Completer<void>> _pendingPlayUrl = [];
   final List<Completer<void>> _pendingSetUrl = [];
   final List<Completer<void>> _pendingSeek = [];
   final List<Completer<void>> _pendingStop = [];
+  final List<Completer<void>> _pendingPlay = [];
   final List<Object> _stopErrors = [];
   final List<Object> _playUrlErrors = [];
   final List<_CountWaiter> _playUrlWaiters = [];
@@ -67,7 +76,7 @@ class FakeAudioService implements FmpAudioService {
   double _speed = 1.0;
   double _volume = 1.0;
   FmpAudioProcessingState _processingState = FmpAudioProcessingState.idle;
-  final List<FmpAudioDevice> _audioDevices = const [];
+  List<FmpAudioDevice> _audioDevices = const [];
   FmpAudioDevice? _audioDevice;
 
   Completer<void> enqueuePendingPlayUrl() {
@@ -91,6 +100,12 @@ class FakeAudioService implements FmpAudioService {
   Completer<void> enqueuePendingStop() {
     final completer = Completer<void>();
     _pendingStop.add(completer);
+    return completer;
+  }
+
+  Completer<void> enqueuePendingPlay() {
+    final completer = Completer<void>();
+    _pendingPlay.add(completer);
     return completer;
   }
 
@@ -140,17 +155,59 @@ class FakeAudioService implements FmpAudioService {
     _emitState();
   }
 
+  /// 模擬後端宣告播放完成。
+  ///
+  /// 與真實後端一樣，由 fake 自己依 position/duration 判斷是「播完」還是「提前
+  /// 結束」—— 這正是 `PlaybackEndReason` 把責任放在後端的意思。
   void emitCompleted() {
-    _completedController.add(null);
+    _endReasonController.add(_classifyCompletion());
   }
 
-  void emitError(String error) {
-    _errorController.add(error);
+  /// 明確表示「這首歌正常播完了」，不依賴 fake 的 position/duration。
+  void emitNaturalCompletion() {
+    _endReasonController.add(const EndedNaturally());
+  }
+
+  PlaybackEndReason _classifyCompletion() {
+    final duration = _duration;
+    if (duration == null || duration.inMilliseconds <= 0) {
+      return EndedPrematurely(at: _position, expected: null);
+    }
+    if (duration - _position > AppConstants.completionTolerance) {
+      return EndedPrematurely(at: _position, expected: duration);
+    }
+    return const EndedNaturally();
+  }
+
+  /// 媒體本身開不起來（URL 過期、404、格式不支援）。
+  void emitMediaOpenError(String raw) {
+    _endReasonController.add(MediaUnopenable(raw: raw));
+  }
+
+  /// 音訊輸出裝置失敗 —— 與媒體無關（issue #41）。
+  void emitOutputDeviceFailure(String raw) {
+    _endReasonController.add(OutputDeviceFailed(raw: raw));
+  }
+
+  void emitEndReason(PlaybackEndReason reason) {
+    _endReasonController.add(reason);
+  }
+
+  /// 模擬傳輸層失敗（連線中斷／逾時），讓測試不必自己建構型別。
+  void emitTransportFailure(String error) {
+    _endReasonController.add(
+      TransportFailed(kind: TransportFailureKind.unknown, raw: error),
+    );
   }
 
   void emitPosition(Duration position) {
     _position = position;
     _positionController.add(position);
+  }
+
+  void emitAudioDevices(List<FmpAudioDevice> devices) {
+    _audioDevices = devices;
+    _audioDevicesController.add(devices);
   }
 
   void _notifyPlayUrlWaiters() {
@@ -220,15 +277,16 @@ class FakeAudioService implements FmpAudioService {
   @override
   Stream<double> get speedStream => _speedController.stream;
   @override
-  Stream<void> get completedStream => _completedController.stream;
-  @override
   Stream<List<FmpAudioDevice>> get audioDevicesStream =>
       _audioDevicesController.stream;
   @override
   Stream<FmpAudioDevice?> get audioDeviceStream =>
       _audioDeviceController.stream;
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
+  @override
+  Stream<PreparedPlaybackMedia> get advancedToNext =>
+      _advancedToNextController.stream;
 
   @override
   bool get isPlaying => _isPlaying;
@@ -260,14 +318,15 @@ class FakeAudioService implements FmpAudioService {
     await _durationController.close();
     await _bufferedPositionController.close();
     await _speedController.close();
-    await _completedController.close();
     await _audioDevicesController.close();
     await _audioDeviceController.close();
-    await _errorController.close();
+    await _endReasonController.close();
+    await _advancedToNextController.close();
   }
 
   @override
   Future<void> play() async {
+    await _awaitPending(_pendingPlay);
     _isPlaying = true;
     _processingState = FmpAudioProcessingState.ready;
     _emitState();
@@ -275,6 +334,7 @@ class FakeAudioService implements FmpAudioService {
 
   @override
   Future<void> pause() async {
+    pauseCallCount++;
     _isPlaying = false;
     _emitState();
   }
@@ -304,12 +364,6 @@ class FakeAudioService implements FmpAudioService {
   }
 
   @override
-  Future<void> seekForward([Duration? duration]) async =>
-      seekTo(_position + (duration ?? const Duration(seconds: 10)));
-  @override
-  Future<void> seekBackward([Duration? duration]) async =>
-      seekTo(_position - (duration ?? const Duration(seconds: 10)));
-  @override
   Future<bool> seekToLive() async => false;
   @override
   Future<void> setSpeed(double speed) async => _speed = speed;
@@ -324,13 +378,33 @@ class FakeAudioService implements FmpAudioService {
   Future<void> setAudioDeviceAuto() async => _audioDevice = null;
 
   @override
+  Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
+    setNextMediaCalls.add(media);
+  }
+
+  /// 假裝後端自己接上了前瞻媒體。
+  ///
+  /// 真的後端是靠播放清單索引往前走發現這件事的；這裡直接給事件，測試才不必
+  /// 去模擬 ExoPlayer / mpv 的清單行為。
+  void emitAdvancedToNext(PreparedPlaybackMedia media) {
+    _position = Duration.zero;
+    _isPlaying = true;
+    _advancedToNextController.add(media);
+  }
+
+  @override
   Future<Duration?> playMedia(PreparedPlaybackMedia media) {
     playMediaCalls.add(AudioMediaCall(media: media));
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        playFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        playUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => playFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => playUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
@@ -338,16 +412,24 @@ class FakeAudioService implements FmpAudioService {
   Future<Duration?> setMedia(PreparedPlaybackMedia media) {
     setMediaCalls.add(AudioMediaCall(media: media));
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        setFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        setUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => setFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => setUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
   @override
-  Future<Duration?> playUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> playUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     playUrlCalls.add(AudioUrlCall(url: url, headers: headers, track: track));
     _notifyPlayUrlWaiters();
     await _awaitPending(_pendingPlayUrl);
@@ -361,8 +443,11 @@ class FakeAudioService implements FmpAudioService {
   }
 
   @override
-  Future<Duration?> setUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> setUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     setUrlCalls.add(AudioUrlCall(url: url, headers: headers, track: track));
     _notifySetUrlWaiters();
     await _awaitPending(_pendingSetUrl);

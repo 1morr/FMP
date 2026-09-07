@@ -1,22 +1,26 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/errors/user_message.dart';
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
-import '../../data/models/track.dart'; // for SourceType
+import '../../data/models/track.dart';
+import '../../data/models/track_key.dart'; // for String
 import '../../data/repositories/radio_repository.dart';
-import '../../main.dart' show audioHandler, windowsSmtcHandler;
+import '../audio/now_playing_publisher.dart';
+import '../audio/playback_capabilities.dart';
 import '../../providers/account/account_provider.dart';
 import '../../providers/database/database_provider.dart';
+import '../audio/audio_provider.dart';
 import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
-import '../audio/audio_provider.dart';
+import '../../providers/audio/audio_controller_provider.dart';
 import 'radio_source.dart';
 import 'radio_refresh_service.dart';
+import '../audio/queue_state.dart';
 
 class RadioAccountImportResult {
   const RadioAccountImportResult({
@@ -192,8 +196,9 @@ class RadioState {
       stations: stations ?? this.stations,
       liveStatus: liveStatus ?? this.liveStatus,
       isRefreshingStatus: isRefreshingStatus ?? this.isRefreshingStatus,
-      currentStation:
-          clearCurrentStation ? null : (currentStation ?? this.currentStation),
+      currentStation: clearCurrentStation
+          ? null
+          : (currentStation ?? this.currentStation),
       isPlaying: isPlaying ?? this.isPlaying,
       isLoading: isLoading ?? this.isLoading,
       loadingStationId: clearLoadingStationId
@@ -202,8 +207,9 @@ class RadioState {
       isBuffering: isBuffering ?? this.isBuffering,
       error: clearError ? null : (error ?? this.error),
       viewerCount: clearViewerCount ? null : (viewerCount ?? this.viewerCount),
-      liveStartTime:
-          clearLiveStartTime ? null : (liveStartTime ?? this.liveStartTime),
+      liveStartTime: clearLiveStartTime
+          ? null
+          : (liveStartTime ?? this.liveStartTime),
       playDuration: playDuration ?? this.playDuration,
       reconnectAttempts: reconnectAttempts ?? this.reconnectAttempts,
       reconnectMessage: clearReconnectMessage
@@ -211,19 +217,32 @@ class RadioState {
           : (reconnectMessage ?? this.reconnectMessage),
       description: clearDescription ? null : (description ?? this.description),
       tags: clearTags ? null : (tags ?? this.tags),
-      announcement:
-          clearAnnouncement ? null : (announcement ?? this.announcement),
+      announcement: clearAnnouncement
+          ? null
+          : (announcement ?? this.announcement),
       areaName: clearAreaName ? null : (areaName ?? this.areaName),
     );
   }
 }
 
 /// 電台控制器
-class RadioController extends StateNotifier<RadioState> with Logging {
-  final Ref _ref;
-  final RadioRepository _repository;
-  final RadioSource _radioSource;
-  final FmpAudioService _audioService;
+class RadioController extends Notifier<RadioState> with Logging {
+  RadioController({Duration initialLoadDelay = Duration.zero})
+    : _initialLoadDelay = initialLoadDelay;
+
+  /// 資料庫還沒開的時候這三個都還沒有值。以前那條路徑是第二個建構子
+  /// `RadioController.forLoading()` ＋ 兩個 dummy 實作；`NotifierProvider` 的
+  /// 工廠只吃一個無參數建構子，所以分支搬進 [build]，而 [build] 在那條路徑上
+  /// 直接回傳空狀態、什麼都不接線 —— 沒有人讀得到這三個欄位。
+  late RadioRepository _repository;
+  late RadioSource _radioSource;
+  late FmpAudioService _audioService;
+
+  /// 系統媒體控制。電台與音樂共用同一組，由 publisher 仲裁擁有權。
+  NowPlayingPublisher get _publisher => ref.read(nowPlayingPublisherProvider);
+
+  NowPlayingPublisher? _publisherAtBuild;
+  AudioController? _audioControllerAtBuild;
 
   // 定時器
   Timer? _playDurationTimer;
@@ -256,28 +275,30 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   bool _savedMusicWasPlaying = false;
   final Duration _initialLoadDelay;
 
-  /// 正常構造函數
-  RadioController(
-    this._ref,
-    this._repository,
-    this._radioSource,
-    this._audioService, {
-    Duration initialLoadDelay = Duration.zero,
-  })  : _initialLoadDelay = initialLoadDelay,
-        super(const RadioState()) {
+  @override
+  RadioState build() {
+    final repository = ref.watch(radioRepositoryProvider);
+    // 資料庫還沒準備好：空狀態，不接線，等它開好之後 build() 會再跑一次。
+    if (repository == null) return const RadioState();
+
+    _repository = repository;
+    _radioSource = ref.watch(radioSourceProvider);
+    _audioService = ref.watch(audioServiceProvider);
+
+    // 釋放時要碰的兩個物件先抓在手上：Riverpod 3 禁止在生命週期回呼裡使用
+    // `Ref`（`riverpod/src/core/ref.dart:235`），而舊的 `dispose()` 正是在那裡
+    // `ref.read` 這兩個 provider 的。兩個都可能讀不到（音樂路徑還沒接起來），
+    // 所以都是 nullable —— 對應舊 `dispose()` 裡那兩個 try/catch。
+    try {
+      _publisherAtBuild = ref.read(nowPlayingPublisherProvider);
+    } catch (_) {
+      // NowPlayingPublisher 可能尚未初始化
+    }
+    ref.onDispose(_teardown);
+
     _initialize();
     _setupMutualExclusion();
-  }
-
-  /// 用於數據庫加載中的構造函數（返回空狀態）
-  RadioController.forLoading()
-      : _ref = _DummyRef(),
-        _repository = _DummyRadioRepository(),
-        _radioSource = RadioSource(),
-        _audioService = _DummyAudioService(),
-        _initialLoadDelay = Duration.zero,
-        super(const RadioState()) {
-    // 不初始化，等待真正的 controller
+    return const RadioState();
   }
 
   Future<void> _initialize() async {
@@ -287,15 +308,15 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     if (_initialLoadDelay > Duration.zero) {
       await Future<void>.delayed(_initialLoadDelay);
     }
-    if (!mounted) return;
+    if (!ref.mounted) return;
 
     // 載入電台列表
     await _loadStations();
-    if (!mounted) return;
+    if (!ref.mounted) return;
 
     // 監聽電台列表變化
     _stationsSubscription = _repository.watchAll().listen((stations) {
-      if (!mounted) return;
+      if (!ref.mounted) return;
       logInfo('watchAll 觸發: ${stations.length} 個電台');
       state = state.copyWith(stations: stations);
     });
@@ -306,97 +327,60 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     );
 
     // 監聽 RadioRefreshService 的狀態變化
-    _refreshServiceSubscription =
-        RadioRefreshService.instance.stateChanges.listen((_) {
-      _syncLiveStatusFromRefreshService();
-    });
+    _refreshServiceSubscription = RadioRefreshService.instance.stateChanges
+        .listen((_) {
+          _syncLiveStatusFromRefreshService();
+        });
 
     // 初始化時同步一次直播狀態
     _syncLiveStatusFromRefreshService();
-
-    // 設置 SMTC 回調（僅 Windows）
-    _setupSmtcCallbacks();
   }
 
-  /// 設置 Windows SMTC 回調
-  void _setupSmtcCallbacks() {
-    if (!Platform.isWindows) return;
-
-    // 注意：電台不需要上一首/下一首功能
-    // 這些回調會在電台播放時覆蓋音樂播放的回調
+  /// 接管系統媒體控制並顯示當前電台。
+  ///
+  /// 直播沒有下一首、沒有時間軸，所以宣告 [PlaybackCapabilities.liveRadio] ——
+  /// 過去這裡只把回呼設成 null，按鈕照樣畫得出來、按下去打進 null，那就是
+  /// issue #40 的症狀一。回呼與能力現在是同一次 claim，分不開。
+  void _claimMediaControls(RadioStation station) {
+    _publisher.claim(
+      NowPlayingOwner.radio,
+      commands: MediaControlCommands(play: resume, pause: pause, stop: stop),
+      capabilities: PlaybackCapabilities.liveRadio,
+    );
+    _publisher.publishRadioStation(NowPlayingOwner.radio, station);
+    _publishRadioPlaybackState(isPlaying: true);
   }
 
-  /// 更新 Android 通知欄顯示當前電台
-  void _updateAudioHandler(RadioStation station) {
-    if (!Platform.isAndroid) return;
-
-    audioHandler.onPlay = resume;
-    audioHandler.onPause = pause;
-    audioHandler.onStop = stop;
-    audioHandler.onSkipToNext = null;
-    audioHandler.onSkipToPrevious = null;
-    audioHandler.onSeek = null;
-
-    audioHandler.updateCurrentRadioStation(station);
-    audioHandler.updatePlaybackState(
-      isPlaying: true,
+  /// 直播沒有時長，時間軸一律送 0。
+  void _publishRadioPlaybackState({
+    required bool isPlaying,
+    FmpAudioProcessingState processingState = FmpAudioProcessingState.ready,
+  }) {
+    _publisher.publishPlaybackState(
+      NowPlayingOwner.radio,
+      isPlaying: isPlaying,
       position: Duration.zero,
       bufferedPosition: Duration.zero,
-      processingState: FmpAudioProcessingState.ready,
+      processingState: processingState,
+      duration: Duration.zero,
     );
   }
 
-  /// 清除 Android 通知欄狀態
-  void _clearAudioHandler() {
-    if (!Platform.isAndroid) return;
-
-    audioHandler.updatePlaybackState(
-      isPlaying: false,
-      position: Duration.zero,
-      bufferedPosition: Duration.zero,
-      processingState: FmpAudioProcessingState.idle,
-    );
-  }
-
-  /// 更新 SMTC 顯示當前電台（僅 Windows）
-  void _updateSmtc(RadioStation station) {
-    if (!Platform.isWindows) return;
-
-    // 設置電台的 SMTC 回調
-    windowsSmtcHandler.onPlay = resume;
-    windowsSmtcHandler.onPause = pause;
-    windowsSmtcHandler.onStop = stop;
-    // 電台不需要上一首/下一首
-    windowsSmtcHandler.onSkipToNext = null;
-    windowsSmtcHandler.onSkipToPrevious = null;
-    windowsSmtcHandler.onSeek = null;
-
-    // 更新元數據和播放狀態
-    windowsSmtcHandler.updateCurrentRadioStation(station);
-    windowsSmtcHandler.updateRadioPlaybackState(isPlaying: true);
-  }
-
-  /// 清除 SMTC 狀態（僅 Windows）
-  void _clearSmtc() {
-    if (!Platform.isWindows) return;
-
-    windowsSmtcHandler.setStoppedState();
-  }
-
-  void _restoreMusicMediaControlOwnership() {
-    try {
-      _ref
-          .read(audioControllerProvider.notifier)
-          .restoreMediaControlOwnership();
-    } catch (e) {
-      logDebug('Skipping music media-control ownership restore: $e');
-    }
+  /// 交還系統媒體控制。
+  ///
+  /// publisher 自己記得音樂的綁定，所以這裡不需要回頭找 `AudioController`
+  /// ——過去那條路包著一個吞掉一切的 try/catch，一旦它拋了，能力會永遠停在
+  /// 電台的全關狀態，離開電台後上下一首再也回不來。
+  void _releaseMediaControls() {
+    _publisher.publishStopped(NowPlayingOwner.radio);
+    _publisher.release(NowPlayingOwner.radio);
   }
 
   /// 設置互斥機制：音樂播放時自動停止電台
   void _setupMutualExclusion() {
     try {
-      final audioController = _ref.read(audioControllerProvider.notifier);
+      final audioController = ref.read(audioControllerProvider.notifier);
+      _audioControllerAtBuild = audioController;
       audioController.onPlaybackStarting = () async {
         if (state.hasCurrentStation || _hasPendingPlayRequest) {
           await stop();
@@ -412,7 +396,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 載入電台列表
   Future<void> _loadStations() async {
     final stations = await _repository.getAll();
-    if (!mounted) return;
+    if (!ref.mounted) return;
     logInfo('載入 ${stations.length} 個電台');
     state = state.copyWith(stations: stations);
   }
@@ -484,10 +468,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       }
 
       // 開始播放
-      await _audioService.playUrl(
-        streamInfo.url,
-        headers: streamInfo.headers,
-      );
+      await _audioService.playUrl(streamInfo.url, headers: streamInfo.headers);
       if (_isSuperseded(requestId)) return;
 
       // 獲取高能用戶數（作為觀眾數）
@@ -523,9 +504,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       // 啟動定時器
       _startTimers();
 
-      // 更新平台媒體控制
-      _updateSmtc(station);
-      _updateAudioHandler(station);
+      // 接管系統媒體控制
+      _claimMediaControls(station);
       _activePlayRequestId = null;
     } catch (e) {
       if (_isSuperseded(requestId)) return;
@@ -541,7 +521,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       state = state.copyWith(
         isLoading: false,
         clearLoadingStationId: true,
-        error: t.radio.playFailed(error: e.toString()),
+        error: t.radio.playFailed(error: userMessageFor(e)),
       );
       _activePlayRequestId = null;
     }
@@ -574,10 +554,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _currentStreamInfo = null;
     _clearMusicRestoreState();
 
-    // 更新平台媒體控制為停止狀態
-    _clearSmtc();
-    _clearAudioHandler();
-    _restoreMusicMediaControlOwnership();
+    // 交還系統媒體控制
+    _releaseMediaControls();
   }
 
   /// 返回歌曲播放
@@ -585,11 +563,13 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     final savedQueueIndex = _savedMusicQueueIndex;
     final savedPosition = _savedMusicPosition;
     final savedWasPlaying = _savedMusicWasPlaying;
+    // 在 await 之前讀完：stop() 之後這個 controller 可能已經被釋放，
+    // 而 Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException。
+    final audioController = ref.read(audioControllerProvider.notifier);
 
     await stop();
 
     try {
-      final audioController = _ref.read(audioControllerProvider.notifier);
       await audioController.returnFromRadio(
         savedQueueIndex: savedQueueIndex,
         savedPosition: savedPosition,
@@ -618,18 +598,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playStartTime = null;
     // 保留 _currentStreamInfo 以便快速恢復
 
-    // 更新平台媒體控制為暫停狀態
-    if (Platform.isWindows && state.currentStation != null) {
-      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: false);
-    }
-    if (Platform.isAndroid) {
-      audioHandler.updatePlaybackState(
-        isPlaying: false,
-        position: Duration.zero,
-        bufferedPosition: Duration.zero,
-        processingState: FmpAudioProcessingState.ready,
-      );
-    }
+    // 更新系統媒體控制為暫停狀態
+    _publishRadioPlaybackState(isPlaying: false);
   }
 
   /// 恢復播放當前電台
@@ -698,8 +668,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   }
 
   Future<List<RadioAccountImportCandidate>>
-      loadAccountImportCandidates() async {
-    final service = _ref.read(bilibiliAccountServiceProvider);
+  loadAccountImportCandidates() async {
+    final service = ref.read(bilibiliAccountServiceProvider);
     final items = await service.fetchMedalWall();
     final importedSourceIds = await _loadImportedSourceIds();
 
@@ -768,7 +738,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     final stations = await _repository.getAll();
     return {
       for (final station in stations)
-        if (station.sourceType == SourceType.bilibili) station.sourceId,
+        if (station.sourceType == SourceIds.bilibili) station.sourceId,
     };
   }
 
@@ -782,8 +752,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       throw Exception(t.radio.cannotParseUrl);
     }
 
-    const sourceType = SourceType.bilibili;
-    final uniqueKey = '${sourceType.name}:${parseResult.sourceId}';
+    const sourceType = SourceIds.bilibili;
+    final uniqueKey = TrackKey.formatGroup(sourceType, parseResult.sourceId);
     if (reservedKeys?.contains(uniqueKey) == true) {
       return null;
     }
@@ -858,7 +828,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     } catch (e, stack) {
       logError('Failed to refresh all live status', e, stack);
     } finally {
-      if (mounted) {
+      if (ref.mounted) {
         state = state.copyWith(isRefreshingStatus: false);
       }
     }
@@ -869,7 +839,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 暫停音樂播放（互斥機制）
   Future<void> _pauseMusicPlayback() async {
     try {
-      final audioController = _ref.read(audioControllerProvider.notifier);
+      final audioController = ref.read(audioControllerProvider.notifier);
       await audioController.pause();
     } catch (e) {
       logWarning('Failed to pause music: $e');
@@ -893,10 +863,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
           playerState.processingState == FmpAudioProcessingState.buffering,
     );
 
-    if (Platform.isWindows && wasPlaying != playerState.playing) {
-      windowsSmtcHandler.updateRadioPlaybackState(
-        isPlaying: playerState.playing,
-      );
+    if (wasPlaying != playerState.playing) {
+      _publishRadioPlaybackState(isPlaying: playerState.playing);
     }
   }
 
@@ -941,8 +909,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       isLoading: false,
       isBuffering: false,
       reconnectAttempts: attempts + 1,
-      reconnectMessage:
-          t.radio.reconnectingCountdown(seconds: delay.inSeconds.toString()),
+      reconnectMessage: t.radio.reconnectingCountdown(
+        seconds: delay.inSeconds.toString(),
+      ),
     );
 
     await Future.delayed(delay);
@@ -955,10 +924,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       final streamInfo = await _radioSource.getStreamUrl(state.currentStation!);
       _currentStreamInfo = streamInfo;
 
-      await _audioService.playUrl(
-        streamInfo.url,
-        headers: streamInfo.headers,
-      );
+      await _audioService.playUrl(streamInfo.url, headers: streamInfo.headers);
 
       // 重連成功
       state = state.copyWith(
@@ -990,21 +956,12 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       reconnectMessage: t.radio.streamEnded,
     );
 
-    // 更新平台媒體控制
-    if (Platform.isWindows) {
-      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: false);
-    }
-    if (Platform.isAndroid) {
-      audioHandler.updatePlaybackState(
-        isPlaying: false,
-        position: Duration.zero,
-        bufferedPosition: Duration.zero,
-        processingState: FmpAudioProcessingState.ready,
-      );
-    }
+    // 更新系統媒體控制
+    _publishRadioPlaybackState(isPlaying: false);
 
     logInfo(
-        'Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume');
+      'Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume',
+    );
   }
 
   /// 啟動定時器
@@ -1045,8 +1002,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     if (state.hasCurrentStation) return;
 
     try {
-      final musicState = _ref.read(audioControllerProvider);
-      _savedMusicQueueIndex = musicState.currentIndex;
+      final musicState = ref.read(audioControllerProvider);
+      _savedMusicQueueIndex = ref.read(queueStateProvider).currentIndex;
       _savedMusicPosition = musicState.position;
       _savedMusicWasPlaying = musicState.isPlaying;
     } catch (e) {
@@ -1079,29 +1036,33 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         state.reconnectMessage == t.radio.streamEnded &&
         serviceStatus[station.id] == true) {
       logInfo('Broadcaster is back live, auto-resuming: ${station.title}');
-      state = state.copyWith(
-        reconnectMessage: t.radio.autoResuming,
-      );
+      state = state.copyWith(reconnectMessage: t.radio.autoResuming);
       play(station);
     }
   }
 
-  @override
-  void dispose() {
+  void _teardown() {
     _stopTimers();
     _playerStateSubscription?.cancel();
     _stationsSubscription?.cancel();
     _refreshServiceSubscription?.cancel();
 
     try {
-      final audioController = _ref.read(audioControllerProvider.notifier);
-      audioController.onPlaybackStarting = null;
-      audioController.isRadioPlaying = null;
+      // 電台如果還握著系統媒體控制，交還給音樂，否則按鈕會停在電台的全關狀態。
+      _publisherAtBuild?.release(NowPlayingOwner.radio);
     } catch (_) {
-      // AudioController 可能已先被銷毀
+      // provider 容器可能已先被銷毀
     }
 
-    super.dispose();
+    final audioController = _audioControllerAtBuild;
+    if (audioController != null) {
+      try {
+        audioController.onPlaybackStarting = null;
+        audioController.isRadioPlaying = null;
+      } catch (_) {
+        // AudioController 可能已先被銷毀
+      }
+    }
   }
 }
 
@@ -1116,25 +1077,15 @@ final radioSourceProvider = Provider<RadioSource>((ref) {
 
 /// RadioRepository Provider
 final radioRepositoryProvider = Provider<RadioRepository?>((ref) {
-  final isar = ref.watch(databaseProvider).valueOrNull;
+  final isar = ref.watch(databaseProvider).value;
   if (isar == null) return null;
   return RadioRepository(isar);
 });
 
 /// RadioController Provider
-final radioControllerProvider =
-    StateNotifierProvider<RadioController, RadioState>((ref) {
-  final repository = ref.watch(radioRepositoryProvider);
-  final radioSource = ref.watch(radioSourceProvider);
-  final audioService = ref.watch(audioServiceProvider);
-
-  // 如果数据库还没准备好，返回一个空的 controller
-  if (repository == null) {
-    return RadioController.forLoading();
-  }
-
-  return RadioController(ref, repository, radioSource, audioService);
-});
+final radioControllerProvider = NotifierProvider<RadioController, RadioState>(
+  RadioController.new,
+);
 
 /// 電台是否正在播放 Provider
 final isRadioPlayingProvider = Provider<bool>((ref) {
@@ -1155,38 +1106,3 @@ final currentRadioStationProvider = Provider<RadioStation?>((ref) {
 final radioStationsProvider = Provider<List<RadioStation>>((ref) {
   return ref.watch(radioControllerProvider).stations;
 });
-
-// ========== Dummy Classes for Loading State ==========
-
-/// Dummy Ref for loading state
-class _DummyRef implements Ref {
-  @override
-  T watch<T>(ProviderListenable<T> provider) =>
-      throw UnimplementedError('DummyRef should not be used');
-
-  @override
-  T read<T>(ProviderListenable<T> provider) =>
-      throw UnimplementedError('DummyRef should not be used');
-
-  @override
-  void invalidate(ProviderOrFamily provider) =>
-      throw UnimplementedError('DummyRef should not be used');
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-/// Dummy RadioRepository for loading state
-class _DummyRadioRepository implements RadioRepository {
-  @override
-  Future<List<RadioStation>> getAll() async => [];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-/// Dummy AudioService for loading state
-class _DummyAudioService implements FmpAudioService {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}

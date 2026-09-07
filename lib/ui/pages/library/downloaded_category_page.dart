@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -9,7 +10,8 @@ import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_provider.dart';
 import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/library/library_invalidation_coordinator.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_menu.dart';
 import '../../widgets/app_bars/collapsing_hero_sliver_app_bar.dart';
@@ -86,9 +88,11 @@ class _DownloadedCategoryPageState
     });
     // 使 provider 失效并等待重新加载
     ref.invalidate(
-        downloadedCategoryTracksProvider(widget.category.folderPath));
+      downloadedCategoryTracksProvider(widget.category.folderPath),
+    );
     await ref.read(
-        downloadedCategoryTracksProvider(widget.category.folderPath).future);
+      downloadedCategoryTracksProvider(widget.category.folderPath).future,
+    );
   }
 
   /// 获取分组后的 tracks，使用缓存避免重复计算
@@ -103,8 +107,9 @@ class _DownloadedCategoryPageState
 
   @override
   Widget build(BuildContext context) {
-    final tracksAsync =
-        ref.watch(downloadedCategoryTracksProvider(widget.category.folderPath));
+    final tracksAsync = ref.watch(
+      downloadedCategoryTracksProvider(widget.category.folderPath),
+    );
 
     return Scaffold(
       body: tracksAsync.when(
@@ -124,7 +129,9 @@ class _DownloadedCategoryPageState
             SliverFillRemaining(
               child: ErrorDisplay(
                 type: ErrorType.general,
-                message: t.library.loadFailedWithError(error: error.toString()),
+                message: t.library.loadFailedWithError(
+                  error: userMessageFor(error),
+                ),
               ),
             ),
           ],
@@ -140,24 +147,17 @@ class _DownloadedCategoryPageState
               _buildSliverAppBar(context, tracks),
 
               // 操作按钮
-              SliverToBoxAdapter(
-                child: _buildActionButtons(context, tracks),
-              ),
+              SliverToBoxAdapter(child: _buildActionButtons(context, tracks)),
 
               // 歌曲列表
               if (tracks.isEmpty)
-                SliverFillRemaining(
-                  child: _buildEmptyState(context),
-                )
+                SliverFillRemaining(child: _buildEmptyState(context))
               else
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final group = groupedTracks[index];
-                      return _buildGroupItem(context, group);
-                    },
-                    childCount: groupedTracks.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final group = groupedTracks[index];
+                    return _buildGroupItem(context, group);
+                  }, childCount: groupedTracks.length),
                 ),
             ],
           );
@@ -191,11 +191,12 @@ class _DownloadedCategoryPageState
         const SizedBox(height: 8),
         Text(
           t.library.downloadedCategory.trackCountDuration(
-              count: tracks.length,
-              duration: DurationFormatter.formatLong(totalDuration)),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white60,
-              ),
+            count: tracks.length,
+            duration: DurationFormatter.formatLong(totalDuration),
+          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.white60),
         ),
       ],
       badge: CollapsingHeroBadge(
@@ -206,6 +207,7 @@ class _DownloadedCategoryPageState
       ),
       leadingBuilder: (context, iconColor) => IconButton(
         icon: Icon(Icons.arrow_back, color: iconColor),
+        tooltip: t.general.back,
         onPressed: () => Navigator.of(context).pop(),
       ),
       actionsBuilder: (context, iconColor) => [
@@ -225,10 +227,7 @@ class _DownloadedCategoryPageState
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primaryContainer,
-            colorScheme.tertiaryContainer,
-          ],
+          colors: [colorScheme.primaryContainer, colorScheme.tertiaryContainer],
         ),
       ),
     );
@@ -237,11 +236,7 @@ class _DownloadedCategoryPageState
   Widget _buildCover(ColorScheme colorScheme) {
     final placeholder = Container(
       color: colorScheme.primaryContainer,
-      child: Icon(
-        Icons.folder,
-        size: 48,
-        color: colorScheme.primary,
-      ),
+      child: Icon(Icons.folder, size: 48, color: colorScheme.primary),
     );
 
     if (widget.category.coverPath != null) {
@@ -300,7 +295,9 @@ class _DownloadedCategoryPageState
     final shuffled = List<Track>.from(tracks)..shuffle();
     controller.addAllToQueue(shuffled);
     ToastService.success(
-        context, t.library.shuffledAddedToQueue(n: tracks.length));
+      context,
+      t.library.shuffledAddedToQueue(n: tracks.length),
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -343,14 +340,16 @@ class _DownloadedCategoryPageState
         ),
         // 展开的分P列表
         if (isExpanded)
-          ...group.tracks.map((track) => _DownloadedTrackTile(
-                key: ValueKey('downloaded-track-${_downloadedTrackKey(track)}'),
-                track: track,
-                onTap: () => _playTrack(track),
-                isPartOfMultiPage: true,
-                indent: true,
-                folderPath: widget.category.folderPath,
-              )),
+          ...group.tracks.map(
+            (track) => _DownloadedTrackTile(
+              key: ValueKey('downloaded-track-${_downloadedTrackKey(track)}'),
+              track: track,
+              onTap: () => _playTrack(track),
+              isPartOfMultiPage: true,
+              indent: true,
+              folderPath: widget.category.folderPath,
+            ),
+          ),
       ],
     );
   }
@@ -369,8 +368,10 @@ class _DownloadedCategoryPageState
     final controller = ref.read(audioControllerProvider.notifier);
     final added = await controller.addAllToQueue(tracks);
     if (added && context.mounted) {
-      ToastService.success(context,
-          t.library.downloadedCategory.addedPartsToQueue(n: tracks.length));
+      ToastService.success(
+        context,
+        t.library.downloadedCategory.addedPartsToQueue(n: tracks.length),
+      );
     }
   }
 
@@ -405,10 +406,13 @@ class _GroupHeader extends ConsumerWidget {
     final currentTrack = ref.watch(currentTrackProvider);
     // 检查当前播放的是否是这个组的某个分P
     // 使用 sourceId + pageNum 比较，因为文件扫描的 Track 没有数据库 ID
-    final isPlayingThisGroup = currentTrack != null &&
-        group.tracks.any((t) =>
-            t.sourceId == currentTrack.sourceId &&
-            t.pageNum == currentTrack.pageNum);
+    final isPlayingThisGroup =
+        currentTrack != null &&
+        group.tracks.any(
+          (t) =>
+              t.sourceId == currentTrack.sourceId &&
+              t.pageNum == currentTrack.pageNum,
+        );
 
     return ContextMenuRegion(
       menuBuilder: (_) => _buildMenuItems(colorScheme),
@@ -445,8 +449,8 @@ class _GroupHeader extends ConsumerWidget {
               child: Text(
                 '${group.tracks.length}P',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                    ),
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
           ],
@@ -456,9 +460,8 @@ class _GroupHeader extends ConsumerWidget {
           children: [
             // 展开/折叠按钮
             IconButton(
-              icon: Icon(
-                isExpanded ? Icons.expand_less : Icons.expand_more,
-              ),
+              icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+              tooltip: isExpanded ? t.general.collapse : t.general.expand,
               onPressed: onToggle,
             ),
             // 菜单
@@ -474,32 +477,35 @@ class _GroupHeader extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) => [
-        PopupMenuItem(
-          value: 'play_first',
-          child: ListTile(
-            leading: const Icon(Icons.play_arrow),
-            title: Text(t.library.downloadedCategory.playFirstPart),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'add_all_to_queue',
-          child: ListTile(
-            leading: const Icon(Icons.add_to_queue),
-            title: Text(t.library.downloadedCategory.addAllToQueue),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        buildDestructivePopupMenuItem(
-          value: 'delete_all',
-          icon: Icons.delete_outline,
-          label: t.library.downloadedCategory.deleteAllDownloads,
-          color: colorScheme.error,
-        ),
-      ];
+    PopupMenuItem(
+      value: 'play_first',
+      child: ListTile(
+        leading: const Icon(Icons.play_arrow),
+        title: Text(t.library.downloadedCategory.playFirstPart),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'add_all_to_queue',
+      child: ListTile(
+        leading: const Icon(Icons.add_to_queue),
+        title: Text(t.library.downloadedCategory.addAllToQueue),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    buildDestructivePopupMenuItem(
+      value: 'delete_all',
+      icon: Icons.delete_outline,
+      label: t.library.downloadedCategory.deleteAllDownloads,
+      color: colorScheme.error,
+    ),
+  ];
 
   void _handleMenuAction(
-      BuildContext context, WidgetRef ref, String action) async {
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+  ) async {
     switch (action) {
       case 'play_first':
         onPlayFirst();
@@ -512,17 +518,18 @@ class _GroupHeader extends ConsumerWidget {
         final confirmed = await showConfirmDestructiveDialog(
           context,
           title: t.library.deleteDownload,
-          content: t.library.downloadedCategory
-              .confirmDeleteParts(n: group.tracks.length),
+          content: t.library.downloadedCategory.confirmDeleteParts(
+            n: group.tracks.length,
+          ),
           confirmLabel: t.general.delete,
         );
         if (confirmed == true && context.mounted) {
           await _deleteAllDownloads(ref);
           if (context.mounted) {
             ToastService.success(
-                context,
-                t.library.downloadedCategory
-                    .deletedParts(n: group.tracks.length));
+              context,
+              t.library.downloadedCategory.deletedParts(n: group.tracks.length),
+            );
           }
         }
         break;
@@ -531,13 +538,16 @@ class _GroupHeader extends ConsumerWidget {
 
   Future<void> _deleteAllDownloads(WidgetRef ref) async {
     final maintenanceService = ref.read(downloadPathMaintenanceServiceProvider);
-    final result =
-        await maintenanceService.deleteDownloadedTracks(group.tracks);
-
-    ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
-      categoryPaths: [folderPath],
-      affectedPlaylistIds: result.affectedPlaylistIds,
+    final result = await maintenanceService.deleteDownloadedTracks(
+      group.tracks,
     );
+
+    ref
+        .read(libraryInvalidationCoordinatorProvider)
+        .downloadStateChanged(
+          categoryPaths: [folderPath],
+          affectedPlaylistIds: result.affectedPlaylistIds,
+        );
   }
 }
 
@@ -563,7 +573,8 @@ class _DownloadedTrackTile extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     // 使用 sourceId + pageNum 比较，因为文件扫描的 Track 没有数据库 ID
-    final isPlaying = currentTrack != null &&
+    final isPlaying =
+        currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
@@ -576,30 +587,22 @@ class _DownloadedTrackTile extends ConsumerWidget {
           leading: isPartOfMultiPage
               // 分P使用与搜索页面相同的样式
               ? (isPlaying
-                  ? NowPlayingIndicator(
-                      size: 24,
-                      color: colorScheme.primary,
-                    )
-                  : Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: AppRadius.borderRadiusSm,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'P${track.pageNum ?? 1}',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.outline,
-                            ),
-                      ),
-                    ))
-              : TrackThumbnail(
-                  track: track,
-                  size: 48,
-                  isPlaying: isPlaying,
-                ),
+                    ? NowPlayingIndicator(size: 24, color: colorScheme.primary)
+                    : Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: AppRadius.borderRadiusSm,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'P${track.pageNum ?? 1}',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colorScheme.outline),
+                        ),
+                      ))
+              : TrackThumbnail(track: track, size: 48, isPlaying: isPlaying),
           title: Text(
             track.title,
             maxLines: 1,
@@ -624,9 +627,9 @@ class _DownloadedTrackTile extends ConsumerWidget {
                   width: 48, // 与 IconButton 宽度对齐
                   child: Text(
                     DurationFormatter.formatMs(track.durationMs!),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -665,7 +668,10 @@ class _DownloadedTrackTile extends ConsumerWidget {
   }
 
   void _handleMenuAction(
-      BuildContext context, WidgetRef ref, String action) async {
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+  ) async {
     if (action == 'delete') {
       final confirmed = await showConfirmDestructiveDialog(
         context,
@@ -700,16 +706,18 @@ class _DownloadedTrackTile extends ConsumerWidget {
         .read(fileExistsCacheProvider.notifier)
         .removeAll(track.allDownloadPaths);
 
-    ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
-      categoryPaths: [folderPath],
-      affectedPlaylistIds: result.affectedPlaylistIds,
-    );
+    ref
+        .read(libraryInvalidationCoordinatorProvider)
+        .downloadStateChanged(
+          categoryPaths: [folderPath],
+          affectedPlaylistIds: result.affectedPlaylistIds,
+        );
   }
 }
 
 String _downloadedTrackKey(Track track) {
   return [
-    track.sourceType.name,
+    track.sourceType,
     track.sourceId,
     track.cid?.toString() ?? '',
     track.pageNum?.toString() ?? '',

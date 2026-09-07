@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,16 +9,15 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import '../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('playlist provider phase 2 invalidation rules', () {
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     test(
@@ -32,8 +29,9 @@ void main() {
         expect(await harness.readAllPlaylists(), isEmpty);
 
         final notifier = harness.container.read(playlistListProvider.notifier);
-        final createdPlaylist =
-            await notifier.createPlaylist(name: 'Phase 2 Playlist');
+        final createdPlaylist = await notifier.createPlaylist(
+          name: 'Phase 2 Playlist',
+        );
         expect(createdPlaylist, isNotNull);
         final playlist = createdPlaylist!;
 
@@ -50,10 +48,9 @@ void main() {
 
         await harness.container
             .read(playlistServiceProvider)
-            .addTracksToPlaylist(
-          playlist.id,
-          [_buildTrack(sourceId: 'watch-track', title: 'Watch Track')],
-        );
+            .addTracksToPlaylist(playlist.id, [
+              _buildTrack(sourceId: 'watch-track', title: 'Watch Track'),
+            ]);
 
         await harness.pumpUntil(
           () =>
@@ -103,8 +100,9 @@ void main() {
 
         await harness.pumpUntil(
           () {
-            final detail =
-                harness.container.read(playlistDetailProvider(playlist.id));
+            final detail = harness.container.read(
+              playlistDetailProvider(playlist.id),
+            );
             return !detail.isLoading && detail.tracks.length == 1;
           },
           reason: 'playlistDetailProvider should load the canonical track row',
@@ -114,12 +112,15 @@ void main() {
             .read(playlistDetailProvider(playlist.id).notifier)
             .addTrack(
               _buildTrack(
-                  sourceId: 'duplicate-track', title: 'Duplicate Track'),
+                sourceId: 'duplicate-track',
+                title: 'Duplicate Track',
+              ),
             );
 
         expect(success, isTrue);
-        final detail =
-            harness.container.read(playlistDetailProvider(playlist.id));
+        final detail = harness.container.read(
+          playlistDetailProvider(playlist.id),
+        );
         expect(
           detail.tracks.map((track) => track.sourceId),
           ['duplicate-track'],
@@ -142,15 +143,13 @@ void main() {
       expect(createdPlaylist, isNotNull);
       final playlist = createdPlaylist!;
 
-      await harness.pumpUntil(
-        () {
-          final detail =
-              harness.container.read(playlistDetailProvider(playlist.id));
-          return !detail.isLoading &&
-              detail.playlist?.name == 'Original Playlist';
-        },
-        reason: 'playlistDetailProvider should finish its initial load',
-      );
+      await harness.pumpUntil(() {
+        final detail = harness.container.read(
+          playlistDetailProvider(playlist.id),
+        );
+        return !detail.isLoading &&
+            detail.playlist?.name == 'Original Playlist';
+      }, reason: 'playlistDetailProvider should finish its initial load');
 
       final result = await notifier.updatePlaylist(
         playlistId: playlist.id,
@@ -158,16 +157,14 @@ void main() {
       );
       expect(result, isNotNull);
 
-      await harness.pumpUntil(
-        () {
-          final detail =
-              harness.container.read(playlistDetailProvider(playlist.id));
-          return !detail.isLoading &&
-              detail.playlist?.name == 'Original Playlist' &&
-              detail.playlist?.description == 'Updated description';
-        },
-        reason: 'playlistDetailProvider should reload after metadata update',
-      );
+      await harness.pumpUntil(() {
+        final detail = harness.container.read(
+          playlistDetailProvider(playlist.id),
+        );
+        return !detail.isLoading &&
+            detail.playlist?.name == 'Original Playlist' &&
+            detail.playlist?.description == 'Updated description';
+      }, reason: 'playlistDetailProvider should reload after metadata update');
     });
 
     test('add-to-playlist removal path does not create tracks', () {
@@ -243,9 +240,7 @@ Future<PlaylistPhase2Harness> createPlaylistPhase2Harness() async {
   );
 
   final container = ProviderContainer(
-    overrides: [
-      databaseProvider.overrideWith((ref) => isar),
-    ],
+    overrides: [databaseProvider.overrideWith((ref) => isar)],
   );
 
   return PlaylistPhase2Harness(
@@ -258,34 +253,9 @@ Future<PlaylistPhase2Harness> createPlaylistPhase2Harness() async {
 Track _buildTrack({required String sourceId, required String title}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..artist = 'Phase 2 Artist'
     ..durationMs = 180000
     ..thumbnailUrl = 'https://example.com/$sourceId.jpg';
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile = File(
-    '${Directory.current.path}/.dart_tool/package_config.json',
-  );
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }

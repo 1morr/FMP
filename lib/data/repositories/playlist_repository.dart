@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../models/playlist.dart';
 
 /// Playlist 数据仓库
@@ -8,6 +8,18 @@ class PlaylistRepository {
   PlaylistRepository(this._isar);
 
   /// 获取所有歌单（按 sortOrder 排序）
+  /// 歌單總數（偵錯檢視器用）。
+  Future<int> count() => _isar.playlists.count();
+
+  /// 以 [prefix] 開頭的所有歌單名稱（產生不重複名稱時用）。
+  Future<List<String>> namesStartingWith(String prefix) {
+    return _isar.playlists
+        .filter()
+        .nameStartsWith(prefix)
+        .nameProperty()
+        .findAll();
+  }
+
   Future<List<Playlist>> getAll() async {
     return _isar.playlists.where().sortBySortOrder().findAll();
   }
@@ -86,9 +98,8 @@ class PlaylistRepository {
 
   /// 監聽歌單列表變化
   Stream<List<Playlist>> watchAll() {
-    return _isar.playlists
-        .where()
-        .sortBySortOrder()
-        .watch(fireImmediately: true);
+    return _isar.playlists.where().sortBySortOrder().watch(
+      fireImmediately: true,
+    );
   }
 }

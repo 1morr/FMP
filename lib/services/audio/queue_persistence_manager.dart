@@ -45,9 +45,9 @@ class QueuePersistenceManager {
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
-  })  : _queueRepository = queueRepository,
-        _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository;
+  }) : _queueRepository = queueRepository,
+       _trackRepository = trackRepository,
+       _settingsRepository = settingsRepository;
 
   final QueueRepository _queueRepository;
   final TrackRepository _trackRepository;

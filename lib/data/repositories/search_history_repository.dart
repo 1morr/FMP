@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../models/search_history.dart';

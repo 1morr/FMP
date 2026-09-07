@@ -9,17 +9,15 @@ List<AudioQualityLevel> audioQualityFallbackLevels(
 }) {
   final levels = switch (qualityLevel) {
     AudioQualityLevel.high => const [
-        AudioQualityLevel.high,
-        AudioQualityLevel.medium,
-        AudioQualityLevel.low,
-      ],
+      AudioQualityLevel.high,
+      AudioQualityLevel.medium,
+      AudioQualityLevel.low,
+    ],
     AudioQualityLevel.medium => const [
-        AudioQualityLevel.medium,
-        AudioQualityLevel.low,
-      ],
-    AudioQualityLevel.low => const [
-        AudioQualityLevel.low,
-      ],
+      AudioQualityLevel.medium,
+      AudioQualityLevel.low,
+    ],
+    AudioQualityLevel.low => const [AudioQualityLevel.low],
   };
 
   return includeCurrent ? levels : levels.skip(1).toList(growable: false);
@@ -37,9 +35,7 @@ Future<AudioStreamResult> fetchAudioStreamWithQualityFallback({
     final level = levels[i];
     try {
       return await source.getAudioStream(
-        request.copyWith(
-          config: request.config.copyWith(qualityLevel: level),
-        ),
+        request.copyWith(config: request.config.copyWith(qualityLevel: level)),
       );
     } on SourceApiException catch (error, stackTrace) {
       lastQualityError = error;
@@ -65,8 +61,9 @@ Future<AudioStreamResult?> fetchAlternativeAudioStreamWithQualityFallback({
     final fallbackRequest = request.copyWith(
       config: request.config.copyWith(qualityLevel: level),
     );
-    final sourceAlternative =
-        await source.getAlternativeAudioStream(fallbackRequest);
+    final sourceAlternative = await source.getAlternativeAudioStream(
+      fallbackRequest,
+    );
     if (sourceAlternative != null) return sourceAlternative;
 
     try {

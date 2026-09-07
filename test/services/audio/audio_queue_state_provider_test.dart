@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,26 +16,28 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/services/audio/queue_state.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
+import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('queueStateProvider', () {
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     late _AudioControllerHarness harness;
@@ -50,86 +50,122 @@ void main() {
       await harness.dispose();
     });
 
-    test(
-        'queueProvider follows queueStateProvider instead of PlayerState queue',
-        () async {
+    test('queueProvider reads the queue projection', () async {
       final firstQueue = [_track('one')];
-      final secondQueue = [_track('two')];
 
-      harness.container.read(queueStateProvider.notifier).state =
-          QueueState(queue: firstQueue, queueVersion: 1);
+      harness.container
+          .read(queueStateProvider.notifier)
+          .publish(QueueState(queue: firstQueue, queueVersion: 1));
       expect(harness.container.read(queueProvider), firstQueue);
 
-      harness.container.read(audioControllerProvider.notifier).state =
-          harness.container.read(audioControllerProvider).copyWith(
-                queue: secondQueue,
-                position: const Duration(seconds: 30),
-              );
+      // 位置每秒更新一次，佇列不該跟著動。
+      harness.container.read(audioControllerProvider.notifier).state = harness
+          .container
+          .read(audioControllerProvider)
+          .copyWith(position: const Duration(seconds: 30));
 
       expect(harness.container.read(queueProvider), firstQueue);
     });
 
-    test('controller queue updates publish through queueStateProvider wiring',
-        () async {
-      await harness.container.read(audioControllerProvider.notifier).addToQueue(
-            _track('wired'),
-          );
+    test('PlayerState declares none of the queue fields', () {
+      // 這兩個型別曾經各存一份同樣的 12 個欄位，靠 controller 每次逐欄位抄過去
+      // 維持一致。抄漏一個就是一個看不見的 bug，而消費端會因為問了不同的
+      // provider 拿到不同的答案。長回來的話這條會先掛。
+      final source = File(
+        'lib/services/audio/player_state.dart',
+      ).readAsStringSync();
 
-      final queueState = harness.container.read(queueStateProvider);
-      expect(
-          harness.container.read(queueProvider).map((track) => track.sourceId),
-          ['wired']);
-      expect(queueState.queue.map((track) => track.sourceId), ['wired']);
-      expect(queueState.queueVersion, greaterThan(0));
-    });
-
-    test('mix load-more flag stays synchronized in queueStateProvider',
-        () async {
-      final loadMoreGate = harness.mixTracksFetcher.enqueuePendingResult(
-        MixFetchResult(
-          title: 'My Mix',
-          tracks: List.generate(
-            AppConstants.mixMinNewTracksRequired,
-            (index) => _track('mix-new-$index'),
+      for (final field in const [
+        'queue',
+        'upcomingTracks',
+        'currentIndex',
+        'queueTrack',
+        'canPlayPrevious',
+        'canPlayNext',
+        'isShuffleEnabled',
+        'loopMode',
+        'queueVersion',
+        'isMixMode',
+        'mixTitle',
+        'isLoadingMoreMix',
+      ]) {
+        expect(
+          source.contains(
+            RegExp('^' + r'\s+final .* ' + field + ';', multiLine: true),
           ),
-        ),
-      );
-
-      await harness.container
-          .read(audioControllerProvider.notifier)
-          .playMixPlaylist(
-            playlistId: 'RDqueue-state-mix',
-            seedVideoId: 'seed',
-            title: 'My Mix',
-            tracks: [
-              _track('mix-a'),
-              _track('mix-b'),
-            ],
-            startIndex: 1,
-          );
-      await pumpEventQueue(times: 5);
-
-      expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
-      expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
-      expect(
-          harness.container.read(queueStateProvider).isLoadingMoreMix, isTrue);
-
-      loadMoreGate.complete();
-      await _waitUntil(
-        () => !harness.container.read(queueStateProvider).isLoadingMoreMix,
-      );
-
-      expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
-      expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
-      expect(
-          harness.container.read(queueStateProvider).isLoadingMoreMix, isFalse);
+          isFalse,
+          reason: 'PlayerState.$field belongs to QueueState',
+        );
+      }
     });
+
+    test(
+      'controller queue updates publish through queueStateProvider wiring',
+      () async {
+        await harness.container
+            .read(audioControllerProvider.notifier)
+            .addToQueue(_track('wired'));
+
+        final queueState = harness.container.read(queueStateProvider);
+        expect(
+          harness.container.read(queueProvider).map((track) => track.sourceId),
+          ['wired'],
+        );
+        expect(queueState.queue.map((track) => track.sourceId), ['wired']);
+        expect(queueState.queueVersion, greaterThan(0));
+      },
+    );
+
+    test(
+      'mix load-more flag stays synchronized in queueStateProvider',
+      () async {
+        final loadMoreGate = harness.mixTracksFetcher.enqueuePendingResult(
+          MixFetchResult(
+            title: 'My Mix',
+            tracks: List.generate(
+              AppConstants.mixMinNewTracksRequired,
+              (index) => _track('mix-new-$index'),
+            ),
+          ),
+        );
+
+        await harness.container
+            .read(audioControllerProvider.notifier)
+            .playMixPlaylist(
+              playlistId: 'RDqueue-state-mix',
+              seedVideoId: 'seed',
+              title: 'My Mix',
+              tracks: [_track('mix-a'), _track('mix-b')],
+              startIndex: 1,
+            );
+        await pumpEventQueue(times: 5);
+
+        expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
+        expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
+        expect(
+          harness.container.read(queueStateProvider).isLoadingMoreMix,
+          isTrue,
+        );
+
+        loadMoreGate.complete();
+        await _waitUntil(
+          () => !harness.container.read(queueStateProvider).isLoadingMoreMix,
+        );
+
+        expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
+        expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
+        expect(
+          harness.container.read(queueStateProvider).isLoadingMoreMix,
+          isFalse,
+        );
+      },
+    );
   });
 }
 
 Track _track(String sourceId) => Track()
   ..sourceId = sourceId
-  ..sourceType = SourceType.youtube
+  ..sourceType = SourceIds.youtube
   ..title = sourceId;
 
 Future<void> _waitUntil(
@@ -163,8 +199,9 @@ class _AudioControllerHarness {
   final DefaultStreamResolutionService streamResolutionService;
 
   static Future<_AudioControllerHarness> create() async {
-    final tempDir =
-        await Directory.systemTemp.createTemp('audio_queue_state_provider_');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'audio_queue_state_provider_',
+    );
     final isar = await Isar.open(
       [TrackSchema, PlayQueueSchema, SettingsSchema],
       directory: tempDir.path,
@@ -195,24 +232,19 @@ class _AudioControllerHarness {
       sourceAuthContext: _FakeSourceAuthContext(),
     );
     final mixTracksFetcher = _TestMixTracksFetcher();
-    final controller = AudioController(
+    final built = buildTestAudioControllerIn(
       audioService: FakeAudioService(),
       queueManager: queueManager,
       audioStreamManager: audioStreamManager,
       toastService: ToastService(),
-      audioHandler: FmpAudioHandler(),
-      windowsSmtcHandler: WindowsSmtcHandler(),
+      nowPlayingPublisher: testNowPlayingPublisher(),
       settingsRepository: settingsRepository,
       mixTracksFetcher: mixTracksFetcher.call,
     );
-    final container = ProviderContainer(
-      overrides: [
-        audioControllerProvider.overrideWith((ref) => controller),
-      ],
-    );
-    controller.onQueueStateChanged = (queueState) {
-      container.read(queueStateProvider.notifier).state = queueState;
-    };
+    // 控制器與 `queueStateProvider` 現在住在同一個 container，投影的接線由
+    // `AudioController.build()` 自己完成，測試不必再手動接一次。
+    final controller = built.controller;
+    final container = built.container;
     await controller.initialize();
 
     return _AudioControllerHarness(
@@ -227,7 +259,6 @@ class _AudioControllerHarness {
 
   Future<void> dispose() async {
     container.dispose();
-    controller.dispose();
     streamResolutionService.dispose();
     await isar.close(deleteFromDisk: true);
     if (await tempDir.exists()) {
@@ -268,7 +299,7 @@ class _PendingMixFetch {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -277,10 +308,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
   ) async {
     return PlaybackNetworkRequest(
       url: url,
-      headers: SourceHttpPolicy.mediaHeaders(
-        track.sourceType,
-        requestUrl: url,
-      ),
+      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
     );
   }
 
@@ -294,7 +322,7 @@ class _FakeSourceManager extends SourceManager {
   final _source = _FakeSource();
 
   @override
-  AudioStreamSource? audioStreamSource(SourceType type) => _source;
+  AudioStreamSource? audioStreamSource(String type) => _source;
 
   @override
   void dispose() {}
@@ -302,7 +330,7 @@ class _FakeSourceManager extends SourceManager {
 
 class _FakeSource implements AudioStreamSource {
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -325,28 +353,4 @@ class _FakeSource implements AudioStreamSource {
       streamType: StreamType.muxed,
     );
   }
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic>) continue;
-    if (package['name'] != 'isar_flutter_libs') continue;
-
-    final rootUri = package['rootUri'] as String;
-    final packageDir =
-        Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
-
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }

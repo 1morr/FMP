@@ -13,7 +13,8 @@ import '../../../data/models/video_detail.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../providers/account/account_provider.dart';
 import '../../../providers/search/search_provider.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
@@ -82,10 +83,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     // 獲取所有搜索結果用於全選
     final allTracks = isSelectionMode
-        ? [
-            ...searchState.localResults,
-            ...searchState.mixedOnlineTracks,
-          ]
+        ? [...searchState.localResults, ...searchState.mixedOnlineTracks]
         : const <Track>[];
 
     // 多選模式下的可用操作（搜索頁不支持下載和刪除）
@@ -118,6 +116,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   if (_searchController.text.isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.close),
+                      tooltip: t.general.clear,
                       onPressed: () {
                         _searchController.clear();
                         ref.read(searchProvider.notifier).clear();
@@ -184,10 +183,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         children: [
                           ChoiceChip(
                             label: Text(t.searchPage.source.all),
-                            selected: state.selectedSource == null &&
+                            selected:
+                                state.selectedSource == null &&
                                 !state.isLiveSearchMode,
                             onSelected: (_) {
-                              ref.read(searchProvider.notifier).setFilters(
+                              ref
+                                  .read(searchProvider.notifier)
+                                  .setFilters(
                                     clearSource: true,
                                     clearLiveRoomFilter: true,
                                   );
@@ -197,11 +199,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           ChoiceChip(
                             label: Text(t.importPlatform.bilibili),
                             selected:
-                                state.selectedSource == SourceType.bilibili &&
-                                    !state.isLiveSearchMode,
+                                state.selectedSource == SourceIds.bilibili &&
+                                !state.isLiveSearchMode,
                             onSelected: (_) {
-                              ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                              ref
+                                  .read(searchProvider.notifier)
+                                  .setFilters(
+                                    sourceType: SourceIds.bilibili,
                                     clearLiveRoomFilter: true,
                                   );
                             },
@@ -209,11 +213,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           const SizedBox(width: 8),
                           ChoiceChip(
                             label: const Text('YouTube'),
-                            selected:
-                                state.selectedSource == SourceType.youtube,
+                            selected: state.selectedSource == SourceIds.youtube,
                             onSelected: (_) {
-                              ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.youtube,
+                              ref
+                                  .read(searchProvider.notifier)
+                                  .setFilters(
+                                    sourceType: SourceIds.youtube,
                                     clearLiveRoomFilter: true,
                                   );
                             },
@@ -221,11 +226,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           const SizedBox(width: 8),
                           ChoiceChip(
                             label: Text(t.importPlatform.netease),
-                            selected:
-                                state.selectedSource == SourceType.netease,
+                            selected: state.selectedSource == SourceIds.netease,
                             onSelected: (_) {
-                              ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.netease,
+                              ref
+                                  .read(searchProvider.notifier)
+                                  .setFilters(
+                                    sourceType: SourceIds.netease,
                                     clearLiveRoomFilter: true,
                                   );
                             },
@@ -235,10 +241,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           Container(
                             width: 1,
                             height: 24,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outline
-                                .withValues(alpha: 0.3),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.outline.withValues(alpha: 0.3),
                           ),
                           const SizedBox(width: 16),
                           // 直播间筛选
@@ -247,8 +252,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             selected:
                                 state.liveRoomFilter == LiveRoomFilter.all,
                             onSelected: (_) {
-                              ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                              ref
+                                  .read(searchProvider.notifier)
+                                  .setFilters(
+                                    sourceType: SourceIds.bilibili,
                                     liveRoomFilter: LiveRoomFilter.all,
                                   );
                             },
@@ -259,8 +266,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             selected:
                                 state.liveRoomFilter == LiveRoomFilter.online,
                             onSelected: (_) {
-                              ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                              ref
+                                  .read(searchProvider.notifier)
+                                  .setFilters(
+                                    sourceType: SourceIds.bilibili,
                                     liveRoomFilter: LiveRoomFilter.online,
                                   );
                             },
@@ -271,8 +280,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             selected:
                                 state.liveRoomFilter == LiveRoomFilter.offline,
                             onSelected: (_) {
-                              ref.read(searchProvider.notifier).setFilters(
-                                    sourceType: SourceType.bilibili,
+                              ref
+                                  .read(searchProvider.notifier)
+                                  .setFilters(
+                                    sourceType: SourceIds.bilibili,
                                     liveRoomFilter: LiveRoomFilter.offline,
                                   );
                             },
@@ -317,8 +328,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           border: Border.all(
-              color:
-                  Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+          ),
           borderRadius: AppRadius.borderRadiusXl,
         ),
         child: Row(
@@ -398,6 +409,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 title: Text(item.query),
                 trailing: IconButton(
                   icon: const Icon(Icons.close, size: 20),
+                  tooltip: t.general.delete,
                   onPressed: () {
                     ref
                         .read(searchHistoryManagerProvider.notifier)
@@ -457,8 +469,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  t.searchPage.section
-                      .inPlaylist(count: state.localResults.length),
+                  t.searchPage.section.inPlaylist(
+                    count: state.localResults.length,
+                  ),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -473,27 +486,26 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   uniqueTracks.putIfAbsent(key, () => track);
                 }
                 // 然后按视频分组
-                final groupedLocalResults =
-                    groupTracks(uniqueTracks.values.toList());
+                final groupedLocalResults = groupTracks(
+                  uniqueTracks.values.toList(),
+                );
                 return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final group = groupedLocalResults[index];
-                      return _LocalGroupTile(
-                        key: ValueKey('local-group-${group.groupKey}'),
-                        group: group,
-                        isExpanded: _expandedVideos.contains(group.groupKey),
-                        onToggleExpand: () => _toggleExpanded(group.groupKey),
-                        onPlayTrack: (track) {
-                          final controller =
-                              ref.read(audioControllerProvider.notifier);
-                          controller.playTemporary(track);
-                        },
-                        onMenuAction: _handleMenuAction,
-                      );
-                    },
-                    childCount: groupedLocalResults.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final group = groupedLocalResults[index];
+                    return _LocalGroupTile(
+                      key: ValueKey('local-group-${group.groupKey}'),
+                      group: group,
+                      isExpanded: _expandedVideos.contains(group.groupKey),
+                      onToggleExpand: () => _toggleExpanded(group.groupKey),
+                      onPlayTrack: (track) {
+                        final controller = ref.read(
+                          audioControllerProvider.notifier,
+                        );
+                        controller.playTemporary(track);
+                      },
+                      onMenuAction: _handleMenuAction,
+                    );
+                  }, childCount: groupedLocalResults.length),
                 );
               },
             ),
@@ -505,8 +517,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  t.searchPage.section
-                      .onlineResults(count: mixedOnlineTracks.length),
+                  t.searchPage.section.onlineResults(
+                    count: mixedOnlineTracks.length,
+                  ),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -514,50 +527,47 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             Builder(
               builder: (context) {
                 return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final track = mixedOnlineTracks[index];
-                      return Consumer(
-                        builder: (context, ref, child) {
-                          final selection = ref.watch(
-                            searchSelectionProvider.select(
-                              (state) => (
-                                isSelectionMode: state.isSelectionMode,
-                                isSelected: state.isSelected(track),
-                              ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final track = mixedOnlineTracks[index];
+                    return Consumer(
+                      builder: (context, ref, child) {
+                        final selection = ref.watch(
+                          searchSelectionProvider.select(
+                            (state) => (
+                              isSelectionMode: state.isSelectionMode,
+                              isSelected: state.isSelected(track),
                             ),
-                          );
-                          final selectionNotifier =
-                              ref.read(searchSelectionProvider.notifier);
-                          return _SearchResultTile(
-                            key: ValueKey(
-                                '${track.groupKey}:${track.pageNum ?? 1}'),
-                            track: track,
-                            isLocal: false,
-                            isExpanded:
-                                _expandedVideos.contains(track.sourceId),
-                            isLoading: _loadingPages.contains(track.sourceId),
-                            pages: _loadedPages[track.sourceId],
-                            onTap: selection.isSelectionMode
-                                ? () => selectionNotifier.toggleSelection(track)
-                                : () => _playVideo(track),
-                            onLongPress: selection.isSelectionMode
-                                ? null
-                                : () =>
+                          ),
+                        );
+                        final selectionNotifier = ref.read(
+                          searchSelectionProvider.notifier,
+                        );
+                        return _SearchResultTile(
+                          key: ValueKey(
+                            '${track.groupKey}:${track.pageNum ?? 1}',
+                          ),
+                          track: track,
+                          isLocal: false,
+                          isExpanded: _expandedVideos.contains(track.sourceId),
+                          isLoading: _loadingPages.contains(track.sourceId),
+                          pages: _loadedPages[track.sourceId],
+                          onTap: selection.isSelectionMode
+                              ? () => selectionNotifier.toggleSelection(track)
+                              : () => _playVideo(track),
+                          onLongPress: selection.isSelectionMode
+                              ? null
+                              : () =>
                                     selectionNotifier.enterSelectionMode(track),
-                            onToggleExpand: () =>
-                                _toggleExpanded(track.sourceId),
-                            onMenuAction: _handleMenuAction,
-                            onPageMenuAction: (page, action) =>
-                                _handlePageMenuAction(track, page, action),
-                            isSelectionMode: selection.isSelectionMode,
-                            isSelected: selection.isSelected,
-                          );
-                        },
-                      );
-                    },
-                    childCount: mixedOnlineTracks.length,
-                  ),
+                          onToggleExpand: () => _toggleExpanded(track.sourceId),
+                          onMenuAction: _handleMenuAction,
+                          onPageMenuAction: (page, action) =>
+                              _handlePageMenuAction(track, page, action),
+                          isSelectionMode: selection.isSelectionMode,
+                          isSelected: selection.isSelected,
+                        );
+                      },
+                    );
+                  }, childCount: mixedOnlineTracks.length),
                 );
               },
             ),
@@ -581,8 +591,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   child: Text(
                     t.searchPage.allLoaded,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                   ),
                 ),
               ),
@@ -655,7 +665,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 t.searchPage.liveRoom.title(
-                    count: state.liveRoomResults?.totalCount ?? rooms.length),
+                  count: state.liveRoomResults?.totalCount ?? rooms.length,
+                ),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
@@ -663,18 +674,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
           // 直播间列表
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final room = rooms[index];
-                return _LiveRoomTile(
-                  key: ValueKey('live-room-${room.roomId}'),
-                  room: room,
-                  onTap: () => _openLiveRoom(room),
-                  onMenuAction: _onLiveRoomMenuAction,
-                );
-              },
-              childCount: rooms.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final room = rooms[index];
+              return _LiveRoomTile(
+                key: ValueKey('live-room-${room.roomId}'),
+                room: room,
+                onTap: () => _openLiveRoom(room),
+                onMenuAction: _onLiveRoomMenuAction,
+              );
+            }, childCount: rooms.length),
           ),
 
           // 加载更多指示器
@@ -695,8 +703,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   child: Text(
                     t.searchPage.allLoaded,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                   ),
                 ),
               ),
@@ -739,7 +747,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ToastService.success(context, t.searchPage.toast.addedToRadio);
       }
     } catch (e) {
-      if (mounted) ToastService.error(context, e.toString());
+      if (mounted) ToastService.failure(context, e, tag: 'Search');
     }
   }
 
@@ -769,8 +777,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     });
 
     try {
-      final pages =
-          await ref.read(searchProvider.notifier).loadVideoPagesForTrack(track);
+      final pages = await ref
+          .read(searchProvider.notifier)
+          .loadVideoPagesForTrack(track);
 
       if (mounted) {
         setState(() {
@@ -786,7 +795,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         setState(() {
           _loadingPages.remove(key);
         });
-        ToastService.error(context, e.toString());
+        ToastService.failure(context, e, tag: 'Search');
       }
     }
   }
@@ -871,7 +880,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _handlePageMenuAction(
-      Track parentTrack, VideoPage page, String action) async {
+    Track parentTrack,
+    VideoPage page,
+    String action,
+  ) async {
     final pageTrack = page.toTrack(parentTrack);
 
     if (!mounted) return;
@@ -983,17 +995,13 @@ class _SearchResultTile extends ConsumerWidget {
                 ),
                 if (track.viewCount != null) ...[
                   const SizedBox(width: 8),
-                  Icon(
-                    Icons.play_arrow,
-                    size: 14,
-                    color: colorScheme.outline,
-                  ),
+                  Icon(Icons.play_arrow, size: 14, color: colorScheme.outline),
                   const SizedBox(width: 2),
                   Text(
                     formatCount(track.viewCount!),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                   ),
                 ],
                 // 音源标识（播放数右边）
@@ -1002,8 +1010,10 @@ class _SearchResultTile extends ConsumerWidget {
                 if (hasMultiplePages) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.primaryContainer,
                       borderRadius: AppRadius.borderRadiusSm,
@@ -1011,8 +1021,8 @@ class _SearchResultTile extends ConsumerWidget {
                     child: Text(
                       '${pages!.length}P',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                          ),
+                        color: colorScheme.onPrimaryContainer,
+                      ),
                     ),
                   ),
                 ],
@@ -1027,8 +1037,8 @@ class _SearchResultTile extends ConsumerWidget {
                     child: Text(
                       DurationFormatter.formatMs(track.durationMs!),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
+                        color: colorScheme.outline,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -1046,13 +1056,11 @@ class _SearchResultTile extends ConsumerWidget {
                     icon: Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
                     ),
+                    tooltip: isExpanded ? t.general.collapse : t.general.expand,
                     onPressed: onToggleExpand,
                   ),
                 if (isSelectionMode)
-                  _SelectionCheckbox(
-                    isSelected: isSelected,
-                    onTap: onLongPress,
-                  )
+                  _SelectionCheckbox(isSelected: isSelected, onTap: onLongPress)
                 else
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
@@ -1067,15 +1075,17 @@ class _SearchResultTile extends ConsumerWidget {
 
         // 分P列表（展开时显示）
         if (isExpanded && pages != null && pages!.length > 1)
-          ...pages!.map((page) => _PageTile(
-                key: ValueKey(
-                  'page-${track.sourceType.name}:${track.sourceId}:${page.page}',
-                ),
-                page: page,
-                parentTrack: track,
-                onTap: () => onPageMenuAction(page, 'play'),
-                onMenuAction: (action) => onPageMenuAction(page, action),
-              )),
+          ...pages!.map(
+            (page) => _PageTile(
+              key: ValueKey(
+                'page-${track.sourceType}:${track.sourceId}:${page.page}',
+              ),
+              page: page,
+              parentTrack: track,
+              onTap: () => onPageMenuAction(page, 'play'),
+              onMenuAction: (action) => onPageMenuAction(page, action),
+            ),
+          ),
       ],
     );
   }
@@ -1107,7 +1117,8 @@ class _PageTile extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     // 检查是否正在播放这个分P
-    final isPlaying = currentTrack != null &&
+    final isPlaying =
+        currentTrack != null &&
         currentTrack.sourceId == parentTrack.sourceId &&
         currentTrack.pageNum == page.page;
 
@@ -1117,10 +1128,7 @@ class _PageTile extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.only(left: 56),
         child: ListTile(
-          leading: PartNumberBadge(
-            partNumber: page.page,
-            isPlaying: isPlaying,
-          ),
+          leading: PartNumberBadge(partNumber: page.page, isPlaying: isPlaying),
           title: Text(
             page.part,
             maxLines: 1,
@@ -1135,9 +1143,9 @@ class _PageTile extends ConsumerWidget {
             children: [
               Text(
                 page.formattedDuration,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20),
@@ -1185,8 +1193,9 @@ class _LocalGroupTile extends ConsumerWidget {
         .toList(growable: false);
     final selection = ref.watch(
       searchSelectionProvider.select((state) {
-        final selectedCount =
-            groupKeys.where(state.selectedKeys.contains).length;
+        final selectedCount = groupKeys
+            .where(state.selectedKeys.contains)
+            .length;
         return (
           isSelectionMode: state.isSelectionMode,
           selectedKeys: state.selectedKeys,
@@ -1202,10 +1211,13 @@ class _LocalGroupTile extends ConsumerWidget {
     final hasMultipleParts = group.hasMultipleParts;
 
     // 检查当前播放的是否是这个组的某个分P
-    final isPlayingThisGroup = currentTrack != null &&
-        group.tracks.any((t) =>
-            t.sourceId == currentTrack.sourceId &&
-            t.pageNum == currentTrack.pageNum);
+    final isPlayingThisGroup =
+        currentTrack != null &&
+        group.tracks.any(
+          (t) =>
+              t.sourceId == currentTrack.sourceId &&
+              t.pageNum == currentTrack.pageNum,
+        );
 
     return Column(
       children: [
@@ -1222,8 +1234,9 @@ class _LocalGroupTile extends ConsumerWidget {
             ),
             onLongPress: selection.isSelectionMode
                 ? null
-                : () => selectionNotifier
-                    .enterSelectionModeWithTracks(group.tracks),
+                : () => selectionNotifier.enterSelectionModeWithTracks(
+                    group.tracks,
+                  ),
             title: Text(
               group.parentTitle,
               maxLines: 1,
@@ -1235,11 +1248,7 @@ class _LocalGroupTile extends ConsumerWidget {
             ),
             subtitle: Row(
               children: [
-                Icon(
-                  Icons.check_circle,
-                  size: 14,
-                  color: colorScheme.primary,
-                ),
+                Icon(Icons.check_circle, size: 14, color: colorScheme.primary),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -1251,8 +1260,10 @@ class _LocalGroupTile extends ConsumerWidget {
                 if (hasMultipleParts) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.primaryContainer,
                       borderRadius: AppRadius.borderRadiusSm,
@@ -1260,8 +1271,8 @@ class _LocalGroupTile extends ConsumerWidget {
                     child: Text(
                       '${group.partCount}P',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                          ),
+                        color: colorScheme.onPrimaryContainer,
+                      ),
                     ),
                   ),
                 ],
@@ -1276,6 +1287,7 @@ class _LocalGroupTile extends ConsumerWidget {
                     icon: Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
                     ),
+                    tooltip: isExpanded ? t.general.collapse : t.general.expand,
                     onPressed: onToggleExpand,
                   ),
                 // 菜单
@@ -1303,18 +1315,21 @@ class _LocalGroupTile extends ConsumerWidget {
 
         // 展开的分P列表
         if (isExpanded && hasMultipleParts)
-          ...group.tracks.map((track) => _LocalTrackTile(
-                key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
-                track: track,
-                onTap: selection.isSelectionMode
-                    ? () => selectionNotifier.toggleSelection(track)
-                    : () => onPlayTrack(track),
-                onMenuAction: onMenuAction,
-                isSelectionMode: selection.isSelectionMode,
-                isSelected: selection.selectedKeys
-                    .contains(SelectionKey.fromTrack(track)),
-                onLongPress: () => selectionNotifier.toggleSelection(track),
-              )),
+          ...group.tracks.map(
+            (track) => _LocalTrackTile(
+              key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
+              track: track,
+              onTap: selection.isSelectionMode
+                  ? () => selectionNotifier.toggleSelection(track)
+                  : () => onPlayTrack(track),
+              onMenuAction: onMenuAction,
+              isSelectionMode: selection.isSelectionMode,
+              isSelected: selection.selectedKeys.contains(
+                SelectionKey.fromTrack(track),
+              ),
+              onLongPress: () => selectionNotifier.toggleSelection(track),
+            ),
+          ),
       ],
     );
   }
@@ -1323,15 +1338,16 @@ class _LocalGroupTile extends ConsumerWidget {
     return buildTrackActionPopupMenuEntries(
       buildCommonTrackActionMenuItems(
         translations: t,
-        options: const TrackActionMenuOptions(
-          includeMatchLyrics: false,
-        ),
+        options: const TrackActionMenuOptions(includeMatchLyrics: false),
       ),
     );
   }
 
   void _handleMenuAction(
-      BuildContext context, WidgetRef ref, String action) async {
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+  ) async {
     final controller = ref.read(audioControllerProvider.notifier);
 
     switch (action) {
@@ -1373,8 +1389,9 @@ class _LocalGroupTile extends ConsumerWidget {
         showAddToPlaylistDialog(context: context, tracks: group.tracks);
         break;
       case addToRemoteTrackActionId:
-        final isLoggedIn =
-            ref.read(isLoggedInProvider(group.firstTrack.sourceType));
+        final isLoggedIn = ref.read(
+          isLoggedInProvider(group.firstTrack.sourceType),
+        );
         if (!isLoggedIn) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
@@ -1383,7 +1400,9 @@ class _LocalGroupTile extends ConsumerWidget {
         }
         if (context.mounted) {
           showAddToRemotePlaylistDialog(
-              context: context, track: group.firstTrack);
+            context: context,
+            track: group.firstTrack,
+          );
         }
         break;
     }
@@ -1413,7 +1432,8 @@ class _LocalTrackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    final isPlaying = currentTrack != null &&
+    final isPlaying =
+        currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
@@ -1445,17 +1465,14 @@ class _LocalTrackTile extends ConsumerWidget {
                   width: 48, // 与 IconButton 宽度对齐
                   child: Text(
                     DurationFormatter.formatMs(track.durationMs!),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                     textAlign: TextAlign.center,
                   ),
                 ),
               if (isSelectionMode)
-                _SelectionCheckbox(
-                  isSelected: isSelected,
-                  onTap: onLongPress,
-                )
+                _SelectionCheckbox(isSelected: isSelected, onTap: onLongPress)
               else
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, size: 20),
@@ -1482,10 +1499,7 @@ class _SelectionCheckbox extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
-  const _SelectionCheckbox({
-    required this.isSelected,
-    this.onTap,
-  });
+  const _SelectionCheckbox({required this.isSelected, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1495,6 +1509,7 @@ class _SelectionCheckbox extends StatelessWidget {
         isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
         color: isSelected ? colorScheme.primary : colorScheme.outline,
       ),
+      tooltip: isSelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }
@@ -1531,6 +1546,7 @@ class _SelectionGroupCheckbox extends StatelessWidget {
 
     return IconButton(
       icon: Icon(icon, color: color),
+      tooltip: isFullySelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }
@@ -1569,11 +1585,14 @@ class _LiveRoomTile extends StatelessWidget {
                 ColorFiltered(
                   colorFilter: room.isLive
                       ? const ColorFilter.mode(
-                          Colors.transparent, BlendMode.multiply)
+                          Colors.transparent,
+                          BlendMode.multiply,
+                        )
                       : kGrayscaleColorFilter,
                   child: RadioCoverImage(
-                    networkUrl:
-                        room.cover?.isNotEmpty == true ? room.cover : room.face,
+                    networkUrl: room.cover?.isNotEmpty == true
+                        ? room.cover
+                        : room.face,
                     placeholder: ImagePlaceholder(
                       icon: Icons.live_tv,
                       size: 48,
@@ -1596,9 +1615,7 @@ class _LiveRoomTile extends StatelessWidget {
               : t.searchPage.liveRoom.userRoom(user: room.uname),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: room.isLive ? null : colorScheme.outline,
-          ),
+          style: TextStyle(color: room.isLive ? null : colorScheme.outline),
         ),
         subtitle: Row(
           children: [
@@ -1613,17 +1630,13 @@ class _LiveRoomTile extends StatelessWidget {
             // 在线人数
             if (room.isLive && (room.online ?? 0) > 0) ...[
               const SizedBox(width: 8),
-              Icon(
-                Icons.visibility,
-                size: 14,
-                color: colorScheme.outline,
-              ),
+              Icon(Icons.visibility, size: 14, color: colorScheme.outline),
               const SizedBox(width: 2),
               Text(
                 _formatOnlineCount(room.online!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
             ],
             // 分区标签
@@ -1640,10 +1653,10 @@ class _LiveRoomTile extends StatelessWidget {
                 child: Text(
                   room.areaName!,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: room.isLive
-                            ? colorScheme.onPrimaryContainer
-                            : colorScheme.outline,
-                      ),
+                    color: room.isLive
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.outline,
+                  ),
                 ),
               ),
             ],
@@ -1660,26 +1673,30 @@ class _LiveRoomTile extends StatelessWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) => [
-        PopupMenuItem(
-          value: 'play',
-          enabled: room.isLive,
-          child: ListTile(
-            leading: Icon(Icons.play_arrow,
-                color: room.isLive ? null : colorScheme.outline),
-            title: Text(t.general.play,
-                style:
-                    TextStyle(color: room.isLive ? null : colorScheme.outline)),
-            contentPadding: EdgeInsets.zero,
-          ),
+    PopupMenuItem(
+      value: 'play',
+      enabled: room.isLive,
+      child: ListTile(
+        leading: Icon(
+          Icons.play_arrow,
+          color: room.isLive ? null : colorScheme.outline,
         ),
-        PopupMenuItem(
-          value: 'add_to_radio',
-          child: ListTile(
-              leading: const Icon(Icons.radio),
-              title: Text(t.searchPage.menu.addToRadio),
-              contentPadding: EdgeInsets.zero),
+        title: Text(
+          t.general.play,
+          style: TextStyle(color: room.isLive ? null : colorScheme.outline),
         ),
-      ];
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'add_to_radio',
+      child: ListTile(
+        leading: const Icon(Icons.radio),
+        title: Text(t.searchPage.menu.addToRadio),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+  ];
 
   String _formatOnlineCount(int count) => formatCount(count);
 }

@@ -107,8 +107,11 @@ class LiveRoom {
   }
 
   /// 从直播间详情 API 创建
-  factory LiveRoom.fromRoomInfo(Map<String, dynamic> json,
-      {String? uname, String? face}) {
+  factory LiveRoom.fromRoomInfo(
+    Map<String, dynamic> json, {
+    String? uname,
+    String? face,
+  }) {
     final statusCode = json['live_status'] as int? ?? 0;
     final liveStatus = switch (statusCode) {
       1 => LiveStatus.live,
@@ -161,10 +164,10 @@ class LiveRoom {
 
   /// 获取直播状态文本
   String get liveStatusText => switch (liveStatus) {
-        LiveStatus.live => t.live.statusLive,
-        LiveStatus.replay => t.live.statusReplay,
-        LiveStatus.offline => t.live.statusOffline,
-      };
+    LiveStatus.live => t.live.statusLive,
+    LiveStatus.replay => t.live.statusReplay,
+    LiveStatus.offline => t.live.statusOffline,
+  };
 
   /// 是否可以播放（直播中或轮播中）
   bool get canPlay =>
@@ -174,13 +177,14 @@ class LiveRoom {
   Track toTrack({String? streamUrl}) {
     return Track()
       ..sourceId = 'live_$roomId'
-      ..sourceType = SourceType.bilibili
+      ..sourceType = SourceIds.bilibili
       ..title = title.isNotEmpty ? title : t.live.roomTitle(uname: uname)
       ..artist = uname
       ..ownerId = uid
       ..thumbnailUrl = cover ?? face
       ..audioUrl = streamUrl
-      ..durationMs = null // 直播没有时长
+      ..durationMs =
+          null // 直播没有时长
       ..isAvailable = isLive;
   }
 
@@ -193,7 +197,7 @@ class LiveRoom {
       ..hostName = uname
       ..hostAvatarUrl = face
       ..hostUid = uid
-      ..sourceType = SourceType.bilibili
+      ..sourceType = SourceIds.bilibili
       ..sourceId = roomId.toString();
   }
 
@@ -238,11 +242,11 @@ class LiveSearchResult {
   });
 
   const LiveSearchResult.empty()
-      : rooms = const [],
-        totalCount = 0,
-        page = 1,
-        pageSize = 20,
-        hasMore = false;
+    : rooms = const [],
+      totalCount = 0,
+      page = 1,
+      pageSize = 20,
+      hasMore = false;
 
   /// 合并两个搜索结果（去重）
   LiveSearchResult merge(LiveSearchResult other) {

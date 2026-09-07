@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
+import '../../../core/errors/user_message.dart';
 import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
@@ -90,6 +94,59 @@ class _LogViewerPageState extends State<LogViewerPage> {
     ToastService.show(context, t.logViewer.logsCopied);
   }
 
+  /// 匯出落盤的 log 檔。
+  ///
+  /// 存檔位置沿用 `BackupService.exportData()` 的做法：Android 選目錄，
+  /// 其餘平台走系統的儲存對話框。匯出的是輪替檔由舊到新串接的全部內容，
+  /// 不是畫面上那 500 筆記憶體緩衝。
+  Future<void> _exportLogFile() async {
+    final sink = AppLogger.fileSink;
+    if (sink == null) {
+      ToastService.show(context, t.logViewer.exportNoFile);
+      return;
+    }
+
+    try {
+      final contents = await sink.readAll();
+      if (contents.isEmpty) {
+        if (!mounted) return;
+        ToastService.show(context, t.logViewer.exportNoFile);
+        return;
+      }
+
+      final fileName =
+          'fmp_log_'
+          '${DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first}'
+          '.log';
+
+      String? outputPath;
+      if (Platform.isAndroid) {
+        final directory = await FilePicker.platform.getDirectoryPath();
+        if (directory == null) return;
+        outputPath = p.join(directory, fileName);
+      } else {
+        outputPath = await FilePicker.platform.saveFile(
+          dialogTitle: t.logViewer.exportFile,
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: const ['log'],
+        );
+      }
+      if (outputPath == null) return;
+
+      await File(outputPath).writeAsString(contents, flush: true);
+      if (!mounted) return;
+      ToastService.show(context, t.logViewer.exportSucceeded(path: outputPath));
+    } catch (e, stack) {
+      AppLogger.error('Exporting the log file failed', e, stack, 'LogViewer');
+      if (!mounted) return;
+      ToastService.error(
+        context,
+        t.logViewer.exportFailed(error: userMessageFor(e)),
+      );
+    }
+  }
+
   void _clearLogs() {
     setState(() {
       _logs.clear();
@@ -105,13 +162,16 @@ class _LogViewerPageState extends State<LogViewerPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            t.logViewer.titleWithCount(count: filteredLogs.length.toString())),
+          t.logViewer.titleWithCount(count: filteredLogs.length.toString()),
+        ),
         actions: [
           // 自动滚动开关
           IconButton(
-            icon: Icon(_autoScroll
-                ? Icons.vertical_align_bottom
-                : Icons.vertical_align_center),
+            icon: Icon(
+              _autoScroll
+                  ? Icons.vertical_align_bottom
+                  : Icons.vertical_align_center,
+            ),
             tooltip: _autoScroll
                 ? t.logViewer.autoScrollOn
                 : t.logViewer.autoScrollOff,
@@ -122,6 +182,12 @@ class _LogViewerPageState extends State<LogViewerPage> {
             icon: const Icon(Icons.copy),
             tooltip: t.logViewer.copyAll,
             onPressed: filteredLogs.isEmpty ? null : _copyAllLogs,
+          ),
+          // 导出日志文件
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            tooltip: t.logViewer.exportFile,
+            onPressed: _exportLogFile,
           ),
           // 清空日志
           IconButton(
@@ -137,12 +203,18 @@ class _LogViewerPageState extends State<LogViewerPage> {
             onSelected: (level) => setState(() => _filterLevel = level),
             itemBuilder: (context) => [
               PopupMenuItem(
-                  value: LogLevel.debug, child: Text(t.logViewer.allDebug)),
+                value: LogLevel.debug,
+                child: Text(t.logViewer.allDebug),
+              ),
               const PopupMenuItem(value: LogLevel.info, child: Text('Info+')),
               const PopupMenuItem(
-                  value: LogLevel.warning, child: Text('Warning+')),
+                value: LogLevel.warning,
+                child: Text('Warning+'),
+              ),
               PopupMenuItem(
-                  value: LogLevel.error, child: Text(t.logViewer.onlyError)),
+                value: LogLevel.error,
+                child: Text(t.logViewer.onlyError),
+              ),
             ],
           ),
         ],
@@ -159,12 +231,15 @@ class _LogViewerPageState extends State<LogViewerPage> {
                 border: OutlineInputBorder(
                   borderRadius: AppRadius.borderRadiusMd,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 isDense: true,
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
+                        tooltip: t.general.clear,
                         onPressed: () => setState(() => _searchQuery = ''),
                       )
                     : null,
@@ -205,10 +280,7 @@ class _LogEntryTile extends StatelessWidget {
   final LogEntry entry;
   final Color color;
 
-  const _LogEntryTile({
-    required this.entry,
-    required this.color,
-  });
+  const _LogEntryTile({required this.entry, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -219,10 +291,7 @@ class _LogEntryTile extends StatelessWidget {
       onTap: hasError ? () => _showDetailDialog(context) : null,
       onLongPress: () {
         Clipboard.setData(ClipboardData(text: entry.toString()));
-        ToastService.show(
-          context,
-          t.logViewer.copied,
-        );
+        ToastService.show(context, t.logViewer.copied);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -262,9 +331,7 @@ class _LogEntryTile extends StatelessWidget {
             Expanded(
               child: Text(
                 entry.message,
-                style: textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
-                ),
+                style: textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
               ),
             ),
             // 错误指示器
@@ -289,19 +356,25 @@ class _LogEntryTile extends StatelessWidget {
               Text('${t.logViewer.level}: ${entry.level.name}'),
               if (entry.tag != null) Text('${t.logViewer.tag}: ${entry.tag}'),
               const SizedBox(height: 8),
-              Text('${t.logViewer.message}:',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                '${t.logViewer.message}:',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               SelectableText(entry.message),
               if (entry.error != null) ...[
                 const SizedBox(height: 8),
-                Text('${t.logViewer.error}:',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  '${t.logViewer.error}:',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 SelectableText(entry.error.toString()),
               ],
               if (entry.stackTrace != null) ...[
                 const SizedBox(height: 8),
-                Text('${t.logViewer.stackTrace}:',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  '${t.logViewer.stackTrace}:',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 SelectableText(
                   entry.stackTrace.toString(),
                   style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
@@ -317,7 +390,8 @@ class _LogEntryTile extends StatelessWidget {
                 ..writeln('${t.logViewer.time}: ${entry.formattedTime}')
                 ..writeln('${t.logViewer.level}: ${entry.level.name}')
                 ..writeln(
-                    '${t.logViewer.tag}: ${entry.tag ?? t.logViewer.none}')
+                  '${t.logViewer.tag}: ${entry.tag ?? t.logViewer.none}',
+                )
                 ..writeln('${t.logViewer.message}: ${entry.message}');
               if (entry.error != null) {
                 text.writeln('${t.logViewer.error}: ${entry.error}');

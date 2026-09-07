@@ -83,8 +83,9 @@ List<PopupMenuEntry<String>> buildMenuActionPopupEntries(
                 ),
           title: Text(
             action.label,
-            style:
-                action.destructive ? TextStyle(color: destructiveColor) : null,
+            style: action.destructive
+                ? TextStyle(color: destructiveColor)
+                : null,
           ),
           trailing: _buildTrailing(action),
           contentPadding: EdgeInsets.zero,

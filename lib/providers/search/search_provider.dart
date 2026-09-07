@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/live_room.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
-export '../../data/models/track.dart' show SourceType;
+export '../../data/models/source_ids.dart' show SourceIds;
 export '../../data/models/live_room.dart'
     show LiveRoomFilter, LiveRoom, LiveSearchResult;
 import '../../data/models/search_history.dart';
@@ -28,17 +29,17 @@ final searchServiceProvider = Provider<SearchService>((ref) {
 
 /// 搜索状态
 class SearchState extends Equatable {
-  // 所有已註冊音源皆為可直接搜尋的音源；新增音源只要加入 SourceType enum
+  // 所有已註冊音源皆為可直接搜尋的音源；新增音源只要加入 String enum
   // 即自動涵蓋，避免與 enum 不同步的靜態常數漂移。
-  static List<SourceType> get allDirectSources => SourceType.values;
+  static List<String> get allDirectSources => SourceIds.values;
 
   final String query;
   final List<Track> localResults;
-  final Map<SourceType, SearchResult> onlineResults;
+  final Map<String, SearchResult> onlineResults;
   final bool isLoading;
   final String? error;
-  final SourceType? selectedSource; // null = 全部音源
-  final Map<SourceType, int> currentPages;
+  final String? selectedSource; // null = 全部音源
+  final Map<String, int> currentPages;
   final SearchOrder searchOrder;
   // 直播间搜索相关
   final LiveRoomFilter? liveRoomFilter; // null = 视频搜索模式, 非null = 直播间搜索模式
@@ -63,7 +64,7 @@ class SearchState extends Equatable {
   bool get isLiveSearchMode => liveRoomFilter != null;
 
   /// 获取当前 chips 对应的搜索音源列表
-  List<SourceType> get sourceTypesForSearch {
+  List<String> get sourceTypesForSearch {
     final source = selectedSource;
     if (source == null) {
       return allDirectSources;
@@ -111,7 +112,7 @@ class SearchState extends Equatable {
     }
 
     final result = <Track>[];
-    final iterators = <SourceType, int>{};
+    final iterators = <String, int>{};
     for (final type in sourceTypes) {
       iterators[type] = 0;
     }
@@ -143,18 +144,18 @@ class SearchState extends Equatable {
   bool get hasMoreLiveRooms => liveRoomResults?.hasMore ?? false;
 
   /// 是否有更多结果
-  bool hasMoreFor(SourceType sourceType) {
+  bool hasMoreFor(String sourceType) {
     return onlineResults[sourceType]?.hasMore ?? false;
   }
 
   SearchState copyWith({
     String? query,
     List<Track>? localResults,
-    Map<SourceType, SearchResult>? onlineResults,
+    Map<String, SearchResult>? onlineResults,
     bool? isLoading,
     String? error,
-    SourceType? selectedSource,
-    Map<SourceType, int>? currentPages,
+    String? selectedSource,
+    Map<String, int>? currentPages,
     SearchOrder? searchOrder,
     bool clearSelectedSource = false,
     LiveRoomFilter? liveRoomFilter,
@@ -169,12 +170,14 @@ class SearchState extends Equatable {
       onlineResults: onlineResults ?? this.onlineResults,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      selectedSource:
-          clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
+      selectedSource: clearSelectedSource
+          ? null
+          : (selectedSource ?? this.selectedSource),
       currentPages: currentPages ?? this.currentPages,
       searchOrder: searchOrder ?? this.searchOrder,
-      liveRoomFilter:
-          clearLiveRoomFilter ? null : (liveRoomFilter ?? this.liveRoomFilter),
+      liveRoomFilter: clearLiveRoomFilter
+          ? null
+          : (liveRoomFilter ?? this.liveRoomFilter),
       liveRoomResults: clearLiveRoomResults
           ? null
           : (liveRoomResults ?? this.liveRoomResults),
@@ -184,31 +187,35 @@ class SearchState extends Equatable {
 
   @override
   List<Object?> get props => [
-        query,
-        localResults,
-        onlineResults,
-        isLoading,
-        error,
-        selectedSource,
-        currentPages,
-        searchOrder,
-        liveRoomFilter,
-        liveRoomResults,
-        liveRoomPage,
-      ];
+    query,
+    localResults,
+    onlineResults,
+    isLoading,
+    error,
+    selectedSource,
+    currentPages,
+    searchOrder,
+    liveRoomFilter,
+    liveRoomResults,
+    liveRoomPage,
+  ];
 }
 
 /// 搜索控制器
-class SearchNotifier extends StateNotifier<SearchState> {
-  final SearchService _service;
-  final LiveSource? _liveSource;
+class SearchNotifier extends Notifier<SearchState> {
+  late SearchService _service;
+  LiveSource? _liveSource;
 
   int _searchRequestId = 0;
 
-  SearchNotifier(
-    this._service,
-    this._liveSource,
-  ) : super(const SearchState());
+  @override
+  SearchState build() {
+    _service = ref.watch(searchServiceProvider);
+    _liveSource = ref
+        .watch(sourceManagerProvider)
+        .liveSource(SourceIds.bilibili);
+    return const SearchState();
+  }
 
   LiveSource _requireLiveSource() {
     final source = _liveSource;
@@ -265,7 +272,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       final results = await Future.wait([localFuture, onlineFuture]);
 
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       final localTracks = results[0] as List<Track>;
       final visibleLocalTracks = _filterLocalResultsBySource(
@@ -275,7 +282,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       final onlineResult = results[1] as MultiSourceSearchResult;
 
       // 初始化页码
-      final pages = <SourceType, int>{};
+      final pages = <String, int>{};
       for (final type in sourceTypes) {
         pages[type] = 1;
       }
@@ -287,20 +294,20 @@ class SearchNotifier extends StateNotifier<SearchState> {
         currentPages: pages,
         error: onlineResult.error,
       );
-    } catch (e) {
+    } catch (e, stack) {
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'search failed', tag: 'Search'),
       );
     }
   }
 
   List<Track> _filterLocalResultsBySource(
     List<Track> tracks,
-    List<SourceType> sourceTypes,
+    List<String> sourceTypes,
   ) {
     if (sourceTypes.length == SearchState.allDirectSources.length) {
       return tracks;
@@ -312,7 +319,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   }
 
   /// 加载更多（特定音源）
-  Future<void> loadMore(SourceType sourceType) async {
+  Future<void> loadMore(String sourceType) async {
     if (!state.hasMoreFor(sourceType) || state.isLoading) return;
 
     final requestId = _searchRequestId;
@@ -359,11 +366,12 @@ class SearchNotifier extends StateNotifier<SearchState> {
         hasMore: result.hasMore,
       );
 
-      final updatedResults =
-          Map<SourceType, SearchResult>.from(state.onlineResults);
+      final updatedResults = Map<String, SearchResult>.from(
+        state.onlineResults,
+      );
       updatedResults[sourceType] = mergedResult;
 
-      final updatedPages = Map<SourceType, int>.from(state.currentPages);
+      final updatedPages = Map<String, int>.from(state.currentPages);
       updatedPages[sourceType] = nextPage;
 
       state = state.copyWith(
@@ -371,7 +379,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         currentPages: updatedPages,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isSearchStateCurrent(
         requestId: requestId,
         query: query,
@@ -383,7 +391,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'loadMore failed', tag: 'Search'),
       );
     }
   }
@@ -391,11 +399,11 @@ class SearchNotifier extends StateNotifier<SearchState> {
   bool _isSearchStateCurrent({
     required int requestId,
     required String query,
-    required SourceType? selectedSource,
+    required String? selectedSource,
     required SearchOrder searchOrder,
     required LiveRoomFilter? liveRoomFilter,
   }) {
-    return mounted &&
+    return ref.mounted &&
         requestId == _searchRequestId &&
         state.query == query &&
         state.selectedSource == selectedSource &&
@@ -412,10 +420,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
     final searchOrder = state.searchOrder;
     final selectedSource = state.selectedSource;
     final liveRoomFilter = state.liveRoomFilter;
-    final currentPages = Map<SourceType, int>.from(state.currentPages);
+    final currentPages = Map<String, int>.from(state.currentPages);
 
     // 找出所有有更多结果的音源
-    final sourcesToLoad = <SourceType>[];
+    final sourcesToLoad = <String>[];
     for (final entry in state.onlineResults.entries) {
       if (entry.value.hasMore) {
         sourcesToLoad.add(entry.key);
@@ -428,7 +436,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
     try {
       // 并行加载所有音源的下一页
-      final futures = <Future<(SourceType, SearchResult)>>[];
+      final futures = <Future<(String, SearchResult)>>[];
       for (final sourceType in sourcesToLoad) {
         final currentPage = currentPages[sourceType] ?? 1;
         final nextPage = currentPage + 1;
@@ -463,9 +471,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
 
       // 合并结果
-      final updatedResults =
-          Map<SourceType, SearchResult>.from(state.onlineResults);
-      final updatedPages = Map<SourceType, int>.from(state.currentPages);
+      final updatedResults = Map<String, SearchResult>.from(
+        state.onlineResults,
+      );
+      final updatedPages = Map<String, int>.from(state.currentPages);
 
       for (final (sourceType, result) in results) {
         final existingResult = state.onlineResults[sourceType];
@@ -490,7 +499,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         currentPages: updatedPages,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isSearchStateCurrent(
         requestId: requestId,
         query: query,
@@ -502,14 +511,14 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(e, stack, 'loadMoreAll failed', tag: 'Search'),
       );
     }
   }
 
   /// 设置音源筛选（null = 全部）
   /// [autoSearch] 是否自动触发搜索，默认为 true
-  void setSource(SourceType? sourceType, {bool autoSearch = true}) {
+  void setSource(String? sourceType, {bool autoSearch = true}) {
     final hasQuery = state.query.isNotEmpty;
 
     state = state.copyWith(
@@ -530,10 +539,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
     final hasQuery = state.query.isNotEmpty;
 
-    state = state.copyWith(
-      searchOrder: order,
-      isLoading: hasQuery,
-    );
+    state = state.copyWith(searchOrder: order, isLoading: hasQuery);
 
     // 如果有查询，重新搜索
     if (hasQuery) {
@@ -582,7 +588,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// 同时设置音源和直播间筛选，只触发一次搜索
   /// 用于避免连续调用 setSource 和 setLiveRoomFilter 导致的竞态条件
   void setFilters({
-    SourceType? sourceType,
+    String? sourceType,
     bool clearSource = false,
     LiveRoomFilter? liveRoomFilter,
     bool clearLiveRoomFilter = false,
@@ -618,11 +624,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   Future<void> searchLiveRooms(String query) async {
     if (query.trim().isEmpty) {
       _cancelInFlightSearches();
-      state = state.copyWith(
-        query: '',
-        liveRoomResults: null,
-        liveRoomPage: 1,
-      );
+      state = state.copyWith(query: '', liveRoomResults: null, liveRoomPage: 1);
       return;
     }
 
@@ -645,20 +647,25 @@ class SearchNotifier extends StateNotifier<SearchState> {
       );
 
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         liveRoomResults: result,
         liveRoomPage: 1,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
 
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(
+          e,
+          stack,
+          'searchLiveRooms failed',
+          tag: 'Search',
+        ),
       );
     }
   }
@@ -710,7 +717,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         liveRoomPage: nextPage,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isSearchStateCurrent(
         requestId: requestId,
         query: query,
@@ -722,7 +729,12 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(
+          e,
+          stack,
+          'loadMoreLiveRooms failed',
+          tag: 'Search',
+        ),
       );
     }
   }
@@ -734,30 +746,28 @@ class SearchNotifier extends StateNotifier<SearchState> {
 }
 
 /// 搜索 Provider
-final searchProvider =
-    StateNotifierProvider<SearchNotifier, SearchState>((ref) {
-  final service = ref.watch(searchServiceProvider);
-  final liveSource =
-      ref.watch(sourceManagerProvider).liveSource(SourceType.bilibili);
-  return SearchNotifier(
-    service,
-    liveSource,
-  );
-});
+final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
+  SearchNotifier.new,
+);
 
 /// 搜索建议 Provider
-final searchSuggestionsProvider =
-    FutureProvider.family<List<String>, String>((ref, prefix) async {
+final searchSuggestionsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  prefix,
+) async {
   final service = ref.watch(searchServiceProvider);
   return service.getSearchSuggestions(prefix);
 });
 
 /// 搜索历史管理器
-class SearchHistoryNotifier extends StateNotifier<List<SearchHistory>> {
-  final SearchService _service;
+class SearchHistoryNotifier extends Notifier<List<SearchHistory>> {
+  late SearchService _service;
 
-  SearchHistoryNotifier(this._service) : super([]) {
+  @override
+  List<SearchHistory> build() {
+    _service = ref.watch(searchServiceProvider);
     loadHistory();
+    return [];
   }
 
   Future<void> loadHistory() async {
@@ -778,7 +788,6 @@ class SearchHistoryNotifier extends StateNotifier<List<SearchHistory>> {
 
 /// 搜索历史管理 Provider
 final searchHistoryManagerProvider =
-    StateNotifierProvider<SearchHistoryNotifier, List<SearchHistory>>((ref) {
-  final service = ref.watch(searchServiceProvider);
-  return SearchHistoryNotifier(service);
-});
+    NotifierProvider<SearchHistoryNotifier, List<SearchHistory>>(
+      SearchHistoryNotifier.new,
+    );

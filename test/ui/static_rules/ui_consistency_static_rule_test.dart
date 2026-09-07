@@ -10,14 +10,13 @@ void main() {
       ).readAsStringSync();
 
       expect(
-        RegExp(r'const\s+_CoverGridItem\s*\(\s*\{\s*super\.key,', dotAll: true)
-            .hasMatch(source),
+        RegExp(
+          r'const\s+_CoverGridItem\s*\(\s*\{\s*super\.key,',
+          dotAll: true,
+        ).hasMatch(source),
         isTrue,
       );
-      expect(
-        source.contains('key: ValueKey(track.thumbnailUrl),'),
-        isTrue,
-      );
+      expect(source.contains('key: ValueKey(track.thumbnailUrl),'), isTrue);
     });
 
     test('import preview alternative rows expose and receive stable keys', () {
@@ -26,21 +25,22 @@ void main() {
       ).readAsStringSync();
 
       expect(
-        RegExp(r'const\s+_AlternativeTrackTile\s*\(\s*\{\s*super\.key,',
-                dotAll: true)
-            .hasMatch(source),
-        isTrue,
-      );
-      expect(
         RegExp(
-          r"ValueKey\(\s*'alternative-search-\$\{result\.sourceType\.name\}:\$\{result\.sourceId\}:\$\{result\.pageNum\s*\?\?\s*result\.cid\s*\?\?\s*0\}'\s*\)",
+          r'const\s+_AlternativeTrackTile\s*\(\s*\{\s*super\.key,',
           dotAll: true,
         ).hasMatch(source),
         isTrue,
       );
       expect(
         RegExp(
-          r"ValueKey\(\s*'alternative-expanded-\$\{altTrack\.sourceType\.name\}:\$\{altTrack\.sourceId\}:\$\{altTrack\.pageNum\s*\?\?\s*altTrack\.cid\s*\?\?\s*0\}'\s*\)",
+          r"ValueKey\(\s*'alternative-search-\$\{result\.sourceType\}:\$\{result\.sourceId\}:\$\{result\.pageNum\s*\?\?\s*result\.cid\s*\?\?\s*0\}'\s*,?\s*\)",
+          dotAll: true,
+        ).hasMatch(source),
+        isTrue,
+      );
+      expect(
+        RegExp(
+          r"ValueKey\(\s*'alternative-expanded-\$\{altTrack\.sourceType\}:\$\{altTrack\.sourceId\}:\$\{altTrack\.pageNum\s*\?\?\s*altTrack\.cid\s*\?\?\s*0\}'\s*,?\s*\)",
           dotAll: true,
         ).hasMatch(source),
         isTrue,
@@ -49,8 +49,9 @@ void main() {
 
     test('known image loads use named display-size targets', () {
       final home = File('lib/ui/pages/home/home_page.dart').readAsStringSync();
-      final downloaded =
-          File('lib/ui/pages/library/downloaded_page.dart').readAsStringSync();
+      final downloaded = File(
+        'lib/ui/pages/library/downloaded_page.dart',
+      ).readAsStringSync();
       final downloadedCategory = File(
         'lib/ui/pages/library/downloaded_category_page.dart',
       ).readAsStringSync();
@@ -66,35 +67,42 @@ void main() {
       final playlistDetail = File(
         'lib/ui/pages/library/playlist_detail_page.dart',
       ).readAsStringSync();
-      final radioPage =
-          File('lib/ui/pages/radio/radio_page.dart').readAsStringSync();
-      final trackThumbnail =
-          File('lib/ui/widgets/images/track_thumbnail.dart').readAsStringSync();
-      final recentPlayCover =
-          File('lib/ui/widgets/images/recent_play_cover_image.dart')
-              .readAsStringSync();
-      final playlistCover =
-          File('lib/ui/widgets/images/playlist_cover_image.dart')
-              .readAsStringSync();
-      final radioCover = File('lib/ui/widgets/images/radio_cover_image.dart')
-          .readAsStringSync();
-      final imageService = File('lib/core/services/image_loading_service.dart')
-          .readAsStringSync();
-      final radioMiniPlayer =
-          File('lib/ui/widgets/radio/radio_mini_player.dart')
-              .readAsStringSync();
-      final radioStationCard =
-          File('lib/ui/widgets/radio/radio_station_card.dart')
-              .readAsStringSync();
-      final radioPlayer =
-          File('lib/ui/pages/radio/radio_player_page.dart').readAsStringSync();
-      final playerPage =
-          File('lib/ui/pages/player/player_page.dart').readAsStringSync();
-      final trackDetailPanel =
-          File('lib/ui/widgets/panels/track_detail_panel.dart')
-              .readAsStringSync();
-      final searchPage =
-          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final radioPage = File(
+        'lib/ui/pages/radio/radio_page.dart',
+      ).readAsStringSync();
+      final trackThumbnail = File(
+        'lib/ui/widgets/images/track_thumbnail.dart',
+      ).readAsStringSync();
+      final recentPlayCover = File(
+        'lib/ui/widgets/images/recent_play_cover_image.dart',
+      ).readAsStringSync();
+      final playlistCover = File(
+        'lib/ui/widgets/images/playlist_cover_image.dart',
+      ).readAsStringSync();
+      final radioCover = File(
+        'lib/ui/widgets/images/radio_cover_image.dart',
+      ).readAsStringSync();
+      final imageService = File(
+        'lib/core/services/image_loading_service.dart',
+      ).readAsStringSync();
+      final radioMiniPlayer = File(
+        'lib/ui/widgets/radio/radio_mini_player.dart',
+      ).readAsStringSync();
+      final radioStationCard = File(
+        'lib/ui/widgets/radio/radio_station_card.dart',
+      ).readAsStringSync();
+      final radioPlayer = File(
+        'lib/ui/pages/radio/radio_player_page.dart',
+      ).readAsStringSync();
+      final playerPage = File(
+        'lib/ui/pages/player/player_page.dart',
+      ).readAsStringSync();
+      final trackDetailPanel = File(
+        'lib/ui/widgets/panels/track_detail_panel.dart',
+      ).readAsStringSync();
+      final searchPage = File(
+        'lib/ui/pages/search/search_page.dart',
+      ).readAsStringSync();
       final addToPlaylist = File(
         'lib/ui/widgets/dialogs/add_to_playlist_dialog.dart',
       ).readAsStringSync();
@@ -105,22 +113,10 @@ void main() {
         'lib/ui/pages/settings/widgets/account_playlists_sheet.dart',
       ).readAsStringSync();
 
-      expect(
-        home,
-        contains('RecentPlayCoverImage('),
-      );
-      expect(
-        home,
-        contains('variant: PlaylistCoverVariant.card'),
-      );
-      expect(
-        home,
-        contains('RadioStationCard('),
-      );
-      expect(
-        downloaded,
-        contains('variant: PlaylistCoverVariant.card'),
-      );
+      expect(home, contains('RecentPlayCoverImage('));
+      expect(home, contains('variant: PlaylistCoverVariant.card'));
+      expect(home, contains('RadioStationCard('));
+      expect(downloaded, contains('variant: PlaylistCoverVariant.card'));
       expect(
         downloadedCategory,
         contains('variant: PlaylistCoverVariant.hero'),
@@ -129,109 +125,48 @@ void main() {
         downloadedCategory,
         contains('variant: PlaylistCoverVariant.compact'),
       );
-      expect(
-        coverPicker,
-        contains('variant: PlaylistCoverVariant.compact'),
-      );
-      expect(
-        createPlaylist,
-        contains('variant: PlaylistCoverVariant.compact'),
-      );
-      expect(
-        library,
-        contains('variant: PlaylistCoverVariant.card'),
-      );
-      expect(
-        playlistDetail,
-        contains('variant: PlaylistCoverVariant.hero'),
-      );
-      expect(
-        playlistDetail,
-        contains('variant: PlaylistCoverVariant.compact'),
-      );
-      expect(
-        radioPage,
-        contains('RadioStationCard('),
-      );
-      expect(
-        radioStationCard,
-        contains('variant: RadioCoverVariant.card'),
-      );
+      expect(coverPicker, contains('variant: PlaylistCoverVariant.compact'));
+      expect(createPlaylist, contains('variant: PlaylistCoverVariant.compact'));
+      expect(library, contains('variant: PlaylistCoverVariant.card'));
+      expect(playlistDetail, contains('variant: PlaylistCoverVariant.hero'));
+      expect(playlistDetail, contains('variant: PlaylistCoverVariant.compact'));
+      expect(radioPage, contains('RadioStationCard('));
+      expect(radioStationCard, contains('variant: RadioCoverVariant.card'));
       expect(
         radioPlayer,
         contains('variant: RadioCoverVariant.fullscreenHero'),
       );
-      expect(
-        radioMiniPlayer,
-        contains('variant: RadioCoverVariant.compact'),
-      );
-      expect(
-        playerPage,
-        contains('variant: TrackCoverVariant.hero'),
-      );
-      expect(
-        trackDetailPanel,
-        contains('variant: TrackCoverVariant.hero'),
-      );
-      expect(
-        searchPage,
-        contains('variant: RadioCoverVariant.compact'),
-      );
-      expect(
-        addToPlaylist,
-        contains('variant: PlaylistCoverVariant.compact'),
-      );
-      expect(
-        remotePlaylist,
-        contains('variant: PlaylistCoverVariant.compact'),
-      );
+      expect(radioMiniPlayer, contains('variant: RadioCoverVariant.compact'));
+      expect(playerPage, contains('variant: TrackCoverVariant.hero'));
+      expect(trackDetailPanel, contains('variant: TrackCoverVariant.hero'));
+      expect(searchPage, contains('variant: RadioCoverVariant.compact'));
+      expect(addToPlaylist, contains('variant: PlaylistCoverVariant.compact'));
+      expect(remotePlaylist, contains('variant: PlaylistCoverVariant.compact'));
       expect(
         accountPlaylists,
         contains('variant: PlaylistCoverVariant.compact'),
       );
-      expect(
-        recentPlayCover,
-        contains('class RecentPlayCoverImage'),
-      );
+      expect(recentPlayCover, contains('class RecentPlayCoverImage'));
       expect(
         recentPlayCover,
         contains('targetDisplaySize: ImageTargetSizes.medium'),
       );
-      expect(
-        recentPlayCover,
-        isNot(contains('RecentPlayCoverVariant')),
-      );
-      expect(
-        playlistCover,
-        contains('return ImageTargetSizes.medium;'),
-      );
-      expect(
-        playlistCover,
-        contains('return ImageTargetSizes.high;'),
-      );
-      expect(
-        playlistCover,
-        contains('return ImageTargetSizes.highest;'),
-      );
-      expect(
-        radioCover,
-        contains('return ImageTargetSizes.medium;'),
-      );
-      expect(
-        radioCover,
-        contains('return ImageTargetSizes.high;'),
-      );
-      expect(
-        radioCover,
-        contains('return ImageTargetSizes.highest;'),
-      );
+      expect(recentPlayCover, isNot(contains('RecentPlayCoverVariant')));
+      expect(playlistCover, contains('return ImageTargetSizes.medium;'));
+      expect(playlistCover, contains('return ImageTargetSizes.high;'));
+      expect(playlistCover, contains('return ImageTargetSizes.highest;'));
+      expect(radioCover, contains('return ImageTargetSizes.medium;'));
+      expect(radioCover, contains('return ImageTargetSizes.high;'));
+      expect(radioCover, contains('return ImageTargetSizes.highest;'));
       expect(trackThumbnail, isNot(contains('TrackCoverQuality')));
       expect(trackThumbnail, contains('enum TrackCoverVariant'));
       expect(trackThumbnail, isNot(contains('TrackCoverVariant.compact')));
       expect(trackThumbnail, contains('return ImageTargetSizes.high;'));
       expect(trackThumbnail, contains('return ImageTargetSizes.highest;'));
       expect(
-          trackThumbnail, isNot(contains('required this.targetDisplaySize')));
+        trackThumbnail,
+        isNot(contains('required this.targetDisplaySize')),
+      );
       expect(
         trackThumbnail,
         contains('targetDisplaySize: ImageTargetSizes.medium'),
@@ -252,7 +187,9 @@ void main() {
       final avatarSource = avatarWidget.readAsStringSync();
 
       expect(
-          avatarSource, contains('class AvatarImage extends StatelessWidget'));
+        avatarSource,
+        contains('class AvatarImage extends StatelessWidget'),
+      );
       expect(avatarSource, contains('ImageLoadingService.loadAvatar('));
       expect(
         avatarSource,
@@ -287,8 +224,9 @@ void main() {
     });
 
     test('playlist and radio covers use shared semantic image widgets', () {
-      final playlistWidget =
-          File('lib/ui/widgets/images/playlist_cover_image.dart');
+      final playlistWidget = File(
+        'lib/ui/widgets/images/playlist_cover_image.dart',
+      );
       final radioWidget = File('lib/ui/widgets/images/radio_cover_image.dart');
       expect(playlistWidget.existsSync(), isTrue);
       expect(radioWidget.existsSync(), isTrue);
@@ -448,81 +386,75 @@ void main() {
       }
     });
 
-    test('semantic image helpers are the only UI ImageLoadingService callers',
-        () {
-      final allowedCallers = <String>{
-        'lib/ui/widgets/images/avatar_image.dart',
-        'lib/ui/widgets/images/playlist_cover_image.dart',
-        'lib/ui/widgets/images/radio_cover_image.dart',
-        'lib/ui/widgets/images/recent_play_cover_image.dart',
-        'lib/ui/widgets/images/track_thumbnail.dart',
-      };
-      final directCallers = <String>[];
-      final files = Directory('lib/ui')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'));
+    test(
+      'semantic image helpers are the only UI ImageLoadingService callers',
+      () {
+        final allowedCallers = <String>{
+          'lib/ui/widgets/images/avatar_image.dart',
+          'lib/ui/widgets/images/playlist_cover_image.dart',
+          'lib/ui/widgets/images/radio_cover_image.dart',
+          'lib/ui/widgets/images/recent_play_cover_image.dart',
+          'lib/ui/widgets/images/track_thumbnail.dart',
+        };
+        final directCallers = <String>[];
+        final files = Directory('lib/ui')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.dart'));
 
-      for (final file in files) {
-        final normalizedPath = file.path.replaceAll('\\', '/');
-        if (allowedCallers.contains(normalizedPath)) continue;
+        for (final file in files) {
+          final normalizedPath = file.path.replaceAll('\\', '/');
+          if (allowedCallers.contains(normalizedPath)) continue;
 
-        final source = file.readAsStringSync();
-        final hasDirectCall = source
-                .contains('ImageLoadingService.loadImage(') ||
-            source.contains('ImageLoadingService.loadAvatar(') ||
-            source.contains('ImageLoadingService.imageProviderCandidates(') ||
-            source.contains('ImageLoadingService.precacheImageCandidates(');
+          final source = file.readAsStringSync();
+          final hasDirectCall =
+              source.contains('ImageLoadingService.loadImage(') ||
+              source.contains('ImageLoadingService.loadAvatar(') ||
+              source.contains('ImageLoadingService.imageProviderCandidates(') ||
+              source.contains('ImageLoadingService.precacheImageCandidates(');
 
-        if (hasDirectCall) directCallers.add(normalizedPath);
-      }
+          if (hasDirectCall) directCallers.add(normalizedPath);
+        }
 
-      expect(directCallers, isEmpty);
-    });
+        expect(directCallers, isEmpty);
+      },
+    );
 
     test(
-        'image loading applies decode-size hints to local and target-sized images',
-        () {
-      final source = File(
-        'lib/core/services/image_loading_service.dart',
-      ).readAsStringSync();
-      final thumbnailUtils = File(
-        'lib/core/utils/thumbnail_url_utils.dart',
-      ).readAsStringSync();
+      'image loading applies decode-size hints to local and target-sized images',
+      () {
+        final source = File(
+          'lib/core/services/image_loading_service.dart',
+        ).readAsStringSync();
+        final thumbnailUtils = File(
+          'lib/core/utils/thumbnail_url_utils.dart',
+        ).readAsStringSync();
 
-      expect(source, contains('ResizeImage('));
-      expect(source, contains('MediaQuery.devicePixelRatioOf(context)'));
-      expect(source, isNot(contains('_urlCandidateDevicePixelRatio')));
-      expect(source, contains('_networkImageCacheKey'));
-      expect(source, contains('class _NetworkImageRequest'));
-      expect(source, contains('cacheExtent: cacheExtent'));
-      expect(source, contains('widget.request.cacheExtent'));
-      expect(source, contains('final cacheExtent = _cacheExtent('));
-      expect(source, contains('maxWidth: request.cacheExtent'));
-      expect(source, contains('maxHeight: request.cacheExtent'));
-      expect(source, contains('targetDisplaySize: targetDisplaySize'));
-      expect(thumbnailUtils, isNot(contains('devicePixelRatio')));
-      expect(
-        source,
-        isNot(contains('targetDisplaySize ?? width')),
-      );
-      expect(
-        source,
-        isNot(contains('targetDisplaySize ?? height')),
-      );
-      expect(
-        source,
-        isNot(contains('widget.targetDisplaySize ?? widget.width')),
-      );
-      expect(
-        source,
-        isNot(contains('widget.targetDisplaySize ?? widget.height')),
-      );
-      expect(
-        source,
-        contains('required double targetDisplaySize'),
-      );
-    });
+        expect(source, contains('ResizeImage('));
+        expect(source, contains('MediaQuery.devicePixelRatioOf(context)'));
+        expect(source, isNot(contains('_urlCandidateDevicePixelRatio')));
+        expect(source, contains('_networkImageCacheKey'));
+        expect(source, contains('class _NetworkImageRequest'));
+        expect(source, contains('cacheExtent: cacheExtent'));
+        expect(source, contains('widget.request.cacheExtent'));
+        expect(source, contains('final cacheExtent = _cacheExtent('));
+        expect(source, contains('maxWidth: request.cacheExtent'));
+        expect(source, contains('maxHeight: request.cacheExtent'));
+        expect(source, contains('targetDisplaySize: targetDisplaySize'));
+        expect(thumbnailUtils, isNot(contains('devicePixelRatio')));
+        expect(source, isNot(contains('targetDisplaySize ?? width')));
+        expect(source, isNot(contains('targetDisplaySize ?? height')));
+        expect(
+          source,
+          isNot(contains('widget.targetDisplaySize ?? widget.width')),
+        );
+        expect(
+          source,
+          isNot(contains('widget.targetDisplaySize ?? widget.height')),
+        );
+        expect(source, contains('required double targetDisplaySize'));
+      },
+    );
 
     test('image loading uses shared URL header policy', () {
       final source = File(
@@ -557,8 +489,7 @@ void main() {
               'ImageLoadingService.precacheImageCandidates(',
               searchFrom,
             ),
-          ].where((index) => index >= 0).toList()
-            ..sort();
+          ].where((index) => index >= 0).toList()..sort();
           if (callStarts.isEmpty) break;
 
           final callStart = callStarts.first;
@@ -611,8 +542,9 @@ void main() {
     });
 
     test('queue page reads queue display state from queue providers', () {
-      final source =
-          File('lib/ui/pages/queue/queue_page.dart').readAsStringSync();
+      final source = File(
+        'lib/ui/pages/queue/queue_page.dart',
+      ).readAsStringSync();
 
       expect(source, contains('queueStateProvider'));
       expect(
@@ -622,18 +554,21 @@ void main() {
       expect(
         source,
         isNot(
-            contains('audioControllerProvider.select((s) => s.currentIndex)')),
+          contains('audioControllerProvider.select((s) => s.currentIndex)'),
+        ),
       );
       expect(
         source,
         isNot(
-            contains('audioControllerProvider.select((s) => s.queueVersion)')),
+          contains('audioControllerProvider.select((s) => s.queueVersion)'),
+        ),
       );
     });
 
     test('home ranking section exposes lightweight loading fallback', () {
-      final source =
-          File('lib/ui/pages/home/home_page.dart').readAsStringSync();
+      final source = File(
+        'lib/ui/pages/home/home_page.dart',
+      ).readAsStringSync();
 
       expect(source, contains('class HomeRankingsSection'));
       expect(source, contains('LoadingPlaceholder'));
@@ -641,8 +576,9 @@ void main() {
     });
 
     test('search, playlist, and downloaded dynamic rows use stable keys', () {
-      final search =
-          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final search = File(
+        'lib/ui/pages/search/search_page.dart',
+      ).readAsStringSync();
       final playlistDetail = File(
         'lib/ui/pages/library/playlist_detail_page.dart',
       ).readAsStringSync();
@@ -655,7 +591,8 @@ void main() {
       expect(
         search,
         contains(
-            "'page-\${track.sourceType.name}:\${track.sourceId}:\${page.page}'"),
+          "'page-\${track.sourceType}:\${track.sourceId}:\${page.page}'",
+        ),
       );
       expect(
         playlistDetail,
@@ -672,8 +609,9 @@ void main() {
     });
 
     test('search multi-page rows expose common single track actions', () {
-      final source =
-          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final source = File(
+        'lib/ui/pages/search/search_page.dart',
+      ).readAsStringSync();
 
       final pageTileBody = _classBody(source, '_PageTile');
 
@@ -685,8 +623,9 @@ void main() {
     });
 
     test('search results cache mixed online tracks per build', () {
-      final source =
-          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final source = File(
+        'lib/ui/pages/search/search_page.dart',
+      ).readAsStringSync();
       final buildResultsBody = _methodBody(source, '_buildSearchResults');
 
       expect(buildResultsBody, contains('final mixedOnlineTracks ='));
@@ -749,71 +688,80 @@ void main() {
       expect(desktopControls, contains('desktopAudioDeviceStateProvider'));
       expect(
         miniPlayer,
-        isNot(contains(
-            'audioControllerProvider.select((state) => state.audioDevices)')),
+        isNot(
+          contains(
+            'audioControllerProvider.select((state) => state.audioDevices)',
+          ),
+        ),
       );
       expect(
         miniPlayer,
-        isNot(contains(
-            'audioControllerProvider.select((state) => state.currentAudioDevice)')),
+        isNot(
+          contains(
+            'audioControllerProvider.select((state) => state.currentAudioDevice)',
+          ),
+        ),
       );
     });
 
     test('search and playlist pages avoid page-wide selection watches', () {
-      final search =
-          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final search = File(
+        'lib/ui/pages/search/search_page.dart',
+      ).readAsStringSync();
       final playlistDetail = File(
         'lib/ui/pages/library/playlist_detail_page.dart',
       ).readAsStringSync();
 
       expect(search, isNot(contains('ref.watch(searchSelectionProvider);')));
-      expect(
-        search,
-        contains('isSelected: state.isSelected(track)'),
-      );
+      expect(search, contains('isSelected: state.isSelected(track)'));
       expect(
         search,
         contains(
-            'searchSelectionProvider.select((state) => state.isSelectionMode)'),
+          'searchSelectionProvider.select((state) => state.isSelectionMode)',
+        ),
       );
 
       expect(
         playlistDetail,
         isNot(contains('ref.watch(playlistDetailSelectionProvider);')),
       );
-      expect(
-        playlistDetail,
-        contains('isSelected: state.isSelected(track)'),
-      );
+      expect(playlistDetail, contains('isSelected: state.isSelected(track)'));
       expect(
         playlistDetail,
         contains(
-            'playlistDetailSelectionProvider.select((state) => state.isSelectionMode)'),
+          'playlistDetailSelectionProvider.select((state) => state.isSelectionMode)',
+        ),
       );
     });
 
     test('silent async UI failures surface errors to users', () {
-      final search =
-          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
-      final downloadPathDialog =
-          File('lib/ui/widgets/dialogs/download_path_setup_dialog.dart')
-              .readAsStringSync();
-      final bilibiliLogin =
-          File('lib/ui/pages/settings/bilibili_login_page.dart')
-              .readAsStringSync();
-      final lyricsSearch = File('lib/ui/pages/lyrics/lyrics_search_sheet.dart')
-          .readAsStringSync();
+      final search = File(
+        'lib/ui/pages/search/search_page.dart',
+      ).readAsStringSync();
+      final downloadPathDialog = File(
+        'lib/ui/widgets/dialogs/download_path_setup_dialog.dart',
+      ).readAsStringSync();
+      final bilibiliLogin = File(
+        'lib/ui/pages/settings/bilibili_login_page.dart',
+      ).readAsStringSync();
+      final lyricsSearch = File(
+        'lib/ui/pages/lyrics/lyrics_search_sheet.dart',
+      ).readAsStringSync();
 
-      expect(_methodBody(search, '_loadVideoPages'),
-          contains('ToastService.error'));
-      expect(_methodBody(downloadPathDialog, '_selectPath'),
-          contains('ToastService.error'));
-      expect(_methodBody(bilibiliLogin, '_onPageLoaded'),
-          contains('ToastService.error'));
+      // 走哪一個入口不重要，重要的是使用者看得到。`failure` 是把例外翻成
+      // 訊息並寫 log 的那一個（`ToastService.failure`），`error` 是已經有
+      // 現成文案時用的那一個。
+      final surfaced = anyOf(
+        contains('ToastService.error'),
+        contains('ToastService.failure'),
+      );
+
+      expect(_methodBody(search, '_loadVideoPages'), surfaced);
+      expect(_methodBody(downloadPathDialog, '_selectPath'), surfaced);
+      expect(_methodBody(bilibiliLogin, '_onPageLoaded'), surfaced);
       expect(_methodBody(bilibiliLogin, '_startPolling'), contains('onError'));
       expect(_methodBody(lyricsSearch, '_selectResult'), contains('_isSaving'));
-      expect(_methodBody(lyricsSearch, '_removeMatch'),
-          contains('ToastService.error'));
+      expect(_methodBody(lyricsSearch, '_removeMatch'), surfaced);
     });
   });
 }

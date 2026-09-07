@@ -57,10 +57,7 @@ class ImmersivePlayerScaffold extends StatelessWidget {
       children: [
         backdrop,
         _buildBodyBackdropOverlays(colorScheme),
-        Positioned.fill(
-          top: _appBarHeight,
-          child: body,
-        ),
+        Positioned.fill(top: _appBarHeight, child: body),
         Positioned(
           top: 0,
           left: 0,
@@ -110,8 +107,9 @@ class ImmersivePlayerScaffold extends StatelessWidget {
           color: colorScheme.surface.withValues(alpha: surfaceOverlayAlpha),
         ),
         ColoredBox(
-          color: colorScheme.surfaceContainerHighest
-              .withValues(alpha: surfaceContainerOverlayAlpha),
+          color: colorScheme.surfaceContainerHighest.withValues(
+            alpha: surfaceContainerOverlayAlpha,
+          ),
         ),
       ],
     );

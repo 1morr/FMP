@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,7 +12,8 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -25,9 +24,7 @@ void main() {
     late QueueManager queueManager;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -73,53 +70,56 @@ void main() {
     });
 
     test(
-        'replaceTrack updates the queue-visible track only through explicit caller ownership',
-        () async {
-      final queuedTrack = await queueManager.playSingle(
-        _queueTrack('replace-track-runtime')
-          ..audioUrl = 'https://stale.example/replace-track-runtime.m4a'
-          ..audioUrlExpiry = DateTime.utc(2024, 1, 1),
-      );
-      final queueTrackBeforeReplace = queueManager.currentTrack;
-      expect(queueTrackBeforeReplace, isNotNull);
-      expect(queueTrackBeforeReplace, same(queuedTrack));
+      'replaceTrack updates the queue-visible track only through explicit caller ownership',
+      () async {
+        final queuedTrack = await queueManager.playSingle(
+          _queueTrack('replace-track-runtime')
+            ..audioUrl = 'https://stale.example/replace-track-runtime.m4a'
+            ..audioUrlExpiry = DateTime.utc(2024, 1, 1),
+        );
+        final queueTrackBeforeReplace = queueManager.currentTrack;
+        expect(queueTrackBeforeReplace, isNotNull);
+        expect(queueTrackBeforeReplace, same(queuedTrack));
 
-      final replacement = Track()
-        ..id = queuedTrack.id
-        ..sourceId = queuedTrack.sourceId
-        ..sourceType = queuedTrack.sourceType
-        ..title = queuedTrack.title
-        ..artist = queuedTrack.artist
-        ..audioUrl = 'https://fresh.example/replace-track-runtime.m4a'
-        ..audioUrlExpiry = DateTime.utc(2030, 1, 1);
+        final replacement = Track()
+          ..id = queuedTrack.id
+          ..sourceId = queuedTrack.sourceId
+          ..sourceType = queuedTrack.sourceType
+          ..title = queuedTrack.title
+          ..artist = queuedTrack.artist
+          ..audioUrl = 'https://fresh.example/replace-track-runtime.m4a'
+          ..audioUrlExpiry = DateTime.utc(2030, 1, 1);
 
-      queueManager.replaceTrack(replacement);
+        queueManager.replaceTrack(replacement);
 
-      expect(queueManager.currentTrack, isNotNull);
-      expect(queueManager.currentTrack, isNot(same(queueTrackBeforeReplace)));
-      expect(queueManager.currentTrack!.id, queuedTrack.id);
-      expect(
-        queueManager.currentTrack!.audioUrl,
-        'https://fresh.example/replace-track-runtime.m4a',
-      );
-      expect(
-        queueManager.currentTrack!.audioUrlExpiry,
-        DateTime.utc(2030, 1, 1),
-      );
-    });
+        expect(queueManager.currentTrack, isNotNull);
+        expect(queueManager.currentTrack, isNot(same(queueTrackBeforeReplace)));
+        expect(queueManager.currentTrack!.id, queuedTrack.id);
+        expect(
+          queueManager.currentTrack!.audioUrl,
+          'https://fresh.example/replace-track-runtime.m4a',
+        );
+        expect(
+          queueManager.currentTrack!.audioUrlExpiry,
+          DateTime.utc(2030, 1, 1),
+        );
+      },
+    );
 
-    test('dispose cancels the periodic saver after persistence promotion',
-        () async {
-      await queueManager.playSingle(_queueTrack('timer-track'));
-      queueManager.updatePosition(const Duration(seconds: 12));
+    test(
+      'dispose cancels the periodic saver after persistence promotion',
+      () async {
+        await queueManager.playSingle(_queueTrack('timer-track'));
+        queueManager.updatePosition(const Duration(seconds: 12));
 
-      queueManager.dispose();
-      await Future<void>.delayed(const Duration(seconds: 11));
+        queueManager.dispose();
+        await Future<void>.delayed(const Duration(seconds: 11));
 
-      final persistedQueue = await QueueRepository(isar).getOrCreate();
-      expect(persistedQueue.trackIds, [_trackId(queueManager.currentTrack)]);
-      expect(persistedQueue.lastPositionMs, 0);
-    });
+        final persistedQueue = await QueueRepository(isar).getOrCreate();
+        expect(persistedQueue.trackIds, [_trackId(queueManager.currentTrack)]);
+        expect(persistedQueue.lastPositionMs, 0);
+      },
+    );
   });
 
   group('PlayQueue model', () {
@@ -282,7 +282,7 @@ void main() {
     test('uniqueKey includes cid when present', () {
       final track = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track'
         ..cid = 12345;
 
@@ -293,7 +293,7 @@ void main() {
     test('uniqueKey without cid uses sourceId only', () {
       final track = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       expect(track.uniqueKey, equals('bilibili:BV123456'));
@@ -303,13 +303,13 @@ void main() {
       final track1 = Track()
         ..id = 1
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 111;
 
       final track2 = Track()
         ..id = 2
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 111;
 
       expect(track1.uniqueKey, equals(track2.uniqueKey));
@@ -318,12 +318,12 @@ void main() {
     test('tracks with different cid have different uniqueKey', () {
       final track1 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 111;
 
       final track2 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 222;
 
       expect(track1.uniqueKey, isNot(equals(track2.uniqueKey)));
@@ -334,7 +334,7 @@ void main() {
     test('hasValidAudioUrl returns false when url is null', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test';
 
       expect(track.hasValidAudioUrl, isFalse);
@@ -343,7 +343,7 @@ void main() {
     test('hasValidAudioUrl returns true when url exists without expiry', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test'
         ..audioUrl = 'https://example.com/audio.m4a';
 
@@ -353,7 +353,7 @@ void main() {
     test('hasValidAudioUrl returns true when not expired', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test'
         ..audioUrl = 'https://example.com/audio.m4a'
         ..audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
@@ -364,7 +364,7 @@ void main() {
     test('hasValidAudioUrl returns false when expired', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test'
         ..audioUrl = 'https://example.com/audio.m4a'
         ..audioUrlExpiry = DateTime.now().subtract(const Duration(hours: 1));
@@ -377,7 +377,7 @@ void main() {
     test('isPartOfMultiPage returns false for single page', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Single Video';
 
       expect(track.isPartOfMultiPage, isFalse);
@@ -386,7 +386,7 @@ void main() {
     test('isPartOfMultiPage returns true for multi-page', () {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P01 - Intro'
         ..pageNum = 1
         ..pageCount = 3;
@@ -397,14 +397,14 @@ void main() {
     test('groupKey is same for pages of same video', () {
       final page1 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P01'
         ..pageNum = 1
         ..cid = 111;
 
       final page2 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P02'
         ..pageNum = 2
         ..cid = 222;
@@ -415,13 +415,13 @@ void main() {
     test('uniqueKey is different for pages of same video', () {
       final page1 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P01'
         ..cid = 111;
 
       final page2 = Track()
         ..sourceId = 'BV123456'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'P02'
         ..cid = 222;
 
@@ -433,7 +433,7 @@ void main() {
 Track _queueTrack(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId
     ..artist = 'Tester';
 }
@@ -443,59 +443,4 @@ int _trackId(Track? track) {
     throw StateError('Expected queue manager to have a current track');
   }
   return track.id;
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfig = await _loadPackageConfig();
-  final packageDir =
-      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
-
-  if (Platform.isWindows) {
-    return '${packageDir.path}/windows/isar.dll';
-  }
-  if (Platform.isLinux) {
-    return '${packageDir.path}/linux/libisar.so';
-  }
-  if (Platform.isMacOS) {
-    return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw UnsupportedError(
-      'Unsupported platform for Isar tests: ${Platform.operatingSystem}');
-}
-
-Future<Map<String, dynamic>> _loadPackageConfig() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  if (!await packageConfigFile.exists()) {
-    throw StateError(
-      'Could not find .dart_tool/package_config.json for test package resolution',
-    );
-  }
-
-  return jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-}
-
-Directory _resolvePackageDirectory(
-  Map<String, dynamic> packageConfig,
-  String packageName,
-) {
-  final packages = packageConfig['packages'];
-  if (packages is! List) {
-    throw StateError('Invalid package_config.json format');
-  }
-
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-  for (final package in packages) {
-    if (package is! Map<String, dynamic>) continue;
-    if (package['name'] != packageName) continue;
-
-    final rootUri = package['rootUri'];
-    if (rootUri is! String) break;
-
-    return Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
-  }
-
-  throw StateError('Package not found in package_config.json: $packageName');
 }

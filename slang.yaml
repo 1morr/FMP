@@ -4,3 +4,7 @@ input_directory: lib/i18n
 input_file_pattern: .i18n.json
 output_directory: lib/i18n
 output_file_name: strings.g.dart
+# 全部語言在啟動時就可用。slang 4 預設 lazy: true（為了 web 的 deferred loading），
+# 而 FMP 只出 Android 與 Windows —— 兩者都不支援 deferred loading，延遲載入換不到
+# 任何東西，卻會讓 LocaleSettings 的同步版 API 拿不到還沒載入的語言。
+lazy: false

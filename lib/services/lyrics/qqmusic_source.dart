@@ -36,7 +36,8 @@ class QQMusicSong {
   });
 
   factory QQMusicSong.fromJson(Map<String, dynamic> json) {
-    final singerList = (json['singer'] as List<dynamic>?)
+    final singerList =
+        (json['singer'] as List<dynamic>?)
             ?.map((s) => (s as Map<String, dynamic>)['name'] as String? ?? '')
             .where((n) => n.isNotEmpty)
             .toList() ??
@@ -69,11 +70,7 @@ class QQMusicLyrics {
   /// 翻译歌词（LRC 格式）
   final String? trans;
 
-  const QQMusicLyrics({
-    required this.songmid,
-    this.lyric,
-    this.trans,
-  });
+  const QQMusicLyrics({required this.songmid, this.lyric, this.trans});
 
   bool get hasLyric => lyric != null && lyric!.trim().isNotEmpty;
   bool get hasTranslation => trans != null && trans!.trim().isNotEmpty;
@@ -106,14 +103,15 @@ class QQMusicSource with Logging {
   final Dio _dio;
 
   QQMusicSource({Dio? dio})
-      : _dio = dio ??
-            HttpClientFactory.create(
-              headers: {
-                'User-Agent': _userAgent,
-                'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.3,en;q=0.2',
-              },
-            );
+    : _dio =
+          dio ??
+          HttpClientFactory.create(
+            headers: {
+              'User-Agent': _userAgent,
+              'Accept': 'application/json, text/plain, */*',
+              'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.3,en;q=0.2',
+            },
+          );
 
   /// 關閉內部 Dio（釋放連線池）；provider 於 onDispose 呼叫。
   void dispose() => _dio.close();
@@ -158,8 +156,10 @@ class QQMusicSource with Logging {
           data['req']?['data']?['body']?['song'] as Map<String, dynamic>?;
       final list = (songBody?['list'] as List<dynamic>?) ?? [];
 
-      final results =
-          list.cast<Map<String, dynamic>>().map(QQMusicSong.fromJson).toList();
+      final results = list
+          .cast<Map<String, dynamic>>()
+          .map(QQMusicSong.fromJson)
+          .toList();
 
       logDebug('Found ${results.length} songs');
       return results;
@@ -180,10 +180,7 @@ class QQMusicSource with Logging {
         'req': {
           'method': 'GetPlayLyricInfo',
           'module': 'music.musichallSong.PlayLyricInfo',
-          'param': {
-            'songMID': songmid,
-            'songID': 0,
-          },
+          'param': {'songMID': songmid, 'songID': 0},
         },
       });
 
@@ -225,10 +222,12 @@ class QQMusicSource with Logging {
     String? artistName,
     int limit = 10,
   }) async {
-    final keywords = query ??
-        [trackName, artistName]
-            .where((s) => s != null && s.isNotEmpty)
-            .join(' ');
+    final keywords =
+        query ??
+        [
+          trackName,
+          artistName,
+        ].where((s) => s != null && s.isNotEmpty).join(' ');
     if (keywords.isEmpty) return [];
 
     final songs = await searchSongs(keywords: keywords, limit: limit);

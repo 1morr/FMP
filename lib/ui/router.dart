@@ -100,21 +100,19 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 /// 導出此 key 以便 AppShell 可以關閉 shell 內的 popup 菜單
 final shellNavigatorKey = GlobalKey<NavigatorState>();
 
-CustomTransitionPage<void> _fullscreenPlayerPage({
-  required Widget child,
-}) {
+CustomTransitionPage<void> _fullscreenPlayerPage({required Widget child}) {
   return CustomTransitionPage<void>(
     child: child,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        )),
+        position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+            .animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              ),
+            ),
         child: ClipRect(child: child),
       );
     },
@@ -136,17 +134,15 @@ final appRouter = GoRouter(
         GoRoute(
           path: RoutePaths.home,
           name: RouteNames.home,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: HomePage(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: HomePage()),
         ),
         // 搜索
         GoRoute(
           path: RoutePaths.search,
           name: RouteNames.search,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: SearchPage(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: SearchPage()),
         ),
         // 探索（作為 push 子頁，使用預設滑入轉場與自動返回鈕）
         GoRoute(
@@ -158,9 +154,8 @@ final appRouter = GoRouter(
         GoRoute(
           path: RoutePaths.queue,
           name: RouteNames.queue,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: QueuePage(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: QueuePage()),
         ),
         // 播放历史
         GoRoute(
@@ -172,9 +167,8 @@ final appRouter = GoRouter(
         GoRoute(
           path: RoutePaths.library,
           name: RouteNames.library,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: LibraryPage(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: LibraryPage()),
           routes: [
             // 已下载页面
             GoRoute(
@@ -208,17 +202,15 @@ final appRouter = GoRouter(
         GoRoute(
           path: RoutePaths.radio,
           name: RouteNames.radio,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: RadioPage(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: RadioPage()),
         ),
         // 设置
         GoRoute(
           path: RoutePaths.settings,
           name: RouteNames.settings,
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: SettingsPage(),
-          ),
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: SettingsPage()),
           routes: [
             // 下载管理页面作为 settings 的子路由
             GoRoute(
@@ -302,18 +294,16 @@ final appRouter = GoRouter(
       path: RoutePaths.player,
       name: RouteNames.player,
       parentNavigatorKey: rootNavigatorKey,
-      pageBuilder: (context, state) => _fullscreenPlayerPage(
-        child: const PlayerPage(),
-      ),
+      pageBuilder: (context, state) =>
+          _fullscreenPlayerPage(child: const PlayerPage()),
     ),
     // 電台播放器頁面（不在 Shell 內）
     GoRoute(
       path: RoutePaths.radioPlayer,
       name: RouteNames.radioPlayer,
       parentNavigatorKey: rootNavigatorKey,
-      pageBuilder: (context, state) => _fullscreenPlayerPage(
-        child: const RadioPlayerPage(),
-      ),
+      pageBuilder: (context, state) =>
+          _fullscreenPlayerPage(child: const RadioPlayerPage()),
     ),
   ],
 );

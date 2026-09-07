@@ -25,10 +25,7 @@ class ConnectivityState {
     isInitialized: false,
   );
 
-  ConnectivityState copyWith({
-    bool? isConnected,
-    bool? isInitialized,
-  }) {
+  ConnectivityState copyWith({bool? isConnected, bool? isInitialized}) {
     return ConnectivityState(
       isConnected: isConnected ?? this.isConnected,
       isInitialized: isInitialized ?? this.isInitialized,
@@ -41,10 +38,12 @@ class ConnectivityState {
 /// 通过尝试 DNS 解析来判断是否有真实的互联网连接，
 /// 而不是仅检查网络接口状态。这样即使 WiFi 已连接但无互联网，
 /// 也能正确检测到断网。
-class ConnectivityNotifier extends StateNotifier<ConnectivityState>
-    with Logging {
-  ConnectivityNotifier() : super(ConnectivityState.initial) {
+class ConnectivityNotifier extends Notifier<ConnectivityState> with Logging {
+  @override
+  ConnectivityState build() {
+    ref.onDispose(_teardown);
     _initialize();
+    return ConnectivityState.initial;
   }
 
   Timer? _pollingTimer;
@@ -68,16 +67,16 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
     final isConnected = await _checkConnectivity();
     logDebug('Initial connectivity check: isConnected=$isConnected');
 
-    state = state.copyWith(
-      isConnected: isConnected,
-      isInitialized: true,
-    );
+    state = state.copyWith(isConnected: isConnected, isInitialized: true);
 
     // 启动定时轮询
     _pollingTimer = Timer.periodic(
-        AppConstants.connectivityPollingInterval, (_) => _poll());
+      AppConstants.connectivityPollingInterval,
+      (_) => _poll(),
+    );
     logDebug(
-        'DNS polling started (interval: ${AppConstants.connectivityPollingInterval.inSeconds}s)');
+      'DNS polling started (interval: ${AppConstants.connectivityPollingInterval.inSeconds}s)',
+    );
   }
 
   Future<void> _poll() async {
@@ -86,7 +85,8 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
 
     if (wasConnected != isConnected) {
       logInfo(
-          'Connectivity changed: wasConnected=$wasConnected, isConnected=$isConnected');
+        'Connectivity changed: wasConnected=$wasConnected, isConnected=$isConnected',
+      );
       state = state.copyWith(isConnected: isConnected);
 
       if (!wasConnected && isConnected) {
@@ -102,8 +102,9 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
   Future<bool> _checkConnectivity() async {
     for (final target in _dnsTargets) {
       try {
-        final result = await InternetAddress.lookup(target)
-            .timeout(AppConstants.dnsTimeout);
+        final result = await InternetAddress.lookup(
+          target,
+        ).timeout(AppConstants.dnsTimeout);
         if (result.isNotEmpty && result.first.rawAddress.isNotEmpty) {
           return true;
         }
@@ -114,19 +115,19 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
     return false;
   }
 
-  @override
-  void dispose() {
+  // 這個 provider 沒有 watch 任何東西，所以 `build()` 一個 element 只跑一次，
+  // 關掉的 controller 不會再被重用。
+  void _teardown() {
     _pollingTimer?.cancel();
     _networkRecoveredController.close();
-    super.dispose();
   }
 }
 
 /// 网络连接状态 Provider
 final connectivityProvider =
-    StateNotifierProvider<ConnectivityNotifier, ConnectivityState>((ref) {
-  return ConnectivityNotifier();
-});
+    NotifierProvider<ConnectivityNotifier, ConnectivityState>(
+      ConnectivityNotifier.new,
+    );
 
 /// 是否已连接网络 Provider
 final isConnectedProvider = Provider<bool>((ref) {

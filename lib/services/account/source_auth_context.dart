@@ -1,27 +1,23 @@
-import 'dart:io';
-
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_http_policy.dart';
-import '../media/media_handoff.dart' hide NeteasePlaybackRedirectResolver;
+import '../media/media_handoff.dart';
 import 'bilibili_account_service.dart';
 import 'netease_account_service.dart';
 import 'youtube_account_service.dart';
 
 typedef SourceSettingsLoader = Future<Settings> Function();
 
-typedef PlaybackUrlResolver = Future<PlaybackUrlResolution> Function(
-  SourceType sourceType,
-  String url,
-  Map<String, String>? authHeaders,
-);
-
-typedef NeteasePlaybackRedirectResolver = Future<PlaybackUrlResolution>
-    Function(String url, Map<String, String> authHeaders);
+typedef PlaybackUrlResolver =
+    Future<PlaybackUrlResolution> Function(
+      String sourceType,
+      String url,
+      Map<String, String>? authHeaders,
+    );
 
 abstract interface class SourceAccountAuthLoader {
-  Future<Map<String, String>?> load(SourceType sourceType);
+  Future<Map<String, String>?> load(String sourceType);
 }
 
 /// Compatibility adapter for existing account-service header shapes.
@@ -33,29 +29,33 @@ class AccountServiceAuthLoader implements SourceAccountAuthLoader {
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
-  })  : _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService,
-        _neteaseAccountService = neteaseAccountService;
+  }) : _bilibiliAccountService = bilibiliAccountService,
+       _youtubeAccountService = youtubeAccountService,
+       _neteaseAccountService = neteaseAccountService;
 
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
 
   @override
-  Future<Map<String, String>?> load(SourceType sourceType) async {
+  Future<Map<String, String>?> load(String sourceType) async {
     switch (sourceType) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         final cookies = await _bilibiliAccountService?.getAuthCookieString();
         if (cookies == null) return null;
         return {'Cookie': cookies};
-      case SourceType.youtube:
+      case SourceIds.youtube:
         final youtubeAccountService = _youtubeAccountService;
         if (youtubeAccountService == null) return null;
         return youtubeAccountService.getAuthHeaders();
-      case SourceType.netease:
+      case SourceIds.netease:
         final cookies = await _neteaseAccountService?.getAuthCookieString();
         if (cookies == null) return null;
         return SourceHttpPolicy.neteaseAuthHeaders(cookies);
+      default:
+        // 認不得的音源拿不到任何憑證。這裡若 fallback 到 B 站，等於把
+        // SESSDATA 送給一個我們不認識的主機。
+        return null;
     }
   }
 }
@@ -66,7 +66,7 @@ abstract interface class SourcePlaybackAuthContext {
   /// These raw headers are for source adapters, stream resolution, and track
   /// detail calls. They are not media request headers and must not be attached
   /// directly to byte requests.
-  Future<Map<String, String>?> authForPlay(SourceType sourceType);
+  Future<Map<String, String>?> authForPlay(String sourceType);
 }
 
 abstract interface class PlaybackMediaRequestContext {
@@ -78,13 +78,7 @@ abstract interface class PlaybackMediaRequestContext {
 
 abstract interface class DownloadSourceAuthContext
     implements SourcePlaybackAuthContext {
-  Map<String, String> downloadMediaHeaders(
-    SourceType sourceType, {
-    Map<String, String>? authHeaders,
-    String? requestUrl,
-  });
-
-  Map<String, String> imageHeaders(SourceType sourceType);
+  Map<String, String> imageHeaders(String sourceType);
 
   Map<String, String>? imageHeadersForUrl(
     String url, {
@@ -94,12 +88,12 @@ abstract interface class DownloadSourceAuthContext
 
 abstract interface class PlaylistAuthContext {
   Future<Map<String, String>?> playlistImportAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuth,
   });
 
   Future<Map<String, String>?> playlistRefreshAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuthForRefresh,
   });
 }
@@ -112,20 +106,13 @@ abstract interface class SourceAuthContext
         PlaylistAuthContext {}
 
 class PlaybackUrlResolution {
-  const PlaybackUrlResolution({
-    required this.url,
-    this.includeCredentials = true,
-  });
+  const PlaybackUrlResolution({required this.url});
 
   final String url;
-  final bool includeCredentials;
 }
 
 class PlaybackNetworkRequest {
-  const PlaybackNetworkRequest({
-    required this.url,
-    required this.headers,
-  });
+  const PlaybackNetworkRequest({required this.url, required this.headers});
 
   final String url;
   final Map<String, String>? headers;
@@ -137,28 +124,21 @@ class DefaultSourceAuthContext implements SourceAuthContext {
     required SourceAccountAuthLoader accountAuthLoader,
     MediaHandoff? mediaHandoff,
     PlaybackUrlResolver? playbackUrlResolver,
-    NeteasePlaybackRedirectResolver? neteasePlaybackRedirectResolver,
-  })  : _settingsLoader = settingsLoader,
-        _accountAuthLoader = accountAuthLoader,
-        _mediaHandoff = mediaHandoff ??
-            _createMediaHandoff(
-              playbackUrlResolver: playbackUrlResolver,
-              neteasePlaybackRedirectResolver: neteasePlaybackRedirectResolver,
-            );
+  }) : _settingsLoader = settingsLoader,
+       _accountAuthLoader = accountAuthLoader,
+       _mediaHandoff = mediaHandoff ?? _createMediaHandoff(playbackUrlResolver);
 
   factory DefaultSourceAuthContext.fromRepositories({
     required SettingsRepository settingsRepository,
     required SourceAccountAuthLoader accountAuthLoader,
     MediaHandoff? mediaHandoff,
     PlaybackUrlResolver? playbackUrlResolver,
-    NeteasePlaybackRedirectResolver? neteasePlaybackRedirectResolver,
   }) {
     return DefaultSourceAuthContext(
       settingsLoader: settingsRepository.get,
       accountAuthLoader: accountAuthLoader,
       mediaHandoff: mediaHandoff,
       playbackUrlResolver: playbackUrlResolver,
-      neteasePlaybackRedirectResolver: neteasePlaybackRedirectResolver,
     );
   }
 
@@ -175,7 +155,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
   /// `MediaHandoff` for download byte requests, and the image header helpers
   /// for image requests so `SourceHttpPolicy` can enforce credential allowlists.
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
     final settings = await _settingsLoader();
     if (!settings.useAuthForPlay(sourceType)) return null;
     return _accountAuthLoader.load(sourceType);
@@ -201,20 +181,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
   }
 
   @override
-  Map<String, String> downloadMediaHeaders(
-    SourceType sourceType, {
-    Map<String, String>? authHeaders,
-    String? requestUrl,
-  }) {
-    return SourceHttpPolicy.mediaHeaders(
-      sourceType,
-      authHeaders: authHeaders,
-      requestUrl: requestUrl,
-    );
-  }
-
-  @override
-  Map<String, String> imageHeaders(SourceType sourceType) {
+  Map<String, String> imageHeaders(String sourceType) {
     return SourceHttpPolicy.imageHeaders(sourceType);
   }
 
@@ -231,7 +198,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
 
   @override
   Future<Map<String, String>?> playlistImportAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuth,
   }) async {
     if (!useAuth) return null;
@@ -240,7 +207,7 @@ class DefaultSourceAuthContext implements SourceAuthContext {
 
   @override
   Future<Map<String, String>?> playlistRefreshAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuthForRefresh,
   }) async {
     if (!useAuthForRefresh) return null;
@@ -251,27 +218,11 @@ class DefaultSourceAuthContext implements SourceAuthContext {
       SourceHttpPolicy.mediaUserAgent;
 }
 
-MediaHandoff _createMediaHandoff({
-  PlaybackUrlResolver? playbackUrlResolver,
-  NeteasePlaybackRedirectResolver? neteasePlaybackRedirectResolver,
-}) {
+MediaHandoff _createMediaHandoff(PlaybackUrlResolver? playbackUrlResolver) {
   if (playbackUrlResolver != null) {
     return _PlaybackUrlResolverMediaHandoff(playbackUrlResolver);
   }
-  return DefaultMediaHandoff(
-    neteasePlaybackRedirectResolver: neteasePlaybackRedirectResolver == null
-        ? null
-        : (url, streamResolutionAuth) async {
-            final resolution = await neteasePlaybackRedirectResolver(
-              url.toString(),
-              streamResolutionAuth,
-            );
-            return MediaPlaybackRedirectResolution(
-              url: Uri.parse(resolution.url),
-              includeCredentials: resolution.includeCredentials,
-            );
-          },
-  );
+  return const DefaultMediaHandoff();
 }
 
 class _PlaybackUrlResolverMediaHandoff implements MediaHandoff {
@@ -288,19 +239,9 @@ class _PlaybackUrlResolverMediaHandoff implements MediaHandoff {
       request.url.toString(),
       request.streamResolutionAuth,
     );
-    final resolvedUrl = Uri.parse(resolution.url);
-    final headers = SourceHttpPolicy.mediaHeaders(
-      request.sourceType,
-      authHeaders: request.streamResolutionAuth,
-      requestUrl: resolvedUrl.toString(),
-      includeCredentials: resolution.includeCredentials,
-    );
     return MediaHandoffResult(
-      url: resolvedUrl,
-      headers: headers,
-      credentialsIncluded: headers.keys.any(
-        (key) => key.toLowerCase() == HttpHeaders.cookieHeader,
-      ),
+      url: Uri.parse(resolution.url),
+      headers: SourceHttpPolicy.mediaHeaders(request.sourceType),
     );
   }
 

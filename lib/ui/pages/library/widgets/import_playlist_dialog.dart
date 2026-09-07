@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 import '../../../../core/constants/ui_constants.dart';
+import '../../../../core/errors/user_message.dart';
+import '../../../../core/logger.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../data/sources/playlist_import/playlist_import_source.dart';
@@ -110,18 +112,18 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     super.dispose();
   }
 
-  /// 将内部 _SourcePlatform 映射到 SourceType（用于查询登录状态）
-  SourceType _sourcePlatformToSourceType(_SourcePlatform platform) {
+  /// 将内部 _SourcePlatform 映射到 String（用于查询登录状态）
+  String _sourcePlatformToSourceType(_SourcePlatform platform) {
     switch (platform) {
       case _SourcePlatform.bilibili:
-        return SourceType.bilibili;
+        return SourceIds.bilibili;
       case _SourcePlatform.youtube:
-        return SourceType.youtube;
+        return SourceIds.youtube;
       case _SourcePlatform.netease:
-        return SourceType.netease;
+        return SourceIds.netease;
       default:
-        return SourceType
-            .bilibili; // fallback, should not happen for internal sources
+        // fallback, should not happen for internal sources
+        return SourceIds.bilibili;
     }
   }
 
@@ -167,14 +169,19 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     //    内部来源直接导入，NeteaseSource 注册后网易云 URL 走内部流程
     final sourceManager = ref.read(sourceManagerProvider);
     final internalSourceType = sourceManager.sourceTypeForUrl(trimmed);
-    if (internalSourceType != null) {
-      final platform = switch (internalSourceType) {
-        SourceType.bilibili => _SourcePlatform.bilibili,
-        SourceType.youtube => _SourcePlatform.youtube,
-        SourceType.netease => _SourcePlatform.netease,
-      };
-      final newDetected =
-          _DetectedUrl(type: _UrlType.internal, platform: platform);
+    // 認不得的音源 id 代表「有註冊 adapter 但這個對話框沒有對應的分頁」，
+    // 落到 null 之後會繼續往下走外部來源檢查，最後顯示「無法識別的連結」。
+    final platform = switch (internalSourceType) {
+      SourceIds.bilibili => _SourcePlatform.bilibili,
+      SourceIds.youtube => _SourcePlatform.youtube,
+      SourceIds.netease => _SourcePlatform.netease,
+      _ => null,
+    };
+    if (platform != null) {
+      final newDetected = _DetectedUrl(
+        type: _UrlType.internal,
+        platform: platform,
+      );
       if (_detected?.type != newDetected.type ||
           _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
@@ -192,8 +199,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         PlaylistSource.qqMusic => _SourcePlatform.qqMusic,
         PlaylistSource.spotify => _SourcePlatform.spotify,
       };
-      final newDetected =
-          _DetectedUrl(type: _UrlType.external, platform: platform);
+      final newDetected = _DetectedUrl(
+        type: _UrlType.external,
+        platform: platform,
+      );
       if (_detected?.type != newDetected.type ||
           _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
@@ -227,9 +236,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
             children: [
               Text(
                 t.library.importPlaylist.supportedPlatforms,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 16),
 
@@ -290,27 +299,33 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
               // 使用登入狀態開關（僅內部來源顯示）
               if (_detected?.type == _UrlType.internal && !_isImporting) ...[
                 const SizedBox(height: 8),
-                Builder(builder: (context) {
-                  final isLoggedIn = _detected != null
-                      ? ref.watch(isLoggedInProvider(
-                          _sourcePlatformToSourceType(_detected!.platform)))
-                      : false;
-                  return SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(t.library.importPlaylist.useAuth),
-                    subtitle: Text(
-                      isLoggedIn
-                          ? t.library.importPlaylist.useAuthHint
-                          : t.library.importPlaylist.useAuthNotLoggedIn,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
-                    ),
-                    value: _useAuth && isLoggedIn,
-                    onChanged:
-                        isLoggedIn ? (v) => setState(() => _useAuth = v) : null,
-                  );
-                }),
+                Builder(
+                  builder: (context) {
+                    final isLoggedIn = _detected != null
+                        ? ref.watch(
+                            isLoggedInProvider(
+                              _sourcePlatformToSourceType(_detected!.platform),
+                            ),
+                          )
+                        : false;
+                    return SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(t.library.importPlaylist.useAuth),
+                      subtitle: Text(
+                        isLoggedIn
+                            ? t.library.importPlaylist.useAuthHint
+                            : t.library.importPlaylist.useAuthNotLoggedIn,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                      value: _useAuth && isLoggedIn,
+                      onChanged: isLoggedIn
+                          ? (v) => setState(() => _useAuth = v)
+                          : null,
+                    );
+                  },
+                ),
               ],
 
               // 搜索来源选择（仅外部歌单显示）
@@ -318,9 +333,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 const SizedBox(height: 16),
                 Text(
                   t.library.importPlaylist.searchSource,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -356,9 +371,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 if (progressCount != null)
                   Text(
                     progressCount,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                   ),
               ],
 
@@ -517,9 +532,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         return;
       }
 
-      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            result.playlist.id,
-          );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistChanged(result.playlist.id);
 
       if (mounted) {
         Navigator.pop(context);
@@ -529,11 +544,12 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
           '${result.skippedCount > 0 ? ', ${t.library.importPlaylist.skipped(n: result.skippedCount)}' : ''}',
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Playlist import failed', e, stack, 'Import');
       if (mounted) {
         setState(() {
           _isImporting = false;
-          _errorMessage = e.toString();
+          _errorMessage = userMessageFor(e);
         });
       }
     } finally {
@@ -573,7 +589,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
 
       if (state.phase == ImportPhase.error) {
         throw Exception(
-            state.errorMessage ?? t.library.importPlaylist.importFailed);
+          state.errorMessage ?? t.library.importPlaylist.importFailed,
+        );
       }
 
       if (mounted) {
@@ -584,11 +601,12 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         );
         ref.read(playlistImportProvider.notifier).reset();
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Playlist import failed', e, stack, 'Import');
       if (mounted) {
         setState(() {
           _isImporting = false;
-          _errorMessage = e.toString();
+          _errorMessage = userMessageFor(e);
         });
       }
     } finally {

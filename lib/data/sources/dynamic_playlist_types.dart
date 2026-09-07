@@ -20,8 +20,5 @@ class MixFetchResult {
   final String title;
   final List<Track> tracks;
 
-  const MixFetchResult({
-    required this.title,
-    required this.tracks,
-  });
+  const MixFetchResult({required this.title, required this.tracks});
 }

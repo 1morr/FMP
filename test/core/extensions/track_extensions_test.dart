@@ -1,16 +1,25 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:path/path.dart' as p;
 
-/// Test helper: FileExistsCache with pre-populated state
+/// Test helper: FileExistsCache with pre-populated state.
+///
+/// `FileExistsCache` 是 `Notifier`，它的 `state` 需要一個 provider element，
+/// 所以初始值改由 `build()` 回傳，實例從 container 取。
 class TestFileExistsCache extends FileExistsCache {
-  TestFileExistsCache(Set<String> initialState)
-      : super(onEpochChanged: (_) {}) {
-    state = initialState;
+  TestFileExistsCache(this._initialState);
+
+  final Set<String> _initialState;
+
+  @override
+  Set<String> build() {
+    super.build();
+    return _initialState;
   }
 
   /// Mark a path as existing or not
@@ -31,100 +40,102 @@ void main() {
       test('returns null when no download path', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalCoverPath(cache), isNull);
       });
 
       test('returns null when cover.jpg does not exist in cache', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/some/path/audio.m4a'
+              ..downloadPath = '/some/path/audio.m4a',
           ];
 
         // Empty set = no files exist
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalCoverPath(cache), isNull);
       });
 
       test('returns cover path when cover.jpg exists in cache', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/some/path/audio.m4a'
+              ..downloadPath = '/some/path/audio.m4a',
           ];
 
-        final cache = TestFileExistsCache({
-          p.join('/some/path', 'cover.jpg'),
-        });
-        expect(track.getLocalCoverPath(cache),
-            equals(p.join('/some/path', 'cover.jpg')));
+        final cache = _cache({p.join('/some/path', 'cover.jpg')});
+        expect(
+          track.getLocalCoverPath(cache),
+          equals(p.join('/some/path', 'cover.jpg')),
+        );
       });
 
-      test('returns first existing cover path from multiple download paths',
-          () {
-        final track = Track()
-          ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
-          ..title = 'Test Track'
-          ..playlistInfo = [
-            PlaylistDownloadInfo()
-              ..playlistId = 0
-              ..downloadPath = '/path1/audio.m4a',
-            PlaylistDownloadInfo()
-              ..playlistId = 1
-              ..downloadPath = '/path2/audio.m4a',
-          ];
+      test(
+        'returns first existing cover path from multiple download paths',
+        () {
+          final track = Track()
+            ..sourceId = 'test123'
+            ..sourceType = SourceIds.bilibili
+            ..title = 'Test Track'
+            ..playlistInfo = [
+              PlaylistDownloadInfo()
+                ..playlistId = 0
+                ..downloadPath = '/path1/audio.m4a',
+              PlaylistDownloadInfo()
+                ..playlistId = 1
+                ..downloadPath = '/path2/audio.m4a',
+            ];
 
-        // Only /path2/cover.jpg exists
-        final cache = TestFileExistsCache({
-          p.join('/path2', 'cover.jpg'),
-        });
-        expect(track.getLocalCoverPath(cache),
-            equals(p.join('/path2', 'cover.jpg')));
-      });
+          // Only /path2/cover.jpg exists
+          final cache = _cache({p.join('/path2', 'cover.jpg')});
+          expect(
+            track.getLocalCoverPath(cache),
+            equals(p.join('/path2', 'cover.jpg')),
+          );
+        },
+      );
     });
 
     group('getLocalAvatarPath', () {
       test('returns null when baseDir is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..ownerId = 12345;
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: null), isNull);
       });
 
       test('returns null when ownerId is null for Bilibili', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
       });
 
       test('returns null when channelId is null for YouTube', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Test Track';
 
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
       });
 
@@ -133,30 +144,28 @@ void main() {
 
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..ownerId = 12345;
 
         // Empty set = file does not exist
-        final cache = TestFileExistsCache({});
+        final cache = _cache(const {});
         expect(track.getLocalAvatarPath(cache, baseDir: baseDir), isNull);
       });
 
       test('returns avatar path for Bilibili when file exists', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..ownerId = 12345
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/downloads/video/audio.m4a'
+              ..downloadPath = '/downloads/video/audio.m4a',
           ];
 
-        final cache = TestFileExistsCache({
-          p.join('/downloads/video', 'avatar.jpg'),
-        });
+        final cache = _cache({p.join('/downloads/video', 'avatar.jpg')});
         expect(
           track.getLocalAvatarPath(cache, baseDir: '/downloads'),
           equals(p.join('/downloads/video', 'avatar.jpg')),
@@ -166,18 +175,16 @@ void main() {
       test('returns avatar path for YouTube when file exists', () {
         final track = Track()
           ..sourceId = 'testYT123'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Test Track'
           ..channelId = 'UCq-Fj5jknLsUf-MWSy4_brA'
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/downloads/video/audio.m4a'
+              ..downloadPath = '/downloads/video/audio.m4a',
           ];
 
-        final cache = TestFileExistsCache({
-          p.join('/downloads/video', 'avatar.jpg'),
-        });
+        final cache = _cache({p.join('/downloads/video', 'avatar.jpg')});
         expect(
           track.getLocalAvatarPath(cache, baseDir: '/downloads'),
           equals(p.join('/downloads/video', 'avatar.jpg')),
@@ -189,7 +196,7 @@ void main() {
       test('returns --:-- when durationMs is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.formattedDuration, equals('--:--'));
@@ -198,7 +205,7 @@ void main() {
       test('formats seconds correctly', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..durationMs = 45000; // 45 seconds
 
@@ -208,7 +215,7 @@ void main() {
       test('formats minutes and seconds correctly', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..durationMs = 185000; // 3:05
 
@@ -218,7 +225,7 @@ void main() {
       test('formats hours correctly', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..durationMs = 3725000; // 1:02:05
 
@@ -230,7 +237,7 @@ void main() {
       test('returns false when thumbnailUrl is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.hasNetworkCover, isFalse);
@@ -239,7 +246,7 @@ void main() {
       test('returns false when thumbnailUrl is empty', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..thumbnailUrl = '';
 
@@ -249,7 +256,7 @@ void main() {
       test('returns true when thumbnailUrl is not empty', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..thumbnailUrl = 'https://example.com/cover.jpg';
 
@@ -261,7 +268,7 @@ void main() {
       test('returns null when no download path', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.localAudioPath, isNull);
@@ -270,12 +277,12 @@ void main() {
       test('returns null when audio file does not exist', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/non/existent/path/audio.m4a'
+              ..downloadPath = '/non/existent/path/audio.m4a',
           ];
 
         expect(track.localAudioPath, isNull);
@@ -294,12 +301,12 @@ void main() {
 
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track'
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = audioPath
+              ..downloadPath = audioPath,
           ];
 
         expect(track.localAudioPath, equals(audioPath));
@@ -313,7 +320,7 @@ void main() {
       test('returns false when localAudioPath is null', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.hasLocalAudio, isFalse);
@@ -324,11 +331,22 @@ void main() {
       test('returns false when no local audio', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test Track';
 
         expect(track.isDownloaded, isFalse);
       });
     });
   });
+}
+
+TestFileExistsCache _cache(Set<String> initial) {
+  final container = ProviderContainer(
+    overrides: [
+      fileExistsCacheProvider.overrideWith(() => TestFileExistsCache(initial)),
+    ],
+  );
+  addTearDown(container.dispose);
+  return container.read(fileExistsCacheProvider.notifier)
+      as TestFileExistsCache;
 }

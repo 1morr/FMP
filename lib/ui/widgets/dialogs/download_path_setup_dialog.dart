@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../providers/download/download_path_provider.dart';
 import '../../../core/services/toast_service.dart';
 
@@ -77,12 +79,18 @@ class _DownloadPathSetupDialogState
         // 用户取消选择，恢复按钮状态允许重新选择
         setState(() => _isSelecting = false);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+        'Saving the download path failed',
+        e,
+        stack,
+        'DownloadPath',
+      );
       if (mounted) {
         setState(() => _isSelecting = false);
         ToastService.error(
           context,
-          t.downloadPathSetup.saveFailed(error: e.toString()),
+          t.downloadPathSetup.saveFailed(error: userMessageFor(e)),
         );
       }
     }

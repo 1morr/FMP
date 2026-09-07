@@ -9,16 +9,13 @@ class NeteaseApiException extends SourceApiException {
   @override
   final String message;
 
-  const NeteaseApiException({
-    required this.numericCode,
-    required this.message,
-  });
+  const NeteaseApiException({required this.numericCode, required this.message});
 
   @override
   String get code => _mapCode(numericCode);
 
   @override
-  SourceType get sourceType => SourceType.netease;
+  String get sourceType => SourceIds.netease;
 
   @override
   String toString() => 'NeteaseApiException($numericCode): $message';

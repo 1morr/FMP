@@ -147,13 +147,15 @@ class LyricsWindowStyle {
       ),
       shadowOffset: Offset(
         _clampDouble(
-            settings.lyricsWindowShadowOffsetX ?? defaults.shadowOffset.dx,
-            -24,
-            24),
+          settings.lyricsWindowShadowOffsetX ?? defaults.shadowOffset.dx,
+          -24,
+          24,
+        ),
         _clampDouble(
-            settings.lyricsWindowShadowOffsetY ?? defaults.shadowOffset.dy,
-            -24,
-            24),
+          settings.lyricsWindowShadowOffsetY ?? defaults.shadowOffset.dy,
+          -24,
+          24,
+        ),
       ),
     );
   }
@@ -164,15 +166,16 @@ class LyricsWindowStyle {
     final secondaryTextColorValue = json['secondaryTextColor'] as int?;
     return LyricsWindowStyle(
       textColor: _colorOrDefault(textColorValue, defaults.textColor),
-      textColorCustomized: json['textColorCustomized'] as bool? ??
+      textColorCustomized:
+          json['textColorCustomized'] as bool? ??
           (textColorValue != null &&
               Color(textColorValue) != defaults.textColor),
       secondaryTextColor: _colorOrDefault(
         secondaryTextColorValue,
         defaults.secondaryTextColor,
       ),
-      secondaryTextColorCustomized: json['secondaryTextColorCustomized']
-              as bool? ??
+      secondaryTextColorCustomized:
+          json['secondaryTextColorCustomized'] as bool? ??
           (secondaryTextColorValue != null &&
               Color(secondaryTextColorValue) != defaults.secondaryTextColor),
       inactiveOpacity: _clampDouble(
@@ -254,10 +257,12 @@ class LyricsWindowStyle {
   }) {
     return LyricsWindowStyle(
       textColor: textColor ?? this.textColor,
-      textColorCustomized: textColorCustomized ??
+      textColorCustomized:
+          textColorCustomized ??
           (textColor != null || this.textColorCustomized),
       secondaryTextColor: secondaryTextColor ?? this.secondaryTextColor,
-      secondaryTextColorCustomized: secondaryTextColorCustomized ??
+      secondaryTextColorCustomized:
+          secondaryTextColorCustomized ??
           (secondaryTextColor != null || this.secondaryTextColorCustomized),
       inactiveOpacity: inactiveOpacity ?? this.inactiveOpacity,
       outlineEnabled: outlineEnabled ?? this.outlineEnabled,
@@ -271,10 +276,12 @@ class LyricsWindowStyle {
   }
 
   void applyToSettings(Settings settings) {
-    settings.lyricsWindowTextColor =
-        hasCustomTextColor ? textColor.toARGB32() : null;
-    settings.lyricsWindowSecondaryTextColor =
-        hasCustomSecondaryTextColor ? secondaryTextColor.toARGB32() : null;
+    settings.lyricsWindowTextColor = hasCustomTextColor
+        ? textColor.toARGB32()
+        : null;
+    settings.lyricsWindowSecondaryTextColor = hasCustomSecondaryTextColor
+        ? secondaryTextColor.toARGB32()
+        : null;
     settings.lyricsWindowInactiveTextOpacity = inactiveOpacity;
     settings.lyricsWindowOutlineEnabled = outlineEnabled;
     settings.lyricsWindowOutlineColor = outlineColor.toARGB32();
@@ -406,19 +413,19 @@ class LyricsWindowStyle {
 
   @override
   int get hashCode => Object.hash(
-        textColor,
-        textColorCustomized,
-        secondaryTextColor,
-        secondaryTextColorCustomized,
-        inactiveOpacity,
-        outlineEnabled,
-        outlineColor,
-        outlineWidth,
-        shadowEnabled,
-        shadowColor,
-        shadowBlurRadius,
-        shadowOffset,
-      );
+    textColor,
+    textColorCustomized,
+    secondaryTextColor,
+    secondaryTextColorCustomized,
+    inactiveOpacity,
+    outlineEnabled,
+    outlineColor,
+    outlineWidth,
+    shadowEnabled,
+    shadowColor,
+    shadowBlurRadius,
+    shadowOffset,
+  );
 }
 
 Color _colorOrDefault(int? value, Color fallback) {

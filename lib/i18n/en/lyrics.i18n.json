@@ -27,6 +27,7 @@
   "displayPreferRomaji": "Prefer Romaji",
   "searchPrompt": "Enter keywords to search lyrics",
   "windowWaitingLyrics": "Waiting for lyrics...",
+  "windowNoLyrics": "No lyrics available",
   "windowUnpin": "Unpin",
   "windowPin": "Pin on top",
   "windowOffsetAdjust": "Offset adjust",

@@ -91,8 +91,10 @@ class _NowPlayingIndicatorState extends State<NowPlayingIndicator>
               gap: gap,
               maxBarHeight: maxBarHeight,
               borderRadius: 2.0,
-              heights:
-                  List.generate(3, (i) => _getBarHeight(i, _controller.value)),
+              heights: List.generate(
+                3,
+                (i) => _getBarHeight(i, _controller.value),
+              ),
             ),
           );
         },
@@ -142,6 +144,5 @@ class _BarsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BarsPainter old) =>
-      true; // always repaint during animation
+  bool shouldRepaint(_BarsPainter old) => true; // always repaint during animation
 }

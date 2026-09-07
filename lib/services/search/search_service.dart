@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/search_history.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
@@ -12,7 +13,7 @@ import '../../data/sources/source_provider.dart';
 
 /// 搜索结果（包含多个音源）
 class MultiSourceSearchResult {
-  final Map<SourceType, SearchResult> results;
+  final Map<String, SearchResult> results;
   final String query;
   final bool isLoading;
   final String? error;
@@ -43,12 +44,12 @@ class MultiSourceSearchResult {
   }
 
   /// 是否有更多结果
-  bool hasMoreFor(SourceType sourceType) {
+  bool hasMoreFor(String sourceType) {
     return results[sourceType]?.hasMore ?? false;
   }
 
   MultiSourceSearchResult copyWith({
-    Map<SourceType, SearchResult>? results,
+    Map<String, SearchResult>? results,
     String? query,
     bool? isLoading,
     String? error,
@@ -72,9 +73,9 @@ class SearchService {
     required SourceManager sourceManager,
     required TrackRepository trackRepository,
     required SearchHistoryRepository searchHistoryRepository,
-  })  : _sourceManager = sourceManager,
-        _trackRepository = trackRepository,
-        _searchHistoryRepository = searchHistoryRepository;
+  }) : _sourceManager = sourceManager,
+       _trackRepository = trackRepository,
+       _searchHistoryRepository = searchHistoryRepository;
 
   /// 在线搜索。
   ///
@@ -82,7 +83,7 @@ class SearchService {
   /// direct sources。
   Future<MultiSourceSearchResult> searchOnline(
     String query, {
-    List<SourceType>? sourceTypes,
+    List<String>? sourceTypes,
     int page = 1,
     int pageSize = 20,
     SearchOrder order = SearchOrder.relevance,
@@ -92,7 +93,7 @@ class SearchService {
     }
 
     final sources = sourceTypes ?? _sourceManager.registeredSourceTypes;
-    final results = <SourceType, SearchResult>{};
+    final results = <String, SearchResult>{};
     final errors = <String>[];
 
     // 并行搜索所有音源
@@ -109,8 +110,16 @@ class SearchService {
             );
             results[type] = result;
           }
-        } catch (e) {
-          errors.add('${type.name}: ${e.toString()}');
+        } catch (e, stack) {
+          // 這一行的產物會整段畫進搜尋頁的 ErrorDisplay，所以不能是例外原文
+          // —— 實機上它曾經顯示一整條含 URL 的 ClientException。
+          final reason = failureMessage(
+            e,
+            stack,
+            'Searching $type failed',
+            tag: 'Search',
+          );
+          errors.add('$type: $reason');
         }
       }),
     );
@@ -127,7 +136,7 @@ class SearchService {
 
   /// 搜索单个音源（用于加载更多）
   Future<SearchResult> searchSource(
-    SourceType sourceType,
+    String sourceType,
     String query, {
     int page = 1,
     int pageSize = 20,
@@ -135,7 +144,7 @@ class SearchService {
   }) async {
     final source = _sourceManager.searchSource(sourceType);
     if (source == null) {
-      throw SearchException(t.error.sourceUnavailable(source: sourceType.name));
+      throw SearchException(t.error.sourceUnavailable(source: sourceType));
     }
 
     return source.search(query, page: page, pageSize: pageSize, order: order);
@@ -163,7 +172,7 @@ class SearchService {
   /// 混合搜索（本地 + 在线）
   Future<MixedSearchResult> searchMixed(
     String query, {
-    List<SourceType>? sourceTypes,
+    List<String>? sourceTypes,
     int pageSize = 20,
   }) async {
     if (query.trim().isEmpty) {

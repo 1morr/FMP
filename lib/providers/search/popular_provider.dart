@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/errors/user_message.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
@@ -85,19 +86,24 @@ class RankingState {
 
 /// 排行榜 Provider
 final rankingVideosProvider =
-    StateNotifierProvider<RankingVideosNotifier, RankingState>((ref) {
-  final source =
-      ref.watch(sourceManagerProvider).rankingSource(SourceType.bilibili);
-  if (source == null) {
-    throw StateError('Bilibili ranking source not registered');
+    NotifierProvider<RankingVideosNotifier, RankingState>(
+      RankingVideosNotifier.new,
+    );
+
+class RankingVideosNotifier extends Notifier<RankingState> {
+  late RankingSource _source;
+
+  @override
+  RankingState build() {
+    final source = ref
+        .watch(sourceManagerProvider)
+        .rankingSource(SourceIds.bilibili);
+    if (source == null) {
+      throw StateError('Bilibili ranking source not registered');
+    }
+    _source = source;
+    return const RankingState();
   }
-  return RankingVideosNotifier(source);
-});
-
-class RankingVideosNotifier extends StateNotifier<RankingState> {
-  final RankingSource _source;
-
-  RankingVideosNotifier(this._source) : super(const RankingState());
 
   /// 加载指定分区的排行榜
   Future<void> loadCategory(BilibiliCategory category) async {
@@ -108,7 +114,10 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
     }
 
     state = state.copyWith(
-        isLoading: true, selectedCategory: category, error: null);
+      isLoading: true,
+      selectedCategory: category,
+      error: null,
+    );
 
     try {
       final tracks = await _source.getRankingTracks(
@@ -118,10 +127,15 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
         tracksByCategory: {...state.tracksByCategory, category: tracks},
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(
+          e,
+          stack,
+          'Loading the popular list failed',
+          tag: 'Popular',
+        ),
       );
     }
   }
@@ -140,7 +154,7 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
 final homeBilibiliMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.bilibili),
+      (state) => state.tracksFor(SourceIds.bilibili),
     ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
@@ -192,17 +206,24 @@ class YouTubeTrendingState {
 
 /// YouTube 熱門 Provider
 final youtubeTrendingProvider =
-    StateNotifierProvider<YouTubeTrendingNotifier, YouTubeTrendingState>((ref) {
-  final source =
-      ref.watch(sourceManagerProvider).rankingSource(SourceType.youtube);
-  if (source == null) throw StateError('YouTube ranking source not registered');
-  return YouTubeTrendingNotifier(source);
-});
+    NotifierProvider<YouTubeTrendingNotifier, YouTubeTrendingState>(
+      YouTubeTrendingNotifier.new,
+    );
 
-class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
-  final RankingSource _source;
+class YouTubeTrendingNotifier extends Notifier<YouTubeTrendingState> {
+  late RankingSource _source;
 
-  YouTubeTrendingNotifier(this._source) : super(const YouTubeTrendingState());
+  @override
+  YouTubeTrendingState build() {
+    final source = ref
+        .watch(sourceManagerProvider)
+        .rankingSource(SourceIds.youtube);
+    if (source == null) {
+      throw StateError('YouTube ranking source not registered');
+    }
+    _source = source;
+    return const YouTubeTrendingState();
+  }
 
   /// 加載指定分類的熱門視頻
   Future<void> loadCategory(YouTubeCategory category) async {
@@ -213,7 +234,10 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
     }
 
     state = state.copyWith(
-        isLoading: true, selectedCategory: category, error: null);
+      isLoading: true,
+      selectedCategory: category,
+      error: null,
+    );
 
     try {
       final tracks = await _source.getRankingTracks(
@@ -223,10 +247,15 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
         tracksByCategory: {...state.tracksByCategory, category: tracks},
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: failureMessage(
+          e,
+          stack,
+          'Loading the popular list failed',
+          tag: 'Popular',
+        ),
       );
     }
   }
@@ -245,7 +274,7 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
 final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.youtube),
+      (state) => state.tracksFor(SourceIds.youtube),
     ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
@@ -257,7 +286,7 @@ final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
 final homeNeteaseHotRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.netease),
+      (state) => state.tracksFor(SourceIds.netease),
     ),
   );
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
@@ -269,7 +298,7 @@ final homeNeteaseHotRankingProvider = Provider<List<Track>>((ref) {
 final cachedBilibiliRankingProvider = Provider<List<Track>>((ref) {
   return ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.bilibili),
+      (state) => state.tracksFor(SourceIds.bilibili),
     ),
   );
 });
@@ -278,7 +307,7 @@ final cachedBilibiliRankingProvider = Provider<List<Track>>((ref) {
 final cachedYouTubeRankingProvider = Provider<List<Track>>((ref) {
   return ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.youtube),
+      (state) => state.tracksFor(SourceIds.youtube),
     ),
   );
 });
@@ -287,7 +316,7 @@ final cachedYouTubeRankingProvider = Provider<List<Track>>((ref) {
 final cachedNeteaseRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select(
-      (state) => state.tracksFor(SourceType.netease),
+      (state) => state.tracksFor(SourceIds.netease),
     ),
   );
   return List.unmodifiable(tracks);

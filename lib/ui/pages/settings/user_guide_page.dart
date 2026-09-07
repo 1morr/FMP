@@ -12,9 +12,7 @@ class UserGuidePage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.settings.userGuide.title),
-      ),
+      appBar: AppBar(title: Text(t.settings.userGuide.title)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -343,17 +341,13 @@ class UserGuidePage extends StatelessWidget {
               color: iconColor.withValues(alpha: 0.15),
               borderRadius: AppRadius.borderRadiusMd,
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 20,
-            ),
+            child: Icon(icon, color: iconColor, size: 20),
           ),
           title: Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           children: [
             Padding(
@@ -435,8 +429,8 @@ class UserGuidePage extends StatelessWidget {
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -464,8 +458,11 @@ class UserGuidePage extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Center(
-                child:
-                    Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -482,8 +479,8 @@ class UserGuidePage extends StatelessWidget {
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

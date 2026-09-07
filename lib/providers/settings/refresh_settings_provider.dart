@@ -32,17 +32,21 @@ class RefreshSettingsState {
 }
 
 /// 刷新间隔设置管理器
-class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
-  final Ref _ref;
+class RefreshSettingsNotifier extends Notifier<RefreshSettingsState> {
   Settings? _settings;
 
-  RefreshSettingsNotifier(this._ref) : super(const RefreshSettingsState()) {
+  @override
+  RefreshSettingsState build() {
     _loadSettings();
+    return const RefreshSettingsState();
   }
 
   Future<void> _loadSettings() async {
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
     _settings = await settingsRepository.get();
+    // Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException，
+    // 而 Notifier 對 dispose 之後的 state 賦值本來就會拋。
+    if (!ref.mounted) return;
     final rankingMinutes = _settings!.rankingRefreshIntervalMinutes;
     final radioMinutes = _settings!.radioRefreshIntervalMinutes;
 
@@ -53,9 +57,9 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
     );
 
     // 用用户设置的间隔更新服务定时器
-    _ref.read(rankingCacheServiceProvider.notifier).updateRefreshInterval(
-          Duration(minutes: rankingMinutes),
-        );
+    ref
+        .read(rankingCacheServiceProvider.notifier)
+        .updateRefreshInterval(Duration(minutes: rankingMinutes));
     RadioRefreshService.instance.updateRefreshInterval(
       Duration(minutes: radioMinutes),
     );
@@ -64,23 +68,27 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
   Future<void> setRankingRefreshInterval(int minutes) async {
     if (_settings == null) return;
 
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository
-        .update((s) => s.rankingRefreshIntervalMinutes = minutes);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
+    await settingsRepository.update(
+      (s) => s.rankingRefreshIntervalMinutes = minutes,
+    );
+    if (!ref.mounted) return;
     _settings!.rankingRefreshIntervalMinutes = minutes;
     state = state.copyWith(rankingRefreshIntervalMinutes: minutes);
 
-    _ref.read(rankingCacheServiceProvider.notifier).updateRefreshInterval(
-          Duration(minutes: minutes),
-        );
+    ref
+        .read(rankingCacheServiceProvider.notifier)
+        .updateRefreshInterval(Duration(minutes: minutes));
   }
 
   Future<void> setRadioRefreshInterval(int minutes) async {
     if (_settings == null) return;
 
-    final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository
-        .update((s) => s.radioRefreshIntervalMinutes = minutes);
+    final settingsRepository = ref.read(settingsRepositoryProvider);
+    await settingsRepository.update(
+      (s) => s.radioRefreshIntervalMinutes = minutes,
+    );
+    if (!ref.mounted) return;
     _settings!.radioRefreshIntervalMinutes = minutes;
     state = state.copyWith(radioRefreshIntervalMinutes: minutes);
 
@@ -92,6 +100,6 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
 
 /// 刷新间隔设置 Provider
 final refreshSettingsProvider =
-    StateNotifierProvider<RefreshSettingsNotifier, RefreshSettingsState>((ref) {
-  return RefreshSettingsNotifier(ref);
-});
+    NotifierProvider<RefreshSettingsNotifier, RefreshSettingsState>(
+      RefreshSettingsNotifier.new,
+    );

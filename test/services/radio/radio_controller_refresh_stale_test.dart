@@ -6,10 +6,11 @@ import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/radio/radio_controller.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/radio/radio_source.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 
@@ -25,38 +26,35 @@ void main() {
     RadioRefreshService.instance.dispose();
   });
 
-  test('refreshStationInfo ignores stale viewer count after station changes',
-      () async {
-    final source = _CompletingRadioSource();
-    final controller = RadioController(
-      _FakeRef(),
-      _FakeRadioRepository(),
-      source,
-      FakeAudioService(),
-    );
-    addTearDown(controller.dispose);
+  test(
+    'refreshStationInfo ignores stale viewer count after station changes',
+    () async {
+      final source = _CompletingRadioSource();
+      final controller = _controller(
+        repository: _FakeRadioRepository(),
+        radioSource: source,
+      );
 
-    final stationA = _station(id: 1, sourceId: '101', title: 'Station A');
-    final stationB = _station(id: 2, sourceId: '202', title: 'Station B');
-    controller.setSeedState(RadioState(
-      currentStation: stationA,
-      viewerCount: 10,
-    ));
+      final stationA = _station(id: 1, sourceId: '101', title: 'Station A');
+      final stationB = _station(id: 2, sourceId: '202', title: 'Station B');
+      controller.setSeedState(
+        RadioState(currentStation: stationA, viewerCount: 10),
+      );
 
-    final refreshFuture = controller.refreshStationInfo();
-    await pumpEventQueue(times: 2);
-    expect(source.calls, ['101']);
+      final refreshFuture = controller.refreshStationInfo();
+      await pumpEventQueue(times: 2);
+      expect(source.calls, ['101']);
 
-    controller.setSeedState(RadioState(
-      currentStation: stationB,
-      viewerCount: 20,
-    ));
-    source.complete('101', 99);
-    await refreshFuture;
+      controller.setSeedState(
+        RadioState(currentStation: stationB, viewerCount: 20),
+      );
+      source.complete('101', 99);
+      await refreshFuture;
 
-    expect(controller.state.currentStation, same(stationB));
-    expect(controller.state.viewerCount, 20);
-  });
+      expect(controller.state.currentStation, same(stationB));
+      expect(controller.state.viewerCount, 20);
+    },
+  );
 
   test('refreshAll coalesces overlapping refresh requests', () async {
     final source = _CompletingLiveInfoSource();
@@ -101,35 +99,32 @@ void main() {
     expect(repository.savedStations.single.title, 'New Station');
   });
 
-  test('manual refresh syncs live status once from service notification',
-      () async {
-    final repository = _RefreshAllRadioRepository()
-      ..stations = [
-        _station(id: 1, sourceId: '101', title: 'Station A'),
-      ];
-    final controller = RadioController(
-      _FakeRef(),
-      repository,
-      _CompletingRadioSource(),
-      FakeAudioService(),
-    );
-    addTearDown(controller.dispose);
+  test(
+    'manual refresh syncs live status once from service notification',
+    () async {
+      final repository = _RefreshAllRadioRepository()
+        ..stations = [_station(id: 1, sourceId: '101', title: 'Station A')];
+      final controller = _controller(
+        repository: repository,
+        radioSource: _CompletingRadioSource(),
+      );
 
-    await _pumpUntil(
-      () => controller.state.stations.length == 1,
-      reason: 'controller should load stations before manual refresh',
-    );
+      await _pumpUntil(
+        () => controller.state.stations.length == 1,
+        reason: 'controller should load stations before manual refresh',
+      );
 
-    AppLogger.clearLogs();
-    await controller.refreshAllLiveStatus();
-    await pumpEventQueue();
+      AppLogger.clearLogs();
+      await controller.refreshAllLiveStatus();
+      await pumpEventQueue();
 
-    final syncLogs = AppLogger.logs.where(
-      (entry) =>
-          entry.tag == 'RadioController' && entry.message == '同步直播狀態: 1 個電台',
-    );
-    expect(syncLogs, hasLength(1));
-  });
+      final syncLogs = AppLogger.logs.where(
+        (entry) =>
+            entry.tag == 'RadioController' && entry.message == '同步直播狀態: 1 個電台',
+      );
+      expect(syncLogs, hasLength(1));
+    },
+  );
 }
 
 RadioStation _station({
@@ -140,7 +135,7 @@ RadioStation _station({
   return RadioStation()
     ..id = id
     ..url = 'https://live.bilibili.com/$sourceId'
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..sourceId = sourceId
     ..title = title;
 }
@@ -208,7 +203,22 @@ class _CompletingLiveInfoSource extends RadioSource {
   }
 }
 
-class _FakeRef extends Fake implements Ref {}
+/// `RadioController` 以前吃四個位置參數；`Notifier.new` 不吃，相依全部從
+/// container 進去。`radioRepositoryProvider` 直接覆寫，所以不用開 Isar。
+RadioController _controller({
+  required RadioRepository repository,
+  required RadioSource radioSource,
+}) {
+  final container = ProviderContainer(
+    overrides: [
+      radioRepositoryProvider.overrideWith((ref) => repository),
+      radioSourceProvider.overrideWith((ref) => radioSource),
+      audioServiceProvider.overrideWith((ref) => FakeAudioService()),
+    ],
+  );
+  addTearDown(container.dispose);
+  return container.read(radioControllerProvider.notifier);
+}
 
 class _FakeRadioRepository extends Fake implements RadioRepository {
   @override

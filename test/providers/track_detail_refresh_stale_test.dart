@@ -1,70 +1,67 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/providers/library/track_detail_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
-  test('loadDetail treats same-source multi-page tracks as different tracks',
-      () async {
-    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
-    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
-    final netease = _CompletingTrackDetailSource(SourceType.netease);
-    final sourceManager = SourceManager(sources: [
-      bilibili,
-      youtube,
-      netease,
-    ]);
-    addTearDown(sourceManager.dispose);
+  test(
+    'loadDetail treats same-source multi-page tracks as different tracks',
+    () async {
+      final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+      final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
+      final netease = _CompletingTrackDetailSource(SourceIds.netease);
+      final sourceManager = SourceManager(
+        sources: [bilibili, youtube, netease],
+      );
+      addTearDown(sourceManager.dispose);
 
-    final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-    final pageOne = _track('BV-SAME', SourceType.bilibili)
-      ..cid = 101
-      ..pageNum = 1;
-    final pageTwo = _track('BV-SAME', SourceType.bilibili)
-      ..cid = 202
-      ..pageNum = 2;
+      final pageOne = _track('BV-SAME', SourceIds.bilibili)
+        ..cid = 101
+        ..pageNum = 1;
+      final pageTwo = _track('BV-SAME', SourceIds.bilibili)
+        ..cid = 202
+        ..pageNum = 2;
 
-    final firstLoad = notifier.loadDetail(pageOne);
-    await pumpEventQueue(times: 2);
-    bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page One'));
-    await firstLoad;
+      final firstLoad = notifier.loadDetail(pageOne);
+      await pumpEventQueue(times: 2);
+      bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page One'));
+      await firstLoad;
 
-    final secondLoad = notifier.loadDetail(pageTwo);
-    await pumpEventQueue(times: 2);
+      final secondLoad = notifier.loadDetail(pageTwo);
+      await pumpEventQueue(times: 2);
 
-    expect(bilibili.requests, ['BV-SAME', 'BV-SAME']);
+      expect(bilibili.requests, ['BV-SAME', 'BV-SAME']);
 
-    bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page Two'));
-    await secondLoad;
+      bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page Two'));
+      await secondLoad;
 
-    expect(notifier.state.detail!.title, 'Page Two');
-  });
+      expect(notifier.state.detail!.title, 'Page Two');
+    },
+  );
 
   test('refresh ignores stale detail after current track changes', () async {
-    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
-    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
-    final netease = _CompletingTrackDetailSource(SourceType.netease);
-    final sourceManager = SourceManager(sources: [
-      bilibili,
-      youtube,
-      netease,
-    ]);
+    final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+    final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
+    final netease = _CompletingTrackDetailSource(SourceIds.netease);
+    final sourceManager = SourceManager(sources: [bilibili, youtube, netease]);
     addTearDown(sourceManager.dispose);
 
-    final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+    final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-    final trackA = _track('BV-A', SourceType.bilibili);
-    final trackB = _track('YT-B', SourceType.youtube);
+    final trackA = _track('BV-A', SourceIds.bilibili);
+    final trackB = _track('YT-B', SourceIds.youtube);
 
     final initialLoadFuture = notifier.loadDetail(trackA);
     await pumpEventQueue(times: 2);
@@ -87,59 +84,56 @@ void main() {
     expect(notifier.state.detail!.title, 'Track B');
   });
 
-  test('loadDetail clears old detail while loading a different track',
-      () async {
-    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
-    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
-    final netease = _CompletingTrackDetailSource(SourceType.netease);
-    final sourceManager = SourceManager(sources: [
-      bilibili,
-      youtube,
-      netease,
-    ]);
-    addTearDown(sourceManager.dispose);
+  test(
+    'loadDetail clears old detail while loading a different track',
+    () async {
+      final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+      final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
+      final netease = _CompletingTrackDetailSource(SourceIds.netease);
+      final sourceManager = SourceManager(
+        sources: [bilibili, youtube, netease],
+      );
+      addTearDown(sourceManager.dispose);
 
-    final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-    final trackA = _track('BV-A', SourceType.bilibili);
-    final initialLoadFuture = notifier.loadDetail(trackA);
-    await pumpEventQueue(times: 2);
-    bilibili.complete('BV-A', _detail('BV-A', 'Track A'));
-    await initialLoadFuture;
+      final trackA = _track('BV-A', SourceIds.bilibili);
+      final initialLoadFuture = notifier.loadDetail(trackA);
+      await pumpEventQueue(times: 2);
+      bilibili.complete('BV-A', _detail('BV-A', 'Track A'));
+      await initialLoadFuture;
 
-    expect(notifier.state.detail!.title, 'Track A');
+      expect(notifier.state.detail!.title, 'Track A');
 
-    final trackB = _track('YT-B', SourceType.youtube);
-    final loadTrackBFuture = notifier.loadDetail(trackB);
-    await pumpEventQueue(times: 2);
+      final trackB = _track('YT-B', SourceIds.youtube);
+      final loadTrackBFuture = notifier.loadDetail(trackB);
+      await pumpEventQueue(times: 2);
 
-    expect(notifier.state.isLoading, isTrue);
-    expect(notifier.state.detail, isNull);
+      expect(notifier.state.isLoading, isTrue);
+      expect(notifier.state.detail, isNull);
 
-    youtube.completeError('YT-B', Exception('blocked'));
-    await loadTrackBFuture;
+      youtube.completeError('YT-B', Exception('blocked'));
+      await loadTrackBFuture;
 
-    expect(notifier.state.isLoading, isFalse);
-    expect(notifier.state.detail, isNull);
-    expect(notifier.state.error, contains('blocked'));
-  });
+      expect(notifier.state.isLoading, isFalse);
+      expect(notifier.state.detail, isNull);
+      // `state.error` 被 UI 直接畫成文字，所以它現在是翻譯過的一句話，不是例外
+      // 原文（原文進 log）。斷言改成「有錯誤，而且不是原文」。
+      expect(notifier.state.error, isNotNull);
+      expect(notifier.state.error, isNot(contains('blocked')));
+    },
+  );
 
   test('refresh retries current track after first detail load fails', () async {
-    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
-    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
-    final netease = _CompletingTrackDetailSource(SourceType.netease);
-    final sourceManager = SourceManager(sources: [
-      bilibili,
-      youtube,
-      netease,
-    ]);
+    final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+    final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
+    final netease = _CompletingTrackDetailSource(SourceIds.netease);
+    final sourceManager = SourceManager(sources: [bilibili, youtube, netease]);
     addTearDown(sourceManager.dispose);
 
-    final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+    final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-    final track = _track('YT-B', SourceType.youtube);
+    final track = _track('YT-B', SourceIds.youtube);
     final loadFuture = notifier.loadDetail(track);
     await pumpEventQueue(times: 2);
 
@@ -147,7 +141,8 @@ void main() {
     await loadFuture;
 
     expect(notifier.state.detail, isNull);
-    expect(notifier.state.error, contains('blocked'));
+    expect(notifier.state.error, isNotNull);
+    expect(notifier.state.error, isNot(contains('blocked')));
 
     final refreshFuture = notifier.refresh();
     await pumpEventQueue(times: 2);
@@ -161,18 +156,21 @@ void main() {
     expect(notifier.state.error, isNull);
   });
 
-  test('loadDetail does not mask missing source with local metadata fallback',
-      () async {
-    final sourceManager = SourceManager(sources: []);
-    addTearDown(sourceManager.dispose);
+  test(
+    'loadDetail does not mask missing source with local metadata fallback',
+    () async {
+      final sourceManager = SourceManager(sources: []);
+      addTearDown(sourceManager.dispose);
 
-    final tempDir =
-        await Directory.systemTemp.createTemp('track_detail_missing_source_');
-    addTearDown(() => tempDir.delete(recursive: true));
+      final tempDir = await Directory.systemTemp.createTemp(
+        'track_detail_missing_source_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
 
-    final downloadDir = await Directory(p.join(tempDir.path, 'download'))
-        .create(recursive: true);
-    await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
+      final downloadDir = await Directory(
+        p.join(tempDir.path, 'download'),
+      ).create(recursive: true);
+      await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
 {
   "sourceId": "BV-MISSING",
   "title": "Local metadata should not mask missing source",
@@ -180,33 +178,35 @@ void main() {
 }
 ''');
 
-    final track = _track('BV-MISSING', SourceType.bilibili)
-      ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
-    final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+      final track = _track('BV-MISSING', SourceIds.bilibili)
+        ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-    await notifier.loadDetail(track);
+      await notifier.loadDetail(track);
 
-    expect(notifier.state.detail, isNull);
-    expect(
-      notifier.state.error,
-      contains('Track detail source not registered: bilibili'),
-    );
-  });
+      // 這一條測的是「沒有靜默退回本地 metadata」，不是錯誤文案的內容 ——
+      // 後者現在是翻譯過的句子，內部診斷只留在 log。
+      expect(notifier.state.detail, isNull);
+      expect(notifier.state.error, isNotNull);
+    },
+  );
 
-  test('loadDetail falls back to metadata for registered source StateError',
-      () async {
-    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
-    final sourceManager = SourceManager(sources: [bilibili]);
-    addTearDown(sourceManager.dispose);
+  test(
+    'loadDetail falls back to metadata for registered source StateError',
+    () async {
+      final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+      final sourceManager = SourceManager(sources: [bilibili]);
+      addTearDown(sourceManager.dispose);
 
-    final tempDir =
-        await Directory.systemTemp.createTemp('track_detail_source_error_');
-    addTearDown(() => tempDir.delete(recursive: true));
+      final tempDir = await Directory.systemTemp.createTemp(
+        'track_detail_source_error_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
 
-    final downloadDir = await Directory(p.join(tempDir.path, 'download'))
-        .create(recursive: true);
-    await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
+      final downloadDir = await Directory(
+        p.join(tempDir.path, 'download'),
+      ).create(recursive: true);
+      await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
 {
   "sourceId": "BV-STATE",
   "title": "Local metadata after source StateError",
@@ -214,41 +214,65 @@ void main() {
 }
 ''');
 
-    final track = _track('BV-STATE', SourceType.bilibili)
-      ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
-    final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+      final track = _track('BV-STATE', SourceIds.bilibili)
+        ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-    final loadFuture = notifier.loadDetail(track);
-    await pumpEventQueue(times: 2);
-    bilibili.completeError('BV-STATE', StateError('simulated detail failure'));
-    await loadFuture;
+      final loadFuture = notifier.loadDetail(track);
+      await pumpEventQueue(times: 2);
+      bilibili.completeError(
+        'BV-STATE',
+        StateError('simulated detail failure'),
+      );
+      await loadFuture;
 
-    expect(notifier.state.error, isNull);
-    expect(
-        notifier.state.detail!.title, 'Local metadata after source StateError');
-  });
+      expect(notifier.state.error, isNull);
+      expect(
+        notifier.state.detail!.title,
+        'Local metadata after source StateError',
+      );
+    },
+  );
 
   test('loadDetail gets auth from SourceAuthContext authForPlay', () async {
-    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
+    final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
     final sourceManager = SourceManager(sources: [youtube]);
     addTearDown(sourceManager.dispose);
     final authContext = _FakeSourceAuthContext()
       ..authHeaders = const {'Authorization': 'Bearer detail'};
-    final notifier = TrackDetailNotifier(sourceManager, authContext);
+    final notifier = _notifier(sourceManager, authContext);
 
-    final loadFuture =
-        notifier.loadDetail(_track('YT-auth', SourceType.youtube));
+    final loadFuture = notifier.loadDetail(
+      _track('YT-auth', SourceIds.youtube),
+    );
     await pumpEventQueue(times: 2);
     youtube.complete('YT-auth', _detail('YT-auth', 'Auth detail'));
     await loadFuture;
 
-    expect(authContext.requests, [SourceType.youtube]);
+    expect(authContext.requests, [SourceIds.youtube]);
     expect(youtube.authRequests.single, {'Authorization': 'Bearer detail'});
   });
 }
 
-Track _track(String sourceId, SourceType sourceType) {
+/// `TrackDetailNotifier` 以前吃兩個建構子參數；`Notifier.new` 不吃，所以兩個
+/// 相依都從 container 進去。`currentTrackProvider` 也一起蓋掉 —— 它會拉起整個
+/// `audioControllerProvider`，而這組測試只在意詳情載入。
+TrackDetailNotifier _notifier(
+  SourceManager sourceManager,
+  SourceAuthContext authContext,
+) {
+  final container = ProviderContainer(
+    overrides: [
+      sourceManagerProvider.overrideWith((ref) => sourceManager),
+      sourceAuthContextProvider.overrideWith((ref) => authContext),
+      currentTrackProvider.overrideWith((ref) => null),
+    ],
+  );
+  addTearDown(container.dispose);
+  return container.read(trackDetailProvider.notifier);
+}
+
+Track _track(String sourceId, String sourceType) {
   return Track()
     ..sourceType = sourceType
     ..sourceId = sourceId
@@ -280,7 +304,7 @@ class _CompletingTrackDetailSource implements TrackDetailSource {
   _CompletingTrackDetailSource(this.sourceType);
 
   @override
-  final SourceType sourceType;
+  final String sourceType;
 
   final requests = <String>[];
   final authRequests = <Map<String, String>?>[];
@@ -309,10 +333,10 @@ class _CompletingTrackDetailSource implements TrackDetailSource {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   Map<String, String>? authHeaders;
-  final requests = <SourceType>[];
+  final requests = <String>[];
 
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
     requests.add(sourceType);
     return authHeaders;
   }

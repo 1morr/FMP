@@ -37,8 +37,9 @@ class _LyricsSourceSettingsPageState
     final audioSettings = ref.read(audioSettingsProvider);
     _sourceOrder = List.from(audioSettings.lyricsSourceOrder);
     _disabledSources = Set.from(audioSettings.disabledLyricsSources);
-    _endpointController =
-        TextEditingController(text: audioSettings.lyricsAiEndpoint);
+    _endpointController = TextEditingController(
+      text: audioSettings.lyricsAiEndpoint,
+    );
     _apiKeyController = TextEditingController();
     _modelController = TextEditingController(text: audioSettings.lyricsAiModel);
     _timeoutController = TextEditingController(
@@ -144,8 +145,9 @@ class _LyricsSourceSettingsPageState
   }
 
   Future<void> _saveLyricsAiTimeoutSeconds(int seconds) async {
-    final normalized =
-        seconds < 1 ? AppConstants.lyricsAiDefaultTimeoutSeconds : seconds;
+    final normalized = seconds < 1
+        ? AppConstants.lyricsAiDefaultTimeoutSeconds
+        : seconds;
     await ref
         .read(audioSettingsProvider.notifier)
         .setLyricsAiTimeoutSeconds(normalized);
@@ -187,7 +189,9 @@ class _LyricsSourceSettingsPageState
       return;
     }
 
-    final result = await ref.read(aiTitleParserProvider).parse(
+    final result = await ref
+        .read(aiTitleParserProvider)
+        .parse(
           endpoint: config.endpoint,
           apiKey: config.apiKey,
           model: config.model,
@@ -198,10 +202,7 @@ class _LyricsSourceSettingsPageState
 
     if (!mounted) return;
     if (result == null) {
-      ToastService.error(
-        context,
-        t.settings.lyricsSourceSettings.aiTestFailed,
-      );
+      ToastService.error(context, t.settings.lyricsSourceSettings.aiTestFailed);
       return;
     }
 
@@ -274,7 +275,9 @@ class _LyricsSourceSettingsPageState
               t.settings.lyricsSourceSettings.allowPlainLyricsAutoMatch,
             ),
             subtitle: Text(
-              t.settings.lyricsSourceSettings
+              t
+                  .settings
+                  .lyricsSourceSettings
                   .allowPlainLyricsAutoMatchDescription,
             ),
             value: audioSettings.allowPlainLyricsAutoMatch,
@@ -291,10 +294,12 @@ class _LyricsSourceSettingsPageState
                   onReorderItem: _onReorder,
                   proxyDecorator: (child, index, animation) {
                     final elevation = Tween<double>(begin: 0, end: 4)
-                        .animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        ))
+                        .animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeInOut,
+                          ),
+                        )
                         .value;
                     return Material(
                       elevation: elevation,
@@ -351,10 +356,7 @@ class _LyricsSourceLeading extends StatelessWidget {
         children: [
           ReorderableDragStartListener(
             index: index,
-            child: Icon(
-              Icons.drag_handle,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            child: Icon(Icons.drag_handle, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(width: 12),
           Icon(
@@ -412,15 +414,12 @@ class _LyricsSourceTile extends StatelessWidget {
             ? t.settings.lyricsSourceSettings.enabled
             : t.settings.lyricsSourceSettings.disabled,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isEnabled
-                  ? colorScheme.primary
-                  : colorScheme.onSurface.withValues(alpha: disabledAlpha),
-            ),
+          color: isEnabled
+              ? colorScheme.primary
+              : colorScheme.onSurface.withValues(alpha: disabledAlpha),
+        ),
       ),
-      trailing: Switch(
-        value: isEnabled,
-        onChanged: (value) => onToggle(value),
-      ),
+      trailing: Switch(value: isEnabled, onChanged: (value) => onToggle(value)),
     );
   }
 }
@@ -501,36 +500,37 @@ class _AiTitleParsingSettingsDialogState
                   prefixIcon: const Icon(Icons.tune_outlined),
                   border: const OutlineInputBorder(),
                 ),
-                items: const [
-                  LyricsAiTitleParsingMode.off,
-                  LyricsAiTitleParsingMode.alwaysAi,
-                  LyricsAiTitleParsingMode.advancedAiSelect,
-                ]
-                    .map(
-                      (mode) => DropdownMenuItem(
-                        value: mode,
-                        child: Text(widget.modeLabelBuilder(mode)),
-                      ),
-                    )
-                    .toList(),
+                items:
+                    const [
+                          LyricsAiTitleParsingMode.off,
+                          LyricsAiTitleParsingMode.alwaysAi,
+                          LyricsAiTitleParsingMode.advancedAiSelect,
+                        ]
+                        .map(
+                          (mode) => DropdownMenuItem(
+                            value: mode,
+                            child: Text(widget.modeLabelBuilder(mode)),
+                          ),
+                        )
+                        .toList(),
                 onChanged: (mode) {
                   if (mode != null) widget.onModeChanged(mode);
                 },
               ),
               if (switch (widget.audioSettings.lyricsAiTitleParsingMode) {
-                LyricsAiTitleParsingMode.alwaysAi =>
-                  t.settings.lyricsSourceSettings.aiModeAlwaysDescription,
-                LyricsAiTitleParsingMode.advancedAiSelect =>
-                  t.settings.lyricsSourceSettings.aiModeAdvancedDescription,
-                LyricsAiTitleParsingMode.off => '',
-              }
+                    LyricsAiTitleParsingMode.alwaysAi =>
+                      t.settings.lyricsSourceSettings.aiModeAlwaysDescription,
+                    LyricsAiTitleParsingMode.advancedAiSelect =>
+                      t.settings.lyricsSourceSettings.aiModeAdvancedDescription,
+                    LyricsAiTitleParsingMode.off => '',
+                  }
                   case final description when description.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
               const SizedBox(height: 12),

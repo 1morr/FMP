@@ -144,8 +144,8 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
         height: 36,
         color: _isHovered
             ? (widget.isClose
-                ? Colors.red
-                : colorScheme.onSurface.withValues(alpha: 0.08))
+                  ? Colors.red
+                  : colorScheme.onSurface.withValues(alpha: 0.08))
             : Colors.transparent,
         child: Center(
           child: ExcludeSemantics(

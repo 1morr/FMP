@@ -158,12 +158,14 @@ class _BlurredCoverBackdropState extends State<BlurredCoverBackdrop> {
               ),
             ),
           Container(
-            color: widget.colorScheme.surface
-                .withValues(alpha: widget.surfaceOverlayAlpha),
+            color: widget.colorScheme.surface.withValues(
+              alpha: widget.surfaceOverlayAlpha,
+            ),
           ),
           Container(
-            color: widget.colorScheme.surfaceContainerHighest
-                .withValues(alpha: widget.surfaceContainerOverlayAlpha),
+            color: widget.colorScheme.surfaceContainerHighest.withValues(
+              alpha: widget.surfaceContainerOverlayAlpha,
+            ),
           ),
         ],
       ),
@@ -233,11 +235,7 @@ class _BlurredCoverBackdropState extends State<BlurredCoverBackdrop> {
 
   Future<bool> _precacheImage(ImageProvider candidate) async {
     var failed = false;
-    await precacheImage(
-      candidate,
-      context,
-      onError: (_, __) => failed = true,
-    );
+    await precacheImage(candidate, context, onError: (_, _) => failed = true);
     return !failed;
   }
 }

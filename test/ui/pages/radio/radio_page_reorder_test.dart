@@ -27,9 +27,7 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: ProviderScope(
-            overrides: [
-              radioControllerProvider.overrideWith((ref) => controller),
-            ],
+            overrides: [radioControllerProvider.overrideWith(() => controller)],
             child: const MaterialApp(home: RadioPage()),
           ),
         ),
@@ -49,11 +47,11 @@ void main() {
       grid.onReorder(0, 2);
 
       await tester.pump();
-      expect(
-        _stationOrder(tester),
-        ['Bravo', 'Charlie', 'Alpha'],
-        reason: 'reorder mode should apply the optimistic local order first',
-      );
+      expect(_stationOrder(tester), [
+        'Bravo',
+        'Charlie',
+        'Alpha',
+      ], reason: 'reorder mode should apply the optimistic local order first');
 
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump();
@@ -62,8 +60,9 @@ void main() {
     },
   );
 
-  testWidgets('RadioPage does not own a periodic status refresh timer',
-      (tester) async {
+  testWidgets('RadioPage does not own a periodic status refresh timer', (
+    tester,
+  ) async {
     final controller = _CountingRefreshRadioController([
       _buildStation(id: 1, title: 'Alpha', sortOrder: 0),
     ]);
@@ -73,9 +72,7 @@ void main() {
     await tester.pumpWidget(
       TranslationProvider(
         child: ProviderScope(
-          overrides: [
-            radioControllerProvider.overrideWith((ref) => controller),
-          ],
+          overrides: [radioControllerProvider.overrideWith(() => controller)],
           child: const MaterialApp(home: RadioPage()),
         ),
       ),
@@ -87,11 +84,14 @@ void main() {
   });
 }
 
+/// 不呼叫 `super.build()`：真的那個會去接電台資料庫與播放器。
 class _FailingReorderRadioController extends RadioController {
-  _FailingReorderRadioController(List<RadioStation> stations)
-      : super.forLoading() {
-    state = RadioState(stations: stations);
-  }
+  _FailingReorderRadioController(this._stations);
+
+  final List<RadioStation> _stations;
+
+  @override
+  RadioState build() => RadioState(stations: _stations);
 
   @override
   Future<void> reorderStations(List<int> newOrder) async {
@@ -105,11 +105,14 @@ class _FailingReorderRadioController extends RadioController {
   }
 }
 
+/// 不呼叫 `super.build()`：真的那個會去接電台資料庫與播放器。
 class _CountingRefreshRadioController extends RadioController {
-  _CountingRefreshRadioController(List<RadioStation> stations)
-      : super.forLoading() {
-    state = RadioState(stations: stations);
-  }
+  _CountingRefreshRadioController(this._stations);
+
+  final List<RadioStation> _stations;
+
+  @override
+  RadioState build() => RadioState(stations: _stations);
 
   int refreshAllLiveStatusCalls = 0;
 
@@ -128,7 +131,7 @@ RadioStation _buildStation({
     ..id = id
     ..url = 'https://example.com/$id'
     ..title = title
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..sourceId = '$id'
     ..sortOrder = sortOrder;
 }

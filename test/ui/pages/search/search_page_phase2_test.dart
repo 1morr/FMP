@@ -8,7 +8,7 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/search/search_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   group('Phase 2 key and boundary coverage', () {
@@ -21,25 +21,30 @@ void main() {
       ).readAsStringSync();
 
       expect(
-        RegExp(r'const\s+_SearchResultTile\s*\(\s*\{\s*super\.key,',
-                dotAll: true)
-            .hasMatch(searchPageSource),
+        RegExp(
+          r'const\s+_SearchResultTile\s*\(\s*\{\s*super\.key,',
+          dotAll: true,
+        ).hasMatch(searchPageSource),
         isTrue,
         reason:
             '_SearchResultTile should expose super.key before keyed call sites are added.',
       );
 
       expect(
-        RegExp(r'const\s+_LocalTrackTile\s*\(\s*\{\s*super\.key,', dotAll: true)
-            .hasMatch(searchPageSource),
+        RegExp(
+          r'const\s+_LocalTrackTile\s*\(\s*\{\s*super\.key,',
+          dotAll: true,
+        ).hasMatch(searchPageSource),
         isTrue,
         reason:
             '_LocalTrackTile should expose super.key before keyed call sites are added.',
       );
 
       expect(
-        RegExp(r'const\s+_TrackListTile\s*\(\s*\{\s*super\.key,', dotAll: true)
-            .hasMatch(playlistDetailSource),
+        RegExp(
+          r'const\s+_TrackListTile\s*\(\s*\{\s*super\.key,',
+          dotAll: true,
+        ).hasMatch(playlistDetailSource),
         isTrue,
         reason:
             '_TrackListTile should expose super.key before keyed call sites are added.',
@@ -87,9 +92,7 @@ void main() {
       );
     });
 
-    test(
-        'search page delegates bilibili page loading to notifier and service APIs',
-        () {
+    test('search page delegates bilibili page loading to notifier and service APIs', () {
       final searchPageSource = File(
         'lib/ui/pages/search/search_page.dart',
       ).readAsStringSync();
@@ -102,7 +105,8 @@ void main() {
 
       expect(
         searchProviderSource.contains(
-            'Future<List<VideoPage>> loadVideoPagesForTrack(Track track)'),
+          'Future<List<VideoPage>> loadVideoPagesForTrack(Track track)',
+        ),
         isTrue,
         reason:
             'SearchNotifier should expose a track-owned video-page entry for the search page.',
@@ -110,16 +114,18 @@ void main() {
 
       expect(
         searchServiceSource.contains(
-            'Future<List<VideoPage>> loadVideoPagesForTrack(Track track)'),
+          'Future<List<VideoPage>> loadVideoPagesForTrack(Track track)',
+        ),
         isTrue,
         reason:
             'SearchService should own bilibili video-page loading behind a helper API.',
       );
 
       expect(
-        searchPageSource.contains(
-          'ref.read(searchProvider.notifier).loadVideoPagesForTrack(track)',
-        ),
+        RegExp(
+          r'ref\s*\.read\(searchProvider\.notifier\)'
+          r'\s*\.loadVideoPagesForTrack\(track\)',
+        ).hasMatch(searchPageSource),
         isTrue,
         reason:
             'SearchPage should delegate video-page loading to the notifier boundary.',
@@ -147,13 +153,12 @@ void main() {
       );
     });
 
-    test(
-        'search service returns empty pages when the source lacks paged-video '
+    test('search service returns empty pages when the source lacks paged-video '
         'capability (capability-based, not source identity)', () async {
       // A bilibili paged source is registered, but the track is youtube, so
       // pagedVideoSource(youtube) is null: pages must be empty and the
       // registered paged source must not be queried.
-      final pagedSource = _RecordingPagedVideoSource(SourceType.bilibili);
+      final pagedSource = _RecordingPagedVideoSource(SourceIds.bilibili);
       final sourceManager = _PagedVideoSourceManager(pagedSource);
       final service = SearchService(
         sourceManager: sourceManager,
@@ -161,7 +166,7 @@ void main() {
         searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..sourceId = 'youtube-video';
 
       final pages = await service.loadVideoPagesForTrack(track);
@@ -172,7 +177,7 @@ void main() {
     });
 
     test('search service does not pass auth to page lookup', () async {
-      final pagedSource = _RecordingPagedVideoSource(SourceType.bilibili);
+      final pagedSource = _RecordingPagedVideoSource(SourceIds.bilibili);
       final sourceManager = _PagedVideoSourceManager(pagedSource);
       final service = SearchService(
         sourceManager: sourceManager,
@@ -180,7 +185,7 @@ void main() {
         searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
       );
       final track = Track()
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..sourceId = 'BV-no-auth';
 
       await service.loadVideoPagesForTrack(track);
@@ -188,8 +193,7 @@ void main() {
       expect(pagedSource.lastAuthHeaders, isNull);
     });
 
-    test('playlist mix bootstrap goes through the audio controller boundary',
-        () {
+    test('playlist mix bootstrap goes through the audio controller boundary', () {
       final playlistCardActionsSource = File(
         'lib/ui/widgets/menus/playlist_card_actions.dart',
       ).readAsStringSync();
@@ -221,8 +225,9 @@ void main() {
       );
 
       expect(
-        playlistCardActionsSource
-            .contains('await controller.startMixFromPlaylist(playlist);'),
+        playlistCardActionsSource.contains(
+          'await controller.startMixFromPlaylist(playlist);',
+        ),
         isTrue,
         reason:
             'PlaylistCardActions should call only the audio controller mix entry.',
@@ -252,7 +257,7 @@ class _PagedVideoSourceManager extends SourceManager {
   int pagedVideoLookupCount = 0;
 
   @override
-  PagedVideoSource? pagedVideoSource(SourceType type) {
+  PagedVideoSource? pagedVideoSource(String type) {
     pagedVideoLookupCount++;
     // Only serve the registered source's own type, mirroring real
     // SourceManager behaviour where a capability belongs to a specific source.
@@ -264,7 +269,7 @@ class _RecordingPagedVideoSource implements PagedVideoSource {
   _RecordingPagedVideoSource(this.sourceType);
 
   @override
-  final SourceType sourceType;
+  final String sourceType;
   int getVideoPagesCallCount = 0;
   Map<String, String>? lastAuthHeaders;
 

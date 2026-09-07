@@ -4,6 +4,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/netease_exception.dart';
 import 'package:fmp/data/sources/netease_source.dart';
+import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
   group('NeteaseSource URL parsing', () {
@@ -39,13 +40,12 @@ void main() {
   });
 
   group('NeteaseSource getHotRankingTracks', () {
-    test('fetches hot playlist metadata up to limit without audio stream',
-        () async {
-      final requests = <_RecordedRequest>[];
-      final source = NeteaseSource(
-        dio: _dioRecordingRequests(
-          requests,
-          (options) {
+    test(
+      'fetches hot playlist metadata up to limit without audio stream',
+      () async {
+        final requests = <_RecordedRequest>[];
+        final source = NeteaseSource(
+          dio: _dioRecordingRequests(requests, (options) {
             if (options.path.endsWith('/api/v6/playlist/detail')) {
               return {
                 'code': 200,
@@ -95,75 +95,124 @@ void main() {
             }
 
             fail('Unexpected request: ${options.path}');
-          },
-        ),
-      );
+          }),
+        );
 
-      final tracks = await source.getHotRankingTracks(limit: 2);
+        final tracks = await source.getHotRankingTracks(limit: 2);
 
-      expect(tracks, hasLength(2));
-      expect(tracks.map((track) => track.sourceId), ['101', '102']);
-      expect(tracks.every((track) => track.sourceType == SourceType.netease),
-          isTrue);
-      expect(tracks.first.title, 'First Song');
-      expect(tracks.first.artist, 'Artist A, Artist B');
-      expect(tracks.first.durationMs, 213000);
-      expect(tracks.first.thumbnailUrl, 'https://example.com/first.jpg');
-      expect(tracks.first.isVip, isFalse);
-      expect(tracks.first.isAvailable, isTrue);
-      expect(tracks.first.audioUrl, isNull);
-      expect(tracks[1].artist, 'Legacy Artist');
-      expect(tracks[1].durationMs, 180000);
-      expect(tracks[1].thumbnailUrl, 'https://example.com/second.jpg');
-      expect(tracks[1].isVip, isTrue);
-      expect(tracks[1].isAvailable, isFalse);
-      expect(tracks[1].audioUrl, isNull);
+        expect(tracks, hasLength(2));
+        expect(tracks.map((track) => track.sourceId), ['101', '102']);
+        expect(
+          tracks.every((track) => track.sourceType == SourceIds.netease),
+          isTrue,
+        );
+        expect(tracks.first.title, 'First Song');
+        expect(tracks.first.artist, 'Artist A, Artist B');
+        expect(tracks.first.durationMs, 213000);
+        expect(tracks.first.thumbnailUrl, 'https://example.com/first.jpg');
+        expect(tracks.first.isVip, isFalse);
+        expect(tracks.first.isAvailable, isTrue);
+        expect(tracks.first.audioUrl, isNull);
+        expect(tracks[1].artist, 'Legacy Artist');
+        expect(tracks[1].durationMs, 180000);
+        expect(tracks[1].thumbnailUrl, 'https://example.com/second.jpg');
+        expect(tracks[1].isVip, isTrue);
+        expect(tracks[1].isAvailable, isFalse);
+        expect(tracks[1].audioUrl, isNull);
 
-      final playlistRequest = requests.singleWhere(
-        (request) => request.path.endsWith('/api/v6/playlist/detail'),
-      );
-      expect(playlistRequest.data, 'id=3778678');
+        final playlistRequest = requests.singleWhere(
+          (request) => request.path.endsWith('/api/v6/playlist/detail'),
+        );
+        expect(playlistRequest.data, 'id=3778678');
 
-      final detailRequest = requests.singleWhere(
-        (request) => request.path.endsWith('/api/v3/song/detail'),
-      );
-      expect(detailRequest.data, contains('"id":101'));
-      expect(detailRequest.data, contains('"id":102'));
-      expect(detailRequest.data, isNot(contains('"id":103')));
-      expect(detailRequest.data, isNot(contains('"id":104')));
+        final detailRequest = requests.singleWhere(
+          (request) => request.path.endsWith('/api/v3/song/detail'),
+        );
+        expect(detailRequest.data, contains('"id":101'));
+        expect(detailRequest.data, contains('"id":102'));
+        expect(detailRequest.data, isNot(contains('"id":103')));
+        expect(detailRequest.data, isNot(contains('"id":104')));
 
-      expect(
-        requests.map((request) => request.path),
-        isNot(contains(contains('/eapi/song/enhance/player/url/v1'))),
-      );
-    });
+        expect(
+          requests.map((request) => request.path),
+          isNot(contains(contains('/eapi/song/enhance/player/url/v1'))),
+        );
+      },
+    );
   });
 
   group('NeteaseSource getAudioStream', () {
-    test('classifies stream item copyright restriction as geo restricted',
-        () async {
+    test(
+      'classifies stream item copyright restriction as geo restricted',
+      () async {
+        final source = NeteaseSource(
+          dio: _dioReturning({
+            'code': 200,
+            'data': [
+              {
+                'id': 123,
+                'url': null,
+                'code': -110,
+                'message': '因版权方要求，该资源暂时无法播放',
+              },
+            ],
+          }),
+        );
+
+        await expectLater(
+          source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
+          throwsA(
+            isA<NeteaseApiException>()
+                .having((e) => e.isGeoRestricted, 'isGeoRestricted', isTrue)
+                .having((e) => e.message, 'message', contains('版权')),
+          ),
+        );
+      },
+    );
+
+    test('uses the expi the API reports as the stream expiry', () async {
       final source = NeteaseSource(
         dio: _dioReturning({
           'code': 200,
           'data': [
             {
               'id': 123,
-              'url': null,
-              'code': -110,
-              'message': '因版权方要求，该资源暂时无法播放',
+              'url': 'http://m801.music.126.net/song.mp3',
+              'br': 320000,
+              'type': 'mp3',
+              'expi': 1200,
             },
           ],
         }),
       );
 
-      await expectLater(
-        source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
-        throwsA(
-          isA<NeteaseApiException>()
-              .having((e) => e.isGeoRestricted, 'isGeoRestricted', isTrue)
-              .having((e) => e.message, 'message', contains('版权')),
-        ),
+      final result = await source.getAudioStream(
+        const AudioStreamRequest(sourceId: '123'),
       );
+
+      expect(result.expiry, const Duration(seconds: 1200));
+    });
+
+    test('falls back to a fixed expiry when the API omits expi', () async {
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {
+              'id': 123,
+              'url': 'http://m801.music.126.net/song.mp3',
+              'br': 320000,
+              'type': 'mp3',
+            },
+          ],
+        }),
+      );
+
+      final result = await source.getAudioStream(
+        const AudioStreamRequest(sourceId: '123'),
+      );
+
+      expect(result.expiry, const Duration(minutes: 16));
     });
 
     test('classifies stream item VIP message as VIP required', () async {
@@ -192,59 +241,133 @@ void main() {
       );
     });
 
-    test('classifies stream 404 with copyright flag as geo restricted',
-        () async {
+    test(
+      'classifies stream 404 with copyright flag as geo restricted',
+      () async {
+        final source = NeteaseSource(
+          dio: _dioReturning({
+            'code': 200,
+            'data': [
+              {
+                'id': 435948605,
+                'url': null,
+                'code': 404,
+                'fee': 0,
+                'flag': 256,
+              },
+            ],
+          }),
+        );
+
+        await expectLater(
+          source.getAudioStream(
+            const AudioStreamRequest(sourceId: '435948605'),
+          ),
+          throwsA(
+            isA<NeteaseApiException>()
+                .having((e) => e.isGeoRestricted, 'isGeoRestricted', isTrue)
+                .having((e) => e.code, 'code', 'geo_restricted'),
+          ),
+        );
+      },
+    );
+
+    test('not logged in wins over the VIP flag bit', () async {
+      // 沒登入的失敗常常同時帶著 flag bit 4，而該位元本身不是 VIP 標記
+      // （實測歌曲 139774 是 flag=6、code=200，匿名就拿得到 320kbps）。
+      // 先看它就會把「登入即可播放」說成「要付費」。
       final source = NeteaseSource(
         dio: _dioReturning({
           'code': 200,
           'data': [
-            {
-              'id': 435948605,
-              'url': null,
-              'code': 404,
-              'fee': 0,
-              'flag': 256,
-            },
+            {'id': 1831476071, 'url': null, 'code': 301, 'fee': 0, 'flag': 4},
           ],
         }),
       );
 
       await expectLater(
-        source.getAudioStream(
-          const AudioStreamRequest(sourceId: '435948605'),
-        ),
+        source.getAudioStream(const AudioStreamRequest(sourceId: '1831476071')),
         throwsA(
           isA<NeteaseApiException>()
-              .having((e) => e.isGeoRestricted, 'isGeoRestricted', isTrue)
-              .having((e) => e.code, 'code', 'geo_restricted'),
+              .having((e) => e.kind, 'kind', SourceErrorKind.loginRequired)
+              .having((e) => e.isVipRequired, 'isVipRequired', isFalse),
         ),
       );
     });
 
-    test('classifies stream 404 with VIP flag as VIP required', () async {
+    test(
+      'a VIP song that is not a login failure is still reported as VIP',
+      () async {
+        final source = NeteaseSource(
+          dio: _dioReturning({
+            'code': 200,
+            'data': [
+              {'id': 1831476071, 'url': null, 'code': 404, 'fee': 0, 'flag': 4},
+            ],
+          }),
+        );
+
+        await expectLater(
+          source.getAudioStream(
+            const AudioStreamRequest(sourceId: '1831476071'),
+          ),
+          throwsA(
+            isA<NeteaseApiException>().having(
+              (e) => e.isVipRequired,
+              'isVipRequired',
+              isTrue,
+            ),
+          ),
+        );
+      },
+    );
+
+    test('login required wins over a VIP-looking message', () async {
       final source = NeteaseSource(
         dio: _dioReturning({
           'code': 200,
           'data': [
             {
-              'id': 1831476071,
+              'id': 123,
               'url': null,
-              'code': 404,
+              'code': 301,
               'fee': 0,
-              'flag': 260,
+              'flag': 4,
+              'message': '登录后享受 VIP 音质',
             },
           ],
         }),
       );
 
+      // 同一個回應兩邊都像，但「需要登入」是使用者真的能處理的那一個。
       await expectLater(
-        source.getAudioStream(
-          const AudioStreamRequest(sourceId: '1831476071'),
-        ),
+        source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
         throwsA(
           isA<NeteaseApiException>()
-              .having((e) => e.isVipRequired, 'isVipRequired', isTrue)
-              .having((e) => e.code, 'code', 'vip_required'),
+              .having((e) => e.kind, 'kind', SourceErrorKind.loginRequired)
+              .having((e) => e.isVipRequired, 'isVipRequired', isFalse),
+        ),
+      );
+    });
+
+    test('a paid song is still reported as VIP required', () async {
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {'id': 123, 'url': null, 'code': 404, 'fee': 1},
+          ],
+        }),
+      );
+
+      await expectLater(
+        source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
+        throwsA(
+          isA<NeteaseApiException>().having(
+            (e) => e.isVipRequired,
+            'isVipRequired',
+            isTrue,
+          ),
         ),
       );
     });

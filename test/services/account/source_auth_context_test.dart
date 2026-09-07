@@ -27,228 +27,178 @@ void main() {
 
     test('authForPlay follows per-source useAuthForPlay settings', () async {
       settings
-        ..useBilibiliAuthForPlay = true
-        ..useYoutubeAuthForPlay = false
-        ..useNeteaseAuthForPlay = true;
-      authLoader.headersBySource[SourceType.bilibili] = const {
+        ..setUseAuthForPlay(SourceIds.bilibili, true)
+        ..setUseAuthForPlay(SourceIds.youtube, false)
+        ..setUseAuthForPlay(SourceIds.netease, true);
+      authLoader.headersBySource[SourceIds.bilibili] = const {
         'Cookie': 'SESSDATA=bilibili',
       };
-      authLoader.headersBySource[SourceType.youtube] = const {
+      authLoader.headersBySource[SourceIds.youtube] = const {
         'Authorization': 'Bearer youtube',
       };
-      authLoader.headersBySource[SourceType.netease] = const {
+      authLoader.headersBySource[SourceIds.netease] = const {
         'Cookie': 'MUSIC_U=netease',
       };
 
-      final bilibili = await context.authForPlay(SourceType.bilibili);
-      final youtube = await context.authForPlay(SourceType.youtube);
-      final netease = await context.authForPlay(SourceType.netease);
+      final bilibili = await context.authForPlay(SourceIds.bilibili);
+      final youtube = await context.authForPlay(SourceIds.youtube);
+      final netease = await context.authForPlay(SourceIds.netease);
 
       expect(bilibili, {'Cookie': 'SESSDATA=bilibili'});
       expect(youtube, isNull);
       expect(netease, {'Cookie': 'MUSIC_U=netease'});
-      expect(authLoader.requests, [
-        SourceType.bilibili,
-        SourceType.netease,
-      ]);
+      expect(authLoader.requests, [SourceIds.bilibili, SourceIds.netease]);
     });
 
     test('playlist import auth follows caller useAuth only', () async {
-      authLoader.headersBySource[SourceType.netease] = const {
+      authLoader.headersBySource[SourceIds.netease] = const {
         'Cookie': 'MUSIC_U=token',
       };
 
       final disabled = await context.playlistImportAuth(
-        SourceType.netease,
+        SourceIds.netease,
         useAuth: false,
       );
       final enabled = await context.playlistImportAuth(
-        SourceType.netease,
+        SourceIds.netease,
         useAuth: true,
       );
 
       expect(disabled, isNull);
       expect(enabled, {'Cookie': 'MUSIC_U=token'});
-      expect(authLoader.requests, [SourceType.netease]);
-    });
-
-    test('playlist refresh auth follows persisted refresh setting only',
-        () async {
-      authLoader.headersBySource[SourceType.bilibili] = const {
-        'Cookie': 'SESSDATA=token',
-      };
-
-      final disabled = await context.playlistRefreshAuth(
-        SourceType.bilibili,
-        useAuthForRefresh: false,
-      );
-      final enabled = await context.playlistRefreshAuth(
-        SourceType.bilibili,
-        useAuthForRefresh: true,
-      );
-
-      expect(disabled, isNull);
-      expect(enabled, {'Cookie': 'SESSDATA=token'});
-      expect(authLoader.requests, [SourceType.bilibili]);
-    });
-
-    test('playbackNetworkRequest does not leak Bilibili or YouTube media auth',
-        () async {
-      settings
-        ..useBilibiliAuthForPlay = true
-        ..useYoutubeAuthForPlay = true;
-      authLoader.headersBySource[SourceType.bilibili] = const {
-        'Cookie': 'SESSDATA=bilibili',
-      };
-      authLoader.headersBySource[SourceType.youtube] = const {
-        'Authorization': 'Bearer youtube',
-        'Cookie': 'SID=youtube',
-      };
-
-      final bilibili = await context.playbackNetworkRequest(
-        _track(SourceType.bilibili),
-        'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
-      );
-      final youtube = await context.playbackNetworkRequest(
-        _track(SourceType.youtube),
-        'https://rr1---sn.googlevideo.com/videoplayback',
-      );
-
-      expect(
-          bilibili.headers,
-          SourceHttpPolicy.mediaHeaders(
-            SourceType.bilibili,
-          ));
-      expect(
-          youtube.headers,
-          SourceHttpPolicy.mediaHeaders(
-            SourceType.youtube,
-          ));
-      expect(bilibili.headers!.containsKey('Cookie'), isFalse);
-      expect(youtube.headers!.containsKey('Authorization'), isFalse);
-      expect(youtube.headers!.containsKey('Cookie'), isFalse);
-      expect(authLoader.requests, [
-        SourceType.bilibili,
-        SourceType.youtube,
-      ]);
-    });
-
-    test('playbackNetworkRequest strips Netease auth after unsafe redirect',
-        () async {
-      settings.useNeteaseAuthForPlay = true;
-      authLoader.headersBySource[SourceType.netease] =
-          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
-      final context = DefaultSourceAuthContext(
-        settingsLoader: () async => settings,
-        accountAuthLoader: authLoader,
-        playbackUrlResolver: (sourceType, url, authHeaders) async {
-          return const PlaybackUrlResolution(
-            url: 'https://attacker.example/audio.m4a',
-            includeCredentials: false,
-          );
-        },
-      );
-
-      final request = await context.playbackNetworkRequest(
-        _track(SourceType.netease),
-        'https://m701.music.126.net/audio.m4a',
-      );
-
-      expect(request.url, 'https://attacker.example/audio.m4a');
-      expect(request.headers!.containsKey('Cookie'), isFalse);
-      expect(
-          request.headers,
-          SourceHttpPolicy.mediaHeaders(
-            SourceType.netease,
-            authHeaders: SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token'),
-            requestUrl: 'https://attacker.example/audio.m4a',
-            includeCredentials: false,
-          ));
-      expect(authLoader.requests, [SourceType.netease]);
+      expect(authLoader.requests, [SourceIds.netease]);
     });
 
     test(
-        'default playbackNetworkRequest preflights Netease redirects and strips unsafe auth',
-        () async {
-      settings.useNeteaseAuthForPlay = true;
-      final authHeaders = SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
-      authLoader.headersBySource[SourceType.netease] = authHeaders;
-      var preflightCalls = 0;
-      String? preflightUrl;
-      Map<String, String>? preflightAuthHeaders;
-      final context = DefaultSourceAuthContext(
-        settingsLoader: () async => settings,
-        accountAuthLoader: authLoader,
-        neteasePlaybackRedirectResolver: (url, authHeaders) async {
-          preflightCalls++;
-          preflightUrl = url;
-          preflightAuthHeaders = authHeaders;
-          return const PlaybackUrlResolution(
-            url: 'https://attacker.example/audio.m4a',
-            includeCredentials: false,
-          );
-        },
-      );
+      'playlist refresh auth follows persisted refresh setting only',
+      () async {
+        authLoader.headersBySource[SourceIds.bilibili] = const {
+          'Cookie': 'SESSDATA=token',
+        };
 
-      final request = await context.playbackNetworkRequest(
-        _track(SourceType.netease),
-        'https://m701.music.126.net/audio.m4a',
-      );
+        final disabled = await context.playlistRefreshAuth(
+          SourceIds.bilibili,
+          useAuthForRefresh: false,
+        );
+        final enabled = await context.playlistRefreshAuth(
+          SourceIds.bilibili,
+          useAuthForRefresh: true,
+        );
 
-      expect(preflightCalls, 1);
-      expect(preflightUrl, 'https://m701.music.126.net/audio.m4a');
-      expect(preflightAuthHeaders, authHeaders);
-      expect(request.url, 'https://attacker.example/audio.m4a');
-      expect(request.headers!.containsKey('Cookie'), isFalse);
-      expect(
-        request.headers,
-        SourceHttpPolicy.mediaHeaders(
-          SourceType.netease,
-          authHeaders: authHeaders,
-          requestUrl: 'https://attacker.example/audio.m4a',
-          includeCredentials: false,
-        ),
-      );
-      expect(authLoader.requests, [SourceType.netease]);
-    });
+        expect(disabled, isNull);
+        expect(enabled, {'Cookie': 'SESSDATA=token'});
+        expect(authLoader.requests, [SourceIds.bilibili]);
+      },
+    );
 
-    test('playbackNetworkRequest delegates media request to MediaHandoff',
-        () async {
-      settings.useNeteaseAuthForPlay = true;
-      final authHeaders =
-          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=delegate');
-      authLoader.headersBySource[SourceType.netease] = authHeaders;
-      final mediaHandoff = _RecordingMediaHandoff(
-        result: MediaHandoffResult(
-          url: Uri.parse('https://m801.music.126.net/delegated.m4a'),
-          headers: const {'User-Agent': 'delegated-media'},
-          credentialsIncluded: true,
-        ),
-      );
-      final context = DefaultSourceAuthContext(
-        settingsLoader: () async => settings,
-        accountAuthLoader: authLoader,
-        mediaHandoff: mediaHandoff,
-      );
+    test(
+      'playbackNetworkRequest does not leak Bilibili or YouTube media auth',
+      () async {
+        settings
+          ..setUseAuthForPlay(SourceIds.bilibili, true)
+          ..setUseAuthForPlay(SourceIds.youtube, true);
+        authLoader.headersBySource[SourceIds.bilibili] = const {
+          'Cookie': 'SESSDATA=bilibili',
+        };
+        authLoader.headersBySource[SourceIds.youtube] = const {
+          'Authorization': 'Bearer youtube',
+          'Cookie': 'SID=youtube',
+        };
 
-      final request = await context.playbackNetworkRequest(
-        _track(SourceType.netease),
-        'https://m701.music.126.net/original.m4a',
-      );
+        final bilibili = await context.playbackNetworkRequest(
+          _track(SourceIds.bilibili),
+          'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
+        );
+        final youtube = await context.playbackNetworkRequest(
+          _track(SourceIds.youtube),
+          'https://rr1---sn.googlevideo.com/videoplayback',
+        );
 
-      expect(request.url, 'https://m801.music.126.net/delegated.m4a');
-      expect(request.headers, {'User-Agent': 'delegated-media'});
-      expect(mediaHandoff.requests, hasLength(1));
-      expect(mediaHandoff.requests.single.sourceType, SourceType.netease);
-      expect(
-        mediaHandoff.requests.single.url.toString(),
-        'https://m701.music.126.net/original.m4a',
-      );
-      expect(mediaHandoff.requests.single.streamResolutionAuth, authHeaders);
-    });
+        expect(
+          bilibili.headers,
+          SourceHttpPolicy.mediaHeaders(SourceIds.bilibili),
+        );
+        expect(
+          youtube.headers,
+          SourceHttpPolicy.mediaHeaders(SourceIds.youtube),
+        );
+        expect(bilibili.headers!.containsKey('Cookie'), isFalse);
+        expect(youtube.headers!.containsKey('Authorization'), isFalse);
+        expect(youtube.headers!.containsKey('Cookie'), isFalse);
+        expect(authLoader.requests, [SourceIds.bilibili, SourceIds.youtube]);
+      },
+    );
+
+    test(
+      'playbackNetworkRequest strips Netease auth after unsafe redirect',
+      () async {
+        settings.setUseAuthForPlay(SourceIds.netease, true);
+        authLoader.headersBySource[SourceIds.netease] =
+            SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
+        final context = DefaultSourceAuthContext(
+          settingsLoader: () async => settings,
+          accountAuthLoader: authLoader,
+          playbackUrlResolver: (sourceType, url, authHeaders) async {
+            return const PlaybackUrlResolution(
+              url: 'https://attacker.example/audio.m4a',
+            );
+          },
+        );
+
+        final request = await context.playbackNetworkRequest(
+          _track(SourceIds.netease),
+          'https://m701.music.126.net/audio.m4a',
+        );
+
+        expect(request.url, 'https://attacker.example/audio.m4a');
+        expect(request.headers!.containsKey('Cookie'), isFalse);
+        expect(
+          request.headers,
+          SourceHttpPolicy.mediaHeaders(SourceIds.netease),
+        );
+        expect(authLoader.requests, [SourceIds.netease]);
+      },
+    );
+
+    test(
+      'playbackNetworkRequest delegates media request to MediaHandoff',
+      () async {
+        settings.setUseAuthForPlay(SourceIds.netease, true);
+        final authHeaders = SourceHttpPolicy.neteaseAuthHeaders(
+          'MUSIC_U=delegate',
+        );
+        authLoader.headersBySource[SourceIds.netease] = authHeaders;
+        final mediaHandoff = _RecordingMediaHandoff(
+          result: MediaHandoffResult(
+            url: Uri.parse('https://m801.music.126.net/delegated.m4a'),
+            headers: const {'User-Agent': 'delegated-media'},
+          ),
+        );
+        final context = DefaultSourceAuthContext(
+          settingsLoader: () async => settings,
+          accountAuthLoader: authLoader,
+          mediaHandoff: mediaHandoff,
+        );
+
+        final request = await context.playbackNetworkRequest(
+          _track(SourceIds.netease),
+          'https://m701.music.126.net/original.m4a',
+        );
+
+        expect(request.url, 'https://m801.music.126.net/delegated.m4a');
+        expect(request.headers, {'User-Agent': 'delegated-media'});
+        expect(mediaHandoff.requests, hasLength(1));
+        expect(mediaHandoff.requests.single.sourceType, SourceIds.netease);
+        expect(
+          mediaHandoff.requests.single.url.toString(),
+          'https://m701.music.126.net/original.m4a',
+        );
+        expect(mediaHandoff.requests.single.streamResolutionAuth, authHeaders);
+      },
+    );
 
     test('image headers never include credentials', () {
-      for (final sourceType in SourceType.values) {
+      for (final sourceType in SourceIds.values) {
         final headers = context.imageHeaders(sourceType);
 
         expect(headers.containsKey('Cookie'), isFalse);
@@ -266,23 +216,24 @@ void main() {
     });
 
     test('production modules depend on purpose-specific auth interfaces', () {
-      final authContextSource =
-          File('lib/services/account/source_auth_context.dart')
-              .readAsStringSync();
-      final streamResolutionSource =
-          File('lib/services/audio/stream_resolution_service.dart')
-              .readAsStringSync();
-      final audioStreamManagerSource =
-          File('lib/services/audio/audio_stream_manager.dart')
-              .readAsStringSync();
-      final downloadServiceSource =
-          File('lib/services/download/download_service.dart')
-              .readAsStringSync();
-      final importServiceSource =
-          File('lib/services/import/import_service.dart').readAsStringSync();
-      final trackDetailSource =
-          File('lib/providers/library/track_detail_provider.dart')
-              .readAsStringSync();
+      final authContextSource = File(
+        'lib/services/account/source_auth_context.dart',
+      ).readAsStringSync();
+      final streamResolutionSource = File(
+        'lib/services/audio/stream_resolution_service.dart',
+      ).readAsStringSync();
+      final audioStreamManagerSource = File(
+        'lib/services/audio/audio_stream_manager.dart',
+      ).readAsStringSync();
+      final downloadServiceSource = File(
+        'lib/services/download/download_service.dart',
+      ).readAsStringSync();
+      final importServiceSource = File(
+        'lib/services/import/import_service.dart',
+      ).readAsStringSync();
+      final trackDetailSource = File(
+        'lib/providers/library/track_detail_provider.dart',
+      ).readAsStringSync();
 
       expect(
         authContextSource,
@@ -318,25 +269,25 @@ void main() {
       );
       expect(
         trackDetailSource,
-        contains('final SourcePlaybackAuthContext _sourceAuthContext'),
+        contains('late SourcePlaybackAuthContext _sourceAuthContext'),
       );
     });
   });
 }
 
-Track _track(SourceType sourceType) {
+Track _track(String sourceType) {
   return Track()
     ..sourceType = sourceType
-    ..sourceId = '${sourceType.name}-id'
-    ..title = '${sourceType.name} title';
+    ..sourceId = '${sourceType}-id'
+    ..title = '${sourceType} title';
 }
 
 class _RecordingAccountAuthLoader implements SourceAccountAuthLoader {
-  final headersBySource = <SourceType, Map<String, String>?>{};
-  final requests = <SourceType>[];
+  final headersBySource = <String, Map<String, String>?>{};
+  final requests = <String>[];
 
   @override
-  Future<Map<String, String>?> load(SourceType sourceType) async {
+  Future<Map<String, String>?> load(String sourceType) async {
     requests.add(sourceType);
     return headersBySource[sourceType];
   }

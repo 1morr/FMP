@@ -7,17 +7,17 @@ void main() {
     test('source account clients use SourceHttpPolicy for Dio defaults', () {
       final files = {
         'lib/services/account/bilibili_account_service.dart':
-            'SourceType.bilibili',
+            'SourceIds.bilibili',
         'lib/services/account/bilibili_favorites_service.dart':
-            'SourceType.bilibili',
+            'SourceIds.bilibili',
         'lib/services/account/youtube_account_service.dart':
-            'SourceType.youtube',
+            'SourceIds.youtube',
         'lib/services/account/youtube_playlist_service.dart':
-            'SourceType.youtube',
+            'SourceIds.youtube',
         'lib/services/account/netease_account_service.dart':
-            'SourceType.netease',
+            'SourceIds.netease',
         'lib/services/account/netease_playlist_service.dart':
-            'SourceType.netease',
+            'SourceIds.netease',
       };
 
       for (final entry in files.entries) {

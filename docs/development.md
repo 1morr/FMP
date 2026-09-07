@@ -132,13 +132,22 @@ lib/
 
 ## 響應式版面配置
 
-權威中斷點定義在 `lib/core/constants/breakpoints.dart`：
+權威定義在 `lib/core/constants/breakpoints.dart`。那裡有**兩組**API，回答的是
+兩個不同的問題，不可以互相代用：
 
-| 版面配置 | 寬度 | 導覽方式 |
+`WindowClass.of(width)` 決定視窗骨架（值取自 Material 3 與 `androidx.window`）：
+
+| WindowClass | 寬度 | 導覽方式 |
 |------|------|----------|
-| Mobile | `< 600dp` | 底部導覽列 |
-| Tablet | `600-1200dp` | 精簡側邊導覽軌 |
-| Desktop | `>= 1200dp` | 可收合側邊導覽軌 + 可選詳情面板 |
+| `compact` | `< 600dp` | 底部導覽列 |
+| `medium` | `600–839dp` | 精簡側邊導覽軌 |
+| `expanded` | `840–1199dp` | 可收合側邊導覽軌 + 可選詳情面板 |
+| `large` | `1200–1599dp` | 同上 |
+| `extraLarge` | `>= 1600dp` | 同上 |
+
+`columnsFor(containerWidth)` 決定**一個容器內部**放幾欄（每 400dp 一欄，上限
+3）。容器拿到的寬度已經扣掉導覽軌與詳情面板，所以 1280dp 的視窗可能只給內容區
+868dp —— 那時候容器該回答「2 欄」，即使視窗級距是 `large`。
 
 ## 常用指令
 
@@ -147,7 +156,7 @@ flutter run
 flutter run -d windows
 flutter analyze
 flutter test
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 dart run slang
 ```
 

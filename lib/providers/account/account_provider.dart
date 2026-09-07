@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
 
 import '../../core/logger.dart';
 import '../../core/services/toast_service.dart';
@@ -16,6 +15,8 @@ import '../../services/account/netease_playlist_service.dart';
 import '../../services/account/youtube_account_service.dart';
 import '../../services/account/youtube_playlist_service.dart';
 import '../database/database_provider.dart';
+import '../database/repository_providers.dart';
+import '../../data/repositories/account_repository.dart';
 
 /// Bilibili 帳號服務 Provider（單例）
 final bilibiliAccountServiceProvider = Provider<BilibiliAccountService>((ref) {
@@ -24,19 +25,18 @@ final bilibiliAccountServiceProvider = Provider<BilibiliAccountService>((ref) {
 });
 
 /// Bilibili 收藏夾服務 Provider
-final bilibiliFavoritesServiceProvider =
-    Provider<BilibiliFavoritesService>((ref) {
+final bilibiliFavoritesServiceProvider = Provider<BilibiliFavoritesService>((
+  ref,
+) {
   final accountService = ref.watch(bilibiliAccountServiceProvider);
   final isar = ref.watch(databaseProvider).requireValue;
   return BilibiliFavoritesService(accountService: accountService, isar: isar);
 });
 
 /// Bilibili 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
-final bilibiliAccountProvider =
-    StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
-  return AccountNotifier(isar, SourceType.bilibili);
-});
+final bilibiliAccountProvider = NotifierProvider<AccountNotifier, Account?>(
+  () => AccountNotifier(SourceIds.bilibili),
+);
 
 /// 是否已登錄 Bilibili（便捷 Provider）
 final isBilibiliLoggedInProvider = Provider<bool>((ref) {
@@ -59,11 +59,9 @@ final youtubePlaylistServiceProvider = Provider<YouTubePlaylistService>((ref) {
 });
 
 /// YouTube 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
-final youtubeAccountProvider =
-    StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
-  return AccountNotifier(isar, SourceType.youtube);
-});
+final youtubeAccountProvider = NotifierProvider<AccountNotifier, Account?>(
+  () => AccountNotifier(SourceIds.youtube),
+);
 
 /// 是否已登錄 YouTube（便捷 Provider）
 final isYouTubeLoggedInProvider = Provider<bool>((ref) {
@@ -74,14 +72,17 @@ final isYouTubeLoggedInProvider = Provider<bool>((ref) {
 // ===== 通用 =====
 
 /// 通用：根據平台獲取登錄狀態
-final isLoggedInProvider = Provider.family<bool, SourceType>((ref, platform) {
+final isLoggedInProvider = Provider.family<bool, String>((ref, platform) {
   switch (platform) {
-    case SourceType.bilibili:
+    case SourceIds.bilibili:
       return ref.watch(isBilibiliLoggedInProvider);
-    case SourceType.youtube:
+    case SourceIds.youtube:
       return ref.watch(isYouTubeLoggedInProvider);
-    case SourceType.netease:
+    case SourceIds.netease:
       return ref.watch(isNeteaseLoggedInProvider);
+    default:
+      // 沒有帳號體系的音源一律視為未登入。
+      return false;
   }
 });
 
@@ -94,11 +95,9 @@ final neteaseAccountServiceProvider = Provider<NeteaseAccountService>((ref) {
 });
 
 /// 網易雲帳號狀態 Provider（響應式，監聽 Isar Account 變化）
-final neteaseAccountProvider =
-    StateNotifierProvider<AccountNotifier, Account?>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
-  return AccountNotifier(isar, SourceType.netease);
-});
+final neteaseAccountProvider = NotifierProvider<AccountNotifier, Account?>(
+  () => AccountNotifier(SourceIds.netease),
+);
 
 /// 是否已登錄網易雲（便捷 Provider）
 final isNeteaseLoggedInProvider = Provider<bool>((ref) {
@@ -125,13 +124,17 @@ final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
     final success = await accountService.refreshCredentials();
     if (success) {
       AppLogger.info(
-          'Bilibili cookie refresh check completed', 'AccountRefresh');
+        'Bilibili cookie refresh check completed',
+        'AccountRefresh',
+      );
     } else {
       AppLogger.warning('Bilibili cookie refresh failed', 'AccountRefresh');
     }
   } catch (e) {
     AppLogger.warning(
-        'Bilibili cookie refresh check failed: $e', 'AccountRefresh');
+      'Bilibili cookie refresh check failed: $e',
+      'AccountRefresh',
+    );
   }
 });
 
@@ -140,15 +143,18 @@ final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
 /// 在 app.dart 中 watch 此 Provider。內部先等待 Cookie 刷新完成，
 /// 再依序檢查各平台，避免併發網絡請求。
 final accountStatusCheckProvider = FutureProvider<void>((ref) async {
-  // 先完成 Bilibili Cookie 刷新
-  await ref.watch(accountCookieRefreshProvider.future);
-
+  // 這四個都不依賴 Cookie 刷新的結果，所以在 await 之前就讀完。
+  // Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException（2.x 只有
+  // debug assert），在 await 之前讀完比事後補 ref.mounted 護欄更直接。
   final toastService = ref.read(toastServiceProvider);
   final services = <AccountService>[
     ref.read(bilibiliAccountServiceProvider),
     ref.read(youtubeAccountServiceProvider),
     ref.read(neteaseAccountServiceProvider),
   ];
+
+  // 先完成 Bilibili Cookie 刷新
+  await ref.watch(accountCookieRefreshProvider.future);
 
   await verifyAllAccountStatuses(services, toastService);
 });
@@ -160,9 +166,9 @@ class AccountStatusVerificationResult {
     required this.expiredPlatforms,
   });
 
-  final List<SourceType> checkedPlatforms;
-  final List<SourceType> failedPlatforms;
-  final List<SourceType> expiredPlatforms;
+  final List<String> checkedPlatforms;
+  final List<String> failedPlatforms;
+  final List<String> expiredPlatforms;
 
   bool get hasFailures => failedPlatforms.isNotEmpty;
 }
@@ -174,15 +180,15 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
   List<AccountService> services,
   ToastService toastService,
 ) async {
-  final checkedPlatforms = <SourceType>[];
-  final failedPlatforms = <SourceType>[];
-  final expiredPlatforms = <SourceType>[];
+  final checkedPlatforms = <String>[];
+  final failedPlatforms = <String>[];
+  final expiredPlatforms = <String>[];
 
   for (final service in services) {
     if (!await service.isLoggedIn()) continue;
     final oldAccount = await service.getCurrentAccount();
     final oldIsVip = oldAccount?.isVip ?? false;
-    final name = service.platform.displayName;
+    final name = SourceIds.displayNameFor(service.platform);
 
     try {
       final result = await service.checkAccountStatus();
@@ -198,8 +204,10 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
       }
     } catch (e) {
       failedPlatforms.add(service.platform);
-      AppLogger.warning('${service.platform.name} status check failed: $e',
-          'AccountStatusCheck');
+      AppLogger.warning(
+        '${service.platform} status check failed: $e',
+        'AccountStatusCheck',
+      );
     }
   }
 
@@ -211,32 +219,21 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
 }
 
 /// 通用帳號狀態管理（監聽 Isar Account 變化）
-class AccountNotifier extends StateNotifier<Account?> {
-  final Isar _isar;
-  final SourceType _platform;
+class AccountNotifier extends Notifier<Account?> {
+  AccountNotifier(this._platform);
+
+  final String _platform;
+  late AccountRepository _accounts;
   StreamSubscription? _subscription;
 
-  AccountNotifier(this._isar, this._platform) : super(null) {
-    _init();
-  }
-
-  void _init() {
-    final account =
-        _isar.accounts.filter().platformEqualTo(_platform).findFirstSync();
-    state = account;
-
-    _subscription = _isar.accounts
-        .filter()
-        .platformEqualTo(_platform)
-        .watch(fireImmediately: true)
-        .listen((accounts) {
-      state = accounts.isNotEmpty ? accounts.first : null;
-    });
-  }
-
   @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
+  Account? build() {
+    _accounts = ref.watch(accountRepositoryProvider);
+    _subscription = _accounts.watchByPlatform(_platform).listen((account) {
+      state = account;
+    });
+    ref.onDispose(() => _subscription?.cancel());
+    // 同步先取一次，讓第一幀就有正確的登入狀態，再接上串流。
+    return _accounts.getByPlatformSync(_platform);
   }
 }

@@ -6,11 +6,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../core/constants/ui_constants.dart';
 
-enum StoragePermissionStatus {
-  denied,
-  granted,
-  permanentlyDenied,
-}
+enum StoragePermissionStatus { denied, granted, permanentlyDenied }
 
 extension StoragePermissionStatusX on StoragePermissionStatus {
   bool get isGranted => this == StoragePermissionStatus.granted;
@@ -27,8 +23,9 @@ extension StoragePermissionStatusX on StoragePermissionStatus {
 /// 的 Windows 插件带入桌面构建。permission_handler_windows 会在插件注册时
 /// 订阅 Geolocator.PositionChanged，导致 Windows 显示应用正在使用位置。
 class StoragePermissionService {
-  static const MethodChannel _platformChannel =
-      MethodChannel('com.personal.fmp/platform');
+  static const MethodChannel _platformChannel = MethodChannel(
+    'com.personal.fmp/platform',
+  );
 
   @visibleForTesting
   static Future<int?> Function()? debugAndroidSdkProvider;
@@ -41,11 +38,11 @@ class StoragePermissionService {
 
   @visibleForTesting
   static Future<StoragePermissionStatus> Function()?
-      debugManageExternalStorageStatus;
+  debugManageExternalStorageStatus;
 
   @visibleForTesting
   static Future<StoragePermissionStatus> Function()?
-      debugRequestManageExternalStorage;
+  debugRequestManageExternalStorage;
 
   @visibleForTesting
   static Future<StoragePermissionStatus> Function()? debugRequestStorage;
@@ -181,7 +178,8 @@ class StoragePermissionService {
 
   /// 显示权限解释对话框
   static Future<bool> _showPermissionExplanationDialog(
-      BuildContext context) async {
+    BuildContext context,
+  ) async {
     final colorScheme = Theme.of(context).colorScheme;
 
     return await showDialog<bool>(
@@ -249,15 +247,9 @@ class StoragePermissionService {
     final goToSettings = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: Icon(
-          Icons.block_outlined,
-          color: colorScheme.error,
-          size: 32,
-        ),
+        icon: Icon(Icons.block_outlined, color: colorScheme.error, size: 32),
         title: Text(t.permission.denied),
-        content: Text(
-          t.permission.deniedMessage,
-        ),
+        content: Text(t.permission.deniedMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

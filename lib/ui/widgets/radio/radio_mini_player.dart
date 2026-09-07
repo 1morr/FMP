@@ -37,59 +37,63 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
     final station = radioState.currentStation!;
 
-    return GestureDetector(
-      onTap: () => context.push(RoutePaths.radioPlayer),
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh,
-          border: Border(
-            top: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-              width: 0.5,
+    return Semantics(
+      button: true,
+      label: t.player.openPlayer,
+      child: GestureDetector(
+        onTap: () => context.push(RoutePaths.radioPlayer),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            border: Border(
+              top: BorderSide(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
             ),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            children: [
-              // 封面
-              _buildThumbnail(station),
-              const SizedBox(width: 8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                // 封面
+                _buildThumbnail(station),
+                const SizedBox(width: 8),
 
-              // 電台資訊
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      station.title,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    _buildStatusRow(radioState, colorScheme, context),
-                  ],
+                // 電台資訊
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        station.title,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      _buildStatusRow(radioState, colorScheme, context),
+                    ],
+                  ),
                 ),
-              ),
 
-              // 同步按鈕
-              _buildSyncButton(radioState, radioController),
+                // 同步按鈕
+                _buildSyncButton(radioState, radioController),
 
-              // 播放/暫停按鈕
-              _buildPlayStopButton(radioState, radioController),
+                // 播放/暫停按鈕
+                _buildPlayStopButton(radioState, radioController),
 
-              // 重新載入直播按鈕（無條件重連，RadioController.reload）
-              _buildReloadButton(radioState, radioController),
+                // 重新載入直播按鈕（無條件重連，RadioController.reload）
+                _buildReloadButton(radioState, radioController),
 
-              // 桌面端音頻設備選擇器 + 音量控制（與音樂迷你播放器共用）
-              if (isDesktopPlatform) const MiniPlayerDesktopControls(),
-            ],
+                // 桌面端音頻設備選擇器 + 音量控制（與音樂迷你播放器共用）
+                if (isDesktopPlatform) const MiniPlayerDesktopControls(),
+              ],
+            ),
           ),
         ),
       ),
@@ -133,7 +137,8 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     // 觀眾數
     if (radioState.viewerCount != null) {
       parts.add(
-          t.radio.viewersCount(count: _formatCount(radioState.viewerCount!)));
+        t.radio.viewersCount(count: _formatCount(radioState.viewerCount!)),
+      );
     }
 
     // 重連/緩衝狀態
@@ -145,19 +150,16 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
     return Text(
       parts.isEmpty ? t.radio.live : parts.join(' · '),
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
   }
 
   /// 播放/暫停按鈕
-  Widget _buildPlayStopButton(
-    RadioState state,
-    RadioController controller,
-  ) {
+  Widget _buildPlayStopButton(RadioState state, RadioController controller) {
     return MiniPlayerPlayPauseButton(
       isPlaying: state.isPlaying,
       isLoading: state.isBuffering || state.isLoading,
@@ -173,17 +175,11 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   }
 
   /// 同步按鈕（跳到直播邊緣，無法 seek 則重連；RadioController.sync）
-  Widget _buildSyncButton(
-    RadioState state,
-    RadioController controller,
-  ) {
+  Widget _buildSyncButton(RadioState state, RadioController controller) {
     final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
 
     return IconButton(
-      icon: const Icon(
-        Icons.sync,
-        size: 24,
-      ),
+      icon: const Icon(Icons.sync, size: 24),
       visualDensity: VisualDensity.compact,
       tooltip: t.radio.syncLive,
       onPressed: isDisabled ? null : () => controller.sync(),
@@ -191,17 +187,11 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   }
 
   /// 重新載入按鈕（無條件重連直播流，RadioController.reload）
-  Widget _buildReloadButton(
-    RadioState state,
-    RadioController controller,
-  ) {
+  Widget _buildReloadButton(RadioState state, RadioController controller) {
     final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
 
     return IconButton(
-      icon: const Icon(
-        Icons.refresh,
-        size: 24,
-      ),
+      icon: const Icon(Icons.refresh, size: 24),
       visualDensity: VisualDensity.compact,
       tooltip: t.radio.reloadLive,
       onPressed: isDisabled ? null : () => controller.reload(),

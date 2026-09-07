@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -9,7 +8,8 @@ import 'package:fmp/data/models/account.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/account/account_service.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -20,9 +20,7 @@ void main() {
     late Map<String, String> secureStorageData;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -45,166 +43,180 @@ void main() {
       }
     });
 
-    test('pollQrCodeStatus fails when success response has no MUSIC_U cookie',
-        () async {
-      final service = _FakeNeteaseAccountService(
-        isar: isar,
-        nextStatus: const AccountCheckResult(status: AccountStatus.valid),
-      )
-        ..pollResponseData = {'code': 803}
-        ..pollSetCookieHeaders = ['__csrf=csrf; Path=/'];
+    test(
+      'pollQrCodeStatus fails when success response has no MUSIC_U cookie',
+      () async {
+        final service =
+            _FakeNeteaseAccountService(
+                isar: isar,
+                nextStatus: const AccountCheckResult(
+                  status: AccountStatus.valid,
+                ),
+              )
+              ..pollResponseData = {'code': 803}
+              ..pollSetCookieHeaders = ['__csrf=csrf; Path=/'];
 
-      final result = await service.pollQrCodeStatus('unikey').first;
+        final result = await service.pollQrCodeStatus('unikey').first;
 
-      expect(result.code, 800);
-      expect(result.message, 'Missing login cookies');
-      expect(await service.isLoggedIn(), isFalse);
-      expect(await service.getAuthCookieString(), isNull);
-    });
-
-    test('returns false and clears new login state when validation is invalid',
-        () async {
-      final service = _FakeNeteaseAccountService(
-        isar: isar,
-        nextStatus: const AccountCheckResult(status: AccountStatus.invalid),
-      );
-
-      final success = await service.loginWithCookiesAndValidate(
-        musicU: 'music-u',
-        csrf: 'csrf',
-      );
-
-      expect(success, isFalse);
-      expect(await service.isLoggedIn(), isFalse);
-      expect(await service.getAuthCookieString(), isNull);
-      final account = await service.getCurrentAccount();
-      expect(account, isNull);
-      expect(secureStorageData, isEmpty);
-    });
+        expect(result.code, 800);
+        expect(result.message, 'Missing login cookies');
+        expect(await service.isLoggedIn(), isFalse);
+        expect(await service.getAuthCookieString(), isNull);
+      },
+    );
 
     test(
-        'returns auth headers with cookie origin referer and desktop user agent',
-        () async {
-      final service = _FakeNeteaseAccountService(
-        isar: isar,
-        nextStatus: const AccountCheckResult(status: AccountStatus.valid),
-      );
+      'returns false and clears new login state when validation is invalid',
+      () async {
+        final service = _FakeNeteaseAccountService(
+          isar: isar,
+          nextStatus: const AccountCheckResult(status: AccountStatus.invalid),
+        );
 
-      await service.loginWithCookiesAndValidate(
-        musicU: 'music-u',
-        csrf: 'csrf',
-      );
+        final success = await service.loginWithCookiesAndValidate(
+          musicU: 'music-u',
+          csrf: 'csrf',
+        );
 
-      final headers = await service.getAuthHeaders();
-
-      expect(headers, isNotNull);
-      expect(headers!['Cookie'], contains('MUSIC_U=music-u'));
-      expect(headers['Cookie'], contains('__csrf=csrf'));
-      expect(headers['Origin'], 'https://music.163.com');
-      expect(headers['Referer'], 'https://music.163.com/');
-      expect(headers['User-Agent'], NeteaseAccountService.userAgent);
-    });
+        expect(success, isFalse);
+        expect(await service.isLoggedIn(), isFalse);
+        expect(await service.getAuthCookieString(), isNull);
+        final account = await service.getCurrentAccount();
+        expect(account, isNull);
+        expect(secureStorageData, isEmpty);
+      },
+    );
 
     test(
-        'returns true and keeps logged-in account state when validation passes',
-        () async {
-      final service = _FakeNeteaseAccountService(
-        isar: isar,
-        nextStatus: const AccountCheckResult(status: AccountStatus.valid),
-        validatedUserId: '12345',
-        validatedUserName: 'Netease User',
-        validatedAvatarUrl: 'https://example.com/avatar.png',
-        validatedIsVip: true,
-      );
+      'returns auth headers with cookie origin referer and desktop user agent',
+      () async {
+        final service = _FakeNeteaseAccountService(
+          isar: isar,
+          nextStatus: const AccountCheckResult(status: AccountStatus.valid),
+        );
 
-      final success = await service.loginWithCookiesAndValidate(
-        musicU: 'music-u',
-        csrf: 'csrf',
-      );
+        await service.loginWithCookiesAndValidate(
+          musicU: 'music-u',
+          csrf: 'csrf',
+        );
 
-      expect(success, isTrue);
-      expect(await service.isLoggedIn(), isTrue);
-      final account = await service.getCurrentAccount();
-      expect(account, isNotNull);
-      expect(account!.isLoggedIn, isTrue);
-      expect(account.userId, '12345');
-      expect(account.userName, 'Netease User');
-      expect(account.avatarUrl, 'https://example.com/avatar.png');
-      expect(account.isVip, isTrue);
-      expect(account.loginAt, isNotNull);
+        final headers = await service.getAuthHeaders();
 
-      final cookieString = await service.getAuthCookieString();
-      expect(cookieString, contains('MUSIC_U=music-u'));
-      expect(cookieString, contains('__csrf=csrf'));
+        expect(headers, isNotNull);
+        expect(headers!['Cookie'], contains('MUSIC_U=music-u'));
+        expect(headers['Cookie'], contains('__csrf=csrf'));
+        expect(headers['Origin'], 'https://music.163.com');
+        expect(headers['Referer'], 'https://music.163.com/');
+        expect(headers['User-Agent'], NeteaseAccountService.userAgent);
+      },
+    );
 
-      final storedJson = secureStorageData[_storageKey];
-      expect(storedJson, isNotNull);
-      final stored = jsonDecode(storedJson!) as Map<String, dynamic>;
-      expect(stored['musicU'], 'music-u');
-      expect(stored['csrf'], 'csrf');
-      expect(stored['userId'], '12345');
-    });
+    test(
+      'returns true and keeps logged-in account state when validation passes',
+      () async {
+        final service = _FakeNeteaseAccountService(
+          isar: isar,
+          nextStatus: const AccountCheckResult(status: AccountStatus.valid),
+          validatedUserId: '12345',
+          validatedUserName: 'Netease User',
+          validatedAvatarUrl: 'https://example.com/avatar.png',
+          validatedIsVip: true,
+        );
 
-    test('restores previous logged-in account when new validation is invalid',
-        () async {
-      final service = _FakeNeteaseAccountService(
-        isar: isar,
-        nextStatus: const AccountCheckResult(status: AccountStatus.valid),
-        validatedUserId: 'existing-id',
-        validatedUserName: 'Existing User',
-      );
+        final success = await service.loginWithCookiesAndValidate(
+          musicU: 'music-u',
+          csrf: 'csrf',
+        );
 
-      final firstLogin = await service.loginWithCookiesAndValidate(
-        musicU: 'existing-music-u',
-        csrf: 'existing-csrf',
-      );
-      expect(firstLogin, isTrue);
+        expect(success, isTrue);
+        expect(await service.isLoggedIn(), isTrue);
+        final account = await service.getCurrentAccount();
+        expect(account, isNotNull);
+        expect(account!.isLoggedIn, isTrue);
+        expect(account.userId, '12345');
+        expect(account.userName, 'Netease User');
+        expect(account.avatarUrl, 'https://example.com/avatar.png');
+        expect(account.isVip, isTrue);
+        expect(account.loginAt, isNotNull);
 
-      service.nextStatus =
-          const AccountCheckResult(status: AccountStatus.invalid);
-      service.validatedUserId = null;
-      service.validatedUserName = null;
-      service.validatedAvatarUrl = null;
-      service.validatedIsVip = false;
+        final cookieString = await service.getAuthCookieString();
+        expect(cookieString, contains('MUSIC_U=music-u'));
+        expect(cookieString, contains('__csrf=csrf'));
 
-      final secondLogin = await service.loginWithCookiesAndValidate(
-        musicU: 'new-music-u',
-        csrf: 'new-csrf',
-      );
+        final storedJson = secureStorageData[_storageKey];
+        expect(storedJson, isNotNull);
+        final stored = jsonDecode(storedJson!) as Map<String, dynamic>;
+        expect(stored['musicU'], 'music-u');
+        expect(stored['csrf'], 'csrf');
+        expect(stored['userId'], '12345');
+      },
+    );
 
-      expect(secondLogin, isFalse);
-      expect(await service.isLoggedIn(), isTrue);
-      final account = await service.getCurrentAccount();
-      expect(account, isNotNull);
-      expect(account!.isLoggedIn, isTrue);
-      expect(account.userId, 'existing-id');
-      expect(account.userName, 'Existing User');
+    test(
+      'restores previous logged-in account when new validation is invalid',
+      () async {
+        final service = _FakeNeteaseAccountService(
+          isar: isar,
+          nextStatus: const AccountCheckResult(status: AccountStatus.valid),
+          validatedUserId: 'existing-id',
+          validatedUserName: 'Existing User',
+        );
 
-      final cookieString = await service.getAuthCookieString();
-      expect(cookieString, contains('MUSIC_U=existing-music-u'));
-      expect(cookieString, contains('__csrf=existing-csrf'));
-      expect(cookieString, isNot(contains('new-music-u')));
-    });
+        final firstLogin = await service.loginWithCookiesAndValidate(
+          musicU: 'existing-music-u',
+          csrf: 'existing-csrf',
+        );
+        expect(firstLogin, isTrue);
 
-    test('invalid login clears malformed rollback snapshot without throwing',
-        () async {
-      secureStorageData[_storageKey] = '{"musicU":"old-secret",';
-      FlutterSecureStorage.setMockInitialValues(secureStorageData);
-      final service = _FakeNeteaseAccountService(
-        isar: isar,
-        nextStatus: const AccountCheckResult(status: AccountStatus.invalid),
-      );
+        service.nextStatus = const AccountCheckResult(
+          status: AccountStatus.invalid,
+        );
+        service.validatedUserId = null;
+        service.validatedUserName = null;
+        service.validatedAvatarUrl = null;
+        service.validatedIsVip = false;
 
-      final success = await service.loginWithCookiesAndValidate(
-        musicU: 'new-music-u',
-        csrf: 'new-csrf',
-      );
+        final secondLogin = await service.loginWithCookiesAndValidate(
+          musicU: 'new-music-u',
+          csrf: 'new-csrf',
+        );
 
-      expect(success, isFalse);
-      expect(await service.isLoggedIn(), isFalse);
-      expect(await service.getAuthCookieString(), isNull);
-      expect(secureStorageData.containsKey(_storageKey), isFalse);
-    });
+        expect(secondLogin, isFalse);
+        expect(await service.isLoggedIn(), isTrue);
+        final account = await service.getCurrentAccount();
+        expect(account, isNotNull);
+        expect(account!.isLoggedIn, isTrue);
+        expect(account.userId, 'existing-id');
+        expect(account.userName, 'Existing User');
+
+        final cookieString = await service.getAuthCookieString();
+        expect(cookieString, contains('MUSIC_U=existing-music-u'));
+        expect(cookieString, contains('__csrf=existing-csrf'));
+        expect(cookieString, isNot(contains('new-music-u')));
+      },
+    );
+
+    test(
+      'invalid login clears malformed rollback snapshot without throwing',
+      () async {
+        secureStorageData[_storageKey] = '{"musicU":"old-secret",';
+        FlutterSecureStorage.setMockInitialValues(secureStorageData);
+        final service = _FakeNeteaseAccountService(
+          isar: isar,
+          nextStatus: const AccountCheckResult(status: AccountStatus.invalid),
+        );
+
+        final success = await service.loginWithCookiesAndValidate(
+          musicU: 'new-music-u',
+          csrf: 'new-csrf',
+        );
+
+        expect(success, isFalse);
+        expect(await service.isLoggedIn(), isFalse);
+        expect(await service.getAuthCookieString(), isNull);
+        expect(secureStorageData.containsKey(_storageKey), isFalse);
+      },
+    );
   });
 }
 
@@ -233,9 +245,9 @@ class _FakeNeteaseAccountService extends NeteaseAccountService {
       await _isar.writeTxn(() async {
         final existing = await _isar.accounts
             .filter()
-            .platformEqualTo(SourceType.netease)
+            .platformEqualTo(SourceIds.netease)
             .findFirst();
-        final account = existing ?? (Account()..platform = SourceType.netease);
+        final account = existing ?? (Account()..platform = SourceIds.netease);
         account.isLoggedIn = true;
         account.userId = validatedUserId;
         account.userName = validatedUserName;
@@ -265,10 +277,7 @@ class _FakeNeteaseAccountService extends NeteaseAccountService {
 }
 
 class _FakeHttpClientAdapter implements HttpClientAdapter {
-  _FakeHttpClientAdapter({
-    required this.data,
-    required this.setCookieHeaders,
-  });
+  _FakeHttpClientAdapter({required this.data, required this.setCookieHeaders});
 
   final Map<String, dynamic> data;
   final List<String> setCookieHeaders;
@@ -295,27 +304,3 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
 }
 
 const _storageKey = 'account_netease_credentials';
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
-}

@@ -7,51 +7,62 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/providers/library/play_history_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   group('Phase 4 Task 4 play history providers', () {
     test('play history providers expose a shared snapshot provider', () {
       final source = playHistorySnapshotProvider;
-      expect(source, isA<AutoDisposeStreamProvider<List<PlayHistory>>>());
+      expect(source, isA<StreamProvider<List<PlayHistory>>>());
     });
 
-    test('filtered and grouped history derive from one shared snapshot stream',
-        () async {
-      final repository = _FakePlayHistoryRepository([
-        _history(
-          id: 1,
-          sourceId: 'song-a',
-          title: 'Song A latest',
-          playedAt: DateTime(2026, 4, 20, 12),
-        ),
-        _history(
-          id: 2,
-          sourceId: 'song-a',
-          title: 'Song A older',
-          playedAt: DateTime(2026, 4, 20, 9),
-        ),
-        _history(
-          id: 3,
-          sourceId: 'song-b',
-          title: 'Song B',
-          playedAt: DateTime(2026, 4, 19, 18),
-        ),
-      ]);
-      final container = ProviderContainer(
-        overrides: [
-          playHistoryRepositoryProvider.overrideWith((ref) => repository),
-        ],
-      );
-      addTearDown(container.dispose);
-      addTearDown(repository.dispose);
+    test(
+      'filtered and grouped history derive from one shared snapshot stream',
+      () async {
+        final repository = _FakePlayHistoryRepository([
+          _history(
+            id: 1,
+            sourceId: 'song-a',
+            title: 'Song A latest',
+            playedAt: DateTime(2026, 4, 20, 12),
+          ),
+          _history(
+            id: 2,
+            sourceId: 'song-a',
+            title: 'Song A older',
+            playedAt: DateTime(2026, 4, 20, 9),
+          ),
+          _history(
+            id: 3,
+            sourceId: 'song-b',
+            title: 'Song B',
+            playedAt: DateTime(2026, 4, 19, 18),
+          ),
+        ]);
+        final container = ProviderContainer(
+          overrides: [
+            playHistoryRepositoryProvider.overrideWith((ref) => repository),
+          ],
+        );
+        addTearDown(container.dispose);
+        addTearDown(repository.dispose);
 
-      await container.read(playHistorySnapshotProvider.future);
-      final grouped = container.read(groupedPlayHistoryProvider).requireValue;
+        // Riverpod 3 下，對 autoDispose provider 只做 `read(.future)` 不會維持
+        // 訂閱 —— 串流還在 loading 就被 dispose 了。抓一個真的訂閱在手上，
+        // 這也才是這條測試想斷言的事：兩個衍生 provider 共用同一條快照串流。
+        final subscription = container.listen(
+          playHistorySnapshotProvider,
+          (_, _) {},
+        );
+        addTearDown(subscription.close);
 
-      expect(repository.snapshotCalls, 1);
-      expect(grouped.keys, [DateTime(2026, 4, 20), DateTime(2026, 4, 19)]);
-    });
+        await container.read(playHistorySnapshotProvider.future);
+        final grouped = container.read(groupedPlayHistoryProvider).requireValue;
+
+        expect(repository.snapshotCalls, 1);
+        expect(grouped.keys, [DateTime(2026, 4, 20), DateTime(2026, 4, 19)]);
+      },
+    );
 
     test('recent and stats use purpose-specific repository queries', () async {
       final repository = _FakePlayHistoryRepository([
@@ -78,49 +89,51 @@ void main() {
       expect(repository.statsCalls, 1);
     });
 
-    test('recent and stats rerun purpose-specific queries after watch events',
-        () async {
-      final repository = _FakePlayHistoryRepository([
-        _history(
-          id: 1,
-          sourceId: 'song-a',
-          title: 'Song A',
-          playedAt: DateTime(2026, 4, 20, 12),
-        ),
-      ]);
-      final container = ProviderContainer(
-        overrides: [
-          playHistoryRepositoryProvider.overrideWith((ref) => repository),
-        ],
-      );
-      addTearDown(container.dispose);
-      addTearDown(repository.dispose);
+    test(
+      'recent and stats rerun purpose-specific queries after watch events',
+      () async {
+        final repository = _FakePlayHistoryRepository([
+          _history(
+            id: 1,
+            sourceId: 'song-a',
+            title: 'Song A',
+            playedAt: DateTime(2026, 4, 20, 12),
+          ),
+        ]);
+        final container = ProviderContainer(
+          overrides: [
+            playHistoryRepositoryProvider.overrideWith((ref) => repository),
+          ],
+        );
+        addTearDown(container.dispose);
+        addTearDown(repository.dispose);
 
-      final recentSubscription = container.listen(
-        recentPlayHistoryProvider,
-        (_, __) {},
-        fireImmediately: true,
-      );
-      final statsSubscription = container.listen(
-        playHistoryStatsProvider,
-        (_, __) {},
-        fireImmediately: true,
-      );
-      addTearDown(recentSubscription.close);
-      addTearDown(statsSubscription.close);
+        final recentSubscription = container.listen(
+          recentPlayHistoryProvider,
+          (_, __) {},
+          fireImmediately: true,
+        );
+        final statsSubscription = container.listen(
+          playHistoryStatsProvider,
+          (_, __) {},
+          fireImmediately: true,
+        );
+        addTearDown(recentSubscription.close);
+        addTearDown(statsSubscription.close);
 
-      await container.read(recentPlayHistoryProvider.future);
-      await container.read(playHistoryStatsProvider.future);
+        await container.read(recentPlayHistoryProvider.future);
+        await container.read(playHistoryStatsProvider.future);
 
-      repository.emitChange();
-      await container.pump();
-      await container.read(recentPlayHistoryProvider.future);
-      await container.read(playHistoryStatsProvider.future);
+        repository.emitChange();
+        await container.pump();
+        await container.read(recentPlayHistoryProvider.future);
+        await container.read(playHistoryStatsProvider.future);
 
-      expect(repository.snapshotCalls, 0);
-      expect(repository.recentDistinctCalls, 2);
-      expect(repository.statsCalls, 2);
-    });
+        expect(repository.snapshotCalls, 0);
+        expect(repository.recentDistinctCalls, 2);
+        expect(repository.statsCalls, 2);
+      },
+    );
   });
 }
 
@@ -135,7 +148,7 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
 
   @override
   Future<List<PlayHistory>> loadHistorySnapshot({
-    Set<SourceType>? sourceTypes,
+    Set<String>? sourceTypes,
     DateTime? startDate,
     DateTime? endDate,
     String? searchKeyword,
@@ -144,14 +157,17 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
     var filtered = List<PlayHistory>.from(records);
 
     if (sourceTypes != null && sourceTypes.isNotEmpty) {
-      filtered =
-          filtered.where((e) => sourceTypes.contains(e.sourceType)).toList();
+      filtered = filtered
+          .where((e) => sourceTypes.contains(e.sourceType))
+          .toList();
     }
     if (startDate != null) {
       filtered = filtered
-          .where((e) =>
-              e.playedAt.isAfter(startDate) ||
-              e.playedAt.isAtSameMomentAs(startDate))
+          .where(
+            (e) =>
+                e.playedAt.isAfter(startDate) ||
+                e.playedAt.isAtSameMomentAs(startDate),
+          )
           .toList();
     }
     if (endDate != null) {
@@ -160,9 +176,11 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
     if (searchKeyword != null && searchKeyword.isNotEmpty) {
       final lower = searchKeyword.toLowerCase();
       filtered = filtered
-          .where((e) =>
-              e.title.toLowerCase().contains(lower) ||
-              (e.artist?.toLowerCase().contains(lower) ?? false))
+          .where(
+            (e) =>
+                e.title.toLowerCase().contains(lower) ||
+                (e.artist?.toLowerCase().contains(lower) ?? false),
+          )
           .toList();
     }
 
@@ -212,7 +230,7 @@ PlayHistory _history({
   return PlayHistory()
     ..id = id
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..playedAt = playedAt;
 }

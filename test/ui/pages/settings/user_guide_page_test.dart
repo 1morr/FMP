@@ -11,21 +11,21 @@ void main() {
       LocaleSettings.setLocale(AppLocale.en);
     });
 
-    testWidgets('uses expandable sections and hides detailed tips initially',
-        (tester) async {
+    testWidgets('uses expandable sections and hides detailed tips initially', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(900, 1200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        TranslationProvider(
-          child: const MaterialApp(home: UserGuidePage()),
-        ),
+        TranslationProvider(child: const MaterialApp(home: UserGuidePage())),
       );
 
-      final tiles =
-          tester.widgetList<ExpansionTile>(find.byType(ExpansionTile));
+      final tiles = tester.widgetList<ExpansionTile>(
+        find.byType(ExpansionTile),
+      );
       expect(tiles.length, greaterThanOrEqualTo(6));
       expect(find.text(t.userGuide.quickStart.importPlaylist), findsOneWidget);
       expect(find.text('YouTube Mix shortcut'), findsNothing);

@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 
 import '../../core/utils/http_client_factory.dart';
 import '../models/track.dart';
-import 'source_url_policy.dart';
 
 class SourceHttpPolicy {
   SourceHttpPolicy._();
@@ -31,60 +30,51 @@ class SourceHttpPolicy {
   static const String neteaseOrigin = 'https://music.163.com';
   static const String neteaseReferer = 'https://music.163.com/';
 
-  static Map<String, String> mediaHeaders(
-    SourceType sourceType, {
-    Map<String, String>? authHeaders,
-    String? requestUrl,
-    bool includeCredentials = true,
-  }) {
+  /// 媒體位元組請求的 header。
+  ///
+  /// **刻意不帶任何帳號憑證。** 三個音源的媒體 URL 都是簽名過的：音質與播放權
+  /// 限在串流解析當下就決定了，CDN 只需要 Origin/Referer/User-Agent。曾經有一
+  /// 段「對網易的 https URL 附上 Cookie」的分支，實測 eapi 回的是 `http://`，
+  /// 那段程式碼在生產環境一次都沒執行過，已移除。
+  static Map<String, String> mediaHeaders(String sourceType) {
     final headers = switch (sourceType) {
-      SourceType.bilibili => <String, String>{
-          'Referer': bilibiliWebReferer,
-          'User-Agent': mediaUserAgent,
-        },
-      SourceType.youtube => <String, String>{
-          'Origin': youtubeOrigin,
-          'Referer': youtubeReferer,
-          'User-Agent': mediaUserAgent,
-        },
-      SourceType.netease => <String, String>{
-          'Origin': neteaseOrigin,
-          'Referer': neteaseReferer,
-          'User-Agent': mediaUserAgent,
-        },
+      SourceIds.bilibili => <String, String>{
+        'Referer': bilibiliWebReferer,
+        'User-Agent': mediaUserAgent,
+      },
+      SourceIds.youtube => <String, String>{
+        'Origin': youtubeOrigin,
+        'Referer': youtubeReferer,
+        'User-Agent': mediaUserAgent,
+      },
+      SourceIds.netease => <String, String>{
+        'Origin': neteaseOrigin,
+        'Referer': neteaseReferer,
+        'User-Agent': mediaUserAgent,
+      },
+      // 認不得的音源只拿得到 User-Agent。送錯的 Referer/Origin 會讓 CDN
+      // 拒絕，還會把來源洩漏給不相干的主機；漏送只是退化成匿名請求。
+      _ => <String, String>{'User-Agent': mediaUserAgent},
     };
-
-    if (sourceType == SourceType.netease &&
-        authHeaders != null &&
-        includeCredentials &&
-        canAttachNeteaseMediaCredentials(requestUrl)) {
-      for (final key in const ['Cookie', 'Origin', 'Referer', 'User-Agent']) {
-        final value = authHeaders[key];
-        if (value != null && value.isNotEmpty) {
-          headers[key] = value;
-        }
-      }
-    }
 
     return headers;
   }
 
   static Map<String, String> imageHeaders(
-    SourceType sourceType, {
+    String sourceType, {
     bool includeUserAgent = true,
   }) {
     final headers = switch (sourceType) {
-      SourceType.bilibili => <String, String>{
-          'Referer': bilibiliWebReferer,
-        },
-      SourceType.youtube => <String, String>{
-          'Origin': youtubeOrigin,
-          'Referer': youtubeReferer,
-        },
-      SourceType.netease => <String, String>{
-          'Origin': neteaseOrigin,
-          'Referer': neteaseReferer,
-        },
+      SourceIds.bilibili => <String, String>{'Referer': bilibiliWebReferer},
+      SourceIds.youtube => <String, String>{
+        'Origin': youtubeOrigin,
+        'Referer': youtubeReferer,
+      },
+      SourceIds.netease => <String, String>{
+        'Origin': neteaseOrigin,
+        'Referer': neteaseReferer,
+      },
+      _ => <String, String>{},
     };
 
     if (includeUserAgent) {
@@ -111,7 +101,7 @@ class SourceHttpPolicy {
     if (_isHostOrSubdomain(host, 'hdslb.com') ||
         _isHostOrSubdomain(host, 'bilibili.com')) {
       return imageHeaders(
-        SourceType.bilibili,
+        SourceIds.bilibili,
         includeUserAgent: includeUserAgent,
       );
     }
@@ -119,31 +109,17 @@ class SourceHttpPolicy {
         _isHostOrSubdomain(host, 'ggpht.com') ||
         _isHostOrSubdomain(host, 'googleusercontent.com')) {
       return imageHeaders(
-        SourceType.youtube,
+        SourceIds.youtube,
         includeUserAgent: includeUserAgent,
       );
     }
     if (_isHostOrSubdomain(host, 'music.126.net')) {
       return imageHeaders(
-        SourceType.netease,
+        SourceIds.netease,
         includeUserAgent: includeUserAgent,
       );
     }
     return null;
-  }
-
-  static bool canAttachNeteaseMediaCredentials(String? requestUrl) {
-    if (requestUrl == null || requestUrl.isEmpty) return false;
-    final uri = Uri.tryParse(requestUrl);
-    if (uri == null || uri.scheme.toLowerCase() != 'https') return false;
-
-    final host = SourceUrlPolicy.normalizeHost(uri.host);
-    if (host.isEmpty) return false;
-
-    return host == 'music.163.com' ||
-        host.endsWith('.music.163.com') ||
-        host == 'music.126.net' ||
-        host.endsWith('.music.126.net');
   }
 
   static bool _isHostOrSubdomain(String host, String domain) {
@@ -151,28 +127,29 @@ class SourceHttpPolicy {
   }
 
   static Map<String, String> apiHeaders(
-    SourceType sourceType, {
+    String sourceType, {
     Map<String, String>? extraHeaders,
     String? userAgent,
   }) {
     final headers = switch (sourceType) {
-      SourceType.bilibili => <String, String>{
-          'User-Agent': userAgent ?? webUserAgent,
-          'Referer': bilibiliReferer,
-          'Origin': bilibiliOrigin,
-          'Accept': 'application/json, text/plain, */*',
-        },
-      SourceType.youtube => <String, String>{
-          'User-Agent': userAgent ?? mediaUserAgent,
-          'Origin': youtubeOrigin,
-          'Referer': youtubeReferer,
-        },
-      SourceType.netease => <String, String>{
-          'User-Agent': userAgent ?? neteaseDesktopUserAgent,
-          'Referer': neteaseReferer,
-          'Origin': neteaseOrigin,
-          'Accept': 'application/json, text/plain, */*',
-        },
+      SourceIds.bilibili => <String, String>{
+        'User-Agent': userAgent ?? webUserAgent,
+        'Referer': bilibiliReferer,
+        'Origin': bilibiliOrigin,
+        'Accept': 'application/json, text/plain, */*',
+      },
+      SourceIds.youtube => <String, String>{
+        'User-Agent': userAgent ?? mediaUserAgent,
+        'Origin': youtubeOrigin,
+        'Referer': youtubeReferer,
+      },
+      SourceIds.netease => <String, String>{
+        'User-Agent': userAgent ?? neteaseDesktopUserAgent,
+        'Referer': neteaseReferer,
+        'Origin': neteaseOrigin,
+        'Accept': 'application/json, text/plain, */*',
+      },
+      _ => <String, String>{'User-Agent': userAgent ?? webUserAgent},
     };
 
     headers.addAll(extraHeaders ?? const <String, String>{});
@@ -184,7 +161,7 @@ class SourceHttpPolicy {
     String? userAgent,
   }) {
     return apiHeaders(
-      SourceType.bilibili,
+      SourceIds.bilibili,
       userAgent: userAgent,
       extraHeaders: {
         'Referer': bilibiliSearchReferer,
@@ -212,7 +189,7 @@ class SourceHttpPolicy {
   }
 
   static Dio createApiDio(
-    SourceType sourceType, {
+    String sourceType, {
     Map<String, String>? extraHeaders,
     String? userAgent,
     String? contentType,

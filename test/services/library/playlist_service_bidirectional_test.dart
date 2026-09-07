@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -10,74 +8,79 @@ import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/services/library/playlist_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('PlaylistService bidirectional relations', () {
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
-    test('addTrackToPlaylist persists playlist trackIds and track playlistInfo',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'addTrackToPlaylist persists playlist trackIds and track playlistInfo',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final playlist = await _createPlaylist(harness, 'Single Add');
-      final track = _newTrack('yt-single', 'Single Add Track');
+        final playlist = await _createPlaylist(harness, 'Single Add');
+        final track = _newTrack('yt-single', 'Single Add Track');
 
-      await harness.service.addTrackToPlaylist(playlist.id, track);
+        await harness.service.addTrackToPlaylist(playlist.id, track);
 
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      final savedTrack = await harness.tracks.getBySourceId(
-        'yt-single',
-        SourceType.youtube,
-      );
-      expect(savedPlaylist!.trackIds, [savedTrack!.id]);
-      expect(savedTrack.belongsToPlaylist(playlist.id), isTrue);
-      expect(
-        savedTrack.playlistInfo
-            .singleWhere((info) => info.playlistId == playlist.id)
-            .playlistName,
-        'Single Add',
-      );
-    });
-
-    test('addTracksToPlaylist persists reverse playlistInfo for all tracks',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-
-      final playlist = await _createPlaylist(harness, 'Batch Add');
-      final tracks = [
-        _newTrack('yt-batch-1', 'Batch Track 1'),
-        _newTrack('yt-batch-2', 'Batch Track 2'),
-      ];
-
-      await harness.service.addTracksToPlaylist(playlist.id, tracks);
-
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      final savedTracks = await harness.tracks.getBySourceIds([
-        'yt-batch-1',
-        'yt-batch-2',
-      ]);
-      expect(savedTracks, hasLength(2));
-      expect(savedPlaylist!.trackIds,
-          unorderedEquals(savedTracks.map((t) => t.id)));
-      for (final track in savedTracks) {
-        expect(track.belongsToPlaylist(playlist.id), isTrue);
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final savedTrack = await harness.tracks.getBySourceId(
+          'yt-single',
+          SourceIds.youtube,
+        );
+        expect(savedPlaylist!.trackIds, [savedTrack!.id]);
+        expect(savedTrack.belongsToPlaylist(playlist.id), isTrue);
         expect(
-          track.playlistInfo
+          savedTrack.playlistInfo
               .singleWhere((info) => info.playlistId == playlist.id)
               .playlistName,
-          'Batch Add',
+          'Single Add',
         );
-      }
-    });
+      },
+    );
+
+    test(
+      'addTracksToPlaylist persists reverse playlistInfo for all tracks',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+
+        final playlist = await _createPlaylist(harness, 'Batch Add');
+        final tracks = [
+          _newTrack('yt-batch-1', 'Batch Track 1'),
+          _newTrack('yt-batch-2', 'Batch Track 2'),
+        ];
+
+        await harness.service.addTracksToPlaylist(playlist.id, tracks);
+
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final savedTracks = await harness.tracks.getBySourceIds([
+          'yt-batch-1',
+          'yt-batch-2',
+        ]);
+        expect(savedTracks, hasLength(2));
+        expect(
+          savedPlaylist!.trackIds,
+          unorderedEquals(savedTracks.map((t) => t.id)),
+        );
+        for (final track in savedTracks) {
+          expect(track.belongsToPlaylist(playlist.id), isTrue);
+          expect(
+            track.playlistInfo
+                .singleWhere((info) => info.playlistId == playlist.id)
+                .playlistName,
+            'Batch Add',
+          );
+        }
+      },
+    );
 
     test('addTracksToPlaylist dedupes duplicate input tracks', () async {
       final harness = await _createHarness();
@@ -91,7 +94,7 @@ void main() {
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       final savedTrack = await harness.tracks.getBySourceId(
         'yt-duplicate-input',
-        SourceType.youtube,
+        SourceIds.youtube,
       );
       expect(savedPlaylist!.trackIds, [savedTrack!.id]);
       expect(
@@ -115,8 +118,9 @@ void main() {
       final reloadedTrack = await harness.tracks.getById(savedTrack.id);
       expect(savedPlaylist!.trackIds, [savedTrack.id]);
       expect(
-        reloadedTrack!.playlistInfo
-            .where((info) => info.playlistId == playlist.id),
+        reloadedTrack!.playlistInfo.where(
+          (info) => info.playlistId == playlist.id,
+        ),
         hasLength(1),
       );
     });
@@ -136,138 +140,158 @@ void main() {
       final reloadedTrack = await harness.tracks.getById(savedTrack.id);
       expect(savedPlaylist!.trackIds, [savedTrack.id]);
       expect(
-        reloadedTrack!.playlistInfo
-            .where((info) => info.playlistId == playlist.id),
+        reloadedTrack!.playlistInfo.where(
+          (info) => info.playlistId == playlist.id,
+        ),
         hasLength(1),
       );
     });
 
-    test('addTrackToPlaylist repairs missing track playlistInfo side',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'addTrackToPlaylist repairs missing track playlistInfo side',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final playlist = await _createPlaylist(harness, 'Single Reverse Repair');
-      final savedTrack = await harness.tracks.save(
-        _newTrack('yt-single-reverse-repair', 'Single Reverse Repair Track'),
-      );
-      playlist.trackIds = [savedTrack.id];
-      await harness.playlists.save(playlist);
+        final playlist = await _createPlaylist(
+          harness,
+          'Single Reverse Repair',
+        );
+        final savedTrack = await harness.tracks.save(
+          _newTrack('yt-single-reverse-repair', 'Single Reverse Repair Track'),
+        );
+        playlist.trackIds = [savedTrack.id];
+        await harness.playlists.save(playlist);
 
-      await harness.service.addTrackToPlaylist(playlist.id, savedTrack);
+        await harness.service.addTrackToPlaylist(playlist.id, savedTrack);
 
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      final reloadedTrack = await harness.tracks.getById(savedTrack.id);
-      expect(savedPlaylist!.trackIds, [savedTrack.id]);
-      expect(
-        reloadedTrack!.playlistInfo
-            .where((info) => info.playlistId == playlist.id),
-        hasLength(1),
-      );
-    });
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final reloadedTrack = await harness.tracks.getById(savedTrack.id);
+        expect(savedPlaylist!.trackIds, [savedTrack.id]);
+        expect(
+          reloadedTrack!.playlistInfo.where(
+            (info) => info.playlistId == playlist.id,
+          ),
+          hasLength(1),
+        );
+      },
+    );
 
-    test('addTracksToPlaylist repairs missing track playlistInfo side',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'addTracksToPlaylist repairs missing track playlistInfo side',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final playlist = await _createPlaylist(harness, 'Batch Reverse Repair');
-      final savedTrack = await harness.tracks.save(
-        _newTrack('yt-batch-reverse-repair', 'Batch Reverse Repair Track'),
-      );
-      playlist.trackIds = [savedTrack.id];
-      await harness.playlists.save(playlist);
+        final playlist = await _createPlaylist(harness, 'Batch Reverse Repair');
+        final savedTrack = await harness.tracks.save(
+          _newTrack('yt-batch-reverse-repair', 'Batch Reverse Repair Track'),
+        );
+        playlist.trackIds = [savedTrack.id];
+        await harness.playlists.save(playlist);
 
-      await harness.service.addTracksToPlaylist(playlist.id, [savedTrack]);
+        await harness.service.addTracksToPlaylist(playlist.id, [savedTrack]);
 
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      final reloadedTrack = await harness.tracks.getById(savedTrack.id);
-      expect(savedPlaylist!.trackIds, [savedTrack.id]);
-      expect(
-        reloadedTrack!.playlistInfo
-            .where((info) => info.playlistId == playlist.id),
-        hasLength(1),
-      );
-    });
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final reloadedTrack = await harness.tracks.getById(savedTrack.id);
+        expect(savedPlaylist!.trackIds, [savedTrack.id]);
+        expect(
+          reloadedTrack!.playlistInfo.where(
+            (info) => info.playlistId == playlist.id,
+          ),
+          hasLength(1),
+        );
+      },
+    );
 
-    test('duplicatePlaylist adds reverse playlistInfo to copied tracks',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'duplicatePlaylist adds reverse playlistInfo to copied tracks',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final original = await _createPlaylist(harness, 'Original');
-      final track = await harness.tracks.save(
-        _newTrack('yt-dup', 'Duplicate Me'),
-      );
-      await harness.service.addTrackToPlaylist(original.id, track);
+        final original = await _createPlaylist(harness, 'Original');
+        final track = await harness.tracks.save(
+          _newTrack('yt-dup', 'Duplicate Me'),
+        );
+        await harness.service.addTrackToPlaylist(original.id, track);
 
-      final copy = await harness.service.duplicatePlaylist(original.id, 'Copy');
+        final copy = await harness.service.duplicatePlaylist(
+          original.id,
+          'Copy',
+        );
 
-      final copiedTrack = await harness.tracks.getById(track.id);
-      expect(copy.trackIds, [track.id]);
-      expect(copiedTrack!.belongsToPlaylist(original.id), isTrue);
-      expect(copiedTrack.belongsToPlaylist(copy.id), isTrue);
-      expect(
-        copiedTrack.playlistInfo
-            .singleWhere((info) => info.playlistId == copy.id)
-            .playlistName,
-        'Copy',
-      );
-    });
+        final copiedTrack = await harness.tracks.getById(track.id);
+        expect(copy.trackIds, [track.id]);
+        expect(copiedTrack!.belongsToPlaylist(original.id), isTrue);
+        expect(copiedTrack.belongsToPlaylist(copy.id), isTrue);
+        expect(
+          copiedTrack.playlistInfo
+              .singleWhere((info) => info.playlistId == copy.id)
+              .playlistName,
+          'Copy',
+        );
+      },
+    );
 
-    test('removeTrackFromPlaylist updates playlist and deletes orphan track',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'removeTrackFromPlaylist updates playlist and deletes orphan track',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final playlist = await _createPlaylist(harness, 'Remove Single');
-      final track = await harness.tracks.save(_newTrack(
-        'yt-remove-single',
-        'Remove Single Track',
-      ));
-      await harness.service.addTrackToPlaylist(playlist.id, track);
+        final playlist = await _createPlaylist(harness, 'Remove Single');
+        final track = await harness.tracks.save(
+          _newTrack('yt-remove-single', 'Remove Single Track'),
+        );
+        await harness.service.addTrackToPlaylist(playlist.id, track);
 
-      await harness.service.removeTrackFromPlaylist(playlist.id, track.id);
+        await harness.service.removeTrackFromPlaylist(playlist.id, track.id);
 
-      final updatedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(updatedPlaylist!.trackIds, isEmpty);
-      expect(await harness.tracks.getById(track.id), isNull);
-    });
+        final updatedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(updatedPlaylist!.trackIds, isEmpty);
+        expect(await harness.tracks.getById(track.id), isNull);
+      },
+    );
 
-    test('removeTracksFromPlaylist updates shared tracks and deletes orphans',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'removeTracksFromPlaylist updates shared tracks and deletes orphans',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final first = await _createPlaylist(harness, 'First');
-      final second = await _createPlaylist(harness, 'Second');
-      final orphan =
-          await harness.tracks.save(_newTrack('yt-orphan', 'Orphan'));
-      final shared =
-          await harness.tracks.save(_newTrack('yt-shared', 'Shared'));
-      await harness.service.addTracksToPlaylist(first.id, [orphan, shared]);
-      await harness.service.addTrackToPlaylist(second.id, shared);
+        final first = await _createPlaylist(harness, 'First');
+        final second = await _createPlaylist(harness, 'Second');
+        final orphan = await harness.tracks.save(
+          _newTrack('yt-orphan', 'Orphan'),
+        );
+        final shared = await harness.tracks.save(
+          _newTrack('yt-shared', 'Shared'),
+        );
+        await harness.service.addTracksToPlaylist(first.id, [orphan, shared]);
+        await harness.service.addTrackToPlaylist(second.id, shared);
 
-      await harness.service.removeTracksFromPlaylist(
-        first.id,
-        [orphan.id, shared.id],
-      );
+        await harness.service.removeTracksFromPlaylist(first.id, [
+          orphan.id,
+          shared.id,
+        ]);
 
-      final updatedFirst = await harness.playlists.getById(first.id);
-      expect(updatedFirst!.trackIds, isEmpty);
-      expect(await harness.tracks.getById(orphan.id), isNull);
-      final updatedShared = await harness.tracks.getById(shared.id);
-      expect(updatedShared!.belongsToPlaylist(first.id), isFalse);
-      expect(updatedShared.belongsToPlaylist(second.id), isTrue);
-    });
+        final updatedFirst = await harness.playlists.getById(first.id);
+        expect(updatedFirst!.trackIds, isEmpty);
+        expect(await harness.tracks.getById(orphan.id), isNull);
+        final updatedShared = await harness.tracks.getById(shared.id);
+        expect(updatedShared!.belongsToPlaylist(first.id), isFalse);
+        expect(updatedShared.belongsToPlaylist(second.id), isTrue);
+      },
+    );
   });
 }
 
 class _Harness {
   _Harness(this.isar)
-      : playlists = PlaylistRepository(isar),
-        tracks = TrackRepository(isar),
-        settings = SettingsRepository(isar) {
+    : playlists = PlaylistRepository(isar),
+      tracks = TrackRepository(isar),
+      settings = SettingsRepository(isar) {
     service = PlaylistService(
       playlistRepository: playlists,
       trackRepository: tracks,
@@ -312,31 +336,7 @@ Future<Playlist> _createPlaylist(_Harness harness, String name) async {
 Track _newTrack(String sourceId, String title) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..createdAt = DateTime.now();
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }

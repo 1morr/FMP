@@ -16,7 +16,8 @@ class NeteaseCredentials {
     final musicU = json['musicU'] as String? ?? '';
     if (musicU.isEmpty) {
       throw const FormatException(
-          'Invalid Netease credentials: missing musicU');
+        'Invalid Netease credentials: missing musicU',
+      );
     }
     return NeteaseCredentials(
       musicU: musicU,
@@ -29,11 +30,11 @@ class NeteaseCredentials {
   }
 
   Map<String, dynamic> toJson() => {
-        'musicU': musicU,
-        'csrf': csrf,
-        'userId': userId,
-        'savedAt': savedAt.toIso8601String(),
-      };
+    'musicU': musicU,
+    'csrf': csrf,
+    'userId': userId,
+    'savedAt': savedAt.toIso8601String(),
+  };
 
   /// 生成 Cookie 字符串（供 Dio 請求使用）
   /// 包含 os=pc 標識，讓 Netease CDN 返回桌面端可用的音頻 URL

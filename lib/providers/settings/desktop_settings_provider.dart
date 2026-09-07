@@ -11,17 +11,18 @@ import '../database/repository_providers.dart';
 import '../system/windows_desktop_provider.dart';
 
 /// 最小化到托盘设置 Provider
-final minimizeToTrayProvider =
-    StateNotifierProvider<_MinimizeToTrayNotifier, bool>((ref) {
-  final settingsRepo = ref.watch(settingsRepositoryProvider);
-  return _MinimizeToTrayNotifier(settingsRepo);
-});
+final minimizeToTrayProvider = NotifierProvider<_MinimizeToTrayNotifier, bool>(
+  _MinimizeToTrayNotifier.new,
+);
 
-class _MinimizeToTrayNotifier extends StateNotifier<bool> {
-  final SettingsRepository _repo;
+class _MinimizeToTrayNotifier extends Notifier<bool> {
+  late SettingsRepository _repo;
 
-  _MinimizeToTrayNotifier(this._repo) : super(true) {
+  @override
+  bool build() {
+    _repo = ref.watch(settingsRepositoryProvider);
     _load();
+    return true;
   }
 
   Future<void> _load() async {
@@ -41,18 +42,18 @@ class _MinimizeToTrayNotifier extends StateNotifier<bool> {
 
 /// 全局快捷键设置 Provider
 final globalHotkeysEnabledProvider =
-    StateNotifierProvider<_GlobalHotkeysNotifier, bool>((ref) {
-  final settingsRepo = ref.watch(settingsRepositoryProvider);
-  final desktopService = ref.watch(windowsDesktopServiceProvider);
-  return _GlobalHotkeysNotifier(settingsRepo, desktopService);
-});
+    NotifierProvider<_GlobalHotkeysNotifier, bool>(_GlobalHotkeysNotifier.new);
 
-class _GlobalHotkeysNotifier extends StateNotifier<bool> {
-  final SettingsRepository _repo;
-  final WindowsDesktopService? _desktopService;
+class _GlobalHotkeysNotifier extends Notifier<bool> {
+  late SettingsRepository _repo;
+  WindowsDesktopService? _desktopService;
 
-  _GlobalHotkeysNotifier(this._repo, this._desktopService) : super(true) {
+  @override
+  bool build() {
+    _repo = ref.watch(settingsRepositoryProvider);
+    _desktopService = ref.watch(windowsDesktopServiceProvider);
     _load();
+    return true;
   }
 
   Future<void> _load() async {
@@ -87,16 +88,18 @@ class LaunchAtStartupState {
 
 /// 开机自启动设置 Provider
 final launchAtStartupProvider =
-    StateNotifierProvider<LaunchAtStartupNotifier, LaunchAtStartupState>((ref) {
-  final settingsRepo = ref.watch(settingsRepositoryProvider);
-  return LaunchAtStartupNotifier(settingsRepo);
-});
+    NotifierProvider<LaunchAtStartupNotifier, LaunchAtStartupState>(
+      LaunchAtStartupNotifier.new,
+    );
 
-class LaunchAtStartupNotifier extends StateNotifier<LaunchAtStartupState> {
-  final SettingsRepository _repo;
+class LaunchAtStartupNotifier extends Notifier<LaunchAtStartupState> {
+  late SettingsRepository _repo;
 
-  LaunchAtStartupNotifier(this._repo) : super(const LaunchAtStartupState()) {
+  @override
+  LaunchAtStartupState build() {
+    _repo = ref.watch(settingsRepositoryProvider);
     _load();
+    return const LaunchAtStartupState();
   }
 
   Future<void> _load() async {

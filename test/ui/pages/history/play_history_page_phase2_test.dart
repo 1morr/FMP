@@ -43,41 +43,43 @@ void main() {
       expect(sink.addedToQueue, 1);
     });
 
-    test('playlist and lyrics actions delegate through shared handler',
-        () async {
-      final audio = _FakeTrackActionAudioController();
-      final sink = _FakeTrackActionFeedbackSink();
-      final handler = TrackActionHandler(
-        audioController: audio,
-        feedbackSink: sink,
-      );
-      var playlistCalls = 0;
-      var lyricsCalls = 0;
-      final track = _buildTrack();
+    test(
+      'playlist and lyrics actions delegate through shared handler',
+      () async {
+        final audio = _FakeTrackActionAudioController();
+        final sink = _FakeTrackActionFeedbackSink();
+        final handler = TrackActionHandler(
+          audioController: audio,
+          feedbackSink: sink,
+        );
+        var playlistCalls = 0;
+        var lyricsCalls = 0;
+        final track = _buildTrack();
 
-      await handler.handle(
-        parseTrackAction(addToPlaylistTrackActionId),
-        track: track,
-        isLoggedIn: true,
-        onAddToPlaylist: () async => playlistCalls++,
-        onMatchLyrics: () async => lyricsCalls++,
-        onAddToRemote: () async => fail('remote should not be called'),
-      );
-      await handler.handle(
-        parseTrackAction(matchLyricsTrackActionId),
-        track: track,
-        isLoggedIn: true,
-        onAddToPlaylist: () async => playlistCalls++,
-        onMatchLyrics: () async => lyricsCalls++,
-        onAddToRemote: () async => fail('remote should not be called'),
-      );
+        await handler.handle(
+          parseTrackAction(addToPlaylistTrackActionId),
+          track: track,
+          isLoggedIn: true,
+          onAddToPlaylist: () async => playlistCalls++,
+          onMatchLyrics: () async => lyricsCalls++,
+          onAddToRemote: () async => fail('remote should not be called'),
+        );
+        await handler.handle(
+          parseTrackAction(matchLyricsTrackActionId),
+          track: track,
+          isLoggedIn: true,
+          onAddToPlaylist: () async => playlistCalls++,
+          onMatchLyrics: () async => lyricsCalls++,
+          onAddToRemote: () async => fail('remote should not be called'),
+        );
 
-      expect(playlistCalls, 1);
-      expect(lyricsCalls, 1);
-      expect(audio.playTemporaryCalls, isEmpty);
-      expect(audio.addNextCalls, isEmpty);
-      expect(audio.addToQueueCalls, isEmpty);
-    });
+        expect(playlistCalls, 1);
+        expect(lyricsCalls, 1);
+        expect(audio.playTemporaryCalls, isEmpty);
+        expect(audio.addNextCalls, isEmpty);
+        expect(audio.addToQueueCalls, isEmpty);
+      },
+    );
 
     test('delete actions stay local to the history page', () {
       expect(tryParseTrackAction('delete'), isNull);
@@ -87,8 +89,9 @@ void main() {
 
   group('history page lazy timeline structure', () {
     test('timeline list does not expand grouped histories with spread map', () {
-      final source = File('lib/ui/pages/history/play_history_page.dart')
-          .readAsStringSync();
+      final source = File(
+        'lib/ui/pages/history/play_history_page.dart',
+      ).readAsStringSync();
       final timelineBody = _methodBody(source, '_buildTimelineList');
       final dateGroupBody = _methodBody(source, '_buildDateHeader');
 
@@ -98,56 +101,58 @@ void main() {
     });
 
     test('timeline rows are keyed by stable date and history ids', () {
-      final source = File('lib/ui/pages/history/play_history_page.dart')
-          .readAsStringSync();
+      final source = File(
+        'lib/ui/pages/history/play_history_page.dart',
+      ).readAsStringSync();
       final timelineBody = _methodBody(source, '_buildTimelineList');
 
-      expect(timelineBody, contains("ValueKey('history-date-"));
-      expect(timelineBody, contains("ValueKey('history-track-"));
+      expect(timelineBody, matches(RegExp(r"ValueKey\(\s*'history-date-")));
+      expect(timelineBody, matches(RegExp(r"ValueKey\(\s*'history-track-")));
       expect(timelineBody, contains('key:'));
     });
 
-    test('buildHistoryTimelineRows keeps date order and skips collapsed tracks',
-        () {
-      final newerDate = DateTime(2026, 4, 20);
-      final olderDate = DateTime(2026, 4, 19);
-      final newerFirst = _buildHistory(id: 1, playedAt: newerDate);
-      final newerSecond = _buildHistory(id: 2, playedAt: newerDate);
-      final older = _buildHistory(id: 3, playedAt: olderDate);
+    test(
+      'buildHistoryTimelineRows keeps date order and skips collapsed tracks',
+      () {
+        final newerDate = DateTime(2026, 4, 20);
+        final olderDate = DateTime(2026, 4, 19);
+        final newerFirst = _buildHistory(id: 1, playedAt: newerDate);
+        final newerSecond = _buildHistory(id: 2, playedAt: newerDate);
+        final older = _buildHistory(id: 3, playedAt: olderDate);
 
-      final expandedRows = buildHistoryTimelineRows(
-        {
+        final expandedRows = buildHistoryTimelineRows({
           olderDate: [older],
           newerDate: [newerFirst, newerSecond],
-        },
-        {},
-      );
-      final collapsedRows = buildHistoryTimelineRows(
-        {
-          olderDate: [older],
-          newerDate: [newerFirst, newerSecond],
-        },
-        {newerDate},
-      );
+        }, {});
+        final collapsedRows = buildHistoryTimelineRows(
+          {
+            olderDate: [older],
+            newerDate: [newerFirst, newerSecond],
+          },
+          {newerDate},
+        );
 
-      expect(expandedRows, hasLength(5));
-      expect((expandedRows[0] as HistoryDateHeaderRow).date, newerDate);
-      expect((expandedRows[1] as HistoryTrackRow).history.id, 1);
-      expect((expandedRows[2] as HistoryTrackRow).history.id, 2);
-      expect((expandedRows[3] as HistoryDateHeaderRow).date, olderDate);
-      expect((expandedRows[4] as HistoryTrackRow).history.id, 3);
+        expect(expandedRows, hasLength(5));
+        expect((expandedRows[0] as HistoryDateHeaderRow).date, newerDate);
+        expect((expandedRows[1] as HistoryTrackRow).history.id, 1);
+        expect((expandedRows[2] as HistoryTrackRow).history.id, 2);
+        expect((expandedRows[3] as HistoryDateHeaderRow).date, olderDate);
+        expect((expandedRows[4] as HistoryTrackRow).history.id, 3);
 
-      expect(collapsedRows, hasLength(3));
-      expect((collapsedRows[0] as HistoryDateHeaderRow).date, newerDate);
-      expect((collapsedRows[1] as HistoryDateHeaderRow).date, olderDate);
-      expect((collapsedRows[2] as HistoryTrackRow).history.id, 3);
-    });
+        expect(collapsedRows, hasLength(3));
+        expect((collapsedRows[0] as HistoryDateHeaderRow).date, newerDate);
+        expect((collapsedRows[1] as HistoryDateHeaderRow).date, olderDate);
+        expect((collapsedRows[2] as HistoryTrackRow).history.id, 3);
+      },
+    );
   });
 }
 
 String _methodBody(String source, String name) {
-  final match =
-      RegExp('(?:^|\\n)\\s*[\\w<>?]+\\s+$name' r'\s*\(').firstMatch(source);
+  final match = RegExp(
+    '(?:^|\\n)\\s*[\\w<>?]+\\s+$name'
+    r'\s*\(',
+  ).firstMatch(source);
   expect(match, isNotNull, reason: 'method $name should exist');
   final firstBrace = source.indexOf('{', match!.start);
   var depth = 0;
@@ -163,18 +168,15 @@ String _methodBody(String source, String name) {
 Track _buildTrack() {
   return Track()
     ..sourceId = 'history-track'
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'History Track';
 }
 
-PlayHistory _buildHistory({
-  required int id,
-  required DateTime playedAt,
-}) {
+PlayHistory _buildHistory({required int id, required DateTime playedAt}) {
   return PlayHistory()
     ..id = id
     ..sourceId = 'history-track-$id'
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'History Track $id'
     ..playedAt = playedAt;
 }

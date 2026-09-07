@@ -53,8 +53,8 @@ class TrackThumbnail extends ConsumerWidget {
     // 避免全局 fileExistsCacheProvider 任何变化都触发所有缩略图重建
     final coverPaths = track.hasAnyDownload
         ? track.allDownloadPaths
-            .map((p) => '${Directory(p).parent.path}/cover.jpg')
-            .toList()
+              .map((p) => '${Directory(p).parent.path}/cover.jpg')
+              .toList()
         : <String>[];
 
     final localCoverPath = ref.watch(
@@ -92,7 +92,10 @@ class TrackThumbnail extends ConsumerWidget {
   }
 
   Widget _buildImage(
-      ColorScheme colorScheme, String? localCoverPath, WidgetRef ref) {
+    ColorScheme colorScheme,
+    String? localCoverPath,
+    WidgetRef ref,
+  ) {
     final placeholder = _buildPlaceholder(colorScheme);
 
     // 卡片级大尺寸（>=100dp）在高 DPR 下需要 medium 档源图，避免解码后再
@@ -229,8 +232,8 @@ class TrackCover extends ConsumerWidget {
     // 使用 .select() 只在本 track 的封面路径结果变化时重建
     final coverPaths = (track != null && track!.hasAnyDownload)
         ? track!.allDownloadPaths
-            .map((p) => '${Directory(p).parent.path}/cover.jpg')
-            .toList()
+              .map((p) => '${Directory(p).parent.path}/cover.jpg')
+              .toList()
         : <String>[];
 
     final localCoverPath = ref.watch(
@@ -273,11 +276,7 @@ class TrackCover extends ConsumerWidget {
 
   Widget _buildPlaceholder(ColorScheme colorScheme) {
     return Center(
-      child: Icon(
-        Icons.music_note,
-        size: 48,
-        color: colorScheme.outline,
-      ),
+      child: Icon(Icons.music_note, size: 48, color: colorScheme.outline),
     );
   }
 }

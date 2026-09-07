@@ -67,10 +67,7 @@ class PlayerPlayPauseButton extends StatelessWidget {
             maximumSize: const Size(buttonSize, buttonSize),
             padding: EdgeInsets.zero,
           ),
-          child: Icon(
-            isPlaying ? Icons.pause : Icons.play_arrow,
-            size: 40,
-          ),
+          child: Icon(isPlaying ? Icons.pause : Icons.play_arrow, size: 40),
         ),
       );
     }

@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/playlist.dart';
 import '../../services/import/import_service.dart';
-import '../../services/library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import '../../core/services/toast_service.dart';
 import '../../data/sources/source_provider.dart';
 import '../account/source_auth_context_provider.dart';
@@ -57,17 +58,22 @@ class PlaylistRefreshState extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [playlistId, playlistName, status, current, total, currentItem, error];
+  List<Object?> get props => [
+    playlistId,
+    playlistName,
+    status,
+    current,
+    total,
+    currentItem,
+    error,
+  ];
 }
 
 /// 全局刷新管理状态
 class RefreshManagerState extends Equatable {
   final Map<int, PlaylistRefreshState> refreshingPlaylists;
 
-  const RefreshManagerState({
-    this.refreshingPlaylists = const {},
-  });
+  const RefreshManagerState({this.refreshingPlaylists = const {}});
 
   /// 是否有任何正在刷新的歌单
   bool get hasActiveRefresh =>
@@ -98,15 +104,21 @@ class RefreshManagerState extends Equatable {
 }
 
 /// 刷新管理器控制器
-class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
-  final Ref _ref;
+class RefreshManagerNotifier extends Notifier<RefreshManagerState> {
   final Set<int> _refreshingPlaylistIds = {};
   final Map<int, StreamSubscription<ImportProgress>> _subscriptions = {};
   final Map<int, ImportService> _activeImportServices = {};
   final Map<int, int> _refreshGenerations = {};
   int _refreshOperationId = 0;
 
-  RefreshManagerNotifier(this._ref) : super(const RefreshManagerState());
+  @override
+  RefreshManagerState build() {
+    // `ref.onDispose` 在「provider 即將 rebuild」時也會跑（riverpod
+    // `ref.dart:513-518`），所以清理與建立它的那一次 build 成對，
+    // 這正是舊 `dispose()` override 的語意。
+    ref.onDispose(_cancelActiveRefreshes);
+    return const RefreshManagerState();
+  }
 
   /// 刷新单个歌单
   Future<ImportResult?> refreshPlaylist(Playlist playlist) async {
@@ -120,12 +132,15 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final generation = _nextRefreshGeneration(playlistId);
 
     // 创建新的 ImportService 实例（每个刷新任务独立）
-    final sourceManager = _ref.read(sourceManagerProvider);
-    final playlistRepo = _ref.read(playlistRepositoryProvider);
-    final trackRepo = _ref.read(trackRepositoryProvider);
+    final sourceManager = ref.read(sourceManagerProvider);
+    final playlistRepo = ref.read(playlistRepositoryProvider);
+    final trackRepo = ref.read(trackRepositoryProvider);
+    // 在 await 之前讀完 —— Riverpod 3 對 dispose 之後的 Ref 會拋
+    // UnmountedRefException，而這個值不依賴資料庫。
+    final sourceAuthContext = ref.read(sourceAuthContextProvider);
 
-    final isar = await _ref.read(databaseProvider.future);
-    final mutationService = PlaylistMutationService(isar: isar);
+    final isar = await ref.read(databaseProvider.future);
+    final mutationService = PlaylistMutationRepository(isar: isar);
 
     final importService = ImportService(
       sourceManager: sourceManager,
@@ -133,7 +148,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       trackRepository: trackRepo,
       isar: isar,
       mutationService: mutationService,
-      sourceAuthContext: _ref.read(sourceAuthContextProvider),
+      sourceAuthContext: sourceAuthContext,
     );
     _activeImportServices[playlistId] = importService;
 
@@ -177,18 +192,16 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       if (refreshState == null) return result;
       _updatePlaylistState(
         playlistId,
-        refreshState.copyWith(
-          status: ImportStatus.completed,
-        ),
+        refreshState.copyWith(status: ImportStatus.completed),
       );
 
       // watch 自动更新歌单列表，只需刷新详情和封面
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            playlistId,
-          );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistChanged(playlistId);
 
       // 使用 ToastService 显示成功提示（不依赖 context）
-      final toastService = _ref.read(toastServiceProvider);
+      final toastService = ref.read(toastServiceProvider);
       final parts = <String>[];
       if (result.addedCount > 0) {
         parts.add(t.refreshProvider.added(count: result.addedCount));
@@ -199,7 +212,8 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       if (result.skippedCount > 0) {
         parts.add(t.refreshProvider.unchanged(count: result.skippedCount));
       }
-      final message = t.refreshProvider.completed(name: playlist.name) +
+      final message =
+          t.refreshProvider.completed(name: playlist.name) +
           (parts.isEmpty ? t.refreshProvider.noChanges : parts.join('，'));
       toastService.showSuccess(message);
 
@@ -210,22 +224,26 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       );
 
       return result;
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isRefreshGenerationCurrent(playlistId, generation)) return null;
+      final reason = failureMessage(
+        e,
+        stack,
+        'Refreshing a playlist failed',
+        tag: 'Refresh',
+      );
       final refreshState = state.getRefreshState(playlistId);
       if (refreshState == null) return null;
       _updatePlaylistState(
         playlistId,
-        refreshState.copyWith(
-          status: ImportStatus.failed,
-          error: e.toString(),
-        ),
+        refreshState.copyWith(status: ImportStatus.failed, error: reason),
       );
 
       // 使用 ToastService 显示错误提示
-      final toastService = _ref.read(toastServiceProvider);
+      final toastService = ref.read(toastServiceProvider);
       toastService.showError(
-          t.refreshProvider.failed(name: playlist.name, error: e.toString()));
+        t.refreshProvider.failed(name: playlist.name, error: reason),
+      );
 
       _schedulePlaylistStateRemoval(
         playlistId,
@@ -259,10 +277,13 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
   /// 清除已完成或失败的状态
   void clearCompletedStates() {
-    final newMap =
-        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
-    newMap.removeWhere((_, s) =>
-        s.status == ImportStatus.completed || s.status == ImportStatus.failed);
+    final newMap = Map<int, PlaylistRefreshState>.from(
+      state.refreshingPlaylists,
+    );
+    newMap.removeWhere(
+      (_, s) =>
+          s.status == ImportStatus.completed || s.status == ImportStatus.failed,
+    );
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
@@ -273,12 +294,13 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   }
 
   bool _isRefreshGenerationCurrent(int playlistId, int generation) {
-    return mounted && _refreshGenerations[playlistId] == generation;
+    return ref.mounted && _refreshGenerations[playlistId] == generation;
   }
 
   void _updatePlaylistState(int playlistId, PlaylistRefreshState refreshState) {
-    final newMap =
-        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    final newMap = Map<int, PlaylistRefreshState>.from(
+      state.refreshingPlaylists,
+    );
     newMap[playlistId] = refreshState;
     state = state.copyWith(refreshingPlaylists: newMap);
   }
@@ -300,16 +322,16 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   }
 
   void _removePlaylistState(int playlistId) {
-    if (!mounted) return;
-    final newMap =
-        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    if (!ref.mounted) return;
+    final newMap = Map<int, PlaylistRefreshState>.from(
+      state.refreshingPlaylists,
+    );
     newMap.remove(playlistId);
     _refreshGenerations.remove(playlistId);
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
-  @override
-  void dispose() {
+  void _cancelActiveRefreshes() {
     for (final playlistId in _activeImportServices.keys.toList()) {
       _nextRefreshGeneration(playlistId);
     }
@@ -323,19 +345,20 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     _activeImportServices.clear();
     _refreshingPlaylistIds.clear();
     _refreshGenerations.clear();
-    super.dispose();
   }
 }
 
 /// 刷新管理器 Provider
 final refreshManagerProvider =
-    StateNotifierProvider<RefreshManagerNotifier, RefreshManagerState>((ref) {
-  return RefreshManagerNotifier(ref);
-});
+    NotifierProvider<RefreshManagerNotifier, RefreshManagerState>(
+      RefreshManagerNotifier.new,
+    );
 
 /// 检查特定歌单是否正在刷新
-final isPlaylistRefreshingProvider =
-    Provider.family<bool, int>((ref, playlistId) {
+final isPlaylistRefreshingProvider = Provider.family<bool, int>((
+  ref,
+  playlistId,
+) {
   final state = ref.watch(refreshManagerProvider);
   return state.isRefreshing(playlistId);
 });
@@ -343,6 +366,6 @@ final isPlaylistRefreshingProvider =
 /// 获取特定歌单的刷新状态
 final playlistRefreshStateProvider =
     Provider.family<PlaylistRefreshState?, int>((ref, playlistId) {
-  final state = ref.watch(refreshManagerProvider);
-  return state.getRefreshState(playlistId);
-});
+      final state = ref.watch(refreshManagerProvider);
+      return state.getRefreshState(playlistId);
+    });

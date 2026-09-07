@@ -6,9 +6,9 @@ void main() {
   group('direct source HTTP policy usage', () {
     test('audio source adapters use SourceHttpPolicy for Dio defaults', () {
       final files = {
-        'lib/data/sources/bilibili_source.dart': 'SourceType.bilibili',
-        'lib/data/sources/youtube_source.dart': 'SourceType.youtube',
-        'lib/data/sources/netease_source.dart': 'SourceType.netease',
+        'lib/data/sources/bilibili_source.dart': 'SourceIds.bilibili',
+        'lib/data/sources/youtube_source.dart': 'SourceIds.youtube',
+        'lib/data/sources/netease_source.dart': 'SourceIds.netease',
       };
 
       for (final entry in files.entries) {
@@ -21,8 +21,9 @@ void main() {
     });
 
     test('InnerTube request options reuse policy headers', () {
-      final source =
-          File('lib/data/sources/youtube_source.dart').readAsStringSync();
+      final source = File(
+        'lib/data/sources/youtube_source.dart',
+      ).readAsStringSync();
 
       expect(source, contains('SourceHttpPolicy.apiHeaders'));
       expect(source, isNot(contains("'Origin': 'https://www.youtube.com'")));
@@ -30,8 +31,9 @@ void main() {
     });
 
     test('Netease source does not depend on account service for policy UA', () {
-      final source =
-          File('lib/data/sources/netease_source.dart').readAsStringSync();
+      final source = File(
+        'lib/data/sources/netease_source.dart',
+      ).readAsStringSync();
 
       expect(source, isNot(contains('NeteaseAccountService')));
     });

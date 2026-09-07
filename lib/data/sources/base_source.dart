@@ -14,10 +14,7 @@ class AudioStreamConfig {
 
   const AudioStreamConfig({
     this.qualityLevel = AudioQualityLevel.high,
-    this.formatPriority = const [
-      AudioFormat.opus,
-      AudioFormat.aac,
-    ],
+    this.formatPriority = const [AudioFormat.opus, AudioFormat.aac],
     this.streamPriority = const [
       StreamType.audioOnly,
       StreamType.muxed,
@@ -41,17 +38,11 @@ class AudioStreamConfig {
   }
 
   /// 从 Settings 构建指定音源的配置
-  factory AudioStreamConfig.fromSettings(
-      Settings settings, SourceType sourceType) {
-    final streamPriority = switch (sourceType) {
-      SourceType.youtube => settings.youtubeStreamPriorityList,
-      SourceType.bilibili => settings.bilibiliStreamPriorityList,
-      SourceType.netease => settings.neteaseStreamPriorityList,
-    };
+  factory AudioStreamConfig.fromSettings(Settings settings, String sourceType) {
     return AudioStreamConfig(
       qualityLevel: settings.audioQualityLevel,
       formatPriority: settings.audioFormatPriorityList,
-      streamPriority: streamPriority,
+      streamPriority: settings.streamPriorityFor(sourceType),
     );
   }
 }
@@ -117,6 +108,13 @@ class AudioStreamResult {
   /// URL 有效期
   final Duration? expiry;
 
+  /// 解析過程中確定下來的 Bilibili cid（分P唯一標識）。
+  ///
+  /// cid 是不變值，但過去只存在於解析當下：搜尋或熱門榜來的曲目沒有 cid，
+  /// 於是每播一次就要多打一支 `/x/web-interface/view` 只為了把它查回來。
+  /// 帶回來讓呼叫端寫進 track 之後，第二次播放就省掉那一次往返。
+  final int? cid;
+
   const AudioStreamResult({
     required this.url,
     this.bitrate,
@@ -124,6 +122,7 @@ class AudioStreamResult {
     this.codec,
     required this.streamType,
     this.expiry,
+    this.cid,
   });
 
   @override
@@ -162,12 +161,12 @@ class SearchResult {
 
   /// 空结果
   factory SearchResult.empty() => const SearchResult(
-        tracks: [],
-        totalCount: 0,
-        page: 1,
-        pageSize: 0,
-        hasMore: false,
-      );
+    tracks: [],
+    totalCount: 0,
+    page: 1,
+    pageSize: 0,
+    hasMore: false,
+  );
 }
 
 /// 播放列表解析结果

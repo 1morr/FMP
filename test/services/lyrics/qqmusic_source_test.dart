@@ -29,28 +29,32 @@ void main() {
 
       expect(capturedUrls, ['https://u.y.qq.com/cgi-bin/musicu.fcg']);
       expect(
-          capturedBody?['req']?['module'], 'music.musichallSong.PlayLyricInfo');
+        capturedBody?['req']?['module'],
+        'music.musichallSong.PlayLyricInfo',
+      );
       expect(capturedBody?['req']?['method'], 'GetPlayLyricInfo');
       expect(capturedBody?['req']?['param']?['songMID'], 'song-mid');
       expect(lyrics.lyric, '[00:01.00]Line\n');
       expect(lyrics.trans, '[00:01.00]翻译');
     });
 
-    test('returns empty lyrics when musicu response has no lyric data',
-        () async {
-      final dio = Dio();
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        return _jsonResponse({
-          'req': {'data': <String, dynamic>{}},
+    test(
+      'returns empty lyrics when musicu response has no lyric data',
+      () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          return _jsonResponse({
+            'req': {'data': <String, dynamic>{}},
+          });
         });
-      });
 
-      final lyrics = await QQMusicSource(dio: dio).getLyrics('song-mid');
+        final lyrics = await QQMusicSource(dio: dio).getLyrics('song-mid');
 
-      expect(lyrics.songmid, 'song-mid');
-      expect(lyrics.hasLyric, isFalse);
-      expect(lyrics.hasTranslation, isFalse);
-    });
+        expect(lyrics.songmid, 'song-mid');
+        expect(lyrics.hasLyric, isFalse);
+        expect(lyrics.hasTranslation, isFalse);
+      },
+    );
   });
 }
 
@@ -68,7 +72,7 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
   _FakeHttpClientAdapter(this._handler);
 
   final ResponseBody Function(RequestOptions options, Object? requestBody)
-      _handler;
+  _handler;
 
   @override
   Future<ResponseBody> fetch(

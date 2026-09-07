@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../core/logger.dart';
 import '../../core/utils/netease_crypto.dart';
@@ -13,6 +14,7 @@ import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'http_cookie_parser.dart';
 import 'netease_credentials.dart';
+import '../../data/repositories/account_repository.dart';
 
 /// 網易雲音樂帳號服務實現
 ///
@@ -21,7 +23,7 @@ import 'netease_credentials.dart';
 class NeteaseAccountService extends AccountService with Logging {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
-  final Isar _isar;
+  final AccountRepository _accounts;
   NeteaseCredentials? _cachedCredentials;
   bool _credentialsLoaded = false;
 
@@ -37,16 +39,16 @@ class NeteaseAccountService extends AccountService with Logging {
       'appver=2.7.1.198277; channel=netease; __csrf=; MUSIC_U=';
 
   NeteaseAccountService({required Isar isar})
-      : _isar = isar,
-        _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(
-          SourceType.netease,
-          extraHeaders: const {'Cookie': _anonymousCookie},
-          contentType: Headers.formUrlEncodedContentType,
-        );
+    : _accounts = AccountRepository(isar),
+      _secureStorage = const FlutterSecureStorage(),
+      _dio = SourceHttpPolicy.createApiDio(
+        SourceIds.netease,
+        extraHeaders: const {'Cookie': _anonymousCookie},
+        contentType: Headers.formUrlEncodedContentType,
+      );
 
   @override
-  SourceType get platform => SourceType.netease;
+  String get platform => SourceIds.netease;
 
   // ===== 登錄 =====
 
@@ -79,11 +81,7 @@ class NeteaseAccountService extends AccountService with Logging {
     final snapshot = await _captureLoginSnapshot();
 
     try {
-      await loginWithCookies(
-        musicU: musicU,
-        csrf: csrf,
-        userId: userId,
-      );
+      await loginWithCookies(musicU: musicU, csrf: csrf, userId: userId);
 
       final isValid = await fetchAndUpdateUserInfo();
       if (!isValid) {
@@ -119,10 +117,7 @@ class NeteaseAccountService extends AccountService with Logging {
     }
 
     final unikey = data['unikey'] as String;
-    return (
-      url: 'https://music.163.com/login?codekey=$unikey',
-      unikey: unikey,
-    );
+    return (url: 'https://music.163.com/login?codekey=$unikey', unikey: unikey);
   }
 
   /// QR 碼登錄 - 輪詢掃碼狀態
@@ -265,10 +260,7 @@ class NeteaseAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _isar.accounts
-        .filter()
-        .platformEqualTo(SourceType.netease)
-        .findFirst();
+    return _accounts.getByPlatform(SourceIds.netease);
   }
 
   @override
@@ -277,6 +269,17 @@ class NeteaseAccountService extends AccountService with Logging {
     _cachedCredentials = null;
     _credentialsLoaded = false;
     await _updateAccount(isLoggedIn: false);
+
+    // 清除 WebView cookies，避免重新登入時自動使用舊帳號。
+    // 域名與 netease_login_page.dart 載入的一致。
+    try {
+      await CookieManager.instance().deleteCookies(
+        url: WebUri('https://music.163.com'),
+      );
+    } catch (e) {
+      logWarning('Failed to clear WebView cookies: $e');
+    }
+
     logInfo('Netease logged out');
   }
 
@@ -326,8 +329,8 @@ class NeteaseAccountService extends AccountService with Logging {
           return const AccountCheckResult(status: AccountStatus.invalid);
         }
 
-        final userId =
-            (profile['userId'] ?? data['account']?['id'])?.toString();
+        final userId = (profile['userId'] ?? data['account']?['id'])
+            ?.toString();
         final userName = profile['nickname'] as String?;
         final avatarUrl = profile['avatarUrl'] as String?;
         final vipType = profile['vipType'] as int? ?? 0;
@@ -340,10 +343,7 @@ class NeteaseAccountService extends AccountService with Logging {
           isVip: isVip,
         );
 
-        return AccountCheckResult(
-          status: AccountStatus.valid,
-          isVip: isVip,
-        );
+        return AccountCheckResult(status: AccountStatus.valid, isVip: isVip);
       } else {
         // code 301 = not logged in, other non-200 = invalid
         return const AccountCheckResult(status: AccountStatus.invalid);
@@ -424,24 +424,15 @@ class NeteaseAccountService extends AccountService with Logging {
     DateTime? loginAt,
     bool? isVip,
   }) async {
-    await _isar.writeTxn(() async {
-      var account = await _isar.accounts
-          .filter()
-          .platformEqualTo(SourceType.netease)
-          .findFirst();
-
-      account ??= Account()..platform = SourceType.netease;
-
-      if (isLoggedIn != null) account.isLoggedIn = isLoggedIn;
-      if (userId != null) account.userId = userId;
-      if (userName != null) account.userName = userName;
-      if (avatarUrl != null) account.avatarUrl = avatarUrl;
-      if (loginAt != null) account.loginAt = loginAt;
-      if (isVip != null) account.isVip = isVip;
-      account.lastRefreshed = DateTime.now();
-
-      await _isar.accounts.put(account);
-    });
+    await _accounts.upsert(
+      SourceIds.netease,
+      isLoggedIn: isLoggedIn,
+      userId: userId,
+      userName: userName,
+      avatarUrl: avatarUrl,
+      loginAt: loginAt,
+      isVip: isVip,
+    );
   }
 
   Future<void> _persistCredentials(NeteaseCredentials credentials) async {
@@ -451,10 +442,7 @@ class NeteaseAccountService extends AccountService with Logging {
     );
     _cachedCredentials = credentials;
     _credentialsLoaded = true;
-    await _updateAccount(
-      isLoggedIn: true,
-      userId: credentials.userId,
-    );
+    await _updateAccount(isLoggedIn: true, userId: credentials.userId);
   }
 
   Future<_LoginSnapshot> _captureLoginSnapshot() async {
@@ -510,20 +498,7 @@ class NeteaseAccountService extends AccountService with Logging {
       _credentialsLoaded = true;
     }
 
-    await _isar.writeTxn(() async {
-      if (snapshot.account == null) {
-        final existing = await _isar.accounts
-            .filter()
-            .platformEqualTo(SourceType.netease)
-            .findFirst();
-        if (existing != null) {
-          await _isar.accounts.delete(existing.id);
-        }
-        return;
-      }
-
-      await _isar.accounts.put(snapshot.account!);
-    });
+    await _accounts.replaceForPlatform(SourceIds.netease, snapshot.account);
   }
 
   /// 從 HTTP 響應中提取 Set-Cookie
@@ -558,7 +533,7 @@ class NeteaseAccountService extends AccountService with Logging {
           'max-age',
           'httponly',
           'secure',
-          'samesite'
+          'samesite',
         }.contains(key.toLowerCase())) {
           cookies[key] = value;
         }

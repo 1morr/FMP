@@ -43,14 +43,13 @@ class YouTubePlaylistService with Logging {
   final YouTubeAccountService _accountService;
   final Dio _dio;
 
-  YouTubePlaylistService({
-    required YouTubeAccountService accountService,
-  })  : _accountService = accountService,
-        _dio = _createDio(accountService);
+  YouTubePlaylistService({required YouTubeAccountService accountService})
+    : _accountService = accountService,
+      _dio = _createDio(accountService);
 
   static Dio _createDio(YouTubeAccountService accountService) {
     final dio = SourceHttpPolicy.createApiDio(
-      SourceType.youtube,
+      SourceIds.youtube,
       contentType: 'application/json',
     );
     dio.interceptors.add(YouTubeAuthInterceptor(accountService));
@@ -92,10 +91,7 @@ class YouTubePlaylistService with Logging {
       data: jsonEncode({
         'playlistId': playlistId,
         'actions': [
-          {
-            'addedVideoId': videoId,
-            'action': 'ACTION_ADD_VIDEO',
-          },
+          {'addedVideoId': videoId, 'action': 'ACTION_ADD_VIDEO'},
         ],
         'context': _accountService.buildInnerTubeContext(),
       }),
@@ -185,11 +181,11 @@ class YouTubePlaylistService with Logging {
       final requestData = continuationToken != null
           ? {
               'continuation': continuationToken,
-              'context': _accountService.buildInnerTubeContext()
+              'context': _accountService.buildInnerTubeContext(),
             }
           : {
               'browseId': 'VL$playlistId',
-              'context': _accountService.buildInnerTubeContext()
+              'context': _accountService.buildInnerTubeContext(),
             };
 
       try {
@@ -206,8 +202,10 @@ class YouTubePlaylistService with Logging {
       } catch (e) {
         // 首頁失敗直接拋出，後續頁失敗返回已有結果（可能不完整）
         if (continuationToken == null) rethrow;
-        logWarning('Playlist pagination failed on subsequent page '
-            '(playlist=$playlistId), results may be incomplete: $e');
+        logWarning(
+          'Playlist pagination failed on subsequent page '
+          '(playlist=$playlistId), results may be incomplete: $e',
+        );
         return null;
       }
     } while (continuationToken != null);
@@ -247,16 +245,17 @@ class YouTubePlaylistService with Logging {
 
   /// 從 FEplaylist_aggregation browse 響應中解析播放列表
   List<YouTubePlaylistInfo> _parsePlaylistsFromBrowse(
-      Map<String, dynamic> data) {
+    Map<String, dynamic> data,
+  ) {
     final playlists = <YouTubePlaylistInfo>[];
 
     try {
       // 取得 tabRenderer.content
-      final tabContent = data['contents']?['twoColumnBrowseResultsRenderer']
-                  ?['tabs']?[0]?['tabRenderer']?['content']
+      final tabContent =
+          data['contents']?['twoColumnBrowseResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']
               as Map<String, dynamic>? ??
-          data['contents']?['singleColumnBrowseResultsRenderer']?['tabs']?[0]
-              ?['tabRenderer']?['content'] as Map<String, dynamic>?;
+          data['contents']?['singleColumnBrowseResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']
+              as Map<String, dynamic>?;
 
       if (tabContent != null) {
         // 路徑 A: tabContent > richGridRenderer > contents（新版 YouTube）
@@ -282,8 +281,10 @@ class YouTubePlaylistService with Logging {
       if (playlists.isEmpty) {
         final renderers = <String>{};
         _collectRendererKeys(data, renderers, 0, 15);
-        logWarning('YouTube: no playlists found in response. '
-            'All renderers: $renderers');
+        logWarning(
+          'YouTube: no playlists found in response. '
+          'All renderers: $renderers',
+        );
       }
     } catch (e) {
       logError('Failed to parse YouTube playlists', e);
@@ -294,7 +295,9 @@ class YouTubePlaylistService with Logging {
 
   /// 從 richGridRenderer contents 中提取播放列表
   void _extractPlaylistsFromRichGrid(
-      List items, List<YouTubePlaylistInfo> playlists) {
+    List items,
+    List<YouTubePlaylistInfo> playlists,
+  ) {
     for (final item in items) {
       if (item is! Map<String, dynamic>) continue;
 
@@ -311,7 +314,9 @@ class YouTubePlaylistService with Logging {
 
   /// 從 sectionListRenderer contents 中提取播放列表（舊版結構）
   void _extractPlaylistsFromSections(
-      List sections, List<YouTubePlaylistInfo> playlists) {
+    List sections,
+    List<YouTubePlaylistInfo> playlists,
+  ) {
     for (final section in sections) {
       if (section is! Map<String, dynamic>) continue;
       final items = section['itemSectionRenderer']?['contents'] as List?;
@@ -320,8 +325,9 @@ class YouTubePlaylistService with Logging {
           if (item is! Map<String, dynamic>) continue;
           _tryParsePlaylistItem(item, playlists);
           // shelfRenderer 嵌套
-          final shelfItems = item['shelfRenderer']?['content']
-              ?['horizontalListRenderer']?['items'] as List?;
+          final shelfItems =
+              item['shelfRenderer']?['content']?['horizontalListRenderer']?['items']
+                  as List?;
           if (shelfItems != null) {
             for (final si in shelfItems) {
               if (si is Map<String, dynamic>) {
@@ -343,24 +349,29 @@ class YouTubePlaylistService with Logging {
 
   /// 嘗試從一個 item 中解析播放列表（支持多種 renderer 格式）
   void _tryParsePlaylistItem(
-      Map<String, dynamic> item, List<YouTubePlaylistInfo> playlists) {
+    Map<String, dynamic> item,
+    List<YouTubePlaylistInfo> playlists,
+  ) {
     // 格式 1: gridPlaylistRenderer / playlistRenderer（經典格式）
     final renderer = item['gridPlaylistRenderer'] ?? item['playlistRenderer'];
     if (renderer is Map<String, dynamic>) {
       final playlistId = renderer['playlistId'] as String?;
       final title = _extractText(renderer['title']);
-      final countText = _extractText(renderer['videoCountShortText']) ??
+      final countText =
+          _extractText(renderer['videoCountShortText']) ??
           _extractText(renderer['videoCountText']) ??
           _extractText(renderer['thumbnailText']);
       final thumbnailUrl = _extractThumbnailHqDefault(renderer['thumbnail']);
 
       if (playlistId != null && title != null) {
-        playlists.add(YouTubePlaylistInfo(
-          playlistId: playlistId,
-          title: title,
-          videoCount: _parseVideoCount(countText),
-          thumbnailUrl: thumbnailUrl,
-        ));
+        playlists.add(
+          YouTubePlaylistInfo(
+            playlistId: playlistId,
+            title: title,
+            videoCount: _parseVideoCount(countText),
+            thumbnailUrl: thumbnailUrl,
+          ),
+        );
         return;
       }
     }
@@ -378,24 +389,25 @@ class YouTubePlaylistService with Logging {
         final title = metadata?['title']?['content'] as String?;
 
         // 縮略圖
-        final rawThumbnail = lockup['contentImage']
-                        ?['collectionThumbnailViewModel']?['primaryThumbnail']
-                    ?['thumbnailViewModel']?['image']?['sources']?[0]?['url']
+        final rawThumbnail =
+            lockup['contentImage']?['collectionThumbnailViewModel']?['primaryThumbnail']?['thumbnailViewModel']?['image']?['sources']?[0]?['url']
                 as String? ??
-            lockup['contentImage']?['thumbnailViewModel']?['image']?['sources']
-                ?[0]?['url'] as String?;
+            lockup['contentImage']?['thumbnailViewModel']?['image']?['sources']?[0]?['url']
+                as String?;
         final thumbnail = canonicalThumbnailUrl(rawThumbnail);
 
         // 視頻數量：嘗試多種路徑
         final countText = _extractVideoCountFromLockup(lockup, metadata);
 
         if (title != null) {
-          playlists.add(YouTubePlaylistInfo(
-            playlistId: contentId,
-            title: title,
-            videoCount: _parseVideoCount(countText),
-            thumbnailUrl: thumbnail,
-          ));
+          playlists.add(
+            YouTubePlaylistInfo(
+              playlistId: contentId,
+              title: title,
+              videoCount: _parseVideoCount(countText),
+              thumbnailUrl: thumbnail,
+            ),
+          );
         }
       }
     }
@@ -403,12 +415,15 @@ class YouTubePlaylistService with Logging {
 
   /// 從 lockupViewModel 中提取視頻數量文本
   String? _extractVideoCountFromLockup(
-      Map<String, dynamic> lockup, Map<String, dynamic>? metadata) {
+    Map<String, dynamic> lockup,
+    Map<String, dynamic>? metadata,
+  ) {
     final candidates = <String>[];
 
     // 路徑 1: metadata > contentMetadataViewModel > metadataRows
-    final metadataRows = metadata?['metadata']?['contentMetadataViewModel']
-        ?['metadataRows'] as List?;
+    final metadataRows =
+        metadata?['metadata']?['contentMetadataViewModel']?['metadataRows']
+            as List?;
     if (metadataRows != null) {
       final text = _findDigitTextInRows(metadataRows);
       if (text != null) candidates.add(text);
@@ -416,19 +431,21 @@ class YouTubePlaylistService with Logging {
 
     // 路徑 2: contentImage > collectionThumbnailViewModel > primaryThumbnail > thumbnailViewModel > overlays
     // 縮略圖上的覆蓋文字（如 "473 videos"）
-    final overlays = lockup['contentImage']?['collectionThumbnailViewModel']
-        ?['primaryThumbnail']?['thumbnailViewModel']?['overlays'] as List?;
+    final overlays =
+        lockup['contentImage']?['collectionThumbnailViewModel']?['primaryThumbnail']?['thumbnailViewModel']?['overlays']
+            as List?;
     if (overlays != null) {
       for (final overlay in overlays) {
         if (overlay is! Map<String, dynamic>) continue;
-        final text = overlay['thumbnailOverlayBadgeViewModel']
-            ?['thumbnailBadges'] as List?;
+        final text =
+            overlay['thumbnailOverlayBadgeViewModel']?['thumbnailBadges']
+                as List?;
         if (text != null) {
           for (final badge in text) {
             final content =
                 badge?['thumbnailBadgeViewModel']?['text'] as String? ??
-                    badge?['thumbnailBadgeViewModel']?['icon']?['sources']?[0]
-                        ?['clientResource']?['imageName'] as String?;
+                badge?['thumbnailBadgeViewModel']?['icon']?['sources']?[0]?['clientResource']?['imageName']
+                    as String?;
             if (content != null && RegExp(r'\d').hasMatch(content)) {
               candidates.add(content);
             }
@@ -438,7 +455,8 @@ class YouTubePlaylistService with Logging {
         final bottomText =
             overlay['thumbnailOverlayBottomPanelRenderer']?['text'] as Map?;
         if (bottomText != null) {
-          final t = bottomText['simpleText'] as String? ??
+          final t =
+              bottomText['simpleText'] as String? ??
               (bottomText['runs'] as List?)?.map((r) => r['text']).join();
           if (t != null && RegExp(r'\d').hasMatch(t)) {
             candidates.add(t);
@@ -483,8 +501,9 @@ class YouTubePlaylistService with Logging {
   String? _findVideoCountTextRecursive(dynamic data, [int depth = 0]) {
     if (depth > 8) return null;
     if (data is String) {
-      if (RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)')
-          .hasMatch(data)) {
+      if (RegExp(
+        r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)',
+      ).hasMatch(data)) {
         return data;
       }
       return null;
@@ -493,8 +512,9 @@ class YouTubePlaylistService with Logging {
       // 優先檢查 content 字段
       final content = data['content'];
       if (content is String &&
-          RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)')
-              .hasMatch(content)) {
+          RegExp(
+            r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)',
+          ).hasMatch(content)) {
         return content;
       }
       for (final value in data.values) {
@@ -512,8 +532,10 @@ class YouTubePlaylistService with Logging {
 
   /// 遞歸搜索 JSON 中的播放列表 renderer
   void _findPlaylistsRecursive(
-      dynamic data, List<YouTubePlaylistInfo> playlists,
-      [int depth = 0]) {
+    dynamic data,
+    List<YouTubePlaylistInfo> playlists, [
+    int depth = 0,
+  ]) {
     if (depth > 15 || playlists.length > 100) return;
     if (data is Map<String, dynamic>) {
       if (data.containsKey('gridPlaylistRenderer') ||
@@ -536,8 +558,12 @@ class YouTubePlaylistService with Logging {
   String? _extractText(dynamic textObj) => InnerTubeUtils.extractText(textObj);
 
   /// 收集 JSON 中所有以 Renderer/ViewModel 結尾的 key（用於調試）
-  void _collectRendererKeys(dynamic data, Set<String> keys,
-      [int depth = 0, int maxDepth = 15]) {
+  void _collectRendererKeys(
+    dynamic data,
+    Set<String> keys, [
+    int depth = 0,
+    int maxDepth = 15,
+  ]) {
     if (depth > maxDepth) return;
     if (data is Map<String, dynamic>) {
       for (final key in data.keys) {
@@ -560,12 +586,10 @@ class YouTubePlaylistService with Logging {
   /// 從播放列表瀏覽響應中提取 contents 列表（共用 JSON 路徑）
   List? _getPlaylistVideoContents(Map<String, dynamic> data) {
     try {
-      return data['contents']?['twoColumnBrowseResultsRenderer']?['tabs']?[0]
-                      ?['tabRenderer']?['content']?['sectionListRenderer']
-                  ?['contents']?[0]?['itemSectionRenderer']?['contents']?[0]
-              ?['playlistVideoListRenderer']?['contents'] as List? ??
-          data['onResponseReceivedActions']?[0]
-              ?['appendContinuationItemsAction']?['continuationItems'] as List?;
+      return data['contents']?['twoColumnBrowseResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['sectionListRenderer']?['contents']?[0]?['itemSectionRenderer']?['contents']?[0]?['playlistVideoListRenderer']?['contents']
+              as List? ??
+          data['onResponseReceivedActions']?[0]?['appendContinuationItemsAction']?['continuationItems']
+              as List?;
     } catch (_) {
       return null;
     }
@@ -577,8 +601,9 @@ class YouTubePlaylistService with Logging {
     if (contents == null) return null;
 
     for (final item in contents) {
-      final token = item['continuationItemRenderer']?['continuationEndpoint']
-          ?['continuationCommand']?['token'] as String?;
+      final token =
+          item['continuationItemRenderer']?['continuationEndpoint']?['continuationCommand']?['token']
+              as String?;
       if (token != null) return token;
     }
     return null;
@@ -594,8 +619,9 @@ class YouTubePlaylistService with Logging {
       if (text == null || text.isEmpty) continue;
 
       var score = 0;
-      if (RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)')
-          .hasMatch(text)) {
+      if (RegExp(
+        r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)',
+      ).hasMatch(text)) {
         score += 4;
       }
       if (RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]').hasMatch(text)) {
@@ -604,9 +630,10 @@ class YouTubePlaylistService with Logging {
       if (RegExp(r'\d').hasMatch(text)) {
         score += 1;
       }
-      if (RegExp(r'days?\s+ago|hours?\s+ago|minutes?\s+ago|updated',
-              caseSensitive: false)
-          .hasMatch(text)) {
+      if (RegExp(
+        r'days?\s+ago|hours?\s+ago|minutes?\s+ago|updated',
+        caseSensitive: false,
+      ).hasMatch(text)) {
         score -= 3;
       }
 
@@ -627,8 +654,10 @@ class YouTubePlaylistService with Logging {
     if (normalized.isEmpty) return 0;
 
     final patterns = [
-      RegExp(r'(\d+(?:[\.,]\d+)?)\s*([KMBkmb])?\s*(?=videos?\b|影片|部)',
-          caseSensitive: false),
+      RegExp(
+        r'(\d+(?:[\.,]\d+)?)\s*([KMBkmb])?\s*(?=videos?\b|影片|部)',
+        caseSensitive: false,
+      ),
       RegExp(r'(\d+(?:[\.,]\d+)?)\s*([KMBkmb])?'),
     ];
 
@@ -706,10 +735,7 @@ class YouTubePlaylistException implements Exception {
   final String code;
   final String message;
 
-  const YouTubePlaylistException({
-    required this.code,
-    required this.message,
-  });
+  const YouTubePlaylistException({required this.code, required this.message});
 
   bool get requiresLogin =>
       code == 'UNAUTHENTICATED' || code == '401' || code == '403';

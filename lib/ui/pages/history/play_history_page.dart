@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/icon_helpers.dart';
@@ -9,7 +10,8 @@ import '../../../data/models/track.dart';
 import '../../../data/repositories/play_history_repository.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/library/play_history_provider.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
@@ -91,11 +93,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   ) {
     // 多选模式的 AppBar
     if (pageState.isMultiSelectMode) {
-      final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
+      final grouped = ref.read(groupedPlayHistoryProvider).value;
       final allHistories = grouped?.values.expand((e) => e).toList() ?? [];
       final isAllSelected =
           pageState.selectedIds.length == allHistories.length &&
-              allHistories.isNotEmpty;
+          allHistories.isNotEmpty;
       final hasSelection = pageState.selectedIds.isNotEmpty;
 
       return AppBar(
@@ -105,7 +107,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           onPressed: () => notifier.exitMultiSelectMode(),
         ),
         title: Text(
-            t.playHistoryPage.selectedCount(n: pageState.selectedIds.length)),
+          t.playHistoryPage.selectedCount(n: pageState.selectedIds.length),
+        ),
         actions: [
           // 全選按鈕（圖標）
           IconButton(
@@ -154,6 +157,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: t.general.back,
           onPressed: () {
             notifier.setSearching(false);
             _searchController.clear();
@@ -168,6 +172,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear),
+                    tooltip: t.general.clear,
                     onPressed: () {
                       _searchController.clear();
                       notifier.setSearchKeyword(null);
@@ -230,14 +235,26 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildStatItem(context, t.playHistoryPage.statsToday,
-                stats.todayCount, stats.formattedTodayDuration),
+            _buildStatItem(
+              context,
+              t.playHistoryPage.statsToday,
+              stats.todayCount,
+              stats.formattedTodayDuration,
+            ),
             _buildStatDivider(colorScheme),
-            _buildStatItem(context, t.playHistoryPage.statsThisWeek,
-                stats.weekCount, stats.formattedWeekDuration),
+            _buildStatItem(
+              context,
+              t.playHistoryPage.statsThisWeek,
+              stats.weekCount,
+              stats.formattedWeekDuration,
+            ),
             _buildStatDivider(colorScheme),
-            _buildStatItem(context, t.playHistoryPage.statsAll,
-                stats.totalCount, stats.formattedTotalDuration),
+            _buildStatItem(
+              context,
+              t.playHistoryPage.statsAll,
+              stats.totalCount,
+              stats.formattedTotalDuration,
+            ),
           ],
         ),
       ),
@@ -260,10 +277,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           ],
         ),
       ),
-      error: (error, stack) {
-        debugPrint('Failed to load play history stats: $error');
-        return const SizedBox.shrink();
-      },
+      error: (error, stack) => ErrorDisplay(
+        compact: true,
+        message: userMessageFor(error),
+        onRetry: () => ref.invalidate(playHistoryStatsProvider),
+      ),
     );
   }
 
@@ -272,38 +290,43 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   }
 
   Widget _buildStatItem(
-      BuildContext context, String label, int count, String duration) {
+    BuildContext context,
+    String label,
+    int count,
+    String duration,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         RichText(
           text: TextSpan(
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: colorScheme.onSurfaceVariant),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
             children: [
               TextSpan(text: label),
               const TextSpan(text: ' '),
               TextSpan(
                 text: '$count',
                 style: TextStyle(
-                    fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
               ),
               TextSpan(
-                  text:
-                      ' ${t.playHistoryPage.trackCount(n: count).replaceFirst('$count ', '')}'),
+                text:
+                    ' ${t.playHistoryPage.trackCount(n: count).replaceFirst('$count ', '')}',
+              ),
             ],
           ),
         ),
         const SizedBox(height: 2),
         Text(
           duration,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: colorScheme.outline),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
         ),
       ],
     );
@@ -332,14 +355,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: Text(t.importPlatform.bilibili),
-                    selected: pageState.selectedSource == SourceType.bilibili,
-                    onSelected: (_) => notifier.setSource(SourceType.bilibili),
+                    selected: pageState.selectedSource == SourceIds.bilibili,
+                    onSelected: (_) => notifier.setSource(SourceIds.bilibili),
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: const Text('YouTube'),
-                    selected: pageState.selectedSource == SourceType.youtube,
-                    onSelected: (_) => notifier.setSource(SourceType.youtube),
+                    selected: pageState.selectedSource == SourceIds.youtube,
+                    onSelected: (_) => notifier.setSource(SourceIds.youtube),
                   ),
                   if (pageState.selectedDate != null) ...[
                     const SizedBox(width: 8),
@@ -397,8 +420,10 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
         final pageState = ref.watch(playHistoryPageProvider);
         final notifier = ref.read(playHistoryPageProvider.notifier);
-        final List<HistoryTimelineRow> rows =
-            buildHistoryTimelineRows(grouped, _collapsedGroups);
+        final List<HistoryTimelineRow> rows = buildHistoryTimelineRows(
+          grouped,
+          _collapsedGroups,
+        );
 
         return ListView.builder(
           controller: _scrollController,
@@ -408,10 +433,12 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           itemBuilder: (context, index) {
             final row = rows[index];
             final key = switch (row) {
-              HistoryDateHeaderRow(:final date) =>
-                ValueKey('history-date-${date.toIso8601String()}'),
-              HistoryTrackRow(:final history) =>
-                ValueKey('history-track-${history.id}'),
+              HistoryDateHeaderRow(:final date) => ValueKey(
+                'history-date-${date.toIso8601String()}',
+              ),
+              HistoryTrackRow(:final history) => ValueKey(
+                'history-track-${history.id}',
+              ),
             };
             return RepaintBoundary(
               key: key,
@@ -425,15 +452,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                     notifier,
                   ),
                 HistoryTrackRow(:final history) => _buildTimelineItem(
-                    context,
-                    history,
-                    isMultiSelectMode: pageState.isMultiSelectMode,
-                    isSelected: pageState.selectedIds.contains(history.id),
-                    onToggleSelection: () =>
-                        notifier.toggleSelection(history.id),
-                    onEnterMultiSelect: () =>
-                        notifier.enterMultiSelectMode(history.id),
-                  ),
+                  context,
+                  history,
+                  isMultiSelectMode: pageState.isMultiSelectMode,
+                  isSelected: pageState.selectedIds.contains(history.id),
+                  onToggleSelection: () => notifier.toggleSelection(history.id),
+                  onEnterMultiSelect: () =>
+                      notifier.enterMultiSelectMode(history.id),
+                ),
               },
             );
           },
@@ -442,7 +468,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       loading: () => const LoadingPlaceholder(),
       error: (e, _) => ErrorDisplay(
         type: ErrorType.general,
-        message: t.playHistoryPage.loadFailed(error: e.toString()),
+        message: t.playHistoryPage.loadFailed(error: userMessageFor(e)),
         onRetry: () => ref.invalidate(playHistorySnapshotProvider),
       ),
     );
@@ -481,7 +507,10 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                     isFullySelected: isGroupFullySelected,
                     isPartiallySelected: isGroupPartiallySelected,
                     onTap: () => _toggleGroupSelection(
-                        notifier, histories, isGroupFullySelected),
+                      notifier,
+                      histories,
+                      isGroupFullySelected,
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -499,16 +528,16 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 Text(
                   _formatDateLabel(date),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   t.playHistoryPage.trackCount(n: histories.length),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                 ),
                 const Spacer(),
                 // 展開/收起圖標
@@ -570,7 +599,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     // - cid: Bilibili 分P的唯一标识符（如 12345678）
     // - pageNum: 分P的显示序号（1, 2, 3...）
     // cid 是稳定的唯一标识，pageNum 只是显示用的序号
-    final isPlaying = currentTrack != null &&
+    final isPlaying =
+        currentTrack != null &&
         currentTrack.sourceId == history.sourceId &&
         (history.cid == null || currentTrack.cid == history.cid);
 
@@ -635,17 +665,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                   ),
                   const SizedBox(width: 8),
                   // 播放時間（帶時鐘圖標）
-                  Icon(
-                    Icons.access_time,
-                    size: 14,
-                    color: colorScheme.outline,
-                  ),
+                  Icon(Icons.access_time, size: 14, color: colorScheme.outline),
                   const SizedBox(width: 2),
                   Text(
                     _formatPlayedTime(history.playedAt),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                   ),
                   const SizedBox(width: 8),
                   // 音源標識
@@ -656,8 +682,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                   ),
                 ],
               ),
-              trailing: _buildTrailing(context, history, isMultiSelectMode,
-                  isSelected, onToggleSelection),
+              trailing: _buildTrailing(
+                context,
+                history,
+                isMultiSelectMode,
+                isSelected,
+                onToggleSelection,
+              ),
             ),
           ),
         ],
@@ -710,18 +741,15 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             width: 48,
             child: Text(
               DurationFormatter.formatMs(history.durationMs!),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               textAlign: TextAlign.center,
             ),
           ),
         // 選擇勾選框或菜單
         if (isMultiSelectMode)
-          _SelectionCheckbox(
-            isSelected: isSelected,
-            onTap: onToggleSelection,
-          )
+          _SelectionCheckbox(isSelected: isSelected, onTap: onToggleSelection)
         else
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -751,22 +779,32 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     } else if (date == yesterday) {
       return t.playHistoryPage.dateYesterday;
     } else if (date.year == now.year) {
-      return t.playHistoryPage
-          .dateFormat(month: '${date.month}', day: '${date.day}');
+      return t.playHistoryPage.dateFormat(
+        month: '${date.month}',
+        day: '${date.day}',
+      );
     } else {
       return t.playHistoryPage.dateFormatWithYear(
-          year: '${date.year}', month: '${date.month}', day: '${date.day}');
+        year: '${date.year}',
+        month: '${date.month}',
+        day: '${date.day}',
+      );
     }
   }
 
   String _formatDateTitle(DateTime date) {
     final now = DateTime.now();
     if (date.year == now.year) {
-      return t.playHistoryPage
-          .dateFormat(month: '${date.month}', day: '${date.day}');
+      return t.playHistoryPage.dateFormat(
+        month: '${date.month}',
+        day: '${date.day}',
+      );
     }
     return t.playHistoryPage.dateFormatWithYear(
-        year: '${date.year}', month: '${date.month}', day: '${date.day}');
+      year: '${date.year}',
+      month: '${date.month}',
+      day: '${date.day}',
+    );
   }
 
   String _formatPlayedTime(DateTime time) {
@@ -781,10 +819,16 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       return timeStr;
     } else if (time.year == now.year) {
       return t.playHistoryPage.dateTimeFormat(
-          month: '${time.month}', day: '${time.day}', time: timeStr);
+        month: '${time.month}',
+        day: '${time.day}',
+        time: timeStr,
+      );
     } else {
       return t.playHistoryPage.dateFormatWithYear(
-          year: '${time.year}', month: '${time.month}', day: '${time.day}');
+        year: '${time.year}',
+        month: '${time.month}',
+        day: '${time.day}',
+      );
     }
   }
 
@@ -818,10 +862,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
   /// 處理多選菜單操作
   Future<void> _handleMultiSelectMenuAction(
-      BuildContext context, String action) async {
+    BuildContext context,
+    String action,
+  ) async {
     if (tryParseTrackAction(action) != null) {
-      final tracks =
-          _selectedHistories().map((history) => history.toTrack()).toList();
+      final tracks = _selectedHistories()
+          .map((history) => history.toTrack())
+          .toList();
       final result = await TrackActionCoordinator.handleMulti(
         context: context,
         ref: ref,
@@ -838,14 +885,16 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     switch (action) {
       case 'delete':
         await _deleteSelected(
-            context, ref.read(playHistoryPageProvider.notifier));
+          context,
+          ref.read(playHistoryPageProvider.notifier),
+        );
         break;
     }
   }
 
   List<PlayHistory> _selectedHistories() {
     final pageState = ref.read(playHistoryPageProvider);
-    final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
+    final grouped = ref.read(groupedPlayHistoryProvider).value;
     if (grouped == null) {
       return const [];
     }
@@ -926,7 +975,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               .deleteAllForTrack(history.trackKey);
           if (context.mounted) {
             ToastService.success(
-                context, t.playHistoryPage.toastDeletedCount(n: count));
+              context,
+              t.playHistoryPage.toastDeletedCount(n: count),
+            );
           }
         }
         break;
@@ -940,7 +991,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     final count = await notifier.deleteSelected();
     if (context.mounted) {
       ToastService.success(
-          context, t.playHistoryPage.toastDeletedCount(n: count));
+        context,
+        t.playHistoryPage.toastDeletedCount(n: count),
+      );
     }
   }
 }
@@ -950,10 +1003,7 @@ class _SelectionCheckbox extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
-  const _SelectionCheckbox({
-    required this.isSelected,
-    this.onTap,
-  });
+  const _SelectionCheckbox({required this.isSelected, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -963,6 +1013,7 @@ class _SelectionCheckbox extends StatelessWidget {
         isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
         color: isSelected ? colorScheme.primary : colorScheme.outline,
       ),
+      tooltip: isSelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }

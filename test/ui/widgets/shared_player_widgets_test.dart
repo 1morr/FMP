@@ -12,19 +12,28 @@ void main() {
         File(relativePath).readAsStringSync();
 
     test('shared widget files define the extracted controls', () {
-      expect(readSource('lib/ui/widgets/player/compact_volume_control.dart'),
-          contains('class CompactVolumeControl'));
-      expect(readSource('lib/ui/widgets/player/fmp_audio_device_selector.dart'),
-          contains('class FmpAudioDeviceSelector'));
-      expect(readSource('lib/ui/widgets/player/player_play_pause_button.dart'),
-          contains('class PlayerPlayPauseButton'));
-      expect(readSource('lib/ui/widgets/player/cover_art_container.dart'),
-          contains('class CoverArtContainer'));
+      expect(
+        readSource('lib/ui/widgets/player/compact_volume_control.dart'),
+        contains('class CompactVolumeControl'),
+      );
+      expect(
+        readSource('lib/ui/widgets/player/fmp_audio_device_selector.dart'),
+        contains('class FmpAudioDeviceSelector'),
+      );
+      expect(
+        readSource('lib/ui/widgets/player/player_play_pause_button.dart'),
+        contains('class PlayerPlayPauseButton'),
+      );
+      expect(
+        readSource('lib/ui/widgets/player/cover_art_container.dart'),
+        contains('class CoverArtContainer'),
+      );
     });
 
     test('device name formatter is owned by the shared selector', () {
-      final selector =
-          readSource('lib/ui/widgets/player/fmp_audio_device_selector.dart');
+      final selector = readSource(
+        'lib/ui/widgets/player/fmp_audio_device_selector.dart',
+      );
       expect(selector, contains('static String formatDeviceName'));
       expect(selector, contains('喇叭'));
     });
@@ -60,8 +69,9 @@ void main() {
     test('both fullscreen players use the shared immersive scaffold', () {
       final player = readSource('lib/ui/pages/player/player_page.dart');
       final radio = readSource('lib/ui/pages/radio/radio_player_page.dart');
-      final scaffold =
-          readSource('lib/ui/widgets/layout/immersive_player_scaffold.dart');
+      final scaffold = readSource(
+        'lib/ui/widgets/layout/immersive_player_scaffold.dart',
+      );
 
       expect(scaffold, contains('class ImmersivePlayerScaffold'));
       expect(player, contains('ImmersivePlayerScaffold('));

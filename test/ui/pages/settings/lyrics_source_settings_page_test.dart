@@ -8,7 +8,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/ui/pages/settings/lyrics_source_settings_page.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -79,33 +79,26 @@ void main() {
       },
     );
 
-    testWidgets(
-      'AI settings dialog uses only the footer close action',
-      (tester) async {
-        await _pumpPage(tester, repository);
-        await tester.pump();
+    testWidgets('AI settings dialog uses only the footer close action', (
+      tester,
+    ) async {
+      await _pumpPage(tester, repository);
+      await tester.pump();
 
-        await tester.tap(find.byIcon(Icons.smart_toy_outlined));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.smart_toy_outlined));
+      await tester.pumpAndSettle();
 
-        final dialog = find.byType(AlertDialog);
-        expect(dialog, findsOneWidget);
-        expect(
-          find.descendant(
-            of: dialog,
-            matching: find.byIcon(Icons.close),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: dialog,
-            matching: find.text(t.general.close),
-          ),
-          findsOneWidget,
-        );
-      },
-    );
+      final dialog = find.byType(AlertDialog);
+      expect(dialog, findsOneWidget);
+      expect(
+        find.descendant(of: dialog, matching: find.byIcon(Icons.close)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: dialog, matching: find.text(t.general.close)),
+        findsOneWidget,
+      );
+    });
   });
 }
 

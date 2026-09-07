@@ -88,9 +88,10 @@ class BilibiliSource
       buvid4: _generateBuvid4(),
     );
 
-    _dio = dio ??
+    _dio =
+        dio ??
         SourceHttpPolicy.createApiDio(
-          SourceType.bilibili,
+          SourceIds.bilibili,
           extraHeaders: {'Cookie': _browserCookie},
         );
     _dio.options.headers.putIfAbsent('Cookie', () => _browserCookie);
@@ -100,7 +101,8 @@ class BilibiliSource
       ),
     );
     _liveDio = liveDio ?? SourceHttpPolicy.createBilibiliLiveDio();
-    _liveClient = liveClient ??
+    _liveClient =
+        liveClient ??
         BilibiliLiveClient(
           apiDio: _dio,
           liveDio: _liveDio,
@@ -134,10 +136,7 @@ class BilibiliSource
     return '${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}';
   }
 
-  String _buildBrowserCookie({
-    required String buvid3,
-    required String buvid4,
-  }) {
+  String _buildBrowserCookie({required String buvid3, required String buvid4}) {
     final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return 'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3';
   }
@@ -163,7 +162,7 @@ class BilibiliSource
   }
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   /// Helper: create Options that merge auth headers with base Dio headers.
   /// Dio's Options.headers override BaseOptions.headers per-key,
@@ -171,8 +170,9 @@ class BilibiliSource
   Options _withAuth(Map<String, String> authHeaders) {
     final baseCookie = _dio.options.headers['Cookie'] as String? ?? '';
     final authCookie = authHeaders['Cookie'] ?? '';
-    final mergedCookie =
-        authCookie.isNotEmpty ? '$baseCookie; $authCookie' : baseCookie;
+    final mergedCookie = authCookie.isNotEmpty
+        ? '$baseCookie; $authCookie'
+        : baseCookie;
     return Options(headers: {'Cookie': mergedCookie});
   }
 
@@ -210,8 +210,10 @@ class BilibiliSource
   }
 
   @override
-  Future<Track> getTrackInfo(String bvid,
-      {Map<String, String>? authHeaders}) async {
+  Future<Track> getTrackInfo(
+    String bvid, {
+    Map<String, String>? authHeaders,
+  }) async {
     try {
       final response = await _dio.get(
         _viewApi,
@@ -224,7 +226,7 @@ class BilibiliSource
       final data = response.data['data'];
       final track = Track()
         ..sourceId = bvid
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = data['title'] ?? 'Unknown'
         ..artist = data['owner']?['name']
         ..ownerId = data['owner']?['mid'] as int?
@@ -233,14 +235,12 @@ class BilibiliSource
 
       // 获取音频 URL
       final audioUrl = await getAudioUrl(
-        AudioStreamRequest(
-          sourceId: bvid,
-          authHeaders: authHeaders,
-        ),
+        AudioStreamRequest(sourceId: bvid, authHeaders: authHeaders),
       );
       track.audioUrl = audioUrl;
-      track.audioUrlExpiry = DateTime.now()
-          .add(const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
+      track.audioUrlExpiry = DateTime.now().add(
+        const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+      );
       track.createdAt = DateTime.now();
 
       return track;
@@ -261,11 +261,8 @@ class BilibiliSource
       'qualityLevel=${request.config.qualityLevel}',
     );
     try {
-      final cid = request.cid ??
-          await _getCid(
-            bvid,
-            authHeaders: request.authHeaders,
-          );
+      final cid =
+          request.cid ?? await _getCid(bvid, authHeaders: request.authHeaders);
       logDebug('Got cid: $cid for bvid: $bvid');
 
       return await _resolveAudioStreamForCid(
@@ -276,11 +273,13 @@ class BilibiliSource
       );
     } on BilibiliApiException catch (e) {
       logError(
-          'Bilibili API error for $bvid: code=${e.code}, message=${e.message}');
+        'Bilibili API error for $bvid: code=${e.code}, message=${e.message}',
+      );
       rethrow;
     } on DioException catch (e) {
       logError(
-          'Network error getting audio URL for $bvid: ${e.type}, ${e.message}');
+        'Network error getting audio URL for $bvid: ${e.type}, ${e.message}',
+      );
       throw _handleDioError(e);
     }
   }
@@ -297,8 +296,13 @@ class BilibiliSource
     // 按流类型优先级尝试
     for (final streamType in config.streamPriority) {
       try {
-        final result = await _tryGetStreamByType(bvid, cid, streamType, config,
-            authHeaders: authHeaders);
+        final result = await _tryGetStreamByType(
+          bvid,
+          cid,
+          streamType,
+          config,
+          authHeaders: authHeaders,
+        );
         if (result != null) {
           return result;
         }
@@ -306,7 +310,8 @@ class BilibiliSource
         final sourceError = e is DioException ? _handleDioError(e) : e;
         if (_shouldAbortStreamFallback(sourceError)) {
           logWarning(
-              'Stream type $streamType hit non-fallbackable error for $bvid:$cid: $sourceError');
+            'Stream type $streamType hit non-fallbackable error for $bvid:$cid: $sourceError',
+          );
           throw sourceError;
         }
         if (sourceError is SourceApiException) {
@@ -394,14 +399,16 @@ class BilibiliSource
     // 按带宽排序
     final sortedAudios = List<Map<String, dynamic>>.from(audios);
     sortedAudios.sort(
-        (a, b) => (b['bandwidth'] as int).compareTo(a['bandwidth'] as int));
+      (a, b) => (b['bandwidth'] as int).compareTo(a['bandwidth'] as int),
+    );
 
     // 根据音质等级选择
     final selected = _selectByQualityLevel(sortedAudios, config.qualityLevel);
     if (selected == null) return null;
 
-    final audioUrl =
-        _dashAudioUrls(selected).where((url) => url != failedUrl).firstOrNull;
+    final audioUrl = _dashAudioUrls(
+      selected,
+    ).where((url) => url != failedUrl).firstOrNull;
     if (audioUrl == null) return null;
 
     final bandwidth = selected['bandwidth'] as int;
@@ -413,7 +420,8 @@ class BilibiliSource
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
-      expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+      expiry: _expiryFromUrl(audioUrl),
+      cid: cid,
     );
   }
 
@@ -456,8 +464,28 @@ class BilibiliSource
       container: 'flv',
       codec: null,
       streamType: StreamType.muxed,
-      expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+      expiry: _expiryFromUrl(url),
+      cid: cid,
     );
+  }
+
+  /// Bilibili 把有效期直接寫在媒體 URL 的 `deadline`（unix 秒）裡。
+  ///
+  /// 實測約 7178 秒 ≈ 1.99 小時 —— 跟寫死的 2 小時很接近，而「接近」在邊界上
+  /// 就等於偶爾拿著一個剛失效的 URL 去開流。已經過期的回 [Duration.zero]，
+  /// 讓它下次一定重新解析，而不是退回一個憑空的 2 小時。
+  Duration _expiryFromUrl(String url) {
+    final deadline = int.tryParse(
+      Uri.tryParse(url)?.queryParameters['deadline'] ?? '',
+    );
+    if (deadline == null) {
+      return const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours);
+    }
+
+    final remaining = DateTime.fromMillisecondsSinceEpoch(
+      deadline * 1000,
+    ).difference(DateTime.now());
+    return remaining > Duration.zero ? remaining : Duration.zero;
   }
 
   List<String> _dashAudioUrls(Map<String, dynamic> audio) {
@@ -481,7 +509,9 @@ class BilibiliSource
     final cid = viewResponse.data['data']['cid'];
     if (cid == null) {
       throw BilibiliApiException(
-          numericCode: -404, message: 'Failed to get cid for $bvid');
+        numericCode: -404,
+        message: 'Failed to get cid for $bvid',
+      );
     }
     return cid as int;
   }
@@ -501,11 +531,15 @@ class BilibiliSource
   }
 
   @override
-  Future<Track> refreshAudioUrl(Track track,
-      {Map<String, String>? authHeaders}) async {
-    if (track.sourceType != SourceType.bilibili) {
+  Future<Track> refreshAudioUrl(
+    Track track, {
+    Map<String, String>? authHeaders,
+  }) async {
+    if (track.sourceType != SourceIds.bilibili) {
       throw const BilibiliApiException(
-          numericCode: -3, message: 'Invalid source type for BilibiliSource');
+        numericCode: -3,
+        message: 'Invalid source type for BilibiliSource',
+      );
     }
 
     final audioUrl = await getAudioUrl(
@@ -517,8 +551,9 @@ class BilibiliSource
       ),
     );
     track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now()
-        .add(const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
+    track.audioUrlExpiry = DateTime.now().add(
+      const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+    );
     track.updatedAt = DateTime.now();
     return track;
   }
@@ -551,12 +586,13 @@ class BilibiliSource
       final numResults = data['numResults'] as int? ?? 0;
 
       logDebug(
-          'Bilibili search results: ${results.length} tracks, total: $numResults');
+        'Bilibili search results: ${results.length} tracks, total: $numResults',
+      );
 
       final tracks = results.map((item) {
         return Track()
           ..sourceId = item['bvid'] ?? ''
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = _cleanHtmlTags(item['title'] ?? 'Unknown')
           ..artist = item['author']
           ..ownerId = item['mid'] as int?
@@ -593,7 +629,9 @@ class BilibiliSource
       final fid = parseFavoritesId(playlistUrl);
       if (fid == null) {
         throw BilibiliApiException(
-            numericCode: -3, message: 'Invalid favorites URL: $playlistUrl');
+          numericCode: -3,
+          message: 'Invalid favorites URL: $playlistUrl',
+        );
       }
 
       final authOpts = authHeaders != null ? _withAuth(authHeaders) : null;
@@ -622,15 +660,17 @@ class BilibiliSource
 
       // 添加第一页的歌曲
       for (final item in firstMedias) {
-        allTracks.add(Track()
-          ..sourceId = item['bvid'] ?? ''
-          ..sourceType = SourceType.bilibili
-          ..title = item['title'] ?? 'Unknown'
-          ..artist = item['upper']?['name']
-          ..ownerId = item['upper']?['mid'] as int?
-          ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
-          ..thumbnailUrl = item['cover']
-          ..pageCount = item['page'] as int? ?? 1);
+        allTracks.add(
+          Track()
+            ..sourceId = item['bvid'] ?? ''
+            ..sourceType = SourceIds.bilibili
+            ..title = item['title'] ?? 'Unknown'
+            ..artist = item['upper']?['name']
+            ..ownerId = item['upper']?['mid'] as int?
+            ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
+            ..thumbnailUrl = item['cover']
+            ..pageCount = item['page'] as int? ?? 1,
+        );
       }
 
       // 计算总页数并获取剩余页面
@@ -654,15 +694,17 @@ class BilibiliSource
         if (medias.isEmpty) break; // 没有更多数据了
 
         for (final item in medias) {
-          allTracks.add(Track()
-            ..sourceId = item['bvid'] ?? ''
-            ..sourceType = SourceType.bilibili
-            ..title = item['title'] ?? 'Unknown'
-            ..artist = item['upper']?['name']
-            ..ownerId = item['upper']?['mid'] as int?
-            ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
-            ..thumbnailUrl = item['cover']
-            ..pageCount = item['page'] as int? ?? 1);
+          allTracks.add(
+            Track()
+              ..sourceId = item['bvid'] ?? ''
+              ..sourceType = SourceIds.bilibili
+              ..title = item['title'] ?? 'Unknown'
+              ..artist = item['upper']?['name']
+              ..ownerId = item['upper']?['mid'] as int?
+              ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
+              ..thumbnailUrl = item['cover']
+              ..pageCount = item['page'] as int? ?? 1,
+          );
         }
 
         // 添加小延迟避免请求过快
@@ -703,8 +745,10 @@ class BilibiliSource
 
   /// 获取视频分P列表
   @override
-  Future<List<VideoPage>> getVideoPages(String bvid,
-      {Map<String, String>? authHeaders}) async {
+  Future<List<VideoPage>> getVideoPages(
+    String bvid, {
+    Map<String, String>? authHeaders,
+  }) async {
     try {
       final response = await _dio.get(
         _viewApi,
@@ -716,12 +760,14 @@ class BilibiliSource
 
       final pages = response.data['data']['pages'] as List? ?? [];
       return pages
-          .map((p) => VideoPage(
-                cid: p['cid'] as int,
-                page: p['page'] as int,
-                part: p['part'] as String? ?? 'P${p['page']}',
-                duration: p['duration'] as int? ?? 0,
-              ))
+          .map(
+            (p) => VideoPage(
+              cid: p['cid'] as int,
+              page: p['page'] as int,
+              part: p['part'] as String? ?? 'P${p['page']}',
+              duration: p['duration'] as int? ?? 0,
+            ),
+          )
           .toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -738,11 +784,8 @@ class BilibiliSource
   ) async {
     final bvid = request.sourceId;
     try {
-      final cid = request.cid ??
-          await _getCid(
-            bvid,
-            authHeaders: request.authHeaders,
-          );
+      final cid =
+          request.cid ?? await _getCid(bvid, authHeaders: request.authHeaders);
       return await _resolveAlternativeAudioStreamForCid(
         bvid,
         cid,
@@ -783,7 +826,8 @@ class BilibiliSource
           lastFallbackableError = sourceError;
         }
         logDebug(
-            'Alternative stream type $streamType failed for $bvid:$cid: $sourceError');
+          'Alternative stream type $streamType failed for $bvid:$cid: $sourceError',
+        );
       }
     }
 
@@ -796,8 +840,10 @@ class BilibiliSource
 
   /// 获取视频详细信息（包括统计数据和UP主信息）
   @override
-  Future<VideoDetail> getVideoDetail(String bvid,
-      {Map<String, String>? authHeaders}) async {
+  Future<VideoDetail> getVideoDetail(
+    String bvid, {
+    Map<String, String>? authHeaders,
+  }) async {
     try {
       // 获取视频信息
       final viewResponse = await _dio.get(
@@ -815,12 +861,14 @@ class BilibiliSource
       // 解析分P信息
       final pagesData = data['pages'] as List? ?? [];
       final pages = pagesData
-          .map((p) => VideoPage(
-                cid: p['cid'] as int,
-                page: p['page'] as int,
-                part: p['part'] as String? ?? 'P${p['page']}',
-                duration: p['duration'] as int? ?? 0,
-              ))
+          .map(
+            (p) => VideoPage(
+              cid: p['cid'] as int,
+              page: p['page'] as int,
+              part: p['part'] as String? ?? 'P${p['page']}',
+              duration: p['duration'] as int? ?? 0,
+            ),
+          )
           .toList();
 
       // 获取热门评论
@@ -858,8 +906,10 @@ class BilibiliSource
   }
 
   /// 获取热门评论
-  Future<List<VideoComment>> getHotComments(String bvid,
-      {int limit = 5}) async {
+  Future<List<VideoComment>> getHotComments(
+    String bvid, {
+    int limit = 5,
+  }) async {
     try {
       // 首先获取视频的 aid
       final viewResponse = await _dio.get(
@@ -921,7 +971,8 @@ class BilibiliSource
         // 桌面情境，無法排除高頻請求或 IP 信譽不佳時換 buvid 仍有幫助；代價僅
         // 一次請求。要移除請先在真實觸發情境下複驗，別只依文檔推論。
         logWarning(
-            'Bilibili ranking hit risk control; refreshing fingerprint and retrying');
+          'Bilibili ranking hit risk control; refreshing fingerprint and retrying',
+        );
         await _refreshBrowserFingerprintCookie();
         response = await _fetchRankingVideosResponse(rid);
       }
@@ -936,7 +987,7 @@ class BilibiliSource
 
         return Track()
           ..sourceId = item['bvid'] ?? ''
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = item['title'] ?? ''
           ..artist = owner['name'] ?? ''
           ..ownerId = owner['mid'] as int?
@@ -959,14 +1010,16 @@ class BilibiliSource
     return getRankingVideos(rid: request.regionId ?? 0);
   }
 
+  // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
+  @override
+  SourceRankingRequest get defaultRankingRequest =>
+      const SourceRankingRequest(regionId: 1003);
+
+  @override
+  String get rankingLabel => 'Bilibili 音樂排行榜';
+
   Future<Response<dynamic>> _fetchRankingVideosResponse(int rid) {
-    return _dio.get(
-      _rankingApi,
-      queryParameters: {
-        'rid': rid,
-        'type': 'all',
-      },
-    );
+    return _dio.get(_rankingApi, queryParameters: {'rid': rid, 'type': 'all'});
   }
 
   /// Bilibili 風控碼 -352。
@@ -999,12 +1052,7 @@ class BilibiliSource
       );
     }
 
-    _setBrowserCookie(
-      _buildBrowserCookie(
-        buvid3: buvid3,
-        buvid4: buvid4,
-      ),
-    );
+    _setBrowserCookie(_buildBrowserCookie(buvid3: buvid3, buvid4: buvid4));
   }
 
   // ========== 辅助方法 ==========
@@ -1018,7 +1066,9 @@ class BilibiliSource
       if (code == -352 || code == -412 || code == -509 || code == -799) {
         logWarning('Bilibili rate limited: code=$code, message=$message');
         throw BilibiliApiException(
-            numericCode: code, message: t.error.rateLimited);
+          numericCode: code,
+          message: t.error.rateLimited,
+        );
       } else {
         logWarning('Bilibili API error: code=$code, message=$message');
       }
@@ -1033,7 +1083,8 @@ class BilibiliSource
 
     // 记录详细错误信息
     logError(
-        'Bilibili Dio error: type=${e.type}, statusCode=$statusCode, response=$responseData');
+      'Bilibili Dio error: type=${e.type}, statusCode=$statusCode, response=$responseData',
+    );
 
     // 使用基类的通用分类
     final classified = SourceApiException.classifyDioError(e);
@@ -1043,7 +1094,9 @@ class BilibiliSource
       if (statusCode == 412 || statusCode == 429) {
         logWarning('Bilibili rate limited (HTTP $statusCode)');
         return BilibiliApiException(
-            numericCode: -429, message: classified.message);
+          numericCode: -429,
+          message: classified.message,
+        );
       }
       return BilibiliApiException(
         numericCode: -(statusCode ?? 500),
@@ -1058,7 +1111,9 @@ class BilibiliSource
       _ => -3,
     };
     return BilibiliApiException(
-        numericCode: numericCode, message: classified.message);
+      numericCode: numericCode,
+      message: classified.message,
+    );
   }
 
   /// 解析收藏夹 ID（公開靜態方法，供遠程收藏夾操作使用）

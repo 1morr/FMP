@@ -9,18 +9,13 @@ void main() {
     testWidgets('renders with correct size', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: TrackThumbnail(
-                track: track,
-                size: 64,
-              ),
-            ),
+            home: Scaffold(body: TrackThumbnail(track: track, size: 64)),
           ),
         ),
       );
@@ -30,22 +25,18 @@ void main() {
       expect(sizedBox.height, equals(64));
     });
 
-    testWidgets('shows placeholder icon when no cover available',
-        (tester) async {
+    testWidgets('shows placeholder icon when no cover available', (
+      tester,
+    ) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: TrackThumbnail(
-                track: track,
-                size: 48,
-              ),
-            ),
+            home: Scaffold(body: TrackThumbnail(track: track, size: 48)),
           ),
         ),
       );
@@ -56,18 +47,14 @@ void main() {
     testWidgets('applies custom border radius', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
             home: Scaffold(
-              body: TrackThumbnail(
-                track: track,
-                size: 48,
-                borderRadius: 8,
-              ),
+              body: TrackThumbnail(track: track, size: 48, borderRadius: 8),
             ),
           ),
         ),
@@ -78,11 +65,12 @@ void main() {
       expect(decoration.borderRadius, equals(BorderRadius.circular(8)));
     });
 
-    testWidgets('shows playing indicator when isPlaying is true',
-        (tester) async {
+    testWidgets('shows playing indicator when isPlaying is true', (
+      tester,
+    ) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -101,18 +89,21 @@ void main() {
       );
 
       // Should find the playing overlay (Stack inside TrackThumbnail with 2 children)
-      final stack = tester.widget<Stack>(find.descendant(
-        of: find.byType(TrackThumbnail),
-        matching: find.byType(Stack),
-      ));
+      final stack = tester.widget<Stack>(
+        find.descendant(
+          of: find.byType(TrackThumbnail),
+          matching: find.byType(Stack),
+        ),
+      );
       expect(stack.children.length, equals(2)); // image + overlay
     });
 
-    testWidgets('hides playing indicator when showPlayingIndicator is false',
-        (tester) async {
+    testWidgets('hides playing indicator when showPlayingIndicator is false', (
+      tester,
+    ) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -132,10 +123,12 @@ void main() {
 
       // NowPlayingIndicator should not be present when disabled
       // We check that the Stack only has one child (the image)
-      final stack = tester.widget<Stack>(find.descendant(
-        of: find.byType(TrackThumbnail),
-        matching: find.byType(Stack),
-      ));
+      final stack = tester.widget<Stack>(
+        find.descendant(
+          of: find.byType(TrackThumbnail),
+          matching: find.byType(Stack),
+        ),
+      );
       // Only the image should be visible (indicator hidden)
       expect(stack.children.length, equals(1));
     });
@@ -143,15 +136,13 @@ void main() {
     testWidgets('applies default size of 48', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: TrackThumbnail(track: track),
-            ),
+            home: Scaffold(body: TrackThumbnail(track: track)),
           ),
         ),
       );
@@ -166,19 +157,14 @@ void main() {
     testWidgets('renders with 16:9 aspect ratio by default', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
             home: Scaffold(
-              body: SizedBox(
-                width: 320,
-                child: TrackCover(
-                  track: track,
-                ),
-              ),
+              body: SizedBox(width: 320, child: TrackCover(track: track)),
             ),
           ),
         ),
@@ -191,7 +177,7 @@ void main() {
     testWidgets('renders with custom aspect ratio', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track';
 
       await tester.pumpWidget(
@@ -200,10 +186,7 @@ void main() {
             home: Scaffold(
               body: SizedBox(
                 width: 200,
-                child: TrackCover(
-                  track: track,
-                  aspectRatio: 1.0,
-                ),
+                child: TrackCover(track: track, aspectRatio: 1.0),
               ),
             ),
           ),
@@ -219,10 +202,7 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             home: Scaffold(
-              body: SizedBox(
-                width: 320,
-                child: const TrackCover(),
-              ),
+              body: SizedBox(width: 320, child: const TrackCover()),
             ),
           ),
         ),
@@ -234,7 +214,7 @@ void main() {
     testWidgets('uses networkUrl over track thumbnailUrl', (tester) async {
       final track = Track()
         ..sourceId = 'test123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Track'
         ..thumbnailUrl = 'https://example.com/track.jpg';
 
@@ -265,9 +245,7 @@ void main() {
             home: Scaffold(
               body: SizedBox(
                 width: 320,
-                child: const TrackCover(
-                  borderRadius: 24,
-                ),
+                child: const TrackCover(borderRadius: 24),
               ),
             ),
           ),
@@ -275,10 +253,7 @@ void main() {
       );
 
       final clipRRect = tester.widget<ClipRRect>(find.byType(ClipRRect).first);
-      expect(
-        clipRRect.borderRadius,
-        equals(BorderRadius.circular(24)),
-      );
+      expect(clipRRect.borderRadius, equals(BorderRadius.circular(24)));
     });
   });
 }

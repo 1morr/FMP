@@ -1,9 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_catalog.dart';
 import '../../../providers/database/database_provider.dart';
@@ -40,9 +41,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
           _buildCollectionSelector(),
           const Divider(height: 1),
           // 数据列表
-          Expanded(
-            child: _buildDataView(),
-          ),
+          Expanded(child: _buildDataView()),
         ],
       ),
     );
@@ -89,8 +88,9 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
 
     return dbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) =>
-          Center(child: Text(t.databaseViewer.loadFailed(error: e.toString()))),
+      error: (e, _) => Center(
+        child: Text(t.databaseViewer.loadFailed(error: userMessageFor(e))),
+      ),
       data: (isar) => _buildCollectionData(isar),
     );
   }
@@ -108,10 +108,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
       return Center(child: Text(t.databaseViewer.unknownCollection));
     }
 
-    return _DatabaseCollectionListView(
-      isar: isar,
-      collection: selected,
-    );
+    return _DatabaseCollectionListView(isar: isar, collection: selected);
   }
 }
 
@@ -135,7 +132,9 @@ class _DatabaseCollectionListView extends StatelessWidget {
         if (snapshot.hasError) {
           return Center(
             child: Text(
-              t.databaseViewer.loadFailed(error: snapshot.error.toString()),
+              t.databaseViewer.loadFailed(
+                error: userMessageFor(snapshot.error!),
+              ),
             ),
           );
         }
@@ -167,9 +166,7 @@ Widget _buildList(
   required Widget Function(int index) itemBuilder,
 }) {
   if (itemCount == 0) {
-    return ErrorDisplay.empty(
-      message: t.databaseViewer.noData,
-    );
+    return ErrorDisplay.empty(message: t.databaseViewer.noData);
   }
 
   return Column(
@@ -178,10 +175,7 @@ Widget _buildList(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         width: double.infinity,
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Text(
-          headerText,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        child: Text(headerText, style: Theme.of(context).textTheme.bodySmall),
       ),
       Expanded(
         child: ListView.builder(
@@ -221,10 +215,7 @@ class _DataCard extends StatelessWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(
-            color: colorScheme.outline,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: colorScheme.outline, fontSize: 12),
         ),
         children: [
           Container(
@@ -240,7 +231,9 @@ class _DataCard extends StatelessWidget {
                     Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
                         borderRadius: AppRadius.borderRadiusSm,

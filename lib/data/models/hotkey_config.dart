@@ -18,15 +18,15 @@ enum HotkeyAction {
 
   /// 获取本地化标签
   String get label => switch (this) {
-        HotkeyAction.playPause => t.settings.hotkeys.actions.playPause,
-        HotkeyAction.next => t.settings.hotkeys.actions.next,
-        HotkeyAction.previous => t.settings.hotkeys.actions.previous,
-        HotkeyAction.stop => t.settings.hotkeys.actions.stop,
-        HotkeyAction.volumeUp => t.settings.hotkeys.actions.volumeUp,
-        HotkeyAction.volumeDown => t.settings.hotkeys.actions.volumeDown,
-        HotkeyAction.mute => t.settings.hotkeys.actions.mute,
-        HotkeyAction.toggleWindow => t.settings.hotkeys.actions.toggleWindow,
-      };
+    HotkeyAction.playPause => t.settings.hotkeys.actions.playPause,
+    HotkeyAction.next => t.settings.hotkeys.actions.next,
+    HotkeyAction.previous => t.settings.hotkeys.actions.previous,
+    HotkeyAction.stop => t.settings.hotkeys.actions.stop,
+    HotkeyAction.volumeUp => t.settings.hotkeys.actions.volumeUp,
+    HotkeyAction.volumeDown => t.settings.hotkeys.actions.volumeDown,
+    HotkeyAction.mute => t.settings.hotkeys.actions.mute,
+    HotkeyAction.toggleWindow => t.settings.hotkeys.actions.toggleWindow,
+  };
 }
 
 /// 单个快捷键绑定配置
@@ -108,10 +108,10 @@ class HotkeyBinding {
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'action': action.name,
-        'keyId': key?.keyId,
-        'modifiers': modifiers.map((m) => _modifierToString(m)).toList(),
-      };
+    'action': action.name,
+    'keyId': key?.keyId,
+    'modifiers': modifiers.map((m) => _modifierToString(m)).toList(),
+  };
 
   /// 创建副本并修改
   HotkeyBinding copyWith({
@@ -128,11 +128,7 @@ class HotkeyBinding {
 
   /// 清除快捷键
   HotkeyBinding cleared() {
-    return HotkeyBinding(
-      action: action,
-      key: null,
-      modifiers: {},
-    );
+    return HotkeyBinding(action: action, key: null, modifiers: {});
   }
 
   static String _keyToString(LogicalKeyboardKey key) {
@@ -210,52 +206,54 @@ class HotkeyConfig {
   final Map<HotkeyAction, HotkeyBinding> bindings;
 
   HotkeyConfig({Map<HotkeyAction, HotkeyBinding>? bindings})
-      : bindings = bindings ?? {};
+    : bindings = bindings ?? {};
 
   /// 默认配置
   factory HotkeyConfig.defaults() {
-    return HotkeyConfig(bindings: {
-      HotkeyAction.playPause: const HotkeyBinding(
-        action: HotkeyAction.playPause,
-        key: LogicalKeyboardKey.space,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-      HotkeyAction.next: const HotkeyBinding(
-        action: HotkeyAction.next,
-        key: LogicalKeyboardKey.arrowRight,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-      HotkeyAction.previous: const HotkeyBinding(
-        action: HotkeyAction.previous,
-        key: LogicalKeyboardKey.arrowLeft,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-      HotkeyAction.stop: const HotkeyBinding(
-        action: HotkeyAction.stop,
-        key: LogicalKeyboardKey.keyS,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-      HotkeyAction.volumeUp: const HotkeyBinding(
-        action: HotkeyAction.volumeUp,
-        key: LogicalKeyboardKey.arrowUp,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-      HotkeyAction.volumeDown: const HotkeyBinding(
-        action: HotkeyAction.volumeDown,
-        key: LogicalKeyboardKey.arrowDown,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-      HotkeyAction.mute: const HotkeyBinding(
-        action: HotkeyAction.mute,
-        key: LogicalKeyboardKey.keyM,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-      HotkeyAction.toggleWindow: const HotkeyBinding(
-        action: HotkeyAction.toggleWindow,
-        key: LogicalKeyboardKey.keyW,
-        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
-      ),
-    });
+    return HotkeyConfig(
+      bindings: {
+        HotkeyAction.playPause: const HotkeyBinding(
+          action: HotkeyAction.playPause,
+          key: LogicalKeyboardKey.space,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+        HotkeyAction.next: const HotkeyBinding(
+          action: HotkeyAction.next,
+          key: LogicalKeyboardKey.arrowRight,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+        HotkeyAction.previous: const HotkeyBinding(
+          action: HotkeyAction.previous,
+          key: LogicalKeyboardKey.arrowLeft,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+        HotkeyAction.stop: const HotkeyBinding(
+          action: HotkeyAction.stop,
+          key: LogicalKeyboardKey.keyS,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+        HotkeyAction.volumeUp: const HotkeyBinding(
+          action: HotkeyAction.volumeUp,
+          key: LogicalKeyboardKey.arrowUp,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+        HotkeyAction.volumeDown: const HotkeyBinding(
+          action: HotkeyAction.volumeDown,
+          key: LogicalKeyboardKey.arrowDown,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+        HotkeyAction.mute: const HotkeyBinding(
+          action: HotkeyAction.mute,
+          key: LogicalKeyboardKey.keyM,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+        HotkeyAction.toggleWindow: const HotkeyBinding(
+          action: HotkeyAction.toggleWindow,
+          key: LogicalKeyboardKey.keyW,
+          modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+        ),
+      },
+    );
   }
 
   /// 获取特定动作的绑定
@@ -264,8 +262,9 @@ class HotkeyConfig {
   /// 更新绑定
   HotkeyConfig updateBinding(HotkeyBinding binding) {
     final newBindings = Map<HotkeyAction, HotkeyBinding>.from(bindings);
-    newBindings[binding.action] =
-        binding.isValidSystemBinding ? binding : binding.cleared();
+    newBindings[binding.action] = binding.isValidSystemBinding
+        ? binding
+        : binding.cleared();
     return HotkeyConfig(bindings: newBindings);
   }
 
@@ -322,8 +321,8 @@ class HotkeyConfig {
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'bindings': bindings.values.map((b) => b.toJson()).toList(),
-      };
+    'bindings': bindings.values.map((b) => b.toJson()).toList(),
+  };
 
   /// 序列化为 JSON 字符串
   String toJsonString() => jsonEncode(toJson());

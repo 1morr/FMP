@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../data/models/lyrics_match.dart';
 import '../../data/models/settings.dart';
 import '../../data/repositories/lyrics_repository.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../services/audio/audio_provider.dart';
+import '../audio/audio_controller_provider.dart';
+import '../audio/audio_player_selectors.dart';
 import '../../services/lyrics/ai_lyrics_selector.dart';
 import '../../services/lyrics/ai_title_parser.dart';
 import '../../services/lyrics/lrc_parser.dart';
@@ -54,8 +56,9 @@ final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
 final aiTitleParserProvider = Provider<AiTitleParser>((ref) => AiTitleParser());
 
 /// AI lyrics selector 单例
-final aiLyricsSelectorProvider =
-    Provider<AiLyricsSelector>((ref) => AiLyricsSelector());
+final aiLyricsSelectorProvider = Provider<AiLyricsSelector>(
+  (ref) => AiLyricsSelector(),
+);
 
 /// Lyrics AI config service 单例
 final lyricsAiConfigServiceProvider = Provider<LyricsAiConfigService>((ref) {
@@ -99,15 +102,28 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
 });
 
 /// 歌词自动匹配是否正在进行中（用于 UI 显示加载动画）
-final lyricsAutoMatchingProvider = StateProvider<bool>((ref) => false);
+final lyricsAutoMatchingProvider =
+    NotifierProvider<LyricsAutoMatchingNotifier, bool>(
+      LyricsAutoMatchingNotifier.new,
+    );
+
+/// 只是一個布林旗標，寫入口在 [AudioController]。
+class LyricsAutoMatchingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  /// 由 `AudioController.onLyricsAutoMatchStateChanged` 呼叫。
+  void setMatching(bool value) => state = value;
+}
 
 // ---------------------------------------------------------------------------
 // 当前播放歌曲的歌词匹配
 // ---------------------------------------------------------------------------
 
 /// 当前播放歌曲的歌词匹配信息（实时监听数据库变化）
-final currentLyricsMatchProvider =
-    StreamProvider.autoDispose<LyricsMatch?>((ref) {
+final currentLyricsMatchProvider = StreamProvider.autoDispose<LyricsMatch?>((
+  ref,
+) {
   final currentTrack = ref.watch(currentTrackProvider);
   if (currentTrack == null) return Stream.value(null);
   final repo = ref.watch(lyricsRepositoryProvider);
@@ -116,20 +132,21 @@ final currentLyricsMatchProvider =
 
 /// 当前歌词的 externalId（用于触发内容加载，避免 offset 变化时重新加载）
 final _currentLyricsExternalIdProvider = Provider.autoDispose<String?>((ref) {
-  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  final match = ref.watch(currentLyricsMatchProvider).value;
   return match?.externalId;
 });
 
 /// 当前歌词源标识（用于决定从哪个源获取歌词内容）
 final _currentLyricsSourceProvider = Provider.autoDispose<String?>((ref) {
-  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  final match = ref.watch(currentLyricsMatchProvider).value;
   return match?.lyricsSource;
 });
 
 /// 当前播放歌曲的歌词内容（优先从缓存获取，否则在线获取）
 /// 注意：只在 externalId 变化时重新加载，offset 变化不会触发重新加载
-final currentLyricsContentProvider =
-    FutureProvider.autoDispose<LyricsResult?>((ref) async {
+final currentLyricsContentProvider = FutureProvider.autoDispose<LyricsResult?>((
+  ref,
+) async {
   var disposed = false;
   ref.onDispose(() => disposed = true);
 
@@ -170,24 +187,25 @@ final currentLyricsContentProvider =
 
 /// 歌词显示模式 Provider（持久化到 Settings）
 final lyricsDisplayModeProvider =
-    StateNotifierProvider<LyricsDisplayModeNotifier, LyricsDisplayMode>((ref) {
-  final settingsRepo = ref.watch(settingsRepositoryProvider);
-  return LyricsDisplayModeNotifier(settingsRepo);
-});
+    NotifierProvider<LyricsDisplayModeNotifier, LyricsDisplayMode>(
+      LyricsDisplayModeNotifier.new,
+    );
 
 /// 歌词显示模式管理器
-class LyricsDisplayModeNotifier extends StateNotifier<LyricsDisplayMode> {
-  final SettingsRepository _settingsRepository;
+class LyricsDisplayModeNotifier extends Notifier<LyricsDisplayMode> {
+  late SettingsRepository _settingsRepository;
   Settings? _settings;
 
-  LyricsDisplayModeNotifier(this._settingsRepository)
-      : super(LyricsDisplayMode.original) {
+  @override
+  LyricsDisplayMode build() {
+    _settingsRepository = ref.watch(settingsRepositoryProvider);
     _loadSettings();
+    return LyricsDisplayMode.original;
   }
 
   Future<void> _loadSettings() async {
     _settings = await _settingsRepository.get();
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = _settings!.lyricsDisplayMode;
   }
 
@@ -225,7 +243,7 @@ String? _selectSubLyricsText(LyricsResult content, LyricsDisplayMode mode) {
 ///
 /// 始终解析原文歌词，根据 lyricsDisplayMode 合并附加文本（翻译/罗马音）到每行的 subText。
 final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
-  final content = ref.watch(currentLyricsContentProvider).valueOrNull;
+  final content = ref.watch(currentLyricsContentProvider).value;
   if (content == null) return null;
 
   // 始终解析原文
@@ -240,6 +258,28 @@ final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
   return LrcParser.mergeSubLyrics(parsed, subText);
 });
 
+/// 歌詞欄現在有沒有東西可以顯示。
+///
+/// 播放頁的寬版版面用它決定要不要開右欄：以前右欄是寫死的 `flex: 7`，於是
+/// 沒有歌詞的曲目會把 58% 的畫面留給一句「暫無歌詞」。
+///
+/// 判斷條件必須跟 `lyrics_display.dart` 的分支一致，否則會出現「開了欄位卻是
+/// 空的」或「明明有歌詞卻沒開欄位」。抓取中與自動匹配中都算有內容 —— 抓完才
+/// 收欄位會讓版面在載入結束的瞬間跳一下。
+final lyricsPaneHasContentProvider = Provider.autoDispose<bool>((ref) {
+  final content = ref.watch(currentLyricsContentProvider);
+  if (content.isLoading) return true;
+
+  final match = ref.watch(currentLyricsMatchProvider).value;
+  if (match == null) return ref.watch(lyricsAutoMatchingProvider);
+
+  // 載入失敗時歌詞欄會畫出錯誤狀態，那也是內容。
+  if (content.hasError) return true;
+
+  final parsed = ref.watch(parsedLyricsProvider);
+  return parsed != null && parsed.isNotEmpty;
+});
+
 int calculateCurrentLyricsLineIndex({
   required ParsedLyrics? lyrics,
   required Duration position,
@@ -248,11 +288,7 @@ int calculateCurrentLyricsLineIndex({
   if (lyrics == null || !lyrics.isSynced || lyrics.isEmpty) {
     return -1;
   }
-  return LrcParser.findCurrentLineIndex(
-    lyrics.lines,
-    position,
-    offsetMs,
-  );
+  return LrcParser.findCurrentLineIndex(lyrics.lines, position, offsetMs);
 }
 
 /// 当前同步歌词行索引。
@@ -262,7 +298,7 @@ int calculateCurrentLyricsLineIndex({
 /// should watch this provider instead of watching raw playback position.
 final currentLyricsLineIndexProvider = Provider.autoDispose<int>((ref) {
   final lyrics = ref.watch(parsedLyricsProvider);
-  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  final match = ref.watch(currentLyricsMatchProvider).value;
   final position = ref.watch(
     audioControllerProvider.select((state) => state.position),
   );
@@ -308,28 +344,29 @@ class LyricsSearchState {
 }
 
 /// 歌词搜索 Notifier
-class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
-  final LrclibSource _lrclib;
-  final NeteaseSource _netease;
-  final QQMusicSource _qqmusic;
-  final LyricsRepository _repo;
-  final LyricsCacheService _cache;
-  final List<String> _sourceOrder;
-  final Set<String> _disabledSources;
+class LyricsSearchNotifier extends Notifier<LyricsSearchState> {
+  late LrclibSource _lrclib;
+  late NeteaseSource _netease;
+  late QQMusicSource _qqmusic;
+  late LyricsRepository _repo;
+  late LyricsCacheService _cache;
+  late List<String> _sourceOrder;
+  late Set<String> _disabledSources;
 
   int _searchRequestId = 0;
 
-  LyricsSearchNotifier(
-    this._lrclib,
-    this._netease,
-    this._qqmusic,
-    this._repo,
-    this._cache, {
-    List<String> sourceOrder = const ['netease', 'qqmusic', 'lrclib'],
-    Set<String> disabledSources = const {},
-  })  : _sourceOrder = sourceOrder,
-        _disabledSources = disabledSources,
-        super(const LyricsSearchState());
+  @override
+  LyricsSearchState build() {
+    _lrclib = ref.watch(lrclibSourceProvider);
+    _netease = ref.watch(neteaseSourceProvider);
+    _qqmusic = ref.watch(qqmusicSourceProvider);
+    _repo = ref.watch(lyricsRepositoryProvider);
+    _cache = ref.watch(lyricsCacheServiceProvider);
+    final audioSettings = ref.watch(audioSettingsProvider);
+    _sourceOrder = audioSettings.lyricsSourceOrder;
+    _disabledSources = audioSettings.disabledLyricsSources;
+    return const LyricsSearchState();
+  }
 
   /// 设置筛选源
   void setFilter(LyricsSourceFilter filter) {
@@ -337,8 +374,11 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   }
 
   /// 搜索歌词
-  Future<void> search(
-      {String? query, String? trackName, String? artistName}) async {
+  Future<void> search({
+    String? query,
+    String? trackName,
+    String? artistName,
+  }) async {
     // 取消之前的搜索
     final requestId = ++_searchRequestId;
 
@@ -354,7 +394,7 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
         LyricsSourceFilter.all => null,
       };
       if (selectedSource != null && _disabledSources.contains(selectedSource)) {
-        if (!mounted || requestId != _searchRequestId) return;
+        if (!ref.mounted || requestId != _searchRequestId) return;
         state = state.copyWith(isLoading: false, results: const []);
         return;
       }
@@ -380,8 +420,9 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
           );
         case LyricsSourceFilter.all:
           // 按用户配置的优先级并行搜索启用的源
-          final enabledSources =
-              _sourceOrder.where((s) => !_disabledSources.contains(s)).toList();
+          final enabledSources = _sourceOrder
+              .where((s) => !_disabledSources.contains(s))
+              .toList();
           final sourceResults = <String, List<LyricsResult>>{};
           final searchFutures = <Future<void>>[];
 
@@ -397,7 +438,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
                       )
                       .then((r) => sourceResults['netease'] = r)
                       .catchError(
-                          (_) => sourceResults['netease'] = <LyricsResult>[]),
+                        (_) => sourceResults['netease'] = <LyricsResult>[],
+                      ),
                 );
               case 'qqmusic':
                 searchFutures.add(
@@ -409,7 +451,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
                       )
                       .then((r) => sourceResults['qqmusic'] = r)
                       .catchError(
-                          (_) => sourceResults['qqmusic'] = <LyricsResult>[]),
+                        (_) => sourceResults['qqmusic'] = <LyricsResult>[],
+                      ),
                 );
               case 'lrclib':
                 searchFutures.add(
@@ -421,7 +464,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
                       )
                       .then((r) => sourceResults['lrclib'] = r)
                       .catchError(
-                          (_) => sourceResults['lrclib'] = <LyricsResult>[]),
+                        (_) => sourceResults['lrclib'] = <LyricsResult>[],
+                      ),
                 );
             }
           }
@@ -436,12 +480,15 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       }
 
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
+      if (!ref.mounted || requestId != _searchRequestId) return;
       state = state.copyWith(isLoading: false, results: results);
-    } catch (e) {
+    } catch (e, stack) {
       // 检查是否被新的搜索取代
-      if (!mounted || requestId != _searchRequestId) return;
-      state = state.copyWith(isLoading: false, error: e.toString());
+      if (!ref.mounted || requestId != _searchRequestId) return;
+      state = state.copyWith(
+        isLoading: false,
+        error: failureMessage(e, stack, 'Lyrics search failed', tag: 'Lyrics'),
+      );
     }
   }
 
@@ -481,28 +528,13 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
 
 /// 歌词搜索 Provider
 final lyricsSearchProvider =
-    StateNotifierProvider.autoDispose<LyricsSearchNotifier, LyricsSearchState>(
-        (ref) {
-  final lrclib = ref.watch(lrclibSourceProvider);
-  final netease = ref.watch(neteaseSourceProvider);
-  final qqmusic = ref.watch(qqmusicSourceProvider);
-  final repo = ref.watch(lyricsRepositoryProvider);
-  final cache = ref.watch(lyricsCacheServiceProvider);
-  final audioSettings = ref.watch(audioSettingsProvider);
-  return LyricsSearchNotifier(
-    lrclib,
-    netease,
-    qqmusic,
-    repo,
-    cache,
-    sourceOrder: audioSettings.lyricsSourceOrder,
-    disabledSources: audioSettings.disabledLyricsSources,
-  );
-});
+    NotifierProvider.autoDispose<LyricsSearchNotifier, LyricsSearchState>(
+      LyricsSearchNotifier.new,
+    );
 
 /// 查询指定 track 的歌词匹配（用于菜单显示"已匹配"状态）
-final lyricsMatchForTrackProvider =
-    FutureProvider.autoDispose.family<LyricsMatch?, String>((ref, trackKey) {
-  final repo = ref.watch(lyricsRepositoryProvider);
-  return repo.getByTrackKey(trackKey);
-});
+final lyricsMatchForTrackProvider = FutureProvider.autoDispose
+    .family<LyricsMatch?, String>((ref, trackKey) {
+      final repo = ref.watch(lyricsRepositoryProvider);
+      return repo.getByTrackKey(trackKey);
+    });

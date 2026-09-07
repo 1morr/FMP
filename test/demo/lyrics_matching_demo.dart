@@ -28,7 +28,8 @@ class ParsedTitle {
 }
 
 class RegexTitleParser {
-  static const _tagWords = r'翻唱|cover|MV|PV|歌ってみた|弾いてみた|叩いてみた|演奏してみた|'
+  static const _tagWords =
+      r'翻唱|cover|MV|PV|歌ってみた|弾いてみた|叩いてみた|演奏してみた|'
       r'Official|官方|自制|手书|MAD|AMV|MMD|VOCALOID|ボカロ|初音ミク|'
       r'オリジナル曲?|原创|原創|完整版|高音质|Hi-?Res|FLAC|4K|1080P|'
       r'中文字幕|歌词|Lyrics?|字幕|CC|合集|精选|剪辑|Clip|Live|现场|'
@@ -115,7 +116,10 @@ class RegexTitleParser {
     }
 
     return ParsedTitle(
-        trackName: track, artistName: artist, cleanedTitle: cleaned.trim());
+      trackName: track,
+      artistName: artist,
+      cleanedTitle: cleaned.trim(),
+    );
   }
 
   String _clean(String t) {
@@ -172,14 +176,14 @@ class LrclibResult {
   final String? plainLyrics;
 
   LrclibResult.fromJson(Map<String, dynamic> j)
-      : id = j['id'] as int,
-        trackName = j['trackName'] as String? ?? '',
-        artistName = j['artistName'] as String? ?? '',
-        albumName = j['albumName'] as String? ?? '',
-        duration = (j['duration'] as num?)?.toInt() ?? 0,
-        instrumental = j['instrumental'] as bool? ?? false,
-        syncedLyrics = j['syncedLyrics'] as String?,
-        plainLyrics = j['plainLyrics'] as String?;
+    : id = j['id'] as int,
+      trackName = j['trackName'] as String? ?? '',
+      artistName = j['artistName'] as String? ?? '',
+      albumName = j['albumName'] as String? ?? '',
+      duration = (j['duration'] as num?)?.toInt() ?? 0,
+      instrumental = j['instrumental'] as bool? ?? false,
+      syncedLyrics = j['syncedLyrics'] as String?,
+      plainLyrics = j['plainLyrics'] as String?;
 
   bool get hasSynced => syncedLyrics != null && syncedLyrics!.isNotEmpty;
 }
@@ -206,110 +210,150 @@ class TestSample {
 
 const _samples = [
   // === Bilibili ===
-  TestSample('周杰伦 - 晴天',
-      uploader: '音乐分享',
-      durationSec: 269,
-      expectedTrack: '晴天',
-      expectedArtist: '周杰伦'),
-  TestSample('【翻唱】告白气球 - 周杰伦',
-      uploader: 'xxx翻唱',
-      durationSec: 215,
-      expectedTrack: '告白气球',
-      expectedArtist: '周杰伦'),
-  TestSample('Aimer - 残響散歌 (鬼滅の刃 遊郭編 OP)',
-      uploader: 'Aimer Official',
-      durationSec: 222,
-      expectedTrack: '残響散歌',
-      expectedArtist: 'Aimer'),
-  TestSample('「歌ってみた」夜に駆ける / YOASOBI',
-      uploader: 'cover歌手',
-      durationSec: 258,
-      expectedTrack: '夜に駆ける',
-      expectedArtist: 'YOASOBI'),
-  TestSample('陈奕迅 Eason Chan -【十年】(Official Music Video)',
-      uploader: '环球音乐',
-      durationSec: 205,
-      expectedTrack: '十年',
-      expectedArtist: '陈奕迅 Eason Chan'),
+  TestSample(
+    '周杰伦 - 晴天',
+    uploader: '音乐分享',
+    durationSec: 269,
+    expectedTrack: '晴天',
+    expectedArtist: '周杰伦',
+  ),
+  TestSample(
+    '【翻唱】告白气球 - 周杰伦',
+    uploader: 'xxx翻唱',
+    durationSec: 215,
+    expectedTrack: '告白气球',
+    expectedArtist: '周杰伦',
+  ),
+  TestSample(
+    'Aimer - 残響散歌 (鬼滅の刃 遊郭編 OP)',
+    uploader: 'Aimer Official',
+    durationSec: 222,
+    expectedTrack: '残響散歌',
+    expectedArtist: 'Aimer',
+  ),
+  TestSample(
+    '「歌ってみた」夜に駆ける / YOASOBI',
+    uploader: 'cover歌手',
+    durationSec: 258,
+    expectedTrack: '夜に駆ける',
+    expectedArtist: 'YOASOBI',
+  ),
+  TestSample(
+    '陈奕迅 Eason Chan -【十年】(Official Music Video)',
+    uploader: '环球音乐',
+    durationSec: 205,
+    expectedTrack: '十年',
+    expectedArtist: '陈奕迅 Eason Chan',
+  ),
 
   // === YouTube ===
-  TestSample('YOASOBI「アイドル」Official Music Video',
-      uploader: 'Ayase / YOASOBI',
-      durationSec: 223,
-      expectedTrack: 'アイドル',
-      expectedArtist: 'YOASOBI'),
-  TestSample('Taylor Swift - Anti-Hero (Official Music Video)',
-      uploader: 'Taylor Swift',
-      durationSec: 200,
-      expectedTrack: 'Anti-Hero',
-      expectedArtist: 'Taylor Swift'),
-  TestSample('Adele - Rolling in the Deep (Official Music Video)',
-      uploader: 'Adele',
-      durationSec: 228,
-      expectedTrack: 'Rolling in the Deep',
-      expectedArtist: 'Adele'),
-  TestSample('米津玄師 MV「Lemon」',
-      uploader: '米津玄師',
-      durationSec: 254,
-      expectedTrack: 'Lemon',
-      expectedArtist: '米津玄師'),
-  TestSample('周杰伦 Jay Chou【晴天 Sunny Day】Official MV',
-      uploader: '周杰伦',
-      durationSec: 269,
-      expectedTrack: '晴天 Sunny Day',
-      expectedArtist: '周杰伦 Jay Chou'),
+  TestSample(
+    'YOASOBI「アイドル」Official Music Video',
+    uploader: 'Ayase / YOASOBI',
+    durationSec: 223,
+    expectedTrack: 'アイドル',
+    expectedArtist: 'YOASOBI',
+  ),
+  TestSample(
+    'Taylor Swift - Anti-Hero (Official Music Video)',
+    uploader: 'Taylor Swift',
+    durationSec: 200,
+    expectedTrack: 'Anti-Hero',
+    expectedArtist: 'Taylor Swift',
+  ),
+  TestSample(
+    'Adele - Rolling in the Deep (Official Music Video)',
+    uploader: 'Adele',
+    durationSec: 228,
+    expectedTrack: 'Rolling in the Deep',
+    expectedArtist: 'Adele',
+  ),
+  TestSample(
+    '米津玄師 MV「Lemon」',
+    uploader: '米津玄師',
+    durationSec: 254,
+    expectedTrack: 'Lemon',
+    expectedArtist: '米津玄師',
+  ),
+  TestSample(
+    '周杰伦 Jay Chou【晴天 Sunny Day】Official MV',
+    uploader: '周杰伦',
+    durationSec: 269,
+    expectedTrack: '晴天 Sunny Day',
+    expectedArtist: '周杰伦 Jay Chou',
+  ),
 
   // === 边界情况 ===
-  TestSample('ヨルシカ - だから僕は音楽を辞めた',
-      uploader: 'ヨルシカ',
-      durationSec: 289,
-      expectedTrack: 'だから僕は音楽を辞めた',
-      expectedArtist: 'ヨルシカ'),
-  TestSample('Kenshi Yonezu - KICK BACK',
-      uploader: '米津玄師',
-      durationSec: 196,
-      expectedTrack: 'KICK BACK',
-      expectedArtist: 'Kenshi Yonezu'),
-  TestSample('【初音ミク】千本桜【オリジナル曲PV付き】',
-      uploader: '黒うさP',
-      durationSec: 252,
-      expectedTrack: '千本桜',
-      expectedArtist: null),
-  TestSample('Billie Eilish - lovely (with Khalid) - Official Music Video',
-      uploader: 'Billie Eilish',
-      durationSec: 200,
-      expectedTrack: 'lovely',
-      expectedArtist: 'Billie Eilish'),
-  TestSample('薛之谦《演员》',
-      uploader: '薛之谦',
-      durationSec: 270,
-      expectedTrack: '演员',
-      expectedArtist: '薛之谦'),
-  TestSample('LiSA - 紅蓮華 / THE FIRST TAKE',
-      uploader: 'THE FIRST TAKE',
-      durationSec: 275,
-      expectedTrack: '紅蓮華',
-      expectedArtist: 'LiSA'),
-  TestSample('Ado - 唱 (Official Music Video)',
-      uploader: 'Ado',
-      durationSec: 195,
-      expectedTrack: '唱',
-      expectedArtist: 'Ado'),
-  TestSample('林俊杰 JJ Lin - 江南',
-      uploader: 'JJ Lin',
-      durationSec: 280,
-      expectedTrack: '江南',
-      expectedArtist: '林俊杰 JJ Lin'),
-  TestSample('RADWIMPS - スパークル [original ver.] Your name.',
-      uploader: 'RADWIMPS',
-      durationSec: 527,
-      expectedTrack: 'スパークル',
-      expectedArtist: 'RADWIMPS'),
-  TestSample('邓紫棋 - 光年之外 (Official Music Video)',
-      uploader: 'GEM邓紫棋',
-      durationSec: 235,
-      expectedTrack: '光年之外',
-      expectedArtist: '邓紫棋'),
+  TestSample(
+    'ヨルシカ - だから僕は音楽を辞めた',
+    uploader: 'ヨルシカ',
+    durationSec: 289,
+    expectedTrack: 'だから僕は音楽を辞めた',
+    expectedArtist: 'ヨルシカ',
+  ),
+  TestSample(
+    'Kenshi Yonezu - KICK BACK',
+    uploader: '米津玄師',
+    durationSec: 196,
+    expectedTrack: 'KICK BACK',
+    expectedArtist: 'Kenshi Yonezu',
+  ),
+  TestSample(
+    '【初音ミク】千本桜【オリジナル曲PV付き】',
+    uploader: '黒うさP',
+    durationSec: 252,
+    expectedTrack: '千本桜',
+    expectedArtist: null,
+  ),
+  TestSample(
+    'Billie Eilish - lovely (with Khalid) - Official Music Video',
+    uploader: 'Billie Eilish',
+    durationSec: 200,
+    expectedTrack: 'lovely',
+    expectedArtist: 'Billie Eilish',
+  ),
+  TestSample(
+    '薛之谦《演员》',
+    uploader: '薛之谦',
+    durationSec: 270,
+    expectedTrack: '演员',
+    expectedArtist: '薛之谦',
+  ),
+  TestSample(
+    'LiSA - 紅蓮華 / THE FIRST TAKE',
+    uploader: 'THE FIRST TAKE',
+    durationSec: 275,
+    expectedTrack: '紅蓮華',
+    expectedArtist: 'LiSA',
+  ),
+  TestSample(
+    'Ado - 唱 (Official Music Video)',
+    uploader: 'Ado',
+    durationSec: 195,
+    expectedTrack: '唱',
+    expectedArtist: 'Ado',
+  ),
+  TestSample(
+    '林俊杰 JJ Lin - 江南',
+    uploader: 'JJ Lin',
+    durationSec: 280,
+    expectedTrack: '江南',
+    expectedArtist: '林俊杰 JJ Lin',
+  ),
+  TestSample(
+    'RADWIMPS - スパークル [original ver.] Your name.',
+    uploader: 'RADWIMPS',
+    durationSec: 527,
+    expectedTrack: 'スパークル',
+    expectedArtist: 'RADWIMPS',
+  ),
+  TestSample(
+    '邓紫棋 - 光年之外 (Official Music Video)',
+    uploader: 'GEM邓紫棋',
+    durationSec: 235,
+    expectedTrack: '光年之外',
+    expectedArtist: '邓紫棋',
+  ),
 ];
 
 // ============================================================
@@ -318,12 +362,14 @@ const _samples = [
 
 void main() async {
   final parser = RegexTitleParser();
-  final dio = Dio(BaseOptions(
-    baseUrl: 'https://lrclib.net/api',
-    headers: {'User-Agent': 'FMP/1.0.0 (lyrics-demo)'},
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 15),
-  ));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://lrclib.net/api',
+      headers: {'User-Agent': 'FMP/1.0.0 (lyrics-demo)'},
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   print('=' * 70);
   print('歌词匹配可行性 Demo');
@@ -344,17 +390,21 @@ void main() async {
     print('\n  解析结果: $p');
 
     if (s.expectedTrack != null) {
-      final ok = p.trackName.contains(s.expectedTrack!) ||
+      final ok =
+          p.trackName.contains(s.expectedTrack!) ||
           s.expectedTrack!.contains(p.trackName);
       print(
-          '  歌曲名: ${ok ? "✓" : "✗"} (期望: "${s.expectedTrack}", 得到: "${p.trackName}")');
+        '  歌曲名: ${ok ? "✓" : "✗"} (期望: "${s.expectedTrack}", 得到: "${p.trackName}")',
+      );
     }
     if (s.expectedArtist != null) {
-      final ok = p.artistName != null &&
+      final ok =
+          p.artistName != null &&
           (p.artistName!.contains(s.expectedArtist!) ||
               s.expectedArtist!.contains(p.artistName!));
       print(
-          '  歌手名: ${ok ? "✓" : "✗"} (期望: "${s.expectedArtist}", 得到: "${p.artistName}")');
+        '  歌手名: ${ok ? "✓" : "✗"} (期望: "${s.expectedArtist}", 得到: "${p.artistName}")',
+      );
       if (ok) parseOk++;
     }
 
@@ -366,8 +416,11 @@ void main() async {
     if (p.artistName != null) {
       print('    [1] track="${p.trackName}" + artist="${p.artistName}"');
       try {
-        results = await _search(dio,
-            trackName: p.trackName, artistName: p.artistName);
+        results = await _search(
+          dio,
+          trackName: p.trackName,
+          artistName: p.artistName,
+        );
         print('    → ${results.length} 条');
       } catch (e) {
         print('    → 错误: $e');
@@ -410,7 +463,8 @@ void main() async {
           durMatch++;
           final b = filtered.first;
           print(
-              '  最佳: "${b.trackName}" by "${b.artistName}" (${b.duration}s, id=${b.id})');
+            '  最佳: "${b.trackName}" by "${b.artistName}" (${b.duration}s, id=${b.id})',
+          );
           print('  专辑: "${b.albumName}"');
           print('  同步歌词: ${b.hasSynced ? "✓" : "✗"}');
           if (b.hasSynced) {
@@ -423,7 +477,8 @@ void main() async {
           print('  无匹配，前3:');
           for (final r in results.take(3)) {
             print(
-                '    - "${r.trackName}" by "${r.artistName}" (${r.duration}s)');
+              '    - "${r.trackName}" by "${r.artistName}" (${r.duration}s)',
+            );
           }
         }
       }
@@ -439,13 +494,17 @@ void main() async {
   print('=' * 70);
   print('总样本:     $total');
   print(
-      '解析成功:   $parseOk/$total (${(parseOk / total * 100).toStringAsFixed(0)}%)');
+    '解析成功:   $parseOk/$total (${(parseOk / total * 100).toStringAsFixed(0)}%)',
+  );
   print(
-      '搜索命中:   $searchHit/$total (${(searchHit / total * 100).toStringAsFixed(0)}%)');
+    '搜索命中:   $searchHit/$total (${(searchHit / total * 100).toStringAsFixed(0)}%)',
+  );
   print(
-      'Duration:   $durMatch/$total (${(durMatch / total * 100).toStringAsFixed(0)}%)');
+    'Duration:   $durMatch/$total (${(durMatch / total * 100).toStringAsFixed(0)}%)',
+  );
   print(
-      '同步歌词:   $syncHit/$total (${(syncHit / total * 100).toStringAsFixed(0)}%)');
+    '同步歌词:   $syncHit/$total (${(syncHit / total * 100).toStringAsFixed(0)}%)',
+  );
 
   dio.close();
 }

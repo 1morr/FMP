@@ -13,18 +13,16 @@ class TagsSection extends StatelessWidget {
   /// 標題文字（呼叫方負責 i18n）。
   final String title;
 
-  const TagsSection({
-    super.key,
-    required this.tags,
-    required this.title,
-  });
+  const TagsSection({super.key, required this.tags, required this.title});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final tagList =
-        tags.split(',').where((tag) => tag.trim().isNotEmpty).toList();
+    final tagList = tags
+        .split(',')
+        .where((tag) => tag.trim().isNotEmpty)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,20 +45,24 @@ class TagsSection extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: tagList
-              .map((tag) => Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: AppRadius.borderRadiusXl,
+              .map(
+                (tag) => Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: AppRadius.borderRadiusXl,
+                  ),
+                  child: Text(
+                    tag.trim(),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                    child: Text(
-                      tag.trim(),
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ))
+                  ),
+                ),
+              )
               .toList(),
         ),
       ],

@@ -30,13 +30,13 @@ class BilibiliCredentials {
   }
 
   Map<String, dynamic> toJson() => {
-        'sessdata': sessdata,
-        'biliJct': biliJct,
-        'dedeUserId': dedeUserId,
-        'dedeUserIdCkMd5': dedeUserIdCkMd5,
-        'refreshToken': refreshToken,
-        'savedAt': savedAt.toIso8601String(),
-      };
+    'sessdata': sessdata,
+    'biliJct': biliJct,
+    'dedeUserId': dedeUserId,
+    'dedeUserIdCkMd5': dedeUserIdCkMd5,
+    'refreshToken': refreshToken,
+    'savedAt': savedAt.toIso8601String(),
+  };
 
   /// 生成 Cookie 字符串（供 Dio 請求使用）
   String toCookieString() {

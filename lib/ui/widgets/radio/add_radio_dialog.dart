@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
@@ -50,9 +52,10 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
         ToastService.success(context, t.radio.addSuccess);
         Navigator.of(context).pop(true);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Adding a radio station failed', e, stack, 'Radio');
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = userMessageFor(e);
       });
     } finally {
       if (mounted) {
@@ -79,9 +82,9 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
             children: [
               Text(
                 t.radio.addDescription,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 16),
               TextFormField(

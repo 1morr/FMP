@@ -10,16 +10,19 @@ void main() {
       repoRoot = Directory.current.path;
     });
 
-    test('download manager tile uses nullable task-scoped progress fallback',
-        () {
+    test('download manager tile uses nullable task-scoped progress fallback', () {
       final source = File(
         '$repoRoot/lib/ui/pages/settings/download_manager_page.dart',
       ).readAsStringSync();
 
       expect(
-          source, contains('ref.watch(downloadTaskProgressProvider(task.id))'));
+        source,
+        contains('ref.watch(downloadTaskProgressProvider(task.id))'),
+      );
       expect(
-          source, isNot(contains('ref.watch(downloadProgressStateProvider)')));
+        source,
+        isNot(contains('ref.watch(downloadProgressStateProvider)')),
+      );
       expect(source, contains('memProgress ??'));
       expect(source, contains('task.progress'));
       expect(source, contains('task.downloadedBytes'));
@@ -46,7 +49,9 @@ void main() {
       expect(source, contains('_DownloadListRow.fixedDownloadingSection'));
       expect(source, contains('_DownloadListRow.task'));
       expect(
-          source, isNot(contains('return ListView(\n            children:')));
+        source,
+        isNot(contains('return ListView(\n            children:')),
+      );
       expect(source, isNot(contains('...pending.map')));
       expect(source, isNot(contains('...paused.map')));
       expect(source, isNot(contains('...failed.map')));

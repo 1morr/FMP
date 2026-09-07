@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,116 +17,125 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/search/refresh_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import '../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('RefreshManagerNotifier stale cleanup', () {
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
-    test('cancelRefresh prevents in-flight refresh from mutating playlist',
-        () async {
-      final harness = await _RefreshHarness.create();
-      addTearDown(harness.dispose);
+    test(
+      'cancelRefresh prevents in-flight refresh from mutating playlist',
+      () async {
+        final harness = await _RefreshHarness.create();
+        addTearDown(harness.dispose);
 
-      final playlist = Playlist()
-        ..name = 'Cancelled Playlist'
-        ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
-      playlist.id = await harness.isar.writeTxn(
-        () => harness.isar.playlists.put(playlist),
-      );
+        final playlist = Playlist()
+          ..name = 'Cancelled Playlist'
+          ..sourceUrl = 'https://example.com/playlist'
+          ..importSourceType = SourceIds.youtube;
+        playlist.id = await harness.isar.writeTxn(
+          () => harness.isar.playlists.put(playlist),
+        );
 
-      final notifier = harness.container.read(refreshManagerProvider.notifier);
-      final parse = harness.source.enqueueParse();
-      final refreshFuture = notifier.refreshPlaylist(playlist);
-      await _pumpUntil(
-        () => harness.source.parseCalls == 1,
-        reason: 'refresh should reach playlist parsing',
-      );
+        final notifier = harness.container.read(
+          refreshManagerProvider.notifier,
+        );
+        final parse = harness.source.enqueueParse();
+        final refreshFuture = notifier.refreshPlaylist(playlist);
+        await _pumpUntil(
+          () => harness.source.parseCalls == 1,
+          reason: 'refresh should reach playlist parsing',
+        );
 
-      notifier.cancelRefresh(playlist.id);
-      parse.complete(_parseResult('cancelled-track'));
-      await refreshFuture;
+        notifier.cancelRefresh(playlist.id);
+        parse.complete(_parseResult('cancelled-track'));
+        await refreshFuture;
 
-      final savedPlaylist = await harness.isar.playlists.get(playlist.id);
-      expect(savedPlaylist!.trackIds, isEmpty);
-      expect(savedPlaylist.lastRefreshed, isNull);
-    });
+        final savedPlaylist = await harness.isar.playlists.get(playlist.id);
+        expect(savedPlaylist!.trackIds, isEmpty);
+        expect(savedPlaylist.lastRefreshed, isNull);
+      },
+    );
 
-    test('duplicate refresh call does not start another import service',
-        () async {
-      final harness = await _RefreshHarness.create();
-      addTearDown(harness.dispose);
+    test(
+      'duplicate refresh call does not start another import service',
+      () async {
+        final harness = await _RefreshHarness.create();
+        addTearDown(harness.dispose);
 
-      final playlist = Playlist()
-        ..name = 'Duplicate Refresh Playlist'
-        ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
-      playlist.id = await harness.isar.writeTxn(
-        () => harness.isar.playlists.put(playlist),
-      );
+        final playlist = Playlist()
+          ..name = 'Duplicate Refresh Playlist'
+          ..sourceUrl = 'https://example.com/playlist'
+          ..importSourceType = SourceIds.youtube;
+        playlist.id = await harness.isar.writeTxn(
+          () => harness.isar.playlists.put(playlist),
+        );
 
-      final notifier = harness.container.read(refreshManagerProvider.notifier);
-      final parse = harness.source.enqueueParse();
-      final firstRefresh = notifier.refreshPlaylist(playlist);
-      await _pumpUntil(
-        () => harness.source.parseCalls == 1,
-        reason: 'first refresh should reach playlist parsing',
-      );
+        final notifier = harness.container.read(
+          refreshManagerProvider.notifier,
+        );
+        final parse = harness.source.enqueueParse();
+        final firstRefresh = notifier.refreshPlaylist(playlist);
+        await _pumpUntil(
+          () => harness.source.parseCalls == 1,
+          reason: 'first refresh should reach playlist parsing',
+        );
 
-      final duplicateResult = await notifier.refreshPlaylist(playlist);
+        final duplicateResult = await notifier.refreshPlaylist(playlist);
 
-      expect(duplicateResult, isNull);
-      expect(harness.source.parseCalls, 1);
+        expect(duplicateResult, isNull);
+        expect(harness.source.parseCalls, 1);
 
-      notifier.cancelRefresh(playlist.id);
-      parse.complete(_parseResult('duplicate-refresh-track'));
-      await firstRefresh.timeout(const Duration(seconds: 2));
-    });
+        notifier.cancelRefresh(playlist.id);
+        parse.complete(_parseResult('duplicate-refresh-track'));
+        await firstRefresh.timeout(const Duration(seconds: 2));
+      },
+    );
 
-    test('cancelRefresh rolls back track writes from in-flight refresh',
-        () async {
-      final harness = await _RefreshHarness.create();
-      addTearDown(harness.dispose);
+    test(
+      'cancelRefresh rolls back track writes from in-flight refresh',
+      () async {
+        final harness = await _RefreshHarness.create();
+        addTearDown(harness.dispose);
 
-      final playlist = Playlist()
-        ..name = 'Partial Cancel Playlist'
-        ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
-      playlist.id = await harness.isar.writeTxn(
-        () => harness.isar.playlists.put(playlist),
-      );
+        final playlist = Playlist()
+          ..name = 'Partial Cancel Playlist'
+          ..sourceUrl = 'https://example.com/playlist'
+          ..importSourceType = SourceIds.youtube;
+        playlist.id = await harness.isar.writeTxn(
+          () => harness.isar.playlists.put(playlist),
+        );
 
-      harness.source.onTrackInfo = () {
-        harness.container
+        harness.source.onTrackInfo = () {
+          harness.container
+              .read(refreshManagerProvider.notifier)
+              .cancelRefresh(playlist.id);
+        };
+
+        final parse = harness.source.enqueueParse();
+        final refreshFuture = harness.container
             .read(refreshManagerProvider.notifier)
-            .cancelRefresh(playlist.id);
-      };
+            .refreshPlaylist(playlist);
+        await _pumpUntil(
+          () => harness.source.parseCalls == 1,
+          reason: 'refresh should reach playlist parsing',
+        );
 
-      final parse = harness.source.enqueueParse();
-      final refreshFuture = harness.container
-          .read(refreshManagerProvider.notifier)
-          .refreshPlaylist(playlist);
-      await _pumpUntil(
-        () => harness.source.parseCalls == 1,
-        reason: 'refresh should reach playlist parsing',
-      );
+        parse.complete(_parseResult('partial-cancel-track', pageCount: 2));
+        await refreshFuture.timeout(const Duration(seconds: 2));
 
-      parse.complete(_parseResult('partial-cancel-track', pageCount: 2));
-      await refreshFuture.timeout(const Duration(seconds: 2));
-
-      final savedPlaylist = await harness.isar.playlists.get(playlist.id);
-      final savedTracks = await harness.isar.tracks.where().findAll();
-      expect(savedPlaylist!.trackIds, isEmpty);
-      expect(savedPlaylist.lastRefreshed, isNull);
-      expect(savedTracks, isEmpty);
-    });
+        final savedPlaylist = await harness.isar.playlists.get(playlist.id);
+        final savedTracks = await harness.isar.tracks.where().findAll();
+        expect(savedPlaylist!.trackIds, isEmpty);
+        expect(savedPlaylist.lastRefreshed, isNull);
+        expect(savedTracks, isEmpty);
+      },
+    );
 
     test('older delayed cleanup does not remove newer refresh state', () async {
       final harness = await _RefreshHarness.create();
@@ -137,7 +144,7 @@ void main() {
       final playlist = Playlist()
         ..name = 'Refreshable Playlist'
         ..sourceUrl = 'https://example.com/playlist'
-        ..importSourceType = SourceType.youtube;
+        ..importSourceType = SourceIds.youtube;
       playlist.id = await harness.isar.writeTxn(
         () => harness.isar.playlists.put(playlist),
       );
@@ -258,8 +265,8 @@ class _RefreshSourceManager extends SourceManager {
   PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  PagedVideoSource? pagedVideoSource(SourceType type) {
-    return type == SourceType.bilibili ? source : null;
+  PagedVideoSource? pagedVideoSource(String type) {
+    return type == SourceIds.bilibili ? source : null;
   }
 
   @override
@@ -278,7 +285,7 @@ class _ControllableRefreshSource extends BilibiliSource {
   }
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   @override
   Future<PlaylistParseResult> parsePlaylist(
@@ -312,15 +319,19 @@ class _ControllableRefreshSource extends BilibiliSource {
   }
 
   @override
-  Future<Track> getTrackInfo(String sourceId,
-      {Map<String, String>? authHeaders}) async {
+  Future<Track> getTrackInfo(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  }) async {
     onTrackInfo?.call();
     return _track(sourceId);
   }
 
   @override
-  Future<List<VideoPage>> getVideoPages(String bvid,
-      {Map<String, String>? authHeaders}) async {
+  Future<List<VideoPage>> getVideoPages(
+    String bvid, {
+    Map<String, String>? authHeaders,
+  }) async {
     onTrackInfo?.call();
     return const [
       VideoPage(cid: 101, page: 1, part: 'Part One', duration: 180),
@@ -329,8 +340,10 @@ class _ControllableRefreshSource extends BilibiliSource {
   }
 
   @override
-  Future<Track> refreshAudioUrl(Track track,
-      {Map<String, String>? authHeaders}) async {
+  Future<Track> refreshAudioUrl(
+    Track track, {
+    Map<String, String>? authHeaders,
+  }) async {
     return track;
   }
 
@@ -357,7 +370,7 @@ PlaylistParseResult _parseResult(String sourceId, {int? pageCount}) {
 Track _track(String sourceId, {int? pageCount}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..pageCount = pageCount
     ..title = 'Track $sourceId'
     ..artist = 'Refresh Tester';
@@ -374,29 +387,4 @@ Future<void> _pumpUntil(
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
   if (!condition()) fail(reason);
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile = File(
-    '${Directory.current.path}/.dart_tool/package_config.json',
-  );
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }

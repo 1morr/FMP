@@ -16,7 +16,8 @@ class DownloadEventHandler {
   final void Function({
     required Iterable<String> savePaths,
     required Iterable<int> affectedPlaylistIds,
-  }) downloadStateChanged;
+  })
+  downloadStateChanged;
   final void Function(DownloadFailureEvent event) showFailure;
   final Duration debounceDuration;
 

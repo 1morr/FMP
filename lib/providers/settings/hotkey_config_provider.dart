@@ -9,20 +9,21 @@ import '../system/windows_desktop_provider.dart';
 ///
 /// 管理全局快捷键的配置，包括保存和加载。
 final hotkeyConfigProvider =
-    StateNotifierProvider<HotkeyConfigNotifier, HotkeyConfig>((ref) {
-  final repo = ref.watch(settingsRepositoryProvider);
-  final desktopService = ref.watch(windowsDesktopServiceProvider);
-  return HotkeyConfigNotifier(repo, desktopService);
-});
+    NotifierProvider<HotkeyConfigNotifier, HotkeyConfig>(
+      HotkeyConfigNotifier.new,
+    );
 
 /// 快捷键配置状态管理器
-class HotkeyConfigNotifier extends StateNotifier<HotkeyConfig> {
-  final SettingsRepository _repo;
-  final dynamic _desktopService; // WindowsDesktopService?
+class HotkeyConfigNotifier extends Notifier<HotkeyConfig> {
+  late SettingsRepository _repo;
+  late dynamic _desktopService; // WindowsDesktopService?
 
-  HotkeyConfigNotifier(this._repo, this._desktopService)
-      : super(HotkeyConfig.defaults()) {
+  @override
+  HotkeyConfig build() {
+    _repo = ref.watch(settingsRepositoryProvider);
+    _desktopService = ref.watch(windowsDesktopServiceProvider);
     _load();
+    return HotkeyConfig.defaults();
   }
 
   /// 从数据库加载配置

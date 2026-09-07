@@ -66,17 +66,9 @@ class _ClickableSourceCoverState extends State<ClickableSourceCover> {
               children: [
                 widget.cover,
                 if (widget.topBadge != null)
-                  Positioned(
-                    left: 10,
-                    top: 10,
-                    child: widget.topBadge!,
-                  ),
+                  Positioned(left: 10, top: 10, child: widget.topBadge!),
                 if (widget.bottomBadge != null)
-                  Positioned(
-                    right: 10,
-                    bottom: 10,
-                    child: widget.bottomBadge!,
-                  ),
+                  Positioned(right: 10, bottom: 10, child: widget.bottomBadge!),
                 // 加载指示器
                 if (widget.isLoading)
                   Positioned.fill(

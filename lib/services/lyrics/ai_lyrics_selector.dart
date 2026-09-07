@@ -39,21 +39,21 @@ class AiLyricsCandidate {
   final String lyricsPreview;
 
   Map<String, dynamic> toJson() => {
-        'candidateId': candidateId,
-        'source': source,
-        'sourcePriorityRank': sourcePriorityRank,
-        'trackName': trackName,
-        'artistName': artistName,
-        'albumName': albumName,
-        'durationSeconds': durationSeconds,
-        'videoDurationSeconds': videoDurationSeconds,
-        'durationDiffSeconds': durationDiffSeconds,
-        'hasSyncedLyrics': hasSyncedLyrics,
-        'hasPlainLyrics': hasPlainLyrics,
-        'hasTranslatedLyrics': hasTranslatedLyrics,
-        'hasRomajiLyrics': hasRomajiLyrics,
-        'lyricsPreview': lyricsPreview,
-      };
+    'candidateId': candidateId,
+    'source': source,
+    'sourcePriorityRank': sourcePriorityRank,
+    'trackName': trackName,
+    'artistName': artistName,
+    'albumName': albumName,
+    'durationSeconds': durationSeconds,
+    'videoDurationSeconds': videoDurationSeconds,
+    'durationDiffSeconds': durationDiffSeconds,
+    'hasSyncedLyrics': hasSyncedLyrics,
+    'hasPlainLyrics': hasPlainLyrics,
+    'hasTranslatedLyrics': hasTranslatedLyrics,
+    'hasRomajiLyrics': hasRomajiLyrics,
+    'lyricsPreview': lyricsPreview,
+  };
 }
 
 class AiLyricsSelection {
@@ -92,11 +92,14 @@ class AiLyricsSelector with Logging {
       model: model,
       timeoutSeconds: timeoutSeconds,
     );
-    final normalizedVideoDescription =
-        _normalizeOptionalText(videoDescription, maxChars: 500);
+    final normalizedVideoDescription = _normalizeOptionalText(
+      videoDescription,
+      maxChars: 500,
+    );
     if (!config.isComplete) {
       logDebug(
-          'AI lyrics selector skipped because configuration is incomplete');
+        'AI lyrics selector skipped because configuration is incomplete',
+      );
       return null;
     }
 
@@ -104,8 +107,7 @@ class AiLyricsSelector with Logging {
       'title': title,
       if (uploader != null && uploader.trim().isNotEmpty)
         'uploader': uploader.trim(),
-      if (normalizedVideoDescription != null)
-        'videoDescription': normalizedVideoDescription,
+      'videoDescription': ?normalizedVideoDescription,
       'durationSeconds': durationSeconds,
       'sourcePriority': sourcePriority,
       'allowPlainLyricsAutoMatch': allowPlainLyricsAutoMatch,
@@ -117,7 +119,8 @@ class AiLyricsSelector with Logging {
       final response = await postOpenAiChatCompletion(
         dio: _dio,
         config: config,
-        systemPrompt: 'Choose the best lyrics candidate for the provided '
+        systemPrompt:
+            'Choose the best lyrics candidate for the provided '
             'video. You may use videoDescription as extra context when '
             'present. The uploader is context and is not necessarily the '
             'artist. Use lyricsPreview to compare candidate content '

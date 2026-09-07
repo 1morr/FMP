@@ -2,24 +2,29 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/providers/settings/home_ranking_settings_provider.dart';
 
 void main() {
   group('Home ranking settings normalization', () {
-    test('normalizes order by removing unknowns and appending missing sources',
-        () {
-      expect(
-        normalizeHomeRankingSourcePriority('youtube,unknown,bilibili,youtube'),
-        ['youtube', 'bilibili', 'netease'],
-      );
-    });
+    test(
+      'normalizes order by removing unknowns and appending missing sources',
+      () {
+        expect(
+          normalizeHomeRankingSourcePriority(
+            'youtube,unknown,bilibili,youtube',
+          ),
+          ['youtube', 'bilibili', 'netease'],
+        );
+      },
+    );
 
     test('normalizes disabled sources by dropping unknowns', () {
-      expect(
-        normalizeDisabledHomeRankingSources('netease,unknown,youtube'),
-        {'netease', 'youtube'},
-      );
+      expect(normalizeDisabledHomeRankingSources('netease,unknown,youtube'), {
+        'netease',
+        'youtube',
+      });
     });
 
     test('normalizes all disabled home ranking sources back to enabled', () {
@@ -34,9 +39,9 @@ void main() {
     test('starts loading and clears loading after settings resolve', () async {
       final completer = Completer<Settings>();
       final store = _InMemorySettingsStore(Settings());
-      final notifier = HomeRankingSettingsNotifier(
-        loadSettings: () => completer.future,
-        updateSettings: store.update,
+      final notifier = _notifierWith(
+        load: () => completer.future,
+        update: store.update,
       );
 
       expect(notifier.state.isLoading, isTrue);
@@ -92,41 +97,35 @@ void main() {
       final store = _InMemorySettingsStore(
         Settings()..disabledHomeRankingSources = 'youtube',
       );
-      final container = ProviderContainer(
-        overrides: [
-          homeRankingSettingsProvider.overrideWith(
-            (ref) => _createNotifier(store),
-          ),
-        ],
-      );
+      final container = ProviderContainer(overrides: [_storeOverride(store)]);
       addTearDown(container.dispose);
       container.read(homeRankingSettingsProvider);
       await Future<void>.delayed(Duration.zero);
 
-      final enabledSources =
-          container.read(enabledHomeRankingSourceOrderProvider);
+      final enabledSources = container.read(
+        enabledHomeRankingSourceOrderProvider,
+      );
 
       expect(enabledSources, ['bilibili', 'netease']);
-      expect(
-        () => enabledSources.add('unknown'),
-        throwsUnsupportedError,
-      );
+      expect(() => enabledSources.add('unknown'), throwsUnsupportedError);
     });
 
-    test('setSourceOrder persists normalized order and updates state',
-        () async {
-      final store = _InMemorySettingsStore(Settings());
-      final notifier = _createNotifier(store);
-      await Future<void>.delayed(Duration.zero);
+    test(
+      'setSourceOrder persists normalized order and updates state',
+      () async {
+        final store = _InMemorySettingsStore(Settings());
+        final notifier = _createNotifier(store);
+        await Future<void>.delayed(Duration.zero);
 
-      await notifier.setSourceOrder(['netease', 'unknown', 'youtube']);
+        await notifier.setSourceOrder(['netease', 'unknown', 'youtube']);
 
-      expect(notifier.state.sourceOrder, ['netease', 'youtube', 'bilibili']);
-      expect(
-        store.settings.homeRankingSourcePriority,
-        'netease,youtube,bilibili',
-      );
-    });
+        expect(notifier.state.sourceOrder, ['netease', 'youtube', 'bilibili']);
+        expect(
+          store.settings.homeRankingSourcePriority,
+          'netease,youtube,bilibili',
+        );
+      },
+    );
 
     test('setSourceOrder updates state before persistence completes', () async {
       final store = _InMemorySettingsStore(Settings());
@@ -151,8 +150,7 @@ void main() {
       );
     });
 
-    test(
-        'setSourceOrder persistence failure rolls back only source order '
+    test('setSourceOrder persistence failure rolls back only source order '
         'and leaves disabled sources untouched', () async {
       final store = _InMemorySettingsStore(
         Settings()
@@ -166,10 +164,7 @@ void main() {
 
       await notifier.setSourceOrder(['netease', 'youtube']);
 
-      expect(
-        notifier.state.sourceOrder,
-        ['bilibili', 'youtube', 'netease'],
-      );
+      expect(notifier.state.sourceOrder, ['bilibili', 'youtube', 'netease']);
       expect(notifier.state.disabledSources, {'youtube', 'netease'});
       expect(
         store.settings.homeRankingSourcePriority,
@@ -181,8 +176,7 @@ void main() {
       });
     });
 
-    test(
-        'overlapping setSourceOrder calls run serially so an earlier failure '
+    test('overlapping setSourceOrder calls run serially so an earlier failure '
         'cannot rollback a later successful order', () async {
       final store = _InMemorySettingsStore(Settings());
       final notifier = _createNotifier(store);
@@ -200,8 +194,7 @@ void main() {
       );
     });
 
-    test(
-        'overlapping setSourceOrder failures rollback to the last persisted '
+    test('overlapping setSourceOrder failures rollback to the last persisted '
         'order', () async {
       final store = _InMemorySettingsStore(Settings());
       final notifier = _createNotifier(store);
@@ -212,10 +205,7 @@ void main() {
       final second = notifier.setSourceOrder(['netease']);
       await Future.wait([first, second]);
 
-      expect(
-        notifier.state.sourceOrder,
-        ['bilibili', 'youtube', 'netease'],
-      );
+      expect(notifier.state.sourceOrder, ['bilibili', 'youtube', 'netease']);
       expect(
         store.settings.homeRankingSourcePriority,
         'bilibili,youtube,netease',
@@ -237,10 +227,11 @@ void main() {
 
       expect(notifier.state.disabledSources, isEmpty);
       expect(store.settings.disabledHomeRankingSourcesSet, isEmpty);
-      expect(
-        notifier.state.enabledSourceOrder,
-        ['bilibili', 'youtube', 'netease'],
-      );
+      expect(notifier.state.enabledSourceOrder, [
+        'bilibili',
+        'youtube',
+        'netease',
+      ]);
     });
 
     test('toggleSource updates state before persistence completes', () async {
@@ -280,8 +271,7 @@ void main() {
       expect(store.updateCount, previousUpdateCount);
     });
 
-    test(
-        'toggleSource persistence failure rolls back only disabled sources '
+    test('toggleSource persistence failure rolls back only disabled sources '
         'and leaves source order untouched', () async {
       final store = _InMemorySettingsStore(
         Settings()
@@ -304,8 +294,7 @@ void main() {
       expect(store.settings.disabledHomeRankingSources, 'netease');
     });
 
-    test(
-        'overlapping toggleSource calls run serially so an earlier failure '
+    test('overlapping toggleSource calls run serially so an earlier failure '
         'cannot rollback a later successful disabled set', () async {
       final store = _InMemorySettingsStore(Settings());
       final notifier = _createNotifier(store);
@@ -320,8 +309,7 @@ void main() {
       expect(store.settings.disabledHomeRankingSourcesSet, {'netease'});
     });
 
-    test(
-        'overlapping toggleSource failures rollback to the last persisted '
+    test('overlapping toggleSource failures rollback to the last persisted '
         'disabled sources', () async {
       final store = _InMemorySettingsStore(Settings());
       final notifier = _createNotifier(store);
@@ -359,12 +347,32 @@ void main() {
   });
 }
 
-HomeRankingSettingsNotifier _createNotifier(_InMemorySettingsStore store) {
-  return HomeRankingSettingsNotifier(
-    loadSettings: store.get,
-    updateSettings: store.update,
+/// `HomeRankingSettingsNotifier` 以前用建構子注入存取層；改成 `Notifier` 之後
+/// 工廠不吃參數，那道縫搬到了 `homeRankingSettingsStoreProvider`。
+Override _storeOverride(_InMemorySettingsStore store) =>
+    homeRankingSettingsStoreProvider.overrideWithValue((
+      load: store.get,
+      update: store.update,
+    ));
+
+HomeRankingSettingsNotifier _notifierWith({
+  required LoadHomeRankingSettings load,
+  required UpdateHomeRankingSettings update,
+}) {
+  final container = ProviderContainer(
+    overrides: [
+      homeRankingSettingsStoreProvider.overrideWithValue((
+        load: load,
+        update: update,
+      )),
+    ],
   );
+  addTearDown(container.dispose);
+  return container.read(homeRankingSettingsProvider.notifier);
 }
+
+HomeRankingSettingsNotifier _createNotifier(_InMemorySettingsStore store) =>
+    _notifierWith(load: store.get, update: store.update);
 
 class _InMemorySettingsStore {
   _InMemorySettingsStore(this.settings);

@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
@@ -10,7 +11,7 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
 import '../account/source_auth_context.dart';
-import '../library/playlist_mutation_service.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import 'youtube_mix_shorthand.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -49,13 +50,7 @@ class ImportProgress {
   }
 }
 
-enum ImportStatus {
-  idle,
-  parsing,
-  importing,
-  completed,
-  failed,
-}
+enum ImportStatus { idle, parsing, importing, completed, failed }
 
 /// 导入结果
 class ImportResult {
@@ -80,10 +75,7 @@ class _TrackExpansionResult {
   final List<Track> tracks;
   final bool isComplete;
 
-  const _TrackExpansionResult({
-    required this.tracks,
-    required this.isComplete,
-  });
+  const _TrackExpansionResult({required this.tracks, required this.isComplete});
 }
 
 abstract class ImportServiceFacade {
@@ -109,8 +101,7 @@ class ImportService with Logging implements ImportServiceFacade {
   final SourceManager _sourceManager;
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
-  final Isar _isar;
-  final PlaylistMutationService _mutationService;
+  final PlaylistMutationRepository _mutationService;
   final PlaylistAuthContext _sourceAuthContext;
 
   // 导入进度流
@@ -152,16 +143,13 @@ class ImportService with Logging implements ImportServiceFacade {
     required TrackRepository trackRepository,
     required Isar isar,
     required PlaylistAuthContext sourceAuthContext,
-    PlaylistMutationService? mutationService,
-  })  : _sourceManager = sourceManager,
-        _playlistRepository = playlistRepository,
-        _trackRepository = trackRepository,
-        _isar = isar,
-        _sourceAuthContext = sourceAuthContext,
-        _mutationService = mutationService ??
-            PlaylistMutationService(
-              isar: isar,
-            );
+    PlaylistMutationRepository? mutationService,
+  }) : _sourceManager = sourceManager,
+       _playlistRepository = playlistRepository,
+       _trackRepository = trackRepository,
+       _sourceAuthContext = sourceAuthContext,
+       _mutationService =
+           mutationService ?? PlaylistMutationRepository(isar: isar);
 
   /// 从 URL 导入歌单/收藏夹
   @override
@@ -175,7 +163,9 @@ class ImportService with Logging implements ImportServiceFacade {
     _isCancelled = false;
     _cancelledPlaylistId = null;
     _updateProgress(
-        status: ImportStatus.parsing, currentItem: t.importSource.parsingUrl);
+      status: ImportStatus.parsing,
+      currentItem: t.importSource.parsingUrl,
+    );
 
     try {
       final normalizedUrl = normalizeYouTubeMixShorthandUrl(url) ?? url.trim();
@@ -186,8 +176,9 @@ class ImportService with Logging implements ImportServiceFacade {
         throw ImportException(t.importSource.unrecognizedUrlFormat);
       }
 
-      final dynamicPlaylistSource =
-          _sourceManager.dynamicPlaylistSourceForUrl(normalizedUrl);
+      final dynamicPlaylistSource = _sourceManager.dynamicPlaylistSourceForUrl(
+        normalizedUrl,
+      );
       if (dynamicPlaylistSource != null &&
           dynamicPlaylistSource.sourceType == source.sourceType) {
         return await _importMixPlaylist(
@@ -204,13 +195,16 @@ class ImportService with Logging implements ImportServiceFacade {
         source.sourceType,
         useAuth: useAuth,
       );
-      final result =
-          await source.parsePlaylist(normalizedUrl, authHeaders: authHeaders);
+      final result = await source.parsePlaylist(
+        normalizedUrl,
+        authHeaders: authHeaders,
+      );
 
       // 获取分P信息并展开
       final List<Track> expandedTracks;
-      final pagedVideoSource =
-          _sourceManager.pagedVideoSource(source.sourceType);
+      final pagedVideoSource = _sourceManager.pagedVideoSource(
+        source.sourceType,
+      );
       if (pagedVideoSource != null) {
         final expansion = await _expandMultiPageVideos(
           pagedVideoSource,
@@ -221,7 +215,9 @@ class ImportService with Logging implements ImportServiceFacade {
               current: current,
               total: total,
               currentItem: t.importSource.gettingPageInfo(
-                  current: current.toString(), total: total.toString()),
+                current: current.toString(),
+                total: total.toString(),
+              ),
             );
           },
           authHeaders: authHeaders,
@@ -240,8 +236,9 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 创建歌单
       final playlistName = customName ?? result.title;
-      final existingPlaylist =
-          await _playlistRepository.getBySourceUrl(normalizedUrl);
+      final existingPlaylist = await _playlistRepository.getBySourceUrl(
+        normalizedUrl,
+      );
 
       Playlist playlist;
       if (existingPlaylist != null) {
@@ -268,7 +265,8 @@ class ImportService with Logging implements ImportServiceFacade {
           ..ownerName = result.ownerName
           ..ownerUserId = result.ownerUserId
           ..useAuthForRefresh = useAuth
-          ..refreshIntervalHours = refreshIntervalHours // 默认为 null（不开启自动刷新）
+          ..refreshIntervalHours =
+              refreshIntervalHours // 默认为 null（不开启自动刷新）
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
         // 先保存以获取 ID（用于计算下载路径）
@@ -287,10 +285,7 @@ class ImportService with Logging implements ImportServiceFacade {
         _throwIfCancelledForImportCreation(isNewPlaylist, playlist.id);
 
         final track = expandedTracks[i];
-        _updateProgress(
-          current: i + 1,
-          currentItem: track.title,
-        );
+        _updateProgress(current: i + 1, currentItem: track.title);
         tracksToImport.add(track);
       }
 
@@ -323,7 +318,7 @@ class ImportService with Logging implements ImportServiceFacade {
         errors: errors,
       );
     } catch (e) {
-      _updateProgress(status: ImportStatus.failed, error: e.toString());
+      _updateProgress(status: ImportStatus.failed, error: userMessageFor(e));
       rethrow;
     }
   }
@@ -340,8 +335,9 @@ class ImportService with Logging implements ImportServiceFacade {
     bool notifyOnUpdate = true,
   }) async {
     _updateProgress(
-        status: ImportStatus.parsing,
-        currentItem: t.importSource.parsingMixPlaylist);
+      status: ImportStatus.parsing,
+      currentItem: t.importSource.parsingMixPlaylist,
+    );
 
     try {
       // 獲取 Mix 播放列表基本信息
@@ -375,11 +371,12 @@ class ImportService with Logging implements ImportServiceFacade {
           ..description = t.importSource.mixPlaylistDescription
           ..coverUrl = mixInfo.coverUrl
           ..sourceUrl = url
-          ..importSourceType = SourceType.youtube
+          ..importSourceType = SourceIds.youtube
           ..isMix = true
           ..mixPlaylistId = mixInfo.playlistId
           ..mixSeedVideoId = mixInfo.seedVideoId
-          ..refreshIntervalHours = null // Mix 不需要定時刷新
+          ..refreshIntervalHours =
+              null // Mix 不需要定時刷新
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
       }
@@ -390,7 +387,8 @@ class ImportService with Logging implements ImportServiceFacade {
       _updateProgress(status: ImportStatus.completed);
 
       logInfo(
-          'Mix playlist imported: ${playlist.name} (playlistId: ${mixInfo.playlistId})');
+        'Mix playlist imported: ${playlist.name} (playlistId: ${mixInfo.playlistId})',
+      );
 
       return ImportResult(
         playlist: playlist,
@@ -399,7 +397,7 @@ class ImportService with Logging implements ImportServiceFacade {
         errors: [],
       );
     } catch (e) {
-      _updateProgress(status: ImportStatus.failed, error: e.toString());
+      _updateProgress(status: ImportStatus.failed, error: userMessageFor(e));
       rethrow;
     }
   }
@@ -428,12 +426,14 @@ class ImportService with Logging implements ImportServiceFacade {
     }
 
     _updateProgress(
-        status: ImportStatus.parsing,
-        currentItem: t.importSource.refreshingImport);
+      status: ImportStatus.parsing,
+      currentItem: t.importSource.refreshingImport,
+    );
 
     try {
-      final source =
-          _sourceManager.playlistParsingSourceForUrl(playlist.sourceUrl!);
+      final source = _sourceManager.playlistParsingSourceForUrl(
+        playlist.sourceUrl!,
+      );
       if (source == null) {
         throw ImportException(t.importSource.unrecognizedSource);
       }
@@ -442,15 +442,18 @@ class ImportService with Logging implements ImportServiceFacade {
         source.sourceType,
         useAuthForRefresh: playlist.useAuthForRefresh,
       );
-      final result = await source.parsePlaylist(playlist.sourceUrl!,
-          authHeaders: authHeaders);
+      final result = await source.parsePlaylist(
+        playlist.sourceUrl!,
+        authHeaders: authHeaders,
+      );
       _throwIfCancelled();
 
       // 获取分P信息并展开
       final List<Track> expandedTracks;
       final bool expansionComplete;
-      final pagedVideoSource =
-          _sourceManager.pagedVideoSource(source.sourceType);
+      final pagedVideoSource = _sourceManager.pagedVideoSource(
+        source.sourceType,
+      );
       if (pagedVideoSource != null) {
         final expansion = await _expandMultiPageVideos(
           pagedVideoSource,
@@ -462,7 +465,9 @@ class ImportService with Logging implements ImportServiceFacade {
               current: current,
               total: total,
               currentItem: t.importSource.gettingPageInfo(
-                  current: current.toString(), total: total.toString()),
+                current: current.toString(),
+                total: total.toString(),
+              ),
             );
           },
           authHeaders: authHeaders,
@@ -475,7 +480,8 @@ class ImportService with Logging implements ImportServiceFacade {
       }
       _throwIfCancelled();
 
-      final sourceDataComplete = expansionComplete &&
+      final sourceDataComplete =
+          expansionComplete &&
           (result.totalCount <= 0 || result.tracks.length >= result.totalCount);
 
       _updateProgress(
@@ -486,22 +492,19 @@ class ImportService with Logging implements ImportServiceFacade {
 
       for (int i = 0; i < expandedTracks.length; i++) {
         _throwIfCancelled();
-        _updateProgress(
-          current: i + 1,
-          currentItem: expandedTracks[i].title,
-        );
+        _updateProgress(current: i + 1, currentItem: expandedTracks[i].title);
       }
 
       _throwIfCancelled();
-      final mutationResult =
-          await _mutationService.replaceTracksFromRemoteRefresh(
-        playlist.id,
-        expandedTracks,
-        RemoteRefreshMutationPolicy(
-          sourceDataComplete: sourceDataComplete,
-          platformCoverUrl: result.coverUrl,
-        ),
-      );
+      final mutationResult = await _mutationService
+          .replaceTracksFromRemoteRefresh(
+            playlist.id,
+            expandedTracks,
+            RemoteRefreshMutationPolicy(
+              sourceDataComplete: sourceDataComplete,
+              platformCoverUrl: result.coverUrl,
+            ),
+          );
       _throwIfCancelled();
 
       final refreshedPlaylist =
@@ -527,7 +530,7 @@ class ImportService with Logging implements ImportServiceFacade {
         errors: mutationResult.errors.map((error) => error.toString()).toList(),
       );
     } catch (e) {
-      _updateProgress(status: ImportStatus.failed, error: e.toString());
+      _updateProgress(status: ImportStatus.failed, error: userMessageFor(e));
       rethrow;
     }
   }
@@ -556,10 +559,11 @@ class ImportService with Logging implements ImportServiceFacade {
 
   /// 展开多分P视频为独立Track
   Future<_TrackExpansionResult> _expandMultiPageVideos(
-      PagedVideoSource source,
-      List<Track> tracks,
-      void Function(int current, int total, String item) onProgress,
-      {Map<String, String>? authHeaders}) async {
+    PagedVideoSource source,
+    List<Track> tracks,
+    void Function(int current, int total, String item) onProgress, {
+    Map<String, String>? authHeaders,
+  }) async {
     final expandedTracks = <Track>[];
     var isComplete = true;
 
@@ -637,11 +641,7 @@ class ImportService with Logging implements ImportServiceFacade {
   /// 生成唯一歌单名称，同名时自动添加后缀 (2), (3), ...
   Future<String> _generateUniqueName(String baseName) async {
     // Single query: fetch all names starting with baseName
-    final existingNames = await _isar.playlists
-        .filter()
-        .nameStartsWith(baseName)
-        .nameProperty()
-        .findAll();
+    final existingNames = await _playlistRepository.namesStartingWith(baseName);
     final nameSet = existingNames.toSet();
 
     if (!nameSet.contains(baseName)) return baseName;

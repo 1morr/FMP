@@ -4,28 +4,30 @@ import 'package:fmp/ui/handlers/track_action_handler.dart';
 
 void main() {
   group('TrackActionHandler', () {
-    test('playNext delegates to audio controller and reports success',
-        () async {
-      final audio = FakeTrackActionAudioController()..addNextResult = true;
-      final sink = FakeTrackActionFeedbackSink();
-      final handler = TrackActionHandler(
-        audioController: audio,
-        feedbackSink: sink,
-      );
-      final track = buildTrack(sourceId: 'track-1', title: 'Track 1');
+    test(
+      'playNext delegates to audio controller and reports success',
+      () async {
+        final audio = FakeTrackActionAudioController()..addNextResult = true;
+        final sink = FakeTrackActionFeedbackSink();
+        final handler = TrackActionHandler(
+          audioController: audio,
+          feedbackSink: sink,
+        );
+        final track = buildTrack(sourceId: 'track-1', title: 'Track 1');
 
-      await handler.handle(
-        TrackAction.playNext,
-        track: track,
-        isLoggedIn: true,
-        onAddToPlaylist: () async {},
-        onMatchLyrics: () async {},
-        onAddToRemote: () async {},
-      );
+        await handler.handle(
+          TrackAction.playNext,
+          track: track,
+          isLoggedIn: true,
+          onAddToPlaylist: () async {},
+          onMatchLyrics: () async {},
+          onAddToRemote: () async {},
+        );
 
-      expect(audio.addNextCalls.single.sourceId, 'track-1');
-      expect(sink.successMessages.single, contains('added'));
-    });
+        expect(audio.addNextCalls.single.sourceId, 'track-1');
+        expect(sink.successMessages.single, contains('added'));
+      },
+    );
 
     test('addToRemote requests login feedback when logged out', () async {
       final audio = FakeTrackActionAudioController();
@@ -61,134 +63,137 @@ void main() {
       expect(TrackAction.addToRemote.menuId, addToRemoteTrackActionId);
     });
 
-    test('multi addToQueue delegates each selected track and reports count',
-        () async {
-      final audio = FakeTrackActionAudioController()..addToQueueResult = true;
-      final sink = FakeMultiTrackActionFeedbackSink();
-      final handler = MultiTrackActionHandler(
-        audioController: audio,
-        feedbackSink: sink,
-      );
-      final tracks = [
-        buildTrack(sourceId: 'track-1', title: 'Track 1'),
-        buildTrack(sourceId: 'track-2', title: 'Track 2'),
-      ];
+    test(
+      'multi addToQueue delegates each selected track and reports count',
+      () async {
+        final audio = FakeTrackActionAudioController()..addToQueueResult = true;
+        final sink = FakeMultiTrackActionFeedbackSink();
+        final handler = MultiTrackActionHandler(
+          audioController: audio,
+          feedbackSink: sink,
+        );
+        final tracks = [
+          buildTrack(sourceId: 'track-1', title: 'Track 1'),
+          buildTrack(sourceId: 'track-2', title: 'Track 2'),
+        ];
 
-      await handler.handle(
-        TrackAction.addToQueue,
-        tracks: tracks,
-        isLoggedIn: (_) => true,
-        onAddToPlaylist: () async {},
-        onAddToRemote: (_) async {},
-      );
+        await handler.handle(
+          TrackAction.addToQueue,
+          tracks: tracks,
+          isLoggedIn: (_) => true,
+          onAddToPlaylist: () async {},
+          onAddToRemote: (_) async {},
+        );
 
-      expect(audio.addToQueueCalls.map((track) => track.sourceId), [
-        'track-1',
-        'track-2',
-      ]);
-      expect(sink.addedToQueueCounts, [2]);
-    });
-
-    test('multi playNext adds tracks in reverse to preserve visible order',
-        () async {
-      final audio = FakeTrackActionAudioController()..addNextResult = true;
-      final sink = FakeMultiTrackActionFeedbackSink();
-      final handler = MultiTrackActionHandler(
-        audioController: audio,
-        feedbackSink: sink,
-      );
-      final tracks = [
-        buildTrack(sourceId: 'track-1', title: 'Track 1'),
-        buildTrack(sourceId: 'track-2', title: 'Track 2'),
-      ];
-
-      await handler.handle(
-        TrackAction.playNext,
-        tracks: tracks,
-        isLoggedIn: (_) => true,
-        onAddToPlaylist: () async {},
-        onAddToRemote: (_) async {},
-      );
-
-      expect(audio.addNextCalls.map((track) => track.sourceId), [
-        'track-2',
-        'track-1',
-      ]);
-      expect(sink.addedToNextCounts, [2]);
-    });
+        expect(audio.addToQueueCalls.map((track) => track.sourceId), [
+          'track-1',
+          'track-2',
+        ]);
+        expect(sink.addedToQueueCounts, [2]);
+      },
+    );
 
     test(
-        'multi addToRemote filters logged-out platforms and reports skipped platforms',
-        () async {
-      final audio = FakeTrackActionAudioController();
-      final sink = FakeMultiTrackActionFeedbackSink();
-      final handler = MultiTrackActionHandler(
-        audioController: audio,
-        feedbackSink: sink,
-      );
-      final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
-        ..sourceType = SourceType.bilibili;
-      final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
-        ..sourceType = SourceType.youtube;
-      var remoteTracks = <Track>[];
+      'multi playNext adds tracks in reverse to preserve visible order',
+      () async {
+        final audio = FakeTrackActionAudioController()..addNextResult = true;
+        final sink = FakeMultiTrackActionFeedbackSink();
+        final handler = MultiTrackActionHandler(
+          audioController: audio,
+          feedbackSink: sink,
+        );
+        final tracks = [
+          buildTrack(sourceId: 'track-1', title: 'Track 1'),
+          buildTrack(sourceId: 'track-2', title: 'Track 2'),
+        ];
 
-      final result = await handler.handle(
-        TrackAction.addToRemote,
-        tracks: [bilibiliTrack, youtubeTrack],
-        isLoggedIn: (sourceType) => sourceType == SourceType.bilibili,
-        onAddToPlaylist: () async {},
-        onAddToRemote: (tracks) async {
-          remoteTracks = tracks;
-        },
-      );
+        await handler.handle(
+          TrackAction.playNext,
+          tracks: tracks,
+          isLoggedIn: (_) => true,
+          onAddToPlaylist: () async {},
+          onAddToRemote: (_) async {},
+        );
 
-      expect(result.shouldExitSelectionMode, isTrue);
-      expect(remoteTracks, [bilibiliTrack]);
-      expect(
-        sink.skippedPlatformMessages.single,
-        contains(SourceType.youtube.displayName),
-      );
-    });
+        expect(audio.addNextCalls.map((track) => track.sourceId), [
+          'track-2',
+          'track-1',
+        ]);
+        expect(sink.addedToNextCounts, [2]);
+      },
+    );
 
     test(
-        'multi addToRemote keeps selection active when every selected track needs login',
-        () async {
-      final audio = FakeTrackActionAudioController();
-      final sink = FakeMultiTrackActionFeedbackSink();
-      final handler = MultiTrackActionHandler(
-        audioController: audio,
-        feedbackSink: sink,
-      );
-      final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
-        ..sourceType = SourceType.bilibili;
-      final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
-        ..sourceType = SourceType.youtube;
-      var remoteCalls = 0;
+      'multi addToRemote filters logged-out platforms and reports skipped platforms',
+      () async {
+        final audio = FakeTrackActionAudioController();
+        final sink = FakeMultiTrackActionFeedbackSink();
+        final handler = MultiTrackActionHandler(
+          audioController: audio,
+          feedbackSink: sink,
+        );
+        final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
+          ..sourceType = SourceIds.bilibili;
+        final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
+          ..sourceType = SourceIds.youtube;
+        var remoteTracks = <Track>[];
 
-      final result = await handler.handle(
-        TrackAction.addToRemote,
-        tracks: [bilibiliTrack, youtubeTrack],
-        isLoggedIn: (_) => false,
-        onAddToPlaylist: () async {},
-        onAddToRemote: (_) async {
-          remoteCalls++;
-        },
-      );
+        final result = await handler.handle(
+          TrackAction.addToRemote,
+          tracks: [bilibiliTrack, youtubeTrack],
+          isLoggedIn: (sourceType) => sourceType == SourceIds.bilibili,
+          onAddToPlaylist: () async {},
+          onAddToRemote: (tracks) async {
+            remoteTracks = tracks;
+          },
+        );
 
-      expect(result.shouldExitSelectionMode, isFalse);
-      expect(remoteCalls, 0);
-      expect(sink.loginPrompts, 1);
-    });
+        expect(result.shouldExitSelectionMode, isTrue);
+        expect(remoteTracks, [bilibiliTrack]);
+        expect(
+          sink.skippedPlatformMessages.single,
+          contains(SourceIds.displayNameFor(SourceIds.youtube)),
+        );
+      },
+    );
+
+    test(
+      'multi addToRemote keeps selection active when every selected track needs login',
+      () async {
+        final audio = FakeTrackActionAudioController();
+        final sink = FakeMultiTrackActionFeedbackSink();
+        final handler = MultiTrackActionHandler(
+          audioController: audio,
+          feedbackSink: sink,
+        );
+        final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
+          ..sourceType = SourceIds.bilibili;
+        final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
+          ..sourceType = SourceIds.youtube;
+        var remoteCalls = 0;
+
+        final result = await handler.handle(
+          TrackAction.addToRemote,
+          tracks: [bilibiliTrack, youtubeTrack],
+          isLoggedIn: (_) => false,
+          onAddToPlaylist: () async {},
+          onAddToRemote: (_) async {
+            remoteCalls++;
+          },
+        );
+
+        expect(result.shouldExitSelectionMode, isFalse);
+        expect(remoteCalls, 0);
+        expect(sink.loginPrompts, 1);
+      },
+    );
   });
 }
 
-Track buildTrack({
-  required String sourceId,
-  required String title,
-}) {
+Track buildTrack({required String sourceId, required String title}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.bilibili
+    ..sourceType = SourceIds.bilibili
     ..title = title;
 }
 

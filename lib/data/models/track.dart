@@ -1,26 +1,9 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import 'track_key.dart';
 
-import '../../i18n/strings.g.dart';
+export 'source_ids.dart';
 
 part 'track.g.dart';
-
-/// 音源类型枚举
-enum SourceType {
-  bilibili,
-  youtube,
-  netease;
-
-  String get displayName {
-    switch (this) {
-      case SourceType.bilibili:
-        return t.importPlatform.bilibili;
-      case SourceType.youtube:
-        return t.importPlatform.youtube;
-      case SourceType.netease:
-        return t.importPlatform.netease;
-    }
-  }
-}
 
 /// 歌单归属与下载路径信息（嵌入式对象）
 @embedded
@@ -60,8 +43,7 @@ class Track {
 
   /// 音源类型
   @Index()
-  @Enumerated(EnumType.name)
-  late SourceType sourceType;
+  late String sourceType;
 
   /// 歌曲标题
   late String title;
@@ -132,26 +114,32 @@ class Track {
     for (final info in playlistInfo) {
       if (info.playlistId == playlistId) {
         // 创建新对象以确保 Isar 检测到变更
-        newInfos.add(PlaylistDownloadInfo()
-          ..playlistId = playlistId
-          ..playlistName = playlistName ?? info.playlistName
-          ..downloadPath = path);
+        newInfos.add(
+          PlaylistDownloadInfo()
+            ..playlistId = playlistId
+            ..playlistName = playlistName ?? info.playlistName
+            ..downloadPath = path,
+        );
         found = true;
       } else {
         // 复制现有对象
-        newInfos.add(PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath = info.downloadPath);
+        newInfos.add(
+          PlaylistDownloadInfo()
+            ..playlistId = info.playlistId
+            ..playlistName = info.playlistName
+            ..downloadPath = info.downloadPath,
+        );
       }
     }
 
     if (!found) {
       // 如果不在任何歌单中，添加新条目
-      newInfos.add(PlaylistDownloadInfo()
-        ..playlistId = playlistId
-        ..playlistName = playlistName ?? ''
-        ..downloadPath = path);
+      newInfos.add(
+        PlaylistDownloadInfo()
+          ..playlistId = playlistId
+          ..playlistName = playlistName ?? ''
+          ..downloadPath = path,
+      );
     }
 
     playlistInfo = newInfos;
@@ -172,9 +160,11 @@ class Track {
   void addToPlaylist(int playlistId, {String? playlistName}) {
     if (!belongsToPlaylist(playlistId)) {
       playlistInfo = List.from(playlistInfo)
-        ..add(PlaylistDownloadInfo()
-          ..playlistId = playlistId
-          ..playlistName = playlistName ?? '');
+        ..add(
+          PlaylistDownloadInfo()
+            ..playlistId = playlistId
+            ..playlistName = playlistName ?? '',
+        );
     }
   }
 
@@ -182,15 +172,17 @@ class Track {
   bool isDownloadedForPlaylist(int playlistId, {String? playlistName}) {
     // 优先按名称匹配
     if (playlistName != null && playlistName.isNotEmpty) {
-      final byName =
-          playlistInfo.where((i) => i.playlistName == playlistName).firstOrNull;
+      final byName = playlistInfo
+          .where((i) => i.playlistName == playlistName)
+          .firstOrNull;
       if (byName != null && byName.downloadPath.isNotEmpty) {
         return true;
       }
     }
     // 降级按 ID 匹配（兼容旧数据）
-    final byId =
-        playlistInfo.where((i) => i.playlistId == playlistId).firstOrNull;
+    final byId = playlistInfo
+        .where((i) => i.playlistId == playlistId)
+        .firstOrNull;
     return byId != null && byId.downloadPath.isNotEmpty;
   }
 
@@ -199,10 +191,12 @@ class Track {
   /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
   void clearAllDownloadPaths() {
     playlistInfo = playlistInfo
-        .map((info) => PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath = '')
+        .map(
+          (info) => PlaylistDownloadInfo()
+            ..playlistId = info.playlistId
+            ..playlistName = info.playlistName
+            ..downloadPath = '',
+        )
         .toList();
   }
 
@@ -211,11 +205,14 @@ class Track {
   /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
   void clearDownloadPathForPlaylist(int playlistId) {
     playlistInfo = playlistInfo
-        .map((info) => PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath =
-              info.playlistId == playlistId ? '' : info.downloadPath)
+        .map(
+          (info) => PlaylistDownloadInfo()
+            ..playlistId = info.playlistId
+            ..playlistName = info.playlistName
+            ..downloadPath = info.playlistId == playlistId
+                ? ''
+                : info.downloadPath,
+        )
         .toList();
   }
 
@@ -275,21 +272,23 @@ class Track {
   @Index()
   DateTime? updatedAt;
 
-  /// 复合索引用于快速查找
-  @Index(composite: [CompositeIndex('sourceType')])
-  String get sourceKey => '${sourceType.name}:$sourceId';
-
   /// 分P唯一索引（用于查找特定分P）
   @Index(composite: [CompositeIndex('cid')])
-  String get sourcePageKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  String get sourcePageKey => TrackKey.format(sourceType, sourceId, cid: cid);
+
+  /// URL 過期前的安全邊界：距離過期不到這段時間就當作已經不可用。
+  ///
+  /// 解析加開流本身要數百毫秒到數秒，卡在邊界上拿到的 URL 會在開流途中失效，
+  /// 使用者看到的是「剛按下播放就失敗」。這是全 app 唯一一份邊界定義 ——
+  /// 原本還有一份躺在零呼叫的 `SourceManager.needsRefresh`，已隨此改動刪除。
+  static const Duration audioUrlRefreshMargin = Duration(minutes: 5);
 
   /// 检查音频 URL 是否有效
   bool get hasValidAudioUrl {
     if (audioUrl == null) return false;
-    if (audioUrlExpiry == null) return true;
-    return DateTime.now().isBefore(audioUrlExpiry!);
+    final expiry = audioUrlExpiry;
+    if (expiry == null) return true;
+    return DateTime.now().isBefore(expiry.subtract(audioUrlRefreshMargin));
   }
 
   Track copy() {
@@ -328,12 +327,10 @@ class Track {
   bool get isPartOfMultiPage => (pageCount ?? 0) > 1;
 
   /// 用于分组的key（同一视频的分P有相同的key）
-  String get groupKey => '${sourceType.name}:$sourceId';
+  String get groupKey => TrackKey.formatGroup(sourceType, sourceId);
 
   /// 唯一标识（包含cid用于区分分P）
-  String get uniqueKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  String get uniqueKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   /// 格式化时长显示
   String get formattedDuration {

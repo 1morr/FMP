@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../models/lyrics_title_parse_cache.dart';
 
@@ -7,9 +7,7 @@ class LyricsTitleParseCacheRepository {
 
   LyricsTitleParseCacheRepository(this._isar);
 
-  Future<LyricsTitleParseCache?> getReusable({
-    required String trackUniqueKey,
-  }) {
+  Future<LyricsTitleParseCache?> getReusable({required String trackUniqueKey}) {
     return _isar.lyricsTitleParseCaches
         .where()
         .trackUniqueKeyEqualTo(trackUniqueKey)

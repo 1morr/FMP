@@ -117,14 +117,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
     final error = ref.watch(
-      rankingCacheServiceProvider.select((state) => state.bilibiliError),
+      rankingCacheServiceProvider.select(
+        (state) => state.errorFor(SourceIds.bilibili),
+      ),
     );
     return _buildRankingContent(
       tracks: tracks,
       isLoading: isInitialLoading && tracks.isEmpty,
       error: error,
-      onRefresh: () =>
-          ref.read(rankingCacheServiceProvider.notifier).refreshBilibili(),
+      onRefresh: () => ref
+          .read(rankingCacheServiceProvider.notifier)
+          .refreshSource(SourceIds.bilibili),
     );
   }
 
@@ -134,14 +137,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
     final error = ref.watch(
-      rankingCacheServiceProvider.select((state) => state.youtubeError),
+      rankingCacheServiceProvider.select(
+        (state) => state.errorFor(SourceIds.youtube),
+      ),
     );
     return _buildRankingContent(
       tracks: tracks,
       isLoading: isInitialLoading && tracks.isEmpty,
       error: error,
-      onRefresh: () =>
-          ref.read(rankingCacheServiceProvider.notifier).refreshYouTube(),
+      onRefresh: () => ref
+          .read(rankingCacheServiceProvider.notifier)
+          .refreshSource(SourceIds.youtube),
     );
   }
 
@@ -151,14 +157,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
     final error = ref.watch(
-      rankingCacheServiceProvider.select((state) => state.neteaseError),
+      rankingCacheServiceProvider.select(
+        (state) => state.errorFor(SourceIds.netease),
+      ),
     );
     return _buildRankingContent(
       tracks: tracks,
       isLoading: isInitialLoading && tracks.isEmpty,
       error: error,
-      onRefresh: () =>
-          ref.read(rankingCacheServiceProvider.notifier).refreshNetease(),
+      onRefresh: () => ref
+          .read(rankingCacheServiceProvider.notifier)
+          .refreshSource(SourceIds.netease),
     );
   }
 

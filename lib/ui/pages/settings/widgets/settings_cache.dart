@@ -58,11 +58,7 @@ class _ImageCacheSizeListTileState extends State<_ImageCacheSizeListTile> {
     return '${mb.toStringAsFixed(1)} MB';
   }
 
-  void _showImageCacheDialog(
-    BuildContext context,
-    WidgetRef ref,
-    int current,
-  ) {
+  void _showImageCacheDialog(BuildContext context, WidgetRef ref, int current) {
     final options = [16, 32, 48, 64];
     final currentCacheText = _cacheSizeMB != null
         ? t.settings.imageCache.currentCacheSize(
@@ -263,8 +259,11 @@ class _RankingRefreshIntervalListTile extends ConsumerWidget {
     return ListTile(
       leading: const Icon(Icons.leaderboard_outlined),
       title: Text(t.settings.refreshInterval.rankingTitle),
-      subtitle: Text(t.settings.refreshInterval
-          .rankingSubtitle(interval: _formatInterval(current))),
+      subtitle: Text(
+        t.settings.refreshInterval.rankingSubtitle(
+          interval: _formatInterval(current),
+        ),
+      ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showDialog(context, ref, current),
     );
@@ -319,9 +318,11 @@ class _RadioRefreshIntervalListTile extends ConsumerWidget {
     return ListTile(
       leading: const Icon(Icons.radio_outlined),
       title: Text(t.settings.refreshInterval.radioTitle),
-      subtitle: Text(t.settings.refreshInterval.radioSubtitle(
-        interval: t.settings.refreshInterval.minutes(n: current),
-      )),
+      subtitle: Text(
+        t.settings.refreshInterval.radioSubtitle(
+          interval: t.settings.refreshInterval.minutes(n: current),
+        ),
+      ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showDialog(context, ref, current),
     );

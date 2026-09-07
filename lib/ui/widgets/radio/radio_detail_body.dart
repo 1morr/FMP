@@ -204,25 +204,19 @@ class RadioDetailBody extends StatelessWidget {
     final row = Row(
       children: [
         if (hostAvatar != null)
-          SizedBox(
-            width: avatarSize,
-            height: avatarSize,
-            child: hostAvatar,
-          ),
+          SizedBox(width: avatarSize, height: avatarSize, child: hostAvatar),
         if (hostAvatar != null) SizedBox(width: avatarGap),
         Expanded(
           child: Text(
             hostName!,
             style:
                 (compactHostName ? textTheme.bodyMedium : textTheme.bodyLarge)
-                    ?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
+                    ?.copyWith(fontWeight: FontWeight.w500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (trailing != null) trailing,
+        ?trailing,
       ],
     );
 

@@ -42,14 +42,17 @@ class DownloadSettingsState {
 }
 
 /// 下载设置管理器
-class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
-  final SettingsRepository _settingsRepository;
-  final LyricsCacheService _lyricsCacheService;
+class DownloadSettingsNotifier extends Notifier<DownloadSettingsState> {
+  late SettingsRepository _settingsRepository;
+  late LyricsCacheService _lyricsCacheService;
   Settings? _settings;
 
-  DownloadSettingsNotifier(this._settingsRepository, this._lyricsCacheService)
-      : super(const DownloadSettingsState()) {
+  @override
+  DownloadSettingsState build() {
+    _settingsRepository = ref.watch(settingsRepositoryProvider);
+    _lyricsCacheService = ref.watch(lyricsCacheServiceProvider);
     _loadSettings();
+    return const DownloadSettingsState();
   }
 
   /// 加载设置
@@ -125,12 +128,9 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
 
 /// 下载设置 Provider
 final downloadSettingsProvider =
-    StateNotifierProvider<DownloadSettingsNotifier, DownloadSettingsState>(
-        (ref) {
-  final settingsRepository = ref.watch(settingsRepositoryProvider);
-  final lyricsCacheService = ref.watch(lyricsCacheServiceProvider);
-  return DownloadSettingsNotifier(settingsRepository, lyricsCacheService);
-});
+    NotifierProvider<DownloadSettingsNotifier, DownloadSettingsState>(
+      DownloadSettingsNotifier.new,
+    );
 
 /// 便捷 Provider - 最大并发下载数
 final maxConcurrentDownloadsProvider = Provider<int>((ref) {

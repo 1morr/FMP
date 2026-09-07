@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +13,6 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -23,10 +20,12 @@ import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/temporary_play_handler.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
+import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -41,9 +40,7 @@ void main() {
     late AudioController controller;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -82,13 +79,12 @@ void main() {
       );
 
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
       );
 
@@ -101,7 +97,6 @@ void main() {
     });
 
     tearDown(() async {
-      controller.dispose();
       streamResolutionService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
@@ -109,47 +104,38 @@ void main() {
       }
     });
 
-    test(
-      'buildQueueRestorePlan keeps queue restore shape inside handler',
-      () {
-        const handler = TemporaryPlayHandler();
+    test('buildQueueRestorePlan keeps queue restore shape inside handler', () {
+      final handler = TemporaryPlayHandler();
 
-        final restorePlan = handler.buildQueueRestorePlan(
-          savedQueueIndex: 2,
-          savedPosition: const Duration(seconds: 28),
-          savedWasPlaying: true,
-        );
+      final restorePlan = handler.buildQueueRestorePlan(
+        savedQueueIndex: 2,
+        savedPosition: const Duration(seconds: 28),
+        savedWasPlaying: true,
+      );
 
-        expect(restorePlan, isNotNull);
-        expect(restorePlan!.savedIndex, 2);
-        expect(restorePlan.savedPosition, const Duration(seconds: 28));
-        expect(restorePlan.savedWasPlaying, isTrue);
-        expect(restorePlan.rewindSeconds, 0);
-      },
-    );
+      expect(restorePlan, isNotNull);
+      expect(restorePlan!.savedIndex, 2);
+      expect(restorePlan.savedPosition, const Duration(seconds: 28));
+      expect(restorePlan.savedWasPlaying, isTrue);
+      expect(restorePlan.rewindSeconds, 0);
+    });
 
     test(
       'buildRestorePlan keeps original queue target across chained temporary play',
       () {
-        const handler = TemporaryPlayHandler();
-        const originalState = TemporaryPlaybackState(
-          savedQueueIndex: null,
-          savedPosition: null,
-          savedWasPlaying: null,
-        );
+        final handler = TemporaryPlayHandler();
 
-        final firstTemporary = handler.enterTemporary(
+        handler.enterTemporary(
           currentMode: PlayMode.queue,
-          currentState: originalState,
           hasQueueTrack: true,
           currentIndex: 1,
           currentPosition: const Duration(seconds: 45),
           currentWasPlaying: false,
         );
 
-        final secondTemporary = handler.enterTemporary(
+        // 已經在臨時播放中：第二次進來必須保留最早那份快照。
+        handler.enterTemporary(
           currentMode: PlayMode.temporary,
-          currentState: firstTemporary,
           hasQueueTrack: true,
           currentIndex: 2,
           currentPosition: const Duration(seconds: 7),
@@ -157,17 +143,104 @@ void main() {
         );
 
         final restorePlan = handler.buildRestorePlan(
-          state: secondTemporary,
           rememberPosition: true,
           rewindSeconds: 10,
         );
 
-        expect(secondTemporary.savedQueueIndex, 1);
+        expect(handler.savedQueueIndex, 1);
         expect(restorePlan, isNotNull);
         expect(restorePlan!.savedIndex, 1);
         expect(restorePlan.savedPosition, const Duration(seconds: 45));
         expect(restorePlan.savedWasPlaying, isFalse);
         expect(restorePlan.rewindSeconds, 10);
+      },
+    );
+
+    test('entering with no queue track leaves nothing to restore', () {
+      final handler = TemporaryPlayHandler();
+
+      handler.enterTemporary(
+        currentMode: PlayMode.queue,
+        hasQueueTrack: false,
+        currentIndex: 3,
+        currentPosition: const Duration(seconds: 12),
+        currentWasPlaying: true,
+      );
+
+      expect(handler.hasSavedState, isFalse);
+      expect(
+        handler.buildRestorePlan(rememberPosition: true, rewindSeconds: 10),
+        isNull,
+      );
+    });
+
+    test('clear drops the snapshot so nothing can be restored from it', () {
+      final handler = TemporaryPlayHandler();
+
+      handler.enterTemporary(
+        currentMode: PlayMode.queue,
+        hasQueueTrack: true,
+        currentIndex: 4,
+        currentPosition: const Duration(seconds: 33),
+        currentWasPlaying: true,
+      );
+      expect(handler.hasSavedState, isTrue);
+
+      handler.clear();
+
+      expect(handler.hasSavedState, isFalse);
+      expect(handler.savedQueueIndex, isNull);
+      expect(
+        handler.buildRestorePlan(rememberPosition: true, rewindSeconds: 10),
+        isNull,
+      );
+    });
+
+    test('buildQueueRestorePlan ignores the handler own snapshot', () {
+      final handler = TemporaryPlayHandler();
+
+      handler.enterTemporary(
+        currentMode: PlayMode.queue,
+        hasQueueTrack: true,
+        currentIndex: 1,
+        currentPosition: const Duration(seconds: 45),
+        currentWasPlaying: false,
+      );
+
+      // 電台返回帶的是 RadioController 存的快照，不是這個 handler 存的。
+      final restorePlan = handler.buildQueueRestorePlan(
+        savedQueueIndex: 7,
+        savedPosition: const Duration(seconds: 5),
+        savedWasPlaying: true,
+      );
+
+      expect(restorePlan!.savedIndex, 7);
+      expect(restorePlan.savedPosition, const Duration(seconds: 5));
+      expect(restorePlan.savedWasPlaying, isTrue);
+    });
+
+    test(
+      'forgetting position restores from the queue start without rewind',
+      () {
+        final handler = TemporaryPlayHandler();
+
+        handler.enterTemporary(
+          currentMode: PlayMode.queue,
+          hasQueueTrack: true,
+          currentIndex: 2,
+          currentPosition: const Duration(seconds: 45),
+          currentWasPlaying: true,
+        );
+
+        final restorePlan = handler.buildRestorePlan(
+          rememberPosition: false,
+          rewindSeconds: 10,
+        );
+
+        expect(restorePlan!.savedIndex, 2);
+        expect(restorePlan.savedPosition, Duration.zero);
+        expect(restorePlan.savedWasPlaying, isTrue);
+        expect(restorePlan.rewindSeconds, 0);
       },
     );
 
@@ -196,9 +269,9 @@ void main() {
 
         await controller.playTemporary(tempTwo);
 
-        expect(controller.state.currentIndex, 2);
+        expect(controller.queueState.currentIndex, 2);
         expect(
-          controller.state.upcomingTracks.map((track) => track.sourceId),
+          controller.queueState.upcomingTracks.map((track) => track.sourceId),
           orderedEquals(['queue-b', 'queue-c']),
         );
 
@@ -207,16 +280,18 @@ void main() {
         final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
         final restoreSeek = audioService.waitForSeekCallCount(1);
 
-        audioService.emitCompleted();
+        audioService.emitNaturalCompletion();
         await restoreSetUrl;
         await restoreSeek;
         await pumpEventQueue(times: 20);
 
-        expect(controller.state.currentIndex, 1);
+        expect(controller.queueState.currentIndex, 1);
         expect(controller.state.playingTrack?.sourceId, 'queue-b');
         expect(controller.state.currentTrack?.sourceId, 'queue-b');
-        expect(audioService.setUrlCalls.single.url,
-            'https://example.com/queue-b.m4a');
+        expect(
+          audioService.setUrlCalls.single.url,
+          'https://example.com/queue-b.m4a',
+        );
         expect(audioService.seekCalls.single, const Duration(seconds: 35));
         expect(controller.state.isPlaying, isFalse);
       },
@@ -224,72 +299,17 @@ void main() {
   });
 }
 
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfig = await _loadPackageConfig();
-  final packageDir =
-      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
-
-  if (Platform.isWindows) {
-    return '${packageDir.path}/windows/isar.dll';
-  }
-  if (Platform.isLinux) {
-    return '${packageDir.path}/linux/libisar.so';
-  }
-  if (Platform.isMacOS) {
-    return '${packageDir.path}/macos/libisar.dylib';
-  }
-  throw UnsupportedError(
-    'Unsupported platform for Isar test setup: ${Platform.operatingSystem}',
-  );
-}
-
-Future<Map<String, dynamic>> _loadPackageConfig() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  if (!await packageConfigFile.exists()) {
-    throw StateError(
-      'Could not find .dart_tool/package_config.json for test package resolution',
-    );
-  }
-
-  return jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-}
-
-Directory _resolvePackageDirectory(
-  Map<String, dynamic> packageConfig,
-  String packageName,
-) {
-  final packages = packageConfig['packages'];
-  if (packages is! List) {
-    throw StateError('Invalid package_config.json format');
-  }
-
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-  for (final package in packages) {
-    if (package is! Map<String, dynamic>) continue;
-    if (package['name'] != packageName) continue;
-
-    final rootUri = package['rootUri'];
-    if (rootUri is! String) break;
-
-    return Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
-  }
-
-  throw StateError('Package not found in package_config.json: $packageName');
-}
-
 Track _track(String sourceId, {required String title}) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = title
     ..artist = 'Tester';
 }
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -298,10 +318,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
   ) async {
     return PlaybackNetworkRequest(
       url: url,
-      headers: SourceHttpPolicy.mediaHeaders(
-        track.sourceType,
-        requestUrl: url,
-      ),
+      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
     );
   }
 
@@ -315,7 +332,7 @@ class _FakeSourceManager extends SourceManager {
   final _source = _FakeSource();
 
   @override
-  AudioStreamSource? audioStreamSource(SourceType type) => _source;
+  AudioStreamSource? audioStreamSource(String type) => _source;
 
   @override
   void dispose() {}
@@ -323,7 +340,7 @@ class _FakeSourceManager extends SourceManager {
 
 class _FakeSource implements AudioStreamSource {
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {

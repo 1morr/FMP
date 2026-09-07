@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -172,9 +174,13 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
         Navigator.of(context).pop();
         ToastService.success(context, t.lyrics.lyricsMatched);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Saving the lyrics match failed', e, stack, 'Lyrics');
       if (mounted) {
-        ToastService.error(context, t.lyrics.saveFailed(error: e.toString()));
+        ToastService.error(
+          context,
+          t.lyrics.saveFailed(error: userMessageFor(e)),
+        );
       }
     } finally {
       if (mounted) {
@@ -198,9 +204,13 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
         Navigator.of(context).pop();
         ToastService.success(context, t.lyrics.lyricsRemoved);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Removing the lyrics match failed', e, stack, 'Lyrics');
       if (mounted) {
-        ToastService.error(context, t.lyrics.removeFailed(error: e.toString()));
+        ToastService.error(
+          context,
+          t.lyrics.removeFailed(error: userMessageFor(e)),
+        );
       }
     } finally {
       if (mounted) {
@@ -213,8 +223,9 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final searchState = ref.watch(lyricsSearchProvider);
-    final existingMatch =
-        ref.watch(lyricsMatchForTrackProvider(widget.track.uniqueKey));
+    final existingMatch = ref.watch(
+      lyricsMatchForTrackProvider(widget.track.uniqueKey),
+    );
 
     return CappedDraggableSheet(
       icon: Icons.lyrics_outlined,
@@ -232,7 +243,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                 child: _buildTrackInfo(
                   colorScheme,
-                  hasMatch: existingMatch.valueOrNull != null,
+                  hasMatch: existingMatch.value != null,
                 ),
               ),
 
@@ -263,13 +274,15 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.send),
+                        tooltip: t.lyrics.searchLyrics,
                         onPressed: _doSearch,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: AppRadius.borderRadiusXl,
                       ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
                     ),
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => _doSearch(),
@@ -384,8 +397,10 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
             children: [
               Icon(Icons.error_outline, size: 48, color: colorScheme.error),
               const SizedBox(height: 8),
-              Text(searchState.error!,
-                  style: TextStyle(color: colorScheme.error)),
+              Text(
+                searchState.error!,
+                style: TextStyle(color: colorScheme.error),
+              ),
             ],
           ),
         ),
@@ -436,17 +451,14 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final result = filtered[index];
-          return _LyricsResultTile(
-            result: result,
-            trackDurationMs: widget.track.durationMs,
-            onTap: _isSaving ? null : () => _selectResult(result),
-          );
-        },
-        childCount: filtered.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final result = filtered[index];
+        return _LyricsResultTile(
+          result: result,
+          trackDurationMs: widget.track.durationMs,
+          onTap: _isSaving ? null : () => _selectResult(result),
+        );
+      }, childCount: filtered.length),
     );
   }
 }
@@ -476,10 +488,11 @@ class _LyricsResultTile extends StatelessWidget {
         result.hasSyncedLyrics
             ? Icons.lyrics
             : result.hasPlainLyrics
-                ? Icons.text_snippet
-                : Icons.music_off,
-        color:
-            result.hasSyncedLyrics ? colorScheme.primary : colorScheme.outline,
+            ? Icons.text_snippet
+            : Icons.music_off,
+        color: result.hasSyncedLyrics
+            ? colorScheme.primary
+            : colorScheme.outline,
       ),
       title: Text(
         result.trackName,
@@ -522,8 +535,8 @@ class _LyricsResultTile extends StatelessWidget {
               Text(
                 _formatDuration(result.duration),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: durationMatch ?? colorScheme.outline,
-                    ),
+                  color: durationMatch ?? colorScheme.outline,
+                ),
               ),
             ],
           ),

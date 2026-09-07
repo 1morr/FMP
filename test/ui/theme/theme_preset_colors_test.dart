@@ -39,15 +39,17 @@ void main() {
     expect(preset, isNull);
   });
 
-  test('preset colors plus custom entry fill complete five-column picker rows',
-      () {
-    const customEntryCount = 1;
-    const pickerColumnCount = 5;
+  test(
+    'preset colors plus custom entry fill complete five-column picker rows',
+    () {
+      const customEntryCount = 1;
+      const pickerColumnCount = 5;
 
-    expect(themePresetColors.length, 9);
-    expect(
-      (themePresetColors.length + customEntryCount) % pickerColumnCount,
-      0,
-    );
-  });
+      expect(themePresetColors.length, 9);
+      expect(
+        (themePresetColors.length + customEntryCount) % pickerColumnCount,
+        0,
+      );
+    },
+  );
 }

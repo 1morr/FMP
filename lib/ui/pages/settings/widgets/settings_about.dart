@@ -28,10 +28,7 @@ class _VersionListTile extends ConsumerWidget {
                   t.settings.version.tapToEnableDev(n: remaining),
                 );
               } else if (remaining == 0) {
-                ToastService.success(
-                  context,
-                  t.settings.version.devEnabled,
-                );
+                ToastService.success(context, t.settings.version.devEnabled);
               }
             }
           },
@@ -51,16 +48,15 @@ class _CheckUpdateListTile extends ConsumerWidget {
     return ListTile(
       leading: const Icon(Icons.system_update_outlined),
       title: Text(t.settings.update.title),
-      subtitle: Text(
-        switch (updateState.status) {
-          UpdateStatus.checking => t.settings.update.checking,
-          UpdateStatus.upToDate => t.settings.update.upToDate,
-          UpdateStatus.updateAvailable => t.settings.update
-              .available(version: updateState.updateInfo?.version ?? ""),
-          UpdateStatus.error => t.settings.update.error,
-          _ => t.settings.update.checkGitHub,
-        },
-      ),
+      subtitle: Text(switch (updateState.status) {
+        UpdateStatus.checking => t.settings.update.checking,
+        UpdateStatus.upToDate => t.settings.update.upToDate,
+        UpdateStatus.updateAvailable => t.settings.update.available(
+          version: updateState.updateInfo?.version ?? "",
+        ),
+        UpdateStatus.error => t.settings.update.error,
+        _ => t.settings.update.checkGitHub,
+      }),
       trailing: isChecking
           ? const SizedBox(
               width: 20,
@@ -79,10 +75,7 @@ class _CheckUpdateListTile extends ConsumerWidget {
                   state.updateInfo != null) {
                 UpdateDialog.show(context, state.updateInfo!);
               } else if (state.status == UpdateStatus.upToDate) {
-                ToastService.show(
-                  context,
-                  t.settings.update.upToDate,
-                );
+                ToastService.show(context, t.settings.update.upToDate);
               } else if (state.status == UpdateStatus.error) {
                 ToastService.error(
                   context,

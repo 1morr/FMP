@@ -49,7 +49,18 @@ header boundary; other subtrees cross-reference it rather than restating it.
 - Stream priority: audio-only (`androidVr`) > muxed > HLS. Only
   `YoutubeApiClient.androidVr` produces accessible audio-only URLs; other
   clients can return 403. Supports Opus / AAC format selection.
-- Authenticated InnerTube fallback must respect `AudioStreamConfig.streamPriority`
+- Stream selection tries each `streamPriority` entry anonymously and, only if
+  that entry failed, retries **the same entry** with auth through InnerTube.
+  Running every type anonymously first and then falling back to auth once makes
+  the authenticated audio-only path unreachable whenever anonymous muxed
+  succeeds — which is the common case, because audio-only is the flakiest of the
+  three. `getAudioStream` and `getAlternativeAudioStream` must keep the same
+  shape.
+- The authenticated InnerTube path uses the **WEB** client, not `androidVr`:
+  ANDROID_VR combined with web cookies returns 400 (client/auth mismatch).
+- One `/player` request per call, shared across stream types — they all read the
+  same `streamingData`.
+- Authenticated InnerTube selection must respect `AudioStreamConfig.streamPriority`
   and `formatPriority`. Do not hard-code audio-only before muxed, or bitrate
   before the configured codec order.
 - Alternative stream fallback must pass and exclude the failed media URL while
@@ -80,7 +91,8 @@ header boundary; other subtrees cross-reference it rather than restating it.
   Availability: `st == -200` -> unavailable.
 - Audio URL expiry is 16 minutes. Requires `Referer: https://music.163.com/`.
 - Account login supports QR code and WebView cookie extraction; `MUSIC_U` is the
-  long-lived token. Default `useNeteaseAuthForPlay = true`.
+  long-lived token. Play auth defaults to on for Netease
+  (`kDefaultUseAuthForPlayBySource`, `lib/data/models/settings.dart`).
 
 ## External Playlist Import
 
@@ -104,9 +116,11 @@ hosts. Do not detect platforms with substring checks against the raw input URL.
 `BilibiliApiException`, `YouTubeApiException`, and `NeteaseApiException` extend
 `SourceApiException` from `source_exception.dart`.
 
-- `AudioController` catches `on SourceApiException` for unified error handling;
-  `_handleSourceError()` uses `SourceErrorKind` through helpers such as
-  `_shouldSkipSourceError(e)` and checks like `e.kind == SourceErrorKind.rateLimited`.
+- `AudioController` catches `on SourceApiException` for unified error handling.
+  What that error *means* — skip, retry, and the wording the user sees — is
+  `PlaybackErrorPresenter` (`lib/services/audio/playback_error_presenter.dart`),
+  which reads `SourceErrorKind` and nothing else. The controller only decides
+  what to do with the answer.
 - Base getters (`isUnavailable`, `isRateLimited`, `isGeoRestricted`,
   `isVipRequired`) are convenience views over `kind`.
 - Playback toasts must preserve the semantic reason (`cannotPlayReason` /
@@ -120,9 +134,13 @@ hosts. Do not detect platforms with substring checks against the raw input URL.
 ## Source Capabilities And Registry
 
 Source adapters implement narrow capabilities from `source_capabilities.dart`
-instead of a broad shared base interface: `AudioStreamSource` (stream
-resolution), `TrackInfoSource` (direct track metadata), `SearchSource`,
-`PlaylistParsingSource` (playlist import), and `AvailabilitySource`.
+instead of a broad shared base interface. Ten of them extend `SourceCapability`:
+`TrackInfoSource` (direct track metadata), `AudioStreamSource` (stream
+resolution), `TrackDetailSource`, `PagedVideoSource`, `DynamicPlaylistSource`,
+`RankingSource`, `LiveSource`, `SearchSource`, `PlaylistParsingSource`, and
+`AvailabilitySource`. `DisposableSource` is separate — it is a lifecycle
+interface, not a capability. Adding a capability means adding a getter to
+`SourceManager`; keep this list in step with `source_capabilities.dart`.
 
 `SourceManager` (`source_provider.dart`) is the registry. Runtime callers must
 request the narrow capability they need from it, and must not expose or consume
@@ -131,6 +149,14 @@ concrete source getters/providers such as `bilibiliSourceProvider`,
 construction belongs inside `SourceManager`; tests may instantiate adapters
 directly. This rule is enforced by
 `test/data/sources/source_ownership_phase3_test.dart`.
+
+`RankingSource` additionally carries its own `defaultRankingRequest` and
+`rankingLabel`, and must return its tracks **already ordered** the way that
+platform's chart is meant to read (YouTube sorts by view count, for example).
+`RankingCacheService` is registry-driven and knows nothing about individual
+sources: it refreshes whatever `SourceManager.registeredSourceTypes` exposes a
+`RankingSource` for. Adding a fourth ranked source must not require editing the
+cache service — if it does, the per-source knowledge leaked into the wrong layer.
 
 Adapters owning disposable resources (HTTP clients, live-stream clients) should
 `implements DisposableSource` and release them in `dispose()`.
@@ -177,11 +203,16 @@ fallback quality.
 
 Defaults:
 
-| Setting | Default | Rationale |
-|---------|---------|-----------|
-| `useBilibiliAuthForPlay` | `false` | Most content accessible without login |
-| `useYoutubeAuthForPlay` | `false` | Most content accessible without login |
-| `useNeteaseAuthForPlay` | `true` | Most songs require login for audio URLs |
+Read and write these through `Settings.useAuthForPlay(sourceId)` /
+`setUseAuthForPlay(sourceId, value)`; the defaults live in
+`kDefaultUseAuthForPlayBySource`. The three `use*AuthForPlay` columns still
+exist but are `@Deprecated` and read only by the v1 to v2 migration.
+
+| Source | Play auth default | Rationale |
+|--------|-------------------|-----------|
+| `SourceIds.bilibili` | `false` | Most content accessible without login |
+| `SourceIds.youtube` | `false` | Most content accessible without login |
+| `SourceIds.netease` | `true` | Most songs require login for audio URLs |
 
 `SourceAuthContext` (`lib/services/account/`) owns source auth gates and
 implements narrow purpose interfaces — `SourcePlaybackAuthContext`,
@@ -209,13 +240,25 @@ details stay local: Bilibili keeps generated buvid cookies and search-host
 defaults; YouTube keeps SAPISIDHASH/InnerTube auth headers; Netease keeps
 eapi/weapi encryption plus Cookie-only per-request auth merging.
 
-**The media byte-request boundary is narrower than stream-resolution auth.**
+**Account credentials never reach a media byte request — for any source.**
 `MediaHandoff` (`lib/services/media/`) is the byte-request seam for playback and
-download; it delegates final source header defaults and Netease allowlist checks
-to the pure `SourceHttpPolicy.mediaHeaders()`. Only HTTPS Netease media URLs
-whose host is explicitly allowlisted (`music.163.com` / `*.music.163.com` /
-`music.126.net` / `*.music.126.net`) may receive Netease cookies. Bilibili and
-YouTube account credentials are source API / stream URL resolution credentials,
-not media/CDN headers — do not forward them to media/CDN requests unless a
-future design explicitly changes that security boundary. Image/header helpers
-must not attach credential cookies, including the Netease `Cookie`, by default.
+download, and it asks `SourceHttpPolicy.mediaHeaders(sourceType)` for the
+headers. That function takes nothing but the source type, so there is no
+parameter through which a caller could pass a cookie: the boundary is enforced
+by the signature rather than by a runtime check.
+
+Account auth belongs to stream *resolution*. Every source signs its media URL
+during resolution, so quality and entitlement are already decided by the time
+the bytes are fetched; the CDN only wants `Origin` / `Referer` / `User-Agent`.
+
+`MediaHandoffRequest.streamResolutionAuth` still exists so playback and download
+can share one request object, but nothing downstream reads it for headers.
+
+> Netease used to be an exception: HTTPS media URLs on an allowlisted host were
+> given the account cookie, behind a redirect preflight that walked up to five
+> hops. Measured 2026-09-01, signed in: eapi returns `http://m801.music.126.net/…`,
+> so the HTTPS gate rejected every real URL and the whole path — preflight,
+> resolver injection point and cookie branch — never ran in production. Playback
+> works without it, and the signed URL redirects zero times. Removed rather than
+> repaired; do not reintroduce it without evidence that the CDN needs the cookie.
+> Image helpers must likewise never attach credential cookies.

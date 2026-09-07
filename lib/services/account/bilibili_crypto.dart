@@ -68,12 +68,14 @@ class BilibiliCrypto {
     }
     if (bytes[offset] != expectedTag) {
       throw FormatException(
-          'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset, got 0x${bytes[offset].toRadixString(16)}');
+        'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset, got 0x${bytes[offset].toRadixString(16)}',
+      );
     }
     offset++;
     if (offset >= bytes.length) {
       throw FormatException(
-          'Unexpected end of DER data after tag at offset $offset');
+        'Unexpected end of DER data after tag at offset $offset',
+      );
     }
     // 讀取 length
     if (bytes[offset] & 0x80 != 0) {
@@ -83,7 +85,8 @@ class BilibiliCrypto {
       }
       if (offset + 1 + numLenBytes > bytes.length) {
         throw FormatException(
-            'DER length bytes exceed data size at offset $offset');
+          'DER length bytes exceed data size at offset $offset',
+        );
       }
       offset += 1 + numLenBytes;
     } else {
@@ -94,18 +97,23 @@ class BilibiliCrypto {
 
   /// 讀取 tag + length，返回 content offset 和 length
   static ({int contentOffset, int length}) _readTagLength(
-      Uint8List bytes, int offset, int expectedTag) {
+    Uint8List bytes,
+    int offset,
+    int expectedTag,
+  ) {
     if (offset >= bytes.length) {
       throw FormatException('Unexpected end of DER data at offset $offset');
     }
     if (bytes[offset] != expectedTag) {
       throw FormatException(
-          'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset');
+        'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset',
+      );
     }
     offset++;
     if (offset >= bytes.length) {
       throw FormatException(
-          'Unexpected end of DER data after tag at offset $offset');
+        'Unexpected end of DER data after tag at offset $offset',
+      );
     }
     int length;
     if (bytes[offset] & 0x80 != 0) {
@@ -116,7 +124,8 @@ class BilibiliCrypto {
       offset++;
       if (offset + numLenBytes > bytes.length) {
         throw FormatException(
-            'DER length bytes exceed data size at offset $offset');
+          'DER length bytes exceed data size at offset $offset',
+        );
       }
       length = 0;
       for (var i = 0; i < numLenBytes; i++) {
@@ -127,17 +136,22 @@ class BilibiliCrypto {
     }
     if (length > bytes.length - offset) {
       throw FormatException(
-          'DER content length $length exceeds remaining data at offset $offset');
+        'DER content length $length exceeds remaining data at offset $offset',
+      );
     }
     return (contentOffset: offset, length: length);
   }
 
   /// 讀取 DER INTEGER，返回 BigInt 值和下一個元素的 offset
   static ({BigInt value, int nextOffset}) _readInteger(
-      Uint8List bytes, int offset) {
+    Uint8List bytes,
+    int offset,
+  ) {
     final result = _readTagLength(bytes, offset, 0x02);
     final valueBytes = bytes.sublist(
-        result.contentOffset, result.contentOffset + result.length);
+      result.contentOffset,
+      result.contentOffset + result.length,
+    );
 
     var value = BigInt.zero;
     for (final byte in valueBytes) {

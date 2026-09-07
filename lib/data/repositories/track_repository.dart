@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'dart:io';
 
 import '../models/track.dart';
@@ -6,9 +6,10 @@ import '../models/playlist.dart';
 import '../models/play_queue.dart';
 import '../models/lyrics_match.dart';
 import '../../core/logger.dart';
+import '../models/track_key.dart';
 
 class TrackSourceIdentity {
-  final SourceType sourceType;
+  final String sourceType;
   final String sourceId;
   final int? cid;
 
@@ -19,14 +20,12 @@ class TrackSourceIdentity {
   });
 
   factory TrackSourceIdentity.fromTrack(Track track) => TrackSourceIdentity(
-        sourceType: track.sourceType,
-        sourceId: track.sourceId,
-        cid: track.cid,
-      );
+    sourceType: track.sourceType,
+    sourceId: track.sourceId,
+    cid: track.cid,
+  );
 
-  String get sourcePageKey => cid != null
-      ? '${sourceType.name}:$sourceId:$cid'
-      : '${sourceType.name}:$sourceId';
+  String get sourcePageKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   @override
   bool operator ==(Object other) =>
@@ -47,6 +46,19 @@ class TrackRepository with Logging {
   TrackRepository(this._isar);
 
   /// 获取所有歌曲
+  /// 曲目總數（偵錯檢視器用）。
+  Future<int> count() => _isar.tracks.count();
+
+  /// 回寫 Bilibili 的 aid（只在曲目已經持久化時）。
+  Future<void> updateBilibiliAid(int id, int aid) async {
+    await _isar.writeTxn(() async {
+      final saved = await _isar.tracks.get(id);
+      if (saved == null) return;
+      saved.bilibiliAid = aid;
+      await _isar.tracks.put(saved);
+    });
+  }
+
   Future<List<Track>> getAll() async {
     return _isar.tracks.where().findAll();
   }
@@ -73,7 +85,7 @@ class TrackRepository with Logging {
   }
 
   /// 根据源ID和类型获取歌曲
-  Future<Track?> getBySourceId(String sourceId, SourceType sourceType) async {
+  Future<Track?> getBySourceId(String sourceId, String sourceType) async {
     return _isar.tracks
         .where()
         .sourceIdEqualTo(sourceId)
@@ -114,7 +126,7 @@ class TrackRepository with Logging {
   /// 根据源ID、类型和cid获取歌曲（支持分P唯一性检查）
   Future<Track?> getBySourceIdAndCid(
     String sourceId,
-    SourceType sourceType, {
+    String sourceType, {
     int? cid,
   }) async {
     if (cid == null) {
@@ -228,7 +240,11 @@ class TrackRepository with Logging {
   /// [playlistName] 歌单名称（用于下载路径匹配）
   /// [path] 下载路径
   Future<void> addDownloadPath(
-      int trackId, int? playlistId, String? playlistName, String path) async {
+    int trackId,
+    int? playlistId,
+    String? playlistName,
+    String path,
+  ) async {
     final track = await getById(trackId);
     if (track == null) {
       logWarning('addDownloadPath: track $trackId not found!');
@@ -237,11 +253,16 @@ class TrackRepository with Logging {
 
     final effectivePlaylistId = playlistId ?? 0;
     logDebug(
-        'addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
-    track.setDownloadPath(effectivePlaylistId, path,
-        playlistName: playlistName);
+      'addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}',
+    );
+    track.setDownloadPath(
+      effectivePlaylistId,
+      path,
+      playlistName: playlistName,
+    );
     logDebug(
-        'addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
+      'addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}',
+    );
     await save(track);
     logDebug('Added download path for track $trackId: $path');
   }
@@ -257,7 +278,8 @@ class TrackRepository with Logging {
             .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
             .findAll();
         logDebug(
-            'clearAllDownloadPaths: Found ${tracks.length} tracks with download paths');
+          'clearAllDownloadPaths: Found ${tracks.length} tracks with download paths',
+        );
 
         if (tracks.isEmpty) {
           logDebug('clearAllDownloadPaths: No tracks to clear');
@@ -465,7 +487,8 @@ class TrackRepository with Logging {
     }
 
     logDebug(
-        'getOrCreateAll: returned ${finalResults.length} tracks (${results.length} unique)');
+      'getOrCreateAll: returned ${finalResults.length} tracks (${results.length} unique)',
+    );
     return finalResults;
   }
 
@@ -568,7 +591,8 @@ class TrackRepository with Logging {
       }
 
       logDebug(
-          'Cleaned up invalid download paths for ${toUpdate.length} tracks');
+        'Cleaned up invalid download paths for ${toUpdate.length} tracks',
+      );
       return toUpdate.length;
     });
   }
@@ -586,7 +610,8 @@ class TrackRepository with Logging {
   /// 返回删除的 Track 数量
   Future<int> deleteOrphanTracks({List<int> excludeTrackIds = const []}) async {
     logDebug(
-        'Deleting orphan tracks (excluding ${excludeTrackIds.length} queue tracks)...');
+      'Deleting orphan tracks (excluding ${excludeTrackIds.length} queue tracks)...',
+    );
 
     final excludeSet = excludeTrackIds.toSet();
     final toDelete = <int>[];
@@ -630,7 +655,8 @@ class TrackRepository with Logging {
     });
 
     logInfo(
-        'Deleted ${toDelete.length} orphan tracks and their lyrics matches');
+      'Deleted ${toDelete.length} orphan tracks and their lyrics matches',
+    );
     return toDelete.length;
   }
 }

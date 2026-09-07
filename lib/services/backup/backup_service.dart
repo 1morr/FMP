@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 
@@ -15,26 +15,31 @@ import '../../data/models/radio_station.dart';
 import '../../data/models/search_history.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
-import '../../providers/database/database_provider.dart';
-import '../library/playlist_mutation_service.dart';
+import '../../providers/database/database_migration.dart';
+import '../../data/repositories/backup_repository.dart';
+import '../../data/repositories/playlist_mutation_repository.dart';
 import 'backup_data.dart';
 
 /// 当前备份数据格式版本
-const int kBackupVersion = 2;
+/// 備份 JSON 的格式版本。
+///
+/// v3（Phase 3）：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
+/// v4（Phase 3）：6 個每源具名設定欄位收成 `sourceSettings` 清單；補上
+/// `railExpanded` / `detailPanelExpanded` / `detailPanelWidth` 三個版面欄位。
+///
+/// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，被移除的欄位
+/// 在任何既有備份裡都是 null，而 v3 以前的每源設定由 `_readSourceSettings`
+/// 折進 `sourceSettings`。
+const int kBackupVersion = 4;
 
 /// 备份服务
 ///
 /// 提供数据导出和导入功能
 class BackupService with Logging {
-  final Isar _isar;
-  final PlaylistMutationService _mutationService;
+  final BackupRepository _repository;
 
-  BackupService(
-    Isar isar, {
-    PlaylistMutationService? mutationService,
-  })  : _isar = isar,
-        _mutationService =
-            mutationService ?? PlaylistMutationService(isar: isar);
+  BackupService(Isar isar, {PlaylistMutationRepository? mutationService})
+    : _repository = BackupRepository(isar, mutations: mutationService);
 
   // ==================== 导出功能 ====================
 
@@ -69,8 +74,9 @@ class BackupService with Logging {
     final backupData = await _collectBackupData();
 
     // 序列化为 JSON
-    final jsonString =
-        const JsonEncoder.withIndent('  ').convert(backupData.toJson());
+    final jsonString = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(backupData.toJson());
 
     // 写入文件
     final file = File(outputPath);
@@ -84,10 +90,10 @@ class BackupService with Logging {
     final packageInfo = await PackageInfo.fromPlatform();
 
     // 获取所有歌单
-    final playlists = await _isar.playlists.where().findAll();
+    final playlists = await _repository.allPlaylists();
 
     // 获取所有歌曲
-    final tracks = await _isar.tracks.where().findAll();
+    final tracks = await _repository.allTracks();
 
     // 构建 track ID -> Track 的映射
     final trackMap = <int, Track>{};
@@ -107,112 +113,111 @@ class BackupService with Logging {
         }
       }
 
-      playlistBackups.add(PlaylistBackup(
-        name: playlist.name,
-        description: playlist.description,
-        coverUrl: playlist.coverUrl,
-        hasCustomCover: playlist.hasCustomCover,
-        sourceUrl: playlist.sourceUrl,
-        importSourceType: playlist.importSourceType?.name,
-        refreshIntervalHours: playlist.refreshIntervalHours,
-        lastRefreshed: playlist.lastRefreshed,
-        notifyOnUpdate: playlist.notifyOnUpdate,
-        ownerName: playlist.ownerName,
-        ownerUserId: playlist.ownerUserId,
-        useAuthForRefresh: playlist.useAuthForRefresh,
-        isMix: playlist.isMix,
-        mixPlaylistId: playlist.mixPlaylistId,
-        mixSeedVideoId: playlist.mixSeedVideoId,
-        trackKeys: trackKeys,
-        createdAt: playlist.createdAt,
-        updatedAt: playlist.updatedAt,
-        sortOrder: playlist.sortOrder,
-      ));
+      playlistBackups.add(
+        PlaylistBackup(
+          name: playlist.name,
+          description: playlist.description,
+          coverUrl: playlist.coverUrl,
+          hasCustomCover: playlist.hasCustomCover,
+          sourceUrl: playlist.sourceUrl,
+          importSourceType: playlist.importSourceType,
+          refreshIntervalHours: playlist.refreshIntervalHours,
+          lastRefreshed: playlist.lastRefreshed,
+          notifyOnUpdate: playlist.notifyOnUpdate,
+          ownerName: playlist.ownerName,
+          ownerUserId: playlist.ownerUserId,
+          useAuthForRefresh: playlist.useAuthForRefresh,
+          isMix: playlist.isMix,
+          mixPlaylistId: playlist.mixPlaylistId,
+          mixSeedVideoId: playlist.mixSeedVideoId,
+          trackKeys: trackKeys,
+          createdAt: playlist.createdAt,
+          updatedAt: playlist.updatedAt,
+          sortOrder: playlist.sortOrder,
+        ),
+      );
     }
 
     // 转换歌曲数据
     final trackBackups = tracks
-        .map((t) => TrackBackup(
-              sourceId: t.sourceId,
-              sourceType: t.sourceType.name,
-              title: t.title,
-              artist: t.artist,
-              ownerId: t.ownerId,
-              channelId: t.channelId,
-              durationMs: t.durationMs,
-              thumbnailUrl: t.thumbnailUrl,
-              viewCount: t.viewCount,
-              pageCount: t.pageCount,
-              cid: t.cid,
-              pageNum: t.pageNum,
-              parentTitle: t.parentTitle,
-              isAvailable: t.isAvailable,
-              isVip: t.isVip,
-              unavailableReason: t.unavailableReason,
-              bilibiliAid: t.bilibiliAid,
-              originalSongId: t.originalSongId,
-              originalSource: t.originalSource,
-              createdAt: t.createdAt,
-              updatedAt: t.updatedAt,
-            ))
+        .map(
+          (t) => TrackBackup(
+            sourceId: t.sourceId,
+            sourceType: t.sourceType,
+            title: t.title,
+            artist: t.artist,
+            ownerId: t.ownerId,
+            channelId: t.channelId,
+            durationMs: t.durationMs,
+            thumbnailUrl: t.thumbnailUrl,
+            viewCount: t.viewCount,
+            pageCount: t.pageCount,
+            cid: t.cid,
+            pageNum: t.pageNum,
+            parentTitle: t.parentTitle,
+            isAvailable: t.isAvailable,
+            isVip: t.isVip,
+            unavailableReason: t.unavailableReason,
+            bilibiliAid: t.bilibiliAid,
+            originalSongId: t.originalSongId,
+            originalSource: t.originalSource,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+          ),
+        )
         .toList();
 
     // 获取播放历史
-    final playHistory = await _isar.playHistorys.where().findAll();
+    final playHistory = await _repository.allPlayHistory();
     final playHistoryBackups = playHistory
-        .map((h) => PlayHistoryBackup(
-              sourceId: h.sourceId,
-              sourceType: h.sourceType.name,
-              cid: h.cid,
-              title: h.title,
-              artist: h.artist,
-              durationMs: h.durationMs,
-              thumbnailUrl: h.thumbnailUrl,
-              playedAt: h.playedAt,
-            ))
+        .map(
+          (h) => PlayHistoryBackup(
+            sourceId: h.sourceId,
+            sourceType: h.sourceType,
+            cid: h.cid,
+            title: h.title,
+            artist: h.artist,
+            durationMs: h.durationMs,
+            thumbnailUrl: h.thumbnailUrl,
+            playedAt: h.playedAt,
+          ),
+        )
         .toList();
 
     // 获取搜索历史
-    final searchHistory = await _isar.searchHistorys.where().findAll();
+    final searchHistory = await _repository.allSearchHistory();
     final searchHistoryBackups = searchHistory
-        .map((s) => SearchHistoryBackup(
-              query: s.query,
-              timestamp: s.timestamp,
-            ))
+        .map((s) => SearchHistoryBackup(query: s.query, timestamp: s.timestamp))
         .toList();
 
     // 获取电台收藏
-    final radioStations = await _isar.radioStations.where().findAll();
+    final radioStations = await _repository.allRadioStations();
     final radioStationBackups = radioStations
-        .map((r) => RadioStationBackup(
-              url: r.url,
-              title: r.title,
-              thumbnailUrl: r.thumbnailUrl,
-              hostName: r.hostName,
-              hostAvatarUrl: r.hostAvatarUrl,
-              hostUid: r.hostUid,
-              sourceType: r.sourceType.name,
-              sourceId: r.sourceId,
-              sortOrder: r.sortOrder,
-              createdAt: r.createdAt,
-              lastPlayedAt: r.lastPlayedAt,
-              isFavorite: r.isFavorite,
-              note: r.note,
-            ))
+        .map(
+          (r) => RadioStationBackup(
+            url: r.url,
+            title: r.title,
+            thumbnailUrl: r.thumbnailUrl,
+            hostName: r.hostName,
+            hostAvatarUrl: r.hostAvatarUrl,
+            hostUid: r.hostUid,
+            sourceType: r.sourceType,
+            sourceId: r.sourceId,
+            sortOrder: r.sortOrder,
+            createdAt: r.createdAt,
+            lastPlayedAt: r.lastPlayedAt,
+            isFavorite: r.isFavorite,
+          ),
+        )
         .toList();
 
     // 获取设置
-    final settings = await _isar.settings.get(0);
+    final settings = await _repository.settings();
     SettingsBackup? settingsBackup;
     if (settings != null) {
       settingsBackup = SettingsBackup(
         themeModeIndex: settings.themeModeIndex,
         primaryColor: settings.primaryColor,
-        secondaryColor: settings.secondaryColor,
-        backgroundColor: settings.backgroundColor,
-        surfaceColor: settings.surfaceColor,
-        textColor: settings.textColor,
-        cardColor: settings.cardColor,
         maxCacheSizeMB: settings.maxCacheSizeMB,
         autoScrollToCurrentTrack: settings.autoScrollToCurrentTrack,
         rememberPlaybackPosition: settings.rememberPlaybackPosition,
@@ -224,13 +229,21 @@ class BackupService with Logging {
         enableGlobalHotkeys: settings.enableGlobalHotkeys,
         launchAtStartup: settings.launchAtStartup,
         launchMinimized: settings.launchMinimized,
+        railExpanded: settings.railExpanded,
+        detailPanelExpanded: settings.detailPanelExpanded,
+        detailPanelWidth: settings.detailPanelWidth,
         fontFamily: settings.fontFamily,
         locale: settings.locale,
         audioQualityLevelIndex: settings.audioQualityLevelIndex,
         audioFormatPriority: settings.audioFormatPriority,
-        youtubeStreamPriority: settings.youtubeStreamPriority,
-        bilibiliStreamPriority: settings.bilibiliStreamPriority,
-        neteaseStreamPriority: settings.neteaseStreamPriority,
+        sourceSettings: [
+          for (final entry in settings.sourceSettings)
+            SourceSettingsBackup(
+              sourceId: entry.sourceId,
+              streamPriority: entry.streamPriority,
+              useAuthForPlay: entry.useAuthForPlay,
+            ),
+        ],
         hotkeyConfig: settings.hotkeyConfig,
         autoMatchLyrics: settings.autoMatchLyrics,
         maxLyricsCacheFiles: settings.maxLyricsCacheFiles,
@@ -254,28 +267,29 @@ class BackupService with Logging {
         lyricsWindowShadowBlurRadius: settings.lyricsWindowShadowBlurRadius,
         lyricsWindowShadowOffsetX: settings.lyricsWindowShadowOffsetX,
         lyricsWindowShadowOffsetY: settings.lyricsWindowShadowOffsetY,
-        useBilibiliAuthForPlay: settings.useBilibiliAuthForPlay,
-        useYoutubeAuthForPlay: settings.useYoutubeAuthForPlay,
-        useNeteaseAuthForPlay: settings.useNeteaseAuthForPlay,
         rankingRefreshIntervalMinutes: settings.rankingRefreshIntervalMinutes,
-        homeRankingSourcePriority:
-            settings.homeRankingSourcePriorityList.join(','),
-        disabledHomeRankingSources:
-            settings.disabledHomeRankingSourcesSet.join(','),
+        homeRankingSourcePriority: settings.homeRankingSourcePriorityList.join(
+          ',',
+        ),
+        disabledHomeRankingSources: settings.disabledHomeRankingSourcesSet.join(
+          ',',
+        ),
         radioRefreshIntervalMinutes: settings.radioRefreshIntervalMinutes,
       );
     }
 
     // 获取歌词匹配记录
-    final lyricsMatches = await _isar.lyricsMatchs.where().findAll();
+    final lyricsMatches = await _repository.allLyricsMatches();
     final lyricsMatchBackups = lyricsMatches
-        .map((m) => LyricsMatchBackup(
-              trackUniqueKey: m.trackUniqueKey,
-              lyricsSource: m.lyricsSource,
-              externalId: m.externalId,
-              offsetMs: m.offsetMs,
-              matchedAt: m.matchedAt,
-            ))
+        .map(
+          (m) => LyricsMatchBackup(
+            trackUniqueKey: m.trackUniqueKey,
+            lyricsSource: m.lyricsSource,
+            externalId: m.externalId,
+            offsetMs: m.offsetMs,
+            matchedAt: m.matchedAt,
+          ),
+        )
         .toList();
 
     return BackupData(
@@ -302,7 +316,8 @@ class BackupService with Logging {
         appVersion: backupData.appVersion,
       );
     }
-    final hasImportableData = backupData.playlists.isNotEmpty ||
+    final hasImportableData =
+        backupData.playlists.isNotEmpty ||
         backupData.tracks.isNotEmpty ||
         backupData.playHistory.isNotEmpty ||
         backupData.searchHistory.isNotEmpty ||
@@ -374,24 +389,31 @@ class BackupService with Logging {
     bool settingsImportedFlag = false;
     final errors = <String>[];
 
+    // 解析階段：把每一筆備份轉成待寫入的物件，跳過與失敗的語意都留在這裡。
+    // 資料庫在這個階段完全不動，寫入集中在最後一次 `writeImport`。
+    final existingTrackIdsByKey = <String, int>{};
+    final plannedTrackKeys = <String>{};
+    final preparedTracks = <BackupImportTrack>[];
+    final preparedPlaylists = <BackupImportPlaylist>[];
+    final preparedPlayHistory = <PlayHistory>[];
+    final preparedSearchHistory = <SearchHistory>[];
+    final preparedRadioStations = <RadioStation>[];
+    final preparedLyricsMatches = <LyricsMatch>[];
+    Settings? preparedSettings;
+
     // 1. 导入歌曲（歌单依赖歌曲，仅在导入歌单时才导入）
-    final trackKeyToId = <String, int>{};
-    final importedTrackKeys = <String>{};
-    final trackBackupByKey = <String, TrackBackup>{
-      for (final trackBackup in backupData.tracks)
-        trackBackup.uniqueKey: trackBackup,
-    };
 
     if (importPlaylists) {
       // 先获取现有歌曲的映射
-      final existingTracks = await _isar.tracks.where().findAll();
+      final existingTracks = await _repository.allTracks();
       for (final track in existingTracks) {
-        trackKeyToId[track.uniqueKey] = track.id;
+        existingTrackIdsByKey[track.uniqueKey] = track.id;
+        plannedTrackKeys.add(track.uniqueKey);
       }
 
       // 导入新歌曲
       for (final trackBackup in backupData.tracks) {
-        if (trackKeyToId.containsKey(trackBackup.uniqueKey)) {
+        if (plannedTrackKeys.contains(trackBackup.uniqueKey)) {
           tracksSkipped++;
           continue;
         }
@@ -399,7 +421,7 @@ class BackupService with Logging {
         try {
           final track = Track()
             ..sourceId = trackBackup.sourceId
-            ..sourceType = _parseSourceType(trackBackup.sourceType)
+            ..sourceType = trackBackup.sourceType
             ..title = trackBackup.title
             ..artist = trackBackup.artist
             ..ownerId = trackBackup.ownerId
@@ -420,11 +442,10 @@ class BackupService with Logging {
             ..createdAt = trackBackup.createdAt
             ..updatedAt = trackBackup.updatedAt;
 
-          await _isar.writeTxn(() async {
-            final id = await _isar.tracks.put(track);
-            trackKeyToId[trackBackup.uniqueKey] = id;
-          });
-          importedTrackKeys.add(trackBackup.uniqueKey);
+          preparedTracks.add(
+            BackupImportTrack(uniqueKey: trackBackup.uniqueKey, track: track),
+          );
+          plannedTrackKeys.add(trackBackup.uniqueKey);
           tracksImported++;
         } catch (e) {
           errors.add('导入歌曲失败: ${trackBackup.title} - $e');
@@ -435,7 +456,7 @@ class BackupService with Logging {
     // 2. 导入歌单
     if (importPlaylists) {
       final existingPlaylistNames = <String>{};
-      final existingPlaylists = await _isar.playlists.where().findAll();
+      final existingPlaylists = await _repository.allPlaylists();
       for (final playlist in existingPlaylists) {
         existingPlaylistNames.add(playlist.name);
       }
@@ -447,24 +468,13 @@ class BackupService with Logging {
         }
 
         try {
-          // 解析歌曲 ID 列表
-          final trackIds = <int>[];
-          for (final trackKey in playlistBackup.trackKeys) {
-            final trackId = trackKeyToId[trackKey];
-            if (trackId != null) {
-              trackIds.add(trackId);
-            }
-          }
-
           final playlist = Playlist()
             ..name = playlistBackup.name
             ..description = playlistBackup.description
             ..coverUrl = playlistBackup.coverUrl
             ..hasCustomCover = playlistBackup.hasCustomCover
             ..sourceUrl = playlistBackup.sourceUrl
-            ..importSourceType = playlistBackup.importSourceType != null
-                ? _parseSourceType(playlistBackup.importSourceType!)
-                : null
+            ..importSourceType = playlistBackup.importSourceType
             ..refreshIntervalHours = playlistBackup.refreshIntervalHours
             ..lastRefreshed = playlistBackup.lastRefreshed
             ..notifyOnUpdate = playlistBackup.notifyOnUpdate
@@ -478,50 +488,17 @@ class BackupService with Logging {
             ..updatedAt = playlistBackup.updatedAt
             ..sortOrder = playlistBackup.sortOrder;
 
-          await _isar.writeTxn(() async {
-            await _isar.playlists.put(playlist);
-          });
-          final playlistTracks =
-              (await _isar.tracks.getAll(trackIds)).whereType<Track>().toList();
-          await _mutationService.addTracks(playlist.id, playlistTracks);
-          final restoredTrackUpdates = <Track>[];
-          for (final trackKey in playlistBackup.trackKeys) {
-            if (!importedTrackKeys.contains(trackKey)) continue;
-            final backupUpdatedAt = trackBackupByKey[trackKey]?.updatedAt;
-            if (backupUpdatedAt == null) continue;
-            final trackId = trackKeyToId[trackKey];
-            if (trackId == null) continue;
-            final restoredTrack = await _isar.tracks.get(trackId);
-            if (restoredTrack == null ||
-                restoredTrack.updatedAt == backupUpdatedAt) {
-              continue;
-            }
-            restoredTrack.updatedAt = backupUpdatedAt;
-            restoredTrackUpdates.add(restoredTrack);
-          }
-          if (restoredTrackUpdates.isNotEmpty) {
-            await _isar.writeTxn(() async {
-              await _isar.tracks.putAll(restoredTrackUpdates);
-            });
-          }
-
-          final savedPlaylist = await _isar.playlists.get(playlist.id);
-          if (savedPlaylist != null &&
-              (savedPlaylist.coverUrl != playlistBackup.coverUrl ||
-                  savedPlaylist.hasCustomCover !=
-                      playlistBackup.hasCustomCover ||
-                  (playlistBackup.updatedAt != null &&
-                      savedPlaylist.updatedAt != playlistBackup.updatedAt))) {
-            savedPlaylist
-              ..coverUrl = playlistBackup.coverUrl
-              ..hasCustomCover = playlistBackup.hasCustomCover;
-            if (playlistBackup.updatedAt != null) {
-              savedPlaylist.updatedAt = playlistBackup.updatedAt;
-            }
-            await _isar.writeTxn(() async {
-              await _isar.playlists.put(savedPlaylist);
-            });
-          }
+          // 成員要等歌曲寫進去才有 id，所以只帶 key；封面與 updatedAt 會被
+          // `addTracksInTxn` 依政策改寫，備份裡的原值一併交給寫入階段還原。
+          preparedPlaylists.add(
+            BackupImportPlaylist(
+              playlist: playlist,
+              trackKeys: playlistBackup.trackKeys,
+              coverUrl: playlistBackup.coverUrl,
+              hasCustomCover: playlistBackup.hasCustomCover,
+              updatedAt: playlistBackup.updatedAt,
+            ),
+          );
           playlistsImported++;
           existingPlaylistNames.add(playlistBackup.name);
         } catch (e) {
@@ -533,10 +510,11 @@ class BackupService with Logging {
     // 3. 导入播放历史
     if (importPlayHistory) {
       final existingHistoryKeys = <String>{};
-      final existingHistory = await _isar.playHistorys.where().findAll();
+      final existingHistory = await _repository.allPlayHistory();
       for (final history in existingHistory) {
         existingHistoryKeys.add(
-            '${history.trackKey}:${history.playedAt.millisecondsSinceEpoch}');
+          '${history.trackKey}:${history.playedAt.millisecondsSinceEpoch}',
+        );
       }
 
       for (final historyBackup in backupData.playHistory) {
@@ -550,7 +528,7 @@ class BackupService with Logging {
         try {
           final history = PlayHistory()
             ..sourceId = historyBackup.sourceId
-            ..sourceType = _parseSourceType(historyBackup.sourceType)
+            ..sourceType = historyBackup.sourceType
             ..cid = historyBackup.cid
             ..title = historyBackup.title
             ..artist = historyBackup.artist
@@ -558,9 +536,10 @@ class BackupService with Logging {
             ..thumbnailUrl = historyBackup.thumbnailUrl
             ..playedAt = historyBackup.playedAt;
 
-          await _isar.writeTxn(() async {
-            await _isar.playHistorys.put(history);
-          });
+          preparedPlayHistory.add(history);
+          // 同一份備份裡重複的紀錄以前會重覆插入 —— 這個 set 原本只在迴圈外
+          // 填過一次，迴圈內從來沒有再 add。
+          existingHistoryKeys.add(key);
           playHistoryImported++;
         } catch (e) {
           errors.add('导入播放历史失败: ${historyBackup.title} - $e');
@@ -571,8 +550,7 @@ class BackupService with Logging {
     // 4. 导入搜索历史
     if (importSearchHistory) {
       final existingSearchQueries = <String>{};
-      final existingSearchHistory =
-          await _isar.searchHistorys.where().findAll();
+      final existingSearchHistory = await _repository.allSearchHistory();
       for (final search in existingSearchHistory) {
         existingSearchQueries.add(search.query);
       }
@@ -588,9 +566,7 @@ class BackupService with Logging {
             ..query = searchBackup.query
             ..timestamp = searchBackup.timestamp;
 
-          await _isar.writeTxn(() async {
-            await _isar.searchHistorys.put(search);
-          });
+          preparedSearchHistory.add(search);
           searchHistoryImported++;
           existingSearchQueries.add(searchBackup.query);
         } catch (e) {
@@ -602,7 +578,7 @@ class BackupService with Logging {
     // 5. 导入电台收藏
     if (importRadioStations) {
       final existingRadioUrls = <String>{};
-      final existingRadios = await _isar.radioStations.where().findAll();
+      final existingRadios = await _repository.allRadioStations();
       for (final radio in existingRadios) {
         existingRadioUrls.add(radio.url);
       }
@@ -621,17 +597,14 @@ class BackupService with Logging {
             ..hostName = radioBackup.hostName
             ..hostAvatarUrl = radioBackup.hostAvatarUrl
             ..hostUid = radioBackup.hostUid
-            ..sourceType = _parseSourceType(radioBackup.sourceType)
+            ..sourceType = radioBackup.sourceType
             ..sourceId = radioBackup.sourceId
             ..sortOrder = radioBackup.sortOrder
             ..createdAt = radioBackup.createdAt
             ..lastPlayedAt = radioBackup.lastPlayedAt
-            ..isFavorite = radioBackup.isFavorite
-            ..note = radioBackup.note;
+            ..isFavorite = radioBackup.isFavorite;
 
-          await _isar.writeTxn(() async {
-            await _isar.radioStations.put(radio);
-          });
+          preparedRadioStations.add(radio);
           radioStationsImported++;
           existingRadioUrls.add(radioBackup.url);
         } catch (e) {
@@ -643,7 +616,7 @@ class BackupService with Logging {
     // 6. 导入歌词匹配记录
     if (importLyricsMatches) {
       final existingMatchKeys = <String>{};
-      final existingMatches = await _isar.lyricsMatchs.where().findAll();
+      final existingMatches = await _repository.allLyricsMatches();
       for (final match in existingMatches) {
         existingMatchKeys.add(match.trackUniqueKey);
       }
@@ -662,9 +635,7 @@ class BackupService with Logging {
             ..offsetMs = matchBackup.offsetMs
             ..matchedAt = matchBackup.matchedAt;
 
-          await _isar.writeTxn(() async {
-            await _isar.lyricsMatchs.put(match);
-          });
+          preparedLyricsMatches.add(match);
           lyricsMatchesImported++;
           existingMatchKeys.add(matchBackup.trackUniqueKey);
         } catch (e) {
@@ -679,18 +650,13 @@ class BackupService with Logging {
         final settingsBackup = backupData.settings!;
 
         // 获取当前设置，用于保留设备相关的配置
-        final currentSettings = await _isar.settings.get(0);
+        final currentSettings = await _repository.settings();
         final settings = createBootstrapSettings()..id = 0;
 
         settings
           // 通用设置 - 从备份导入
           ..themeModeIndex = settingsBackup.themeModeIndex
           ..primaryColor = settingsBackup.primaryColor
-          ..secondaryColor = settingsBackup.secondaryColor
-          ..backgroundColor = settingsBackup.backgroundColor
-          ..surfaceColor = settingsBackup.surfaceColor
-          ..textColor = settingsBackup.textColor
-          ..cardColor = settingsBackup.cardColor
           ..maxCacheSizeMB = settingsBackup.maxCacheSizeMB
           ..autoScrollToCurrentTrack = settingsBackup.autoScrollToCurrentTrack
           ..rememberPlaybackPosition = settingsBackup.rememberPlaybackPosition
@@ -702,16 +668,18 @@ class BackupService with Logging {
           ..locale = settingsBackup.locale
           ..audioQualityLevelIndex = settingsBackup.audioQualityLevelIndex
           ..audioFormatPriority = settingsBackup.audioFormatPriority
-          ..youtubeStreamPriority = settingsBackup.youtubeStreamPriority
-          ..bilibiliStreamPriority = settingsBackup.bilibiliStreamPriority
-          ..neteaseStreamPriority = settingsBackup.neteaseStreamPriority
-          ..useBilibiliAuthForPlay = settingsBackup.useBilibiliAuthForPlay
-          ..useYoutubeAuthForPlay = settingsBackup.useYoutubeAuthForPlay
-          ..useNeteaseAuthForPlay = settingsBackup.useNeteaseAuthForPlay
+          ..sourceSettings = [
+            for (final entry in settingsBackup.sourceSettings)
+              SourceSettingsEntry()
+                ..sourceId = entry.sourceId
+                ..streamPriority = entry.streamPriority
+                ..useAuthForPlay = entry.useAuthForPlay,
+          ]
           ..rankingRefreshIntervalMinutes =
               settingsBackup.rankingRefreshIntervalMinutes
-          ..homeRankingSourcePriorityList =
-              settingsBackup.homeRankingSourcePriority.split(',')
+          ..homeRankingSourcePriorityList = settingsBackup
+              .homeRankingSourcePriority
+              .split(',')
           ..disabledHomeRankingSourcesSet = normalizeDisabledHomeRankingSources(
             settingsBackup.disabledHomeRankingSources,
           )
@@ -721,11 +689,11 @@ class BackupService with Logging {
           ..minimizeToTrayOnClose = Platform.isWindows
               ? settingsBackup.minimizeToTrayOnClose
               : (currentSettings?.minimizeToTrayOnClose ??
-                  settings.minimizeToTrayOnClose)
+                    settings.minimizeToTrayOnClose)
           ..enableGlobalHotkeys = Platform.isWindows
               ? settingsBackup.enableGlobalHotkeys
               : (currentSettings?.enableGlobalHotkeys ??
-                  settings.enableGlobalHotkeys)
+                    settings.enableGlobalHotkeys)
           ..launchAtStartup = Platform.isWindows
               ? settingsBackup.launchAtStartup
               : (currentSettings?.launchAtStartup ?? settings.launchAtStartup)
@@ -735,6 +703,16 @@ class BackupService with Logging {
           ..hotkeyConfig = Platform.isWindows
               ? _sanitizeHotkeyConfig(settingsBackup.hotkeyConfig)
               : currentSettings?.hotkeyConfig
+          // 版面狀態 - 無條件還原。這三個欄位不是桌面平台專屬能力，
+          // `_ExpandedLayout` 是由螢幕寬度斷點選出來的
+          // (`responsive_scaffold.dart`)，Android 平板在寬版面下
+          // 同樣會用到側欄與詳情面板。匯入端不必夾寬度：
+          // `repairSettingsInvariants` 每次啟動會擋掉垃圾值，而真正的範圍
+          // （視窗寬的一個比例）本來就只有渲染期算得出來 —— 從別台機器帶進來
+          // 的寬度在這台機器上合不合法，匯入的當下沒有答案。
+          ..railExpanded = settingsBackup.railExpanded
+          ..detailPanelExpanded = settingsBackup.detailPanelExpanded
+          ..detailPanelWidth = settingsBackup.detailPanelWidth
           // 歌词设置 - 从备份导入
           ..autoMatchLyrics = settingsBackup.autoMatchLyrics
           ..maxLyricsCacheFiles = settingsBackup.maxLyricsCacheFiles
@@ -768,14 +746,27 @@ class BackupService with Logging {
           ..preferredAudioDeviceName =
               currentSettings?.preferredAudioDeviceName;
 
-        await _isar.writeTxn(() async {
-          await _isar.settings.put(settings);
-        });
+        preparedSettings = settings;
         settingsImportedFlag = true;
       } catch (e) {
         errors.add('导入设置失败: $e');
       }
     }
+
+    // 寫入階段：一筆交易寫完所有倖存者。任何一步失敗都會整批回滾，而且例外
+    // 直接往上拋 —— 回一個宣稱匯入了多少筆的結果對話框會是謊話。
+    await _repository.writeImport(
+      BackupImportBatch(
+        existingTrackIdsByKey: existingTrackIdsByKey,
+        tracks: preparedTracks,
+        playlists: preparedPlaylists,
+        playHistory: preparedPlayHistory,
+        searchHistory: preparedSearchHistory,
+        radioStations: preparedRadioStations,
+        lyricsMatches: preparedLyricsMatches,
+        settings: preparedSettings,
+      ),
+    );
 
     return ImportResult(
       playlistsImported: playlistsImported,
@@ -806,18 +797,5 @@ class BackupService with Logging {
       return hotkeyConfig;
     }
     return hotkeyConfig;
-  }
-
-  /// 解析 SourceType 枚举
-  SourceType _parseSourceType(String value) {
-    switch (value.toLowerCase()) {
-      case 'youtube':
-        return SourceType.youtube;
-      case 'netease':
-        return SourceType.netease;
-      case 'bilibili':
-      default:
-        return SourceType.bilibili;
-    }
   }
 }

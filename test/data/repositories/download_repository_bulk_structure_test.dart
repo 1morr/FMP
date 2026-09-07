@@ -7,8 +7,9 @@ void main() {
     late String source;
 
     setUpAll(() {
-      source = File('lib/data/repositories/download_repository.dart')
-          .readAsStringSync();
+      source = File(
+        'lib/data/repositories/download_repository.dart',
+      ).readAsStringSync();
     });
 
     test('bulk status methods write changed tasks with putAll', () {

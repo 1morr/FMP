@@ -60,14 +60,16 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await _pumpDialog(tester);
-    final compactWidth =
-        tester.getRect(find.byKey(LyricsStyleDialog.contentKey)).width;
+    final compactWidth = tester
+        .getRect(find.byKey(LyricsStyleDialog.contentKey))
+        .width;
 
     tester.view.physicalSize = const Size(640, 520);
     await tester.pumpAndSettle();
 
-    final expandedWidth =
-        tester.getRect(find.byKey(LyricsStyleDialog.contentKey)).width;
+    final expandedWidth = tester
+        .getRect(find.byKey(LyricsStyleDialog.contentKey))
+        .width;
     expect(expandedWidth, greaterThan(compactWidth + 40));
     expect(expandedWidth, lessThanOrEqualTo(400));
     expect(tester.takeException(), isNull);
@@ -97,13 +99,12 @@ void main() {
     expect(resetCount, 1);
   });
 
-  testWidgets('expands disabled outline controls with their content',
-      (tester) async {
+  testWidgets('expands disabled outline controls with their content', (
+    tester,
+  ) async {
     await _pumpDialog(
       tester,
-      initialStyle: LyricsWindowStyle.defaults.copyWith(
-        outlineEnabled: false,
-      ),
+      initialStyle: LyricsWindowStyle.defaults.copyWith(outlineEnabled: false),
     );
 
     expect(find.text('Outline color'), findsNothing);
@@ -115,8 +116,9 @@ void main() {
     expect(find.text('Outline width'), findsOneWidget);
   });
 
-  testWidgets('opens nested color palette with the dialog close label',
-      (tester) async {
+  testWidgets('opens nested color palette with the dialog close label', (
+    tester,
+  ) async {
     await _pumpDialog(tester);
 
     await tester.tap(find.text('#FFFFFFFF'));
@@ -127,13 +129,12 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('expands disabled shadow controls with their content',
-      (tester) async {
+  testWidgets('expands disabled shadow controls with their content', (
+    tester,
+  ) async {
     await _pumpDialog(
       tester,
-      initialStyle: LyricsWindowStyle.defaults.copyWith(
-        shadowEnabled: false,
-      ),
+      initialStyle: LyricsWindowStyle.defaults.copyWith(shadowEnabled: false),
     );
 
     expect(find.text('Shadow color'), findsNothing);
@@ -145,8 +146,9 @@ void main() {
     expect(find.text('Shadow blur'), findsOneWidget);
   });
 
-  testWidgets('minimum lyrics window size keeps expanded controls usable',
-      (tester) async {
+  testWidgets('minimum lyrics window size keeps expanded controls usable', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 300);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

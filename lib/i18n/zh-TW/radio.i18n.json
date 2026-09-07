@@ -20,6 +20,7 @@
   "reloadLive": "重新載入直播",
   "info": "資訊",
   "unknownStation": "未知電台",
+  "unknownHost": "未知主播",
   "live": "直播中",
   "reconnecting": "重新連線中...",
   "buffering": "緩衝中...",

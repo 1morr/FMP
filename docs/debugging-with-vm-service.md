@@ -42,6 +42,9 @@ http://127.0.0.1:<PORT>/<TOKEN>/devtools/?uri=ws://127.0.0.1:<PORT>/<TOKEN>/ws
 - **BASE URL**: `http://127.0.0.1:<PORT>/<TOKEN>=`（用於 HTTP API）
 - **WS URI**: `ws://127.0.0.1:<PORT>/<TOKEN>=/ws`（DevTools 與其他 WebSocket 客戶端使用；本文件的命令只需要 BASE URL）
 
+> token 本身通常**已經以 `=` 結尾**。BASE 的正確做法是把主控台印出的 URI 去掉結尾的
+> `/`，只有在它還沒有 `=` 結尾時才補一個。無條件多補一個 `=` 會讓每一個請求回 **403**。
+
 > VM Service URL 中的 token 等同於本機除錯訪問憑證。不要把完整 URL、token、DevTools 連結或 websocket URI 貼到 issue、日誌、截圖、agent 報告或聊天記錄中。需要分享時只保留埠和用途，刪掉 token 路徑；除錯結束後關閉 app 或重新啟動以失效舊 URI。
 
 ### 獲取 Isolate ID
@@ -271,28 +274,42 @@ curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
 | `startTime` | 開始時間（微秒） |
 | `endTime` | 結束時間（微秒） |
 
-> 🔴 **實測對 FMP 無效，不要在這裡花時間。** 2026-07-27 在 debug 會話實測：應用剛從三個音源
-> 載入上百首排行榜資料，`getHttpProfile` 仍返回 **0 個請求**；按下面的方法啟用
-> `httpEnableTimelineLogging`（返回 `{'enabled': True}`）後重查，依然 **0 個**；
-> `getVMTimeline` 的 12934 個事件裡 HTTP/Socket 相關也是 **0 個**。
->
-> 需要看 FMP 的網路行為，用 `AppLogger` 的 source adapter 日誌，或在 Dio 上掛 interceptor。
+> ⚠️ **必須先啟用，再產生流量。** profiling 只記錄啟用之後發生的請求，對已經結束的請求
+> 一無所知 —— 這就是為什麼「開著應用跑一陣子再來查」永遠是 0 個。
 
 ```bash
-# 啟用 HTTP timeline 日誌（實測未能讓 FMP 的請求出現）
+# 先啟用（回傳 {"type":"HttpTimelineLoggingState","enabled":true}）
 curl -s "$BASE/ext.dart.io.httpEnableTimelineLogging?isolateId=$ISOLATE&enabled=true"
+# 然後才去操作應用，最後再 getHttpProfile
 ```
 
-> 保留一個未驗證的可能：上述實測是在流量發生**之後**才啟用 logging 的。嚴格的複測應先啟用再產生流量。
-> 但同一次實測中 `getSocketProfile` 對**當下存活**的連線也返回 0，這一點無法用啟用時機解釋。
+**單筆請求的完整內容**用 `getHttpProfileRequest`，它給的比上表多得多 —— 逐階段時間軸
+（`Connection established` / `Request sent` / `Waiting (TTFB)` / `Content Download`）、
+完整的 request/response header，以及 request/response body：
+
+```bash
+curl -s "$BASE/ext.dart.io.getHttpProfileRequest?isolateId=$ISOLATE&id=<REQUEST_ID>"
+```
+
+> **2026-09-01 實測（本節結論的依據）**：先啟用、再觸發一次 Netease eapi 與一次 Bilibili
+> 搜尋，`getHttpProfile` 回 **2 筆**，正是那兩個請求（`POST interface3.music.163.com 200`、
+> `GET api.bilibili.com 200`）。單筆詳情 117 KB，含完整 body。另一次在 profile build 上做
+> 一次搜尋則抓到 **15 筆**，涵蓋三個音源的 API 與圖片 CDN。
+>
+> **歷史更正**：本節原本寫「實測對 FMP 無效，不要在這裡花時間」。那個結論來自 2026-07-27
+> 的一次實測，而該次是在流量發生**之後**才啟用 logging —— 順序錯了。原文自己保留了這個
+> 可能性，事後證明它就是唯一原因。FMP 的 dio 沒有安裝任何自訂 `httpClientAdapter`，走的
+> 就是 `dart:io HttpClient`，所以會被完整攔到。
 
 ### 3.6 Socket 和檔案
 
-> 🔴 **同樣實測返回空。** `getSocketProfile` → 0 sockets，`getOpenFiles` → 0 files，
-> 而當時 Isar 已開啟、三個音源的 HTTP 連線剛完成。與 §3.5 一併視為對 FMP 不可用。
+Socket profiling 跟 §3.5 一樣**必須先啟用**：
 
 ```bash
-# Socket 連線
+# 先啟用（回傳 {"type":"SocketProfilingState","enabled":true}）
+curl -s "$BASE/ext.dart.io.socketProfilingEnabled?isolateId=$ISOLATE&enabled=true"
+
+# Socket 連線（含每條連線的 readBytes / writeBytes）
 curl -s "$BASE/ext.dart.io.getSocketProfile?isolateId=$ISOLATE"
 
 # 開啟的檔案
@@ -301,6 +318,16 @@ curl -s "$BASE/ext.dart.io.getOpenFiles?isolateId=$ISOLATE"
 # 單個檔案詳情
 curl -s "$BASE/ext.dart.io.getOpenFileById?isolateId=$ISOLATE&id=<FILE_ID>"
 ```
+
+> **2026-09-01 實測**：先啟用再產生流量，`getSocketProfile` 回 **2 條 tcp 連線**，
+> 各自帶 `readBytes` / `writeBytes`。`getOpenFiles` 在同一時刻回 **0** —— 但那不是壞掉：
+> 當下沒有任何 `dart:io` 檔案握柄存活。刻意開一個 `File` 並持有之後再查，它就出現了。
+>
+> **Isar 的資料庫檔案不會出現在 `getOpenFiles` 裡**，因為 Isar 透過原生程式碼開檔，
+> 不走 `dart:io`。要看 Isar 內容請用 §5。
+>
+> **歷史更正**：本節原本寫「同樣實測返回空⋯視為對 FMP 不可用」。socket 那一半的成因與
+> §3.5 相同（啟用時機）；檔案那一半是把「當下沒有 dart:io 檔案開著」誤讀成「功能無效」。
 
 ## 4. Flutter Extension API
 
@@ -441,15 +468,50 @@ curl -s "$BASE/ext.isar.listInstances?isolateId=$ISOLATE"
 curl -s "$BASE/ext.isar.getSchema?isolateId=$ISOLATE"
 # 返回完整的 Schema JSON，包含所有 Collection 的 properties
 
-# 執行查詢
-curl -s "$BASE/ext.isar.executeQuery?isolateId=$ISOLATE&instance=fmp_database&collection=Track&filter=..."
+# 執行查詢。除了 isolateId 之外的參數全部包在一個 `args` JSON 字串裡
+ARGS='{"instance":"fmp_database","collection":"Track","limit":1}'
+curl -s -G "$BASE/ext.isar.executeQuery" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "args=$ARGS"
 
 # 匯出 JSON
-curl -s "$BASE/ext.isar.exportJson?isolateId=$ISOLATE&instance=fmp_database&collection=Track"
+ARGS='{"instance":"fmp_database","collection":"Track"}'
+curl -s -G "$BASE/ext.isar.exportJson" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "args=$ARGS"
 
-# 監聽例項變化
-curl -s "$BASE/ext.isar.watchInstance?isolateId=$ISOLATE&instance=fmp_database"
+# 改一個欄位
+ARGS='{"instance":"fmp_database","collection":"Settings","id":0,"path":"minimizeToTrayOnClose","value":true}'
+curl -s -G "$BASE/ext.isar.editProperty" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "args=$ARGS"
 ```
+
+**參數一定要走 `args`。** `isar_connect.dart:46-48` 只讀 `parameters['args']` 並
+`jsonDecode` 它，其他 query string 參數一律忽略。把 `instance` / `collection` 直接掛在
+URL 上會回 `Server error: type 'Null' is not a subtype of type 'String' in type cast`。
+
+回傳值是雙層包裝的：`{"result": {"result": {"objects": [...]}}}`。
+
+**寫入會和 app 自己的寫入者搶。** `QueueManager` 每 10 秒
+（`AppConstants.positionSaveInterval`）就把記憶體裡的 `PlayQueue` 整份存回去，所以用
+`editProperty` 改 `PlayQueue` 之後只要 app 還活著，改動隨時會被蓋掉 —— 讀回來看到新值
+不代表它留得住。要嘛改完立刻結束進程，要嘛改走 app 自己的 UI。
+
+### 5.1 讀執行中物件的欄位（不需要表達式編譯）
+
+`evaluate` 走 HTTP 端點是**不通的**，會回
+`Expression compilation error: _compileExpression: No compilation service available`
+—— 編譯服務是 `flutter run` 註冊在自己那條連線上的，HTTP 請求拿不到。
+
+不需要它也能讀到活物件的欄位，三個 RPC 就夠：
+
+```bash
+# 1. 找 class
+curl -s -G "$BASE/getClassList" --data-urlencode "isolateId=$ISOLATE"
+# 2. 拿該 class 的活實例
+curl -s -G "$BASE/getInstances" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "objectId=classes/123" --data-urlencode "limit=20"
+# 3. 讀實例的欄位值
+curl -s -G "$BASE/getObject" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "objectId=objects/456"
+```
+
+`getObject` 回傳的 `fields[]` 每筆有 `decl.name` 與 `value.valueAsString`。Phase 3 就是用
+這條路從執行中的 `MediaKitAudioService` 讀出真實的 WASAPI 裝置清單（`FmpAudioDevice` 的
+`name` / `description`），驗證 issue #42 的還原路徑。
 
 ---
 

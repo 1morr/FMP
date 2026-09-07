@@ -73,9 +73,7 @@ class _NeteaseLoginPageState extends ConsumerState<NeteaseLoginPage>
 
     // Desktop: QR Code only
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.importPlatform.netease),
-      ),
+      appBar: AppBar(title: Text(t.importPlatform.netease)),
       body: _NeteaseQrCodeLoginTab(onLoginSuccess: _onLoginSuccess),
     );
   }
@@ -186,7 +184,7 @@ class _NeteaseWebViewLoginTabState
             preferredContentMode: UserPreferredContentMode.MOBILE,
           ),
           onLoadStop: _onPageLoaded,
-          onLoadStart: (_, __) {
+          onLoadStart: (_, _) {
             if (mounted) setState(() => _isLoading = true);
           },
         ),
@@ -248,7 +246,7 @@ class _NeteaseQrCodeLoginTabState
     } catch (e) {
       if (mounted) {
         setState(() => _isGenerating = false);
-        ToastService.show(context, e.toString());
+        ToastService.failure(context, e, tag: 'NeteaseLogin');
       }
     }
   }
@@ -257,8 +255,9 @@ class _NeteaseQrCodeLoginTabState
     _pollSubscription?.cancel();
     final accountService = ref.read(neteaseAccountServiceProvider);
 
-    _pollSubscription =
-        accountService.pollQrCodeStatus(unikey).listen((result) async {
+    _pollSubscription = accountService.pollQrCodeStatus(unikey).listen((
+      result,
+    ) async {
       if (!mounted) return;
 
       setState(() => _status = result.code);

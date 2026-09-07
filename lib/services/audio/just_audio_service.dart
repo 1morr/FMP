@@ -19,11 +19,22 @@ class JustAudioService extends FmpAudioService with Logging {
   bool _hasPlayer = false;
   bool _disposed = false;
 
-  // 完成事件控制器
-  final _completedController = StreamController<void>.broadcast();
+  // 播放结束原因控制器（正常播完与各种失败共用同一条通道）
+  final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
 
-  // 错误事件控制器
-  final _errorController = StreamController<String>.broadcast();
+  // 後端自行接上前瞻媒體時的通道
+  final _advancedToNextController =
+      StreamController<PreparedPlaybackMedia>.broadcast();
+
+  /// 當前的播放清單。
+  ///
+  /// 平常只有一個 child —— 包一層 `ConcatenatingAudioSource` 是為了讓
+  /// [setNextMedia] 有東西可以接。單一 `AudioSource.uri` 沒有辦法在播放中追加，
+  /// 只能整個重設，而重設就是重新開媒體，正好是要避免的那件事。
+  ja.ConcatenatingAudioSource? _playlist;
+
+  /// 已經交給後端、還沒被接上去的下一個媒體。
+  PreparedPlaybackMedia? _nextMedia;
 
   // 流订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -51,19 +62,21 @@ class JustAudioService extends FmpAudioService with Logging {
 
   final _processingStateController =
       BehaviorSubject<FmpAudioProcessingState>.seeded(
-    FmpAudioProcessingState.idle,
-  );
+        FmpAudioProcessingState.idle,
+      );
 
   final _positionController = BehaviorSubject<Duration>.seeded(Duration.zero);
   final _durationController = BehaviorSubject<Duration?>.seeded(null);
-  final _bufferedPositionController =
-      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final _bufferedPositionController = BehaviorSubject<Duration>.seeded(
+    Duration.zero,
+  );
   final _speedController = BehaviorSubject<double>.seeded(1.0);
   final _playingController = BehaviorSubject<bool>.seeded(false);
 
   // 音频设备（Android 不支持设备切换）
-  final _audioDevicesController =
-      BehaviorSubject<List<FmpAudioDevice>>.seeded([]);
+  final _audioDevicesController = BehaviorSubject<List<FmpAudioDevice>>.seeded(
+    [],
+  );
   final _audioDeviceController = BehaviorSubject<FmpAudioDevice?>.seeded(null);
 
   // ========== 状态流 ==========
@@ -84,15 +97,16 @@ class JustAudioService extends FmpAudioService with Logging {
   @override
   Stream<bool> get playingStream => _playingController.stream;
   @override
-  Stream<void> get completedStream => _completedController.stream;
-  @override
   Stream<List<FmpAudioDevice>> get audioDevicesStream =>
       _audioDevicesController.stream;
   @override
   Stream<FmpAudioDevice?> get audioDeviceStream =>
       _audioDeviceController.stream;
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
+  @override
+  Stream<PreparedPlaybackMedia> get advancedToNext =>
+      _advancedToNextController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -168,7 +182,8 @@ class JustAudioService extends FmpAudioService with Logging {
               _wasPlayingBeforeInterruption = _player.playing;
               if (_wasPlayingBeforeInterruption) {
                 logDebug(
-                    'Audio interrupted while playing, will resume after interruption ends');
+                  'Audio interrupted while playing, will resume after interruption ends',
+                );
                 pause();
               }
               break;
@@ -215,20 +230,40 @@ class JustAudioService extends FmpAudioService with Logging {
 
         _playingController.add(playing);
         _processingStateController.add(processingState);
-        _playerStateController.add(FmpPlayerState(
-          playing: playing,
-          processingState: processingState,
-        ));
+        _playerStateController.add(
+          FmpPlayerState(playing: playing, processingState: processingState),
+        );
 
         // 处理完成事件
         if (state.processingState == ja.ProcessingState.completed &&
             !_hasCompletionFired) {
           _hasCompletionFired = true;
-          logDebug('Track completed');
-          _completedController.add(null);
+          final reason = _classifyCompletion();
+          logDebug('Track completed: $reason');
+          _emitEndReason(reason);
         } else if (state.processingState != ja.ProcessingState.completed) {
           _hasCompletionFired = false;
         }
+      }),
+    );
+
+    // 監聽播放清單索引 —— 後端自行接上前瞻媒體的唯一信號。
+    //
+    // 接上第二個 child 之後，第一首播完**不會**發 `completed`（那要整串播完才
+    // 有），只有索引會往前走，所以「自然播完」在 arm 期間改由這裡表達。
+    _subscriptions.add(
+      _player.currentIndexStream.listen((index) {
+        if (index == null || index <= 0) return;
+        final advanced = _nextMedia;
+        _nextMedia = null;
+        if (advanced == null) return;
+
+        logDebug('Backend advanced to next medium: ${advanced.debugUrl}');
+        _hasCompletionFired = false;
+        if (!_advancedToNextController.isClosed) {
+          _advancedToNextController.add(advanced);
+        }
+        unawaited(_trimPlayedEntry());
       }),
     );
 
@@ -263,22 +298,86 @@ class JustAudioService extends FmpAudioService with Logging {
 
     // 监听播放错误（通过 playbackEventStream 捕获异常）
     _subscriptions.add(
-      _player.playbackEventStream.handleError((Object error) {
-        if (error is ja.PlayerException) {
-          final msg =
-              'PlayerException: code=${error.code}, message=${error.message}';
-          logError(msg);
-          _errorController.add(msg);
-        } else if (error is ja.PlayerInterruptedException) {
-          logDebug('Playback interrupted: ${error.message}');
-          // 中断不视为错误，不转发
-        } else {
-          final msg = 'Playback error: $error';
-          logError(msg);
-          _errorController.add(msg);
-        }
-      }).listen((_) {}),
+      _player.playbackEventStream
+          .handleError((Object error) {
+            if (error is ja.PlayerException) {
+              final msg =
+                  'PlayerException: code=${error.code}, message=${error.message}';
+              logError(msg);
+              _emitEndReason(_classifyPlayerException(error, msg));
+            } else if (error is ja.PlayerInterruptedException) {
+              logDebug('Playback interrupted: ${error.message}');
+              // 中断是「这次载入被下一次取代」，不是失败，不转发
+            } else {
+              final msg = 'Playback error: $error';
+              logError(msg);
+              _emitEndReason(UnclassifiedFailure(raw: msg));
+            }
+          })
+          .listen((_) {}),
     );
+  }
+
+  void _emitEndReason(PlaybackEndReason reason) {
+    if (_endReasonController.isClosed) return;
+    _endReasonController.add(reason);
+  }
+
+  /// ExoPlayer 宣告 completed 時，判斷是「真的播完」還是「提前結束」。
+  PlaybackEndReason _classifyCompletion() {
+    final duration = _player.duration;
+    final position = _player.position;
+    if (duration == null || duration.inMilliseconds <= 0) {
+      return EndedPrematurely(at: position, expected: null);
+    }
+    if (duration - position > AppConstants.completionTolerance) {
+      return EndedPrematurely(at: position, expected: duration);
+    }
+    return const EndedNaturally();
+  }
+
+  /// 把 just_audio 的 `PlayerException` 翻成型別。
+  ///
+  /// ExoPlayer 把幾乎所有網路層問題都壓成 `code=0, message=Source error`，
+  /// 因此這裡以 code 為主、訊息為輔；分不出來的一律回 [UnclassifiedFailure]，
+  /// 而不是猜。
+  PlaybackEndReason _classifyPlayerException(
+    ja.PlayerException error,
+    String raw,
+  ) {
+    final text = (error.message ?? '').toLowerCase();
+
+    if (text.contains('audio track') ||
+        text.contains('audio sink') ||
+        text.contains('audiotrack')) {
+      return OutputDeviceFailed(raw: raw);
+    }
+
+    if (text.contains('source error') ||
+        text.contains('unable to connect') ||
+        text.contains('socket') ||
+        text.contains('timeout') ||
+        text.contains('unexpected end of stream')) {
+      return TransportFailed(
+        kind: text.contains('timeout')
+            ? TransportFailureKind.timeout
+            : TransportFailureKind.reset,
+        raw: raw,
+      );
+    }
+
+    if (text.contains('response code: 40') ||
+        text.contains('response code: 41') ||
+        text.contains('unrecognized input format') ||
+        text.contains('none of the available extractors')) {
+      return MediaUnopenable(raw: raw);
+    }
+
+    if (text.contains('decoder') || text.contains('decoding')) {
+      return DecoderFailed(raw: raw);
+    }
+
+    return UnclassifiedFailure(raw: raw);
   }
 
   @override
@@ -291,8 +390,8 @@ class JustAudioService extends FmpAudioService with Logging {
     }
     _subscriptions.clear();
 
-    await _completedController.close();
-    await _errorController.close();
+    await _endReasonController.close();
+    await _advancedToNextController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();
@@ -322,6 +421,8 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> stop() async {
+    // 停下來等於清空後端的播放清單，前瞻項目跟著作廢。
+    _nextMedia = null;
     await _player.stop();
     // 释放音频焦点
     await _session.setActive(false);
@@ -331,10 +432,12 @@ class JustAudioService extends FmpAudioService with Logging {
     _positionController.add(Duration.zero);
     _processingStateController.add(FmpAudioProcessingState.idle);
     _playingController.add(false);
-    _playerStateController.add(const FmpPlayerState(
-      playing: false,
-      processingState: FmpAudioProcessingState.idle,
-    ));
+    _playerStateController.add(
+      const FmpPlayerState(
+        playing: false,
+        processingState: FmpAudioProcessingState.idle,
+      ),
+    );
   }
 
   @override
@@ -355,31 +458,14 @@ class JustAudioService extends FmpAudioService with Logging {
   }
 
   @override
-  Future<void> seekForward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _player.position + seekDuration;
-    final maxPosition = _player.duration ?? Duration.zero;
-    await _player.seek(newPosition > maxPosition ? maxPosition : newPosition);
-  }
-
-  @override
-  Future<void> seekBackward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _player.position - seekDuration;
-    await _player
-        .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
-  }
-
-  @override
   Future<bool> seekToLive() async {
     // 策略 1：用 duration（有些流会提供）
     final currentDuration = _player.duration;
     if (currentDuration != null && currentDuration.inSeconds >= 5) {
       final targetPosition = currentDuration - const Duration(seconds: 1);
       logInfo(
-          'seekToLive: seeking to $targetPosition (duration: $currentDuration)');
+        'seekToLive: seeking to $targetPosition (duration: $currentDuration)',
+      );
       final positionBefore = _player.position;
       await _player.seek(targetPosition);
       // 等待 seek 生效后验证
@@ -389,7 +475,8 @@ class JustAudioService extends FmpAudioService with Logging {
           (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
       if (!seekWorked) {
         logInfo(
-            'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter)');
+          'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter)',
+        );
         // 继续尝试策略 2
       } else {
         return true;
@@ -401,7 +488,8 @@ class JustAudioService extends FmpAudioService with Logging {
     if (buffered.inSeconds >= 5) {
       final targetPosition = buffered - const Duration(seconds: 1);
       logInfo(
-          'seekToLive: seeking to buffered edge $targetPosition (buffered: $buffered)');
+        'seekToLive: seeking to buffered edge $targetPosition (buffered: $buffered)',
+      );
       final positionBefore = _player.position;
       await _player.seek(targetPosition);
       await Future.delayed(const Duration(milliseconds: 300));
@@ -410,14 +498,16 @@ class JustAudioService extends FmpAudioService with Logging {
           (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
       if (!seekWorked) {
         logInfo(
-            'seekToLive: buffered seek had no effect (before: $positionBefore, after: $positionAfter)');
+          'seekToLive: buffered seek had no effect (before: $positionBefore, after: $positionAfter)',
+        );
         return false;
       }
       return true;
     }
 
     logInfo(
-        'seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)');
+      'seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)',
+    );
     return false;
   }
 
@@ -460,7 +550,8 @@ class JustAudioService extends FmpAudioService with Logging {
     if (_player.processingState == ja.ProcessingState.idle) return;
 
     logDebug(
-        'Waiting for player to be idle, current state: ${_player.processingState}');
+      'Waiting for player to be idle, current state: ${_player.processingState}',
+    );
     try {
       await _player.playerStateStream
           .where((s) => s.processingState == ja.ProcessingState.idle)
@@ -475,28 +566,42 @@ class JustAudioService extends FmpAudioService with Logging {
   @override
   Future<Duration?> playMedia(PreparedPlaybackMedia media) {
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        playFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        playUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => playFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => playUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
   @override
   Future<Duration?> setMedia(PreparedPlaybackMedia media) {
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        setFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        setUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => setFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => setUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
   @override
-  Future<Duration?> playUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> playUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     logDebug(
-        'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
+      'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...',
+    );
     if (headers != null) {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
@@ -507,20 +612,20 @@ class JustAudioService extends FmpAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(const FmpPlayerState(
-        playing: false,
-        processingState: FmpAudioProcessingState.loading,
-      ));
+      _playerStateController.add(
+        const FmpPlayerState(
+          playing: false,
+          processingState: FmpAudioProcessingState.loading,
+        ),
+      );
 
       // 激活音频会话
       await _session.setActive(true);
 
       // 使用 just_audio 的 AudioSource.uri（支持 headers）
-      final source = ja.AudioSource.uri(
-        Uri.parse(url),
-        headers: headers,
+      final duration = await _setSingleSource(
+        ja.AudioSource.uri(Uri.parse(url), headers: headers),
       );
-      final duration = await _player.setAudioSource(source);
 
       logDebug('URL loaded successfully, duration: $duration');
 
@@ -539,19 +644,21 @@ class JustAudioService extends FmpAudioService with Logging {
   }
 
   @override
-  Future<Duration?> setUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> setUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     logDebug(
-        'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
+      'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...',
+    );
     try {
       _processingStateController.add(FmpAudioProcessingState.loading);
       await _session.setActive(true);
 
-      final source = ja.AudioSource.uri(
-        Uri.parse(url),
-        headers: headers,
+      final duration = await _setSingleSource(
+        ja.AudioSource.uri(Uri.parse(url), headers: headers),
       );
-      final duration = await _player.setAudioSource(source);
 
       logDebug('URL set, duration: $duration');
       return duration;
@@ -570,15 +677,16 @@ class JustAudioService extends FmpAudioService with Logging {
       await _waitForIdle();
 
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(const FmpPlayerState(
-        playing: false,
-        processingState: FmpAudioProcessingState.loading,
-      ));
+      _playerStateController.add(
+        const FmpPlayerState(
+          playing: false,
+          processingState: FmpAudioProcessingState.loading,
+        ),
+      );
 
       await _session.setActive(true);
 
-      final source = ja.AudioSource.file(filePath);
-      final duration = await _player.setAudioSource(source);
+      final duration = await _setSingleSource(ja.AudioSource.file(filePath));
 
       // 与 playUrl() 同理，不 await play()
       unawaited(_player.play());
@@ -598,14 +706,80 @@ class JustAudioService extends FmpAudioService with Logging {
       _processingStateController.add(FmpAudioProcessingState.loading);
       await _session.setActive(true);
 
-      final source = ja.AudioSource.file(filePath);
-      final duration = await _player.setAudioSource(source);
+      final duration = await _setSingleSource(ja.AudioSource.file(filePath));
 
       logDebug('File set, duration: $duration');
       return duration;
     } catch (e, stack) {
       logError('Failed to set file', e, stack);
       rethrow;
+    }
+  }
+  // ========== 前瞻媒體 ==========
+
+  /// 開一份只有一個項目的播放清單。
+  ///
+  /// 包一層 `ConcatenatingAudioSource` 而不是直接設單一來源，是因為單一來源
+  /// 沒有辦法在播放中追加第二個項目，只能整個重設 —— 而重設就是重新開媒體，
+  /// 正是 [setNextMedia] 要避免的那件事。只有一個 child 時兩者行為相同。
+  Future<Duration?> _setSingleSource(ja.AudioSource source) {
+    _nextMedia = null;
+    final playlist = ja.ConcatenatingAudioSource(
+      children: [source],
+      // 第二個項目一接上就要開始準備，否則交界處還是要等它開媒體。
+      useLazyPreparation: false,
+    );
+    _playlist = playlist;
+    return _player.setAudioSource(playlist);
+  }
+
+  /// headers 隨每個項目走，沒有全域狀態 —— 這是 Android 側能安全前瞻的原因。
+  ja.AudioSource _sourceFor(PreparedPlaybackMedia media) => switch (media) {
+    LocalPlaybackMedia(:final path) => ja.AudioSource.file(path),
+    RemotePlaybackMedia(:final url, :final headers) => ja.AudioSource.uri(
+      url,
+      headers: headers,
+    ),
+  };
+
+  @override
+  Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
+    final playlist = _playlist;
+    if (playlist == null) {
+      // 還沒有東西在播，沒有可以接上去的位置。
+      _nextMedia = null;
+      return;
+    }
+
+    // 清單永遠是「當前項目 ＋ 最多一個前瞻」。
+    final currentIndex = _player.currentIndex ?? 0;
+    while (playlist.children.length > currentIndex + 1) {
+      await playlist.removeAt(playlist.children.length - 1);
+    }
+    _nextMedia = null;
+
+    if (media == null) {
+      logDebug('Next medium cleared');
+      return;
+    }
+
+    await playlist.add(_sourceFor(media));
+    _nextMedia = media;
+    logDebug('Next medium armed: ${media.debugUrl}');
+  }
+
+  /// 移掉剛剛播完、留在清單前面的那一個項目。
+  ///
+  /// 不移的話清單每首歌長一個 child，而 `useLazyPreparation: false` 代表每個
+  /// child 都是一條已經開著的連線。移完之後當前項目回到 index 0，
+  /// 「下一首」永遠是 index 1。
+  Future<void> _trimPlayedEntry() async {
+    final playlist = _playlist;
+    if (playlist == null || playlist.children.length <= 1) return;
+    try {
+      await playlist.removeAt(0);
+    } catch (e, stack) {
+      logError('Failed to trim the played playlist entry', e, stack);
     }
   }
 }

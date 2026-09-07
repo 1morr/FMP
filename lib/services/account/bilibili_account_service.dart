@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../core/logger.dart';
 import '../../data/models/account.dart';
@@ -14,6 +15,7 @@ import 'account_service.dart';
 import 'bilibili_credentials.dart';
 import 'bilibili_crypto.dart';
 import 'http_cookie_parser.dart';
+import '../../data/repositories/account_repository.dart';
 
 /// QR 碼數據
 class QrCodeData {
@@ -65,23 +67,21 @@ class BilibiliAccountService extends AccountService with Logging {
   final Dio _dio;
   final BilibiliLiveClient _liveClient;
   final FlutterSecureStorage _secureStorage;
-  final Isar _isar;
+  final AccountRepository _accounts;
   BilibiliCredentials? _cachedCredentials;
 
   static const String _storageKey = 'account_bilibili_credentials';
   static const String _apiBase = 'https://api.bilibili.com';
   static const String _passportBase = 'https://passport.bilibili.com';
 
-  BilibiliAccountService({
-    required Isar isar,
-    BilibiliLiveClient? liveClient,
-  })  : _isar = isar,
-        _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(SourceType.bilibili),
-        _liveClient = liveClient ?? BilibiliLiveClient();
+  BilibiliAccountService({required Isar isar, BilibiliLiveClient? liveClient})
+    : _accounts = AccountRepository(isar),
+      _secureStorage = const FlutterSecureStorage(),
+      _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili),
+      _liveClient = liveClient ?? BilibiliLiveClient();
 
   @override
-  SourceType get platform => SourceType.bilibili;
+  String get platform => SourceIds.bilibili;
 
   // ===== 登錄 =====
 
@@ -95,7 +95,8 @@ class BilibiliAccountService extends AccountService with Logging {
   }) async {
     if (sessdata.isEmpty || biliJct.isEmpty || dedeUserId.isEmpty) {
       throw ArgumentError(
-          'Invalid Bilibili credentials: required cookies are empty');
+        'Invalid Bilibili credentials: required cookies are empty',
+      );
     }
 
     final credentials = BilibiliCredentials(
@@ -217,16 +218,20 @@ class BilibiliAccountService extends AccountService with Logging {
           logError('QR code poll error', e);
           consecutiveErrors++;
           if (consecutiveErrors >= maxConsecutiveErrors) {
-            controller.add(QrCodePollResult(
-              status: QrCodeStatus.expired,
-              message: 'Network error',
-            ));
+            controller.add(
+              QrCodePollResult(
+                status: QrCodeStatus.expired,
+                message: 'Network error',
+              ),
+            );
             return;
           }
-          controller.add(QrCodePollResult(
-            status: QrCodeStatus.waiting,
-            message: e.toString(),
-          ));
+          controller.add(
+            QrCodePollResult(
+              status: QrCodeStatus.waiting,
+              message: e.toString(),
+            ),
+          );
         }
       }
 
@@ -273,10 +278,7 @@ class BilibiliAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _isar.accounts
-        .filter()
-        .platformEqualTo(SourceType.bilibili)
-        .findFirst();
+    return _accounts.getByPlatform(SourceIds.bilibili);
   }
 
   @override
@@ -287,6 +289,21 @@ class BilibiliAccountService extends AccountService with Logging {
 
     // 更新 Account 記錄
     await _updateAccount(isLoggedIn: false);
+
+    // 清除 WebView cookies，避免重新登入時自動使用舊帳號。
+    // 域名與 bilibili_login_page.dart 載入的三個一致。
+    try {
+      final cookieManager = CookieManager.instance();
+      for (final url in const [
+        'https://bilibili.com',
+        'https://www.bilibili.com',
+        'https://passport.bilibili.com',
+      ]) {
+        await cookieManager.deleteCookies(url: WebUri(url));
+      }
+    } catch (e) {
+      logWarning('Failed to clear WebView cookies: $e');
+    }
 
     logInfo('Bilibili logged out');
   }
@@ -362,7 +379,8 @@ class BilibiliAccountService extends AccountService with Logging {
       final refreshData = refreshResponse.data;
       if (refreshData['code'] != 0) {
         logWarning(
-            'Cookie refresh failed, code: ${refreshData['code']}, message: ${refreshData['message']}');
+          'Cookie refresh failed, code: ${refreshData['code']}, message: ${refreshData['message']}',
+        );
         return false;
       }
 
@@ -544,24 +562,15 @@ class BilibiliAccountService extends AccountService with Logging {
     DateTime? loginAt,
     bool? isVip,
   }) async {
-    await _isar.writeTxn(() async {
-      var account = await _isar.accounts
-          .filter()
-          .platformEqualTo(SourceType.bilibili)
-          .findFirst();
-
-      account ??= Account()..platform = SourceType.bilibili;
-
-      if (isLoggedIn != null) account.isLoggedIn = isLoggedIn;
-      if (userId != null) account.userId = userId;
-      if (userName != null) account.userName = userName;
-      if (avatarUrl != null) account.avatarUrl = avatarUrl;
-      if (loginAt != null) account.loginAt = loginAt;
-      if (isVip != null) account.isVip = isVip;
-      account.lastRefreshed = DateTime.now();
-
-      await _isar.accounts.put(account);
-    });
+    await _accounts.upsert(
+      SourceIds.bilibili,
+      isLoggedIn: isLoggedIn,
+      userId: userId,
+      userName: userName,
+      avatarUrl: avatarUrl,
+      loginAt: loginAt,
+      isVip: isVip,
+    );
   }
 
   /// 從 HTTP 響應中提取 Set-Cookie

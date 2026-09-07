@@ -4,14 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/ui_constants.dart';
+import '../errors/user_message.dart';
+import '../logger.dart';
 
 /// Toast 消息类型
-enum ToastType {
-  info,
-  success,
-  warning,
-  error,
-}
+enum ToastType { info, success, warning, error }
 
 /// Toast 消息（用于 Stream 传递）
 class ToastMessage {
@@ -19,10 +16,8 @@ class ToastMessage {
   final ToastType type;
   final DateTime timestamp;
 
-  ToastMessage({
-    required this.message,
-    this.type = ToastType.info,
-  }) : timestamp = DateTime.now();
+  ToastMessage({required this.message, this.type = ToastType.info})
+    : timestamp = DateTime.now();
 }
 
 /// 统一的消息提示服务
@@ -58,26 +53,30 @@ class ToastService {
 
   /// 发送普通消息到流
   void showInfo(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.info));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.info),
+    );
   }
 
   /// 发送成功消息到流
   void showSuccess(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.success));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.success),
+    );
   }
 
   /// 发送警告消息到流
   void showWarning(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.warning));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.warning),
+    );
   }
 
   /// 发送错误消息到流
   void showError(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.error));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.error),
+    );
   }
 
   void dispose() {
@@ -115,14 +114,12 @@ class ToastService {
           Icon(icon, color: Colors.white, size: 20),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(message, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
-      duration: duration ??
+      duration:
+          duration ??
           (type == ToastType.error || type == ToastType.warning
               ? ToastDurations.long
               : ToastDurations.short),
@@ -139,8 +136,11 @@ class ToastService {
   }
 
   /// 显示成功消息
-  static void success(BuildContext context, String message,
-      {Duration? duration}) {
+  static void success(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
     showSnackBarNow(
       context,
       buildSnackBar(
@@ -153,8 +153,11 @@ class ToastService {
   }
 
   /// 显示错误消息
-  static void error(BuildContext context, String message,
-      {Duration? duration}) {
+  static void error(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
     showSnackBarNow(
       context,
       buildSnackBar(
@@ -166,9 +169,32 @@ class ToastService {
     );
   }
 
+  /// 顯示一個例外，並把原文寫進 log。
+  ///
+  /// 這是 UI 顯示例外的唯一入口。畫面上只會出現 [userMessageFor] 翻出來的一句
+  /// 話，例外原文與 stack 進 `AppLogger.error` —— App 內的日誌檢視頁看得到，
+  /// 使用者看不到。直接把 `e.toString()` 交給 [error] 是 04 報告的 P1-7，
+  /// `test/ui/static_rules/error_presentation_static_rule_test.dart` 守著它。
+  ///
+  /// [tag] 是 log 的分類標籤，通常給呼叫端的頁面或服務名。
+  static void failure(
+    BuildContext context,
+    Object error, {
+    StackTrace? stackTrace,
+    String? tag,
+    Duration? duration,
+  }) {
+    // 原文放 LogEntry.error（會走 redactSensitive），不要再抄進 message 一份。
+    AppLogger.error('Reported to the user as a toast', error, stackTrace, tag);
+    ToastService.error(context, userMessageFor(error), duration: duration);
+  }
+
   /// 显示警告消息
-  static void warning(BuildContext context, String message,
-      {Duration? duration}) {
+  static void warning(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
     showSnackBarNow(
       context,
       buildSnackBar(
@@ -194,20 +220,14 @@ class ToastService {
         context,
         message: message,
         duration: duration,
-        action: SnackBarAction(
-          label: actionLabel,
-          onPressed: onAction,
-        ),
+        action: SnackBarAction(label: actionLabel, onPressed: onAction),
       ),
     );
   }
 
   /// 立即显示 [snackBar]，替换当前可见或排队中的 Toast。
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
-      showSnackBarNow(
-    BuildContext context,
-    SnackBar snackBar,
-  ) {
+  showSnackBarNow(BuildContext context, SnackBar snackBar) {
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
     messenger.removeCurrentSnackBar();
@@ -220,7 +240,7 @@ class ToastService {
   /// pop 之后原 BuildContext 已失效，无法再透过 `ScaffoldMessenger.of`
   /// 取得 messenger。清除/替换语义与 [showSnackBarNow] 一致。
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
-      showSnackBarWithMessenger(
+  showSnackBarWithMessenger(
     ScaffoldMessengerState messenger,
     SnackBar snackBar,
   ) {

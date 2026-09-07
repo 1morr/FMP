@@ -81,11 +81,7 @@ class PlaylistCard extends StatelessWidget {
     );
 
     if (enableInkWell) {
-      content = InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: content,
-      );
+      content = InkWell(onTap: onTap, onLongPress: onLongPress, child: content);
     }
 
     if (dragHandle != null) {
@@ -97,11 +93,7 @@ class PlaylistCard extends StatelessWidget {
       );
     }
 
-    return Card(
-      margin: margin,
-      clipBehavior: Clip.antiAlias,
-      child: content,
-    );
+    return Card(margin: margin, clipBehavior: Clip.antiAlias, child: content);
   }
 }
 
@@ -130,11 +122,7 @@ class _PlaylistCardInfo extends StatelessWidget {
         Row(
           children: [
             if (playlist.isMix) ...[
-              Icon(
-                Icons.radio,
-                size: 12,
-                color: colorScheme.tertiary,
-              ),
+              Icon(Icons.radio, size: 12, color: colorScheme.tertiary),
               const SizedBox(width: 4),
               Text(
                 'Mix',

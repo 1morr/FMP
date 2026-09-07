@@ -12,7 +12,7 @@ void main() {
       const e = BilibiliApiException(numericCode: -404, message: 'Not found');
       expect(e.isUnavailable, isTrue);
       expect(e.code, 'unavailable');
-      expect(e.sourceType, SourceType.bilibili);
+      expect(e.sourceType, SourceIds.bilibili);
     });
 
     test('isUnavailable for 62002', () {
@@ -21,21 +21,27 @@ void main() {
     });
 
     test('isRateLimited for -412', () {
-      const e =
-          BilibiliApiException(numericCode: -412, message: 'Rate limited');
+      const e = BilibiliApiException(
+        numericCode: -412,
+        message: 'Rate limited',
+      );
       expect(e.isRateLimited, isTrue);
       expect(e.code, 'rate_limited');
     });
 
     test('isRateLimited for -509', () {
-      const e =
-          BilibiliApiException(numericCode: -509, message: 'Rate limited');
+      const e = BilibiliApiException(
+        numericCode: -509,
+        message: 'Rate limited',
+      );
       expect(e.isRateLimited, isTrue);
     });
 
     test('requiresLogin for -101', () {
-      const e =
-          BilibiliApiException(numericCode: -101, message: 'Login required');
+      const e = BilibiliApiException(
+        numericCode: -101,
+        message: 'Login required',
+      );
       expect(e.requiresLogin, isTrue);
       expect(e.code, 'login_required');
     });
@@ -149,8 +155,10 @@ void main() {
     });
 
     test('isPrivateOrInaccessible', () {
-      const e =
-          YouTubeApiException(code: 'private_or_inaccessible', message: 'test');
+      const e = YouTubeApiException(
+        code: 'private_or_inaccessible',
+        message: 'test',
+      );
       expect(e.isPrivateOrInaccessible, isTrue);
       expect(e.isPermissionDenied, isTrue);
     });
@@ -178,7 +186,7 @@ void main() {
 
     test('sourceType is youtube', () {
       const e = YouTubeApiException(code: 'test', message: 'test');
-      expect(e.sourceType, SourceType.youtube);
+      expect(e.sourceType, SourceIds.youtube);
     });
 
     test('maps YouTube diagnostic codes to shared kinds', () {
@@ -187,8 +195,10 @@ void main() {
         SourceErrorKind.rateLimited,
       );
       expect(
-        const YouTubeApiException(code: 'login_required', message: 'Login')
-            .kind,
+        const YouTubeApiException(
+          code: 'login_required',
+          message: 'Login',
+        ).kind,
         SourceErrorKind.loginRequired,
       );
       expect(
@@ -277,7 +287,7 @@ void main() {
 
     test('sourceType is netease', () {
       const e = NeteaseApiException(numericCode: 0, message: 'test');
-      expect(e.sourceType, SourceType.netease);
+      expect(e.sourceType, SourceIds.netease);
     });
 
     test('isGeoRestricted for copyright or region restriction', () {
@@ -378,8 +388,11 @@ void main() {
       ];
 
       for (final e in exceptions) {
-        expect(e.isUnavailable, isTrue,
-            reason: '${e.runtimeType} should be unavailable');
+        expect(
+          e.isUnavailable,
+          isTrue,
+          reason: '${e.runtimeType} should be unavailable',
+        );
         expect(e.code, isNotEmpty);
         expect(e.message, isNotEmpty);
       }
@@ -390,9 +403,9 @@ void main() {
       const y = YouTubeApiException(code: 'test', message: 'test');
       const n = NeteaseApiException(numericCode: 0, message: 'test');
 
-      expect(b.sourceType, SourceType.bilibili);
-      expect(y.sourceType, SourceType.youtube);
-      expect(n.sourceType, SourceType.netease);
+      expect(b.sourceType, SourceIds.bilibili);
+      expect(y.sourceType, SourceIds.youtube);
+      expect(n.sourceType, SourceIds.netease);
     });
   });
 }

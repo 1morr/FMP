@@ -3,13 +3,10 @@ import 'dart:collection';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
+import 'log_file_sink.dart';
+
 /// 日志级别
-enum LogLevel {
-  debug,
-  info,
-  warning,
-  error,
-}
+enum LogLevel { debug, info, warning, error }
 
 /// 日志条目
 class LogEntry {
@@ -30,11 +27,11 @@ class LogEntry {
   });
 
   String get levelPrefix => switch (level) {
-        LogLevel.debug => 'D',
-        LogLevel.info => 'I',
-        LogLevel.warning => 'W',
-        LogLevel.error => 'E',
-      };
+    LogLevel.debug => 'D',
+    LogLevel.info => 'I',
+    LogLevel.warning => 'W',
+    LogLevel.error => 'E',
+  };
 
   String get formattedTime {
     final h = timestamp.hour.toString().padLeft(2, '0');
@@ -49,6 +46,21 @@ class LogEntry {
     final tagStr = tag != null ? '[$tag] ' : '';
     return '[$levelPrefix] $formattedTime $tagStr$message';
   }
+
+  /// 落盤用的格式。跟 [toString] 分開：畫面上的一行不需要日期，但輪替後的
+  /// log 檔會跨天，而且 error 與 stack trace 正是事後翻 log 要看的東西。
+  String toFileLine() {
+    final date =
+        '${timestamp.year.toString().padLeft(4, '0')}-'
+        '${timestamp.month.toString().padLeft(2, '0')}-'
+        '${timestamp.day.toString().padLeft(2, '0')}';
+    final buffer = StringBuffer('$date $formattedTime [$levelPrefix] ')
+      ..write(tag != null ? '[$tag] ' : '')
+      ..write(message);
+    if (error != null) buffer.write('\n  Error: $error');
+    if (stackTrace != null) buffer.write('\n  StackTrace: $stackTrace');
+    return buffer.toString();
+  }
 }
 
 /// 简单日志工具
@@ -61,6 +73,10 @@ class AppLogger {
 
   /// 日志流控制器（用于实时更新）
   static final _logStreamController = StreamController<LogEntry>.broadcast();
+
+  /// 落盤 sink。要等 `WidgetsFlutterBinding.ensureInitialized()` 之後才裝得起來
+  /// （`path_provider` 需要 binding），而 `main.dart` 的兩個錯誤處理器掛在那之前。
+  static LogFileSink? _fileSink;
 
   static final RegExp _authorizationPattern = RegExp(
     r"""(["']?Authorization["']?\s*[:=]\s*["']?)([^"',;}\r\n]+)""",
@@ -82,6 +98,9 @@ class AppLogger {
     'MUSIC_U',
     'musicU',
     '__csrf',
+    // Bilibili 的写操作把 bili_jct 的值作为裸 csrf 参数发出
+    // （bilibili_favorites_service.dart:131 等），只遮 __csrf 漏掉这一路。
+    'csrf',
     'eparams',
     'SESSDATA',
     'bili_jct',
@@ -130,6 +149,31 @@ class AppLogger {
     _minLevel = level;
   }
 
+  /// 目前的最小日志级别。
+  static LogLevel get minLevel => _minLevel;
+
+  /// 目前掛著的落盤 sink，沒有就是 null。
+  static LogFileSink? get fileSink => _fileSink;
+
+  /// 開始把 log 寫進檔案。
+  ///
+  /// 掛上之後第一件事是把既有的記憶體緩衝整個倒進檔案 —— 啟動期的 log 在
+  /// sink 就緒之前就已經產生了（binding 初始化之前的錯誤處理器就會記），
+  /// 而那正是最需要事後翻的一批。緩衝有 500 筆，遠大於啟動期的產量。
+  static Future<void> attachFileSink(LogFileSink sink) async {
+    await sink.open();
+    if (!sink.isOpen) return;
+    _fileSink = sink;
+    for (final entry in _logBuffer) {
+      sink.write(entry.toFileLine());
+    }
+  }
+
+  /// 卸下落盤 sink（測試用）。
+  static void detachFileSink() {
+    _fileSink = null;
+  }
+
   static String redactSensitive(String input) {
     var redacted = input;
     redacted = redacted.replaceAllMapped(
@@ -140,10 +184,7 @@ class AppLogger {
       _sapisidHashPattern,
       'SAPISIDHASH [REDACTED]',
     );
-    redacted = redacted.replaceAll(
-      _bearerPattern,
-      'Bearer [REDACTED]',
-    );
+    redacted = redacted.replaceAll(_bearerPattern, 'Bearer [REDACTED]');
     redacted = redacted.replaceAllMapped(
       _cookieHeaderPattern,
       (match) => '${match.group(1)}[REDACTED]',
@@ -174,8 +215,12 @@ class AppLogger {
   }
 
   /// 错误日志
-  static void error(String message,
-      [Object? error, StackTrace? stackTrace, String? tag]) {
+  static void error(
+    String message, [
+    Object? error,
+    StackTrace? stackTrace,
+    String? tag,
+  ]) {
     _log(LogLevel.error, message, tag, error, stackTrace);
   }
 
@@ -188,8 +233,9 @@ class AppLogger {
   ]) {
     if (level.index < _minLevel.index) return;
     final safeMessage = redactSensitive(message);
-    final Object? safeError =
-        error == null ? null : redactSensitive(error.toString());
+    final Object? safeError = error == null
+        ? null
+        : redactSensitive(error.toString());
 
     final prefix = switch (level) {
       LogLevel.debug => '[DEBUG]',
@@ -219,6 +265,9 @@ class AppLogger {
 
     // 发送到流
     _logStreamController.add(entry);
+
+    // 落盤寫的是同一份已 redact 的內容
+    _fileSink?.write(entry.toFileLine());
 
     // 在 debug 模式下使用 developer.log，release 模式下使用 debugPrint
     if (kDebugMode) {

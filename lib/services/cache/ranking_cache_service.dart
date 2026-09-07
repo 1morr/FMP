@@ -16,134 +16,68 @@ import '../network/connectivity_service.dart';
 /// - 網絡恢復時自動重新獲取數據
 /// - 用戶進入首頁時直接顯示緩存，無需等待
 /// - 緩存完整數據，首頁預覽只顯示前 10 首，探索頁使用完整緩存
+///
+/// 本服務對音源種類完全不知情：要刷新哪些榜單由 `SourceManager` 註冊的
+/// `RankingSource` 決定，每個榜單的請求參數與名稱由 adapter 自己提供。
 class RankingCacheState {
-  final Map<SourceType, List<Track>> _tracksBySource;
-  final Map<SourceType, bool> _loadedBySource;
-  final Map<SourceType, String> _errorsBySource;
+  final Map<String, List<Track>> _tracksBySource;
+  final Map<String, bool> _loadedBySource;
+  final Map<String, String> _errorsBySource;
   final bool isInitialLoading;
 
   RankingCacheState({
-    Map<SourceType, List<Track>> tracksBySource = const {},
-    Map<SourceType, bool> loadedBySource = const {},
-    Map<SourceType, String> errorsBySource = const {},
-    List<Track> bilibiliTracks = const [],
-    List<Track> youtubeTracks = const [],
-    List<Track> neteaseTracks = const [],
+    Map<String, List<Track>> tracksBySource = const {},
+    Map<String, bool> loadedBySource = const {},
+    Map<String, String> errorsBySource = const {},
     this.isInitialLoading = true,
-    bool bilibiliLoaded = false,
-    bool youtubeLoaded = false,
-    bool neteaseLoaded = false,
-    String? bilibiliError,
-    String? youtubeError,
-    String? neteaseError,
-  })  : _tracksBySource = _buildTracksBySource(
-          tracksBySource: tracksBySource,
-          bilibiliTracks: bilibiliTracks,
-          youtubeTracks: youtubeTracks,
-          neteaseTracks: neteaseTracks,
-        ),
-        _loadedBySource = _buildLoadedBySource(
-          loadedBySource: loadedBySource,
-          bilibiliLoaded: bilibiliLoaded,
-          youtubeLoaded: youtubeLoaded,
-          neteaseLoaded: neteaseLoaded,
-        ),
-        _errorsBySource = _buildErrorsBySource(
-          errorsBySource: errorsBySource,
-          bilibiliError: bilibiliError,
-          youtubeError: youtubeError,
-          neteaseError: neteaseError,
-        );
+  }) : _tracksBySource = _freezeTracks(tracksBySource),
+       _loadedBySource = Map.unmodifiable(loadedBySource),
+       _errorsBySource = Map.unmodifiable(errorsBySource);
 
-  List<Track> tracksFor(SourceType sourceType) {
+  List<Track> tracksFor(String sourceType) {
     return _tracksBySource[sourceType] ?? const [];
   }
 
-  bool isLoaded(SourceType sourceType) {
+  bool isLoaded(String sourceType) {
     return _loadedBySource[sourceType] ?? false;
   }
 
-  String? errorFor(SourceType sourceType) {
+  String? errorFor(String sourceType) {
     return _errorsBySource[sourceType];
   }
 
-  List<Track> get bilibiliTracks => tracksFor(SourceType.bilibili);
-  List<Track> get youtubeTracks => tracksFor(SourceType.youtube);
-  List<Track> get neteaseTracks => tracksFor(SourceType.netease);
-
-  bool get bilibiliLoaded => isLoaded(SourceType.bilibili);
-  bool get youtubeLoaded => isLoaded(SourceType.youtube);
-  bool get neteaseLoaded => isLoaded(SourceType.netease);
-
-  String? get bilibiliError => errorFor(SourceType.bilibili);
-  String? get youtubeError => errorFor(SourceType.youtube);
-  String? get neteaseError => errorFor(SourceType.netease);
-
   RankingCacheState copyWith({
-    Map<SourceType, List<Track>>? tracksBySource,
-    Map<SourceType, bool>? loadedBySource,
-    Map<SourceType, String>? errorsBySource,
-    List<Track>? bilibiliTracks,
-    List<Track>? youtubeTracks,
-    List<Track>? neteaseTracks,
+    Map<String, List<Track>>? tracksBySource,
+    Map<String, bool>? loadedBySource,
+    Map<String, String>? errorsBySource,
     bool? isInitialLoading,
-    bool? bilibiliLoaded,
-    bool? youtubeLoaded,
-    bool? neteaseLoaded,
-    String? bilibiliError,
-    String? youtubeError,
-    String? neteaseError,
-    bool clearBilibiliError = false,
-    bool clearYoutubeError = false,
-    bool clearNeteaseError = false,
   }) {
     return RankingCacheState(
-      tracksBySource: _mergeTracksBySource(
-        base: _tracksBySource,
-        tracksBySource: tracksBySource,
-        bilibiliTracks: bilibiliTracks,
-        youtubeTracks: youtubeTracks,
-        neteaseTracks: neteaseTracks,
-      ),
-      loadedBySource: _mergeLoadedBySource(
-        base: _loadedBySource,
-        loadedBySource: loadedBySource,
-        bilibiliLoaded: bilibiliLoaded,
-        youtubeLoaded: youtubeLoaded,
-        neteaseLoaded: neteaseLoaded,
-      ),
-      errorsBySource: _mergeErrorsBySource(
-        base: _errorsBySource,
-        errorsBySource: errorsBySource,
-        bilibiliError: bilibiliError,
-        youtubeError: youtubeError,
-        neteaseError: neteaseError,
-        clearBilibiliError: clearBilibiliError,
-        clearYoutubeError: clearYoutubeError,
-        clearNeteaseError: clearNeteaseError,
-      ),
+      tracksBySource: tracksBySource ?? _tracksBySource,
+      loadedBySource: loadedBySource ?? _loadedBySource,
+      errorsBySource: errorsBySource ?? _errorsBySource,
       isInitialLoading: isInitialLoading ?? this.isInitialLoading,
     );
   }
 
   RankingCacheState updateSource(
-    SourceType sourceType, {
+    String sourceType, {
     List<Track>? tracks,
     bool? loaded,
     String? error,
     bool clearError = false,
   }) {
-    final nextTracks = Map<SourceType, List<Track>>.from(_tracksBySource);
+    final nextTracks = Map<String, List<Track>>.from(_tracksBySource);
     if (tracks != null) {
-      nextTracks[sourceType] = List.unmodifiable(List<Track>.of(tracks));
+      nextTracks[sourceType] = List<Track>.unmodifiable(tracks);
     }
 
-    final nextLoaded = Map<SourceType, bool>.from(_loadedBySource);
+    final nextLoaded = Map<String, bool>.from(_loadedBySource);
     if (loaded != null) {
       nextLoaded[sourceType] = loaded;
     }
 
-    final nextErrors = Map<SourceType, String>.from(_errorsBySource);
+    final nextErrors = Map<String, String>.from(_errorsBySource);
     if (clearError) {
       nextErrors.remove(sourceType);
     } else if (error != null) {
@@ -158,152 +92,68 @@ class RankingCacheState {
     );
   }
 
-  static Map<SourceType, List<Track>> _buildTracksBySource({
-    required Map<SourceType, List<Track>> tracksBySource,
-    required List<Track> bilibiliTracks,
-    required List<Track> youtubeTracks,
-    required List<Track> neteaseTracks,
-  }) {
-    final merged = <SourceType, List<Track>>{
-      SourceType.bilibili: List.unmodifiable(bilibiliTracks),
-      SourceType.youtube: List.unmodifiable(youtubeTracks),
-      SourceType.netease: List.unmodifiable(neteaseTracks),
+  static Map<String, List<Track>> _freezeTracks(
+    Map<String, List<Track>> tracksBySource,
+  ) {
+    // 型別參數必須寫出來：在 map literal 裡 `List.unmodifiable(...)` 沒有向下
+    // 推導的目標型別，會推成 `List<dynamic>`，之後讀取時才炸。
+    final frozen = <String, List<Track>>{
+      for (final entry in tracksBySource.entries)
+        entry.key: List<Track>.unmodifiable(entry.value),
     };
-    tracksBySource.forEach((sourceType, tracks) {
-      merged[sourceType] = List.unmodifiable(List<Track>.of(tracks));
-    });
-    return Map.unmodifiable(merged);
-  }
-
-  static Map<SourceType, bool> _buildLoadedBySource({
-    required Map<SourceType, bool> loadedBySource,
-    required bool bilibiliLoaded,
-    required bool youtubeLoaded,
-    required bool neteaseLoaded,
-  }) {
-    final merged = <SourceType, bool>{
-      SourceType.bilibili: bilibiliLoaded,
-      SourceType.youtube: youtubeLoaded,
-      SourceType.netease: neteaseLoaded,
-    };
-    merged.addAll(loadedBySource);
-    return Map.unmodifiable(merged);
-  }
-
-  static Map<SourceType, String> _buildErrorsBySource({
-    required Map<SourceType, String> errorsBySource,
-    String? bilibiliError,
-    String? youtubeError,
-    String? neteaseError,
-  }) {
-    final merged = <SourceType, String>{
-      if (bilibiliError != null) SourceType.bilibili: bilibiliError,
-      if (youtubeError != null) SourceType.youtube: youtubeError,
-      if (neteaseError != null) SourceType.netease: neteaseError,
-    };
-    merged.addAll(errorsBySource);
-    return Map.unmodifiable(merged);
-  }
-
-  static Map<SourceType, List<Track>> _mergeTracksBySource({
-    required Map<SourceType, List<Track>> base,
-    Map<SourceType, List<Track>>? tracksBySource,
-    List<Track>? bilibiliTracks,
-    List<Track>? youtubeTracks,
-    List<Track>? neteaseTracks,
-  }) {
-    final merged = Map<SourceType, List<Track>>.from(base);
-    if (tracksBySource != null) {
-      tracksBySource.forEach((sourceType, tracks) {
-        merged[sourceType] = List.unmodifiable(List<Track>.of(tracks));
-      });
-    }
-    if (bilibiliTracks != null) {
-      merged[SourceType.bilibili] = List.unmodifiable(bilibiliTracks);
-    }
-    if (youtubeTracks != null) {
-      merged[SourceType.youtube] = List.unmodifiable(youtubeTracks);
-    }
-    if (neteaseTracks != null) {
-      merged[SourceType.netease] = List.unmodifiable(neteaseTracks);
-    }
-    return Map.unmodifiable(merged);
-  }
-
-  static Map<SourceType, bool> _mergeLoadedBySource({
-    required Map<SourceType, bool> base,
-    Map<SourceType, bool>? loadedBySource,
-    bool? bilibiliLoaded,
-    bool? youtubeLoaded,
-    bool? neteaseLoaded,
-  }) {
-    final merged = Map<SourceType, bool>.from(base);
-    if (loadedBySource != null) merged.addAll(loadedBySource);
-    if (bilibiliLoaded != null) merged[SourceType.bilibili] = bilibiliLoaded;
-    if (youtubeLoaded != null) merged[SourceType.youtube] = youtubeLoaded;
-    if (neteaseLoaded != null) merged[SourceType.netease] = neteaseLoaded;
-    return Map.unmodifiable(merged);
-  }
-
-  static Map<SourceType, String> _mergeErrorsBySource({
-    required Map<SourceType, String> base,
-    Map<SourceType, String>? errorsBySource,
-    String? bilibiliError,
-    String? youtubeError,
-    String? neteaseError,
-    bool clearBilibiliError = false,
-    bool clearYoutubeError = false,
-    bool clearNeteaseError = false,
-  }) {
-    final merged = Map<SourceType, String>.from(base);
-    if (errorsBySource != null) merged.addAll(errorsBySource);
-
-    if (clearBilibiliError) {
-      merged.remove(SourceType.bilibili);
-    } else if (bilibiliError != null) {
-      merged[SourceType.bilibili] = bilibiliError;
-    }
-    if (clearYoutubeError) {
-      merged.remove(SourceType.youtube);
-    } else if (youtubeError != null) {
-      merged[SourceType.youtube] = youtubeError;
-    }
-    if (clearNeteaseError) {
-      merged.remove(SourceType.netease);
-    } else if (neteaseError != null) {
-      merged[SourceType.netease] = neteaseError;
-    }
-
-    return Map.unmodifiable(merged);
+    return Map<String, List<Track>>.unmodifiable(frozen);
   }
 }
 
-class RankingCacheService extends StateNotifier<RankingCacheState>
-    with Logging {
+class RankingCacheService extends Notifier<RankingCacheState> with Logging {
+  RankingCacheService({
+    Duration initialLoadTimeout = _defaultInitialLoadTimeout,
+  }) : _initialLoadTimeout = initialLoadTimeout;
+
   static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
-  final Map<SourceType, RankingSource> _rankingSourcesByType;
   final Duration _initialLoadTimeout;
+
+  late Map<String, RankingSource> _rankingSourcesByType;
 
   Timer? _refreshTimer;
   StreamSubscription<void>? _networkRecoveredSubscription;
   Duration _refreshInterval = const Duration(hours: 1);
 
-  final Map<SourceType, int> _refreshGenerations = {};
+  final Map<String, int> _refreshGenerations = {};
   bool _isDisposed = false;
 
-  RankingCacheService({
-    required RankingSource bilibiliRankingSource,
-    required RankingSource youtubeRankingSource,
-    required RankingSource neteaseRankingSource,
-    Duration initialLoadTimeout = _defaultInitialLoadTimeout,
-  })  : _rankingSourcesByType = Map.unmodifiable({
-          SourceType.bilibili: bilibiliRankingSource,
-          SourceType.youtube: youtubeRankingSource,
-          SourceType.netease: neteaseRankingSource,
-        }),
-        _initialLoadTimeout = initialLoadTimeout,
-        super(RankingCacheState());
+  @override
+  RankingCacheState build() {
+    final initial = bindSources();
+    Future.microtask(initialize);
+    setupNetworkMonitoring(ref.read(connectivityProvider.notifier));
+    return initial;
+  }
+
+  /// 只接線（音源表、旗標、釋放掛勾），不啟動初次載入與網路監聽。
+  ///
+  /// 拆成兩半是因為 `NotifierProvider` 的工廠不吃程式碼：這兩件事以前寫在
+  /// `rankingCacheServiceProvider` 的 body 裡，測試只要直接 new 這個類別就能
+  /// 跳過它們。現在測試改成覆寫 `build()` 只呼叫這一半。
+  RankingCacheState bindSources() {
+    final manager = ref.watch(sourceManagerProvider);
+    final rankingSources = <String, RankingSource>{
+      for (final sourceType in manager.registeredSourceTypes)
+        sourceType: ?manager.rankingSource(sourceType),
+    };
+    if (rankingSources.isEmpty) {
+      throw StateError('No ranking source registered');
+    }
+    _rankingSourcesByType = Map.unmodifiable(rankingSources);
+    // `build()` 重跑時實例會被保留，所以上一輪 `_teardown` 設下的旗標要清掉。
+    _isDisposed = false;
+    ref.onDispose(_teardown);
+    return RankingCacheState();
+  }
+
+  /// 目前會被刷新的音源類型。
+  Iterable<String> get rankedSourceTypes => _rankingSourcesByType.keys;
 
   /// 初始化服務：立即獲取數據並啟動定時刷新
   Future<void> initialize({Duration? refreshInterval}) async {
@@ -350,12 +200,12 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
     if (_isDisposed) return;
 
     _networkRecoveredSubscription?.cancel();
-    _networkRecoveredSubscription =
-        connectivityNotifier.onNetworkRecovered.listen((_) {
-      if (_isDisposed) return;
-      logInfo('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
-      _refreshAll();
-    });
+    _networkRecoveredSubscription = connectivityNotifier.onNetworkRecovered
+        .listen((_) {
+          if (_isDisposed) return;
+          logInfo('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
+          _refreshAll();
+        });
 
     logDebug('[RankingCache] 網絡恢復監聽已設置');
   }
@@ -364,13 +214,11 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
   Future<void> _refreshAll() async {
     if (_isDisposed) return;
 
-    // 並行獲取三個數據源，使用 catchError 確保失敗不會中斷
+    // 並行獲取所有已註冊榜單，使用 catchError 確保單一失敗不會中斷其他來源
     await Future.wait(
       _rankingSourcesByType.keys.map(
         (sourceType) => refreshSource(sourceType).catchError((e) {
-          logWarning(
-            '[RankingCache] ${sourceType.name} 刷新異常（未預期）: $e',
-          );
+          logWarning('[RankingCache] $sourceType 刷新異常（未預期）: $e');
         }),
       ),
     );
@@ -380,93 +228,48 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
     // 首次加載完成（無論成功或失敗都結束 loading）
     if (state.isInitialLoading) {
       state = state.copyWith(isInitialLoading: false);
-      logDebug(
-          '[RankingCache] 初始加載完成（Bilibili: ${state.bilibiliLoaded}, YouTube: ${state.youtubeLoaded}, Netease: ${state.neteaseLoaded}）');
+      final summary = _rankingSourcesByType.keys
+          .map((type) => '$type: ${state.isLoaded(type)}')
+          .join(', ');
+      logDebug('[RankingCache] 初始加載完成（$summary）');
     }
   }
 
-  /// 刷新 Bilibili 數據（使用 rid=1003 音樂區排行榜）
-  Future<void> refreshBilibili() async {
-    return refreshSource(SourceType.bilibili);
-  }
-
-  /// 刷新 YouTube 數據
-  Future<void> refreshYouTube() async {
-    return refreshSource(SourceType.youtube);
-  }
-
-  /// 刷新 Netease 熱歌榜數據
-  Future<void> refreshNetease() async {
-    return refreshSource(SourceType.netease);
-  }
-
-  Future<void> refreshSource(SourceType sourceType) async {
+  Future<void> refreshSource(String sourceType) async {
     if (_isDisposed) return;
     final source = _rankingSourcesByType[sourceType];
     if (source == null) {
-      throw StateError('Ranking source not registered: ${sourceType.name}');
+      throw StateError('Ranking source not registered: $sourceType');
     }
 
     final generation = _nextRefreshGeneration(sourceType);
     try {
       final tracks = await source.getRankingTracks(
-        _rankingRequestFor(sourceType),
+        source.defaultRankingRequest,
       );
       if (_isDisposed || generation != _refreshGenerations[sourceType]) return;
 
-      final normalizedTracks = _normalizeRankingTracks(sourceType, tracks);
       state = state.updateSource(
         sourceType,
-        tracks: normalizedTracks,
+        tracks: tracks,
         loaded: true,
         clearError: true,
       );
       logDebug(
-          '[RankingCache] ${_sourceLabel(sourceType)} 緩存已刷新: ${state.tracksFor(sourceType).length} 首');
+        '[RankingCache] ${source.rankingLabel} 緩存已刷新: ${state.tracksFor(sourceType).length} 首',
+      );
     } catch (e) {
       if (_isDisposed || generation != _refreshGenerations[sourceType]) return;
       state = state.updateSource(sourceType, error: e.toString());
-      logWarning('[RankingCache] ${_sourceLabel(sourceType)} 刷新失敗: $e');
+      logWarning('[RankingCache] ${source.rankingLabel} 刷新失敗: $e');
       // 失敗時保留舊緩存
     }
   }
 
-  int _nextRefreshGeneration(SourceType sourceType) {
+  int _nextRefreshGeneration(String sourceType) {
     final next = (_refreshGenerations[sourceType] ?? 0) + 1;
     _refreshGenerations[sourceType] = next;
     return next;
-  }
-
-  SourceRankingRequest _rankingRequestFor(SourceType sourceType) {
-    return switch (sourceType) {
-      // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
-      SourceType.bilibili => const SourceRankingRequest(regionId: 1003),
-      SourceType.youtube => const SourceRankingRequest(category: 'music'),
-      SourceType.netease => const SourceRankingRequest(limit: 50),
-    };
-  }
-
-  List<Track> _normalizeRankingTracks(
-    SourceType sourceType,
-    List<Track> tracks,
-  ) {
-    if (sourceType != SourceType.youtube) {
-      return List.unmodifiable(tracks);
-    }
-
-    // 按播放數降序排序
-    return List.unmodifiable(
-      List<Track>.of(tracks)
-        ..sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0)),
-    );
-  }
-
-  String _sourceLabel(SourceType sourceType) {
-    return switch (sourceType) {
-      SourceType.bilibili => 'Bilibili 音樂排行榜',
-      SourceType.youtube => 'YouTube',
-      SourceType.netease => 'Netease 熱歌榜',
-    };
   }
 
   void clearNetworkMonitoring() {
@@ -475,46 +278,17 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
   }
 
   /// 釋放資源
-  @override
-  void dispose() {
+  void _teardown() {
     if (_isDisposed) return;
     _isDisposed = true;
     _refreshTimer?.cancel();
     _refreshTimer = null;
     clearNetworkMonitoring();
-    super.dispose();
   }
 }
 
 /// RankingCacheService Provider（負責設置網絡監聽）
 final rankingCacheServiceProvider =
-    StateNotifierProvider<RankingCacheService, RankingCacheState>((ref) {
-  final manager = ref.watch(sourceManagerProvider);
-  final bilibiliRankingSource = manager.rankingSource(SourceType.bilibili);
-  final youtubeRankingSource = manager.rankingSource(SourceType.youtube);
-  final neteaseRankingSource = manager.rankingSource(SourceType.netease);
-  final missingRankingSources = [
-    if (bilibiliRankingSource == null) SourceType.bilibili.name,
-    if (youtubeRankingSource == null) SourceType.youtube.name,
-    if (neteaseRankingSource == null) SourceType.netease.name,
-  ];
-  if (missingRankingSources.isNotEmpty) {
-    throw StateError(
-      'Ranking source not registered: ${missingRankingSources.join(', ')}',
+    NotifierProvider<RankingCacheService, RankingCacheState>(
+      RankingCacheService.new,
     );
-  }
-
-  final service = RankingCacheService(
-    bilibiliRankingSource: bilibiliRankingSource!,
-    youtubeRankingSource: youtubeRankingSource!,
-    neteaseRankingSource: neteaseRankingSource!,
-  );
-
-  Future.microtask(() => service.initialize());
-
-  // 設置網絡恢復監聽
-  final connectivityNotifier = ref.read(connectivityProvider.notifier);
-  service.setupNetworkMonitoring(connectivityNotifier);
-
-  return service;
-});

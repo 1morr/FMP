@@ -55,19 +55,19 @@ class YouTubeCredentials {
   }
 
   Map<String, dynamic> toJson() => {
-        'sid': sid,
-        'hsid': hsid,
-        'ssid': ssid,
-        'apisid': apisid,
-        'sapisid': sapisid,
-        'secure1Psid': secure1Psid,
-        'secure3Psid': secure3Psid,
-        'secure1Papisid': secure1Papisid,
-        'secure3Papisid': secure3Papisid,
-        'loginInfo': loginInfo,
-        'datasyncId': datasyncId,
-        'savedAt': savedAt.toIso8601String(),
-      };
+    'sid': sid,
+    'hsid': hsid,
+    'ssid': ssid,
+    'apisid': apisid,
+    'sapisid': sapisid,
+    'secure1Psid': secure1Psid,
+    'secure3Psid': secure3Psid,
+    'secure1Papisid': secure1Papisid,
+    'secure3Papisid': secure3Papisid,
+    'loginInfo': loginInfo,
+    'datasyncId': datasyncId,
+    'savedAt': savedAt.toIso8601String(),
+  };
 
   /// 生成 Cookie 字符串（供 Dio 請求使用）
   String toCookieString() {
@@ -82,7 +82,7 @@ class YouTubeCredentials {
       '__Secure-1PAPISID': secure1Papisid,
       '__Secure-3PAPISID': secure3Papisid,
       'LOGIN_INFO': loginInfo,
-      if (datasyncId != null) 'DATASYNC_ID': datasyncId!,
+      'DATASYNC_ID': ?datasyncId,
     };
 
     return cookieMap.entries

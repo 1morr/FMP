@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -19,16 +17,17 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
+import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -45,9 +44,7 @@ void main() {
     late StreamController<void> networkRecoveryController;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -86,13 +83,12 @@ void main() {
       );
       audioService = FakeAudioService();
       networkRecoveryController = StreamController<void>.broadcast();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: FmpAudioHandler(),
-        windowsSmtcHandler: WindowsSmtcHandler(),
+        nowPlayingPublisher: testNowPlayingPublisher(),
         settingsRepository: settingsRepository,
       );
 
@@ -102,7 +98,6 @@ void main() {
 
     tearDown(() async {
       await networkRecoveryController.close();
-      controller.dispose();
       streamResolutionService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
@@ -110,302 +105,324 @@ void main() {
       }
     });
 
-    test('network recovery manual retry restores saved playback position',
-        () async {
-      final track = _track('retry-track');
+    test(
+      'network recovery manual retry restores saved playback position',
+      () async {
+        final track = _track('retry-track');
 
-      await controller.playTrack(track);
-      await pumpEventQueue(times: 10);
+        await controller.playTrack(track);
+        await pumpEventQueue(times: 10);
 
-      audioService.emitPosition(const Duration(seconds: 47));
-      audioService.emitError('network timeout during playback');
-      await pumpEventQueue(times: 10);
+        audioService.emitPosition(const Duration(seconds: 47));
+        audioService.emitTransportFailure('network timeout during playback');
+        await pumpEventQueue(times: 10);
 
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.isNetworkError, isTrue);
-      expect(audioService.stopCallCount, 2);
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.isNetworkError, isTrue);
+        expect(audioService.stopCallCount, 2);
 
-      audioService.playUrlCalls.clear();
-      audioService.seekCalls.clear();
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
 
-      await controller.retryManually();
-      await pumpEventQueue(times: 20);
+        await controller.retryManually();
+        await pumpEventQueue(times: 20);
 
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/retry-track.m4a');
-      expect(audioService.seekCalls.single, const Duration(seconds: 47));
-      expect(controller.state.isRetrying, isFalse);
-      expect(controller.state.isNetworkError, isFalse);
-    });
-
-    test('automatic network recovery resumes playback and clears retry state',
-        () async {
-      final track = _track('auto-recovery-track');
-
-      await controller.playTrack(track);
-      await pumpEventQueue(times: 10);
-
-      audioService.emitPosition(const Duration(seconds: 31));
-      audioService.emitError('network timeout during playback');
-      await pumpEventQueue(times: 10);
-
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.isNetworkError, isTrue);
-      expect(controller.state.nextRetryAt, isNotNull);
-      expect(controller.state.currentTrack?.sourceId, 'auto-recovery-track');
-
-      audioService.playUrlCalls.clear();
-      audioService.seekCalls.clear();
-
-      networkRecoveryController.add(null);
-      await audioService.waitForPlayUrlCallCount(1);
-      await audioService.waitForSeekCallCount(1);
-      await pumpEventQueue(times: 20);
-
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/auto-recovery-track.m4a');
-      expect(audioService.seekCalls.single, const Duration(seconds: 31));
-      expect(controller.state.currentTrack?.sourceId, 'auto-recovery-track');
-      expect(controller.state.isRetrying, isFalse);
-      expect(controller.state.isNetworkError, isFalse);
-      expect(controller.state.retryAttempt, 0);
-      expect(controller.state.nextRetryAt, isNull);
-      expect(controller.state.error, isNull);
-    });
-
-    test('network error during retry handoff schedules a fresh retry',
-        () async {
-      final track = _track('handoff-network-error-track');
-
-      await controller.playTrack(track);
-      await pumpEventQueue(times: 10);
-
-      audioService.emitPosition(const Duration(seconds: 29));
-      audioService.emitError('network timeout during playback');
-      await pumpEventQueue(times: 10);
-
-      expect(controller.state.currentTrack?.sourceId, track.sourceId);
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.isNetworkError, isTrue);
-      expect(controller.state.nextRetryAt, isNotNull);
-
-      audioService.playUrlCalls.clear();
-      final retryHandoff = audioService.enqueuePendingPlayUrl();
-
-      final manualRetry = controller.retryManually();
-      await audioService.waitForPlayUrlCallCount(1);
-      await pumpEventQueue(times: 2);
-
-      audioService.emitError('tcp: ffurl_read returned 0xffffd8ba');
-      await pumpEventQueue(times: 10);
-
-      retryHandoff.complete();
-      await manualRetry;
-      await pumpEventQueue(times: 20);
-
-      expect(controller.state.currentTrack?.sourceId, track.sourceId);
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.isNetworkError, isTrue);
-      expect(controller.state.nextRetryAt, isNotNull);
-      expect(controller.state.retryAttempt, 0);
-    });
-
-    test('mid-track network error completion event does not advance queue',
-        () async {
-      final firstTrack = _track('network-error-current');
-      final secondTrack = _track('network-error-next');
-
-      await controller.playAll([firstTrack, secondTrack]);
-      await pumpEventQueue(times: 10);
-
-      audioService.playUrlCalls.clear();
-      audioService.setDurationValue(const Duration(minutes: 4));
-      audioService.emitPosition(const Duration(minutes: 1));
-
-      audioService.emitCompleted();
-      audioService.emitError('tcp: ffurl_read returned 0xffffd8ba');
-      await pumpEventQueue(times: 20);
-
-      expect(controller.state.currentTrack?.sourceId, 'network-error-current');
-      expect(controller.state.playingTrack?.sourceId, 'network-error-current');
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.isNetworkError, isTrue);
-      expect(audioService.playUrlCalls, isEmpty);
-    });
-
-    test('premature completion without error schedules current-track retry',
-        () async {
-      final firstTrack = _track('premature-complete-current');
-      final secondTrack = _track('premature-complete-next');
-
-      await controller.playAll([firstTrack, secondTrack]);
-      await pumpEventQueue(times: 10);
-
-      audioService.playUrlCalls.clear();
-      audioService.setDurationValue(const Duration(minutes: 5));
-      audioService.emitPosition(const Duration(minutes: 4));
-
-      audioService.emitCompleted();
-      await pumpEventQueue(times: 20);
-
-      expect(controller.state.currentTrack?.sourceId,
-          'premature-complete-current');
-      expect(controller.state.playingTrack?.sourceId,
-          'premature-complete-current');
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.isNetworkError, isTrue);
-      expect(audioService.playUrlCalls, isEmpty);
-    });
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/retry-track.m4a',
+        );
+        expect(audioService.seekCalls.single, const Duration(seconds: 47));
+        expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.isNetworkError, isFalse);
+      },
+    );
 
     test(
-        'network recovery does not restart old track after switch during stabilization',
-        () async {
-      final oldTrack = _track('old-network-track');
-      final newTrack = _track('new-user-track');
+      'automatic network recovery resumes playback and clears retry state',
+      () async {
+        final track = _track('auto-recovery-track');
 
-      await controller.playTrack(oldTrack);
-      await pumpEventQueue(times: 10);
+        await controller.playTrack(track);
+        await pumpEventQueue(times: 10);
 
-      audioService.emitPosition(const Duration(seconds: 19));
-      audioService.emitError('network timeout during playback');
-      await pumpEventQueue(times: 10);
+        audioService.emitPosition(const Duration(seconds: 31));
+        audioService.emitTransportFailure('network timeout during playback');
+        await pumpEventQueue(times: 10);
 
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.currentTrack?.sourceId, 'old-network-track');
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.isNetworkError, isTrue);
+        expect(controller.state.nextRetryAt, isNotNull);
+        expect(controller.state.currentTrack?.sourceId, 'auto-recovery-track');
 
-      audioService.playUrlCalls.clear();
-      audioService.seekCalls.clear();
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
 
-      networkRecoveryController.add(null);
-      await pumpEventQueue(times: 2);
+        networkRecoveryController.add(null);
+        await audioService.waitForPlayUrlCallCount(1);
+        await audioService.waitForSeekCallCount(1);
+        await pumpEventQueue(times: 20);
 
-      await controller.playTrack(newTrack);
-      await pumpEventQueue(times: 10);
-      expect(controller.state.currentTrack?.sourceId, 'new-user-track');
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/auto-recovery-track.m4a',
+        );
+        expect(audioService.seekCalls.single, const Duration(seconds: 31));
+        expect(controller.state.currentTrack?.sourceId, 'auto-recovery-track');
+        expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.isNetworkError, isFalse);
+        expect(controller.state.retryAttempt, 0);
+        expect(controller.state.nextRetryAt, isNull);
+        expect(controller.state.error, isNull);
+      },
+    );
 
-      audioService.playUrlCalls.clear();
-      audioService.seekCalls.clear();
+    test(
+      'network error during retry handoff schedules a fresh retry',
+      () async {
+        final track = _track('handoff-network-error-track');
 
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-      await pumpEventQueue(times: 20);
+        await controller.playTrack(track);
+        await pumpEventQueue(times: 10);
 
-      expect(audioService.playUrlCalls, isEmpty);
-      expect(audioService.seekCalls, isEmpty);
-      expect(controller.state.currentTrack?.sourceId, 'new-user-track');
-    });
+        audioService.emitPosition(const Duration(seconds: 29));
+        audioService.emitTransportFailure('network timeout during playback');
+        await pumpEventQueue(times: 10);
 
-    test('delayed backend stop from old network error does not retry new track',
-        () async {
-      final oldTrack = _track('old-delayed-stop-track');
-      final newTrack = _track('new-delayed-stop-track');
+        expect(controller.state.currentTrack?.sourceId, track.sourceId);
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.isNetworkError, isTrue);
+        expect(controller.state.nextRetryAt, isNotNull);
 
-      await controller.playTrack(oldTrack);
-      await pumpEventQueue(times: 10);
+        audioService.playUrlCalls.clear();
+        final retryHandoff = audioService.enqueuePendingPlayUrl();
 
-      audioService.emitPosition(const Duration(seconds: 21));
-      final delayedStop = audioService.enqueuePendingStop();
-      audioService.emitError('network timeout during playback');
-      await pumpEventQueue(times: 2);
+        final manualRetry = controller.retryManually();
+        await audioService.waitForPlayUrlCallCount(1);
+        await pumpEventQueue(times: 2);
 
-      expect(controller.state.currentTrack?.sourceId, 'old-delayed-stop-track');
+        audioService.emitTransportFailure(
+          'tcp: ffurl_read returned 0xffffd8ba',
+        );
+        await pumpEventQueue(times: 10);
 
-      final newPlayback = controller.playTrack(newTrack);
+        retryHandoff.complete();
+        await manualRetry;
+        await pumpEventQueue(times: 20);
 
-      delayedStop.complete();
-      await newPlayback;
-      await pumpEventQueue(times: 20);
+        expect(controller.state.currentTrack?.sourceId, track.sourceId);
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.isNetworkError, isTrue);
+        expect(controller.state.nextRetryAt, isNotNull);
+        expect(controller.state.retryAttempt, 0);
+      },
+    );
 
-      expect(controller.state.currentTrack?.sourceId, 'new-delayed-stop-track');
-      expect(controller.state.playingTrack?.sourceId, 'new-delayed-stop-track');
-      expect(controller.state.isRetrying, isFalse);
-      expect(controller.state.isNetworkError, isFalse);
-      expect(
-        audioService.playUrlCalls.where(
-          (call) => call.track?.sourceId == 'old-delayed-stop-track',
-        ),
-        hasLength(1),
-      );
-    });
+    test(
+      'mid-track network error completion event does not advance queue',
+      () async {
+        final firstTrack = _track('network-error-current');
+        final secondTrack = _track('network-error-next');
 
-    test('typed source network kind schedules retry without string matching',
-        () async {
-      final track = _track('typed-network-kind');
-      const sourceError = _KindOnlySourceException(SourceErrorKind.network);
-      sourceManager.source.nextStreamError = sourceError;
+        await controller.playAll([firstTrack, secondTrack]);
+        await pumpEventQueue(times: 10);
 
-      expect(sourceError.kind, SourceErrorKind.network);
+        audioService.playUrlCalls.clear();
+        audioService.setDurationValue(const Duration(minutes: 4));
+        audioService.emitPosition(const Duration(minutes: 1));
 
-      await controller.playTrack(track);
-      await pumpEventQueue(times: 20);
+        audioService.emitCompleted();
+        audioService.emitTransportFailure(
+          'tcp: ffurl_read returned 0xffffd8ba',
+        );
+        await pumpEventQueue(times: 20);
 
-      expect(controller.state.isRetrying, isTrue);
-      expect(controller.state.isNetworkError, isTrue);
-      expect(controller.state.nextRetryAt, isNotNull);
-      expect(audioService.playUrlCalls, isEmpty);
-    });
+        expect(
+          controller.state.currentTrack?.sourceId,
+          'network-error-current',
+        );
+        expect(
+          controller.state.playingTrack?.sourceId,
+          'network-error-current',
+        );
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.isNetworkError, isTrue);
+        expect(audioService.playUrlCalls, isEmpty);
+      },
+    );
 
-    test('typed source permission kind does not schedule network retry',
-        () async {
-      final track = _track('typed-permission-kind');
-      sourceManager.source.nextStreamError = const YouTubeApiException(
-        code: 'private_or_inaccessible',
-        message: 'private video',
-      );
+    test(
+      'premature completion without error schedules current-track retry',
+      () async {
+        final firstTrack = _track('premature-complete-current');
+        final secondTrack = _track('premature-complete-next');
 
-      await controller.playTrack(track);
-      await pumpEventQueue(times: 20);
+        await controller.playAll([firstTrack, secondTrack]);
+        await pumpEventQueue(times: 10);
 
-      expect(controller.state.isRetrying, isFalse);
-      expect(controller.state.isNetworkError, isFalse);
-      expect(controller.state.error, isNotNull);
-    });
+        audioService.playUrlCalls.clear();
+        audioService.setDurationValue(const Duration(minutes: 5));
+        audioService.emitPosition(const Duration(minutes: 4));
 
-    test('account auth loader keeps netease desktop playback headers',
-        () async {
-      final headers = await AccountServiceAuthLoader(
-        neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
-      ).load(SourceType.netease);
+        audioService.emitCompleted();
+        await pumpEventQueue(times: 20);
 
-      expect(headers, {
-        'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
-        'Origin': 'https://music.163.com',
-        'Referer': 'https://music.163.com/',
-        'User-Agent': NeteaseAccountService.userAgent,
-      });
-    });
+        expect(
+          controller.state.currentTrack?.sourceId,
+          'premature-complete-current',
+        );
+        expect(
+          controller.state.playingTrack?.sourceId,
+          'premature-complete-current',
+        );
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.isNetworkError, isTrue);
+        expect(audioService.playUrlCalls, isEmpty);
+      },
+    );
+
+    test(
+      'network recovery does not restart old track after switch during stabilization',
+      () async {
+        final oldTrack = _track('old-network-track');
+        final newTrack = _track('new-user-track');
+
+        await controller.playTrack(oldTrack);
+        await pumpEventQueue(times: 10);
+
+        audioService.emitPosition(const Duration(seconds: 19));
+        audioService.emitTransportFailure('network timeout during playback');
+        await pumpEventQueue(times: 10);
+
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.currentTrack?.sourceId, 'old-network-track');
+
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
+
+        networkRecoveryController.add(null);
+        await pumpEventQueue(times: 2);
+
+        await controller.playTrack(newTrack);
+        await pumpEventQueue(times: 10);
+        expect(controller.state.currentTrack?.sourceId, 'new-user-track');
+
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
+
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        await pumpEventQueue(times: 20);
+
+        expect(audioService.playUrlCalls, isEmpty);
+        expect(audioService.seekCalls, isEmpty);
+        expect(controller.state.currentTrack?.sourceId, 'new-user-track');
+      },
+    );
+
+    test(
+      'delayed backend stop from old network error does not retry new track',
+      () async {
+        final oldTrack = _track('old-delayed-stop-track');
+        final newTrack = _track('new-delayed-stop-track');
+
+        await controller.playTrack(oldTrack);
+        await pumpEventQueue(times: 10);
+
+        audioService.emitPosition(const Duration(seconds: 21));
+        final delayedStop = audioService.enqueuePendingStop();
+        audioService.emitTransportFailure('network timeout during playback');
+        await pumpEventQueue(times: 2);
+
+        expect(
+          controller.state.currentTrack?.sourceId,
+          'old-delayed-stop-track',
+        );
+
+        final newPlayback = controller.playTrack(newTrack);
+
+        delayedStop.complete();
+        await newPlayback;
+        await pumpEventQueue(times: 20);
+
+        expect(
+          controller.state.currentTrack?.sourceId,
+          'new-delayed-stop-track',
+        );
+        expect(
+          controller.state.playingTrack?.sourceId,
+          'new-delayed-stop-track',
+        );
+        expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.isNetworkError, isFalse);
+        expect(
+          audioService.playUrlCalls.where(
+            (call) => call.track?.sourceId == 'old-delayed-stop-track',
+          ),
+          hasLength(1),
+        );
+      },
+    );
+
+    test(
+      'typed source network kind schedules retry without string matching',
+      () async {
+        final track = _track('typed-network-kind');
+        const sourceError = _KindOnlySourceException(SourceErrorKind.network);
+        sourceManager.source.nextStreamError = sourceError;
+
+        expect(sourceError.kind, SourceErrorKind.network);
+
+        await controller.playTrack(track);
+        await pumpEventQueue(times: 20);
+
+        expect(controller.state.isRetrying, isTrue);
+        expect(controller.state.isNetworkError, isTrue);
+        expect(controller.state.nextRetryAt, isNotNull);
+        expect(audioService.playUrlCalls, isEmpty);
+      },
+    );
+
+    test(
+      'typed source permission kind does not schedule network retry',
+      () async {
+        final track = _track('typed-permission-kind');
+        sourceManager.source.nextStreamError = const YouTubeApiException(
+          code: 'private_or_inaccessible',
+          message: 'private video',
+        );
+
+        await controller.playTrack(track);
+        await pumpEventQueue(times: 20);
+
+        expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.isNetworkError, isFalse);
+        expect(controller.state.error, isNotNull);
+      },
+    );
+
+    test(
+      'account auth loader keeps netease desktop playback headers',
+      () async {
+        final headers = await AccountServiceAuthLoader(
+          neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
+        ).load(SourceIds.netease);
+
+        expect(headers, {
+          'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
+          'Origin': 'https://music.163.com',
+          'Referer': 'https://music.163.com/',
+          'User-Agent': NeteaseAccountService.userAgent,
+        });
+      },
+    );
   });
 }
 
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'Track $sourceId'
     ..artist = 'Tester';
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }
 
 class _RetryAwareSourceManager extends SourceManager {
@@ -414,7 +431,7 @@ class _RetryAwareSourceManager extends SourceManager {
   final source = _RetryAwareSource();
 
   @override
-  AudioStreamSource? audioStreamSource(SourceType type) => source;
+  AudioStreamSource? audioStreamSource(String type) => source;
 
   @override
   void dispose() {}
@@ -429,7 +446,7 @@ class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -438,10 +455,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
   ) async {
     return PlaybackNetworkRequest(
       url: url,
-      headers: SourceHttpPolicy.mediaHeaders(
-        track.sourceType,
-        requestUrl: url,
-      ),
+      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
     );
   }
 
@@ -462,7 +476,7 @@ class _KindOnlySourceException extends SourceApiException {
   String get message => 'semantic only';
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   String toString() => 'semantic source failure';
@@ -472,7 +486,7 @@ class _RetryAwareSource implements AudioStreamSource {
   Object? nextStreamError;
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {

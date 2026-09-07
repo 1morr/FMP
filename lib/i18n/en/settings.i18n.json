@@ -3,7 +3,7 @@
   "account": "Account",
   "accountManagement": {
     "title": "Account Management",
-    "subtitle": "Manage Bilibili and YouTube accounts"
+    "subtitle": "Manage Bilibili, YouTube and NetEase accounts"
   },
   "appearance": "Appearance",
   "playback": "Playback",
@@ -153,6 +153,8 @@
     "debugTools": "Debug Tools",
     "liveLog": "Live Log",
     "liveLogSubtitle": "View app runtime logs",
+    "logLevel": "Log level",
+    "logLevelSubtitle": "Applies to this run only; resets on restart",
     "dbViewer": "Database Viewer",
     "dbViewerSubtitle": "Browse Isar database contents",
     "ytStreamTest": "YouTube Stream Test",
@@ -201,6 +203,7 @@
     "failed": "Failed",
     "completed": "Completed",
     "unknownTrack": "Unknown track",
+    "trackLoadFailed": "Track info unavailable",
     "pause": "Pause",
     "resume": "Resume",
     "retry": "Retry",

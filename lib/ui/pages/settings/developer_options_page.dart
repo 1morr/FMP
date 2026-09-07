@@ -4,21 +4,25 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../data/models/playlist.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database/database_provider.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
+import '../../../providers/settings/developer_options_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../core/services/toast_service.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../debug/youtube_stream_test_page.dart';
+import '../../../data/repositories/repositories.dart';
+import '../../../providers/database/database_migration.dart';
 
 /// 开发者选项页面
 class DeveloperOptionsPage extends ConsumerWidget {
@@ -27,9 +31,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.settings.developerOptions.title),
-      ),
+      appBar: AppBar(title: Text(t.settings.developerOptions.title)),
       body: ListView(
         children: [
           // 调试工具
@@ -44,6 +46,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(RouteNames.logViewer),
               ),
+              const _LogLevelTile(),
               ListTile(
                 leading: const Icon(Icons.storage_outlined),
                 title: Text(t.settings.developerOptions.dbViewer),
@@ -54,8 +57,9 @@ class DeveloperOptionsPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.music_note_outlined),
                 title: Text(t.settings.developerOptions.ytStreamTest),
-                subtitle:
-                    Text(t.settings.developerOptions.ytStreamTestSubtitle),
+                subtitle: Text(
+                  t.settings.developerOptions.ytStreamTestSubtitle,
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
@@ -69,10 +73,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
           // 数据管理
           _SettingsSection(
             title: t.settings.developerOptions.dataManagement,
-            children: [
-              _DatabaseInfoTile(),
-              _ResetDataTile(),
-            ],
+            children: [_DatabaseInfoTile(), _ResetDataTile()],
           ),
           const Divider(),
           // 信息
@@ -111,7 +112,9 @@ class _DatabaseInfoTile extends ConsumerWidget {
       error: (e, _) => ListTile(
         leading: const Icon(Icons.error_outline),
         title: Text(t.settings.developerOptions.dbInfo),
-        subtitle: Text(t.settings.developerOptions.dbInfoError(error: '$e')),
+        subtitle: Text(
+          t.settings.developerOptions.dbInfoError(error: userMessageFor(e)),
+        ),
       ),
       data: (isar) => FutureBuilder<_DatabaseInfo>(
         future: _getDatabaseInfo(isar),
@@ -143,8 +146,8 @@ class _DatabaseInfoTile extends ConsumerWidget {
     final file = File(dbPath);
     final size = await file.exists() ? await file.length() : 0;
 
-    final trackCount = await isar.tracks.count();
-    final playlistCount = await isar.playlists.count();
+    final trackCount = await TrackRepository(isar).count();
+    final playlistCount = await PlaylistRepository(isar).count();
 
     return _DatabaseInfo(
       path: dir.path,
@@ -219,9 +222,15 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
       // 数据缓存统计
       final queueTrackCount = ref.read(queueProvider).length;
       final rankingCache = ref.read(rankingCacheServiceProvider);
-      final bilibiliCacheCount = rankingCache.bilibiliTracks.length;
-      final youtubeCacheCount = rankingCache.youtubeTracks.length;
-      final neteaseCacheCount = rankingCache.neteaseTracks.length;
+      final bilibiliCacheCount = rankingCache
+          .tracksFor(SourceIds.bilibili)
+          .length;
+      final youtubeCacheCount = rankingCache
+          .tracksFor(SourceIds.youtube)
+          .length;
+      final neteaseCacheCount = rankingCache
+          .tracksFor(SourceIds.netease)
+          .length;
 
       // 歌词缓存
       int lyricsCacheCount = 0;
@@ -298,6 +307,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
         subtitle: Text(t.settings.developerOptions.memoryUnavailable),
         trailing: IconButton(
           icon: const Icon(Icons.refresh),
+          tooltip: t.general.refresh,
           onPressed: _loadMemoryInfo,
         ),
       );
@@ -308,9 +318,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
     if (info.rssBytes != null) {
       summaryParts.add('RSS: ${_formatBytes(info.rssBytes!)}');
     }
-    summaryParts.add(
-      'Flutter 图片: ${_formatBytes(info.imageCacheSizeBytes)}',
-    );
+    summaryParts.add('Flutter 图片: ${_formatBytes(info.imageCacheSizeBytes)}');
 
     return ExpansionTile(
       leading: const Icon(Icons.memory),
@@ -327,11 +335,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
           ),
         ],
       ),
-      childrenPadding: const EdgeInsets.only(
-        left: 16,
-        right: 16,
-        bottom: 12,
-      ),
+      childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
       children: [
         // 进程总内存
         if (info.rssBytes != null)
@@ -366,8 +370,10 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
             Icons.developer_board_outlined,
             t.settings.developerOptions.nativeMemoryDetail(
               size: _formatBytes(
-                (info.rssBytes! - info.imageCacheSizeBytes)
-                    .clamp(0, info.rssBytes!),
+                (info.rssBytes! - info.imageCacheSizeBytes).clamp(
+                  0,
+                  info.rssBytes!,
+                ),
               ),
             ),
             colorScheme,
@@ -534,7 +540,9 @@ class _ResetDataTile extends ConsumerWidget {
   }
 
   Future<void> _showResetConfirmDialog(
-      BuildContext context, WidgetRef ref) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final confirmed = await showConfirmDestructiveDialog(
       context,
       title: t.settings.developerOptions.confirmReset,
@@ -554,23 +562,19 @@ class _ResetDataTile extends ConsumerWidget {
       final isar = await ref.read(databaseProvider.future);
 
       // 清空所有集合
-      await isar.writeTxn(() async {
-        await isar.clear();
-      });
+      await DataIntegrityRepository(isar).clearEverything();
 
       // 重新创建默认数据
-      await initializeDatabaseDefaults(isar);
+      await runDatabaseMigration(isar);
 
       if (!context.mounted) return;
-      ToastService.success(
-        context,
-        t.settings.developerOptions.resetDone,
-      );
-    } catch (e) {
+      ToastService.success(context, t.settings.developerOptions.resetDone);
+    } catch (e, stack) {
+      AppLogger.error('Resetting the database failed', e, stack, 'DevOptions');
       if (!context.mounted) return;
       ToastService.error(
         context,
-        t.settings.developerOptions.resetFailed(error: '$e'),
+        t.settings.developerOptions.resetFailed(error: userMessageFor(e)),
       );
     }
   }
@@ -581,10 +585,7 @@ class _SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _SettingsSection({
-    required this.title,
-    required this.children,
-  });
+  const _SettingsSection({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -596,12 +597,45 @@ class _SettingsSection extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         ...children,
       ],
+    );
+  }
+}
+
+/// 執行期的最小日誌級別。調高之後落盤的 log 也跟著變少。
+class _LogLevelTile extends ConsumerWidget {
+  const _LogLevelTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final level = ref.watch(
+      developerOptionsProvider.select((state) => state.logLevel),
+    );
+
+    return ListTile(
+      leading: const Icon(Icons.tune),
+      title: Text(t.settings.developerOptions.logLevel),
+      subtitle: Text(t.settings.developerOptions.logLevelSubtitle),
+      trailing: DropdownButton<LogLevel>(
+        value: level,
+        underline: const SizedBox.shrink(),
+        onChanged: (next) {
+          if (next == null) return;
+          ref.read(developerOptionsProvider.notifier).setLogLevel(next);
+        },
+        items: [
+          for (final option in LogLevel.values)
+            DropdownMenuItem(
+              value: option,
+              child: Text(option.name.toUpperCase()),
+            ),
+        ],
+      ),
     );
   }
 }

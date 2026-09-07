@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,21 +14,19 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/main.dart' as app_main;
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
-import 'package:fmp/services/audio/audio_handler.dart';
-import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/services/audio/now_playing_publisher.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
-import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
@@ -38,9 +34,11 @@ import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
 import 'package:fmp/services/lyrics/title_parser.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/isar_test_harness.dart';
+import '../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -50,15 +48,10 @@ void main() {
     late Isar isar;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
-      app_main.audioHandler = FmpAudioHandler();
-      app_main.windowsSmtcHandler = WindowsSmtcHandler();
-
       tempDir = await Directory.systemTemp.createTemp('audio_dispose_test_');
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema],
@@ -77,153 +70,166 @@ void main() {
       }
     });
 
-    test('provider disposal does not double-dispose owned dependencies',
-        () async {
-      final audioService = _ThrowOnSecondDisposeAudioService();
-      final queueRepository = QueueRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final queueManager = _ThrowOnSecondDisposeQueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      final container = _createContainer(
-        isar: isar,
-        audioService: audioService,
-        queueManager: queueManager,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-
-      final controller = container.read(audioControllerProvider.notifier);
-      await controller.initialize();
-      await pumpEventQueue(times: 5);
-
-      expect(container.dispose, returnsNormally);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(audioService.initializeAfterDisposeCallCount, 0);
-      expect(queueManager.initializeAfterDisposeCallCount, 0);
-      expect(audioService.disposeCallCount, 1);
-      expect(queueManager.disposeCallCount, 1);
-    });
-
     test(
-        'provider disposal is safe when container is disposed before scheduled initialization runs',
-        () async {
-      final audioService = _ThrowOnSecondDisposeAudioService();
-      final queueRepository = QueueRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final queueManager = _ThrowOnSecondDisposeQueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      final container = _createContainer(
-        isar: isar,
-        audioService: audioService,
-        queueManager: queueManager,
-        queuePersistenceManager: queuePersistenceManager,
-      );
+      'provider disposal does not double-dispose owned dependencies',
+      () async {
+        final audioService = _ThrowOnSecondDisposeAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _ThrowOnSecondDisposeQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+        );
 
-      container.read(audioControllerProvider.notifier);
-      expect(container.dispose, returnsNormally);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(audioService.initializeAfterDisposeCallCount, 0);
-      expect(queueManager.initializeAfterDisposeCallCount, 0);
-      expect(audioService.disposeCallCount, 1);
-      expect(queueManager.disposeCallCount, 1);
-    });
-
-    test('lyrics setting changes do not dispose the audio controller',
-        () async {
-      final audioService = _RecordingLifecycleAudioService();
-      final queueRepository = QueueRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final queueManager = _RecordingLifecycleQueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      final plainLyricsSettingProvider = StateProvider<bool>((ref) => false);
-      final container = _createContainer(
-        isar: isar,
-        audioService: audioService,
-        queueManager: queueManager,
-        queuePersistenceManager: queuePersistenceManager,
-        lyricsAutoMatchServiceFactory: (ref) {
-          ref.watch(plainLyricsSettingProvider);
-          return LyricsAutoMatchService(
-            lrclib: LrclibSource(),
-            netease: NeteaseSource(),
-            qqmusic: QQMusicSource(),
-            repo: LyricsRepository(isar),
-            cache: LyricsCacheService(),
-            parser: RegexTitleParser(),
-          );
-        },
-      );
-      final subscription = container.listen(
-        audioControllerProvider,
-        (_, __) {},
-        fireImmediately: true,
-      );
-
-      try {
         final controller = container.read(audioControllerProvider.notifier);
         await controller.initialize();
         await pumpEventQueue(times: 5);
 
-        container.read(plainLyricsSettingProvider.notifier).state = true;
-        await pumpEventQueue(times: 10);
+        expect(container.dispose, returnsNormally);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
 
-        expect(
-            container.read(audioControllerProvider.notifier), same(controller));
-        expect(audioService.disposeCallCount, 0);
-        expect(queueManager.disposeCallCount, 0);
         expect(audioService.initializeAfterDisposeCallCount, 0);
         expect(queueManager.initializeAfterDisposeCallCount, 0);
-      } finally {
-        subscription.close();
-        container.dispose();
-      }
-    });
+        expect(audioService.disposeCallCount, 1);
+        expect(queueManager.disposeCallCount, 1);
+      },
+    );
 
-    test('just audio dispose is safe before initialization and on repeat calls',
-        () async {
-      final service = JustAudioService();
+    test(
+      'provider disposal is safe when container is disposed before scheduled initialization runs',
+      () async {
+        final audioService = _ThrowOnSecondDisposeAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _ThrowOnSecondDisposeQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+        );
 
-      await service.dispose();
-      await service.dispose();
-    });
+        container.read(audioControllerProvider.notifier);
+        expect(container.dispose, returnsNormally);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
 
-    test('media kit dispose is safe before initialization and on repeat calls',
-        () async {
-      final service = MediaKitAudioService();
+        expect(audioService.initializeAfterDisposeCallCount, 0);
+        expect(queueManager.initializeAfterDisposeCallCount, 0);
+        expect(audioService.disposeCallCount, 1);
+        expect(queueManager.disposeCallCount, 1);
+      },
+    );
 
-      await service.dispose();
-      await service.dispose();
-    });
+    test(
+      'lyrics setting changes do not dispose the audio controller',
+      () async {
+        final audioService = _RecordingLifecycleAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _RecordingLifecycleQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final plainLyricsSettingProvider = NotifierProvider<_Flag, bool>(
+          _Flag.new,
+        );
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+          lyricsAutoMatchServiceFactory: (ref) {
+            ref.watch(plainLyricsSettingProvider);
+            return LyricsAutoMatchService(
+              lrclib: LrclibSource(),
+              netease: NeteaseSource(),
+              qqmusic: QQMusicSource(),
+              repo: LyricsRepository(isar),
+              cache: LyricsCacheService(),
+              parser: RegexTitleParser(),
+            );
+          },
+        );
+        final subscription = container.listen(
+          audioControllerProvider,
+          (_, __) {},
+          fireImmediately: true,
+        );
+
+        try {
+          final controller = container.read(audioControllerProvider.notifier);
+          await controller.initialize();
+          await pumpEventQueue(times: 5);
+
+          container.read(plainLyricsSettingProvider.notifier).set(true);
+          await pumpEventQueue(times: 10);
+
+          expect(
+            container.read(audioControllerProvider.notifier),
+            same(controller),
+          );
+          expect(audioService.disposeCallCount, 0);
+          expect(queueManager.disposeCallCount, 0);
+          expect(audioService.initializeAfterDisposeCallCount, 0);
+          expect(queueManager.initializeAfterDisposeCallCount, 0);
+        } finally {
+          subscription.close();
+          container.dispose();
+        }
+      },
+    );
+
+    test(
+      'just audio dispose is safe before initialization and on repeat calls',
+      () async {
+        final service = JustAudioService();
+
+        await service.dispose();
+        await service.dispose();
+      },
+    );
+
+    test(
+      'media kit dispose is safe before initialization and on repeat calls',
+      () async {
+        final service = MediaKitAudioService();
+
+        await service.dispose();
+        await service.dispose();
+      },
+    );
   });
 }
 
@@ -237,31 +243,32 @@ ProviderContainer _createContainer({
   return ProviderContainer(
     overrides: [
       audioServiceProvider.overrideWith((ref) => audioService),
+      nowPlayingPublisherProvider.overrideWithValue(testNowPlayingPublisher()),
       queueManagerProvider.overrideWith((ref) => queueManager),
-      queuePersistenceManagerProvider
-          .overrideWith((ref) => queuePersistenceManager),
-      audioStreamManagerProvider.overrideWith(
-        (ref) {
-          final settingsRepository = SettingsRepository(isar);
-          final sourceManager = SourceManager();
-          final sourceAuthContext = _FakeSourceAuthContext();
-          final streamResolutionService = DefaultStreamResolutionService(
-            trackRepository: TrackRepository(isar),
-            settingsRepository: settingsRepository,
-            sourceManager: sourceManager,
-            sourceAuthContext: sourceAuthContext,
-          );
-          ref.onDispose(streamResolutionService.dispose);
-          ref.onDispose(sourceManager.dispose);
-          return AudioStreamManager(
-            streamResolutionService: streamResolutionService,
-            sourceAuthContext: sourceAuthContext,
-          );
-        },
+      queuePersistenceManagerProvider.overrideWith(
+        (ref) => queuePersistenceManager,
       ),
-      connectivityProvider.overrideWith((ref) => _TestConnectivityNotifier()),
-      settingsRepositoryProvider
-          .overrideWith((ref) => SettingsRepository(isar)),
+      audioStreamManagerProvider.overrideWith((ref) {
+        final settingsRepository = SettingsRepository(isar);
+        final sourceManager = SourceManager();
+        final sourceAuthContext = _FakeSourceAuthContext();
+        final streamResolutionService = DefaultStreamResolutionService(
+          trackRepository: TrackRepository(isar),
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+          sourceAuthContext: sourceAuthContext,
+        );
+        ref.onDispose(streamResolutionService.dispose);
+        ref.onDispose(sourceManager.dispose);
+        return AudioStreamManager(
+          streamResolutionService: streamResolutionService,
+          sourceAuthContext: sourceAuthContext,
+        );
+      }),
+      connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
+      settingsRepositoryProvider.overrideWith(
+        (ref) => SettingsRepository(isar),
+      ),
       playHistoryRepositoryProvider.overrideWith(
         (ref) => PlayHistoryRepository(isar),
       ),
@@ -271,40 +278,16 @@ ProviderContainer _createContainer({
       lyricsAutoMatchServiceProvider.overrideWith(
         lyricsAutoMatchServiceFactory ??
             (ref) => LyricsAutoMatchService(
-                  lrclib: LrclibSource(),
-                  netease: NeteaseSource(),
-                  qqmusic: QQMusicSource(),
-                  repo: LyricsRepository(isar),
-                  cache: LyricsCacheService(),
-                  parser: RegexTitleParser(),
-                ),
+              lrclib: LrclibSource(),
+              netease: NeteaseSource(),
+              qqmusic: QQMusicSource(),
+              repo: LyricsRepository(isar),
+              cache: LyricsCacheService(),
+              parser: RegexTitleParser(),
+            ),
       ),
     ],
   );
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic>) continue;
-    if (package['name'] != 'isar_flutter_libs') continue;
-
-    final rootUri = package['rootUri'] as String;
-    final packageDir =
-        Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
-
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }
 
 class _ThrowOnSecondDisposeAudioService extends FakeAudioService {
@@ -411,26 +394,23 @@ class _RecordingLifecycleQueueManager extends QueueManager {
   }
 }
 
-class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
-    with Logging
-    implements ConnectivityNotifier {
-  _TestConnectivityNotifier() : super(ConnectivityState.initial);
-
+/// 不呼叫 `super.build()`：真的那個會做 DNS 查詢並開一個輪詢計時器。
+class _TestConnectivityNotifier extends ConnectivityNotifier {
   final _networkRecoveredController = StreamController<void>.broadcast();
 
   @override
-  Stream<void> get onNetworkRecovered => _networkRecoveredController.stream;
+  ConnectivityState build() {
+    ref.onDispose(_networkRecoveredController.close);
+    return ConnectivityState.initial;
+  }
 
   @override
-  void dispose() {
-    _networkRecoveredController.close();
-    super.dispose();
-  }
+  Stream<void> get onNetworkRecovered => _networkRecoveredController.stream;
 }
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   @override
-  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
 
   @override
   Future<PlaybackNetworkRequest> playbackNetworkRequest(
@@ -439,10 +419,7 @@ class _FakeSourceAuthContext implements SourceAuthContext {
   ) async {
     return PlaybackNetworkRequest(
       url: url,
-      headers: SourceHttpPolicy.mediaHeaders(
-        track.sourceType,
-        requestUrl: url,
-      ),
+      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
     );
   }
 
@@ -452,4 +429,12 @@ class _FakeSourceAuthContext implements SourceAuthContext {
 
 class _FakeNeteaseAccountService extends NeteaseAccountService {
   _FakeNeteaseAccountService({required super.isar});
+}
+
+/// 觸發用的旗標 provider。這條測試要看的是「設定變了，控制器不該被重建」。
+class _Flag extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
 }

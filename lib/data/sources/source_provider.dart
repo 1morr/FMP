@@ -12,14 +12,9 @@ import 'youtube_source.dart';
 /// 统一注册具体适配器，但调用端只按所需能力取用。
 class SourceManager with Logging {
   SourceManager({List<SourceCapability>? sources})
-      : _sources = List<SourceCapability>.of(
-          sources ??
-              [
-                BilibiliSource(),
-                YouTubeSource(),
-                NeteaseSource(),
-              ],
-        );
+    : _sources = List<SourceCapability>.of(
+        sources ?? [BilibiliSource(), YouTubeSource(), NeteaseSource()],
+      );
 
   final List<SourceCapability> _sources;
 
@@ -27,15 +22,15 @@ class SourceManager with Logging {
   List<SourceCapability> get sources => List.unmodifiable(_sources);
 
   /// 已注册的音源类型列表
-  List<SourceType> get registeredSourceTypes {
-    final seen = <SourceType>{};
+  List<String> get registeredSourceTypes {
+    final seen = <String>{};
     return [
       for (final source in _sources)
         if (seen.add(source.sourceType)) source.sourceType,
     ];
   }
 
-  T? _capability<T extends SourceCapability>(SourceType type) {
+  T? _capability<T extends SourceCapability>(String type) {
     for (final source in _sources) {
       if (source.sourceType == type && source is T) {
         return source;
@@ -44,28 +39,27 @@ class SourceManager with Logging {
     return null;
   }
 
-  AudioStreamSource? audioStreamSource(SourceType type) =>
+  AudioStreamSource? audioStreamSource(String type) =>
       _capability<AudioStreamSource>(type);
 
-  TrackInfoSource? trackInfoSource(SourceType type) =>
+  TrackInfoSource? trackInfoSource(String type) =>
       _capability<TrackInfoSource>(type);
 
-  SearchSource? searchSource(SourceType type) =>
-      _capability<SearchSource>(type);
+  SearchSource? searchSource(String type) => _capability<SearchSource>(type);
 
-  PlaylistParsingSource? playlistParsingSource(SourceType type) =>
+  PlaylistParsingSource? playlistParsingSource(String type) =>
       _capability<PlaylistParsingSource>(type);
 
-  AvailabilitySource? availabilitySource(SourceType type) =>
+  AvailabilitySource? availabilitySource(String type) =>
       _capability<AvailabilitySource>(type);
 
-  TrackDetailSource? trackDetailSource(SourceType type) =>
+  TrackDetailSource? trackDetailSource(String type) =>
       _capability<TrackDetailSource>(type);
 
-  PagedVideoSource? pagedVideoSource(SourceType type) =>
+  PagedVideoSource? pagedVideoSource(String type) =>
       _capability<PagedVideoSource>(type);
 
-  DynamicPlaylistSource? dynamicPlaylistSource(SourceType type) =>
+  DynamicPlaylistSource? dynamicPlaylistSource(String type) =>
       _capability<DynamicPlaylistSource>(type);
 
   DynamicPlaylistSource? dynamicPlaylistSourceForUrl(String url) {
@@ -75,10 +69,9 @@ class SourceManager with Logging {
     return null;
   }
 
-  RankingSource? rankingSource(SourceType type) =>
-      _capability<RankingSource>(type);
+  RankingSource? rankingSource(String type) => _capability<RankingSource>(type);
 
-  LiveSource? liveSource(SourceType type) => _capability<LiveSource>(type);
+  LiveSource? liveSource(String type) => _capability<LiveSource>(type);
 
   TrackInfoSource? trackInfoSourceForUrl(String url) {
     for (final source in _sources.whereType<TrackInfoSource>()) {
@@ -94,7 +87,7 @@ class SourceManager with Logging {
     return null;
   }
 
-  SourceType? sourceTypeForUrl(String url) {
+  String? sourceTypeForUrl(String url) {
     return playlistParsingSourceForUrl(url)?.sourceType ??
         trackInfoSourceForUrl(url)?.sourceType;
   }
@@ -136,43 +129,40 @@ class SourceManager with Logging {
     return source.refreshAudioUrl(track);
   }
 
-  /// 检查歌曲是否需要刷新 URL
-  bool needsRefresh(Track track) {
-    if (track.audioUrl == null) return true;
-    if (track.audioUrlExpiry == null) return false;
-    // 提前5分钟刷新
-    return DateTime.now()
-        .isAfter(track.audioUrlExpiry!.subtract(const Duration(minutes: 5)));
-  }
-
   /// 搜索
-  Future<Map<SourceType, SearchResult>> searchAll(
+  Future<Map<String, SearchResult>> searchAll(
     String query, {
     int page = 1,
     int pageSize = 20,
   }) async {
-    final results = <SourceType, SearchResult>{};
+    final results = <String, SearchResult>{};
 
-    await Future.wait(_sources.whereType<SearchSource>().map((source) async {
-      try {
-        final result =
-            await source.search(query, page: page, pageSize: pageSize);
-        results[source.sourceType] = result;
-      } catch (e) {
-        // 单源失败不应中断整体搜索（保留「部分结果」语义），但补上日志
-        // 避免限流/网络/程式错误被完全静默吞掉而无法排查。
-        logWarning(
-            '${source.sourceType.name} search failed; returning partial results: '
-            '$e');
-      }
-    }));
+    await Future.wait(
+      _sources.whereType<SearchSource>().map((source) async {
+        try {
+          final result = await source.search(
+            query,
+            page: page,
+            pageSize: pageSize,
+          );
+          results[source.sourceType] = result;
+        } catch (e) {
+          // 单源失败不应中断整体搜索（保留「部分结果」语义），但补上日志
+          // 避免限流/网络/程式错误被完全静默吞掉而无法排查。
+          logWarning(
+            '${source.sourceType} search failed; returning partial results: '
+            '$e',
+          );
+        }
+      }),
+    );
 
     return results;
   }
 
   /// 从单个源搜索
   Future<SearchResult> searchFrom(
-    SourceType type,
+    String type,
     String query, {
     int page = 1,
     int pageSize = 20,
@@ -204,18 +194,4 @@ final sourceManagerProvider = Provider<SourceManager>((ref) {
   final manager = SourceManager();
   ref.onDispose(manager.dispose);
   return manager;
-});
-
-/// URL 解析 Provider
-final parseUrlProvider =
-    FutureProvider.family<Track?, String>((ref, url) async {
-  final manager = ref.watch(sourceManagerProvider);
-  return manager.parseUrl(url);
-});
-
-/// 播放列表解析 Provider
-final parsePlaylistProvider =
-    FutureProvider.family<PlaylistParseResult?, String>((ref, url) async {
-  final manager = ref.watch(sourceManagerProvider);
-  return manager.parsePlaylist(url);
 });

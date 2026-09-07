@@ -1,5 +1,6 @@
+// ignore_for_file: avoid_print
 // Bilibili 直播间 API 测试 Demo
-// 运行方式: dart run test/bilibili_live_api_test.dart
+// 运行方式: dart run test/demo/bilibili_live_api_lookup_demo.dart
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -21,10 +22,10 @@ class BilibiliLiveApiTest {
   }
 
   static Map<String, String> get _headers => {
-        'User-Agent': _userAgent,
-        'Referer': _referer,
-        'Cookie': 'buvid3=${_generateBuvid3()}',
-      };
+    'User-Agent': _userAgent,
+    'Referer': _referer,
+    'Cookie': 'buvid3=${_generateBuvid3()}',
+  };
 
   /// 1. 搜索用户 API
   /// search_type=bili_user 搜索用户
@@ -304,8 +305,9 @@ void main() async {
 
   // 测试通过 UID 获取直播间信息
   // 使用一个知名主播的 UID 进行测试
-  final roomInfo =
-      await BilibiliLiveApiTest.testGetRoomInfoByUid(36081646); // 示例 UID
+  final roomInfo = await BilibiliLiveApiTest.testGetRoomInfoByUid(
+    36081646,
+  ); // 示例 UID
 
   // 如果有直播间，获取详细信息
   if (roomInfo != null &&

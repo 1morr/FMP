@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
@@ -7,6 +7,7 @@ import '../../data/sources/source_http_policy.dart';
 import '../../i18n/strings.g.dart';
 import 'bilibili_account_service.dart';
 import 'bilibili_auth_interceptor.dart';
+import '../../data/repositories/track_repository.dart';
 
 /// Bilibili 收藏夾數據模型
 class BilibiliFavFolder {
@@ -38,12 +39,12 @@ class BilibiliFavoritesService with Logging {
   BilibiliFavoritesService({
     required BilibiliAccountService accountService,
     required Isar isar,
-  })  : _accountService = accountService,
-        _isar = isar,
-        _dio = _createDio(accountService);
+  }) : _accountService = accountService,
+       _isar = isar,
+       _dio = _createDio(accountService);
 
   static Dio _createDio(BilibiliAccountService accountService) {
-    final dio = SourceHttpPolicy.createApiDio(SourceType.bilibili);
+    final dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili);
     dio.interceptors.add(BilibiliAuthInterceptor(accountService));
     return dio;
   }
@@ -86,19 +87,23 @@ class BilibiliFavoritesService with Logging {
       final list = data['list'] as List? ?? [];
 
       if (page == 1) {
-        logDebug('getFavFolders: videoAid=$videoAid, count=${data['count']}, '
-            'first page folders=${list.length}');
+        logDebug(
+          'getFavFolders: videoAid=$videoAid, count=${data['count']}, '
+          'first page folders=${list.length}',
+        );
       }
 
       for (final item in list) {
-        allFolders.add(BilibiliFavFolder(
-          id: item['id'] as int,
-          title: item['title'] as String? ?? '',
-          mediaCount: item['media_count'] as int? ?? 0,
-          coverUrl: item['cover'] as String?,
-          isFavorited: (item['fav_state'] as int? ?? 0) == 1,
-          isDefault: page == 1 && item['id'] == data['default_folder_id'],
-        ));
+        allFolders.add(
+          BilibiliFavFolder(
+            id: item['id'] as int,
+            title: item['title'] as String? ?? '',
+            mediaCount: item['media_count'] as int? ?? 0,
+            coverUrl: item['cover'] as String?,
+            isFavorited: (item['fav_state'] as int? ?? 0) == 1,
+            isDefault: page == 1 && item['id'] == data['default_folder_id'],
+          ),
+        );
       }
 
       hasMore = data['has_more'] as bool? ?? false;
@@ -172,8 +177,10 @@ class BilibiliFavoritesService with Logging {
     );
 
     _checkResponse(response.data);
-    logInfo('Updated favorites for aid=$videoAid, '
-        'added=${addFolderIds.length}, removed=${removeFolderIds.length}');
+    logInfo(
+      'Updated favorites for aid=$videoAid, '
+      'added=${addFolderIds.length}, removed=${removeFolderIds.length}',
+    );
   }
 
   /// 批量從收藏夾移除
@@ -194,11 +201,7 @@ class BilibiliFavoritesService with Logging {
 
     final response = await _dio.post(
       '$_apiBase/x/v3/fav/resource/batch-del',
-      data: {
-        'media_id': folderId,
-        'resources': resources,
-        'csrf': csrf,
-      },
+      data: {'media_id': folderId, 'resources': resources, 'csrf': csrf},
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
 
@@ -229,13 +232,7 @@ class BilibiliFavoritesService with Logging {
     // 緩存回 Track（如果 track 已持久化）
     if (track.id > 0) {
       try {
-        await _isar.writeTxn(() async {
-          final saved = await _isar.tracks.get(track.id);
-          if (saved != null) {
-            saved.bilibiliAid = aid;
-            await _isar.tracks.put(saved);
-          }
-        });
+        await TrackRepository(_isar).updateBilibiliAid(track.id, aid);
       } catch (e) {
         logWarning('Failed to cache bilibiliAid for track ${track.id}: $e');
       }
@@ -284,10 +281,7 @@ class BilibiliFavoritesException implements Exception {
   final int code;
   final String message;
 
-  const BilibiliFavoritesException({
-    required this.code,
-    required this.message,
-  });
+  const BilibiliFavoritesException({required this.code, required this.message});
 
   /// 是否需要重新登錄
   bool get requiresLogin => code == -101 || code == -111;

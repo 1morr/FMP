@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../core/errors/user_message.dart';
 import '../../core/logger.dart';
 import '../../services/update/update_service.dart';
 
@@ -55,24 +56,24 @@ class UpdateState {
 }
 
 /// 更新状态管理器
-class UpdateNotifier extends StateNotifier<UpdateState> {
+class UpdateNotifier extends Notifier<UpdateState> {
+  UpdateNotifier({UpdateService? service, bool? isAndroidOverride})
+    : _service = service ?? UpdateService(),
+      _isAndroidOverride = isAndroidOverride;
+
   final UpdateService _service;
   final bool? _isAndroidOverride;
   int _operationId = 0;
 
-  UpdateNotifier({
-    UpdateService? service,
-    bool? isAndroidOverride,
-  })  : _service = service ?? UpdateService(),
-        _isAndroidOverride = isAndroidOverride,
-        super(const UpdateState());
+  @override
+  UpdateState build() => const UpdateState();
 
   bool get _isAndroid => _isAndroidOverride ?? Platform.isAndroid;
 
   int _startOperation() => ++_operationId;
 
   bool _isCurrentOperation(int operationId) {
-    return mounted && _operationId == operationId;
+    return ref.mounted && _operationId == operationId;
   }
 
   /// 检查更新
@@ -91,11 +92,17 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
       } else {
         state = state.copyWith(status: UpdateStatus.upToDate);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isCurrentOperation(operationId)) return;
+      final reason = failureMessage(
+        e,
+        stack,
+        'checkForUpdate failed',
+        tag: 'Update',
+      );
       state = state.copyWith(
         status: UpdateStatus.error,
-        errorMessage: '${t.updateProvider.checkFailed}: $e',
+        errorMessage: '${t.updateProvider.checkFailed}: $reason',
       );
     }
   }
@@ -151,11 +158,17 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
         // Windows: 已经退出应用，不会到这里
         state = state.copyWith(status: UpdateStatus.installing);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (!_isCurrentOperation(operationId)) return;
+      final reason = failureMessage(
+        e,
+        stack,
+        'downloadAndInstall failed',
+        tag: 'Update',
+      );
       state = state.copyWith(
         status: UpdateStatus.error,
-        errorMessage: '${t.updateProvider.downloadFailed}: $e',
+        errorMessage: '${t.updateProvider.downloadFailed}: $reason',
       );
     }
   }
@@ -183,11 +196,17 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
       if (_isCurrentOperation(operationId)) {
         state = state.copyWith(status: UpdateStatus.readyToInstall);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_isCurrentOperation(operationId)) {
+        final reason = failureMessage(
+          e,
+          stack,
+          'triggerInstall failed',
+          tag: 'Update',
+        );
         state = state.copyWith(
           status: UpdateStatus.error,
-          errorMessage: '${t.updateProvider.installFailed}: $e',
+          errorMessage: '${t.updateProvider.installFailed}: $reason',
         );
       }
     }
@@ -214,7 +233,6 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
 }
 
 /// 更新 Provider
-final updateProvider =
-    StateNotifierProvider<UpdateNotifier, UpdateState>((ref) {
-  return UpdateNotifier();
-});
+final updateProvider = NotifierProvider<UpdateNotifier, UpdateState>(
+  UpdateNotifier.new,
+);

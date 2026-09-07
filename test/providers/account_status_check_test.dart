@@ -6,34 +6,33 @@ import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/services/account/account_service.dart';
 
 void main() {
-  test('verifyAllAccountStatuses reports per-platform check failures',
-      () async {
-    final toastService = ToastService();
-    addTearDown(toastService.dispose);
+  test(
+    'verifyAllAccountStatuses reports per-platform check failures',
+    () async {
+      final toastService = ToastService();
+      addTearDown(toastService.dispose);
 
-    final result = await verifyAllAccountStatuses(
-      [
+      final result = await verifyAllAccountStatuses([
         _FakeAccountService(
-          platform: SourceType.bilibili,
+          platform: SourceIds.bilibili,
           loggedIn: true,
           check: () => throw StateError('network down'),
         ),
         _FakeAccountService(
-          platform: SourceType.youtube,
+          platform: SourceIds.youtube,
           loggedIn: true,
           check: () async => const AccountCheckResult(
             status: AccountStatus.valid,
             isVip: false,
           ),
         ),
-      ],
-      toastService,
-    );
+      ], toastService);
 
-    expect(result.checkedPlatforms, [SourceType.youtube]);
-    expect(result.failedPlatforms, [SourceType.bilibili]);
-    expect(result.hasFailures, isTrue);
-  });
+      expect(result.checkedPlatforms, [SourceIds.youtube]);
+      expect(result.failedPlatforms, [SourceIds.bilibili]);
+      expect(result.hasFailures, isTrue);
+    },
+  );
 }
 
 class _FakeAccountService extends AccountService {
@@ -44,7 +43,7 @@ class _FakeAccountService extends AccountService {
   }) : _check = check;
 
   @override
-  final SourceType platform;
+  final String platform;
 
   final bool loggedIn;
   final Future<AccountCheckResult> Function() _check;

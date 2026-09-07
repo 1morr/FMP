@@ -40,8 +40,9 @@ void main() {
         ..lyricsAiEndpoint = ' https://api.example.com/v1 '
         ..lyricsAiModel = ' gpt-test '
         ..lyricsAiTimeoutSeconds = 15;
-      final storage =
-          _MemorySecureKeyValueStore({'lyrics_ai_api_key': ' key '});
+      final storage = _MemorySecureKeyValueStore({
+        'lyrics_ai_api_key': ' key ',
+      });
       final service = LyricsAiConfigService(
         loadSettings: () async => settings,
         secureStorage: storage,
@@ -107,7 +108,7 @@ void main() {
 
 class _MemorySecureKeyValueStore implements SecureKeyValueStore {
   _MemorySecureKeyValueStore([Map<String, String>? initialValues])
-      : values = Map<String, String>.from(initialValues ?? const {});
+    : values = Map<String, String>.from(initialValues ?? const {});
 
   final Map<String, String> values;
 

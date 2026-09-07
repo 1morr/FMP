@@ -1,13 +1,10 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../data/models/models.dart';
 import '../../i18n/strings.g.dart';
 
 class DatabaseViewerSection {
-  const DatabaseViewerSection({
-    required this.title,
-    required this.data,
-  });
+  const DatabaseViewerSection({required this.title, required this.data});
 
   final String title;
   final Map<String, String> data;
@@ -113,7 +110,7 @@ final List<FmpDatabaseCollection> fmpDatabaseCollections = [
     schema: RadioStationSchema,
     query: (isar) => isar.radioStations.where().findAll(),
     title: (station) => station.title,
-    subtitle: (station) => 'ID: ${station.id} | ${station.sourceType.name}',
+    subtitle: (station) => 'ID: ${station.id} | ${station.sourceType}',
     sections: _radioStationSections,
   ),
   _collection<LyricsMatch>(
@@ -136,8 +133,8 @@ final List<FmpDatabaseCollection> fmpDatabaseCollections = [
     name: 'Account',
     schema: AccountSchema,
     query: (isar) => isar.accounts.where().findAll(),
-    title: (account) => account.userName ?? account.platform.name,
-    subtitle: (account) => 'ID: ${account.id} | ${account.platform.name}',
+    title: (account) => account.userName ?? account.platform,
+    subtitle: (account) => 'ID: ${account.id} | ${account.platform}',
     sections: _accountSections,
   ),
 ];
@@ -153,7 +150,7 @@ List<DatabaseViewerSection> _trackSections(Track track) {
       data: {
         'id': track.id.toString(),
         'sourceId': track.sourceId,
-        'sourceType': track.sourceType.name,
+        'sourceType': track.sourceType,
         'title': track.title,
         'artist': track.artist ?? 'null',
         'ownerId': track.ownerId?.toString() ?? 'null',
@@ -181,26 +178,28 @@ List<DatabaseViewerSection> _trackSections(Track track) {
     DatabaseViewerSection(
       title: t.databaseViewer.cacheAndDownload,
       data: {
-        'playlistInfo (${track.playlistInfo.length})': track
-                .playlistInfo.isEmpty
+        'playlistInfo (${track.playlistInfo.length})':
+            track.playlistInfo.isEmpty
             ? '[]'
             : track.playlistInfo
-                .asMap()
-                .entries
-                .map((e) =>
-                    '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}')
-                .join('\n\n'),
+                  .asMap()
+                  .entries
+                  .map(
+                    (e) =>
+                        '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}',
+                  )
+                  .join('\n\n'),
         'allPlaylistIds': track.allPlaylistIds.isEmpty
             ? '[]'
             : track.allPlaylistIds.join(', '),
         'allDownloadPaths (${track.allDownloadPaths.length})':
             track.allDownloadPaths.isEmpty
-                ? '[]'
-                : track.allDownloadPaths
-                    .asMap()
-                    .entries
-                    .map((e) => '[${e.key}] ${e.value}')
-                    .join('\n'),
+            ? '[]'
+            : track.allDownloadPaths
+                  .asMap()
+                  .entries
+                  .map((e) => '[${e.key}] ${e.value}')
+                  .join('\n'),
         'hasAnyDownload': track.hasAnyDownload.toString(),
       },
     ),
@@ -234,7 +233,6 @@ List<DatabaseViewerSection> _trackSections(Track track) {
       data: {
         'uniqueKey': track.uniqueKey,
         'groupKey': track.groupKey,
-        'sourceKey': track.sourceKey,
         'sourcePageKey': track.sourcePageKey,
         'formattedDuration': track.formattedDuration,
       },
@@ -264,7 +262,7 @@ List<DatabaseViewerSection> _playlistSections(Playlist playlist) {
       data: {
         'isImported': playlist.isImported.toString(),
         'sourceUrl': _truncate(playlist.sourceUrl, 60),
-        'importSourceType': playlist.importSourceType?.name ?? 'null',
+        'importSourceType': playlist.importSourceType ?? 'null',
         'refreshIntervalHours':
             playlist.refreshIntervalHours?.toString() ?? 'null',
         'lastRefreshed': playlist.lastRefreshed?.toIso8601String() ?? 'null',
@@ -354,9 +352,7 @@ List<DatabaseViewerSection> _playQueueSections(PlayQueue queue) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.timestamps,
-      data: {
-        'lastUpdated': queue.lastUpdated?.toIso8601String() ?? 'null',
-      },
+      data: {'lastUpdated': queue.lastUpdated?.toIso8601String() ?? 'null'},
     ),
   ];
 }
@@ -367,20 +363,17 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       title: t.databaseViewer.themeSettings,
       data: {
         'id': setting.id.toString(),
+        'schemaVersion': setting.schemaVersion.toString(),
         'themeModeIndex': setting.themeModeIndex.toString(),
         'themeMode': setting.themeMode.name,
+        'railExpanded': setting.railExpanded.toString(),
+        'detailPanelExpanded': setting.detailPanelExpanded.toString(),
+        'detailPanelWidth': setting.detailPanelWidth.toString(),
       },
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.colorSettings,
-      data: {
-        'primaryColor': _formatNullableColor(setting.primaryColor),
-        'secondaryColor': _formatNullableColor(setting.secondaryColor),
-        'backgroundColor': _formatNullableColor(setting.backgroundColor),
-        'surfaceColor': _formatNullableColor(setting.surfaceColor),
-        'textColor': _formatNullableColor(setting.textColor),
-        'cardColor': _formatNullableColor(setting.cardColor),
-      },
+      data: {'primaryColor': _formatNullableColor(setting.primaryColor)},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.storageSettings,
@@ -412,38 +405,45 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'audioQualityLevelIndex': setting.audioQualityLevelIndex.toString(),
         'audioQualityLevel': setting.audioQualityLevel.name,
         'audioFormatPriority': setting.audioFormatPriority,
-        'audioFormatPriorityList':
-            setting.audioFormatPriorityList.map((e) => e.name).join(', '),
-        'youtubeStreamPriority': setting.youtubeStreamPriority,
-        'youtubeStreamPriorityList':
-            setting.youtubeStreamPriorityList.map((e) => e.name).join(', '),
-        'bilibiliStreamPriority': setting.bilibiliStreamPriority,
-        'bilibiliStreamPriorityList':
-            setting.bilibiliStreamPriorityList.map((e) => e.name).join(', '),
-        'neteaseStreamPriority': setting.neteaseStreamPriority,
-        'neteaseStreamPriorityList':
-            setting.neteaseStreamPriorityList.map((e) => e.name).join(', '),
+        'audioFormatPriorityList': setting.audioFormatPriorityList
+            .map((e) => e.name)
+            .join(', '),
       },
     ),
     DatabaseViewerSection(
-      title: 'Auth Settings',
+      title: 'Source Settings',
       data: {
-        'useBilibiliAuthForPlay': setting.useBilibiliAuthForPlay.toString(),
-        'useYoutubeAuthForPlay': setting.useYoutubeAuthForPlay.toString(),
-        'useNeteaseAuthForPlay': setting.useNeteaseAuthForPlay.toString(),
+        'sourceSettings': setting.sourceSettings
+            .map((e) => e.sourceId)
+            .join(', '),
       },
     ),
+    // 逐筆列出實際存進 sourceSettings 的內容，而不是照 SourceIds 硬列 ——
+    // 偵錯檢視器要顯示資料庫裡真正有什麼，包含認不得的音源。
+    for (final entry in setting.sourceSettings)
+      DatabaseViewerSection(
+        title: 'Source Settings: ${entry.sourceId}',
+        data: {
+          'sourceId': entry.sourceId,
+          'streamPriority': entry.streamPriority,
+          'streamPriorityList': setting
+              .streamPriorityFor(entry.sourceId)
+              .map((e) => e.name)
+              .join(', '),
+          'useAuthForPlay': entry.useAuthForPlay.toString(),
+        },
+      ),
     DatabaseViewerSection(
       title: 'Refresh Settings',
       data: {
         'rankingRefreshIntervalMinutes':
             '${setting.rankingRefreshIntervalMinutes} min',
         'homeRankingSourcePriority': setting.homeRankingSourcePriority,
-        'homeRankingSourcePriorityList':
-            setting.homeRankingSourcePriorityList.join(', '),
+        'homeRankingSourcePriorityList': setting.homeRankingSourcePriorityList
+            .join(', '),
         'disabledHomeRankingSources': setting.disabledHomeRankingSources,
-        'disabledHomeRankingSourcesSet':
-            setting.disabledHomeRankingSourcesSet.join(', '),
+        'disabledHomeRankingSourcesSet': setting.disabledHomeRankingSourcesSet
+            .join(', '),
         'radioRefreshIntervalMinutes':
             '${setting.radioRefreshIntervalMinutes} min',
       },
@@ -469,8 +469,8 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       title: t.databaseViewer.lyricsSettings,
       data: {
         'autoMatchLyrics': setting.autoMatchLyrics.toString(),
-        'allowPlainLyricsAutoMatch':
-            setting.allowPlainLyricsAutoMatch.toString(),
+        'allowPlainLyricsAutoMatch': setting.allowPlainLyricsAutoMatch
+            .toString(),
         'maxLyricsCacheFiles': setting.maxLyricsCacheFiles.toString(),
         'lyricsDisplayModeIndex': setting.lyricsDisplayModeIndex.toString(),
         'lyricsDisplayMode': setting.lyricsDisplayMode.name,
@@ -478,29 +478,33 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'lyricsSourcePriorityList': setting.lyricsSourcePriorityList.join(', '),
         'disabledLyricsSources': setting.disabledLyricsSources,
         'disabledLyricsSourcesSet': setting.disabledLyricsSourcesSet.join(', '),
-        'lyricsAiTitleParsingModeIndex':
-            setting.lyricsAiTitleParsingModeIndex.toString(),
+        'lyricsAiTitleParsingModeIndex': setting.lyricsAiTitleParsingModeIndex
+            .toString(),
         'lyricsAiTitleParsingMode': setting.lyricsAiTitleParsingMode.name,
         'lyricsAiEndpoint': setting.lyricsAiEndpoint,
         'lyricsAiModel': setting.lyricsAiModel,
         'lyricsAiTimeoutSeconds': '${setting.lyricsAiTimeoutSeconds}s',
-        'lyricsWindowTextColor':
-            _formatNullableColor(setting.lyricsWindowTextColor),
-        'lyricsWindowSecondaryTextColor':
-            _formatNullableColor(setting.lyricsWindowSecondaryTextColor),
+        'lyricsWindowTextColor': _formatNullableColor(
+          setting.lyricsWindowTextColor,
+        ),
+        'lyricsWindowSecondaryTextColor': _formatNullableColor(
+          setting.lyricsWindowSecondaryTextColor,
+        ),
         'lyricsWindowInactiveTextOpacity':
             setting.lyricsWindowInactiveTextOpacity?.toStringAsFixed(2) ??
-                'null',
+            'null',
         'lyricsWindowOutlineEnabled':
             setting.lyricsWindowOutlineEnabled?.toString() ?? 'null',
-        'lyricsWindowOutlineColor':
-            _formatNullableColor(setting.lyricsWindowOutlineColor),
+        'lyricsWindowOutlineColor': _formatNullableColor(
+          setting.lyricsWindowOutlineColor,
+        ),
         'lyricsWindowOutlineWidth':
             setting.lyricsWindowOutlineWidth?.toStringAsFixed(2) ?? 'null',
         'lyricsWindowShadowEnabled':
             setting.lyricsWindowShadowEnabled?.toString() ?? 'null',
-        'lyricsWindowShadowColor':
-            _formatNullableColor(setting.lyricsWindowShadowColor),
+        'lyricsWindowShadowColor': _formatNullableColor(
+          setting.lyricsWindowShadowColor,
+        ),
         'lyricsWindowShadowBlurRadius':
             setting.lyricsWindowShadowBlurRadius?.toStringAsFixed(2) ?? 'null',
         'lyricsWindowShadowOffsetX':
@@ -526,7 +530,7 @@ List<DatabaseViewerSection> _playHistorySections(PlayHistory history) {
       data: {
         'id': history.id.toString(),
         'sourceId': history.sourceId,
-        'sourceType': history.sourceType.name,
+        'sourceType': history.sourceType,
         'cid': history.cid?.toString() ?? 'null',
         'trackKey': history.trackKey,
       },
@@ -543,9 +547,7 @@ List<DatabaseViewerSection> _playHistorySections(PlayHistory history) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.playbackTime,
-      data: {
-        'playedAt': history.playedAt.toIso8601String(),
-      },
+      data: {'playedAt': history.playedAt.toIso8601String()},
     ),
   ];
 }
@@ -587,8 +589,9 @@ List<DatabaseViewerSection> _downloadTaskSections(DownloadTask task) {
         'isPending': task.isPending.toString(),
         'isPaused': task.isPaused.toString(),
         'downloadedBytes': _formatBytes(task.downloadedBytes),
-        'totalBytes':
-            task.totalBytes != null ? _formatBytes(task.totalBytes!) : 'null',
+        'totalBytes': task.totalBytes != null
+            ? _formatBytes(task.totalBytes!)
+            : 'null',
       },
     ),
     DatabaseViewerSection(
@@ -602,9 +605,7 @@ List<DatabaseViewerSection> _downloadTaskSections(DownloadTask task) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.errorInfo,
-      data: {
-        'errorMessage': task.errorMessage ?? 'null',
-      },
+      data: {'errorMessage': task.errorMessage ?? 'null'},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.timestamps,
@@ -625,7 +626,7 @@ List<DatabaseViewerSection> _radioStationSections(RadioStation station) {
         'uniqueKey': station.uniqueKey,
         'url': _truncate(station.url, 60),
         'title': station.title,
-        'sourceType': station.sourceType.name,
+        'sourceType': station.sourceType,
         'sourceId': station.sourceId,
       },
     ),
@@ -639,16 +640,13 @@ List<DatabaseViewerSection> _radioStationSections(RadioStation station) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.mediaInfo,
-      data: {
-        'thumbnailUrl': _truncate(station.thumbnailUrl, 60),
-      },
+      data: {'thumbnailUrl': _truncate(station.thumbnailUrl, 60)},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.sortAndFavorite,
       data: {
         'sortOrder': station.sortOrder.toString(),
         'isFavorite': station.isFavorite.toString(),
-        'note': station.note ?? 'null',
       },
     ),
     DatabaseViewerSection(
@@ -665,10 +663,7 @@ List<DatabaseViewerSection> _lyricsMatchSections(LyricsMatch match) {
   return [
     DatabaseViewerSection(
       title: t.databaseViewer.basicInfo,
-      data: {
-        'id': match.id.toString(),
-        'trackUniqueKey': match.trackUniqueKey,
-      },
+      data: {'id': match.id.toString(), 'trackUniqueKey': match.trackUniqueKey},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.lyricsInfo,
@@ -680,9 +675,7 @@ List<DatabaseViewerSection> _lyricsMatchSections(LyricsMatch match) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.timestamps,
-      data: {
-        'matchedAt': match.matchedAt.toIso8601String(),
-      },
+      data: {'matchedAt': match.matchedAt.toIso8601String()},
     ),
   ];
 }
@@ -725,7 +718,7 @@ List<DatabaseViewerSection> _accountSections(Account account) {
       title: t.databaseViewer.basicInfo,
       data: {
         'id': account.id.toString(),
-        'platform': account.platform.name,
+        'platform': account.platform,
         'userId': account.userId ?? 'null',
         'userName': account.userName ?? 'null',
         'avatarUrl': _truncate(account.avatarUrl, 60),

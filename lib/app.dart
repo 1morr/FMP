@@ -36,11 +36,13 @@ class FMPApp extends ConsumerWidget {
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(
-            primaryColor: preloadedPrimaryColor,
-            fontFamily: preloadedFontFamily),
+          primaryColor: preloadedPrimaryColor,
+          fontFamily: preloadedFontFamily,
+        ),
         darkTheme: AppTheme.darkTheme(
-            primaryColor: preloadedPrimaryColor,
-            fontFamily: preloadedFontFamily),
+          primaryColor: preloadedPrimaryColor,
+          fontFamily: preloadedFontFamily,
+        ),
         themeMode: preloadedThemeMode,
         locale: TranslationProvider.of(context).flutterLocale,
         supportedLocales: AppLocaleUtils.supportedLocales,
@@ -61,11 +63,13 @@ class FMPApp extends ConsumerWidget {
       error: (error, stack) => MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(
-            primaryColor: preloadedPrimaryColor,
-            fontFamily: preloadedFontFamily),
+          primaryColor: preloadedPrimaryColor,
+          fontFamily: preloadedFontFamily,
+        ),
         darkTheme: AppTheme.darkTheme(
-            primaryColor: preloadedPrimaryColor,
-            fontFamily: preloadedFontFamily),
+          primaryColor: preloadedPrimaryColor,
+          fontFamily: preloadedFontFamily,
+        ),
         themeMode: preloadedThemeMode,
         locale: TranslationProvider.of(context).flutterLocale,
         supportedLocales: AppLocaleUtils.supportedLocales,
@@ -130,9 +134,13 @@ class FMPApp extends ConsumerWidget {
 
           // 主题配置
           theme: AppTheme.lightTheme(
-              primaryColor: primaryColor, fontFamily: fontFamily),
+            primaryColor: primaryColor,
+            fontFamily: fontFamily,
+          ),
           darkTheme: AppTheme.darkTheme(
-              primaryColor: primaryColor, fontFamily: fontFamily),
+            primaryColor: primaryColor,
+            fontFamily: fontFamily,
+          ),
           themeMode: themeMode,
 
           // 路由配置

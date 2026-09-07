@@ -9,7 +9,7 @@ class _FakeSearchSource implements SearchSource {
   _FakeSearchSource(this.sourceType, this._behaviour);
 
   @override
-  final SourceType sourceType;
+  final String sourceType;
 
   final Future<SearchResult> Function(String query) _behaviour;
 
@@ -19,20 +19,18 @@ class _FakeSearchSource implements SearchSource {
     int page = 1,
     int pageSize = 20,
     SearchOrder order = SearchOrder.relevance,
-  }) =>
-      _behaviour(query);
+  }) => _behaviour(query);
 }
 
 void main() {
-  test(
-      'searchAll preserves partial results when one source throws '
+  test('searchAll preserves partial results when one source throws '
       '(B9: silent catch now logs instead of swallowing)', () async {
     final manager = SourceManager(
       sources: [
         _FakeSearchSource(
-          SourceType.youtube,
+          SourceIds.youtube,
           (_) async => SearchResult(
-            tracks: [Track()..sourceType = SourceType.youtube],
+            tracks: [Track()..sourceType = SourceIds.youtube],
             totalCount: 1,
             page: 1,
             pageSize: 1,
@@ -40,7 +38,7 @@ void main() {
           ),
         ),
         _FakeSearchSource(
-          SourceType.bilibili,
+          SourceIds.bilibili,
           (_) async => throw Exception('bilibili down'),
         ),
       ],
@@ -51,8 +49,8 @@ void main() {
 
     // 失敗源被略過，成功源的結果仍回傳（部分結果語義不變）。
     expect(results, hasLength(1));
-    expect(results.keys, contains(SourceType.youtube));
-    expect(results[SourceType.youtube]!.tracks, hasLength(1));
-    expect(results.keys, isNot(contains(SourceType.bilibili)));
+    expect(results.keys, contains(SourceIds.youtube));
+    expect(results[SourceIds.youtube]!.tracks, hasLength(1));
+    expect(results.keys, isNot(contains(SourceIds.bilibili)));
   });
 }

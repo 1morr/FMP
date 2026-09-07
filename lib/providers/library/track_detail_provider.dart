@@ -5,12 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/download_filenames.dart';
+import '../../core/errors/user_message.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/account/source_auth_context.dart';
-import '../../services/audio/audio_provider.dart';
+import '../audio/audio_player_selectors.dart';
 import '../account/source_auth_context_provider.dart';
 
 /// 当前播放歌曲详情状态
@@ -19,11 +20,7 @@ class TrackDetailState {
   final bool isLoading;
   final String? error;
 
-  const TrackDetailState({
-    this.detail,
-    this.isLoading = false,
-    this.error,
-  });
+  const TrackDetailState({this.detail, this.isLoading = false, this.error});
 
   TrackDetailState copyWith({
     VideoDetail? detail,
@@ -41,13 +38,32 @@ class TrackDetailState {
 }
 
 /// 歌曲详情 Notifier
-class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
-  final SourceManager _sourceManager;
-  final SourcePlaybackAuthContext _sourceAuthContext;
+class TrackDetailNotifier extends Notifier<TrackDetailState> {
+  late SourceManager _sourceManager;
+  late SourcePlaybackAuthContext _sourceAuthContext;
   Track? _currentTrack;
 
-  TrackDetailNotifier(this._sourceManager, this._sourceAuthContext)
-      : super(const TrackDetailState());
+  @override
+  TrackDetailState build() {
+    _sourceManager = ref.watch(sourceManagerProvider);
+    _sourceAuthContext = ref.watch(sourceAuthContextProvider);
+
+    // 监听当前播放的歌曲变化
+    ref.listen<Track?>(currentTrackProvider, (previous, next) {
+      if (previous?.uniqueKey != next?.uniqueKey) {
+        loadDetail(next);
+      }
+    });
+
+    // 初始化时加载当前歌曲详情
+    final currentTrack = ref.read(currentTrackProvider);
+    if (currentTrack != null) {
+      // `loadDetail` 會同步寫 state，不能在 build() 裡直接呼叫。
+      Future.microtask(() => loadDetail(currentTrack));
+    }
+
+    return const TrackDetailState();
+  }
 
   /// 加载歌曲详情
   Future<void> loadDetail(Track? track) async {
@@ -81,7 +97,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
         detail = await _loadNetworkDetail(track, source);
       } catch (_) {
         // 网络获取失败，已下载歌曲回退到本地 metadata（Bilibili/YouTube）
-        if (track.hasAnyDownload && track.sourceType != SourceType.netease) {
+        if (track.hasAnyDownload && track.sourceType != SourceIds.netease) {
           detail = await _loadFromLocalMetadata(track);
         }
         // 本地也没有则重新抛出原始异常
@@ -92,11 +108,16 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
-          error: e.toString(),
+          error: failureMessage(
+            e,
+            stack,
+            'Loading the track detail failed',
+            tag: 'TrackDetail',
+          ),
         );
       }
     }
@@ -113,8 +134,9 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
         final metadataFile = File(p.join(dir.path, DownloadFileNames.metadata));
         if (!await metadataFile.exists()) continue;
 
-        final json = jsonDecode(await metadataFile.readAsString())
-            as Map<String, dynamic>;
+        final json =
+            jsonDecode(await metadataFile.readAsString())
+                as Map<String, dynamic>;
 
         // 检查是否有完整的元数据
         if (json['viewCount'] == null) continue;
@@ -133,7 +155,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     final source = _sourceManager.trackDetailSource(track.sourceType);
     if (source == null) {
       throw StateError(
-        'Track detail source not registered: ${track.sourceType.name}',
+        'Track detail source not registered: ${track.sourceType}',
       );
     }
 
@@ -162,11 +184,16 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
-          error: e.toString(),
+          error: failureMessage(
+            e,
+            stack,
+            'Loading the track detail failed',
+            tag: 'TrackDetail',
+          ),
         );
       }
     }
@@ -181,25 +208,6 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 
 /// 歌曲详情 Provider
 final trackDetailProvider =
-    StateNotifierProvider<TrackDetailNotifier, TrackDetailState>((ref) {
-  final sourceManager = ref.watch(sourceManagerProvider);
-  final notifier = TrackDetailNotifier(
-    sourceManager,
-    ref.watch(sourceAuthContextProvider),
-  );
-
-  // 监听当前播放的歌曲变化
-  ref.listen<Track?>(currentTrackProvider, (previous, next) {
-    if (previous?.uniqueKey != next?.uniqueKey) {
-      notifier.loadDetail(next);
-    }
-  });
-
-  // 初始化时加载当前歌曲详情
-  final currentTrack = ref.read(currentTrackProvider);
-  if (currentTrack != null) {
-    notifier.loadDetail(currentTrack);
-  }
-
-  return notifier;
-});
+    NotifierProvider<TrackDetailNotifier, TrackDetailState>(
+      TrackDetailNotifier.new,
+    );

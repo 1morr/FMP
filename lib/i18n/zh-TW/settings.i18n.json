@@ -3,7 +3,7 @@
   "account": "帳號",
   "accountManagement": {
     "title": "帳號管理",
-    "subtitle": "管理 嗶哩嗶哩、YouTube 帳號"
+    "subtitle": "管理 嗶哩嗶哩、YouTube、網易雲音樂 帳號"
   },
   "appearance": "外觀",
   "playback": "播放",
@@ -153,6 +153,8 @@
     "debugTools": "偵錯工具",
     "liveLog": "即時日誌",
     "liveLogSubtitle": "檢視應用程式執行日誌",
+    "logLevel": "日誌級別",
+    "logLevelSubtitle": "只影響這次執行，重啟後回到預設",
     "dbViewer": "資料庫檢視器",
     "dbViewerSubtitle": "檢視和瀏覽 Isar 資料庫內容",
     "ytStreamTest": "YouTube 串流測試",
@@ -201,6 +203,7 @@
     "failed": "失敗",
     "completed": "已完成",
     "unknownTrack": "未知歌曲",
+    "trackLoadFailed": "曲目資訊讀取失敗",
     "pause": "暫停",
     "resume": "繼續",
     "retry": "重試",

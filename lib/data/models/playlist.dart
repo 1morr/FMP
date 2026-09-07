@@ -1,5 +1,4 @@
-import 'package:isar/isar.dart';
-import 'track.dart';
+import 'package:isar_community/isar.dart';
 
 part 'playlist.g.dart';
 
@@ -25,8 +24,7 @@ class Playlist {
   String? sourceUrl;
 
   /// 导入源类型
-  @Enumerated(EnumType.name)
-  SourceType? importSourceType;
+  String? importSourceType;
 
   /// 刷新间隔（小时）
   int? refreshIntervalHours;
@@ -78,8 +76,9 @@ class Playlist {
   bool get needsRefresh {
     if (!isImported || refreshIntervalHours == null) return false;
     if (lastRefreshed == null) return true;
-    final nextRefresh =
-        lastRefreshed!.add(Duration(hours: refreshIntervalHours!));
+    final nextRefresh = lastRefreshed!.add(
+      Duration(hours: refreshIntervalHours!),
+    );
     return DateTime.now().isAfter(nextRefresh);
   }
 

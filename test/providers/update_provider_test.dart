@@ -1,68 +1,70 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/services/update/update_service.dart';
 
 void main() {
   group('UpdateNotifier operation generation', () {
-    test('older checkForUpdate completion cannot overwrite newer check',
-        () async {
-      final service = _FakeUpdateService();
-      final notifier = UpdateNotifier(service: service);
+    test(
+      'older checkForUpdate completion cannot overwrite newer check',
+      () async {
+        final service = _FakeUpdateService();
+        final notifier = _notifier(service: service);
 
-      final oldCheck = service.enqueueCheck(_info('v9.9.8'));
-      final oldFuture = notifier.checkForUpdate();
-      await pumpEventQueue(times: 2);
+        final oldCheck = service.enqueueCheck(_info('v9.9.8'));
+        final oldFuture = notifier.checkForUpdate();
+        await pumpEventQueue(times: 2);
 
-      final newCheck = service.enqueueCheck(null);
-      final newFuture = notifier.checkForUpdate();
-      await pumpEventQueue(times: 2);
+        final newCheck = service.enqueueCheck(null);
+        final newFuture = notifier.checkForUpdate();
+        await pumpEventQueue(times: 2);
 
-      newCheck.complete();
-      await newFuture;
-      expect(notifier.state.status, UpdateStatus.upToDate);
+        newCheck.complete();
+        await newFuture;
+        expect(notifier.state.status, UpdateStatus.upToDate);
 
-      oldCheck.complete();
-      await oldFuture;
+        oldCheck.complete();
+        await oldFuture;
 
-      expect(notifier.state.status, UpdateStatus.upToDate);
-      expect(notifier.state.updateInfo, isNull);
-    });
+        expect(notifier.state.status, UpdateStatus.upToDate);
+        expect(notifier.state.updateInfo, isNull);
+      },
+    );
 
-    test('reset cancels delayed download progress and completion writes',
-        () async {
-      final service = _FakeUpdateService();
-      final notifier = UpdateNotifier(service: service);
+    test(
+      'reset cancels delayed download progress and completion writes',
+      () async {
+        final service = _FakeUpdateService();
+        final notifier = _notifier(service: service);
 
-      service.enqueueCheck(_info('v9.9.9')).complete();
-      await notifier.checkForUpdate();
-      expect(notifier.state.status, UpdateStatus.updateAvailable);
+        service.enqueueCheck(_info('v9.9.9')).complete();
+        await notifier.checkForUpdate();
+        expect(notifier.state.status, UpdateStatus.updateAvailable);
 
-      final download = service.enqueueDownload('/tmp/fmp-update.zip');
-      final downloadFuture = notifier.downloadAndInstall();
-      await pumpEventQueue(times: 2);
+        final download = service.enqueueDownload('/tmp/fmp-update.zip');
+        final downloadFuture = notifier.downloadAndInstall();
+        await pumpEventQueue(times: 2);
 
-      service.progressCallbacks.single(50, 100);
-      expect(notifier.state.downloadProgress, 0.5);
+        service.progressCallbacks.single(50, 100);
+        expect(notifier.state.downloadProgress, 0.5);
 
-      notifier.reset();
-      service.progressCallbacks.single(100, 100);
-      download.complete();
-      await downloadFuture;
+        notifier.reset();
+        service.progressCallbacks.single(100, 100);
+        download.complete();
+        await downloadFuture;
 
-      expect(notifier.state.status, UpdateStatus.idle);
-      expect(notifier.state.downloadProgress, 0);
-      expect(notifier.state.downloadedFilePath, isNull);
-    });
+        expect(notifier.state.status, UpdateStatus.idle);
+        expect(notifier.state.downloadProgress, 0);
+        expect(notifier.state.downloadedFilePath, isNull);
+      },
+    );
 
     test('Android install waits for package install permission', () async {
       final service = _FakeUpdateService();
       service.canInstallPackages = false;
-      final notifier = UpdateNotifier(
-        service: service,
-        isAndroidOverride: true,
-      );
+      final notifier = _notifier(service: service, isAndroidOverride: true);
 
       service.enqueueCheck(_info('v9.9.9')).complete();
       await notifier.checkForUpdate();
@@ -101,11 +103,13 @@ class _FakeUpdateService extends UpdateService {
     final gate = Completer<void>();
     final completer = Completer<UpdateInfo?>();
     _checks.add(completer);
-    unawaited(gate.future.then((_) {
-      if (!completer.isCompleted) {
-        completer.complete(info);
-      }
-    }));
+    unawaited(
+      gate.future.then((_) {
+        if (!completer.isCompleted) {
+          completer.complete(info);
+        }
+      }),
+    );
     return gate;
   }
 
@@ -113,11 +117,13 @@ class _FakeUpdateService extends UpdateService {
     final gate = Completer<void>();
     final completer = Completer<String>();
     _downloads.add(completer);
-    unawaited(gate.future.then((_) {
-      if (!completer.isCompleted) {
-        completer.complete(filePath);
-      }
-    }));
+    unawaited(
+      gate.future.then((_) {
+        if (!completer.isCompleted) {
+          completer.complete(filePath);
+        }
+      }),
+    );
     return gate;
   }
 
@@ -150,4 +156,21 @@ class _FakeUpdateService extends UpdateService {
   Future<void> installApk(String filePath) async {
     installCalls++;
   }
+}
+
+/// `UpdateNotifier` 保留了建構子的可選參數，但 `Notifier` 需要 provider
+/// element，所以測試從 container 取實例。
+UpdateNotifier _notifier({UpdateService? service, bool? isAndroidOverride}) {
+  final container = ProviderContainer(
+    overrides: [
+      updateProvider.overrideWith(
+        () => UpdateNotifier(
+          service: service,
+          isAndroidOverride: isAndroidOverride,
+        ),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  return container.read(updateProvider.notifier);
 }

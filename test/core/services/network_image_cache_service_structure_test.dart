@@ -7,8 +7,9 @@ void main() {
     late String source;
 
     setUpAll(() {
-      source = File('lib/core/services/network_image_cache_service.dart')
-          .readAsStringSync();
+      source = File(
+        'lib/core/services/network_image_cache_service.dart',
+      ).readAsStringSync();
     });
 
     test('keeps cache manager lifecycle in dedicated helpers', () {
@@ -27,7 +28,9 @@ void main() {
 
     test('separates filesystem cache deletion from cache manager cleanup', () {
       expect(
-          source, contains('static Future<void> _deleteCacheDirectoryFiles()'));
+        source,
+        contains('static Future<void> _deleteCacheDirectoryFiles()'),
+      );
       expect(source, contains('await _deleteCacheDirectoryFiles();'));
       expect(source, contains('_estimatedCacheSizeBytes = 0;'));
     });

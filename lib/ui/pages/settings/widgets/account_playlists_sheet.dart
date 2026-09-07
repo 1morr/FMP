@@ -38,7 +38,7 @@ class _PlaylistItem {
 
 /// 帳號歌單導入 BottomSheet
 class AccountPlaylistsSheet extends ConsumerStatefulWidget {
-  final SourceType platform;
+  final String platform;
 
   const AccountPlaylistsSheet({super.key, required this.platform});
 
@@ -96,10 +96,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
 
     try {
       // 並行獲取歌單列表和已導入 ID
-      final results = await Future.wait([
-        _fetchPlaylists(),
-        _getImportedIds(),
-      ]);
+      final results = await Future.wait([_fetchPlaylists(), _getImportedIds()]);
       final items = results[0] as List<_PlaylistItem>;
       final importedIds = results[1] as Set<String>;
 
@@ -131,44 +128,53 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
 
   Future<List<_PlaylistItem>> _fetchPlaylists() async {
     switch (widget.platform) {
-      case SourceType.bilibili:
+      case SourceIds.bilibili:
         final service = ref.read(bilibiliFavoritesServiceProvider);
         final folders = await service.getFavFolders();
         return folders
-            .map((f) => _PlaylistItem(
-                  id: f.id.toString(),
-                  title: f.title,
-                  trackCount: f.mediaCount,
-                  thumbnailUrl: f.coverUrl,
-                  importUrl: 'https://space.bilibili.com/0/favlist?fid=${f.id}',
-                ))
+            .map(
+              (f) => _PlaylistItem(
+                id: f.id.toString(),
+                title: f.title,
+                trackCount: f.mediaCount,
+                thumbnailUrl: f.coverUrl,
+                importUrl: 'https://space.bilibili.com/0/favlist?fid=${f.id}',
+              ),
+            )
             .toList();
-      case SourceType.youtube:
+      case SourceIds.youtube:
         final service = ref.read(youtubePlaylistServiceProvider);
         final playlists = await service.getPlaylists();
         return playlists
-            .map((p) => _PlaylistItem(
-                  id: p.playlistId,
-                  title: p.title,
-                  trackCount: p.videoCount,
-                  thumbnailUrl: p.thumbnailUrl,
-                  importUrl:
-                      'https://www.youtube.com/playlist?list=${p.playlistId}',
-                ))
+            .map(
+              (p) => _PlaylistItem(
+                id: p.playlistId,
+                title: p.title,
+                trackCount: p.videoCount,
+                thumbnailUrl: p.thumbnailUrl,
+                importUrl:
+                    'https://www.youtube.com/playlist?list=${p.playlistId}',
+              ),
+            )
             .toList();
-      case SourceType.netease:
+      case SourceIds.netease:
         final service = ref.read(neteasePlaylistServiceProvider);
         final playlists = await service.getPlaylists();
         return playlists
-            .map((p) => _PlaylistItem(
-                  id: p.playlistId,
-                  title: p.title,
-                  trackCount: p.trackCount,
-                  thumbnailUrl: p.thumbnailUrl,
-                  importUrl:
-                      'https://music.163.com/playlist?id=${p.playlistId}',
-                ))
+            .map(
+              (p) => _PlaylistItem(
+                id: p.playlistId,
+                title: p.title,
+                trackCount: p.trackCount,
+                thumbnailUrl: p.thumbnailUrl,
+                importUrl: 'https://music.163.com/playlist?id=${p.playlistId}',
+              ),
+            )
             .toList();
+      default:
+        // 回空清單會在畫面上謊稱「這個帳號沒有歌單」。外層 try 已經會把
+        // 例外轉成錯誤訊息，所以拋出去才是誠實的。
+        throw StateError('no playlist service for source ${widget.platform}');
     }
   }
 
@@ -240,7 +246,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
       if (!mounted || _isCancelled) break;
 
       final scopeId =
-          'account-import-${widget.platform.name}-${item.id}-${identityHashCode(_importScopeToken)}';
+          'account-import-${widget.platform}-${item.id}-${identityHashCode(_importScopeToken)}';
       final provider = importPlaylistProvider(scopeId);
       final notifier = ref.read(provider.notifier);
 
@@ -253,19 +259,18 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
 
       try {
         _importStateSub?.close();
-        _importStateSub = ref.listenManual<ImportPlaylistState>(
-          provider,
-          (_, next) {
-            if (!mounted) return;
-            setState(() {
-              _trackProgress =
-                  next.progress.total > 0 || next.progress.currentItem != null
-                      ? next.progress
-                      : null;
-            });
-          },
-          fireImmediately: true,
-        );
+        _importStateSub = ref.listenManual<ImportPlaylistState>(provider, (
+          _,
+          next,
+        ) {
+          if (!mounted) return;
+          setState(() {
+            _trackProgress =
+                next.progress.total > 0 || next.progress.currentItem != null
+                ? next.progress
+                : null;
+          });
+        }, fireImmediately: true);
 
         final result = await notifier.importFromUrl(
           item.importUrl,
@@ -287,7 +292,9 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
     }
 
     if (!mounted) return;
-    ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+    ref
+        .read(libraryInvalidationCoordinatorProvider)
+        .playlistsChanged(
           importedPlaylistIds,
           tracksChanged: false,
           coverChanged: false,
@@ -318,10 +325,11 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
         ? <String>{}
         : {
             for (final p in _playlists!)
-              if (p.isImported) p.id
+              if (p.isImported) p.id,
           };
-    final selectedCount =
-        _selectedIds.where((id) => !importedIds.contains(id)).length;
+    final selectedCount = _selectedIds
+        .where((id) => !importedIds.contains(id))
+        .length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -399,8 +407,10 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
         child: item.thumbnailUrl != null
             ? PlaylistCoverImage(
                 networkUrl: item.thumbnailUrl,
-                placeholder:
-                    Icon(Icons.playlist_play, color: colorScheme.outline),
+                placeholder: Icon(
+                  Icons.playlist_play,
+                  color: colorScheme.outline,
+                ),
                 width: 40,
                 height: 40,
                 fit: BoxFit.cover,
@@ -413,8 +423,8 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
       trailing: item.isImported
           ? Icon(Icons.check_circle, color: colorScheme.outline)
           : isSelected
-              ? Icon(Icons.check_circle, color: colorScheme.primary)
-              : Icon(Icons.circle_outlined, color: colorScheme.outline),
+          ? Icon(Icons.check_circle, color: colorScheme.primary)
+          : Icon(Icons.circle_outlined, color: colorScheme.outline),
       selected: isSelected,
       selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
@@ -426,9 +436,9 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
 
   Widget _buildBottomBar(int selectedCount) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        );
+    final textStyle = Theme.of(
+      context,
+    ).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant);
 
     return SafeArea(
       child: Padding(
@@ -447,10 +457,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(
-                    '$_importCurrent/$_importTotal',
-                    style: textStyle,
-                  ),
+                  Text('$_importCurrent/$_importTotal', style: textStyle),
                 ],
               ),
               if (_trackProgress != null) ...[
@@ -461,7 +468,9 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
                       child: Text(
                         // 分P階段 currentItem 自帶進度數字，提取純文字部分
                         _trackProgress!.currentItem?.replaceFirst(
-                                RegExp(r'\s*\(\d+/\d+\)$'), '') ??
+                              RegExp(r'\s*\(\d+/\d+\)$'),
+                              '',
+                            ) ??
                             t.account.importing,
                         style: textStyle,
                         maxLines: 1,
@@ -482,9 +491,9 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
             if (_importError != null) ...[
               Text(
                 _importError!,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.error,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: colorScheme.error),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -503,8 +512,9 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
                   : FilledButton(
                       onPressed: selectedCount > 0 ? _importSelected : null,
                       child: Text(
-                        t.account
-                            .importSelected(count: selectedCount.toString()),
+                        t.account.importSelected(
+                          count: selectedCount.toString(),
+                        ),
                       ),
                     ),
             ),

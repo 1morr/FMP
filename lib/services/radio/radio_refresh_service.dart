@@ -33,11 +33,9 @@ class RadioRefreshService with Logging {
   // 狀態變更通知
   final _stateController = StreamController<void>.broadcast();
 
-  RadioRefreshService({
-    RadioSource? radioSource,
-    Duration? refreshInterval,
-  })  : _radioSource = radioSource ?? RadioSource(),
-        _refreshInterval = refreshInterval ?? const Duration(minutes: 5);
+  RadioRefreshService({RadioSource? radioSource, Duration? refreshInterval})
+    : _radioSource = radioSource ?? RadioSource(),
+      _refreshInterval = refreshInterval ?? const Duration(minutes: 5);
 
   /// 緩存的直播狀態
   Map<int, bool> get liveStatus => _liveStatus;
@@ -134,7 +132,8 @@ class RadioRefreshService with Logging {
       } catch (e) {
         if (!_isCurrentRefreshAll(generation)) return;
         logWarning(
-            '[RadioRefresh] Failed to check live status for ${station.title}: $e');
+          '[RadioRefresh] Failed to check live status for ${station.title}: $e',
+        );
         _liveStatus[station.id] = false;
       }
     }
@@ -153,7 +152,8 @@ class RadioRefreshService with Logging {
       return isLive;
     } catch (e) {
       logWarning(
-          '[RadioRefresh] Failed to refresh station ${station.title}: $e');
+        '[RadioRefresh] Failed to refresh station ${station.title}: $e',
+      );
       _liveStatus[station.id] = false;
       return false;
     }

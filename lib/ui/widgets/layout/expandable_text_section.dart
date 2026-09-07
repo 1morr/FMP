@@ -51,9 +51,7 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
     final textPainter = TextPainter(
       text: TextSpan(
         text: widget.content,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              height: 1.6,
-            ),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.6),
       ),
       maxLines: widget.maxLines,
       textDirection: TextDirection.ltr,

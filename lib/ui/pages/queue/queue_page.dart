@@ -8,7 +8,8 @@ import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/audio/playback_settings_provider.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
+import '../../../services/audio/queue_state.dart';
 import '../../router.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
@@ -57,8 +58,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     if (positions.isEmpty) return;
 
     // 找到最小索引（最靠近顶部的可见项）
-    final minIndex =
-        positions.map((p) => p.index).reduce((a, b) => a < b ? a : b);
+    final minIndex = positions
+        .map((p) => p.index)
+        .reduce((a, b) => a < b ? a : b);
     final isNearTop = minIndex <= 2; // 前3项视为顶部区域
 
     if (_isNearTop != isNearTop) {
@@ -74,10 +76,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
     if (_isNearTop) {
       // 在顶部，跳转到底部
-      _itemScrollController.jumpTo(
-        index: queueLength - 1,
-        alignment: 0.7,
-      );
+      _itemScrollController.jumpTo(index: queueLength - 1, alignment: 0.7);
     } else {
       // 不在顶部，跳转到顶部
       _itemScrollController.jumpTo(index: 0);
@@ -105,10 +104,12 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
 
     // 检查当前项是否大部分可见（允许 20% 被遮挡）
-    final currentPosition =
-        positions.where((p) => p.index == currentIndex).firstOrNull;
+    final currentPosition = positions
+        .where((p) => p.index == currentIndex)
+        .firstOrNull;
     if (currentPosition != null) {
-      final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) -
+      final visibleRatio =
+          (currentPosition.itemTrailingEdge.clamp(0, 1) -
           currentPosition.itemLeadingEdge.clamp(0, 1));
       if (visibleRatio >= 0.8) {
         // 80% 以上可见，不需要滚动
@@ -150,7 +151,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       }
       // 如果在可见范围内但大部分被遮挡，做小幅调整
       else if (currentPosition != null) {
-        final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) -
+        final visibleRatio =
+            (currentPosition.itemTrailingEdge.clamp(0, 1) -
             currentPosition.itemLeadingEdge.clamp(0, 1));
         if (visibleRatio < 0.8) {
           if (currentPosition.itemLeadingEdge < 0) {
@@ -287,11 +289,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         leadingWidth: 56,
         leading: queue.isNotEmpty
             ? IconButton(
-                icon: Icon(_isNearTop
-                    ? Icons.vertical_align_bottom
-                    : Icons.vertical_align_top),
-                tooltip:
-                    _isNearTop ? t.queue.scrollToBottom : t.queue.scrollToTop,
+                icon: Icon(
+                  _isNearTop
+                      ? Icons.vertical_align_bottom
+                      : Icons.vertical_align_top,
+                ),
+                tooltip: _isNearTop
+                    ? t.queue.scrollToBottom
+                    : t.queue.scrollToTop,
                 onPressed: () => _scrollToTopOrBottom(queue.length),
               )
             : null,
@@ -375,8 +380,10 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             child: GestureDetector(
               onTap: () => _scrollToCurrentTrack(currentIndex),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                 child: Row(
                   children: [
@@ -389,15 +396,15 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                     Text(
                       t.queue.nowPlaying(index: '${currentIndex + 1}'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                          ),
+                        color: colorScheme.primary,
+                      ),
                     ),
                     const Spacer(),
                     Text(
                       t.queue.totalCount(count: '${queue.length}'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ],
                 ),
@@ -433,7 +440,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               final track = queue[index];
               final isPlaying = index == currentIndex;
               final isDragging = _draggingIndex == index;
-              final isDragTarget = _dragTargetIndex == index &&
+              final isDragTarget =
+                  _dragTargetIndex == index &&
                   _draggingIndex != null &&
                   _draggingIndex != index;
 
@@ -531,11 +539,7 @@ class _DraggableQueueItem extends StatelessWidget {
               child: Row(
                 children: [
                   // 封面
-                  TrackThumbnail(
-                    track: track,
-                    size: 48,
-                    isPlaying: isPlaying,
-                  ),
+                  TrackThumbnail(track: track, size: 48, isPlaying: isPlaying),
                   const SizedBox(width: 16), // 改为 16dp，匹配 ListTile
                   // 标题和艺术家
                   Expanded(
@@ -547,9 +551,7 @@ class _DraggableQueueItem extends StatelessWidget {
                           track.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
+                          style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(
                                 // 使用 bodyLarge，匹配 ListTile
                                 color: isPlaying ? colorScheme.primary : null,
@@ -561,11 +563,11 @@ class _DraggableQueueItem extends StatelessWidget {
                           track.artist ?? t.general.unknownArtist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    // 使用 bodyMedium，匹配 ListTile
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                // 使用 bodyMedium，匹配 ListTile
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ],
                     ),
@@ -577,9 +579,9 @@ class _DraggableQueueItem extends StatelessWidget {
                       child: Text(
                         DurationFormatter.formatMs(track.durationMs!),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              // 使用 bodySmall
-                              color: colorScheme.outline,
-                            ),
+                          // 使用 bodySmall
+                          color: colorScheme.outline,
+                        ),
                       ),
                     ),
                   // 删除按钮
@@ -626,7 +628,7 @@ class _DraggableQueueItem extends StatelessWidget {
                   data: index,
                   delay: AnimationDurations.fast, // 缩短长按延迟
                   onDragStarted: onDragStart,
-                  onDraggableCanceled: (_, __) => onDragCancel(),
+                  onDraggableCanceled: (_, _) => onDragCancel(),
                   feedback: SizedBox(
                     width: constraints.maxWidth,
                     child: buildTileContent(isFeedback: true),

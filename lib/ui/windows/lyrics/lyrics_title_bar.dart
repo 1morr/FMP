@@ -72,8 +72,9 @@ class LyricsTitleBar extends StatelessWidget {
     final subtitleColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
     final activeColor = t ? Colors.amber : colorScheme.primary;
     final bgColor = t ? Colors.black.withValues(alpha: 0.85) : null;
-    final borderColor =
-        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
+    final borderColor = t
+        ? Colors.white12
+        : colorScheme.outlineVariant.withValues(alpha: 0.3);
 
     return GestureDetector(
       onPanStart: onDragStart,
@@ -113,8 +114,13 @@ class LyricsTitleBar extends StatelessWidget {
                 ],
               ),
             ),
-            _button(Icons.skip_previous_rounded, 18, onPrevious,
-                color: iconColor, semanticsLabel: labels.previous),
+            _button(
+              Icons.skip_previous_rounded,
+              18,
+              onPrevious,
+              color: iconColor,
+              semanticsLabel: labels.previous,
+            ),
             _button(
               isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
               20,
@@ -122,25 +128,39 @@ class LyricsTitleBar extends StatelessWidget {
               color: titleColor,
               semanticsLabel: isPlaying ? labels.pause : labels.play,
             ),
-            _button(Icons.skip_next_rounded, 18, onNext,
-                color: iconColor, semanticsLabel: labels.next),
+            _button(
+              Icons.skip_next_rounded,
+              18,
+              onNext,
+              color: iconColor,
+              semanticsLabel: labels.next,
+            ),
             const SizedBox(width: 4),
-            _button(displayModeIcon, 16, onCycleDisplayMode,
-                color: iconColor,
-                tooltip: displayModeTooltip,
-                semanticsLabel: displayModeTooltip),
-            _button(Icons.palette_outlined, 16, onShowStyleDialog,
-                color: iconColor,
-                tooltip: labels.styleSettings,
-                semanticsLabel: labels.styleSettings),
+            _button(
+              displayModeIcon,
+              16,
+              onCycleDisplayMode,
+              color: iconColor,
+              tooltip: displayModeTooltip,
+              semanticsLabel: displayModeTooltip,
+            ),
+            _button(
+              Icons.palette_outlined,
+              16,
+              onShowStyleDialog,
+              color: iconColor,
+              tooltip: labels.styleSettings,
+              semanticsLabel: labels.styleSettings,
+            ),
             _button(
               singleLineMode ? Icons.view_headline : Icons.short_text,
               16,
               onToggleSingleLine,
               color: singleLineMode ? activeColor : iconColor,
               tooltip: singleLineMode ? labels.fullLyrics : labels.singleLine,
-              semanticsLabel:
-                  singleLineMode ? labels.fullLyrics : labels.singleLine,
+              semanticsLabel: singleLineMode
+                  ? labels.fullLyrics
+                  : labels.singleLine,
             ),
             _button(
               t ? Icons.opacity : Icons.format_color_fill,
@@ -167,10 +187,14 @@ class LyricsTitleBar extends StatelessWidget {
                 tooltip: labels.offsetAdjust,
                 semanticsLabel: labels.offsetAdjust,
               ),
-            _button(Icons.close, 16, onClose,
-                color: iconColor,
-                tooltip: labels.close,
-                semanticsLabel: labels.close),
+            _button(
+              Icons.close,
+              16,
+              onClose,
+              color: iconColor,
+              tooltip: labels.close,
+              semanticsLabel: labels.close,
+            ),
           ],
         ),
       ),
@@ -186,7 +210,9 @@ class LyricsTitleBar extends StatelessWidget {
     required String semanticsLabel,
   }) {
     final button = IconButton(
-      icon: ExcludeSemantics(child: Icon(icon, size: size, color: color)),
+      icon: ExcludeSemantics(
+        child: Icon(icon, size: size, color: color),
+      ),
       onPressed: onPressed,
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,

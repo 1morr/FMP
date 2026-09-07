@@ -90,8 +90,9 @@ void main() {
       expect(w, 0);
     });
 
-    testWidgets('returns a positive median width for non-empty lines',
-        (tester) async {
+    testWidgets('returns a positive median width for non-empty lines', (
+      tester,
+    ) async {
       final w = LyricsTextMeasurer.medianReferenceWidth(
         texts: const ['hello', 'a really long lyrics line', 'mid'],
         refFontSize: 20,

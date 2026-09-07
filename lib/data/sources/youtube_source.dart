@@ -47,14 +47,16 @@ class YouTubeSource
   // https://www.youtube.com/playlist?list=OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag
   static const String _newThisWeekPlaylistId =
       'OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag';
-  static const Duration _audioUrlExpiry =
-      Duration(hours: AppConstants.youtubeAudioUrlExpiryHours);
+  static const Duration _audioUrlExpiry = Duration(
+    hours: AppConstants.youtubeAudioUrlExpiryHours,
+  );
 
   YouTubeSource({yt.YoutubeExplode? youtube, Dio? dio}) {
     _youtube = youtube ?? yt.YoutubeExplode();
-    _dio = dio ??
+    _dio =
+        dio ??
         SourceHttpPolicy.createApiDio(
-          SourceType.youtube,
+          SourceIds.youtube,
           contentType: 'application/json',
         );
   }
@@ -66,7 +68,7 @@ class YouTubeSource
   Options _innerTubeRequestOptions([Map<String, String>? headers]) {
     return Options(
       headers: SourceHttpPolicy.apiHeaders(
-        SourceType.youtube,
+        SourceIds.youtube,
         extraHeaders: headers,
       ),
     );
@@ -146,7 +148,7 @@ class YouTubeSource
   }
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   String? parseId(String url) {
@@ -186,7 +188,8 @@ class YouTubeSource
     // - https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIST_ID
     // - https://music.youtube.com/playlist?list=PLAYLIST_ID
     // 必须先确认是 YouTube 域名，避免误匹配其他平台含 /playlist 的 URL（如 Spotify）
-    final isYouTubeDomain = url.contains('youtube.com') ||
+    final isYouTubeDomain =
+        url.contains('youtube.com') ||
         url.contains('youtu.be') ||
         url.contains('music.youtube.com');
     if (!isYouTubeDomain) return false;
@@ -203,8 +206,10 @@ class YouTubeSource
   }
 
   @override
-  Future<Track> getTrackInfo(String videoId,
-      {Map<String, String>? authHeaders}) async {
+  Future<Track> getTrackInfo(
+    String videoId, {
+    Map<String, String>? authHeaders,
+  }) async {
     // If auth headers provided, use InnerTube API path
     if (authHeaders != null) {
       return _getTrackInfoViaInnerTube(videoId, authHeaders);
@@ -216,7 +221,7 @@ class YouTubeSource
 
       final track = Track()
         ..sourceId = videoId
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = video.title
         ..artist = video.author
         ..channelId = video.channelId.value
@@ -230,13 +235,12 @@ class YouTubeSource
         ..viewCount = video.engagement.viewCount;
 
       // 获取音频 URL
-      final audioUrl = await getAudioUrl(
-        AudioStreamRequest(sourceId: videoId),
-      );
+      final audioUrl = await getAudioUrl(AudioStreamRequest(sourceId: videoId));
       track.audioUrl = audioUrl;
       // YouTube URL 过期较快，使用 1 小时有效期
-      track.audioUrlExpiry = DateTime.now()
-          .add(const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
+      track.audioUrlExpiry = DateTime.now().add(
+        const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours),
+      );
       track.createdAt = DateTime.now();
 
       logDebug('Got track info for $videoId: ${video.title}');
@@ -266,8 +270,10 @@ class YouTubeSource
 
   /// 获取 YouTube 视频详情（用于详情面板显示）
   @override
-  Future<VideoDetail> getVideoDetail(String videoId,
-      {Map<String, String>? authHeaders}) async {
+  Future<VideoDetail> getVideoDetail(
+    String videoId, {
+    Map<String, String>? authHeaders,
+  }) async {
     logDebug('Getting video detail for YouTube video: $videoId');
 
     // Always try youtube_explode first (has full metadata: avatar, likes, publish date)
@@ -300,7 +306,8 @@ class YouTubeSource
     } on yt.VideoUnplayableException catch (e) {
       if (authHeaders != null) {
         logDebug(
-            'youtube_explode reported video detail unplayable for $videoId, trying InnerTube with auth');
+          'youtube_explode reported video detail unplayable for $videoId, trying InnerTube with auth',
+        );
         return _getVideoDetailViaInnerTube(videoId, authHeaders);
       }
       logError('YouTube video unplayable: $videoId, reason: $e');
@@ -320,7 +327,8 @@ class YouTubeSource
       // youtube_explode failed — fall back to InnerTube with auth if available
       if (authHeaders != null) {
         logDebug(
-            'youtube_explode failed for video detail $videoId, trying InnerTube with auth');
+          'youtube_explode failed for video detail $videoId, trying InnerTube with auth',
+        );
         return _getVideoDetailViaInnerTube(videoId, authHeaders);
       }
       logError('Failed to get YouTube video detail: $videoId, error: $e');
@@ -343,8 +351,10 @@ class YouTubeSource
   }
 
   /// 获取热门评论（最多 3 条）
-  Future<List<VideoComment>> _getHotComments(String videoId,
-      [yt.Video? video]) async {
+  Future<List<VideoComment>> _getHotComments(
+    String videoId, [
+    yt.Video? video,
+  ]) async {
     try {
       // 如果没有传入 video，需要先获取
       final videoObj = video ?? await _youtube.videos.get(videoId);
@@ -358,14 +368,16 @@ class YouTubeSource
       // 取前几条评论
       return comments
           .take(AppConstants.commentsPreviewCount)
-          .map((c) => VideoComment(
-                id: 0,
-                content: c.text,
-                memberName: c.author,
-                memberAvatar: '', // YouTube 评论没有直接提供头像 URL
-                likeCount: c.likeCount,
-                createTime: DateTime.now(), // publishedTime 是字符串如 "2 years ago"
-              ))
+          .map(
+            (c) => VideoComment(
+              id: 0,
+              content: c.text,
+              memberName: c.author,
+              memberAvatar: '', // YouTube 评论没有直接提供头像 URL
+              likeCount: c.likeCount,
+              createTime: DateTime.now(), // publishedTime 是字符串如 "2 years ago"
+            ),
+          )
           .toList();
     } catch (e) {
       logDebug('Failed to get comments for $videoId: $e');
@@ -383,35 +395,36 @@ class YouTubeSource
       'qualityLevel=${config.qualityLevel}, streamPriority=${config.streamPriority}',
     );
 
-    // Always try youtube_explode first (most reliable)
+    // 每個 streamType 先匿名試一次，失敗才用**同一個** streamType 帶 auth 再試。
+    //
+    // 舊寫法是「所有 streamType 匿名跑完，才整批帶 auth」。那個順序下只要匿名
+    // muxed 成功，帶登入的 audio-only 就結構上永遠到不了 —— 而 audio-only 只有
+    // androidVr 客戶端拿得到，正是最容易被擋下的那一個。結果是音質讓位給了
+    // 「哪一種取法先成功」，實測拿到的是位元率 3–5 倍的含視訊串流。
+    final innerTube = _InnerTubeAttempt();
     for (final streamType in config.streamPriority) {
-      try {
-        final result = await _tryGetStream(videoId, streamType, config);
-        if (result != null) {
-          return result;
-        }
-      } catch (e) {
-        if (_isRateLimitError(e)) {
-          logWarning('YouTube rate limited when getting stream for $videoId');
-          throw YouTubeApiException(
-            code: 'rate_limited',
-            message: t.error.rateLimited,
-          );
-        }
-        if (_shouldAbortStreamFallback(e)) {
-          logWarning(
-              'YouTube stream type $streamType hit non-fallbackable error for $videoId: $e');
-          rethrow;
-        }
-        logDebug('Stream type $streamType failed for $videoId: $e');
-      }
-    }
+      final anonymous = await _tryStreamOrNull(videoId, streamType, config);
+      if (anonymous != null) return anonymous;
 
-    // youtube_explode failed — fall back to InnerTube with auth if available
-    if (authHeaders != null) {
-      logDebug(
-          'youtube_explode failed for $videoId, trying InnerTube with auth');
-      return _getAudioStreamViaInnerTube(videoId, authHeaders, config);
+      // 未開「播放時使用登入狀態」的使用者在這裡直接跳過，一輪延遲都不多付。
+      if (authHeaders == null) continue;
+
+      final streamingData = await innerTube.streamingData(
+        this,
+        videoId,
+        authHeaders,
+      );
+      if (streamingData == null) continue;
+
+      final authenticated = _selectInnerTubeStream(
+        streamingData,
+        streamType,
+        config,
+      );
+      if (authenticated != null) {
+        logDebug('Got ${streamType.name} stream via InnerTube for $videoId');
+        return authenticated;
+      }
     }
 
     logError('No audio stream available for YouTube video: $videoId');
@@ -419,6 +432,54 @@ class YouTubeSource
       code: 'no_stream',
       message: 'No audio stream available',
     );
+  }
+
+  /// 匿名取一次串流。可以退而求其次的失敗回 null，其餘照舊往上拋。
+  Future<AudioStreamResult?> _tryStreamOrNull(
+    String videoId,
+    StreamType streamType,
+    AudioStreamConfig config,
+  ) async {
+    try {
+      return await _tryGetStream(videoId, streamType, config);
+    } catch (e) {
+      if (_isRateLimitError(e)) {
+        logWarning('YouTube rate limited when getting stream for $videoId');
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
+      }
+      if (_shouldAbortStreamFallback(e)) {
+        logWarning(
+          'YouTube stream type $streamType hit non-fallbackable error for $videoId: $e',
+        );
+        rethrow;
+      }
+      logDebug('Stream type $streamType failed for $videoId: $e');
+      return null;
+    }
+  }
+
+  /// 帶登入的 InnerTube `/player` 回應裡的 `streamingData`。
+  ///
+  /// 用的是 **WEB** 客戶端：ANDROID_VR 配上網頁 cookie 會得到 400
+  /// （client/auth 不匹配）。
+  Future<Map<String, dynamic>?> _innerTubeStreamingData(
+    String videoId,
+    Map<String, String> authHeaders,
+  ) async {
+    logDebug('Getting authenticated streaming data via InnerTube: $videoId');
+    try {
+      final data = await _innerTubePlayerRequest(videoId, authHeaders);
+      return data['streamingData'] as Map<String, dynamic>?;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (_shouldAbortStreamFallback(e)) rethrow;
+      logDebug('InnerTube streaming data failed for $videoId: $e');
+      return null;
+    }
   }
 
   /// 尝试获取指定类型的流
@@ -455,7 +516,8 @@ class YouTubeSource
 
       if (selected != null) {
         logDebug(
-            'Got audio-only stream for $videoId: ${selected.bitrate}, ${selected.container.name}');
+          'Got audio-only stream for $videoId: ${selected.bitrate}, ${selected.container.name}',
+        );
         return AudioStreamResult(
           url: selected.url.toString(),
           bitrate: selected.bitrate.bitsPerSecond,
@@ -466,7 +528,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -495,13 +557,15 @@ class YouTubeSource
       // muxed 流按码率排序选择
       final muxedStreams = manifest.muxed.toList();
       muxedStreams.sort(
-          (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+        (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
+      );
 
       final selected = _selectByQualityLevel(muxedStreams, config.qualityLevel);
 
       if (selected != null) {
         logDebug(
-            'Got muxed stream for $videoId: ${selected.bitrate}, ${selected.container.name}');
+          'Got muxed stream for $videoId: ${selected.bitrate}, ${selected.container.name}',
+        );
         return AudioStreamResult(
           url: selected.url.toString(),
           bitrate: selected.bitrate.bitsPerSecond,
@@ -512,7 +576,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -549,7 +613,8 @@ class YouTubeSource
             final url = hlsStream.url.toString();
             if (url.isNotEmpty && url.startsWith('http')) {
               logDebug(
-                  'Got HLS stream for $videoId (client set ${ytClients.length})');
+                'Got HLS stream for $videoId (client set ${ytClients.length})',
+              );
               return AudioStreamResult(
                 url: url,
                 bitrate: null,
@@ -565,7 +630,7 @@ class YouTubeSource
           }
         }
       } catch (e) {
-        final sourceError = _classifyStreamFallbackError(e);
+        final sourceError = _classifySourceError(e);
         if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
           throw sourceError;
         }
@@ -584,7 +649,8 @@ class YouTubeSource
 
     // 按码率排序
     streams.sort(
-        (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+      (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
+    );
 
     // 按格式优先级筛选
     for (final format in config.formatPriority) {
@@ -642,43 +708,49 @@ class YouTubeSource
     final failedUrl = request.failedUrl;
     logDebug('Getting alternative audio stream for YouTube video: $videoId');
     try {
-      // 按流类型优先级尝试，跳过已失败的 URL
+      // 與 getAudioStream 同一個順序：每個 streamType 匿名先試，失敗才帶 auth
+      // 再試同一個。兩邊留成不同形狀就等於同一個 bug 修一半。
+      final innerTube = _InnerTubeAttempt();
       for (final streamType in config.streamPriority) {
         try {
           final result = await _tryGetAlternativeStream(
-              videoId, streamType, config, failedUrl);
+            videoId,
+            streamType,
+            config,
+            failedUrl,
+          );
           if (result != null) {
             return result;
           }
         } catch (e) {
           if (_shouldAbortStreamFallback(e)) {
             logWarning(
-                'YouTube alternative stream type $streamType hit non-fallbackable error for $videoId: $e');
+              'YouTube alternative stream type $streamType hit non-fallbackable error for $videoId: $e',
+            );
             rethrow;
           }
           logDebug(
-              'Alternative stream type $streamType failed for $videoId: $e');
-        }
-      }
-
-      if (authHeaders != null) {
-        try {
-          final result = await _getAudioStreamViaInnerTube(
-            videoId,
-            authHeaders,
-            config,
-            failedUrl: failedUrl,
+            'Alternative stream type $streamType failed for $videoId: $e',
           );
-          if (result.url != failedUrl) {
-            return result;
-          }
-        } catch (e) {
-          if (_shouldAbortStreamFallback(e)) {
-            logWarning(
-                'Authenticated alternative stream hit non-fallbackable error for $videoId: $e');
-            rethrow;
-          }
-          logDebug('Authenticated alternative stream failed for $videoId: $e');
+        }
+
+        if (authHeaders == null) continue;
+
+        final streamingData = await innerTube.streamingData(
+          this,
+          videoId,
+          authHeaders,
+        );
+        if (streamingData == null) continue;
+
+        final authenticated = _selectInnerTubeStream(
+          streamingData,
+          streamType,
+          config,
+          failedUrl: failedUrl,
+        );
+        if (authenticated != null && authenticated.url != failedUrl) {
+          return authenticated;
         }
       }
 
@@ -738,7 +810,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -768,7 +840,8 @@ class YouTubeSource
           .where((stream) => stream.url.toString() != failedUrl)
           .toList();
       muxedStreams.sort(
-          (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+        (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
+      );
 
       final selected = _selectByQualityLevel(muxedStreams, config.qualityLevel);
       if (selected != null) {
@@ -783,7 +856,7 @@ class YouTubeSource
         );
       }
     } catch (e) {
-      final sourceError = _classifyStreamFallbackError(e);
+      final sourceError = _classifySourceError(e);
       if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
         throw sourceError;
       }
@@ -818,7 +891,8 @@ class YouTubeSource
             final url = hlsStream.url.toString();
             if (url.isNotEmpty && url.startsWith('http') && url != failedUrl) {
               logDebug(
-                  'Got alternative HLS stream for $videoId (client set ${ytClients.length})');
+                'Got alternative HLS stream for $videoId (client set ${ytClients.length})',
+              );
               return AudioStreamResult(
                 url: url,
                 bitrate: null,
@@ -834,35 +908,37 @@ class YouTubeSource
           }
         }
       } catch (e) {
-        final sourceError = _classifyStreamFallbackError(e);
+        final sourceError = _classifySourceError(e);
         if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
           throw sourceError;
         }
         logDebug(
-            'Alternative HLS stream via client set failed for $videoId: $e');
+          'Alternative HLS stream via client set failed for $videoId: $e',
+        );
       }
     }
     return null;
   }
 
   @override
-  Future<Track> refreshAudioUrl(Track track,
-      {Map<String, String>? authHeaders}) async {
-    if (track.sourceType != SourceType.youtube) {
+  Future<Track> refreshAudioUrl(
+    Track track, {
+    Map<String, String>? authHeaders,
+  }) async {
+    if (track.sourceType != SourceIds.youtube) {
       throw const YouTubeApiException(
-          code: 'invalid_source',
-          message: 'Invalid source type for YouTubeSource');
+        code: 'invalid_source',
+        message: 'Invalid source type for YouTubeSource',
+      );
     }
 
     final audioUrl = await getAudioUrl(
-      AudioStreamRequest(
-        sourceId: track.sourceId,
-        authHeaders: authHeaders,
-      ),
+      AudioStreamRequest(sourceId: track.sourceId, authHeaders: authHeaders),
     );
     track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now()
-        .add(const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
+    track.audioUrlExpiry = DateTime.now().add(
+      const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours),
+    );
     track.updatedAt = DateTime.now();
     return track;
   }
@@ -915,16 +991,18 @@ class YouTubeSource
       // 从当前页收集结果
       final tracks = <Track>[];
       for (final video in searchList) {
-        tracks.add(Track()
-          ..sourceId = video.id.value
-          ..sourceType = SourceType.youtube
-          ..title = video.title
-          ..artist = video.author
-          ..channelId = video.channelId.value
-          ..durationMs = video.duration?.inMilliseconds ?? 0
-          ..thumbnailUrl =
-              'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
-          ..viewCount = video.engagement.viewCount);
+        tracks.add(
+          Track()
+            ..sourceId = video.id.value
+            ..sourceType = SourceIds.youtube
+            ..title = video.title
+            ..artist = video.author
+            ..channelId = video.channelId.value
+            ..durationMs = video.duration?.inMilliseconds ?? 0
+            ..thumbnailUrl =
+                'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
+            ..viewCount = video.engagement.viewCount,
+        );
 
         if (tracks.length >= pageSize) break;
       }
@@ -934,16 +1012,18 @@ class YouTubeSource
         final nextPageResult = await searchList.nextPage();
         if (nextPageResult != null) {
           for (final video in nextPageResult) {
-            tracks.add(Track()
-              ..sourceId = video.id.value
-              ..sourceType = SourceType.youtube
-              ..title = video.title
-              ..artist = video.author
-              ..channelId = video.channelId.value
-              ..durationMs = video.duration?.inMilliseconds ?? 0
-              ..thumbnailUrl =
-                  'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
-              ..viewCount = video.engagement.viewCount);
+            tracks.add(
+              Track()
+                ..sourceId = video.id.value
+                ..sourceType = SourceIds.youtube
+                ..title = video.title
+                ..artist = video.author
+                ..channelId = video.channelId.value
+                ..durationMs = video.duration?.inMilliseconds ?? 0
+                ..thumbnailUrl =
+                    'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
+                ..viewCount = video.engagement.viewCount,
+            );
             if (tracks.length >= pageSize) break;
           }
         }
@@ -953,7 +1033,8 @@ class YouTubeSource
       final hasMore = tracks.length >= pageSize;
 
       logDebug(
-          'YouTube search returned ${tracks.length} results for: $query, page: $page, hasMore: $hasMore');
+        'YouTube search returned ${tracks.length} results for: $query, page: $page, hasMore: $hasMore',
+      );
 
       return SearchResult(
         tracks: tracks,
@@ -972,10 +1053,14 @@ class YouTubeSource
         );
       }
       logError('YouTube search failed for query: "$query"', e, st);
-      throw YouTubeApiException(
-        code: 'search_error',
-        message: 'Search failed: $e',
-      );
+      // `message` 會被 `sourceErrorReason` 當成「adapter 給的診斷」原樣顯示給
+      // 使用者，所以不能是 `$e`。實機驗收時搜尋頁曾經整條印出
+      // `ClientException with SocketException ... uri=https://...`。
+      throw _classifySourceError(e) ??
+          YouTubeApiException(
+            code: 'search_error',
+            message: t.error.unknownError,
+          );
     }
   }
 
@@ -1001,7 +1086,8 @@ class YouTubeSource
 
   /// 從 URL 中提取 Mix 播放列表相關資訊
   static ({String? playlistId, String? seedVideoId}) extractMixInfo(
-      String url) {
+    String url,
+  ) {
     final uri = Uri.tryParse(url);
     if (uri == null) return (playlistId: null, seedVideoId: null);
 
@@ -1009,7 +1095,8 @@ class YouTubeSource
     final videoId = uri.queryParameters['v'];
 
     // 如果沒有 v= 參數，嘗試從 playlistId 提取種子 ID
-    final seedVideoId = videoId ??
+    final seedVideoId =
+        videoId ??
         (playlistId != null && playlistId.length > 2
             ? playlistId.substring(2)
             : null);
@@ -1041,8 +1128,9 @@ class YouTubeSource
     );
 
     // 使用第一個影片的縮圖作為封面
-    final coverUrl =
-        result.tracks.isNotEmpty ? result.tracks.first.thumbnailUrl : null;
+    final coverUrl = result.tracks.isNotEmpty
+        ? result.tracks.first.thumbnailUrl
+        : null;
 
     return MixPlaylistInfo(
       title: result.title,
@@ -1143,7 +1231,8 @@ class YouTubeSource
 
       // 解析標題
       final titleObj = renderer['title'];
-      final trackTitle = titleObj?['simpleText'] as String? ??
+      final trackTitle =
+          titleObj?['simpleText'] as String? ??
           (titleObj?['runs'] as List?)?.firstOrNull?['text'] as String? ??
           'Unknown';
 
@@ -1158,13 +1247,15 @@ class YouTubeSource
       // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
       final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
-      tracks.add(Track()
-        ..sourceId = videoId
-        ..sourceType = SourceType.youtube
-        ..title = trackTitle
-        ..artist = artist
-        ..durationMs = durationMs
-        ..thumbnailUrl = thumbnailUrl);
+      tracks.add(
+        Track()
+          ..sourceId = videoId
+          ..sourceType = SourceIds.youtube
+          ..title = trackTitle
+          ..artist = artist
+          ..durationMs = durationMs
+          ..thumbnailUrl = thumbnailUrl,
+      );
     }
 
     logDebug('Fetched Mix tracks: $title, ${tracks.length} tracks');
@@ -1193,7 +1284,8 @@ class YouTubeSource
     String playlistId,
   ) async {
     // 從 URL 或 playlistId 提取種子影片 ID
-    final seedVideoId = _extractVideoIdParam(playlistUrl) ??
+    final seedVideoId =
+        _extractVideoIdParam(playlistUrl) ??
         (playlistId.length > 2 ? playlistId.substring(2) : null);
 
     if (seedVideoId == null || seedVideoId.isEmpty) {
@@ -1210,8 +1302,9 @@ class YouTubeSource
     );
 
     // 使用第一個影片的縮圖作為封面
-    final coverUrl =
-        result.tracks.isNotEmpty ? result.tracks.first.thumbnailUrl : null;
+    final coverUrl = result.tracks.isNotEmpty
+        ? result.tracks.first.thumbnailUrl
+        : null;
 
     return PlaylistParseResult(
       title: result.title,
@@ -1247,10 +1340,7 @@ class YouTubeSource
 
   dynamic _getPlaylistVideoContents(Map<String, dynamic> data) {
     try {
-      return data['contents']?['twoColumnBrowseResultsRenderer']?['tabs']?[0]
-                      ?['tabRenderer']?['content']?['sectionListRenderer']
-                  ?['contents']?[0]?['itemSectionRenderer']?['contents']?[0]
-              ?['playlistVideoListRenderer']?['contents'] ??
+      return data['contents']?['twoColumnBrowseResultsRenderer']?['tabs']?[0]?['tabRenderer']?['content']?['sectionListRenderer']?['contents']?[0]?['itemSectionRenderer']?['contents']?[0]?['playlistVideoListRenderer']?['contents'] ??
           _extractContinuationItems(
             data['onResponseReceivedActions'] as List?,
           ) ??
@@ -1282,14 +1372,13 @@ class YouTubeSource
     return {
       'continuation': continuation,
       if (clickTrackingParams != null && clickTrackingParams.isNotEmpty)
-        'clickTracking': {
-          'clickTrackingParams': clickTrackingParams,
-        },
+        'clickTracking': {'clickTrackingParams': clickTrackingParams},
     };
   }
 
   Map<String, dynamic>? _extractContinuationRequestFromEndpoint(
-      dynamic endpoint) {
+    dynamic endpoint,
+  ) {
     if (endpoint is! Map) return null;
 
     final commands = endpoint['commandExecutorCommand']?['commands'] as List?;
@@ -1310,8 +1399,9 @@ class YouTubeSource
     if (renderer is! Map) return null;
 
     final continuations = renderer['continuations'] as List?;
-    final nextContinuationData = continuations
-            ?.firstOrNull?['nextContinuationData'] as Map<String, dynamic>? ??
+    final nextContinuationData =
+        continuations?.firstOrNull?['nextContinuationData']
+            as Map<String, dynamic>? ??
         renderer['continuation']?['reloadContinuationData']
             as Map<String, dynamic>?;
 
@@ -1323,7 +1413,8 @@ class YouTubeSource
   }
 
   Iterable<Map<String, dynamic>> _extractPlaylistVideoRenderers(
-      dynamic contents) sync* {
+    dynamic contents,
+  ) sync* {
     if (contents is List) {
       for (final item in contents) {
         yield* _extractPlaylistVideoRenderers(item);
@@ -1340,7 +1431,8 @@ class YouTubeSource
     }
 
     yield* _extractPlaylistVideoRenderers(
-        contents['playlistVideoListContinuation']);
+      contents['playlistVideoListContinuation'],
+    );
     yield* _extractPlaylistVideoRenderers(contents['contents']);
   }
 
@@ -1370,7 +1462,8 @@ class YouTubeSource
     if (continuationRequest != null) return continuationRequest;
 
     return _findPlaylistContinuationRequest(
-            contents['playlistVideoListContinuation']) ??
+          contents['playlistVideoListContinuation'],
+        ) ??
         _findPlaylistContinuationRequest(contents['contents']);
   }
 
@@ -1454,7 +1547,8 @@ class YouTubeSource
     final playlistTitle = playlist.title.trim();
     if (playlistTitle.isEmpty) {
       logWarning(
-          'YouTube playlist appears to be private or inaccessible: $playlistId');
+        'YouTube playlist appears to be private or inaccessible: $playlistId',
+      );
       throw YouTubeApiException(
         code: 'private_or_inaccessible',
         message: t.importSource.playlistEmptyOrInaccessible,
@@ -1469,18 +1563,21 @@ class YouTubeSource
       // 避免 default/hqdefault/sddefault 黑邊圖。
       final thumbnailUrl =
           'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg';
-      allTracks.add(Track()
-        ..sourceId = video.id.value
-        ..sourceType = SourceType.youtube
-        ..title = video.title
-        ..artist = video.author
-        ..channelId = video.channelId.value
-        ..durationMs = video.duration?.inMilliseconds ?? 0
-        ..thumbnailUrl = thumbnailUrl);
+      allTracks.add(
+        Track()
+          ..sourceId = video.id.value
+          ..sourceType = SourceIds.youtube
+          ..title = video.title
+          ..artist = video.author
+          ..channelId = video.channelId.value
+          ..durationMs = video.duration?.inMilliseconds ?? 0
+          ..thumbnailUrl = thumbnailUrl,
+      );
     }
 
     logDebug(
-        'Parsed YouTube playlist: ${playlist.title}, ${allTracks.length} tracks');
+      'Parsed YouTube playlist: ${playlist.title}, ${allTracks.length} tracks',
+    );
 
     // 偵測空播放清單（元資料可見但內容不可訪問）。
     if (allTracks.isEmpty) {
@@ -1537,33 +1634,39 @@ class YouTubeSource
       if (playlistHeaderRenderer != null) {
         final ownerRuns = playlistHeaderRenderer['ownerText']?['runs'] as List?;
         final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
-        ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
-            ?['browseId'] as String?;
+        ownerUserId =
+            firstRun?['navigationEndpoint']?['browseEndpoint']?['browseId']
+                as String?;
       }
       // Fallback: sidebar
       if (ownerUserId == null) {
-        final sidebar = browseData['sidebar']?['playlistSidebarRenderer']
-            ?['items'] as List?;
+        final sidebar =
+            browseData['sidebar']?['playlistSidebarRenderer']?['items']
+                as List?;
         if (sidebar != null && sidebar.length > 1) {
-          final secondaryInfo = sidebar[1]
-                  ?['playlistSidebarSecondaryInfoRenderer']
-              as Map<String, dynamic>?;
-          final videoOwner = secondaryInfo?['videoOwner']?['videoOwnerRenderer']
-              as Map<String, dynamic>?;
+          final secondaryInfo =
+              sidebar[1]?['playlistSidebarSecondaryInfoRenderer']
+                  as Map<String, dynamic>?;
+          final videoOwner =
+              secondaryInfo?['videoOwner']?['videoOwnerRenderer']
+                  as Map<String, dynamic>?;
           if (videoOwner != null) {
             final ownerRuns = videoOwner['title']?['runs'] as List?;
             final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
-            ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
-                ?['browseId'] as String?;
-            ownerUserId ??= videoOwner['navigationEndpoint']?['browseEndpoint']
-                ?['browseId'] as String?;
+            ownerUserId =
+                firstRun?['navigationEndpoint']?['browseEndpoint']?['browseId']
+                    as String?;
+            ownerUserId ??=
+                videoOwner['navigationEndpoint']?['browseEndpoint']?['browseId']
+                    as String?;
           }
         }
       }
       return ownerUserId;
     } catch (e) {
       logDebug(
-          'Failed to get owner ID via InnerTube for playlist: $playlistId, error: $e');
+        'Failed to get owner ID via InnerTube for playlist: $playlistId, error: $e',
+      );
       return null;
     }
   }
@@ -1623,7 +1726,8 @@ class YouTubeSource
     } catch (e) {
       if (!_isRetryableTrendingError(e)) rethrow;
       logWarning(
-          'YouTube trending fetch hit transient error; retrying once: $e');
+        'YouTube trending fetch hit transient error; retrying once: $e',
+      );
       await Future<void>.delayed(AppConstants.networkRetryDelay);
       tracks = await _fetchNewThisWeekPlaylist();
     }
@@ -1632,9 +1736,24 @@ class YouTubeSource
   }
 
   @override
-  Future<List<Track>> getRankingTracks(SourceRankingRequest request) {
-    return getTrendingVideos(category: request.category ?? 'music');
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
+    final tracks = await getTrendingVideos(
+      category: request.category ?? 'music',
+    );
+    // InnerTube 回的順序不是播放數順序，排序屬於 YouTube 自己的榜單語意，
+    // 因此在這裡完成，而不是留給快取層特判。
+    return List.unmodifiable(
+      List<Track>.of(tracks)
+        ..sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0)),
+    );
   }
+
+  @override
+  SourceRankingRequest get defaultRankingRequest =>
+      const SourceRankingRequest(category: 'music');
+
+  @override
+  String get rankingLabel => 'YouTube';
 
   /// 使用 InnerTube Browse API 獲取 "New This Week" 播放列表
   Future<List<Track>> _fetchNewThisWeekPlaylist() async {
@@ -1691,8 +1810,9 @@ class YouTubeSource
       final tabContent = tabs?.firstOrNull?['tabRenderer']?['content'];
       final sectionContents =
           tabContent?['sectionListRenderer']?['contents'] as List?;
-      final itemSectionContents = sectionContents
-          ?.firstOrNull?['itemSectionRenderer']?['contents'] as List?;
+      final itemSectionContents =
+          sectionContents?.firstOrNull?['itemSectionRenderer']?['contents']
+              as List?;
 
       // 新版：項目直接是 lockupViewModel；舊版：項目是包在
       // playlistVideoListRenderer.contents 內的 playlistVideoRenderer。
@@ -1775,11 +1895,12 @@ class YouTubeSource
         (metadata?['title']?['content'] as String?)?.trim() ?? 'Unknown';
 
     // metadataRows 內含藝人與觀看次數等資訊
-    final metadataRows = (metadata?['metadata']?['contentMetadataViewModel']
-            ?['metadataRows'] as List?)
-        ?.whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+    final metadataRows =
+        (metadata?['metadata']?['contentMetadataViewModel']?['metadataRows']
+                as List?)
+            ?.whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
 
     String artist = '';
     int viewCount = 0;
@@ -1835,7 +1956,7 @@ class YouTubeSource
 
     return Track()
       ..sourceId = videoId
-      ..sourceType = SourceType.youtube
+      ..sourceType = SourceIds.youtube
       ..title = title
       ..artist = artist
       ..durationMs = durationMs
@@ -1870,7 +1991,7 @@ class YouTubeSource
 
     return Track()
       ..sourceId = videoId
-      ..sourceType = SourceType.youtube
+      ..sourceType = SourceIds.youtube
       ..title = title
       ..artist = artist
       ..durationMs = durationMs
@@ -1884,52 +2005,6 @@ class YouTubeSource
     return RegExp(r'^\d{1,2}(:\d{2}){1,2}$').hasMatch(text.trim());
   }
 
-  /// 通过 InnerTube /player API 获取音频流（认证路径，androidVr 客户端）
-  Future<AudioStreamResult> _getAudioStreamViaInnerTube(
-    String videoId,
-    Map<String, String> authHeaders,
-    AudioStreamConfig config, {
-    String? failedUrl,
-  }) async {
-    logDebug('Getting audio stream via InnerTube for: $videoId');
-    try {
-      // Use WEB client with auth headers directly.
-      // ANDROID_VR + web cookies causes 400 errors (client/auth mismatch),
-      // and this path is only reached as fallback for restricted content.
-      final data = await _innerTubePlayerRequest(videoId, authHeaders);
-
-      final streamingData = data['streamingData'] as Map<String, dynamic>?;
-      if (streamingData == null) {
-        throw const YouTubeApiException(
-            code: 'no_stream', message: 'No streaming data from InnerTube');
-      }
-
-      for (final streamType in config.streamPriority) {
-        final result = _selectInnerTubeStream(
-          streamingData,
-          streamType,
-          config,
-          failedUrl: failedUrl,
-        );
-        if (result != null) {
-          logDebug('Got ${streamType.name} stream via InnerTube for $videoId');
-          return result;
-        }
-      }
-
-      throw const YouTubeApiException(
-          code: 'no_stream',
-          message: 'No audio stream available via InnerTube');
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      if (e is YouTubeApiException) rethrow;
-      logError('Failed to get audio stream via InnerTube: $videoId, error: $e');
-      throw YouTubeApiException(
-          code: 'error', message: 'Failed to get audio stream: $e');
-    }
-  }
-
   AudioStreamResult? _selectInnerTubeStream(
     Map<String, dynamic> streamingData,
     StreamType streamType,
@@ -1938,19 +2013,19 @@ class YouTubeSource
   }) {
     return switch (streamType) {
       StreamType.audioOnly => _selectInnerTubeAudioOnlyStream(
-          streamingData,
-          config,
-          failedUrl: failedUrl,
-        ),
+        streamingData,
+        config,
+        failedUrl: failedUrl,
+      ),
       StreamType.muxed => _selectInnerTubeMuxedStream(
-          streamingData,
-          config,
-          failedUrl: failedUrl,
-        ),
+        streamingData,
+        config,
+        failedUrl: failedUrl,
+      ),
       StreamType.hls => _selectInnerTubeHlsStream(
-          streamingData,
-          failedUrl: failedUrl,
-        ),
+        streamingData,
+        failedUrl: failedUrl,
+      ),
     };
   }
 
@@ -1964,10 +2039,13 @@ class YouTubeSource
         .whereType<Map>()
         .map((format) => Map<String, dynamic>.from(format))
         .where((format) {
-      final mimeType = format['mimeType'] as String? ?? '';
-      final url = _innerTubeUrl(format);
-      return mimeType.startsWith('audio/') && url != null && url != failedUrl;
-    }).toList();
+          final mimeType = format['mimeType'] as String? ?? '';
+          final url = _innerTubeUrl(format);
+          return mimeType.startsWith('audio/') &&
+              url != null &&
+              url != failedUrl;
+        })
+        .toList();
     if (audioFormats.isEmpty) return null;
 
     audioFormats.sort((a, b) {
@@ -2007,9 +2085,10 @@ class YouTubeSource
         .whereType<Map>()
         .map((format) => Map<String, dynamic>.from(format))
         .where((format) {
-      final url = _innerTubeUrl(format);
-      return url != null && url != failedUrl;
-    }).toList();
+          final url = _innerTubeUrl(format);
+          return url != null && url != failedUrl;
+        })
+        .toList();
     if (muxedFormats.isEmpty) return null;
 
     muxedFormats.sort((a, b) {
@@ -2058,10 +2137,11 @@ class YouTubeSource
 
     return switch (audioFormat) {
       AudioFormat.opus => mimeType.contains('webm') || codec.contains('opus'),
-      AudioFormat.aac => mimeType.contains('mp4') ||
-          mimeType.contains('m4a') ||
-          codec.contains('aac') ||
-          codec.contains('mp4a'),
+      AudioFormat.aac =>
+        mimeType.contains('mp4') ||
+            mimeType.contains('m4a') ||
+            codec.contains('aac') ||
+            codec.contains('mp4a'),
     };
   }
 
@@ -2096,10 +2176,7 @@ class YouTubeSource
 
       do {
         final requestBody = {
-          ...(continuationRequest ??
-              {
-                'browseId': 'VL$playlistId',
-              }),
+          ...(continuationRequest ?? {'browseId': 'VL$playlistId'}),
           'context': {
             'client': {
               'clientName': _innerTubeClientName,
@@ -2129,20 +2206,21 @@ class YouTubeSource
                 playlistHeaderRenderer['ownerText']?['runs'] as List?;
             final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
             ownerName = firstRun?['text'] as String?;
-            ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
-                ?['browseId'] as String?;
+            ownerUserId =
+                firstRun?['navigationEndpoint']?['browseEndpoint']?['browseId']
+                    as String?;
           } else {
             final pageHeaderRenderer =
                 header?['pageHeaderRenderer'] as Map<String, dynamic>?;
-            playlistTitle = pageHeaderRenderer?['pageTitle'] as String? ??
-                (pageHeaderRenderer?['content']?['pageHeaderViewModel']
-                        ?['title']?['dynamicTextViewModel']?['text']?['content']
+            playlistTitle =
+                pageHeaderRenderer?['pageTitle'] as String? ??
+                (pageHeaderRenderer?['content']?['pageHeaderViewModel']?['title']?['dynamicTextViewModel']?['text']?['content']
                     as String?) ??
                 playlistTitle;
 
-            final metadata = pageHeaderRenderer?['content']
-                    ?['pageHeaderViewModel']?['metadata']
-                ?['contentMetadataViewModel'] as Map<String, dynamic>?;
+            final metadata =
+                pageHeaderRenderer?['content']?['pageHeaderViewModel']?['metadata']?['contentMetadataViewModel']
+                    as Map<String, dynamic>?;
             final metadataRows = metadata?['metadataRows'] as List?;
             if (metadataRows != null && metadataRows.isNotEmpty) {
               final firstRow = metadataRows.first as Map<String, dynamic>?;
@@ -2155,8 +2233,9 @@ class YouTubeSource
                 if (commandRuns != null && commandRuns.isNotEmpty) {
                   final firstCommand =
                       commandRuns.first as Map<String, dynamic>?;
-                  ownerUserId = firstCommand?['onTap']?['innertubeCommand']
-                      ?['browseEndpoint']?['browseId'] as String?;
+                  ownerUserId =
+                      firstCommand?['onTap']?['innertubeCommand']?['browseEndpoint']?['browseId']
+                          as String?;
                 }
               }
             }
@@ -2166,27 +2245,31 @@ class YouTubeSource
             final sidebar =
                 data['sidebar']?['playlistSidebarRenderer']?['items'] as List?;
             if (sidebar != null && sidebar.length > 1) {
-              final secondaryInfo = sidebar[1]
-                      ?['playlistSidebarSecondaryInfoRenderer']
-                  as Map<String, dynamic>?;
-              final videoOwner = secondaryInfo?['videoOwner']
-                  ?['videoOwnerRenderer'] as Map<String, dynamic>?;
+              final secondaryInfo =
+                  sidebar[1]?['playlistSidebarSecondaryInfoRenderer']
+                      as Map<String, dynamic>?;
+              final videoOwner =
+                  secondaryInfo?['videoOwner']?['videoOwnerRenderer']
+                      as Map<String, dynamic>?;
               if (videoOwner != null) {
                 final ownerRuns = videoOwner['title']?['runs'] as List?;
                 final firstRun =
                     ownerRuns?.firstOrNull as Map<String, dynamic>?;
                 ownerName ??= firstRun?['text'] as String?;
-                ownerUserId ??= firstRun?['navigationEndpoint']
-                    ?['browseEndpoint']?['browseId'] as String?;
-                ownerUserId ??= videoOwner['navigationEndpoint']
-                    ?['browseEndpoint']?['browseId'] as String?;
+                ownerUserId ??=
+                    firstRun?['navigationEndpoint']?['browseEndpoint']?['browseId']
+                        as String?;
+                ownerUserId ??=
+                    videoOwner['navigationEndpoint']?['browseEndpoint']?['browseId']
+                        as String?;
               }
             }
           }
 
           if (ownerName == null && ownerUserId == null) {
             logDebug(
-                'Could not extract owner info from InnerTube response for playlist: $playlistId');
+              'Could not extract owner info from InnerTube response for playlist: $playlistId',
+            );
           }
         }
 
@@ -2209,13 +2292,15 @@ class YouTubeSource
             final thumbnailUrl =
                 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
-            tracks.add(Track()
-              ..sourceId = videoId
-              ..sourceType = SourceType.youtube
-              ..title = title
-              ..artist = artist
-              ..durationMs = durationMs
-              ..thumbnailUrl = thumbnailUrl);
+            tracks.add(
+              Track()
+                ..sourceId = videoId
+                ..sourceType = SourceIds.youtube
+                ..title = title
+                ..artist = artist
+                ..durationMs = durationMs
+                ..thumbnailUrl = thumbnailUrl,
+            );
           }
         }
 
@@ -2225,14 +2310,16 @@ class YouTubeSource
         if (continuationToken != null &&
             !seenContinuations.add(continuationToken)) {
           logWarning(
-              'Detected repeated YouTube playlist continuation for $playlistId, stopping pagination loop');
+            'Detected repeated YouTube playlist continuation for $playlistId, stopping pagination loop',
+          );
           continuationRequest = null;
         }
       } while (continuationRequest != null);
 
       if (skippedPrivate > 0) {
         logInfo(
-            'Skipped $skippedPrivate private/unavailable videos in playlist $playlistId');
+          'Skipped $skippedPrivate private/unavailable videos in playlist $playlistId',
+        );
       }
 
       if (tracks.isEmpty) {
@@ -2245,7 +2332,8 @@ class YouTubeSource
       final coverUrl = tracks.isNotEmpty ? tracks.first.thumbnailUrl : null;
 
       logDebug(
-          'Parsed playlist via InnerTube: $playlistTitle, ${tracks.length} tracks');
+        'Parsed playlist via InnerTube: $playlistTitle, ${tracks.length} tracks',
+      );
       return PlaylistParseResult(
         title: playlistTitle,
         description: null,
@@ -2262,9 +2350,12 @@ class YouTubeSource
     } catch (e) {
       if (e is YouTubeApiException) rethrow;
       logError(
-          'Failed to parse playlist via InnerTube: $playlistId, error: $e');
+        'Failed to parse playlist via InnerTube: $playlistId, error: $e',
+      );
       throw YouTubeApiException(
-          code: 'error', message: 'Failed to parse playlist: $e');
+        code: 'error',
+        message: 'Failed to parse playlist: $e',
+      );
     }
   }
 
@@ -2282,7 +2373,9 @@ class YouTubeSource
       final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
       if (videoDetails == null) {
         throw const YouTubeApiException(
-            code: 'parse_error', message: 'No videoDetails in response');
+          code: 'parse_error',
+          message: 'No videoDetails in response',
+        );
       }
 
       final lengthSeconds =
@@ -2293,7 +2386,7 @@ class YouTubeSource
 
       final track = Track()
         ..sourceId = videoId
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = videoDetails['title'] as String? ?? 'Unknown'
         ..artist = videoDetails['author'] as String? ?? ''
         ..channelId = videoDetails['channelId'] as String? ?? ''
@@ -2310,7 +2403,9 @@ class YouTubeSource
       if (e is YouTubeApiException) rethrow;
       logError('Failed to get track info via InnerTube: $videoId, error: $e');
       throw YouTubeApiException(
-          code: 'error', message: 'Failed to get video info: $e');
+        code: 'error',
+        message: 'Failed to get video info: $e',
+      );
     }
   }
 
@@ -2326,7 +2421,9 @@ class YouTubeSource
       final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
       if (videoDetails == null) {
         throw const YouTubeApiException(
-            code: 'parse_error', message: 'No videoDetails in response');
+          code: 'parse_error',
+          message: 'No videoDetails in response',
+        );
       }
 
       final lengthSeconds =
@@ -2355,7 +2452,9 @@ class YouTubeSource
       if (e is YouTubeApiException) rethrow;
       logError('Failed to get video detail via InnerTube: $videoId, error: $e');
       throw YouTubeApiException(
-          code: 'error', message: 'Failed to get video detail: $e');
+        code: 'error',
+        message: 'Failed to get video detail: $e',
+      );
     }
   }
 
@@ -2370,7 +2469,12 @@ class YouTubeSource
         errorStr.contains('too many');
   }
 
-  YouTubeApiException? _classifyStreamFallbackError(Object error) {
+  /// 把任意例外歸類成 [YouTubeApiException]，歸不了回 null。
+  ///
+  /// YouTube 走的是 `youtube_explode_dart` 與 `http`，不是 Dio，所以
+  /// `SourceApiException.classifyDioError` 覆蓋不到它 —— 這裡是 YouTube 的
+  /// 對應物。串流 fallback 與搜尋共用它。
+  YouTubeApiException? _classifySourceError(Object error) {
     if (error is YouTubeApiException) return error;
     if (error is DioException) {
       if (error.response?.statusCode == 403) return null;
@@ -2446,12 +2550,34 @@ class YouTubeSource
 
     final classified = SourceApiException.classifyDioError(e);
     return YouTubeApiException(
-        code: classified.code, message: classified.message);
+      code: classified.code,
+      message: classified.message,
+    );
   }
 
   @override
   void dispose() {
     _youtube.close();
     _dio.close();
+  }
+}
+
+/// 一次 `getAudioStream` 呼叫裡最多打一次 InnerTube `/player`。
+///
+/// 每個 streamType 各打一次的話，已登入使用者的最壞延遲會是原本的三倍 ——
+/// 而三次拿到的是同一份 `streamingData`。
+class _InnerTubeAttempt {
+  Map<String, dynamic>? _data;
+  bool _attempted = false;
+
+  Future<Map<String, dynamic>?> streamingData(
+    YouTubeSource source,
+    String videoId,
+    Map<String, String> authHeaders,
+  ) async {
+    if (_attempted) return _data;
+    _attempted = true;
+    _data = await source._innerTubeStreamingData(videoId, authHeaders);
+    return _data;
   }
 }

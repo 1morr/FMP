@@ -34,6 +34,10 @@ void main() {
         LyricsWindowLayout.titleBarHeight,
       );
     });
+
+    test('minimum window width leaves room for title bar controls', () {
+      expect(LyricsWindowLayout.minWindowWidth, greaterThanOrEqualTo(400));
+    });
   });
 
   group('LyricsWindowStyle', () {
@@ -96,56 +100,47 @@ void main() {
     });
 
     test(
-        'applies default style only in transparent mode and custom style everywhere',
-        () {
-      const custom = LyricsWindowStyle(
-        textColor: Color(0xFFFFD166),
-        textColorCustomized: true,
-        secondaryTextColor: Color(0xFF7FDBFF),
-        secondaryTextColorCustomized: true,
-        inactiveOpacity: 0.35,
-        outlineEnabled: true,
-        outlineColor: Color(0xFF111111),
-        outlineWidth: 3,
-        shadowEnabled: false,
-        shadowColor: Color(0x66000000),
-        shadowBlurRadius: 6,
-        shadowOffset: Offset(-1, 2),
-      );
+      'applies default style only in transparent mode and custom style everywhere',
+      () {
+        const custom = LyricsWindowStyle(
+          textColor: Color(0xFFFFD166),
+          textColorCustomized: true,
+          secondaryTextColor: Color(0xFF7FDBFF),
+          secondaryTextColorCustomized: true,
+          inactiveOpacity: 0.35,
+          outlineEnabled: true,
+          outlineColor: Color(0xFF111111),
+          outlineWidth: 3,
+          shadowEnabled: false,
+          shadowColor: Color(0x66000000),
+          shadowBlurRadius: 6,
+          shadowOffset: Offset(-1, 2),
+        );
 
-      expect(
-        LyricsWindowStyle.defaults.shouldApplyToText(transparentMode: true),
-        isTrue,
-      );
-      expect(
-        LyricsWindowStyle.defaults.shouldApplyToText(transparentMode: false),
-        isFalse,
-      );
-      expect(
-        custom.shouldApplyToText(transparentMode: false),
-        isTrue,
-      );
-      expect(
-        custom.shouldApplyToText(transparentMode: true),
-        isTrue,
-      );
-    });
+        expect(
+          LyricsWindowStyle.defaults.shouldApplyToText(transparentMode: true),
+          isTrue,
+        );
+        expect(
+          LyricsWindowStyle.defaults.shouldApplyToText(transparentMode: false),
+          isFalse,
+        );
+        expect(custom.shouldApplyToText(transparentMode: false), isTrue);
+        expect(custom.shouldApplyToText(transparentMode: true), isTrue);
+      },
+    );
 
-    test('does not apply text effects for opacity-only normal mode changes',
-        () {
-      final style = LyricsWindowStyle.defaults.copyWith(
-        inactiveOpacity: 0.35,
-      );
+    test(
+      'does not apply text effects for opacity-only normal mode changes',
+      () {
+        final style = LyricsWindowStyle.defaults.copyWith(
+          inactiveOpacity: 0.35,
+        );
 
-      expect(
-        style.shouldApplyToText(transparentMode: false),
-        isFalse,
-      );
-      expect(
-        style.shouldApplyToText(transparentMode: true),
-        isTrue,
-      );
-    });
+        expect(style.shouldApplyToText(transparentMode: false), isFalse);
+        expect(style.shouldApplyToText(transparentMode: true), isTrue);
+      },
+    );
 
     test('transparent mode does not force disabled text effects', () {
       final style = LyricsWindowStyle.defaults.copyWith(
@@ -153,14 +148,8 @@ void main() {
         shadowEnabled: false,
       );
 
-      expect(
-        style.shouldApplyToText(transparentMode: true),
-        isFalse,
-      );
-      expect(
-        style.shouldApplyToText(transparentMode: false),
-        isFalse,
-      );
+      expect(style.shouldApplyToText(transparentMode: true), isFalse);
+      expect(style.shouldApplyToText(transparentMode: false), isFalse);
     });
 
     test('normal mode keeps fallback colors for non-color custom styles', () {
@@ -207,49 +196,53 @@ void main() {
       );
     });
 
-    test('inactive lyric color preserves selected text alpha proportionally',
-        () {
-      const style = LyricsWindowStyle(
-        textColor: Color(0x80FF0000),
-        textColorCustomized: true,
-        secondaryTextColor: Color(0x8000FF00),
-        secondaryTextColorCustomized: true,
-        inactiveOpacity: 0.5,
-        outlineEnabled: true,
-        outlineColor: Colors.black,
-        outlineWidth: 1.5,
-        shadowEnabled: true,
-        shadowColor: Colors.black,
-        shadowBlurRadius: 3,
-        shadowOffset: Offset.zero,
-      );
+    test(
+      'inactive lyric color preserves selected text alpha proportionally',
+      () {
+        const style = LyricsWindowStyle(
+          textColor: Color(0x80FF0000),
+          textColorCustomized: true,
+          secondaryTextColor: Color(0x8000FF00),
+          secondaryTextColorCustomized: true,
+          inactiveOpacity: 0.5,
+          outlineEnabled: true,
+          outlineColor: Colors.black,
+          outlineWidth: 1.5,
+          shadowEnabled: true,
+          shadowColor: Colors.black,
+          shadowBlurRadius: 3,
+          shadowOffset: Offset.zero,
+        );
 
-      expect(style.mainColor(isCurrent: false).toARGB32(), 0x40FF0000);
-      expect(style.secondaryColor(isCurrent: false).toARGB32(), 0x3300FF00);
-    });
+        expect(style.mainColor(isCurrent: false).toARGB32(), 0x40FF0000);
+        expect(style.secondaryColor(isCurrent: false).toARGB32(), 0x3300FF00);
+      },
+    );
 
-    test('debounces style commits and keeps only the latest pending style',
-        () async {
-      final committed = <LyricsWindowStyle>[];
-      final debouncer = LyricsWindowStyleCommitDebouncer(
-        delay: const Duration(milliseconds: 20),
-        commit: committed.add,
-      );
-      const first = LyricsWindowStyle.defaults;
-      final second = LyricsWindowStyle.defaults.copyWith(
-        textColor: Colors.amber,
-      );
+    test(
+      'debounces style commits and keeps only the latest pending style',
+      () async {
+        final committed = <LyricsWindowStyle>[];
+        final debouncer = LyricsWindowStyleCommitDebouncer(
+          delay: const Duration(milliseconds: 20),
+          commit: committed.add,
+        );
+        const first = LyricsWindowStyle.defaults;
+        final second = LyricsWindowStyle.defaults.copyWith(
+          textColor: Colors.amber,
+        );
 
-      debouncer.schedule(first);
-      debouncer.schedule(second);
+        debouncer.schedule(first);
+        debouncer.schedule(second);
 
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      expect(committed, isEmpty);
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        expect(committed, isEmpty);
 
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      expect(committed, [second]);
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        expect(committed, [second]);
 
-      debouncer.dispose();
-    });
+        debouncer.dispose();
+      },
+    );
   });
 }

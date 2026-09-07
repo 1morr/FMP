@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download/download_provider.dart';
@@ -11,7 +13,7 @@ import '../../../providers/download/download_path_provider.dart';
 import '../../../providers/library/library_invalidation_coordinator.dart';
 import '../../../providers/library/playlist_provider.dart'
     show allPlaylistsProvider;
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../router.dart';
@@ -98,7 +100,7 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
         loading: () => const LoadingPlaceholder(),
         error: (error, stack) => ErrorDisplay(
           type: ErrorType.general,
-          message: t.library.loadFailedWithError(error: error.toString()),
+          message: t.library.loadFailedWithError(error: userMessageFor(error)),
           onRetry: _syncLocalFiles,
         ),
         data: (categories) {
@@ -175,8 +177,10 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
             setState(() {
               _current = current;
               _total = total;
-              _status = t.library.downloadedPage
-                  .scanningProgress(current: current, total: total);
+              _status = t.library.downloadedPage.scanningProgress(
+                current: current,
+                total: total,
+              );
             });
           }
         },
@@ -185,10 +189,18 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
       if (mounted) {
         Navigator.pop(context, (added, removed));
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+        'Syncing downloaded files failed',
+        e,
+        stack,
+        'Downloaded',
+      );
       if (mounted) {
         setState(() {
-          _status = t.library.downloadedPage.syncFailed(error: e.toString());
+          _status = t.library.downloadedPage.syncFailed(
+            error: userMessageFor(e),
+          );
           _isComplete = true;
         });
       }
@@ -234,23 +246,23 @@ class _CategoryCard extends ConsumerWidget {
 
   /// 右鍵菜單與長按底部選單共用的動作定義
   List<MenuAction> _menuActions() => [
-        MenuAction(
-          id: _actionAddAll,
-          icon: Icons.play_arrow,
-          label: t.library.addAll,
-        ),
-        MenuAction(
-          id: _actionShuffleAdd,
-          icon: Icons.shuffle,
-          label: t.library.shuffleAdd,
-        ),
-        MenuAction(
-          id: _actionDelete,
-          icon: Icons.delete,
-          label: t.library.downloadedPage.deleteCategory,
-          destructive: true,
-        ),
-      ];
+    MenuAction(
+      id: _actionAddAll,
+      icon: Icons.play_arrow,
+      label: t.library.addAll,
+    ),
+    MenuAction(
+      id: _actionShuffleAdd,
+      icon: Icons.shuffle,
+      label: t.library.shuffleAdd,
+    ),
+    MenuAction(
+      id: _actionDelete,
+      icon: Icons.delete,
+      label: t.library.downloadedPage.deleteCategory,
+      destructive: true,
+    ),
+  ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String value) {
     switch (value) {
@@ -293,9 +305,7 @@ class _CategoryCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 封面区域
-              Expanded(
-                child: _buildCover(colorScheme),
-              ),
+              Expanded(child: _buildCover(colorScheme)),
 
               // 信息
               Padding(
@@ -321,10 +331,8 @@ class _CategoryCard extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           t.library.trackCount(n: category.trackCount),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.outline,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.outline),
                         ),
                       ],
                     ),
@@ -357,10 +365,7 @@ class _CategoryCard extends ConsumerWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primaryContainer,
-            colorScheme.tertiaryContainer,
-          ],
+          colors: [colorScheme.primaryContainer, colorScheme.tertiaryContainer],
         ),
       ),
       child: Center(
@@ -396,8 +401,9 @@ class _CategoryCard extends ConsumerWidget {
   }
 
   void _addAllToQueue(BuildContext context, WidgetRef ref) async {
-    final tracksAsync = await ref
-        .read(downloadedCategoryTracksProvider(category.folderPath).future);
+    final tracksAsync = await ref.read(
+      downloadedCategoryTracksProvider(category.folderPath).future,
+    );
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
@@ -411,13 +417,16 @@ class _CategoryCard extends ConsumerWidget {
 
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.addedToQueue(n: tracksAsync.length));
+        context,
+        t.library.addedToQueue(n: tracksAsync.length),
+      );
     }
   }
 
   void _shuffleAddToQueue(BuildContext context, WidgetRef ref) async {
-    final tracksAsync = await ref
-        .read(downloadedCategoryTracksProvider(category.folderPath).future);
+    final tracksAsync = await ref.read(
+      downloadedCategoryTracksProvider(category.folderPath).future,
+    );
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
@@ -432,7 +441,9 @@ class _CategoryCard extends ConsumerWidget {
 
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.shuffledAddedToQueue(n: tracksAsync.length));
+        context,
+        t.library.shuffledAddedToQueue(n: tracksAsync.length),
+      );
     }
   }
 
@@ -440,8 +451,9 @@ class _CategoryCard extends ConsumerWidget {
     final confirmed = await showConfirmDestructiveDialog(
       context,
       title: t.library.downloadedPage.deleteCategoryTitle,
-      content: t.library.downloadedPage
-          .deleteCategoryConfirm(name: category.displayName),
+      content: t.library.downloadedPage.deleteCategoryConfirm(
+        name: category.displayName,
+      ),
       confirmLabel: t.general.delete,
     );
     if (confirmed == true && context.mounted) {
@@ -451,16 +463,19 @@ class _CategoryCard extends ConsumerWidget {
 
   Future<void> _deleteCategory(BuildContext context, WidgetRef ref) async {
     try {
-      final maintenanceService =
-          ref.read(downloadPathMaintenanceServiceProvider);
+      final maintenanceService = ref.read(
+        downloadPathMaintenanceServiceProvider,
+      );
       final result = await maintenanceService.deleteDownloadedCategory(
         category.folderPath,
       );
 
-      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
-        categoryPaths: [category.folderPath],
-        affectedPlaylistIds: result.affectedPlaylistIds,
-      );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .downloadStateChanged(
+            categoryPaths: [category.folderPath],
+            affectedPlaylistIds: result.affectedPlaylistIds,
+          );
 
       if (context.mounted) {
         ToastService.success(
@@ -468,10 +483,18 @@ class _CategoryCard extends ConsumerWidget {
           t.library.downloadedPage.categoryDeleted(name: category.displayName),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+        'Deleting a downloaded category failed',
+        e,
+        stack,
+        'Downloaded',
+      );
       if (context.mounted) {
-        ToastService.error(context,
-            t.library.downloadedPage.deleteFailed(error: e.toString()));
+        ToastService.error(
+          context,
+          t.library.downloadedPage.deleteFailed(error: userMessageFor(e)),
+        );
       }
     }
   }

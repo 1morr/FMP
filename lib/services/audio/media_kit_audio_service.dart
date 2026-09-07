@@ -26,6 +26,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   static const int desktopDemuxerMaxBytes = 24 * 1024 * 1024;
   static const int desktopDemuxerMaxBackBytes = 8 * 1024 * 1024;
   static const int desktopBufferSeconds = 7200;
+
+  /// mpv 自己的網路逾時（秒）。預設是 60，遠大於 FMP 的任何一層預算。
+  ///
+  /// 刻意設得比 T2（開流 8s）大：讓 FMP 的預算先到期，失敗才會以可分類的
+  /// [PlaybackTimeoutException] 回來，而不是一則要靠字串猜的 mpv 錯誤。
+  static const int desktopNetworkTimeoutSeconds = 15;
   static const String desktopLavfReconnectOptions =
       'reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,'
       'reconnect_delay_max=2,reconnect_max_retries=3';
@@ -35,11 +41,18 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   bool _hasPlayer = false;
   bool _disposed = false;
 
-  // 完成事件控制器
-  final _completedController = StreamController<void>.broadcast();
+  // 播放结束原因控制器（正常播完与各种失败共用同一条通道）
+  final _endReasonController = StreamController<PlaybackEndReason>.broadcast();
 
-  // 错误事件控制器
-  final _errorController = StreamController<String>.broadcast();
+  // 後端自行接上前瞻媒體時的通道
+  final _advancedToNextController =
+      StreamController<PreparedPlaybackMedia>.broadcast();
+
+  /// 已經交給後端、還沒被接上去的下一個媒體。
+  PreparedPlaybackMedia? _nextMedia;
+
+  /// 最後看到的播放清單索引。索引往前走就是後端自己接上去了。
+  int _playlistIndex = 0;
 
   // 流订阅列表（用于 dispose 时取消）
   final List<StreamSubscription> _subscriptions = [];
@@ -72,20 +85,22 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   final _processingStateController =
       BehaviorSubject<FmpAudioProcessingState>.seeded(
-    FmpAudioProcessingState.idle,
-  );
+        FmpAudioProcessingState.idle,
+      );
 
   final _positionController = BehaviorSubject<Duration>.seeded(Duration.zero);
   final _durationController = BehaviorSubject<Duration?>.seeded(null);
-  final _bufferedPositionController =
-      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final _bufferedPositionController = BehaviorSubject<Duration>.seeded(
+    Duration.zero,
+  );
   final _speedController = BehaviorSubject<double>.seeded(1.0);
   final _playingController = BehaviorSubject<bool>.seeded(false);
   final _volumeController = BehaviorSubject<double>.seeded(1.0);
 
   // 音频设备相关
-  final _audioDevicesController =
-      BehaviorSubject<List<FmpAudioDevice>>.seeded([]);
+  final _audioDevicesController = BehaviorSubject<List<FmpAudioDevice>>.seeded(
+    [],
+  );
   final _audioDeviceController = BehaviorSubject<FmpAudioDevice?>.seeded(null);
 
   // ========== 状态流 ==========
@@ -106,10 +121,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   @override
   Stream<bool> get playingStream => _playingController.stream;
 
-  /// 歌曲播放完成事件流
-  @override
-  Stream<void> get completedStream => _completedController.stream;
-
   /// 可用音频设备列表流
   @override
   Stream<List<FmpAudioDevice>> get audioDevicesStream =>
@@ -120,9 +131,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   Stream<FmpAudioDevice?> get audioDeviceStream =>
       _audioDeviceController.stream;
 
-  /// 错误事件流
+  /// 播放结束原因流
   @override
-  Stream<String> get errorStream => _errorController.stream;
+  Stream<PlaybackEndReason> get endReasons => _endReasonController.stream;
+  @override
+  Stream<PreparedPlaybackMedia> get advancedToNext =>
+      _advancedToNextController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -161,9 +175,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         ? mobilePlayerBufferSizeBytes
         : desktopPlayerBufferSizeBytes;
     _player = Player(
-      configuration: PlayerConfiguration(
-        bufferSize: bufferSize,
-      ),
+      configuration: PlayerConfiguration(bufferSize: bufferSize),
     );
     _hasPlayer = true;
 
@@ -191,7 +203,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
               _wasPlayingBeforeInterruption = _isPlaying;
               if (_wasPlayingBeforeInterruption) {
                 logDebug(
-                    'Audio interrupted while playing, will resume after interruption ends');
+                  'Audio interrupted while playing, will resume after interruption ends',
+                );
                 pause();
               }
               break;
@@ -210,7 +223,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
                 play();
               } else {
                 logDebug(
-                    'Interruption ended, but was not playing before, staying paused');
+                  'Interruption ended, but was not playing before, staying paused',
+                );
               }
               _wasPlayingBeforeInterruption = false;
               break;
@@ -287,9 +301,20 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       // 不等待緩衝填滿，立即開始播放
       await (nativePlayer as dynamic).setProperty('cache-pause-initial', 'no');
 
+      // 播放清單裡有第二個項目時，先把它開起來 —— 這是 `setNextMedia` 在桌面端
+      // 之所以能省掉交界處開流延遲的原因。mpv 預設是 `no`，media_kit 從不設它。
+      //
+      // mpv 手冊自稱這個選項 "Highly experimental"，並警告 "This can give
+      // subtly wrong results if per-file options are used" —— 而 media_kit 正是
+      // 用 per-file 的 `http-header-fields`（`on_load` hook）送出 Referer /
+      // Origin。實測結果記在 docs/review/05-roadmap.md §6.13。
+      await (nativePlayer as dynamic).setProperty('prefetch-playlist', 'yes');
+
       // 禁止 demuxer 将已用 buffer 捐赠给其他线程（减少内存碎片）
-      await (nativePlayer as dynamic)
-          .setProperty('demuxer-donate-buffer', 'no');
+      await (nativePlayer as dynamic).setProperty(
+        'demuxer-donate-buffer',
+        'no',
+      );
 
       // 禁用 ICY 元数据解析（网络电台标题等，减少不必要的处理）
       await (nativePlayer as dynamic).setProperty('demuxer-lavf-o', 'icy=0');
@@ -297,9 +322,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         'stream-lavf-o',
         desktopLavfReconnectOptions,
       );
+      await (nativePlayer as dynamic).setProperty(
+        'network-timeout',
+        desktopNetworkTimeoutSeconds.toString(),
+      );
 
       logInfo(
-          'libmpv configured for audio-only mode (vid=no, sid=no, desktop network buffers, lavf reconnect)');
+        'libmpv configured for audio-only mode (vid=no, sid=no, desktop network buffers, lavf reconnect)',
+      );
     } catch (e) {
       // 非致命错误，降级到默认配置
       logWarning('Failed to configure libmpv for audio-only: $e');
@@ -314,6 +344,30 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         _isPlaying = playing;
         _playingController.add(playing);
         _updatePlayerState();
+      }),
+    );
+
+    // 監聽播放清單索引 —— 後端自行接上前瞻媒體的唯一信號。
+    //
+    // 接上第二個項目之後，第一首播完不會走 `stream.completed`（那是整串播完才
+    // 有），只有索引會往前走，所以「自然播完」在 arm 期間改由這裡表達。
+    _subscriptions.add(
+      _player.stream.playlist.listen((playlist) {
+        final previousIndex = _playlistIndex;
+        _playlistIndex = playlist.index;
+        if (playlist.index <= previousIndex) return;
+
+        final advanced = _nextMedia;
+        _nextMedia = null;
+        if (advanced == null) return;
+
+        logDebug('Backend advanced to next medium: ${advanced.debugUrl}');
+        _hasCompletionFired = false;
+        _isCompleted = false;
+        if (!_advancedToNextController.isClosed) {
+          _advancedToNextController.add(advanced);
+        }
+        unawaited(_trimPlayedEntry());
       }),
     );
 
@@ -347,8 +401,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         _isCompleted = completed;
         if (completed && !_hasCompletionFired) {
           _hasCompletionFired = true;
-          logDebug('Track completed');
-          _completedController.add(null);
+          final reason = _classifyCompletion();
+          logDebug('Track completed: $reason');
+          _emitEndReason(reason);
         } else if (!completed) {
           _hasCompletionFired = false;
         }
@@ -384,8 +439,23 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _subscriptions.add(
       _player.stream.error.listen((error) {
         logError('media_kit error: $error');
-        // 将错误传播到 AudioController
-        _errorController.add(error);
+        _emitEndReason(_classifyMpvMessage(error));
+      }),
+    );
+
+    // 监听 mpv 原始日志
+    //
+    // media_kit 的 errorController 只转发 prefix 属于
+    // file / ffmpeg(tcp:) / vd / ad / cplayer / stream 的 error 级消息
+    // （media_kit 1.2.6 real.dart:2085-2117）。**`ao` 不在名单里**，所以
+    // `AO: [wasapi] init failed` 这类音频输出失败根本到不了 errorStream。
+    // 实测：设备失效时只有 cplayer 的 "Could not open/initialize audio device"
+    // 会送出来，另外两条 ao 消息被丢弃。这里补上那一半。
+    _subscriptions.add(
+      _player.stream.log.listen((log) {
+        if (log.level != 'error' || log.prefix != 'ao') return;
+        logError('media_kit ao error: ${log.text}');
+        _emitEndReason(OutputDeviceFailed(raw: log.text));
       }),
     );
 
@@ -416,19 +486,97 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   }
 
   /// media_kit AudioDevice → FmpAudioDevice 转换
-  FmpAudioDevice _toFmpDevice(AudioDevice device) => FmpAudioDevice(
-        name: device.name,
-        description: device.description,
-      );
+  FmpAudioDevice _toFmpDevice(AudioDevice device) =>
+      FmpAudioDevice(name: device.name, description: device.description);
+
+  void _emitEndReason(PlaybackEndReason reason) {
+    if (_endReasonController.isClosed) return;
+    _endReasonController.add(reason);
+  }
+
+  /// mpv 宣告 completed 時，判斷是「真的播完」還是「提前結束」。
+  ///
+  /// 位置與時長由後端自己看得最準，上層只需要結論。`duration` 為 null 或 0 代
+  /// 表引擎從未回報過時長 —— 實測「連得上但零位元組」的串流正是這個形狀，而它
+  /// 過去會被當成正常播完、直接跳下一首。
+  PlaybackEndReason _classifyCompletion() {
+    final duration = _duration;
+    final position = _position;
+    if (duration == null || duration.inMilliseconds <= 0) {
+      return EndedPrematurely(at: position, expected: null);
+    }
+    if (duration - position > AppConstants.completionTolerance) {
+      return EndedPrematurely(at: position, expected: duration);
+    }
+    return const EndedNaturally();
+  }
+
+  /// 把 mpv 的錯誤訊息翻成型別。
+  ///
+  /// 關鍵字表留在這裡（貼著它要翻譯的引擎），不再由 `AudioController` 猜：
+  /// `could not open` 這個子字串在「媒體開不起來」與「音訊裝置開不起來」兩種
+  /// 語意上都成立，只有知道自己是哪個引擎的人分得出來。音訊裝置的判斷因此必
+  /// 須排在媒體開啟之前 —— 這正是 issue #41 的修法。
+  PlaybackEndReason _classifyMpvMessage(String raw) {
+    final text = raw.toLowerCase();
+
+    if (text.contains('audio device') ||
+        text.contains('audio output') ||
+        text.contains('audio driver') ||
+        text.contains('[ao]') ||
+        text.startsWith('ao:')) {
+      return OutputDeviceFailed(raw: raw);
+    }
+
+    if (text.startsWith('tcp:') ||
+        text.contains('ffurl_read') ||
+        text.contains('connection') ||
+        text.contains('socket') ||
+        text.contains('timed out') ||
+        text.contains('unreachable')) {
+      return TransportFailed(kind: _transportKind(text), raw: raw);
+    }
+
+    if (text.contains('failed to open') ||
+        text.contains('cannot open') ||
+        text.contains('could not open') ||
+        text.contains('no such file')) {
+      return MediaUnopenable(raw: raw);
+    }
+
+    if (text.contains('decoder') || text.contains('could not decode')) {
+      return DecoderFailed(raw: raw);
+    }
+
+    return UnclassifiedFailure(raw: raw);
+  }
+
+  static TransportFailureKind _transportKind(String text) {
+    if (text.contains('timed out') || text.contains('timeout')) {
+      return TransportFailureKind.timeout;
+    }
+    if (text.contains('reset')) return TransportFailureKind.reset;
+    if (text.contains('failed host lookup') ||
+        text.contains('name resolution') ||
+        text.contains('dns')) {
+      return TransportFailureKind.dns;
+    }
+    if (text.contains('tls') ||
+        text.contains('ssl') ||
+        text.contains('certificate')) {
+      return TransportFailureKind.tls;
+    }
+    if (text.contains('refused')) return TransportFailureKind.refused;
+    return TransportFailureKind.unknown;
+  }
 
   /// 更新合成的播放器状态
   void _updatePlayerState() {
     final state = _synthesizeProcessingState();
     _processingStateController.add(state);
-    _playerStateController.add(FmpPlayerState(
-      playing: _isPlaying,
-      processingState: state,
-    ));
+    _playerStateController.add(
+      FmpPlayerState(playing: _isPlaying, processingState: state),
+    );
   }
 
   /// 合成处理状态
@@ -461,8 +609,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     }
     _subscriptions.clear();
 
-    await _completedController.close();
-    await _errorController.close();
+    await _endReasonController.close();
+    await _advancedToNextController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();
@@ -498,6 +646,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   @override
   Future<void> stop() async {
     _cancelEnsurePlayback();
+    // 停下來等於清空後端的播放清單，前瞻項目跟著作廢。
+    _nextMedia = null;
+    _playlistIndex = 0;
     await _player.stop();
     // 释放音频焦点
     await _session.setActive(false);
@@ -530,26 +681,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     await _player.seek(position);
   }
 
-  /// 快进
-  @override
-  Future<void> seekForward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _position + seekDuration;
-    final maxPosition = _duration ?? Duration.zero;
-    await _player.seek(newPosition > maxPosition ? maxPosition : newPosition);
-  }
-
-  /// 快退
-  @override
-  Future<void> seekBackward([Duration? duration]) async {
-    final seekDuration =
-        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    final newPosition = _position - seekDuration;
-    await _player
-        .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
-  }
-
   /// 嘗試跳到直播流的最新位置
   /// 返回 true 表示成功 seek，false 表示無法 seek（需要重新連接）
   @override
@@ -560,14 +691,16 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     // 如果 duration 為 0 或太短，無法 seek
     if (currentDuration.inSeconds < 5) {
       logDebug(
-          'seekToLive: duration too short (${currentDuration.inSeconds}s), cannot seek');
+        'seekToLive: duration too short (${currentDuration.inSeconds}s), cannot seek',
+      );
       return false;
     }
 
     // 嘗試 seek 到接近末尾（留 1 秒緩衝）
     final targetPosition = currentDuration - const Duration(seconds: 1);
     logDebug(
-        'seekToLive: seeking to $targetPosition (duration: $currentDuration)');
+      'seekToLive: seeking to $targetPosition (duration: $currentDuration)',
+    );
 
     final positionBefore = _position;
     await _player.seek(targetPosition);
@@ -580,7 +713,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
     if (!seekWorked) {
       logInfo(
-          'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter), stream not seekable');
+        'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter), stream not seekable',
+      );
       return false;
     }
 
@@ -618,13 +752,15 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     logInfo('Setting audio device: ${device.name} (${device.description})');
     // 通过 name 在 media_kit 设备列表中查找匹配的原始 AudioDevice
     final devices = _player.state.audioDevices;
-    final nativeDevice =
-        devices.where((d) => d.name == device.name).firstOrNull;
+    final nativeDevice = devices
+        .where((d) => d.name == device.name)
+        .firstOrNull;
     if (nativeDevice != null) {
       await _player.setAudioDevice(nativeDevice);
     } else {
       logWarning(
-          'Audio device not found: ${device.name}, falling back to auto');
+        'Audio device not found: ${device.name}, falling back to auto',
+      );
       await _player.setAudioDevice(AudioDevice.auto());
     }
   }
@@ -651,7 +787,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _playbackCancelled = false;
 
     logDebug(
-        '_ensurePlayback called, current state: ${_synthesizeProcessingState()}');
+      '_ensurePlayback called, current state: ${_synthesizeProcessingState()}',
+    );
 
     // 等待播放器准备好或检测失败
     // media_kit 通常在 open() 返回后就准备好了
@@ -694,20 +831,30 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   @override
   Future<Duration?> playMedia(PreparedPlaybackMedia media) {
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        playFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        playUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => playFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => playUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
   @override
   Future<Duration?> setMedia(PreparedPlaybackMedia media) {
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        setFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        setUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => setFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => setUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
@@ -715,10 +862,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// [headers] 可选的 HTTP 请求头，用于需要认证的音频源（如 Bilibili, YouTube）
   /// [track] 可选的 Track 信息，用于后台播放通知显示
   @override
-  Future<Duration?> playUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> playUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     logDebug(
-        'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
+      'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...',
+    );
     if (headers != null) {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
@@ -733,16 +884,21 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(const FmpPlayerState(
-        playing: false,
-        processingState: FmpAudioProcessingState.loading,
-      ));
+      _playerStateController.add(
+        const FmpPlayerState(
+          playing: false,
+          processingState: FmpAudioProcessingState.loading,
+        ),
+      );
 
       // 激活音频会话（请求音频焦点）
       await _session.setActive(true);
 
       // 使用 media_kit 直接打开 URL，原生支持 httpHeaders（不需要代理）
       final media = Media(url, httpHeaders: headers);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息（流媒体可能需要播放后才能获取）
@@ -755,14 +911,24 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         await Future.delayed(AppConstants.audioServicePollingDelay);
       }
 
-      logDebug(
-          'URL loaded successfully, duration: $resultDuration (may update later)');
+      if (resultDuration == null) {
+        // 引擎在容忍窗內從未回報時長。這**不是**一次乾淨的成功：實測「連得上
+        // 但零位元組」與「音訊裝置開不起來」都長這個樣子，而兩者過去都被記成
+        // `URL loaded successfully`。降級成 warning，讓 log 誠實。
+        logWarning(
+          'URL opened but the engine never reported a duration; '
+          'treating playback as started with unknown length',
+        );
+      } else {
+        logDebug('URL loaded successfully, duration: $resultDuration');
+      }
 
       // 确保播放并等待状态确认
       await _ensurePlayback();
 
       logDebug(
-          'Playback started, duration: $resultDuration, playing: $_isPlaying');
+        'Playback started, duration: $resultDuration, playing: $_isPlaying',
+      );
       return resultDuration;
     } catch (e, stack) {
       logError('Failed to play URL', e, stack);
@@ -774,10 +940,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// [headers] 可选的 HTTP 请求头
   /// [track] 可选的 Track 信息，用于后台播放通知显示
   @override
-  Future<Duration?> setUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> setUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     logDebug(
-        'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
+      'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...',
+    );
     try {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
@@ -786,6 +956,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _session.setActive(true);
 
       final media = Media(url, httpHeaders: headers);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息
@@ -822,16 +995,21 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(const FmpPlayerState(
-        playing: false,
-        processingState: FmpAudioProcessingState.loading,
-      ));
+      _playerStateController.add(
+        const FmpPlayerState(
+          playing: false,
+          processingState: FmpAudioProcessingState.loading,
+        ),
+      );
 
       // 激活音频会话（请求音频焦点）
       await _session.setActive(true);
 
       // 使用 media_kit 打开本地文件
       final media = Media(filePath);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息
@@ -848,7 +1026,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _ensurePlayback();
 
       logDebug(
-          'File playback started, duration: $resultDuration, playing: $_isPlaying');
+        'File playback started, duration: $resultDuration, playing: $_isPlaying',
+      );
       return resultDuration;
     } catch (e, stack) {
       logError('Failed to play file', e, stack);
@@ -869,6 +1048,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _session.setActive(true);
 
       final media = Media(filePath);
+      // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
+      _nextMedia = null;
+      _playlistIndex = 0;
       await _player.open(media, play: false);
 
       // 短暂等待时长信息
@@ -910,5 +1092,55 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     }
 
     logWarning('Timeout waiting for idle state, proceeding anyway');
+  }
+  // ========== 前瞻媒體 ==========
+
+  @override
+  Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
+    if (!_hasPlayer || _player.state.playlist.medias.isEmpty) {
+      // 還沒有東西在播，沒有可以接上去的位置。
+      _nextMedia = null;
+      return;
+    }
+
+    // 清單永遠是「當前項目 ＋ 最多一個前瞻」。
+    final currentIndex = _player.state.playlist.index;
+    while (_player.state.playlist.medias.length > currentIndex + 1) {
+      await _player.remove(_player.state.playlist.medias.length - 1);
+    }
+    _nextMedia = null;
+
+    if (media == null) {
+      logDebug('Next medium cleared');
+      return;
+    }
+
+    await _player.add(_mediaFor(media));
+    _nextMedia = media;
+    logDebug('Next medium armed: ${media.debugUrl}');
+  }
+
+  /// headers 掛在 `Media` 上，由 mpv 的 `on_load` hook 在開檔時取出來設成
+  /// `http-header-fields`（media_kit `native/player/real.dart:2137`）——
+  /// `loadfile ... append` 這個命令本身不帶 headers。
+  Media _mediaFor(PreparedPlaybackMedia media) => switch (media) {
+    LocalPlaybackMedia(:final path) => Media(path),
+    RemotePlaybackMedia(:final url, :final headers) => Media(
+      url.toString(),
+      httpHeaders: headers,
+    ),
+  };
+
+  /// 移掉剛剛播完、留在清單前面的那一個項目，讓當前項目回到 index 0。
+  Future<void> _trimPlayedEntry() async {
+    if (_player.state.playlist.medias.length <= 1) return;
+    try {
+      await _player.remove(0);
+      // 同步更新，不要等 `stream.playlist` 的事件 —— 事件晚到的話下一次前進
+      // 會被誤判成「索引沒有往前走」。
+      _playlistIndex = _player.state.playlist.index;
+    } catch (e, stack) {
+      logError('Failed to trim the played playlist entry', e, stack);
+    }
   }
 }

@@ -45,9 +45,10 @@ audio sources. Target platforms are Android and Windows.
 - **Runtime debugging** — `docs/debugging-with-vm-service.md`. Reach for it when
   a question needs the running app rather than the source: memory pressure and
   GC (§3.2–3.3), frame timing (§3.4), widget/render trees (§4.3 — dump to a file
-  first, the render tree measured 3.85 MB), and Isar contents (§5). The
-  `dart:io` HTTP/socket profiling in §3.5–3.6 is marked non-functional for FMP;
-  do not spend time there.
+  first, the render tree measured 3.85 MB), Isar contents (§5), and `dart:io`
+  HTTP/socket profiling (§3.5–3.6 — enable it *before* the traffic you want to
+  see, or it records nothing). `getHttpProfileRequest` gives per-request timing
+  plus full headers and bodies, which beats adding a Dio interceptor.
 
 ## Documentation Maintenance
 
@@ -76,10 +77,11 @@ Human-facing documentation lives in `docs/`; `docs/README.md` is the map.
 flutter run                          # Run the app
 flutter build apk                    # Android APK
 flutter build windows                # Windows executable
-dart run build_runner build --delete-conflicting-outputs  # Isar code generation
+dart run build_runner build  # Isar code generation
 dart run slang                       # Regenerate i18n after lib/i18n/**/*.json changes
 flutter analyze                      # Static analysis
 flutter test                         # Run tests
+dart format lib test                 # Formatter; CI fails on any diff
 ```
 
 **Targeted verification:**
@@ -89,7 +91,7 @@ flutter test                         # Run tests
 | Audio playback/controller/queue | `flutter test test/services/audio` (+ `test/data/sources` when stream resolution changes) |
 | Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
 | Download pipeline | `flutter test test/services/download test/providers/download` |
-| Isar models / migrations | `dart run build_runner build --delete-conflicting-outputs` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
+| Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
 | UI widgets/pages | Targeted tests under `test/ui` + `flutter analyze` + the on-device check below |
 | i18n JSON changes | `dart run slang` + `flutter analyze` |
 | Documentation-only changes | `git diff --check` |
@@ -144,8 +146,14 @@ the one intentional exception.
 
 **State** — Riverpod is the app state layer. Key providers:
 
-- `audioControllerProvider` — main audio state (`PlayerState`)
-- `playlistProvider` / `playlistDetailProvider` — playlist management
+- `audioControllerProvider` — main audio state (`PlayerState`). It and the
+  four providers that build the controller's collaborators live in
+  `lib/providers/audio/audio_controller_provider.dart`; the derived
+  selectors over it live in `audio_player_selectors.dart` beside it. The
+  controller class itself stays in `lib/services/audio/audio_provider.dart`
+  and declares no provider.
+- `playlistListProvider` / `playlistDetailProvider` — playlist management
+  (`lib/providers/library/playlist_provider.dart`)
 - `libraryInvalidationCoordinatorProvider` — playlist/detail/cover/download
   invalidation coordinator
 - `searchProvider` — search state; chips select All/Bilibili/YouTube/Netease
@@ -174,8 +182,17 @@ lib/services/lyrics/       Lyrics search, cache, AI matching, desktop popup
 lib/services/account/      Bilibili/YouTube/Netease login, SourceAuthContext
 lib/services/radio/        Radio/live playback ownership and Bilibili live streams
 lib/services/backup/       Portable JSON backup export/import
+lib/services/cache/        Ranking and search result caches
+lib/services/import/       Playlist import pipeline
+lib/services/library/      Playlist CRUD and remote playlist sync
+lib/services/network/      Shared Dio setup and connectivity
+lib/services/platform/     Storage permissions, autostart, platform shims
+lib/services/refresh/      Stale-data refresh coordination
+lib/services/search/       Search orchestration across sources
+lib/services/update/       In-app update check and installer handoff
 lib/data/models/           Isar collections and DTOs
-lib/data/repositories/     Isar data access
+lib/data/repositories/     Isar data access — the only place `isar.` may
+                           appear, apart from lib/providers/database/
 lib/data/sources/          Bilibili/YouTube/Netease adapters, SourceHttpPolicy
 lib/providers/             Riverpod providers and database initialization
 lib/ui/                    Pages, widgets, layouts, windows

@@ -2,7 +2,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
-import '../../data/models/track.dart'; // for SourceType
+import '../../data/models/track.dart'; // for String
 import '../../data/sources/bilibili_live_client.dart';
 
 /// 直播間資訊
@@ -44,11 +44,7 @@ class LiveStreamInfo {
   final Map<String, String>? headers;
   final DateTime? expiresAt;
 
-  const LiveStreamInfo({
-    required this.url,
-    this.headers,
-    this.expiresAt,
-  });
+  const LiveStreamInfo({required this.url, this.headers, this.expiresAt});
 }
 
 /// 解析結果
@@ -56,10 +52,7 @@ class ParseResult {
   final String sourceId;
   final String normalizedUrl;
 
-  const ParseResult({
-    required this.sourceId,
-    required this.normalizedUrl,
-  });
+  const ParseResult({required this.sourceId, required this.normalizedUrl});
 }
 
 /// RadioSource - Bilibili 直播間 URL 解析和流地址獲取
@@ -75,8 +68,8 @@ class RadioSource with Logging {
   );
 
   RadioSource({BilibiliLiveClient? liveClient})
-      : _liveClient = liveClient ?? BilibiliLiveClient(),
-        _ownsLiveClient = liveClient == null;
+    : _liveClient = liveClient ?? BilibiliLiveClient(),
+      _ownsLiveClient = liveClient == null;
 
   /// 檢查是否為 YouTube URL
   bool isYouTubeUrl(String url) {
@@ -157,7 +150,7 @@ class RadioSource with Logging {
     // 創建基本 station（只支持 Bilibili）
     final station = RadioStation()
       ..url = parseResult.normalizedUrl
-      ..sourceType = SourceType.bilibili
+      ..sourceType = SourceIds.bilibili
       ..sourceId = parseResult.sourceId
       ..title = t.radio.loading
       ..createdAt = DateTime.now();

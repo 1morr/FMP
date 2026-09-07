@@ -24,5 +24,7 @@
   "audioDeviceAuto": "Auto (System Default)",
   "previous": "Previous",
   "next": "Next",
-  "collapse": "Collapse player"
+  "collapse": "Collapse player",
+  "progressBar": "Playback progress",
+  "openPlayer": "Open player"
 }

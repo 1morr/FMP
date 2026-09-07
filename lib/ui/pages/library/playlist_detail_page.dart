@@ -18,7 +18,8 @@ import '../../../providers/ui/selection_provider.dart';
 import '../../widgets/dialogs/download_path_setup_dialog.dart';
 import '../../widgets/dialogs/confirm_destructive_dialog.dart';
 import '../../widgets/app_bars/collapsing_hero_sliver_app_bar.dart';
-import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../../services/download/download_service.dart'
     show DownloadBatchAddSummary;
 import '../../widgets/feedback/error_display.dart';
@@ -170,10 +171,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final cacheEpoch = ref.watch(fileExistsCacheEpochProvider);
 
     if (state.isLoading && state.playlist == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const LoadingPlaceholder(),
-      );
+      return Scaffold(appBar: AppBar(), body: const LoadingPlaceholder());
     }
 
     if (state.error != null && state.playlist == null) {
@@ -184,10 +182,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           message: state.error!,
           onRetry: () => ref
               .read(libraryInvalidationCoordinatorProvider)
-              .startRefreshLoadedPlaylistDetails(
-            [widget.playlistId],
-            reason: 'playlistDetailErrorRetry',
-          ),
+              .startRefreshLoadedPlaylistDetails([
+                widget.playlistId,
+              ], reason: 'playlistDetailErrorRetry'),
         ),
       );
     }
@@ -230,52 +227,50 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           controller: _scrollController,
           slivers: [
             // 折叠式应用栏（始終顯示封面）
-            _buildSliverAppBar(context, playlist, state, isSelectionMode,
-                tracks, availableActions),
+            _buildSliverAppBar(
+              context,
+              playlist,
+              state,
+              isSelectionMode,
+              tracks,
+              availableActions,
+            ),
 
             // 操作按钮（始終顯示）
-            SliverToBoxAdapter(
-              child: _buildActionButtons(context, tracks),
-            ),
+            SliverToBoxAdapter(child: _buildActionButtons(context, tracks)),
 
             // 歌曲列表
             if (isInitialTracksLoading)
-              SliverFillRemaining(
-                child: _buildTracksLoadingState(context),
-              )
+              SliverFillRemaining(child: _buildTracksLoadingState(context))
             else if (tracks.isEmpty)
-              SliverFillRemaining(
-                child: _buildEmptyState(context),
-              )
+              SliverFillRemaining(child: _buildEmptyState(context))
             else
               SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    // 接近末尾时触发加载更多
-                    if (index >= groupedTracks.length - 5 &&
-                        state.hasMore &&
-                        !state.isLoadingMore) {
-                      Future.microtask(() {
-                        ref
-                            .read(playlistDetailProvider(widget.playlistId)
-                                .notifier)
-                            .loadMore();
-                      });
-                    }
-                    // 最后一项：加载指示器
-                    if (index == groupedTracks.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    final group = groupedTracks[index];
-                    return RepaintBoundary(
-                      child: _buildGroupItem(context, group),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  // 接近末尾时触发加载更多
+                  if (index >= groupedTracks.length - 5 &&
+                      state.hasMore &&
+                      !state.isLoadingMore) {
+                    Future.microtask(() {
+                      ref
+                          .read(
+                            playlistDetailProvider(widget.playlistId).notifier,
+                          )
+                          .loadMore();
+                    });
+                  }
+                  // 最后一项：加载指示器
+                  if (index == groupedTracks.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
                     );
-                  },
-                  childCount: groupedTracks.length + (state.hasMore ? 1 : 0),
-                ),
+                  }
+                  final group = groupedTracks[index];
+                  return RepaintBoundary(
+                    child: _buildGroupItem(context, group),
+                  );
+                }, childCount: groupedTracks.length + (state.hasMore ? 1 : 0)),
               ),
           ],
         ),
@@ -285,15 +280,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   /// 刪除選中的歌曲
   Future<void> _deleteSelectedTracks(List<Track> tracks) async {
-    final notifier =
-        ref.read(playlistDetailProvider(widget.playlistId).notifier);
+    final notifier = ref.read(
+      playlistDetailProvider(widget.playlistId).notifier,
+    );
     final trackIds = tracks.map((t) => t.id).toList();
     await notifier.removeTracks(trackIds);
   }
 
   /// 下載選中的歌曲
   Future<void> _downloadSelectedTracks(
-      BuildContext context, List<Track> tracks) async {
+    BuildContext context,
+    List<Track> tracks,
+  ) async {
     final summary = await _addTracksToDownloadQueue(
       context: context,
       ref: ref,
@@ -328,8 +326,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               ),
             ),
           );
-          final selectionNotifier =
-              ref.read(playlistDetailSelectionProvider.notifier);
+          final selectionNotifier = ref.read(
+            playlistDetailSelectionProvider.notifier,
+          );
           return _TrackListTile(
             key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
             track: track,
@@ -361,8 +360,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       builder: (context, ref, child) {
         final selection = ref.watch(
           playlistDetailSelectionProvider.select((state) {
-            final selectedCount =
-                groupKeys.where(state.selectedKeys.contains).length;
+            final selectedCount = groupKeys
+                .where(state.selectedKeys.contains)
+                .length;
             return (
               isSelectionMode: state.isSelectionMode,
               selectedKeys: state.selectedKeys,
@@ -373,8 +373,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             );
           }),
         );
-        final selectionNotifier =
-            ref.read(playlistDetailSelectionProvider.notifier);
+        final selectionNotifier = ref.read(
+          playlistDetailSelectionProvider.notifier,
+        );
 
         return Column(
           key: ValueKey('playlist-group-${group.groupKey}'),
@@ -388,8 +389,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   : () => _toggleGroup(group.groupKey),
               onLongPress: selection.isSelectionMode
                   ? null
-                  : () => selectionNotifier
-                      .enterSelectionModeWithTracks(group.tracks),
+                  : () => selectionNotifier.enterSelectionModeWithTracks(
+                      group.tracks,
+                    ),
               onPlayFirst: () => _playTrack(group.tracks.first),
               onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
               playlistId: widget.playlistId,
@@ -402,25 +404,28 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             ),
             // 展开的分P列表
             if (isExpanded)
-              ...group.tracks.map((track) => _TrackListTile(
-                    key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
-                    track: track,
-                    playlistId: widget.playlistId,
-                    playlistName: state.playlist?.name ?? '',
-                    onTap: selection.isSelectionMode
-                        ? () => selectionNotifier.toggleSelection(track)
-                        : () => _playTrack(track),
-                    onLongPress: selection.isSelectionMode
-                        ? null
-                        : () => selectionNotifier.enterSelectionMode(track),
-                    isPartOfMultiPage: true,
-                    isImported: isImported,
-                    indent: true,
-                    isMix: isMix,
-                    isSelectionMode: selection.isSelectionMode,
-                    isSelected: selection.selectedKeys
-                        .contains(SelectionKey.fromTrack(track)),
-                  )),
+              ...group.tracks.map(
+                (track) => _TrackListTile(
+                  key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
+                  track: track,
+                  playlistId: widget.playlistId,
+                  playlistName: state.playlist?.name ?? '',
+                  onTap: selection.isSelectionMode
+                      ? () => selectionNotifier.toggleSelection(track)
+                      : () => _playTrack(track),
+                  onLongPress: selection.isSelectionMode
+                      ? null
+                      : () => selectionNotifier.enterSelectionMode(track),
+                  isPartOfMultiPage: true,
+                  isImported: isImported,
+                  indent: true,
+                  isMix: isMix,
+                  isSelectionMode: selection.isSelectionMode,
+                  isSelected: selection.selectedKeys.contains(
+                    SelectionKey.fromTrack(track),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -442,7 +447,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final added = await controller.addAllToQueue(tracks);
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.detail.addedPartsToQueue(n: tracks.length));
+        context,
+        t.library.detail.addedPartsToQueue(n: tracks.length),
+      );
     }
   }
 
@@ -459,8 +466,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     return [
       // 全選按鈕
       IconButton(
-        icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all,
-            color: iconColor),
+        icon: Icon(
+          isAllSelected ? Icons.deselect : Icons.select_all,
+          color: iconColor,
+        ),
         tooltip: isAllSelected
             ? t.library.detail.deselectAll
             : t.library.detail.selectAll,
@@ -485,7 +494,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   /// 構建多選菜單項目
   List<PopupMenuEntry<String>> _buildSelectionMenuItems(
-      Set<String> availableActions) {
+    Set<String> availableActions,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     return buildSelectionMenuEntries(
       colorScheme: colorScheme,
@@ -495,7 +505,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   /// 處理多選菜單操作
   Future<void> _handleSelectionMenuAction(
-      String action, List<Track> tracks) async {
+    String action,
+    List<Track> tracks,
+  ) async {
     final notifier = ref.read(playlistDetailSelectionProvider.notifier);
 
     if (tryParseTrackAction(action) != null) {
@@ -542,7 +554,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       notifier.exitSelectionMode();
       if (mounted) {
         ToastService.success(
-            context, t.library.detail.deletedSongs(n: tracks.length));
+          context,
+          t.library.detail.deletedSongs(n: tracks.length),
+        );
       }
     }
   }
@@ -568,8 +582,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       final remoteTracks = sourceType == null
           ? tracks
           : tracks
-              .where((track) => track.sourceType == sourceType)
-              .toList(growable: false);
+                .where((track) => track.sourceType == sourceType)
+                .toList(growable: false);
       if (remoteTracks.isEmpty) return;
 
       final result = await ref
@@ -581,16 +595,17 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       if (result.changedRemote && result.hasFailures) {
         notifier.exitSelectionMode();
         if (mounted) {
-          ToastService.warning(
-            context,
-            t.remote.removedRemoteLocalSyncFailed,
-          );
+          ToastService.warning(context, t.remote.removedRemoteLocalSyncFailed);
         }
         return;
       }
       if (result.hasFailures) {
         if (mounted) {
-          ToastService.error(context, result.failures.first.error.toString());
+          ToastService.failure(
+            context,
+            result.failures.first.error,
+            tag: 'PlaylistDetail',
+          );
         }
         return;
       }
@@ -619,7 +634,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       }
     } catch (e) {
       if (mounted) {
-        ToastService.error(context, e.toString());
+        ToastService.failure(context, e, tag: 'PlaylistDetail');
       }
     }
   }
@@ -637,8 +652,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     final isCollapsed = _scrollOffset >= _collapseThreshold;
 
-    final selectionNotifier =
-        ref.read(playlistDetailSelectionProvider.notifier);
+    final selectionNotifier = ref.read(
+      playlistDetailSelectionProvider.notifier,
+    );
 
     final coverData = coverAsync.when(
       skipLoadingOnReload: true,
@@ -701,9 +717,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           const SizedBox(height: 4),
           Text(
             playlist.description!,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white70,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white70),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -712,9 +728,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           const SizedBox(height: 4),
           Text(
             '${t.library.detail.owner}: ${playlist.ownerName}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white60,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white60),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -723,9 +739,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           const SizedBox(height: 8),
           Text(
             '${t.library.trackCountSongs(n: state.totalTrackCount)} · ${DurationFormatter.formatLong(state.totalDuration)}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white60,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white60),
           ),
         ],
       ],
@@ -752,6 +768,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             )
           : IconButton(
               icon: Icon(Icons.arrow_back, color: iconColor),
+              tooltip: t.general.back,
               onPressed: () => Navigator.of(context).pop(),
             ),
       // 標題（多選模式下顯示選擇數量）
@@ -759,8 +776,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           ? Consumer(
               builder: (context, ref, child) {
                 final selectedCount = ref.watch(
-                  playlistDetailSelectionProvider
-                      .select((state) => state.selectedCount),
+                  playlistDetailSelectionProvider.select(
+                    (state) => state.selectedCount,
+                  ),
                 );
                 return Text(
                   t.library.detail.selectedCount(n: selectedCount),
@@ -785,7 +803,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   );
                   final isAllSelected =
                       selection.selectedCount == allTracks.length &&
-                          allTracks.isNotEmpty;
+                      allTracks.isNotEmpty;
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: _buildSelectionActions(
@@ -815,10 +833,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
   }
 
-  Widget _buildActionButtons(
-    BuildContext context,
-    List<Track> tracks,
-  ) {
+  Widget _buildActionButtons(BuildContext context, List<Track> tracks) {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
     final isMix = state.playlist?.isMix ?? false;
 
@@ -831,8 +846,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               onPressed: tracks.isEmpty
                   ? null
                   : isMix
-                      ? () => _playMix(tracks, context)
-                      : () => _playAll(tracks, context),
+                  ? () => _playMix(tracks, context)
+                  : () => _playAll(tracks, context),
               icon: const Icon(Icons.play_arrow),
               label: Text(isMix ? t.library.detail.playMix : t.library.addAll),
             ),
@@ -841,8 +856,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             const SizedBox(width: 12),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed:
-                    tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
+                onPressed: tracks.isEmpty
+                    ? null
+                    : () => _shufflePlay(tracks, context),
                 icon: const Icon(Icons.shuffle),
                 label: Text(t.library.shuffleAdd),
               ),
@@ -874,7 +890,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final added = await controller.addAllToQueue(allTracks);
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.addedToQueue(n: allTracks.length));
+        context,
+        t.library.addedToQueue(n: allTracks.length),
+      );
     }
   }
 
@@ -888,7 +906,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final added = await controller.addAllToQueue(shuffled);
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.shuffledAddedToQueue(n: shuffled.length));
+        context,
+        t.library.shuffledAddedToQueue(n: shuffled.length),
+      );
     }
   }
 
@@ -947,7 +967,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final addedCount = await downloadService.addPlaylistDownload(playlist);
 
     // 刷新 playlistCoverProvider 以便下载完成后使用第一首歌的本地封面
-    ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+    ref
+        .read(libraryInvalidationCoordinatorProvider)
+        .playlistChanged(
           widget.playlistId,
           tracksChanged: false,
           coverChanged: true,
@@ -993,10 +1015,7 @@ bool _isDownloadedForPlaylistWithExistingFile(
   return ref.read(fileExistsCacheProvider.notifier).exists(path);
 }
 
-enum _DownloadBatchLabels {
-  selectedTracks,
-  groupParts,
-}
+enum _DownloadBatchLabels { selectedTracks, groupParts }
 
 Future<bool> _ensureDownloadPathConfigured(
   BuildContext context,
@@ -1145,10 +1164,13 @@ class _GroupHeader extends ConsumerWidget {
     );
     // 检查当前播放的是否是这个组的某个分P
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
-    final isPlayingThisGroup = currentTrack != null &&
-        group.tracks.any((t) =>
-            t.sourceId == currentTrack.sourceId &&
-            t.pageNum == currentTrack.pageNum);
+    final isPlayingThisGroup =
+        currentTrack != null &&
+        group.tracks.any(
+          (t) =>
+              t.sourceId == currentTrack.sourceId &&
+              t.pageNum == currentTrack.pageNum,
+        );
 
     return ContextMenuRegion(
       menuBuilder: (_) => _buildMenuItems(colorScheme),
@@ -1186,17 +1208,13 @@ class _GroupHeader extends ConsumerWidget {
               child: Text(
                 '${group.tracks.length}P',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                    ),
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
             if (isGroupDownloaded) ...[
               const SizedBox(width: 8),
-              Icon(
-                Icons.download_done,
-                size: 14,
-                color: colorScheme.primary,
-              ),
+              Icon(Icons.download_done, size: 14, color: colorScheme.primary),
             ],
           ],
         ),
@@ -1214,6 +1232,7 @@ class _GroupHeader extends ConsumerWidget {
                     icon: Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
                     ),
+                    tooltip: isExpanded ? t.general.collapse : t.general.expand,
                     onPressed: onToggle,
                   ),
                   // 菜单（Mix 歌單不會有多P視頻，但保留基本菜單）
@@ -1230,46 +1249,55 @@ class _GroupHeader extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) => [
-        PopupMenuItem(
-            value: 'play_first',
-            child: ListTile(
-                leading: const Icon(Icons.play_arrow),
-                title: Text(t.library.detail.playFirstPart),
-                contentPadding: EdgeInsets.zero)),
-        PopupMenuItem(
-            value: 'add_all_to_queue',
-            child: ListTile(
-                leading: const Icon(Icons.add_to_queue),
-                title: Text(t.library.detail.addAllPartsToQueue),
-                contentPadding: EdgeInsets.zero)),
-        if (!isMix)
-          PopupMenuItem(
-              value: 'download_all',
-              child: ListTile(
-                  leading: const Icon(Icons.download_outlined),
-                  title: Text(t.library.detail.downloadAllParts),
-                  contentPadding: EdgeInsets.zero)),
-        ...buildTrackActionPopupMenuEntries(
-          buildCommonTrackActionMenuItems(
-            translations: t,
-            scope: TrackActionMenuScope.multi,
-            options: const TrackActionMenuOptions(
-              includePlayNext: false,
-              includeAddToQueue: false,
-            ),
-          ),
+    PopupMenuItem(
+      value: 'play_first',
+      child: ListTile(
+        leading: const Icon(Icons.play_arrow),
+        title: Text(t.library.detail.playFirstPart),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'add_all_to_queue',
+      child: ListTile(
+        leading: const Icon(Icons.add_to_queue),
+        title: Text(t.library.detail.addAllPartsToQueue),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    if (!isMix)
+      PopupMenuItem(
+        value: 'download_all',
+        child: ListTile(
+          leading: const Icon(Icons.download_outlined),
+          title: Text(t.library.detail.downloadAllParts),
+          contentPadding: EdgeInsets.zero,
         ),
-        if (!isImported)
-          buildDestructivePopupMenuItem(
-            value: 'remove_all',
-            icon: Icons.remove_circle_outline,
-            label: t.library.detail.removeAllFromPlaylist,
-            color: colorScheme.error,
-          ),
-      ];
+      ),
+    ...buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(
+        translations: t,
+        scope: TrackActionMenuScope.multi,
+        options: const TrackActionMenuOptions(
+          includePlayNext: false,
+          includeAddToQueue: false,
+        ),
+      ),
+    ),
+    if (!isImported)
+      buildDestructivePopupMenuItem(
+        value: 'remove_all',
+        icon: Icons.remove_circle_outline,
+        label: t.library.detail.removeAllFromPlaylist,
+        color: colorScheme.error,
+      ),
+  ];
 
   void _handleMenuAction(
-      BuildContext context, WidgetRef ref, String action) async {
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+  ) async {
     switch (action) {
       case 'play_first':
         onPlayFirst();
@@ -1308,9 +1336,9 @@ class _GroupHeader extends ConsumerWidget {
         await notifier.removeTracks(trackIds);
         if (context.mounted) {
           ToastService.success(
-              context,
-              t.library.detail
-                  .removedPartsFromPlaylist(n: group.tracks.length));
+            context,
+            t.library.detail.removedPartsFromPlaylist(n: group.tracks.length),
+          );
         }
         break;
     }
@@ -1357,7 +1385,8 @@ class _TrackListTile extends ConsumerWidget {
       playlistName: playlistName,
     );
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
-    final isPlaying = currentTrack != null &&
+    final isPlaying =
+        currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
@@ -1375,11 +1404,7 @@ class _TrackListTile extends ConsumerWidget {
                   partNumber: track.pageNum ?? 1,
                   isPlaying: isPlaying,
                 )
-              : TrackThumbnail(
-                  track: track,
-                  size: 48,
-                  isPlaying: isPlaying,
-                ),
+              : TrackThumbnail(track: track, size: 48, isPlaying: isPlaying),
           title: Row(
             children: [
               Expanded(
@@ -1393,10 +1418,7 @@ class _TrackListTile extends ConsumerWidget {
                   ),
                 ),
               ),
-              if (track.isVip) ...[
-                const SizedBox(width: 4),
-                const VipBadge(),
-              ],
+              if (track.isVip) ...[const SizedBox(width: 4), const VipBadge()],
             ],
           ),
           subtitle: isPartOfMultiPage
@@ -1419,10 +1441,7 @@ class _TrackListTile extends ConsumerWidget {
                   ],
                 ),
           trailing: isSelectionMode
-              ? _SelectionCheckbox(
-                  isSelected: isSelected,
-                  onTap: onTap,
-                )
+              ? _SelectionCheckbox(isSelected: isSelected, onTap: onTap)
               : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1441,10 +1460,8 @@ class _TrackListTile extends ConsumerWidget {
                         width: 48, // 与 IconButton 宽度对齐
                         child: Text(
                           DurationFormatter.formatMs(track.durationMs!),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.outline,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.outline),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -1500,7 +1517,10 @@ class _TrackListTile extends ConsumerWidget {
   }
 
   void _handleMenuAction(
-      BuildContext context, WidgetRef ref, String action) async {
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+  ) async {
     switch (action) {
       case selectionActionDownload:
         if (!await _ensureDownloadPathConfigured(context, ref)) return;
@@ -1540,7 +1560,10 @@ class _TrackListTile extends ConsumerWidget {
   }
 
   Future<void> _confirmAndRemoveFromRemote(
-      BuildContext context, WidgetRef ref, Track track) async {
+    BuildContext context,
+    WidgetRef ref,
+    Track track,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1568,21 +1591,22 @@ class _TrackListTile extends ConsumerWidget {
       final result = await ref
           .read(remotePlaylistEditControllerProvider)
           .removeTracksFromImportedPlaylist(
-        playlist: playlist,
-        tracks: [track],
-      );
+            playlist: playlist,
+            tracks: [track],
+          );
       if (result.changedRemote && result.hasFailures) {
         if (context.mounted) {
-          ToastService.warning(
-            context,
-            t.remote.removedRemoteLocalSyncFailed,
-          );
+          ToastService.warning(context, t.remote.removedRemoteLocalSyncFailed);
         }
         return;
       }
       if (result.hasFailures) {
         if (context.mounted) {
-          ToastService.error(context, result.failures.first.error.toString());
+          ToastService.failure(
+            context,
+            result.failures.first.error,
+            tag: 'PlaylistDetail',
+          );
         }
         return;
       }
@@ -1610,7 +1634,7 @@ class _TrackListTile extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ToastService.error(context, e.toString());
+        ToastService.failure(context, e, tag: 'PlaylistDetail');
       }
     }
   }
@@ -1621,10 +1645,7 @@ class _SelectionCheckbox extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
-  const _SelectionCheckbox({
-    required this.isSelected,
-    this.onTap,
-  });
+  const _SelectionCheckbox({required this.isSelected, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1634,6 +1655,7 @@ class _SelectionCheckbox extends StatelessWidget {
         isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
         color: isSelected ? colorScheme.primary : colorScheme.outline,
       ),
+      tooltip: isSelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }
@@ -1670,6 +1692,7 @@ class _SelectionGroupCheckbox extends StatelessWidget {
 
     return IconButton(
       icon: Icon(icon, color: color),
+      tooltip: isFullySelected ? t.general.deselect : t.general.select,
       onPressed: onTap,
     );
   }

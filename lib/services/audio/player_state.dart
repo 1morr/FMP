@@ -1,9 +1,14 @@
-import '../../data/models/play_queue.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import 'audio_types.dart';
 
-/// 播放状态
+/// 單曲播放狀態。
+///
+/// **佇列的形狀不在這裡。** 內容、索引、隨機／迴圈、Mix 身分全部住在
+/// `QueueState`（`queue_state.dart`），由 `queueStateProvider` 送出。這兩個
+/// 型別曾經各存一份同樣的 12 個欄位，靠 `AudioController` 每次逐欄位抄過去
+/// 維持一致 —— 抄漏一個就是一個看不見的 bug。位置每秒更新一次而佇列很少變，
+/// 分開也讓佇列清單不必跟著位置重建。
 class PlayerState {
   final bool isPlaying;
   final bool isBuffering;
@@ -14,31 +19,10 @@ class PlayerState {
   final Duration bufferedPosition;
   final double speed;
   final double volume;
-  final bool isShuffleEnabled;
-  final LoopMode loopMode;
-  final int? currentIndex;
 
-  /// 实际正在播放的歌曲（可能是临时播放的歌曲，也可能是队列中的歌曲）
-  /// UI 应使用此字段显示当前播放的歌曲
+  /// 實際正在播放的歌曲（可能是臨時播放的歌曲，也可能是佇列中的歌曲）
+  /// UI 應使用此欄位顯示當前播放的歌曲
   final Track? playingTrack;
-
-  /// 队列中当前位置的歌曲（可能与 playingTrack 不同，例如临时播放时）
-  final Track? queueTrack;
-  final List<Track> queue;
-  final List<Track> upcomingTracks;
-
-  /// 隊列版本號，每次隊列結構變化（打亂、恢復順序等）時遞增
-  /// 用於讓 UI 檢測是否需要同步
-  final int queueVersion;
-
-  /// 是否處於 Mix 播放模式
-  final bool isMixMode;
-
-  /// Mix 播放列表標題（隊列頁顯示用）
-  final String? mixTitle;
-
-  /// 是否正在加載更多 Mix 歌曲
-  final bool isLoadingMoreMix;
   final String? error;
 
   // ========== 网络重试状态 ==========
@@ -84,19 +68,7 @@ class PlayerState {
     this.bufferedPosition = Duration.zero,
     this.speed = 1.0,
     this.volume = 1.0,
-    this.isShuffleEnabled = false,
-    this.loopMode = LoopMode.none,
-    this.currentIndex,
     this.playingTrack,
-    this.queueTrack,
-    this.queue = const [],
-    this.upcomingTracks = const [],
-    this.canPlayPrevious = false,
-    this.canPlayNext = false,
-    this.queueVersion = 0,
-    this.isMixMode = false,
-    this.mixTitle,
-    this.isLoadingMoreMix = false,
     this.error,
     this.retryAttempt = 0,
     this.isNetworkError = false,
@@ -128,12 +100,6 @@ class PlayerState {
     return bufferedPosition.inMilliseconds / duration!.inMilliseconds;
   }
 
-  /// 是否可以播放上一首（由 QueueManager 计算，考虑 shuffle 模式）
-  final bool canPlayPrevious;
-
-  /// 是否可以播放下一首（由 QueueManager 计算，考虑 shuffle 模式）
-  final bool canPlayNext;
-
   PlayerState copyWith({
     bool? isPlaying,
     bool? isBuffering,
@@ -145,21 +111,8 @@ class PlayerState {
     Duration? bufferedPosition,
     double? speed,
     double? volume,
-    bool? isShuffleEnabled,
-    LoopMode? loopMode,
-    int? currentIndex,
     Track? playingTrack,
     bool clearPlayingTrack = false,
-    Track? queueTrack,
-    List<Track>? queue,
-    List<Track>? upcomingTracks,
-    bool? canPlayPrevious,
-    bool? canPlayNext,
-    int? queueVersion,
-    bool? isMixMode,
-    String? mixTitle,
-    bool clearMixTitle = false,
-    bool? isLoadingMoreMix,
     String? error,
     int? retryAttempt,
     bool? isNetworkError,
@@ -184,20 +137,9 @@ class PlayerState {
       bufferedPosition: bufferedPosition ?? this.bufferedPosition,
       speed: speed ?? this.speed,
       volume: volume ?? this.volume,
-      isShuffleEnabled: isShuffleEnabled ?? this.isShuffleEnabled,
-      loopMode: loopMode ?? this.loopMode,
-      currentIndex: currentIndex ?? this.currentIndex,
-      playingTrack:
-          clearPlayingTrack ? null : (playingTrack ?? this.playingTrack),
-      queueTrack: queueTrack ?? this.queueTrack,
-      queue: queue ?? this.queue,
-      upcomingTracks: upcomingTracks ?? this.upcomingTracks,
-      canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
-      canPlayNext: canPlayNext ?? this.canPlayNext,
-      queueVersion: queueVersion ?? this.queueVersion,
-      isMixMode: isMixMode ?? this.isMixMode,
-      mixTitle: clearMixTitle ? null : (mixTitle ?? this.mixTitle),
-      isLoadingMoreMix: isLoadingMoreMix ?? this.isLoadingMoreMix,
+      playingTrack: clearPlayingTrack
+          ? null
+          : (playingTrack ?? this.playingTrack),
       error: error,
       retryAttempt: retryAttempt ?? this.retryAttempt,
       isNetworkError: isNetworkError ?? this.isNetworkError,

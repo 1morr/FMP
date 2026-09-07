@@ -12,13 +12,11 @@ class _ThemeModeListTile extends ConsumerWidget {
     };
 
     return ListTile(
-      leading: Icon(
-        switch (themeMode) {
-          ThemeMode.system => Icons.brightness_auto,
-          ThemeMode.light => Icons.light_mode,
-          ThemeMode.dark => Icons.dark_mode,
-        },
-      ),
+      leading: Icon(switch (themeMode) {
+        ThemeMode.system => Icons.brightness_auto,
+        ThemeMode.light => Icons.light_mode,
+        ThemeMode.dark => Icons.dark_mode,
+      }),
       title: Text(t.settings.theme.title),
       subtitle: Text(themeName),
       trailing: const Icon(Icons.chevron_right),
@@ -27,7 +25,10 @@ class _ThemeModeListTile extends ConsumerWidget {
   }
 
   void _showThemeModeDialog(
-      BuildContext context, WidgetRef ref, ThemeMode currentMode) {
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode currentMode,
+  ) {
     final systemBrightness = MediaQuery.platformBrightnessOf(context);
     final systemThemeName = systemBrightness == Brightness.dark
         ? t.settings.theme.dark
@@ -56,10 +57,9 @@ class _ThemeModeListTile extends ConsumerWidget {
                       TextSpan(
                         text: ' ($systemThemeName)',
                         style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.5),
                           fontSize: 14,
                         ),
                       ),
@@ -167,7 +167,9 @@ class _ThemeColorListTile extends ConsumerWidget {
                       color: preset.color,
                       isSelected: isSelected,
                       onTap: () {
-                        ref.read(themeProvider.notifier).setPrimaryColor(
+                        ref
+                            .read(themeProvider.notifier)
+                            .setPrimaryColor(
                               preset.storesAsDefault ? null : preset.color,
                             );
                         Navigator.pop(context);
@@ -220,9 +222,9 @@ class _ThemeColorListTile extends ConsumerWidget {
       closeLabel: t.general.close,
       color: currentColor ?? defaultThemePrimaryColor,
       onChanged: (color) {
-        ref.read(themeProvider.notifier).setPrimaryColor(
-              color.withValues(alpha: 1),
-            );
+        ref
+            .read(themeProvider.notifier)
+            .setPrimaryColor(color.withValues(alpha: 1));
       },
     );
   }
@@ -261,10 +263,7 @@ class _ThemeColorSwatchButton extends StatelessWidget {
             gradient: gradient,
             shape: BoxShape.circle,
             border: isSelected
-                ? Border.all(
-                    color: colorScheme.onSurface,
-                    width: 2,
-                  )
+                ? Border.all(color: colorScheme.onSurface, width: 2)
                 : null,
             boxShadow: [
               BoxShadow(
@@ -277,7 +276,8 @@ class _ThemeColorSwatchButton extends StatelessWidget {
           child: isSelected
               ? Icon(
                   Icons.check,
-                  color: color == null ||
+                  color:
+                      color == null ||
                           ThemeData.estimateBrightnessForColor(color!) ==
                               Brightness.dark
                       ? Colors.white
@@ -297,7 +297,8 @@ class _FontFamilyListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fontFamily = ref.watch(fontFamilyProvider);
     final fonts = AppTheme.availableFonts;
-    final currentDisplay = fonts
+    final currentDisplay =
+        fonts
             .where((f) => f.fontFamily == fontFamily)
             .map((f) => f.displayName)
             .firstOrNull ??
@@ -313,7 +314,10 @@ class _FontFamilyListTile extends ConsumerWidget {
   }
 
   void _showFontDialog(
-      BuildContext context, WidgetRef ref, String? currentFont) {
+    BuildContext context,
+    WidgetRef ref,
+    String? currentFont,
+  ) {
     final fonts = AppTheme.availableFonts;
     final systemFontName = Platform.isWindows ? 'Segoe UI' : 'Roboto';
 
@@ -340,9 +344,7 @@ class _FontFamilyListTile extends ConsumerWidget {
                               TextSpan(
                                 text: ' ($systemFontName)',
                                 style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
+                                  color: Theme.of(context).colorScheme.onSurface
                                       .withValues(alpha: 0.5),
                                   fontSize: 14,
                                 ),
@@ -355,8 +357,10 @@ class _FontFamilyListTile extends ConsumerWidget {
                           style: TextStyle(fontFamily: font.fontFamily),
                         ),
                   subtitle: font.fontFamily != null
-                      ? Text(font.fontFamily!,
-                          style: Theme.of(context).textTheme.bodySmall)
+                      ? Text(
+                          font.fontFamily!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
                       : null,
                   value: font.fontFamily,
                 );
@@ -397,7 +401,8 @@ class _LanguageListTile extends ConsumerWidget {
     final systemLocale = WidgetsBinding.instance.platformDispatcher.locale;
     String systemLanguageName;
     if (systemLocale.languageCode == 'zh') {
-      final isTraditional = systemLocale.scriptCode == 'Hant' ||
+      final isTraditional =
+          systemLocale.scriptCode == 'Hant' ||
           systemLocale.countryCode == 'TW' ||
           systemLocale.countryCode == 'HK' ||
           systemLocale.countryCode == 'MO';
@@ -431,10 +436,9 @@ class _LanguageListTile extends ConsumerWidget {
                       TextSpan(
                         text: ' ($systemLanguageName)',
                         style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.5),
                           fontSize: 14,
                         ),
                       ),

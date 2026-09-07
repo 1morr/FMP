@@ -48,7 +48,7 @@ void main() {
     test('新创建的 Track 应没有下载路径', () {
       final track = Track()
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Song';
 
       // 新 Track 的 playlistInfo 应为空
@@ -67,7 +67,7 @@ void main() {
       final track = Track()
         ..id = 1
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Song'
         ..playlistInfo = [PlaylistDownloadInfo()..playlistId = playlist.id];
 
@@ -81,12 +81,12 @@ void main() {
       // 模拟下载完成后的状态
       final track = Track()
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..title = 'Test Song'
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 1
-            ..downloadPath = '/path/to/downloaded/audio.m4a'
+            ..downloadPath = '/path/to/downloaded/audio.m4a',
         ];
 
       expect(track.hasAnyDownload, isTrue);
@@ -104,7 +104,7 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 1
-              ..downloadPath = '/old/path/song1.m4a'
+              ..downloadPath = '/old/path/song1.m4a',
           ],
         Track()
           ..playlistInfo = [
@@ -138,7 +138,7 @@ void main() {
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/path/to/audio.m4a'
+            ..downloadPath = '/path/to/audio.m4a',
         ];
 
       // TrackExtensions.isDownloaded 简化逻辑
@@ -153,10 +153,7 @@ void main() {
 
     test('localAudioPath: 遍历并返回第一个实际存在的路径', () {
       // 模拟路径列表
-      final paths = [
-        '/nonexistent/path1.m4a',
-        '/nonexistent/path2.m4a',
-      ];
+      final paths = ['/nonexistent/path1.m4a', '/nonexistent/path2.m4a'];
 
       // localAudioPath 会检查 File(path).existsSync()
       // 如果都不存在返回 null
@@ -197,20 +194,20 @@ void main() {
       // 模拟扫描到的本地 Track
       final scannedTrack = Track()
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 12345
         ..title = 'Local Song'
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/local/path/audio.m4a'
+            ..downloadPath = '/local/path/audio.m4a',
         ];
 
       // 数据库中的 Track
       final existingTrack = Track()
         ..id = 1
         ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..cid = 12345
         ..title = 'Local Song';
 
@@ -230,7 +227,7 @@ void main() {
         title: 'Orphan Song',
         path: '/local/orphan/audio.m4a',
         sourceId: 'BV999999999',
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
       );
 
       // getOrphanFiles() 返回这些信息供 UI 显示
@@ -263,12 +260,14 @@ void main() {
       final events = <_MockDownloadCompletionEvent>[];
 
       // 下载完成，触发事件
-      events.add(_MockDownloadCompletionEvent(
-        taskId: 1,
-        trackId: 100,
-        playlistId: 5,
-        savePath: '/path/audio.m4a',
-      ));
+      events.add(
+        _MockDownloadCompletionEvent(
+          taskId: 1,
+          trackId: 100,
+          playlistId: 5,
+          savePath: '/path/audio.m4a',
+        ),
+      );
 
       expect(events, hasLength(1));
       expect(events.first.trackId, equals(100));
@@ -294,7 +293,7 @@ void main() {
       final track = Track()
         ..id = 1
         ..sourceId = 'BV123'
-        ..sourceType = SourceType.bilibili;
+        ..sourceType = SourceIds.bilibili;
 
       expect(track.isDownloaded, isFalse);
 
@@ -311,13 +310,13 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/old/path1.m4a'
+              ..downloadPath = '/old/path1.m4a',
           ],
         Track()
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/old/path2.m4a'
+              ..downloadPath = '/old/path2.m4a',
           ],
       ];
 
@@ -341,12 +340,12 @@ void main() {
 
       final track = Track()
         ..sourceId = 'BV123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/local/audio.m4a'
+            ..downloadPath = '/local/audio.m4a',
         ];
 
       // 模拟选择播放源的逻辑
@@ -375,12 +374,12 @@ void main() {
       final track = Track()
         ..id = 1
         ..sourceId = 'BV123'
-        ..sourceType = SourceType.bilibili
+        ..sourceType = SourceIds.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/nonexistent/audio.m4a'
+            ..downloadPath = '/nonexistent/audio.m4a',
         ];
 
       // 模拟 localAudioPath 为 null（文件不存在）
@@ -412,7 +411,7 @@ class _OrphanFileInfo {
   final String title;
   final String? path;
   final String sourceId;
-  final SourceType sourceType;
+  final String sourceType;
 
   _OrphanFileInfo({
     required this.title,

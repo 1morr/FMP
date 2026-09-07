@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 import 'package:fmp/services/audio/playback_request_session.dart';
 
@@ -17,7 +19,7 @@ void main() {
     test('completed result exposes track and stream metadata', () {
       final track = Track()
         ..sourceId = 'session-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Session Track';
       const streamResult = AudioStreamResult(
         url: 'https://example.com/session-track.m4a',
@@ -56,7 +58,7 @@ void main() {
     test('terminal media-open error carries track and visible message', () {
       final track = Track()
         ..sourceId = 'terminal-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Terminal Track';
 
       final result = PlaybackSessionResult.terminalMediaOpenError(
@@ -91,8 +93,9 @@ void main() {
 
   group('PlaybackRequestStreamAccess', () {
     test('exposes only session-level playback operations', () {
-      final source = File('lib/services/audio/audio_stream_manager.dart')
-          .readAsStringSync();
+      final source = File(
+        'lib/services/audio/audio_stream_manager.dart',
+      ).readAsStringSync();
       final interfaceMatch = RegExp(
         r'abstract class PlaybackRequestStreamAccess \{([\s\S]*?)\n\}',
       ).firstMatch(source);
@@ -112,14 +115,13 @@ void main() {
     test('normal play command keeps mode and side-effect flags explicit', () {
       final track = Track()
         ..sourceId = 'cmd-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Command Track';
 
       final command = PlaybackSessionCommand(
         track: track,
         mode: PlayMode.temporary,
         persist: false,
-        recordHistory: false,
         prefetchNext: false,
         positionBeforeLoad: const Duration(seconds: 12),
         onPlaybackStarting: () async {},
@@ -128,7 +130,6 @@ void main() {
       expect(command.track, same(track));
       expect(command.mode, PlayMode.temporary);
       expect(command.persist, isFalse);
-      expect(command.recordHistory, isFalse);
       expect(command.prefetchNext, isFalse);
       expect(command.positionBeforeLoad, const Duration(seconds: 12));
       expect(command.onPlaybackStarting, isNotNull);
@@ -137,7 +138,7 @@ void main() {
     test('restore command keeps seek and resume policy explicit', () {
       final track = Track()
         ..sourceId = 'restore-track'
-        ..sourceType = SourceType.youtube
+        ..sourceType = SourceIds.youtube
         ..title = 'Restore Track';
 
       final command = PlaybackRestoreCommand(
@@ -155,41 +156,49 @@ void main() {
   });
 
   group('FakeAudioService typed media support', () {
-    test('playMedia records typed remote media and delegates to URL loader',
-        () async {
-      final audioService = FakeAudioService();
-      final track = _track('typed-remote');
-      final media = RemotePlaybackMedia(
-        url: Uri.parse('https://example.com/typed-remote.m4a'),
-        headers: const {'X-Typed': 'remote'},
-        track: track,
-      );
+    test(
+      'playMedia records typed remote media and delegates to URL loader',
+      () async {
+        final audioService = FakeAudioService();
+        final track = _track('typed-remote');
+        final media = RemotePlaybackMedia(
+          url: Uri.parse('https://example.com/typed-remote.m4a'),
+          headers: const {'X-Typed': 'remote'},
+          track: track,
+        );
 
-      await audioService.playMedia(media);
+        await audioService.playMedia(media);
 
-      expect(audioService.playMediaCalls.single.media, same(media));
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/typed-remote.m4a');
-      expect(audioService.playUrlCalls.single.headers, {'X-Typed': 'remote'});
-      expect(audioService.playUrlCalls.single.track, same(track));
-    });
+        expect(audioService.playMediaCalls.single.media, same(media));
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/typed-remote.m4a',
+        );
+        expect(audioService.playUrlCalls.single.headers, {'X-Typed': 'remote'});
+        expect(audioService.playUrlCalls.single.track, same(track));
+      },
+    );
 
-    test('setMedia records typed local media and delegates to file loader',
-        () async {
-      final audioService = FakeAudioService();
-      final track = _track('typed-local');
-      final media = LocalPlaybackMedia(
-        path: '/music/typed-local.m4a',
-        track: track,
-      );
+    test(
+      'setMedia records typed local media and delegates to file loader',
+      () async {
+        final audioService = FakeAudioService();
+        final track = _track('typed-local');
+        final media = LocalPlaybackMedia(
+          path: '/music/typed-local.m4a',
+          track: track,
+        );
 
-      await audioService.setMedia(media);
+        await audioService.setMedia(media);
 
-      expect(audioService.setMediaCalls.single.media, same(media));
-      expect(
-          audioService.setFileCalls.single.filePath, '/music/typed-local.m4a');
-      expect(audioService.setFileCalls.single.track, same(track));
-    });
+        expect(audioService.setMediaCalls.single.media, same(media));
+        expect(
+          audioService.setFileCalls.single.filePath,
+          '/music/typed-local.m4a',
+        );
+        expect(audioService.setFileCalls.single.track, same(track));
+      },
+    );
   });
 
   group('PlaybackRequestSession handoff', () {
@@ -233,9 +242,13 @@ void main() {
       expect(result.attemptedUrl, 'https://example.com/session-start.m4a');
       expect(audioService.stopCallCount, 1);
       expect(
-          audioService.playMediaCalls.single.media, isA<RemotePlaybackMedia>());
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/session-start.m4a');
+        audioService.playMediaCalls.single.media,
+        isA<RemotePlaybackMedia>(),
+      );
+      expect(
+        audioService.playUrlCalls.single.url,
+        'https://example.com/session-start.m4a',
+      );
       expect(loadingStarted, [1]);
     });
 
@@ -262,8 +275,10 @@ void main() {
 
       expect(result.isCompleted, isTrue);
       expect(result.attemptedUrl, '/music/local-session.m4a');
-      expect(audioService.playFileCalls.single.filePath,
-          '/music/local-session.m4a');
+      expect(
+        audioService.playFileCalls.single.filePath,
+        '/music/local-session.m4a',
+      );
       expect(audioService.playUrlCalls, isEmpty);
     });
 
@@ -286,138 +301,153 @@ void main() {
       );
 
       expect(result.isCompleted, isTrue);
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/headers-owned.m4a');
+      expect(
+        audioService.playUrlCalls.single.url,
+        'https://example.com/headers-owned.m4a',
+      );
       expect(audioService.playUrlCalls.single.headers, {
         'X-Test-Header': 'owned-by-manager',
       });
       expect(streamManager.selectionRequests, ['headers-owned']);
     });
 
-    test('start uses manager fallback and preserves fallback metadata',
-        () async {
-      final track = _track('fallback-session')
-        ..sourceType = SourceType.bilibili;
-      audioService.enqueuePlayUrlError(Exception('primary failed'));
-      streamManager.onSelectFallbackPlayback = (track, failedUrl) async {
-        expect(failedUrl, 'https://example.com/fallback-session.m4a');
-        return PlaybackSelection(
-          media: RemotePlaybackMedia(
-            url: Uri.parse(
-              'https://example.com/fallback-session-fallback.m3u8',
+    test(
+      'start uses manager fallback and preserves fallback metadata',
+      () async {
+        final track = _track('fallback-session')
+          ..sourceType = SourceIds.bilibili;
+        audioService.enqueuePlayUrlError(Exception('primary failed'));
+        streamManager.onSelectFallbackPlayback = (track, failedUrl) async {
+          expect(failedUrl, 'https://example.com/fallback-session.m4a');
+          return PlaybackSelection(
+            media: RemotePlaybackMedia(
+              url: Uri.parse(
+                'https://example.com/fallback-session-fallback.m3u8',
+              ),
+              headers: const {'X-Fallback': 'yes'},
+              track: track,
             ),
-            headers: const {'X-Fallback': 'yes'},
+            streamResult: const AudioStreamResult(
+              url: 'https://example.com/fallback-session-fallback.m3u8',
+              container: 'm3u8',
+              codec: 'aac',
+              streamType: StreamType.muxed,
+            ),
+          );
+        };
+
+        final result = await session.start(
+          PlaybackSessionCommand(
             track: track,
-          ),
-          streamResult: const AudioStreamResult(
-            url: 'https://example.com/fallback-session-fallback.m3u8',
-            container: 'm3u8',
-            codec: 'aac',
-            streamType: StreamType.muxed,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
           ),
         );
-      };
 
-      final result = await session.start(
-        PlaybackSessionCommand(
-          track: track,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
+        expect(result.isCompleted, isTrue);
+        expect(
+          result.attemptedUrl,
+          'https://example.com/fallback-session-fallback.m3u8',
+        );
+        expect(result.streamResult?.streamType, StreamType.muxed);
+        expect(audioService.playUrlCalls.map((call) => call.url), [
+          'https://example.com/fallback-session.m4a',
+          'https://example.com/fallback-session-fallback.m3u8',
+        ]);
+        expect(audioService.playUrlCalls.first.headers, {
+          'Referer': 'https://example.com',
+        });
+        expect(audioService.playUrlCalls.last.headers, {'X-Fallback': 'yes'});
+      },
+    );
 
-      expect(result.isCompleted, isTrue);
-      expect(result.attemptedUrl,
-          'https://example.com/fallback-session-fallback.m3u8');
-      expect(result.streamResult?.streamType, StreamType.muxed);
-      expect(audioService.playUrlCalls.map((call) => call.url), [
-        'https://example.com/fallback-session.m4a',
-        'https://example.com/fallback-session-fallback.m3u8',
-      ]);
-      expect(audioService.playUrlCalls.first.headers, {
-        'Referer': 'https://example.com',
-      });
-      expect(audioService.playUrlCalls.last.headers, {'X-Fallback': 'yes'});
-    });
+    test(
+      'start preserves original handoff error when fallback fails',
+      () async {
+        final track = _track('fallback-fails');
+        final primaryError = Exception('primary failed');
+        audioService.enqueuePlayUrlError(primaryError);
+        streamManager.onSelectFallbackPlayback = (_, __) async {
+          throw Exception('fallback failed');
+        };
 
-    test('start preserves original handoff error when fallback fails',
-        () async {
-      final track = _track('fallback-fails');
-      final primaryError = Exception('primary failed');
-      audioService.enqueuePlayUrlError(primaryError);
-      streamManager.onSelectFallbackPlayback = (_, __) async {
-        throw Exception('fallback failed');
-      };
+        final result = await session.start(
+          PlaybackSessionCommand(
+            track: track,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
 
-      final result = await session.start(
-        PlaybackSessionCommand(
-          track: track,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
+        expect(result.isFailed, isTrue);
+        expect(result.error, same(primaryError));
+        expect(streamManager.fallbackSelectionTracks, ['fallback-fails']);
+        expect(streamManager.fallbackSelectionFailedUrls, [
+          'https://example.com/fallback-fails.m4a',
+        ]);
+      },
+    );
 
-      expect(result.isFailed, isTrue);
-      expect(result.error, same(primaryError));
-      expect(streamManager.fallbackSelectionTracks, ['fallback-fails']);
-      expect(streamManager.fallbackSelectionFailedUrls,
-          ['https://example.com/fallback-fails.m4a']);
-    });
+    test(
+      'start preserves original handoff error when manager has no fallback',
+      () async {
+        final track = _track('no-fallback');
+        final primaryError = Exception('playback handoff failed');
+        audioService.enqueuePlayUrlError(primaryError);
 
-    test('start preserves original handoff error when manager has no fallback',
-        () async {
-      final track = _track('no-fallback');
-      final primaryError = Exception('playback handoff failed');
-      audioService.enqueuePlayUrlError(primaryError);
+        final result = await session.start(
+          PlaybackSessionCommand(
+            track: track,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
 
-      final result = await session.start(
-        PlaybackSessionCommand(
-          track: track,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
+        expect(result.isFailed, isTrue);
+        expect(result.error, same(primaryError));
+        expect(streamManager.selectionRequests, ['no-fallback']);
+        expect(streamManager.fallbackSelectionTracks, ['no-fallback']);
+        expect(streamManager.fallbackSelectionFailedUrls, [
+          'https://example.com/no-fallback.m4a',
+        ]);
+        expect(audioService.playUrlCalls.map((call) => call.url), [
+          'https://example.com/no-fallback.m4a',
+        ]);
+      },
+    );
 
-      expect(result.isFailed, isTrue);
-      expect(result.error, same(primaryError));
-      expect(streamManager.selectionRequests, ['no-fallback']);
-      expect(streamManager.fallbackSelectionTracks, ['no-fallback']);
-      expect(streamManager.fallbackSelectionFailedUrls,
-          ['https://example.com/no-fallback.m4a']);
-      expect(audioService.playUrlCalls.map((call) => call.url), [
-        'https://example.com/no-fallback.m4a',
-      ]);
-    });
+    test(
+      'start prefetches the live next track so its url is reusable',
+      () async {
+        final currentTrack = _track('prefetch-current');
+        final nextTrack = _track('prefetch-next')
+          ..audioUrl = 'https://stale.example/prefetch-next.m4a';
+        session.dispose();
+        session = PlaybackRequestSession(
+          audioService: audioService,
+          audioStreamManager: streamManager,
+          getNextTrack: () => nextTrack,
+          onLoadingStarted: loadingStarted.add,
+          onLoadingFinished: (_, __) {},
+          terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+          delay: (_) async {},
+        );
 
-    test('start prefetches a copied next track when requested', () async {
-      final currentTrack = _track('prefetch-current');
-      final nextTrack = _track('prefetch-next')
-        ..audioUrl = 'https://stale.example/prefetch-next.m4a';
-      session.dispose();
-      session = PlaybackRequestSession(
-        audioService: audioService,
-        audioStreamManager: streamManager,
-        getNextTrack: () => nextTrack,
-        onLoadingStarted: loadingStarted.add,
-        onLoadingFinished: (_, __) {},
-        terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
-        delay: (_) async {},
-      );
+        final result = await session.start(
+          PlaybackSessionCommand(
+            track: currentTrack,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
 
-      final result = await session.start(
-        PlaybackSessionCommand(
-          track: currentTrack,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
-
-      expect(result.isCompleted, isTrue);
-      expect(streamManager.prefetchRequests, ['prefetch-next']);
-      expect(streamManager.prefetchedTracks.single, isNot(same(nextTrack)));
-      expect(streamManager.prefetchedTracks.single.audioUrl,
-          'https://stale.example/prefetch-next.m4a');
-    });
+        expect(result.isCompleted, isTrue);
+        expect(streamManager.prefetchRequests, ['prefetch-next']);
+        // 佇列裡那個實例，不是 copy()。解析會就地把 URL 寫進 track，寫進一個 copy()
+        // 就等於解析完就丟掉：網路照打，下一次播放照樣要重解析一遍。
+        expect(streamManager.prefetchedTracks.single, same(nextTrack));
+      },
+    );
 
     test('start skips next-track prefetch when disabled', () async {
       final currentTrack = _track('prefetch-disabled-current');
@@ -447,30 +477,235 @@ void main() {
       expect(streamManager.prefetchedTracks, isEmpty);
     });
 
-    test('start stop failure fails before stream selection or fallback',
-        () async {
-      final track = _track('stop-fails');
-      final stopError = Exception('stop failed before playback');
-      audioService.enqueueStopError(stopError);
+    test(
+      'start stop failure fails before stream selection or fallback',
+      () async {
+        final track = _track('stop-fails');
+        final stopError = Exception('stop failed before playback');
+        audioService.enqueueStopError(stopError);
 
-      final result = await session.start(
-        PlaybackSessionCommand(
-          track: track,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
+        final result = await session.start(
+          PlaybackSessionCommand(
+            track: track,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, same(stopError));
+        expect(audioService.stopCallCount, 1);
+        expect(streamManager.selectionRequests, isEmpty);
+        expect(streamManager.ensureAudioStreamRequests, isEmpty);
+        expect(streamManager.fallbackSelectionTracks, isEmpty);
+        expect(audioService.playUrlCalls, isEmpty);
+        expect(audioService.playFileCalls, isEmpty);
+        expect(audioService.setUrlCalls, isEmpty);
+        expect(audioService.setFileCalls, isEmpty);
+      },
+    );
+
+    group('timeout budget', () {
+      late PlaybackRequestSession budgeted;
+
+      /// 預算以毫秒計，測試才不必真的等六秒。
+      PlaybackRequestSession build({Track? Function()? getNextTrack}) {
+        session.dispose();
+        budgeted = PlaybackRequestSession(
+          audioService: audioService,
+          audioStreamManager: streamManager,
+          getNextTrack: getNextTrack ?? () => null,
+          onLoadingStarted: loadingStarted.add,
+          onLoadingFinished: (_, __) {},
+          terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+          delay: (_) async {},
+          budget: const PlaybackTimeoutBudget(
+            streamResolution: Duration(milliseconds: 40),
+            mediaOpen: Duration(milliseconds: 40),
+          ),
+        );
+        session = budgeted;
+        return budgeted;
+      }
+
+      test(
+        'stream selection that outlives its budget fails with a timeout',
+        () async {
+          build();
+          streamManager.onSelectPlayback = (_, __) =>
+              Completer<PlaybackSelection>().future; // 永不完成，就像一個卡住的 CDN
+
+          final result = await budgeted.start(
+            PlaybackSessionCommand(
+              track: _track('t1-timeout'),
+              mode: PlayMode.queue,
+              positionBeforeLoad: Duration.zero,
+            ),
+          );
+
+          expect(result.isFailed, isTrue);
+          expect(result.error, isA<PlaybackTimeoutException>());
+          expect(
+            (result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.streamResolution,
+          );
+        },
       );
 
-      expect(result.isFailed, isTrue);
-      expect(result.error, same(stopError));
-      expect(audioService.stopCallCount, 1);
-      expect(streamManager.selectionRequests, isEmpty);
-      expect(streamManager.ensureAudioStreamRequests, isEmpty);
-      expect(streamManager.fallbackSelectionTracks, isEmpty);
-      expect(audioService.playUrlCalls, isEmpty);
-      expect(audioService.playFileCalls, isEmpty);
-      expect(audioService.setUrlCalls, isEmpty);
-      expect(audioService.setFileCalls, isEmpty);
+      test(
+        'media open that outlives its budget falls back exactly once',
+        () async {
+          build();
+          // 第一次開流永遠不返回；fallback 那一次正常。
+          audioService.enqueuePendingPlayUrl();
+          streamManager.onSelectFallbackPlayback = (track, _) async =>
+              PlaybackSelection(
+                media: RemotePlaybackMedia(
+                  url: Uri.parse(
+                    'https://example.com/${track.sourceId}-fallback.m4a',
+                  ),
+                  headers: const {},
+                  track: track,
+                ),
+                streamResult: null,
+              );
+
+          final result = await budgeted.start(
+            PlaybackSessionCommand(
+              track: _track('t2-fallback'),
+              mode: PlayMode.queue,
+              positionBeforeLoad: Duration.zero,
+            ),
+          );
+
+          expect(result.isCompleted, isTrue);
+          expect(streamManager.fallbackSelectionTracks, hasLength(1));
+          expect(audioService.playUrlCalls, hasLength(2));
+        },
+      );
+
+      test(
+        'the fallback attempt shares the request budget, not a fresh one',
+        () async {
+          session.dispose();
+          session = PlaybackRequestSession(
+            audioService: audioService,
+            audioStreamManager: streamManager,
+            getNextTrack: () => null,
+            onLoadingStarted: loadingStarted.add,
+            onLoadingFinished: (_, __) {},
+            terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+            delay: (_) async {},
+            budget: const PlaybackTimeoutBudget(
+              streamResolution: Duration(milliseconds: 100),
+              mediaOpen: Duration(milliseconds: 100),
+            ),
+          );
+          // 兩次開流都不返回，所以只有預算會決定何時放棄。
+          audioService.enqueuePendingPlayUrl();
+          audioService.enqueuePendingPlayUrl();
+          streamManager.onSelectFallbackPlayback = (track, _) async =>
+              PlaybackSelection(
+                media: RemotePlaybackMedia(
+                  url: Uri.parse(
+                    'https://example.com/${track.sourceId}-fb.m4a',
+                  ),
+                  headers: const {},
+                  track: track,
+                ),
+                streamResult: null,
+              );
+
+          final stopwatch = Stopwatch()..start();
+          final result = await session.start(
+            PlaybackSessionCommand(
+              track: _track('shared-budget'),
+              mode: PlayMode.queue,
+              positionBeforeLoad: Duration.zero,
+            ),
+          );
+          stopwatch.stop();
+
+          expect(result.isFailed, isTrue);
+          // 各拿一份完整預算的話這裡會是 400ms 上下；共用總預算則落在 200ms 附近。
+          expect(stopwatch.elapsedMilliseconds, lessThan(350));
+        },
+      );
+
+      test(
+        'media open timeout with no fallback surfaces the timeout',
+        () async {
+          build();
+          audioService.enqueuePendingPlayUrl();
+          streamManager.onSelectFallbackPlayback = (_, __) async => null;
+
+          final result = await budgeted.start(
+            PlaybackSessionCommand(
+              track: _track('t2-terminal'),
+              mode: PlayMode.queue,
+              positionBeforeLoad: Duration.zero,
+            ),
+          );
+
+          expect(result.isFailed, isTrue);
+          expect(result.error, isA<PlaybackTimeoutException>());
+          expect(
+            (result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.mediaOpen,
+          );
+        },
+      );
+
+      /// 佇列還原的三個交接等待點也必須有預算。它們原本一個都沒有，於是後端只要
+      /// 有一個 future 不回來，`restore()` 就永遠不返回，呼叫端的載入中轉圈到天荒
+      /// 地老 —— issue #54。三條分開寫，是為了讓漏掉其中任何一個 `phase:` 的改動
+      /// 都會有一條測試掛住。
+      Future<PlaybackSessionResult> restoreWithResume(String id) =>
+          budgeted.restore(
+            PlaybackRestoreCommand(
+              track: _track(id),
+              mode: PlayMode.queue,
+              position: const Duration(seconds: 35),
+              shouldResume: true,
+            ),
+          );
+
+      test(
+        'a queue restore whose media open never returns times out',
+        () async {
+          build();
+          audioService.enqueuePendingSetUrl();
+
+          final result = await restoreWithResume('restore-t2-setmedia');
+
+          expect(result.isFailed, isTrue);
+          expect(result.error, isA<PlaybackTimeoutException>());
+          expect(
+            (result.error as PlaybackTimeoutException).phase,
+            PlaybackTimeoutPhase.mediaOpen,
+          );
+        },
+      );
+
+      test('a queue restore whose seek never returns times out', () async {
+        build();
+        audioService.enqueuePendingSeek();
+
+        final result = await restoreWithResume('restore-t2-seek');
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+      });
+
+      test('a queue restore whose resume never returns times out', () async {
+        build();
+        audioService.enqueuePendingPlay();
+
+        final result = await restoreWithResume('restore-t2-play');
+
+        expect(result.isFailed, isTrue);
+        expect(result.error, isA<PlaybackTimeoutException>());
+      });
     });
 
     test('restore prepares URL, seeks, and resumes when requested', () async {
@@ -487,8 +722,10 @@ void main() {
 
       expect(result.isCompleted, isTrue);
       expect(audioService.stopCallCount, 1);
-      expect(audioService.setUrlCalls.single.url,
-          'https://example.com/restore-session.m4a');
+      expect(
+        audioService.setUrlCalls.single.url,
+        'https://example.com/restore-session.m4a',
+      );
       expect(audioService.seekCalls, [const Duration(seconds: 35)]);
       expect(audioService.isPlaying, isTrue);
     });
@@ -506,8 +743,10 @@ void main() {
       );
 
       expect(result.isCompleted, isTrue);
-      expect(audioService.setUrlCalls.single.url,
-          'https://example.com/restore-idle.m4a');
+      expect(
+        audioService.setUrlCalls.single.url,
+        'https://example.com/restore-idle.m4a',
+      );
       expect(audioService.seekCalls, isEmpty);
       expect(audioService.isPlaying, isFalse);
     });
@@ -535,67 +774,75 @@ void main() {
 
       expect(result.isCompleted, isTrue);
       expect(
-          result.attemptedUrl, 'https://cdn.example.com/restore-prepared.m4a');
-      expect(audioService.setUrlCalls.single.url,
-          'https://cdn.example.com/restore-prepared.m4a');
+        result.attemptedUrl,
+        'https://cdn.example.com/restore-prepared.m4a',
+      );
+      expect(
+        audioService.setUrlCalls.single.url,
+        'https://cdn.example.com/restore-prepared.m4a',
+      );
       expect(audioService.setUrlCalls.single.headers, {'X-Prepared': 'yes'});
       expect(streamManager.selectionRequests, contains('restore-prepared'));
     });
 
-    test('start aborts after async media preparation when superseded',
-        () async {
-      final firstTrack = _track('first-headers');
-      final secondTrack = _track('second-headers');
-      final secondPlayGate = audioService.enqueuePendingPlayUrl();
-      final preparationGate = Completer<void>();
-      streamManager.onPrepareNetworkPlayback = (track, url) async {
-        if (track.sourceId == firstTrack.sourceId) {
-          await preparationGate.future;
-        }
-        return RemotePlaybackMedia(
-          url: Uri.parse(url),
-          headers: {'Referer': 'https://example.com/${track.sourceId}'},
-          track: track,
+    test(
+      'start aborts after async media preparation when superseded',
+      () async {
+        final firstTrack = _track('first-headers');
+        final secondTrack = _track('second-headers');
+        final secondPlayGate = audioService.enqueuePendingPlayUrl();
+        final preparationGate = Completer<void>();
+        streamManager.onPrepareNetworkPlayback = (track, url) async {
+          if (track.sourceId == firstTrack.sourceId) {
+            await preparationGate.future;
+          }
+          return RemotePlaybackMedia(
+            url: Uri.parse(url),
+            headers: {'Referer': 'https://example.com/${track.sourceId}'},
+            track: track,
+          );
+        };
+
+        final firstPlay = session.start(
+          PlaybackSessionCommand(
+            track: firstTrack,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
         );
-      };
+        await streamManager.waitForPrepareNetworkPlayback(firstTrack.sourceId);
 
-      final firstPlay = session.start(
-        PlaybackSessionCommand(
-          track: firstTrack,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
-      await streamManager.waitForPrepareNetworkPlayback(firstTrack.sourceId);
+        final secondPlay = session.start(
+          PlaybackSessionCommand(
+            track: secondTrack,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+        await audioService.waitForPlayUrlCallCount(1);
 
-      final secondPlay = session.start(
-        PlaybackSessionCommand(
-          track: secondTrack,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
-      await audioService.waitForPlayUrlCallCount(1);
+        preparationGate.complete();
+        expect((await firstPlay).isSuperseded, isTrue);
+        expect(audioService.playUrlCalls.length, 1);
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/second-headers.m4a',
+        );
 
-      preparationGate.complete();
-      expect((await firstPlay).isSuperseded, isTrue);
-      expect(audioService.playUrlCalls.length, 1);
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/second-headers.m4a');
-
-      secondPlayGate.complete();
-      final secondResult = await secondPlay;
-      expect(secondResult.isCompleted, isTrue);
-      expect(secondResult.track?.sourceId, 'second-headers');
-      expect(streamManager.selectionRequests, [
-        'first-headers',
-        'second-headers',
-      ]);
-      expect(streamManager.prepareNetworkPlaybackRequests, [
-        'first-headers',
-        'second-headers',
-      ]);
-    });
+        secondPlayGate.complete();
+        final secondResult = await secondPlay;
+        expect(secondResult.isCompleted, isTrue);
+        expect(secondResult.track?.sourceId, 'second-headers');
+        expect(streamManager.selectionRequests, [
+          'first-headers',
+          'second-headers',
+        ]);
+        expect(streamManager.prepareNetworkPlaybackRequests, [
+          'first-headers',
+          'second-headers',
+        ]);
+      },
+    );
 
     test('superseded start does not stop or error newer request', () async {
       final firstTrack = _track('first-session');
@@ -662,78 +909,83 @@ void main() {
       expect(audioService.stopCallCount, 1);
     });
 
-    test('media-open error becomes terminal when backend does not advance',
-        () async {
-      final track = _track('media-open-terminal');
-      final playGate = audioService.enqueuePendingPlayUrl();
+    test(
+      'media-open error becomes terminal when backend does not advance',
+      () async {
+        final track = _track('media-open-terminal');
+        final playGate = audioService.enqueuePendingPlayUrl();
 
-      final play = session.start(
-        PlaybackSessionCommand(
+        final play = session.start(
+          PlaybackSessionCommand(
+            track: track,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+        await audioService.waitForPlayUrlCallCount(1);
+
+        await session.onMediaOpenError(
+          error: 'Failed to open https://example.com/media-open-terminal.m4a.',
           track: track,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
-      await audioService.waitForPlayUrlCallCount(1);
+          positionAtError: Duration.zero,
+        );
 
-      await session.onMediaOpenError(
-        error: 'Failed to open https://example.com/media-open-terminal.m4a.',
-        track: track,
-        positionAtError: Duration.zero,
-      );
+        playGate.complete();
+        final result = await play;
+        expect(result.isTerminalMediaOpenError, isTrue);
+        expect(result.track?.sourceId, 'media-open-terminal');
+        expect(result.message, 'Cannot play media-open-terminal');
+        expect(audioService.stopCallCount, 2);
+      },
+    );
 
-      playGate.complete();
-      final result = await play;
-      expect(result.isTerminalMediaOpenError, isTrue);
-      expect(result.track?.sourceId, 'media-open-terminal');
-      expect(result.message, 'Cannot play media-open-terminal');
-      expect(audioService.stopCallCount, 2);
-    });
+    test(
+      'new request makes active media-open terminal stale while stop waits',
+      () async {
+        final firstTrack = _track('media-open-stale-first');
+        final secondTrack = _track('media-open-stale-second');
+        final firstPlayGate = audioService.enqueuePendingPlayUrl();
 
-    test('new request makes active media-open terminal stale while stop waits',
-        () async {
-      final firstTrack = _track('media-open-stale-first');
-      final secondTrack = _track('media-open-stale-second');
-      final firstPlayGate = audioService.enqueuePendingPlayUrl();
+        final first = session.start(
+          PlaybackSessionCommand(
+            track: firstTrack,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+        await audioService.waitForPlayUrlCallCount(1);
 
-      final first = session.start(
-        PlaybackSessionCommand(
+        final stopGate = audioService.enqueuePendingStop();
+        final mediaOpen = session.onMediaOpenError(
+          error:
+              'Failed to open https://example.com/media-open-stale-first.m4a.',
           track: firstTrack,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
-      await audioService.waitForPlayUrlCallCount(1);
+          positionAtError: Duration.zero,
+        );
+        firstPlayGate.complete();
+        await pumpEventQueue(times: 5);
 
-      final stopGate = audioService.enqueuePendingStop();
-      final mediaOpen = session.onMediaOpenError(
-        error: 'Failed to open https://example.com/media-open-stale-first.m4a.',
-        track: firstTrack,
-        positionAtError: Duration.zero,
-      );
-      firstPlayGate.complete();
-      await pumpEventQueue(times: 5);
+        final secondPlayGate = audioService.enqueuePendingPlayUrl();
+        final second = session.start(
+          PlaybackSessionCommand(
+            track: secondTrack,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+        await audioService.waitForPlayUrlCallCount(2);
 
-      final secondPlayGate = audioService.enqueuePendingPlayUrl();
-      final second = session.start(
-        PlaybackSessionCommand(
-          track: secondTrack,
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
-      await audioService.waitForPlayUrlCallCount(2);
+        stopGate.complete();
+        await mediaOpen;
+        final firstResult = await first;
+        expect(firstResult.isSuperseded, isTrue);
 
-      stopGate.complete();
-      await mediaOpen;
-      final firstResult = await first;
-      expect(firstResult.isSuperseded, isTrue);
-
-      secondPlayGate.complete();
-      final secondResult = await second;
-      expect(secondResult.isCompleted, isTrue);
-      expect(secondResult.track?.sourceId, 'media-open-stale-second');
-    });
+        secondPlayGate.complete();
+        final secondResult = await second;
+        expect(secondResult.isCompleted, isTrue);
+        expect(secondResult.track?.sourceId, 'media-open-stale-second');
+      },
+    );
 
     test('media-open error terminalizes the active handoff', () async {
       final track = _track('task-two-media-open-placeholder');
@@ -762,64 +1014,69 @@ void main() {
       expect(audioService.stopCallCount, 2);
     });
 
-    test('dispose supersedes pending handoff without reporting completion',
-        () async {
-      final finishedResults = <PlaybackSessionResult>[];
-      final localAudioService = FakeAudioService();
-      final localStreamManager = _HarnessPlaybackRequestStreamAccess();
-      final localSession = PlaybackRequestSession(
-        audioService: localAudioService,
-        audioStreamManager: localStreamManager,
-        getNextTrack: () => null,
-        onLoadingStarted: (_) {},
-        onLoadingFinished: (_, result) => finishedResults.add(result),
-        terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
-        delay: (_) async {},
-      );
-      addTearDown(localSession.dispose);
-      addTearDown(localAudioService.dispose);
+    test(
+      'dispose supersedes pending handoff without reporting completion',
+      () async {
+        final finishedResults = <PlaybackSessionResult>[];
+        final localAudioService = FakeAudioService();
+        final localStreamManager = _HarnessPlaybackRequestStreamAccess();
+        final localSession = PlaybackRequestSession(
+          audioService: localAudioService,
+          audioStreamManager: localStreamManager,
+          getNextTrack: () => null,
+          onLoadingStarted: (_) {},
+          onLoadingFinished: (_, result) => finishedResults.add(result),
+          terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
+          delay: (_) async {},
+        );
+        addTearDown(localSession.dispose);
+        addTearDown(localAudioService.dispose);
 
-      final playGate = localAudioService.enqueuePendingPlayUrl();
-      final play = localSession.start(
-        PlaybackSessionCommand(
-          track: _track('dispose-pending-handoff'),
-          mode: PlayMode.queue,
-          positionBeforeLoad: Duration.zero,
-        ),
-      );
-      await localAudioService.waitForPlayUrlCallCount(1);
+        final playGate = localAudioService.enqueuePendingPlayUrl();
+        final play = localSession.start(
+          PlaybackSessionCommand(
+            track: _track('dispose-pending-handoff'),
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+        await localAudioService.waitForPlayUrlCallCount(1);
 
-      localSession.dispose();
-      final result = await play;
+        localSession.dispose();
+        final result = await play;
 
-      expect(result.isSuperseded, isTrue);
-      expect(finishedResults, isEmpty);
+        expect(result.isSuperseded, isTrue);
+        expect(finishedResults, isEmpty);
 
-      playGate.complete();
-      await pumpEventQueue(times: 5);
-    });
+        playGate.complete();
+        await pumpEventQueue(times: 5);
+      },
+    );
 
-    test('PlaybackRequestSession opens typed media instead of raw URL methods',
-        () {
-      final source = File('lib/services/audio/playback_request_session.dart')
-          .readAsStringSync();
+    test(
+      'PlaybackRequestSession opens typed media instead of raw URL methods',
+      () {
+        final source = File(
+          'lib/services/audio/playback_request_session.dart',
+        ).readAsStringSync();
 
-      expect(source, contains('_audioService.playMedia('));
-      expect(source, contains('_audioService.setMedia('));
-      expect(source, isNot(contains('_audioService.playUrl(')));
-      expect(source, isNot(contains('_audioService.setUrl(')));
-      expect(source, isNot(contains('_audioService.playFile(')));
-      expect(source, isNot(contains('_audioService.setFile(')));
-      expect(source, isNot(contains('headers: selection.headers')));
-      expect(source, isNot(contains('headers: networkRequest.headers')));
-    });
+        expect(source, contains('_audioService.playMedia('));
+        expect(source, contains('_audioService.setMedia('));
+        expect(source, isNot(contains('_audioService.playUrl(')));
+        expect(source, isNot(contains('_audioService.setUrl(')));
+        expect(source, isNot(contains('_audioService.playFile(')));
+        expect(source, isNot(contains('_audioService.setFile(')));
+        expect(source, isNot(contains('headers: selection.headers')));
+        expect(source, isNot(contains('headers: networkRequest.headers')));
+      },
+    );
   });
 }
 
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = sourceId;
 }
 
@@ -835,15 +1092,16 @@ class _HarnessPlaybackRequestStreamAccess
   final Map<String, Completer<void>> _prepareNetworkPlaybackWaiters = {};
 
   Future<PlaybackSelection> Function(Track track, bool persist)?
-      onSelectPlayback;
+  onSelectPlayback;
   Future<PlaybackSelection?> Function(Track track, String? failedUrl)?
-      onSelectFallbackPlayback;
+  onSelectFallbackPlayback;
   Future<RemotePlaybackMedia> Function(Track track, String url)?
-      onPrepareNetworkPlayback;
+  onPrepareNetworkPlayback;
   Future<(Track, String?, AudioStreamResult?)> Function(
     Track track,
     bool persist,
-  )? onEnsureAudioStream;
+  )?
+  onEnsureAudioStream;
 
   Future<void> waitForPrepareNetworkPlayback(String sourceId) {
     return (_prepareNetworkPlaybackWaiters[sourceId] ??= Completer<void>())
@@ -858,8 +1116,10 @@ class _HarnessPlaybackRequestStreamAccess
     selectionRequests.add(track.sourceId);
     final custom = await onSelectPlayback?.call(track, persist);
     if (custom != null) return custom;
-    final (trackWithUrl, localPath, streamResult) =
-        await ensureAudioStream(track, persist: persist);
+    final (trackWithUrl, localPath, streamResult) = await ensureAudioStream(
+      track,
+      persist: persist,
+    );
     final url = localPath ?? trackWithUrl.audioUrl;
     if (url == null) {
       throw StateError('No playback URL available for ${track.sourceId}');
@@ -867,10 +1127,7 @@ class _HarnessPlaybackRequestStreamAccess
     final media = localPath == null
         ? await prepareNetworkPlayback(trackWithUrl, url)
         : LocalPlaybackMedia(path: localPath, track: trackWithUrl);
-    return PlaybackSelection(
-      media: media,
-      streamResult: streamResult,
-    );
+    return PlaybackSelection(media: media, streamResult: streamResult);
   }
 
   @override

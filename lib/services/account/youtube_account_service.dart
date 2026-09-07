@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../core/logger.dart';
 import '../../core/utils/innertube_utils.dart';
@@ -12,6 +12,7 @@ import '../../data/models/track.dart';
 import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'youtube_credentials.dart';
+import '../../data/repositories/account_repository.dart';
 
 /// YouTube 帳號服務實現
 ///
@@ -20,7 +21,7 @@ import 'youtube_credentials.dart';
 class YouTubeAccountService extends AccountService with Logging {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
-  final Isar _isar;
+  final AccountRepository _accounts;
   YouTubeCredentials? _cachedCredentials;
 
   static const String _storageKey = 'account_youtube_credentials';
@@ -37,27 +38,30 @@ class YouTubeAccountService extends AccountService with Logging {
   };
 
   YouTubeAccountService({required Isar isar})
-      : _isar = isar,
-        _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(
-          SourceType.youtube,
-          contentType: 'application/json',
-        );
+    : _accounts = AccountRepository(isar),
+      _secureStorage = const FlutterSecureStorage(),
+      _dio = SourceHttpPolicy.createApiDio(
+        SourceIds.youtube,
+        contentType: 'application/json',
+      );
 
   @override
-  SourceType get platform => SourceType.youtube;
+  String get platform => SourceIds.youtube;
 
   // ===== 登錄 =====
 
   /// WebView 登錄完成後，從 WebView 提取的 cookies 初始化
   Future<void> loginWithCookies(Map<String, String> cookies) async {
-    final missingCookies =
-        YouTubeAccountService.getMissingRequiredCookies(cookies);
+    final missingCookies = YouTubeAccountService.getMissingRequiredCookies(
+      cookies,
+    );
     if (missingCookies.isNotEmpty) {
       logWarning(
-          'YouTube login: missing required cookies: ${missingCookies.join(', ')}');
+        'YouTube login: missing required cookies: ${missingCookies.join(', ')}',
+      );
       throw Exception(
-          'Missing required YouTube cookies: ${missingCookies.join(', ')}');
+        'Missing required YouTube cookies: ${missingCookies.join(', ')}',
+      );
     }
 
     final credentials = YouTubeCredentials(
@@ -119,10 +123,7 @@ class YouTubeAccountService extends AccountService with Logging {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return _isar.accounts
-        .filter()
-        .platformEqualTo(SourceType.youtube)
-        .findFirst();
+    return _accounts.getByPlatform(SourceIds.youtube);
   }
 
   @override
@@ -137,9 +138,7 @@ class YouTubeAccountService extends AccountService with Logging {
       await cookieManager.deleteCookies(
         url: WebUri('https://accounts.google.com'),
       );
-      await cookieManager.deleteCookies(
-        url: WebUri('https://www.youtube.com'),
-      );
+      await cookieManager.deleteCookies(url: WebUri('https://www.youtube.com'));
     } catch (e) {
       logWarning('Failed to clear WebView cookies: $e');
     }
@@ -258,7 +257,8 @@ class YouTubeAccountService extends AccountService with Logging {
       if (name != null) {
         await _updateAccount(userName: name, isVip: isPremium);
         logInfo(
-            'YouTube user info updated via account_overview: $name (premium: $isPremium)');
+          'YouTube user info updated via account_overview: $name (premium: $isPremium)',
+        );
         return;
       } else if (data is Map<String, dynamic>) {
         // 即使沒有名字，也更新 Premium 狀態
@@ -298,9 +298,7 @@ class YouTubeAccountService extends AccountService with Logging {
     try {
       final response = await _dio.post(
         '$_innerTubeApiBase/guide?key=$_innerTubeApiKey',
-        data: jsonEncode({
-          'context': buildInnerTubeContext(),
-        }),
+        data: jsonEncode({'context': buildInnerTubeContext()}),
         options: Options(headers: headers),
       );
       final channelName = _extractChannelNameFromGuide(response.data);
@@ -332,8 +330,10 @@ class YouTubeAccountService extends AccountService with Logging {
     }
 
     // 嘗試從 settingsAccountRenderer 提取
-    final settingsAccount =
-        _findRendererRecursive(data, 'settingsAccountRenderer');
+    final settingsAccount = _findRendererRecursive(
+      data,
+      'settingsAccountRenderer',
+    );
     if (settingsAccount != null) {
       return _extractText(settingsAccount['accountName']);
     }
@@ -394,9 +394,11 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   /// 遞歸搜索指定字段名的字符串值（委託到共用工具）
-  String? _findStringFieldRecursive(dynamic data, String fieldName,
-          [int depth = 0]) =>
-      InnerTubeUtils.findStringField(data, fieldName, depth);
+  String? _findStringFieldRecursive(
+    dynamic data,
+    String fieldName, [
+    int depth = 0,
+  ]) => InnerTubeUtils.findStringField(data, fieldName, depth);
 
   /// 從 guide 響應中提取頻道名
   ///
@@ -423,9 +425,11 @@ class YouTubeAccountService extends AccountService with Logging {
         // 系統頁面（Home, Music 等）有 icon，用戶頻道只有 thumbnail
         final hasThumbnail = entryRenderer['thumbnail'] != null;
         final hasIcon = entryRenderer['icon'] != null;
-        final browseId = entryRenderer['navigationEndpoint']?['browseEndpoint']
-            ?['browseId'] as String?;
-        final title = _extractText(entryRenderer['formattedTitle']) ??
+        final browseId =
+            entryRenderer['navigationEndpoint']?['browseEndpoint']?['browseId']
+                as String?;
+        final title =
+            _extractText(entryRenderer['formattedTitle']) ??
             _extractText(entryRenderer['title']);
 
         if (hasThumbnail &&
@@ -466,9 +470,11 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   /// 遞歸搜索指定 renderer（委託到共用工具）
-  Map<String, dynamic>? _findRendererRecursive(dynamic data, String key,
-          [int depth = 0]) =>
-      InnerTubeUtils.findRenderer(data, key, depth);
+  Map<String, dynamic>? _findRendererRecursive(
+    dynamic data,
+    String key, [
+    int depth = 0,
+  ]) => InnerTubeUtils.findRenderer(data, key, depth);
 
   /// 從 InnerTube Text 對象中提取文本（委託到共用工具）
   String? _extractText(dynamic textObj) => InnerTubeUtils.extractText(textObj);
@@ -478,8 +484,9 @@ class YouTubeAccountService extends AccountService with Logging {
   /// 檢查 topbar logo 類型：Premium 用戶的 logo iconType 包含 "PREMIUM"
   bool _checkPremiumFromResponse(Map<String, dynamic> data) {
     try {
-      final iconType = data['topbar']?['desktopTopbarRenderer']?['logo']
-          ?['topbarLogoRenderer']?['iconImage']?['iconType'] as String?;
+      final iconType =
+          data['topbar']?['desktopTopbarRenderer']?['logo']?['topbarLogoRenderer']?['iconImage']?['iconType']
+              as String?;
       if (iconType != null && iconType.toUpperCase().contains('PREMIUM')) {
         return true;
       }
@@ -542,23 +549,14 @@ class YouTubeAccountService extends AccountService with Logging {
     DateTime? loginAt,
     bool? isVip,
   }) async {
-    await _isar.writeTxn(() async {
-      var account = await _isar.accounts
-          .filter()
-          .platformEqualTo(SourceType.youtube)
-          .findFirst();
-
-      account ??= Account()..platform = SourceType.youtube;
-
-      if (isLoggedIn != null) account.isLoggedIn = isLoggedIn;
-      if (userId != null) account.userId = userId;
-      if (userName != null) account.userName = userName;
-      if (avatarUrl != null) account.avatarUrl = avatarUrl;
-      if (loginAt != null) account.loginAt = loginAt;
-      if (isVip != null) account.isVip = isVip;
-      account.lastRefreshed = DateTime.now();
-
-      await _isar.accounts.put(account);
-    });
+    await _accounts.upsert(
+      SourceIds.youtube,
+      isLoggedIn: isLoggedIn,
+      userId: userId,
+      userName: userName,
+      avatarUrl: avatarUrl,
+      loginAt: loginAt,
+      isVip: isVip,
+    );
   }
 }

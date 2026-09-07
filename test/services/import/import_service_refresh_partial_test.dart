@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,8 +12,9 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/import/import_service.dart';
-import 'package:fmp/services/library/playlist_mutation_service.dart';
-import 'package:isar/isar.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
+import 'package:isar_community/isar.dart';
+import '../../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,9 +27,7 @@ void main() {
     late _FakeSourceManager sourceManager;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -54,53 +51,50 @@ void main() {
       }
     });
 
-    test('reports pruning skipped when mutation reports a persistence error',
-        () async {
-      final trackRepository = TrackRepository(isar);
-      final playlist = await _createImportedPlaylist(
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        tracks: [
-          _track('keep', 'Keep'),
-          _track('stale', 'Stale'),
-        ],
-      );
-      source.result = PlaylistParseResult(
-        title: 'Remote playlist',
-        tracks: [_track('keep', 'Keep'), _track('broken', 'Broken')],
-        totalCount: 2,
-        sourceUrl: playlist.sourceUrl!,
-      );
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        mutationService: _ReportingRefreshFailureMutationService(isar: isar),
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+    test(
+      'reports pruning skipped when mutation reports a persistence error',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final playlist = await _createImportedPlaylist(
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          tracks: [_track('keep', 'Keep'), _track('stale', 'Stale')],
+        );
+        source.result = PlaylistParseResult(
+          title: 'Remote playlist',
+          tracks: [_track('keep', 'Keep'), _track('broken', 'Broken')],
+          totalCount: 2,
+          sourceUrl: playlist.sourceUrl!,
+        );
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          mutationService: _ReportingRefreshFailureMutationService(isar: isar),
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-      final result = await service.refreshPlaylist(playlist.id);
+        final result = await service.refreshPlaylist(playlist.id);
 
-      expect(result.pruningSkipped, isTrue);
-      expect(result.removedCount, 0);
-      expect(result.errors, isNotEmpty);
-      final refreshed = await playlistRepository.getById(playlist.id);
-      expect(refreshed!.trackIds, playlist.trackIds);
-      expect(
-        await trackRepository.getBySourceId('stale', SourceType.youtube),
-        isNotNull,
-      );
-    });
+        expect(result.pruningSkipped, isTrue);
+        expect(result.removedCount, 0);
+        expect(result.errors, isNotEmpty);
+        final refreshed = await playlistRepository.getById(playlist.id);
+        expect(refreshed!.trackIds, playlist.trackIds);
+        expect(
+          await trackRepository.getBySourceId('stale', SourceIds.youtube),
+          isNotNull,
+        );
+      },
+    );
 
     test('persists refreshed owner metadata after remote refresh', () async {
       final trackRepository = TrackRepository(isar);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
-        tracks: [
-          _track('keep', 'Keep'),
-        ],
+        tracks: [_track('keep', 'Keep')],
       );
       source.result = PlaylistParseResult(
         title: 'Remote playlist',
@@ -125,134 +119,132 @@ void main() {
       expect(refreshed.ownerUserId, 'owner-123');
     });
 
-    test('keeps existing owner metadata when refresh omits owner fields',
-        () async {
-      final trackRepository = TrackRepository(isar);
-      final playlist = await _createImportedPlaylist(
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        tracks: [
-          _track('keep', 'Keep'),
-        ],
-      );
-      playlist
-        ..ownerName = 'Existing Owner'
-        ..ownerUserId = 'existing-owner-id';
-      await playlistRepository.save(playlist);
-      source.result = PlaylistParseResult(
-        title: 'Remote playlist',
-        tracks: [_track('keep', 'Keep')],
-        totalCount: 1,
-        sourceUrl: playlist.sourceUrl!,
-      );
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+    test(
+      'keeps existing owner metadata when refresh omits owner fields',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final playlist = await _createImportedPlaylist(
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          tracks: [_track('keep', 'Keep')],
+        );
+        playlist
+          ..ownerName = 'Existing Owner'
+          ..ownerUserId = 'existing-owner-id';
+        await playlistRepository.save(playlist);
+        source.result = PlaylistParseResult(
+          title: 'Remote playlist',
+          tracks: [_track('keep', 'Keep')],
+          totalCount: 1,
+          sourceUrl: playlist.sourceUrl!,
+        );
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-      await service.refreshPlaylist(playlist.id);
+        await service.refreshPlaylist(playlist.id);
 
-      final refreshed = await playlistRepository.getById(playlist.id);
-      expect(refreshed!.ownerName, 'Existing Owner');
-      expect(refreshed.ownerUserId, 'existing-owner-id');
-    });
+        final refreshed = await playlistRepository.getById(playlist.id);
+        expect(refreshed!.ownerName, 'Existing Owner');
+        expect(refreshed.ownerUserId, 'existing-owner-id');
+      },
+    );
 
-    test('does not append tracks when mutation reports a persistence error',
-        () async {
-      final trackRepository = TrackRepository(isar);
-      final playlist = await _createImportedPlaylist(
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        tracks: [
-          _track('keep', 'Keep'),
-        ],
-      );
-      final existingTrack = await TrackRepository(isar).save(
-        _track('existing', 'Existing'),
-      );
-      source.result = PlaylistParseResult(
-        title: 'Remote playlist',
-        tracks: [
-          _track('keep', 'Keep'),
-          _track('existing', 'Existing'),
-        ],
-        totalCount: 2,
-        sourceUrl: playlist.sourceUrl!,
-      );
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        mutationService: _ReportingRefreshFailureMutationService(isar: isar),
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+    test(
+      'does not append tracks when mutation reports a persistence error',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final playlist = await _createImportedPlaylist(
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          tracks: [_track('keep', 'Keep')],
+        );
+        final existingTrack = await TrackRepository(
+          isar,
+        ).save(_track('existing', 'Existing'));
+        source.result = PlaylistParseResult(
+          title: 'Remote playlist',
+          tracks: [_track('keep', 'Keep'), _track('existing', 'Existing')],
+          totalCount: 2,
+          sourceUrl: playlist.sourceUrl!,
+        );
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          mutationService: _ReportingRefreshFailureMutationService(isar: isar),
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-      final result = await service.refreshPlaylist(playlist.id);
+        final result = await service.refreshPlaylist(playlist.id);
 
-      expect(result.pruningSkipped, isTrue);
-      expect(result.removedCount, 0);
-      expect(result.errors, isNotEmpty);
-      final refreshed = await playlistRepository.getById(playlist.id);
-      expect(refreshed!.trackIds, isNot(contains(existingTrack.id)));
-      expect(refreshed.trackIds, playlist.trackIds);
-    });
+        expect(result.pruningSkipped, isTrue);
+        expect(result.removedCount, 0);
+        expect(result.errors, isNotEmpty);
+        final refreshed = await playlistRepository.getById(playlist.id);
+        expect(refreshed!.trackIds, isNot(contains(existingTrack.id)));
+        expect(refreshed.trackIds, playlist.trackIds);
+      },
+    );
 
-    test('skips pruning when source result is smaller than reported total',
-        () async {
-      final trackRepository = TrackRepository(isar);
-      final playlist = await _createImportedPlaylist(
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        tracks: [
-          _track('keep', 'Keep'),
-          _track('stale', 'Stale'),
-        ],
-      );
-      source.result = PlaylistParseResult(
-        title: 'Remote playlist',
-        tracks: [_track('keep', 'Keep')],
-        totalCount: 2,
-        sourceUrl: playlist.sourceUrl!,
-      );
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+    test(
+      'skips pruning when source result is smaller than reported total',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final playlist = await _createImportedPlaylist(
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          tracks: [_track('keep', 'Keep'), _track('stale', 'Stale')],
+        );
+        source.result = PlaylistParseResult(
+          title: 'Remote playlist',
+          tracks: [_track('keep', 'Keep')],
+          totalCount: 2,
+          sourceUrl: playlist.sourceUrl!,
+        );
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-      final result = await service.refreshPlaylist(playlist.id);
+        final result = await service.refreshPlaylist(playlist.id);
 
-      expect(result.pruningSkipped, isTrue);
-      expect(result.removedCount, 0);
-      expect(result.errors, isEmpty);
-      final refreshed = await playlistRepository.getById(playlist.id);
-      expect(refreshed!.trackIds, playlist.trackIds);
-      expect(await trackRepository.getBySourceId('stale', SourceType.youtube),
-          isNotNull);
-    });
+        expect(result.pruningSkipped, isTrue);
+        expect(result.removedCount, 0);
+        expect(result.errors, isEmpty);
+        final refreshed = await playlistRepository.getById(playlist.id);
+        expect(refreshed!.trackIds, playlist.trackIds);
+        expect(
+          await trackRepository.getBySourceId('stale', SourceIds.youtube),
+          isNotNull,
+        );
+      },
+    );
 
     test('skips pruning when Bilibili parsed item count is partial', () async {
       final trackRepository = TrackRepository(isar);
       final bilibiliSource = _FakeBilibiliRefreshSource(
-        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        tracks: [_track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2)],
         totalCount: 2,
       );
       sourceManager = _FakeSourceManager(bilibiliSource);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
-        sourceType: SourceType.bilibili,
+        sourceType: SourceIds.bilibili,
         tracks: [
-          _track('BV1234567890', 'Page 1', SourceType.bilibili)
+          _track('BV1234567890', 'Page 1', SourceIds.bilibili)
             ..cid = 101
             ..pageNum = 1,
-          _track('BVstale0000', 'Stale', SourceType.bilibili),
+          _track('BVstale0000', 'Stale', SourceIds.bilibili),
         ],
       );
       final service = ImportService(
@@ -271,64 +263,67 @@ void main() {
       final refreshed = await playlistRepository.getById(playlist.id);
       expect(refreshed!.trackIds, containsAll(playlist.trackIds));
       expect(
-          await trackRepository.getBySourceId(
-              'BVstale0000', SourceType.bilibili),
-          isNotNull);
+        await trackRepository.getBySourceId('BVstale0000', SourceIds.bilibili),
+        isNotNull,
+      );
     });
 
-    test('skips pruning when Bilibili multipage expansion falls back',
-        () async {
-      final trackRepository = TrackRepository(isar);
-      final bilibiliSource = _FakeBilibiliRefreshSource(
-        failVideoPages: true,
-        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
-        totalCount: 1,
-      );
-      sourceManager = _FakeSourceManager(bilibiliSource);
-      final playlist = await _createImportedPlaylist(
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        sourceType: SourceType.bilibili,
-        tracks: [
-          _track('BV1234567890', 'Multi-page', SourceType.bilibili, 2),
-          _track('BVstale0000', 'Stale', SourceType.bilibili),
-        ],
-      );
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+    test(
+      'skips pruning when Bilibili multipage expansion falls back',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final bilibiliSource = _FakeBilibiliRefreshSource(
+          failVideoPages: true,
+          tracks: [_track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2)],
+          totalCount: 1,
+        );
+        sourceManager = _FakeSourceManager(bilibiliSource);
+        final playlist = await _createImportedPlaylist(
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          sourceType: SourceIds.bilibili,
+          tracks: [
+            _track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2),
+            _track('BVstale0000', 'Stale', SourceIds.bilibili),
+          ],
+        );
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-      final result = await service.refreshPlaylist(playlist.id);
+        final result = await service.refreshPlaylist(playlist.id);
 
-      expect(result.pruningSkipped, isTrue);
-      expect(result.removedCount, 0);
-      expect(result.errors, isEmpty);
-      final refreshed = await playlistRepository.getById(playlist.id);
-      expect(refreshed!.trackIds, playlist.trackIds);
-      expect(
+        expect(result.pruningSkipped, isTrue);
+        expect(result.removedCount, 0);
+        expect(result.errors, isEmpty);
+        final refreshed = await playlistRepository.getById(playlist.id);
+        expect(refreshed!.trackIds, playlist.trackIds);
+        expect(
           await trackRepository.getBySourceId(
-              'BVstale0000', SourceType.bilibili),
-          isNotNull);
-    });
+            'BVstale0000',
+            SourceIds.bilibili,
+          ),
+          isNotNull,
+        );
+      },
+    );
 
     test('refresh multi-page expansion reuses refresh auth headers', () async {
       final trackRepository = TrackRepository(isar);
       final bilibiliSource = _FakeBilibiliRefreshSource(
-        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        tracks: [_track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2)],
         totalCount: 1,
       );
       sourceManager = _FakeSourceManager(bilibiliSource);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
-        sourceType: SourceType.bilibili,
-        tracks: [
-          _track('BV1234567890', 'Multi-page', SourceType.bilibili, 2),
-        ],
+        sourceType: SourceIds.bilibili,
+        tracks: [_track('BV1234567890', 'Multi-page', SourceIds.bilibili, 2)],
       );
       playlist.useAuthForRefresh = true;
       await playlistRepository.save(playlist);
@@ -344,19 +339,18 @@ void main() {
 
       await service.refreshPlaylist(playlist.id);
 
-      expect(
-        bilibiliSource.lastParseAuthHeaders,
-        {'Cookie': 'SESSDATA=refresh'},
-      );
-      expect(
-        bilibiliSource.lastPageAuthHeaders,
-        {'Cookie': 'SESSDATA=refresh'},
-      );
+      expect(bilibiliSource.lastParseAuthHeaders, {
+        'Cookie': 'SESSDATA=refresh',
+      });
+      expect(bilibiliSource.lastPageAuthHeaders, {
+        'Cookie': 'SESSDATA=refresh',
+      });
     });
   });
 }
 
-class _ReportingRefreshFailureMutationService extends PlaylistMutationService {
+class _ReportingRefreshFailureMutationService
+    extends PlaylistMutationRepository {
   _ReportingRefreshFailureMutationService({required super.isar});
 
   @override
@@ -383,7 +377,7 @@ class _FakeSourceManager extends SourceManager {
   PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  PagedVideoSource? pagedVideoSource(SourceType type) {
+  PagedVideoSource? pagedVideoSource(String type) {
     final Object candidate = source;
     if (type == source.sourceType && candidate is PagedVideoSource) {
       return candidate;
@@ -399,16 +393,18 @@ class _FakeRefreshSource implements PlaylistParsingSource {
   PlaylistParseResult? result;
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  String get sourceType => SourceIds.youtube;
 
   @override
   bool isPlaylistUrl(String url) => true;
 
   @override
-  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) async {
+  Future<PlaylistParseResult> parsePlaylist(
+    String playlistUrl, {
+    int page = 1,
+    int pageSize = 20,
+    Map<String, String>? authHeaders,
+  }) async {
     final current = result;
     if (current == null) throw StateError('No fake playlist result configured');
     return current;
@@ -429,13 +425,15 @@ class _FakeBilibiliRefreshSource extends BilibiliSource {
   Map<String, String>? lastPageAuthHeaders;
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   @override
-  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) async {
+  Future<PlaylistParseResult> parsePlaylist(
+    String playlistUrl, {
+    int page = 1,
+    int pageSize = 20,
+    Map<String, String>? authHeaders,
+  }) async {
     lastParseAuthHeaders = authHeaders;
     return PlaylistParseResult(
       title: 'Remote Bilibili playlist',
@@ -446,8 +444,10 @@ class _FakeBilibiliRefreshSource extends BilibiliSource {
   }
 
   @override
-  Future<List<VideoPage>> getVideoPages(String bvid,
-      {Map<String, String>? authHeaders}) async {
+  Future<List<VideoPage>> getVideoPages(
+    String bvid, {
+    Map<String, String>? authHeaders,
+  }) async {
     lastPageAuthHeaders = authHeaders;
     if (failVideoPages) {
       throw StateError('simulated page expansion failure');
@@ -463,7 +463,7 @@ Future<Playlist> _createImportedPlaylist({
   required PlaylistRepository playlistRepository,
   required TrackRepository trackRepository,
   required List<Track> tracks,
-  SourceType sourceType = SourceType.youtube,
+  String sourceType = SourceIds.youtube,
 }) async {
   final playlist = Playlist()
     ..name = 'Imported playlist'
@@ -486,22 +486,21 @@ Future<Playlist> _createImportedPlaylist({
 Track _track(
   String sourceId,
   String title, [
-  SourceType sourceType = SourceType.youtube,
+  String sourceType = SourceIds.youtube,
   int? pageCount,
-]) =>
-    Track()
-      ..sourceId = sourceId
-      ..sourceType = sourceType
-      ..title = title
-      ..artist = 'Artist'
-      ..pageCount = pageCount;
+]) => Track()
+  ..sourceId = sourceId
+  ..sourceType = sourceType
+  ..title = title
+  ..artist = 'Artist'
+  ..pageCount = pageCount;
 
 class _FakeSourceAuthContext implements SourceAuthContext {
   Map<String, String>? playlistRefreshHeaders;
 
   @override
   Future<Map<String, String>?> playlistRefreshAuth(
-    SourceType sourceType, {
+    String sourceType, {
     required bool useAuthForRefresh,
   }) async {
     return useAuthForRefresh ? playlistRefreshHeaders : null;
@@ -509,28 +508,4 @@ class _FakeSourceAuthContext implements SourceAuthContext {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
-
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
-
-  throw StateError('Unsupported platform for Isar test setup');
 }

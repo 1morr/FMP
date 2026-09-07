@@ -76,8 +76,9 @@ class SelectionState {
 }
 
 /// 多選模式控制器
-class SelectionNotifier extends StateNotifier<SelectionState> {
-  SelectionNotifier() : super(const SelectionState());
+class SelectionNotifier extends Notifier<SelectionState> {
+  @override
+  SelectionState build() => const SelectionState();
 
   /// 進入多選模式，並選中初始項目
   void enterSelectionMode(Track initialTrack) {
@@ -122,10 +123,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
       newTracks.add(track);
     }
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 切換多個項目的選中狀態（用於組操作）
@@ -165,10 +163,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
       }
     }
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 選中單個項目（不切換）
@@ -181,10 +176,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
     final newKeys = Set<SelectionKey>.from(state.selectedKeys)..add(key);
     final newTracks = List<Track>.from(state.selectedTracks)..add(track);
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 取消選中單個項目
@@ -200,10 +192,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
         (t) => t.sourceId == track.sourceId && t.pageNum == track.pageNum,
       );
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 全選
@@ -221,10 +210,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
   void deselectAll() {
     if (!state.isSelectionMode) return;
 
-    state = state.copyWith(
-      selectedKeys: {},
-      selectedTracks: [],
-    );
+    state = state.copyWith(selectedKeys: {}, selectedTracks: []);
   }
 
   /// 檢查組是否全部選中
@@ -241,18 +227,18 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
 
 /// 歌單詳情頁的多選狀態 Provider
 final playlistDetailSelectionProvider =
-    StateNotifierProvider.autoDispose<SelectionNotifier, SelectionState>((ref) {
-  return SelectionNotifier();
-});
+    NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
+      SelectionNotifier.new,
+    );
 
 /// 探索頁的多選狀態 Provider
 final exploreSelectionProvider =
-    StateNotifierProvider.autoDispose<SelectionNotifier, SelectionState>((ref) {
-  return SelectionNotifier();
-});
+    NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
+      SelectionNotifier.new,
+    );
 
 /// 搜索頁的多選狀態 Provider
 final searchSelectionProvider =
-    StateNotifierProvider.autoDispose<SelectionNotifier, SelectionState>((ref) {
-  return SelectionNotifier();
-});
+    NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
+      SelectionNotifier.new,
+    );

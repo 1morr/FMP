@@ -17,59 +17,62 @@ import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
 import 'package:fmp/services/lyrics/title_parser.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('lyricsAutoMatchServiceProvider uses persisted plain lyrics setting',
-      () async {
-    FlutterSecureStorage.setMockInitialValues(<String, String>{});
-    final settings = Settings()..allowPlainLyricsAutoMatch = true;
-    final lyricsRepo = _FakeLyricsRepository();
-    final netease = _FakeNeteaseSource()
-      ..searchResults = [
-        _lyricsResult(
-          id: 'plain-lyrics',
-          syncedLyrics: null,
-          plainLyrics: 'plain line',
-        ),
-      ];
+  test(
+    'lyricsAutoMatchServiceProvider uses persisted plain lyrics setting',
+    () async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+      final settings = Settings()..allowPlainLyricsAutoMatch = true;
+      final lyricsRepo = _FakeLyricsRepository();
+      final netease = _FakeNeteaseSource()
+        ..searchResults = [
+          _lyricsResult(
+            id: 'plain-lyrics',
+            syncedLyrics: null,
+            plainLyrics: 'plain line',
+          ),
+        ];
 
-    final container = ProviderContainer(
-      overrides: [
-        settingsRepositoryProvider.overrideWith(
-          (ref) => _FakeSettingsRepository(settings),
-        ),
-        lyricsRepositoryProvider.overrideWith((ref) => lyricsRepo),
-        lyricsTitleParseCacheRepositoryProvider.overrideWith(
-          (ref) => _FakeLyricsTitleParseCacheRepository(),
-        ),
-        lyricsCacheServiceProvider
-            .overrideWith((ref) => _RecordingLyricsCache()),
-        titleParserProvider.overrideWith((ref) => _FakeTitleParser()),
-        neteaseSourceProvider.overrideWith((ref) => netease),
-        qqmusicSourceProvider.overrideWith((ref) => _FakeQQMusicSource()),
-        lrclibSourceProvider.overrideWith((ref) => _FakeLrclibSource()),
-      ],
-    );
-    addTearDown(container.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          settingsRepositoryProvider.overrideWith(
+            (ref) => _FakeSettingsRepository(settings),
+          ),
+          lyricsRepositoryProvider.overrideWith((ref) => lyricsRepo),
+          lyricsTitleParseCacheRepositoryProvider.overrideWith(
+            (ref) => _FakeLyricsTitleParseCacheRepository(),
+          ),
+          lyricsCacheServiceProvider.overrideWith(
+            (ref) => _RecordingLyricsCache(),
+          ),
+          titleParserProvider.overrideWith((ref) => _FakeTitleParser()),
+          neteaseSourceProvider.overrideWith((ref) => netease),
+          qqmusicSourceProvider.overrideWith((ref) => _FakeQQMusicSource()),
+          lrclibSourceProvider.overrideWith((ref) => _FakeLrclibSource()),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    final service = await _readServiceAfterSettingsLoad(container);
-    final matched = await service.tryAutoMatch(
-      _track('provider-plain'),
-      enabledSources: const ['netease'],
-    );
+      final service = await _readServiceAfterSettingsLoad(container);
+      final matched = await service.tryAutoMatch(
+        _track('provider-plain'),
+        enabledSources: const ['netease'],
+      );
 
-    expect(matched, isTrue);
-    expect(lyricsRepo.saved?.externalId, 'plain-lyrics');
-  });
+      expect(matched, isTrue);
+      expect(lyricsRepo.saved?.externalId, 'plain-lyrics');
+    },
+  );
 }
 
 Track _track(String sourceId) {
   return Track()
     ..sourceId = sourceId
-    ..sourceType = SourceType.youtube
+    ..sourceType = SourceIds.youtube
     ..title = 'Song Name'
     ..durationMs = 180000;
 }
@@ -81,7 +84,9 @@ Future<LyricsAutoMatchService> _readServiceAfterSettingsLoad(
     await Future<void>.delayed(Duration.zero);
   }
   expect(
-      container.read(audioSettingsProvider).allowPlainLyricsAutoMatch, isTrue);
+    container.read(audioSettingsProvider).allowPlainLyricsAutoMatch,
+    isTrue,
+  );
   return container.read(lyricsAutoMatchServiceProvider);
 }
 

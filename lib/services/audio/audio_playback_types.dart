@@ -1,6 +1,1 @@
-enum PlayMode {
-  queue,
-  temporary,
-  detached,
-  mix,
-}
+enum PlayMode { queue, temporary, detached, mix }

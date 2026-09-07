@@ -8,16 +8,18 @@ Widget host({required LyricsOffsetBar child}) =>
 void main() {
   group('LyricsOffsetBar (C1d leaf, shared)', () {
     testWidgets('renders label and formatted offset value', (tester) async {
-      await tester.pumpWidget(host(
-        child: const LyricsOffsetBar(
-          offsetMs: 1500,
-          transparentMode: false,
-          offsetLabel: 'Offset',
-          resetTooltip: 'Reset',
-          onAdjust: _noop,
-          onReset: _noopReset,
+      await tester.pumpWidget(
+        host(
+          child: const LyricsOffsetBar(
+            offsetMs: 1500,
+            transparentMode: false,
+            offsetLabel: 'Offset',
+            resetTooltip: 'Reset',
+            onAdjust: _noop,
+            onReset: _noopReset,
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Offset'), findsOneWidget);
@@ -26,16 +28,18 @@ void main() {
 
     testWidgets('tapping +500 button fires onAdjust(500)', (tester) async {
       var lastDelta = 0;
-      await tester.pumpWidget(host(
-        child: LyricsOffsetBar(
-          offsetMs: 0,
-          transparentMode: false,
-          offsetLabel: 'Offset',
-          resetTooltip: 'Reset',
-          onAdjust: (d) => lastDelta = d,
-          onReset: () {},
+      await tester.pumpWidget(
+        host(
+          child: LyricsOffsetBar(
+            offsetMs: 0,
+            transparentMode: false,
+            offsetLabel: 'Offset',
+            resetTooltip: 'Reset',
+            onAdjust: (d) => lastDelta = d,
+            onReset: () {},
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(Icons.add));
@@ -48,16 +52,18 @@ void main() {
     });
 
     testWidgets('adjust buttons expose delta tooltips', (tester) async {
-      await tester.pumpWidget(host(
-        child: const LyricsOffsetBar(
-          offsetMs: 0,
-          transparentMode: false,
-          offsetLabel: 'Offset',
-          resetTooltip: 'Reset',
-          onAdjust: _noop,
-          onReset: _noopReset,
+      await tester.pumpWidget(
+        host(
+          child: const LyricsOffsetBar(
+            offsetMs: 0,
+            transparentMode: false,
+            offsetLabel: 'Offset',
+            resetTooltip: 'Reset',
+            onAdjust: _noop,
+            onReset: _noopReset,
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       final messages = tester
@@ -73,16 +79,18 @@ void main() {
 
     testWidgets('reset fires onReset when offset != 0', (tester) async {
       var resets = 0;
-      await tester.pumpWidget(host(
-        child: LyricsOffsetBar(
-          offsetMs: 800,
-          transparentMode: false,
-          offsetLabel: 'Offset',
-          resetTooltip: 'Reset',
-          onAdjust: (_) {},
-          onReset: () => resets++,
+      await tester.pumpWidget(
+        host(
+          child: LyricsOffsetBar(
+            offsetMs: 800,
+            transparentMode: false,
+            offsetLabel: 'Offset',
+            resetTooltip: 'Reset',
+            onAdjust: (_) {},
+            onReset: () => resets++,
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(Icons.refresh));
@@ -92,16 +100,18 @@ void main() {
 
     testWidgets('reset is disabled when offset == 0', (tester) async {
       var resets = 0;
-      await tester.pumpWidget(host(
-        child: LyricsOffsetBar(
-          offsetMs: 0,
-          transparentMode: false,
-          offsetLabel: 'Offset',
-          resetTooltip: 'Reset',
-          onAdjust: (_) {},
-          onReset: () => resets++,
+      await tester.pumpWidget(
+        host(
+          child: LyricsOffsetBar(
+            offsetMs: 0,
+            transparentMode: false,
+            offsetLabel: 'Offset',
+            resetTooltip: 'Reset',
+            onAdjust: (_) {},
+            onReset: () => resets++,
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // offsetMs==0 → InkWell.onTap=null → refresh 圖示呈淡色且不可點。

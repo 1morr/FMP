@@ -203,11 +203,7 @@ class ImageLoadingService {
 
     for (final candidate in candidates) {
       var failed = false;
-      await precacheImage(
-        candidate,
-        context,
-        onError: (_, __) => failed = true,
-      );
+      await precacheImage(candidate, context, onError: (_, _) => failed = true);
       if (!failed) return candidate;
     }
 
@@ -330,10 +326,7 @@ class ImageLoadingService {
     return (devicePixelRatio * 2).round() / 2;
   }
 
-  static String? _networkImageCacheKey(
-    String url, {
-    required int cacheExtent,
-  }) {
+  static String? _networkImageCacheKey(String url, {required int cacheExtent}) {
     return 'fmp_s${cacheExtent}_$url';
   }
 
@@ -443,10 +436,7 @@ class _FadeInImageState extends State<_FadeInImage>
       duration: widget.fadeInDuration,
       vsync: this,
     );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
 
     // 预加载图片
     _loadImage();
@@ -677,9 +667,7 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       // flutter_cache_manager 同时存原始图和 PNG 重编码副本（双份磁盘占用）。
       // 磁盘缩放仅保留在 imageProviderCandidates 的 precache 路径。
       placeholder: (context, url) => widget.showLoadingIndicator
-          ? const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
+          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : widget.placeholder,
       errorWidget: (context, url, error) {
         if (!_retryScheduled) {
@@ -798,7 +786,8 @@ class ImagePlaceholder extends StatelessWidget {
       builder: (context, constraints) {
         // 取容器较小边的 40% 作为图标大小，最小 24，最大 64
         final containerSize = constraints.biggest.shortestSide;
-        final effectiveIconSize = iconSize ??
+        final effectiveIconSize =
+            iconSize ??
             (containerSize.isFinite
                 ? (containerSize * 0.4).clamp(24.0, 64.0)
                 : 24.0);

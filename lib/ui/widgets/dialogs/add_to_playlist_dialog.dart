@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/track_repository.dart';
@@ -20,8 +22,10 @@ Future<bool> showAddToPlaylistDialog({
   Track? track,
   List<Track>? tracks,
 }) async {
-  assert(track != null || (tracks != null && tracks.isNotEmpty),
-      'Either track or tracks must be provided');
+  assert(
+    track != null || (tracks != null && tracks.isNotEmpty),
+    'Either track or tracks must be provided',
+  );
 
   final trackList = tracks ?? [track!];
   final result = await showModalBottomSheet<bool>(
@@ -61,7 +65,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
   /// 初始化选中状态：预选已添加歌单中的歌单
   Future<void> _initializeSelection(
-      List<Track> tracks, List<dynamic> playlists) async {
+    List<Track> tracks,
+    List<dynamic> playlists,
+  ) async {
     if (_isInitialized) return;
 
     // 先从数据库获取最新的 track 数据（包含 playlistInfo）
@@ -85,8 +91,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     for (final playlist in manualPlaylists) {
       final playlistId = playlist.id;
       // 检查是否所有 tracks 都在这个歌单中
-      final allInPlaylist =
-          loadedTracks.every((track) => track.belongsToPlaylist(playlistId));
+      final allInPlaylist = loadedTracks.every(
+        (track) => track.belongsToPlaylist(playlistId),
+      );
       if (allInPlaylist) {
         preselectedIds.add(playlistId);
       }
@@ -152,26 +159,23 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                       children: [
                         Text(
                           widget.isMultiple
-                              ? t.library
-                                  .trackCountSongs(n: widget.tracks.length)
+                              ? t.library.trackCountSongs(
+                                  n: widget.tracks.length,
+                                )
                               : widget.firstTrack.title,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           widget.isMultiple
                               ? widget.firstTrack.parentTitle ??
-                                  widget.firstTrack.title
+                                    widget.firstTrack.title
                               : widget.firstTrack.artist ??
-                                  t.general.unknownArtist,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
+                                    t.general.unknownArtist,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -195,19 +199,20 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                 children: [
                   Text(
                     t.addToPlaylistDialog.multiSelect,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                   ),
                   if (_selectedPlaylistIds.isNotEmpty) ...[
                     const Spacer(),
                     Text(
-                      t.addToPlaylistDialog
-                          .selectedCount(count: _selectedPlaylistIds.length),
+                      t.addToPlaylistDialog.selectedCount(
+                        count: _selectedPlaylistIds.length,
+                      ),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ],
@@ -222,13 +227,17 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (error, _) => Center(
-                    child: Text(t.addToPlaylistDialog
-                        .loadFailed(error: error.toString())),
+                    child: Text(
+                      t.addToPlaylistDialog.loadFailed(
+                        error: userMessageFor(error),
+                      ),
+                    ),
                   ),
                   data: (lists) {
                     // 过滤掉导入的歌单，只显示手动创建的歌单
-                    final manualPlaylists =
-                        lists.where((p) => !p.isImported).toList();
+                    final manualPlaylists = lists
+                        .where((p) => !p.isImported)
+                        .toList();
 
                     if (manualPlaylists.isEmpty) {
                       return RemotePlaylistEmptyState(
@@ -243,10 +252,12 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                       itemCount: manualPlaylists.length,
                       itemBuilder: (context, index) {
                         final playlist = manualPlaylists[index];
-                        final isSelected =
-                            _selectedPlaylistIds.contains(playlist.id);
-                        final coverAsync =
-                            ref.watch(playlistCoverProvider(playlist.id));
+                        final isSelected = _selectedPlaylistIds.contains(
+                          playlist.id,
+                        );
+                        final coverAsync = ref.watch(
+                          playlistCoverProvider(playlist.id),
+                        );
 
                         return ListTile(
                           leading: Stack(
@@ -288,7 +299,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                       width: 20,
                                       height: 20,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2),
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                   ),
                                   error: (e, s) => Icon(
@@ -318,8 +330,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                             ],
                           ),
                           title: Text(playlist.name),
-                          subtitle: Text(t.library
-                              .trackCountSongs(n: playlist.trackCount)),
+                          subtitle: Text(
+                            t.library.trackCountSongs(n: playlist.trackCount),
+                          ),
                           trailing: isSelected
                               ? Icon(
                                   Icons.check_circle,
@@ -355,9 +368,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.save),
                     label: Text(_getConfirmButtonText()),
@@ -425,21 +436,31 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
         if (playlist != null && mounted) {
           // 刷新歌单列表以显示新创建的歌单
-          ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
-            [playlist.id],
-            tracksChanged: false,
-            coverChanged: false,
-          );
+          ref
+              .read(libraryInvalidationCoordinatorProvider)
+              .playlistsChanged(
+                [playlist.id],
+                tracksChanged: false,
+                coverChanged: false,
+              );
           // playlistListProvider 已在 createPlaylist 中自动刷新
           // 自动选中新创建的歌单
           setState(() {
             _selectedPlaylistIds.add(playlist.id);
           });
         }
-      } catch (e) {
+      } catch (e, stack) {
+        AppLogger.error(
+          'Creating a playlist failed',
+          e,
+          stack,
+          'AddToPlaylist',
+        );
         if (mounted) {
           ToastService.error(
-              context, t.addToPlaylistDialog.createFailed(error: e.toString()));
+            context,
+            t.addToPlaylistDialog.createFailed(error: userMessageFor(e)),
+          );
         }
       }
     }
@@ -469,7 +490,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     } else {
       // 同时添加和移除
       return t.addToPlaylistDialog.addAndRemoveCount(
-          addCount: toAdd.length, removeCount: toRemove.length);
+        addCount: toAdd.length,
+        removeCount: toRemove.length,
+      );
     }
   }
 
@@ -509,7 +532,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         try {
           if (existingTrackIds.isNotEmpty) {
             await service.removeTracksFromPlaylist(
-                playlistId, existingTrackIds);
+              playlistId,
+              existingTrackIds,
+            );
           }
           removeSuccessCount++;
           changedPlaylistIds.add(playlistId);
@@ -545,31 +570,48 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         if (totalSuccess == totalChanged) {
           if (toAdd.isNotEmpty && toRemove.isNotEmpty) {
             ToastService.success(
-                context,
-                t.addToPlaylistDialog.addedAndRemoved(
-                    addCount: addSuccessCount,
-                    removeCount: removeSuccessCount));
+              context,
+              t.addToPlaylistDialog.addedAndRemoved(
+                addCount: addSuccessCount,
+                removeCount: removeSuccessCount,
+              ),
+            );
           } else if (toAdd.isNotEmpty) {
-            ToastService.success(context,
-                t.addToPlaylistDialog.addedToPlaylists(count: addSuccessCount));
+            ToastService.success(
+              context,
+              t.addToPlaylistDialog.addedToPlaylists(count: addSuccessCount),
+            );
           } else {
             ToastService.success(
-                context,
-                t.addToPlaylistDialog
-                    .removedFromPlaylists(count: removeSuccessCount));
+              context,
+              t.addToPlaylistDialog.removedFromPlaylists(
+                count: removeSuccessCount,
+              ),
+            );
           }
         } else {
           ToastService.warning(
-              context,
-              t.addToPlaylistDialog.partiallyCompleted(
-                  success: totalSuccess, total: totalChanged));
+            context,
+            t.addToPlaylistDialog.partiallyCompleted(
+              success: totalSuccess,
+              total: totalChanged,
+            ),
+          );
         }
         Navigator.pop(context, true);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error(
+        'Adding tracks to a playlist failed',
+        e,
+        stack,
+        'AddToPlaylist',
+      );
       if (mounted) {
-        ToastService.error(context,
-            t.addToPlaylistDialog.operationFailed(error: e.toString()));
+        ToastService.error(
+          context,
+          t.addToPlaylistDialog.operationFailed(error: userMessageFor(e)),
+        );
       }
     } finally {
       if (mounted) {

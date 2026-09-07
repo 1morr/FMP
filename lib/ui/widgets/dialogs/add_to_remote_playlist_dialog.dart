@@ -18,12 +18,15 @@ Future<bool> showAddToRemotePlaylistDialogMulti({
 }) async {
   if (tracks.isEmpty) return false;
 
-  final bilibiliTracks =
-      tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
-  final youtubeTracks =
-      tracks.where((t) => t.sourceType == SourceType.youtube).toList();
-  final neteaseTracks =
-      tracks.where((t) => t.sourceType == SourceType.netease).toList();
+  final bilibiliTracks = tracks
+      .where((t) => t.sourceType == SourceIds.bilibili)
+      .toList();
+  final youtubeTracks = tracks
+      .where((t) => t.sourceType == SourceIds.youtube)
+      .toList();
+  final neteaseTracks = tracks
+      .where((t) => t.sourceType == SourceIds.netease)
+      .toList();
 
   // 提前捕獲 navigator，避免調用方 widget dispose 後 context 失效
   final navigator = Navigator.of(context);
@@ -41,13 +44,17 @@ Future<bool> showAddToRemotePlaylistDialogMulti({
 
   if (youtubeTracks.isNotEmpty && overlay != null && overlay.mounted) {
     final result = await showAddToYouTubePlaylistDialog(
-        context: overlay.context, tracks: youtubeTracks);
+      context: overlay.context,
+      tracks: youtubeTracks,
+    );
     if (result) anySuccess = true;
   }
 
   if (neteaseTracks.isNotEmpty && overlay != null && overlay.mounted) {
     final result = await showAddToNeteasePlaylistDialog(
-        context: overlay.context, tracks: neteaseTracks);
+      context: overlay.context,
+      tracks: neteaseTracks,
+    );
     if (result) anySuccess = true;
   }
 

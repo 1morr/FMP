@@ -34,7 +34,8 @@ class NeteaseSong {
   });
 
   factory NeteaseSong.fromJson(Map<String, dynamic> json) {
-    final artistList = (json['artists'] as List<dynamic>?)
+    final artistList =
+        (json['artists'] as List<dynamic>?)
             ?.map((a) => (a as Map<String, dynamic>)['name'] as String? ?? '')
             .where((n) => n.isNotEmpty)
             .toList() ??
@@ -57,7 +58,8 @@ class NeteaseSong {
   int get durationSeconds => (durationMs / 1000).round();
 
   @override
-  String toString() => 'NeteaseSong(id: $id, "$name" by "$artistsJoined", '
+  String toString() =>
+      'NeteaseSong(id: $id, "$name" by "$artistsJoined", '
       'album: "$albumName", ${durationSeconds}s)';
 }
 
@@ -99,7 +101,8 @@ class NeteaseLyrics {
       !hasLrc || (lrc != null && lrc!.contains('纯音乐，请欣赏'));
 
   @override
-  String toString() => 'NeteaseLyrics(songId: $songId, lrc: $hasLrc, '
+  String toString() =>
+      'NeteaseLyrics(songId: $songId, lrc: $hasLrc, '
       'tlyric: $hasTranslation, romalrc: $hasRomaji)';
 }
 
@@ -109,8 +112,11 @@ class NeteaseException implements Exception {
   final int? apiCode;
   final String message;
 
-  const NeteaseException(
-      {this.statusCode, this.apiCode, required this.message});
+  const NeteaseException({
+    this.statusCode,
+    this.apiCode,
+    required this.message,
+  });
 
   @override
   String toString() =>
@@ -130,15 +136,16 @@ class NeteaseSource with Logging {
   final Dio _dio;
 
   NeteaseSource({Dio? dio})
-      : _dio = dio ??
-            HttpClientFactory.create(
-              baseUrl: _baseUrl,
-              headers: {
-                'User-Agent': _userAgent,
-                'Referer': 'https://music.163.com/',
-                'Origin': 'https://music.163.com',
-              },
-            );
+    : _dio =
+          dio ??
+          HttpClientFactory.create(
+            baseUrl: _baseUrl,
+            headers: {
+              'User-Agent': _userAgent,
+              'Referer': 'https://music.163.com/',
+              'Origin': 'https://music.163.com',
+            },
+          );
 
   /// 關閉內部 Dio（釋放連線池）；provider 於 onDispose 呼叫。
   void dispose() => _dio.close();
@@ -184,8 +191,10 @@ class NeteaseSource with Logging {
         return [];
       }
 
-      final results =
-          songs.cast<Map<String, dynamic>>().map(NeteaseSong.fromJson).toList();
+      final results = songs
+          .cast<Map<String, dynamic>>()
+          .map(NeteaseSong.fromJson)
+          .toList();
 
       logDebug('Found ${results.length} songs');
       return results;
@@ -235,9 +244,7 @@ class NeteaseSource with Logging {
   ///
   /// 搜索歌曲，取第一个结果的歌词。
   /// 返回 null 表示未找到。
-  Future<NeteaseLyrics?> searchAndGetLyrics({
-    required String keywords,
-  }) async {
+  Future<NeteaseLyrics?> searchAndGetLyrics({required String keywords}) async {
     final songs = await searchSongs(keywords: keywords, limit: 5);
     if (songs.isEmpty) return null;
 
@@ -262,10 +269,12 @@ class NeteaseSource with Logging {
     int limit = 10,
   }) async {
     // 构建搜索关键词
-    final keywords = query ??
-        [trackName, artistName]
-            .where((s) => s != null && s.isNotEmpty)
-            .join(' ');
+    final keywords =
+        query ??
+        [
+          trackName,
+          artistName,
+        ].where((s) => s != null && s.isNotEmpty).join(' ');
     if (keywords.isEmpty) return [];
 
     final songs = await searchSongs(keywords: keywords, limit: limit);

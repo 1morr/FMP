@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../models/play_queue.dart';
 import '../../core/logger.dart';
 
@@ -8,8 +8,23 @@ class QueueRepository with Logging {
 
   QueueRepository(this._isar);
 
+  /// 队列写入几乎都是 fire-and-forget 或跟著播放动作走的，没有人等它们落盘。
+  /// app 关闭（以及测试的 tearDown）会先 `isar.close()`，在途的那几笔就撞上
+  /// 已关闭的实例，抛 `IsarError` 而没有任何呼叫端接得住。
+  ///
+  /// 队列是可重建的执行期状态：少写一次的代价是下次启动少还原一个位置，
+  /// 远小于让一个没人等待的写入去炸掉关闭流程。
+  bool get _isUsable {
+    if (_isar.isOpen) return true;
+    logDebug('Isar is closed, skipping queue persistence');
+    return false;
+  }
+
   /// 获取或创建播放队列（单例）
+  ///
+  /// Isar 已关闭时回传一个未持久化的空队列，让呼叫端的读取路径照常运作。
   Future<PlayQueue> getOrCreate() async {
+    if (!_isUsable) return PlayQueue();
     logDebug('Getting or creating queue...');
     var queue = await _isar.playQueues.where().findFirst();
     if (queue == null) {
@@ -19,13 +34,15 @@ class QueueRepository with Logging {
       logDebug('Created new queue with id: ${queue.id}');
     } else {
       logDebug(
-          'Found existing queue with ${queue.trackIds.length} tracks, currentIndex: ${queue.currentIndex}');
+        'Found existing queue with ${queue.trackIds.length} tracks, currentIndex: ${queue.currentIndex}',
+      );
     }
     return queue;
   }
 
   /// 保存播放队列
   Future<int> save(PlayQueue queue) async {
+    if (!_isUsable) return queue.id;
     // logDebug('Saving queue: ${queue.trackIds.length} tracks, index: ${queue.currentIndex}');
     queue.lastUpdated = DateTime.now();
     return _isar.writeTxn(() => _isar.playQueues.put(queue));
@@ -81,8 +98,9 @@ class QueueRepository with Logging {
         queue.currentIndex--;
       } else if (index == queue.currentIndex &&
           queue.currentIndex >= queue.trackIds.length) {
-        queue.currentIndex =
-            queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
+        queue.currentIndex = queue.trackIds.isEmpty
+            ? 0
+            : queue.trackIds.length - 1;
       }
       await save(queue);
     }
@@ -101,8 +119,9 @@ class QueueRepository with Logging {
         queue.currentIndex--;
       } else if (index == queue.currentIndex &&
           queue.currentIndex >= queue.trackIds.length) {
-        queue.currentIndex =
-            queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
+        queue.currentIndex = queue.trackIds.isEmpty
+            ? 0
+            : queue.trackIds.length - 1;
       }
       await save(queue);
     }
@@ -150,8 +169,10 @@ class QueueRepository with Logging {
   /// 更新当前播放索引
   Future<void> updateCurrentIndex(int index) async {
     final queue = await getOrCreate();
-    queue.currentIndex =
-        index.clamp(0, queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1);
+    queue.currentIndex = index.clamp(
+      0,
+      queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1,
+    );
     await save(queue);
   }
 

@@ -207,16 +207,21 @@ class _BilibiliRemoteFavSheetState
       final result = await ref
           .read(remotePlaylistEditControllerProvider)
           .submitSelectionEdit(
-            sourceType: SourceType.bilibili,
+            sourceType: SourceIds.bilibili,
             tracks: _tracks,
-            selectedPlaylistIds:
-                _selectedIds.map((id) => id.toString()).toSet(),
-            originalPlaylistIds:
-                _originalIds.map((id) => id.toString()).toSet(),
-            deselectedPartialPlaylistIds:
-                _deselectedPartialIds.map((id) => id.toString()).toSet(),
-            existingTrackSourceIdsByPlaylist:
-                _existingTrackIdsByFolder.map((folderId, trackIds) {
+            selectedPlaylistIds: _selectedIds
+                .map((id) => id.toString())
+                .toSet(),
+            originalPlaylistIds: _originalIds
+                .map((id) => id.toString())
+                .toSet(),
+            deselectedPartialPlaylistIds: _deselectedPartialIds
+                .map((id) => id.toString())
+                .toSet(),
+            existingTrackSourceIdsByPlaylist: _existingTrackIdsByFolder.map((
+              folderId,
+              trackIds,
+            ) {
               return MapEntry(folderId.toString(), trackIds);
             }),
           );
@@ -261,29 +266,30 @@ class _BilibiliRemoteFavSheetState
       buttonText: _getButtonText(),
       listBuilder: (context, scrollController) =>
           RemotePlaylistSelectionListView<BilibiliFavFolder>(
-        isLoading: _isLoading,
-        errorMessage: _errorMessage,
-        items: _folders,
-        scrollController: scrollController,
-        isChecking: _isCheckingMulti,
-        itemImageUrl: (folder) => folder.coverUrl,
-        itemIcon: (folder) =>
-            folder.isDefault ? Icons.star : Icons.folder_outlined,
-        itemTitle: (folder) => folder.title,
-        itemSubtitle: (folder) => '${folder.mediaCount}',
-        isSelected: (folder) => _selectedIds.contains(folder.id),
-        isPartial: (folder) =>
-            !_selectedIds.contains(folder.id) &&
-            _partialIds.contains(folder.id) &&
-            !_deselectedPartialIds.contains(folder.id),
-        onToggle: _toggleFolder,
-      ),
+            isLoading: _isLoading,
+            errorMessage: _errorMessage,
+            items: _folders,
+            scrollController: scrollController,
+            isChecking: _isCheckingMulti,
+            itemImageUrl: (folder) => folder.coverUrl,
+            itemIcon: (folder) =>
+                folder.isDefault ? Icons.star : Icons.folder_outlined,
+            itemTitle: (folder) => folder.title,
+            itemSubtitle: (folder) => '${folder.mediaCount}',
+            isSelected: (folder) => _selectedIds.contains(folder.id),
+            isPartial: (folder) =>
+                !_selectedIds.contains(folder.id) &&
+                _partialIds.contains(folder.id) &&
+                !_deselectedPartialIds.contains(folder.id),
+            onToggle: _toggleFolder,
+          ),
     );
   }
 
   void _toggleFolder(BilibiliFavFolder folder) {
     final isSelected = _selectedIds.contains(folder.id);
-    final isPartial = !isSelected &&
+    final isPartial =
+        !isSelected &&
         _partialIds.contains(folder.id) &&
         !_deselectedPartialIds.contains(folder.id);
     setState(() {

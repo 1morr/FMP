@@ -15,69 +15,81 @@ void main() {
     }
 
     test(
-        'Windows desktop service exposes one close-intent path for both close sources',
-        () {
-      final source =
-          readSource('lib/services/platform/windows_desktop_service.dart');
+      'Windows desktop service exposes one close-intent path for both close sources',
+      () {
+        final source = readSource(
+          'lib/services/platform/windows_desktop_service.dart',
+        );
 
-      expect(
-        source,
-        contains(
-          'Future<void> handleCloseIntent({required bool fromSystemClose}) async {',
-        ),
-      );
-      expect(
-        source,
-        contains('Future<void> handleCloseButton() => handleCloseIntent('),
-      );
-      expect(source, contains('fromSystemClose: false,'));
-      expect(
-        source,
-        contains('void onWindowClose() => unawaited(handleCloseIntent('),
-      );
-      expect(source, contains('fromSystemClose: true,'));
-      expect(
-        source,
-        isNot(
+        expect(
+          source,
           contains(
-            'Future<void> handleCloseIntent({required bool fromSystemClose}) async {\n    if (!Platform.isWindows || !_isInitialized) return;',
+            'Future<void> handleCloseIntent({required bool fromSystemClose}) async {',
           ),
-        ),
-      );
-      expect(
-        source,
-        isNot(contains(
-            'Future<void> minimizeToTray() async {\n    if (!Platform.isWindows || !_isInitialized) return;')),
-      );
-    });
+        );
+        expect(
+          source,
+          contains('Future<void> handleCloseButton() => handleCloseIntent('),
+        );
+        expect(source, contains('fromSystemClose: false'));
+        expect(
+          source,
+          contains('void onWindowClose() => unawaited(handleCloseIntent('),
+        );
+        expect(source, contains('fromSystemClose: true'));
+        expect(
+          source,
+          isNot(
+            contains(
+              'Future<void> handleCloseIntent({required bool fromSystemClose}) async {\n    if (!Platform.isWindows || !_isInitialized) return;',
+            ),
+          ),
+        );
+        expect(
+          source,
+          isNot(
+            contains(
+              'Future<void> minimizeToTray() async {\n    if (!Platform.isWindows || !_isInitialized) return;',
+            ),
+          ),
+        );
+      },
+    );
 
     test('custom title bar close button uses unified close-intent handler', () {
-      final source =
-          readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
+      final source = readSource(
+        'lib/ui/widgets/app_bars/custom_title_bar.dart',
+      );
 
-      expect(source,
-          contains('service.handleCloseIntent(fromSystemClose: false)'));
+      expect(
+        source,
+        contains('service.handleCloseIntent(fromSystemClose: false)'),
+      );
       expect(source, isNot(contains('service.handleCloseButton()')));
     });
 
     test(
-        'custom title bar exposes explicit semantics labels for window controls',
-        () {
-      final source =
-          readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
+      'custom title bar exposes explicit semantics labels for window controls',
+      () {
+        final source = readSource(
+          'lib/ui/widgets/app_bars/custom_title_bar.dart',
+        );
 
-      expect(source, contains('tooltip: t.general.minimize'));
-      expect(
+        expect(source, contains('tooltip: t.general.minimize'));
+        expect(
           source,
           contains(
-              'tooltip: _isMaximized ? t.general.restore : t.general.maximize'));
-      expect(source, contains('tooltip: t.general.close'));
-      expect(source, contains('Semantics('));
-      expect(source, contains('label: widget.tooltip'));
-      expect(source, contains('message: widget.tooltip'));
-      expect(source, contains('excludeFromSemantics: true'));
-      expect(source, contains('ExcludeSemantics('));
-    });
+            'tooltip: _isMaximized ? t.general.restore : t.general.maximize',
+          ),
+        );
+        expect(source, contains('tooltip: t.general.close'));
+        expect(source, contains('Semantics('));
+        expect(source, contains('label: widget.tooltip'));
+        expect(source, contains('message: widget.tooltip'));
+        expect(source, contains('excludeFromSemantics: true'));
+        expect(source, contains('ExcludeSemantics('));
+      },
+    );
 
     test('main Windows app tree is no longer wrapped in ExcludeSemantics', () {
       final source = readSource('lib/app.dart');
@@ -89,20 +101,25 @@ void main() {
     });
 
     test(
-        'lyrics window avoids whole-tree semantics exclusion and labels title bar controls',
-        () {
-      final source = readSource('lib/ui/windows/lyrics_window.dart');
+      'lyrics window avoids whole-tree semantics exclusion and labels title bar controls',
+      () {
+        final source = readSource('lib/ui/windows/lyrics_window.dart');
 
-      // 整棵樹不得包 ExcludeSemantics（標題列控制項的語意必須可及）。
-      expect(source, isNot(contains('return ExcludeSemantics(')));
+        // 整棵樹不得包 ExcludeSemantics（標題列控制項的語意必須可及）。
+        expect(source, isNot(contains('return ExcludeSemantics(')));
 
-      // 標題列控制項的 Semantics/Tooltip 邏輯現已抽到 leaf（C1e-2），
-      // 於該檔驗證每個按鈕仍有 label + excludeFromSemantics + ExcludeSemantics。
-      final titleBar =
-          readSource('lib/ui/windows/lyrics/lyrics_title_bar.dart');
-      expect(titleBar, contains('label: tooltip'));
-      expect(titleBar, contains('excludeFromSemantics: true'));
-      expect(titleBar, contains('ExcludeSemantics(child: Icon('));
-    });
+        // 標題列控制項的 Semantics/Tooltip 邏輯現已抽到 leaf（C1e-2），
+        // 於該檔驗證每個按鈕仍有 label + excludeFromSemantics + ExcludeSemantics。
+        final titleBar = readSource(
+          'lib/ui/windows/lyrics/lyrics_title_bar.dart',
+        );
+        expect(titleBar, contains('label: tooltip'));
+        expect(titleBar, contains('excludeFromSemantics: true'));
+        expect(
+          titleBar,
+          matches(RegExp(r'ExcludeSemantics\(\s*child: Icon\(')),
+        );
+      },
+    );
   });
 }

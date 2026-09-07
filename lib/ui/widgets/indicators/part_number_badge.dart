@@ -23,10 +23,7 @@ class PartNumberBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     if (isPlaying) {
-      return NowPlayingIndicator(
-        size: 24,
-        color: colorScheme.primary,
-      );
+      return NowPlayingIndicator(size: 24, color: colorScheme.primary);
     }
     return Container(
       width: 32,
@@ -38,9 +35,9 @@ class PartNumberBadge extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         'P$partNumber',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.outline,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
       ),
     );
   }

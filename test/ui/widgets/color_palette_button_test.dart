@@ -5,25 +5,27 @@ import 'package:fmp/ui/widgets/controls/color_palette_button.dart';
 const _hexInputKey = ValueKey('color-palette-hex-input');
 
 void main() {
-  testWidgets('shows only the current color button before opening the palette',
-      (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ColorPaletteButton(
-            label: 'Text color',
-            color: const Color(0xFFFFD166),
-            onChanged: (_) {},
+  testWidgets(
+    'shows only the current color button before opening the palette',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ColorPaletteButton(
+              label: 'Text color',
+              color: const Color(0xFFFFD166),
+              onChanged: (_) {},
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.byType(OutlinedButton), findsOneWidget);
-    expect(find.text('#FFFFD166'), findsOneWidget);
-    expect(find.byKey(ColorPaletteButton.paletteKey), findsNothing);
-    expect(find.byType(TextFormField), findsNothing);
-  });
+      expect(find.byType(OutlinedButton), findsOneWidget);
+      expect(find.text('#FFFFD166'), findsOneWidget);
+      expect(find.byKey(ColorPaletteButton.paletteKey), findsNothing);
+      expect(find.byType(TextFormField), findsNothing);
+    },
+  );
 
   testWidgets('opens a palette from the current color button', (tester) async {
     final changes = <Color>[];
@@ -54,8 +56,9 @@ void main() {
     expect(changes, isNotEmpty);
   });
 
-  testWidgets('bottom slider changes color brightness instead of opacity',
-      (tester) async {
+  testWidgets('bottom slider changes color brightness instead of opacity', (
+    tester,
+  ) async {
     final changes = <Color>[];
 
     await tester.pumpWidget(
@@ -84,8 +87,9 @@ void main() {
     expect(changedRed, lessThan(0xff));
   });
 
-  testWidgets('palette accepts manually entered 8 digit hex colors',
-      (tester) async {
+  testWidgets('palette accepts manually entered 8 digit hex colors', (
+    tester,
+  ) async {
     final changes = <Color>[];
 
     await tester.pumpWidget(
@@ -109,8 +113,9 @@ void main() {
     expect(changes.last, const Color(0xFF336699));
   });
 
-  testWidgets('palette accepts manually entered 6 digit hex colors',
-      (tester) async {
+  testWidgets('palette accepts manually entered 6 digit hex colors', (
+    tester,
+  ) async {
     final changes = <Color>[];
 
     await tester.pumpWidget(
@@ -134,8 +139,9 @@ void main() {
     expect(changes.last, const Color(0xFF336699));
   });
 
-  testWidgets('palette keeps hex input synced with palette changes',
-      (tester) async {
+  testWidgets('palette keeps hex input synced with palette changes', (
+    tester,
+  ) async {
     final changes = <Color>[];
 
     await tester.pumpWidget(
@@ -186,8 +192,9 @@ void main() {
     await tester.tap(find.byType(OutlinedButton));
     await tester.pumpAndSettle();
 
-    final contentWidth =
-        tester.getSize(find.byKey(ColorPaletteButton.paletteContentKey)).width;
+    final contentWidth = tester
+        .getSize(find.byKey(ColorPaletteButton.paletteContentKey))
+        .width;
     final inputWidth = tester.getSize(find.byKey(_hexInputKey)).width;
 
     expect(inputWidth, lessThan(contentWidth));
@@ -258,8 +265,9 @@ void main() {
     expect(paletteRect.bottom, lessThanOrEqualTo(300));
   });
 
-  testWidgets('palette shell keeps title content and actions aligned',
-      (tester) async {
+  testWidgets('palette shell keeps title content and actions aligned', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(360, 500);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -280,10 +288,12 @@ void main() {
     await tester.tap(find.byType(OutlinedButton));
     await tester.pumpAndSettle();
 
-    final paletteWidth =
-        tester.getSize(find.byKey(ColorPaletteButton.paletteKey)).width;
-    final contentWidth =
-        tester.getSize(find.byKey(ColorPaletteButton.paletteContentKey)).width;
+    final paletteWidth = tester
+        .getSize(find.byKey(ColorPaletteButton.paletteKey))
+        .width;
+    final contentWidth = tester
+        .getSize(find.byKey(ColorPaletteButton.paletteContentKey))
+        .width;
 
     expect(paletteWidth - contentWidth, 32);
   });

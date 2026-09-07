@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../core/errors/user_message.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../core/services/toast_service.dart';
@@ -57,9 +59,7 @@ class SettingsPage extends ConsumerWidget {
     ref.watch(localeProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.settings.title),
-      ),
+      appBar: AppBar(title: Text(t.settings.title)),
       body: ListView(
         children: [
           // 帳號管理
@@ -143,10 +143,7 @@ class SettingsPage extends ConsumerWidget {
           // 数据备份
           _SettingsSection(
             title: t.settings.backup.title,
-            children: [
-              _ExportDataListTile(),
-              _ImportDataListTile(),
-            ],
+            children: [_ExportDataListTile(), _ImportDataListTile()],
           ),
           const Divider(),
           // 桌面设置（仅 Windows）
@@ -203,10 +200,7 @@ class _SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _SettingsSection({
-    required this.title,
-    required this.children,
-  });
+  const _SettingsSection({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -218,8 +212,8 @@ class _SettingsSection extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         ...children,

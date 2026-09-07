@@ -32,7 +32,8 @@ class NeteaseSong {
   });
 
   factory NeteaseSong.fromJson(Map<String, dynamic> json) {
-    final artistList = (json['artists'] as List<dynamic>?)
+    final artistList =
+        (json['artists'] as List<dynamic>?)
             ?.map((a) => (a as Map<String, dynamic>)['name'] as String? ?? '')
             .where((n) => n.isNotEmpty)
             .toList() ??
@@ -57,12 +58,7 @@ class NeteaseLyrics {
   final String? tlyric;
   final String? romalrc;
 
-  NeteaseLyrics({
-    required this.songId,
-    this.lrc,
-    this.tlyric,
-    this.romalrc,
-  });
+  NeteaseLyrics({required this.songId, this.lrc, this.tlyric, this.romalrc});
 
   factory NeteaseLyrics.fromJson(int songId, Map<String, dynamic> json) {
     return NeteaseLyrics(
@@ -90,17 +86,19 @@ Map<String, dynamic> ensureMap(dynamic data) {
 // ── Demo 主函数 ──
 
 Future<void> main() async {
-  final dio = Dio(BaseOptions(
-    baseUrl: 'https://music.163.com',
-    headers: {
-      'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-              '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://music.163.com/',
-    },
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 15),
-  ));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://music.163.com',
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://music.163.com/',
+      },
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   print('=' * 60);
   print('网易云音乐歌词 API Demo');
@@ -149,7 +147,8 @@ Future<void> _testSearch(
     }
 
     final result = searchData['result'] as Map<String, dynamic>?;
-    final songs = (result?['songs'] as List<dynamic>?)
+    final songs =
+        (result?['songs'] as List<dynamic>?)
             ?.cast<Map<String, dynamic>>()
             .map(NeteaseSong.fromJson)
             .toList() ??
@@ -157,8 +156,10 @@ Future<void> _testSearch(
 
     print('找到 ${songs.length} 首歌曲:');
     for (final song in songs.take(5)) {
-      print('  [${song.id}] ${song.name} - ${song.artistsJoined} '
-          '(${song.albumName}, ${song.durationSeconds}s)');
+      print(
+        '  [${song.id}] ${song.name} - ${song.artistsJoined} '
+        '(${song.albumName}, ${song.durationSeconds}s)',
+      );
     }
 
     // 获取歌词
@@ -168,12 +169,7 @@ Future<void> _testSearch(
 
       final lyricResp = await dio.get(
         '/api/song/lyric',
-        queryParameters: {
-          'id': song.id,
-          'lv': 1,
-          'tv': 1,
-          'rv': 1,
-        },
+        queryParameters: {'id': song.id, 'lv': 1, 'tv': 1, 'rv': 1},
         options: Options(responseType: ResponseType.plain),
       );
 

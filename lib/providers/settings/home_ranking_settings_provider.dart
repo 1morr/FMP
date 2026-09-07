@@ -5,9 +5,8 @@ import '../../data/models/settings.dart';
 import '../database/repository_providers.dart';
 
 typedef LoadHomeRankingSettings = Future<Settings> Function();
-typedef UpdateHomeRankingSettings = Future<Settings> Function(
-  void Function(Settings settings) mutate,
-);
+typedef UpdateHomeRankingSettings =
+    Future<Settings> Function(void Function(Settings settings) mutate);
 
 class HomeRankingSettingsState {
   final List<String> sourceOrder;
@@ -18,12 +17,12 @@ class HomeRankingSettingsState {
     List<String>? sourceOrder,
     Set<String> disabledSources = const <String>{},
     this.isLoading = true,
-  })  : sourceOrder = List.unmodifiable(sourceOrder ?? homeRankingSourceIds),
-        disabledSources = Set.unmodifiable(disabledSources);
+  }) : sourceOrder = List.unmodifiable(sourceOrder ?? homeRankingSourceIds),
+       disabledSources = Set.unmodifiable(disabledSources);
 
   List<String> get enabledSourceOrder => List.unmodifiable(
-        sourceOrder.where((source) => !disabledSources.contains(source)),
-      );
+    sourceOrder.where((source) => !disabledSources.contains(source)),
+  );
 
   HomeRankingSettingsState copyWith({
     List<String>? sourceOrder,
@@ -38,10 +37,9 @@ class HomeRankingSettingsState {
   }
 }
 
-class HomeRankingSettingsNotifier
-    extends StateNotifier<HomeRankingSettingsState> {
-  final LoadHomeRankingSettings _loadSettingsFromStore;
-  final UpdateHomeRankingSettings _updateSettings;
+class HomeRankingSettingsNotifier extends Notifier<HomeRankingSettingsState> {
+  late LoadHomeRankingSettings _loadSettingsFromStore;
+  late UpdateHomeRankingSettings _updateSettings;
   Settings? _settings;
   Future<void> _sourceOrderMutation = Future<void>.value();
   Future<void> _disabledSourcesMutation = Future<void>.value();
@@ -50,13 +48,13 @@ class HomeRankingSettingsNotifier
   int _sourceOrderGeneration = 0;
   int _disabledSourcesGeneration = 0;
 
-  HomeRankingSettingsNotifier({
-    required LoadHomeRankingSettings loadSettings,
-    required UpdateHomeRankingSettings updateSettings,
-  })  : _loadSettingsFromStore = loadSettings,
-        _updateSettings = updateSettings,
-        super(HomeRankingSettingsState()) {
+  @override
+  HomeRankingSettingsState build() {
+    final store = ref.watch(homeRankingSettingsStoreProvider);
+    _loadSettingsFromStore = store.load;
+    _updateSettings = store.update;
     _loadSettings();
+    return HomeRankingSettingsState();
   }
 
   Future<void> _loadSettings() async {
@@ -111,11 +109,7 @@ class HomeRankingSettingsNotifier
       return Future<void>.value();
     }
 
-    final disabled = _applySourceToggle(
-      state.disabledSources,
-      source,
-      enabled,
-    );
+    final disabled = _applySourceToggle(state.disabledSources, source, enabled);
 
     if (disabled.length >= homeRankingSourceIds.length) {
       return Future<void>.value();
@@ -154,40 +148,47 @@ class HomeRankingSettingsNotifier
     int generation,
   ) async {
     try {
-      _settings = await _updateSettings(
-        (settings) {
-          final disabled = _applySourceToggle(
-            settings.disabledHomeRankingSourcesSet,
-            source,
-            enabled,
-          );
-          if (disabled.length < homeRankingSourceIds.length) {
-            settings.disabledHomeRankingSourcesSet = disabled;
-          }
-        },
-      );
+      _settings = await _updateSettings((settings) {
+        final disabled = _applySourceToggle(
+          settings.disabledHomeRankingSourcesSet,
+          source,
+          enabled,
+        );
+        if (disabled.length < homeRankingSourceIds.length) {
+          settings.disabledHomeRankingSourcesSet = disabled;
+        }
+      });
       _persistedDisabledSources = _settings!.disabledHomeRankingSourcesSet;
       if (_disabledSourcesGeneration == generation) {
         state = state.copyWith(disabledSources: _persistedDisabledSources);
       }
     } catch (_) {
       if (_disabledSourcesGeneration == generation) {
-        state = state.copyWith(
-          disabledSources: _persistedDisabledSources,
-        );
+        state = state.copyWith(disabledSources: _persistedDisabledSources);
       }
     }
   }
 }
 
-final homeRankingSettingsProvider = StateNotifierProvider<
-    HomeRankingSettingsNotifier, HomeRankingSettingsState>((ref) {
-  final repository = ref.watch(settingsRepositoryProvider);
-  return HomeRankingSettingsNotifier(
-    loadSettings: repository.get,
-    updateSettings: repository.update,
-  );
+/// 這個 notifier 只透過兩個函式碰設定。以前它們是建構子參數，測試直接注入
+/// 假的存取層；`Notifier` 的工廠不吃參數，所以那道縫改成一個 provider ——
+/// 測試覆寫這裡就好，不必為了換兩個函式而架一整個 Isar。
+typedef HomeRankingSettingsStore = ({
+  LoadHomeRankingSettings load,
+  UpdateHomeRankingSettings update,
 });
+
+final homeRankingSettingsStoreProvider = Provider<HomeRankingSettingsStore>((
+  ref,
+) {
+  final repository = ref.watch(settingsRepositoryProvider);
+  return (load: repository.get, update: repository.update);
+});
+
+final homeRankingSettingsProvider =
+    NotifierProvider<HomeRankingSettingsNotifier, HomeRankingSettingsState>(
+      HomeRankingSettingsNotifier.new,
+    );
 
 final enabledHomeRankingSourceOrderProvider = Provider<List<String>>((ref) {
   return ref.watch(homeRankingSettingsProvider).enabledSourceOrder;

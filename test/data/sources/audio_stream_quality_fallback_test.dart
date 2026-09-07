@@ -8,41 +8,43 @@ import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
   group('audio stream quality fallback', () {
-    test('primary fallback preserves track identity and auth headers',
-        () async {
-      final source = _RecordingSource()
-        ..failQualities.add(AudioQualityLevel.high);
-      final request = AudioStreamRequest(
-        sourceId: 'BVmulti',
-        cid: 24680,
-        pageNum: 2,
-        config: const AudioStreamConfig(
-          qualityLevel: AudioQualityLevel.high,
-        ),
-        authHeaders: const {'Cookie': 'SESSDATA=token'},
-      );
+    test(
+      'primary fallback preserves track identity and auth headers',
+      () async {
+        final source = _RecordingSource()
+          ..failQualities.add(AudioQualityLevel.high);
+        final request = AudioStreamRequest(
+          sourceId: 'BVmulti',
+          cid: 24680,
+          pageNum: 2,
+          config: const AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
+          authHeaders: const {'Cookie': 'SESSDATA=token'},
+        );
 
-      final result = await fetchAudioStreamWithQualityFallback(
-        source: source,
-        request: request,
-      );
+        final result = await fetchAudioStreamWithQualityFallback(
+          source: source,
+          request: request,
+        );
 
-      expect(result.url, 'https://example.com/BVmulti-medium.m4a');
-      expect(source.primaryRequests.map((r) => r.config.qualityLevel), [
-        AudioQualityLevel.high,
-        AudioQualityLevel.medium,
-      ]);
-      expect(
-          source.primaryRequests.every((r) => r.sourceId == 'BVmulti'), isTrue);
-      expect(source.primaryRequests.every((r) => r.cid == 24680), isTrue);
-      expect(source.primaryRequests.every((r) => r.pageNum == 2), isTrue);
-      expect(
-        source.primaryRequests.every(
-          (r) => r.authHeaders?['Cookie'] == 'SESSDATA=token',
-        ),
-        isTrue,
-      );
-    });
+        expect(result.url, 'https://example.com/BVmulti-medium.m4a');
+        expect(source.primaryRequests.map((r) => r.config.qualityLevel), [
+          AudioQualityLevel.high,
+          AudioQualityLevel.medium,
+        ]);
+        expect(
+          source.primaryRequests.every((r) => r.sourceId == 'BVmulti'),
+          isTrue,
+        );
+        expect(source.primaryRequests.every((r) => r.cid == 24680), isTrue);
+        expect(source.primaryRequests.every((r) => r.pageNum == 2), isTrue);
+        expect(
+          source.primaryRequests.every(
+            (r) => r.authHeaders?['Cookie'] == 'SESSDATA=token',
+          ),
+          isTrue,
+        );
+      },
+    );
 
     test('alternative fallback preserves failedUrl and identity', () async {
       final source = _RecordingSource()..returnNullAlternativeForHigh = true;
@@ -51,9 +53,7 @@ void main() {
         cid: 13579,
         pageNum: 3,
         failedUrl: 'https://failed.example/audio.m4a',
-        config: const AudioStreamConfig(
-          qualityLevel: AudioQualityLevel.high,
-        ),
+        config: const AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
         authHeaders: const {'Cookie': 'SESSDATA=token'},
       );
 
@@ -81,16 +81,11 @@ void main() {
         ..failingKind = SourceErrorKind.network;
       final request = AudioStreamRequest(
         sourceId: 'network-failure',
-        config: const AudioStreamConfig(
-          qualityLevel: AudioQualityLevel.high,
-        ),
+        config: const AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
       );
 
       await expectLater(
-        fetchAudioStreamWithQualityFallback(
-          source: source,
-          request: request,
-        ),
+        fetchAudioStreamWithQualityFallback(source: source, request: request),
         throwsA(isA<_FakeSourceException>()),
       );
 
@@ -109,7 +104,7 @@ class _RecordingSource implements AudioStreamSource {
   var returnNullAlternativeForHigh = false;
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -156,5 +151,5 @@ class _FakeSourceException extends SourceApiException {
   String get message => 'fake failure';
 
   @override
-  SourceType get sourceType => SourceType.bilibili;
+  String get sourceType => SourceIds.bilibili;
 }

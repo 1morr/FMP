@@ -1,17 +1,19 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/lyrics_match.dart';
 import 'package:fmp/data/repositories/lyrics_repository.dart';
+import 'package:fmp/providers/audio/audio_settings_provider.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
 import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
+import '../support/isar_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,9 +23,7 @@ void main() {
     late Isar isar;
 
     setUpAll(() async {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
-      );
+      await initializeIsarForTests();
     });
 
     setUp(() async {
@@ -44,34 +44,30 @@ void main() {
       }
     });
 
-    test('single-source filters do not query disabled lyrics sources',
-        () async {
-      final netease = _FakeNeteaseSource()
-        ..results = [_lyricsResult(id: 'netease-1', source: 'netease')];
-      final notifier = LyricsSearchNotifier(
-        _FakeLrclibSource(),
-        netease,
-        _FakeQQMusicSource(),
-        LyricsRepository(isar),
-        LyricsCacheService(),
-        disabledSources: const {'netease'},
-      );
+    test(
+      'single-source filters do not query disabled lyrics sources',
+      () async {
+        final netease = _FakeNeteaseSource()
+          ..results = [_lyricsResult(id: 'netease-1', source: 'netease')];
+        final notifier = _notifier(
+          netease: netease,
+          repo: LyricsRepository(isar),
+          disabledSources: const {'netease'},
+        );
 
-      notifier.setFilter(LyricsSourceFilter.netease);
-      await notifier.search(query: 'Song Name');
+        notifier.setFilter(LyricsSourceFilter.netease);
+        await notifier.search(query: 'Song Name');
 
-      expect(netease.searchCalls, isEmpty);
-      expect(notifier.state.isLoading, isFalse);
-      expect(notifier.state.results, isEmpty);
-      expect(notifier.state.error, isNull);
-    });
+        expect(netease.searchCalls, isEmpty);
+        expect(notifier.state.isLoading, isFalse);
+        expect(notifier.state.results, isEmpty);
+        expect(notifier.state.error, isNull);
+      },
+    );
   });
 }
 
-LyricsResult _lyricsResult({
-  required String id,
-  required String source,
-}) {
+LyricsResult _lyricsResult({required String id, required String source}) {
   return LyricsResult(
     id: id,
     trackName: 'Song Name',
@@ -95,8 +91,9 @@ class _FakeNeteaseSource extends NeteaseSource {
     String? artistName,
     int limit = 10,
   }) async {
-    searchCalls
-        .add(query ?? [trackName, artistName].whereType<String>().join(' '));
+    searchCalls.add(
+      query ?? [trackName, artistName].whereType<String>().join(' '),
+    );
     return results;
   }
 }
@@ -124,26 +121,36 @@ class _FakeLrclibSource extends LrclibSource {
   }
 }
 
-Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile =
-      File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
-      as Map<String, dynamic>;
-  final packages = packageConfig['packages'] as List<dynamic>;
-  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
+/// `LyricsSearchNotifier` 以前吃五個位置參數 ＋ 兩個具名參數；`Notifier.new`
+/// 不吃參數，所以全部改由 container 注入。來源順序與停用清單本來就來自
+/// `audioSettingsProvider`，這裡用一個回傳固定狀態的子類蓋掉它。
+LyricsSearchNotifier _notifier({
+  required NeteaseSource netease,
+  required LyricsRepository repo,
+  Set<String> disabledSources = const {},
+}) {
+  final container = ProviderContainer(
+    overrides: [
+      lrclibSourceProvider.overrideWith((ref) => _FakeLrclibSource()),
+      neteaseSourceProvider.overrideWith((ref) => netease),
+      qqmusicSourceProvider.overrideWith((ref) => _FakeQQMusicSource()),
+      lyricsRepositoryProvider.overrideWith((ref) => repo),
+      lyricsCacheServiceProvider.overrideWith((ref) => LyricsCacheService()),
+      audioSettingsProvider.overrideWith(
+        () => _FixedAudioSettings(disabledSources),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  return container.read(lyricsSearchProvider.notifier);
+}
 
-  for (final package in packages) {
-    if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') {
-      continue;
-    }
-    final packageDir = Directory(
-      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
-    );
-    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
-    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
-    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
-  }
+class _FixedAudioSettings extends AudioSettingsNotifier {
+  _FixedAudioSettings(this._disabled);
 
-  throw StateError('Unsupported platform for Isar test setup');
+  final Set<String> _disabled;
+
+  @override
+  AudioSettingsState build() =>
+      AudioSettingsState(disabledLyricsSources: _disabled);
 }

@@ -77,8 +77,11 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
     var songBegin = 0;
 
     while (true) {
-      final result =
-          await _fetchPlaylistPage(playlistIdInt, songBegin, pageSize);
+      final result = await _fetchPlaylistPage(
+        playlistIdInt,
+        songBegin,
+        pageSize,
+      );
 
       playlistName ??= result.name;
       totalCount = result.totalCount;
@@ -180,10 +183,12 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
 
     // 解析歌单信息
     final dirinfo = reqData['dirinfo'];
-    final name =
-        dirinfo is Map<String, dynamic> ? dirinfo['title'] as String? : null;
-    final totalCount =
-        dirinfo is Map<String, dynamic> ? (dirinfo['songnum'] as int? ?? 0) : 0;
+    final name = dirinfo is Map<String, dynamic>
+        ? dirinfo['title'] as String?
+        : null;
+    final totalCount = dirinfo is Map<String, dynamic>
+        ? (dirinfo['songnum'] as int? ?? 0)
+        : 0;
 
     // 解析歌曲列表
     final songlist = reqData['songlist'];
@@ -200,14 +205,16 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
         final interval = song['interval'] as int?;
         final songmid = song['mid'] as String?;
 
-        tracks.add(ImportedTrack(
-          title: title,
-          artists: artists,
-          album: album,
-          duration: interval != null ? Duration(seconds: interval) : null,
-          sourceId: songmid,
-          source: PlaylistSource.qqMusic,
-        ));
+        tracks.add(
+          ImportedTrack(
+            title: title,
+            artists: artists,
+            album: album,
+            duration: interval != null ? Duration(seconds: interval) : null,
+            sourceId: songmid,
+            source: PlaylistSource.qqMusic,
+          ),
+        );
       }
     }
 
@@ -237,7 +244,10 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
   }
 
   Map<String, dynamic> _buildRequest(
-      int playlistId, int songBegin, int songNum) {
+    int playlistId,
+    int songBegin,
+    int songNum,
+  ) {
     return {
       'req_0': {
         'module': 'music.srfDissInfo.aiDissInfo',
@@ -251,12 +261,7 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
           'song_num': songNum,
         },
       },
-      'comm': {
-        'g_tk': 5381,
-        'uin': 0,
-        'format': 'json',
-        'platform': 'android',
-      },
+      'comm': {'g_tk': 5381, 'uin': 0, 'format': 'json', 'platform': 'android'},
     };
   }
 

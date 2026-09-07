@@ -11,80 +11,98 @@ void main() {
     setUp(AppLogger.clearLogs);
 
     test(
-        'sends title and uploader metadata without treating uploader as artist',
-        () async {
-      final dio = Dio();
-      RequestOptions? capturedOptions;
-      Map<String, dynamic>? capturedBody;
-      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        capturedOptions = options;
-        capturedBody =
-            jsonDecode(requestBody as String) as Map<String, dynamic>;
-        return _jsonResponse({
-          'choices': [
-            {
-              'message': {
-                'content': jsonEncode({
-                  'trackName': 'Song',
-                  'artistName': 'Artist',
-                  'artistConfidence': 0.9,
-                }),
+      'sends title and uploader metadata without treating uploader as artist',
+      () async {
+        final dio = Dio();
+        RequestOptions? capturedOptions;
+        Map<String, dynamic>? capturedBody;
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+          capturedOptions = options;
+          capturedBody =
+              jsonDecode(requestBody as String) as Map<String, dynamic>;
+          return _jsonResponse({
+            'choices': [
+              {
+                'message': {
+                  'content': jsonEncode({
+                    'trackName': 'Song',
+                    'artistName': 'Artist',
+                    'artistConfidence': 0.9,
+                  }),
+                },
               },
-            },
-          ],
+            ],
+          });
         });
-      });
 
-      final result = await AiTitleParser(dio: dio).parse(
-        endpoint: ' https://api.example.com/v1/ ',
-        apiKey: '  secret-key  ',
-        model: 'gpt-test',
-        title: 'Song - Artist',
-        uploader: 'Uploader Channel',
-        timeoutSeconds: 7,
-      );
+        final result = await AiTitleParser(dio: dio).parse(
+          endpoint: ' https://api.example.com/v1/ ',
+          apiKey: '  secret-key  ',
+          model: 'gpt-test',
+          title: 'Song - Artist',
+          uploader: 'Uploader Channel',
+          timeoutSeconds: 7,
+        );
 
-      expect(result?.trackName, 'Song');
-      expect(capturedOptions?.uri.toString(),
-          'https://api.example.com/v1/chat/completions');
-      expect(capturedOptions?.headers['Authorization'], 'Bearer secret-key');
-      expect(capturedOptions?.headers['Content-Type'],
-          contains('application/json'));
-      expect(capturedOptions?.connectTimeout, const Duration(seconds: 7));
-      expect(capturedOptions?.sendTimeout, const Duration(seconds: 7));
-      expect(capturedOptions?.receiveTimeout, const Duration(seconds: 7));
+        expect(result?.trackName, 'Song');
+        expect(
+          capturedOptions?.uri.toString(),
+          'https://api.example.com/v1/chat/completions',
+        );
+        expect(capturedOptions?.headers['Authorization'], 'Bearer secret-key');
+        expect(
+          capturedOptions?.headers['Content-Type'],
+          contains('application/json'),
+        );
+        expect(capturedOptions?.connectTimeout, const Duration(seconds: 7));
+        expect(capturedOptions?.sendTimeout, const Duration(seconds: 7));
+        expect(capturedOptions?.receiveTimeout, const Duration(seconds: 7));
 
-      expect(capturedBody?['model'], 'gpt-test');
-      expect(capturedBody?['temperature'], 0.1);
-      final messages = capturedBody?['messages'] as List<dynamic>;
-      final systemMessage = messages.singleWhere(
-        (message) => (message as Map<String, dynamic>)['role'] == 'system',
-      ) as Map<String, dynamic>;
-      final systemPrompt = systemMessage['content'] as String;
-      expect(systemPrompt, contains('uploader'));
-      expect(systemPrompt, contains('not necessarily'));
-      expect(systemPrompt, contains('artist'));
-      final userMessage = messages.singleWhere(
-        (message) => (message as Map<String, dynamic>)['role'] == 'user',
-      ) as Map<String, dynamic>;
-      final metadata =
-          jsonDecode(userMessage['content'] as String) as Map<String, dynamic>;
-      expect(metadata, {
-        'title': 'Song - Artist',
-        'uploader': 'Uploader Channel',
-      });
-      final logMessages = AppLogger.logs.map((entry) => entry.message).toList();
-      expect(
-        logMessages,
-        contains('Calling AI title parser: Song - Artist'),
-      );
-      expect(
-          logMessages, contains(contains('AI title parser request payload')));
-      expect(logMessages,
-          contains(contains('AI title parser raw response content')));
-      expect(logMessages, contains(contains('AI title parser parsed result')));
-      expect(logMessages.join('\n'), isNot(contains('secret-key')));
-    });
+        expect(capturedBody?['model'], 'gpt-test');
+        expect(capturedBody?['temperature'], 0.1);
+        final messages = capturedBody?['messages'] as List<dynamic>;
+        final systemMessage =
+            messages.singleWhere(
+                  (message) =>
+                      (message as Map<String, dynamic>)['role'] == 'system',
+                )
+                as Map<String, dynamic>;
+        final systemPrompt = systemMessage['content'] as String;
+        expect(systemPrompt, contains('uploader'));
+        expect(systemPrompt, contains('not necessarily'));
+        expect(systemPrompt, contains('artist'));
+        final userMessage =
+            messages.singleWhere(
+                  (message) =>
+                      (message as Map<String, dynamic>)['role'] == 'user',
+                )
+                as Map<String, dynamic>;
+        final metadata =
+            jsonDecode(userMessage['content'] as String)
+                as Map<String, dynamic>;
+        expect(metadata, {
+          'title': 'Song - Artist',
+          'uploader': 'Uploader Channel',
+        });
+        final logMessages = AppLogger.logs
+            .map((entry) => entry.message)
+            .toList();
+        expect(logMessages, contains('Calling AI title parser: Song - Artist'));
+        expect(
+          logMessages,
+          contains(contains('AI title parser request payload')),
+        );
+        expect(
+          logMessages,
+          contains(contains('AI title parser raw response content')),
+        );
+        expect(
+          logMessages,
+          contains(contains('AI title parser parsed result')),
+        );
+        expect(logMessages.join('\n'), isNot(contains('secret-key')));
+      },
+    );
 
     test('does not append chat completions path twice', () async {
       final dio = Dio();
@@ -114,8 +132,10 @@ void main() {
         timeoutSeconds: 7,
       );
 
-      expect(capturedOptions?.uri.toString(),
-          'https://api.example.com/v1/chat/completions');
+      expect(
+        capturedOptions?.uri.toString(),
+        'https://api.example.com/v1/chat/completions',
+      );
     });
 
     test('blank endpoint skips request as incomplete configuration', () async {
@@ -172,7 +192,8 @@ void main() {
       expect(
         AppLogger.logs.map((entry) => entry.message),
         contains(
-            'AI title parser request failed for title "Song - Artist": connection failed'),
+          'AI title parser request failed for title "Song - Artist": connection failed',
+        ),
       );
     });
 
@@ -200,7 +221,8 @@ void main() {
       expect(
         AppLogger.logs.map((entry) => entry.message),
         contains(
-            'AI title parser returned invalid content for title "Song - Artist"'),
+          'AI title parser returned invalid content for title "Song - Artist"',
+        ),
       );
     });
 
@@ -215,11 +237,13 @@ void main() {
     });
 
     test('string artistConfidence high keeps artist name', () {
-      final result = AiTitleParser.parseContent(jsonEncode({
-        'trackName': 'Poker Face',
-        'artistName': 'Lady Gaga',
-        'artistConfidence': 'high',
-      }));
+      final result = AiTitleParser.parseContent(
+        jsonEncode({
+          'trackName': 'Poker Face',
+          'artistName': 'Lady Gaga',
+          'artistConfidence': 'high',
+        }),
+      );
 
       expect(result?.trackName, 'Poker Face');
       expect(result?.artistName, 'Lady Gaga');
@@ -227,19 +251,17 @@ void main() {
     });
 
     test('missing trackName returns null', () {
-      final result = AiTitleParser.parseContent(jsonEncode({
-        'artistName': 'Artist',
-        'artistConfidence': 0.8,
-      }));
+      final result = AiTitleParser.parseContent(
+        jsonEncode({'artistName': 'Artist', 'artistConfidence': 0.8}),
+      );
 
       expect(result, isNull);
     });
 
     test('missing artistName returns track-only parse', () {
-      final result = AiTitleParser.parseContent(jsonEncode({
-        'trackName': 'Song',
-        'artistConfidence': 0.8,
-      }));
+      final result = AiTitleParser.parseContent(
+        jsonEncode({'trackName': 'Song', 'artistConfidence': 0.8}),
+      );
 
       expect(result?.trackName, 'Song');
       expect(result?.artistName, isNull);
@@ -247,11 +269,13 @@ void main() {
     });
 
     test('null artistName returns track-only parse', () {
-      final result = AiTitleParser.parseContent(jsonEncode({
-        'trackName': 'Song',
-        'artistName': null,
-        'artistConfidence': 0.8,
-      }));
+      final result = AiTitleParser.parseContent(
+        jsonEncode({
+          'trackName': 'Song',
+          'artistName': null,
+          'artistConfidence': 0.8,
+        }),
+      );
 
       expect(result?.trackName, 'Song');
       expect(result?.artistName, isNull);
@@ -259,10 +283,9 @@ void main() {
     });
 
     test('missing artistConfidence omits artist only', () {
-      final result = AiTitleParser.parseContent(jsonEncode({
-        'trackName': 'Song',
-        'artistName': 'Artist',
-      }));
+      final result = AiTitleParser.parseContent(
+        jsonEncode({'trackName': 'Song', 'artistName': 'Artist'}),
+      );
 
       expect(result?.trackName, 'Song');
       expect(result?.artistName, isNull);
@@ -270,21 +293,25 @@ void main() {
     });
 
     test('blank artistName string is accepted as null', () {
-      final result = AiTitleParser.parseContent(jsonEncode({
-        'trackName': 'Song',
-        'artistName': '   ',
-        'artistConfidence': 0.8,
-      }));
+      final result = AiTitleParser.parseContent(
+        jsonEncode({
+          'trackName': 'Song',
+          'artistName': '   ',
+          'artistConfidence': 0.8,
+        }),
+      );
 
       expect(result?.artistName, isNull);
     });
 
     test('artist confidence below minimum omits artist only', () {
-      final result = AiTitleParser.parseContent(jsonEncode({
-        'trackName': 'Song',
-        'artistName': 'Artist',
-        'artistConfidence': 0.79,
-      }));
+      final result = AiTitleParser.parseContent(
+        jsonEncode({
+          'trackName': 'Song',
+          'artistName': 'Artist',
+          'artistConfidence': 0.79,
+        }),
+      );
 
       expect(result?.trackName, 'Song');
       expect(result?.artistName, isNull);
@@ -312,7 +339,7 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
   _FakeHttpClientAdapter(this._handler);
 
   final ResponseBody Function(RequestOptions options, Object? requestBody)
-      _handler;
+  _handler;
 
   @override
   Future<ResponseBody> fetch(

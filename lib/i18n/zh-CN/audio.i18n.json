@@ -16,5 +16,6 @@
   "sourceErrorBilibiliPermissionDenied": "Bilibili 私人或受限视频需要登录状态播放",
   "sourceErrorPermissionDenied": "没有播放权限",
   "sourceErrorNetwork": "网络连接异常",
-  "sourceErrorTimeout": "连接超时"
+  "sourceErrorTimeout": "连接超时",
+  "audioOutputFailed": "音频输出设备不可用，播放已停止"
 }

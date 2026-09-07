@@ -91,7 +91,7 @@
 
 ```bash
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 dart run slang
 flutter analyze
 flutter test
@@ -116,7 +116,7 @@ FMP 不託管任何音樂。它讀取的是你已經擁有帳號的那些平台�
 
 ## 致謝
 
-API 研究參考自 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 與 [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music)。建置於 [media_kit](https://github.com/media-kit/media-kit)、[just_audio](https://github.com/ryanheise/just_audio)、[youtube_explode_dart](https://github.com/Hexer10/youtube_explode_dart)、[Isar](https://github.com/isar/isar) 與 [Riverpod](https://github.com/rrousselGit/riverpod) 之上。
+API 研究參考自 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 與 [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music)。建置於 [media_kit](https://github.com/media-kit/media-kit)、[just_audio](https://github.com/ryanheise/just_audio)、[youtube_explode_dart](https://github.com/Hexer10/youtube_explode_dart)、[Isar](https://github.com/isar-community/isar-community) 與 [Riverpod](https://github.com/rrousselGit/riverpod) 之上。
 
 ## 授權
 

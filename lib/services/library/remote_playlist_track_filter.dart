@@ -2,7 +2,7 @@ import '../../data/models/track.dart';
 
 List<Track> filterLoggedInRemoteTracks(
   Iterable<Track> tracks, {
-  required bool Function(SourceType sourceType) isLoggedIn,
+  required bool Function(String sourceType) isLoggedIn,
 }) {
   return tracks
       .where((track) => isLoggedIn(track.sourceType))

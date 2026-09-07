@@ -177,14 +177,20 @@ class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
     final windowSize = MediaQuery.sizeOf(context);
     final horizontalInset = windowSize.width < 320 ? 12.0 : 24.0;
     final verticalInset = windowSize.height < 360 ? 12.0 : 24.0;
-    final dialogWidth =
-        (windowSize.width - horizontalInset * 2).clamp(212.0, 316.0);
-    final dialogMaxHeight =
-        (windowSize.height - verticalInset * 2).clamp(180.0, double.infinity);
+    final dialogWidth = (windowSize.width - horizontalInset * 2).clamp(
+      212.0,
+      316.0,
+    );
+    final dialogMaxHeight = (windowSize.height - verticalInset * 2).clamp(
+      180.0,
+      double.infinity,
+    );
 
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
-          horizontal: horizontalInset, vertical: verticalInset),
+        horizontal: horizontalInset,
+        vertical: verticalInset,
+      ),
       child: ConstrainedBox(
         key: ColorPaletteButton.paletteKey,
         constraints: BoxConstraints(maxHeight: dialogMaxHeight),
@@ -216,10 +222,7 @@ class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _SaturationValuePicker(
-                        hsv: _hsv,
-                        onChanged: _update,
-                      ),
+                      _SaturationValuePicker(hsv: _hsv, onChanged: _update),
                       const SizedBox(height: 10),
                       _HuePicker(
                         hue: _hsv.hue,
@@ -262,7 +265,7 @@ class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
                                 color: colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                                 fontFeatures: const [
-                                  FontFeature.tabularFigures()
+                                  FontFeature.tabularFigures(),
                                 ],
                               ),
                             ),
@@ -281,7 +284,7 @@ class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
                               color: colorScheme.onSurfaceVariant,
                               fontSize: 12,
                               fontFeatures: const [
-                                FontFeature.tabularFigures()
+                                FontFeature.tabularFigures(),
                               ],
                             ),
                             decoration: const InputDecoration(
@@ -338,10 +341,7 @@ class _ColorSwatch extends StatelessWidget {
   final Color color;
   final double size;
 
-  const _ColorSwatch({
-    required this.color,
-    required this.size,
-  });
+  const _ColorSwatch({required this.color, required this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -362,10 +362,7 @@ class _SaturationValuePicker extends StatelessWidget {
   final HSVColor hsv;
   final ValueChanged<HSVColor> onChanged;
 
-  const _SaturationValuePicker({
-    required this.hsv,
-    required this.onChanged,
-  });
+  const _SaturationValuePicker({required this.hsv, required this.onChanged});
 
   void _handlePointer(BuildContext context, Offset globalPosition) {
     final box = context.findRenderObject()! as RenderBox;
@@ -384,9 +381,7 @@ class _SaturationValuePicker extends StatelessWidget {
       child: SizedBox(
         height: 132,
         width: double.infinity,
-        child: CustomPaint(
-          painter: _SaturationValuePainter(hsv: hsv),
-        ),
+        child: CustomPaint(painter: _SaturationValuePainter(hsv: hsv)),
       ),
     );
   }
@@ -396,10 +391,7 @@ class _HuePicker extends StatelessWidget {
   final double hue;
   final ValueChanged<double> onChanged;
 
-  const _HuePicker({
-    required this.hue,
-    required this.onChanged,
-  });
+  const _HuePicker({required this.hue, required this.onChanged});
 
   void _handlePointer(BuildContext context, Offset globalPosition) {
     final box = context.findRenderObject()! as RenderBox;
@@ -415,9 +407,7 @@ class _HuePicker extends StatelessWidget {
       child: SizedBox(
         height: 24,
         width: double.infinity,
-        child: CustomPaint(
-          painter: _HuePainter(hue: hue),
-        ),
+        child: CustomPaint(painter: _HuePainter(hue: hue)),
       ),
     );
   }
@@ -454,8 +444,10 @@ class _SaturationValuePainter extends CustomPainter {
     );
     canvas.restore();
 
-    final selector =
-        Offset(hsv.saturation * size.width, (1 - hsv.value) * size.height);
+    final selector = Offset(
+      hsv.saturation * size.width,
+      (1 - hsv.value) * size.height,
+    );
     canvas.drawCircle(selector, 7, Paint()..color = Colors.white);
     canvas.drawCircle(
       selector,

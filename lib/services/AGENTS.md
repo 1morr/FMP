@@ -33,12 +33,12 @@ Auth and header boundary:
   with `StreamResolutionPurpose.download`. Download metadata detail and image
   header policy use the narrow `DownloadSourceAuthContext` interface implemented
   by `SourceAuthContext`.
-- The download isolate must convert stream auth to Media Request Credentials
-  through the pure `MediaHandoff` module for **each redirect hop**, and it must
-  not use Riverpod, account services, or `SourceAuthContext`. `MediaHandoff`
-  also owns resumed-download `Range` headers. Only allowlisted
-  HTTPS Netease media URLs may receive `MUSIC_U`; Bilibili and YouTube account
-  credentials must never reach media/CDN requests. Full policy:
+- The download isolate must build media headers through the pure `MediaHandoff`
+  module for **each redirect hop**, and it must not use Riverpod, account
+  services, or `SourceAuthContext`. `MediaHandoff` also owns resumed-download
+  `Range` headers. No account credential reaches a media/CDN request for any
+  source — `SourceHttpPolicy.mediaHeaders()` takes only a source id, so there
+  is no parameter to leak one through. Full policy:
   `lib/data/sources/AGENTS.md` § Auth For Playback And Headers.
 - `DownloadService` still owns isolate download loops, progress, pause/failure
   state, and final path persistence.
@@ -157,6 +157,35 @@ defaults. Keep `BackupService.validateBackupData()` aligned with supported
 versions and importable sections so unsupported future backups fail before the
 preview/import step.
 
+`test/services/backup/settings_backup_coverage_static_rule_test.dart` fails when
+a persisted `Settings` column reaches neither `SettingsBackup` nor the named
+exclusion list, because the field list is repeated in six places across two
+files. Add the field or add the exclusion with a reason; the rule also fails on
+an exclusion that no longer names a real column.
+
+**Import is atomic.** Parsing, per-item `try`/`catch` and the skip decisions
+stay in `BackupService`, and touch nothing. Every survivor is then written by
+`BackupRepository.writeImport` inside a single `writeTxn`, so a failure part way
+through rolls the whole import back and throws — the UI shows the failure rather
+than a result dialog claiming counts nobody wrote. Isar rejects a nested
+`writeTxn` from a Zone check, which is why `PlaylistMutationRepository` exposes
+`addTracksInTxn`.
+
+## Log Persistence
+
+`AppLogger` writes to `<app documents>/FMP/logs/fmp.log` through `LogFileSink`
+(`lib/core/log_file_sink.dart`), rotating at 2 MB across three files.
+
+- What lands on disk is the same `redactSensitive()` output the in-memory
+  buffer holds — `_log` redacts before it buffers, so there is no second path
+  to audit.
+- The sink can only open after `WidgetsFlutterBinding.ensureInitialized()`
+  because `path_provider` needs it, while `main.dart` installs its error
+  handlers before that. `attachFileSink` therefore flushes the existing buffer
+  first; do not "simplify" that away, it is what keeps startup logs.
+- Writes are queued and failures are swallowed. Logging must never be a source
+  of app failure.
+
 ## Radio Ownership
 
 Radio distinguishes retained context from active ownership of the shared player:
@@ -170,9 +199,17 @@ Radio distinguishes retained context from active ownership of the shared player:
   user-configured interval; UI pages must not create their own periodic
   full-status refresh timers.
 
-Radio intentionally consumes the shared `audioServiceProvider` and calls the
+Radio intentionally consumes the shared `audioServiceProvider`
+(`lib/providers/audio/audio_controller_provider.dart`) and calls the
 backend directly, while ownership hooks keep `AudioController` from reacting to
-radio events.
+radio events. The one end reason that still reaches `AudioController` during
+radio is `OutputDeviceFailed` — see `lib/services/audio/AGENTS.md`.
+
+System media controls are **not** part of that exception. `RadioController`
+reaches the notification and SMTC through `nowPlayingPublisherProvider` like
+everything else, claiming `PlaybackCapabilities.liveRadio` so the skip controls
+are withdrawn rather than left pointing at null callbacks. It no longer imports
+the globals from `main.dart`, and it carries no `Platform.isX` branches.
 
 ## Windows Sub-Windows
 

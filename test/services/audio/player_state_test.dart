@@ -14,14 +14,8 @@ void main() {
       expect(state.duration, isNull);
       expect(state.speed, 1.0);
       expect(state.volume, 1.0);
-      expect(state.isShuffleEnabled, isFalse);
       expect(state.currentTrack, isNull);
       expect(state.hasCurrentTrack, isFalse);
-      expect(state.queue, isEmpty);
-      expect(state.upcomingTracks, isEmpty);
-      expect(state.canPlayPrevious, isFalse);
-      expect(state.canPlayNext, isFalse);
-      expect(state.isMixMode, isFalse);
       expect(state.error, isNull);
       expect(state.isNetworkError, isFalse);
       expect(state.isRetrying, isFalse);
@@ -30,9 +24,7 @@ void main() {
 
     group('progress', () {
       test('returns 0 when duration is null', () {
-        const state = PlayerState(
-          position: Duration(seconds: 30),
-        );
+        const state = PlayerState(position: Duration(seconds: 30));
 
         expect(state.progress, 0.0);
       });
@@ -67,9 +59,7 @@ void main() {
 
     group('bufferedProgress', () {
       test('returns 0 when duration is null', () {
-        const state = PlayerState(
-          bufferedPosition: Duration(seconds: 60),
-        );
+        const state = PlayerState(bufferedPosition: Duration(seconds: 60));
 
         expect(state.bufferedProgress, 0.0);
       });
@@ -114,7 +104,7 @@ void main() {
       test('clearPlayingTrack removes track', () {
         final track = Track()
           ..sourceId = 'test'
-          ..sourceType = SourceType.bilibili
+          ..sourceType = SourceIds.bilibili
           ..title = 'Test';
 
         final state = PlayerState(playingTrack: track);
@@ -140,7 +130,7 @@ void main() {
       test('currentTrack returns playingTrack', () {
         final track = Track()
           ..sourceId = 'test123'
-          ..sourceType = SourceType.youtube
+          ..sourceType = SourceIds.youtube
           ..title = 'Test Song';
 
         final state = PlayerState(playingTrack: track);

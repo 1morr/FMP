@@ -20,16 +20,13 @@ class _TimerPlaybackRecoveryTimer implements PlaybackRecoveryTimer {
   }
 }
 
-typedef PlaybackRecoveryTimerFactory = PlaybackRecoveryTimer Function(
-  Duration delay,
-  void Function() callback,
-);
+typedef PlaybackRecoveryTimerFactory =
+    PlaybackRecoveryTimer Function(Duration delay, void Function() callback);
 
 typedef PlaybackRecoveryDelay = Future<void> Function(Duration delay);
 
-typedef PlaybackRecoveryEventListener = void Function(
-  PlaybackRecoveryEvent event,
-);
+typedef PlaybackRecoveryEventListener =
+    void Function(PlaybackRecoveryEvent event);
 
 typedef PlaybackRecoveryRetryableError = bool Function(Object error);
 
@@ -82,10 +79,10 @@ class PlaybackRecoveryState {
   });
 
   const PlaybackRecoveryState.clear()
-      : isNetworkError = false,
-        isRetrying = false,
-        retryAttempt = 0,
-        nextRetryAt = null;
+    : isNetworkError = false,
+      isRetrying = false,
+      retryAttempt = 0,
+      nextRetryAt = null;
 
   final bool isNetworkError;
   final bool isRetrying;
@@ -126,11 +123,11 @@ class PlaybackRecoveryCoordinator {
     PlaybackRecoveryDelay delay = defaultPlaybackRecoveryDelay,
     PlaybackRecoveryEventListener? onRecoveryEvent,
     PlaybackRecoveryRetryableError? isRetryableError,
-  })  : _retryExecutor = retryExecutor,
-        _timerFactory = timerFactory,
-        _delay = delay,
-        _onRecoveryEvent = onRecoveryEvent,
-        _isRetryableError = isRetryableError ?? ((_) => false);
+  }) : _retryExecutor = retryExecutor,
+       _timerFactory = timerFactory,
+       _delay = delay,
+       _onRecoveryEvent = onRecoveryEvent,
+       _isRetryableError = isRetryableError ?? ((_) => false);
 
   final PlaybackRetryExecutor _retryExecutor;
   final PlaybackRecoveryTimerFactory _timerFactory;
@@ -183,12 +180,14 @@ class PlaybackRecoveryCoordinator {
     _retryTimer = _timerFactory(retryDelay, () {
       if (!_isRetryGenerationCurrent(generation, track)) return;
       _clearScheduledRetryMarker();
-      unawaited(_runScheduledRetry(
-        track: track,
-        position: _recoveryPosition,
-        generation: generation,
-        mode: mode,
-      ));
+      unawaited(
+        _runScheduledRetry(
+          track: track,
+          position: _recoveryPosition,
+          generation: generation,
+          mode: mode,
+        ),
+      );
     });
 
     return PlaybackRecoveryEvent(
@@ -281,15 +280,6 @@ class PlaybackRecoveryCoordinator {
     return scheduleRetry(track: track, position: position, mode: mode);
   }
 
-  void clearForNewPlayback(Track track) {
-    _retryGeneration++;
-    _cancelRetryTimer();
-    _retryAttempt = 0;
-    _recoveryTrack = null;
-    _recoveryPosition = null;
-    _clearScheduledRetryMarker();
-  }
-
   PlaybackRecoveryEvent reset() {
     _retryGeneration++;
     _cancelRetryTimer();
@@ -319,17 +309,19 @@ class PlaybackRecoveryCoordinator {
     }
 
     _retryAttempt++;
-    _onRecoveryEvent?.call(PlaybackRecoveryEvent(
-      kind: PlaybackRecoveryEventKind.retryStarted,
-      state: PlaybackRecoveryState(
-        isNetworkError: true,
-        isRetrying: true,
-        retryAttempt: _retryAttempt,
-        nextRetryAt: null,
+    _onRecoveryEvent?.call(
+      PlaybackRecoveryEvent(
+        kind: PlaybackRecoveryEventKind.retryStarted,
+        state: PlaybackRecoveryState(
+          isNetworkError: true,
+          isRetrying: true,
+          retryAttempt: _retryAttempt,
+          nextRetryAt: null,
+        ),
+        track: track,
+        position: position,
       ),
-      track: track,
-      position: position,
-    ));
+    );
 
     late final PlaybackSessionResult result;
     try {
@@ -399,11 +391,7 @@ class PlaybackRecoveryCoordinator {
 
     final error = result.error;
     if (error != null && _isRetryableError(error)) {
-      final event = scheduleRetry(
-        track: track,
-        position: position,
-        mode: mode,
-      );
+      final event = scheduleRetry(track: track, position: position, mode: mode);
       return PlaybackRecoveryEvent(
         kind: event.kind,
         state: event.state,

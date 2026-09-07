@@ -35,7 +35,10 @@ _Avoid_: import auth, search auth
 
 **Media Request Credentials**:
 Credentials that are allowed on the actual audio byte request. In current FMP
-policy, only allowlisted HTTPS Netease media hosts may receive Netease cookies.
+policy there are none: `SourceHttpPolicy.mediaHeaders(String sourceType)`
+(`lib/data/sources/source_http_policy.dart:39`) takes only the source id, so
+no cookie or token can reach the media host through it. The former Netease
+media allowlist was removed in `c09aec10`.
 _Avoid_: stream auth, source auth
 
 ## Example Dialogue
@@ -44,7 +47,8 @@ Developer: "This download needs Stream Resolution Auth so Netease can return a
 playable URL."
 
 Reviewer: "That does not mean the isolate can send all source auth to the media
-host. Media Request Credentials still have to pass the Netease allowlist."
+host. Media Request Credentials are empty by construction — `mediaHeaders()`
+takes a source id and nothing else."
 
 Developer: "The Source Auth Context will return the resolution auth for the
 source adapter, then Media Handoff will recompute headers for each redirect

@@ -2,141 +2,58 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 
-/// 真實行為測試：帳號憑證（Cookie）只能附加到 Netease 官方媒體 host（且只有
-/// Netease 音源）；Bilibili / YouTube 的帳號憑證絕不送到 media / CDN byte 請求。
+/// 真實行為測試：**任何音源的帳號憑證都不會出現在媒體位元組請求上。**
 ///
 /// 這條 auth 邊界過去只靠 static-rule 字串比對測試（source_http_policy_usage_test），
 /// 重構字串寫法即可繞過；本測試直接斷言 `SourceHttpPolicy.mediaHeaders` 的輸出，
-/// 對重構免疫——重構不會誤判也不會漏判（F5 / 01-action-plan.md）。
+/// 對重構免疫。
+///
+/// 曾經有一個例外：網易的 https 媒體 URL 可以附上 Cookie。實測 eapi 回的媒體 URL
+/// 是 `http://`，那條分支在生產環境從未執行過，已整段移除 —— 現在「不帶憑證」是
+/// 由函式簽章保證的（`mediaHeaders` 根本收不到 authHeaders），而不是靠執行期檢查。
 void main() {
-  const neteaseAuth = {
-    'Cookie': 'MUSIC_U=secret; osver=pc',
-    'Origin': 'https://music.163.com',
-    'Referer': 'https://music.163.com/',
-    'User-Agent': 'netease-desktop',
-  };
-  const bilibiliAuth = {'Cookie': 'SESSDATA=abc; bili_jct=def'};
-  const youtubeAuth = {
-    'Cookie': 'SAPISIDHASH=xyz',
-    'Authorization': 'Bearer t',
-  };
-
   group('mediaHeaders credential boundary', () {
-    test('netease attaches Cookie only to allowlisted media hosts', () {
-      for (final url in [
-        'https://music.163.com/song/media/outer/url.mp3',
-        'https://m701.music.126.net/abc/track.mp3',
-        'https://something.music.163.com/media.mp3',
-      ]) {
-        final h = SourceHttpPolicy.mediaHeaders(
-          SourceType.netease,
-          authHeaders: neteaseAuth,
-          requestUrl: url,
+    test('no source can put credentials on a media byte request', () {
+      for (final sourceType in SourceIds.values) {
+        final headers = SourceHttpPolicy.mediaHeaders(sourceType);
+        final lowerKeys = headers.keys.map((k) => k.toLowerCase()).toList();
+
+        expect(lowerKeys, isNot(contains('cookie')), reason: '$sourceType');
+        expect(
+          lowerKeys,
+          isNot(contains('authorization')),
+          reason: '$sourceType',
         );
-        expect(h.containsKey('Cookie'), isTrue, reason: url);
-        expect(h['Cookie'], neteaseAuth['Cookie'], reason: url);
+        expect(
+          lowerKeys,
+          isNot(contains('x-csrf-token')),
+          reason: '$sourceType',
+        );
       }
     });
 
-    test('netease does NOT attach Cookie to non-allowlisted hosts', () {
-      for (final url in [
-        'https://example.com/track.mp3', // 完全無關 host
-        'https://music.163.com.evil.com/x.mp3', // 偽造子網域
-        'http://music.163.com/track.mp3', // 非 https
-        null, // 無 requestUrl
-      ]) {
-        final h = SourceHttpPolicy.mediaHeaders(
-          SourceType.netease,
-          authHeaders: neteaseAuth,
-          requestUrl: url,
-        );
-        expect(h.containsKey('Cookie'), isFalse, reason: '$url');
-      }
+    test('mediaHeaders takes nothing but the source type', () {
+      // 簽章保證：沒有 authHeaders / requestUrl / includeCredentials 可以傳，
+      // 所以不存在「某個呼叫端不小心把憑證傳進來」的可能。這條測試存在的意義
+      // 是：如果有人把那些參數加回去，它會編譯失敗而不是靜靜地通過。
+      final headers = SourceHttpPolicy.mediaHeaders(SourceIds.netease);
+      expect(headers.keys.toSet(), {'Origin', 'Referer', 'User-Agent'});
     });
 
-    test('netease does not attach Cookie when includeCredentials is false', () {
-      final h = SourceHttpPolicy.mediaHeaders(
-        SourceType.netease,
-        authHeaders: neteaseAuth,
-        requestUrl: 'https://music.163.com/song.mp3',
-        includeCredentials: false,
-      );
-      expect(h.containsKey('Cookie'), isFalse);
-    });
+    test('each source still carries the headers its CDN requires', () {
+      final netease = SourceHttpPolicy.mediaHeaders(SourceIds.netease);
+      expect(netease['Origin'], 'https://music.163.com');
+      expect(netease['Referer'], 'https://music.163.com/');
+      expect(netease.containsKey('User-Agent'), isTrue);
 
-    test('netease media headers keep non-credential headers even without auth',
-        () {
-      final h = SourceHttpPolicy.mediaHeaders(
-        SourceType.netease,
-        requestUrl: 'https://music.163.com/song.mp3',
-      );
-      expect(h.containsKey('Cookie'), isFalse);
-      expect(h['Origin'], 'https://music.163.com');
-      expect(h['Referer'], 'https://music.163.com/');
-      expect(h.containsKey('User-Agent'), isTrue);
-    });
+      final bilibili = SourceHttpPolicy.mediaHeaders(SourceIds.bilibili);
+      expect(bilibili.containsKey('Referer'), isTrue);
+      expect(bilibili.containsKey('User-Agent'), isTrue);
 
-    test('bilibili never attaches account credentials to media requests', () {
-      final h = SourceHttpPolicy.mediaHeaders(
-        SourceType.bilibili,
-        authHeaders: bilibiliAuth,
-        requestUrl: 'https://cn-something.hdslb.com/audio.m4a',
-      );
-      expect(h.containsKey('Cookie'), isFalse);
-      // 仍帶必要的無憑證播放標頭
-      expect(h.containsKey('Referer'), isTrue);
-      expect(h.containsKey('User-Agent'), isTrue);
-    });
-
-    test('youtube never attaches account credentials to media requests', () {
-      final h = SourceHttpPolicy.mediaHeaders(
-        SourceType.youtube,
-        authHeaders: youtubeAuth,
-        requestUrl: 'https://rr1---sn-xgp.googlevideo.com/audio.m4a',
-      );
-      expect(h.containsKey('Cookie'), isFalse);
-      expect(h.containsKey('Authorization'), isFalse);
-      expect(h.containsKey('Referer'), isTrue);
-    });
-  });
-
-  group('canAttachNeteaseMediaCredentials', () {
-    test('allowlists only official netease media hosts over https', () {
-      // 正例：官方 host（含子網域）且 https
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-              'https://music.163.com/x'),
-          isTrue);
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-              'https://a.b.music.163.com/x'),
-          isTrue);
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-              'https://music.126.net/x'),
-          isTrue);
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-              'https://m701.music.126.net/x'),
-          isTrue);
-
-      // 負例：偽造子網域、無關 host、非 https、無 url
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-              'https://music.163.com.evil.com/x'),
-          isFalse);
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-              'https://evil.com/x'),
-          isFalse);
-      expect(
-          SourceHttpPolicy.canAttachNeteaseMediaCredentials(
-              'http://music.163.com/x'),
-          isFalse);
-      expect(SourceHttpPolicy.canAttachNeteaseMediaCredentials(null), isFalse);
-      expect(SourceHttpPolicy.canAttachNeteaseMediaCredentials(''), isFalse);
-      expect(SourceHttpPolicy.canAttachNeteaseMediaCredentials('not a url'),
-          isFalse);
+      final youtube = SourceHttpPolicy.mediaHeaders(SourceIds.youtube);
+      expect(youtube['Origin'], 'https://www.youtube.com');
+      expect(youtube.containsKey('Referer'), isTrue);
+      expect(youtube.containsKey('User-Agent'), isTrue);
     });
   });
 }

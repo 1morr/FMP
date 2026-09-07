@@ -9,11 +9,14 @@ import '../../../data/models/video_detail.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
+import '../../../core/constants/app_layout.dart';
 import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../../providers/audio/audio_player_selectors.dart';
+import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../providers/library/track_detail_provider.dart';
+import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
@@ -35,6 +38,35 @@ import '../../widgets/player/player_play_pause_button.dart';
 import '../../widgets/lyrics/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 
+/// 播放頁的三種版面。
+enum PlayerLayoutMode {
+  /// 單欄：封面與歌詞長按互相切換。
+  narrow,
+
+  /// 寬版單欄：空間夠，但這首曲目沒有歌詞可放，所以內容置中、封面吃到上限。
+  wideSingle,
+
+  /// 寬版雙欄：左邊封面與控制列，右邊歌詞。
+  wideSplit,
+}
+
+/// [size] 這個視窗、這首曲目該用哪一套播放頁版面。
+///
+/// 兩個維度都要看。只看寬度會讓橫向手機（寬但矮）拿到雙欄版面，而
+/// 六個對照專案裡 FMP 是唯一只看單一維度的；`height >= 520` 抄 Auxio 的
+/// `layout-h520dp`。門檻從 `>= 1200` 降到 [WindowClass.expanded]（840），
+/// 因為 840 開始就放得下封面加歌詞兩欄。
+///
+/// [hasLyrics] 讓比例跟著內容走：以前右欄是寫死的 `flex: 7`，沒有歌詞的曲目
+/// 會把 58% 的畫面留給一句「暫無歌詞」。
+PlayerLayoutMode resolvePlayerLayout(Size size, {required bool hasLyrics}) {
+  final fitsTwoColumns =
+      WindowClass.of(size.width).atLeast(WindowClass.expanded) &&
+      size.height >= AppLayout.playerWideMinHeight;
+  if (!fitsTwoColumns) return PlayerLayoutMode.narrow;
+  return hasLyrics ? PlayerLayoutMode.wideSplit : PlayerLayoutMode.wideSingle;
+}
+
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key});
@@ -50,10 +82,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final currentTrack = playerState.currentTrack;
     if (currentTrack == null) return;
 
-    showLyricsSearchSheet(
-      context: context,
-      track: currentTrack,
-    );
+    showLyricsSearchSheet(context: context, track: currentTrack);
   }
 
   /// 处理添加到歌单选项
@@ -78,8 +107,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     final playbackSpeed = ref.watch(playbackSpeedProvider);
-    final isWideLayout =
-        Breakpoints.isDesktop(MediaQuery.sizeOf(context).width);
+    final layoutMode = resolvePlayerLayout(
+      MediaQuery.sizeOf(context),
+      hasLyrics: ref.watch(lyricsPaneHasContentProvider),
+    );
+    final isWideLayout = layoutMode != PlayerLayoutMode.narrow;
+    // 沒有歌詞時工具列的「搜尋歌詞」反而更需要在，所以這裡看的是版面寬不寬，
+    // 不是右欄開了沒有。
     final showLyricsActions = isWideLayout || _showLyrics;
     final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
     final playerState = ref.watch(
@@ -89,18 +123,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           progress: state.progress,
           position: state.position,
           duration: state.duration,
-          isShuffleEnabled: state.isShuffleEnabled,
-          isMixMode: state.isMixMode,
-          canPlayPrevious: state.canPlayPrevious,
-          canPlayNext: state.canPlayNext,
           isBuffering: state.isBuffering,
           isLoading: state.isLoading,
           isPlaying: state.isPlaying,
-          loopMode: state.loopMode,
           hasCurrentTrack: state.hasCurrentTrack,
         ),
       ),
     );
+    final queueControls = ref.watch(queueControlStateProvider);
     final controller = ref.read(audioControllerProvider.notifier);
 
     final controlSection = _buildControlSection(
@@ -110,33 +140,45 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       position: playerState.position,
       duration: playerState.duration,
       progress: playerState.progress,
-      isShuffleEnabled: playerState.isShuffleEnabled,
-      isMixMode: playerState.isMixMode,
-      canPlayPrevious: playerState.canPlayPrevious,
-      canPlayNext: playerState.canPlayNext,
+      isShuffleEnabled: queueControls.isShuffleEnabled,
+      isMixMode: queueControls.isMixMode,
+      canPlayPrevious: queueControls.canPlayPrevious,
+      canPlayNext: queueControls.canPlayNext,
       isBuffering: playerState.isBuffering,
       isLoading: playerState.isLoading,
       hasCurrentTrack: playerState.hasCurrentTrack,
       isPlaying: playerState.isPlaying,
-      loopMode: playerState.loopMode,
+      loopMode: queueControls.loopMode,
       controller: controller,
       trackInfoGap: isWideLayout ? 20 : 32,
       controlsGap: isWideLayout ? 16 : 24,
     );
 
-    final playerContent = isWideLayout
-        ? _buildDesktopPlayerContent(
-            context: context,
-            currentTrack: currentTrack,
-            colorScheme: colorScheme,
-            controlSection: controlSection,
-          )
-        : _buildNarrowPlayerContent(
-            context: context,
-            currentTrack: currentTrack,
-            colorScheme: colorScheme,
-            controlSection: controlSection,
-          );
+    final narrowContent = _buildNarrowPlayerContent(
+      context: context,
+      currentTrack: currentTrack,
+      colorScheme: colorScheme,
+      controlSection: controlSection,
+    );
+    final playerContent = switch (layoutMode) {
+      PlayerLayoutMode.wideSplit => _buildDesktopPlayerContent(
+        context: context,
+        currentTrack: currentTrack,
+        colorScheme: colorScheme,
+        controlSection: controlSection,
+      ),
+      // 寬但沒有歌詞：用同一套單欄內容，置中並收在內容寬度上限內，
+      // 免得標題與進度條在 1700dp 的視窗上橫跨整個螢幕。
+      PlayerLayoutMode.wideSingle => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.playerContentMaxWide,
+          ),
+          child: narrowContent,
+        ),
+      ),
+      PlayerLayoutMode.narrow => narrowContent,
+    };
 
     final appBarActions = <Widget>[
       // 添加到歌单
@@ -306,12 +348,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       child: Column(
         children: [
           Expanded(
-            flex: 3,
-            child: _buildNarrowMediaSection(
-              context,
-              currentTrack,
-              colorScheme,
-            ),
+            child: _buildNarrowMediaSection(context, currentTrack, colorScheme),
           ),
           const SizedBox(height: 32),
           controlSection,
@@ -339,7 +376,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 Expanded(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
+                      constraints: const BoxConstraints(
+                        maxWidth: AppLayout.playerCoverMax,
+                      ),
                       child: _buildCoverArt(context, currentTrack, colorScheme),
                     ),
                   ),
@@ -350,10 +389,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             ),
           ),
           const SizedBox(width: 32),
-          Expanded(
-            flex: 7,
-            child: _buildLyricsPanel(colorScheme),
-          ),
+          Expanded(flex: 7, child: _buildLyricsPanel(colorScheme)),
         ],
       ),
     );
@@ -385,13 +421,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       children: [
         _buildTrackInfo(context, currentTrack, colorScheme),
         SizedBox(height: trackInfoGap),
-        _buildProgressBar(
-          context,
-          position,
-          duration,
-          progress,
-          controller,
-        ),
+        _buildProgressBar(context, position, duration, progress, controller),
         SizedBox(height: controlsGap),
         _buildPlaybackControls(
           context,
@@ -425,9 +455,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               onLongPress: () => setState(() => _showLyrics = false),
               showOffsetControls: _showOffsetControls,
             )
-          : GestureDetector(
-              onLongPress: () => setState(() => _showLyrics = true),
-              child: _buildCoverArt(context, track, colorScheme),
+          : Center(
+              child: ConstrainedBox(
+                // 窄版一直沒有上限，於是 800dp 的直向平板上封面撐到 752dp。
+                // 寬版本來就有同一個上限。
+                constraints: const BoxConstraints(
+                  maxWidth: AppLayout.playerCoverMax,
+                ),
+                child: GestureDetector(
+                  onLongPress: () => setState(() => _showLyrics = true),
+                  child: _buildCoverArt(context, track, colorScheme),
+                ),
+              ),
             ),
     );
   }
@@ -476,19 +515,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       children: [
         Text(
           track?.title ?? t.player.noTrackPlaying,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 8),
         Text(
-          track?.artist ?? t.player.selectTrackToPlay,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          track == null
+              ? t.player.selectTrackToPlay
+              : (track.artist ?? t.general.unknownArtist),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -506,13 +547,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     AudioController controller,
   ) {
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
-    final displayProgress =
-        _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
+    final displayProgress = _isDragging
+        ? _dragProgress
+        : progress.clamp(0.0, 1.0);
 
     // 显示的位置：拖动时根据拖动进度计算，否则显示实际位置
     final displayPosition = _isDragging && duration != null
         ? Duration(
-            milliseconds: (duration.inMilliseconds * _dragProgress).round())
+            milliseconds: (duration.inMilliseconds * _dragProgress).round(),
+          )
         : position;
 
     return Column(
@@ -525,6 +568,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ),
           child: Slider(
             value: displayProgress,
+            // 不设时读屏软件会念"50%"。进度条上有意义的是时间位置，
+            // 而 Slider 的值是 0..1 的比例，没人能从"50%"知道跳到哪里。
+            semanticFormatterCallback: (value) => DurationFormatter.formatMs(
+              ((duration ?? Duration.zero).inMilliseconds * value).round(),
+            ),
             onChangeStart: (value) {
               setState(() {
                 _isDragging = true;
@@ -553,7 +601,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               ),
               Text(
                 DurationFormatter.formatMs(
-                    (duration ?? Duration.zero).inMilliseconds),
+                  (duration ?? Duration.zero).inMilliseconds,
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -582,8 +631,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // 顺序/乱序按钮（Mix 模式下禁用）
+        // 关闭态曾经换成 Icons.arrow_forward，紧挨着 skip_previous /
+        // skip_next 时读起来像"下一首"。状态改由颜色 + tooltip 表达，
+        // 和 Spotify / YouTube Music / Apple Music 的做法一致。
         IconButton(
-          icon: Icon(isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward),
+          icon: const Icon(Icons.shuffle),
           color: isShuffleEnabled ? colorScheme.primary : null,
           onPressed: isMixMode ? null : () => controller.toggleShuffle(),
           tooltip: isMixMode
@@ -606,6 +658,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           enabled: hasCurrentTrack,
           onPressed: () => controller.togglePlayPause(),
           colorScheme: colorScheme,
+          tooltip: isPlaying ? t.general.pause : t.general.play,
         ),
 
         // 下一首
@@ -647,19 +700,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       context: context,
       position: position,
       items: AppConstants.playbackSpeeds
-          .map((speed) => PopupMenuItem(
-                value: speed,
-                child: Row(
-                  children: [
-                    if (currentSpeed == speed)
-                      Icon(Icons.check, size: 18, color: colorScheme.primary)
-                    else
-                      const SizedBox(width: 18),
-                    const SizedBox(width: 8),
-                    Text('${speed}x'),
-                  ],
-                ),
-              ))
+          .map(
+            (speed) => PopupMenuItem(
+              value: speed,
+              child: Row(
+                children: [
+                  if (currentSpeed == speed)
+                    Icon(Icons.check, size: 18, color: colorScheme.primary)
+                  else
+                    const SizedBox(width: 18),
+                  const SizedBox(width: 8),
+                  Text('${speed}x'),
+                ],
+              ),
+            ),
+          )
           .toList(),
     ).then((value) {
       if (value != null) {
@@ -670,7 +725,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 显示歌词显示模式选择菜单
   void _showLyricsDisplayModeMenu(
-      BuildContext context, ColorScheme colorScheme) {
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
     final screenSize = MediaQuery.of(context).size;
     final position = RelativeRect.fromLTRB(
       screenSize.width - 200,
@@ -684,16 +741,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 获取循环模式图标
   IconData _getLoopModeIcon(LoopMode mode) => switch (mode) {
-        LoopMode.none || LoopMode.all => Icons.repeat,
-        LoopMode.one => Icons.repeat_one,
-      };
+    LoopMode.none || LoopMode.all => Icons.repeat,
+    LoopMode.one => Icons.repeat_one,
+  };
 
   /// 获取循环模式提示
   String _getLoopModeTooltip(LoopMode mode) => switch (mode) {
-        LoopMode.none => t.player.loopOff,
-        LoopMode.all => t.player.loopAll,
-        LoopMode.one => t.player.loopOne,
-      };
+    LoopMode.none => t.player.loopOff,
+    LoopMode.all => t.player.loopAll,
+    LoopMode.one => t.player.loopOne,
+  };
 
   /// 显示视频信息弹窗
   void _showTrackInfoDialog(BuildContext context, ColorScheme colorScheme) {
@@ -720,13 +777,13 @@ class _TrackInfoDialog extends ConsumerWidget {
     ref.watch(fileExistsCacheProvider);
     final cache = ref.read(fileExistsCacheProvider.notifier);
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
-    final baseDir = baseDirAsync.valueOrNull;
+    final baseDir = baseDirAsync.value;
 
-    final isYouTube = currentTrack?.sourceType == SourceType.youtube;
+    final isYouTube = currentTrack?.sourceType == SourceIds.youtube;
 
     return CappedDraggableSheet(
       icon: Icons.info_outline_rounded,
-      title: currentTrack?.sourceType == SourceType.netease
+      title: currentTrack?.sourceType == SourceIds.netease
           ? t.player.songInfo
           : t.player.videoInfo,
       onClose: () => Navigator.of(context).pop(),
@@ -743,7 +800,7 @@ class _TrackInfoDialog extends ConsumerWidget {
                   _DetailContent(
                     detail: detailState.detail!,
                     isYouTube: isYouTube,
-                    isNetease: currentTrack?.sourceType == SourceType.netease,
+                    isNetease: currentTrack?.sourceType == SourceIds.netease,
                     track: currentTrack,
                     cache: cache,
                     baseDir: baseDir,
@@ -853,8 +910,9 @@ class _DetailContent extends StatelessWidget {
           Row(
             children: [
               AvatarImage(
-                networkUrl:
-                    detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                networkUrl: detail.ownerFace.isNotEmpty
+                    ? detail.ownerFace
+                    : null,
                 size: 40,
               ),
               const SizedBox(width: 12),
@@ -884,10 +942,13 @@ class _DetailContent extends StatelessWidget {
                 children: [
                   // 头像
                   AvatarImage(
-                    localPath:
-                        track?.getLocalAvatarPath(cache, baseDir: baseDir),
-                    networkUrl:
-                        detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                    localPath: track?.getLocalAvatarPath(
+                      cache,
+                      baseDir: baseDir,
+                    ),
+                    networkUrl: detail.ownerFace.isNotEmpty
+                        ? detail.ownerFace
+                        : null,
                     size: 40,
                   ),
                   const SizedBox(width: 12),
@@ -1044,10 +1105,7 @@ class _BasicInfoContent extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (track!.isVip) ...[
-              const SizedBox(width: 6),
-              const VipBadge(),
-            ],
+            if (track!.isVip) ...[const SizedBox(width: 6), const VipBadge()],
           ],
         ),
 
@@ -1106,11 +1164,7 @@ class _BasicInfoContent extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.info_outline,
-                size: 18,
-                color: colorScheme.primary,
-              ),
+              Icon(Icons.info_outline, size: 18, color: colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
