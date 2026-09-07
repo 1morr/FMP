@@ -102,7 +102,18 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
 });
 
 /// 歌词自动匹配是否正在进行中（用于 UI 显示加载动画）
-final lyricsAutoMatchingProvider = StateProvider<bool>((ref) => false);
+final lyricsAutoMatchingProvider =
+    NotifierProvider<LyricsAutoMatchingNotifier, bool>(
+        LyricsAutoMatchingNotifier.new);
+
+/// 只是一個布林旗標，寫入口在 [AudioController]。
+class LyricsAutoMatchingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  /// 由 `AudioController.onLyricsAutoMatchStateChanged` 呼叫。
+  void setMatching(bool value) => state = value;
+}
 
 // ---------------------------------------------------------------------------
 // 当前播放歌曲的歌词匹配

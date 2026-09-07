@@ -24,7 +24,7 @@ void main() {
 
       expect(source, contains('final filePathExistsProvider'));
       expect(source, contains('final fileExistsCacheEpochProvider'));
-      expect(source, contains('StateProvider<int>'));
+      expect(source, contains('NotifierProvider<FileExistsCacheEpoch, int>'));
       expect(
         source,
         contains(

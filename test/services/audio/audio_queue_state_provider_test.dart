@@ -52,8 +52,9 @@ void main() {
     test('queueProvider reads the queue projection', () async {
       final firstQueue = [_track('one')];
 
-      harness.container.read(queueStateProvider.notifier).state =
-          QueueState(queue: firstQueue, queueVersion: 1);
+      harness.container
+          .read(queueStateProvider.notifier)
+          .publish(QueueState(queue: firstQueue, queueVersion: 1));
       expect(harness.container.read(queueProvider), firstQueue);
 
       // 位置每秒更新一次，佇列不該跟著動。
@@ -236,7 +237,7 @@ class _AudioControllerHarness {
       ],
     );
     controller.onQueueStateChanged = (queueState) {
-      container.read(queueStateProvider.notifier).state = queueState;
+      container.read(queueStateProvider.notifier).publish(queueState);
     };
     await controller.initialize();
 

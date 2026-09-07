@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/play_queue.dart';
 import '../../data/models/track.dart';
@@ -76,4 +76,17 @@ class QueueState {
 }
 
 final queueStateProvider =
-    StateProvider<QueueState>((ref) => const QueueState());
+    NotifierProvider<QueueStateNotifier, QueueState>(QueueStateNotifier.new);
+
+/// [QueueState] 的持有者。
+///
+/// 投影整份由 [AudioController] 在每次佇列變動後算好推進來，所以這裡只有一個
+/// 寫入口、沒有自己的規則。分成一個具名方法而不是讓外面直接寫 `state`，是因為
+/// Riverpod 3 的 `Notifier.state` 是 `@protected`。
+class QueueStateNotifier extends Notifier<QueueState> {
+  @override
+  QueueState build() => const QueueState();
+
+  /// 由 `AudioController.onQueueStateChanged` 呼叫。
+  void publish(QueueState next) => state = next;
+}

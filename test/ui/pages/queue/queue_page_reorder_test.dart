@@ -53,7 +53,8 @@ void main() {
         child: ProviderScope(
           overrides: [
             audioControllerProvider.overrideWith((ref) => harness.controller),
-            queueStateProvider.overrideWith((ref) => harness.queueState),
+            queueStateProvider.overrideWith(
+                () => _FixedQueueState(harness.queueState)),
             autoScrollToCurrentTrackProvider.overrideWith((ref) => false),
           ],
           child: const MaterialApp(home: QueuePage()),
@@ -162,6 +163,17 @@ class _QueuePageHarness {
     sourceManager.dispose();
     await isar.close(deleteFromDisk: true);
   }
+}
+
+/// `queueStateProvider` 是 `NotifierProvider`，override 要給 notifier 工廠而
+/// 不是一個值 —— 這個子類就是「build() 直接回傳固定投影」。
+class _FixedQueueState extends QueueStateNotifier {
+  _FixedQueueState(this._value);
+
+  final QueueState _value;
+
+  @override
+  QueueState build() => _value;
 }
 
 class _QueuePageTestAudioController extends AudioController {

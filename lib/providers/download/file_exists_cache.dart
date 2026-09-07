@@ -248,13 +248,23 @@ class FileExistsCache extends StateNotifier<Set<String>> {
 }
 
 /// 文件存在检查缓存 Provider
-final fileExistsCacheEpochProvider = StateProvider<int>((ref) => 0);
+final fileExistsCacheEpochProvider =
+    NotifierProvider<FileExistsCacheEpoch, int>(FileExistsCacheEpoch.new);
+
+/// 快取世代編號。[FileExistsCache] 每批刷新後遞增一次，讓
+/// `filePathExistsProvider` 的消費者知道要重算。
+class FileExistsCacheEpoch extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void set(int epoch) => state = epoch;
+}
 
 final fileExistsCacheProvider =
     StateNotifierProvider<FileExistsCache, Set<String>>((ref) {
   return FileExistsCache(
     onEpochChanged: (epoch) {
-      ref.read(fileExistsCacheEpochProvider.notifier).state = epoch;
+      ref.read(fileExistsCacheEpochProvider.notifier).set(epoch);
     },
   );
 });

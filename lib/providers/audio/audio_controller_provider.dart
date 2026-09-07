@@ -110,11 +110,11 @@ final audioControllerProvider =
 
   // 设置歌词自动匹配状态回调
   controller.onLyricsAutoMatchStateChanged = (isMatching) {
-    ref.read(lyricsAutoMatchingProvider.notifier).state = isMatching;
+    ref.read(lyricsAutoMatchingProvider.notifier).setMatching(isMatching);
   };
 
   controller.onQueueStateChanged = (queueState) {
-    ref.read(queueStateProvider.notifier).state = queueState;
+    ref.read(queueStateProvider.notifier).publish(queueState);
   };
 
   final downloadPathSubscription =
