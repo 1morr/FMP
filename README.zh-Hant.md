@@ -7,7 +7,7 @@
   <a href="https://github.com/1morr/FMP/releases/latest"><img src="https://img.shields.io/github/v/release/1morr/FMP?color=blue" alt="Latest release"></a>
   <a href="https://github.com/1morr/FMP/actions/workflows/ci.yml"><img src="https://github.com/1morr/FMP/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-green" alt="Platform">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
 </p>
 <p align="center"><a href="README.md">English</a> · <b>繁體中文</b></p>
 
@@ -120,4 +120,5 @@ API 研究參考自 [bilibili-API-collect](https://github.com/SocialSisterYi/bil
 
 ## 授權
 
-[GPL-3.0](LICENSE)
+[MIT](LICENSE)。FMP 打包或參考的第三方元件 —— 包含 Windows 版裡採 LGPL 的
+libmpv/FFmpeg —— 記在 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)。
