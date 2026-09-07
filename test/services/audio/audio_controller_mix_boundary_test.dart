@@ -12,9 +12,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
-import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
@@ -25,6 +23,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
 
@@ -68,11 +67,11 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        sourceAuthContext: _FakeSourceAuthContext(),
+        sourceAuthContext: FakeSourceAuthContext(),
       );
       final audioStreamManager = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        sourceAuthContext: _FakeSourceAuthContext(),
+        sourceAuthContext: FakeSourceAuthContext(),
       );
       queueManager = QueueManager(
         queueRepository: queueRepository,
@@ -167,11 +166,11 @@ void main() {
           trackRepository: trackRepository,
           settingsRepository: settingsRepository,
           sourceManager: sourceManager,
-          sourceAuthContext: _FakeSourceAuthContext(),
+          sourceAuthContext: FakeSourceAuthContext(),
         );
         final audioStreamManager = AudioStreamManager(
           streamResolutionService: streamResolutionService,
-          sourceAuthContext: _FakeSourceAuthContext(),
+          sourceAuthContext: FakeSourceAuthContext(),
         );
         queueManager = QueueManager(
           queueRepository: queueRepository,
@@ -461,25 +460,6 @@ class _MixFetchCall {
 
   @override
   int get hashCode => Object.hash(playlistId, currentVideoId);
-}
-
-class _FakeSourceAuthContext implements SourceAuthContext {
-  @override
-  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
-
-  @override
-  Future<PlaybackNetworkRequest> playbackNetworkRequest(
-    Track track,
-    String url,
-  ) async {
-    return PlaybackNetworkRequest(
-      url: url,
-      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
-    );
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeSource implements AudioStreamSource {

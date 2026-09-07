@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:fmp/providers/library/playlist_import_provider.dart';
@@ -12,7 +11,9 @@ import 'package:fmp/providers/settings/layout_settings_provider.dart';
 import 'package:fmp/providers/settings/theme_provider.dart';
 import 'package:fmp/services/audio/queue_state.dart';
 import 'package:fmp/services/import/playlist_import_service.dart';
-import 'package:isar_community/isar.dart';
+
+import '../support/fakes/fake_isar.dart';
+import '../support/fakes/fake_settings_repository.dart';
 
 /// Riverpod 3 的 `Notifier` 與被它取代的 `StateNotifier` 有一個靜默的語意差：
 /// `build()` 重跑時**實例會被保留**（`notifier/orphan.dart` 明文），而
@@ -71,11 +72,11 @@ void main() {
     // 否則第二次指派就是 LateInitializationError。
     // 換掉的是**實例**：override 每次回傳同一個 repository 的話，失效後新舊
     // 值相等，Riverpod 不會通知下游，build() 也就不會重跑 —— 那樣測不到東西。
-    late _FakeSettingsRepository repository;
+    late FakeSettingsRepository repository;
     late ProviderContainer container;
 
     setUp(() {
-      repository = _FakeSettingsRepository(
+      repository = FakeSettingsRepository(
         Settings()
           ..railExpanded = true
           ..detailPanelWidth = 500,
@@ -96,7 +97,7 @@ void main() {
 
       final notifier = container.read(layoutSettingsProvider.notifier);
 
-      repository = _FakeSettingsRepository(Settings()..railExpanded = false);
+      repository = FakeSettingsRepository(Settings()..railExpanded = false);
       container.invalidate(settingsRepositoryProvider);
       container.read(layoutSettingsProvider);
       await Future<void>.delayed(Duration.zero);
@@ -116,7 +117,7 @@ void main() {
 
       final notifier = container.read(themeProvider.notifier);
 
-      repository = _FakeSettingsRepository(Settings());
+      repository = FakeSettingsRepository(Settings());
       container.invalidate(settingsRepositoryProvider);
       container.read(themeProvider);
       await Future<void>.delayed(Duration.zero);
@@ -128,23 +129,6 @@ void main() {
 
   _playlistImportSubscriptionGroup();
 }
-
-class _FakeSettingsRepository extends SettingsRepository {
-  _FakeSettingsRepository(this.settings) : super(_FakeIsar());
-
-  final Settings settings;
-
-  @override
-  Future<Settings> get() async => settings;
-
-  @override
-  Future<Settings> update(void Function(Settings settings) mutate) async {
-    mutate(settings);
-    return settings;
-  }
-}
-
-class _FakeIsar extends Fake implements Isar {}
 
 /// `PlaylistImportNotifier` 是全批唯一在建構子裡 `listen` 的 notifier。
 /// `build()` 重跑時實例被保留，訂閱卻會再開一條 —— 沒有 `ref.onDispose`

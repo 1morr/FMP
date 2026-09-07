@@ -13,6 +13,7 @@ import 'package:fmp/services/radio/radio_source.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/fakes/fake_isar.dart';
 
 void main() {
   setUpAll(() {
@@ -259,5 +260,3 @@ RadioStation _copyStation(RadioStation station) {
     ..thumbnailUrl = station.thumbnailUrl
     ..hostName = station.hostName;
 }
-
-class _FakeIsar extends Fake implements Isar {}

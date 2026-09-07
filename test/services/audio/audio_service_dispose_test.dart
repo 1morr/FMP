@@ -12,13 +12,11 @@ import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
-import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
-import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -37,6 +35,7 @@ import 'package:fmp/services/network/connectivity_service.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
 
@@ -251,7 +250,7 @@ ProviderContainer _createContainer({
       audioStreamManagerProvider.overrideWith((ref) {
         final settingsRepository = SettingsRepository(isar);
         final sourceManager = SourceManager();
-        final sourceAuthContext = _FakeSourceAuthContext();
+        final sourceAuthContext = FakeSourceAuthContext();
         final streamResolutionService = DefaultStreamResolutionService(
           trackRepository: TrackRepository(isar),
           settingsRepository: settingsRepository,
@@ -406,25 +405,6 @@ class _TestConnectivityNotifier extends ConnectivityNotifier {
 
   @override
   Stream<void> get onNetworkRecovered => _networkRecoveredController.stream;
-}
-
-class _FakeSourceAuthContext implements SourceAuthContext {
-  @override
-  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
-
-  @override
-  Future<PlaybackNetworkRequest> playbackNetworkRequest(
-    Track track,
-    String url,
-  ) async {
-    return PlaybackNetworkRequest(
-      url: url,
-      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
-    );
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeNeteaseAccountService extends NeteaseAccountService {

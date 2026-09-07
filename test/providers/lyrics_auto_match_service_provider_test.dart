@@ -17,7 +17,8 @@ import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
 import 'package:fmp/services/lyrics/title_parser.dart';
-import 'package:isar_community/isar.dart';
+
+import '../support/fakes/fake_isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -109,7 +110,7 @@ LyricsResult _lyricsResult({
 }
 
 class _FakeSettingsRepository extends SettingsRepository {
-  _FakeSettingsRepository(this.settings) : super(_FakeIsar());
+  _FakeSettingsRepository(this.settings) : super(FakeIsar());
 
   final Settings settings;
 
@@ -118,7 +119,7 @@ class _FakeSettingsRepository extends SettingsRepository {
 }
 
 class _FakeLyricsRepository extends LyricsRepository {
-  _FakeLyricsRepository() : super(_FakeIsar());
+  _FakeLyricsRepository() : super(FakeIsar());
 
   LyricsMatch? saved;
 
@@ -133,7 +134,7 @@ class _FakeLyricsRepository extends LyricsRepository {
 
 class _FakeLyricsTitleParseCacheRepository
     extends LyricsTitleParseCacheRepository {
-  _FakeLyricsTitleParseCacheRepository() : super(_FakeIsar());
+  _FakeLyricsTitleParseCacheRepository() : super(FakeIsar());
 }
 
 class _RecordingLyricsCache extends LyricsCacheService {
@@ -169,5 +170,3 @@ class _FakeNeteaseSource extends NeteaseSource {
 class _FakeQQMusicSource extends QQMusicSource {}
 
 class _FakeLrclibSource extends LrclibSource {}
-
-class _FakeIsar extends Fake implements Isar {}

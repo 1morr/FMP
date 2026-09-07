@@ -10,7 +10,8 @@ import 'package:fmp/services/search/search_service.dart';
 import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:isar_community/isar.dart';
+
+import '../support/fakes/fake_isar.dart';
 
 void main() {
   group('SearchNotifier stale pagination guards', () {
@@ -472,8 +473,8 @@ class _CompletingSearchService extends SearchService {
   _CompletingSearchService()
     : super(
         sourceManager: SourceManager(),
-        trackRepository: TrackRepository(_FakeIsar()),
-        searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
+        trackRepository: TrackRepository(FakeIsar()),
+        searchHistoryRepository: SearchHistoryRepository(FakeIsar()),
       );
 
   final List<({String sourceType, String query, int page, SearchOrder order})>
@@ -603,5 +604,3 @@ class _CompletingLiveSource implements LiveSource {
   String _liveKey(String query, int page, LiveRoomFilter filter) =>
       '$query|$page|${filter.name}';
 }
-
-class _FakeIsar extends Fake implements Isar {}
