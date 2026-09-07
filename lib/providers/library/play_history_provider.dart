@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../data/models/play_history.dart';
 import '../../data/repositories/play_history_repository.dart';
@@ -272,10 +271,14 @@ class PlayHistoryPageState {
 }
 
 /// 播放历史页面状态管理器
-class PlayHistoryPageNotifier extends StateNotifier<PlayHistoryPageState> {
-  final PlayHistoryRepository _repo;
+class PlayHistoryPageNotifier extends Notifier<PlayHistoryPageState> {
+  late PlayHistoryRepository _repo;
 
-  PlayHistoryPageNotifier(this._repo) : super(const PlayHistoryPageState());
+  @override
+  PlayHistoryPageState build() {
+    _repo = ref.watch(playHistoryRepositoryProvider);
+    return const PlayHistoryPageState();
+  }
 
   /// 设置音源筛选（null = 全部）
   void setSource(String? sourceType) {
@@ -368,11 +371,8 @@ class PlayHistoryPageNotifier extends StateNotifier<PlayHistoryPageState> {
 }
 
 /// 播放历史页面状态 Provider
-final playHistoryPageProvider = StateNotifierProvider.autoDispose<
-    PlayHistoryPageNotifier, PlayHistoryPageState>((ref) {
-  final repo = ref.watch(playHistoryRepositoryProvider);
-  return PlayHistoryPageNotifier(repo);
-});
+final playHistoryPageProvider = NotifierProvider.autoDispose<
+    PlayHistoryPageNotifier, PlayHistoryPageState>(PlayHistoryPageNotifier.new);
 
 /// 分组后的播放历史 Provider
 /// 注意：只監聽影響數據獲取的字段，不監聽選擇狀態，避免選擇時重新獲取數據導致閃爍

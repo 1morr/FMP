@@ -265,7 +265,7 @@ void main() {
       );
       expect(
         trackDetailSource,
-        contains('final SourcePlaybackAuthContext _sourceAuthContext'),
+        contains('late SourcePlaybackAuthContext _sourceAuthContext'),
       );
     });
   });

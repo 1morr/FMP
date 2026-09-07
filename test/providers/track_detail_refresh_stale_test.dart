@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/providers/library/track_detail_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:path/path.dart' as p;
@@ -24,7 +27,7 @@ void main() {
     addTearDown(sourceManager.dispose);
 
     final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+        _notifier(sourceManager, _FakeSourceAuthContext());
 
     final pageOne = _track('BV-SAME', SourceIds.bilibili)
       ..cid = 101
@@ -61,7 +64,7 @@ void main() {
     addTearDown(sourceManager.dispose);
 
     final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+        _notifier(sourceManager, _FakeSourceAuthContext());
 
     final trackA = _track('BV-A', SourceIds.bilibili);
     final trackB = _track('YT-B', SourceIds.youtube);
@@ -100,7 +103,7 @@ void main() {
     addTearDown(sourceManager.dispose);
 
     final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+        _notifier(sourceManager, _FakeSourceAuthContext());
 
     final trackA = _track('BV-A', SourceIds.bilibili);
     final initialLoadFuture = notifier.loadDetail(trackA);
@@ -140,7 +143,7 @@ void main() {
     addTearDown(sourceManager.dispose);
 
     final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+        _notifier(sourceManager, _FakeSourceAuthContext());
 
     final track = _track('YT-B', SourceIds.youtube);
     final loadFuture = notifier.loadDetail(track);
@@ -187,7 +190,7 @@ void main() {
     final track = _track('BV-MISSING', SourceIds.bilibili)
       ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
     final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+        _notifier(sourceManager, _FakeSourceAuthContext());
 
     await notifier.loadDetail(track);
 
@@ -220,7 +223,7 @@ void main() {
     final track = _track('BV-STATE', SourceIds.bilibili)
       ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
     final notifier =
-        TrackDetailNotifier(sourceManager, _FakeSourceAuthContext());
+        _notifier(sourceManager, _FakeSourceAuthContext());
 
     final loadFuture = notifier.loadDetail(track);
     await pumpEventQueue(times: 2);
@@ -238,7 +241,7 @@ void main() {
     addTearDown(sourceManager.dispose);
     final authContext = _FakeSourceAuthContext()
       ..authHeaders = const {'Authorization': 'Bearer detail'};
-    final notifier = TrackDetailNotifier(sourceManager, authContext);
+    final notifier = _notifier(sourceManager, authContext);
 
     final loadFuture =
         notifier.loadDetail(_track('YT-auth', SourceIds.youtube));
@@ -249,6 +252,22 @@ void main() {
     expect(authContext.requests, [SourceIds.youtube]);
     expect(youtube.authRequests.single, {'Authorization': 'Bearer detail'});
   });
+}
+
+/// `TrackDetailNotifier` 以前吃兩個建構子參數；`Notifier.new` 不吃，所以兩個
+/// 相依都從 container 進去。`currentTrackProvider` 也一起蓋掉 —— 它會拉起整個
+/// `audioControllerProvider`，而這組測試只在意詳情載入。
+TrackDetailNotifier _notifier(
+  SourceManager sourceManager,
+  SourceAuthContext authContext,
+) {
+  final container = ProviderContainer(overrides: [
+    sourceManagerProvider.overrideWith((ref) => sourceManager),
+    sourceAuthContextProvider.overrideWith((ref) => authContext),
+    currentTrackProvider.overrideWith((ref) => null),
+  ]);
+  addTearDown(container.dispose);
+  return container.read(trackDetailProvider.notifier);
 }
 
 Track _track(String sourceId, String sourceType) {

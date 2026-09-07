@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../core/errors/user_message.dart';
 import '../../data/models/track.dart';
@@ -103,23 +102,30 @@ class PlaylistImportState {
 }
 
 /// 歌单导入状态管理
-class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
-  final PlaylistImportService _service;
+class PlaylistImportNotifier extends Notifier<PlaylistImportState> {
+  late PlaylistImportService _service;
   StreamSubscription<ImportProgress>? _progressSubscription;
   int _importOperationId = 0;
   int? _activeImportOperationId;
   int _manualSearchOperationId = 0;
   final Map<int, int> _manualSearchOperations = {};
 
-  PlaylistImportNotifier(this._service) : super(const PlaylistImportState()) {
+  @override
+  PlaylistImportState build() {
+    _service = ref.watch(playlistImportServiceProvider);
     _progressSubscription = _service.progressStream.listen((progress) {
-      if (_activeImportOperationId != null && mounted) {
+      if (_activeImportOperationId != null && ref.mounted) {
         state = state.copyWith(
           progress: progress,
           phase: progress.phase,
         );
       }
     });
+    // 這條訂閱以前開在建構子、關在 `dispose()`。`ref.onDispose` 在 provider
+    // 即將 rebuild 時也會跑，所以每一次 build 開的訂閱都成對關掉 —— 漏了這行
+    // 就是每次 rebuild 洩一條，而且不會有任何錯誤訊息。
+    ref.onDispose(_teardown);
+    return const PlaylistImportState();
   }
 
   /// 取消当前导入
@@ -187,7 +193,7 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
   }
 
   bool _isImportOperationCurrent(int operationId) {
-    return mounted && _activeImportOperationId == operationId;
+    return ref.mounted && _activeImportOperationId == operationId;
   }
 
   /// 更新匹配结果（用户选择其他搜索结果）
@@ -267,7 +273,7 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
   }
 
   bool _isManualSearchCurrent(int index, int operationId) {
-    return mounted && _manualSearchOperations[index] == operationId;
+    return ref.mounted && _manualSearchOperations[index] == operationId;
   }
 
   /// 为未匹配歌曲搜索（仅返回结果，不更新状态）
@@ -304,14 +310,12 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
     state = const PlaylistImportState();
   }
 
-  @override
-  void dispose() {
+  void _teardown() {
     _importOperationId++;
     _activeImportOperationId = null;
     _manualSearchOperations.clear();
     _progressSubscription?.cancel();
     _service.dispose();
-    super.dispose();
   }
 }
 
@@ -322,7 +326,5 @@ final playlistImportServiceProvider = Provider<PlaylistImportService>((ref) {
 });
 
 final playlistImportProvider =
-    StateNotifierProvider<PlaylistImportNotifier, PlaylistImportState>((ref) {
-  final service = ref.watch(playlistImportServiceProvider);
-  return PlaylistImportNotifier(service);
-});
+    NotifierProvider<PlaylistImportNotifier, PlaylistImportState>(
+        PlaylistImportNotifier.new);

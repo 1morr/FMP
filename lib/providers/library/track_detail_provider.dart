@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/download_filenames.dart';
@@ -42,13 +42,32 @@ class TrackDetailState {
 }
 
 /// 歌曲详情 Notifier
-class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
-  final SourceManager _sourceManager;
-  final SourcePlaybackAuthContext _sourceAuthContext;
+class TrackDetailNotifier extends Notifier<TrackDetailState> {
+  late SourceManager _sourceManager;
+  late SourcePlaybackAuthContext _sourceAuthContext;
   Track? _currentTrack;
 
-  TrackDetailNotifier(this._sourceManager, this._sourceAuthContext)
-      : super(const TrackDetailState());
+  @override
+  TrackDetailState build() {
+    _sourceManager = ref.watch(sourceManagerProvider);
+    _sourceAuthContext = ref.watch(sourceAuthContextProvider);
+
+    // 监听当前播放的歌曲变化
+    ref.listen<Track?>(currentTrackProvider, (previous, next) {
+      if (previous?.uniqueKey != next?.uniqueKey) {
+        loadDetail(next);
+      }
+    });
+
+    // 初始化时加载当前歌曲详情
+    final currentTrack = ref.read(currentTrackProvider);
+    if (currentTrack != null) {
+      // `loadDetail` 會同步寫 state，不能在 build() 裡直接呼叫。
+      Future.microtask(() => loadDetail(currentTrack));
+    }
+
+    return const TrackDetailState();
+  }
 
   /// 加载歌曲详情
   Future<void> loadDetail(Track? track) async {
@@ -184,25 +203,5 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 
 /// 歌曲详情 Provider
 final trackDetailProvider =
-    StateNotifierProvider<TrackDetailNotifier, TrackDetailState>((ref) {
-  final sourceManager = ref.watch(sourceManagerProvider);
-  final notifier = TrackDetailNotifier(
-    sourceManager,
-    ref.watch(sourceAuthContextProvider),
-  );
-
-  // 监听当前播放的歌曲变化
-  ref.listen<Track?>(currentTrackProvider, (previous, next) {
-    if (previous?.uniqueKey != next?.uniqueKey) {
-      notifier.loadDetail(next);
-    }
-  });
-
-  // 初始化时加载当前歌曲详情
-  final currentTrack = ref.read(currentTrackProvider);
-  if (currentTrack != null) {
-    notifier.loadDetail(currentTrack);
-  }
-
-  return notifier;
-});
+    NotifierProvider<TrackDetailNotifier, TrackDetailState>(
+        TrackDetailNotifier.new);

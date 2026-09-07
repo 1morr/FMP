@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
@@ -5,10 +6,12 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/providers/library/playlist_import_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/settings/layout_settings_provider.dart';
 import 'package:fmp/providers/settings/theme_provider.dart';
 import 'package:fmp/services/audio/queue_state.dart';
+import 'package:fmp/services/import/playlist_import_service.dart';
 import 'package:isar_community/isar.dart';
 
 /// Riverpod 3 的 `Notifier` 與被它取代的 `StateNotifier` 有一個靜默的語意差：
@@ -113,6 +116,8 @@ void main() {
       expect(container.read(themeProvider).isLoading, isFalse);
     });
   });
+
+  _playlistImportSubscriptionGroup();
 }
 
 class _FakeSettingsRepository extends SettingsRepository {
@@ -131,3 +136,50 @@ class _FakeSettingsRepository extends SettingsRepository {
 }
 
 class _FakeIsar extends Fake implements Isar {}
+
+/// `PlaylistImportNotifier` 是全批唯一在建構子裡 `listen` 的 notifier。
+/// `build()` 重跑時實例被保留，訂閱卻會再開一條 —— 沒有 `ref.onDispose`
+/// 就是每次 rebuild 洩一條，而且完全沒有錯誤訊息。
+void _playlistImportSubscriptionGroup() {
+  test('playlist import notifier does not leak its progress subscription',
+      () {
+    var service = _CountingImportService();
+    final container = ProviderContainer(overrides: [
+      playlistImportServiceProvider.overrideWith((ref) => service),
+    ]);
+    addTearDown(container.dispose);
+
+    final notifier = container.read(playlistImportProvider.notifier);
+    expect(service.listenCount, 1);
+    expect(service.cancelCount, 0);
+
+    final first = service;
+    service = _CountingImportService();
+    container.invalidate(playlistImportServiceProvider);
+    container.read(playlistImportProvider);
+
+    expect(container.read(playlistImportProvider.notifier), same(notifier));
+    expect(first.cancelCount, 1,
+        reason: '前一次 build 開的訂閱必須在 rebuild 之前關掉');
+    expect(service.listenCount, 1);
+  });
+}
+
+class _CountingImportService implements PlaylistImportService {
+  int listenCount = 0;
+  int cancelCount = 0;
+  late final StreamController<ImportProgress> _controller =
+      StreamController<ImportProgress>.broadcast(
+    onListen: () => listenCount++,
+    onCancel: () => cancelCount++,
+  );
+
+  @override
+  Stream<ImportProgress> get progressStream => _controller.stream;
+
+  @override
+  void dispose() => _controller.close();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}

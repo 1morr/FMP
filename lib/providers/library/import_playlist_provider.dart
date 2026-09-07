@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_riverpod/misc.dart';
 
 import '../../core/errors/user_message.dart';
@@ -52,12 +51,8 @@ class ImportPlaylistState {
 
 const _copySentinel = Object();
 
-class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
-  ImportPlaylistNotifier(this._ref, this._createService)
-      : super(const ImportPlaylistState());
-
-  final Ref _ref;
-  final ImportServiceFactory _createService;
+class ImportPlaylistNotifier extends Notifier<ImportPlaylistState> {
+  late ImportServiceFactory _createService;
 
   ImportServiceFacade? _service;
   StreamSubscription<ImportProgress>? _progressSubscription;
@@ -65,8 +60,15 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
   int _operationId = 0;
   int? _activeOperationId;
 
+  @override
+  ImportPlaylistState build() {
+    _createService = ref.watch(importServiceFactoryProvider);
+    ref.onDispose(_teardown);
+    return const ImportPlaylistState();
+  }
+
   bool _isActiveOperation(int operationId) {
-    return mounted && _activeOperationId == operationId;
+    return ref.mounted && _activeOperationId == operationId;
   }
 
   Future<ImportServiceFacade> _createServiceForOperation(
@@ -111,7 +113,7 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
     _service?.cancelImport();
     _progressSubscription?.cancel();
     _progressSubscription = null;
-    _keepAliveLink ??= _ref.keepAlive();
+    _keepAliveLink ??= ref.keepAlive();
     state = state.copyWith(
       isImporting: true,
       progress: const ImportProgress(),
@@ -174,7 +176,7 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
       if (identical(_service, service)) {
         _service = null;
       }
-      if (_activeOperationId == null && mounted) {
+      if (_activeOperationId == null && ref.mounted) {
         _keepAliveLink?.close();
         _keepAliveLink = null;
       }
@@ -195,13 +197,11 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
     state = const ImportPlaylistState();
   }
 
-  @override
-  void dispose() {
+  void _teardown() {
     _operationId++;
     _activeOperationId = null;
     _progressSubscription?.cancel();
     _service?.dispose();
-    super.dispose();
   }
 }
 
@@ -227,8 +227,9 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
   };
 });
 
-final importPlaylistProvider = StateNotifierProvider.autoDispose
-    .family<ImportPlaylistNotifier, ImportPlaylistState, String>(
-        (ref, scopeId) {
-  return ImportPlaylistNotifier(ref, ref.watch(importServiceFactoryProvider));
-});
+/// family 參數只是作用域鍵，notifier 自己用不到它。
+final importPlaylistProvider =
+    NotifierProvider.family<ImportPlaylistNotifier, ImportPlaylistState, String>(
+  (scopeId) => ImportPlaylistNotifier(),
+  isAutoDispose: true,
+);

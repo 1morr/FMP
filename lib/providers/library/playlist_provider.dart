@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/errors/user_message.dart';
@@ -73,19 +72,22 @@ class PlaylistListState extends Equatable {
 /// 注意：`playlistListProvider` 会随着 Isar `watchAll()` 自动更新；
 /// `allPlaylistsProvider` 仍然只是一个快照型 FutureProvider，给依赖它的 UI
 /// 或一次性读取场景使用时，仍需要显式 invalidate。
-class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
-  final PlaylistService _service;
-  final Ref _ref;
+class PlaylistListNotifier extends Notifier<PlaylistListState> {
+  late PlaylistService _service;
   StreamSubscription<List<Playlist>>? _watchSubscription;
 
-  PlaylistListNotifier(this._service, this._ref)
-      : super(const PlaylistListState(isLoading: true)) {
+  @override
+  PlaylistListState build() {
+    _service = ref.watch(playlistServiceProvider);
     _setupWatch();
+    // 訂閱與建立它的那一次 build 成對：`ref.onDispose` 在 rebuild 之前也會跑。
+    ref.onDispose(() => _watchSubscription?.cancel());
+    return const PlaylistListState(isLoading: true);
   }
 
   /// 设置 Isar watch 订阅
   void _setupWatch() {
-    final repo = _ref.read(playlistRepositoryProvider);
+    final repo = ref.read(playlistRepositoryProvider);
     _watchSubscription = repo.watchAll().listen((playlists) {
       state = PlaylistListState(playlists: playlists);
     });
@@ -105,9 +107,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       );
       // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
       // dispose 之後的 Ref 會拋 UnmountedRefException。
-      if (!mounted) return playlist;
+      if (!ref.mounted) return playlist;
       // watch 自动更新列表
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
         [playlist.id],
         tracksChanged: false,
         coverChanged: false,
@@ -145,13 +147,13 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       );
       // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
       // dispose 之後的 Ref 會拋 UnmountedRefException。
-      if (!mounted) return result;
+      if (!ref.mounted) return result;
       // watch 自动更新列表
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
             playlistId,
             coverChanged: true,
           );
-      _ref.read(fileExistsCacheProvider.notifier).clearAll();
+      ref.read(fileExistsCacheProvider.notifier).clearAll();
       return result;
     } catch (e, stack) {
       state = state.copyWith(
@@ -168,9 +170,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       final result = await _service.deletePlaylist(playlistId);
       // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
       // dispose 之後的 Ref 會拋 UnmountedRefException。
-      if (!mounted) return true;
+      if (!ref.mounted) return true;
       // watch 自动更新列表
-      _ref
+      ref
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
@@ -189,9 +191,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       final playlist = await _service.duplicatePlaylist(playlistId, newName);
       // 變更已經落地；notifier 若已釋放就跳過失效通知 —— Riverpod 3 對
       // dispose 之後的 Ref 會拋 UnmountedRefException。
-      if (!mounted) return playlist;
+      if (!ref.mounted) return playlist;
       // watch 自动更新列表
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
         [playlist.id],
         tracksChanged: false,
         coverChanged: true,
@@ -216,19 +218,12 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     state = state.copyWith(playlists: orderedPlaylists);
   }
 
-  @override
-  void dispose() {
-    _watchSubscription?.cancel();
-    super.dispose();
-  }
 }
 
 /// 歌单列表 Provider
 final playlistListProvider =
-    StateNotifierProvider<PlaylistListNotifier, PlaylistListState>((ref) {
-  final service = ref.watch(playlistServiceProvider);
-  return PlaylistListNotifier(service, ref);
-});
+    NotifierProvider<PlaylistListNotifier, PlaylistListState>(
+        PlaylistListNotifier.new);
 
 /// 歌单详情状态
 class PlaylistDetailState extends Equatable {
@@ -291,16 +286,25 @@ class PlaylistDetailState extends Equatable {
 }
 
 /// 歌单详情控制器
-class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
-  final PlaylistService _service;
+class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
+  PlaylistDetailNotifier(this.playlistId);
+
+  /// `NotifierProvider.family` 的 create 函式吃 family 參數
+  /// （riverpod `builder.dart:669`），所以 id 仍然走建構子。
   final int playlistId;
-  final Ref _ref;
+
+  late PlaylistService _service;
 
   static const _pageSize = 100;
 
-  PlaylistDetailNotifier(this._service, this.playlistId, this._ref)
-      : super(const PlaylistDetailState()) {
-    loadPlaylist();
+  @override
+  PlaylistDetailState build() {
+    _service = ref.watch(playlistServiceProvider);
+    // `loadPlaylist()` 第一行就同步寫 state，在 build() 裡直接呼叫會被 Riverpod
+    // 擋下。舊的建構子是「先 super() 再馬上轉 isLoading」，沒有任何監聽者看得到
+    // 中間那一格，所以這裡直接以載入中開場，語意相同。
+    Future.microtask(loadPlaylist);
+    return const PlaylistDetailState(isLoading: true);
   }
 
   /// 加载歌单详情（首次加载前 _pageSize 首）
@@ -312,7 +316,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         offset: 0,
         limit: _pageSize,
       );
-      if (!mounted) return;
+      if (!ref.mounted) return;
       if (result != null) {
         // Mix 歌單：從 InnerTube API 動態加載 tracks
         if (result.playlist.isMix) {
@@ -340,7 +344,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         );
       }
     } catch (e, stack) {
-      if (!mounted) return;
+      if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: failureMessage(e, stack, 'loadPlaylist failed',
@@ -359,7 +363,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         offset: state.tracks.length,
         limit: _pageSize,
       );
-      if (!mounted) return;
+      if (!ref.mounted) return;
       if (result != null) {
         state = state.copyWith(
           tracks: [...state.tracks, ...result.tracks],
@@ -370,7 +374,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         state = state.copyWith(isLoadingMore: false);
       }
     } catch (e, stack) {
-      if (!mounted) return;
+      if (!ref.mounted) return;
       state = state.copyWith(
         isLoadingMore: false,
         error: failureMessage(e, stack, 'loadMore failed',
@@ -391,7 +395,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   Future<void> _loadMixTracks(Playlist playlist) async {
     try {
       if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
-        if (!mounted) return;
+        if (!ref.mounted) return;
         state = state.copyWith(
           isLoading: false,
           error: t.importSource.mixMissingInfo,
@@ -399,7 +403,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         return;
       }
 
-      final dynamicSource = _ref
+      final dynamicSource = ref
           .read(sourceManagerProvider)
           .dynamicPlaylistSource(SourceIds.youtube);
       if (dynamicSource == null) {
@@ -410,13 +414,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         currentVideoId: playlist.mixSeedVideoId!,
       );
 
-      if (!mounted) return;
+      if (!ref.mounted) return;
       state = state.copyWith(
         tracks: result.tracks,
         isLoading: false,
       );
     } catch (e, stack) {
-      if (!mounted) return;
+      if (!ref.mounted) return;
       final reason =
           failureMessage(e, stack, 'loadMixTracks failed', tag: 'Playlist');
       state = state.copyWith(
@@ -436,7 +440,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         offset: 0,
         limit: loadedCount > 0 ? loadedCount : _pageSize,
       );
-      if (!mounted) return;
+      if (!ref.mounted) return;
       if (result != null) {
         state = state.copyWith(
           tracks: result.tracks,
@@ -464,15 +468,15 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       );
 
       final result = await _service.addTrackToPlaylist(playlistId, track);
-      if (!mounted) return true;
+      if (!ref.mounted) return true;
       await refreshTracks();
-      if (!mounted) return true;
-      _ref
+      if (!ref.mounted) return true;
+      ref
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
     } catch (e, stack) {
-      if (!mounted) return false;
+      if (!ref.mounted) return false;
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
@@ -495,15 +499,15 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 
       final result =
           await _service.removeTrackFromPlaylist(playlistId, trackId);
-      if (!mounted) return true;
+      if (!ref.mounted) return true;
       await refreshTracks();
-      if (!mounted) return true;
-      _ref
+      if (!ref.mounted) return true;
+      ref
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
     } catch (e, stack) {
-      if (!mounted) return false;
+      if (!ref.mounted) return false;
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
@@ -530,15 +534,15 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 
       final result =
           await _service.removeTracksFromPlaylist(playlistId, trackIds);
-      if (!mounted) return true;
+      if (!ref.mounted) return true;
       await refreshTracks();
-      if (!mounted) return true;
-      _ref
+      if (!ref.mounted) return true;
+      ref
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
     } catch (e, stack) {
-      if (!mounted) return false;
+      if (!ref.mounted) return false;
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
@@ -561,15 +565,15 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 
       final result =
           await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
-      if (!mounted) return true;
+      if (!ref.mounted) return true;
       await refreshTracks();
-      if (!mounted) return true;
-      _ref
+      if (!ref.mounted) return true;
+      ref
           .read(libraryInvalidationCoordinatorProvider)
           .playlistMutationCompleted(result);
       return true;
     } catch (e, stack) {
-      if (!mounted) return false;
+      if (!ref.mounted) return false;
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
@@ -582,11 +586,8 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 }
 
 /// 歌单详情 Provider Family
-final playlistDetailProvider = StateNotifierProvider.family<
-    PlaylistDetailNotifier, PlaylistDetailState, int>((ref, playlistId) {
-  final service = ref.watch(playlistServiceProvider);
-  return PlaylistDetailNotifier(service, playlistId, ref);
-});
+final playlistDetailProvider = NotifierProvider.family<PlaylistDetailNotifier,
+    PlaylistDetailState, int>(PlaylistDetailNotifier.new);
 
 /// 歌单封面 Provider
 /// 返回 PlaylistCoverData，包含本地路径和网络 URL

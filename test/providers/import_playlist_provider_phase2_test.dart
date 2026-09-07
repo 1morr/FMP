@@ -57,7 +57,7 @@ void main() {
     test('legacy PlaylistImportNotifier ignores late importAndMatch results',
         () async {
       final service = _FakePlaylistImportService();
-      final notifier = PlaylistImportNotifier(service);
+      final notifier = _legacyNotifier(service);
 
       final oldImport = service.enqueueImport(_playlistImportResult('old'));
       final oldFuture = notifier.importAndMatch('https://example.com/old');
@@ -78,13 +78,12 @@ void main() {
 
       expect(notifier.state.isLoading, isFalse);
       expect(notifier.state.playlist?.name, 'new');
-      notifier.dispose();
     });
 
     test('legacy PlaylistImportNotifier ignores late manualSearch results',
         () async {
       final service = _FakePlaylistImportService();
-      final notifier = PlaylistImportNotifier(service);
+      final notifier = _legacyNotifier(service);
       notifier.setSeedState(
         PlaylistImportState(
           matchedTracks: [
@@ -120,7 +119,6 @@ void main() {
         notifier.state.matchedTracks.single.selectedTrack?.sourceId,
         'new-manual',
       );
-      notifier.dispose();
     });
 
     test(
@@ -379,6 +377,18 @@ Track _track(String sourceId) {
     ..sourceId = sourceId
     ..sourceType = SourceIds.youtube
     ..title = sourceId;
+}
+
+/// `PlaylistImportNotifier` 以前吃一個建構子參數；`Notifier.new` 不吃，
+/// 所以服務改由 container 注入，釋放也交給 container。
+PlaylistImportNotifier _legacyNotifier(
+  legacy_import.PlaylistImportService service,
+) {
+  final container = ProviderContainer(overrides: [
+    playlistImportServiceProvider.overrideWith((ref) => service),
+  ]);
+  addTearDown(container.dispose);
+  return container.read(playlistImportProvider.notifier);
 }
 
 extension on PlaylistImportNotifier {
