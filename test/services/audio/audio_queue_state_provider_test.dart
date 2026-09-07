@@ -151,8 +151,9 @@ void main() {
         );
 
         loadMoreGate.complete();
-        await _waitUntil(
+        await pumpUntil(
           () => !harness.container.read(queueStateProvider).isLoadingMoreMix,
+          reason: 'the mix load-more should finish once its gate opens',
         );
 
         expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
@@ -170,19 +171,6 @@ Track _track(String sourceId) => Track()
   ..sourceId = sourceId
   ..sourceType = SourceIds.youtube
   ..title = sourceId;
-
-Future<void> _waitUntil(
-  bool Function() condition, {
-  Duration timeout = const Duration(seconds: 5),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (!condition()) {
-    if (DateTime.now().isAfter(deadline)) {
-      throw TimeoutException('Timed out waiting for condition');
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-}
 
 class _AudioControllerHarness {
   _AudioControllerHarness({

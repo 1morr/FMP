@@ -39,6 +39,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/fakes/count_waiters.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
@@ -2179,7 +2180,7 @@ class _GateableLyricsAutoMatchService extends LyricsAutoMatchService {
   final List<_PendingLyricsMatch> _pending = [];
   final List<Track> calls = [];
   final List<List<String>?> enabledSourceCalls = [];
-  final List<_CountWaiter> _waiters = [];
+  late final _waiters = CountWaiters(() => calls.length);
 
   Completer<void> enqueuePendingResult(bool result) {
     final completer = Completer<void>();
@@ -2187,12 +2188,7 @@ class _GateableLyricsAutoMatchService extends LyricsAutoMatchService {
     return completer;
   }
 
-  Future<void> waitForCallCount(int count) {
-    if (calls.length >= count) return Future.value();
-    final completer = Completer<void>();
-    _waiters.add(_CountWaiter(count, completer));
-    return completer.future;
-  }
+  Future<void> waitForCallCount(int count) => _waiters.waitFor(count);
 
   @override
   Future<bool> tryAutoMatch(
@@ -2202,12 +2198,7 @@ class _GateableLyricsAutoMatchService extends LyricsAutoMatchService {
   }) async {
     calls.add(track);
     enabledSourceCalls.add(enabledSources);
-    for (final waiter in List<_CountWaiter>.from(_waiters)) {
-      if (calls.length >= waiter.target && !waiter.completer.isCompleted) {
-        waiter.completer.complete();
-        _waiters.remove(waiter);
-      }
-    }
+    _waiters.notify();
     if (_pending.isEmpty) return false;
     final pending = _pending.removeAt(0);
     await pending.completer.future;
@@ -2231,13 +2222,6 @@ class _PassThroughTitleParser implements TitleParser {
       cleanedTitle: title,
     );
   }
-}
-
-class _CountWaiter {
-  _CountWaiter(this.target, this.completer);
-
-  final int target;
-  final Completer<void> completer;
 }
 
 class _TestMixTracksFetcher {

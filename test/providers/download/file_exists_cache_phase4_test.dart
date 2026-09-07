@@ -5,16 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import '../../support/pump_until.dart';
 
-Future<void> _waitForCondition(bool Function() condition) async {
-  final stopwatch = Stopwatch()..start();
-  while (!condition()) {
-    if (stopwatch.elapsed > const Duration(seconds: 2)) {
-      fail('Timed out waiting for condition.');
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-}
-
 void main() {
   group('Phase 4 Task 3 file exists cache', () {
     test(
@@ -209,14 +199,16 @@ void main() {
         final cache = container.read(fileExistsCacheProvider.notifier);
 
         expect(cache.exists(existsPath), isFalse);
-        await _waitForCondition(
+        await pumpUntil(
           () => container.read(filePathExistsProvider(existsPath)),
+          reason: 'the first probe should settle to exists',
         );
         expect(values, [0, 1]);
 
         expect(cache.getFirstExisting([refreshPath]), isNull);
-        await _waitForCondition(
+        await pumpUntil(
           () => container.read(filePathExistsProvider(refreshPath)),
+          reason: 'the refreshed probe should settle to exists',
         );
         expect(values, [0, 1, 2]);
 
@@ -325,7 +317,10 @@ void main() {
         final missingPath = '${tempDir.path}/missing_cover.jpg';
 
         expect(cache.exists(missingPath), isFalse);
-        await _waitForCondition(() => cache.debugMissingPathCount == 1);
+        await pumpUntil(
+          () => cache.debugMissingPathCount == 1,
+          reason: 'the missing path should be recorded',
+        );
 
         expect(cache.getFirstExisting([missingPath]), isNull);
         expect(cache.pendingRefreshCount, 0);

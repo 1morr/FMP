@@ -6,6 +6,8 @@ import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 
+import 'count_waiters.dart';
+
 class AudioUrlCall {
   AudioUrlCall({required this.url, this.headers, this.track});
 
@@ -65,9 +67,9 @@ class FakeAudioService implements FmpAudioService {
   final List<Completer<void>> _pendingPlay = [];
   final List<Object> _stopErrors = [];
   final List<Object> _playUrlErrors = [];
-  final List<_CountWaiter> _playUrlWaiters = [];
-  final List<_CountWaiter> _setUrlWaiters = [];
-  final List<_CountWaiter> _seekWaiters = [];
+  late final _playUrlWaiters = CountWaiters(() => playUrlCalls.length);
+  late final _setUrlWaiters = CountWaiters(() => setUrlCalls.length);
+  late final _seekWaiters = CountWaiters(() => seekCalls.length);
 
   bool _isPlaying = false;
   Duration _position = Duration.zero;
@@ -117,26 +119,13 @@ class FakeAudioService implements FmpAudioService {
     _playUrlErrors.add(error);
   }
 
-  Future<void> waitForPlayUrlCallCount(int count) {
-    if (playUrlCalls.length >= count) return Future.value();
-    final completer = Completer<void>();
-    _playUrlWaiters.add(_CountWaiter(count, completer));
-    return completer.future;
-  }
+  Future<void> waitForPlayUrlCallCount(int count) =>
+      _playUrlWaiters.waitFor(count);
 
-  Future<void> waitForSetUrlCallCount(int count) {
-    if (setUrlCalls.length >= count) return Future.value();
-    final completer = Completer<void>();
-    _setUrlWaiters.add(_CountWaiter(count, completer));
-    return completer.future;
-  }
+  Future<void> waitForSetUrlCallCount(int count) =>
+      _setUrlWaiters.waitFor(count);
 
-  Future<void> waitForSeekCallCount(int count) {
-    if (seekCalls.length >= count) return Future.value();
-    final completer = Completer<void>();
-    _seekWaiters.add(_CountWaiter(count, completer));
-    return completer.future;
-  }
+  Future<void> waitForSeekCallCount(int count) => _seekWaiters.waitFor(count);
 
   void setPositionValue(Duration position) {
     _position = position;
@@ -208,35 +197,6 @@ class FakeAudioService implements FmpAudioService {
   void emitAudioDevices(List<FmpAudioDevice> devices) {
     _audioDevices = devices;
     _audioDevicesController.add(devices);
-  }
-
-  void _notifyPlayUrlWaiters() {
-    for (final waiter in List<_CountWaiter>.from(_playUrlWaiters)) {
-      if (playUrlCalls.length >= waiter.target &&
-          !waiter.completer.isCompleted) {
-        waiter.completer.complete();
-        _playUrlWaiters.remove(waiter);
-      }
-    }
-  }
-
-  void _notifySetUrlWaiters() {
-    for (final waiter in List<_CountWaiter>.from(_setUrlWaiters)) {
-      if (setUrlCalls.length >= waiter.target &&
-          !waiter.completer.isCompleted) {
-        waiter.completer.complete();
-        _setUrlWaiters.remove(waiter);
-      }
-    }
-  }
-
-  void _notifySeekWaiters() {
-    for (final waiter in List<_CountWaiter>.from(_seekWaiters)) {
-      if (seekCalls.length >= waiter.target && !waiter.completer.isCompleted) {
-        waiter.completer.complete();
-        _seekWaiters.remove(waiter);
-      }
-    }
   }
 
   Future<void> _awaitPending(List<Completer<void>> pending) async {
@@ -357,7 +317,7 @@ class FakeAudioService implements FmpAudioService {
   @override
   Future<void> seekTo(Duration position) async {
     seekCalls.add(position);
-    _notifySeekWaiters();
+    _seekWaiters.notify();
     await _awaitPending(_pendingSeek);
     _position = position;
     _emitState();
@@ -431,7 +391,7 @@ class FakeAudioService implements FmpAudioService {
     Track? track,
   }) async {
     playUrlCalls.add(AudioUrlCall(url: url, headers: headers, track: track));
-    _notifyPlayUrlWaiters();
+    _playUrlWaiters.notify();
     await _awaitPending(_pendingPlayUrl);
     if (_playUrlErrors.isNotEmpty) {
       throw _playUrlErrors.removeAt(0);
@@ -449,7 +409,7 @@ class FakeAudioService implements FmpAudioService {
     Track? track,
   }) async {
     setUrlCalls.add(AudioUrlCall(url: url, headers: headers, track: track));
-    _notifySetUrlWaiters();
+    _setUrlWaiters.notify();
     await _awaitPending(_pendingSetUrl);
     _processingState = FmpAudioProcessingState.ready;
     _emitState();
@@ -472,11 +432,4 @@ class FakeAudioService implements FmpAudioService {
     _emitState();
     return _duration;
   }
-}
-
-class _CountWaiter {
-  _CountWaiter(this.target, this.completer);
-
-  final int target;
-  final Completer<void> completer;
 }

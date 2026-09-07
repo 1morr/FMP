@@ -11,6 +11,7 @@ import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
 import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
+import '../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +36,7 @@ void main() {
         expect(createdPlaylist, isNotNull);
         final playlist = createdPlaylist!;
 
-        await harness.pumpUntil(
+        await pumpUntil(
           () =>
               harness.container.read(playlistListProvider).playlists.length ==
               1,
@@ -52,7 +53,7 @@ void main() {
               _buildTrack(sourceId: 'watch-track', title: 'Watch Track'),
             ]);
 
-        await harness.pumpUntil(
+        await pumpUntil(
           () =>
               harness.container
                   .read(playlistListProvider)
@@ -98,7 +99,7 @@ void main() {
               _buildTrack(sourceId: 'duplicate-track', title: 'Original Track'),
             );
 
-        await harness.pumpUntil(
+        await pumpUntil(
           () {
             final detail = harness.container.read(
               playlistDetailProvider(playlist.id),
@@ -143,7 +144,7 @@ void main() {
       expect(createdPlaylist, isNotNull);
       final playlist = createdPlaylist!;
 
-      await harness.pumpUntil(() {
+      await pumpUntil(() {
         final detail = harness.container.read(
           playlistDetailProvider(playlist.id),
         );
@@ -157,7 +158,7 @@ void main() {
       );
       expect(result, isNotNull);
 
-      await harness.pumpUntil(() {
+      await pumpUntil(() {
         final detail = harness.container.read(
           playlistDetailProvider(playlist.id),
         );
@@ -200,24 +201,6 @@ class PlaylistPhase2Harness {
       container.invalidate(allPlaylistsProvider);
     }
     return container.read(allPlaylistsProvider.future);
-  }
-
-  Future<void> pumpUntil(
-    bool Function() condition, {
-    required String reason,
-    Duration timeout = const Duration(seconds: 2),
-  }) async {
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      if (condition()) {
-        return;
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-
-    if (!condition()) {
-      fail(reason);
-    }
   }
 
   Future<void> dispose() async {

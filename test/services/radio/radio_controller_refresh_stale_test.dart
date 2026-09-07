@@ -71,7 +71,7 @@ void main() {
     addTearDown(service.dispose);
 
     service.setRepository(repository);
-    await _pumpUntil(
+    await pumpUntil(
       () => repository.getAllCalls == 1,
       reason: 'initial setRepository refresh should run with no stations',
     );
@@ -81,7 +81,7 @@ void main() {
     ];
 
     final oldRefresh = service.refreshAll();
-    await _pumpUntil(
+    await pumpUntil(
       () => source.liveInfoCalls.length == 1,
       reason: 'old refresh should request live info',
     );
@@ -114,7 +114,7 @@ void main() {
         radioSource: _CompletingRadioSource(),
       );
 
-      await _pumpUntil(
+      await pumpUntil(
         () => controller.state.stations.length == 1,
         reason: 'controller should load stations before manual refresh',
       );
@@ -143,19 +143,6 @@ RadioStation _station({
     ..sourceType = SourceIds.bilibili
     ..sourceId = sourceId
     ..title = title;
-}
-
-Future<void> _pumpUntil(
-  bool Function() condition, {
-  required String reason,
-  Duration timeout = const Duration(seconds: 2),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(deadline)) {
-    if (condition()) return;
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-  if (!condition()) fail(reason);
 }
 
 extension on RadioController {

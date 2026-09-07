@@ -17,6 +17,7 @@ import 'package:fmp/services/lyrics/qqmusic_source.dart';
 import 'package:fmp/services/lyrics/title_parser.dart';
 import 'package:isar_community/isar.dart';
 
+import '../../support/fakes/count_waiters.dart';
 import '../../support/isar_test_harness.dart';
 
 /// `LyricsAutoMatchCoordinator` 是 Phase 4 步驟 D 從 `AudioController` 抽出來的
@@ -163,7 +164,7 @@ class _RecordingLyricsAutoMatchService extends LyricsAutoMatchService {
   final List<Track> calls = [];
   final List<List<String>?> enabledSourceCalls = [];
   final List<Completer<void>> _pending = [];
-  final List<_CountWaiter> _waiters = [];
+  late final _waiters = CountWaiters(() => calls.length);
 
   Completer<void> enqueuePending() {
     final completer = Completer<void>();
@@ -171,12 +172,7 @@ class _RecordingLyricsAutoMatchService extends LyricsAutoMatchService {
     return completer;
   }
 
-  Future<void> waitForCallCount(int count) {
-    if (calls.length >= count) return Future.value();
-    final completer = Completer<void>();
-    _waiters.add(_CountWaiter(count, completer));
-    return completer.future;
-  }
+  Future<void> waitForCallCount(int count) => _waiters.waitFor(count);
 
   @override
   Future<bool> tryAutoMatch(
@@ -186,12 +182,7 @@ class _RecordingLyricsAutoMatchService extends LyricsAutoMatchService {
   }) async {
     calls.add(track);
     enabledSourceCalls.add(enabledSources);
-    for (final waiter in List<_CountWaiter>.from(_waiters)) {
-      if (calls.length >= waiter.target && !waiter.completer.isCompleted) {
-        waiter.completer.complete();
-        _waiters.remove(waiter);
-      }
-    }
+    _waiters.notify();
     if (_pending.isEmpty) return false;
     await _pending.removeAt(0).future;
     return true;
@@ -207,12 +198,6 @@ class _PassThroughTitleParser implements TitleParser {
       cleanedTitle: title,
     );
   }
-}
-
-class _CountWaiter {
-  _CountWaiter(this.target, this.completer);
-  final int target;
-  final Completer<void> completer;
 }
 
 Track _track(String sourceId) => Track()
