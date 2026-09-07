@@ -11,6 +11,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
+
 import '../../support/pump_until.dart';
 
 void main() {

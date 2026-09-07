@@ -38,8 +38,8 @@ import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/audio_controller_harness.dart';
-import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/count_waiters.dart';
+import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
