@@ -42,6 +42,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -166,12 +167,19 @@ void main() {
       await lyricsService.waitForCallCount(2);
 
       firstGate.complete();
-      await pumpEventQueue(times: 10);
+      // 作廢的第一次比對不該再推狀態。下面等到第三筆出現時 list 的內容就是證據，
+      // 這裡只是先把在途工作放完。
+      await drainEventQueue(
+        reason: 'the superseded first match must not push a state',
+      );
 
       expect(states, [true, true]);
 
       secondGate.complete();
-      await pumpEventQueue(times: 10);
+      await pumpUntil(
+        () => states.length == 3,
+        reason: 'the second lyrics match should settle',
+      );
 
       expect(states, [true, true, false]);
     });
@@ -220,7 +228,10 @@ void main() {
           _track('lyrics-disabled', title: 'Disabled'),
         );
         await lyricsService.waitForCallCount(1);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => lyricsService.enabledSourceCalls.length == 1,
+          reason: 'the auto-match call should record its enabled source list',
+        );
 
         expect(lyricsService.enabledSourceCalls.single, isEmpty);
       },
@@ -266,7 +277,10 @@ void main() {
         audioService.emitNaturalCompletion();
         await restoreSetUrl;
         await restoreSeek;
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.playingTrack?.sourceId == 'queue-b',
+          reason: 'natural completion should advance to the next queue entry',
+        );
 
         expect(controller.state.playingTrack?.sourceId, 'queue-b');
         expect(controller.state.currentTrack?.sourceId, 'queue-b');
@@ -325,7 +339,10 @@ void main() {
         final pendingNextLoad = audioService.enqueuePendingPlayUrl();
         final nextFuture = controller.next();
         await audioService.waitForPlayUrlCallCount(2);
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => handler.mediaItem.value?.title == 'Notification Next',
+          reason: 'the notification should show the next track while it loads',
+        );
 
         expect(handler.mediaItem.value?.title, 'Notification Next');
         expect(
@@ -381,7 +398,10 @@ void main() {
         ]);
         await controller.playAt(0);
         expect(handler.mediaItem.value?.title, 'Notification Fail First');
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => !controller.state.isLoading,
+          reason: 'the first track should settle before the next one fails',
+        );
 
         sourceManager.throwGetAudioStreamOnce(
           const YouTubeApiException(
@@ -391,7 +411,10 @@ void main() {
         );
 
         await controller.next();
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => handler.mediaItem.value?.title == 'Notification Fail Next',
+          reason: 'the notification should still name the track that failed',
+        );
 
         expect(handler.mediaItem.value?.title, 'Notification Fail Next');
         expect(
@@ -417,7 +440,10 @@ void main() {
 
         firstPlayGate.complete();
         await firstPlay;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => audioService.stopCallCount >= 2,
+          reason: 'the superseded first request should stop the backend',
+        );
 
         expect(audioService.stopCallCount, 2);
         expect(controller.state.playingTrack?.sourceId, 'second');
@@ -450,7 +476,10 @@ void main() {
 
         firstPlayGate.complete();
         await firstPlay;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => controller.state.playingTrack?.sourceId == 'second-ok',
+          reason: 'the newer request should own the playing track',
+        );
 
         expect(controller.state.playingTrack?.sourceId, 'second-ok');
         expect(controller.state.currentTrack?.sourceId, 'second-ok');
@@ -484,7 +513,13 @@ void main() {
         await audioService.waitForPlayUrlCallCount(2);
 
         final seekFuture = controller.seekTo(const Duration(seconds: 90));
-        await pumpEventQueue(times: 5);
+        // 「seek 還沒送出」等不到，但「交接已經把 playingTrack 換過去」等得到 ——
+        // 先掛在那個里程碑上，缺席的斷言才有意義。
+        await pumpUntil(
+          () => controller.state.playingTrack?.sourceId == 'handoff-next',
+          reason:
+              'the handoff should adopt the next track before the seek lands',
+        );
 
         expect(audioService.seekCalls, isEmpty);
         expect(controller.state.playingTrack?.sourceId, 'handoff-next');
@@ -493,7 +528,10 @@ void main() {
         nextPlayGate.complete();
         await nextFuture;
         await seekFuture;
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => audioService.seekCalls.isNotEmpty,
+          reason: 'the deferred seek should be applied once the handoff ends',
+        );
 
         expect(audioService.seekCalls, [const Duration(seconds: 90)]);
         expect(controller.state.playingTrack?.sourceId, 'handoff-next');
@@ -513,7 +551,9 @@ void main() {
 
         await controller.next();
         final seekFuture = controller.seekTo(const Duration(seconds: 120));
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'the seek must stay deferred inside the 500ms window',
+        );
 
         expect(audioService.seekCalls, isEmpty);
 
@@ -522,7 +562,10 @@ void main() {
               const Duration(milliseconds: 50),
         );
         await seekFuture;
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => audioService.seekCalls.isNotEmpty,
+          reason: 'the seek should land once the stabilization window passes',
+        );
 
         expect(audioService.seekCalls, [const Duration(seconds: 120)]);
         expect(controller.state.playingTrack?.sourceId, 'stable-next');
@@ -539,7 +582,9 @@ void main() {
       await audioService.waitForPlayUrlCallCount(1);
 
       final seekFuture = controller.seekTo(const Duration(seconds: 75));
-      await pumpEventQueue(times: 5);
+      await drainEventQueue(
+        reason: 'the seek must stay deferred while the first handoff is gated',
+      );
       expect(audioService.seekCalls, isEmpty);
 
       final secondPlay = controller.playTrack(secondTrack);
@@ -547,13 +592,20 @@ void main() {
 
       firstPlayGate.complete();
       await firstPlay;
-      await pumpEventQueue(times: 5);
+      await drainEventQueue(
+        reason: 'the superseded seek must not reach the backend',
+      );
       expect(audioService.seekCalls, isEmpty);
 
       secondPlayGate.complete();
       await secondPlay;
       await seekFuture;
-      await pumpEventQueue(times: 10);
+      await pumpUntil(
+        () =>
+            controller.state.playingTrack?.sourceId == 'fresh-handoff' &&
+            !controller.state.isLoading,
+        reason: 'the newer handoff should settle before the seek is judged',
+      );
 
       expect(audioService.seekCalls, isEmpty);
       expect(controller.state.playingTrack?.sourceId, 'fresh-handoff');
@@ -583,16 +635,24 @@ void main() {
         final secondPlayGate = audioService.enqueuePendingPlayUrl();
 
         final firstPlay = controller.playTrack(firstTrack);
-        await _pumpUntil(() => callbackCount == 1);
+        await pumpUntil(
+          () => callbackCount == 1,
+          reason: 'the first playback-starting callback should fire',
+        );
         expect(controller.state.playingTrack?.sourceId, 'callback-first');
 
         final secondPlay = controller.playTrack(secondTrack);
-        await _pumpUntil(() => callbackCount == 2);
+        await pumpUntil(
+          () => callbackCount == 2,
+          reason: 'the second playback-starting callback should fire',
+        );
         expect(controller.state.playingTrack?.sourceId, 'callback-second');
 
         firstCallback.complete();
         await firstPlay;
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'the superseded callback must not stop or replay anything',
+        );
 
         expect(audioService.stopCallCount, 0);
         expect(audioService.playUrlCalls, isEmpty);
@@ -604,7 +664,10 @@ void main() {
         await audioService.waitForPlayUrlCallCount(1);
         secondPlayGate.complete();
         await secondPlay;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => audioService.stopCallCount >= 1,
+          reason: 'the newer request should stop the backend exactly once',
+        );
 
         expect(audioService.stopCallCount, 1);
         expect(
@@ -634,7 +697,13 @@ void main() {
         audioService.seekCalls.clear();
 
         await controller.togglePlayPause();
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () =>
+              audioService.playUrlCalls.isNotEmpty &&
+              audioService.seekCalls.isNotEmpty,
+          reason:
+              'an expired url should be re-resolved and the position restored',
+        );
 
         expect(
           audioService.playUrlCalls.single.url,
@@ -667,7 +736,10 @@ void main() {
         audioService.seekCalls.clear();
 
         await controller.togglePlayPause();
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'a still-valid url should resume without re-resolving',
+        );
 
         expect(audioService.playUrlCalls, isEmpty);
         expect(audioService.seekCalls, isEmpty);
@@ -696,7 +768,10 @@ void main() {
         );
         await controller.playTrack(newerTrack);
         await oldResume;
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.playingTrack?.sourceId == 'new-after-expired',
+          reason: 'the newer track should survive the stale resume finishing',
+        );
 
         expect(controller.state.playingTrack?.sourceId, 'new-after-expired');
         expect(controller.state.currentTrack?.sourceId, 'new-after-expired');
@@ -734,7 +809,10 @@ void main() {
         audioService.emitNaturalCompletion();
         await audioService.waitForSetUrlCallCount(1);
         await audioService.waitForSeekCallCount(restoreSeekCount);
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => audioService.stopCallCount >= 3,
+          reason: 'restoring the queue after a temporary play should stop once',
+        );
 
         expect(audioService.stopCallCount, 3);
         expect(controller.state.playingTrack?.sourceId, 'queue-b');
@@ -746,7 +824,9 @@ void main() {
         expect(controller.state.currentTrack?.sourceId, 'newer');
 
         blockedSeek.complete();
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'the stale restore seek must not disturb the newer track',
+        );
 
         expect(audioService.stopCallCount, 4);
         expect(controller.state.playingTrack?.sourceId, 'newer');
@@ -785,7 +865,10 @@ void main() {
 
         fallbackPlayGate.complete();
         await firstPlay;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => audioService.stopCallCount >= 2,
+          reason: 'the superseded fallback should stop the backend',
+        );
 
         expect(audioService.stopCallCount, 2);
         expect(
@@ -807,7 +890,10 @@ void main() {
 
         secondPlayGate.complete();
         await secondPlay;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => !controller.state.isLoading && controller.state.isPlaying,
+          reason: 'the newer fallback request should finish loading',
+        );
 
         expect(audioService.stopCallCount, 2);
         expect(controller.state.playingTrack?.sourceId, 'second-fallback');
@@ -829,7 +915,10 @@ void main() {
       );
 
       await controller.playTrack(_track('locked-song', title: 'Locked Song'));
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => toasts.isNotEmpty,
+        reason: 'the skipped source error should reach the user',
+      );
 
       expect(toasts, isNotEmpty);
       expect(toasts.last.message, contains('Locked Song'));
@@ -849,7 +938,10 @@ void main() {
       );
 
       await controller.playTrack(_track('geo-song', title: 'Geo Song'));
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => toasts.isNotEmpty,
+        reason: 'the geo restriction should reach the user',
+      );
 
       expect(toasts, isNotEmpty);
       expect(toasts.last.message, contains('Geo Song'));
@@ -862,7 +954,10 @@ void main() {
 
     test('source skip errors clear stale stream metadata', () async {
       await controller.playTrack(_track('playable-song', title: 'Playable'));
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => controller.state.currentContainer == 'm4a',
+        reason: 'the playable track should publish its stream metadata',
+      );
 
       expect(controller.state.currentContainer, 'm4a');
       expect(controller.state.currentCodec, 'aac');
@@ -876,7 +971,10 @@ void main() {
       );
 
       await controller.playTrack(_track('blocked-song', title: 'Blocked Song'));
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => controller.state.error != null,
+        reason: 'the blocked track should surface an error',
+      );
 
       expect(controller.state.playingTrack?.sourceId, 'blocked-song');
       expect(controller.state.error, contains('Blocked Song'));
@@ -898,7 +996,10 @@ void main() {
       );
 
       await controller.playTrack(_track('flag-song', title: 'Flag Song'));
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => toasts.isNotEmpty,
+        reason: 'the copyright error should reach the user',
+      );
 
       expect(toasts, isNotEmpty);
       expect(toasts.last.message, contains('Flag Song'));
@@ -923,7 +1024,10 @@ void main() {
         await controller.playTrack(
           _track('private-bilibili-video', title: 'Private Bilibili Video'),
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => toasts.isNotEmpty,
+          reason: 'the private-video error should reach the user',
+        );
 
         expect(toasts, isNotEmpty);
         expect(toasts.last.message, isNot(contains('62012')));
@@ -942,14 +1046,20 @@ void main() {
     // 計時器每秒都會再判定一次「播完」—— Android 實測會無限重複觸發 82 次。
     test('reaching the end of the queue stops reporting playback', () async {
       await controller.playAll([_track('last-track', title: 'Last Track')]);
-      await pumpEventQueue(times: 10);
+      await pumpUntil(
+        () => controller.state.isPlaying,
+        reason: 'the last track should be playing before it is completed',
+      );
 
       audioService.setDurationValue(const Duration(minutes: 3));
       audioService.emitPosition(const Duration(minutes: 3));
       final pausesBefore = audioService.pauseCallCount;
 
       audioService.emitNaturalCompletion();
-      await pumpEventQueue(times: 20);
+      await pumpUntil(
+        () => audioService.pauseCallCount > pausesBefore,
+        reason: 'the end of the queue should pause the backend',
+      );
 
       expect(audioService.pauseCallCount, greaterThan(pausesBefore));
       expect(audioService.isPlaying, isFalse);
@@ -976,7 +1086,10 @@ void main() {
       audioService.emitOutputDeviceFailure(
         'Could not open/initialize audio device -> no sound.',
       );
-      await pumpEventQueue(times: 10);
+      await pumpUntil(
+        () => toasts.isNotEmpty,
+        reason: 'the output device failure should reach the toast stream',
+      );
 
       expect(toasts, isNotEmpty);
       expect(toasts.last.type, ToastType.error);
@@ -995,8 +1108,10 @@ void main() {
 
       playGate.complete();
       await playFuture;
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => audioService.pauseCallCount > 0,
+        reason: 'the device failure should stop reporting playback',
+      );
 
       expect(audioService.pauseCallCount, greaterThan(0));
     });
@@ -1014,7 +1129,12 @@ void main() {
       audioService.emitOutputDeviceFailure(
         'Could not open/initialize audio device -> no sound.',
       );
-      await pumpEventQueue(times: 10);
+      // 這條就是 issue #43 在 CI 上抓到的失敗（run 34121005229）：toast 要從
+      // endReasons 一路走到 messageStream，10 圈事件迴圈在滿載時換不到那段路。
+      await pumpUntil(
+        () => toasts.isNotEmpty,
+        reason: 'the output device failure should reach the user during radio',
+      );
 
       expect(toasts, isNotEmpty);
       expect(toasts.last.type, ToastType.error);
@@ -1039,7 +1159,9 @@ void main() {
 
       audioService.emitTransportFailure('tcp: connection reset');
       audioService.emitMediaOpenError('Failed to open https://example.com');
-      await pumpEventQueue(times: 10);
+      await drainEventQueue(
+        reason: 'radio must swallow transport and media-open errors',
+      );
 
       expect(toasts, isEmpty);
     });
@@ -1069,7 +1191,9 @@ void main() {
 
       playGate.complete();
       await playFuture;
-      await pumpEventQueue(times: 5);
+      await drainEventQueue(
+        reason: 'the aborted request must not revive the playback state',
+      );
 
       expect(controller.state.isLoading, isFalse);
       expect(controller.state.isPlaying, isFalse);
@@ -1087,7 +1211,10 @@ void main() {
         await controller.playTrack(
           _track('media-open-post-handoff', title: 'Media Open Post Handoff'),
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => !controller.state.isLoading,
+          reason: 'the initial play should finish loading',
+        );
 
         expect(controller.state.isLoading, isFalse);
         expect(controller.state.error, isNull);
@@ -1098,8 +1225,12 @@ void main() {
         audioService.emitMediaOpenError(
           'Failed to open https://example.com/media-open-post-handoff.m4a.',
         );
-        await Future<void>.delayed(const Duration(milliseconds: 2200));
-        await pumpEventQueue(times: 5);
+        // 錯誤要等後端自己的 2 秒判定窗過去才變成 terminal，所以預算放寬到 10 秒。
+        await pumpUntil(
+          () => toasts.isNotEmpty,
+          reason: 'the post-handoff media open error should become terminal',
+          timeout: const Duration(seconds: 10),
+        );
 
         expect(toasts, isNotEmpty);
         expect(toasts.last.type, ToastType.error);
@@ -1119,7 +1250,10 @@ void main() {
       await controller.playTrack(
         _track('media-open-old-pending', title: 'Media Open Old Pending'),
       );
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => controller.state.isPlaying,
+        reason: 'the first track should be playing before the error is raised',
+      );
 
       audioService.setPlayingValue(false);
       audioService.setPositionValue(Duration.zero);
@@ -1131,11 +1265,18 @@ void main() {
       await controller.playTrack(
         _track('media-open-new-track', title: 'Media Open New Track'),
       );
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => controller.state.isPlaying,
+        reason:
+            'the new playback should settle before the stop count is sampled',
+      );
       final stopCountAfterNewPlayback = audioService.stopCallCount;
 
+      // 舊的延後 stop 排在 2 秒後；睡過那個時點才有資格說它沒有觸發。
       await Future<void>.delayed(const Duration(milliseconds: 1800));
-      await pumpEventQueue(times: 5);
+      await drainEventQueue(
+        reason: 'the cancelled post-handoff stop must never fire',
+      );
 
       expect(
         toasts.map((toast) => toast.message),
@@ -1162,14 +1303,20 @@ void main() {
       );
 
       playGate.complete();
-      await pumpEventQueue(times: 5);
+      await drainEventQueue(
+        reason:
+            'the play request must stay open until the error turns terminal',
+      );
 
       expect(playCompleted, isFalse);
       expect(controller.state.isLoading, isTrue);
 
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
       await playFuture;
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => playCompleted,
+        reason: 'the play request should complete once the error is terminal',
+        timeout: const Duration(seconds: 10),
+      );
 
       expect(playCompleted, isTrue);
       expect(controller.state.error, contains('Media Open Active'));
@@ -1191,7 +1338,11 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 2200));
       playGate.complete();
       await playFuture;
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => controller.state.error != null,
+        reason: 'the stale media open error should surface',
+        timeout: const Duration(seconds: 10),
+      );
 
       expect(controller.state.error, contains('Media Open Stale Loading'));
       expect(controller.state.isLoading, isFalse);
@@ -1199,7 +1350,9 @@ void main() {
 
       audioService.setPlayingValue(false);
       audioService.emitProcessingState(FmpAudioProcessingState.loading);
-      await pumpEventQueue(times: 5);
+      await drainEventQueue(
+        reason: 'a late loading state must not reopen the terminal error',
+      );
 
       expect(controller.state.error, contains('Media Open Stale Loading'));
       expect(controller.state.isLoading, isFalse);
@@ -1226,13 +1379,18 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 2200));
 
         playGate.complete();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'the request must stay open while the stop is still gated',
+        );
 
         expect(playCompleted, isFalse);
 
         stopGate.complete();
         await playFuture;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => playCompleted,
+          reason: 'the request should complete once the stop is released',
+        );
 
         expect(playCompleted, isTrue);
         expect(controller.state.isLoading, isFalse);
@@ -1254,12 +1412,18 @@ void main() {
         await audioService.waitForPlayUrlCallCount(1);
 
         final terminalStopGate = audioService.enqueuePendingStop();
+        final stopsBeforeTerminal = audioService.stopCallCount;
         audioService.emitMediaOpenError(
           'Failed to open https://example.com/media-open-old-active.m4a.',
         );
         oldPlayGate.complete();
-        await Future<void>.delayed(const Duration(milliseconds: 2200));
-        await pumpEventQueue(times: 5);
+        // 錯誤要 2 秒才轉成 terminal，而它轉成 terminal 的可觀察後果就是這個 stop。
+        await pumpUntil(
+          () => audioService.stopCallCount > stopsBeforeTerminal,
+          reason:
+              'the terminal media open error should ask the backend to stop',
+          timeout: const Duration(seconds: 10),
+        );
 
         final newPlayGate = audioService.enqueuePendingPlayUrl();
         final newPlayFuture = controller.playTrack(
@@ -1269,11 +1433,19 @@ void main() {
 
         terminalStopGate.complete();
         await oldPlayFuture;
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'let the superseded terminal path finish unwinding',
+        );
 
         newPlayGate.complete();
         await newPlayFuture;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.state.isPlaying &&
+              controller.state.currentTrack?.sourceId ==
+                  'media-open-new-active',
+          reason: 'the newer request should own the state once it finishes',
+        );
 
         expect(
           toasts.map((toast) => toast.message),
@@ -1301,11 +1473,17 @@ void main() {
       await controller.playTrack(
         _track('retry-media-open-terminal', title: 'Retry Media Open Terminal'),
       );
-      await pumpEventQueue(times: 10);
+      await pumpUntil(
+        () => controller.state.isPlaying,
+        reason: 'the track should be playing before the transport fails',
+      );
 
       audioService.emitPosition(const Duration(seconds: 19));
       audioService.emitTransportFailure('network timeout during playback');
-      await pumpEventQueue(times: 10);
+      await pumpUntil(
+        () => controller.state.isRetrying,
+        reason: 'a transport failure mid-playback should start a retry',
+      );
 
       expect(controller.state.isRetrying, isTrue);
       expect(controller.state.isNetworkError, isTrue);
@@ -1321,7 +1499,11 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 2200));
       retryPlayGate.complete();
       await retry;
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => toasts.isNotEmpty,
+        reason: 'the terminal error during a retry should reach the user',
+        timeout: const Duration(seconds: 10),
+      );
 
       expect(toasts, isNotEmpty);
       expect(toasts.last.type, ToastType.error);
@@ -1349,7 +1531,10 @@ void main() {
         await controller.playTrack(
           _track('rate-limited-song', title: 'Rate Limited Song'),
         );
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.error != null,
+          reason: 'a rate-limited source should surface its own message',
+        );
 
         expect(controller.state.isLoading, isFalse);
         expect(controller.state.isRetrying, isFalse);
@@ -1373,7 +1558,10 @@ void main() {
           _track('locked-queue-song', title: 'Locked Queue Song'),
           _track('next-after-locked', title: 'Next After Locked'),
         ]);
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => toasts.isNotEmpty,
+          reason: 'skipping a locked queue track should warn the user',
+        );
 
         expect(toasts, isNotEmpty);
         expect(toasts.last.message, contains('Locked Queue Song'));
@@ -1381,7 +1569,9 @@ void main() {
         expect(toasts.last.type, ToastType.warning);
       } finally {
         await Future<void>.delayed(const Duration(milliseconds: 350));
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'let the queue skip settle before the fixture tears down',
+        );
       }
     });
 
@@ -1405,14 +1595,23 @@ void main() {
         final firstPlay = controller.playTrack(firstTrack);
         // 等到第一個請求真的走進串流解析，而不是猜「一圈事件迴圈應該夠」——
         // 圈數在滿載的機器上不夠，那正是 issue #43 的其中一條根因。
-        await _pumpUntil(
+        await pumpUntil(
           () => sourceManager.getAudioStreamCallCount > resolvedBefore,
+          reason: 'the first request should reach stream resolution',
         );
 
         final secondPlay = controller.playTrack(secondTrack);
         await audioService.waitForPlayUrlCallCount(1);
         await firstPlay;
-        await pumpEventQueue(times: 5);
+        // 這是 issue #43 標題那條測試在 CI 上實際掛掉的地方：作廢的第一個請求
+        // 結束之後，狀態要換手給第二個請求，而那不是固定圈數換得到的。
+        await pumpUntil(
+          () =>
+              controller.state.playingTrack?.sourceId == 'fresh-after-error' &&
+              controller.state.isLoading,
+          reason:
+              'the newer request should own the state after the stale error',
+        );
 
         expect(audioService.stopCallCount, 2);
         expect(controller.state.playingTrack?.sourceId, 'fresh-after-error');
@@ -1422,7 +1621,10 @@ void main() {
 
         secondPlayGate.complete();
         await secondPlay;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => !controller.state.isLoading && controller.state.isPlaying,
+          reason: 'the newer request should finish loading',
+        );
 
         expect(audioService.stopCallCount, 2);
         expect(controller.state.playingTrack?.sourceId, 'fresh-after-error');
@@ -1454,7 +1656,10 @@ void main() {
         );
         await restoreSetUrl;
         await restoreSeek;
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.currentTrack?.sourceId == 'radio-b',
+          reason: 'returning from radio should restore the saved queue entry',
+        );
 
         expect(controller.state.currentTrack?.sourceId, 'radio-b');
         expect(controller.state.playingTrack?.sourceId, 'radio-b');
@@ -1486,7 +1691,17 @@ void main() {
 
         audioService.emitNaturalCompletion();
         await restoreSetUrl;
-        await pumpEventQueue(times: 20);
+        // 條件必須是「進入時還不成立」的東西，否則 pumpUntil 立刻返回、一圈都沒推。
+        // 這裡 sourceId 從頭到尾都是 restore-b，真正會變的是佇列換上的**新實例**。
+        await pumpUntil(
+          () =>
+              !identical(
+                controller.queueState.queueTrack,
+                queueTrackBeforeTemporary,
+              ) &&
+              controller.state.playingTrack?.sourceId == 'restore-b',
+          reason: 'the queue should be restored with a fresh track instance',
+        );
 
         final queueTrackAfterRestore = controller.queueState.queueTrack;
         final playingTrackAfterRestore = controller.state.playingTrack;
@@ -1517,17 +1732,27 @@ void main() {
           tracks: mixTracks,
           startIndex: 1,
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.queueState.isMixMode &&
+              controller.queueState.isLoadingMoreMix,
+          reason: 'the mix should enter load-more before the queue is cleared',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'My Mix');
         expect(controller.queueState.isLoadingMoreMix, isTrue);
 
         await controller.clearQueue();
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => !controller.queueState.isMixMode,
+          reason: 'clearing the queue should leave mix mode',
+        );
 
         loadMoreGate.complete();
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'the stale load-more must not revive mix mode',
+        );
 
         final persistedQueue = await queueRepository.getOrCreate();
 
@@ -1564,7 +1789,12 @@ void main() {
           tracks: oldMixTracks,
           startIndex: 1,
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.queueState.mixTitle == 'Old Mix' &&
+              controller.queueState.isLoadingMoreMix,
+          reason: 'the old mix should be loading more before it is replaced',
+        );
 
         expect(controller.queueState.mixTitle, 'Old Mix');
         expect(controller.queueState.isLoadingMoreMix, isTrue);
@@ -1576,7 +1806,12 @@ void main() {
           tracks: newMixTracks,
           startIndex: 0,
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.queueState.mixTitle == 'New Mix' &&
+              controller.state.currentTrack?.sourceId == 'new-mix-a',
+          reason: 'the newer mix should take over the queue',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'New Mix');
@@ -1585,7 +1820,9 @@ void main() {
         expect(controller.queueState.isLoadingMoreMix, isFalse);
 
         oldLoadMoreGate.complete();
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'the old mix load-more must not overwrite the newer mix',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'New Mix');
@@ -1624,13 +1861,18 @@ void main() {
         await controller.initialize();
 
         await controller.playSingle(_track('starved', title: 'Starved'));
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.playingTrack?.sourceId == 'starved',
+          reason: 'the track should be playing before buffering starves',
+        );
 
         final playsBeforeStarvation = audioService.playUrlCalls.length;
         audioService.setPlayingValue(true);
         audioService.emitProcessingState(FmpAudioProcessingState.buffering);
-        await Future<void>.delayed(const Duration(milliseconds: 60));
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => audioService.playUrlCalls.length > playsBeforeStarvation,
+          reason: 'the 30ms starvation budget should trigger one recovery',
+        );
 
         // 只救一次，而且救的方式是重發一次請求（內含 _execute 的 fallback 一次）。
         expect(
@@ -1657,7 +1899,13 @@ void main() {
       ];
 
       await controller.playAll(tracks, startIndex: 0);
-      await pumpEventQueue(times: 20);
+      await pumpUntil(
+        () =>
+            controller.queueState.queue.length == 2 &&
+            controller.queueState.queue[1].audioUrl ==
+                'https://example.com/prefetch-play-next.m4a',
+        reason: 'playback should prefetch the next track into the queue',
+      );
 
       expect(controller.queueState.queue.length, 2);
       final nextQueueTrack = controller.queueState.queue[1];
@@ -1682,7 +1930,15 @@ void main() {
         ];
 
         await controller.playAll(tracks, startIndex: 0);
-        await pumpEventQueue(times: 20);
+        // 預取是 fire-and-forget，沒有人等它 —— 20 圈事件迴圈在滿載的機器上換不到
+        // 它完成，這是本輪壓力跑（20 次 2 紅）實際抓到的第三條抖動。
+        await pumpUntil(
+          () =>
+              controller.queueState.queue.length == 2 &&
+              controller.queueState.queue[1].audioUrl ==
+                  'https://example.com/prefetch-next.m4a',
+          reason: 'playback should prefetch the next track into the queue',
+        );
 
         // 第一次播放就已經把下一首預取好了（見上一條測試）。這裡要驗的是
         // 「重啟之後的佇列恢復也會預取」，而它的起點是資料庫裡那個過期的 URL。
@@ -1727,7 +1983,13 @@ void main() {
           mixTracksFetcher: mixTracksFetcher.call,
         );
         await controller.initialize();
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () =>
+              controller.queueState.queue.length == 2 &&
+              controller.queueState.queue[1].audioUrl ==
+                  'https://example.com/prefetch-next.m4a',
+          reason: 'restoring the queue should prefetch the next track too',
+        );
 
         expect(controller.queueState.queue.length, 2);
         final nextTrackAfterPrepare = controller.queueState.queue[1];
@@ -1756,7 +2018,12 @@ void main() {
         final track = _track('runtime-boundary', title: 'Runtime Boundary');
 
         await controller.playSingle(track);
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () =>
+              controller.queueState.queueTrack?.audioUrl ==
+              'https://example.com/runtime-boundary.m4a',
+          reason: 'the resolved url should land on the queue instance',
+        );
 
         final queueTrackAfterPlay = controller.queueState.queueTrack;
         final playingTrackAfterPlay = controller.state.playingTrack;
@@ -1789,7 +2056,12 @@ void main() {
           ..audioUrlExpiry = DateTime.utc(2031, 1, 1);
         queueManager.replaceTrack(replacement);
         await replacementNotified.future;
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.queueState.queueTrack?.audioUrl ==
+              'https://manual.example/runtime-boundary.m4a',
+          reason: 'the explicit replacement should reach the queue state',
+        );
         await queueSub.cancel();
 
         expect(
@@ -1831,7 +2103,9 @@ void main() {
 
       queueManager.dispose();
       queueManager.setCurrentIndex(1);
-      await pumpEventQueue(times: 5);
+      await drainEventQueue(
+        reason: 'a disposed queue manager must not emit state',
+      );
 
       expect(stateEvents, isEmpty);
       await subscription.cancel();
@@ -1948,14 +2222,6 @@ class _PendingLyricsMatch {
   final bool result;
 }
 
-Future<void> _pumpUntil(bool Function() condition, {int maxPumps = 50}) async {
-  for (var i = 0; i < maxPumps; i++) {
-    if (condition()) return;
-    await pumpEventQueue();
-  }
-  throw StateError('Condition was not met after $maxPumps event pumps');
-}
-
 class _PassThroughTitleParser implements TitleParser {
   @override
   ParsedTitle parse(String title, {String? uploader}) {
@@ -2009,7 +2275,7 @@ class _FakeSource implements AudioStreamSource {
   Object? _alwaysGetAudioStreamError;
   Duration? nextAudioExpiry;
 
-  /// 已經被要求解析串流幾次。單調遞增，所以 `_pumpUntil` 不會錯過某個瞬間。
+  /// 已經被要求解析串流幾次。單調遞增，所以 `pumpUntil` 不會錯過某個瞬間。
   int getAudioStreamCallCount = 0;
 
   void throwGetAudioStreamOnce(Object error) {

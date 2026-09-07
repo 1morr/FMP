@@ -26,6 +26,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -190,7 +191,12 @@ void main() {
         );
 
         await controller.initialize();
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () =>
+              controller.queueState.isMixMode &&
+              controller.state.currentTrack?.sourceId == 'restored-b',
+          reason: 'startup should restore the persisted mix session',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'Restored Mix');
@@ -214,7 +220,10 @@ void main() {
         loadMoreGate.complete();
         await loadMoreApplied.future;
         await queueSub.cancel();
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => !controller.queueState.isLoadingMoreMix,
+          reason: 'the restored mix should finish loading more',
+        );
 
         expect(controller.queueState.isLoadingMoreMix, isFalse);
         expect(
@@ -276,15 +285,22 @@ void main() {
         );
 
         final mixFuture = controller.startMixFromPlaylist(playlist);
-        await pumpEventQueue(times: 2);
+        await drainEventQueue(
+          reason: 'let the mix request reach its gated fetch',
+        );
 
         await controller.playTrack(_track('new-direct-track', title: 'Direct'));
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.currentTrack?.sourceId == 'new-direct-track',
+          reason: 'the direct play should take over from the pending mix',
+        );
         expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
 
         mixGate.complete();
         await mixFuture;
-        await pumpEventQueue(times: 10);
+        await drainEventQueue(
+          reason: 'the superseded mix must not take the queue back',
+        );
 
         expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
         expect(controller.queueState.isMixMode, isFalse);
@@ -324,7 +340,12 @@ void main() {
         );
 
         await controller.next();
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.state.currentTrack?.sourceId == 'mix-b' &&
+              controller.queueState.isLoadingMoreMix,
+          reason: 'advancing into the last mix track should load more',
+        );
 
         expect(controller.state.currentTrack?.sourceId, 'mix-b');
         expect(controller.queueState.isLoadingMoreMix, isTrue);
@@ -335,7 +356,9 @@ void main() {
           3,
         );
         audioService.emitNaturalCompletion();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'let the completion be handled before the fetch returns',
+        );
         loadMoreGate.complete();
 
         await nextTrackPlayed;

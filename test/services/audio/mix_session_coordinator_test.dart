@@ -27,6 +27,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -178,7 +179,9 @@ void main() {
         expect(coordinator.current, isNull);
         expect(coordinator.pendingLoad, isNull);
         gate.complete();
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'let the cancelled load unwind before teardown',
+        );
       },
     );
 
@@ -205,7 +208,9 @@ void main() {
         title: 'Active',
       );
       staleGate.complete();
-      await pumpEventQueue(times: 20);
+      await drainEventQueue(
+        reason: 'the stale session must not append into the newer queue',
+      );
 
       expect(
         coordinatorQueue.tracks.map((t) => t.sourceId),
@@ -249,7 +254,9 @@ void main() {
 
         expect(coordinator.pendingLoad, same(first));
         gate.complete();
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'let the single pending load finish before teardown',
+        );
       },
     );
 
@@ -271,12 +278,18 @@ void main() {
         );
 
         coordinator.onTrackStarted(PlayMode.mix);
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => loadingStates.isNotEmpty,
+          reason: 'starting a mix track should report loading to the caller',
+        );
         expect(loadingStates, [true]);
 
         gate.complete();
         // 佇列寫入是真的 Isar 交易，固定次數的 pump 不是可靠的同步點。
-        await _waitFor(() => loadingStates.length >= 2);
+        await pumpUntil(
+          () => loadingStates.length >= 2,
+          reason: 'the load should report back when it finishes',
+        );
 
         expect(loadingStates, [true, false]);
         expect(queueChangedCount, 1);
@@ -294,7 +307,10 @@ void main() {
       );
 
       coordinator.onTrackStarted(PlayMode.mix);
-      await _waitFor(() => loadingStates.length >= 2);
+      await pumpUntil(
+        () => loadingStates.length >= 2,
+        reason: 'a missing fetcher should report loading and then give up',
+      );
 
       expect(coordinator.canFetch, isFalse);
       expect(loadingStates, [true, false]);
@@ -389,17 +405,27 @@ void main() {
           ],
           startIndex: 1,
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.queueState.isMixMode &&
+              controller.queueState.isLoadingMoreMix,
+          reason: 'the mix should enter load-more before the queue is cleared',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'First Mix');
         expect(controller.queueState.isLoadingMoreMix, isTrue);
 
         await controller.clearQueue();
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => !controller.queueState.isMixMode,
+          reason: 'clearing the queue should leave mix mode',
+        );
 
         loadMoreGate.complete();
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'the stale load-more must not revive mix mode',
+        );
 
         expect(controller.queueState.isMixMode, isFalse);
         expect(controller.queueState.mixTitle, isNull);
@@ -425,7 +451,12 @@ void main() {
           ],
           startIndex: 1,
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.queueState.mixTitle == 'Old Mix' &&
+              controller.queueState.isLoadingMoreMix,
+          reason: 'the old mix should be loading more before it is replaced',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'Old Mix');
@@ -442,7 +473,12 @@ void main() {
           ],
           startIndex: 0,
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () =>
+              controller.queueState.mixTitle == 'New Mix' &&
+              controller.state.currentTrack?.sourceId == 'new-a',
+          reason: 'the newer mix should take over the queue',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'New Mix');
@@ -451,7 +487,9 @@ void main() {
         expect(controller.queueState.isLoadingMoreMix, isFalse);
 
         staleLoadGate.complete();
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'the stale load must not overwrite the newer mix',
+        );
 
         expect(controller.queueState.isMixMode, isTrue);
         expect(controller.queueState.mixTitle, 'New Mix');
@@ -539,15 +577,6 @@ class _FakeSource implements AudioStreamSource {
       codec: 'aac',
       streamType: StreamType.muxed,
     );
-  }
-}
-
-/// 等到 [condition] 成立，或 5 秒逾時。
-Future<void> _waitFor(bool Function() condition) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 5));
-  while (DateTime.now().isBefore(deadline)) {
-    if (condition()) return;
-    await Future<void>.delayed(const Duration(milliseconds: 5));
   }
 }
 

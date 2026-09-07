@@ -28,6 +28,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -111,11 +112,17 @@ void main() {
         final track = _track('retry-track');
 
         await controller.playTrack(track);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the track should be playing before the transport fails',
+        );
 
         audioService.emitPosition(const Duration(seconds: 47));
         audioService.emitTransportFailure('network timeout during playback');
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isRetrying,
+          reason: 'a transport failure should start a retry',
+        );
 
         expect(controller.state.isRetrying, isTrue);
         expect(controller.state.isNetworkError, isTrue);
@@ -125,7 +132,12 @@ void main() {
         audioService.seekCalls.clear();
 
         await controller.retryManually();
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () =>
+              audioService.playUrlCalls.isNotEmpty &&
+              audioService.seekCalls.isNotEmpty,
+          reason: 'a manual retry should replay and restore the position',
+        );
 
         expect(
           audioService.playUrlCalls.single.url,
@@ -143,11 +155,17 @@ void main() {
         final track = _track('auto-recovery-track');
 
         await controller.playTrack(track);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the track should be playing before the transport fails',
+        );
 
         audioService.emitPosition(const Duration(seconds: 31));
         audioService.emitTransportFailure('network timeout during playback');
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isRetrying,
+          reason: 'a transport failure should start a retry',
+        );
 
         expect(controller.state.isRetrying, isTrue);
         expect(controller.state.isNetworkError, isTrue);
@@ -160,7 +178,9 @@ void main() {
         networkRecoveryController.add(null);
         await audioService.waitForPlayUrlCallCount(1);
         await audioService.waitForSeekCallCount(1);
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason: 'let the recovery finish before the state is judged',
+        );
 
         expect(
           audioService.playUrlCalls.single.url,
@@ -182,11 +202,17 @@ void main() {
         final track = _track('handoff-network-error-track');
 
         await controller.playTrack(track);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the track should be playing before the transport fails',
+        );
 
         audioService.emitPosition(const Duration(seconds: 29));
         audioService.emitTransportFailure('network timeout during playback');
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isRetrying,
+          reason: 'a transport failure should start a retry',
+        );
 
         expect(controller.state.currentTrack?.sourceId, track.sourceId);
         expect(controller.state.isRetrying, isTrue);
@@ -198,16 +224,23 @@ void main() {
 
         final manualRetry = controller.retryManually();
         await audioService.waitForPlayUrlCallCount(1);
-        await pumpEventQueue(times: 2);
+        await drainEventQueue(
+          reason: 'let the retry request reach the gated backend call',
+        );
 
         audioService.emitTransportFailure(
           'tcp: ffurl_read returned 0xffffd8ba',
         );
-        await pumpEventQueue(times: 10);
+        await drainEventQueue(
+          reason: 'let the second failure reach the controller',
+        );
 
         retryHandoff.complete();
         await manualRetry;
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.nextRetryAt != null,
+          reason: 'a failure during the handoff should schedule a fresh retry',
+        );
 
         expect(controller.state.currentTrack?.sourceId, track.sourceId);
         expect(controller.state.isRetrying, isTrue);
@@ -224,7 +257,10 @@ void main() {
         final secondTrack = _track('network-error-next');
 
         await controller.playAll([firstTrack, secondTrack]);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the first track should be playing before it fails',
+        );
 
         audioService.playUrlCalls.clear();
         audioService.setDurationValue(const Duration(minutes: 4));
@@ -234,7 +270,10 @@ void main() {
         audioService.emitTransportFailure(
           'tcp: ffurl_read returned 0xffffd8ba',
         );
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.isRetrying,
+          reason: 'a mid-track network error should retry, not advance',
+        );
 
         expect(
           controller.state.currentTrack?.sourceId,
@@ -257,14 +296,20 @@ void main() {
         final secondTrack = _track('premature-complete-next');
 
         await controller.playAll([firstTrack, secondTrack]);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the first track should be playing before it completes',
+        );
 
         audioService.playUrlCalls.clear();
         audioService.setDurationValue(const Duration(minutes: 5));
         audioService.emitPosition(const Duration(minutes: 4));
 
         audioService.emitCompleted();
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.isRetrying,
+          reason: 'a premature completion should retry the current track',
+        );
 
         expect(
           controller.state.currentTrack?.sourceId,
@@ -287,11 +332,17 @@ void main() {
         final newTrack = _track('new-user-track');
 
         await controller.playTrack(oldTrack);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the old track should be playing before the transport fails',
+        );
 
         audioService.emitPosition(const Duration(seconds: 19));
         audioService.emitTransportFailure('network timeout during playback');
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isRetrying,
+          reason: 'a transport failure should start a retry',
+        );
 
         expect(controller.state.isRetrying, isTrue);
         expect(controller.state.currentTrack?.sourceId, 'old-network-track');
@@ -300,17 +351,26 @@ void main() {
         audioService.seekCalls.clear();
 
         networkRecoveryController.add(null);
-        await pumpEventQueue(times: 2);
+        await drainEventQueue(
+          reason: 'let recovery start while the user switches tracks',
+        );
 
         await controller.playTrack(newTrack);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.currentTrack?.sourceId == 'new-user-track',
+          reason: 'the user switch should take over the current track',
+        );
         expect(controller.state.currentTrack?.sourceId, 'new-user-track');
 
         audioService.playUrlCalls.clear();
         audioService.seekCalls.clear();
 
+        // 舊軌的穩定化視窗排在 500ms 後；睡過那個時點才有資格說它沒有重啟。
         await Future<void>.delayed(const Duration(milliseconds: 600));
-        await pumpEventQueue(times: 20);
+        await drainEventQueue(
+          reason:
+              'the old track must not restart after the stabilization window',
+        );
 
         expect(audioService.playUrlCalls, isEmpty);
         expect(audioService.seekCalls, isEmpty);
@@ -325,12 +385,18 @@ void main() {
         final newTrack = _track('new-delayed-stop-track');
 
         await controller.playTrack(oldTrack);
-        await pumpEventQueue(times: 10);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the old track should be playing before the transport fails',
+        );
 
         audioService.emitPosition(const Duration(seconds: 21));
         final delayedStop = audioService.enqueuePendingStop();
         audioService.emitTransportFailure('network timeout during playback');
-        await pumpEventQueue(times: 2);
+        await drainEventQueue(
+          reason:
+              'let the failure reach the controller while the stop is gated',
+        );
 
         expect(
           controller.state.currentTrack?.sourceId,
@@ -341,7 +407,12 @@ void main() {
 
         delayedStop.complete();
         await newPlayback;
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () =>
+              controller.state.currentTrack?.sourceId ==
+              'new-delayed-stop-track',
+          reason: 'the newer track should survive the delayed backend stop',
+        );
 
         expect(
           controller.state.currentTrack?.sourceId,
@@ -372,7 +443,10 @@ void main() {
         expect(sourceError.kind, SourceErrorKind.network);
 
         await controller.playTrack(track);
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.isRetrying,
+          reason: 'a typed network error should schedule a retry',
+        );
 
         expect(controller.state.isRetrying, isTrue);
         expect(controller.state.isNetworkError, isTrue);
@@ -391,7 +465,10 @@ void main() {
         );
 
         await controller.playTrack(track);
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.error != null,
+          reason: 'a permission error should surface instead of retrying',
+        );
 
         expect(controller.state.isRetrying, isFalse);
         expect(controller.state.isNetworkError, isFalse);

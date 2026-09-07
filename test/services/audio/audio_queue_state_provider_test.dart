@@ -30,6 +30,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -137,7 +138,10 @@ void main() {
               tracks: [_track('mix-a'), _track('mix-b')],
               startIndex: 1,
             );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => harness.container.read(queueStateProvider).isMixMode,
+          reason: 'the mix session should reach the queue state provider',
+        );
 
         expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
         expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');

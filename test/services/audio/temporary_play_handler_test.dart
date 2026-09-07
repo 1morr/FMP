@@ -25,6 +25,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -262,7 +263,10 @@ void main() {
         await controller.playTemporary(tempOne);
 
         queueManager.setCurrentIndex(2);
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => controller.queueState.currentIndex == 2,
+          reason: 'the queue index move should reach the controller state',
+        );
         audioService.setPositionValue(const Duration(seconds: 7));
         audioService.setPlayingValue(true);
 
@@ -282,7 +286,10 @@ void main() {
         audioService.emitNaturalCompletion();
         await restoreSetUrl;
         await restoreSeek;
-        await pumpEventQueue(times: 20);
+        await pumpUntil(
+          () => controller.state.playingTrack?.sourceId == 'queue-b',
+          reason: 'the temporary track should restore the saved queue entry',
+        );
 
         expect(controller.queueState.currentIndex, 1);
         expect(controller.state.playingTrack?.sourceId, 'queue-b');
