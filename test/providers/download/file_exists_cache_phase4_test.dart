@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
+import '../../support/pump_until.dart';
 
 Future<void> _waitForCondition(bool Function() condition) async {
   final stopwatch = Stopwatch()..start();
@@ -380,7 +381,9 @@ void main() {
 
         expect(cache.exists(path), isFalse);
         container.dispose();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'a disposed cache must not bump its epoch',
+        );
 
         expect(cache.cacheEpoch, 0);
       },
@@ -406,7 +409,9 @@ void main() {
         expect(cache.getFirstExisting([path]), isNull);
         expect(cache.pendingRefreshCount, 1);
         container.dispose();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'a disposed cache must drop its pending refreshes',
+        );
 
         expect(cache.cacheEpoch, 0);
         expect(cache.pendingRefreshCount, 0);

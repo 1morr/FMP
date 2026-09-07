@@ -12,6 +12,7 @@ import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/import/playlist_import_service.dart'
     as legacy_import;
 import 'package:riverpod/riverpod.dart';
+import '../support/pump_until.dart';
 
 void main() {
   group('PlaylistImportState.selectedTracks', () {
@@ -64,11 +65,17 @@ void main() {
 
         final oldImport = service.enqueueImport(_playlistImportResult('old'));
         final oldFuture = notifier.importAndMatch('https://example.com/old');
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.importCallCount == 1,
+          reason: 'the old import should be in flight',
+        );
 
         final newImport = service.enqueueImport(_playlistImportResult('new'));
         final newFuture = notifier.importAndMatch('https://example.com/new');
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.importCallCount == 2,
+          reason: 'the newer import should supersede the old one',
+        );
 
         oldImport.complete();
         await oldFuture;
@@ -105,11 +112,17 @@ void main() {
 
         final oldSearch = service.enqueueSearch([_track('old-manual')]);
         final oldFuture = notifier.manualSearch(0, 'old query');
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.searchCallCount == 1,
+          reason: 'the old manual search should be in flight',
+        );
 
         final newSearch = service.enqueueSearch([_track('new-manual')]);
         final newFuture = notifier.manualSearch(0, 'new query');
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.searchCallCount == 2,
+          reason: 'the newer manual search should supersede the old one',
+        );
 
         oldSearch.complete();
         await oldFuture;
@@ -416,6 +429,10 @@ class _FakePlaylistImportService extends legacy_import.PlaylistImportService {
   final List<_PendingPlaylistImport> _pendingImports = [];
   final List<_PendingManualSearch> _pendingSearches = [];
 
+  /// 已經被呼叫幾次。單調遞增，所以 `pumpUntil` 等得到「請求真的送出去了」。
+  int importCallCount = 0;
+  int searchCallCount = 0;
+
   @override
   Stream<legacy_import.ImportProgress> get progressStream =>
       _progressController.stream;
@@ -439,6 +456,7 @@ class _FakePlaylistImportService extends legacy_import.PlaylistImportService {
         legacy_import.SearchSourceConfig.all,
     int maxSearchResults = 5,
   }) async {
+    importCallCount++;
     final pending = _pendingImports.removeAt(0);
     await pending.gate.future;
     return pending.result;
@@ -451,6 +469,7 @@ class _FakePlaylistImportService extends legacy_import.PlaylistImportService {
         legacy_import.SearchSourceConfig.all,
     int maxResults = 5,
   }) async {
+    searchCallCount++;
     final pending = _pendingSearches.removeAt(0);
     await pending.gate.future;
     return pending.results;

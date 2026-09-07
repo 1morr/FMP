@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/services/update/update_service.dart';
+import '../support/pump_until.dart';
 
 void main() {
   group('UpdateNotifier operation generation', () {
@@ -15,11 +16,17 @@ void main() {
 
         final oldCheck = service.enqueueCheck(_info('v9.9.8'));
         final oldFuture = notifier.checkForUpdate();
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.checkCallCount == 1,
+          reason: 'the old check should be in flight',
+        );
 
         final newCheck = service.enqueueCheck(null);
         final newFuture = notifier.checkForUpdate();
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.checkCallCount == 2,
+          reason: 'the newer check should supersede the old one',
+        );
 
         newCheck.complete();
         await newFuture;
@@ -45,7 +52,10 @@ void main() {
 
         final download = service.enqueueDownload('/tmp/fmp-update.zip');
         final downloadFuture = notifier.downloadAndInstall();
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.progressCallbacks.isNotEmpty,
+          reason: 'the download should register its progress callback',
+        );
 
         service.progressCallbacks.single(50, 100);
         expect(notifier.state.downloadProgress, 0.5);
@@ -71,7 +81,10 @@ void main() {
 
       final download = service.enqueueDownload('/tmp/fmp-update.apk');
       final downloadFuture = notifier.downloadAndInstall();
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => service.downloadCallCount == 1,
+        reason: 'the download should be in flight',
+      );
 
       download.complete();
       await downloadFuture;
@@ -98,6 +111,10 @@ class _FakeUpdateService extends UpdateService {
   final List<void Function(int received, int total)> progressCallbacks = [];
   bool canInstallPackages = true;
   int installCalls = 0;
+
+  /// 已經被呼叫幾次。單調遞增，所以 `pumpUntil` 等得到「請求真的送出去了」。
+  int checkCallCount = 0;
+  int downloadCallCount = 0;
 
   Completer<void> enqueueCheck(UpdateInfo? info) {
     final gate = Completer<void>();
@@ -129,6 +146,7 @@ class _FakeUpdateService extends UpdateService {
 
   @override
   Future<UpdateInfo?> checkForUpdate() {
+    checkCallCount++;
     return _checks.removeAt(0).future;
   }
 
@@ -140,6 +158,7 @@ class _FakeUpdateService extends UpdateService {
     UpdateInfo info, {
     void Function(int received, int total)? onProgress,
   }) {
+    downloadCallCount++;
     if (onProgress != null) {
       progressCallbacks.add(onProgress);
     }

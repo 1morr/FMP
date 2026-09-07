@@ -11,6 +11,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -75,7 +76,10 @@ void main() {
         isTrue,
       );
 
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => !container.read(rankingCacheServiceProvider).isInitialLoading,
+        reason: 'the initial ranking load should finish',
+      );
       final state = container.read(rankingCacheServiceProvider);
 
       expect(state.isInitialLoading, isFalse);
@@ -142,7 +146,10 @@ void main() {
         );
 
         container.read(rankingCacheServiceProvider);
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => !container.read(rankingCacheServiceProvider).isInitialLoading,
+          reason: 'the initial ranking load should finish',
+        );
 
         final bilibiliPreview = container.read(
           homeBilibiliMusicRankingProvider,
@@ -475,14 +482,19 @@ void main() {
         final firstService = firstContainer.read(
           rankingCacheServiceProvider.notifier,
         );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => firstNeteaseSource.fetchCount == 1,
+          reason: 'the first container should fetch every source once',
+        );
         expect(firstBilibiliSource.fetchCount, 1);
         expect(firstYouTubeSource.fetchCount, 1);
         expect(firstNeteaseSource.fetchCount, 1);
         firstContainer.dispose();
 
         firstNotifier.emitNetworkRecovered();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'a disposed container must not refetch on network recovery',
+        );
         expect(firstBilibiliSource.fetchCount, 1);
         expect(firstYouTubeSource.fetchCount, 1);
         expect(firstNeteaseSource.fetchCount, 1);
@@ -512,13 +524,18 @@ void main() {
 
         expect(identical(firstService, secondService), isFalse);
 
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => secondNeteaseSource.fetchCount == 1,
+          reason: 'the second container should fetch every source once',
+        );
         expect(secondBilibiliSource.fetchCount, 1);
         expect(secondYouTubeSource.fetchCount, 1);
         expect(secondNeteaseSource.fetchCount, 1);
 
         firstNotifier.emitNetworkRecovered();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'the disposed container must not refetch either container',
+        );
         expect(firstBilibiliSource.fetchCount, 1);
         expect(firstYouTubeSource.fetchCount, 1);
         expect(firstNeteaseSource.fetchCount, 1);
@@ -527,7 +544,10 @@ void main() {
         expect(secondNeteaseSource.fetchCount, 1);
 
         secondNotifier.emitNetworkRecovered();
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => secondNeteaseSource.fetchCount == 2,
+          reason: 'the live container should refetch on network recovery',
+        );
 
         expect(secondBilibiliSource.fetchCount, 2);
         expect(secondYouTubeSource.fetchCount, 2);

@@ -14,6 +14,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_isar.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   setUpAll(() {
@@ -43,7 +44,10 @@ void main() {
       );
 
       final refreshFuture = controller.refreshStationInfo();
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => source.calls.isNotEmpty,
+        reason: 'the refresh should reach the source',
+      );
       expect(source.calls, ['101']);
 
       controller.setSeedState(

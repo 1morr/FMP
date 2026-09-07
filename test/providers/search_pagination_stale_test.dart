@@ -12,6 +12,7 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 
 import '../support/fakes/fake_isar.dart';
+import '../support/pump_until.dart';
 
 void main() {
   group('SearchNotifier stale pagination guards', () {
@@ -59,7 +60,10 @@ void main() {
         );
 
         final loadMoreFuture = notifier.loadMore(SourceIds.youtube);
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.sourceCalls.isNotEmpty,
+          reason: 'load more should reach the search service',
+        );
         expect(service.sourceCalls.single.query, 'old query');
 
         notifier.setSeedState(
@@ -129,7 +133,10 @@ void main() {
         );
 
         final loadMoreFuture = notifier.loadMoreAll();
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => service.sourceCalls.length == 2,
+          reason: 'load-more-all should reach both sources',
+        );
         expect(service.sourceCalls, hasLength(2));
 
         notifier.setSeedState(
@@ -199,7 +206,10 @@ void main() {
         );
 
         final loadMoreFuture = notifier.loadMoreLiveRooms();
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => liveSource.calls.isNotEmpty,
+          reason: 'live-room load more should reach the source',
+        );
         expect(liveSource.calls.single, 'live query:2:online');
 
         notifier.setSeedState(
@@ -309,7 +319,10 @@ void main() {
         );
 
         notifier.setSource(SourceIds.netease);
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => notifier.state.isLoading,
+          reason: 'switching source should start a new search',
+        );
 
         expect(notifier.state.isLoading, isTrue);
         expect(
@@ -320,7 +333,10 @@ void main() {
         );
 
         gate.complete();
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => !notifier.state.isLoading,
+          reason: 'the new search should finish once its gate opens',
+        );
 
         expect(notifier.state.isLoading, isFalse);
         expect(notifier.state.onlineResults.keys, [SourceIds.netease]);
@@ -362,7 +378,10 @@ void main() {
         );
 
         notifier.setSearchOrder(SearchOrder.playCount);
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => notifier.state.isLoading,
+          reason: 'changing the order should start a new search',
+        );
 
         expect(notifier.state.searchOrder, SearchOrder.playCount);
         expect(notifier.state.isLoading, isTrue);
@@ -374,7 +393,10 @@ void main() {
         );
 
         gate.complete();
-        await pumpEventQueue(times: 2);
+        await pumpUntil(
+          () => !notifier.state.isLoading,
+          reason: 'the reordered search should finish once its gate opens',
+        );
 
         expect(notifier.state.isLoading, isFalse);
         expect(
@@ -403,7 +425,10 @@ void main() {
       );
 
       final searchFuture = notifier.search('slow query');
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => notifier.state.isLoading,
+        reason: 'the slow search should be in flight before it is cleared',
+      );
 
       notifier.clear();
       onlineGate.complete();
@@ -420,7 +445,10 @@ void main() {
       );
 
       final searchFuture = notifier.searchLiveRooms('slow live');
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => liveSource.calls.isNotEmpty,
+        reason: 'the slow live search should reach the source',
+      );
       expect(liveSource.calls.single, 'slow live:1:online');
 
       notifier.clear();
