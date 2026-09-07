@@ -1734,6 +1734,21 @@ class AudioController extends Notifier<PlayerState>
     _updateQueueState();
     _lyricsAutoMatch.onTrackStarted(track);
     _mixSession.onTrackStarted(_isMixMode ? PlayMode.mix : PlayMode.queue);
+    unawaited(_prefetchAndArmAfterAdvance());
+  }
+
+  /// 跟隨完成之後接著預取並交出「再下一首」。
+  ///
+  /// 沒有這一步的話，一條佇列只有**第一個**交界是 gapless：平常的 arm 掛在
+  /// `PlaybackRequestSession` 的預取上，而跟隨路徑刻意不經過那裡（後端已經在
+  /// 播了，不能再發一次請求）。實機驗收就是這樣抓到的。
+  Future<void> _prefetchAndArmAfterAdvance() async {
+    if (_isDisposed) return;
+    final next = _nextTrackForPrefetch();
+    if (next == null) return;
+    await _audioStreamManager.prefetchTrack(next);
+    if (_isDisposed) return;
+    await _armNextMedia(next);
   }
 
   void _scheduleRetryForSessionRequest(

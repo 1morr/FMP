@@ -212,6 +212,26 @@ void main() {
       expect(controller.queueState.currentIndex, 1);
     });
 
+    test('following one boundary arms the boundary after it', () async {
+      // 平常的 arm 掛在播放請求的預取上，而跟隨路徑刻意不發請求 —— 不補這一步
+      // 的話一條佇列只有第一個交界是 gapless。
+      await controller.playAll([
+        _track('alpha', title: 'Alpha'),
+        _track('beta', title: 'Beta'),
+        _track('gamma', title: 'Gamma'),
+      ]);
+      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
+          'the first medium to be armed');
+      final first = audioService.setNextMediaCalls.single!;
+      expect(first.track.sourceId, 'beta');
+
+      audioService.emitAdvancedToNext(first);
+
+      await waitFor(
+          () => audioService.setNextMediaCalls.last?.track.sourceId == 'gamma',
+          'the next boundary to be armed');
+    });
+
     test('an unrecognised advance falls back to the completion path', () async {
       await playPair();
       await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
