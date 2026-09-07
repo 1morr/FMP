@@ -120,6 +120,13 @@ Always:
   original reason unless it is demonstrably stale, and replace it with equivalent
   current rationale instead of deleting it.
 - Use repository patterns and local helper APIs before inventing abstractions.
+- Write comments in Traditional Chinese. The tree is mixed: everything written
+  before the phase 0-5 rounds is Simplified, and many files now hold both.
+  Convert the lines you are already editing and leave the rest alone -- a
+  whole-tree conversion would produce a diff across most of `lib/` that buries
+  every real change in it, and the cost of the mix is readability, not
+  correctness. Identifiers, string constants, log messages, commit messages and
+  branch names stay English.
 - Keep generated Isar/slang outputs in sync when changing schemas or i18n JSON.
 - Include focused verification in the final report.
 
