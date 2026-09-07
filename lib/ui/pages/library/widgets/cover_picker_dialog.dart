@@ -19,9 +19,7 @@ class CoverPickerResult {
   const CoverPickerResult({this.coverUrl, this.useDefault = false});
 
   /// 使用默認封面
-  const CoverPickerResult.useDefault()
-      : coverUrl = null,
-        useDefault = true;
+  const CoverPickerResult.useDefault() : coverUrl = null, useDefault = true;
 
   /// 使用指定的封面 URL
   const CoverPickerResult.custom(this.coverUrl) : useDefault = false;
@@ -119,7 +117,9 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(
-                        context, const CoverPickerResult.useDefault());
+                      context,
+                      const CoverPickerResult.useDefault(),
+                    );
                   },
                   icon: const Icon(Icons.restore),
                   label: Text(t.library.coverPicker.useDefault),
@@ -324,8 +324,9 @@ class _CoverGridItem extends StatelessWidget {
                 : null,
           ),
           child: ClipRRect(
-            borderRadius:
-                BorderRadius.circular(isSelected ? AppRadius.sm : AppRadius.md),
+            borderRadius: BorderRadius.circular(
+              isSelected ? AppRadius.sm : AppRadius.md,
+            ),
             child: Stack(
               fit: StackFit.expand,
               children: [

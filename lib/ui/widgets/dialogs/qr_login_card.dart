@@ -65,11 +65,16 @@ class QrLoginCard extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.refresh,
-                            size: 40, color: colorScheme.primary),
+                        Icon(
+                          Icons.refresh,
+                          size: 40,
+                          color: colorScheme.primary,
+                        ),
                         const SizedBox(height: 8),
-                        Text(expiredText,
-                            style: TextStyle(color: colorScheme.onSurface)),
+                        Text(
+                          expiredText,
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
                       ],
                     ),
                   ),
@@ -81,9 +86,9 @@ class QrLoginCard extends StatelessWidget {
         // 狀態文字
         Text(
           statusText,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
         // 重新生成按鈕

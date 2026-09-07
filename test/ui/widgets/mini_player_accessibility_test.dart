@@ -65,8 +65,9 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('the progress bar is a slider that reads out a time position',
-      (tester) async {
+  testWidgets('the progress bar is a slider that reads out a time position', (
+    tester,
+  ) async {
     final harness = (await tester.runAsync(_Harness.create))!;
     addTearDown(() => tester.runAsync(() => harness.dispose()));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -93,8 +94,9 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('the mini player itself announces where tapping it goes',
-      (tester) async {
+  testWidgets('the mini player itself announces where tapping it goes', (
+    tester,
+  ) async {
     final harness = (await tester.runAsync(_Harness.create))!;
     addTearDown(() => tester.runAsync(() => harness.dispose()));
     addTearDown(() => tester.binding.setSurfaceSize(null));

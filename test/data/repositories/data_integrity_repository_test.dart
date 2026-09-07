@@ -18,110 +18,124 @@ void main() {
       await initializeIsarForTests();
     });
 
-    test('scan reports duplicate logical records without modifying data',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'scan reports duplicate logical records without modifying data',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      await harness.seedDuplicates();
+        await harness.seedDuplicates();
 
-      final report = await harness.service.scan();
+        final report = await harness.service.scan();
 
-      expect(report.duplicateTrackKeys, contains('youtube:same'));
-      expect(report.duplicateDownloadSavePaths,
-          contains('/downloads/Playlist/Song/audio.m4a'));
-      expect(report.duplicateAccountPlatforms, contains(SourceIds.youtube));
-      expect(report.playQueueCount, 2);
-      expect(report.hasIssues, isTrue);
+        expect(report.duplicateTrackKeys, contains('youtube:same'));
+        expect(
+          report.duplicateDownloadSavePaths,
+          contains('/downloads/Playlist/Song/audio.m4a'),
+        );
+        expect(report.duplicateAccountPlatforms, contains(SourceIds.youtube));
+        expect(report.playQueueCount, 2);
+        expect(report.hasIssues, isTrue);
 
-      final tracks = await harness.isar.tracks.where().findAll();
-      final tasks = await harness.isar.downloadTasks.where().findAll();
-      final accounts = await harness.isar.accounts.where().findAll();
-      final queues = await harness.isar.playQueues.where().findAll();
-      expect(tracks, hasLength(3));
-      expect(tasks, hasLength(2));
-      expect(accounts, hasLength(2));
-      expect(queues, hasLength(2));
-    });
+        final tracks = await harness.isar.tracks.where().findAll();
+        final tasks = await harness.isar.downloadTasks.where().findAll();
+        final accounts = await harness.isar.accounts.where().findAll();
+        final queues = await harness.isar.playQueues.where().findAll();
+        expect(tracks, hasLength(3));
+        expect(tasks, hasLength(2));
+        expect(accounts, hasLength(2));
+        expect(queues, hasLength(2));
+      },
+    );
 
-    test('repair merges or removes duplicates using deterministic keep rules',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'repair merges or removes duplicates using deterministic keep rules',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      await harness.seedDuplicates();
+        await harness.seedDuplicates();
 
-      final result = await harness.service.repair();
+        final result = await harness.service.repair();
 
-      expect(result.removedTrackIds, hasLength(1));
-      expect(result.removedDownloadTaskIds, hasLength(1));
-      expect(result.removedAccountIds, hasLength(1));
-      expect(result.removedPlayQueueIds, hasLength(1));
+        expect(result.removedTrackIds, hasLength(1));
+        expect(result.removedDownloadTaskIds, hasLength(1));
+        expect(result.removedAccountIds, hasLength(1));
+        expect(result.removedPlayQueueIds, hasLength(1));
 
-      final report = await harness.service.scan();
-      expect(report.hasIssues, isFalse);
+        final report = await harness.service.scan();
+        expect(report.hasIssues, isFalse);
 
-      await harness.service.repair();
-      final secondReport = await harness.service.scan();
-      expect(secondReport.hasIssues, isFalse);
+        await harness.service.repair();
+        final secondReport = await harness.service.scan();
+        expect(secondReport.hasIssues, isFalse);
 
-      final tracks = await harness.isar.tracks.where().findAll();
-      expect(tracks, hasLength(2));
-      expect(tracks.map((track) => track.title),
-          containsAll(['Complete Track', 'Other Track']));
-      final keptTrack = tracks.singleWhere((track) => track.sourceId == 'same');
-      expect(keptTrack.title, 'Complete Track');
-      expect(keptTrack.thumbnailUrl, 'https://img.example/cover.jpg');
+        final tracks = await harness.isar.tracks.where().findAll();
+        expect(tracks, hasLength(2));
+        expect(
+          tracks.map((track) => track.title),
+          containsAll(['Complete Track', 'Other Track']),
+        );
+        final keptTrack = tracks.singleWhere(
+          (track) => track.sourceId == 'same',
+        );
+        expect(keptTrack.title, 'Complete Track');
+        expect(keptTrack.thumbnailUrl, 'https://img.example/cover.jpg');
 
-      final playlists = await harness.isar.playlists.where().findAll();
-      expect(playlists.single.trackIds, [keptTrack.id]);
-      expect(playlists.single.trackIds,
-          isNot(contains(harness.trackIdsByTitle['Sparse Track'])));
+        final playlists = await harness.isar.playlists.where().findAll();
+        expect(playlists.single.trackIds, [keptTrack.id]);
+        expect(
+          playlists.single.trackIds,
+          isNot(contains(harness.trackIdsByTitle['Sparse Track'])),
+        );
 
-      final tasks = await harness.isar.downloadTasks.where().findAll();
-      expect(tasks, hasLength(1));
-      expect(tasks.single.status, DownloadStatus.completed);
-      expect(tasks.single.trackId, keptTrack.id);
+        final tasks = await harness.isar.downloadTasks.where().findAll();
+        expect(tasks, hasLength(1));
+        expect(tasks.single.status, DownloadStatus.completed);
+        expect(tasks.single.trackId, keptTrack.id);
 
-      final accounts = await harness.isar.accounts.where().findAll();
-      expect(accounts, hasLength(1));
-      expect(accounts.single.isLoggedIn, isTrue);
-      expect(accounts.single.userName, 'Logged In');
+        final accounts = await harness.isar.accounts.where().findAll();
+        expect(accounts, hasLength(1));
+        expect(accounts.single.isLoggedIn, isTrue);
+        expect(accounts.single.userName, 'Logged In');
 
-      final queues = await harness.isar.playQueues.where().findAll();
-      expect(queues, hasLength(1));
-      expect(queues.single.trackIds, [
-        keptTrack.id,
-        harness.trackIdsByTitle['Other Track'],
-      ]);
-    });
+        final queues = await harness.isar.playQueues.where().findAll();
+        expect(queues, hasLength(1));
+        expect(queues.single.trackIds, [
+          keptTrack.id,
+          harness.trackIdsByTitle['Other Track'],
+        ]);
+      },
+    );
 
-    test('repair preserves duplicate track playlist download metadata',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'repair preserves duplicate track playlist download metadata',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      await harness.seedTrackMetadataMergeDuplicate();
+        await harness.seedTrackMetadataMergeDuplicate();
 
-      await harness.service.repair();
+        await harness.service.repair();
 
-      final tracks = await harness.isar.tracks.where().findAll();
-      expect(tracks, hasLength(1));
-      final keptTrack = tracks.single;
-      expect(keptTrack.title, 'Kept Rich Track');
-      expect(keptTrack.thumbnailUrl, 'https://img.example/rich.jpg');
-      expect(keptTrack.durationMs, 240000);
-      expect(keptTrack.artist, 'Recovered Artist');
-      expect(keptTrack.playlistInfo, hasLength(2));
-      expect(
-        keptTrack.getDownloadPath(42, playlistName: 'Downloaded Playlist'),
-        '/downloads/Downloaded Playlist/Rich Track/audio.m4a',
-      );
-      expect(
-        keptTrack.getDownloadPath(84, playlistName: 'Kept Playlist'),
-        '/downloads/Kept Playlist/Rich Track/audio.m4a',
-      );
-    });
+        final tracks = await harness.isar.tracks.where().findAll();
+        expect(tracks, hasLength(1));
+        final keptTrack = tracks.single;
+        expect(keptTrack.title, 'Kept Rich Track');
+        expect(keptTrack.thumbnailUrl, 'https://img.example/rich.jpg');
+        expect(keptTrack.durationMs, 240000);
+        expect(keptTrack.artist, 'Recovered Artist');
+        expect(keptTrack.playlistInfo, hasLength(2));
+        expect(
+          keptTrack.getDownloadPath(42, playlistName: 'Downloaded Playlist'),
+          '/downloads/Downloaded Playlist/Rich Track/audio.m4a',
+        );
+        expect(
+          keptTrack.getDownloadPath(84, playlistName: 'Kept Playlist'),
+          '/downloads/Kept Playlist/Rich Track/audio.m4a',
+        );
+      },
+    );
 
     test('repair remaps shuffled queue original order', () async {
       final harness = await _createHarness();
@@ -132,10 +146,12 @@ void main() {
       await harness.service.repair();
 
       final tracks = await harness.isar.tracks.where().findAll();
-      final keptTrack =
-          tracks.singleWhere((track) => track.sourceId == 'queue');
-      final otherTrack =
-          tracks.singleWhere((track) => track.sourceId == 'other');
+      final keptTrack = tracks.singleWhere(
+        (track) => track.sourceId == 'queue',
+      );
+      final otherTrack = tracks.singleWhere(
+        (track) => track.sourceId == 'other',
+      );
       final queue = (await harness.isar.playQueues.where().findAll()).single;
 
       expect(queue.trackIds, [otherTrack.id, keptTrack.id]);
@@ -144,22 +160,24 @@ void main() {
       expect(queue.currentTrackId, keptTrack.id);
     });
 
-    test('repair clamps queue current index after deduping track ids',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'repair clamps queue current index after deduping track ids',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      await harness.seedInvalidCurrentIndexQueueDuplicateTracks();
+        await harness.seedInvalidCurrentIndexQueueDuplicateTracks();
 
-      await harness.service.repair();
+        await harness.service.repair();
 
-      final keptTrack = (await harness.isar.tracks.where().findAll()).single;
-      final queue = (await harness.isar.playQueues.where().findAll()).single;
+        final keptTrack = (await harness.isar.tracks.where().findAll()).single;
+        final queue = (await harness.isar.playQueues.where().findAll()).single;
 
-      expect(queue.trackIds, [keptTrack.id]);
-      expect(queue.currentIndex, 0);
-      expect(queue.currentTrackId, keptTrack.id);
-    });
+        expect(queue.trackIds, [keptTrack.id]);
+        expect(queue.currentIndex, 0);
+        expect(queue.currentTrackId, keptTrack.id);
+      },
+    );
 
     test('repair preserves duplicate track state metadata', () async {
       final harness = await _createHarness();
@@ -271,10 +289,12 @@ class _Harness {
       trackIdsByTitle['Complete Track'] = completeTrackId;
       trackIdsByTitle['Other Track'] = otherTrackId;
 
-      await isar.playlists.put(Playlist()
-        ..name = 'Mixed Playlist'
-        ..trackIds = [sparseTrackId, completeTrackId]
-        ..createdAt = DateTime(2026, 4, 25));
+      await isar.playlists.put(
+        Playlist()
+          ..name = 'Mixed Playlist'
+          ..trackIds = [sparseTrackId, completeTrackId]
+          ..createdAt = DateTime(2026, 4, 25),
+      );
       await isar.downloadTasks.putAll([
         DownloadTask()
           ..trackId = sparseTrackId

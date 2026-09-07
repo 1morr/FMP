@@ -78,8 +78,9 @@ void main() {
     });
 
     test('a failing repository never escapes onto the playback path', () async {
-      final recorder =
-          PlayHistoryRecorder(repository: _ThrowingRepository(isar));
+      final recorder = PlayHistoryRecorder(
+        repository: _ThrowingRepository(isar),
+      );
 
       // 沒有 await、沒有 try —— 就像 `_updatePlayingTrack` 呼叫它的樣子。
       recorder.record(_track('a', 'Song A'));

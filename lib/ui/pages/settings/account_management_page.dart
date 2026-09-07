@@ -245,17 +245,15 @@ class _PlatformCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final avatar = isLoggedIn && avatarUrl != null
-        ? AvatarImage(
-            networkUrl: avatarUrl,
-            size: 48,
-          )
+        ? AvatarImage(networkUrl: avatarUrl, size: 48)
         : CircleAvatar(
             radius: 24,
             backgroundColor: iconColor.withValues(alpha: 0.1),
             child: Icon(icon, color: iconColor, size: 28),
           );
-    final accountText =
-        isLoggedIn ? userName ?? t.account.loggedIn : t.account.notLoggedIn;
+    final accountText = isLoggedIn
+        ? userName ?? t.account.loggedIn
+        : t.account.notLoggedIn;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -288,10 +286,8 @@ class _PlatformCard extends StatelessWidget {
                             accountText,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                         ),
                         if (isLoggedIn && isVip == true) ...[
@@ -331,13 +327,7 @@ class _PlatformCard extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        avatar,
-                        const SizedBox(width: 16),
-                        info,
-                      ],
-                    ),
+                    Row(children: [avatar, const SizedBox(width: 16), info]),
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerRight,

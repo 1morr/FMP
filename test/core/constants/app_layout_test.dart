@@ -27,8 +27,10 @@ void main() {
 
     test('the model is self-consistent at the expanded lower bound', () {
       // 840 × 0.4 = 336，剛好高於下限 320。
-      expect(AppLayout.detailPanelWidthFor(AppLayout.detailPanelDefault, 840),
-          336);
+      expect(
+        AppLayout.detailPanelWidthFor(AppLayout.detailPanelDefault, 840),
+        336,
+      );
     });
 
     test('falls back to the default when the stored value is not finite', () {

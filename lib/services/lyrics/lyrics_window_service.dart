@@ -89,7 +89,7 @@ class _DesktopLyricsWindowPlatform implements LyricsWindowPlatform {
 /// 子窗口运行独立 Flutter engine，通过 WindowMethodChannel 双向通信。
 class LyricsWindowService with Logging {
   LyricsWindowService._({LyricsWindowPlatform? platform})
-      : _platform = platform ?? const _DesktopLyricsWindowPlatform();
+    : _platform = platform ?? const _DesktopLyricsWindowPlatform();
 
   @visibleForTesting
   factory LyricsWindowService.forTesting(LyricsWindowPlatform platform) {
@@ -294,11 +294,13 @@ class LyricsWindowService with Logging {
 
     try {
       final lyricsData = lyrics?.lines
-          .map((line) => {
-                'timestamp': line.timestamp.inMilliseconds,
-                'text': line.text,
-                'subText': line.subText,
-              })
+          .map(
+            (line) => {
+              'timestamp': line.timestamp.inMilliseconds,
+              'text': line.text,
+              'subText': line.subText,
+            },
+          )
           .toList();
 
       await _platform.invokeMethod(

@@ -23,8 +23,10 @@ String _methodBody(String source, String methodName) {
     throw StateError('Method $methodName not found');
   }
   final bodyStart = source.indexOf(' async', methodIndex);
-  final openBrace =
-      source.indexOf('{', bodyStart == -1 ? methodIndex : bodyStart);
+  final openBrace = source.indexOf(
+    '{',
+    bodyStart == -1 ? methodIndex : bodyStart,
+  );
   var depth = 0;
   for (var i = openBrace; i < source.length; i++) {
     if (source[i] == '{') depth++;

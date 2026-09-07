@@ -75,8 +75,9 @@ class QueueState {
   }
 }
 
-final queueStateProvider =
-    NotifierProvider<QueueStateNotifier, QueueState>(QueueStateNotifier.new);
+final queueStateProvider = NotifierProvider<QueueStateNotifier, QueueState>(
+  QueueStateNotifier.new,
+);
 
 /// [QueueState] 的持有者。
 ///

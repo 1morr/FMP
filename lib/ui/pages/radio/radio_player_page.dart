@@ -49,13 +49,12 @@ class RadioPlayerPage extends ConsumerWidget {
     // 1:1，理想邊長由可用高度驅動（4K 全屏時放大、小視窗時縮小），但實際大小
     // 由 Flexible 依剩餘空間收斂，從結構上避免 Column 溢出（不依賴高度常數估算）。
     final size = MediaQuery.sizeOf(context);
-    final isWideLayout = WindowClass.of(size.width).atLeast(
-      WindowClass.large,
-    );
+    final isWideLayout = WindowClass.of(size.width).atLeast(WindowClass.large);
     // 封面理想邊長：可用高度（扣除外距）的 52%，夾在 [280, 680]。僅作上限——
     // 空間不足時 Flexible 會把它壓到實際可用高度。
-    final coverIdealSide =
-        ((size.height - 48) * 0.52).clamp(280.0, 680.0).toDouble();
+    final coverIdealSide = ((size.height - 48) * 0.52)
+        .clamp(280.0, 680.0)
+        .toDouble();
     final contentMaxWidth = isWideLayout
         ? AppLayout.playerContentMaxWide
         : AppLayout.playerCoverMax;
@@ -212,9 +211,9 @@ class RadioPlayerPage extends ConsumerWidget {
         children: [
           Text(
             station?.title ?? t.radio.unknownStation,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -225,8 +224,8 @@ class RadioPlayerPage extends ConsumerWidget {
                 ? t.radio.live
                 : (station.hostName ?? t.radio.unknownHost),
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              color: colorScheme.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -241,8 +240,11 @@ class RadioPlayerPage extends ConsumerWidget {
     final parts = <String>[];
 
     if (state.liveStartTime != null) {
-      parts.add(t.radio
-          .startedBroadcast(time: formatRelativeTime(state.liveStartTime!)));
+      parts.add(
+        t.radio.startedBroadcast(
+          time: formatRelativeTime(state.liveStartTime!),
+        ),
+      );
     }
     if (state.isPlaying) {
       parts.add(DurationFormatter.format(state.playDuration));
@@ -256,8 +258,8 @@ class RadioPlayerPage extends ConsumerWidget {
         child: Text(
           parts.isEmpty ? '' : parts.join(' · '),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -277,10 +279,10 @@ class RadioPlayerPage extends ConsumerWidget {
       child: Text(
         _getStatusText(state),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: state.isReconnecting
-                  ? colorScheme.error
-                  : colorScheme.onSurfaceVariant,
-            ),
+          color: state.isReconnecting
+              ? colorScheme.error
+              : colorScheme.onSurfaceVariant,
+        ),
         textAlign: TextAlign.center,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -347,8 +349,9 @@ class RadioPlayerPage extends ConsumerWidget {
           icon: const Icon(Icons.refresh),
           iconSize: 40,
           tooltip: t.radio.reloadLive,
-          onPressed:
-              isDisabled || !hasStation ? null : () => controller.reload(),
+          onPressed: isDisabled || !hasStation
+              ? null
+              : () => controller.reload(),
         ),
       ],
     );
@@ -430,7 +433,7 @@ class _LiveInfoDialog extends StatelessWidget {
                         compactHostName: false,
                         onHostTap: station.hostUid != null
                             ? () => UrlLauncherService.instance
-                                .openBilibiliSpace(station.hostUid!)
+                                  .openBilibiliSpace(station.hostUid!)
                             : null,
                         hostTrailing: station.hostUid != null
                             ? Icon(
@@ -449,15 +452,17 @@ class _LiveInfoDialog extends StatelessWidget {
                             DetailStatItem(
                               icon: Icons.schedule_outlined,
                               label: t.radio.played(
-                                  duration: DurationFormatter.format(
-                                      state.playDuration)),
+                                duration: DurationFormatter.format(
+                                  state.playDuration,
+                                ),
+                              ),
                             ),
                           if (state.liveStartTime != null)
                             DetailStatItem(
                               icon: Icons.play_circle_outline,
                               label: t.radio.startedAt(
-                                  time:
-                                      formatRelativeTime(state.liveStartTime!)),
+                                time: formatRelativeTime(state.liveStartTime!),
+                              ),
                             ),
                           if (state.areaName != null)
                             DetailStatItem(

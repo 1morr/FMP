@@ -58,21 +58,42 @@ void main() {
     });
 
     group('getRankingVideos', () {
-      test('refreshes Bilibili fingerprint and retries after risk control',
-          () async {
-        final requests = <RequestOptions>[];
-        var rankingCalls = 0;
-        final dio = Dio();
-        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          requests.add(options);
+      test(
+        'refreshes Bilibili fingerprint and retries after risk control',
+        () async {
+          final requests = <RequestOptions>[];
+          var rankingCalls = 0;
+          final dio = Dio();
+          dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+            requests.add(options);
 
-          if (options.path.endsWith('/x/web-interface/ranking/v2')) {
-            rankingCalls++;
-            if (rankingCalls == 1) {
+            if (options.path.endsWith('/x/web-interface/ranking/v2')) {
+              rankingCalls++;
+              if (rankingCalls == 1) {
+                return ResponseBody.fromString(
+                  jsonEncode({'code': -352, 'message': '-352'}),
+                  200,
+                  headers: {
+                    Headers.contentTypeHeader: ['application/json'],
+                  },
+                );
+              }
+
               return ResponseBody.fromString(
                 jsonEncode({
-                  'code': -352,
-                  'message': '-352',
+                  'code': 0,
+                  'data': {
+                    'list': [
+                      {
+                        'bvid': 'BVrankingRetry',
+                        'title': 'Ranking Retry',
+                        'duration': 123,
+                        'pic': '//example.com/cover.jpg',
+                        'owner': {'name': 'Artist', 'mid': 1001},
+                        'stat': {'view': 456},
+                      },
+                    ],
+                  },
                 }),
                 200,
                 headers: {
@@ -81,80 +102,56 @@ void main() {
               );
             }
 
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {
-                  'list': [
-                    {
-                      'bvid': 'BVrankingRetry',
-                      'title': 'Ranking Retry',
-                      'duration': 123,
-                      'pic': '//example.com/cover.jpg',
-                      'owner': {'name': 'Artist', 'mid': 1001},
-                      'stat': {'view': 456},
-                    }
-                  ],
+            if (options.path.endsWith('/x/frontend/finger/spi')) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': 0,
+                  'data': {
+                    'b_3': 'OFFICIAL-BUVID3infoc',
+                    'b_4': 'OFFICIAL-BUVID4',
+                  },
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
                 },
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
+              );
+            }
 
-          if (options.path.endsWith('/x/frontend/finger/spi')) {
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {
-                  'b_3': 'OFFICIAL-BUVID3infoc',
-                  'b_4': 'OFFICIAL-BUVID4',
-                },
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
+            throw StateError('Unexpected request: ${options.path}');
+          });
+          final source = BilibiliSource(
+            dio: dio,
+            apiBase: 'https://api.bilibili.test',
+          );
 
-          throw StateError('Unexpected request: ${options.path}');
-        });
-        final source = BilibiliSource(
-          dio: dio,
-          apiBase: 'https://api.bilibili.test',
-        );
+          final tracks = await source.getRankingVideos(rid: 1003);
 
-        final tracks = await source.getRankingVideos(rid: 1003);
-
-        expect(tracks, hasLength(1));
-        expect(tracks.single.sourceId, 'BVrankingRetry');
-        expect(
-          requests.map((request) => request.path),
-          [
+          expect(tracks, hasLength(1));
+          expect(tracks.single.sourceId, 'BVrankingRetry');
+          expect(requests.map((request) => request.path), [
             'https://api.bilibili.test/x/web-interface/ranking/v2',
             'https://api.bilibili.test/x/frontend/finger/spi',
             'https://api.bilibili.test/x/web-interface/ranking/v2',
-          ],
-        );
-        final retryCookie = requests.last.headers['Cookie'] as String?;
-        expect(retryCookie, contains('buvid3=OFFICIAL-BUVID3infoc'));
-        expect(retryCookie, contains('buvid4=OFFICIAL-BUVID4'));
-      });
+          ]);
+          final retryCookie = requests.last.headers['Cookie'] as String?;
+          expect(retryCookie, contains('buvid3=OFFICIAL-BUVID3infoc'));
+          expect(retryCookie, contains('buvid4=OFFICIAL-BUVID4'));
+        },
+      );
     });
 
     group('parsePlaylist', () {
-      test('reports remote media_count instead of parsed track count',
-          () async {
-        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-        addTearDown(() async => server.close(force: true));
+      test(
+        'reports remote media_count instead of parsed track count',
+        () async {
+          final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+          addTearDown(() async => server.close(force: true));
 
-        server.listen((request) async {
-          expect(request.uri.path, '/x/v3/fav/resource/list');
-          request.response.headers.contentType = ContentType.json;
-          request.response.write('''
+          server.listen((request) async {
+            expect(request.uri.path, '/x/v3/fav/resource/list');
+            request.response.headers.contentType = ContentType.json;
+            request.response.write('''
 {
   "code": 0,
   "data": {
@@ -183,19 +180,21 @@ void main() {
   }
 }
 ''');
-          await request.response.close();
-        });
+            await request.response.close();
+          });
 
-        final source =
-            BilibiliSource(apiBase: 'http://localhost:${server.port}');
-        final result = await source.parsePlaylist(
-          'https://space.bilibili.com/1/favlist?fid=123',
-          pageSize: 20,
-        );
+          final source = BilibiliSource(
+            apiBase: 'http://localhost:${server.port}',
+          );
+          final result = await source.parsePlaylist(
+            'https://space.bilibili.com/1/favlist?fid=123',
+            pageSize: 20,
+          );
 
-        expect(result.tracks, hasLength(2));
-        expect(result.totalCount, 3);
-      });
+          expect(result.tracks, hasLength(2));
+          expect(result.totalCount, 3);
+        },
+      );
     });
 
     group('getAudioUrl', () {
@@ -217,10 +216,7 @@ void main() {
 
           if (options.path.endsWith('/x/player/playurl')) {
             return ResponseBody.fromString(
-              jsonEncode({
-                'code': -412,
-                'message': 'request was blocked',
-              }),
+              jsonEncode({'code': -412, 'message': 'request was blocked'}),
               200,
               headers: {
                 Headers.contentTypeHeader: ['application/json'],
@@ -247,7 +243,10 @@ void main() {
           throwsA(
             isA<BilibiliApiException>()
                 .having(
-                    (error) => error.kind, 'kind', SourceErrorKind.rateLimited)
+                  (error) => error.kind,
+                  'kind',
+                  SourceErrorKind.rateLimited,
+                )
                 .having((error) => error.numericCode, 'numericCode', -412),
           ),
         );
@@ -340,7 +339,7 @@ void main() {
                   'code': 0,
                   'data': {
                     'durl': [
-                      {'url': 'https://example.com/fallback.flv'}
+                      {'url': 'https://example.com/fallback.flv'},
                     ],
                   },
                 }),
@@ -400,9 +399,9 @@ void main() {
                       {
                         'baseUrl': 'https://example.com/audio.m4s',
                         'bandwidth': 192000,
-                      }
-                    ]
-                  }
+                      },
+                    ],
+                  },
                 },
               }),
               200,
@@ -422,9 +421,7 @@ void main() {
         final result = await source.getAudioStream(
           const AudioStreamRequest(
             sourceId: 'BVdashExpiry',
-            config: AudioStreamConfig(
-              streamPriority: [StreamType.audioOnly],
-            ),
+            config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
           ),
         );
 
@@ -456,8 +453,8 @@ void main() {
                 'code': 0,
                 'data': {
                   'durl': [
-                    {'url': 'https://example.com/muxed.flv'}
-                  ]
+                    {'url': 'https://example.com/muxed.flv'},
+                  ],
                 },
               }),
               200,
@@ -477,9 +474,7 @@ void main() {
         final result = await source.getAudioStream(
           const AudioStreamRequest(
             sourceId: 'BVmuxedExpiry',
-            config: AudioStreamConfig(
-              streamPriority: [StreamType.muxed],
-            ),
+            config: AudioStreamConfig(streamPriority: [StreamType.muxed]),
           ),
         );
 
@@ -501,31 +496,36 @@ void main() {
           };
           request.response.headers.contentType = ContentType.json;
           if (request.uri.path.endsWith('/x/web-interface/view')) {
-            request.response.write(jsonEncode({
-              'code': 0,
-              'data': {'cid': 12345},
-            }));
+            request.response.write(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 12345},
+              }),
+            );
           } else if (request.uri.path.endsWith('/x/player/playurl')) {
-            request.response.write(jsonEncode({
-              'code': 0,
-              'data': {
-                'dash': {
-                  'audio': [
-                    {
-                      'baseUrl': 'https://example.com/audio.m4s',
-                      'bandwidth': 192000,
-                    }
-                  ]
-                }
-              },
-            }));
+            request.response.write(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'dash': {
+                    'audio': [
+                      {
+                        'baseUrl': 'https://example.com/audio.m4s',
+                        'bandwidth': 192000,
+                      },
+                    ],
+                  },
+                },
+              }),
+            );
           } else {
             request.response.statusCode = 404;
           }
           await request.response.close();
         });
-        final source =
-            BilibiliSource(apiBase: 'http://localhost:${server.port}');
+        final source = BilibiliSource(
+          apiBase: 'http://localhost:${server.port}',
+        );
 
         await source.getAudioStream(
           const AudioStreamRequest(
@@ -555,17 +555,17 @@ void main() {
             'origin': request.headers.value('origin'),
           };
           request.response.headers.contentType = ContentType.json;
-          request.response.write(jsonEncode({
-            'code': 0,
-            'data': {
-              'result': [],
-              'numResults': 0,
-            },
-          }));
+          request.response.write(
+            jsonEncode({
+              'code': 0,
+              'data': {'result': [], 'numResults': 0},
+            }),
+          );
           await request.response.close();
         });
-        final source =
-            BilibiliSource(apiBase: 'http://localhost:${server.port}');
+        final source = BilibiliSource(
+          apiBase: 'http://localhost:${server.port}',
+        );
 
         await source.search('song');
 
@@ -575,69 +575,73 @@ void main() {
         });
       });
 
-      test('alternative stream selects DASH backup URL excluding failed URL',
-          () async {
-        final dio = Dio();
-        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {'cid': 12345},
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
-
-          if (options.path.endsWith('/x/player/playurl')) {
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {
-                  'dash': {
-                    'audio': [
-                      {
-                        'baseUrl': 'https://example.com/failed.m4s',
-                        'backupUrl': ['https://example.com/backup.m4s'],
-                        'bandwidth': 192000,
-                      }
-                    ]
-                  }
+      test(
+        'alternative stream selects DASH backup URL excluding failed URL',
+        () async {
+          final dio = Dio();
+          dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+            if (options.path.endsWith('/x/web-interface/view')) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': 0,
+                  'data': {'cid': 12345},
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
                 },
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
+              );
+            }
 
-          throw StateError('Unexpected request: ${options.path}');
-        });
-        final source = BilibiliSource(
-          dio: dio,
-          apiBase: 'https://api.bilibili.test',
-        );
+            if (options.path.endsWith('/x/player/playurl')) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': 0,
+                  'data': {
+                    'dash': {
+                      'audio': [
+                        {
+                          'baseUrl': 'https://example.com/failed.m4s',
+                          'backupUrl': ['https://example.com/backup.m4s'],
+                          'bandwidth': 192000,
+                        },
+                      ],
+                    },
+                  },
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
+                },
+              );
+            }
 
-        final result = await source.getAlternativeAudioStream(
-          const AudioStreamRequest(
-            sourceId: 'BValternative',
-            failedUrl: 'https://example.com/failed.m4s',
-            config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
-          ),
-        );
+            throw StateError('Unexpected request: ${options.path}');
+          });
+          final source = BilibiliSource(
+            dio: dio,
+            apiBase: 'https://api.bilibili.test',
+          );
 
-        expect(result?.url, 'https://example.com/backup.m4s');
-        expect(result?.streamType, StreamType.audioOnly);
-      });
+          final result = await source.getAlternativeAudioStream(
+            const AudioStreamRequest(
+              sourceId: 'BValternative',
+              failedUrl: 'https://example.com/failed.m4s',
+              config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+            ),
+          );
+
+          expect(result?.url, 'https://example.com/backup.m4s');
+          expect(result?.streamType, StreamType.audioOnly);
+        },
+      );
 
       test('reads the URL deadline as the stream expiry', () async {
         final deadline =
-            DateTime.now().add(const Duration(hours: 3)).millisecondsSinceEpoch ~/
-                1000;
+            DateTime.now()
+                .add(const Duration(hours: 3))
+                .millisecondsSinceEpoch ~/
+            1000;
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
           if (options.path.endsWith('/x/web-interface/view')) {
@@ -659,12 +663,11 @@ void main() {
                 'dash': {
                   'audio': [
                     {
-                      'baseUrl':
-                          'https://example.com/a.m4s?deadline=$deadline',
+                      'baseUrl': 'https://example.com/a.m4s?deadline=$deadline',
                       'bandwidth': 192000,
-                    }
-                  ]
-                }
+                    },
+                  ],
+                },
               },
             }),
             200,
@@ -690,79 +693,23 @@ void main() {
         expect(result.expiry!.inMinutes, lessThanOrEqualTo(180));
       });
 
-      test('falls back to the fixed expiry when the URL has no deadline',
-          () async {
-        final dio = Dio();
-        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {'cid': 42},
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
-          return ResponseBody.fromString(
-            jsonEncode({
-              'code': 0,
-              'data': {
-                'dash': {
-                  'audio': [
-                    {
-                      'baseUrl': 'https://example.com/no-deadline.m4s',
-                      'bandwidth': 192000,
-                    }
-                  ]
-                }
-              },
-            }),
-            200,
-            headers: {
-              Headers.contentTypeHeader: ['application/json'],
-            },
-          );
-        });
-        final source = BilibiliSource(
-          dio: dio,
-          apiBase: 'https://api.bilibili.test',
-        );
-
-        final result = await source.getAudioStream(
-          const AudioStreamRequest(
-            sourceId: 'BVnodeadline',
-            config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
-          ),
-        );
-
-        expect(result.expiry,
-            const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
-      });
-
-      test('carries the resolved cid so a repeat play skips the view call',
-          () async {
-        final paths = <String>[];
-        final dio = Dio();
-        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          paths.add(options.path);
-
-          if (options.path.endsWith('/x/web-interface/view')) {
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {'cid': 55667788},
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
-
-          if (options.path.endsWith('/x/player/playurl')) {
+      test(
+        'falls back to the fixed expiry when the URL has no deadline',
+        () async {
+          final dio = Dio();
+          dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+            if (options.path.endsWith('/x/web-interface/view')) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': 0,
+                  'data': {'cid': 42},
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
+                },
+              );
+            }
             return ResponseBody.fromString(
               jsonEncode({
                 'code': 0,
@@ -770,11 +717,11 @@ void main() {
                   'dash': {
                     'audio': [
                       {
-                        'baseUrl': 'https://example.com/cid-carry.m4s',
+                        'baseUrl': 'https://example.com/no-deadline.m4s',
                         'bandwidth': 192000,
-                      }
-                    ]
-                  }
+                      },
+                    ],
+                  },
                 },
               }),
               200,
@@ -782,38 +729,105 @@ void main() {
                 Headers.contentTypeHeader: ['application/json'],
               },
             );
-          }
+          });
+          final source = BilibiliSource(
+            dio: dio,
+            apiBase: 'https://api.bilibili.test',
+          );
 
-          throw StateError('Unexpected request: ${options.path}');
-        });
-        final source = BilibiliSource(
-          dio: dio,
-          apiBase: 'https://api.bilibili.test',
-        );
-        const config =
-            AudioStreamConfig(streamPriority: [StreamType.audioOnly]);
+          final result = await source.getAudioStream(
+            const AudioStreamRequest(
+              sourceId: 'BVnodeadline',
+              config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+            ),
+          );
 
-        final first = await source.getAudioStream(
-          const AudioStreamRequest(sourceId: 'BVcidcarry', config: config),
-        );
+          expect(
+            result.expiry,
+            const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+          );
+        },
+      );
 
-        expect(first.cid, 55667788);
-        expect(paths.where((path) => path.endsWith('/x/web-interface/view')),
-            hasLength(1));
+      test(
+        'carries the resolved cid so a repeat play skips the view call',
+        () async {
+          final paths = <String>[];
+          final dio = Dio();
+          dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+            paths.add(options.path);
 
-        // 第二次帶著 cid 進來，就不該再為了查同一個不變值多打一支 view。
-        paths.clear();
-        await source.getAudioStream(
-          const AudioStreamRequest(
-            sourceId: 'BVcidcarry',
-            cid: 55667788,
-            config: config,
-          ),
-        );
+            if (options.path.endsWith('/x/web-interface/view')) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': 0,
+                  'data': {'cid': 55667788},
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
+                },
+              );
+            }
 
-        expect(paths.where((path) => path.endsWith('/x/web-interface/view')),
-            isEmpty);
-      });
+            if (options.path.endsWith('/x/player/playurl')) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': 0,
+                  'data': {
+                    'dash': {
+                      'audio': [
+                        {
+                          'baseUrl': 'https://example.com/cid-carry.m4s',
+                          'bandwidth': 192000,
+                        },
+                      ],
+                    },
+                  },
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
+                },
+              );
+            }
+
+            throw StateError('Unexpected request: ${options.path}');
+          });
+          final source = BilibiliSource(
+            dio: dio,
+            apiBase: 'https://api.bilibili.test',
+          );
+          const config = AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly],
+          );
+
+          final first = await source.getAudioStream(
+            const AudioStreamRequest(sourceId: 'BVcidcarry', config: config),
+          );
+
+          expect(first.cid, 55667788);
+          expect(
+            paths.where((path) => path.endsWith('/x/web-interface/view')),
+            hasLength(1),
+          );
+
+          // 第二次帶著 cid 進來，就不該再為了查同一個不變值多打一支 view。
+          paths.clear();
+          await source.getAudioStream(
+            const AudioStreamRequest(
+              sourceId: 'BVcidcarry',
+              cid: 55667788,
+              config: config,
+            ),
+          );
+
+          expect(
+            paths.where((path) => path.endsWith('/x/web-interface/view')),
+            isEmpty,
+          );
+        },
+      );
 
       test('should fetch audio URL for valid bvid', () async {
         // 此测试需要网络连接和有效的视频
@@ -830,12 +844,14 @@ void main() {
           expect(audioUrl, isNotEmpty);
           expect(audioUrl, contains('http'));
           debugPrint(
-              'Successfully fetched audio URL: ${audioUrl.substring(0, 80)}...');
+            'Successfully fetched audio URL: ${audioUrl.substring(0, 80)}...',
+          );
         } on BilibiliApiException catch (e) {
           // 如果视频不可用，跳过测试（可能是地区限制或API限制）
           if (e.isUnavailable || e.numericCode == -404) {
             debugPrint(
-                'Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
+              'Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}',
+            );
             return;
           }
           rethrow;
@@ -896,9 +912,9 @@ void main() {
                       {
                         'baseUrl': 'https://example.com/auth-audio.m4s',
                         'bandwidth': 192000,
-                      }
-                    ]
-                  }
+                      },
+                    ],
+                  },
                 },
               }),
               200,
@@ -925,9 +941,7 @@ void main() {
         expect(
           requestHeaders.every(
             (headers) =>
-                (headers['Cookie'] as String?)?.contains(
-                  'SESSDATA=auth',
-                ) ==
+                (headers['Cookie'] as String?)?.contains('SESSDATA=auth') ==
                 true,
           ),
           isTrue,
@@ -967,7 +981,8 @@ void main() {
         } on BilibiliApiException catch (e) {
           if (e.isUnavailable || e.numericCode == -404) {
             debugPrint(
-                'Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
+              'Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}',
+            );
             return;
           }
           rethrow;
@@ -983,8 +998,9 @@ void main() {
       test('hasValidAudioUrl should return false for expired URL', () {
         final track = Track()
           ..audioUrl = 'https://example.com/audio.m4s'
-          ..audioUrlExpiry =
-              DateTime.now().subtract(const Duration(minutes: 1));
+          ..audioUrlExpiry = DateTime.now().subtract(
+            const Duration(minutes: 1),
+          );
 
         expect(track.hasValidAudioUrl, isFalse);
       });
@@ -1032,7 +1048,7 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
   _FakeHttpClientAdapter(this._handler);
 
   final ResponseBody Function(RequestOptions options, Object? requestBody)
-      _handler;
+  _handler;
 
   @override
   Future<ResponseBody> fetch(
@@ -1042,9 +1058,7 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
   ) async {
     final requestBody = requestStream == null
         ? null
-        : utf8.decode(
-            (await requestStream.expand((chunk) => chunk).toList()),
-          );
+        : utf8.decode((await requestStream.expand((chunk) => chunk).toList()));
     return _handler(options, requestBody);
   }
 

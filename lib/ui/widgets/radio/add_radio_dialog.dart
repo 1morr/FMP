@@ -82,9 +82,9 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
             children: [
               Text(
                 t.radio.addDescription,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 16),
               TextFormField(

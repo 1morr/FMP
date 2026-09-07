@@ -100,7 +100,8 @@ class PlaybackSettingsNotifier extends Notifier<PlaybackSettingsState> {
 /// 播放设置 Provider
 final playbackSettingsProvider =
     NotifierProvider<PlaybackSettingsNotifier, PlaybackSettingsState>(
-        PlaybackSettingsNotifier.new);
+      PlaybackSettingsNotifier.new,
+    );
 
 /// 便捷 Provider - 是否自动跳转到当前播放
 final autoScrollToCurrentTrackProvider = Provider<bool>((ref) {

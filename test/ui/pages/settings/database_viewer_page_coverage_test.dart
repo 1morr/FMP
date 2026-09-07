@@ -10,17 +10,15 @@ void main() {
   String read(String path) => File(path).readAsStringSync();
 
   Set<String> schemaNamesFromCatalog(String catalog) {
-    return RegExp(r'schema:\s*([A-Za-z0-9_]+)Schema,')
-        .allMatches(catalog)
-        .map((match) => match.group(1)!)
-        .toSet();
+    return RegExp(
+      r'schema:\s*([A-Za-z0-9_]+)Schema,',
+    ).allMatches(catalog).map((match) => match.group(1)!).toSet();
   }
 
   Set<String> collectionNamesFromCatalog(String catalog) {
-    return RegExp(r"name:\s*'([^']+)'")
-        .allMatches(catalog)
-        .map((match) => match.group(1)!)
-        .toSet();
+    return RegExp(
+      r"name:\s*'([^']+)'",
+    ).allMatches(catalog).map((match) => match.group(1)!).toSet();
   }
 
   test('database provider opens schemas from the catalog', () {
@@ -34,7 +32,8 @@ void main() {
     expect(
       provider,
       isNot(
-          contains('final List<CollectionSchema<dynamic>> fmpDatabaseSchemas')),
+        contains('final List<CollectionSchema<dynamic>> fmpDatabaseSchemas'),
+      ),
     );
     expect(provider, isNot(contains('TrackSchema,')));
     expect(provider, isNot(contains('PlaylistSchema,')));
@@ -69,10 +68,9 @@ void main() {
 
   test('database catalog collection names are unique and Track is default', () {
     final catalog = read(catalogPath);
-    final orderedNames = RegExp(r"name:\s*'([^']+)'")
-        .allMatches(catalog)
-        .map((match) => match.group(1)!)
-        .toList();
+    final orderedNames = RegExp(
+      r"name:\s*'([^']+)'",
+    ).allMatches(catalog).map((match) => match.group(1)!).toList();
 
     expect(orderedNames, isNotEmpty);
     expect(orderedNames.first, 'Track');
@@ -158,8 +156,11 @@ void main() {
     };
 
     for (final token in expectedTokens) {
-      expect(catalog, contains("'$token'"),
-          reason: '$token is not displayed by the database viewer catalog');
+      expect(
+        catalog,
+        contains("'$token'"),
+        reason: '$token is not displayed by the database viewer catalog',
+      );
     }
   });
 }

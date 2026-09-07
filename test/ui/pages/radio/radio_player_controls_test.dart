@@ -20,9 +20,7 @@ void main() {
       // 兩顆按鈕共用同一停用條件（與既有 reload 選單、mini sync 一致）。
       expect(
         radio,
-        contains(
-          'state.isBuffering || state.isLoading || !state.isPlaying',
-        ),
+        contains('state.isBuffering || state.isLoading || !state.isPlaying'),
       );
     });
 
@@ -31,16 +29,18 @@ void main() {
       expect(radio, contains('PlayerPlayPauseButton('));
     });
 
-    test('promotes live info to an AppBar icon and drops the overflow menu',
-        () {
-      final radio = readSource('lib/ui/pages/radio/radio_player_page.dart');
+    test(
+      'promotes live info to an AppBar icon and drops the overflow menu',
+      () {
+        final radio = readSource('lib/ui/pages/radio/radio_player_page.dart');
 
-      expect(radio, contains('Icons.info_outline'));
-      expect(radio, contains('tooltip: t.radio.info'));
+        expect(radio, contains('Icons.info_outline'));
+        expect(radio, contains('tooltip: t.radio.info'));
 
-      // reload / info 不再藏在 overflow 選單。
-      expect(radio, isNot(contains("value: 'reload'")));
-      expect(radio, isNot(contains("value: 'info'")));
-    });
+        // reload / info 不再藏在 overflow 選單。
+        expect(radio, isNot(contains("value: 'reload'")));
+        expect(radio, isNot(contains("value: 'info'")));
+      },
+    );
   });
 }

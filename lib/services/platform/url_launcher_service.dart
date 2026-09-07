@@ -197,10 +197,7 @@ class UrlLauncherService {
   Future<bool> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     try {
-      return await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
       return false;
     }

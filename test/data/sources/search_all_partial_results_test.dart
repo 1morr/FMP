@@ -19,13 +19,11 @@ class _FakeSearchSource implements SearchSource {
     int page = 1,
     int pageSize = 20,
     SearchOrder order = SearchOrder.relevance,
-  }) =>
-      _behaviour(query);
+  }) => _behaviour(query);
 }
 
 void main() {
-  test(
-      'searchAll preserves partial results when one source throws '
+  test('searchAll preserves partial results when one source throws '
       '(B9: silent catch now logs instead of swallowing)', () async {
     final manager = SourceManager(
       sources: [

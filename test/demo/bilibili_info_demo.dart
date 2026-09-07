@@ -8,13 +8,15 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 void main() async {
-  final dio = Dio(BaseOptions(
-    headers: {
-      'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': 'https://live.bilibili.com/',
-    },
-  ));
+  final dio = Dio(
+    BaseOptions(
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://live.bilibili.com/',
+      },
+    ),
+  );
 
   const roomId = '2388053';
 

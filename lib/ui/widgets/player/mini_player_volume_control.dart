@@ -33,8 +33,7 @@ class MiniPlayerVolumeControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isNarrow =
-        WindowClass.of(MediaQuery.sizeOf(context).width) ==
-            WindowClass.compact;
+        WindowClass.of(MediaQuery.sizeOf(context).width) == WindowClass.compact;
 
     // 窄屏時使用彈出式直式滑塊。
     if (isNarrow) {
@@ -110,12 +109,12 @@ class MiniPlayerVolumeControl extends StatelessWidget {
 
   /// 與 `CompactVolumeControl` 共用的滑塊規格。
   SliderThemeData get _sliderThemeData => SliderThemeData(
-        trackHeight: 3,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-        overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-        activeTrackColor: colorScheme.primary,
-        inactiveTrackColor: colorScheme.surfaceContainerHighest,
-        thumbColor: colorScheme.primary,
-        overlayColor: colorScheme.primary.withValues(alpha: 0.2),
-      );
+    trackHeight: 3,
+    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+    activeTrackColor: colorScheme.primary,
+    inactiveTrackColor: colorScheme.surfaceContainerHighest,
+    thumbColor: colorScheme.primary,
+    overlayColor: colorScheme.primary.withValues(alpha: 0.2),
+  );
 }

@@ -86,7 +86,7 @@ void main() {
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 1
-            ..downloadPath = '/path/to/downloaded/audio.m4a'
+            ..downloadPath = '/path/to/downloaded/audio.m4a',
         ];
 
       expect(track.hasAnyDownload, isTrue);
@@ -104,7 +104,7 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 1
-              ..downloadPath = '/old/path/song1.m4a'
+              ..downloadPath = '/old/path/song1.m4a',
           ],
         Track()
           ..playlistInfo = [
@@ -138,7 +138,7 @@ void main() {
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/path/to/audio.m4a'
+            ..downloadPath = '/path/to/audio.m4a',
         ];
 
       // TrackExtensions.isDownloaded 简化逻辑
@@ -153,10 +153,7 @@ void main() {
 
     test('localAudioPath: 遍历并返回第一个实际存在的路径', () {
       // 模拟路径列表
-      final paths = [
-        '/nonexistent/path1.m4a',
-        '/nonexistent/path2.m4a',
-      ];
+      final paths = ['/nonexistent/path1.m4a', '/nonexistent/path2.m4a'];
 
       // localAudioPath 会检查 File(path).existsSync()
       // 如果都不存在返回 null
@@ -203,7 +200,7 @@ void main() {
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/local/path/audio.m4a'
+            ..downloadPath = '/local/path/audio.m4a',
         ];
 
       // 数据库中的 Track
@@ -263,12 +260,14 @@ void main() {
       final events = <_MockDownloadCompletionEvent>[];
 
       // 下载完成，触发事件
-      events.add(_MockDownloadCompletionEvent(
-        taskId: 1,
-        trackId: 100,
-        playlistId: 5,
-        savePath: '/path/audio.m4a',
-      ));
+      events.add(
+        _MockDownloadCompletionEvent(
+          taskId: 1,
+          trackId: 100,
+          playlistId: 5,
+          savePath: '/path/audio.m4a',
+        ),
+      );
 
       expect(events, hasLength(1));
       expect(events.first.trackId, equals(100));
@@ -311,13 +310,13 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/old/path1.m4a'
+              ..downloadPath = '/old/path1.m4a',
           ],
         Track()
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/old/path2.m4a'
+              ..downloadPath = '/old/path2.m4a',
           ],
       ];
 
@@ -346,7 +345,7 @@ void main() {
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/local/audio.m4a'
+            ..downloadPath = '/local/audio.m4a',
         ];
 
       // 模拟选择播放源的逻辑
@@ -380,7 +379,7 @@ void main() {
         ..playlistInfo = [
           PlaylistDownloadInfo()
             ..playlistId = 0
-            ..downloadPath = '/nonexistent/audio.m4a'
+            ..downloadPath = '/nonexistent/audio.m4a',
         ];
 
       // 模拟 localAudioPath 为 null（文件不存在）

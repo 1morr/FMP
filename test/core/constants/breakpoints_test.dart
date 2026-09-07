@@ -17,8 +17,11 @@ void main() {
         3440: WindowClass.extraLarge,
       };
       for (final entry in cases.entries) {
-        expect(WindowClass.of(entry.key), entry.value,
-            reason: '${entry.key}dp');
+        expect(
+          WindowClass.of(entry.key),
+          entry.value,
+          reason: '${entry.key}dp',
+        );
       }
     });
 
@@ -56,10 +59,13 @@ void main() {
       }
     });
 
-    test('an unbounded container falls on the column cap, it does not throw', () {
-      // `floor()` 對 infinity 會拋 UnsupportedError，所以先夾再取整。
-      expect(columnsFor(double.infinity), 3);
-    });
+    test(
+      'an unbounded container falls on the column cap, it does not throw',
+      () {
+        // `floor()` 對 infinity 會拋 UnsupportedError，所以先夾再取整。
+        expect(columnsFor(double.infinity), 3);
+      },
+    );
 
     test('a wide window with a wide panel still asks the container', () {
       // 這正是舊模型測不到的情境（05-roadmap Phase 5 驗收）：視窗 1700、

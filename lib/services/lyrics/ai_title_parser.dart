@@ -52,7 +52,8 @@ class AiTitleParser with Logging {
     try {
       logInfo('Calling AI title parser: $title');
       logDebug(
-          'AI title parser config: endpoint=${config.endpoint}, model=${config.model}, timeoutSeconds=${config.timeout.inSeconds}');
+        'AI title parser config: endpoint=${config.endpoint}, model=${config.model}, timeoutSeconds=${config.timeout.inSeconds}',
+      );
       logDebug('AI title parser request payload: ${jsonEncode(userPayload)}');
       final response = await postOpenAiChatCompletion(
         dio: _dio,
@@ -65,21 +66,25 @@ class AiTitleParser with Logging {
       final content = extractOpenAiChatMessageContent(response.data);
       if (content == null) {
         logWarning(
-            'AI title parser response has no content for title "$title"');
+          'AI title parser response has no content for title "$title"',
+        );
         return null;
       }
       logDebug('AI title parser raw response content: $content');
       final parsed = parseContent(content);
       logDebug(
-          'AI title parser parsed result: track=${parsed?.trackName}, artist=${parsed?.artistName}, artistConfidence=${parsed?.artistConfidence}');
+        'AI title parser parsed result: track=${parsed?.trackName}, artist=${parsed?.artistName}, artistConfidence=${parsed?.artistConfidence}',
+      );
       if (parsed == null) {
         logWarning(
-            'AI title parser returned invalid content for title "$title"');
+          'AI title parser returned invalid content for title "$title"',
+        );
       }
       return parsed;
     } on DioException catch (e) {
       logWarning(
-          'AI title parser request failed for title "$title": ${e.message ?? e.error ?? e.type}');
+        'AI title parser request failed for title "$title": ${e.message ?? e.error ?? e.type}',
+      );
       return null;
     } catch (e) {
       logWarning('AI title parser failed for title "$title": $e');
@@ -107,15 +112,16 @@ class AiTitleParser with Logging {
         return null;
       }
 
-      final artistName =
-          artistNameValue is String ? artistNameValue.trim() : '';
+      final artistName = artistNameValue is String
+          ? artistNameValue.trim()
+          : '';
       final artistConfidence = _parseArtistConfidence(artistConfidenceValue);
       return AiParsedTitle(
         trackName: trackName,
         artistName:
             artistName.isNotEmpty && artistConfidence >= minArtistConfidence
-                ? artistName
-                : null,
+            ? artistName
+            : null,
         artistConfidence: artistConfidence,
       );
     } catch (_) {

@@ -21,10 +21,7 @@ class FmpPlayerState {
   final bool playing;
   final FmpAudioProcessingState processingState;
 
-  const FmpPlayerState({
-    required this.playing,
-    required this.processingState,
-  });
+  const FmpPlayerState({required this.playing, required this.processingState});
 
   @override
   String toString() {
@@ -42,10 +39,7 @@ class FmpAudioDevice {
   /// 设备描述（对应 media_kit AudioDevice.description）
   final String description;
 
-  const FmpAudioDevice({
-    required this.name,
-    this.description = '',
-  });
+  const FmpAudioDevice({required this.name, this.description = ''});
 
   /// 自动选择设备（系统默认）
   static const auto = FmpAudioDevice(name: 'auto');

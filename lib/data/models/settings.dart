@@ -108,10 +108,10 @@ List<StreamType> parseStreamPriority(String value) {
 
 /// 串流類型在持久化字串裡的名稱。
 String streamTypeName(StreamType type) => switch (type) {
-      StreamType.audioOnly => 'audioOnly',
-      StreamType.muxed => 'muxed',
-      StreamType.hls => 'hls',
-    };
+  StreamType.audioOnly => 'audioOnly',
+  StreamType.muxed => 'muxed',
+  StreamType.hls => 'hls',
+};
 
 /// 單一音源的設定。
 ///
@@ -140,7 +140,8 @@ class SourceSettingsEntry {
     ..useAuthForPlay = useAuthForPlay;
 
   @override
-  String toString() => 'SourceSettingsEntry($sourceId, '
+  String toString() =>
+      'SourceSettingsEntry($sourceId, '
       'streamPriority: $streamPriority, useAuthForPlay: $useAuthForPlay)';
 }
 
@@ -156,19 +157,14 @@ enum LyricsDisplayMode {
   preferRomaji,
 }
 
-enum LyricsAiTitleParsingMode {
-  off,
-  alwaysAi,
-  advancedAiSelect,
-}
+enum LyricsAiTitleParsingMode { off, alwaysAi, advancedAiSelect }
 
 /// 首頁排行榜音源白名單。
 ///
 /// 單一真相衍生自 [SourceIds.values]：新增內建音源後自動同步，
 /// 不會因為忘了補 literal 而讓新源 id 被 normalize 靜默丟棄（D4）。
 /// 回傳可變副本，因為使用處（含作為狀態預設）皆以可變值形式取用。
-List<String> get homeRankingSourceIds =>
-    List<String>.of(SourceIds.values);
+List<String> get homeRankingSourceIds => List<String>.of(SourceIds.values);
 
 const String defaultHomeRankingSourcePriority = 'bilibili,youtube,netease';
 
@@ -525,14 +521,16 @@ class Settings {
 
   /// 设置格式优先级列表
   set audioFormatPriorityList(List<AudioFormat> list) {
-    audioFormatPriority = list.map((f) {
-      switch (f) {
-        case AudioFormat.opus:
-          return 'opus';
-        case AudioFormat.aac:
-          return 'aac';
-      }
-    }).join(',');
+    audioFormatPriority = list
+        .map((f) {
+          switch (f) {
+            case AudioFormat.opus:
+              return 'opus';
+            case AudioFormat.aac:
+              return 'aac';
+          }
+        })
+        .join(',');
   }
 
   /// 获取歌词显示模式
@@ -605,8 +603,9 @@ class Settings {
 
   /// 设置首页排行榜源优先级列表
   set homeRankingSourcePriorityList(List<String> list) {
-    homeRankingSourcePriority =
-        normalizeHomeRankingSourcePriority(list.join(',')).join(',');
+    homeRankingSourcePriority = normalizeHomeRankingSourcePriority(
+      list.join(','),
+    ).join(',');
   }
 
   /// 获取禁用的首页排行榜源集合
@@ -617,8 +616,9 @@ class Settings {
 
   /// 设置禁用的首页排行榜源集合
   set disabledHomeRankingSourcesSet(Set<String> set) {
-    disabledHomeRankingSources =
-        normalizeDisabledHomeRankingSources(set.join(',')).join(',');
+    disabledHomeRankingSources = normalizeDisabledHomeRankingSources(
+      set.join(','),
+    ).join(',');
   }
 
   @ignore
@@ -681,8 +681,10 @@ class Settings {
 
   /// 設定指定音源的串流優先序。
   void setStreamPriorityFor(String sourceId, List<StreamType> list) {
-    _putEntry(_entryFor(sourceId).copy()
-      ..streamPriority = list.map(streamTypeName).join(','));
+    _putEntry(
+      _entryFor(sourceId).copy()
+        ..streamPriority = list.map(streamTypeName).join(','),
+    );
   }
 
   /// 指定音源是否在播放時帶上登入狀態。
@@ -692,7 +694,6 @@ class Settings {
   void setUseAuthForPlay(String sourceId, bool value) {
     _putEntry(_entryFor(sourceId).copy()..useAuthForPlay = value);
   }
-
 
   @override
   String toString() =>

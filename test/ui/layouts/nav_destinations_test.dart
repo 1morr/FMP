@@ -31,14 +31,19 @@ void main() {
   group('navIndexForLocation', () {
     test('maps each destination to its own index', () {
       for (var i = 0; i < destinations.length; i++) {
-        expect(navIndexForLocation(destinations[i].path), i,
-            reason: destinations[i].path);
+        expect(
+          navIndexForLocation(destinations[i].path),
+          i,
+          reason: destinations[i].path,
+        );
       }
     });
 
     test('a sub-route highlights its destination', () {
-      expect(navIndexForLocation('/library/downloaded'),
-          destinations.indexWhere((d) => d.path == RoutePaths.library));
+      expect(
+        navIndexForLocation('/library/downloaded'),
+        destinations.indexWhere((d) => d.path == RoutePaths.library),
+      );
       expect(navIndexForLocation('/settings/audio'), 0);
     });
 
@@ -51,13 +56,15 @@ void main() {
       expect(navIndexForLocation(RoutePaths.home), 0);
     });
 
-    test('a route that merely shares a prefix does not steal the highlight',
-        () {
-      // `/radio-player` 以 `/radio` 開頭。舊的 startsWith 比對會把它算成
-      // 電台分頁。
-      expect(navIndexForLocation(RoutePaths.radioPlayer), 0);
-      expect(navIndexForLocation(RoutePaths.player), 0);
-    });
+    test(
+      'a route that merely shares a prefix does not steal the highlight',
+      () {
+        // `/radio-player` 以 `/radio` 開頭。舊的 startsWith 比對會把它算成
+        // 電台分頁。
+        expect(navIndexForLocation(RoutePaths.radioPlayer), 0);
+        expect(navIndexForLocation(RoutePaths.player), 0);
+      },
+    );
   });
 
   test('the labels come from i18n, not hardcoded strings', () {

@@ -18,10 +18,10 @@ void main() {
     ..title = id;
 
   PreparedPlaybackMedia mediaOf(String id) => RemotePlaybackMedia(
-        url: Uri.parse('https://example.com/$id.m4s'),
-        headers: const {'Referer': 'https://www.bilibili.com/'},
-        track: trackOf(id),
-      );
+    url: Uri.parse('https://example.com/$id.m4s'),
+    headers: const {'Referer': 'https://www.bilibili.com/'},
+    track: trackOf(id),
+  );
 
   test('setNextMedia records the arm and the clear in order', () async {
     final service = FakeAudioService();

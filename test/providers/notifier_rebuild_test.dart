@@ -26,21 +26,23 @@ void main() {
     setUp(() => container = ProviderContainer());
     tearDown(() => container.dispose());
 
-    test('queueStateProvider starts empty and takes a published projection',
-        () {
-      expect(container.read(queueStateProvider), const QueueState());
+    test(
+      'queueStateProvider starts empty and takes a published projection',
+      () {
+        expect(container.read(queueStateProvider), const QueueState());
 
-      final projection = QueueState(
-        queue: [Track()..title = 'one'],
-        queueVersion: 1,
-      );
-      container.read(queueStateProvider.notifier).publish(projection);
-      expect(container.read(queueStateProvider), same(projection));
+        final projection = QueueState(
+          queue: [Track()..title = 'one'],
+          queueVersion: 1,
+        );
+        container.read(queueStateProvider.notifier).publish(projection);
+        expect(container.read(queueStateProvider), same(projection));
 
-      // 重建回到初始值 —— 投影的唯一真相在 AudioController，provider 不留舊值。
-      container.invalidate(queueStateProvider);
-      expect(container.read(queueStateProvider), const QueueState());
-    });
+        // 重建回到初始值 —— 投影的唯一真相在 AudioController，provider 不留舊值。
+        container.invalidate(queueStateProvider);
+        expect(container.read(queueStateProvider), const QueueState());
+      },
+    );
 
     test('lyricsAutoMatchingProvider flips through its named setter', () {
       expect(container.read(lyricsAutoMatchingProvider), isFalse);
@@ -73,12 +75,16 @@ void main() {
     late ProviderContainer container;
 
     setUp(() {
-      repository = _FakeSettingsRepository(Settings()
-        ..railExpanded = true
-        ..detailPanelWidth = 500);
-      container = ProviderContainer(overrides: [
-        settingsRepositoryProvider.overrideWith((ref) => repository),
-      ]);
+      repository = _FakeSettingsRepository(
+        Settings()
+          ..railExpanded = true
+          ..detailPanelWidth = 500,
+      );
+      container = ProviderContainer(
+        overrides: [
+          settingsRepositoryProvider.overrideWith((ref) => repository),
+        ],
+      );
     });
     tearDown(() => container.dispose());
 
@@ -95,8 +101,11 @@ void main() {
       container.read(layoutSettingsProvider);
       await Future<void>.delayed(Duration.zero);
 
-      expect(container.read(layoutSettingsProvider.notifier), same(notifier),
-          reason: 'Riverpod 3 保留 Notifier 實例，只重跑 build()');
+      expect(
+        container.read(layoutSettingsProvider.notifier),
+        same(notifier),
+        reason: 'Riverpod 3 保留 Notifier 實例，只重跑 build()',
+      );
       expect(container.read(layoutSettingsProvider).railExpanded, isFalse);
     });
 
@@ -141,12 +150,11 @@ class _FakeIsar extends Fake implements Isar {}
 /// `build()` 重跑時實例被保留，訂閱卻會再開一條 —— 沒有 `ref.onDispose`
 /// 就是每次 rebuild 洩一條，而且完全沒有錯誤訊息。
 void _playlistImportSubscriptionGroup() {
-  test('playlist import notifier does not leak its progress subscription',
-      () {
+  test('playlist import notifier does not leak its progress subscription', () {
     var service = _CountingImportService();
-    final container = ProviderContainer(overrides: [
-      playlistImportServiceProvider.overrideWith((ref) => service),
-    ]);
+    final container = ProviderContainer(
+      overrides: [playlistImportServiceProvider.overrideWith((ref) => service)],
+    );
     addTearDown(container.dispose);
 
     final notifier = container.read(playlistImportProvider.notifier);
@@ -159,8 +167,7 @@ void _playlistImportSubscriptionGroup() {
     container.read(playlistImportProvider);
 
     expect(container.read(playlistImportProvider.notifier), same(notifier));
-    expect(first.cancelCount, 1,
-        reason: '前一次 build 開的訂閱必須在 rebuild 之前關掉');
+    expect(first.cancelCount, 1, reason: '前一次 build 開的訂閱必須在 rebuild 之前關掉');
     expect(service.listenCount, 1);
   });
 }
@@ -170,9 +177,9 @@ class _CountingImportService implements PlaylistImportService {
   int cancelCount = 0;
   late final StreamController<ImportProgress> _controller =
       StreamController<ImportProgress>.broadcast(
-    onListen: () => listenCount++,
-    onCancel: () => cancelCount++,
-  );
+        onListen: () => listenCount++,
+        onCancel: () => cancelCount++,
+      );
 
   @override
   Stream<ImportProgress> get progressStream => _controller.stream;

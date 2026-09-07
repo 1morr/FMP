@@ -16,9 +16,9 @@ class LayoutSettingsState {
 
   /// 設定讀進來之前的暫時值，與 `Settings` 的業務預設一致。
   const LayoutSettingsState.initial()
-      : railExpanded = false,
-        detailPanelExpanded = false,
-        detailPanelWidth = AppLayout.detailPanelDefault;
+    : railExpanded = false,
+      detailPanelExpanded = false,
+      detailPanelWidth = AppLayout.detailPanelDefault;
 
   final bool railExpanded;
   final bool detailPanelExpanded;
@@ -80,4 +80,5 @@ class LayoutSettingsNotifier extends Notifier<LayoutSettingsState> {
 
 final layoutSettingsProvider =
     NotifierProvider<LayoutSettingsNotifier, LayoutSettingsState>(
-        LayoutSettingsNotifier.new);
+      LayoutSettingsNotifier.new,
+    );

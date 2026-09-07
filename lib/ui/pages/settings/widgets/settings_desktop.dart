@@ -12,8 +12,8 @@ class _LaunchAtStartupTile extends ConsumerWidget {
       subtitle: Text(
         startupState.enabled
             ? (startupState.minimized
-                ? t.settings.launchAtStartup.minimizedMode
-                : t.settings.launchAtStartup.normalMode)
+                  ? t.settings.launchAtStartup.minimizedMode
+                  : t.settings.launchAtStartup.normalMode)
             : t.settings.launchAtStartup.subtitle,
       ),
       trailing: Row(
@@ -168,8 +168,8 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
             Text(
               t.settings.hotkeys.hint,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
             const SizedBox(height: 16),
             ...HotkeyAction.values.map(
@@ -188,7 +188,10 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
   }
 
   Widget _buildHotkeyRow(
-      BuildContext context, HotkeyAction action, HotkeyConfig config) {
+    BuildContext context,
+    HotkeyAction action,
+    HotkeyConfig config,
+  ) {
     final binding = config.getBinding(action);
     final isEditing = _editingAction == action;
 
@@ -209,8 +212,10 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
               onTap: () => _startRecording(action),
               borderRadius: AppRadius.borderRadiusMd,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: isEditing
                       ? Theme.of(context).colorScheme.primaryContainer
@@ -313,8 +318,11 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
     );
   }
 
-  void _saveHotkey(HotkeyAction action, LogicalKeyboardKey key,
-      Set<HotKeyModifier> modifiers) {
+  void _saveHotkey(
+    HotkeyAction action,
+    LogicalKeyboardKey key,
+    Set<HotKeyModifier> modifiers,
+  ) {
     final newBinding = HotkeyBinding(
       action: action,
       key: key,
@@ -359,7 +367,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
 class _HotkeyRecordingDialog extends StatefulWidget {
   final HotkeyAction action;
   final void Function(LogicalKeyboardKey key, Set<HotKeyModifier> modifiers)
-      onRecorded;
+  onRecorded;
   final VoidCallback onCancel;
 
   const _HotkeyRecordingDialog({
@@ -413,20 +421,14 @@ class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
           child: Center(
             child: Text(
               _buildDisplayText(),
-              style: const TextStyle(
-                fontSize: 18,
-                fontFamily: 'monospace',
-              ),
+              style: const TextStyle(fontSize: 18, fontFamily: 'monospace'),
               textAlign: TextAlign.center,
             ),
           ),
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: widget.onCancel,
-          child: Text(t.general.cancel),
-        ),
+        TextButton(onPressed: widget.onCancel, child: Text(t.general.cancel)),
       ],
     );
   }

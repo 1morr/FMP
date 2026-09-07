@@ -74,11 +74,7 @@ class AudioStreamInfoSection extends StatelessWidget {
         // 标题
         Row(
           children: [
-            Icon(
-              Icons.graphic_eq,
-              size: 18,
-              color: colorScheme.primary,
-            ),
+            Icon(Icons.graphic_eq, size: 18, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
               t.player.audioInfo,
@@ -122,11 +118,7 @@ class AudioStreamInfoSection extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 6),
           Text(
             label,

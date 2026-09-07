@@ -23,7 +23,7 @@ class QueueMutation {
   const QueueMutation.applied() : this._(QueueMutationStatus.applied);
   const QueueMutation.blocked() : this._(QueueMutationStatus.blocked);
   const QueueMutation.failed(Object error)
-      : this._(QueueMutationStatus.failed, error);
+    : this._(QueueMutationStatus.failed, error);
 
   final QueueMutationStatus status;
   final Object? error;
@@ -43,8 +43,8 @@ class QueueCommands with Logging {
   QueueCommands({
     required QueueManager queueManager,
     required ToastService toastService,
-  })  : _queueManager = queueManager,
-        _toastService = toastService;
+  }) : _queueManager = queueManager,
+       _toastService = toastService;
 
   final QueueManager _queueManager;
   final ToastService _toastService;
@@ -54,8 +54,9 @@ class QueueCommands with Logging {
     logInfo('Adding to queue: ${track.title}');
     return _run('add track to queue', () async {
       if (await _queueManager.add(track)) return const QueueMutation.applied();
-      _toastService
-          .showError(t.audio.queueFull(count: AppConstants.maxQueueSize));
+      _toastService.showError(
+        t.audio.queueFull(count: AppConstants.maxQueueSize),
+      );
       return const QueueMutation.blocked();
     });
   }

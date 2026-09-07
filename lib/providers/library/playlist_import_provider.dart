@@ -50,9 +50,11 @@ class PlaylistImportState {
 
   /// 获取已匹配的歌曲数量
   int get matchedCount => matchedTracks
-      .where((t) =>
-          t.status == MatchStatus.matched ||
-          t.status == MatchStatus.userSelected)
+      .where(
+        (t) =>
+            t.status == MatchStatus.matched ||
+            t.status == MatchStatus.userSelected,
+      )
       .length;
 
   /// 获取未匹配的歌曲数量
@@ -61,29 +63,34 @@ class PlaylistImportState {
 
   /// 获取已选中的歌曲（用于创建歌单）
   List<Track> get selectedTracks => matchedTracks
-          .where((t) => t.isIncluded && t.selectedTrack != null)
-          .map((t) {
+      .where((t) => t.isIncluded && t.selectedTrack != null)
+      .map((t) {
         final track = t.selectedTrack!.copy();
         if (t.original.sourceId != null) {
           track.originalSongId = t.original.sourceId;
           track.originalSource = _mapSourceToString(t.original.source);
         }
         return track;
-      }).toList();
+      })
+      .toList();
 
   /// 获取未匹配的原始歌曲（包括用户手动选择的）
   List<ImportedTrack> get unmatchedOriginalTracks => matchedTracks
-      .where((t) =>
-          t.status == MatchStatus.noResult ||
-          t.status == MatchStatus.userSelected)
+      .where(
+        (t) =>
+            t.status == MatchStatus.noResult ||
+            t.status == MatchStatus.userSelected,
+      )
       .map((t) => t.original)
       .toList();
 
   /// 获取未匹配的 MatchedTrack（包括用户手动选择的，用于 UI 显示选中状态）
   List<MatchedTrack> get unmatchedMatchedTracks => matchedTracks
-      .where((t) =>
-          t.status == MatchStatus.noResult ||
-          t.status == MatchStatus.userSelected)
+      .where(
+        (t) =>
+            t.status == MatchStatus.noResult ||
+            t.status == MatchStatus.userSelected,
+      )
       .toList();
 
   /// PlaylistSource → 歌词系统兼容的字符串
@@ -115,10 +122,7 @@ class PlaylistImportNotifier extends Notifier<PlaylistImportState> {
     _service = ref.watch(playlistImportServiceProvider);
     _progressSubscription = _service.progressStream.listen((progress) {
       if (_activeImportOperationId != null && ref.mounted) {
-        state = state.copyWith(
-          progress: progress,
-          phase: progress.phase,
-        );
+        state = state.copyWith(progress: progress, phase: progress.phase);
       }
     });
     // 這條訂閱以前開在建構子、關在 `dispose()`。`ref.onDispose` 在 provider
@@ -185,8 +189,12 @@ class PlaylistImportNotifier extends Notifier<PlaylistImportState> {
       state = state.copyWith(
         isLoading: false,
         phase: ImportPhase.error,
-        errorMessage:
-            failureMessage(e, stack, 'Playlist import failed', tag: 'Import'),
+        errorMessage: failureMessage(
+          e,
+          stack,
+          'Playlist import failed',
+          tag: 'Import',
+        ),
       );
       _activeImportOperationId = null;
     }
@@ -287,7 +295,10 @@ class PlaylistImportNotifier extends Notifier<PlaylistImportState> {
 
   /// 用手动搜索结果更新未匹配歌曲（保留在未匹配区域，使用 userSelected 状态）
   void updateWithManualMatch(
-      int index, Track selectedTrack, List<Track> searchResults) {
+    int index,
+    Track selectedTrack,
+    List<Track> searchResults,
+  ) {
     if (index < 0 || index >= state.matchedTracks.length) return;
 
     final updatedTracks = List<MatchedTrack>.from(state.matchedTracks);
@@ -327,4 +338,5 @@ final playlistImportServiceProvider = Provider<PlaylistImportService>((ref) {
 
 final playlistImportProvider =
     NotifierProvider<PlaylistImportNotifier, PlaylistImportState>(
-        PlaylistImportNotifier.new);
+      PlaylistImportNotifier.new,
+    );

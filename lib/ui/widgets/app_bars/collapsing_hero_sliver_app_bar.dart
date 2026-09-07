@@ -73,7 +73,7 @@ class CollapsingHeroSliverAppBar extends StatelessWidget {
 
   /// 操作按鈕列；接收當前圖標色。
   final List<Widget> Function(BuildContext context, Color iconColor)?
-      actionsBuilder;
+  actionsBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -181,10 +181,7 @@ class _HeroBadgeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 2,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: badge.backgroundColor,
         borderRadius: AppRadius.borderRadiusLg,
@@ -192,18 +189,14 @@ class _HeroBadgeChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            badge.icon,
-            size: 14,
-            color: badge.foregroundColor,
-          ),
+          Icon(badge.icon, size: 14, color: badge.foregroundColor),
           const SizedBox(width: 4),
           Text(
             badge.label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: badge.foregroundColor,
-                  fontWeight: FontWeight.w500,
-                ),
+              color: badge.foregroundColor,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

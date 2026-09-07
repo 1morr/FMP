@@ -13,16 +13,18 @@ void main() {
       );
     });
 
-    test('returns playbackNetworkError when playback fails but network is up',
-        () {
-      expect(
-        resolveNetworkStatusBannerKind(
-          isConnected: true,
-          hasPlaybackNetworkError: true,
-        ),
-        NetworkStatusBannerKind.playbackNetworkError,
-      );
-    });
+    test(
+      'returns playbackNetworkError when playback fails but network is up',
+      () {
+        expect(
+          resolveNetworkStatusBannerKind(
+            isConnected: true,
+            hasPlaybackNetworkError: true,
+          ),
+          NetworkStatusBannerKind.playbackNetworkError,
+        );
+      },
+    );
 
     test('prefers noNetwork when both connectivity and playback fail', () {
       expect(

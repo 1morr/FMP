@@ -82,7 +82,8 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
   }
 
   Future<void> _extractCookiesAndLogin(
-      InAppWebViewController controller) async {
+    InAppWebViewController controller,
+  ) async {
     try {
       final cookieManager = CookieManager.instance();
       final cookieMap = await _waitForRequiredCookies(cookieManager);
@@ -166,7 +167,8 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
 
     // Step 1: 從頁面全局變量提取 avatar + channelId
     try {
-      final result = await controller.evaluateJavascript(source: '''
+      final result = await controller.evaluateJavascript(
+        source: '''
         (function() {
           try {
             var data = {};
@@ -198,7 +200,8 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
             return JSON.stringify(data);
           } catch(e) { return JSON.stringify({error: e.message}); }
         })()
-      ''');
+      ''',
+      );
       if (result is String && result.isNotEmpty && result != 'null') {
         final info = Map<String, dynamic>.from(_parseJson(result));
         avatarUrl = info['avatarUrl'] as String?;
@@ -211,7 +214,8 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
     // 策略 B: InnerTube accounts_list 端點
     // 策略 C: yt.config_ 全局變量
     try {
-      final asyncResult = await controller.callAsyncJavaScript(functionBody: '''
+      final asyncResult = await controller.callAsyncJavaScript(
+        functionBody: '''
         var result = {};
         // --- 策略 A: ytcfg 提取 ---
         if (typeof ytcfg !== 'undefined' && ytcfg.get) {
@@ -278,7 +282,8 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
           }
         }
         return JSON.stringify(result);
-      ''');
+      ''',
+      );
       final menuResult = asyncResult?.value;
       if (menuResult is String &&
           menuResult.isNotEmpty &&
@@ -315,9 +320,7 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.importPlatform.youtube),
-      ),
+      appBar: AppBar(title: Text(t.importPlatform.youtube)),
       body: Stack(
         children: [
           InAppWebView(

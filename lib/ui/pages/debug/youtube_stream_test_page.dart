@@ -30,7 +30,7 @@ final Map<String, List<yt.YoutubeApiClient>> _clientCombinations = {
   'ios+safari+android': [
     yt.YoutubeApiClient.ios,
     yt.YoutubeApiClient.safari,
-    yt.YoutubeApiClient.android
+    yt.YoutubeApiClient.android,
   ],
   'tv+safari': [yt.YoutubeApiClient.tv, yt.YoutubeApiClient.safari],
   'tv only': [yt.YoutubeApiClient.tv],
@@ -91,37 +91,52 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
   }
 
   void _setupPlayerListeners() {
-    _subscriptions.add(_player.stream.playing.listen((playing) {
-      _log('事件 playing=$playing');
-      if (mounted) setState(() => _isPlaying = playing);
-    }));
+    _subscriptions.add(
+      _player.stream.playing.listen((playing) {
+        _log('事件 playing=$playing');
+        if (mounted) setState(() => _isPlaying = playing);
+      }),
+    );
 
-    _subscriptions.add(_player.stream.position.listen((pos) {
-      if (mounted) setState(() => _position = pos);
-    }));
+    _subscriptions.add(
+      _player.stream.position.listen((pos) {
+        if (mounted) setState(() => _position = pos);
+      }),
+    );
 
-    _subscriptions.add(_player.stream.duration.listen((dur) {
-      _log('事件 duration=$dur');
-      if (mounted) setState(() => _duration = dur);
-    }));
+    _subscriptions.add(
+      _player.stream.duration.listen((dur) {
+        _log('事件 duration=$dur');
+        if (mounted) setState(() => _duration = dur);
+      }),
+    );
 
-    _subscriptions.add(_player.stream.buffering.listen((buffering) {
-      _log('事件 buffering=$buffering');
-    }));
+    _subscriptions.add(
+      _player.stream.buffering.listen((buffering) {
+        _log('事件 buffering=$buffering');
+      }),
+    );
 
-    _subscriptions.add(_player.stream.completed.listen((completed) {
-      _log('事件 completed=$completed');
-    }));
+    _subscriptions.add(
+      _player.stream.completed.listen((completed) {
+        _log('事件 completed=$completed');
+      }),
+    );
 
-    _subscriptions.add(_player.stream.error.listen((error) {
-      _log('❌ 错误: $error');
-      if (mounted) setState(() => _error = error);
-    }));
+    _subscriptions.add(
+      _player.stream.error.listen((error) {
+        _log('❌ 错误: $error');
+        if (mounted) setState(() => _error = error);
+      }),
+    );
 
-    _subscriptions.add(_player.stream.audioParams.listen((params) {
-      _log(
-          '音频参数: format=${params.format}, sampleRate=${params.sampleRate}, channels=${params.channels}');
-    }));
+    _subscriptions.add(
+      _player.stream.audioParams.listen((params) {
+        _log(
+          '音频参数: format=${params.format}, sampleRate=${params.sampleRate}, channels=${params.channels}',
+        );
+      }),
+    );
   }
 
   @override
@@ -174,20 +189,23 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       for (final audio in manifest.audioOnly) {
         final client = _detectClientFromUrl(audio.url.toString());
         _log(
-            '  ${audio.audioCodec} | ${audio.container.name} | ${audio.bitrate} | client=$client');
-        streams.add(StreamInfo(
-          type: StreamType.audioOnly,
-          url: audio.url.toString(),
-          codec: audio.audioCodec,
-          bitrate: audio.bitrate.bitsPerSecond,
-          container: audio.container.name,
-          client: client,
-          label:
-              '[$client] ${audio.audioCodec} ${audio.container.name} (${_formatBitrate(audio.bitrate.bitsPerSecond)})',
-          rawInfo:
-              'codec=${audio.audioCodec}, container=${audio.container.name}, '
-              'bitrate=${audio.bitrate}, size=${audio.size}, client=$client',
-        ));
+          '  ${audio.audioCodec} | ${audio.container.name} | ${audio.bitrate} | client=$client',
+        );
+        streams.add(
+          StreamInfo(
+            type: StreamType.audioOnly,
+            url: audio.url.toString(),
+            codec: audio.audioCodec,
+            bitrate: audio.bitrate.bitsPerSecond,
+            container: audio.container.name,
+            client: client,
+            label:
+                '[$client] ${audio.audioCodec} ${audio.container.name} (${_formatBitrate(audio.bitrate.bitsPerSecond)})',
+            rawInfo:
+                'codec=${audio.audioCodec}, container=${audio.container.name}, '
+                'bitrate=${audio.bitrate}, size=${audio.size}, client=$client',
+          ),
+        );
       }
 
       // Muxed 流
@@ -195,19 +213,23 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       for (final muxed in manifest.muxed) {
         final client = _detectClientFromUrl(muxed.url.toString());
         _log(
-            '  ${muxed.qualityLabel} | ${muxed.container.name} | ${muxed.bitrate} | client=$client');
-        streams.add(StreamInfo(
-          type: StreamType.muxed,
-          url: muxed.url.toString(),
-          codec: '${muxed.videoCodec}+${muxed.audioCodec}',
-          bitrate: muxed.bitrate.bitsPerSecond,
-          container: muxed.container.name,
-          client: client,
-          label:
-              '[$client] Muxed ${muxed.qualityLabel} ${muxed.container.name} (${_formatBitrate(muxed.bitrate.bitsPerSecond)})',
-          rawInfo: 'quality=${muxed.qualityLabel}, vCodec=${muxed.videoCodec}, '
-              'aCodec=${muxed.audioCodec}, client=$client',
-        ));
+          '  ${muxed.qualityLabel} | ${muxed.container.name} | ${muxed.bitrate} | client=$client',
+        );
+        streams.add(
+          StreamInfo(
+            type: StreamType.muxed,
+            url: muxed.url.toString(),
+            codec: '${muxed.videoCodec}+${muxed.audioCodec}',
+            bitrate: muxed.bitrate.bitsPerSecond,
+            container: muxed.container.name,
+            client: client,
+            label:
+                '[$client] Muxed ${muxed.qualityLabel} ${muxed.container.name} (${_formatBitrate(muxed.bitrate.bitsPerSecond)})',
+            rawInfo:
+                'quality=${muxed.qualityLabel}, vCodec=${muxed.videoCodec}, '
+                'aCodec=${muxed.audioCodec}, client=$client',
+          ),
+        );
       }
 
       // HLS 流
@@ -215,22 +237,25 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       for (final hls in manifest.hls) {
         final client = _detectClientFromUrl(hls.url.toString());
         _log('  ${hls.qualityLabel} | ${hls.bitrate} | client=$client');
-        streams.add(StreamInfo(
-          type: StreamType.hls,
-          url: hls.url.toString(),
-          codec: 'HLS',
-          bitrate: hls.bitrate.bitsPerSecond,
-          container: 'm3u8',
-          client: client,
-          label:
-              '[$client] HLS ${hls.qualityLabel} (${_formatBitrate(hls.bitrate.bitsPerSecond)})',
-          rawInfo: 'quality=${hls.qualityLabel}, client=$client',
-        ));
+        streams.add(
+          StreamInfo(
+            type: StreamType.hls,
+            url: hls.url.toString(),
+            codec: 'HLS',
+            bitrate: hls.bitrate.bitsPerSecond,
+            container: 'm3u8',
+            client: client,
+            label:
+                '[$client] HLS ${hls.qualityLabel} (${_formatBitrate(hls.bitrate.bitsPerSecond)})',
+            rawInfo: 'quality=${hls.qualityLabel}, client=$client',
+          ),
+        );
       }
 
       setState(() {
         _availableStreams = streams;
-        _status = '找到 ${streams.length} 个流:\n'
+        _status =
+            '找到 ${streams.length} 个流:\n'
             '- Audio-only: ${manifest.audioOnly.length}\n'
             '- Muxed: ${manifest.muxed.length}\n'
             '- HLS: ${manifest.hls.length}';
@@ -291,11 +316,13 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
       // 最终状态
       _log(
-          '最终: playing=$_isPlaying, duration=${_duration.inMilliseconds}ms, error=$_error');
+        '最终: playing=$_isPlaying, duration=${_duration.inMilliseconds}ms, error=$_error',
+      );
 
       if (_isPlaying && _duration.inMilliseconds > 0) {
         setState(() {
-          _status = '✅ 播放成功!\n'
+          _status =
+              '✅ 播放成功!\n'
               '类型: ${stream.type.name} | Headers: $_selectedHeaderType\n'
               '编解码器: ${stream.codec} | 容器: ${stream.container}\n'
               '比特率: ${_formatBitrate(stream.bitrate)}\n'
@@ -304,20 +331,23 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
         _log('✅ 成功!');
       } else if (_error != null) {
         setState(() {
-          _status = '❌ 失败! Headers=$_selectedHeaderType\n'
+          _status =
+              '❌ 失败! Headers=$_selectedHeaderType\n'
               '类型: ${stream.type.name}\n'
               '错误: $_error';
         });
       } else {
         setState(() {
-          _status = '⚠️ 不确定\n'
+          _status =
+              '⚠️ 不确定\n'
               'playing=$_isPlaying, duration=$_duration';
         });
       }
     } catch (e) {
       _log('❌ 异常: $e');
       setState(() {
-        _status = '❌ 失败! Headers=$_selectedHeaderType\n'
+        _status =
+            '❌ 失败! Headers=$_selectedHeaderType\n'
             '类型: ${stream.type.name} | 编解码器: ${stream.codec}\n'
             '错误: $e';
       });
@@ -328,7 +358,9 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
   /// HTTP 级别验证 URL 是否可访问
   Future<Map<String, dynamic>> _verifyUrlAccess(
-      String url, Map<String, String> headers) async {
+    String url,
+    Map<String, String> headers,
+  ) async {
     final dio = Dio();
     dio.options.connectTimeout = const Duration(seconds: 10);
     dio.options.receiveTimeout = const Duration(seconds: 10);
@@ -369,11 +401,7 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
       return result;
     } catch (e) {
-      return {
-        'method': 'HEAD',
-        'error': e.toString(),
-        'accessible': false,
-      };
+      return {'method': 'HEAD', 'error': e.toString(), 'accessible': false};
     } finally {
       dio.close();
     }
@@ -414,8 +442,9 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
   /// 自动批量测试：对第一个 audio-only 流依次尝试所有 header 类型
   Future<void> _runAutoTest() async {
-    final audioStreams =
-        _availableStreams.where((s) => s.type == StreamType.audioOnly).toList();
+    final audioStreams = _availableStreams
+        .where((s) => s.type == StreamType.audioOnly)
+        .toList();
     if (audioStreams.isEmpty) {
       _log('没有 audio-only 流可测试');
       return;
@@ -452,7 +481,8 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       for (final headerType in _clientHeaders.keys) {
         _log('');
         _log(
-            '--- 测试: ${stream.codec}/${stream.container} + headers=$headerType ---');
+          '--- 测试: ${stream.codec}/${stream.container} + headers=$headerType ---',
+        );
 
         setState(() {
           _selectedHeaderType = headerType;
@@ -485,14 +515,16 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
           final result = success ? '✅' : '❌ ${_error ?? "timeout"}';
           results.add(
-              '${stream.codec}/${stream.container} [${stream.client}] + $headerType = $result');
+            '${stream.codec}/${stream.container} [${stream.client}] + $headerType = $result',
+          );
           _log(results.last);
 
           await _player.stop();
           await Future.delayed(const Duration(milliseconds: 200));
         } catch (e) {
           results.add(
-              '${stream.codec}/${stream.container} [${stream.client}] + $headerType = ❌ $e');
+            '${stream.codec}/${stream.container} [${stream.client}] + $headerType = ❌ $e',
+          );
           _log(results.last);
         }
       }
@@ -574,7 +606,8 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
         final urlClient = _detectClientFromUrl(stream.url.toString());
         _log('  找到 ${manifest.audioOnly.length} 个 audio-only 流');
         _log(
-            '  测试: ${stream.audioCodec}/${stream.container.name} [c=$urlClient]');
+          '  测试: ${stream.audioCodec}/${stream.container.name} [c=$urlClient]',
+        );
 
         // HTTP 验证
         final httpResult = await _verifyUrlAccess(stream.url.toString(), {});
@@ -603,8 +636,9 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       _log('${entry.key}: ${entry.value}');
     }
 
-    final workingClients =
-        clientResults.entries.where((e) => e.value.contains('✅')).toList();
+    final workingClients = clientResults.entries
+        .where((e) => e.value.contains('✅'))
+        .toList();
     if (workingClients.isNotEmpty) {
       _log('');
       _log('🎉 可用的客户端: ${workingClients.map((e) => e.key).join(', ')}');
@@ -616,8 +650,10 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
       try {
         final clients = _clientCombinations[firstWorking]!;
-        final manifest = await _youtube.videos.streams
-            .getManifest(videoId, ytClients: clients);
+        final manifest = await _youtube.videos.streams.getManifest(
+          videoId,
+          ytClients: clients,
+        );
         if (manifest.audioOnly.isNotEmpty) {
           final stream = manifest.audioOnly.first;
           _log('播放: ${stream.audioCodec}/${stream.container.name}');
@@ -753,9 +789,10 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
         final result = await _verifyUrlAccess(stream.url, entry.value);
         final status = result['accessible'] == true ? '✅' : '❌';
         _log(
-            '${entry.key}: $status HTTP ${result['statusCode'] ?? result['error']} '
-            'range=${result['rangeStatus'] ?? result['rangeError'] ?? '-'} '
-            'bytes=${result['bytesReceived'] ?? 0}');
+          '${entry.key}: $status HTTP ${result['statusCode'] ?? result['error']} '
+          'range=${result['rangeStatus'] ?? result['rangeError'] ?? '-'} '
+          'bytes=${result['bytesReceived'] ?? 0}',
+        );
       }
 
       _log('');
@@ -816,10 +853,12 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
   }
 
   String _formatHeaderKeys(Map<String, String> headers) {
-    return headers.keys.map((key) {
-      final value = headers[key] ?? '';
-      return '$key(${value.length})';
-    }).join(', ');
+    return headers.keys
+        .map((key) {
+          final value = headers[key] ?? '';
+          return '$key(${value.length})';
+        })
+        .join(', ');
   }
 
   void _log(String message) {
@@ -897,7 +936,9 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                                           width: 16,
                                           height: 16,
                                           child: CircularProgressIndicator(
-                                              strokeWidth: 2))
+                                            strokeWidth: 2,
+                                          ),
+                                        )
                                       : const Icon(Icons.search, size: 18),
                                   label: Text(t.debug.fetchStreams),
                                 ),
@@ -907,16 +948,17 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                                 child: ElevatedButton.icon(
                                   onPressed:
                                       _isLoading || _availableStreams.isEmpty
-                                          ? null
-                                          : _runAutoTest,
+                                      ? null
+                                      : _runAutoTest,
                                   icon: const Icon(Icons.science, size: 18),
                                   label: Text(t.debug.batchTest),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        Theme.of(context).colorScheme.tertiary,
-                                    foregroundColor: Theme.of(context)
-                                        .colorScheme
-                                        .onTertiary,
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.tertiary,
+                                    foregroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.onTertiary,
                                   ),
                                 ),
                               ),
@@ -926,9 +968,10 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                           // API 客户端选择
                           Row(
                             children: [
-                              Text('API客户端:',
-                                  style:
-                                      Theme.of(context).textTheme.labelMedium),
+                              Text(
+                                'API客户端:',
+                                style: Theme.of(context).textTheme.labelMedium,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: DropdownButton<String>(
@@ -936,15 +979,18 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                                   value: _selectedApiClient,
                                   items: _clientCombinations.keys.map((key) {
                                     return DropdownMenuItem(
-                                        value: key,
-                                        child: Text(key,
-                                            style:
-                                                const TextStyle(fontSize: 12)));
+                                      value: key,
+                                      child: Text(
+                                        key,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    );
                                   }).toList(),
                                   onChanged: (value) {
                                     if (value != null) {
                                       setState(
-                                          () => _selectedApiClient = value);
+                                        () => _selectedApiClient = value,
+                                      );
                                     }
                                   },
                                 ),
@@ -970,14 +1016,18 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: _isLoading ? null : _runAuthProbe,
-                              icon: const Icon(Icons.verified_user_outlined,
-                                  size: 18),
+                              icon: const Icon(
+                                Icons.verified_user_outlined,
+                                size: 18,
+                              ),
                               label: const Text('使用当前 YouTube 登录状态探测'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primary,
-                                foregroundColor:
-                                    Theme.of(context).colorScheme.onPrimary,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimary,
                               ),
                             ),
                           ),
@@ -996,15 +1046,19 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Headers 选择
-                          Text(t.debug.playbackHeaders,
-                              style: Theme.of(context).textTheme.labelMedium),
+                          Text(
+                            t.debug.playbackHeaders,
+                            style: Theme.of(context).textTheme.labelMedium,
+                          ),
                           const SizedBox(height: 4),
                           Wrap(
                             spacing: 8,
                             children: _clientHeaders.keys.map((type) {
                               return ChoiceChip(
-                                label: Text(type,
-                                    style: const TextStyle(fontSize: 12)),
+                                label: Text(
+                                  type,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                                 selected: _selectedHeaderType == type,
                                 onSelected: (selected) {
                                   if (selected) {
@@ -1021,9 +1075,9 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                               children: [
                                 IconButton.filled(
                                   onPressed: () => _player.playOrPause(),
-                                  icon: Icon(_isPlaying
-                                      ? Icons.pause
-                                      : Icons.play_arrow),
+                                  icon: Icon(
+                                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                                  ),
                                   iconSize: 20,
                                 ),
                                 IconButton.filled(
@@ -1033,16 +1087,19 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                    '${DurationFormatter.format(_position)} / ${DurationFormatter.format(_duration)}',
-                                    style: const TextStyle(
-                                        fontFamily: 'monospace', fontSize: 12)),
+                                  '${DurationFormatter.format(_position)} / ${DurationFormatter.format(_duration)}',
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
                             LinearProgressIndicator(
                               value: _duration.inMilliseconds > 0
                                   ? _position.inMilliseconds /
-                                      _duration.inMilliseconds
+                                        _duration.inMilliseconds
                                   : 0,
                             ),
                           ],
@@ -1055,8 +1112,8 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                               color: _status.contains('✅')
                                   ? Colors.green
                                   : _status.contains('❌')
-                                      ? Colors.red
-                                      : null,
+                                  ? Colors.red
+                                  : null,
                             ),
                           ),
                         ],
@@ -1088,17 +1145,26 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 3,
+                  ),
                   color: Colors.grey.shade800,
                   child: Row(
                     children: [
-                      const Icon(Icons.terminal,
-                          color: Colors.white70, size: 14),
+                      const Icon(
+                        Icons.terminal,
+                        color: Colors.white70,
+                        size: 14,
+                      ),
                       const SizedBox(width: 6),
-                      Text('${t.debug.logs} (${_logs.length})',
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 11)),
+                      Text(
+                        '${t.debug.logs} (${_logs.length})',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1116,11 +1182,14 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
                         color = Colors.cyan.shade300;
                       }
                       if (log.contains('---')) color = Colors.yellow.shade300;
-                      return Text(log,
-                          style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 10,
-                              color: color));
+                      return Text(
+                        log,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          color: color,
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -1139,51 +1208,64 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: ExpansionTile(
-        title: Text('$title (${streams.length})',
-            style: const TextStyle(fontSize: 13)),
+        title: Text(
+          '$title (${streams.length})',
+          style: const TextStyle(fontSize: 13),
+        ),
         initiallyExpanded: type == StreamType.audioOnly,
         childrenPadding: EdgeInsets.zero,
         children: streams
-            .map((stream) => ListTile(
-                  dense: true,
-                  title:
-                      Text(stream.label, style: const TextStyle(fontSize: 12)),
-                  subtitle:
-                      Text(stream.rawInfo, style: const TextStyle(fontSize: 9)),
-                  trailing: SizedBox(
-                    width: 100,
-                    height: 28,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 44,
-                          child: ElevatedButton(
-                            onPressed:
-                                _isLoading ? null : () => _verifyStream(stream),
-                            style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.zero),
-                            child: Text(t.debug.verify,
-                                style: const TextStyle(fontSize: 10)),
+            .map(
+              (stream) => ListTile(
+                dense: true,
+                title: Text(stream.label, style: const TextStyle(fontSize: 12)),
+                subtitle: Text(
+                  stream.rawInfo,
+                  style: const TextStyle(fontSize: 9),
+                ),
+                trailing: SizedBox(
+                  width: 100,
+                  height: 28,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 44,
+                        child: ElevatedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () => _verifyStream(stream),
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: Text(
+                            t.debug.verify,
+                            style: const TextStyle(fontSize: 10),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        SizedBox(
-                          width: 44,
-                          child: ElevatedButton(
-                            onPressed:
-                                _isLoading ? null : () => _playStream(stream),
-                            style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.zero),
-                            child: Text(t.debug.play,
-                                style: const TextStyle(fontSize: 10)),
+                      ),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 44,
+                        child: ElevatedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () => _playStream(stream),
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: Text(
+                            t.debug.play,
+                            style: const TextStyle(fontSize: 10),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  selected: _currentStream == stream,
-                ))
+                ),
+                selected: _currentStream == stream,
+              ),
+            )
             .toList(),
       ),
     );

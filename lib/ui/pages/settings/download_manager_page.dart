@@ -92,8 +92,9 @@ class DownloadManagerPage extends ConsumerWidget {
         loading: () => const LoadingPlaceholder(),
         error: (error, stack) => ErrorDisplay(
           type: ErrorType.general,
-          message: t.settings.downloadManager
-              .loadFailed(error: userMessageFor(error)),
+          message: t.settings.downloadManager.loadFailed(
+            error: userMessageFor(error),
+          ),
           onRetry: () => ref.invalidate(downloadTasksProvider),
         ),
         data: (tasks) {
@@ -106,10 +107,7 @@ class DownloadManagerPage extends ConsumerWidget {
           }
 
           final maxConcurrent = ref.watch(maxConcurrentDownloadsProvider);
-          final rows = _buildRows(
-            tasks: tasks,
-            maxConcurrent: maxConcurrent,
-          );
+          final rows = _buildRows(tasks: tasks, maxConcurrent: maxConcurrent);
 
           return ListView.builder(
             itemCount: rows.length,
@@ -154,29 +152,20 @@ class _DownloadListRow {
     this.maxSlots,
   });
 
-  const _DownloadListRow.header({
-    required String title,
-    required int count,
-  }) : this._(
-          type: _DownloadListRowType.header,
-          title: title,
-          count: count,
-        );
+  const _DownloadListRow.header({required String title, required int count})
+    : this._(type: _DownloadListRowType.header, title: title, count: count);
 
   const _DownloadListRow.fixedDownloadingSection({
     required List<DownloadTask> tasks,
     required int maxSlots,
   }) : this._(
-          type: _DownloadListRowType.fixedDownloadingSection,
-          tasks: tasks,
-          maxSlots: maxSlots,
-        );
+         type: _DownloadListRowType.fixedDownloadingSection,
+         tasks: tasks,
+         maxSlots: maxSlots,
+       );
 
   const _DownloadListRow.task(DownloadTask task)
-      : this._(
-          type: _DownloadListRowType.task,
-          task: task,
-        );
+    : this._(type: _DownloadListRowType.task, task: task);
 
   final _DownloadListRowType type;
   final String? title;
@@ -198,41 +187,53 @@ List<_DownloadListRow> _buildRows({
 
   final rows = <_DownloadListRow>[];
   if (downloading.isNotEmpty || pending.isNotEmpty) {
-    rows.add(_DownloadListRow.header(
-      title: t.settings.downloadManager.downloading,
-      count: downloading.length,
-    ));
-    rows.add(_DownloadListRow.fixedDownloadingSection(
-      tasks: downloading,
-      maxSlots: maxConcurrent,
-    ));
+    rows.add(
+      _DownloadListRow.header(
+        title: t.settings.downloadManager.downloading,
+        count: downloading.length,
+      ),
+    );
+    rows.add(
+      _DownloadListRow.fixedDownloadingSection(
+        tasks: downloading,
+        maxSlots: maxConcurrent,
+      ),
+    );
   }
   if (pending.isNotEmpty) {
-    rows.add(_DownloadListRow.header(
-      title: t.settings.downloadManager.waiting,
-      count: pending.length,
-    ));
+    rows.add(
+      _DownloadListRow.header(
+        title: t.settings.downloadManager.waiting,
+        count: pending.length,
+      ),
+    );
     rows.addAll(pending.map(_DownloadListRow.task));
   }
   if (paused.isNotEmpty) {
-    rows.add(_DownloadListRow.header(
-      title: t.settings.downloadManager.paused,
-      count: paused.length,
-    ));
+    rows.add(
+      _DownloadListRow.header(
+        title: t.settings.downloadManager.paused,
+        count: paused.length,
+      ),
+    );
     rows.addAll(paused.map(_DownloadListRow.task));
   }
   if (failed.isNotEmpty) {
-    rows.add(_DownloadListRow.header(
-      title: t.settings.downloadManager.failed,
-      count: failed.length,
-    ));
+    rows.add(
+      _DownloadListRow.header(
+        title: t.settings.downloadManager.failed,
+        count: failed.length,
+      ),
+    );
     rows.addAll(failed.map(_DownloadListRow.task));
   }
   if (completed.isNotEmpty) {
-    rows.add(_DownloadListRow.header(
-      title: t.settings.downloadManager.completed,
-      count: completed.length,
-    ));
+    rows.add(
+      _DownloadListRow.header(
+        title: t.settings.downloadManager.completed,
+        count: completed.length,
+      ),
+    );
     rows.addAll(completed.map(_DownloadListRow.task));
   }
   return rows;
@@ -296,8 +297,8 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           const SizedBox(width: 8),
           Container(
@@ -309,8 +310,8 @@ class _SectionHeader extends StatelessWidget {
             child: Text(
               '$count',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
             ),
           ),
         ],
@@ -332,11 +333,7 @@ class _DownloadTaskTile extends ConsumerWidget {
 
     // 从内存中获取实时进度（如果有的话）
     final memProgress = ref.watch(downloadTaskProgressProvider(task.id));
-    final dbProgress = (
-      task.progress,
-      task.downloadedBytes,
-      task.totalBytes,
-    );
+    final dbProgress = (task.progress, task.downloadedBytes, task.totalBytes);
     final effectiveProgress = memProgress ?? dbProgress;
 
     // 优先使用内存中的进度，否则使用数据库中的进度
@@ -358,11 +355,7 @@ class _DownloadTaskTile extends ConsumerWidget {
 
     return ListTile(
       leading: _buildStatusIcon(context),
-      title: Text(
-        title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -377,8 +370,9 @@ class _DownloadTaskTile extends ConsumerWidget {
             const SizedBox(height: 4),
             LinearProgressIndicator(
               value: progress,
-              backgroundColor:
-                  Theme.of(context).colorScheme.surfaceContainerHighest,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
             ),
             const SizedBox(height: 2),
             Text(
@@ -390,8 +384,8 @@ class _DownloadTaskTile extends ConsumerWidget {
             Text(
               task.errorMessage!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+                color: Theme.of(context).colorScheme.error,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -453,7 +447,10 @@ class _DownloadTaskTile extends ConsumerWidget {
   }
 
   String _buildProgressText(
-      double progress, int downloadedBytes, int? totalBytes) {
+    double progress,
+    int downloadedBytes,
+    int? totalBytes,
+  ) {
     final percentText = '${(progress * 100).toStringAsFixed(1)}%';
     if (totalBytes != null && totalBytes > 0) {
       final downloaded = _formatBytes(downloadedBytes);

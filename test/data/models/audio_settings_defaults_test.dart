@@ -24,7 +24,9 @@ void main() {
     });
 
     test('legacy search source backup field is ignored on restore', () {
-      const legacySearchSourcesField = 'enabled' 'Sources';
+      const legacySearchSourcesField =
+          'enabled'
+          'Sources';
       final settingsBackup = SettingsBackup.fromJson({
         legacySearchSourcesField: ['youtube'],
         'audioFormatPriority': 'aac,opus',
@@ -40,7 +42,9 @@ void main() {
         'muxed,audioOnly',
       );
       expect(
-          settingsBackup.toJson(), isNot(contains(legacySearchSourcesField)));
+        settingsBackup.toJson(),
+        isNot(contains(legacySearchSourcesField)),
+      );
     });
 
     test('prefer Opus before AAC by default', () {
@@ -59,10 +63,7 @@ void main() {
       ]);
 
       const state = AudioSettingsState();
-      expect(state.formatPriority, [
-        AudioFormat.opus,
-        AudioFormat.aac,
-      ]);
+      expect(state.formatPriority, [AudioFormat.opus, AudioFormat.aac]);
 
       expect(AudioStreamConfig.defaultConfig.formatPriority, [
         AudioFormat.opus,
@@ -76,8 +77,10 @@ void main() {
       final settings = Settings();
       const state = AudioSettingsState();
 
-      expect(kDefaultStreamPriorityBySource[SourceIds.youtube],
-          'audioOnly,muxed,hls');
+      expect(
+        kDefaultStreamPriorityBySource[SourceIds.youtube],
+        'audioOnly,muxed,hls',
+      );
       expect(settings.streamPriorityFor(SourceIds.youtube), [
         StreamType.audioOnly,
         StreamType.muxed,
@@ -94,8 +97,10 @@ void main() {
         StreamType.hls,
       ]);
 
-      expect(kDefaultStreamPriorityBySource[SourceIds.bilibili],
-          'audioOnly,muxed');
+      expect(
+        kDefaultStreamPriorityBySource[SourceIds.bilibili],
+        'audioOnly,muxed',
+      );
       expect(settings.streamPriorityFor(SourceIds.bilibili), [
         StreamType.audioOnly,
         StreamType.muxed,

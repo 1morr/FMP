@@ -98,9 +98,8 @@ class PlaylistRepository {
 
   /// 監聽歌單列表變化
   Stream<List<Playlist>> watchAll() {
-    return _isar.playlists
-        .where()
-        .sortBySortOrder()
-        .watch(fireImmediately: true);
+    return _isar.playlists.where().sortBySortOrder().watch(
+      fireImmediately: true,
+    );
   }
 }

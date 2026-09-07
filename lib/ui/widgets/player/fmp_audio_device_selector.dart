@@ -70,9 +70,9 @@ class FmpAudioDeviceSelector extends StatelessWidget {
         ),
         const Divider(height: 1),
         // 裝置列表。
-        ...devices
-            .where((d) => d.name != 'auto' && d.name != 'openal')
-            .map((device) {
+        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((
+          device,
+        ) {
           final isSelected = currentDevice?.name == device.name;
           return MenuItemButton(
             onPressed: () => controller.setAudioDevice(device),
@@ -98,16 +98,19 @@ class FmpAudioDeviceSelector extends StatelessWidget {
   /// 名稱通常為「喇叭 (裝置名稱)」，此處取出括號內的實際裝置名；英文格式為
   /// 「Speakers (Device Name)」同理處理。
   static String formatDeviceName(FmpAudioDevice device) {
-    final displayName =
-        device.description.isNotEmpty ? device.description : device.name;
+    final displayName = device.description.isNotEmpty
+        ? device.description
+        : device.name;
 
     final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
     if (match != null) {
       return match.group(1) ?? displayName;
     }
 
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false)
-        .firstMatch(displayName);
+    final matchEn = RegExp(
+      r'Speakers?\s*\((.+)\)$',
+      caseSensitive: false,
+    ).firstMatch(displayName);
     if (matchEn != null) {
       return matchEn.group(1) ?? displayName;
     }

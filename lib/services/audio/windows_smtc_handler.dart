@@ -232,8 +232,8 @@ class WindowsSmtcHandler with Logging {
           : null;
       final normalizedThumbnail =
           (smtcThumbnail != null && smtcThumbnail.isNotEmpty)
-              ? smtcThumbnail
-              : null;
+          ? smtcThumbnail
+          : null;
       final artist = track.artist ?? t.smtc.unknownArtist;
       final metadataFingerprint = SmtcMetadataFingerprint(
         title: track.title,
@@ -246,13 +246,15 @@ class WindowsSmtcHandler with Logging {
       }
 
       logInfo('SMTC thumbnail URL: $smtcThumbnail (original: $thumbnail)');
-      _smtc!.updateMetadata(MusicMetadata(
-        title: track.title,
-        album: '',
-        albumArtist: '',
-        artist: artist,
-        thumbnail: normalizedThumbnail,
-      ));
+      _smtc!.updateMetadata(
+        MusicMetadata(
+          title: track.title,
+          album: '',
+          albumArtist: '',
+          artist: artist,
+          thumbnail: normalizedThumbnail,
+        ),
+      );
       _metadataDeduplicator.markPublished(metadataFingerprint);
       logDebug('SMTC updated media item: ${track.title}');
     } catch (e) {
@@ -276,13 +278,15 @@ class WindowsSmtcHandler with Logging {
         return;
       }
 
-      _smtc!.updateMetadata(MusicMetadata(
-        title: station.title,
-        album: t.smtc.live,
-        albumArtist: '',
-        artist: artist,
-        thumbnail: station.thumbnailUrl,
-      ));
+      _smtc!.updateMetadata(
+        MusicMetadata(
+          title: station.title,
+          album: t.smtc.live,
+          albumArtist: '',
+          artist: artist,
+          thumbnail: station.thumbnailUrl,
+        ),
+      );
       _metadataDeduplicator.markPublished(metadataFingerprint);
       logDebug('SMTC updated radio station: ${station.title}');
     } catch (e) {
@@ -291,9 +295,7 @@ class WindowsSmtcHandler with Logging {
   }
 
   /// 更新电台播放状态（直播流没有时长）
-  void updateRadioPlaybackState({
-    required bool isPlaying,
-  }) {
+  void updateRadioPlaybackState({required bool isPlaying}) {
     if (_smtc == null) return;
 
     try {
@@ -304,13 +306,15 @@ class WindowsSmtcHandler with Logging {
       }
 
       // 直播流：时间线设为 0（不显示进度条）
-      _smtc!.updateTimeline(const PlaybackTimeline(
-        startTimeMs: 0,
-        endTimeMs: 0,
-        positionMs: 0,
-        minSeekTimeMs: 0,
-        maxSeekTimeMs: 0,
-      ));
+      _smtc!.updateTimeline(
+        const PlaybackTimeline(
+          startTimeMs: 0,
+          endTimeMs: 0,
+          positionMs: 0,
+          minSeekTimeMs: 0,
+          maxSeekTimeMs: 0,
+        ),
+      );
     } catch (e) {
       logError('Failed to update SMTC radio playback state: $e');
     }
@@ -350,20 +354,24 @@ class WindowsSmtcHandler with Logging {
 
     try {
       final durationMs = _duration.inMilliseconds;
-      final positionMs =
-          _position.inMilliseconds.clamp(0, durationMs > 0 ? durationMs : 0);
+      final positionMs = _position.inMilliseconds.clamp(
+        0,
+        durationMs > 0 ? durationMs : 0,
+      );
 
       // 时长与位置照发（浮出视窗要显示进度），但**不宣告可 seek 区间**：
       // smtc_windows 1.1.0 的 PressedButton 没有 seek 变体，
       // PlaybackPositionChangeRequested 根本到不了 Dart 侧，宣告
       // [0, duration] 是纯谎话。等套件转发该事件时再放出来。
-      _smtc!.updateTimeline(PlaybackTimeline(
-        startTimeMs: 0,
-        endTimeMs: durationMs,
-        positionMs: positionMs,
-        minSeekTimeMs: 0,
-        maxSeekTimeMs: 0,
-      ));
+      _smtc!.updateTimeline(
+        PlaybackTimeline(
+          startTimeMs: 0,
+          endTimeMs: durationMs,
+          positionMs: positionMs,
+          minSeekTimeMs: 0,
+          maxSeekTimeMs: 0,
+        ),
+      );
     } catch (e) {
       logError('Failed to update SMTC timeline: $e');
     }

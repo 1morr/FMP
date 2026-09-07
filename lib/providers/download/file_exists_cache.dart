@@ -243,7 +243,6 @@ class FileExistsCache extends Notifier<Set<String>> {
       }
     });
   }
-
 }
 
 /// 文件存在检查缓存 Provider
@@ -259,10 +258,12 @@ class FileExistsCacheEpoch extends Notifier<int> {
   void set(int epoch) => state = epoch;
 }
 
-final fileExistsCacheProvider =
-    NotifierProvider<FileExistsCache, Set<String>>(FileExistsCache.new);
+final fileExistsCacheProvider = NotifierProvider<FileExistsCache, Set<String>>(
+  FileExistsCache.new,
+);
 
 final filePathExistsProvider = Provider.family<bool, String>((ref, path) {
-  return ref
-      .watch(fileExistsCacheProvider.select((paths) => paths.contains(path)));
+  return ref.watch(
+    fileExistsCacheProvider.select((paths) => paths.contains(path)),
+  );
 });

@@ -27,9 +27,7 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: ProviderScope(
-            overrides: [
-              radioControllerProvider.overrideWith(() => controller),
-            ],
+            overrides: [radioControllerProvider.overrideWith(() => controller)],
             child: const MaterialApp(home: RadioPage()),
           ),
         ),
@@ -49,11 +47,11 @@ void main() {
       grid.onReorder(0, 2);
 
       await tester.pump();
-      expect(
-        _stationOrder(tester),
-        ['Bravo', 'Charlie', 'Alpha'],
-        reason: 'reorder mode should apply the optimistic local order first',
-      );
+      expect(_stationOrder(tester), [
+        'Bravo',
+        'Charlie',
+        'Alpha',
+      ], reason: 'reorder mode should apply the optimistic local order first');
 
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump();
@@ -62,8 +60,9 @@ void main() {
     },
   );
 
-  testWidgets('RadioPage does not own a periodic status refresh timer',
-      (tester) async {
+  testWidgets('RadioPage does not own a periodic status refresh timer', (
+    tester,
+  ) async {
     final controller = _CountingRefreshRadioController([
       _buildStation(id: 1, title: 'Alpha', sortOrder: 0),
     ]);
@@ -73,9 +72,7 @@ void main() {
     await tester.pumpWidget(
       TranslationProvider(
         child: ProviderScope(
-          overrides: [
-            radioControllerProvider.overrideWith(() => controller),
-          ],
+          overrides: [radioControllerProvider.overrideWith(() => controller)],
           child: const MaterialApp(home: RadioPage()),
         ),
       ),

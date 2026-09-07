@@ -66,34 +66,45 @@ void main() {
   });
 
   test(
-      'source manager exposes detail, pages, dynamic playlist, ranking, and live capabilities',
-      () {
-    final manager = SourceManager();
-    addTearDown(manager.dispose);
+    'source manager exposes detail, pages, dynamic playlist, ranking, and live capabilities',
+    () {
+      final manager = SourceManager();
+      addTearDown(manager.dispose);
 
-    expect(manager.trackDetailSource(SourceIds.bilibili),
-        isA<TrackDetailSource>());
-    expect(manager.trackDetailSource(SourceIds.youtube),
-        isA<TrackDetailSource>());
-    expect(manager.trackDetailSource(SourceIds.netease),
-        isA<TrackDetailSource>());
+      expect(
+        manager.trackDetailSource(SourceIds.bilibili),
+        isA<TrackDetailSource>(),
+      );
+      expect(
+        manager.trackDetailSource(SourceIds.youtube),
+        isA<TrackDetailSource>(),
+      );
+      expect(
+        manager.trackDetailSource(SourceIds.netease),
+        isA<TrackDetailSource>(),
+      );
 
-    expect(
-        manager.pagedVideoSource(SourceIds.bilibili), isA<PagedVideoSource>());
-    expect(manager.pagedVideoSource(SourceIds.youtube), isNull);
-    expect(manager.pagedVideoSource(SourceIds.netease), isNull);
+      expect(
+        manager.pagedVideoSource(SourceIds.bilibili),
+        isA<PagedVideoSource>(),
+      );
+      expect(manager.pagedVideoSource(SourceIds.youtube), isNull);
+      expect(manager.pagedVideoSource(SourceIds.netease), isNull);
 
-    expect(manager.dynamicPlaylistSource(SourceIds.youtube),
-        isA<DynamicPlaylistSource>());
-    expect(manager.dynamicPlaylistSource(SourceIds.bilibili), isNull);
-    expect(manager.dynamicPlaylistSource(SourceIds.netease), isNull);
+      expect(
+        manager.dynamicPlaylistSource(SourceIds.youtube),
+        isA<DynamicPlaylistSource>(),
+      );
+      expect(manager.dynamicPlaylistSource(SourceIds.bilibili), isNull);
+      expect(manager.dynamicPlaylistSource(SourceIds.netease), isNull);
 
-    expect(manager.rankingSource(SourceIds.bilibili), isA<RankingSource>());
-    expect(manager.rankingSource(SourceIds.youtube), isA<RankingSource>());
-    expect(manager.rankingSource(SourceIds.netease), isA<RankingSource>());
+      expect(manager.rankingSource(SourceIds.bilibili), isA<RankingSource>());
+      expect(manager.rankingSource(SourceIds.youtube), isA<RankingSource>());
+      expect(manager.rankingSource(SourceIds.netease), isA<RankingSource>());
 
-    expect(manager.liveSource(SourceIds.bilibili), isA<LiveSource>());
-    expect(manager.liveSource(SourceIds.youtube), isNull);
-    expect(manager.liveSource(SourceIds.netease), isNull);
-  });
+      expect(manager.liveSource(SourceIds.bilibili), isA<LiveSource>());
+      expect(manager.liveSource(SourceIds.youtube), isNull);
+      expect(manager.liveSource(SourceIds.netease), isNull);
+    },
+  );
 }

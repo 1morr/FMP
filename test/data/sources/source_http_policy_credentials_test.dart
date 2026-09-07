@@ -19,10 +19,16 @@ void main() {
         final lowerKeys = headers.keys.map((k) => k.toLowerCase()).toList();
 
         expect(lowerKeys, isNot(contains('cookie')), reason: '$sourceType');
-        expect(lowerKeys, isNot(contains('authorization')),
-            reason: '$sourceType');
-        expect(lowerKeys, isNot(contains('x-csrf-token')),
-            reason: '$sourceType');
+        expect(
+          lowerKeys,
+          isNot(contains('authorization')),
+          reason: '$sourceType',
+        );
+        expect(
+          lowerKeys,
+          isNot(contains('x-csrf-token')),
+          reason: '$sourceType',
+        );
       }
     });
 

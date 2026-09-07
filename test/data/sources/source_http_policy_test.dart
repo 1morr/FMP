@@ -10,8 +10,10 @@ void main() {
       for (final sourceType in SourceIds.values) {
         final headers = SourceHttpPolicy.mediaHeaders(sourceType);
         expect(
-            headers.keys.map((k) => k.toLowerCase()), isNot(contains('cookie')),
-            reason: '$sourceType');
+          headers.keys.map((k) => k.toLowerCase()),
+          isNot(contains('cookie')),
+          reason: '$sourceType',
+        );
       }
 
       final bilibili = SourceHttpPolicy.mediaHeaders(SourceIds.bilibili);
@@ -30,46 +32,36 @@ void main() {
 
     test('api headers keep source-specific referer origin and user agent', () {
       expect(
-          SourceHttpPolicy.apiHeaders(SourceIds.bilibili),
-          containsPair(
-            'Referer',
-            SourceHttpPolicy.bilibiliReferer,
-          ));
+        SourceHttpPolicy.apiHeaders(SourceIds.bilibili),
+        containsPair('Referer', SourceHttpPolicy.bilibiliReferer),
+      );
       expect(
-          SourceHttpPolicy.apiHeaders(SourceIds.youtube),
-          containsPair(
-            'Origin',
-            SourceHttpPolicy.youtubeOrigin,
-          ));
+        SourceHttpPolicy.apiHeaders(SourceIds.youtube),
+        containsPair('Origin', SourceHttpPolicy.youtubeOrigin),
+      );
       expect(
-          SourceHttpPolicy.apiHeaders(SourceIds.netease),
-          containsPair(
-            'User-Agent',
-            SourceHttpPolicy.neteaseDesktopUserAgent,
-          ));
+        SourceHttpPolicy.apiHeaders(SourceIds.netease),
+        containsPair('User-Agent', SourceHttpPolicy.neteaseDesktopUserAgent),
+      );
     });
 
-    test('bilibili search api headers keep search host and generated cookie',
-        () {
-      final headers = SourceHttpPolicy.bilibiliSearchApiHeaders(
-        cookie: 'buvid3=test; buvid4=test',
-      );
+    test(
+      'bilibili search api headers keep search host and generated cookie',
+      () {
+        final headers = SourceHttpPolicy.bilibiliSearchApiHeaders(
+          cookie: 'buvid3=test; buvid4=test',
+        );
 
-      expect(
-        headers['Referer'],
-        SourceHttpPolicy.bilibiliSearchReferer,
-      );
-      expect(
-        headers['Origin'],
-        SourceHttpPolicy.bilibiliSearchOrigin,
-      );
-      expect(
-        headers['Accept-Language'],
-        SourceHttpPolicy.bilibiliSearchAcceptLanguage,
-      );
-      expect(headers['Cookie'], 'buvid3=test; buvid4=test');
-      expect(headers['User-Agent'], SourceHttpPolicy.webUserAgent);
-    });
+        expect(headers['Referer'], SourceHttpPolicy.bilibiliSearchReferer);
+        expect(headers['Origin'], SourceHttpPolicy.bilibiliSearchOrigin);
+        expect(
+          headers['Accept-Language'],
+          SourceHttpPolicy.bilibiliSearchAcceptLanguage,
+        );
+        expect(headers['Cookie'], 'buvid3=test; buvid4=test');
+        expect(headers['User-Agent'], SourceHttpPolicy.webUserAgent);
+      },
+    );
 
     test('bilibili live headers keep live referer and media user agent', () {
       final headers = SourceHttpPolicy.bilibiliLiveHeaders();
@@ -88,7 +80,9 @@ void main() {
         SourceHttpPolicy.bilibiliLiveReferer,
       );
       expect(
-          dio.options.headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
+        dio.options.headers['User-Agent'],
+        SourceHttpPolicy.mediaUserAgent,
+      );
       expect(dio.options.connectTimeout, isNotNull);
       dio.close();
     });

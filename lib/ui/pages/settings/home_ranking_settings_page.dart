@@ -28,9 +28,7 @@ class HomeRankingSettingsPage extends ConsumerWidget {
     final settings = ref.watch(homeRankingSettingsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.settings.homeRankingSettings.title),
-      ),
+      appBar: AppBar(title: Text(t.settings.homeRankingSettings.title)),
       body: settings.isLoading
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
@@ -41,25 +39,23 @@ class HomeRankingSettingsPage extends ConsumerWidget {
                     child: Text(
                       t.settings.homeRankingSettings.hint,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                   ),
                 ),
                 SliverReorderableList(
                   itemCount: settings.sourceOrder.length,
-                  onReorderItem: (oldIndex, newIndex) => _onReorder(
-                    ref,
-                    settings.sourceOrder,
-                    oldIndex,
-                    newIndex,
-                  ),
+                  onReorderItem: (oldIndex, newIndex) =>
+                      _onReorder(ref, settings.sourceOrder, oldIndex, newIndex),
                   proxyDecorator: (child, index, animation) {
                     final elevation = Tween<double>(begin: 0, end: 4)
-                        .animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeInOut,
-                        ))
+                        .animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeInOut,
+                          ),
+                        )
                         .value;
                     return Material(
                       elevation: elevation,
@@ -69,8 +65,9 @@ class HomeRankingSettingsPage extends ConsumerWidget {
                   },
                   itemBuilder: (context, index) {
                     final source = settings.sourceOrder[index];
-                    final isEnabled =
-                        !settings.disabledSources.contains(source);
+                    final isEnabled = !settings.disabledSources.contains(
+                      source,
+                    );
                     final enabledCount = settings.enabledSourceOrder.length;
                     final canToggleOff = !isEnabled || enabledCount > 1;
 
@@ -82,8 +79,8 @@ class HomeRankingSettingsPage extends ConsumerWidget {
                       isEnabled: isEnabled,
                       onToggle: canToggleOff
                           ? (enabled) => ref
-                              .read(homeRankingSettingsProvider.notifier)
-                              .toggleSource(source, enabled)
+                                .read(homeRankingSettingsProvider.notifier)
+                                .toggleSource(source, enabled)
                           : null,
                     );
                   },
@@ -114,8 +111,9 @@ class _HomeRankingSourceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     const disabledAlpha = 0.38;
-    final disabledColor =
-        colorScheme.onSurface.withValues(alpha: disabledAlpha);
+    final disabledColor = colorScheme.onSurface.withValues(
+      alpha: disabledAlpha,
+    );
 
     return ListTile(
       leading: _HomeRankingSourceLeading(
@@ -132,13 +130,10 @@ class _HomeRankingSourceTile extends StatelessWidget {
             ? t.settings.homeRankingSettings.enabled
             : t.settings.homeRankingSettings.disabled,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isEnabled ? colorScheme.primary : disabledColor,
-            ),
+          color: isEnabled ? colorScheme.primary : disabledColor,
+        ),
       ),
-      trailing: Switch(
-        value: isEnabled,
-        onChanged: onToggle,
-      ),
+      trailing: Switch(value: isEnabled, onChanged: onToggle),
     );
   }
 }

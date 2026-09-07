@@ -111,7 +111,9 @@ class PlaylistCardActions {
 
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.addedToQueue(n: result.tracks.length));
+        context,
+        t.library.addedToQueue(n: result.tracks.length),
+      );
     }
   }
 
@@ -137,7 +139,9 @@ class PlaylistCardActions {
 
     if (added && context.mounted) {
       ToastService.success(
-          context, t.library.shuffledAddedToQueue(n: result.tracks.length));
+        context,
+        t.library.shuffledAddedToQueue(n: result.tracks.length),
+      );
     }
   }
 
@@ -159,7 +163,9 @@ class PlaylistCardActions {
       AppLogger.error('Starting a playlist mix failed', e, stack, 'Library');
       if (context.mounted) {
         ToastService.error(
-            context, '${t.library.main.playMixFailed}: ${userMessageFor(e)}');
+          context,
+          '${t.library.main.playMixFailed}: ${userMessageFor(e)}',
+        );
       }
     }
   }

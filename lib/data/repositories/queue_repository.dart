@@ -34,7 +34,8 @@ class QueueRepository with Logging {
       logDebug('Created new queue with id: ${queue.id}');
     } else {
       logDebug(
-          'Found existing queue with ${queue.trackIds.length} tracks, currentIndex: ${queue.currentIndex}');
+        'Found existing queue with ${queue.trackIds.length} tracks, currentIndex: ${queue.currentIndex}',
+      );
     }
     return queue;
   }
@@ -97,8 +98,9 @@ class QueueRepository with Logging {
         queue.currentIndex--;
       } else if (index == queue.currentIndex &&
           queue.currentIndex >= queue.trackIds.length) {
-        queue.currentIndex =
-            queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
+        queue.currentIndex = queue.trackIds.isEmpty
+            ? 0
+            : queue.trackIds.length - 1;
       }
       await save(queue);
     }
@@ -117,8 +119,9 @@ class QueueRepository with Logging {
         queue.currentIndex--;
       } else if (index == queue.currentIndex &&
           queue.currentIndex >= queue.trackIds.length) {
-        queue.currentIndex =
-            queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1;
+        queue.currentIndex = queue.trackIds.isEmpty
+            ? 0
+            : queue.trackIds.length - 1;
       }
       await save(queue);
     }
@@ -166,8 +169,10 @@ class QueueRepository with Logging {
   /// 更新当前播放索引
   Future<void> updateCurrentIndex(int index) async {
     final queue = await getOrCreate();
-    queue.currentIndex =
-        index.clamp(0, queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1);
+    queue.currentIndex = index.clamp(
+      0,
+      queue.trackIds.isEmpty ? 0 : queue.trackIds.length - 1,
+    );
     await save(queue);
   }
 

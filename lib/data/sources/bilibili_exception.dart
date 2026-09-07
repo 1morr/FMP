@@ -7,8 +7,10 @@ class BilibiliApiException extends SourceApiException {
   @override
   final String message;
 
-  const BilibiliApiException(
-      {required this.numericCode, required this.message});
+  const BilibiliApiException({
+    required this.numericCode,
+    required this.message,
+  });
 
   @override
   String get code => _mapCode(numericCode);

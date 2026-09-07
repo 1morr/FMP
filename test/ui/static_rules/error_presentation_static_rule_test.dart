@@ -32,8 +32,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty,
-          reason: 'use ErrorDisplay(compact: true) with a retry instead');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'use ErrorDisplay(compact: true) with a retry instead',
+      );
     });
 
     test('no i18n error template is filled with raw exception text', () {
@@ -48,10 +51,11 @@ void main() {
         r"|\$\{?(e|error)\}?(?![A-Za-z0-9_])",
       );
 
-      for (final file in Directory('lib')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.dart'))) {
+      for (final file
+          in Directory('lib')
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((f) => f.path.endsWith('.dart'))) {
         if (file.path.contains('i18n')) continue;
         final source = file.readAsStringSync();
         for (final call in template.allMatches(source)) {
@@ -61,8 +65,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty,
-          reason: 'pass userMessageFor(e) into the template, not the exception');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'pass userMessageFor(e) into the template, not the exception',
+      );
     });
 
     test('no raw exception text is handed to a user-facing widget', () {
@@ -76,16 +83,21 @@ void main() {
 
       for (final file in _uiDartFiles()) {
         final source = file.readAsStringSync();
-        for (final call in _callArguments(source, RegExp(r'ToastService\.\w+\('))
-            .followedBy(_callArguments(source, RegExp(r'ErrorDisplay[.\w]*\(')))) {
+        for (final call in _callArguments(
+          source,
+          RegExp(r'ToastService\.\w+\('),
+        ).followedBy(_callArguments(source, RegExp(r'ErrorDisplay[.\w]*\(')))) {
           if (raw.hasMatch(call)) {
             offenders.add('${file.path}: $call');
           }
         }
       }
 
-      expect(offenders, isEmpty,
-          reason: 'wrap the exception in userMessageFor / ToastService.failure');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'wrap the exception in userMessageFor / ToastService.failure',
+      );
     });
   });
 }

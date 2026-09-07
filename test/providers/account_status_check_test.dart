@@ -6,13 +6,13 @@ import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/services/account/account_service.dart';
 
 void main() {
-  test('verifyAllAccountStatuses reports per-platform check failures',
-      () async {
-    final toastService = ToastService();
-    addTearDown(toastService.dispose);
+  test(
+    'verifyAllAccountStatuses reports per-platform check failures',
+    () async {
+      final toastService = ToastService();
+      addTearDown(toastService.dispose);
 
-    final result = await verifyAllAccountStatuses(
-      [
+      final result = await verifyAllAccountStatuses([
         _FakeAccountService(
           platform: SourceIds.bilibili,
           loggedIn: true,
@@ -26,14 +26,13 @@ void main() {
             isVip: false,
           ),
         ),
-      ],
-      toastService,
-    );
+      ], toastService);
 
-    expect(result.checkedPlatforms, [SourceIds.youtube]);
-    expect(result.failedPlatforms, [SourceIds.bilibili]);
-    expect(result.hasFailures, isTrue);
-  });
+      expect(result.checkedPlatforms, [SourceIds.youtube]);
+      expect(result.failedPlatforms, [SourceIds.bilibili]);
+      expect(result.hasFailures, isTrue);
+    },
+  );
 }
 
 class _FakeAccountService extends AccountService {

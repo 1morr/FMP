@@ -51,7 +51,8 @@ Future<Directory> _resolvePackageDirectory(String packageName) async {
   }
 
   final packageConfig =
-      jsonDecode(await packageConfigFile.readAsString()) as Map<String, dynamic>;
+      jsonDecode(await packageConfigFile.readAsString())
+          as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   for (final package in packages) {
     if (package is! Map<String, dynamic>) continue;

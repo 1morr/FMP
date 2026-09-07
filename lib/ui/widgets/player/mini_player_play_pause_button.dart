@@ -45,10 +45,7 @@ class MiniPlayerPlayPauseButton extends StatelessWidget {
           : IconButton(
               padding: EdgeInsets.zero,
               tooltip: tooltip,
-              icon: Icon(
-                isPlaying ? Icons.pause : Icons.play_arrow,
-                size: 28,
-              ),
+              icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow, size: 28),
               onPressed: enabled ? onPressed : null,
             ),
     );

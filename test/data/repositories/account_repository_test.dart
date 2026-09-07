@@ -17,8 +17,11 @@ void main() {
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('account_repository_test_');
-    isar = await Isar.open([AccountSchema],
-        directory: tempDir.path, name: 'account_repository_test');
+    isar = await Isar.open(
+      [AccountSchema],
+      directory: tempDir.path,
+      name: 'account_repository_test',
+    );
     repository = AccountRepository(isar);
   });
 
@@ -28,8 +31,12 @@ void main() {
   });
 
   test('upsert creates a row for a platform that has none', () async {
-    await repository.upsert(SourceIds.bilibili,
-        isLoggedIn: true, userId: 'u1', userName: 'name');
+    await repository.upsert(
+      SourceIds.bilibili,
+      isLoggedIn: true,
+      userId: 'u1',
+      userName: 'name',
+    );
 
     final account = await repository.getByPlatform(SourceIds.bilibili);
     expect(account, isNotNull);
@@ -40,8 +47,13 @@ void main() {
   });
 
   test('upsert leaves fields it is not given alone', () async {
-    await repository.upsert(SourceIds.netease,
-        isLoggedIn: true, userId: 'u1', userName: 'first', isVip: true);
+    await repository.upsert(
+      SourceIds.netease,
+      isLoggedIn: true,
+      userId: 'u1',
+      userName: 'first',
+      isVip: true,
+    );
     await repository.upsert(SourceIds.netease, userName: 'second');
 
     final account = await repository.getByPlatform(SourceIds.netease);
@@ -69,8 +81,12 @@ void main() {
   });
 
   test('replaceForPlatform overwrites, and null deletes', () async {
-    await repository.upsert(SourceIds.netease,
-        userId: 'old', userName: 'old', isVip: true);
+    await repository.upsert(
+      SourceIds.netease,
+      userId: 'old',
+      userName: 'old',
+      isVip: true,
+    );
 
     await repository.replaceForPlatform(
       SourceIds.netease,

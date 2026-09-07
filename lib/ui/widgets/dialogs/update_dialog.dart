@@ -75,8 +75,10 @@ class UpdateDialog extends ConsumerWidget {
                 if (Platform.isAndroid) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.secondaryContainer,
                       borderRadius: AppRadius.borderRadiusSm,
@@ -160,8 +162,10 @@ class UpdateDialog extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 t.updateDialog.downloading(
-                    percent: (updateState.downloadProgress * 100)
-                        .toStringAsFixed(0)),
+                  percent: (updateState.downloadProgress * 100).toStringAsFixed(
+                    0,
+                  ),
+                ),
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -182,8 +186,11 @@ class UpdateDialog extends ConsumerWidget {
             if (isReadyToInstall) ...[
               Row(
                 children: [
-                  Icon(Icons.check_circle,
-                      size: 16, color: theme.colorScheme.primary),
+                  Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     t.updateDialog.readyToInstall,
@@ -271,7 +278,8 @@ class UpdateDialog extends ConsumerWidget {
                 : () => ref.read(updateProvider.notifier).downloadAndInstall(),
             icon: Icon(hasError ? Icons.refresh : Icons.download),
             label: Text(
-                hasError ? t.updateDialog.retry : t.updateDialog.updateNow),
+              hasError ? t.updateDialog.retry : t.updateDialog.updateNow,
+            ),
           ),
       ],
     );

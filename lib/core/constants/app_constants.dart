@@ -50,7 +50,7 @@ class AppConstants {
     1.25,
     1.5,
     1.75,
-    2.0
+    2.0,
   ];
 
   /// 位置保存定时器间隔
@@ -83,10 +83,12 @@ class AppConstants {
 
   /// 匯入比對搜尋之間的節流延遲——避免觸發音源限流（B7）。
   /// all（搜尋多源）需較長間隔；單源（bilibili/youtube）較短。
-  static const Duration importThrottleMultiSourceDelay =
-      Duration(milliseconds: 1000);
-  static const Duration importThrottleSingleSourceDelay =
-      Duration(milliseconds: 800);
+  static const Duration importThrottleMultiSourceDelay = Duration(
+    milliseconds: 1000,
+  );
+  static const Duration importThrottleSingleSourceDelay = Duration(
+    milliseconds: 800,
+  );
 
   // ==================== Mix 播放列表 ====================
 

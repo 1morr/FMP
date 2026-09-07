@@ -362,6 +362,7 @@ class FakeAudioService implements FmpAudioService {
     _position = position;
     _emitState();
   }
+
   @override
   Future<bool> seekToLive() async => false;
   @override
@@ -395,10 +396,15 @@ class FakeAudioService implements FmpAudioService {
   Future<Duration?> playMedia(PreparedPlaybackMedia media) {
     playMediaCalls.add(AudioMediaCall(media: media));
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        playFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        playUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => playFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => playUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
@@ -406,16 +412,24 @@ class FakeAudioService implements FmpAudioService {
   Future<Duration?> setMedia(PreparedPlaybackMedia media) {
     setMediaCalls.add(AudioMediaCall(media: media));
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        setFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        setUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => setFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => setUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
   @override
-  Future<Duration?> playUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> playUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     playUrlCalls.add(AudioUrlCall(url: url, headers: headers, track: track));
     _notifyPlayUrlWaiters();
     await _awaitPending(_pendingPlayUrl);
@@ -429,8 +443,11 @@ class FakeAudioService implements FmpAudioService {
   }
 
   @override
-  Future<Duration?> setUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> setUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     setUrlCalls.add(AudioUrlCall(url: url, headers: headers, track: track));
     _notifySetUrlWaiters();
     await _awaitPending(_pendingSetUrl);

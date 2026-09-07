@@ -13,7 +13,7 @@ abstract class SecureKeyValueStore {
 
 class FlutterSecureKeyValueStore implements SecureKeyValueStore {
   FlutterSecureKeyValueStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -56,8 +56,8 @@ class LyricsAiConfigService {
     required Future<Settings> Function() loadSettings,
     SecureKeyValueStore? secureStorage,
     this.apiKeyStorageKey = 'lyrics_ai_api_key',
-  })  : _loadSettings = loadSettings,
-        _secureStorage = secureStorage ?? FlutterSecureKeyValueStore();
+  }) : _loadSettings = loadSettings,
+       _secureStorage = secureStorage ?? FlutterSecureKeyValueStore();
 
   final Future<Settings> Function() _loadSettings;
   final SecureKeyValueStore _secureStorage;

@@ -29,12 +29,14 @@ class HttpClientFactory {
       ...?headers,
     };
 
-    return Dio(BaseOptions(
-      baseUrl: baseUrl ?? '',
-      headers: mergedHeaders,
-      contentType: contentType,
-      connectTimeout: connectTimeout ?? AppConstants.networkConnectTimeout,
-      receiveTimeout: receiveTimeout ?? AppConstants.networkReceiveTimeout,
-    ));
+    return Dio(
+      BaseOptions(
+        baseUrl: baseUrl ?? '',
+        headers: mergedHeaders,
+        contentType: contentType,
+        connectTimeout: connectTimeout ?? AppConstants.networkConnectTimeout,
+        receiveTimeout: receiveTimeout ?? AppConstants.networkReceiveTimeout,
+      ),
+    );
   }
 }

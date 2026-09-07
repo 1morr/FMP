@@ -57,11 +57,9 @@ class UpdateState {
 
 /// 更新状态管理器
 class UpdateNotifier extends Notifier<UpdateState> {
-  UpdateNotifier({
-    UpdateService? service,
-    bool? isAndroidOverride,
-  })  : _service = service ?? UpdateService(),
-        _isAndroidOverride = isAndroidOverride;
+  UpdateNotifier({UpdateService? service, bool? isAndroidOverride})
+    : _service = service ?? UpdateService(),
+      _isAndroidOverride = isAndroidOverride;
 
   final UpdateService _service;
   final bool? _isAndroidOverride;
@@ -96,8 +94,12 @@ class UpdateNotifier extends Notifier<UpdateState> {
       }
     } catch (e, stack) {
       if (!_isCurrentOperation(operationId)) return;
-      final reason =
-          failureMessage(e, stack, 'checkForUpdate failed', tag: 'Update');
+      final reason = failureMessage(
+        e,
+        stack,
+        'checkForUpdate failed',
+        tag: 'Update',
+      );
       state = state.copyWith(
         status: UpdateStatus.error,
         errorMessage: '${t.updateProvider.checkFailed}: $reason',
@@ -158,8 +160,12 @@ class UpdateNotifier extends Notifier<UpdateState> {
       }
     } catch (e, stack) {
       if (!_isCurrentOperation(operationId)) return;
-      final reason =
-          failureMessage(e, stack, 'downloadAndInstall failed', tag: 'Update');
+      final reason = failureMessage(
+        e,
+        stack,
+        'downloadAndInstall failed',
+        tag: 'Update',
+      );
       state = state.copyWith(
         status: UpdateStatus.error,
         errorMessage: '${t.updateProvider.downloadFailed}: $reason',
@@ -192,8 +198,12 @@ class UpdateNotifier extends Notifier<UpdateState> {
       }
     } catch (e, stack) {
       if (_isCurrentOperation(operationId)) {
-        final reason =
-            failureMessage(e, stack, 'triggerInstall failed', tag: 'Update');
+        final reason = failureMessage(
+          e,
+          stack,
+          'triggerInstall failed',
+          tag: 'Update',
+        );
         state = state.copyWith(
           status: UpdateStatus.error,
           errorMessage: '${t.updateProvider.installFailed}: $reason',
@@ -223,5 +233,6 @@ class UpdateNotifier extends Notifier<UpdateState> {
 }
 
 /// 更新 Provider
-final updateProvider =
-    NotifierProvider<UpdateNotifier, UpdateState>(UpdateNotifier.new);
+final updateProvider = NotifierProvider<UpdateNotifier, UpdateState>(
+  UpdateNotifier.new,
+);

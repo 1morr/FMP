@@ -39,19 +39,19 @@ class SourceHttpPolicy {
   static Map<String, String> mediaHeaders(String sourceType) {
     final headers = switch (sourceType) {
       SourceIds.bilibili => <String, String>{
-          'Referer': bilibiliWebReferer,
-          'User-Agent': mediaUserAgent,
-        },
+        'Referer': bilibiliWebReferer,
+        'User-Agent': mediaUserAgent,
+      },
       SourceIds.youtube => <String, String>{
-          'Origin': youtubeOrigin,
-          'Referer': youtubeReferer,
-          'User-Agent': mediaUserAgent,
-        },
+        'Origin': youtubeOrigin,
+        'Referer': youtubeReferer,
+        'User-Agent': mediaUserAgent,
+      },
       SourceIds.netease => <String, String>{
-          'Origin': neteaseOrigin,
-          'Referer': neteaseReferer,
-          'User-Agent': mediaUserAgent,
-        },
+        'Origin': neteaseOrigin,
+        'Referer': neteaseReferer,
+        'User-Agent': mediaUserAgent,
+      },
       // 認不得的音源只拿得到 User-Agent。送錯的 Referer/Origin 會讓 CDN
       // 拒絕，還會把來源洩漏給不相干的主機；漏送只是退化成匿名請求。
       _ => <String, String>{'User-Agent': mediaUserAgent},
@@ -65,17 +65,15 @@ class SourceHttpPolicy {
     bool includeUserAgent = true,
   }) {
     final headers = switch (sourceType) {
-      SourceIds.bilibili => <String, String>{
-          'Referer': bilibiliWebReferer,
-        },
+      SourceIds.bilibili => <String, String>{'Referer': bilibiliWebReferer},
       SourceIds.youtube => <String, String>{
-          'Origin': youtubeOrigin,
-          'Referer': youtubeReferer,
-        },
+        'Origin': youtubeOrigin,
+        'Referer': youtubeReferer,
+      },
       SourceIds.netease => <String, String>{
-          'Origin': neteaseOrigin,
-          'Referer': neteaseReferer,
-        },
+        'Origin': neteaseOrigin,
+        'Referer': neteaseReferer,
+      },
       _ => <String, String>{},
     };
 
@@ -135,22 +133,22 @@ class SourceHttpPolicy {
   }) {
     final headers = switch (sourceType) {
       SourceIds.bilibili => <String, String>{
-          'User-Agent': userAgent ?? webUserAgent,
-          'Referer': bilibiliReferer,
-          'Origin': bilibiliOrigin,
-          'Accept': 'application/json, text/plain, */*',
-        },
+        'User-Agent': userAgent ?? webUserAgent,
+        'Referer': bilibiliReferer,
+        'Origin': bilibiliOrigin,
+        'Accept': 'application/json, text/plain, */*',
+      },
       SourceIds.youtube => <String, String>{
-          'User-Agent': userAgent ?? mediaUserAgent,
-          'Origin': youtubeOrigin,
-          'Referer': youtubeReferer,
-        },
+        'User-Agent': userAgent ?? mediaUserAgent,
+        'Origin': youtubeOrigin,
+        'Referer': youtubeReferer,
+      },
       SourceIds.netease => <String, String>{
-          'User-Agent': userAgent ?? neteaseDesktopUserAgent,
-          'Referer': neteaseReferer,
-          'Origin': neteaseOrigin,
-          'Accept': 'application/json, text/plain, */*',
-        },
+        'User-Agent': userAgent ?? neteaseDesktopUserAgent,
+        'Referer': neteaseReferer,
+        'Origin': neteaseOrigin,
+        'Accept': 'application/json, text/plain, */*',
+      },
       _ => <String, String>{'User-Agent': userAgent ?? webUserAgent},
     };
 

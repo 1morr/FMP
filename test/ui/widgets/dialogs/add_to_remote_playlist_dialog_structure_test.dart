@@ -21,10 +21,7 @@ void main() {
       contains("import 'add_to_bilibili_playlist_dialog.dart';"),
     );
     expect(routerSource, isNot(contains('class _BilibiliRemoteFavSheet')));
-    expect(
-      routerSource,
-      contains('showAddToBilibiliPlaylistDialog('),
-    );
+    expect(routerSource, contains('showAddToBilibiliPlaylistDialog('));
 
     expect(
       bilibiliSource,
@@ -34,55 +31,65 @@ void main() {
   });
 
   test(
-      'source remote playlist dialogs delegate submit orchestration to controller',
-      () {
-    for (final path in [
-      'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
-      'lib/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart',
-      'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
-    ]) {
-      final source = File(path).readAsStringSync();
-      expect(source, contains('remote_playlist_sync_provider.dart'));
-      expect(source, contains('remotePlaylistEditControllerProvider'));
-      final submitBody = _methodBody(source, '_submit');
-      expect(submitBody, contains('.submitSelectionEdit('));
-      expect(submitBody, isNot(contains('updateVideoFavorites(')));
-      expect(submitBody, isNot(contains('addToPlaylist(')));
-      expect(submitBody, isNot(contains('removeFromPlaylist(')));
-      expect(submitBody, isNot(contains('addTracksToPlaylist(')));
-      expect(submitBody, isNot(contains('removeTracksFromPlaylist(')));
-    }
-  });
+    'source remote playlist dialogs delegate submit orchestration to controller',
+    () {
+      for (final path in [
+        'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
+        'lib/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart',
+        'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
+      ]) {
+        final source = File(path).readAsStringSync();
+        expect(source, contains('remote_playlist_sync_provider.dart'));
+        expect(source, contains('remotePlaylistEditControllerProvider'));
+        final submitBody = _methodBody(source, '_submit');
+        expect(submitBody, contains('.submitSelectionEdit('));
+        expect(submitBody, isNot(contains('updateVideoFavorites(')));
+        expect(submitBody, isNot(contains('addToPlaylist(')));
+        expect(submitBody, isNot(contains('removeFromPlaylist(')));
+        expect(submitBody, isNot(contains('addTracksToPlaylist(')));
+        expect(submitBody, isNot(contains('removeTracksFromPlaylist(')));
+      }
+    },
+  );
 
-  test('source remote playlist dialogs surface partial success before success',
-      () {
-    final sharedSource = File(
-      'lib/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart',
-    ).readAsStringSync();
-    final reportBody = _functionBody(
-      sharedSource,
-      'void reportRemotePlaylistEditResult(',
-    );
-    final partialIndex =
-        reportBody.indexOf('result.changedRemote && result.hasFailures');
-    final successIndex = reportBody.indexOf('result.changedRemote)');
+  test(
+    'source remote playlist dialogs surface partial success before success',
+    () {
+      final sharedSource = File(
+        'lib/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart',
+      ).readAsStringSync();
+      final reportBody = _functionBody(
+        sharedSource,
+        'void reportRemotePlaylistEditResult(',
+      );
+      final partialIndex = reportBody.indexOf(
+        'result.changedRemote && result.hasFailures',
+      );
+      final successIndex = reportBody.indexOf('result.changedRemote)');
 
-    expect(partialIndex, isNot(-1));
-    expect(successIndex, isNot(-1));
-    expect(partialIndex, lessThan(successIndex));
-    expect(reportBody, contains('ToastService.warning'));
-    expect(reportBody, contains('partiallyCompleted'));
+      expect(partialIndex, isNot(-1));
+      expect(successIndex, isNot(-1));
+      expect(partialIndex, lessThan(successIndex));
+      expect(reportBody, contains('ToastService.warning'));
+      expect(reportBody, contains('partiallyCompleted'));
 
-    for (final path in [
-      'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
-      'lib/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart',
-      'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
-    ]) {
-      final submitBody = _methodBody(File(path).readAsStringSync(), '_submit');
-      expect(submitBody, contains('reportRemotePlaylistEditResult('),
-          reason: path);
-    }
-  });
+      for (final path in [
+        'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
+        'lib/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart',
+        'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
+      ]) {
+        final submitBody = _methodBody(
+          File(path).readAsStringSync(),
+          '_submit',
+        );
+        expect(
+          submitBody,
+          contains('reportRemotePlaylistEditResult('),
+          reason: path,
+        );
+      }
+    },
+  );
 
   test('source remote playlist dialogs reuse shared selection UI widgets', () {
     final sharedSource = File(
@@ -112,38 +119,52 @@ void main() {
       final source = File(path).readAsStringSync();
       expect(source, contains("import 'remote_playlist_dialog_widgets.dart';"));
       expect(source, contains('RemotePlaylistSheetBody('), reason: path);
-      expect(source, contains('RemotePlaylistSelectionListView<'),
-          reason: path);
-      expect(source, isNot(contains('ImageLoadingService.loadImage(')),
-          reason: path);
+      expect(
+        source,
+        contains('RemotePlaylistSelectionListView<'),
+        reason: path,
+      );
+      expect(
+        source,
+        isNot(contains('ImageLoadingService.loadImage(')),
+        reason: path,
+      );
       expect(source, isNot(contains('TrackThumbnail(')), reason: path);
     }
   });
 
   test('legacy remote action services are removed from providers and UI', () {
-    final accountProvider =
-        File('lib/providers/account/account_provider.dart').readAsStringSync();
-    final syncProvider =
-        File('lib/providers/library/remote_playlist_sync_provider.dart')
-            .readAsStringSync();
-    final detailPage = File('lib/ui/pages/library/playlist_detail_page.dart')
-        .readAsStringSync();
+    final accountProvider = File(
+      'lib/providers/account/account_provider.dart',
+    ).readAsStringSync();
+    final syncProvider = File(
+      'lib/providers/library/remote_playlist_sync_provider.dart',
+    ).readAsStringSync();
+    final detailPage = File(
+      'lib/ui/pages/library/playlist_detail_page.dart',
+    ).readAsStringSync();
 
-    const actionsProvider = 'remotePlaylistActions' 'ServiceProvider';
-    const removalSyncProvider = 'remotePlaylistRemoval' 'SyncServiceProvider';
+    const actionsProvider =
+        'remotePlaylistActions'
+        'ServiceProvider';
+    const removalSyncProvider =
+        'remotePlaylistRemoval'
+        'SyncServiceProvider';
 
     expect(accountProvider, isNot(contains(actionsProvider)));
     expect(syncProvider, isNot(contains(removalSyncProvider)));
     expect(detailPage, isNot(contains(actionsProvider)));
     expect(detailPage, isNot(contains(removalSyncProvider)));
     expect(
-      File('lib/services/library/remote_playlist_actions_service.dart')
-          .existsSync(),
+      File(
+        'lib/services/library/remote_playlist_actions_service.dart',
+      ).existsSync(),
       isFalse,
     );
     expect(
-      File('lib/services/library/remote_playlist_removal_sync_service.dart')
-          .existsSync(),
+      File(
+        'lib/services/library/remote_playlist_removal_sync_service.dart',
+      ).existsSync(),
       isFalse,
     );
   });

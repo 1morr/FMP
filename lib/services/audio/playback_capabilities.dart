@@ -62,13 +62,8 @@ class PlaybackCapabilities {
   }
 
   @override
-  int get hashCode => Object.hash(
-        canSkipNext,
-        canSkipPrevious,
-        canSeek,
-        canShuffle,
-        canRepeat,
-      );
+  int get hashCode =>
+      Object.hash(canSkipNext, canSkipPrevious, canSeek, canShuffle, canRepeat);
 
   @override
   String toString() {

@@ -62,10 +62,7 @@ class _ImportDataListTile extends ConsumerWidget {
 
       final validation = backupService.validateBackupData(backupData);
       if (!validation.isValid) {
-        ToastService.error(
-          context,
-          _formatBackupValidationMessage(validation),
-        );
+        ToastService.error(context, _formatBackupValidationMessage(validation));
         return;
       }
 
@@ -152,10 +149,9 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
             children: [
               Text(
                 t.settings.backup.import.previewSubtitle,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colorScheme.outline),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 16),
 
@@ -317,11 +313,13 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
 
       // 按勾选分类刷新对应的 Provider
       if (_importPlaylists) {
-        ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
-          const [],
-          tracksChanged: false,
-          coverChanged: false,
-        );
+        ref
+            .read(libraryInvalidationCoordinatorProvider)
+            .playlistsChanged(
+              const [],
+              tracksChanged: false,
+              coverChanged: false,
+            );
       }
 
       if (_importSettings && result.settingsImported) {
@@ -448,14 +446,13 @@ class _ImportResultDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: result.errors
                         .take(5)
-                        .map((e) => Text(
-                              e,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                      color: colorScheme.onErrorContainer),
-                            ))
+                        .map(
+                          (e) => Text(
+                            e,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onErrorContainer),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -464,10 +461,9 @@ class _ImportResultDialog extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       '... ${result.errors.length - 5} more errors',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: colorScheme.outline),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ),
               ],

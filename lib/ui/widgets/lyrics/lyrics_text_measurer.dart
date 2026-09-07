@@ -39,7 +39,7 @@ class LyricsTextMeasurer {
     required Iterable<String> texts,
     required double refFontSize,
     required TextStyle Function(double fontSize, FontWeight weight)
-        styleBuilder,
+    styleBuilder,
     required TextDirection textDirection,
   }) {
     final widths = <double>[];
@@ -81,8 +81,10 @@ class LyricsTextMeasurer {
       return (main: maxFontSize, sub: sub);
     }
     final safeWidth = availableWidth * boldSafetyFactor;
-    final mainSize = (refFontSize * (safeWidth / referenceWidth))
-        .clamp(minFontSize, maxFontSize);
+    final mainSize = (refFontSize * (safeWidth / referenceWidth)).clamp(
+      minFontSize,
+      maxFontSize,
+    );
     final subSize = (mainSize * subFontRatio).clamp(minFontSize, maxFontSize);
     return (main: mainSize, sub: subSize);
   }

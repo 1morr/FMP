@@ -39,12 +39,14 @@ void main() {
       platform: AudioRuntimePlatform.mobile,
       audioHandler: handler,
     );
-    final container = ProviderContainer(overrides: [
-      nowPlayingPublisherProvider.overrideWithValue(publisher),
-      radioRepositoryProvider.overrideWith((ref) => _FakeRadioRepository()),
-      radioSourceProvider.overrideWith((ref) => _LiveRadioSource()),
-      audioServiceProvider.overrideWith((ref) => FakeAudioService()),
-    ]);
+    final container = ProviderContainer(
+      overrides: [
+        nowPlayingPublisherProvider.overrideWithValue(publisher),
+        radioRepositoryProvider.overrideWith((ref) => _FakeRadioRepository()),
+        radioSourceProvider.overrideWith((ref) => _LiveRadioSource()),
+        audioServiceProvider.overrideWith((ref) => FakeAudioService()),
+      ],
+    );
     addTearDown(container.dispose);
 
     // 音樂先接管，就像 app 啟動之後那樣。
@@ -84,7 +86,6 @@ void main() {
     expect(handler.onSkipToNext, isNotNull);
   });
 }
-
 
 class _LiveRadioSource extends RadioSource {
   @override

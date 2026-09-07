@@ -15,9 +15,7 @@ final _isarMemberAccessPattern = RegExp(
 /// 兩個 `lib/providers/database/` 的豁免不是「還沒收乾淨」，是那兩個檔案定義上
 /// 就是拿著 `Isar` 實例的那一層：`database_migration.dart` 在 `Isar.open()` 之後
 /// 跑遷移，`database_catalog.dart` 的 `query: (isar) => …` 閉包本身就是偵錯檢視器。
-const _allowedPathPrefixes = <String>[
-  'lib/data/repositories/',
-];
+const _allowedPathPrefixes = <String>['lib/data/repositories/'];
 
 const _allowedFiles = <String>[
   'lib/providers/database/database_catalog.dart',
@@ -75,13 +73,17 @@ class ImportService {
 ''';
 
       expect(
-        isarBoundaryOffenders('lib/services/import/import_service.dart', source),
+        isarBoundaryOffenders(
+          'lib/services/import/import_service.dart',
+          source,
+        ),
         contains(contains('import_service.dart')),
       );
     });
 
     test('guard detects the access even when dart format splits the line', () {
-      const source = 'final rows = await _isar\n    .tracks\n    .where()\n'
+      const source =
+          'final rows = await _isar\n    .tracks\n    .where()\n'
           '    .findAll();';
 
       expect(
@@ -91,7 +93,8 @@ class ImportService {
     });
 
     test('guard ignores the import line for the isar package', () {
-      const source = "import 'package:isar_community/isar.dart';\n"
+      const source =
+          "import 'package:isar_community/isar.dart';\n"
           "export 'package:isar_community/isar.dart';\n"
           'class Thing {}';
 
@@ -102,7 +105,8 @@ class ImportService {
     });
 
     test('guard ignores static members and lookalike identifiers', () {
-      const source = 'final sentinel = Isar.minLong;\n'
+      const source =
+          'final sentinel = Isar.minLong;\n'
           'final open = someIsar.tracks;\n'
           'final id = isarId;';
 
@@ -113,7 +117,8 @@ class ImportService {
     });
 
     test('guard ignores a comment that merely mentions the call', () {
-      const source = '// 舊版在這裡直接寫 isar.tracks.put(track)，現在走 repository。\n'
+      const source =
+          '// 舊版在這裡直接寫 isar.tracks.put(track)，現在走 repository。\n'
           '/// 見 `isar.playlists` 的說明。\n'
           'class Thing {}';
 
@@ -152,7 +157,8 @@ List<String> isarBoundaryOffenders(String path, String source) {
     // 但下一行如果是註解或 import 就不接。
     final next = index + 1 < lines.length ? lines[index + 1] : '';
     final nextTrimmed = next.trimLeft();
-    final joinable = !nextTrimmed.startsWith('//') &&
+    final joinable =
+        !nextTrimmed.startsWith('//') &&
         !nextTrimmed.startsWith('import ') &&
         !nextTrimmed.startsWith('export ');
     final probe = joinable ? '$line\n$next' : line;

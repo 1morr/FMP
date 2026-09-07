@@ -44,9 +44,9 @@ class DataIntegrityRepository {
   DataIntegrityRepository(
     Isar isar, {
     PlaylistMutationRepository? mutationService,
-  })  : _isar = isar,
-        _mutationService =
-            mutationService ?? PlaylistMutationRepository(isar: isar);
+  }) : _isar = isar,
+       _mutationService =
+           mutationService ?? PlaylistMutationRepository(isar: isar);
 
   final Isar _isar;
   final PlaylistMutationRepository _mutationService;
@@ -63,13 +63,11 @@ class DataIntegrityRepository {
     final queues = await _isar.playQueues.where().findAll();
 
     return DataIntegrityReport(
-      duplicateTrackKeys: _duplicateKeys(
-        tracks,
-        (track) => track.uniqueKey,
-      ),
+      duplicateTrackKeys: _duplicateKeys(tracks, (track) => track.uniqueKey),
       duplicateDownloadSavePaths: _duplicateKeys(
         tasks.where(
-            (task) => task.savePath != null && task.savePath!.isNotEmpty),
+          (task) => task.savePath != null && task.savePath!.isNotEmpty,
+        ),
         (task) => task.savePath!,
       ),
       duplicateAccountPlatforms: _duplicateKeys(
@@ -94,8 +92,9 @@ class DataIntegrityRepository {
         (track) => track.uniqueKey,
       )) {
         final keep = duplicateGroup.reduce(_preferTrack);
-        final remove =
-            duplicateGroup.where((track) => track.id != keep.id).toList();
+        final remove = duplicateGroup
+            .where((track) => track.id != keep.id)
+            .toList();
         for (final track in remove) {
           _mergeTrackMetadata(keep, track);
           trackIdRemap[track.id] = keep.id;
@@ -115,8 +114,9 @@ class DataIntegrityRepository {
         (task) => task.savePath!,
       )) {
         final keep = duplicateGroup.reduce(_preferDownloadTask);
-        final remove =
-            duplicateGroup.where((task) => task.id != keep.id).toList();
+        final remove = duplicateGroup
+            .where((task) => task.id != keep.id)
+            .toList();
         removedDownloadTaskIds.addAll(remove.map((task) => task.id));
         await _isar.downloadTasks.deleteAll(
           remove.map((task) => task.id).toList(),
@@ -129,8 +129,9 @@ class DataIntegrityRepository {
         (account) => account.platform,
       )) {
         final keep = duplicateGroup.reduce(_preferAccount);
-        final remove =
-            duplicateGroup.where((account) => account.id != keep.id).toList();
+        final remove = duplicateGroup
+            .where((account) => account.id != keep.id)
+            .toList();
         for (final account in remove) {
           _mergeAccountMetadata(keep, account);
         }
@@ -181,8 +182,8 @@ class DataIntegrityRepository {
   static void _remapQueueTrackReferences(PlayQueue queue, Map<int, int> remap) {
     final oldCurrentTrackId =
         queue.currentIndex >= 0 && queue.currentIndex < queue.trackIds.length
-            ? queue.trackIds[queue.currentIndex]
-            : null;
+        ? queue.trackIds[queue.currentIndex]
+        : null;
     final mappedCurrentTrackId = oldCurrentTrackId == null
         ? null
         : remap[oldCurrentTrackId] ?? oldCurrentTrackId;
@@ -231,8 +232,10 @@ class DataIntegrityRepository {
       ..ownerId = keep.ownerId ?? remove.ownerId
       ..channelId = _preferNullableString(keep.channelId, remove.channelId)
       ..durationMs = keep.durationMs ?? remove.durationMs
-      ..thumbnailUrl =
-          _preferNullableString(keep.thumbnailUrl, remove.thumbnailUrl)
+      ..thumbnailUrl = _preferNullableString(
+        keep.thumbnailUrl,
+        remove.thumbnailUrl,
+      )
       ..audioUrl = _preferNullableString(keep.audioUrl, remove.audioUrl)
       ..audioUrlExpiry = keep.audioUrlExpiry ?? remove.audioUrlExpiry
       ..isVip = keep.isVip || remove.isVip
@@ -244,13 +247,19 @@ class DataIntegrityRepository {
       ..pageCount = keep.pageCount ?? remove.pageCount
       ..cid = keep.cid ?? remove.cid
       ..pageNum = keep.pageNum ?? remove.pageNum
-      ..parentTitle =
-          _preferNullableString(keep.parentTitle, remove.parentTitle)
+      ..parentTitle = _preferNullableString(
+        keep.parentTitle,
+        remove.parentTitle,
+      )
       ..bilibiliAid = keep.bilibiliAid ?? remove.bilibiliAid
-      ..originalSongId =
-          _preferNullableString(keep.originalSongId, remove.originalSongId)
-      ..originalSource =
-          _preferNullableString(keep.originalSource, remove.originalSource)
+      ..originalSongId = _preferNullableString(
+        keep.originalSongId,
+        remove.originalSongId,
+      )
+      ..originalSource = _preferNullableString(
+        keep.originalSource,
+        remove.originalSource,
+      )
       ..createdAt = _earliestDateTime(keep.createdAt, remove.createdAt)
       ..updatedAt = _latestNullableDateTime(keep.updatedAt, remove.updatedAt);
   }
@@ -294,9 +303,10 @@ class DataIntegrityRepository {
     Iterable<T> items,
     K Function(T item) keyOf,
   ) {
-    return _duplicateGroups(items, keyOf)
-        .map((group) => keyOf(group.first))
-        .toList();
+    return _duplicateGroups(
+      items,
+      keyOf,
+    ).map((group) => keyOf(group.first)).toList();
   }
 
   static List<List<T>> _duplicateGroups<T, K>(

@@ -74,13 +74,11 @@ class BilibiliAccountService extends AccountService with Logging {
   static const String _apiBase = 'https://api.bilibili.com';
   static const String _passportBase = 'https://passport.bilibili.com';
 
-  BilibiliAccountService({
-    required Isar isar,
-    BilibiliLiveClient? liveClient,
-  })  : _accounts = AccountRepository(isar),
-        _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili),
-        _liveClient = liveClient ?? BilibiliLiveClient();
+  BilibiliAccountService({required Isar isar, BilibiliLiveClient? liveClient})
+    : _accounts = AccountRepository(isar),
+      _secureStorage = const FlutterSecureStorage(),
+      _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili),
+      _liveClient = liveClient ?? BilibiliLiveClient();
 
   @override
   String get platform => SourceIds.bilibili;
@@ -97,7 +95,8 @@ class BilibiliAccountService extends AccountService with Logging {
   }) async {
     if (sessdata.isEmpty || biliJct.isEmpty || dedeUserId.isEmpty) {
       throw ArgumentError(
-          'Invalid Bilibili credentials: required cookies are empty');
+        'Invalid Bilibili credentials: required cookies are empty',
+      );
     }
 
     final credentials = BilibiliCredentials(
@@ -219,16 +218,20 @@ class BilibiliAccountService extends AccountService with Logging {
           logError('QR code poll error', e);
           consecutiveErrors++;
           if (consecutiveErrors >= maxConsecutiveErrors) {
-            controller.add(QrCodePollResult(
-              status: QrCodeStatus.expired,
-              message: 'Network error',
-            ));
+            controller.add(
+              QrCodePollResult(
+                status: QrCodeStatus.expired,
+                message: 'Network error',
+              ),
+            );
             return;
           }
-          controller.add(QrCodePollResult(
-            status: QrCodeStatus.waiting,
-            message: e.toString(),
-          ));
+          controller.add(
+            QrCodePollResult(
+              status: QrCodeStatus.waiting,
+              message: e.toString(),
+            ),
+          );
         }
       }
 
@@ -376,7 +379,8 @@ class BilibiliAccountService extends AccountService with Logging {
       final refreshData = refreshResponse.data;
       if (refreshData['code'] != 0) {
         logWarning(
-            'Cookie refresh failed, code: ${refreshData['code']}, message: ${refreshData['message']}');
+          'Cookie refresh failed, code: ${refreshData['code']}, message: ${refreshData['message']}',
+        );
         return false;
       }
 

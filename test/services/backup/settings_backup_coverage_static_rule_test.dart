@@ -38,54 +38,65 @@ const _deliberatelyExcludedSettingsFields = <String, String>{
 
 void main() {
   group('Settings backup coverage', () {
-    test('every persisted Settings field is backed up or named as excluded',
-        () {
-      final generated =
-          File('lib/data/models/settings.g.dart').readAsStringSync();
-      final dto =
-          File('lib/services/backup/backup_data.dart').readAsStringSync();
-      final service =
-          File('lib/services/backup/backup_service.dart').readAsStringSync();
+    test(
+      'every persisted Settings field is backed up or named as excluded',
+      () {
+        final generated = File(
+          'lib/data/models/settings.g.dart',
+        ).readAsStringSync();
+        final dto = File(
+          'lib/services/backup/backup_data.dart',
+        ).readAsStringSync();
+        final service = File(
+          'lib/services/backup/backup_service.dart',
+        ).readAsStringSync();
 
-      // 先釘住抽取本身有作用：anchor 一旦對不上，欄位集合會是空的，
-      // 下面那條斷言就會無條件通過 —— 假綠比沒有測試更糟。
-      expect(persistedSettingsFields(generated).length, greaterThan(40));
+        // 先釘住抽取本身有作用：anchor 一旦對不上，欄位集合會是空的，
+        // 下面那條斷言就會無條件通過 —— 假綠比沒有測試更糟。
+        expect(persistedSettingsFields(generated).length, greaterThan(40));
 
-      expect(
-        settingsBackupCoverageOffenders(generated, dto, service),
-        isEmpty,
-      );
-    });
+        expect(
+          settingsBackupCoverageOffenders(generated, dto, service),
+          isEmpty,
+        );
+      },
+    );
 
     test('no exclusion names a field that no longer exists', () {
-      final generated =
-          File('lib/data/models/settings.g.dart').readAsStringSync();
+      final generated = File(
+        'lib/data/models/settings.g.dart',
+      ).readAsStringSync();
 
       expect(staleSettingsExclusions(generated), isEmpty);
     });
 
-    test('guard detects a new persisted field that never reaches the backup',
-        () {
-      final generated = _syntheticSettingsSchema(['newKnob']);
+    test(
+      'guard detects a new persisted field that never reaches the backup',
+      () {
+        final generated = _syntheticSettingsSchema(['newKnob']);
 
-      expect(
-        settingsBackupCoverageOffenders(generated, '', ''),
-        contains(contains('newKnob')),
-      );
-    });
+        expect(
+          settingsBackupCoverageOffenders(generated, '', ''),
+          contains(contains('newKnob')),
+        );
+      },
+    );
 
-    test('guard stays silent for a field wired through all three directions',
-        () {
-      final generated = _syntheticSettingsSchema(['newKnob']);
-      const dto = "'newKnob': newKnob,\n json['newKnob'] as bool?";
-      const service = 'newKnob: settings.newKnob\n'
-          '..newKnob = settingsBackup.newKnob';
+    test(
+      'guard stays silent for a field wired through all three directions',
+      () {
+        final generated = _syntheticSettingsSchema(['newKnob']);
+        const dto = "'newKnob': newKnob,\n json['newKnob'] as bool?";
+        const service =
+            'newKnob: settings.newKnob\n'
+            '..newKnob = settingsBackup.newKnob';
 
-      expect(
-        settingsBackupCoverageOffenders(generated, dto, service),
-        isEmpty,
-      );
-    });
+        expect(
+          settingsBackupCoverageOffenders(generated, dto, service),
+          isEmpty,
+        );
+      },
+    );
 
     test('guard detects a field that is exported but never imported back', () {
       final generated = _syntheticSettingsSchema(['newKnob']);
@@ -98,39 +109,42 @@ void main() {
       );
     });
 
-    test('guard detects a field whose JSON key only appears in one direction',
-        () {
-      final generated = _syntheticSettingsSchema(['newKnob']);
-      const dto = "'newKnob': newKnob,";
-      const service = 'newKnob: settings.newKnob\n'
-          '..newKnob = settingsBackup.newKnob';
+    test(
+      'guard detects a field whose JSON key only appears in one direction',
+      () {
+        final generated = _syntheticSettingsSchema(['newKnob']);
+        const dto = "'newKnob': newKnob,";
+        const service =
+            'newKnob: settings.newKnob\n'
+            '..newKnob = settingsBackup.newKnob';
 
-      expect(
-        settingsBackupCoverageOffenders(generated, dto, service),
-        contains(contains('JSON key')),
-      );
-    });
+        expect(
+          settingsBackupCoverageOffenders(generated, dto, service),
+          contains(contains('JSON key')),
+        );
+      },
+    );
 
-    test('guard tolerates a member access that dart format split across lines',
-        () {
-      final generated = _syntheticSettingsSchema(['newKnob']);
-      const dto = "'newKnob': newKnob,\n json['newKnob'] as bool?";
-      const service = 'newKnob: settings\n    .newKnob\n'
-          '..newKnob = settingsBackup\n    .newKnob';
+    test(
+      'guard tolerates a member access that dart format split across lines',
+      () {
+        final generated = _syntheticSettingsSchema(['newKnob']);
+        const dto = "'newKnob': newKnob,\n json['newKnob'] as bool?";
+        const service =
+            'newKnob: settings\n    .newKnob\n'
+            '..newKnob = settingsBackup\n    .newKnob';
 
-      expect(
-        settingsBackupCoverageOffenders(generated, dto, service),
-        isEmpty,
-      );
-    });
+        expect(
+          settingsBackupCoverageOffenders(generated, dto, service),
+          isEmpty,
+        );
+      },
+    );
 
     test('guard stays silent for an excluded field', () {
       final generated = _syntheticSettingsSchema(['customDownloadDir']);
 
-      expect(
-        settingsBackupCoverageOffenders(generated, '', ''),
-        isEmpty,
-      );
+      expect(settingsBackupCoverageOffenders(generated, '', ''), isEmpty);
     });
 
     test('stale-exclusion guard fires when an excluded field disappears', () {
@@ -142,22 +156,25 @@ void main() {
       );
     });
 
-    test('field extraction reads the Settings schema, not embedded schemas',
-        () {
-      final generated = '${_syntheticSettingsSchema(['themeModeIndex'])}\n'
-          'const SourceSettingsEntrySchema = Schema(\n'
-          '  properties: {\n'
-          "    r'useAuthForPlay': PropertySchema(\n"
-          '      id: 2,\n'
-          "      name: r'useAuthForPlay',\n"
-          '      type: IsarType.bool,\n'
-          '    )\n'
-          '  },\n'
-          '  estimateSize: _estimateSize,\n'
-          ');';
+    test(
+      'field extraction reads the Settings schema, not embedded schemas',
+      () {
+        final generated =
+            '${_syntheticSettingsSchema(['themeModeIndex'])}\n'
+            'const SourceSettingsEntrySchema = Schema(\n'
+            '  properties: {\n'
+            "    r'useAuthForPlay': PropertySchema(\n"
+            '      id: 2,\n'
+            "      name: r'useAuthForPlay',\n"
+            '      type: IsarType.bool,\n'
+            '    )\n'
+            '  },\n'
+            '  estimateSize: _estimateSize,\n'
+            ');';
 
-      expect(persistedSettingsFields(generated), {'themeModeIndex'});
-    });
+        expect(persistedSettingsFields(generated), {'themeModeIndex'});
+      },
+    );
   });
 }
 
@@ -226,14 +243,18 @@ Set<String> persistedSettingsFields(String settingsGeneratedSource) {
   final anchor = settingsGeneratedSource.indexOf(_settingsSchemaAnchor);
   if (anchor < 0) return const {};
 
-  final propertiesStart =
-      settingsGeneratedSource.indexOf('properties: {', anchor);
+  final propertiesStart = settingsGeneratedSource.indexOf(
+    'properties: {',
+    anchor,
+  );
   if (propertiesStart < 0) return const {};
 
   // `estimateSize:` 是 properties map 之後的第一個 top-level 欄位，用它當結尾，
   // 避免掃進同一個檔案裡別的 schema。
-  final propertiesEnd =
-      settingsGeneratedSource.indexOf('estimateSize:', propertiesStart);
+  final propertiesEnd = settingsGeneratedSource.indexOf(
+    'estimateSize:',
+    propertiesStart,
+  );
   final block = propertiesEnd < 0
       ? settingsGeneratedSource.substring(propertiesStart)
       : settingsGeneratedSource.substring(propertiesStart, propertiesEnd);

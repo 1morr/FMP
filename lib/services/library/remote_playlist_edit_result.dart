@@ -1,4 +1,3 @@
-
 class RemotePlaylistEditFailure {
   final int trackId;
   final String remotePlaylistId;
@@ -42,11 +41,11 @@ class RemotePlaylistEditResult {
     List<int> skippedTrackIds = const [],
     List<RemotePlaylistEditFailure> failures = const [],
     List<String> changedRemotePlaylistIds = const [],
-  })  : confirmedAddedTrackIds = List.unmodifiable(confirmedAddedTrackIds),
-        confirmedRemovedTrackIds = List.unmodifiable(confirmedRemovedTrackIds),
-        skippedTrackIds = List.unmodifiable(skippedTrackIds),
-        failures = List.unmodifiable(failures),
-        changedRemotePlaylistIds = List.unmodifiable(changedRemotePlaylistIds);
+  }) : confirmedAddedTrackIds = List.unmodifiable(confirmedAddedTrackIds),
+       confirmedRemovedTrackIds = List.unmodifiable(confirmedRemovedTrackIds),
+       skippedTrackIds = List.unmodifiable(skippedTrackIds),
+       failures = List.unmodifiable(failures),
+       changedRemotePlaylistIds = List.unmodifiable(changedRemotePlaylistIds);
 
   bool get changedRemote => changedRemotePlaylistIds.isNotEmpty;
 
@@ -58,12 +57,12 @@ class RemotePlaylistEditResult {
       .toList(growable: false);
 
   RemotePlaylistEditSummary get summary => RemotePlaylistEditSummary(
-        changedPlaylistCount: changedRemotePlaylistIds.toSet().length,
-        addedTrackCount: _dedupeInOrder(confirmedAddedTrackIds).length,
-        removedTrackCount: _dedupeInOrder(confirmedRemovedTrackIds).length,
-        skippedTrackCount: _dedupeInOrder(skippedTrackIds).length,
-        failedTrackCount: failedTrackIds.length,
-      );
+    changedPlaylistCount: changedRemotePlaylistIds.toSet().length,
+    addedTrackCount: _dedupeInOrder(confirmedAddedTrackIds).length,
+    removedTrackCount: _dedupeInOrder(confirmedRemovedTrackIds).length,
+    skippedTrackCount: _dedupeInOrder(skippedTrackIds).length,
+    failedTrackCount: failedTrackIds.length,
+  );
 
   RemotePlaylistEditResult merge(RemotePlaylistEditResult other) {
     if (sourceType != other.sourceType) {

@@ -25,208 +25,218 @@ void main() {
       // `SearchNotifier` 以前吃兩個建構子參數；`Notifier.new` 不吃，所以兩個
       // 相依都從 container 進去。直播源走 `SourceManager` 的窄能力查詢，
       // 不另外開一個具體來源的 provider。
-      container = ProviderContainer(overrides: [
-        searchServiceProvider.overrideWith((ref) => service),
-        sourceManagerProvider
-            .overrideWith((ref) => SourceManager(sources: [liveSource])),
-      ]);
+      container = ProviderContainer(
+        overrides: [
+          searchServiceProvider.overrideWith((ref) => service),
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(sources: [liveSource]),
+          ),
+        ],
+      );
       notifier = container.read(searchProvider.notifier);
     });
 
     tearDown(() => container.dispose());
 
-    test('loadMore ignores results when query changes before completion',
-        () async {
-      notifier.setSeedState(
-        SearchState(
-          query: 'old query',
-          onlineResults: {
-            SourceIds.youtube: SearchResult(
-              tracks: [_track('old-page-1')],
-              totalCount: 2,
-              page: 1,
-              pageSize: 1,
-              hasMore: true,
-            ),
-          },
-          currentPages: const {SourceIds.youtube: 1},
-        ),
-      );
+    test(
+      'loadMore ignores results when query changes before completion',
+      () async {
+        notifier.setSeedState(
+          SearchState(
+            query: 'old query',
+            onlineResults: {
+              SourceIds.youtube: SearchResult(
+                tracks: [_track('old-page-1')],
+                totalCount: 2,
+                page: 1,
+                pageSize: 1,
+                hasMore: true,
+              ),
+            },
+            currentPages: const {SourceIds.youtube: 1},
+          ),
+        );
 
-      final loadMoreFuture = notifier.loadMore(SourceIds.youtube);
-      await pumpEventQueue(times: 2);
-      expect(service.sourceCalls.single.query, 'old query');
+        final loadMoreFuture = notifier.loadMore(SourceIds.youtube);
+        await pumpEventQueue(times: 2);
+        expect(service.sourceCalls.single.query, 'old query');
 
-      notifier.setSeedState(
-        SearchState(
-          query: 'new query',
-          onlineResults: {
-            SourceIds.youtube: SearchResult(
-              tracks: [_track('new-page-1')],
-              totalCount: 1,
-              page: 1,
-              pageSize: 1,
-              hasMore: false,
-            ),
-          },
-          currentPages: const {SourceIds.youtube: 1},
-        ),
-      );
-      service.completeSource(
-        SourceIds.youtube,
-        'old query',
-        2,
-        SearchResult(
-          tracks: [_track('old-page-2')],
-          totalCount: 2,
-          page: 2,
-          pageSize: 1,
-          hasMore: false,
-        ),
-      );
-      await loadMoreFuture;
+        notifier.setSeedState(
+          SearchState(
+            query: 'new query',
+            onlineResults: {
+              SourceIds.youtube: SearchResult(
+                tracks: [_track('new-page-1')],
+                totalCount: 1,
+                page: 1,
+                pageSize: 1,
+                hasMore: false,
+              ),
+            },
+            currentPages: const {SourceIds.youtube: 1},
+          ),
+        );
+        service.completeSource(
+          SourceIds.youtube,
+          'old query',
+          2,
+          SearchResult(
+            tracks: [_track('old-page-2')],
+            totalCount: 2,
+            page: 2,
+            pageSize: 1,
+            hasMore: false,
+          ),
+        );
+        await loadMoreFuture;
 
-      expect(notifier.state.query, 'new query');
-      expect(
-        notifier.state.onlineResults[SourceIds.youtube]!.tracks
-            .map((track) => track.sourceId),
-        ['new-page-1'],
-      );
-    });
+        expect(notifier.state.query, 'new query');
+        expect(
+          notifier.state.onlineResults[SourceIds.youtube]!.tracks.map(
+            (track) => track.sourceId,
+          ),
+          ['new-page-1'],
+        );
+      },
+    );
 
     test(
-        'loadMoreAll ignores results when sort order changes before completion',
-        () async {
-      notifier.setSeedState(
-        SearchState(
-          query: 'same query',
-          searchOrder: SearchOrder.relevance,
-          onlineResults: {
-            SourceIds.bilibili: SearchResult(
-              tracks: [_track('bili-page-1', sourceType: SourceIds.bilibili)],
-              totalCount: 2,
-              page: 1,
-              pageSize: 1,
-              hasMore: true,
-            ),
-            SourceIds.youtube: SearchResult(
-              tracks: [_track('yt-page-1')],
-              totalCount: 2,
-              page: 1,
-              pageSize: 1,
-              hasMore: true,
-            ),
-          },
-          currentPages: const {
-            SourceIds.bilibili: 1,
-            SourceIds.youtube: 1,
-          },
-        ),
-      );
+      'loadMoreAll ignores results when sort order changes before completion',
+      () async {
+        notifier.setSeedState(
+          SearchState(
+            query: 'same query',
+            searchOrder: SearchOrder.relevance,
+            onlineResults: {
+              SourceIds.bilibili: SearchResult(
+                tracks: [_track('bili-page-1', sourceType: SourceIds.bilibili)],
+                totalCount: 2,
+                page: 1,
+                pageSize: 1,
+                hasMore: true,
+              ),
+              SourceIds.youtube: SearchResult(
+                tracks: [_track('yt-page-1')],
+                totalCount: 2,
+                page: 1,
+                pageSize: 1,
+                hasMore: true,
+              ),
+            },
+            currentPages: const {SourceIds.bilibili: 1, SourceIds.youtube: 1},
+          ),
+        );
 
-      final loadMoreFuture = notifier.loadMoreAll();
-      await pumpEventQueue(times: 2);
-      expect(service.sourceCalls, hasLength(2));
+        final loadMoreFuture = notifier.loadMoreAll();
+        await pumpEventQueue(times: 2);
+        expect(service.sourceCalls, hasLength(2));
 
-      notifier.setSeedState(notifier.state.copyWith(
-        searchOrder: SearchOrder.playCount,
-        isLoading: false,
-      ));
-      service.completeSource(
-        SourceIds.bilibili,
-        'same query',
-        2,
-        SearchResult(
-          tracks: [_track('stale-bili-2', sourceType: SourceIds.bilibili)],
-          totalCount: 2,
-          page: 2,
-          pageSize: 1,
-          hasMore: false,
-        ),
-      );
-      service.completeSource(
-        SourceIds.youtube,
-        'same query',
-        2,
-        SearchResult(
-          tracks: [_track('stale-yt-2')],
-          totalCount: 2,
-          page: 2,
-          pageSize: 1,
-          hasMore: false,
-        ),
-      );
-      await loadMoreFuture;
+        notifier.setSeedState(
+          notifier.state.copyWith(
+            searchOrder: SearchOrder.playCount,
+            isLoading: false,
+          ),
+        );
+        service.completeSource(
+          SourceIds.bilibili,
+          'same query',
+          2,
+          SearchResult(
+            tracks: [_track('stale-bili-2', sourceType: SourceIds.bilibili)],
+            totalCount: 2,
+            page: 2,
+            pageSize: 1,
+            hasMore: false,
+          ),
+        );
+        service.completeSource(
+          SourceIds.youtube,
+          'same query',
+          2,
+          SearchResult(
+            tracks: [_track('stale-yt-2')],
+            totalCount: 2,
+            page: 2,
+            pageSize: 1,
+            hasMore: false,
+          ),
+        );
+        await loadMoreFuture;
 
-      expect(notifier.state.searchOrder, SearchOrder.playCount);
-      expect(
-        notifier.state.onlineResults[SourceIds.bilibili]!.tracks
-            .map((track) => track.sourceId),
-        ['bili-page-1'],
-      );
-      expect(
-        notifier.state.onlineResults[SourceIds.youtube]!.tracks
-            .map((track) => track.sourceId),
-        ['yt-page-1'],
-      );
-    });
+        expect(notifier.state.searchOrder, SearchOrder.playCount);
+        expect(
+          notifier.state.onlineResults[SourceIds.bilibili]!.tracks.map(
+            (track) => track.sourceId,
+          ),
+          ['bili-page-1'],
+        );
+        expect(
+          notifier.state.onlineResults[SourceIds.youtube]!.tracks.map(
+            (track) => track.sourceId,
+          ),
+          ['yt-page-1'],
+        );
+      },
+    );
 
     test(
-        'loadMoreLiveRooms ignores results when filter changes before completion',
-        () async {
-      notifier.setSeedState(SearchState(
-        query: 'live query',
-        liveRoomFilter: LiveRoomFilter.online,
-        liveRoomResults: LiveSearchResult(
-          rooms: [_room(1)],
-          totalCount: 2,
-          page: 1,
-          pageSize: 1,
-          hasMore: true,
-        ),
-        liveRoomPage: 1,
-      ));
+      'loadMoreLiveRooms ignores results when filter changes before completion',
+      () async {
+        notifier.setSeedState(
+          SearchState(
+            query: 'live query',
+            liveRoomFilter: LiveRoomFilter.online,
+            liveRoomResults: LiveSearchResult(
+              rooms: [_room(1)],
+              totalCount: 2,
+              page: 1,
+              pageSize: 1,
+              hasMore: true,
+            ),
+            liveRoomPage: 1,
+          ),
+        );
 
-      final loadMoreFuture = notifier.loadMoreLiveRooms();
-      await pumpEventQueue(times: 2);
-      expect(liveSource.calls.single, 'live query:2:online');
+        final loadMoreFuture = notifier.loadMoreLiveRooms();
+        await pumpEventQueue(times: 2);
+        expect(liveSource.calls.single, 'live query:2:online');
 
-      notifier.setSeedState(notifier.state.copyWith(
-        liveRoomFilter: LiveRoomFilter.all,
-        isLoading: false,
-      ));
-      liveSource.completeLiveRooms(
-        'live query',
-        2,
-        LiveRoomFilter.online,
-        LiveSearchResult(
-          rooms: [_room(2)],
-          totalCount: 2,
-          page: 2,
-          pageSize: 1,
-          hasMore: false,
-        ),
-      );
-      await loadMoreFuture;
+        notifier.setSeedState(
+          notifier.state.copyWith(
+            liveRoomFilter: LiveRoomFilter.all,
+            isLoading: false,
+          ),
+        );
+        liveSource.completeLiveRooms(
+          'live query',
+          2,
+          LiveRoomFilter.online,
+          LiveSearchResult(
+            rooms: [_room(2)],
+            totalCount: 2,
+            page: 2,
+            pageSize: 1,
+            hasMore: false,
+          ),
+        );
+        await loadMoreFuture;
 
-      expect(notifier.state.liveRoomFilter, LiveRoomFilter.all);
-      expect(
-        notifier.state.liveRoomResults!.rooms.map((room) => room.roomId),
-        [1],
-      );
-    });
+        expect(notifier.state.liveRoomFilter, LiveRoomFilter.all);
+        expect(
+          notifier.state.liveRoomResults!.rooms.map((room) => room.roomId),
+          [1],
+        );
+      },
+    );
 
     test('all-source chip searches all direct sources', () async {
       await notifier.search('all query');
 
-      expect(
-        service.onlineCalls.single.sourceTypes,
-        [
-          SourceIds.bilibili,
-          SourceIds.youtube,
-          SourceIds.netease,
-        ],
-      );
+      expect(service.onlineCalls.single.sourceTypes, [
+        SourceIds.bilibili,
+        SourceIds.youtube,
+        SourceIds.netease,
+      ]);
       expect(notifier.state.currentPages.keys, [
         SourceIds.bilibili,
         SourceIds.youtube,
@@ -244,10 +254,7 @@ void main() {
 
       await notifier.search('chip query');
 
-      expect(
-        service.onlineCalls.single.sourceTypes,
-        [SourceIds.netease],
-      );
+      expect(service.onlineCalls.single.sourceTypes, [SourceIds.netease]);
       expect(notifier.state.currentPages.keys, [SourceIds.netease]);
       expect(notifier.state.onlineResults.keys, [SourceIds.netease]);
     });
@@ -262,112 +269,121 @@ void main() {
 
       await notifier.search('chip query');
 
-      expect(
-        notifier.state.localResults.map((track) => track.sourceType),
-        [SourceIds.netease],
-      );
-    });
-
-    test('source changes keep previous results while refresh is in flight',
-        () async {
-      notifier.setSeedState(SearchState(
-        query: 'chip query',
-        onlineResults: {
-          SourceIds.youtube: SearchResult(
-            tracks: [_track('old-youtube')],
-            totalCount: 1,
-            page: 1,
-            pageSize: 20,
-            hasMore: false,
-          ),
-        },
-        currentPages: const {SourceIds.youtube: 1},
-      ));
-      final gate = service.enqueueOnlineSearchResult(
-        MultiSourceSearchResult(
-          query: 'chip query',
-          results: {
-            SourceIds.netease: SearchResult(
-              tracks: [_track('new-netease', sourceType: SourceIds.netease)],
-              totalCount: 1,
-              page: 1,
-              pageSize: 20,
-              hasMore: false,
-            ),
-          },
-        ),
-      );
-
-      notifier.setSource(SourceIds.netease);
-      await pumpEventQueue(times: 2);
-
-      expect(notifier.state.isLoading, isTrue);
-      expect(
-        notifier.state.onlineResults[SourceIds.youtube]?.tracks
-            .map((track) => track.sourceId),
-        ['old-youtube'],
-      );
-
-      gate.complete();
-      await pumpEventQueue(times: 2);
-
-      expect(notifier.state.isLoading, isFalse);
-      expect(notifier.state.onlineResults.keys, [SourceIds.netease]);
+      expect(notifier.state.localResults.map((track) => track.sourceType), [
+        SourceIds.netease,
+      ]);
     });
 
     test(
-        'search order changes keep previous results while refresh is in flight',
-        () async {
-      notifier.setSeedState(SearchState(
-        query: 'sort query',
-        searchOrder: SearchOrder.relevance,
-        onlineResults: {
-          SourceIds.youtube: SearchResult(
-            tracks: [_track('old-youtube')],
-            totalCount: 1,
-            page: 1,
-            pageSize: 20,
-            hasMore: false,
+      'source changes keep previous results while refresh is in flight',
+      () async {
+        notifier.setSeedState(
+          SearchState(
+            query: 'chip query',
+            onlineResults: {
+              SourceIds.youtube: SearchResult(
+                tracks: [_track('old-youtube')],
+                totalCount: 1,
+                page: 1,
+                pageSize: 20,
+                hasMore: false,
+              ),
+            },
+            currentPages: const {SourceIds.youtube: 1},
           ),
-        },
-        currentPages: const {SourceIds.youtube: 1},
-      ));
-      final gate = service.enqueueOnlineSearchResult(
-        MultiSourceSearchResult(
-          query: 'sort query',
-          results: {
-            SourceIds.youtube: SearchResult(
-              tracks: [_track('new-youtube')],
-              totalCount: 1,
-              page: 1,
-              pageSize: 20,
-              hasMore: false,
-            ),
-          },
-        ),
-      );
+        );
+        final gate = service.enqueueOnlineSearchResult(
+          MultiSourceSearchResult(
+            query: 'chip query',
+            results: {
+              SourceIds.netease: SearchResult(
+                tracks: [_track('new-netease', sourceType: SourceIds.netease)],
+                totalCount: 1,
+                page: 1,
+                pageSize: 20,
+                hasMore: false,
+              ),
+            },
+          ),
+        );
 
-      notifier.setSearchOrder(SearchOrder.playCount);
-      await pumpEventQueue(times: 2);
+        notifier.setSource(SourceIds.netease);
+        await pumpEventQueue(times: 2);
 
-      expect(notifier.state.searchOrder, SearchOrder.playCount);
-      expect(notifier.state.isLoading, isTrue);
-      expect(
-        notifier.state.onlineResults[SourceIds.youtube]?.tracks
-            .map((track) => track.sourceId),
-        ['old-youtube'],
-      );
+        expect(notifier.state.isLoading, isTrue);
+        expect(
+          notifier.state.onlineResults[SourceIds.youtube]?.tracks.map(
+            (track) => track.sourceId,
+          ),
+          ['old-youtube'],
+        );
 
-      gate.complete();
-      await pumpEventQueue(times: 2);
+        gate.complete();
+        await pumpEventQueue(times: 2);
 
-      expect(notifier.state.isLoading, isFalse);
-      expect(
-        notifier.state.onlineResults[SourceIds.youtube]?.tracks
-            .map((track) => track.sourceId),
-        ['new-youtube'],
-      );
-    });
+        expect(notifier.state.isLoading, isFalse);
+        expect(notifier.state.onlineResults.keys, [SourceIds.netease]);
+      },
+    );
+
+    test(
+      'search order changes keep previous results while refresh is in flight',
+      () async {
+        notifier.setSeedState(
+          SearchState(
+            query: 'sort query',
+            searchOrder: SearchOrder.relevance,
+            onlineResults: {
+              SourceIds.youtube: SearchResult(
+                tracks: [_track('old-youtube')],
+                totalCount: 1,
+                page: 1,
+                pageSize: 20,
+                hasMore: false,
+              ),
+            },
+            currentPages: const {SourceIds.youtube: 1},
+          ),
+        );
+        final gate = service.enqueueOnlineSearchResult(
+          MultiSourceSearchResult(
+            query: 'sort query',
+            results: {
+              SourceIds.youtube: SearchResult(
+                tracks: [_track('new-youtube')],
+                totalCount: 1,
+                page: 1,
+                pageSize: 20,
+                hasMore: false,
+              ),
+            },
+          ),
+        );
+
+        notifier.setSearchOrder(SearchOrder.playCount);
+        await pumpEventQueue(times: 2);
+
+        expect(notifier.state.searchOrder, SearchOrder.playCount);
+        expect(notifier.state.isLoading, isTrue);
+        expect(
+          notifier.state.onlineResults[SourceIds.youtube]?.tracks.map(
+            (track) => track.sourceId,
+          ),
+          ['old-youtube'],
+        );
+
+        gate.complete();
+        await pumpEventQueue(times: 2);
+
+        expect(notifier.state.isLoading, isFalse);
+        expect(
+          notifier.state.onlineResults[SourceIds.youtube]?.tracks.map(
+            (track) => track.sourceId,
+          ),
+          ['new-youtube'],
+        );
+      },
+    );
 
     test('clear cancels a delayed video search completion', () async {
       final onlineGate = service.enqueueOnlineSearchResult(
@@ -454,17 +470,16 @@ extension on SearchNotifier {
 
 class _CompletingSearchService extends SearchService {
   _CompletingSearchService()
-      : super(
-          sourceManager: SourceManager(),
-          trackRepository: TrackRepository(_FakeIsar()),
-          searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
-        );
+    : super(
+        sourceManager: SourceManager(),
+        trackRepository: TrackRepository(_FakeIsar()),
+        searchHistoryRepository: SearchHistoryRepository(_FakeIsar()),
+      );
 
-  final List<
-          ({String sourceType, String query, int page, SearchOrder order})>
-      sourceCalls = [];
+  final List<({String sourceType, String query, int page, SearchOrder order})>
+  sourceCalls = [];
   final List<({String query, List<String> sourceTypes, SearchOrder order})>
-      onlineCalls = [];
+  onlineCalls = [];
   final List<_PendingOnlineSearch> _pendingOnlineSearches = [];
   final Map<String, Completer<SearchResult>> _sourceCompleters = {};
   List<Track> localResults = [];
@@ -502,9 +517,7 @@ class _CompletingSearchService extends SearchService {
       results: {
         for (final sourceType in requestedSources)
           sourceType: SearchResult(
-            tracks: [
-              _track('${sourceType}-$query', sourceType: sourceType)
-            ],
+            tracks: [_track('${sourceType}-$query', sourceType: sourceType)],
             totalCount: 1,
             page: page,
             pageSize: pageSize,

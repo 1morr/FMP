@@ -83,10 +83,13 @@ class QueueManager with Logging {
   /// 设置 shuffle 状态（用于临时播放恢复）
   void setShuffleState(List<int> order, int index) {
     _shuffleOrder = List.from(order);
-    _shuffleIndex =
-        index.clamp(0, _shuffleOrder.isEmpty ? 0 : _shuffleOrder.length - 1);
+    _shuffleIndex = index.clamp(
+      0,
+      _shuffleOrder.isEmpty ? 0 : _shuffleOrder.length - 1,
+    );
     logDebug(
-        'Restored shuffle state: order length=${_shuffleOrder.length}, index=$_shuffleIndex');
+      'Restored shuffle state: order length=${_shuffleOrder.length}, index=$_shuffleIndex',
+    );
   }
 
   /// 获取接下来要播放的歌曲列表（考虑 shuffle 模式）
@@ -98,9 +101,11 @@ class QueueManager with Logging {
 
     if (isShuffleEnabled && _shuffleOrder.isNotEmpty) {
       // 随机模式：按 shuffle order 获取后续歌曲
-      for (var i = _shuffleIndex + 1;
-          i < _shuffleOrder.length && addedCount < count;
-          i++) {
+      for (
+        var i = _shuffleIndex + 1;
+        i < _shuffleOrder.length && addedCount < count;
+        i++
+      ) {
         final trackIndex = _shuffleOrder[i];
         if (trackIndex >= 0 && trackIndex < _tracks.length) {
           upcoming.add(_tracks[trackIndex]);
@@ -119,9 +124,11 @@ class QueueManager with Logging {
       }
     } else {
       // 顺序模式：按原始顺序获取后续歌曲
-      for (var i = _currentIndex + 1;
-          i < _tracks.length && addedCount < count;
-          i++) {
+      for (
+        var i = _currentIndex + 1;
+        i < _tracks.length && addedCount < count;
+        i++
+      ) {
         upcoming.add(_tracks[i]);
         addedCount++;
       }
@@ -151,9 +158,11 @@ class QueueManager with Logging {
       // 注意：这里从 safeIndex 对应的 shuffle 位置开始
       final shuffleIdx = _shuffleOrder.indexOf(safeIndex);
       if (shuffleIdx >= 0) {
-        for (var i = shuffleIdx;
-            i < _shuffleOrder.length && addedCount < count;
-            i++) {
+        for (
+          var i = shuffleIdx;
+          i < _shuffleOrder.length && addedCount < count;
+          i++
+        ) {
           final trackIndex = _shuffleOrder[i];
           if (trackIndex >= 0 && trackIndex < _tracks.length) {
             upcoming.add(_tracks[trackIndex]);
@@ -176,9 +185,9 @@ class QueueManager with Logging {
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,
     required QueuePersistenceManager queuePersistenceManager,
-  })  : _queueRepository = queueRepository,
-        _trackRepository = trackRepository,
-        _queuePersistenceManager = queuePersistenceManager;
+  }) : _queueRepository = queueRepository,
+       _trackRepository = trackRepository,
+       _queuePersistenceManager = queuePersistenceManager;
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
@@ -302,7 +311,8 @@ class QueueManager with Logging {
       title: title,
     );
     logDebug(
-        'Mix mode ${enabled ? "enabled" : "disabled"}: playlistId=$playlistId, title=$title');
+      'Mix mode ${enabled ? "enabled" : "disabled"}: playlistId=$playlistId, title=$title',
+    );
   }
 
   /// 清除 Mix 模式
@@ -435,8 +445,10 @@ class QueueManager with Logging {
   }
 
   /// 恢复队列状态（不重新生成 shuffle order，用于临时播放恢复）
-  Future<void> restoreQueue(List<Track> tracks,
-      {required int startIndex}) async {
+  Future<void> restoreQueue(
+    List<Track> tracks, {
+    required int startIndex,
+  }) async {
     logInfo('restoreQueue: ${tracks.length} tracks, startIndex: $startIndex');
     if (tracks.isEmpty) return;
 
@@ -460,7 +472,8 @@ class QueueManager with Logging {
     // 检查队列是否超过最大容量
     if (_tracks.length >= AppConstants.maxQueueSize) {
       logWarning(
-          'Queue size exceeds maximum ${AppConstants.maxQueueSize}, skipping add');
+        'Queue size exceeds maximum ${AppConstants.maxQueueSize}, skipping add',
+      );
       return false;
     }
 
@@ -630,9 +643,7 @@ class QueueManager with Logging {
     if (originalOrder == null || originalOrder.isEmpty) return;
 
     final current = currentTrack;
-    final Map<int, Track> trackMap = {
-      for (var t in _tracks) t.id: t,
-    };
+    final Map<int, Track> trackMap = {for (var t in _tracks) t.id: t};
 
     _tracks = originalOrder
         .where((id) => trackMap.containsKey(id))

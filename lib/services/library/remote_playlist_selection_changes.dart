@@ -5,10 +5,7 @@
 }) {
   return (
     toAdd: selectedIds.difference(originalIds).toList(),
-    toRemove: [
-      ...originalIds.difference(selectedIds),
-      ...deselectedPartialIds,
-    ],
+    toRemove: [...originalIds.difference(selectedIds), ...deselectedPartialIds],
   );
 }
 

@@ -62,25 +62,26 @@ class PlaylistImportResult {
   final int matchedCount;
   final int unmatchedCount;
 
-  PlaylistImportResult({
-    required this.playlist,
-    required this.matchedTracks,
-  })  : matchedCount =
-            matchedTracks.where((t) => t.status == MatchStatus.matched).length,
-        unmatchedCount =
-            matchedTracks.where((t) => t.status == MatchStatus.noResult).length;
+  PlaylistImportResult({required this.playlist, required this.matchedTracks})
+    : matchedCount = matchedTracks
+          .where((t) => t.status == MatchStatus.matched)
+          .length,
+      unmatchedCount = matchedTracks
+          .where((t) => t.status == MatchStatus.noResult)
+          .length;
 
   /// 获取已匹配的歌曲（用于创建歌单）
   List<Track> get selectedTracks => matchedTracks
-          .where((t) => t.isIncluded && t.selectedTrack != null)
-          .map((t) {
+      .where((t) => t.isIncluded && t.selectedTrack != null)
+      .map((t) {
         final track = t.selectedTrack!.copy();
         if (t.original.sourceId != null) {
           track.originalSongId = t.original.sourceId;
           track.originalSource = _mapSourceToString(t.original.source);
         }
         return track;
-      }).toList();
+      })
+      .toList();
 
   /// 获取未匹配的歌曲
   List<ImportedTrack> get unmatchedTracks => matchedTracks
@@ -125,14 +126,13 @@ class PlaylistImportService with Logging {
     _isCancelled = true;
   }
 
-  PlaylistImportService({
-    required SourceManager sourceManager,
-  })  : _sourceManager = sourceManager,
-        _importSources = [
-          NeteasePlaylistSource(),
-          QQMusicPlaylistSource(),
-          SpotifyPlaylistSource(),
-        ];
+  PlaylistImportService({required SourceManager sourceManager})
+    : _sourceManager = sourceManager,
+      _importSources = [
+        NeteasePlaylistSource(),
+        QQMusicPlaylistSource(),
+        SpotifyPlaylistSource(),
+      ];
 
   /// 检测链接对应的平台
   PlaylistSource? detectSource(String url) {
@@ -153,10 +153,12 @@ class PlaylistImportService with Logging {
     _isCancelled = false;
 
     // 1. 获取歌单
-    _progressController.add(ImportProgress(
-      phase: ImportPhase.fetching,
-      currentItem: t.importSource.fetchingPlaylistInfo,
-    ));
+    _progressController.add(
+      ImportProgress(
+        phase: ImportPhase.fetching,
+        currentItem: t.importSource.fetchingPlaylistInfo,
+      ),
+    );
 
     final playlist = await _fetchPlaylist(url);
 
@@ -169,11 +171,13 @@ class PlaylistImportService with Logging {
       maxSearchResults: maxSearchResults,
     );
 
-    _progressController.add(ImportProgress(
-      phase: ImportPhase.completed,
-      current: playlist.tracks.length,
-      total: playlist.tracks.length,
-    ));
+    _progressController.add(
+      ImportProgress(
+        phase: ImportPhase.completed,
+        current: playlist.tracks.length,
+        total: playlist.tracks.length,
+      ),
+    );
 
     return PlaylistImportResult(
       playlist: playlist,
@@ -183,18 +187,22 @@ class PlaylistImportService with Logging {
 
   /// 仅获取歌单（不匹配）
   Future<ImportedPlaylist> fetchPlaylist(String url) async {
-    _progressController.add(ImportProgress(
-      phase: ImportPhase.fetching,
-      currentItem: t.importSource.fetchingPlaylistInfo,
-    ));
+    _progressController.add(
+      ImportProgress(
+        phase: ImportPhase.fetching,
+        currentItem: t.importSource.fetchingPlaylistInfo,
+      ),
+    );
 
     final playlist = await _fetchPlaylist(url);
 
-    _progressController.add(ImportProgress(
-      phase: ImportPhase.completed,
-      current: playlist.tracks.length,
-      total: playlist.tracks.length,
-    ));
+    _progressController.add(
+      ImportProgress(
+        phase: ImportPhase.completed,
+        current: playlist.tracks.length,
+        total: playlist.tracks.length,
+      ),
+    );
 
     return playlist;
   }
@@ -221,12 +229,14 @@ class PlaylistImportService with Logging {
 
       final track = tracks[i];
 
-      _progressController.add(ImportProgress(
-        phase: ImportPhase.matching,
-        current: i + 1,
-        total: total,
-        currentItem: track.toString(),
-      ));
+      _progressController.add(
+        ImportProgress(
+          phase: ImportPhase.matching,
+          current: i + 1,
+          total: total,
+          currentItem: track.toString(),
+        ),
+      );
 
       try {
         final searchResults = await _searchTrack(
@@ -236,25 +246,27 @@ class PlaylistImportService with Logging {
         );
 
         if (searchResults.isNotEmpty) {
-          results.add(MatchedTrack(
-            original: track,
-            searchResults: searchResults,
-            selectedTrack: searchResults.first,
-            status: MatchStatus.matched,
-          ));
+          results.add(
+            MatchedTrack(
+              original: track,
+              searchResults: searchResults,
+              selectedTrack: searchResults.first,
+              status: MatchStatus.matched,
+            ),
+          );
         } else {
-          results.add(MatchedTrack(
-            original: track,
-            status: MatchStatus.noResult,
-          ));
+          results.add(
+            MatchedTrack(original: track, status: MatchStatus.noResult),
+          );
         }
       } catch (e) {
-        logWarning('Track "${track.searchQuery}" match failed; '
-            'marking as noResult: $e');
-        results.add(MatchedTrack(
-          original: track,
-          status: MatchStatus.noResult,
-        ));
+        logWarning(
+          'Track "${track.searchQuery}" match failed; '
+          'marking as noResult: $e',
+        );
+        results.add(
+          MatchedTrack(original: track, status: MatchStatus.noResult),
+        );
       }
 
       // 添加延迟避免请求过快触发限流
@@ -291,15 +303,17 @@ class PlaylistImportService with Logging {
           _sourceManager
               .searchFrom(SourceIds.youtube, query, pageSize: searchPageSize)
               .catchError((e) {
-            logWarning('YouTube search failed during import; ignoring: $e');
-            return SearchResult.empty();
-          }),
+                logWarning('YouTube search failed during import; ignoring: $e');
+                return SearchResult.empty();
+              }),
           _sourceManager
               .searchFrom(SourceIds.bilibili, query, pageSize: searchPageSize)
               .catchError((e) {
-            logWarning('Bilibili search failed during import; ignoring: $e');
-            return SearchResult.empty();
-          }),
+                logWarning(
+                  'Bilibili search failed during import; ignoring: $e',
+                );
+                return SearchResult.empty();
+              }),
         ]);
 
         for (final result in results) {
@@ -336,14 +350,16 @@ class PlaylistImportService with Logging {
     final originalArtist = _normalize(track.artists.join(' '));
     final originalDuration = track.duration;
     final filtered = allResults
-        .where((t) =>
-            _calculateRelevanceScore(
-              t,
-              originalTitle,
-              originalArtist,
-              originalDuration: originalDuration,
-            ) >=
-            0)
+        .where(
+          (t) =>
+              _calculateRelevanceScore(
+                t,
+                originalTitle,
+                originalArtist,
+                originalDuration: originalDuration,
+              ) >=
+              0,
+        )
         .take(maxResults)
         .toList();
 
@@ -359,8 +375,9 @@ class PlaylistImportService with Logging {
     final originalDuration = original.duration;
 
     // 计算所有结果的播放量，用于差异加权
-    final maxViewCount =
-        results.map((t) => t.viewCount ?? 0).reduce((a, b) => a > b ? a : b);
+    final maxViewCount = results
+        .map((t) => t.viewCount ?? 0)
+        .reduce((a, b) => a > b ? a : b);
 
     results.sort((a, b) {
       var scoreA = _calculateRelevanceScore(
@@ -430,7 +447,9 @@ class PlaylistImportService with Logging {
     // 时长匹配检查（与原曲时长对比）- 提前过滤
     if (originalDuration != null && originalDuration.inSeconds > 0) {
       final durationScore = _calculateDurationMatchScore(
-          durationSeconds, originalDuration.inSeconds);
+        durationSeconds,
+        originalDuration.inSeconds,
+      );
       if (durationScore < -50) {
         // 时长差异过大，直接过滤
         return -100;
@@ -439,14 +458,18 @@ class PlaylistImportService with Logging {
 
     // 标题相似度（权重 35%）- 提高权重
     // 同时尝试括号内容匹配，取较高分
-    final directTitleSimilarity =
-        _calculateSimilarity(originalTitle, trackTitle);
+    final directTitleSimilarity = _calculateSimilarity(
+      originalTitle,
+      trackTitle,
+    );
     final bracketTitleSimilarity = _calculateBracketContentSimilarity(
       track.title,
       originalTitle,
     );
-    final titleSimilarity =
-        math.max(directTitleSimilarity, bracketTitleSimilarity);
+    final titleSimilarity = math.max(
+      directTitleSimilarity,
+      bracketTitleSimilarity,
+    );
 
     // 艺术家相似度（权重 25%）- 改进：对标题中的艺术家匹配设置更高阈值
     final artistInChannel = _calculateSimilarity(originalArtist, trackArtist);
@@ -460,11 +483,15 @@ class PlaylistImportService with Logging {
     final viewScore = _normalizeViewCount(track.viewCount ?? 0);
 
     // 标题中同时包含歌名和艺术家的额外加分（权重 15%）
-    final combinedScore =
-        _calculateCombinedScore(trackTitle, originalTitle, originalArtist);
+    final combinedScore = _calculateCombinedScore(
+      trackTitle,
+      originalTitle,
+      originalArtist,
+    );
 
     // 基础分数
-    double score = titleSimilarity * 0.35 +
+    double score =
+        titleSimilarity * 0.35 +
         artistSimilarity * 0.25 +
         viewScore * 0.15 +
         combinedScore * 0.15;
@@ -484,7 +511,9 @@ class PlaylistImportService with Logging {
     // 时长匹配加分/减分 - 绝对值+百分比结合
     if (originalDuration != null && originalDuration.inSeconds > 0) {
       score += _calculateDurationMatchScore(
-          durationSeconds, originalDuration.inSeconds);
+        durationSeconds,
+        originalDuration.inSeconds,
+      );
     }
 
     // 版本匹配加分（-5~+10）
@@ -555,8 +584,9 @@ class PlaylistImportService with Logging {
     // 如果原曲指定了版本
     if (originalVersions.isNotEmpty) {
       // 检查是否有相同版本关键词
-      final matchedVersions =
-          trackVersions.where((v) => originalVersions.contains(v)).length;
+      final matchedVersions = trackVersions
+          .where((v) => originalVersions.contains(v))
+          .length;
       if (matchedVersions > 0) {
         return 10; // 版本匹配，加分
       } else if (trackVersions.isNotEmpty) {
@@ -625,7 +655,9 @@ class PlaylistImportService with Logging {
 
   /// A. 计算频道名与艺术家匹配加分
   double _calculateArtistChannelBonus(
-      String channelName, String originalArtist) {
+    String channelName,
+    String originalArtist,
+  ) {
     if (channelName.isEmpty || originalArtist.isEmpty) return 0;
 
     // 使用 N-gram 相似度检查频道名是否包含艺术家名
@@ -653,9 +685,9 @@ class PlaylistImportService with Logging {
   ) {
     // 检查视频标题是否同时包含原曲名和艺术家名的关键词
     // 对 CJK 语言：直接检查子串包含关系（不依赖空格分词）
-    final hasCJK =
-        RegExp(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]')
-            .hasMatch(originalTitle + originalArtist);
+    final hasCJK = RegExp(
+      r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]',
+    ).hasMatch(originalTitle + originalArtist);
 
     if (hasCJK) {
       // CJK 模式：直接检查子串
@@ -692,10 +724,12 @@ class PlaylistImportService with Logging {
         }
       }
 
-      final titleBigrams =
-          originalTitle.length >= 2 ? originalTitle.length - 1 : 1;
-      final artistBigrams =
-          originalArtist.length >= 2 ? originalArtist.length - 1 : 1;
+      final titleBigrams = originalTitle.length >= 2
+          ? originalTitle.length - 1
+          : 1;
+      final artistBigrams = originalArtist.length >= 2
+          ? originalArtist.length - 1
+          : 1;
 
       if (titleCharMatches > 0 && artistCharMatches > 0) {
         final titleRatio = titleCharMatches / titleBigrams;
@@ -707,10 +741,14 @@ class PlaylistImportService with Logging {
     }
 
     // 非 CJK 模式：基于空格分词的关键词匹配
-    final titleWords =
-        originalTitle.split(' ').where((w) => w.length > 1).toSet();
-    final artistWords =
-        originalArtist.split(' ').where((w) => w.length > 1).toSet();
+    final titleWords = originalTitle
+        .split(' ')
+        .where((w) => w.length > 1)
+        .toSet();
+    final artistWords = originalArtist
+        .split(' ')
+        .where((w) => w.length > 1)
+        .toSet();
 
     int titleMatches = 0;
     int artistMatches = 0;
@@ -724,10 +762,12 @@ class PlaylistImportService with Logging {
 
     // 如果标题和艺术家都有匹配，给予高分
     if (titleMatches > 0 && artistMatches > 0) {
-      final titleRatio =
-          titleWords.isNotEmpty ? titleMatches / titleWords.length : 0;
-      final artistRatio =
-          artistWords.isNotEmpty ? artistMatches / artistWords.length : 0;
+      final titleRatio = titleWords.isNotEmpty
+          ? titleMatches / titleWords.length
+          : 0;
+      final artistRatio = artistWords.isNotEmpty
+          ? artistMatches / artistWords.length
+          : 0;
       return (titleRatio + artistRatio) / 2 * 100;
     }
 
@@ -945,8 +985,9 @@ class PlaylistImportService with Logging {
         .toLowerCase()
         // 移除各种括号、分隔符、装饰符号
         .replaceAll(
-            RegExp(r'[【】\[\]()（）「」『』《》〈〉\-_·・｜丨／/\\——\u2014\u2013~～＊✦❖▶►▻➸]'),
-            ' ')
+          RegExp(r'[【】\[\]()（）「」『』《》〈〉\-_·・｜丨／/\\——\u2014\u2013~～＊✦❖▶►▻➸]'),
+          ' ',
+        )
         .replaceAll(RegExp(r'[#＃]'), ' ') // 移除 hashtag
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
@@ -962,7 +1003,9 @@ class PlaylistImportService with Logging {
   ///
   /// 提取括号内的歌名与原标题比较，可以获得更精确的匹配
   double _calculateBracketContentSimilarity(
-      String rawTitle, String originalTitle) {
+    String rawTitle,
+    String originalTitle,
+  ) {
     // 提取各种括号内的内容
     final bracketPatterns = [
       RegExp(r'「([^」]+)」'), // 日文括号 「」
@@ -1113,13 +1156,16 @@ class PlaylistImportService with Logging {
 
     switch (searchSource) {
       case SearchSourceConfig.all:
-        final results =
-            await _sourceManager.searchAll(query, pageSize: maxResults);
+        final results = await _sourceManager.searchAll(
+          query,
+          pageSize: maxResults,
+        );
         for (final result in results.values) {
           allResults.addAll(result.tracks);
         }
-        allResults
-            .sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
+        allResults.sort(
+          (a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0),
+        );
         break;
 
       case SearchSourceConfig.bilibiliOnly:

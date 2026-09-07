@@ -71,8 +71,9 @@ void main() {
       // 這兩個型別曾經各存一份同樣的 12 個欄位，靠 controller 每次逐欄位抄過去
       // 維持一致。抄漏一個就是一個看不見的 bug，而消費端會因為問了不同的
       // provider 拿到不同的答案。長回來的話這條會先掛。
-      final source =
-          File('lib/services/audio/player_state.dart').readAsStringSync();
+      final source = File(
+        'lib/services/audio/player_state.dart',
+      ).readAsStringSync();
 
       for (final field in const [
         'queue',
@@ -90,68 +91,75 @@ void main() {
       ]) {
         expect(
           source.contains(
-              RegExp('^' + r'\s+final .* ' + field + ';', multiLine: true)),
+            RegExp('^' + r'\s+final .* ' + field + ';', multiLine: true),
+          ),
           isFalse,
           reason: 'PlayerState.$field belongs to QueueState',
         );
       }
     });
 
-    test('controller queue updates publish through queueStateProvider wiring',
-        () async {
-      await harness.container.read(audioControllerProvider.notifier).addToQueue(
-            _track('wired'),
-          );
+    test(
+      'controller queue updates publish through queueStateProvider wiring',
+      () async {
+        await harness.container
+            .read(audioControllerProvider.notifier)
+            .addToQueue(_track('wired'));
 
-      final queueState = harness.container.read(queueStateProvider);
-      expect(
+        final queueState = harness.container.read(queueStateProvider);
+        expect(
           harness.container.read(queueProvider).map((track) => track.sourceId),
-          ['wired']);
-      expect(queueState.queue.map((track) => track.sourceId), ['wired']);
-      expect(queueState.queueVersion, greaterThan(0));
-    });
+          ['wired'],
+        );
+        expect(queueState.queue.map((track) => track.sourceId), ['wired']);
+        expect(queueState.queueVersion, greaterThan(0));
+      },
+    );
 
-    test('mix load-more flag stays synchronized in queueStateProvider',
-        () async {
-      final loadMoreGate = harness.mixTracksFetcher.enqueuePendingResult(
-        MixFetchResult(
-          title: 'My Mix',
-          tracks: List.generate(
-            AppConstants.mixMinNewTracksRequired,
-            (index) => _track('mix-new-$index'),
-          ),
-        ),
-      );
-
-      await harness.container
-          .read(audioControllerProvider.notifier)
-          .playMixPlaylist(
-            playlistId: 'RDqueue-state-mix',
-            seedVideoId: 'seed',
+    test(
+      'mix load-more flag stays synchronized in queueStateProvider',
+      () async {
+        final loadMoreGate = harness.mixTracksFetcher.enqueuePendingResult(
+          MixFetchResult(
             title: 'My Mix',
-            tracks: [
-              _track('mix-a'),
-              _track('mix-b'),
-            ],
-            startIndex: 1,
-          );
-      await pumpEventQueue(times: 5);
+            tracks: List.generate(
+              AppConstants.mixMinNewTracksRequired,
+              (index) => _track('mix-new-$index'),
+            ),
+          ),
+        );
 
-      expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
-      expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
-      expect(
-          harness.container.read(queueStateProvider).isLoadingMoreMix, isTrue);
+        await harness.container
+            .read(audioControllerProvider.notifier)
+            .playMixPlaylist(
+              playlistId: 'RDqueue-state-mix',
+              seedVideoId: 'seed',
+              title: 'My Mix',
+              tracks: [_track('mix-a'), _track('mix-b')],
+              startIndex: 1,
+            );
+        await pumpEventQueue(times: 5);
 
-      loadMoreGate.complete();
-      await _waitUntil(
-        () => !harness.container.read(queueStateProvider).isLoadingMoreMix,
-      );
+        expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
+        expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
+        expect(
+          harness.container.read(queueStateProvider).isLoadingMoreMix,
+          isTrue,
+        );
 
-      expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
-      expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
-      expect(
-          harness.container.read(queueStateProvider).isLoadingMoreMix, isFalse);
-    });
+        loadMoreGate.complete();
+        await _waitUntil(
+          () => !harness.container.read(queueStateProvider).isLoadingMoreMix,
+        );
+
+        expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
+        expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
+        expect(
+          harness.container.read(queueStateProvider).isLoadingMoreMix,
+          isFalse,
+        );
+      },
+    );
   });
 }
 
@@ -191,8 +199,9 @@ class _AudioControllerHarness {
   final DefaultStreamResolutionService streamResolutionService;
 
   static Future<_AudioControllerHarness> create() async {
-    final tempDir =
-        await Directory.systemTemp.createTemp('audio_queue_state_provider_');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'audio_queue_state_provider_',
+    );
     final isar = await Isar.open(
       [TrackSchema, PlayQueueSchema, SettingsSchema],
       directory: tempDir.path,

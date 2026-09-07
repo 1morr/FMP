@@ -43,44 +43,50 @@ void main() {
     }
   });
 
-  test('malformed stored Bilibili credentials do not leak token text to logs',
-      () async {
-    const sentinel = 'bilibili-secret-sessdata';
-    secureStorageData[_bilibiliStorageKey] = '{"SESSDATA":"$sentinel",';
-    FlutterSecureStorage.setMockInitialValues(secureStorageData);
+  test(
+    'malformed stored Bilibili credentials do not leak token text to logs',
+    () async {
+      const sentinel = 'bilibili-secret-sessdata';
+      secureStorageData[_bilibiliStorageKey] = '{"SESSDATA":"$sentinel",';
+      FlutterSecureStorage.setMockInitialValues(secureStorageData);
 
-    final service = BilibiliAccountService(isar: isar);
+      final service = BilibiliAccountService(isar: isar);
 
-    expect(await service.getAuthCookieString(), isNull);
-    expect(_allLogText(), isNot(contains(sentinel)));
-    expect(secureStorageData.containsKey(_bilibiliStorageKey), isFalse);
-  });
+      expect(await service.getAuthCookieString(), isNull);
+      expect(_allLogText(), isNot(contains(sentinel)));
+      expect(secureStorageData.containsKey(_bilibiliStorageKey), isFalse);
+    },
+  );
 
-  test('malformed stored YouTube credentials do not leak token text to logs',
-      () async {
-    const sentinel = 'youtube-secret-sapisid';
-    secureStorageData[_youtubeStorageKey] = '{"SAPISID":"$sentinel",';
-    FlutterSecureStorage.setMockInitialValues(secureStorageData);
+  test(
+    'malformed stored YouTube credentials do not leak token text to logs',
+    () async {
+      const sentinel = 'youtube-secret-sapisid';
+      secureStorageData[_youtubeStorageKey] = '{"SAPISID":"$sentinel",';
+      FlutterSecureStorage.setMockInitialValues(secureStorageData);
 
-    final service = YouTubeAccountService(isar: isar);
+      final service = YouTubeAccountService(isar: isar);
 
-    expect(await service.getAuthHeaders(), isNull);
-    expect(_allLogText(), isNot(contains(sentinel)));
-    expect(secureStorageData.containsKey(_youtubeStorageKey), isFalse);
-  });
+      expect(await service.getAuthHeaders(), isNull);
+      expect(_allLogText(), isNot(contains(sentinel)));
+      expect(secureStorageData.containsKey(_youtubeStorageKey), isFalse);
+    },
+  );
 
-  test('malformed stored Netease credentials do not leak token text to logs',
-      () async {
-    const sentinel = 'netease-secret-music-u';
-    secureStorageData[_neteaseStorageKey] = '{"musicU":"$sentinel",';
-    FlutterSecureStorage.setMockInitialValues(secureStorageData);
+  test(
+    'malformed stored Netease credentials do not leak token text to logs',
+    () async {
+      const sentinel = 'netease-secret-music-u';
+      secureStorageData[_neteaseStorageKey] = '{"musicU":"$sentinel",';
+      FlutterSecureStorage.setMockInitialValues(secureStorageData);
 
-    final service = NeteaseAccountService(isar: isar);
+      final service = NeteaseAccountService(isar: isar);
 
-    expect(await service.getAuthCookieString(), isNull);
-    expect(_allLogText(), isNot(contains(sentinel)));
-    expect(secureStorageData.containsKey(_neteaseStorageKey), isFalse);
-  });
+      expect(await service.getAuthCookieString(), isNull);
+      expect(_allLogText(), isNot(contains(sentinel)));
+      expect(secureStorageData.containsKey(_neteaseStorageKey), isFalse);
+    },
+  );
 
   test('AppLogger redacts complete auth header values', () {
     const sentinel = 'token.tail.must.not.leak';

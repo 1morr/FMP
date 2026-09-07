@@ -25,10 +25,7 @@ class ConnectivityState {
     isInitialized: false,
   );
 
-  ConnectivityState copyWith({
-    bool? isConnected,
-    bool? isInitialized,
-  }) {
+  ConnectivityState copyWith({bool? isConnected, bool? isInitialized}) {
     return ConnectivityState(
       isConnected: isConnected ?? this.isConnected,
       isInitialized: isInitialized ?? this.isInitialized,
@@ -70,16 +67,16 @@ class ConnectivityNotifier extends Notifier<ConnectivityState> with Logging {
     final isConnected = await _checkConnectivity();
     logDebug('Initial connectivity check: isConnected=$isConnected');
 
-    state = state.copyWith(
-      isConnected: isConnected,
-      isInitialized: true,
-    );
+    state = state.copyWith(isConnected: isConnected, isInitialized: true);
 
     // 启动定时轮询
     _pollingTimer = Timer.periodic(
-        AppConstants.connectivityPollingInterval, (_) => _poll());
+      AppConstants.connectivityPollingInterval,
+      (_) => _poll(),
+    );
     logDebug(
-        'DNS polling started (interval: ${AppConstants.connectivityPollingInterval.inSeconds}s)');
+      'DNS polling started (interval: ${AppConstants.connectivityPollingInterval.inSeconds}s)',
+    );
   }
 
   Future<void> _poll() async {
@@ -88,7 +85,8 @@ class ConnectivityNotifier extends Notifier<ConnectivityState> with Logging {
 
     if (wasConnected != isConnected) {
       logInfo(
-          'Connectivity changed: wasConnected=$wasConnected, isConnected=$isConnected');
+        'Connectivity changed: wasConnected=$wasConnected, isConnected=$isConnected',
+      );
       state = state.copyWith(isConnected: isConnected);
 
       if (!wasConnected && isConnected) {
@@ -104,8 +102,9 @@ class ConnectivityNotifier extends Notifier<ConnectivityState> with Logging {
   Future<bool> _checkConnectivity() async {
     for (final target in _dnsTargets) {
       try {
-        final result = await InternetAddress.lookup(target)
-            .timeout(AppConstants.dnsTimeout);
+        final result = await InternetAddress.lookup(
+          target,
+        ).timeout(AppConstants.dnsTimeout);
         if (result.isNotEmpty && result.first.rawAddress.isNotEmpty) {
           return true;
         }
@@ -127,7 +126,8 @@ class ConnectivityNotifier extends Notifier<ConnectivityState> with Logging {
 /// 网络连接状态 Provider
 final connectivityProvider =
     NotifierProvider<ConnectivityNotifier, ConnectivityState>(
-        ConnectivityNotifier.new);
+      ConnectivityNotifier.new,
+    );
 
 /// 是否已连接网络 Provider
 final isConnectedProvider = Provider<bool>((ref) {

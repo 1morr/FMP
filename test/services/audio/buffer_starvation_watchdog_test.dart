@@ -25,10 +25,10 @@ void main() {
     });
 
     void buffering() => watchdog.onPlayerStateChanged(
-          isBuffering: true,
-          isPlaying: true,
-          isSuppressed: false,
-        );
+      isBuffering: true,
+      isPlaying: true,
+      isSuppressed: false,
+    );
 
     test('does not report starvation while the budget has not elapsed', () {
       buffering();

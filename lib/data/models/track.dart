@@ -114,26 +114,32 @@ class Track {
     for (final info in playlistInfo) {
       if (info.playlistId == playlistId) {
         // 创建新对象以确保 Isar 检测到变更
-        newInfos.add(PlaylistDownloadInfo()
-          ..playlistId = playlistId
-          ..playlistName = playlistName ?? info.playlistName
-          ..downloadPath = path);
+        newInfos.add(
+          PlaylistDownloadInfo()
+            ..playlistId = playlistId
+            ..playlistName = playlistName ?? info.playlistName
+            ..downloadPath = path,
+        );
         found = true;
       } else {
         // 复制现有对象
-        newInfos.add(PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath = info.downloadPath);
+        newInfos.add(
+          PlaylistDownloadInfo()
+            ..playlistId = info.playlistId
+            ..playlistName = info.playlistName
+            ..downloadPath = info.downloadPath,
+        );
       }
     }
 
     if (!found) {
       // 如果不在任何歌单中，添加新条目
-      newInfos.add(PlaylistDownloadInfo()
-        ..playlistId = playlistId
-        ..playlistName = playlistName ?? ''
-        ..downloadPath = path);
+      newInfos.add(
+        PlaylistDownloadInfo()
+          ..playlistId = playlistId
+          ..playlistName = playlistName ?? ''
+          ..downloadPath = path,
+      );
     }
 
     playlistInfo = newInfos;
@@ -154,9 +160,11 @@ class Track {
   void addToPlaylist(int playlistId, {String? playlistName}) {
     if (!belongsToPlaylist(playlistId)) {
       playlistInfo = List.from(playlistInfo)
-        ..add(PlaylistDownloadInfo()
-          ..playlistId = playlistId
-          ..playlistName = playlistName ?? '');
+        ..add(
+          PlaylistDownloadInfo()
+            ..playlistId = playlistId
+            ..playlistName = playlistName ?? '',
+        );
     }
   }
 
@@ -164,15 +172,17 @@ class Track {
   bool isDownloadedForPlaylist(int playlistId, {String? playlistName}) {
     // 优先按名称匹配
     if (playlistName != null && playlistName.isNotEmpty) {
-      final byName =
-          playlistInfo.where((i) => i.playlistName == playlistName).firstOrNull;
+      final byName = playlistInfo
+          .where((i) => i.playlistName == playlistName)
+          .firstOrNull;
       if (byName != null && byName.downloadPath.isNotEmpty) {
         return true;
       }
     }
     // 降级按 ID 匹配（兼容旧数据）
-    final byId =
-        playlistInfo.where((i) => i.playlistId == playlistId).firstOrNull;
+    final byId = playlistInfo
+        .where((i) => i.playlistId == playlistId)
+        .firstOrNull;
     return byId != null && byId.downloadPath.isNotEmpty;
   }
 
@@ -181,10 +191,12 @@ class Track {
   /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
   void clearAllDownloadPaths() {
     playlistInfo = playlistInfo
-        .map((info) => PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath = '')
+        .map(
+          (info) => PlaylistDownloadInfo()
+            ..playlistId = info.playlistId
+            ..playlistName = info.playlistName
+            ..downloadPath = '',
+        )
         .toList();
   }
 
@@ -193,11 +205,14 @@ class Track {
   /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
   void clearDownloadPathForPlaylist(int playlistId) {
     playlistInfo = playlistInfo
-        .map((info) => PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath =
-              info.playlistId == playlistId ? '' : info.downloadPath)
+        .map(
+          (info) => PlaylistDownloadInfo()
+            ..playlistId = info.playlistId
+            ..playlistName = info.playlistName
+            ..downloadPath = info.playlistId == playlistId
+                ? ''
+                : info.downloadPath,
+        )
         .toList();
   }
 
@@ -259,8 +274,7 @@ class Track {
 
   /// 分P唯一索引（用于查找特定分P）
   @Index(composite: [CompositeIndex('cid')])
-  String get sourcePageKey =>
-      TrackKey.format(sourceType, sourceId, cid: cid);
+  String get sourcePageKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   /// URL 過期前的安全邊界：距離過期不到這段時間就當作已經不可用。
   ///

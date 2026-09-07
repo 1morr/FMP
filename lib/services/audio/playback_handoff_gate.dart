@@ -68,10 +68,10 @@ class PlaybackHandoffGate with Logging {
     required Future<void> Function(Duration position) performSeek,
     required bool Function(int requestId) isRequestSuperseded,
     Duration stabilizationDelay = AppConstants.seekStabilizationDelay,
-  })  : _currentTrackKey = currentTrackKey,
-        _performSeek = performSeek,
-        _isRequestSuperseded = isRequestSuperseded,
-        _stabilizationDelay = stabilizationDelay;
+  }) : _currentTrackKey = currentTrackKey,
+       _performSeek = performSeek,
+       _isRequestSuperseded = isRequestSuperseded,
+       _stabilizationDelay = stabilizationDelay;
 
   final String? Function() _currentTrackKey;
   final Future<void> Function(Duration position) _performSeek;
@@ -228,7 +228,10 @@ class PlaybackHandoffGate with Logging {
       await _performSeek(pending.position);
     } catch (e, stack) {
       logError(
-          'Failed to apply deferred seek to ${pending.position}', e, stack);
+        'Failed to apply deferred seek to ${pending.position}',
+        e,
+        stack,
+      );
     } finally {
       pending.complete();
     }

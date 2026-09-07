@@ -7,9 +7,7 @@ class LyricsTitleParseCacheRepository {
 
   LyricsTitleParseCacheRepository(this._isar);
 
-  Future<LyricsTitleParseCache?> getReusable({
-    required String trackUniqueKey,
-  }) {
+  Future<LyricsTitleParseCache?> getReusable({required String trackUniqueKey}) {
     return _isar.lyricsTitleParseCaches
         .where()
         .trackUniqueKeyEqualTo(trackUniqueKey)

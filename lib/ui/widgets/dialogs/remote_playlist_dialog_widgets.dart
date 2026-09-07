@@ -41,10 +41,7 @@ class RemotePlaylistDialogHeader extends StatelessWidget {
 class RemotePlaylistTrackSummary extends StatelessWidget {
   final List<Track> tracks;
 
-  const RemotePlaylistTrackSummary({
-    super.key,
-    required this.tracks,
-  });
+  const RemotePlaylistTrackSummary({super.key, required this.tracks});
 
   @override
   Widget build(BuildContext context) {
@@ -65,10 +62,9 @@ class RemotePlaylistTrackSummary extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   '${tracks.length} ${t.remote.tracksCount}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w500),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ],
             )
@@ -86,18 +82,17 @@ class RemotePlaylistTrackSummary extends StatelessWidget {
                     children: [
                       Text(
                         tracks.first.title,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w500),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         tracks.first.artist ?? '',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -133,15 +128,10 @@ class RemotePlaylistCreateTile extends StatelessWidget {
             color: colorScheme.primaryContainer,
             borderRadius: AppRadius.borderRadiusMd,
           ),
-          child: Icon(
-            Icons.add,
-            color: colorScheme.onPrimaryContainer,
-          ),
+          child: Icon(Icons.add, color: colorScheme.onPrimaryContainer),
         ),
         title: Text(title),
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
         onTap: onTap,
       ),
     );
@@ -202,9 +192,7 @@ class RemotePlaylistListTile extends StatelessWidget {
       ),
       selected: isSelected || isPartial,
       selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderRadiusLg,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
       onTap: onTap,
     );
   }
@@ -228,24 +216,20 @@ class RemotePlaylistEmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.library_music,
-            size: 48,
-            color: colorScheme.outline,
-          ),
+          Icon(Icons.library_music, size: 48, color: colorScheme.outline),
           const SizedBox(height: 16),
           Text(
             title,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.outline,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
           ),
           const SizedBox(height: 8),
           Text(
             hint,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.outline,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
           ),
         ],
       ),
@@ -288,17 +272,17 @@ class RemotePlaylistSelectionIndicator extends StatelessWidget {
 /// Bilibili / NetEase 建立遠端播放清單共用的公開/私人兩段隱私選項。
 /// YouTube 另有 UNLISTED 段，由呼叫端自行組裝 segments。
 List<ButtonSegment<bool>> remotePlaylistPrivacySegments() => [
-      ButtonSegment(
-        value: false,
-        label: Text(t.remote.privacyPublic),
-        icon: const Icon(Icons.public, size: 18),
-      ),
-      ButtonSegment(
-        value: true,
-        label: Text(t.remote.privacyPrivate),
-        icon: const Icon(Icons.lock, size: 18),
-      ),
-    ];
+  ButtonSegment(
+    value: false,
+    label: Text(t.remote.privacyPublic),
+    icon: const Icon(Icons.public, size: 18),
+  ),
+  ButtonSegment(
+    value: true,
+    label: Text(t.remote.privacyPrivate),
+    icon: const Icon(Icons.lock, size: 18),
+  ),
+];
 
 /// 三個遠端「加入播放清單」對話框共用的建立播放清單 AlertDialog。
 ///
@@ -326,15 +310,13 @@ Future<({String name, T privacy})?> showCreateRemotePlaylistDialog<T>({
               TextField(
                 controller: controller,
                 autofocus: true,
-                decoration: InputDecoration(
-                  hintText: hint,
-                ),
+                decoration: InputDecoration(hintText: hint),
                 onSubmitted: (value) {
                   if (value.trim().isNotEmpty) {
-                    Navigator.pop(
-                      context,
-                      (name: value.trim(), privacy: privacy),
-                    );
+                    Navigator.pop(context, (
+                      name: value.trim(),
+                      privacy: privacy,
+                    ));
                   }
                 },
               ),
@@ -400,8 +382,11 @@ void reportRemotePlaylistEditResult(
     return;
   }
   if (result.hasFailures) {
-    ToastService.failure(context, result.failures.first.error,
-        tag: 'RemotePlaylist');
+    ToastService.failure(
+      context,
+      result.failures.first.error,
+      tag: 'RemotePlaylist',
+    );
   } else {
     ToastService.show(context, t.remote.noChanges);
   }

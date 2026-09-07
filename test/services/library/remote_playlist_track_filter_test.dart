@@ -4,21 +4,22 @@ import 'package:fmp/services/library/remote_playlist_track_filter.dart';
 
 void main() {
   test(
-      'filters tracks to logged-in remote sources without requiring the first track',
-      () {
-    final tracks = [
-      _track(SourceIds.youtube, 'yt'),
-      _track(SourceIds.netease, 'ne'),
-      _track(SourceIds.bilibili, 'bi'),
-    ];
+    'filters tracks to logged-in remote sources without requiring the first track',
+    () {
+      final tracks = [
+        _track(SourceIds.youtube, 'yt'),
+        _track(SourceIds.netease, 'ne'),
+        _track(SourceIds.bilibili, 'bi'),
+      ];
 
-    final filtered = filterLoggedInRemoteTracks(
-      tracks,
-      isLoggedIn: (sourceType) => sourceType == SourceIds.netease,
-    );
+      final filtered = filterLoggedInRemoteTracks(
+        tracks,
+        isLoggedIn: (sourceType) => sourceType == SourceIds.netease,
+      );
 
-    expect(filtered.map((track) => track.sourceId), ['ne']);
-  });
+      expect(filtered.map((track) => track.sourceId), ['ne']);
+    },
+  );
 }
 
 Track _track(String sourceType, String sourceId) {

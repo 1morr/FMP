@@ -20,13 +20,12 @@ class TrackSourceIdentity {
   });
 
   factory TrackSourceIdentity.fromTrack(Track track) => TrackSourceIdentity(
-        sourceType: track.sourceType,
-        sourceId: track.sourceId,
-        cid: track.cid,
-      );
+    sourceType: track.sourceType,
+    sourceId: track.sourceId,
+    cid: track.cid,
+  );
 
-  String get sourcePageKey =>
-      TrackKey.format(sourceType, sourceId, cid: cid);
+  String get sourcePageKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   @override
   bool operator ==(Object other) =>
@@ -241,7 +240,11 @@ class TrackRepository with Logging {
   /// [playlistName] 歌单名称（用于下载路径匹配）
   /// [path] 下载路径
   Future<void> addDownloadPath(
-      int trackId, int? playlistId, String? playlistName, String path) async {
+    int trackId,
+    int? playlistId,
+    String? playlistName,
+    String path,
+  ) async {
     final track = await getById(trackId);
     if (track == null) {
       logWarning('addDownloadPath: track $trackId not found!');
@@ -250,11 +253,16 @@ class TrackRepository with Logging {
 
     final effectivePlaylistId = playlistId ?? 0;
     logDebug(
-        'addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
-    track.setDownloadPath(effectivePlaylistId, path,
-        playlistName: playlistName);
+      'addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}',
+    );
+    track.setDownloadPath(
+      effectivePlaylistId,
+      path,
+      playlistName: playlistName,
+    );
     logDebug(
-        'addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
+      'addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}',
+    );
     await save(track);
     logDebug('Added download path for track $trackId: $path');
   }
@@ -270,7 +278,8 @@ class TrackRepository with Logging {
             .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
             .findAll();
         logDebug(
-            'clearAllDownloadPaths: Found ${tracks.length} tracks with download paths');
+          'clearAllDownloadPaths: Found ${tracks.length} tracks with download paths',
+        );
 
         if (tracks.isEmpty) {
           logDebug('clearAllDownloadPaths: No tracks to clear');
@@ -478,7 +487,8 @@ class TrackRepository with Logging {
     }
 
     logDebug(
-        'getOrCreateAll: returned ${finalResults.length} tracks (${results.length} unique)');
+      'getOrCreateAll: returned ${finalResults.length} tracks (${results.length} unique)',
+    );
     return finalResults;
   }
 
@@ -581,7 +591,8 @@ class TrackRepository with Logging {
       }
 
       logDebug(
-          'Cleaned up invalid download paths for ${toUpdate.length} tracks');
+        'Cleaned up invalid download paths for ${toUpdate.length} tracks',
+      );
       return toUpdate.length;
     });
   }
@@ -599,7 +610,8 @@ class TrackRepository with Logging {
   /// 返回删除的 Track 数量
   Future<int> deleteOrphanTracks({List<int> excludeTrackIds = const []}) async {
     logDebug(
-        'Deleting orphan tracks (excluding ${excludeTrackIds.length} queue tracks)...');
+      'Deleting orphan tracks (excluding ${excludeTrackIds.length} queue tracks)...',
+    );
 
     final excludeSet = excludeTrackIds.toSet();
     final toDelete = <int>[];
@@ -643,7 +655,8 @@ class TrackRepository with Logging {
     });
 
     logInfo(
-        'Deleted ${toDelete.length} orphan tracks and their lyrics matches');
+      'Deleted ${toDelete.length} orphan tracks and their lyrics matches',
+    );
     return toDelete.length;
   }
 }

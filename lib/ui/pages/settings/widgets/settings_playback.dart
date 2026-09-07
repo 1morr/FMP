@@ -27,8 +27,9 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(playbackSettingsProvider);
-    final isEnabled =
-        settings.isLoading ? true : settings.rememberPlaybackPosition;
+    final isEnabled = settings.isLoading
+        ? true
+        : settings.rememberPlaybackPosition;
 
     return ListTile(
       leading: const Icon(Icons.history_outlined),
@@ -61,13 +62,13 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
       onTap: settings.isLoading
           ? null
           : isEnabled
-              ? () => showDialog(
-                    context: context,
-                    builder: (context) => const _RewindSettingsDialog(),
-                  )
-              : () => ref
-                  .read(playbackSettingsProvider.notifier)
-                  .setRememberPlaybackPosition(true),
+          ? () => showDialog(
+              context: context,
+              builder: (context) => const _RewindSettingsDialog(),
+            )
+          : () => ref
+                .read(playbackSettingsProvider.notifier)
+                .setRememberPlaybackPosition(true),
     );
   }
 }
@@ -81,8 +82,9 @@ class _AutoMatchLyricsTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final audioSettings = ref.watch(audioSettingsProvider);
-    final isEnabled =
-        audioSettings.isLoading ? true : audioSettings.autoMatchLyrics;
+    final isEnabled = audioSettings.isLoading
+        ? true
+        : audioSettings.autoMatchLyrics;
 
     return ListTile(
       leading: const Icon(Icons.lyrics_outlined),
@@ -112,10 +114,10 @@ class _AutoMatchLyricsTile extends ConsumerWidget {
       onTap: audioSettings.isLoading
           ? null
           : isEnabled
-              ? () => _openSourceSettings(context)
-              : () => ref
-                  .read(audioSettingsProvider.notifier)
-                  .setAutoMatchLyrics(true),
+          ? () => _openSourceSettings(context)
+          : () => ref
+                .read(audioSettingsProvider.notifier)
+                .setAutoMatchLyrics(true),
     );
   }
 }
@@ -146,8 +148,9 @@ class _RewindSettingsDialog extends ConsumerWidget {
           children: [
             Text(
               t.settings.rewindSettings.description,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 20),
             _buildRewindRow(
@@ -195,9 +198,12 @@ class _RewindSettingsDialog extends ConsumerWidget {
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 2),
-        Text(subtitle,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,
@@ -205,9 +211,11 @@ class _RewindSettingsDialog extends ConsumerWidget {
           children: _rewindOptions.map((option) {
             final isSelected = option == value;
             return ChoiceChip(
-              label: Text(option == 0
-                  ? t.settings.rewindSettings.noRewind
-                  : t.settings.rewindSettings.seconds(n: option)),
+              label: Text(
+                option == 0
+                    ? t.settings.rewindSettings.noRewind
+                    : t.settings.rewindSettings.seconds(n: option),
+              ),
               selected: isSelected,
               onSelected: (_) => onChanged(option),
             );

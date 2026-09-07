@@ -37,9 +37,9 @@ class DownloadPathMaintenanceService {
     required TrackRepository trackRepository,
     required DownloadPathManager pathManager,
     required Future<int> Function() clearCompletedAndErrorTasks,
-  })  : _trackRepository = trackRepository,
-        _pathManager = pathManager,
-        _clearCompletedAndErrorTasks = clearCompletedAndErrorTasks;
+  }) : _trackRepository = trackRepository,
+       _pathManager = pathManager,
+       _clearCompletedAndErrorTasks = clearCompletedAndErrorTasks;
 
   final TrackRepository _trackRepository;
   final DownloadPathManager _pathManager;
@@ -48,10 +48,11 @@ class DownloadPathMaintenanceService {
   Future<ChangeBasePathMaintenanceResult> changeBasePathAndResetDownloads(
     String newPath,
   ) async {
-    final tracksWithDownloads =
-        await _trackRepository.getAllTracksWithDownloads();
-    final affectedPlaylistIds =
-        _collectAffectedPlaylistIds(tracksWithDownloads);
+    final tracksWithDownloads = await _trackRepository
+        .getAllTracksWithDownloads();
+    final affectedPlaylistIds = _collectAffectedPlaylistIds(
+      tracksWithDownloads,
+    );
 
     if (tracksWithDownloads.isNotEmpty) {
       await _trackRepository.clearAllDownloadPaths();
@@ -142,7 +143,8 @@ class DownloadPathMaintenanceService {
       var changed = false;
       final nextPlaylistInfo = <PlaylistDownloadInfo>[];
       for (final info in persistedTrack.playlistInfo) {
-        final shouldClear = info.downloadPath.isNotEmpty &&
+        final shouldClear =
+            info.downloadPath.isNotEmpty &&
             scannedPathsForTrack.contains(_normalizePath(info.downloadPath));
         nextPlaylistInfo.add(
           PlaylistDownloadInfo()
@@ -199,7 +201,9 @@ class DownloadPathMaintenanceService {
   }
 
   Track? _findMatchingPersistedTrack(
-      Track scannedTrack, List<Track> candidates) {
+    Track scannedTrack,
+    List<Track> candidates,
+  ) {
     if (candidates.isEmpty) {
       return null;
     }
@@ -298,8 +302,8 @@ Future<void> _deleteMetadataForAudioFile(
   String audioPath,
 ) async {
   final audioFileName = p.basename(audioPath);
-  final metadataName = audioFileName.startsWith('P') &&
-          audioFileName.contains('.')
+  final metadataName =
+      audioFileName.startsWith('P') && audioFileName.contains('.')
       ? 'metadata_P${audioFileName.substring(1, audioFileName.indexOf('.'))}.json'
       : DownloadFileNames.metadata;
   final metadataFile = File(p.join(parentDir.path, metadataName));

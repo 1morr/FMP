@@ -4,10 +4,7 @@ import '../../data/models/models.dart';
 import '../../i18n/strings.g.dart';
 
 class DatabaseViewerSection {
-  const DatabaseViewerSection({
-    required this.title,
-    required this.data,
-  });
+  const DatabaseViewerSection({required this.title, required this.data});
 
   final String title;
   final Map<String, String> data;
@@ -181,26 +178,28 @@ List<DatabaseViewerSection> _trackSections(Track track) {
     DatabaseViewerSection(
       title: t.databaseViewer.cacheAndDownload,
       data: {
-        'playlistInfo (${track.playlistInfo.length})': track
-                .playlistInfo.isEmpty
+        'playlistInfo (${track.playlistInfo.length})':
+            track.playlistInfo.isEmpty
             ? '[]'
             : track.playlistInfo
-                .asMap()
-                .entries
-                .map((e) =>
-                    '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}')
-                .join('\n\n'),
+                  .asMap()
+                  .entries
+                  .map(
+                    (e) =>
+                        '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}',
+                  )
+                  .join('\n\n'),
         'allPlaylistIds': track.allPlaylistIds.isEmpty
             ? '[]'
             : track.allPlaylistIds.join(', '),
         'allDownloadPaths (${track.allDownloadPaths.length})':
             track.allDownloadPaths.isEmpty
-                ? '[]'
-                : track.allDownloadPaths
-                    .asMap()
-                    .entries
-                    .map((e) => '[${e.key}] ${e.value}')
-                    .join('\n'),
+            ? '[]'
+            : track.allDownloadPaths
+                  .asMap()
+                  .entries
+                  .map((e) => '[${e.key}] ${e.value}')
+                  .join('\n'),
         'hasAnyDownload': track.hasAnyDownload.toString(),
       },
     ),
@@ -353,9 +352,7 @@ List<DatabaseViewerSection> _playQueueSections(PlayQueue queue) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.timestamps,
-      data: {
-        'lastUpdated': queue.lastUpdated?.toIso8601String() ?? 'null',
-      },
+      data: {'lastUpdated': queue.lastUpdated?.toIso8601String() ?? 'null'},
     ),
   ];
 }
@@ -376,9 +373,7 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.colorSettings,
-      data: {
-        'primaryColor': _formatNullableColor(setting.primaryColor),
-      },
+      data: {'primaryColor': _formatNullableColor(setting.primaryColor)},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.storageSettings,
@@ -410,15 +405,17 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'audioQualityLevelIndex': setting.audioQualityLevelIndex.toString(),
         'audioQualityLevel': setting.audioQualityLevel.name,
         'audioFormatPriority': setting.audioFormatPriority,
-        'audioFormatPriorityList':
-            setting.audioFormatPriorityList.map((e) => e.name).join(', '),
+        'audioFormatPriorityList': setting.audioFormatPriorityList
+            .map((e) => e.name)
+            .join(', '),
       },
     ),
     DatabaseViewerSection(
       title: 'Source Settings',
       data: {
-        'sourceSettings':
-            setting.sourceSettings.map((e) => e.sourceId).join(', '),
+        'sourceSettings': setting.sourceSettings
+            .map((e) => e.sourceId)
+            .join(', '),
       },
     ),
     // 逐筆列出實際存進 sourceSettings 的內容，而不是照 SourceIds 硬列 ——
@@ -442,11 +439,11 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'rankingRefreshIntervalMinutes':
             '${setting.rankingRefreshIntervalMinutes} min',
         'homeRankingSourcePriority': setting.homeRankingSourcePriority,
-        'homeRankingSourcePriorityList':
-            setting.homeRankingSourcePriorityList.join(', '),
+        'homeRankingSourcePriorityList': setting.homeRankingSourcePriorityList
+            .join(', '),
         'disabledHomeRankingSources': setting.disabledHomeRankingSources,
-        'disabledHomeRankingSourcesSet':
-            setting.disabledHomeRankingSourcesSet.join(', '),
+        'disabledHomeRankingSourcesSet': setting.disabledHomeRankingSourcesSet
+            .join(', '),
         'radioRefreshIntervalMinutes':
             '${setting.radioRefreshIntervalMinutes} min',
       },
@@ -472,8 +469,8 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       title: t.databaseViewer.lyricsSettings,
       data: {
         'autoMatchLyrics': setting.autoMatchLyrics.toString(),
-        'allowPlainLyricsAutoMatch':
-            setting.allowPlainLyricsAutoMatch.toString(),
+        'allowPlainLyricsAutoMatch': setting.allowPlainLyricsAutoMatch
+            .toString(),
         'maxLyricsCacheFiles': setting.maxLyricsCacheFiles.toString(),
         'lyricsDisplayModeIndex': setting.lyricsDisplayModeIndex.toString(),
         'lyricsDisplayMode': setting.lyricsDisplayMode.name,
@@ -481,29 +478,33 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'lyricsSourcePriorityList': setting.lyricsSourcePriorityList.join(', '),
         'disabledLyricsSources': setting.disabledLyricsSources,
         'disabledLyricsSourcesSet': setting.disabledLyricsSourcesSet.join(', '),
-        'lyricsAiTitleParsingModeIndex':
-            setting.lyricsAiTitleParsingModeIndex.toString(),
+        'lyricsAiTitleParsingModeIndex': setting.lyricsAiTitleParsingModeIndex
+            .toString(),
         'lyricsAiTitleParsingMode': setting.lyricsAiTitleParsingMode.name,
         'lyricsAiEndpoint': setting.lyricsAiEndpoint,
         'lyricsAiModel': setting.lyricsAiModel,
         'lyricsAiTimeoutSeconds': '${setting.lyricsAiTimeoutSeconds}s',
-        'lyricsWindowTextColor':
-            _formatNullableColor(setting.lyricsWindowTextColor),
-        'lyricsWindowSecondaryTextColor':
-            _formatNullableColor(setting.lyricsWindowSecondaryTextColor),
+        'lyricsWindowTextColor': _formatNullableColor(
+          setting.lyricsWindowTextColor,
+        ),
+        'lyricsWindowSecondaryTextColor': _formatNullableColor(
+          setting.lyricsWindowSecondaryTextColor,
+        ),
         'lyricsWindowInactiveTextOpacity':
             setting.lyricsWindowInactiveTextOpacity?.toStringAsFixed(2) ??
-                'null',
+            'null',
         'lyricsWindowOutlineEnabled':
             setting.lyricsWindowOutlineEnabled?.toString() ?? 'null',
-        'lyricsWindowOutlineColor':
-            _formatNullableColor(setting.lyricsWindowOutlineColor),
+        'lyricsWindowOutlineColor': _formatNullableColor(
+          setting.lyricsWindowOutlineColor,
+        ),
         'lyricsWindowOutlineWidth':
             setting.lyricsWindowOutlineWidth?.toStringAsFixed(2) ?? 'null',
         'lyricsWindowShadowEnabled':
             setting.lyricsWindowShadowEnabled?.toString() ?? 'null',
-        'lyricsWindowShadowColor':
-            _formatNullableColor(setting.lyricsWindowShadowColor),
+        'lyricsWindowShadowColor': _formatNullableColor(
+          setting.lyricsWindowShadowColor,
+        ),
         'lyricsWindowShadowBlurRadius':
             setting.lyricsWindowShadowBlurRadius?.toStringAsFixed(2) ?? 'null',
         'lyricsWindowShadowOffsetX':
@@ -546,9 +547,7 @@ List<DatabaseViewerSection> _playHistorySections(PlayHistory history) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.playbackTime,
-      data: {
-        'playedAt': history.playedAt.toIso8601String(),
-      },
+      data: {'playedAt': history.playedAt.toIso8601String()},
     ),
   ];
 }
@@ -590,8 +589,9 @@ List<DatabaseViewerSection> _downloadTaskSections(DownloadTask task) {
         'isPending': task.isPending.toString(),
         'isPaused': task.isPaused.toString(),
         'downloadedBytes': _formatBytes(task.downloadedBytes),
-        'totalBytes':
-            task.totalBytes != null ? _formatBytes(task.totalBytes!) : 'null',
+        'totalBytes': task.totalBytes != null
+            ? _formatBytes(task.totalBytes!)
+            : 'null',
       },
     ),
     DatabaseViewerSection(
@@ -605,9 +605,7 @@ List<DatabaseViewerSection> _downloadTaskSections(DownloadTask task) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.errorInfo,
-      data: {
-        'errorMessage': task.errorMessage ?? 'null',
-      },
+      data: {'errorMessage': task.errorMessage ?? 'null'},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.timestamps,
@@ -642,9 +640,7 @@ List<DatabaseViewerSection> _radioStationSections(RadioStation station) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.mediaInfo,
-      data: {
-        'thumbnailUrl': _truncate(station.thumbnailUrl, 60),
-      },
+      data: {'thumbnailUrl': _truncate(station.thumbnailUrl, 60)},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.sortAndFavorite,
@@ -667,10 +663,7 @@ List<DatabaseViewerSection> _lyricsMatchSections(LyricsMatch match) {
   return [
     DatabaseViewerSection(
       title: t.databaseViewer.basicInfo,
-      data: {
-        'id': match.id.toString(),
-        'trackUniqueKey': match.trackUniqueKey,
-      },
+      data: {'id': match.id.toString(), 'trackUniqueKey': match.trackUniqueKey},
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.lyricsInfo,
@@ -682,9 +675,7 @@ List<DatabaseViewerSection> _lyricsMatchSections(LyricsMatch match) {
     ),
     DatabaseViewerSection(
       title: t.databaseViewer.timestamps,
-      data: {
-        'matchedAt': match.matchedAt.toIso8601String(),
-      },
+      data: {'matchedAt': match.matchedAt.toIso8601String()},
     ),
   ];
 }

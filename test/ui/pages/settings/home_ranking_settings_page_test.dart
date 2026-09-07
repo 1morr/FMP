@@ -46,14 +46,13 @@ void main() {
       expect(find.text(t.settings.homeRankingSettings.hint), findsOneWidget);
     });
 
-    testWidgets('toggle source updates the persisted disabled sources',
-        (tester) async {
+    testWidgets('toggle source updates the persisted disabled sources', (
+      tester,
+    ) async {
       await _pumpPage(tester, repository);
       await tester.pump();
 
-      await tester.tap(
-        find.byType(Switch).at(1),
-      );
+      await tester.tap(find.byType(Switch).at(1));
       await tester.pump();
 
       expect(repository.settings.disabledHomeRankingSourcesSet, {'youtube'});
@@ -87,8 +86,9 @@ void main() {
       expect(find.text(t.settings.homeRankingSettings.enabled), findsOneWidget);
     });
 
-    testWidgets('reorder updates the persisted source priority',
-        (tester) async {
+    testWidgets('reorder updates the persisted source priority', (
+      tester,
+    ) async {
       await _pumpPage(tester, repository);
       await tester.pump();
 
@@ -98,14 +98,16 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(
-        repository.settings.homeRankingSourcePriorityList,
-        ['youtube', 'netease', 'bilibili'],
-      );
+      expect(repository.settings.homeRankingSourcePriorityList, [
+        'youtube',
+        'netease',
+        'bilibili',
+      ]);
     });
 
-    testWidgets('source rows match the non-tappable lyrics ordering style',
-        (tester) async {
+    testWidgets('source rows match the non-tappable lyrics ordering style', (
+      tester,
+    ) async {
       await _pumpPage(tester, repository);
       await tester.pump();
 
@@ -116,8 +118,9 @@ void main() {
       expect(find.byIcon(Icons.drag_handle), findsNWidgets(3));
     });
 
-    testWidgets('SettingsPage entry opens home ranking settings route',
-        (tester) async {
+    testWidgets('SettingsPage entry opens home ranking settings route', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -202,8 +205,7 @@ class _FakeIsar extends Fake implements Isar {}
 /// 不呼叫 `super.build()`：真的那個會去讀設定並啟動兩個刷新服務的計時器。
 class _FakeRefreshSettingsNotifier extends RefreshSettingsNotifier {
   @override
-  RefreshSettingsState build() =>
-      const RefreshSettingsState(isLoading: false);
+  RefreshSettingsState build() => const RefreshSettingsState(isLoading: false);
 
   @override
   Future<void> setRankingRefreshInterval(int minutes) async {}

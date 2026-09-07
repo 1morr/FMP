@@ -37,7 +37,8 @@ const int _trackSeconds = 120;
 ///
 /// The engines only believe a stall is abnormal if the response promised more
 /// than it delivered, so `Content-Length` has to describe a plausible track.
-const int _dataBytes = _sampleRate * _channels * _bytesPerSample * _trackSeconds;
+const int _dataBytes =
+    _sampleRate * _channels * _bytesPerSample * _trackSeconds;
 
 /// How much audio the stall server delivers before cutting the connection.
 const int _stallAfterBytes = _sampleRate * _channels * _bytesPerSample * 4;
@@ -78,8 +79,10 @@ Future<void> _serve(
         socket.destroy();
         return;
       }
-      print('$tag ${request.method} ${request.path}'
-          '${request.range == null ? '' : ' Range: bytes=${request.range}-'}');
+      print(
+        '$tag ${request.method} ${request.path}'
+        '${request.range == null ? '' : ' Range: bytes=${request.range}-'}',
+      );
       await handle(tag, socket, request);
     } catch (error) {
       print('$tag failed: $error');
@@ -119,10 +122,7 @@ Future<void> _handleStall(String tag, Socket socket, _Request request) async {
 List<int> _responseHead(int from) {
   final remaining = _dataBytes + _wavHeaderBytes - from;
   final lines = <String>[
-    if (from == 0)
-      'HTTP/1.1 200 OK'
-    else
-      'HTTP/1.1 206 Partial Content',
+    if (from == 0) 'HTTP/1.1 200 OK' else 'HTTP/1.1 206 Partial Content',
     'Content-Type: audio/wav',
     'Accept-Ranges: bytes',
     'Content-Length: $remaining',
@@ -143,11 +143,11 @@ Uint8List _wavHeader() {
   void ascii(String value) => header.add(value.codeUnits);
   void u16(int value) => header.add([value & 0xff, (value >> 8) & 0xff]);
   void u32(int value) => header.add([
-        value & 0xff,
-        (value >> 8) & 0xff,
-        (value >> 16) & 0xff,
-        (value >> 24) & 0xff,
-      ]);
+    value & 0xff,
+    (value >> 8) & 0xff,
+    (value >> 16) & 0xff,
+    (value >> 24) & 0xff,
+  ]);
 
   ascii('RIFF');
   u32(36 + _dataBytes);

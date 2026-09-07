@@ -33,11 +33,13 @@ void main() {
     required AsyncValue<Track?> trackState,
     required List<Isar> disposables,
   }) async {
-    final isar = (await tester.runAsync(() => Isar.open(
-              [TrackSchema, DownloadTaskSchema, SettingsSchema, PlaylistSchema],
-              directory: '${Directory.current.path}/.dart_tool',
-              name: 'download_manager_error_state_test',
-            )))!;
+    final isar = (await tester.runAsync(
+      () => Isar.open(
+        [TrackSchema, DownloadTaskSchema, SettingsSchema, PlaylistSchema],
+        directory: '${Directory.current.path}/.dart_tool',
+        name: 'download_manager_error_state_test',
+      ),
+    ))!;
     disposables.add(isar);
 
     final sourceManager = SourceManager();
@@ -64,62 +66,82 @@ void main() {
           downloadServiceProvider.overrideWithValue(service),
           downloadTasksProvider.overrideWith((ref) => Stream.value([task])),
           maxConcurrentDownloadsProvider.overrideWithValue(1),
-          trackByIdProvider(42).overrideWith((ref) => switch (trackState) {
-                AsyncData(:final value) => Future.value(value),
-                _ => Future<Track?>.error(
-                    const FileSystemException('database unavailable')),
-              }),
+          trackByIdProvider(42).overrideWith(
+            (ref) => switch (trackState) {
+              AsyncData(:final value) => Future.value(value),
+              _ => Future<Track?>.error(
+                const FileSystemException('database unavailable'),
+              ),
+            },
+          ),
         ],
         child: const MaterialApp(home: DownloadManagerPage()),
       ),
     );
   }
 
-  testWidgets('a failed track lookup is not rendered as still loading',
-      (tester) async {
+  testWidgets('a failed track lookup is not rendered as still loading', (
+    tester,
+  ) async {
     LocaleSettings.setLocale(AppLocale.en);
     final disposables = <Isar>[];
-    addTearDown(() => tester.runAsync(() async {
-          for (final isar in disposables) {
-            await isar.close(deleteFromDisk: true);
-          }
-        }));
+    addTearDown(
+      () => tester.runAsync(() async {
+        for (final isar in disposables) {
+          await isar.close(deleteFromDisk: true);
+        }
+      }),
+    );
 
-    await tester.pumpWidget(await buildPage(
-      tester,
-      trackState: const AsyncError(
-        FileSystemException('database unavailable'),
-        StackTrace.empty,
+    await tester.pumpWidget(
+      await buildPage(
+        tester,
+        trackState: const AsyncError(
+          FileSystemException('database unavailable'),
+          StackTrace.empty,
+        ),
+        disposables: disposables,
       ),
-      disposables: disposables,
-    ));
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text(t.settings.downloadManager.trackLoadFailed), findsOneWidget,
-        reason: 'the row must say the lookup failed');
-    expect(find.text(t.general.loading), findsNothing,
-        reason: 'a permanently failed lookup must not read as in progress');
+    expect(
+      find.text(t.settings.downloadManager.trackLoadFailed),
+      findsOneWidget,
+      reason: 'the row must say the lookup failed',
+    );
+    expect(
+      find.text(t.general.loading),
+      findsNothing,
+      reason: 'a permanently failed lookup must not read as in progress',
+    );
   });
 
   testWidgets('a resolved track still shows its title', (tester) async {
     LocaleSettings.setLocale(AppLocale.en);
     final disposables = <Isar>[];
-    addTearDown(() => tester.runAsync(() async {
-          for (final isar in disposables) {
-            await isar.close(deleteFromDisk: true);
-          }
-        }));
+    addTearDown(
+      () => tester.runAsync(() async {
+        for (final isar in disposables) {
+          await isar.close(deleteFromDisk: true);
+        }
+      }),
+    );
 
-    await tester.pumpWidget(await buildPage(
-      tester,
-      trackState: AsyncData(Track()
-        ..id = 42
-        ..sourceId = 'bv1'
-        ..sourceType = SourceIds.bilibili
-        ..title = 'Track title'),
-      disposables: disposables,
-    ));
+    await tester.pumpWidget(
+      await buildPage(
+        tester,
+        trackState: AsyncData(
+          Track()
+            ..id = 42
+            ..sourceId = 'bv1'
+            ..sourceType = SourceIds.bilibili
+            ..title = 'Track title',
+        ),
+        disposables: disposables,
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 

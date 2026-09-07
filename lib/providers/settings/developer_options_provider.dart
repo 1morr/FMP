@@ -75,5 +75,5 @@ class DeveloperOptionsNotifier extends Notifier<DeveloperOptionsState> {
 /// 开发者选项 Provider
 final developerOptionsProvider =
     NotifierProvider<DeveloperOptionsNotifier, DeveloperOptionsState>(
-  DeveloperOptionsNotifier.new,
-);
+      DeveloperOptionsNotifier.new,
+    );

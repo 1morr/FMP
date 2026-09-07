@@ -83,8 +83,10 @@ class _CommentPagerState extends State<CommentPager> {
     // 评论区顶部要在屏幕内，且至少有120像素可见（标题栏+评论卡片第一行）
     const minVisibleHeight = 120.0;
     final visibleTop = position.dy.clamp(0.0, screenSize.height);
-    final visibleBottom =
-        (position.dy + box.size.height).clamp(0.0, screenSize.height);
+    final visibleBottom = (position.dy + box.size.height).clamp(
+      0.0,
+      screenSize.height,
+    );
     final visibleHeight = visibleBottom - visibleTop;
 
     return visibleHeight >= minVisibleHeight && position.dy < screenSize.height;
@@ -192,19 +194,19 @@ class _CommentPagerState extends State<CommentPager> {
           child: AnimatedSwitcher(
             duration: AnimationDurations.normal,
             transitionBuilder: (child, animation) {
-              final offsetAnimation = Tween<Offset>(
-                begin: Offset(_isForward ? 1.0 : -1.0, 0.0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              ));
+              final offsetAnimation =
+                  Tween<Offset>(
+                    begin: Offset(_isForward ? 1.0 : -1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  );
               return SlideTransition(
                 position: offsetAnimation,
-                child: FadeTransition(
-                  opacity: animation,
-                  child: child,
-                ),
+                child: FadeTransition(opacity: animation, child: child),
               );
             },
             child: Container(
@@ -220,9 +222,7 @@ class _CommentPagerState extends State<CommentPager> {
                 children: [
                   Text(
                     currentComment.content,
-                    style: textTheme.bodyMedium?.copyWith(
-                      height: 1.6,
-                    ),
+                    style: textTheme.bodyMedium?.copyWith(height: 1.6),
                     maxLines: 5,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -232,23 +232,26 @@ class _CommentPagerState extends State<CommentPager> {
                       Icon(
                         Icons.thumb_up_outlined,
                         size: 14,
-                        color:
-                            colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         currentComment.formattedLikeCount,
                         style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                       const Spacer(),
                       Text(
                         currentComment.memberName,
                         style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                     ],

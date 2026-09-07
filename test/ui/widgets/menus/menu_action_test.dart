@@ -49,8 +49,9 @@ void main() {
     expect(item.enabled, isFalse);
   });
 
-  testWidgets('showProgress renders progress indicator in popup and sheet',
-      (tester) async {
+  testWidgets('showProgress renders progress indicator in popup and sheet', (
+    tester,
+  ) async {
     const progressActions = [
       MenuAction(
         id: 'refresh',
@@ -87,8 +88,9 @@ void main() {
     expect(find.byIcon(Icons.refresh), findsNothing);
   });
 
-  testWidgets('list tiles pop the sheet and dispatch the action id',
-      (tester) async {
+  testWidgets('list tiles pop the sheet and dispatch the action id', (
+    tester,
+  ) async {
     String? selected;
 
     await tester.pumpWidget(

@@ -9,18 +9,9 @@ void main() {
         MediaKitAudioService.desktopPlayerBufferSizeBytes,
         32 * 1024 * 1024,
       );
-      expect(
-        MediaKitAudioService.desktopDemuxerMaxBytes,
-        24 * 1024 * 1024,
-      );
-      expect(
-        MediaKitAudioService.desktopDemuxerMaxBackBytes,
-        8 * 1024 * 1024,
-      );
-      expect(
-        MediaKitAudioService.desktopBufferSeconds,
-        7200,
-      );
+      expect(MediaKitAudioService.desktopDemuxerMaxBytes, 24 * 1024 * 1024);
+      expect(MediaKitAudioService.desktopDemuxerMaxBackBytes, 8 * 1024 * 1024);
+      expect(MediaKitAudioService.desktopBufferSeconds, 7200);
       expect(
         MediaKitAudioService.desktopLavfReconnectOptions,
         contains('reconnect=1'),

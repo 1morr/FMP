@@ -28,8 +28,10 @@ void main() {
 
   test('probe a real database copy', () async {
     if (dir == null || dir.isEmpty) {
-      fail('set FMP_PROBE_DB_DIR to a directory holding a copy of '
-          'fmp_database.isar');
+      fail(
+        'set FMP_PROBE_DB_DIR to a directory holding a copy of '
+        'fmp_database.isar',
+      );
     }
 
     await initializeIsarForTests();
@@ -58,16 +60,23 @@ void main() {
     }
 
     final histograms = <String, Map<String, int>>{
-      'track.sourceType':
-          hist((await isar.tracks.where().findAll()).map((e) => e.sourceType)),
+      'track.sourceType': hist(
+        (await isar.tracks.where().findAll()).map((e) => e.sourceType),
+      ),
       'playHistory.sourceType': hist(
-          (await isar.playHistorys.where().findAll()).map((e) => e.sourceType)),
-      'radioStation.sourceType': hist((await isar.radioStations.where().findAll())
-          .map((e) => e.sourceType)),
-      'playlist.importSourceType': hist((await isar.playlists.where().findAll())
-          .map((e) => e.importSourceType ?? '<null>')),
-      'account.platform':
-          hist((await isar.accounts.where().findAll()).map((e) => e.platform)),
+        (await isar.playHistorys.where().findAll()).map((e) => e.sourceType),
+      ),
+      'radioStation.sourceType': hist(
+        (await isar.radioStations.where().findAll()).map((e) => e.sourceType),
+      ),
+      'playlist.importSourceType': hist(
+        (await isar.playlists.where().findAll()).map(
+          (e) => e.importSourceType ?? '<null>',
+        ),
+      ),
+      'account.platform': hist(
+        (await isar.accounts.where().findAll()).map((e) => e.platform),
+      ),
     };
 
     final settings = await isar.settings.get(0);
@@ -75,43 +84,45 @@ void main() {
     // ignore: avoid_print
     print('PROBE_JSON_START');
     // ignore: avoid_print
-    print(const JsonEncoder.withIndent('  ').convert({
-      'counts': counts,
-      'total': counts.values.fold<int>(0, (sum, value) => sum + value),
-      'schemaVersion': settings?.schemaVersion,
-      'sourceSettings': [
-        for (final entry in settings?.sourceSettings ?? const [])
-          {
-            'sourceId': entry.sourceId,
-            'streamPriority': entry.streamPriority,
-            'useAuthForPlay': entry.useAuthForPlay,
-          },
-      ],
-      'legacyPerSourceFields': settings == null
-          ? null
-          : {
-              // ignore: deprecated_member_use_from_same_package
-              'bilibiliStreamPriority': settings.bilibiliStreamPriority,
-              // ignore: deprecated_member_use_from_same_package
-              'youtubeStreamPriority': settings.youtubeStreamPriority,
-              // ignore: deprecated_member_use_from_same_package
-              'neteaseStreamPriority': settings.neteaseStreamPriority,
-              // ignore: deprecated_member_use_from_same_package
-              'useBilibiliAuthForPlay': settings.useBilibiliAuthForPlay,
-              // ignore: deprecated_member_use_from_same_package
-              'useYoutubeAuthForPlay': settings.useYoutubeAuthForPlay,
-              // ignore: deprecated_member_use_from_same_package
-              'useNeteaseAuthForPlay': settings.useNeteaseAuthForPlay,
+    print(
+      const JsonEncoder.withIndent('  ').convert({
+        'counts': counts,
+        'total': counts.values.fold<int>(0, (sum, value) => sum + value),
+        'schemaVersion': settings?.schemaVersion,
+        'sourceSettings': [
+          for (final entry in settings?.sourceSettings ?? const [])
+            {
+              'sourceId': entry.sourceId,
+              'streamPriority': entry.streamPriority,
+              'useAuthForPlay': entry.useAuthForPlay,
             },
-      'histograms': histograms,
-      'schemaIds': {
-        'Track': TrackSchema.id,
-        'PlayHistory': PlayHistorySchema.id,
-        'RadioStation': RadioStationSchema.id,
-        'Playlist': PlaylistSchema.id,
-        'Account': AccountSchema.id,
-      },
-    }));
+        ],
+        'legacyPerSourceFields': settings == null
+            ? null
+            : {
+                // ignore: deprecated_member_use_from_same_package
+                'bilibiliStreamPriority': settings.bilibiliStreamPriority,
+                // ignore: deprecated_member_use_from_same_package
+                'youtubeStreamPriority': settings.youtubeStreamPriority,
+                // ignore: deprecated_member_use_from_same_package
+                'neteaseStreamPriority': settings.neteaseStreamPriority,
+                // ignore: deprecated_member_use_from_same_package
+                'useBilibiliAuthForPlay': settings.useBilibiliAuthForPlay,
+                // ignore: deprecated_member_use_from_same_package
+                'useYoutubeAuthForPlay': settings.useYoutubeAuthForPlay,
+                // ignore: deprecated_member_use_from_same_package
+                'useNeteaseAuthForPlay': settings.useNeteaseAuthForPlay,
+              },
+        'histograms': histograms,
+        'schemaIds': {
+          'Track': TrackSchema.id,
+          'PlayHistory': PlayHistorySchema.id,
+          'RadioStation': RadioStationSchema.id,
+          'Playlist': PlaylistSchema.id,
+          'Account': AccountSchema.id,
+        },
+      }),
+    );
     // ignore: avoid_print
     print('PROBE_JSON_END');
 

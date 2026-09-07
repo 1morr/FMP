@@ -25,8 +25,8 @@ class AutoRefreshService with Logging {
   AutoRefreshService({
     required Ref ref,
     required PlaylistRepository playlistRepository,
-  })  : _ref = ref,
-        _playlistRepository = playlistRepository;
+  }) : _ref = ref,
+       _playlistRepository = playlistRepository;
 
   /// 启动自动刷新服务
   void start() {
@@ -89,7 +89,8 @@ class AutoRefreshService with Logging {
         if (!_isCurrentCheck(generation)) return;
         if (current == null || !current.needsRefresh) {
           logDebug(
-              'Playlist ${playlist.name} no longer needs refresh, skipping');
+            'Playlist ${playlist.name} no longer needs refresh, skipping',
+          );
           continue;
         }
 

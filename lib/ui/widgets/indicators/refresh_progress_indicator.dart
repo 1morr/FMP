@@ -46,7 +46,9 @@ class PlaylistRefreshProgress extends ConsumerWidget {
   }
 
   Widget _buildSingleRefreshItem(
-      BuildContext context, PlaylistRefreshState refreshState) {
+    BuildContext context,
+    PlaylistRefreshState refreshState,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
@@ -62,15 +64,17 @@ class PlaylistRefreshProgress extends ConsumerWidget {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorScheme.primary,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  t.refreshProgressIndicator
-                      .refreshingPlaylist(name: refreshState.playlistName),
+                  t.refreshProgressIndicator.refreshingPlaylist(
+                    name: refreshState.playlistName,
+                  ),
                   style: Theme.of(context).textTheme.bodyMedium,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -79,9 +83,9 @@ class PlaylistRefreshProgress extends ConsumerWidget {
               if (refreshState.total > 0)
                 Text(
                   '${refreshState.current}/${refreshState.total}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                 ),
             ],
           ),
@@ -99,9 +103,9 @@ class PlaylistRefreshProgress extends ConsumerWidget {
             const SizedBox(height: 4),
             Text(
               refreshState.currentItem!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -112,7 +116,9 @@ class PlaylistRefreshProgress extends ConsumerWidget {
   }
 
   Widget _buildMultipleRefreshList(
-      BuildContext context, List<PlaylistRefreshState> refreshList) {
+    BuildContext context,
+    List<PlaylistRefreshState> refreshList,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
@@ -128,17 +134,19 @@ class PlaylistRefreshProgress extends ConsumerWidget {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorScheme.primary,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Text(
-                t.refreshProgressIndicator
-                    .refreshingPlaylists(count: refreshList.length),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
+                t.refreshProgressIndicator.refreshingPlaylists(
+                  count: refreshList.length,
+                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -161,7 +169,9 @@ class PlaylistRefreshProgress extends ConsumerWidget {
   }
 
   Widget _buildCompactRefreshItem(
-      BuildContext context, PlaylistRefreshState refreshState) {
+    BuildContext context,
+    PlaylistRefreshState refreshState,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
@@ -186,8 +196,9 @@ class PlaylistRefreshProgress extends ConsumerWidget {
                         ? refreshState.progress
                         : null,
                     backgroundColor: colorScheme.surfaceContainerLow,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.primary,
+                    ),
                     minHeight: 3,
                   ),
                 ),
@@ -198,9 +209,9 @@ class PlaylistRefreshProgress extends ConsumerWidget {
           if (refreshState.total > 0)
             Text(
               '${refreshState.current}/${refreshState.total}',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
             ),
         ],
       ),

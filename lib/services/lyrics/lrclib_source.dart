@@ -26,11 +26,12 @@ class LrclibSource with Logging {
   final Dio _dio;
 
   LrclibSource({Dio? dio})
-      : _dio = dio ??
-            HttpClientFactory.create(
-              baseUrl: _baseUrl,
-              headers: {'User-Agent': _userAgent},
-            );
+    : _dio =
+          dio ??
+          HttpClientFactory.create(
+            baseUrl: _baseUrl,
+            headers: {'User-Agent': _userAgent},
+          );
 
   /// 關閉內部 Dio（釋放連線池）；provider 於 onDispose 呼叫。
   void dispose() => _dio.close();
@@ -68,8 +69,10 @@ class LrclibSource with Logging {
         return [];
       }
 
-      final results =
-          data.cast<Map<String, dynamic>>().map(LyricsResult.fromJson).toList();
+      final results = data
+          .cast<Map<String, dynamic>>()
+          .map(LyricsResult.fromJson)
+          .toList();
 
       logDebug('Found ${results.length} results');
       return results;
@@ -107,12 +110,15 @@ class LrclibSource with Logging {
     );
 
     try {
-      final response = await _dio.get('/get', queryParameters: {
-        'track_name': trackName,
-        'artist_name': artistName,
-        'album_name': albumName,
-        'duration': durationSeconds,
-      });
+      final response = await _dio.get(
+        '/get',
+        queryParameters: {
+          'track_name': trackName,
+          'artist_name': artistName,
+          'album_name': albumName,
+          'duration': durationSeconds,
+        },
+      );
       return LyricsResult.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;

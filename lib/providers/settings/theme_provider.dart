@@ -30,8 +30,9 @@ class ThemeState {
   }) {
     return ThemeState(
       themeMode: themeMode ?? this.themeMode,
-      primaryColor:
-          clearPrimaryColor ? null : (primaryColor ?? this.primaryColor),
+      primaryColor: clearPrimaryColor
+          ? null
+          : (primaryColor ?? this.primaryColor),
       fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
       isLoading: isLoading ?? this.isLoading,
     );
@@ -110,8 +111,9 @@ class ThemeNotifier extends Notifier<ThemeState> {
 }
 
 /// 主题 Provider
-final themeProvider =
-    NotifierProvider<ThemeNotifier, ThemeState>(ThemeNotifier.new);
+final themeProvider = NotifierProvider<ThemeNotifier, ThemeState>(
+  ThemeNotifier.new,
+);
 
 /// 便捷 Provider - 当前主题模式
 final themeModeProvider = Provider<ThemeMode>((ref) {

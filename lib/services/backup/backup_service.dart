@@ -38,10 +38,8 @@ const int kBackupVersion = 4;
 class BackupService with Logging {
   final BackupRepository _repository;
 
-  BackupService(
-    Isar isar, {
-    PlaylistMutationRepository? mutationService,
-  }) : _repository = BackupRepository(isar, mutations: mutationService);
+  BackupService(Isar isar, {PlaylistMutationRepository? mutationService})
+    : _repository = BackupRepository(isar, mutations: mutationService);
 
   // ==================== 导出功能 ====================
 
@@ -76,8 +74,9 @@ class BackupService with Logging {
     final backupData = await _collectBackupData();
 
     // 序列化为 JSON
-    final jsonString =
-        const JsonEncoder.withIndent('  ').convert(backupData.toJson());
+    final jsonString = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(backupData.toJson());
 
     // 写入文件
     final file = File(outputPath);
@@ -114,97 +113,102 @@ class BackupService with Logging {
         }
       }
 
-      playlistBackups.add(PlaylistBackup(
-        name: playlist.name,
-        description: playlist.description,
-        coverUrl: playlist.coverUrl,
-        hasCustomCover: playlist.hasCustomCover,
-        sourceUrl: playlist.sourceUrl,
-        importSourceType: playlist.importSourceType,
-        refreshIntervalHours: playlist.refreshIntervalHours,
-        lastRefreshed: playlist.lastRefreshed,
-        notifyOnUpdate: playlist.notifyOnUpdate,
-        ownerName: playlist.ownerName,
-        ownerUserId: playlist.ownerUserId,
-        useAuthForRefresh: playlist.useAuthForRefresh,
-        isMix: playlist.isMix,
-        mixPlaylistId: playlist.mixPlaylistId,
-        mixSeedVideoId: playlist.mixSeedVideoId,
-        trackKeys: trackKeys,
-        createdAt: playlist.createdAt,
-        updatedAt: playlist.updatedAt,
-        sortOrder: playlist.sortOrder,
-      ));
+      playlistBackups.add(
+        PlaylistBackup(
+          name: playlist.name,
+          description: playlist.description,
+          coverUrl: playlist.coverUrl,
+          hasCustomCover: playlist.hasCustomCover,
+          sourceUrl: playlist.sourceUrl,
+          importSourceType: playlist.importSourceType,
+          refreshIntervalHours: playlist.refreshIntervalHours,
+          lastRefreshed: playlist.lastRefreshed,
+          notifyOnUpdate: playlist.notifyOnUpdate,
+          ownerName: playlist.ownerName,
+          ownerUserId: playlist.ownerUserId,
+          useAuthForRefresh: playlist.useAuthForRefresh,
+          isMix: playlist.isMix,
+          mixPlaylistId: playlist.mixPlaylistId,
+          mixSeedVideoId: playlist.mixSeedVideoId,
+          trackKeys: trackKeys,
+          createdAt: playlist.createdAt,
+          updatedAt: playlist.updatedAt,
+          sortOrder: playlist.sortOrder,
+        ),
+      );
     }
 
     // 转换歌曲数据
     final trackBackups = tracks
-        .map((t) => TrackBackup(
-              sourceId: t.sourceId,
-              sourceType: t.sourceType,
-              title: t.title,
-              artist: t.artist,
-              ownerId: t.ownerId,
-              channelId: t.channelId,
-              durationMs: t.durationMs,
-              thumbnailUrl: t.thumbnailUrl,
-              viewCount: t.viewCount,
-              pageCount: t.pageCount,
-              cid: t.cid,
-              pageNum: t.pageNum,
-              parentTitle: t.parentTitle,
-              isAvailable: t.isAvailable,
-              isVip: t.isVip,
-              unavailableReason: t.unavailableReason,
-              bilibiliAid: t.bilibiliAid,
-              originalSongId: t.originalSongId,
-              originalSource: t.originalSource,
-              createdAt: t.createdAt,
-              updatedAt: t.updatedAt,
-            ))
+        .map(
+          (t) => TrackBackup(
+            sourceId: t.sourceId,
+            sourceType: t.sourceType,
+            title: t.title,
+            artist: t.artist,
+            ownerId: t.ownerId,
+            channelId: t.channelId,
+            durationMs: t.durationMs,
+            thumbnailUrl: t.thumbnailUrl,
+            viewCount: t.viewCount,
+            pageCount: t.pageCount,
+            cid: t.cid,
+            pageNum: t.pageNum,
+            parentTitle: t.parentTitle,
+            isAvailable: t.isAvailable,
+            isVip: t.isVip,
+            unavailableReason: t.unavailableReason,
+            bilibiliAid: t.bilibiliAid,
+            originalSongId: t.originalSongId,
+            originalSource: t.originalSource,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+          ),
+        )
         .toList();
 
     // 获取播放历史
     final playHistory = await _repository.allPlayHistory();
     final playHistoryBackups = playHistory
-        .map((h) => PlayHistoryBackup(
-              sourceId: h.sourceId,
-              sourceType: h.sourceType,
-              cid: h.cid,
-              title: h.title,
-              artist: h.artist,
-              durationMs: h.durationMs,
-              thumbnailUrl: h.thumbnailUrl,
-              playedAt: h.playedAt,
-            ))
+        .map(
+          (h) => PlayHistoryBackup(
+            sourceId: h.sourceId,
+            sourceType: h.sourceType,
+            cid: h.cid,
+            title: h.title,
+            artist: h.artist,
+            durationMs: h.durationMs,
+            thumbnailUrl: h.thumbnailUrl,
+            playedAt: h.playedAt,
+          ),
+        )
         .toList();
 
     // 获取搜索历史
     final searchHistory = await _repository.allSearchHistory();
     final searchHistoryBackups = searchHistory
-        .map((s) => SearchHistoryBackup(
-              query: s.query,
-              timestamp: s.timestamp,
-            ))
+        .map((s) => SearchHistoryBackup(query: s.query, timestamp: s.timestamp))
         .toList();
 
     // 获取电台收藏
     final radioStations = await _repository.allRadioStations();
     final radioStationBackups = radioStations
-        .map((r) => RadioStationBackup(
-              url: r.url,
-              title: r.title,
-              thumbnailUrl: r.thumbnailUrl,
-              hostName: r.hostName,
-              hostAvatarUrl: r.hostAvatarUrl,
-              hostUid: r.hostUid,
-              sourceType: r.sourceType,
-              sourceId: r.sourceId,
-              sortOrder: r.sortOrder,
-              createdAt: r.createdAt,
-              lastPlayedAt: r.lastPlayedAt,
-              isFavorite: r.isFavorite,
-            ))
+        .map(
+          (r) => RadioStationBackup(
+            url: r.url,
+            title: r.title,
+            thumbnailUrl: r.thumbnailUrl,
+            hostName: r.hostName,
+            hostAvatarUrl: r.hostAvatarUrl,
+            hostUid: r.hostUid,
+            sourceType: r.sourceType,
+            sourceId: r.sourceId,
+            sortOrder: r.sortOrder,
+            createdAt: r.createdAt,
+            lastPlayedAt: r.lastPlayedAt,
+            isFavorite: r.isFavorite,
+          ),
+        )
         .toList();
 
     // 获取设置
@@ -264,10 +268,12 @@ class BackupService with Logging {
         lyricsWindowShadowOffsetX: settings.lyricsWindowShadowOffsetX,
         lyricsWindowShadowOffsetY: settings.lyricsWindowShadowOffsetY,
         rankingRefreshIntervalMinutes: settings.rankingRefreshIntervalMinutes,
-        homeRankingSourcePriority:
-            settings.homeRankingSourcePriorityList.join(','),
-        disabledHomeRankingSources:
-            settings.disabledHomeRankingSourcesSet.join(','),
+        homeRankingSourcePriority: settings.homeRankingSourcePriorityList.join(
+          ',',
+        ),
+        disabledHomeRankingSources: settings.disabledHomeRankingSourcesSet.join(
+          ',',
+        ),
         radioRefreshIntervalMinutes: settings.radioRefreshIntervalMinutes,
       );
     }
@@ -275,13 +281,15 @@ class BackupService with Logging {
     // 获取歌词匹配记录
     final lyricsMatches = await _repository.allLyricsMatches();
     final lyricsMatchBackups = lyricsMatches
-        .map((m) => LyricsMatchBackup(
-              trackUniqueKey: m.trackUniqueKey,
-              lyricsSource: m.lyricsSource,
-              externalId: m.externalId,
-              offsetMs: m.offsetMs,
-              matchedAt: m.matchedAt,
-            ))
+        .map(
+          (m) => LyricsMatchBackup(
+            trackUniqueKey: m.trackUniqueKey,
+            lyricsSource: m.lyricsSource,
+            externalId: m.externalId,
+            offsetMs: m.offsetMs,
+            matchedAt: m.matchedAt,
+          ),
+        )
         .toList();
 
     return BackupData(
@@ -308,7 +316,8 @@ class BackupService with Logging {
         appVersion: backupData.appVersion,
       );
     }
-    final hasImportableData = backupData.playlists.isNotEmpty ||
+    final hasImportableData =
+        backupData.playlists.isNotEmpty ||
         backupData.tracks.isNotEmpty ||
         backupData.playHistory.isNotEmpty ||
         backupData.searchHistory.isNotEmpty ||
@@ -433,10 +442,9 @@ class BackupService with Logging {
             ..createdAt = trackBackup.createdAt
             ..updatedAt = trackBackup.updatedAt;
 
-          preparedTracks.add(BackupImportTrack(
-            uniqueKey: trackBackup.uniqueKey,
-            track: track,
-          ));
+          preparedTracks.add(
+            BackupImportTrack(uniqueKey: trackBackup.uniqueKey, track: track),
+          );
           plannedTrackKeys.add(trackBackup.uniqueKey);
           tracksImported++;
         } catch (e) {
@@ -482,13 +490,15 @@ class BackupService with Logging {
 
           // 成員要等歌曲寫進去才有 id，所以只帶 key；封面與 updatedAt 會被
           // `addTracksInTxn` 依政策改寫，備份裡的原值一併交給寫入階段還原。
-          preparedPlaylists.add(BackupImportPlaylist(
-            playlist: playlist,
-            trackKeys: playlistBackup.trackKeys,
-            coverUrl: playlistBackup.coverUrl,
-            hasCustomCover: playlistBackup.hasCustomCover,
-            updatedAt: playlistBackup.updatedAt,
-          ));
+          preparedPlaylists.add(
+            BackupImportPlaylist(
+              playlist: playlist,
+              trackKeys: playlistBackup.trackKeys,
+              coverUrl: playlistBackup.coverUrl,
+              hasCustomCover: playlistBackup.hasCustomCover,
+              updatedAt: playlistBackup.updatedAt,
+            ),
+          );
           playlistsImported++;
           existingPlaylistNames.add(playlistBackup.name);
         } catch (e) {
@@ -503,7 +513,8 @@ class BackupService with Logging {
       final existingHistory = await _repository.allPlayHistory();
       for (final history in existingHistory) {
         existingHistoryKeys.add(
-            '${history.trackKey}:${history.playedAt.millisecondsSinceEpoch}');
+          '${history.trackKey}:${history.playedAt.millisecondsSinceEpoch}',
+        );
       }
 
       for (final historyBackup in backupData.playHistory) {
@@ -539,8 +550,7 @@ class BackupService with Logging {
     // 4. 导入搜索历史
     if (importSearchHistory) {
       final existingSearchQueries = <String>{};
-      final existingSearchHistory =
-          await _repository.allSearchHistory();
+      final existingSearchHistory = await _repository.allSearchHistory();
       for (final search in existingSearchHistory) {
         existingSearchQueries.add(search.query);
       }
@@ -667,8 +677,9 @@ class BackupService with Logging {
           ]
           ..rankingRefreshIntervalMinutes =
               settingsBackup.rankingRefreshIntervalMinutes
-          ..homeRankingSourcePriorityList =
-              settingsBackup.homeRankingSourcePriority.split(',')
+          ..homeRankingSourcePriorityList = settingsBackup
+              .homeRankingSourcePriority
+              .split(',')
           ..disabledHomeRankingSourcesSet = normalizeDisabledHomeRankingSources(
             settingsBackup.disabledHomeRankingSources,
           )
@@ -678,11 +689,11 @@ class BackupService with Logging {
           ..minimizeToTrayOnClose = Platform.isWindows
               ? settingsBackup.minimizeToTrayOnClose
               : (currentSettings?.minimizeToTrayOnClose ??
-                  settings.minimizeToTrayOnClose)
+                    settings.minimizeToTrayOnClose)
           ..enableGlobalHotkeys = Platform.isWindows
               ? settingsBackup.enableGlobalHotkeys
               : (currentSettings?.enableGlobalHotkeys ??
-                  settings.enableGlobalHotkeys)
+                    settings.enableGlobalHotkeys)
           ..launchAtStartup = Platform.isWindows
               ? settingsBackup.launchAtStartup
               : (currentSettings?.launchAtStartup ?? settings.launchAtStartup)
@@ -744,16 +755,18 @@ class BackupService with Logging {
 
     // 寫入階段：一筆交易寫完所有倖存者。任何一步失敗都會整批回滾，而且例外
     // 直接往上拋 —— 回一個宣稱匯入了多少筆的結果對話框會是謊話。
-    await _repository.writeImport(BackupImportBatch(
-      existingTrackIdsByKey: existingTrackIdsByKey,
-      tracks: preparedTracks,
-      playlists: preparedPlaylists,
-      playHistory: preparedPlayHistory,
-      searchHistory: preparedSearchHistory,
-      radioStations: preparedRadioStations,
-      lyricsMatches: preparedLyricsMatches,
-      settings: preparedSettings,
-    ));
+    await _repository.writeImport(
+      BackupImportBatch(
+        existingTrackIdsByKey: existingTrackIdsByKey,
+        tracks: preparedTracks,
+        playlists: preparedPlaylists,
+        playHistory: preparedPlayHistory,
+        searchHistory: preparedSearchHistory,
+        radioStations: preparedRadioStations,
+        lyricsMatches: preparedLyricsMatches,
+        settings: preparedSettings,
+      ),
+    );
 
     return ImportResult(
       playlistsImported: playlistsImported,
@@ -785,5 +798,4 @@ class BackupService with Logging {
     }
     return hotkeyConfig;
   }
-
 }

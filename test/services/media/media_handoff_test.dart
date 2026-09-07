@@ -43,8 +43,11 @@ void main() {
           final lowerKeys = result.headers.keys.map((k) => k.toLowerCase());
           expect(result.url.toString(), url, reason: '${entry.key}');
           expect(lowerKeys, isNot(contains('cookie')), reason: '${entry.key}');
-          expect(lowerKeys, isNot(contains('authorization')),
-              reason: '${entry.key}');
+          expect(
+            lowerKeys,
+            isNot(contains('authorization')),
+            reason: '${entry.key}',
+          );
         }
       }
     });
@@ -61,15 +64,20 @@ void main() {
 
       expect(playback.url, download.url);
       expect(playback.headers, download.headers);
-      expect(
-          playback.headers.keys.toSet(), {'Origin', 'Referer', 'User-Agent'});
+      expect(playback.headers.keys.toSet(), {
+        'Origin',
+        'Referer',
+        'User-Agent',
+      });
     });
 
     test('keeps each source CDN header set', () {
-      final result = handoff.prepareDownloadHop(_request(
-        SourceIds.bilibili,
-        'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
-      ));
+      final result = handoff.prepareDownloadHop(
+        _request(
+          SourceIds.bilibili,
+          'https://upos-sz-mirrorcos.bilivideo.com/audio.m4a',
+        ),
+      );
 
       expect(result.headers['Referer'], SourceHttpPolicy.bilibiliWebReferer);
       expect(result.headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
@@ -87,8 +95,11 @@ void main() {
         final fresh = handoff.prepareDownloadHop(
           _request(SourceIds.bilibili, url, rangeStart: rangeStart),
         );
-        expect(fresh.headers.containsKey(HttpHeaders.rangeHeader), isFalse,
-            reason: 'rangeStart=$rangeStart');
+        expect(
+          fresh.headers.containsKey(HttpHeaders.rangeHeader),
+          isFalse,
+          reason: 'rangeStart=$rangeStart',
+        );
       }
     });
   });

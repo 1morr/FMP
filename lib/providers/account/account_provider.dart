@@ -25,17 +25,18 @@ final bilibiliAccountServiceProvider = Provider<BilibiliAccountService>((ref) {
 });
 
 /// Bilibili 收藏夾服務 Provider
-final bilibiliFavoritesServiceProvider =
-    Provider<BilibiliFavoritesService>((ref) {
+final bilibiliFavoritesServiceProvider = Provider<BilibiliFavoritesService>((
+  ref,
+) {
   final accountService = ref.watch(bilibiliAccountServiceProvider);
   final isar = ref.watch(databaseProvider).requireValue;
   return BilibiliFavoritesService(accountService: accountService, isar: isar);
 });
 
 /// Bilibili 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
-final bilibiliAccountProvider =
-    NotifierProvider<AccountNotifier, Account?>(
-        () => AccountNotifier(SourceIds.bilibili));
+final bilibiliAccountProvider = NotifierProvider<AccountNotifier, Account?>(
+  () => AccountNotifier(SourceIds.bilibili),
+);
 
 /// 是否已登錄 Bilibili（便捷 Provider）
 final isBilibiliLoggedInProvider = Provider<bool>((ref) {
@@ -58,9 +59,9 @@ final youtubePlaylistServiceProvider = Provider<YouTubePlaylistService>((ref) {
 });
 
 /// YouTube 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
-final youtubeAccountProvider =
-    NotifierProvider<AccountNotifier, Account?>(
-        () => AccountNotifier(SourceIds.youtube));
+final youtubeAccountProvider = NotifierProvider<AccountNotifier, Account?>(
+  () => AccountNotifier(SourceIds.youtube),
+);
 
 /// 是否已登錄 YouTube（便捷 Provider）
 final isYouTubeLoggedInProvider = Provider<bool>((ref) {
@@ -94,9 +95,9 @@ final neteaseAccountServiceProvider = Provider<NeteaseAccountService>((ref) {
 });
 
 /// 網易雲帳號狀態 Provider（響應式，監聽 Isar Account 變化）
-final neteaseAccountProvider =
-    NotifierProvider<AccountNotifier, Account?>(
-        () => AccountNotifier(SourceIds.netease));
+final neteaseAccountProvider = NotifierProvider<AccountNotifier, Account?>(
+  () => AccountNotifier(SourceIds.netease),
+);
 
 /// 是否已登錄網易雲（便捷 Provider）
 final isNeteaseLoggedInProvider = Provider<bool>((ref) {
@@ -123,13 +124,17 @@ final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
     final success = await accountService.refreshCredentials();
     if (success) {
       AppLogger.info(
-          'Bilibili cookie refresh check completed', 'AccountRefresh');
+        'Bilibili cookie refresh check completed',
+        'AccountRefresh',
+      );
     } else {
       AppLogger.warning('Bilibili cookie refresh failed', 'AccountRefresh');
     }
   } catch (e) {
     AppLogger.warning(
-        'Bilibili cookie refresh check failed: $e', 'AccountRefresh');
+      'Bilibili cookie refresh check failed: $e',
+      'AccountRefresh',
+    );
   }
 });
 
@@ -199,8 +204,10 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
       }
     } catch (e) {
       failedPlatforms.add(service.platform);
-      AppLogger.warning('${service.platform} status check failed: $e',
-          'AccountStatusCheck');
+      AppLogger.warning(
+        '${service.platform} status check failed: $e',
+        'AccountStatusCheck',
+      );
     }
   }
 

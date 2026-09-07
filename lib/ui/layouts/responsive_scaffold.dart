@@ -37,48 +37,48 @@ class NavDestination {
 /// putting more than five navigation items"），而「設定」是六個裡最少用、
 /// 卻和「首頁」佔一樣寬度的那一個。它移到 [settingsDestination]。
 List<NavDestination> get destinations => [
-      NavDestination(
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home,
-        label: t.nav.home,
-        path: RoutePaths.home,
-      ),
-      NavDestination(
-        icon: Icons.search_outlined,
-        selectedIcon: Icons.search,
-        label: t.nav.search,
-        path: RoutePaths.search,
-      ),
-      NavDestination(
-        icon: Icons.queue_music_outlined,
-        selectedIcon: Icons.queue_music,
-        label: t.nav.queue,
-        path: RoutePaths.queue,
-      ),
-      NavDestination(
-        icon: Icons.library_music_outlined,
-        selectedIcon: Icons.library_music,
-        label: t.nav.library,
-        path: RoutePaths.library,
-      ),
-      NavDestination(
-        icon: Icons.radio_outlined,
-        selectedIcon: Icons.radio,
-        label: t.nav.radio,
-        path: RoutePaths.radio,
-      ),
-    ];
+  NavDestination(
+    icon: Icons.home_outlined,
+    selectedIcon: Icons.home,
+    label: t.nav.home,
+    path: RoutePaths.home,
+  ),
+  NavDestination(
+    icon: Icons.search_outlined,
+    selectedIcon: Icons.search,
+    label: t.nav.search,
+    path: RoutePaths.search,
+  ),
+  NavDestination(
+    icon: Icons.queue_music_outlined,
+    selectedIcon: Icons.queue_music,
+    label: t.nav.queue,
+    path: RoutePaths.queue,
+  ),
+  NavDestination(
+    icon: Icons.library_music_outlined,
+    selectedIcon: Icons.library_music,
+    label: t.nav.library,
+    path: RoutePaths.library,
+  ),
+  NavDestination(
+    icon: Icons.radio_outlined,
+    selectedIcon: Icons.radio,
+    label: t.nav.radio,
+    path: RoutePaths.radio,
+  ),
+];
 
 /// 「設定」的入口：導覽軌底部（有軌的視窗）與首頁右上角（手機）。
 ///
 /// 決策 04-D3 的最小版本。代價寫在這裡免得下次有人想搬回去：從「搜尋」進設定
 /// 從一下變成兩下。換到的是導覽列符合規範，而且最常用的五個目的地各自變寬。
 NavDestination get settingsDestination => NavDestination(
-      icon: Icons.settings_outlined,
-      selectedIcon: Icons.settings,
-      label: t.nav.settings,
-      path: RoutePaths.settings,
-    );
+  icon: Icons.settings_outlined,
+  selectedIcon: Icons.settings,
+  label: t.nav.settings,
+  path: RoutePaths.settings,
+);
 
 /// [location] 對應導覽列的第幾個目的地。
 ///
@@ -120,26 +120,25 @@ class ResponsiveScaffold extends StatelessWidget {
     final width = MediaQuery.of(context).size.width;
     final layout = switch (WindowClass.of(width)) {
       WindowClass.compact => _CompactLayout(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: onDestinationSelected,
-          onSettingsSelected: onSettingsSelected,
-          child: child,
-        ),
+        selectedIndex: selectedIndex,
+        onDestinationSelected: onDestinationSelected,
+        onSettingsSelected: onSettingsSelected,
+        child: child,
+      ),
       WindowClass.medium => _MediumLayout(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: onDestinationSelected,
-          onSettingsSelected: onSettingsSelected,
-          child: child,
-        ),
+        selectedIndex: selectedIndex,
+        onDestinationSelected: onDestinationSelected,
+        onSettingsSelected: onSettingsSelected,
+        child: child,
+      ),
       WindowClass.expanded ||
       WindowClass.large ||
-      WindowClass.extraLarge =>
-        _ExpandedLayout(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: onDestinationSelected,
-          onSettingsSelected: onSettingsSelected,
-          child: child,
-        ),
+      WindowClass.extraLarge => _ExpandedLayout(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: onDestinationSelected,
+        onSettingsSelected: onSettingsSelected,
+        child: child,
+      ),
     };
 
     return layout;
@@ -172,11 +171,13 @@ class _CompactLayout extends StatelessWidget {
             selectedIndex: selectedIndex,
             onDestinationSelected: onDestinationSelected,
             destinations: destinations
-                .map((d) => NavigationDestination(
-                      icon: Icon(d.icon),
-                      selectedIcon: Icon(d.selectedIcon),
-                      label: d.label,
-                    ))
+                .map(
+                  (d) => NavigationDestination(
+                    icon: Icon(d.icon),
+                    selectedIcon: Icon(d.selectedIcon),
+                    label: d.label,
+                  ),
+                )
                 .toList(),
           ),
         ],
@@ -217,11 +218,13 @@ class _MediumLayout extends StatelessWidget {
                 backgroundColor: Colors.transparent,
                 trailing: _RailSettingsButton(onPressed: onSettingsSelected),
                 destinations: destinations
-                    .map((d) => NavigationRailDestination(
-                          icon: Icon(d.icon),
-                          selectedIcon: Icon(d.selectedIcon),
-                          label: Text(d.label),
-                        ))
+                    .map(
+                      (d) => NavigationRailDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selectedIcon),
+                        label: Text(d.label),
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -330,10 +333,7 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
               children: [
                 const Text(
                   'FMP',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 IconButton(
@@ -428,9 +428,7 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
                       Expanded(
                         child: Text(
                           settingsDestination.label,
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -457,8 +455,8 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
     final totalWidth = _isDetailPanelExpanded
         ? panelWidth + AppLayout.paneSpacer
         : (_isHoveredOnCollapsedBar
-            ? AppLayout.collapsedStripHovered
-            : AppLayout.collapsedStrip);
+              ? AppLayout.collapsedStripHovered
+              : AppLayout.collapsedStrip);
 
     return MouseRegion(
       cursor: _isDetailPanelExpanded
@@ -474,9 +472,9 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
         onTap: _isDetailPanelExpanded
             ? null
             : () => setState(() {
-                  _layoutNotifier.setDetailPanelExpanded(true);
-                  _isHoveredOnCollapsedBar = false;
-                }),
+                _layoutNotifier.setDetailPanelExpanded(true);
+                _isHoveredOnCollapsedBar = false;
+              }),
         child: AnimatedContainer(
           // 拖拽调整宽度时不需要动画，避免延迟
           duration: _isDraggingPanelWidth
@@ -609,14 +607,17 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
               onDestinationSelected: widget.onDestinationSelected,
               labelType: NavigationRailLabelType.all,
               backgroundColor: Colors.transparent,
-              trailing:
-                  _RailSettingsButton(onPressed: widget.onSettingsSelected),
+              trailing: _RailSettingsButton(
+                onPressed: widget.onSettingsSelected,
+              ),
               destinations: destinations
-                  .map((d) => NavigationRailDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.selectedIcon),
-                        label: Text(d.label),
-                      ))
+                  .map(
+                    (d) => NavigationRailDestination(
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selectedIcon),
+                      label: Text(d.label),
+                    ),
+                  )
                   .toList(),
             ),
           ),

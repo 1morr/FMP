@@ -96,8 +96,9 @@ class LyricsSingleLineView extends StatelessWidget {
           final safeW = maxW * boldSafetyFactor;
 
           // 主文本：按宽度缩放（单行填满）
-          double mainFontSize =
-              mainTextW > 0 ? (refSize * safeW / mainTextW) : refSize;
+          double mainFontSize = mainTextW > 0
+              ? (refSize * safeW / mainTextW)
+              : refSize;
 
           // 副文本字号
           double subFontSize = 0;
@@ -117,8 +118,9 @@ class LyricsSingleLineView extends StatelessWidget {
             final subTextW = subPainter.width;
             subPainter.dispose();
 
-            final subByWidth =
-                subTextW > 0 ? (refSize * safeW / subTextW) : refSize;
+            final subByWidth = subTextW > 0
+                ? (refSize * safeW / subTextW)
+                : refSize;
             final subCap = mainFontSize * subRatio;
             subFontSize = math.min(subByWidth, subCap).clamp(8.0, 200.0);
           }

@@ -104,8 +104,9 @@ void main() {
       expect(find.text('Test Host'), findsOneWidget);
 
       // 液態封面 = 160 - 40 = 120；播放中指示器 = 封面 * 0.32
-      final indicator =
-          tester.widget<NowPlayingIndicator>(find.byType(NowPlayingIndicator));
+      final indicator = tester.widget<NowPlayingIndicator>(
+        find.byType(NowPlayingIndicator),
+      );
       expect(indicator.size, 120 * 0.32);
 
       // 非直播時封面灰階

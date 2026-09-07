@@ -78,11 +78,7 @@ abstract interface class DynamicPlaylistSource implements SourceCapability {
 }
 
 class SourceRankingRequest {
-  const SourceRankingRequest({
-    this.regionId,
-    this.category,
-    this.limit,
-  });
+  const SourceRankingRequest({this.regionId, this.category, this.limit});
 
   final int? regionId;
   final String? category;

@@ -242,29 +242,31 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
       buttonText: _getButtonText(),
       listBuilder: (context, scrollController) =>
           RemotePlaylistSelectionListView<NeteasePlaylistInfo>(
-        isLoading: _isLoading,
-        errorMessage: _errorMessage,
-        items: _playlists,
-        scrollController: scrollController,
-        isChecking: _isCheckingMulti,
-        itemImageUrl: (playlist) => playlist.thumbnailUrl,
-        itemIcon: (playlist) => Icons.playlist_play,
-        itemTitle: (playlist) => playlist.title,
-        itemSubtitle: (playlist) => '${playlist.trackCount}',
-        isSelected: (playlist) => _selectedIds.contains(playlist.playlistId),
-        isPartial: (playlist) =>
-            !_selectedIds.contains(playlist.playlistId) &&
-            _partialIds.contains(playlist.playlistId) &&
-            !_deselectedPartialIds.contains(playlist.playlistId),
-        onToggle: _togglePlaylist,
-      ),
+            isLoading: _isLoading,
+            errorMessage: _errorMessage,
+            items: _playlists,
+            scrollController: scrollController,
+            isChecking: _isCheckingMulti,
+            itemImageUrl: (playlist) => playlist.thumbnailUrl,
+            itemIcon: (playlist) => Icons.playlist_play,
+            itemTitle: (playlist) => playlist.title,
+            itemSubtitle: (playlist) => '${playlist.trackCount}',
+            isSelected: (playlist) =>
+                _selectedIds.contains(playlist.playlistId),
+            isPartial: (playlist) =>
+                !_selectedIds.contains(playlist.playlistId) &&
+                _partialIds.contains(playlist.playlistId) &&
+                !_deselectedPartialIds.contains(playlist.playlistId),
+            onToggle: _togglePlaylist,
+          ),
     );
   }
 
   void _togglePlaylist(NeteasePlaylistInfo playlist) {
     final id = playlist.playlistId;
     final isSelected = _selectedIds.contains(id);
-    final isPartial = !isSelected &&
+    final isPartial =
+        !isSelected &&
         _partialIds.contains(id) &&
         !_deselectedPartialIds.contains(id);
     setState(() {

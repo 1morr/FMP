@@ -34,8 +34,9 @@ void main() {
       expect(find.byIcon(Icons.lyrics_outlined), findsOneWidget);
     });
 
-    testWidgets('is a pure leaf: no channel or window_manager coupling',
-        (tester) async {
+    testWidgets('is a pure leaf: no channel or window_manager coupling', (
+      tester,
+    ) async {
       // 這個測試本身就是證明：leaf 可在無 desktop_multi_window engine 下 pump。
       await tester.pumpWidget(host(transparent: false, text: 'x'));
       await tester.pumpAndSettle();

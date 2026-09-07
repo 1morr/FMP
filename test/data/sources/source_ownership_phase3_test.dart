@@ -102,8 +102,9 @@ void main() {
     });
 
     test('source provider does not expose concrete source accessors', () {
-      final source =
-          File('lib/data/sources/source_provider.dart').readAsStringSync();
+      final source = File(
+        'lib/data/sources/source_provider.dart',
+      ).readAsStringSync();
 
       expect(_sourceProviderConcreteAccessors(source), isEmpty);
     });
@@ -129,43 +130,46 @@ void main() {
       }
     });
 
-    test('runtime guard detects concrete Bilibili and YouTube class references',
-        () {
-      const cases = {
-        'constructor': 'final source = YouTubeSource();',
-        'cast': 'final source = value as BilibiliSource;',
-        'whereType': 'manager.sources.whereType<BilibiliSource>();',
-      };
+    test(
+      'runtime guard detects concrete Bilibili and YouTube class references',
+      () {
+        const cases = {
+          'constructor': 'final source = YouTubeSource();',
+          'cast': 'final source = value as BilibiliSource;',
+          'whereType': 'manager.sources.whereType<BilibiliSource>();',
+        };
 
-      for (final entry in cases.entries) {
-        expect(
-          _runtimeConcreteSourceOffenders(
-            'lib/services/example.dart',
-            entry.value,
-          ),
-          contains(contains('concrete source class')),
-          reason: entry.key,
-        );
-      }
-    });
+        for (final entry in cases.entries) {
+          expect(
+            _runtimeConcreteSourceOffenders(
+              'lib/services/example.dart',
+              entry.value,
+            ),
+            contains(contains('concrete source class')),
+            reason: entry.key,
+          );
+        }
+      },
+    );
 
     test(
-        'runtime guard allows lyrics NeteaseSource without data adapter import',
-        () {
-      const source = '''
+      'runtime guard allows lyrics NeteaseSource without data adapter import',
+      () {
+        const source = '''
 import 'package:fmp/services/lyrics/netease_source.dart';
 
 final netease = NeteaseSource();
 ''';
 
-      expect(
-        _runtimeConcreteSourceOffenders(
-          'lib/services/lyrics/example.dart',
-          source,
-        ),
-        isEmpty,
-      );
-    });
+        expect(
+          _runtimeConcreteSourceOffenders(
+            'lib/services/lyrics/example.dart',
+            source,
+          ),
+          isEmpty,
+        );
+      },
+    );
 
     test('source provider guard detects reformatted concrete accessors', () {
       const source = '''
@@ -217,10 +221,10 @@ Iterable<String> _importedUris(String source) {
       .allMatches(source)
       .map((match) => match.group(1)!)
       .where((uri) {
-    return uri.endsWith('bilibili_source.dart') ||
-        uri.endsWith('youtube_source.dart') ||
-        uri.endsWith('netease_source.dart');
-  });
+        return uri.endsWith('bilibili_source.dart') ||
+            uri.endsWith('youtube_source.dart') ||
+            uri.endsWith('netease_source.dart');
+      });
 }
 
 bool _isDataSourceAdapterImport(String importerPath, String importUri) {

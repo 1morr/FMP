@@ -9,11 +9,8 @@ import '../download/download_providers.dart';
 import '../download/file_exists_cache.dart';
 import 'playlist_provider.dart';
 
-typedef LogBackgroundError = void Function(
-  String message,
-  Object error,
-  StackTrace? stackTrace,
-);
+typedef LogBackgroundError =
+    void Function(String message, Object error, StackTrace? stackTrace);
 
 class LibraryInvalidationCoordinator {
   const LibraryInvalidationCoordinator({
@@ -100,8 +97,9 @@ class LibraryInvalidationCoordinator {
       invalidateDownloadedCategories();
     }
 
-    final derivedCategoryPaths =
-        savePaths.map((path) => p.dirname(p.dirname(path)));
+    final derivedCategoryPaths = savePaths.map(
+      (path) => p.dirname(p.dirname(path)),
+    );
     for (final categoryPath in _dedupeInOrder([
       ...categoryPaths,
       ...derivedCategoryPaths,
@@ -148,54 +146,55 @@ class LibraryInvalidationCoordinator {
 
 final libraryInvalidationCoordinatorProvider =
     Provider<LibraryInvalidationCoordinator>((ref) {
-  return LibraryInvalidationCoordinator(
-    invalidateAllPlaylists: () => ref.invalidate(allPlaylistsProvider),
-    invalidatePlaylistDetail: (playlistId) {
-      ref.invalidate(playlistDetailProvider(playlistId));
-    },
-    invalidatePlaylistCover: (playlistId) {
-      ref.invalidate(playlistCoverProvider(playlistId));
-      ref.invalidate(playlistCoverMapProvider);
-    },
-    invalidateDownloadedCategories: () {
-      ref.invalidate(downloadedCategoriesProvider);
-    },
-    invalidateDownloadedCategoryTracks: (categoryPath) {
-      ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
-    },
-    invalidateFileExistsCache: () {
-      ref.read(fileExistsCacheProvider.notifier).clearAll();
-    },
-    refreshLoadedPlaylistDetail: (playlistId) {
-      final provider = playlistDetailProvider(playlistId);
-      if (!ref.exists(provider)) {
-        return Future.value();
-      }
-      return ref.read(provider.notifier).refreshTracks();
-    },
-    startRefreshLoadedPlaylistDetail: (playlistId) {
-      final provider = playlistDetailProvider(playlistId);
-      if (!ref.exists(provider)) {
-        return;
-      }
-      unawaited(
-        ref.read(provider.notifier).refreshTracks().catchError(
-          (Object error, StackTrace stackTrace) {
-            AppLogger.error(
-              'Failed to refresh loaded playlist detail in background: $playlistId',
-              error,
-              stackTrace,
-              'LibraryInvalidation',
-            );
-          },
-        ),
+      return LibraryInvalidationCoordinator(
+        invalidateAllPlaylists: () => ref.invalidate(allPlaylistsProvider),
+        invalidatePlaylistDetail: (playlistId) {
+          ref.invalidate(playlistDetailProvider(playlistId));
+        },
+        invalidatePlaylistCover: (playlistId) {
+          ref.invalidate(playlistCoverProvider(playlistId));
+          ref.invalidate(playlistCoverMapProvider);
+        },
+        invalidateDownloadedCategories: () {
+          ref.invalidate(downloadedCategoriesProvider);
+        },
+        invalidateDownloadedCategoryTracks: (categoryPath) {
+          ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
+        },
+        invalidateFileExistsCache: () {
+          ref.read(fileExistsCacheProvider.notifier).clearAll();
+        },
+        refreshLoadedPlaylistDetail: (playlistId) {
+          final provider = playlistDetailProvider(playlistId);
+          if (!ref.exists(provider)) {
+            return Future.value();
+          }
+          return ref.read(provider.notifier).refreshTracks();
+        },
+        startRefreshLoadedPlaylistDetail: (playlistId) {
+          final provider = playlistDetailProvider(playlistId);
+          if (!ref.exists(provider)) {
+            return;
+          }
+          unawaited(
+            ref.read(provider.notifier).refreshTracks().catchError((
+              Object error,
+              StackTrace stackTrace,
+            ) {
+              AppLogger.error(
+                'Failed to refresh loaded playlist detail in background: $playlistId',
+                error,
+                stackTrace,
+                'LibraryInvalidation',
+              );
+            }),
+          );
+        },
+        logBackgroundError: (message, error, stackTrace) {
+          AppLogger.error(message, error, stackTrace, 'LibraryInvalidation');
+        },
       );
-    },
-    logBackgroundError: (message, error, stackTrace) {
-      AppLogger.error(message, error, stackTrace, 'LibraryInvalidation');
-    },
-  );
-});
+    });
 
 List<T> _dedupeInOrder<T>(Iterable<T> values) {
   final seen = <T>{};

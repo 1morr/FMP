@@ -17,7 +17,7 @@ import '../../data/repositories/play_history_repository.dart';
 /// （`countsAsNewPlay` 旗標），因為只有它知道這次是使用者切歌、重試、還是啟動還原。
 class PlayHistoryRecorder with Logging {
   PlayHistoryRecorder({PlayHistoryRepository? repository})
-      : _repository = repository;
+    : _repository = repository;
 
   final PlayHistoryRepository? _repository;
 
@@ -26,13 +26,15 @@ class PlayHistoryRecorder with Logging {
     final repo = _repository;
     if (repo == null) return;
 
-    unawaited(Future.microtask(() async {
-      try {
-        await repo.addHistory(track);
-        logDebug('Recorded play history: ${track.title}');
-      } catch (e) {
-        logWarning('Failed to record play history: $e');
-      }
-    }));
+    unawaited(
+      Future.microtask(() async {
+        try {
+          await repo.addHistory(track);
+          logDebug('Recorded play history: ${track.title}');
+        } catch (e) {
+          logWarning('Failed to record play history: $e');
+        }
+      }),
+    );
   }
 }

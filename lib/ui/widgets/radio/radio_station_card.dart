@@ -182,13 +182,13 @@ class RadioStationCard extends StatelessWidget {
                 station.title,
                 style: (dense ? textTheme.bodySmall : textTheme.titleSmall)
                     ?.copyWith(
-                  fontWeight: isPlaying ? FontWeight.bold : null,
-                  color: isLive
-                      ? (isPlaying
-                          ? colorScheme.primary
-                          : colorScheme.onSurface)
-                      : colorScheme.onSurfaceVariant,
-                ),
+                      fontWeight: isPlaying ? FontWeight.bold : null,
+                      color: isLive
+                          ? (isPlaying
+                                ? colorScheme.primary
+                                : colorScheme.onSurface)
+                          : colorScheme.onSurfaceVariant,
+                    ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -255,11 +255,7 @@ class RadioStationDragHandle extends StatelessWidget {
         color: colorScheme.primary.withValues(alpha: 0.7),
         borderRadius: AppRadius.borderRadiusSm,
       ),
-      child: Icon(
-        Icons.drag_indicator,
-        size: 16,
-        color: colorScheme.onPrimary,
-      ),
+      child: Icon(Icons.drag_indicator, size: 16, color: colorScheme.onPrimary),
     );
   }
 }

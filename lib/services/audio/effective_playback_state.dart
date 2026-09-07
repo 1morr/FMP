@@ -25,7 +25,8 @@ class EffectivePlaybackState {
     required bool controllerIsLoading,
     required Duration backendPosition,
   }) {
-    final backendIdleDuringLoad = controllerIsLoading &&
+    final backendIdleDuringLoad =
+        controllerIsLoading &&
         backend.processingState == FmpAudioProcessingState.idle;
     final processingState = backendIdleDuringLoad
         ? FmpAudioProcessingState.loading
@@ -36,7 +37,8 @@ class EffectivePlaybackState {
       isBuffering: processingState == FmpAudioProcessingState.buffering,
       // 控制器的載入階段優先：解析串流時後端還沒有任何東西可播，它說 idle 或
       // ready 都不算數。
-      isLoading: controllerIsLoading ||
+      isLoading:
+          controllerIsLoading ||
           processingState == FmpAudioProcessingState.loading,
       processingState: processingState,
       // 載入中一律報 0：後端的位置這時要嘛還是上一首的，要嘛是垃圾值。

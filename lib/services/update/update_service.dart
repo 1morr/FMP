@@ -155,8 +155,8 @@ class UpdateAssetSelection {
     final selectedAbi = info.apkDownloadUrls.containsKey(abi)
         ? abi
         : info.apkDownloadUrls.containsKey('universal')
-            ? 'universal'
-            : null;
+        ? 'universal'
+        : null;
     if (selectedAbi == null) {
       throw const UpdateAssetUnavailableException(
         'No Android update asset for current ABI',
@@ -208,16 +208,19 @@ class UpdateIntegrityException implements Exception {
 
 /// 应用更新服务
 class UpdateService {
-  static const MethodChannel _platformChannel =
-      MethodChannel('com.personal.fmp/platform');
+  static const MethodChannel _platformChannel = MethodChannel(
+    'com.personal.fmp/platform',
+  );
 
   final Dio _dio;
 
   UpdateService()
-      : _dio = Dio(BaseOptions(
+    : _dio = Dio(
+        BaseOptions(
           connectTimeout: AppConstants.updateConnectTimeout,
           receiveTimeout: AppConstants.networkReceiveTimeout,
-        ));
+        ),
+      );
 
   /// 检查已下载的更新文件是否存在且完整
   Future<String?> getExistingDownloadPath(UpdateInfo info) async {
@@ -291,8 +294,9 @@ class UpdateService {
 
   Future<bool> canRequestPackageInstalls() async {
     if (!Platform.isAndroid) return true;
-    final result =
-        await _platformChannel.invokeMethod<bool>('canRequestPackageInstalls');
+    final result = await _platformChannel.invokeMethod<bool>(
+      'canRequestPackageInstalls',
+    );
     return result ?? false;
   }
 
@@ -365,8 +369,9 @@ class UpdateService {
     }
 
     final normalizedExtractDir = p.normalize(extractDir);
-    final destination =
-        p.normalize(p.joinAll([normalizedExtractDir, ...parts]));
+    final destination = p.normalize(
+      p.joinAll([normalizedExtractDir, ...parts]),
+    );
     final extractWithSeparator = normalizedExtractDir.endsWith(p.separator)
         ? normalizedExtractDir
         : '$normalizedExtractDir${p.separator}';
@@ -390,9 +395,7 @@ class UpdateService {
 
       final response = await _dio.get(
         'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest',
-        options: Options(headers: {
-          'Accept': 'application/vnd.github.v3+json',
-        }),
+        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
       );
 
       if (response.statusCode != 200) {
@@ -401,8 +404,9 @@ class UpdateService {
 
       final data = response.data as Map<String, dynamic>;
       final tagName = data['tag_name'] as String; // e.g. "v1.2.0"
-      final latestVersion =
-          tagName.startsWith('v') ? tagName.substring(1) : tagName;
+      final latestVersion = tagName.startsWith('v')
+          ? tagName.substring(1)
+          : tagName;
 
       // 获取当前版本
       final packageInfo = await PackageInfo.fromPlatform();
@@ -470,8 +474,9 @@ class UpdateService {
       final htmlUrl = data['html_url'] as String?;
 
       AppLogger.info(
-          'Update available: $latestVersion, APK ABIs: ${apkUrls.keys.toList()}',
-          _tag);
+        'Update available: $latestVersion, APK ABIs: ${apkUrls.keys.toList()}',
+        _tag,
+      );
 
       final info = UpdateInfo(
         version: tagName,
@@ -590,8 +595,9 @@ class UpdateService {
     final appDir = File(Platform.resolvedExecutable).parent.path;
 
     AppLogger.info(
-        'Installed version detected, downloading installer to $installerPath',
-        _tag);
+      'Installed version detected, downloading installer to $installerPath',
+      _tag,
+    );
 
     await _downloadVerifiedAsset(
       url,
@@ -604,11 +610,12 @@ class UpdateService {
     AppLogger.info('Download complete, launching installer to $appDir', _tag);
 
     // /DIR= 强制安装到当前应用目录，避免安装到默认 Program Files
-    await Process.start(
-      installerPath,
-      ['/SILENT', '/DIR=$appDir', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start(installerPath, [
+      '/SILENT',
+      '/DIR=$appDir',
+      '/CLOSEAPPLICATIONS',
+      '/RESTARTAPPLICATIONS',
+    ], mode: ProcessStartMode.detached);
 
     exit(0);
   }
@@ -625,7 +632,9 @@ class UpdateService {
     final extractDir = '${tempDir.path}/fmp_update';
 
     AppLogger.info(
-        'Portable version detected, downloading ZIP to $zipPath', _tag);
+      'Portable version detected, downloading ZIP to $zipPath',
+      _tag,
+    );
 
     await _downloadVerifiedAsset(
       url,
@@ -671,21 +680,21 @@ class UpdateService {
 
     AppLogger.info('Starting updater script and exiting...', _tag);
 
-    await Process.start(
-      'wscript',
-      [vbsPath],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start('wscript', [vbsPath], mode: ProcessStartMode.detached);
 
     exit(0);
   }
 
   /// 比较版本号，判断 latest 是否比 current 新
   bool _isNewerVersion(String current, String latest) {
-    final currentParts =
-        current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final latestParts =
-        latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final currentParts = current
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+    final latestParts = latest
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
 
     // 补齐长度
     while (currentParts.length < 3) {
@@ -744,16 +753,16 @@ class UpdateService {
 }
 
 Future<Map<String, String>> _fetchSha256Manifest(String url) async {
-  final dio = Dio(BaseOptions(
-    connectTimeout: AppConstants.updateConnectTimeout,
-    receiveTimeout: AppConstants.networkReceiveTimeout,
-  ));
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: AppConstants.updateConnectTimeout,
+      receiveTimeout: AppConstants.networkReceiveTimeout,
+    ),
+  );
   final response = await dio.get<String>(url);
   final body = response.data;
   if (body == null) {
-    throw const UpdateIntegrityException(
-      'Update checksum manifest is empty',
-    );
+    throw const UpdateIntegrityException('Update checksum manifest is empty');
   }
   final manifest = _parseSha256Manifest(body);
   if (manifest.isEmpty) {
@@ -768,25 +777,22 @@ String? _requiredOrAvailableChecksum(UpdateInfo info, String fileName) {
   final checksum = info.assetSha256s[fileName];
   if (info.checksumManifestAvailable &&
       (checksum == null || checksum.isEmpty)) {
-    throw UpdateIntegrityException(
-      'Update checksum missing for $fileName',
-    );
+    throw UpdateIntegrityException('Update checksum missing for $fileName');
   }
   return checksum;
 }
 
 Map<String, String> _parseSha256Manifest(String content) {
   final checksums = <String, String>{};
-  final linePattern = RegExp(
-    r'^([a-fA-F0-9]{64})\s+\*?(.+)$',
-  );
+  final linePattern = RegExp(r'^([a-fA-F0-9]{64})\s+\*?(.+)$');
   for (final rawLine in content.split(RegExp(r'\r?\n'))) {
     final line = rawLine.trim();
     if (line.isEmpty || line.startsWith('#')) continue;
     final match = linePattern.firstMatch(line);
     if (match == null) continue;
-    checksums[p.basename(match.group(2)!.trim())] =
-        match.group(1)!.toLowerCase();
+    checksums[p.basename(match.group(2)!.trim())] = match
+        .group(1)!
+        .toLowerCase();
   }
   return checksums;
 }

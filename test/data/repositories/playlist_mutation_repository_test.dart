@@ -23,10 +23,10 @@ void main() {
       addTearDown(harness.dispose);
       final playlist = await _createPlaylist(harness, 'Canonical Add');
 
-      final result = await harness.mutations.addTracks(
-        playlist.id,
-        [_track('a', 'A'), _track('b', 'B')],
-      );
+      final result = await harness.mutations.addTracks(playlist.id, [
+        _track('a', 'A'),
+        _track('b', 'B'),
+      ]);
 
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       final savedTracks = await harness.tracks.getBySourceIds(['a', 'b']);
@@ -52,10 +52,10 @@ void main() {
 
       // 巢狀 writeTxn 會拋 IsarError，所以這條同時證明了本體真的沒有自己開交易。
       final result = await harness.isar.writeTxn(
-        () => harness.mutations.addTracksInTxn(
-          playlist.id,
-          [_track('a', 'A'), _track('b', 'B')],
-        ),
+        () => harness.mutations.addTracksInTxn(playlist.id, [
+          _track('a', 'A'),
+          _track('b', 'B'),
+        ]),
       );
 
       final savedPlaylist = await harness.playlists.getById(playlist.id);
@@ -63,34 +63,36 @@ void main() {
       expect(savedPlaylist!.trackIds, hasLength(2));
     });
 
-    test('a failure after addTracksInTxn rolls the whole transaction back',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Rollback');
+    test(
+      'a failure after addTracksInTxn rolls the whole transaction back',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Rollback');
 
-      await expectLater(
-        harness.isar.writeTxn(() async {
-          await harness.mutations.addTracksInTxn(
-            playlist.id,
-            [_track('a', 'A')],
-          );
-          throw StateError('boom');
-        }),
-        throwsA(isA<StateError>()),
-      );
+        await expectLater(
+          harness.isar.writeTxn(() async {
+            await harness.mutations.addTracksInTxn(playlist.id, [
+              _track('a', 'A'),
+            ]);
+            throw StateError('boom');
+          }),
+          throwsA(isA<StateError>()),
+        );
 
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(savedPlaylist!.trackIds, isEmpty);
-      expect(await harness.tracks.getBySourceIds(['a']), isEmpty);
-    });
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(savedPlaylist!.trackIds, isEmpty);
+        expect(await harness.tracks.getBySourceIds(['a']), isEmpty);
+      },
+    );
 
     test('addTracks counts existing unlinked library track as added', () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
       final playlist = await _createPlaylist(harness, 'Existing Library Add');
-      final track =
-          await harness.tracks.save(_track('existing-unlinked', 'Existing'));
+      final track = await harness.tracks.save(
+        _track('existing-unlinked', 'Existing'),
+      );
 
       final result = await harness.mutations.addTracks(playlist.id, [track]);
 
@@ -100,85 +102,93 @@ void main() {
       expect(result.repairedCount, 0);
       expect(savedPlaylist!.trackIds, [track.id]);
       expect(
-        savedTrack!.playlistInfo
-            .where((info) => info.playlistId == playlist.id),
+        savedTrack!.playlistInfo.where(
+          (info) => info.playlistId == playlist.id,
+        ),
         hasLength(1),
       );
     });
 
-    test('addTracks fills missing original import IDs on existing tracks',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Original IDs');
-      final existing = await harness.tracks.save(
-        _track('matched-track', 'Matched Track'),
-      );
-      final incoming = _track('matched-track', 'Imported Match')
-        ..originalSongId = 'qq-original-123'
-        ..originalSource = 'qqmusic';
+    test(
+      'addTracks fills missing original import IDs on existing tracks',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Original IDs');
+        final existing = await harness.tracks.save(
+          _track('matched-track', 'Matched Track'),
+        );
+        final incoming = _track('matched-track', 'Imported Match')
+          ..originalSongId = 'qq-original-123'
+          ..originalSource = 'qqmusic';
 
-      final result = await harness.mutations.addTracks(
-        playlist.id,
-        [incoming],
-      );
+        final result = await harness.mutations.addTracks(playlist.id, [
+          incoming,
+        ]);
 
-      final savedTrack = await harness.tracks.getById(existing.id);
-      expect(result.updatedTrackIds, [existing.id]);
-      expect(savedTrack!.originalSongId, 'qq-original-123');
-      expect(savedTrack.originalSource, 'qqmusic');
-    });
+        final savedTrack = await harness.tracks.getById(existing.id);
+        expect(result.updatedTrackIds, [existing.id]);
+        expect(savedTrack!.originalSongId, 'qq-original-123');
+        expect(savedTrack.originalSource, 'qqmusic');
+      },
+    );
 
-    test('addTracks preserves existing original import IDs on existing tracks',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Preserve Originals');
-      final existing = await harness.tracks.save(
-        _track('preserve-originals', 'Preserve Originals')
-          ..originalSongId = 'netease-original-456'
-          ..originalSource = 'netease',
-      );
-      final incoming = _track('preserve-originals', 'Imported Preserve')
-        ..originalSongId = 'qq-original-789'
-        ..originalSource = 'qqmusic';
+    test(
+      'addTracks preserves existing original import IDs on existing tracks',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Preserve Originals');
+        final existing = await harness.tracks.save(
+          _track('preserve-originals', 'Preserve Originals')
+            ..originalSongId = 'netease-original-456'
+            ..originalSource = 'netease',
+        );
+        final incoming = _track('preserve-originals', 'Imported Preserve')
+          ..originalSongId = 'qq-original-789'
+          ..originalSource = 'qqmusic';
 
-      await harness.mutations.addTracks(playlist.id, [incoming]);
+        await harness.mutations.addTracks(playlist.id, [incoming]);
 
-      final savedTrack = await harness.tracks.getById(existing.id);
-      expect(savedTrack!.originalSongId, 'netease-original-456');
-      expect(savedTrack.originalSource, 'netease');
-    });
+        final savedTrack = await harness.tracks.getById(existing.id);
+        expect(savedTrack!.originalSongId, 'netease-original-456');
+        expect(savedTrack.originalSource, 'netease');
+      },
+    );
 
-    test('addTracks preserves download path from duplicate playlistInfo',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Duplicate Info');
-      final track = _track('duplicate-info', 'Duplicate Info')
-        ..playlistInfo = [
-          PlaylistDownloadInfo()
-            ..playlistId = playlist.id
-            ..playlistName = playlist.name,
-          PlaylistDownloadInfo()
-            ..playlistId = playlist.id
-            ..playlistName = playlist.name
-            ..downloadPath = '/downloads/duplicate-info.mp3',
-        ];
-      final savedTrack = await harness.tracks.save(track);
-      playlist.trackIds = [savedTrack.id];
-      await harness.playlists.save(playlist);
+    test(
+      'addTracks preserves download path from duplicate playlistInfo',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Duplicate Info');
+        final track = _track('duplicate-info', 'Duplicate Info')
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = playlist.id
+              ..playlistName = playlist.name,
+            PlaylistDownloadInfo()
+              ..playlistId = playlist.id
+              ..playlistName = playlist.name
+              ..downloadPath = '/downloads/duplicate-info.mp3',
+          ];
+        final savedTrack = await harness.tracks.save(track);
+        playlist.trackIds = [savedTrack.id];
+        await harness.playlists.save(playlist);
 
-      await harness.mutations.addTracks(playlist.id, [savedTrack]);
+        await harness.mutations.addTracks(playlist.id, [savedTrack]);
 
-      final repairedTrack = await harness.tracks.getById(savedTrack.id);
-      final matchingInfos = repairedTrack!.playlistInfo
-          .where((info) => info.playlistId == playlist.id)
-          .toList();
-      expect(matchingInfos, hasLength(1));
-      expect(
-          matchingInfos.single.downloadPath, '/downloads/duplicate-info.mp3');
-    });
+        final repairedTrack = await harness.tracks.getById(savedTrack.id);
+        final matchingInfos = repairedTrack!.playlistInfo
+            .where((info) => info.playlistId == playlist.id)
+            .toList();
+        expect(matchingInfos, hasLength(1));
+        expect(
+          matchingInfos.single.downloadPath,
+          '/downloads/duplicate-info.mp3',
+        );
+      },
+    );
 
     test('addTracks keeps null-cid tracks distinct from cid tracks', () async {
       final harness = await _createHarness();
@@ -188,117 +198,128 @@ void main() {
         _track('same-source', 'CID Track')..cid = 123,
       );
 
-      await harness.mutations.addTracks(
-        playlist.id,
-        [_track('same-source', 'Null CID Track')],
-      );
+      await harness.mutations.addTracks(playlist.id, [
+        _track('same-source', 'Null CID Track'),
+      ]);
 
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       final savedTracks = await harness.tracks.getBySourceIds(['same-source']);
-      final nullCidTrack =
-          savedTracks.singleWhere((track) => track.cid == null);
+      final nullCidTrack = savedTracks.singleWhere(
+        (track) => track.cid == null,
+      );
       expect(savedTracks, hasLength(2));
       expect(savedPlaylist!.trackIds, [nullCidTrack.id]);
       expect(nullCidTrack.belongsToPlaylist(playlist.id), isTrue);
       expect(
-        (await harness.tracks.getById(cidTrack.id))!.belongsToPlaylist(
-          playlist.id,
-        ),
+        (await harness.tracks.getById(
+          cidTrack.id,
+        ))!.belongsToPlaylist(playlist.id),
         isFalse,
       );
     });
 
     test(
-        'addTracks uses identity semantics for mixed source and cid tracks in one batch',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Batch Identity');
-      final existing =
-          await harness.tracks.save(_track('same', 'Existing')..cid = 1);
-      final incoming = [
-        _track('same', 'Null CID'),
-        _track('same', 'Existing Updated')..cid = 1,
-      ];
-      final result = await harness.mutations.addTracks(playlist.id, incoming);
-      final saved = await harness.playlists.getById(playlist.id);
-      expect(result.addedCount, 2);
-      expect(saved!.trackIds, contains(existing.id));
-      expect((await harness.tracks.getBySourceIds(['same'])), hasLength(2));
-    });
+      'addTracks uses identity semantics for mixed source and cid tracks in one batch',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Batch Identity');
+        final existing = await harness.tracks.save(
+          _track('same', 'Existing')..cid = 1,
+        );
+        final incoming = [
+          _track('same', 'Null CID'),
+          _track('same', 'Existing Updated')..cid = 1,
+        ];
+        final result = await harness.mutations.addTracks(playlist.id, incoming);
+        final saved = await harness.playlists.getById(playlist.id);
+        expect(result.addedCount, 2);
+        expect(saved!.trackIds, contains(existing.id));
+        expect((await harness.tracks.getBySourceIds(['same'])), hasLength(2));
+      },
+    );
 
-    test('addTracks repairs missing playlist or track side without duplicates',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Repair');
-      final track = await harness.tracks.save(_track('repair', 'Repair'));
-      playlist.trackIds = [track.id];
-      await harness.playlists.save(playlist);
+    test(
+      'addTracks repairs missing playlist or track side without duplicates',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Repair');
+        final track = await harness.tracks.save(_track('repair', 'Repair'));
+        playlist.trackIds = [track.id];
+        await harness.playlists.save(playlist);
 
-      final result = await harness.mutations.addTracks(playlist.id, [track]);
+        final result = await harness.mutations.addTracks(playlist.id, [track]);
 
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      final savedTrack = await harness.tracks.getById(track.id);
-      expect(result.addedCount, 0);
-      expect(result.repairedCount, 1);
-      expect(savedPlaylist!.trackIds, [track.id]);
-      expect(
-        savedTrack!.playlistInfo
-            .where((info) => info.playlistId == playlist.id),
-        hasLength(1),
-      );
-    });
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final savedTrack = await harness.tracks.getById(track.id);
+        expect(result.addedCount, 0);
+        expect(result.repairedCount, 1);
+        expect(savedPlaylist!.trackIds, [track.id]);
+        expect(
+          savedTrack!.playlistInfo.where(
+            (info) => info.playlistId == playlist.id,
+          ),
+          hasLength(1),
+        );
+      },
+    );
 
-    test('addTracks returns skipped count for already fully linked tracks',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Skip Existing');
-      final track = _track('skip-me', 'Skip Me');
+    test(
+      'addTracks returns skipped count for already fully linked tracks',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Skip Existing');
+        final track = _track('skip-me', 'Skip Me');
 
-      final first = await harness.mutations.addTracks(playlist.id, [track]);
-      final second = await harness.mutations.addTracks(playlist.id, [track]);
+        final first = await harness.mutations.addTracks(playlist.id, [track]);
+        final second = await harness.mutations.addTracks(playlist.id, [track]);
 
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(first.addedCount, 1);
-      expect(second.addedCount, 0);
-      expect(second.skippedCount, 1);
-      expect(savedPlaylist!.trackIds, hasLength(1));
-    });
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(first.addedCount, 1);
+        expect(second.addedCount, 0);
+        expect(second.skippedCount, 1);
+        expect(savedPlaylist!.trackIds, hasLength(1));
+      },
+    );
 
-    test('removeTracks removes playlist side and deletes only orphan tracks',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final first = await _createPlaylist(harness, 'Remove First');
-      final second = await _createPlaylist(harness, 'Remove Second');
-      final orphan =
-          await harness.tracks.save(_track('remove-orphan', 'Orphan'));
-      final shared =
-          await harness.tracks.save(_track('remove-shared', 'Shared'));
-      final kept = await harness.tracks.save(_track('remove-kept', 'Kept'));
-      await harness.mutations.addTracks(first.id, [orphan, shared, kept]);
-      await harness.mutations.addTrack(second.id, shared);
+    test(
+      'removeTracks removes playlist side and deletes only orphan tracks',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final first = await _createPlaylist(harness, 'Remove First');
+        final second = await _createPlaylist(harness, 'Remove Second');
+        final orphan = await harness.tracks.save(
+          _track('remove-orphan', 'Orphan'),
+        );
+        final shared = await harness.tracks.save(
+          _track('remove-shared', 'Shared'),
+        );
+        final kept = await harness.tracks.save(_track('remove-kept', 'Kept'));
+        await harness.mutations.addTracks(first.id, [orphan, shared, kept]);
+        await harness.mutations.addTrack(second.id, shared);
 
-      final result = await harness.mutations.removeTracks(
-        first.id,
-        [orphan.id, shared.id],
-      );
+        final result = await harness.mutations.removeTracks(first.id, [
+          orphan.id,
+          shared.id,
+        ]);
 
-      final savedFirst = await harness.playlists.getById(first.id);
-      final savedShared = await harness.tracks.getById(shared.id);
-      expect(savedFirst!.trackIds, [kept.id]);
-      expect(savedFirst.coverUrl, 'https://example.com/remove-kept.jpg');
-      expect(await harness.tracks.getById(orphan.id), isNull);
-      expect(savedShared!.belongsToPlaylist(first.id), isFalse);
-      expect(savedShared.belongsToPlaylist(second.id), isTrue);
-      expect(result.removedTrackIds, unorderedEquals([orphan.id, shared.id]));
-      expect(result.deletedTrackIds, [orphan.id]);
-      expect(result.updatedTrackIds, [shared.id]);
-      expect(result.playlistChanged, isTrue);
-      expect(result.coverChanged, isTrue);
-    });
+        final savedFirst = await harness.playlists.getById(first.id);
+        final savedShared = await harness.tracks.getById(shared.id);
+        expect(savedFirst!.trackIds, [kept.id]);
+        expect(savedFirst.coverUrl, 'https://example.com/remove-kept.jpg');
+        expect(await harness.tracks.getById(orphan.id), isNull);
+        expect(savedShared!.belongsToPlaylist(first.id), isFalse);
+        expect(savedShared.belongsToPlaylist(second.id), isTrue);
+        expect(result.removedTrackIds, unorderedEquals([orphan.id, shared.id]));
+        expect(result.deletedTrackIds, [orphan.id]);
+        expect(result.updatedTrackIds, [shared.id]);
+        expect(result.playlistChanged, isTrue);
+        expect(result.coverChanged, isTrue);
+      },
+    );
 
     test('removeTracks cleans stale reverse-only membership', () async {
       final harness = await _createHarness();
@@ -308,10 +329,9 @@ void main() {
         ..addToPlaylist(playlist.id, playlistName: playlist.name);
       final savedTrack = await harness.tracks.save(track);
 
-      final result = await harness.mutations.removeTracks(
-        playlist.id,
-        [savedTrack.id],
-      );
+      final result = await harness.mutations.removeTracks(playlist.id, [
+        savedTrack.id,
+      ]);
 
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       expect(savedPlaylist!.trackIds, isEmpty);
@@ -323,53 +343,65 @@ void main() {
       expect(result.coverChanged, isFalse);
     });
 
-    test('reorderTracks stores requested order and reports cover changes',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Reorder');
-      final first = await harness.tracks.save(_track('reorder-first', 'First'));
-      final second =
-          await harness.tracks.save(_track('reorder-second', 'Second'));
-      final third = await harness.tracks.save(_track('reorder-third', 'Third'));
-      await harness.mutations.addTracks(playlist.id, [first, second, third]);
+    test(
+      'reorderTracks stores requested order and reports cover changes',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Reorder');
+        final first = await harness.tracks.save(
+          _track('reorder-first', 'First'),
+        );
+        final second = await harness.tracks.save(
+          _track('reorder-second', 'Second'),
+        );
+        final third = await harness.tracks.save(
+          _track('reorder-third', 'Third'),
+        );
+        await harness.mutations.addTracks(playlist.id, [first, second, third]);
 
-      final result = await harness.mutations.reorderTracks(
-        playlist.id,
-        [third.id, first.id, second.id],
-      );
+        final result = await harness.mutations.reorderTracks(playlist.id, [
+          third.id,
+          first.id,
+          second.id,
+        ]);
 
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(savedPlaylist!.trackIds, [third.id, first.id, second.id]);
-      expect(savedPlaylist.coverUrl, 'https://example.com/reorder-third.jpg');
-      expect(result.playlistChanged, isTrue);
-      expect(result.coverChanged, isTrue);
-    });
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(savedPlaylist!.trackIds, [third.id, first.id, second.id]);
+        expect(savedPlaylist.coverUrl, 'https://example.com/reorder-third.jpg');
+        expect(result.playlistChanged, isTrue);
+        expect(result.coverChanged, isTrue);
+      },
+    );
 
-    test('deletePlaylist removes playlist and cleans reverse associations',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final first = await _createPlaylist(harness, 'Delete First');
-      final second = await _createPlaylist(harness, 'Delete Second');
-      final orphan =
-          await harness.tracks.save(_track('delete-orphan', 'Orphan'));
-      final shared =
-          await harness.tracks.save(_track('delete-shared', 'Shared'));
-      await harness.mutations.addTracks(first.id, [orphan, shared]);
-      await harness.mutations.addTrack(second.id, shared);
+    test(
+      'deletePlaylist removes playlist and cleans reverse associations',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final first = await _createPlaylist(harness, 'Delete First');
+        final second = await _createPlaylist(harness, 'Delete Second');
+        final orphan = await harness.tracks.save(
+          _track('delete-orphan', 'Orphan'),
+        );
+        final shared = await harness.tracks.save(
+          _track('delete-shared', 'Shared'),
+        );
+        await harness.mutations.addTracks(first.id, [orphan, shared]);
+        await harness.mutations.addTrack(second.id, shared);
 
-      final result = await harness.mutations.deletePlaylist(first.id);
+        final result = await harness.mutations.deletePlaylist(first.id);
 
-      final savedShared = await harness.tracks.getById(shared.id);
-      expect(await harness.playlists.getById(first.id), isNull);
-      expect(await harness.tracks.getById(orphan.id), isNull);
-      expect(savedShared!.belongsToPlaylist(first.id), isFalse);
-      expect(savedShared.belongsToPlaylist(second.id), isTrue);
-      expect(result.deletedTrackIds, [orphan.id]);
-      expect(result.updatedTrackIds, [shared.id]);
-      expect(result.playlistChanged, isTrue);
-    });
+        final savedShared = await harness.tracks.getById(shared.id);
+        expect(await harness.playlists.getById(first.id), isNull);
+        expect(await harness.tracks.getById(orphan.id), isNull);
+        expect(savedShared!.belongsToPlaylist(first.id), isFalse);
+        expect(savedShared.belongsToPlaylist(second.id), isTrue);
+        expect(result.deletedTrackIds, [orphan.id]);
+        expect(result.updatedTrackIds, [shared.id]);
+        expect(result.playlistChanged, isTrue);
+      },
+    );
 
     test('deletePlaylist cleans stale reverse-only membership', () async {
       final harness = await _createHarness();
@@ -390,269 +422,297 @@ void main() {
     });
 
     test(
-        'replaceTracksFromRemoteRefresh prunes stale tracks only on complete refresh',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Refresh Complete');
-      await harness.mutations.addTracks(
-        playlist.id,
-        [_track('keep', 'Keep'), _track('stale', 'Stale')],
-      );
-
-      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
-        playlist.id,
-        [_track('keep', 'Keep'), _track('new', 'New')],
-        const RemoteRefreshMutationPolicy(sourceDataComplete: true),
-      );
-
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(result.pruningSkipped, isFalse);
-      expect(result.addedCount, 1);
-      expect(result.removedCount, 1);
-      expect(
-        await harness.tracks.getBySourceId('stale', SourceIds.youtube),
-        isNull,
-      );
-      final savedTracks =
-          await harness.tracks.getByIds(savedPlaylist!.trackIds);
-      expect(savedTracks.map((track) => track.sourceId), ['keep', 'new']);
-    });
-
-    test(
-        'replaceTracksFromRemoteRefresh prunes missing original ids from the playlist and reports them as removed',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Refresh Dangling');
-      await harness.mutations.addTracks(
-        playlist.id,
-        [_track('keep', 'Keep')],
-      );
-      playlist.trackIds = [999999, ...playlist.trackIds];
-      await harness.playlists.save(playlist);
-
-      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
-        playlist.id,
-        [_track('keep', 'Keep')],
-        const RemoteRefreshMutationPolicy(sourceDataComplete: true),
-      );
-
-      final keepTrack = await harness.tracks.getBySourceId(
-        'keep',
-        SourceIds.youtube,
-      );
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(savedPlaylist!.trackIds, [keepTrack!.id]);
-      expect(result.removedTrackIds, [999999]);
-      expect(result.deletedTrackIds, isEmpty);
-    });
-
-    test(
-        'replaceTracksFromRemoteRefresh preserves stale tracks on partial refresh',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Refresh Partial');
-      await harness.mutations.addTracks(
-        playlist.id,
-        [_track('keep', 'Keep'), _track('stale', 'Stale')],
-      );
-
-      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
-        playlist.id,
-        [_track('keep', 'Keep'), _track('new', 'New')],
-        const RemoteRefreshMutationPolicy(sourceDataComplete: false),
-      );
-
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      final savedTracks =
-          await harness.tracks.getByIds(savedPlaylist!.trackIds);
-      expect(result.pruningSkipped, isTrue);
-      expect(result.removedCount, 0);
-      expect(
-          savedTracks.map((track) => track.sourceId), ['keep', 'stale', 'new']);
-    });
-
-    test(
-        'replaceTracksFromRemoteRefresh preserves stale tracks when one track fails to persist',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist =
-          await _createPlaylist(harness, 'Refresh Persistence Error');
-      await harness.mutations.addTracks(
-        playlist.id,
-        [_track('keep', 'Keep'), _track('stale', 'Stale')],
-      );
-      final brokenTrack = Track()
-        ..sourceId = 'broken'
-        ..sourceType = SourceIds.youtube;
-
-      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
-        playlist.id,
-        [_track('keep', 'Keep'), _track('new', 'New'), brokenTrack],
-        const RemoteRefreshMutationPolicy(sourceDataComplete: true),
-      );
-
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      final savedTracks =
-          await harness.tracks.getByIds(savedPlaylist!.trackIds);
-      expect(result.pruningSkipped, isTrue);
-      expect(result.errors, isNotEmpty);
-      expect(result.removedCount, 0);
-      expect(
-          savedTracks.map((track) => track.sourceId), ['keep', 'stale', 'new']);
-      expect(
-        await harness.tracks.getBySourceId('broken', SourceIds.youtube),
-        isNull,
-      );
-    });
-
-    test('replaceTracksFromRemoteRefresh applies platform cover when provided',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Refresh Cover');
-      await harness.mutations.addTracks(
-        playlist.id,
-        [_track('cover-old', 'Old Cover')],
-      );
-
-      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
-        playlist.id,
-        [_track('cover-new', 'New Cover')],
-        const RemoteRefreshMutationPolicy(
-          sourceDataComplete: true,
-          platformCoverUrl: 'https://example.com/platform-cover.jpg',
-        ),
-      );
-
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(savedPlaylist!.coverUrl, 'https://example.com/platform-cover.jpg');
-      expect(result.coverChanged, isTrue);
-    });
-
-    test('replaceTracksFromRemoteRefresh does not override custom cover',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final playlist = await _createPlaylist(harness, 'Refresh Custom Cover')
-        ..coverUrl = 'https://example.com/custom-cover.jpg'
-        ..hasCustomCover = true;
-      await harness.playlists.save(playlist);
-      await harness.mutations.addTracks(
-        playlist.id,
-        [_track('custom-cover-old', 'Old Cover')],
-      );
-
-      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
-        playlist.id,
-        [_track('custom-cover-new', 'New Cover')],
-        const RemoteRefreshMutationPolicy(
-          sourceDataComplete: true,
-          platformCoverUrl: 'https://example.com/platform-cover.jpg',
-        ),
-      );
-
-      final savedPlaylist = await harness.playlists.getById(playlist.id);
-      expect(savedPlaylist!.coverUrl, 'https://example.com/custom-cover.jpg');
-      expect(result.coverChanged, isFalse);
-    });
-
-    test('mergeDuplicateTrackMembershipsInTxn preserves unique download info',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final first = await _createPlaylist(harness, 'Merge First');
-      final second = await _createPlaylist(harness, 'Merge Second');
-      final keep = await harness.tracks.save(_track('membership-keep', 'Keep')
-        ..playlistInfo = [
-          PlaylistDownloadInfo()
-            ..playlistId = first.id
-            ..playlistName = first.name,
+      'replaceTracksFromRemoteRefresh prunes stale tracks only on complete refresh',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Refresh Complete');
+        await harness.mutations.addTracks(playlist.id, [
+          _track('keep', 'Keep'),
+          _track('stale', 'Stale'),
         ]);
-      final duplicate = _track('membership-duplicate', 'Duplicate')
-        ..playlistInfo = [
-          PlaylistDownloadInfo()
-            ..playlistId = first.id
-            ..playlistName = first.name
-            ..downloadPath = '/downloads/merge-first.mp3',
-          PlaylistDownloadInfo()
-            ..playlistId = second.id
-            ..playlistName = second.name
-            ..downloadPath = '/downloads/merge-second.mp3',
-        ];
 
-      await harness.isar.writeTxn(() async {
-        harness.mutations
-            .mergeDuplicateTrackMembershipsInTxn(keep, [duplicate]);
-        await harness.isar.tracks.put(keep);
-      });
+        final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+          playlist.id,
+          [_track('keep', 'Keep'), _track('new', 'New')],
+          const RemoteRefreshMutationPolicy(sourceDataComplete: true),
+        );
 
-      final savedTrack = await harness.tracks.getById(keep.id);
-      expect(savedTrack!.playlistInfo, hasLength(2));
-      expect(
-        savedTrack.getDownloadPath(first.id, playlistName: first.name),
-        '/downloads/merge-first.mp3',
-      );
-      expect(
-        savedTrack.getDownloadPath(second.id, playlistName: second.name),
-        '/downloads/merge-second.mp3',
-      );
-    });
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(result.pruningSkipped, isFalse);
+        expect(result.addedCount, 1);
+        expect(result.removedCount, 1);
+        expect(
+          await harness.tracks.getBySourceId('stale', SourceIds.youtube),
+          isNull,
+        );
+        final savedTracks = await harness.tracks.getByIds(
+          savedPlaylist!.trackIds,
+        );
+        expect(savedTracks.map((track) => track.sourceId), ['keep', 'new']);
+      },
+    );
 
-    test('duplicatePlaylist creates new playlist and reverse membership',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-      final original = await _createPlaylist(harness, 'Original Duplicate');
-      original
-        ..description = 'Original description'
-        ..coverUrl = 'https://example.com/custom-cover.jpg'
-        ..hasCustomCover = true;
-      await harness.playlists.save(original);
-      final first =
-          await harness.tracks.save(_track('duplicate-first', 'First'));
-      final second =
-          await harness.tracks.save(_track('duplicate-second', 'Second'));
-      await harness.mutations.addTracks(original.id, [first, second]);
-      final copy = Playlist()
-        ..name = 'Duplicate Copy'
-        ..sortOrder = 42
-        ..createdAt = DateTime.now();
+    test(
+      'replaceTracksFromRemoteRefresh prunes missing original ids from the playlist and reports them as removed',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Refresh Dangling');
+        await harness.mutations.addTracks(playlist.id, [
+          _track('keep', 'Keep'),
+        ]);
+        playlist.trackIds = [999999, ...playlist.trackIds];
+        await harness.playlists.save(playlist);
 
-      final result = await harness.mutations.duplicatePlaylist(
-        original.id,
-        copy,
-      );
+        final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+          playlist.id,
+          [_track('keep', 'Keep')],
+          const RemoteRefreshMutationPolicy(sourceDataComplete: true),
+        );
 
-      final savedCopy = await harness.playlists.getById(result.id);
-      final copiedFirst = await harness.tracks.getById(first.id);
-      final copiedSecond = await harness.tracks.getById(second.id);
-      expect(savedCopy, isNotNull);
-      expect(savedCopy!.id, isNot(original.id));
-      expect(savedCopy.name, 'Duplicate Copy');
-      expect(savedCopy.description, 'Original description');
-      expect(savedCopy.coverUrl, 'https://example.com/custom-cover.jpg');
-      expect(savedCopy.hasCustomCover, isTrue);
-      expect(savedCopy.trackIds, [first.id, second.id]);
-      expect(copiedFirst!.belongsToPlaylist(result.id), isTrue);
-      expect(copiedSecond!.belongsToPlaylist(result.id), isTrue);
-      expect(
-        copiedFirst.playlistInfo
-            .singleWhere((info) => info.playlistId == result.id)
-            .playlistName,
-        'Duplicate Copy',
-      );
-    });
+        final keepTrack = await harness.tracks.getBySourceId(
+          'keep',
+          SourceIds.youtube,
+        );
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(savedPlaylist!.trackIds, [keepTrack!.id]);
+        expect(result.removedTrackIds, [999999]);
+        expect(result.deletedTrackIds, isEmpty);
+      },
+    );
+
+    test(
+      'replaceTracksFromRemoteRefresh preserves stale tracks on partial refresh',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Refresh Partial');
+        await harness.mutations.addTracks(playlist.id, [
+          _track('keep', 'Keep'),
+          _track('stale', 'Stale'),
+        ]);
+
+        final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+          playlist.id,
+          [_track('keep', 'Keep'), _track('new', 'New')],
+          const RemoteRefreshMutationPolicy(sourceDataComplete: false),
+        );
+
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final savedTracks = await harness.tracks.getByIds(
+          savedPlaylist!.trackIds,
+        );
+        expect(result.pruningSkipped, isTrue);
+        expect(result.removedCount, 0);
+        expect(savedTracks.map((track) => track.sourceId), [
+          'keep',
+          'stale',
+          'new',
+        ]);
+      },
+    );
+
+    test(
+      'replaceTracksFromRemoteRefresh preserves stale tracks when one track fails to persist',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(
+          harness,
+          'Refresh Persistence Error',
+        );
+        await harness.mutations.addTracks(playlist.id, [
+          _track('keep', 'Keep'),
+          _track('stale', 'Stale'),
+        ]);
+        final brokenTrack = Track()
+          ..sourceId = 'broken'
+          ..sourceType = SourceIds.youtube;
+
+        final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+          playlist.id,
+          [_track('keep', 'Keep'), _track('new', 'New'), brokenTrack],
+          const RemoteRefreshMutationPolicy(sourceDataComplete: true),
+        );
+
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final savedTracks = await harness.tracks.getByIds(
+          savedPlaylist!.trackIds,
+        );
+        expect(result.pruningSkipped, isTrue);
+        expect(result.errors, isNotEmpty);
+        expect(result.removedCount, 0);
+        expect(savedTracks.map((track) => track.sourceId), [
+          'keep',
+          'stale',
+          'new',
+        ]);
+        expect(
+          await harness.tracks.getBySourceId('broken', SourceIds.youtube),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'replaceTracksFromRemoteRefresh applies platform cover when provided',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Refresh Cover');
+        await harness.mutations.addTracks(playlist.id, [
+          _track('cover-old', 'Old Cover'),
+        ]);
+
+        final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+          playlist.id,
+          [_track('cover-new', 'New Cover')],
+          const RemoteRefreshMutationPolicy(
+            sourceDataComplete: true,
+            platformCoverUrl: 'https://example.com/platform-cover.jpg',
+          ),
+        );
+
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(
+          savedPlaylist!.coverUrl,
+          'https://example.com/platform-cover.jpg',
+        );
+        expect(result.coverChanged, isTrue);
+      },
+    );
+
+    test(
+      'replaceTracksFromRemoteRefresh does not override custom cover',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Refresh Custom Cover')
+          ..coverUrl = 'https://example.com/custom-cover.jpg'
+          ..hasCustomCover = true;
+        await harness.playlists.save(playlist);
+        await harness.mutations.addTracks(playlist.id, [
+          _track('custom-cover-old', 'Old Cover'),
+        ]);
+
+        final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+          playlist.id,
+          [_track('custom-cover-new', 'New Cover')],
+          const RemoteRefreshMutationPolicy(
+            sourceDataComplete: true,
+            platformCoverUrl: 'https://example.com/platform-cover.jpg',
+          ),
+        );
+
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        expect(savedPlaylist!.coverUrl, 'https://example.com/custom-cover.jpg');
+        expect(result.coverChanged, isFalse);
+      },
+    );
+
+    test(
+      'mergeDuplicateTrackMembershipsInTxn preserves unique download info',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final first = await _createPlaylist(harness, 'Merge First');
+        final second = await _createPlaylist(harness, 'Merge Second');
+        final keep = await harness.tracks.save(
+          _track('membership-keep', 'Keep')
+            ..playlistInfo = [
+              PlaylistDownloadInfo()
+                ..playlistId = first.id
+                ..playlistName = first.name,
+            ],
+        );
+        final duplicate = _track('membership-duplicate', 'Duplicate')
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = first.id
+              ..playlistName = first.name
+              ..downloadPath = '/downloads/merge-first.mp3',
+            PlaylistDownloadInfo()
+              ..playlistId = second.id
+              ..playlistName = second.name
+              ..downloadPath = '/downloads/merge-second.mp3',
+          ];
+
+        await harness.isar.writeTxn(() async {
+          harness.mutations.mergeDuplicateTrackMembershipsInTxn(keep, [
+            duplicate,
+          ]);
+          await harness.isar.tracks.put(keep);
+        });
+
+        final savedTrack = await harness.tracks.getById(keep.id);
+        expect(savedTrack!.playlistInfo, hasLength(2));
+        expect(
+          savedTrack.getDownloadPath(first.id, playlistName: first.name),
+          '/downloads/merge-first.mp3',
+        );
+        expect(
+          savedTrack.getDownloadPath(second.id, playlistName: second.name),
+          '/downloads/merge-second.mp3',
+        );
+      },
+    );
+
+    test(
+      'duplicatePlaylist creates new playlist and reverse membership',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final original = await _createPlaylist(harness, 'Original Duplicate');
+        original
+          ..description = 'Original description'
+          ..coverUrl = 'https://example.com/custom-cover.jpg'
+          ..hasCustomCover = true;
+        await harness.playlists.save(original);
+        final first = await harness.tracks.save(
+          _track('duplicate-first', 'First'),
+        );
+        final second = await harness.tracks.save(
+          _track('duplicate-second', 'Second'),
+        );
+        await harness.mutations.addTracks(original.id, [first, second]);
+        final copy = Playlist()
+          ..name = 'Duplicate Copy'
+          ..sortOrder = 42
+          ..createdAt = DateTime.now();
+
+        final result = await harness.mutations.duplicatePlaylist(
+          original.id,
+          copy,
+        );
+
+        final savedCopy = await harness.playlists.getById(result.id);
+        final copiedFirst = await harness.tracks.getById(first.id);
+        final copiedSecond = await harness.tracks.getById(second.id);
+        expect(savedCopy, isNotNull);
+        expect(savedCopy!.id, isNot(original.id));
+        expect(savedCopy.name, 'Duplicate Copy');
+        expect(savedCopy.description, 'Original description');
+        expect(savedCopy.coverUrl, 'https://example.com/custom-cover.jpg');
+        expect(savedCopy.hasCustomCover, isTrue);
+        expect(savedCopy.trackIds, [first.id, second.id]);
+        expect(copiedFirst!.belongsToPlaylist(result.id), isTrue);
+        expect(copiedSecond!.belongsToPlaylist(result.id), isTrue);
+        expect(
+          copiedFirst.playlistInfo
+              .singleWhere((info) => info.playlistId == result.id)
+              .playlistName,
+          'Duplicate Copy',
+        );
+      },
+    );
   });
 }
 
 class _Harness {
   _Harness(this.isar)
-      : playlists = PlaylistRepository(isar),
-        tracks = TrackRepository(isar) {
+    : playlists = PlaylistRepository(isar),
+      tracks = TrackRepository(isar) {
     mutations = PlaylistMutationRepository(isar: isar);
   }
 

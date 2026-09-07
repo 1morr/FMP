@@ -72,8 +72,9 @@ class LocaleNotifier extends Notifier<AppLocale?> {
 }
 
 /// Locale Provider
-final localeProvider =
-    NotifierProvider<LocaleNotifier, AppLocale?>(LocaleNotifier.new);
+final localeProvider = NotifierProvider<LocaleNotifier, AppLocale?>(
+  LocaleNotifier.new,
+);
 
 /// 便捷 Provider - 当前 locale 显示名称
 final localeDisplayNameProvider = Provider<String>((ref) {

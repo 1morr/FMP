@@ -36,10 +36,7 @@ void main() {
 
   group('reasonFor', () {
     test('prefers a meaningful diagnostic from the adapter', () {
-      const error = _Error(
-        kind: SourceErrorKind.unavailable,
-        message: '稿件不可见',
-      );
+      const error = _Error(kind: SourceErrorKind.unavailable, message: '稿件不可见');
       expect(presenter.reasonFor(error), '稿件不可见');
     });
 
@@ -72,8 +69,10 @@ void main() {
       );
       const youtube = _Error(kind: SourceErrorKind.permissionDenied);
 
-      expect(presenter.reasonFor(bilibili),
-          t.audio.sourceErrorBilibiliPermissionDenied);
+      expect(
+        presenter.reasonFor(bilibili),
+        t.audio.sourceErrorBilibiliPermissionDenied,
+      );
       expect(presenter.reasonFor(youtube), t.audio.sourceErrorPermissionDenied);
     });
 
@@ -88,8 +87,11 @@ void main() {
 
     test('the skipped wording differs from the plain one', () {
       final plain = presenter.cannotPlay(_track('Song'), error);
-      final skipped =
-          presenter.cannotPlay(_track('Song'), error, skipped: true);
+      final skipped = presenter.cannotPlay(
+        _track('Song'),
+        error,
+        skipped: true,
+      );
 
       expect(plain, contains('Song'));
       expect(skipped, contains('Song'));
@@ -97,35 +99,46 @@ void main() {
     });
 
     test('playbackFailed carries the reason but not the title', () {
-      expect(presenter.playbackFailed(error),
-          contains(t.audio.sourceErrorGeoRestricted));
+      expect(
+        presenter.playbackFailed(error),
+        contains(t.audio.sourceErrorGeoRestricted),
+      );
     });
   });
 
   group('classification', () {
     test('skip and retry follow the error kind', () {
       expect(
-          presenter.shouldSkipTrack(
-              const _Error(kind: SourceErrorKind.geoRestricted)),
-          isTrue);
+        presenter.shouldSkipTrack(
+          const _Error(kind: SourceErrorKind.geoRestricted),
+        ),
+        isTrue,
+      );
       expect(
-          presenter.shouldSkipTrack(const _Error(kind: SourceErrorKind.network)),
-          isFalse);
+        presenter.shouldSkipTrack(const _Error(kind: SourceErrorKind.network)),
+        isFalse,
+      );
       expect(
-          presenter
-              .shouldRetrySource(const _Error(kind: SourceErrorKind.timeout)),
-          isTrue);
+        presenter.shouldRetrySource(
+          const _Error(kind: SourceErrorKind.timeout),
+        ),
+        isTrue,
+      );
       expect(
-          presenter.shouldRetrySource(
-              const _Error(kind: SourceErrorKind.vipRequired)),
-          isFalse);
+        presenter.shouldRetrySource(
+          const _Error(kind: SourceErrorKind.vipRequired),
+        ),
+        isFalse,
+      );
     });
 
     test('a spent budget never enters the backoff ladder', () {
       // PlaybackTimeoutException 必須先於 TimeoutException 判定 —— 反過來的話
       // 逾時會變成「重試五次、每次重新完整解析」。
       const timeout = PlaybackTimeoutException(
-          PlaybackTimeoutPhase.mediaOpen, Duration(seconds: 8));
+        PlaybackTimeoutPhase.mediaOpen,
+        Duration(seconds: 8),
+      );
       expect(presenter.isRetryable(timeout), isFalse);
       expect(presenter.isRetryable(TimeoutException('adapter')), isTrue);
     });

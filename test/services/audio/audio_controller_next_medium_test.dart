@@ -120,8 +120,10 @@ void main() {
 
     test('playing a queue hands the next medium to the backend', () async {
       await playPair();
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the next medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the next medium to be armed',
+      );
 
       final armed = audioService.setNextMediaCalls.single;
       expect(armed, isA<RemotePlaybackMedia>());
@@ -137,31 +139,41 @@ void main() {
       await playPair();
 
       // 等預取真的跑完再做否定斷言，否則只是在賭時序。
-      await waitFor(() => sourceManager.resolveCount['beta'] != null,
-          'the next track to be prefetched');
+      await waitFor(
+        () => sourceManager.resolveCount['beta'] != null,
+        'the next track to be prefetched',
+      );
       expect(audioService.setNextMediaCalls, isEmpty);
     });
 
     test('a queue mutation takes the next medium back', () async {
       await playPair();
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the next medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the next medium to be armed',
+      );
 
       await controller.addNext(_track('gamma', title: 'Gamma'));
 
-      await waitFor(() => audioService.setNextMediaCalls.contains(null),
-          'the arm to be cleared');
+      await waitFor(
+        () => audioService.setNextMediaCalls.contains(null),
+        'the arm to be cleared',
+      );
     });
 
     test('switching to loop-one takes the next medium back', () async {
       await playPair();
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the next medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the next medium to be armed',
+      );
 
       await controller.setLoopMode(LoopMode.one);
 
-      await waitFor(() => audioService.setNextMediaCalls.contains(null),
-          'the arm to be cleared');
+      await waitFor(
+        () => audioService.setNextMediaCalls.contains(null),
+        'the arm to be cleared',
+      );
     });
 
     test('shuffle never leaves a stale medium armed', () async {
@@ -171,15 +183,19 @@ void main() {
         _track('gamma', title: 'Gamma'),
         _track('delta', title: 'Delta'),
       ]);
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the next medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the next medium to be armed',
+      );
 
       final versionBefore = controller.queueState.queueVersion;
       await controller.toggleShuffle();
       // `queueVersion` 只在 `_updateQueueState` 裡前進，而 disarm 的網就掛在
       // 那裡 —— 等它跑過一輪才有東西可以斷言。
-      await waitFor(() => controller.queueState.queueVersion > versionBefore,
-          'the queue state to be recomputed');
+      await waitFor(
+        () => controller.queueState.queueVersion > versionBefore,
+        'the queue state to be recomputed',
+      );
 
       // 打亂之後「下一首」有機會剛好還是同一首，所以不能斷言一定 disarm ——
       // 真正的不變量是「還 armed 著的話，它必須就是現在的下一首」。
@@ -192,8 +208,10 @@ void main() {
 
     test('the controller follows the backend across the boundary', () async {
       await playPair();
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the next medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the next medium to be armed',
+      );
       final armed = audioService.setNextMediaCalls.single!;
 
       expect(queueManager.currentIndex, 0);
@@ -201,14 +219,22 @@ void main() {
       final stoppedBefore = audioService.stopCallCount;
 
       audioService.emitAdvancedToNext(armed);
-      await waitFor(() => controller.state.playingTrack?.sourceId == 'beta',
-          'the controller to follow the backend');
+      await waitFor(
+        () => controller.state.playingTrack?.sourceId == 'beta',
+        'the controller to follow the backend',
+      );
 
       expect(queueManager.currentIndex, 1, reason: 'exactly one step');
-      expect(audioService.playMediaCalls.length, playedBefore,
-          reason: 'following must not start a new playback request');
-      expect(audioService.stopCallCount, stoppedBefore,
-          reason: 'a gapless boundary must never stop the backend');
+      expect(
+        audioService.playMediaCalls.length,
+        playedBefore,
+        reason: 'following must not start a new playback request',
+      );
+      expect(
+        audioService.stopCallCount,
+        stoppedBefore,
+        reason: 'a gapless boundary must never stop the backend',
+      );
       expect(controller.queueState.currentIndex, 1);
     });
 
@@ -220,40 +246,52 @@ void main() {
         _track('beta', title: 'Beta'),
         _track('gamma', title: 'Gamma'),
       ]);
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the first medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the first medium to be armed',
+      );
       final first = audioService.setNextMediaCalls.single!;
       expect(first.track.sourceId, 'beta');
 
       audioService.emitAdvancedToNext(first);
 
       await waitFor(
-          () => audioService.setNextMediaCalls.last?.track.sourceId == 'gamma',
-          'the next boundary to be armed');
+        () => audioService.setNextMediaCalls.last?.track.sourceId == 'gamma',
+        'the next boundary to be armed',
+      );
     });
 
     test('the boundary replaces the stream metadata', () async {
       await playPair();
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the next medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the next medium to be armed',
+      );
       expect(controller.state.currentContainer, 'alpha-m4a');
 
       audioService.emitAdvancedToNext(audioService.setNextMediaCalls.single!);
-      await waitFor(() => controller.state.playingTrack?.sourceId == 'beta',
-          'the controller to follow the backend');
+      await waitFor(
+        () => controller.state.playingTrack?.sourceId == 'beta',
+        'the controller to follow the backend',
+      );
 
       // 這四個值屬於當前播放請求。跟隨路徑不經過 `_exitLoadingState`，忘了補
       // 就會一直顯示上一首的碼率與格式。
       expect(controller.state.currentContainer, 'beta-m4a');
-      expect(controller.state.isLoading, isFalse,
-          reason: 'a gapless boundary is not a load; the spinner must not stick');
+      expect(
+        controller.state.isLoading,
+        isFalse,
+        reason: 'a gapless boundary is not a load; the spinner must not stick',
+      );
       expect(controller.state.error, isNull);
     });
 
     test('an unrecognised advance falls back to the completion path', () async {
       await playPair();
-      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
-          'the next medium to be armed');
+      await waitFor(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        'the next medium to be armed',
+      );
 
       // 後端接上去的不是控制器交出去的那一個 —— 沒有安全的跟隨方式。
       audioService.emitAdvancedToNext(
@@ -264,8 +302,10 @@ void main() {
         ),
       );
 
-      await waitFor(() => queueManager.currentIndex == 1,
-          'the completion path to advance the queue');
+      await waitFor(
+        () => queueManager.currentIndex == 1,
+        'the completion path to advance the queue',
+      );
     });
   });
 }
@@ -314,8 +354,7 @@ class _CountingSource implements AudioStreamSource {
   @override
   Future<AudioStreamResult?> getAlternativeAudioStream(
     AudioStreamRequest request,
-  ) async =>
-      null;
+  ) async => null;
 }
 
 class _FakeSourceAuthContext implements SourceAuthContext {

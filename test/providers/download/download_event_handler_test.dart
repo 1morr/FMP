@@ -15,15 +15,13 @@ void main() {
         final handler = DownloadEventHandler(
           markFileExisting: markedPaths.add,
           removeProgress: removedProgressTaskIds.add,
-          downloadStateChanged: ({
-            required savePaths,
-            required affectedPlaylistIds,
-          }) {
-            changedDownloads.add((
-              savePaths: savePaths.toList(),
-              playlistIds: affectedPlaylistIds.toList(),
-            ));
-          },
+          downloadStateChanged:
+              ({required savePaths, required affectedPlaylistIds}) {
+                changedDownloads.add((
+                  savePaths: savePaths.toList(),
+                  playlistIds: affectedPlaylistIds.toList(),
+                ));
+              },
           showFailure: shownFailures.add,
           debounceDuration: const Duration(milliseconds: 1),
         );
@@ -62,15 +60,13 @@ void main() {
         final handler = DownloadEventHandler(
           markFileExisting: markedPaths.add,
           removeProgress: removedProgressTaskIds.add,
-          downloadStateChanged: ({
-            required savePaths,
-            required affectedPlaylistIds,
-          }) {
-            changedDownloads.add((
-              savePaths: savePaths.toList(),
-              playlistIds: affectedPlaylistIds.toList(),
-            ));
-          },
+          downloadStateChanged:
+              ({required savePaths, required affectedPlaylistIds}) {
+                changedDownloads.add((
+                  savePaths: savePaths.toList(),
+                  playlistIds: affectedPlaylistIds.toList(),
+                ));
+              },
           showFailure: shownFailures.add,
           debounceDuration: const Duration(milliseconds: 1),
         );

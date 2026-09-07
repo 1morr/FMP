@@ -79,33 +79,26 @@ void main() {
       },
     );
 
-    testWidgets(
-      'AI settings dialog uses only the footer close action',
-      (tester) async {
-        await _pumpPage(tester, repository);
-        await tester.pump();
+    testWidgets('AI settings dialog uses only the footer close action', (
+      tester,
+    ) async {
+      await _pumpPage(tester, repository);
+      await tester.pump();
 
-        await tester.tap(find.byIcon(Icons.smart_toy_outlined));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.smart_toy_outlined));
+      await tester.pumpAndSettle();
 
-        final dialog = find.byType(AlertDialog);
-        expect(dialog, findsOneWidget);
-        expect(
-          find.descendant(
-            of: dialog,
-            matching: find.byIcon(Icons.close),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: dialog,
-            matching: find.text(t.general.close),
-          ),
-          findsOneWidget,
-        );
-      },
-    );
+      final dialog = find.byType(AlertDialog);
+      expect(dialog, findsOneWidget);
+      expect(
+        find.descendant(of: dialog, matching: find.byIcon(Icons.close)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: dialog, matching: find.text(t.general.close)),
+        findsOneWidget,
+      );
+    });
   });
 }
 

@@ -46,8 +46,8 @@ class AccountRepository {
     bool? isVip,
   }) async {
     await _isar.writeTxn(() async {
-      final account = await getByPlatform(platform) ??
-          (Account()..platform = platform);
+      final account =
+          await getByPlatform(platform) ?? (Account()..platform = platform);
 
       if (isLoggedIn != null) account.isLoggedIn = isLoggedIn;
       if (userId != null) account.userId = userId;
@@ -66,8 +66,10 @@ class AccountRepository {
   /// 給「從備份 / 憑證快照還原」用 —— 那條路徑要的是覆蓋而不是合併。
   Future<void> replaceForPlatform(String platform, Account? account) async {
     await _isar.writeTxn(() async {
-      final existing =
-          await _isar.accounts.filter().platformEqualTo(platform).findAll();
+      final existing = await _isar.accounts
+          .filter()
+          .platformEqualTo(platform)
+          .findAll();
 
       if (account == null) {
         await _isar.accounts.deleteAll([for (final a in existing) a.id]);
@@ -76,7 +78,10 @@ class AccountRepository {
 
       // 清掉不是這一列的舊資料。少了這一步，一個 id 未設的 Account 會被
       // 當成新列插進去，該平台就會同時有兩列。
-      final stale = [for (final a in existing) if (a.id != account.id) a.id];
+      final stale = [
+        for (final a in existing)
+          if (a.id != account.id) a.id,
+      ];
       if (stale.isNotEmpty) await _isar.accounts.deleteAll(stale);
 
       await _isar.accounts.put(account);

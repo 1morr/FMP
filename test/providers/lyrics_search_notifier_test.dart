@@ -44,31 +44,30 @@ void main() {
       }
     });
 
-    test('single-source filters do not query disabled lyrics sources',
-        () async {
-      final netease = _FakeNeteaseSource()
-        ..results = [_lyricsResult(id: 'netease-1', source: 'netease')];
-      final notifier = _notifier(
-        netease: netease,
-        repo: LyricsRepository(isar),
-        disabledSources: const {'netease'},
-      );
+    test(
+      'single-source filters do not query disabled lyrics sources',
+      () async {
+        final netease = _FakeNeteaseSource()
+          ..results = [_lyricsResult(id: 'netease-1', source: 'netease')];
+        final notifier = _notifier(
+          netease: netease,
+          repo: LyricsRepository(isar),
+          disabledSources: const {'netease'},
+        );
 
-      notifier.setFilter(LyricsSourceFilter.netease);
-      await notifier.search(query: 'Song Name');
+        notifier.setFilter(LyricsSourceFilter.netease);
+        await notifier.search(query: 'Song Name');
 
-      expect(netease.searchCalls, isEmpty);
-      expect(notifier.state.isLoading, isFalse);
-      expect(notifier.state.results, isEmpty);
-      expect(notifier.state.error, isNull);
-    });
+        expect(netease.searchCalls, isEmpty);
+        expect(notifier.state.isLoading, isFalse);
+        expect(notifier.state.results, isEmpty);
+        expect(notifier.state.error, isNull);
+      },
+    );
   });
 }
 
-LyricsResult _lyricsResult({
-  required String id,
-  required String source,
-}) {
+LyricsResult _lyricsResult({required String id, required String source}) {
   return LyricsResult(
     id: id,
     trackName: 'Song Name',
@@ -92,8 +91,9 @@ class _FakeNeteaseSource extends NeteaseSource {
     String? artistName,
     int limit = 10,
   }) async {
-    searchCalls
-        .add(query ?? [trackName, artistName].whereType<String>().join(' '));
+    searchCalls.add(
+      query ?? [trackName, artistName].whereType<String>().join(' '),
+    );
     return results;
   }
 }
@@ -129,15 +129,18 @@ LyricsSearchNotifier _notifier({
   required LyricsRepository repo,
   Set<String> disabledSources = const {},
 }) {
-  final container = ProviderContainer(overrides: [
-    lrclibSourceProvider.overrideWith((ref) => _FakeLrclibSource()),
-    neteaseSourceProvider.overrideWith((ref) => netease),
-    qqmusicSourceProvider.overrideWith((ref) => _FakeQQMusicSource()),
-    lyricsRepositoryProvider.overrideWith((ref) => repo),
-    lyricsCacheServiceProvider.overrideWith((ref) => LyricsCacheService()),
-    audioSettingsProvider
-        .overrideWith(() => _FixedAudioSettings(disabledSources)),
-  ]);
+  final container = ProviderContainer(
+    overrides: [
+      lrclibSourceProvider.overrideWith((ref) => _FakeLrclibSource()),
+      neteaseSourceProvider.overrideWith((ref) => netease),
+      qqmusicSourceProvider.overrideWith((ref) => _FakeQQMusicSource()),
+      lyricsRepositoryProvider.overrideWith((ref) => repo),
+      lyricsCacheServiceProvider.overrideWith((ref) => LyricsCacheService()),
+      audioSettingsProvider.overrideWith(
+        () => _FixedAudioSettings(disabledSources),
+      ),
+    ],
+  );
   addTearDown(container.dispose);
   return container.read(lyricsSearchProvider.notifier);
 }

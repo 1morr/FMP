@@ -32,7 +32,8 @@ void main() {
         expect(
           source,
           contains('ref.watch($provider'),
-          reason: '$provider must stay anchored in FMPApp.build (lib/app.dart); '
+          reason:
+              '$provider must stay anchored in FMPApp.build (lib/app.dart); '
               'a page-level watch would be paused behind the full-screen player',
         );
       }
@@ -52,9 +53,13 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty,
-          reason: 'lib/ is fully on Notifier; legacy providers must not '
-              'come back without a decision recorded in AGENTS.md');
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'lib/ is fully on Notifier; legacy providers must not '
+            'come back without a decision recorded in AGENTS.md',
+      );
     });
 
     test('every Equatable state lists all of its fields in props', () {
@@ -62,18 +67,21 @@ void main() {
       // 再也不會觸發重建，而且不會有任何錯誤訊息。
       final offenders = <String>[];
 
-      for (final entity in Directory('lib/providers').listSync(recursive: true)) {
+      for (final entity in Directory(
+        'lib/providers',
+      ).listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final source = entity.readAsStringSync();
 
-        for (final match
-            in RegExp(r'class\s+(\w+)\s+extends\s+Equatable\s*\{([\s\S]*?)\n\}')
-                .allMatches(source)) {
+        for (final match in RegExp(
+          r'class\s+(\w+)\s+extends\s+Equatable\s*\{([\s\S]*?)\n\}',
+        ).allMatches(source)) {
           final className = match.group(1)!;
           final body = match.group(2)!;
 
-          final propsMatch =
-              RegExp(r'get props =>\s*\[([\s\S]*?)\]').firstMatch(body);
+          final propsMatch = RegExp(
+            r'get props =>\s*\[([\s\S]*?)\]',
+          ).firstMatch(body);
           if (propsMatch == null) {
             offenders.add('$className has no props getter');
             continue;
@@ -85,11 +93,11 @@ void main() {
               .where((e) => e.isNotEmpty)
               .toSet();
 
-          final fields = RegExp(r'^\s{2}final\s+[\w<>,?\s]+?\s+(\w+);',
-                  multiLine: true)
-              .allMatches(body)
-              .map((m) => m.group(1)!)
-              .where((name) => !name.startsWith('_'));
+          final fields =
+              RegExp(r'^\s{2}final\s+[\w<>,?\s]+?\s+(\w+);', multiLine: true)
+                  .allMatches(body)
+                  .map((m) => m.group(1)!)
+                  .where((name) => !name.startsWith('_'));
 
           for (final field in fields) {
             if (!props.contains(field)) {
@@ -99,9 +107,13 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty,
-          reason: 'Equatable state fields left out of props stop propagating '
-              'updates once Riverpod filters with ==');
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'Equatable state fields left out of props stop propagating '
+            'updates once Riverpod filters with ==',
+      );
     });
   });
 }

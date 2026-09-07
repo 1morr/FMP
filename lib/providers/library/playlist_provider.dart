@@ -109,16 +109,22 @@ class PlaylistListNotifier extends Notifier<PlaylistListState> {
       // dispose 之後的 Ref 會拋 UnmountedRefException。
       if (!ref.mounted) return playlist;
       // watch 自动更新列表
-      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
-        [playlist.id],
-        tracksChanged: false,
-        coverChanged: false,
-      );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistsChanged(
+            [playlist.id],
+            tracksChanged: false,
+            coverChanged: false,
+          );
       return playlist;
     } catch (e, stack) {
       state = state.copyWith(
-        error: failureMessage(e, stack, 'createPlaylist failed',
-            tag: 'Playlist'),
+        error: failureMessage(
+          e,
+          stack,
+          'createPlaylist failed',
+          tag: 'Playlist',
+        ),
       );
       return null;
     }
@@ -149,16 +155,19 @@ class PlaylistListNotifier extends Notifier<PlaylistListState> {
       // dispose 之後的 Ref 會拋 UnmountedRefException。
       if (!ref.mounted) return result;
       // watch 自动更新列表
-      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            playlistId,
-            coverChanged: true,
-          );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistChanged(playlistId, coverChanged: true);
       ref.read(fileExistsCacheProvider.notifier).clearAll();
       return result;
     } catch (e, stack) {
       state = state.copyWith(
-        error: failureMessage(e, stack, 'updatePlaylist failed',
-            tag: 'Playlist'),
+        error: failureMessage(
+          e,
+          stack,
+          'updatePlaylist failed',
+          tag: 'Playlist',
+        ),
       );
       return null;
     }
@@ -178,8 +187,12 @@ class PlaylistListNotifier extends Notifier<PlaylistListState> {
       return true;
     } catch (e, stack) {
       state = state.copyWith(
-        error: failureMessage(e, stack, 'deletePlaylist failed',
-            tag: 'Playlist'),
+        error: failureMessage(
+          e,
+          stack,
+          'deletePlaylist failed',
+          tag: 'Playlist',
+        ),
       );
       return false;
     }
@@ -193,16 +206,22 @@ class PlaylistListNotifier extends Notifier<PlaylistListState> {
       // dispose 之後的 Ref 會拋 UnmountedRefException。
       if (!ref.mounted) return playlist;
       // watch 自动更新列表
-      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
-        [playlist.id],
-        tracksChanged: false,
-        coverChanged: true,
-      );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistsChanged(
+            [playlist.id],
+            tracksChanged: false,
+            coverChanged: true,
+          );
       return playlist;
     } catch (e, stack) {
       state = state.copyWith(
-        error: failureMessage(e, stack, 'duplicatePlaylist failed',
-            tag: 'Playlist'),
+        error: failureMessage(
+          e,
+          stack,
+          'duplicatePlaylist failed',
+          tag: 'Playlist',
+        ),
       );
       return null;
     }
@@ -217,13 +236,13 @@ class PlaylistListNotifier extends Notifier<PlaylistListState> {
   void updatePlaylistsOrder(List<Playlist> orderedPlaylists) {
     state = state.copyWith(playlists: orderedPlaylists);
   }
-
 }
 
 /// 歌单列表 Provider
 final playlistListProvider =
     NotifierProvider<PlaylistListNotifier, PlaylistListState>(
-        PlaylistListNotifier.new);
+      PlaylistListNotifier.new,
+    );
 
 /// 歌单详情状态
 class PlaylistDetailState extends Equatable {
@@ -275,14 +294,14 @@ class PlaylistDetailState extends Equatable {
 
   @override
   List<Object?> get props => [
-        playlist,
-        tracks,
-        isLoading,
-        isLoadingMore,
-        hasMore,
-        totalTrackCount,
-        error
-      ];
+    playlist,
+    tracks,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    totalTrackCount,
+    error,
+  ];
 }
 
 /// 歌单详情控制器
@@ -347,8 +366,7 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: failureMessage(e, stack, 'loadPlaylist failed',
-            tag: 'Playlist'),
+        error: failureMessage(e, stack, 'loadPlaylist failed', tag: 'Playlist'),
       );
     }
   }
@@ -377,8 +395,7 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoadingMore: false,
-        error: failureMessage(e, stack, 'loadMore failed',
-            tag: 'Playlist'),
+        error: failureMessage(e, stack, 'loadMore failed', tag: 'Playlist'),
       );
     }
   }
@@ -415,14 +432,15 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       );
 
       if (!ref.mounted) return;
-      state = state.copyWith(
-        tracks: result.tracks,
-        isLoading: false,
-      );
+      state = state.copyWith(tracks: result.tracks, isLoading: false);
     } catch (e, stack) {
       if (!ref.mounted) return;
-      final reason =
-          failureMessage(e, stack, 'loadMixTracks failed', tag: 'Playlist');
+      final reason = failureMessage(
+        e,
+        stack,
+        'loadMixTracks failed',
+        tag: 'Playlist',
+      );
       state = state.copyWith(
         isLoading: false,
         error: '${t.importSource.mixLoadFailed}: $reason',
@@ -480,8 +498,7 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
-        error: failureMessage(e, stack, 'addTrack failed',
-            tag: 'Playlist'),
+        error: failureMessage(e, stack, 'addTrack failed', tag: 'Playlist'),
       );
       return false;
     }
@@ -497,8 +514,10 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
         totalTrackCount: state.totalTrackCount - 1,
       );
 
-      final result =
-          await _service.removeTrackFromPlaylist(playlistId, trackId);
+      final result = await _service.removeTrackFromPlaylist(
+        playlistId,
+        trackId,
+      );
       if (!ref.mounted) return true;
       await refreshTracks();
       if (!ref.mounted) return true;
@@ -511,8 +530,7 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
-        error: failureMessage(e, stack, 'removeTrack failed',
-            tag: 'Playlist'),
+        error: failureMessage(e, stack, 'removeTrack failed', tag: 'Playlist'),
       );
       return false;
     }
@@ -524,16 +542,19 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
     try {
       // 乐观更新 UI
       final idSet = trackIds.toSet();
-      final updatedTracks =
-          state.tracks.where((t) => !idSet.contains(t.id)).toList();
+      final updatedTracks = state.tracks
+          .where((t) => !idSet.contains(t.id))
+          .toList();
       final removedCount = state.tracks.length - updatedTracks.length;
       state = state.copyWith(
         tracks: updatedTracks,
         totalTrackCount: state.totalTrackCount - removedCount,
       );
 
-      final result =
-          await _service.removeTracksFromPlaylist(playlistId, trackIds);
+      final result = await _service.removeTracksFromPlaylist(
+        playlistId,
+        trackIds,
+      );
       if (!ref.mounted) return true;
       await refreshTracks();
       if (!ref.mounted) return true;
@@ -546,8 +567,7 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
-        error: failureMessage(e, stack, 'removeTracks failed',
-            tag: 'Playlist'),
+        error: failureMessage(e, stack, 'removeTracks failed', tag: 'Playlist'),
       );
       return false;
     }
@@ -563,8 +583,11 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       tracks.insert(insertIndex, track);
       state = state.copyWith(tracks: tracks);
 
-      final result =
-          await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
+      final result = await _service.reorderPlaylistTracks(
+        playlistId,
+        oldIndex,
+        newIndex,
+      );
       if (!ref.mounted) return true;
       await refreshTracks();
       if (!ref.mounted) return true;
@@ -577,8 +600,12 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
       // 回滚
       await loadPlaylist();
       state = state.copyWith(
-        error: failureMessage(e, stack, 'reorderTracks failed',
-            tag: 'Playlist'),
+        error: failureMessage(
+          e,
+          stack,
+          'reorderTracks failed',
+          tag: 'Playlist',
+        ),
       );
       return false;
     }
@@ -586,13 +613,17 @@ class PlaylistDetailNotifier extends Notifier<PlaylistDetailState> {
 }
 
 /// 歌单详情 Provider Family
-final playlistDetailProvider = NotifierProvider.family<PlaylistDetailNotifier,
-    PlaylistDetailState, int>(PlaylistDetailNotifier.new);
+final playlistDetailProvider =
+    NotifierProvider.family<PlaylistDetailNotifier, PlaylistDetailState, int>(
+      PlaylistDetailNotifier.new,
+    );
 
 /// 歌单封面 Provider
 /// 返回 PlaylistCoverData，包含本地路径和网络 URL
-final playlistCoverProvider =
-    FutureProvider.family<PlaylistCoverData, int>((ref, playlistId) async {
+final playlistCoverProvider = FutureProvider.family<PlaylistCoverData, int>((
+  ref,
+  playlistId,
+) async {
   final service = ref.watch(playlistServiceProvider);
   try {
     return await service.getPlaylistCoverData(playlistId);
@@ -601,14 +632,17 @@ final playlistCoverProvider =
     // 沒有這行就一點痕跡都不會留下。log 寫在這裡而不是 UI 的 `error:` 分支，
     // 因為那個分支每次 rebuild 都會跑。
     AppLogger.warning(
-        'Loading the cover of playlist $playlistId failed: $e', 'Playlist');
+      'Loading the cover of playlist $playlistId failed: $e',
+      'Playlist',
+    );
     Error.throwWithStackTrace(e, stack);
   }
 });
 
 /// 歌单封面批量 Provider
-final playlistCoverMapProvider =
-    FutureProvider<Map<int, PlaylistCoverData>>((ref) async {
+final playlistCoverMapProvider = FutureProvider<Map<int, PlaylistCoverData>>((
+  ref,
+) async {
   final service = ref.watch(playlistServiceProvider);
   final playlists = ref.watch(playlistListProvider).playlists;
   try {
@@ -628,13 +662,17 @@ final allPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
 
 /// 添加歌曲到歌单的快捷方法
 final addTrackToPlaylistProvider =
-    FutureProvider.family<bool, ({int playlistId, Track track})>(
-        (ref, params) async {
-  final service = ref.watch(playlistServiceProvider);
-  final result =
-      await service.addTrackToPlaylist(params.playlistId, params.track);
-  ref
-      .read(libraryInvalidationCoordinatorProvider)
-      .playlistMutationCompleted(result);
-  return true;
-});
+    FutureProvider.family<bool, ({int playlistId, Track track})>((
+      ref,
+      params,
+    ) async {
+      final service = ref.watch(playlistServiceProvider);
+      final result = await service.addTrackToPlaylist(
+        params.playlistId,
+        params.track,
+      );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
+      return true;
+    });

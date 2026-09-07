@@ -9,16 +9,19 @@ import '../support/audio_settings_notifier.dart';
 
 void main() {
   test(
-      'audio settings expose netease stream priority default (D2 broken window)',
-      () async {
-    FlutterSecureStorage.setMockInitialValues(<String, String>{});
-    final repository = _FakeSettingsRepository(Settings());
-    final notifier = audioSettingsNotifierFor(repository);
-    await Future<void>.delayed(Duration.zero);
+    'audio settings expose netease stream priority default (D2 broken window)',
+    () async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+      final repository = _FakeSettingsRepository(Settings());
+      final notifier = audioSettingsNotifierFor(repository);
+      await Future<void>.delayed(Duration.zero);
 
-    // 預設與 Settings.streamPriorityFor(SourceIds.netease) 預設一致（[audioOnly]）。
-    expect(notifier.state.streamPriorityFor(SourceIds.netease), [StreamType.audioOnly]);
-  });
+      // 預設與 Settings.streamPriorityFor(SourceIds.netease) 預設一致（[audioOnly]）。
+      expect(notifier.state.streamPriorityFor(SourceIds.netease), [
+        StreamType.audioOnly,
+      ]);
+    },
+  );
 
   test('setNeteaseStreamPriority updates state and persists', () async {
     FlutterSecureStorage.setMockInitialValues(<String, String>{});

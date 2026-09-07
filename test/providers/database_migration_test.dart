@@ -30,8 +30,9 @@ void main() {
     });
 
     Future<void> openTestDatabase() async {
-      tempDir =
-          await Directory.systemTemp.createTemp('database_migration_test_');
+      tempDir = await Directory.systemTemp.createTemp(
+        'database_migration_test_',
+      );
       isar = await Isar.open(
         [SettingsSchema, PlayQueueSchema, LyricsTitleParseCacheSchema],
         directory: tempDir.path,
@@ -65,8 +66,11 @@ void main() {
       final settings = await isar.settings.get(0);
       expect(settings, isNotNull);
       expect(settings!.homeRankingSourcePriority, 'bilibili,youtube,netease');
-      expect(settings.homeRankingSourcePriorityList,
-          ['bilibili', 'youtube', 'netease']);
+      expect(settings.homeRankingSourcePriorityList, [
+        'bilibili',
+        'youtube',
+        'netease',
+      ]);
       expect(settings.disabledHomeRankingSources, '');
       expect(settings.disabledHomeRankingSourcesSet, isEmpty);
     });
@@ -93,30 +97,34 @@ void main() {
     });
 
     test(
-        'normalizes Home ranking source priority and preserves disabled sources',
-        () async {
-      await openTestDatabase();
+      'normalizes Home ranking source priority and preserves disabled sources',
+      () async {
+        await openTestDatabase();
 
-      final settings = Settings()
-        ..homeRankingSourcePriority = 'youtube,unknown,bilibili,youtube'
-        ..disabledHomeRankingSources = 'netease,unknown';
-      await isar.writeTxn(() async {
-        await isar.settings.put(settings);
-      });
+        final settings = Settings()
+          ..homeRankingSourcePriority = 'youtube,unknown,bilibili,youtube'
+          ..disabledHomeRankingSources = 'netease,unknown';
+        await isar.writeTxn(() async {
+          await isar.settings.put(settings);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final migratedSettings = await isar.settings.get(0);
-      expect(migratedSettings, isNotNull);
-      expect(
-        migratedSettings!.homeRankingSourcePriority,
-        'youtube,bilibili,netease',
-      );
-      expect(migratedSettings!.homeRankingSourcePriorityList,
-          ['youtube', 'bilibili', 'netease']);
-      expect(migratedSettings.disabledHomeRankingSources, 'netease');
-      expect(migratedSettings.disabledHomeRankingSourcesSet, {'netease'});
-    });
+        final migratedSettings = await isar.settings.get(0);
+        expect(migratedSettings, isNotNull);
+        expect(
+          migratedSettings!.homeRankingSourcePriority,
+          'youtube,bilibili,netease',
+        );
+        expect(migratedSettings!.homeRankingSourcePriorityList, [
+          'youtube',
+          'bilibili',
+          'netease',
+        ]);
+        expect(migratedSettings.disabledHomeRankingSources, 'netease');
+        expect(migratedSettings.disabledHomeRankingSourcesSet, {'netease'});
+      },
+    );
 
     test('repairs all disabled Home ranking sources', () async {
       await openTestDatabase();
@@ -156,30 +164,34 @@ void main() {
       expect(await isar.lyricsTitleParseCaches.count(), 0);
     });
 
-    test('repairs AI title parsing fields from Isar upgrade defaults',
-        () async {
-      await openTestDatabase();
+    test(
+      'repairs AI title parsing fields from Isar upgrade defaults',
+      () async {
+        await openTestDatabase();
 
-      final upgradedSettings = Settings()
-        ..lyricsAiTitleParsingModeIndex = 0
-        ..lyricsAiEndpoint = ''
-        ..lyricsAiModel = ''
-        ..lyricsAiTimeoutSeconds = 0;
-      await isar.writeTxn(() async {
-        await isar.settings.put(upgradedSettings);
-      });
+        final upgradedSettings = Settings()
+          ..lyricsAiTitleParsingModeIndex = 0
+          ..lyricsAiEndpoint = ''
+          ..lyricsAiModel = ''
+          ..lyricsAiTimeoutSeconds = 0;
+        await isar.writeTxn(() async {
+          await isar.settings.put(upgradedSettings);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final migratedSettings = await isar.settings.get(0);
-      expect(migratedSettings, isNotNull);
-      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
-      expect(migratedSettings.lyricsAiTitleParsingMode,
-          LyricsAiTitleParsingMode.off);
-      expect(migratedSettings.lyricsAiTimeoutSeconds, 20);
-      expect(migratedSettings.lyricsAiEndpoint, isEmpty);
-      expect(migratedSettings.lyricsAiModel, isEmpty);
-    });
+        final migratedSettings = await isar.settings.get(0);
+        expect(migratedSettings, isNotNull);
+        expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
+        expect(
+          migratedSettings.lyricsAiTitleParsingMode,
+          LyricsAiTitleParsingMode.off,
+        );
+        expect(migratedSettings.lyricsAiTimeoutSeconds, 20);
+        expect(migratedSettings.lyricsAiEndpoint, isEmpty);
+        expect(migratedSettings.lyricsAiModel, isEmpty);
+      },
+    );
 
     test('repairs invalid AI title parsing mode index', () async {
       await openTestDatabase();
@@ -196,8 +208,10 @@ void main() {
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings, isNotNull);
       expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
-      expect(migratedSettings.lyricsAiTitleParsingMode,
-          LyricsAiTitleParsingMode.off);
+      expect(
+        migratedSettings.lyricsAiTitleParsingMode,
+        LyricsAiTitleParsingMode.off,
+      );
       expect(migratedSettings.lyricsAiTimeoutSeconds, 10);
     });
 
@@ -217,10 +231,15 @@ void main() {
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings, isNotNull);
       expect(migratedSettings!.audioFormatPriority, 'opus,aac');
-      expect(migratedSettings.streamPriorityFor(SourceIds.youtube),
-          [StreamType.audioOnly, StreamType.muxed, StreamType.hls]);
-      expect(migratedSettings.streamPriorityFor(SourceIds.bilibili),
-          [StreamType.audioOnly, StreamType.muxed]);
+      expect(migratedSettings.streamPriorityFor(SourceIds.youtube), [
+        StreamType.audioOnly,
+        StreamType.muxed,
+        StreamType.hls,
+      ]);
+      expect(migratedSettings.streamPriorityFor(SourceIds.bilibili), [
+        StreamType.audioOnly,
+        StreamType.muxed,
+      ]);
     });
 
     test('repairs legacy fallback AI mode index to off', () async {
@@ -232,33 +251,36 @@ void main() {
       await runDatabaseMigrationForTesting(isar);
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
-      expect(migratedSettings.lyricsAiTitleParsingMode,
-          LyricsAiTitleParsingMode.off);
+      expect(
+        migratedSettings.lyricsAiTitleParsingMode,
+        LyricsAiTitleParsingMode.off,
+      );
     });
 
     test(
-        'repairs legacy playback and lyrics defaults only for legacy signature',
-        () async {
-      await openTestDatabase();
+      'repairs legacy playback and lyrics defaults only for legacy signature',
+      () async {
+        await openTestDatabase();
 
-      final legacySettings = Settings()
-        ..useNeteaseAuthForPlay = false
-        ..neteaseStreamPriority = ''
-        ..rememberPlaybackPosition = false
-        ..tempPlayRewindSeconds = 0
-        ..disabledLyricsSources = '';
-      await isar.writeTxn(() async {
-        await isar.settings.put(legacySettings);
-      });
+        final legacySettings = Settings()
+          ..useNeteaseAuthForPlay = false
+          ..neteaseStreamPriority = ''
+          ..rememberPlaybackPosition = false
+          ..tempPlayRewindSeconds = 0
+          ..disabledLyricsSources = '';
+        await isar.writeTxn(() async {
+          await isar.settings.put(legacySettings);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final migratedSettings = await isar.settings.get(0);
-      expect(migratedSettings, isNotNull);
-      expect(migratedSettings!.rememberPlaybackPosition, isTrue);
-      expect(migratedSettings.tempPlayRewindSeconds, 10);
-      expect(migratedSettings.disabledLyricsSources, 'lrclib');
-    });
+        final migratedSettings = await isar.settings.get(0);
+        expect(migratedSettings, isNotNull);
+        expect(migratedSettings!.rememberPlaybackPosition, isTrue);
+        expect(migratedSettings.tempPlayRewindSeconds, 10);
+        expect(migratedSettings.disabledLyricsSources, 'lrclib');
+      },
+    );
 
     test('preserves intentional modern playback and lyrics settings', () async {
       await openTestDatabase();
@@ -281,70 +303,76 @@ void main() {
       expect(migratedSettings.disabledLyricsSources, 'qqmusic');
     });
 
-    test('preserves intentional legacy-shaped playback and lyrics values',
-        () async {
-      await openTestDatabase();
+    test(
+      'preserves intentional legacy-shaped playback and lyrics values',
+      () async {
+        await openTestDatabase();
 
-      final intentionallyConfiguredSettings = Settings()
-        ..useNeteaseAuthForPlay = false
-        ..neteaseStreamPriority = 'audioOnly'
-        ..rememberPlaybackPosition = false
-        ..tempPlayRewindSeconds = 0
-        ..disabledLyricsSources = '';
-      await isar.writeTxn(() async {
-        await isar.settings.put(intentionallyConfiguredSettings);
-      });
+        final intentionallyConfiguredSettings = Settings()
+          ..useNeteaseAuthForPlay = false
+          ..neteaseStreamPriority = 'audioOnly'
+          ..rememberPlaybackPosition = false
+          ..tempPlayRewindSeconds = 0
+          ..disabledLyricsSources = '';
+        await isar.writeTxn(() async {
+          await isar.settings.put(intentionallyConfiguredSettings);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final migratedSettings = await isar.settings.get(0);
-      expect(migratedSettings, isNotNull);
-      expect(migratedSettings!.rememberPlaybackPosition, isFalse);
-      expect(migratedSettings.tempPlayRewindSeconds, 0);
-      expect(migratedSettings.disabledLyricsSources, '');
-      expect(migratedSettings.useNeteaseAuthForPlay, isFalse);
-      expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
-    });
+        final migratedSettings = await isar.settings.get(0);
+        expect(migratedSettings, isNotNull);
+        expect(migratedSettings!.rememberPlaybackPosition, isFalse);
+        expect(migratedSettings.tempPlayRewindSeconds, 0);
+        expect(migratedSettings.disabledLyricsSources, '');
+        expect(migratedSettings.useNeteaseAuthForPlay, isFalse);
+        expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
+      },
+    );
 
-    test('migrates NetEase defaults when old settings have empty priority',
-        () async {
-      await openTestDatabase();
+    test(
+      'migrates NetEase defaults when old settings have empty priority',
+      () async {
+        await openTestDatabase();
 
-      final legacySettings = Settings()
-        ..useNeteaseAuthForPlay = false
-        ..neteaseStreamPriority = '';
-      await isar.writeTxn(() async {
-        await isar.settings.put(legacySettings);
-      });
+        final legacySettings = Settings()
+          ..useNeteaseAuthForPlay = false
+          ..neteaseStreamPriority = '';
+        await isar.writeTxn(() async {
+          await isar.settings.put(legacySettings);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final migratedSettings = await isar.settings.get(0);
-      expect(migratedSettings, isNotNull);
-      expect(migratedSettings!.useNeteaseAuthForPlay, isTrue);
-      expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
-    });
+        final migratedSettings = await isar.settings.get(0);
+        expect(migratedSettings, isNotNull);
+        expect(migratedSettings!.useNeteaseAuthForPlay, isTrue);
+        expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
+      },
+    );
 
-    test('preserves intentional NetEase opt-out on repeated migration runs',
-        () async {
-      await openTestDatabase();
+    test(
+      'preserves intentional NetEase opt-out on repeated migration runs',
+      () async {
+        await openTestDatabase();
 
-      final modernSettings = Settings()
-        ..useNeteaseAuthForPlay = false
-        ..neteaseStreamPriority = 'audioOnly';
-      await isar.writeTxn(() async {
-        await isar.settings.put(modernSettings);
-      });
+        final modernSettings = Settings()
+          ..useNeteaseAuthForPlay = false
+          ..neteaseStreamPriority = 'audioOnly';
+        await isar.writeTxn(() async {
+          await isar.settings.put(modernSettings);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final migratedSettings = await isar.settings.get(0);
-      expect(migratedSettings, isNotNull);
-      expect(migratedSettings!.useNeteaseAuthForPlay, isFalse);
-      expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
-    });
+        final migratedSettings = await isar.settings.get(0);
+        expect(migratedSettings, isNotNull);
+        expect(migratedSettings!.useNeteaseAuthForPlay, isFalse);
+        expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
+      },
+    );
 
     test('rescues layout fields from their Isar upgrade defaults', () async {
       await openTestDatabase();
@@ -368,24 +396,28 @@ void main() {
       expect(migrated.detailPanelWidth, 380);
     });
 
-    test('clamps a layout width that is out of range on every launch',
-        () async {
-      await openTestDatabase();
+    test(
+      'clamps a layout width that is out of range on every launch',
+      () async {
+        await openTestDatabase();
 
-      final settings = Settings()
-        ..schemaVersion = 1
-        ..detailPanelWidth = 9999;
-      await isar.writeTxn(() async {
-        await isar.settings.put(settings);
-      });
+        final settings = Settings()
+          ..schemaVersion = 1
+          ..detailPanelWidth = 9999;
+        await isar.writeTxn(() async {
+          await isar.settings.put(settings);
+        });
 
-      await runDatabaseMigration(isar);
+        await runDatabaseMigration(isar);
 
-      // 夾到邊界，不是重設成預設值：這條不變式只負責「不是垃圾值」，真正的
-      // 上限是視窗寬的一個比例，由 AppLayout.detailPanelWidthFor 在渲染期收斂。
-      expect((await isar.settings.get(0))!.detailPanelWidth,
-          AppLayout.detailPanelStoredMax);
-    });
+        // 夾到邊界，不是重設成預設值：這條不變式只負責「不是垃圾值」，真正的
+        // 上限是視窗寬的一個比例，由 AppLayout.detailPanelWidthFor 在渲染期收斂。
+        expect(
+          (await isar.settings.get(0))!.detailPanelWidth,
+          AppLayout.detailPanelStoredMax,
+        );
+      },
+    );
 
     test('lifts a stored width that is below the new minimum', () async {
       await openTestDatabase();
@@ -401,8 +433,10 @@ void main() {
 
       await runDatabaseMigration(isar);
 
-      expect((await isar.settings.get(0))!.detailPanelWidth,
-          AppLayout.detailPanelMin);
+      expect(
+        (await isar.settings.get(0))!.detailPanelWidth,
+        AppLayout.detailPanelMin,
+      );
     });
 
     test('a non-finite width falls back to the default', () async {
@@ -417,8 +451,10 @@ void main() {
 
       await runDatabaseMigration(isar);
 
-      expect((await isar.settings.get(0))!.detailPanelWidth,
-          AppLayout.detailPanelDefault);
+      expect(
+        (await isar.settings.get(0))!.detailPanelWidth,
+        AppLayout.detailPanelDefault,
+      );
     });
 
     test('treats Isar minLong as version zero', () async {
@@ -438,37 +474,46 @@ void main() {
 
       final migrated = await isar.settings.get(0);
       expect(migrated!.schemaVersion, kFmpSchemaVersion);
-      expect(migrated.useAuthForPlay(SourceIds.netease), isTrue,
-          reason: 'the v0 step must have run and been folded by v1 to v2');
+      expect(
+        migrated.useAuthForPlay(SourceIds.netease),
+        isTrue,
+        reason: 'the v0 step must have run and been folded by v1 to v2',
+      );
     });
 
-    test('the v1 to v2 step folds the six named fields into sourceSettings',
-        () async {
-      await openTestDatabase();
+    test(
+      'the v1 to v2 step folds the six named fields into sourceSettings',
+      () async {
+        await openTestDatabase();
 
-      final v1 = Settings()
-        ..schemaVersion = 1
-        ..bilibiliStreamPriority = 'muxed'
-        ..youtubeStreamPriority = 'hls,audioOnly'
-        ..neteaseStreamPriority = 'audioOnly,muxed'
-        ..useBilibiliAuthForPlay = true
-        ..useYoutubeAuthForPlay = false
-        ..useNeteaseAuthForPlay = false;
-      await isar.writeTxn(() async => isar.settings.put(v1));
+        final v1 = Settings()
+          ..schemaVersion = 1
+          ..bilibiliStreamPriority = 'muxed'
+          ..youtubeStreamPriority = 'hls,audioOnly'
+          ..neteaseStreamPriority = 'audioOnly,muxed'
+          ..useBilibiliAuthForPlay = true
+          ..useYoutubeAuthForPlay = false
+          ..useNeteaseAuthForPlay = false;
+        await isar.writeTxn(() async => isar.settings.put(v1));
 
-      await runDatabaseMigration(isar);
+        await runDatabaseMigration(isar);
 
-      final after = (await isar.settings.get(0))!;
-      expect(after.schemaVersion, 2);
-      expect(after.streamPriorityFor(SourceIds.bilibili), [StreamType.muxed]);
-      expect(after.streamPriorityFor(SourceIds.youtube),
-          [StreamType.hls, StreamType.audioOnly]);
-      expect(after.streamPriorityFor(SourceIds.netease),
-          [StreamType.audioOnly, StreamType.muxed]);
-      expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
-      expect(after.useAuthForPlay(SourceIds.youtube), isFalse);
-      expect(after.useAuthForPlay(SourceIds.netease), isFalse);
-    });
+        final after = (await isar.settings.get(0))!;
+        expect(after.schemaVersion, 2);
+        expect(after.streamPriorityFor(SourceIds.bilibili), [StreamType.muxed]);
+        expect(after.streamPriorityFor(SourceIds.youtube), [
+          StreamType.hls,
+          StreamType.audioOnly,
+        ]);
+        expect(after.streamPriorityFor(SourceIds.netease), [
+          StreamType.audioOnly,
+          StreamType.muxed,
+        ]);
+        expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
+        expect(after.useAuthForPlay(SourceIds.youtube), isFalse);
+        expect(after.useAuthForPlay(SourceIds.netease), isFalse);
+      },
+    );
 
     test('the v1 to v2 step leaves the legacy fields untouched', () async {
       // 降級（裝回舊版 APK）時舊版只讀得到這六個欄位。折疊如果把它們清空，
@@ -564,40 +609,43 @@ void main() {
       expect(after.disabledLyricsSources, '');
       expect(after.useAuthForPlay(SourceIds.netease), isFalse);
       // 不變式修復與版本無關，所以空的優先級仍然會被補回預設。
-      expect(after.streamPriorityFor(SourceIds.netease),
-          [StreamType.audioOnly]);
+      expect(after.streamPriorityFor(SourceIds.netease), [
+        StreamType.audioOnly,
+      ]);
     });
 
-    test('repairs legacy queue volume without changing current queue state',
-        () async {
-      await openTestDatabase();
+    test(
+      'repairs legacy queue volume without changing current queue state',
+      () async {
+        await openTestDatabase();
 
-      final legacyQueue = PlayQueue()..lastVolume = 0;
-      await isar.writeTxn(() async {
-        await isar.playQueues.put(legacyQueue);
-      });
+        final legacyQueue = PlayQueue()..lastVolume = 0;
+        await isar.writeTxn(() async {
+          await isar.playQueues.put(legacyQueue);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final repairedQueue = await isar.playQueues.where().findFirst();
-      expect(repairedQueue, isNotNull);
-      expect(repairedQueue!.lastVolume, 1.0);
+        final repairedQueue = await isar.playQueues.where().findFirst();
+        expect(repairedQueue, isNotNull);
+        expect(repairedQueue!.lastVolume, 1.0);
 
-      await isar.writeTxn(() async {
-        repairedQueue.lastVolume = 0;
-        repairedQueue.trackIds = [1, 2, 3];
-        repairedQueue.currentIndex = 1;
-        await isar.playQueues.put(repairedQueue);
-      });
+        await isar.writeTxn(() async {
+          repairedQueue.lastVolume = 0;
+          repairedQueue.trackIds = [1, 2, 3];
+          repairedQueue.currentIndex = 1;
+          await isar.playQueues.put(repairedQueue);
+        });
 
-      await runDatabaseMigrationForTesting(isar);
+        await runDatabaseMigrationForTesting(isar);
 
-      final preservedQueue = await isar.playQueues.where().findFirst();
-      expect(preservedQueue, isNotNull);
-      expect(preservedQueue!.lastVolume, 0);
-      expect(preservedQueue.trackIds, [1, 2, 3]);
-      expect(preservedQueue.currentIndex, 1);
-    });
+        final preservedQueue = await isar.playQueues.where().findFirst();
+        expect(preservedQueue, isNotNull);
+        expect(preservedQueue!.lastVolume, 0);
+        expect(preservedQueue.trackIds, [1, 2, 3]);
+        expect(preservedQueue.currentIndex, 1);
+      },
+    );
 
     test('creates an empty queue when none exists', () async {
       await openTestDatabase();

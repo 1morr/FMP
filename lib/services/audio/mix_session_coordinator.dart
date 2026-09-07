@@ -53,11 +53,11 @@ class MixSessionCoordinator with Logging {
     required void Function(bool isLoading) onLoadingChanged,
     required void Function() onQueueChanged,
     MixTracksFetcher? fetcher,
-  })  : _queueManager = queueManager,
-        _toastService = toastService,
-        _onLoadingChanged = onLoadingChanged,
-        _onQueueChanged = onQueueChanged,
-        _fetcher = fetcher;
+  }) : _queueManager = queueManager,
+       _toastService = toastService,
+       _onLoadingChanged = onLoadingChanged,
+       _onQueueChanged = onQueueChanged,
+       _fetcher = fetcher;
 
   final QueueManager _queueManager;
   final ToastService _toastService;
@@ -148,7 +148,8 @@ class MixSessionCoordinator with Logging {
     final remaining =
         _queueManager.tracks.length - 1 - _queueManager.currentIndex;
     logDebug(
-        'Mix mode: $remaining tracks remaining, loading more before queue end...');
+      'Mix mode: $remaining tracks remaining, loading more before queue end...',
+    );
     _scheduleLoadMore();
   }
 
@@ -162,8 +163,8 @@ class MixSessionCoordinator with Logging {
     final remaining = queueLength - 1 - _queueManager.currentIndex;
     final threshold =
         queueLength > AppConstants.mixLoadMoreRemainingThreshold + 1
-            ? AppConstants.mixLoadMoreRemainingThreshold
-            : 0;
+        ? AppConstants.mixLoadMoreRemainingThreshold
+        : 0;
     return remaining <= threshold;
   }
 
@@ -238,18 +239,21 @@ class MixSessionCoordinator with Logging {
         if (attempt <= sameVideoRetries) {
           seedVideoId = queue.last.sourceId;
           logDebug(
-              'Attempt $attempt/$maxAttempts: using last track as seed ($seedVideoId)');
+            'Attempt $attempt/$maxAttempts: using last track as seed ($seedVideoId)',
+          );
         } else {
           // 從隊列倒數第 2 ~ 倒數第 10 首中選擇一個不同的種子
           final seedIndex = queue.length - 1 - (attempt - sameVideoRetries);
           if (seedIndex >= 0) {
             seedVideoId = queue[seedIndex].sourceId;
             logDebug(
-                'Attempt $attempt/$maxAttempts: using track at index $seedIndex as seed ($seedVideoId)');
+              'Attempt $attempt/$maxAttempts: using track at index $seedIndex as seed ($seedVideoId)',
+            );
           } else {
             seedVideoId = queue.last.sourceId;
             logDebug(
-                'Attempt $attempt/$maxAttempts: fallback to last track as seed ($seedVideoId)');
+              'Attempt $attempt/$maxAttempts: fallback to last track as seed ($seedVideoId)',
+            );
           }
         }
 
@@ -266,14 +270,17 @@ class MixSessionCoordinator with Logging {
 
           // 過濾已存在的歌曲（包括已在隊列中的和本輪已收集的）
           final newTracks = result.tracks
-              .where((t) =>
-                  !mixState.seenVideoIds.contains(t.sourceId) &&
-                  !collectedVideoIds.contains(t.sourceId))
+              .where(
+                (t) =>
+                    !mixState.seenVideoIds.contains(t.sourceId) &&
+                    !collectedVideoIds.contains(t.sourceId),
+              )
               .toList();
 
           if (newTracks.isNotEmpty) {
             logDebug(
-                'Attempt $attempt: got ${newTracks.length} new tracks (total: ${collectedTracks.length + newTracks.length})');
+              'Attempt $attempt: got ${newTracks.length} new tracks (total: ${collectedTracks.length + newTracks.length})',
+            );
             collectedTracks.addAll(newTracks);
             collectedVideoIds.addAll(newTracks.map((t) => t.sourceId));
           } else {
@@ -302,7 +309,8 @@ class MixSessionCoordinator with Logging {
       // 一次性添加所有收集到的新歌曲
       if (collectedTracks.isNotEmpty) {
         logInfo(
-            'Mix load complete: adding ${collectedTracks.length} new tracks in $attempt attempts');
+          'Mix load complete: adding ${collectedTracks.length} new tracks in $attempt attempts',
+        );
         mixState.addSeenVideoIds(collectedTracks.map((t) => t.sourceId));
         await _queueManager.addAll(collectedTracks);
         _onQueueChanged();

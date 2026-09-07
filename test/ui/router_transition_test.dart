@@ -15,16 +15,13 @@ void main() {
         routerSource,
         contains('CustomTransitionPage<void> _fullscreenPlayerPage'),
       );
-      expect(
-        routerSource,
-        contains('reverseCurve: Curves.easeInCubic'),
-      );
+      expect(routerSource, contains('reverseCurve: Curves.easeInCubic'));
       expect(routerSource, contains('ClipRect('));
     });
 
     test('player and radio player routes share the fullscreen transition', () {
-      expect(routerSource, contains('child: const PlayerPage(),'));
-      expect(routerSource, contains('child: const RadioPlayerPage(),'));
+      expect(routerSource, contains('child: const PlayerPage()'));
+      expect(routerSource, contains('child: const RadioPlayerPage()'));
       expect(
         RegExp(r'_fullscreenPlayerPage\(').allMatches(routerSource),
         hasLength(3),

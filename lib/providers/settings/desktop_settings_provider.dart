@@ -11,9 +11,9 @@ import '../database/repository_providers.dart';
 import '../system/windows_desktop_provider.dart';
 
 /// 最小化到托盘设置 Provider
-final minimizeToTrayProvider =
-    NotifierProvider<_MinimizeToTrayNotifier, bool>(
-        _MinimizeToTrayNotifier.new);
+final minimizeToTrayProvider = NotifierProvider<_MinimizeToTrayNotifier, bool>(
+  _MinimizeToTrayNotifier.new,
+);
 
 class _MinimizeToTrayNotifier extends Notifier<bool> {
   late SettingsRepository _repo;
@@ -89,7 +89,8 @@ class LaunchAtStartupState {
 /// 开机自启动设置 Provider
 final launchAtStartupProvider =
     NotifierProvider<LaunchAtStartupNotifier, LaunchAtStartupState>(
-        LaunchAtStartupNotifier.new);
+      LaunchAtStartupNotifier.new,
+    );
 
 class LaunchAtStartupNotifier extends Notifier<LaunchAtStartupState> {
   late SettingsRepository _repo;

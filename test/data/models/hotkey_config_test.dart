@@ -7,33 +7,39 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 void main() {
   group('HotkeyConfig', () {
-    test('fromJsonString clears configured system hotkeys without modifiers',
-        () {
-      final config = HotkeyConfig.fromJsonString(jsonEncode({
-        'bindings': [
-          {
-            'action': HotkeyAction.playPause.name,
-            'keyId': LogicalKeyboardKey.keyA.keyId,
-            'modifiers': <String>[],
-          },
-        ],
-      }));
+    test(
+      'fromJsonString clears configured system hotkeys without modifiers',
+      () {
+        final config = HotkeyConfig.fromJsonString(
+          jsonEncode({
+            'bindings': [
+              {
+                'action': HotkeyAction.playPause.name,
+                'keyId': LogicalKeyboardKey.keyA.keyId,
+                'modifiers': <String>[],
+              },
+            ],
+          }),
+        );
 
-      final binding = config.getBinding(HotkeyAction.playPause)!;
-      expect(binding.isConfigured, isFalse);
-      expect(binding.toHotKey(), isNull);
-    });
+        final binding = config.getBinding(HotkeyAction.playPause)!;
+        expect(binding.isConfigured, isFalse);
+        expect(binding.toHotKey(), isNull);
+      },
+    );
 
     test('fromJsonString keeps configured system hotkeys with modifiers', () {
-      final config = HotkeyConfig.fromJsonString(jsonEncode({
-        'bindings': [
-          {
-            'action': HotkeyAction.next.name,
-            'keyId': LogicalKeyboardKey.arrowRight.keyId,
-            'modifiers': ['control'],
-          },
-        ],
-      }));
+      final config = HotkeyConfig.fromJsonString(
+        jsonEncode({
+          'bindings': [
+            {
+              'action': HotkeyAction.next.name,
+              'keyId': LogicalKeyboardKey.arrowRight.keyId,
+              'modifiers': ['control'],
+            },
+          ],
+        }),
+      );
 
       final binding = config.getBinding(HotkeyAction.next)!;
       expect(binding.key, LogicalKeyboardKey.arrowRight);

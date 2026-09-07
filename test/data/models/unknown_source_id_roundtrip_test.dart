@@ -60,27 +60,34 @@ void main() {
     );
   }
 
-  test('Track keeps an unknown source id and stays queryable by index',
-      () async {
-    await isar.writeTxn(() => isar.tracks.put(Track()
-      ..sourceId = 'x1'
-      ..sourceType = unknown
-      ..title = 'Unknown source track'));
+  test(
+    'Track keeps an unknown source id and stays queryable by index',
+    () async {
+      await isar.writeTxn(
+        () => isar.tracks.put(
+          Track()
+            ..sourceId = 'x1'
+            ..sourceType = unknown
+            ..title = 'Unknown source track',
+        ),
+      );
 
-    await reopen();
+      await reopen();
 
-    expect((await isar.tracks.where().findAll()).single.sourceType, unknown);
-    expect(
-      await isar.tracks.where().sourceTypeEqualTo(unknown).count(),
-      1,
-    );
-  });
+      expect((await isar.tracks.where().findAll()).single.sourceType, unknown);
+      expect(await isar.tracks.where().sourceTypeEqualTo(unknown).count(), 1);
+    },
+  );
 
   test('PlayHistory keeps an unknown source id', () async {
-    await isar.writeTxn(() => isar.playHistorys.put(PlayHistory()
-      ..sourceId = 'x2'
-      ..sourceType = unknown
-      ..title = 'Unknown source play'));
+    await isar.writeTxn(
+      () => isar.playHistorys.put(
+        PlayHistory()
+          ..sourceId = 'x2'
+          ..sourceType = unknown
+          ..title = 'Unknown source play',
+      ),
+    );
 
     await reopen();
 
@@ -88,32 +95,46 @@ void main() {
     expect(stored.sourceType, unknown);
     // trackKey 是被索引的 getter，也要跟著原值走。
     expect(stored.trackKey, startsWith('$unknown:'));
-    expect(await isar.playHistorys.where().sourceTypeEqualTo(unknown).count(),
-        1);
+    expect(
+      await isar.playHistorys.where().sourceTypeEqualTo(unknown).count(),
+      1,
+    );
   });
 
   test('RadioStation keeps an unknown source id', () async {
-    await isar.writeTxn(() => isar.radioStations.put(RadioStation()
-      ..url = 'https://example.invalid/live/1'
-      ..title = 'Unknown source station'
-      ..sourceId = 'x3'
-      ..sourceType = unknown));
+    await isar.writeTxn(
+      () => isar.radioStations.put(
+        RadioStation()
+          ..url = 'https://example.invalid/live/1'
+          ..title = 'Unknown source station'
+          ..sourceId = 'x3'
+          ..sourceType = unknown,
+      ),
+    );
 
     await reopen();
 
     expect(
-        (await isar.radioStations.where().findAll()).single.sourceType, unknown);
+      (await isar.radioStations.where().findAll()).single.sourceType,
+      unknown,
+    );
   });
 
   test('Playlist keeps an unknown import source id', () async {
-    await isar.writeTxn(() => isar.playlists.put(Playlist()
-      ..name = 'Imported from somewhere else'
-      ..importSourceType = unknown));
+    await isar.writeTxn(
+      () => isar.playlists.put(
+        Playlist()
+          ..name = 'Imported from somewhere else'
+          ..importSourceType = unknown,
+      ),
+    );
 
     await reopen();
 
-    expect((await isar.playlists.where().findAll()).single.importSourceType,
-        unknown);
+    expect(
+      (await isar.playlists.where().findAll()).single.importSourceType,
+      unknown,
+    );
   });
 
   test('Account keeps an unknown platform id', () async {

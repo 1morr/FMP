@@ -138,7 +138,8 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
     const maxArtistLength = 30;
 
     logDebug(
-        '[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
+      '[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying',
+    );
 
     final menu = Menu(
       items: [
@@ -151,38 +152,24 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
           MenuItem(
             key: 'track_artist',
             label: _truncate(
-                _currentTrack!.artist ?? t.tray.unknownArtist, maxArtistLength),
+              _currentTrack!.artist ?? t.tray.unknownArtist,
+              maxArtistLength,
+            ),
             disabled: true,
           ),
         ] else
-          MenuItem(
-            key: 'track_info',
-            label: t.tray.notPlaying,
-            disabled: true,
-          ),
+          MenuItem(key: 'track_info', label: t.tray.notPlaying, disabled: true),
         MenuItem.separator(),
         MenuItem(
           key: 'play_pause',
           label: _isPlaying ? t.tray.pause : t.tray.play,
         ),
-        MenuItem(
-          key: 'previous',
-          label: t.tray.previous,
-        ),
-        MenuItem(
-          key: 'next',
-          label: t.tray.next,
-        ),
+        MenuItem(key: 'previous', label: t.tray.previous),
+        MenuItem(key: 'next', label: t.tray.next),
         MenuItem.separator(),
-        MenuItem(
-          key: 'show_window',
-          label: t.tray.showWindow,
-        ),
+        MenuItem(key: 'show_window', label: t.tray.showWindow),
         MenuItem.separator(),
-        MenuItem(
-          key: 'quit',
-          label: t.tray.exit,
-        ),
+        MenuItem(key: 'quit', label: t.tray.exit),
       ],
     );
 
@@ -197,8 +184,10 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
     String tooltip = t.tray.appName;
     if (_currentTrack != null) {
       final title = _truncate(_currentTrack!.title, 50);
-      final artist =
-          _truncate(_currentTrack!.artist ?? t.tray.unknownArtist, 30);
+      final artist = _truncate(
+        _currentTrack!.artist ?? t.tray.unknownArtist,
+        30,
+      );
       tooltip = '$title\n$artist';
       if (_isPlaying) {
         tooltip = '▶ $tooltip';
@@ -430,9 +419,7 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
   }
 
   /// 处理标题栏关闭按钮点击
-  Future<void> handleCloseButton() => handleCloseIntent(
-        fromSystemClose: false,
-      );
+  Future<void> handleCloseButton() => handleCloseIntent(fromSystemClose: false);
 
   /// 最小化到托盘
   Future<void> minimizeToTray() async {
@@ -480,18 +467,16 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
   // WindowListener 回调
 
   @override
-  void onWindowClose() => unawaited(handleCloseIntent(
-        fromSystemClose: true,
-      ));
+  void onWindowClose() => unawaited(handleCloseIntent(fromSystemClose: true));
 
   /// 检查是否有 FMP 安装程序正在运行
   Future<bool> _isInstallerRunning() async {
     try {
-      final result = await Process.run(
-        'tasklist',
-        ['/FO', 'CSV', '/NH'],
-        stdoutEncoding: const SystemEncoding(),
-      );
+      final result = await Process.run('tasklist', [
+        '/FO',
+        'CSV',
+        '/NH',
+      ], stdoutEncoding: const SystemEncoding());
       final output = result.stdout as String;
       // 匹配 FMP-*-Installer.exe 或 FMP-Setup*.exe 等安装程序进程名
       final lines = output.split('\n');

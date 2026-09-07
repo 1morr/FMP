@@ -23,21 +23,22 @@ void main() {
       await initializeIsarForTests();
     });
 
-    test('download track provider reuses shared repository provider instance',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'download track provider reuses shared repository provider instance',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final sharedRepository = harness.container.read(trackRepositoryProvider);
-      final downloadedTrackRepository = harness.container.read(
-        download_providers.trackRepositoryProvider,
-      );
+        final sharedRepository = harness.container.read(
+          trackRepositoryProvider,
+        );
+        final downloadedTrackRepository = harness.container.read(
+          download_providers.trackRepositoryProvider,
+        );
 
-      expect(
-        identical(downloadedTrackRepository, sharedRepository),
-        isTrue,
-      );
-    });
+        expect(identical(downloadedTrackRepository, sharedRepository), isTrue);
+      },
+    );
   });
 }
 
@@ -79,14 +80,8 @@ Future<_Harness> _createHarness() async {
   );
 
   final container = ProviderContainer(
-    overrides: [
-      databaseProvider.overrideWith((ref) => isar),
-    ],
+    overrides: [databaseProvider.overrideWith((ref) => isar)],
   );
 
-  return _Harness(
-    container: container,
-    isar: isar,
-    tempDir: tempDir,
-  );
+  return _Harness(container: container, isar: isar, tempDir: tempDir);
 }

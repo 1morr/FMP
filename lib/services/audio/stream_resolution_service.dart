@@ -25,22 +25,14 @@ class DownloadPathsChangedEvent {
   final List<String> removedPaths;
 }
 
-enum StreamResolutionPurpose {
-  playback,
-  download,
-  prefetch,
-  refresh,
-}
+enum StreamResolutionPurpose { playback, download, prefetch, refresh }
 
 sealed class StreamResolutionResult {
   Track get track;
 }
 
 final class LocalStreamResolution extends StreamResolutionResult {
-  LocalStreamResolution({
-    required this.track,
-    required this.path,
-  });
+  LocalStreamResolution({required this.track, required this.path});
 
   @override
   final Track track;
@@ -93,10 +85,10 @@ class DefaultStreamResolutionService
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     required SourcePlaybackAuthContext sourceAuthContext,
-  })  : _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository,
-        _sourceManager = sourceManager,
-        _sourceAuthContext = sourceAuthContext;
+  }) : _trackRepository = trackRepository,
+       _settingsRepository = settingsRepository,
+       _sourceManager = sourceManager,
+       _sourceAuthContext = sourceAuthContext;
 
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
@@ -155,8 +147,10 @@ class DefaultStreamResolutionService
         ? null
         : _reusableResolution(track, requestContext);
     if (reusable != null) {
-      logDebug('Reusing resolved stream for ${_describe(track)} '
-          '(${purpose.name})');
+      logDebug(
+        'Reusing resolved stream for ${_describe(track)} '
+        '(${purpose.name})',
+      );
       return reusable;
     }
 
@@ -196,22 +190,28 @@ class DefaultStreamResolutionService
         requestContext: requestContext,
         persist: persist,
       );
-      logDebug('Resolved stream for ${_describe(track)} in '
-          '${stopwatch.elapsedMilliseconds}ms '
-          '(${streamResult.streamType.name}, ${streamResult.bitrate ?? '?'}bps)');
+      logDebug(
+        'Resolved stream for ${_describe(track)} in '
+        '${stopwatch.elapsedMilliseconds}ms '
+        '(${streamResult.streamType.name}, ${streamResult.bitrate ?? '?'}bps)',
+      );
       return RemoteStreamResolution(
         track: updatedTrack,
         stream: streamResult,
         authHeaders: requestContext.authHeaders,
       );
     } on SourceApiException catch (error) {
-      logWarning('Stream resolution failed for ${_describe(track)} after '
-          '${stopwatch.elapsedMilliseconds}ms: ${error.kind.name}');
+      logWarning(
+        'Stream resolution failed for ${_describe(track)} after '
+        '${stopwatch.elapsedMilliseconds}ms: ${error.kind.name}',
+      );
       rethrow;
     } catch (_) {
       if (retryCount < 1) {
-        logWarning('Retrying stream resolution for ${_describe(track)} after '
-            '${stopwatch.elapsedMilliseconds}ms');
+        logWarning(
+          'Retrying stream resolution for ${_describe(track)} after '
+          '${stopwatch.elapsedMilliseconds}ms',
+        );
         await Future.delayed(AppConstants.streamResolutionRetryDelay);
         return _resolveRemotePrimary(
           track,
@@ -250,12 +250,16 @@ class DefaultStreamResolutionService
       request: requestContext.request,
     );
     if (streamResult == null) {
-      logWarning('No fallback stream for ${_describe(track)} after '
-          '${stopwatch.elapsedMilliseconds}ms');
+      logWarning(
+        'No fallback stream for ${_describe(track)} after '
+        '${stopwatch.elapsedMilliseconds}ms',
+      );
       return null;
     }
-    logDebug('Resolved fallback stream for ${_describe(track)} in '
-        '${stopwatch.elapsedMilliseconds}ms');
+    logDebug(
+      'Resolved fallback stream for ${_describe(track)} in '
+      '${stopwatch.elapsedMilliseconds}ms',
+    );
 
     final updatedTrack = await _applyStreamResult(
       track,
@@ -400,8 +404,9 @@ class DefaultStreamResolutionService
   }) async {
     final now = DateTime.now();
     track.audioUrl = streamResult.url;
-    track.audioUrlExpiry =
-        now.add(streamResult.expiry ?? const Duration(hours: 1));
+    track.audioUrlExpiry = now.add(
+      streamResult.expiry ?? const Duration(hours: 1),
+    );
     // cid 是不變值。回寫之後下一次解析就會把它帶進請求裡，Bilibili 因此少打
     // 一支 /x/web-interface/view。已經有值的不覆蓋 —— 那是分 P 的身分。
     // 必須排在 _rememberResolution 之前：cid 會進 uniqueKey，也就進快取 key。
@@ -517,8 +522,9 @@ class DefaultStreamResolutionService
 
   void _syncPlaylistInfo(Track requestTrack, Track persistedTrack) {
     requestTrack.id = persistedTrack.id;
-    requestTrack.playlistInfo =
-        persistedTrack.playlistInfo.map((info) => info.copy()).toList();
+    requestTrack.playlistInfo = persistedTrack.playlistInfo
+        .map((info) => info.copy())
+        .toList();
   }
 
   void _emitDownloadPathsChanged(DownloadPathsChangedEvent event) {

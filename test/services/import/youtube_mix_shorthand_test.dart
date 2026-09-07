@@ -7,7 +7,9 @@ void main() {
       expect(parseYouTubeMixShorthandSeedId('mix:dvgZkm1xWPE'), 'dvgZkm1xWPE');
       expect(parseYouTubeMixShorthandSeedId('MIX:dvgZkm1xWPE'), 'dvgZkm1xWPE');
       expect(
-          parseYouTubeMixShorthandSeedId('  mix:dvgZkm1xWPE  '), 'dvgZkm1xWPE');
+        parseYouTubeMixShorthandSeedId('  mix:dvgZkm1xWPE  '),
+        'dvgZkm1xWPE',
+      );
       expect(parseYouTubeMixShorthandSeedId('mix: dvgZkm1xWPE'), 'dvgZkm1xWPE');
     });
 
@@ -17,9 +19,11 @@ void main() {
       expect(parseYouTubeMixShorthandSeedId('mix:dvgZkm1xWPE!'), isNull);
       expect(parseYouTubeMixShorthandSeedId('mix:${'a' * 65}'), isNull);
       expect(
-          parseYouTubeMixShorthandSeedId(
-              'https://www.youtube.com/watch?v=dvgZkm1xWPE'),
-          isNull);
+        parseYouTubeMixShorthandSeedId(
+          'https://www.youtube.com/watch?v=dvgZkm1xWPE',
+        ),
+        isNull,
+      );
     });
 
     test('normalizes valid shorthand to a YouTube Mix URL', () {

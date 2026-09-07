@@ -109,7 +109,8 @@ class DownloadedTrackDto {
 ///
 /// 这是一个顶级函数，可以被 Isolate.run() 调用
 Future<List<DownloadedCategory>> scanCategoriesInIsolate(
-    ScanCategoriesParams params) async {
+  ScanCategoriesParams params,
+) async {
   final downloadDir = Directory(params.downloadPath);
 
   if (!await downloadDir.exists()) {
@@ -126,13 +127,15 @@ Future<List<DownloadedCategory>> scanCategoriesInIsolate(
 
       if (trackCount > 0) {
         final coverPath = await _findFirstCoverInternal(entity);
-        results.add(DownloadedCategory(
-          folderName: folderName,
-          displayName: _extractDisplayNameInternal(folderName),
-          trackCount: trackCount,
-          coverPath: coverPath,
-          folderPath: entity.path,
-        ));
+        results.add(
+          DownloadedCategory(
+            folderName: folderName,
+            displayName: _extractDisplayNameInternal(folderName),
+            trackCount: trackCount,
+            coverPath: coverPath,
+            folderPath: entity.path,
+          ),
+        );
       }
     }
   }
@@ -177,22 +180,23 @@ Future<String?> _findFirstCoverInternal(Directory folder) async {
         if (await coverFile.exists()) {
           // 读取 metadata.json 获取排序用的 title
           String sortKey = p.basename(entity.path);
-          final metadataFile =
-              File(p.join(entity.path, DownloadFileNames.metadata));
+          final metadataFile = File(
+            p.join(entity.path, DownloadFileNames.metadata),
+          );
           if (await metadataFile.exists()) {
             try {
               final content = await metadataFile.readAsString();
               final metadata = jsonDecode(content) as Map<String, dynamic>;
               // 使用与 scanFolderForTracks 相同的排序逻辑
-              sortKey = (metadata['parentTitle'] as String?) ??
+              sortKey =
+                  (metadata['parentTitle'] as String?) ??
                   (metadata['title'] as String?) ??
                   sortKey;
             } catch (_) {}
           }
-          subFolders.add(_FolderSortInfo(
-            coverPath: coverFile.path,
-            sortKey: sortKey,
-          ));
+          subFolders.add(
+            _FolderSortInfo(coverPath: coverFile.path, sortKey: sortKey),
+          );
         }
       }
     }
@@ -316,18 +320,21 @@ class DownloadScanner {
           );
           final fileName = p.basenameWithoutExtension(audioEntity.path);
           final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
-          final oldPageMatch =
-              RegExp(r'^P(\d+)\s*-\s*(.+)$').firstMatch(fileName);
+          final oldPageMatch = RegExp(
+            r'^P(\d+)\s*-\s*(.+)$',
+          ).firstMatch(fileName);
 
           File? metadataFile;
           Map<String, dynamic>? metadata;
 
           if (newPageMatch != null) {
             final pageNumStr = newPageMatch.group(1)!;
-            final pageMetadataFile =
-                File(p.join(entity.path, 'metadata_P$pageNumStr.json'));
-            final defaultMetadataFile =
-                File(p.join(entity.path, DownloadFileNames.metadata));
+            final pageMetadataFile = File(
+              p.join(entity.path, 'metadata_P$pageNumStr.json'),
+            );
+            final defaultMetadataFile = File(
+              p.join(entity.path, DownloadFileNames.metadata),
+            );
 
             if (await pageMetadataFile.exists()) {
               metadataFile = pageMetadataFile;
@@ -335,8 +342,9 @@ class DownloadScanner {
               metadataFile = defaultMetadataFile;
             }
           } else {
-            metadataFile =
-                File(p.join(entity.path, DownloadFileNames.metadata));
+            metadataFile = File(
+              p.join(entity.path, DownloadFileNames.metadata),
+            );
           }
 
           if (metadataFile != null && await metadataFile.exists()) {
@@ -395,8 +403,9 @@ class DownloadScanner {
     }
 
     tracks.sort((a, b) {
-      final groupCompare =
-          (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
+      final groupCompare = (a.parentTitle ?? a.title).compareTo(
+        b.parentTitle ?? b.title,
+      );
       if (groupCompare != 0) return groupCompare;
       return (a.pageNum ?? 0).compareTo(b.pageNum ?? 0);
     });

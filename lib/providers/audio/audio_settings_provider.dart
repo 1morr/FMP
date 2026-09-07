@@ -11,6 +11,7 @@ import '../database/repository_providers.dart';
 class AudioSettingsState {
   final AudioQualityLevel qualityLevel;
   final List<AudioFormat> formatPriority;
+
   /// 每個音源的串流優先序，key 是 [SourceIds] 的音源 id。
   final Map<String, List<StreamType>> streamPriority;
   final bool autoMatchLyrics;
@@ -22,16 +23,14 @@ class AudioSettingsState {
   final String lyricsAiModel;
   final int lyricsAiTimeoutSeconds;
   final bool lyricsAiApiKeyConfigured;
+
   /// 每個音源是否在播放時帶上登入狀態，key 是 [SourceIds] 的音源 id。
   final Map<String, bool> useAuthForPlay;
   final bool isLoading;
 
   const AudioSettingsState({
     this.qualityLevel = AudioQualityLevel.high,
-    this.formatPriority = const [
-      AudioFormat.opus,
-      AudioFormat.aac,
-    ],
+    this.formatPriority = const [AudioFormat.opus, AudioFormat.aac],
     this.streamPriority = const {},
     this.autoMatchLyrics = true,
     this.lyricsSourceOrder = const ['netease', 'qqmusic', 'lrclib'],
@@ -109,8 +108,9 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
   @override
   AudioSettingsState build() {
     _settingsRepository = ref.watch(settingsRepositoryProvider);
-    _lyricsAiConfigService =
-        LyricsAiConfigService(loadSettings: _settingsRepository.get);
+    _lyricsAiConfigService = LyricsAiConfigService(
+      loadSettings: _settingsRepository.get,
+    );
     _loadSettings();
     return const AudioSettingsState();
   }
@@ -162,8 +162,9 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
     state = state.copyWith(formatPriority: priority);
 
     try {
-      await _settingsRepository
-          .update((s) => s.audioFormatPriorityList = priority);
+      await _settingsRepository.update(
+        (s) => s.audioFormatPriorityList = priority,
+      );
       _settings!.audioFormatPriorityList = priority;
     } catch (_) {
       state = state.copyWith(formatPriority: previous);
@@ -178,13 +179,12 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
     if (_settings == null) return;
 
     final previous = state.streamPriority;
-    state = state.copyWith(
-      streamPriority: {...previous, sourceId: priority},
-    );
+    state = state.copyWith(streamPriority: {...previous, sourceId: priority});
 
     try {
-      await _settingsRepository
-          .update((s) => s.setStreamPriorityFor(sourceId, priority));
+      await _settingsRepository.update(
+        (s) => s.setStreamPriorityFor(sourceId, priority),
+      );
       _settings!.setStreamPriorityFor(sourceId, priority);
     } catch (_) {
       state = state.copyWith(streamPriority: previous);
@@ -224,8 +224,9 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
   Future<void> setAllowPlainLyricsAutoMatch(bool enabled) async {
     if (_settings == null) return;
 
-    await _settingsRepository
-        .update((s) => s.allowPlainLyricsAutoMatch = enabled);
+    await _settingsRepository.update(
+      (s) => s.allowPlainLyricsAutoMatch = enabled,
+    );
     _settings!.allowPlainLyricsAutoMatch = enabled;
     state = state.copyWith(allowPlainLyricsAutoMatch: enabled);
   }
@@ -254,10 +255,12 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
   Future<void> setLyricsAiTimeoutSeconds(int seconds) async {
     if (_settings == null) return;
 
-    final normalized =
-        seconds < 1 ? AppConstants.lyricsAiDefaultTimeoutSeconds : seconds;
-    await _settingsRepository
-        .update((s) => s.lyricsAiTimeoutSeconds = normalized);
+    final normalized = seconds < 1
+        ? AppConstants.lyricsAiDefaultTimeoutSeconds
+        : seconds;
+    await _settingsRepository.update(
+      (s) => s.lyricsAiTimeoutSeconds = normalized,
+    );
     _settings!.lyricsAiTimeoutSeconds = normalized;
     state = state.copyWith(lyricsAiTimeoutSeconds: normalized);
   }
@@ -300,8 +303,9 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
       disabled.add(source);
     }
 
-    await _settingsRepository
-        .update((s) => s.disabledLyricsSourcesSet = disabled);
+    await _settingsRepository.update(
+      (s) => s.disabledLyricsSourcesSet = disabled,
+    );
     _settings!.disabledLyricsSourcesSet = disabled;
     state = state.copyWith(disabledLyricsSources: disabled);
   }
@@ -310,7 +314,8 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
 /// 音频设置 Provider
 final audioSettingsProvider =
     NotifierProvider<AudioSettingsNotifier, AudioSettingsState>(
-        AudioSettingsNotifier.new);
+      AudioSettingsNotifier.new,
+    );
 
 /// 便捷 Provider - 音质等级
 final audioQualityLevelProvider = Provider<AudioQualityLevel>((ref) {

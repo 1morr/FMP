@@ -20,19 +20,21 @@ final downloadPathProvider = FutureProvider<String?>((ref) async {
 /// 下载路径维护服务 Provider
 final downloadPathMaintenanceServiceProvider =
     Provider<DownloadPathMaintenanceService>((ref) {
-  final trackRepo = ref.watch(trackRepositoryProvider);
-  final pathManager = ref.watch(downloadPathManagerProvider);
-  final downloadRepository = ref.watch(downloadRepositoryProvider);
-  return DownloadPathMaintenanceService(
-    trackRepository: trackRepo,
-    pathManager: pathManager,
-    clearCompletedAndErrorTasks: downloadRepository.clearCompletedAndErrorTasks,
-  );
-});
+      final trackRepo = ref.watch(trackRepositoryProvider);
+      final pathManager = ref.watch(downloadPathManagerProvider);
+      final downloadRepository = ref.watch(downloadRepositoryProvider);
+      return DownloadPathMaintenanceService(
+        trackRepository: trackRepo,
+        pathManager: pathManager,
+        clearCompletedAndErrorTasks:
+            downloadRepository.clearCompletedAndErrorTasks,
+      );
+    });
 
 /// 下载路径同步服务 Provider
-final downloadPathSyncServiceProvider =
-    Provider<DownloadPathSyncService>((ref) {
+final downloadPathSyncServiceProvider = Provider<DownloadPathSyncService>((
+  ref,
+) {
   final trackRepo = ref.watch(trackRepositoryProvider);
   final pathManager = ref.watch(downloadPathManagerProvider);
   return DownloadPathSyncService(trackRepo, pathManager);

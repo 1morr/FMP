@@ -95,7 +95,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
 
   /// 並行檢查每個播放列表是否包含當前視頻
   Future<void> _checkContainsVideoAsync(
-      List<YouTubePlaylistInfo> playlists) async {
+    List<YouTubePlaylistInfo> playlists,
+  ) async {
     final service = ref.read(youtubePlaylistServiceProvider);
     final videoId = _tracks.first.sourceId;
 
@@ -134,7 +135,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   ///
   /// 優化：每個播放列表只 browse 一次，收集所有 videoId，再批量比對
   Future<void> _checkMultiContainsAsync(
-      List<YouTubePlaylistInfo> playlists) async {
+    List<YouTubePlaylistInfo> playlists,
+  ) async {
     final service = ref.read(youtubePlaylistServiceProvider);
     final trackVideoIds = _tracks.map((t) => t.sourceId).toSet();
     // playlistId → 已包含的 track 數量
@@ -297,34 +299,36 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       buttonText: _getButtonText(),
       listBuilder: (context, scrollController) =>
           RemotePlaylistSelectionListView<YouTubePlaylistInfo>(
-        isLoading: _isLoading,
-        errorMessage: _errorMessage,
-        items: _playlists,
-        scrollController: scrollController,
-        isChecking: _isCheckingMulti,
-        itemImageUrl: (playlist) => playlist.thumbnailUrl,
-        itemIcon: (playlist) => Icons.playlist_play,
-        itemTitle: (playlist) => playlist.title,
-        itemSubtitle: (playlist) => '${playlist.videoCount}',
-        isSelected: (playlist) => _selectedIds.contains(playlist.playlistId),
-        isPartial: (playlist) =>
-            !_selectedIds.contains(playlist.playlistId) &&
-            _partialIds.contains(playlist.playlistId) &&
-            !_deselectedPartialIds.contains(playlist.playlistId),
-        onToggle: _togglePlaylist,
-        // 單曲模式：逐筆確認 containsVideo，尚未回應的播放清單顯示載入指示
-        isCheckingItem: (playlist) =>
-            !_isMulti &&
-            _playlists != null &&
-            _containsStatus[playlist.playlistId] == null,
-      ),
+            isLoading: _isLoading,
+            errorMessage: _errorMessage,
+            items: _playlists,
+            scrollController: scrollController,
+            isChecking: _isCheckingMulti,
+            itemImageUrl: (playlist) => playlist.thumbnailUrl,
+            itemIcon: (playlist) => Icons.playlist_play,
+            itemTitle: (playlist) => playlist.title,
+            itemSubtitle: (playlist) => '${playlist.videoCount}',
+            isSelected: (playlist) =>
+                _selectedIds.contains(playlist.playlistId),
+            isPartial: (playlist) =>
+                !_selectedIds.contains(playlist.playlistId) &&
+                _partialIds.contains(playlist.playlistId) &&
+                !_deselectedPartialIds.contains(playlist.playlistId),
+            onToggle: _togglePlaylist,
+            // 單曲模式：逐筆確認 containsVideo，尚未回應的播放清單顯示載入指示
+            isCheckingItem: (playlist) =>
+                !_isMulti &&
+                _playlists != null &&
+                _containsStatus[playlist.playlistId] == null,
+          ),
     );
   }
 
   void _togglePlaylist(YouTubePlaylistInfo playlist) {
     final id = playlist.playlistId;
     final isSelected = _selectedIds.contains(id);
-    final isPartial = !isSelected &&
+    final isPartial =
+        !isSelected &&
         _partialIds.contains(id) &&
         !_deselectedPartialIds.contains(id);
     setState(() {

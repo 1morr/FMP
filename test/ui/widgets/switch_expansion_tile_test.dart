@@ -13,10 +13,7 @@ void main() {
             enabled: false,
             onExpanded: (_) {},
             onEnabledChanged: (_) {},
-            children: const [
-              Text('Outline color'),
-              Text('Outline width'),
-            ],
+            children: const [Text('Outline color'), Text('Outline width')],
           ),
         ),
       ),
@@ -26,8 +23,9 @@ void main() {
     expect(find.text('Outline width'), findsOneWidget);
   });
 
-  testWidgets('collapses when parent expanded state changes to false',
-      (tester) async {
+  testWidgets('collapses when parent expanded state changes to false', (
+    tester,
+  ) async {
     Widget buildTile({required bool expanded}) {
       return MaterialApp(
         home: Scaffold(
@@ -37,9 +35,7 @@ void main() {
             enabled: true,
             onExpanded: (_) {},
             onEnabledChanged: (_) {},
-            children: const [
-              Text('Outline color'),
-            ],
+            children: const [Text('Outline color')],
           ),
         ),
       );
@@ -64,9 +60,7 @@ void main() {
             enabled: true,
             onExpanded: (_) {},
             onEnabledChanged: (_) {},
-            children: const [
-              Text('Outline color'),
-            ],
+            children: const [Text('Outline color')],
           ),
         ),
       ),

@@ -59,8 +59,8 @@ class _RadioPageState extends ConsumerState<RadioPage> {
               onPressed: radioState.isRefreshingStatus
                   ? null
                   : () => ref
-                      .read(radioControllerProvider.notifier)
-                      .refreshAllLiveStatus(),
+                        .read(radioControllerProvider.notifier)
+                        .refreshAllLiveStatus(),
               icon: radioState.isRefreshingStatus
                   ? const SizedBox(
                       width: 20,
@@ -106,8 +106,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     // 排序模式：保持用戶自定義順序，不按直播狀態排序
     final displayStations = _isSortMode
         ? radioState.stations
-        : (List<RadioStation>.from(radioState.stations)
-          ..sort((a, b) {
+        : (List<RadioStation>.from(radioState.stations)..sort((a, b) {
             final aLive = radioState.isStationLive(a.id) ? 0 : 1;
             final bLive = radioState.isStationLive(b.id) ? 0 : 1;
             return aLive.compareTo(bLive);
@@ -246,8 +245,8 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           Text(
             radioState.reconnectMessage!,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSecondaryContainer,
-                ),
+              color: colorScheme.onSecondaryContainer,
+            ),
           ),
         ],
       ),
@@ -275,13 +274,13 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   }
 
   List<MenuAction> _stationMenuActions() => [
-        MenuAction(
-          id: 'delete',
-          icon: Icons.delete,
-          label: t.radio.deleteStation,
-          destructive: true,
-        ),
-      ];
+    MenuAction(
+      id: 'delete',
+      icon: Icons.delete,
+      label: t.radio.deleteStation,
+      destructive: true,
+    ),
+  ];
 
   void _onStationMenuAction(
     BuildContext context,
@@ -314,7 +313,9 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   }
 
   Future<void> _showDeleteConfirm(
-      BuildContext context, RadioStation station) async {
+    BuildContext context,
+    RadioStation station,
+  ) async {
     final confirmed = await showConfirmDestructiveDialog(
       context,
       title: t.radio.deleteStation,

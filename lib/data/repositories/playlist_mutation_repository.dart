@@ -115,8 +115,9 @@ class PlaylistMutationRepository with Logging {
         await _isar.playlists.put(playlist);
       }
 
-      final tracks =
-          (await _isar.tracks.getAll(requestedIds.toList())).whereType<Track>();
+      final tracks = (await _isar.tracks.getAll(
+        requestedIds.toList(),
+      )).whereType<Track>();
       final removedTrackIds = {...playlistRemovedTrackIds};
       final deletedTrackIds = <int>[];
       final updatedTrackIds = <int>[];
@@ -180,8 +181,8 @@ class PlaylistMutationRepository with Logging {
       final coverChanged = await _updateDefaultCover(playlist);
       final playlistChanged =
           !_listEquals(originalTrackIds, playlist.trackIds) ||
-              coverChanged ||
-              playlist.coverUrl != originalCoverUrl;
+          coverChanged ||
+          playlist.coverUrl != originalCoverUrl;
       if (playlistChanged) {
         playlist.updatedAt = DateTime.now();
         await _isar.playlists.put(playlist);
@@ -214,8 +215,9 @@ class PlaylistMutationRepository with Logging {
         ...trackIds,
         ...staleReverseTracks.map((track) => track.id),
       }.toList();
-      final tracks =
-          (await _isar.tracks.getAll(cleanupTrackIds)).whereType<Track>();
+      final tracks = (await _isar.tracks.getAll(
+        cleanupTrackIds,
+      )).whereType<Track>();
       final removedTrackIds = <int>[];
       final deletedTrackIds = <int>[];
       final updatedTrackIds = <int>[];
@@ -271,9 +273,9 @@ class PlaylistMutationRepository with Logging {
         ..updatedAt = DateTime.now();
       copy.id = await _isar.playlists.put(copy);
 
-      final copiedTracks = (await _isar.tracks.getAll(copy.trackIds))
-          .whereType<Track>()
-          .toList();
+      final copiedTracks = (await _isar.tracks.getAll(
+        copy.trackIds,
+      )).whereType<Track>().toList();
       for (final track in copiedTracks) {
         track.addToPlaylist(copy.id, playlistName: copy.name);
         track.updatedAt = copy.updatedAt;
@@ -286,10 +288,7 @@ class PlaylistMutationRepository with Logging {
     });
   }
 
-  Future<PlaylistMutationResult> addTracks(
-    int playlistId,
-    List<Track> tracks,
-  ) {
+  Future<PlaylistMutationResult> addTracks(int playlistId, List<Track> tracks) {
     return _isar.writeTxn(() => addTracksInTxn(playlistId, tracks));
   }
 
@@ -337,7 +336,8 @@ class PlaylistMutationRepository with Logging {
       final existingTrack =
           existingByIdentity[TrackSourceIdentity.fromTrack(inputTrack)];
       final trackToSave = existingTrack ?? inputTrack;
-      final metadataChanged = existingTrack != null &&
+      final metadataChanged =
+          existingTrack != null &&
           _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
       final trackLinked = trackToSave.belongsToPlaylist(playlistId);
       final playlistLinked =
@@ -394,9 +394,7 @@ class PlaylistMutationRepository with Logging {
     if (playlistChanged) {
       playlist.trackIds = trackIds;
     }
-    if (wasEmpty &&
-        !playlist.hasCustomCover &&
-        firstNewPlaylistTrack != null) {
+    if (wasEmpty && !playlist.hasCustomCover && firstNewPlaylistTrack != null) {
       final newCoverUrl = firstNewPlaylistTrack.thumbnailUrl;
       if (playlist.coverUrl != newCoverUrl) {
         playlist.coverUrl = newCoverUrl;
@@ -460,10 +458,12 @@ class PlaylistMutationRepository with Logging {
           final existingTrack =
               existingByIdentity[TrackSourceIdentity.fromTrack(inputTrack)];
           final trackToSave = existingTrack ?? inputTrack;
-          final metadataChanged = existingTrack != null &&
+          final metadataChanged =
+              existingTrack != null &&
               _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
           final trackLinked = trackToSave.belongsToPlaylist(playlistId);
-          final playlistLinked = existingTrack != null &&
+          final playlistLinked =
+              existingTrack != null &&
               originalTrackIdSet.contains(trackToSave.id);
 
           final trackMembershipChanged = _ensureSinglePlaylistInfo(
@@ -471,7 +471,8 @@ class PlaylistMutationRepository with Logging {
             playlistId,
             playlist.name,
           );
-          final needsSave = existingTrack == null ||
+          final needsSave =
+              existingTrack == null ||
               metadataChanged ||
               trackMembershipChanged;
 
@@ -571,8 +572,9 @@ class PlaylistMutationRepository with Logging {
           }
         }
 
-        final tracks = (await _isar.tracks.getAll(removalCandidates.toList()))
-            .whereType<Track>();
+        final tracks = (await _isar.tracks.getAll(
+          removalCandidates.toList(),
+        )).whereType<Track>();
         for (final track in tracks) {
           if (!track.belongsToPlaylist(playlistId)) {
             continue;
@@ -681,9 +683,9 @@ class PlaylistMutationRepository with Logging {
   Future<Map<TrackSourceIdentity, Track>> _findTracksByIdentity(
     Iterable<Track> tracks,
   ) {
-    return TrackRepository(_isar).getBySourceIdentities(
-      tracks.map(TrackSourceIdentity.fromTrack),
-    );
+    return TrackRepository(
+      _isar,
+    ).getBySourceIdentities(tracks.map(TrackSourceIdentity.fromTrack));
   }
 
   List<Track> _dedupeTracksByUniqueKey(List<Track> tracks) {
@@ -772,7 +774,8 @@ class PlaylistMutationRepository with Logging {
     final downloadPath = matchingInfos
         .map((info) => info.downloadPath)
         .firstWhere((path) => path.isNotEmpty, orElse: () => '');
-    final matchingInfoAlreadyCorrect = matchingInfos.length == 1 &&
+    final matchingInfoAlreadyCorrect =
+        matchingInfos.length == 1 &&
         existingInfo != null &&
         existingInfo.playlistName == playlistName;
 

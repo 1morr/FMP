@@ -39,13 +39,13 @@ class NeteaseAccountService extends AccountService with Logging {
       'appver=2.7.1.198277; channel=netease; __csrf=; MUSIC_U=';
 
   NeteaseAccountService({required Isar isar})
-      : _accounts = AccountRepository(isar),
-        _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(
-          SourceIds.netease,
-          extraHeaders: const {'Cookie': _anonymousCookie},
-          contentType: Headers.formUrlEncodedContentType,
-        );
+    : _accounts = AccountRepository(isar),
+      _secureStorage = const FlutterSecureStorage(),
+      _dio = SourceHttpPolicy.createApiDio(
+        SourceIds.netease,
+        extraHeaders: const {'Cookie': _anonymousCookie},
+        contentType: Headers.formUrlEncodedContentType,
+      );
 
   @override
   String get platform => SourceIds.netease;
@@ -81,11 +81,7 @@ class NeteaseAccountService extends AccountService with Logging {
     final snapshot = await _captureLoginSnapshot();
 
     try {
-      await loginWithCookies(
-        musicU: musicU,
-        csrf: csrf,
-        userId: userId,
-      );
+      await loginWithCookies(musicU: musicU, csrf: csrf, userId: userId);
 
       final isValid = await fetchAndUpdateUserInfo();
       if (!isValid) {
@@ -121,10 +117,7 @@ class NeteaseAccountService extends AccountService with Logging {
     }
 
     final unikey = data['unikey'] as String;
-    return (
-      url: 'https://music.163.com/login?codekey=$unikey',
-      unikey: unikey,
-    );
+    return (url: 'https://music.163.com/login?codekey=$unikey', unikey: unikey);
   }
 
   /// QR 碼登錄 - 輪詢掃碼狀態
@@ -280,8 +273,9 @@ class NeteaseAccountService extends AccountService with Logging {
     // 清除 WebView cookies，避免重新登入時自動使用舊帳號。
     // 域名與 netease_login_page.dart 載入的一致。
     try {
-      await CookieManager.instance()
-          .deleteCookies(url: WebUri('https://music.163.com'));
+      await CookieManager.instance().deleteCookies(
+        url: WebUri('https://music.163.com'),
+      );
     } catch (e) {
       logWarning('Failed to clear WebView cookies: $e');
     }
@@ -335,8 +329,8 @@ class NeteaseAccountService extends AccountService with Logging {
           return const AccountCheckResult(status: AccountStatus.invalid);
         }
 
-        final userId =
-            (profile['userId'] ?? data['account']?['id'])?.toString();
+        final userId = (profile['userId'] ?? data['account']?['id'])
+            ?.toString();
         final userName = profile['nickname'] as String?;
         final avatarUrl = profile['avatarUrl'] as String?;
         final vipType = profile['vipType'] as int? ?? 0;
@@ -349,10 +343,7 @@ class NeteaseAccountService extends AccountService with Logging {
           isVip: isVip,
         );
 
-        return AccountCheckResult(
-          status: AccountStatus.valid,
-          isVip: isVip,
-        );
+        return AccountCheckResult(status: AccountStatus.valid, isVip: isVip);
       } else {
         // code 301 = not logged in, other non-200 = invalid
         return const AccountCheckResult(status: AccountStatus.invalid);
@@ -451,10 +442,7 @@ class NeteaseAccountService extends AccountService with Logging {
     );
     _cachedCredentials = credentials;
     _credentialsLoaded = true;
-    await _updateAccount(
-      isLoggedIn: true,
-      userId: credentials.userId,
-    );
+    await _updateAccount(isLoggedIn: true, userId: credentials.userId);
   }
 
   Future<_LoginSnapshot> _captureLoginSnapshot() async {
@@ -545,7 +533,7 @@ class NeteaseAccountService extends AccountService with Logging {
           'max-age',
           'httponly',
           'secure',
-          'samesite'
+          'samesite',
         }.contains(key.toLowerCase())) {
           cookies[key] = value;
         }

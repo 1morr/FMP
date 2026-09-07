@@ -13,8 +13,9 @@ void main() {
         }
 
         final source = entity.readAsStringSync();
-        final matches = RegExp(r'ListTile\s*\([\s\S]*?leading:\s*Row\s*\(')
-            .allMatches(source);
+        final matches = RegExp(
+          r'ListTile\s*\([\s\S]*?leading:\s*Row\s*\(',
+        ).allMatches(source);
         if (matches.isNotEmpty) {
           offenders.add(entity.path);
         }

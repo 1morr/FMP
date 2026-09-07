@@ -16,18 +16,16 @@ class RemotePlaylistEditPlan {
     required List<String> playlistIdsToAdd,
     required List<String> playlistIdsToRemove,
     required Map<String, Set<String>> existingTrackSourceIdsByPlaylist,
-  })  : editableTracks = List.unmodifiable(editableTracks),
-        skippedTrackIds = List.unmodifiable(skippedTrackIds),
-        playlistIdsToAdd = List.unmodifiable(playlistIdsToAdd),
-        playlistIdsToRemove = List.unmodifiable(playlistIdsToRemove),
-        existingTrackSourceIdsByPlaylist = Map.unmodifiable(
-          existingTrackSourceIdsByPlaylist.map(
-            (playlistId, sourceIds) => MapEntry(
-              playlistId,
-              Set.unmodifiable(sourceIds),
-            ),
-          ),
-        );
+  }) : editableTracks = List.unmodifiable(editableTracks),
+       skippedTrackIds = List.unmodifiable(skippedTrackIds),
+       playlistIdsToAdd = List.unmodifiable(playlistIdsToAdd),
+       playlistIdsToRemove = List.unmodifiable(playlistIdsToRemove),
+       existingTrackSourceIdsByPlaylist = Map.unmodifiable(
+         existingTrackSourceIdsByPlaylist.map(
+           (playlistId, sourceIds) =>
+               MapEntry(playlistId, Set.unmodifiable(sourceIds)),
+         ),
+       );
 
   List<String> sourceIdsFor(Iterable<Track> tracks) {
     return tracks.map((track) => track.sourceId).toList(growable: false);

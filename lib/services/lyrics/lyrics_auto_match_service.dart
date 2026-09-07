@@ -49,17 +49,17 @@ class LyricsAutoMatchService with Logging {
     Future<LyricsAiConfig> Function()? aiConfigLoader,
     LyricsTitleParseCacheRepository? titleParseCacheRepo,
     bool allowPlainLyricsAutoMatch = false,
-  })  : _lrclib = lrclib,
-        _netease = netease,
-        _qqmusic = qqmusic,
-        _repo = repo,
-        _cache = cache,
-        _parser = parser,
-        _aiTitleParser = aiTitleParser,
-        _aiLyricsSelector = aiLyricsSelector,
-        _aiConfigLoader = aiConfigLoader,
-        _titleParseCacheRepo = titleParseCacheRepo,
-        _allowPlainLyricsAutoMatch = allowPlainLyricsAutoMatch;
+  }) : _lrclib = lrclib,
+       _netease = netease,
+       _qqmusic = qqmusic,
+       _repo = repo,
+       _cache = cache,
+       _parser = parser,
+       _aiTitleParser = aiTitleParser,
+       _aiLyricsSelector = aiLyricsSelector,
+       _aiConfigLoader = aiConfigLoader,
+       _titleParseCacheRepo = titleParseCacheRepo,
+       _allowPlainLyricsAutoMatch = allowPlainLyricsAutoMatch;
 
   /// 正在匹配中的 track key 集合，防止同一首歌并发匹配
   final Set<String> _matchingKeys = {};
@@ -114,12 +114,14 @@ class LyricsAutoMatchService with Logging {
               )) {
             await _saveMatch(track, result, 'netease', track.sourceId);
             logInfo(
-                'Auto-matched lyrics via netease sourceId: ${track.sourceId}');
+              'Auto-matched lyrics via netease sourceId: ${track.sourceId}',
+            );
             return true;
           }
         } catch (e) {
           logDebug(
-              'Direct lyrics fetch failed for netease ${track.sourceId}: $e');
+            'Direct lyrics fetch failed for netease ${track.sourceId}: $e',
+          );
           // 降级到搜索匹配
         }
       }
@@ -135,9 +137,14 @@ class LyricsAutoMatchService with Logging {
         );
         if (result != null) {
           await _saveMatch(
-              track, result, track.originalSource!, track.originalSongId!);
+            track,
+            result,
+            track.originalSource!,
+            track.originalSongId!,
+          );
           logInfo(
-              'Auto-matched lyrics via direct ID: ${track.title} → ${track.originalSource}:${track.originalSongId}');
+            'Auto-matched lyrics via direct ID: ${track.title} → ${track.originalSource}:${track.originalSongId}',
+          );
           return true;
         }
         // 直接获取失败，fallback 到搜索流程
@@ -394,7 +401,8 @@ class LyricsAutoMatchService with Logging {
 
     if (selection == null) {
       logDebug(
-          'AI advanced matching selector unavailable; falling back to regex');
+        'AI advanced matching selector unavailable; falling back to regex',
+      );
       return await _matchRegexParsedTitle(
         track,
         sources,
@@ -488,8 +496,8 @@ class LyricsAutoMatchService with Logging {
     final sourceText = result.hasSyncedLyrics
         ? result.syncedLyrics
         : allowPlainLyricsAutoMatch
-            ? result.plainLyrics
-            : null;
+        ? result.plainLyrics
+        : null;
     if (sourceText == null || sourceText.isEmpty) return '';
 
     final lines = _normalizePreviewLines(sourceText);
@@ -508,9 +516,10 @@ class LyricsAutoMatchService with Logging {
 
     final middleThirdStart = lines.length ~/ 3;
     final middleThirdEnd = (lines.length * 2) ~/ 3;
-    for (final line in lines.skip(middleThirdStart).take(
-          middleThirdEnd - middleThirdStart,
-        )) {
+    for (final line
+        in lines
+            .skip(middleThirdStart)
+            .take(middleThirdEnd - middleThirdStart)) {
       addLine(line);
       if (previewLines.length >= 8) break;
     }
@@ -558,7 +567,8 @@ class LyricsAutoMatchService with Logging {
           return parsed;
         }
         logDebug(
-            'Ignoring invalid cached AI title parse for ${track.uniqueKey}');
+          'Ignoring invalid cached AI title parse for ${track.uniqueKey}',
+        );
       }
 
       final parsed = await aiTitleParser.parse(
@@ -600,7 +610,8 @@ class LyricsAutoMatchService with Logging {
     final artistConfidence = cached.confidence;
     return AiParsedTitle(
       trackName: cached.parsedTrackName,
-      artistName: artistName != null &&
+      artistName:
+          artistName != null &&
               artistName.isNotEmpty &&
               artistConfidence >= AiTitleParser.minArtistConfidence
           ? artistName
@@ -610,8 +621,12 @@ class LyricsAutoMatchService with Logging {
   }
 
   /// 保存匹配结果到缓存和数据库
-  Future<void> _saveMatch(Track track, LyricsResult result, String source,
-      String externalId) async {
+  Future<void> _saveMatch(
+    Track track,
+    LyricsResult result,
+    String source,
+    String externalId,
+  ) async {
     await _cache.put(track.uniqueKey, result);
     final match = LyricsMatch()
       ..trackUniqueKey = track.uniqueKey
@@ -771,7 +786,11 @@ class LyricsAutoMatchService with Logging {
       final result = matchingResults.length == 1
           ? matchingResults.first
           : _selectBestMatch(
-              matchingResults, trackName, artistName, trackDurationSec);
+              matchingResults,
+              trackName,
+              artistName,
+              trackDurationSec,
+            );
 
       if (result == null) return null;
 
@@ -781,7 +800,8 @@ class LyricsAutoMatchService with Logging {
       }
 
       logDebug(
-          'Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
+        'Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})',
+      );
       return result;
     } catch (e) {
       logWarning('lrclib auto-match failed: $e');
@@ -806,8 +826,12 @@ class LyricsAutoMatchService with Logging {
 
     // 计算每个候选的得分
     final scored = candidates.map((result) {
-      final score =
-          _calculateScore(result, trackName, artistName, trackDurationSec);
+      final score = _calculateScore(
+        result,
+        trackName,
+        artistName,
+        trackDurationSec,
+      );
       return (result: result, score: score);
     }).toList();
 
@@ -849,19 +873,20 @@ class LyricsAutoMatchService with Logging {
     final durationScore = durationDiff <= 3
         ? 1.0
         : durationDiff <= 10
-            ? 0.8
-            : durationDiff <= AppConstants.lyricsDurationToleranceSec
-                ? 0.5
-                : 0.0;
+        ? 0.8
+        : durationDiff <= AppConstants.lyricsDurationToleranceSec
+        ? 0.5
+        : 0.0;
 
     // 4. 是否有同步歌词（权重 10%）
     final syncedScore =
         result.syncedLyrics != null && result.syncedLyrics!.isNotEmpty
-            ? 1.0
-            : 0.0;
+        ? 1.0
+        : 0.0;
 
     // 加权总分
-    final totalScore = titleSimilarity * 0.4 +
+    final totalScore =
+        titleSimilarity * 0.4 +
         artistSimilarity * 0.3 +
         durationScore * 0.2 +
         syncedScore * 0.1;
@@ -893,10 +918,7 @@ class LyricsAutoMatchService with Logging {
     final len2 = s2.length;
 
     // 创建距离矩阵
-    final matrix = List.generate(
-      len1 + 1,
-      (i) => List.filled(len2 + 1, 0),
-    );
+    final matrix = List.generate(len1 + 1, (i) => List.filled(len2 + 1, 0));
 
     // 初始化第一行和第一列
     for (var i = 0; i <= len1; i++) {

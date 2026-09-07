@@ -16,22 +16,24 @@ Future<void> _waitForCondition(bool Function() condition) async {
 
 void main() {
   group('Phase 4 Task 3 file exists cache', () {
-    test('file exists cache exposes path-scoped and reactive epoch providers',
-        () {
-      final source = File(
-        '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
-      ).readAsStringSync();
+    test(
+      'file exists cache exposes path-scoped and reactive epoch providers',
+      () {
+        final source = File(
+          '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
+        ).readAsStringSync();
 
-      expect(source, contains('final filePathExistsProvider'));
-      expect(source, contains('final fileExistsCacheEpochProvider'));
-      expect(source, contains('NotifierProvider<FileExistsCacheEpoch, int>'));
-      expect(
-        source,
-        contains(
-          'fileExistsCacheProvider.select((paths) => paths.contains(path))',
-        ),
-      );
-    });
+        expect(source, contains('final filePathExistsProvider'));
+        expect(source, contains('final fileExistsCacheEpochProvider'));
+        expect(source, contains('NotifierProvider<FileExistsCacheEpoch, int>'));
+        expect(
+          source,
+          contains(
+            'fileExistsCacheProvider.select((paths) => paths.contains(path))',
+          ),
+        );
+      },
+    );
 
     test('path-scoped selector provider only updates for the watched path', () {
       final container = ProviderContainer();
@@ -49,8 +51,10 @@ void main() {
           .read(fileExistsCacheProvider.notifier)
           .markAsExisting('/other/cover.jpg');
 
-      expect(container.read(filePathExistsProvider('/watched/cover.jpg')),
-          isFalse);
+      expect(
+        container.read(filePathExistsProvider('/watched/cover.jpg')),
+        isFalse,
+      );
       expect(values, [false]);
 
       container
@@ -58,7 +62,9 @@ void main() {
           .markAsExisting('/watched/cover.jpg');
 
       expect(
-          container.read(filePathExistsProvider('/watched/cover.jpg')), isTrue);
+        container.read(filePathExistsProvider('/watched/cover.jpg')),
+        isTrue,
+      );
       expect(values, [false, true]);
     });
 
@@ -100,8 +106,7 @@ void main() {
       expect(values, [0, 1]);
     });
 
-    test('downloaded category delete removes deleted paths from file cache',
-        () {
+    test('downloaded category delete removes deleted paths from file cache', () {
       final source = File(
         '${Directory.current.path}/lib/ui/pages/library/downloaded_category_page.dart',
       ).readAsStringSync();
@@ -111,111 +116,114 @@ void main() {
       expect(source, contains('FileExistsCache is updated explicitly'));
     });
 
-    test('single-path overflow trimming stays stable for incremental inserts',
-        () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'single-path overflow trimming stays stable for incremental inserts',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final cache = container.read(fileExistsCacheProvider.notifier);
-      const watchedPath = '/covers/4999.jpg';
+        final cache = container.read(fileExistsCacheProvider.notifier);
+        const watchedPath = '/covers/4999.jpg';
 
-      expect(
-        () {
+        expect(() {
           for (var i = 0; i < 6000; i++) {
             cache.markAsExisting('/covers/$i.jpg');
           }
-        },
-        returnsNormally,
-      );
+        }, returnsNormally);
 
-      final state = container.read(fileExistsCacheProvider);
-      expect(state.length, 5000);
-      expect(container.read(filePathExistsProvider(watchedPath)), isTrue);
-    });
+        final state = container.read(fileExistsCacheProvider);
+        expect(state.length, 5000);
+        expect(container.read(filePathExistsProvider(watchedPath)), isTrue);
+      },
+    );
 
-    test('batched preload overflow trims without throwing and caps cache size',
-        () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'file_exists_cache_phase4_trim_',
-      );
-      addTearDown(() async {
-        if (await tempDir.exists()) {
-          await tempDir.delete(recursive: true);
+    test(
+      'batched preload overflow trims without throwing and caps cache size',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'file_exists_cache_phase4_trim_',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final cache = container.read(fileExistsCacheProvider.notifier);
+
+        for (var i = 0; i < 5000; i++) {
+          cache.markAsExisting('${tempDir.path}/seed_$i.jpg');
         }
-      });
 
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final cache = container.read(fileExistsCacheProvider.notifier);
-
-      for (var i = 0; i < 5000; i++) {
-        cache.markAsExisting('${tempDir.path}/seed_$i.jpg');
-      }
-
-      final batchPaths = <String>[];
-      for (var i = 0; i < 1001; i++) {
-        final path = '${tempDir.path}/batch_$i.jpg';
-        await File(path).writeAsString('x');
-        batchPaths.add(path);
-      }
-
-      await expectLater(
-        cache.preloadPaths(batchPaths, batchSize: 1001),
-        completes,
-      );
-
-      final state = container.read(fileExistsCacheProvider);
-      expect(state.length, 5000);
-      expect(state.contains(batchPaths.last), isTrue);
-    });
-
-    test('cache epoch provider updates for async cache population paths',
-        () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'file_exists_cache_phase4_',
-      );
-      addTearDown(() async {
-        if (await tempDir.exists()) {
-          await tempDir.delete(recursive: true);
+        final batchPaths = <String>[];
+        for (var i = 0; i < 1001; i++) {
+          final path = '${tempDir.path}/batch_$i.jpg';
+          await File(path).writeAsString('x');
+          batchPaths.add(path);
         }
-      });
 
-      final existsPath = '${tempDir.path}/exists_cover.jpg';
-      final refreshPath = '${tempDir.path}/refresh_cover.jpg';
-      final preloadPath = '${tempDir.path}/preload_cover.jpg';
-      await File(existsPath).writeAsString('exists');
-      await File(refreshPath).writeAsString('refresh');
-      await File(preloadPath).writeAsString('preload');
+        await expectLater(
+          cache.preloadPaths(batchPaths, batchSize: 1001),
+          completes,
+        );
 
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+        final state = container.read(fileExistsCacheProvider);
+        expect(state.length, 5000);
+        expect(state.contains(batchPaths.last), isTrue);
+      },
+    );
 
-      final values = <int>[];
-      final subscription = container.listen<int>(
-        fileExistsCacheEpochProvider,
-        (_, next) => values.add(next),
-        fireImmediately: true,
-      );
-      addTearDown(subscription.close);
+    test(
+      'cache epoch provider updates for async cache population paths',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'file_exists_cache_phase4_',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
 
-      final cache = container.read(fileExistsCacheProvider.notifier);
+        final existsPath = '${tempDir.path}/exists_cover.jpg';
+        final refreshPath = '${tempDir.path}/refresh_cover.jpg';
+        final preloadPath = '${tempDir.path}/preload_cover.jpg';
+        await File(existsPath).writeAsString('exists');
+        await File(refreshPath).writeAsString('refresh');
+        await File(preloadPath).writeAsString('preload');
 
-      expect(cache.exists(existsPath), isFalse);
-      await _waitForCondition(
-        () => container.read(filePathExistsProvider(existsPath)),
-      );
-      expect(values, [0, 1]);
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      expect(cache.getFirstExisting([refreshPath]), isNull);
-      await _waitForCondition(
-        () => container.read(filePathExistsProvider(refreshPath)),
-      );
-      expect(values, [0, 1, 2]);
+        final values = <int>[];
+        final subscription = container.listen<int>(
+          fileExistsCacheEpochProvider,
+          (_, next) => values.add(next),
+          fireImmediately: true,
+        );
+        addTearDown(subscription.close);
 
-      await cache.preloadPaths([preloadPath]);
-      expect(container.read(filePathExistsProvider(preloadPath)), isTrue);
-      expect(values, [0, 1, 2, 3]);
-    });
+        final cache = container.read(fileExistsCacheProvider.notifier);
+
+        expect(cache.exists(existsPath), isFalse);
+        await _waitForCondition(
+          () => container.read(filePathExistsProvider(existsPath)),
+        );
+        expect(values, [0, 1]);
+
+        expect(cache.getFirstExisting([refreshPath]), isNull);
+        await _waitForCondition(
+          () => container.read(filePathExistsProvider(refreshPath)),
+        );
+        expect(values, [0, 1, 2]);
+
+        await cache.preloadPaths([preloadPath]);
+        expect(container.read(filePathExistsProvider(preloadPath)), isTrue);
+        expect(values, [0, 1, 2, 3]);
+      },
+    );
 
     test('preloadPaths batches uncached unique paths in source', () {
       final source = File(
@@ -237,12 +245,14 @@ void main() {
         '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
       ).readAsStringSync();
 
-      expect(source,
-          contains("final Set<String> _pendingRefreshPaths = <String>{};"));
       expect(
-          source,
-          contains(
-              'final pending = uncached.difference(_pendingRefreshPaths);'));
+        source,
+        contains("final Set<String> _pendingRefreshPaths = <String>{};"),
+      );
+      expect(
+        source,
+        contains('final pending = uncached.difference(_pendingRefreshPaths);'),
+      );
       expect(source, contains('_pendingRefreshPaths.addAll(pending);'));
       expect(source, contains('_pendingRefreshPaths.removeAll(pending);'));
     });
@@ -260,8 +270,10 @@ void main() {
         expect(source, contains('preloadPaths(paths.toList())'));
         expect(source, contains('_lastCacheEpoch'));
         expect(source, contains('fileExistsCacheEpochProvider'));
-        expect(source,
-            isNot(contains('tracks.length != _lastRefreshedTracksLength')));
+        expect(
+          source,
+          isNot(contains('tracks.length != _lastRefreshedTracksLength')),
+        );
         expect(
           source,
           isNot(
@@ -289,34 +301,37 @@ void main() {
       expect(
         source,
         isNot(
-            contains('ref.read(fileExistsCacheProvider.notifier).cacheEpoch')),
+          contains('ref.read(fileExistsCacheProvider.notifier).cacheEpoch'),
+        ),
       );
     });
 
-    test('missing paths are cached to avoid repeated refresh scheduling',
-        () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'file_exists_cache_phase4_missing_',
-      );
-      addTearDown(() async {
-        if (await tempDir.exists()) {
-          await tempDir.delete(recursive: true);
-        }
-      });
+    test(
+      'missing paths are cached to avoid repeated refresh scheduling',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'file_exists_cache_phase4_missing_',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
 
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final cache = container.read(fileExistsCacheProvider.notifier);
-      final missingPath = '${tempDir.path}/missing_cover.jpg';
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final cache = container.read(fileExistsCacheProvider.notifier);
+        final missingPath = '${tempDir.path}/missing_cover.jpg';
 
-      expect(cache.exists(missingPath), isFalse);
-      await _waitForCondition(() => cache.debugMissingPathCount == 1);
+        expect(cache.exists(missingPath), isFalse);
+        await _waitForCondition(() => cache.debugMissingPathCount == 1);
 
-      expect(cache.getFirstExisting([missingPath]), isNull);
-      expect(cache.pendingRefreshCount, 0);
-      expect(cache.exists(missingPath), isFalse);
-      expect(cache.debugMissingPathCount, 1);
-    });
+        expect(cache.getFirstExisting([missingPath]), isNull);
+        expect(cache.pendingRefreshCount, 0);
+        expect(cache.exists(missingPath), isFalse);
+        expect(cache.debugMissingPathCount, 1);
+      },
+    );
 
     test('markAsExisting clears missing cache entry and updates selector', () {
       final container = ProviderContainer();
@@ -346,53 +361,57 @@ void main() {
       expect(cache.debugMissingPathCount, 5000);
     });
 
-    test('single-path async check does not mutate epoch after disposal',
-        () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'file_exists_cache_phase4_dispose_single_',
-      );
-      addTearDown(() async {
-        if (await tempDir.exists()) {
-          await tempDir.delete(recursive: true);
-        }
-      });
-      final path = '${tempDir.path}/exists_after_dispose.jpg';
-      await File(path).writeAsString('exists');
+    test(
+      'single-path async check does not mutate epoch after disposal',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'file_exists_cache_phase4_dispose_single_',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+        final path = '${tempDir.path}/exists_after_dispose.jpg';
+        await File(path).writeAsString('exists');
 
-      final container = ProviderContainer();
-      final cache = container.read(fileExistsCacheProvider.notifier);
+        final container = ProviderContainer();
+        final cache = container.read(fileExistsCacheProvider.notifier);
 
-      expect(cache.exists(path), isFalse);
-      container.dispose();
-      await pumpEventQueue(times: 5);
+        expect(cache.exists(path), isFalse);
+        container.dispose();
+        await pumpEventQueue(times: 5);
 
-      expect(cache.cacheEpoch, 0);
-    });
+        expect(cache.cacheEpoch, 0);
+      },
+    );
 
-    test('scheduled multi-path refresh does not mutate epoch after disposal',
-        () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'file_exists_cache_phase4_dispose_batch_',
-      );
-      addTearDown(() async {
-        if (await tempDir.exists()) {
-          await tempDir.delete(recursive: true);
-        }
-      });
-      final path = '${tempDir.path}/exists_after_dispose.jpg';
-      await File(path).writeAsString('exists');
+    test(
+      'scheduled multi-path refresh does not mutate epoch after disposal',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'file_exists_cache_phase4_dispose_batch_',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+        final path = '${tempDir.path}/exists_after_dispose.jpg';
+        await File(path).writeAsString('exists');
 
-      final container = ProviderContainer();
-      final cache = container.read(fileExistsCacheProvider.notifier);
+        final container = ProviderContainer();
+        final cache = container.read(fileExistsCacheProvider.notifier);
 
-      expect(cache.getFirstExisting([path]), isNull);
-      expect(cache.pendingRefreshCount, 1);
-      container.dispose();
-      await pumpEventQueue(times: 5);
+        expect(cache.getFirstExisting([path]), isNull);
+        expect(cache.pendingRefreshCount, 1);
+        container.dispose();
+        await pumpEventQueue(times: 5);
 
-      expect(cache.cacheEpoch, 0);
-      expect(cache.pendingRefreshCount, 0);
-    });
+        expect(cache.cacheEpoch, 0);
+        expect(cache.pendingRefreshCount, 0);
+      },
+    );
 
     test('preloadPaths does not mutate epoch after disposal', () async {
       final tempDir = await Directory.systemTemp.createTemp(

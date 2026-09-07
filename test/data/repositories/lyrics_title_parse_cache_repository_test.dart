@@ -44,9 +44,7 @@ void main() {
         model: 'test-model',
       );
 
-      final cached = await repo.getReusable(
-        trackUniqueKey: 'youtube:abc',
-      );
+      final cached = await repo.getReusable(trackUniqueKey: 'youtube:abc');
 
       expect(cached, isNotNull);
       expect(cached!.parsedTrackName, 'アイドル');

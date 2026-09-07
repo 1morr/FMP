@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../../i18n/strings.g.dart';
 import 'track_action_handler.dart';
 
-enum TrackActionMenuScope {
-  single,
-  multi,
-}
+enum TrackActionMenuScope { single, multi }
 
 class TrackActionMenuOptions {
   const TrackActionMenuOptions({

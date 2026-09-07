@@ -16,163 +16,181 @@ void main() {
       await initializeIsarForTests();
     });
 
-    test('loadHistorySnapshot applies filters and returns latest records first',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'loadHistorySnapshot applies filters and returns latest records first',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      await harness.seed(
-        _history(
-          sourceId: 'yt-new',
-          sourceType: SourceIds.youtube,
-          title: 'Focus Track',
-          artist: 'Alpha',
-          playedAt: DateTime(2026, 4, 20, 18),
-        ),
-        _history(
-          sourceId: 'yt-old',
-          sourceType: SourceIds.youtube,
-          title: 'Focus Track Archive',
-          artist: 'Alpha',
-          playedAt: DateTime(2026, 4, 19, 9),
-        ),
-        _history(
-          sourceId: 'bili-hit',
-          sourceType: SourceIds.bilibili,
-          title: 'Other Song',
-          artist: 'Beta',
-          playedAt: DateTime(2026, 4, 20, 12),
-        ),
-      );
-
-      final records = await harness.repository.loadHistorySnapshot(
-        sourceTypes: {SourceIds.youtube},
-        startDate: DateTime(2026, 4, 20),
-        searchKeyword: 'focus',
-      );
-
-      expect(records.map((e) => e.sourceId).toList(), ['yt-new']);
-    });
-
-    test('queryHistory applies time order pagination without snapshot cap',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
-
-      final records = List.generate(75, (index) {
-        return _history(
-          sourceId: 'song-$index',
-          sourceType: SourceIds.youtube,
-          title: 'Song $index',
-          playedAt:
-              DateTime(2026, 4, 20, 12).subtract(Duration(minutes: index)),
+        await harness.seed(
+          _history(
+            sourceId: 'yt-new',
+            sourceType: SourceIds.youtube,
+            title: 'Focus Track',
+            artist: 'Alpha',
+            playedAt: DateTime(2026, 4, 20, 18),
+          ),
+          _history(
+            sourceId: 'yt-old',
+            sourceType: SourceIds.youtube,
+            title: 'Focus Track Archive',
+            artist: 'Alpha',
+            playedAt: DateTime(2026, 4, 19, 9),
+          ),
+          _history(
+            sourceId: 'bili-hit',
+            sourceType: SourceIds.bilibili,
+            title: 'Other Song',
+            artist: 'Beta',
+            playedAt: DateTime(2026, 4, 20, 12),
+          ),
         );
-      });
-      await harness.seedMany(records);
 
-      final page = await harness.repository.queryHistory(
-        offset: 20,
-        limit: 10,
-      );
+        final records = await harness.repository.loadHistorySnapshot(
+          sourceTypes: {SourceIds.youtube},
+          startDate: DateTime(2026, 4, 20),
+          searchKeyword: 'focus',
+        );
 
-      expect(page.map((e) => e.sourceId).toList(),
-          List.generate(10, (index) => 'song-${index + 20}'));
-    });
+        expect(records.map((e) => e.sourceId).toList(), ['yt-new']);
+      },
+    );
 
     test(
-        'getRecentHistoryDistinct scans only enough recent rows for unique tracks',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+      'queryHistory applies time order pagination without snapshot cap',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      await harness.seedMany([
-        _history(
-          sourceId: 'repeat',
-          sourceType: SourceIds.youtube,
-          title: 'Repeat Latest',
-          playedAt: DateTime(2026, 4, 20, 12),
-        ),
-        _history(
-          sourceId: 'repeat',
-          sourceType: SourceIds.youtube,
-          title: 'Repeat Older',
-          playedAt: DateTime(2026, 4, 20, 11),
-        ),
-        _history(
-          sourceId: 'unique',
-          sourceType: SourceIds.youtube,
-          title: 'Unique',
-          playedAt: DateTime(2026, 4, 20, 10),
-        ),
-      ]);
+        final records = List.generate(75, (index) {
+          return _history(
+            sourceId: 'song-$index',
+            sourceType: SourceIds.youtube,
+            title: 'Song $index',
+            playedAt: DateTime(
+              2026,
+              4,
+              20,
+              12,
+            ).subtract(Duration(minutes: index)),
+          );
+        });
+        await harness.seedMany(records);
 
-      final recent =
-          await harness.repository.getRecentHistoryDistinct(limit: 2);
+        final page = await harness.repository.queryHistory(
+          offset: 20,
+          limit: 10,
+        );
 
-      expect(recent.map((e) => e.sourceId).toList(), ['repeat', 'unique']);
-    });
+        expect(
+          page.map((e) => e.sourceId).toList(),
+          List.generate(10, (index) => 'song-${index + 20}'),
+        );
+      },
+    );
 
-    test('getHistoryStats includes records at today and week boundaries',
-        () async {
-      final harness = await _createHarness();
-      addTearDown(harness.dispose);
+    test(
+      'getRecentHistoryDistinct scans only enough recent rows for unique tracks',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
 
-      final now = DateTime.now();
-      final todayStart = DateTime(now.year, now.month, now.day);
-      final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
-      final sameBoundary = todayStart.isAtSameMomentAs(weekStart);
+        await harness.seedMany([
+          _history(
+            sourceId: 'repeat',
+            sourceType: SourceIds.youtube,
+            title: 'Repeat Latest',
+            playedAt: DateTime(2026, 4, 20, 12),
+          ),
+          _history(
+            sourceId: 'repeat',
+            sourceType: SourceIds.youtube,
+            title: 'Repeat Older',
+            playedAt: DateTime(2026, 4, 20, 11),
+          ),
+          _history(
+            sourceId: 'unique',
+            sourceType: SourceIds.youtube,
+            title: 'Unique',
+            playedAt: DateTime(2026, 4, 20, 10),
+          ),
+        ]);
 
-      await harness.seedMany([
-        _history(
-          sourceId: 'today-start',
-          sourceType: SourceIds.youtube,
-          title: 'Today Start',
-          playedAt: todayStart,
-          durationMs: 1000,
-        ),
-        _history(
-          sourceId: 'week-start',
-          sourceType: SourceIds.youtube,
-          title: 'Week Start',
-          playedAt: weekStart,
-          durationMs: 2000,
-        ),
-        _history(
-          sourceId: 'before-week',
-          sourceType: SourceIds.youtube,
-          title: 'Before Week',
-          playedAt: weekStart.subtract(const Duration(milliseconds: 1)),
-          durationMs: 4000,
-        ),
-      ]);
+        final recent = await harness.repository.getRecentHistoryDistinct(
+          limit: 2,
+        );
 
-      final stats = await harness.repository.getHistoryStats();
+        expect(recent.map((e) => e.sourceId).toList(), ['repeat', 'unique']);
+      },
+    );
 
-      expect(stats.totalCount, 3);
-      expect(stats.todayCount, sameBoundary ? 2 : 1);
-      expect(stats.weekCount, 2);
-      expect(stats.totalDurationMs, 7000);
-      expect(stats.todayDurationMs, sameBoundary ? 3000 : 1000);
-      expect(stats.weekDurationMs, 3000);
-    });
+    test(
+      'getHistoryStats includes records at today and week boundaries',
+      () async {
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+
+        final now = DateTime.now();
+        final todayStart = DateTime(now.year, now.month, now.day);
+        final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
+        final sameBoundary = todayStart.isAtSameMomentAs(weekStart);
+
+        await harness.seedMany([
+          _history(
+            sourceId: 'today-start',
+            sourceType: SourceIds.youtube,
+            title: 'Today Start',
+            playedAt: todayStart,
+            durationMs: 1000,
+          ),
+          _history(
+            sourceId: 'week-start',
+            sourceType: SourceIds.youtube,
+            title: 'Week Start',
+            playedAt: weekStart,
+            durationMs: 2000,
+          ),
+          _history(
+            sourceId: 'before-week',
+            sourceType: SourceIds.youtube,
+            title: 'Before Week',
+            playedAt: weekStart.subtract(const Duration(milliseconds: 1)),
+            durationMs: 4000,
+          ),
+        ]);
+
+        final stats = await harness.repository.getHistoryStats();
+
+        expect(stats.totalCount, 3);
+        expect(stats.todayCount, sameBoundary ? 2 : 1);
+        expect(stats.weekCount, 2);
+        expect(stats.totalDurationMs, 7000);
+        expect(stats.todayDurationMs, sameBoundary ? 3000 : 1000);
+        expect(stats.weekDurationMs, 3000);
+      },
+    );
 
     test('addHistory preserves records beyond the old snapshot cap', () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
 
       for (var i = 0; i < AppConstants.maxPlayHistoryCount + 1; i++) {
-        await harness.repository.addHistory(Track()
-          ..sourceId = 'song-$i'
-          ..sourceType = SourceIds.youtube
-          ..title = 'Song $i'
-          ..durationMs = 1000);
+        await harness.repository.addHistory(
+          Track()
+            ..sourceId = 'song-$i'
+            ..sourceType = SourceIds.youtube
+            ..title = 'Song $i'
+            ..durationMs = 1000,
+        );
       }
 
       final stats = await harness.repository.getHistoryStats();
 
       expect(stats.totalCount, AppConstants.maxPlayHistoryCount + 1);
       expect(
-          stats.totalDurationMs, (AppConstants.maxPlayHistoryCount + 1) * 1000);
+        stats.totalDurationMs,
+        (AppConstants.maxPlayHistoryCount + 1) * 1000,
+      );
     });
   });
 }
@@ -188,12 +206,15 @@ class _Harness {
   final Isar isar;
   final Directory tempDir;
 
-  Future<void> seed(PlayHistory first,
-      [PlayHistory? second, PlayHistory? third]) async {
+  Future<void> seed(
+    PlayHistory first, [
+    PlayHistory? second,
+    PlayHistory? third,
+  ]) async {
     final records = [
       first,
       if (second != null) second,
-      if (third != null) third
+      if (third != null) third,
     ];
     await seedMany(records);
   }

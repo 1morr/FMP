@@ -35,7 +35,8 @@ void main() {
       expect(
         appSource,
         contains(
-            "import 'providers/download/startup_download_sync_provider.dart';"),
+          "import 'providers/download/startup_download_sync_provider.dart';",
+        ),
       );
       expect(appSource, contains('ref.watch(startupDownloadSyncProvider);'));
     });
@@ -54,135 +55,150 @@ void main() {
       expect(source, contains('syncLocalFiles('));
       expect(source, contains('libraryInvalidationCoordinatorProvider'));
       expect(source, contains('downloadStateChanged('));
-      expect(source,
-          isNot(contains('ref.invalidate(downloadedCategoriesProvider)')));
       expect(
-          source, isNot(contains('ref.invalidate(fileExistsCacheProvider)')));
+        source,
+        isNot(contains('ref.invalidate(downloadedCategoriesProvider)')),
+      );
+      expect(
+        source,
+        isNot(contains('ref.invalidate(fileExistsCacheProvider)')),
+      );
       expect(source, isNot(contains('playlistListProvider.notifier')));
       expect(source, contains('allPlaylistsProvider.future'));
       expect(source, contains('affectedPlaylistIds:'));
       expect(source, contains('AppLogger.error'));
     });
 
-    test('unconfigured download path is skipped without error logging',
-        () async {
-      final harness =
-          await _createHarness('startup_download_sync_unconfigured');
-      addTearDown(harness.dispose);
-      AppLogger.clearLogs();
+    test(
+      'unconfigured download path is skipped without error logging',
+      () async {
+        final harness = await _createHarness(
+          'startup_download_sync_unconfigured',
+        );
+        addTearDown(harness.dispose);
+        AppLogger.clearLogs();
 
-      await harness.container.read(startupDownloadSyncProvider.future);
+        await harness.container.read(startupDownloadSyncProvider.future);
 
-      final startupLogs = AppLogger.logs
-          .where((entry) => entry.tag == 'StartupDownloadSync')
-          .toList();
-      expect(startupLogs.map((entry) => entry.level), [LogLevel.info]);
-      expect(startupLogs.single.message, contains('not configured'));
-    });
+        final startupLogs = AppLogger.logs
+            .where((entry) => entry.tag == 'StartupDownloadSync')
+            .toList();
+        expect(startupLogs.map((entry) => entry.level), [LogLevel.info]);
+        expect(startupLogs.single.message, contains('not configured'));
+      },
+    );
 
-    test('successful startup sync updates persisted download path and cache',
-        () async {
-      final downloadStateChanges = <_DownloadStateChange>[];
-      final harness = await _createHarness(
-        'startup_download_sync_success',
-        downloadStateChanges: downloadStateChanges,
-      );
-      addTearDown(harness.dispose);
+    test(
+      'successful startup sync updates persisted download path and cache',
+      () async {
+        final downloadStateChanges = <_DownloadStateChange>[];
+        final harness = await _createHarness(
+          'startup_download_sync_success',
+          downloadStateChanges: downloadStateChanges,
+        );
+        addTearDown(harness.dispose);
 
-      final downloadsDir = Directory(p.join(harness.tempDir.path, 'downloads'));
-      final playlistDir = Directory(
-        p.join(downloadsDir.path, 'Playlist A', 'video-a'),
-      );
-      await playlistDir.create(recursive: true);
-      final audioPath = p.join(playlistDir.path, 'audio.m4a');
-      await File(audioPath).writeAsString('audio');
-      await File(p.join(playlistDir.path, 'metadata.json')).writeAsString(
-        jsonEncode({
-          'sourceId': 'video-a',
-          'sourceType': 'youtube',
-          'title': 'Video A',
-          'artist': 'Artist',
-        }),
-      );
+        final downloadsDir = Directory(
+          p.join(harness.tempDir.path, 'downloads'),
+        );
+        final playlistDir = Directory(
+          p.join(downloadsDir.path, 'Playlist A', 'video-a'),
+        );
+        await playlistDir.create(recursive: true);
+        final audioPath = p.join(playlistDir.path, 'audio.m4a');
+        await File(audioPath).writeAsString('audio');
+        await File(p.join(playlistDir.path, 'metadata.json')).writeAsString(
+          jsonEncode({
+            'sourceId': 'video-a',
+            'sourceType': 'youtube',
+            'title': 'Video A',
+            'artist': 'Artist',
+          }),
+        );
 
-      final settingsRepo = SettingsRepository(harness.isar);
-      await settingsRepo.update((settings) {
-        settings.customDownloadDir = downloadsDir.path;
-      });
+        final settingsRepo = SettingsRepository(harness.isar);
+        await settingsRepo.update((settings) {
+          settings.customDownloadDir = downloadsDir.path;
+        });
 
-      final trackRepo = TrackRepository(harness.isar);
-      final playlist = Playlist()..name = 'Playlist A';
-      await harness.isar.writeTxn(() => harness.isar.playlists.put(playlist));
-      final savedTrack = await trackRepo.save(
-        Track()
-          ..sourceId = 'video-a'
-          ..sourceType = SourceIds.youtube
-          ..title = 'Video A'
-          ..artist = 'Artist',
-      );
+        final trackRepo = TrackRepository(harness.isar);
+        final playlist = Playlist()..name = 'Playlist A';
+        await harness.isar.writeTxn(() => harness.isar.playlists.put(playlist));
+        final savedTrack = await trackRepo.save(
+          Track()
+            ..sourceId = 'video-a'
+            ..sourceType = SourceIds.youtube
+            ..title = 'Video A'
+            ..artist = 'Artist',
+        );
 
-      harness.container
-          .read(fileExistsCacheProvider.notifier)
-          .markAsExisting('/stale/cover.jpg');
-      await harness.container.read(downloadedCategoriesProvider.future);
+        harness.container
+            .read(fileExistsCacheProvider.notifier)
+            .markAsExisting('/stale/cover.jpg');
+        await harness.container.read(downloadedCategoriesProvider.future);
 
-      await harness.container.read(startupDownloadSyncProvider.future);
+        await harness.container.read(startupDownloadSyncProvider.future);
 
-      final refreshedTrack = await trackRepo.getById(savedTrack.id);
-      expect(refreshedTrack?.allDownloadPaths, [audioPath]);
-      expect(downloadStateChanges, hasLength(1));
-      expect(downloadStateChanges.single.fileExistsChanged, isTrue);
-      expect(downloadStateChanges.single.affectedPlaylistIds, [playlist.id]);
-      expect(harness.container.read(fileExistsCacheProvider), isEmpty);
-      final categories = await harness.container.read(
-        downloadedCategoriesProvider.future,
-      );
-      expect(categories.single.folderName, 'Playlist A');
-    });
+        final refreshedTrack = await trackRepo.getById(savedTrack.id);
+        expect(refreshedTrack?.allDownloadPaths, [audioPath]);
+        expect(downloadStateChanges, hasLength(1));
+        expect(downloadStateChanges.single.fileExistsChanged, isTrue);
+        expect(downloadStateChanges.single.affectedPlaylistIds, [playlist.id]);
+        expect(harness.container.read(fileExistsCacheProvider), isEmpty);
+        final categories = await harness.container.read(
+          downloadedCategoriesProvider.future,
+        );
+        expect(categories.single.folderName, 'Playlist A');
+      },
+    );
 
-    test('startup sync matches null-cid metadata to DB track by page number',
-        () async {
-      final harness = await _createHarness('startup_download_sync_null_cid');
-      addTearDown(harness.dispose);
+    test(
+      'startup sync matches null-cid metadata to DB track by page number',
+      () async {
+        final harness = await _createHarness('startup_download_sync_null_cid');
+        addTearDown(harness.dispose);
 
-      final downloadsDir = Directory(p.join(harness.tempDir.path, 'downloads'));
-      final playlistDir = Directory(
-        p.join(downloadsDir.path, 'Playlist B', 'video-b'),
-      );
-      await playlistDir.create(recursive: true);
-      final audioPath = p.join(playlistDir.path, 'P02.m4a');
-      await File(audioPath).writeAsString('audio');
-      await File(p.join(playlistDir.path, 'metadata.json')).writeAsString(
-        jsonEncode({
-          'sourceId': 'video-b',
-          'sourceType': 'bilibili',
-          'title': 'Video B',
-          'artist': 'Artist',
-          'pageNum': 1,
-        }),
-      );
+        final downloadsDir = Directory(
+          p.join(harness.tempDir.path, 'downloads'),
+        );
+        final playlistDir = Directory(
+          p.join(downloadsDir.path, 'Playlist B', 'video-b'),
+        );
+        await playlistDir.create(recursive: true);
+        final audioPath = p.join(playlistDir.path, 'P02.m4a');
+        await File(audioPath).writeAsString('audio');
+        await File(p.join(playlistDir.path, 'metadata.json')).writeAsString(
+          jsonEncode({
+            'sourceId': 'video-b',
+            'sourceType': 'bilibili',
+            'title': 'Video B',
+            'artist': 'Artist',
+            'pageNum': 1,
+          }),
+        );
 
-      final settingsRepo = SettingsRepository(harness.isar);
-      await settingsRepo.update((settings) {
-        settings.customDownloadDir = downloadsDir.path;
-      });
+        final settingsRepo = SettingsRepository(harness.isar);
+        await settingsRepo.update((settings) {
+          settings.customDownloadDir = downloadsDir.path;
+        });
 
-      final trackRepo = TrackRepository(harness.isar);
-      final savedTrack = await trackRepo.save(
-        Track()
-          ..sourceId = 'video-b'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Video B P2'
-          ..artist = 'Artist'
-          ..cid = 2002
-          ..pageNum = 2,
-      );
+        final trackRepo = TrackRepository(harness.isar);
+        final savedTrack = await trackRepo.save(
+          Track()
+            ..sourceId = 'video-b'
+            ..sourceType = SourceIds.bilibili
+            ..title = 'Video B P2'
+            ..artist = 'Artist'
+            ..cid = 2002
+            ..pageNum = 2,
+        );
 
-      await harness.container.read(startupDownloadSyncProvider.future);
+        await harness.container.read(startupDownloadSyncProvider.future);
 
-      final refreshedTrack = await trackRepo.getById(savedTrack.id);
-      expect(refreshedTrack?.allDownloadPaths, [audioPath]);
-    });
+        final refreshedTrack = await trackRepo.getById(savedTrack.id);
+        expect(refreshedTrack?.allDownloadPaths, [audioPath]);
+      },
+    );
   });
 }
 
@@ -222,20 +238,20 @@ class _RecordingLibraryInvalidationCoordinator
     required Ref ref,
     required this.changes,
   }) : super(
-          invalidateAllPlaylists: () {},
-          invalidatePlaylistDetail: (_) {},
-          invalidatePlaylistCover: (_) {},
-          invalidateDownloadedCategories: () {
-            ref.invalidate(downloadedCategoriesProvider);
-          },
-          invalidateDownloadedCategoryTracks: (_) {},
-          invalidateFileExistsCache: () {
-            ref.invalidate(fileExistsCacheProvider);
-          },
-          refreshLoadedPlaylistDetail: (_) async {},
-          startRefreshLoadedPlaylistDetail: (_) {},
-          logBackgroundError: (_, __, ___) {},
-        );
+         invalidateAllPlaylists: () {},
+         invalidatePlaylistDetail: (_) {},
+         invalidatePlaylistCover: (_) {},
+         invalidateDownloadedCategories: () {
+           ref.invalidate(downloadedCategoriesProvider);
+         },
+         invalidateDownloadedCategoryTracks: (_) {},
+         invalidateFileExistsCache: () {
+           ref.invalidate(fileExistsCacheProvider);
+         },
+         refreshLoadedPlaylistDetail: (_) async {},
+         startRefreshLoadedPlaylistDetail: (_) {},
+         logBackgroundError: (_, __, ___) {},
+       );
 
   final List<_DownloadStateChange> changes;
 
@@ -269,11 +285,7 @@ Future<_Harness> _createHarness(
 }) async {
   final tempDir = await Directory.systemTemp.createTemp('${name}_');
   final isar = await Isar.open(
-    [
-      TrackSchema,
-      PlaylistSchema,
-      SettingsSchema,
-    ],
+    [TrackSchema, PlaylistSchema, SettingsSchema],
     directory: tempDir.path,
     name: name,
   );
@@ -291,9 +303,5 @@ Future<_Harness> _createHarness(
     ],
   );
 
-  return _Harness(
-    container: container,
-    isar: isar,
-    tempDir: tempDir,
-  );
+  return _Harness(container: container, isar: isar, tempDir: tempDir);
 }

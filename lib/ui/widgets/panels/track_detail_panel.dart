@@ -66,10 +66,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     final currentTrack = ref.read(currentTrackProvider);
     if (currentTrack == null) return;
 
-    showLyricsSearchSheet(
-      context: context,
-      track: currentTrack,
-    );
+    showLyricsSearchSheet(context: context, track: currentTrack);
   }
 
   /// 显示歌词显示模式选择菜单
@@ -159,7 +156,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 
     // 子視窗只看得到「沒有行」。這個旗標告訴它「還在抓」與「這首沒有歌詞」的
     // 差別，判斷條件與 `lyrics_display.dart` 的面板分支同一組 provider。
-    final lyricsSettled = !ref.read(currentLyricsContentProvider).isLoading &&
+    final lyricsSettled =
+        !ref.read(currentLyricsContentProvider).isLoading &&
         !ref.read(lyricsAutoMatchingProvider);
 
     LyricsWindowService.instance.syncLyrics(
@@ -213,18 +211,14 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 
     // adjustOffset: 子窗口调整 offset
     service.onAdjustOffset = (trackUniqueKey, newOffsetMs) {
-      ref.read(lyricsSearchProvider.notifier).updateOffset(
-            trackUniqueKey,
-            newOffsetMs,
-          );
+      ref
+          .read(lyricsSearchProvider.notifier)
+          .updateOffset(trackUniqueKey, newOffsetMs);
     };
 
     // resetOffset: 子窗口重置 offset
     service.onResetOffset = (trackUniqueKey) {
-      ref.read(lyricsSearchProvider.notifier).updateOffset(
-            trackUniqueKey,
-            0,
-          );
+      ref.read(lyricsSearchProvider.notifier).updateOffset(trackUniqueKey, 0);
     };
 
     // 播放控制回调
@@ -299,8 +293,10 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     });
 
     // 歌词窗口同步：播放状态变化时同步（控制按钮图标）
-    ref.listen(audioControllerProvider.select((s) => s.isPlaying),
-        (_, isPlaying) {
+    ref.listen(audioControllerProvider.select((s) => s.isPlaying), (
+      _,
+      isPlaying,
+    ) {
       _syncPlaybackStateToWindow(isPlaying);
     });
 
@@ -321,9 +317,10 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     });
 
     // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
-    ref.listen(
-        currentLyricsMatchProvider.select((v) => v.value?.offsetMs),
-        (_, _) {
+    ref.listen(currentLyricsMatchProvider.select((v) => v.value?.offsetMs), (
+      _,
+      _,
+    ) {
       _fullSyncLyricsToWindow();
     });
 
@@ -335,9 +332,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
         child: Column(
           children: [
             _buildHeader(context, isRadio: true),
-            Expanded(
-              child: _RadioDetailContent(radioState: radioState),
-            ),
+            Expanded(child: _RadioDetailContent(radioState: radioState)),
           ],
         ),
       );
@@ -373,9 +368,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     if (detailState.isLoading && detailState.detail == null) {
       return Container(
         color: colorScheme.surfaceContainerLow,
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -388,11 +381,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 56,
-                color: colorScheme.error,
-              ),
+              Icon(Icons.error_outline, size: 56, color: colorScheme.error),
               const SizedBox(height: 16),
               Text(
                 t.trackDetail.loadFailed,
@@ -433,9 +422,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                       showOffsetControls: _showOffsetControls,
                     )
                   : detail != null
-                      ? _DetailContent(
-                          key: const ValueKey('detail'), detail: detail)
-                      : _buildBasicInfo(context, currentTrack),
+                  ? _DetailContent(
+                      key: const ValueKey('detail'),
+                      detail: detail,
+                    )
+                  : _buildBasicInfo(context, currentTrack),
             ),
           ),
         ],
@@ -619,8 +610,10 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   PopupMenuItem(
                     value: 'remote',
                     child: ListTile(
-                      leading:
-                          const Icon(Icons.cloud_upload_outlined, size: 20),
+                      leading: const Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 20,
+                      ),
                       title: Text(t.remote.addToFavorites),
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -694,10 +687,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (track.isVip) ...[
-                const SizedBox(width: 6),
-                const VipBadge(),
-              ],
+              if (track.isVip) ...[const SizedBox(width: 6), const VipBadge()],
             ],
           ),
           const SizedBox(height: 8),
@@ -753,9 +743,9 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
     _lastAvatarCacheEpoch = cacheEpoch;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(fileExistsCacheProvider.notifier).preloadPaths(
-            avatarPathSet.toList(),
-          );
+      ref
+          .read(fileExistsCacheProvider.notifier)
+          .preloadPaths(avatarPathSet.toList());
     });
   }
 
@@ -776,8 +766,8 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
     final avatarPaths = currentTrack == null
         ? const <String>[]
         : currentTrack.allDownloadPaths
-            .map((path) => '${Directory(path).parent.path}/avatar.jpg')
-            .toList();
+              .map((path) => '${Directory(path).parent.path}/avatar.jpg')
+              .toList();
     final cacheEpoch = ref.watch(fileExistsCacheEpochProvider);
 
     _scheduleAvatarPathPreload(avatarPaths, cacheEpoch);
@@ -787,8 +777,10 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
         if (ref.watch(filePathExistsProvider(path))) path,
     };
 
-    final localAvatarPath =
-        _getLocalAvatarPath(currentTrack, existingAvatarPaths);
+    final localAvatarPath = _getLocalAvatarPath(
+      currentTrack,
+      existingAvatarPaths,
+    );
 
     // 獲取下載基礎目錄（用於頭像路徑查找）
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
@@ -1009,11 +1001,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
       children: [
         Row(
           children: [
-            Icon(
-              Icons.skip_next_rounded,
-              size: 18,
-              color: colorScheme.primary,
-            ),
+            Icon(Icons.skip_next_rounded, size: 18, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
               t.trackDetail.nextTrack,
@@ -1099,10 +1087,7 @@ class _ClickableCover extends StatelessWidget {
       ),
       // 时长标签
       bottomBadge: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 4,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.75),
           borderRadius: AppRadius.borderRadiusSm,
@@ -1199,7 +1184,8 @@ class _RadioDetailContent extends ConsumerWidget {
           ),
           hostSubtitle: radioState.liveStartTime != null
               ? t.radio.startedBroadcast(
-                  time: formatRelativeTime(radioState.liveStartTime!))
+                  time: formatRelativeTime(radioState.liveStartTime!),
+                )
               : null,
           // 统计数据
           stats: [
@@ -1305,8 +1291,9 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
         variant: RadioCoverVariant.hero,
       ),
       // LIVE 标签 - 仅在图片加载完成且正在播放时显示
-      topBadge:
-          _isImageLoaded && widget.isPlaying ? const LiveBadge.text() : null,
+      topBadge: _isImageLoaded && widget.isPlaying
+          ? const LiveBadge.text()
+          : null,
       // 未播放时的半透明遮罩（加载时带动画）
       overlay: !widget.isPlaying
           ? Container(
@@ -1339,18 +1326,16 @@ class _RadioClickableAvatar extends StatelessWidget {
   final String? hostAvatarUrl;
   final int? hostUid;
 
-  const _RadioClickableAvatar({
-    this.hostAvatarUrl,
-    this.hostUid,
-  });
+  const _RadioClickableAvatar({this.hostAvatarUrl, this.hostUid});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return MouseRegion(
-      cursor:
-          hostUid != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: hostUid != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: hostUid != null
             ? () => UrlLauncherService.instance.openBilibiliSpace(hostUid!)
@@ -1358,19 +1343,13 @@ class _RadioClickableAvatar extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: AppRadius.borderRadiusXl,
-            border: Border.all(
-              color: colorScheme.outlineVariant,
-              width: 1,
-            ),
+            border: Border.all(color: colorScheme.outlineVariant, width: 1),
           ),
           child: ClipOval(
             child: SizedBox(
               width: 32,
               height: 32,
-              child: AvatarImage(
-                networkUrl: hostAvatarUrl,
-                size: 32,
-              ),
+              child: AvatarImage(networkUrl: hostAvatarUrl, size: 32),
             ),
           ),
         ),

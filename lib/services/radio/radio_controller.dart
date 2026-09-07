@@ -196,8 +196,9 @@ class RadioState {
       stations: stations ?? this.stations,
       liveStatus: liveStatus ?? this.liveStatus,
       isRefreshingStatus: isRefreshingStatus ?? this.isRefreshingStatus,
-      currentStation:
-          clearCurrentStation ? null : (currentStation ?? this.currentStation),
+      currentStation: clearCurrentStation
+          ? null
+          : (currentStation ?? this.currentStation),
       isPlaying: isPlaying ?? this.isPlaying,
       isLoading: isLoading ?? this.isLoading,
       loadingStationId: clearLoadingStationId
@@ -206,8 +207,9 @@ class RadioState {
       isBuffering: isBuffering ?? this.isBuffering,
       error: clearError ? null : (error ?? this.error),
       viewerCount: clearViewerCount ? null : (viewerCount ?? this.viewerCount),
-      liveStartTime:
-          clearLiveStartTime ? null : (liveStartTime ?? this.liveStartTime),
+      liveStartTime: clearLiveStartTime
+          ? null
+          : (liveStartTime ?? this.liveStartTime),
       playDuration: playDuration ?? this.playDuration,
       reconnectAttempts: reconnectAttempts ?? this.reconnectAttempts,
       reconnectMessage: clearReconnectMessage
@@ -215,8 +217,9 @@ class RadioState {
           : (reconnectMessage ?? this.reconnectMessage),
       description: clearDescription ? null : (description ?? this.description),
       tags: clearTags ? null : (tags ?? this.tags),
-      announcement:
-          clearAnnouncement ? null : (announcement ?? this.announcement),
+      announcement: clearAnnouncement
+          ? null
+          : (announcement ?? this.announcement),
       areaName: clearAreaName ? null : (areaName ?? this.areaName),
     );
   }
@@ -225,7 +228,7 @@ class RadioState {
 /// 電台控制器
 class RadioController extends Notifier<RadioState> with Logging {
   RadioController({Duration initialLoadDelay = Duration.zero})
-      : _initialLoadDelay = initialLoadDelay;
+    : _initialLoadDelay = initialLoadDelay;
 
   /// 資料庫還沒開的時候這三個都還沒有值。以前那條路徑是第二個建構子
   /// `RadioController.forLoading()` ＋ 兩個 dummy 實作；`NotifierProvider` 的
@@ -324,14 +327,13 @@ class RadioController extends Notifier<RadioState> with Logging {
     );
 
     // 監聽 RadioRefreshService 的狀態變化
-    _refreshServiceSubscription =
-        RadioRefreshService.instance.stateChanges.listen((_) {
-      _syncLiveStatusFromRefreshService();
-    });
+    _refreshServiceSubscription = RadioRefreshService.instance.stateChanges
+        .listen((_) {
+          _syncLiveStatusFromRefreshService();
+        });
 
     // 初始化時同步一次直播狀態
     _syncLiveStatusFromRefreshService();
-
   }
 
   /// 接管系統媒體控制並顯示當前電台。
@@ -342,11 +344,7 @@ class RadioController extends Notifier<RadioState> with Logging {
   void _claimMediaControls(RadioStation station) {
     _publisher.claim(
       NowPlayingOwner.radio,
-      commands: MediaControlCommands(
-        play: resume,
-        pause: pause,
-        stop: stop,
-      ),
+      commands: MediaControlCommands(play: resume, pause: pause, stop: stop),
       capabilities: PlaybackCapabilities.liveRadio,
     );
     _publisher.publishRadioStation(NowPlayingOwner.radio, station);
@@ -470,10 +468,7 @@ class RadioController extends Notifier<RadioState> with Logging {
       }
 
       // 開始播放
-      await _audioService.playUrl(
-        streamInfo.url,
-        headers: streamInfo.headers,
-      );
+      await _audioService.playUrl(streamInfo.url, headers: streamInfo.headers);
       if (_isSuperseded(requestId)) return;
 
       // 獲取高能用戶數（作為觀眾數）
@@ -673,7 +668,7 @@ class RadioController extends Notifier<RadioState> with Logging {
   }
 
   Future<List<RadioAccountImportCandidate>>
-      loadAccountImportCandidates() async {
+  loadAccountImportCandidates() async {
     final service = ref.read(bilibiliAccountServiceProvider);
     final items = await service.fetchMedalWall();
     final importedSourceIds = await _loadImportedSourceIds();
@@ -758,8 +753,7 @@ class RadioController extends Notifier<RadioState> with Logging {
     }
 
     const sourceType = SourceIds.bilibili;
-    final uniqueKey =
-        TrackKey.formatGroup(sourceType, parseResult.sourceId);
+    final uniqueKey = TrackKey.formatGroup(sourceType, parseResult.sourceId);
     if (reservedKeys?.contains(uniqueKey) == true) {
       return null;
     }
@@ -915,8 +909,9 @@ class RadioController extends Notifier<RadioState> with Logging {
       isLoading: false,
       isBuffering: false,
       reconnectAttempts: attempts + 1,
-      reconnectMessage:
-          t.radio.reconnectingCountdown(seconds: delay.inSeconds.toString()),
+      reconnectMessage: t.radio.reconnectingCountdown(
+        seconds: delay.inSeconds.toString(),
+      ),
     );
 
     await Future.delayed(delay);
@@ -929,10 +924,7 @@ class RadioController extends Notifier<RadioState> with Logging {
       final streamInfo = await _radioSource.getStreamUrl(state.currentStation!);
       _currentStreamInfo = streamInfo;
 
-      await _audioService.playUrl(
-        streamInfo.url,
-        headers: streamInfo.headers,
-      );
+      await _audioService.playUrl(streamInfo.url, headers: streamInfo.headers);
 
       // 重連成功
       state = state.copyWith(
@@ -968,7 +960,8 @@ class RadioController extends Notifier<RadioState> with Logging {
     _publishRadioPlaybackState(isPlaying: false);
 
     logInfo(
-        'Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume');
+      'Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume',
+    );
   }
 
   /// 啟動定時器
@@ -1043,9 +1036,7 @@ class RadioController extends Notifier<RadioState> with Logging {
         state.reconnectMessage == t.radio.streamEnded &&
         serviceStatus[station.id] == true) {
       logInfo('Broadcaster is back live, auto-resuming: ${station.title}');
-      state = state.copyWith(
-        reconnectMessage: t.radio.autoResuming,
-      );
+      state = state.copyWith(reconnectMessage: t.radio.autoResuming);
       play(station);
     }
   }
@@ -1092,8 +1083,9 @@ final radioRepositoryProvider = Provider<RadioRepository?>((ref) {
 });
 
 /// RadioController Provider
-final radioControllerProvider =
-    NotifierProvider<RadioController, RadioState>(RadioController.new);
+final radioControllerProvider = NotifierProvider<RadioController, RadioState>(
+  RadioController.new,
+);
 
 /// 電台是否正在播放 Provider
 final isRadioPlayingProvider = Provider<bool>((ref) {
@@ -1114,5 +1106,3 @@ final currentRadioStationProvider = Provider<RadioStation?>((ref) {
 final radioStationsProvider = Provider<List<RadioStation>>((ref) {
   return ref.watch(radioControllerProvider).stations;
 });
-
-

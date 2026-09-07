@@ -26,8 +26,9 @@ class DownloadPathUtils {
     required Track track,
   }) {
     // 子目录：歌单名或"未分类"
-    final subDir =
-        playlistName != null ? sanitizeFileName(playlistName) : '未分类';
+    final subDir = playlistName != null
+        ? sanitizeFileName(playlistName)
+        : '未分类';
 
     // 视频文件夹名：sourceId_parentTitle
     final parentTitle = track.parentTitle ?? track.title;
@@ -180,7 +181,8 @@ class DownloadPathUtils {
   /// 2. Android: /storage/emulated/0/Music/FMP
   /// 3. Windows/其他: Documents/FMP
   static Future<String> getDefaultBaseDir(
-      SettingsRepository settingsRepo) async {
+    SettingsRepository settingsRepo,
+  ) async {
     final settings = await settingsRepo.get();
 
     // 1. 优先使用自定义目录
@@ -193,8 +195,11 @@ class DownloadPathUtils {
     if (Platform.isAndroid) {
       final extDir = await getExternalStorageDirectory();
       if (extDir != null) {
-        final musicDir =
-            p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
+        final musicDir = p.join(
+          extDir.parent.parent.parent.parent.path,
+          'Music',
+          'FMP',
+        );
         return musicDir;
       }
       final appDir = await getApplicationDocumentsDirectory();
@@ -224,7 +229,9 @@ class DownloadPathUtils {
 
   /// 確保頭像目錄存在
   static Future<void> ensureAvatarDirExists(
-      String baseDir, String sourceType) async {
+    String baseDir,
+    String sourceType,
+  ) async {
     final platform = sourceType;
     final dir = Directory(p.join(baseDir, 'avatars', platform));
     if (!await dir.exists()) {

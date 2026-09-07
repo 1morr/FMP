@@ -29,8 +29,9 @@ void main() {
         expect(await harness.readAllPlaylists(), isEmpty);
 
         final notifier = harness.container.read(playlistListProvider.notifier);
-        final createdPlaylist =
-            await notifier.createPlaylist(name: 'Phase 2 Playlist');
+        final createdPlaylist = await notifier.createPlaylist(
+          name: 'Phase 2 Playlist',
+        );
         expect(createdPlaylist, isNotNull);
         final playlist = createdPlaylist!;
 
@@ -47,10 +48,9 @@ void main() {
 
         await harness.container
             .read(playlistServiceProvider)
-            .addTracksToPlaylist(
-          playlist.id,
-          [_buildTrack(sourceId: 'watch-track', title: 'Watch Track')],
-        );
+            .addTracksToPlaylist(playlist.id, [
+              _buildTrack(sourceId: 'watch-track', title: 'Watch Track'),
+            ]);
 
         await harness.pumpUntil(
           () =>
@@ -100,8 +100,9 @@ void main() {
 
         await harness.pumpUntil(
           () {
-            final detail =
-                harness.container.read(playlistDetailProvider(playlist.id));
+            final detail = harness.container.read(
+              playlistDetailProvider(playlist.id),
+            );
             return !detail.isLoading && detail.tracks.length == 1;
           },
           reason: 'playlistDetailProvider should load the canonical track row',
@@ -111,12 +112,15 @@ void main() {
             .read(playlistDetailProvider(playlist.id).notifier)
             .addTrack(
               _buildTrack(
-                  sourceId: 'duplicate-track', title: 'Duplicate Track'),
+                sourceId: 'duplicate-track',
+                title: 'Duplicate Track',
+              ),
             );
 
         expect(success, isTrue);
-        final detail =
-            harness.container.read(playlistDetailProvider(playlist.id));
+        final detail = harness.container.read(
+          playlistDetailProvider(playlist.id),
+        );
         expect(
           detail.tracks.map((track) => track.sourceId),
           ['duplicate-track'],
@@ -139,15 +143,13 @@ void main() {
       expect(createdPlaylist, isNotNull);
       final playlist = createdPlaylist!;
 
-      await harness.pumpUntil(
-        () {
-          final detail =
-              harness.container.read(playlistDetailProvider(playlist.id));
-          return !detail.isLoading &&
-              detail.playlist?.name == 'Original Playlist';
-        },
-        reason: 'playlistDetailProvider should finish its initial load',
-      );
+      await harness.pumpUntil(() {
+        final detail = harness.container.read(
+          playlistDetailProvider(playlist.id),
+        );
+        return !detail.isLoading &&
+            detail.playlist?.name == 'Original Playlist';
+      }, reason: 'playlistDetailProvider should finish its initial load');
 
       final result = await notifier.updatePlaylist(
         playlistId: playlist.id,
@@ -155,16 +157,14 @@ void main() {
       );
       expect(result, isNotNull);
 
-      await harness.pumpUntil(
-        () {
-          final detail =
-              harness.container.read(playlistDetailProvider(playlist.id));
-          return !detail.isLoading &&
-              detail.playlist?.name == 'Original Playlist' &&
-              detail.playlist?.description == 'Updated description';
-        },
-        reason: 'playlistDetailProvider should reload after metadata update',
-      );
+      await harness.pumpUntil(() {
+        final detail = harness.container.read(
+          playlistDetailProvider(playlist.id),
+        );
+        return !detail.isLoading &&
+            detail.playlist?.name == 'Original Playlist' &&
+            detail.playlist?.description == 'Updated description';
+      }, reason: 'playlistDetailProvider should reload after metadata update');
     });
 
     test('add-to-playlist removal path does not create tracks', () {
@@ -240,9 +240,7 @@ Future<PlaylistPhase2Harness> createPlaylistPhase2Harness() async {
   );
 
   final container = ProviderContainer(
-    overrides: [
-      databaseProvider.overrideWith((ref) => isar),
-    ],
+    overrides: [databaseProvider.overrideWith((ref) => isar)],
   );
 
   return PlaylistPhase2Harness(

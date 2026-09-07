@@ -51,42 +51,45 @@ void main() {
     });
 
     test(
-        'playlistMutationCompleted refreshes detail for track metadata updates',
-        () {
-      final recorder = _InvalidationRecorder();
-      final coordinator = recorder.createCoordinator();
+      'playlistMutationCompleted refreshes detail for track metadata updates',
+      () {
+        final recorder = _InvalidationRecorder();
+        final coordinator = recorder.createCoordinator();
 
-      coordinator.playlistMutationCompleted(
-        const PlaylistMutationResult(
-          playlistId: 4,
-          affectedPlaylistIds: [4],
-          updatedTrackIds: [11],
-          playlistChanged: false,
-          coverChanged: false,
-        ),
-      );
+        coordinator.playlistMutationCompleted(
+          const PlaylistMutationResult(
+            playlistId: 4,
+            affectedPlaylistIds: [4],
+            updatedTrackIds: [11],
+            playlistChanged: false,
+            coverChanged: false,
+          ),
+        );
 
-      expect(recorder.detailIds, [4]);
-      expect(recorder.coverIds, isEmpty);
-      expect(recorder.allPlaylistInvalidations, 0);
-    });
+        expect(recorder.detailIds, [4]);
+        expect(recorder.coverIds, isEmpty);
+        expect(recorder.allPlaylistInvalidations, 0);
+      },
+    );
 
-    test('downloadStateChanged derives category paths and refreshes playlists',
-        () {
-      final recorder = _InvalidationRecorder();
-      final coordinator = recorder.createCoordinator();
+    test(
+      'downloadStateChanged derives category paths and refreshes playlists',
+      () {
+        final recorder = _InvalidationRecorder();
+        final coordinator = recorder.createCoordinator();
 
-      coordinator.downloadStateChanged(
-        savePaths: ['/downloads/List A/Video 1/audio.m4a'],
-        affectedPlaylistIds: [6, 6, 7],
-      );
+        coordinator.downloadStateChanged(
+          savePaths: ['/downloads/List A/Video 1/audio.m4a'],
+          affectedPlaylistIds: [6, 6, 7],
+        );
 
-      expect(recorder.fileCacheInvalidations, 1);
-      expect(recorder.downloadCategoryInvalidations, 1);
-      expect(recorder.downloadCategoryTrackPaths, ['/downloads/List A']);
-      expect(recorder.startedRefreshIds, [6, 7]);
-      expect(recorder.coverIds, [6, 7]);
-    });
+        expect(recorder.fileCacheInvalidations, 1);
+        expect(recorder.downloadCategoryInvalidations, 1);
+        expect(recorder.downloadCategoryTrackPaths, ['/downloads/List A']);
+        expect(recorder.startedRefreshIds, [6, 7]);
+        expect(recorder.coverIds, [6, 7]);
+      },
+    );
 
     test('refreshLoadedPlaylistDetails logs failed silent refreshes', () async {
       final recorder = _InvalidationRecorder(failingRefreshIds: {5});
@@ -99,21 +102,23 @@ void main() {
       expect(recorder.loggedErrors.single.$2, isA<StateError>());
     });
 
-    test('provider skips unloaded playlist details during download refresh',
-        () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'provider skips unloaded playlist details during download refresh',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final coordinator =
-          container.read(libraryInvalidationCoordinatorProvider);
+        final coordinator = container.read(
+          libraryInvalidationCoordinatorProvider,
+        );
 
-      coordinator.downloadStateChanged(affectedPlaylistIds: [12]);
+        coordinator.downloadStateChanged(affectedPlaylistIds: [12]);
 
-      expect(container.exists(playlistDetailProvider(12)), isFalse);
-    });
+        expect(container.exists(playlistDetailProvider(12)), isFalse);
+      },
+    );
 
-    test('Task 5 UI mutation sites use the library invalidation coordinator',
-        () {
+    test('Task 5 UI mutation sites use the library invalidation coordinator', () {
       final sources = _task5SourceFiles();
 
       for (final entry in sources.entries) {

@@ -30,17 +30,18 @@ class DesktopAudioDeviceState {
 
   @override
   int get hashCode => Object.hash(
-        Object.hashAll(
-          audioDevices
-              .map((device) => Object.hash(device.name, device.description)),
-        ),
-        currentAudioDevice == null
-            ? null
-            : Object.hash(
-                currentAudioDevice!.name,
-                currentAudioDevice!.description,
-              ),
-      );
+    Object.hashAll(
+      audioDevices.map(
+        (device) => Object.hash(device.name, device.description),
+      ),
+    ),
+    currentAudioDevice == null
+        ? null
+        : Object.hash(
+            currentAudioDevice!.name,
+            currentAudioDevice!.description,
+          ),
+  );
 }
 
 /// 播放控制列需要的佇列面向狀態。
@@ -73,12 +74,12 @@ class QueueControlState {
 
   @override
   int get hashCode => Object.hash(
-        isShuffleEnabled,
-        loopMode,
-        isMixMode,
-        canPlayPrevious,
-        canPlayNext,
-      );
+    isShuffleEnabled,
+    loopMode,
+    isMixMode,
+    canPlayPrevious,
+    canPlayNext,
+  );
 }
 
 @immutable
@@ -119,8 +120,9 @@ final playbackSpeedProvider = Provider<double>((ref) {
   return ref.watch(audioControllerProvider.select((state) => state.speed));
 });
 
-final desktopAudioDeviceStateProvider =
-    Provider<DesktopAudioDeviceState>((ref) {
+final desktopAudioDeviceStateProvider = Provider<DesktopAudioDeviceState>((
+  ref,
+) {
   return ref.watch(
     audioControllerProvider.select(
       (state) => DesktopAudioDeviceState(

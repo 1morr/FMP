@@ -22,8 +22,9 @@ class MiniPlayerDesktopControls extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // 只监听音量和音频设备（窄 select，避免對 audioControllerProvider
     // 做全狀態 watch）。
-    final volume =
-        ref.watch(audioControllerProvider.select((state) => state.volume));
+    final volume = ref.watch(
+      audioControllerProvider.select((state) => state.volume),
+    );
     final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
 
     final controller = ref.read(audioControllerProvider.notifier);

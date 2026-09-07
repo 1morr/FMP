@@ -13,44 +13,53 @@ void main() {
     await initializeIsarForTests();
   });
 
-  test('getBySourceIdentities keeps source type and nullable cid distinct',
-      () async {
-    final tempDir = await Directory.systemTemp.createTemp(
-      'track_repository_batch_identity_test_',
-    );
-    final isar = await Isar.open(
-      [TrackSchema],
-      directory: tempDir.path,
-      name: 'track_repository_batch_identity_test',
-    );
-    addTearDown(() async {
-      await isar.close(deleteFromDisk: true);
-      if (await tempDir.exists()) await tempDir.delete(recursive: true);
-    });
-    final repo = TrackRepository(isar);
+  test(
+    'getBySourceIdentities keeps source type and nullable cid distinct',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'track_repository_batch_identity_test_',
+      );
+      final isar = await Isar.open(
+        [TrackSchema],
+        directory: tempDir.path,
+        name: 'track_repository_batch_identity_test',
+      );
+      addTearDown(() async {
+        await isar.close(deleteFromDisk: true);
+        if (await tempDir.exists()) await tempDir.delete(recursive: true);
+      });
+      final repo = TrackRepository(isar);
 
-    final youtubeNull =
-        await repo.save(_track('same', SourceIds.youtube, 'YT'));
-    final youtubeCid = await repo.save(
-      _track('same', SourceIds.youtube, 'YT P2')..cid = 22,
-    );
-    final bilibiliNull = await repo.save(
-      _track('same', SourceIds.bilibili, 'BV'),
-    );
+      final youtubeNull = await repo.save(
+        _track('same', SourceIds.youtube, 'YT'),
+      );
+      final youtubeCid = await repo.save(
+        _track('same', SourceIds.youtube, 'YT P2')..cid = 22,
+      );
+      final bilibiliNull = await repo.save(
+        _track('same', SourceIds.bilibili, 'BV'),
+      );
 
-    final result = await repo.getBySourceIdentities([
-      TrackSourceIdentity.fromTrack(youtubeNull),
-      TrackSourceIdentity.fromTrack(youtubeCid),
-      TrackSourceIdentity.fromTrack(bilibiliNull),
-    ]);
+      final result = await repo.getBySourceIdentities([
+        TrackSourceIdentity.fromTrack(youtubeNull),
+        TrackSourceIdentity.fromTrack(youtubeCid),
+        TrackSourceIdentity.fromTrack(bilibiliNull),
+      ]);
 
-    expect(
-        result[TrackSourceIdentity.fromTrack(youtubeNull)]?.id, youtubeNull.id);
-    expect(
-        result[TrackSourceIdentity.fromTrack(youtubeCid)]?.id, youtubeCid.id);
-    expect(result[TrackSourceIdentity.fromTrack(bilibiliNull)]?.id,
-        bilibiliNull.id);
-  });
+      expect(
+        result[TrackSourceIdentity.fromTrack(youtubeNull)]?.id,
+        youtubeNull.id,
+      );
+      expect(
+        result[TrackSourceIdentity.fromTrack(youtubeCid)]?.id,
+        youtubeCid.id,
+      );
+      expect(
+        result[TrackSourceIdentity.fromTrack(bilibiliNull)]?.id,
+        bilibiliNull.id,
+      );
+    },
+  );
 
   test('cleanupInvalidDownloadPaths preserves playlist names', () async {
     final tempDir = await Directory.systemTemp.createTemp(
@@ -97,11 +106,7 @@ void main() {
         ),
       ),
       [
-        (
-          playlistId: 1,
-          playlistName: 'Valid Playlist',
-          hasDownloadPath: true,
-        ),
+        (playlistId: 1, playlistName: 'Valid Playlist', hasDownloadPath: true),
         (
           playlistId: 2,
           playlistName: 'Missing Playlist',

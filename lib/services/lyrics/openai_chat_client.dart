@@ -60,14 +60,8 @@ Future<Response<dynamic>> postOpenAiChatCompletion({
       'model': config.model,
       'temperature': temperature,
       'messages': [
-        {
-          'role': 'system',
-          'content': systemPrompt,
-        },
-        {
-          'role': 'user',
-          'content': userPayload,
-        },
+        {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': userPayload},
       ],
     },
   );

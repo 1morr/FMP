@@ -21,15 +21,19 @@ class PlayHistoryRepository {
   }
 
   /// 获取歌曲播放次数
-  Future<int> getPlayCount(String sourceId, String sourceType,
-      {int? cid}) async {
+  Future<int> getPlayCount(
+    String sourceId,
+    String sourceType, {
+    int? cid,
+  }) async {
     final trackKey = TrackKey.format(sourceType, sourceId, cid: cid);
     return _isar.playHistorys.where().trackKeyEqualTo(trackKey).count();
   }
 
   /// 获取播放次数最多的歌曲（去重）
-  Future<List<({PlayHistory history, int count})>> getMostPlayed(
-      {int limit = 10}) async {
+  Future<List<({PlayHistory history, int count})>> getMostPlayed({
+    int limit = 10,
+  }) async {
     final all = await _isar.playHistorys.where().findAll();
 
     // 按 trackKey 分组统计
@@ -37,8 +41,10 @@ class PlayHistoryRepository {
     for (final h in all) {
       final key = h.trackKey;
       if (countMap.containsKey(key)) {
-        countMap[key] =
-            (history: countMap[key]!.history, count: countMap[key]!.count + 1);
+        countMap[key] = (
+          history: countMap[key]!.history,
+          count: countMap[key]!.count + 1,
+        );
       } else {
         countMap[key] = (history: h, count: 1);
       }
@@ -174,10 +180,12 @@ class PlayHistoryRepository {
     Set<String>? sourceTypes,
     int limit = 50,
   }) async {
-    var query = _isar.playHistorys.where().filter().group((q) => q
-        .titleContains(keyword, caseSensitive: false)
-        .or()
-        .artistContains(keyword, caseSensitive: false));
+    var query = _isar.playHistorys.where().filter().group(
+      (q) => q
+          .titleContains(keyword, caseSensitive: false)
+          .or()
+          .artistContains(keyword, caseSensitive: false),
+    );
 
     if (sourceTypes != null && sourceTypes.isNotEmpty) {
       query = query.anyOf(
@@ -271,7 +279,8 @@ class PlayHistoryRepository {
     int offset = 0,
     int limit = 50,
   }) async {
-    final hasFilters = (sourceTypes != null && sourceTypes.isNotEmpty) ||
+    final hasFilters =
+        (sourceTypes != null && sourceTypes.isNotEmpty) ||
         startDate != null ||
         endDate != null ||
         (searchKeyword != null && searchKeyword.isNotEmpty);
@@ -298,21 +307,30 @@ class PlayHistoryRepository {
 
     // 筛选音源
     if (sourceTypes != null && sourceTypes.isNotEmpty) {
-      records =
-          records.where((h) => sourceTypes.contains(h.sourceType)).toList();
+      records = records
+          .where((h) => sourceTypes.contains(h.sourceType))
+          .toList();
     }
 
     // 筛选日期范围
     if (startDate != null) {
       records = records
-          .where((h) =>
-              h.playedAt.isAfter(startDate) ||
-              h.playedAt.isAtSameMomentAs(startDate))
+          .where(
+            (h) =>
+                h.playedAt.isAfter(startDate) ||
+                h.playedAt.isAtSameMomentAs(startDate),
+          )
           .toList();
     }
     if (endDate != null) {
-      final endOfDay =
-          DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+      final endOfDay = DateTime(
+        endDate.year,
+        endDate.month,
+        endDate.day,
+        23,
+        59,
+        59,
+      );
       records = records.where((h) => h.playedAt.isBefore(endOfDay)).toList();
     }
 
@@ -320,9 +338,11 @@ class PlayHistoryRepository {
     if (searchKeyword != null && searchKeyword.isNotEmpty) {
       final lower = searchKeyword.toLowerCase();
       records = records
-          .where((h) =>
-              h.title.toLowerCase().contains(lower) ||
-              (h.artist?.toLowerCase().contains(lower) ?? false))
+          .where(
+            (h) =>
+                h.title.toLowerCase().contains(lower) ||
+                (h.artist?.toLowerCase().contains(lower) ?? false),
+          )
           .toList();
     }
 
@@ -340,8 +360,10 @@ class PlayHistoryRepository {
         for (final h in records) {
           countMap[h.trackKey] = (countMap[h.trackKey] ?? 0) + 1;
         }
-        records.sort((a, b) =>
-            (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0));
+        records.sort(
+          (a, b) =>
+              (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0),
+        );
         break;
     }
 
@@ -402,8 +424,10 @@ class PlayHistoryStats {
     final minutes = duration.inMinutes.remainder(60);
 
     if (hours > 0) {
-      return t.playHistoryPage
-          .hoursMinutes(hours: hours.toString(), minutes: minutes.toString());
+      return t.playHistoryPage.hoursMinutes(
+        hours: hours.toString(),
+        minutes: minutes.toString(),
+      );
     }
     return t.playHistoryPage.minutesOnly(minutes: minutes.toString());
   }

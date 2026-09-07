@@ -73,9 +73,9 @@ class SearchService {
     required SourceManager sourceManager,
     required TrackRepository trackRepository,
     required SearchHistoryRepository searchHistoryRepository,
-  })  : _sourceManager = sourceManager,
-        _trackRepository = trackRepository,
-        _searchHistoryRepository = searchHistoryRepository;
+  }) : _sourceManager = sourceManager,
+       _trackRepository = trackRepository,
+       _searchHistoryRepository = searchHistoryRepository;
 
   /// 在线搜索。
   ///
@@ -113,8 +113,12 @@ class SearchService {
         } catch (e, stack) {
           // 這一行的產物會整段畫進搜尋頁的 ErrorDisplay，所以不能是例外原文
           // —— 實機上它曾經顯示一整條含 URL 的 ClientException。
-          final reason = failureMessage(e, stack, 'Searching $type failed',
-              tag: 'Search');
+          final reason = failureMessage(
+            e,
+            stack,
+            'Searching $type failed',
+            tag: 'Search',
+          );
           errors.add('$type: $reason');
         }
       }),

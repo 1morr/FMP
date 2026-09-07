@@ -22,10 +22,14 @@ void main() {
     });
 
     test('displayNameFor resolves the built-in ids through i18n', () {
-      expect(SourceIds.displayNameFor(SourceIds.bilibili),
-          t.importPlatform.bilibili);
       expect(
-          SourceIds.displayNameFor(SourceIds.netease), t.importPlatform.netease);
+        SourceIds.displayNameFor(SourceIds.bilibili),
+        t.importPlatform.bilibili,
+      );
+      expect(
+        SourceIds.displayNameFor(SourceIds.netease),
+        t.importPlatform.netease,
+      );
     });
 
     test('displayNameFor falls back to the raw id', () {

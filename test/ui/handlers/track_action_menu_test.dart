@@ -11,17 +11,14 @@ void main() {
         translations: AppLocale.en.translations,
       );
 
-      expect(
-        items.map((item) => item.id),
-        [
-          playTrackActionId,
-          playNextTrackActionId,
-          addToQueueTrackActionId,
-          addToPlaylistTrackActionId,
-          matchLyricsTrackActionId,
-          addToRemoteTrackActionId,
-        ],
-      );
+      expect(items.map((item) => item.id), [
+        playTrackActionId,
+        playNextTrackActionId,
+        addToQueueTrackActionId,
+        addToPlaylistTrackActionId,
+        matchLyricsTrackActionId,
+        addToRemoteTrackActionId,
+      ]);
       expect(items.first.icon, Icons.play_arrow);
       expect(items.first.trackAction, TrackAction.play);
     });
@@ -32,15 +29,12 @@ void main() {
         scope: TrackActionMenuScope.multi,
       );
 
-      expect(
-        items.map((item) => item.id),
-        [
-          playNextTrackActionId,
-          addToQueueTrackActionId,
-          addToPlaylistTrackActionId,
-          addToRemoteTrackActionId,
-        ],
-      );
+      expect(items.map((item) => item.id), [
+        playNextTrackActionId,
+        addToQueueTrackActionId,
+        addToPlaylistTrackActionId,
+        addToRemoteTrackActionId,
+      ]);
       expect(items.any((item) => item.id == playTrackActionId), isFalse);
       expect(items.any((item) => item.id == matchLyricsTrackActionId), isFalse);
     });
@@ -48,32 +42,28 @@ void main() {
     test('options can hide lyrics while preserving other group actions', () {
       final items = buildCommonTrackActionMenuItems(
         translations: AppLocale.en.translations,
-        options: const TrackActionMenuOptions(
-          includeMatchLyrics: false,
-        ),
+        options: const TrackActionMenuOptions(includeMatchLyrics: false),
       );
 
-      expect(
-        items.map((item) => item.id),
-        [
-          playTrackActionId,
-          playNextTrackActionId,
-          addToQueueTrackActionId,
-          addToPlaylistTrackActionId,
-          addToRemoteTrackActionId,
-        ],
-      );
+      expect(items.map((item) => item.id), [
+        playTrackActionId,
+        playNextTrackActionId,
+        addToQueueTrackActionId,
+        addToPlaylistTrackActionId,
+        addToRemoteTrackActionId,
+      ]);
       expect(items.any((item) => item.id == matchLyricsTrackActionId), isFalse);
     });
   });
 
   group('buildTrackActionListTiles', () {
     TrackActionMenuItem findItem(String id) => buildCommonTrackActionMenuItems(
-          translations: AppLocale.en.translations,
-        ).firstWhere((item) => item.id == id);
+      translations: AppLocale.en.translations,
+    ).firstWhere((item) => item.id == id);
 
-    testWidgets('tapping a tile pops the sheet and dispatches the item',
-        (tester) async {
+    testWidgets('tapping a tile pops the sheet and dispatches the item', (
+      tester,
+    ) async {
       TrackActionMenuItem? selected;
 
       await tester.pumpWidget(
@@ -85,11 +75,9 @@ void main() {
                   context: context,
                   builder: (sheetContext) => Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: buildTrackActionListTiles(
-                      sheetContext,
-                      [findItem(addToQueueTrackActionId)],
-                      (item) => selected = item,
-                    ),
+                    children: buildTrackActionListTiles(sheetContext, [
+                      findItem(addToQueueTrackActionId),
+                    ], (item) => selected = item),
                   ),
                 ),
                 child: const Text('open'),
@@ -158,11 +146,9 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => Column(
-                children: buildTrackActionListTiles(
-                  context,
-                  [disabledItem],
-                  (_) {},
-                ),
+                children: buildTrackActionListTiles(context, [
+                  disabledItem,
+                ], (_) {}),
               ),
             ),
           ),

@@ -126,8 +126,9 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       brightness: brightness,
-      fontFamily:
-          (fontFamily != null && fontFamily.isNotEmpty) ? fontFamily : null,
+      fontFamily: (fontFamily != null && fontFamily.isNotEmpty)
+          ? fontFamily
+          : null,
 
       // AppBar 主题
       appBarTheme: AppBarTheme(
@@ -141,17 +142,13 @@ class AppTheme {
       // 卡片主题
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
         color: colorScheme.surfaceContainerHighest,
       ),
 
       // 列表瓦片主题
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusMd,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusMd),
       ),
 
       // 导航栏主题

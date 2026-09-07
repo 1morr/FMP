@@ -164,10 +164,10 @@ class MultiTrackActionResult {
   const MultiTrackActionResult._({required this.shouldExitSelectionMode});
 
   const MultiTrackActionResult.handled()
-      : this._(shouldExitSelectionMode: true);
+    : this._(shouldExitSelectionMode: true);
 
   const MultiTrackActionResult.retainSelectionMode()
-      : this._(shouldExitSelectionMode: false);
+    : this._(shouldExitSelectionMode: false);
 
   final bool shouldExitSelectionMode;
 }
@@ -176,8 +176,8 @@ class MultiTrackActionHandler {
   MultiTrackActionHandler({
     required TrackActionAudioController audioController,
     required MultiTrackActionFeedbackSink feedbackSink,
-  })  : _audioController = audioController,
-        _feedbackSink = feedbackSink;
+  }) : _audioController = audioController,
+       _feedbackSink = feedbackSink;
 
   final TrackActionAudioController _audioController;
   final MultiTrackActionFeedbackSink _feedbackSink;
@@ -244,8 +244,8 @@ class TrackActionHandler {
   TrackActionHandler({
     required TrackActionAudioController audioController,
     required TrackActionFeedbackSink feedbackSink,
-  })  : _audioController = audioController,
-        _feedbackSink = feedbackSink;
+  }) : _audioController = audioController,
+       _feedbackSink = feedbackSink;
 
   final TrackActionAudioController _audioController;
   final TrackActionFeedbackSink _feedbackSink;
@@ -333,16 +333,18 @@ void showLyricsDisplayModeMenu(
     context: context,
     position: position,
     items: modes
-        .map((entry) => PopupMenuItem(
-              value: entry.$1,
-              child: ListTile(
-                leading: currentMode == entry.$1
-                    ? Icon(Icons.check, size: 18, color: colorScheme.primary)
-                    : const SizedBox(width: 18),
-                title: Text(entry.$2),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ))
+        .map(
+          (entry) => PopupMenuItem(
+            value: entry.$1,
+            child: ListTile(
+              leading: currentMode == entry.$1
+                  ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+                  : const SizedBox(width: 18),
+              title: Text(entry.$2),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        )
         .toList(),
   ).then((value) {
     if (value != null) {

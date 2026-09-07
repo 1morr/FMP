@@ -9,10 +9,7 @@ sealed class PreparedPlaybackMedia {
 }
 
 final class LocalPlaybackMedia extends PreparedPlaybackMedia {
-  const LocalPlaybackMedia({
-    required this.path,
-    required this.track,
-  });
+  const LocalPlaybackMedia({required this.path, required this.track});
 
   final String path;
 

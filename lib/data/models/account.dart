@@ -1,6 +1,5 @@
 import 'package:isar_community/isar.dart';
 
-
 part 'account.g.dart';
 
 /// 帳號實體（Isar Collection）

@@ -31,9 +31,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.settings.developerOptions.title),
-      ),
+      appBar: AppBar(title: Text(t.settings.developerOptions.title)),
       body: ListView(
         children: [
           // 调试工具
@@ -59,8 +57,9 @@ class DeveloperOptionsPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.music_note_outlined),
                 title: Text(t.settings.developerOptions.ytStreamTest),
-                subtitle:
-                    Text(t.settings.developerOptions.ytStreamTestSubtitle),
+                subtitle: Text(
+                  t.settings.developerOptions.ytStreamTestSubtitle,
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
@@ -74,10 +73,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
           // 数据管理
           _SettingsSection(
             title: t.settings.developerOptions.dataManagement,
-            children: [
-              _DatabaseInfoTile(),
-              _ResetDataTile(),
-            ],
+            children: [_DatabaseInfoTile(), _ResetDataTile()],
           ),
           const Divider(),
           // 信息
@@ -117,7 +113,8 @@ class _DatabaseInfoTile extends ConsumerWidget {
         leading: const Icon(Icons.error_outline),
         title: Text(t.settings.developerOptions.dbInfo),
         subtitle: Text(
-            t.settings.developerOptions.dbInfoError(error: userMessageFor(e))),
+          t.settings.developerOptions.dbInfoError(error: userMessageFor(e)),
+        ),
       ),
       data: (isar) => FutureBuilder<_DatabaseInfo>(
         future: _getDatabaseInfo(isar),
@@ -225,12 +222,15 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
       // 数据缓存统计
       final queueTrackCount = ref.read(queueProvider).length;
       final rankingCache = ref.read(rankingCacheServiceProvider);
-      final bilibiliCacheCount =
-          rankingCache.tracksFor(SourceIds.bilibili).length;
-      final youtubeCacheCount =
-          rankingCache.tracksFor(SourceIds.youtube).length;
-      final neteaseCacheCount =
-          rankingCache.tracksFor(SourceIds.netease).length;
+      final bilibiliCacheCount = rankingCache
+          .tracksFor(SourceIds.bilibili)
+          .length;
+      final youtubeCacheCount = rankingCache
+          .tracksFor(SourceIds.youtube)
+          .length;
+      final neteaseCacheCount = rankingCache
+          .tracksFor(SourceIds.netease)
+          .length;
 
       // 歌词缓存
       int lyricsCacheCount = 0;
@@ -318,9 +318,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
     if (info.rssBytes != null) {
       summaryParts.add('RSS: ${_formatBytes(info.rssBytes!)}');
     }
-    summaryParts.add(
-      'Flutter 图片: ${_formatBytes(info.imageCacheSizeBytes)}',
-    );
+    summaryParts.add('Flutter 图片: ${_formatBytes(info.imageCacheSizeBytes)}');
 
     return ExpansionTile(
       leading: const Icon(Icons.memory),
@@ -337,11 +335,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
           ),
         ],
       ),
-      childrenPadding: const EdgeInsets.only(
-        left: 16,
-        right: 16,
-        bottom: 12,
-      ),
+      childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
       children: [
         // 进程总内存
         if (info.rssBytes != null)
@@ -376,8 +370,10 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
             Icons.developer_board_outlined,
             t.settings.developerOptions.nativeMemoryDetail(
               size: _formatBytes(
-                (info.rssBytes! - info.imageCacheSizeBytes)
-                    .clamp(0, info.rssBytes!),
+                (info.rssBytes! - info.imageCacheSizeBytes).clamp(
+                  0,
+                  info.rssBytes!,
+                ),
               ),
             ),
             colorScheme,
@@ -544,7 +540,9 @@ class _ResetDataTile extends ConsumerWidget {
   }
 
   Future<void> _showResetConfirmDialog(
-      BuildContext context, WidgetRef ref) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final confirmed = await showConfirmDestructiveDialog(
       context,
       title: t.settings.developerOptions.confirmReset,
@@ -570,10 +568,7 @@ class _ResetDataTile extends ConsumerWidget {
       await runDatabaseMigration(isar);
 
       if (!context.mounted) return;
-      ToastService.success(
-        context,
-        t.settings.developerOptions.resetDone,
-      );
+      ToastService.success(context, t.settings.developerOptions.resetDone);
     } catch (e, stack) {
       AppLogger.error('Resetting the database failed', e, stack, 'DevOptions');
       if (!context.mounted) return;
@@ -590,10 +585,7 @@ class _SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _SettingsSection({
-    required this.title,
-    required this.children,
-  });
+  const _SettingsSection({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -605,8 +597,8 @@ class _SettingsSection extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         ...children,

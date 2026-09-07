@@ -37,8 +37,9 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
   String? extractPlaylistId(String url) {
     // 标准链接: https://open.spotify.com/playlist/{id}
     // 带参数: https://open.spotify.com/playlist/{id}?si=...
-    final match =
-        RegExp(r'open\.spotify\.com/playlist/([a-zA-Z0-9]+)').firstMatch(url);
+    final match = RegExp(
+      r'open\.spotify\.com/playlist/([a-zA-Z0-9]+)',
+    ).firstMatch(url);
     return match?.group(1);
   }
 
@@ -61,7 +62,7 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
         headers: {
           'User-Agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept-Language': 'en',
         },
         responseType: ResponseType.plain,
@@ -138,7 +139,8 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
       throw Exception(t.importSource.spotifyPageDataAbnormal);
     }
 
-    final name = entity['name'] as String? ??
+    final name =
+        entity['name'] as String? ??
         entity['title'] as String? ??
         t.importSource.unknownPlaylist;
 
@@ -167,14 +169,17 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
       // 提取 Spotify track ID（uid 或 id 字段）
       final trackId = (item['uid'] as String?) ?? (item['id'] as String?);
 
-      tracks.add(ImportedTrack(
-        title: title,
-        artists: artists,
-        duration:
-            durationMs != null ? Duration(milliseconds: durationMs) : null,
-        sourceId: trackId,
-        source: PlaylistSource.spotify,
-      ));
+      tracks.add(
+        ImportedTrack(
+          title: title,
+          artists: artists,
+          duration: durationMs != null
+              ? Duration(milliseconds: durationMs)
+              : null,
+          sourceId: trackId,
+          source: PlaylistSource.spotify,
+        ),
+      );
     }
 
     if (tracks.isEmpty) {

@@ -78,10 +78,7 @@ void main() {
         ..write('newest entry here');
       await sink.flush();
 
-      expect(
-        await sink.readAll(),
-        'oldest entry here\nnewest entry here\n',
-      );
+      expect(await sink.readAll(), 'oldest entry here\nnewest entry here\n');
     });
 
     test('write is a no-op when the sink never opened', () async {
@@ -137,21 +134,23 @@ void main() {
       expect(contents, isNot(contains('tok_should_not_survive')));
     });
 
-    test('error and stack trace reach the file, unlike the on-screen line',
-        () async {
-      final sink = sinkWith();
-      await AppLogger.attachFileSink(sink);
-      AppLogger.error(
-        'boom',
-        StateError('inner cause'),
-        StackTrace.fromString('#0 someFrame'),
-        'Test',
-      );
-      await sink.flush();
+    test(
+      'error and stack trace reach the file, unlike the on-screen line',
+      () async {
+        final sink = sinkWith();
+        await AppLogger.attachFileSink(sink);
+        AppLogger.error(
+          'boom',
+          StateError('inner cause'),
+          StackTrace.fromString('#0 someFrame'),
+          'Test',
+        );
+        await sink.flush();
 
-      final contents = await sink.readAll();
-      expect(contents, contains('inner cause'));
-      expect(contents, contains('someFrame'));
-    });
+        final contents = await sink.readAll();
+        expect(contents, contains('inner cause'));
+        expect(contents, contains('someFrame'));
+      },
+    );
   });
 }

@@ -20,11 +20,7 @@ class TrackDetailState {
   final bool isLoading;
   final String? error;
 
-  const TrackDetailState({
-    this.detail,
-    this.isLoading = false,
-    this.error,
-  });
+  const TrackDetailState({this.detail, this.isLoading = false, this.error});
 
   TrackDetailState copyWith({
     VideoDetail? detail,
@@ -116,8 +112,12 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
-          error: failureMessage(e, stack, 'Loading the track detail failed',
-              tag: 'TrackDetail'),
+          error: failureMessage(
+            e,
+            stack,
+            'Loading the track detail failed',
+            tag: 'TrackDetail',
+          ),
         );
       }
     }
@@ -134,8 +134,9 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
         final metadataFile = File(p.join(dir.path, DownloadFileNames.metadata));
         if (!await metadataFile.exists()) continue;
 
-        final json = jsonDecode(await metadataFile.readAsString())
-            as Map<String, dynamic>;
+        final json =
+            jsonDecode(await metadataFile.readAsString())
+                as Map<String, dynamic>;
 
         // 检查是否有完整的元数据
         if (json['viewCount'] == null) continue;
@@ -187,8 +188,12 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
       if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
-          error: failureMessage(e, stack, 'Loading the track detail failed',
-              tag: 'TrackDetail'),
+          error: failureMessage(
+            e,
+            stack,
+            'Loading the track detail failed',
+            tag: 'TrackDetail',
+          ),
         );
       }
     }
@@ -204,4 +209,5 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
 /// 歌曲详情 Provider
 final trackDetailProvider =
     NotifierProvider<TrackDetailNotifier, TrackDetailState>(
-        TrackDetailNotifier.new);
+      TrackDetailNotifier.new,
+    );

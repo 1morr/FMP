@@ -33,10 +33,7 @@ Future<void> showImportPreviewDialog(
 class ImportPreviewDialog extends ConsumerStatefulWidget {
   final String? customName;
 
-  const ImportPreviewDialog({
-    super.key,
-    this.customName,
-  });
+  const ImportPreviewDialog({super.key, this.customName});
 
   @override
   ConsumerState<ImportPreviewDialog> createState() =>
@@ -51,17 +48,15 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
   Widget build(BuildContext context) {
     final state = ref.watch(playlistImportProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final playlistName = widget.customName ??
+    final playlistName =
+        widget.customName ??
         state.playlist?.name ??
         t.library.importPreview.defaultPlaylistName;
 
     return Dialog(
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 600,
-          maxHeight: 700,
-        ),
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -86,10 +81,8 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                         const SizedBox(height: 2),
                         Text(
                           playlistName,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.outline,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.outline),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -130,12 +123,11 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                         child: Text(
-                          t.library.importPreview
-                              .matched(n: state.matchedCount),
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: colorScheme.primary,
-                                  ),
+                          t.library.importPreview.matched(
+                            n: state.matchedCount,
+                          ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(color: colorScheme.primary),
                         ),
                       ),
                     ),
@@ -203,8 +195,11 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(t.library.importPreview
-                            .createPlaylist(n: state.selectedTracks.length)),
+                        : Text(
+                            t.library.importPreview.createPlaylist(
+                              n: state.selectedTracks.length,
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -233,26 +228,26 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
               child: Text(
                 playlist.source.displayName,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                    ),
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
             const SizedBox(width: 12),
           ],
           Text(
             t.library.importPreview.totalTracks(n: state.matchedTracks.length),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
           ),
           const SizedBox(width: 8),
           Text('•', style: TextStyle(color: colorScheme.outline)),
           const SizedBox(width: 8),
           Text(
             t.library.importPreview.matchedCount(n: state.matchedCount),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.primary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colorScheme.primary),
           ),
           if (state.unmatchedCount > 0) ...[
             const SizedBox(width: 8),
@@ -260,9 +255,9 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
             const SizedBox(width: 8),
             Text(
               t.library.importPreview.unmatchedCount(n: state.unmatchedCount),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.error,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
             ),
           ],
         ],
@@ -292,8 +287,10 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
 
       // 添加歌曲
       final service = ref.read(playlistServiceProvider);
-      final mutationResult =
-          await service.addTracksToPlaylist(playlist.id, tracks);
+      final mutationResult = await service.addTracksToPlaylist(
+        playlist.id,
+        tracks,
+      );
 
       // playlistListProvider 会通过 Isar watch 自动更新；
       // 但 detail / cover 和 allPlaylistsProvider 快照消费者仍需显式刷新。
@@ -310,10 +307,16 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
       }
     } catch (e, stack) {
       AppLogger.error(
-          'Creating the imported playlist failed', e, stack, 'ImportPreview');
+        'Creating the imported playlist failed',
+        e,
+        stack,
+        'ImportPreview',
+      );
       if (mounted) {
-        ToastService.error(context,
-            t.library.importPreview.createError(error: userMessageFor(e)));
+        ToastService.error(
+          context,
+          t.library.importPreview.createError(error: userMessageFor(e)),
+        );
       }
     } finally {
       if (mounted) {
@@ -390,7 +393,9 @@ class _UnmatchedSectionState extends ConsumerState<_UnmatchedSection> {
     }
 
     if (realIndex != null) {
-      ref.read(playlistImportProvider.notifier).updateWithManualMatch(
+      ref
+          .read(playlistImportProvider.notifier)
+          .updateWithManualMatch(
             realIndex,
             selectedTrack,
             _searchResults[unmatchedIndex] ?? [selectedTrack],
@@ -414,9 +419,9 @@ class _UnmatchedSectionState extends ConsumerState<_UnmatchedSection> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text(
             t.library.importPreview.unmatched(n: widget.tracks.length),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: colorScheme.error,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: colorScheme.error),
           ),
         ),
         // 歌曲列表
@@ -430,7 +435,8 @@ class _UnmatchedSectionState extends ConsumerState<_UnmatchedSection> {
           );
 
           // 如果已有搜索结果（用户选择过），使用保存的结果
-          final searchResults = _searchResults[index] ??
+          final searchResults =
+              _searchResults[index] ??
               (matchedTrack.searchResults.isNotEmpty
                   ? matchedTrack.searchResults
                   : []);
@@ -463,10 +469,7 @@ class _ImportTrackLeading extends StatelessWidget {
   final bool isSelected;
   final Track? track;
 
-  const _ImportTrackLeading({
-    required this.isSelected,
-    this.track,
-  });
+  const _ImportTrackLeading({required this.isSelected, this.track});
 
   @override
   Widget build(BuildContext context) {
@@ -585,11 +588,7 @@ class _AlternativeTrackLeading extends StatelessWidget {
                   ),
           ),
           const SizedBox(width: 8),
-          TrackThumbnail(
-            track: track,
-            size: 32,
-            borderRadius: 4,
-          ),
+          TrackThumbnail(track: track, size: 32, borderRadius: 4),
         ],
       ),
     );
@@ -655,8 +654,8 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ),
                   if (hasSelection) ...[
@@ -669,8 +668,10 @@ class _UnmatchedTrackTile extends ConsumerWidget {
               if (hasSelection)
                 Container(
                   margin: const EdgeInsets.only(top: 2),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer.withValues(alpha: 0.5),
                     borderRadius: AppRadius.borderRadiusLg,
@@ -680,9 +681,10 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer
-                              .withValues(alpha: 0.8),
-                        ),
+                      color: colorScheme.onPrimaryContainer.withValues(
+                        alpha: 0.8,
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -697,12 +699,13 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                   hasSelection && selectedTrack.durationMs != null
                       ? DurationFormatter.formatMs(selectedTrack.durationMs!)
                       : (original.duration != null
-                          ? DurationFormatter.formatSeconds(
-                              original.duration!.inSeconds)
-                          : '--:--'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                            ? DurationFormatter.formatSeconds(
+                                original.duration!.inSeconds,
+                              )
+                            : '--:--'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -771,14 +774,19 @@ class _UnmatchedTrackTile extends ConsumerWidget {
           ),
 
           // 搜索结果列表 - 使用与已匹配相同的样式
-          ...searchResults.take(5).map((result) => _AlternativeTrackTile(
-                key: ValueKey(
-                    'alternative-search-${result.sourceType}:${result.sourceId}:${result.pageNum ?? result.cid ?? 0}'),
-                track: result,
-                isSelected:
-                    matchedTrack.selectedTrack?.sourceId == result.sourceId,
-                onSelect: () => onSelectTrack(result),
-              )),
+          ...searchResults
+              .take(5)
+              .map(
+                (result) => _AlternativeTrackTile(
+                  key: ValueKey(
+                    'alternative-search-${result.sourceType}:${result.sourceId}:${result.pageNum ?? result.cid ?? 0}',
+                  ),
+                  track: result,
+                  isSelected:
+                      matchedTrack.selectedTrack?.sourceId == result.sourceId,
+                  onSelect: () => onSelectTrack(result),
+                ),
+              ),
 
           // 无结果提示
           if (!isSearching && searchResults.isEmpty)
@@ -786,9 +794,9 @@ class _UnmatchedTrackTile extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
               child: Text(
                 t.library.importPreview.searchHelp,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
               ),
             ),
         ],
@@ -854,21 +862,24 @@ class _ImportMatchTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ),
                   // 播放数
                   if (track.viewCount != null) ...[
                     const SizedBox(width: 8),
-                    Icon(Icons.play_arrow,
-                        size: 14, color: colorScheme.outline),
+                    Icon(
+                      Icons.play_arrow,
+                      size: 14,
+                      color: colorScheme.outline,
+                    ),
                     const SizedBox(width: 2),
                     Text(
                       formatCount(track.viewCount!),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ],
                   // 音源标识（播放数右边，灰色）
@@ -888,9 +899,10 @@ class _ImportMatchTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onPrimaryContainer
-                            .withValues(alpha: 0.8),
-                      ),
+                    color: colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.8,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -904,9 +916,9 @@ class _ImportMatchTile extends StatelessWidget {
                   width: 48,
                   child: Text(
                     DurationFormatter.formatMs(track.durationMs!),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -927,13 +939,16 @@ class _ImportMatchTile extends StatelessWidget {
 
         // 展开的其他搜索结果列表
         if (isExpanded)
-          ...matchedTrack.searchResults.map((altTrack) => _AlternativeTrackTile(
-                key: ValueKey(
-                    'alternative-expanded-${altTrack.sourceType}:${altTrack.sourceId}:${altTrack.pageNum ?? altTrack.cid ?? 0}'),
-                track: altTrack,
-                isSelected: altTrack.sourceId == track.sourceId,
-                onSelect: () => onSelectAlternative(altTrack),
-              )),
+          ...matchedTrack.searchResults.map(
+            (altTrack) => _AlternativeTrackTile(
+              key: ValueKey(
+                'alternative-expanded-${altTrack.sourceType}:${altTrack.sourceId}:${altTrack.pageNum ?? altTrack.cid ?? 0}',
+              ),
+              track: altTrack,
+              isSelected: altTrack.sourceId == track.sourceId,
+              onSelect: () => onSelectAlternative(altTrack),
+            ),
+          ),
 
         const Divider(height: 1, indent: 72),
       ],
@@ -957,15 +972,20 @@ class _AlternativeTrackTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final playingTrack =
-        ref.watch(audioControllerProvider.select((s) => s.playingTrack));
-    final playerIsPlaying =
-        ref.watch(audioControllerProvider.select((s) => s.isPlaying));
-    final playerIsLoading =
-        ref.watch(audioControllerProvider.select((s) => s.isLoading));
-    final playerIsBuffering =
-        ref.watch(audioControllerProvider.select((s) => s.isBuffering));
-    final isThisTrackPlaying = playingTrack?.sourceId == track.sourceId &&
+    final playingTrack = ref.watch(
+      audioControllerProvider.select((s) => s.playingTrack),
+    );
+    final playerIsPlaying = ref.watch(
+      audioControllerProvider.select((s) => s.isPlaying),
+    );
+    final playerIsLoading = ref.watch(
+      audioControllerProvider.select((s) => s.isLoading),
+    );
+    final playerIsBuffering = ref.watch(
+      audioControllerProvider.select((s) => s.isBuffering),
+    );
+    final isThisTrackPlaying =
+        playingTrack?.sourceId == track.sourceId &&
         playingTrack?.pageNum == track.pageNum;
     final isLoading =
         isThisTrackPlaying && (playerIsLoading || playerIsBuffering);
@@ -976,17 +996,14 @@ class _AlternativeTrackTile extends ConsumerWidget {
       child: ListTile(
         dense: true,
         // 选中状态图标 + 小封面
-        leading: _AlternativeTrackLeading(
-          track: track,
-          isSelected: isSelected,
-        ),
+        leading: _AlternativeTrackLeading(track: track, isSelected: isSelected),
         title: Text(
           track.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isSelected ? colorScheme.primary : null,
-              ),
+            color: isSelected ? colorScheme.primary : null,
+          ),
         ),
         subtitle: Row(
           children: [
@@ -996,9 +1013,9 @@ class _AlternativeTrackTile extends ConsumerWidget {
                 track.artist ?? t.general.unknownArtist,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
               ),
             ),
             // 播放数
@@ -1008,9 +1025,9 @@ class _AlternativeTrackTile extends ConsumerWidget {
               const SizedBox(width: 2),
               Text(
                 formatCount(track.viewCount!),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
               ),
             ],
             // 音源标识（播放数右边，灰色）
@@ -1027,9 +1044,9 @@ class _AlternativeTrackTile extends ConsumerWidget {
                 width: 48,
                 child: Text(
                   DurationFormatter.formatMs(track.durationMs!),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -1068,8 +1085,8 @@ class _AlternativeTrackTile extends ConsumerWidget {
               tooltip: isLoading
                   ? t.library.importPreview.loadingTooltip
                   : (isPlaying
-                      ? t.library.importPreview.pauseTooltip
-                      : t.library.importPreview.previewTooltip),
+                        ? t.library.importPreview.pauseTooltip
+                        : t.library.importPreview.previewTooltip),
             ),
           ],
         ),

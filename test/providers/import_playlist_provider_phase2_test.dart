@@ -15,111 +15,114 @@ import 'package:riverpod/riverpod.dart';
 
 void main() {
   group('PlaylistImportState.selectedTracks', () {
-    test('copies selected tracks before writing original platform metadata',
-        () {
-      final selected = Track()
-        ..id = 42
-        ..sourceId = 'matched-bv'
-        ..sourceType = SourceIds.bilibili
-        ..title = 'Matched Song'
-        ..artist = 'Matched Artist';
+    test(
+      'copies selected tracks before writing original platform metadata',
+      () {
+        final selected = Track()
+          ..id = 42
+          ..sourceId = 'matched-bv'
+          ..sourceType = SourceIds.bilibili
+          ..title = 'Matched Song'
+          ..artist = 'Matched Artist';
 
-      final state = PlaylistImportState(
-        matchedTracks: [
-          MatchedTrack(
-            original: const ImportedTrack(
-              title: 'Original Song',
-              artists: ['Original Artist'],
-              sourceId: 'qq-songmid-1',
-              source: PlaylistSource.qqMusic,
-            ),
-            selectedTrack: selected,
-            status: MatchStatus.userSelected,
-          ),
-        ],
-      );
-
-      final tracks = state.selectedTracks;
-
-      expect(tracks, hasLength(1));
-      expect(identical(tracks.single, selected), isFalse);
-      expect(tracks.single.id, selected.id);
-      expect(tracks.single.sourceType, selected.sourceType);
-      expect(tracks.single.sourceId, selected.sourceId);
-      expect(tracks.single.originalSongId, 'qq-songmid-1');
-      expect(tracks.single.originalSource, 'qqmusic');
-      expect(selected.originalSongId, isNull);
-      expect(selected.originalSource, isNull);
-    });
-  });
-
-  group('import playlist provider phase 2', () {
-    test('legacy PlaylistImportNotifier ignores late importAndMatch results',
-        () async {
-      final service = _FakePlaylistImportService();
-      final notifier = _legacyNotifier(service);
-
-      final oldImport = service.enqueueImport(_playlistImportResult('old'));
-      final oldFuture = notifier.importAndMatch('https://example.com/old');
-      await pumpEventQueue(times: 2);
-
-      final newImport = service.enqueueImport(_playlistImportResult('new'));
-      final newFuture = notifier.importAndMatch('https://example.com/new');
-      await pumpEventQueue(times: 2);
-
-      oldImport.complete();
-      await oldFuture;
-
-      expect(notifier.state.isLoading, isTrue);
-      expect(notifier.state.playlist, isNull);
-
-      newImport.complete();
-      await newFuture;
-
-      expect(notifier.state.isLoading, isFalse);
-      expect(notifier.state.playlist?.name, 'new');
-    });
-
-    test('legacy PlaylistImportNotifier ignores late manualSearch results',
-        () async {
-      final service = _FakePlaylistImportService();
-      final notifier = _legacyNotifier(service);
-      notifier.setSeedState(
-        PlaylistImportState(
+        final state = PlaylistImportState(
           matchedTracks: [
             MatchedTrack(
               original: const ImportedTrack(
-                title: 'Original',
-                artists: ['Artist'],
+                title: 'Original Song',
+                artists: ['Original Artist'],
+                sourceId: 'qq-songmid-1',
+                source: PlaylistSource.qqMusic,
               ),
-              status: MatchStatus.noResult,
+              selectedTrack: selected,
+              status: MatchStatus.userSelected,
             ),
           ],
-        ),
-      );
+        );
 
-      final oldSearch = service.enqueueSearch([_track('old-manual')]);
-      final oldFuture = notifier.manualSearch(0, 'old query');
-      await pumpEventQueue(times: 2);
+        final tracks = state.selectedTracks;
 
-      final newSearch = service.enqueueSearch([_track('new-manual')]);
-      final newFuture = notifier.manualSearch(0, 'new query');
-      await pumpEventQueue(times: 2);
+        expect(tracks, hasLength(1));
+        expect(identical(tracks.single, selected), isFalse);
+        expect(tracks.single.id, selected.id);
+        expect(tracks.single.sourceType, selected.sourceType);
+        expect(tracks.single.sourceId, selected.sourceId);
+        expect(tracks.single.originalSongId, 'qq-songmid-1');
+        expect(tracks.single.originalSource, 'qqmusic');
+        expect(selected.originalSongId, isNull);
+        expect(selected.originalSource, isNull);
+      },
+    );
+  });
 
-      oldSearch.complete();
-      await oldFuture;
-      expect(
-        notifier.state.matchedTracks.single.selectedTrack,
-        isNull,
-      );
+  group('import playlist provider phase 2', () {
+    test(
+      'legacy PlaylistImportNotifier ignores late importAndMatch results',
+      () async {
+        final service = _FakePlaylistImportService();
+        final notifier = _legacyNotifier(service);
 
-      newSearch.complete();
-      await newFuture;
-      expect(
-        notifier.state.matchedTracks.single.selectedTrack?.sourceId,
-        'new-manual',
-      );
-    });
+        final oldImport = service.enqueueImport(_playlistImportResult('old'));
+        final oldFuture = notifier.importAndMatch('https://example.com/old');
+        await pumpEventQueue(times: 2);
+
+        final newImport = service.enqueueImport(_playlistImportResult('new'));
+        final newFuture = notifier.importAndMatch('https://example.com/new');
+        await pumpEventQueue(times: 2);
+
+        oldImport.complete();
+        await oldFuture;
+
+        expect(notifier.state.isLoading, isTrue);
+        expect(notifier.state.playlist, isNull);
+
+        newImport.complete();
+        await newFuture;
+
+        expect(notifier.state.isLoading, isFalse);
+        expect(notifier.state.playlist?.name, 'new');
+      },
+    );
+
+    test(
+      'legacy PlaylistImportNotifier ignores late manualSearch results',
+      () async {
+        final service = _FakePlaylistImportService();
+        final notifier = _legacyNotifier(service);
+        notifier.setSeedState(
+          PlaylistImportState(
+            matchedTracks: [
+              MatchedTrack(
+                original: const ImportedTrack(
+                  title: 'Original',
+                  artists: ['Artist'],
+                ),
+                status: MatchStatus.noResult,
+              ),
+            ],
+          ),
+        );
+
+        final oldSearch = service.enqueueSearch([_track('old-manual')]);
+        final oldFuture = notifier.manualSearch(0, 'old query');
+        await pumpEventQueue(times: 2);
+
+        final newSearch = service.enqueueSearch([_track('new-manual')]);
+        final newFuture = notifier.manualSearch(0, 'new query');
+        await pumpEventQueue(times: 2);
+
+        oldSearch.complete();
+        await oldFuture;
+        expect(notifier.state.matchedTracks.single.selectedTrack, isNull);
+
+        newSearch.complete();
+        await newFuture;
+        expect(
+          notifier.state.matchedTracks.single.selectedTrack?.sourceId,
+          'new-manual',
+        );
+      },
+    );
 
     test(
       'forwards progress and owns cancellation cleanup after listeners detach',
@@ -138,8 +141,9 @@ void main() {
           fireImmediately: true,
         );
 
-        final notifier =
-            container.read(importPlaylistProvider('phase2-test').notifier);
+        final notifier = container.read(
+          importPlaylistProvider('phase2-test').notifier,
+        );
         final importFuture = notifier.importFromUrl(
           'https://example.com/playlist?list=phase2',
           useAuth: true,
@@ -214,8 +218,9 @@ void main() {
         );
         addTearDown(subscription.close);
 
-        final notifier =
-            container.read(importPlaylistProvider('async-cancel').notifier);
+        final notifier = container.read(
+          importPlaylistProvider('async-cancel').notifier,
+        );
         final importFuture = notifier.importFromUrl(
           'https://example.com/playlist?list=async-cancel',
           useAuth: true,
@@ -248,104 +253,110 @@ void main() {
       },
     );
 
-    test('reset prevents a late import result from rewriting idle state',
-        () async {
-      final fakeService = FakeImportService();
-      final container = ProviderContainer(
-        overrides: [
-          importServiceFactoryProvider.overrideWithValue(() => fakeService),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'reset prevents a late import result from rewriting idle state',
+      () async {
+        final fakeService = FakeImportService();
+        final container = ProviderContainer(
+          overrides: [
+            importServiceFactoryProvider.overrideWithValue(() => fakeService),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final subscription = container.listen<ImportPlaylistState>(
-        importPlaylistProvider('reset-stale'),
-        (_, __) {},
-        fireImmediately: true,
-      );
-      addTearDown(subscription.close);
+        final subscription = container.listen<ImportPlaylistState>(
+          importPlaylistProvider('reset-stale'),
+          (_, __) {},
+          fireImmediately: true,
+        );
+        addTearDown(subscription.close);
 
-      final notifier =
-          container.read(importPlaylistProvider('reset-stale').notifier);
-      final importFuture = notifier.importFromUrl(
-        'https://example.com/playlist?list=reset-stale',
-      );
-      await Future<void>.delayed(Duration.zero);
+        final notifier = container.read(
+          importPlaylistProvider('reset-stale').notifier,
+        );
+        final importFuture = notifier.importFromUrl(
+          'https://example.com/playlist?list=reset-stale',
+        );
+        await Future<void>.delayed(Duration.zero);
 
-      notifier.reset();
-      fakeService.complete(_result('late result'));
-      await importFuture;
+        notifier.reset();
+        fakeService.complete(_result('late result'));
+        await importFuture;
 
-      final state = container.read(importPlaylistProvider('reset-stale'));
-      expect(state.isImporting, isFalse);
-      expect(state.result, isNull);
-      expect(state.errorMessage, isNull);
-      expect(state.wasCancelled, isFalse);
-    });
+        final state = container.read(importPlaylistProvider('reset-stale'));
+        expect(state.isImporting, isFalse);
+        expect(state.result, isNull);
+        expect(state.errorMessage, isNull);
+        expect(state.wasCancelled, isFalse);
+      },
+    );
 
-    test('new import ignores late progress and result from previous service',
-        () async {
-      final oldService = FakeImportService();
-      final newService = FakeImportService();
-      var createCount = 0;
-      final container = ProviderContainer(
-        overrides: [
-          importServiceFactoryProvider.overrideWithValue(() {
-            createCount++;
-            return createCount == 1 ? oldService : newService;
-          }),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'new import ignores late progress and result from previous service',
+      () async {
+        final oldService = FakeImportService();
+        final newService = FakeImportService();
+        var createCount = 0;
+        final container = ProviderContainer(
+          overrides: [
+            importServiceFactoryProvider.overrideWithValue(() {
+              createCount++;
+              return createCount == 1 ? oldService : newService;
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final subscription = container.listen<ImportPlaylistState>(
-        importPlaylistProvider('overlap-stale'),
-        (_, __) {},
-        fireImmediately: true,
-      );
-      addTearDown(subscription.close);
+        final subscription = container.listen<ImportPlaylistState>(
+          importPlaylistProvider('overlap-stale'),
+          (_, __) {},
+          fireImmediately: true,
+        );
+        addTearDown(subscription.close);
 
-      final notifier =
-          container.read(importPlaylistProvider('overlap-stale').notifier);
-      final oldFuture = notifier.importFromUrl(
-        'https://example.com/playlist?list=old',
-      );
-      await Future<void>.delayed(Duration.zero);
-      expect(oldService.importCalls, 1);
+        final notifier = container.read(
+          importPlaylistProvider('overlap-stale').notifier,
+        );
+        final oldFuture = notifier.importFromUrl(
+          'https://example.com/playlist?list=old',
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(oldService.importCalls, 1);
 
-      notifier.cancelImport();
-      final newFuture = notifier.importFromUrl(
-        'https://example.com/playlist?list=new',
-      );
-      await Future<void>.delayed(Duration.zero);
-      expect(newService.importCalls, 1);
+        notifier.cancelImport();
+        final newFuture = notifier.importFromUrl(
+          'https://example.com/playlist?list=new',
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(newService.importCalls, 1);
 
-      oldService.emit(
-        const ImportProgress(
-          status: ImportStatus.importing,
-          current: 1,
-          total: 1,
-          currentItem: 'old progress',
-        ),
-      );
-      oldService.complete(_result('old result'));
-      await oldFuture;
-      await Future<void>.delayed(Duration.zero);
+        oldService.emit(
+          const ImportProgress(
+            status: ImportStatus.importing,
+            current: 1,
+            total: 1,
+            currentItem: 'old progress',
+          ),
+        );
+        oldService.complete(_result('old result'));
+        await oldFuture;
+        await Future<void>.delayed(Duration.zero);
 
-      var state = container.read(importPlaylistProvider('overlap-stale'));
-      expect(state.isImporting, isTrue);
-      expect(state.progress.currentItem, isNull);
-      expect(state.result, isNull);
-      expect(state.wasCancelled, isFalse);
+        var state = container.read(importPlaylistProvider('overlap-stale'));
+        expect(state.isImporting, isTrue);
+        expect(state.progress.currentItem, isNull);
+        expect(state.result, isNull);
+        expect(state.wasCancelled, isFalse);
 
-      newService.complete(_result('new result'));
-      await newFuture;
+        newService.complete(_result('new result'));
+        await newFuture;
 
-      state = container.read(importPlaylistProvider('overlap-stale'));
-      expect(state.isImporting, isFalse);
-      expect(state.result!.playlist.name, 'new result');
-      expect(state.wasCancelled, isFalse);
-    });
+        state = container.read(importPlaylistProvider('overlap-stale'));
+        expect(state.isImporting, isFalse);
+        expect(state.result!.playlist.name, 'new result');
+        expect(state.wasCancelled, isFalse);
+      },
+    );
   });
 }
 
@@ -384,9 +395,9 @@ Track _track(String sourceId) {
 PlaylistImportNotifier _legacyNotifier(
   legacy_import.PlaylistImportService service,
 ) {
-  final container = ProviderContainer(overrides: [
-    playlistImportServiceProvider.overrideWith((ref) => service),
-  ]);
+  final container = ProviderContainer(
+    overrides: [playlistImportServiceProvider.overrideWith((ref) => service)],
+  );
   addTearDown(container.dispose);
   return container.read(playlistImportProvider.notifier);
 }

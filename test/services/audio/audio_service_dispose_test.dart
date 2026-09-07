@@ -70,154 +70,166 @@ void main() {
       }
     });
 
-    test('provider disposal does not double-dispose owned dependencies',
-        () async {
-      final audioService = _ThrowOnSecondDisposeAudioService();
-      final queueRepository = QueueRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final queueManager = _ThrowOnSecondDisposeQueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      final container = _createContainer(
-        isar: isar,
-        audioService: audioService,
-        queueManager: queueManager,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-
-      final controller = container.read(audioControllerProvider.notifier);
-      await controller.initialize();
-      await pumpEventQueue(times: 5);
-
-      expect(container.dispose, returnsNormally);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(audioService.initializeAfterDisposeCallCount, 0);
-      expect(queueManager.initializeAfterDisposeCallCount, 0);
-      expect(audioService.disposeCallCount, 1);
-      expect(queueManager.disposeCallCount, 1);
-    });
-
     test(
-        'provider disposal is safe when container is disposed before scheduled initialization runs',
-        () async {
-      final audioService = _ThrowOnSecondDisposeAudioService();
-      final queueRepository = QueueRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final queueManager = _ThrowOnSecondDisposeQueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      final container = _createContainer(
-        isar: isar,
-        audioService: audioService,
-        queueManager: queueManager,
-        queuePersistenceManager: queuePersistenceManager,
-      );
+      'provider disposal does not double-dispose owned dependencies',
+      () async {
+        final audioService = _ThrowOnSecondDisposeAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _ThrowOnSecondDisposeQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+        );
 
-      container.read(audioControllerProvider.notifier);
-      expect(container.dispose, returnsNormally);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(audioService.initializeAfterDisposeCallCount, 0);
-      expect(queueManager.initializeAfterDisposeCallCount, 0);
-      expect(audioService.disposeCallCount, 1);
-      expect(queueManager.disposeCallCount, 1);
-    });
-
-    test('lyrics setting changes do not dispose the audio controller',
-        () async {
-      final audioService = _RecordingLifecycleAudioService();
-      final queueRepository = QueueRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final queueManager = _RecordingLifecycleQueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      final plainLyricsSettingProvider =
-          NotifierProvider<_Flag, bool>(_Flag.new);
-      final container = _createContainer(
-        isar: isar,
-        audioService: audioService,
-        queueManager: queueManager,
-        queuePersistenceManager: queuePersistenceManager,
-        lyricsAutoMatchServiceFactory: (ref) {
-          ref.watch(plainLyricsSettingProvider);
-          return LyricsAutoMatchService(
-            lrclib: LrclibSource(),
-            netease: NeteaseSource(),
-            qqmusic: QQMusicSource(),
-            repo: LyricsRepository(isar),
-            cache: LyricsCacheService(),
-            parser: RegexTitleParser(),
-          );
-        },
-      );
-      final subscription = container.listen(
-        audioControllerProvider,
-        (_, __) {},
-        fireImmediately: true,
-      );
-
-      try {
         final controller = container.read(audioControllerProvider.notifier);
         await controller.initialize();
         await pumpEventQueue(times: 5);
 
-        container.read(plainLyricsSettingProvider.notifier).set(true);
-        await pumpEventQueue(times: 10);
+        expect(container.dispose, returnsNormally);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
 
-        expect(
-            container.read(audioControllerProvider.notifier), same(controller));
-        expect(audioService.disposeCallCount, 0);
-        expect(queueManager.disposeCallCount, 0);
         expect(audioService.initializeAfterDisposeCallCount, 0);
         expect(queueManager.initializeAfterDisposeCallCount, 0);
-      } finally {
-        subscription.close();
-        container.dispose();
-      }
-    });
+        expect(audioService.disposeCallCount, 1);
+        expect(queueManager.disposeCallCount, 1);
+      },
+    );
 
-    test('just audio dispose is safe before initialization and on repeat calls',
-        () async {
-      final service = JustAudioService();
+    test(
+      'provider disposal is safe when container is disposed before scheduled initialization runs',
+      () async {
+        final audioService = _ThrowOnSecondDisposeAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _ThrowOnSecondDisposeQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+        );
 
-      await service.dispose();
-      await service.dispose();
-    });
+        container.read(audioControllerProvider.notifier);
+        expect(container.dispose, returnsNormally);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
 
-    test('media kit dispose is safe before initialization and on repeat calls',
-        () async {
-      final service = MediaKitAudioService();
+        expect(audioService.initializeAfterDisposeCallCount, 0);
+        expect(queueManager.initializeAfterDisposeCallCount, 0);
+        expect(audioService.disposeCallCount, 1);
+        expect(queueManager.disposeCallCount, 1);
+      },
+    );
 
-      await service.dispose();
-      await service.dispose();
-    });
+    test(
+      'lyrics setting changes do not dispose the audio controller',
+      () async {
+        final audioService = _RecordingLifecycleAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _RecordingLifecycleQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final plainLyricsSettingProvider = NotifierProvider<_Flag, bool>(
+          _Flag.new,
+        );
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+          lyricsAutoMatchServiceFactory: (ref) {
+            ref.watch(plainLyricsSettingProvider);
+            return LyricsAutoMatchService(
+              lrclib: LrclibSource(),
+              netease: NeteaseSource(),
+              qqmusic: QQMusicSource(),
+              repo: LyricsRepository(isar),
+              cache: LyricsCacheService(),
+              parser: RegexTitleParser(),
+            );
+          },
+        );
+        final subscription = container.listen(
+          audioControllerProvider,
+          (_, __) {},
+          fireImmediately: true,
+        );
+
+        try {
+          final controller = container.read(audioControllerProvider.notifier);
+          await controller.initialize();
+          await pumpEventQueue(times: 5);
+
+          container.read(plainLyricsSettingProvider.notifier).set(true);
+          await pumpEventQueue(times: 10);
+
+          expect(
+            container.read(audioControllerProvider.notifier),
+            same(controller),
+          );
+          expect(audioService.disposeCallCount, 0);
+          expect(queueManager.disposeCallCount, 0);
+          expect(audioService.initializeAfterDisposeCallCount, 0);
+          expect(queueManager.initializeAfterDisposeCallCount, 0);
+        } finally {
+          subscription.close();
+          container.dispose();
+        }
+      },
+    );
+
+    test(
+      'just audio dispose is safe before initialization and on repeat calls',
+      () async {
+        final service = JustAudioService();
+
+        await service.dispose();
+        await service.dispose();
+      },
+    );
+
+    test(
+      'media kit dispose is safe before initialization and on repeat calls',
+      () async {
+        final service = MediaKitAudioService();
+
+        await service.dispose();
+        await service.dispose();
+      },
+    );
   });
 }
 
@@ -233,30 +245,30 @@ ProviderContainer _createContainer({
       audioServiceProvider.overrideWith((ref) => audioService),
       nowPlayingPublisherProvider.overrideWithValue(testNowPlayingPublisher()),
       queueManagerProvider.overrideWith((ref) => queueManager),
-      queuePersistenceManagerProvider
-          .overrideWith((ref) => queuePersistenceManager),
-      audioStreamManagerProvider.overrideWith(
-        (ref) {
-          final settingsRepository = SettingsRepository(isar);
-          final sourceManager = SourceManager();
-          final sourceAuthContext = _FakeSourceAuthContext();
-          final streamResolutionService = DefaultStreamResolutionService(
-            trackRepository: TrackRepository(isar),
-            settingsRepository: settingsRepository,
-            sourceManager: sourceManager,
-            sourceAuthContext: sourceAuthContext,
-          );
-          ref.onDispose(streamResolutionService.dispose);
-          ref.onDispose(sourceManager.dispose);
-          return AudioStreamManager(
-            streamResolutionService: streamResolutionService,
-            sourceAuthContext: sourceAuthContext,
-          );
-        },
+      queuePersistenceManagerProvider.overrideWith(
+        (ref) => queuePersistenceManager,
       ),
+      audioStreamManagerProvider.overrideWith((ref) {
+        final settingsRepository = SettingsRepository(isar);
+        final sourceManager = SourceManager();
+        final sourceAuthContext = _FakeSourceAuthContext();
+        final streamResolutionService = DefaultStreamResolutionService(
+          trackRepository: TrackRepository(isar),
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+          sourceAuthContext: sourceAuthContext,
+        );
+        ref.onDispose(streamResolutionService.dispose);
+        ref.onDispose(sourceManager.dispose);
+        return AudioStreamManager(
+          streamResolutionService: streamResolutionService,
+          sourceAuthContext: sourceAuthContext,
+        );
+      }),
       connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
-      settingsRepositoryProvider
-          .overrideWith((ref) => SettingsRepository(isar)),
+      settingsRepositoryProvider.overrideWith(
+        (ref) => SettingsRepository(isar),
+      ),
       playHistoryRepositoryProvider.overrideWith(
         (ref) => PlayHistoryRepository(isar),
       ),
@@ -266,13 +278,13 @@ ProviderContainer _createContainer({
       lyricsAutoMatchServiceProvider.overrideWith(
         lyricsAutoMatchServiceFactory ??
             (ref) => LyricsAutoMatchService(
-                  lrclib: LrclibSource(),
-                  netease: NeteaseSource(),
-                  qqmusic: QQMusicSource(),
-                  repo: LyricsRepository(isar),
-                  cache: LyricsCacheService(),
-                  parser: RegexTitleParser(),
-                ),
+              lrclib: LrclibSource(),
+              netease: NeteaseSource(),
+              qqmusic: QQMusicSource(),
+              repo: LyricsRepository(isar),
+              cache: LyricsCacheService(),
+              parser: RegexTitleParser(),
+            ),
       ),
     ],
   );

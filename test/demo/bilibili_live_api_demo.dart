@@ -25,15 +25,17 @@ void main(List<String> args) async {
   print('測試房間號: $roomId');
   print('=' * 60);
 
-  dio = Dio(BaseOptions(
-    headers: {
-      'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': 'https://live.bilibili.com/',
-    },
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-  ));
+  dio = Dio(
+    BaseOptions(
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://live.bilibili.com/',
+      },
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ),
+  );
 
   // 先獲取真實房間號
   final realRoomId = await getRealRoomId(roomId);
@@ -252,10 +254,7 @@ Future<void> testGetRoomBaseInfo(String roomId) async {
   try {
     final response = await dio.get(
       'https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo',
-      queryParameters: {
-        'room_ids': roomId,
-        'req_biz': 'link-center',
-      },
+      queryParameters: {'room_ids': roomId, 'req_biz': 'link-center'},
     );
 
     print('響應碼: ${response.data['code']}');
@@ -383,13 +382,10 @@ Future<void> testWebSocket(String roomId) async {
               print('  [心跳] 已發送初始心跳');
 
               // 開始定時心跳
-              heartbeatTimer = Timer.periodic(
-                const Duration(seconds: 30),
-                (_) {
-                  ws.add(_buildHeartbeatPacket());
-                  print('  [心跳] 已發送');
-                },
-              );
+              heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+                ws.add(_buildHeartbeatPacket());
+                print('  [心跳] 已發送');
+              });
             } else if (packet['op'] == 3) {
               // 心跳回應，包含人氣值
               final popularity = packet['body'];
@@ -410,7 +406,8 @@ Future<void> testWebSocket(String roomId) async {
                   // 禮物
                   final data = body['data'];
                   print(
-                      '  [禮物] ${data['uname']} 送出 ${data['giftName']} x${data['num']}');
+                    '  [禮物] ${data['uname']} 送出 ${data['giftName']} x${data['num']}',
+                  );
                 } else if (cmd == 'INTERACT_WORD') {
                   // 用戶進入
                   final data = body['data'];
@@ -423,12 +420,14 @@ Future<void> testWebSocket(String roomId) async {
                   // 在線排名
                   final data = body['data'];
                   print(
-                      '  ⭐ [在線排名] online_list 人數: ${(data['online_list'] as List?)?.length}');
+                    '  ⭐ [在線排名] online_list 人數: ${(data['online_list'] as List?)?.length}',
+                  );
                 } else if (cmd == 'WATCHED_CHANGE') {
                   // 觀看人數變化
                   final data = body['data'];
                   print(
-                      '  ⭐ [觀看人數] num: ${data['num']}, text_small: ${data['text_small']}');
+                    '  ⭐ [觀看人數] num: ${data['num']}, text_small: ${data['text_small']}',
+                  );
                 } else if (cmd == 'LIKE_INFO_V3_UPDATE') {
                   // 點讚數更新
                   final data = body['data'];
@@ -531,8 +530,10 @@ List<Map<String, dynamic>> _parsePackets(Uint8List data) {
     if (operation == 3) {
       // 心跳回應，body 是 4 字節的人氣值
       if (bodyData.length >= 4) {
-        body = ByteData.view(bodyData.buffer, bodyData.offsetInBytes)
-            .getUint32(0, Endian.big);
+        body = ByteData.view(
+          bodyData.buffer,
+          bodyData.offsetInBytes,
+        ).getUint32(0, Endian.big);
       }
     } else if (operation == 5) {
       // 普通消息
@@ -559,11 +560,7 @@ List<Map<String, dynamic>> _parsePackets(Uint8List data) {
       body = 'AUTH_SUCCESS';
     }
 
-    packets.add({
-      'op': operation,
-      'ver': protocolVersion,
-      'body': body,
-    });
+    packets.add({'op': operation, 'ver': protocolVersion, 'body': body});
 
     offset += totalLength;
   }

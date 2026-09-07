@@ -5,15 +5,14 @@ import 'remote_playlist_edit_planner.dart';
 import 'remote_playlist_edit_result.dart';
 import 'remote_playlist_id_parser.dart';
 
-typedef RefreshMatchingImportedPlaylists = Future<void> Function({
-  required String sourceType,
-  required Iterable<String> remotePlaylistIds,
-});
+typedef RefreshMatchingImportedPlaylists =
+    Future<void> Function({
+      required String sourceType,
+      required Iterable<String> remotePlaylistIds,
+    });
 
-typedef RemoveTracksFromLocalPlaylist = Future<bool> Function(
-  int playlistId,
-  List<int> trackIds,
-);
+typedef RemoveTracksFromLocalPlaylist =
+    Future<bool> Function(int playlistId, List<int> trackIds);
 
 typedef IsRemoteSourceLoggedIn = bool Function(String sourceType);
 
@@ -86,10 +85,7 @@ class RemotePlaylistEditController {
       isLoggedIn: isLoggedIn,
     );
 
-    final result = await _submitPlan(
-      plan,
-      localRemovalPlaylistId: playlist.id,
-    );
+    final result = await _submitPlan(plan, localRemovalPlaylistId: playlist.id);
     return result;
   }
 
@@ -220,10 +216,7 @@ class RemotePlaylistEditController {
     }
   }
 
-  String _sourceTypeForImportedPlaylist(
-    Playlist playlist,
-    List<Track> tracks,
-  ) {
+  String _sourceTypeForImportedPlaylist(Playlist playlist, List<Track> tracks) {
     final sourceType = playlist.importSourceType;
     if (sourceType != null) return sourceType;
     if (tracks.isNotEmpty) return tracks.first.sourceType;
@@ -239,11 +232,12 @@ class RemotePlaylistEditController {
 }
 
 typedef GetBilibiliVideoAid = Future<int> Function(Track track);
-typedef UpdateBilibiliVideoFavorites = Future<void> Function({
-  required int videoAid,
-  List<int> addFolderIds,
-  List<int> removeFolderIds,
-});
+typedef UpdateBilibiliVideoFavorites =
+    Future<void> Function({
+      required int videoAid,
+      List<int> addFolderIds,
+      List<int> removeFolderIds,
+    });
 
 class BilibiliRemotePlaylistEditAdapter implements RemotePlaylistEditAdapter {
   final GetBilibiliVideoAid getVideoAid;
@@ -265,7 +259,8 @@ class BilibiliRemotePlaylistEditAdapter implements RemotePlaylistEditAdapter {
       final invalidPlaylistIds = <String>[];
 
       for (final playlistId in plan.playlistIdsToAdd) {
-        final existingIds = plan.existingTrackSourceIdsByPlaylist[playlistId] ??
+        final existingIds =
+            plan.existingTrackSourceIdsByPlaylist[playlistId] ??
             const <String>{};
         if (existingIds.contains(track.sourceId)) continue;
 
@@ -322,19 +317,12 @@ class BilibiliRemotePlaylistEditAdapter implements RemotePlaylistEditAdapter {
   }
 }
 
-typedef AddYouTubeVideoToPlaylist = Future<void> Function(
-  String playlistId,
-  String videoId,
-);
-typedef GetYouTubeSetVideoId = Future<String?> Function(
-  String playlistId,
-  String videoId,
-);
-typedef RemoveYouTubeVideoFromPlaylist = Future<void> Function(
-  String playlistId,
-  String videoId,
-  String setVideoId,
-);
+typedef AddYouTubeVideoToPlaylist =
+    Future<void> Function(String playlistId, String videoId);
+typedef GetYouTubeSetVideoId =
+    Future<String?> Function(String playlistId, String videoId);
+typedef RemoveYouTubeVideoFromPlaylist =
+    Future<void> Function(String playlistId, String videoId, String setVideoId);
 
 class YouTubeRemotePlaylistEditAdapter implements RemotePlaylistEditAdapter {
   final AddYouTubeVideoToPlaylist addToPlaylist;
@@ -388,14 +376,10 @@ class YouTubeRemotePlaylistEditAdapter implements RemotePlaylistEditAdapter {
   }
 }
 
-typedef AddNeteaseTracksToPlaylist = Future<void> Function(
-  String playlistId,
-  List<String> trackIds,
-);
-typedef RemoveNeteaseTracksFromPlaylist = Future<void> Function(
-  String playlistId,
-  List<String> trackIds,
-);
+typedef AddNeteaseTracksToPlaylist =
+    Future<void> Function(String playlistId, List<String> trackIds);
+typedef RemoveNeteaseTracksFromPlaylist =
+    Future<void> Function(String playlistId, List<String> trackIds);
 
 class NeteaseRemotePlaylistEditAdapter implements RemotePlaylistEditAdapter {
   final AddNeteaseTracksToPlaylist addTracksToPlaylist;
@@ -498,11 +482,13 @@ class _RemotePlaylistEditResultBuilder {
   }
 
   void addFailure(int trackId, String remotePlaylistId, Object error) {
-    _failures.add(RemotePlaylistEditFailure(
-      trackId: trackId,
-      remotePlaylistId: remotePlaylistId,
-      error: error,
-    ));
+    _failures.add(
+      RemotePlaylistEditFailure(
+        trackId: trackId,
+        remotePlaylistId: remotePlaylistId,
+        error: error,
+      ),
+    );
   }
 
   void markChanged(Iterable<String> playlistIds) {
@@ -513,12 +499,14 @@ class _RemotePlaylistEditResultBuilder {
     return RemotePlaylistEditResult(
       sourceType: sourceType,
       confirmedAddedTrackIds: _confirmedAddedTrackIds.toList(growable: false),
-      confirmedRemovedTrackIds:
-          _confirmedRemovedTrackIds.toList(growable: false),
+      confirmedRemovedTrackIds: _confirmedRemovedTrackIds.toList(
+        growable: false,
+      ),
       skippedTrackIds: _skippedTrackIds.toList(growable: false),
       failures: _failures,
-      changedRemotePlaylistIds:
-          _changedRemotePlaylistIds.toList(growable: false),
+      changedRemotePlaylistIds: _changedRemotePlaylistIds.toList(
+        growable: false,
+      ),
     );
   }
 }

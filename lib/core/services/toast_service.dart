@@ -8,12 +8,7 @@ import '../errors/user_message.dart';
 import '../logger.dart';
 
 /// Toast 消息类型
-enum ToastType {
-  info,
-  success,
-  warning,
-  error,
-}
+enum ToastType { info, success, warning, error }
 
 /// Toast 消息（用于 Stream 传递）
 class ToastMessage {
@@ -21,10 +16,8 @@ class ToastMessage {
   final ToastType type;
   final DateTime timestamp;
 
-  ToastMessage({
-    required this.message,
-    this.type = ToastType.info,
-  }) : timestamp = DateTime.now();
+  ToastMessage({required this.message, this.type = ToastType.info})
+    : timestamp = DateTime.now();
 }
 
 /// 统一的消息提示服务
@@ -60,26 +53,30 @@ class ToastService {
 
   /// 发送普通消息到流
   void showInfo(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.info));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.info),
+    );
   }
 
   /// 发送成功消息到流
   void showSuccess(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.success));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.success),
+    );
   }
 
   /// 发送警告消息到流
   void showWarning(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.warning));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.warning),
+    );
   }
 
   /// 发送错误消息到流
   void showError(String message) {
-    _messageController
-        .add(ToastMessage(message: message, type: ToastType.error));
+    _messageController.add(
+      ToastMessage(message: message, type: ToastType.error),
+    );
   }
 
   void dispose() {
@@ -117,14 +114,12 @@ class ToastService {
           Icon(icon, color: Colors.white, size: 20),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(message, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
-      duration: duration ??
+      duration:
+          duration ??
           (type == ToastType.error || type == ToastType.warning
               ? ToastDurations.long
               : ToastDurations.short),
@@ -141,8 +136,11 @@ class ToastService {
   }
 
   /// 显示成功消息
-  static void success(BuildContext context, String message,
-      {Duration? duration}) {
+  static void success(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
     showSnackBarNow(
       context,
       buildSnackBar(
@@ -155,8 +153,11 @@ class ToastService {
   }
 
   /// 显示错误消息
-  static void error(BuildContext context, String message,
-      {Duration? duration}) {
+  static void error(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
     showSnackBarNow(
       context,
       buildSnackBar(
@@ -189,8 +190,11 @@ class ToastService {
   }
 
   /// 显示警告消息
-  static void warning(BuildContext context, String message,
-      {Duration? duration}) {
+  static void warning(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
     showSnackBarNow(
       context,
       buildSnackBar(
@@ -216,20 +220,14 @@ class ToastService {
         context,
         message: message,
         duration: duration,
-        action: SnackBarAction(
-          label: actionLabel,
-          onPressed: onAction,
-        ),
+        action: SnackBarAction(label: actionLabel, onPressed: onAction),
       ),
     );
   }
 
   /// 立即显示 [snackBar]，替换当前可见或排队中的 Toast。
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
-      showSnackBarNow(
-    BuildContext context,
-    SnackBar snackBar,
-  ) {
+  showSnackBarNow(BuildContext context, SnackBar snackBar) {
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
     messenger.removeCurrentSnackBar();
@@ -242,7 +240,7 @@ class ToastService {
   /// pop 之后原 BuildContext 已失效，无法再透过 `ScaffoldMessenger.of`
   /// 取得 messenger。清除/替换语义与 [showSnackBarNow] 一致。
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
-      showSnackBarWithMessenger(
+  showSnackBarWithMessenger(
     ScaffoldMessengerState messenger,
     SnackBar snackBar,
   ) {

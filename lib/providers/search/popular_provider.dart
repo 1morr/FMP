@@ -87,15 +87,17 @@ class RankingState {
 /// 排行榜 Provider
 final rankingVideosProvider =
     NotifierProvider<RankingVideosNotifier, RankingState>(
-        RankingVideosNotifier.new);
+      RankingVideosNotifier.new,
+    );
 
 class RankingVideosNotifier extends Notifier<RankingState> {
   late RankingSource _source;
 
   @override
   RankingState build() {
-    final source =
-        ref.watch(sourceManagerProvider).rankingSource(SourceIds.bilibili);
+    final source = ref
+        .watch(sourceManagerProvider)
+        .rankingSource(SourceIds.bilibili);
     if (source == null) {
       throw StateError('Bilibili ranking source not registered');
     }
@@ -112,7 +114,10 @@ class RankingVideosNotifier extends Notifier<RankingState> {
     }
 
     state = state.copyWith(
-        isLoading: true, selectedCategory: category, error: null);
+      isLoading: true,
+      selectedCategory: category,
+      error: null,
+    );
 
     try {
       final tracks = await _source.getRankingTracks(
@@ -125,8 +130,12 @@ class RankingVideosNotifier extends Notifier<RankingState> {
     } catch (e, stack) {
       state = state.copyWith(
         isLoading: false,
-        error: failureMessage(e, stack, 'Loading the popular list failed',
-            tag: 'Popular'),
+        error: failureMessage(
+          e,
+          stack,
+          'Loading the popular list failed',
+          tag: 'Popular',
+        ),
       );
     }
   }
@@ -198,15 +207,17 @@ class YouTubeTrendingState {
 /// YouTube 熱門 Provider
 final youtubeTrendingProvider =
     NotifierProvider<YouTubeTrendingNotifier, YouTubeTrendingState>(
-        YouTubeTrendingNotifier.new);
+      YouTubeTrendingNotifier.new,
+    );
 
 class YouTubeTrendingNotifier extends Notifier<YouTubeTrendingState> {
   late RankingSource _source;
 
   @override
   YouTubeTrendingState build() {
-    final source =
-        ref.watch(sourceManagerProvider).rankingSource(SourceIds.youtube);
+    final source = ref
+        .watch(sourceManagerProvider)
+        .rankingSource(SourceIds.youtube);
     if (source == null) {
       throw StateError('YouTube ranking source not registered');
     }
@@ -223,7 +234,10 @@ class YouTubeTrendingNotifier extends Notifier<YouTubeTrendingState> {
     }
 
     state = state.copyWith(
-        isLoading: true, selectedCategory: category, error: null);
+      isLoading: true,
+      selectedCategory: category,
+      error: null,
+    );
 
     try {
       final tracks = await _source.getRankingTracks(
@@ -236,8 +250,12 @@ class YouTubeTrendingNotifier extends Notifier<YouTubeTrendingState> {
     } catch (e, stack) {
       state = state.copyWith(
         isLoading: false,
-        error: failureMessage(e, stack, 'Loading the popular list failed',
-            tag: 'Popular'),
+        error: failureMessage(
+          e,
+          stack,
+          'Loading the popular list failed',
+          tag: 'Popular',
+        ),
       );
     }
   }

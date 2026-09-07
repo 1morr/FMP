@@ -159,9 +159,11 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
         }
 
         // 提取 refresh_token
-        final refreshToken = await controller.evaluateJavascript(
-          source: "localStorage.getItem('ac_time_value')",
-        ) as String?;
+        final refreshToken =
+            await controller.evaluateJavascript(
+                  source: "localStorage.getItem('ac_time_value')",
+                )
+                as String?;
 
         final accountService = ref.read(bilibiliAccountServiceProvider);
         await accountService.loginWithCookies(
@@ -269,34 +271,40 @@ class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
     _pollSubscription?.cancel();
     final accountService = ref.read(bilibiliAccountServiceProvider);
 
-    _pollSubscription = accountService.pollQrCodeStatus(qrcodeKey).listen(
-      (result) async {
-        if (!mounted) return;
-
-        setState(() => _status = result.status);
-        if (result.message?.isNotEmpty == true &&
-            result.status == QrCodeStatus.expired) {
-          ToastService.error(context, result.message!);
-        }
-
-        if (result.status == QrCodeStatus.success) {
-          try {
-            await accountService.fetchAndUpdateUserInfo();
-            widget.onLoginSuccess();
-          } catch (e) {
+    _pollSubscription = accountService
+        .pollQrCodeStatus(qrcodeKey)
+        .listen(
+          (result) async {
             if (!mounted) return;
-            setState(() => _status = QrCodeStatus.waiting);
-            ToastService.failure(context, e, tag: 'BilibiliLogin');
-          }
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        if (!mounted) return;
-        setState(() => _status = QrCodeStatus.expired);
-        ToastService.failure(context, error,
-            stackTrace: stackTrace, tag: 'BilibiliLogin');
-      },
-    );
+
+            setState(() => _status = result.status);
+            if (result.message?.isNotEmpty == true &&
+                result.status == QrCodeStatus.expired) {
+              ToastService.error(context, result.message!);
+            }
+
+            if (result.status == QrCodeStatus.success) {
+              try {
+                await accountService.fetchAndUpdateUserInfo();
+                widget.onLoginSuccess();
+              } catch (e) {
+                if (!mounted) return;
+                setState(() => _status = QrCodeStatus.waiting);
+                ToastService.failure(context, e, tag: 'BilibiliLogin');
+              }
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!mounted) return;
+            setState(() => _status = QrCodeStatus.expired);
+            ToastService.failure(
+              context,
+              error,
+              stackTrace: stackTrace,
+              tag: 'BilibiliLogin',
+            );
+          },
+        );
   }
 
   @override

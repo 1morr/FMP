@@ -55,7 +55,7 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/some/path/audio.m4a'
+              ..downloadPath = '/some/path/audio.m4a',
           ];
 
         // Empty set = no files exist
@@ -71,38 +71,40 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/some/path/audio.m4a'
+              ..downloadPath = '/some/path/audio.m4a',
           ];
 
-        final cache = _cache({
-          p.join('/some/path', 'cover.jpg'),
-        });
-        expect(track.getLocalCoverPath(cache),
-            equals(p.join('/some/path', 'cover.jpg')));
+        final cache = _cache({p.join('/some/path', 'cover.jpg')});
+        expect(
+          track.getLocalCoverPath(cache),
+          equals(p.join('/some/path', 'cover.jpg')),
+        );
       });
 
-      test('returns first existing cover path from multiple download paths',
-          () {
-        final track = Track()
-          ..sourceId = 'test123'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Test Track'
-          ..playlistInfo = [
-            PlaylistDownloadInfo()
-              ..playlistId = 0
-              ..downloadPath = '/path1/audio.m4a',
-            PlaylistDownloadInfo()
-              ..playlistId = 1
-              ..downloadPath = '/path2/audio.m4a',
-          ];
+      test(
+        'returns first existing cover path from multiple download paths',
+        () {
+          final track = Track()
+            ..sourceId = 'test123'
+            ..sourceType = SourceIds.bilibili
+            ..title = 'Test Track'
+            ..playlistInfo = [
+              PlaylistDownloadInfo()
+                ..playlistId = 0
+                ..downloadPath = '/path1/audio.m4a',
+              PlaylistDownloadInfo()
+                ..playlistId = 1
+                ..downloadPath = '/path2/audio.m4a',
+            ];
 
-        // Only /path2/cover.jpg exists
-        final cache = _cache({
-          p.join('/path2', 'cover.jpg'),
-        });
-        expect(track.getLocalCoverPath(cache),
-            equals(p.join('/path2', 'cover.jpg')));
-      });
+          // Only /path2/cover.jpg exists
+          final cache = _cache({p.join('/path2', 'cover.jpg')});
+          expect(
+            track.getLocalCoverPath(cache),
+            equals(p.join('/path2', 'cover.jpg')),
+          );
+        },
+      );
     });
 
     group('getLocalAvatarPath', () {
@@ -160,12 +162,10 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/downloads/video/audio.m4a'
+              ..downloadPath = '/downloads/video/audio.m4a',
           ];
 
-        final cache = _cache({
-          p.join('/downloads/video', 'avatar.jpg'),
-        });
+        final cache = _cache({p.join('/downloads/video', 'avatar.jpg')});
         expect(
           track.getLocalAvatarPath(cache, baseDir: '/downloads'),
           equals(p.join('/downloads/video', 'avatar.jpg')),
@@ -181,12 +181,10 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/downloads/video/audio.m4a'
+              ..downloadPath = '/downloads/video/audio.m4a',
           ];
 
-        final cache = _cache({
-          p.join('/downloads/video', 'avatar.jpg'),
-        });
+        final cache = _cache({p.join('/downloads/video', 'avatar.jpg')});
         expect(
           track.getLocalAvatarPath(cache, baseDir: '/downloads'),
           equals(p.join('/downloads/video', 'avatar.jpg')),
@@ -284,7 +282,7 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = '/non/existent/path/audio.m4a'
+              ..downloadPath = '/non/existent/path/audio.m4a',
           ];
 
         expect(track.localAudioPath, isNull);
@@ -308,7 +306,7 @@ void main() {
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
-              ..downloadPath = audioPath
+              ..downloadPath = audioPath,
           ];
 
         expect(track.localAudioPath, equals(audioPath));
@@ -343,9 +341,11 @@ void main() {
 }
 
 TestFileExistsCache _cache(Set<String> initial) {
-  final container = ProviderContainer(overrides: [
-    fileExistsCacheProvider.overrideWith(() => TestFileExistsCache(initial)),
-  ]);
+  final container = ProviderContainer(
+    overrides: [
+      fileExistsCacheProvider.overrideWith(() => TestFileExistsCache(initial)),
+    ],
+  );
   addTearDown(container.dispose);
   return container.read(fileExistsCacheProvider.notifier)
       as TestFileExistsCache;

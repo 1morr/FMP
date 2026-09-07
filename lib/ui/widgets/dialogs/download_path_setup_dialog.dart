@@ -81,7 +81,11 @@ class _DownloadPathSetupDialogState
       }
     } catch (e, stack) {
       AppLogger.error(
-          'Saving the download path failed', e, stack, 'DownloadPath');
+        'Saving the download path failed',
+        e,
+        stack,
+        'DownloadPath',
+      );
       if (mounted) {
         setState(() => _isSelecting = false);
         ToastService.error(

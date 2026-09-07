@@ -12,72 +12,77 @@ void main() {
     LocaleSettings.setLocale(AppLocale.en);
   });
 
-  test('createStationFromUrl maps live client room info to RadioStation',
-      () async {
-    final client = _FakeLiveClient(
-      parseResult: const BilibiliLiveUrlParseResult(
-        roomId: '123',
-        normalizedUrl: 'https://live.bilibili.com/123',
-      ),
-      roomDetails: BilibiliLiveRoomDetails(
-        roomId: '456',
-        title: 'Live title',
-        thumbnailUrl: 'https://i0.hdslb.com/cover.jpg',
-        hostName: 'Host',
-        hostAvatarUrl: 'https://i0.hdslb.com/avatar.jpg',
-        hostUid: 789,
-        viewerCount: 1000,
-        liveStartTime: DateTime(2024, 1, 2, 3, 4, 5),
-        isLive: true,
-        description: 'Room description',
-        tags: 'music',
-        announcement: 'Room announcement',
-        areaName: 'Singing',
-        parentAreaName: 'Entertainment',
-      ),
-    );
-    final source = RadioSource(liveClient: client);
-    addTearDown(source.dispose);
+  test(
+    'createStationFromUrl maps live client room info to RadioStation',
+    () async {
+      final client = _FakeLiveClient(
+        parseResult: const BilibiliLiveUrlParseResult(
+          roomId: '123',
+          normalizedUrl: 'https://live.bilibili.com/123',
+        ),
+        roomDetails: BilibiliLiveRoomDetails(
+          roomId: '456',
+          title: 'Live title',
+          thumbnailUrl: 'https://i0.hdslb.com/cover.jpg',
+          hostName: 'Host',
+          hostAvatarUrl: 'https://i0.hdslb.com/avatar.jpg',
+          hostUid: 789,
+          viewerCount: 1000,
+          liveStartTime: DateTime(2024, 1, 2, 3, 4, 5),
+          isLive: true,
+          description: 'Room description',
+          tags: 'music',
+          announcement: 'Room announcement',
+          areaName: 'Singing',
+          parentAreaName: 'Entertainment',
+        ),
+      );
+      final source = RadioSource(liveClient: client);
+      addTearDown(source.dispose);
 
-    final station =
-        await source.createStationFromUrl('https://live.bilibili.com/123');
+      final station = await source.createStationFromUrl(
+        'https://live.bilibili.com/123',
+      );
 
-    expect(client.parsedUrls, ['https://live.bilibili.com/123']);
-    expect(client.roomInfoLookups, ['123']);
-    expect(station.url, 'https://live.bilibili.com/123');
-    expect(station.sourceType, SourceIds.bilibili);
-    expect(station.sourceId, '123');
-    expect(station.title, 'Live title');
-    expect(station.thumbnailUrl, 'https://i0.hdslb.com/cover.jpg');
-    expect(station.hostName, 'Host');
-    expect(station.hostAvatarUrl, 'https://i0.hdslb.com/avatar.jpg');
-    expect(station.hostUid, 789);
+      expect(client.parsedUrls, ['https://live.bilibili.com/123']);
+      expect(client.roomInfoLookups, ['123']);
+      expect(station.url, 'https://live.bilibili.com/123');
+      expect(station.sourceType, SourceIds.bilibili);
+      expect(station.sourceId, '123');
+      expect(station.title, 'Live title');
+      expect(station.thumbnailUrl, 'https://i0.hdslb.com/cover.jpg');
+      expect(station.hostName, 'Host');
+      expect(station.hostAvatarUrl, 'https://i0.hdslb.com/avatar.jpg');
+      expect(station.hostUid, 789);
 
-    source.dispose();
-    expect(client.disposed, isFalse);
-  });
+      source.dispose();
+      expect(client.disposed, isFalse);
+    },
+  );
 
-  test('getStreamUrl maps live client stream and preserves live headers',
-      () async {
-    final headers = SourceHttpPolicy.bilibiliLiveHeaders();
-    final expiresAt = DateTime(2024, 2, 3, 4, 5, 6);
-    final client = _FakeLiveClient(
-      stream: BilibiliLiveStream(
-        url: 'https://live.example.com/stream.flv',
-        headers: headers,
-        expiresAt: expiresAt,
-      ),
-    );
-    final source = RadioSource(liveClient: client);
-    addTearDown(source.dispose);
+  test(
+    'getStreamUrl maps live client stream and preserves live headers',
+    () async {
+      final headers = SourceHttpPolicy.bilibiliLiveHeaders();
+      final expiresAt = DateTime(2024, 2, 3, 4, 5, 6);
+      final client = _FakeLiveClient(
+        stream: BilibiliLiveStream(
+          url: 'https://live.example.com/stream.flv',
+          headers: headers,
+          expiresAt: expiresAt,
+        ),
+      );
+      final source = RadioSource(liveClient: client);
+      addTearDown(source.dispose);
 
-    final stream = await source.getStreamUrl(_station('246'));
+      final stream = await source.getStreamUrl(_station('246'));
 
-    expect(client.streamLookups, ['246']);
-    expect(stream.url, 'https://live.example.com/stream.flv');
-    expect(stream.headers, headers);
-    expect(stream.expiresAt, expiresAt);
-  });
+      expect(client.streamLookups, ['246']);
+      expect(stream.url, 'https://live.example.com/stream.flv');
+      expect(stream.headers, headers);
+      expect(stream.expiresAt, expiresAt);
+    },
+  );
 
   test('getHighEnergyUserCount delegates station source id lookup', () async {
     final client = _FakeLiveClient(highEnergyUserCount: 88);

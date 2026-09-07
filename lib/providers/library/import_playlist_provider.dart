@@ -72,7 +72,8 @@ class ImportPlaylistNotifier extends Notifier<ImportPlaylistState> {
   }
 
   Future<ImportServiceFacade> _createServiceForOperation(
-      int operationId) async {
+    int operationId,
+  ) async {
     final createdService = _createService();
     final service = createdService is Future<ImportServiceFacade>
         ? await createdService
@@ -152,8 +153,12 @@ class ImportPlaylistNotifier extends Notifier<ImportPlaylistState> {
       }
       state = state.copyWith(
         isImporting: false,
-        errorMessage: failureMessage(error, stack, 'Playlist import failed',
-            tag: 'Import'),
+        errorMessage: failureMessage(
+          error,
+          stack,
+          'Playlist import failed',
+          tag: 'Import',
+        ),
         wasCancelled: false,
       );
       _activeOperationId = null;
@@ -164,8 +169,12 @@ class ImportPlaylistNotifier extends Notifier<ImportPlaylistState> {
       }
       state = state.copyWith(
         isImporting: false,
-        errorMessage: failureMessage(error, stack, 'Playlist import failed',
-            tag: 'Import'),
+        errorMessage: failureMessage(
+          error,
+          stack,
+          'Playlist import failed',
+          tag: 'Import',
+        ),
         wasCancelled: false,
       );
       _activeOperationId = null;
@@ -229,7 +238,8 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
 
 /// family 參數只是作用域鍵，notifier 自己用不到它。
 final importPlaylistProvider =
-    NotifierProvider.family<ImportPlaylistNotifier, ImportPlaylistState, String>(
-  (scopeId) => ImportPlaylistNotifier(),
-  isAutoDispose: true,
-);
+    NotifierProvider.family<
+      ImportPlaylistNotifier,
+      ImportPlaylistState,
+      String
+    >((scopeId) => ImportPlaylistNotifier(), isAutoDispose: true);

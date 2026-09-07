@@ -102,11 +102,7 @@ class NetworkImageCacheFileStore {
   }
 }
 
-enum _TrimTiming {
-  none,
-  debounced,
-  immediate,
-}
+enum _TrimTiming { none, debounced, immediate }
 
 /// 网络图片缓存服务
 ///
@@ -344,8 +340,10 @@ class NetworkImageCacheService {
 
     if (beforeSize <= maxSizeBytes) return beforeSize;
 
-    final remainingSize =
-        await store.deleteToFitFromScan(scanResult, maxSizeBytes);
+    final remainingSize = await store.deleteToFitFromScan(
+      scanResult,
+      maxSizeBytes,
+    );
     if (remainingSize < beforeSize) {
       _markTrimmed(remainingSize);
     }
@@ -378,11 +376,13 @@ class NetworkImageCacheService {
             final stat = await entity.stat();
             final size = stat.size;
             totalSize += size;
-            files.add(NetworkImageCacheFileInfo(
-              path: entity.path,
-              size: size,
-              lastModified: stat.modified,
-            ));
+            files.add(
+              NetworkImageCacheFileInfo(
+                path: entity.path,
+                size: size,
+                lastModified: stat.modified,
+              ),
+            );
           } catch (_) {
             // 忽略单个文件错误
           }
@@ -430,15 +430,17 @@ class NetworkImageCacheService {
 /// PNG 重編碼副本，造成雙份磁碟佔用。
 class _FmpImageCacheManager extends CacheManager with ImageCacheManager {
   _FmpImageCacheManager()
-      : super(
-          Config(
-            NetworkImageCacheService._cacheKey,
-            stalePeriod:
-                const Duration(days: NetworkImageCacheService._stalePeriodDays),
-            maxNrOfCacheObjects: NetworkImageCacheService._maxNrOfCacheObjects,
-            repo: JsonCacheInfoRepository(
-                databaseName: NetworkImageCacheService._cacheKey),
-            fileService: HttpFileService(),
+    : super(
+        Config(
+          NetworkImageCacheService._cacheKey,
+          stalePeriod: const Duration(
+            days: NetworkImageCacheService._stalePeriodDays,
           ),
-        );
+          maxNrOfCacheObjects: NetworkImageCacheService._maxNrOfCacheObjects,
+          repo: JsonCacheInfoRepository(
+            databaseName: NetworkImageCacheService._cacheKey,
+          ),
+          fileService: HttpFileService(),
+        ),
+      );
 }

@@ -37,8 +37,7 @@ void main() {
     await initializeIsarForTests();
   });
 
-  testWidgets('QueuePage keeps drag reorder available while shuffle is enabled',
-      (
+  testWidgets('QueuePage keeps drag reorder available while shuffle is enabled', (
     tester,
   ) async {
     final harness = (await tester.runAsync(_QueuePageHarness.create))!;
@@ -54,7 +53,8 @@ void main() {
           overrides: [
             audioControllerProvider.overrideWith(() => harness.controller),
             queueStateProvider.overrideWith(
-                () => _FixedQueueState(harness.queueState)),
+              () => _FixedQueueState(harness.queueState),
+            ),
             autoScrollToCurrentTrackProvider.overrideWith((ref) => false),
           ],
           child: const MaterialApp(home: QueuePage()),

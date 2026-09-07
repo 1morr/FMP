@@ -26,8 +26,9 @@ void main() {
       return tester.widget<SnackBar>(find.byType(SnackBar));
     }
 
-    testWidgets('new toast replaces the currently visible toast immediately',
-        (tester) async {
+    testWidgets('new toast replaces the currently visible toast immediately', (
+      tester,
+    ) async {
       await pumpHost(tester);
 
       ToastService.show(toastContext, 'old toast');
@@ -42,8 +43,9 @@ void main() {
       expect(find.text('new toast'), findsOneWidget);
     });
 
-    testWidgets('each type uses its semantic background color and icon',
-        (tester) async {
+    testWidgets('each type uses its semantic background color and icon', (
+      tester,
+    ) async {
       await pumpHost(tester);
       final colorScheme = Theme.of(toastContext).colorScheme;
 
@@ -133,10 +135,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(
-        shownSnackBar(tester).duration,
-        const Duration(seconds: 5),
-      );
+      expect(shownSnackBar(tester).duration, const Duration(seconds: 5));
     });
 
     testWidgets('showWithAction attaches a tappable action', (tester) async {

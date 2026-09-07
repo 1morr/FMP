@@ -6,12 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'log_file_sink.dart';
 
 /// 日志级别
-enum LogLevel {
-  debug,
-  info,
-  warning,
-  error,
-}
+enum LogLevel { debug, info, warning, error }
 
 /// 日志条目
 class LogEntry {
@@ -32,11 +27,11 @@ class LogEntry {
   });
 
   String get levelPrefix => switch (level) {
-        LogLevel.debug => 'D',
-        LogLevel.info => 'I',
-        LogLevel.warning => 'W',
-        LogLevel.error => 'E',
-      };
+    LogLevel.debug => 'D',
+    LogLevel.info => 'I',
+    LogLevel.warning => 'W',
+    LogLevel.error => 'E',
+  };
 
   String get formattedTime {
     final h = timestamp.hour.toString().padLeft(2, '0');
@@ -55,7 +50,8 @@ class LogEntry {
   /// 落盤用的格式。跟 [toString] 分開：畫面上的一行不需要日期，但輪替後的
   /// log 檔會跨天，而且 error 與 stack trace 正是事後翻 log 要看的東西。
   String toFileLine() {
-    final date = '${timestamp.year.toString().padLeft(4, '0')}-'
+    final date =
+        '${timestamp.year.toString().padLeft(4, '0')}-'
         '${timestamp.month.toString().padLeft(2, '0')}-'
         '${timestamp.day.toString().padLeft(2, '0')}';
     final buffer = StringBuffer('$date $formattedTime [$levelPrefix] ')
@@ -188,10 +184,7 @@ class AppLogger {
       _sapisidHashPattern,
       'SAPISIDHASH [REDACTED]',
     );
-    redacted = redacted.replaceAll(
-      _bearerPattern,
-      'Bearer [REDACTED]',
-    );
+    redacted = redacted.replaceAll(_bearerPattern, 'Bearer [REDACTED]');
     redacted = redacted.replaceAllMapped(
       _cookieHeaderPattern,
       (match) => '${match.group(1)}[REDACTED]',
@@ -222,8 +215,12 @@ class AppLogger {
   }
 
   /// 错误日志
-  static void error(String message,
-      [Object? error, StackTrace? stackTrace, String? tag]) {
+  static void error(
+    String message, [
+    Object? error,
+    StackTrace? stackTrace,
+    String? tag,
+  ]) {
     _log(LogLevel.error, message, tag, error, stackTrace);
   }
 
@@ -236,8 +233,9 @@ class AppLogger {
   ]) {
     if (level.index < _minLevel.index) return;
     final safeMessage = redactSensitive(message);
-    final Object? safeError =
-        error == null ? null : redactSensitive(error.toString());
+    final Object? safeError = error == null
+        ? null
+        : redactSensitive(error.toString());
 
     final prefix = switch (level) {
       LogLevel.debug => '[DEBUG]',

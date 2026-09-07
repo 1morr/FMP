@@ -20,8 +20,8 @@ class LyricsAutoMatchCoordinator with Logging {
   LyricsAutoMatchCoordinator({
     LyricsAutoMatchService? service,
     SettingsRepository? settingsRepository,
-  })  : _service = service,
-        _settingsRepository = settingsRepository;
+  }) : _service = service,
+       _settingsRepository = settingsRepository;
 
   final LyricsAutoMatchService? _service;
   final SettingsRepository? _settingsRepository;

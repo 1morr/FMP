@@ -23,18 +23,20 @@ void main() {
       expect(YouTubePlaylistService.parseVideoCount('2.5K videos'), 2500);
     });
 
-    test('parses abbreviated count when metadata includes other numbers first',
-        () {
-      expect(
-        YouTubePlaylistService.parseVideoCount(
-          YouTubePlaylistService.pickBestVideoCountText([
-            'Updated 4 days ago',
-            '2.5K videos',
-          ]),
-        ),
-        2500,
-      );
-    });
+    test(
+      'parses abbreviated count when metadata includes other numbers first',
+      () {
+        expect(
+          YouTubePlaylistService.parseVideoCount(
+            YouTubePlaylistService.pickBestVideoCountText([
+              'Updated 4 days ago',
+              '2.5K videos',
+            ]),
+          ),
+          2500,
+        );
+      },
+    );
   });
 
   group('YouTubePlaylistService.canonicalThumbnailUrl', () {

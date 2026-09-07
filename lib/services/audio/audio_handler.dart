@@ -36,10 +36,12 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
   /// 更新对外宣告的能力，并立刻重发一次 `PlaybackState`。
   void updateCapabilities(PlaybackCapabilities capabilities) {
     _capabilities = capabilities;
-    playbackState.add(playbackState.value.copyWith(
-      controls: _controlsFor(playbackState.value.playing),
-      systemActions: _systemActionsFor(),
-    ));
+    playbackState.add(
+      playbackState.value.copyWith(
+        controls: _controlsFor(playbackState.value.playing),
+        systemActions: _systemActionsFor(),
+      ),
+    );
     logDebug('Updated capabilities: $capabilities');
   }
 
@@ -75,8 +77,9 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
       id: track.uniqueKey,
       title: track.title,
       artist: track.artist ?? t.smtc.unknownArtist,
-      artUri:
-          track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+      artUri: track.thumbnailUrl != null
+          ? Uri.parse(track.thumbnailUrl!)
+          : null,
       duration: track.durationMs != null
           ? Duration(milliseconds: track.durationMs!)
           : null,
@@ -113,15 +116,17 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
   }) {
     final audioProcessingState = _mapProcessingState(processingState);
 
-    playbackState.add(playbackState.value.copyWith(
-      controls: _controlsFor(isPlaying),
-      systemActions: _systemActionsFor(),
-      processingState: audioProcessingState,
-      playing: isPlaying,
-      updatePosition: position,
-      bufferedPosition: bufferedPosition,
-      speed: speed,
-    ));
+    playbackState.add(
+      playbackState.value.copyWith(
+        controls: _controlsFor(isPlaying),
+        systemActions: _systemActionsFor(),
+        processingState: audioProcessingState,
+        playing: isPlaying,
+        updatePosition: position,
+        bufferedPosition: bufferedPosition,
+        speed: speed,
+      ),
+    );
   }
 
   /// 更新循环与随机模式
@@ -131,12 +136,14 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
     required LoopMode loopMode,
     required bool shuffleEnabled,
   }) {
-    playbackState.add(playbackState.value.copyWith(
-      repeatMode: _loopModeToRepeatMode(loopMode),
-      shuffleMode: shuffleEnabled
-          ? AudioServiceShuffleMode.all
-          : AudioServiceShuffleMode.none,
-    ));
+    playbackState.add(
+      playbackState.value.copyWith(
+        repeatMode: _loopModeToRepeatMode(loopMode),
+        shuffleMode: shuffleEnabled
+            ? AudioServiceShuffleMode.all
+            : AudioServiceShuffleMode.none,
+      ),
+    );
     logDebug('Updated play modes: loop=$loopMode shuffle=$shuffleEnabled');
   }
 
@@ -231,6 +238,8 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
   @override
   Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
     logDebug('AudioHandler.setShuffleMode() called: $shuffleMode');
-    await onSetShuffleEnabled?.call(shuffleMode != AudioServiceShuffleMode.none);
+    await onSetShuffleEnabled?.call(
+      shuffleMode != AudioServiceShuffleMode.none,
+    );
   }
 }

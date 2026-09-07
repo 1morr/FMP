@@ -42,7 +42,8 @@ class NowPlayingCoverOverlay extends StatelessWidget {
         color: colorScheme.primary.withValues(alpha: scrimAlpha),
       ),
       child: Center(
-        child: child ??
+        child:
+            child ??
             NowPlayingIndicator(
               size: coverSize * 0.32,
               color: colorScheme.onPrimary,

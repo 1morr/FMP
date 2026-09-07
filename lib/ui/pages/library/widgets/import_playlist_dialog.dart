@@ -178,8 +178,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       _ => null,
     };
     if (platform != null) {
-      final newDetected =
-          _DetectedUrl(type: _UrlType.internal, platform: platform);
+      final newDetected = _DetectedUrl(
+        type: _UrlType.internal,
+        platform: platform,
+      );
       if (_detected?.type != newDetected.type ||
           _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
@@ -197,8 +199,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         PlaylistSource.qqMusic => _SourcePlatform.qqMusic,
         PlaylistSource.spotify => _SourcePlatform.spotify,
       };
-      final newDetected =
-          _DetectedUrl(type: _UrlType.external, platform: platform);
+      final newDetected = _DetectedUrl(
+        type: _UrlType.external,
+        platform: platform,
+      );
       if (_detected?.type != newDetected.type ||
           _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
@@ -232,9 +236,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
             children: [
               Text(
                 t.library.importPlaylist.supportedPlatforms,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 16),
 
@@ -295,27 +299,33 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
               // 使用登入狀態開關（僅內部來源顯示）
               if (_detected?.type == _UrlType.internal && !_isImporting) ...[
                 const SizedBox(height: 8),
-                Builder(builder: (context) {
-                  final isLoggedIn = _detected != null
-                      ? ref.watch(isLoggedInProvider(
-                          _sourcePlatformToSourceType(_detected!.platform)))
-                      : false;
-                  return SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(t.library.importPlaylist.useAuth),
-                    subtitle: Text(
-                      isLoggedIn
-                          ? t.library.importPlaylist.useAuthHint
-                          : t.library.importPlaylist.useAuthNotLoggedIn,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
-                    ),
-                    value: _useAuth && isLoggedIn,
-                    onChanged:
-                        isLoggedIn ? (v) => setState(() => _useAuth = v) : null,
-                  );
-                }),
+                Builder(
+                  builder: (context) {
+                    final isLoggedIn = _detected != null
+                        ? ref.watch(
+                            isLoggedInProvider(
+                              _sourcePlatformToSourceType(_detected!.platform),
+                            ),
+                          )
+                        : false;
+                    return SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(t.library.importPlaylist.useAuth),
+                      subtitle: Text(
+                        isLoggedIn
+                            ? t.library.importPlaylist.useAuthHint
+                            : t.library.importPlaylist.useAuthNotLoggedIn,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                      value: _useAuth && isLoggedIn,
+                      onChanged: isLoggedIn
+                          ? (v) => setState(() => _useAuth = v)
+                          : null,
+                    );
+                  },
+                ),
               ],
 
               // 搜索来源选择（仅外部歌单显示）
@@ -323,9 +333,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 const SizedBox(height: 16),
                 Text(
                   t.library.importPlaylist.searchSource,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -361,9 +371,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 if (progressCount != null)
                   Text(
                     progressCount,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                   ),
               ],
 
@@ -522,9 +532,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         return;
       }
 
-      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            result.playlist.id,
-          );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistChanged(result.playlist.id);
 
       if (mounted) {
         Navigator.pop(context);
@@ -579,7 +589,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
 
       if (state.phase == ImportPhase.error) {
         throw Exception(
-            state.errorMessage ?? t.library.importPlaylist.importFailed);
+          state.errorMessage ?? t.library.importPlaylist.importFailed,
+        );
       }
 
       if (mounted) {

@@ -170,12 +170,14 @@ class SearchState extends Equatable {
       onlineResults: onlineResults ?? this.onlineResults,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      selectedSource:
-          clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
+      selectedSource: clearSelectedSource
+          ? null
+          : (selectedSource ?? this.selectedSource),
       currentPages: currentPages ?? this.currentPages,
       searchOrder: searchOrder ?? this.searchOrder,
-      liveRoomFilter:
-          clearLiveRoomFilter ? null : (liveRoomFilter ?? this.liveRoomFilter),
+      liveRoomFilter: clearLiveRoomFilter
+          ? null
+          : (liveRoomFilter ?? this.liveRoomFilter),
       liveRoomResults: clearLiveRoomResults
           ? null
           : (liveRoomResults ?? this.liveRoomResults),
@@ -185,18 +187,18 @@ class SearchState extends Equatable {
 
   @override
   List<Object?> get props => [
-        query,
-        localResults,
-        onlineResults,
-        isLoading,
-        error,
-        selectedSource,
-        currentPages,
-        searchOrder,
-        liveRoomFilter,
-        liveRoomResults,
-        liveRoomPage,
-      ];
+    query,
+    localResults,
+    onlineResults,
+    isLoading,
+    error,
+    selectedSource,
+    currentPages,
+    searchOrder,
+    liveRoomFilter,
+    liveRoomResults,
+    liveRoomPage,
+  ];
 }
 
 /// 搜索控制器
@@ -209,7 +211,9 @@ class SearchNotifier extends Notifier<SearchState> {
   @override
   SearchState build() {
     _service = ref.watch(searchServiceProvider);
-    _liveSource = ref.watch(sourceManagerProvider).liveSource(SourceIds.bilibili);
+    _liveSource = ref
+        .watch(sourceManagerProvider)
+        .liveSource(SourceIds.bilibili);
     return const SearchState();
   }
 
@@ -362,8 +366,9 @@ class SearchNotifier extends Notifier<SearchState> {
         hasMore: result.hasMore,
       );
 
-      final updatedResults =
-          Map<String, SearchResult>.from(state.onlineResults);
+      final updatedResults = Map<String, SearchResult>.from(
+        state.onlineResults,
+      );
       updatedResults[sourceType] = mergedResult;
 
       final updatedPages = Map<String, int>.from(state.currentPages);
@@ -466,8 +471,9 @@ class SearchNotifier extends Notifier<SearchState> {
       }
 
       // 合并结果
-      final updatedResults =
-          Map<String, SearchResult>.from(state.onlineResults);
+      final updatedResults = Map<String, SearchResult>.from(
+        state.onlineResults,
+      );
       final updatedPages = Map<String, int>.from(state.currentPages);
 
       for (final (sourceType, result) in results) {
@@ -533,10 +539,7 @@ class SearchNotifier extends Notifier<SearchState> {
 
     final hasQuery = state.query.isNotEmpty;
 
-    state = state.copyWith(
-      searchOrder: order,
-      isLoading: hasQuery,
-    );
+    state = state.copyWith(searchOrder: order, isLoading: hasQuery);
 
     // 如果有查询，重新搜索
     if (hasQuery) {
@@ -621,11 +624,7 @@ class SearchNotifier extends Notifier<SearchState> {
   Future<void> searchLiveRooms(String query) async {
     if (query.trim().isEmpty) {
       _cancelInFlightSearches();
-      state = state.copyWith(
-        query: '',
-        liveRoomResults: null,
-        liveRoomPage: 1,
-      );
+      state = state.copyWith(query: '', liveRoomResults: null, liveRoomPage: 1);
       return;
     }
 
@@ -661,8 +660,12 @@ class SearchNotifier extends Notifier<SearchState> {
 
       state = state.copyWith(
         isLoading: false,
-        error: failureMessage(e, stack, 'searchLiveRooms failed',
-            tag: 'Search'),
+        error: failureMessage(
+          e,
+          stack,
+          'searchLiveRooms failed',
+          tag: 'Search',
+        ),
       );
     }
   }
@@ -726,8 +729,12 @@ class SearchNotifier extends Notifier<SearchState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: failureMessage(e, stack, 'loadMoreLiveRooms failed',
-            tag: 'Search'),
+        error: failureMessage(
+          e,
+          stack,
+          'loadMoreLiveRooms failed',
+          tag: 'Search',
+        ),
       );
     }
   }
@@ -739,12 +746,15 @@ class SearchNotifier extends Notifier<SearchState> {
 }
 
 /// 搜索 Provider
-final searchProvider =
-    NotifierProvider<SearchNotifier, SearchState>(SearchNotifier.new);
+final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
+  SearchNotifier.new,
+);
 
 /// 搜索建议 Provider
-final searchSuggestionsProvider =
-    FutureProvider.family<List<String>, String>((ref, prefix) async {
+final searchSuggestionsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  prefix,
+) async {
   final service = ref.watch(searchServiceProvider);
   return service.getSearchSuggestions(prefix);
 });
@@ -779,4 +789,5 @@ class SearchHistoryNotifier extends Notifier<List<SearchHistory>> {
 /// 搜索历史管理 Provider
 final searchHistoryManagerProvider =
     NotifierProvider<SearchHistoryNotifier, List<SearchHistory>>(
-        SearchHistoryNotifier.new);
+      SearchHistoryNotifier.new,
+    );

@@ -12,14 +12,9 @@ import 'youtube_source.dart';
 /// 统一注册具体适配器，但调用端只按所需能力取用。
 class SourceManager with Logging {
   SourceManager({List<SourceCapability>? sources})
-      : _sources = List<SourceCapability>.of(
-          sources ??
-              [
-                BilibiliSource(),
-                YouTubeSource(),
-                NeteaseSource(),
-              ],
-        );
+    : _sources = List<SourceCapability>.of(
+        sources ?? [BilibiliSource(), YouTubeSource(), NeteaseSource()],
+      );
 
   final List<SourceCapability> _sources;
 
@@ -50,8 +45,7 @@ class SourceManager with Logging {
   TrackInfoSource? trackInfoSource(String type) =>
       _capability<TrackInfoSource>(type);
 
-  SearchSource? searchSource(String type) =>
-      _capability<SearchSource>(type);
+  SearchSource? searchSource(String type) => _capability<SearchSource>(type);
 
   PlaylistParsingSource? playlistParsingSource(String type) =>
       _capability<PlaylistParsingSource>(type);
@@ -75,8 +69,7 @@ class SourceManager with Logging {
     return null;
   }
 
-  RankingSource? rankingSource(String type) =>
-      _capability<RankingSource>(type);
+  RankingSource? rankingSource(String type) => _capability<RankingSource>(type);
 
   LiveSource? liveSource(String type) => _capability<LiveSource>(type);
 
@@ -136,7 +129,6 @@ class SourceManager with Logging {
     return source.refreshAudioUrl(track);
   }
 
-
   /// 搜索
   Future<Map<String, SearchResult>> searchAll(
     String query, {
@@ -145,19 +137,25 @@ class SourceManager with Logging {
   }) async {
     final results = <String, SearchResult>{};
 
-    await Future.wait(_sources.whereType<SearchSource>().map((source) async {
-      try {
-        final result =
-            await source.search(query, page: page, pageSize: pageSize);
-        results[source.sourceType] = result;
-      } catch (e) {
-        // 单源失败不应中断整体搜索（保留「部分结果」语义），但补上日志
-        // 避免限流/网络/程式错误被完全静默吞掉而无法排查。
-        logWarning(
+    await Future.wait(
+      _sources.whereType<SearchSource>().map((source) async {
+        try {
+          final result = await source.search(
+            query,
+            page: page,
+            pageSize: pageSize,
+          );
+          results[source.sourceType] = result;
+        } catch (e) {
+          // 单源失败不应中断整体搜索（保留「部分结果」语义），但补上日志
+          // 避免限流/网络/程式错误被完全静默吞掉而无法排查。
+          logWarning(
             '${source.sourceType} search failed; returning partial results: '
-            '$e');
-      }
-    }));
+            '$e',
+          );
+        }
+      }),
+    );
 
     return results;
   }

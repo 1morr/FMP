@@ -24,8 +24,9 @@ class BilibiliAuthInterceptor extends Interceptor with Logging {
     final authCookies = await _accountService.getAuthCookieString();
     if (authCookies != null) {
       final existing = options.headers['Cookie'] as String? ?? '';
-      options.headers['Cookie'] =
-          existing.isEmpty ? authCookies : '$existing; $authCookies';
+      options.headers['Cookie'] = existing.isEmpty
+          ? authCookies
+          : '$existing; $authCookies';
     }
     handler.next(options);
   }

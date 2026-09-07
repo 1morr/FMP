@@ -11,18 +11,21 @@ void main() {
   group('source URL validation', () {
     test('canHandle rejects substring host spoofing', () {
       expect(
-        SpotifyPlaylistSource()
-            .canHandle('http://127.0.0.1:8080/?next=spotify.link'),
+        SpotifyPlaylistSource().canHandle(
+          'http://127.0.0.1:8080/?next=spotify.link',
+        ),
         isFalse,
       );
       expect(
-        QQMusicPlaylistSource()
-            .canHandle('https://attacker.example/?u=y.qq.com'),
+        QQMusicPlaylistSource().canHandle(
+          'https://attacker.example/?u=y.qq.com',
+        ),
         isFalse,
       );
       expect(
-        NeteasePlaylistSource()
-            .canHandle('https://attacker.example/?u=music.163.com'),
+        NeteasePlaylistSource().canHandle(
+          'https://attacker.example/?u=music.163.com',
+        ),
         isFalse,
       );
     });
@@ -33,8 +36,9 @@ void main() {
         isFalse,
       );
       expect(
-        QQMusicPlaylistSource()
-            .canHandle('https://y.qq.com/n/ryqq/songDetail?id=123'),
+        QQMusicPlaylistSource().canHandle(
+          'https://y.qq.com/n/ryqq/songDetail?id=123',
+        ),
         isFalse,
       );
       expect(
@@ -49,10 +53,7 @@ void main() {
         isTrue,
       );
       expect(QQMusicPlaylistSource().canHandle('https://url.cn/abc'), isTrue);
-      expect(
-        NeteasePlaylistSource().canHandle('https://163cn.tv/abc'),
-        isTrue,
-      );
+      expect(NeteasePlaylistSource().canHandle('https://163cn.tv/abc'), isTrue);
     });
 
     test('rejects local and private literal hosts', () {
@@ -106,8 +107,11 @@ void main() {
         '0.0.0.0',
         '::1',
       ]) {
-        expect(SourceUrlPolicy.isLocalOrPrivateHost(host), isTrue,
-            reason: '$host should be treated as local or private');
+        expect(
+          SourceUrlPolicy.isLocalOrPrivateHost(host),
+          isTrue,
+          reason: '$host should be treated as local or private',
+        );
       }
 
       for (final host in const [
@@ -118,8 +122,11 @@ void main() {
         '172.32.0.1', // 刚好在 RFC1918 区间之外
         '11.0.0.1',
       ]) {
-        expect(SourceUrlPolicy.isLocalOrPrivateHost(host), isFalse,
-            reason: '$host should be reachable');
+        expect(
+          SourceUrlPolicy.isLocalOrPrivateHost(host),
+          isFalse,
+          reason: '$host should be reachable',
+        );
       }
     });
   });

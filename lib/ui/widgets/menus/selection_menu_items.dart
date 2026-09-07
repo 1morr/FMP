@@ -29,10 +29,12 @@ List<PopupMenuEntry<String>> buildSelectionMenuEntries({
     options: TrackActionMenuOptions(
       includePlayNext: availableActions.contains(selectionActionPlayNext),
       includeAddToQueue: availableActions.contains(selectionActionAddToQueue),
-      includeAddToPlaylist:
-          availableActions.contains(selectionActionAddToPlaylist),
-      includeAddToRemote:
-          availableActions.contains(selectionActionAddToRemotePlaylist),
+      includeAddToPlaylist: availableActions.contains(
+        selectionActionAddToPlaylist,
+      ),
+      includeAddToRemote: availableActions.contains(
+        selectionActionAddToRemotePlaylist,
+      ),
     ),
   );
 

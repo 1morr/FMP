@@ -94,12 +94,12 @@ class AppShadows {
 
   /// Hero 封面（120x120）阴影：colorScheme.shadow alpha 0.3, blur 10, offset (0,5)
   static List<BoxShadow> heroCover(ColorScheme colorScheme) => [
-        BoxShadow(
-          color: colorScheme.shadow.withValues(alpha: 0.3),
-          blurRadius: 10,
-          offset: const Offset(0, 5),
-        ),
-      ];
+    BoxShadow(
+      color: colorScheme.shadow.withValues(alpha: 0.3),
+      blurRadius: 10,
+      offset: const Offset(0, 5),
+    ),
+  ];
 }
 
 /// UI 尺寸常量
@@ -217,5 +217,6 @@ const List<double> kGrayscaleColorMatrix = <double>[
 /// REC.709 亮度灰阶 ColorFilter，由 [kGrayscaleColorMatrix] 派生。
 ///
 /// 调用端写 `ColorFiltered(colorFilter: kGrayscaleColorFilter, ...)`。
-const ColorFilter kGrayscaleColorFilter =
-    ColorFilter.matrix(kGrayscaleColorMatrix);
+const ColorFilter kGrayscaleColorFilter = ColorFilter.matrix(
+  kGrayscaleColorMatrix,
+);

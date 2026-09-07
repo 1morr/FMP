@@ -85,20 +85,22 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   final _processingStateController =
       BehaviorSubject<FmpAudioProcessingState>.seeded(
-    FmpAudioProcessingState.idle,
-  );
+        FmpAudioProcessingState.idle,
+      );
 
   final _positionController = BehaviorSubject<Duration>.seeded(Duration.zero);
   final _durationController = BehaviorSubject<Duration?>.seeded(null);
-  final _bufferedPositionController =
-      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final _bufferedPositionController = BehaviorSubject<Duration>.seeded(
+    Duration.zero,
+  );
   final _speedController = BehaviorSubject<double>.seeded(1.0);
   final _playingController = BehaviorSubject<bool>.seeded(false);
   final _volumeController = BehaviorSubject<double>.seeded(1.0);
 
   // 音频设备相关
-  final _audioDevicesController =
-      BehaviorSubject<List<FmpAudioDevice>>.seeded([]);
+  final _audioDevicesController = BehaviorSubject<List<FmpAudioDevice>>.seeded(
+    [],
+  );
   final _audioDeviceController = BehaviorSubject<FmpAudioDevice?>.seeded(null);
 
   // ========== 状态流 ==========
@@ -173,9 +175,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         ? mobilePlayerBufferSizeBytes
         : desktopPlayerBufferSizeBytes;
     _player = Player(
-      configuration: PlayerConfiguration(
-        bufferSize: bufferSize,
-      ),
+      configuration: PlayerConfiguration(bufferSize: bufferSize),
     );
     _hasPlayer = true;
 
@@ -203,7 +203,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
               _wasPlayingBeforeInterruption = _isPlaying;
               if (_wasPlayingBeforeInterruption) {
                 logDebug(
-                    'Audio interrupted while playing, will resume after interruption ends');
+                  'Audio interrupted while playing, will resume after interruption ends',
+                );
                 pause();
               }
               break;
@@ -222,7 +223,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
                 play();
               } else {
                 logDebug(
-                    'Interruption ended, but was not playing before, staying paused');
+                  'Interruption ended, but was not playing before, staying paused',
+                );
               }
               _wasPlayingBeforeInterruption = false;
               break;
@@ -309,8 +311,10 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await (nativePlayer as dynamic).setProperty('prefetch-playlist', 'yes');
 
       // 禁止 demuxer 将已用 buffer 捐赠给其他线程（减少内存碎片）
-      await (nativePlayer as dynamic)
-          .setProperty('demuxer-donate-buffer', 'no');
+      await (nativePlayer as dynamic).setProperty(
+        'demuxer-donate-buffer',
+        'no',
+      );
 
       // 禁用 ICY 元数据解析（网络电台标题等，减少不必要的处理）
       await (nativePlayer as dynamic).setProperty('demuxer-lavf-o', 'icy=0');
@@ -324,7 +328,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       );
 
       logInfo(
-          'libmpv configured for audio-only mode (vid=no, sid=no, desktop network buffers, lavf reconnect)');
+        'libmpv configured for audio-only mode (vid=no, sid=no, desktop network buffers, lavf reconnect)',
+      );
     } catch (e) {
       // 非致命错误，降级到默认配置
       logWarning('Failed to configure libmpv for audio-only: $e');
@@ -481,10 +486,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   }
 
   /// media_kit AudioDevice → FmpAudioDevice 转换
-  FmpAudioDevice _toFmpDevice(AudioDevice device) => FmpAudioDevice(
-        name: device.name,
-        description: device.description,
-      );
+  FmpAudioDevice _toFmpDevice(AudioDevice device) =>
+      FmpAudioDevice(name: device.name, description: device.description);
 
   void _emitEndReason(PlaybackEndReason reason) {
     if (_endReasonController.isClosed) return;
@@ -571,10 +574,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   void _updatePlayerState() {
     final state = _synthesizeProcessingState();
     _processingStateController.add(state);
-    _playerStateController.add(FmpPlayerState(
-      playing: _isPlaying,
-      processingState: state,
-    ));
+    _playerStateController.add(
+      FmpPlayerState(playing: _isPlaying, processingState: state),
+    );
   }
 
   /// 合成处理状态
@@ -689,14 +691,16 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     // 如果 duration 為 0 或太短，無法 seek
     if (currentDuration.inSeconds < 5) {
       logDebug(
-          'seekToLive: duration too short (${currentDuration.inSeconds}s), cannot seek');
+        'seekToLive: duration too short (${currentDuration.inSeconds}s), cannot seek',
+      );
       return false;
     }
 
     // 嘗試 seek 到接近末尾（留 1 秒緩衝）
     final targetPosition = currentDuration - const Duration(seconds: 1);
     logDebug(
-        'seekToLive: seeking to $targetPosition (duration: $currentDuration)');
+      'seekToLive: seeking to $targetPosition (duration: $currentDuration)',
+    );
 
     final positionBefore = _position;
     await _player.seek(targetPosition);
@@ -709,7 +713,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
     if (!seekWorked) {
       logInfo(
-          'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter), stream not seekable');
+        'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter), stream not seekable',
+      );
       return false;
     }
 
@@ -747,13 +752,15 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     logInfo('Setting audio device: ${device.name} (${device.description})');
     // 通过 name 在 media_kit 设备列表中查找匹配的原始 AudioDevice
     final devices = _player.state.audioDevices;
-    final nativeDevice =
-        devices.where((d) => d.name == device.name).firstOrNull;
+    final nativeDevice = devices
+        .where((d) => d.name == device.name)
+        .firstOrNull;
     if (nativeDevice != null) {
       await _player.setAudioDevice(nativeDevice);
     } else {
       logWarning(
-          'Audio device not found: ${device.name}, falling back to auto');
+        'Audio device not found: ${device.name}, falling back to auto',
+      );
       await _player.setAudioDevice(AudioDevice.auto());
     }
   }
@@ -780,7 +787,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _playbackCancelled = false;
 
     logDebug(
-        '_ensurePlayback called, current state: ${_synthesizeProcessingState()}');
+      '_ensurePlayback called, current state: ${_synthesizeProcessingState()}',
+    );
 
     // 等待播放器准备好或检测失败
     // media_kit 通常在 open() 返回后就准备好了
@@ -823,20 +831,30 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   @override
   Future<Duration?> playMedia(PreparedPlaybackMedia media) {
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        playFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        playUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => playFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => playUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
   @override
   Future<Duration?> setMedia(PreparedPlaybackMedia media) {
     return switch (media) {
-      LocalPlaybackMedia(:final path, :final track) =>
-        setFile(path, track: track),
-      RemotePlaybackMedia(:final url, :final headers, :final track) =>
-        setUrl(url.toString(), headers: headers, track: track),
+      LocalPlaybackMedia(:final path, :final track) => setFile(
+        path,
+        track: track,
+      ),
+      RemotePlaybackMedia(:final url, :final headers, :final track) => setUrl(
+        url.toString(),
+        headers: headers,
+        track: track,
+      ),
     };
   }
 
@@ -844,10 +862,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// [headers] 可选的 HTTP 请求头，用于需要认证的音频源（如 Bilibili, YouTube）
   /// [track] 可选的 Track 信息，用于后台播放通知显示
   @override
-  Future<Duration?> playUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> playUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     logDebug(
-        'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
+      'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...',
+    );
     if (headers != null) {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
@@ -862,10 +884,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(const FmpPlayerState(
-        playing: false,
-        processingState: FmpAudioProcessingState.loading,
-      ));
+      _playerStateController.add(
+        const FmpPlayerState(
+          playing: false,
+          processingState: FmpAudioProcessingState.loading,
+        ),
+      );
 
       // 激活音频会话（请求音频焦点）
       await _session.setActive(true);
@@ -891,8 +915,10 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         // 引擎在容忍窗內從未回報時長。這**不是**一次乾淨的成功：實測「連得上
         // 但零位元組」與「音訊裝置開不起來」都長這個樣子，而兩者過去都被記成
         // `URL loaded successfully`。降級成 warning，讓 log 誠實。
-        logWarning('URL opened but the engine never reported a duration; '
-            'treating playback as started with unknown length');
+        logWarning(
+          'URL opened but the engine never reported a duration; '
+          'treating playback as started with unknown length',
+        );
       } else {
         logDebug('URL loaded successfully, duration: $resultDuration');
       }
@@ -901,7 +927,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _ensurePlayback();
 
       logDebug(
-          'Playback started, duration: $resultDuration, playing: $_isPlaying');
+        'Playback started, duration: $resultDuration, playing: $_isPlaying',
+      );
       return resultDuration;
     } catch (e, stack) {
       logError('Failed to play URL', e, stack);
@@ -913,10 +940,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// [headers] 可选的 HTTP 请求头
   /// [track] 可选的 Track 信息，用于后台播放通知显示
   @override
-  Future<Duration?> setUrl(String url,
-      {Map<String, String>? headers, Track? track}) async {
+  Future<Duration?> setUrl(
+    String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) async {
     logDebug(
-        'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
+      'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...',
+    );
     try {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
@@ -964,10 +995,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(const FmpPlayerState(
-        playing: false,
-        processingState: FmpAudioProcessingState.loading,
-      ));
+      _playerStateController.add(
+        const FmpPlayerState(
+          playing: false,
+          processingState: FmpAudioProcessingState.loading,
+        ),
+      );
 
       // 激活音频会话（请求音频焦点）
       await _session.setActive(true);
@@ -993,7 +1026,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await _ensurePlayback();
 
       logDebug(
-          'File playback started, duration: $resultDuration, playing: $_isPlaying');
+        'File playback started, duration: $resultDuration, playing: $_isPlaying',
+      );
       return resultDuration;
     } catch (e, stack) {
       logError('Failed to play file', e, stack);
@@ -1090,10 +1124,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// `http-header-fields`（media_kit `native/player/real.dart:2137`）——
   /// `loadfile ... append` 這個命令本身不帶 headers。
   Media _mediaFor(PreparedPlaybackMedia media) => switch (media) {
-        LocalPlaybackMedia(:final path) => Media(path),
-        RemotePlaybackMedia(:final url, :final headers) =>
-          Media(url.toString(), httpHeaders: headers),
-      };
+    LocalPlaybackMedia(:final path) => Media(path),
+    RemotePlaybackMedia(:final url, :final headers) => Media(
+      url.toString(),
+      httpHeaders: headers,
+    ),
+  };
 
   /// 移掉剛剛播完、留在清單前面的那一個項目，讓當前項目回到 index 0。
   Future<void> _trimPlayedEntry() async {

@@ -74,10 +74,11 @@ void main() {
       final addAll = await commands.addAll([_track('b')], isMixMode: true);
       final addNext = await commands.addNext(_track('c'), isMixMode: true);
 
-      expect(
-        [add.status, addAll.status, addNext.status],
-        everyElement(QueueMutationStatus.blocked),
-      );
+      expect([
+        add.status,
+        addAll.status,
+        addNext.status,
+      ], everyElement(QueueMutationStatus.blocked));
       expect(queueManager.tracks, isEmpty);
       await pumpEventQueue();
       expect(toasts, hasLength(3));
@@ -133,15 +134,15 @@ QueueManager _buildQueueManager(Isar isar) {
 
 class _ThrowingQueueManager extends QueueManager {
   _ThrowingQueueManager(Isar isar)
-      : super(
+    : super(
+        queueRepository: QueueRepository(isar),
+        trackRepository: TrackRepository(isar),
+        queuePersistenceManager: QueuePersistenceManager(
           queueRepository: QueueRepository(isar),
           trackRepository: TrackRepository(isar),
-          queuePersistenceManager: QueuePersistenceManager(
-            queueRepository: QueueRepository(isar),
-            trackRepository: TrackRepository(isar),
-            settingsRepository: SettingsRepository(isar),
-          ),
-        );
+          settingsRepository: SettingsRepository(isar),
+        ),
+      );
 
   @override
   Future<bool> add(Track track) async => throw StateError('boom');

@@ -172,8 +172,9 @@ class _MiniPlayerProgressBarState
     final controller = ref.read(audioControllerProvider.notifier);
 
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
-    final displayProgress =
-        _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
+    final displayProgress = _isDragging
+        ? _dragProgress
+        : progress.clamp(0.0, 1.0);
 
     // 是否应该展开：父组件悬停或正在拖动
     final isExpanded = widget.isParentHovering || _isDragging;
@@ -227,7 +228,10 @@ class _MiniPlayerProgressBarState
           final box = context.findRenderObject() as RenderBox?;
           if (box != null) {
             final localPosition = details.localPosition;
-            final progress = (localPosition.dx / box.size.width).clamp(0.0, 1.0);
+            final progress = (localPosition.dx / box.size.width).clamp(
+              0.0,
+              1.0,
+            );
             setState(() => _dragProgress = progress);
           }
         },
@@ -244,8 +248,10 @@ class _MiniPlayerProgressBarState
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (details) {
                   final progress =
-                      (details.localPosition.dx / constraints.maxWidth)
-                          .clamp(0.0, 1.0);
+                      (details.localPosition.dx / constraints.maxWidth).clamp(
+                        0.0,
+                        1.0,
+                      );
                   controller.seekToProgress(progress);
                 },
                 // 悬停时扩大点击区域，视觉元素锚定在顶部
@@ -299,8 +305,9 @@ class _MiniPlayerProgressBarState
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color:
-                                        colorScheme.shadow.withValues(alpha: 0.3),
+                                    color: colorScheme.shadow.withValues(
+                                      alpha: 0.3,
+                                    ),
                                     blurRadius: 4,
                                     offset: const Offset(0, 1),
                                   ),
@@ -354,9 +361,9 @@ class _MiniPlayerTrackInfo extends ConsumerWidget {
               children: [
                 Text(
                   track.title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -364,8 +371,8 @@ class _MiniPlayerTrackInfo extends ConsumerWidget {
                   Text(
                     track.artist!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -386,12 +393,15 @@ class _MiniPlayerControls extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     // 只监听播放状态相关字段
-    final isPlaying =
-        ref.watch(audioControllerProvider.select((s) => s.isPlaying));
-    final isBuffering =
-        ref.watch(audioControllerProvider.select((s) => s.isBuffering));
-    final isLoading =
-        ref.watch(audioControllerProvider.select((s) => s.isLoading));
+    final isPlaying = ref.watch(
+      audioControllerProvider.select((s) => s.isPlaying),
+    );
+    final isBuffering = ref.watch(
+      audioControllerProvider.select((s) => s.isBuffering),
+    );
+    final isLoading = ref.watch(
+      audioControllerProvider.select((s) => s.isLoading),
+    );
     final queueControls = ref.watch(queueControlStateProvider);
     final isShuffleEnabled = queueControls.isShuffleEnabled;
     final loopMode = queueControls.loopMode;
@@ -406,10 +416,7 @@ class _MiniPlayerControls extends ConsumerWidget {
       children: [
         // 顺序/乱序按钮
         IconButton(
-          icon: const Icon(
-            Icons.shuffle,
-            size: 20,
-          ),
+          icon: const Icon(Icons.shuffle, size: 20),
           color: isShuffleEnabled ? colorScheme.primary : null,
           tooltip: isMixMode
               ? t.audio.mixPlaylistNoAdd

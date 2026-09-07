@@ -22,8 +22,10 @@ void main() {
   group('TrackKey literal output', () {
     test('is pinned for both the cid and the cid-less branch', () {
       expect(TrackKey.format('bilibili', 'BV123456'), 'bilibili:BV123456');
-      expect(TrackKey.format('bilibili', 'BV123456', cid: 42),
-          'bilibili:BV123456:42');
+      expect(
+        TrackKey.format('bilibili', 'BV123456', cid: 42),
+        'bilibili:BV123456:42',
+      );
       expect(TrackKey.formatGroup('bilibili', 'BV123456'), 'bilibili:BV123456');
       expect(TrackKey.format('youtube', 's466YCiHfKw'), 'youtube:s466YCiHfKw');
       expect(TrackKey.format('netease', '139774'), 'netease:139774');
@@ -104,13 +106,15 @@ void main() {
     test('round-trips everything format produces', () {
       for (final parts in [
         const TrackKeyParts(sourceTypeId: 'bilibili', sourceId: 'BV1'),
-        const TrackKeyParts(
-            sourceTypeId: 'bilibili', sourceId: 'BV1', cid: 42),
+        const TrackKeyParts(sourceTypeId: 'bilibili', sourceId: 'BV1', cid: 42),
         const TrackKeyParts(sourceTypeId: 'youtube', sourceId: 's466YCiHfKw'),
         const TrackKeyParts(sourceTypeId: 'netease', sourceId: '139774'),
       ]) {
-        final raw = TrackKey.format(parts.sourceTypeId, parts.sourceId,
-            cid: parts.cid);
+        final raw = TrackKey.format(
+          parts.sourceTypeId,
+          parts.sourceId,
+          cid: parts.cid,
+        );
         expect(TrackKey.tryParse(raw), parts, reason: raw);
       }
     });

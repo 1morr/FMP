@@ -8,10 +8,7 @@ class AccountCheckResult {
   final AccountStatus status;
   final bool? isVip;
 
-  const AccountCheckResult({
-    required this.status,
-    this.isVip,
-  });
+  const AccountCheckResult({required this.status, this.isVip});
 }
 
 /// 帳號服務抽象接口（可擴展到 YouTube、網易雲等）

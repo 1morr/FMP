@@ -64,44 +64,46 @@ void main() {
     });
 
     test(
-        'merge preserves deterministic first-result-then-other-result ordering',
-        () {
-      final result = RemotePlaylistEditResult(
-        sourceType: SourceIds.youtube,
-        confirmedAddedTrackIds: [2, 1],
-        confirmedRemovedTrackIds: [4, 3],
-        skippedTrackIds: [6, 5],
-        failures: [
-          RemotePlaylistEditFailure(
-            trackId: 8,
-            remotePlaylistId: 'A',
-            error: Exception('first'),
-          ),
-        ],
-        changedRemotePlaylistIds: ['B', 'A'],
-      ).merge(
-        RemotePlaylistEditResult(
-          sourceType: SourceIds.youtube,
-          confirmedAddedTrackIds: [1, 9],
-          confirmedRemovedTrackIds: [3, 10],
-          skippedTrackIds: [5, 11],
-          failures: [
-            RemotePlaylistEditFailure(
-              trackId: 12,
-              remotePlaylistId: 'C',
-              error: Exception('second'),
-            ),
-          ],
-          changedRemotePlaylistIds: ['A', 'C'],
-        ),
-      );
+      'merge preserves deterministic first-result-then-other-result ordering',
+      () {
+        final result =
+            RemotePlaylistEditResult(
+              sourceType: SourceIds.youtube,
+              confirmedAddedTrackIds: [2, 1],
+              confirmedRemovedTrackIds: [4, 3],
+              skippedTrackIds: [6, 5],
+              failures: [
+                RemotePlaylistEditFailure(
+                  trackId: 8,
+                  remotePlaylistId: 'A',
+                  error: Exception('first'),
+                ),
+              ],
+              changedRemotePlaylistIds: ['B', 'A'],
+            ).merge(
+              RemotePlaylistEditResult(
+                sourceType: SourceIds.youtube,
+                confirmedAddedTrackIds: [1, 9],
+                confirmedRemovedTrackIds: [3, 10],
+                skippedTrackIds: [5, 11],
+                failures: [
+                  RemotePlaylistEditFailure(
+                    trackId: 12,
+                    remotePlaylistId: 'C',
+                    error: Exception('second'),
+                  ),
+                ],
+                changedRemotePlaylistIds: ['A', 'C'],
+              ),
+            );
 
-      expect(result.confirmedAddedTrackIds, [2, 1, 9]);
-      expect(result.confirmedRemovedTrackIds, [4, 3, 10]);
-      expect(result.skippedTrackIds, [6, 5, 11]);
-      expect(result.failures.map((failure) => failure.trackId), [8, 12]);
-      expect(result.changedRemotePlaylistIds, ['B', 'A', 'C']);
-    });
+        expect(result.confirmedAddedTrackIds, [2, 1, 9]);
+        expect(result.confirmedRemovedTrackIds, [4, 3, 10]);
+        expect(result.skippedTrackIds, [6, 5, 11]);
+        expect(result.failures.map((failure) => failure.trackId), [8, 12]);
+        expect(result.changedRemotePlaylistIds, ['B', 'A', 'C']);
+      },
+    );
 
     test('merge rejects different SourceTypes', () {
       final result = RemotePlaylistEditResult(sourceType: SourceIds.youtube);
@@ -154,9 +156,13 @@ void main() {
       expect(result.failures.map((failure) => failure.trackId), [4]);
       expect(result.changedRemotePlaylistIds, ['PL1']);
       expect(
-          () => result.confirmedAddedTrackIds.add(10), throwsUnsupportedError);
-      expect(() => result.confirmedRemovedTrackIds.add(10),
-          throwsUnsupportedError);
+        () => result.confirmedAddedTrackIds.add(10),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => result.confirmedRemovedTrackIds.add(10),
+        throwsUnsupportedError,
+      );
       expect(() => result.skippedTrackIds.add(10), throwsUnsupportedError);
       expect(
         () => result.failures.add(
@@ -168,8 +174,10 @@ void main() {
         ),
         throwsUnsupportedError,
       );
-      expect(() => result.changedRemotePlaylistIds.add('PL3'),
-          throwsUnsupportedError);
+      expect(
+        () => result.changedRemotePlaylistIds.add('PL3'),
+        throwsUnsupportedError,
+      );
     });
   });
 
@@ -186,7 +194,7 @@ void main() {
         originalPlaylistIds: {'full', 'removed'},
         deselectedPartialPlaylistIds: {'partial-removed'},
         existingTrackSourceIdsByPlaylist: {
-          'partial': {'a'}
+          'partial': {'a'},
         },
         isLoggedIn: (_) => true,
       );
@@ -246,13 +254,19 @@ void main() {
       expect(plan.playlistIdsToRemove, ['remove']);
       expect(plan.existingTrackSourceIdsByPlaylist.keys, ['partial']);
       expect(plan.existingTrackSourceIdsByPlaylist['partial'], {'a'});
-      expect(() => plan.editableTracks.add(_track(SourceIds.youtube, 4, 'c')),
-          throwsUnsupportedError);
+      expect(
+        () => plan.editableTracks.add(_track(SourceIds.youtube, 4, 'c')),
+        throwsUnsupportedError,
+      );
       expect(() => plan.skippedTrackIds.add(4), throwsUnsupportedError);
       expect(
-          () => plan.playlistIdsToAdd.add('blocked'), throwsUnsupportedError);
-      expect(() => plan.playlistIdsToRemove.add('blocked'),
-          throwsUnsupportedError);
+        () => plan.playlistIdsToAdd.add('blocked'),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => plan.playlistIdsToRemove.add('blocked'),
+        throwsUnsupportedError,
+      );
       expect(
         () => plan.existingTrackSourceIdsByPlaylist['blocked'] = {'c'},
         throwsUnsupportedError,

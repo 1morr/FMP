@@ -38,12 +38,12 @@ class YouTubeAccountService extends AccountService with Logging {
   };
 
   YouTubeAccountService({required Isar isar})
-      : _accounts = AccountRepository(isar),
-        _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(
-          SourceIds.youtube,
-          contentType: 'application/json',
-        );
+    : _accounts = AccountRepository(isar),
+      _secureStorage = const FlutterSecureStorage(),
+      _dio = SourceHttpPolicy.createApiDio(
+        SourceIds.youtube,
+        contentType: 'application/json',
+      );
 
   @override
   String get platform => SourceIds.youtube;
@@ -52,13 +52,16 @@ class YouTubeAccountService extends AccountService with Logging {
 
   /// WebView 登錄完成後，從 WebView 提取的 cookies 初始化
   Future<void> loginWithCookies(Map<String, String> cookies) async {
-    final missingCookies =
-        YouTubeAccountService.getMissingRequiredCookies(cookies);
+    final missingCookies = YouTubeAccountService.getMissingRequiredCookies(
+      cookies,
+    );
     if (missingCookies.isNotEmpty) {
       logWarning(
-          'YouTube login: missing required cookies: ${missingCookies.join(', ')}');
+        'YouTube login: missing required cookies: ${missingCookies.join(', ')}',
+      );
       throw Exception(
-          'Missing required YouTube cookies: ${missingCookies.join(', ')}');
+        'Missing required YouTube cookies: ${missingCookies.join(', ')}',
+      );
     }
 
     final credentials = YouTubeCredentials(
@@ -135,9 +138,7 @@ class YouTubeAccountService extends AccountService with Logging {
       await cookieManager.deleteCookies(
         url: WebUri('https://accounts.google.com'),
       );
-      await cookieManager.deleteCookies(
-        url: WebUri('https://www.youtube.com'),
-      );
+      await cookieManager.deleteCookies(url: WebUri('https://www.youtube.com'));
     } catch (e) {
       logWarning('Failed to clear WebView cookies: $e');
     }
@@ -256,7 +257,8 @@ class YouTubeAccountService extends AccountService with Logging {
       if (name != null) {
         await _updateAccount(userName: name, isVip: isPremium);
         logInfo(
-            'YouTube user info updated via account_overview: $name (premium: $isPremium)');
+          'YouTube user info updated via account_overview: $name (premium: $isPremium)',
+        );
         return;
       } else if (data is Map<String, dynamic>) {
         // 即使沒有名字，也更新 Premium 狀態
@@ -296,9 +298,7 @@ class YouTubeAccountService extends AccountService with Logging {
     try {
       final response = await _dio.post(
         '$_innerTubeApiBase/guide?key=$_innerTubeApiKey',
-        data: jsonEncode({
-          'context': buildInnerTubeContext(),
-        }),
+        data: jsonEncode({'context': buildInnerTubeContext()}),
         options: Options(headers: headers),
       );
       final channelName = _extractChannelNameFromGuide(response.data);
@@ -330,8 +330,10 @@ class YouTubeAccountService extends AccountService with Logging {
     }
 
     // 嘗試從 settingsAccountRenderer 提取
-    final settingsAccount =
-        _findRendererRecursive(data, 'settingsAccountRenderer');
+    final settingsAccount = _findRendererRecursive(
+      data,
+      'settingsAccountRenderer',
+    );
     if (settingsAccount != null) {
       return _extractText(settingsAccount['accountName']);
     }
@@ -392,9 +394,11 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   /// 遞歸搜索指定字段名的字符串值（委託到共用工具）
-  String? _findStringFieldRecursive(dynamic data, String fieldName,
-          [int depth = 0]) =>
-      InnerTubeUtils.findStringField(data, fieldName, depth);
+  String? _findStringFieldRecursive(
+    dynamic data,
+    String fieldName, [
+    int depth = 0,
+  ]) => InnerTubeUtils.findStringField(data, fieldName, depth);
 
   /// 從 guide 響應中提取頻道名
   ///
@@ -421,9 +425,11 @@ class YouTubeAccountService extends AccountService with Logging {
         // 系統頁面（Home, Music 等）有 icon，用戶頻道只有 thumbnail
         final hasThumbnail = entryRenderer['thumbnail'] != null;
         final hasIcon = entryRenderer['icon'] != null;
-        final browseId = entryRenderer['navigationEndpoint']?['browseEndpoint']
-            ?['browseId'] as String?;
-        final title = _extractText(entryRenderer['formattedTitle']) ??
+        final browseId =
+            entryRenderer['navigationEndpoint']?['browseEndpoint']?['browseId']
+                as String?;
+        final title =
+            _extractText(entryRenderer['formattedTitle']) ??
             _extractText(entryRenderer['title']);
 
         if (hasThumbnail &&
@@ -464,9 +470,11 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   /// 遞歸搜索指定 renderer（委託到共用工具）
-  Map<String, dynamic>? _findRendererRecursive(dynamic data, String key,
-          [int depth = 0]) =>
-      InnerTubeUtils.findRenderer(data, key, depth);
+  Map<String, dynamic>? _findRendererRecursive(
+    dynamic data,
+    String key, [
+    int depth = 0,
+  ]) => InnerTubeUtils.findRenderer(data, key, depth);
 
   /// 從 InnerTube Text 對象中提取文本（委託到共用工具）
   String? _extractText(dynamic textObj) => InnerTubeUtils.extractText(textObj);
@@ -476,8 +484,9 @@ class YouTubeAccountService extends AccountService with Logging {
   /// 檢查 topbar logo 類型：Premium 用戶的 logo iconType 包含 "PREMIUM"
   bool _checkPremiumFromResponse(Map<String, dynamic> data) {
     try {
-      final iconType = data['topbar']?['desktopTopbarRenderer']?['logo']
-          ?['topbarLogoRenderer']?['iconImage']?['iconType'] as String?;
+      final iconType =
+          data['topbar']?['desktopTopbarRenderer']?['logo']?['topbarLogoRenderer']?['iconImage']?['iconType']
+              as String?;
       if (iconType != null && iconType.toUpperCase().contains('PREMIUM')) {
         return true;
       }

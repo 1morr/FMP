@@ -62,7 +62,7 @@ enum PlayerLayoutMode {
 PlayerLayoutMode resolvePlayerLayout(Size size, {required bool hasLyrics}) {
   final fitsTwoColumns =
       WindowClass.of(size.width).atLeast(WindowClass.expanded) &&
-          size.height >= AppLayout.playerWideMinHeight;
+      size.height >= AppLayout.playerWideMinHeight;
   if (!fitsTwoColumns) return PlayerLayoutMode.narrow;
   return hasLyrics ? PlayerLayoutMode.wideSplit : PlayerLayoutMode.wideSingle;
 }
@@ -82,10 +82,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final currentTrack = playerState.currentTrack;
     if (currentTrack == null) return;
 
-    showLyricsSearchSheet(
-      context: context,
-      track: currentTrack,
-    );
+    showLyricsSearchSheet(context: context, track: currentTrack);
   }
 
   /// 处理添加到歌单选项
@@ -165,21 +162,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
     final playerContent = switch (layoutMode) {
       PlayerLayoutMode.wideSplit => _buildDesktopPlayerContent(
-          context: context,
-          currentTrack: currentTrack,
-          colorScheme: colorScheme,
-          controlSection: controlSection,
-        ),
+        context: context,
+        currentTrack: currentTrack,
+        colorScheme: colorScheme,
+        controlSection: controlSection,
+      ),
       // 寬但沒有歌詞：用同一套單欄內容，置中並收在內容寬度上限內，
       // 免得標題與進度條在 1700dp 的視窗上橫跨整個螢幕。
       PlayerLayoutMode.wideSingle => Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayout.playerContentMaxWide,
-            ),
-            child: narrowContent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.playerContentMaxWide,
           ),
+          child: narrowContent,
         ),
+      ),
       PlayerLayoutMode.narrow => narrowContent,
     };
 
@@ -351,11 +348,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       child: Column(
         children: [
           Expanded(
-            child: _buildNarrowMediaSection(
-              context,
-              currentTrack,
-              colorScheme,
-            ),
+            child: _buildNarrowMediaSection(context, currentTrack, colorScheme),
           ),
           const SizedBox(height: 32),
           controlSection,
@@ -386,8 +379,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       constraints: const BoxConstraints(
                         maxWidth: AppLayout.playerCoverMax,
                       ),
-                      child:
-                          _buildCoverArt(context, currentTrack, colorScheme),
+                      child: _buildCoverArt(context, currentTrack, colorScheme),
                     ),
                   ),
                 ),
@@ -397,10 +389,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             ),
           ),
           const SizedBox(width: 32),
-          Expanded(
-            flex: 7,
-            child: _buildLyricsPanel(colorScheme),
-          ),
+          Expanded(flex: 7, child: _buildLyricsPanel(colorScheme)),
         ],
       ),
     );
@@ -432,13 +421,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       children: [
         _buildTrackInfo(context, currentTrack, colorScheme),
         SizedBox(height: trackInfoGap),
-        _buildProgressBar(
-          context,
-          position,
-          duration,
-          progress,
-          controller,
-        ),
+        _buildProgressBar(context, position, duration, progress, controller),
         SizedBox(height: controlsGap),
         _buildPlaybackControls(
           context,
@@ -532,9 +515,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       children: [
         Text(
           track?.title ?? t.player.noTrackPlaying,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -544,9 +527,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           track == null
               ? t.player.selectTrackToPlay
               : (track.artist ?? t.general.unknownArtist),
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -564,13 +547,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     AudioController controller,
   ) {
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
-    final displayProgress =
-        _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
+    final displayProgress = _isDragging
+        ? _dragProgress
+        : progress.clamp(0.0, 1.0);
 
     // 显示的位置：拖动时根据拖动进度计算，否则显示实际位置
     final displayPosition = _isDragging && duration != null
         ? Duration(
-            milliseconds: (duration.inMilliseconds * _dragProgress).round())
+            milliseconds: (duration.inMilliseconds * _dragProgress).round(),
+          )
         : position;
 
     return Column(
@@ -616,7 +601,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               ),
               Text(
                 DurationFormatter.formatMs(
-                    (duration ?? Duration.zero).inMilliseconds),
+                  (duration ?? Duration.zero).inMilliseconds,
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -714,19 +700,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       context: context,
       position: position,
       items: AppConstants.playbackSpeeds
-          .map((speed) => PopupMenuItem(
-                value: speed,
-                child: Row(
-                  children: [
-                    if (currentSpeed == speed)
-                      Icon(Icons.check, size: 18, color: colorScheme.primary)
-                    else
-                      const SizedBox(width: 18),
-                    const SizedBox(width: 8),
-                    Text('${speed}x'),
-                  ],
-                ),
-              ))
+          .map(
+            (speed) => PopupMenuItem(
+              value: speed,
+              child: Row(
+                children: [
+                  if (currentSpeed == speed)
+                    Icon(Icons.check, size: 18, color: colorScheme.primary)
+                  else
+                    const SizedBox(width: 18),
+                  const SizedBox(width: 8),
+                  Text('${speed}x'),
+                ],
+              ),
+            ),
+          )
           .toList(),
     ).then((value) {
       if (value != null) {
@@ -737,7 +725,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 显示歌词显示模式选择菜单
   void _showLyricsDisplayModeMenu(
-      BuildContext context, ColorScheme colorScheme) {
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
     final screenSize = MediaQuery.of(context).size;
     final position = RelativeRect.fromLTRB(
       screenSize.width - 200,
@@ -751,16 +741,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 获取循环模式图标
   IconData _getLoopModeIcon(LoopMode mode) => switch (mode) {
-        LoopMode.none || LoopMode.all => Icons.repeat,
-        LoopMode.one => Icons.repeat_one,
-      };
+    LoopMode.none || LoopMode.all => Icons.repeat,
+    LoopMode.one => Icons.repeat_one,
+  };
 
   /// 获取循环模式提示
   String _getLoopModeTooltip(LoopMode mode) => switch (mode) {
-        LoopMode.none => t.player.loopOff,
-        LoopMode.all => t.player.loopAll,
-        LoopMode.one => t.player.loopOne,
-      };
+    LoopMode.none => t.player.loopOff,
+    LoopMode.all => t.player.loopAll,
+    LoopMode.one => t.player.loopOne,
+  };
 
   /// 显示视频信息弹窗
   void _showTrackInfoDialog(BuildContext context, ColorScheme colorScheme) {
@@ -920,8 +910,9 @@ class _DetailContent extends StatelessWidget {
           Row(
             children: [
               AvatarImage(
-                networkUrl:
-                    detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                networkUrl: detail.ownerFace.isNotEmpty
+                    ? detail.ownerFace
+                    : null,
                 size: 40,
               ),
               const SizedBox(width: 12),
@@ -951,10 +942,13 @@ class _DetailContent extends StatelessWidget {
                 children: [
                   // 头像
                   AvatarImage(
-                    localPath:
-                        track?.getLocalAvatarPath(cache, baseDir: baseDir),
-                    networkUrl:
-                        detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                    localPath: track?.getLocalAvatarPath(
+                      cache,
+                      baseDir: baseDir,
+                    ),
+                    networkUrl: detail.ownerFace.isNotEmpty
+                        ? detail.ownerFace
+                        : null,
                     size: 40,
                   ),
                   const SizedBox(width: 12),
@@ -1111,10 +1105,7 @@ class _BasicInfoContent extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (track!.isVip) ...[
-              const SizedBox(width: 6),
-              const VipBadge(),
-            ],
+            if (track!.isVip) ...[const SizedBox(width: 6), const VipBadge()],
           ],
         ),
 
@@ -1173,11 +1164,7 @@ class _BasicInfoContent extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.info_outline,
-                size: 18,
-                color: colorScheme.primary,
-              ),
+              Icon(Icons.info_outline, size: 18, color: colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

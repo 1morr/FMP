@@ -42,8 +42,11 @@ void main() {
       print('Average: ${elapsed / tracks.length}ms per track');
 
       // Assert reasonable performance (should be < 100ms for 1000 tracks)
-      expect(elapsed, lessThan(1000),
-          reason: 'Track creation should complete in under 1 second');
+      expect(
+        elapsed,
+        lessThan(1000),
+        reason: 'Track creation should complete in under 1 second',
+      );
     });
 
     test('Display name extraction performance', () async {
@@ -72,11 +75,15 @@ void main() {
       print('Extracted display names $totalOperations times in ${elapsed}ms');
       // ignore: avoid_print
       print(
-          'Average: ${(elapsed * 1000 / totalOperations).toStringAsFixed(3)}μs per extraction');
+        'Average: ${(elapsed * 1000 / totalOperations).toStringAsFixed(3)}μs per extraction',
+      );
 
       // Assert reasonable performance
-      expect(elapsed, lessThan(5000),
-          reason: 'Display name extraction should be fast');
+      expect(
+        elapsed,
+        lessThan(5000),
+        reason: 'Display name extraction should be fast',
+      );
     });
 
     test('DateTime parsing and formatting performance', () async {
@@ -102,7 +109,8 @@ void main() {
       final elapsed = stopwatch.elapsedMilliseconds;
       // ignore: avoid_print
       print(
-          'Performed ${100 * timestamps.length * 3} date operations in ${elapsed}ms');
+        'Performed ${100 * timestamps.length * 3} date operations in ${elapsed}ms',
+      );
 
       expect(elapsed, lessThan(2000), reason: 'Date operations should be fast');
     });
@@ -131,10 +139,14 @@ void main() {
       final elapsed = stopwatch.elapsedMilliseconds;
       // ignore: avoid_print
       print(
-          'Performed ${1000 * titles.length * 4} string operations in ${elapsed}ms');
+        'Performed ${1000 * titles.length * 4} string operations in ${elapsed}ms',
+      );
 
-      expect(elapsed, lessThan(3000),
-          reason: 'String operations should be fast');
+      expect(
+        elapsed,
+        lessThan(3000),
+        reason: 'String operations should be fast',
+      );
     });
   });
 
@@ -158,11 +170,15 @@ void main() {
       final elapsed = stopwatch.elapsedMilliseconds;
       // ignore: avoid_print
       print(
-          'Checked ${100 * testPaths.length} directory existence in ${elapsed}ms');
+        'Checked ${100 * testPaths.length} directory existence in ${elapsed}ms',
+      );
 
       // File system operations are inherently slower
-      expect(elapsed, lessThan(10000),
-          reason: 'Directory checks should complete reasonably');
+      expect(
+        elapsed,
+        lessThan(10000),
+        reason: 'Directory checks should complete reasonably',
+      );
     });
 
     test('Path manipulation performance', () async {
@@ -185,8 +201,11 @@ void main() {
       // ignore: avoid_print
       print('Performed ${100000 * 2} path operations in ${elapsed}ms');
 
-      expect(elapsed, lessThan(2000),
-          reason: 'Path operations should be very fast');
+      expect(
+        elapsed,
+        lessThan(2000),
+        reason: 'Path operations should be very fast',
+      );
     });
   });
 }

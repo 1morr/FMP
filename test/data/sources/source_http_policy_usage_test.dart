@@ -21,8 +21,9 @@ void main() {
     });
 
     test('InnerTube request options reuse policy headers', () {
-      final source =
-          File('lib/data/sources/youtube_source.dart').readAsStringSync();
+      final source = File(
+        'lib/data/sources/youtube_source.dart',
+      ).readAsStringSync();
 
       expect(source, contains('SourceHttpPolicy.apiHeaders'));
       expect(source, isNot(contains("'Origin': 'https://www.youtube.com'")));
@@ -30,8 +31,9 @@ void main() {
     });
 
     test('Netease source does not depend on account service for policy UA', () {
-      final source =
-          File('lib/data/sources/netease_source.dart').readAsStringSync();
+      final source = File(
+        'lib/data/sources/netease_source.dart',
+      ).readAsStringSync();
 
       expect(source, isNot(contains('NeteaseAccountService')));
     });

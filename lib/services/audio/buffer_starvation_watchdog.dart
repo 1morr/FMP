@@ -17,9 +17,9 @@ class BufferStarvationWatchdog with Logging {
     PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
     PlaybackRecoveryTimerFactory timerFactory =
         defaultPlaybackRecoveryTimerFactory,
-  })  : _onStarved = onStarved,
-        _timeout = budget.bufferStarvation,
-        _timerFactory = timerFactory;
+  }) : _onStarved = onStarved,
+       _timeout = budget.bufferStarvation,
+       _timerFactory = timerFactory;
 
   final void Function() _onStarved;
   final Duration _timeout;

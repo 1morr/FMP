@@ -119,20 +119,20 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           state.isLoading && displayPlaylists.isEmpty
               ? const LoadingPlaceholder()
               : displayPlaylists.isEmpty
-                  ? _buildEmptyState(context, ref)
-                  : _isReorderMode
-                      ? _buildReorderableGrid(
-                          context,
-                          ref,
-                          displayPlaylists,
-                          coverMapAsync,
-                        )
-                      : _buildPlaylistGrid(
-                          context,
-                          ref,
-                          displayPlaylists,
-                          coverMapAsync,
-                        ),
+              ? _buildEmptyState(context, ref)
+              : _isReorderMode
+              ? _buildReorderableGrid(
+                  context,
+                  ref,
+                  displayPlaylists,
+                  coverMapAsync,
+                )
+              : _buildPlaylistGrid(
+                  context,
+                  ref,
+                  displayPlaylists,
+                  coverMapAsync,
+                ),
           // 刷新进度指示器固定在底部
           const Positioned(
             left: 0,
@@ -276,10 +276,8 @@ AsyncValue<PlaylistCoverData> _coverForPlaylist(
       coverMap[playlistId] ?? const PlaylistCoverData(),
     ),
     loading: () => const AsyncLoading<PlaylistCoverData>(),
-    error: (error, stackTrace) => AsyncError<PlaylistCoverData>(
-      error,
-      stackTrace,
-    ),
+    error: (error, stackTrace) =>
+        AsyncError<PlaylistCoverData>(error, stackTrace),
   );
 }
 
@@ -308,11 +306,7 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
           color: colorScheme.primary.withValues(alpha: 0.7),
           borderRadius: AppRadius.borderRadiusSm,
         ),
-        child: Icon(
-          Icons.drag_handle,
-          size: 20,
-          color: colorScheme.onPrimary,
-        ),
+        child: Icon(Icons.drag_handle, size: 20, color: colorScheme.onPrimary),
       ),
       cover: coverAsync.when(
         skipLoadingOnReload: true,
@@ -382,7 +376,9 @@ class _PlaylistCard extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildContextMenuItems(
-      BuildContext context, WidgetRef ref) {
+    BuildContext context,
+    WidgetRef ref,
+  ) {
     final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
     return PlaylistCardActions.buildPopupMenuEntries(
       context: context,
@@ -394,7 +390,10 @@ class _PlaylistCard extends ConsumerWidget {
   }
 
   void _handleContextMenuAction(
-      BuildContext context, WidgetRef ref, String value) {
+    BuildContext context,
+    WidgetRef ref,
+    String value,
+  ) {
     switch (value) {
       case PlaylistCardActions.actionPlayMix:
         _playMix(context, ref);

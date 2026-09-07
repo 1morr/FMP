@@ -74,7 +74,8 @@ class PlaybackErrorPresenter with Logging {
     // 沒有列舉到的型別一律不重試，但要留下痕跡 —— 靜默地「猜它是網路錯誤」
     // 正是 issue #41 那類 bug 的來源。看到這行就把該型別補進上面的清單。
     logWarning(
-        'Unclassified playback error, not retrying: ${error.runtimeType} $error');
+      'Unclassified playback error, not retrying: ${error.runtimeType} $error',
+    );
     return false;
   }
 }

@@ -44,11 +44,7 @@ class LiveStreamInfo {
   final Map<String, String>? headers;
   final DateTime? expiresAt;
 
-  const LiveStreamInfo({
-    required this.url,
-    this.headers,
-    this.expiresAt,
-  });
+  const LiveStreamInfo({required this.url, this.headers, this.expiresAt});
 }
 
 /// 解析結果
@@ -56,10 +52,7 @@ class ParseResult {
   final String sourceId;
   final String normalizedUrl;
 
-  const ParseResult({
-    required this.sourceId,
-    required this.normalizedUrl,
-  });
+  const ParseResult({required this.sourceId, required this.normalizedUrl});
 }
 
 /// RadioSource - Bilibili 直播間 URL 解析和流地址獲取
@@ -75,8 +68,8 @@ class RadioSource with Logging {
   );
 
   RadioSource({BilibiliLiveClient? liveClient})
-      : _liveClient = liveClient ?? BilibiliLiveClient(),
-        _ownsLiveClient = liveClient == null;
+    : _liveClient = liveClient ?? BilibiliLiveClient(),
+      _ownsLiveClient = liveClient == null;
 
   /// 檢查是否為 YouTube URL
   bool isYouTubeUrl(String url) {

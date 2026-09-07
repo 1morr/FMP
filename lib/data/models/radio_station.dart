@@ -1,7 +1,6 @@
 import 'package:isar_community/isar.dart';
 import 'track_key.dart';
 
-
 part 'radio_station.g.dart';
 
 /// 電台/直播間實體

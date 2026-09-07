@@ -51,8 +51,9 @@ void main() {
     });
 
     setUp(() async {
-      coordinatorTempDir =
-          await Directory.systemTemp.createTemp('mix_coordinator_');
+      coordinatorTempDir = await Directory.systemTemp.createTemp(
+        'mix_coordinator_',
+      );
       coordinatorIsar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema],
         directory: coordinatorTempDir.path,
@@ -108,32 +109,43 @@ void main() {
       );
     }
 
-    test('restoreFrom picks the session back up and marks the queue seen',
-        () async {
-      final coordinator = build();
-      await seedQueue(2);
+    test(
+      'restoreFrom picks the session back up and marks the queue seen',
+      () async {
+        final coordinator = build();
+        await seedQueue(2);
 
-      final session = coordinator.restoreFrom(restoreState(isMixMode: true));
+        final session = coordinator.restoreFrom(restoreState(isMixMode: true));
 
-      expect(session, isNotNull);
-      expect(session!.title, 'Restored Mix');
-      expect(coordinator.current, same(session));
-      // 佇列裡已經有的兩首不該再被抓一次。
-      expect(session.seenVideoIds, containsAll(<String>['seed-0', 'seed-1']));
-    });
+        expect(session, isNotNull);
+        expect(session!.title, 'Restored Mix');
+        expect(coordinator.current, same(session));
+        // 佇列裡已經有的兩首不該再被抓一次。
+        expect(session.seenVideoIds, containsAll(<String>['seed-0', 'seed-1']));
+      },
+    );
 
     test('restoreFrom refuses a mix whose metadata is incomplete', () {
       final coordinator = build();
 
       // 少了任何一個欄位，之後的預取都抓不到東西 —— 寧可退回一般佇列，也不要
       // 一個永遠加載不出下一批的假 Mix。
-      expect(coordinator.restoreFrom(restoreState(isMixMode: true, playlistId: null)),
-          isNull);
       expect(
-          coordinator.restoreFrom(restoreState(isMixMode: true, seedVideoId: null)),
-          isNull);
-      expect(coordinator.restoreFrom(restoreState(isMixMode: true, title: null)),
-          isNull);
+        coordinator.restoreFrom(
+          restoreState(isMixMode: true, playlistId: null),
+        ),
+        isNull,
+      );
+      expect(
+        coordinator.restoreFrom(
+          restoreState(isMixMode: true, seedVideoId: null),
+        ),
+        isNull,
+      );
+      expect(
+        coordinator.restoreFrom(restoreState(isMixMode: true, title: null)),
+        isNull,
+      );
       expect(coordinator.current, isNull);
     });
 
@@ -145,29 +157,31 @@ void main() {
       expect(coordinator.current, isNull);
     });
 
-    test('exit clears the session and the in-flight prefetch together',
-        () async {
-      final coordinator = build();
-      await seedQueue(2);
-      final gate = fetcher.enqueuePendingResult(
-        const MixFetchResult(title: 'Mix', tracks: []),
-      );
-      coordinator.start(
-        playlistId: 'RD-1',
-        seedVideoId: 'seed-0',
-        title: 'Mix',
-      );
-      coordinator.onTrackStarted(PlayMode.mix);
-      expect(coordinator.pendingLoad, isNotNull);
+    test(
+      'exit clears the session and the in-flight prefetch together',
+      () async {
+        final coordinator = build();
+        await seedQueue(2);
+        final gate = fetcher.enqueuePendingResult(
+          const MixFetchResult(title: 'Mix', tracks: []),
+        );
+        coordinator.start(
+          playlistId: 'RD-1',
+          seedVideoId: 'seed-0',
+          title: 'Mix',
+        );
+        coordinator.onTrackStarted(PlayMode.mix);
+        expect(coordinator.pendingLoad, isNotNull);
 
-      coordinator.exit();
+        coordinator.exit();
 
-      // 過去這兩件事是兩個欄位，離開路徑要記得各清一次。
-      expect(coordinator.current, isNull);
-      expect(coordinator.pendingLoad, isNull);
-      gate.complete();
-      await pumpEventQueue(times: 20);
-    });
+        // 過去這兩件事是兩個欄位，離開路徑要記得各清一次。
+        expect(coordinator.current, isNull);
+        expect(coordinator.pendingLoad, isNull);
+        gate.complete();
+        await pumpEventQueue(times: 20);
+      },
+    );
 
     test('a stale session cannot append into the queue of a new one', () async {
       final coordinator = build();
@@ -179,12 +193,18 @@ void main() {
         ),
       );
       coordinator.start(
-          playlistId: 'RD-stale', seedVideoId: 'seed-0', title: 'Stale');
+        playlistId: 'RD-stale',
+        seedVideoId: 'seed-0',
+        title: 'Stale',
+      );
       coordinator.onTrackStarted(PlayMode.mix);
 
       // 舊工作階段還在抓的時候換成新的。
       coordinator.start(
-          playlistId: 'RD-active', seedVideoId: 'seed-1', title: 'Active');
+        playlistId: 'RD-active',
+        seedVideoId: 'seed-1',
+        title: 'Active',
+      );
       staleGate.complete();
       await pumpEventQueue(times: 20);
 
@@ -199,7 +219,10 @@ void main() {
       final coordinator = build();
       await seedQueue(2);
       coordinator.start(
-          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
+        playlistId: 'RD-1',
+        seedVideoId: 'seed-0',
+        title: 'Mix',
+      );
 
       coordinator.onTrackStarted(PlayMode.queue);
 
@@ -207,57 +230,69 @@ void main() {
       expect(fetcher.callCount, 0);
     });
 
-    test('a second trigger while one is in flight does not start another',
-        () async {
-      final coordinator = build();
-      await seedQueue(2);
-      final gate = fetcher.enqueuePendingResult(
-        const MixFetchResult(title: 'Mix', tracks: []),
-      );
-      coordinator.start(
-          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
-
-      coordinator.onTrackStarted(PlayMode.mix);
-      final first = coordinator.pendingLoad;
-      coordinator.onTrackStarted(PlayMode.mix);
-
-      expect(coordinator.pendingLoad, same(first));
-      gate.complete();
-      await pumpEventQueue(times: 20);
-    });
-
-    test('reports loading back to the caller instead of touching state',
-        () async {
-      final coordinator = build();
-      await seedQueue(2);
-      final gate = fetcher.enqueuePendingResult(
-        MixFetchResult(
+    test(
+      'a second trigger while one is in flight does not start another',
+      () async {
+        final coordinator = build();
+        await seedQueue(2);
+        final gate = fetcher.enqueuePendingResult(
+          const MixFetchResult(title: 'Mix', tracks: []),
+        );
+        coordinator.start(
+          playlistId: 'RD-1',
+          seedVideoId: 'seed-0',
           title: 'Mix',
-          tracks: List.generate(
-              10, (i) => _track('new-$i', title: 'New $i')),
-        ),
-      );
-      coordinator.start(
-          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
+        );
 
-      coordinator.onTrackStarted(PlayMode.mix);
-      await pumpEventQueue(times: 5);
-      expect(loadingStates, [true]);
+        coordinator.onTrackStarted(PlayMode.mix);
+        final first = coordinator.pendingLoad;
+        coordinator.onTrackStarted(PlayMode.mix);
 
-      gate.complete();
-      // 佇列寫入是真的 Isar 交易，固定次數的 pump 不是可靠的同步點。
-      await _waitFor(() => loadingStates.length >= 2);
+        expect(coordinator.pendingLoad, same(first));
+        gate.complete();
+        await pumpEventQueue(times: 20);
+      },
+    );
 
-      expect(loadingStates, [true, false]);
-      expect(queueChangedCount, 1);
-      expect(coordinatorQueue.tracks, hasLength(12));
-    });
+    test(
+      'reports loading back to the caller instead of touching state',
+      () async {
+        final coordinator = build();
+        await seedQueue(2);
+        final gate = fetcher.enqueuePendingResult(
+          MixFetchResult(
+            title: 'Mix',
+            tracks: List.generate(10, (i) => _track('new-$i', title: 'New $i')),
+          ),
+        );
+        coordinator.start(
+          playlistId: 'RD-1',
+          seedVideoId: 'seed-0',
+          title: 'Mix',
+        );
+
+        coordinator.onTrackStarted(PlayMode.mix);
+        await pumpEventQueue(times: 5);
+        expect(loadingStates, [true]);
+
+        gate.complete();
+        // 佇列寫入是真的 Isar 交易，固定次數的 pump 不是可靠的同步點。
+        await _waitFor(() => loadingStates.length >= 2);
+
+        expect(loadingStates, [true, false]);
+        expect(queueChangedCount, 1);
+        expect(coordinatorQueue.tracks, hasLength(12));
+      },
+    );
 
     test('without a fetcher it gives up instead of hanging', () async {
       final coordinator = build(withFetcher: false);
       await seedQueue(2);
       coordinator.start(
-          playlistId: 'RD-1', seedVideoId: 'seed-0', title: 'Mix');
+        playlistId: 'RD-1',
+        seedVideoId: 'seed-0',
+        title: 'Mix',
+      );
 
       coordinator.onTrackStarted(PlayMode.mix);
       await _waitFor(() => loadingStates.length >= 2);
@@ -339,91 +374,93 @@ void main() {
     });
 
     test(
-        'clearing an active loading mix session removes ownership and visible loading state',
-        () async {
-      final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
-        const MixFetchResult(title: 'First Mix', tracks: []),
-      );
+      'clearing an active loading mix session removes ownership and visible loading state',
+      () async {
+        final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
+          const MixFetchResult(title: 'First Mix', tracks: []),
+        );
 
-      await controller.playMixPlaylist(
-        playlistId: 'RDmix-1',
-        seedVideoId: 'seed-1',
-        title: 'First Mix',
-        tracks: [
-          _track('mix-1-a', title: 'Mix 1 A'),
-          _track('mix-1-b', title: 'Mix 1 B'),
-        ],
-        startIndex: 1,
-      );
-      await pumpEventQueue(times: 5);
+        await controller.playMixPlaylist(
+          playlistId: 'RDmix-1',
+          seedVideoId: 'seed-1',
+          title: 'First Mix',
+          tracks: [
+            _track('mix-1-a', title: 'Mix 1 A'),
+            _track('mix-1-b', title: 'Mix 1 B'),
+          ],
+          startIndex: 1,
+        );
+        await pumpEventQueue(times: 5);
 
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'First Mix');
-      expect(controller.queueState.isLoadingMoreMix, isTrue);
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'First Mix');
+        expect(controller.queueState.isLoadingMoreMix, isTrue);
 
-      await controller.clearQueue();
-      await pumpEventQueue(times: 5);
+        await controller.clearQueue();
+        await pumpEventQueue(times: 5);
 
-      loadMoreGate.complete();
-      await pumpEventQueue(times: 20);
+        loadMoreGate.complete();
+        await pumpEventQueue(times: 20);
 
-      expect(controller.queueState.isMixMode, isFalse);
-      expect(controller.queueState.mixTitle, isNull);
-      expect(controller.queueState.isLoadingMoreMix, isFalse);
-      expect(controller.queueState.upcomingTracks, isEmpty);
-    });
+        expect(controller.queueState.isMixMode, isFalse);
+        expect(controller.queueState.mixTitle, isNull);
+        expect(controller.queueState.isLoadingMoreMix, isFalse);
+        expect(controller.queueState.upcomingTracks, isEmpty);
+      },
+    );
 
     test(
-        'replacing a loading mix session keeps stale load-more work from affecting the new session',
-        () async {
-      final staleLoadGate = mixTracksFetcher.enqueuePendingResult(
-        const MixFetchResult(title: 'Old Mix', tracks: []),
-      );
+      'replacing a loading mix session keeps stale load-more work from affecting the new session',
+      () async {
+        final staleLoadGate = mixTracksFetcher.enqueuePendingResult(
+          const MixFetchResult(title: 'Old Mix', tracks: []),
+        );
 
-      await controller.playMixPlaylist(
-        playlistId: 'RDmix-old',
-        seedVideoId: 'seed-old',
-        title: 'Old Mix',
-        tracks: [
-          _track('old-a', title: 'Old A'),
-          _track('old-b', title: 'Old B'),
-        ],
-        startIndex: 1,
-      );
-      await pumpEventQueue(times: 5);
+        await controller.playMixPlaylist(
+          playlistId: 'RDmix-old',
+          seedVideoId: 'seed-old',
+          title: 'Old Mix',
+          tracks: [
+            _track('old-a', title: 'Old A'),
+            _track('old-b', title: 'Old B'),
+          ],
+          startIndex: 1,
+        );
+        await pumpEventQueue(times: 5);
 
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'Old Mix');
-      expect(controller.state.currentTrack?.sourceId, 'old-b');
-      expect(controller.queueState.isLoadingMoreMix, isTrue);
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'Old Mix');
+        expect(controller.state.currentTrack?.sourceId, 'old-b');
+        expect(controller.queueState.isLoadingMoreMix, isTrue);
 
-      await controller.playMixPlaylist(
-        playlistId: 'RDmix-new',
-        seedVideoId: 'seed-new',
-        title: 'New Mix',
-        tracks: [
-          _track('new-a', title: 'New A'),
-          _track('new-b', title: 'New B'),
-        ],
-        startIndex: 0,
-      );
-      await pumpEventQueue(times: 5);
+        await controller.playMixPlaylist(
+          playlistId: 'RDmix-new',
+          seedVideoId: 'seed-new',
+          title: 'New Mix',
+          tracks: [
+            _track('new-a', title: 'New A'),
+            _track('new-b', title: 'New B'),
+          ],
+          startIndex: 0,
+        );
+        await pumpEventQueue(times: 5);
 
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'New Mix');
-      expect(controller.state.currentTrack?.sourceId, 'new-a');
-      expect(controller.state.playingTrack?.sourceId, 'new-a');
-      expect(controller.queueState.isLoadingMoreMix, isFalse);
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'New Mix');
+        expect(controller.state.currentTrack?.sourceId, 'new-a');
+        expect(controller.state.playingTrack?.sourceId, 'new-a');
+        expect(controller.queueState.isLoadingMoreMix, isFalse);
 
-      staleLoadGate.complete();
-      await pumpEventQueue(times: 20);
+        staleLoadGate.complete();
+        await pumpEventQueue(times: 20);
 
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'New Mix');
-      expect(controller.state.currentTrack?.sourceId, 'new-a');
-      expect(controller.state.playingTrack?.sourceId, 'new-a');
-      expect(controller.queueState.isLoadingMoreMix, isFalse);
-    });
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'New Mix');
+        expect(controller.state.currentTrack?.sourceId, 'new-a');
+        expect(controller.state.playingTrack?.sourceId, 'new-a');
+        expect(controller.queueState.isLoadingMoreMix, isFalse);
+      },
+    );
   });
 }
 

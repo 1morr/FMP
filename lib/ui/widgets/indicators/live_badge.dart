@@ -13,21 +13,21 @@ enum _LiveBadgeVariant { dot, text, compact }
 class LiveBadge extends StatelessWidget {
   /// 紅點變體。[size] 由封面尺寸推導，見 [dotSizeForCover]。
   const LiveBadge.dot({super.key, this.size = 16})
-      : label = null,
-        _variant = _LiveBadgeVariant.dot;
+    : label = null,
+      _variant = _LiveBadgeVariant.dot;
 
   /// LIVE 文字標籤變體（走 i18n）。
   const LiveBadge.text({super.key})
-      : size = 0,
-        label = null,
-        _variant = _LiveBadgeVariant.text;
+    : size = 0,
+      label = null,
+      _variant = _LiveBadgeVariant.text;
 
   /// 緊湊 LIVE 文字標籤：padding 6/1、radius xs、字級 10 w600。
   ///
   /// [label] 預設為 t.radio.live，可傳入情境化文案（如 t.account.liveStatus）。
   const LiveBadge.compact({super.key, this.label})
-      : size = 0,
-        _variant = _LiveBadgeVariant.compact;
+    : size = 0,
+      _variant = _LiveBadgeVariant.compact;
 
   /// 紅點直徑（dot 變體專用）。
   final double size;
@@ -86,10 +86,7 @@ class LiveBadge extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.red,
             shape: BoxShape.circle,
-            border: Border.all(
-              color: colorScheme.surface,
-              width: size * 0.125,
-            ),
+            border: Border.all(color: colorScheme.surface, width: size * 0.125),
             boxShadow: [
               BoxShadow(
                 color: Colors.red.withValues(alpha: 0.5),

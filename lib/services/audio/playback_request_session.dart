@@ -76,9 +76,7 @@ class PlaybackSessionResult {
     );
   }
 
-  factory PlaybackSessionResult.superseded({
-    required int requestId,
-  }) {
+  factory PlaybackSessionResult.superseded({required int requestId}) {
     return PlaybackSessionResult._(
       requestId: requestId,
       kind: PlaybackSessionResultKind.superseded,
@@ -128,16 +126,12 @@ class PlaybackSessionResult {
 }
 
 typedef PlaybackSessionLoadingStarted = void Function(int requestId);
-typedef PlaybackSessionLoadingFinished = void Function(
-  int requestId,
-  PlaybackSessionResult result,
-);
+typedef PlaybackSessionLoadingFinished =
+    void Function(int requestId, PlaybackSessionResult result);
 typedef PlaybackSessionCurrentTrack = Track? Function();
 typedef PlaybackSessionTerminalMessage = String Function(Track track);
-typedef PlaybackSessionTerminalMediaOpen = void Function({
-  required Track track,
-  required String message,
-});
+typedef PlaybackSessionTerminalMediaOpen =
+    void Function({required Track track, required String message});
 typedef PlaybackSessionPosition = Duration Function();
 typedef PlaybackSessionIsPlaying = bool Function();
 typedef PlaybackSessionDelay = Future<void> Function(Duration duration);
@@ -157,16 +151,16 @@ class PlaybackRequestSession with Logging {
     PlaybackSessionNextPrefetched? onNextTrackPrefetched,
     PlaybackSessionDelay? delay,
     PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
-  })  : _budget = budget,
-        _audioService = audioService,
-        _audioStreamManager = audioStreamManager,
-        _getNextTrack = getNextTrack,
-        _onLoadingStarted = onLoadingStarted,
-        _onLoadingFinished = onLoadingFinished,
-        _terminalMediaOpenMessage = terminalMediaOpenMessage,
-        _onTerminalMediaOpenError = onTerminalMediaOpenError,
-        _onNextTrackPrefetched = onNextTrackPrefetched,
-        _delay = delay ?? Future<void>.delayed;
+  }) : _budget = budget,
+       _audioService = audioService,
+       _audioStreamManager = audioStreamManager,
+       _getNextTrack = getNextTrack,
+       _onLoadingStarted = onLoadingStarted,
+       _onLoadingFinished = onLoadingFinished,
+       _terminalMediaOpenMessage = terminalMediaOpenMessage,
+       _onTerminalMediaOpenError = onTerminalMediaOpenError,
+       _onNextTrackPrefetched = onNextTrackPrefetched,
+       _delay = delay ?? Future<void>.delayed;
 
   static const _mediaOpenRecoveryDelay = Duration(seconds: 2);
   static const _mediaOpenRecoveryAdvance = Duration(milliseconds: 500);
@@ -396,8 +390,11 @@ class PlaybackRequestSession with Logging {
     try {
       await _audioService.stop();
     } catch (stopError, stackTrace) {
-      logError('Failed to stop player after media open error', stopError,
-          stackTrace);
+      logError(
+        'Failed to stop player after media open error',
+        stopError,
+        stackTrace,
+      );
     }
 
     if (_isDisposed ||
@@ -447,8 +444,11 @@ class PlaybackRequestSession with Logging {
       try {
         await _audioService.stop();
       } catch (stopError, stackTrace) {
-        logError('Failed to stop player after media open error', stopError,
-            stackTrace);
+        logError(
+          'Failed to stop player after media open error',
+          stopError,
+          stackTrace,
+        );
       }
 
       if (_isDisposed || _pendingPostHandoffMediaOpenError != pending) {
@@ -489,9 +489,7 @@ class PlaybackRequestSession with Logging {
     _onLoadingFinished(requestId, result);
   }
 
-  Future<PlaybackSessionResult?> _consumeMediaOpenResult(
-    int requestId,
-  ) async {
+  Future<PlaybackSessionResult?> _consumeMediaOpenResult(int requestId) async {
     final pending = _pendingMediaOpenErrors[requestId];
     if (pending == null) return null;
     try {
@@ -696,7 +694,9 @@ class PlaybackRequestSession with Logging {
   }
 
   Future<void> _playSelection(
-      int requestId, PlaybackSelection selection) async {
+    int requestId,
+    PlaybackSelection selection,
+  ) async {
     final media = selection.media;
     final urlType = media is LocalPlaybackMedia ? 'downloaded' : 'stream';
     logDebug(
@@ -737,11 +737,15 @@ class PlaybackRequestSession with Logging {
       logWarning('${phase.name} started with no budget left');
       return Future.error(PlaybackTimeoutException(phase, Duration.zero));
     }
-    return operation.timeout(budget, onTimeout: () {
-      logWarning(
-          '${phase.name} exceeded its ${budget.inMilliseconds}ms budget');
-      throw PlaybackTimeoutException(phase, budget);
-    });
+    return operation.timeout(
+      budget,
+      onTimeout: () {
+        logWarning(
+          '${phase.name} exceeded its ${budget.inMilliseconds}ms budget',
+        );
+        throw PlaybackTimeoutException(phase, budget);
+      },
+    );
   }
 
   /// 這次請求還剩多少時間，上限是該階段自己的預算。
@@ -759,26 +763,30 @@ class PlaybackRequestSession with Logging {
     PlaybackTimeoutPhase? phase,
   }) async {
     final operationCompleter = Completer<T?>();
-    unawaited(operation.then((value) {
-      if (!operationCompleter.isCompleted) {
-        operationCompleter.complete(value);
-      }
-    }).catchError((Object error, StackTrace stackTrace) {
-      if (isSuperseded(requestId)) {
-        logError(
-          '$description failed after request $requestId was superseded',
-          error,
-          stackTrace,
-        );
-        if (!operationCompleter.isCompleted) {
-          operationCompleter.complete(null);
-        }
-        return;
-      }
-      if (!operationCompleter.isCompleted) {
-        operationCompleter.completeError(error, stackTrace);
-      }
-    }));
+    unawaited(
+      operation
+          .then((value) {
+            if (!operationCompleter.isCompleted) {
+              operationCompleter.complete(value);
+            }
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            if (isSuperseded(requestId)) {
+              logError(
+                '$description failed after request $requestId was superseded',
+                error,
+                stackTrace,
+              );
+              if (!operationCompleter.isCompleted) {
+                operationCompleter.complete(null);
+              }
+              return;
+            }
+            if (!operationCompleter.isCompleted) {
+              operationCompleter.completeError(error, stackTrace);
+            }
+          }),
+    );
 
     final lock = _playLock;
     final waited = (lock == null || lock.requestId != requestId)
@@ -790,8 +798,10 @@ class PlaybackRequestSession with Logging {
 
     if (phase == null) return waited;
     // 被新請求取代要先於逾時解決：那不是失敗，只是這一次不再重要了。
-    return _withBudget(waited, phase)
-        .catchError((Object error, StackTrace stackTrace) {
+    return _withBudget(waited, phase).catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
       if (error is PlaybackTimeoutException && isSuperseded(requestId)) {
         return null;
       }

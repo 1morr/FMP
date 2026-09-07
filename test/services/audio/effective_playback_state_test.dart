@@ -26,8 +26,11 @@ void main() {
     test('a backend idle is read as loading, not as stopped', () {
       // 換歌時控制器自己呼叫 stop()，後端就送 idle 回來。直接投影會讓 UI 閃
       // 一下「已停止」。
-      final effective =
-          effectiveOf(false, FmpAudioProcessingState.idle, loading: true);
+      final effective = effectiveOf(
+        false,
+        FmpAudioProcessingState.idle,
+        loading: true,
+      );
 
       expect(effective.processingState, FmpAudioProcessingState.loading);
       expect(effective.isLoading, isTrue);
@@ -35,16 +38,22 @@ void main() {
     });
 
     test('a backend that claims to be playing is still not playing', () {
-      final effective =
-          effectiveOf(true, FmpAudioProcessingState.idle, loading: true);
+      final effective = effectiveOf(
+        true,
+        FmpAudioProcessingState.idle,
+        loading: true,
+      );
 
       expect(effective.isPlaying, isFalse);
     });
 
     test('a backend that is genuinely ready still reads as loading', () {
       // 串流已經開好但控制器還在收尾，這一段仍屬於載入。
-      final effective =
-          effectiveOf(true, FmpAudioProcessingState.ready, loading: true);
+      final effective = effectiveOf(
+        true,
+        FmpAudioProcessingState.ready,
+        loading: true,
+      );
 
       expect(effective.isLoading, isTrue);
       expect(effective.processingState, FmpAudioProcessingState.ready);
@@ -66,8 +75,11 @@ void main() {
 
   group('when the controller owns nothing', () {
     test('the backend is passed through unchanged', () {
-      final effective =
-          effectiveOf(false, FmpAudioProcessingState.idle, loading: false);
+      final effective = effectiveOf(
+        false,
+        FmpAudioProcessingState.idle,
+        loading: false,
+      );
 
       expect(effective.processingState, FmpAudioProcessingState.idle);
       expect(effective.isLoading, isFalse);
@@ -76,22 +88,31 @@ void main() {
     });
 
     test('the backend loading still counts as loading', () {
-      final effective =
-          effectiveOf(false, FmpAudioProcessingState.loading, loading: false);
+      final effective = effectiveOf(
+        false,
+        FmpAudioProcessingState.loading,
+        loading: false,
+      );
 
       expect(effective.isLoading, isTrue);
     });
 
     test('buffering is derived from the effective processing state', () {
       expect(
-        effectiveOf(true, FmpAudioProcessingState.buffering, loading: false)
-            .isBuffering,
+        effectiveOf(
+          true,
+          FmpAudioProcessingState.buffering,
+          loading: false,
+        ).isBuffering,
         isTrue,
       );
       // 載入中把 idle 改寫成 loading，不會意外變成 buffering。
       expect(
-        effectiveOf(false, FmpAudioProcessingState.idle, loading: true)
-            .isBuffering,
+        effectiveOf(
+          false,
+          FmpAudioProcessingState.idle,
+          loading: true,
+        ).isBuffering,
         isFalse,
       );
     });

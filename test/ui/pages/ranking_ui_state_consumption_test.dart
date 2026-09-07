@@ -63,7 +63,9 @@ void main() {
         await tester.longPress(find.text('Bili A'));
         await tester.pump();
         expect(
-            container.read(exploreSelectionProvider).isSelectionMode, isTrue);
+          container.read(exploreSelectionProvider).isSelectionMode,
+          isTrue,
+        );
 
         await tester.tap(find.text('YouTube'));
         await tester.pumpAndSettle();
@@ -73,9 +75,10 @@ void main() {
         await tester.pump();
 
         expect(
-          container.read(exploreSelectionProvider).selectedTracks.map(
-                (track) => track.sourceId,
-              ),
+          container
+              .read(exploreSelectionProvider)
+              .selectedTracks
+              .map((track) => track.sourceId),
           orderedEquals(['yt-a', 'yt-b', 'yt-c']),
         );
 
@@ -87,9 +90,10 @@ void main() {
         await tester.pump();
 
         expect(
-          container.read(exploreSelectionProvider).selectedTracks.map(
-                (track) => track.sourceId,
-              ),
+          container
+              .read(exploreSelectionProvider)
+              .selectedTracks
+              .map((track) => track.sourceId),
           orderedEquals(['ne-a', 'ne-b', 'ne-c', 'ne-d']),
         );
       },
@@ -119,23 +123,38 @@ void main() {
       // 只比對 select 片段，不含 provider 名稱：`dart format` 會把長行折在
       // provider 與 .select 之間，把兩者綁在同一個字串會讓這條測試隨格式化紅燈。
       expect(
-          source, isNot(contains('ref.watch(rankingCacheServiceProvider);')));
+        source,
+        isNot(contains('ref.watch(rankingCacheServiceProvider);')),
+      );
       expect(
         source,
         contains(
-            'rankingCacheServiceProvider.select((state) => state.isInitialLoading)'),
+          'rankingCacheServiceProvider.select((state) => state.isInitialLoading)',
+        ),
       );
       expect(
         source,
-        contains('.select((state) => state.errorFor(SourceIds.bilibili))'),
+        matches(
+          RegExp(
+            r'\.select\(\s*\(state\) => state\.errorFor\(SourceIds\.bilibili\)',
+          ),
+        ),
       );
       expect(
         source,
-        contains('.select((state) => state.errorFor(SourceIds.youtube))'),
+        matches(
+          RegExp(
+            r'\.select\(\s*\(state\) => state\.errorFor\(SourceIds\.youtube\)',
+          ),
+        ),
       );
       expect(
         source,
-        contains('.select((state) => state.errorFor(SourceIds.netease))'),
+        matches(
+          RegExp(
+            r'\.select\(\s*\(state\) => state\.errorFor\(SourceIds\.netease\)',
+          ),
+        ),
       );
     });
   });
@@ -182,11 +201,11 @@ class _FakeRankingSource implements RankingSource {
 
   @override
   SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
-        SourceIds.bilibili => const SourceRankingRequest(regionId: 1003),
-        SourceIds.youtube => const SourceRankingRequest(category: 'music'),
-        SourceIds.netease => const SourceRankingRequest(limit: 50),
-        _ => throw StateError('unconfigured fake source: $sourceType'),
-      };
+    SourceIds.bilibili => const SourceRankingRequest(regionId: 1003),
+    SourceIds.youtube => const SourceRankingRequest(category: 'music'),
+    SourceIds.netease => const SourceRankingRequest(limit: 50),
+    _ => throw StateError('unconfigured fake source: $sourceType'),
+  };
 
   @override
   String get rankingLabel => '${sourceType} ranking';

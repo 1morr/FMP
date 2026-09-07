@@ -117,17 +117,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
     final error = ref.watch(
-      rankingCacheServiceProvider
-          .select((state) => state.errorFor(SourceIds.bilibili)),
+      rankingCacheServiceProvider.select(
+        (state) => state.errorFor(SourceIds.bilibili),
+      ),
     );
     return _buildRankingContent(
       tracks: tracks,
       isLoading: isInitialLoading && tracks.isEmpty,
       error: error,
-      onRefresh: () =>
-          ref.read(rankingCacheServiceProvider.notifier).refreshSource(
-                SourceIds.bilibili,
-              ),
+      onRefresh: () => ref
+          .read(rankingCacheServiceProvider.notifier)
+          .refreshSource(SourceIds.bilibili),
     );
   }
 
@@ -137,17 +137,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
     final error = ref.watch(
-      rankingCacheServiceProvider
-          .select((state) => state.errorFor(SourceIds.youtube)),
+      rankingCacheServiceProvider.select(
+        (state) => state.errorFor(SourceIds.youtube),
+      ),
     );
     return _buildRankingContent(
       tracks: tracks,
       isLoading: isInitialLoading && tracks.isEmpty,
       error: error,
-      onRefresh: () =>
-          ref.read(rankingCacheServiceProvider.notifier).refreshSource(
-                SourceIds.youtube,
-              ),
+      onRefresh: () => ref
+          .read(rankingCacheServiceProvider.notifier)
+          .refreshSource(SourceIds.youtube),
     );
   }
 
@@ -157,17 +157,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
     final error = ref.watch(
-      rankingCacheServiceProvider
-          .select((state) => state.errorFor(SourceIds.netease)),
+      rankingCacheServiceProvider.select(
+        (state) => state.errorFor(SourceIds.netease),
+      ),
     );
     return _buildRankingContent(
       tracks: tracks,
       isLoading: isInitialLoading && tracks.isEmpty,
       error: error,
-      onRefresh: () =>
-          ref.read(rankingCacheServiceProvider.notifier).refreshSource(
-                SourceIds.netease,
-              ),
+      onRefresh: () => ref
+          .read(rankingCacheServiceProvider.notifier)
+          .refreshSource(SourceIds.netease),
     );
   }
 

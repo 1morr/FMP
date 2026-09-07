@@ -7,10 +7,7 @@ void main() {
     test('local media exposes track and debug path', () {
       final track = _track('local');
 
-      final media = LocalPlaybackMedia(
-        path: '/music/local.m4a',
-        track: track,
-      );
+      final media = LocalPlaybackMedia(path: '/music/local.m4a', track: track);
 
       expect(media.track, same(track));
       expect(media.path, '/music/local.m4a');

@@ -151,9 +151,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
 
     // 歌词内容加载中
     if (lyricsContent.isLoading) {
-      return _buildCentered(
-        child: const CircularProgressIndicator(),
-      );
+      return _buildCentered(child: const CircularProgressIndicator());
     }
 
     // 无匹配：自动匹配进行中显示加载动画，否则显示无歌词
@@ -221,7 +219,11 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     // 同步歌词
     if (parsedLyrics.isSynced) {
       return _buildSyncedLyrics(
-          context, colorScheme, parsedLyrics, match.offsetMs);
+        context,
+        colorScheme,
+        parsedLyrics,
+        match.offsetMs,
+      );
     }
 
     // 纯文本歌词
@@ -266,8 +268,11 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final availableWidth = constraints.maxWidth - hPad * 2;
-                final fontSizes =
-                    _getFontSizes(lyrics, availableWidth, context);
+                final fontSizes = _getFontSizes(
+                  lyrics,
+                  availableWidth,
+                  context,
+                );
 
                 return NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
@@ -282,10 +287,12 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                     } else if (notification is ScrollEndNotification) {
                       // 用户停止滚动后 3 秒恢复自动滚动
                       _scrollResumeTimer?.cancel();
-                      _scrollResumeTimer =
-                          Timer(const Duration(seconds: 3), () {
-                        if (mounted) setState(() => _userScrolling = false);
-                      });
+                      _scrollResumeTimer = Timer(
+                        const Duration(seconds: 3),
+                        () {
+                          if (mounted) setState(() => _userScrolling = false);
+                        },
+                      );
                     }
                     return false;
                   },
@@ -314,9 +321,9 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                           onTap: () => _seekToLyricsLine(line, offsetMs),
                           onSecondaryTap: currentTrack != null
                               ? () => _calibrateOffsetToLyricsLine(
-                                    line,
-                                    currentTrack.uniqueKey,
-                                  )
+                                  line,
+                                  currentTrack.uniqueKey,
+                                )
                               : null,
                         ),
                       );
@@ -365,10 +372,10 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
             child: Text(
               line.text,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.8),
-                    fontSize: widget.compact ? 14 : 16,
-                    height: 1.5,
-                  ),
+                color: colorScheme.onSurface.withValues(alpha: 0.8),
+                fontSize: widget.compact ? 14 : 16,
+                height: 1.5,
+              ),
               textAlign: TextAlign.center,
             ),
           );
@@ -386,11 +393,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.lyrics_outlined,
-              size: 48,
-              color: colorScheme.outline,
-            ),
+            Icon(Icons.lyrics_outlined, size: 48, color: colorScheme.outline),
             const SizedBox(height: 12),
             Text(
               t.lyrics.noLyricsAvailable,
@@ -417,8 +420,9 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 所以 position = timestamp - offsetMs
   void _seekToLyricsLine(LyricsLine line, int offsetMs) {
     final targetMs = line.timestamp.inMilliseconds - offsetMs;
-    final targetPosition =
-        Duration(milliseconds: targetMs.clamp(0, double.maxFinite.toInt()));
+    final targetPosition = Duration(
+      milliseconds: targetMs.clamp(0, double.maxFinite.toInt()),
+    );
     ref.read(audioControllerProvider.notifier).seekTo(targetPosition);
   }
 
@@ -445,22 +449,19 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       }
 
       if (immediate) {
-        _itemScrollController.jumpTo(
-          index: index,
-          alignment: 0.35,
-        );
+        _itemScrollController.jumpTo(index: index, alignment: 0.35);
         _programmaticScrolling = false;
       } else {
         _itemScrollController
             .scrollTo(
-          index: index,
-          alignment: 0.35,
-          duration: AnimationDurations.normal,
-          curve: Curves.easeOutCubic,
-        )
+              index: index,
+              alignment: 0.35,
+              duration: AnimationDurations.normal,
+              curve: Curves.easeOutCubic,
+            )
             .then((_) {
-          _programmaticScrolling = false;
-        });
+              _programmaticScrolling = false;
+            });
       }
     });
   }
@@ -521,10 +522,7 @@ class _LyricsLineWidget extends StatelessWidget {
           AnimatedDefaultTextStyle(
             duration: AnimationDurations.medium,
             style: mainStyle,
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-            ),
+            child: Text(text, textAlign: TextAlign.center),
           ),
           if (hasSubText)
             Padding(
@@ -540,10 +538,7 @@ class _LyricsLineWidget extends StatelessWidget {
                   fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                   height: LyricsTextStyles.lineHeight,
                 ),
-                child: Text(
-                  subText!,
-                  textAlign: TextAlign.center,
-                ),
+                child: Text(subText!, textAlign: TextAlign.center),
               ),
             ),
         ],

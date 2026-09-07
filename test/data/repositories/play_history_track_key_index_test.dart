@@ -19,8 +19,11 @@ void main() {
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('play_history_key_test_');
-    isar = await Isar.open([PlayHistorySchema],
-        directory: tempDir.path, name: 'play_history_key_test');
+    isar = await Isar.open(
+      [PlayHistorySchema],
+      directory: tempDir.path,
+      name: 'play_history_key_test',
+    );
     repository = PlayHistoryRepository(isar);
   });
 
@@ -29,13 +32,12 @@ void main() {
     if (await tempDir.exists()) await tempDir.delete(recursive: true);
   });
 
-  PlayHistory entry(String sourceId, {int? cid, String? type}) =>
-      PlayHistory()
-        ..sourceId = sourceId
-        ..sourceType = type ?? SourceIds.bilibili
-        ..cid = cid
-        ..title = 'T'
-        ..playedAt = DateTime(2026, 1, 1);
+  PlayHistory entry(String sourceId, {int? cid, String? type}) => PlayHistory()
+    ..sourceId = sourceId
+    ..sourceType = type ?? SourceIds.bilibili
+    ..cid = cid
+    ..title = 'T'
+    ..playedAt = DateTime(2026, 1, 1);
 
   Future<void> seed() async {
     await isar.writeTxn(() async {
@@ -74,9 +76,15 @@ void main() {
 
     expect(await isar.playHistorys.count(), 3);
     expect(await repository.getPlayCountByKey('bilibili:BV1'), 0);
-    expect(await repository.getPlayCountByKey('bilibili:BV1:7'), 1,
-        reason: 'a different cid is a different track');
-    expect(await repository.getPlayCountByKey('youtube:BV1'), 1,
-        reason: 'a different source is a different track');
+    expect(
+      await repository.getPlayCountByKey('bilibili:BV1:7'),
+      1,
+      reason: 'a different cid is a different track',
+    );
+    expect(
+      await repository.getPlayCountByKey('youtube:BV1'),
+      1,
+      reason: 'a different source is a different track',
+    );
   });
 }

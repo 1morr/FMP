@@ -147,27 +147,29 @@ void main() {
       expect(handler.playbackState.value.controls, hasLength(3));
     });
 
-    test('releasing radio after music is gone unbinds instead of restoring',
-        () {
-      publisher.claim(
-        NowPlayingOwner.music,
-        commands: _musicCommands(),
-        capabilities: PlaybackCapabilities.music,
-      );
-      publisher.claim(
-        NowPlayingOwner.radio,
-        commands: _radioCommands(),
-        capabilities: PlaybackCapabilities.liveRadio,
-      );
+    test(
+      'releasing radio after music is gone unbinds instead of restoring',
+      () {
+        publisher.claim(
+          NowPlayingOwner.music,
+          commands: _musicCommands(),
+          capabilities: PlaybackCapabilities.music,
+        );
+        publisher.claim(
+          NowPlayingOwner.radio,
+          commands: _radioCommands(),
+          capabilities: PlaybackCapabilities.liveRadio,
+        );
 
-      // controller 先被釋放（provider 重建），電台之後才停。
-      publisher.release(NowPlayingOwner.music);
-      publisher.release(NowPlayingOwner.radio);
+        // controller 先被釋放（provider 重建），電台之後才停。
+        publisher.release(NowPlayingOwner.music);
+        publisher.release(NowPlayingOwner.radio);
 
-      expect(publisher.capabilities, PlaybackCapabilities.none);
-      expect(handler.onPlay, isNull);
-      expect(handler.onSkipToNext, isNull);
-    });
+        expect(publisher.capabilities, PlaybackCapabilities.none);
+        expect(handler.onPlay, isNull);
+        expect(handler.onSkipToNext, isNull);
+      },
+    );
 
     test('releasing music while radio owns it leaves radio alone', () {
       publisher.claim(
@@ -199,7 +201,10 @@ void main() {
         shuffleEnabled: true,
       );
 
-      expect(handler.playbackState.value.repeatMode, AudioServiceRepeatMode.one);
+      expect(
+        handler.playbackState.value.repeatMode,
+        AudioServiceRepeatMode.one,
+      );
       expect(
         handler.playbackState.value.shuffleMode,
         AudioServiceShuffleMode.all,
@@ -252,21 +257,21 @@ void main() {
 }
 
 MediaControlCommands _musicCommands() => MediaControlCommands(
-      play: () async {},
-      pause: () async {},
-      stop: () async {},
-      skipToNext: () async {},
-      skipToPrevious: () async {},
-      seek: (_) async {},
-      setLoopMode: (_) async {},
-      setShuffleEnabled: (_) async {},
-    );
+  play: () async {},
+  pause: () async {},
+  stop: () async {},
+  skipToNext: () async {},
+  skipToPrevious: () async {},
+  seek: (_) async {},
+  setLoopMode: (_) async {},
+  setShuffleEnabled: (_) async {},
+);
 
 MediaControlCommands _radioCommands() => MediaControlCommands(
-      play: () async {},
-      pause: () async {},
-      stop: () async {},
-    );
+  play: () async {},
+  pause: () async {},
+  stop: () async {},
+);
 
 Track _track() => Track()
   ..sourceId = 'track-1'

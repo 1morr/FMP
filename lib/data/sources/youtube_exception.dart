@@ -18,22 +18,20 @@ class YouTubeApiException extends SourceApiException {
 
   @override
   SourceErrorKind get kind => switch (code) {
-        'timeout' => SourceErrorKind.timeout,
-        'network_error' => SourceErrorKind.network,
-        'rate_limited' => SourceErrorKind.rateLimited,
-        'unavailable' ||
-        'not_found' ||
-        'unplayable' ||
-        'no_stream' ||
-        'service_unavailable' =>
-          SourceErrorKind.unavailable,
-        'login_required' || 'age_restricted' => SourceErrorKind.loginRequired,
-        'private_or_inaccessible' ||
-        'forbidden' =>
-          SourceErrorKind.permissionDenied,
-        'geo_restricted' => SourceErrorKind.geoRestricted,
-        _ => SourceErrorKind.unknown,
-      };
+    'timeout' => SourceErrorKind.timeout,
+    'network_error' => SourceErrorKind.network,
+    'rate_limited' => SourceErrorKind.rateLimited,
+    'unavailable' ||
+    'not_found' ||
+    'unplayable' ||
+    'no_stream' ||
+    'service_unavailable' => SourceErrorKind.unavailable,
+    'login_required' || 'age_restricted' => SourceErrorKind.loginRequired,
+    'private_or_inaccessible' ||
+    'forbidden' => SourceErrorKind.permissionDenied,
+    'geo_restricted' => SourceErrorKind.geoRestricted,
+    _ => SourceErrorKind.unknown,
+  };
 
   /// 是否是权限不足（私人视频/播放列表）
   @override

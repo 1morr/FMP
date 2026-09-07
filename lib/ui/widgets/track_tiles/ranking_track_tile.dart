@@ -40,7 +40,8 @@ class RankingTrackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    final isPlaying = currentTrack != null &&
+    final isPlaying =
+        currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
@@ -48,17 +49,15 @@ class RankingTrackTile extends ConsumerWidget {
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: InkWell(
-        onTap: onTap ??
+        onTap:
+            onTap ??
             () {
               ref.read(audioControllerProvider.notifier).playTemporary(track);
             },
         onLongPress: onLongPress,
         borderRadius: AppRadius.borderRadiusMd,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 8,
-            horizontal: 16,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           child: Row(
             children: [
               SizedBox(
@@ -66,9 +65,9 @@ class RankingTrackTile extends ConsumerWidget {
                 child: Text(
                   '$rank',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
                 ),
               ),
               const SizedBox(width: 16),
@@ -91,13 +90,12 @@ class RankingTrackTile extends ConsumerWidget {
                             track.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge
+                            style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(
                                   color: isPlaying ? colorScheme.primary : null,
-                                  fontWeight:
-                                      isPlaying ? FontWeight.w600 : null,
+                                  fontWeight: isPlaying
+                                      ? FontWeight.w600
+                                      : null,
                                 ),
                           ),
                         ),
@@ -115,12 +113,8 @@ class RankingTrackTile extends ConsumerWidget {
                             track.artist ?? t.general.unknownArtist,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                         ),
                         if (track.viewCount != null) ...[
@@ -133,10 +127,8 @@ class RankingTrackTile extends ConsumerWidget {
                           const SizedBox(width: 2),
                           Text(
                             formatCount(track.viewCount!),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.outline,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.outline),
                           ),
                         ],
                       ],
@@ -145,10 +137,7 @@ class RankingTrackTile extends ConsumerWidget {
                 ),
               ),
               if (isSelectionMode)
-                _SelectionCheckbox(
-                  isSelected: isSelected,
-                  onTap: onTap,
-                )
+                _SelectionCheckbox(isSelected: isSelected, onTap: onTap)
               else
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
@@ -187,10 +176,7 @@ class _SelectionCheckbox extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
-  const _SelectionCheckbox({
-    required this.isSelected,
-    this.onTap,
-  });
+  const _SelectionCheckbox({required this.isSelected, this.onTap});
 
   @override
   Widget build(BuildContext context) {

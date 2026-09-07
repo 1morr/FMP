@@ -26,35 +26,35 @@ void main() {
     RadioRefreshService.instance.dispose();
   });
 
-  test('refreshStationInfo ignores stale viewer count after station changes',
-      () async {
-    final source = _CompletingRadioSource();
-    final controller = _controller(
-      repository: _FakeRadioRepository(),
-      radioSource: source,
-    );
+  test(
+    'refreshStationInfo ignores stale viewer count after station changes',
+    () async {
+      final source = _CompletingRadioSource();
+      final controller = _controller(
+        repository: _FakeRadioRepository(),
+        radioSource: source,
+      );
 
-    final stationA = _station(id: 1, sourceId: '101', title: 'Station A');
-    final stationB = _station(id: 2, sourceId: '202', title: 'Station B');
-    controller.setSeedState(RadioState(
-      currentStation: stationA,
-      viewerCount: 10,
-    ));
+      final stationA = _station(id: 1, sourceId: '101', title: 'Station A');
+      final stationB = _station(id: 2, sourceId: '202', title: 'Station B');
+      controller.setSeedState(
+        RadioState(currentStation: stationA, viewerCount: 10),
+      );
 
-    final refreshFuture = controller.refreshStationInfo();
-    await pumpEventQueue(times: 2);
-    expect(source.calls, ['101']);
+      final refreshFuture = controller.refreshStationInfo();
+      await pumpEventQueue(times: 2);
+      expect(source.calls, ['101']);
 
-    controller.setSeedState(RadioState(
-      currentStation: stationB,
-      viewerCount: 20,
-    ));
-    source.complete('101', 99);
-    await refreshFuture;
+      controller.setSeedState(
+        RadioState(currentStation: stationB, viewerCount: 20),
+      );
+      source.complete('101', 99);
+      await refreshFuture;
 
-    expect(controller.state.currentStation, same(stationB));
-    expect(controller.state.viewerCount, 20);
-  });
+      expect(controller.state.currentStation, same(stationB));
+      expect(controller.state.viewerCount, 20);
+    },
+  );
 
   test('refreshAll coalesces overlapping refresh requests', () async {
     final source = _CompletingLiveInfoSource();
@@ -99,32 +99,32 @@ void main() {
     expect(repository.savedStations.single.title, 'New Station');
   });
 
-  test('manual refresh syncs live status once from service notification',
-      () async {
-    final repository = _RefreshAllRadioRepository()
-      ..stations = [
-        _station(id: 1, sourceId: '101', title: 'Station A'),
-      ];
-    final controller = _controller(
-      repository: repository,
-      radioSource: _CompletingRadioSource(),
-    );
+  test(
+    'manual refresh syncs live status once from service notification',
+    () async {
+      final repository = _RefreshAllRadioRepository()
+        ..stations = [_station(id: 1, sourceId: '101', title: 'Station A')];
+      final controller = _controller(
+        repository: repository,
+        radioSource: _CompletingRadioSource(),
+      );
 
-    await _pumpUntil(
-      () => controller.state.stations.length == 1,
-      reason: 'controller should load stations before manual refresh',
-    );
+      await _pumpUntil(
+        () => controller.state.stations.length == 1,
+        reason: 'controller should load stations before manual refresh',
+      );
 
-    AppLogger.clearLogs();
-    await controller.refreshAllLiveStatus();
-    await pumpEventQueue();
+      AppLogger.clearLogs();
+      await controller.refreshAllLiveStatus();
+      await pumpEventQueue();
 
-    final syncLogs = AppLogger.logs.where(
-      (entry) =>
-          entry.tag == 'RadioController' && entry.message == '同步直播狀態: 1 個電台',
-    );
-    expect(syncLogs, hasLength(1));
-  });
+      final syncLogs = AppLogger.logs.where(
+        (entry) =>
+            entry.tag == 'RadioController' && entry.message == '同步直播狀態: 1 個電台',
+      );
+      expect(syncLogs, hasLength(1));
+    },
+  );
 }
 
 RadioStation _station({
@@ -209,11 +209,13 @@ RadioController _controller({
   required RadioRepository repository,
   required RadioSource radioSource,
 }) {
-  final container = ProviderContainer(overrides: [
-    radioRepositoryProvider.overrideWith((ref) => repository),
-    radioSourceProvider.overrideWith((ref) => radioSource),
-    audioServiceProvider.overrideWith((ref) => FakeAudioService()),
-  ]);
+  final container = ProviderContainer(
+    overrides: [
+      radioRepositoryProvider.overrideWith((ref) => repository),
+      radioSourceProvider.overrideWith((ref) => radioSource),
+      audioServiceProvider.overrideWith((ref) => FakeAudioService()),
+    ],
+  );
   addTearDown(container.dispose);
   return container.read(radioControllerProvider.notifier);
 }

@@ -47,8 +47,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.playlist?.name ?? '');
-    _descriptionController =
-        TextEditingController(text: widget.playlist?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.playlist?.description ?? '',
+    );
     _customCoverUrl = widget.playlist?.coverUrl;
 
     // 初始化自動刷新設置
@@ -71,15 +72,14 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(isEditing
-          ? t.library.createPlaylist.editTitle
-          : t.library.createPlaylist.createTitle),
+      title: Text(
+        isEditing
+            ? t.library.createPlaylist.editTitle
+            : t.library.createPlaylist.createTitle,
+      ),
       contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: 400,
-          maxWidth: 500,
-        ),
+        constraints: const BoxConstraints(minWidth: 400, maxWidth: 500),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -132,8 +132,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                     subtitle: Text(
                       t.library.createPlaylist.useAuthForRefreshHint,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                     value: _useAuthForRefresh,
                     onChanged: (v) => setState(() => _useAuthForRefresh = v),
@@ -157,9 +157,11 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(isEditing
-                  ? t.library.createPlaylist.save
-                  : t.library.createPlaylist.create),
+              : Text(
+                  isEditing
+                      ? t.library.createPlaylist.save
+                      : t.library.createPlaylist.create,
+                ),
         ),
       ],
     );
@@ -179,8 +181,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         Text(
           t.library.createPlaylist.cover,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+            color: colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -190,8 +192,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             height: 120,
             decoration: BoxDecoration(
               borderRadius: AppRadius.borderRadiusMd,
-              border:
-                  Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.5),
+              ),
             ),
             child: Row(
               children: [
@@ -237,10 +240,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                           _customCoverUrl != null
                               ? t.library.createPlaylist.usingCustomCover
                               : t.library.createPlaylist.usingDefaultCover,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.outline,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.outline),
                         ),
                       ],
                     ),
@@ -267,9 +268,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
           title: Text(t.library.createPlaylist.enableAutoRefresh),
           subtitle: Text(
             t.library.createPlaylist.autoRefreshHint,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
           ),
           value: _autoRefreshEnabled,
           onChanged: (value) {
@@ -290,20 +291,33 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             initialValue: _refreshIntervalHours,
             items: [
               DropdownMenuItem(
-                  value: 1, child: Text(t.library.createPlaylist.interval1h)),
+                value: 1,
+                child: Text(t.library.createPlaylist.interval1h),
+              ),
               DropdownMenuItem(
-                  value: 6, child: Text(t.library.createPlaylist.interval6h)),
+                value: 6,
+                child: Text(t.library.createPlaylist.interval6h),
+              ),
               DropdownMenuItem(
-                  value: 12, child: Text(t.library.createPlaylist.interval12h)),
+                value: 12,
+                child: Text(t.library.createPlaylist.interval12h),
+              ),
               DropdownMenuItem(
-                  value: 24, child: Text(t.library.createPlaylist.interval24h)),
+                value: 24,
+                child: Text(t.library.createPlaylist.interval24h),
+              ),
               DropdownMenuItem(
-                  value: 48, child: Text(t.library.createPlaylist.interval48h)),
+                value: 48,
+                child: Text(t.library.createPlaylist.interval48h),
+              ),
               DropdownMenuItem(
-                  value: 72, child: Text(t.library.createPlaylist.interval72h)),
+                value: 72,
+                child: Text(t.library.createPlaylist.interval72h),
+              ),
               DropdownMenuItem(
-                  value: 168,
-                  child: Text(t.library.createPlaylist.interval1week)),
+                value: 168,
+                child: Text(t.library.createPlaylist.interval1week),
+              ),
             ],
             onChanged: (value) {
               setState(() {
@@ -321,9 +335,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                 t.library.createPlaylist.lastRefreshed(
                   time: _formatDateTime(widget.playlist!.lastRefreshed!),
                 ),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
             ),
           ],
@@ -438,8 +452,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         // 確定自動刷新設置
         int? refreshIntervalHours;
         if (widget.playlist!.isImported && !widget.playlist!.isMix) {
-          refreshIntervalHours =
-              _autoRefreshEnabled ? _refreshIntervalHours : -1; // -1 表示禁用
+          refreshIntervalHours = _autoRefreshEnabled
+              ? _refreshIntervalHours
+              : -1; // -1 表示禁用
         }
 
         final result = await notifier.updatePlaylist(
@@ -450,15 +465,17 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
           refreshIntervalHours: refreshIntervalHours,
           useAuthForRefresh:
               _useAuthForRefresh != (widget.playlist!.useAuthForRefresh)
-                  ? _useAuthForRefresh
-                  : null,
+              ? _useAuthForRefresh
+              : null,
         );
 
         if (mounted) {
           if (result != null) {
             Navigator.pop(context);
             ToastService.success(
-                context, t.library.createPlaylist.playlistUpdated);
+              context,
+              t.library.createPlaylist.playlistUpdated,
+            );
 
             // 如果有需要手动移动的下载文件，显示提示
             if (result.needsManualFileMigration) {
@@ -470,7 +487,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
           } else {
             final error = ref.read(playlistListProvider).error;
             ToastService.error(
-                context, error ?? t.library.createPlaylist.operationFailed);
+              context,
+              error ?? t.library.createPlaylist.operationFailed,
+            );
           }
         }
       } else {
@@ -483,11 +502,15 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
           if (playlist != null) {
             Navigator.pop(context);
             ToastService.success(
-                context, t.library.createPlaylist.playlistCreated);
+              context,
+              t.library.createPlaylist.playlistCreated,
+            );
           } else {
             final error = ref.read(playlistListProvider).error;
             ToastService.error(
-                context, error ?? t.library.createPlaylist.operationFailed);
+              context,
+              error ?? t.library.createPlaylist.operationFailed,
+            );
           }
         }
       }
@@ -519,11 +542,13 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                 borderRadius: AppRadius.borderRadiusSm,
               ),
               child: SelectableText(
-                t.library.createPlaylist
-                    .oldNewPath(oldPath: oldFolder, newPath: newFolder),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                    ),
+                t.library.createPlaylist.oldNewPath(
+                  oldPath: oldFolder,
+                  newPath: newFolder,
+                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
               ),
             ),
             const SizedBox(height: 12),

@@ -30,9 +30,9 @@ class RankingCacheState {
     Map<String, bool> loadedBySource = const {},
     Map<String, String> errorsBySource = const {},
     this.isInitialLoading = true,
-  })  : _tracksBySource = _freezeTracks(tracksBySource),
-        _loadedBySource = Map.unmodifiable(loadedBySource),
-        _errorsBySource = Map.unmodifiable(errorsBySource);
+  }) : _tracksBySource = _freezeTracks(tracksBySource),
+       _loadedBySource = Map.unmodifiable(loadedBySource),
+       _errorsBySource = Map.unmodifiable(errorsBySource);
 
   List<Track> tracksFor(String sourceType) {
     return _tracksBySource[sourceType] ?? const [];
@@ -200,12 +200,12 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
     if (_isDisposed) return;
 
     _networkRecoveredSubscription?.cancel();
-    _networkRecoveredSubscription =
-        connectivityNotifier.onNetworkRecovered.listen((_) {
-      if (_isDisposed) return;
-      logInfo('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
-      _refreshAll();
-    });
+    _networkRecoveredSubscription = connectivityNotifier.onNetworkRecovered
+        .listen((_) {
+          if (_isDisposed) return;
+          logInfo('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
+          _refreshAll();
+        });
 
     logDebug('[RankingCache] 網絡恢復監聽已設置');
   }
@@ -218,9 +218,7 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
     await Future.wait(
       _rankingSourcesByType.keys.map(
         (sourceType) => refreshSource(sourceType).catchError((e) {
-          logWarning(
-            '[RankingCache] $sourceType 刷新異常（未預期）: $e',
-          );
+          logWarning('[RankingCache] $sourceType 刷新異常（未預期）: $e');
         }),
       ),
     );
@@ -246,8 +244,9 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
 
     final generation = _nextRefreshGeneration(sourceType);
     try {
-      final tracks =
-          await source.getRankingTracks(source.defaultRankingRequest);
+      final tracks = await source.getRankingTracks(
+        source.defaultRankingRequest,
+      );
       if (_isDisposed || generation != _refreshGenerations[sourceType]) return;
 
       state = state.updateSource(
@@ -257,7 +256,8 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
         clearError: true,
       );
       logDebug(
-          '[RankingCache] ${source.rankingLabel} 緩存已刷新: ${state.tracksFor(sourceType).length} 首');
+        '[RankingCache] ${source.rankingLabel} 緩存已刷新: ${state.tracksFor(sourceType).length} 首',
+      );
     } catch (e) {
       if (_isDisposed || generation != _refreshGenerations[sourceType]) return;
       state = state.updateSource(sourceType, error: e.toString());
@@ -290,4 +290,5 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
 /// RankingCacheService Provider（負責設置網絡監聽）
 final rankingCacheServiceProvider =
     NotifierProvider<RankingCacheService, RankingCacheState>(
-        RankingCacheService.new);
+      RankingCacheService.new,
+    );

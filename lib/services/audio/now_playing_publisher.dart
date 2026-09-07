@@ -67,9 +67,9 @@ class NowPlayingPublisher with Logging {
     required FmpAudioHandler audioHandler,
     required WindowsSmtcHandler smtcHandler,
     required AudioRuntimePlatform platform,
-  })  : _audioHandler = audioHandler,
-        _smtcHandler = smtcHandler,
-        _platform = platform;
+  }) : _audioHandler = audioHandler,
+       _smtcHandler = smtcHandler,
+       _platform = platform;
 
   final FmpAudioHandler _audioHandler;
   final WindowsSmtcHandler _smtcHandler;
@@ -265,14 +265,19 @@ class NowPlayingPublisher with Logging {
           ..onPlay = commands?.play
           ..onPause = commands?.pause
           ..onStop = commands?.stop
-          ..onSkipToNext =
-              capabilities.canSkipNext ? commands?.skipToNext : null
-          ..onSkipToPrevious =
-              capabilities.canSkipPrevious ? commands?.skipToPrevious : null
+          ..onSkipToNext = capabilities.canSkipNext
+              ? commands?.skipToNext
+              : null
+          ..onSkipToPrevious = capabilities.canSkipPrevious
+              ? commands?.skipToPrevious
+              : null
           ..onSeek = capabilities.canSeek ? commands?.seek : null
-          ..onSetLoopMode = capabilities.canRepeat ? commands?.setLoopMode : null
-          ..onSetShuffleEnabled =
-              capabilities.canShuffle ? commands?.setShuffleEnabled : null
+          ..onSetLoopMode = capabilities.canRepeat
+              ? commands?.setLoopMode
+              : null
+          ..onSetShuffleEnabled = capabilities.canShuffle
+              ? commands?.setShuffleEnabled
+              : null
           ..updateCapabilities(capabilities);
       case AudioRuntimePlatform.desktop:
         // SMTC 收不到 seek 請求（`PressedButton` 沒有對應變體），所以
@@ -281,13 +286,18 @@ class NowPlayingPublisher with Logging {
           ..onPlay = commands?.play
           ..onPause = commands?.pause
           ..onStop = commands?.stop
-          ..onSkipToNext =
-              capabilities.canSkipNext ? commands?.skipToNext : null
-          ..onSkipToPrevious =
-              capabilities.canSkipPrevious ? commands?.skipToPrevious : null
-          ..onSetLoopMode = capabilities.canRepeat ? commands?.setLoopMode : null
-          ..onSetShuffleEnabled =
-              capabilities.canShuffle ? commands?.setShuffleEnabled : null
+          ..onSkipToNext = capabilities.canSkipNext
+              ? commands?.skipToNext
+              : null
+          ..onSkipToPrevious = capabilities.canSkipPrevious
+              ? commands?.skipToPrevious
+              : null
+          ..onSetLoopMode = capabilities.canRepeat
+              ? commands?.setLoopMode
+              : null
+          ..onSetShuffleEnabled = capabilities.canShuffle
+              ? commands?.setShuffleEnabled
+              : null
           ..updateCapabilities(capabilities);
     }
   }
@@ -297,10 +307,13 @@ class NowPlayingPublisher with Logging {
 ///
 /// 它們的生命週期屬於 `AudioService.init()` 與 SMTC 的啟動流程，不在這一層
 /// 管理；這裡只是把散在兩個 controller 裡的直接引用收成一處。
-final fmpAudioHandlerProvider = Provider<FmpAudioHandler>((ref) => audioHandler);
+final fmpAudioHandlerProvider = Provider<FmpAudioHandler>(
+  (ref) => audioHandler,
+);
 
-final windowsSmtcHandlerProvider =
-    Provider<WindowsSmtcHandler>((ref) => windowsSmtcHandler);
+final windowsSmtcHandlerProvider = Provider<WindowsSmtcHandler>(
+  (ref) => windowsSmtcHandler,
+);
 
 final nowPlayingPublisherProvider = Provider<NowPlayingPublisher>((ref) {
   return NowPlayingPublisher(

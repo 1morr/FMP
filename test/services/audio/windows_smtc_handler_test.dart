@@ -37,25 +37,27 @@ void main() {
       expect(deduplicator.shouldPublish(second), isTrue);
     });
 
-    test('allows previous track metadata after different metadata is published',
-        () {
-      final deduplicator = SmtcMetadataDeduplicator();
-      const track = SmtcMetadataFingerprint(
-        title: 'Song',
-        artist: 'Artist',
-        thumbnail: 'https://example.com/cover.jpg',
-      );
-      const radio = SmtcMetadataFingerprint(
-        title: 'Radio',
-        artist: 'Host',
-        thumbnail: null,
-      );
+    test(
+      'allows previous track metadata after different metadata is published',
+      () {
+        final deduplicator = SmtcMetadataDeduplicator();
+        const track = SmtcMetadataFingerprint(
+          title: 'Song',
+          artist: 'Artist',
+          thumbnail: 'https://example.com/cover.jpg',
+        );
+        const radio = SmtcMetadataFingerprint(
+          title: 'Radio',
+          artist: 'Host',
+          thumbnail: null,
+        );
 
-      deduplicator.markPublished(track);
-      deduplicator.markPublished(radio);
+        deduplicator.markPublished(track);
+        deduplicator.markPublished(radio);
 
-      expect(deduplicator.shouldPublish(track), isTrue);
-    });
+        expect(deduplicator.shouldPublish(track), isTrue);
+      },
+    );
   });
 
   group('smtcConfigForCapabilities', () {

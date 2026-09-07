@@ -71,9 +71,9 @@ class DownloadPathSyncService with Logging {
     }
 
     final existingTracks = await _trackRepo.getBySourceIdentities(
-      scannedDownloads.map((download) => TrackSourceIdentity.fromTrack(
-            download.scannedTrack,
-          )),
+      scannedDownloads.map(
+        (download) => TrackSourceIdentity.fromTrack(download.scannedTrack),
+      ),
     );
     final existingTracksById = <int, Track>{
       for (final track in existingTracks.values) track.id: track,
@@ -87,10 +87,12 @@ class DownloadPathSyncService with Logging {
     );
     final fallbackRequestedKeys = scannedDownloads
         .where((download) => download.scannedTrack.cid == null)
-        .map((download) => _sourceKey(
-              download.scannedTrack.sourceType,
-              download.scannedTrack.sourceId,
-            ))
+        .map(
+          (download) => _sourceKey(
+            download.scannedTrack.sourceType,
+            download.scannedTrack.sourceId,
+          ),
+        )
         .toSet();
     final nullCidFallbackTracksBySourceKey = <String, List<Track>>{};
     for (final track in nullCidFallbackTracks) {
@@ -132,11 +134,13 @@ class DownloadPathSyncService with Logging {
         }
       }
 
-      trackPathsMap[trackId]!.add(_PathInfo(
-        playlistId: playlistId,
-        playlistName: playlistName,
-        downloadPath: scannedDownload.localPath,
-      ));
+      trackPathsMap[trackId]!.add(
+        _PathInfo(
+          playlistId: playlistId,
+          playlistName: playlistName,
+          downloadPath: scannedDownload.localPath,
+        ),
+      );
     }
 
     final tracksToSave = <Track>[];
@@ -169,10 +173,12 @@ class DownloadPathSyncService with Logging {
           );
           if (matchIdx >= 0) {
             usedPathIndices.add(matchIdx);
-            newPlaylistInfo.add(PlaylistDownloadInfo()
-              ..playlistId = info.playlistId
-              ..playlistName = info.playlistName
-              ..downloadPath = pathInfos[matchIdx].downloadPath);
+            newPlaylistInfo.add(
+              PlaylistDownloadInfo()
+                ..playlistId = info.playlistId
+                ..playlistName = info.playlistName
+                ..downloadPath = pathInfos[matchIdx].downloadPath,
+            );
           }
           // 本地没有匹配的文件夹 → 不保留这条路径（文件已不存在）
         }
@@ -184,10 +190,13 @@ class DownloadPathSyncService with Logging {
       for (var i = 0; i < pathInfos.length; i++) {
         if (!usedPathIndices.contains(i)) {
           final pathInfo = pathInfos[i];
-          newPlaylistInfo.add(PlaylistDownloadInfo()
-            ..playlistId = 0 // 新发现的文件夹统一标记为未分类
-            ..playlistName = pathInfo.playlistName
-            ..downloadPath = pathInfo.downloadPath);
+          newPlaylistInfo.add(
+            PlaylistDownloadInfo()
+              ..playlistId =
+                  0 // 新发现的文件夹统一标记为未分类
+              ..playlistName = pathInfo.playlistName
+              ..downloadPath = pathInfo.downloadPath,
+          );
         }
       }
 
@@ -197,10 +206,12 @@ class DownloadPathSyncService with Logging {
       if (!hadExistingPaths) {
         added++;
         logDebug(
-            'Added ${pathInfos.length} download path(s) for: ${track.title}');
+          'Added ${pathInfos.length} download path(s) for: ${track.title}',
+        );
       } else {
         logDebug(
-            'Updated ${pathInfos.length} download path(s) for: ${track.title}');
+          'Updated ${pathInfos.length} download path(s) for: ${track.title}',
+        );
       }
     }
 
@@ -238,8 +249,11 @@ class DownloadPathSyncService with Logging {
 
     if (scannedTrack.cid != null) return null;
 
-    final candidates = nullCidFallbackTracksBySourceKey[
-            _sourceKey(scannedTrack.sourceType, scannedTrack.sourceId)] ??
+    final candidates =
+        nullCidFallbackTracksBySourceKey[_sourceKey(
+          scannedTrack.sourceType,
+          scannedTrack.sourceId,
+        )] ??
         const <Track>[];
     for (final candidate in candidates) {
       if (_matchesScannedPage(scannedTrack, candidate)) {
@@ -284,11 +298,13 @@ class DownloadPathSyncService with Logging {
           continue;
         }
 
-        scanned.add(_ScannedDownload(
-          scannedTrack: scannedTrack,
-          localPath: localPath,
-          folderName: folderName,
-        ));
+        scanned.add(
+          _ScannedDownload(
+            scannedTrack: scannedTrack,
+            localPath: localPath,
+            folderName: folderName,
+          ),
+        );
       }
     } catch (e) {
       logDebug('Error scanning folder ${folder.path}: $e');

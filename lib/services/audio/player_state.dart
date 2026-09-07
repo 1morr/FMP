@@ -137,8 +137,9 @@ class PlayerState {
       bufferedPosition: bufferedPosition ?? this.bufferedPosition,
       speed: speed ?? this.speed,
       volume: volume ?? this.volume,
-      playingTrack:
-          clearPlayingTrack ? null : (playingTrack ?? this.playingTrack),
+      playingTrack: clearPlayingTrack
+          ? null
+          : (playingTrack ?? this.playingTrack),
       error: error,
       retryAttempt: retryAttempt ?? this.retryAttempt,
       isNetworkError: isNetworkError ?? this.isNetworkError,

@@ -4,35 +4,48 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-      'imported playlist remote removals surface partial success before failure',
-      () {
-    final source = File('lib/ui/pages/library/playlist_detail_page.dart')
-        .readAsStringSync();
+    'imported playlist remote removals surface partial success before failure',
+    () {
+      final source = File(
+        'lib/ui/pages/library/playlist_detail_page.dart',
+      ).readAsStringSync();
 
-    for (final methodName in [
-      '_confirmAndBatchRemoveFromRemote',
-      '_confirmAndRemoveFromRemote',
-    ]) {
-      final methodBody = _methodBody(source, methodName);
-      final partialIndex =
-          methodBody.indexOf('if (result.changedRemote && result.hasFailures)');
-      final failureIndex = methodBody.indexOf('if (result.hasFailures)');
+      for (final methodName in [
+        '_confirmAndBatchRemoveFromRemote',
+        '_confirmAndRemoveFromRemote',
+      ]) {
+        final methodBody = _methodBody(source, methodName);
+        final partialIndex = methodBody.indexOf(
+          'if (result.changedRemote && result.hasFailures)',
+        );
+        final failureIndex = methodBody.indexOf('if (result.hasFailures)');
 
-      expect(partialIndex, isNot(-1), reason: methodName);
-      expect(failureIndex, isNot(-1), reason: methodName);
-      expect(partialIndex, lessThan(failureIndex), reason: methodName);
-      expect(methodBody, contains('ToastService.warning'), reason: methodName);
-      expect(methodBody, contains('removedRemoteLocalSyncFailed'),
-          reason: methodName);
-    }
-  });
+        expect(partialIndex, isNot(-1), reason: methodName);
+        expect(failureIndex, isNot(-1), reason: methodName);
+        expect(partialIndex, lessThan(failureIndex), reason: methodName);
+        expect(
+          methodBody,
+          contains('ToastService.warning'),
+          reason: methodName,
+        );
+        expect(
+          methodBody,
+          contains('removedRemoteLocalSyncFailed'),
+          reason: methodName,
+        );
+      }
+    },
+  );
 
   test('batch imported playlist partial removal exits selection mode', () {
-    final source = File('lib/ui/pages/library/playlist_detail_page.dart')
-        .readAsStringSync();
+    final source = File(
+      'lib/ui/pages/library/playlist_detail_page.dart',
+    ).readAsStringSync();
     final methodBody = _methodBody(source, '_confirmAndBatchRemoveFromRemote');
-    final partialBranch =
-        _ifBody(methodBody, 'if (result.changedRemote && result.hasFailures)');
+    final partialBranch = _ifBody(
+      methodBody,
+      'if (result.changedRemote && result.hasFailures)',
+    );
 
     expect(partialBranch, contains('notifier.exitSelectionMode()'));
   });

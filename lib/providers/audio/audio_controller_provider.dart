@@ -31,8 +31,9 @@ final audioServiceProvider = Provider<FmpAudioService>((ref) {
   return MediaKitAudioService();
 });
 
-final queuePersistenceManagerProvider =
-    Provider<QueuePersistenceManager>((ref) {
+final queuePersistenceManagerProvider = Provider<QueuePersistenceManager>((
+  ref,
+) {
   final db = ref.watch(databaseProvider).requireValue;
 
   return QueuePersistenceManager(
@@ -80,12 +81,13 @@ final mixTracksFetcherProvider = Provider<MixTracksFetcher?>((ref) {
 /// 條鏈拉起來 —— 那條鏈會碰 secure storage，在測試環境沒有實作。
 final optionalLyricsAutoMatchServiceProvider =
     Provider<LyricsAutoMatchService?>((ref) {
-  return ref.watch(lyricsAutoMatchServiceProvider);
-});
+      return ref.watch(lyricsAutoMatchServiceProvider);
+    });
 
 /// AudioController Provider
 ///
 /// 接線全部在 `AudioController.build()` 裡 —— `Notifier` 拿得到 `ref`，
 /// 所以以前擠在這個工廠裡的 74 行不必再存在。
-final audioControllerProvider =
-    NotifierProvider<AudioController, PlayerState>(AudioController.new);
+final audioControllerProvider = NotifierProvider<AudioController, PlayerState>(
+  AudioController.new,
+);

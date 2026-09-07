@@ -46,8 +46,9 @@ void main() {
     });
 
     test('portable ZIP extraction streams in a worker isolate', () {
-      final source =
-          File('lib/services/update/update_service.dart').readAsStringSync();
+      final source = File(
+        'lib/services/update/update_service.dart',
+      ).readAsStringSync();
 
       expect(source, contains('Isolate.run('));
       expect(source, contains('InputFileStream(zipPath)'));
@@ -68,9 +69,7 @@ void main() {
           apkDownloadUrls: const {
             'universal': 'https://example.test/fmp-universal.apk',
           },
-          apkSizes: const {
-            'universal': 123,
-          },
+          apkSizes: const {'universal': 123},
           assetSha256s: const {
             'fmp-v1.2.0-android-universal.apk':
                 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',

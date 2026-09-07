@@ -62,7 +62,8 @@ class TemporaryPlayHandler with Logging {
     _savedPosition = currentPosition;
     _savedWasPlaying = currentWasPlaying;
     logDebug(
-        'Saved playback state: index: $currentIndex, position: $currentPosition');
+      'Saved playback state: index: $currentIndex, position: $currentPosition',
+    );
   }
 
   void clear() {
@@ -83,8 +84,9 @@ class TemporaryPlayHandler with Logging {
 
     return RestorePlaybackPlan(
       savedIndex: savedIndex,
-      savedPosition:
-          rememberPosition ? (_savedPosition ?? Duration.zero) : Duration.zero,
+      savedPosition: rememberPosition
+          ? (_savedPosition ?? Duration.zero)
+          : Duration.zero,
       savedWasPlaying: _savedWasPlaying ?? false,
       rewindSeconds: rememberPosition ? rewindSeconds : 0,
     );

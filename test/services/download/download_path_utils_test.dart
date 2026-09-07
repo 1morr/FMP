@@ -33,10 +33,7 @@ void main() {
 
     test('folder sourceId matching uses sanitized sourceId', () {
       expect(
-        DownloadPathUtils.folderMatchesSourceId(
-          '..／evil_Title',
-          '../evil',
-        ),
+        DownloadPathUtils.folderMatchesSourceId('..／evil_Title', '../evil'),
         isTrue,
       );
     });

@@ -35,9 +35,10 @@ String sourceErrorReason(SourceApiException error) {
     SourceErrorKind.geoRestricted => t.audio.sourceErrorGeoRestricted,
     SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
     SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
-    SourceErrorKind.permissionDenied => error.sourceType == SourceIds.bilibili
-        ? t.audio.sourceErrorBilibiliPermissionDenied
-        : t.audio.sourceErrorPermissionDenied,
+    SourceErrorKind.permissionDenied =>
+      error.sourceType == SourceIds.bilibili
+          ? t.audio.sourceErrorBilibiliPermissionDenied
+          : t.audio.sourceErrorPermissionDenied,
     SourceErrorKind.network => t.audio.sourceErrorNetwork,
     SourceErrorKind.timeout => t.audio.sourceErrorTimeout,
     SourceErrorKind.rateLimited => error.message,
@@ -57,19 +58,20 @@ String sourceErrorReason(SourceApiException error) {
 /// `dart:io` 的網路與檔案系統例外、`dart:async` 的逾時。**沒列到的型別一律回
 /// 「發生錯誤」** —— 靜默地猜它是網路錯誤正是 issue #41 那類 bug 的來源。
 String userMessageFor(Object error) => switch (error) {
-      SourceApiException() => sourceErrorReason(error),
-      // Dio 是全 App 的 HTTP 層，而沒被 adapter 包成 SourceApiException 的
-      // DioException 確實會逃到 UI —— 實機驗收時電台播放失敗的 toast 就是一整條
-      // `DioException [connection error] ... Failed host lookup`。分類沿用
-      // adapter 用的同一個 classifyDioError，不另立一套詞彙。
-      DioException() => SourceApiException.classifyDioError(error).message,
-      SocketException() || HttpException() || TlsException() =>
-        t.error.networkError,
-      TimeoutException() => t.error.connectionTimeout,
-      FormatException() => t.error.dataFormatError,
-      PathAccessException() => t.error.noPermission,
-      _ => t.error.unknownError,
-    };
+  SourceApiException() => sourceErrorReason(error),
+  // Dio 是全 App 的 HTTP 層，而沒被 adapter 包成 SourceApiException 的
+  // DioException 確實會逃到 UI —— 實機驗收時電台播放失敗的 toast 就是一整條
+  // `DioException [connection error] ... Failed host lookup`。分類沿用
+  // adapter 用的同一個 classifyDioError，不另立一套詞彙。
+  DioException() => SourceApiException.classifyDioError(error).message,
+  SocketException() ||
+  HttpException() ||
+  TlsException() => t.error.networkError,
+  TimeoutException() => t.error.connectionTimeout,
+  FormatException() => t.error.dataFormatError,
+  PathAccessException() => t.error.noPermission,
+  _ => t.error.unknownError,
+};
 
 /// 記錄一個例外，並回傳要放進 `state.error` 給 UI 渲染的那一句。
 ///

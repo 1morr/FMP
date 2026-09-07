@@ -142,40 +142,44 @@ void main() {
       expect(audioService.audioDevice?.name, headphones.name);
     });
 
-    test('an unplugged device leaves both the output and the setting alone',
-        () async {
-      await settingsRepository.update((s) {
-        s.preferredAudioDeviceId = headphones.name;
-        s.preferredAudioDeviceName = headphones.description;
-      });
+    test(
+      'an unplugged device leaves both the output and the setting alone',
+      () async {
+        await settingsRepository.update((s) {
+          s.preferredAudioDeviceId = headphones.name;
+          s.preferredAudioDeviceName = headphones.description;
+        });
 
-      audioService.emitAudioDevices([speakers]);
-      await pumpEventQueue();
+        audioService.emitAudioDevices([speakers]);
+        await pumpEventQueue();
 
-      // 沒有切走，也沒有把設定清掉 —— 使用者把耳機插回來時還會想要它。
-      expect(audioService.audioDevice, isNull);
-      final settings = await storedSettings();
-      expect(settings.preferredAudioDeviceId, headphones.name);
-    });
+        // 沒有切走，也沒有把設定清掉 —— 使用者把耳機插回來時還會想要它。
+        expect(audioService.audioDevice, isNull);
+        final settings = await storedSettings();
+        expect(settings.preferredAudioDeviceId, headphones.name);
+      },
+    );
 
-    test('restore runs once so a later manual choice is not clobbered',
-        () async {
-      await settingsRepository.update((s) {
-        s.preferredAudioDeviceId = headphones.name;
-        s.preferredAudioDeviceName = headphones.description;
-      });
+    test(
+      'restore runs once so a later manual choice is not clobbered',
+      () async {
+        await settingsRepository.update((s) {
+          s.preferredAudioDeviceId = headphones.name;
+          s.preferredAudioDeviceName = headphones.description;
+        });
 
-      audioService.emitAudioDevices([speakers, headphones]);
-      await pumpEventQueue();
-      expect(audioService.audioDevice?.name, headphones.name);
+        audioService.emitAudioDevices([speakers, headphones]);
+        await pumpEventQueue();
+        expect(audioService.audioDevice?.name, headphones.name);
 
-      await controller.setAudioDevice(speakers);
-      // 插拔會讓裝置清單反覆重送，那不該把使用者剛選的蓋回去。
-      audioService.emitAudioDevices([speakers, headphones]);
-      await pumpEventQueue();
+        await controller.setAudioDevice(speakers);
+        // 插拔會讓裝置清單反覆重送，那不該把使用者剛選的蓋回去。
+        audioService.emitAudioDevices([speakers, headphones]);
+        await pumpEventQueue();
 
-      expect(audioService.audioDevice?.name, speakers.name);
-    });
+        expect(audioService.audioDevice?.name, speakers.name);
+      },
+    );
 
     test('no stored device means the output is left untouched', () async {
       audioService.emitAudioDevices([speakers, headphones]);

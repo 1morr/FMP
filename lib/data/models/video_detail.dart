@@ -32,7 +32,8 @@ class VideoPage {
   Track toTrack(Track parent) => Track()
     ..sourceId = parent.sourceId
     ..sourceType = parent.sourceType
-    ..title = part // 只显示分P标题
+    ..title =
+        part // 只显示分P标题
     ..artist = parent.artist
     ..ownerId = parent.ownerId
     ..durationMs = duration * 1000
@@ -96,24 +97,28 @@ class VideoDetail {
   /// 从本地 metadata.json 创建 VideoDetail
   factory VideoDetail.fromMetadata(Map<String, dynamic> json, Track track) {
     final hotComments = (json['hotComments'] as List<dynamic>? ?? [])
-        .map((c) => VideoComment(
-              id: 0,
-              content: c['content']?.toString() ?? '',
-              memberName: c['memberName']?.toString() ?? '',
-              memberAvatar: c['memberAvatar']?.toString() ?? '',
-              likeCount: c['likeCount'] as int? ?? 0,
-              createTime: DateTime.now(),
-            ))
+        .map(
+          (c) => VideoComment(
+            id: 0,
+            content: c['content']?.toString() ?? '',
+            memberName: c['memberName']?.toString() ?? '',
+            memberAvatar: c['memberAvatar']?.toString() ?? '',
+            likeCount: c['likeCount'] as int? ?? 0,
+            createTime: DateTime.now(),
+          ),
+        )
         .toList();
 
     return VideoDetail(
       bvid: json['sourceId']?.toString() ?? track.sourceId,
-      title: json['parentTitle']?.toString() ??
+      title:
+          json['parentTitle']?.toString() ??
           json['title']?.toString() ??
           track.title,
       description: json['description']?.toString() ?? '',
       coverUrl: json['thumbnailUrl']?.toString() ?? track.thumbnailUrl ?? '',
-      ownerName: json['ownerName']?.toString() ??
+      ownerName:
+          json['ownerName']?.toString() ??
           json['artist']?.toString() ??
           track.artist ??
           '',

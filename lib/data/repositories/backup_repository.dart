@@ -73,7 +73,7 @@ class BackupImportBatch {
 /// service 一樣，它不該自己拿著 `Isar` 實例（見 `lib/data/AGENTS.md`）。
 class BackupRepository {
   BackupRepository(this._isar, {PlaylistMutationRepository? mutations})
-      : _mutations = mutations ?? PlaylistMutationRepository(isar: _isar);
+    : _mutations = mutations ?? PlaylistMutationRepository(isar: _isar);
 
   final Isar _isar;
   final PlaylistMutationRepository _mutations;
@@ -123,8 +123,9 @@ class BackupRepository {
           for (final key in prepared.trackKeys)
             if (trackIdsByKey[key] != null) trackIdsByKey[key]!,
         ];
-        final tracks =
-            (await _isar.tracks.getAll(trackIds)).whereType<Track>().toList();
+        final tracks = (await _isar.tracks.getAll(
+          trackIds,
+        )).whereType<Track>().toList();
         await _mutations.addTracksInTxn(prepared.playlist.id, tracks);
 
         await _restoreImportedTrackTimestamps(
@@ -182,7 +183,8 @@ class BackupRepository {
     final saved = await _isar.playlists.get(prepared.playlist.id);
     if (saved == null) return;
 
-    final needsRestore = saved.coverUrl != prepared.coverUrl ||
+    final needsRestore =
+        saved.coverUrl != prepared.coverUrl ||
         saved.hasCustomCover != prepared.hasCustomCover ||
         (prepared.updatedAt != null && saved.updatedAt != prepared.updatedAt);
     if (!needsRestore) return;

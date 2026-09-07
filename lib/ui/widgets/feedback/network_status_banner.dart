@@ -6,11 +6,7 @@ import '../../../providers/audio/audio_controller_provider.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../services/network/connectivity_service.dart';
 
-enum NetworkStatusBannerKind {
-  none,
-  noNetwork,
-  playbackNetworkError,
-}
+enum NetworkStatusBannerKind { none, noNetwork, playbackNetworkError }
 
 NetworkStatusBannerKind resolveNetworkStatusBannerKind({
   required bool isConnected,
@@ -27,8 +23,9 @@ NetworkStatusBannerKind resolveNetworkStatusBannerKind({
 /// 供其他页面查询以决定是否需要自己提供 SafeArea top padding
 final networkBannerVisibleProvider = Provider<bool>((ref) {
   final connectivityState = ref.watch(connectivityProvider);
-  final isNetworkError =
-      ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
+  final isNetworkError = ref.watch(
+    audioControllerProvider.select((s) => s.isNetworkError),
+  );
   return resolveNetworkStatusBannerKind(
         isConnected: connectivityState.isConnected,
         hasPlaybackNetworkError: isNetworkError,
@@ -60,13 +57,9 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
       duration: AnimationDurations.normal,
       vsync: this,
     );
-    _slideAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
+    _slideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
   }
 
   @override
@@ -77,10 +70,12 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
 
   @override
   Widget build(BuildContext context) {
-    final isNetworkError =
-        ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
-    final isRetrying =
-        ref.watch(audioControllerProvider.select((s) => s.isRetrying));
+    final isNetworkError = ref.watch(
+      audioControllerProvider.select((s) => s.isNetworkError),
+    );
+    final isRetrying = ref.watch(
+      audioControllerProvider.select((s) => s.isRetrying),
+    );
     final connectivityState = ref.watch(connectivityProvider);
 
     // 确定是否显示 Banner
@@ -100,7 +95,7 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
     final colorScheme = Theme.of(context).colorScheme;
     final showRetryButton =
         bannerKind == NetworkStatusBannerKind.playbackNetworkError &&
-            !isRetrying;
+        !isRetrying;
     final statusText = switch (bannerKind) {
       NetworkStatusBannerKind.noNetwork => t.networkStatus.noNetwork,
       NetworkStatusBannerKind.playbackNetworkError =>
@@ -137,17 +132,13 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                statusIcon,
-                color: colorScheme.onSurfaceVariant,
-                size: 16,
-              ),
+              Icon(statusIcon, color: colorScheme.onSurfaceVariant, size: 16),
               const SizedBox(width: 8),
               Text(
                 statusText,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
               if (showRetryButton) ...[
                 const SizedBox(width: 8),

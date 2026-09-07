@@ -105,9 +105,10 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
   int _calculateVisibleItemCount(double viewportWidth) {
     final availableWidth = viewportWidth - widget.horizontalPadding * 2;
     final itemWithSpacing = widget.itemWidth + widget.itemSpacing;
-    return (availableWidth / itemWithSpacing)
-        .floor()
-        .clamp(1, widget.children.length);
+    return (availableWidth / itemWithSpacing).floor().clamp(
+      1,
+      widget.children.length,
+    );
   }
 
   /// Scroll by a specific number of items with easing animation
@@ -145,10 +146,12 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
         _onViewportWidthChanged(viewportWidth);
 
         return MouseRegion(
-          onEnter:
-              _isDesktop ? (_) => setState(() => _isHovering = true) : null,
-          onExit:
-              _isDesktop ? (_) => setState(() => _isHovering = false) : null,
+          onEnter: _isDesktop
+              ? (_) => setState(() => _isHovering = true)
+              : null,
+          onExit: _isDesktop
+              ? (_) => setState(() => _isHovering = false)
+              : null,
           child: SizedBox(
             height: widget.height,
             child: Stack(
@@ -282,11 +285,7 @@ class _ArrowButton extends StatelessWidget {
         onTap: onPressed,
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(
-            icon,
-            size: 22,
-            color: colorScheme.onSurface,
-          ),
+          child: Icon(icon, size: 22, color: colorScheme.onSurface),
         ),
       ),
     );
@@ -297,9 +296,9 @@ class _ArrowButton extends StatelessWidget {
 class _NoScrollbarScrollBehavior extends ScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => const {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.trackpad,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.trackpad,
+  };
 
   @override
   Widget buildScrollbar(

@@ -57,9 +57,9 @@ class RefreshSettingsNotifier extends Notifier<RefreshSettingsState> {
     );
 
     // 用用户设置的间隔更新服务定时器
-    ref.read(rankingCacheServiceProvider.notifier).updateRefreshInterval(
-          Duration(minutes: rankingMinutes),
-        );
+    ref
+        .read(rankingCacheServiceProvider.notifier)
+        .updateRefreshInterval(Duration(minutes: rankingMinutes));
     RadioRefreshService.instance.updateRefreshInterval(
       Duration(minutes: radioMinutes),
     );
@@ -69,23 +69,25 @@ class RefreshSettingsNotifier extends Notifier<RefreshSettingsState> {
     if (_settings == null) return;
 
     final settingsRepository = ref.read(settingsRepositoryProvider);
-    await settingsRepository
-        .update((s) => s.rankingRefreshIntervalMinutes = minutes);
+    await settingsRepository.update(
+      (s) => s.rankingRefreshIntervalMinutes = minutes,
+    );
     if (!ref.mounted) return;
     _settings!.rankingRefreshIntervalMinutes = minutes;
     state = state.copyWith(rankingRefreshIntervalMinutes: minutes);
 
-    ref.read(rankingCacheServiceProvider.notifier).updateRefreshInterval(
-          Duration(minutes: minutes),
-        );
+    ref
+        .read(rankingCacheServiceProvider.notifier)
+        .updateRefreshInterval(Duration(minutes: minutes));
   }
 
   Future<void> setRadioRefreshInterval(int minutes) async {
     if (_settings == null) return;
 
     final settingsRepository = ref.read(settingsRepositoryProvider);
-    await settingsRepository
-        .update((s) => s.radioRefreshIntervalMinutes = minutes);
+    await settingsRepository.update(
+      (s) => s.radioRefreshIntervalMinutes = minutes,
+    );
     if (!ref.mounted) return;
     _settings!.radioRefreshIntervalMinutes = minutes;
     state = state.copyWith(radioRefreshIntervalMinutes: minutes);
@@ -99,4 +101,5 @@ class RefreshSettingsNotifier extends Notifier<RefreshSettingsState> {
 /// 刷新间隔设置 Provider
 final refreshSettingsProvider =
     NotifierProvider<RefreshSettingsNotifier, RefreshSettingsState>(
-        RefreshSettingsNotifier.new);
+      RefreshSettingsNotifier.new,
+    );

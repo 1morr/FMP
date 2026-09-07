@@ -69,8 +69,9 @@ void main() {
     });
 
     setUp(() async {
-      tempDir =
-          await Directory.systemTemp.createTemp('audio_controller_phase1_');
+      tempDir = await Directory.systemTemp.createTemp(
+        'audio_controller_phase1_',
+      );
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema, LyricsMatchSchema],
         directory: tempDir.path,
@@ -176,55 +177,55 @@ void main() {
       expect(states, [true, true, false]);
     });
 
-    test('lyrics auto-match preserves an explicitly empty enabled source list',
-        () async {
-      final lyricsService = _GateableLyricsAutoMatchService(isar);
+    test(
+      'lyrics auto-match preserves an explicitly empty enabled source list',
+      () async {
+        final lyricsService = _GateableLyricsAutoMatchService(isar);
 
-      final settingsRepository = SettingsRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final audioStreamManager = _createAudioStreamManager(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-      );
-      queueManager = QueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      audioService = FakeAudioService();
-      controller = buildTestAudioController(
-        audioService: audioService,
-        queueManager: queueManager,
-        audioStreamManager: audioStreamManager,
-        toastService: ToastService(),
-        nowPlayingPublisher: testNowPlayingPublisher(),
-        settingsRepository: settingsRepository,
-        lyricsAutoMatchService: lyricsService,
-        mixTracksFetcher: mixTracksFetcher.call,
-      );
+        final settingsRepository = SettingsRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final audioStreamManager = _createAudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+        );
+        queueManager = QueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        audioService = FakeAudioService();
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: audioStreamManager,
+          toastService: ToastService(),
+          nowPlayingPublisher: testNowPlayingPublisher(),
+          settingsRepository: settingsRepository,
+          lyricsAutoMatchService: lyricsService,
+          mixTracksFetcher: mixTracksFetcher.call,
+        );
 
-      final settings = await settingsRepository.get();
-      settings.autoMatchLyrics = true;
-      settings.disabledLyricsSourcesSet = {
-        'netease',
-        'qqmusic',
-        'lrclib',
-      };
-      await settingsRepository.save(settings);
-      await controller.initialize();
+        final settings = await settingsRepository.get();
+        settings.autoMatchLyrics = true;
+        settings.disabledLyricsSourcesSet = {'netease', 'qqmusic', 'lrclib'};
+        await settingsRepository.save(settings);
+        await controller.initialize();
 
-      await controller.playTrack(_track('lyrics-disabled', title: 'Disabled'));
-      await lyricsService.waitForCallCount(1);
-      await pumpEventQueue(times: 10);
+        await controller.playTrack(
+          _track('lyrics-disabled', title: 'Disabled'),
+        );
+        await lyricsService.waitForCallCount(1);
+        await pumpEventQueue(times: 10);
 
-      expect(lyricsService.enabledSourceCalls.single, isEmpty);
-    });
+        expect(lyricsService.enabledSourceCalls.single, isEmpty);
+      },
+    );
 
     tearDown(() async {
       toastService.dispose();
@@ -235,282 +236,299 @@ void main() {
     });
 
     test(
-        'second temporary play restores the original queue target instead of the first temporary track',
-        () async {
-      final queueTracks = [
-        _track('queue-a', title: 'Queue A'),
-        _track('queue-b', title: 'Queue B'),
-        _track('queue-c', title: 'Queue C'),
-      ];
-      await controller.playAll(queueTracks, startIndex: 1);
-      await controller.seekTo(const Duration(seconds: 42));
-      audioService.setPositionValue(const Duration(seconds: 42));
-      audioService.setPlayingValue(true);
+      'second temporary play restores the original queue target instead of the first temporary track',
+      () async {
+        final queueTracks = [
+          _track('queue-a', title: 'Queue A'),
+          _track('queue-b', title: 'Queue B'),
+          _track('queue-c', title: 'Queue C'),
+        ];
+        await controller.playAll(queueTracks, startIndex: 1);
+        await controller.seekTo(const Duration(seconds: 42));
+        audioService.setPositionValue(const Duration(seconds: 42));
+        audioService.setPlayingValue(true);
 
-      final tempOne = _track('temp-1', title: 'Temp One');
-      final tempTwo = _track('temp-2', title: 'Temp Two');
+        final tempOne = _track('temp-1', title: 'Temp One');
+        final tempTwo = _track('temp-2', title: 'Temp Two');
 
-      await controller.playTemporary(tempOne);
-      await controller.playTemporary(tempTwo);
+        await controller.playTemporary(tempOne);
+        await controller.playTemporary(tempTwo);
 
-      expect(controller.queueState.upcomingTracks.map((track) => track.sourceId),
-          orderedEquals(['queue-b', 'queue-c']));
+        expect(
+          controller.queueState.upcomingTracks.map((track) => track.sourceId),
+          orderedEquals(['queue-b', 'queue-c']),
+        );
 
-      audioService.setUrlCalls.clear();
-      audioService.seekCalls.clear();
-      final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
-      final restoreSeek = audioService.waitForSeekCallCount(1);
+        audioService.setUrlCalls.clear();
+        audioService.seekCalls.clear();
+        final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
+        final restoreSeek = audioService.waitForSeekCallCount(1);
 
-      audioService.emitNaturalCompletion();
-      await restoreSetUrl;
-      await restoreSeek;
-      await pumpEventQueue(times: 20);
+        audioService.emitNaturalCompletion();
+        await restoreSetUrl;
+        await restoreSeek;
+        await pumpEventQueue(times: 20);
 
-      expect(controller.state.playingTrack?.sourceId, 'queue-b');
-      expect(controller.state.currentTrack?.sourceId, 'queue-b');
-      expect(audioService.setUrlCalls.single.url,
-          'https://example.com/queue-b.m4a');
-      expect(audioService.seekCalls.single, const Duration(seconds: 32));
-    });
+        expect(controller.state.playingTrack?.sourceId, 'queue-b');
+        expect(controller.state.currentTrack?.sourceId, 'queue-b');
+        expect(
+          audioService.setUrlCalls.single.url,
+          'https://example.com/queue-b.m4a',
+        );
+        expect(audioService.seekCalls.single, const Duration(seconds: 32));
+      },
+    );
 
     test(
-        'mobile notification stays on next track loading while queue navigation resolves stream',
-        () async {
-      final handler = FmpAudioHandler();
+      'mobile notification stays on next track loading while queue navigation resolves stream',
+      () async {
+        final handler = FmpAudioHandler();
 
-      final settingsRepository = SettingsRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final audioStreamManager = _createAudioStreamManager(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-      );
-      queueManager = QueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      audioService = FakeAudioService();
-      controller = buildTestAudioController(
-        audioService: audioService,
-        queueManager: queueManager,
-        audioStreamManager: audioStreamManager,
-        toastService: ToastService(),
-        nowPlayingPublisher: testNowPlayingPublisher(
-          platform: AudioRuntimePlatform.mobile,
-          audioHandler: handler,
-        ),
-        settingsRepository: settingsRepository,
-        mixTracksFetcher: mixTracksFetcher.call,
-      );
-      await controller.initialize();
+        final settingsRepository = SettingsRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final audioStreamManager = _createAudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+        );
+        queueManager = QueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        audioService = FakeAudioService();
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: audioStreamManager,
+          toastService: ToastService(),
+          nowPlayingPublisher: testNowPlayingPublisher(
+            platform: AudioRuntimePlatform.mobile,
+            audioHandler: handler,
+          ),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+        );
+        await controller.initialize();
 
-      await queueManager.playAll([
-        _track('notification-first', title: 'Notification First'),
-        _track('notification-next', title: 'Notification Next'),
-      ]);
-      await controller.playAt(0);
-      expect(handler.mediaItem.value?.title, 'Notification First');
+        await queueManager.playAll([
+          _track('notification-first', title: 'Notification First'),
+          _track('notification-next', title: 'Notification Next'),
+        ]);
+        await controller.playAt(0);
+        expect(handler.mediaItem.value?.title, 'Notification First');
 
-      final pendingNextLoad = audioService.enqueuePendingPlayUrl();
-      final nextFuture = controller.next();
-      await audioService.waitForPlayUrlCallCount(2);
-      await pumpEventQueue(times: 5);
+        final pendingNextLoad = audioService.enqueuePendingPlayUrl();
+        final nextFuture = controller.next();
+        await audioService.waitForPlayUrlCallCount(2);
+        await pumpEventQueue(times: 5);
 
-      expect(handler.mediaItem.value?.title, 'Notification Next');
-      expect(
-        handler.playbackState.value.processingState,
-        AudioProcessingState.loading,
-      );
+        expect(handler.mediaItem.value?.title, 'Notification Next');
+        expect(
+          handler.playbackState.value.processingState,
+          AudioProcessingState.loading,
+        );
 
-      pendingNextLoad.complete();
-      await nextFuture;
-    });
+        pendingNextLoad.complete();
+        await nextFuture;
+      },
+    );
 
-    test('mobile notification exits loading when next-track stream fails',
-        () async {
-      final handler = FmpAudioHandler();
+    test(
+      'mobile notification exits loading when next-track stream fails',
+      () async {
+        final handler = FmpAudioHandler();
 
-      final settingsRepository = SettingsRepository(isar);
-      final trackRepository = TrackRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final audioStreamManager = _createAudioStreamManager(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-      );
-      queueManager = QueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      audioService = FakeAudioService();
-      controller = buildTestAudioController(
-        audioService: audioService,
-        queueManager: queueManager,
-        audioStreamManager: audioStreamManager,
-        toastService: ToastService(),
-        nowPlayingPublisher: testNowPlayingPublisher(
-          platform: AudioRuntimePlatform.mobile,
-          audioHandler: handler,
-        ),
-        settingsRepository: settingsRepository,
-        mixTracksFetcher: mixTracksFetcher.call,
-      );
-      await controller.initialize();
+        final settingsRepository = SettingsRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final audioStreamManager = _createAudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+        );
+        queueManager = QueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        audioService = FakeAudioService();
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: audioStreamManager,
+          toastService: ToastService(),
+          nowPlayingPublisher: testNowPlayingPublisher(
+            platform: AudioRuntimePlatform.mobile,
+            audioHandler: handler,
+          ),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+        );
+        await controller.initialize();
 
-      await queueManager.playAll([
-        _track('notification-fail-first', title: 'Notification Fail First'),
-        _track('notification-fail-next', title: 'Notification Fail Next'),
-      ]);
-      await controller.playAt(0);
-      expect(handler.mediaItem.value?.title, 'Notification Fail First');
-      await pumpEventQueue(times: 20);
+        await queueManager.playAll([
+          _track('notification-fail-first', title: 'Notification Fail First'),
+          _track('notification-fail-next', title: 'Notification Fail Next'),
+        ]);
+        await controller.playAt(0);
+        expect(handler.mediaItem.value?.title, 'Notification Fail First');
+        await pumpEventQueue(times: 20);
 
-      sourceManager.throwGetAudioStreamOnce(
-        const YouTubeApiException(
-          code: 'rate_limited',
-          message: 'rate limited',
-        ),
-      );
+        sourceManager.throwGetAudioStreamOnce(
+          const YouTubeApiException(
+            code: 'rate_limited',
+            message: 'rate limited',
+          ),
+        );
 
-      await controller.next();
-      await pumpEventQueue(times: 10);
+        await controller.next();
+        await pumpEventQueue(times: 10);
 
-      expect(handler.mediaItem.value?.title, 'Notification Fail Next');
-      expect(
-        handler.playbackState.value.processingState,
-        isNot(AudioProcessingState.loading),
-      );
-    });
+        expect(handler.mediaItem.value?.title, 'Notification Fail Next');
+        expect(
+          handler.playbackState.value.processingState,
+          isNot(AudioProcessingState.loading),
+        );
+      },
+    );
 
-    test('superseded request stays loading until the latest request finishes',
-        () async {
-      final firstTrack = _track('first', title: 'First Track');
-      final secondTrack = _track('second', title: 'Second Track');
-      final firstPlayGate = audioService.enqueuePendingPlayUrl();
-      final secondPlayGate = audioService.enqueuePendingPlayUrl();
+    test(
+      'superseded request stays loading until the latest request finishes',
+      () async {
+        final firstTrack = _track('first', title: 'First Track');
+        final secondTrack = _track('second', title: 'Second Track');
+        final firstPlayGate = audioService.enqueuePendingPlayUrl();
+        final secondPlayGate = audioService.enqueuePendingPlayUrl();
 
-      final firstPlay = controller.playTrack(firstTrack);
-      await audioService.waitForPlayUrlCallCount(1);
+        final firstPlay = controller.playTrack(firstTrack);
+        await audioService.waitForPlayUrlCallCount(1);
 
-      final secondPlay = controller.playTrack(secondTrack);
-      await audioService.waitForPlayUrlCallCount(2);
+        final secondPlay = controller.playTrack(secondTrack);
+        await audioService.waitForPlayUrlCallCount(2);
 
-      firstPlayGate.complete();
-      await firstPlay;
-      await pumpEventQueue(times: 5);
+        firstPlayGate.complete();
+        await firstPlay;
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.stopCallCount, 2);
-      expect(controller.state.playingTrack?.sourceId, 'second');
-      expect(controller.state.currentTrack?.sourceId, 'second');
-      expect(controller.state.isLoading, isTrue);
+        expect(audioService.stopCallCount, 2);
+        expect(controller.state.playingTrack?.sourceId, 'second');
+        expect(controller.state.currentTrack?.sourceId, 'second');
+        expect(controller.state.isLoading, isTrue);
 
-      secondPlayGate.complete();
-      await secondPlay;
+        secondPlayGate.complete();
+        await secondPlay;
 
-      expect(controller.state.playingTrack?.sourceId, 'second');
-      expect(controller.state.currentTrack?.sourceId, 'second');
-      expect(controller.state.isLoading, isFalse);
-    });
+        expect(controller.state.playingTrack?.sourceId, 'second');
+        expect(controller.state.currentTrack?.sourceId, 'second');
+        expect(controller.state.isLoading, isFalse);
+      },
+    );
 
-    test('superseded failing request does not stop or error the newer request',
-        () async {
-      final firstTrack = _track('first-error', title: 'First Error Track');
-      final secondTrack = _track('second-ok', title: 'Second Ok Track');
-      final firstPlayGate = audioService.enqueuePendingPlayUrl();
-      final secondPlayGate = audioService.enqueuePendingPlayUrl();
-      audioService.enqueuePlayUrlError(Exception('stale request failed'));
+    test(
+      'superseded failing request does not stop or error the newer request',
+      () async {
+        final firstTrack = _track('first-error', title: 'First Error Track');
+        final secondTrack = _track('second-ok', title: 'Second Ok Track');
+        final firstPlayGate = audioService.enqueuePendingPlayUrl();
+        final secondPlayGate = audioService.enqueuePendingPlayUrl();
+        audioService.enqueuePlayUrlError(Exception('stale request failed'));
 
-      final firstPlay = controller.playTrack(firstTrack);
-      await audioService.waitForPlayUrlCallCount(1);
+        final firstPlay = controller.playTrack(firstTrack);
+        await audioService.waitForPlayUrlCallCount(1);
 
-      final secondPlay = controller.playTrack(secondTrack);
-      await audioService.waitForPlayUrlCallCount(2);
+        final secondPlay = controller.playTrack(secondTrack);
+        await audioService.waitForPlayUrlCallCount(2);
 
-      firstPlayGate.complete();
-      await firstPlay;
-      await pumpEventQueue(times: 5);
+        firstPlayGate.complete();
+        await firstPlay;
+        await pumpEventQueue(times: 5);
 
-      expect(controller.state.playingTrack?.sourceId, 'second-ok');
-      expect(controller.state.currentTrack?.sourceId, 'second-ok');
-      expect(controller.state.error, isNull);
-      expect(controller.state.isLoading, isTrue);
-      expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.playingTrack?.sourceId, 'second-ok');
+        expect(controller.state.currentTrack?.sourceId, 'second-ok');
+        expect(controller.state.error, isNull);
+        expect(controller.state.isLoading, isTrue);
+        expect(controller.state.isRetrying, isFalse);
 
-      secondPlayGate.complete();
-      await secondPlay;
+        secondPlayGate.complete();
+        await secondPlay;
 
-      expect(controller.state.playingTrack?.sourceId, 'second-ok');
-      expect(controller.state.currentTrack?.sourceId, 'second-ok');
-      expect(controller.state.error, isNull);
-      expect(controller.state.isRetrying, isFalse);
-      expect(controller.state.isLoading, isFalse);
-    });
+        expect(controller.state.playingTrack?.sourceId, 'second-ok');
+        expect(controller.state.currentTrack?.sourceId, 'second-ok');
+        expect(controller.state.error, isNull);
+        expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.isLoading, isFalse);
+      },
+    );
 
-    test('seek during playback handoff waits until the new track is ready',
-        () async {
-      final tracks = [
-        _track('handoff-current', title: 'Handoff Current'),
-        _track('handoff-next', title: 'Handoff Next'),
-      ];
-      await controller.playAll(tracks);
-      audioService.seekCalls.clear();
+    test(
+      'seek during playback handoff waits until the new track is ready',
+      () async {
+        final tracks = [
+          _track('handoff-current', title: 'Handoff Current'),
+          _track('handoff-next', title: 'Handoff Next'),
+        ];
+        await controller.playAll(tracks);
+        audioService.seekCalls.clear();
 
-      final nextPlayGate = audioService.enqueuePendingPlayUrl();
-      final nextFuture = controller.next();
-      await audioService.waitForPlayUrlCallCount(2);
+        final nextPlayGate = audioService.enqueuePendingPlayUrl();
+        final nextFuture = controller.next();
+        await audioService.waitForPlayUrlCallCount(2);
 
-      final seekFuture = controller.seekTo(const Duration(seconds: 90));
-      await pumpEventQueue(times: 5);
+        final seekFuture = controller.seekTo(const Duration(seconds: 90));
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.seekCalls, isEmpty);
-      expect(controller.state.playingTrack?.sourceId, 'handoff-next');
-      expect(controller.state.isLoading, isTrue);
+        expect(audioService.seekCalls, isEmpty);
+        expect(controller.state.playingTrack?.sourceId, 'handoff-next');
+        expect(controller.state.isLoading, isTrue);
 
-      nextPlayGate.complete();
-      await nextFuture;
-      await seekFuture;
-      await pumpEventQueue(times: 10);
+        nextPlayGate.complete();
+        await nextFuture;
+        await seekFuture;
+        await pumpEventQueue(times: 10);
 
-      expect(audioService.seekCalls, [const Duration(seconds: 90)]);
-      expect(controller.state.playingTrack?.sourceId, 'handoff-next');
-      expect(controller.state.isLoading, isFalse);
-    });
+        expect(audioService.seekCalls, [const Duration(seconds: 90)]);
+        expect(controller.state.playingTrack?.sourceId, 'handoff-next');
+        expect(controller.state.isLoading, isFalse);
+      },
+    );
 
-    test('seek immediately after queue navigation waits for stabilization',
-        () async {
-      final tracks = [
-        _track('stable-current', title: 'Stable Current'),
-        _track('stable-next', title: 'Stable Next'),
-      ];
-      await controller.playAll(tracks);
-      audioService.seekCalls.clear();
+    test(
+      'seek immediately after queue navigation waits for stabilization',
+      () async {
+        final tracks = [
+          _track('stable-current', title: 'Stable Current'),
+          _track('stable-next', title: 'Stable Next'),
+        ];
+        await controller.playAll(tracks);
+        audioService.seekCalls.clear();
 
-      await controller.next();
-      final seekFuture = controller.seekTo(const Duration(seconds: 120));
-      await pumpEventQueue(times: 5);
+        await controller.next();
+        final seekFuture = controller.seekTo(const Duration(seconds: 120));
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.seekCalls, isEmpty);
+        expect(audioService.seekCalls, isEmpty);
 
-      await Future<void>.delayed(
-        AppConstants.seekStabilizationDelay + const Duration(milliseconds: 50),
-      );
-      await seekFuture;
-      await pumpEventQueue(times: 10);
+        await Future<void>.delayed(
+          AppConstants.seekStabilizationDelay +
+              const Duration(milliseconds: 50),
+        );
+        await seekFuture;
+        await pumpEventQueue(times: 10);
 
-      expect(audioService.seekCalls, [const Duration(seconds: 120)]);
-      expect(controller.state.playingTrack?.sourceId, 'stable-next');
-    });
+        expect(audioService.seekCalls, [const Duration(seconds: 120)]);
+        expect(controller.state.playingTrack?.sourceId, 'stable-next');
+      },
+    );
 
     test('seek queued for a superseded handoff is discarded', () async {
       final firstTrack = _track('stale-handoff', title: 'Stale Handoff Track');
@@ -544,227 +562,261 @@ void main() {
     });
 
     test(
-        'superseded playback-starting callback does not stop the newer request',
-        () async {
-      final firstTrack =
-          _track('callback-first', title: 'Callback First Track');
-      final secondTrack =
-          _track('callback-second', title: 'Callback Second Track');
-      final firstCallback = Completer<void>();
-      final secondCallback = Completer<void>();
-      var callbackCount = 0;
-      controller.onPlaybackStarting = () {
-        callbackCount++;
-        return callbackCount == 1
-            ? firstCallback.future
-            : secondCallback.future;
-      };
-      final secondPlayGate = audioService.enqueuePendingPlayUrl();
+      'superseded playback-starting callback does not stop the newer request',
+      () async {
+        final firstTrack = _track(
+          'callback-first',
+          title: 'Callback First Track',
+        );
+        final secondTrack = _track(
+          'callback-second',
+          title: 'Callback Second Track',
+        );
+        final firstCallback = Completer<void>();
+        final secondCallback = Completer<void>();
+        var callbackCount = 0;
+        controller.onPlaybackStarting = () {
+          callbackCount++;
+          return callbackCount == 1
+              ? firstCallback.future
+              : secondCallback.future;
+        };
+        final secondPlayGate = audioService.enqueuePendingPlayUrl();
 
-      final firstPlay = controller.playTrack(firstTrack);
-      await _pumpUntil(() => callbackCount == 1);
-      expect(controller.state.playingTrack?.sourceId, 'callback-first');
+        final firstPlay = controller.playTrack(firstTrack);
+        await _pumpUntil(() => callbackCount == 1);
+        expect(controller.state.playingTrack?.sourceId, 'callback-first');
 
-      final secondPlay = controller.playTrack(secondTrack);
-      await _pumpUntil(() => callbackCount == 2);
-      expect(controller.state.playingTrack?.sourceId, 'callback-second');
+        final secondPlay = controller.playTrack(secondTrack);
+        await _pumpUntil(() => callbackCount == 2);
+        expect(controller.state.playingTrack?.sourceId, 'callback-second');
 
-      firstCallback.complete();
-      await firstPlay;
-      await pumpEventQueue(times: 5);
+        firstCallback.complete();
+        await firstPlay;
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.stopCallCount, 0);
-      expect(audioService.playUrlCalls, isEmpty);
-      expect(controller.state.playingTrack?.sourceId, 'callback-second');
-      expect(controller.state.currentTrack?.sourceId, 'callback-second');
-      expect(controller.state.isLoading, isTrue);
+        expect(audioService.stopCallCount, 0);
+        expect(audioService.playUrlCalls, isEmpty);
+        expect(controller.state.playingTrack?.sourceId, 'callback-second');
+        expect(controller.state.currentTrack?.sourceId, 'callback-second');
+        expect(controller.state.isLoading, isTrue);
 
-      secondCallback.complete();
-      await audioService.waitForPlayUrlCallCount(1);
-      secondPlayGate.complete();
-      await secondPlay;
-      await pumpEventQueue(times: 5);
+        secondCallback.complete();
+        await audioService.waitForPlayUrlCallCount(1);
+        secondPlayGate.complete();
+        await secondPlay;
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.stopCallCount, 1);
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/callback-second.m4a');
-      expect(controller.state.playingTrack?.sourceId, 'callback-second');
-      expect(controller.state.currentTrack?.sourceId, 'callback-second');
-      expect(controller.state.isLoading, isFalse);
-      controller.onPlaybackStarting = null;
-    });
+        expect(audioService.stopCallCount, 1);
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/callback-second.m4a',
+        );
+        expect(controller.state.playingTrack?.sourceId, 'callback-second');
+        expect(controller.state.currentTrack?.sourceId, 'callback-second');
+        expect(controller.state.isLoading, isFalse);
+        controller.onPlaybackStarting = null;
+      },
+    );
 
-    test('togglePlayPause refreshes expired remote URL and restores position',
-        () async {
-      sourceManager.setNextAudioExpiry(const Duration(milliseconds: 1));
-      await controller
-          .playTrack(_track('expired-resume', title: 'Expired Resume'));
-      await controller.seekTo(const Duration(seconds: 42));
-      audioService.setPositionValue(const Duration(seconds: 42));
-      await controller.pause();
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+    test(
+      'togglePlayPause refreshes expired remote URL and restores position',
+      () async {
+        sourceManager.setNextAudioExpiry(const Duration(milliseconds: 1));
+        await controller.playTrack(
+          _track('expired-resume', title: 'Expired Resume'),
+        );
+        await controller.seekTo(const Duration(seconds: 42));
+        audioService.setPositionValue(const Duration(seconds: 42));
+        await controller.pause();
+        await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      audioService.playUrlCalls.clear();
-      audioService.seekCalls.clear();
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
 
-      await controller.togglePlayPause();
-      await pumpEventQueue(times: 20);
+        await controller.togglePlayPause();
+        await pumpEventQueue(times: 20);
 
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/expired-resume.m4a');
-      expect(audioService.seekCalls.single, const Duration(seconds: 42));
-      expect(controller.state.playingTrack?.sourceId, 'expired-resume');
-      expect(controller.state.isPlaying, isTrue);
-    });
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/expired-resume.m4a',
+        );
+        expect(audioService.seekCalls.single, const Duration(seconds: 42));
+        expect(controller.state.playingTrack?.sourceId, 'expired-resume');
+        expect(controller.state.isPlaying, isTrue);
+      },
+    );
 
-    test('togglePlayPause does not refresh expired URL when local file exists',
-        () async {
-      final localFile = File('${tempDir.path}/local-expired.m4a');
-      await localFile.writeAsString('audio-bytes');
-      final track = _track('local-expired', title: 'Local Expired')
-        ..audioUrl = 'https://stale.example/local-expired.m4a'
-        ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1))
-        ..playlistInfo = [
-          PlaylistDownloadInfo()
-            ..playlistId = 1
-            ..playlistName = 'Downloaded'
-            ..downloadPath = localFile.path,
-        ];
+    test(
+      'togglePlayPause does not refresh expired URL when local file exists',
+      () async {
+        final localFile = File('${tempDir.path}/local-expired.m4a');
+        await localFile.writeAsString('audio-bytes');
+        final track = _track('local-expired', title: 'Local Expired')
+          ..audioUrl = 'https://stale.example/local-expired.m4a'
+          ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1))
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 1
+              ..playlistName = 'Downloaded'
+              ..downloadPath = localFile.path,
+          ];
 
-      await controller.playTrack(track);
-      await controller.pause();
-      audioService.playUrlCalls.clear();
-      audioService.seekCalls.clear();
+        await controller.playTrack(track);
+        await controller.pause();
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
 
-      await controller.togglePlayPause();
-      await pumpEventQueue(times: 10);
+        await controller.togglePlayPause();
+        await pumpEventQueue(times: 10);
 
-      expect(audioService.playUrlCalls, isEmpty);
-      expect(audioService.seekCalls, isEmpty);
-      expect(controller.state.isPlaying, isTrue);
-    });
+        expect(audioService.playUrlCalls, isEmpty);
+        expect(audioService.seekCalls, isEmpty);
+        expect(controller.state.isPlaying, isTrue);
+      },
+    );
 
-    test('superseded expired URL resume does not seek the newer track',
-        () async {
-      sourceManager.setNextAudioExpiry(const Duration(milliseconds: 1));
-      await controller.playTrack(_track('old-expired', title: 'Old Expired'));
-      await controller.seekTo(const Duration(seconds: 42));
-      audioService.setPositionValue(const Duration(seconds: 42));
-      await controller.pause();
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+    test(
+      'superseded expired URL resume does not seek the newer track',
+      () async {
+        sourceManager.setNextAudioExpiry(const Duration(milliseconds: 1));
+        await controller.playTrack(_track('old-expired', title: 'Old Expired'));
+        await controller.seekTo(const Duration(seconds: 42));
+        audioService.setPositionValue(const Duration(seconds: 42));
+        await controller.pause();
+        await Future<void>.delayed(const Duration(milliseconds: 5));
 
-      audioService.playUrlCalls.clear();
-      audioService.seekCalls.clear();
-      final oldResume = controller.togglePlayPause();
-      await audioService.waitForPlayUrlCallCount(1);
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
+        final oldResume = controller.togglePlayPause();
+        await audioService.waitForPlayUrlCallCount(1);
 
-      final newerTrack =
-          _track('new-after-expired', title: 'New After Expired');
-      await controller.playTrack(newerTrack);
-      await oldResume;
-      await pumpEventQueue(times: 20);
+        final newerTrack = _track(
+          'new-after-expired',
+          title: 'New After Expired',
+        );
+        await controller.playTrack(newerTrack);
+        await oldResume;
+        await pumpEventQueue(times: 20);
 
-      expect(controller.state.playingTrack?.sourceId, 'new-after-expired');
-      expect(controller.state.currentTrack?.sourceId, 'new-after-expired');
-      expect(
+        expect(controller.state.playingTrack?.sourceId, 'new-after-expired');
+        expect(controller.state.currentTrack?.sourceId, 'new-after-expired');
+        expect(
           audioService.playUrlCalls.map((call) => call.url),
           containsAllInOrder([
             'https://example.com/old-expired.m4a',
             'https://example.com/new-after-expired.m4a',
-          ]));
-      expect(audioService.seekCalls, isEmpty);
-    });
-
-    test('superseded restore does not stop or overwrite the newer request',
-        () async {
-      final queueTracks = [
-        _track('queue-a', title: 'Queue A'),
-        _track('queue-b', title: 'Queue B'),
-      ];
-      final newerTrack = _track('newer', title: 'Newer Track');
-
-      await controller.playAll(queueTracks, startIndex: 1);
-      await controller.seekTo(const Duration(seconds: 42));
-      audioService.setPositionValue(const Duration(seconds: 42));
-      audioService.setPlayingValue(true);
-
-      final tempTrack = _track('temp-restore', title: 'Temp Restore');
-      await controller.playTemporary(tempTrack);
-
-      final blockedSeek = audioService.enqueuePendingSeek();
-      final restoreSeekCount = audioService.seekCalls.length + 1;
-
-      audioService.emitNaturalCompletion();
-      await audioService.waitForSetUrlCallCount(1);
-      await audioService.waitForSeekCallCount(restoreSeekCount);
-      await pumpEventQueue(times: 5);
-
-      expect(audioService.stopCallCount, 3);
-      expect(controller.state.playingTrack?.sourceId, 'queue-b');
-
-      final newerPlay = controller.playTrack(newerTrack);
-      await newerPlay;
-      expect(audioService.stopCallCount, 4);
-      expect(controller.state.playingTrack?.sourceId, 'newer');
-      expect(controller.state.currentTrack?.sourceId, 'newer');
-
-      blockedSeek.complete();
-      await pumpEventQueue(times: 20);
-
-      expect(audioService.stopCallCount, 4);
-      expect(controller.state.playingTrack?.sourceId, 'newer');
-      expect(controller.state.currentTrack?.sourceId, 'newer');
-      expect(
-          audioService.playUrlCalls.last.url, 'https://example.com/newer.m4a');
-    });
+          ]),
+        );
+        expect(audioService.seekCalls, isEmpty);
+      },
+    );
 
     test(
-        'superseded fallback playback does not start while newer request is loading',
-        () async {
-      final firstTrack =
-          _track('first-fallback', title: 'First Fallback Track');
-      final secondTrack =
-          _track('second-fallback', title: 'Second Fallback Track');
-      final firstPlayGate = audioService.enqueuePendingPlayUrl();
-      final fallbackPlayGate = audioService.enqueuePendingPlayUrl();
-      final secondPlayGate = audioService.enqueuePendingPlayUrl();
-      audioService.enqueuePlayUrlError(Exception('force fallback'));
+      'superseded restore does not stop or overwrite the newer request',
+      () async {
+        final queueTracks = [
+          _track('queue-a', title: 'Queue A'),
+          _track('queue-b', title: 'Queue B'),
+        ];
+        final newerTrack = _track('newer', title: 'Newer Track');
 
-      final firstPlay = controller.playTrack(firstTrack);
-      await audioService.waitForPlayUrlCallCount(1);
+        await controller.playAll(queueTracks, startIndex: 1);
+        await controller.seekTo(const Duration(seconds: 42));
+        audioService.setPositionValue(const Duration(seconds: 42));
+        audioService.setPlayingValue(true);
 
-      firstPlayGate.complete();
-      await audioService.waitForPlayUrlCallCount(2);
+        final tempTrack = _track('temp-restore', title: 'Temp Restore');
+        await controller.playTemporary(tempTrack);
 
-      final secondPlay = controller.playTrack(secondTrack);
-      await audioService.waitForPlayUrlCallCount(3);
+        final blockedSeek = audioService.enqueuePendingSeek();
+        final restoreSeekCount = audioService.seekCalls.length + 1;
 
-      fallbackPlayGate.complete();
-      await firstPlay;
-      await pumpEventQueue(times: 5);
+        audioService.emitNaturalCompletion();
+        await audioService.waitForSetUrlCallCount(1);
+        await audioService.waitForSeekCallCount(restoreSeekCount);
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.stopCallCount, 2);
-      expect(audioService.playUrlCalls[0].url,
-          'https://example.com/first-fallback.m4a');
-      expect(audioService.playUrlCalls[1].url,
-          'https://example.com/first-fallback-fallback.m4a');
-      expect(audioService.playUrlCalls[2].url,
-          'https://example.com/second-fallback.m4a');
-      expect(controller.state.playingTrack?.sourceId, 'second-fallback');
-      expect(controller.state.currentTrack?.sourceId, 'second-fallback');
-      expect(controller.state.isLoading, isTrue);
-      expect(controller.state.error, isNull);
+        expect(audioService.stopCallCount, 3);
+        expect(controller.state.playingTrack?.sourceId, 'queue-b');
 
-      secondPlayGate.complete();
-      await secondPlay;
-      await pumpEventQueue(times: 5);
+        final newerPlay = controller.playTrack(newerTrack);
+        await newerPlay;
+        expect(audioService.stopCallCount, 4);
+        expect(controller.state.playingTrack?.sourceId, 'newer');
+        expect(controller.state.currentTrack?.sourceId, 'newer');
 
-      expect(audioService.stopCallCount, 2);
-      expect(controller.state.playingTrack?.sourceId, 'second-fallback');
-      expect(controller.state.currentTrack?.sourceId, 'second-fallback');
-      expect(controller.state.isLoading, isFalse);
-      expect(controller.state.isPlaying, isTrue);
-    });
+        blockedSeek.complete();
+        await pumpEventQueue(times: 20);
+
+        expect(audioService.stopCallCount, 4);
+        expect(controller.state.playingTrack?.sourceId, 'newer');
+        expect(controller.state.currentTrack?.sourceId, 'newer');
+        expect(
+          audioService.playUrlCalls.last.url,
+          'https://example.com/newer.m4a',
+        );
+      },
+    );
+
+    test(
+      'superseded fallback playback does not start while newer request is loading',
+      () async {
+        final firstTrack = _track(
+          'first-fallback',
+          title: 'First Fallback Track',
+        );
+        final secondTrack = _track(
+          'second-fallback',
+          title: 'Second Fallback Track',
+        );
+        final firstPlayGate = audioService.enqueuePendingPlayUrl();
+        final fallbackPlayGate = audioService.enqueuePendingPlayUrl();
+        final secondPlayGate = audioService.enqueuePendingPlayUrl();
+        audioService.enqueuePlayUrlError(Exception('force fallback'));
+
+        final firstPlay = controller.playTrack(firstTrack);
+        await audioService.waitForPlayUrlCallCount(1);
+
+        firstPlayGate.complete();
+        await audioService.waitForPlayUrlCallCount(2);
+
+        final secondPlay = controller.playTrack(secondTrack);
+        await audioService.waitForPlayUrlCallCount(3);
+
+        fallbackPlayGate.complete();
+        await firstPlay;
+        await pumpEventQueue(times: 5);
+
+        expect(audioService.stopCallCount, 2);
+        expect(
+          audioService.playUrlCalls[0].url,
+          'https://example.com/first-fallback.m4a',
+        );
+        expect(
+          audioService.playUrlCalls[1].url,
+          'https://example.com/first-fallback-fallback.m4a',
+        );
+        expect(
+          audioService.playUrlCalls[2].url,
+          'https://example.com/second-fallback.m4a',
+        );
+        expect(controller.state.playingTrack?.sourceId, 'second-fallback');
+        expect(controller.state.currentTrack?.sourceId, 'second-fallback');
+        expect(controller.state.isLoading, isTrue);
+        expect(controller.state.error, isNull);
+
+        secondPlayGate.complete();
+        await secondPlay;
+        await pumpEventQueue(times: 5);
+
+        expect(audioService.stopCallCount, 2);
+        expect(controller.state.playingTrack?.sourceId, 'second-fallback');
+        expect(controller.state.currentTrack?.sourceId, 'second-fallback');
+        expect(controller.state.isLoading, isFalse);
+        expect(controller.state.isPlaying, isTrue);
+      },
+    );
 
     test('source skip errors include semantic reason in toast', () async {
       final toasts = <ToastMessage>[];
@@ -851,50 +903,39 @@ void main() {
 
       expect(toasts, isNotEmpty);
       expect(toasts.last.message, contains('Flag Song'));
+      expect(toasts.last.message, isNot(contains('No playback rights')));
       expect(
         toasts.last.message,
-        isNot(contains('No playback rights')),
-      );
-      expect(
-        toasts.last.message,
-        anyOf(
-          contains('copyright'),
-          contains('版权'),
-          contains('版權'),
-        ),
+        anyOf(contains('copyright'), contains('版权'), contains('版權')),
       );
       expect(toasts.last.type, ToastType.error);
     });
 
-    test('Bilibili permission error code uses friendly playback message',
-        () async {
-      final toasts = <ToastMessage>[];
-      final subscription = toastService.messageStream.listen(toasts.add);
-      addTearDown(subscription.cancel);
-      sourceManager.throwGetAudioStreamOnce(
-        const BilibiliApiException(
-          numericCode: 62012,
-          message: '62012',
-        ),
-      );
+    test(
+      'Bilibili permission error code uses friendly playback message',
+      () async {
+        final toasts = <ToastMessage>[];
+        final subscription = toastService.messageStream.listen(toasts.add);
+        addTearDown(subscription.cancel);
+        sourceManager.throwGetAudioStreamOnce(
+          const BilibiliApiException(numericCode: 62012, message: '62012'),
+        );
 
-      await controller.playTrack(
-        _track('private-bilibili-video', title: 'Private Bilibili Video'),
-      );
-      await pumpEventQueue(times: 5);
+        await controller.playTrack(
+          _track('private-bilibili-video', title: 'Private Bilibili Video'),
+        );
+        await pumpEventQueue(times: 5);
 
-      expect(toasts, isNotEmpty);
-      expect(toasts.last.message, isNot(contains('62012')));
-      expect(
-        toasts.last.message,
-        contains('Bilibili'),
-      );
-      expect(
-        toasts.last.message,
-        anyOf(contains('logged-in'), contains('登录状态'), contains('登入狀態')),
-      );
-      expect(toasts.last.type, ToastType.error);
-    });
+        expect(toasts, isNotEmpty);
+        expect(toasts.last.message, isNot(contains('62012')));
+        expect(toasts.last.message, contains('Bilibili'));
+        expect(
+          toasts.last.message,
+          anyOf(contains('logged-in'), contains('登录状态'), contains('登入狀態')),
+        );
+        expect(toasts.last.type, ToastType.error);
+      },
+    );
 
     // Q34 的回歸守門。
     //
@@ -1037,37 +1078,39 @@ void main() {
       expect(controller.state.currentStreamType, isNull);
     });
 
-    test('post-handoff media open error becomes visible terminal error',
-        () async {
-      final toasts = <ToastMessage>[];
-      final subscription = toastService.messageStream.listen(toasts.add);
-      addTearDown(subscription.cancel);
+    test(
+      'post-handoff media open error becomes visible terminal error',
+      () async {
+        final toasts = <ToastMessage>[];
+        final subscription = toastService.messageStream.listen(toasts.add);
+        addTearDown(subscription.cancel);
 
-      await controller.playTrack(
-        _track('media-open-post-handoff', title: 'Media Open Post Handoff'),
-      );
-      await pumpEventQueue(times: 5);
+        await controller.playTrack(
+          _track('media-open-post-handoff', title: 'Media Open Post Handoff'),
+        );
+        await pumpEventQueue(times: 5);
 
-      expect(controller.state.isLoading, isFalse);
-      expect(controller.state.error, isNull);
-      final stopCountBeforeError = audioService.stopCallCount;
+        expect(controller.state.isLoading, isFalse);
+        expect(controller.state.error, isNull);
+        final stopCountBeforeError = audioService.stopCallCount;
 
-      audioService.setPlayingValue(false);
-      audioService.setPositionValue(Duration.zero);
-      audioService.emitMediaOpenError(
-        'Failed to open https://example.com/media-open-post-handoff.m4a.',
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
-      await pumpEventQueue(times: 5);
+        audioService.setPlayingValue(false);
+        audioService.setPositionValue(Duration.zero);
+        audioService.emitMediaOpenError(
+          'Failed to open https://example.com/media-open-post-handoff.m4a.',
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 2200));
+        await pumpEventQueue(times: 5);
 
-      expect(toasts, isNotEmpty);
-      expect(toasts.last.type, ToastType.error);
-      expect(toasts.last.message, contains('Media Open Post Handoff'));
-      expect(controller.state.error, contains('Media Open Post Handoff'));
-      expect(controller.state.isLoading, isFalse);
-      expect(controller.state.isPlaying, isFalse);
-      expect(audioService.stopCallCount, stopCountBeforeError + 1);
-    });
+        expect(toasts, isNotEmpty);
+        expect(toasts.last.type, ToastType.error);
+        expect(toasts.last.message, contains('Media Open Post Handoff'));
+        expect(controller.state.error, contains('Media Open Post Handoff'));
+        expect(controller.state.isLoading, isFalse);
+        expect(controller.state.isPlaying, isFalse);
+        expect(audioService.stopCallCount, stopCountBeforeError + 1);
+      },
+    );
 
     test('new playback cancels pending post-handoff media open stop', () async {
       final toasts = <ToastMessage>[];
@@ -1111,9 +1154,7 @@ void main() {
       var playCompleted = false;
 
       final playFuture = controller
-          .playTrack(
-            _track('media-open-active', title: 'Media Open Active'),
-          )
+          .playTrack(_track('media-open-active', title: 'Media Open Active'))
           .then((_) => playCompleted = true);
       await audioService.waitForPlayUrlCallCount(1);
 
@@ -1166,82 +1207,92 @@ void main() {
       expect(controller.state.isBuffering, isFalse);
     });
 
-    test('waits for pending media open cleanup when handoff is superseded',
-        () async {
-      final playGate = audioService.enqueuePendingPlayUrl();
-      var playCompleted = false;
+    test(
+      'waits for pending media open cleanup when handoff is superseded',
+      () async {
+        final playGate = audioService.enqueuePendingPlayUrl();
+        var playCompleted = false;
 
-      final playFuture = controller
-          .playTrack(
-            _track('media-open-cleanup', title: 'Media Open Cleanup'),
-          )
-          .then((_) => playCompleted = true);
-      await audioService.waitForPlayUrlCallCount(1);
-      final stopGate = audioService.enqueuePendingStop();
+        final playFuture = controller
+            .playTrack(
+              _track('media-open-cleanup', title: 'Media Open Cleanup'),
+            )
+            .then((_) => playCompleted = true);
+        await audioService.waitForPlayUrlCallCount(1);
+        final stopGate = audioService.enqueuePendingStop();
 
-      audioService.emitMediaOpenError(
-        'Failed to open https://example.com/media-open-cleanup.m4a.',
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
+        audioService.emitMediaOpenError(
+          'Failed to open https://example.com/media-open-cleanup.m4a.',
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 2200));
 
-      playGate.complete();
-      await pumpEventQueue(times: 5);
+        playGate.complete();
+        await pumpEventQueue(times: 5);
 
-      expect(playCompleted, isFalse);
+        expect(playCompleted, isFalse);
 
-      stopGate.complete();
-      await playFuture;
-      await pumpEventQueue(times: 5);
+        stopGate.complete();
+        await playFuture;
+        await pumpEventQueue(times: 5);
 
-      expect(playCompleted, isTrue);
-      expect(controller.state.isLoading, isFalse);
-      expect(controller.state.isPlaying, isFalse);
-    });
+        expect(playCompleted, isTrue);
+        expect(controller.state.isLoading, isFalse);
+        expect(controller.state.isPlaying, isFalse);
+      },
+    );
 
-    test('active media open terminal cannot overwrite newer playback',
-        () async {
-      final toasts = <ToastMessage>[];
-      final subscription = toastService.messageStream.listen(toasts.add);
-      addTearDown(subscription.cancel);
+    test(
+      'active media open terminal cannot overwrite newer playback',
+      () async {
+        final toasts = <ToastMessage>[];
+        final subscription = toastService.messageStream.listen(toasts.add);
+        addTearDown(subscription.cancel);
 
-      final oldPlayGate = audioService.enqueuePendingPlayUrl();
-      final oldPlayFuture = controller.playTrack(
-        _track('media-open-old-active', title: 'Media Open Old Active'),
-      );
-      await audioService.waitForPlayUrlCallCount(1);
+        final oldPlayGate = audioService.enqueuePendingPlayUrl();
+        final oldPlayFuture = controller.playTrack(
+          _track('media-open-old-active', title: 'Media Open Old Active'),
+        );
+        await audioService.waitForPlayUrlCallCount(1);
 
-      final terminalStopGate = audioService.enqueuePendingStop();
-      audioService.emitMediaOpenError(
-        'Failed to open https://example.com/media-open-old-active.m4a.',
-      );
-      oldPlayGate.complete();
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
-      await pumpEventQueue(times: 5);
+        final terminalStopGate = audioService.enqueuePendingStop();
+        audioService.emitMediaOpenError(
+          'Failed to open https://example.com/media-open-old-active.m4a.',
+        );
+        oldPlayGate.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 2200));
+        await pumpEventQueue(times: 5);
 
-      final newPlayGate = audioService.enqueuePendingPlayUrl();
-      final newPlayFuture = controller.playTrack(
-        _track('media-open-new-active', title: 'Media Open New Active'),
-      );
-      await audioService.waitForPlayUrlCallCount(2);
+        final newPlayGate = audioService.enqueuePendingPlayUrl();
+        final newPlayFuture = controller.playTrack(
+          _track('media-open-new-active', title: 'Media Open New Active'),
+        );
+        await audioService.waitForPlayUrlCallCount(2);
 
-      terminalStopGate.complete();
-      await oldPlayFuture;
-      await pumpEventQueue(times: 5);
+        terminalStopGate.complete();
+        await oldPlayFuture;
+        await pumpEventQueue(times: 5);
 
-      newPlayGate.complete();
-      await newPlayFuture;
-      await pumpEventQueue(times: 5);
+        newPlayGate.complete();
+        await newPlayFuture;
+        await pumpEventQueue(times: 5);
 
-      expect(
-        toasts.map((toast) => toast.message),
-        isNot(contains(contains('Media Open Old Active'))),
-      );
-      expect(controller.state.error, isNull);
-      expect(controller.state.currentTrack?.sourceId, 'media-open-new-active');
-      expect(controller.state.playingTrack?.sourceId, 'media-open-new-active');
-      expect(controller.state.isLoading, isFalse);
-      expect(controller.state.isPlaying, isTrue);
-    });
+        expect(
+          toasts.map((toast) => toast.message),
+          isNot(contains(contains('Media Open Old Active'))),
+        );
+        expect(controller.state.error, isNull);
+        expect(
+          controller.state.currentTrack?.sourceId,
+          'media-open-new-active',
+        );
+        expect(
+          controller.state.playingTrack?.sourceId,
+          'media-open-new-active',
+        );
+        expect(controller.state.isLoading, isFalse);
+        expect(controller.state.isPlaying, isTrue);
+      },
+    );
 
     test('retry terminal media open clears loading and retry state', () async {
       final toasts = <ToastMessage>[];
@@ -1286,24 +1337,26 @@ void main() {
       expect(controller.state.nextRetryAt, isNull);
     });
 
-    test('rate-limited source error remains visible after loading resets',
-        () async {
-      sourceManager.throwGetAudioStreamOnce(
-        const YouTubeApiException(
-          code: 'rate_limited',
-          message: 'Too many requests',
-        ),
-      );
+    test(
+      'rate-limited source error remains visible after loading resets',
+      () async {
+        sourceManager.throwGetAudioStreamOnce(
+          const YouTubeApiException(
+            code: 'rate_limited',
+            message: 'Too many requests',
+          ),
+        );
 
-      await controller.playTrack(
-        _track('rate-limited-song', title: 'Rate Limited Song'),
-      );
-      await pumpEventQueue(times: 10);
+        await controller.playTrack(
+          _track('rate-limited-song', title: 'Rate Limited Song'),
+        );
+        await pumpEventQueue(times: 10);
 
-      expect(controller.state.isLoading, isFalse);
-      expect(controller.state.isRetrying, isFalse);
-      expect(controller.state.error, 'Too many requests');
-    });
+        expect(controller.state.isLoading, isFalse);
+        expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.error, 'Too many requests');
+      },
+    );
 
     test('skipped queue track toast includes semantic reason', () async {
       final toasts = <ToastMessage>[];
@@ -1334,258 +1387,274 @@ void main() {
     });
 
     test(
-        'superseded source error without next track does not stop newer request',
-        () async {
-      final firstTrack =
-          _track('stale-source-error', title: 'Stale Source Error');
-      final secondTrack =
-          _track('fresh-after-error', title: 'Fresh After Error');
-      final secondPlayGate = audioService.enqueuePendingPlayUrl();
-      sourceManager.throwGetAudioStreamOnce(
-        const YouTubeApiException(code: 'unavailable', message: 'gone'),
-      );
+      'superseded source error without next track does not stop newer request',
+      () async {
+        final firstTrack = _track(
+          'stale-source-error',
+          title: 'Stale Source Error',
+        );
+        final secondTrack = _track(
+          'fresh-after-error',
+          title: 'Fresh After Error',
+        );
+        final secondPlayGate = audioService.enqueuePendingPlayUrl();
+        sourceManager.throwGetAudioStreamOnce(
+          const YouTubeApiException(code: 'unavailable', message: 'gone'),
+        );
 
-      final resolvedBefore = sourceManager.getAudioStreamCallCount;
-      final firstPlay = controller.playTrack(firstTrack);
-      // 等到第一個請求真的走進串流解析，而不是猜「一圈事件迴圈應該夠」——
-      // 圈數在滿載的機器上不夠，那正是 issue #43 的其中一條根因。
-      await _pumpUntil(
-        () => sourceManager.getAudioStreamCallCount > resolvedBefore,
-      );
+        final resolvedBefore = sourceManager.getAudioStreamCallCount;
+        final firstPlay = controller.playTrack(firstTrack);
+        // 等到第一個請求真的走進串流解析，而不是猜「一圈事件迴圈應該夠」——
+        // 圈數在滿載的機器上不夠，那正是 issue #43 的其中一條根因。
+        await _pumpUntil(
+          () => sourceManager.getAudioStreamCallCount > resolvedBefore,
+        );
 
-      final secondPlay = controller.playTrack(secondTrack);
-      await audioService.waitForPlayUrlCallCount(1);
-      await firstPlay;
-      await pumpEventQueue(times: 5);
+        final secondPlay = controller.playTrack(secondTrack);
+        await audioService.waitForPlayUrlCallCount(1);
+        await firstPlay;
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.stopCallCount, 2);
-      expect(controller.state.playingTrack?.sourceId, 'fresh-after-error');
-      expect(controller.state.currentTrack?.sourceId, 'fresh-after-error');
-      expect(controller.state.error, isNull);
-      expect(controller.state.isLoading, isTrue);
+        expect(audioService.stopCallCount, 2);
+        expect(controller.state.playingTrack?.sourceId, 'fresh-after-error');
+        expect(controller.state.currentTrack?.sourceId, 'fresh-after-error');
+        expect(controller.state.error, isNull);
+        expect(controller.state.isLoading, isTrue);
 
-      secondPlayGate.complete();
-      await secondPlay;
-      await pumpEventQueue(times: 5);
+        secondPlayGate.complete();
+        await secondPlay;
+        await pumpEventQueue(times: 5);
 
-      expect(audioService.stopCallCount, 2);
-      expect(controller.state.playingTrack?.sourceId, 'fresh-after-error');
-      expect(controller.state.currentTrack?.sourceId, 'fresh-after-error');
-      expect(controller.state.error, isNull);
-      expect(controller.state.isLoading, isFalse);
-      expect(controller.state.isPlaying, isTrue);
-    });
-
-    test(
-        'return from radio restores queue through the shared transition handoff',
-        () async {
-      final queueTracks = [
-        _track('radio-a', title: 'Radio A'),
-        _track('radio-b', title: 'Radio B'),
-      ];
-
-      await controller.playAll(queueTracks, startIndex: 1);
-      audioService.setUrlCalls.clear();
-      audioService.seekCalls.clear();
-      final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
-      final restoreSeek = audioService.waitForSeekCallCount(1);
-
-      await controller.returnFromRadio(
-        savedQueueIndex: 1,
-        savedPosition: const Duration(seconds: 18),
-        savedWasPlaying: true,
-      );
-      await restoreSetUrl;
-      await restoreSeek;
-      await pumpEventQueue(times: 10);
-
-      expect(controller.state.currentTrack?.sourceId, 'radio-b');
-      expect(controller.state.playingTrack?.sourceId, 'radio-b');
-      expect(audioService.setUrlCalls.single.url,
-          'https://example.com/radio-b.m4a');
-      expect(audioService.seekCalls.single, const Duration(seconds: 18));
-      expect(controller.state.isPlaying, isTrue);
-    });
+        expect(audioService.stopCallCount, 2);
+        expect(controller.state.playingTrack?.sourceId, 'fresh-after-error');
+        expect(controller.state.currentTrack?.sourceId, 'fresh-after-error');
+        expect(controller.state.error, isNull);
+        expect(controller.state.isLoading, isFalse);
+        expect(controller.state.isPlaying, isTrue);
+      },
+    );
 
     test(
-        'temporary restore replaces the queue copy instead of mutating the existing queue track in place',
-        () async {
-      final queueTracks = [
-        _track('restore-a', title: 'Restore A'),
-        _track('restore-b', title: 'Restore B'),
-      ];
-      final tempTrack = _track('restore-temp', title: 'Restore Temp');
+      'return from radio restores queue through the shared transition handoff',
+      () async {
+        final queueTracks = [
+          _track('radio-a', title: 'Radio A'),
+          _track('radio-b', title: 'Radio B'),
+        ];
 
-      await controller.playAll(queueTracks, startIndex: 1);
-      final queueTrackBeforeTemporary = controller.queueState.queueTrack;
-      expect(queueTrackBeforeTemporary, isNotNull);
+        await controller.playAll(queueTracks, startIndex: 1);
+        audioService.setUrlCalls.clear();
+        audioService.seekCalls.clear();
+        final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
+        final restoreSeek = audioService.waitForSeekCallCount(1);
 
-      await controller.playTemporary(tempTrack);
-      audioService.setUrlCalls.clear();
-      final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
+        await controller.returnFromRadio(
+          savedQueueIndex: 1,
+          savedPosition: const Duration(seconds: 18),
+          savedWasPlaying: true,
+        );
+        await restoreSetUrl;
+        await restoreSeek;
+        await pumpEventQueue(times: 10);
 
-      audioService.emitNaturalCompletion();
-      await restoreSetUrl;
-      await pumpEventQueue(times: 20);
-
-      final queueTrackAfterRestore = controller.queueState.queueTrack;
-      final playingTrackAfterRestore = controller.state.playingTrack;
-      expect(queueTrackAfterRestore, isNotNull);
-      expect(playingTrackAfterRestore, isNotNull);
-      expect(queueTrackAfterRestore!.sourceId, 'restore-b');
-      expect(playingTrackAfterRestore!.sourceId, 'restore-b');
-      expect(queueTrackAfterRestore, isNot(same(queueTrackBeforeTemporary)));
-      expect(queueTrackAfterRestore, isNot(same(playingTrackAfterRestore)));
-    });
-
-    test(
-        'clearing queue while mix load-more is active exits safely and clears persisted mix metadata',
-        () async {
-      final mixTracks = [
-        _track('mix-a', title: 'Mix A'),
-        _track('mix-b', title: 'Mix B'),
-      ];
-      final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
-        const MixFetchResult(title: 'My Mix', tracks: []),
-      );
-
-      await controller.playMixPlaylist(
-        playlistId: 'RDmix123',
-        seedVideoId: 'seed123',
-        title: 'My Mix',
-        tracks: mixTracks,
-        startIndex: 1,
-      );
-      await pumpEventQueue(times: 5);
-
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'My Mix');
-      expect(controller.queueState.isLoadingMoreMix, isTrue);
-
-      await controller.clearQueue();
-      await pumpEventQueue(times: 5);
-
-      loadMoreGate.complete();
-      await pumpEventQueue(times: 20);
-
-      final persistedQueue = await queueRepository.getOrCreate();
-
-      expect(controller.queueState.isMixMode, isFalse);
-      expect(controller.queueState.mixTitle, isNull);
-      expect(controller.queueState.isLoadingMoreMix, isFalse);
-      expect(persistedQueue.trackIds, isEmpty);
-      expect(persistedQueue.isMixMode, isFalse);
-      expect(persistedQueue.mixPlaylistId, isNull);
-      expect(persistedQueue.mixSeedVideoId, isNull);
-      expect(persistedQueue.mixTitle, isNull);
-    });
+        expect(controller.state.currentTrack?.sourceId, 'radio-b');
+        expect(controller.state.playingTrack?.sourceId, 'radio-b');
+        expect(
+          audioService.setUrlCalls.single.url,
+          'https://example.com/radio-b.m4a',
+        );
+        expect(audioService.seekCalls.single, const Duration(seconds: 18));
+        expect(controller.state.isPlaying, isTrue);
+      },
+    );
 
     test(
-        'replacing a loading mix session resets visible load-more state for the new session',
-        () async {
-      final oldMixTracks = [
-        _track('old-mix-a', title: 'Old Mix A'),
-        _track('old-mix-b', title: 'Old Mix B'),
-      ];
-      final newMixTracks = [
-        _track('new-mix-a', title: 'New Mix A'),
-        _track('new-mix-b', title: 'New Mix B'),
-      ];
-      final oldLoadMoreGate = mixTracksFetcher.enqueuePendingResult(
-        const MixFetchResult(title: 'Old Mix', tracks: []),
-      );
+      'temporary restore replaces the queue copy instead of mutating the existing queue track in place',
+      () async {
+        final queueTracks = [
+          _track('restore-a', title: 'Restore A'),
+          _track('restore-b', title: 'Restore B'),
+        ];
+        final tempTrack = _track('restore-temp', title: 'Restore Temp');
 
-      await controller.playMixPlaylist(
-        playlistId: 'RDoldmix',
-        seedVideoId: 'seed-old',
-        title: 'Old Mix',
-        tracks: oldMixTracks,
-        startIndex: 1,
-      );
-      await pumpEventQueue(times: 5);
+        await controller.playAll(queueTracks, startIndex: 1);
+        final queueTrackBeforeTemporary = controller.queueState.queueTrack;
+        expect(queueTrackBeforeTemporary, isNotNull);
 
-      expect(controller.queueState.mixTitle, 'Old Mix');
-      expect(controller.queueState.isLoadingMoreMix, isTrue);
+        await controller.playTemporary(tempTrack);
+        audioService.setUrlCalls.clear();
+        final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
 
-      await controller.playMixPlaylist(
-        playlistId: 'RDnewmix',
-        seedVideoId: 'seed-new',
-        title: 'New Mix',
-        tracks: newMixTracks,
-        startIndex: 0,
-      );
-      await pumpEventQueue(times: 5);
+        audioService.emitNaturalCompletion();
+        await restoreSetUrl;
+        await pumpEventQueue(times: 20);
 
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'New Mix');
-      expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
-      expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
-      expect(controller.queueState.isLoadingMoreMix, isFalse);
+        final queueTrackAfterRestore = controller.queueState.queueTrack;
+        final playingTrackAfterRestore = controller.state.playingTrack;
+        expect(queueTrackAfterRestore, isNotNull);
+        expect(playingTrackAfterRestore, isNotNull);
+        expect(queueTrackAfterRestore!.sourceId, 'restore-b');
+        expect(playingTrackAfterRestore!.sourceId, 'restore-b');
+        expect(queueTrackAfterRestore, isNot(same(queueTrackBeforeTemporary)));
+        expect(queueTrackAfterRestore, isNot(same(playingTrackAfterRestore)));
+      },
+    );
 
-      oldLoadMoreGate.complete();
-      await pumpEventQueue(times: 20);
+    test(
+      'clearing queue while mix load-more is active exits safely and clears persisted mix metadata',
+      () async {
+        final mixTracks = [
+          _track('mix-a', title: 'Mix A'),
+          _track('mix-b', title: 'Mix B'),
+        ];
+        final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
+          const MixFetchResult(title: 'My Mix', tracks: []),
+        );
 
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'New Mix');
-      expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
-      expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
-      expect(controller.queueState.isLoadingMoreMix, isFalse);
-    });
+        await controller.playMixPlaylist(
+          playlistId: 'RDmix123',
+          seedVideoId: 'seed123',
+          title: 'My Mix',
+          tracks: mixTracks,
+          startIndex: 1,
+        );
+        await pumpEventQueue(times: 5);
 
-    test('sustained buffering recovers once without entering the retry ladder',
-        () async {
-      final toasts = <ToastMessage>[];
-      final subscription = toastService.messageStream.listen(toasts.add);
-      addTearDown(subscription.cancel);
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'My Mix');
+        expect(controller.queueState.isLoadingMoreMix, isTrue);
 
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      audioService = FakeAudioService();
-      controller = buildTestAudioController(
-        audioService: audioService,
-        queueManager: queueManager,
-        audioStreamManager: _createAudioStreamManager(
-          trackRepository: trackRepository,
+        await controller.clearQueue();
+        await pumpEventQueue(times: 5);
+
+        loadMoreGate.complete();
+        await pumpEventQueue(times: 20);
+
+        final persistedQueue = await queueRepository.getOrCreate();
+
+        expect(controller.queueState.isMixMode, isFalse);
+        expect(controller.queueState.mixTitle, isNull);
+        expect(controller.queueState.isLoadingMoreMix, isFalse);
+        expect(persistedQueue.trackIds, isEmpty);
+        expect(persistedQueue.isMixMode, isFalse);
+        expect(persistedQueue.mixPlaylistId, isNull);
+        expect(persistedQueue.mixSeedVideoId, isNull);
+        expect(persistedQueue.mixTitle, isNull);
+      },
+    );
+
+    test(
+      'replacing a loading mix session resets visible load-more state for the new session',
+      () async {
+        final oldMixTracks = [
+          _track('old-mix-a', title: 'Old Mix A'),
+          _track('old-mix-b', title: 'Old Mix B'),
+        ];
+        final newMixTracks = [
+          _track('new-mix-a', title: 'New Mix A'),
+          _track('new-mix-b', title: 'New Mix B'),
+        ];
+        final oldLoadMoreGate = mixTracksFetcher.enqueuePendingResult(
+          const MixFetchResult(title: 'Old Mix', tracks: []),
+        );
+
+        await controller.playMixPlaylist(
+          playlistId: 'RDoldmix',
+          seedVideoId: 'seed-old',
+          title: 'Old Mix',
+          tracks: oldMixTracks,
+          startIndex: 1,
+        );
+        await pumpEventQueue(times: 5);
+
+        expect(controller.queueState.mixTitle, 'Old Mix');
+        expect(controller.queueState.isLoadingMoreMix, isTrue);
+
+        await controller.playMixPlaylist(
+          playlistId: 'RDnewmix',
+          seedVideoId: 'seed-new',
+          title: 'New Mix',
+          tracks: newMixTracks,
+          startIndex: 0,
+        );
+        await pumpEventQueue(times: 5);
+
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'New Mix');
+        expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
+        expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
+        expect(controller.queueState.isLoadingMoreMix, isFalse);
+
+        oldLoadMoreGate.complete();
+        await pumpEventQueue(times: 20);
+
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'New Mix');
+        expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
+        expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
+        expect(controller.queueState.isLoadingMoreMix, isFalse);
+      },
+    );
+
+    test(
+      'sustained buffering recovers once without entering the retry ladder',
+      () async {
+        final toasts = <ToastMessage>[];
+        final subscription = toastService.messageStream.listen(toasts.add);
+        addTearDown(subscription.cancel);
+
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        audioService = FakeAudioService();
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: _createAudioStreamManager(
+            trackRepository: trackRepository,
+            settingsRepository: settingsRepository,
+            sourceManager: sourceManager,
+          ),
+          toastService: toastService,
+          nowPlayingPublisher: testNowPlayingPublisher(),
           settingsRepository: settingsRepository,
-          sourceManager: sourceManager,
-        ),
-        toastService: toastService,
-        nowPlayingPublisher: testNowPlayingPublisher(),
-        settingsRepository: settingsRepository,
-        mixTracksFetcher: mixTracksFetcher.call,
-        budget: const PlaybackTimeoutBudget(
-          bufferStarvation: Duration(milliseconds: 30),
-        ),
-      );
-      await controller.initialize();
+          mixTracksFetcher: mixTracksFetcher.call,
+          budget: const PlaybackTimeoutBudget(
+            bufferStarvation: Duration(milliseconds: 30),
+          ),
+        );
+        await controller.initialize();
 
-      await controller.playSingle(_track('starved', title: 'Starved'));
-      await pumpEventQueue(times: 10);
+        await controller.playSingle(_track('starved', title: 'Starved'));
+        await pumpEventQueue(times: 10);
 
-      final playsBeforeStarvation = audioService.playUrlCalls.length;
-      audioService.setPlayingValue(true);
-      audioService.emitProcessingState(FmpAudioProcessingState.buffering);
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      await pumpEventQueue(times: 20);
+        final playsBeforeStarvation = audioService.playUrlCalls.length;
+        audioService.setPlayingValue(true);
+        audioService.emitProcessingState(FmpAudioProcessingState.buffering);
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        await pumpEventQueue(times: 20);
 
-      // 只救一次，而且救的方式是重發一次請求（內含 _execute 的 fallback 一次）。
-      expect(audioService.playUrlCalls.length,
-          greaterThan(playsBeforeStarvation));
+        // 只救一次，而且救的方式是重發一次請求（內含 _execute 的 fallback 一次）。
+        expect(
+          audioService.playUrlCalls.length,
+          greaterThan(playsBeforeStarvation),
+        );
 
-      // D2 的核心：逾時**不**進 1/2/4/8/16 的退避階梯。走到階梯上就代表
-      // 每次緩衝抖動都會變成五次完整重新解析，也就是症狀 c 的放大迴圈。
-      expect(controller.state.nextRetryAt, isNull);
-      expect(controller.state.isRetrying, isFalse);
-      expect(toasts.where((toast) => toast.type == ToastType.error), isEmpty);
-    });
+        // D2 的核心：逾時**不**進 1/2/4/8/16 的退避階梯。走到階梯上就代表
+        // 每次緩衝抖動都會變成五次完整重新解析，也就是症狀 c 的放大迴圈。
+        expect(controller.state.nextRetryAt, isNull);
+        expect(controller.state.isRetrying, isFalse);
+        expect(toasts.where((toast) => toast.type == ToastType.error), isEmpty);
+      },
+    );
 
     test('playback prefetch fills the queue-owned next track url', () async {
       final tracks = [
         _track('prefetch-play-current', title: 'Prefetch Play Current'),
         _track('prefetch-play-next', title: 'Prefetch Play Next')
           ..audioUrl = 'https://stale.example/prefetch-play-next.m4a'
-          ..audioUrlExpiry =
-              DateTime.now().subtract(const Duration(minutes: 1)),
+          ..audioUrlExpiry = DateTime.now().subtract(
+            const Duration(minutes: 1),
+          ),
       ];
 
       await controller.playAll(tracks, startIndex: 0);
@@ -1595,131 +1664,162 @@ void main() {
       final nextQueueTrack = controller.queueState.queue[1];
       expect(nextQueueTrack.sourceId, 'prefetch-play-next');
       // 預取的成果必須落在佇列自己的實例上，否則下一首照樣要重解析一次。
-      expect(nextQueueTrack.audioUrl,
-          'https://example.com/prefetch-play-next.m4a');
+      expect(
+        nextQueueTrack.audioUrl,
+        'https://example.com/prefetch-play-next.m4a',
+      );
     });
 
     test(
-        'prepareCurrentTrack prefetch fills the next track in memory without persisting it',
-        () async {
-      final tracks = [
-        _track('prefetch-current', title: 'Prefetch Current'),
-        _track('prefetch-next', title: 'Prefetch Next')
-          ..audioUrl = 'https://stale.example/prefetch-next.m4a'
-          ..audioUrlExpiry =
-              DateTime.now().subtract(const Duration(minutes: 1)),
-      ];
+      'prepareCurrentTrack prefetch fills the next track in memory without persisting it',
+      () async {
+        final tracks = [
+          _track('prefetch-current', title: 'Prefetch Current'),
+          _track('prefetch-next', title: 'Prefetch Next')
+            ..audioUrl = 'https://stale.example/prefetch-next.m4a'
+            ..audioUrlExpiry = DateTime.now().subtract(
+              const Duration(minutes: 1),
+            ),
+        ];
 
-      await controller.playAll(tracks, startIndex: 0);
-      await pumpEventQueue(times: 20);
+        await controller.playAll(tracks, startIndex: 0);
+        await pumpEventQueue(times: 20);
 
-      // 第一次播放就已經把下一首預取好了（見上一條測試）。這裡要驗的是
-      // 「重啟之後的佇列恢復也會預取」，而它的起點是資料庫裡那個過期的 URL。
-      final nextTrackBeforePrepare = controller.queueState.queue[1];
-      expect(nextTrackBeforePrepare.audioUrl,
-          'https://example.com/prefetch-next.m4a');
-      final persistedBeforePrepare =
-          await TrackRepository(isar).getById(nextTrackBeforePrepare.id);
-      expect(persistedBeforePrepare!.audioUrl,
-          'https://stale.example/prefetch-next.m4a');
+        // 第一次播放就已經把下一首預取好了（見上一條測試）。這裡要驗的是
+        // 「重啟之後的佇列恢復也會預取」，而它的起點是資料庫裡那個過期的 URL。
+        final nextTrackBeforePrepare = controller.queueState.queue[1];
+        expect(
+          nextTrackBeforePrepare.audioUrl,
+          'https://example.com/prefetch-next.m4a',
+        );
+        final persistedBeforePrepare = await TrackRepository(
+          isar,
+        ).getById(nextTrackBeforePrepare.id);
+        expect(
+          persistedBeforePrepare!.audioUrl,
+          'https://stale.example/prefetch-next.m4a',
+        );
 
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final audioStreamManager = _createAudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+        );
+        queueManager = QueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        audioService = FakeAudioService();
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: audioStreamManager,
+          toastService: ToastService(),
+          nowPlayingPublisher: testNowPlayingPublisher(),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+        );
+        await controller.initialize();
+        await pumpEventQueue(times: 20);
 
-      final trackRepository = TrackRepository(isar);
-      final settingsRepository = SettingsRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final audioStreamManager = _createAudioStreamManager(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-      );
-      queueManager = QueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      audioService = FakeAudioService();
-      controller = buildTestAudioController(
-        audioService: audioService,
-        queueManager: queueManager,
-        audioStreamManager: audioStreamManager,
-        toastService: ToastService(),
-        nowPlayingPublisher: testNowPlayingPublisher(),
-        settingsRepository: settingsRepository,
-        mixTracksFetcher: mixTracksFetcher.call,
-      );
-      await controller.initialize();
-      await pumpEventQueue(times: 20);
+        expect(controller.queueState.queue.length, 2);
+        final nextTrackAfterPrepare = controller.queueState.queue[1];
+        expect(nextTrackAfterPrepare.id, nextTrackBeforePrepare.id);
+        expect(
+          nextTrackAfterPrepare.audioUrl,
+          'https://example.com/prefetch-next.m4a',
+        );
 
-      expect(controller.queueState.queue.length, 2);
-      final nextTrackAfterPrepare = controller.queueState.queue[1];
-      expect(nextTrackAfterPrepare.id, nextTrackBeforePrepare.id);
-      expect(nextTrackAfterPrepare.audioUrl,
-          'https://example.com/prefetch-next.m4a');
-
-      // 預取刻意只寫記憶體：它是 fire-and-forget，沒有人等它，讓它去寫 Isar
-      // 等於讓一個無人等待的寫入去撞正在關閉的資料庫。真正播放時才落盤。
-      final persistedNextTrack =
-          await trackRepository.getById(nextTrackAfterPrepare.id);
-      expect(persistedNextTrack, isNotNull);
-      expect(persistedNextTrack!.audioUrl,
-          'https://stale.example/prefetch-next.m4a');
-    });
+        // 預取刻意只寫記憶體：它是 fire-and-forget，沒有人等它，讓它去寫 Isar
+        // 等於讓一個無人等待的寫入去撞正在關閉的資料庫。真正播放時才落盤。
+        final persistedNextTrack = await trackRepository.getById(
+          nextTrackAfterPrepare.id,
+        );
+        expect(persistedNextTrack, isNotNull);
+        expect(
+          persistedNextTrack!.audioUrl,
+          'https://stale.example/prefetch-next.m4a',
+        );
+      },
+    );
 
     test(
-        'controller playback keeps queue stale until explicit replacement and then notifies UI',
-        () async {
-      final track = _track('runtime-boundary', title: 'Runtime Boundary');
+      'controller playback keeps queue stale until explicit replacement and then notifies UI',
+      () async {
+        final track = _track('runtime-boundary', title: 'Runtime Boundary');
 
-      await controller.playSingle(track);
-      await pumpEventQueue(times: 20);
+        await controller.playSingle(track);
+        await pumpEventQueue(times: 20);
 
-      final queueTrackAfterPlay = controller.queueState.queueTrack;
-      final playingTrackAfterPlay = controller.state.playingTrack;
-      final queueVersionAfterPlay = controller.queueState.queueVersion;
-      expect(queueTrackAfterPlay, isNotNull);
-      expect(playingTrackAfterPlay, isNotNull);
-      expect(queueTrackAfterPlay!.id, playingTrackAfterPlay!.id);
-      expect(queueTrackAfterPlay.audioUrl,
-          'https://example.com/runtime-boundary.m4a');
-      expect(playingTrackAfterPlay.audioUrl,
-          'https://example.com/runtime-boundary.m4a');
-      expect(queueTrackAfterPlay, isNot(same(playingTrackAfterPlay)));
+        final queueTrackAfterPlay = controller.queueState.queueTrack;
+        final playingTrackAfterPlay = controller.state.playingTrack;
+        final queueVersionAfterPlay = controller.queueState.queueVersion;
+        expect(queueTrackAfterPlay, isNotNull);
+        expect(playingTrackAfterPlay, isNotNull);
+        expect(queueTrackAfterPlay!.id, playingTrackAfterPlay!.id);
+        expect(
+          queueTrackAfterPlay.audioUrl,
+          'https://example.com/runtime-boundary.m4a',
+        );
+        expect(
+          playingTrackAfterPlay.audioUrl,
+          'https://example.com/runtime-boundary.m4a',
+        );
+        expect(queueTrackAfterPlay, isNot(same(playingTrackAfterPlay)));
 
-      final replacementNotified = Completer<void>();
-      late final StreamSubscription<void> queueSub;
-      queueSub = queueManager.stateStream.listen((_) {
-        if (controller.queueState.queueTrack?.audioUrl ==
-                'https://manual.example/runtime-boundary.m4a' &&
-            !replacementNotified.isCompleted) {
-          replacementNotified.complete();
-        }
-      });
+        final replacementNotified = Completer<void>();
+        late final StreamSubscription<void> queueSub;
+        queueSub = queueManager.stateStream.listen((_) {
+          if (controller.queueState.queueTrack?.audioUrl ==
+                  'https://manual.example/runtime-boundary.m4a' &&
+              !replacementNotified.isCompleted) {
+            replacementNotified.complete();
+          }
+        });
 
-      final replacement = queueTrackAfterPlay.copy()
-        ..audioUrl = 'https://manual.example/runtime-boundary.m4a'
-        ..audioUrlExpiry = DateTime.utc(2031, 1, 1);
-      queueManager.replaceTrack(replacement);
-      await replacementNotified.future;
-      await pumpEventQueue(times: 5);
-      await queueSub.cancel();
+        final replacement = queueTrackAfterPlay.copy()
+          ..audioUrl = 'https://manual.example/runtime-boundary.m4a'
+          ..audioUrlExpiry = DateTime.utc(2031, 1, 1);
+        queueManager.replaceTrack(replacement);
+        await replacementNotified.future;
+        await pumpEventQueue(times: 5);
+        await queueSub.cancel();
 
-      expect(controller.queueState.queueTrack?.audioUrl,
-          'https://manual.example/runtime-boundary.m4a');
-      expect(controller.queueState.queueTrack?.audioUrlExpiry,
-          DateTime.utc(2031, 1, 1));
-      expect(controller.state.playingTrack?.audioUrl,
-          'https://example.com/runtime-boundary.m4a');
-      expect(controller.queueState.queueVersion, greaterThan(queueVersionAfterPlay));
-      expect(audioService.playUrlCalls.single.track, isNotNull);
-      expect(audioService.playUrlCalls.single.track,
-          isNot(same(queueTrackAfterPlay)));
-      expect(audioService.playUrlCalls.single.track!.audioUrl,
-          'https://example.com/runtime-boundary.m4a');
-    });
+        expect(
+          controller.queueState.queueTrack?.audioUrl,
+          'https://manual.example/runtime-boundary.m4a',
+        );
+        expect(
+          controller.queueState.queueTrack?.audioUrlExpiry,
+          DateTime.utc(2031, 1, 1),
+        );
+        expect(
+          controller.state.playingTrack?.audioUrl,
+          'https://example.com/runtime-boundary.m4a',
+        );
+        expect(
+          controller.queueState.queueVersion,
+          greaterThan(queueVersionAfterPlay),
+        );
+        expect(audioService.playUrlCalls.single.track, isNotNull);
+        expect(
+          audioService.playUrlCalls.single.track,
+          isNot(same(queueTrackAfterPlay)),
+        );
+        expect(
+          audioService.playUrlCalls.single.track!.audioUrl,
+          'https://example.com/runtime-boundary.m4a',
+        );
+      },
+    );
 
     test('queue manager stops state notifications after dispose', () async {
       await queueManager.playAll([
@@ -1813,14 +1913,14 @@ class _FakeSourceManager extends SourceManager {
 
 class _GateableLyricsAutoMatchService extends LyricsAutoMatchService {
   _GateableLyricsAutoMatchService(Isar isar)
-      : super(
-          lrclib: LrclibSource(),
-          netease: NeteaseSource(),
-          qqmusic: QQMusicSource(),
-          repo: LyricsRepository(isar),
-          cache: LyricsCacheService(),
-          parser: _PassThroughTitleParser(),
-        );
+    : super(
+        lrclib: LrclibSource(),
+        netease: NeteaseSource(),
+        qqmusic: QQMusicSource(),
+        repo: LyricsRepository(isar),
+        cache: LyricsCacheService(),
+        parser: _PassThroughTitleParser(),
+      );
 
   final List<_PendingLyricsMatch> _pending = [];
   final List<Track> calls = [];
@@ -1868,10 +1968,7 @@ class _PendingLyricsMatch {
   final bool result;
 }
 
-Future<void> _pumpUntil(
-  bool Function() condition, {
-  int maxPumps = 50,
-}) async {
+Future<void> _pumpUntil(bool Function() condition, {int maxPumps = 50}) async {
   for (var i = 0; i < maxPumps; i++) {
     if (condition()) return;
     await pumpEventQueue();

@@ -123,10 +123,7 @@ class SelectionNotifier extends Notifier<SelectionState> {
       newTracks.add(track);
     }
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 切換多個項目的選中狀態（用於組操作）
@@ -166,10 +163,7 @@ class SelectionNotifier extends Notifier<SelectionState> {
       }
     }
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 選中單個項目（不切換）
@@ -182,10 +176,7 @@ class SelectionNotifier extends Notifier<SelectionState> {
     final newKeys = Set<SelectionKey>.from(state.selectedKeys)..add(key);
     final newTracks = List<Track>.from(state.selectedTracks)..add(track);
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 取消選中單個項目
@@ -201,10 +192,7 @@ class SelectionNotifier extends Notifier<SelectionState> {
         (t) => t.sourceId == track.sourceId && t.pageNum == track.pageNum,
       );
 
-    state = state.copyWith(
-      selectedKeys: newKeys,
-      selectedTracks: newTracks,
-    );
+    state = state.copyWith(selectedKeys: newKeys, selectedTracks: newTracks);
   }
 
   /// 全選
@@ -222,10 +210,7 @@ class SelectionNotifier extends Notifier<SelectionState> {
   void deselectAll() {
     if (!state.isSelectionMode) return;
 
-    state = state.copyWith(
-      selectedKeys: {},
-      selectedTracks: [],
-    );
+    state = state.copyWith(selectedKeys: {}, selectedTracks: []);
   }
 
   /// 檢查組是否全部選中
@@ -243,14 +228,17 @@ class SelectionNotifier extends Notifier<SelectionState> {
 /// 歌單詳情頁的多選狀態 Provider
 final playlistDetailSelectionProvider =
     NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
-        SelectionNotifier.new);
+      SelectionNotifier.new,
+    );
 
 /// 探索頁的多選狀態 Provider
 final exploreSelectionProvider =
     NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
-        SelectionNotifier.new);
+      SelectionNotifier.new,
+    );
 
 /// 搜索頁的多選狀態 Provider
 final searchSelectionProvider =
     NotifierProvider.autoDispose<SelectionNotifier, SelectionState>(
-        SelectionNotifier.new);
+      SelectionNotifier.new,
+    );

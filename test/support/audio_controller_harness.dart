@@ -34,23 +34,22 @@ AudioController buildTestAudioController({
   LyricsAutoMatchService? lyricsAutoMatchService,
   MixTracksFetcher? mixTracksFetcher,
   PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
-}) =>
-    buildTestAudioControllerIn(
-      audioService: audioService,
-      queueManager: queueManager,
-      audioStreamManager: audioStreamManager,
-      nowPlayingPublisher: nowPlayingPublisher,
-      toastService: toastService,
-      settingsRepository: settingsRepository,
-      queuePersistenceManager: queuePersistenceManager,
-      lyricsAutoMatchService: lyricsAutoMatchService,
-      mixTracksFetcher: mixTracksFetcher,
-      budget: budget,
-    ).controller;
+}) => buildTestAudioControllerIn(
+  audioService: audioService,
+  queueManager: queueManager,
+  audioStreamManager: audioStreamManager,
+  nowPlayingPublisher: nowPlayingPublisher,
+  toastService: toastService,
+  settingsRepository: settingsRepository,
+  queuePersistenceManager: queuePersistenceManager,
+  lyricsAutoMatchService: lyricsAutoMatchService,
+  mixTracksFetcher: mixTracksFetcher,
+  budget: budget,
+).controller;
 
 /// 需要拿到 container 時用這個 —— 例如要在同一個容器裡讀 `queueStateProvider`。
 ({AudioController controller, ProviderContainer container})
-    buildTestAudioControllerIn({
+buildTestAudioControllerIn({
   required FmpAudioService audioService,
   required QueueManager queueManager,
   required AudioStreamManager audioStreamManager,
@@ -74,17 +73,24 @@ AudioController buildTestAudioController({
     audioControllerProvider.overrideWith(() => AudioController(budget: budget)),
   ];
   if (settingsRepository != null) {
-    overrides
-        .add(settingsRepositoryProvider.overrideWith((ref) => settingsRepository));
+    overrides.add(
+      settingsRepositoryProvider.overrideWith((ref) => settingsRepository),
+    );
   }
   if (queuePersistenceManager != null) {
-    overrides.add(queuePersistenceManagerProvider
-        .overrideWith((ref) => queuePersistenceManager));
+    overrides.add(
+      queuePersistenceManagerProvider.overrideWith(
+        (ref) => queuePersistenceManager,
+      ),
+    );
   }
   // 一律覆寫（可能是 null）：不覆寫的話它會去建整條歌詞／設定鏈，那條鏈碰
   // secure storage，在測試環境沒有實作。
-  overrides.add(optionalLyricsAutoMatchServiceProvider
-      .overrideWith((ref) => lyricsAutoMatchService));
+  overrides.add(
+    optionalLyricsAutoMatchServiceProvider.overrideWith(
+      (ref) => lyricsAutoMatchService,
+    ),
+  );
 
   final container = ProviderContainer(overrides: overrides);
   addTearDown(container.dispose);

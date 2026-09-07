@@ -24,7 +24,9 @@ class RadioRepository {
 
   /// 根據源 ID 獲取電台
   Future<RadioStation?> getBySourceId(
-      String sourceType, String sourceId) async {
+    String sourceType,
+    String sourceId,
+  ) async {
     return _isar.radioStations
         .filter()
         .sourceTypeEqualTo(sourceType)
@@ -108,10 +110,9 @@ class RadioRepository {
 
   /// 監聽電台列表變化
   Stream<List<RadioStation>> watchAll() {
-    return _isar.radioStations
-        .where()
-        .sortBySortOrder()
-        .watch(fireImmediately: true);
+    return _isar.radioStations.where().sortBySortOrder().watch(
+      fireImmediately: true,
+    );
   }
 
   /// 監聽單個電台變化

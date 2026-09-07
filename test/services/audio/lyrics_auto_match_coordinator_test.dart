@@ -57,9 +57,9 @@ void main() {
     });
 
     LyricsAutoMatchCoordinator build() => LyricsAutoMatchCoordinator(
-          service: service,
-          settingsRepository: settingsRepository,
-        );
+      service: service,
+      settingsRepository: settingsRepository,
+    );
 
     test('does not block the caller', () async {
       final coordinator = build();
@@ -151,14 +151,14 @@ void main() {
 /// 只記錄呼叫並讓測試控制回傳時機，不做任何真的網路查詢。
 class _RecordingLyricsAutoMatchService extends LyricsAutoMatchService {
   _RecordingLyricsAutoMatchService(Isar isar)
-      : super(
-          lrclib: LrclibSource(),
-          netease: NeteaseSource(),
-          qqmusic: QQMusicSource(),
-          repo: LyricsRepository(isar),
-          cache: LyricsCacheService(),
-          parser: _PassThroughTitleParser(),
-        );
+    : super(
+        lrclib: LrclibSource(),
+        netease: NeteaseSource(),
+        qqmusic: QQMusicSource(),
+        repo: LyricsRepository(isar),
+        cache: LyricsCacheService(),
+        parser: _PassThroughTitleParser(),
+      );
 
   final List<Track> calls = [];
   final List<List<String>?> enabledSourceCalls = [];

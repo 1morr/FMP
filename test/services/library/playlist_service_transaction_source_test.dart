@@ -4,8 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('PlaylistService transaction boundaries', () {
-    final source =
-        File('lib/services/library/playlist_service.dart').readAsStringSync();
+    final source = File(
+      'lib/services/library/playlist_service.dart',
+    ).readAsStringSync();
 
     test('removeTrackFromPlaylist delegates to mutation service', () {
       final body = _methodBody(source, 'removeTrackFromPlaylist');
@@ -38,9 +39,9 @@ void main() {
     });
 
     test('PlaylistRepository no longer exposes direct membership mutators', () {
-      final repositorySource =
-          File('lib/data/repositories/playlist_repository.dart')
-              .readAsStringSync();
+      final repositorySource = File(
+        'lib/data/repositories/playlist_repository.dart',
+      ).readAsStringSync();
 
       expect(repositorySource, isNot(contains('Future<void> addTrack(')));
       expect(repositorySource, isNot(contains('Future<void> addTracks(')));

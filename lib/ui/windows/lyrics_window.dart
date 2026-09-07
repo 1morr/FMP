@@ -344,7 +344,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final linesData = data['lines'] as List<dynamic>?;
 
     setState(() {
-      _lines = linesData?.map((l) {
+      _lines =
+          linesData?.map((l) {
             final map = l as Map<String, dynamic>;
             return _LyricsLine(
               timestamp: map['timestamp'] != null
@@ -436,7 +437,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final timestamp = _lines[index].timestamp;
     if (timestamp == null) return;
     _updateOffset(
-        LyricsOffsetMath.calibrationOffsetForLine(timestamp, _positionMs));
+      LyricsOffsetMath.calibrationOffsetForLine(timestamp, _positionMs),
+    );
   }
 
   void _updateOffset(int newOffsetMs) {
@@ -585,7 +587,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   ({double main, double sub}) _getFontSizes(
-      double availableWidth, BuildContext context) {
+    double availableWidth,
+    BuildContext context,
+  ) {
     _ensureRefWidth(context);
 
     return LyricsTextMeasurer.fontSizesFromReferenceWidth(
@@ -855,7 +859,10 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildLyricsLine(
-      int index, bool isCurrent, ({double main, double sub}) fontSizes) {
+    int index,
+    bool isCurrent,
+    ({double main, double sub}) fontSizes,
+  ) {
     final line = _lines[index];
     return LyricsLineItem(
       text: line.text,
@@ -878,8 +885,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final bgColor = t
         ? Colors.black.withValues(alpha: 0.85)
         : Theme.of(context).scaffoldBackgroundColor;
-    final borderColor =
-        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
+    final borderColor = t
+        ? Colors.white12
+        : colorScheme.outlineVariant.withValues(alpha: 0.3);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

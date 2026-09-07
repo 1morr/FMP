@@ -39,9 +39,9 @@ class BilibiliFavoritesService with Logging {
   BilibiliFavoritesService({
     required BilibiliAccountService accountService,
     required Isar isar,
-  })  : _accountService = accountService,
-        _isar = isar,
-        _dio = _createDio(accountService);
+  }) : _accountService = accountService,
+       _isar = isar,
+       _dio = _createDio(accountService);
 
   static Dio _createDio(BilibiliAccountService accountService) {
     final dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili);
@@ -87,19 +87,23 @@ class BilibiliFavoritesService with Logging {
       final list = data['list'] as List? ?? [];
 
       if (page == 1) {
-        logDebug('getFavFolders: videoAid=$videoAid, count=${data['count']}, '
-            'first page folders=${list.length}');
+        logDebug(
+          'getFavFolders: videoAid=$videoAid, count=${data['count']}, '
+          'first page folders=${list.length}',
+        );
       }
 
       for (final item in list) {
-        allFolders.add(BilibiliFavFolder(
-          id: item['id'] as int,
-          title: item['title'] as String? ?? '',
-          mediaCount: item['media_count'] as int? ?? 0,
-          coverUrl: item['cover'] as String?,
-          isFavorited: (item['fav_state'] as int? ?? 0) == 1,
-          isDefault: page == 1 && item['id'] == data['default_folder_id'],
-        ));
+        allFolders.add(
+          BilibiliFavFolder(
+            id: item['id'] as int,
+            title: item['title'] as String? ?? '',
+            mediaCount: item['media_count'] as int? ?? 0,
+            coverUrl: item['cover'] as String?,
+            isFavorited: (item['fav_state'] as int? ?? 0) == 1,
+            isDefault: page == 1 && item['id'] == data['default_folder_id'],
+          ),
+        );
       }
 
       hasMore = data['has_more'] as bool? ?? false;
@@ -173,8 +177,10 @@ class BilibiliFavoritesService with Logging {
     );
 
     _checkResponse(response.data);
-    logInfo('Updated favorites for aid=$videoAid, '
-        'added=${addFolderIds.length}, removed=${removeFolderIds.length}');
+    logInfo(
+      'Updated favorites for aid=$videoAid, '
+      'added=${addFolderIds.length}, removed=${removeFolderIds.length}',
+    );
   }
 
   /// 批量從收藏夾移除
@@ -195,11 +201,7 @@ class BilibiliFavoritesService with Logging {
 
     final response = await _dio.post(
       '$_apiBase/x/v3/fav/resource/batch-del',
-      data: {
-        'media_id': folderId,
-        'resources': resources,
-        'csrf': csrf,
-      },
+      data: {'media_id': folderId, 'resources': resources, 'csrf': csrf},
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
 
@@ -279,10 +281,7 @@ class BilibiliFavoritesException implements Exception {
   final int code;
   final String message;
 
-  const BilibiliFavoritesException({
-    required this.code,
-    required this.message,
-  });
+  const BilibiliFavoritesException({required this.code, required this.message});
 
   /// 是否需要重新登錄
   bool get requiresLogin => code == -101 || code == -111;

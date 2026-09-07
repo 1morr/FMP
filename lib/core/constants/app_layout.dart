@@ -73,7 +73,9 @@ class AppLayout {
   /// 存下來的值只有相對於視窗才有意義，所以比例上限在渲染期算，不在資料庫算。
   static double detailPanelWidthFor(double stored, double windowWidth) {
     final upper = detailPanelMaxFor(windowWidth);
-    if (!stored.isFinite) return detailPanelDefault.clamp(detailPanelMin, upper);
+    if (!stored.isFinite) {
+      return detailPanelDefault.clamp(detailPanelMin, upper);
+    }
     return stored.clamp(detailPanelMin, upper);
   }
 }

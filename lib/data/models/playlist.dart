@@ -76,8 +76,9 @@ class Playlist {
   bool get needsRefresh {
     if (!isImported || refreshIntervalHours == null) return false;
     if (lastRefreshed == null) return true;
-    final nextRefresh =
-        lastRefreshed!.add(Duration(hours: refreshIntervalHours!));
+    final nextRefresh = lastRefreshed!.add(
+      Duration(hours: refreshIntervalHours!),
+    );
     return DateTime.now().isAfter(nextRefresh);
   }
 

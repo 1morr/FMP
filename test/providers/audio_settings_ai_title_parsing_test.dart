@@ -11,10 +11,7 @@ void main() {
     test('uses expected default values', () {
       const state = AudioSettingsState();
 
-      expect(
-        state.lyricsAiTitleParsingMode,
-        LyricsAiTitleParsingMode.off,
-      );
+      expect(state.lyricsAiTitleParsingMode, LyricsAiTitleParsingMode.off);
       expect(state.lyricsAiEndpoint, '');
       expect(state.lyricsAiModel, '');
       expect(state.lyricsAiTimeoutSeconds, 20);

@@ -24,10 +24,7 @@ class MediaHandoffRequest {
 }
 
 class MediaHandoffResult {
-  const MediaHandoffResult({
-    required this.url,
-    required this.headers,
-  });
+  const MediaHandoffResult({required this.url, required this.headers});
 
   final Uri url;
   final Map<String, String> headers;

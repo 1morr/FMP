@@ -68,12 +68,15 @@ void main() {
       () async {
         final container = ProviderContainer(
           overrides: [
-            repository_providers.trackRepositoryProvider
-                .overrideWith((ref) => trackRepository),
-            repository_providers.settingsRepositoryProvider
-                .overrideWith((ref) => settingsRepository),
-            download_providers.downloadRepositoryProvider
-                .overrideWith((ref) => downloadRepository),
+            repository_providers.trackRepositoryProvider.overrideWith(
+              (ref) => trackRepository,
+            ),
+            repository_providers.settingsRepositoryProvider.overrideWith(
+              (ref) => settingsRepository,
+            ),
+            download_providers.downloadRepositoryProvider.overrideWith(
+              (ref) => downloadRepository,
+            ),
             download_providers.downloadServiceProvider.overrideWith((ref) {
               throw StateError('downloadServiceProvider should not be read');
             }),
@@ -81,8 +84,9 @@ void main() {
         );
         addTearDown(container.dispose);
 
-        final providerService =
-            container.read(downloadPathMaintenanceServiceProvider);
+        final providerService = container.read(
+          downloadPathMaintenanceServiceProvider,
+        );
 
         expect(providerService, isA<DownloadPathMaintenanceService>());
       },
@@ -101,7 +105,7 @@ void main() {
         await trackRepository.save(
           _track('source-b')
             ..playlistInfo = [
-              _info(77, 'Gamma', '${tempDir.path}/gamma/audio.m4a')
+              _info(77, 'Gamma', '${tempDir.path}/gamma/audio.m4a'),
             ],
         );
         await trackRepository.save(_track('source-c'));
@@ -138,22 +142,25 @@ void main() {
         expect(settings.customDownloadDir, '${tempDir.path}/new-base');
 
         final remainingTasks = await downloadRepository.getAllTasks();
-        expect(remainingTasks.map((task) => task.status),
-            [DownloadStatus.pending]);
+        expect(remainingTasks.map((task) => task.status), [
+          DownloadStatus.pending,
+        ]);
       },
     );
 
     test(
       'deleteDownloadedTracks clears only the matching multi-page entry by cid',
       () async {
-        final pageOneFolder =
-            Directory('${tempDir.path}/Playlist A/video-multi');
+        final pageOneFolder = Directory(
+          '${tempDir.path}/Playlist A/video-multi',
+        );
         await pageOneFolder.create(recursive: true);
         final pageOneAudioPath = '${pageOneFolder.path}/P01.m4a';
         await File(pageOneAudioPath).writeAsString('audio');
 
-        final pageTwoFolder =
-            Directory('${tempDir.path}/Playlist B/video-multi');
+        final pageTwoFolder = Directory(
+          '${tempDir.path}/Playlist B/video-multi',
+        );
         await pageTwoFolder.create(recursive: true);
         final pageTwoAudioPath = '${pageTwoFolder.path}/P02.m4a';
         await File(pageTwoAudioPath).writeAsString('audio');
@@ -162,25 +169,19 @@ void main() {
           _track('video-multi')
             ..cid = 101
             ..pageNum = 1
-            ..playlistInfo = [
-              _info(1, 'Playlist A', pageOneAudioPath),
-            ],
+            ..playlistInfo = [_info(1, 'Playlist A', pageOneAudioPath)],
         );
         final persistedPageTwo = await trackRepository.save(
           _track('video-multi')
             ..cid = 202
             ..pageNum = 2
-            ..playlistInfo = [
-              _info(2, 'Playlist B', pageTwoAudioPath),
-            ],
+            ..playlistInfo = [_info(2, 'Playlist B', pageTwoAudioPath)],
         );
 
         final scannedTrack = _track('video-multi')
           ..cid = 101
           ..pageNum = 1
-          ..playlistInfo = [
-            _info(0, 'Playlist A', pageOneAudioPath),
-          ];
+          ..playlistInfo = [_info(0, 'Playlist A', pageOneAudioPath)];
 
         final result = await service.deleteDownloadedTracks([scannedTrack]);
 
@@ -189,10 +190,12 @@ void main() {
         expect(await File(pageOneAudioPath).exists(), isFalse);
         expect(await File(pageTwoAudioPath).exists(), isTrue);
 
-        final refreshedPageOne =
-            await trackRepository.getById(persistedPageOne.id);
-        final refreshedPageTwo =
-            await trackRepository.getById(persistedPageTwo.id);
+        final refreshedPageOne = await trackRepository.getById(
+          persistedPageOne.id,
+        );
+        final refreshedPageTwo = await trackRepository.getById(
+          persistedPageTwo.id,
+        );
         expect(refreshedPageOne?.playlistInfo.single.downloadPath, '');
         expect(
           refreshedPageTwo?.playlistInfo.single.downloadPath,
@@ -219,25 +222,19 @@ void main() {
           _track('video-multi')
             ..cid = 101
             ..pageNum = 1
-            ..playlistInfo = [
-              _info(1, 'Playlist A', pageOneAudioPath),
-            ],
+            ..playlistInfo = [_info(1, 'Playlist A', pageOneAudioPath)],
         );
         final persistedPageTwo = await trackRepository.save(
           _track('video-multi')
             ..cid = 202
             ..pageNum = 2
-            ..playlistInfo = [
-              _info(1, 'Playlist A', pageTwoAudioPath),
-            ],
+            ..playlistInfo = [_info(1, 'Playlist A', pageTwoAudioPath)],
         );
 
         final scannedTrack = _track('video-multi')
           ..cid = 101
           ..pageNum = 1
-          ..playlistInfo = [
-            _info(0, 'Playlist A', pageOneAudioPath),
-          ];
+          ..playlistInfo = [_info(0, 'Playlist A', pageOneAudioPath)];
 
         final result = await service.deleteDownloadedTracks([scannedTrack]);
 
@@ -249,10 +246,12 @@ void main() {
         expect(await File(pageTwoAudioPath).exists(), isTrue);
         expect(await File(pageTwoMetadataPath).exists(), isTrue);
 
-        final refreshedPageOne =
-            await trackRepository.getById(persistedPageOne.id);
-        final refreshedPageTwo =
-            await trackRepository.getById(persistedPageTwo.id);
+        final refreshedPageOne = await trackRepository.getById(
+          persistedPageOne.id,
+        );
+        final refreshedPageTwo = await trackRepository.getById(
+          persistedPageTwo.id,
+        );
         expect(refreshedPageOne?.playlistInfo.single.downloadPath, '');
         expect(
           refreshedPageTwo?.playlistInfo.single.downloadPath,
@@ -290,18 +289,23 @@ void main() {
             ],
         );
 
-        final result = await service
-            .deleteDownloadedCategory('${tempDir.path}/Playlist A');
+        final result = await service.deleteDownloadedCategory(
+          '${tempDir.path}/Playlist A',
+        );
 
         expect(result.clearedPathCount, 1);
         expect(result.affectedPlaylistIds, [1]);
         expect(await Directory('${tempDir.path}/Playlist A').exists(), isFalse);
 
         final persistedTrack = await trackRepository.getById(savedTrack.id);
-        expect(persistedTrack?.playlistInfo.map((info) => info.downloadPath),
-            ['', keptAudioPath]);
-        expect(persistedTrack?.playlistInfo.map((info) => info.playlistId),
-            [1, 2]);
+        expect(persistedTrack?.playlistInfo.map((info) => info.downloadPath), [
+          '',
+          keptAudioPath,
+        ]);
+        expect(persistedTrack?.playlistInfo.map((info) => info.playlistId), [
+          1,
+          2,
+        ]);
       },
     );
   });
@@ -314,7 +318,10 @@ Track _track(String sourceId) => Track()
   ..artist = 'Artist';
 
 PlaylistDownloadInfo _info(
-    int playlistId, String playlistName, String downloadPath) {
+  int playlistId,
+  String playlistName,
+  String downloadPath,
+) {
   return PlaylistDownloadInfo()
     ..playlistId = playlistId
     ..playlistName = playlistName

@@ -42,7 +42,8 @@ class QQMusicSong {
   });
 
   factory QQMusicSong.fromJson(Map<String, dynamic> json) {
-    final singerList = (json['singer'] as List<dynamic>?)
+    final singerList =
+        (json['singer'] as List<dynamic>?)
             ?.map((s) => (s as Map<String, dynamic>)['name'] as String? ?? '')
             .where((n) => n.isNotEmpty)
             .toList() ??
@@ -67,11 +68,7 @@ class QQMusicLyrics {
   final String? lyric;
   final String? trans;
 
-  QQMusicLyrics({
-    required this.songmid,
-    this.lyric,
-    this.trans,
-  });
+  QQMusicLyrics({required this.songmid, this.lyric, this.trans});
 
   bool get hasLyric => lyric != null && lyric!.trim().isNotEmpty;
   bool get hasTranslation => trans != null && trans!.trim().isNotEmpty;
@@ -133,8 +130,11 @@ String? _decodeField(String? value) {
 // ── API 调用 ──
 
 /// 搜索歌曲，返回歌曲列表
-Future<List<QQMusicSong>> searchSongs(Dio dio, String keyword,
-    {int limit = 10}) async {
+Future<List<QQMusicSong>> searchSongs(
+  Dio dio,
+  String keyword, {
+  int limit = 10,
+}) async {
   final body = jsonEncode({
     'comm': {'ct': '19', 'cv': '1859', 'uin': '0'},
     'req': {
@@ -176,9 +176,7 @@ Future<QQMusicLyrics> getLyrics(Dio dio, String songmid) async {
     options: Options(
       contentType: Headers.formUrlEncodedContentType,
       responseType: ResponseType.plain,
-      headers: {
-        'Referer': 'https://y.qq.com',
-      },
+      headers: {'Referer': 'https://y.qq.com'},
     ),
   );
 
@@ -209,9 +207,7 @@ Future<QQMusicLyrics> getLyricsBase64(Dio dio, String songmid) async {
     options: Options(
       contentType: Headers.formUrlEncodedContentType,
       responseType: ResponseType.plain,
-      headers: {
-        'Referer': 'https://y.qq.com',
-      },
+      headers: {'Referer': 'https://y.qq.com'},
     ),
   );
 
@@ -237,10 +233,7 @@ Future<QQMusicLyrics> getLyricsViaMusicu(Dio dio, String songmid) async {
     'req': {
       'method': 'GetPlayLyricInfo',
       'module': 'music.musichallSong.PlayLyricInfo',
-      'param': {
-        'songMID': songmid,
-        'songID': 0,
-      },
+      'param': {'songMID': songmid, 'songID': 0},
     },
   });
 
@@ -271,16 +264,19 @@ Future<QQMusicLyrics> getLyricsViaMusicu(Dio dio, String songmid) async {
 // ── Demo 主函数 ──
 
 Future<void> main() async {
-  final dio = Dio(BaseOptions(
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) '
-          'Gecko/20100101 Firefox/115.0',
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.3,en;q=0.2',
-    },
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 15),
-  ));
+  final dio = Dio(
+    BaseOptions(
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) '
+            'Gecko/20100101 Firefox/115.0',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.3,en;q=0.2',
+      },
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   print('=' * 60);
   print('QQ 音乐歌词 API Demo');
@@ -315,8 +311,10 @@ Future<void> _testFull(Dio dio, String keyword) async {
     final songs = await searchSongs(dio, keyword, limit: 5);
     print('找到 ${songs.length} 首歌曲:');
     for (final song in songs) {
-      print('  [${song.songmid}] ${song.songname} - ${song.singersJoined} '
-          '(${song.albumName}, ${song.interval}s)');
+      print(
+        '  [${song.songmid}] ${song.songname} - ${song.singersJoined} '
+        '(${song.albumName}, ${song.interval}s)',
+      );
     }
 
     if (songs.isEmpty) {
@@ -349,7 +347,8 @@ Future<void> _testMusicuLyric(Dio dio, String keyword) async {
 
     final song = songs.first;
     print(
-        '歌曲: ${song.songname} - ${song.singersJoined} (mid: ${song.songmid})');
+      '歌曲: ${song.songname} - ${song.singersJoined} (mid: ${song.songmid})',
+    );
 
     final lyrics = await getLyricsViaMusicu(dio, song.songmid);
     _printLyrics(lyrics);

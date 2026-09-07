@@ -96,20 +96,22 @@ void main() {
       expect(seeks, isEmpty);
     });
 
-    test('a seek right after navigation waits out the stabilization window',
-        () async {
-      gate.startStabilizationWindow(7, 'track-a');
-      final deferred = gate.deferSeek(const Duration(seconds: 120))!;
+    test(
+      'a seek right after navigation waits out the stabilization window',
+      () async {
+        gate.startStabilizationWindow(7, 'track-a');
+        final deferred = gate.deferSeek(const Duration(seconds: 120))!;
 
-      expect(await settled(deferred), isFalse);
-      expect(seeks, isEmpty);
+        expect(await settled(deferred), isFalse);
+        expect(seeks, isEmpty);
 
-      await deferred;
+        await deferred;
 
-      expect(seeks, [const Duration(seconds: 120)]);
-      // 視窗過了之後就不再延後。
-      expect(gate.deferSeek(const Duration(seconds: 5)), isNull);
-    });
+        expect(seeks, [const Duration(seconds: 120)]);
+        // 視窗過了之後就不再延後。
+        expect(gate.deferSeek(const Duration(seconds: 5)), isNull);
+      },
+    );
 
     test('the stabilize-next flag survives beginRequest but not cancel', () {
       // next()/previous()/playAt() 設下旗標，_executePlayRequest 才取用 ——
@@ -150,18 +152,20 @@ void main() {
       expect(seeks, isEmpty);
     });
 
-    test('discardPending scoped to a request ignores another request',
-        () async {
-      gate.beginRequest(7);
-      final deferred = gate.deferSeek(const Duration(seconds: 30))!;
+    test(
+      'discardPending scoped to a request ignores another request',
+      () async {
+        gate.beginRequest(7);
+        final deferred = gate.deferSeek(const Duration(seconds: 30))!;
 
-      gate.discardPending(requestId: 8, reason: 'wrong request');
-      expect(await settled(deferred), isFalse);
+        gate.discardPending(requestId: 8, reason: 'wrong request');
+        expect(await settled(deferred), isFalse);
 
-      gate.discardPending(requestId: 7, reason: 'right request');
-      expect(await settled(deferred), isTrue);
-      expect(seeks, isEmpty);
-    });
+        gate.discardPending(requestId: 7, reason: 'right request');
+        expect(await settled(deferred), isTrue);
+        expect(seeks, isEmpty);
+      },
+    );
 
     test('isCurrent tracks the latch, not the session generation', () {
       gate.beginRequest(7);
@@ -174,15 +178,17 @@ void main() {
       expect(supersededRequests.contains(7), isFalse);
     });
 
-    test('dispose completes an outstanding seek instead of stranding it',
-        () async {
-      gate.beginRequest(7);
-      final deferred = gate.deferSeek(const Duration(seconds: 30))!;
+    test(
+      'dispose completes an outstanding seek instead of stranding it',
+      () async {
+        gate.beginRequest(7);
+        final deferred = gate.deferSeek(const Duration(seconds: 30))!;
 
-      gate.dispose();
+        gate.dispose();
 
-      expect(await settled(deferred), isTrue);
-      expect(seeks, isEmpty);
-    });
+        expect(await settled(deferred), isTrue);
+        expect(seeks, isEmpty);
+      },
+    );
   });
 }

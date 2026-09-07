@@ -59,35 +59,45 @@ class BackupData {
       version: json['version'] as int? ?? 1,
       exportedAt: DateTime.parse(json['exportedAt'] as String),
       appVersion: json['appVersion'] as String? ?? 'unknown',
-      playlists: (json['playlists'] as List<dynamic>?)
+      playlists:
+          (json['playlists'] as List<dynamic>?)
               ?.map((e) => PlaylistBackup.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      tracks: (json['tracks'] as List<dynamic>?)
+      tracks:
+          (json['tracks'] as List<dynamic>?)
               ?.map((e) => TrackBackup.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      playHistory: (json['playHistory'] as List<dynamic>?)
+      playHistory:
+          (json['playHistory'] as List<dynamic>?)
               ?.map(
-                  (e) => PlayHistoryBackup.fromJson(e as Map<String, dynamic>))
+                (e) => PlayHistoryBackup.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      searchHistory: (json['searchHistory'] as List<dynamic>?)
-              ?.map((e) =>
-                  SearchHistoryBackup.fromJson(e as Map<String, dynamic>))
+      searchHistory:
+          (json['searchHistory'] as List<dynamic>?)
+              ?.map(
+                (e) => SearchHistoryBackup.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      radioStations: (json['radioStations'] as List<dynamic>?)
+      radioStations:
+          (json['radioStations'] as List<dynamic>?)
               ?.map(
-                  (e) => RadioStationBackup.fromJson(e as Map<String, dynamic>))
+                (e) => RadioStationBackup.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       settings: json['settings'] != null
           ? SettingsBackup.fromJson(json['settings'] as Map<String, dynamic>)
           : null,
-      lyricsMatches: (json['lyricsMatches'] as List<dynamic>?)
+      lyricsMatches:
+          (json['lyricsMatches'] as List<dynamic>?)
               ?.map(
-                  (e) => LyricsMatchBackup.fromJson(e as Map<String, dynamic>))
+                (e) => LyricsMatchBackup.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
@@ -110,11 +120,7 @@ class BackupData {
   }
 }
 
-enum BackupValidationCode {
-  valid,
-  unsupportedVersion,
-  emptyBackup,
-}
+enum BackupValidationCode { valid, unsupportedVersion, emptyBackup }
 
 class BackupValidationResult {
   final BackupValidationCode code;
@@ -138,18 +144,18 @@ class BackupValidationResult {
     required int supportedVersion,
     required String appVersion,
   }) : this._(
-          BackupValidationCode.unsupportedVersion,
-          '',
-          backupVersion: backupVersion,
-          supportedVersion: supportedVersion,
-          appVersion: appVersion,
-        );
+         BackupValidationCode.unsupportedVersion,
+         '',
+         backupVersion: backupVersion,
+         supportedVersion: supportedVersion,
+         appVersion: appVersion,
+       );
 
   const BackupValidationResult.emptyBackup()
-      : this._(
-          BackupValidationCode.emptyBackup,
-          'The backup file does not contain importable data.',
-        );
+    : this._(
+        BackupValidationCode.emptyBackup,
+        'The backup file does not contain importable data.',
+      );
 
   bool get isValid => code == BackupValidationCode.valid;
 }
@@ -217,7 +223,8 @@ class PlaylistBackup {
       isMix: json['isMix'] as bool? ?? false,
       mixPlaylistId: json['mixPlaylistId'] as String?,
       mixSeedVideoId: json['mixSeedVideoId'] as String?,
-      trackKeys: (json['trackKeys'] as List<dynamic>?)
+      trackKeys:
+          (json['trackKeys'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -419,10 +426,7 @@ class SearchHistoryBackup {
   final String query;
   final DateTime timestamp;
 
-  SearchHistoryBackup({
-    required this.query,
-    required this.timestamp,
-  });
+  SearchHistoryBackup({required this.query, required this.timestamp});
 
   factory SearchHistoryBackup.fromJson(Map<String, dynamic> json) {
     return SearchHistoryBackup(
@@ -432,10 +436,7 @@ class SearchHistoryBackup {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'query': query,
-      'timestamp': timestamp.toIso8601String(),
-    };
+    return {'query': query, 'timestamp': timestamp.toIso8601String()};
   }
 }
 
@@ -549,10 +550,10 @@ class SourceSettingsBackup {
   }
 
   Map<String, dynamic> toJson() => {
-        'sourceId': sourceId,
-        'streamPriority': streamPriority,
-        'useAuthForPlay': useAuthForPlay,
-      };
+    'sourceId': sourceId,
+    'streamPriority': streamPriority,
+    'useAuthForPlay': useAuthForPlay,
+  };
 }
 
 /// 讀出備份裡的每源設定。
@@ -572,16 +573,21 @@ List<SourceSettingsBackup> _readSourceSettings(Map<String, dynamic> json) {
     SourceIds.bilibili: (
       'bilibiliStreamPriority',
       'useBilibiliAuthForPlay',
-      false
+      false,
     ),
-    SourceIds.youtube: ('youtubeStreamPriority', 'useYoutubeAuthForPlay', false),
+    SourceIds.youtube: (
+      'youtubeStreamPriority',
+      'useYoutubeAuthForPlay',
+      false,
+    ),
     SourceIds.netease: ('neteaseStreamPriority', 'useNeteaseAuthForPlay', true),
   };
   return [
     for (final MapEntry(key: sourceId, value: keys) in legacyKeys.entries)
       SourceSettingsBackup(
         sourceId: sourceId,
-        streamPriority: json[keys.$1] as String? ??
+        streamPriority:
+            json[keys.$1] as String? ??
             kDefaultStreamPriorityBySource[sourceId]!,
         useAuthForPlay: json[keys.$2] as bool? ?? keys.$3,
       ),
@@ -687,18 +693,19 @@ class SettingsBackup {
     String? homeRankingSourcePriority,
     String? disabledHomeRankingSources,
     this.radioRefreshIntervalMinutes = 5,
-  })  : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
-        lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
-            lyricsAiTitleParsingModeIndex),
-        lyricsAiTimeoutSeconds = _normalizeLyricsAiTimeoutSeconds(
-          lyricsAiTimeoutSeconds,
-        ),
-        homeRankingSourcePriority = normalizeHomeRankingSourcePriority(
-          homeRankingSourcePriority ?? defaultHomeRankingSourcePriority,
-        ).join(','),
-        disabledHomeRankingSources = normalizeDisabledHomeRankingSources(
-          disabledHomeRankingSources ?? '',
-        ).join(',');
+  }) : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
+       lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
+         lyricsAiTitleParsingModeIndex,
+       ),
+       lyricsAiTimeoutSeconds = _normalizeLyricsAiTimeoutSeconds(
+         lyricsAiTimeoutSeconds,
+       ),
+       homeRankingSourcePriority = normalizeHomeRankingSourcePriority(
+         homeRankingSourcePriority ?? defaultHomeRankingSourcePriority,
+       ).join(','),
+       disabledHomeRankingSources = normalizeDisabledHomeRankingSources(
+         disabledHomeRankingSources ?? '',
+       ).join(',');
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) {
     return SettingsBackup(
@@ -714,17 +721,21 @@ class SettingsBackup {
       tempPlayRewindSeconds: json['tempPlayRewindSeconds'] as int? ?? 10,
       maxConcurrentDownloads: json['maxConcurrentDownloads'] as int? ?? 3,
       downloadImageOptionIndex: json['downloadImageOptionIndex'] as int? ?? 1,
-      minimizeToTrayOnClose: json['minimizeToTrayOnClose'] as bool? ??
+      minimizeToTrayOnClose:
+          json['minimizeToTrayOnClose'] as bool? ??
           _settingsBackupDefaults.minimizeToTrayOnClose,
-      enableGlobalHotkeys: json['enableGlobalHotkeys'] as bool? ??
+      enableGlobalHotkeys:
+          json['enableGlobalHotkeys'] as bool? ??
           _settingsBackupDefaults.enableGlobalHotkeys,
       launchAtStartup: json['launchAtStartup'] as bool? ?? false,
       launchMinimized: json['launchMinimized'] as bool? ?? false,
-      railExpanded: json['railExpanded'] as bool? ??
-          _settingsBackupDefaults.railExpanded,
-      detailPanelExpanded: json['detailPanelExpanded'] as bool? ??
+      railExpanded:
+          json['railExpanded'] as bool? ?? _settingsBackupDefaults.railExpanded,
+      detailPanelExpanded:
+          json['detailPanelExpanded'] as bool? ??
           _settingsBackupDefaults.detailPanelExpanded,
-      detailPanelWidth: (json['detailPanelWidth'] as num?)?.toDouble() ??
+      detailPanelWidth:
+          (json['detailPanelWidth'] as num?)?.toDouble() ??
           _settingsBackupDefaults.detailPanelWidth,
       fontFamily: json['fontFamily'] as String?,
       locale: json['locale'] as String?,
@@ -745,7 +756,8 @@ class SettingsBackup {
           json['allowPlainLyricsAutoMatch'] as bool? ?? false,
       lyricsAiEndpoint: json['lyricsAiEndpoint'] as String? ?? '',
       lyricsAiModel: json['lyricsAiModel'] as String? ?? '',
-      lyricsAiTimeoutSeconds: json['lyricsAiTimeoutSeconds'] as int? ??
+      lyricsAiTimeoutSeconds:
+          json['lyricsAiTimeoutSeconds'] as int? ??
           AppConstants.lyricsAiDefaultTimeoutSeconds,
       lyricsWindowTextColor: json['lyricsWindowTextColor'] as int?,
       lyricsWindowSecondaryTextColor:
@@ -754,20 +766,21 @@ class SettingsBackup {
           (json['lyricsWindowInactiveTextOpacity'] as num?)?.toDouble(),
       lyricsWindowOutlineEnabled: json['lyricsWindowOutlineEnabled'] as bool?,
       lyricsWindowOutlineColor: json['lyricsWindowOutlineColor'] as int?,
-      lyricsWindowOutlineWidth:
-          (json['lyricsWindowOutlineWidth'] as num?)?.toDouble(),
+      lyricsWindowOutlineWidth: (json['lyricsWindowOutlineWidth'] as num?)
+          ?.toDouble(),
       lyricsWindowShadowEnabled: json['lyricsWindowShadowEnabled'] as bool?,
       lyricsWindowShadowColor: json['lyricsWindowShadowColor'] as int?,
       lyricsWindowShadowBlurRadius:
           (json['lyricsWindowShadowBlurRadius'] as num?)?.toDouble(),
-      lyricsWindowShadowOffsetX:
-          (json['lyricsWindowShadowOffsetX'] as num?)?.toDouble(),
-      lyricsWindowShadowOffsetY:
-          (json['lyricsWindowShadowOffsetY'] as num?)?.toDouble(),
+      lyricsWindowShadowOffsetX: (json['lyricsWindowShadowOffsetX'] as num?)
+          ?.toDouble(),
+      lyricsWindowShadowOffsetY: (json['lyricsWindowShadowOffsetY'] as num?)
+          ?.toDouble(),
 
       rankingRefreshIntervalMinutes:
           json['rankingRefreshIntervalMinutes'] as int? ?? 60,
-      homeRankingSourcePriority: json['homeRankingSourcePriority'] as String? ??
+      homeRankingSourcePriority:
+          json['homeRankingSourcePriority'] as String? ??
           defaultHomeRankingSourcePriority,
       disabledHomeRankingSources:
           json['disabledHomeRankingSources'] as String? ?? '',

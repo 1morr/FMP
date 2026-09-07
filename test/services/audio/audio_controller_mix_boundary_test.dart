@@ -105,235 +105,248 @@ void main() {
     });
 
     test(
-        'restoring a persisted mix session at queue end schedules load-more runtime state',
-        () async {
+      'restoring a persisted mix session at queue end schedules load-more runtime state',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final persistedTracks = await trackRepository.getOrCreateAll([
+          _track('restored-a', title: 'Restored A'),
+          _track('restored-b', title: 'Restored B'),
+        ]);
+        final persistedQueue = await queueRepository.getOrCreate();
+        persistedQueue.trackIds = persistedTracks
+            .map((track) => track.id)
+            .toList();
+        persistedQueue.currentIndex = 1;
+        persistedQueue.isMixMode = true;
+        persistedQueue.mixPlaylistId = 'RDrestore123';
+        persistedQueue.mixSeedVideoId = 'seed-restore';
+        persistedQueue.mixTitle = 'Restored Mix';
+        await queueRepository.save(persistedQueue);
 
-      final trackRepository = TrackRepository(isar);
-      final queuePersistenceManager = QueuePersistenceManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-      );
-      final persistedTracks = await trackRepository.getOrCreateAll([
-        _track('restored-a', title: 'Restored A'),
-        _track('restored-b', title: 'Restored B'),
-      ]);
-      final persistedQueue = await queueRepository.getOrCreate();
-      persistedQueue.trackIds =
-          persistedTracks.map((track) => track.id).toList();
-      persistedQueue.currentIndex = 1;
-      persistedQueue.isMixMode = true;
-      persistedQueue.mixPlaylistId = 'RDrestore123';
-      persistedQueue.mixSeedVideoId = 'seed-restore';
-      persistedQueue.mixTitle = 'Restored Mix';
-      await queueRepository.save(persistedQueue);
+        // Mix metadata 只能經由 `QueuePersistenceManager.restoreState()` 取得，
+        // 不可以繞回 `QueueManager` 上直接讀那幾個 getter。掃整個目錄而不是單一
+        // 檔案 —— 步驟 D 把 Mix 預取搬到 `mix_session_coordinator.dart` 之後，
+        // 只掃 `audio_provider.dart` 的斷言會變成恆真，守門形同解除。
+        final audioSources =
+            Directory('${Directory.current.path}/lib/services/audio')
+                .listSync(recursive: true)
+                .whereType<File>()
+                .where((file) => file.path.endsWith('.dart'));
+        expect(audioSources, isNotEmpty);
+        for (final file in audioSources) {
+          final source = await file.readAsString();
+          for (final forbidden in const [
+            '_queueManager.isMixMode',
+            '_queueManager.mixPlaylistId',
+            '_queueManager.mixSeedVideoId',
+            '_queueManager.mixTitle',
+          ]) {
+            expect(
+              source.contains(forbidden),
+              isFalse,
+              reason: '${file.path} reads $forbidden directly',
+            );
+          }
+        }
 
-      // Mix metadata 只能經由 `QueuePersistenceManager.restoreState()` 取得，
-      // 不可以繞回 `QueueManager` 上直接讀那幾個 getter。掃整個目錄而不是單一
-      // 檔案 —— 步驟 D 把 Mix 預取搬到 `mix_session_coordinator.dart` 之後，
-      // 只掃 `audio_provider.dart` 的斷言會變成恆真，守門形同解除。
-      final audioSources = Directory(
-        '${Directory.current.path}/lib/services/audio',
-      ).listSync(recursive: true).whereType<File>().where(
-            (file) => file.path.endsWith('.dart'),
+        final loadMoreTracks = List.generate(
+          10,
+          (index) =>
+              _track('restored-new-$index', title: 'Restored New $index'),
+        );
+        final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
+          MixFetchResult(title: 'Restored Mix', tracks: loadMoreTracks),
+        );
+        streamResolutionService.dispose();
+        streamResolutionService = DefaultStreamResolutionService(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
+        final audioStreamManager = AudioStreamManager(
+          streamResolutionService: streamResolutionService,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
+        queueManager = QueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        audioService = FakeAudioService();
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: audioStreamManager,
+          toastService: ToastService(),
+          nowPlayingPublisher: testNowPlayingPublisher(),
+          settingsRepository: settingsRepository,
+          queuePersistenceManager: queuePersistenceManager,
+          mixTracksFetcher: mixTracksFetcher.call,
+        );
+
+        await controller.initialize();
+        await pumpEventQueue(times: 10);
+
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'Restored Mix');
+        expect(controller.state.currentTrack?.sourceId, 'restored-b');
+        expect(controller.state.playingTrack?.sourceId, 'restored-b');
+        expect(controller.queueState.isLoadingMoreMix, isTrue);
+
+        final loadMoreApplied = Completer<void>();
+        late final StreamSubscription<void> queueSub;
+        queueSub = queueManager.stateStream.listen((_) {
+          final hasNewTrack = controller.queueState.queue.any(
+            (track) => track.sourceId == 'restored-new-0',
           );
-      expect(audioSources, isNotEmpty);
-      for (final file in audioSources) {
-        final source = await file.readAsString();
-        for (final forbidden in const [
-          '_queueManager.isMixMode',
-          '_queueManager.mixPlaylistId',
-          '_queueManager.mixSeedVideoId',
-          '_queueManager.mixTitle',
-        ]) {
-          expect(source.contains(forbidden), isFalse,
-              reason: '${file.path} reads $forbidden directly');
-        }
-      }
+          if (hasNewTrack &&
+              !controller.queueState.isLoadingMoreMix &&
+              !loadMoreApplied.isCompleted) {
+            loadMoreApplied.complete();
+          }
+        });
 
-      final loadMoreTracks = List.generate(
-        10,
-        (index) => _track('restored-new-$index', title: 'Restored New $index'),
-      );
-      final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
-        MixFetchResult(title: 'Restored Mix', tracks: loadMoreTracks),
-      );
-      streamResolutionService.dispose();
-      streamResolutionService = DefaultStreamResolutionService(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-      final audioStreamManager = AudioStreamManager(
-        streamResolutionService: streamResolutionService,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-      queueManager = QueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: queuePersistenceManager,
-      );
-      audioService = FakeAudioService();
-      controller = buildTestAudioController(
-        audioService: audioService,
-        queueManager: queueManager,
-        audioStreamManager: audioStreamManager,
-        toastService: ToastService(),
-        nowPlayingPublisher: testNowPlayingPublisher(),
-        settingsRepository: settingsRepository,
-        queuePersistenceManager: queuePersistenceManager,
-        mixTracksFetcher: mixTracksFetcher.call,
-      );
+        loadMoreGate.complete();
+        await loadMoreApplied.future;
+        await queueSub.cancel();
+        await pumpEventQueue(times: 5);
 
-      await controller.initialize();
-      await pumpEventQueue(times: 10);
+        expect(controller.queueState.isLoadingMoreMix, isFalse);
+        expect(
+          controller.queueState.queue.map((track) => track.sourceId),
+          contains('restored-new-0'),
+        );
+      },
+    );
 
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'Restored Mix');
-      expect(controller.state.currentTrack?.sourceId, 'restored-b');
-      expect(controller.state.playingTrack?.sourceId, 'restored-b');
-      expect(controller.queueState.isLoadingMoreMix, isTrue);
+    test(
+      'startMixFromPlaylist loads mix tracks and starts mix playback',
+      () async {
+        final playlist = Playlist()
+          ..name = 'Focus Mix'
+          ..mixPlaylistId = 'RDfocus123'
+          ..mixSeedVideoId = 'seed-video';
+        final firstTrack = _track('mix-a', title: 'Mix A');
+        final secondTrack = _track('mix-b', title: 'Mix B');
 
-      final loadMoreApplied = Completer<void>();
-      late final StreamSubscription<void> queueSub;
-      queueSub = queueManager.stateStream.listen((_) {
-        final hasNewTrack = controller.queueState.queue
-            .any((track) => track.sourceId == 'restored-new-0');
-        if (hasNewTrack &&
-            !controller.queueState.isLoadingMoreMix &&
-            !loadMoreApplied.isCompleted) {
-          loadMoreApplied.complete();
-        }
-      });
+        mixTracksFetcher.result = MixFetchResult(
+          title: 'Ignored source title',
+          tracks: [firstTrack, secondTrack],
+        );
 
-      loadMoreGate.complete();
-      await loadMoreApplied.future;
-      await queueSub.cancel();
-      await pumpEventQueue(times: 5);
+        await controller.startMixFromPlaylist(playlist);
 
-      expect(controller.queueState.isLoadingMoreMix, isFalse);
-      expect(
-        controller.queueState.queue.map((track) => track.sourceId),
-        contains('restored-new-0'),
-      );
-    });
-
-    test('startMixFromPlaylist loads mix tracks and starts mix playback',
-        () async {
-      final playlist = Playlist()
-        ..name = 'Focus Mix'
-        ..mixPlaylistId = 'RDfocus123'
-        ..mixSeedVideoId = 'seed-video';
-      final firstTrack = _track('mix-a', title: 'Mix A');
-      final secondTrack = _track('mix-b', title: 'Mix B');
-
-      mixTracksFetcher.result = MixFetchResult(
-        title: 'Ignored source title',
-        tracks: [firstTrack, secondTrack],
-      );
-
-      await controller.startMixFromPlaylist(playlist);
-
-      expect(
-        mixTracksFetcher.calls,
-        [
+        expect(mixTracksFetcher.calls, [
           const _MixFetchCall(
             playlistId: 'RDfocus123',
             currentVideoId: 'seed-video',
           ),
-        ],
-      );
-      expect(controller.queueState.isMixMode, isTrue);
-      expect(controller.queueState.mixTitle, 'Focus Mix');
-      expect(controller.state.currentTrack?.sourceId, 'mix-a');
-      expect(
-        controller.queueState.queue.map((track) => track.sourceId),
-        orderedEquals(['mix-a', 'mix-b']),
-      );
-      expect(audioService.playUrlCalls.single.url,
-          'https://example.com/mix-a.m4a');
-    });
+        ]);
+        expect(controller.queueState.isMixMode, isTrue);
+        expect(controller.queueState.mixTitle, 'Focus Mix');
+        expect(controller.state.currentTrack?.sourceId, 'mix-a');
+        expect(
+          controller.queueState.queue.map((track) => track.sourceId),
+          orderedEquals(['mix-a', 'mix-b']),
+        );
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/mix-a.m4a',
+        );
+      },
+    );
 
-    test('delayed startMixFromPlaylist result does not override newer playback',
-        () async {
-      final playlist = Playlist()
-        ..name = 'Slow Mix'
-        ..mixPlaylistId = 'RDslow123'
-        ..mixSeedVideoId = 'seed-video';
-      final mixGate = mixTracksFetcher.enqueuePendingResult(
-        MixFetchResult(
-          title: 'Slow Mix',
-          tracks: [_track('slow-mix-a', title: 'Slow Mix A')],
-        ),
-      );
-
-      final mixFuture = controller.startMixFromPlaylist(playlist);
-      await pumpEventQueue(times: 2);
-
-      await controller.playTrack(_track('new-direct-track', title: 'Direct'));
-      await pumpEventQueue(times: 10);
-      expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
-
-      mixGate.complete();
-      await mixFuture;
-      await pumpEventQueue(times: 10);
-
-      expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
-      expect(controller.queueState.isMixMode, isFalse);
-      expect(
-        audioService.playUrlCalls.map((call) => call.url),
-        isNot(contains('https://example.com/slow-mix-a.m4a')),
-      );
-    });
-
-    test('completion at mix queue end waits for pending load-more tracks',
-        () async {
-      final playlist = Playlist()
-        ..name = 'Continuous Mix'
-        ..mixPlaylistId = 'RDcontinuous123'
-        ..mixSeedVideoId = 'seed-video';
-
-      mixTracksFetcher.result = MixFetchResult(
-        title: 'Continuous Mix',
-        tracks: [
-          _track('mix-a', title: 'Mix A'),
-          _track('mix-b', title: 'Mix B'),
-        ],
-      );
-
-      await controller.startMixFromPlaylist(playlist);
-
-      final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
-        MixFetchResult(
-          title: 'Continuous Mix',
-          tracks: List.generate(
-            10,
-            (index) => _track('mix-new-$index', title: 'Mix New $index'),
+    test(
+      'delayed startMixFromPlaylist result does not override newer playback',
+      () async {
+        final playlist = Playlist()
+          ..name = 'Slow Mix'
+          ..mixPlaylistId = 'RDslow123'
+          ..mixSeedVideoId = 'seed-video';
+        final mixGate = mixTracksFetcher.enqueuePendingResult(
+          MixFetchResult(
+            title: 'Slow Mix',
+            tracks: [_track('slow-mix-a', title: 'Slow Mix A')],
           ),
-        ),
-      );
+        );
 
-      await controller.next();
-      await pumpEventQueue(times: 5);
+        final mixFuture = controller.startMixFromPlaylist(playlist);
+        await pumpEventQueue(times: 2);
 
-      expect(controller.state.currentTrack?.sourceId, 'mix-b');
-      expect(controller.queueState.isLoadingMoreMix, isTrue);
+        await controller.playTrack(_track('new-direct-track', title: 'Direct'));
+        await pumpEventQueue(times: 10);
+        expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
 
-      final nextTrackPlayed = _waitForPlayUrlCallCount(
-        audioService,
-        controller,
-        3,
-      );
-      audioService.emitNaturalCompletion();
-      await pumpEventQueue(times: 5);
-      loadMoreGate.complete();
+        mixGate.complete();
+        await mixFuture;
+        await pumpEventQueue(times: 10);
 
-      await nextTrackPlayed;
-      expect(controller.state.currentTrack?.sourceId, 'mix-new-0');
-      expect(audioService.playUrlCalls.last.url,
-          'https://example.com/mix-new-0.m4a');
-    });
+        expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
+        expect(controller.queueState.isMixMode, isFalse);
+        expect(
+          audioService.playUrlCalls.map((call) => call.url),
+          isNot(contains('https://example.com/slow-mix-a.m4a')),
+        );
+      },
+    );
+
+    test(
+      'completion at mix queue end waits for pending load-more tracks',
+      () async {
+        final playlist = Playlist()
+          ..name = 'Continuous Mix'
+          ..mixPlaylistId = 'RDcontinuous123'
+          ..mixSeedVideoId = 'seed-video';
+
+        mixTracksFetcher.result = MixFetchResult(
+          title: 'Continuous Mix',
+          tracks: [
+            _track('mix-a', title: 'Mix A'),
+            _track('mix-b', title: 'Mix B'),
+          ],
+        );
+
+        await controller.startMixFromPlaylist(playlist);
+
+        final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
+          MixFetchResult(
+            title: 'Continuous Mix',
+            tracks: List.generate(
+              10,
+              (index) => _track('mix-new-$index', title: 'Mix New $index'),
+            ),
+          ),
+        );
+
+        await controller.next();
+        await pumpEventQueue(times: 5);
+
+        expect(controller.state.currentTrack?.sourceId, 'mix-b');
+        expect(controller.queueState.isLoadingMoreMix, isTrue);
+
+        final nextTrackPlayed = _waitForPlayUrlCallCount(
+          audioService,
+          controller,
+          3,
+        );
+        audioService.emitNaturalCompletion();
+        await pumpEventQueue(times: 5);
+        loadMoreGate.complete();
+
+        await nextTrackPlayed;
+        expect(controller.state.currentTrack?.sourceId, 'mix-new-0');
+        expect(
+          audioService.playUrlCalls.last.url,
+          'https://example.com/mix-new-0.m4a',
+        );
+      },
+    );
   });
 }
 
@@ -347,12 +360,17 @@ Future<void> _waitForPlayUrlCallCount(
   Object? waitError;
   StackTrace? waitStackTrace;
   if (!waitComplete) {
-    unawaited(audioService.waitForPlayUrlCallCount(count).then((_) {
-      waitComplete = true;
-    }).catchError((Object error, StackTrace stackTrace) {
-      waitError = error;
-      waitStackTrace = stackTrace;
-    }));
+    unawaited(
+      audioService
+          .waitForPlayUrlCallCount(count)
+          .then((_) {
+            waitComplete = true;
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            waitError = error;
+            waitStackTrace = stackTrace;
+          }),
+    );
   }
 
   final stopwatch = Stopwatch()..start();
@@ -410,10 +428,7 @@ class _RecordingMixTracksFetcher {
     required String currentVideoId,
   }) async {
     calls.add(
-      _MixFetchCall(
-        playlistId: playlistId,
-        currentVideoId: currentVideoId,
-      ),
+      _MixFetchCall(playlistId: playlistId, currentVideoId: currentVideoId),
     );
     if (_pending.isNotEmpty) {
       final pending = _pending.removeAt(0);
@@ -432,10 +447,7 @@ class _PendingMixFetch {
 }
 
 class _MixFetchCall {
-  const _MixFetchCall({
-    required this.playlistId,
-    required this.currentVideoId,
-  });
+  const _MixFetchCall({required this.playlistId, required this.currentVideoId});
 
   final String playlistId;
   final String currentVideoId;

@@ -59,19 +59,13 @@ class SourceUrlPolicy {
     required Set<String> redirectAllowedHosts,
     bool preferHead = false,
   }) async {
-    final initial = parseTrustedHttpUrl(
-      url,
-      allowedHosts: initialAllowedHosts,
-    );
+    final initial = parseTrustedHttpUrl(url, allowedHosts: initialAllowedHosts);
     if (initial == null) {
       throw ArgumentError.value(url, 'url', 'Untrusted source URL');
     }
     var current = initial;
 
-    final allAllowedHosts = {
-      ...initialAllowedHosts,
-      ...redirectAllowedHosts,
-    };
+    final allAllowedHosts = {...initialAllowedHosts, ...redirectAllowedHosts};
 
     for (var redirectCount = 0; redirectCount < 5; redirectCount++) {
       final response = await _requestWithoutRedirects(

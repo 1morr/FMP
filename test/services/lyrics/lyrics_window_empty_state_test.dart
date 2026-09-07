@@ -63,8 +63,9 @@ void main() {
 
     final pushed = (payloads['updateTheme']!['strings'] as Map).keys.toSet();
 
-    final windowSource =
-        File('lib/ui/windows/lyrics_window.dart').readAsStringSync();
+    final windowSource = File(
+      'lib/ui/windows/lyrics_window.dart',
+    ).readAsStringSync();
     // 只認 `_LyricsWindowStrings.updateFrom` 的那個形狀
     // （`field = map['key'] as String? ?? field;`）—— 歌詞行本身也從 map 讀
     // String，不是翻譯字串。
@@ -73,8 +74,11 @@ void main() {
     ).allMatches(windowSource).map((m) => m.group(2)!).toSet();
 
     expect(consumed, isNotEmpty, reason: 'the key scan must find something');
-    expect(consumed.difference(pushed), isEmpty,
-        reason: 'these keys fall back to the hardcoded simplified defaults');
+    expect(
+      consumed.difference(pushed),
+      isEmpty,
+      reason: 'these keys fall back to the hardcoded simplified defaults',
+    );
 
     await service.destroy();
   });
@@ -93,8 +97,9 @@ Future<LyricsWindowService> _openService(
       getAllWindows: () async =>
           List<LyricsWindowControllerHandle>.from(created),
       createWindow: (configuration) async {
-        final controller =
-            _FakeWindowController((created.length + 1).toString());
+        final controller = _FakeWindowController(
+          (created.length + 1).toString(),
+        );
         created.add(controller);
         return controller;
       },
@@ -116,37 +121,43 @@ class _FakePlatform implements LyricsWindowPlatform {
   _FakePlatform({
     required Future<LyricsWindowControllerHandle> Function(
       WindowConfiguration configuration,
-    ) createWindow,
-    required Future<List<LyricsWindowControllerHandle>> Function() getAllWindows,
+    )
+    createWindow,
+    required Future<List<LyricsWindowControllerHandle>> Function()
+    getAllWindows,
     required this.windowsChanged,
     required Future<dynamic> Function(String method, String arguments)
-        invokeMethod,
+    invokeMethod,
     required Future<void> Function(
       Future<dynamic> Function(MethodCall call)? handler,
-    ) setMethodCallHandler,
-  })  : _createWindow = createWindow,
-        _getAllWindows = getAllWindows,
-        _invokeMethod = invokeMethod,
-        _setMethodCallHandler = setMethodCallHandler;
+    )
+    setMethodCallHandler,
+  }) : _createWindow = createWindow,
+       _getAllWindows = getAllWindows,
+       _invokeMethod = invokeMethod,
+       _setMethodCallHandler = setMethodCallHandler;
 
   @override
   bool get isWindows => true;
 
   final Future<LyricsWindowControllerHandle> Function(
-      WindowConfiguration configuration) _createWindow;
+    WindowConfiguration configuration,
+  )
+  _createWindow;
   final Future<List<LyricsWindowControllerHandle>> Function() _getAllWindows;
   final Future<dynamic> Function(String method, String arguments) _invokeMethod;
   final Future<void> Function(
     Future<dynamic> Function(MethodCall call)? handler,
-  ) _setMethodCallHandler;
+  )
+  _setMethodCallHandler;
 
   @override
   final Stream<void> windowsChanged;
 
   @override
   Future<LyricsWindowControllerHandle> createWindow(
-          WindowConfiguration configuration) =>
-      _createWindow(configuration);
+    WindowConfiguration configuration,
+  ) => _createWindow(configuration);
 
   @override
   Future<List<LyricsWindowControllerHandle>> getAllWindows() =>
@@ -158,8 +169,8 @@ class _FakePlatform implements LyricsWindowPlatform {
 
   @override
   Future<void> setMethodCallHandler(
-          Future<dynamic> Function(MethodCall call)? handler) =>
-      _setMethodCallHandler(handler);
+    Future<dynamic> Function(MethodCall call)? handler,
+  ) => _setMethodCallHandler(handler);
 }
 
 class _FakeWindowController implements LyricsWindowControllerHandle {

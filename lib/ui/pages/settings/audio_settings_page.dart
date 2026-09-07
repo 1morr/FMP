@@ -22,9 +22,7 @@ class AudioSettingsPage extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t.audioSettings.title),
-      ),
+      appBar: AppBar(title: Text(t.audioSettings.title)),
       body: ListView(
         children: [
           // 音质等级
@@ -52,7 +50,7 @@ class AudioSettingsPage extends ConsumerWidget {
             availableTypes: const [
               StreamType.audioOnly,
               StreamType.muxed,
-              StreamType.hls
+              StreamType.hls,
             ],
             onReorder: (newPriority) {
               ref
@@ -86,12 +84,11 @@ class AudioSettingsPage extends ConsumerWidget {
           ),
           const Divider(),
           _AuthForPlaySection(
-            useBilibiliAuthForPlay:
-                audioSettings.authForPlay(SourceIds.bilibili),
-            useYoutubeAuthForPlay:
-                audioSettings.authForPlay(SourceIds.youtube),
-            useNeteaseAuthForPlay:
-                audioSettings.authForPlay(SourceIds.netease),
+            useBilibiliAuthForPlay: audioSettings.authForPlay(
+              SourceIds.bilibili,
+            ),
+            useYoutubeAuthForPlay: audioSettings.authForPlay(SourceIds.youtube),
+            useNeteaseAuthForPlay: audioSettings.authForPlay(SourceIds.netease),
             onChanged: (sourceType, enabled) {
               ref
                   .read(audioSettingsProvider.notifier)
@@ -128,9 +125,9 @@ class _AuthForPlaySection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             t.audioSettings.authForPlay.title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: colorScheme.primary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: colorScheme.primary),
           ),
         ),
         Padding(
@@ -138,8 +135,8 @@ class _AuthForPlaySection extends StatelessWidget {
           child: Text(
             t.audioSettings.authForPlay.subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -186,8 +183,8 @@ class _QualityLevelSection extends StatelessWidget {
           child: Text(
             t.audioSettings.qualityLevel.title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         Padding(
@@ -195,8 +192,8 @@ class _QualityLevelSection extends StatelessWidget {
           child: Text(
             t.audioSettings.qualityLevel.subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         RadioGroup<AudioQualityLevel>(
@@ -267,8 +264,8 @@ class _FormatPrioritySection extends StatelessWidget {
           child: Text(
             t.audioSettings.formatPriority.title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         Padding(
@@ -276,8 +273,8 @@ class _FormatPrioritySection extends StatelessWidget {
           child: Text(
             t.audioSettings.formatPriority.subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -349,8 +346,9 @@ class _StreamPrioritySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 只显示可用的流类型
-    final displayList =
-        streamPriority.where((t) => availableTypes.contains(t)).toList();
+    final displayList = streamPriority
+        .where((t) => availableTypes.contains(t))
+        .toList();
     // 添加缺失的可用类型到末尾
     for (final type in availableTypes) {
       if (!displayList.contains(type)) {
@@ -366,8 +364,8 @@ class _StreamPrioritySection extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         ReorderableListView.builder(

@@ -38,11 +38,7 @@ void main() {
               itemBuilder: (context, index) {
                 final track = tracks[index];
                 return ListTile(
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    color: Colors.grey,
-                  ),
+                  leading: Container(width: 48, height: 48, color: Colors.grey),
                   title: Text(track.title),
                   subtitle: Text(track.artist ?? ''),
                   trailing: Text(track.formattedDuration),
@@ -78,11 +74,7 @@ void main() {
               itemBuilder: (context, index) {
                 final track = tracks[index];
                 return ListTile(
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    color: Colors.grey,
-                  ),
+                  leading: Container(width: 48, height: 48, color: Colors.grey),
                   title: Text(track.title),
                   subtitle: Text(track.artist ?? ''),
                 );
@@ -99,8 +91,11 @@ void main() {
       print('Initial render of 500 items: ${elapsed}ms');
 
       // ListView.builder should handle large lists efficiently
-      expect(elapsed, lessThan(5000),
-          reason: 'ListView.builder should virtualize efficiently');
+      expect(
+        elapsed,
+        lessThan(5000),
+        reason: 'ListView.builder should virtualize efficiently',
+      );
     });
 
     testWidgets('Scroll performance with 1000 items', (tester) async {
@@ -116,11 +111,7 @@ void main() {
                 final track = tracks[index];
                 return ListTile(
                   key: Key('track_$index'),
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    color: Colors.grey,
-                  ),
+                  leading: Container(width: 48, height: 48, color: Colors.grey),
                   title: Text(track.title),
                   subtitle: Text(track.artist ?? ''),
                 );
@@ -172,8 +163,10 @@ void main() {
                 return InkWell(
                   onTap: () {},
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 16,
+                    ),
                     child: Row(
                       children: [
                         // Rank number
@@ -238,8 +231,11 @@ void main() {
       // ignore: avoid_print
       print('Complex list item render (100 items): ${elapsed}ms');
 
-      expect(elapsed, lessThan(5000),
-          reason: 'Complex items should still render efficiently');
+      expect(
+        elapsed,
+        lessThan(5000),
+        reason: 'Complex items should still render efficiently',
+      );
     });
   });
 
@@ -300,10 +296,12 @@ void main() {
       final stopwatch = Stopwatch()..start();
 
       // Filter by source
-      final bilibiliTracks =
-          tracks.where((t) => t.sourceType == SourceIds.bilibili).toList();
-      final youtubeTracks =
-          tracks.where((t) => t.sourceType == SourceIds.youtube).toList();
+      final bilibiliTracks = tracks
+          .where((t) => t.sourceType == SourceIds.bilibili)
+          .toList();
+      final youtubeTracks = tracks
+          .where((t) => t.sourceType == SourceIds.youtube)
+          .toList();
 
       // Filter by title
       final evenTracks = tracks.where((t) => t.title.contains('Even')).toList();
@@ -319,14 +317,18 @@ void main() {
       print('Filtered and sorted 10000 tracks in ${elapsed}ms');
       // ignore: avoid_print
       print(
-          'Bilibili: ${bilibiliTracks.length}, YouTube: ${youtubeTracks.length}');
+        'Bilibili: ${bilibiliTracks.length}, YouTube: ${youtubeTracks.length}',
+      );
       // ignore: avoid_print
       print('Even tracks: ${evenTracks.length}');
       // ignore: avoid_print
       print('Sorted tracks: ${sortedByDuration.length}');
 
-      expect(elapsed, lessThan(1000),
-          reason: 'Filtering/sorting should be fast');
+      expect(
+        elapsed,
+        lessThan(1000),
+        reason: 'Filtering/sorting should be fast',
+      );
     });
 
     test('Track search/matching performance', () {
@@ -359,10 +361,14 @@ void main() {
       final elapsed = stopwatch.elapsedMilliseconds;
       // ignore: avoid_print
       print(
-          '${100 * searchTerms.length} searches on 5000 tracks: ${elapsed}ms');
+        '${100 * searchTerms.length} searches on 5000 tracks: ${elapsed}ms',
+      );
 
-      expect(elapsed, lessThan(3000),
-          reason: 'Search operations should be efficient');
+      expect(
+        elapsed,
+        lessThan(3000),
+        reason: 'Search operations should be efficient',
+      );
     });
   });
 }

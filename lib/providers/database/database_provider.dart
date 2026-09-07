@@ -56,10 +56,7 @@ Future<void> _moveLegacyFmpDatabaseFiles(
   Directory documentsDir,
   Directory databaseDir,
 ) async {
-  const fileNames = [
-    fmpDatabaseFileName,
-    fmpDatabaseLockFileName,
-  ];
+  const fileNames = [fmpDatabaseFileName, fmpDatabaseLockFileName];
 
   for (final fileName in fileNames) {
     final legacyFile = File(p.join(documentsDir.path, fileName));

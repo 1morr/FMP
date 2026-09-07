@@ -56,10 +56,7 @@ class NeteasePlaylistException implements Exception {
   final String code;
   final String message;
 
-  const NeteasePlaylistException({
-    required this.code,
-    required this.message,
-  });
+  const NeteasePlaylistException({required this.code, required this.message});
 
   bool get requiresLogin => code == 'NOT_LOGGED_IN';
 
@@ -79,9 +76,9 @@ class NeteasePlaylistService with Logging {
     required NeteaseAccountService accountService,
     Dio? dio,
     NeteasePlaylistSource? source,
-  })  : _accountService = accountService,
-        _dio = dio ?? _createDio(accountService),
-        _source = source ?? NeteasePlaylistSource();
+  }) : _accountService = accountService,
+       _dio = dio ?? _createDio(accountService),
+       _source = source ?? NeteasePlaylistSource();
 
   static Dio _createDio(NeteaseAccountService accountService) {
     final dio = SourceHttpPolicy.createApiDio(
@@ -97,11 +94,7 @@ class NeteasePlaylistService with Logging {
 
     final data = await _postLinuxApi(
       path: 'user/playlist',
-      payload: {
-        'uid': userId,
-        'limit': 1000,
-        'offset': 0,
-      },
+      payload: {'uid': userId, 'limit': 1000, 'offset': 0},
     );
     _ensureSuccess(data, fallbackCode: 'LOAD_FAILED');
 
@@ -151,8 +144,9 @@ class NeteasePlaylistService with Logging {
 
     if (tracks.isEmpty) {
       try {
-        final imported =
-            await _source.fetchPlaylist(canonicalPlaylistUrl(playlistId));
+        final imported = await _source.fetchPlaylist(
+          canonicalPlaylistUrl(playlistId),
+        );
         tracks = imported.tracks.map((track) {
           return <String, dynamic>{
             'sourceId': track.sourceId,
@@ -184,10 +178,7 @@ class NeteasePlaylistService with Logging {
   }) async {
     final data = await _postLinuxApi(
       path: 'playlist/create',
-      payload: {
-        'name': title,
-        if (isPrivate) 'privacy': '10',
-      },
+      payload: {'name': title, if (isPrivate) 'privacy': '10'},
     );
     _ensureSuccess(data, fallbackCode: 'CREATE_FAILED');
 
@@ -227,7 +218,9 @@ class NeteasePlaylistService with Logging {
   }
 
   Future<void> addTracksToPlaylist(
-      String playlistId, List<String> trackIds) async {
+    String playlistId,
+    List<String> trackIds,
+  ) async {
     final normalizedIds = normalizeTrackIds(trackIds);
     if (normalizedIds.isEmpty) return;
     await _manipulateTracks(
@@ -267,17 +260,14 @@ class NeteasePlaylistService with Logging {
   }) async {
     final data = await _postLinuxApi(
       path: 'playlist/manipulate/tracks',
-      payload: {
-        'trackIds': trackIds,
-        'pid': playlistId,
-        'op': operation,
-      },
+      payload: {'trackIds': trackIds, 'pid': playlistId, 'op': operation},
     );
 
     final code = data['code'];
     final message = data['message']?.toString() ?? '';
     final normalizedMessage = message.toLowerCase();
-    final looksLikeNotOwnedDeleteFailure = remapNotFoundAsPermission &&
+    final looksLikeNotOwnedDeleteFailure =
+        remapNotFoundAsPermission &&
         operation == 'del' &&
         (normalizedMessage.contains('playlist not exist') ||
             normalizedMessage.contains('playlist does not exist') ||
@@ -316,7 +306,8 @@ class NeteasePlaylistService with Logging {
   }
 
   Future<List<Map<String, dynamic>>> _fetchTrackDetails(
-      List<int> trackIds) async {
+    List<int> trackIds,
+  ) async {
     final tracks = <Map<String, dynamic>>[];
     const batchSize = 400;
 
@@ -329,21 +320,23 @@ class NeteasePlaylistService with Logging {
       );
       _ensureSuccess(data, fallbackCode: 'TRACK_DETAIL_FAILED');
       final songs = data['songs'] as List? ?? const [];
-      tracks.addAll(songs.whereType<Map<String, dynamic>>().map((song) {
-        final albumData = song['al'] as Map<String, dynamic>?;
-        final artists = (song['ar'] as List? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map((artist) => artist['name']?.toString() ?? '')
-            .where((name) => name.isNotEmpty)
-            .join(', ');
-        return <String, dynamic>{
-          'sourceId': song['id']?.toString(),
-          'title': song['name']?.toString() ?? '',
-          'artist': artists,
-          'durationMs': (song['dt'] as num?)?.toInt(),
-          'thumbnailUrl': albumData?['picUrl']?.toString(),
-        };
-      }));
+      tracks.addAll(
+        songs.whereType<Map<String, dynamic>>().map((song) {
+          final albumData = song['al'] as Map<String, dynamic>?;
+          final artists = (song['ar'] as List? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map((artist) => artist['name']?.toString() ?? '')
+              .where((name) => name.isNotEmpty)
+              .join(', ');
+          return <String, dynamic>{
+            'sourceId': song['id']?.toString(),
+            'title': song['name']?.toString() ?? '',
+            'artist': artists,
+            'durationMs': (song['dt'] as num?)?.toInt(),
+            'thumbnailUrl': albumData?['picUrl']?.toString(),
+          };
+        }),
+      );
     }
 
     return tracks;
@@ -404,8 +397,9 @@ class NeteasePlaylistService with Logging {
         ),
       );
 
-    final encrypted =
-        paddedCipher.process(Uint8List.fromList(utf8.encode(body)));
+    final encrypted = paddedCipher.process(
+      Uint8List.fromList(utf8.encode(body)),
+    );
     return encrypted
         .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
         .join()
@@ -433,7 +427,8 @@ class NeteasePlaylistService with Logging {
 
     throw NeteasePlaylistException(
       code: code?.toString() ?? fallbackCode,
-      message: data['message']?.toString() ??
+      message:
+          data['message']?.toString() ??
           t.remote.error.unknown(code: code?.toString() ?? fallbackCode),
     );
   }

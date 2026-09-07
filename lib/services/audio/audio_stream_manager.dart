@@ -11,10 +11,7 @@ export '../account/source_auth_context.dart'
     show PlaybackNetworkRequest, PlaybackUrlResolution, PlaybackUrlResolver;
 
 abstract class PlaybackRequestStreamAccess {
-  Future<PlaybackSelection> selectPlayback(
-    Track track, {
-    bool persist = true,
-  });
+  Future<PlaybackSelection> selectPlayback(Track track, {bool persist = true});
 
   Future<PlaybackSelection?> selectFallbackPlayback(
     Track track, {
@@ -25,10 +22,7 @@ abstract class PlaybackRequestStreamAccess {
 }
 
 class PlaybackSelection {
-  const PlaybackSelection({
-    required this.media,
-    required this.streamResult,
-  });
+  const PlaybackSelection({required this.media, required this.streamResult});
 
   final PreparedPlaybackMedia media;
   final AudioStreamResult? streamResult;
@@ -38,8 +32,8 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   AudioStreamManager({
     required StreamResolutionService streamResolutionService,
     required PlaybackMediaRequestContext sourceAuthContext,
-  })  : _streamResolutionService = streamResolutionService,
-        _sourceAuthContext = sourceAuthContext;
+  }) : _streamResolutionService = streamResolutionService,
+       _sourceAuthContext = sourceAuthContext;
 
   final StreamResolutionService _streamResolutionService;
   final PlaybackMediaRequestContext _sourceAuthContext;
@@ -63,10 +57,10 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     return switch (result) {
       LocalStreamResolution(:final track, :final path) => (track, path, null),
       RemoteStreamResolution(:final track, :final stream) => (
-          track,
-          null,
-          stream
-        ),
+        track,
+        null,
+        stream,
+      ),
     };
   }
 
@@ -76,8 +70,10 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     bool persist = true,
   }) async {
     final stopwatch = Stopwatch()..start();
-    final (trackWithUrl, localPath, streamResult) =
-        await ensureAudioStream(track, persist: persist);
+    final (trackWithUrl, localPath, streamResult) = await ensureAudioStream(
+      track,
+      persist: persist,
+    );
     final url = localPath ?? trackWithUrl.audioUrl;
     if (url == null) {
       throw Exception('No audio URL available for: ${track.title}');
@@ -86,13 +82,12 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     final media = localPath == null
         ? await prepareNetworkPlayback(trackWithUrl, url)
         : LocalPlaybackMedia(path: localPath, track: trackWithUrl);
-    logDebug('Playback selection ready for ${_describe(track)} in '
-        '${stopwatch.elapsedMilliseconds}ms '
-        '(${localPath == null ? 'remote' : 'local'})');
-    return PlaybackSelection(
-      media: media,
-      streamResult: streamResult,
+    logDebug(
+      'Playback selection ready for ${_describe(track)} in '
+      '${stopwatch.elapsedMilliseconds}ms '
+      '(${localPath == null ? 'remote' : 'local'})',
     );
+    return PlaybackSelection(media: media, streamResult: streamResult);
   }
 
   Future<AudioStreamResult?> getAlternativeAudioStream(
@@ -122,13 +117,12 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
       return null;
     }
 
-    final media =
-        await prepareNetworkPlayback(fallback.track, fallback.stream.url);
-    logInfo('Falling back to an alternative stream for ${_describe(track)}');
-    return PlaybackSelection(
-      media: media,
-      streamResult: fallback.stream,
+    final media = await prepareNetworkPlayback(
+      fallback.track,
+      fallback.stream.url,
     );
+    logInfo('Falling back to an alternative stream for ${_describe(track)}');
+    return PlaybackSelection(media: media, streamResult: fallback.stream);
   }
 
   Future<(Track, String?)> ensureAudioUrl(

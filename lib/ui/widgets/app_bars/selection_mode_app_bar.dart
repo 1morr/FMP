@@ -28,8 +28,7 @@ export '../menus/selection_menu_items.dart'
 class SelectionModeAppBar extends ConsumerWidget
     implements PreferredSizeWidget {
   /// 選擇狀態 Provider
-  final NotifierProvider<SelectionNotifier, SelectionState>
-      selectionProvider;
+  final NotifierProvider<SelectionNotifier, SelectionState> selectionProvider;
 
   /// 所有可選擇的 tracks（用於全選功能）
   final List<Track> allTracks;
@@ -61,9 +60,8 @@ class SelectionModeAppBar extends ConsumerWidget
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(
-        kToolbarHeight + (bottom?.preferredSize.height ?? 0),
-      );
+  Size get preferredSize =>
+      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,7 +72,8 @@ class SelectionModeAppBar extends ConsumerWidget
     final selectedCount = selectionState.selectedCount;
     final hasSelection = selectionState.hasSelection;
 
-    final isAllSelected = selectionState.selectedCount == allTracks.length &&
+    final isAllSelected =
+        selectionState.selectedCount == allTracks.length &&
         allTracks.isNotEmpty;
 
     return AppBar(
@@ -106,7 +105,11 @@ class SelectionModeAppBar extends ConsumerWidget
           icon: const Icon(Icons.more_vert),
           enabled: hasSelection,
           onSelected: (value) => _handleMenuAction(
-              context, ref, value, selectionState.selectedTracks),
+            context,
+            ref,
+            value,
+            selectionState.selectedTracks,
+          ),
           itemBuilder: (context) => _buildSelectionMenuEntries(colorScheme),
         ),
 
@@ -117,11 +120,10 @@ class SelectionModeAppBar extends ConsumerWidget
 
   List<PopupMenuEntry<String>> _buildSelectionMenuEntries(
     ColorScheme colorScheme,
-  ) =>
-      buildSelectionMenuEntries(
-        colorScheme: colorScheme,
-        availableActions: availableActions,
-      );
+  ) => buildSelectionMenuEntries(
+    colorScheme: colorScheme,
+    availableActions: availableActions,
+  );
 
   void _handleMenuAction(
     BuildContext context,
@@ -200,7 +202,9 @@ class SelectionModeAppBar extends ConsumerWidget
 
       if (context.mounted) {
         ToastService.success(
-            context, t.selectionMode.removedTracks(count: tracks.length));
+          context,
+          t.selectionMode.removedTracks(count: tracks.length),
+        );
       }
     }
   }
@@ -222,8 +226,7 @@ class SelectionModeAppBar extends ConsumerWidget
 
 /// 多選模式下的 Checkbox 組件
 class SelectionCheckbox extends ConsumerWidget {
-  final NotifierProvider<SelectionNotifier, SelectionState>
-      selectionProvider;
+  final NotifierProvider<SelectionNotifier, SelectionState> selectionProvider;
   final Track track;
 
   const SelectionCheckbox({
@@ -250,8 +253,7 @@ class SelectionCheckbox extends ConsumerWidget {
 
 /// 多選模式下的組 Checkbox 組件（用於多P視頻組）
 class SelectionGroupCheckbox extends ConsumerWidget {
-  final NotifierProvider<SelectionNotifier, SelectionState>
-      selectionProvider;
+  final NotifierProvider<SelectionNotifier, SelectionState> selectionProvider;
   final List<Track> tracks;
 
   const SelectionGroupCheckbox({

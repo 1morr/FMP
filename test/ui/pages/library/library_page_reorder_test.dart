@@ -52,10 +52,7 @@ void main() {
         ),
       );
 
-      await _pumpUntil(
-        tester,
-        () => _allPlaylistTitlesPresent(tester),
-      );
+      await _pumpUntil(tester, () => _allPlaylistTitlesPresent(tester));
 
       expect(_sortButtonIsLeftOfTitle(tester), isTrue);
       expect(_playlistOrder(tester), ['Alpha', 'Bravo', 'Charlie']);
@@ -70,11 +67,11 @@ void main() {
       grid.onReorder(0, 2);
 
       await tester.pump();
-      expect(
-        _playlistOrder(tester),
-        ['Bravo', 'Charlie', 'Alpha'],
-        reason: 'reorder mode should apply the optimistic local order first',
-      );
+      expect(_playlistOrder(tester), [
+        'Bravo',
+        'Charlie',
+        'Alpha',
+      ], reason: 'reorder mode should apply the optimistic local order first');
 
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump();
@@ -214,9 +211,11 @@ bool _sortButtonIsLeftOfTitle(WidgetTester tester) {
 }
 
 bool _allPlaylistTitlesPresent(WidgetTester tester) {
-  return ['Alpha', 'Bravo', 'Charlie'].every(
-    (name) => find.text(name).evaluate().isNotEmpty,
-  );
+  return [
+    'Alpha',
+    'Bravo',
+    'Charlie',
+  ].every((name) => find.text(name).evaluate().isNotEmpty);
 }
 
 Future<void> _pumpUntil(

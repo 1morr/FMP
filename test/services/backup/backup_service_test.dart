@@ -93,8 +93,9 @@ void main() {
       expect(settingsBackup.lyricsWindowShadowOffsetY, isNull);
       expect(settingsBackup.disabledLyricsSources, 'lrclib');
       // 沒有 sourceSettings 也沒有 v3 具名鍵時，折疊出的是每源預設。
-      final netease = settingsBackup.sourceSettings
-          .firstWhere((e) => e.sourceId == SourceIds.netease);
+      final netease = settingsBackup.sourceSettings.firstWhere(
+        (e) => e.sourceId == SourceIds.netease,
+      );
       expect(netease.streamPriority, 'audioOnly');
       expect(netease.useAuthForPlay, isTrue);
       expect(
@@ -116,10 +117,14 @@ void main() {
       );
       expect(settingsBackup.disabledHomeRankingSources, isEmpty);
       expect(settingsBackup.radioRefreshIntervalMinutes, 5);
-      expect(settingsBackup.minimizeToTrayOnClose,
-          Settings().minimizeToTrayOnClose);
       expect(
-          settingsBackup.enableGlobalHotkeys, Settings().enableGlobalHotkeys);
+        settingsBackup.minimizeToTrayOnClose,
+        Settings().minimizeToTrayOnClose,
+      );
+      expect(
+        settingsBackup.enableGlobalHotkeys,
+        Settings().enableGlobalHotkeys,
+      );
     });
 
     test('SettingsBackup defaults lyrics AI timeout to twenty seconds', () {
@@ -156,170 +161,178 @@ void main() {
     });
 
     test(
-        'importData restores new settings fields and preserves device-specific ones',
-        () async {
-      final currentSettings = Settings()
-        ..customDownloadDir = '/device/downloads'
-        ..preferredAudioDeviceId = 'device-1'
-        ..preferredAudioDeviceName = 'USB DAC'
-        ..railExpanded = false
-        ..detailPanelExpanded = true
-        ..detailPanelWidth = 380
-        ..minimizeToTrayOnClose = false
-        ..enableGlobalHotkeys = false
-        ..launchAtStartup = false
-        ..launchMinimized = false
-        ..hotkeyConfig = jsonEncode({'playPause': 'Ctrl+Alt+P'});
-      await isar.writeTxn(() async {
-        await isar.settings.put(currentSettings);
-      });
+      'importData restores new settings fields and preserves device-specific ones',
+      () async {
+        final currentSettings = Settings()
+          ..customDownloadDir = '/device/downloads'
+          ..preferredAudioDeviceId = 'device-1'
+          ..preferredAudioDeviceName = 'USB DAC'
+          ..railExpanded = false
+          ..detailPanelExpanded = true
+          ..detailPanelWidth = 380
+          ..minimizeToTrayOnClose = false
+          ..enableGlobalHotkeys = false
+          ..launchAtStartup = false
+          ..launchMinimized = false
+          ..hotkeyConfig = jsonEncode({'playPause': 'Ctrl+Alt+P'});
+        await isar.writeTxn(() async {
+          await isar.settings.put(currentSettings);
+        });
 
-      final backupData = BackupData(
-        version: kBackupVersion,
-        exportedAt: DateTime(2026, 4, 20),
-        appVersion: 'test',
-        playlists: const [],
-        tracks: const [],
-        playHistory: const [],
-        searchHistory: const [],
-        radioStations: const [],
-        settings: SettingsBackup(
-          themeModeIndex: 2,
-          maxCacheSizeMB: 48,
-          rememberPlaybackPosition: false,
-          tempPlayRewindSeconds: 7,
-          sourceSettings: const [
-            SourceSettingsBackup(
-              sourceId: SourceIds.bilibili,
-              streamPriority: 'audioOnly,muxed',
-              useAuthForPlay: true,
-            ),
-            SourceSettingsBackup(
-              sourceId: SourceIds.youtube,
-              streamPriority: 'audioOnly,muxed,hls',
-              useAuthForPlay: true,
-            ),
-            SourceSettingsBackup(
-              sourceId: SourceIds.netease,
-              streamPriority: 'audioOnly',
-              useAuthForPlay: false,
-            ),
-          ],
-          autoMatchLyrics: true,
-          lyricsAiTitleParsingModeIndex: 3,
-          allowPlainLyricsAutoMatch: true,
-          lyricsAiEndpoint: 'https://example.test/v1',
-          lyricsAiModel: 'test-model',
-          lyricsAiTimeoutSeconds: 12,
-          lyricsWindowTextColor: 0xFF88CCFF,
-          lyricsWindowSecondaryTextColor: 0xCCFFE680,
-          lyricsWindowInactiveTextOpacity: 0.42,
-          lyricsWindowOutlineEnabled: false,
-          lyricsWindowOutlineColor: 0xFF102030,
-          lyricsWindowOutlineWidth: 2.25,
-          lyricsWindowShadowEnabled: true,
-          lyricsWindowShadowColor: 0xAA000000,
-          lyricsWindowShadowBlurRadius: 8,
-          lyricsWindowShadowOffsetX: 1,
-          lyricsWindowShadowOffsetY: 2,
-          disabledLyricsSources: 'qqmusic',
-          rankingRefreshIntervalMinutes: 15,
-          homeRankingSourcePriority: 'youtube,unknown,bilibili,youtube',
-          disabledHomeRankingSources: 'netease,unknown',
-          radioRefreshIntervalMinutes: 9,
-          minimizeToTrayOnClose: true,
-          enableGlobalHotkeys: true,
-          launchAtStartup: true,
-          launchMinimized: true,
-          railExpanded: true,
-          detailPanelExpanded: false,
-          detailPanelWidth: 420,
-          hotkeyConfig: jsonEncode({'next': 'Ctrl+Alt+Right'}),
-        ),
-      );
+        final backupData = BackupData(
+          version: kBackupVersion,
+          exportedAt: DateTime(2026, 4, 20),
+          appVersion: 'test',
+          playlists: const [],
+          tracks: const [],
+          playHistory: const [],
+          searchHistory: const [],
+          radioStations: const [],
+          settings: SettingsBackup(
+            themeModeIndex: 2,
+            maxCacheSizeMB: 48,
+            rememberPlaybackPosition: false,
+            tempPlayRewindSeconds: 7,
+            sourceSettings: const [
+              SourceSettingsBackup(
+                sourceId: SourceIds.bilibili,
+                streamPriority: 'audioOnly,muxed',
+                useAuthForPlay: true,
+              ),
+              SourceSettingsBackup(
+                sourceId: SourceIds.youtube,
+                streamPriority: 'audioOnly,muxed,hls',
+                useAuthForPlay: true,
+              ),
+              SourceSettingsBackup(
+                sourceId: SourceIds.netease,
+                streamPriority: 'audioOnly',
+                useAuthForPlay: false,
+              ),
+            ],
+            autoMatchLyrics: true,
+            lyricsAiTitleParsingModeIndex: 3,
+            allowPlainLyricsAutoMatch: true,
+            lyricsAiEndpoint: 'https://example.test/v1',
+            lyricsAiModel: 'test-model',
+            lyricsAiTimeoutSeconds: 12,
+            lyricsWindowTextColor: 0xFF88CCFF,
+            lyricsWindowSecondaryTextColor: 0xCCFFE680,
+            lyricsWindowInactiveTextOpacity: 0.42,
+            lyricsWindowOutlineEnabled: false,
+            lyricsWindowOutlineColor: 0xFF102030,
+            lyricsWindowOutlineWidth: 2.25,
+            lyricsWindowShadowEnabled: true,
+            lyricsWindowShadowColor: 0xAA000000,
+            lyricsWindowShadowBlurRadius: 8,
+            lyricsWindowShadowOffsetX: 1,
+            lyricsWindowShadowOffsetY: 2,
+            disabledLyricsSources: 'qqmusic',
+            rankingRefreshIntervalMinutes: 15,
+            homeRankingSourcePriority: 'youtube,unknown,bilibili,youtube',
+            disabledHomeRankingSources: 'netease,unknown',
+            radioRefreshIntervalMinutes: 9,
+            minimizeToTrayOnClose: true,
+            enableGlobalHotkeys: true,
+            launchAtStartup: true,
+            launchMinimized: true,
+            railExpanded: true,
+            detailPanelExpanded: false,
+            detailPanelWidth: 420,
+            hotkeyConfig: jsonEncode({'next': 'Ctrl+Alt+Right'}),
+          ),
+        );
 
-      final result = await backupService.importData(
-        backupData,
-        importPlaylists: false,
-        importPlayHistory: false,
-        importSearchHistory: false,
-        importRadioStations: false,
-        importLyricsMatches: false,
-        importSettings: true,
-      );
+        final result = await backupService.importData(
+          backupData,
+          importPlaylists: false,
+          importPlayHistory: false,
+          importSearchHistory: false,
+          importRadioStations: false,
+          importLyricsMatches: false,
+          importSettings: true,
+        );
 
-      final restoredSettings = await isar.settings.get(0);
-      expect(result.settingsImported, isTrue);
-      expect(result.errors, isEmpty);
-      expect(restoredSettings, isNotNull);
-      expect(restoredSettings!.themeModeIndex, 2);
-      expect(restoredSettings.maxCacheSizeMB, 48);
-      expect(restoredSettings.rememberPlaybackPosition, isFalse);
-      expect(restoredSettings.tempPlayRewindSeconds, 7);
-      expect(restoredSettings.streamPriorityFor(SourceIds.netease),
-          [StreamType.audioOnly]);
-      expect(restoredSettings.autoMatchLyrics, isTrue);
-      expect(restoredSettings.lyricsAiTitleParsingModeIndex, 3);
-      expect(restoredSettings.lyricsAiTitleParsingMode,
-          LyricsAiTitleParsingMode.advancedAiSelect);
-      expect(restoredSettings.allowPlainLyricsAutoMatch, isTrue);
-      expect(restoredSettings.lyricsAiEndpoint, 'https://example.test/v1');
-      expect(restoredSettings.lyricsAiModel, 'test-model');
-      expect(restoredSettings.lyricsAiTimeoutSeconds, 12);
-      expect(restoredSettings.lyricsWindowTextColor, 0xFF88CCFF);
-      expect(restoredSettings.lyricsWindowSecondaryTextColor, 0xCCFFE680);
-      expect(restoredSettings.lyricsWindowInactiveTextOpacity, 0.42);
-      expect(restoredSettings.lyricsWindowOutlineEnabled, isFalse);
-      expect(restoredSettings.lyricsWindowOutlineColor, 0xFF102030);
-      expect(restoredSettings.lyricsWindowOutlineWidth, 2.25);
-      expect(restoredSettings.lyricsWindowShadowEnabled, isTrue);
-      expect(restoredSettings.lyricsWindowShadowColor, 0xAA000000);
-      expect(restoredSettings.lyricsWindowShadowBlurRadius, 8);
-      expect(restoredSettings.lyricsWindowShadowOffsetX, 1);
-      expect(restoredSettings.lyricsWindowShadowOffsetY, 2);
-      expect(restoredSettings.disabledLyricsSources, 'qqmusic');
-      expect(restoredSettings.useAuthForPlay(SourceIds.bilibili), isTrue);
-      expect(restoredSettings.useAuthForPlay(SourceIds.youtube), isTrue);
-      expect(restoredSettings.useAuthForPlay(SourceIds.netease), isFalse);
-      expect(restoredSettings.rankingRefreshIntervalMinutes, 15);
-      expect(
-        restoredSettings.homeRankingSourcePriority,
-        'youtube,bilibili,netease',
-      );
-      expect(restoredSettings.homeRankingSourcePriorityList, [
-        'youtube',
-        'bilibili',
-        'netease',
-      ]);
-      expect(restoredSettings.disabledHomeRankingSources, 'netease');
-      expect(restoredSettings.disabledHomeRankingSourcesSet, {'netease'});
-      expect(restoredSettings.radioRefreshIntervalMinutes, 9);
-      expect(restoredSettings.customDownloadDir, '/device/downloads');
-      expect(restoredSettings.preferredAudioDeviceId, 'device-1');
-      expect(restoredSettings.preferredAudioDeviceName, 'USB DAC');
+        final restoredSettings = await isar.settings.get(0);
+        expect(result.settingsImported, isTrue);
+        expect(result.errors, isEmpty);
+        expect(restoredSettings, isNotNull);
+        expect(restoredSettings!.themeModeIndex, 2);
+        expect(restoredSettings.maxCacheSizeMB, 48);
+        expect(restoredSettings.rememberPlaybackPosition, isFalse);
+        expect(restoredSettings.tempPlayRewindSeconds, 7);
+        expect(restoredSettings.streamPriorityFor(SourceIds.netease), [
+          StreamType.audioOnly,
+        ]);
+        expect(restoredSettings.autoMatchLyrics, isTrue);
+        expect(restoredSettings.lyricsAiTitleParsingModeIndex, 3);
+        expect(
+          restoredSettings.lyricsAiTitleParsingMode,
+          LyricsAiTitleParsingMode.advancedAiSelect,
+        );
+        expect(restoredSettings.allowPlainLyricsAutoMatch, isTrue);
+        expect(restoredSettings.lyricsAiEndpoint, 'https://example.test/v1');
+        expect(restoredSettings.lyricsAiModel, 'test-model');
+        expect(restoredSettings.lyricsAiTimeoutSeconds, 12);
+        expect(restoredSettings.lyricsWindowTextColor, 0xFF88CCFF);
+        expect(restoredSettings.lyricsWindowSecondaryTextColor, 0xCCFFE680);
+        expect(restoredSettings.lyricsWindowInactiveTextOpacity, 0.42);
+        expect(restoredSettings.lyricsWindowOutlineEnabled, isFalse);
+        expect(restoredSettings.lyricsWindowOutlineColor, 0xFF102030);
+        expect(restoredSettings.lyricsWindowOutlineWidth, 2.25);
+        expect(restoredSettings.lyricsWindowShadowEnabled, isTrue);
+        expect(restoredSettings.lyricsWindowShadowColor, 0xAA000000);
+        expect(restoredSettings.lyricsWindowShadowBlurRadius, 8);
+        expect(restoredSettings.lyricsWindowShadowOffsetX, 1);
+        expect(restoredSettings.lyricsWindowShadowOffsetY, 2);
+        expect(restoredSettings.disabledLyricsSources, 'qqmusic');
+        expect(restoredSettings.useAuthForPlay(SourceIds.bilibili), isTrue);
+        expect(restoredSettings.useAuthForPlay(SourceIds.youtube), isTrue);
+        expect(restoredSettings.useAuthForPlay(SourceIds.netease), isFalse);
+        expect(restoredSettings.rankingRefreshIntervalMinutes, 15);
+        expect(
+          restoredSettings.homeRankingSourcePriority,
+          'youtube,bilibili,netease',
+        );
+        expect(restoredSettings.homeRankingSourcePriorityList, [
+          'youtube',
+          'bilibili',
+          'netease',
+        ]);
+        expect(restoredSettings.disabledHomeRankingSources, 'netease');
+        expect(restoredSettings.disabledHomeRankingSourcesSet, {'netease'});
+        expect(restoredSettings.radioRefreshIntervalMinutes, 9);
+        expect(restoredSettings.customDownloadDir, '/device/downloads');
+        expect(restoredSettings.preferredAudioDeviceId, 'device-1');
+        expect(restoredSettings.preferredAudioDeviceName, 'USB DAC');
 
-      // 版面欄位無條件還原：`_DesktopLayout` 由螢幕寬度斷點選出，不是桌面平台
-      // 專屬能力，所以不跟著 `Platform.isWindows` 走。
-      expect(restoredSettings.railExpanded, isTrue);
-      expect(restoredSettings.detailPanelExpanded, isFalse);
-      expect(restoredSettings.detailPanelWidth, 420);
+        // 版面欄位無條件還原：`_DesktopLayout` 由螢幕寬度斷點選出，不是桌面平台
+        // 專屬能力，所以不跟著 `Platform.isWindows` 走。
+        expect(restoredSettings.railExpanded, isTrue);
+        expect(restoredSettings.detailPanelExpanded, isFalse);
+        expect(restoredSettings.detailPanelWidth, 420);
 
-      if (Platform.isWindows) {
-        expect(restoredSettings.minimizeToTrayOnClose, isTrue);
-        expect(restoredSettings.enableGlobalHotkeys, isTrue);
-        expect(restoredSettings.launchAtStartup, isTrue);
-        expect(restoredSettings.launchMinimized, isTrue);
-        expect(restoredSettings.hotkeyConfig,
-            jsonEncode({'next': 'Ctrl+Alt+Right'}));
-      } else {
-        expect(restoredSettings.minimizeToTrayOnClose, isFalse);
-        expect(restoredSettings.enableGlobalHotkeys, isFalse);
-        expect(restoredSettings.launchAtStartup, isFalse);
-        expect(restoredSettings.launchMinimized, isFalse);
-        expect(restoredSettings.hotkeyConfig,
-            jsonEncode({'playPause': 'Ctrl+Alt+P'}));
-      }
-    });
+        if (Platform.isWindows) {
+          expect(restoredSettings.minimizeToTrayOnClose, isTrue);
+          expect(restoredSettings.enableGlobalHotkeys, isTrue);
+          expect(restoredSettings.launchAtStartup, isTrue);
+          expect(restoredSettings.launchMinimized, isTrue);
+          expect(
+            restoredSettings.hotkeyConfig,
+            jsonEncode({'next': 'Ctrl+Alt+Right'}),
+          );
+        } else {
+          expect(restoredSettings.minimizeToTrayOnClose, isFalse);
+          expect(restoredSettings.enableGlobalHotkeys, isFalse);
+          expect(restoredSettings.launchAtStartup, isFalse);
+          expect(restoredSettings.launchMinimized, isFalse);
+          expect(
+            restoredSettings.hotkeyConfig,
+            jsonEncode({'playPause': 'Ctrl+Alt+P'}),
+          );
+        }
+      },
+    );
 
     test(
       'importData sanitizes Windows hotkey config from backup',
@@ -367,68 +380,74 @@ void main() {
         );
 
         final restoredSettings = await isar.settings.get(0);
-        final restoredConfig =
-            HotkeyConfig.fromJsonString(restoredSettings!.hotkeyConfig);
+        final restoredConfig = HotkeyConfig.fromJsonString(
+          restoredSettings!.hotkeyConfig,
+        );
 
         expect(result.settingsImported, isTrue);
         expect(result.errors, isEmpty);
-        expect(restoredConfig.getBinding(HotkeyAction.playPause)!.isConfigured,
-            isFalse);
-        expect(restoredConfig.getBinding(HotkeyAction.next)!.modifiers,
-            {HotKeyModifier.control});
+        expect(
+          restoredConfig.getBinding(HotkeyAction.playPause)!.isConfigured,
+          isFalse,
+        );
+        expect(restoredConfig.getBinding(HotkeyAction.next)!.modifiers, {
+          HotKeyModifier.control,
+        });
       },
       skip: !Platform.isWindows ? 'Windows-only hotkey import behavior' : false,
     );
 
-    test('importData restores playlist memberships through mutation service',
-        () async {
-      final backupData = BackupData(
-        version: kBackupVersion,
-        exportedAt: DateTime(2026, 5, 3),
-        appVersion: 'test',
-        playlists: [
-          PlaylistBackup(
-            name: 'Restored Playlist',
-            coverUrl: 'https://img.example/restored-cover.jpg',
-            hasCustomCover: true,
-            trackKeys: const ['youtube:restored'],
-            createdAt: DateTime(2026, 5, 3),
-          ),
-        ],
-        tracks: [
-          TrackBackup(
-            sourceId: 'restored',
-            sourceType: SourceIds.youtube,
-            title: 'Restored Track',
-            thumbnailUrl: 'https://img.example/track-cover.jpg',
-            createdAt: DateTime(2026, 5, 3),
-          ),
-        ],
-        playHistory: const [],
-        searchHistory: const [],
-        radioStations: const [],
-      );
+    test(
+      'importData restores playlist memberships through mutation service',
+      () async {
+        final backupData = BackupData(
+          version: kBackupVersion,
+          exportedAt: DateTime(2026, 5, 3),
+          appVersion: 'test',
+          playlists: [
+            PlaylistBackup(
+              name: 'Restored Playlist',
+              coverUrl: 'https://img.example/restored-cover.jpg',
+              hasCustomCover: true,
+              trackKeys: const ['youtube:restored'],
+              createdAt: DateTime(2026, 5, 3),
+            ),
+          ],
+          tracks: [
+            TrackBackup(
+              sourceId: 'restored',
+              sourceType: SourceIds.youtube,
+              title: 'Restored Track',
+              thumbnailUrl: 'https://img.example/track-cover.jpg',
+              createdAt: DateTime(2026, 5, 3),
+            ),
+          ],
+          playHistory: const [],
+          searchHistory: const [],
+          radioStations: const [],
+        );
 
-      final result = await backupService.importData(
-        backupData,
-        importPlaylists: true,
-        importPlayHistory: false,
-        importSearchHistory: false,
-        importRadioStations: false,
-        importLyricsMatches: false,
-        importSettings: false,
-      );
+        final result = await backupService.importData(
+          backupData,
+          importPlaylists: true,
+          importPlayHistory: false,
+          importSearchHistory: false,
+          importRadioStations: false,
+          importLyricsMatches: false,
+          importSettings: false,
+        );
 
-      final playlist = (await isar.playlists.where().findAll()).single;
-      final track = (await isar.tracks.where().findAll()).single;
-      expect(result.playlistsImported, 1);
-      expect(result.errors, isEmpty);
-      expect(playlist.trackIds, [track.id]);
-      expect(playlist.coverUrl, 'https://img.example/restored-cover.jpg');
-      expect(playlist.hasCustomCover, isTrue);
-      expect(track.belongsToPlaylist(playlist.id), isTrue);
-      expect(track.playlistInfo.single.playlistName, 'Restored Playlist');
-    });
+        final playlist = (await isar.playlists.where().findAll()).single;
+        final track = (await isar.tracks.where().findAll()).single;
+        expect(result.playlistsImported, 1);
+        expect(result.errors, isEmpty);
+        expect(playlist.trackIds, [track.id]);
+        expect(playlist.coverUrl, 'https://img.example/restored-cover.jpg');
+        expect(playlist.hasCustomCover, isTrue);
+        expect(track.belongsToPlaylist(playlist.id), isTrue);
+        expect(track.playlistInfo.single.playlistName, 'Restored Playlist');
+      },
+    );
 
     test('a write failure leaves the database exactly as it was', () async {
       final seedTrack = Track()
@@ -529,70 +548,72 @@ void main() {
       expect(await isar.playHistorys.where().findAll(), hasLength(1));
     });
 
-    test('importData restores Netease source types without falling back',
-        () async {
-      final exportedAt = DateTime(2026, 5, 18);
-      final backupData = BackupData(
-        version: kBackupVersion,
-        exportedAt: exportedAt,
-        appVersion: 'test',
-        playlists: [
-          PlaylistBackup(
-            name: 'Netease Import',
-            importSourceType: SourceIds.netease,
-            trackKeys: const ['netease:netease-song'],
-            createdAt: exportedAt,
-          ),
-        ],
-        tracks: [
-          TrackBackup(
-            sourceId: 'netease-song',
-            sourceType: SourceIds.netease,
-            title: 'Netease Track',
-            createdAt: exportedAt,
-          ),
-        ],
-        playHistory: [
-          PlayHistoryBackup(
-            sourceId: 'netease-history',
-            sourceType: SourceIds.netease,
-            title: 'Netease History',
-            playedAt: exportedAt,
-          ),
-        ],
-        searchHistory: const [],
-        radioStations: [
-          RadioStationBackup(
-            url: 'https://music.163.com/radio/test',
-            title: 'Netease Radio',
-            sourceType: SourceIds.netease,
-            sourceId: 'netease-radio',
-            createdAt: exportedAt,
-          ),
-        ],
-      );
+    test(
+      'importData restores Netease source types without falling back',
+      () async {
+        final exportedAt = DateTime(2026, 5, 18);
+        final backupData = BackupData(
+          version: kBackupVersion,
+          exportedAt: exportedAt,
+          appVersion: 'test',
+          playlists: [
+            PlaylistBackup(
+              name: 'Netease Import',
+              importSourceType: SourceIds.netease,
+              trackKeys: const ['netease:netease-song'],
+              createdAt: exportedAt,
+            ),
+          ],
+          tracks: [
+            TrackBackup(
+              sourceId: 'netease-song',
+              sourceType: SourceIds.netease,
+              title: 'Netease Track',
+              createdAt: exportedAt,
+            ),
+          ],
+          playHistory: [
+            PlayHistoryBackup(
+              sourceId: 'netease-history',
+              sourceType: SourceIds.netease,
+              title: 'Netease History',
+              playedAt: exportedAt,
+            ),
+          ],
+          searchHistory: const [],
+          radioStations: [
+            RadioStationBackup(
+              url: 'https://music.163.com/radio/test',
+              title: 'Netease Radio',
+              sourceType: SourceIds.netease,
+              sourceId: 'netease-radio',
+              createdAt: exportedAt,
+            ),
+          ],
+        );
 
-      final result = await backupService.importData(
-        backupData,
-        importPlaylists: true,
-        importPlayHistory: true,
-        importSearchHistory: false,
-        importRadioStations: true,
-        importLyricsMatches: false,
-        importSettings: false,
-      );
+        final result = await backupService.importData(
+          backupData,
+          importPlaylists: true,
+          importPlayHistory: true,
+          importSearchHistory: false,
+          importRadioStations: true,
+          importLyricsMatches: false,
+          importSettings: false,
+        );
 
-      final track = (await isar.tracks.where().findAll()).single;
-      final playlist = (await isar.playlists.where().findAll()).single;
-      final history = (await isar.playHistorys.where().findAll()).single;
-      final radio = (await isar.radioStations.where().findAll()).single;
+        final track = (await isar.tracks.where().findAll()).single;
+        final playlist = (await isar.playlists.where().findAll()).single;
+        final history = (await isar.playHistorys.where().findAll()).single;
+        final radio = (await isar.radioStations.where().findAll()).single;
 
-      expect(result.errors, isEmpty);
-      expect(track.sourceType, SourceIds.netease);
-      expect(playlist.importSourceType, SourceIds.netease);
-      expect(history.sourceType, SourceIds.netease);
-      expect(radio.sourceType, SourceIds.netease);
-    });
+        expect(result.errors, isEmpty);
+        expect(track.sourceType, SourceIds.netease);
+        expect(playlist.importSourceType, SourceIds.netease);
+        expect(history.sourceType, SourceIds.netease);
+        expect(radio.sourceType, SourceIds.netease);
+      },
+    );
 
     test('importData keeps a source id it does not recognise', () async {
       // 別人用更新版本（多了第四個音源）匯出的備份，不能在匯入時被靜默
@@ -651,71 +672,80 @@ void main() {
 
       expect(result.errors, isEmpty);
       expect((await isar.tracks.where().findAll()).single.sourceType, unknown);
-      expect((await isar.playlists.where().findAll()).single.importSourceType,
-          unknown);
-      expect((await isar.playHistorys.where().findAll()).single.sourceType,
-          unknown);
-      expect((await isar.radioStations.where().findAll()).single.sourceType,
-          unknown);
-    });
-
-    test('exportData includes lyrics AI settings without secure API key',
-        () async {
-      final outputPath = '${tempDir.path}/export.json';
-      FilePicker.platform = _FakeFilePicker(saveFilePath: outputPath);
-      final settings = Settings()
-        ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.advancedAiSelect
-        ..allowPlainLyricsAutoMatch = true
-        ..lyricsAiEndpoint = 'https://example.test/v1'
-        ..lyricsAiModel = 'test-model'
-        ..lyricsAiTimeoutSeconds = 15
-        ..lyricsWindowTextColor = 0xFF88CCFF
-        ..lyricsWindowSecondaryTextColor = 0xCCFFE680
-        ..lyricsWindowInactiveTextOpacity = 0.42
-        ..lyricsWindowOutlineEnabled = false
-        ..lyricsWindowOutlineColor = 0xFF102030
-        ..lyricsWindowOutlineWidth = 2.25
-        ..lyricsWindowShadowEnabled = true
-        ..lyricsWindowShadowColor = 0xAA000000
-        ..lyricsWindowShadowBlurRadius = 8
-        ..lyricsWindowShadowOffsetX = 1
-        ..lyricsWindowShadowOffsetY = 2
-        ..homeRankingSourcePriority = 'youtube,unknown,bilibili,youtube'
-        ..disabledHomeRankingSources = 'netease,unknown';
-      await isar.writeTxn(() async {
-        await isar.settings.put(settings);
-      });
-
-      final exportedPath = await backupService.exportData();
-
-      expect(exportedPath, outputPath);
-      final json = jsonDecode(await File(outputPath).readAsString())
-          as Map<String, dynamic>;
-      final settingsJson = json['settings'] as Map<String, dynamic>;
-      expect(settingsJson['lyricsAiTitleParsingModeIndex'], 3);
-      expect(settingsJson['allowPlainLyricsAutoMatch'], isTrue);
-      expect(settingsJson['lyricsAiEndpoint'], 'https://example.test/v1');
-      expect(settingsJson['lyricsAiModel'], 'test-model');
-      expect(settingsJson['lyricsAiTimeoutSeconds'], 15);
-      expect(settingsJson['lyricsWindowTextColor'], 0xFF88CCFF);
-      expect(settingsJson['lyricsWindowSecondaryTextColor'], 0xCCFFE680);
-      expect(settingsJson['lyricsWindowInactiveTextOpacity'], 0.42);
-      expect(settingsJson['lyricsWindowOutlineEnabled'], isFalse);
-      expect(settingsJson['lyricsWindowOutlineColor'], 0xFF102030);
-      expect(settingsJson['lyricsWindowOutlineWidth'], 2.25);
-      expect(settingsJson['lyricsWindowShadowEnabled'], isTrue);
-      expect(settingsJson['lyricsWindowShadowColor'], 0xAA000000);
-      expect(settingsJson['lyricsWindowShadowBlurRadius'], 8);
-      expect(settingsJson['lyricsWindowShadowOffsetX'], 1);
-      expect(settingsJson['lyricsWindowShadowOffsetY'], 2);
       expect(
-        settingsJson['homeRankingSourcePriority'],
-        'youtube,bilibili,netease',
+        (await isar.playlists.where().findAll()).single.importSourceType,
+        unknown,
       );
-      expect(settingsJson['disabledHomeRankingSources'], 'netease');
-      expect(settingsJson.containsKey('lyricsAiApiKey'), isFalse);
-      expect(jsonEncode(json).contains('secret'), isFalse);
+      expect(
+        (await isar.playHistorys.where().findAll()).single.sourceType,
+        unknown,
+      );
+      expect(
+        (await isar.radioStations.where().findAll()).single.sourceType,
+        unknown,
+      );
     });
+
+    test(
+      'exportData includes lyrics AI settings without secure API key',
+      () async {
+        final outputPath = '${tempDir.path}/export.json';
+        FilePicker.platform = _FakeFilePicker(saveFilePath: outputPath);
+        final settings = Settings()
+          ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.advancedAiSelect
+          ..allowPlainLyricsAutoMatch = true
+          ..lyricsAiEndpoint = 'https://example.test/v1'
+          ..lyricsAiModel = 'test-model'
+          ..lyricsAiTimeoutSeconds = 15
+          ..lyricsWindowTextColor = 0xFF88CCFF
+          ..lyricsWindowSecondaryTextColor = 0xCCFFE680
+          ..lyricsWindowInactiveTextOpacity = 0.42
+          ..lyricsWindowOutlineEnabled = false
+          ..lyricsWindowOutlineColor = 0xFF102030
+          ..lyricsWindowOutlineWidth = 2.25
+          ..lyricsWindowShadowEnabled = true
+          ..lyricsWindowShadowColor = 0xAA000000
+          ..lyricsWindowShadowBlurRadius = 8
+          ..lyricsWindowShadowOffsetX = 1
+          ..lyricsWindowShadowOffsetY = 2
+          ..homeRankingSourcePriority = 'youtube,unknown,bilibili,youtube'
+          ..disabledHomeRankingSources = 'netease,unknown';
+        await isar.writeTxn(() async {
+          await isar.settings.put(settings);
+        });
+
+        final exportedPath = await backupService.exportData();
+
+        expect(exportedPath, outputPath);
+        final json =
+            jsonDecode(await File(outputPath).readAsString())
+                as Map<String, dynamic>;
+        final settingsJson = json['settings'] as Map<String, dynamic>;
+        expect(settingsJson['lyricsAiTitleParsingModeIndex'], 3);
+        expect(settingsJson['allowPlainLyricsAutoMatch'], isTrue);
+        expect(settingsJson['lyricsAiEndpoint'], 'https://example.test/v1');
+        expect(settingsJson['lyricsAiModel'], 'test-model');
+        expect(settingsJson['lyricsAiTimeoutSeconds'], 15);
+        expect(settingsJson['lyricsWindowTextColor'], 0xFF88CCFF);
+        expect(settingsJson['lyricsWindowSecondaryTextColor'], 0xCCFFE680);
+        expect(settingsJson['lyricsWindowInactiveTextOpacity'], 0.42);
+        expect(settingsJson['lyricsWindowOutlineEnabled'], isFalse);
+        expect(settingsJson['lyricsWindowOutlineColor'], 0xFF102030);
+        expect(settingsJson['lyricsWindowOutlineWidth'], 2.25);
+        expect(settingsJson['lyricsWindowShadowEnabled'], isTrue);
+        expect(settingsJson['lyricsWindowShadowColor'], 0xAA000000);
+        expect(settingsJson['lyricsWindowShadowBlurRadius'], 8);
+        expect(settingsJson['lyricsWindowShadowOffsetX'], 1);
+        expect(settingsJson['lyricsWindowShadowOffsetY'], 2);
+        expect(
+          settingsJson['homeRankingSourcePriority'],
+          'youtube,bilibili,netease',
+        );
+        expect(settingsJson['disabledHomeRankingSources'], 'netease');
+        expect(settingsJson.containsKey('lyricsAiApiKey'), isFalse);
+        expect(jsonEncode(json).contains('secret'), isFalse);
+      },
+    );
 
     test('exportData includes v2 playlist track and radio metadata', () async {
       final outputPath = '${tempDir.path}/export_v2.json';
@@ -763,15 +793,17 @@ void main() {
       final exportedPath = await backupService.exportData();
 
       expect(exportedPath, outputPath);
-      final json = jsonDecode(await File(outputPath).readAsString())
-          as Map<String, dynamic>;
+      final json =
+          jsonDecode(await File(outputPath).readAsString())
+              as Map<String, dynamic>;
       expect(json['version'], kBackupVersion);
       final playlistJson =
           (json['playlists'] as List<dynamic>).single as Map<String, dynamic>;
       final trackJson =
           (json['tracks'] as List<dynamic>).single as Map<String, dynamic>;
-      final radioJson = (json['radioStations'] as List<dynamic>).single
-          as Map<String, dynamic>;
+      final radioJson =
+          (json['radioStations'] as List<dynamic>).single
+              as Map<String, dynamic>;
 
       expect(playlistJson['lastRefreshed'], refreshedAt.toIso8601String());
       expect(playlistJson['ownerName'], 'Owner Name');
@@ -865,75 +897,80 @@ void main() {
       expect(radio.lastPlayedAt, lastPlayedAt);
     });
 
-    test('validateBackupData rejects backups from newer format versions',
-        () async {
-      final backupData = BackupData(
-        version: kBackupVersion + 1,
-        exportedAt: DateTime(2026, 6, 10),
-        appVersion: 'future',
-        playlists: const [],
-        tracks: const [],
-        playHistory: const [],
-        searchHistory: const [],
-        radioStations: const [],
-        settings: SettingsBackup(),
-      );
+    test(
+      'validateBackupData rejects backups from newer format versions',
+      () async {
+        final backupData = BackupData(
+          version: kBackupVersion + 1,
+          exportedAt: DateTime(2026, 6, 10),
+          appVersion: 'future',
+          playlists: const [],
+          tracks: const [],
+          playHistory: const [],
+          searchHistory: const [],
+          radioStations: const [],
+          settings: SettingsBackup(),
+        );
 
-      final validation = backupService.validateBackupData(backupData);
+        final validation = backupService.validateBackupData(backupData);
 
-      expect(validation.isValid, isFalse);
-      expect(validation.code, BackupValidationCode.unsupportedVersion);
-      expect(validation.backupVersion, kBackupVersion + 1);
-      expect(validation.supportedVersion, kBackupVersion);
-      expect(validation.appVersion, 'future');
-      expect(validation.message, isEmpty);
-    });
-
-    test('validateBackupData rejects backups with no importable sections',
-        () async {
-      final backupData = BackupData(
-        version: kBackupVersion,
-        exportedAt: DateTime(2026, 6, 10),
-        appVersion: 'test',
-        playlists: const [],
-        tracks: const [],
-        playHistory: const [],
-        searchHistory: const [],
-        radioStations: const [],
-      );
-
-      final validation = backupService.validateBackupData(backupData);
-
-      expect(validation.isValid, isFalse);
-      expect(validation.code, BackupValidationCode.emptyBackup);
-    });
+        expect(validation.isValid, isFalse);
+        expect(validation.code, BackupValidationCode.unsupportedVersion);
+        expect(validation.backupVersion, kBackupVersion + 1);
+        expect(validation.supportedVersion, kBackupVersion);
+        expect(validation.appVersion, 'future');
+        expect(validation.message, isEmpty);
+      },
+    );
 
     test(
-        'validateBackupData accepts current backup format with importable data',
-        () async {
-      final backupData = BackupData(
-        version: kBackupVersion,
-        exportedAt: DateTime(2026, 6, 10),
-        appVersion: 'test',
-        playlists: const [],
-        tracks: const [],
-        playHistory: [
-          PlayHistoryBackup(
-            sourceId: 'history',
-            sourceType: SourceIds.youtube,
-            title: 'History',
-            playedAt: DateTime(2026, 6, 10),
-          ),
-        ],
-        searchHistory: const [],
-        radioStations: const [],
-      );
+      'validateBackupData rejects backups with no importable sections',
+      () async {
+        final backupData = BackupData(
+          version: kBackupVersion,
+          exportedAt: DateTime(2026, 6, 10),
+          appVersion: 'test',
+          playlists: const [],
+          tracks: const [],
+          playHistory: const [],
+          searchHistory: const [],
+          radioStations: const [],
+        );
 
-      final validation = backupService.validateBackupData(backupData);
+        final validation = backupService.validateBackupData(backupData);
 
-      expect(validation.isValid, isTrue);
-      expect(validation.code, BackupValidationCode.valid);
-    });
+        expect(validation.isValid, isFalse);
+        expect(validation.code, BackupValidationCode.emptyBackup);
+      },
+    );
+
+    test(
+      'validateBackupData accepts current backup format with importable data',
+      () async {
+        final backupData = BackupData(
+          version: kBackupVersion,
+          exportedAt: DateTime(2026, 6, 10),
+          appVersion: 'test',
+          playlists: const [],
+          tracks: const [],
+          playHistory: [
+            PlayHistoryBackup(
+              sourceId: 'history',
+              sourceType: SourceIds.youtube,
+              title: 'History',
+              playedAt: DateTime(2026, 6, 10),
+            ),
+          ],
+          searchHistory: const [],
+          radioStations: const [],
+        );
+
+        final validation = backupService.validateBackupData(backupData);
+
+        expect(validation.isValid, isTrue);
+        expect(validation.code, BackupValidationCode.valid);
+      },
+    );
 
     test('validateBackupData accepts backups containing only tracks', () async {
       final backupData = BackupData(

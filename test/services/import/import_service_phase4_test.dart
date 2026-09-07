@@ -32,9 +32,7 @@ void main() {
     });
 
     setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp(
-        'import_service_phase4_',
-      );
+      tempDir = await Directory.systemTemp.createTemp('import_service_phase4_');
       isar = await Isar.open(
         [PlaylistSchema, TrackSchema],
         directory: tempDir.path,
@@ -53,355 +51,385 @@ void main() {
     });
 
     test(
-        'importFromUrl routes regular youtube playlist URLs through parser path for YouTubeSource instances',
-        () async {
-      final source = _FakeYouTubeSource();
-      sourceManager.detectedSource = source;
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+      'importFromUrl routes regular youtube playlist URLs through parser path for YouTubeSource instances',
+      () async {
+        final source = _FakeYouTubeSource();
+        sourceManager.detectedSource = source;
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-      await expectLater(
-        () => service.importFromUrl(
-          'https://www.youtube.com/playlist?list=PL123',
-        ),
-        throwsA(isA<_ParseSentinel>()),
-      );
+        await expectLater(
+          () => service.importFromUrl(
+            'https://www.youtube.com/playlist?list=PL123',
+          ),
+          throwsA(isA<_ParseSentinel>()),
+        );
 
-      expect(source.parsePlaylistCallCount, 1);
-      expect(source.lastParseAuthHeaders, isNull);
-    });
+        expect(source.parsePlaylistCallCount, 1);
+        expect(source.lastParseAuthHeaders, isNull);
+      },
+    );
 
-    test('importFromUrl passes auth headers to playlist parser when enabled',
-        () async {
-      final source = _FakeGenericSource(SourceIds.youtube);
-      sourceManager.detectedSource = source;
-      final authContext = _FakeSourceAuthContext()
-        ..playlistImportHeaders = const {
+    test(
+      'importFromUrl passes auth headers to playlist parser when enabled',
+      () async {
+        final source = _FakeGenericSource(SourceIds.youtube);
+        sourceManager.detectedSource = source;
+        final authContext = _FakeSourceAuthContext()
+          ..playlistImportHeaders = const {
+            'Cookie':
+                'SAPISID=sapisid; __Secure-1PSID=1psid; __Secure-3PSID=3psid',
+            'Authorization': 'Bearer youtube-auth',
+          };
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: authContext,
+        );
+
+        await expectLater(
+          () => service.importFromUrl(
+            'https://www.youtube.com/playlist?list=PL123',
+            useAuth: true,
+          ),
+          throwsA(isA<_ParseSentinel>()),
+        );
+
+        expect(source.lastParseAuthHeaders, {
           'Cookie':
               'SAPISID=sapisid; __Secure-1PSID=1psid; __Secure-3PSID=3psid',
           'Authorization': 'Bearer youtube-auth',
-        };
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: authContext,
-      );
-
-      await expectLater(
-        () => service.importFromUrl(
-          'https://www.youtube.com/playlist?list=PL123',
-          useAuth: true,
-        ),
-        throwsA(isA<_ParseSentinel>()),
-      );
-
-      expect(source.lastParseAuthHeaders, {
-        'Cookie': 'SAPISID=sapisid; __Secure-1PSID=1psid; __Secure-3PSID=3psid',
-        'Authorization': 'Bearer youtube-auth',
-      });
-    });
-
-    test('importFromUrl leaves auth headers null when auth is disabled',
-        () async {
-      final source = _FakeGenericSource(SourceIds.netease);
-      sourceManager.detectedSource = source;
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext()
-          ..playlistImportHeaders = const {'Cookie': 'MUSIC_U=music-u'},
-      );
-
-      await expectLater(
-        () => service.importFromUrl('https://music.163.com/playlist?id=42'),
-        throwsA(isA<_ParseSentinel>()),
-      );
-
-      expect(source.lastParseAuthHeaders, isNull);
-    });
-
-    test('importFromUrl keeps RD-list non-youtube URLs on parser path',
-        () async {
-      final source = _FakeGenericSource(SourceIds.netease);
-      final mixSource = _FakeYouTubeSource()
-        ..mixInfo = const MixPlaylistInfo(
-          title: 'Wrong Mix',
-          playlistId: 'RDdvgZkm1xWPE',
-          seedVideoId: 'dvgZkm1xWPE',
-        );
-      sourceManager.detectedSource = source;
-      sourceManager.dynamicPlaylistSourceOverride = mixSource;
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-
-      await expectLater(
-        () => service.importFromUrl(
-          'https://music.163.com/playlist?id=42&list=RDdvgZkm1xWPE',
-        ),
-        throwsA(isA<_ParseSentinel>()),
-      );
-
-      expect(sourceManager.dynamicPlaylistLookupCount, 1);
-      expect(source.lastParseAuthHeaders, isNull);
-      expect(mixSource.lastMixInfoUrl, isNull);
-    });
-
-    test('importFromUrl normalizes mix shorthand before YouTube Mix import',
-        () async {
-      final source = _FakeYouTubeSource();
-      sourceManager.detectedSource = source;
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-
-      await expectLater(
-        () => service.importFromUrl(' MIX:dvgZkm1xWPE '),
-        throwsA(isA<_MixImportSentinel>()),
-      );
-
-      expect(sourceManager.lastDetectedUrl,
-          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
-      expect(source.lastMixInfoUrl,
-          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
-      expect(sourceManager.dynamicPlaylistLookupCount, 1);
-    });
-
-    test('importFromUrl stores normalized sourceUrl for shorthand Mix playlist',
-        () async {
-      final source = _FakeYouTubeSource()
-        ..mixInfo = const MixPlaylistInfo(
-          title: 'Mix',
-          playlistId: 'RDdvgZkm1xWPE',
-          seedVideoId: 'dvgZkm1xWPE',
-          coverUrl: 'https://img.example/cover.jpg',
-        );
-      sourceManager.detectedSource = source;
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-
-      final result = await service.importFromUrl('mix:dvgZkm1xWPE');
-
-      expect(result.playlist.isMix, isTrue);
-      expect(result.playlist.mixPlaylistId, 'RDdvgZkm1xWPE');
-      expect(result.playlist.mixSeedVideoId, 'dvgZkm1xWPE');
-      expect(result.playlist.sourceUrl,
-          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
-      expect(result.addedCount, 0);
-      expect(sourceManager.dynamicPlaylistLookupCount, 1);
-    });
-
-    test('importFromUrl reports cancellation after mutation instead of success',
-        () async {
-      final source = _PlaylistSource(
-        title: 'Cancellation Playlist',
-        tracks: [_track('cancel-track', 'Cancel Track')],
-      );
-      sourceManager.detectedSource = source;
-      late ImportService service;
-      final mutationService = _CancellingMutationService(
-        isar: isar,
-        onAfterMutation: () => service.cancelImport(),
-      );
-      service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        mutationService: mutationService,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-
-      await expectLater(
-        () => service.importFromUrl('https://example.com/playlist/cancel'),
-        throwsA(isA<ImportException>()),
-      );
-      await service.cleanupCancelledImport();
-
-      expect(await playlistRepository.getAll(), isEmpty);
-      expect(await trackRepository.getAll(), isEmpty);
-    });
+        });
+      },
+    );
 
     test(
-        'importFromUrl reports cancellation after cover update instead of success',
-        () async {
-      final source = _PlaylistSource(
-        title: 'Cover Cancellation Playlist',
-        tracks: [_track('cover-cancel-track', 'Cover Cancel Track')],
-      );
-      sourceManager.detectedSource = source;
-      final blockingTrackRepository = _BlockingTrackRepository(isar);
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: blockingTrackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+      'importFromUrl leaves auth headers null when auth is disabled',
+      () async {
+        final source = _FakeGenericSource(SourceIds.netease);
+        sourceManager.detectedSource = source;
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext()
+            ..playlistImportHeaders = const {'Cookie': 'MUSIC_U=music-u'},
+        );
 
-      final importFuture = service.importFromUrl(
-        'https://example.com/playlist/cover-cancel',
-      );
-      await blockingTrackRepository.coverLookupStarted.future;
-      service.cancelImport();
-      blockingTrackRepository.completeCoverLookup();
+        await expectLater(
+          () => service.importFromUrl('https://music.163.com/playlist?id=42'),
+          throwsA(isA<_ParseSentinel>()),
+        );
 
-      await expectLater(importFuture, throwsA(isA<ImportException>()));
-      await service.cleanupCancelledImport();
+        expect(source.lastParseAuthHeaders, isNull);
+      },
+    );
 
-      expect(await playlistRepository.getAll(), isEmpty);
-      expect(await trackRepository.getAll(), isEmpty);
-    });
+    test(
+      'importFromUrl keeps RD-list non-youtube URLs on parser path',
+      () async {
+        final source = _FakeGenericSource(SourceIds.netease);
+        final mixSource = _FakeYouTubeSource()
+          ..mixInfo = const MixPlaylistInfo(
+            title: 'Wrong Mix',
+            playlistId: 'RDdvgZkm1xWPE',
+            seedVideoId: 'dvgZkm1xWPE',
+          );
+        sourceManager.detectedSource = source;
+        sourceManager.dynamicPlaylistSourceOverride = mixSource;
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-    test('importFromUrl reports cancellation after final save without success',
-        () async {
-      final source = _PlaylistSource(
-        title: 'Final Save Cancellation Playlist',
-        tracks: [_track('final-save-cancel-track', 'Final Save Cancel Track')],
-      );
-      sourceManager.detectedSource = source;
-      late ImportService service;
-      final cancellingPlaylistRepository = _CancellingPlaylistRepository(
-        isar,
-        onAfterFinalSave: () => service.cancelImport(),
-      );
-      service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: cancellingPlaylistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-      final progressStatuses = <ImportStatus>[];
-      final progressSubscription = service.progressStream.listen(
-        (progress) => progressStatuses.add(progress.status),
-      );
-      addTearDown(() async {
-        await progressSubscription.cancel();
-        service.dispose();
-      });
+        await expectLater(
+          () => service.importFromUrl(
+            'https://music.163.com/playlist?id=42&list=RDdvgZkm1xWPE',
+          ),
+          throwsA(isA<_ParseSentinel>()),
+        );
 
-      await expectLater(
-        () => service.importFromUrl('https://example.com/playlist/final-save'),
-        throwsA(isA<ImportException>()),
-      );
-      await Future<void>.delayed(Duration.zero);
-      await service.cleanupCancelledImport();
+        expect(sourceManager.dynamicPlaylistLookupCount, 1);
+        expect(source.lastParseAuthHeaders, isNull);
+        expect(mixSource.lastMixInfoUrl, isNull);
+      },
+    );
 
-      expect(progressStatuses, isNot(contains(ImportStatus.completed)));
-      expect(await cancellingPlaylistRepository.getAll(), isEmpty);
-      expect(await trackRepository.getAll(), isEmpty);
-    });
+    test(
+      'importFromUrl normalizes mix shorthand before YouTube Mix import',
+      () async {
+        final source = _FakeYouTubeSource();
+        sourceManager.detectedSource = source;
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-    test('importFromUrl counts metadata-only existing tracks as skipped',
-        () async {
-      String? audioUrl;
-      final source = _DynamicPlaylistSource(
-        title: 'Metadata Playlist',
-        buildTracks: () => [
-          _track('metadata-track', 'Metadata Track')..audioUrl = audioUrl,
-        ],
-      );
-      sourceManager.detectedSource = source;
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
+        await expectLater(
+          () => service.importFromUrl(' MIX:dvgZkm1xWPE '),
+          throwsA(isA<_MixImportSentinel>()),
+        );
 
-      final first = await service.importFromUrl(
-        'https://example.com/playlist/metadata',
-      );
-      audioUrl = 'https://audio.example/metadata.m4a';
-      final second = await service.importFromUrl(
-        'https://example.com/playlist/metadata',
-      );
-      final savedTrack = await trackRepository.getBySourceId(
-        'metadata-track',
-        SourceIds.youtube,
-      );
+        expect(
+          sourceManager.lastDetectedUrl,
+          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE',
+        );
+        expect(
+          source.lastMixInfoUrl,
+          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE',
+        );
+        expect(sourceManager.dynamicPlaylistLookupCount, 1);
+      },
+    );
 
-      expect(first.addedCount, 1);
-      expect(first.skippedCount, 0);
-      expect(second.addedCount, 0);
-      expect(second.skippedCount, 1);
-      expect(second.playlist.trackIds, hasLength(1));
-      expect(savedTrack!.audioUrl, audioUrl);
-    });
+    test(
+      'importFromUrl stores normalized sourceUrl for shorthand Mix playlist',
+      () async {
+        final source = _FakeYouTubeSource()
+          ..mixInfo = const MixPlaylistInfo(
+            title: 'Mix',
+            playlistId: 'RDdvgZkm1xWPE',
+            seedVideoId: 'dvgZkm1xWPE',
+            coverUrl: 'https://img.example/cover.jpg',
+          );
+        sourceManager.detectedSource = source;
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
 
-    test('importFromUrl updates auth refresh metadata on existing playlist',
-        () async {
-      final source = _PlaylistSource(
-        title: 'Existing Import Playlist',
-        tracks: [_track('existing-import-track', 'Existing Import Track')],
-        description: 'Updated remote description',
-        ownerName: 'Remote Owner',
-        ownerUserId: 'remote-owner-id',
-      );
-      sourceManager.detectedSource = source;
-      final service = ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepository,
-        trackRepository: trackRepository,
-        isar: isar,
-        sourceAuthContext: _FakeSourceAuthContext(),
-      );
-      final existing = Playlist()
-        ..name = 'User Chosen Name'
-        ..description = 'Old local description'
-        ..sourceUrl = 'https://example.com/playlist/existing'
-        ..importSourceType = SourceIds.youtube
-        ..ownerName = 'Old Owner'
-        ..ownerUserId = 'old-owner-id'
-        ..useAuthForRefresh = false
-        ..refreshIntervalHours = 24
-        ..notifyOnUpdate = true
-        ..createdAt = DateTime.now();
-      existing.id = await playlistRepository.save(existing);
+        final result = await service.importFromUrl('mix:dvgZkm1xWPE');
 
-      final result = await service.importFromUrl(
-        'https://example.com/playlist/existing',
-        customName: 'Ignored Custom Name',
-        refreshIntervalHours: 6,
-        notifyOnUpdate: false,
-        useAuth: true,
-      );
+        expect(result.playlist.isMix, isTrue);
+        expect(result.playlist.mixPlaylistId, 'RDdvgZkm1xWPE');
+        expect(result.playlist.mixSeedVideoId, 'dvgZkm1xWPE');
+        expect(
+          result.playlist.sourceUrl,
+          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE',
+        );
+        expect(result.addedCount, 0);
+        expect(sourceManager.dynamicPlaylistLookupCount, 1);
+      },
+    );
 
-      final savedPlaylist = await playlistRepository.getById(existing.id);
-      expect(result.playlist.id, existing.id);
-      expect(savedPlaylist!.name, 'User Chosen Name');
-      expect(savedPlaylist.description, 'Old local description');
-      expect(savedPlaylist.ownerName, 'Remote Owner');
-      expect(savedPlaylist.ownerUserId, 'remote-owner-id');
-      expect(savedPlaylist.useAuthForRefresh, isTrue);
-      expect(savedPlaylist.refreshIntervalHours, 6);
-      expect(savedPlaylist.notifyOnUpdate, isFalse);
-      expect(savedPlaylist.importSourceType, SourceIds.youtube);
-    });
+    test(
+      'importFromUrl reports cancellation after mutation instead of success',
+      () async {
+        final source = _PlaylistSource(
+          title: 'Cancellation Playlist',
+          tracks: [_track('cancel-track', 'Cancel Track')],
+        );
+        sourceManager.detectedSource = source;
+        late ImportService service;
+        final mutationService = _CancellingMutationService(
+          isar: isar,
+          onAfterMutation: () => service.cancelImport(),
+        );
+        service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          mutationService: mutationService,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
+
+        await expectLater(
+          () => service.importFromUrl('https://example.com/playlist/cancel'),
+          throwsA(isA<ImportException>()),
+        );
+        await service.cleanupCancelledImport();
+
+        expect(await playlistRepository.getAll(), isEmpty);
+        expect(await trackRepository.getAll(), isEmpty);
+      },
+    );
+
+    test(
+      'importFromUrl reports cancellation after cover update instead of success',
+      () async {
+        final source = _PlaylistSource(
+          title: 'Cover Cancellation Playlist',
+          tracks: [_track('cover-cancel-track', 'Cover Cancel Track')],
+        );
+        sourceManager.detectedSource = source;
+        final blockingTrackRepository = _BlockingTrackRepository(isar);
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: blockingTrackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
+
+        final importFuture = service.importFromUrl(
+          'https://example.com/playlist/cover-cancel',
+        );
+        await blockingTrackRepository.coverLookupStarted.future;
+        service.cancelImport();
+        blockingTrackRepository.completeCoverLookup();
+
+        await expectLater(importFuture, throwsA(isA<ImportException>()));
+        await service.cleanupCancelledImport();
+
+        expect(await playlistRepository.getAll(), isEmpty);
+        expect(await trackRepository.getAll(), isEmpty);
+      },
+    );
+
+    test(
+      'importFromUrl reports cancellation after final save without success',
+      () async {
+        final source = _PlaylistSource(
+          title: 'Final Save Cancellation Playlist',
+          tracks: [
+            _track('final-save-cancel-track', 'Final Save Cancel Track'),
+          ],
+        );
+        sourceManager.detectedSource = source;
+        late ImportService service;
+        final cancellingPlaylistRepository = _CancellingPlaylistRepository(
+          isar,
+          onAfterFinalSave: () => service.cancelImport(),
+        );
+        service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: cancellingPlaylistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
+        final progressStatuses = <ImportStatus>[];
+        final progressSubscription = service.progressStream.listen(
+          (progress) => progressStatuses.add(progress.status),
+        );
+        addTearDown(() async {
+          await progressSubscription.cancel();
+          service.dispose();
+        });
+
+        await expectLater(
+          () =>
+              service.importFromUrl('https://example.com/playlist/final-save'),
+          throwsA(isA<ImportException>()),
+        );
+        await Future<void>.delayed(Duration.zero);
+        await service.cleanupCancelledImport();
+
+        expect(progressStatuses, isNot(contains(ImportStatus.completed)));
+        expect(await cancellingPlaylistRepository.getAll(), isEmpty);
+        expect(await trackRepository.getAll(), isEmpty);
+      },
+    );
+
+    test(
+      'importFromUrl counts metadata-only existing tracks as skipped',
+      () async {
+        String? audioUrl;
+        final source = _DynamicPlaylistSource(
+          title: 'Metadata Playlist',
+          buildTracks: () => [
+            _track('metadata-track', 'Metadata Track')..audioUrl = audioUrl,
+          ],
+        );
+        sourceManager.detectedSource = source;
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
+
+        final first = await service.importFromUrl(
+          'https://example.com/playlist/metadata',
+        );
+        audioUrl = 'https://audio.example/metadata.m4a';
+        final second = await service.importFromUrl(
+          'https://example.com/playlist/metadata',
+        );
+        final savedTrack = await trackRepository.getBySourceId(
+          'metadata-track',
+          SourceIds.youtube,
+        );
+
+        expect(first.addedCount, 1);
+        expect(first.skippedCount, 0);
+        expect(second.addedCount, 0);
+        expect(second.skippedCount, 1);
+        expect(second.playlist.trackIds, hasLength(1));
+        expect(savedTrack!.audioUrl, audioUrl);
+      },
+    );
+
+    test(
+      'importFromUrl updates auth refresh metadata on existing playlist',
+      () async {
+        final source = _PlaylistSource(
+          title: 'Existing Import Playlist',
+          tracks: [_track('existing-import-track', 'Existing Import Track')],
+          description: 'Updated remote description',
+          ownerName: 'Remote Owner',
+          ownerUserId: 'remote-owner-id',
+        );
+        sourceManager.detectedSource = source;
+        final service = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepository,
+          trackRepository: trackRepository,
+          isar: isar,
+          sourceAuthContext: _FakeSourceAuthContext(),
+        );
+        final existing = Playlist()
+          ..name = 'User Chosen Name'
+          ..description = 'Old local description'
+          ..sourceUrl = 'https://example.com/playlist/existing'
+          ..importSourceType = SourceIds.youtube
+          ..ownerName = 'Old Owner'
+          ..ownerUserId = 'old-owner-id'
+          ..useAuthForRefresh = false
+          ..refreshIntervalHours = 24
+          ..notifyOnUpdate = true
+          ..createdAt = DateTime.now();
+        existing.id = await playlistRepository.save(existing);
+
+        final result = await service.importFromUrl(
+          'https://example.com/playlist/existing',
+          customName: 'Ignored Custom Name',
+          refreshIntervalHours: 6,
+          notifyOnUpdate: false,
+          useAuth: true,
+        );
+
+        final savedPlaylist = await playlistRepository.getById(existing.id);
+        expect(result.playlist.id, existing.id);
+        expect(savedPlaylist!.name, 'User Chosen Name');
+        expect(savedPlaylist.description, 'Old local description');
+        expect(savedPlaylist.ownerName, 'Remote Owner');
+        expect(savedPlaylist.ownerUserId, 'remote-owner-id');
+        expect(savedPlaylist.useAuthForRefresh, isTrue);
+        expect(savedPlaylist.refreshIntervalHours, 6);
+        expect(savedPlaylist.notifyOnUpdate, isFalse);
+        expect(savedPlaylist.importSourceType, SourceIds.youtube);
+      },
+    );
 
     test('import multi-page expansion reuses import auth headers', () async {
       final source = _PagedPlaylistSource(SourceIds.bilibili);
@@ -474,10 +502,12 @@ class _FakeGenericSource implements PlaylistParsingSource {
   bool isPlaylistUrl(String url) => true;
 
   @override
-  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) async {
+  Future<PlaylistParseResult> parsePlaylist(
+    String playlistUrl, {
+    int page = 1,
+    int pageSize = 20,
+    Map<String, String>? authHeaders,
+  }) async {
     lastParseAuthHeaders = authHeaders;
     throw _ParseSentinel();
   }
@@ -492,10 +522,12 @@ class _FakeYouTubeSource extends YouTubeSource {
   MixPlaylistInfo? mixInfo;
 
   @override
-  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) async {
+  Future<PlaylistParseResult> parsePlaylist(
+    String playlistUrl, {
+    int page = 1,
+    int pageSize = 20,
+    Map<String, String>? authHeaders,
+  }) async {
     parsePlaylistCallCount++;
     lastParseAuthHeaders = authHeaders;
     throw _ParseSentinel();
@@ -531,10 +563,12 @@ class _PlaylistSource implements PlaylistParsingSource {
   bool isPlaylistUrl(String url) => true;
 
   @override
-  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) async {
+  Future<PlaylistParseResult> parsePlaylist(
+    String playlistUrl, {
+    int page = 1,
+    int pageSize = 20,
+    Map<String, String>? authHeaders,
+  }) async {
     return PlaylistParseResult(
       title: title,
       tracks: _tracks,
@@ -596,10 +630,7 @@ class _PagedPlaylistSource implements PlaylistParsingSource, PagedVideoSource {
 }
 
 class _DynamicPlaylistSource implements PlaylistParsingSource {
-  _DynamicPlaylistSource({
-    required this.title,
-    required this.buildTracks,
-  });
+  _DynamicPlaylistSource({required this.title, required this.buildTracks});
 
   final String title;
   final List<Track> Function() buildTracks;
@@ -610,10 +641,12 @@ class _DynamicPlaylistSource implements PlaylistParsingSource {
   bool isPlaylistUrl(String url) => true;
 
   @override
-  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) async {
+  Future<PlaylistParseResult> parsePlaylist(
+    String playlistUrl, {
+    int page = 1,
+    int pageSize = 20,
+    Map<String, String>? authHeaders,
+  }) async {
     final tracks = buildTracks();
     return PlaylistParseResult(
       title: title,
@@ -647,10 +680,7 @@ class _BlockingTrackRepository extends TrackRepository {
 }
 
 class _CancellingPlaylistRepository extends PlaylistRepository {
-  _CancellingPlaylistRepository(
-    super.isar, {
-    required this.onAfterFinalSave,
-  });
+  _CancellingPlaylistRepository(super.isar, {required this.onAfterFinalSave});
 
   final void Function() onAfterFinalSave;
   var _saveCount = 0;
@@ -676,7 +706,9 @@ class _CancellingMutationService extends PlaylistMutationRepository {
 
   @override
   Future<PlaylistMutationResult> addTracks(
-      int playlistId, List<Track> tracks) async {
+    int playlistId,
+    List<Track> tracks,
+  ) async {
     final result = await super.addTracks(playlistId, tracks);
     onAfterMutation();
     return result;

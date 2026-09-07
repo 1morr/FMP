@@ -28,8 +28,9 @@ Future<void> runDatabaseMigration(Isar isar) async {
 
     if (settings == null) {
       // 全新安裝：沒有任何舊資料可推斷，直接蓋上目前版本。
-      await isar.settings
-          .put(createBootstrapSettings()..schemaVersion = kFmpSchemaVersion);
+      await isar.settings.put(
+        createBootstrapSettings()..schemaVersion = kFmpSchemaVersion,
+      );
     } else {
       final currentVersion = effectiveSchemaVersion(settings);
       for (final step in fmpMigrationSteps) {
@@ -195,33 +196,43 @@ bool repairSettingsInvariants(Settings settings) {
   }
 
   fix(
-      settings.maxConcurrentDownloads < 1 ||
-          settings.maxConcurrentDownloads > 5,
-      () => settings.maxConcurrentDownloads = 3);
+    settings.maxConcurrentDownloads < 1 || settings.maxConcurrentDownloads > 5,
+    () => settings.maxConcurrentDownloads = 3,
+  );
   fix(settings.maxCacheSizeMB < 1, () => settings.maxCacheSizeMB = 32);
   fix(
-      settings.audioQualityLevelIndex < 0 || settings.audioQualityLevelIndex > 2,
-      () => settings.audioQualityLevelIndex = 0);
+    settings.audioQualityLevelIndex < 0 || settings.audioQualityLevelIndex > 2,
+    () => settings.audioQualityLevelIndex = 0,
+  );
   fix(
-      settings.downloadImageOptionIndex < 0 ||
-          settings.downloadImageOptionIndex > 2,
-      () => settings.downloadImageOptionIndex = 1);
+    settings.downloadImageOptionIndex < 0 ||
+        settings.downloadImageOptionIndex > 2,
+    () => settings.downloadImageOptionIndex = 1,
+  );
   fix(
-      settings.lyricsDisplayModeIndex < 0 || settings.lyricsDisplayModeIndex > 2,
-      () => settings.lyricsDisplayModeIndex = 0);
-  fix(settings.maxLyricsCacheFiles < 1, () => settings.maxLyricsCacheFiles = 50);
+    settings.lyricsDisplayModeIndex < 0 || settings.lyricsDisplayModeIndex > 2,
+    () => settings.lyricsDisplayModeIndex = 0,
+  );
   fix(
-      settings.lyricsAiTimeoutSeconds < 1,
-      () => settings.lyricsAiTimeoutSeconds =
-          AppConstants.lyricsAiDefaultTimeoutSeconds);
+    settings.maxLyricsCacheFiles < 1,
+    () => settings.maxLyricsCacheFiles = 50,
+  );
   fix(
-      settings.lyricsAiTitleParsingModeIndex == 1 ||
-          settings.lyricsAiTitleParsingModeIndex < 0 ||
-          settings.lyricsAiTitleParsingModeIndex > 3,
-      () => settings.lyricsAiTitleParsingModeIndex = 0);
+    settings.lyricsAiTimeoutSeconds < 1,
+    () => settings.lyricsAiTimeoutSeconds =
+        AppConstants.lyricsAiDefaultTimeoutSeconds,
+  );
+  fix(
+    settings.lyricsAiTitleParsingModeIndex == 1 ||
+        settings.lyricsAiTitleParsingModeIndex < 0 ||
+        settings.lyricsAiTitleParsingModeIndex > 3,
+    () => settings.lyricsAiTitleParsingModeIndex = 0,
+  );
 
-  fix(settings.audioFormatPriority.isEmpty,
-      () => settings.audioFormatPriority = 'opus,aac');
+  fix(
+    settings.audioFormatPriority.isEmpty,
+    () => settings.audioFormatPriority = 'opus,aac',
+  );
   // 每個內建音源都要有一筆設定，而且串流優先序不能是空字串。
   // 這是不變式不是遷移：它也要擋下壞掉的備份匯入與降級後的往返。
   for (final sourceId in SourceIds.values) {
@@ -236,24 +247,36 @@ bool repairSettingsInvariants(Settings settings) {
       ),
     );
   }
-  fix(settings.lyricsSourcePriority.isEmpty,
-      () => settings.lyricsSourcePriority = 'netease,qqmusic,lrclib');
+  fix(
+    settings.lyricsSourcePriority.isEmpty,
+    () => settings.lyricsSourcePriority = 'netease,qqmusic,lrclib',
+  );
 
-  fix(settings.rankingRefreshIntervalMinutes < 1,
-      () => settings.rankingRefreshIntervalMinutes = 60);
-  fix(settings.homeRankingSourcePriority.isEmpty,
-      () => settings.homeRankingSourcePriority = defaultHomeRankingSourcePriority);
+  fix(
+    settings.rankingRefreshIntervalMinutes < 1,
+    () => settings.rankingRefreshIntervalMinutes = 60,
+  );
+  fix(
+    settings.homeRankingSourcePriority.isEmpty,
+    () => settings.homeRankingSourcePriority = defaultHomeRankingSourcePriority,
+  );
 
   final normalizedPriority = settings.homeRankingSourcePriorityList.join(',');
-  fix(settings.homeRankingSourcePriority != normalizedPriority,
-      () => settings.homeRankingSourcePriority = normalizedPriority);
+  fix(
+    settings.homeRankingSourcePriority != normalizedPriority,
+    () => settings.homeRankingSourcePriority = normalizedPriority,
+  );
 
   final normalizedDisabled = settings.disabledHomeRankingSourcesSet.join(',');
-  fix(settings.disabledHomeRankingSources != normalizedDisabled,
-      () => settings.disabledHomeRankingSources = normalizedDisabled);
+  fix(
+    settings.disabledHomeRankingSources != normalizedDisabled,
+    () => settings.disabledHomeRankingSources = normalizedDisabled,
+  );
 
-  fix(settings.radioRefreshIntervalMinutes < 1,
-      () => settings.radioRefreshIntervalMinutes = 5);
+  fix(
+    settings.radioRefreshIntervalMinutes < 1,
+    () => settings.radioRefreshIntervalMinutes = 5,
+  );
 
   // 版面欄位：Isar 給舊列的 double 是 NaN、bool 是 false，兩者都不是業務預設。
   // detailPanelExpanded 的 false 無法與「使用者真的收起了」區分，所以只在
@@ -264,16 +287,19 @@ bool repairSettingsInvariants(Settings settings) {
   // 越界的值**夾到邊界**而不是重設成預設值：把面板拖到 300 的使用者應該得到
   // 下限 320，不是被丟回 412。
   final storedPanelWidth = settings.detailPanelWidth;
-  fix(!storedPanelWidth.isFinite,
-      () => settings.detailPanelWidth = AppLayout.detailPanelDefault);
   fix(
-      storedPanelWidth.isFinite &&
-          (storedPanelWidth < AppLayout.detailPanelMin ||
-              storedPanelWidth > AppLayout.detailPanelStoredMax),
-      () => settings.detailPanelWidth = storedPanelWidth.clamp(
-            AppLayout.detailPanelMin,
-            AppLayout.detailPanelStoredMax,
-          ));
+    !storedPanelWidth.isFinite,
+    () => settings.detailPanelWidth = AppLayout.detailPanelDefault,
+  );
+  fix(
+    storedPanelWidth.isFinite &&
+        (storedPanelWidth < AppLayout.detailPanelMin ||
+            storedPanelWidth > AppLayout.detailPanelStoredMax),
+    () => settings.detailPanelWidth = storedPanelWidth.clamp(
+      AppLayout.detailPanelMin,
+      AppLayout.detailPanelStoredMax,
+    ),
+  );
 
   return changed;
 }

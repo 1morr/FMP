@@ -24,9 +24,7 @@ void main() {
 
     group('progress', () {
       test('returns 0 when duration is null', () {
-        const state = PlayerState(
-          position: Duration(seconds: 30),
-        );
+        const state = PlayerState(position: Duration(seconds: 30));
 
         expect(state.progress, 0.0);
       });
@@ -61,9 +59,7 @@ void main() {
 
     group('bufferedProgress', () {
       test('returns 0 when duration is null', () {
-        const state = PlayerState(
-          bufferedPosition: Duration(seconds: 60),
-        );
+        const state = PlayerState(bufferedPosition: Duration(seconds: 60));
 
         expect(state.bufferedProgress, 0.0);
       });

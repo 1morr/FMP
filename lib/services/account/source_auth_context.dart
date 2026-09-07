@@ -9,11 +9,12 @@ import 'youtube_account_service.dart';
 
 typedef SourceSettingsLoader = Future<Settings> Function();
 
-typedef PlaybackUrlResolver = Future<PlaybackUrlResolution> Function(
-  String sourceType,
-  String url,
-  Map<String, String>? authHeaders,
-);
+typedef PlaybackUrlResolver =
+    Future<PlaybackUrlResolution> Function(
+      String sourceType,
+      String url,
+      Map<String, String>? authHeaders,
+    );
 
 abstract interface class SourceAccountAuthLoader {
   Future<Map<String, String>?> load(String sourceType);
@@ -28,9 +29,9 @@ class AccountServiceAuthLoader implements SourceAccountAuthLoader {
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
-  })  : _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService,
-        _neteaseAccountService = neteaseAccountService;
+  }) : _bilibiliAccountService = bilibiliAccountService,
+       _youtubeAccountService = youtubeAccountService,
+       _neteaseAccountService = neteaseAccountService;
 
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
@@ -111,10 +112,7 @@ class PlaybackUrlResolution {
 }
 
 class PlaybackNetworkRequest {
-  const PlaybackNetworkRequest({
-    required this.url,
-    required this.headers,
-  });
+  const PlaybackNetworkRequest({required this.url, required this.headers});
 
   final String url;
   final Map<String, String>? headers;
@@ -126,10 +124,9 @@ class DefaultSourceAuthContext implements SourceAuthContext {
     required SourceAccountAuthLoader accountAuthLoader,
     MediaHandoff? mediaHandoff,
     PlaybackUrlResolver? playbackUrlResolver,
-  })  : _settingsLoader = settingsLoader,
-        _accountAuthLoader = accountAuthLoader,
-        _mediaHandoff =
-            mediaHandoff ?? _createMediaHandoff(playbackUrlResolver);
+  }) : _settingsLoader = settingsLoader,
+       _accountAuthLoader = accountAuthLoader,
+       _mediaHandoff = mediaHandoff ?? _createMediaHandoff(playbackUrlResolver);
 
   factory DefaultSourceAuthContext.fromRepositories({
     required SettingsRepository settingsRepository,

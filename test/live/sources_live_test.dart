@@ -59,8 +59,11 @@ void main() {
     late final AudioStreamResult stream;
     try {
       final result = await source.search('bad apple', pageSize: 5);
-      expect(result.tracks, isNotEmpty,
-          reason: 'bilibili search returned nothing');
+      expect(
+        result.tracks,
+        isNotEmpty,
+        reason: 'bilibili search returned nothing',
+      );
       track = result.tracks.first;
       stream = await source.getAudioStream(
         AudioStreamRequest(sourceId: track.sourceId, cid: track.cid),
@@ -75,10 +78,13 @@ void main() {
     expect(stream.url, startsWith('http'));
 
     // Bilibili's CDN rejects requests without a bilibili referer.
-    final got = await probe(stream.url, headers: {
-      'Referer': 'https://www.bilibili.com',
-      'User-Agent': 'Mozilla/5.0',
-    });
+    final got = await probe(
+      stream.url,
+      headers: {
+        'Referer': 'https://www.bilibili.com',
+        'User-Agent': 'Mozilla/5.0',
+      },
+    );
     expect(got.status, anyOf(200, 206), reason: 'stream URL not fetchable');
     expect(got.bytes, greaterThan(0));
     printOnFailure('bilibili ${track.title} -> ${stream.codec} ${got.type}');
@@ -87,8 +93,11 @@ void main() {
   test('youtube: search resolves to playable audio', () async {
     final source = YouTubeSource();
     final result = await source.search('bad apple', pageSize: 5);
-    expect(result.tracks, isNotEmpty,
-        reason: 'youtube search returned nothing');
+    expect(
+      result.tracks,
+      isNotEmpty,
+      reason: 'youtube search returned nothing',
+    );
 
     final Track track = result.tracks.first;
     final stream = await source.getAudioStream(
@@ -109,8 +118,11 @@ void main() {
     // are mostly free, so this query exercises the anonymous path rather than
     // measuring how much of the catalogue is paywalled.
     final result = await source.search('纯音乐', pageSize: 10);
-    expect(result.tracks, isNotEmpty,
-        reason: 'netease search returned nothing');
+    expect(
+      result.tracks,
+      isNotEmpty,
+      reason: 'netease search returned nothing',
+    );
 
     String? playable;
     final gated = <String>[];

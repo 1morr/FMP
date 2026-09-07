@@ -39,10 +39,7 @@ class SwitchExpansionTile extends StatelessWidget {
           visualDensity: VisualDensity.compact,
           initiallyExpanded: expanded,
           onExpansionChanged: onExpanded,
-          title: Text(
-            title,
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
+          title: Text(title, style: Theme.of(context).textTheme.labelLarge),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -29,8 +29,9 @@ class _DownloadPathListTile extends ConsumerWidget {
       error: (e, _) => ListTile(
         leading: const Icon(Icons.folder_outlined),
         title: Text(t.settings.downloadPath.title),
-        subtitle:
-            Text(t.settings.downloadPath.loadFailed(error: userMessageFor(e))),
+        subtitle: Text(
+          t.settings.downloadPath.loadFailed(error: userMessageFor(e)),
+        ),
       ),
       data: (downloadPath) => ListTile(
         leading: const Icon(Icons.folder_outlined),
@@ -86,11 +87,7 @@ class _DownloadPathListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        icon: Icon(
-          Icons.folder_outlined,
-          color: colorScheme.primary,
-          size: 32,
-        ),
+        icon: Icon(Icons.folder_outlined, color: colorScheme.primary, size: 32),
         title: Text(t.settings.downloadPath.pathInfoTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -125,10 +122,9 @@ class _DownloadPathListTile extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       t.settings.downloadPath.pathChangeWarning,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -223,7 +219,10 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
   }
 
   void _showImageOptionDialog(
-      BuildContext context, WidgetRef ref, DownloadImageOption current) {
+    BuildContext context,
+    WidgetRef ref,
+    DownloadImageOption current,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -253,8 +252,9 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
               ),
               RadioListTile<DownloadImageOption>(
                 title: Text(t.settings.downloadImage.coverAndAvatar),
-                subtitle:
-                    Text(t.settings.downloadImage.coverAndAvatarDescription),
+                subtitle: Text(
+                  t.settings.downloadImage.coverAndAvatarDescription,
+                ),
                 value: DownloadImageOption.coverAndAvatar,
               ),
             ],

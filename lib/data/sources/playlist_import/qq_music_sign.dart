@@ -19,7 +19,7 @@ class QQMusicSign {
     204,
     79,
     104,
-    6
+    6,
   ];
 
   static const _t =

@@ -14,10 +14,7 @@ class AudioStreamConfig {
 
   const AudioStreamConfig({
     this.qualityLevel = AudioQualityLevel.high,
-    this.formatPriority = const [
-      AudioFormat.opus,
-      AudioFormat.aac,
-    ],
+    this.formatPriority = const [AudioFormat.opus, AudioFormat.aac],
     this.streamPriority = const [
       StreamType.audioOnly,
       StreamType.muxed,
@@ -41,8 +38,7 @@ class AudioStreamConfig {
   }
 
   /// 从 Settings 构建指定音源的配置
-  factory AudioStreamConfig.fromSettings(
-      Settings settings, String sourceType) {
+  factory AudioStreamConfig.fromSettings(Settings settings, String sourceType) {
     return AudioStreamConfig(
       qualityLevel: settings.audioQualityLevel,
       formatPriority: settings.audioFormatPriorityList,
@@ -165,12 +161,12 @@ class SearchResult {
 
   /// 空结果
   factory SearchResult.empty() => const SearchResult(
-        tracks: [],
-        totalCount: 0,
-        page: 1,
-        pageSize: 0,
-        hasMore: false,
-      );
+    tracks: [],
+    totalCount: 0,
+    page: 1,
+    pageSize: 0,
+    hasMore: false,
+  );
 }
 
 /// 播放列表解析结果

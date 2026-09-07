@@ -67,13 +67,15 @@ class DownloadService with Logging {
 
   /// 正在进行的下载任务（保存 Isolate 和 ReceivePort 以支持取消）
   final Map<
-      int,
-      ({
-        Isolate isolate,
-        ReceivePort receivePort,
-        Completer<SendPort> cancelPortReady,
-        Completer<void> stopped,
-      })> _activeDownloadIsolates = {};
+    int,
+    ({
+      Isolate isolate,
+      ReceivePort receivePort,
+      Completer<SendPort> cancelPortReady,
+      Completer<void> stopped,
+    })
+  >
+  _activeDownloadIsolates = {};
 
   /// 測試注入的「活躍任務」標記。
   ///
@@ -152,17 +154,18 @@ class DownloadService with Logging {
     StreamResolutionService? streamResolutionService,
     DownloadSourceAuthContext? sourceAuthContext,
   }) : this._(
-          downloadRepository: downloadRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-          sourceManager: sourceManager,
-          streamResolutionService: streamResolutionService,
-          sourceAuthContext: sourceAuthContext ??
-              DefaultSourceAuthContext.fromRepositories(
-                settingsRepository: settingsRepository,
-                accountAuthLoader: AccountServiceAuthLoader(),
-              ),
-        );
+         downloadRepository: downloadRepository,
+         trackRepository: trackRepository,
+         settingsRepository: settingsRepository,
+         sourceManager: sourceManager,
+         streamResolutionService: streamResolutionService,
+         sourceAuthContext:
+             sourceAuthContext ??
+             DefaultSourceAuthContext.fromRepositories(
+               settingsRepository: settingsRepository,
+               accountAuthLoader: AccountServiceAuthLoader(),
+             ),
+       );
 
   DownloadService._({
     required DownloadRepository downloadRepository,
@@ -171,26 +174,27 @@ class DownloadService with Logging {
     required SourceManager sourceManager,
     required StreamResolutionService? streamResolutionService,
     required DownloadSourceAuthContext sourceAuthContext,
-  })  : _downloadRepository = downloadRepository,
-        _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository,
-        _sourceManager = sourceManager,
-        _sourceAuthContext = sourceAuthContext,
-        _ownsStreamResolutionService = streamResolutionService == null,
-        _streamResolutionService = streamResolutionService ??
-            DefaultStreamResolutionService(
-              trackRepository: trackRepository,
-              settingsRepository: settingsRepository,
-              sourceManager: sourceManager,
-              sourceAuthContext: sourceAuthContext,
-            ),
-        _dio = Dio(BaseOptions(
-          connectTimeout: AppConstants.downloadConnectTimeout,
-          receiveTimeout: const Duration(minutes: 30),
-          headers: {
-            'User-Agent': SourceHttpPolicy.mediaUserAgent,
-          },
-        ));
+  }) : _downloadRepository = downloadRepository,
+       _trackRepository = trackRepository,
+       _settingsRepository = settingsRepository,
+       _sourceManager = sourceManager,
+       _sourceAuthContext = sourceAuthContext,
+       _ownsStreamResolutionService = streamResolutionService == null,
+       _streamResolutionService =
+           streamResolutionService ??
+           DefaultStreamResolutionService(
+             trackRepository: trackRepository,
+             settingsRepository: settingsRepository,
+             sourceManager: sourceManager,
+             sourceAuthContext: sourceAuthContext,
+           ),
+       _dio = Dio(
+         BaseOptions(
+           connectTimeout: AppConstants.downloadConnectTimeout,
+           receiveTimeout: const Duration(minutes: 30),
+           headers: {'User-Agent': SourceHttpPolicy.mediaUserAgent},
+         ),
+       );
 
   /// 初始化服务
   Future<void> initialize() async {
@@ -199,8 +203,8 @@ class DownloadService with Logging {
     logDebug('Initializing DownloadService');
 
     // 清除已完成和失败的任务（A2: 启动时清理）
-    final clearedCount =
-        await _downloadRepository.clearCompletedAndErrorTasks();
+    final clearedCount = await _downloadRepository
+        .clearCompletedAndErrorTasks();
     if (_isDisposed) return;
     if (clearedCount > 0) {
       logDebug('Cleared $clearedCount completed/error tasks at startup');
@@ -232,8 +236,9 @@ class DownloadService with Logging {
   /// keepBasenames 中。best-effort，例外僅 log 不中斷啟動。
   Future<void> _cleanupOrphanedDownloadingFiles() async {
     try {
-      final basePath =
-          await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      final basePath = await DownloadPathUtils.getDefaultBaseDir(
+        _settingsRepository,
+      );
       final baseDir = Directory(basePath);
       if (!await baseDir.exists()) return;
 
@@ -245,8 +250,10 @@ class DownloadService with Logging {
       };
 
       var deleted = 0;
-      await for (final entity
-          in baseDir.list(recursive: true, followLinks: false)) {
+      await for (final entity in baseDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File) continue;
         final path = entity.path;
         if (!path.endsWith('.downloading')) continue;
@@ -256,7 +263,8 @@ class DownloadService with Logging {
       }
       if (deleted > 0) {
         logDebug(
-            'Cleaned up $deleted orphaned .downloading file(s) at startup');
+          'Cleaned up $deleted orphaned .downloading file(s) at startup',
+        );
       }
     } catch (e) {
       logWarning('Failed to scan orphaned .downloading files at startup: $e');
@@ -311,8 +319,9 @@ class DownloadService with Logging {
     if (_isDisposed || _pendingProgressUpdates.isEmpty) return;
 
     // 复制并清空待发送列表
-    final updates =
-        Map<int, (int, double, int, int)>.from(_pendingProgressUpdates);
+    final updates = Map<int, (int, double, int, int)>.from(
+      _pendingProgressUpdates,
+    );
     _pendingProgressUpdates.clear();
 
     // 批量发送 UI 通知（进度只保存在内存中，不写数据库）
@@ -322,13 +331,15 @@ class DownloadService with Logging {
 
       // 只发送 UI 通知，不写数据库
       // 数据库只在下载完成/暂停/失败时更新
-      _progressController.add(DownloadProgressEvent(
-        taskId: taskId,
-        trackId: trackId,
-        progress: progress,
-        downloadedBytes: downloadedBytes,
-        totalBytes: totalBytes,
-      ));
+      _progressController.add(
+        DownloadProgressEvent(
+          taskId: taskId,
+          trackId: trackId,
+          progress: progress,
+          downloadedBytes: downloadedBytes,
+          totalBytes: totalBytes,
+        ),
+      );
     }
   }
 
@@ -347,13 +358,22 @@ class DownloadService with Logging {
 
   /// 记录进度更新（仅更新内存，不触发任何 IO 或跨线程通信）
   /// 由 Dio 的 onReceiveProgress 回调调用（在主 Isolate 事件循环中）
-  void _recordProgressUpdate(int taskId, int trackId, double progress,
-      int downloadedBytes, int totalBytes) {
+  void _recordProgressUpdate(
+    int taskId,
+    int trackId,
+    double progress,
+    int downloadedBytes,
+    int totalBytes,
+  ) {
     if (_isDisposed) return;
 
     // 只更新内存中的 Map，线程安全（Dart 单 Isolate 内所有代码在同一事件循环中执行，无并发竞争）
-    _pendingProgressUpdates[taskId] =
-        (trackId, progress, downloadedBytes, totalBytes);
+    _pendingProgressUpdates[taskId] = (
+      trackId,
+      progress,
+      downloadedBytes,
+      totalBytes,
+    );
     if (_pendingProgressUpdates.length <= _pendingProgressUpdateLimit) {
       return;
     }
@@ -408,15 +428,18 @@ class DownloadService with Logging {
       if (availableSlots <= 0) return;
 
       // 获取待下载的任务
-      final pendingTasks =
-          await _downloadRepository.getTasksByStatus(DownloadStatus.pending);
+      final pendingTasks = await _downloadRepository.getTasksByStatus(
+        DownloadStatus.pending,
+      );
 
       // 启动下载
       for (int i = 0; i < availableSlots && i < pendingTasks.length; i++) {
         final task = pendingTasks[i];
         // 先更新状态为下载中（await 确保 DB 写入完成，UI 能立即看到变化）
         await _downloadRepository.updateTaskStatus(
-            task.id, DownloadStatus.downloading);
+          task.id,
+          DownloadStatus.downloading,
+        );
         final currentTask = await _downloadRepository.getTaskById(task.id);
         if (currentTask == null || _discardedTaskIds.contains(task.id)) {
           continue;
@@ -473,7 +496,8 @@ class DownloadService with Logging {
     final playlistId = fromPlaylist.id;
     final playlistName = fromPlaylist.name;
     logDebug(
-        'Adding ${tracks.length} download task(s) for playlist: $playlistName');
+      'Adding ${tracks.length} download task(s) for playlist: $playlistName',
+    );
 
     var alreadyDownloadedCount = 0;
     var taskExistsCount = 0;
@@ -481,8 +505,10 @@ class DownloadService with Logging {
     // 1. 过滤掉已有下载路径的 track
     final tracksNeedDownload = <Track>[];
     for (final track in tracks) {
-      if (track.isDownloadedForPlaylist(playlistId,
-          playlistName: playlistName)) {
+      if (track.isDownloadedForPlaylist(
+        playlistId,
+        playlistName: playlistName,
+      )) {
         alreadyDownloadedCount++;
         logDebug('Track already downloaded for playlist: ${track.title}');
       } else {
@@ -497,8 +523,9 @@ class DownloadService with Logging {
     }
 
     // 2. 批量计算下载路径
-    final baseDir =
-        await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(
+      _settingsRepository,
+    );
     final trackPaths = <({Track track, String downloadPath})>[];
     for (final track in tracksNeedDownload) {
       trackPaths.add((
@@ -531,10 +558,12 @@ class DownloadService with Logging {
         taskExistsCount++;
         if (existingTask != null) {
           logDebug(
-              'Download task already exists for path: $downloadPath (status: ${existingTask.status})');
+            'Download task already exists for path: $downloadPath (status: ${existingTask.status})',
+          );
         } else {
           logDebug(
-              'Download task already queued in batch for path: $downloadPath');
+            'Download task already queued in batch for path: $downloadPath',
+          );
         }
         continue;
       }
@@ -542,14 +571,16 @@ class DownloadService with Logging {
       acceptedSavePaths.add(downloadPath);
 
       // 创建新任务
-      newTasks.add(DownloadTask()
-        ..trackId = track.id
-        ..playlistName = playlistName
-        ..playlistId = playlistId
-        ..savePath = downloadPath
-        ..status = DownloadStatus.pending
-        ..priority = basePriority + newTasks.length
-        ..createdAt = DateTime.now());
+      newTasks.add(
+        DownloadTask()
+          ..trackId = track.id
+          ..playlistName = playlistName
+          ..playlistId = playlistId
+          ..savePath = downloadPath
+          ..status = DownloadStatus.pending
+          ..priority = basePriority + newTasks.length
+          ..createdAt = DateTime.now(),
+      );
     }
 
     // 5. 批量保存新任务
@@ -562,7 +593,8 @@ class DownloadService with Logging {
     }
 
     logDebug(
-        'Added ${newTasks.length} new task(s), skipped $alreadyDownloadedCount downloaded and $taskExistsCount existing task(s) for playlist: $playlistName');
+      'Added ${newTasks.length} new task(s), skipped $alreadyDownloadedCount downloaded and $taskExistsCount existing task(s) for playlist: $playlistName',
+    );
     return DownloadBatchAddSummary(
       createdCount: newTasks.length,
       alreadyDownloadedCount: alreadyDownloadedCount,
@@ -729,7 +761,8 @@ class DownloadService with Logging {
     try {
       final result = await _downloadRepository.clearCompletedAndErrorTasks();
       logDebug(
-          'Clearing completed and error tasks - done, cleared $result tasks');
+        'Clearing completed and error tasks - done, cleared $result tasks',
+      );
       return result;
     } catch (e, stackTrace) {
       logDebug('Clearing completed and error tasks - ERROR: $e');
@@ -801,7 +834,8 @@ class DownloadService with Logging {
         receivePort.close();
         isolate.kill();
         logDebug(
-            'Download stopped before isolate registration for task: ${task.id}');
+          'Download stopped before isolate registration for task: ${task.id}',
+        );
         return;
       }
 
@@ -815,8 +849,11 @@ class DownloadService with Logging {
       );
 
       // 监听来自 Isolate 的消息（ready/progress/completed/error/cancelled）
-      final outcome =
-          await _drainIsolateMessages(receivePort, task, cancelPortReady);
+      final outcome = await _drainIsolateMessages(
+        receivePort,
+        task,
+        cancelPortReady,
+      );
 
       // 清理 Isolate 引用（不从 map 移除，由 finally 统一处理）
       isolate.kill();
@@ -842,12 +879,14 @@ class DownloadService with Logging {
       logDebug('Download completed for track: ${track.title}');
 
       // 发送下载完成事件，通知 UI 更新缓存
-      _completionController.add(DownloadCompletionEvent(
-        taskId: task.id,
-        trackId: task.trackId,
-        playlistId: task.playlistId,
-        savePath: savePath,
-      ));
+      _completionController.add(
+        DownloadCompletionEvent(
+          taskId: task.id,
+          trackId: task.trackId,
+          playlistId: task.playlistId,
+          savePath: savePath,
+        ),
+      );
     } catch (e, stack) {
       if (_discardedTaskIds.contains(task.id)) {
         await _deleteTaskFiles(task);
@@ -896,7 +935,12 @@ class DownloadService with Logging {
             final received = data['received'] as int;
             final total = data['total'] as int;
             _recordProgressUpdate(
-                task.id, task.trackId, progress, received, total);
+              task.id,
+              task.trackId,
+              progress,
+              received,
+              total,
+            );
             break;
           case _IsolateMessageType.completed:
             receivePort.close();
@@ -921,8 +965,9 @@ class DownloadService with Logging {
     try {
       final detailSource = _sourceManager.trackDetailSource(track.sourceType);
       if (detailSource != null && track.sourceType != SourceIds.netease) {
-        final detailAuthHeaders =
-            await _sourceAuthContext.authForPlay(track.sourceType);
+        final detailAuthHeaders = await _sourceAuthContext.authForPlay(
+          track.sourceType,
+        );
         return await detailSource.getVideoDetail(
           track.sourceId,
           authHeaders: detailAuthHeaders,
@@ -985,7 +1030,7 @@ class DownloadService with Logging {
   /// 並把 URL 資訊寫回 track。任一 abort checkpoint 取消時回傳 null（caller
   /// 隨即 return，由 _startDownload 的 finally 收尾）。
   Future<({Map<String, String>? authHeaders, String audioUrl})?>
-      _resolveDownloadStream(DownloadTask task, Track track) async {
+  _resolveDownloadStream(DownloadTask task, Track track) async {
     final resolution = await _streamResolutionService.resolvePrimary(
       track,
       purpose: StreamResolutionPurpose.download,
@@ -1006,8 +1051,10 @@ class DownloadService with Logging {
     track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
     track.updatedAt = resolvedTrack.updatedAt;
 
-    logDebug('Got audio stream for download: ${track.title}, '
-        'bitrate=${streamResult.bitrate}');
+    logDebug(
+      'Got audio stream for download: ${track.title}, '
+      'bitrate=${streamResult.bitrate}',
+    );
     if (_shouldAbortBeforeRegistration(task.id)) return null;
 
     return (authHeaders: resolution.authHeaders, audioUrl: streamResult.url);
@@ -1016,7 +1063,7 @@ class DownloadService with Logging {
   /// 決定儲存路徑、建立目錄、處理斷點續傳，並把 tempPath/status 寫回 task。
   /// 任務取消時回傳 null。
   Future<({String savePath, String tempPath, int resumePosition})?>
-      _prepareDownloadPaths(DownloadTask task, Track track) async {
+  _prepareDownloadPaths(DownloadTask task, Track track) async {
     final savePath = await _getDownloadPath(track, task);
     if (_shouldAbortBeforeRegistration(task.id)) return null;
     final tempPath = '$savePath.downloading';
@@ -1054,7 +1101,7 @@ class DownloadService with Logging {
     return (
       savePath: savePath,
       tempPath: tempPath,
-      resumePosition: resumePosition
+      resumePosition: resumePosition,
     );
   }
 
@@ -1162,7 +1209,8 @@ class DownloadService with Logging {
           totalBytes,
         );
         logDebug(
-            'Saved buffered resume progress: $downloadedBytes bytes for task ${task.id}');
+          'Saved buffered resume progress: $downloadedBytes bytes for task ${task.id}',
+        );
         return;
       }
 
@@ -1180,7 +1228,8 @@ class DownloadService with Logging {
           task.totalBytes,
         );
         logDebug(
-            'Saved resume progress: $downloadedBytes bytes for task ${task.id}');
+          'Saved resume progress: $downloadedBytes bytes for task ${task.id}',
+        );
       }
     } catch (e) {
       logDebug('Failed to save resume progress: $e');
@@ -1196,8 +1245,9 @@ class DownloadService with Logging {
   }
 
   Future<void> _deleteTaskFiles(DownloadTask task) async {
-    final baseDir =
-        await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(
+      _settingsRepository,
+    );
     final paths = <String>{
       if (task.tempFilePath != null) task.tempFilePath!,
       if (task.savePath != null) task.savePath!,
@@ -1220,7 +1270,8 @@ class DownloadService with Logging {
         await _deleteDirectoryIfEmpty(directoryPath, task.id);
       } else {
         logWarning(
-            'Skipped deleting task directory outside download base: $directoryPath');
+          'Skipped deleting task directory outside download base: $directoryPath',
+        );
       }
     }
   }
@@ -1278,27 +1329,33 @@ class DownloadService with Logging {
 
   /// 处理下载失败：保存续传进度、更新状态、发送失败事件
   Future<void> _handleDownloadFailure(
-      DownloadTask task, String trackTitle, String errorMessage) async {
+    DownloadTask task,
+    String trackTitle,
+    String errorMessage,
+  ) async {
     await _saveResumeProgress(task);
     await _downloadRepository.updateTaskStatus(
       task.id,
       DownloadStatus.failed,
       errorMessage: errorMessage,
     );
-    _failureController.add(DownloadFailureEvent(
-      taskId: task.id,
-      trackId: task.trackId,
-      trackTitle: trackTitle,
-      errorMessage: errorMessage,
-    ));
+    _failureController.add(
+      DownloadFailureEvent(
+        taskId: task.id,
+        trackId: task.trackId,
+        trackTitle: trackTitle,
+        errorMessage: errorMessage,
+      ),
+    );
   }
 
   /// 获取下载保存路径
   ///
   /// 运行时计算路径（不再依赖预计算路径）
   Future<String> _getDownloadPath(Track track, DownloadTask task) async {
-    final baseDir =
-        await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(
+      _settingsRepository,
+    );
     return DownloadPathUtils.computeDownloadPath(
       baseDir: baseDir,
       playlistName: task.playlistName,
@@ -1312,10 +1369,7 @@ class DownloadService with Logging {
   ) async {
     task.savePath = null;
     await _downloadRepository.saveTask(task);
-    throw FileSystemException(
-      'Download destination already exists',
-      savePath,
-    );
+    throw FileSystemException('Download destination already exists', savePath);
   }
 
   Future<void> _promoteTempFileWithoutReplacing(
@@ -1385,12 +1439,14 @@ class DownloadService with Logging {
         'ownerId': videoDetail.ownerId,
         'channelId': videoDetail.channelId,
         'hotComments': videoDetail.hotComments
-            .map((c) => {
-                  'content': c.content,
-                  'memberName': c.memberName,
-                  'memberAvatar': c.memberAvatar,
-                  'likeCount': c.likeCount,
-                })
+            .map(
+              (c) => {
+                'content': c.content,
+                'memberName': c.memberName,
+                'memberAvatar': c.memberAvatar,
+                'likeCount': c.likeCount,
+              },
+            )
             .toList(),
       });
     }
@@ -1416,11 +1472,7 @@ class DownloadService with Logging {
           track.thumbnailUrl!,
           displaySize: ImageTargetSizes.high,
         );
-        await _downloadImageCandidates(
-          coverUrls,
-          coverPath,
-          imageHeaders,
-        );
+        await _downloadImageCandidates(coverUrls, coverPath, imageHeaders);
       } catch (e) {
         logDebug('Failed to download cover: $e');
       }
@@ -1436,11 +1488,7 @@ class DownloadService with Logging {
           videoDetail.ownerFace,
           displaySize: ImageTargetSizes.low,
         );
-        await _downloadImageCandidates(
-          avatarUrls,
-          avatarPath,
-          imageHeaders,
-        );
+        await _downloadImageCandidates(avatarUrls, avatarPath, imageHeaders);
       } catch (e) {
         logDebug('Failed to download avatar: $e');
       }
@@ -1472,8 +1520,9 @@ class DownloadService with Logging {
 
   /// 获取下载目录信息
   Future<DownloadDirInfo> getDownloadDirInfo() async {
-    final downloadDir =
-        await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+    final downloadDir = await DownloadPathUtils.getDefaultBaseDir(
+      _settingsRepository,
+    );
 
     final dir = Directory(downloadDir);
     int totalSize = 0;
@@ -1520,7 +1569,12 @@ class DownloadService with Logging {
     int totalBytes,
   ) {
     _recordProgressUpdate(
-        taskId, trackId, progress, downloadedBytes, totalBytes);
+      taskId,
+      trackId,
+      progress,
+      downloadedBytes,
+      totalBytes,
+    );
   }
 
   @visibleForTesting
@@ -1652,12 +1706,7 @@ class _IsolateDownloadParams {
 }
 
 /// Isolate 下载消息类型
-enum _IsolateMessageType {
-  ready,
-  progress,
-  completed,
-  error,
-}
+enum _IsolateMessageType { ready, progress, completed, error }
 
 /// Isolate 下载消息
 class _IsolateMessage {
@@ -1677,8 +1726,9 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
   cancelSubscription = cancelPort.listen((_) {
     isCancelled = true;
   });
-  sendPort
-      .send(_IsolateMessage(_IsolateMessageType.ready, cancelPort.sendPort));
+  sendPort.send(
+    _IsolateMessage(_IsolateMessageType.ready, cancelPort.sendPort),
+  );
 
   var cancelPortClosed = false;
   Future<void> closeCancelPort() async {
@@ -1699,13 +1749,15 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     // 起点是 FMP 自己解析出来的地址，允许它本来就是本机（本地测试服务器、
     // 自建代理）。要挡的是从公网主机跳进内网 —— 那是 Location 头能做到、
     // 而调用方控制不了的一步。
-    final startedOnPrivateHost =
-        SourceUrlPolicy.isLocalOrPrivateHost(requestUri.host);
+    final startedOnPrivateHost = SourceUrlPolicy.isLocalOrPrivateHost(
+      requestUri.host,
+    );
     late HttpClientResponse response;
     for (var redirectCount = 0; redirectCount <= 5; redirectCount++) {
       if (requestUri.scheme != 'http' && requestUri.scheme != 'https') {
         throw HttpException(
-            'Unsupported redirect scheme: ${requestUri.scheme}');
+          'Unsupported redirect scheme: ${requestUri.scheme}',
+        );
       }
       // 每一跳都带着音源的 auth header。只检查 scheme 不够：一个公网 CDN
       // 把我们重定向到 127.0.0.1 或 169.254.169.254，凭据就进了内网 /
@@ -1713,7 +1765,8 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       if (!startedOnPrivateHost &&
           SourceUrlPolicy.isLocalOrPrivateHost(requestUri.host)) {
         throw HttpException(
-            'Refusing redirect to local or private host: ${requestUri.host}');
+          'Refusing redirect to local or private host: ${requestUri.host}',
+        );
       }
 
       final request = await client.getUrl(requestUri);
@@ -1742,15 +1795,20 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       if (location == null || location.isEmpty) {
         await closeCancelPort();
         client.close(force: true);
-        sendPort.send(_IsolateMessage(
-            _IsolateMessageType.error, 'Redirect without Location'));
+        sendPort.send(
+          _IsolateMessage(
+            _IsolateMessageType.error,
+            'Redirect without Location',
+          ),
+        );
         return;
       }
       if (redirectCount == 5) {
         await closeCancelPort();
         client.close(force: true);
         sendPort.send(
-            _IsolateMessage(_IsolateMessageType.error, 'Too many redirects'));
+          _IsolateMessage(_IsolateMessageType.error, 'Too many redirects'),
+        );
         return;
       }
       requestUri = requestUri.resolve(location);
@@ -1759,8 +1817,12 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     if (response.statusCode >= 400) {
       await closeCancelPort();
       client.close(force: true);
-      sendPort.send(_IsolateMessage(
-          _IsolateMessageType.error, 'HTTP ${response.statusCode}'));
+      sendPort.send(
+        _IsolateMessage(
+          _IsolateMessageType.error,
+          'HTTP ${response.statusCode}',
+        ),
+      );
       return;
     }
 
@@ -1770,15 +1832,17 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
 
     final file = File(params.savePath);
     sink = file.openWrite(
-        mode: resumePosition > 0 ? FileMode.append : FileMode.write);
+      mode: resumePosition > 0 ? FileMode.append : FileMode.write,
+    );
 
     final contentLength = response.contentLength;
     final totalBytes = contentLength > 0 ? contentLength + resumePosition : -1;
     int receivedBytes = resumePosition;
     double lastProgress = 0;
 
-    await for (final chunk
-        in response.timeout(AppConstants.networkReceiveTimeout)) {
+    await for (final chunk in response.timeout(
+      AppConstants.networkReceiveTimeout,
+    )) {
       if (isCancelled) {
         await sink.close();
         client.close(force: true);
@@ -1796,11 +1860,13 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
                 AppConstants.downloadProgressUpdateThreshold ||
             progress >= 1.0) {
           lastProgress = progress;
-          sendPort.send(_IsolateMessage(_IsolateMessageType.progress, {
-            'progress': progress,
-            'received': receivedBytes,
-            'total': totalBytes,
-          }));
+          sendPort.send(
+            _IsolateMessage(_IsolateMessageType.progress, {
+              'progress': progress,
+              'received': receivedBytes,
+              'total': totalBytes,
+            }),
+          );
         }
       }
     }
@@ -1814,42 +1880,52 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     await sink?.close();
     client?.close(force: true);
     await closeCancelPort();
-    sendPort.send(_IsolateMessage(
-      _IsolateMessageType.error,
-      jsonEncode({'type': 'network', 'message': e.message ?? 'Timeout'}),
-    ));
+    sendPort.send(
+      _IsolateMessage(
+        _IsolateMessageType.error,
+        jsonEncode({'type': 'network', 'message': e.message ?? 'Timeout'}),
+      ),
+    );
   } on SocketException catch (e) {
     await sink?.close();
     client?.close(force: true);
     await closeCancelPort();
-    sendPort.send(_IsolateMessage(
-      _IsolateMessageType.error,
-      jsonEncode({'type': 'network', 'message': e.message}),
-    ));
+    sendPort.send(
+      _IsolateMessage(
+        _IsolateMessageType.error,
+        jsonEncode({'type': 'network', 'message': e.message}),
+      ),
+    );
   } on HttpException catch (e) {
     await sink?.close();
     client?.close(force: true);
     await closeCancelPort();
-    sendPort.send(_IsolateMessage(
-      _IsolateMessageType.error,
-      jsonEncode({'type': 'http', 'message': e.message}),
-    ));
+    sendPort.send(
+      _IsolateMessage(
+        _IsolateMessageType.error,
+        jsonEncode({'type': 'http', 'message': e.message}),
+      ),
+    );
   } on FileSystemException catch (e) {
     await sink?.close();
     client?.close(force: true);
     await closeCancelPort();
-    sendPort.send(_IsolateMessage(
-      _IsolateMessageType.error,
-      jsonEncode({'type': 'filesystem', 'message': e.message}),
-    ));
+    sendPort.send(
+      _IsolateMessage(
+        _IsolateMessageType.error,
+        jsonEncode({'type': 'filesystem', 'message': e.message}),
+      ),
+    );
   } catch (e) {
     await sink?.close();
     client?.close(force: true);
     await closeCancelPort();
-    sendPort.send(_IsolateMessage(
-      _IsolateMessageType.error,
-      jsonEncode({'type': 'unknown', 'message': e.toString()}),
-    ));
+    sendPort.send(
+      _IsolateMessage(
+        _IsolateMessageType.error,
+        jsonEncode({'type': 'unknown', 'message': e.toString()}),
+      ),
+    );
   }
 }
 

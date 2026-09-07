@@ -30,8 +30,9 @@ class LyricsWindowStyleNotifier extends Notifier<LyricsWindowStyle> {
   }
 
   Future<void> resetStyle() async {
-    final updated =
-        await _settingsRepository.update(LyricsWindowStyle.resetSettings);
+    final updated = await _settingsRepository.update(
+      LyricsWindowStyle.resetSettings,
+    );
     _settings = updated;
     if (!ref.mounted) return;
     state = LyricsWindowStyle.fromSettings(updated);
@@ -40,4 +41,5 @@ class LyricsWindowStyleNotifier extends Notifier<LyricsWindowStyle> {
 
 final lyricsWindowStyleProvider =
     NotifierProvider<LyricsWindowStyleNotifier, LyricsWindowStyle>(
-        LyricsWindowStyleNotifier.new);
+      LyricsWindowStyleNotifier.new,
+    );

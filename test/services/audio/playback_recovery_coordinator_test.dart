@@ -46,27 +46,29 @@ void main() {
       expect(timerFactory.timers, hasLength(1));
     });
 
-    test('scheduled retry uses the mode captured when retry was scheduled',
-        () async {
-      final track = _track('retry-mix-mode');
-      executor.nextResult = PlaybackSessionResult.completed(
-        requestId: 12,
-        track: track,
-        attemptedUrl: 'https://example.com/retry-mix-mode.m4a',
-        streamResult: null,
-      );
+    test(
+      'scheduled retry uses the mode captured when retry was scheduled',
+      () async {
+        final track = _track('retry-mix-mode');
+        executor.nextResult = PlaybackSessionResult.completed(
+          requestId: 12,
+          track: track,
+          attemptedUrl: 'https://example.com/retry-mix-mode.m4a',
+          streamResult: null,
+        );
 
-      coordinator.scheduleRetry(
-        track: track,
-        position: const Duration(seconds: 15),
-        mode: PlayMode.mix,
-      );
+        coordinator.scheduleRetry(
+          track: track,
+          position: const Duration(seconds: 15),
+          mode: PlayMode.mix,
+        );
 
-      timerFactory.timers.last.fire();
-      await pumpEventQueue();
+        timerFactory.timers.last.fire();
+        await pumpEventQueue();
 
-      expect(executor.calls.single.mode, PlayMode.mix);
-    });
+        expect(executor.calls.single.mode, PlayMode.mix);
+      },
+    );
 
     test('duplicate backend network error during same wait is suppressed', () {
       final track = _track('duplicate-error');
@@ -87,27 +89,29 @@ void main() {
       expect(timerFactory.timers, hasLength(1));
     });
 
-    test('backend network error during retry handoff schedules fresh retry',
-        () {
-      final track = _track('handoff-error');
-      coordinator.scheduleRetry(
-        track: track,
-        position: Duration.zero,
-        mode: PlayMode.queue,
-      );
+    test(
+      'backend network error during retry handoff schedules fresh retry',
+      () {
+        final track = _track('handoff-error');
+        coordinator.scheduleRetry(
+          track: track,
+          position: Duration.zero,
+          mode: PlayMode.queue,
+        );
 
-      final event = coordinator.onBackendNetworkError(
-        track: track,
-        position: const Duration(seconds: 7),
-        isActiveRetryHandoff: true,
-        mode: PlayMode.queue,
-      );
+        final event = coordinator.onBackendNetworkError(
+          track: track,
+          position: const Duration(seconds: 7),
+          isActiveRetryHandoff: true,
+          mode: PlayMode.queue,
+        );
 
-      expect(event.kind, PlaybackRecoveryEventKind.retryScheduled);
-      expect(event.state.retryAttempt, 0);
-      expect(coordinator.recoveryPosition, const Duration(seconds: 7));
-      expect(timerFactory.timers, hasLength(2));
-    });
+        expect(event.kind, PlaybackRecoveryEventKind.retryScheduled);
+        expect(event.state.retryAttempt, 0);
+        expect(coordinator.recoveryPosition, const Duration(seconds: 7));
+        expect(timerFactory.timers, hasLength(2));
+      },
+    );
 
     test('manual retry resets attempt and restores saved position', () async {
       final track = _track('manual-retry');
@@ -168,40 +172,44 @@ void main() {
       expect(events.single.state.isRetrying, isTrue);
       expect(events.single.state.retryAttempt, 1);
       expect(events.single.state.nextRetryAt, isNull);
-      pendingResult.complete(PlaybackSessionResult.completed(
-        requestId: 31,
-        track: track,
-        attemptedUrl: 'https://example.com/retry-started.m4a',
-        streamResult: null,
-      ));
+      pendingResult.complete(
+        PlaybackSessionResult.completed(
+          requestId: 31,
+          track: track,
+          attemptedUrl: 'https://example.com/retry-started.m4a',
+          streamResult: null,
+        ),
+      );
 
       final event = await retry;
 
       expect(event.kind, PlaybackRecoveryEventKind.retrySucceeded);
     });
 
-    test('network recovered ignores stale track after generation changes',
-        () async {
-      final oldTrack = _track('old-track');
-      coordinator.scheduleRetry(
-        track: oldTrack,
-        position: const Duration(seconds: 12),
-        mode: PlayMode.queue,
-      );
-      final recovery = coordinator.onNetworkRecovered(
-        mode: PlayMode.queue,
-        stabilizationDelay: const Duration(milliseconds: 500),
-      );
+    test(
+      'network recovered ignores stale track after generation changes',
+      () async {
+        final oldTrack = _track('old-track');
+        coordinator.scheduleRetry(
+          track: oldTrack,
+          position: const Duration(seconds: 12),
+          mode: PlayMode.queue,
+        );
+        final recovery = coordinator.onNetworkRecovered(
+          mode: PlayMode.queue,
+          stabilizationDelay: const Duration(milliseconds: 500),
+        );
 
-      // 世代前進的唯一入口就是 `reset()`。`clearForNewPlayback` 是它的逐字
-      // 複本，忽略自己的 track 參數，而且 production 從來沒有呼叫過它。
-      coordinator.reset();
-      timerFactory.completeDelay(const Duration(milliseconds: 500));
-      final event = await recovery;
+        // 世代前進的唯一入口就是 `reset()`。`clearForNewPlayback` 是它的逐字
+        // 複本，忽略自己的 track 參數，而且 production 從來沒有呼叫過它。
+        coordinator.reset();
+        timerFactory.completeDelay(const Duration(milliseconds: 500));
+        final event = await recovery;
 
-      expect(event.kind, PlaybackRecoveryEventKind.staleEventIgnored);
-      expect(executor.calls, isEmpty);
-    });
+        expect(event.kind, PlaybackRecoveryEventKind.staleEventIgnored);
+        expect(executor.calls, isEmpty);
+      },
+    );
 
     test('premature completion schedules current-track retry', () {
       final track = _track('premature-current');
@@ -238,9 +246,7 @@ void main() {
     });
 
     test('network recovered can use default stabilization delay', () async {
-      final event = await coordinator.onNetworkRecovered(
-        mode: PlayMode.queue,
-      );
+      final event = await coordinator.onNetworkRecovered(mode: PlayMode.queue);
 
       expect(event.kind, PlaybackRecoveryEventKind.staleEventIgnored);
       expect(executor.calls, isEmpty);
@@ -272,158 +278,169 @@ void main() {
       expect(event.result?.error, same(error));
     });
 
-    test('retry exhausted does not leave duplicate wait markers active',
-        () async {
-      final track = _track('exhausted-duplicate-marker');
-      final retryableError = StateError('retryable network failure');
-      final events = <PlaybackRecoveryEvent>[];
-      coordinator.dispose();
-      coordinator = PlaybackRecoveryCoordinator(
-        retryExecutor: executor,
-        timerFactory: timerFactory.create,
-        delay: timerFactory.delay,
-        isRetryableError: (error) => identical(error, retryableError),
-        onRecoveryEvent: events.add,
-      );
-      executor.nextResult = PlaybackSessionResult.failed(
-        requestId: 40,
-        error: retryableError,
-        stackTrace: StackTrace.current,
-      );
-      coordinator.scheduleRetry(
-        track: track,
-        position: const Duration(seconds: 5),
-        mode: PlayMode.queue,
-      );
+    test(
+      'retry exhausted does not leave duplicate wait markers active',
+      () async {
+        final track = _track('exhausted-duplicate-marker');
+        final retryableError = StateError('retryable network failure');
+        final events = <PlaybackRecoveryEvent>[];
+        coordinator.dispose();
+        coordinator = PlaybackRecoveryCoordinator(
+          retryExecutor: executor,
+          timerFactory: timerFactory.create,
+          delay: timerFactory.delay,
+          isRetryableError: (error) => identical(error, retryableError),
+          onRecoveryEvent: events.add,
+        );
+        executor.nextResult = PlaybackSessionResult.failed(
+          requestId: 40,
+          error: retryableError,
+          stackTrace: StackTrace.current,
+        );
+        coordinator.scheduleRetry(
+          track: track,
+          position: const Duration(seconds: 5),
+          mode: PlayMode.queue,
+        );
 
-      for (var i = 0; i < NetworkRetryConfig.maxRetries; i++) {
-        timerFactory.timers.last.fire();
-        await pumpEventQueue();
-      }
-      expect(events.last.kind, PlaybackRecoveryEventKind.retryExhausted);
+        for (var i = 0; i < NetworkRetryConfig.maxRetries; i++) {
+          timerFactory.timers.last.fire();
+          await pumpEventQueue();
+        }
+        expect(events.last.kind, PlaybackRecoveryEventKind.retryExhausted);
 
-      final event = coordinator.onBackendNetworkError(
-        track: track,
-        position: const Duration(seconds: 8),
-        isActiveRetryHandoff: false,
-        mode: PlayMode.queue,
-      );
+        final event = coordinator.onBackendNetworkError(
+          track: track,
+          position: const Duration(seconds: 8),
+          isActiveRetryHandoff: false,
+          mode: PlayMode.queue,
+        );
 
-      expect(event.kind, PlaybackRecoveryEventKind.retryExhausted);
-    });
+        expect(event.kind, PlaybackRecoveryEventKind.retryExhausted);
+      },
+    );
 
-    test('scheduled retry success notifies listener and clears retry state',
-        () async {
-      final track = _track('scheduled-success');
-      final received = Completer<PlaybackRecoveryEvent>();
-      coordinator.dispose();
-      coordinator = PlaybackRecoveryCoordinator(
-        retryExecutor: executor,
-        timerFactory: timerFactory.create,
-        delay: timerFactory.delay,
-        onRecoveryEvent: (event) {
-          if (event.kind == PlaybackRecoveryEventKind.retrySucceeded &&
-              !received.isCompleted) {
-            received.complete(event);
-          }
-        },
-      );
-      executor.nextResult = PlaybackSessionResult.completed(
-        requestId: 21,
-        track: track,
-        attemptedUrl: 'https://example.com/scheduled-success.m4a',
-        streamResult: null,
-      );
+    test(
+      'scheduled retry success notifies listener and clears retry state',
+      () async {
+        final track = _track('scheduled-success');
+        final received = Completer<PlaybackRecoveryEvent>();
+        coordinator.dispose();
+        coordinator = PlaybackRecoveryCoordinator(
+          retryExecutor: executor,
+          timerFactory: timerFactory.create,
+          delay: timerFactory.delay,
+          onRecoveryEvent: (event) {
+            if (event.kind == PlaybackRecoveryEventKind.retrySucceeded &&
+                !received.isCompleted) {
+              received.complete(event);
+            }
+          },
+        );
+        executor.nextResult = PlaybackSessionResult.completed(
+          requestId: 21,
+          track: track,
+          attemptedUrl: 'https://example.com/scheduled-success.m4a',
+          streamResult: null,
+        );
 
-      coordinator.scheduleRetry(
-        track: track,
-        position: const Duration(seconds: 23),
-        mode: PlayMode.queue,
-      );
-      timerFactory.timers.single.fire();
-      final event = await received.future;
+        coordinator.scheduleRetry(
+          track: track,
+          position: const Duration(seconds: 23),
+          mode: PlayMode.queue,
+        );
+        timerFactory.timers.single.fire();
+        final event = await received.future;
 
-      expect(event.kind, PlaybackRecoveryEventKind.retrySucceeded);
-      expect(event.state.isNetworkError, isFalse);
-      expect(event.state.isRetrying, isFalse);
-      expect(coordinator.recoveryTrack, isNull);
-      expect(coordinator.recoveryPosition, isNull);
-      expect(executor.calls.single.track.sourceId, 'scheduled-success');
-    });
+        expect(event.kind, PlaybackRecoveryEventKind.retrySucceeded);
+        expect(event.state.isNetworkError, isFalse);
+        expect(event.state.isRetrying, isFalse);
+        expect(coordinator.recoveryTrack, isNull);
+        expect(coordinator.recoveryPosition, isNull);
+        expect(executor.calls.single.track.sourceId, 'scheduled-success');
+      },
+    );
 
-    test('scheduled retry retryable failure notifies rescheduled retry',
-        () async {
-      final track = _track('scheduled-retryable');
-      final retryableError = StateError('network retryable');
-      final received = Completer<PlaybackRecoveryEvent>();
-      coordinator.dispose();
-      coordinator = PlaybackRecoveryCoordinator(
-        retryExecutor: executor,
-        timerFactory: timerFactory.create,
-        delay: timerFactory.delay,
-        isRetryableError: (error) => identical(error, retryableError),
-        onRecoveryEvent: (event) {
-          if (event.kind == PlaybackRecoveryEventKind.retryScheduled &&
-              !received.isCompleted) {
-            received.complete(event);
-          }
-        },
-      );
-      executor.nextResult = PlaybackSessionResult.failed(
-        requestId: 22,
-        error: retryableError,
-        stackTrace: StackTrace.current,
-      );
+    test(
+      'scheduled retry retryable failure notifies rescheduled retry',
+      () async {
+        final track = _track('scheduled-retryable');
+        final retryableError = StateError('network retryable');
+        final received = Completer<PlaybackRecoveryEvent>();
+        coordinator.dispose();
+        coordinator = PlaybackRecoveryCoordinator(
+          retryExecutor: executor,
+          timerFactory: timerFactory.create,
+          delay: timerFactory.delay,
+          isRetryableError: (error) => identical(error, retryableError),
+          onRecoveryEvent: (event) {
+            if (event.kind == PlaybackRecoveryEventKind.retryScheduled &&
+                !received.isCompleted) {
+              received.complete(event);
+            }
+          },
+        );
+        executor.nextResult = PlaybackSessionResult.failed(
+          requestId: 22,
+          error: retryableError,
+          stackTrace: StackTrace.current,
+        );
 
-      coordinator.scheduleRetry(
-        track: track,
-        position: const Duration(seconds: 31),
-        mode: PlayMode.queue,
-      );
-      timerFactory.timers.single.fire();
-      final event = await received.future;
+        coordinator.scheduleRetry(
+          track: track,
+          position: const Duration(seconds: 31),
+          mode: PlayMode.queue,
+        );
+        timerFactory.timers.single.fire();
+        final event = await received.future;
 
-      expect(event.kind, PlaybackRecoveryEventKind.retryScheduled);
-      expect(event.state.isNetworkError, isTrue);
-      expect(event.state.isRetrying, isTrue);
-      expect(event.error, same(retryableError));
-      expect(timerFactory.timers, hasLength(2));
-      expect(coordinator.recoveryPosition, const Duration(seconds: 31));
-    });
+        expect(event.kind, PlaybackRecoveryEventKind.retryScheduled);
+        expect(event.state.isNetworkError, isTrue);
+        expect(event.state.isRetrying, isTrue);
+        expect(event.error, same(retryableError));
+        expect(timerFactory.timers, hasLength(2));
+        expect(coordinator.recoveryPosition, const Duration(seconds: 31));
+      },
+    );
 
-    test('scheduled retry nonretryable exception notifies failure event',
-        () async {
-      final track = _track('scheduled-exception');
-      final error = StateError('fatal retry exception');
-      final received = Completer<PlaybackRecoveryEvent>();
-      coordinator.dispose();
-      coordinator = PlaybackRecoveryCoordinator(
-        retryExecutor: executor,
-        timerFactory: timerFactory.create,
-        delay: timerFactory.delay,
-        onRecoveryEvent: (event) {
-          if (event.kind ==
-                  PlaybackRecoveryEventKind.recoveryFailedNonRetryable &&
-              !received.isCompleted) {
-            received.complete(event);
-          }
-        },
-      );
-      executor.nextThrow = error;
+    test(
+      'scheduled retry nonretryable exception notifies failure event',
+      () async {
+        final track = _track('scheduled-exception');
+        final error = StateError('fatal retry exception');
+        final received = Completer<PlaybackRecoveryEvent>();
+        coordinator.dispose();
+        coordinator = PlaybackRecoveryCoordinator(
+          retryExecutor: executor,
+          timerFactory: timerFactory.create,
+          delay: timerFactory.delay,
+          onRecoveryEvent: (event) {
+            if (event.kind ==
+                    PlaybackRecoveryEventKind.recoveryFailedNonRetryable &&
+                !received.isCompleted) {
+              received.complete(event);
+            }
+          },
+        );
+        executor.nextThrow = error;
 
-      coordinator.scheduleRetry(
-        track: track,
-        position: const Duration(seconds: 41),
-        mode: PlayMode.queue,
-      );
-      timerFactory.timers.single.fire();
-      final event = await received.future;
+        coordinator.scheduleRetry(
+          track: track,
+          position: const Duration(seconds: 41),
+          mode: PlayMode.queue,
+        );
+        timerFactory.timers.single.fire();
+        final event = await received.future;
 
-      expect(event.kind, PlaybackRecoveryEventKind.recoveryFailedNonRetryable);
-      expect(event.error, same(error));
-      expect(event.result, isNull);
-      expect(coordinator.recoveryTrack, isNull);
-    });
+        expect(
+          event.kind,
+          PlaybackRecoveryEventKind.recoveryFailedNonRetryable,
+        );
+        expect(event.error, same(error));
+        expect(event.result, isNull);
+        expect(coordinator.recoveryTrack, isNull);
+      },
+    );
 
     test('terminal media-open retry failure exposes message', () async {
       final track = _track('terminal-media-open');

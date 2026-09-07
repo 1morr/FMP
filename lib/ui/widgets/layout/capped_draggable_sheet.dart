@@ -62,7 +62,8 @@ class CappedDraggableSheet extends StatelessWidget {
   final List<Widget> Function(
     BuildContext context,
     ScrollController scrollController,
-  ) bodySlivers;
+  )
+  bodySlivers;
 
   /// 高度模式，見 [CappedSheetMode]。
   final CappedSheetMode mode;
@@ -77,8 +78,10 @@ class CappedDraggableSheet extends StatelessWidget {
 
     // 限制最大高度，避免 Windows 全屏时弹窗过高
     final screenHeight = MediaQuery.of(context).size.height;
-    final maxRatio =
-        (AppSizes.maxBottomSheetHeight / screenHeight).clamp(0.4, 0.95);
+    final maxRatio = (AppSizes.maxBottomSheetHeight / screenHeight).clamp(
+      0.4,
+      0.95,
+    );
 
     final double initialChildSize;
     final List<double> snapSizes;
@@ -111,7 +114,8 @@ class CappedDraggableSheet extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow,
             borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppRadius.sheet)),
+              top: Radius.circular(AppRadius.sheet),
+            ),
           ),
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(

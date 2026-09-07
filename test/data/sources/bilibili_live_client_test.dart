@@ -10,10 +10,7 @@ import 'package:fmp/data/sources/source_http_policy.dart';
 void main() {
   group('parseLiveUrl', () {
     test('accepts standard and h5 Bilibili live URLs', () {
-      final client = BilibiliLiveClient(
-        apiDio: Dio(),
-        liveDio: Dio(),
-      );
+      final client = BilibiliLiveClient(apiDio: Dio(), liveDio: Dio());
       addTearDown(client.dispose);
 
       final standard = client.parseLiveUrl('https://live.bilibili.com/123');
@@ -26,10 +23,7 @@ void main() {
     });
 
     test('accepts legacy tolerated live URL forms', () {
-      final client = BilibiliLiveClient(
-        apiDio: Dio(),
-        liveDio: Dio(),
-      );
+      final client = BilibiliLiveClient(apiDio: Dio(), liveDio: Dio());
       addTearDown(client.dispose);
 
       final http = client.parseLiveUrl('http://live.bilibili.com/12345');
@@ -45,10 +39,7 @@ void main() {
     });
 
     test('rejects non-live URLs including Bilibili video and YouTube URL', () {
-      final client = BilibiliLiveClient(
-        apiDio: Dio(),
-        liveDio: Dio(),
-      );
+      final client = BilibiliLiveClient(apiDio: Dio(), liveDio: Dio());
       addTearDown(client.dispose);
 
       expect(
@@ -374,16 +365,17 @@ void main() {
   });
 
   group('getRadioStream', () {
-    test('uses current radio playUrl parameters and returns live headers',
-        () async {
-      final requests = <RequestOptions>[];
-      final liveDio = _fakeDio((options) {
-        requests.add(options);
-        if (options.path.endsWith('/room/v1/Room/room_init')) {
-          return _jsonResponse('{"code":0,"data":{"room_id":456}}');
-        }
-        if (options.path.endsWith('/room/v1/Room/playUrl')) {
-          return _jsonResponse('''
+    test(
+      'uses current radio playUrl parameters and returns live headers',
+      () async {
+        final requests = <RequestOptions>[];
+        final liveDio = _fakeDio((options) {
+          requests.add(options);
+          if (options.path.endsWith('/room/v1/Room/room_init')) {
+            return _jsonResponse('{"code":0,"data":{"room_id":456}}');
+          }
+          if (options.path.endsWith('/room/v1/Room/playUrl')) {
+            return _jsonResponse('''
             {
               "code": 0,
               "data": {
@@ -393,28 +385,29 @@ void main() {
               }
             }
           ''');
-        }
-        throw StateError('Unexpected request: ${options.path}');
-      });
-      final client = BilibiliLiveClient(
-        apiDio: Dio(),
-        liveDio: liveDio,
-        liveApiBase: 'https://live.test',
-      );
-      addTearDown(client.dispose);
+          }
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final client = BilibiliLiveClient(
+          apiDio: Dio(),
+          liveDio: liveDio,
+          liveApiBase: 'https://live.test',
+        );
+        addTearDown(client.dispose);
 
-      final stream = await client.getRadioStream('123');
+        final stream = await client.getRadioStream('123');
 
-      expect(stream.url, 'https://live.example.com/stream.flv');
-      expect(stream.headers, SourceHttpPolicy.bilibiliLiveHeaders());
-      expect(requests[0].queryParameters['id'], '123');
-      expect(requests[1].queryParameters, {
-        'cid': '456',
-        'platform': 'web',
-        'quality': 2,
-        'qn': 80,
-      });
-    });
+        expect(stream.url, 'https://live.example.com/stream.flv');
+        expect(stream.headers, SourceHttpPolicy.bilibiliLiveHeaders());
+        expect(requests[0].queryParameters['id'], '123');
+        expect(requests[1].queryParameters, {
+          'cid': '456',
+          'platform': 'web',
+          'quality': 2,
+          'qn': 80,
+        });
+      },
+    );
 
     test('throws when playUrl returns no durl', () async {
       final liveDio = _fakeDio((options) {
@@ -601,14 +594,15 @@ void main() {
   });
 
   group('searchRooms', () {
-    test('merges live_room and bili_user results and enriches user rooms',
-        () async {
-      final apiRequests = <RequestOptions>[];
-      final liveRequests = <RequestOptions>[];
-      final apiDio = _fakeDio((options) {
-        apiRequests.add(options);
-        if (options.queryParameters['search_type'] == 'live_room') {
-          return _jsonResponse('''
+    test(
+      'merges live_room and bili_user results and enriches user rooms',
+      () async {
+        final apiRequests = <RequestOptions>[];
+        final liveRequests = <RequestOptions>[];
+        final apiDio = _fakeDio((options) {
+          apiRequests.add(options);
+          if (options.queryParameters['search_type'] == 'live_room') {
+            return _jsonResponse('''
             {
               "code": 0,
               "data": {
@@ -629,9 +623,9 @@ void main() {
               }
             }
           ''');
-        }
-        if (options.queryParameters['search_type'] == 'bili_user') {
-          return _jsonResponse('''
+          }
+          if (options.queryParameters['search_type'] == 'bili_user') {
+            return _jsonResponse('''
             {
               "code": 0,
               "data": {
@@ -647,16 +641,16 @@ void main() {
               }
             }
           ''');
-        }
-        throw StateError('Unexpected API request: ${options.path}');
-      });
-      final liveDio = _fakeDio((options) {
-        liveRequests.add(options);
-        if (options.path.endsWith('/room/v1/Room/room_init')) {
-          return _jsonResponse('{"code":0,"data":{"room_id":200}}');
-        }
-        if (options.path.endsWith('/room/v1/Room/get_info')) {
-          return _jsonResponse('''
+          }
+          throw StateError('Unexpected API request: ${options.path}');
+        });
+        final liveDio = _fakeDio((options) {
+          liveRequests.add(options);
+          if (options.path.endsWith('/room/v1/Room/room_init')) {
+            return _jsonResponse('{"code":0,"data":{"room_id":200}}');
+          }
+          if (options.path.endsWith('/room/v1/Room/get_info')) {
+            return _jsonResponse('''
             {
               "code": 0,
               "data": {
@@ -670,11 +664,11 @@ void main() {
               }
             }
           ''');
-        }
-        if (options.path.endsWith(
-          '/live_user/v1/UserInfo/get_anchor_in_room',
-        )) {
-          return _jsonResponse('''
+          }
+          if (options.path.endsWith(
+            '/live_user/v1/UserInfo/get_anchor_in_room',
+          )) {
+            return _jsonResponse('''
             {
               "code": 0,
               "data": {
@@ -686,47 +680,48 @@ void main() {
               }
             }
           ''');
-        }
-        if (options.path.endsWith('/room_ex/v1/RoomNews/get')) {
-          return _jsonResponse('{"code":0,"data":{"content":""}}');
-        }
-        throw StateError('Unexpected live request: ${options.path}');
-      });
-      final client = BilibiliLiveClient(
-        apiDio: apiDio,
-        liveDio: liveDio,
-        apiBase: 'https://api.test',
-        liveApiBase: 'https://live.test',
-      );
-      addTearDown(client.dispose);
+          }
+          if (options.path.endsWith('/room_ex/v1/RoomNews/get')) {
+            return _jsonResponse('{"code":0,"data":{"content":""}}');
+          }
+          throw StateError('Unexpected live request: ${options.path}');
+        });
+        final client = BilibiliLiveClient(
+          apiDio: apiDio,
+          liveDio: liveDio,
+          apiBase: 'https://api.test',
+          liveApiBase: 'https://live.test',
+        );
+        addTearDown(client.dispose);
 
-      final result = await client.searchRooms('music');
+        final result = await client.searchRooms('music');
 
-      expect(result.rooms.map((room) => room.roomId), [100, 200]);
-      expect(result.totalCount, 90);
-      expect(result.hasMore, isTrue);
-      expect(result.rooms[0].title, 'Live Title');
-      expect(result.rooms[1].title, 'Offline Enriched Title');
-      expect(result.rooms[1].uname, 'Search User');
-      expect(result.rooms[1].face, 'https://i0.hdslb.com/search-face.jpg');
-      expect(result.rooms[1].isLive, isFalse);
-      expect(apiRequests.map((request) => request.queryParameters), [
-        {
-          'keyword': 'music',
-          'search_type': 'live_room',
-          'page': 1,
-          'page_size': 20,
-        },
-        {
-          'keyword': 'music',
-          'search_type': 'bili_user',
-          'page': 1,
-          'page_size': 20,
-        },
-      ]);
-      expect(liveRequests[0].queryParameters['id'], '200');
-      expect(liveRequests[1].queryParameters['room_id'], '200');
-    });
+        expect(result.rooms.map((room) => room.roomId), [100, 200]);
+        expect(result.totalCount, 90);
+        expect(result.hasMore, isTrue);
+        expect(result.rooms[0].title, 'Live Title');
+        expect(result.rooms[1].title, 'Offline Enriched Title');
+        expect(result.rooms[1].uname, 'Search User');
+        expect(result.rooms[1].face, 'https://i0.hdslb.com/search-face.jpg');
+        expect(result.rooms[1].isLive, isFalse);
+        expect(apiRequests.map((request) => request.queryParameters), [
+          {
+            'keyword': 'music',
+            'search_type': 'live_room',
+            'page': 1,
+            'page_size': 20,
+          },
+          {
+            'keyword': 'music',
+            'search_type': 'bili_user',
+            'page': 1,
+            'page_size': 20,
+          },
+        ]);
+        expect(liveRequests[0].queryParameters['id'], '200');
+        expect(liveRequests[1].queryParameters['room_id'], '200');
+      },
+    );
 
     test('uses latest search options provider for each request', () async {
       var currentOptions = Options(headers: {'Cookie': 'old-cookie'});
@@ -806,13 +801,13 @@ void main() {
     });
 
     test(
-        'offline filter only returns non-live user rooms and only calls bili_user API',
-        () async {
-      final apiRequests = <RequestOptions>[];
-      final apiDio = _fakeDio((options) {
-        apiRequests.add(options);
-        if (options.queryParameters['search_type'] == 'bili_user') {
-          return _jsonResponse('''
+      'offline filter only returns non-live user rooms and only calls bili_user API',
+      () async {
+        final apiRequests = <RequestOptions>[];
+        final apiDio = _fakeDio((options) {
+          apiRequests.add(options);
+          if (options.queryParameters['search_type'] == 'bili_user') {
+            return _jsonResponse('''
             {
               "code": 0,
               "data": {
@@ -840,19 +835,19 @@ void main() {
               }
             }
           ''');
-        }
-        throw StateError('Unexpected API request: ${options.path}');
-      });
-      final liveDio = _fakeDio((options) {
-        if (options.path.endsWith('/room/v1/Room/room_init')) {
-          return _jsonResponse(
-            '{"code":0,"data":{"room_id":${options.queryParameters['id']}}}',
-          );
-        }
-        if (options.path.endsWith('/room/v1/Room/get_info')) {
-          final roomId = options.queryParameters['room_id'];
-          final liveStatus = roomId == '400' ? 1 : 0;
-          return _jsonResponse('''
+          }
+          throw StateError('Unexpected API request: ${options.path}');
+        });
+        final liveDio = _fakeDio((options) {
+          if (options.path.endsWith('/room/v1/Room/room_init')) {
+            return _jsonResponse(
+              '{"code":0,"data":{"room_id":${options.queryParameters['id']}}}',
+            );
+          }
+          if (options.path.endsWith('/room/v1/Room/get_info')) {
+            final roomId = options.queryParameters['room_id'];
+            final liveStatus = roomId == '400' ? 1 : 0;
+            return _jsonResponse('''
             {
               "code": 0,
               "data": {
@@ -865,180 +860,191 @@ void main() {
               }
             }
           ''');
-        }
-        if (options.path.endsWith(
-          '/live_user/v1/UserInfo/get_anchor_in_room',
-        )) {
-          return _jsonResponse('{"code":0,"data":{"info":{}}}');
-        }
-        if (options.path.endsWith('/room_ex/v1/RoomNews/get')) {
-          return _jsonResponse('{"code":0,"data":{"content":""}}');
-        }
-        throw StateError('Unexpected live request: ${options.path}');
-      });
-      final client = BilibiliLiveClient(
-        apiDio: apiDio,
-        liveDio: liveDio,
-        apiBase: 'https://api.test',
-        liveApiBase: 'https://live.test',
-      );
-      addTearDown(client.dispose);
+          }
+          if (options.path.endsWith(
+            '/live_user/v1/UserInfo/get_anchor_in_room',
+          )) {
+            return _jsonResponse('{"code":0,"data":{"info":{}}}');
+          }
+          if (options.path.endsWith('/room_ex/v1/RoomNews/get')) {
+            return _jsonResponse('{"code":0,"data":{"content":""}}');
+          }
+          throw StateError('Unexpected live request: ${options.path}');
+        });
+        final client = BilibiliLiveClient(
+          apiDio: apiDio,
+          liveDio: liveDio,
+          apiBase: 'https://api.test',
+          liveApiBase: 'https://live.test',
+        );
+        addTearDown(client.dispose);
 
-      final result = await client.searchRooms(
-        'music',
-        filter: LiveRoomFilter.offline,
-      );
+        final result = await client.searchRooms(
+          'music',
+          filter: LiveRoomFilter.offline,
+        );
 
-      expect(result.rooms.map((room) => room.roomId), [300]);
-      expect(result.rooms.single.isLive, isFalse);
-      expect(apiRequests, hasLength(1));
-      expect(apiRequests.single.queryParameters['search_type'], 'bili_user');
-    });
+        expect(result.rooms.map((room) => room.roomId), [300]);
+        expect(result.rooms.single.isLive, isFalse);
+        expect(apiRequests, hasLength(1));
+        expect(apiRequests.single.queryParameters['search_type'], 'bili_user');
+      },
+    );
 
-    test('throws rate-limit exception when live_room search is rate-limited',
-        () async {
-      final apiDio = _fakeDio((options) {
-        if (options.queryParameters['search_type'] == 'live_room') {
+    test(
+      'throws rate-limit exception when live_room search is rate-limited',
+      () async {
+        final apiDio = _fakeDio((options) {
+          if (options.queryParameters['search_type'] == 'live_room') {
+            return _jsonResponse(
+              '{"code":-352,"message":"risk control","data":null}',
+            );
+          }
           return _jsonResponse(
-            '{"code":-352,"message":"risk control","data":null}',
+            '{"code":0,"data":{"numResults":0,"result":[]}}',
           );
-        }
-        return _jsonResponse(
-          '{"code":0,"data":{"numResults":0,"result":[]}}',
+        });
+        final client = BilibiliLiveClient(
+          apiDio: apiDio,
+          liveDio: Dio(),
+          apiBase: 'https://api.test',
         );
-      });
-      final client = BilibiliLiveClient(
-        apiDio: apiDio,
-        liveDio: Dio(),
-        apiBase: 'https://api.test',
-      );
-      addTearDown(client.dispose);
+        addTearDown(client.dispose);
 
-      await expectLater(
-        client.searchRooms('music'),
-        throwsA(
-          isA<BilibiliApiException>()
-              .having((e) => e.numericCode, 'numericCode', -352)
-              .having((e) => e.isRateLimited, 'isRateLimited', isTrue),
-        ),
-      );
-    });
+        await expectLater(
+          client.searchRooms('music'),
+          throwsA(
+            isA<BilibiliApiException>()
+                .having((e) => e.numericCode, 'numericCode', -352)
+                .having((e) => e.isRateLimited, 'isRateLimited', isTrue),
+          ),
+        );
+      },
+    );
 
-    test('throws API exception when live_room search returns non-zero code',
-        () async {
-      final apiDio = _fakeDio((options) {
-        if (options.queryParameters['search_type'] == 'live_room') {
+    test(
+      'throws API exception when live_room search returns non-zero code',
+      () async {
+        final apiDio = _fakeDio((options) {
+          if (options.queryParameters['search_type'] == 'live_room') {
+            return _jsonResponse(
+              '{"code":-400,"message":"bad request","data":null}',
+            );
+          }
           return _jsonResponse(
-            '{"code":-400,"message":"bad request","data":null}',
+            '{"code":0,"data":{"numResults":0,"result":[]}}',
           );
-        }
-        return _jsonResponse(
-          '{"code":0,"data":{"numResults":0,"result":[]}}',
+        });
+        final client = BilibiliLiveClient(
+          apiDio: apiDio,
+          liveDio: Dio(),
+          apiBase: 'https://api.test',
         );
-      });
-      final client = BilibiliLiveClient(
-        apiDio: apiDio,
-        liveDio: Dio(),
-        apiBase: 'https://api.test',
-      );
-      addTearDown(client.dispose);
+        addTearDown(client.dispose);
 
-      await expectLater(
-        client.searchRooms('music'),
-        throwsA(
-          isA<BilibiliApiException>()
-              .having((e) => e.numericCode, 'numericCode', -400)
-              .having((e) => e.message, 'message', 'bad request'),
-        ),
-      );
-    });
-
-    test('throws API exception when search response body is malformed',
-        () async {
-      final apiDio = _fakeDio((options) {
-        if (options.queryParameters['search_type'] == 'live_room') {
-          return _jsonResponse('[]');
-        }
-        return _jsonResponse(
-          '{"code":0,"data":{"numResults":0,"result":[]}}',
-        );
-      });
-      final client = BilibiliLiveClient(
-        apiDio: apiDio,
-        liveDio: Dio(),
-        apiBase: 'https://api.test',
-      );
-      addTearDown(client.dispose);
-
-      await expectLater(
-        client.searchRooms('music'),
-        throwsA(
-          isA<BilibiliApiException>().having(
-            (e) => e.numericCode,
-            'numericCode',
-            -999,
+        await expectLater(
+          client.searchRooms('music'),
+          throwsA(
+            isA<BilibiliApiException>()
+                .having((e) => e.numericCode, 'numericCode', -400)
+                .having((e) => e.message, 'message', 'bad request'),
           ),
-        ),
-      );
-    });
-
-    test('throws API exception when successful search data is malformed',
-        () async {
-      final apiDio = _fakeDio((options) {
-        if (options.queryParameters['search_type'] == 'live_room') {
-          return _jsonResponse('{"code":0,"data":"bad"}');
-        }
-        return _jsonResponse(
-          '{"code":0,"data":{"numResults":0,"result":[]}}',
         );
-      });
-      final client = BilibiliLiveClient(
-        apiDio: apiDio,
-        liveDio: Dio(),
-        apiBase: 'https://api.test',
-      );
-      addTearDown(client.dispose);
+      },
+    );
 
-      await expectLater(
-        client.searchRooms('music'),
-        throwsA(
-          isA<BilibiliApiException>().having(
-            (e) => e.numericCode,
-            'numericCode',
-            -999,
-          ),
-        ),
-      );
-    });
-
-    test('throws API exception when successful search data is missing',
-        () async {
-      final apiDio = _fakeDio((options) {
-        if (options.queryParameters['search_type'] == 'live_room') {
-          return _jsonResponse('{"code":0}');
-        }
-        return _jsonResponse(
-          '{"code":0,"data":{"numResults":0,"result":[]}}',
+    test(
+      'throws API exception when search response body is malformed',
+      () async {
+        final apiDio = _fakeDio((options) {
+          if (options.queryParameters['search_type'] == 'live_room') {
+            return _jsonResponse('[]');
+          }
+          return _jsonResponse(
+            '{"code":0,"data":{"numResults":0,"result":[]}}',
+          );
+        });
+        final client = BilibiliLiveClient(
+          apiDio: apiDio,
+          liveDio: Dio(),
+          apiBase: 'https://api.test',
         );
-      });
-      final client = BilibiliLiveClient(
-        apiDio: apiDio,
-        liveDio: Dio(),
-        apiBase: 'https://api.test',
-      );
-      addTearDown(client.dispose);
+        addTearDown(client.dispose);
 
-      await expectLater(
-        client.searchRooms('music'),
-        throwsA(
-          isA<BilibiliApiException>().having(
-            (e) => e.numericCode,
-            'numericCode',
-            -999,
+        await expectLater(
+          client.searchRooms('music'),
+          throwsA(
+            isA<BilibiliApiException>().having(
+              (e) => e.numericCode,
+              'numericCode',
+              -999,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
+
+    test(
+      'throws API exception when successful search data is malformed',
+      () async {
+        final apiDio = _fakeDio((options) {
+          if (options.queryParameters['search_type'] == 'live_room') {
+            return _jsonResponse('{"code":0,"data":"bad"}');
+          }
+          return _jsonResponse(
+            '{"code":0,"data":{"numResults":0,"result":[]}}',
+          );
+        });
+        final client = BilibiliLiveClient(
+          apiDio: apiDio,
+          liveDio: Dio(),
+          apiBase: 'https://api.test',
+        );
+        addTearDown(client.dispose);
+
+        await expectLater(
+          client.searchRooms('music'),
+          throwsA(
+            isA<BilibiliApiException>().having(
+              (e) => e.numericCode,
+              'numericCode',
+              -999,
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'throws API exception when successful search data is missing',
+      () async {
+        final apiDio = _fakeDio((options) {
+          if (options.queryParameters['search_type'] == 'live_room') {
+            return _jsonResponse('{"code":0}');
+          }
+          return _jsonResponse(
+            '{"code":0,"data":{"numResults":0,"result":[]}}',
+          );
+        });
+        final client = BilibiliLiveClient(
+          apiDio: apiDio,
+          liveDio: Dio(),
+          apiBase: 'https://api.test',
+        );
+        addTearDown(client.dispose);
+
+        await expectLater(
+          client.searchRooms('music'),
+          throwsA(
+            isA<BilibiliApiException>().having(
+              (e) => e.numericCode,
+              'numericCode',
+              -999,
+            ),
+          ),
+        );
+      },
+    );
   });
 
   group('getMedalWallRooms', () {
@@ -1103,8 +1109,10 @@ void main() {
       expect(requests.first.headers['Cookie'], 'SESSDATA=abc');
       expect(
         requests
-            .where((request) =>
-                request.path.endsWith('/room/v1/Room/getRoomInfoOld'))
+            .where(
+              (request) =>
+                  request.path.endsWith('/room/v1/Room/getRoomInfoOld'),
+            )
             .map((request) => request.queryParameters['mid']),
         [111, 222],
       );

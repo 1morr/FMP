@@ -10,7 +10,8 @@ import '../system/windows_desktop_provider.dart';
 /// 管理全局快捷键的配置，包括保存和加载。
 final hotkeyConfigProvider =
     NotifierProvider<HotkeyConfigNotifier, HotkeyConfig>(
-        HotkeyConfigNotifier.new);
+      HotkeyConfigNotifier.new,
+    );
 
 /// 快捷键配置状态管理器
 class HotkeyConfigNotifier extends Notifier<HotkeyConfig> {

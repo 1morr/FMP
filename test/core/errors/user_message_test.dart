@@ -65,11 +65,18 @@ void main() {
     });
 
     test('maps the dart:io network exceptions to one network sentence', () {
-      expect(userMessageFor(const SocketException('failed')),
-          t.error.networkError);
-      expect(userMessageFor(const HttpException('failed')),
-          t.error.networkError);
-      expect(userMessageFor(const TlsException('failed')), t.error.networkError);
+      expect(
+        userMessageFor(const SocketException('failed')),
+        t.error.networkError,
+      );
+      expect(
+        userMessageFor(const HttpException('failed')),
+        t.error.networkError,
+      );
+      expect(
+        userMessageFor(const TlsException('failed')),
+        t.error.networkError,
+      );
     });
 
     test('classifies a DioException that no adapter wrapped', () {
@@ -83,12 +90,17 @@ void main() {
     });
 
     test('maps a timeout', () {
-      expect(userMessageFor(TimeoutException('slow')), t.error.connectionTimeout);
+      expect(
+        userMessageFor(TimeoutException('slow')),
+        t.error.connectionTimeout,
+      );
     });
 
     test('maps a parse failure', () {
-      expect(userMessageFor(const FormatException('bad json')),
-          t.error.dataFormatError);
+      expect(
+        userMessageFor(const FormatException('bad json')),
+        t.error.dataFormatError,
+      );
     });
 
     test('maps a denied path, and only that path exception', () {
@@ -97,7 +109,9 @@ void main() {
       expect(
         userMessageFor(
           const PathAccessException(
-              '/data/x', OSError('Permission denied', 13)),
+            '/data/x',
+            OSError('Permission denied', 13),
+          ),
         ),
         t.error.noPermission,
       );
@@ -124,8 +138,11 @@ void main() {
         Exception(secret),
         StateError(secret),
       ]) {
-        expect(userMessageFor(error), isNot(contains(secret)),
-            reason: '${error.runtimeType}');
+        expect(
+          userMessageFor(error),
+          isNot(contains(secret)),
+          reason: '${error.runtimeType}',
+        );
       }
     });
   });

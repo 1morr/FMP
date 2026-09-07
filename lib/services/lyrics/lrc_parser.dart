@@ -97,8 +97,9 @@ class LrcParser {
         final seconds = int.parse(match.group(2)!);
         final msStr = match.group(3)!;
         // 处理 2 位和 3 位毫秒
-        final milliseconds =
-            msStr.length == 2 ? int.parse(msStr) * 10 : int.parse(msStr);
+        final milliseconds = msStr.length == 2
+            ? int.parse(msStr) * 10
+            : int.parse(msStr);
 
         final timestamp = Duration(
           minutes: minutes,
@@ -134,7 +135,9 @@ class LrcParser {
   /// 通过时间戳匹配，将 [subLyricsText] 中的对应行作为 subText 附加到原文行上。
   /// 如果 [subLyricsText] 为空或无法解析，返回原始 [lyrics] 不变。
   static ParsedLyrics mergeSubLyrics(
-      ParsedLyrics lyrics, String? subLyricsText) {
+    ParsedLyrics lyrics,
+    String? subLyricsText,
+  ) {
     if (subLyricsText == null || subLyricsText.isEmpty) return lyrics;
     if (!lyrics.isSynced) return lyrics;
 

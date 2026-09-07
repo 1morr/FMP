@@ -70,53 +70,56 @@ void main() {
     });
 
     test(
-        'replaceTrack updates the queue-visible track only through explicit caller ownership',
-        () async {
-      final queuedTrack = await queueManager.playSingle(
-        _queueTrack('replace-track-runtime')
-          ..audioUrl = 'https://stale.example/replace-track-runtime.m4a'
-          ..audioUrlExpiry = DateTime.utc(2024, 1, 1),
-      );
-      final queueTrackBeforeReplace = queueManager.currentTrack;
-      expect(queueTrackBeforeReplace, isNotNull);
-      expect(queueTrackBeforeReplace, same(queuedTrack));
+      'replaceTrack updates the queue-visible track only through explicit caller ownership',
+      () async {
+        final queuedTrack = await queueManager.playSingle(
+          _queueTrack('replace-track-runtime')
+            ..audioUrl = 'https://stale.example/replace-track-runtime.m4a'
+            ..audioUrlExpiry = DateTime.utc(2024, 1, 1),
+        );
+        final queueTrackBeforeReplace = queueManager.currentTrack;
+        expect(queueTrackBeforeReplace, isNotNull);
+        expect(queueTrackBeforeReplace, same(queuedTrack));
 
-      final replacement = Track()
-        ..id = queuedTrack.id
-        ..sourceId = queuedTrack.sourceId
-        ..sourceType = queuedTrack.sourceType
-        ..title = queuedTrack.title
-        ..artist = queuedTrack.artist
-        ..audioUrl = 'https://fresh.example/replace-track-runtime.m4a'
-        ..audioUrlExpiry = DateTime.utc(2030, 1, 1);
+        final replacement = Track()
+          ..id = queuedTrack.id
+          ..sourceId = queuedTrack.sourceId
+          ..sourceType = queuedTrack.sourceType
+          ..title = queuedTrack.title
+          ..artist = queuedTrack.artist
+          ..audioUrl = 'https://fresh.example/replace-track-runtime.m4a'
+          ..audioUrlExpiry = DateTime.utc(2030, 1, 1);
 
-      queueManager.replaceTrack(replacement);
+        queueManager.replaceTrack(replacement);
 
-      expect(queueManager.currentTrack, isNotNull);
-      expect(queueManager.currentTrack, isNot(same(queueTrackBeforeReplace)));
-      expect(queueManager.currentTrack!.id, queuedTrack.id);
-      expect(
-        queueManager.currentTrack!.audioUrl,
-        'https://fresh.example/replace-track-runtime.m4a',
-      );
-      expect(
-        queueManager.currentTrack!.audioUrlExpiry,
-        DateTime.utc(2030, 1, 1),
-      );
-    });
+        expect(queueManager.currentTrack, isNotNull);
+        expect(queueManager.currentTrack, isNot(same(queueTrackBeforeReplace)));
+        expect(queueManager.currentTrack!.id, queuedTrack.id);
+        expect(
+          queueManager.currentTrack!.audioUrl,
+          'https://fresh.example/replace-track-runtime.m4a',
+        );
+        expect(
+          queueManager.currentTrack!.audioUrlExpiry,
+          DateTime.utc(2030, 1, 1),
+        );
+      },
+    );
 
-    test('dispose cancels the periodic saver after persistence promotion',
-        () async {
-      await queueManager.playSingle(_queueTrack('timer-track'));
-      queueManager.updatePosition(const Duration(seconds: 12));
+    test(
+      'dispose cancels the periodic saver after persistence promotion',
+      () async {
+        await queueManager.playSingle(_queueTrack('timer-track'));
+        queueManager.updatePosition(const Duration(seconds: 12));
 
-      queueManager.dispose();
-      await Future<void>.delayed(const Duration(seconds: 11));
+        queueManager.dispose();
+        await Future<void>.delayed(const Duration(seconds: 11));
 
-      final persistedQueue = await QueueRepository(isar).getOrCreate();
-      expect(persistedQueue.trackIds, [_trackId(queueManager.currentTrack)]);
-      expect(persistedQueue.lastPositionMs, 0);
-    });
+        final persistedQueue = await QueueRepository(isar).getOrCreate();
+        expect(persistedQueue.trackIds, [_trackId(queueManager.currentTrack)]);
+        expect(persistedQueue.lastPositionMs, 0);
+      },
+    );
   });
 
   group('PlayQueue model', () {

@@ -11,44 +11,46 @@ import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';
 
 void main() {
-  test('current lyrics content skips caching stale result after match changes',
-      () async {
-    final track = _track('video-1');
-    final matches = StreamController<LyricsMatch?>.broadcast();
-    final cache = _RecordingLyricsCacheService();
-    final netease = _CompletingNeteaseSource();
+  test(
+    'current lyrics content skips caching stale result after match changes',
+    () async {
+      final track = _track('video-1');
+      final matches = StreamController<LyricsMatch?>.broadcast();
+      final cache = _RecordingLyricsCacheService();
+      final netease = _CompletingNeteaseSource();
 
-    final container = ProviderContainer(
-      overrides: [
-        currentTrackProvider.overrideWithValue(track),
-        currentLyricsMatchProvider.overrideWith((ref) => matches.stream),
-        lyricsCacheServiceProvider.overrideWith((ref) => cache),
-        neteaseSourceProvider.overrideWith((ref) => netease),
-      ],
-    );
-    addTearDown(container.dispose);
-    addTearDown(matches.close);
+      final container = ProviderContainer(
+        overrides: [
+          currentTrackProvider.overrideWithValue(track),
+          currentLyricsMatchProvider.overrideWith((ref) => matches.stream),
+          lyricsCacheServiceProvider.overrideWith((ref) => cache),
+          neteaseSourceProvider.overrideWith((ref) => netease),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(matches.close);
 
-    final subscription = container.listen(
-      currentLyricsContentProvider,
-      (_, __) {},
-      fireImmediately: true,
-    );
-    addTearDown(subscription.close);
+      final subscription = container.listen(
+        currentLyricsContentProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
 
-    matches.add(_match(track, 'old-id'));
-    await _flushMicrotasks();
-    expect(netease.calls, ['old-id']);
+      matches.add(_match(track, 'old-id'));
+      await _flushMicrotasks();
+      expect(netease.calls, ['old-id']);
 
-    matches.add(_match(track, 'new-id'));
-    await _flushMicrotasks();
-    expect(netease.calls, ['old-id', 'new-id']);
+      matches.add(_match(track, 'new-id'));
+      await _flushMicrotasks();
+      expect(netease.calls, ['old-id', 'new-id']);
 
-    netease.complete('old-id', _lyricsResult('old-id'));
-    await _flushMicrotasks();
+      netease.complete('old-id', _lyricsResult('old-id'));
+      await _flushMicrotasks();
 
-    expect(cache.saved, isEmpty);
-  });
+      expect(cache.saved, isEmpty);
+    },
+  );
 }
 
 Track _track(String sourceId) {

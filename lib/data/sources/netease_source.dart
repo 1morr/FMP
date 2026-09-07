@@ -37,16 +37,14 @@ class NeteaseSource
 
   static const String _musicBase = 'https://music.163.com';
   static const String _interfaceBase = 'https://interface3.music.163.com';
+
   /// API 沒回 `expi` 時的退路。實測 eapi 一直有回（1200s），所以這是防守值。
   static const Duration _fallbackAudioUrlExpiry = Duration(minutes: 16);
   static const String _hotRankingPlaylistId = '3778678';
   static const int _songDetailBatchSize = 400;
 
   NeteaseSource({Dio? dio}) {
-    _dio = dio ??
-        SourceHttpPolicy.createApiDio(
-          SourceIds.netease,
-        );
+    _dio = dio ?? SourceHttpPolicy.createApiDio(SourceIds.netease);
   }
 
   @override
@@ -94,8 +92,10 @@ class NeteaseSource
   // ========== 歌曲信息 ==========
 
   @override
-  Future<Track> getTrackInfo(String sourceId,
-      {Map<String, String>? authHeaders}) async {
+  Future<Track> getTrackInfo(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  }) async {
     try {
       final songData = await _getSongDetail(sourceId, authHeaders: authHeaders);
       final song = songData['song'] as Map<String, dynamic>;
@@ -105,15 +105,11 @@ class NeteaseSource
 
       try {
         final audioUrl = await getAudioUrl(
-          AudioStreamRequest(
-            sourceId: sourceId,
-            authHeaders: authHeaders,
-          ),
+          AudioStreamRequest(sourceId: sourceId, authHeaders: authHeaders),
         );
         track.audioUrl = audioUrl;
         // 這條路只拿得到 URL 字串，沒有 expi，只能用退路值。
-        track.audioUrlExpiry =
-            DateTime.now().add(_fallbackAudioUrlExpiry);
+        track.audioUrlExpiry = DateTime.now().add(_fallbackAudioUrlExpiry);
       } catch (_) {
         // 音頻 URL 獲取失敗不影響歌曲信息
       }
@@ -148,8 +144,10 @@ class NeteaseSource
         'encodeType': 'flac',
       };
 
-      final eapiParams =
-          NeteaseCrypto.eapi('/api/song/enhance/player/url/v1', payload);
+      final eapiParams = NeteaseCrypto.eapi(
+        '/api/song/enhance/player/url/v1',
+        payload,
+      );
 
       final response = await _dio.post(
         '$_interfaceBase/eapi/song/enhance/player/url/v1',
@@ -166,7 +164,9 @@ class NeteaseSource
       final dataList = respData['data'] as List?;
       if (dataList == null || dataList.isEmpty) {
         throw const NeteaseApiException(
-            numericCode: -1, message: 'No stream data returned');
+          numericCode: -1,
+          message: 'No stream data returned',
+        );
       }
 
       final streamInfo = dataList[0] as Map<String, dynamic>;
@@ -183,8 +183,9 @@ class NeteaseSource
       final isTrial = freeTrialInfo != null;
 
       logDebug(
-          'Got audio stream for $sourceId: ${br != null ? "${(br / 1000).round()}kbps" : "unknown"}, '
-          'type: $type, expi: ${expi}s${isTrial ? " (trial)" : ""}');
+        'Got audio stream for $sourceId: ${br != null ? "${(br / 1000).round()}kbps" : "unknown"}, '
+        'type: $type, expi: ${expi}s${isTrial ? " (trial)" : ""}',
+      );
 
       return AudioStreamResult(
         url: url,
@@ -250,7 +251,8 @@ class NeteaseSource
       final songCount = result?['songCount'] as int? ?? 0;
 
       logDebug(
-          'Netease search results: ${songs.length} tracks, total: $songCount');
+        'Netease search results: ${songs.length} tracks, total: $songCount',
+      );
 
       // 搜尋 API 可能將 privileges 放在 result 頂層（與 song detail API 一致）
       final privileges = result?['privileges'] as List? ?? [];
@@ -265,7 +267,8 @@ class NeteaseSource
         final s = song as Map<String, dynamic>;
         // 優先使用歌曲內嵌的 privilege，其次用頂層 privileges 列表
         final songId = s['id'] as int?;
-        final privilege = s['privilege'] as Map<String, dynamic>? ??
+        final privilege =
+            s['privilege'] as Map<String, dynamic>? ??
             (songId != null ? privilegeMap[songId] : null);
         return _parseSongToTrack(s, privilege);
       }).toList();
@@ -300,7 +303,9 @@ class NeteaseSource
       final playlistId = await _extractPlaylistId(playlistUrl);
       if (playlistId == null) {
         throw NeteaseApiException(
-            numericCode: -3, message: 'Invalid playlist URL: $playlistUrl');
+          numericCode: -3,
+          message: 'Invalid playlist URL: $playlistUrl',
+        );
       }
 
       final response = await _dio.post(
@@ -319,7 +324,9 @@ class NeteaseSource
       final playlist = respData['playlist'] as Map<String, dynamic>?;
       if (playlist == null) {
         throw const NeteaseApiException(
-            numericCode: -3, message: 'Playlist data not found');
+          numericCode: -3,
+          message: 'Playlist data not found',
+        );
       }
 
       final title = playlist['name'] as String? ?? 'Unknown Playlist';
@@ -331,8 +338,10 @@ class NeteaseSource
       final trackCount = playlist['trackCount'] as int? ?? 0;
 
       final trackIds = _parsePlaylistTrackIds(playlist);
-      final allTracks =
-          await _fetchTrackDetailsInBatches(trackIds, authHeaders: authHeaders);
+      final allTracks = await _fetchTrackDetailsInBatches(
+        trackIds,
+        authHeaders: authHeaders,
+      );
 
       return PlaylistParseResult(
         title: title,
@@ -395,24 +404,26 @@ class NeteaseSource
   // ========== 刷新 / 可用性 ==========
 
   @override
-  Future<Track> refreshAudioUrl(Track track,
-      {Map<String, String>? authHeaders}) async {
+  Future<Track> refreshAudioUrl(
+    Track track, {
+    Map<String, String>? authHeaders,
+  }) async {
     if (track.sourceType != SourceIds.netease) {
       throw const NeteaseApiException(
-          numericCode: -3, message: 'Invalid source type for NeteaseSource');
+        numericCode: -3,
+        message: 'Invalid source type for NeteaseSource',
+      );
     }
 
     final result = await getAudioStream(
-      AudioStreamRequest(
-        sourceId: track.sourceId,
-        authHeaders: authHeaders,
-      ),
+      AudioStreamRequest(sourceId: track.sourceId, authHeaders: authHeaders),
     );
     track.audioUrl = result.url;
     // 跟 AudioStreamResult 回報的 TTL 一致 —— 兩邊各算各的，就會出現
     // 「解析說還有 20 分鐘、track 說只剩 16 分鐘」這種對不上的狀態。
-    track.audioUrlExpiry =
-        DateTime.now().add(result.expiry ?? _fallbackAudioUrlExpiry);
+    track.audioUrlExpiry = DateTime.now().add(
+      result.expiry ?? _fallbackAudioUrlExpiry,
+    );
     track.updatedAt = DateTime.now();
     return track;
   }
@@ -439,19 +450,23 @@ class NeteaseSource
   /// 獲取歌曲詳情（用於右側面板/播放器信息展示）
   /// 同時獲取歌曲元數據、歌手頭像和熱門評論
   @override
-  Future<VideoDetail> getVideoDetail(String sourceId,
-      {Map<String, String>? authHeaders}) async {
+  Future<VideoDetail> getVideoDetail(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  }) async {
     try {
       final songData = await _getSongDetail(sourceId, authHeaders: authHeaders);
       final song = songData['song'] as Map<String, dynamic>;
 
       final name = song['name'] as String? ?? '';
       final ar = song['ar'] as List? ?? song['artists'] as List?;
-      final al = song['al'] as Map<String, dynamic>? ??
+      final al =
+          song['al'] as Map<String, dynamic>? ??
           song['album'] as Map<String, dynamic>?;
       final dt = song['dt'] as int? ?? song['duration'] as int? ?? 0;
 
-      final artists = ar
+      final artists =
+          ar
               ?.map((a) => (a as Map<String, dynamic>)['name'] as String?)
               .where((n) => n != null && n.isNotEmpty)
               .join(', ') ??
@@ -485,10 +500,9 @@ class NeteaseSource
         if (publishDate == null && albumId != null && albumId > 0)
           _getAlbumPublishTime(albumId).catchError((_) => null),
         // 熱門評論
-        _getHotComments(sourceId).catchError((_) => <String, dynamic>{
-              'comments': <VideoComment>[],
-              'total': 0,
-            }),
+        _getHotComments(sourceId).catchError(
+          (_) => <String, dynamic>{'comments': <VideoComment>[], 'total': 0},
+        ),
       ]);
 
       int futureIdx = 0;
@@ -548,7 +562,9 @@ class NeteaseSource
     final playlist = respData['playlist'] as Map<String, dynamic>?;
     if (playlist == null) {
       throw const NeteaseApiException(
-          numericCode: -3, message: 'Playlist data not found');
+        numericCode: -3,
+        message: 'Playlist data not found',
+      );
     }
 
     return _parsePlaylistTrackIds(playlist);
@@ -574,8 +590,10 @@ class NeteaseSource
 
     for (var i = 0; i < trackIds.length; i += _songDetailBatchSize) {
       final batchIds = trackIds.skip(i).take(_songDetailBatchSize).toList();
-      final batchTracks =
-          await _fetchTrackDetailsBatch(batchIds, authHeaders: authHeaders);
+      final batchTracks = await _fetchTrackDetailsBatch(
+        batchIds,
+        authHeaders: authHeaders,
+      );
       allTracks.addAll(batchTracks);
 
       if (i + _songDetailBatchSize < trackIds.length) {
@@ -587,12 +605,15 @@ class NeteaseSource
   }
 
   /// 獲取單首歌曲詳情（明文 /api/，含 privilege）
-  Future<Map<String, dynamic>> _getSongDetail(String sourceId,
-      {Map<String, String>? authHeaders}) async {
+  Future<Map<String, dynamic>> _getSongDetail(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  }) async {
     final response = await _dio.post(
       '$_musicBase/api/v3/song/detail',
-      data: 'c=${jsonEncode([
-            {'id': int.parse(sourceId)}
+      data:
+          'c=${jsonEncode([
+            {'id': int.parse(sourceId)},
           ])}',
       options: Options(
         contentType: Headers.formUrlEncodedContentType,
@@ -607,7 +628,9 @@ class NeteaseSource
     final songs = respData['songs'] as List?;
     if (songs == null || songs.isEmpty) {
       throw NeteaseApiException(
-          numericCode: -404, message: 'Song not found: $sourceId');
+        numericCode: -404,
+        message: 'Song not found: $sourceId',
+      );
     }
 
     final privileges = respData['privileges'] as List?;
@@ -615,15 +638,14 @@ class NeteaseSource
         ? privileges[0] as Map<String, dynamic>
         : null;
 
-    return {
-      'song': songs[0] as Map<String, dynamic>,
-      'privilege': privilege,
-    };
+    return {'song': songs[0] as Map<String, dynamic>, 'privilege': privilege};
   }
 
   /// 批量獲取歌曲詳情（明文 /api/）
-  Future<List<Track>> _fetchTrackDetailsBatch(List<int> trackIds,
-      {Map<String, String>? authHeaders}) async {
+  Future<List<Track>> _fetchTrackDetailsBatch(
+    List<int> trackIds, {
+    Map<String, String>? authHeaders,
+  }) async {
     if (trackIds.isEmpty) return const [];
 
     final response = await _dio.post(
@@ -723,23 +745,24 @@ class NeteaseSource
       );
     }).toList();
 
-    return {
-      'comments': comments,
-      'total': total,
-    };
+    return {'comments': comments, 'total': total};
   }
 
   /// 解析歌曲 JSON 為 Track
   Track _parseSongToTrack(
-      Map<String, dynamic> song, Map<String, dynamic>? privilege) {
+    Map<String, dynamic> song,
+    Map<String, dynamic>? privilege,
+  ) {
     final songId = song['id'];
     final name = song['name'] as String? ?? '';
     final ar = song['ar'] as List? ?? song['artists'] as List?;
-    final al = song['al'] as Map<String, dynamic>? ??
+    final al =
+        song['al'] as Map<String, dynamic>? ??
         song['album'] as Map<String, dynamic>?;
     final dt = song['dt'] as int? ?? song['duration'] as int? ?? 0;
 
-    final artists = ar
+    final artists =
+        ar
             ?.map((a) => (a as Map<String, dynamic>)['name'] as String?)
             .where((n) => n != null && n.isNotEmpty)
             .join(', ') ??
@@ -883,7 +906,8 @@ class NeteaseSource
     if (code == null) return;
 
     if (code != 200 && code != 0) {
-      final message = data['message'] as String? ??
+      final message =
+          data['message'] as String? ??
           data['msg'] as String? ??
           'Unknown error';
       logWarning('Netease API error: code=$code, message=$message');
@@ -922,7 +946,8 @@ class NeteaseSource
     )) {
       return NeteaseApiException(
         numericCode: -110,
-        message: message ??
+        message:
+            message ??
             'No playback rights due to copyright or region restrictions',
       );
     }
@@ -1019,7 +1044,8 @@ class NeteaseSource
 
   NeteaseApiException _handleDioError(DioException e) {
     logError(
-        'Netease Dio error: type=${e.type}, statusCode=${e.response?.statusCode}');
+      'Netease Dio error: type=${e.type}, statusCode=${e.response?.statusCode}',
+    );
 
     final classified = SourceApiException.classifyDioError(e);
 
@@ -1027,7 +1053,9 @@ class NeteaseSource
       final statusCode = e.response?.statusCode;
       if (statusCode == 429 || statusCode == 460 || statusCode == 462) {
         return NeteaseApiException(
-            numericCode: -460, message: classified.message);
+          numericCode: -460,
+          message: classified.message,
+        );
       }
       return NeteaseApiException(
         numericCode: -(statusCode ?? 500),
@@ -1041,6 +1069,8 @@ class NeteaseSource
       _ => -999,
     };
     return NeteaseApiException(
-        numericCode: numericCode, message: classified.message);
+      numericCode: numericCode,
+      message: classified.message,
+    );
   }
 }

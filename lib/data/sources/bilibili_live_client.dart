@@ -22,11 +22,7 @@ class BilibiliLiveStream {
   final Map<String, String>? headers;
   final DateTime? expiresAt;
 
-  const BilibiliLiveStream({
-    required this.url,
-    this.headers,
-    this.expiresAt,
-  });
+  const BilibiliLiveStream({required this.url, this.headers, this.expiresAt});
 }
 
 class BilibiliLiveRoomDetails {
@@ -62,11 +58,13 @@ class BilibiliLiveRoomDetails {
     this.announcement,
     this.areaName,
     this.parentAreaName,
-  })  : liveStatus = liveStatus ??
-            (isLive == true ? LiveStatus.live : LiveStatus.offline),
-        isLive = (liveStatus ??
-                (isLive == true ? LiveStatus.live : LiveStatus.offline)) ==
-            LiveStatus.live;
+  }) : liveStatus =
+           liveStatus ??
+           (isLive == true ? LiveStatus.live : LiveStatus.offline),
+       isLive =
+           (liveStatus ??
+               (isLive == true ? LiveStatus.live : LiveStatus.offline)) ==
+           LiveStatus.live;
 
   LiveRoom toLiveRoom() {
     return LiveRoom(
@@ -124,13 +122,13 @@ class BilibiliLiveClient with Logging {
     Options Function()? searchOptionsProvider,
     this.apiBase = defaultApiBase,
     this.liveApiBase = defaultLiveApiBase,
-  })  : _ownsApiDio = apiDio == null,
-        _ownsLiveDio = liveDio == null,
-        apiDio = apiDio ?? SourceHttpPolicy.createApiDio(SourceIds.bilibili),
-        liveDio = liveDio ?? SourceHttpPolicy.createBilibiliLiveDio(),
-        searchOptions = searchOptions ?? Options(),
-        _searchOptionsProvider =
-            searchOptionsProvider ?? (() => searchOptions ?? Options());
+  }) : _ownsApiDio = apiDio == null,
+       _ownsLiveDio = liveDio == null,
+       apiDio = apiDio ?? SourceHttpPolicy.createApiDio(SourceIds.bilibili),
+       liveDio = liveDio ?? SourceHttpPolicy.createBilibiliLiveDio(),
+       searchOptions = searchOptions ?? Options(),
+       _searchOptionsProvider =
+           searchOptionsProvider ?? (() => searchOptions ?? Options());
 
   BilibiliLiveUrlParseResult? parseLiveUrl(String url) {
     final match = RegExp(
@@ -283,11 +281,7 @@ class BilibiliLiveClient with Logging {
     try {
       final response = await liveDio.get(
         '$liveApiBase/room/v1/Room/playUrl',
-        queryParameters: {
-          'cid': roomId,
-          'platform': 'h5',
-          'quality': 4,
-        },
+        queryParameters: {'cid': roomId, 'platform': 'h5', 'quality': 4},
       );
 
       final responseData = response.data;
@@ -406,9 +400,10 @@ class BilibiliLiveClient with Logging {
     return LiveSearchResult(
       rooms: results
           .whereType<Map>()
-          .map((item) => LiveRoom.fromLiveRoomSearch(
-                Map<String, dynamic>.from(item),
-              ))
+          .map(
+            (item) =>
+                LiveRoom.fromLiveRoomSearch(Map<String, dynamic>.from(item)),
+          )
           .toList(),
       totalCount: numResults,
       page: page,

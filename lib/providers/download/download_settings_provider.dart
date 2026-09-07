@@ -129,7 +129,8 @@ class DownloadSettingsNotifier extends Notifier<DownloadSettingsState> {
 /// 下载设置 Provider
 final downloadSettingsProvider =
     NotifierProvider<DownloadSettingsNotifier, DownloadSettingsState>(
-        DownloadSettingsNotifier.new);
+      DownloadSettingsNotifier.new,
+    );
 
 /// 便捷 Provider - 最大并发下载数
 final maxConcurrentDownloadsProvider = Provider<int>((ref) {

@@ -38,26 +38,28 @@ void main() {
       }
     });
 
-    test('getAuthHeaders returns cookie and authorization without LOGIN_INFO',
-        () async {
-      final loginService = YouTubeAccountService(isar: isar);
+    test(
+      'getAuthHeaders returns cookie and authorization without LOGIN_INFO',
+      () async {
+        final loginService = YouTubeAccountService(isar: isar);
 
-      await loginService.loginWithCookies({
-        'SAPISID': 'sapisid',
-        '__Secure-1PSID': '1psid',
-        '__Secure-3PSID': '3psid',
-      });
+        await loginService.loginWithCookies({
+          'SAPISID': 'sapisid',
+          '__Secure-1PSID': '1psid',
+          '__Secure-3PSID': '3psid',
+        });
 
-      final service = YouTubeAccountService(isar: isar);
-      final headers = await service.getAuthHeaders();
+        final service = YouTubeAccountService(isar: isar);
+        final headers = await service.getAuthHeaders();
 
-      expect(headers, isNotNull);
-      expect(headers!['Cookie'], contains('SAPISID=sapisid'));
-      expect(headers['Cookie'], contains('__Secure-1PSID=1psid'));
-      expect(headers['Cookie'], contains('__Secure-3PSID=3psid'));
-      expect(headers['Cookie'], isNot(contains('LOGIN_INFO=')));
-      expect(headers['Authorization'], startsWith('SAPISIDHASH '));
-    });
+        expect(headers, isNotNull);
+        expect(headers!['Cookie'], contains('SAPISID=sapisid'));
+        expect(headers['Cookie'], contains('__Secure-1PSID=1psid'));
+        expect(headers['Cookie'], contains('__Secure-3PSID=3psid'));
+        expect(headers['Cookie'], isNot(contains('LOGIN_INFO=')));
+        expect(headers['Authorization'], startsWith('SAPISIDHASH '));
+      },
+    );
   });
 
   group('YouTubeAccountService.getMissingRequiredCookies', () {

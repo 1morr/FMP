@@ -49,8 +49,9 @@ final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>((ref) {
 });
 
 /// Search History Repository Provider
-final searchHistoryRepositoryProvider =
-    Provider<SearchHistoryRepository>((ref) {
+final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>((
+  ref,
+) {
   final db = ref.watch(databaseProvider).value;
   if (db == null) {
     throw StateError('Database not initialized');
@@ -69,12 +70,12 @@ final lyricsRepositoryProvider = Provider<LyricsRepository>((ref) {
 
 final lyricsTitleParseCacheRepositoryProvider =
     Provider<LyricsTitleParseCacheRepository>((ref) {
-  final db = ref.watch(databaseProvider).value;
-  if (db == null) {
-    throw StateError('Database not initialized');
-  }
-  return LyricsTitleParseCacheRepository(db);
-});
+      final db = ref.watch(databaseProvider).value;
+      if (db == null) {
+        throw StateError('Database not initialized');
+      }
+      return LyricsTitleParseCacheRepository(db);
+    });
 
 /// Account Repository Provider
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
