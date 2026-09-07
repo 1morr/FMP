@@ -1,0 +1,12 @@
+# Whole-tree formatting commits. `git blame` on GitHub skips these
+# automatically; locally, enable them once with:
+#
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: run dart format across the tree
+0089fe45d3cb37fe806aef3b013303174cf249a4
+
+# style: reformat lib and test with the tall style
+# dart_style switched to the tall style once the SDK lower bound reached
+# 3.9 (tall applies from language version 3.7 up).
+eaa6870f9ad954301cdfb87eda0f51c9e20d0687

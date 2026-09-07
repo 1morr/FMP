@@ -81,6 +81,7 @@ dart run build_runner build  # Isar code generation
 dart run slang                       # Regenerate i18n after lib/i18n/**/*.json changes
 flutter analyze                      # Static analysis
 flutter test                         # Run tests
+dart format lib test                 # Formatter; CI fails on any diff
 ```
 
 **Targeted verification:**
