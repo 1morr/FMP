@@ -101,6 +101,9 @@ flutter:
   assets:
     - assets/icons/
     - assets/icon/
+    # 授權全文同時是 repo 檔案與 app 內的資源：showLicensePage 收不到建置時才
+    # 下載的 libmpv/FFmpeg，由 lib/core/third_party_licenses.dart 從這裡補上。
+    - licenses/
 
 # Windows 安装包配置 (InnoSetup)
 inno_bundle:
