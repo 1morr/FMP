@@ -60,6 +60,25 @@ void main() {
       expect(source, contains('_player.currentIndexStream.listen'));
     });
 
+    test('following a boundary goes through the shared track-change path', () {
+      // `_bufferStarvationTrackKey`（「這首歌已經救過一次」）與 handoff gate 的
+      // `currentTrackKey` 都只在 `_updatePlayingTrack` 換曲目時跟上。跟隨路徑
+      // 繞過它就會拿上一首的身分去擋新一首的救援與 seek —— 兩者都不會報錯。
+      final source =
+          File('lib/services/audio/audio_provider.dart').readAsStringSync();
+      final follow = source.substring(
+        source.indexOf('void _onBackendAdvanced('),
+        source.indexOf('Future<void> _prefetchAndArmAfterAdvance('),
+      );
+
+      expect(follow, contains('_updatePlayingTrack(track, countsAsNewPlay: true)'));
+      expect(follow, contains('_queueManager.moveToNext()'));
+      expect(follow, isNot(contains('_playbackRequestSession')),
+          reason: 'there is no new request at a gapless boundary');
+      expect(follow, isNot(contains('_audioService.stop()')),
+          reason: 'stopping the backend is exactly what this avoids');
+    });
+
     test('MediaKitAudioService asks mpv to prefetch the next entry', () {
       // mpv 的 `prefetch-playlist` 預設是 `no`，media_kit 從不設它。少了這一行
       // 第二個項目要等交界才開流，gapless 的說法就不成立 —— 同樣不會有任何錯誤。

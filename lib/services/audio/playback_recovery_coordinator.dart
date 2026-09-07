@@ -281,15 +281,6 @@ class PlaybackRecoveryCoordinator {
     return scheduleRetry(track: track, position: position, mode: mode);
   }
 
-  void clearForNewPlayback(Track track) {
-    _retryGeneration++;
-    _cancelRetryTimer();
-    _retryAttempt = 0;
-    _recoveryTrack = null;
-    _recoveryPosition = null;
-    _clearScheduledRetryMarker();
-  }
-
   PlaybackRecoveryEvent reset() {
     _retryGeneration++;
     _cancelRetryTimer();

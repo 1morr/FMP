@@ -183,7 +183,6 @@ void main() {
     test('network recovered ignores stale track after generation changes',
         () async {
       final oldTrack = _track('old-track');
-      final newTrack = _track('new-track');
       coordinator.scheduleRetry(
         track: oldTrack,
         position: const Duration(seconds: 12),
@@ -194,7 +193,9 @@ void main() {
         stabilizationDelay: const Duration(milliseconds: 500),
       );
 
-      coordinator.clearForNewPlayback(newTrack);
+      // 世代前進的唯一入口就是 `reset()`。`clearForNewPlayback` 是它的逐字
+      // 複本，忽略自己的 track 參數，而且 production 從來沒有呼叫過它。
+      coordinator.reset();
       timerFactory.completeDelay(const Duration(milliseconds: 500));
       final event = await recovery;
 

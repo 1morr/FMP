@@ -232,6 +232,24 @@ void main() {
           'the next boundary to be armed');
     });
 
+    test('the boundary replaces the stream metadata', () async {
+      await playPair();
+      await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
+          'the next medium to be armed');
+      expect(controller.state.currentContainer, 'alpha-m4a');
+
+      audioService.emitAdvancedToNext(audioService.setNextMediaCalls.single!);
+      await waitFor(() => controller.state.playingTrack?.sourceId == 'beta',
+          'the controller to follow the backend');
+
+      // 這四個值屬於當前播放請求。跟隨路徑不經過 `_exitLoadingState`，忘了補
+      // 就會一直顯示上一首的碼率與格式。
+      expect(controller.state.currentContainer, 'beta-m4a');
+      expect(controller.state.isLoading, isFalse,
+          reason: 'a gapless boundary is not a load; the spinner must not stick');
+      expect(controller.state.error, isNull);
+    });
+
     test('an unrecognised advance falls back to the completion path', () async {
       await playPair();
       await waitFor(() => audioService.setNextMediaCalls.isNotEmpty,
@@ -286,7 +304,8 @@ class _CountingSource implements AudioStreamSource {
     _counts[request.sourceId] = (_counts[request.sourceId] ?? 0) + 1;
     return AudioStreamResult(
       url: 'https://example.com/${request.sourceId}.m4a',
-      container: 'm4a',
+      // 每首不同，交界之後的後設資料才分得出來是誰的。
+      container: '${request.sourceId}-m4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
     );
