@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
@@ -144,7 +143,7 @@ void main() {
             overrides: [
               settingsRepositoryProvider.overrideWith((ref) => repository),
               refreshSettingsProvider.overrideWith(
-                (ref) => _FakeRefreshSettingsNotifier(),
+                _FakeRefreshSettingsNotifier.new,
               ),
             ],
             child: MaterialApp.router(routerConfig: router),
@@ -200,10 +199,11 @@ class _FakeSettingsRepository extends SettingsRepository {
 
 class _FakeIsar extends Fake implements Isar {}
 
-class _FakeRefreshSettingsNotifier extends StateNotifier<RefreshSettingsState>
-    implements RefreshSettingsNotifier {
-  _FakeRefreshSettingsNotifier()
-      : super(const RefreshSettingsState(isLoading: false));
+/// 不呼叫 `super.build()`：真的那個會去讀設定並啟動兩個刷新服務的計時器。
+class _FakeRefreshSettingsNotifier extends RefreshSettingsNotifier {
+  @override
+  RefreshSettingsState build() =>
+      const RefreshSettingsState(isLoading: false);
 
   @override
   Future<void> setRankingRefreshInterval(int minutes) async {}

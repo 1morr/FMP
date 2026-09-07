@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/providers/settings/home_ranking_settings_provider.dart';
 
@@ -34,9 +35,9 @@ void main() {
     test('starts loading and clears loading after settings resolve', () async {
       final completer = Completer<Settings>();
       final store = _InMemorySettingsStore(Settings());
-      final notifier = HomeRankingSettingsNotifier(
-        loadSettings: () => completer.future,
-        updateSettings: store.update,
+      final notifier = _notifierWith(
+        load: () => completer.future,
+        update: store.update,
       );
 
       expect(notifier.state.isLoading, isTrue);
@@ -93,11 +94,7 @@ void main() {
         Settings()..disabledHomeRankingSources = 'youtube',
       );
       final container = ProviderContainer(
-        overrides: [
-          homeRankingSettingsProvider.overrideWith(
-            (ref) => _createNotifier(store),
-          ),
-        ],
+        overrides: [_storeOverride(store)],
       );
       addTearDown(container.dispose);
       container.read(homeRankingSettingsProvider);
@@ -359,12 +356,28 @@ void main() {
   });
 }
 
-HomeRankingSettingsNotifier _createNotifier(_InMemorySettingsStore store) {
-  return HomeRankingSettingsNotifier(
-    loadSettings: store.get,
-    updateSettings: store.update,
+/// `HomeRankingSettingsNotifier` 以前用建構子注入存取層；改成 `Notifier` 之後
+/// 工廠不吃參數，那道縫搬到了 `homeRankingSettingsStoreProvider`。
+Override _storeOverride(_InMemorySettingsStore store) =>
+    homeRankingSettingsStoreProvider
+        .overrideWithValue((load: store.get, update: store.update));
+
+HomeRankingSettingsNotifier _notifierWith({
+  required LoadHomeRankingSettings load,
+  required UpdateHomeRankingSettings update,
+}) {
+  final container = ProviderContainer(
+    overrides: [
+      homeRankingSettingsStoreProvider
+          .overrideWithValue((load: load, update: update)),
+    ],
   );
+  addTearDown(container.dispose);
+  return container.read(homeRankingSettingsProvider.notifier);
 }
+
+HomeRankingSettingsNotifier _createNotifier(_InMemorySettingsStore store) =>
+    _notifierWith(load: store.get, update: store.update);
 
 class _InMemorySettingsStore {
   _InMemorySettingsStore(this.settings);

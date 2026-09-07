@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../data/models/settings.dart';
 import '../database/repository_providers.dart';
@@ -40,9 +39,9 @@ class HomeRankingSettingsState {
 }
 
 class HomeRankingSettingsNotifier
-    extends StateNotifier<HomeRankingSettingsState> {
-  final LoadHomeRankingSettings _loadSettingsFromStore;
-  final UpdateHomeRankingSettings _updateSettings;
+    extends Notifier<HomeRankingSettingsState> {
+  late LoadHomeRankingSettings _loadSettingsFromStore;
+  late UpdateHomeRankingSettings _updateSettings;
   Settings? _settings;
   Future<void> _sourceOrderMutation = Future<void>.value();
   Future<void> _disabledSourcesMutation = Future<void>.value();
@@ -51,13 +50,13 @@ class HomeRankingSettingsNotifier
   int _sourceOrderGeneration = 0;
   int _disabledSourcesGeneration = 0;
 
-  HomeRankingSettingsNotifier({
-    required LoadHomeRankingSettings loadSettings,
-    required UpdateHomeRankingSettings updateSettings,
-  })  : _loadSettingsFromStore = loadSettings,
-        _updateSettings = updateSettings,
-        super(HomeRankingSettingsState()) {
+  @override
+  HomeRankingSettingsState build() {
+    final store = ref.watch(homeRankingSettingsStoreProvider);
+    _loadSettingsFromStore = store.load;
+    _updateSettings = store.update;
     _loadSettings();
+    return HomeRankingSettingsState();
   }
 
   Future<void> _loadSettings() async {
@@ -181,14 +180,23 @@ class HomeRankingSettingsNotifier
   }
 }
 
-final homeRankingSettingsProvider = StateNotifierProvider<
-    HomeRankingSettingsNotifier, HomeRankingSettingsState>((ref) {
-  final repository = ref.watch(settingsRepositoryProvider);
-  return HomeRankingSettingsNotifier(
-    loadSettings: repository.get,
-    updateSettings: repository.update,
-  );
+/// 這個 notifier 只透過兩個函式碰設定。以前它們是建構子參數，測試直接注入
+/// 假的存取層；`Notifier` 的工廠不吃參數，所以那道縫改成一個 provider ——
+/// 測試覆寫這裡就好，不必為了換兩個函式而架一整個 Isar。
+typedef HomeRankingSettingsStore = ({
+  LoadHomeRankingSettings load,
+  UpdateHomeRankingSettings update,
 });
+
+final homeRankingSettingsStoreProvider =
+    Provider<HomeRankingSettingsStore>((ref) {
+  final repository = ref.watch(settingsRepositoryProvider);
+  return (load: repository.get, update: repository.update);
+});
+
+final homeRankingSettingsProvider = NotifierProvider<
+    HomeRankingSettingsNotifier,
+    HomeRankingSettingsState>(HomeRankingSettingsNotifier.new);
 
 final enabledHomeRankingSourceOrderProvider = Provider<List<String>>((ref) {
   return ref.watch(homeRankingSettingsProvider).enabledSourceOrder;

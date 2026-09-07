@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_layout.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -37,17 +37,19 @@ class LayoutSettingsState {
   }
 }
 
-class LayoutSettingsNotifier extends StateNotifier<LayoutSettingsState> {
-  LayoutSettingsNotifier(this._repo)
-      : super(const LayoutSettingsState.initial()) {
-    _load();
-  }
+class LayoutSettingsNotifier extends Notifier<LayoutSettingsState> {
+  late SettingsRepository _repo;
 
-  final SettingsRepository _repo;
+  @override
+  LayoutSettingsState build() {
+    _repo = ref.watch(settingsRepositoryProvider);
+    _load();
+    return const LayoutSettingsState.initial();
+  }
 
   Future<void> _load() async {
     final settings = await _repo.get();
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = LayoutSettingsState(
       railExpanded: settings.railExpanded,
       detailPanelExpanded: settings.detailPanelExpanded,
@@ -77,6 +79,5 @@ class LayoutSettingsNotifier extends StateNotifier<LayoutSettingsState> {
 }
 
 final layoutSettingsProvider =
-    StateNotifierProvider<LayoutSettingsNotifier, LayoutSettingsState>((ref) {
-  return LayoutSettingsNotifier(ref.watch(settingsRepositoryProvider));
-});
+    NotifierProvider<LayoutSettingsNotifier, LayoutSettingsState>(
+        LayoutSettingsNotifier.new);

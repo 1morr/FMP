@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logger.dart';
 
@@ -34,9 +34,10 @@ class DeveloperOptionsState {
 }
 
 /// 开发者选项 Notifier
-class DeveloperOptionsNotifier extends StateNotifier<DeveloperOptionsState> {
-  DeveloperOptionsNotifier()
-      : super(DeveloperOptionsState(logLevel: AppLogger.minLevel));
+class DeveloperOptionsNotifier extends Notifier<DeveloperOptionsState> {
+  @override
+  DeveloperOptionsState build() =>
+      DeveloperOptionsState(logLevel: AppLogger.minLevel);
 
   /// 調整最小日誌級別。`AppLogger.setMinLevel` 在這之前沒有任何呼叫者。
   void setLogLevel(LogLevel level) {
@@ -73,6 +74,6 @@ class DeveloperOptionsNotifier extends StateNotifier<DeveloperOptionsState> {
 
 /// 开发者选项 Provider
 final developerOptionsProvider =
-    StateNotifierProvider<DeveloperOptionsNotifier, DeveloperOptionsState>(
-  (ref) => DeveloperOptionsNotifier(),
+    NotifierProvider<DeveloperOptionsNotifier, DeveloperOptionsState>(
+  DeveloperOptionsNotifier.new,
 );
