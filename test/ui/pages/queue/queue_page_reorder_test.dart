@@ -52,7 +52,7 @@ void main() {
       TranslationProvider(
         child: ProviderScope(
           overrides: [
-            audioControllerProvider.overrideWith((ref) => harness.controller),
+            audioControllerProvider.overrideWith(() => harness.controller),
             queueStateProvider.overrideWith(
                 () => _FixedQueueState(harness.queueState)),
             autoScrollToCurrentTrackProvider.overrideWith((ref) => false),
@@ -131,10 +131,7 @@ class _QueuePageHarness {
       queuePersistenceManager: queuePersistenceManager,
     );
 
-    final controller = _QueuePageTestAudioController(
-      queueManager: queueManager,
-      audioStreamManager: audioStreamManager,
-    );
+    final controller = _QueuePageTestAudioController();
 
     final queue = [
       _buildTrack(id: 1, sourceId: 'alpha', title: 'Alpha'),
@@ -158,7 +155,6 @@ class _QueuePageHarness {
   }
 
   Future<void> dispose() async {
-    controller.dispose();
     streamResolutionService.dispose();
     sourceManager.dispose();
     await isar.close(deleteFromDisk: true);
@@ -176,17 +172,13 @@ class _FixedQueueState extends QueueStateNotifier {
   QueueState build() => _value;
 }
 
+/// 不呼叫 `super.build()`：這一頁只讀被覆寫掉的 `queueStateProvider`，
+/// 真的那個 `build()` 會把整條播放鏈拉起來。
 class _QueuePageTestAudioController extends AudioController {
-  _QueuePageTestAudioController({
-    required super.queueManager,
-    required super.audioStreamManager,
-  }) : super(
-          audioService: FakeAudioService(),
-          toastService: ToastService(),
-          nowPlayingPublisher: testNowPlayingPublisher(),
-        );
-
   int moveInQueueCallCount = 0;
+
+  @override
+  PlayerState build() => const PlayerState();
 
   @override
   Future<void> moveInQueue(int oldIndex, int newIndex) async {

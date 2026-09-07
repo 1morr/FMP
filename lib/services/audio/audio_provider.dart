@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -12,6 +13,14 @@ import '../../data/sources/source_exception.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/play_history_repository.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
+// `Notifier` 可以拿到 `ref`，所以接線從 provider 工廠搬進了 build()。
+// 控制器本身仍然不宣告任何 provider —— 見 lib/providers/AGENTS.md。
+import '../../providers/audio/audio_controller_provider.dart';
+import '../../providers/database/repository_providers.dart';
+import '../../providers/download/file_exists_cache.dart';
+import '../../providers/library/library_invalidation_coordinator.dart';
+import '../../providers/lyrics/lyrics_provider.dart';
+import '../network/connectivity_service.dart';
 import '../../core/services/toast_service.dart';
 import 'audio_types.dart';
 import 'buffer_starvation_watchdog.dart';
@@ -46,22 +55,27 @@ class _RetryScheduledException implements Exception {
 
 /// 音訊控制器 - 管理所有播放相關的狀態和操作
 /// 協調 AudioService（單曲播放）和 QueueManager（佇列管理）
-class AudioController extends StateNotifier<PlayerState>
+class AudioController extends Notifier<PlayerState>
     with Logging
     implements PlaybackRetryExecutor {
+  AudioController({PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget()})
+      : _budget = budget;
+
   /// 失敗分類與文案。無狀態，所以 const 一份就夠。
   static const _errorPresenter = PlaybackErrorPresenter();
 
-  final FmpAudioService _audioService;
-  final QueueManager _queueManager;
-  late final QueueCommands _queueCommands;
-  final AudioStreamManager _audioStreamManager;
-  final ToastService _toastService;
-  final NowPlayingPublisher _publisher;
-  late final PlayHistoryRecorder _playHistory;
-  late final LyricsAutoMatchCoordinator _lyricsAutoMatch;
-  final SettingsRepository? _settingsRepository;
-  final QueuePersistenceManager? _queuePersistenceManager;
+  // 全部是 `late` 而不是 `late final`：`Notifier.build()` 重跑時實例會被保留，
+  // `late final` 第二次指派就是 LateInitializationError。
+  late FmpAudioService _audioService;
+  late QueueManager _queueManager;
+  late QueueCommands _queueCommands;
+  late AudioStreamManager _audioStreamManager;
+  late ToastService _toastService;
+  late NowPlayingPublisher _publisher;
+  late PlayHistoryRecorder _playHistory;
+  late LyricsAutoMatchCoordinator _lyricsAutoMatch;
+  SettingsRepository? _settingsRepository;
+  QueuePersistenceManager? _queuePersistenceManager;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -84,7 +98,7 @@ class AudioController extends StateNotifier<PlayerState>
   /// 這是 `PlaybackRequestSession` 那個單調遞增請求 id 的**閂存副本**
   /// （`_enterLoading()` → `onLoadingStarted` 原樣傳過來），交接結束就歸零。
   /// 它不是第二個計數器。
-  late final PlaybackHandoffGate _handoff;
+  late PlaybackHandoffGate _handoff;
 
   bool get _isTemporaryMode => _mode == PlayMode.temporary;
   bool get _isMixMode => _mode == PlayMode.mix;
@@ -93,10 +107,10 @@ class AudioController extends StateNotifier<PlayerState>
   // 基於位置檢測的備選切歌定時器（解決後台播放 completed 事件丟失問題）
   Timer? _positionCheckTimer;
 
-  late final PlaybackRequestSession _playbackRequestSession;
-  late final PlaybackRecoveryCoordinator _recoveryCoordinator;
-  late final TemporaryPlayHandler _temporaryPlayHandler;
-  late final MixSessionCoordinator _mixSession;
+  late PlaybackRequestSession _playbackRequestSession;
+  late PlaybackRecoveryCoordinator _recoveryCoordinator;
+  late TemporaryPlayHandler _temporaryPlayHandler;
+  late MixSessionCoordinator _mixSession;
   int _mixStartRequestId = 0;
 
   // 通知欄/SMTC 更新節流：上次更新的位置
@@ -144,31 +158,62 @@ class AudioController extends StateNotifier<PlayerState>
   /// 網路恢復監聽訂閱
   StreamSubscription<void>? _networkRecoverySubscription;
 
-  AudioController({
-    required FmpAudioService audioService,
-    required QueueManager queueManager,
-    required AudioStreamManager audioStreamManager,
-    required ToastService toastService,
-    required NowPlayingPublisher nowPlayingPublisher,
-    PlayHistoryRepository? playHistoryRepository,
-    LyricsAutoMatchService? lyricsAutoMatchService,
-    SettingsRepository? settingsRepository,
-    QueuePersistenceManager? queuePersistenceManager,
-    MixTracksFetcher? mixTracksFetcher,
-    PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
-  })  : _budget = budget,
-        _audioService = audioService,
-        _queueManager = queueManager,
-        _audioStreamManager = audioStreamManager,
-        _toastService = toastService,
-        _publisher = nowPlayingPublisher,
-        _settingsRepository = settingsRepository,
-        _queuePersistenceManager = queuePersistenceManager,
-        super(const PlayerState()) {
+  @override
+  PlayerState build() {
+    // **全部是 `read`，不是 `watch`。** `ref.onDispose` 在 provider 即將
+    // rebuild 時也會跑（riverpod `ref.dart:513-518`），而這裡的 `_teardown`
+    // 做的是所有權釋放 —— 它會 dispose 後端音訊服務、交還系統媒體控制。
+    // 用 `watch` 的話，任何一個相依變動都會在控制器還活著的時候把播放器關掉。
+    // 這些協作者在正式環境本來就只建立一次（`audioControllerProvider` 要等
+    // 資料庫就緒才讀得到），所以 `read` 與舊工廠的實際行為相同。
+    _audioService = ref.read(audioServiceProvider);
+    _queueManager = ref.read(queueManagerProvider);
+    _audioStreamManager = ref.read(audioStreamManagerProvider);
+    _toastService = ref.read(toastServiceProvider);
+    _publisher = ref.read(nowPlayingPublisherProvider);
+    // 這四個協作者可以缺席：資料庫還沒開的時候它們的 provider 會拋。舊的
+    // provider 工廠對播放歷史就是這樣處理的，這裡把同一條容忍度套到全部四個。
+    // 歌詞設定同樣不該重建播放控制器：真正的值在自動匹配實際跑的時候才讀。
+    _settingsRepository = _readOptional(settingsRepositoryProvider);
+    _queuePersistenceManager = _readOptional(queuePersistenceManagerProvider);
+    final playHistoryRepository = _readOptional(playHistoryRepositoryProvider);
+    final lyricsAutoMatchService =
+        _readOptional(optionalLyricsAutoMatchServiceProvider);
+    final mixTracksFetcher = ref.read(mixTracksFetcherProvider);
+
+    _wireCollaborators(
+      playHistoryRepository: playHistoryRepository,
+      lyricsAutoMatchService: lyricsAutoMatchService,
+      mixTracksFetcher: mixTracksFetcher,
+    );
+    _wireProviderCallbacks();
+
+    ref.onDispose(_teardown);
+    // 起動初始化（非同步，但不阻塞）。每個操作前的 `_ensureInitialized`
+    // 會確保它完成；`_isInitialized` / `_isInitializing` 讓重跑的 build 不會
+    // 再跑一次。
+    Future.microtask(initialize);
+
+    return const PlayerState();
+  }
+
+  T? _readOptional<T>(ProviderListenable<T> provider) {
+    try {
+      return ref.read(provider);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _wireCollaborators({
+    required PlayHistoryRepository? playHistoryRepository,
+    required LyricsAutoMatchService? lyricsAutoMatchService,
+    required MixTracksFetcher? mixTracksFetcher,
+  }) {
     _playHistory = PlayHistoryRecorder(repository: playHistoryRepository);
     _lyricsAutoMatch = LyricsAutoMatchCoordinator(
       service: lyricsAutoMatchService,
-      settingsRepository: settingsRepository,
+      settingsRepository: _settingsRepository,
     );
     _queueCommands = QueueCommands(
       queueManager: _queueManager,
@@ -223,8 +268,44 @@ class AudioController extends StateNotifier<PlayerState>
     );
   }
 
+  /// 接上「控制器狀態要推給哪些 provider」。這一段以前住在 provider 工廠裡，
+  /// 因為 `StateNotifier` 拿不到 `ref`。
+  void _wireProviderCallbacks() {
+    setupNetworkRecoveryListener(
+      ref.read(connectivityProvider.notifier).onNetworkRecovered,
+    );
+
+    onLyricsAutoMatchStateChanged = (isMatching) {
+      ref.read(lyricsAutoMatchingProvider.notifier).setMatching(isMatching);
+    };
+
+    onQueueStateChanged = (queueState) {
+      ref.read(queueStateProvider.notifier).publish(queueState);
+    };
+
+    final downloadPathSubscription =
+        _audioStreamManager.downloadPathsChangedStream.listen((event) {
+      final playlistIds = <int>{};
+      for (final info in event.track.playlistInfo) {
+        if (info.playlistId > 0) {
+          playlistIds.add(info.playlistId);
+        }
+      }
+      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+            savePaths: event.removedPaths,
+            affectedPlaylistIds: playlistIds,
+            includeDownloadedCategories: event.removedPaths.isNotEmpty,
+            fileExistsChanged: false,
+          );
+      for (final path in event.removedPaths) {
+        ref.read(fileExistsCacheProvider.notifier).remove(path);
+      }
+    });
+    ref.onDispose(downloadPathSubscription.cancel);
+  }
+
   final PlaybackTimeoutBudget _budget;
-  late final BufferStarvationWatchdog _bufferWatchdog;
+  late BufferStarvationWatchdog _bufferWatchdog;
 
   /// 已經為哪一首歌出手救過一次。同一首只救一次，否則就變成無限重載。
   String? _bufferStarvationTrackKey;
@@ -280,10 +361,10 @@ class AudioController extends StateNotifier<PlayerState>
       _updateQueueState();
 
       // 恢復 Mix 播放模式（如果之前有持久化的 Mix metadata）
+      // 欄位不再是 `final`（`build()` 會重跑），型別提升不成立，先取到區域變數。
+      final persistence = _queuePersistenceManager;
       final restoredMix = _mixSession.restoreFrom(
-        _queuePersistenceManager == null
-            ? null
-            : await _queuePersistenceManager.restoreState(),
+        persistence == null ? null : await persistence.restoreState(),
       );
       if (restoredMix != null) {
         // Mix 模式不支持隨機播放，確保關閉
@@ -341,8 +422,7 @@ class AudioController extends StateNotifier<PlayerState>
   }
 
   /// 釋放資源
-  @override
-  void dispose() {
+  void _teardown() {
     if (_isDisposed) return;
     _isDisposed = true;
     _handoff.dispose();
@@ -367,7 +447,6 @@ class AudioController extends StateNotifier<PlayerState>
     unawaited(_audioService.dispose().catchError((Object e, StackTrace stack) {
       logError('Failed to dispose audio service', e, stack);
     }));
-    super.dispose();
   }
 
   // ========== 播放控制 ==========

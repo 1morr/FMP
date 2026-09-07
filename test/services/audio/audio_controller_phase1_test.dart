@@ -39,6 +39,7 @@ import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:isar_community/isar.dart';
 
+import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
@@ -99,7 +100,7 @@ void main() {
       audioService = FakeAudioService();
       toastService = ToastService();
       mixTracksFetcher = _TestMixTracksFetcher();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
@@ -119,7 +120,6 @@ void main() {
 
     test('stale lyrics auto-match cannot clear newer loading state', () async {
       final lyricsService = _GateableLyricsAutoMatchService(isar);
-      controller.dispose();
 
       final settingsRepository = SettingsRepository(isar);
       final trackRepository = TrackRepository(isar);
@@ -139,7 +139,7 @@ void main() {
         queuePersistenceManager: queuePersistenceManager,
       );
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
@@ -179,7 +179,6 @@ void main() {
     test('lyrics auto-match preserves an explicitly empty enabled source list',
         () async {
       final lyricsService = _GateableLyricsAutoMatchService(isar);
-      controller.dispose();
 
       final settingsRepository = SettingsRepository(isar);
       final trackRepository = TrackRepository(isar);
@@ -199,7 +198,7 @@ void main() {
         queuePersistenceManager: queuePersistenceManager,
       );
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
@@ -228,7 +227,6 @@ void main() {
     });
 
     tearDown(() async {
-      controller.dispose();
       toastService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
@@ -279,7 +277,6 @@ void main() {
         'mobile notification stays on next track loading while queue navigation resolves stream',
         () async {
       final handler = FmpAudioHandler();
-      controller.dispose();
 
       final settingsRepository = SettingsRepository(isar);
       final trackRepository = TrackRepository(isar);
@@ -299,7 +296,7 @@ void main() {
         queuePersistenceManager: queuePersistenceManager,
       );
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
@@ -338,7 +335,6 @@ void main() {
     test('mobile notification exits loading when next-track stream fails',
         () async {
       final handler = FmpAudioHandler();
-      controller.dispose();
 
       final settingsRepository = SettingsRepository(isar);
       final trackRepository = TrackRepository(isar);
@@ -358,7 +354,7 @@ void main() {
         queuePersistenceManager: queuePersistenceManager,
       );
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
@@ -1542,11 +1538,10 @@ void main() {
       final subscription = toastService.messageStream.listen(toasts.add);
       addTearDown(subscription.cancel);
 
-      controller.dispose();
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: _createAudioStreamManager(
@@ -1628,7 +1623,6 @@ void main() {
       expect(persistedBeforePrepare!.audioUrl,
           'https://stale.example/prefetch-next.m4a');
 
-      controller.dispose();
 
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
@@ -1648,7 +1642,7 @@ void main() {
         queuePersistenceManager: queuePersistenceManager,
       );
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,

@@ -22,6 +22,7 @@ import 'package:fmp/services/audio/temporary_play_handler.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:isar_community/isar.dart';
 
+import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
@@ -78,7 +79,7 @@ void main() {
       );
 
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
@@ -96,7 +97,6 @@ void main() {
     });
 
     tearDown(() async {
-      controller.dispose();
       streamResolutionService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {

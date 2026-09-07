@@ -49,7 +49,7 @@ void main() {
       TranslationProvider(
         child: ProviderScope(
           overrides: [
-            audioControllerProvider.overrideWith((ref) => harness.controller),
+            audioControllerProvider.overrideWith(() => harness.controller),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -161,21 +161,6 @@ class _Harness {
     );
 
     final controller = _TestAudioController(
-      queueManager: QueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: queueRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-        ),
-      ),
-      audioStreamManager: AudioStreamManager(
-        streamResolutionService: streamResolutionService,
-        sourceAuthContext: sourceAuthContext,
-      ),
-    );
-    controller.emit(
       PlayerState(
         isPlaying: true,
         playingTrack: Track()
@@ -197,25 +182,24 @@ class _Harness {
   }
 
   Future<void> dispose() async {
-    controller.dispose();
     streamResolutionService.dispose();
     sourceManager.dispose();
     await isar.close(deleteFromDisk: true);
   }
 }
 
+/// 不呼叫 `super.build()`：這條測試只看迷你播放器怎麼畫一個給定的
+/// `PlayerState`，真的那個 `build()` 會把整條播放鏈拉起來。
+///
+/// 狀態從 `build()` 回傳而不是事後 `state =` —— `Notifier` 要先掛進 container
+/// 才碰得到 `state`，而這個實例是在 harness 建立時就要帶著狀態的。
 class _TestAudioController extends AudioController {
-  _TestAudioController({
-    required super.queueManager,
-    required super.audioStreamManager,
-  }) : super(
-          audioService: FakeAudioService(),
-          toastService: ToastService(),
-          nowPlayingPublisher: testNowPlayingPublisher(),
-        );
+  _TestAudioController(this._seed);
 
-  /// `state` 的 setter 是 protected，測試從子類推一個播放中的狀態進去。
-  void emit(PlayerState next) => state = next;
+  final PlayerState _seed;
+
+  @override
+  PlayerState build() => _seed;
 }
 
 class _FakeSourceAuthContext implements SourceAuthContext {

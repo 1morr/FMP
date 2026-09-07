@@ -66,7 +66,8 @@ void main() {
       final source =
           File('lib/services/audio/audio_provider.dart').readAsStringSync();
 
-      final disposeStart = source.indexOf('void dispose()');
+      // 釋放改由 `ref.onDispose` 觸發，方法名隨之改成 `_teardown`。
+      final disposeStart = source.indexOf('void _teardown()');
       expect(disposeStart, isNot(-1));
       final disposeBody = source.substring(disposeStart);
 

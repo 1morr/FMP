@@ -1,29 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
-import '../../core/services/toast_service.dart';
-import '../../data/repositories/play_history_repository.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/models/source_ids.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/audio/audio_provider.dart';
+import '../../services/audio/mix_playlist_types.dart';
 import '../../services/audio/audio_runtime_platform.dart';
 import '../../services/audio/audio_service.dart';
 import '../../services/audio/audio_stream_manager.dart';
 import '../../services/audio/just_audio_service.dart';
 import '../../services/audio/media_kit_audio_service.dart';
-import '../../services/audio/now_playing_publisher.dart';
 import '../../services/audio/queue_manager.dart';
 import '../../services/audio/queue_persistence_manager.dart';
-import '../../services/audio/queue_state.dart';
-import '../../services/network/connectivity_service.dart';
 import '../account/source_auth_context_provider.dart';
+import '../../services/lyrics/lyrics_auto_match_service.dart';
 import '../database/database_provider.dart';
-import '../database/repository_providers.dart';
-import '../download/file_exists_cache.dart';
-import '../library/library_invalidation_coordinator.dart';
 import '../lyrics/lyrics_provider.dart';
 import 'stream_resolution_provider.dart';
 
@@ -70,78 +63,29 @@ final queueManagerProvider = Provider<QueueManager>((ref) {
   );
 });
 
-/// AudioController Provider
-final audioControllerProvider =
-    StateNotifierProvider<AudioController, PlayerState>((ref) {
-  final audioService = ref.watch(audioServiceProvider);
-  final queueManager = ref.watch(queueManagerProvider);
-  final toastService = ref.watch(toastServiceProvider);
-
-  // 获取播放历史仓库（可能为 null，如果数据库未初始化）
-  PlayHistoryRepository? playHistoryRepository;
-  try {
-    playHistoryRepository = ref.watch(playHistoryRepositoryProvider);
-  } catch (_) {
-    // 数据库未初始化时忽略
-  }
-
-  final controller = AudioController(
-    audioService: audioService,
-    queueManager: queueManager,
-    audioStreamManager: ref.watch(audioStreamManagerProvider),
-    toastService: toastService,
-    nowPlayingPublisher: ref.watch(nowPlayingPublisherProvider),
-    playHistoryRepository: playHistoryRepository,
-    // Lyrics settings must not rebuild the playback controller. The latest
-    // values are read from SettingsRepository when auto-match actually runs.
-    lyricsAutoMatchService: ref.read(lyricsAutoMatchServiceProvider),
-    settingsRepository: ref.watch(settingsRepositoryProvider),
-    queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
-    mixTracksFetcher: ref
-        .watch(sourceManagerProvider)
-        .dynamicPlaylistSource(SourceIds.youtube)
-        ?.fetchMixTracks,
-  );
-
-  // 设置网络恢复监听（用于断网重连自动恢复播放）
-  final connectivityNotifier = ref.watch(connectivityProvider.notifier);
-  controller
-      .setupNetworkRecoveryListener(connectivityNotifier.onNetworkRecovered);
-
-  // 设置歌词自动匹配状态回调
-  controller.onLyricsAutoMatchStateChanged = (isMatching) {
-    ref.read(lyricsAutoMatchingProvider.notifier).setMatching(isMatching);
-  };
-
-  controller.onQueueStateChanged = (queueState) {
-    ref.read(queueStateProvider.notifier).publish(queueState);
-  };
-
-  final downloadPathSubscription =
-      ref.watch(audioStreamManagerProvider).downloadPathsChangedStream.listen(
-    (event) {
-      final playlistIds = <int>{};
-      for (final info in event.track.playlistInfo) {
-        if (info.playlistId > 0) {
-          playlistIds.add(info.playlistId);
-        }
-      }
-      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
-            savePaths: event.removedPaths,
-            affectedPlaylistIds: playlistIds,
-            includeDownloadedCategories: event.removedPaths.isNotEmpty,
-            fileExistsChanged: false,
-          );
-      for (final path in event.removedPaths) {
-        ref.read(fileExistsCacheProvider.notifier).remove(path);
-      }
-    },
-  );
-  ref.onDispose(downloadPathSubscription.cancel);
-
-  // 启动初始化（异步，但不阻塞）
-  // _ensureInitialized 会在每个操作前确保初始化完成
-  Future.microtask(() => controller.initialize());
-
-  return controller;
+/// Mix 取用的窄能力入口。
+///
+/// `NotifierProvider` 的工廠不吃參數，所以 `AudioController` 需要的是一個
+/// provider 而不是一個建構子參數；測試也覆寫這裡，不必假造整個 `SourceManager`。
+final mixTracksFetcherProvider = Provider<MixTracksFetcher?>((ref) {
+  return ref
+      .watch(sourceManagerProvider)
+      .dynamicPlaylistSource(SourceIds.youtube)
+      ?.fetchMixTracks;
 });
+
+/// 歌詞自動匹配是可選協作者：沒有它播放照樣成立。
+///
+/// 獨立成一個可為 null 的入口，是為了讓播放測試不必為了它把歌詞與設定那一整
+/// 條鏈拉起來 —— 那條鏈會碰 secure storage，在測試環境沒有實作。
+final optionalLyricsAutoMatchServiceProvider =
+    Provider<LyricsAutoMatchService?>((ref) {
+  return ref.watch(lyricsAutoMatchServiceProvider);
+});
+
+/// AudioController Provider
+///
+/// 接線全部在 `AudioController.build()` 裡 —— `Notifier` 拿得到 `ref`，
+/// 所以以前擠在這個工廠裡的 74 行不必再存在。
+final audioControllerProvider =
+    NotifierProvider<AudioController, PlayerState>(AudioController.new);

@@ -27,6 +27,7 @@ import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:isar_community/isar.dart';
 
+import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
@@ -222,7 +223,7 @@ class _AudioControllerHarness {
       sourceAuthContext: _FakeSourceAuthContext(),
     );
     final mixTracksFetcher = _TestMixTracksFetcher();
-    final controller = AudioController(
+    final built = buildTestAudioControllerIn(
       audioService: FakeAudioService(),
       queueManager: queueManager,
       audioStreamManager: audioStreamManager,
@@ -231,14 +232,10 @@ class _AudioControllerHarness {
       settingsRepository: settingsRepository,
       mixTracksFetcher: mixTracksFetcher.call,
     );
-    final container = ProviderContainer(
-      overrides: [
-        audioControllerProvider.overrideWith((ref) => controller),
-      ],
-    );
-    controller.onQueueStateChanged = (queueState) {
-      container.read(queueStateProvider.notifier).publish(queueState);
-    };
+    // 控制器與 `queueStateProvider` 現在住在同一個 container，投影的接線由
+    // `AudioController.build()` 自己完成，測試不必再手動接一次。
+    final controller = built.controller;
+    final container = built.container;
     await controller.initialize();
 
     return _AudioControllerHarness(
@@ -253,7 +250,6 @@ class _AudioControllerHarness {
 
   Future<void> dispose() async {
     container.dispose();
-    controller.dispose();
     streamResolutionService.dispose();
     await isar.close(deleteFromDisk: true);
     if (await tempDir.exists()) {

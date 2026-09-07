@@ -23,6 +23,7 @@ import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:isar_community/isar.dart';
 
+import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
@@ -81,7 +82,7 @@ void main() {
 
       audioService = FakeAudioService();
       mixTracksFetcher = _RecordingMixTracksFetcher();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
@@ -96,7 +97,6 @@ void main() {
     });
 
     tearDown(() async {
-      controller.dispose();
       streamResolutionService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
@@ -107,7 +107,6 @@ void main() {
     test(
         'restoring a persisted mix session at queue end schedules load-more runtime state',
         () async {
-      controller.dispose();
 
       final trackRepository = TrackRepository(isar);
       final queuePersistenceManager = QueuePersistenceManager(
@@ -176,7 +175,7 @@ void main() {
         queuePersistenceManager: queuePersistenceManager,
       );
       audioService = FakeAudioService();
-      controller = AudioController(
+      controller = buildTestAudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
