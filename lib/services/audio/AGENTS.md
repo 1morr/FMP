@@ -513,6 +513,58 @@ YouTube Mix/Radio playlists are dynamic infinite playlists:
   one file the guard would go vacuous the moment the code moved.
 - Mix state is persisted through `PlayQueue` fields.
 
+## Next Medium (Who Owns The Advance)
+
+`FmpAudioService.setNextMedia(PreparedPlaybackMedia?)` hands the backend the
+medium to play after the current one; `Stream<PreparedPlaybackMedia>
+advancedToNext` reports that it did. **While something is armed the advance
+belongs to the backend**: there is no `EndedNaturally` at the boundary, and
+`AudioController._onBackendAdvanced` follows rather than starts playback.
+
+Only one lookahead item, never a whole queue. Stream URLs are resolved one
+track at a time, expire in 1–2 hours, and can be rate-limited, so
+`setQueue(List<...>)` — which 02 §6.3 stage 4 originally asked for — cannot be
+honoured. There is no `supportsQueue`: both backends would return `true`.
+
+**Arming and disarming**
+
+- Arm from the prefetch that already runs after a playback request succeeds
+  (`PlaybackRequestSession._prefetchAndAnnounce` → `onNextTrackPrefetched`).
+  It must not happen earlier: `_stopForRequest` unconditionally stops the
+  backend at the start of every request, which clears the playlist.
+- **Also arm again right after following a boundary.** The follow path
+  deliberately starts no request, so without that step only the first boundary
+  in a queue is gapless. This was found on device, not by a test.
+- Do not arm under `LoopMode.one` (`QueueManager.getNextIndex()` ignores loop-one
+  entirely, so the prefetched track is the wrong one), while playing out of the
+  queue, while radio owns the backend, or while Mix is loading more.
+- Disarming hangs off `_updateQueueState()` — every queue change already reaches
+  it through `QueueManager.stateStream`, so one comparison there replaces a
+  disarm call on each of the seven queue commands.
+- The one-second position fallback (`_checkPositionForAutoNext`) yields while
+  something is armed, but only for `_armedAdvanceGraceTicks` ticks. That
+  fallback exists because Android loses the completed event in the background;
+  standing down for good would trade one bug for another.
+
+**Backend requirements**
+
+- `JustAudioService` always wraps the media in a `ConcatenatingAudioSource`,
+  even when there is only one child, because a bare `AudioSource` cannot take a
+  second item without a full reset — which is the media reopen this avoids.
+  `useLazyPreparation: false` is what makes the second child prepare at once.
+  Note the package marks `add` / `removeAt` `(Untested)`; FMP verifies them on
+  device.
+- `MediaKitAudioService` sets mpv's `prefetch-playlist=yes`. It defaults to `no`
+  and media_kit never sets it, so without that line the next entry only opens at
+  the boundary. mpv calls the option experimental and warns it can misbehave
+  with per-file options — and media_kit delivers HTTP headers exactly that way,
+  through the `on_load` hook. Measured against a header-gated local server: the
+  headers do survive (05 §6.13). Do not remove the property casually.
+- `audio_backend_static_test.dart` pins the playlist wrapper, the mpv property,
+  and the fact that the follow path goes through `_updatePlayingTrack` — the
+  shared track-change path that `PlaybackHandoffGate.currentTrackKey` and
+  `_bufferStarvationTrackKey` both depend on.
+
 ## Mute And Seek
 
 - Use `controller.toggleMute()`, not `setVolume(0)` — mute remembers the

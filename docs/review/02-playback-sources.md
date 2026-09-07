@@ -593,7 +593,12 @@ return Future.any([
 
 **階段 4 — 佇列語意與 gapless（成本 L，風險中高）**
 
-12. `FmpAudioService` 加 `setQueue(List<PreparedPlaybackMedia>)` + `bool get supportsQueue`。just_audio 0.10.x 用 `setAudioSources(preload: true)`（Finamp redesign 的做法），media_kit 用 `mk.Playlist`（Spotube 的做法）。
+12. ~~`FmpAudioService` 加 `setQueue(List<PreparedPlaybackMedia>)` + `bool get supportsQueue`。just_audio 0.10.x 用 `setAudioSources(preload: true)`（Finamp redesign 的做法），media_kit 用 `mk.Playlist`（Spotube 的做法）。~~
+    **已於 2026-09-07 執行，但這兩個簽名都不成立（見 05 §6.13）**：一次交一整份
+    佇列做不到（串流 URL 逐首解析、簽名 1–2 小時到期、會被風控），落地的是
+    `setNextMedia(PreparedPlaybackMedia?)` ＋ `Stream<PreparedPlaybackMedia>
+    advancedToNext`；`supportsQueue` 兩個後端都會回 true，沒有加。也不需要升
+    just_audio 0.10.x —— 0.9.46 的 `ConcatenatingAudioSource` 就夠了。
 13. gapless 隨之而來；crossfade **建議明確放棄**並寫進文檔 —— 四個對照專案裡三個明說不做，Auxio 的理由（timeline 模型）同樣適用於 ExoPlayer 路線。
 
 ### 6.4 統一為單一後端？—— 建議**不統一**，但要把平台知識收乾淨
@@ -606,7 +611,7 @@ return Future.any([
 - **反例存在且權威**：`namida`（⭐5.5K，跨平台音樂播放器，場景與 FMP 最接近）**音訊走自維護的 just_audio fork**，media_kit 只做影片渲染。不是所有人都往 media_kit 靠。
 - **橋接方案風險更高**：`just_audio_media_kit` 由第三方 `Pato05` 維護，pub.dev 最新 2.1.0（2025-04-13）而 GitHub 最後 push 是 2026-04-27 —— **一整年的修正沒發版**；橋接後還會損失 ICY metadata、電話中斷處理、equalizer 等原生能力。
 
-**但要做的是**：把「後端差異」從 `Platform.isX` 改成介面上的能力查詢（`supportsAudioDeviceSwitching` / `supportsQueue` / `emitsBufferingWhilePlaying`），並讓 `errorStream` 型別化。這樣「將來要不要統一」變成一個可以隨時再評估的局部決定，而不是一次性豪賭。
+**但要做的是**：把「後端差異」從 `Platform.isX` 改成介面上的能力查詢（`supportsAudioDeviceSwitching` / ~~`supportsQueue`~~ / `emitsBufferingWhilePlaying`），並讓 `errorStream` 型別化。**`supportsQueue` 這一個已經確認不該加（05 §6.13 重核 #2）**：兩個後端都會回 true，那是替想像中的第三個後端保留位置。這樣「將來要不要統一」變成一個可以隨時再評估的局部決定，而不是一次性豪賭。
 
 **替代方案（供決策）**：全面轉 media_kit（Harmonoid / Spotube / bili_you / pilipala 路線）。成本 **L**，風險中高，可逆性差（要改 `pubspec` + 一整套 Android 音訊焦點/通知整合）。收益是單一程式碼路徑、免費 gapless、Windows 裝置切換與 Android 對齊。**只有在階段 2 完成、錯誤已型別化之後才值得重新評估。**
 

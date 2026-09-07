@@ -340,10 +340,11 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 >
 > ~~**本節列出但尚未開始的兩項**：`StateNotifier` → `Notifier` 改寫、
 > `FmpAudioService.setQueue` / `supportsQueue`。~~
-> **`Notifier` 改寫已於 2026-09-07 完成（Round A，見 §6.12）**：43 個 legacy
-> provider 全部改寫，`lib/` 已無 `flutter_riverpod/legacy.dart`。
-> **佇列語意（`setQueue`）仍未開始**，那是 Round B。Phase 4 按本節的定義
-> 還差這一項。
+> **兩項都已於 2026-09-07 完成。** `Notifier` 改寫見 **§6.12**（Round A）：
+> 43 個 legacy provider 全部改寫，`lib/` 已無 `flutter_riverpod/legacy.dart`。
+> 佇列語意見 **§6.13**（Round B）：介面落在 `setNextMedia` /
+> `advancedToNext`，不是原本寫的 `setQueue` / `supportsQueue`。
+> **Phase 4 按本節的定義到此完成。**
 
 **目標**：把 3,429 行、90+ 欄位的 god class 拆成「投影 + 轉發 + 接線」，目標 400–800 行。
 **涉及模組**：`lib/services/audio/` 全部。
@@ -365,11 +366,14 @@ Phase 8  平台擴展 —— ❌ 已決定不做（只做 Android + Windows）
 `lib/providers/AGENTS.md` 當時有一條「do not start it opportunistically」與這裡
 矛盾，四輪 Phase 4 因此都被禁止順手做它。**那條矛盾已一併移除，見 §6.12。**
 
-**這裡也是佇列語意該落地的地方**：`FmpAudioService` 現在的開媒體介面一次只吃一個媒體，
-沒有 `setQueue` / `supportsQueue`（02 §6.3 階段 4）。**兩個後端的佇列 API 現在就有**
-（just_audio 0.9.46 的 `ConcatenatingAudioSource`、media_kit 1.2.6 的 `Playlist`，
-查證見 §5.2 展開），所以這件事的阻礙一直是 FMP 自己的介面，不是套件版本。做掉之後
-gapless、切歌延遲、引擎自管緩衝一次解決，位元組快取（D3）也才知道該接在哪一層。
+~~**這裡也是佇列語意該落地的地方**：`FmpAudioService` 現在的開媒體介面一次只吃一個
+媒體，沒有 `setQueue` / `supportsQueue`（02 §6.3 階段 4）。~~
+**已於 2026-09-07 做掉（Round B，見 §6.13）**，但簽名不是原本寫的那兩個：
+落地的是 `setNextMedia(PreparedPlaybackMedia?)` ＋
+`Stream<PreparedPlaybackMedia> advancedToNext`。一次交一整份佇列做不到（串流
+URL 逐首解析、簽名 1–2 小時到期、會被風控），能交給後端的只有**一個**前瞻項目；
+`supportsQueue` 則是一個兩個後端都回 true 的布林，沒有加。這一項的阻礙確實一直是
+FMP 自己的介面，不是套件版本。
 
 **驗收**：
 - ~~`audio_provider.dart` ≤ 800 行（目前 3,429）。~~ **這條已作廢，見 §6.8。**
@@ -830,7 +834,7 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 | 0 | 01-6 | `analysis_options.yaml` 要不要收緊（開 `unawaited_futures`、移除 `exclude: test/**`）？ | 要。這是 37 處空 catch 的唯一機制解，且扣掉單一 demo 檔的 95 條 `avoid_print` 只剩約 50 條要清 |
 | 1 | 02-D1 | 逾時預算 T1/T2/T3 | T1=8s（解析）/ T2=10s（開流）/ T3=20s（緩衝耗盡） |
 | 1 | 02-D2 | 逾時之後做什麼？ | 先換 fallback 串流試一次，仍失敗才停下並通知（介於 Auxio 的「直接跳」與 Finamp 的 `maxSkipsOnError:0` 之間） |
-| 1 | 02-D3 | 位元組快取走哪條路？ | **✅ 已定案（2026-09-02）：(c) 先只做 URL 快取，位元組快取延後到 Phase 4 之後。** 重新查證推翻了原本的成本假設，也找到了真正的阻礙 —— 見下方展開 |
+| 1 | 02-D3 | 位元組快取走哪條路？ | **✅ 已定案（2026-09-02）：(c) 先只做 URL 快取，位元組快取延後到 Phase 4 之後。** 重新查證推翻了原本的成本假設，也找到了真正的阻礙 —— 見下方展開。**2026-09-07 補充：那個阻礙（「要接的介面正在被改」）已經消失** —— 介面定在 `setNextMedia` / `advancedToNext`（§6.13），可以重新評估 |
 | 1 | 02-D4 | 升 just_audio 0.9.46 → 0.10.6？ | **⚠️ 前提敘述有誤，已更正（2026-09-02）：升級不是 gapless 的前提。** 兩個後端現在就有佇列 API —— 見下方展開。升級本身仍可做（0.10.x 有 open issue #1486，release build 無聲音），但它是「要不要」而非「必須先」，且**不要跟 Phase 2 混在一起** |
 | 1 | 02-D7 | crossfade 要不要明確放棄並寫進文檔？ | 放棄並寫進文檔。四個對照專案裡三個明說不做 |
 | 3 | 03-D2 | 導入 `Settings.schemaVersion`？ | 要。它把不可證偽的形狀猜測換成可測試的版本遷移 |
@@ -2210,3 +2214,110 @@ provider 工廠裡」。實際兌現的：
    `BilibiliApiException(-352): 請求過於頻繁` —— 開發機的風控狀態，不是回歸。
 
 **沒有做的**：`FmpAudioService` 的佇列語意（Round B）。Phase 4 按其本節定義仍差這一項。
+
+---
+
+### 6.13 執行時的失效重核（2026-09-07，Phase 4 收尾 Round B：後端佇列語意）
+
+Phase 4 列出但從未開工的兩項裡的第二項，也是本輪**唯一的行為變更**。介面落在
+`setNextMedia(PreparedPlaybackMedia?)` ＋ `Stream<PreparedPlaybackMedia>
+advancedToNext`，不是原本寫的 `setQueue(List)` ＋ `supportsQueue`。
+
+#### 這是控制流倒轉，不是加兩個方法
+
+一旦第二個媒體進了後端的播放清單，`ConcatenatingAudioSource` 與 mpv playlist
+就會**自己**在交界處推進 —— 兩個套件都沒有「播到項目邊界就停」的模式。所以
+「只做預緩衝、不倒轉控制流」這個中間選項不存在：控制器從「決定並發起下一首」
+改成「決定下一首、交給後端、事後跟隨」。
+
+#### 十條要更正的說法
+
+| # | 開工前的說法 | 實況 | 處置 |
+|---|---|---|---|
+| 1 | 02 §6.3 階段 4 第 12 項：`setQueue(List<PreparedPlaybackMedia>)` | **這個簽名做不到。** 串流 URL 每首要一次網路解析、簽名有效期 1–2 小時、會被風控、未過期也可能 403（所以才有 `invalidateStream`）。佇列上限 1000 首 | 改成一次只交**一個**前瞻項目 |
+| 2 | 02 §609：介面要加 `supportsQueue` 這類能力查詢 | **兩個後端都會回 `true`** | 不加。兩邊都真的布林是替想像中的第三個後端保留位置 |
+| 3 | 「`supportsQueue` 可能該放進 `PlaybackCapabilities`」 | 不該。那個型別講的是「系統媒體鍵在當前播放模式下能做什麼」（`playback_capabilities.dart:13-45`），消費者只有 `NowPlayingPublisher` 與 SMTC，兩個後端都沒 import 它 | 軸不同，不放 |
+| 4 | 「just_audio 用 `ConcatenatingAudioSource`」講得像現況 | **FMP 完全沒用它。** 四條開媒體路徑都是 `setAudioSource(AudioSource.uri(...))` 單一來源（`just_audio_service.dart:556-560` 等） | Android 後端改成「永遠一個 `ConcatenatingAudioSource`，平常只有一個 child」。**這本身就是行為變更**，B1 獨立成一個 commit 並上機驗過 |
+| 5 | — | `ConcatenatingAudioSource` 的文件原文：「Playback between items will be **gapless on Android, iOS and macOS**」（`just_audio.dart:2544-2546`）；但 `add` / `insert` / `removeAt` 的註釋開頭都是 `/// (Untested)`（`:2597` 起） | 用了，並在實機上確認過（下方「實機」第 3 點） |
+| 6 | 「media_kit 用 `Player.add` 追加即可」 | 對，但 `add()` 走 `loadfile <uri> append`（`native/player/real.dart:477`），**命令本身不帶 headers**。headers 是靠 mpv 的 `on_load` hook 從 `Media` 的全域 map 取出來設進 `http-header-fields`（`real.dart:2137-2180`），並在 `on_unload` 重設成 NONE | 與第 7 點直接衝突，成為本輪最大的風險 |
+| 7 | — | **mpv 的 `--prefetch-playlist` 預設 `no`，media_kit 從沒設過它。** 手冊原文：「This merely opens the URL of the next playlist entry as soon as the current URL is fully read.」／「**This can give subtly wrong results if per-file options are used**…」／「**Highly experimental.**」 | 自己設 `yes`，並**先用實機把 header 問題問清楚**才往下做（結果見下方） |
+| 8 | 計畫寫「B3 要同步 `PlaybackRecoveryCoordinator.clearForNewPlayback(track)`」 | **那個方法是死的**：完全沒用它的 `track` 參數，函式體與 `reset()` 逐字相同，production 零呼叫者 | 連同它的測試一起刪掉 |
+| 9 | 計畫寫「在預取的掛點上把 `selectPlayback` 出來的 media 交給 `setNextMedia`」，並擔心預取快取是**單次使用**的 | 掛點手上確實沒有 media（`_prefetchNextIfRequested` 只吃一個 `bool`）。但**快取不是單次使用的** —— `_reusableResolution`（`stream_resolution_service.dart:325-341`）的 `remove` 後面緊接著 `_resolvedStreams[key] = cached`，那是更新 LRU 順序，不是取用即丟 | arm 時直接再呼叫一次 `selectPlayback` 就好，不必改串流層的管線。測試斷言下一首只解析一次 |
+| 10 | — | **1 秒輪詢備援是全程開著的**（`initialize():352` 起，只在 `_teardown()` 停），而且它直接合成 `EndedNaturally`，**繞過兩個後端的 `_classifyCompletion`** | arm 期間讓路，但**不是無限期**：連續三格（3 秒）還停在結尾就收回推進權。那個備援本來就是為了「後台 completed 事件丟失」而存在的 |
+
+#### 實機上才發現的一件事
+
+**跟隨完成之後沒有人 arm 再下一首**，所以一條佇列只有**第一個**交界是 gapless。
+平常的 arm 掛在 `PlaybackRequestSession` 的預取上，而跟隨路徑刻意不發請求（後端
+已經在播了）。單元測試看不出來 —— 它們只驗一個交界。修在
+`fix(audio): arm the boundary after the one just crossed`。
+
+#### disarm 的網掛在哪裡
+
+不在七個佇列命令上各掛一次，而是掛在 `_updateQueueState()` —— 佇列的每一次變動
+（命令、shuffle、loop、Mix 補歌）都會經由 `QueueManager.stateStream` 走到那裡。
+一個純比較（「現在的下一首還是不是當初交出去的那一個」）就夠了，不需要網路。
+另外 `_startSessionLoadingState` 一定 disarm，因為 `_stopForRequest` 的無條件
+`stop()` 本來就會清掉後端的播放清單。
+
+不 arm 的條件：`LoopMode.one`（`getNextIndex()` 根本不看它，照著 arm 就是播錯歌）、
+`_isPlayingOutOfQueue`（temporary / detached）、電台占用後端、Mix 正在補歌。
+
+#### 驗收
+
+`flutter analyze` 全綠；`flutter test --exclude-tags live` **1482 通過**
+（Round A 之後的基準 1466 ＋ 16 條新測試）。三條守門測試各自用「刻意改壞再改回來」
+確認會紅：loop-one 不 arm、佇列變動要 disarm、切到 loop-one 要 disarm。
+
+**Windows（media_kit / 真 libmpv）**：用一個**要求 `Referer` 才給檔案**的本機
+HTTP 伺服器直接驗 mpv 的行為，不動使用者的音樂庫（開發機當時正被 B 站風控擋，
+而且問題本身與 B 站無關 —— 要問的是「header 有沒有跟著送出去」）。
+
+| 量到的 | `prefetch-playlist=yes` | 沒有它（對照組） |
+|---|---|---|
+| 第二個 URL 何時被開啟（交界在 ≈6.0s） | **+937ms / +949ms** | **+5912ms / +5893ms**（交界當下才開） |
+| 兩次請求都帶著 `Referer` / `Origin` | ✅ | ✅ |
+| 交界處的時間軸接縫（對每一段的 `(wallclock, position)` 做最小平方擬合取截距） | **0.0ms / −0.1ms** | −199.9ms / −209.9ms |
+
+→ **重核 #6 ＋ #7 那個風險不成立**：mpv 的 `on_load` hook 對被預先開起來的項目
+**有跑**，per-file 的 `http-header-fields` 跟著送出去了。Windows 拿到完整的
+gapless，不必退成「只對本機檔案 arm」。
+
+**要誠實說的**：對照組那個 −200ms 是**方法的系統性偏差**（mpv 的 `completed`
+比位置抵達名目時長早約 200ms 發出），不是「舊路徑比新路徑還快」。在**本機檔案**
+上兩條路徑的接縫都在這個方法的解析度以內 —— 真正量得到的差別是**開流的提前量**
+（提早約 5 秒），而那正是真實串流上 DNS / TLS / CDN 握手要花的時間。
+
+**Android 模擬器（just_audio / 真 ExoPlayer）**：
+
+1. B1 的單 child 包裝零回歸 —— 從 VM Service 讀到活著的
+   `_playlist` 是 `ConcatenatingAudioSource`、`children.length == 1`、
+   `useLazyPreparation == false`，同時 `dumpsys media_session` =
+   `state=PLAYING(3), position=4862`。
+2. arm 之後 `children.length == 2`（`ProgressiveAudioSource` ×2），
+   `_nextMedia` 是 `LocalPlaybackMedia` —— 套件標「(Untested)」的 `add` 可用。
+3. **連續五個交界**，每一個都是
+   `[JustAudioService] Backend advanced to next medium` →
+   `[AudioController] Following the backend across a gapless boundary` →
+   `[FmpAudioHandler] Updated media item` → `Armed the next medium`。
+   **其中後三個是在 app 被 HOME 鍵切到背景之後發生的**
+   （`mCurrentFocus` = launcher），播放全程沒有中斷
+   （`state=PLAYING(3)`）。
+4. 整段 log 裡**零** `PlayerState changed: ... loading`、**零**
+   `Track completed`、**零** `Position check triggered auto-next` ——
+   交界沒有回到載入狀態，完成路徑與輪詢備援都沒有插手，沒有二次前進。
+
+**沒有做的**：**沒有去驅動使用者在 Windows 上那個真的 FMP**（SMTC 的
+`IsNextEnabled`）。理由是那會動到使用者真實的播放佇列與設定，而這一輪對
+`PlaybackCapabilities` 與 `NowPlayingPublisher` 一行都沒改，交界處的發佈走的是
+跟以前完全相同的 `_updatePlayingTrack` → `publishTrack`，而那條路已經在 Android
+上驗過五次（`FmpAudioHandler Updated media item`）。後端本身則是用真的 libmpv
+＋ 出貨用的那組參數驗的。**這是刻意留下的缺口，不是「測試通過」的代稱。**
+
+#### 順帶發現、未修的既有問題
+
+- **佇列還不存在時按迴圈按鈕，UI 會顯示新模式但實際沒有生效。**
+  `QueueManager.setLoopMode`（`queue_manager.dart:712`）在 `_currentQueue == null`
+  時直接 return，而 `AudioController.setLoopMode` 照樣
+  `_emitQueueState(...)` 把新模式投影出去。本輪實機期間踩到：按了「列表循環」，
+  按鈕變了，但 `PlayQueue.loopMode` 還是 `none`。與本輪無關。
