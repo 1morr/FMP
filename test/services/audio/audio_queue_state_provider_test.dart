@@ -13,9 +13,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
-import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/providers/audio/audio_player_selectors.dart';
 import 'package:fmp/services/audio/queue_state.dart';
@@ -29,6 +27,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/audio_controller_harness.dart';
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
 
@@ -225,11 +224,11 @@ class _AudioControllerHarness {
       trackRepository: trackRepository,
       settingsRepository: settingsRepository,
       sourceManager: sourceManager,
-      sourceAuthContext: _FakeSourceAuthContext(),
+      sourceAuthContext: FakeSourceAuthContext(),
     );
     final audioStreamManager = AudioStreamManager(
       streamResolutionService: streamResolutionService,
-      sourceAuthContext: _FakeSourceAuthContext(),
+      sourceAuthContext: FakeSourceAuthContext(),
     );
     final mixTracksFetcher = _TestMixTracksFetcher();
     final built = buildTestAudioControllerIn(
@@ -295,25 +294,6 @@ class _PendingMixFetch {
 
   final Completer<void> completer;
   final MixFetchResult result;
-}
-
-class _FakeSourceAuthContext implements SourceAuthContext {
-  @override
-  Future<Map<String, String>?> authForPlay(String sourceType) async => null;
-
-  @override
-  Future<PlaybackNetworkRequest> playbackNetworkRequest(
-    Track track,
-    String url,
-  ) async {
-    return PlaybackNetworkRequest(
-      url: url,
-      headers: SourceHttpPolicy.mediaHeaders(track.sourceType),
-    );
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeSourceManager extends SourceManager {

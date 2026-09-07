@@ -473,7 +473,7 @@ rg -l flutter_riverpod lib/features | rg -v '_providers\.dart$'   # 必須為空
 
 | 步 | 內容 | 成本 |
 |---|---|---|
-| 7.1 | **`NOTICE` / `THIRD_PARTY_LICENSES.md`** —— 涵蓋三件互相獨立的事：① libmpv / FFmpeg 的 LGPL-2.1/3-or-later（動態連結；讀原始建置腳本確認 `mpv.cmake` 是 `-Dgpl=false`、`ffmpeg.cmake` 是 `--disable-gpl --disable-nonfree --enable-version3`，**是 LGPL 不是 GPL**）② 協定常數來源（含 `SocialSisterYi/bilibili-API-collect` 的 **CC BY-NC 4.0**）③ 206 個 Dart 依賴的授權清單 | M |
+| 7.1 | **`NOTICE` / `THIRD_PARTY_LICENSES.md`** —— 涵蓋三件互相獨立的事：① libmpv / FFmpeg 的 LGPL-2.1/3-or-later（動態連結；讀原始建置腳本確認 `mpv.cmake` 是 `-Dgpl=false`、`ffmpeg.cmake` 是 `--disable-gpl --disable-nonfree --enable-version3`，**是 LGPL 不是 GPL**）② 協定常數來源（含 `SocialSisterYi/bilibili-API-collect` 的 **CC BY-NC 4.0**）③ Dart 依賴的授權清單（**2026-09-07：現在是 207 個**，逐檔清點結果見 §6.14） | M |
 | 7.2 | **重寫 `qq_music_sign.dart`**（約 30 行），照譜系 A（`AynaLivePlayer/miaosic`，**MIT**）的表達。它是全 repo 唯一一處判定為「結構明顯搬運」的程式碼 —— 不只常數相同，「跳過 t2 先算 t3 的順序」「手寫 base64 的 6 次迴圈 + 第 5 次特判」「連 `=` 都一起漏掉的過濾集」都與無可用授權的譜系 B 一致，這些不是演算法必然，是特定作者的表達選擇 | S |
 | 7.3 | `LICENSE` 換 MIT 全文 + `README.md` / `README.zh-Hant.md` 各 2 處（badge + License 段）+ CHANGELOG 記一筆。**不需要**做檔頭清查（`rg "SPDX-License-Identifier"` 全庫 0 命中）、**不需要**改 pubspec（`publish_to: 'none'` 沒有 `license:` 欄位）、GitHub 的 license 標記會在 push 後自動重新索引 | S |
 | 7.4 | 著作權人書面同意（就是你本人，留在 commit message 或 issue 裡備查）；順手在 `netease_crypto.dart` / `qq_music_sign.dart` 頂端加一行「參考公開逆向工程協定重新實作」的說明註解 | S |
@@ -514,7 +514,7 @@ sources」，同類的 Spotube 從未上架。
 這個形狀改變了三件事的優先級：**介面的穩定性**從「好事」變成「產品前提」；
 **驗證套件**從「可選」變成「插件生成流程的一部分」；**沙箱與信任模型**從「之後再說」變成「不能省」。
 
-#### 9.1 前置（已完成 1/3，剩下 2/3）
+#### 9.1 前置（三項皆已完成）
 
 | 阻塞 | 狀態 | 內容 |
 |---|---|---|
@@ -522,7 +522,7 @@ sources」，同類的 Spotube 從未上架。
 | `SourceType` 封閉 enum | ✅ **已完成**（`0b93e61d`） | 換成 `SourceIds` 字串常數，i18n 走 slang flat map 有 fallback。磁碟格式逐位元不變，不需要 migration —— 「併進 3c 才沒有邊際成本」的理由是錯的，見 §6.4 #2 與 ADR 0001 |
 | `Settings` 每源具名欄位 | ✅ **已完成**（`8ffa7d4f`） | 交付的是 `List<SourceSettingsEntry>`（`@embedded`）而不是 `Map` —— Isar 的 `@embedded` 只支援 `List`。schema v1 → v2，舊欄位只搬不刪所以降級無損。備份格式同步到 v4 |
 
-做完這兩件事，**「新增第四個內建源」從「改 20 個檔案」變成「加一個 adapter」——
+這三件事做完之後，**「新增第四個內建源」從「改 20 個檔案」變成「加一個 adapter」——
 這個收益不需要真的做外掛化就先拿到了**（你的動機一，提前兌現）。
 
 #### 9.2 執行環境：三選一，而且沒有兩全的選項【事實】
@@ -697,7 +697,7 @@ D3（位元組快取）與 D4（just_audio 升級）**已於 2026-09-02 重新�
 ### 4.4 MIT 授權
 
 **現況**：`LICENSE` 是 GPL-3.0；貢獻者**只有一個人**（`ivanspwong@gmail.com`，`imoR`/`1morr` 是同一個
-email 的兩個 display name；bot 的 54 個 commit 全是 README 版本號替換）；206 個 Dart 依賴逐一讀 pub cache
+email 的兩個 display name；bot 的 54 個 commit 全是 README 版本號替換）；206 個 Dart 依賴逐一讀 pub cache（**2026-09-07 重新清點：207 個**，分佈見 §6.14）
 的 LICENSE，**零 GPL / LGPL**；唯一的 copyleft 面是 media_kit 在 Windows 動態連結的 `libmpv-2.dll`，
 而讀原始建置腳本確認是 `-Dgpl=false` / `--disable-gpl --disable-nonfree --enable-version3`
 —— **是 LGPL 不是 GPL，且是動態連結**，MIT 可以合法分發。
@@ -838,7 +838,7 @@ Immich 踩過一模一樣的坑（PR #17372 把上限提到 2GiB）。同時「m
 | 0 | 01-1 | `docs/adr/` 要不要真的用？ | **(a) 開始寫**：現成題材有三個（Isar 決策、`services/`+`providers/` 分層、Windows 音訊後端選型）。現況（引用一個 clone 後不存在的目錄）是最差的一種 |
 | 0 | 01-2 | `docs/review/` 的定位？ | **(c) 進 repo 但明文禁止程式碼引用**。前兩代都在一個月內被刪，而 `*_phaseN_test.dart` 還在引用它們 |
 | 0 | 01-6 | `analysis_options.yaml` 要不要收緊（開 `unawaited_futures`、移除 `exclude: test/**`）？ | 要。這是 37 處空 catch 的唯一機制解，且扣掉單一 demo 檔的 95 條 `avoid_print` 只剩約 50 條要清 |
-| 1 | 02-D1 | 逾時預算 T1/T2/T3 | T1=8s（解析）/ T2=10s（開流）/ T3=20s（緩衝耗盡） |
+| 1 | 02-D1 | 逾時預算 T1/T2/T3 | 計畫值 T1=8s（解析）/ T2=10s（開流）/ T3=20s（緩衝耗盡）。**2026-09-07 更正：三個值都沒有照這一列落地。**引進它們的 `262657bc` 一開始就寫 T1=6s / T2=8s / T3=15s，之後只有 T1 改成 25s 並在 §6.2 交代；T2 與 T3 的差異從來沒有被記錄過。現行值以 `app_constants.dart` 的 `PlaybackTimeoutBudget` 為準 |
 | 1 | 02-D2 | 逾時之後做什麼？ | 先換 fallback 串流試一次，仍失敗才停下並通知（介於 Auxio 的「直接跳」與 Finamp 的 `maxSkipsOnError:0` 之間） |
 | 1 | 02-D3 | 位元組快取走哪條路？ | **✅ 已定案（2026-09-02）：(c) 先只做 URL 快取，位元組快取延後到 Phase 4 之後。** 重新查證推翻了原本的成本假設，也找到了真正的阻礙 —— 見下方展開。**2026-09-07 補充：那個阻礙（「要接的介面正在被改」）已經消失** —— 介面定在 `setNextMedia` / `advancedToNext`（§6.13），可以重新評估 |
 | 1 | 02-D4 | 升 just_audio 0.9.46 → 0.10.6？ | **⚠️ 前提敘述有誤，已更正（2026-09-02）：升級不是 gapless 的前提。** 兩個後端現在就有佇列 API —— 見下方展開。升級本身仍可做（0.10.x 有 open issue #1486，release build 無聲音），但它是「要不要」而非「必須先」，且**不要跟 Phase 2 混在一起** |
@@ -2435,3 +2435,54 @@ Windows 帳號名。repo 是公開的，已遮成 `<user>`（`a9f32737`）。憑
   所以授權全文只有一份來源；`release.yml` 在打包**之前**把它與 `LICENSE`、
   `THIRD_PARTY_LICENSES.md` 複製進 `build\windows\x64\runner\Release`，可攜版 zip
   與 InnoSetup 安裝檔因此帶到同一批檔案。
+
+#### 五、Phase 6 前置與註釋語言規則
+
+這幾件事單獨看都很小，但都是「Phase 6 搬 124 個檔案之後會變貴」的那一類，
+所以排在它前面。
+
+**1. `test/support/riverpod_test_ref.dart` 是死的。** 零 import，唯一指向它的是
+`lib/providers/AGENTS.md`。那條規則本身（`Ref` 在 Riverpod 3 是 sealed class，
+測試做不出 fake）是對的且非顯而易見，所以**規則留下、指向拿掉**：做法直接寫進
+規則裡，不再指向一個沒人呼叫的檔案。
+
+**2. 只合併逐字相同的測試替身。** `test/` 底下同名私有 fake 出現 4 檔以上的有
+9 種，本輪只動三種：
+
+| 抽出 | 逐字相同 / 總數 | 去處 |
+|---|---:|---|
+| `_FakeIsar`（`extends Fake implements Isar {}`，單行） | 11 / 11 | `test/support/fakes/fake_isar.dart` |
+| `_FakeSourceAuthContext`（無憑證版） | 11 / 16 | `test/support/fakes/fake_source_auth_context.dart` |
+| `_FakeSettingsRepository`（記憶體版） | 5 / 7 | `test/support/fakes/fake_settings_repository.dart` |
+
+25 個檔案、−385 / +144 行。**剩下的變體刻意留在原地**：五個 auth context 各自
+記錄呼叫、提供 per-source header 或回答歌單授權；兩個 settings repository 一個是
+超集（多一個 `getOverride`）、一個是子集（沒有 `update`）。把它們折進一個可配置的
+共用替身，等於拿重複去換一個六個開關、沒人讀得懂的型別 —— 那不是進步。
+
+同理**沒有動** `_FakeSourceManager`（9 檔）與 `_FakeSource`（6 檔）：最小版的
+`_FakeSourceManager` 雖然有四份文字相同，但它持有 `_FakeSource`，而六份
+`_FakeSource` **沒有任何兩份相同**。抽管理器就被迫先統一音源 fake，範圍立刻失控。
+`_FakeHttpClientAdapter`（7 檔）尚未逐檔比對，本輪不賭。
+
+> **踩到的**：機械替換順手清掉「只服務被移除宣告」的 import，但
+> `source_auth_context.dart` 同時匯出 `AccountServiceAuthLoader`，
+> `audio_auth_retry_phase4_test.dart` 還在用它。`analysis_options.yaml` 排除
+> `test/**`，所以 `flutter analyze` 全綠 —— 是 `flutter test` 的編譯階段抓到的。
+> **再一次印證：analyze 乾淨不代表測試編得過。**
+
+**3. 三處文檔漂移就地更正**（不覆蓋原值，照 D3/D4 的既有風格標注）：
+
+- **D1 決策列**：三個逾時值**都**沒有照那一列落地。引進它們的 `262657bc` 一開始
+  就是 T1=6s / T2=8s / T3=15s，之後只有 T1 改成 25s 並在 §6.2 交代 ——
+  **T2 與 T3 的差異從來沒有被記錄過**，這一輪才補上。
+- **§9.1 標題**寫「已完成 1/3，剩下 2/3」，但它自己下面的表格三列全是 ✅。
+- **「206 個 Dart 依賴」**兩處：現在是 207。
+
+**4. 註釋語言定為繁體**（根 `AGENTS.md` 的 Hard Boundaries）。量到的現況是
+`lib/` 底下 331 個手寫檔有 **199 個含簡體註釋**，且大量檔案簡繁並存
+（`media_kit_audio_service.dart` 簡 238 / 繁 120，`settings.dart` 151 / 117，
+`youtube_source.dart` 110 / 145）—— 原因是舊碼簡體、Phase 0–5 新寫的繁體，而
+**沒有任何一份 AGENTS.md 說過該用哪個**。規則是「改到的行才轉，不做全庫轉換」：
+全庫轉換會產生一個橫跨 199 檔、把任何真實變更都淹掉的 diff，而混用的代價是
+可讀性不是正確性。數字放這裡，規則放 AGENTS.md，不互相重複。

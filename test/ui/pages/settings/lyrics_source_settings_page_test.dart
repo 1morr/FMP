@@ -8,20 +8,22 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/ui/pages/settings/lyrics_source_settings_page.dart';
-import 'package:isar_community/isar.dart';
+
+import '../../../support/fakes/fake_isar.dart';
+import '../../../support/fakes/fake_settings_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('LyricsSourceSettingsPage', () {
     late Settings settings;
-    late _FakeSettingsRepository repository;
+    late FakeSettingsRepository repository;
 
     setUp(() {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
       LocaleSettings.setLocale(AppLocale.en);
       settings = Settings();
-      repository = _FakeSettingsRepository(settings);
+      repository = FakeSettingsRepository(settings);
     });
 
     testWidgets(
@@ -117,20 +119,3 @@ Future<void> _pumpPage(
     ),
   );
 }
-
-class _FakeSettingsRepository extends SettingsRepository {
-  _FakeSettingsRepository(this.settings) : super(_FakeIsar());
-
-  final Settings settings;
-
-  @override
-  Future<Settings> get() async => settings;
-
-  @override
-  Future<Settings> update(void Function(Settings settings) mutate) async {
-    mutate(settings);
-    return settings;
-  }
-}
-
-class _FakeIsar extends Fake implements Isar {}

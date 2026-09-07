@@ -12,7 +12,8 @@ import 'package:fmp/ui/pages/settings/home_ranking_settings_page.dart';
 import 'package:fmp/ui/pages/settings/settings_page.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:go_router/go_router.dart';
-import 'package:isar_community/isar.dart';
+
+import '../../../support/fakes/fake_isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -185,7 +186,7 @@ Future<void> _pumpPage(
 }
 
 class _FakeSettingsRepository extends SettingsRepository {
-  _FakeSettingsRepository(this.settings) : super(_FakeIsar());
+  _FakeSettingsRepository(this.settings) : super(FakeIsar());
 
   final Settings settings;
   Future<Settings> Function()? getOverride;
@@ -199,8 +200,6 @@ class _FakeSettingsRepository extends SettingsRepository {
     return settings;
   }
 }
-
-class _FakeIsar extends Fake implements Isar {}
 
 /// 不呼叫 `super.build()`：真的那個會去讀設定並啟動兩個刷新服務的計時器。
 class _FakeRefreshSettingsNotifier extends RefreshSettingsNotifier {

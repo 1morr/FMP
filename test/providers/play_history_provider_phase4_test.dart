@@ -7,7 +7,8 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/providers/library/play_history_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
-import 'package:isar_community/isar.dart';
+
+import '../support/fakes/fake_isar.dart';
 
 void main() {
   group('Phase 4 Task 4 play history providers', () {
@@ -138,7 +139,7 @@ void main() {
 }
 
 class _FakePlayHistoryRepository extends PlayHistoryRepository {
-  _FakePlayHistoryRepository(this.records) : super(_FakeIsar());
+  _FakePlayHistoryRepository(this.records) : super(FakeIsar());
 
   final List<PlayHistory> records;
   final _changeController = StreamController<void>.broadcast();
@@ -218,8 +219,6 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
   @override
   Stream<void> watchHistory() => _changeController.stream;
 }
-
-class _FakeIsar extends Fake implements Isar {}
 
 PlayHistory _history({
   required int id,
