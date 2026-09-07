@@ -69,7 +69,7 @@ void main() {
               sources: [bilibiliSource, youtubeSource, neteaseSource],
             ),
           ),
-          connectivityProvider.overrideWith((ref) => notifier),
+          connectivityProvider.overrideWith(() => notifier),
         ],
       );
 
@@ -137,7 +137,7 @@ void main() {
               ],
             ),
           ),
-          connectivityProvider.overrideWith((ref) => notifier),
+          connectivityProvider.overrideWith(() => notifier),
         ],
       );
 
@@ -226,12 +226,8 @@ void main() {
         ..tracks = [oldTrack];
       final youtubeSource = _FakeRankingSource(SourceIds.youtube);
       final neteaseSource = _FakeRankingSource(SourceIds.netease);
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: bilibiliSource,
-          SourceIds.youtube: youtubeSource,
-          SourceIds.netease: neteaseSource,
-        },
+      final service = _bareService(
+        [bilibiliSource, youtubeSource, neteaseSource],
       );
 
       await service.refreshSource(SourceIds.bilibili);
@@ -245,7 +241,6 @@ void main() {
       expect(service.state.errorFor(SourceIds.bilibili),
           contains('network down'));
 
-      service.dispose();
     });
 
     test('refreshSource sends source-specific requests and stores by source',
@@ -256,12 +251,8 @@ void main() {
       final youtubeSource = _FakeRankingSource(SourceIds.youtube)
         ..tracks = [low, high];
       final neteaseSource = _FakeRankingSource(SourceIds.netease);
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: bilibiliSource,
-          SourceIds.youtube: youtubeSource,
-          SourceIds.netease: neteaseSource,
-        },
+      final service = _bareService(
+        [bilibiliSource, youtubeSource, neteaseSource],
       );
 
       await service.refreshSource(SourceIds.youtube);
@@ -274,19 +265,14 @@ void main() {
       expect(bilibiliSource.fetchCount, 0);
       expect(neteaseSource.fetchCount, 0);
 
-      service.dispose();
     });
 
     test('refresh methods send source-specific ranking requests', () async {
       final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
       final youtubeSource = _FakeRankingSource(SourceIds.youtube);
       final neteaseSource = _FakeRankingSource(SourceIds.netease);
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: bilibiliSource,
-          SourceIds.youtube: youtubeSource,
-          SourceIds.netease: neteaseSource,
-        },
+      final service = _bareService(
+        [bilibiliSource, youtubeSource, neteaseSource],
       );
 
       await service.refreshSource(SourceIds.bilibili);
@@ -297,7 +283,6 @@ void main() {
       _expectRankingRequest(youtubeSource.lastRequest, category: 'music');
       _expectRankingRequest(neteaseSource.lastRequest, limit: 50);
 
-      service.dispose();
     });
 
     test('refreshNetease failure keeps old tracks and records source error',
@@ -305,13 +290,11 @@ void main() {
       final oldTrack = _track('old-ne', SourceIds.netease);
       final neteaseSource = _FakeRankingSource(SourceIds.netease)
         ..tracks = [oldTrack];
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
-          SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
-          SourceIds.netease: neteaseSource,
-        },
-      );
+      final service = _bareService([
+        _FakeRankingSource(SourceIds.bilibili),
+        _FakeRankingSource(SourceIds.youtube),
+        neteaseSource,
+      ]);
 
       await service.refreshSource(SourceIds.netease);
       expect(service.state.tracksFor(SourceIds.netease), [oldTrack]);
@@ -324,7 +307,6 @@ void main() {
       expect(
           service.state.errorFor(SourceIds.netease), contains('network down'));
 
-      service.dispose();
     });
 
     test('refreshNetease ignores stale out-of-order completion', () async {
@@ -334,13 +316,11 @@ void main() {
       final neteaseSource = _FakeRankingSource(SourceIds.netease)
         ..enqueueFetch(completer: oldCompleter, tracks: [oldTrack])
         ..enqueueFetch(tracks: [newTrack]);
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
-          SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
-          SourceIds.netease: neteaseSource,
-        },
-      );
+      final service = _bareService([
+        _FakeRankingSource(SourceIds.bilibili),
+        _FakeRankingSource(SourceIds.youtube),
+        neteaseSource,
+      ]);
 
       final oldRefresh = service.refreshSource(SourceIds.netease);
       await pumpEventQueue();
@@ -357,7 +337,6 @@ void main() {
       expect(service.state.isLoaded(SourceIds.netease), isTrue);
       expect(service.state.errorFor(SourceIds.netease), isNull);
 
-      service.dispose();
     });
 
     test('refreshNetease stale success does not clear newer error', () async {
@@ -366,13 +345,11 @@ void main() {
       final neteaseSource = _FakeRankingSource(SourceIds.netease)
         ..enqueueFetch(completer: oldCompleter, tracks: [oldTrack])
         ..enqueueFetch(error: Exception('new failure'));
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
-          SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
-          SourceIds.netease: neteaseSource,
-        },
-      );
+      final service = _bareService([
+        _FakeRankingSource(SourceIds.bilibili),
+        _FakeRankingSource(SourceIds.youtube),
+        neteaseSource,
+      ]);
 
       final oldRefresh = service.refreshSource(SourceIds.netease);
       await pumpEventQueue();
@@ -391,7 +368,6 @@ void main() {
       expect(
           service.state.errorFor(SourceIds.netease), contains('new failure'));
 
-      service.dispose();
     });
 
     test('setupNetworkMonitoring rebinds to the latest connectivity notifier',
@@ -399,12 +375,8 @@ void main() {
       final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
       final youtubeSource = _FakeRankingSource(SourceIds.youtube);
       final neteaseSource = _FakeRankingSource(SourceIds.netease);
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: bilibiliSource,
-          SourceIds.youtube: youtubeSource,
-          SourceIds.netease: neteaseSource,
-        },
+      final service = _bareService(
+        [bilibiliSource, youtubeSource, neteaseSource],
       );
       final firstNotifier = _TestConnectivityNotifier();
       final secondNotifier = _TestConnectivityNotifier();
@@ -424,25 +396,35 @@ void main() {
       expect(youtubeSource.fetchCount, 1);
       expect(neteaseSource.fetchCount, 1);
 
-      service.dispose();
-      firstNotifier.dispose();
-      secondNotifier.dispose();
       firstNotifier.closeStream();
       secondNotifier.closeStream();
     });
 
     test('dispose is idempotent', () {
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
-          SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
-          SourceIds.netease: _FakeRankingSource(SourceIds.netease),
-        },
-      );
+      final service = _bareService([
+        _FakeRankingSource(SourceIds.bilibili),
+        _FakeRankingSource(SourceIds.youtube),
+        _FakeRankingSource(SourceIds.netease),
+      ]);
 
-      service.dispose();
+      // 釋放現在由 container 負責；`_teardown` 的 `_isDisposed` 守衛仍在，
+      // 這條就變成「重複釋放 container 不會炸」。
+      final container = ProviderContainer(overrides: [
+        sourceManagerProvider.overrideWith(
+          (ref) => SourceManager(sources: [
+            _FakeRankingSource(SourceIds.bilibili),
+            _FakeRankingSource(SourceIds.youtube),
+            _FakeRankingSource(SourceIds.netease),
+          ]),
+        ),
+        connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
+        rankingCacheServiceProvider
+            .overrideWith(_BareRankingCacheService.new),
+      ]);
+      container.read(rankingCacheServiceProvider.notifier);
+      container.dispose();
 
-      expect(service.dispose, returnsNormally);
+      expect(container.dispose, returnsNormally);
     });
 
     test('provider teardown allows rebinding to a fresh connectivity notifier',
@@ -462,7 +444,7 @@ void main() {
               ],
             ),
           ),
-          connectivityProvider.overrideWith((ref) => firstNotifier),
+          connectivityProvider.overrideWith(() => firstNotifier),
         ],
       );
       final firstService =
@@ -478,7 +460,7 @@ void main() {
       expect(firstBilibiliSource.fetchCount, 1);
       expect(firstYouTubeSource.fetchCount, 1);
       expect(firstNeteaseSource.fetchCount, 1);
-      expect(firstService.dispose, returnsNormally);
+      expect(firstContainer.dispose, returnsNormally);
 
       final secondBilibiliSource = _FakeRankingSource(SourceIds.bilibili);
       final secondYouTubeSource = _FakeRankingSource(SourceIds.youtube);
@@ -495,7 +477,7 @@ void main() {
               ],
             ),
           ),
-          connectivityProvider.overrideWith((ref) => secondNotifier),
+          connectivityProvider.overrideWith(() => secondNotifier),
         ],
       );
       final secondService =
@@ -534,19 +516,16 @@ void main() {
       final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
       final youtubeSource = _FakeRankingSource(SourceIds.youtube);
       final neteaseSource = _FakeRankingSource(SourceIds.netease);
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: bilibiliSource,
-          SourceIds.youtube: youtubeSource,
-          SourceIds.netease: neteaseSource,
-        },
+      final bare = _bareServiceIn(
+        [bilibiliSource, youtubeSource, neteaseSource],
       );
+      final service = bare.service;
 
       service.updateRefreshInterval(const Duration(milliseconds: 20));
       await service.initialize(refreshInterval: const Duration(days: 1));
       await Future<void>.delayed(const Duration(milliseconds: 70));
+      bare.container.dispose();
 
-      service.dispose();
 
       expect(bilibiliSource.fetchCount, greaterThanOrEqualTo(2));
       expect(bilibiliSource.fetchCount, lessThanOrEqualTo(6));
@@ -567,14 +546,11 @@ void main() {
         ..nextFetchCompleter = youtubeCompleter;
       final neteaseSource = _FakeRankingSource(SourceIds.netease)
         ..nextFetchCompleter = neteaseCompleter;
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: bilibiliSource,
-          SourceIds.youtube: youtubeSource,
-          SourceIds.netease: neteaseSource,
-        },
+      final bare = _bareServiceIn(
+        [bilibiliSource, youtubeSource, neteaseSource],
         initialLoadTimeout: const Duration(milliseconds: 10),
       );
+      final service = bare.service;
 
       final initializeFuture = service.initialize(
         refreshInterval: const Duration(milliseconds: 20),
@@ -584,7 +560,7 @@ void main() {
       expect(youtubeSource.fetchCount, 1);
       expect(neteaseSource.fetchCount, 1);
 
-      service.dispose();
+      bare.container.dispose();
       bilibiliCompleter.complete();
       youtubeCompleter.complete();
       neteaseCompleter.complete();
@@ -600,14 +576,11 @@ void main() {
       final low = _track('yt-low', SourceIds.youtube, viewCount: 1);
       final high = _track('yt-high', SourceIds.youtube, viewCount: 100);
       final middle = _track('yt-middle', SourceIds.youtube, viewCount: 50);
-      final service = RankingCacheService(
-        rankingSources: {
-          SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
-          SourceIds.youtube: _FakeRankingSource(SourceIds.youtube)
-            ..tracks = [low, high, middle],
-          SourceIds.netease: _FakeRankingSource(SourceIds.netease),
-        },
-      );
+      final service = _bareService([
+        _FakeRankingSource(SourceIds.bilibili),
+        _FakeRankingSource(SourceIds.youtube)..tracks = [low, high, middle],
+        _FakeRankingSource(SourceIds.netease),
+      ]);
 
       await service.refreshSource(SourceIds.youtube);
 
@@ -616,7 +589,6 @@ void main() {
       // 由 test/data/sources/youtube_source_test.dart 覆蓋。
       expect(service.state.tracksFor(SourceIds.youtube), [low, high, middle]);
 
-      service.dispose();
     });
 
     test('provider only refreshes sources that expose a RankingSource', () {
@@ -627,8 +599,7 @@ void main() {
               sources: [_FakeRankingSource(SourceIds.bilibili)],
             ),
           ),
-          connectivityProvider
-              .overrideWith((ref) => _TestConnectivityNotifier()),
+          connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
         ],
       );
 
@@ -810,10 +781,45 @@ void _expectRankingRequest(
   expect(actual.limit, limit);
 }
 
-class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
-    with Logging
-    implements ConnectivityNotifier {
-  _TestConnectivityNotifier() : super(ConnectivityState.initial);
+/// `RankingCacheService` 以前用建構子吃音源表；`Notifier.new` 不吃參數，音源
+/// 改由 `sourceManagerProvider` 進來。這組測試手動驅動刷新並數次數，所以用
+/// 一個只接線、不啟動初次載入與網路監聽的子類。
+RankingCacheService _bareService(
+  List<SourceCapability> sources, {
+  Duration? initialLoadTimeout,
+}) =>
+    _bareServiceIn(sources, initialLoadTimeout: initialLoadTimeout).service;
+
+/// 需要在測試中途主動釋放時用這個 —— 釋放現在是 container 的事。
+({RankingCacheService service, ProviderContainer container}) _bareServiceIn(
+  List<SourceCapability> sources, {
+  Duration? initialLoadTimeout,
+}) {
+  final container = ProviderContainer(overrides: [
+    sourceManagerProvider.overrideWith((ref) => SourceManager(sources: sources)),
+    connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
+    rankingCacheServiceProvider.overrideWith(() => initialLoadTimeout == null
+        ? _BareRankingCacheService()
+        : _BareRankingCacheService(initialLoadTimeout: initialLoadTimeout)),
+  ]);
+  addTearDown(container.dispose);
+  return (
+    service: container.read(rankingCacheServiceProvider.notifier),
+    container: container,
+  );
+}
+
+class _BareRankingCacheService extends RankingCacheService {
+  _BareRankingCacheService({super.initialLoadTimeout});
+
+  @override
+  RankingCacheState build() => bindSources();
+}
+
+/// 不呼叫 `super.build()`：真的那個會做 DNS 查詢並開一個輪詢計時器。
+class _TestConnectivityNotifier extends ConnectivityNotifier {
+  @override
+  ConnectivityState build() => ConnectivityState.initial;
 
   final _networkRecoveredController = StreamController<void>.broadcast();
 

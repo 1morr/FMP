@@ -254,7 +254,7 @@ ProviderContainer _createContainer({
           );
         },
       ),
-      connectivityProvider.overrideWith((ref) => _TestConnectivityNotifier()),
+      connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
       settingsRepositoryProvider
           .overrideWith((ref) => SettingsRepository(isar)),
       playHistoryRepositoryProvider.overrideWith(
@@ -382,21 +382,18 @@ class _RecordingLifecycleQueueManager extends QueueManager {
   }
 }
 
-class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
-    with Logging
-    implements ConnectivityNotifier {
-  _TestConnectivityNotifier() : super(ConnectivityState.initial);
-
+/// 不呼叫 `super.build()`：真的那個會做 DNS 查詢並開一個輪詢計時器。
+class _TestConnectivityNotifier extends ConnectivityNotifier {
   final _networkRecoveredController = StreamController<void>.broadcast();
 
   @override
-  Stream<void> get onNetworkRecovered => _networkRecoveredController.stream;
+  ConnectivityState build() {
+    ref.onDispose(_networkRecoveredController.close);
+    return ConnectivityState.initial;
+  }
 
   @override
-  void dispose() {
-    _networkRecoveredController.close();
-    super.dispose();
-  }
+  Stream<void> get onNetworkRecovered => _networkRecoveredController.stream;
 }
 
 class _FakeSourceAuthContext implements SourceAuthContext {

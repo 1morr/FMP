@@ -149,7 +149,7 @@ void main() {
                 (ref) => const <String>[],
               ),
               rankingCacheServiceProvider.overrideWith(
-                (ref) => _StaticRankingCacheService(isInitialLoading: true),
+                () => _StaticRankingCacheService(isInitialLoading: true),
               ),
               homeBilibiliMusicRankingProvider.overrideWith(
                 (ref) => throw StateError('bilibili should not be watched'),
@@ -179,7 +179,7 @@ void main() {
               (ref) => const ['youtube'],
             ),
             rankingCacheServiceProvider.overrideWith(
-              (ref) => _StaticRankingCacheService(isInitialLoading: false),
+              () => _StaticRankingCacheService(isInitialLoading: false),
             ),
             homeBilibiliMusicRankingProvider.overrideWith(
               (ref) => throw StateError('bilibili should not be watched'),
@@ -225,17 +225,15 @@ Widget _testApp({required List<Override> overrides}) {
   );
 }
 
+/// 不呼叫 `super.build()`：真的那個會接線音源、啟動初次載入與網路監聽。
 class _StaticRankingCacheService extends RankingCacheService {
-  _StaticRankingCacheService({required bool isInitialLoading})
-      : super(
-          rankingSources: {
-            SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
-            SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
-            SourceIds.netease: _FakeRankingSource(SourceIds.netease),
-          },
-        ) {
-    state = RankingCacheState(isInitialLoading: isInitialLoading);
-  }
+  _StaticRankingCacheService({required this.isInitialLoading});
+
+  final bool isInitialLoading;
+
+  @override
+  RankingCacheState build() =>
+      RankingCacheState(isInitialLoading: isInitialLoading);
 }
 
 class _FakeRankingSource implements RankingSource {

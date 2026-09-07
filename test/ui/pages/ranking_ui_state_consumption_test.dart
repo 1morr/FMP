@@ -36,7 +36,7 @@ void main() {
         final container = ProviderContainer(
           overrides: [
             rankingCacheServiceProvider.overrideWith(
-              (ref) => _StaticRankingCacheService(
+              () => _StaticRankingCacheService(
                 bilibiliTracks: bilibiliTracks,
                 youtubeTracks: youtubeTracks,
                 neteaseTracks: neteaseTracks,
@@ -141,19 +141,21 @@ void main() {
   });
 }
 
+/// 不呼叫 `super.build()`：真的那個會接線音源、啟動初次載入與網路監聽。
 class _StaticRankingCacheService extends RankingCacheService {
   _StaticRankingCacheService({
-    required List<Track> bilibiliTracks,
-    required List<Track> youtubeTracks,
-    required List<Track> neteaseTracks,
-  }) : super(
-          rankingSources: {
-            SourceIds.bilibili: _FakeRankingSource(SourceIds.bilibili),
-            SourceIds.youtube: _FakeRankingSource(SourceIds.youtube),
-            SourceIds.netease: _FakeRankingSource(SourceIds.netease),
-          },
-        ) {
-    state = RankingCacheState(
+    required this.bilibiliTracks,
+    required this.youtubeTracks,
+    required this.neteaseTracks,
+  });
+
+  final List<Track> bilibiliTracks;
+  final List<Track> youtubeTracks;
+  final List<Track> neteaseTracks;
+
+  @override
+  RankingCacheState build() {
+    return RankingCacheState(
       tracksBySource: {
         SourceIds.bilibili: bilibiliTracks,
         SourceIds.youtube: youtubeTracks,

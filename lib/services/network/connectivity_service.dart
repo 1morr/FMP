@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -42,10 +41,12 @@ class ConnectivityState {
 /// 通过尝试 DNS 解析来判断是否有真实的互联网连接，
 /// 而不是仅检查网络接口状态。这样即使 WiFi 已连接但无互联网，
 /// 也能正确检测到断网。
-class ConnectivityNotifier extends StateNotifier<ConnectivityState>
-    with Logging {
-  ConnectivityNotifier() : super(ConnectivityState.initial) {
+class ConnectivityNotifier extends Notifier<ConnectivityState> with Logging {
+  @override
+  ConnectivityState build() {
+    ref.onDispose(_teardown);
     _initialize();
+    return ConnectivityState.initial;
   }
 
   Timer? _pollingTimer;
@@ -115,19 +116,18 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
     return false;
   }
 
-  @override
-  void dispose() {
+  // 這個 provider 沒有 watch 任何東西，所以 `build()` 一個 element 只跑一次，
+  // 關掉的 controller 不會再被重用。
+  void _teardown() {
     _pollingTimer?.cancel();
     _networkRecoveredController.close();
-    super.dispose();
   }
 }
 
 /// 网络连接状态 Provider
 final connectivityProvider =
-    StateNotifierProvider<ConnectivityNotifier, ConnectivityState>((ref) {
-  return ConnectivityNotifier();
-});
+    NotifierProvider<ConnectivityNotifier, ConnectivityState>(
+        ConnectivityNotifier.new);
 
 /// 是否已连接网络 Provider
 final isConnectedProvider = Provider<bool>((ref) {

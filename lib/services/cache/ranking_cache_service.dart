@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
@@ -105,12 +105,16 @@ class RankingCacheState {
   }
 }
 
-class RankingCacheService extends StateNotifier<RankingCacheState>
-    with Logging {
+class RankingCacheService extends Notifier<RankingCacheState> with Logging {
+  RankingCacheService({
+    Duration initialLoadTimeout = _defaultInitialLoadTimeout,
+  }) : _initialLoadTimeout = initialLoadTimeout;
+
   static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
-  final Map<String, RankingSource> _rankingSourcesByType;
   final Duration _initialLoadTimeout;
+
+  late Map<String, RankingSource> _rankingSourcesByType;
 
   Timer? _refreshTimer;
   StreamSubscription<void>? _networkRecoveredSubscription;
@@ -119,12 +123,34 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
   final Map<String, int> _refreshGenerations = {};
   bool _isDisposed = false;
 
-  RankingCacheService({
-    required Map<String, RankingSource> rankingSources,
-    Duration initialLoadTimeout = _defaultInitialLoadTimeout,
-  })  : _rankingSourcesByType = Map.unmodifiable(rankingSources),
-        _initialLoadTimeout = initialLoadTimeout,
-        super(RankingCacheState());
+  @override
+  RankingCacheState build() {
+    final initial = bindSources();
+    Future.microtask(initialize);
+    setupNetworkMonitoring(ref.read(connectivityProvider.notifier));
+    return initial;
+  }
+
+  /// 只接線（音源表、旗標、釋放掛勾），不啟動初次載入與網路監聽。
+  ///
+  /// 拆成兩半是因為 `NotifierProvider` 的工廠不吃程式碼：這兩件事以前寫在
+  /// `rankingCacheServiceProvider` 的 body 裡，測試只要直接 new 這個類別就能
+  /// 跳過它們。現在測試改成覆寫 `build()` 只呼叫這一半。
+  RankingCacheState bindSources() {
+    final manager = ref.watch(sourceManagerProvider);
+    final rankingSources = <String, RankingSource>{
+      for (final sourceType in manager.registeredSourceTypes)
+        sourceType: ?manager.rankingSource(sourceType),
+    };
+    if (rankingSources.isEmpty) {
+      throw StateError('No ranking source registered');
+    }
+    _rankingSourcesByType = Map.unmodifiable(rankingSources);
+    // `build()` 重跑時實例會被保留，所以上一輪 `_teardown` 設下的旗標要清掉。
+    _isDisposed = false;
+    ref.onDispose(_teardown);
+    return RankingCacheState();
+  }
 
   /// 目前會被刷新的音源類型。
   Iterable<String> get rankedSourceTypes => _rankingSourcesByType.keys;
@@ -252,36 +278,16 @@ class RankingCacheService extends StateNotifier<RankingCacheState>
   }
 
   /// 釋放資源
-  @override
-  void dispose() {
+  void _teardown() {
     if (_isDisposed) return;
     _isDisposed = true;
     _refreshTimer?.cancel();
     _refreshTimer = null;
     clearNetworkMonitoring();
-    super.dispose();
   }
 }
 
 /// RankingCacheService Provider（負責設置網絡監聽）
 final rankingCacheServiceProvider =
-    StateNotifierProvider<RankingCacheService, RankingCacheState>((ref) {
-  final manager = ref.watch(sourceManagerProvider);
-  final rankingSources = <String, RankingSource>{
-    for (final sourceType in manager.registeredSourceTypes)
-      sourceType: ?manager.rankingSource(sourceType),
-  };
-  if (rankingSources.isEmpty) {
-    throw StateError('No ranking source registered');
-  }
-
-  final service = RankingCacheService(rankingSources: rankingSources);
-
-  Future.microtask(() => service.initialize());
-
-  // 設置網絡恢復監聽
-  final connectivityNotifier = ref.read(connectivityProvider.notifier);
-  service.setupNetworkMonitoring(connectivityNotifier);
-
-  return service;
-});
+    NotifierProvider<RankingCacheService, RankingCacheState>(
+        RankingCacheService.new);
