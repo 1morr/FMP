@@ -7,6 +7,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/services/account/bilibili_account_service.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/radio/radio_controller.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/radio/radio_source.dart';
@@ -14,7 +15,6 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
-import '../../support/riverpod_test_ref.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -146,13 +146,13 @@ class RadioControllerImportHarness {
       required this.repository,
       required this.isar,
       required this.tempDir,
-      required this.refHandle});
+      required this.container});
 
   final RadioController controller;
   final RadioRepository repository;
   final Isar isar;
   final Directory tempDir;
-  final TestRefHandle refHandle;
+  final ProviderContainer container;
 
   Future<void> pumpUntil(bool Function() condition,
       {required String reason,
@@ -166,8 +166,7 @@ class RadioControllerImportHarness {
   }
 
   Future<void> dispose() async {
-    controller.dispose();
-    refHandle.dispose();
+    container.dispose();
     await isar.close(deleteFromDisk: true);
     if (await tempDir.exists()) await tempDir.delete(recursive: true);
   }
@@ -187,25 +186,28 @@ Future<RadioControllerImportHarness> createHarness({
   final repository = RadioRepository(isar);
   if (initialStations.isNotEmpty) await repository.saveAll(initialStations);
 
-  final refHandle = createTestRef(overrides: [
+  // `RadioController` 以前吃四個位置參數；`Notifier.new` 不吃，相依全部從
+  // container 進去。`initialLoadDelay` 留在建構子上，由 override 帶進去。
+  final container = ProviderContainer(overrides: [
     bilibiliAccountServiceProvider.overrideWithValue(
       _FakeBilibiliAccountService(isar: isar, medalWallItems: medalWallItems),
     ),
+    radioRepositoryProvider.overrideWith((ref) => repository),
+    radioSourceProvider
+        .overrideWith((ref) => _FakeRadioSource(sourceStationsByUrl)),
+    audioServiceProvider.overrideWith((ref) => FakeAudioService()),
+    radioControllerProvider.overrideWith(
+      () => RadioController(initialLoadDelay: initialLoadDelay),
+    ),
   ]);
-  final controller = RadioController(
-    refHandle.ref,
-    repository,
-    _FakeRadioSource(sourceStationsByUrl),
-    FakeAudioService(),
-    initialLoadDelay: initialLoadDelay,
-  );
+  final controller = container.read(radioControllerProvider.notifier);
 
   final harness = RadioControllerImportHarness(
       controller: controller,
       repository: repository,
       isar: isar,
       tempDir: tempDir,
-      refHandle: refHandle);
+      container: container);
   await Future<void>.delayed(const Duration(milliseconds: 50));
   if (waitForInitialLoad) {
     await harness.pumpUntil(

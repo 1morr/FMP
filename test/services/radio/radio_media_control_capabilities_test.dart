@@ -1,7 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/source_ids.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_runtime_platform.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
@@ -12,7 +14,6 @@ import 'package:fmp/services/radio/radio_source.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/now_playing.dart';
-import '../../support/riverpod_test_ref.dart';
 
 /// issue #40 症狀一的回歸測試。
 ///
@@ -38,10 +39,13 @@ void main() {
       platform: AudioRuntimePlatform.mobile,
       audioHandler: handler,
     );
-    final handle = createTestRef(overrides: [
+    final container = ProviderContainer(overrides: [
       nowPlayingPublisherProvider.overrideWithValue(publisher),
+      radioRepositoryProvider.overrideWith((ref) => _FakeRadioRepository()),
+      radioSourceProvider.overrideWith((ref) => _LiveRadioSource()),
+      audioServiceProvider.overrideWith((ref) => FakeAudioService()),
     ]);
-    addTearDown(handle.dispose);
+    addTearDown(container.dispose);
 
     // 音樂先接管，就像 app 啟動之後那樣。
     publisher.claim(
@@ -60,13 +64,7 @@ void main() {
     );
     expect(handler.playbackState.value.controls, hasLength(3));
 
-    final controller = RadioController(
-      handle.ref,
-      _FakeRadioRepository(),
-      _LiveRadioSource(),
-      FakeAudioService(),
-    );
-    addTearDown(controller.dispose);
+    final controller = container.read(radioControllerProvider.notifier);
 
     await controller.play(_station());
 

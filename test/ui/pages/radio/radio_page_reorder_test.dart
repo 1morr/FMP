@@ -28,7 +28,7 @@ void main() {
         TranslationProvider(
           child: ProviderScope(
             overrides: [
-              radioControllerProvider.overrideWith((ref) => controller),
+              radioControllerProvider.overrideWith(() => controller),
             ],
             child: const MaterialApp(home: RadioPage()),
           ),
@@ -74,7 +74,7 @@ void main() {
       TranslationProvider(
         child: ProviderScope(
           overrides: [
-            radioControllerProvider.overrideWith((ref) => controller),
+            radioControllerProvider.overrideWith(() => controller),
           ],
           child: const MaterialApp(home: RadioPage()),
         ),
@@ -87,11 +87,14 @@ void main() {
   });
 }
 
+/// 不呼叫 `super.build()`：真的那個會去接電台資料庫與播放器。
 class _FailingReorderRadioController extends RadioController {
-  _FailingReorderRadioController(List<RadioStation> stations)
-      : super.forLoading() {
-    state = RadioState(stations: stations);
-  }
+  _FailingReorderRadioController(this._stations);
+
+  final List<RadioStation> _stations;
+
+  @override
+  RadioState build() => RadioState(stations: _stations);
 
   @override
   Future<void> reorderStations(List<int> newOrder) async {
@@ -105,11 +108,14 @@ class _FailingReorderRadioController extends RadioController {
   }
 }
 
+/// 不呼叫 `super.build()`：真的那個會去接電台資料庫與播放器。
 class _CountingRefreshRadioController extends RadioController {
-  _CountingRefreshRadioController(List<RadioStation> stations)
-      : super.forLoading() {
-    state = RadioState(stations: stations);
-  }
+  _CountingRefreshRadioController(this._stations);
+
+  final List<RadioStation> _stations;
+
+  @override
+  RadioState build() => RadioState(stations: _stations);
 
   int refreshAllLiveStatusCalls = 0;
 

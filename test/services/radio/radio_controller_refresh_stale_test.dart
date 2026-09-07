@@ -6,13 +6,13 @@ import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/radio/radio_controller.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/radio/radio_source.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
-import '../../support/riverpod_test_ref.dart';
 
 void main() {
   setUpAll(() {
@@ -29,13 +29,10 @@ void main() {
   test('refreshStationInfo ignores stale viewer count after station changes',
       () async {
     final source = _CompletingRadioSource();
-    final controller = RadioController(
-      _testRef(),
-      _FakeRadioRepository(),
-      source,
-      FakeAudioService(),
+    final controller = _controller(
+      repository: _FakeRadioRepository(),
+      radioSource: source,
     );
-    addTearDown(controller.dispose);
 
     final stationA = _station(id: 1, sourceId: '101', title: 'Station A');
     final stationB = _station(id: 2, sourceId: '202', title: 'Station B');
@@ -108,13 +105,10 @@ void main() {
       ..stations = [
         _station(id: 1, sourceId: '101', title: 'Station A'),
       ];
-    final controller = RadioController(
-      _testRef(),
-      repository,
-      _CompletingRadioSource(),
-      FakeAudioService(),
+    final controller = _controller(
+      repository: repository,
+      radioSource: _CompletingRadioSource(),
     );
-    addTearDown(controller.dispose);
 
     await _pumpUntil(
       () => controller.state.stations.length == 1,
@@ -209,12 +203,19 @@ class _CompletingLiveInfoSource extends RadioSource {
   }
 }
 
-/// Riverpod 3 的 `Ref` 是 sealed class，不能再 fake。這兩個測試從來沒用過
-/// `_ref` 的任何行為（RadioController 只在播放路徑上讀它），所以給一個真的就好。
-Ref _testRef() {
-  final handle = createTestRef();
-  addTearDown(handle.dispose);
-  return handle.ref;
+/// `RadioController` 以前吃四個位置參數；`Notifier.new` 不吃，相依全部從
+/// container 進去。`radioRepositoryProvider` 直接覆寫，所以不用開 Isar。
+RadioController _controller({
+  required RadioRepository repository,
+  required RadioSource radioSource,
+}) {
+  final container = ProviderContainer(overrides: [
+    radioRepositoryProvider.overrideWith((ref) => repository),
+    radioSourceProvider.overrideWith((ref) => radioSource),
+    audioServiceProvider.overrideWith((ref) => FakeAudioService()),
+  ]);
+  addTearDown(container.dispose);
+  return container.read(radioControllerProvider.notifier);
 }
 
 class _FakeRadioRepository extends Fake implements RadioRepository {
