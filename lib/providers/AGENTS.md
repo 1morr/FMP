@@ -22,11 +22,11 @@ under `lib/providers/`.
 
 | Source | Pattern | Example |
 |--------|---------|---------|
-| DB collection, multi-writer | Isar `watchAll()` + `StateNotifier` | Playlists, radio |
-| DB join query | `StateNotifier` + optimistic update | Playlist detail |
+| DB collection, multi-writer | Isar `watchAll()` + `Notifier` | Playlists, radio |
+| DB join query | `Notifier` + optimistic update | Playlist detail |
 | File system scan | `FutureProvider` + `invalidate` | Downloaded page |
-| API + cache state | `StateNotifierProvider` + immutable state | Home/explore rankings (`RankingCacheState`) |
-| Settings | `StateNotifier` + direct state update | Settings page |
+| API + cache state | `NotifierProvider` + immutable state | Home/explore rankings (`RankingCacheState`) |
+| Settings | `Notifier` + direct state update | Settings page |
 
 Rules:
 
@@ -59,12 +59,15 @@ Rules:
   providers consume that provider directly; download providers must not import
   `lib/services/audio/audio_provider.dart` just to resolve streams.
 - **Audio providers live here, not next to the controller.**
-  `audioControllerProvider` and the four providers that build its
-  collaborators are in `lib/providers/audio/audio_controller_provider.dart`;
-  every provider derived from the controller's state belongs in
-  `audio_player_selectors.dart` beside it. `AudioController` itself declares
-  no provider, so importing the controller class and subscribing to its
-  state are two separate imports — keep them separate.
+  `audioControllerProvider` and the providers that build its collaborators are
+  in `lib/providers/audio/audio_controller_provider.dart`; every provider
+  derived from the controller's state belongs in `audio_player_selectors.dart`
+  beside it. `AudioController` still **declares** no provider, so importing the
+  controller class and subscribing to its state stay two separate imports.
+  Since the `Notifier` rewrite it does *consume* providers from `build()` —
+  that import goes the other way and is the reason the two files import each
+  other. Do not move a provider declaration into `audio_provider.dart` to
+  "fix" that.
 - **Ask the right state object.** Playback fields (position, buffering,
   volume, stream metadata, output device) come off `audioControllerProvider`;
   the queue's shape (contents, index, shuffle/loop, mix identity) comes off
@@ -76,14 +79,46 @@ Rules:
 
 FMP is on `flutter_riverpod` 3.x. Four rules follow from its behaviour changes.
 
-- **Legacy providers come from a second import.** `StateNotifier`,
-  `StateNotifierProvider`, `StateProvider`, `StateController` and
-  `ChangeNotifierProvider` live in `package:flutter_riverpod/legacy.dart`; add it
-  alongside the main barrel. `KeepAliveLink`, `Override`, `ProviderOrFamily`,
-  `ProviderListenable` and `ProviderException` live in
-  `package:flutter_riverpod/misc.dart`. Rewriting the remaining
-  `StateNotifierProvider`s into `Notifier` is a separate, later change — do not
-  start it opportunistically.
+- **`lib/` is fully on `Notifier`; the legacy barrel is gone.** All 43 legacy
+  providers were rewritten during the Phase 4 closeout, and
+  `test/providers/riverpod3_static_rule_test.dart` fails if
+  `package:flutter_riverpod/legacy.dart` reappears under `lib/`. The legacy
+  family still compiles, so a stray `StateNotifier` would not break the build —
+  it would just look like current style to the next reader. `KeepAliveLink`,
+  `Override`, `ProviderOrFamily`, `ProviderListenable` and `ProviderException`
+  live in `package:flutter_riverpod/misc.dart`.
+- **`build()` replaces the constructor, and the instance survives a re-run.**
+  Riverpod preserves the notifier across `build()` calls
+  (`riverpod/src/providers/notifier/orphan.dart`), which is where the four rules
+  below come from. All four fail *silently* — nothing logs, nothing throws
+  except the first one.
+  1. Collaborator fields are `late`, never `late final`; a second assignment to
+     a `late final` is a `LateInitializationError`.
+  2. Constructor side effects move into `build()` and must be safe to repeat.
+     Anything that subscribes, times, or watches pairs with an
+     `ref.onDispose(...)` **registered in the same `build()`** — `onDispose`
+     runs before a rebuild too (`riverpod/src/core/ref.dart:513-518`), so the
+     pair is per-build.
+  3. `if (!mounted)` becomes `if (!ref.mounted)`. `AudioController` and
+     `RankingCacheService` keep their own `_isDisposed` flags instead.
+  4. **A teardown that releases *ownership* must not hang off a watched
+     dependency.** `AudioController._teardown` disposes the audio backend and
+     hands back system media control; because `onDispose` also fires on
+     rebuild, its collaborators are `ref.read`, not `ref.watch`. Use `watch`
+     only when re-running the whole build is the correct response to that
+     dependency changing (`RadioController` does: it waits for the database).
+- **Life-cycle callbacks may not touch any other provider.** Inside
+  `ref.onDispose` (and selectors), both `state =` and `ref.invalidate` throw
+  (`riverpod/src/core/ref.dart:235`); `StateNotifier` allowed it. Capture what
+  you need during `build()`, or push the work out of the callback stack — see
+  `downloadServiceProvider`'s progress reset and `RadioController._teardown`.
+- **`Notifier.new` takes no arguments**, so anything a test used to inject
+  through the constructor needs a provider to override instead. Where the
+  existing provider was too coarse or too expensive for a test, a narrow one
+  was added beside it: `mixTracksFetcherProvider`,
+  `optionalLyricsAutoMatchServiceProvider`, `homeRankingSettingsStoreProvider`.
+  `test/support/audio_controller_harness.dart` translates the old
+  `AudioController` constructor arguments into overrides.
 - **Automatic retry is off, globally.** `ProviderScope` in `lib/main.dart` passes
   `retry: (retryCount, error) => null`. Retry belongs where it is visible and
   testable: `SourceHttpPolicy`/Dio for network calls, and `AudioController`'s

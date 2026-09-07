@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Riverpod 3 帶進來兩個「測不到就會靜默壞掉」的規則，這裡用原始碼比對釘住它們。
-/// 兩條規則都寫在 `lib/providers/AGENTS.md` § Riverpod 3。
+/// Riverpod 3 帶進來三個「測不到就會靜默壞掉」的規則，這裡用原始碼比對釘住它們。
+/// 三條規則都寫在 `lib/providers/AGENTS.md` § Riverpod 3。
 void main() {
   group('Riverpod 3 static rules', () {
     test('side-effect providers stay anchored above MaterialApp', () {
@@ -36,6 +36,25 @@ void main() {
               'a page-level watch would be paused behind the full-screen player',
         );
       }
+    });
+
+    test('lib does not import the riverpod legacy barrel', () {
+      // 整個可變狀態層已經改寫成 `Notifier`（Phase 4 收尾）。legacy 家族仍然
+      // 可用，所以漏改一個不會有任何編譯錯誤 —— 只會留下一個沒人記得的
+      // `StateNotifier`，然後下一個人以為那是現行寫法。
+      final offenders = <String>[];
+
+      for (final entity in Directory('lib').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final source = entity.readAsStringSync();
+        if (source.contains("package:flutter_riverpod/legacy.dart")) {
+          offenders.add(entity.path);
+        }
+      }
+
+      expect(offenders, isEmpty,
+          reason: 'lib/ is fully on Notifier; legacy providers must not '
+              'come back without a decision recorded in AGENTS.md');
     });
 
     test('every Equatable state lists all of its fields in props', () {

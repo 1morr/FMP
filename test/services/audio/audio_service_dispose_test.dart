@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/play_queue.dart';
@@ -159,7 +158,8 @@ void main() {
         trackRepository: trackRepository,
         queuePersistenceManager: queuePersistenceManager,
       );
-      final plainLyricsSettingProvider = StateProvider<bool>((ref) => false);
+      final plainLyricsSettingProvider =
+          NotifierProvider<_Flag, bool>(_Flag.new);
       final container = _createContainer(
         isar: isar,
         audioService: audioService,
@@ -188,7 +188,7 @@ void main() {
         await controller.initialize();
         await pumpEventQueue(times: 5);
 
-        container.read(plainLyricsSettingProvider.notifier).state = true;
+        container.read(plainLyricsSettingProvider.notifier).set(true);
         await pumpEventQueue(times: 10);
 
         expect(
@@ -417,4 +417,12 @@ class _FakeSourceAuthContext implements SourceAuthContext {
 
 class _FakeNeteaseAccountService extends NeteaseAccountService {
   _FakeNeteaseAccountService({required super.isar});
+}
+
+/// 觸發用的旗標 provider。這條測試要看的是「設定變了，控制器不該被重建」。
+class _Flag extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
 }
