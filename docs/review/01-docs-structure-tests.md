@@ -494,7 +494,7 @@ library / radio / settings 六項，與截圖左欄一致）。
 ### 1.7 `isar_community` 遷移實測（獨立 worktree，你放行後補做）
 
 **方法**：`git worktree add --detach` 開一個丟棄式 worktree（主工作樹全程零改動），
-生產資料庫 `C:/Users/Roxy/Documents/FMP/fmp_database.isar`（5,242,880 bytes）**複製兩份**
+生產資料庫 `C:/Users/<user>/Documents/FMP/fmp_database.isar`（5,242,880 bytes）**複製兩份**
 到 scratchpad，原始檔全程未開啟、mtime 未變。探測用測試 `test/isar_compat_probe_test.dart`
 只存在於該 worktree，用**生產環境真正的** `fmpDatabaseSchemas`（11 個 collection）開檔，
 逐 collection 計數，並實際取出記錄欄位（避免「開得起來但解碼成空值」被誤判成成功）。

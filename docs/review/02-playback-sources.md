@@ -1872,7 +1872,7 @@ QuickJS 確實沒有 WebCrypto（`typeof crypto = undefined` 已證實），但*
 
 `flutter build windows --profile` 成功，154.5s，產出 `build/windows/x64/runner/Profile/data/app.so`（22,414,216 bytes 的 AOT snapshot，且 `flutter_assets` 下**沒有** `kernel_blob.bin`）—— 是真正的 AOT。
 
-> 【自我更正】本輪稍早有一次 `flutter run --profile` 在 584 秒後以 `error MSB3073 ... INSTALL.vcxproj` 失敗。原因是**我自己造成的**：當時另一個 debug 的 `fmp.exe` 還在執行，鎖住了 INSTALL 步驟要覆寫的輸出檔。把它關掉之後重跑就成功了。**FMP 的 profile build 沒有問題**，不要把它當成 repo 的缺陷。（順帶：`smtc_windows/cargokit/cmake/resolve_symlinks.ps1` 那個 `Get-Item : 找不到 C:\Users\Roxy\AppData 項目` 的 PowerShell 錯誤在 debug 與 profile 兩種模式下都會出現，而兩種模式都能成功建置，所以它是噪音不是故障。）
+> 【自我更正】本輪稍早有一次 `flutter run --profile` 在 584 秒後以 `error MSB3073 ... INSTALL.vcxproj` 失敗。原因是**我自己造成的**：當時另一個 debug 的 `fmp.exe` 還在執行，鎖住了 INSTALL 步驟要覆寫的輸出檔。把它關掉之後重跑就成功了。**FMP 的 profile build 沒有問題**，不要把它當成 repo 的缺陷。（順帶：`smtc_windows/cargokit/cmake/resolve_symlinks.ps1` 那個 `Get-Item : 找不到 C:\Users\<user>\AppData 項目` 的 PowerShell 錯誤在 debug 與 profile 兩種模式下都會出現，而兩種模式都能成功建置，所以它是噪音不是故障。）
 
 #### (b) AOT 下 DEBUG log 全部消失 —— 實測
 
@@ -2426,7 +2426,7 @@ getOpenFiles:     0
 
 ```
 getOpenFiles: 1
-   C:\Users\Roxy\AppData\Local\Temp\fmp_iofile_probe.txt
+   C:\Users\<user>\AppData\Local\Temp\fmp_iofile_probe.txt
 ```
 
 **【事實】三項全部可用。** 原文的成因分兩種：HTTP 與 socket 是啟用時機錯了（原文自己標注過這個可能性，事後證明它就是唯一原因）；檔案那一項是把「當下沒有 `dart:io` 檔案握柄存活」誤讀成「功能無效」——Isar 透過原生程式碼開檔，本來就不會出現在這個清單裡。
