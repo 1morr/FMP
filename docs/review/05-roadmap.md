@@ -461,6 +461,12 @@ rg -l flutter_riverpod lib/features | rg -v '_providers\.dart$'   # 必須為空
 
 ### Phase 7 — 授權與揭露（可獨立，任何時候）
 
+> **✅ 已於 2026-09-07 執行完畢。** 執行紀錄與四處與計畫不符的地方見 §6.14：
+> `CHANGELOG.md` 不存在所以 7.3 的那一項作廢；驗收改由 `LicenseRegistry`
+> 併進現有的「開源授權」頁而不是另做一頁；依賴數是 207 不是 206；
+> 7.2 沒有照譜系 A 抄，改寫成用標準庫的獨立表達（89 行 → 44 行，
+> golden 向量與 2000 組隨機交叉比對證明輸出逐字元不變）。
+
 **目標**：補上現況即已缺的第三方授權揭露，並切換到 MIT。**（2026-09-02 已定案：切 MIT + 補 NOTICE）**
 **規模**：MIT 本身全部是 **S**；`NOTICE` 是 **M**。
 **順序是固定的**：7.1 → 7.2 → 7.3。7.2 是 7.3 的**硬前置**。
@@ -2321,3 +2327,111 @@ gapless，不必退成「只對本機檔案 arm」。
   時直接 return，而 `AudioController.setLoopMode` 照樣
   `_emitQueueState(...)` 把新模式投影出去。本輪實機期間踩到：按了「列表循環」，
   按鈕變了，但 `PlayQueue.loopMode` 還是 `none`。與本輪無關。
+
+---
+
+### 6.14 執行時的失效重核（2026-09-07，落地 + Phase 7 授權與揭露）
+
+本輪的起點不是程式碼：`origin/main` 停在 `598fce27`（2026-09-01），**Phase 0–5
+的 143 個 commit 從來沒有推上去過**。先把它們落地，再做 Phase 7。
+
+#### 一、落地時才浮出來的事
+
+**1. issue #53 的根因找到了，而且 CI 當場就紅。**
+
+`origin/main` 的 `sdk` 下界是 **3.5**，Phase 2 的 `3b1c7244`
+（`chore(deps): move off the dormant isar to isar_community`）把它抬到 **3.9**。
+`dart_style` 從語言版本 **3.7** 起改用 tall style —— 所以 formatter 的風格在
+Phase 2 那個 commit 默默換過了，而 CI 從那之後就沒看過這棵樹。#53 當時比對的
+「CI 上綠的 main」是抬升**前**的遠端 main，所以那份紀錄看起來自相矛盾。
+
+PR #57 第一次讓 CI 看到這批程式碼，`Check formatting` 在 42 秒內失敗。
+
+量到的兩個選項都不是零成本（553 個已追蹤的 `.dart`）：
+
+| 風格 | 要重排的檔案 |
+|---|---:|
+| tall（語言版本 3.9 的實際預設） | **476** |
+| short（`--language-version=3.6` 釘住） | **88** |
+
+那 88 個全部是 Phase 0–5 期間手寫的 —— 因為 #53 當時的結論就是「不要跑
+`dart format`」。**已定案：採用 tall style**（`eaa6870f`），並把兩個全樹重排
+commit 寫進 `.git-blame-ignore-revs`。釘住 short style 只是把 #53 的陷阱留著：
+任何人順手跑一次不帶 flag 的 `dart format` 還是會把檔案重排成另一種風格。
+
+**2. 重排打掉 11 條測試，全部是同一類。** 靠原始碼字串比對的靜態規則測試釘的是
+formatter 當下的換行決定，例如 `contains('playFile(path, track: track)')` 或
+`contains('child: const PlayerPage(),')`。修法**不是**把新的排版重新釘一次，而是
+改成不受換行影響的形式：單行的結構片段（`LocalPlaybackMedia(:final path, ...) =>
+playFile(`）或帶 `\s*` 的 regex。另外 `app_layout.dart` 有一個 `if` 因為函式體被
+移到下一行而觸發 `curly_braces_in_flow_control_structures`，補上大括號。
+
+**3. `logger` 這個 dependabot PR（#49）本來就不該存在。** Phase 0 的 `364c7319`
+已經把它移除，`pubspec.yaml` 與 `pubspec.lock` 都沒有它 —— dependabot 自己也在
+main 落地後把 PR 關掉了。剩下六個已分流並逐一在 PR 上留了狀態，本輪不做任何實際
+升級（`go_router` 14→18 是真正的遷移，`window_manager` 0.4→0.5 在 pub 語意下
+等同破壞性變更）。
+
+**4. 推之前掃到三行本機絕對路徑**（`docs/review/01-*.md`、`02-*.md`），含
+Windows 帳號名。repo 是公開的，已遮成 `<user>`（`a9f32737`）。憑證類掃描
+（SESSDATA / MUSIC_U / Bearer / VM Service token 形狀）命中的全是遮蔽機制的
+說明文字與假測試值。
+
+#### 二、Phase 7 執行時與計畫不符的地方
+
+| # | 路線圖說 | 實況 |
+|---|---|---|
+| 1 | 7.3 要「CHANGELOG 記一筆」 | **`CHANGELOG.md` 不存在**，release note 由 `release.yml` 從 `git log` 動態產生。這一項刪掉，不為了它新建一個檔案 |
+| 2 | 驗收要「`showLicensePage()` 之外另有一個第三方授權頁」 | 改用 **`LicenseRegistry.addLicense`** 併進現有的「開源授權」頁。那是 Flutter 為此設計的擴充點，零新頁面、零新 i18n 字串、零新入口，而使用者只要記一個地方 |
+| 3 | 「206 個 Dart 依賴」 | `pubspec.lock` 現在是 **207**（42 direct main + 7 direct dev + 158 transitive；202 hosted + 5 SDK） |
+| 4 | 7.1 要列「206 個依賴的授權清單」 | 全文不重抄 —— app 內的 `showLicensePage` 已經自動收錄每個 pub 套件自帶的 `LICENSE`。`THIRD_PARTY_LICENSES.md` 只給分佈與指路 |
+
+**依賴授權重新逐檔清點**（讀本機 pub cache 每個 hosted 套件的 `LICENSE`，
+202 個全部有檔、零 UNKNOWN）：
+
+| 授權 | 套件數 |
+|---|---:|
+| BSD-3-Clause | 116 |
+| MIT | 60 |
+| Apache-2.0 | 19 |
+| BSD-2-Clause | 6 |
+| CC0-1.0 | 1 |
+| **GPL / LGPL / MPL / AGPL** | **0** |
+
+**libmpv / FFmpeg 的建置旗標這次是第一手讀的**，不是沿用 03 的紀錄：
+`media-kit/libmpv-win32-audio-build`（master，已封存、無 LICENSE 檔）的
+`packages/mpv.cmake:29` 是 `-Dgpl=false`，`packages/ffmpeg.cmake:34-36` 是
+`--disable-gpl --disable-nonfree --enable-version3`。結論不變：**LGPL 不是 GPL**。
+
+**7.2 沒有照譜系 A 抄，改寫成獨立表達。** 路線圖建議照 `AynaLivePlayer/miaosic`
+（MIT）的寫法重寫，但那仍然要背一份 attribution。實際做法是用標準庫重寫：
+`_k1` 那張十六進位對照表整張消失（`digest.bytes[i]` 就是那個位元組），手寫的
+6 次 base64 迴圈換成 `base64.encode(...)` 加一次 `replaceAll(RegExp(r'[+/=]'), '')`
+—— 等價性是可證的，因為原本的 `i == 5` 特判正是「尾端單一位元組產 2 字元、不補
+`=`」。89 行降到 44 行。**等價性有兩層證據**：6 組從改寫前實作抓下來的 golden
+向量（含空字串、CJK、長字串、真實 API payload），以及 2000 組隨機輸入的新舊交叉
+比對，全部逐字元相同。
+
+#### 三、實機驗證
+
+| 平台 | 觀察到的 |
+|---|---|
+| Android 模擬器 | 設定 → 關於 → 開源授權：**`Protocol research` 在列**（`process_runner` 與 `pub_semver` 之間），內文含 `bilibili-API-collect`、`CC BY-NC 4.0` 與 netease 兩則。`l` 區是 `libjxl → libpng`，**沒有 `libmpv / FFmpeg`** —— 正確，Android 走 ExoPlayer，整包裡沒有 libmpv |
+| Windows | 同一頁：**`libmpv / FFmpeg`（3 個授權）在 `libpng` 上方**，內文是建置旗標說明加上從 asset 載入的 **GNU LESSER GENERAL PUBLIC LICENSE Version 2.1** 全文 |
+
+**驅動 Windows 時踩到的**：`--restore-window` 前三次都截到別的視窗（使用者正在用
+這台機器，Windows 的前景鎖擋掉了 raise）。第四次才成功，而中途有一次 `scroll`
+整個送到別的視窗去、FMP 完全沒動。**在 Windows 上每一次 click / scroll 之後都要
+用截圖確認落在對的視窗**，不能假設指令送到了。
+
+#### 四、順手處理與未處理
+
+- `windows/runner/Runner.rc:96` 原本寫 `Copyright (C) 2026 com.personal. All
+  rights reserved.` —— 「All rights reserved」與 MIT 直接矛盾，一併改掉。
+  `CompanyName` 維持 `com.personal` 不動，它與 `AppUserModelID` 綁在一起。
+- **`NOTICE` 與 `THIRD_PARTY_LICENSES.md` 只做一份**（後者）。兩份重疊的揭露文件
+  一定會漂移，而路線圖本來就寫的是「`NOTICE` / `THIRD_PARTY_LICENSES.md`」二選一。
+- `licenses/` 同時是 repo 目錄與 Flutter asset（`pubspec.yaml` 的 `- licenses/`），
+  所以授權全文只有一份來源；`release.yml` 在打包**之前**把它與 `LICENSE`、
+  `THIRD_PARTY_LICENSES.md` 複製進 `build\windows\x64\runner\Release`，可攜版 zip
+  與 InnoSetup 安裝檔因此帶到同一批檔案。

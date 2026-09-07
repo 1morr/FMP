@@ -7,7 +7,7 @@
   <a href="https://github.com/1morr/FMP/releases/latest"><img src="https://img.shields.io/github/v/release/1morr/FMP?color=blue" alt="Latest release"></a>
   <a href="https://github.com/1morr/FMP/actions/workflows/ci.yml"><img src="https://github.com/1morr/FMP/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-green" alt="Platform">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
 </p>
 <p align="center"><b>English</b> · <a href="README.zh-Hant.md">繁體中文</a></p>
 
@@ -148,4 +148,6 @@ Built on [media_kit](https://github.com/media-kit/media-kit),
 
 ## License
 
-[GPL-3.0](LICENSE)
+[MIT](LICENSE). Third-party components FMP bundles or derives from —
+including the LGPL-licensed libmpv/FFmpeg in the Windows build — are recorded
+in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

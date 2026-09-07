@@ -250,6 +250,17 @@ jobs:
       - name: Build Windows (Release)
         run: flutter build windows --release
 
+      # LGPL disclosure travels with the binary, not just with the repo. This
+      # runs before both packaging steps so the ZIP and the installer carry
+      # the same files: inno_bundle builds its file list from this directory.
+      - name: Stage licence disclosure next to the executable
+        shell: pwsh
+        run: |
+          $dest = "build\windows\x64\runner\Release"
+          Copy-Item -Force LICENSE "$dest\LICENSE.txt"
+          Copy-Item -Force THIRD_PARTY_LICENSES.md $dest
+          Copy-Item -Recurse -Force licenses $dest
+
       - name: Create release directory
         shell: pwsh
         run: |

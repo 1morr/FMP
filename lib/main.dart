@@ -13,6 +13,7 @@ import 'app.dart';
 import 'core/constants/app_constants.dart';
 import 'core/log_file_sink.dart';
 import 'core/logger.dart';
+import 'core/third_party_licenses.dart';
 import 'i18n/strings.g.dart';
 import 'providers/database/database_provider.dart';
 import 'services/audio/audio_handler.dart';
@@ -181,6 +182,10 @@ void main(List<String> args) async {
         // 移动平台不需要窗口管理
         windowsSmtcHandler = WindowsSmtcHandler();
       }
+
+      // 補上 showLicensePage 收不到的第三方授權（Windows 的 libmpv/FFmpeg 是
+      // 建置時才下載的二進位）。收集器是惰性的，這裡只登記，不讀檔。
+      registerThirdPartyLicenses();
 
       // 延迟初始化后台服务，避免阻塞首帧渲染
       // 首頁排行榜和電台刷新在第一帧渲染后启动，用户感知不到延迟
