@@ -343,7 +343,9 @@ void main() {
       ]);
 
       final oldRefresh = service.refreshSource(SourceIds.netease);
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'let the first refresh reach its gated fetch',
+      );
 
       await service.refreshSource(SourceIds.netease);
       expect(service.state.tracksFor(SourceIds.netease), [newTrack]);
@@ -371,7 +373,9 @@ void main() {
       ]);
 
       final oldRefresh = service.refreshSource(SourceIds.netease);
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'let the first refresh reach its gated fetch',
+      );
 
       await service.refreshSource(SourceIds.netease);
       expect(service.state.tracksFor(SourceIds.netease), isEmpty);
@@ -410,13 +414,18 @@ void main() {
         service.setupNetworkMonitoring(secondNotifier);
 
         firstNotifier.emitNetworkRecovered();
-        await pumpEventQueue();
+        await drainEventQueue(
+          reason: 'a superseded monitor must not trigger a refetch',
+        );
         expect(bilibiliSource.fetchCount, 0);
         expect(youtubeSource.fetchCount, 0);
         expect(neteaseSource.fetchCount, 0);
 
         secondNotifier.emitNetworkRecovered();
-        await pumpEventQueue();
+        await pumpUntil(
+          () => neteaseSource.fetchCount == 1,
+          reason: 'the live monitor should trigger one refetch',
+        );
         expect(bilibiliSource.fetchCount, 1);
         expect(youtubeSource.fetchCount, 1);
         expect(neteaseSource.fetchCount, 1);
@@ -608,7 +617,10 @@ void main() {
         final initializeFuture = service.initialize(
           refreshInterval: const Duration(milliseconds: 20),
         );
-        await pumpEventQueue();
+        await pumpUntil(
+          () => neteaseSource.fetchCount == 1,
+          reason: 'initialize should fetch every source once',
+        );
         expect(bilibiliSource.fetchCount, 1);
         expect(youtubeSource.fetchCount, 1);
         expect(neteaseSource.fetchCount, 1);

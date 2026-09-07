@@ -27,6 +27,7 @@ import 'package:fmp/services/download/download_service.dart';
 import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 import 'package:path/path.dart' as p;
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -85,7 +86,9 @@ void main() {
       );
       await service.pauseTask(task.id);
       service.debugFlushPendingProgressUpdatesForTesting();
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'a paused task must flush no progress event',
+      );
 
       expect(service.debugPendingProgressCount, 0);
       expect(events, isEmpty);
@@ -203,7 +206,9 @@ void main() {
       );
       await service.cancelTask(task.id);
       service.debugFlushPendingProgressUpdatesForTesting();
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'a cancelled task must flush no progress event',
+      );
 
       expect(service.debugPendingProgressCount, 0);
       expect(events, isEmpty);

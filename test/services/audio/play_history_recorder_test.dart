@@ -9,6 +9,7 @@ import 'package:fmp/services/audio/play_history_recorder.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/isar_test_harness.dart';
+import '../../support/pump_until.dart';
 
 /// `PlayHistoryRecorder` 是 Phase 4 步驟 D 抽出來的第一個副作用協作者。
 ///
@@ -72,7 +73,9 @@ void main() {
       final recorder = PlayHistoryRecorder();
 
       recorder.record(_track('a', 'Song A'));
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'without a database nothing should be written',
+      );
 
       expect(await isar.playHistorys.where().count(), 0);
     });
@@ -86,7 +89,9 @@ void main() {
       recorder.record(_track('a', 'Song A'));
 
       // 例外若逃出 microtask，這一輪 pump 會讓測試失敗。
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'a repository failure must not escape the microtask',
+      );
       expect(await isar.playHistorys.where().count(), 0);
     });
   });

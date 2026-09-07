@@ -121,7 +121,14 @@ void main() {
 
       AppLogger.clearLogs();
       await controller.refreshAllLiveStatus();
-      await pumpEventQueue();
+      await pumpUntil(
+        () => AppLogger.logs.any(
+          (entry) =>
+              entry.tag == 'RadioController' &&
+              entry.message.startsWith('同步直播狀態'),
+        ),
+        reason: 'the manual refresh should log one sync line',
+      );
 
       final syncLogs = AppLogger.logs.where(
         (entry) =>

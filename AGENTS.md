@@ -140,6 +140,12 @@ Never:
 - Do not open or migrate the Isar database through ad-hoc paths.
 - Do not add hidden global enabled-source filters for search.
 - Do not use direct `Image.network()` / `Image.file()` in UI.
+- Do not call `pumpEventQueue` in tests. A pump count buys event loop turns,
+  not progress, so it fails under load in one direction and on an idle machine
+  in the other (issues #43, #55). Use `pumpUntil` from
+  `test/support/pump_until.dart` to wait for a condition that is false on entry,
+  or `drainEventQueue` when asserting that something did *not* happen.
+  `test/support/wait_convention_static_rule_test.dart` enforces this.
 - Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
   it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
   See `docs/troubleshooting.md`.

@@ -19,6 +19,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/count_waiters.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/pump_until.dart';
 
 /// `LyricsAutoMatchCoordinator` 是 Phase 4 步驟 D 從 `AudioController` 抽出來的
 /// 第二個副作用協作者。
@@ -79,7 +80,9 @@ void main() {
       final coordinator = build();
 
       coordinator.onTrackStarted(_track('a'));
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'the setting being off must reach no service call',
+      );
 
       expect(service.calls, isEmpty);
     });
@@ -112,11 +115,16 @@ void main() {
 
       // 舊的先回來。它不可以把「正在比對」關掉 —— 新的還在跑。
       firstGate.complete();
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'the stale match must not clear the in-progress flag',
+      );
       expect(states.last, isTrue);
 
       secondGate.complete();
-      await pumpEventQueue();
+      await pumpUntil(
+        () => !states.last,
+        reason: 'the newer match finishing should clear the flag',
+      );
       expect(states.last, isFalse);
     });
 
@@ -132,7 +140,9 @@ void main() {
 
       coordinator.dispose();
       gate.complete();
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'a match returning after dispose must not touch the UI',
+      );
 
       // dispose 之後那次比對回來，不能再碰已經沒人在聽的 UI。
       expect(states, [true]);
@@ -142,7 +152,9 @@ void main() {
       final coordinator = LyricsAutoMatchCoordinator(service: service);
 
       coordinator.onTrackStarted(_track('a'));
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'without a database there should be no service call',
+      );
 
       expect(service.calls, isEmpty);
     });
