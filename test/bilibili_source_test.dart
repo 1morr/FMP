@@ -865,11 +865,27 @@ void main() {
       }, tags: 'live');
 
       test('should throw BilibiliApiException for invalid bvid', () async {
-        const invalidBvid = 'BV1234567890'; // 无效的BV号
+        // 「無效 bvid 回 BilibiliApiException」不需要真的 B 站，所以走同檔既有
+        // 的 loopback server 寫法。原本它用外層 setUp 那個真連網的 source 又
+        // 沒標 live，CI 的 --exclude-tags live 攔不住，上游一變動就會把不相干
+        // 的 PR 弄紅。
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() async => server.close(force: true));
 
-        expect(
-          () => source.getAudioUrl(
-            const AudioStreamRequest(sourceId: invalidBvid),
+        server.listen((request) async {
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(jsonEncode({'code': -400, 'message': '请求错误'}));
+          await request.response.close();
+        });
+        final source = BilibiliSource(
+          apiBase: 'http://localhost:${server.port}',
+        );
+
+        // await expectLater，不是 expect：非同步的 rejection 若沒有 await，會在
+        // 這條測試結束之後才浮出來，失敗被算到下一條頭上。
+        await expectLater(
+          source.getAudioUrl(
+            const AudioStreamRequest(sourceId: 'BV1234567890'),
           ),
           throwsA(isA<BilibiliApiException>()),
         );
@@ -1024,22 +1040,6 @@ void main() {
 
         expect(track.hasValidAudioUrl, isFalse);
       });
-    });
-  });
-
-  group('Race Condition Prevention', () {
-    test('Multiple rapid play requests should not cause errors', () async {
-      // 这个测试模拟快速切歌的场景
-      // 实际测试需要模拟 AudioController，这里只是占位符
-      // 真实测试需要使用 mocktail 或 mockito 来模拟依赖
-
-      // 模拟场景：
-      // 1. 请求播放歌曲A
-      // 2. 在A还没加载完时，请求播放歌曲B
-      // 3. 歌曲A的加载应该被取消，歌曲B应该正常播放
-
-      // 这里只验证逻辑概念
-      expect(true, isTrue);
     });
   });
 }
