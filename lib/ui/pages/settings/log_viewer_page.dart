@@ -6,11 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../core/errors/user_message.dart';
-import '../../../core/logger.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 /// 实时日志查看页面
 class LogViewerPage extends StatefulWidget {

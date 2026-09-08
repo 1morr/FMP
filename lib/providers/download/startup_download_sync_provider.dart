@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logger.dart';
-import 'download_path_provider.dart';
-import '../library/library_invalidation_coordinator.dart';
-import '../library/playlist_provider.dart' show allPlaylistsProvider;
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/providers/download/download_path_provider.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/library/playlist_provider.dart'
+    show allPlaylistsProvider;
 
 final startupDownloadSyncProvider = FutureProvider<void>((ref) async {
   try {

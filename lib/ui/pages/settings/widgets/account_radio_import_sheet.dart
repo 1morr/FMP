@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/ui_constants.dart';
-import '../../../../core/services/toast_service.dart';
-import '../../../../i18n/strings.g.dart';
-import '../../../../services/radio/radio_controller.dart';
-import '../../../../services/radio/radio_refresh_service.dart';
-import '../../../widgets/images/avatar_image.dart';
-import '../../../widgets/dialogs/remote_playlist_dialog_widgets.dart';
-import '../../../widgets/indicators/live_badge.dart';
-import '../../../widgets/layout/sheet_drag_handle.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/radio/radio_controller.dart';
+import 'package:fmp/services/radio/radio_refresh_service.dart';
+import 'package:fmp/ui/widgets/images/avatar_image.dart';
+import 'package:fmp/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart';
+import 'package:fmp/ui/widgets/indicators/live_badge.dart';
+import 'package:fmp/ui/widgets/layout/sheet_drag_handle.dart';
 
 /// 電台列表項（內部使用）
 class _RadioItem {

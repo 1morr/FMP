@@ -3,10 +3,10 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
-import '../../data/models/source_ids.dart';
-import '../../data/sources/source_exception.dart';
-import '../../i18n/strings.g.dart';
-import '../logger.dart';
+import 'package:fmp/data/models/source_ids.dart';
+import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/core/logger.dart';
 
 /// 音源 adapter 對這幾種情況會回一句固定的英文診斷。它們不比 kind 對應的翻譯
 /// 更有資訊量，卻會讓使用者看到一句沒翻譯的英文，所以一律當作「沒有診斷」。

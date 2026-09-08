@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/services/toast_service.dart';
-import '../../data/models/settings.dart';
-import '../../data/models/track.dart';
-import '../../i18n/strings.g.dart';
-import '../../providers/account/account_provider.dart';
-import '../../providers/lyrics/lyrics_provider.dart';
-import '../../services/audio/audio_provider.dart';
-import '../../services/library/remote_playlist_track_filter.dart';
-import '../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../widgets/dialogs/add_to_remote_playlist_dialog.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/providers/lyrics/lyrics_provider.dart';
+import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/library/remote_playlist_track_filter.dart';
+import 'package:fmp/ui/widgets/dialogs/add_to_playlist_dialog.dart';
+import 'package:fmp/ui/widgets/dialogs/add_to_remote_playlist_dialog.dart';
 
 const playTrackActionId = 'play';
 const playNextTrackActionId = 'play_next';

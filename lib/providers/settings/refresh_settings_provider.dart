@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/settings.dart';
-import '../../services/cache/ranking_cache_service.dart';
-import '../../services/radio/radio_refresh_service.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/services/cache/ranking_cache_service.dart';
+import 'package:fmp/services/radio/radio_refresh_service.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 
 /// 刷新间隔设置状态
 class RefreshSettingsState {

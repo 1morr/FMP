@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../../data/sources/source_http_policy.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 
 class MediaHandoffRequest {
   const MediaHandoffRequest({

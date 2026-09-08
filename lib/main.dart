@@ -9,19 +9,19 @@ import 'package:media_kit/media_kit.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'app.dart';
-import 'core/constants/app_constants.dart';
-import 'core/log_file_sink.dart';
-import 'core/logger.dart';
-import 'core/third_party_licenses.dart';
-import 'i18n/strings.g.dart';
-import 'providers/database/database_provider.dart';
-import 'services/audio/audio_handler.dart';
-import 'services/audio/windows_smtc_handler.dart';
-import 'services/radio/radio_refresh_service.dart';
-import 'services/update/update_service.dart';
-import 'ui/windows/lyrics_window.dart';
-import 'data/repositories/settings_repository.dart';
+import 'package:fmp/app.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/log_file_sink.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/third_party_licenses.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/services/audio/audio_handler.dart';
+import 'package:fmp/services/audio/windows_smtc_handler.dart';
+import 'package:fmp/services/radio/radio_refresh_service.dart';
+import 'package:fmp/services/update/update_service.dart';
+import 'package:fmp/ui/windows/lyrics_window.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
 late FmpAudioHandler audioHandler;

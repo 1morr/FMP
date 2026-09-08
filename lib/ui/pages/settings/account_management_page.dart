@@ -3,15 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:simple_icons/simple_icons.dart';
 
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/track.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/account/account_provider.dart';
-import '../../../services/account/account_service.dart';
-import '../../router.dart';
-import '../../widgets/images/avatar_image.dart';
-import 'widgets/account_playlists_sheet.dart';
-import 'widgets/account_radio_import_sheet.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/services/account/account_service.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/ui/widgets/images/avatar_image.dart';
+import 'package:fmp/ui/pages/settings/widgets/account_playlists_sheet.dart';
+import 'package:fmp/ui/pages/settings/widgets/account_radio_import_sheet.dart';
 
 /// 平台品牌色（帳號卡片圖示用）
 const Color kBrandBilibili = Color(0xFFFF6699);

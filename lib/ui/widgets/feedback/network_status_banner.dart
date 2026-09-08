@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../../services/network/connectivity_service.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/services/network/connectivity_service.dart';
 
 enum NetworkStatusBannerKind { none, noNetwork, playbackNetworkError }
 

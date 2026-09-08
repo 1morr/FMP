@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/models/play_queue.dart';
-import '../../data/models/settings.dart';
-import '../../data/models/track.dart';
-import '../../services/audio/audio_types.dart';
-import '../../services/audio/queue_state.dart';
-import 'audio_controller_provider.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/queue_state.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
 
 @immutable
 class DesktopAudioDeviceState {

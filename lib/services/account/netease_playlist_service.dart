@@ -4,13 +4,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/playlist_import/netease_playlist_source.dart';
-import '../../data/sources/source_http_policy.dart';
-import '../../i18n/strings.g.dart';
-import 'netease_account_service.dart';
-import 'netease_auth_interceptor.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/playlist_import/netease_playlist_source.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
+import 'package:fmp/services/account/netease_auth_interceptor.dart';
 
 class NeteasePlaylistInfo {
   final String playlistId;

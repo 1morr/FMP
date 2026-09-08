@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../core/constants/download_filenames.dart';
-import '../../data/models/track.dart';
-import '../../providers/download/file_exists_cache.dart';
-import '../utils/duration_formatter.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
 
 /// Track 模型扩展方法
 extension TrackExtensions on Track {

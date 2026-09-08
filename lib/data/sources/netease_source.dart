@@ -2,19 +2,19 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../core/utils/netease_crypto.dart';
-import '../../services/library/remote_playlist_id_parser.dart';
-import '../models/settings.dart';
-import '../models/track.dart';
-import '../models/video_detail.dart';
-import 'base_source.dart';
-import 'netease_exception.dart';
-import 'source_capabilities.dart';
-import 'source_exception.dart';
-import 'source_http_policy.dart';
-import 'source_url_policy.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/netease_crypto.dart';
+import 'package:fmp/services/library/remote_playlist_id_parser.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/netease_exception.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
 
 /// 網易雲音樂音源實現
 ///

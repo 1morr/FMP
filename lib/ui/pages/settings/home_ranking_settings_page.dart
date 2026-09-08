@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/utils/icon_helpers.dart';
-import '../../../data/models/source_ids.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/settings/home_ranking_settings_provider.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/utils/icon_helpers.dart';
+import 'package:fmp/data/models/source_ids.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/settings/home_ranking_settings_provider.dart';
 
 /// Home recent trending ranking source settings page.
 class HomeRankingSettingsPage extends ConsumerWidget {

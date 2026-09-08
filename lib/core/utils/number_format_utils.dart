@@ -1,4 +1,4 @@
-import '../../i18n/strings.g.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 根据当前语言环境格式化数字
 ///

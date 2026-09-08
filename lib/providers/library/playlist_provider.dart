@@ -3,22 +3,23 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../core/errors/user_message.dart';
-import '../../core/logger.dart';
-import '../../data/models/playlist.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/source_provider.dart';
-import '../../data/repositories/playlist_mutation_repository.dart';
-import '../../services/library/playlist_service.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
+import 'package:fmp/services/library/playlist_service.dart';
 
 // 导出 PlaylistUpdateResult 供 UI 使用
-export '../../services/library/playlist_service.dart' show PlaylistUpdateResult;
+export 'package:fmp/services/library/playlist_service.dart'
+    show PlaylistUpdateResult;
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../database/database_provider.dart';
-import '../download/file_exists_cache.dart';
-import 'library_invalidation_coordinator.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 
 /// PlaylistService Provider
 final playlistServiceProvider = Provider<PlaylistService>((ref) {

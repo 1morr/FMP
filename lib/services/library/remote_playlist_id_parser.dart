@@ -1,5 +1,5 @@
-import '../../data/models/track.dart';
-import '../../data/sources/source_url_policy.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
 
 class RemotePlaylistIdParser {
   const RemotePlaylistIdParser._();

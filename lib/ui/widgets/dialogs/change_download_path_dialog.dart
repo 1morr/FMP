@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../core/logger.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../providers/download/download_path_provider.dart';
-import '../../../providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/providers/download/download_path_provider.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 
 /// 更改下载路径对话框
 ///

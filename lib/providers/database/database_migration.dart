@@ -7,14 +7,14 @@ import 'dart:io';
 
 import 'package:isar_community/isar.dart';
 
-import '../../core/constants/app_layout.dart';
+import 'package:fmp/core/constants/app_layout.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/lyrics_title_parse_cache.dart';
-import '../../data/models/play_queue.dart';
-import '../../data/models/settings.dart';
-import '../../data/models/source_ids.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/source_ids.dart';
 
 /// 目前的持久化 schema 版本。每加一個遷移步驟就 +1。
 const int kFmpSchemaVersion = 2;

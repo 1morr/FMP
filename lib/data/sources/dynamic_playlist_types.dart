@@ -1,4 +1,4 @@
-import '../models/track.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// Dynamic playlist metadata used for imported Mix-style playlists.
 class MixPlaylistInfo {

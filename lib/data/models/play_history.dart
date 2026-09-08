@@ -1,7 +1,7 @@
 import 'package:isar_community/isar.dart';
-import 'track_key.dart';
+import 'package:fmp/data/models/track_key.dart';
 
-import 'track.dart';
+import 'package:fmp/data/models/track.dart';
 
 part 'play_history.g.dart';
 

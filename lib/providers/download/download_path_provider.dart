@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../services/download/download_path_maintenance_service.dart';
-import '../../services/download/download_path_manager.dart';
-import '../../services/download/download_path_sync_service.dart';
-import 'download_providers.dart' show downloadRepositoryProvider;
-import '../database/repository_providers.dart';
+import 'package:fmp/services/download/download_path_maintenance_service.dart';
+import 'package:fmp/services/download/download_path_manager.dart';
+import 'package:fmp/services/download/download_path_sync_service.dart';
+import 'package:fmp/providers/download/download_providers.dart'
+    show downloadRepositoryProvider;
+import 'package:fmp/providers/database/repository_providers.dart';
 
 /// DownloadPathManager Provider
 final downloadPathManagerProvider = Provider<DownloadPathManager>((ref) {

@@ -35,6 +35,9 @@ linter:
   rules:
     prefer_const_constructors: true
     prefer_const_declarations: true
+    # 相對 import 讓「搬一個檔案」變成「重算所有 ../ 深度」。統一成 package:
+    # 之後搬移就只是路徑字串替換，git 也認得出是純重新命名。
+    always_use_package_imports: true
     # Schema 遷移期間會刻意留著「只給 migration 讀」的舊欄位。這條讓
     # 「還有誰在讀它」變成編譯器問題，而不是靠註解自律。
     deprecated_member_use_from_same_package: true

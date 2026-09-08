@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../core/constants/download_filenames.dart';
-import '../../data/models/track.dart';
-import '../../services/download/download_path_utils.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/download/download_path_utils.dart';
 
 /// 已下载分类（文件夹）数据模型
 class DownloadedCategory {

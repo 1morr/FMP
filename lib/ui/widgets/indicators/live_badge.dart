@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../i18n/strings.g.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 enum _LiveBadgeVariant { dot, text, compact }
 

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../constants/app_constants.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 
 /// 统一的 HTTP 客户端工厂
 ///

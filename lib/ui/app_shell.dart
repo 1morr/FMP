@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/services/toast_service.dart';
-import 'layouts/responsive_scaffold.dart';
-import 'router.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/ui/layouts/responsive_scaffold.dart';
+import 'package:fmp/ui/router.dart';
 
 /// 应用外壳 - 包含导航栏和迷你播放器
 class AppShell extends ConsumerStatefulWidget {

@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../../core/logger.dart';
-import '../../core/utils/http_client_factory.dart';
-import 'lyrics_result.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/http_client_factory.dart';
+import 'package:fmp/services/lyrics/lyrics_result.dart';
 
 // ============================================================
 // 网易云音乐歌词源 - Demo / 概念验证

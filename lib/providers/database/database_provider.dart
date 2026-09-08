@@ -6,10 +6,10 @@ import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../core/constants/app_constants.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 
-import 'database_catalog.dart';
-import 'database_migration.dart';
+import 'package:fmp/providers/database/database_catalog.dart';
+import 'package:fmp/providers/database/database_migration.dart';
 
 const String fmpDatabaseName = 'fmp_database';
 const String fmpDatabaseDirectoryName = AppConstants.appName;

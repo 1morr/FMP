@@ -5,8 +5,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
-import '../../core/logger.dart';
-import 'lyrics_result.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/lyrics/lyrics_result.dart';
 
 /// 歌词缓存服务
 ///

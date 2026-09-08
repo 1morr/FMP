@@ -1,10 +1,10 @@
 import 'package:isar_community/isar.dart';
 
-import '../models/account.dart';
-import '../models/download_task.dart';
-import '../models/play_queue.dart';
-import '../models/track.dart';
-import 'playlist_mutation_repository.dart';
+import 'package:fmp/data/models/account.dart';
+import 'package:fmp/data/models/download_task.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 
 class DataIntegrityReport {
   const DataIntegrityReport({

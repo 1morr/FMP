@@ -3,11 +3,11 @@ import 'dart:io';
 
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/errors/user_message.dart';
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/source_exception.dart';
-import 'audio_types.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 
 /// 一次播放失敗之後，只看那個錯誤就能得出的結論。
 ///

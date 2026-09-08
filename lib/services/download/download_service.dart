@@ -7,26 +7,26 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/constants/app_constants.dart';
-import '../../core/constants/download_filenames.dart';
-import '../../core/constants/ui_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/download_task.dart';
-import '../../data/models/track.dart';
-import '../../data/models/playlist.dart';
-import '../../data/models/settings.dart';
-import '../../data/models/video_detail.dart';
-import '../../data/repositories/download_repository.dart';
-import '../../data/repositories/track_repository.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../data/sources/source_http_policy.dart';
-import '../../data/sources/source_url_policy.dart';
-import '../../data/sources/source_provider.dart';
-import '../../core/utils/thumbnail_url_utils.dart';
-import '../account/source_auth_context.dart';
-import '../audio/stream_resolution_service.dart';
-import '../media/media_handoff.dart';
-import 'download_path_utils.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/download_task.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/repositories/download_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/core/utils/thumbnail_url_utils.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
+import 'package:fmp/services/media/media_handoff.dart';
+import 'package:fmp/services/download/download_path_utils.dart';
 
 /// 下载任务添加结果
 enum DownloadResult {

@@ -6,10 +6,10 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/logger.dart';
-import '../../i18n/strings.g.dart';
-import '../lyrics/lrc_parser.dart';
-import 'lyrics_window_style.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/lyrics/lrc_parser.dart';
+import 'package:fmp/services/lyrics/lyrics_window_style.dart';
 
 abstract class LyricsWindowControllerHandle {
   String get windowId;

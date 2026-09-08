@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../data/models/track.dart';
-import '../../data/repositories/settings_repository.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
 
 /// 下载路径计算工具类
 ///

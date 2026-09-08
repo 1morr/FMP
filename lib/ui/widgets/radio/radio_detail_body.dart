@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../layout/detail_stats_row.dart';
-import '../layout/expandable_text_section.dart';
-import '../layout/tags_section.dart';
+import 'package:fmp/ui/widgets/layout/detail_stats_row.dart';
+import 'package:fmp/ui/widgets/layout/expandable_text_section.dart';
+import 'package:fmp/ui/widgets/layout/tags_section.dart';
 
 /// 電台直播間詳情主體（封面 / 標題 / 主播列 / 統計 / 公告 / 簡介 / 標籤）。
 ///

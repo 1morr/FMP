@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/errors/user_message.dart';
-import '../../core/logger.dart';
-import '../../services/update/update_service.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/update/update_service.dart';
 
 const _tag = 'UpdateProvider';
 

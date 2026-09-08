@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/services/toast_service.dart';
-import '../../data/models/track.dart';
-import '../../i18n/strings.g.dart';
-import '../../providers/account/account_provider.dart';
-import '../../providers/audio/audio_controller_provider.dart';
-import '../pages/lyrics/lyrics_search_sheet.dart';
-import '../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../widgets/dialogs/add_to_remote_playlist_dialog.dart';
-import 'track_action_handler.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/ui/pages/lyrics/lyrics_search_sheet.dart';
+import 'package:fmp/ui/widgets/dialogs/add_to_playlist_dialog.dart';
+import 'package:fmp/ui/widgets/dialogs/add_to_remote_playlist_dialog.dart';
+import 'package:fmp/ui/handlers/track_action_handler.dart';
 
 class TrackActionCoordinator {
   const TrackActionCoordinator._();

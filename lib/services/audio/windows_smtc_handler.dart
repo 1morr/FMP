@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:smtc_windows/smtc_windows.dart';
-import '../../core/logger.dart';
-import '../../core/utils/thumbnail_url_utils.dart';
-import '../../data/models/radio_station.dart';
-import '../../data/models/play_queue.dart';
-import '../../data/models/track.dart';
-import 'playback_capabilities.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/thumbnail_url_utils.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/audio/playback_capabilities.dart';
 
 class SmtcMetadataFingerprint {
   const SmtcMetadataFingerprint({

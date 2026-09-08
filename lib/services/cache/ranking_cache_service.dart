@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/source_capabilities.dart';
-import '../../data/sources/source_provider.dart';
-import '../network/connectivity_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/network/connectivity_service.dart';
 
 /// 首頁排行榜緩存服務
 ///

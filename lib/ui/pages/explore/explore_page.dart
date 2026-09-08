@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/models/track.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/search/popular_provider.dart';
-import '../../../providers/ui/selection_provider.dart';
-import '../../../services/cache/ranking_cache_service.dart';
-import '../../widgets/feedback/error_display.dart';
-import '../../widgets/app_bars/selection_mode_app_bar.dart';
-import '../../widgets/track_tiles/ranking_track_tile.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/search/popular_provider.dart';
+import 'package:fmp/providers/ui/selection_provider.dart';
+import 'package:fmp/services/cache/ranking_cache_service.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
+import 'package:fmp/ui/widgets/app_bars/selection_mode_app_bar.dart';
+import 'package:fmp/ui/widgets/track_tiles/ranking_track_tile.dart';
 
 /// 探索页面 - 显示音乐排行榜
 class ExplorePage extends ConsumerStatefulWidget {

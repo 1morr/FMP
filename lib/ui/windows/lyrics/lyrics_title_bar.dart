@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../services/lyrics/lyrics_window_style.dart';
+import 'package:fmp/services/lyrics/lyrics_window_style.dart';
 
 /// 歌詞視窗標題列（純展示 leaf，C1a/C1e）。
 ///

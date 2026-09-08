@@ -1,5 +1,5 @@
 import 'package:isar_community/isar.dart';
-import 'track_key.dart';
+import 'package:fmp/data/models/track_key.dart';
 
 part 'radio_station.g.dart';
 

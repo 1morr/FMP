@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logger.dart';
-import '../../services/library/remote_playlist_edit_controller.dart';
-import '../../services/library/remote_playlist_sync_service.dart';
-import '../account/account_provider.dart';
-import 'playlist_provider.dart';
-import '../search/refresh_provider.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/library/remote_playlist_edit_controller.dart';
+import 'package:fmp/services/library/remote_playlist_sync_service.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
+import 'package:fmp/providers/search/refresh_provider.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 
 final remotePlaylistSyncServiceProvider = Provider<RemotePlaylistSyncService>((
   ref,

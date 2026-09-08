@@ -1,6 +1,6 @@
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../models/track.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 导入的歌曲信息（来自外部平台）
 class ImportedTrack {

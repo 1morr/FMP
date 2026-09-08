@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../storage_permission_service.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/services/storage_permission_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 /// 下载路径管理器

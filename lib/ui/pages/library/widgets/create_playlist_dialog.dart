@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/ui_constants.dart';
-import '../../../../core/services/image_loading_service.dart';
-import '../../../../core/services/toast_service.dart';
-import '../../../../data/models/playlist.dart';
-import '../../../../providers/library/playlist_provider.dart';
-import '../../../../services/library/playlist_service.dart';
-import '../../../../i18n/strings.g.dart';
-import '../../../widgets/images/playlist_cover_image.dart';
-import 'cover_picker_dialog.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/image_loading_service.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
+import 'package:fmp/services/library/playlist_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
+import 'package:fmp/ui/pages/library/widgets/cover_picker_dialog.dart';
 
 /// 创建/编辑歌单对话框
 class CreatePlaylistDialog extends ConsumerStatefulWidget {

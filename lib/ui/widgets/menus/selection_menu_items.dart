@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../i18n/strings.g.dart';
-import '../../handlers/track_action_handler.dart';
-import '../../handlers/track_action_menu.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/handlers/track_action_handler.dart';
+import 'package:fmp/ui/handlers/track_action_menu.dart';
 
 /// 多選模式下可用的操作類型
 const selectionActionAddToQueue = addToQueueTrackActionId;

@@ -1,7 +1,7 @@
 import 'package:isar_community/isar.dart';
-import '../models/download_task.dart';
-import '../models/track.dart';
-import '../../core/logger.dart';
+import 'package:fmp/data/models/download_task.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/core/logger.dart';
 
 /// 下载任务数据仓库
 class DownloadRepository with Logging {

@@ -2,9 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../i18n/strings.g.dart';
-import 'sheet_drag_handle.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/widgets/layout/sheet_drag_handle.dart';
 
 /// [CappedDraggableSheet] 的高度模式。
 enum CappedSheetMode {

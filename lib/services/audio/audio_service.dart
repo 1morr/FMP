@@ -1,6 +1,6 @@
-import 'audio_types.dart';
-import '../../data/models/track.dart';
-import 'playback_media.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/audio/playback_media.dart';
 
 /// 音频播放服务抽象接口
 /// Android: JustAudioService (ExoPlayer)

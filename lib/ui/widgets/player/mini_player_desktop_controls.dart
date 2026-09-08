@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../providers/audio/audio_player_selectors.dart';
-import '../../../providers/audio/audio_controller_provider.dart';
-import 'fmp_audio_device_selector.dart';
-import 'mini_player_volume_control.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/ui/widgets/player/fmp_audio_device_selector.dart';
+import 'package:fmp/ui/widgets/player/mini_player_volume_control.dart';
 
 /// 迷你播放器桌面端尾隨控制群（音訊裝置選擇器 + 音量控制），
 /// 音樂/電台迷你播放器共用。

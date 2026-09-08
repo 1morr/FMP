@@ -24,7 +24,12 @@ void main() {
   test('database provider opens schemas from the catalog', () {
     final provider = read(databaseProviderPath);
 
-    expect(provider, contains("import 'database_catalog.dart';"));
+    expect(
+      provider,
+      contains(
+        "import 'package:fmp/providers/database/database_catalog.dart';",
+      ),
+    );
     expect(
       provider,
       contains(RegExp(r'Isar\.open\(\s*fmpDatabaseSchemas\s*,')),

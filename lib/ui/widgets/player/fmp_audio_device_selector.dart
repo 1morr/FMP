@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
-import '../../../services/audio/audio_provider.dart';
-import '../../../services/audio/audio_types.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 
 /// 音訊輸出設備選擇器（僅桌面端），音樂/電台全螢幕播放器與迷你播放器共用。
 ///

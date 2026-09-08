@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_constants.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../../data/models/video_detail.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/data/models/video_detail.dart';
 
 /// 评论分页组件（手动翻页 + 可选自动翻页 + 动画）。
 ///

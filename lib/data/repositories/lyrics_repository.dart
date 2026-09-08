@@ -1,6 +1,6 @@
 import 'package:isar_community/isar.dart';
 
-import '../models/lyrics_match.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
 
 /// 歌词匹配仓库
 class LyricsRepository {

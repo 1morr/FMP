@@ -1,25 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/errors/user_message.dart';
-import '../../data/models/lyrics_match.dart';
-import '../../data/models/settings.dart';
-import '../../data/repositories/lyrics_repository.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../audio/audio_controller_provider.dart';
-import '../audio/audio_player_selectors.dart';
-import '../../services/lyrics/ai_lyrics_selector.dart';
-import '../../services/lyrics/ai_title_parser.dart';
-import '../../services/lyrics/lrc_parser.dart';
-import '../../services/lyrics/lrclib_source.dart';
-import '../../services/lyrics/lyrics_ai_config_service.dart';
-import '../../services/lyrics/lyrics_auto_match_service.dart';
-import '../../services/lyrics/lyrics_cache_service.dart';
-import '../../services/lyrics/lyrics_result.dart';
-import '../../services/lyrics/netease_source.dart';
-import '../../services/lyrics/qqmusic_source.dart';
-import '../../services/lyrics/title_parser.dart';
-import '../audio/audio_settings_provider.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/repositories/lyrics_repository.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/services/lyrics/ai_lyrics_selector.dart';
+import 'package:fmp/services/lyrics/ai_title_parser.dart';
+import 'package:fmp/services/lyrics/lrc_parser.dart';
+import 'package:fmp/services/lyrics/lrclib_source.dart';
+import 'package:fmp/services/lyrics/lyrics_ai_config_service.dart';
+import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
+import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
+import 'package:fmp/services/lyrics/lyrics_result.dart';
+import 'package:fmp/services/lyrics/netease_source.dart';
+import 'package:fmp/services/lyrics/qqmusic_source.dart';
+import 'package:fmp/services/lyrics/title_parser.dart';
+import 'package:fmp/providers/audio/audio_settings_provider.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Singleton providers

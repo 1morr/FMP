@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../constants/ui_constants.dart';
-import '../errors/user_message.dart';
-import '../logger.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
 
 /// Toast 消息类型
 enum ToastType { info, success, warning, error }

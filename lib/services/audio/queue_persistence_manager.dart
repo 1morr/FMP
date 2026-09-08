@@ -1,8 +1,8 @@
-import '../../data/models/play_queue.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/queue_repository.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
 
 class AudioRuntimeSettings {
   const AudioRuntimeSettings({

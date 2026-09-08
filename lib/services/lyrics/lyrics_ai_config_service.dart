@@ -1,7 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../data/models/settings.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/data/models/settings.dart';
 
 abstract class SecureKeyValueStore {
   Future<String?> read({required String key});

@@ -1,22 +1,22 @@
 import 'dart:convert';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/lyrics_match.dart';
-import '../../data/models/lyrics_title_parse_cache.dart';
-import '../../data/models/settings.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/lyrics_repository.dart';
-import '../../data/repositories/lyrics_title_parse_cache_repository.dart';
-import 'ai_lyrics_selector.dart';
-import 'ai_title_parser.dart';
-import 'lrclib_source.dart';
-import 'lyrics_ai_config_service.dart';
-import 'lyrics_cache_service.dart';
-import 'lyrics_result.dart';
-import 'netease_source.dart';
-import 'qqmusic_source.dart';
-import 'title_parser.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/lyrics_repository.dart';
+import 'package:fmp/data/repositories/lyrics_title_parse_cache_repository.dart';
+import 'package:fmp/services/lyrics/ai_lyrics_selector.dart';
+import 'package:fmp/services/lyrics/ai_title_parser.dart';
+import 'package:fmp/services/lyrics/lrclib_source.dart';
+import 'package:fmp/services/lyrics/lyrics_ai_config_service.dart';
+import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
+import 'package:fmp/services/lyrics/lyrics_result.dart';
+import 'package:fmp/services/lyrics/netease_source.dart';
+import 'package:fmp/services/lyrics/qqmusic_source.dart';
+import 'package:fmp/services/lyrics/title_parser.dart';
 
 /// 歌词自动匹配服务
 ///

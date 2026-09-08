@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../data/models/settings.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
 
 /// 音频技术信息区块（码率 / 封装格式 / 编码 / 流类型）。
 ///

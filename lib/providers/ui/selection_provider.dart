@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/models/track.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 選擇項的唯一標識
 /// 使用 sourceId + pageNum 組合來唯一標識一首歌曲

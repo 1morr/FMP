@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
-import '../../data/sources/source_provider.dart';
-import '../../services/audio/stream_resolution_service.dart';
-import '../account/source_auth_context_provider.dart';
-import '../database/database_provider.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
+import 'package:fmp/providers/database/database_provider.dart';
 
 final streamResolutionServiceProvider = Provider<StreamResolutionService>((
   ref,

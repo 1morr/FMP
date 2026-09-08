@@ -1,11 +1,11 @@
-import '../../data/models/settings.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../data/sources/source_http_policy.dart';
-import '../media/media_handoff.dart';
-import 'bilibili_account_service.dart';
-import 'netease_account_service.dart';
-import 'youtube_account_service.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/services/media/media_handoff.dart';
+import 'package:fmp/services/account/bilibili_account_service.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
+import 'package:fmp/services/account/youtube_account_service.dart';
 
 typedef SourceSettingsLoader = Future<Settings> Function();
 

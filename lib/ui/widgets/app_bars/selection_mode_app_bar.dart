@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/track.dart';
-import '../../../providers/ui/selection_provider.dart';
-import '../../handlers/track_action_coordinator.dart';
-import '../../handlers/track_action_handler.dart';
-import '../dialogs/confirm_destructive_dialog.dart';
-import '../menus/selection_menu_items.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/providers/ui/selection_provider.dart';
+import 'package:fmp/ui/handlers/track_action_coordinator.dart';
+import 'package:fmp/ui/handlers/track_action_handler.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
+import 'package:fmp/ui/widgets/menus/selection_menu_items.dart';
 
 // 操作 id 常數定義於 selection_menu_items.dart，此處 re-export
 // 供既有呼叫方（歌單詳情頁、探索頁、搜索頁）沿用原 import。
-export '../menus/selection_menu_items.dart'
+export 'package:fmp/ui/widgets/menus/selection_menu_items.dart'
     show
         selectionActionAddToQueue,
         selectionActionPlayNext,

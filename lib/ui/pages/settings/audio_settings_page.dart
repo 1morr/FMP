@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/models/settings.dart';
-import '../../../data/models/track.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/audio/audio_settings_provider.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_settings_provider.dart';
 
 /// 音频质量设置页面
 class AudioSettingsPage extends ConsumerWidget {

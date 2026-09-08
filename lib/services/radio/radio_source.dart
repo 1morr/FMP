@@ -1,9 +1,9 @@
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/logger.dart';
-import '../../data/models/radio_station.dart';
-import '../../data/models/track.dart'; // for String
-import '../../data/sources/bilibili_live_client.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/data/models/track.dart'; // for String
+import 'package:fmp/data/sources/bilibili_live_client.dart';
 
 /// 直播間資訊
 class LiveRoomInfo {

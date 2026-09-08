@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../constants/ui_constants.dart';
-import '../../data/sources/source_http_policy.dart';
-import '../utils/thumbnail_url_utils.dart';
-import 'network_image_cache_service.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/core/utils/thumbnail_url_utils.dart';
+import 'package:fmp/core/services/network_image_cache_service.dart';
 
 /// 统一的图片加载服务
 ///

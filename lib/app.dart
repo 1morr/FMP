@@ -4,24 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/constants/app_constants.dart';
-import 'main.dart'
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/main.dart'
     show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
-import 'providers/database/database_provider.dart';
-import 'providers/account/account_provider.dart';
-import 'providers/audio/playback_settings_provider.dart';
-import 'providers/download/startup_download_sync_provider.dart';
-import 'providers/settings/desktop_settings_provider.dart';
-import 'providers/settings/hotkey_config_provider.dart';
-import 'providers/settings/theme_provider.dart';
-import 'providers/system/windows_desktop_provider.dart';
-import 'services/refresh/auto_refresh_service.dart';
-import 'i18n/strings.g.dart';
-import 'providers/settings/locale_provider.dart';
-import 'ui/router.dart';
-import 'ui/theme/app_theme.dart';
-import 'ui/widgets/app_bars/custom_title_bar.dart';
-import 'ui/widgets/feedback/network_status_banner.dart';
+import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/providers/audio/playback_settings_provider.dart';
+import 'package:fmp/providers/download/startup_download_sync_provider.dart';
+import 'package:fmp/providers/settings/desktop_settings_provider.dart';
+import 'package:fmp/providers/settings/hotkey_config_provider.dart';
+import 'package:fmp/providers/settings/theme_provider.dart';
+import 'package:fmp/providers/system/windows_desktop_provider.dart';
+import 'package:fmp/services/refresh/auto_refresh_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/settings/locale_provider.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/ui/theme/app_theme.dart';
+import 'package:fmp/ui/widgets/app_bars/custom_title_bar.dart';
+import 'package:fmp/ui/widgets/feedback/network_status_banner.dart';
 
 /// FMP 应用主组件
 class FMPApp extends ConsumerWidget {

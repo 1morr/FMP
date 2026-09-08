@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/services/network_image_cache_service.dart';
-import '../../data/models/settings.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../services/lyrics/lyrics_cache_service.dart';
-import '../lyrics/lyrics_provider.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/core/services/network_image_cache_service.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
+import 'package:fmp/providers/lyrics/lyrics_provider.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 
 /// 下载设置状态
 class DownloadSettingsState {

@@ -1,6 +1,6 @@
 import 'package:isar_community/isar.dart';
 
-import '../models/account.dart';
+import 'package:fmp/data/models/account.dart';
 
 /// Account 數據倉庫。
 ///

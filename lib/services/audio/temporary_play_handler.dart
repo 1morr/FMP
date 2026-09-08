@@ -1,5 +1,5 @@
-import '../../core/logger.dart';
-import 'audio_playback_types.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/audio/audio_playback_types.dart';
 
 class RestorePlaybackPlan {
   const RestorePlaybackPlan({

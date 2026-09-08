@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:math';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/play_queue.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/queue_repository.dart';
-import '../../data/repositories/track_repository.dart';
-import 'queue_persistence_manager.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/services/audio/queue_persistence_manager.dart';
 
 /// 播放队列管理器（纯队列逻辑）
 /// 负责管理播放列表、索引、播放模式和持久化

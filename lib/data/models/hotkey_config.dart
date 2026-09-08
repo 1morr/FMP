@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
-import '../../i18n/strings.g.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 快捷键动作类型
 enum HotkeyAction {

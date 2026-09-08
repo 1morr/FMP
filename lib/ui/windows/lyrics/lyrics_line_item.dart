@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../services/lyrics/lyrics_window_style.dart';
-import '../../widgets/lyrics/lyrics_styled_text.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/services/lyrics/lyrics_window_style.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_styled_text.dart';
 
 /// 單行歌詞呈現（主行 + 選用翻譯/羅馬拼音副行）。
 ///

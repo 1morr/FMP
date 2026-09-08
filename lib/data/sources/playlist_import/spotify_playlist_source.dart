@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../core/utils/http_client_factory.dart';
-import '../source_url_policy.dart';
-import 'playlist_import_source.dart';
+import 'package:fmp/core/utils/http_client_factory.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
+import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 
 /// Spotify 歌单导入源
 ///

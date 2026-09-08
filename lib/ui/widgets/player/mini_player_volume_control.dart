@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/breakpoints.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/utils/icon_helpers.dart';
-import '../../../services/audio/audio_provider.dart';
+import 'package:fmp/core/constants/breakpoints.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/utils/icon_helpers.dart';
+import 'package:fmp/services/audio/audio_provider.dart';
 
 /// 迷你播放器音量控制（僅桌面端顯示），音樂/電台迷你播放器共用。
 ///

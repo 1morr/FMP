@@ -35,7 +35,7 @@ void main() {
       expect(
         appSource,
         contains(
-          "import 'providers/download/startup_download_sync_provider.dart';",
+          "import 'package:fmp/providers/download/startup_download_sync_provider.dart';",
         ),
       );
       expect(appSource, contains('ref.watch(startupDownloadSyncProvider);'));

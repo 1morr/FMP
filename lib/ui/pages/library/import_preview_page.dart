@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../core/logger.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../core/utils/duration_formatter.dart';
-import '../../../data/models/track.dart';
-import '../../../data/sources/playlist_import/playlist_import_source.dart';
-import '../../../providers/library/library_invalidation_coordinator.dart';
-import '../../../providers/library/playlist_import_provider.dart';
-import '../../../providers/library/playlist_provider.dart';
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../core/utils/number_format_utils.dart';
-import '../../../i18n/strings.g.dart';
-import '../../widgets/images/track_thumbnail.dart';
-import '../../widgets/indicators/source_badge.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/library/playlist_import_provider.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/core/utils/number_format_utils.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/ui/widgets/indicators/source_badge.dart';
 
 /// 显示导入预览弹窗
 Future<void> showImportPreviewDialog(

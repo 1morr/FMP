@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../data/models/settings.dart';
+import 'package:fmp/data/models/settings.dart';
 
 class LyricsWindowLayout {
   const LyricsWindowLayout._();

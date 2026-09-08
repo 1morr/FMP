@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 
-import '../../core/logger.dart';
-import '../../core/utils/http_client_factory.dart';
-import 'lyrics_result.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/http_client_factory.dart';
+import 'package:fmp/services/lyrics/lyrics_result.dart';
 
 /// lrclib.net API 异常
 class LrclibException implements Exception {

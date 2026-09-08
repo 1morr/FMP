@@ -4,12 +4,12 @@ import 'package:just_audio/just_audio.dart' as ja;
 import 'package:audio_session/audio_session.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import 'audio_service.dart';
-import 'audio_types.dart';
-import 'playback_media.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/audio/audio_service.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/playback_media.dart';
 
 /// Android 音频播放服务（使用 just_audio / ExoPlayer）
 /// 比 media_kit 更轻量，节省 ~10-15MB 内存

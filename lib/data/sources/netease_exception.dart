@@ -1,5 +1,5 @@
-import '../models/track.dart';
-import 'source_exception.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_exception.dart';
 
 /// 網易雲音樂 API 異常
 class NeteaseApiException extends SourceApiException {

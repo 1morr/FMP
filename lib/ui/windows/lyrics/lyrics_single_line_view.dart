@@ -2,9 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../services/lyrics/lyrics_window_style.dart';
-import '../../widgets/lyrics/lyrics_styled_text.dart';
-import '../../widgets/lyrics/lyrics_text_measurer.dart';
+import 'package:fmp/services/lyrics/lyrics_window_style.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_styled_text.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_text_measurer.dart';
 
 /// 單行歌詞檢視（放大呈現當前行，含兩段式字級擬合）。
 ///

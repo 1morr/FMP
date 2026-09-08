@@ -1,10 +1,10 @@
 import 'package:isar_community/isar.dart';
 
-import '../../core/logger.dart';
-import '../models/playlist.dart';
-import '../models/track.dart';
-import 'track_repository.dart';
-import '../../services/library/playlist_exceptions.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/services/library/playlist_exceptions.dart';
 
 class PlaylistMutationResult {
   final int playlistId;

@@ -3,20 +3,20 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../core/utils/duration_formatter.dart';
-import '../models/live_room.dart';
-import '../models/settings.dart';
-import '../models/track.dart';
-import '../models/video_detail.dart';
-import 'base_source.dart';
-import 'bilibili_exception.dart';
-import 'bilibili_live_client.dart';
-import 'source_capabilities.dart';
-import 'source_exception.dart';
-import 'source_http_policy.dart';
-import 'source_url_policy.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/data/models/live_room.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/bilibili_exception.dart';
+import 'package:fmp/data/sources/bilibili_live_client.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
 
 /// Bilibili API 参数常量
 class _BilibiliApiParams {

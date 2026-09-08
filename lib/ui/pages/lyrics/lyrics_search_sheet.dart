@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../core/logger.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/track.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/audio/audio_settings_provider.dart';
-import '../../../providers/lyrics/lyrics_provider.dart';
-import '../../../services/lyrics/lyrics_result.dart';
-import '../../widgets/images/track_thumbnail.dart';
-import '../../widgets/layout/capped_draggable_sheet.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_settings_provider.dart';
+import 'package:fmp/providers/lyrics/lyrics_provider.dart';
+import 'package:fmp/services/lyrics/lyrics_result.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/ui/widgets/layout/capped_draggable_sheet.dart';
 
 /// 显示歌词搜索匹配 BottomSheet
 void showLyricsSearchSheet({

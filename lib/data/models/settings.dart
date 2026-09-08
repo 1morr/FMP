@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:isar_community/isar.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/constants/app_layout.dart';
-import 'track.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/constants/app_layout.dart';
+import 'package:fmp/data/models/track.dart';
 
 part 'settings.g.dart';
 

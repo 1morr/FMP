@@ -11,8 +11,8 @@ import 'package:open_filex/open_filex.dart';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
 
 const _tag = 'UpdateService';
 const _repoOwner = '1morr';

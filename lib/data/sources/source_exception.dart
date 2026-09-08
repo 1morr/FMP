@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import '../../i18n/strings.g.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 enum SourceErrorKind {
   network,

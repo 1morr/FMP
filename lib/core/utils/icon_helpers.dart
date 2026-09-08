@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:simple_icons/simple_icons.dart';
 
-import '../../data/models/track.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 根据音量值获取对应的图标
 IconData getVolumeIcon(double volume) {

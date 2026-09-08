@@ -1,12 +1,12 @@
 import 'package:isar_community/isar.dart';
 import 'dart:io';
 
-import '../models/track.dart';
-import '../models/playlist.dart';
-import '../models/play_queue.dart';
-import '../models/lyrics_match.dart';
-import '../../core/logger.dart';
-import '../models/track_key.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track_key.dart';
 
 class TrackSourceIdentity {
   final String sourceType;

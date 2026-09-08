@@ -3,18 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../core/utils/duration_formatter.dart';
-import '../../../data/models/track.dart';
-import '../../../providers/audio/playback_settings_provider.dart';
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../services/audio/queue_state.dart';
-import '../../router.dart';
-import '../../../i18n/strings.g.dart';
-import '../../widgets/dialogs/confirm_destructive_dialog.dart';
-import '../../widgets/feedback/error_display.dart';
-import '../../widgets/images/track_thumbnail.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/providers/audio/playback_settings_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/services/audio/queue_state.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
 
 /// 播放队列页
 class QueuePage extends ConsumerStatefulWidget {

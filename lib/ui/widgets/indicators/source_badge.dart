@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/utils/icon_helpers.dart';
+import 'package:fmp/core/utils/icon_helpers.dart';
 
 /// 音源标识徽章（灰色小圖標）
 ///

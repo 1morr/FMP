@@ -3,19 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/ui_constants.dart';
-import '../../../../core/services/toast_service.dart';
-import '../../../../data/models/track.dart';
-import '../../../../services/library/remote_playlist_id_parser.dart';
-import '../../../../i18n/strings.g.dart';
-import '../../../../providers/account/account_provider.dart';
-import '../../../../providers/library/import_playlist_provider.dart';
-import '../../../../providers/library/library_invalidation_coordinator.dart';
-import '../../../../providers/database/repository_providers.dart';
-import '../../../../services/import/import_service.dart';
-import '../../../widgets/images/playlist_cover_image.dart';
-import '../../../widgets/dialogs/remote_playlist_dialog_widgets.dart';
-import '../../../widgets/layout/sheet_drag_handle.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/library/remote_playlist_id_parser.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/providers/library/import_playlist_provider.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/services/import/import_service.dart';
+import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
+import 'package:fmp/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart';
+import 'package:fmp/ui/widgets/layout/sheet_drag_handle.dart';
 
 /// 帳號歌單列表項
 class _PlaylistItem {

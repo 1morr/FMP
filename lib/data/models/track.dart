@@ -1,5 +1,5 @@
 import 'package:isar_community/isar.dart';
-import 'track_key.dart';
+import 'package:fmp/data/models/track_key.dart';
 
 export 'source_ids.dart';
 

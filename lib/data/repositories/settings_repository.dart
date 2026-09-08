@@ -1,5 +1,5 @@
 import 'package:isar_community/isar.dart';
-import '../models/settings.dart';
+import 'package:fmp/data/models/settings.dart';
 
 /// Settings 数据仓库
 class SettingsRepository {

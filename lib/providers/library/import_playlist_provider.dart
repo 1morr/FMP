@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 
-import '../../core/errors/user_message.dart';
-import '../../data/sources/source_provider.dart';
-import '../../services/import/import_service.dart';
-import '../../data/repositories/playlist_mutation_repository.dart';
-import '../account/source_auth_context_provider.dart';
-import '../database/database_provider.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/import/import_service.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
+import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 
 typedef ImportServiceFactory = FutureOr<ImportServiceFacade> Function();
 

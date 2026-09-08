@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../data/models/lyrics_match.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/lyrics/lyrics_provider.dart';
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
-import '../../../services/lyrics/lrc_parser.dart';
-import 'lyrics_offset_bar.dart';
-import 'lyrics_styled_text.dart';
-import 'lyrics_text_measurer.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/lyrics/lyrics_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/services/lyrics/lrc_parser.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_offset_bar.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_styled_text.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_text_measurer.dart';
 
 /// 歌词滚动显示组件
 ///

@@ -5,12 +5,12 @@ import 'package:audio_session/audio_session.dart' hide AudioDevice;
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:rxdart/rxdart.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import 'audio_service.dart';
-import 'audio_types.dart';
-import 'playback_media.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/audio/audio_service.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/playback_media.dart';
 
 /// 音频播放服务（使用 media_kit 直接实现）
 /// 替代原来的 just_audio + just_audio_media_kit 方案

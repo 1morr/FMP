@@ -3,15 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/utils/duration_formatter.dart';
-import '../../../core/utils/number_format_utils.dart';
-import '../../../core/utils/platform_utils.dart';
-import '../../../services/radio/radio_controller.dart';
-import '../../router.dart';
-import '../images/radio_cover_image.dart';
-import '../player/mini_player_desktop_controls.dart';
-import '../player/mini_player_play_pause_button.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/core/utils/number_format_utils.dart';
+import 'package:fmp/core/utils/platform_utils.dart';
+import 'package:fmp/services/radio/radio_controller.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/ui/widgets/images/radio_cover_image.dart';
+import 'package:fmp/ui/widgets/player/mini_player_desktop_controls.dart';
+import 'package:fmp/ui/widgets/player/mini_player_play_pause_button.dart';
 
 /// 電台迷你播放器
 /// 顯示在頁面底部，展示當前播放的電台資訊和控制按鈕

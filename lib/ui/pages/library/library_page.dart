@@ -4,26 +4,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/download/download_provider.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/image_loading_service.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/download/download_provider.dart';
 
-import '../../../data/models/playlist.dart';
-import '../../../providers/library/playlist_provider.dart';
-import '../../../providers/search/refresh_provider.dart';
-import '../../../services/library/playlist_service.dart';
-import '../../router.dart';
-import '../../widgets/menus/context_menu_region.dart';
-import '../../widgets/dialogs/confirm_destructive_dialog.dart';
-import '../../widgets/feedback/error_display.dart';
-import '../../widgets/images/playlist_cover_image.dart';
-import '../../widgets/layout/playlist_card.dart';
-import '../../widgets/menus/playlist_card_actions.dart';
-import '../../widgets/indicators/refresh_progress_indicator.dart';
-import 'widgets/create_playlist_dialog.dart';
-import 'widgets/import_playlist_dialog.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
+import 'package:fmp/providers/search/refresh_provider.dart';
+import 'package:fmp/services/library/playlist_service.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/ui/widgets/menus/context_menu_region.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
+import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
+import 'package:fmp/ui/widgets/layout/playlist_card.dart';
+import 'package:fmp/ui/widgets/menus/playlist_card_actions.dart';
+import 'package:fmp/ui/widgets/indicators/refresh_progress_indicator.dart';
+import 'package:fmp/ui/pages/library/widgets/create_playlist_dialog.dart';
+import 'package:fmp/ui/pages/library/widgets/import_playlist_dialog.dart';
 
 /// 音乐库页
 class LibraryPage extends ConsumerStatefulWidget {

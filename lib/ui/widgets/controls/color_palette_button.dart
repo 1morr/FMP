@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 class ColorPaletteButton extends StatelessWidget {
   static const paletteKey = ValueKey('color-palette-dialog');

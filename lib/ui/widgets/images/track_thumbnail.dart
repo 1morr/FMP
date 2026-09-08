@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
-import '../../../data/models/track.dart';
-import '../../../providers/download/file_exists_cache.dart';
-import '../indicators/now_playing_cover_overlay.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/image_loading_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/ui/widgets/indicators/now_playing_cover_overlay.dart';
 
 /// 统一的歌曲封面缩略图组件
 ///

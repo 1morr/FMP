@@ -1,5 +1,5 @@
 import 'package:isar_community/isar.dart';
-import '../models/playlist.dart';
+import 'package:fmp/data/models/playlist.dart';
 
 /// Playlist 数据仓库
 class PlaylistRepository {

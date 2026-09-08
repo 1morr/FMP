@@ -2,14 +2,14 @@ import 'dart:async';
 
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/errors/user_message.dart';
-import '../../data/models/search_history.dart';
-import '../../data/models/track.dart';
-import '../../data/models/video_detail.dart';
-import '../../data/repositories/search_history_repository.dart';
-import '../../data/repositories/track_repository.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/source_provider.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/models/search_history.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 
 /// 搜索结果（包含多个音源）
 class MultiSourceSearchResult {

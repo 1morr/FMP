@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/ui_constants.dart';
-import '../../../../core/services/image_loading_service.dart';
-import '../../../../data/models/track.dart';
-import '../../../../i18n/strings.g.dart';
-import '../../../../providers/library/playlist_provider.dart';
-import '../../../widgets/images/playlist_cover_image.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/image_loading_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
+import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
 
 /// 封面選擇結果
 class CoverPickerResult {

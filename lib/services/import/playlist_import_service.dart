@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/playlist_import/playlist_import_source.dart';
-import '../../data/sources/playlist_import/netease_playlist_source.dart';
-import '../../data/sources/playlist_import/qq_music_playlist_source.dart';
-import '../../data/sources/playlist_import/spotify_playlist_source.dart';
-import '../../data/sources/source_provider.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
+import 'package:fmp/data/sources/playlist_import/netease_playlist_source.dart';
+import 'package:fmp/data/sources/playlist_import/qq_music_playlist_source.dart';
+import 'package:fmp/data/sources/playlist_import/spotify_playlist_source.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 /// 搜索来源配置

@@ -1,5 +1,5 @@
 import 'package:isar_community/isar.dart';
-import '../models/radio_station.dart';
+import 'package:fmp/data/models/radio_station.dart';
 
 /// RadioStation 數據倉庫
 class RadioRepository {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'now_playing_indicator.dart';
+import 'package:fmp/ui/widgets/indicators/now_playing_indicator.dart';
 
 /// 播放中封面遮罩：primary scrim + onPrimary 動態指示器。
 ///

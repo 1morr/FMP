@@ -5,14 +5,14 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar_community/isar.dart';
 
-import '../../core/logger.dart';
-import '../../core/utils/innertube_utils.dart';
-import '../../data/models/account.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/source_http_policy.dart';
-import 'account_service.dart';
-import 'youtube_credentials.dart';
-import '../../data/repositories/account_repository.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/innertube_utils.dart';
+import 'package:fmp/data/models/account.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/services/account/account_service.dart';
+import 'package:fmp/services/account/youtube_credentials.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
 
 /// YouTube 帳號服務實現
 ///

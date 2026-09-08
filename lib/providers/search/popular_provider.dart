@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/errors/user_message.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/source_capabilities.dart';
-import '../../data/sources/source_provider.dart';
-import '../../services/cache/ranking_cache_service.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/cache/ranking_cache_service.dart';
 
 /// Bilibili 分区 ID
 enum BilibiliCategory {

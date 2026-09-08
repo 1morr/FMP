@@ -1,7 +1,7 @@
-import '../models/settings.dart';
-import 'base_source.dart';
-import 'source_capabilities.dart';
-import 'source_exception.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_exception.dart';
 
 List<AudioQualityLevel> audioQualityFallbackLevels(
   AudioQualityLevel qualityLevel, {

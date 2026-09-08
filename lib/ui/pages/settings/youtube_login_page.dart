@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/services/toast_service.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/account/account_provider.dart';
-import '../../../services/account/youtube_account_service.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/services/account/youtube_account_service.dart';
 
 /// YouTube 登錄頁面（WebView 登錄）
 ///

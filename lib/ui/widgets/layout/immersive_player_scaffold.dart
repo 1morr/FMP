@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 
-import '../../../i18n/strings.g.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 全螢幕播放器的沉浸式版面骨架，音樂/電台播放器共用。
 ///

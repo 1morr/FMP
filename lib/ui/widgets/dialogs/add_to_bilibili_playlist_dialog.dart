@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/track.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/account/account_provider.dart';
-import '../../../providers/library/remote_playlist_sync_provider.dart';
-import '../../../services/account/bilibili_favorites_service.dart';
-import '../../../services/library/remote_playlist_selection_changes.dart';
-import 'remote_playlist_dialog_widgets.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/providers/library/remote_playlist_sync_provider.dart';
+import 'package:fmp/services/account/bilibili_favorites_service.dart';
+import 'package:fmp/services/library/remote_playlist_selection_changes.dart';
+import 'package:fmp/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart';
 
 Future<bool> showAddToBilibiliPlaylistDialog({
   required BuildContext context,
