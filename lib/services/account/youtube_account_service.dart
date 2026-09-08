@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:fmp/core/secure_key_value_store.dart';
 import 'package:isar_community/isar.dart';
 
 import 'package:fmp/core/logger.dart';
@@ -20,7 +20,7 @@ import 'package:fmp/data/repositories/account_repository.dart';
 /// Cookie 有效期 ~2 年，無需刷新流程。
 class YouTubeAccountService extends AccountService with Logging {
   final Dio _dio;
-  final FlutterSecureStorage _secureStorage;
+  final SecureKeyValueStore _secureStorage;
   final AccountRepository _accounts;
   YouTubeCredentials? _cachedCredentials;
 
@@ -37,13 +37,15 @@ class YouTubeAccountService extends AccountService with Logging {
     '__Secure-3PSID',
   };
 
-  YouTubeAccountService({required Isar isar})
-    : _accounts = AccountRepository(isar),
-      _secureStorage = const FlutterSecureStorage(),
-      _dio = SourceHttpPolicy.createApiDio(
-        SourceIds.youtube,
-        contentType: 'application/json',
-      );
+  YouTubeAccountService({
+    required Isar isar,
+    SecureKeyValueStore? secureStorage,
+  }) : _accounts = AccountRepository(isar),
+       _secureStorage = secureStorage ?? FlutterSecureKeyValueStore(),
+       _dio = SourceHttpPolicy.createApiDio(
+         SourceIds.youtube,
+         contentType: 'application/json',
+       );
 
   @override
   String get platform => SourceIds.youtube;
@@ -519,7 +521,17 @@ class YouTubeAccountService extends AccountService with Logging {
 
   Future<YouTubeCredentials?> _loadCredentials() async {
     if (_cachedCredentials != null) return _cachedCredentials;
-    final json = await _secureStorage.read(key: _storageKey);
+    final String? json;
+    try {
+      json = await _secureStorage.read(key: _storageKey);
+    } on SecureStorageUnavailable catch (error) {
+      // 「讀不到憑證」與「沒有憑證」是兩回事，但呼叫端要的是一個能繼續走的答案，
+      // 而且這條路徑會被播放與啟動流程碰到 —— 往上丟會讓 provider 進 error state。
+      // 降級成未登入，真正的原因寫進固定訊息的 log（憑證相關的 log 只寫消毒過的
+      // 內容，見 lib/services/AGENTS.md）。不設已載入旗標，讓暫時性失敗還能復原。
+      logWarning('YouTube credential store unavailable: $error');
+      return null;
+    }
     if (json == null) return null;
     try {
       _cachedCredentials = YouTubeCredentials.fromJson(

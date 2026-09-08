@@ -2,12 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/services/lyrics/lyrics_ai_config_service.dart';
 
+import '../../support/fakes/fake_secure_key_value_store.dart';
+
 void main() {
   group('LyricsAiConfigService', () {
     test('uses unavailable off mode by default', () async {
       final service = LyricsAiConfigService(
         loadSettings: () async => Settings(),
-        secureStorage: _MemorySecureKeyValueStore(),
+        secureStorage: MemorySecureKeyValueStore(),
       );
 
       final config = await service.loadConfig();
@@ -22,7 +24,7 @@ void main() {
         ..lyricsAiEndpoint = 'https://api.example.com/v1'
         ..lyricsAiModel = 'gpt-test'
         ..lyricsAiTimeoutSeconds = 10;
-      final storage = _MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'});
+      final storage = MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'});
       final service = LyricsAiConfigService(
         loadSettings: () async => settings,
         secureStorage: storage,
@@ -40,9 +42,7 @@ void main() {
         ..lyricsAiEndpoint = ' https://api.example.com/v1 '
         ..lyricsAiModel = ' gpt-test '
         ..lyricsAiTimeoutSeconds = 15;
-      final storage = _MemorySecureKeyValueStore({
-        'lyrics_ai_api_key': ' key ',
-      });
+      final storage = MemorySecureKeyValueStore({'lyrics_ai_api_key': ' key '});
       final service = LyricsAiConfigService(
         loadSettings: () async => settings,
         secureStorage: storage,
@@ -63,7 +63,7 @@ void main() {
           ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.advancedAiSelect
           ..lyricsAiEndpoint = 'https://example.test/v1'
           ..lyricsAiModel = 'test-model',
-        secureStorage: _MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'}),
+        secureStorage: MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'}),
       );
 
       final config = await service.loadConfig();
@@ -80,7 +80,7 @@ void main() {
         ..lyricsAiTimeoutSeconds = 0;
       final service = LyricsAiConfigService(
         loadSettings: () async => settings,
-        secureStorage: _MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'}),
+        secureStorage: MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'}),
       );
 
       final config = await service.loadConfig();
@@ -89,7 +89,7 @@ void main() {
     });
 
     test('stores trimmed key and clears key on empty', () async {
-      final storage = _MemorySecureKeyValueStore();
+      final storage = MemorySecureKeyValueStore();
       final service = LyricsAiConfigService(
         loadSettings: () async => Settings(),
         secureStorage: storage,
@@ -104,24 +104,4 @@ void main() {
       expect(await service.readApiKey(), '');
     });
   });
-}
-
-class _MemorySecureKeyValueStore implements SecureKeyValueStore {
-  _MemorySecureKeyValueStore([Map<String, String>? initialValues])
-    : values = Map<String, String>.from(initialValues ?? const {});
-
-  final Map<String, String> values;
-
-  @override
-  Future<String?> read({required String key}) async => values[key];
-
-  @override
-  Future<void> write({required String key, required String value}) async {
-    values[key] = value;
-  }
-
-  @override
-  Future<void> delete({required String key}) async {
-    values.remove(key);
-  }
 }
