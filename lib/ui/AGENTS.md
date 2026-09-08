@@ -353,7 +353,7 @@ do not use them in `const` contexts.
 
 When adding, removing, or changing an Isar collection, persisted field, embedded
 object, or schema registration, update
-`lib/providers/database/database_catalog.dart` so schema registration and the
+`lib/data/database/database_catalog.dart` so schema registration and the
 developer database viewer stay in sync. Keep
 `lib/ui/pages/settings/database_viewer_page.dart` as a generic catalog-backed
 viewer shell. Settings persisted fields and debug getters should also be covered

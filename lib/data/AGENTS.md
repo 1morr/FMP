@@ -49,9 +49,9 @@ candidates if v3 ever becomes unbuildable: `drift`, `sqflite`, or `objectbox`.
 ## Models And Repositories
 
 **`isar.` / `_isar.` may appear only under `lib/data/repositories/`**, plus two
-named exemptions: `lib/providers/database/database_migration.dart` (it runs
+named exemptions: `lib/data/database/database_migration.dart` (it runs
 after `Isar.open()` and is by definition the layer holding the `Isar` handle)
-and `lib/providers/database/database_catalog.dart` (its `query: (isar) => …`
+and `lib/data/database/database_catalog.dart` (its `query: (isar) => …`
 closures *are* the debug viewer). Anything else that needs Isar gets a
 repository method.
 
@@ -129,7 +129,7 @@ repaired — since v2 that happens in the `SourceIds.values` loop of
 downgrade round-trip. Nullable sentinels (e.g. the lyrics popup style fields,
 where `null` means "built-in default") also need no repair.
 
-`runDatabaseMigration()` in `lib/providers/database/database_migration.dart` is
+`runDatabaseMigration()` in `lib/data/database/database_migration.dart` is
 the single entry point and the authoritative list of repaired fields — read it
 rather than maintaining a duplicate list here. `runDatabaseMigrationForTesting()`
 in `database_provider.dart` is the test hook, covered by
@@ -147,6 +147,46 @@ When adding a persisted field:
 Database open path, collection registration, and the catalog rules live in
 `lib/providers/AGENTS.md` § Database Startup And Migration. Never open the Isar
 database through an ad-hoc path.
+
+## Database Startup
+
+Opening, registration and migration wiring. The "does this field need repair?"
+decision rules are in § Migration And Default Repair above.
+
+- Runtime Isar files live under the app documents directory's `FMP/` child
+  folder. Open the DB through `openFmpDatabase()`
+  (`lib/data/database/database_provider.dart`) **only** — never open
+  `fmp_database` directly from `getApplicationDocumentsDirectory()` elsewhere.
+- Collection registration is catalog-owned in
+  `lib/data/database/database_catalog.dart`. `database_provider.dart` owns
+  opening and path handling; `database_migration.dart` owns migration.
+- `database_migration.dart` separates two things that used to be one:
+  - **Versioned steps** (`fmpMigrationSteps`, gated on `Settings.schemaVersion`)
+    run once each, in order, and stamp the version. Add a step and bump
+    `kFmpSchemaVersion` together.
+  - **Invariants** (`repairSettingsInvariants`, `hasUnwrittenQueueSignature`)
+    run on every launch regardless of version. They also defend against a bad
+    backup import and a downgrade round-trip, so never version-gate them.
+- Steps so far: v0 to v1 rewrites every `PlayHistory` row so the `trackKey`
+  index exists; v1 to v2 folds the six per-source `Settings` columns into
+  `sourceSettings`. The v1 to v2 step **copies without clearing** — the old
+  columns stay populated so installing an older build back over the database
+  keeps per-source settings. They are `@Deprecated` and
+  `deprecated_member_use_from_same_package` makes "only the migration reads
+  them" a compiler rule rather than a convention.
+- Read the stored version through `effectiveSchemaVersion()`, never the raw
+  field: Isar returns `Isar.minLong` for an int column an old row does not have.
+- `runDatabaseMigrationForTesting()` is the test hook.
+- Home ranking settings fields must stay in sync with migration/default repair.
+
+When model schemas or persisted defaults change:
+
+1. Read § Migration And Default Repair above.
+2. Update the model and migration/default repair together when needed.
+3. Run `dart run build_runner build`.
+4. Run `flutter test test/providers/database_migration_test.dart`.
+5. If collection/schema visibility changes, update `database_catalog.dart` and
+   run `flutter test test/ui/pages/settings/database_viewer_page_coverage_test.dart`.
 
 ## Stable Keys
 
