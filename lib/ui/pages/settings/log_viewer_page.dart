@@ -121,11 +121,11 @@ class _LogViewerPageState extends State<LogViewerPage> {
 
       String? outputPath;
       if (Platform.isAndroid) {
-        final directory = await FilePicker.platform.getDirectoryPath();
+        final directory = await FilePicker.getDirectoryPath();
         if (directory == null) return;
         outputPath = p.join(directory, fileName);
       } else {
-        outputPath = await FilePicker.platform.saveFile(
+        outputPath = await FilePicker.saveFile(
           dialogTitle: t.logViewer.exportFile,
           fileName: fileName,
           type: FileType.custom,

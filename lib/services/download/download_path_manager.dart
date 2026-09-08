@@ -36,7 +36,7 @@ class DownloadPathManager {
       }
     }
 
-    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    String? selectedDirectory = await FilePicker.getDirectoryPath();
     if (selectedDirectory == null) return null;
 
     // 验证写入权限（所有平台）
