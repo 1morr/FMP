@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../core/utils/duration_formatter.dart';
-import '../../../core/utils/icon_helpers.dart';
-import '../../../data/models/play_history.dart';
-import '../../../data/models/track.dart';
-import '../../../data/repositories/play_history_repository.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/library/play_history_provider.dart';
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
-import '../../handlers/track_action_coordinator.dart';
-import '../../handlers/track_action_handler.dart';
-import '../../handlers/track_action_menu.dart';
-import '../../widgets/dialogs/confirm_destructive_dialog.dart';
-import '../../widgets/feedback/error_display.dart';
-import '../../widgets/menus/context_menu_region.dart';
-import '../../widgets/images/track_thumbnail.dart';
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/core/utils/icon_helpers.dart';
+import 'package:fmp/data/models/play_history.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/play_history_repository.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/library/play_history_provider.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/ui/handlers/track_action_coordinator.dart';
+import 'package:fmp/ui/handlers/track_action_handler.dart';
+import 'package:fmp/ui/handlers/track_action_menu.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
+import 'package:fmp/ui/widgets/menus/context_menu_region.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 /// 播放历史页面
 class PlayHistoryPage extends ConsumerStatefulWidget {

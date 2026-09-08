@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 /// 可点击的封面（点击打开来源页面，悬停显示遮罩提示）。
 ///

@@ -1,6 +1,6 @@
 import 'package:isar_community/isar.dart';
-import '../models/play_queue.dart';
-import '../../core/logger.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/core/logger.dart';
 
 /// PlayQueue 数据仓库
 class QueueRepository with Logging {

@@ -9,7 +9,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart'
     show downloadedCategoriesProvider;
 import 'package:fmp/providers/download/file_exists_cache.dart';
@@ -35,7 +35,7 @@ void main() {
       expect(
         appSource,
         contains(
-          "import 'providers/download/startup_download_sync_provider.dart';",
+          "import 'package:fmp/providers/download/startup_download_sync_provider.dart';",
         ),
       );
       expect(appSource, contains('ref.watch(startupDownloadSyncProvider);'));

@@ -1,4 +1,4 @@
-# Whole-tree formatting commits. `git blame` on GitHub skips these
+# Whole-tree mechanical commits. `git blame` on GitHub skips these
 # automatically; locally, enable them once with:
 #
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
@@ -10,3 +10,8 @@
 # dart_style switched to the tall style once the SDK lower bound reached
 # 3.9 (tall applies from language version 3.7 up).
 eaa6870f9ad954301cdfb87eda0f51c9e20d0687
+
+# refactor: use package imports throughout lib
+# dart fix rewrote 1666 import/export lines across 274 files when
+# always_use_package_imports was enabled. No behaviour change.
+88627251069a387ed9ea3e448af247c4fd32a3d6

@@ -1,4 +1,4 @@
-import '../../i18n/strings.g.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 格式化相對時間：N 天/小時/分鐘前，未滿一分鐘顯示「剛剛」。
 ///

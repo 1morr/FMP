@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../i18n/strings.g.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 可展开文本区块（支持展开/收起，用于简介/公告等）。
 ///

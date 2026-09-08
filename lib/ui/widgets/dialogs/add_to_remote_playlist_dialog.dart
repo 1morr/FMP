@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../data/models/track.dart';
-import 'add_to_bilibili_playlist_dialog.dart';
-import 'add_to_netease_playlist_dialog.dart';
-import 'add_to_youtube_playlist_dialog.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart';
+import 'package:fmp/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart';
+import 'package:fmp/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart';
 
 Future<bool> showAddToRemotePlaylistDialog({
   required BuildContext context,

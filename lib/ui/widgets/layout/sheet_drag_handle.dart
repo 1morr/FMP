@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 /// 底部弹窗顶部的共享拖曳把手（40x4）。
 /// 统一两个先前漂移的样式为单一 token 化规格。

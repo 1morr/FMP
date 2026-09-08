@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../../core/utils/http_client_factory.dart';
-import '../models/track.dart';
+import 'package:fmp/core/utils/http_client_factory.dart';
+import 'package:fmp/data/models/track.dart';
 
 class SourceHttpPolicy {
   SourceHttpPolicy._();

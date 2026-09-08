@@ -1,24 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/queue_repository.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
-import '../../data/models/source_ids.dart';
-import '../../data/sources/source_provider.dart';
-import '../../services/audio/audio_provider.dart';
-import '../../services/audio/mix_playlist_types.dart';
-import '../../services/audio/audio_runtime_platform.dart';
-import '../../services/audio/audio_service.dart';
-import '../../services/audio/audio_stream_manager.dart';
-import '../../services/audio/just_audio_service.dart';
-import '../../services/audio/media_kit_audio_service.dart';
-import '../../services/audio/queue_manager.dart';
-import '../../services/audio/queue_persistence_manager.dart';
-import '../account/source_auth_context_provider.dart';
-import '../../services/lyrics/lyrics_auto_match_service.dart';
-import '../database/database_provider.dart';
-import '../lyrics/lyrics_provider.dart';
-import 'stream_resolution_provider.dart';
+import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/models/source_ids.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/audio/mix_playlist_types.dart';
+import 'package:fmp/services/audio/audio_runtime_platform.dart';
+import 'package:fmp/services/audio/audio_service.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/just_audio_service.dart';
+import 'package:fmp/services/audio/media_kit_audio_service.dart';
+import 'package:fmp/services/audio/queue_manager.dart';
+import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
+import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
+import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/providers/lyrics/lyrics_provider.dart';
+import 'package:fmp/providers/audio/stream_resolution_provider.dart';
 
 /// AudioService Provider（平台条件选择）
 /// Android/iOS: JustAudioService (ExoPlayer, 更轻量)

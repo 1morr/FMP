@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/base_source.dart';
-import 'audio_playback_types.dart';
-import 'audio_service.dart';
-import 'audio_stream_manager.dart';
-import 'audio_types.dart';
-import 'playback_media.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/services/audio/audio_playback_types.dart';
+import 'package:fmp/services/audio/audio_service.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/playback_media.dart';
 
 enum PlaybackSessionResultKind {
   completed,

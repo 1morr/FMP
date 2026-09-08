@@ -1,7 +1,7 @@
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/utils/number_format_utils.dart';
-import 'track.dart';
+import 'package:fmp/core/utils/number_format_utils.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 视频分P信息（不存入数据库，用于API响应和临时展示）
 class VideoPage {

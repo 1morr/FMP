@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/models/settings.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 typedef LoadHomeRankingSettings = Future<Settings> Function();
 typedef UpdateHomeRankingSettings =

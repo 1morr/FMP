@@ -1,13 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:isar_community/isar.dart';
 
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/source_http_policy.dart';
-import '../../i18n/strings.g.dart';
-import 'bilibili_account_service.dart';
-import 'bilibili_auth_interceptor.dart';
-import '../../data/repositories/track_repository.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/account/bilibili_account_service.dart';
+import 'package:fmp/services/account/bilibili_auth_interceptor.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
 
 /// Bilibili 收藏夾數據模型
 class BilibiliFavFolder {

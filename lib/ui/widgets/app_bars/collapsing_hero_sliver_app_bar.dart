@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 /// Hero 徽章配置（Mix / 導入 / 已下載等標籤）。
 class CollapsingHeroBadge {

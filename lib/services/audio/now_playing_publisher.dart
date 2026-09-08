@@ -1,15 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logger.dart';
-import '../../data/models/play_queue.dart';
-import '../../data/models/radio_station.dart';
-import '../../data/models/track.dart';
-import '../../main.dart' show audioHandler, windowsSmtcHandler;
-import 'audio_handler.dart';
-import 'audio_runtime_platform.dart';
-import 'audio_types.dart';
-import 'playback_capabilities.dart';
-import 'windows_smtc_handler.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/main.dart' show audioHandler, windowsSmtcHandler;
+import 'package:fmp/services/audio/audio_handler.dart';
+import 'package:fmp/services/audio/audio_runtime_platform.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/playback_capabilities.dart';
+import 'package:fmp/services/audio/windows_smtc_handler.dart';
 
 /// 誰正在擁有系統媒體控制。
 ///

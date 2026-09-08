@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import '../../core/logger.dart';
-import 'bilibili_account_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/account/bilibili_account_service.dart';
 
 /// Bilibili API 認證攔截器
 ///

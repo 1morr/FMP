@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../core/utils/http_client_factory.dart';
-import '../source_url_policy.dart';
-import 'playlist_import_source.dart';
-import 'qq_music_sign.dart';
+import 'package:fmp/core/utils/http_client_factory.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
+import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
+import 'package:fmp/data/sources/playlist_import/qq_music_sign.dart';
 
 /// QQ音乐歌单导入源
 class QQMusicPlaylistSource implements PlaylistImportSource {

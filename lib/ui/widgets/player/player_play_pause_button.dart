@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 /// 大圓形播放/暫停鈕，音樂/電台全螢幕播放器共用。
 ///

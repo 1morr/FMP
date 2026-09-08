@@ -1,4 +1,4 @@
-import '../../../data/models/track.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 分组数据类
 /// 用于将多P视频的各个分P组织在一起

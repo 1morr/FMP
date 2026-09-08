@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/constants/download_filenames.dart';
-import '../../data/models/track.dart';
-import '../../data/models/track_key.dart';
-import '../../data/repositories/track_repository.dart';
-import '../../providers/download/download_scanner.dart';
-import 'download_path_manager.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/track_key.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/providers/download/download_scanner.dart';
+import 'package:fmp/services/download/download_path_manager.dart';
 
 class ChangeBasePathMaintenanceResult {
   const ChangeBasePathMaintenanceResult({

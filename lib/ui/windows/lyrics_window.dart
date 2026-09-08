@@ -6,19 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../core/constants/ui_constants.dart';
-import '../../services/lyrics/lyrics_window_style.dart';
-import '../theme/app_theme.dart';
-import '../widgets/lyrics/lyrics_offset_bar.dart';
-import '../widgets/lyrics/lyrics_offset_math.dart';
-import '../widgets/lyrics/lyrics_style_dialog.dart';
-import '../widgets/lyrics/lyrics_styled_text.dart';
-import '../widgets/lyrics/lyrics_text_measurer.dart';
-import 'lyrics_display_mode.dart';
-import 'lyrics/lyrics_empty_state.dart';
-import 'lyrics/lyrics_line_item.dart';
-import 'lyrics/lyrics_single_line_view.dart';
-import 'lyrics/lyrics_title_bar.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/services/lyrics/lyrics_window_style.dart';
+import 'package:fmp/ui/theme/app_theme.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_offset_bar.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_offset_math.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_style_dialog.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_styled_text.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_text_measurer.dart';
+import 'package:fmp/ui/windows/lyrics_display_mode.dart';
+import 'package:fmp/ui/windows/lyrics/lyrics_empty_state.dart';
+import 'package:fmp/ui/windows/lyrics/lyrics_line_item.dart';
+import 'package:fmp/ui/windows/lyrics/lyrics_single_line_view.dart';
+import 'package:fmp/ui/windows/lyrics/lyrics_title_bar.dart';
 
 /// 歌词弹出窗口入口点
 ///

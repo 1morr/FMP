@@ -6,8 +6,8 @@ import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/source_ids.dart';
-import 'package:fmp/providers/database/database_migration.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_migration.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
 

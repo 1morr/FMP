@@ -1,5 +1,5 @@
-import '../../data/models/track.dart';
-import 'remote_playlist_selection_changes.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/library/remote_playlist_selection_changes.dart';
 
 class RemotePlaylistEditPlan {
   final String sourceType;

@@ -6,7 +6,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
-import '../constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 /// 缓存文件信息（用于 Isolate 通信和测试）
 class NetworkImageCacheFileInfo {

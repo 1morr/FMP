@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../lyrics/lyrics_auto_match_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 
 /// 每次開始播一首新歌時，在背景替它找歌詞。
 ///

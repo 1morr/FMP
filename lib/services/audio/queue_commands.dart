@@ -1,9 +1,9 @@
-import '../../core/constants/app_constants.dart';
-import '../../core/services/toast_service.dart';
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../i18n/strings.g.dart';
-import 'queue_manager.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/audio/queue_manager.dart';
 
 /// 一次佇列變更的結果。
 enum QueueMutationStatus {

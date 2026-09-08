@@ -21,7 +21,9 @@ void main() {
 
       expect(
         radioPlayer,
-        contains("import '../../widgets/player/blurred_cover_backdrop.dart';"),
+        contains(
+          "import 'package:fmp/ui/widgets/player/blurred_cover_backdrop.dart';",
+        ),
       );
       expect(radioPlayer, contains('body: ImmersivePlayerScaffold('));
       expect(radioPlayer, contains('appBar: null'));

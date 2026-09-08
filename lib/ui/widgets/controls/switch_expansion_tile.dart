@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 class SwitchExpansionTile extends StatelessWidget {
   final String title;

@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import '../../core/constants/app_constants.dart';
-import '../../data/models/track.dart';
-import 'audio_playback_types.dart';
-import 'playback_request_session.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/audio/audio_playback_types.dart';
+import 'package:fmp/services/audio/playback_request_session.dart';
 
 abstract interface class PlaybackRecoveryTimer {
   void cancel();

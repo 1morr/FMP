@@ -23,9 +23,9 @@ service：`playlist_mutation_service`（39）、`backup_service`（36）、
 
 **`isar.` / `_isar.` 只能出現在 `lib/data/repositories/`**，加上兩個明文豁免：
 
-- `lib/providers/database/database_migration.dart` —— 它在 `Isar.open()` 之後跑
+- `lib/data/database/database_migration.dart` —— 它在 `Isar.open()` 之後跑
   遷移，定義上就是拿著 `Isar` handle 的那一層。
-- `lib/providers/database/database_catalog.dart` —— 它的 `query: (isar) => …`
+- `lib/data/database/database_catalog.dart` —— 它的 `query: (isar) => …`
   閉包本身**就是**偵錯檢視器的內容。
 
 `test/data/repositories/isar_boundary_static_rule_test.dart` 釘住這條規則，

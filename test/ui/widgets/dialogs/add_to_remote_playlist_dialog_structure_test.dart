@@ -18,7 +18,9 @@ void main() {
 
     expect(
       routerSource,
-      contains("import 'add_to_bilibili_playlist_dialog.dart';"),
+      contains(
+        "import 'package:fmp/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart';",
+      ),
     );
     expect(routerSource, isNot(contains('class _BilibiliRemoteFavSheet')));
     expect(routerSource, contains('showAddToBilibiliPlaylistDialog('));
@@ -117,7 +119,12 @@ void main() {
       'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
     ]) {
       final source = File(path).readAsStringSync();
-      expect(source, contains("import 'remote_playlist_dialog_widgets.dart';"));
+      expect(
+        source,
+        contains(
+          "import 'package:fmp/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart';",
+        ),
+      );
       expect(source, contains('RemotePlaylistSheetBody('), reason: path);
       expect(
         source,

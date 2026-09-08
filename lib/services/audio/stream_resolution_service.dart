@@ -3,17 +3,17 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/models/track_key.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
-import '../../data/sources/audio_stream_quality_fallback.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/source_exception.dart';
-import '../../data/sources/source_provider.dart';
-import '../account/source_auth_context.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/track_key.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/audio_stream_quality_fallback.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 
 class DownloadPathsChangedEvent {
   const DownloadPathsChangedEvent({

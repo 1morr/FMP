@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../i18n/strings.g.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../../providers/system/update_provider.dart';
-import '../../../services/update/update_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/providers/system/update_provider.dart';
+import 'package:fmp/services/update/update_service.dart';
 
 /// 更新对话框
 class UpdateDialog extends ConsumerWidget {

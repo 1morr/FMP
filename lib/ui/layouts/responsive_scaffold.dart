@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_layout.dart';
-import '../../core/constants/breakpoints.dart';
-import '../../core/constants/ui_constants.dart';
-import '../../i18n/strings.g.dart';
-import '../../providers/audio/audio_player_selectors.dart';
-import '../../services/radio/radio_controller.dart';
-import '../router.dart';
-import '../widgets/player/mini_player.dart';
-import '../widgets/radio/radio_mini_player.dart';
-import '../widgets/panels/track_detail_panel.dart';
-import '../../providers/settings/layout_settings_provider.dart';
+import 'package:fmp/core/constants/app_layout.dart';
+import 'package:fmp/core/constants/breakpoints.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/services/radio/radio_controller.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/ui/widgets/player/mini_player.dart';
+import 'package:fmp/ui/widgets/radio/radio_mini_player.dart';
+import 'package:fmp/ui/widgets/panels/track_detail_panel.dart';
+import 'package:fmp/providers/settings/layout_settings_provider.dart';
 
 /// 导航目的地定义
 class NavDestination {

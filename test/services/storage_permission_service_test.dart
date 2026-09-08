@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/services/storage_permission_service.dart';
+import 'package:fmp/services/platform/storage_permission_service.dart';
 
 void main() {
   group('StoragePermissionService SDK branching', () {

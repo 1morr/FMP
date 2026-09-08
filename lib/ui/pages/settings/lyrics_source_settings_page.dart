@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
-import '../../../core/constants/app_constants.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/settings.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/audio/audio_settings_provider.dart';
-import '../../../providers/lyrics/lyrics_provider.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_settings_provider.dart';
+import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 
 /// 歌词匹配源设置页面
 ///

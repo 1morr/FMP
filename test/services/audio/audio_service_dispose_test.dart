@@ -15,7 +15,7 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';

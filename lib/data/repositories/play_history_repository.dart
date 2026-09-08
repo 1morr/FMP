@@ -1,9 +1,9 @@
 import 'package:isar_community/isar.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../models/play_history.dart';
-import '../models/track.dart';
-import '../models/track_key.dart';
+import 'package:fmp/data/models/play_history.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/track_key.dart';
 
 /// 播放历史仓库
 class PlayHistoryRepository {

@@ -1,5 +1,5 @@
-import '../models/settings.dart';
-import '../models/track.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 音频流配置
 class AudioStreamConfig {

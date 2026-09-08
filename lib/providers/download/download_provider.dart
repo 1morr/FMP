@@ -5,5 +5,5 @@
 // - download/download_providers.dart - 主要 Providers
 // - download/download_scanner.dart - 扫描工具和 DownloadedCategory
 
-export 'download_providers.dart';
-export 'download_scanner.dart';
+export 'package:fmp/providers/download/download_providers.dart';
+export 'package:fmp/providers/download/download_scanner.dart';

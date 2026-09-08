@@ -1,6 +1,7 @@
 # lib/providers AGENTS.md
 
-Guidance for Riverpod providers, provider invalidation, and database startup.
+Guidance for Riverpod providers and provider invalidation. Isar startup,
+registration and migration moved to `lib/data/AGENTS.md` § Database Startup.
 
 ## Directory Layout
 
@@ -9,11 +10,11 @@ under `lib/providers/`.
 
 - `account/` — login/account state and source account services.
 - `audio/` — playback selectors and audio/playback settings.
-- `database/` — Isar startup and repository providers.
 - `download/` — download state, path, scanner, and file-existence cache.
-- `library/` — playlists, play history, remote sync, imports, and track detail.
+- `library/` — playlists, play history, remote sync, imports, track detail,
+  and timed playlist refresh.
 - `lyrics/` — lyrics search/cache state and lyrics window style.
-- `search/` — search, ranking/popular content, and refresh orchestration.
+- `search/` — search and ranking/popular content.
 - `settings/` — persisted user settings not owned by a narrower subsystem.
 - `system/` — backup, update, and desktop-window integration.
 - `ui/` — UI-only state such as selection mode.
@@ -139,43 +140,3 @@ FMP is on `flutter_riverpod` 3.x. Four rules follow from its behaviour changes.
 - **Errors thrown by a provider arrive wrapped in `ProviderException`**; the
   original is in `.exception`. Assertions and `catch` blocks that match on a
   concrete exception type must unwrap it first.
-
-## Database Startup And Migration
-
-This file owns the open/registration wiring; `lib/data/AGENTS.md` owns the
-"does this field need repair?" decision rules.
-
-- Runtime Isar files live under the app documents directory's `FMP/` child
-  folder. Open the DB through `openFmpDatabase()`
-  (`lib/providers/database/database_provider.dart`) **only** — never open
-  `fmp_database` directly from `getApplicationDocumentsDirectory()` elsewhere.
-- Collection registration is catalog-owned in
-  `lib/providers/database/database_catalog.dart`. `database_provider.dart` owns
-  opening and path handling; `database_migration.dart` owns migration.
-- `database_migration.dart` separates two things that used to be one:
-  - **Versioned steps** (`fmpMigrationSteps`, gated on `Settings.schemaVersion`)
-    run once each, in order, and stamp the version. Add a step and bump
-    `kFmpSchemaVersion` together.
-  - **Invariants** (`repairSettingsInvariants`, `hasUnwrittenQueueSignature`)
-    run on every launch regardless of version. They also defend against a bad
-    backup import and a downgrade round-trip, so never version-gate them.
-- Steps so far: v0 to v1 rewrites every `PlayHistory` row so the `trackKey`
-  index exists; v1 to v2 folds the six per-source `Settings` columns into
-  `sourceSettings`. The v1 to v2 step **copies without clearing** — the old
-  columns stay populated so installing an older build back over the database
-  keeps per-source settings. They are `@Deprecated` and
-  `deprecated_member_use_from_same_package` makes "only the migration reads
-  them" a compiler rule rather than a convention.
-- Read the stored version through `effectiveSchemaVersion()`, never the raw
-  field: Isar returns `Isar.minLong` for an int column an old row does not have.
-- `runDatabaseMigrationForTesting()` is the test hook.
-- Home ranking settings fields must stay in sync with migration/default repair.
-
-When model schemas or persisted defaults change:
-
-1. Read `lib/data/AGENTS.md` § Migration And Default Repair.
-2. Update the model and migration/default repair together when needed.
-3. Run `dart run build_runner build`.
-4. Run `flutter test test/providers/database_migration_test.dart`.
-5. If collection/schema visibility changes, update `database_catalog.dart` and
-   run `flutter test test/ui/pages/settings/database_viewer_page_coverage_test.dart`.

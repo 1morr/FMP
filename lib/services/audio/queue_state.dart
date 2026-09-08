@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/models/play_queue.dart';
-import '../../data/models/track.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 佇列面向 UI 的投影，唯一一份。
 ///

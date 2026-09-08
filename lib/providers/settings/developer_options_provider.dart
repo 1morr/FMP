@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logger.dart';
+import 'package:fmp/core/logger.dart';
 
 /// 开发者选项状态
 class DeveloperOptionsState {

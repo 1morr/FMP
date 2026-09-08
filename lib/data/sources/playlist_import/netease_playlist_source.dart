@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../models/track.dart';
-import '../source_http_policy.dart';
-import '../source_url_policy.dart';
-import '../../../services/library/remote_playlist_id_parser.dart';
-import 'playlist_import_source.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
+import 'package:fmp/data/sources/remote_playlist_id_parser.dart';
+import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 
 /// 网易云音乐歌单导入源
 class NeteasePlaylistSource implements PlaylistImportSource {

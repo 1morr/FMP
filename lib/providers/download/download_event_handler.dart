@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../../services/download/download_service.dart';
+import 'package:fmp/services/download/download_service.dart';
 
 class DownloadEventHandler {
   DownloadEventHandler({

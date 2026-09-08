@@ -2,29 +2,31 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/constants/ui_constants.dart';
-import '../../data/models/download_task.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/download_repository.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../data/sources/source_provider.dart';
-import '../../services/download/download_service.dart';
-import '../../services/download/download_path_utils.dart';
-import '../account/source_auth_context_provider.dart';
-import '../audio/stream_resolution_provider.dart';
-import '../database/database_provider.dart';
-import '../database/repository_providers.dart';
-import 'download_event_handler.dart';
-import 'download_scanner.dart';
-import 'file_exists_cache.dart';
-import '../library/library_invalidation_coordinator.dart';
-import '../../core/services/toast_service.dart';
-import '../../i18n/strings.g.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/data/models/download_task.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/download_repository.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/download/download_service.dart';
+import 'package:fmp/services/download/download_path_utils.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
+import 'package:fmp/providers/audio/stream_resolution_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart';
+import 'package:fmp/providers/download/download_event_handler.dart';
+import 'package:fmp/providers/download/download_scanner.dart';
+import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 // Re-export for convenience
-export 'download_scanner.dart';
-export '../../services/download/download_service.dart' show DownloadResult;
-export '../database/repository_providers.dart' show trackRepositoryProvider;
+export 'package:fmp/providers/download/download_scanner.dart';
+export 'package:fmp/services/download/download_service.dart'
+    show DownloadResult;
+export 'package:fmp/data/database/repository_providers.dart'
+    show trackRepositoryProvider;
 
 // ==================== Repository Providers ====================
 

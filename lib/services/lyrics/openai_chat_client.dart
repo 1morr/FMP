@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../../core/constants/app_constants.dart';
-import 'openai_chat_endpoint.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/services/lyrics/openai_chat_endpoint.dart';
 
 class OpenAiChatConfig {
   const OpenAiChatConfig({

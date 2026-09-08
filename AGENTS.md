@@ -13,9 +13,9 @@ editing. More specific files extend or override this file for their subtree.
 |------|---------------------|
 | Downloads, lyrics, account, backup, radio, update, Windows sub-windows | `lib/services/AGENTS.md` |
 | Audio controller/backends/queue | `lib/services/audio/AGENTS.md` |
-| Models, repositories, migration decisions | `lib/data/AGENTS.md` |
+| Models, repositories, migrations, database startup | `lib/data/AGENTS.md` |
 | Source adapters, stream resolution, HTTP/auth policy | `lib/data/sources/AGENTS.md` |
-| Riverpod providers, database startup | `lib/providers/AGENTS.md` |
+| Riverpod providers and invalidation | `lib/providers/AGENTS.md` |
 | UI pages/widgets/layouts | `lib/ui/AGENTS.md` |
 
 `CLAUDE.md` is an import stub for Claude Code. Keep guidance here, not there.
@@ -58,7 +58,7 @@ Update the relevant instruction file in the same change as the code:
 |------------|-------------------|
 | Audio architecture, queue, playback errors | `lib/services/audio/AGENTS.md` |
 | Source adapters, stream/auth/header policy | `lib/data/sources/AGENTS.md` |
-| New model fields, schemas, migrations | `lib/data/AGENTS.md` + `lib/providers/AGENTS.md`, and `lib/ui/AGENTS.md` if the database viewer changes |
+| New model fields, schemas, migrations | `lib/data/AGENTS.md`, and `lib/ui/AGENTS.md` if the database viewer changes |
 | Download, lyrics, account, import, backup, radio, update | `lib/services/AGENTS.md` |
 | UI patterns, layouts, widgets | `lib/ui/AGENTS.md` |
 | Emulator/desktop verification steps, device limitations | `.claude/skills/verify-on-device/SKILL.md` |
@@ -146,6 +146,16 @@ Never:
   `test/support/pump_until.dart` to wait for a condition that is false on entry,
   or `drainEventQueue` when asserting that something did *not* happen.
   `test/support/wait_convention_static_rule_test.dart` enforces this.
+- Do not import `lib/services/` or `lib/providers/` from `lib/core/` or
+  `lib/data/`. Those two layers are the base every feature sits on, and an
+  upward import makes a feature impossible to move or delete while the
+  compiler stays silent. The one named exception, and the rule itself, live in
+  `test/support/layer_boundary_static_rule_test.dart`.
+- Do not add an import edge between two features without recording it. A
+  feature is a subdirectory name under `lib/services/` or `lib/providers/` —
+  those two directories hold two halves of the same features. The same test
+  carries a snapshot of the existing edges: add a line with a reason when you
+  add coupling, and delete the line when you remove it.
 - Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
   it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
   See `docs/troubleshooting.md`.
@@ -197,17 +207,19 @@ lib/services/radio/        Radio/live playback ownership and Bilibili live strea
 lib/services/backup/       Portable JSON backup export/import
 lib/services/cache/        Ranking and search result caches
 lib/services/import/       Playlist import pipeline
-lib/services/library/      Playlist CRUD and remote playlist sync
+lib/services/library/      Playlist CRUD, remote sync, timed playlist refresh
 lib/services/network/      Shared Dio setup and connectivity
 lib/services/platform/     Storage permissions, autostart, platform shims
-lib/services/refresh/      Stale-data refresh coordination
 lib/services/search/       Search orchestration across sources
 lib/services/update/       In-app update check and installer handoff
 lib/data/models/           Isar collections and DTOs
+lib/data/database/         Isar open, collection catalog, migration,
+                           repository providers
 lib/data/repositories/     Isar data access — the only place `isar.` may
-                           appear, apart from lib/providers/database/
+                           appear, apart from lib/data/database/
 lib/data/sources/          Bilibili/YouTube/Netease adapters, SourceHttpPolicy
-lib/providers/             Riverpod providers and database initialization
+lib/providers/             Riverpod providers; the other half of the
+                           features under lib/services/
 lib/ui/                    Pages, widgets, layouts, windows
 lib/i18n/                  slang translation JSON
 ```

@@ -1,13 +1,13 @@
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/models/track_key.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/source_http_policy.dart';
-import '../account/source_auth_context.dart';
-import 'playback_media.dart';
-import 'stream_resolution_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/track_key.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
+import 'package:fmp/services/audio/playback_media.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
 
-export '../account/source_auth_context.dart'
+export 'package:fmp/services/account/source_auth_context.dart'
     show PlaybackNetworkRequest, PlaybackUrlResolution, PlaybackUrlResolver;
 
 abstract class PlaybackRequestStreamAccess {

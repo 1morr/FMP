@@ -1,7 +1,7 @@
 import 'package:isar_community/isar.dart';
 
-import '../../data/models/models.dart';
-import '../../i18n/strings.g.dart';
+import 'package:fmp/data/models/models.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 class DatabaseViewerSection {
   const DatabaseViewerSection({required this.title, required this.data});

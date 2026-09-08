@@ -1,4 +1,4 @@
-import '../../data/models/track.dart';
+import 'package:fmp/data/models/track.dart';
 
 sealed class PreparedPlaybackMedia {
   const PreparedPlaybackMedia();

@@ -2,21 +2,21 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logger.dart';
-import '../../core/services/toast_service.dart';
-import '../../data/models/account.dart';
-import '../../data/models/track.dart';
-import '../../i18n/strings.g.dart';
-import '../../services/account/account_service.dart';
-import '../../services/account/bilibili_account_service.dart';
-import '../../services/account/bilibili_favorites_service.dart';
-import '../../services/account/netease_account_service.dart';
-import '../../services/account/netease_playlist_service.dart';
-import '../../services/account/youtube_account_service.dart';
-import '../../services/account/youtube_playlist_service.dart';
-import '../database/database_provider.dart';
-import '../database/repository_providers.dart';
-import '../../data/repositories/account_repository.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/account.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/account/account_service.dart';
+import 'package:fmp/services/account/bilibili_account_service.dart';
+import 'package:fmp/services/account/bilibili_favorites_service.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
+import 'package:fmp/services/account/netease_playlist_service.dart';
+import 'package:fmp/services/account/youtube_account_service.dart';
+import 'package:fmp/services/account/youtube_playlist_service.dart';
+import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
 
 /// Bilibili 帳號服務 Provider（單例）
 final bilibiliAccountServiceProvider = Provider<BilibiliAccountService>((ref) {

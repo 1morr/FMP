@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/track.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../services/library/remote_playlist_edit_result.dart';
-import '../images/playlist_cover_image.dart';
-import '../images/track_thumbnail.dart';
-import '../layout/sheet_drag_handle.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/library/remote_playlist_edit_result.dart';
+import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/ui/widgets/layout/sheet_drag_handle.dart';
 
 class RemotePlaylistDialogHeader extends StatelessWidget {
   final String title;

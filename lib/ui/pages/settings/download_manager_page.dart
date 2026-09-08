@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/errors/user_message.dart';
-import '../../../data/models/download_task.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/download/download_provider.dart';
-import '../../../providers/download/download_settings_provider.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../widgets/dialogs/confirm_destructive_dialog.dart';
-import '../../widgets/feedback/error_display.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/models/download_task.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/download/download_provider.dart';
+import 'package:fmp/providers/download/download_settings_provider.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
 
 /// 下载管理页面
 class DownloadManagerPage extends ConsumerWidget {

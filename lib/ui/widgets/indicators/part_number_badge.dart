@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import 'now_playing_indicator.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/ui/widgets/indicators/now_playing_indicator.dart';
 
 /// 分P（多P影片）前導徽章：播放中顯示動態指示器，否則顯示 P{n} 方塊。
 ///

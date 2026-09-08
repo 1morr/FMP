@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
 
 /// 一個被延後的 seek。
 ///

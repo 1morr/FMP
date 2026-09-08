@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import 'lyrics_offset_math.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_offset_math.dart';
 
 /// 歌詞偏移量調整列（offset bar，純展示 leaf，C1d）。
 ///

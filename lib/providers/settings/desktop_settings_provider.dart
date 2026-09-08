@@ -5,10 +5,10 @@ import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../data/repositories/settings_repository.dart';
-import '../../services/platform/windows_desktop_service.dart';
-import '../database/repository_providers.dart';
-import '../system/windows_desktop_provider.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/services/platform/windows_desktop_service.dart';
+import 'package:fmp/data/database/repository_providers.dart';
+import 'package:fmp/providers/system/windows_desktop_provider.dart';
 
 /// 最小化到托盘设置 Provider
 final minimizeToTrayProvider = NotifierProvider<_MinimizeToTrayNotifier, bool>(

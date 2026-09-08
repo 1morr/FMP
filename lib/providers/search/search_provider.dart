@@ -1,19 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../core/errors/user_message.dart';
-import '../../data/models/live_room.dart';
-import '../../data/models/track.dart';
-import '../../data/models/video_detail.dart';
-export '../../data/models/source_ids.dart' show SourceIds;
-export '../../data/models/live_room.dart'
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/models/live_room.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+export 'package:fmp/data/models/source_ids.dart' show SourceIds;
+export 'package:fmp/data/models/live_room.dart'
     show LiveRoomFilter, LiveRoom, LiveSearchResult;
-import '../../data/models/search_history.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/source_capabilities.dart';
-import '../../data/sources/source_provider.dart' show sourceManagerProvider;
-import '../../services/search/search_service.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/data/models/search_history.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_provider.dart'
+    show sourceManagerProvider;
+import 'package:fmp/services/search/search_service.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// SearchService Provider
 final searchServiceProvider = Provider<SearchService>((ref) {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../i18n/strings.g.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// QR 登入卡：白底圓角卡片 + QR 圖 + 過期遮罩，下方為狀態文字與
 /// 過期時的「重新整理」按鈕。

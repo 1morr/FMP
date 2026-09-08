@@ -1,6 +1,6 @@
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import 'playback_recovery_coordinator.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/audio/playback_recovery_coordinator.dart';
 
 /// 「一直在緩衝，但沒有任何人喊失敗」的看門狗。
 ///

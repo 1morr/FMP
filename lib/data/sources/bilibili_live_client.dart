@@ -1,11 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/logger.dart';
-import '../models/live_room.dart';
-import '../models/track.dart';
-import 'bilibili_exception.dart';
-import 'source_http_policy.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/live_room.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/bilibili_exception.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 
 class BilibiliLiveUrlParseResult {
   final String roomId;

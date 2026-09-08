@@ -3,12 +3,12 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/extensions/track_extensions.dart';
-import '../../../data/models/track.dart';
-import '../../../providers/download/file_exists_cache.dart';
-import '../images/radio_cover_image.dart';
-import '../images/track_thumbnail.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/extensions/track_extensions.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/ui/widgets/images/radio_cover_image.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
 
 /// Track cover blurred backdrop used by the full player surfaces.
 class TrackBlurredBackdrop extends ConsumerWidget {

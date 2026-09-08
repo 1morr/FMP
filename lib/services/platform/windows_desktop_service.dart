@@ -7,10 +7,10 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../core/logger.dart';
-import '../../data/models/hotkey_config.dart';
-import '../../data/models/track.dart';
-import '../lyrics/lyrics_window_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/hotkey_config.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/lyrics/lyrics_window_service.dart';
 
 /// Windows 桌面特性服务
 ///

@@ -6,19 +6,19 @@ import 'package:isar_community/isar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/logger.dart';
-import '../../data/models/lyrics_match.dart';
-import '../../data/models/hotkey_config.dart';
-import '../../data/models/play_history.dart';
-import '../../data/models/playlist.dart';
-import '../../data/models/radio_station.dart';
-import '../../data/models/search_history.dart';
-import '../../data/models/settings.dart';
-import '../../data/models/track.dart';
-import '../../providers/database/database_migration.dart';
-import '../../data/repositories/backup_repository.dart';
-import '../../data/repositories/playlist_mutation_repository.dart';
-import 'backup_data.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/data/models/hotkey_config.dart';
+import 'package:fmp/data/models/play_history.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/data/models/search_history.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/database/database_migration.dart';
+import 'package:fmp/data/repositories/backup_repository.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
+import 'package:fmp/services/backup/backup_data.dart';
 
 /// 当前备份数据格式版本
 /// 備份 JSON 的格式版本。

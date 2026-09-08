@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/logger.dart';
-import '../../data/repositories/playlist_mutation_repository.dart';
-import '../download/download_providers.dart';
-import '../download/file_exists_cache.dart';
-import 'playlist_provider.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
+import 'package:fmp/providers/download/download_providers.dart';
+import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
 
 typedef LogBackgroundError =
     void Function(String message, Object error, StackTrace? stackTrace);

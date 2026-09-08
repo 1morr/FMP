@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../data/repositories/playlist_repository.dart';
-import '../../providers/search/refresh_provider.dart';
-import '../../providers/database/repository_providers.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/providers/library/refresh_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// 自动刷新服务
 ///

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/utils/icon_helpers.dart';
-import '../../../services/audio/audio_provider.dart';
+import 'package:fmp/core/utils/icon_helpers.dart';
+import 'package:fmp/services/audio/audio_provider.dart';
 
 /// 緊湊音量控制（AppBar 內使用），音樂/電台全螢幕播放器共用。
 ///

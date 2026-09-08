@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const viewerPath = 'lib/ui/pages/settings/database_viewer_page.dart';
-  const databaseProviderPath = 'lib/providers/database/database_provider.dart';
-  const catalogPath = 'lib/providers/database/database_catalog.dart';
+  const databaseProviderPath = 'lib/data/database/database_provider.dart';
+  const catalogPath = 'lib/data/database/database_catalog.dart';
 
   String read(String path) => File(path).readAsStringSync();
 
@@ -24,7 +24,10 @@ void main() {
   test('database provider opens schemas from the catalog', () {
     final provider = read(databaseProviderPath);
 
-    expect(provider, contains("import 'database_catalog.dart';"));
+    expect(
+      provider,
+      contains("import 'package:fmp/data/database/database_catalog.dart';"),
+    );
     expect(
       provider,
       contains(RegExp(r'Isar\.open\(\s*fmpDatabaseSchemas\s*,')),

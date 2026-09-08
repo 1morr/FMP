@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/models/hotkey_config.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../database/repository_providers.dart';
-import '../system/windows_desktop_provider.dart';
+import 'package:fmp/data/models/hotkey_config.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/database/repository_providers.dart';
+import 'package:fmp/providers/system/windows_desktop_provider.dart';
 
 /// 快捷键配置 Provider
 ///

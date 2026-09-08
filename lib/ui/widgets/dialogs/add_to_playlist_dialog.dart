@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../core/logger.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/track.dart';
-import '../../../data/repositories/track_repository.dart';
-import '../../../providers/library/library_invalidation_coordinator.dart';
-import '../../../providers/library/playlist_provider.dart';
-import '../../../providers/database/repository_providers.dart';
-import '../images/playlist_cover_image.dart';
-import '../images/track_thumbnail.dart';
-import '../layout/sheet_drag_handle.dart';
-import 'remote_playlist_dialog_widgets.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart';
+import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/ui/widgets/layout/sheet_drag_handle.dart';
+import 'package:fmp/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart';
 
 /// 显示添加到歌单对话框（单个track）
 Future<bool> showAddToPlaylistDialog({

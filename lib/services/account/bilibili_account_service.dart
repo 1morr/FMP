@@ -6,16 +6,16 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar_community/isar.dart';
 
-import '../../core/logger.dart';
-import '../../data/models/account.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/bilibili_live_client.dart';
-import '../../data/sources/source_http_policy.dart';
-import 'account_service.dart';
-import 'bilibili_credentials.dart';
-import 'bilibili_crypto.dart';
-import 'http_cookie_parser.dart';
-import '../../data/repositories/account_repository.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/account.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/bilibili_live_client.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/services/account/account_service.dart';
+import 'package:fmp/services/account/bilibili_credentials.dart';
+import 'package:fmp/services/account/bilibili_crypto.dart';
+import 'package:fmp/services/account/http_cookie_parser.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
 
 /// QR 碼數據
 class QrCodeData {

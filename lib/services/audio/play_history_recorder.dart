@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/play_history_repository.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/play_history_repository.dart';
 
 /// 把「這首歌被播了」寫進播放歷史。
 ///

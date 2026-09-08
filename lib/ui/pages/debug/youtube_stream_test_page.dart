@@ -6,14 +6,14 @@ import 'package:dio/dio.dart';
 import 'dart:io';
 import 'dart:async';
 
-import '../../../data/models/settings.dart' as model;
-import '../../../data/models/track.dart';
-import '../../../data/sources/base_source.dart' as fmp;
-import '../../../data/sources/source_provider.dart';
-import '../../../data/sources/source_http_policy.dart';
-import '../../../core/utils/duration_formatter.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/account/account_provider.dart';
+import 'package:fmp/data/models/settings.dart' as model;
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/base_source.dart' as fmp;
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
 
 /// YouTube 音频流测试页面
 /// 用于测试不同类型的 YouTube 流在 Windows 和 Android 上的播放情况

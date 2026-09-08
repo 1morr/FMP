@@ -1,4 +1,4 @@
-import '../../i18n/strings.g.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 音源識別碼。
 ///

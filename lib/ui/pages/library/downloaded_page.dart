@@ -3,25 +3,25 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../core/logger.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/track.dart';
-import '../../../providers/download/download_provider.dart';
-import '../../../providers/download/download_path_provider.dart';
-import '../../../providers/library/library_invalidation_coordinator.dart';
-import '../../../providers/library/playlist_provider.dart'
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/providers/download/download_provider.dart';
+import 'package:fmp/providers/download/download_path_provider.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/library/playlist_provider.dart'
     show allPlaylistsProvider;
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../services/download/download_path_sync_service.dart';
-import '../../../i18n/strings.g.dart';
-import '../../router.dart';
-import '../../widgets/dialogs/confirm_destructive_dialog.dart';
-import '../../widgets/feedback/error_display.dart';
-import '../../widgets/images/playlist_cover_image.dart';
-import '../../widgets/menus/context_menu_region.dart';
-import '../../widgets/menus/menu_action.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/services/download/download_path_sync_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
+import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
+import 'package:fmp/ui/widgets/menus/context_menu_region.dart';
+import 'package:fmp/ui/widgets/menus/menu_action.dart';
 
 /// 已下载页面 - 显示分类网格
 class DownloadedPage extends ConsumerStatefulWidget {

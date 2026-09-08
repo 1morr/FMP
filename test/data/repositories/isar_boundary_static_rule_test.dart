@@ -12,14 +12,14 @@ final _isarMemberAccessPattern = RegExp(
 
 /// 唯一允許直接碰 `Isar` 實例的地方。
 ///
-/// 兩個 `lib/providers/database/` 的豁免不是「還沒收乾淨」，是那兩個檔案定義上
+/// 兩個 `lib/data/database/` 的豁免不是「還沒收乾淨」，是那兩個檔案定義上
 /// 就是拿著 `Isar` 實例的那一層：`database_migration.dart` 在 `Isar.open()` 之後
 /// 跑遷移，`database_catalog.dart` 的 `query: (isar) => …` 閉包本身就是偵錯檢視器。
 const _allowedPathPrefixes = <String>['lib/data/repositories/'];
 
 const _allowedFiles = <String>[
-  'lib/providers/database/database_catalog.dart',
-  'lib/providers/database/database_migration.dart',
+  'lib/data/database/database_catalog.dart',
+  'lib/data/database/database_migration.dart',
 ];
 
 void main() {

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../../core/logger.dart';
-import 'openai_chat_client.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/lyrics/openai_chat_client.dart';
 
 class AiLyricsCandidate {
   const AiLyricsCandidate({

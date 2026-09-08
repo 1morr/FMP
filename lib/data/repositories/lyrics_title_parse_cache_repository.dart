@@ -1,6 +1,6 @@
 import 'package:isar_community/isar.dart';
 
-import '../models/lyrics_title_parse_cache.dart';
+import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 
 class LyricsTitleParseCacheRepository {
   final Isar _isar;

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/settings.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../main.dart'
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/main.dart'
     show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
-import '../database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// 主题状态
 class ThemeState {

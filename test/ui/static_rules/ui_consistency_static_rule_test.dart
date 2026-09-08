@@ -371,7 +371,6 @@ void main() {
       final expectedDirectories = <String>[
         'lib/providers/account',
         'lib/providers/audio',
-        'lib/providers/database',
         'lib/providers/download',
         'lib/providers/library',
         'lib/providers/lyrics',

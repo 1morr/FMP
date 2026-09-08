@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/utils/number_format_utils.dart';
-import '../../../data/models/track.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
-import '../../handlers/track_action_coordinator.dart';
-import '../../handlers/track_action_menu.dart';
-import '../images/track_thumbnail.dart';
-import '../indicators/vip_badge.dart';
-import '../menus/context_menu_region.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/utils/number_format_utils.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/ui/handlers/track_action_coordinator.dart';
+import 'package:fmp/ui/handlers/track_action_menu.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/ui/widgets/indicators/vip_badge.dart';
+import 'package:fmp/ui/widgets/menus/context_menu_region.dart';
 
 /// 排行榜歌曲項目（首頁排行榜與探索頁共用）
 ///

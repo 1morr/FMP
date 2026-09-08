@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import '../../../core/utils/platform_utils.dart';
-import '../../../data/models/play_queue.dart';
-import '../../../providers/audio/audio_controller_provider.dart';
-import '../../../providers/audio/audio_player_selectors.dart';
-import '../../router.dart';
-import '../images/track_thumbnail.dart';
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/utils/duration_formatter.dart';
-import 'mini_player_desktop_controls.dart';
-import 'mini_player_play_pause_button.dart';
+import 'package:fmp/core/utils/platform_utils.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/ui/router.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/ui/widgets/player/mini_player_desktop_controls.dart';
+import 'package:fmp/ui/widgets/player/mini_player_play_pause_button.dart';
 
 /// 迷你播放器
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮

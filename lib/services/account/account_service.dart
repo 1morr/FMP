@@ -1,4 +1,4 @@
-import '../../data/models/account.dart';
+import 'package:fmp/data/models/account.dart';
 
 /// 帳號狀態
 enum AccountStatus { valid, invalid, error }

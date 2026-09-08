@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/utils/icon_helpers.dart';
-import '../../../data/models/playlist.dart';
-import '../../../i18n/strings.g.dart';
+import 'package:fmp/core/utils/icon_helpers.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 共享歌單卡片。
 ///

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../../core/logger.dart';
-import 'netease_account_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
 
 class NeteaseAuthInterceptor extends Interceptor with Logging {
   final NeteaseAccountService _accountService;

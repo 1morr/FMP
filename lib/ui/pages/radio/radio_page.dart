@@ -3,17 +3,17 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/toast_service.dart';
-import '../../../data/models/radio_station.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../services/radio/radio_controller.dart';
-import '../../widgets/menus/context_menu_region.dart';
-import '../../widgets/menus/menu_action.dart';
-import '../../widgets/dialogs/confirm_destructive_dialog.dart';
-import '../../widgets/feedback/error_display.dart';
-import '../../widgets/radio/add_radio_dialog.dart';
-import '../../widgets/radio/radio_station_card.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/radio/radio_controller.dart';
+import 'package:fmp/ui/widgets/menus/context_menu_region.dart';
+import 'package:fmp/ui/widgets/menus/menu_action.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
+import 'package:fmp/ui/widgets/radio/add_radio_dialog.dart';
+import 'package:fmp/ui/widgets/radio/radio_station_card.dart';
 
 /// 电台页面
 class RadioPage extends ConsumerStatefulWidget {

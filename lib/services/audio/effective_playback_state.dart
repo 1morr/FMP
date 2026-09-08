@@ -1,4 +1,4 @@
-import 'audio_types.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 
 /// 後端說的話，經過「控制器自己正在載入」這條規則修正之後的值。
 ///

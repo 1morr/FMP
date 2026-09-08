@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../data/models/track.dart';
+import 'package:fmp/data/models/track.dart';
 
 /// 启动类型
 enum _LaunchType {

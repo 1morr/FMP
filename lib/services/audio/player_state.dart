@@ -1,6 +1,6 @@
-import '../../data/models/settings.dart';
-import '../../data/models/track.dart';
-import 'audio_types.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 
 /// 單曲播放狀態。
 ///

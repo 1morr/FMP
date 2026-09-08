@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:isar_community/isar.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../core/constants/app_layout.dart';
-import 'track.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/constants/app_layout.dart';
+import 'package:fmp/data/models/track.dart';
 
 part 'settings.g.dart';
 
@@ -207,7 +207,7 @@ class Settings {
   ///
   /// Isar 對新增的 int 欄位一律補 0，而 0 剛好就是「這是 Phase 3 之前的資料庫」
   /// 的意思，所以不需要另外推斷。遷移步驟表在
-  /// `lib/providers/database/database_migration.dart`。
+  /// `lib/data/database/database_migration.dart`。
   int schemaVersion = 0;
 
   /// 主题模式: 0=system, 1=light, 2=dark

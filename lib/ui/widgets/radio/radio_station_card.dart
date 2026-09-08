@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../data/models/radio_station.dart';
-import '../images/radio_cover_image.dart';
-import '../indicators/live_badge.dart';
-import '../indicators/now_playing_cover_overlay.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/ui/widgets/images/radio_cover_image.dart';
+import 'package:fmp/ui/widgets/indicators/live_badge.dart';
+import 'package:fmp/ui/widgets/indicators/now_playing_cover_overlay.dart';
 
 /// 純視覺的圓形電台封面：非直播灰階、直播紅點、播放中/載入中遮罩。
 ///

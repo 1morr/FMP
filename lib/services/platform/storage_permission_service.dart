@@ -4,7 +4,7 @@ import 'package:flutter/material.dart' hide visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../core/constants/ui_constants.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
 
 enum StoragePermissionStatus { denied, granted, permanentlyDenied }
 

@@ -4,21 +4,22 @@ import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
-import '../../core/constants/app_constants.dart';
-import '../../core/logger.dart';
-import '../../core/utils/duration_formatter.dart';
-import '../../core/utils/innertube_utils.dart';
-import '../models/settings.dart';
-import '../models/track.dart';
-import '../models/video_detail.dart';
-import 'base_source.dart';
-import 'dynamic_playlist_types.dart';
-import 'source_capabilities.dart';
-import 'source_exception.dart';
-import 'source_http_policy.dart';
-import 'youtube_exception.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
+import 'package:fmp/core/utils/innertube_utils.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/dynamic_playlist_types.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/data/sources/youtube_exception.dart';
 
-export 'dynamic_playlist_types.dart' show MixFetchResult, MixPlaylistInfo;
+export 'package:fmp/data/sources/dynamic_playlist_types.dart'
+    show MixFetchResult, MixPlaylistInfo;
 
 /// YouTube 音源实现
 class YouTubeSource

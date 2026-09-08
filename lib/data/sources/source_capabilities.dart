@@ -1,8 +1,8 @@
-import '../models/live_room.dart';
-import '../models/track.dart';
-import '../models/video_detail.dart';
-import 'base_source.dart';
-import 'dynamic_playlist_types.dart';
+import 'package:fmp/data/models/live_room.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/dynamic_playlist_types.dart';
 
 abstract interface class SourceCapability {
   String get sourceType;

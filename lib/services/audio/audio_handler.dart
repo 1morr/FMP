@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import '../../core/logger.dart';
-import '../../data/models/radio_station.dart';
-import '../../data/models/track.dart';
-import '../../data/models/play_queue.dart';
-import 'audio_types.dart';
-import 'playback_capabilities.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/playback_capabilities.dart';
 
 /// 自定义 AudioHandler，用于 Android 媒体通知控制
 ///

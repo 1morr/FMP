@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
-import '../../core/logger.dart';
-import '../../core/utils/innertube_utils.dart';
-import '../../data/models/track.dart';
-import '../../data/sources/source_http_policy.dart';
-import '../../i18n/strings.g.dart';
-import 'youtube_account_service.dart';
-import 'youtube_auth_interceptor.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/utils/innertube_utils.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/account/youtube_account_service.dart';
+import 'package:fmp/services/account/youtube_auth_interceptor.dart';
 
 /// YouTube 播放列表數據模型
 class YouTubePlaylistInfo {

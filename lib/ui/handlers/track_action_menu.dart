@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../i18n/strings.g.dart';
-import 'track_action_handler.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/handlers/track_action_handler.dart';
 
 enum TrackActionMenuScope { single, multi }
 

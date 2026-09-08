@@ -4,15 +4,15 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/constants/download_filenames.dart';
-import '../../core/errors/user_message.dart';
-import '../../data/models/track.dart';
-import '../../data/models/video_detail.dart';
-import '../../data/sources/source_capabilities.dart';
-import '../../data/sources/source_provider.dart';
-import '../../services/account/source_auth_context.dart';
-import '../audio/audio_player_selectors.dart';
-import '../account/source_auth_context_provider.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
 
 /// 当前播放歌曲详情状态
 class TrackDetailState {

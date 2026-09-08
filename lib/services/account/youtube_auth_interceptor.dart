@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../../core/logger.dart';
-import 'youtube_account_service.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/services/account/youtube_account_service.dart';
 
 /// YouTube API 認證攔截器
 ///

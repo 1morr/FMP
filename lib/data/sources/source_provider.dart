@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/logger.dart';
-import '../models/track.dart';
-import 'base_source.dart';
-import 'bilibili_source.dart';
-import 'netease_source.dart';
-import 'source_capabilities.dart';
-import 'youtube_source.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/netease_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/youtube_source.dart';
 
 /// 音源管理器
 /// 统一注册具体适配器，但调用端只按所需能力取用。

@@ -3,7 +3,7 @@ import 'dart:collection';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
-import 'log_file_sink.dart';
+import 'package:fmp/core/log_file_sink.dart';
 
 /// 日志级别
 enum LogLevel { debug, info, warning, error }

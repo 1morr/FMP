@@ -6,11 +6,11 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../../core/services/toast_service.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/account/account_provider.dart';
-import '../../../services/account/bilibili_account_service.dart';
-import '../../widgets/dialogs/qr_login_card.dart';
+import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/account/account_provider.dart';
+import 'package:fmp/services/account/bilibili_account_service.dart';
+import 'package:fmp/ui/widgets/dialogs/qr_login_card.dart';
 
 /// Bilibili 登錄頁面（WebView + QR 碼）
 class BilibiliLoginPage extends ConsumerStatefulWidget {

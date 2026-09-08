@@ -3,18 +3,18 @@ import 'dart:io';
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/constants/download_filenames.dart';
-import '../../core/logger.dart';
-import '../../data/models/playlist.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/playlist_repository.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
-import '../download/download_path_utils.dart';
-import 'playlist_exceptions.dart';
-import '../../data/repositories/playlist_mutation_repository.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/services/download/download_path_utils.dart';
+import 'package:fmp/data/repositories/playlist_exceptions.dart';
+import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 
-export 'playlist_exceptions.dart';
+export 'package:fmp/data/repositories/playlist_exceptions.dart';
 
 /// 歌单更新结果
 class PlaylistUpdateResult {

@@ -1,9 +1,9 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
-import '../../core/constants/ui_constants.dart';
-import '../../i18n/strings.g.dart';
-import 'theme_preset_colors.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/theme/theme_preset_colors.dart';
 
 /// 字体选项
 class FontOption {

@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
-import '../../data/models/settings.dart';
-import '../../data/models/track.dart';
-import '../../data/repositories/settings_repository.dart';
-import '../../services/lyrics/lyrics_ai_config_service.dart';
-import '../database/repository_providers.dart';
+import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/services/lyrics/lyrics_ai_config_service.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// 音频设置状态
 class AudioSettingsState {

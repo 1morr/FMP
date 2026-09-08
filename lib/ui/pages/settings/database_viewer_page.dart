@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 
-import '../../../core/constants/ui_constants.dart';
-import '../../../core/errors/user_message.dart';
-import '../../../i18n/strings.g.dart';
-import '../../../providers/database/database_catalog.dart';
-import '../../../providers/database/database_provider.dart';
-import '../../widgets/feedback/error_display.dart';
+import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/data/database/database_catalog.dart';
+import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
 
 /// 数据库查看页面
 class DatabaseViewerPage extends ConsumerStatefulWidget {
