@@ -12,12 +12,12 @@ dependencies:
     sdk: flutter
 
   # 状态管理
-  flutter_riverpod: ^3.4.2
+  flutter_riverpod: ^3.4.3
 
   # 本地存储
   isar_community: ^3.3.2
   isar_community_flutter_libs: ^3.3.2
-  path_provider: ^2.1.5
+  path_provider: ^2.1.6
   path: ^1.9.0
 
   # 音频播放
@@ -32,7 +32,7 @@ dependencies:
   smtc_windows: ^1.1.0    # Windows 媒体键和 SMTC 控制
 
   # 网络
-  dio: ^5.8.0+1
+  dio: ^5.11.1
 
   # 加密
   crypto: ^3.0.3
@@ -50,7 +50,7 @@ dependencies:
 
   # 图片缓存
   cached_network_image: ^4.0.0
-  flutter_cache_manager: ^3.4.1
+  flutter_cache_manager: ^3.4.2
 
   # 桌面平台
   tray_manager: ^0.2.3
@@ -60,7 +60,7 @@ dependencies:
   # 应用更新
   package_info_plus: ^9.0.1
   open_filex: ^4.5.0
-  archive: ^4.0.2
+  archive: ^4.2.0
 
   # 帐号管理
   flutter_inappwebview: ^6.1.5   # WebView 登录（WebView2 on Windows）
@@ -71,7 +71,7 @@ dependencies:
   # 工具
   file_picker: ^8.3.7
   collection: ^1.19.1
-  equatable: ^2.0.7
+  equatable: ^2.1.0
   slang_flutter: ^4.19.0
   # slang 4 生成的 strings.g.dart 直接 import package:intl（DateFormat /
   # NumberFormat）。版本交給 flutter_localizations 決定，不要自己釘。
@@ -91,7 +91,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # i18n 走 `dart run slang` 的獨立 CLI（設定在 slang.yaml），不經 build_runner。
   # slang_build_runner 因此是純負擔：它會把 dart_style/analyzer 的上界一起拖進解析。
-  slang: ^4.19.0
+  slang: ^4.19.1
   flutter_launcher_icons: ^0.14.1
   inno_bundle: ^0.11.2
 
