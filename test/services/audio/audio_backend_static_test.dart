@@ -76,7 +76,8 @@ void main() {
         'lib/services/audio/just_audio_service.dart',
       ).readAsStringSync();
 
-      expect(source, contains('ja.ConcatenatingAudioSource('));
+      expect(source, contains('_player.setAudioSources('));
+      expect(source, contains('_player.addAudioSource('));
       expect(source, contains('useLazyPreparation: false'));
       expect(source, contains('_player.currentIndexStream.listen'));
     });

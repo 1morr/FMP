@@ -23,7 +23,7 @@ dependencies:
   # 音频播放
   # Android: just_audio (ExoPlayer, 更轻量，省 ~10-15MB 内存)
   # Windows/Linux: media_kit (libmpv, 支持设备切换)
-  just_audio: ^0.9.40             # Android 音频后端
+  just_audio: ^0.10.6             # Android 音频后端
   media_kit: ^1.1.11              # Windows/Linux 音频后端
   media_kit_libs_windows_audio: ^1.0.9  # Windows 音频支持
   rxdart: ^0.28.0  # 用于流组合（BehaviorSubject 等）
