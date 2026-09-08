@@ -146,6 +146,16 @@ Never:
   `test/support/pump_until.dart` to wait for a condition that is false on entry,
   or `drainEventQueue` when asserting that something did *not* happen.
   `test/support/wait_convention_static_rule_test.dart` enforces this.
+- Do not import `lib/services/` or `lib/providers/` from `lib/core/` or
+  `lib/data/`. Those two layers are the base every feature sits on, and an
+  upward import makes a feature impossible to move or delete while the
+  compiler stays silent. The one named exception, and the rule itself, live in
+  `test/support/layer_boundary_static_rule_test.dart`.
+- Do not add an import edge between two features without recording it. A
+  feature is a subdirectory name under `lib/services/` or `lib/providers/` —
+  those two directories hold two halves of the same features. The same test
+  carries a snapshot of the existing edges: add a line with a reason when you
+  add coupling, and delete the line when you remove it.
 - Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
   it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
   See `docs/troubleshooting.md`.
