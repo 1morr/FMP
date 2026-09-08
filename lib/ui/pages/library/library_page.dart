@@ -12,7 +12,7 @@ import 'package:fmp/providers/download/download_provider.dart';
 
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
-import 'package:fmp/providers/search/refresh_provider.dart';
+import 'package:fmp/providers/library/refresh_provider.dart';
 import 'package:fmp/services/library/playlist_service.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/widgets/menus/context_menu_region.dart';

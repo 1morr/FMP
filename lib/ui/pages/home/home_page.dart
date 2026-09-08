@@ -36,7 +36,7 @@ import 'package:fmp/ui/widgets/images/recent_play_cover_image.dart';
 import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
 import 'package:fmp/ui/widgets/track_tiles/ranking_track_tile.dart';
 import 'package:fmp/data/models/playlist.dart';
-import 'package:fmp/providers/search/refresh_provider.dart';
+import 'package:fmp/providers/library/refresh_provider.dart';
 import 'package:fmp/services/library/playlist_service.dart';
 import 'package:fmp/ui/pages/library/widgets/create_playlist_dialog.dart';
 import 'package:fmp/core/constants/app_constants.dart';

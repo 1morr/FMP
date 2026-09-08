@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import 'package:fmp/core/constants/ui_constants.dart';
-import 'package:fmp/providers/search/refresh_provider.dart';
+import 'package:fmp/providers/library/refresh_provider.dart';
 
 /// 歌单刷新进度指示器组件
 /// 显示在页面底部，展示所有正在刷新的歌单进度

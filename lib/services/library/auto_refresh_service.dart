@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
-import 'package:fmp/providers/search/refresh_provider.dart';
+import 'package:fmp/providers/library/refresh_provider.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 
 /// 自动刷新服务

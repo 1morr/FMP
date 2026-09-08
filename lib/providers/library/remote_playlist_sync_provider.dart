@@ -7,7 +7,7 @@ import 'package:fmp/services/library/remote_playlist_edit_controller.dart';
 import 'package:fmp/services/library/remote_playlist_sync_service.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
-import 'package:fmp/providers/search/refresh_provider.dart';
+import 'package:fmp/providers/library/refresh_provider.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 
 final remotePlaylistSyncServiceProvider = Provider<RemotePlaylistSyncService>((

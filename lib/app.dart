@@ -15,7 +15,7 @@ import 'package:fmp/providers/settings/desktop_settings_provider.dart';
 import 'package:fmp/providers/settings/hotkey_config_provider.dart';
 import 'package:fmp/providers/settings/theme_provider.dart';
 import 'package:fmp/providers/system/windows_desktop_provider.dart';
-import 'package:fmp/services/refresh/auto_refresh_service.dart';
+import 'package:fmp/services/library/auto_refresh_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/settings/locale_provider.dart';
 import 'package:fmp/ui/router.dart';
