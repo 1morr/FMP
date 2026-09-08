@@ -11,10 +11,10 @@ import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/services/download/download_path_utils.dart';
-import 'package:fmp/services/library/playlist_exceptions.dart';
+import 'package:fmp/data/repositories/playlist_exceptions.dart';
 import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 
-export 'playlist_exceptions.dart';
+export 'package:fmp/data/repositories/playlist_exceptions.dart';
 
 /// 歌单更新结果
 class PlaylistUpdateResult {

@@ -73,7 +73,7 @@ void main() {
 
     test('runtime library parsers do not import concrete source adapters', () {
       final source = File(
-        'lib/services/library/remote_playlist_id_parser.dart',
+        'lib/data/sources/remote_playlist_id_parser.dart',
       ).readAsStringSync();
 
       expect(source, isNot(contains("data/sources/bilibili_source.dart")));

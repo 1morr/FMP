@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/core/utils/netease_crypto.dart';
-import 'package:fmp/services/library/remote_playlist_id_parser.dart';
+import 'package:fmp/data/sources/remote_playlist_id_parser.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/services/library/remote_playlist_id_parser.dart';
+import 'package:fmp/data/sources/remote_playlist_id_parser.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/library/import_playlist_provider.dart';

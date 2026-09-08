@@ -3,7 +3,7 @@ import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/library/remote_playlist_edit_planner.dart';
 import 'package:fmp/services/library/remote_playlist_edit_result.dart';
-import 'package:fmp/services/library/remote_playlist_id_parser.dart';
+import 'package:fmp/data/sources/remote_playlist_id_parser.dart';
 
 typedef RefreshMatchingImportedPlaylists =
     Future<void> Function({
