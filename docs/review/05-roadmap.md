@@ -100,7 +100,7 @@
 
 | # | 絞殺對象 | 絞殺方式 | 每一步的驗收 |
 |---|---|---|---|
-| **S1** | `lib/services/` + `lib/providers/` 兩個頂層目錄 | 一次搬一個 feature 進 `lib/features/<name>/`，配一條可 `rg` 的機械規則 | `flutter analyze` 全綠（Dart 無動態 import，這是完整驗證） |
+| **S1** | `lib/services/` + `lib/providers/` 兩個頂層目錄 | ~~一次搬一個 feature 進 `lib/features/<name>/`，配一條可 `rg` 的機械規則~~ **規則已於 2026-09-08 證實作廢，改交付結構修正輪，見 §6.16** | `flutter analyze` 全綠（Dart 無動態 import，這是完整驗證） |
 | **S2** | `AudioController`（3,429 行） | 一次抽一個責任叢集成協作者（E→B→D→C），controller 只留投影與轉發 | `test/services/audio` 全綠 + 兩平台實機 |
 | **S3** | 每源硬編碼（`SourceType` enum、`Settings` 具名欄位） | 一次收一個維度進 registry。**排行榜快取已經做完，這是活的先例** | 新增第四個內建源時只需要加一個 adapter |
 | **S4** | 形狀猜測式 migration（`_hasLegacy*Signature`） | `Settings.schemaVersion` + 具名遷移步驟；舊啟發式降級成一次性的「推斷 v0」入口 | v0→v1 遷移測試 |
@@ -422,6 +422,12 @@ FMP 自己的介面，不是套件版本。
 ---
 
 ### Phase 6 — 目錄結構重構（`features/`）
+
+> **⚠️ 2026-09-08 縮範圍執行。** 開工當天的重核發現本節的招牌機械規則已被
+> Phase 3a / 4 的 `Notifier` 改寫作廢，而「讓耦合誠實可見」不需要搬檔案就做得到。
+> 實際交付的是**約 10 檔的結構修正輪**（import 統一 + 四組歸位 + 兩條分層規則），
+> `features/` 大搬移**擱置而非取消**。原委、量測數字與續做所需的落點設計見 §6.16。
+> 下表保留原樣以便對照。
 
 **目標**：取消 `services/` 與 `providers/` 兩個頂層目錄，合併為 `features/`，並用一條可 `rg` 的
 機械規則取代已經漂移失效的散文規則。
@@ -2630,3 +2636,145 @@ Future pumpEventQueue({int times = 20}) {
 > 這裡證的是：已知的機制被移除了，而且改動前的失敗在改動後不再出現。
 
 **不需要實機驗證** —— 純測試改動，沒有任何 user-visible 行為變更。
+
+---
+
+### 6.16 執行時的失效重核（2026-09-08，Phase 6：招牌規則失效，範圍縮成結構修正）
+
+Phase 6 原本要把 `lib/services/`（92 檔）與 `lib/providers/`（43 檔）合併成
+`lib/features/`。開工當天的重核推翻了它的兩個核心前提，**當天決定縮範圍**。
+
+#### 一、招牌的機械規則已經死了，而且不是命名問題
+
+Phase 6 的賣點是這一條：
+
+```bash
+rg -l flutter_riverpod lib/features | rg -v '_providers\.dart$'   # 必須為空
+```
+
+量測：兩個目錄底下 import riverpod 的 **47** 個檔案裡，命名符合 `*_providers.dart`
+的只有 **2** 個（34 個是單數 `_provider.dart`，11 個兩者皆非）。
+
+但改名解決不了。**Phase 3a / 4 收尾的 `Notifier` 改寫讓業務邏輯類自己就是
+`Notifier`** —— `AudioController`（3,400 行，住在 `audio_provider.dart`）、
+`RadioController`、`RankingCacheService` 都必須 import riverpod。這條規則預設的是
+`StateNotifier` 世界：邏輯類不碰 riverpod，只有裝配檔碰。**那個世界在 Phase 4 收尾
+時就沒有了** —— 規則是被本專案自己的前一個 Phase 作廢的。
+
+01 §5.3 的第二條規則「`ui/` 只讀 `features/*_providers.dart`」同樣不成立：`lib/ui`
+有 61 檔正當地 import `services/` 的純型別檔（`lyrics_result.dart`、`lrc_parser.dart`
+這類）。那不是業務決策外洩。
+
+#### 二、「讓耦合誠實可見」不需要搬檔案
+
+feature 身分就是子目錄名，兩個頂層目錄只是一個映射函式。在**現有佈局上**直接量：
+
+| 佈局 | 跨 feature import |
+|---|---|
+| 重核當天 | **98 行 / 46 組配對** |
+| 本輪之後 | **63 行 / 31 組** |
+| 假如做完整搬移 | 48 行 / 19 組 |
+
+98 行裡有 **34 行**指向 `providers/database/` —— 搬那 **4 個檔案**就全部消失。
+也就是說，大搬移宣稱的「可見性」收益，四個檔案就兌現了三分之一。
+
+> 順帶更正 §Phase 6 的一個估算：計畫寫「跨 feature 只有 14 行」。那個 14 只數了
+> `providers/ → services/` 一個方向，漏掉 `services/ → services/` 與
+> `providers/ → providers/`。真值是 98。
+
+#### 三、剩下的價值撐不起 135 檔
+
+大搬移獨有的收益只剩人體工學（一個功能一個目錄）與「讓未來誤放更難發生」。那是真的
+收益，但不是可驗證的正確性，而代價（135 檔、~730 行 import、3 個靜態規則測試重寫、
+2 份 AGENTS.md 拆散）沒有變。**改做約 10 檔的結構修正輪。**
+
+#### 做了什麼
+
+| 項目 | 數字 |
+|---|---|
+| `lib/` 相對 import → `package:fmp/` | **1666 行 / 274 檔**（`dart fix`，`always_use_package_imports` 永久開啟） |
+| barrel 檔的裸相對 export → `package:` | 30 處 / 7 檔 |
+| 檔案搬移 | **9**（7 個是 R100 純重新命名） |
+| 全分支 | 313 檔、+2035 / −1799 |
+
+四組歸位：
+
+1. **`providers/database/` → `lib/data/database/`**（4 檔）。它不是 feature：沒有
+   對應 UI、沒有 `services/database/`，是 Isar 開啟 + 註冊 + migration 的資料層裝配。
+2. **兩個純型別檔往下搬**：`remote_playlist_id_parser.dart` → `lib/data/sources/`、
+   `playlist_exceptions.dart` → `lib/data/repositories/`。兩者都只 import `data/`，
+   卻被 `data/` 反向 import。搬完 **`lib/data/` 對上層的反向 import 歸零** —— 這是
+   下面那條規則能成立的前提。
+3. **歌單刷新歸位**：`providers/search/refresh_provider.dart` 裝的是
+   `PlaylistRefreshState` / `RefreshManagerNotifier`，消費者全部與搜尋無關；
+   `services/refresh/auto_refresh_service.dart` 只被 `app.dart` import，刷的是歌單。
+   兩者都進 library，`services/refresh/` 這個單檔目錄消失。
+4. **孤兒歸位**：`storage_permission_service.dart` 是唯一直接躺在 `services/` 根目錄
+   的檔案，而 Key Paths 一直寫著它屬於 `platform/`。
+
+#### 換上的兩條規則（`test/support/layer_boundary_static_rule_test.dart`）
+
+- **規則 A（會擋東西的那條）**：`lib/core/` 與 `lib/data/` 不得 import
+  `lib/services/` 或 `lib/providers/`。`data` 側是 **0 違規**；`core` 側有**一個**
+  具名例外（`core/extensions/track_extensions.dart` → `providers/download/
+  file_exists_cache.dart`），要修的是依賴方向不是檔案位置，本輪不動但也不讓它變成
+  無聲的先例。規則附一條「例外仍然真實」的自我檢查，例外消失時會要求刪掉它。
+- **規則 B（快照，不是白名單）**：31 組跨 feature 的邊存成快照，出現新的一組或
+  舊的一組消失時都失敗。**刻意不逐筆寫理由** —— 31 筆機械生成的理由會是橡皮圖章，
+  而 FMP 的歷史已經證明儀式性規則會腐爛。它要擋的只有一件事：一條新的 feature 對
+  feature 的邊悄悄長出來。
+
+#### 三個踩到的
+
+1. **`always_use_package_imports` 不管 `export`。** `dart fix` 轉完 1658 個 import
+   之後 `flutter analyze` 全綠，但 30 個裸相對 export 原封不動 —— 其中
+   `playlist_service.dart` 的 `export 'playlist_exceptions.dart';` 在下一個 commit
+   把該檔搬走時當場斷掉。lint 綠不等於「移動安全」。
+2. **`isar_boundary_static_rule_test` 的豁免清單會反過來誤報。** 它硬編
+   `lib/providers/database/{database_catalog,database_migration}.dart` 當「可以直接碰
+   `isar.` 的兩個檔案」，比對的是掃描到的路徑字串。**檔案搬走而清單沒改，那兩個檔案
+   會被判定成違規而讓 CI 紅**，不是靜靜變綠。這是本輪唯一一個「搬檔案本身製造假警報」
+   的點。同批修的還有 `ui_consistency_static_rule_test` 的 provider 目錄斷言、
+   `database_viewer_page_coverage_test` 的路徑常數、`docs/adr/0002`。
+3. **5 條測試斷言在相對 import 字面值上。** `dart fix` 只改 `lib/`，而
+   `startup_download_sync_provider_test`、`radio_player_backdrop_test`、
+   `database_viewer_page_coverage_test`、`add_to_remote_playlist_dialog_structure_test`
+   都在斷言「A 檔 import 了 B 檔」的**字串**。斷言的意圖存活，字面值要跟著改。
+   `analysis_options.yaml` 排除 `test/**`，所以這 5 條是 `flutter test` 抓到的，
+   不是 analyze —— **再一次印證 analyze 乾淨不代表測試編得過。**
+
+#### 驗收
+
+| 項目 | 結果 |
+|---|---|
+| 完整套件 | **1510 passed**（基準 1505，+5 是新規則測試自己） |
+| `flutter analyze` | 乾淨（每個 commit） |
+| `dart format lib test` | 578 檔 0 diff |
+| 生成碼 | `dart run build_runner build` + `dart run slang` 之後 `git status` 空 |
+| rename 偵測 | 9 個搬移裡 7 個是 R100；`git log --follow` 三個抽樣都穿過搬移接上舊歷史 |
+| 規則武裝驗證 | 對三條規則各種一個合成違規：Isar 邊界、規則 A、規則 B 都逐項抓到並回報 file:line 或邊名 |
+
+**不需要實機驗證** —— 純 rename / move 與測試新增，零行為變更、無持久化格式變更、
+無對外介面變更。
+
+#### 擱置而非取消
+
+`features/` 大搬移的落點設計已經摸清楚並記在這裡，隨時可以續做：
+
+- **126 檔進 12 個 feature**：account 18 / audio 35 / library 21（吸收 import 與
+  歌單刷新）/ lyrics 17 / download 13 / settings 7 / backup 3 / desktop 3
+  （`windows_desktop_service` + 它的兩個 provider）/ radio 3 / explore 2 / search 2 /
+  update 2。**`search` 與 `explore` 是兩個 feature**：`search_provider.dart` 與
+  `popular_provider.dart` 的 import 清單零交集。
+- **features 之外**：`media_handoff.dart` 應該進 `lib/data/sources/` 而不是 01 §5.3
+  說的 `core/media/` —— 它 import `data/sources/source_http_policy.dart`，放進 `core/`
+  就是 `core → data` 的反向依賴。`connectivity_service.dart` 進 `core/network/`
+  （`core/` 已經不是零 Riverpod：`toast_service.dart` 就 import 它）。
+  `selection_provider.dart` 是純 UI 狀態，只被 4 個 UI 檔用，該進 `lib/ui/`。
+- **會打到的測試**：23 個測試檔硬編 `'lib/services/` 或 `'lib/providers`。三個要特別
+  處理：`isar_boundary_static_rule_test`（同上第 2 點）、
+  `ui_consistency_static_rule_test` 的「providers live under semantic subdirectories」
+  （前提整條消失，要重寫或刪除，不是改字面值）、`riverpod3_static_rule_test:71`
+  的 `Directory('lib/providers')`（目錄消失會丟例外）。
+- 本輪立的兩條規則跟著搬的成本接近零：規則 A 只要把 `services/`、`providers/` 換成
+  `features/`，規則 B 的 feature 身分函式少一層映射。
