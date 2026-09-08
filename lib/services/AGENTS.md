@@ -141,6 +141,17 @@ out and logs a fixed message rather than letting the exception out --
 exception turns every API request into an error. It does not latch: a transient
 Keystore failure is retried on the next call.
 
+FMP pins `flutter_secure_storage` to 10.x. v10 re-encrypts Android credentials
+on first read -- key cipher to `RSA_ECB_OAEPwithSHA_256andMGF1Padding`, storage
+cipher to `AES_GCM_NoPadding` -- and 11.x removes the 9.x ciphers it migrates
+from. **A bump to 11.x is a release-sequencing decision, not a routine version
+bump.** A user who never runs a shipped 10.x build loses their stored
+credentials on reaching 11.x, and FMP updates in-app in a way that lets users
+skip versions, so "10.x was released once" is not "every install has migrated".
+It degrades to a forced re-login rather than a crash only because of the
+`SecureKeyValueStore` guard above. Upstream is explicit: "If you used a version
+prior to v10, upgrade to v10 first so existing data is migrated."
+
 Bilibili medal wall radio import keeps credential ownership in
 `BilibiliAccountService`, but live room lookup and `getRoomInfoOld` handling
 belong in `BilibiliLiveClient`.
