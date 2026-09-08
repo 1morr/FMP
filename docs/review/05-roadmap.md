@@ -2847,3 +2847,26 @@ markdown，`**Full Changelog**` 會照字面出現）。1134 行會進那個 200
 - 憑證側實質單向：v9 透過 Jetpack Security / EncryptedSharedPreferences 讀，v10 已把
   資料遷出到自訂 cipher，裝回 v1.9.1 很可能要重登三個站台。**這是從 upstream
   changelog 推的，沒有實測降級。** patch 版號會讓人以為可以隨手裝回去。
+
+#### 五、發布後驗收：三條預測有兩條成立，第三條比預測更糟
+
+發布於 2026-09-08 17:02 UTC，`draft: false` 所以直接對外。
+
+| 項目 | 實測結果 |
+|---|---|
+| Release body | 與 `docs/release-notes/v1.10.0.md` **逐字相同**（各 4,118 字元），手寫檔確實完全擁有 body，沒有被 `## What's Changed` 前綴 |
+| compare 連結 | `compare/v1.9.1..v1.10.0`（兩點），沒有退化成三點 |
+| 產物 | 10 個 asset：4 個 ABI APK + universal + `fmp-latest-*` 三個別名 + windows zip + installer + checksums |
+| Windows 安裝版 | 實裝成功，登錄檔 `DisplayVersion = 1.10.0+1010000` —— CI 依 tag 算出的 `versionCode`（major×1000000 + minor×1000 + patch）如實落到安裝包上 |
+| Windows 可攜版 | zip 解壓後 `libisar.dll` 在、沒有殘留的舊名 `isar.dll`。這段改名落在未發布期間，而 zip/installer 打包不在 PR CI 的覆蓋範圍，所以只有這裡驗得到 |
+| App 內更新（雙位數 minor） | **實測通過**：v1.9.1 的 Android 建置 → 設定 → 檢查更新 → 抓到 v1.10.0、x86_64、32.3 MB。§二的 `_isNewerVersion` 判讀原本只是讀原始碼推的，現在有實際觀察 |
+
+第三段裡「1134 行會進那個 200px 的框」的預測沒有機會成立（手寫檔擋掉了），但**框本身
+的問題比預測更嚴重**：4,118 字元的手寫 markdown 在對話框裡是純文字，`## FMP v1.10.0`
+與 `### Playback` 照字面顯示，而 200px 只露得出前 8 行 —— 被蓋掉的內容裡包含這一版
+唯一需要事前知道的那句（降級回 v1.9.1 要重登三個來源），而且框沒有任何捲動提示。
+記為 issue #82。
+
+> 這一輪在 Windows 端的截圖與點擊上損失了不少時間，兩個坑（`PrintWindow` 回傳凍結
+> 畫格、驅動行程沒宣告 DPI awareness 導致座標差 1.5 倍）記在
+> `.claude/skills/verify-on-device/SKILL.md` §Driving the Windows build。
