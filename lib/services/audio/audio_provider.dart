@@ -81,7 +81,6 @@ class AudioController extends Notifier<PlayerState>
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
-  bool _isInitializing = false;
   bool _isDisposed = false;
 
   // 防止重複處理完成事件
@@ -204,9 +203,9 @@ class AudioController extends Notifier<PlayerState>
     _wireProviderCallbacks();
 
     ref.onDispose(_teardown);
-    // 起動初始化（非同步，但不阻塞）。每個操作前的 `_ensureInitialized`
-    // 會確保它完成；`_isInitialized` / `_isInitializing` 讓重跑的 build 不會
-    // 再跑一次。
+    // 起動初始化（非同步，但不阻塞）。每個操作前的 `_ensureInitialized` 會等到
+    // 它完成 —— [initialize] 共用同一個 in-flight future，所以重跑的 build 與
+    // 那些呼叫者都接到同一次初始化，不會重跑、也不會提早返回。
     Future.microtask(initialize);
 
     return const PlayerState();
@@ -332,11 +331,26 @@ class AudioController extends Notifier<PlayerState>
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
 
-  /// 初始化
-  Future<void> initialize() async {
-    if (_isDisposed || _isInitialized || _isInitializing) return;
-    _isInitializing = true;
+  /// 初始化。同一次只跑一次，而且**每個呼叫者都等到它真的跑完**。
+  ///
+  /// 這裡曾經是 `if (_isInitializing) return;` —— 初始化還在飛的時候直接返回，
+  /// 呼叫端拿到一個立刻完成的 future，就當作已經初始化好了往下走。而 [build]
+  /// 用 `Future.microtask(initialize)` 起動，所以那個窗永遠存在：App 剛起來就
+  /// 按播放，[_ensureInitialized] 會落在窗裡，而下面的 `subscribe` 一行都還沒跑。
+  ///
+  /// 後果不是「慢一點」而是「事件永久消失」：`_audioService` 的那些串流是
+  /// broadcast，沒有 listener 時發射的事件會被直接丟掉、不補送。CI 上抓到的形狀
+  /// 是 `audio_controller_phase1_test` 的輸出裝置失敗永遠等不到 toast（issue #43
+  /// 的其中一條）。共用同一個 in-flight future 才是「等到好了」。
+  Future<void> initialize() {
+    if (_isDisposed || _isInitialized) return Future<void>.value();
+    return _initialization ??= _runInitialization();
+  }
 
+  /// 進行中的初始化。失敗時在 `finally` 清掉，讓下一次呼叫可以重試。
+  Future<void>? _initialization;
+
+  Future<void> _runInitialization() async {
     logInfo('Initializing AudioController...');
 
     try {
@@ -432,7 +446,9 @@ class AudioController extends Notifier<PlayerState>
       state = state.copyWith(error: 'Initialization failed: $e');
       rethrow;
     } finally {
-      _isInitializing = false;
+      // 沒走到 `_isInitialized = true`（拋了，或中途被 dispose）就把 in-flight
+      // 清掉，否則之後每個呼叫者都會拿到同一個失敗的 future，永遠不會重試。
+      if (!_isInitialized) _initialization = null;
     }
   }
 
