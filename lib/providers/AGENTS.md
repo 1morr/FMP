@@ -11,9 +11,10 @@ under `lib/providers/`.
 - `account/` — login/account state and source account services.
 - `audio/` — playback selectors and audio/playback settings.
 - `download/` — download state, path, scanner, and file-existence cache.
-- `library/` — playlists, play history, remote sync, imports, and track detail.
+- `library/` — playlists, play history, remote sync, imports, track detail,
+  and timed playlist refresh.
 - `lyrics/` — lyrics search/cache state and lyrics window style.
-- `search/` — search, ranking/popular content, and refresh orchestration.
+- `search/` — search and ranking/popular content.
 - `settings/` — persisted user settings not owned by a narrower subsystem.
 - `system/` — backup, update, and desktop-window integration.
 - `ui/` — UI-only state such as selection mode.
