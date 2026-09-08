@@ -95,7 +95,7 @@ dev_dependencies:
   # slang_build_runner 因此是純負擔：它會把 dart_style/analyzer 的上界一起拖進解析。
   slang: ^4.19.1
   flutter_launcher_icons: ^0.14.1
-  inno_bundle: ^0.11.2
+  inno_bundle: ^0.12.0
 
 flutter:
   uses-material-design: true
