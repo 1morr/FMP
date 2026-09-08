@@ -229,9 +229,30 @@ GitHub Actions (release.yml)
        │
        └─ release
            ├─ 下載所有平臺的產物
-           ├─ 自動產生 Release Notes
+           ├─ 組裝 Release Notes（手寫檔優先，否則自動產生）
            └─ 建立 GitHub Release（multi-ABI APK + ZIP + Installer + latest 穩定下載別名）
 ```
+
+### Release Notes
+
+`release` job 組裝 body 的順序是：
+
+1. **`docs/release-notes/<tag>.md` 存在**（例如 `docs/release-notes/v1.10.0.md`）
+   —— 整份 body 由該檔決定，包含它自己的標題與 Full Changelog 連結。
+2. **不存在** —— 沿用自動產生：`git describe` 找上一個 tag，列出兩者之間的 commit
+   標題，附上 compare 連結。一般節奏的小版本走這條。
+
+手寫檔是為了那種「自動產生的清單沒有意義」的版本。v1.10.0 就是一例：2026-09-01 的
+歷史重寫讓 v1.2.0–v1.9.1 全部脫離 `main` 的血緣，`git describe` 只找得到 v1.1.4，
+產出 1134 行、97,785 字元的清單 —— 而換任何一個 previous tag 都得到同一個結果，因為
+那些 tag 都落在共同祖先線上或以下。
+
+body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
+`releaseNotes`，App 內的更新對話框以**純文字**顯示（不渲染 markdown）在一個
+`maxHeight: 200` 的捲動框裡。
+
+> Release 頁面的 compare 連結預設是三點（`a...b`，走 merge-base）。因為上述重寫，
+> v1.9.1 → v1.10.0 要用**兩點**（`a..b`）才會只顯示端點之間的實際差異。
 
 ### 版本號規則
 

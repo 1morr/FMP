@@ -397,29 +397,40 @@ jobs:
           echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
           echo "Previous tag: $previous_tag"
 
-      - name: Generate commit changelog
+      - name: Generate release body
         id: changelog
         shell: bash
         run: |
           current_tag="${{ needs.prepare.outputs.tag }}"
           previous_tag="${{ steps.prev_tag.outputs.tag }}"
+          notes_file="docs/release-notes/${current_tag}.md"
 
-          if [ -n "$previous_tag" ]; then
-            echo "Generating changelog from $previous_tag to $current_tag"
-            git log --pretty=format:"- %s (%h)" "$previous_tag..$current_tag" > changelog.txt
-            changelog_url="**Full Changelog**: https://github.com/1morr/FMP/compare/$previous_tag...$current_tag"
+          if [ -f "$notes_file" ]; then
+            echo "Using hand-written release notes: $notes_file"
+            cp "$notes_file" body.md
           else
-            echo "No previous tag found, listing recent commits"
-            git log --pretty=format:"- %s (%h)" -20 > changelog.txt
-            changelog_url=""
+            if [ -n "$previous_tag" ]; then
+              echo "Generating changelog from $previous_tag to $current_tag"
+              git log --pretty=format:"- %s (%h)" "$previous_tag..$current_tag" > changelog.txt
+              changelog_url="**Full Changelog**: https://github.com/1morr/FMP/compare/$previous_tag...$current_tag"
+            else
+              echo "No previous tag found, listing recent commits"
+              git log --pretty=format:"- %s (%h)" -20 > changelog.txt
+              changelog_url=""
+            fi
+
+            {
+              printf "## What's Changed\n\n"
+              cat changelog.txt
+              printf '\n\n%s\n' "$changelog_url"
+            } > body.md
           fi
 
-          output_delimiter="CHANGELOG_$(uuidgen)"
+          output_delimiter="RELEASE_BODY_$(uuidgen)"
           {
-            echo "commits<<$output_delimiter"
-            cat changelog.txt
+            echo "body<<$output_delimiter"
+            cat body.md
             printf '\n%s\n' "$output_delimiter"
-            echo "changelog_url=$changelog_url"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create Release
@@ -428,12 +439,7 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.tag }}
           draft: false
           prerelease: false
-          body: |
-            ## What's Changed
-
-            ${{ steps.changelog.outputs.commits }}
-
-            ${{ steps.changelog.outputs.changelog_url }}
+          body: ${{ steps.changelog.outputs.body }}
           files: |
             artifacts/android-apk-*/*.apk
             artifacts/windows-exe/*.zip
