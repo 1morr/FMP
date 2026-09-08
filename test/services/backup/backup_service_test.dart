@@ -3,6 +3,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+// v11 把 FilePicker 改成 abstract final + static 方法，原本的
+// `FilePicker.platform =` 注入點沒了。可替換的縫搬到了
+// FilePickerPlatform.instance，而它沒被 file_picker.dart 匯出，只能直接
+// 指到 src/。
+import 'package:file_picker/src/platform/file_picker_platform_interface.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/hotkey_config.dart';
@@ -690,7 +695,7 @@ void main() {
       'exportData includes lyrics AI settings without secure API key',
       () async {
         final outputPath = '${tempDir.path}/export.json';
-        FilePicker.platform = _FakeFilePicker(saveFilePath: outputPath);
+        _useFakeFilePicker(outputPath);
         final settings = Settings()
           ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.advancedAiSelect
           ..allowPlainLyricsAutoMatch = true
@@ -749,7 +754,7 @@ void main() {
 
     test('exportData includes v2 playlist track and radio metadata', () async {
       final outputPath = '${tempDir.path}/export_v2.json';
-      FilePicker.platform = _FakeFilePicker(saveFilePath: outputPath);
+      _useFakeFilePicker(outputPath);
       final createdAt = DateTime(2026, 6, 1, 12);
       final updatedAt = DateTime(2026, 6, 2, 13);
       final refreshedAt = DateTime(2026, 6, 3, 14);
@@ -999,7 +1004,15 @@ void main() {
   });
 }
 
-class _FakeFilePicker extends FilePicker {
+/// 裝上假的檔案選擇器，並在測試結束時把全域的 instance 換回去 —— 它是
+/// process 級的靜態欄位，漏出去會讓同檔後續的測試拿到別人的假物件。
+void _useFakeFilePicker(String saveFilePath) {
+  final previous = FilePickerPlatform.instance;
+  FilePickerPlatform.instance = _FakeFilePicker(saveFilePath: saveFilePath);
+  addTearDown(() => FilePickerPlatform.instance = previous);
+}
+
+class _FakeFilePicker extends FilePickerPlatform {
   _FakeFilePicker({required this.saveFilePath});
 
   final String saveFilePath;

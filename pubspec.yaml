@@ -71,7 +71,7 @@ dependencies:
   pointycastle: ^3.9.1           # RSA 加密（Cookie 刷新流程）
 
   # 工具
-  file_picker: ^8.3.7
+  file_picker: ^11.0.3
   collection: ^1.19.1
   equatable: ^2.1.0
   slang_flutter: ^4.19.0
