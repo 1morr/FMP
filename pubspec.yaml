@@ -65,7 +65,9 @@ dependencies:
   # 帐号管理
   flutter_inappwebview: ^6.1.5   # WebView 登录（WebView2 on Windows）
   qr_flutter: ^4.1.0             # QR 码生成（备选登录方式）
-  flutter_secure_storage: ^10.3.1  # Cookie/Token 安全存储
+  # 升到 11.x 之前先讀 lib/services/AGENTS.md 的 Account System 一節：
+  # v10 是憑證遷移的必經踏腳石，跳過會讓既有使用者的憑證讀不出來。
+  flutter_secure_storage: ^10.3.1  # Cookie/Token 安全儲存
   pointycastle: ^3.9.1           # RSA 加密（Cookie 刷新流程）
 
   # 工具
