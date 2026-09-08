@@ -566,12 +566,14 @@ honoured. There is no `supportsQueue`: both backends would return `true`.
 
 **Backend requirements**
 
-- `JustAudioService` always wraps the media in a `ConcatenatingAudioSource`,
-  even when there is only one child, because a bare `AudioSource` cannot take a
-  second item without a full reset — which is the media reopen this avoids.
-  `useLazyPreparation: false` is what makes the second child prepare at once.
-  Note the package marks `add` / `removeAt` `(Untested)`; FMP verifies them on
-  device.
+- `JustAudioService` always loads the media through the player's playlist API
+  (`setAudioSources`), even when there is only one item, because a bare
+  `AudioSource` cannot take a second item without a full reset — which is the
+  media reopen this avoids. `useLazyPreparation: false` is what makes the second
+  item prepare at once; just_audio 0.10 moved that flag from
+  `ConcatenatingAudioSource` onto the `AudioPlayer` constructor, so it is set
+  once at construction. FMP verifies `addAudioSource` / `removeAudioSourceAt`
+  on device.
 - `MediaKitAudioService` sets mpv's `prefetch-playlist=yes`. It defaults to `no`
   and media_kit never sets it, so without that line the next entry only opens at
   the boundary. mpv calls the option experimental and warns it can misbehave
