@@ -196,8 +196,9 @@ the one intentional exception.
 
 ```text
 lib/core/                  Logger, ToastService, image loading/cache services,
-                           UI constants, breakpoints, shared utils (thumbnail
-                           URLs, Netease crypto, platform checks)
+                           guarded secure key/value store, UI constants,
+                           breakpoints, shared utils (thumbnail URLs, Netease
+                           crypto, platform checks)
 lib/services/audio/        AudioController, playback backends, queue, stream handoff
 lib/services/download/     Download scheduling, paths, source-aware media headers
 lib/services/media/        MediaHandoff — the byte-request header/redirect seam

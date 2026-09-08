@@ -129,6 +129,18 @@ Credential parse/load failures must log fixed sanitized messages only. Do not
 pass raw secure-storage JSON, cookie strings, token-bearing exceptions, or
 `FormatException` source snippets into `AppLogger`.
 
+All three services reach secure storage through `SecureKeyValueStore`
+(`lib/core/secure_key_value_store.dart`), never `FlutterSecureStorage` directly.
+The wrapper turns platform failures into `SecureStorageUnavailable`, carrying
+the operation and the platform code but not its message, which can name a key
+alias or a path. **"Cannot read the credential" is not "there is no
+credential":** Android Keystore can fail to decrypt after a device restore and
+Windows DPAPI after a profile is rebuilt. `_loadCredentials` degrades to logged
+out and logs a fixed message rather than letting the exception out --
+`SourceAuthContext` and both Dio interceptors sit on that path, so an escaping
+exception turns every API request into an error. It does not latch: a transient
+Keystore failure is retried on the next call.
+
 Bilibili medal wall radio import keeps credential ownership in
 `BilibiliAccountService`, but live room lookup and `getRoomInfoOld` handling
 belong in `BilibiliLiveClient`.
