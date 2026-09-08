@@ -274,6 +274,23 @@ raising the window first.
   sometimes — it silently no-ops when the foreground-lock rules say no, and the
   next capture is then of the wrong window. Prefer the flag; if you do use
   Win32, assert `GetForegroundWindow()` returns your HWND before you click.
+- **`PrintWindow` with `PW_RENDERFULLCONTENT` returns a frozen frame.** It looks
+  like a working capture — real colours, real layout — but it is the frame from
+  whenever the surface was last handed to the DWM, and it does not advance. Four
+  consecutive captures across two clicks and a keypress came back byte-identical
+  (same md5), which reads exactly like "the input never landed" and sent this
+  round chasing a non-existent click problem. Capture with
+  `Graphics.CopyFromScreen` over the window rect instead; raise the window first.
+- **A driving process that is not DPI-aware measures a different screen.**
+  Without `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` (pass `-4`),
+  `GetWindowRect` and `SetCursorPos` speak virtualized coordinates while
+  `CopyFromScreen` speaks physical pixels — a 1.5x gap at 150% scaling. The
+  symptom is that clicks computed off a screenshot land somewhere else entirely,
+  and that a crop at the reported rect shows a neighbouring window. Call it once
+  at the top of every script that measures, clicks or captures, and the three
+  agree. `orca computer list-windows` already reports physical coordinates, so
+  it disagreeing with your `GetWindowRect` by exactly the scale factor is the
+  tell.
 - **Pin the window with `--window-id`.** An app can own several top-level
   windows (FMP has the SMTC message window and two IME windows), and a modal
   file dialog is a window of its own.
