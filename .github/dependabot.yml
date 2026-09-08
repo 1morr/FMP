@@ -16,7 +16,30 @@ updates:
       interval: 'weekly'
     # Major bumps stay ungrouped: they need their own PR because each one can
     # carry breaking changes that have to be reviewed and verified separately.
+    #
+    # Dependabot classifies by version position, so for a 0.x package it calls
+    # 0.9 -> 0.10 a *minor* update. Pub does not: `^0.9.40` refuses 0.10, and
+    # such a bump is breaking. PR #59 grouped five of them under
+    # "minor-and-patch" -- just_audio, audio_session, tray_manager,
+    # window_manager and inno_bundle, i.e. the audio backend, the tray, window
+    # management and the installer. Every direct dependency still on 0.x is
+    # therefore excluded so it arrives as its own reviewable PR.
+    # test/workflows/dependabot_group_static_rule_test.dart fails when a 0.x
+    # direct dependency is missing from this list.
     groups:
       pub-minor-and-patch:
         patterns: ['*']
+        exclude-patterns:
+          - 'audio_service'
+          - 'audio_session'
+          - 'desktop_multi_window'
+          - 'flutter_launcher_icons'
+          - 'hotkey_manager'
+          - 'inno_bundle'
+          - 'just_audio'
+          - 'launch_at_startup'
+          - 'rxdart'
+          - 'scrollable_positioned_list'
+          - 'tray_manager'
+          - 'window_manager'
         update-types: ['minor', 'patch']
