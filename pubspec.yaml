@@ -58,7 +58,7 @@ dependencies:
   hotkey_manager: ^0.2.3
 
   # 应用更新
-  package_info_plus: ^8.0.0
+  package_info_plus: ^9.0.1
   open_filex: ^4.5.0
   archive: ^4.0.2
 
