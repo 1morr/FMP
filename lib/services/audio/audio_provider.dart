@@ -47,7 +47,7 @@ import 'package:fmp/services/audio/play_history_recorder.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/temporary_play_handler.dart';
 
-export 'player_state.dart';
+export 'package:fmp/services/audio/player_state.dart';
 
 /// 內部異常：表示重試已被安排，呼叫者不應再次安排重試
 class _RetryScheduledException implements Exception {

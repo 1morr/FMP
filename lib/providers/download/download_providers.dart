@@ -22,7 +22,7 @@ import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 // Re-export for convenience
-export 'download_scanner.dart';
+export 'package:fmp/providers/download/download_scanner.dart';
 export 'package:fmp/services/download/download_service.dart'
     show DownloadResult;
 export 'package:fmp/data/database/repository_providers.dart'

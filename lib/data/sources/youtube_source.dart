@@ -18,7 +18,8 @@ import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
 
-export 'dynamic_playlist_types.dart' show MixFetchResult, MixPlaylistInfo;
+export 'package:fmp/data/sources/dynamic_playlist_types.dart'
+    show MixFetchResult, MixPlaylistInfo;
 
 /// YouTube 音源实现
 class YouTubeSource
