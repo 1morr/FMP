@@ -19,6 +19,7 @@ import 'package:fmp/providers/search/refresh_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
+import '../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -47,7 +48,7 @@ void main() {
         );
         final parse = harness.source.enqueueParse();
         final refreshFuture = notifier.refreshPlaylist(playlist);
-        await _pumpUntil(
+        await pumpUntil(
           () => harness.source.parseCalls == 1,
           reason: 'refresh should reach playlist parsing',
         );
@@ -81,7 +82,7 @@ void main() {
         );
         final parse = harness.source.enqueueParse();
         final firstRefresh = notifier.refreshPlaylist(playlist);
-        await _pumpUntil(
+        await pumpUntil(
           () => harness.source.parseCalls == 1,
           reason: 'first refresh should reach playlist parsing',
         );
@@ -121,7 +122,7 @@ void main() {
         final refreshFuture = harness.container
             .read(refreshManagerProvider.notifier)
             .refreshPlaylist(playlist);
-        await _pumpUntil(
+        await pumpUntil(
           () => harness.source.parseCalls == 1,
           reason: 'refresh should reach playlist parsing',
         );
@@ -153,7 +154,7 @@ void main() {
 
       final firstParse = harness.source.enqueueParse();
       final firstFuture = notifier.refreshPlaylist(playlist);
-      await _pumpUntil(
+      await pumpUntil(
         () => harness.source.parseCalls == 1,
         reason: 'first refresh should reach playlist parsing',
       );
@@ -170,7 +171,7 @@ void main() {
 
       final secondParse = harness.source.enqueueParse();
       final secondFuture = notifier.refreshPlaylist(playlist);
-      await _pumpUntil(
+      await pumpUntil(
         () => harness.source.parseCalls == 2,
         reason: 'second refresh should start before old cleanup fires',
       );
@@ -374,17 +375,4 @@ Track _track(String sourceId, {int? pageCount}) {
     ..pageCount = pageCount
     ..title = 'Track $sourceId'
     ..artist = 'Refresh Tester';
-}
-
-Future<void> _pumpUntil(
-  bool Function() condition, {
-  required String reason,
-  Duration timeout = const Duration(seconds: 2),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(deadline)) {
-    if (condition()) return;
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-  if (!condition()) fail(reason);
 }

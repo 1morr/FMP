@@ -38,6 +38,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -95,7 +96,9 @@ void main() {
 
         final controller = container.read(audioControllerProvider.notifier);
         await controller.initialize();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'let initialization settle before the container is disposed',
+        );
 
         expect(container.dispose, returnsNormally);
         await Future<void>.delayed(Duration.zero);
@@ -190,10 +193,14 @@ void main() {
         try {
           final controller = container.read(audioControllerProvider.notifier);
           await controller.initialize();
-          await pumpEventQueue(times: 5);
+          await drainEventQueue(
+            reason: 'let initialization settle before the setting changes',
+          );
 
           container.read(plainLyricsSettingProvider.notifier).set(true);
-          await pumpEventQueue(times: 10);
+          await drainEventQueue(
+            reason: 'an unrelated setting must not rebuild the controller',
+          );
 
           expect(
             container.read(audioControllerProvider.notifier),

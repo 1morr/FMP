@@ -13,6 +13,7 @@ import 'package:fmp/services/audio/playback_media.dart';
 import 'package:fmp/services/audio/playback_request_session.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   group('PlaybackSessionResult', () {
@@ -963,7 +964,9 @@ void main() {
           positionAtError: Duration.zero,
         );
         firstPlayGate.complete();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'let the stale first request unwind before the second starts',
+        );
 
         final secondPlayGate = audioService.enqueuePendingPlayUrl();
         final second = session.start(
@@ -1049,7 +1052,9 @@ void main() {
         expect(finishedResults, isEmpty);
 
         playGate.complete();
-        await pumpEventQueue(times: 5);
+        await drainEventQueue(
+          reason: 'let the superseded request finish before teardown',
+        );
       },
     );
 

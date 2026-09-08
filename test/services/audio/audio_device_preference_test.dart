@@ -25,6 +25,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 /// 桌面輸出裝置的記憶（issue #42）。
 ///
@@ -136,7 +137,10 @@ void main() {
       });
 
       audioService.emitAudioDevices([speakers, headphones]);
-      await pumpEventQueue();
+      await pumpUntil(
+        () => audioService.audioDevice != null,
+        reason: 'the stored preference should be reapplied',
+      );
 
       expect(audioService.audioDevice?.name, headphones.name);
     });
@@ -150,7 +154,9 @@ void main() {
         });
 
         audioService.emitAudioDevices([speakers]);
-        await pumpEventQueue();
+        await drainEventQueue(
+          reason: 'a missing preferred device must not switch the output',
+        );
 
         // 沒有切走，也沒有把設定清掉 —— 使用者把耳機插回來時還會想要它。
         expect(audioService.audioDevice, isNull);
@@ -168,13 +174,19 @@ void main() {
         });
 
         audioService.emitAudioDevices([speakers, headphones]);
-        await pumpEventQueue();
+        await pumpUntil(
+          () => audioService.audioDevice != null,
+          reason: 'the stored preference should be reapplied',
+        );
         expect(audioService.audioDevice?.name, headphones.name);
 
         await controller.setAudioDevice(speakers);
         // 插拔會讓裝置清單反覆重送，那不該把使用者剛選的蓋回去。
         audioService.emitAudioDevices([speakers, headphones]);
-        await pumpEventQueue();
+        await pumpUntil(
+          () => audioService.audioDevice?.name == speakers.name,
+          reason: 'a device list resend must not undo the user choice',
+        );
 
         expect(audioService.audioDevice?.name, speakers.name);
       },
@@ -182,7 +194,9 @@ void main() {
 
     test('no stored device means the output is left untouched', () async {
       audioService.emitAudioDevices([speakers, headphones]);
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'with no stored device the output must be left alone',
+      );
 
       expect(audioService.audioDevice, isNull);
     });

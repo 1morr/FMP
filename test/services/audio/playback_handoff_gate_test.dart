@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/services/audio/playback_handoff_gate.dart';
 
+import '../../support/pump_until.dart';
+
 /// `PlaybackHandoffGate` 是 Phase 4 步驟 C 抽出來的協作者，擁有「控制器正在交接
 /// 一次播放請求」這段期間的狀態：載入閂存、延後中的 seek、切歌後的穩定化視窗。
 ///
@@ -18,23 +20,33 @@ void main() {
 
     const stabilization = Duration(milliseconds: 40);
 
-    setUp(() {
-      seeks = [];
-      trackKey = 'track-a';
-      supersededRequests = {};
+    void buildGate({Duration stabilizationDelay = stabilization}) {
       gate = PlaybackHandoffGate(
         currentTrackKey: () => trackKey,
         performSeek: (position) async => seeks.add(position),
         isRequestSuperseded: supersededRequests.contains,
-        stabilizationDelay: stabilization,
+        stabilizationDelay: stabilizationDelay,
       );
+    }
+
+    setUp(() {
+      seeks = [];
+      trackKey = 'track-a';
+      supersededRequests = {};
+      buildGate();
     });
 
     /// future 完成了沒。作廢路徑漏掉 `complete()` 的話這裡會是 false。
+    ///
+    /// 「還沒完成」等不到，只能推完在途工作再看 —— 所以這裡是刻意的固定圈數。
+    /// 呼叫端有責任確保「完成」不是靠一個真計時器：圈數耗掉的牆鐘時間在滿載的
+    /// 機器上會超過那個計時器，那正是 issue #55。
     Future<bool> settled(Future<void> future) async {
       var done = false;
       unawaited(future.then((_) => done = true));
-      await pumpEventQueue(times: 10);
+      await drainEventQueue(
+        reason: 'let any completion of the deferred seek land',
+      );
       return done;
     }
 
@@ -96,22 +108,41 @@ void main() {
       expect(seeks, isEmpty);
     });
 
-    test(
-      'a seek right after navigation waits out the stabilization window',
-      () async {
-        gate.startStabilizationWindow(7, 'track-a');
-        final deferred = gate.deferSeek(const Duration(seconds: 120))!;
+    // 這裡本來是一條測試，同時守「視窗內延後」與「視窗過後送出」，而它用固定
+    // 圈數的 pump 去斷言前者 —— 圈數耗掉的時間一超過 40ms 視窗，seek 就已經送出
+    // 去了（issue #55）。拆成兩條之後，兩邊各自不再跟時間賽跑。
+    test('a seek inside the stabilization window stays deferred', () async {
+      // 視窗長到任何 pump 預算都追不上，「還沒送出」因此不是時序的巧合。
+      buildGate(stabilizationDelay: const Duration(seconds: 30));
+      gate.startStabilizationWindow(7, 'track-a');
+      final deferred = gate.deferSeek(const Duration(seconds: 120))!;
 
-        expect(await settled(deferred), isFalse);
-        expect(seeks, isEmpty);
+      expect(await settled(deferred), isFalse);
+      expect(seeks, isEmpty);
 
-        await deferred;
+      // 別讓延後中的 seek 掛在那裡跨過測試邊界。
+      gate.cancel(reason: 'test finished');
+      await deferred;
+    });
 
-        expect(seeks, [const Duration(seconds: 120)]);
-        // 視窗過了之後就不再延後。
-        expect(gate.deferSeek(const Duration(seconds: 5)), isNull);
-      },
-    );
+    test('a seek is sent once the stabilization window passes', () async {
+      // 500ms 不是「夠快」而是「夠慢」：`deferSeek` 只要在視窗還開著的時候被呼叫
+      // 到就行，而它就在下一行。壓到 1ms 反而讓視窗可能先關掉、`deferSeek` 回 null
+      // —— 本輪的壓力跑 20 次抓到 1 次，是同一種競態換了個方向。
+      buildGate(stabilizationDelay: const Duration(milliseconds: 500));
+      gate.startStabilizationWindow(7, 'track-a');
+      final deferred = gate.deferSeek(const Duration(seconds: 120))!;
+
+      await deferred;
+      await pumpUntil(
+        () => seeks.isNotEmpty,
+        reason: 'the deferred seek should be sent after the window',
+      );
+
+      expect(seeks, [const Duration(seconds: 120)]);
+      // 視窗過了之後就不再延後。
+      expect(gate.deferSeek(const Duration(seconds: 5)), isNull);
+    });
 
     test('the stabilize-next flag survives beginRequest but not cancel', () {
       // next()/previous()/playAt() 設下旗標，_executePlayRequest 才取用 ——

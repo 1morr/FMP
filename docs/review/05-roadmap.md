@@ -1000,7 +1000,7 @@ Phase 1 修好預取之後（結果寫回佇列實例而不是被丟棄的 `copy
 | **#40** | Windows SMTC 兩個無法作用的控制項 | **保留，標題要改成四個** | **next/prev → Phase 4B；seek/shuffle/repeat → Phase 0（改成不宣告）** | 實際是 **next / previous（電台時）、seek、shuffle、repeat** 四項，而且分兩類：next/prev **事件有到 FMP**（有 log），是 FMP 自己的 config 沒跟著關 —— 可修；seek/shuffle/repeat **事件沒到**，是 `smtc_windows` 1.1.0 的 Dart wrapper 沒 export —— 只能改成「不要對外宣稱有」。另外 issue 對症狀二的機制推論被推翻：`IsPlaybackPositionEnabled` 本來就是 `False`，Windows 根本不會畫可拖曳的條 |
 | **#41** | 音訊輸出裝置失效被誤判成「播放失敗」 | **✅ 已修（`056f20c3`），驗證後關閉** | **QW-11** | `OutputDeviceFailed`（`audio_types.dart:107`）就是 issue 要的型別化訊號，`_isStringMediaOpenError` 已全庫零命中。關閉前建議複驗一次「電台路徑不再吞掉錯誤」（`RadioController` 過去完全沒訂閱 `errorStream`） |
 | **#42** | `preferredAudioDevice*` 是死欄位 | **保留，但第二條指控要撤下** | **Phase 3c** | 第一條（功能缺口）證實。第二條（「備份仍照樣匯出匯入」）**推翻**，三層互相獨立的反證：`backup_data.dart` 裡根本沒有這兩個欄位；`backup_service.dart:765-769` 賦值來源是本機值且上一行註解寫著「保留当前值」；被引為證據的測試名字就是 `preserves device-specific ones`。**備份層的處理反而是對的。** 那條指控放在 `RadioStation.note` 上才成立 |
-| **#43** | `audio_controller_phase1_test` 在負載下偶發失敗 | **保留，但改寫成「測試 fixture 生命週期洩漏」** | **Phase 0a + Phase 3** | 根因推測是錯的：CI 實際失敗的那條測試**已經在用** issue 建議的條件式 helper，而它自己也有 `maxPumps = 50` 上限。真正的鏈是 `tearDown` 沒有 drain 進行中的非同步工作就 `isar.close()` → `IsarError: Isar instance has already been closed` → 狀態永遠不收斂。修法方向要改（tearDown 前 await/取消 in-flight persistence，或讓 `QueueRepository` 在 Isar 已關閉時安全 no-op）。**順帶：生產環境的 `queue_manager.dart:402` 有同類風險，值得單開 issue** |
+| **#43** | `audio_controller_phase1_test` 在負載下偶發失敗 | **保留，但改寫成「測試 fixture 生命週期洩漏」** | **Phase 0a + Phase 3** | 根因推測是錯的：CI 實際失敗的那條測試**已經在用** issue 建議的條件式 helper，而它自己也有 `maxPumps = 50` 上限。真正的鏈是 `tearDown` 沒有 drain 進行中的非同步工作就 `isar.close()` → `IsarError: Isar instance has already been closed` → 狀態永遠不收斂。修法方向要改（tearDown 前 await/取消 in-flight persistence，或讓 `QueueRepository` 在 Isar 已關閉時安全 no-op）。**順帶：生產環境的 `queue_manager.dart:402` 有同類風險，值得單開 issue**。**2026-09-08 再更正：這一格與原 issue 的推測都只對一半，而且兩邊都低估了範圍 —— 根因不是某一條測試，是「固定圈數的 `pumpEventQueue`」這個形狀，全庫 194 處。見 §6.15** |
 | **#44** | 遷移 isar 至 isar_community | **保留，補兩段** | **Phase 2** | ① **遷移步驟不完整 —— 照著做會在 `flutter pub get` 就失敗**，缺 slang 3.32→4.19 這個連動的大版本升級（實測輸出見 03 §14.2）② **價值被低估**：`isar_generator` 的 `analyzer >=4.6.0 <6.0.0` 把整個 build 生態釘在 2023 年，而且它是 Riverpod 3 的**硬**阻塞。這讓 #44 從「非緊急的維護性改善」升格為「其他兩件事的前置條件」③ 資料遷移成本**實測**為零（不只是 changelog 背書） |
 
 ### 建議新開的 issue（目前沒有 issue 在追，但都是 P0/P1）
@@ -2486,3 +2486,147 @@ Windows 帳號名。repo 是公開的，已遮成 `<user>`（`a9f32737`）。憑
 **沒有任何一份 AGENTS.md 說過該用哪個**。規則是「改到的行才轉，不做全庫轉換」：
 全庫轉換會產生一個橫跨 199 檔、把任何真實變更都淹掉的 diff，而混用的代價是
 可讀性不是正確性。數字放這裡，規則放 AGENTS.md，不互相重複。
+
+---
+
+### 6.15 執行時的失效重核（2026-09-08，issue #43 / #55：固定圈數的 `pumpEventQueue`）
+
+觸發點是 CI 而不是計畫：2026-09-07 一天內 CI 紅了 7 次，**其中 4 次是同一個檔案
+的同一種毛病**，包含 `main` 上的一次（run `34120654888`，12:12–12:42 main 是紅的）。
+另外兩次是 dependabot PR（go_router 18、package_info_plus 9）—— **那兩次的紅跟
+升級毫無關係**，也是同一條抖動。也就是說這條抖動當時正在讓 CI 結果無法解讀。
+
+#### 根因不是某一條測試，是一個形狀
+
+```dart
+await pumpEventQueue(times: 10);   // 等 10 圈事件迴圈
+expect(toasts, isNotEmpty);        // 立刻斷言
+```
+
+`pumpEventQueue` 的實作（`test_api-0.7.13/lib/src/scaffolding/utils.dart:16`）只是
+遞迴排零延遲的 `Timer`：
+
+```dart
+Future pumpEventQueue({int times = 20}) {
+  if (times == 0) return Future.value();
+  return Future(() => pumpEventQueue(times: times - 1));
+}
+```
+
+**圈數換不到「進度」。** 背景 I/O、Isar 交易與真計時器什麼時候完成跟圈數無關。
+機器滿載時同樣的圈數換到的進度更少（正向斷言掛掉，#43）；反過來，同樣的圈數耗掉
+的牆鐘時間更多，「還沒發生」提早變成「已經發生」（反向斷言掛掉，#55）。
+**兩個方向壞在相反的地方 —— 所以把圈數調大不是修，只是把競態換一邊。**
+
+#### 三條要更正的說法
+
+| # | 之前說 | 實況 |
+|---|---|---|
+| 1 | issue #43 的修法範圍是「同檔案所有 `pumpEventQueue(times: N)` 之後緊接斷言的地方」 | **不夠。** 本輪的基準壓力跑抓到第三條失敗，是 `prepareCurrentTrack prefetch` 那條：它的 pump 之後隔了幾行才斷言，按「緊接斷言」的規則會被判定為安全並留下來 |
+| 2 | 只有 `pumpEventQueue(times: N)` 有問題 | 不帶參數的 `pumpEventQueue()` 就是 `times: 20`，同一個病。全庫另有 **27 處**，其中 19 處下一行就是 `expect(` |
+| 3 | 「條件式等待」就是把固定圈數換成 `while (!condition)` | **輪詢的方式本身是承重的**，見下 |
+
+#### 輪詢方式是承重的，這是量出來的不是選出來的
+
+套件裡既有的區域 helper 自發收斂出兩種形狀，本輪先照抄了「睡 10ms」那一種，
+結果連續踩到兩件事：
+
+- **睡著取樣會整段錯過瞬間狀態，而且睡覺本身會改變被測程式的行為** —— 真計時器
+  因此提早到期。`audio_controller_phase1_test` 的 `superseded source error` 那條
+  在 10ms 輪詢下**永遠**等不到它要的狀態，而 5 圈 `pumpEventQueue` 等得到。
+- **改成一圈一檢查（`pumpEventQueue(times: 1)`）又太細**：等待在更早的時點返回，
+  呼叫端的下一步就落在不同的交錯上，同一條測試直接卡死（`resolves` 停在 2，
+  狀態永遠不換手）。
+
+最後的形狀是：前 50 輪用完整的 `pumpEventQueue()`（20 圈，**不耗牆鐘時間**），
+之後改成睡 10ms。20 圈這個粒度不是挑的，是套件裡既有 helper 一直在用的。
+
+#### 還有一個陷阱：條件在進入時就成立 = 一圈都沒推
+
+`pumpUntil` 一進來就檢查條件，成立就返回。**如果條件在進入時已經成立，它會立刻
+返回、一圈都沒推 —— 比它取代掉的固定圈數推進得更少。** 本輪有兩條測試因此變紅：
+
+- `temporary restore replaces the queue copy`：條件寫成 `queueTrack.sourceId ==
+  'restore-b'`，但那個 sourceId 從頭到尾都是 `restore-b`；真正會變的是佇列換上的
+  **新實例**，所以條件要寫 `!identical(queueTrack, queueTrackBeforeTemporary)`。
+- `superseded source error`：條件漏掉了最後才收斂的那一項。
+
+規則因此寫進 `pumpUntil` 的文檔註釋：**條件必須是「進入時還不成立」的東西。**
+
+#### 做了什麼
+
+| 項目 | 數字 |
+|---|---|
+| `pumpEventQueue` 呼叫點移除 | **194**（167 個 `times: N` + 27 個不帶參數） |
+| 換成 `pumpUntil`（條件式等待） | 182 處 |
+| 換成 `drainEventQueue`（斷言缺席） | 58 處 |
+| 收斂掉的區域 wait helper | 10 份 |
+| 收斂掉的 `_CountWaiter` | 3 份 → `test/support/fakes/count_waiters.dart` |
+| 動到的檔案 | 33 |
+
+`drainEventQueue` 是刻意留的出口，不是妥協：「某件事不該發生」的斷言等不到任何
+條件（條件在第 0 圈就成立）。首選是先用 `pumpUntil` 等一個**排在它之後**的里程碑
+再斷言缺席；找不到里程碑時才用它，而 `reason` 讓 `rg drainEventQueue` 一次列出
+全部「我們知道自己在斷言缺席」的地方 —— 註解做不到這件事。
+
+順帶修掉一個既有缺陷：`mix_session_coordinator_test` 的區域 `_waitFor` **逾時後
+靜靜返回**，不 `fail`。逾時會偽裝成後面那條斷言的失敗。
+
+#### #55：把一條會競態的測試拆成兩條不會競態的
+
+`playback_handoff_gate_test` 用固定 10 圈去斷言「seek 還沒送出」，對上 40ms 的真
+計時器。**沒有用 `fakeAsync`** —— `PlaybackHandoffGate` 同時用
+`Future.delayed`（`:209`）與 `DateTime.now()`（`:272`），`fakeAsync` 管不到後者，
+要先把生產程式碼改成 `clock.now()`；為一條測試改生產程式碼的時鐘來源不成比例。
+改成：一條用 30 秒的視窗（長到任何 pump 預算都追不上）驗「視窗內延後」，另一條用
+短視窗加 `pumpUntil` 驗「視窗過後送出」。原本一條測試同時守這兩件事，正是它會
+抖的原因。
+
+> **第二條的第一版是錯的，而且是壓力跑抓到的。** 短視窗一開始寫成 1ms ——
+> 那是同一種競態換了個方向：視窗可能在下一行的 `deferSeek` 被呼叫**之前**就關掉，
+> `deferSeek` 回 `null`，`!` 直接炸。改動後的 20 次壓力跑抓到 1 次。改成 500ms：
+> 這個數字不是「夠快」而是「夠慢」，需要的只是「視窗在下一行還開著」，500ms 對
+> 相鄰兩行語句是四個數量級的餘裕。**這件事本身就是這一輪的論點** —— 任何拿牆鐘
+> 時間當同步點的斷言都要問「餘裕有幾個數量級」，而不是「這樣應該夠吧」。
+
+#### 守門
+
+`test/support/wait_convention_static_rule_test.dart` 照
+`isar_boundary_static_rule_test.dart` 的既有形狀：掃 `test/` 全部 `.dart`、
+`expect(scanned, greaterThan(200))` 防掃空、外加「餵它合成違規要抓得到」與
+「註解裡提到 API 不算違規」兩條自我測試。
+
+規則是**完全禁止**呼叫 `pumpEventQueue`，不是只禁「pump 之後緊接斷言」——
+上面第 1 條更正就是理由：本輪第三條抖動的斷言隔了幾行，窄規則抓不到。
+豁免只有三個檔案：`pump_until.dart`（包裝它的那一層）、它自己的測試（需要原始的
+固定圈數當對照），以及守門測試自己（合成樣本存在字串常量裡）。
+
+#### 驗收
+
+| 項目 | 結果 |
+|---|---|
+| 完整套件 | **1505 passed**（基準 1495；+5 `pump_until_test`、+4 守門測試、+1 #55 拆出來的那條） |
+| `flutter analyze` | 乾淨 |
+| `dart format lib test` | 577 檔 0 diff |
+| 壓力跑（改動前） | **20 次 2 紅** —— 兩次都是 `prepareCurrentTrack prefetch` 那條 |
+| 壓力跑（改動後） | **25 次 0 紅** |
+
+壓力跑的方法：把 shell 的 `ProcessorAffinity` 限成 4 核（GitHub public repo runner
+的規格），子行程繼承，跑
+`audio_controller_phase1_test.dart` + `playback_handoff_gate_test.dart`。
+兩組都跑在 `git worktree` 的獨立副本上，同一台機器、同樣負載。
+
+三件據實記錄的事：
+
+1. **改動後的第一輪 20 次有 1 紅，而且是本輪自己種下的** —— 上面 #55 那則引文說的
+   1ms 視窗。修掉之後補跑，19 + 6 = **25 次 0 紅**。
+2. 那 20 次裡另有 1 次在 **1 秒內**失敗、完全沒有測試輸出 —— 行程根本沒起來（當時
+   主工作樹正在跑完整套件，推測是共用快取的競用）。那不是測試失敗，沒有計入
+   25 次，也沒有計成紅。
+3. 兩組的跑次都不是實驗室等級的控制：跑的期間這台機器上還有別的工作。這個方向
+   對「改動後」是不利的，不是有利的。
+
+> **這證明不了「已經沒有抖動」。** 既有基準是 24 次 1 紅，要證到 0 需要 70 次以上。
+> 這裡證的是：已知的機制被移除了，而且改動前的失敗在改動後不再出現。
+
+**不需要實機驗證** —— 純測試改動，沒有任何 user-visible 行為變更。

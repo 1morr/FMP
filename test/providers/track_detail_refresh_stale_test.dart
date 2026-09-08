@@ -13,6 +13,8 @@ import 'package:fmp/providers/library/track_detail_provider.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:path/path.dart' as p;
 
+import '../support/pump_until.dart';
+
 void main() {
   test(
     'loadDetail treats same-source multi-page tracks as different tracks',
@@ -35,12 +37,18 @@ void main() {
         ..pageNum = 2;
 
       final firstLoad = notifier.loadDetail(pageOne);
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => bilibili.requests.length == 1,
+        reason: 'the first load should reach the source',
+      );
       bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page One'));
       await firstLoad;
 
       final secondLoad = notifier.loadDetail(pageTwo);
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => bilibili.requests.length == 2,
+        reason: 'a different page of the same id should re-request',
+      );
 
       expect(bilibili.requests, ['BV-SAME', 'BV-SAME']);
 
@@ -64,16 +72,25 @@ void main() {
     final trackB = _track('YT-B', SourceIds.youtube);
 
     final initialLoadFuture = notifier.loadDetail(trackA);
-    await pumpEventQueue(times: 2);
+    await pumpUntil(
+      () => bilibili.requests.length == 1,
+      reason: 'the initial load should reach the source',
+    );
     bilibili.complete('BV-A', _detail('BV-A', 'Track A initial'));
     await initialLoadFuture;
 
     final refreshFuture = notifier.refresh();
-    await pumpEventQueue(times: 2);
+    await pumpUntil(
+      () => bilibili.requests.length == 2,
+      reason: 'refresh should re-request the same track',
+    );
     expect(bilibili.requests, ['BV-A', 'BV-A']);
 
     final loadTrackBFuture = notifier.loadDetail(trackB);
-    await pumpEventQueue(times: 2);
+    await pumpUntil(
+      () => youtube.requests.length == 1,
+      reason: 'switching tracks should reach the other source',
+    );
     youtube.complete('YT-B', _detail('YT-B', 'Track B'));
     await loadTrackBFuture;
 
@@ -99,7 +116,10 @@ void main() {
 
       final trackA = _track('BV-A', SourceIds.bilibili);
       final initialLoadFuture = notifier.loadDetail(trackA);
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => bilibili.requests.length == 1,
+        reason: 'the initial load should reach the source',
+      );
       bilibili.complete('BV-A', _detail('BV-A', 'Track A'));
       await initialLoadFuture;
 
@@ -107,7 +127,10 @@ void main() {
 
       final trackB = _track('YT-B', SourceIds.youtube);
       final loadTrackBFuture = notifier.loadDetail(trackB);
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => youtube.requests.length == 1,
+        reason: 'switching tracks should reach the other source',
+      );
 
       expect(notifier.state.isLoading, isTrue);
       expect(notifier.state.detail, isNull);
@@ -135,7 +158,10 @@ void main() {
 
     final track = _track('YT-B', SourceIds.youtube);
     final loadFuture = notifier.loadDetail(track);
-    await pumpEventQueue(times: 2);
+    await pumpUntil(
+      () => youtube.requests.length == 1,
+      reason: 'the load should reach the source',
+    );
 
     youtube.completeError('YT-B', Exception('blocked'));
     await loadFuture;
@@ -145,7 +171,10 @@ void main() {
     expect(notifier.state.error, isNot(contains('blocked')));
 
     final refreshFuture = notifier.refresh();
-    await pumpEventQueue(times: 2);
+    await pumpUntil(
+      () => youtube.requests.length == 2,
+      reason: 'refresh after an error should re-request',
+    );
 
     expect(youtube.requests, ['YT-B', 'YT-B']);
 
@@ -219,7 +248,10 @@ void main() {
       final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
       final loadFuture = notifier.loadDetail(track);
-      await pumpEventQueue(times: 2);
+      await pumpUntil(
+        () => bilibili.requests.length == 1,
+        reason: 'the load should reach the source',
+      );
       bilibili.completeError(
         'BV-STATE',
         StateError('simulated detail failure'),
@@ -245,7 +277,10 @@ void main() {
     final loadFuture = notifier.loadDetail(
       _track('YT-auth', SourceIds.youtube),
     );
-    await pumpEventQueue(times: 2);
+    await pumpUntil(
+      () => youtube.requests.length == 1,
+      reason: 'the load should reach the source',
+    );
     youtube.complete('YT-auth', _detail('YT-auth', 'Auth detail'));
     await loadFuture;
 

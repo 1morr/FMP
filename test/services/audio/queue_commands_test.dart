@@ -15,6 +15,7 @@ import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../support/isar_test_harness.dart';
+import '../../support/pump_until.dart';
 
 /// `QueueCommands` 是 Phase 4 步驟 E 從 `AudioController` 抽出來的第一個協作者。
 ///
@@ -80,7 +81,10 @@ void main() {
         addNext.status,
       ], everyElement(QueueMutationStatus.blocked));
       expect(queueManager.tracks, isEmpty);
-      await pumpEventQueue();
+      await pumpUntil(
+        () => toasts.length == 3,
+        reason: 'each blocked mutation should raise its own toast',
+      );
       expect(toasts, hasLength(3));
       expect(toasts.map((t) => t.type), everyElement(ToastType.info));
     });
@@ -89,7 +93,7 @@ void main() {
       final result = await commands.shuffle(isMixMode: true);
 
       expect(result.status, QueueMutationStatus.blocked);
-      await pumpEventQueue();
+      await drainEventQueue(reason: 'a blocked shuffle must stay silent');
       // UI 已經禁用了按鈕，這只是額外保護 —— 再彈一次提示是噪音。
       expect(toasts, isEmpty);
     });

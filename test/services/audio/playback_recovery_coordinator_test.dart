@@ -7,6 +7,8 @@ import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/playback_recovery_coordinator.dart';
 import 'package:fmp/services/audio/playback_request_session.dart';
 
+import '../../support/pump_until.dart';
+
 void main() {
   group('PlaybackRecoveryCoordinator', () {
     late _FakeRetryExecutor executor;
@@ -64,7 +66,10 @@ void main() {
         );
 
         timerFactory.timers.last.fire();
-        await pumpEventQueue();
+        await pumpUntil(
+          () => executor.calls.isNotEmpty,
+          reason: 'the fired retry timer should reach the executor',
+        );
 
         expect(executor.calls.single.mode, PlayMode.mix);
       },
@@ -164,7 +169,10 @@ void main() {
         fallbackPosition: Duration.zero,
         mode: PlayMode.queue,
       );
-      await pumpEventQueue();
+      await pumpUntil(
+        () => events.isNotEmpty,
+        reason: 'a manual retry should emit a retry-started event',
+      );
 
       expect(events, hasLength(1));
       expect(events.single.kind, PlaybackRecoveryEventKind.retryStarted);
@@ -305,8 +313,14 @@ void main() {
 
         for (var i = 0; i < NetworkRetryConfig.maxRetries; i++) {
           timerFactory.timers.last.fire();
-          await pumpEventQueue();
+          await drainEventQueue(reason: 'let each scheduled retry run');
         }
+        await pumpUntil(
+          () =>
+              events.isNotEmpty &&
+              events.last.kind == PlaybackRecoveryEventKind.retryExhausted,
+          reason: 'the retry ladder should reach exhaustion',
+        );
         expect(events.last.kind, PlaybackRecoveryEventKind.retryExhausted);
 
         final event = coordinator.onBackendNetworkError(
@@ -485,7 +499,9 @@ void main() {
       );
       coordinator.reset();
       timerFactory.timers.single.fire();
-      await pumpEventQueue();
+      await drainEventQueue(
+        reason: 'a timer fired after reset must produce nothing',
+      );
 
       expect(events, isEmpty);
       expect(executor.calls, isEmpty);

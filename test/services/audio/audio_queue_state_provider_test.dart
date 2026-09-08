@@ -30,6 +30,7 @@ import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/now_playing.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -137,7 +138,10 @@ void main() {
               tracks: [_track('mix-a'), _track('mix-b')],
               startIndex: 1,
             );
-        await pumpEventQueue(times: 5);
+        await pumpUntil(
+          () => harness.container.read(queueStateProvider).isMixMode,
+          reason: 'the mix session should reach the queue state provider',
+        );
 
         expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
         expect(harness.container.read(queueStateProvider).mixTitle, 'My Mix');
@@ -147,8 +151,9 @@ void main() {
         );
 
         loadMoreGate.complete();
-        await _waitUntil(
+        await pumpUntil(
           () => !harness.container.read(queueStateProvider).isLoadingMoreMix,
+          reason: 'the mix load-more should finish once its gate opens',
         );
 
         expect(harness.container.read(queueStateProvider).isMixMode, isTrue);
@@ -166,19 +171,6 @@ Track _track(String sourceId) => Track()
   ..sourceId = sourceId
   ..sourceType = SourceIds.youtube
   ..title = sourceId;
-
-Future<void> _waitUntil(
-  bool Function() condition, {
-  Duration timeout = const Duration(seconds: 5),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (!condition()) {
-    if (DateTime.now().isAfter(deadline)) {
-      throw TimeoutException('Timed out waiting for condition');
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-}
 
 class _AudioControllerHarness {
   _AudioControllerHarness({

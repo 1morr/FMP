@@ -7,6 +7,8 @@ import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/sources/bilibili_live_client.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 
+import '../../support/pump_until.dart';
+
 void main() {
   group('parseLiveUrl', () {
     test('accepts standard and h5 Bilibili live URLs', () {
@@ -791,7 +793,10 @@ void main() {
 
       final search = client.searchRooms('music');
       await liveRoomRequestStarted.future;
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => biliUserRequestStarted.isCompleted,
+        reason: 'the two lookups should be issued in parallel',
+      );
 
       expect(biliUserRequestStarted.isCompleted, isTrue);
 
@@ -1186,7 +1191,10 @@ void main() {
         cookie: 'SESSDATA=abc',
       );
       await firstRoomLookupStarted.future;
-      await pumpEventQueue(times: 5);
+      await pumpUntil(
+        () => secondRoomLookupStarted.isCompleted,
+        reason: 'the two room lookups should be issued in parallel',
+      );
 
       expect(secondRoomLookupStarted.isCompleted, isTrue);
 

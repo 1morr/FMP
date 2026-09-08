@@ -15,6 +15,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
 import '../../support/isar_test_harness.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -130,7 +131,7 @@ void main() {
           'https://live.bilibili.com/202',
         ], onProgress: (completed, total) => progress.add('$completed/$total'));
 
-        await harness.pumpUntil(
+        await pumpUntil(
           () => harness.controller.state.stations.length == 2,
           reason: 'watch-driven radio state should reflect the saved import',
         );
@@ -163,19 +164,6 @@ class RadioControllerImportHarness {
   final Isar isar;
   final Directory tempDir;
   final ProviderContainer container;
-
-  Future<void> pumpUntil(
-    bool Function() condition, {
-    required String reason,
-    Duration timeout = const Duration(seconds: 2),
-  }) async {
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      if (condition()) return;
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    if (!condition()) fail(reason);
-  }
 
   Future<void> dispose() async {
     container.dispose();
@@ -230,7 +218,7 @@ Future<RadioControllerImportHarness> createHarness({
   );
   await Future<void>.delayed(const Duration(milliseconds: 50));
   if (waitForInitialLoad) {
-    await harness.pumpUntil(
+    await pumpUntil(
       () => controller.state.stations.length == initialStations.length,
       reason: 'controller should load initial radio state',
     );
