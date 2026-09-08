@@ -73,6 +73,24 @@ mode, dropping the still-playing track into detached mode); those stay in
 deliberately left behind too — it starts playback, so it belongs with the
 transport commands, not with the queue mutations.
 
+## Initialization
+
+`build()` kicks initialization off with `Future.microtask(initialize)` and
+returns immediately, so **there is always a window where the controller exists
+but its stream subscriptions do not**. `initialize()` therefore shares one
+in-flight future: every caller — `_ensureInitialized()` before each operation, a
+re-run `build()`, a test's `setUp` — awaits the same completion.
+
+It used to be a `_isInitializing` boolean that returned early while the work was
+still in flight, which handed callers a already-completed future and let them
+proceed against a half-wired controller. The failure is silent and permanent
+rather than slow: `FmpAudioService`'s streams are **broadcast**, so an event
+emitted before `subscribe` is dropped and never replayed. That is what made
+`audio_controller_phase1_test` wait out its full `pumpUntil` budget on loaded CI
+machines (issue #43) while passing locally.
+
+A failed initialization clears the shared future so the next caller retries.
+
 ## Playback Side Effects
 
 Three things happen because a track started, not as part of starting it. All

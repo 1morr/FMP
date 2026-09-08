@@ -1117,6 +1117,66 @@ void main() {
       expect(audioService.pauseCallCount, greaterThan(0));
     });
 
+    // `initialize()` 的舊守衛是 `if (_isInitializing) return;` —— 初始化還在飛
+    // 的時候直接返回，呼叫端當作已經好了。`build()` 用
+    // `Future.microtask(initialize)` 起動，所以這個窗一直存在，而窗裡發射的
+    // endReasons 會被 broadcast 串流直接丟掉、不補送 —— 這就是 issue #43 在 CI
+    // 上「等 toast 等滿 5 秒」的來源。
+    test(
+      'a concurrent initialize waits for the in-flight one to wire up',
+      () async {
+        final settingsRepository = SettingsRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final audioStreamManager = _createAudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: sourceManager,
+        );
+        queueManager = QueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        audioService = FakeAudioService();
+        final localToastService = ToastService();
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: audioStreamManager,
+          toastService: localToastService,
+          nowPlayingPublisher: testNowPlayingPublisher(),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+        );
+
+        final toasts = <ToastMessage>[];
+        final subscription = localToastService.messageStream.listen(toasts.add);
+        addTearDown(subscription.cancel);
+
+        // 讓 `build()` 排的 microtask 先起跑，重現「初始化已經在飛」的狀態。
+        // 少了這一行，下面就會是第一個呼叫者，測不到要測的東西。
+        await Future<void>.microtask(() {});
+        await controller.initialize();
+
+        // 這一行是整條斷言的重點：`initialize()` 返回之後，訂閱必須已經接上。
+        audioService.emitOutputDeviceFailure(
+          'Could not open/initialize audio device -> no sound.',
+        );
+        await pumpUntil(
+          () => toasts.isNotEmpty,
+          reason: 'the end reason emitted right after initialize must be heard',
+        );
+
+        expect(toasts, isNotEmpty);
+        expect(toasts.last.type, ToastType.error);
+      },
+    );
+
     // issue #41 症狀二：電台播放中 `_onPlaybackEnded` 整段早退，而
     // RadioController 從來沒有訂閱 endReasons —— 拔掉音效裝置完全沒有回饋。
     test('output device failure still reaches the user during radio', () async {

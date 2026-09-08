@@ -638,12 +638,44 @@ class _RailSettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // 圖示與文字自己畫：`labelType` 只作用在 `destinations` 上，碰不到
+    // `trailing`，所以放在這裡的東西不會自動長出標籤。尺寸、顏色與間距抄自
+    // Flutter 的 `_NavigationRailDefaultsM3`（圖示 24dp / onSurfaceVariant，
+    // 圖示與標籤相隔 4dp，標籤 labelMedium / onSurface），否則設定會是這一欄裡
+    // 唯一沒有文字、而且大小對不上的那一個。
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: IconButton(
-        icon: Icon(settingsDestination.icon),
-        onPressed: onPressed,
-        tooltip: settingsDestination.label,
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                settingsDestination.icon,
+                size: 24,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                settingsDestination.label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

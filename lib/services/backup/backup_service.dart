@@ -55,12 +55,12 @@ class BackupService with Logging {
 
     if (Platform.isAndroid) {
       // Android: 使用 file_picker 选择目录
-      final directory = await FilePicker.platform.getDirectoryPath();
+      final directory = await FilePicker.getDirectoryPath();
       if (directory == null) return null;
       outputPath = p.join(directory, fileName);
     } else {
       // Windows/Desktop: 使用保存对话框
-      outputPath = await FilePicker.platform.saveFile(
+      outputPath = await FilePicker.saveFile(
         dialogTitle: '导出数据',
         fileName: fileName,
         type: FileType.custom,
@@ -334,7 +334,7 @@ class BackupService with Logging {
   ///
   /// 返回解析后的备份数据，如果用户取消或文件无效则返回 null
   Future<BackupData?> pickAndParseBackupFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
       allowMultiple: false,
