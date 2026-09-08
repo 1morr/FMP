@@ -16,7 +16,7 @@ import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 // `Notifier` 可以拿到 `ref`，所以接線從 provider 工廠搬進了 build()。
 // 控制器本身仍然不宣告任何 provider —— 見 lib/providers/AGENTS.md。
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';

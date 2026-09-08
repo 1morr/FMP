@@ -11,7 +11,7 @@ import 'package:fmp/core/errors/user_message.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/settings/developer_options_provider.dart';
 import 'package:fmp/core/services/network_image_cache_service.dart';
@@ -22,7 +22,7 @@ import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
 import 'package:fmp/ui/pages/debug/youtube_stream_test_page.dart';
 import 'package:fmp/data/repositories/repositories.dart';
-import 'package:fmp/providers/database/database_migration.dart';
+import 'package:fmp/data/database/database_migration.dart';
 
 /// 开发者选项页面
 class DeveloperOptionsPage extends ConsumerWidget {

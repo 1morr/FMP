@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/constants/app_layout.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// 桌面版面狀態（側欄展開、詳情面板展開與寬度）。
 ///

@@ -6,7 +6,7 @@ import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
 import 'package:isar_community/isar.dart';

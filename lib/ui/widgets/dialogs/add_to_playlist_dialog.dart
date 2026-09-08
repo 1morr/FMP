@@ -10,7 +10,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
 import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
 import 'package:fmp/ui/widgets/layout/sheet_drag_handle.dart';

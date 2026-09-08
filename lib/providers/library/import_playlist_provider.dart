@@ -8,8 +8,8 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 import 'package:fmp/providers/account/source_auth_context_provider.dart';
-import 'package:fmp/providers/database/database_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 typedef ImportServiceFactory = FutureOr<ImportServiceFacade> Function();
 

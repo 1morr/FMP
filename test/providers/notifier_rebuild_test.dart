@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:fmp/providers/library/playlist_import_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';

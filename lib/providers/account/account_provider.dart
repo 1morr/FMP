@@ -14,8 +14,8 @@ import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/netease_playlist_service.dart';
 import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:fmp/services/account/youtube_playlist_service.dart';
-import 'package:fmp/providers/database/database_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 
 /// Bilibili 帳號服務 Provider（單例）

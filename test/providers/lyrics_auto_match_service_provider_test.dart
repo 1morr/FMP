@@ -9,7 +9,7 @@ import 'package:fmp/data/repositories/lyrics_title_parse_cache_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 import 'package:fmp/services/lyrics/lyrics_cache_service.dart';

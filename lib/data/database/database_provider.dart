@@ -8,8 +8,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:fmp/core/constants/app_constants.dart';
 
-import 'package:fmp/providers/database/database_catalog.dart';
-import 'package:fmp/providers/database/database_migration.dart';
+import 'package:fmp/data/database/database_catalog.dart';
+import 'package:fmp/data/database/database_migration.dart';
 
 const String fmpDatabaseName = 'fmp_database';
 const String fmpDatabaseDirectoryName = AppConstants.appName;

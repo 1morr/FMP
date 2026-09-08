@@ -19,7 +19,7 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/download/download_path_utils.dart';

@@ -6,8 +6,8 @@ import 'package:isar_community/isar.dart';
 import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/core/errors/user_message.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/providers/database/database_catalog.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_catalog.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/ui/widgets/feedback/error_display.dart';
 
 /// 数据库查看页面

@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// Locale 管理器
 class LocaleNotifier extends Notifier<AppLocale?> {

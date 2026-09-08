@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/main.dart'
     show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/audio/playback_settings_provider.dart';
 import 'package:fmp/providers/download/startup_download_sync_provider.dart';

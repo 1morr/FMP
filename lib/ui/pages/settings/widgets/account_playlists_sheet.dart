@@ -11,7 +11,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/library/import_playlist_provider.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
 import 'package:fmp/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart';

@@ -16,10 +16,10 @@ export 'package:fmp/services/library/playlist_service.dart'
     show PlaylistUpdateResult;
 import 'package:fmp/i18n/strings.g.dart';
 
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// PlaylistService Provider
 final playlistServiceProvider = Provider<PlaylistService>((ref) {

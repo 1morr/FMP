@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/services/lyrics/lyrics_window_style.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 class LyricsWindowStyleNotifier extends Notifier<LyricsWindowStyle> {
   late SettingsRepository _settingsRepository;

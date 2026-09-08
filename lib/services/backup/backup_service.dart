@@ -15,7 +15,7 @@ import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/search_history.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/providers/database/database_migration.dart';
+import 'package:fmp/data/database/database_migration.dart';
 import 'package:fmp/data/repositories/backup_repository.dart';
 import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 import 'package:fmp/services/backup/backup_data.dart';

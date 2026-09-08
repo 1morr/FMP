@@ -6,7 +6,7 @@ import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/providers/library/play_history_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 import '../support/fakes/fake_isar.dart';
 

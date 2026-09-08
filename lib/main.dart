@@ -15,7 +15,7 @@ import 'package:fmp/core/log_file_sink.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/core/third_party_licenses.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';

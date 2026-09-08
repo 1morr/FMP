@@ -12,8 +12,8 @@ import 'package:fmp/services/download/download_service.dart';
 import 'package:fmp/services/download/download_path_utils.dart';
 import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/providers/audio/stream_resolution_provider.dart';
-import 'package:fmp/providers/database/database_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/providers/download/download_event_handler.dart';
 import 'package:fmp/providers/download/download_scanner.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
@@ -25,7 +25,7 @@ import 'package:fmp/i18n/strings.g.dart';
 export 'download_scanner.dart';
 export 'package:fmp/services/download/download_service.dart'
     show DownloadResult;
-export 'package:fmp/providers/database/repository_providers.dart'
+export 'package:fmp/data/database/repository_providers.dart'
     show trackRepositoryProvider;
 
 // ==================== Repository Providers ====================

@@ -7,7 +7,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/settings/refresh_settings_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/ui/pages/settings/home_ranking_settings_page.dart';
 import 'package:fmp/ui/pages/settings/settings_page.dart';
 import 'package:fmp/ui/router.dart';

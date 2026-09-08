@@ -13,7 +13,7 @@ import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
 import 'package:fmp/services/audio/playback_capabilities.dart';
 import 'package:fmp/providers/account/account_provider.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';

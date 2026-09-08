@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/repositories/repositories.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 
 /// Track Repository Provider
 final trackRepositoryProvider = Provider<TrackRepository>((ref) {

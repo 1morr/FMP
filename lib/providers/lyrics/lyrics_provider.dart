@@ -19,7 +19,7 @@ import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
 import 'package:fmp/services/lyrics/title_parser.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Singleton providers

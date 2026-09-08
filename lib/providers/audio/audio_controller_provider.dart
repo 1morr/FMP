@@ -16,7 +16,7 @@ import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
-import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/audio/stream_resolution_provider.dart';
 

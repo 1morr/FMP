@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// 共享播放历史快照 Provider
 final playHistorySnapshotProvider =

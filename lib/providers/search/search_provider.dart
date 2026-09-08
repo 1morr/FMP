@@ -14,7 +14,7 @@ import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart'
     show sourceManagerProvider;
 import 'package:fmp/services/search/search_service.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 
 /// SearchService Provider
 final searchServiceProvider = Provider<SearchService>((ref) {

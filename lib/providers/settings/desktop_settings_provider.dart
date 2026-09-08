@@ -7,7 +7,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/services/platform/windows_desktop_service.dart';
-import 'package:fmp/providers/database/repository_providers.dart';
+import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/providers/system/windows_desktop_provider.dart';
 
 /// 最小化到托盘设置 Provider

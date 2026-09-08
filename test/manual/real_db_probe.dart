@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/models.dart';
-import 'package:fmp/providers/database/database_catalog.dart';
-import 'package:fmp/providers/database/database_migration.dart';
+import 'package:fmp/data/database/database_catalog.dart';
+import 'package:fmp/data/database/database_migration.dart';
 import 'package:isar_community/isar.dart';
 
 import '../support/isar_test_harness.dart';
