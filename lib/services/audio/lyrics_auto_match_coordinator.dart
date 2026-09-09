@@ -14,7 +14,7 @@ import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 /// `audio_controller_phase1_test.dart` 的 `stale lyrics auto-match cannot clear
 /// newer loading state` 就是在守這件事。
 ///
-/// [service] / [settingsRepository] 為 null 是正常情況（資料庫還沒初始化），這時
+/// `service` / `settingsRepository` 為 null 是正常情況（資料庫還沒初始化），這時
 /// 整個自動比對靜默略過。
 class LyricsAutoMatchCoordinator with Logging {
   LyricsAutoMatchCoordinator({

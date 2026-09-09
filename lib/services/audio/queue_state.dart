@@ -5,7 +5,7 @@ import 'package:fmp/data/models/track.dart';
 
 /// 佇列面向 UI 的投影，唯一一份。
 ///
-/// 由 [AudioController] 在每次佇列變動後重算並經 `onQueueStateChanged` 推出來。
+/// 由 `AudioController` 在每次佇列變動後重算並經 `onQueueStateChanged` 推出來。
 /// 佇列的形狀只住在這裡；`PlayerState` 描述的是「正在播的那一首」，兩者沒有
 /// 重疊的欄位。分開的理由是位置每秒更新一次而佇列很少變，合併會讓每次位置
 /// 更新都重建整個佇列清單。
@@ -81,7 +81,7 @@ final queueStateProvider = NotifierProvider<QueueStateNotifier, QueueState>(
 
 /// [QueueState] 的持有者。
 ///
-/// 投影整份由 [AudioController] 在每次佇列變動後算好推進來，所以這裡只有一個
+/// 投影整份由 `AudioController` 在每次佇列變動後算好推進來，所以這裡只有一個
 /// 寫入口、沒有自己的規則。分成一個具名方法而不是讓外面直接寫 `state`，是因為
 /// Riverpod 3 的 `Notifier.state` 是 `@protected`。
 class QueueStateNotifier extends Notifier<QueueState> {

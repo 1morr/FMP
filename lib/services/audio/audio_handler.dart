@@ -11,7 +11,7 @@ import 'package:fmp/services/audio/playback_capabilities.dart';
 /// 自定义 AudioHandler，用于 Android 媒体通知控制
 ///
 /// 按钮与 `systemActions` 一律由 [PlaybackCapabilities] 决定，绑定则由
-/// [NowPlayingPublisher] 一并设置。过去这里是写死的 `const`，导致电台播放时
+/// `NowPlayingPublisher` 一并设置。过去这里是写死的 `const`，导致电台播放时
 /// 通知栏照样画出上／下一首（issue #40 症状一）。
 class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
   // 回调函数，由 NowPlayingPublisher 设置

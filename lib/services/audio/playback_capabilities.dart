@@ -9,7 +9,7 @@
 /// （`audio_handler.dart` 的 `_getControls`、`windows_smtc_handler.dart` 的
 /// `SMTCConfig`），而電台只能把回呼設成 null。系統照樣畫出上／下一首按鈕，
 /// 按下去打進 null，靜默無事發生 —— 那就是 issue #40 的症狀一。現在能力一律
-/// 由 [NowPlayingPublisher] 從實際綁定的命令推導，宣告與實作不可能再分家。
+/// 由 `NowPlayingPublisher` 從實際綁定的命令推導，宣告與實作不可能再分家。
 class PlaybackCapabilities {
   const PlaybackCapabilities({
     required this.canSkipNext,

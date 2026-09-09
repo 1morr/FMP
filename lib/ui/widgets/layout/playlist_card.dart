@@ -8,7 +8,7 @@ import 'package:fmp/i18n/strings.g.dart';
 ///
 /// 統一首頁與音樂庫的三種歌單卡片外觀：Card 表面 + 封面 + 信息區
 /// （名稱 + Mix/導入/曲目數徽章列）。封面由呼叫端以
-/// [PlaylistCoverImage] 搭配語意 variant 建構後傳入，本元件不直接載圖。
+/// `PlaylistCoverImage` 搭配語意 variant 建構後傳入，本元件不直接載圖。
 ///
 /// - [isRefreshing] 為 true 時在封面上疊加刷新進度遮罩（音樂庫刷新中）。
 /// - [dragHandle] 不為 null 時疊加在卡片右上角（排序模式），通常搭配
