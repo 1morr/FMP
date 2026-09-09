@@ -211,11 +211,7 @@ class _Harness {
     PlayHistory? second,
     PlayHistory? third,
   ]) async {
-    final records = [
-      first,
-      if (second != null) second,
-      if (third != null) third,
-    ];
+    final records = [first, ?second, ?third];
     await seedMany(records);
   }
 

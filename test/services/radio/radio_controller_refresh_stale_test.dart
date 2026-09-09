@@ -10,10 +10,8 @@ import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/radio/radio_controller.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/radio/radio_source.dart';
-import 'package:isar_community/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
-import '../../support/fakes/fake_isar.dart';
 import '../../support/pump_until.dart';
 
 void main() {

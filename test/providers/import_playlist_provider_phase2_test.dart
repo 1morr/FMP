@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/library/import_playlist_provider.dart';
@@ -11,7 +10,7 @@ import 'package:fmp/providers/library/playlist_import_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/import/playlist_import_service.dart'
     as legacy_import;
-import 'package:riverpod/riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../support/pump_until.dart';
 
@@ -98,13 +97,10 @@ void main() {
         final service = _FakePlaylistImportService();
         final notifier = _legacyNotifier(service);
         notifier.setSeedState(
-          PlaylistImportState(
+          const PlaylistImportState(
             matchedTracks: [
               MatchedTrack(
-                original: const ImportedTrack(
-                  title: 'Original',
-                  artists: ['Artist'],
-                ),
+                original: ImportedTrack(title: 'Original', artists: ['Artist']),
                 status: MatchStatus.noResult,
               ),
             ],
@@ -151,7 +147,7 @@ void main() {
 
         final subscription = container.listen<ImportPlaylistState>(
           importPlaylistProvider('phase2-test'),
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
 
@@ -227,7 +223,7 @@ void main() {
 
         final subscription = container.listen<ImportPlaylistState>(
           importPlaylistProvider('async-cancel'),
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(subscription.close);
@@ -280,7 +276,7 @@ void main() {
 
         final subscription = container.listen<ImportPlaylistState>(
           importPlaylistProvider('reset-stale'),
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(subscription.close);
@@ -323,7 +319,7 @@ void main() {
 
         final subscription = container.listen<ImportPlaylistState>(
           importPlaylistProvider('overlap-stale'),
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(subscription.close);

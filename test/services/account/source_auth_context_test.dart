@@ -278,8 +278,8 @@ void main() {
 Track _track(String sourceType) {
   return Track()
     ..sourceType = sourceType
-    ..sourceId = '${sourceType}-id'
-    ..title = '${sourceType} title';
+    ..sourceId = '$sourceType-id'
+    ..title = '$sourceType title';
 }
 
 class _RecordingAccountAuthLoader implements SourceAccountAuthLoader {

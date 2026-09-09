@@ -111,12 +111,12 @@ void main() {
 
         final recentSubscription = container.listen(
           recentPlayHistoryProvider,
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         final statsSubscription = container.listen(
           playHistoryStatsProvider,
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(recentSubscription.close);

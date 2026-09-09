@@ -232,22 +232,22 @@ void main() {
       const shortDescription = 'This is a short description.';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.info_outline_rounded, size: 18),
                       SizedBox(width: 8),
                       Text('简介'),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(shortDescription),
+                  SizedBox(height: 12),
+                  Text(shortDescription),
                 ],
               ),
             ),

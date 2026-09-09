@@ -4,6 +4,7 @@
 ///
 /// 運行方式: dart run test/demo/bilibili_live_api_demo.dart [房間號]
 /// 例如: dart run test/demo/bilibili_live_api_demo.dart 21452505
+library;
 
 import 'dart:async';
 import 'dart:convert';
@@ -41,32 +42,32 @@ void main(List<String> args) async {
   final realRoomId = await getRealRoomId(roomId);
   print('\n真實房間號: $realRoomId');
 
-  print('\n' + '=' * 60);
+  print('\n${'=' * 60}');
   print('測試 1: room/v1/Room/get_info (當前使用的 API)');
   print('=' * 60);
   await testRoomV1GetInfo(realRoomId);
 
-  print('\n' + '=' * 60);
+  print('\n${'=' * 60}');
   print('測試 2: xlive/web-room/v1/index/getInfoByRoom');
   print('=' * 60);
   await testXliveGetInfoByRoom(realRoomId);
 
-  print('\n' + '=' * 60);
+  print('\n${'=' * 60}');
   print('測試 3: xlive/web-room/v2/index/getRoomPlayInfo');
   print('=' * 60);
   await testXliveGetRoomPlayInfo(realRoomId);
 
-  print('\n' + '=' * 60);
+  print('\n${'=' * 60}');
   print('測試 4: xlive/general-interface/v1/rank/getOnlineGoldRank');
   print('=' * 60);
   await testOnlineGoldRank(realRoomId);
 
-  print('\n' + '=' * 60);
+  print('\n${'=' * 60}');
   print('測試 5: xlive/web-room/v1/index/getRoomBaseInfo');
   print('=' * 60);
   await testGetRoomBaseInfo(realRoomId);
 
-  print('\n' + '=' * 60);
+  print('\n${'=' * 60}');
   print('測試 6: WebSocket 彈幕連接 (使用 room/v1/Danmu/getConf)');
   print('=' * 60);
   await testWebSocket(realRoomId);
@@ -490,7 +491,7 @@ Uint8List _buildHeartbeatPacket() {
 
 /// 構建數據包
 Uint8List _buildPacket(int operation, List<int> body) {
-  final headerLength = 16;
+  const headerLength = 16;
   final totalLength = headerLength + body.length;
 
   final packet = ByteData(totalLength);
@@ -568,8 +569,8 @@ List<Map<String, dynamic>> _parsePackets(Uint8List data) {
   return packets;
 }
 
-void _printJson(dynamic data, [int indent = 2]) {
-  final encoder = JsonEncoder.withIndent('  ');
+void _printJson(dynamic data) {
+  const encoder = JsonEncoder.withIndent('  ');
   final lines = encoder.convert(data).split('\n');
   for (final line in lines.take(30)) {
     print('  $line');

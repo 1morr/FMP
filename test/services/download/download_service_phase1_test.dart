@@ -1176,7 +1176,7 @@ void main() {
 
         final settings = await settingsRepository.get();
         settings.customDownloadDir = baseDir.path;
-        settings.useYoutubeAuthForPlay = false;
+        settings.setUseAuthForPlay(SourceIds.youtube, false);
         await settingsRepository.save(settings);
 
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

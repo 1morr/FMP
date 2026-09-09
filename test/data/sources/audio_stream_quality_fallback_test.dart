@@ -13,12 +13,12 @@ void main() {
       () async {
         final source = _RecordingSource()
           ..failQualities.add(AudioQualityLevel.high);
-        final request = AudioStreamRequest(
+        const request = AudioStreamRequest(
           sourceId: 'BVmulti',
           cid: 24680,
           pageNum: 2,
-          config: const AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
-          authHeaders: const {'Cookie': 'SESSDATA=token'},
+          config: AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
+          authHeaders: {'Cookie': 'SESSDATA=token'},
         );
 
         final result = await fetchAudioStreamWithQualityFallback(
@@ -48,13 +48,13 @@ void main() {
 
     test('alternative fallback preserves failedUrl and identity', () async {
       final source = _RecordingSource()..returnNullAlternativeForHigh = true;
-      final request = AudioStreamRequest(
+      const request = AudioStreamRequest(
         sourceId: 'BVmulti',
         cid: 13579,
         pageNum: 3,
         failedUrl: 'https://failed.example/audio.m4a',
-        config: const AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
-        authHeaders: const {'Cookie': 'SESSDATA=token'},
+        config: AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
+        authHeaders: {'Cookie': 'SESSDATA=token'},
       );
 
       final result = await fetchAlternativeAudioStreamWithQualityFallback(
@@ -79,9 +79,9 @@ void main() {
       final source = _RecordingSource()
         ..failQualities.add(AudioQualityLevel.high)
         ..failingKind = SourceErrorKind.network;
-      final request = AudioStreamRequest(
+      const request = AudioStreamRequest(
         sourceId: 'network-failure',
-        config: const AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
+        config: AudioStreamConfig(qualityLevel: AudioQualityLevel.high),
       );
 
       await expectLater(

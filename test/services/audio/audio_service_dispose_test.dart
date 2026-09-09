@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
@@ -186,7 +185,7 @@ void main() {
         );
         final subscription = container.listen(
           audioControllerProvider,
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
 

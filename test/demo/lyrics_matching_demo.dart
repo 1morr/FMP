@@ -3,6 +3,7 @@
 ///
 /// 测试 TitleParser + lrclib API 的匹配效果。
 /// 运行: dart run test/demo/lyrics_matching_demo.dart
+library;
 
 import 'package:dio/dio.dart';
 

@@ -41,12 +41,12 @@ void main() {
           // preparePlayback 與下載走同一條路徑，兩者都要守住這條邊界。
         ]) {
           final lowerKeys = result.headers.keys.map((k) => k.toLowerCase());
-          expect(result.url.toString(), url, reason: '${entry.key}');
-          expect(lowerKeys, isNot(contains('cookie')), reason: '${entry.key}');
+          expect(result.url.toString(), url, reason: entry.key);
+          expect(lowerKeys, isNot(contains('cookie')), reason: entry.key);
           expect(
             lowerKeys,
             isNot(contains('authorization')),
-            reason: '${entry.key}',
+            reason: entry.key,
           );
         }
       }

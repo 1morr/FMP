@@ -11,21 +11,17 @@ import 'package:fmp/i18n/strings.g.dart';
 /// 斷言比的是「挑了哪一句翻譯」而不是字面文字 —— 後者會在改 i18n JSON 時無故
 /// 失敗，卻抓不到挑錯句子的 bug。形狀照 `playback_error_presenter_test.dart`。
 class _Error extends SourceApiException {
-  const _Error({
-    required this.kind,
-    this.message = '',
-    this.code = 'test_code',
-    this.sourceType = SourceIds.youtube,
-  });
+  const _Error({required this.kind, this.message = ''});
 
   @override
   final SourceErrorKind kind;
   @override
   final String message;
+  // 兩者對 sourceErrorReason 的判斷沒有影響，固定值即可。
   @override
-  final String code;
+  final String code = 'test_code';
   @override
-  final String sourceType;
+  final String sourceType = SourceIds.youtube;
 }
 
 void main() {

@@ -3,29 +3,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
-import 'package:fmp/services/audio/audio_stream_manager.dart';
-import 'package:fmp/services/audio/player_state.dart';
-import 'package:fmp/services/audio/queue_manager.dart';
-import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:fmp/ui/widgets/player/mini_player.dart';
 import 'package:isar_community/isar.dart';
 
-import '../../support/fakes/fake_audio_service.dart';
 import '../../support/fakes/fake_source_auth_context.dart';
 import '../../support/isar_test_harness.dart';
-import '../../support/now_playing.dart';
 
 /// 迷你播放器的無障礙契約。
 ///
@@ -79,7 +71,7 @@ void main() {
     // 做同一件事）。
     expect(
       tester.getSemantics(find.bySemanticsLabel(t.player.progressBar)),
-      containsSemantics(
+      isSemantics(
         isSlider: true,
         label: t.player.progressBar,
         value: '1:30',
@@ -105,7 +97,7 @@ void main() {
 
     expect(
       tester.getSemantics(find.bySemanticsLabel(t.player.openPlayer)),
-      containsSemantics(label: t.player.openPlayer, isButton: true),
+      isSemantics(label: t.player.openPlayer, isButton: true),
     );
 
     handle.dispose();
@@ -149,7 +141,6 @@ class _Harness {
       name: 'mini_player_accessibility_test',
     );
 
-    final queueRepository = QueueRepository(isar);
     final trackRepository = TrackRepository(isar);
     final settingsRepository = SettingsRepository(isar);
     final sourceManager = SourceManager();

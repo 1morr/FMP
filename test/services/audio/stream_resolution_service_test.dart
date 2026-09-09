@@ -63,7 +63,7 @@ void main() {
     'resolvePrimary passes auth headers when auth-for-play is enabled',
     () async {
       final settings = await settingsRepository.get();
-      settings.useYoutubeAuthForPlay = true;
+      settings.setUseAuthForPlay(SourceIds.youtube, true);
       await settingsRepository.save(settings);
       sourceAuthContext.authHeaders = {'Authorization': 'Bearer sentinel'};
 

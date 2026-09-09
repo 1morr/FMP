@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 // v11 把 FilePicker 改成 abstract final + static 方法，原本的
@@ -20,7 +19,6 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/playlist_mutation_repository.dart';
 import 'package:fmp/data/database/database_migration.dart';
-import 'package:fmp/data/database/database_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/services/backup/backup_service.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';

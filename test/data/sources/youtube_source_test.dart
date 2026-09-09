@@ -1491,7 +1491,7 @@ Map<String, dynamic> _innerTubePlayerResponse({
 }) {
   return {
     'playabilityStatus': {'status': 'OK'},
-    if (videoDetails != null) 'videoDetails': videoDetails,
+    'videoDetails': ?videoDetails,
     'streamingData': {'adaptiveFormats': adaptiveFormats, 'formats': formats},
   };
 }
@@ -1727,7 +1727,10 @@ class _FakeYoutubeExplode extends yt.YoutubeExplode {
   final _ThrowingStreamClient _streams;
   final Object? _videoError;
 
+  // 改寫成 getter 會在每次存取時新建一個 _FakeVideoClient，
+  // 而測試要的是與 _streams 共用同一個實例。
   @override
+  // ignore: overridden_fields
   late final yt.VideoClient videos = _FakeVideoClient(
     _streams,
     videoError: _videoError,

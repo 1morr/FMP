@@ -9,7 +9,6 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/ui/pages/settings/lyrics_source_settings_page.dart';
 
-import '../../../support/fakes/fake_isar.dart';
 import '../../../support/fakes/fake_settings_repository.dart';
 
 void main() {

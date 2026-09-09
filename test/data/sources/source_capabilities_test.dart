@@ -14,27 +14,27 @@ void main() {
       expect(
         manager.audioStreamSource(sourceType),
         isA<AudioStreamSource>(),
-        reason: '${sourceType} should resolve audio streams',
+        reason: '$sourceType should resolve audio streams',
       );
       expect(
         manager.trackInfoSource(sourceType),
         isA<TrackInfoSource>(),
-        reason: '${sourceType} should load track info',
+        reason: '$sourceType should load track info',
       );
       expect(
         manager.searchSource(sourceType),
         isA<SearchSource>(),
-        reason: '${sourceType} should support search',
+        reason: '$sourceType should support search',
       );
       expect(
         manager.playlistParsingSource(sourceType),
         isA<PlaylistParsingSource>(),
-        reason: '${sourceType} should parse internal playlists',
+        reason: '$sourceType should parse internal playlists',
       );
       expect(
         manager.availabilitySource(sourceType),
         isA<AvailabilitySource>(),
-        reason: '${sourceType} should check availability',
+        reason: '$sourceType should check availability',
       );
     }
   });
