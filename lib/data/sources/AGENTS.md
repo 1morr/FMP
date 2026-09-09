@@ -24,7 +24,12 @@ what reading them will not tell you.
 - Ranking requests returning `-352` are risk control, not a broken endpoint:
   refresh browser fingerprint cookies through `/x/frontend/finger/spi` and retry
   once, instead of moving away from the ranking API. The rate-limit and
-  risk-control codes are `-352`, `-412`, `-509`, `-799`.
+  risk-control codes are `-352`, `-412`, `-509`, `-799`. `BilibiliLiveClient`
+  raises them as `rateLimited` from `getRoomInfo` too, rather than folding them
+  into "no such room", because the radio poller has to back off on them.
+- A test that builds a real source with its default constructor must be tagged
+  `live`; `test/support/live_source_tag_static_rule_test.dart` enforces it and
+  carries the parse-only exceptions.
 - `AudioStreamResult.expiry` must report the same TTL that track refresh uses,
   or shared playback caching falls back to a generic default.
 - Same-quality alternative fallback excludes the failed media URL and may pick a

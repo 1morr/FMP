@@ -1067,7 +1067,7 @@ class BilibiliSource
         logWarning('Bilibili rate limited: code=$code, message=$message');
         throw BilibiliApiException(
           numericCode: code,
-          message: t.error.rateLimited,
+          message: t.error.bilibiliRateLimited,
         );
       } else {
         logWarning('Bilibili API error: code=$code, message=$message');

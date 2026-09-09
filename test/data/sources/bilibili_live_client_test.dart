@@ -56,6 +56,51 @@ void main() {
   });
 
   group('resolveRealRoomId', () {
+    test(
+      'resolves each short id once and answers repeats from cache',
+      () async {
+        var roomInitCalls = 0;
+        final liveDio = _fakeDio((options) {
+          roomInitCalls++;
+          return _jsonResponse('{"code":0,"data":{"room_id":456}}');
+        });
+        final client = BilibiliLiveClient(
+          apiDio: Dio(),
+          liveDio: liveDio,
+          liveApiBase: 'https://live.test',
+        );
+        addTearDown(client.dispose);
+
+        expect(await client.resolveRealRoomId('123'), '456');
+        expect(await client.resolveRealRoomId('123'), '456');
+
+        expect(
+          roomInitCalls,
+          1,
+          reason: 'the second lookup must not hit room_init',
+        );
+      },
+    );
+
+    test('does not cache a failed resolution', () async {
+      var roomInitCalls = 0;
+      final liveDio = _fakeDio((options) {
+        roomInitCalls++;
+        return _jsonResponse('{"code":-400,"message":"bad"}');
+      });
+      final client = BilibiliLiveClient(
+        apiDio: Dio(),
+        liveDio: liveDio,
+        liveApiBase: 'https://live.test',
+      );
+      addTearDown(client.dispose);
+
+      expect(await client.resolveRealRoomId('123'), '123');
+      expect(await client.resolveRealRoomId('123'), '123');
+
+      expect(roomInitCalls, 2);
+    });
+
     test('returns API room_id and sends room_init query id', () async {
       late RequestOptions request;
       final liveDio = _fakeDio((options) {
@@ -104,6 +149,49 @@ void main() {
   });
 
   group('getRoomInfo', () {
+    test('surfaces a risk-control code as a rate-limited exception', () async {
+      final liveDio = _fakeDio((options) {
+        if (options.path.endsWith('/room/v1/Room/room_init')) {
+          return _jsonResponse('{"code":0,"data":{"room_id":456}}');
+        }
+        return _jsonResponse('{"code":-412,"message":"请求被拦截"}');
+      });
+      final client = BilibiliLiveClient(
+        apiDio: Dio(),
+        liveDio: liveDio,
+        liveApiBase: 'https://live.test',
+      );
+      addTearDown(client.dispose);
+
+      await expectLater(
+        client.getRoomInfo('123'),
+        throwsA(
+          isA<BilibiliApiException>().having(
+            (e) => e.isRateLimited,
+            'isRateLimited',
+            isTrue,
+          ),
+        ),
+      );
+    });
+
+    test('still treats any other non-zero code as no room', () async {
+      final liveDio = _fakeDio((options) {
+        if (options.path.endsWith('/room/v1/Room/room_init')) {
+          return _jsonResponse('{"code":0,"data":{"room_id":456}}');
+        }
+        return _jsonResponse('{"code":1,"message":"房间不存在"}');
+      });
+      final client = BilibiliLiveClient(
+        apiDio: Dio(),
+        liveDio: liveDio,
+        liveApiBase: 'https://live.test',
+      );
+      addTearDown(client.dispose);
+
+      expect(await client.getRoomInfo('123'), isNull);
+    });
+
     test('combines room info, anchor info, and room news', () async {
       final requests = <RequestOptions>[];
       final liveDio = _fakeDio((options) {
