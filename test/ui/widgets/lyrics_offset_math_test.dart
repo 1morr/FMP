@@ -2,7 +2,7 @@ import 'package:fmp/ui/widgets/lyrics/lyrics_offset_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('LyricsOffsetMath (C1d)', () {
+  group('LyricsOffsetMath', () {
     test('calibrationOffsetForLine = line timestamp - current position', () {
       expect(
         LyricsOffsetMath.calibrationOffsetForLine(

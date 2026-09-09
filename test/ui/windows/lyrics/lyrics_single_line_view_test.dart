@@ -13,7 +13,7 @@ Widget host({required LyricsSingleLineView child}) {
 }
 
 void main() {
-  group('LyricsSingleLineView (C1e leaf + C1b 單行半)', () {
+  group('LyricsSingleLineView', () {
     testWidgets('renders main text (and sub text when provided)', (
       tester,
     ) async {

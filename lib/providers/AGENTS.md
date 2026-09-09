@@ -51,8 +51,9 @@ under `lib/providers/`. Use `ls` for the current set.
 
 ## Riverpod 3
 
-FMP is on `flutter_riverpod` 3.x. `test/providers/riverpod3_static_rule_test.dart`
-pins the rules that fail silently.
+FMP is on `flutter_riverpod` 3.x.
+`test/providers/static_rules/riverpod3_static_rule_test.dart` pins the rules
+that fail silently.
 
 - **`lib/` is fully on `Notifier`; the legacy barrel is gone.** The legacy
   family still compiles, so a stray `StateNotifier` would not break the build —

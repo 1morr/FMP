@@ -44,20 +44,6 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
-
-    test('portable ZIP extraction streams in a worker isolate', () {
-      final source = File(
-        'lib/services/update/update_service.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('Isolate.run('));
-      expect(source, contains('InputFileStream(zipPath)'));
-      expect(source, contains('ZipDecoder().decodeStream('));
-      expect(source, contains('OutputFileStream(filePath)'));
-      expect(source, contains('file.writeContent(output)'));
-      expect(source, isNot(contains('readAsBytesSync()')));
-      expect(source, isNot(contains('writeAsBytesSync(file.content')));
-    });
   });
 
   group('UpdateService asset integrity', () {

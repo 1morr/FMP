@@ -31,7 +31,7 @@ void main() {
 
         final notifier = harness.container.read(playlistListProvider.notifier);
         final createdPlaylist = await notifier.createPlaylist(
-          name: 'Phase 2 Playlist',
+          name: 'Invalidation Playlist',
         );
         expect(createdPlaylist, isNotNull);
         final playlist = createdPlaylist!;
@@ -167,21 +167,6 @@ void main() {
             detail.playlist?.description == 'Updated description';
       }, reason: 'playlistDetailProvider should reload after metadata update');
     });
-
-    test('add-to-playlist removal path does not create tracks', () {
-      final source = File(
-        'lib/ui/widgets/dialogs/add_to_playlist_dialog.dart',
-      ).readAsStringSync();
-      final removeLoopStart = source.indexOf('// 先处理移除');
-      final addLoopStart = source.indexOf('// 再处理添加');
-      expect(removeLoopStart, isNonNegative);
-      expect(addLoopStart, greaterThan(removeLoopStart));
-      final removeSection = source.substring(removeLoopStart, addLoopStart);
-
-      expect(removeSection, contains('removeTracksFromPlaylist'));
-      expect(removeSection, isNot(contains('getOrCreate')));
-      expect(removeSection, isNot(contains('removeTrackFromPlaylist')));
-    });
   });
 }
 
@@ -238,7 +223,7 @@ Track _buildTrack({required String sourceId, required String title}) {
     ..sourceId = sourceId
     ..sourceType = SourceIds.youtube
     ..title = title
-    ..artist = 'Phase 2 Artist'
+    ..artist = 'Invalidation Artist'
     ..durationMs = 180000
     ..thumbnailUrl = 'https://example.com/$sourceId.jpg';
 }

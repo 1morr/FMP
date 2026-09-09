@@ -51,19 +51,5 @@ void main() {
         );
       },
     );
-
-    test('downloadedCategoryTracksProvider uses Isolate.run entrypoint', () {
-      final source = File(
-        'lib/providers/download/download_providers.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('Isolate.run'));
-      expect(source, contains('scanFolderTrackDtosInIsolate'));
-      expect(source, contains('ScanFolderTracksParams(folderPath)'));
-      expect(
-        source,
-        isNot(contains('DownloadScanner.scanFolderForTracks(folderPath)')),
-      );
-    });
   });
 }

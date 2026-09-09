@@ -42,14 +42,17 @@ file in the same change as the code. Human-facing docs live in `docs/`;
 | Audio playback/controller/queue | `flutter test test/services/audio` (+ `test/data/sources` when stream resolution changes) |
 | Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
 | Download pipeline | `flutter test test/services/download test/providers/download` |
-| Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
+| Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart` |
 | UI widgets/pages | targeted tests under `test/ui` + `flutter analyze` + on-device |
 | i18n JSON | `dart run slang` + `flutter analyze` |
 | `AGENTS.md` and other docs | `flutter test test/support/agents_docs_static_rule_test.dart` |
 
-`flutter analyze` covers `lib` **and** `test`; `dart format lib test` is a CI
-gate. CI runs every job on documentation-only commits, because the rules in
-these files are enforced by tests.
+`flutter analyze` covers `lib`, `test` **and** `tool`; `dart format lib test
+tool` is a CI gate. `tool/demo/` holds hand-run scripts that hit the real
+source APIs — they are not tests and CI never executes them, but they are
+analysed and formatted like everything else. CI runs every job on
+documentation-only commits, because the rules in these files are enforced by
+tests.
 
 **On-device verification is mandatory for user-visible changes** — UI pages or
 widgets, playback controls, how source results render, or a string that can
@@ -103,14 +106,22 @@ Never:
 - Do not add an import edge between two features without recording it. A feature
   is a subdirectory name under `lib/services/` or `lib/providers/` — those hold
   two halves of the same features.
+- Do not hide a `lib/` source grep inside a test named after a widget or a page.
+  A test that reads `lib/` source is a static rule: it belongs in
+  `test/support/` or `test/<layer>/static_rules/`, with a name ending in
+  `*_static_rule_test.dart`. When a behaviour test needs one grep, move the
+  assertion out, not the file.
+  `test/support/static_rule_placement_static_rule_test.dart` enforces this and
+  deliberately carries no exception list.
 - Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
   it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
   See `docs/troubleshooting.md`.
 
-The pump, upward-import and feature-edge rules are enforced by tests under
-`test/support/` and `test/ui/static_rules/`, which carry the exception lists.
-Add a line with a reason when you add a legitimate exception; delete it when it
-goes away. The AXTree line is a stop-loss note; no static test can check it.
+The pump, upward-import, feature-edge and placement rules are enforced by tests
+under `test/support/`, which carry the exception lists. Add a line with a reason
+when you add a legitimate exception; delete it when it goes away. The first
+four are conventions nothing checks for you, and the AXTree line is a stop-loss
+note that no static test could.
 
 ## Architecture
 

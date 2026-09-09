@@ -8,7 +8,7 @@ void main() {
     return MaterialApp(home: Scaffold(body: child));
   }
 
-  group('LyricsLineItem (C1e leaf)', () {
+  group('LyricsLineItem', () {
     testWidgets('renders main text and optional sub text', (tester) async {
       await tester.pumpWidget(
         host(

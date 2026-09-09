@@ -408,7 +408,7 @@ void main() {
         await trackRepository.save(track1);
         await trackRepository.save(track2);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task1 = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = track1.id
@@ -489,7 +489,7 @@ void main() {
           ..createdAt = DateTime.now();
         await trackRepository.save(track);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = track.id
@@ -546,7 +546,7 @@ void main() {
         final setupTask = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = track.id
-            ..playlistName = 'Phase1'
+            ..playlistName = 'Download Playlist'
             ..status = DownloadStatus.downloading
             ..createdAt = DateTime.now(),
         );
@@ -616,7 +616,7 @@ void main() {
           ..createdAt = DateTime.now();
         await trackRepository.save(track);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = track.id
@@ -721,7 +721,7 @@ void main() {
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = savedTrack.id
@@ -810,7 +810,7 @@ void main() {
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = savedTrack.id
@@ -927,7 +927,7 @@ void main() {
           ..createdAt = DateTime.now();
         await trackRepository.save(track);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = track.id
@@ -1032,7 +1032,7 @@ void main() {
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final savePath = DownloadPathUtils.computeDownloadPath(
           baseDir: baseDir.path,
           playlistName: playlist.name,
@@ -1101,7 +1101,7 @@ void main() {
             ..artist = 'Test Artist'
             ..createdAt = DateTime.now();
           final savedTrack = await trackRepository.save(track);
-          final playlist = Playlist()..name = 'Phase1';
+          final playlist = Playlist()..name = 'Download Playlist';
           return downloadRepository.saveTask(
             DownloadTask()
               ..trackId = savedTrack.id
@@ -1200,7 +1200,7 @@ void main() {
           ..artist = 'Test Artist'
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = savedTrack.id
@@ -1296,7 +1296,7 @@ void main() {
           ..thumbnailUrl = imageUrl
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = savedTrack.id
@@ -1379,7 +1379,7 @@ void main() {
           ..artist = 'Test Artist'
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final savePath = DownloadPathUtils.computeDownloadPath(
           baseDir: baseDir.path,
           playlistName: playlist.name,
@@ -1450,7 +1450,7 @@ void main() {
           ..artist = 'Test Artist'
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final savePath = DownloadPathUtils.computeDownloadPath(
           baseDir: baseDir.path,
           playlistName: playlist.name,
@@ -1559,7 +1559,7 @@ void main() {
           ..artist = 'Test Artist'
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = savedTrack.id
@@ -1633,7 +1633,7 @@ void main() {
           ..createdAt = DateTime.now();
         final savedTrack = await trackRepository.save(track);
 
-        final playlist = Playlist()..name = 'Phase1';
+        final playlist = Playlist()..name = 'Download Playlist';
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = savedTrack.id

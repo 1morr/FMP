@@ -1941,7 +1941,7 @@ void main() {
           greaterThan(playsBeforeStarvation),
         );
 
-        // D2 的核心：逾時**不**進 1/2/4/8/16 的退避階梯。走到階梯上就代表
+        // 這條規則的核心：逾時**不**進 1/2/4/8/16 的退避階梯。走到階梯上就代表
         // 每次緩衝抖動都會變成五次完整重新解析，也就是症狀 c 的放大迴圈。
         expect(controller.state.nextRetryAt, isNull);
         expect(controller.state.isRetrying, isFalse);

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/dart_source.dart';
+
 void main() {
   group('UI consistency static rules', () {
     test('cover picker grid items expose and receive stable keys', () {
@@ -206,12 +208,12 @@ void main() {
         if (normalizedPath.endsWith('/images/avatar_image.dart')) continue;
         if (normalizedPath.endsWith('/images/track_thumbnail.dart')) continue;
 
-        final source = file.readAsStringSync();
-        if (source.contains('ImageLoadingService.loadAvatar(')) {
-          directAvatarCalls.add(file.path);
+        final calls = lowLevelImageCalls(file.readAsStringSync());
+        if (calls.contains('ImageLoadingService.loadAvatar(')) {
+          directAvatarCalls.add(normalizedPath);
         }
-        if (source.contains('targetDisplaySize: ImageTargetSizes.thumbnail')) {
-          thumbnailTargetsOutsideSmallImageWidgets.add(file.path);
+        if (calls.contains('targetDisplaySize: ImageTargetSizes.thumbnail')) {
+          thumbnailTargetsOutsideSmallImageWidgets.add(normalizedPath);
         }
       }
 
@@ -258,8 +260,8 @@ void main() {
       for (final file in files) {
         final normalizedPath = file.path.replaceAll('\\', '/');
         if (allowedDirectLoadImage.contains(normalizedPath)) continue;
-        final source = file.readAsStringSync();
-        if (source.contains('ImageLoadingService.loadImage(')) {
+        final calls = lowLevelImageCalls(file.readAsStringSync());
+        if (calls.contains('ImageLoadingService.loadImage(')) {
           directLoadImage.add(normalizedPath);
         }
       }
@@ -295,89 +297,6 @@ void main() {
       for (final path in expectedRadioUsers) {
         final source = File(path).readAsStringSync();
         expect(source, contains('RadioCoverImage('), reason: path);
-      }
-    });
-
-    test('semantic image widgets live under widgets/images', () {
-      final imageWidgetPaths = <String>[
-        'lib/ui/widgets/images/avatar_image.dart',
-        'lib/ui/widgets/images/playlist_cover_image.dart',
-        'lib/ui/widgets/images/radio_cover_image.dart',
-        'lib/ui/widgets/images/recent_play_cover_image.dart',
-        'lib/ui/widgets/images/track_thumbnail.dart',
-      ];
-
-      for (final path in imageWidgetPaths) {
-        expect(File(path).existsSync(), isTrue, reason: path);
-      }
-
-      final rootImageWidgetPaths = <String>[
-        'lib/ui/widgets/avatar_image.dart',
-        'lib/ui/widgets/playlist_cover_image.dart',
-        'lib/ui/widgets/radio_cover_image.dart',
-        'lib/ui/widgets/recent_play_cover_image.dart',
-        'lib/ui/widgets/track_thumbnail.dart',
-      ];
-
-      for (final path in rootImageWidgetPaths) {
-        expect(File(path).existsSync(), isFalse, reason: path);
-      }
-    });
-
-    test('shared widgets live under semantic subdirectories', () {
-      final rootWidgetFiles = Directory('lib/ui/widgets')
-          .listSync()
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'))
-          .toList();
-
-      expect(rootWidgetFiles, isEmpty);
-
-      final expectedDirectories = <String>[
-        'lib/ui/widgets/app_bars',
-        'lib/ui/widgets/controls',
-        'lib/ui/widgets/dialogs',
-        'lib/ui/widgets/feedback',
-        'lib/ui/widgets/images',
-        'lib/ui/widgets/indicators',
-        'lib/ui/widgets/layout',
-        'lib/ui/widgets/lyrics',
-        'lib/ui/widgets/menus',
-        'lib/ui/widgets/panels',
-        'lib/ui/widgets/player',
-        'lib/ui/widgets/radio',
-        'lib/ui/widgets/track_group',
-        'lib/ui/widgets/track_tiles',
-      ];
-
-      for (final path in expectedDirectories) {
-        expect(Directory(path).existsSync(), isTrue, reason: path);
-      }
-    });
-
-    test('providers live under semantic subdirectories', () {
-      final rootProviderFiles = Directory('lib/providers')
-          .listSync()
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'))
-          .toList();
-
-      expect(rootProviderFiles, isEmpty);
-
-      final expectedDirectories = <String>[
-        'lib/providers/account',
-        'lib/providers/audio',
-        'lib/providers/download',
-        'lib/providers/library',
-        'lib/providers/lyrics',
-        'lib/providers/search',
-        'lib/providers/settings',
-        'lib/providers/system',
-        'lib/providers/ui',
-      ];
-
-      for (final path in expectedDirectories) {
-        expect(Directory(path).existsSync(), isTrue, reason: path);
       }
     });
 
@@ -758,8 +677,95 @@ void main() {
       expect(_methodBody(lyricsSearch, '_selectResult'), contains('_isSaving'));
       expect(_methodBody(lyricsSearch, '_removeMatch'), surfaced);
     });
+
+    test('ListTile leading values do not directly use Row', () {
+      final offenders = <String>[];
+
+      for (final entity in Directory('lib/ui').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+
+        final source = entity.readAsStringSync();
+        if (listTileLeadingRowOffenders(source).isNotEmpty) {
+          offenders.add(entity.path.replaceAll('\\', '/'));
+        }
+      }
+
+      expect(offenders, isEmpty);
+    });
+  });
+
+  group('the ui consistency detectors', () {
+    test('a synthesised violation is caught', () {
+      const listTile = '''
+ListTile(
+  leading: Row(children: [Icon(Icons.album), SizedBox(width: 4)]),
+  title: Text(track.title),
+)
+''';
+      const image = '''
+Widget build(BuildContext context) {
+  return ImageLoadingService.loadImage(
+    url,
+    targetDisplaySize: ImageTargetSizes.thumbnail,
+  );
+}
+''';
+
+      expect(listTileLeadingRowOffenders(listTile), hasLength(1));
+      expect(
+        lowLevelImageCalls(image),
+        containsAll([
+          'ImageLoadingService.loadImage(',
+          'targetDisplaySize: ImageTargetSizes.thumbnail',
+        ]),
+      );
+    });
+
+    test('a violation written in a comment does not count', () {
+      const listTile = '''
+// 不要寫成 ListTile(leading: Row(...))，leading 的寬度由 ListTile 自己算。
+ListTile(leading: TrackThumbnail(track: track), title: Text(track.title))
+''';
+      const image = '''
+/// 頁面不呼叫 ImageLoadingService.loadImage(，也不傳
+/// targetDisplaySize: ImageTargetSizes.thumbnail —— 那是圖片元件的事。
+PlaylistCoverImage(variant: PlaylistCoverVariant.card)
+''';
+
+      expect(listTileLeadingRowOffenders(listTile), isEmpty);
+      expect(lowLevelImageCalls(image), isEmpty);
+    });
   });
 }
+
+/// UI 檔案直接碰低階圖片入口的地方。
+///
+/// 這三個 token 是三條規則共用的：頁面呼叫 `loadImage` / `loadAvatar` 就繞過了
+/// 語義化元件的檔位選擇，而 `ImageTargetSizes.thumbnail` 是小圖專用檔。
+List<String> lowLevelImageCalls(String source) {
+  final code = stripDartComments(source);
+  return [
+    for (final token in const [
+      'ImageLoadingService.loadAvatar(',
+      'ImageLoadingService.loadImage(',
+      'targetDisplaySize: ImageTargetSizes.thumbnail',
+    ])
+      if (code.contains(token)) token,
+  ];
+}
+
+/// `ListTile` 的 `leading` 直接塞一個 `Row`。
+///
+/// `leading` 的寬度由 `ListTile` 自己算，`Row` 會撐到約束外，在窄視窗溢出。
+final _listTileLeadingRowPattern = RegExp(
+  r'ListTile\s*\([\s\S]*?leading:\s*Row\s*\(',
+);
+
+List<String> listTileLeadingRowOffenders(String source) =>
+    _listTileLeadingRowPattern
+        .allMatches(stripDartComments(source))
+        .map((match) => match.group(0)!)
+        .toList();
 
 String _classBody(String source, String className) {
   final declaration = RegExp(

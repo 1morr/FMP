@@ -3,7 +3,7 @@
 // 网易云音乐歌词 API Demo 测试脚本
 //
 // 运行方式:
-//   dart run test/demos/netease_lyrics_demo.dart
+//   dart run tool/demo/netease_lyrics_demo.dart
 //
 // 测试内容:
 //   1. 搜索歌曲

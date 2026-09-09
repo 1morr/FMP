@@ -16,7 +16,7 @@ void main() {
     );
   }
 
-  group('LyricsEmptyState (C1a leaf)', () {
+  group('LyricsEmptyState', () {
     testWidgets('renders whichever message it is given', (tester) async {
       await tester.pumpWidget(host(transparent: false, text: '等待歌詞'));
       await tester.pumpAndSettle();

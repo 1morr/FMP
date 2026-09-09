@@ -2,8 +2,8 @@
 /// Bilibili 直播 API 測試腳本
 /// 測試不同 API 獲取觀眾數據的能力
 ///
-/// 運行方式: dart run test/demo/bilibili_live_api_demo.dart [房間號]
-/// 例如: dart run test/demo/bilibili_live_api_demo.dart 21452505
+/// 運行方式: dart run tool/demo/bilibili_live_api_demo.dart [房間號]
+/// 例如: dart run tool/demo/bilibili_live_api_demo.dart 21452505
 library;
 
 import 'dart:async';

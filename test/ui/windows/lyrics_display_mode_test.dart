@@ -2,7 +2,7 @@ import 'package:fmp/ui/windows/lyrics_display_mode.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('LyricsDisplayMode (C1c)', () {
+  group('LyricsDisplayMode', () {
     test('fromIndex maps the three wire values', () {
       expect(LyricsDisplayMode.fromIndex(0), LyricsDisplayMode.original);
       expect(

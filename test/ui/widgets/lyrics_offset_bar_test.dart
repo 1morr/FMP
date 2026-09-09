@@ -6,7 +6,7 @@ Widget host({required LyricsOffsetBar child}) =>
     MaterialApp(home: Scaffold(body: child));
 
 void main() {
-  group('LyricsOffsetBar (C1d leaf, shared)', () {
+  group('LyricsOffsetBar (shared by the window and the panel)', () {
     testWidgets('renders label and formatted offset value', (tester) async {
       await tester.pumpWidget(
         host(

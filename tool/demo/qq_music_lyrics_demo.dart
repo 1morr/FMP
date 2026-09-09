@@ -3,7 +3,7 @@
 // QQ 音乐歌词 API Demo 测试脚本
 //
 // 运行方式:
-//   dart run test/demo/qq_music_lyrics_demo.dart
+//   dart run tool/demo/qq_music_lyrics_demo.dart
 //
 // 测试内容:
 //   1. 搜索歌曲（获取 songmid）

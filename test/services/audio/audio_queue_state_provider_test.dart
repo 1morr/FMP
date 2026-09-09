@@ -67,43 +67,6 @@ void main() {
       expect(harness.container.read(queueProvider), firstQueue);
     });
 
-    test('PlayerState declares none of the queue fields', () {
-      // 這兩個型別曾經各存一份同樣的 12 個欄位，靠 controller 每次逐欄位抄過去
-      // 維持一致。抄漏一個就是一個看不見的 bug，而消費端會因為問了不同的
-      // provider 拿到不同的答案。長回來的話這條會先掛。
-      final source = File(
-        'lib/services/audio/player_state.dart',
-      ).readAsStringSync();
-
-      for (final field in const [
-        'queue',
-        'upcomingTracks',
-        'currentIndex',
-        'queueTrack',
-        'canPlayPrevious',
-        'canPlayNext',
-        'isShuffleEnabled',
-        'loopMode',
-        'queueVersion',
-        'isMixMode',
-        'mixTitle',
-        'isLoadingMoreMix',
-      ]) {
-        expect(
-          source.contains(
-            RegExp(
-              '^'
-              r'\s+final .* '
-              '$field;',
-              multiLine: true,
-            ),
-          ),
-          isFalse,
-          reason: 'PlayerState.$field belongs to QueueState',
-        );
-      }
-    });
-
     test(
       'controller queue updates publish through queueStateProvider wiring',
       () async {

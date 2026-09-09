@@ -108,7 +108,7 @@ void main() {
         // 整棵樹不得包 ExcludeSemantics（標題列控制項的語意必須可及）。
         expect(source, isNot(contains('return ExcludeSemantics(')));
 
-        // 標題列控制項的 Semantics/Tooltip 邏輯現已抽到 leaf（C1e-2），
+        // 標題列控制項的 Semantics/Tooltip 邏輯已抽到 `lyrics_title_bar.dart`，
         // 於該檔驗證每個按鈕仍有 label + excludeFromSemantics + ExcludeSemantics。
         final titleBar = readSource(
           'lib/ui/windows/lyrics/lyrics_title_bar.dart',

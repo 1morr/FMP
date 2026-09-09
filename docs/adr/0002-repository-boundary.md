@@ -28,7 +28,7 @@ service：`playlist_mutation_service`（39）、`backup_service`（36）、
 - `lib/data/database/database_catalog.dart` —— 它的 `query: (isar) => …`
   閉包本身**就是**偵錯檢視器的內容。
 
-`test/data/repositories/isar_boundary_static_rule_test.dart` 釘住這條規則，
+`test/data/static_rules/isar_boundary_static_rule_test.dart` 釘住這條規則，
 allowlist 與這裡一致，並且用合成的違規字串驗證 guard 自己抓得到、也不會誤報
 （isar 套件的 import 行、`Isar.minLong` 這種靜態成員、註解裡提到的呼叫）。
 

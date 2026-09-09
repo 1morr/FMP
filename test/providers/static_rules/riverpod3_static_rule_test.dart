@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/dart_source.dart';
+
 /// Riverpod 3 帶進來三個「測不到就會靜默壞掉」的規則，這裡用原始碼比對釘住它們。
 /// 三條規則都寫在 `lib/providers/AGENTS.md` § Riverpod 3。
 void main() {
@@ -11,7 +13,7 @@ void main() {
       // FMPApp.build 位於 MaterialApp 之上，沒有 TickerMode 祖先，所以掛在
       // 那裡的 provider 永遠不會被暫停。把某個 provider 搬去頁面上 watch，
       // 使用者一打開全螢幕播放頁它就停了 —— 這條測試就是防這件事。
-      final source = File('lib/app.dart').readAsStringSync();
+      final source = stripDartComments(File('lib/app.dart').readAsStringSync());
 
       const anchoredProviders = <String>[
         'databaseProvider',
@@ -47,8 +49,7 @@ void main() {
 
       for (final entity in Directory('lib').listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
-        final source = entity.readAsStringSync();
-        if (source.contains("package:flutter_riverpod/legacy.dart")) {
+        if (importsLegacyRiverpod(entity.readAsStringSync())) {
           offenders.add(entity.path);
         }
       }
@@ -71,40 +72,7 @@ void main() {
         'lib/providers',
       ).listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
-        final source = entity.readAsStringSync();
-
-        for (final match in RegExp(
-          r'class\s+(\w+)\s+extends\s+Equatable\s*\{([\s\S]*?)\n\}',
-        ).allMatches(source)) {
-          final className = match.group(1)!;
-          final body = match.group(2)!;
-
-          final propsMatch = RegExp(
-            r'get props =>\s*\[([\s\S]*?)\]',
-          ).firstMatch(body);
-          if (propsMatch == null) {
-            offenders.add('$className has no props getter');
-            continue;
-          }
-          final props = propsMatch
-              .group(1)!
-              .split(',')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toSet();
-
-          final fields =
-              RegExp(r'^\s{2}final\s+[\w<>,?\s]+?\s+(\w+);', multiLine: true)
-                  .allMatches(body)
-                  .map((m) => m.group(1)!)
-                  .where((name) => !name.startsWith('_'));
-
-          for (final field in fields) {
-            if (!props.contains(field)) {
-              offenders.add('$className.$field is missing from props');
-            }
-          }
-        }
+        offenders.addAll(equatablePropsOmissions(entity.readAsStringSync()));
       }
 
       expect(
@@ -116,4 +84,96 @@ void main() {
       );
     });
   });
+
+  group('the riverpod 3 detectors', () {
+    test('a synthesised violation is caught', () {
+      const legacy = '''
+import 'package:flutter_riverpod/legacy.dart';
+
+final counterProvider = StateNotifierProvider<Counter, int>((ref) => Counter());
+''';
+      const missingProp = '''
+class SearchState extends Equatable {
+  const SearchState({required this.query, required this.page});
+
+  final String query;
+  final int page;
+
+  @override
+  List<Object?> get props => [query];
+}
+''';
+
+      expect(importsLegacyRiverpod(legacy), isTrue);
+      expect(equatablePropsOmissions(missingProp), [
+        'SearchState.page is missing from props',
+      ]);
+    });
+
+    test('a violation written in a comment does not count', () {
+      const legacy = '''
+// 不要 import 'package:flutter_riverpod/legacy.dart'; —— 整層已經是 Notifier。
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+''';
+      const commentedField = '''
+class SearchState extends Equatable {
+  const SearchState({required this.query});
+
+  final String query;
+  // final int page; 之前漏在 props 外面，已經拿掉。
+
+  @override
+  List<Object?> get props => [query];
+}
+''';
+
+      expect(importsLegacyRiverpod(legacy), isFalse);
+      expect(equatablePropsOmissions(commentedField), isEmpty);
+    });
+  });
+}
+
+/// 這個檔案把 legacy 家族（`StateNotifier` 等）import 回來了。
+bool importsLegacyRiverpod(String source) =>
+    stripDartComments(source).contains('package:flutter_riverpod/legacy.dart');
+
+/// `Equatable` 子類別裡沒有列進 `props` 的公開欄位。
+List<String> equatablePropsOmissions(String source) {
+  final code = stripDartComments(source);
+  final offenders = <String>[];
+
+  for (final match in RegExp(
+    r'class\s+(\w+)\s+extends\s+Equatable\s*\{([\s\S]*?)\n\}',
+  ).allMatches(code)) {
+    final className = match.group(1)!;
+    final body = match.group(2)!;
+
+    final propsMatch = RegExp(
+      r'get props =>\s*\[([\s\S]*?)\]',
+    ).firstMatch(body);
+    if (propsMatch == null) {
+      offenders.add('$className has no props getter');
+      continue;
+    }
+    final props = propsMatch
+        .group(1)!
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+
+    final fields =
+        RegExp(r'^\s{2}final\s+[\w<>,?\s]+?\s+(\w+);', multiLine: true)
+            .allMatches(body)
+            .map((m) => m.group(1)!)
+            .where((name) => !name.startsWith('_'));
+
+    for (final field in fields) {
+      if (!props.contains(field)) {
+        offenders.add('$className.$field is missing from props');
+      }
+    }
+  }
+
+  return offenders;
 }

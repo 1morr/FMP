@@ -66,7 +66,7 @@ void main() {
   });
 
   group('settings notifiers survive a build() re-run', () {
-    // 這一組守的是 A2 那批最容易靜默壞掉的地方：`Notifier.build()` 重跑時
+    // 這一組守的是 Notifier 改寫裡最容易靜默壞掉的地方：`Notifier.build()` 重跑時
     // **實例會被保留**，所以協作者欄位必須是 `late` 而不是 `late final`，
     // 否則第二次指派就是 LateInitializationError。
     // 換掉的是**實例**：override 每次回傳同一個 repository 的話，失效後新舊

@@ -7,8 +7,9 @@ import '../../support/fakes/fake_audio_service.dart';
 /// 前瞻媒體在假替身上的契約。
 ///
 /// 兩個真後端的行為只有實機驗得到（ExoPlayer 的播放清單、mpv 的
-/// `prefetch-playlist`），源碼層面由 `audio_backend_static_test.dart` 釘住。
-/// 這裡釘的是 `FakeAudioService` —— B2 的 arm/disarm 條件表整份都靠它斷言，
+/// `prefetch-playlist`），源碼層面由
+/// `test/services/static_rules/audio_backend_gapless_static_rule_test.dart`
+/// 釘住。這裡釘的是 `FakeAudioService` —— arm/disarm 的條件表整份都靠它斷言，
 /// 假替身自己壞掉的話，上面那一整批測試會全部變成假的通過。
 void main() {
   Track trackOf(String id) => Track()

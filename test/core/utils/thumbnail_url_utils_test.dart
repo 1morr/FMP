@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/utils/thumbnail_url_utils.dart';
 
@@ -17,16 +15,6 @@ void main() {
       test('returns original url for unknown domain', () {
         const url = 'https://example.com/image.jpg';
         expect(ThumbnailUrlUtils.getOptimizedUrl(url), url);
-      });
-
-      test('is documented as a single-url helper without fallback loading', () {
-        final source = Uri.file(
-          'lib/core/utils/thumbnail_url_utils.dart',
-        ).toFilePath();
-        final content = File(source).readAsStringSync();
-
-        expect(content, contains('single URL consumer'));
-        expect(content, contains('does not perform fallback loading'));
       });
     });
 

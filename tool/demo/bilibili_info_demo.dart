@@ -3,7 +3,7 @@
 // Manual probe, not a test. It issues live requests to api.bilibili.com, so it
 // must never be named `*_test.dart` — `flutter test` would pick it up and every
 // CI run would depend on a third-party production API being up and unchanged.
-// Run it by hand: dart run test/demo/bilibili_info_demo.dart
+// Run it by hand: dart run tool/demo/bilibili_info_demo.dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
 
