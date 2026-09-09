@@ -381,7 +381,7 @@ void main() {
     test('rescues layout fields from their Isar upgrade defaults', () async {
       await openTestDatabase();
 
-      // 模擬 Phase 3 之前的那一列：新欄位讀出來會是 bool false / double NaN，
+      // 模擬還沒有這些欄位的舊列：新欄位讀出來會是 bool false / double NaN，
       // 而 detailPanelExpanded 的業務預設是 true。
       final legacySettings = Settings()
         ..schemaVersion = -9223372036854775808

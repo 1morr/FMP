@@ -18,7 +18,7 @@ import '../support/isar_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('download providers phase 2 cleanup', () {
+  group('download providers share one repository instance', () {
     setUpAll(() async {
       await initializeIsarForTests();
     });
@@ -64,7 +64,7 @@ class _Harness {
 
 Future<_Harness> _createHarness() async {
   final tempDir = await Directory.systemTemp.createTemp(
-    'download_providers_phase2_test_',
+    'download_providers_shared_repository_test_',
   );
   final isar = await Isar.open(
     [
@@ -76,7 +76,7 @@ Future<_Harness> _createHarness() async {
       PlayHistorySchema,
     ],
     directory: tempDir.path,
-    name: 'download_providers_phase2_test',
+    name: 'download_providers_shared_repository_test',
   );
 
   final container = ProviderContainer(

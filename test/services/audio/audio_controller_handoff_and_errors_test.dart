@@ -48,7 +48,7 @@ import '../../support/pump_until.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('AudioController phase 1 regressions', () {
+  group('AudioController handoff and error reporting', () {
     test('shared playback boundary types remain importable', () {
       expect(PlayMode.queue, isNotNull);
       MixTracksFetcher? fetcher;
@@ -71,12 +71,12 @@ void main() {
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp(
-        'audio_controller_phase1_',
+        'audio_controller_handoff_and_errors_',
       );
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema, LyricsMatchSchema],
         directory: tempDir.path,
-        name: 'audio_controller_phase1_test',
+        name: 'audio_controller_handoff_and_errors_test',
       );
 
       queueRepository = QueueRepository(isar);

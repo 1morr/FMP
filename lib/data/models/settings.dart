@@ -205,7 +205,7 @@ class Settings {
 
   /// 持久化 schema 的版本號。
   ///
-  /// Isar 對新增的 int 欄位一律補 0，而 0 剛好就是「這是 Phase 3 之前的資料庫」
+  /// Isar 對新增的 int 欄位一律補 0，而 0 剛好就是「這是還沒有版本欄位的資料庫」
   /// 的意思，所以不需要另外推斷。遷移步驟表在
   /// `lib/data/database/database_migration.dart`。
   int schemaVersion = 0;

@@ -112,14 +112,14 @@ const List<NamedMigrationStep> fmpMigrationSteps = <NamedMigrationStep>[
 /// 讀出這一列真正的 schema 版本。
 ///
 /// **Isar 對舊列缺少的非空 `int` 欄位回傳 `Isar.minLong`，不是 0。**
-/// 在使用者的真實資料庫上實測過：新增 `schemaVersion` 之後，Phase 3 之前的那一列
+/// 在使用者的真實資料庫上實測過：新增 `schemaVersion` 之後，還沒有該欄位的舊列
 /// 讀出來是 `-9223372036854775808`。所以任何負數都代表「這一列還沒有版本號」= v0。
 int effectiveSchemaVersion(Settings settings) =>
     settings.schemaVersion < 0 ? 0 : settings.schemaVersion;
 
 /// v0 → v1：把原本每次啟動都重跑的形狀猜測降級成一次性的「推斷 v0」。
 ///
-/// 兩個判斷式的字面內容與 Phase 3 之前完全相同 —— 差別只在它們現在**只跑一次**，
+/// 兩個判斷式的字面內容與拆分前完全相同 —— 差別只在它們現在**只跑一次**，
 /// 跑完就蓋上版本號。這正好修掉「使用者剛好把設定調成那個形狀就被覆蓋」的 bug。
 void _migrateV0ToV1(Settings settings) {
   if (_hasLegacyPlaybackAndLyricsDefaultsSignature(settings)) {
@@ -136,7 +136,7 @@ void _migrateV0ToV1(Settings settings) {
     settings.neteaseStreamPriority = 'audioOnly';
   }
 
-  // 版面欄位是 Phase 3 新增的，舊列一律讀成 Isar 的預設（bool false、
+  // 版面欄位是後來才加的，舊列一律讀成 Isar 的預設（bool false、
   // double NaN）。detailPanelExpanded 的業務預設是 true，而 false 在這裡
   // 不可能是使用者的選擇 —— 這一列從來沒有寫過這個欄位。
   settings.railExpanded = false;

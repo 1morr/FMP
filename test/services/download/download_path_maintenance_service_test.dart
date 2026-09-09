@@ -22,7 +22,7 @@ import '../../support/isar_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('DownloadPathMaintenanceService phase 2', () {
+  group('DownloadPathMaintenanceService', () {
     late Directory tempDir;
     late Isar isar;
     late TrackRepository trackRepository;
@@ -37,12 +37,12 @@ void main() {
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp(
-        'download_path_maintenance_phase2_test_',
+        'download_path_maintenance_test_',
       );
       isar = await Isar.open(
         [TrackSchema, DownloadTaskSchema, SettingsSchema],
         directory: tempDir.path,
-        name: 'download_path_maintenance_phase2_test',
+        name: 'download_path_maintenance_test',
       );
       trackRepository = TrackRepository(isar);
       downloadRepository = DownloadRepository(isar);

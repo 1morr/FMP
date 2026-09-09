@@ -23,8 +23,8 @@ import 'package:fmp/services/backup/backup_data.dart';
 /// 当前备份数据格式版本
 /// 備份 JSON 的格式版本。
 ///
-/// v3（Phase 3）：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
-/// v4（Phase 3）：6 個每源具名設定欄位收成 `sourceSettings` 清單；補上
+/// v3：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
+/// v4：6 個每源具名設定欄位收成 `sourceSettings` 清單；補上
 /// `railExpanded` / `detailPanelExpanded` / `detailPanelWidth` 三個版面欄位。
 ///
 /// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，被移除的欄位

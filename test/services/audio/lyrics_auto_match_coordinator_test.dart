@@ -20,7 +20,7 @@ import '../../support/fakes/count_waiters.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/pump_until.dart';
 
-/// `LyricsAutoMatchCoordinator` 是 Phase 4 步驟 D 從 `AudioController` 抽出來的
+/// `LyricsAutoMatchCoordinator` 是從 `AudioController` 抽出來的
 /// 第二個副作用協作者。
 ///
 /// 它負責的是「何時比對、要不要比對、以及哪一次比對的結果還算數」；怎麼比對是

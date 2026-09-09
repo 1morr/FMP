@@ -56,7 +56,7 @@ void main() {
     );
   });
 
-  group('import playlist provider phase 2', () {
+  group('import playlist provider cancellation', () {
     test(
       'legacy PlaylistImportNotifier ignores late importAndMatch results',
       () async {
@@ -146,16 +146,16 @@ void main() {
         addTearDown(container.dispose);
 
         final subscription = container.listen<ImportPlaylistState>(
-          importPlaylistProvider('phase2-test'),
+          importPlaylistProvider('cancellation-test'),
           (_, _) {},
           fireImmediately: true,
         );
 
         final notifier = container.read(
-          importPlaylistProvider('phase2-test').notifier,
+          importPlaylistProvider('cancellation-test').notifier,
         );
         final importFuture = notifier.importFromUrl(
-          'https://example.com/playlist?list=phase2',
+          'https://example.com/playlist?list=cancel',
           useAuth: true,
         );
 
@@ -170,12 +170,14 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         expect(
-          container.read(importPlaylistProvider('phase2-test')).isImporting,
+          container
+              .read(importPlaylistProvider('cancellation-test'))
+              .isImporting,
           isTrue,
         );
         expect(
           container
-              .read(importPlaylistProvider('phase2-test'))
+              .read(importPlaylistProvider('cancellation-test'))
               .progress
               .currentItem,
           'Track 1',
@@ -198,7 +200,9 @@ void main() {
         expect(result, isNull);
         expect(fakeService.cleanupCalls, 1);
         expect(
-          container.read(importPlaylistProvider('phase2-test')).wasCancelled,
+          container
+              .read(importPlaylistProvider('cancellation-test'))
+              .wasCancelled,
           isTrue,
         );
 

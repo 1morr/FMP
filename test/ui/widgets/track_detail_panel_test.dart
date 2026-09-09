@@ -260,7 +260,7 @@ void main() {
     });
   });
 
-  group('Phase 4 regression guards', () {
+  group('detail panel regression guards', () {
     test('detail content state uses widget detail and required imports', () {
       final source = File(
         '${Directory.current.path}/lib/ui/widgets/panels/track_detail_panel.dart',

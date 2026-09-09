@@ -11,7 +11,7 @@ import '../../support/isar_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Phase 4 Task 4 play history repository snapshot', () {
+  group('play history repository snapshot', () {
     setUpAll(() async {
       await initializeIsarForTests();
     });
@@ -231,12 +231,12 @@ class _Harness {
 
 Future<_Harness> _createHarness() async {
   final tempDir = await Directory.systemTemp.createTemp(
-    'play_history_repository_phase4_test_',
+    'play_history_repository_snapshot_test_',
   );
   final isar = await Isar.open(
     [PlayHistorySchema],
     directory: tempDir.path,
-    name: 'play_history_repository_phase4_test',
+    name: 'play_history_repository_snapshot_test',
   );
 
   return _Harness(

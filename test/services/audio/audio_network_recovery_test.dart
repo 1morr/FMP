@@ -33,7 +33,7 @@ import '../../support/pump_until.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Audio auth retry phase 4', () {
+  group('playback network recovery', () {
     late Directory tempDir;
     late Isar isar;
     late SettingsRepository settingsRepository;
@@ -50,12 +50,12 @@ void main() {
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp(
-        'audio_auth_retry_phase4_',
+        'audio_network_recovery_',
       );
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema],
         directory: tempDir.path,
-        name: 'audio_auth_retry_phase4_test',
+        name: 'audio_network_recovery_test',
       );
 
       final queueRepository = QueueRepository(isar);

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Phase 4 Task 6 Windows close handling and semantics', () {
+  group('Windows close handling and semantics', () {
     late String repoRoot;
 
     setUp(() {

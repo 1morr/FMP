@@ -10,7 +10,7 @@ import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/pump_until.dart';
 
-/// `PlayHistoryRecorder` 是 Phase 4 步驟 D 抽出來的第一個副作用協作者。
+/// `PlayHistoryRecorder` 是三個播放副作用協作者之一。
 ///
 /// 在此之前，「播放時會不會寫進播放歷史」在 `AudioController` 這一層**完全沒有
 /// 測試**：repository 與 provider 各有自己的單元測試，中間那條轉接沒有人守。

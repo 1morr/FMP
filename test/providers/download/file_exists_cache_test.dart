@@ -7,7 +7,7 @@ import 'package:fmp/providers/download/file_exists_cache.dart';
 import '../../support/pump_until.dart';
 
 void main() {
-  group('Phase 4 Task 3 file exists cache', () {
+  group('file exists cache', () {
     test(
       'file exists cache exposes path-scoped and reactive epoch providers',
       () {
@@ -133,7 +133,7 @@ void main() {
       'batched preload overflow trims without throwing and caps cache size',
       () async {
         final tempDir = await Directory.systemTemp.createTemp(
-          'file_exists_cache_phase4_trim_',
+          'file_exists_cache_trim_',
         );
         addTearDown(() async {
           if (await tempDir.exists()) {
@@ -171,7 +171,7 @@ void main() {
       'cache epoch provider updates for async cache population paths',
       () async {
         final tempDir = await Directory.systemTemp.createTemp(
-          'file_exists_cache_phase4_',
+          'file_exists_cache_',
         );
         addTearDown(() async {
           if (await tempDir.exists()) {
@@ -304,7 +304,7 @@ void main() {
       'missing paths are cached to avoid repeated refresh scheduling',
       () async {
         final tempDir = await Directory.systemTemp.createTemp(
-          'file_exists_cache_phase4_missing_',
+          'file_exists_cache_missing_',
         );
         addTearDown(() async {
           if (await tempDir.exists()) {
@@ -362,7 +362,7 @@ void main() {
       'single-path async check does not mutate epoch after disposal',
       () async {
         final tempDir = await Directory.systemTemp.createTemp(
-          'file_exists_cache_phase4_dispose_single_',
+          'file_exists_cache_dispose_single_',
         );
         addTearDown(() async {
           if (await tempDir.exists()) {
@@ -389,7 +389,7 @@ void main() {
       'scheduled multi-path refresh does not mutate epoch after disposal',
       () async {
         final tempDir = await Directory.systemTemp.createTemp(
-          'file_exists_cache_phase4_dispose_batch_',
+          'file_exists_cache_dispose_batch_',
         );
         addTearDown(() async {
           if (await tempDir.exists()) {
@@ -416,7 +416,7 @@ void main() {
 
     test('preloadPaths does not mutate epoch after disposal', () async {
       final tempDir = await Directory.systemTemp.createTemp(
-        'file_exists_cache_phase4_dispose_preload_',
+        'file_exists_cache_dispose_preload_',
       );
       addTearDown(() async {
         if (await tempDir.exists()) {

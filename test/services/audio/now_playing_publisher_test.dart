@@ -11,7 +11,7 @@ import 'package:fmp/services/audio/playback_capabilities.dart';
 
 import '../../support/now_playing.dart';
 
-/// `NowPlayingPublisher` 是 Phase 4 步驟 B 從 `AudioController` 抽出來的第二個
+/// `NowPlayingPublisher` 是從 `AudioController` 抽出來的
 /// 協作者。它負責的是「現在在播什麼、現在能做什麼」的平台分流與擁有權仲裁。
 ///
 /// 這裡的斷言全部走 Android 側，因為 `FmpAudioHandler` 繼承 `BaseAudioHandler`，

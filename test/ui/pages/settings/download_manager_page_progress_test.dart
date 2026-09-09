@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Phase 4 Task 2 download manager page', () {
+  group('download manager page progress rows', () {
     late String repoRoot;
 
     setUp(() {
