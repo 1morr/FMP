@@ -235,21 +235,20 @@ GitHub Actions (release.yml)
 
 ### Release Notes
 
-`release` job 組裝 body 的順序是：
-
-1. **`docs/release-notes/<tag>.md` 存在**（例如 `docs/release-notes/v1.10.0.md`）
-   —— 整份 body 由該檔決定，包含它自己的標題與 Full Changelog 連結。
-2. **不存在** —— 沿用自動產生：`git describe` 找上一個 tag，列出兩者之間的 commit
-   標題，附上 compare 連結。一般節奏的小版本走這條。
-
-手寫檔是為了那種「自動產生的清單沒有意義」的版本。v1.10.0 就是一例：2026-09-01 的
-歷史重寫讓 v1.2.0–v1.9.1 全部脫離 `main` 的血緣，`git describe` 只找得到 v1.1.4，
-產出 1134 行、97,785 字元的清單 —— 而換任何一個 previous tag 都得到同一個結果，因為
-那些 tag 都落在共同祖先線上或以下。
+body 一律由 `release` job 從 commit 範圍產生，沒有手寫檔這條路。做法是把
+`<上一個 tag>..<本次 tag>` 之間的 commit 依 Conventional Commits 前綴分成
+**Features / Fixes / Performance / Dependencies** 四段，其餘（`refactor`、
+`docs`、`test`、`ci`、`style`）留給結尾的 compare 連結 —— 那些是使用者看不到的
+改動，放進來只會把真正該讀的東西擠掉。四段都空的時候（例如整輪都是重構）才退回
+列出全部 commit。
 
 body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
-`releaseNotes`，App 內的更新對話框以**純文字**顯示（不渲染 markdown）在一個
-`maxHeight: 200` 的捲動框裡。
+`releaseNotes` 餵給 App 內的更新對話框。所以 markdown 要淺，長度要短。
+
+> **一次性的歷史問題（已過去）**：2026-09-01 的歷史重寫讓 v1.2.0–v1.9.1 全部脫離
+> `main` 的血緣，發 v1.10.0 時 `git describe` 只找得到 v1.1.4，任何候選 tag 都產出
+> 同一份 1134 行清單，所以那一版的 body 是手寫的。v1.10.0 是在重寫後的歷史上打的
+> tag，`git describe HEAD` 現在回它，之後的版本不再有這個問題。
 
 > Release 頁面的 compare 連結預設是三點（`a...b`，走 merge-base）。因為上述重寫，
 > v1.9.1 → v1.10.0 要用**兩點**（`a..b`）才會只顯示端點之間的實際差異。

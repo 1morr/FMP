@@ -397,34 +397,56 @@ jobs:
           echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
           echo "Previous tag: $previous_tag"
 
+      # The body is not only the Release page: update_service.dart feeds it to
+      # the in-app update dialog. Keep it short and the markdown shallow.
       - name: Generate release body
         id: changelog
         shell: bash
         run: |
           current_tag="${{ needs.prepare.outputs.tag }}"
           previous_tag="${{ steps.prev_tag.outputs.tag }}"
-          notes_file="docs/release-notes/${current_tag}.md"
 
-          if [ -f "$notes_file" ]; then
-            echo "Using hand-written release notes: $notes_file"
-            cp "$notes_file" body.md
+          if [ -n "$previous_tag" ]; then
+            range="$previous_tag..$current_tag"
+            changelog_url="**Full Changelog**: https://github.com/1morr/FMP/compare/$previous_tag...$current_tag"
           else
-            if [ -n "$previous_tag" ]; then
-              echo "Generating changelog from $previous_tag to $current_tag"
-              git log --pretty=format:"- %s (%h)" "$previous_tag..$current_tag" > changelog.txt
-              changelog_url="**Full Changelog**: https://github.com/1morr/FMP/compare/$previous_tag...$current_tag"
-            else
-              echo "No previous tag found, listing recent commits"
-              git log --pretty=format:"- %s (%h)" -20 > changelog.txt
-              changelog_url=""
-            fi
-
-            {
-              printf "## What's Changed\n\n"
-              cat changelog.txt
-              printf '\n\n%s\n' "$changelog_url"
-            } > body.md
+            range=""
+            changelog_url=""
           fi
+
+          if [ -n "$range" ]; then
+            git log --no-merges --pretty=format:"%s|%h" "$range" > commits.txt
+          else
+            git log --no-merges --pretty=format:"%s|%h" -20 > commits.txt
+          fi
+          printf '\n' >> commits.txt
+
+          # Conventional Commits, grouped. What a user cannot see -- refactor,
+          # docs, test, ci, style -- is left to the compare link.
+          matched=0
+          section() {
+            local title="$1" pattern="$2" body
+            body=$( { grep -E "$pattern" commits.txt || true; } |
+                   sed -E 's/^[a-z]+(\([^)]*\))?!?: //; s/\|([0-9a-f]+)$/ (\1)/; s/^/- /')
+            [ -z "$body" ] && return 0
+            printf '### %s\n\n%s\n\n' "$title" "$body"
+            matched=1
+          }
+
+          {
+            printf "## What's Changed\n\n"
+            section 'Features'     '^feat(\(|!?:)'
+            section 'Fixes'        '^fix(\(|!?:)'
+            section 'Performance'  '^perf(\(|!?:)'
+            section 'Dependencies' '^(chore|build)\(deps'
+            if [ "$matched" = 0 ]; then
+              sed -E 's/\|([0-9a-f]+)$/ (\1)/; s/^/- /' commits.txt
+              printf '\n'
+            fi
+            printf '%s\n' "$changelog_url"
+          } > body.md
+
+          cat body.md
 
           output_delimiter="RELEASE_BODY_$(uuidgen)"
           {
