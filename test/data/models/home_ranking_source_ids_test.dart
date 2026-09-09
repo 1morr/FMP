@@ -3,12 +3,12 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 
 void main() {
-  group('home ranking source id whitelist (D4)', () {
+  group('home ranking source id whitelist', () {
     test(
       'homeRankingSourceIds derives from SourceIds.values, not a literal',
       () {
         // 單一真相：白名單必須隨 SourceIds.values 同步。
-        // 新增內建音源未補到此 list 時，此測試應失敗（D4 防靜默丟棄）。
+        // 新增內建音源未補到此 list 時，此測試應失敗（防靜默丟棄）。
         expect(homeRankingSourceIds, SourceIds.values);
         expect(homeRankingSourceIds, hasLength(SourceIds.values.length));
       },

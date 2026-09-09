@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/ui/widgets/lyrics/lyrics_text_measurer.dart';
 
 void main() {
-  group('LyricsTextMeasurer.fontSizesFromReferenceWidth (C1b)', () {
+  group('LyricsTextMeasurer.fontSizesFromReferenceWidth', () {
     const min = 14.0, max = 30.0, ref = 20.0, ratio = 0.65, bold = 0.95;
 
     test('null reference width falls back to max main size', () {

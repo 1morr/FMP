@@ -34,22 +34,22 @@ void main() {
           DownloadTask()
             ..trackId = trackId
             ..playlistId = 7
-            ..playlistName = 'Phase3'
-            ..savePath = 'C:/Music/FMP/Phase3/audio.m4a'
+            ..playlistName = 'Downloaded Playlist'
+            ..savePath = 'C:/Music/FMP/Downloaded Playlist/audio.m4a'
             ..status = DownloadStatus.downloading
             ..createdAt = DateTime.now(),
         );
 
         await harness.repository.completeTaskWithDownloadPath(
           taskId: task.id,
-          savePath: 'C:/Music/FMP/Phase3/audio.m4a',
+          savePath: 'C:/Music/FMP/Downloaded Playlist/audio.m4a',
         );
 
         final updatedTrack = await harness.isar.tracks.get(trackId);
         final updatedTask = await harness.repository.getTaskById(task.id);
         expect(
           updatedTrack!.getDownloadPath(7),
-          'C:/Music/FMP/Phase3/audio.m4a',
+          'C:/Music/FMP/Downloaded Playlist/audio.m4a',
         );
         expect(updatedTask!.status, DownloadStatus.completed);
         expect(updatedTask.completedAt, isNotNull);

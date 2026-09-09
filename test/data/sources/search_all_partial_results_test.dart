@@ -24,7 +24,7 @@ class _FakeSearchSource implements SearchSource {
 
 void main() {
   test('searchAll preserves partial results when one source throws '
-      '(B9: silent catch now logs instead of swallowing)', () async {
+      '(a silent catch now logs instead of swallowing)', () async {
     final manager = SourceManager(
       sources: [
         _FakeSearchSource(

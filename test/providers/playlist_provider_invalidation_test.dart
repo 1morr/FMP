@@ -31,7 +31,7 @@ void main() {
 
         final notifier = harness.container.read(playlistListProvider.notifier);
         final createdPlaylist = await notifier.createPlaylist(
-          name: 'Phase 2 Playlist',
+          name: 'Invalidation Playlist',
         );
         expect(createdPlaylist, isNotNull);
         final playlist = createdPlaylist!;
@@ -223,7 +223,7 @@ Track _buildTrack({required String sourceId, required String title}) {
     ..sourceId = sourceId
     ..sourceType = SourceIds.youtube
     ..title = title
-    ..artist = 'Phase 2 Artist'
+    ..artist = 'Invalidation Artist'
     ..durationMs = 180000
     ..thumbnailUrl = 'https://example.com/$sourceId.jpg';
 }

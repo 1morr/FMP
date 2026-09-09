@@ -22,7 +22,7 @@ Widget host({required LyricsTitleBar child}) =>
     MaterialApp(home: Scaffold(body: child));
 
 void main() {
-  group('LyricsTitleBar (C1e leaf)', () {
+  group('LyricsTitleBar', () {
     testWidgets('renders title and artist', (tester) async {
       await tester.pumpWidget(
         host(
