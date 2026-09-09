@@ -295,32 +295,97 @@ void main() {
       );
     });
 
-    test(
-      'a VIP song that is not a login failure is still reported as VIP',
-      () async {
-        final source = NeteaseSource(
-          dio: _dioReturning({
-            'code': 200,
-            'data': [
-              {'id': 1831476071, 'url': null, 'code': 404, 'fee': 0, 'flag': 4},
-            ],
-          }),
-        );
+    test('code 404 on a free song means login required, not VIP', () async {
+      // 網易對匿名請求就是這樣回的：`fee = 0` 明說不是付費歌曲，卻連 URL 都不
+      // 給。這個組合以前撞在 `flag & 4` 上被說成需要 VIP，使用者被引導去付錢，
+      // 而其實只要登入（#87）。正確的字串 `sourceErrorLoginRequired` 一直都在
+      // repo 裡，只是掛在 `code == 301` 上，永遠選不到。
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {'id': 1831476071, 'url': null, 'code': 404, 'fee': 0, 'flag': 4},
+          ],
+        }),
+      );
 
-        await expectLater(
-          source.getAudioStream(
-            const AudioStreamRequest(sourceId: '1831476071'),
+      await expectLater(
+        source.getAudioStream(const AudioStreamRequest(sourceId: '1831476071')),
+        throwsA(
+          isA<NeteaseApiException>()
+              .having((e) => e.kind, 'kind', SourceErrorKind.loginRequired)
+              .having((e) => e.code, 'code', 'login_required')
+              .having((e) => e.isVipRequired, 'isVipRequired', isFalse),
+        ),
+      );
+    });
+
+    test('the flag bit alone never means VIP', () async {
+      // 實測歌曲 139774 是 `flag=6, code=200`，匿名就拿得到 320kbps 的 URL ——
+      // 這個位元不是 VIP 標記。沒有 fee、也沒有付費字樣時就不准說要付費。
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {'id': 139774, 'url': null, 'code': -110, 'fee': 0, 'flag': 6},
+          ],
+        }),
+      );
+
+      await expectLater(
+        source.getAudioStream(const AudioStreamRequest(sourceId: '139774')),
+        throwsA(
+          isA<NeteaseApiException>()
+              .having((e) => e.isVipRequired, 'isVipRequired', isFalse)
+              .having((e) => e.isGeoRestricted, 'isGeoRestricted', isTrue),
+        ),
+      );
+    });
+
+    test('code 404 on a paid song is still reported as VIP', () async {
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {'id': 1831476071, 'url': null, 'code': 404, 'fee': 4, 'flag': 4},
+          ],
+        }),
+      );
+
+      await expectLater(
+        source.getAudioStream(const AudioStreamRequest(sourceId: '1831476071')),
+        throwsA(
+          isA<NeteaseApiException>().having(
+            (e) => e.isVipRequired,
+            'isVipRequired',
+            isTrue,
           ),
-          throwsA(
-            isA<NeteaseApiException>().having(
-              (e) => e.isVipRequired,
-              'isVipRequired',
-              isTrue,
-            ),
+        ),
+      );
+    });
+
+    test('code 404 with no fee at all stays unavailable', () async {
+      // `fee` 不在回應裡就沒有「明確不是付費歌曲」這個證據，不能猜成未登入。
+      final source = NeteaseSource(
+        dio: _dioReturning({
+          'code': 200,
+          'data': [
+            {'id': 555, 'url': null, 'code': 404},
+          ],
+        }),
+      );
+
+      await expectLater(
+        source.getAudioStream(const AudioStreamRequest(sourceId: '555')),
+        throwsA(
+          isA<NeteaseApiException>().having(
+            (e) => e.kind,
+            'kind',
+            SourceErrorKind.unavailable,
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
     test('login required wins over a VIP-looking message', () async {
       final source = NeteaseSource(

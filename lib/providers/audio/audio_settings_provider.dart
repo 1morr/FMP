@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/core/secure_key_value_store.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
@@ -24,6 +26,13 @@ class AudioSettingsState {
   final int lyricsAiTimeoutSeconds;
   final bool lyricsAiApiKeyConfigured;
 
+  /// 這次載入時憑證儲存讀不出來。
+  ///
+  /// 與 [lyricsAiApiKeyConfigured] 為 false 不同：那是「沒設定過金鑰」，這是
+  /// 「金鑰可能還在，但這台機器現在解不開」。設定頁要能分辨，否則使用者會以為
+  /// 自己的金鑰被清掉了（#89）。
+  final bool secureStorageUnavailable;
+
   /// 每個音源是否在播放時帶上登入狀態，key 是 [SourceIds] 的音源 id。
   final Map<String, bool> useAuthForPlay;
   final bool isLoading;
@@ -41,6 +50,7 @@ class AudioSettingsState {
     this.lyricsAiModel = '',
     this.lyricsAiTimeoutSeconds = AppConstants.lyricsAiDefaultTimeoutSeconds,
     this.lyricsAiApiKeyConfigured = false,
+    this.secureStorageUnavailable = false,
     this.useAuthForPlay = const {},
     this.isLoading = true,
   });
@@ -71,6 +81,7 @@ class AudioSettingsState {
     String? lyricsAiModel,
     int? lyricsAiTimeoutSeconds,
     bool? lyricsAiApiKeyConfigured,
+    bool? secureStorageUnavailable,
     Map<String, bool>? useAuthForPlay,
     bool? isLoading,
   }) {
@@ -92,6 +103,8 @@ class AudioSettingsState {
           lyricsAiTimeoutSeconds ?? this.lyricsAiTimeoutSeconds,
       lyricsAiApiKeyConfigured:
           lyricsAiApiKeyConfigured ?? this.lyricsAiApiKeyConfigured,
+      secureStorageUnavailable:
+          secureStorageUnavailable ?? this.secureStorageUnavailable,
       useAuthForPlay: useAuthForPlay ?? this.useAuthForPlay,
       isLoading: isLoading ?? this.isLoading,
     );
@@ -99,7 +112,7 @@ class AudioSettingsState {
 }
 
 /// 音频设置管理器
-class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
+class AudioSettingsNotifier extends Notifier<AudioSettingsState> with Logging {
   late SettingsRepository _settingsRepository;
   // `late`，不是 `late final`：`build()` 會重跑，而重跑時實例是同一個。
   late LyricsAiConfigService _lyricsAiConfigService;
@@ -118,7 +131,20 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
   /// 加载设置
   Future<void> _loadSettings() async {
     _settings = await _settingsRepository.get();
-    final lyricsAiApiKey = await _lyricsAiConfigService.readApiKey();
+
+    // 憑證儲存讀不到不能讓例外逸出：`isLoading` 會永遠停在 true，音訊設定頁
+    // 就是一個永久的 spinner，歌詞 AI 設定也一樣拿不到值（#89）。三個 account
+    // service 早就各自降級成「沒有憑證」並記一條消毒過的 log，這裡是 #35 當時
+    // 漏掉的第四個 read，做同一件事：退回預設值，另外標記讓設定頁能說明原因。
+    var lyricsAiApiKey = '';
+    var secureStorageUnavailable = false;
+    try {
+      lyricsAiApiKey = await _lyricsAiConfigService.readApiKey();
+    } on SecureStorageUnavailable catch (error) {
+      logWarning('Lyrics AI key store unavailable: $error');
+      secureStorageUnavailable = true;
+    }
+
     state = AudioSettingsState(
       qualityLevel: _settings!.audioQualityLevel,
       formatPriority: _settings!.audioFormatPriorityList,
@@ -137,6 +163,7 @@ class AudioSettingsNotifier extends Notifier<AudioSettingsState> {
           ? AppConstants.lyricsAiDefaultTimeoutSeconds
           : _settings!.lyricsAiTimeoutSeconds,
       lyricsAiApiKeyConfigured: lyricsAiApiKey.isNotEmpty,
+      secureStorageUnavailable: secureStorageUnavailable,
       useAuthForPlay: {
         for (final sourceId in SourceIds.values)
           sourceId: _settings!.useAuthForPlay(sourceId),

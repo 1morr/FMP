@@ -553,9 +553,14 @@ class _AiTitleParsingSettingsDialogState
                 controller: widget.apiKeyController,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiApiKey,
-                  helperText: widget.audioSettings.lyricsAiApiKeyConfigured
+                  // 三種狀態，不是兩種：憑證儲存讀不出來時金鑰其實還在，說
+                  // 「未設定」會讓使用者以為被清掉了（#89）。
+                  helperText: widget.audioSettings.secureStorageUnavailable
+                      ? t.settings.lyricsSourceSettings.aiApiKeyUnavailable
+                      : widget.audioSettings.lyricsAiApiKeyConfigured
                       ? t.settings.lyricsSourceSettings.aiApiKeyConfigured
                       : t.settings.lyricsSourceSettings.aiApiKeyEmpty,
+                  helperMaxLines: 3,
                   prefixIcon: const Icon(Icons.key_outlined),
                   border: const OutlineInputBorder(),
                 ),

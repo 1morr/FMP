@@ -68,6 +68,13 @@ what reading them will not tell you.
 - Stream failures inspect per-song `code`/`message`/`fee`/`flag`. VIP/paid
   become `vipRequired`; copyright/region become `geoRestricted`; generic missing
   URLs become `unavailable`.
+- **"Not logged in" outranks "needs VIP", and `flag & 4` is not a VIP marker.**
+  Song `139774` measures `flag=6, code=200` and streams anonymously at 320kbps,
+  yet nearly every anonymous failure carries that bit — reading it as VIP told
+  users to pay when logging in was enough (#87). Login-required is `code == 301`
+  **and** `code == 404` with `fee == 0`: NetEase answers an anonymous request
+  for a free song exactly that way. Only `fee` (1 or 4) and VIP wording in the
+  message mean VIP.
 - Ranking fetches use the hot playlist plus song-detail metadata only — they
   must **not** resolve or refresh audio URLs.
 - Play auth defaults to on for Netease (`kDefaultUseAuthForPlayBySource`),

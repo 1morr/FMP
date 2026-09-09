@@ -35,5 +35,9 @@
     "bilibiliDescription": "除非需要大會員或私人內容播放，否則建議關閉。",
     "youtubeDescription": "除非需要帳號限定內容播放，否則建議關閉。",
     "neteaseDescription": "預設開啟，用於 VIP 或帳號受限歌曲。"
+  },
+  "secureStorageUnavailable": {
+    "title": "讀不到憑證儲存",
+    "description": "這台裝置目前解不開已儲存的憑證，所以沒有載入 AI API Key。本頁其餘設定不受影響。"
   }
 }

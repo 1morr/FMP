@@ -107,6 +107,7 @@
     "aiApiKey": "API key",
     "aiApiKeyConfigured": "API key configured. Enter a new key to replace it, or leave empty to keep it.",
     "aiApiKeyEmpty": "No API key configured. Enter one to enable AI parsing.",
+    "aiApiKeyUnavailable": "The credential store cannot be read, so an existing key could not be loaded. It has not been deleted; entering a key here overwrites it.",
     "aiClearApiKey": "Clear API key",
     "aiModel": "Model",
     "aiModelHint": "Model name",
