@@ -180,7 +180,7 @@ playing" compares source identity for the same reason — use a stronger key
   action is an `IconButton`. `PopupMenuButton` has built-in padding.
 - **ListTile performance**: avoid `Row` inside `ListTile.leading` — it causes
   layout jitter. Use flat `InkWell` + `Padding` + `Row`. Enforced by
-  `list_tile_leading_static_rule_test.dart`.
+  `ui_consistency_static_rule_test.dart`.
 - **Never hardcode a width literal, and never answer one responsive question
   with the other's API.** `WindowClass.of(width)` describes the *window* chrome;
   `columnsFor(containerWidth)` describes how many columns fit *this container*.

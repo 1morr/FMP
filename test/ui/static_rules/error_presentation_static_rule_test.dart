@@ -4,8 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// 兩條把 5a③／5g 的結果鎖住的機械規則。
 ///
-/// 掃的是整個 `lib/ui` 目錄而不是一份檔案清單，所以新增的頁面自動被涵蓋
-/// （形狀照 `list_tile_leading_static_rule_test.dart`）。
+/// 掃的是整個 `lib/ui` 目錄而不是一份檔案清單，所以新增的頁面自動被涵蓋。
 void main() {
   group('Error presentation static rules', () {
     test('an async error branch never renders as nothing', () {

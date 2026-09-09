@@ -758,8 +758,44 @@ void main() {
       expect(_methodBody(lyricsSearch, '_selectResult'), contains('_isSaving'));
       expect(_methodBody(lyricsSearch, '_removeMatch'), surfaced);
     });
+
+    test('ListTile leading values do not directly use Row', () {
+      final offenders = <String>[];
+
+      for (final entity in Directory('lib/ui').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+
+        final source = entity.readAsStringSync();
+        if (listTileLeadingRowOffenders(source).isNotEmpty) {
+          offenders.add(entity.path.replaceAll('\\', '/'));
+        }
+      }
+
+      expect(offenders, isEmpty);
+    });
   });
 }
+
+/// `ListTile` 的 `leading` 直接塞一個 `Row`。
+///
+/// `leading` 的寬度由 `ListTile` 自己算，`Row` 會撐到約束外，在窄視窗溢出。
+final _listTileLeadingRowPattern = RegExp(
+  r'ListTile\s*\([\s\S]*?leading:\s*Row\s*\(',
+);
+
+List<String> listTileLeadingRowOffenders(String source) =>
+    _listTileLeadingRowPattern
+        .allMatches(stripDartComments(source))
+        .map((match) => match.group(0)!)
+        .toList();
+
+/// 去掉註解。
+///
+/// 靜態規則掃的是程式碼，不是敘述。少了這一步，一句解釋「不要寫成
+/// `leading: Row(`」的註解就會把規則自己弄紅。
+String stripDartComments(String source) => source
+    .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
+    .replaceAll(RegExp(r'//[^\n]*'), '');
 
 String _classBody(String source, String className) {
   final declaration = RegExp(
