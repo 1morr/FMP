@@ -37,7 +37,7 @@
 - [建置與發布指南](build-and-release.md) 是 Release 行為的權威文件；下載連結、產物命名與應用內更新規則變更時優先更新它。
 - **語系分工是刻意的**：`AGENTS.md`（根目錄與各子樹）與 `docs/agents/` 維持英文，與程式碼、commit、識別字一致，方便 agent 與跨語言貢獻者比對；`docs/` 其餘文件與根目錄 `README` 以中文撰寫，面向人類使用者與貢獻者。不強制統一語系。
 - `.claude/skills/` 放可被 Claude Code 直接叫用的專案 skill（目前只有 `verify-on-device`：模擬器與桌面版的實機驗證迴圈）。`.gitignore` 只追蹤這個子目錄，`.claude/` 其餘內容是本機狀態，不進版控。
-- `docs/agents/` 是 engineering skills（`/triage`、`/to-tickets`、`/to-spec`、`/qa`、`/wayfinder` 等）讀取的專案設定，不是給人讀的說明文件；要換 issue 追蹤系統或標籤詞彙時直接改這裡的檔案即可。
+- `docs/agents/` 是 engineering skills（`/triage`、`/to-tickets`、`/to-spec`、`/wayfinder`、`/domain-modeling` 等）讀取的專案設定，不是給人讀的說明文件；要換 issue 追蹤系統或標籤詞彙時直接改這裡的檔案即可。這三個檔是 `/setup-matt-pocock-skills` 的產出**再加上 FMP 專屬修改**（repo 釘死成 `1morr/FMP`、繁中語言政策、與 `AGENTS.md` 的分工），重跑那個 skill 會用泛用模板覆蓋掉它們。
 
 ## 維護規則
 
