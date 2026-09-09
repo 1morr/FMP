@@ -47,9 +47,12 @@ file in the same change as the code. Human-facing docs live in `docs/`;
 | i18n JSON | `dart run slang` + `flutter analyze` |
 | `AGENTS.md` and other docs | `flutter test test/support/agents_docs_static_rule_test.dart` |
 
-`flutter analyze` covers `lib` **and** `test`; `dart format lib test` is a CI
-gate. CI runs every job on documentation-only commits, because the rules in
-these files are enforced by tests.
+`flutter analyze` covers `lib`, `test` **and** `tool`; `dart format lib test
+tool` is a CI gate. `tool/demo/` holds hand-run scripts that hit the real
+source APIs — they are not tests and CI never executes them, but they are
+analysed and formatted like everything else. CI runs every job on
+documentation-only commits, because the rules in these files are enforced by
+tests.
 
 **On-device verification is mandatory for user-visible changes** — UI pages or
 widgets, playback controls, how source results render, or a string that can

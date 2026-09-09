@@ -56,7 +56,7 @@ jobs:
       # not guaranteed to be dart-format-clean, and *.g.dart is gitignored so
       # it does not exist yet at this point on a fresh checkout anyway.
       - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed lib test
+        run: dart format --output=none --set-exit-if-changed lib test tool
 
       - name: Generate code (Isar models)
         run: dart run build_runner build
