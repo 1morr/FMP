@@ -509,7 +509,7 @@ curl -s -G "$BASE/getInstances" --data-urlencode "isolateId=$ISOLATE" --data-url
 curl -s -G "$BASE/getObject" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "objectId=objects/456"
 ```
 
-`getObject` 回傳的 `fields[]` 每筆有 `decl.name` 與 `value.valueAsString`。Phase 3 就是用
+`getObject` 回傳的 `fields[]` 每筆有 `decl.name` 與 `value.valueAsString`。2026-09 的資料層整理就是用
 這條路從執行中的 `MediaKitAudioService` 讀出真實的 WASAPI 裝置清單（`FmpAudioDevice` 的
 `name` / `description`），驗證 issue #42 的還原路徑。
 

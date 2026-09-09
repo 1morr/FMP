@@ -192,6 +192,9 @@ void main(List<String> args) async {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // 初始化電台刷新服務（後台加載）
         RadioRefreshService.instance = RadioRefreshService();
+        WidgetsBinding.instance.addObserver(
+          _RadioRefreshLifecycleObserver(RadioRefreshService.instance),
+        );
       });
 
       runApp(
@@ -271,6 +274,28 @@ Future<void> _initializeWindowManager() async {
   // Windows: 设置关闭窗口时最小化到托盘而不是退出
   if (Platform.isWindows) {
     await windowManager.setPreventClose(true);
+  }
+}
+
+/// 把 App 生命週期接到電台輪詢：背景時沒有人看電台列表，輪詢只是在替 Bilibili
+/// 的風控計數（#95）。`inactive` 不算背景 —— 桌面版視窗失焦也是 `inactive`。
+class _RadioRefreshLifecycleObserver with WidgetsBindingObserver {
+  _RadioRefreshLifecycleObserver(this._service);
+
+  final RadioRefreshService _service;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _service.resume();
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _service.pause();
+      case AppLifecycleState.inactive:
+        break;
+    }
   }
 }
 

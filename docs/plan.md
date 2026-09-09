@@ -71,7 +71,7 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 
 **1.A Bilibili 風控**（先開 issue，目前沒有任何 issue 記錄過這件事）
 
-成因摘要：CI 不打 Bilibili，runner IP 也傳染不到本機。8 月 25 日以來沒有 commit 改過 header、並發、重試或刷新間隔。上游在 9 月初收緊，repo 在 `test/live/sources_live_test.dart` 已記錄「匿名請求被風控，登入後同一呼叫就通」。App 自身的弱點：沒有 WBI 簽名、buvid 是本地亂數、電台輪詢每台 4 個請求且不快取不退避。
+成因（2026-09-10 實測，記錄在 #95）：CI 不打 Bilibili，8 月 25 日以來也沒有 commit 改過請求行為。這台機器上的真正根因是 Clash Verge 的分流：沒有規則把 Bilibili 與 Netease 導向 DIRECT，全部掉到最後的 `Match` 走台灣節點，TLS 握手被切斷；就算通了，台灣出口 IP 的匿名請求也會被 Bilibili 風控。這要在 Clash 的規則裡修，不在 repo 內。App 端保留的是獨立於此的衛生改善：電台輪詢不快取不退避、`rateLimited` 提示不說怎麼解、連網測試沒有東西擋漏標。1.2 與 1.3 延後到 Clash 規則修好、直連下重跑 live 測試之後再決定。
 
 | # | 任務 | 檔案 | 驗收 |
 |---|---|---|---|
@@ -219,10 +219,10 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 
 | 里程碑 | 狀態 | 分支 / PR | 備註 |
 |---|---|---|---|
-| M0 | 進行中 | `chore/docs-and-repo-hygiene` | 30 commit 已審閱，等 CI 後 merge |
-| M1 | 未開始 | | 先開 Bilibili 風控的 issue |
-| M2 | 未開始 | | |
-| M3 | 未開始 | | 可與 M1 並行 |
+| M0 | 完成 2026-09-10 | #94 | `main` 有 `protect-main` ruleset |
+| M1 | 進行中 | #96 已合併；1.B 在 `fix/rail-overflow-and-p1s` | 1.A 做完；1.2 與 1.3 延後（#95 記錄了 Clash 根因） |
+| M2 | 未開始 | | 等 1.B |
+| M3 | 進行中 | #97 已合併；3.1 在 `chore/drop-review-history`；3.B 在 `chore/trim-static-assertions` | 3.4、3.5、3.11 未開始 |
 | M4 | 未開始 | | |
 | M5 | 未開始 | | |
 

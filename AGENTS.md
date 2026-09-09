@@ -106,8 +106,6 @@ Never:
 - Do not add an import edge between two features without recording it. A feature
   is a subdirectory name under `lib/services/` or `lib/providers/` — those hold
   two halves of the same features.
-- Do not cite `docs/review/execution-log.md` from code, tests or `AGENTS.md`. It
-  is history; a cited snapshot becomes an unmaintained live document.
 - Do not hide a `lib/` source grep inside a test named after a widget or a page.
   A test that reads `lib/` source is a static rule: it belongs in
   `test/support/` or `test/<layer>/static_rules/`, with a name ending in
@@ -119,11 +117,11 @@ Never:
   it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
   See `docs/troubleshooting.md`.
 
-Every rule from the image one down to the placement one is enforced by a test
-under `test/support/` or a `static_rules/` directory; those tests carry the
-exception lists. Add a line with a reason when you add a legitimate exception;
-delete it when it goes away. The first three and the last are conventions —
-nothing checks them for you.
+The pump, upward-import, feature-edge and placement rules are enforced by tests
+under `test/support/`, which carry the exception lists. Add a line with a reason
+when you add a legitimate exception; delete it when it goes away. The first
+four are conventions nothing checks for you, and the AXTree line is a stop-loss
+note that no static test could.
 
 ## Architecture
 

@@ -125,10 +125,10 @@ class RegexTitleParser implements TitleParser {
 
   @override
   ParsedTitle parse(String title, {String? uploader}) {
-    // Phase 1: 清理
+    // 步驟 1：清理
     var cleaned = _clean(title);
 
-    // Phase 2: 提取 artist / track
+    // 步驟 2：提取 artist / track
     String? artist;
     String? track;
 

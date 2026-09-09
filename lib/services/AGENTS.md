@@ -147,7 +147,10 @@ of the shared player (`hasActivePlaybackOwnership`). Home "Now Playing" uses
 retained context for tap actions. `RadioController.play()` must pause music
 before setting radio loading state. Timed live-status refresh is owned by
 `RadioRefreshService`; UI pages must not create their own periodic refresh
-timers.
+timers. That service is the one request stream that runs for as long as the
+app is open, so it backs off exponentially on a Bilibili risk-control code and
+stops ticking while the app is in the background (#95); only the timer obeys
+both, a user-triggered refresh does not.
 
 Radio intentionally consumes the shared `audioServiceProvider` and calls the
 backend directly, while ownership hooks keep `AudioController` from reacting to

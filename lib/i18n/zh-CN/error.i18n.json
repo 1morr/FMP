@@ -25,6 +25,7 @@
   "emptySubtitle": "这里还没有任何内容",
   "genericSubtitle": "请稍后重试",
   "rateLimited": "请求过于频繁，请稍后再试",
+  "bilibiliRateLimited": "Bilibili 风控拦下了这个请求。未登录时最容易发生，在设置里登录 Bilibili 账号可大幅减少",
   "retry": "重试",
   "sourceUnavailable": "音源 $source 不可用"
 }

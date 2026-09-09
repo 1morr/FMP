@@ -25,6 +25,7 @@
   "emptySubtitle": "There's nothing here yet",
   "genericSubtitle": "Please try again later",
   "rateLimited": "Too many requests, please try again later",
+  "bilibiliRateLimited": "Bilibili's risk control blocked this request. It happens mostly when signed out; signing in to Bilibili under Settings largely avoids it",
   "retry": "Retry",
   "sourceUnavailable": "Source $source is unavailable"
 }
