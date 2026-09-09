@@ -45,7 +45,6 @@ class BilibiliSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource,
         TrackDetailSource,
         PagedVideoSource,
         RankingSource,
@@ -727,19 +726,6 @@ class BilibiliSource
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in parsePlaylist: $e');
       throw BilibiliApiException(numericCode: -999, message: e.toString());
-    }
-  }
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async {
-    try {
-      final response = await _dio.get(
-        _viewApi,
-        queryParameters: {'bvid': sourceId},
-      );
-      return response.data['code'] == 0;
-    } catch (_) {
-      return false;
     }
   }
 

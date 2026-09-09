@@ -309,9 +309,6 @@ class _ControllableRefreshSource extends BilibiliSource {
   bool isValidId(String id) => true;
 
   @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(
       url: 'https://example.com/${request.sourceId}.m4a',

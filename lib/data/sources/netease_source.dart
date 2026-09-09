@@ -30,7 +30,6 @@ class NeteaseSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource,
         TrackDetailSource,
         RankingSource {
   late final Dio _dio;
@@ -426,18 +425,6 @@ class NeteaseSource
     );
     track.updatedAt = DateTime.now();
     return track;
-  }
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async {
-    try {
-      final songData = await _getSongDetail(sourceId);
-      final privilege = songData['privilege'] as Map<String, dynamic>?;
-      final st = privilege?['st'] as int?;
-      return st != -200;
-    } catch (_) {
-      return false;
-    }
   }
 
   @override

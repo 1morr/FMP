@@ -30,7 +30,6 @@ class YouTubeSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource,
         TrackDetailSource,
         DynamicPlaylistSource,
         RankingSource {
@@ -1669,16 +1668,6 @@ class YouTubeSource
         'Failed to get owner ID via InnerTube for playlist: $playlistId, error: $e',
       );
       return null;
-    }
-  }
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async {
-    try {
-      await _youtube.videos.get(sourceId);
-      return true;
-    } catch (_) {
-      return false;
     }
   }
 

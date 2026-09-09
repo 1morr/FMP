@@ -50,9 +50,6 @@ class SourceManager with Logging {
   PlaylistParsingSource? playlistParsingSource(String type) =>
       _capability<PlaylistParsingSource>(type);
 
-  AvailabilitySource? availabilitySource(String type) =>
-      _capability<AvailabilitySource>(type);
-
   TrackDetailSource? trackDetailSource(String type) =>
       _capability<TrackDetailSource>(type);
 

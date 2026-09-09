@@ -130,7 +130,3 @@ abstract interface class PlaylistParsingSource implements SourceCapability {
     Map<String, String>? authHeaders,
   });
 }
-
-abstract interface class AvailabilitySource implements SourceCapability {
-  Future<bool> checkAvailability(String sourceId);
-}
