@@ -9,8 +9,11 @@ for the shared fullscreen shell. Read those rather than a second copy here.
 
 ## Widget Directory Layout
 
-Shared widgets live in semantic subdirectories under `lib/ui/widgets/`; do not
-add new `.dart` files directly under it. Use `rg`/`ls` for the inventory.
+Shared widgets live in semantic subdirectories under `lib/ui/widgets/` — image
+widgets in `images/`, the rest by role — and `lib/providers/` has the same
+shape; neither directory holds a loose `.dart` file. Use `rg`/`ls` for the
+inventory. This is a convention, not a test: a directory listing frozen into an
+assertion goes stale on the first legitimate new subdirectory.
 
 Several widgets already serve two callers that do not look related, so they are
 easy to rewrite by accident: the library hero header (`app_bars/`), the

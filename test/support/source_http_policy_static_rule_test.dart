@@ -13,6 +13,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart_source.dart';
+
 /// 從路徑推出這個檔案服務哪個音源。
 const _sourceOfPathToken = <String, String>{
   'bilibili': 'SourceIds.bilibili',
@@ -31,14 +33,10 @@ const _clientFactoryFiles = <String>{
   'lib/core/utils/http_client_factory.dart',
 };
 
-String stripComments(String source) => source
-    .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
-    .replaceAll(RegExp(r'//[^\n]*'), '');
-
 /// 這個檔案自己生客戶端、又指名了某個音源，卻沒有經過 policy。
 bool buildsARawSourceClient(String path, String source) {
   if (_clientFactoryFiles.contains(path)) return false;
-  final code = stripComments(source);
+  final code = stripDartComments(source);
   if (!_rawClientPattern.hasMatch(code)) return false;
   if (!RegExp(r'SourceIds\.[a-z]').hasMatch(code)) return false;
   return !code.contains('SourceHttpPolicy.');
@@ -79,7 +77,7 @@ void main() {
       final wrongSource = <String>[];
 
       for (final entry in libSources.entries) {
-        final code = stripComments(entry.value);
+        final code = stripDartComments(entry.value);
         if (!code.contains('SourceHttpPolicy.createApiDio')) continue;
         clients.add(entry.key);
 

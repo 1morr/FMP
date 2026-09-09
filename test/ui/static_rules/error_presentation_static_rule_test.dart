@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// 兩條把 5a③／5g 的結果鎖住的機械規則。
+import '../../support/dart_source.dart';
+
+/// 三條「錯誤要讓使用者看得到、而且看得懂」的機械規則。
 ///
 /// 掃的是整個 `lib/ui` 目錄而不是一份檔案清單，所以新增的頁面自動被涵蓋。
 void main() {
@@ -11,23 +13,10 @@ void main() {
       // 區塊靜靜消失時，使用者讀到的是「我沒有資料」而不是「載入失敗」。
       // 封面／頭像退回 placeholder 是允許的 —— 那看起來就是「沒有封面」。
       final offenders = <String>[];
-      final inline = RegExp(
-        r'error:\s*\([^)]*\)\s*=>\s*(const\s+)?SizedBox\.shrink\(\)',
-      );
-      final block = RegExp(
-        r'error:\s*\([^)]*\)\s*\{[^{}]*return\s+(const\s+)?SizedBox\.shrink\(\);',
-      );
-      final orElse = RegExp(
-        r'orElse:\s*\(\)\s*=>\s*(const\s+)?SizedBox\.shrink\(\)',
-      );
 
       for (final file in _uiDartFiles()) {
-        final source = file.readAsStringSync();
-        for (final pattern in [inline, block, orElse]) {
-          if (pattern.hasMatch(source)) {
-            offenders.add(file.path);
-            break;
-          }
+        if (silentErrorBranches(file.readAsStringSync()).isNotEmpty) {
+          offenders.add(file.path);
         }
       }
 
@@ -44,11 +33,6 @@ void main() {
       // 顯示了一整條含 URL 的 ClientException，來源在 `lib/services` 裡，
       // 只掃 UI 的規則看不到它。
       final offenders = <String>[];
-      final template = RegExp(r't\.[A-Za-z0-9_.]+\(\s*error:[^)]*\)');
-      final raw = RegExp(
-        r"\b(e|err|error|exception)\.toString\(\)"
-        r"|\$\{?(e|error)\}?(?![A-Za-z0-9_])",
-      );
 
       for (final file
           in Directory('lib')
@@ -56,11 +40,8 @@ void main() {
               .whereType<File>()
               .where((f) => f.path.endsWith('.dart'))) {
         if (file.path.contains('i18n')) continue;
-        final source = file.readAsStringSync();
-        for (final call in template.allMatches(source)) {
-          if (raw.hasMatch(call.group(0)!)) {
-            offenders.add('${file.path}: ${call.group(0)}');
-          }
+        for (final call in rawExceptionInTemplates(file.readAsStringSync())) {
+          offenders.add('${file.path}: $call');
         }
       }
 
@@ -75,20 +56,12 @@ void main() {
       // `Exception: <伺服器原文>` 不該出現在畫面上。原文走 AppLogger，
       // 畫面走 userMessageFor。
       final offenders = <String>[];
-      final raw = RegExp(
-        r"""\b(e|err|error|exception|snapshot\.error|state\.error)\.toString\(\)"""
-        r"""|\$\{?(e|error)\}?['"]""",
-      );
 
       for (final file in _uiDartFiles()) {
-        final source = file.readAsStringSync();
-        for (final call in _callArguments(
-          source,
-          RegExp(r'ToastService\.\w+\('),
-        ).followedBy(_callArguments(source, RegExp(r'ErrorDisplay[.\w]*\(')))) {
-          if (raw.hasMatch(call)) {
-            offenders.add('${file.path}: $call');
-          }
+        for (final call in rawExceptionInUserFacingCalls(
+          file.readAsStringSync(),
+        )) {
+          offenders.add('${file.path}: $call');
         }
       }
 
@@ -99,6 +72,105 @@ void main() {
       );
     });
   });
+
+  group('the error presentation detectors', () {
+    test('a synthesised violation is caught', () {
+      const silent = '''
+value.when(
+  data: (items) => ItemList(items),
+  loading: () => const CircularProgressIndicator(),
+  error: (e, _) => const SizedBox.shrink(),
+)
+''';
+      const template = '''
+ToastService.error(t.library.loadFailed(error: e.toString()));
+''';
+      const rawCall = '''
+ToastService.error('Failed: \${e}');
+''';
+
+      expect(silentErrorBranches(silent), hasLength(1));
+      expect(rawExceptionInTemplates(template), hasLength(1));
+      expect(rawExceptionInUserFacingCalls(rawCall), hasLength(1));
+    });
+
+    test('a violation written in a comment does not count', () {
+      const silent = '''
+// error: (e, _) => const SizedBox.shrink() 會讓區塊靜靜消失。
+value.when(
+  data: (items) => ItemList(items),
+  loading: () => const CircularProgressIndicator(),
+  error: (e, _) => const ErrorDisplay(compact: true),
+)
+''';
+      const template = '''
+/// 不要寫成 t.library.loadFailed(error: e.toString())。
+ToastService.error(t.library.loadFailed(error: userMessageFor(e)));
+''';
+      const rawCall = '''
+// ToastService.error('Failed: \${e}') 會把伺服器原文貼到畫面上。
+ToastService.error(userMessageFor(e));
+''';
+
+      expect(silentErrorBranches(silent), isEmpty);
+      expect(rawExceptionInTemplates(template), isEmpty);
+      expect(rawExceptionInUserFacingCalls(rawCall), isEmpty);
+    });
+  });
+}
+
+/// `error:` / `orElse:` 分支直接畫一個空盒子。
+final _silentBranchPatterns = <RegExp>[
+  RegExp(r'error:\s*\([^)]*\)\s*=>\s*(const\s+)?SizedBox\.shrink\(\)'),
+  RegExp(
+    r'error:\s*\([^)]*\)\s*\{[^{}]*return\s+(const\s+)?SizedBox\.shrink\(\);',
+  ),
+  RegExp(r'orElse:\s*\(\)\s*=>\s*(const\s+)?SizedBox\.shrink\(\)'),
+];
+
+/// 例外原文 —— `e.toString()` 或直接插值進字串。
+final _rawExceptionPattern = RegExp(
+  r"\b(e|err|error|exception)\.toString\(\)"
+  r"|\$\{?(e|error)\}?(?![A-Za-z0-9_])",
+);
+
+/// i18n 模板的 `error:` 參數。
+final _i18nTemplatePattern = RegExp(r't\.[A-Za-z0-9_.]+\(\s*error:[^)]*\)');
+
+/// 使用者看得到的呼叫入口。
+final _userFacingCallPatterns = <RegExp>[
+  RegExp(r'ToastService\.\w+\('),
+  RegExp(r'ErrorDisplay[.\w]*\('),
+];
+
+List<String> silentErrorBranches(String source) {
+  final code = stripDartComments(source);
+  return [
+    for (final pattern in _silentBranchPatterns)
+      for (final match in pattern.allMatches(code)) match.group(0)!,
+  ];
+}
+
+List<String> rawExceptionInTemplates(String source) {
+  final code = stripDartComments(source);
+  return [
+    for (final call in _i18nTemplatePattern.allMatches(code))
+      if (_rawExceptionPattern.hasMatch(call.group(0)!)) call.group(0)!,
+  ];
+}
+
+List<String> rawExceptionInUserFacingCalls(String source) {
+  final code = stripDartComments(source);
+  final raw = RegExp(
+    r"""\b(e|err|error|exception|snapshot\.error|state\.error)\.toString\(\)"""
+    r"""|\$\{?(e|error)\}?['"]""",
+  );
+
+  return [
+    for (final pattern in _userFacingCallPatterns)
+      for (final call in _callArguments(code, pattern))
+        if (raw.hasMatch(call)) call,
+  ];
 }
 
 Iterable<File> _uiDartFiles() => Directory('lib/ui')
