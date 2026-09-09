@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -566,18 +565,6 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
   bool _retryScheduled = false;
   int _urlIndex = 0;
 
-  /// 当前 URL 已原地重试的次数。瞬时网络错误先重试当前 URL（有限次数、
-  /// 短退避），耗尽后才降级到下一个候选，避免单次抖动直接降到低画质候选
-  /// 或占位符。
-  int _retryAttempt = 0;
-  Timer? _retryTimer;
-
-  /// 每个 URL 的原地重试退避（共重试 2 次：300ms 后第一次、900ms 后第二次）
-  static const List<Duration> _retryDelays = [
-    Duration(milliseconds: 300),
-    Duration(milliseconds: 900),
-  ];
-
   String get _currentUrl => widget.request.urls[_urlIndex];
 
   @override
@@ -588,18 +575,10 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       _notified = false;
       _retryScheduled = false;
       _urlIndex = 0;
-      _resetRetry();
     } else if (_urlIndex >= widget.request.urls.length) {
       _retryScheduled = false;
       _urlIndex = 0;
-      _resetRetry();
     }
-  }
-
-  @override
-  void dispose() {
-    _retryTimer?.cancel();
-    super.dispose();
   }
 
   bool _sameUrlList(List<String> a, List<String> b) {
@@ -611,30 +590,15 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
     return true;
   }
 
-  void _resetRetry() {
-    _retryAttempt = 0;
-    _retryTimer?.cancel();
-    _retryTimer = null;
-  }
-
-  /// 延迟后重试当前 URL。通过递增 [_retryAttempt] 改变下方
-  /// CachedNetworkImage 的 key，强制创建新 state 重新发起请求
-  /// （同参数 rebuild 不会触发 CachedNetworkImage 重新解析）。
-  void _retryCurrentUrl() {
-    final delay = _retryDelays[_retryAttempt.clamp(0, _retryDelays.length - 1)];
-    _retryTimer = Timer(delay, () {
-      _retryTimer = null;
-      if (!mounted) return;
-      setState(() {
-        _retryAttempt += 1;
-        _retryScheduled = false;
-      });
-    });
-  }
-
+  /// 降級到下一個候選 URL。
+  ///
+  /// **沒有原地重試。** 曾經有一層（300ms / 900ms 退避）拿來擋
+  /// 瞬時的網路錯誤，但它對任何錯誤都重試，而候選清單本來就是為了
+  /// 永久性的 404 而存在 —— YouTube 的 `maxresdefault.jpg` 只在上傳者給了
+  /// HD 縮圖時才存在。結果是每一張沒有 HD 縮圖的 YouTube 封面都要先等
+  /// 1.2 秒才降到真正存在的那一檔。要重新加回來，先區分錯誤類型。
   void _advanceToNextUrl() {
     if (_urlIndex >= widget.request.urls.length - 1) return;
-    _resetRetry();
     setState(() {
       _urlIndex += 1;
       _notified = false;
@@ -649,8 +613,6 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
     }
 
     return CachedNetworkImage(
-      // key 随重试次数变化：原地重试时强制创建新 state 重新发起加载。
-      key: ValueKey<String>('$_urlIndex#$_retryAttempt'),
       imageUrl: _currentUrl,
       fit: widget.fit,
       width: widget.width,
@@ -660,7 +622,10 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       cacheManager: NetworkImageCacheService.defaultCacheManager,
       fadeInDuration: widget.fadeInDuration,
       fadeOutDuration: AnimationDurations.fastest,
-      // 限制内存缓存中的图片尺寸，减少内存占用
+      // 限制内存缓存中的图片尺寸，减少内存占用。cacheExtent 是
+      // targetDisplaySize × DPR，而 URL 分档已经把源图压到 targetDisplaySize
+      // 附近，所以对分档候选它不生效；真正咬合的是最后那个未分档的原始 URL
+      // 候选（可能是 1920px 的原图）。
       memCacheWidth: widget.request.cacheExtent,
       memCacheHeight: widget.request.cacheExtent,
       // 不在主显示路径做磁盘缩放：URL 分档已限制下载尺寸，磁盘缩放会让
@@ -670,20 +635,13 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : widget.placeholder,
       errorWidget: (context, url, error) {
-        if (!_retryScheduled) {
-          if (_retryAttempt < _retryDelays.length) {
-            // 瞬时错误：短退避后原地重试当前 URL，不立即降级候选。
-            _retryScheduled = true;
-            _retryCurrentUrl();
-          } else if (_urlIndex < widget.request.urls.length - 1) {
-            // 重试耗尽后才降级到下一个候选 URL。
-            _retryScheduled = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _advanceToNextUrl();
-              }
-            });
-          }
+        if (_urlIndex < widget.request.urls.length - 1 && !_retryScheduled) {
+          _retryScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _advanceToNextUrl();
+            }
+          });
         }
         return widget.placeholder;
       },
