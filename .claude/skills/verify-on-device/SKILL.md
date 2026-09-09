@@ -186,7 +186,7 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
   images (`libisar.so` LOAD segment not aligned). Dismiss it via `ax` before
   asserting on the first screen.
 
-### Measured during the phase 3 acceptance run
+### Measured during the 2026-09-04 data-layer acceptance run
 
 - **Back at the root route exits the app; it does not background it.** Use
   `adb shell input keyevent 3` (HOME) to background. Pressing back and then
@@ -256,7 +256,7 @@ observation on the emulator is worth.
   under the session scratchpad exceeds the Windows path limit and fails with
   confusing compiler errors. Use a short root such as `C:/t/`.
 
-### Driving the Windows build (measured in the phase 3 Windows run)
+### Driving the Windows build (measured in the 2026-09-04 Windows run)
 
 §6 says Windows gives you screenshots and window coordinates only. That is still
 true of the Flutter view — but the round that wrote §6 concluded the window
@@ -366,7 +366,7 @@ Report what was observed, not what should have happened: quote the log line, the
 tree node, or attach the screenshot path. Say explicitly when a step was skipped
 or a limitation blocked it.
 
-### Measured during the phase 5a/5g acceptance run
+### Measured during the 2026-09-07 UI acceptance run
 
 - **`adb shell am force-stop` detaches `flutter run`, and every later `r` / `R`
   is then a silent no-op.** The terminal prints `Lost connection to device.`

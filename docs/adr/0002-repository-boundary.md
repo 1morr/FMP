@@ -6,7 +6,7 @@
 
 ## 背景
 
-Phase 3 開始時，`lib/` 裡有 152 個 repository 之外的 Isar 呼叫點。集中在三個
+2026-09-03 資料層整理開始時，`lib/` 裡有 152 個 repository 之外的 Isar 呼叫點。集中在三個
 service：`playlist_mutation_service`（39）、`backup_service`（36）、
 `data_integrity_service`（20）。
 
@@ -65,7 +65,7 @@ Immich 加過這層，後來用 20 幾個 PR 把它刪掉。現有的具體 clas
 ## 後果
 
 - repository 之外的 Isar 呼叫點：152 → **19**（`database_catalog.dart` 11、
-  `database_migration.dart` 8）。Phase 3 的 3d 驗收線是「< 60」。
+  `database_migration.dart` 8）。當時的驗收線是「< 60」。
 - 備份匯入變成原子的。這是使用者可見的行為變更：解析期失敗仍然只損失該筆，但
   **寫入期**失敗從「損失一列」變成「整份匯入不寫」，並且例外往上拋，由 UI 顯示
   失敗，而不是回一個宣稱匯入了多少筆的結果對話框。
