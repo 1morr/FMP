@@ -182,30 +182,15 @@ class _MediumLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: Row(
         children: [
           SizedBox(
             width: AppLayout.railCollapsed,
-            child: Container(
-              color: colorScheme.surfaceContainerLow,
-              child: NavigationRail(
-                selectedIndex: selectedIndex,
-                onDestinationSelected: onDestinationSelected,
-                labelType: NavigationRailLabelType.all,
-                backgroundColor: Colors.transparent,
-                destinations: destinations
-                    .map(
-                      (d) => NavigationRailDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.selectedIcon),
-                        label: Text(d.label),
-                      ),
-                    )
-                    .toList(),
-              ),
+            // 平板版面沒有可展開的側欄，所以不給展開按鈕。
+            child: CollapsedNavRail(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: onDestinationSelected,
             ),
           ),
           const VerticalDivider(width: 1, thickness: 1),
@@ -213,6 +198,72 @@ class _MediumLayout extends StatelessWidget {
         ],
       ),
       bottomNavigationBar: const _MiniPlayerSwitch(),
+    );
+  }
+}
+
+/// 收起態的導覽軌，平板版面與桌面收起態共用。
+///
+/// [onExpand] 是 null 時不畫展開按鈕 —— 平板版面沒有可展開的側欄。
+///
+/// **為什麼要捲動**：六個目的地在 `labelType: all` 下各約 76dp，加上頂端的選單
+/// 按鈕要約 540dp。橫向手機（約 411dp 高）與 Windows 的最小視窗高度都放不下，
+/// 而原本的 `Column` + `Expanded` 只會把最下面的項目擠出可視區 ——「設定」是六
+/// 個目的地裡唯一沒有其他入口的那個，於是版面瑕疵變成功能不可達（#84）。
+///
+/// 用 `NavigationRail` 自己的 `scrollable`，而不是外面包一層
+/// `SingleChildScrollView` + `IntrinsicHeight`：框架版本一樣只捲主群組，但選取
+/// 指示器動畫、語意樹與 `SafeArea` 都留在它們原本的位置。展開按鈕改當 `leading`
+/// （`leadingAtTop` 預設為 `true`）釘在頂端，捲動時不會跟著目的地離開畫面。
+class CollapsedNavRail extends StatelessWidget {
+  const CollapsedNavRail({
+    super.key,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    this.onExpand,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final VoidCallback? onExpand;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final onExpand = this.onExpand;
+
+    return Container(
+      color: colorScheme.surfaceContainerLow,
+      child: NavigationRail(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: onDestinationSelected,
+        labelType: NavigationRailLabelType.all,
+        backgroundColor: Colors.transparent,
+        scrollable: true,
+        leading: onExpand == null
+            ? null
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: onExpand,
+                    tooltip: t.nav.expandNav,
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(indent: 12, endIndent: 12),
+                ],
+              ),
+        destinations: destinations
+            .map(
+              (d) => NavigationRailDestination(
+                icon: Icon(d.icon),
+                selectedIcon: Icon(d.selectedIcon),
+                label: Text(d.label),
+              ),
+            )
+            .toList(),
+      ),
     );
   }
 }
@@ -526,38 +577,10 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
   }
 
   Widget _buildCollapsedNav() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      color: colorScheme.surfaceContainerLow,
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => _layoutNotifier.setRailExpanded(true),
-            tooltip: t.nav.expandNav,
-          ),
-          const SizedBox(height: 8),
-          const Divider(indent: 12, endIndent: 12),
-          Expanded(
-            child: NavigationRail(
-              selectedIndex: widget.selectedIndex,
-              onDestinationSelected: widget.onDestinationSelected,
-              labelType: NavigationRailLabelType.all,
-              backgroundColor: Colors.transparent,
-              destinations: destinations
-                  .map(
-                    (d) => NavigationRailDestination(
-                      icon: Icon(d.icon),
-                      selectedIcon: Icon(d.selectedIcon),
-                      label: Text(d.label),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-        ],
-      ),
+    return CollapsedNavRail(
+      selectedIndex: widget.selectedIndex,
+      onDestinationSelected: widget.onDestinationSelected,
+      onExpand: () => _layoutNotifier.setRailExpanded(true),
     );
   }
 }

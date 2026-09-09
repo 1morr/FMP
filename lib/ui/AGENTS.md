@@ -187,6 +187,14 @@ playing" compares source identity for the same reason — use a stronger key
   `responsive_scaffold.dart` picks chrome from `MediaQuery`; content measures
   its own `LayoutBuilder`. A content-level answer may rearrange content, never
   remove it.
+- **The collapsed navigation rail scrolls.** Six destinations with
+  `labelType: all` plus the expand button need about 540dp; a landscape phone
+  gives about 411dp and Windows' minimum window is 500dp. `CollapsedNavRail`
+  (`responsive_scaffold.dart`, shared by the tablet and desktop-collapsed
+  layouts) uses `NavigationRail.scrollable` with the expand button as a pinned
+  `leading`. Do not put it back into an outer `Column` + `Expanded`: that pushes
+  Settings — the one destination with no other entry point — off-screen
+  entirely, which is a functional failure, not a visual one (#84).
 - There is deliberately no `LayoutType`/`isMobile`/`isTablet`/`isDesktop`:
   naming window sizes after hardware violates Flutter's *Avoid checking for
   hardware types*, and a 600dp desktop window is not a tablet. For OS-level
