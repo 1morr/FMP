@@ -219,10 +219,10 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 
 | 里程碑 | 狀態 | 分支 / PR | 備註 |
 |---|---|---|---|
-| M0 | 進行中 | `chore/docs-and-repo-hygiene` | 30 commit 已審閱，等 CI 後 merge |
-| M1 | 未開始 | | 先開 Bilibili 風控的 issue |
-| M2 | 未開始 | | |
-| M3 | 未開始 | | 可與 M1 並行 |
+| M0 | 完成 2026-09-10 | #94 | `main` 有 `protect-main` ruleset |
+| M1 | 進行中 | #96 已合併；1.B 在 `fix/rail-overflow-and-p1s` | 1.A 做完；1.2 與 1.3 延後（#95 記錄了 Clash 根因） |
+| M2 | 未開始 | | 等 1.B |
+| M3 | 進行中 | #97 已合併；3.1 在 `chore/drop-review-history`；3.B 在 `chore/trim-static-assertions` | 3.4、3.5、3.11 未開始 |
 | M4 | 未開始 | | |
 | M5 | 未開始 | | |
 
