@@ -45,7 +45,6 @@ class BilibiliSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource,
         TrackDetailSource,
         PagedVideoSource,
         RankingSource,
@@ -190,11 +189,6 @@ class BilibiliSource
   }
 
   @override
-  bool isValidId(String id) {
-    return RegExp(r'^BV[a-zA-Z0-9]{10}$').hasMatch(id);
-  }
-
-  @override
   bool canHandle(String url) => parseId(url) != null;
 
   @override
@@ -207,50 +201,6 @@ class BilibiliSource
         url.contains('/fav/') ||
         RegExp(r'fid=\d+').hasMatch(url) ||
         RegExp(r'ml\d+').hasMatch(url);
-  }
-
-  @override
-  Future<Track> getTrackInfo(
-    String bvid, {
-    Map<String, String>? authHeaders,
-  }) async {
-    try {
-      final response = await _dio.get(
-        _viewApi,
-        queryParameters: {'bvid': bvid},
-        options: authHeaders != null ? _withAuth(authHeaders) : null,
-      );
-
-      _checkResponse(response.data);
-
-      final data = response.data['data'];
-      final track = Track()
-        ..sourceId = bvid
-        ..sourceType = SourceIds.bilibili
-        ..title = data['title'] ?? 'Unknown'
-        ..artist = data['owner']?['name']
-        ..ownerId = data['owner']?['mid'] as int?
-        ..durationMs = ((data['duration'] as int?) ?? 0) * 1000
-        ..thumbnailUrl = data['pic'];
-
-      // 获取音频 URL
-      final audioUrl = await getAudioUrl(
-        AudioStreamRequest(sourceId: bvid, authHeaders: authHeaders),
-      );
-      track.audioUrl = audioUrl;
-      track.audioUrlExpiry = DateTime.now().add(
-        const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
-      );
-      track.createdAt = DateTime.now();
-
-      return track;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      if (e is BilibiliApiException) rethrow;
-      logError('Unexpected error in getTrackInfo: $e');
-      throw BilibiliApiException(numericCode: -999, message: e.toString());
-    }
   }
 
   @override
@@ -531,34 +481,6 @@ class BilibiliSource
   }
 
   @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    if (track.sourceType != SourceIds.bilibili) {
-      throw const BilibiliApiException(
-        numericCode: -3,
-        message: 'Invalid source type for BilibiliSource',
-      );
-    }
-
-    final audioUrl = await getAudioUrl(
-      AudioStreamRequest(
-        sourceId: track.sourceId,
-        cid: track.cid,
-        pageNum: track.pageNum,
-        authHeaders: authHeaders,
-      ),
-    );
-    track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now().add(
-      const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
-    );
-    track.updatedAt = DateTime.now();
-    return track;
-  }
-
-  @override
   Future<SearchResult> search(
     String query, {
     int page = 1,
@@ -727,19 +649,6 @@ class BilibiliSource
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in parsePlaylist: $e');
       throw BilibiliApiException(numericCode: -999, message: e.toString());
-    }
-  }
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async {
-    try {
-      final response = await _dio.get(
-        _viewApi,
-        queryParameters: {'bvid': sourceId},
-      );
-      return response.data['code'] == 0;
-    } catch (_) {
-      return false;
     }
   }
 

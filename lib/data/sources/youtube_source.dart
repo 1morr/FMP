@@ -30,7 +30,6 @@ class YouTubeSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource,
         TrackDetailSource,
         DynamicPlaylistSource,
         RankingSource {
@@ -173,7 +172,6 @@ class YouTubeSource
     }
   }
 
-  @override
   bool isValidId(String id) {
     // YouTube video ID 是 11 个字符
     return RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id);
@@ -203,69 +201,6 @@ class YouTubeSource
       return yt.PlaylistId.parsePlaylistId(url);
     } catch (_) {
       return null;
-    }
-  }
-
-  @override
-  Future<Track> getTrackInfo(
-    String videoId, {
-    Map<String, String>? authHeaders,
-  }) async {
-    // If auth headers provided, use InnerTube API path
-    if (authHeaders != null) {
-      return _getTrackInfoViaInnerTube(videoId, authHeaders);
-    }
-
-    logDebug('Getting track info for YouTube video: $videoId');
-    try {
-      final video = await _youtube.videos.get(videoId);
-
-      final track = Track()
-        ..sourceId = videoId
-        ..sourceType = SourceIds.youtube
-        ..title = video.title
-        ..artist = video.author
-        ..channelId = video.channelId.value
-        ..durationMs = video.duration?.inMilliseconds ?? 0
-        // Store hqdefault as the canonical key instead of highResUrl
-        // (maxresdefault). If the stored URL is already the highest tier,
-        // ThumbnailUrlUtils cannot build a useful candidate chain.
-        // Display loading still tries only 16:9 candidates
-        // (maxresdefault/mqdefault) to avoid black bars.
-        ..thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg'
-        ..viewCount = video.engagement.viewCount;
-
-      // 获取音频 URL
-      final audioUrl = await getAudioUrl(AudioStreamRequest(sourceId: videoId));
-      track.audioUrl = audioUrl;
-      // YouTube URL 过期较快，使用 1 小时有效期
-      track.audioUrlExpiry = DateTime.now().add(
-        const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours),
-      );
-      track.createdAt = DateTime.now();
-
-      logDebug('Got track info for $videoId: ${video.title}');
-      return track;
-    } on yt.VideoUnplayableException catch (e) {
-      logError('YouTube video unplayable: $videoId, reason: $e');
-      throw YouTubeApiException(
-        code: 'unplayable',
-        message: 'Video is unplayable: $e',
-      );
-    } catch (e) {
-      if (e is YouTubeApiException) rethrow;
-      if (_isRateLimitError(e)) {
-        logWarning('YouTube rate limited for video: $videoId');
-        throw YouTubeApiException(
-          code: 'rate_limited',
-          message: t.error.rateLimited,
-        );
-      }
-      logError('Failed to get YouTube video info: $videoId, error: $e');
-      throw YouTubeApiException(
-        code: 'error',
-        message: 'Failed to get video info: $e',
-      );
     }
   }
 
@@ -919,29 +854,6 @@ class YouTubeSource
       }
     }
     return null;
-  }
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    if (track.sourceType != SourceIds.youtube) {
-      throw const YouTubeApiException(
-        code: 'invalid_source',
-        message: 'Invalid source type for YouTubeSource',
-      );
-    }
-
-    final audioUrl = await getAudioUrl(
-      AudioStreamRequest(sourceId: track.sourceId, authHeaders: authHeaders),
-    );
-    track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now().add(
-      const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours),
-    );
-    track.updatedAt = DateTime.now();
-    return track;
   }
 
   /// 将 SearchOrder 转换为 YouTube 搜索过滤器
@@ -1672,16 +1584,6 @@ class YouTubeSource
     }
   }
 
-  @override
-  Future<bool> checkAvailability(String sourceId) async {
-    try {
-      await _youtube.videos.get(sourceId);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
   // ==================== YouTube Music "New This Week" 排行榜 ====================
 
   /// 解析觀看次數文字為數字（如 "14M views" → 14000000, "2.2M views" → 2200000）
@@ -2361,54 +2263,6 @@ class YouTubeSource
   }
 
   // ==================== 错误处理 ====================
-
-  /// 通过 InnerTube /player API 获取视频信息（认证路径）
-  Future<Track> _getTrackInfoViaInnerTube(
-    String videoId,
-    Map<String, String> authHeaders,
-  ) async {
-    logDebug('Getting track info via InnerTube for: $videoId');
-    try {
-      final data = await _innerTubePlayerRequest(videoId, authHeaders);
-
-      final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
-      if (videoDetails == null) {
-        throw const YouTubeApiException(
-          code: 'parse_error',
-          message: 'No videoDetails in response',
-        );
-      }
-
-      final lengthSeconds =
-          int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
-      final viewCount =
-          int.tryParse(videoDetails['viewCount']?.toString() ?? '0') ?? 0;
-      final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
-
-      final track = Track()
-        ..sourceId = videoId
-        ..sourceType = SourceIds.youtube
-        ..title = videoDetails['title'] as String? ?? 'Unknown'
-        ..artist = videoDetails['author'] as String? ?? ''
-        ..channelId = videoDetails['channelId'] as String? ?? ''
-        ..durationMs = lengthSeconds * 1000
-        ..thumbnailUrl = thumbnailUrl
-        ..viewCount = viewCount
-        ..createdAt = DateTime.now();
-
-      logDebug('Got track info via InnerTube for $videoId: ${track.title}');
-      return track;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      if (e is YouTubeApiException) rethrow;
-      logError('Failed to get track info via InnerTube: $videoId, error: $e');
-      throw YouTubeApiException(
-        code: 'error',
-        message: 'Failed to get video info: $e',
-      );
-    }
-  }
 
   /// 通过 InnerTube /player API 获取视频详情（认证路径）
   Future<VideoDetail> _getVideoDetailViaInnerTube(

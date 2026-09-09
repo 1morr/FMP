@@ -29,11 +29,6 @@ void main() {
         isA<PlaylistParsingSource>(),
         reason: '$sourceType should parse internal playlists',
       );
-      expect(
-        manager.availabilitySource(sourceType),
-        isA<AvailabilitySource>(),
-        reason: '$sourceType should check availability',
-      );
     }
   });
 

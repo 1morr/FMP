@@ -306,26 +306,11 @@ class _ControllableRefreshSource extends BilibiliSource {
   String? parseId(String url) => url;
 
   @override
-  bool isValidId(String id) => true;
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(
       url: 'https://example.com/${request.sourceId}.m4a',
       streamType: StreamType.audioOnly,
     );
-  }
-
-  @override
-  Future<Track> getTrackInfo(
-    String sourceId, {
-    Map<String, String>? authHeaders,
-  }) async {
-    onTrackInfo?.call();
-    return _track(sourceId);
   }
 
   @override
@@ -338,14 +323,6 @@ class _ControllableRefreshSource extends BilibiliSource {
       VideoPage(cid: 101, page: 1, part: 'Part One', duration: 180),
       VideoPage(cid: 102, page: 2, part: 'Part Two', duration: 181),
     ];
-  }
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    return track;
   }
 
   @override

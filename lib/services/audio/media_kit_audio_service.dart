@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:audio_session/audio_session.dart' hide AudioDevice;
 import 'package:media_kit/media_kit.dart' hide Track;
@@ -17,8 +16,6 @@ import 'package:fmp/services/audio/playback_media.dart';
 /// 解决了 just_audio_media_kit 代理对 audio-only 流的兼容性问题
 /// 用于 Windows/Linux 平台
 class MediaKitAudioService extends FmpAudioService with Logging {
-  static const int mobilePlayerBufferSizeBytes = 2 * 1024 * 1024;
-
   /// 桌面端緩衝：設為極大值以一次性下載整首歌曲
   /// 避免分段下載時 TCP 連線閒置被 YouTube CDN 切斷（WSAECONNRESET）
   /// 一首 5 分鐘 320kbps 的歌約 12MB，桌面端完全負擔得起
@@ -95,7 +92,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   );
   final _speedController = BehaviorSubject<double>.seeded(1.0);
   final _playingController = BehaviorSubject<bool>.seeded(false);
-  final _volumeController = BehaviorSubject<double>.seeded(1.0);
 
   // 音频设备相关
   final _audioDevicesController = BehaviorSubject<List<FmpAudioDevice>>.seeded(
@@ -171,11 +167,10 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
     // 创建 media_kit 播放器
     // 桌面端保留更大的网络缓冲，吸收 VPN 切换或 CDN 抖动造成的短时中断。
-    final bufferSize = (Platform.isAndroid || Platform.isIOS)
-        ? mobilePlayerBufferSizeBytes
-        : desktopPlayerBufferSizeBytes;
     _player = Player(
-      configuration: PlayerConfiguration(bufferSize: bufferSize),
+      configuration: const PlayerConfiguration(
+        bufferSize: desktopPlayerBufferSizeBytes,
+      ),
     );
     _hasPlayer = true;
 
@@ -432,7 +427,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       _player.stream.volume.listen((vol) {
         // media_kit 音量范围是 0-100，转换为 0-1
         _volume = vol / 100.0;
-        _volumeController.add(_volume);
       }),
     );
 
@@ -619,7 +613,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     await _bufferedPositionController.close();
     await _speedController.close();
     await _playingController.close();
-    await _volumeController.close();
     await _audioDevicesController.close();
     await _audioDeviceController.close();
 

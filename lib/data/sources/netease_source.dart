@@ -30,7 +30,6 @@ class NeteaseSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource,
         TrackDetailSource,
         RankingSource {
   late final Dio _dio;
@@ -64,7 +63,6 @@ class NeteaseSource
     return _parseSongIdFromUri(uri);
   }
 
-  @override
   bool isValidId(String id) => RegExp(r'^\d+$').hasMatch(id);
 
   @override
@@ -87,42 +85,6 @@ class NeteaseSource
   @override
   bool canHandle(String url) {
     return parseId(url) != null;
-  }
-
-  // ========== 歌曲信息 ==========
-
-  @override
-  Future<Track> getTrackInfo(
-    String sourceId, {
-    Map<String, String>? authHeaders,
-  }) async {
-    try {
-      final songData = await _getSongDetail(sourceId, authHeaders: authHeaders);
-      final song = songData['song'] as Map<String, dynamic>;
-      final privilege = songData['privilege'] as Map<String, dynamic>?;
-
-      final track = _parseSongToTrack(song, privilege);
-
-      try {
-        final audioUrl = await getAudioUrl(
-          AudioStreamRequest(sourceId: sourceId, authHeaders: authHeaders),
-        );
-        track.audioUrl = audioUrl;
-        // 這條路只拿得到 URL 字串，沒有 expi，只能用退路值。
-        track.audioUrlExpiry = DateTime.now().add(_fallbackAudioUrlExpiry);
-      } catch (_) {
-        // 音頻 URL 獲取失敗不影響歌曲信息
-      }
-
-      track.createdAt = DateTime.now();
-      return track;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      if (e is NeteaseApiException) rethrow;
-      logError('Unexpected error in getTrackInfo: $e');
-      throw NeteaseApiException(numericCode: -999, message: e.toString());
-    }
   }
 
   // ========== 音頻流（eapi 加密） ==========
@@ -400,45 +362,6 @@ class NeteaseSource
 
   @override
   String get rankingLabel => 'Netease 熱歌榜';
-
-  // ========== 刷新 / 可用性 ==========
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    if (track.sourceType != SourceIds.netease) {
-      throw const NeteaseApiException(
-        numericCode: -3,
-        message: 'Invalid source type for NeteaseSource',
-      );
-    }
-
-    final result = await getAudioStream(
-      AudioStreamRequest(sourceId: track.sourceId, authHeaders: authHeaders),
-    );
-    track.audioUrl = result.url;
-    // 跟 AudioStreamResult 回報的 TTL 一致 —— 兩邊各算各的，就會出現
-    // 「解析說還有 20 分鐘、track 說只剩 16 分鐘」這種對不上的狀態。
-    track.audioUrlExpiry = DateTime.now().add(
-      result.expiry ?? _fallbackAudioUrlExpiry,
-    );
-    track.updatedAt = DateTime.now();
-    return track;
-  }
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async {
-    try {
-      final songData = await _getSongDetail(sourceId);
-      final privilege = songData['privilege'] as Map<String, dynamic>?;
-      final st = privilege?['st'] as int?;
-      return st != -200;
-    } catch (_) {
-      return false;
-    }
-  }
 
   @override
   void dispose() {

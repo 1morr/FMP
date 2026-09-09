@@ -12,7 +12,6 @@ import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/sources/bilibili_live_client.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
@@ -197,7 +196,7 @@ void main() {
       );
     });
 
-    group('getAudioUrl', () {
+    group('getAudioStream', () {
       test('preserves rate-limit errors during stream fallback', () async {
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
@@ -836,9 +835,9 @@ void main() {
         const testBvid = 'BV1xx411c79H'; // 实际存在的视频
 
         try {
-          final audioUrl = await source.getAudioUrl(
+          final audioUrl = (await source.getAudioStream(
             const AudioStreamRequest(sourceId: testBvid),
-          );
+          )).url;
 
           expect(audioUrl, isNotNull);
           expect(audioUrl, isNotEmpty);
@@ -884,130 +883,12 @@ void main() {
         // await expectLater，不是 expect：非同步的 rejection 若沒有 await，會在
         // 這條測試結束之後才浮出來，失敗被算到下一條頭上。
         await expectLater(
-          source.getAudioUrl(
+          source.getAudioStream(
             const AudioStreamRequest(sourceId: 'BV1234567890'),
           ),
           throwsA(isA<BilibiliApiException>()),
         );
       });
-    });
-
-    group('getTrackInfo', () {
-      test('passes auth headers into best-effort audio URL fetch', () async {
-        final requestHeaders = <Map<String, dynamic>>[];
-        final dio = Dio();
-        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          requestHeaders.add(Map<String, dynamic>.from(options.headers));
-
-          if (options.path.endsWith('/x/web-interface/view')) {
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {
-                  'cid': 12345,
-                  'title': 'Auth Track',
-                  'owner': {'name': 'Auth Owner', 'mid': 1001},
-                  'duration': 60,
-                  'pic': 'https://example.com/cover.jpg',
-                },
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
-
-          if (options.path.endsWith('/x/player/playurl')) {
-            return ResponseBody.fromString(
-              jsonEncode({
-                'code': 0,
-                'data': {
-                  'dash': {
-                    'audio': [
-                      {
-                        'baseUrl': 'https://example.com/auth-audio.m4s',
-                        'bandwidth': 192000,
-                      },
-                    ],
-                  },
-                },
-              }),
-              200,
-              headers: {
-                Headers.contentTypeHeader: ['application/json'],
-              },
-            );
-          }
-
-          throw StateError('Unexpected request: ${options.path}');
-        });
-        final source = BilibiliSource(
-          dio: dio,
-          apiBase: 'https://api.bilibili.test',
-        );
-
-        final track = await source.getTrackInfo(
-          'BVauth',
-          authHeaders: const {'Cookie': 'SESSDATA=auth'},
-        );
-
-        expect(track.audioUrl, 'https://example.com/auth-audio.m4s');
-        expect(requestHeaders, hasLength(3));
-        expect(
-          requestHeaders.every(
-            (headers) =>
-                (headers['Cookie'] as String?)?.contains('SESSDATA=auth') ==
-                true,
-          ),
-          isTrue,
-        );
-      });
-    });
-
-    group('refreshAudioUrl', () {
-      test('should refresh audio URL for track with expired URL', () async {
-        // 创建一个带有过期URL的track
-        const originalUrl = 'https://expired-url.com/audio.m4s';
-        final track = Track()
-          ..sourceId = 'BV1xx411c79H'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Test Track'
-          ..audioUrl = originalUrl
-          ..audioUrlExpiry = DateTime.now().subtract(const Duration(hours: 1));
-
-        // URL 应该已经过期
-        expect(track.hasValidAudioUrl, isFalse);
-
-        try {
-          final refreshedTrack = await source.refreshAudioUrl(track);
-
-          expect(refreshedTrack.audioUrl, isNotNull);
-          // 新URL应该与原来的假URL不同
-          expect(refreshedTrack.audioUrl, isNot(equals(originalUrl)));
-          // 新URL应该是有效的HTTP URL
-          expect(refreshedTrack.audioUrl, contains('http'));
-          expect(refreshedTrack.hasValidAudioUrl, isTrue);
-          expect(refreshedTrack.audioUrlExpiry, isNotNull);
-          expect(
-            refreshedTrack.audioUrlExpiry!.isAfter(DateTime.now()),
-            isTrue,
-          );
-          debugPrint('Successfully refreshed audio URL');
-        } on BilibiliApiException catch (e) {
-          if (e.isUnavailable || e.numericCode == -404) {
-            debugPrint(
-              'Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}',
-            );
-            return;
-          }
-          rethrow;
-        } on DioException catch (e) {
-          debugPrint('Network error, skipping test: ${e.message}');
-          return;
-        }
-        // 同上：打真实网络，B 站风控时会失败，不该拦住无关的 PR。
-      }, tags: 'live');
     });
 
     group('URL expiry', () {

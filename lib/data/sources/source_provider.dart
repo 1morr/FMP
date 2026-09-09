@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/logger.dart';
-import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/netease_source.dart';
@@ -17,9 +16,6 @@ class SourceManager with Logging {
       );
 
   final List<SourceCapability> _sources;
-
-  /// 所有已注册能力对象。调用端应优先使用下方 narrow lookup。
-  List<SourceCapability> get sources => List.unmodifiable(_sources);
 
   /// 已注册的音源类型列表
   List<String> get registeredSourceTypes {
@@ -49,9 +45,6 @@ class SourceManager with Logging {
 
   PlaylistParsingSource? playlistParsingSource(String type) =>
       _capability<PlaylistParsingSource>(type);
-
-  AvailabilitySource? availabilitySource(String type) =>
-      _capability<AvailabilitySource>(type);
 
   TrackDetailSource? trackDetailSource(String type) =>
       _capability<TrackDetailSource>(type);
@@ -90,43 +83,6 @@ class SourceManager with Logging {
   String? sourceTypeForUrl(String url) {
     return playlistParsingSourceForUrl(url)?.sourceType ??
         trackInfoSourceForUrl(url)?.sourceType;
-  }
-
-  /// 解析 URL 获取歌曲信息
-  Future<Track?> parseUrl(String url) async {
-    final source = trackInfoSourceForUrl(url);
-    if (source == null) return null;
-
-    final id = source.parseId(url);
-    if (id == null) return null;
-
-    return source.getTrackInfo(id);
-  }
-
-  /// 判断 URL 是否是播放列表
-  bool isPlaylistUrl(String url) {
-    return playlistParsingSourceForUrl(url) != null;
-  }
-
-  /// 解析播放列表
-  Future<PlaylistParseResult?> parsePlaylist(
-    String url, {
-    int page = 1,
-    int pageSize = 20,
-  }) async {
-    final source = playlistParsingSourceForUrl(url);
-    if (source == null) return null;
-    return source.parsePlaylist(url, page: page, pageSize: pageSize);
-  }
-
-  /// 刷新歌曲的音频 URL
-  Future<Track> refreshAudioUrl(Track track) async {
-    final source = trackInfoSource(track.sourceType);
-    if (source == null) {
-      throw Exception('Source not found for ${track.sourceType}');
-    }
-
-    return source.refreshAudioUrl(track);
   }
 
   /// 搜索
