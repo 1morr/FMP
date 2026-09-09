@@ -261,8 +261,11 @@ body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 ### 版本號規則
 
 - Tag 格式：`v{major}.{minor}.{patch}`，如 `v1.2.0`
-- CI 自動將 tag 版本寫入 `pubspec.yaml`：`version: 1.2.0+1002000`
-- `pubspec.yaml` 中的版本號無需手動修改，CI 會覆蓋
+- CI 建置時會把 tag 的版本寫進 `pubspec.yaml`：`version: 1.2.0+1002000`，但**不回寫
+  repo** —— 所以**發完版要記得把 `pubspec.yaml` 的版本補上並 commit**
+- `test/workflows/pubspec_version_test.dart` 守著這件事：committed 的版本不得低於
+  HEAD 上最新的 tag。忘了補，下一次 CI 就會紅。之所以需要它，是因為開發建置讀的是
+  committed 的值 —— 落後時 app 會自報舊版本，然後對自己跳出「有新版可用」
 - `+{versionCode}` 由 tag 計算：`major * 1000000 + minor * 1000 + patch`
 - Android 升級只接受更大的 `versionCode`；不要使用 `github.run_number`
   作為正式 APK build number，否則 workflow run number 重置或換 workflow
