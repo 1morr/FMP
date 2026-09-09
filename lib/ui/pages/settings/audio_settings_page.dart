@@ -25,6 +25,10 @@ class AudioSettingsPage extends ConsumerWidget {
       appBar: AppBar(title: Text(t.audioSettings.title)),
       body: ListView(
         children: [
+          // 憑證儲存讀不到時本頁仍然載入完成（#89），但要說明為什麼 —— 沉默
+          // 降級會讓使用者以為金鑰被清掉了。
+          if (audioSettings.secureStorageUnavailable)
+            const _SecureStorageUnavailableNotice(),
           // 音质等级
           _QualityLevelSection(
             currentLevel: audioSettings.qualityLevel,
@@ -98,6 +102,28 @@ class AudioSettingsPage extends ConsumerWidget {
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+/// 憑證儲存這次讀不出來的提示。
+///
+/// 說「讀不到」而不是「沒有設定」：Android Keystore 在裝置還原後、Windows
+/// DPAPI 在使用者設定檔重建後都會解不開既有密文，金鑰其實還在（#89）。
+class _SecureStorageUnavailableNotice extends StatelessWidget {
+  const _SecureStorageUnavailableNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(Icons.lock_outline, color: colorScheme.error),
+      title: Text(
+        t.audioSettings.secureStorageUnavailable.title,
+        style: TextStyle(color: colorScheme.error),
+      ),
+      subtitle: Text(t.audioSettings.secureStorageUnavailable.description),
+      isThreeLine: true,
     );
   }
 }

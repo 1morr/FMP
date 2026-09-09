@@ -35,5 +35,9 @@
     "bilibiliDescription": "Keep off unless playback needs member or private-content access.",
     "youtubeDescription": "Keep off unless playback needs account-only access.",
     "neteaseDescription": "Enabled by default for VIP and account-restricted tracks."
+  },
+  "secureStorageUnavailable": {
+    "title": "Credential store cannot be read",
+    "description": "This device cannot decrypt the stored credentials right now, so the saved AI API key was not loaded. Every other setting on this page is unaffected."
   }
 }

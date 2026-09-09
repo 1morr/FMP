@@ -107,6 +107,7 @@
     "aiApiKey": "API Key",
     "aiApiKeyConfigured": "已配置 API Key。输入新 Key 可替换，留空则保持不变。",
     "aiApiKeyEmpty": "未配置 API Key。输入后可启用 AI 解析。",
+    "aiApiKeyUnavailable": "读不到凭证存储，已保存的 API Key 这次没有加载。它没有被删除，在这里输入会覆盖它。",
     "aiClearApiKey": "清除 API Key",
     "aiModel": "模型",
     "aiModelHint": "模型名称",
