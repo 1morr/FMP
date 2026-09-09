@@ -186,7 +186,11 @@ playing" compares source identity for the same reason — use a stronger key
   `columnsFor(containerWidth)` describes how many columns fit *this container*.
   `responsive_scaffold.dart` picks chrome from `MediaQuery`; content measures
   its own `LayoutBuilder`. A content-level answer may rearrange content, never
-  remove it.
+  remove anything the user can no longer reach — a ranking source, a list row, a
+  destination. Secondary decoration *on* a row may step aside: `RankingTrackTile`
+  drops the play-count group below its own threshold width, because the
+  alternative was an overflow stripe and a two-character artist name (#85). The
+  number comes back the moment there is room, and the row itself never moves.
 - **The collapsed navigation rail scrolls.** Six destinations with
   `labelType: all` plus the expand button need about 540dp; a landscape phone
   gives about 411dp and Windows' minimum window is 500dp. `CollapsedNavRail`
