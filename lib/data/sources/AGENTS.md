@@ -162,10 +162,8 @@ services or UI.**
 
 `authForPlay()` covers stream resolution, playback handoff, download stream
 resolution, download metadata detail, track detail, and auth-aware metadata
-paths. `SourceManager.parseUrl()` / `refreshAudioUrl()` stay unauthenticated
-unless a future auth-aware overload is added. Search requests no auth; playlist
-import uses the import entry choice, playlist refresh uses
-`Playlist.useAuthForRefresh`.
+paths. Search requests no auth; playlist import uses the import entry
+choice, playlist refresh uses `Playlist.useAuthForRefresh`.
 
 `SourceHttpPolicy` centralizes API/media header defaults — adapters and account
 services create Dio clients through `createApiDio()` and use `apiHeaders()`.
