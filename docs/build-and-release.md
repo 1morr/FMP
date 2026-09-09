@@ -173,7 +173,8 @@ git push origin v1.2.0
 
 ### CI 流程
 
-一般驗證由 `.github/workflows/ci.yml` 負責：
+一般驗證由 `.github/workflows/ci.yml` 負責。**沒有 path filter** —— 純文檔的
+commit 一樣跑滿，因為 `AGENTS.md` 裡的規則是由測試強制的：
 
 ```text
 pull_request / main push / workflow_dispatch
@@ -183,7 +184,7 @@ CI
        │
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
-       │   ├─ dart format --output=none --set-exit-if-changed .
+       │   ├─ dart format --output=none --set-exit-if-changed lib test
        │   ├─ dart run build_runner build
        │   ├─ dart run slang
        │   ├─ flutter analyze
