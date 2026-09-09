@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
@@ -57,12 +55,6 @@ void main() {
     final manager = SourceManager(sources: const []);
 
     expect(manager.dispose, returnsNormally);
-  });
-
-  test('base_source.dart no longer declares broad BaseSource interface', () {
-    final source = File('lib/data/sources/base_source.dart').readAsStringSync();
-    expect(source, isNot(contains('abstract class BaseSource')));
-    expect(source, isNot(contains('extends BaseSource')));
   });
 
   test(

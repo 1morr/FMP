@@ -109,6 +109,20 @@ void main() {
       expect(_sourceProviderConcreteAccessors(source), isEmpty);
     });
 
+    test(
+      'base_source.dart no longer declares a broad BaseSource interface',
+      () {
+        // 窄能力介面取代了那個什麼都會的基底類別。它長回來不會有編譯錯誤，
+        // 只會讓「拿到一個音源就什麼都能叫」重新變成可能。
+        final source = File(
+          'lib/data/sources/base_source.dart',
+        ).readAsStringSync();
+
+        expect(source, isNot(contains('abstract class BaseSource')));
+        expect(source, isNot(contains('extends BaseSource')));
+      },
+    );
+
     test('runtime guard detects concrete adapter imports broadly', () {
       const cases = {
         'package import':

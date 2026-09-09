@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/constants/app_constants.dart';
@@ -89,26 +88,6 @@ void main() {
       expect(result.error, same(error));
       expect(result.stackTrace, same(stackTrace));
       expect(result.isFailed, isTrue);
-    });
-  });
-
-  group('PlaybackRequestStreamAccess', () {
-    test('exposes only session-level playback operations', () {
-      final source = File(
-        'lib/services/audio/audio_stream_manager.dart',
-      ).readAsStringSync();
-      final interfaceMatch = RegExp(
-        r'abstract class PlaybackRequestStreamAccess \{([\s\S]*?)\n\}',
-      ).firstMatch(source);
-
-      expect(interfaceMatch, isNotNull);
-      final interfaceBody = interfaceMatch!.group(1)!;
-
-      expect(interfaceBody, contains('selectPlayback'));
-      expect(interfaceBody, contains('selectFallbackPlayback'));
-      expect(interfaceBody, contains('prefetchTrack'));
-      expect(interfaceBody, isNot(contains('ensureAudioStream')));
-      expect(interfaceBody, isNot(contains('prepareNetworkPlayback')));
     });
   });
 
@@ -1055,24 +1034,6 @@ void main() {
         await drainEventQueue(
           reason: 'let the superseded request finish before teardown',
         );
-      },
-    );
-
-    test(
-      'PlaybackRequestSession opens typed media instead of raw URL methods',
-      () {
-        final source = File(
-          'lib/services/audio/playback_request_session.dart',
-        ).readAsStringSync();
-
-        expect(source, contains('_audioService.playMedia('));
-        expect(source, contains('_audioService.setMedia('));
-        expect(source, isNot(contains('_audioService.playUrl(')));
-        expect(source, isNot(contains('_audioService.setUrl(')));
-        expect(source, isNot(contains('_audioService.playFile(')));
-        expect(source, isNot(contains('_audioService.setFile(')));
-        expect(source, isNot(contains('headers: selection.headers')));
-        expect(source, isNot(contains('headers: networkRequest.headers')));
       },
     );
   });

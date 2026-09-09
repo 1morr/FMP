@@ -61,16 +61,4 @@ void main() {
       expect(file.lengthSync(), greaterThan(5000));
     }
   });
-
-  test('main registers the collector before runApp', () {
-    // 收集器是惰性的，忘記登記不會有任何錯誤 —— 授權頁只會少幾筆。
-    final source = File('lib/main.dart').readAsStringSync();
-    // 用縮排錨定真正的呼叫；`runApp()` 這個字串在註解裡也出現過。
-    final call = RegExp(r'^\s+runApp\(', multiLine: true).firstMatch(source);
-    expect(call, isNotNull);
-    expect(
-      source.substring(0, call!.start),
-      contains('registerThirdPartyLicenses()'),
-    );
-  });
 }

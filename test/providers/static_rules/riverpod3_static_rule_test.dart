@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../support/dart_source.dart';
+import '../../support/dart_source.dart';
 
 /// Riverpod 3 帶進來三個「測不到就會靜默壞掉」的規則，這裡用原始碼比對釘住它們。
 /// 三條規則都寫在 `lib/providers/AGENTS.md` § Riverpod 3。

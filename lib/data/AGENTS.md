@@ -40,7 +40,7 @@ named exemptions in `lib/data/database/`: `database_migration.dart` (it runs
 after `Isar.open()` and is by definition the layer holding the handle) and
 `database_catalog.dart` (its `query: (isar) => …` closures *are* the debug
 viewer). Anything else that needs Isar gets a repository method.
-`test/data/repositories/isar_boundary_static_rule_test.dart` pins this and
+`test/data/static_rules/isar_boundary_static_rule_test.dart` pins this and
 carries the allowlist.
 
 A repository is **not** "one per collection" — several own write transactions

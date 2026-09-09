@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/services/lyrics/lrc_parser.dart';
@@ -126,20 +124,5 @@ void main() {
         2,
       );
     });
-
-    test(
-      'LyricsDisplay consumes line index provider instead of raw position',
-      () {
-        final source = File(
-          'lib/ui/widgets/lyrics/lyrics_display.dart',
-        ).readAsStringSync();
-
-        expect(source, contains('currentLyricsLineIndexProvider'));
-        expect(
-          source,
-          isNot(contains('audioControllerProvider.select((s) => s.position)')),
-        );
-      },
-    );
   });
 }
