@@ -119,3 +119,6 @@ secrets.json
 /fmp-v*-android-*.apk
 /fmp-v*-windows.zip
 /fmp-v*-windows-installer.exe
+
+# Local audit scratch space (not version controlled)
+/.scratch/
