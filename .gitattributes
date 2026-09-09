@@ -1,0 +1,18 @@
+# Normalise line endings in the object store. The tree is developed on
+# Windows, where a global core.autocrlf is the only thing currently keeping
+# CRLF out of committed files -- a per-machine setting, not a repo policy.
+* text=auto
+
+# PowerShell is the one script type here and Windows hosts want CRLF.
+*.ps1 text eol=crlf
+
+# Git's heuristic is right about these, but a mis-detected binary under
+# `text=auto` is corrupted on checkout, so say it explicitly.
+*.png binary
+*.jpg binary
+*.ico binary
+*.keystore binary
+*.jks binary
+
+# Resolved by `flutter pub get`; collapse it in review diffs.
+pubspec.lock linguist-generated=true
