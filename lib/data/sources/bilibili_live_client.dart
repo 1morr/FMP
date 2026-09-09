@@ -146,7 +146,15 @@ class BilibiliLiveClient with Logging {
     );
   }
 
+  /// 短號 → 真實房號的對應。房號是不變量，而每個直播間查詢都先經過這一步，
+  /// 所以不快取的話電台輪詢有四分之一的請求是在重複問同一個答案 —— 這正是
+  /// Bilibili 風控會計數的那種流量（#95）。只記成功解析的結果，失敗回傳的
+  /// 原值不進快取，下一輪還會再試。
+  final Map<String, String> _realRoomIds = {};
+
   Future<String> resolveRealRoomId(String roomId) async {
+    final cached = _realRoomIds[roomId];
+    if (cached != null) return cached;
     try {
       final response = await liveDio.get(
         '$liveApiBase/room/v1/Room/room_init',
@@ -155,7 +163,11 @@ class BilibiliLiveClient with Logging {
       final data = response.data;
       if (data is Map && data['code'] == 0) {
         final roomIdValue = data['data']?['room_id'];
-        if (roomIdValue != null) return roomIdValue.toString();
+        if (roomIdValue != null) {
+          final realRoomId = roomIdValue.toString();
+          _realRoomIds[roomId] = realRoomId;
+          return realRoomId;
+        }
       }
       logWarning('Failed to resolve Bilibili live room ID $roomId: $data');
     } catch (e) {
@@ -174,7 +186,18 @@ class BilibiliLiveClient with Logging {
         queryParameters: {'room_id': realRoomId},
       );
       final data = response.data;
-      if (data is! Map || data['code'] != 0 || data['data'] is! Map) {
+      // 風控碼要往上拋而不是當成「房間不存在」吞掉：呼叫端（電台輪詢）得靠它
+      // 決定要不要退避。其他非零碼維持回 null，因為直播間下架與查詢失敗對
+      // 使用者是同一件事。
+      final code = data is Map ? _asInt(data['code']) : null;
+      if (code != null && _isRateLimitCode(code)) {
+        logWarning('Bilibili rate limited: code=$code, room=$realRoomId');
+        throw BilibiliApiException(
+          numericCode: code,
+          message: t.error.bilibiliRateLimited,
+        );
+      }
+      if (data is! Map || code != 0 || data['data'] is! Map) {
         logWarning('Failed to get Bilibili live room info $realRoomId: $data');
         return null;
       }
@@ -561,7 +584,7 @@ class BilibiliLiveClient with Logging {
         logWarning('Bilibili rate limited: code=$code, message=$message');
         throw BilibiliApiException(
           numericCode: code,
-          message: t.error.rateLimited,
+          message: t.error.bilibiliRateLimited,
         );
       }
 
