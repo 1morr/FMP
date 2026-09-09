@@ -104,7 +104,7 @@ interface, not a capability.
 request the narrow capability they need and must never consume concrete source
 getters or providers**; concrete construction belongs inside `SourceManager`.
 Tests may instantiate adapters directly. Enforced by
-`test/data/sources/source_ownership_phase3_test.dart`.
+`test/data/sources/source_ownership_static_rule_test.dart`.
 
 `RankingSource` must return its tracks **already ordered** the way that
 platform's chart is meant to read. Adapters owning disposable resources

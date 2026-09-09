@@ -60,7 +60,7 @@ Immich 加過這層，後來用 20 幾個 PR 把它刪掉。現有的具體 clas
 
 `custom_lint` 是額外的依賴與額外的建置步驟。掃原始碼的測試在這個庫已經有四份
 前例（`ui_consistency`、`list_tile_leading`、`riverpod3_static_rule`、
-`source_ownership_phase3`），跟著既有做法走。
+`source_ownership_static_rule`），跟著既有做法走。
 
 ## 後果
 

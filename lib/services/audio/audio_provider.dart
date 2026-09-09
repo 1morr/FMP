@@ -340,7 +340,7 @@ class AudioController extends Notifier<PlayerState>
   ///
   /// 後果不是「慢一點」而是「事件永久消失」：`_audioService` 的那些串流是
   /// broadcast，沒有 listener 時發射的事件會被直接丟掉、不補送。CI 上抓到的形狀
-  /// 是 `audio_controller_phase1_test` 的輸出裝置失敗永遠等不到 toast（issue #43
+  /// 是 `audio_controller_handoff_and_errors_test` 的輸出裝置失敗永遠等不到 toast（issue #43
   /// 的其中一條）。共用同一個 in-flight future 才是「等到好了」。
   Future<void> initialize() {
     if (_isDisposed || _isInitialized) return Future<void>.value();
