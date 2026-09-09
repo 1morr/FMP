@@ -27,10 +27,8 @@ _Avoid_: media auth, playback headers
 
 **Auth For Play**:
 The user setting that gates credentials for stream resolution, playback handoff,
-download, track detail, and auth-aware metadata/detail service paths. Existing
-`SourceManager.parseUrl()` / `refreshAudioUrl()` capability helpers remain
-unauthenticated unless a future auth-aware overload is added. Auth For Play does
-not control playlist import, playlist refresh, or search.
+download, track detail, and auth-aware metadata/detail service paths. Auth
+For Play does not control playlist import, playlist refresh, or search.
 _Avoid_: import auth, search auth
 
 **Media Request Credentials**:
