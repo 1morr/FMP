@@ -138,8 +138,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _HomeSettingsEntry(),
-
             // 音樂排行榜（独立 ConsumerWidget）
             HomeRankingsSection(),
 
@@ -161,43 +159,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             SizedBox(height: 100), // 为迷你播放器留出空间
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 手機上的「設定」入口。
-///
-/// 設定不在底部導覽裡（M3 規範是 3–5 個目的地），有導覽軌的視窗把它放在軌底
-/// 部，而手機沒有軌。**HomePage 刻意沒有 AppBar**（見 `lib/ui/AGENTS.md` 的
-/// Page Conventions），所以這是一列跟著內容捲動的按鈕，不是固定標題列 ——
-/// 代價是往下捲之後看不到它，換到的是 dashboard 的性格不變。
-class _HomeSettingsEntry extends StatelessWidget {
-  const _HomeSettingsEntry();
-
-  @override
-  Widget build(BuildContext context) {
-    if (WindowClass.of(MediaQuery.sizeOf(context).width) !=
-        WindowClass.compact) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.xs,
-        0,
-      ),
-      child: Row(
-        children: [
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: t.nav.settings,
-            onPressed: () => context.go(RoutePaths.settings),
-          ),
-        ],
       ),
     );
   }

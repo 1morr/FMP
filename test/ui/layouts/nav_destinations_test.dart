@@ -5,26 +5,21 @@ import 'package:fmp/ui/router.dart';
 
 void main() {
   group('destinations', () {
-    test('has five, which is the M3 ceiling for a navigation bar', () {
-      // 「Navigation bars can have three to five destinations.」設定是第六個，
-      // 也是最少用的一個，所以它移到導覽軌底部與首頁右上角。
-      expect(destinations, hasLength(5));
+    test('settings is a destination, and the last one', () {
+      // 設定曾被移出導覽列（14c6608c）又放回來：手機上會捲走、導覽軌上沒有
+      // 文字的入口，比五個較寬的分頁更礙事。
+      expect(destinations.last.path, RoutePaths.settings);
     });
 
-    test('settings is not one of them', () {
-      expect(
-        destinations.map((d) => d.path),
-        isNot(contains(RoutePaths.settings)),
-      );
-      expect(settingsDestination.path, RoutePaths.settings);
-    });
-
-    test('every destination has a label and a route', () {
+    test('every destination has a label and a distinct route', () {
       for (final d in destinations) {
         expect(d.label, isNotEmpty);
         expect(d.path, startsWith('/'));
       }
-      expect(destinations.map((d) => d.path).toSet(), hasLength(5));
+      expect(
+        destinations.map((d) => d.path).toSet(),
+        hasLength(destinations.length),
+      );
     });
   });
 
@@ -44,13 +39,15 @@ void main() {
         navIndexForLocation('/library/downloaded'),
         destinations.indexWhere((d) => d.path == RoutePaths.library),
       );
-      expect(navIndexForLocation('/settings/audio'), 0);
+      expect(
+        navIndexForLocation(RoutePaths.audioSettings),
+        destinations.indexWhere((d) => d.path == RoutePaths.settings),
+      );
     });
 
-    test('settings highlights home, like explore and history do', () {
+    test('explore and history highlight home', () {
       // 刻意的：它們都是從首頁推進去的子頁（見 lib/ui/AGENTS.md 的
       // Page Conventions）。
-      expect(navIndexForLocation(RoutePaths.settings), 0);
       expect(navIndexForLocation(RoutePaths.explore), 0);
       expect(navIndexForLocation(RoutePaths.history), 0);
       expect(navIndexForLocation(RoutePaths.home), 0);
@@ -69,6 +66,6 @@ void main() {
 
   test('the labels come from i18n, not hardcoded strings', () {
     expect(destinations.first.label, t.nav.home);
-    expect(settingsDestination.label, t.nav.settings);
+    expect(destinations.last.label, t.nav.settings);
   });
 }

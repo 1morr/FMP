@@ -371,15 +371,13 @@ These are deliberate — do not "fix" them:
   destinations have titled AppBars.
 - ExplorePage is a pushed sub-page (default slide transition, automatic back
   button) entered from Home; the bottom-nav highlight staying on Home while
-  inside it is intended, same as PlayHistoryPage and, since the navigation bar
-  went from six destinations to five, `/settings` as well.
-- **Settings is not a navigation destination** (M3 allows three to five, and it
-  was the least-used of six). `destinations` holds the five; `settingsDestination`
-  is reached from the rail's `trailing` on `medium` and wider, and from a button
-  in the Home scroll content on `compact`. Home stays AppBar-less, so that button
-  scrolls with the content rather than pinning a title bar. Each destination
-  carries its own `path`, and `navIndexForLocation` derives the highlight from
-  the URL — do not reintroduce positional switch statements in `app_shell.dart`.
+  inside it is intended, same as PlayHistoryPage.
+- Settings is the sixth navigation destination, one above M3's suggested five.
+  It was moved out once (`14c6608c`) and put back: a settings entry that scrolls
+  away on phones and sits unlabelled in the rail cost more than the wider tabs
+  bought. Each destination carries its own `path`, and `navIndexForLocation`
+  derives the highlight from the URL — do not reintroduce positional switch
+  statements in `app_shell.dart`.
 - PlayHistoryPage keeps its own multi-select app bar: its selection is id-based
   (`Set<int>` history-row ids, where duplicate tracks are distinct rows) and
   cannot reuse the `Track`-based `SelectionModeAppBar` without breaking delete

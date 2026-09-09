@@ -32,10 +32,6 @@ class NavDestination {
 }
 
 /// 导航目的地列表
-///
-/// **五個，不是六個。** M3 的 navigation bar 規範是 3–5 個目的地（"Avoid
-/// putting more than five navigation items"），而「設定」是六個裡最少用、
-/// 卻和「首頁」佔一樣寬度的那一個。它移到 [settingsDestination]。
 List<NavDestination> get destinations => [
   NavDestination(
     icon: Icons.home_outlined,
@@ -67,24 +63,19 @@ List<NavDestination> get destinations => [
     label: t.nav.radio,
     path: RoutePaths.radio,
   ),
+  NavDestination(
+    icon: Icons.settings_outlined,
+    selectedIcon: Icons.settings,
+    label: t.nav.settings,
+    path: RoutePaths.settings,
+  ),
 ];
-
-/// 「設定」的入口：導覽軌底部（有軌的視窗）與首頁右上角（手機）。
-///
-/// 決策 04-D3 的最小版本。代價寫在這裡免得下次有人想搬回去：從「搜尋」進設定
-/// 從一下變成兩下。換到的是導覽列符合規範，而且最常用的五個目的地各自變寬。
-NavDestination get settingsDestination => NavDestination(
-  icon: Icons.settings_outlined,
-  selectedIcon: Icons.settings,
-  label: t.nav.settings,
-  path: RoutePaths.settings,
-);
 
 /// [location] 對應導覽列的第幾個目的地。
 ///
-/// 對不上就回首頁（0）—— `/settings`、`/explore`、`/history` 都落在這裡。
-/// 那是刻意的：它們是從首頁推進去的子頁，高亮留在首頁（見 `lib/ui/AGENTS.md`
-/// 的 Page Conventions）。
+/// 對不上就回首頁（0）：`/explore`、`/history` 都落在這裡。那是刻意的：
+/// 它們是從首頁推進去的子頁，高亮留在首頁（見 `lib/ui/AGENTS.md` 的
+/// Page Conventions）。
 ///
 /// 比對用「完全相等或以 `路徑/` 開頭」而不是 `startsWith(路徑)`，否則
 /// `/radio-player` 會被算成電台分頁。
@@ -103,15 +94,11 @@ class ResponsiveScaffold extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
 
-  /// 導覽軌底部的「設定」。手機沒有軌，入口在首頁右上角。
-  final VoidCallback onSettingsSelected;
-
   const ResponsiveScaffold({
     super.key,
     required this.child,
     required this.selectedIndex,
     required this.onDestinationSelected,
-    required this.onSettingsSelected,
   });
 
   @override
@@ -122,13 +109,11 @@ class ResponsiveScaffold extends StatelessWidget {
       WindowClass.compact => _CompactLayout(
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        onSettingsSelected: onSettingsSelected,
         child: child,
       ),
       WindowClass.medium => _MediumLayout(
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        onSettingsSelected: onSettingsSelected,
         child: child,
       ),
       WindowClass.expanded ||
@@ -136,7 +121,6 @@ class ResponsiveScaffold extends StatelessWidget {
       WindowClass.extraLarge => _ExpandedLayout(
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        onSettingsSelected: onSettingsSelected,
         child: child,
       ),
     };
@@ -150,13 +134,11 @@ class _CompactLayout extends StatelessWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
-  final VoidCallback onSettingsSelected;
 
   const _CompactLayout({
     required this.child,
     required this.selectedIndex,
     required this.onDestinationSelected,
-    required this.onSettingsSelected,
   });
 
   @override
@@ -191,13 +173,11 @@ class _MediumLayout extends StatelessWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
-  final VoidCallback onSettingsSelected;
 
   const _MediumLayout({
     required this.child,
     required this.selectedIndex,
     required this.onDestinationSelected,
-    required this.onSettingsSelected,
   });
 
   @override
@@ -216,7 +196,6 @@ class _MediumLayout extends StatelessWidget {
                 onDestinationSelected: onDestinationSelected,
                 labelType: NavigationRailLabelType.all,
                 backgroundColor: Colors.transparent,
-                trailing: _RailSettingsButton(onPressed: onSettingsSelected),
                 destinations: destinations
                     .map(
                       (d) => NavigationRailDestination(
@@ -243,13 +222,11 @@ class _ExpandedLayout extends ConsumerStatefulWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
-  final VoidCallback onSettingsSelected;
 
   const _ExpandedLayout({
     required this.child,
     required this.selectedIndex,
     required this.onDestinationSelected,
-    required this.onSettingsSelected,
   });
 
   @override
@@ -397,45 +374,6 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
                   ),
                 );
               }).toList(),
-            ),
-          ),
-          const Divider(indent: 16, endIndent: 16),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              0,
-              AppSpacing.md,
-              AppSpacing.sm,
-            ),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: AppRadius.borderRadiusPill,
-              child: InkWell(
-                borderRadius: AppRadius.borderRadiusPill,
-                onTap: widget.onSettingsSelected,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.md,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        settingsDestination.icon,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Text(
-                          settingsDestination.label,
-                          style: TextStyle(color: colorScheme.onSurfaceVariant),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ),
           ),
         ],
@@ -607,9 +545,6 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
               onDestinationSelected: widget.onDestinationSelected,
               labelType: NavigationRailLabelType.all,
               backgroundColor: Colors.transparent,
-              trailing: _RailSettingsButton(
-                onPressed: widget.onSettingsSelected,
-              ),
               destinations: destinations
                   .map(
                     (d) => NavigationRailDestination(
@@ -622,60 +557,6 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 導覽軌底部的「設定」。
-///
-/// 它不是 `NavigationRailDestination`：設定不參與導覽列的選中狀態，
-/// `/settings` 的高亮留在首頁（見 [navIndexForLocation]）。
-class _RailSettingsButton extends StatelessWidget {
-  const _RailSettingsButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // 圖示與文字自己畫：`labelType` 只作用在 `destinations` 上，碰不到
-    // `trailing`，所以放在這裡的東西不會自動長出標籤。尺寸、顏色與間距抄自
-    // Flutter 的 `_NavigationRailDefaultsM3`（圖示 24dp / onSurfaceVariant，
-    // 圖示與標籤相隔 4dp，標籤 labelMedium / onSurface），否則設定會是這一欄裡
-    // 唯一沒有文字、而且大小對不上的那一個。
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const StadiumBorder(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.sm,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                settingsDestination.icon,
-                size: 24,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                settingsDestination.label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
