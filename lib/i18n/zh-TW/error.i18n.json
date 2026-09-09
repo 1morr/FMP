@@ -25,6 +25,7 @@
   "emptySubtitle": "這裡還沒有任何內容",
   "genericSubtitle": "請稍後重試",
   "rateLimited": "請求過於頻繁，請稍後再試",
+  "bilibiliRateLimited": "Bilibili 風控擋下了這個請求。未登入時最容易發生，在設定裡登入 Bilibili 帳號可大幅減少",
   "retry": "重試",
   "sourceUnavailable": "音源 $source 不可用"
 }
