@@ -932,7 +932,7 @@ class NeteaseSource
       );
     }
 
-    if (_isVipRequiredStreamError(fee: fee, flag: flag, message: message)) {
+    if (_isVipRequiredStreamError(fee: fee, message: message)) {
       return NeteaseApiException(
         numericCode: -10,
         message: message ?? 'VIP song, payment required',
@@ -959,6 +959,15 @@ class NeteaseSource
       );
     }
     if (itemCode == 404) {
+      // `fee == 0` 是網易明說「這不是付費歌曲」，卻連 URL 都不給 —— 匿名請求
+      // 就是長這樣，同一首登入後可播。以前這裡永遠碰不到：`flag & 4` 先在上面
+      // 把它判成需要 VIP，於是使用者被引導去付錢，而其實只要登入（#87）。
+      if (fee == 0) {
+        return NeteaseApiException(
+          numericCode: 301,
+          message: message ?? 'Login required',
+        );
+      }
       return NeteaseApiException(
         numericCode: 404,
         message: message ?? 'No stream URL available',
@@ -996,17 +1005,17 @@ class NeteaseSource
 
   /// 這首歌是不是真的需要 VIP。
   ///
-  /// `flag & 4` **不是** VIP 標記：實測歌曲 `139774` 是 `flag=6, code=200`，
-  /// 匿名就拿得到 320kbps 的 URL。它只在「本來就取不到串流」時當補充線索用，
-  /// 而且**必須排在未登入（`code == 301`）判斷之後** —— 沒登入的失敗常常同時
-  /// 帶著這個位元，先看它就會把「登入即可」說成「要付費」。
+  /// 判斷只看 `fee` 與訊息文字。**`flag & 4` 不是 VIP 標記**：實測歌曲 `139774`
+  /// 是 `flag=6, code=200`，匿名就拿得到 320kbps 的 URL。它以前排在這裡當「補充
+  /// 線索」，結果是每一個 `fee=0 / code=404 / url=null` 的未登入失敗都被說成要
+  /// 付費 —— 那個位元在沒登入的回應裡幾乎一定會出現，所以它不是補充線索，是雜
+  /// 訊（#87）。未登入現在由 `code == 301` 與 `code == 404 && fee == 0` 兩條分支
+  /// 接走。
   bool _isVipRequiredStreamError({
     required int? fee,
-    required int? flag,
     required String? message,
   }) {
     if (fee == 1 || fee == 4) return true;
-    if (flag != null && (flag & 4) != 0) return true;
     final normalized = message?.toLowerCase();
     if (normalized == null) return false;
     return normalized.contains('vip') ||
