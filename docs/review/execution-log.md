@@ -1804,4 +1804,3 @@ markdown，`**Full Changelog**` 會照字面出現）。1134 行會進那個 200
 > 這一輪在 Windows 端的截圖與點擊上損失了不少時間，兩個坑（`PrintWindow` 回傳凍結
 > 畫格、驅動行程沒宣告 DPI awareness 導致座標差 1.5 倍）記在
 > `.claude/skills/verify-on-device/SKILL.md` §Driving the Windows build。
-
