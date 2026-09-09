@@ -36,35 +36,6 @@ class AppRadius {
   static final BorderRadius borderRadiusPill = BorderRadius.circular(pill);
 }
 
-/// 統一間距級距。
-///
-/// M3 2026 改版引入了 spacing system；FMP 的 260 個 `EdgeInsets` 構造呼叫裡，
-/// 76% 的數值本來就落在這六階上，剩下的是 6 / 20 / 2 / 10 這些一次性數字。
-///
-/// **不做全量遷移**：零行為變更的巨大 diff 會把真正的改動淹掉。
-/// 新程式碼與本來就要動的檔案改用它即可。
-class AppSpacing {
-  AppSpacing._();
-
-  /// 4dp - 圖示與文字之間、密集列表的內距
-  static const double xs = 4.0;
-
-  /// 8dp - 元件之間的標準間隙
-  static const double sm = 8.0;
-
-  /// 12dp - 卡片內距
-  static const double md = 12.0;
-
-  /// 16dp - 頁面水平邊距、區塊之間
-  static const double lg = 16.0;
-
-  /// 24dp - 大區塊之間、M3 large 版面的邊距與 pane spacer
-  static const double xl = 24.0;
-
-  /// 32dp - 版面級的大留白
-  static const double xxl = 32.0;
-}
-
 /// 统一动画时长常量
 class AnimationDurations {
   AnimationDurations._();

@@ -202,10 +202,10 @@ sizes. Rail widths, panel bounds, the pane spacer and the player caps belong
 there, not in a page.
 
 Small local layout/animation literals are fine when they are one-off
-measurements tied to a single widget interaction. `AppSpacing` is **not** swept
-over the existing `EdgeInsets` literals: a zero-behaviour-change diff across 260
-call sites buries real changes, and most of those values are already on the
-scale. Use it in new code and in files you are already editing.
+measurements tied to a single widget interaction. There is deliberately **no**
+spacing scale constant: one existed, nothing in `lib/` ever called it, and the
+260 `EdgeInsets` literals stayed as they were. Do not reintroduce one without
+migrating the call sites in the same change.
 
 `AppRadius.borderRadiusXl` and similar are `static final`, not `const` — do not
 use them in `const` contexts.

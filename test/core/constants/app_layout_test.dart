@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/constants/app_layout.dart';
-import 'package:fmp/core/constants/ui_constants.dart';
 
 void main() {
   group('AppLayout.detailPanelWidthFor', () {
@@ -38,19 +37,5 @@ void main() {
       expect(AppLayout.detailPanelWidthFor(double.nan, 1700), 412);
       expect(AppLayout.detailPanelWidthFor(double.infinity, 1700), 412);
     });
-  });
-
-  test('AppSpacing is the 4/8/12/16/24/32 scale', () {
-    expect(
-      [
-        AppSpacing.xs,
-        AppSpacing.sm,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.xl,
-        AppSpacing.xxl,
-      ],
-      [4.0, 8.0, 12.0, 16.0, 24.0, 32.0],
-    );
   });
 }
