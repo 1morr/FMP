@@ -459,7 +459,11 @@ jobs:
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          draft: false
+          # Draft: the body is generated and the artifacts are unverified until
+          # someone looks. Publishing is the human step. README's
+          # releases/latest/download links do not see a draft, so a release
+          # left unpublished simply keeps the previous one current.
+          draft: true
           prerelease: false
           body: ${{ steps.changelog.outputs.body }}
           files: |

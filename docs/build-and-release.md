@@ -155,6 +155,11 @@ Windows SMTC 透過 `AppUserModelID` 識別應用程式身分。本專案在兩�
 
 ### 發布流程
 
+> **Release 建出來是草稿。** workflow 跑完之後要到 GitHub Releases 頁面按
+> Publish 才會對外，README 的 `releases/latest/download/...` 連結在那之前看不到
+> 它 —— 忘了按只會讓上一版繼續當最新版，不會發出半成品。這一步是給人看 body 與
+> 產物的機會。
+
 ```bash
 # 1. 確保程式碼已 commit 並 push
 git add .

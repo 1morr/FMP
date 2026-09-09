@@ -46,6 +46,8 @@ void main() {
       );
       // 合併 commit 的標題不是變更，列出來只會洗掉真正的條目。
       expect(workflow, contains('git log --no-merges'));
+      // 產物與 body 都要人看過才對外，所以 release 建成草稿。
+      expect(workflow, contains('draft: true'));
       // body 由 changelog step 完全擁有，標題不能再由 Create Release 前綴。
       expect(workflow, contains(r'body: ${{ steps.changelog.outputs.body }}'));
       expect(
