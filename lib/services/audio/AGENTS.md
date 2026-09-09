@@ -48,6 +48,11 @@ callbacks and none of them touches `PlayerState`. `clearQueue` and `playAt` were
 deliberately *not* moved out: the first has session-state after-effects, the
 second starts playback and belongs with the transport commands.
 
+`audio_provider_size_static_test.dart` is a ratchet on the controller's code
+lines, in both directions. It replaces the retired ≤800-line acceptance line,
+which was retired for a good reason and then replaced by nothing while the file
+grew back past its pre-split size.
+
 **UI must call `AudioController`, never `FmpAudioService` directly.** This is a
 convention, not a compile-time boundary — use `rg` when reviewing UI playback
 changes. Radio is the intentional non-UI exception: `RadioController` uses the
