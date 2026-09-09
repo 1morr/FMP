@@ -23,6 +23,11 @@ class _PendingSeek {
 
   Future<void> get future => _completer.future;
 
+  /// 讓等待這個 seek 的呼叫端往下走。
+  ///
+  /// **每一條丟棄路徑都必須呼叫它。** `AudioController.seekTo` 會 await
+  /// [future]，所以忘了完成的那條路會讓呼叫端永遠等下去 ——
+  /// `playback_handoff_gate_test.dart` 大半在守這件事。
   void complete() {
     if (!_completer.isCompleted) {
       _completer.complete();

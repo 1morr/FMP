@@ -1234,7 +1234,10 @@ class AudioController extends Notifier<PlayerState>
     await _queueManager.saveVolume(volume);
   }
 
-  /// 靜音切換
+  /// 靜音切換。
+  ///
+  /// **不要用 `setVolume(0)` 代替。** 靜音前的音量記在 [_volumeBeforeMute]，
+  /// 取消靜音要回到那個值；把音量設成 0 會讓「原本多大聲」這件事永久消失。
   Future<void> toggleMute() async {
     if (state.volume > 0) {
       // 儲存靜音前的音量
@@ -1265,7 +1268,10 @@ class AudioController extends Notifier<PlayerState>
     });
   }
 
-  /// 設定為自動選擇音訊裝置（跟隨系統預設）
+  /// 設定為自動選擇音訊裝置（跟隨系統預設）。
+  ///
+  /// 這是唯一會清掉記住的裝置的地方。裝置當下沒接上**不會**清 —— 使用者把耳機
+  /// 插回去時會期待它還是被選中的。
   Future<void> setAudioDeviceAuto() async {
     await _audioService.setAudioDeviceAuto();
     await _settingsRepository?.update((s) {
