@@ -271,6 +271,11 @@ body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 - Android 升級只接受更大的 `versionCode`；不要使用 `github.run_number`
   作為正式 APK build number，否則 workflow run number 重置或換 workflow
   可能導致新版 `versionName` 的 APK 被系統視為降級而拒絕安裝。
+- **版本號的補寫是手動的，而且刻意維持手動。** 曾評估過一支
+  `prepare-release.yml`（改 pubspec、commit、打 tag、push 一鍵完成）。不做的理由：
+  真正出過事的是「忘了補、沒有人發現」，而那件事現在由上面那條測試在 CI 上擋住；
+  剩下的是每兩個月三個指令。重新評估的觸發條件是**版本在有守門的情況下又漂移一次**，
+  或發版頻率上升到每月。
 
 ### Release 產物命名
 
