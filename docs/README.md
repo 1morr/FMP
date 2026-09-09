@@ -13,6 +13,7 @@
 | 要用 VM Service 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
 | 改了 UI／使用者可見行為，要做強制的 Android 模擬器實機驗證 | [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md) |
 | 遇到看起來像錯誤的建置或 runtime log 噪音 | [疑難排解](troubleshooting.md) |
+| 想知道接下來要做什麼、順序與驗收 | [整頓與重構計劃](plan.md) |
 | 想知道某個架構決定「當初為什麼這樣選」 | [adr/](adr/) |
 | 想知道某一輪執行時推翻了哪條先前結論 | [review/execution-log.md](review/execution-log.md) |
 | 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
@@ -21,6 +22,7 @@
 
 | 文件 | 讀者 | 用途 |
 |------|------|------|
+| [整頓與重構計劃](plan.md) | 維護者 / agent | 2026-09 審計後的里程碑、任務、驗收與待拍板決策；完成一個里程碑就更新它的進度表 |
 | [開發文件](development.md) | 貢獻者 | 專案概覽、技術棧、架構地圖、目前開發規則摘要 |
 | [建置指南](building.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
 | [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
