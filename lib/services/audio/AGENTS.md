@@ -195,9 +195,11 @@ return `true`.
 - The one-second position fallback yields while something is armed, but only for
   a few ticks. It exists because Android loses the completed event in the
   background; standing down for good would trade one bug for another.
-- `audio_backend_static_test.dart` pins the playlist wrapper, the mpv property
-  and the fact that the follow path goes through the shared track-change path
-  that the handoff gate and the starvation watchdog both depend on.
+- `audio_backend_static_test.dart` pins the playlist wrapper and the mpv
+  property — dropping either is silent, and the real backends can only be
+  verified on device. The follow path going through the shared track-change
+  path, which the handoff gate and the starvation watchdog both depend on, is
+  covered behaviourally by `audio_controller_next_medium_test.dart`.
 
 ## Queue, Shuffle And Mix
 

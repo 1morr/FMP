@@ -42,7 +42,7 @@ file in the same change as the code. Human-facing docs live in `docs/`;
 | Audio playback/controller/queue | `flutter test test/services/audio` (+ `test/data/sources` when stream resolution changes) |
 | Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
 | Download pipeline | `flutter test test/services/download test/providers/download` |
-| Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
+| Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart` |
 | UI widgets/pages | targeted tests under `test/ui` + `flutter analyze` + on-device |
 | i18n JSON | `dart run slang` + `flutter analyze` |
 | `AGENTS.md` and other docs | `flutter test test/support/agents_docs_static_rule_test.dart` |

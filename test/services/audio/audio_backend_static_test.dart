@@ -1,74 +1,21 @@
+/// 兩個真後端的 gapless 前置條件，只有源碼層面驗得到。
+///
+/// 這裡刻意只剩兩條。原本還斷言 `playMedia` / `setMedia` / `setNextMedia` 的
+/// 方法簽名與 `LocalPlaybackMedia` / `RemotePlaybackMedia` 的 pattern 分派 ——
+/// 那些拿掉就編不過，測試沒有加任何保障；跟隨路徑的斷言則由
+/// `audio_controller_next_medium_test.dart` 用行為蓋掉（佇列只前進一步、不發
+/// 新的播放請求、不呼叫 stop）。
+///
+/// 剩下的兩條不一樣：拿掉之後既不會編譯錯誤也不會執行期錯誤，只是靜靜地不再
+/// gapless，而真後端的行為只有實機驗得到。
+library;
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('audio backend typed media dispatch', () {
-    test('FmpAudioService exposes typed media methods', () {
-      final source = File(
-        'lib/services/audio/audio_service.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('playMedia(PreparedPlaybackMedia media)'));
-      expect(source, contains('setMedia(PreparedPlaybackMedia media)'));
-    });
-
-    test('JustAudioService dispatches typed media internally', () {
-      final source = File(
-        'lib/services/audio/just_audio_service.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('Future<Duration?> playMedia('));
-      expect(source, contains('Future<Duration?> setMedia('));
-      expect(source, contains('LocalPlaybackMedia'));
-      expect(source, contains('RemotePlaybackMedia'));
-      expect(
-        source,
-        contains('LocalPlaybackMedia(:final path, :final track) => playFile('),
-      );
-      expect(
-        source,
-        contains(
-          'RemotePlaybackMedia(:final url, :final headers, :final track) => playUrl(',
-        ),
-      );
-    });
-
-    test('MediaKitAudioService dispatches typed media internally', () {
-      final source = File(
-        'lib/services/audio/media_kit_audio_service.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('Future<Duration?> playMedia('));
-      expect(source, contains('Future<Duration?> setMedia('));
-      expect(source, contains('LocalPlaybackMedia'));
-      expect(source, contains('RemotePlaybackMedia'));
-      expect(
-        source,
-        contains('LocalPlaybackMedia(:final path, :final track) => playFile('),
-      );
-      expect(
-        source,
-        contains(
-          'RemotePlaybackMedia(:final url, :final headers, :final track) => playUrl(',
-        ),
-      );
-    });
-  });
-
-  group('audio backend next-medium capability', () {
-    test('FmpAudioService exposes the next-medium pair', () {
-      final source = File(
-        'lib/services/audio/audio_service.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('setNextMedia(PreparedPlaybackMedia? media)'));
-      expect(
-        source,
-        contains('Stream<PreparedPlaybackMedia> get advancedToNext'),
-      );
-    });
-
+  group('audio backend gapless preconditions', () {
     test('JustAudioService keeps the media inside a playlist', () {
       // 換回單一 `AudioSource.uri` 的話 `setNextMedia` 會變成沒有東西可以接的
       // no-op —— 不會有編譯錯誤，也不會有執行期錯誤，只是再也不 gapless。
@@ -80,35 +27,6 @@ void main() {
       expect(source, contains('_player.addAudioSource('));
       expect(source, contains('useLazyPreparation: false'));
       expect(source, contains('_player.currentIndexStream.listen'));
-    });
-
-    test('following a boundary goes through the shared track-change path', () {
-      // `_bufferStarvationTrackKey`（「這首歌已經救過一次」）與 handoff gate 的
-      // `currentTrackKey` 都只在 `_updatePlayingTrack` 換曲目時跟上。跟隨路徑
-      // 繞過它就會拿上一首的身分去擋新一首的救援與 seek —— 兩者都不會報錯。
-      final source = File(
-        'lib/services/audio/audio_provider.dart',
-      ).readAsStringSync();
-      final follow = source.substring(
-        source.indexOf('void _onBackendAdvanced('),
-        source.indexOf('Future<void> _prefetchAndArmAfterAdvance('),
-      );
-
-      expect(
-        follow,
-        contains('_updatePlayingTrack(track, countsAsNewPlay: true)'),
-      );
-      expect(follow, contains('_queueManager.moveToNext()'));
-      expect(
-        follow,
-        isNot(contains('_playbackRequestSession')),
-        reason: 'there is no new request at a gapless boundary',
-      );
-      expect(
-        follow,
-        isNot(contains('_audioService.stop()')),
-        reason: 'stopping the backend is exactly what this avoids',
-      );
     });
 
     test('MediaKitAudioService asks mpv to prefetch the next entry', () {

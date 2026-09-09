@@ -115,7 +115,9 @@ When adding a persisted field:
 4. `flutter test test/providers/database_migration_test.dart`, and test an
    old-version to new-version upgrade.
 5. If collection or schema visibility changed, update `database_catalog.dart`
-   and run `test/ui/pages/settings/database_viewer_page_coverage_test.dart`.
+   in the same change — the debug viewer routes entirely off it, so a
+   collection or field missing there is invisible in the viewer without any
+   compile or test failure.
 
 ## Database Startup
 
