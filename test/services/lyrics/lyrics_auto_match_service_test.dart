@@ -18,7 +18,7 @@ import '../../support/isar_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('LyricsAutoMatchService phase 4', () {
+  group('LyricsAutoMatchService', () {
     late Directory tempDir;
     late Isar isar;
     late _RecordingLyricsCacheService cache;
@@ -34,13 +34,11 @@ void main() {
     });
 
     setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp(
-        'lyrics_auto_match_phase4_',
-      );
+      tempDir = await Directory.systemTemp.createTemp('lyrics_auto_match_');
       isar = await Isar.open(
         [LyricsMatchSchema],
         directory: tempDir.path,
-        name: 'lyrics_auto_match_phase4_test',
+        name: 'lyrics_auto_match_test',
       );
       cache = _RecordingLyricsCacheService();
       parser = _FakeTitleParser();

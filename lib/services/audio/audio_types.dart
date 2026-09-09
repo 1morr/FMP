@@ -145,7 +145,7 @@ enum PlaybackTimeoutPhase { streamResolution, mediaOpen, bufferStarvation }
 
 /// FMP 自己決定不再等下去。
 ///
-/// 刻意**不是** [TimeoutException] 的子類：那個代表 adapter 遇到一次網路抖動，
+/// 刻意**不是** `TimeoutException` 的子類：那個代表 adapter 遇到一次網路抖動，
 /// 該進 1/2/4/8/16 秒的退避階梯；這個代表預算用完了，政策是「換一次 fallback
 /// 串流，仍失敗就停下並通知」。兩者共用一個型別，這個政策差別就寫不出來。
 class PlaybackTimeoutException implements Exception {

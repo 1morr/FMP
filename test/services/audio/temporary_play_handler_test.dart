@@ -350,27 +350,4 @@ class _FakeSource implements AudioStreamSource {
       streamType: StreamType.muxed,
     );
   }
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    track.audioUrl = 'https://example.com/${track.sourceId}.m4a';
-    track.audioUrlExpiry = DateTime.now().add(const Duration(minutes: 30));
-    return track;
-  }
-
-  @override
-  Future<SearchResult> search(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-    SearchOrder order = SearchOrder.relevance,
-  }) async {
-    return SearchResult.empty();
-  }
-
-  @override
-  void dispose() {}
 }

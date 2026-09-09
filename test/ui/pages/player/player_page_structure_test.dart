@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Phase 4 Task 1 player source contract', () {
+  group('player page structure contract', () {
     late String repoRoot;
 
     setUp(() {

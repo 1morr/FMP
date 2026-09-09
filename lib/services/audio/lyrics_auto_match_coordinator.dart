@@ -11,10 +11,10 @@ import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 ///
 /// 它自己帶請求代際（[_requestId]）。切歌比配歌詞快得多，沒有這道防護的話，上一首
 /// 的比對回來時會把「正在比對」的 UI 指示器關掉 —— 而那時新歌其實還在比對中。
-/// `audio_controller_phase1_test.dart` 的 `stale lyrics auto-match cannot clear
+/// `audio_controller_handoff_and_errors_test.dart` 的 `stale lyrics auto-match cannot clear
 /// newer loading state` 就是在守這件事。
 ///
-/// [service] / [settingsRepository] 為 null 是正常情況（資料庫還沒初始化），這時
+/// `service` / `settingsRepository` 為 null 是正常情況（資料庫還沒初始化），這時
 /// 整個自動比對靜默略過。
 class LyricsAutoMatchCoordinator with Logging {
   LyricsAutoMatchCoordinator({

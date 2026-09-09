@@ -701,7 +701,7 @@ class YouTubePlaylistService with Logging {
   /// 从 InnerTube thumbnail 结构中提取 hqdefault.jpg 作为规范化 URL
   ///
   /// 与 YouTube 音轨一致使用 hqdefault (480×360) 作为稳定 canonical key。
-  /// 实际显示由 [ThumbnailUrlUtils] 只尝试 16:9 候选
+  /// 实际显示由 `ThumbnailUrlUtils` 只尝试 16:9 候选
   /// (maxresdefault / mqdefault)，避免 default/hqdefault/sddefault 黑边图。
   static String? _extractThumbnailHqDefault(dynamic thumbnailObj) {
     final thumbnails =

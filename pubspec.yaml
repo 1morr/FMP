@@ -2,7 +2,7 @@ name: fmp
 description: "Flutter Music Player - 跨平台音乐播放器，支持 Bilibili、YouTube 与网易云音乐音源"
 publish_to: 'none'
 
-version: 1.9.1+1009001
+version: 1.10.0+1010000
 
 environment:
   sdk: '>=3.9.0 <4.0.0'
@@ -96,6 +96,10 @@ dev_dependencies:
   slang: ^4.19.1
   flutter_launcher_icons: ^0.14.1
   inno_bundle: ^0.12.0
+
+  # test/demo/bilibili_live_api_lookup_demo.dart 直接打 Bilibili 的 API，
+  # 用 http 而不是 app 的 Dio 設定，才不會把 SourceHttpPolicy 的預設帶進來。
+  http: ^1.6.0
 
 flutter:
   uses-material-design: true

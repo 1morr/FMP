@@ -340,7 +340,7 @@ class AudioController extends Notifier<PlayerState>
   ///
   /// 後果不是「慢一點」而是「事件永久消失」：`_audioService` 的那些串流是
   /// broadcast，沒有 listener 時發射的事件會被直接丟掉、不補送。CI 上抓到的形狀
-  /// 是 `audio_controller_phase1_test` 的輸出裝置失敗永遠等不到 toast（issue #43
+  /// 是 `audio_controller_handoff_and_errors_test` 的輸出裝置失敗永遠等不到 toast（issue #43
   /// 的其中一條）。共用同一個 in-flight future 才是「等到好了」。
   Future<void> initialize() {
     if (_isDisposed || _isInitialized) return Future<void>.value();
@@ -1234,7 +1234,10 @@ class AudioController extends Notifier<PlayerState>
     await _queueManager.saveVolume(volume);
   }
 
-  /// 靜音切換
+  /// 靜音切換。
+  ///
+  /// **不要用 `setVolume(0)` 代替。** 靜音前的音量記在 [_volumeBeforeMute]，
+  /// 取消靜音要回到那個值；把音量設成 0 會讓「原本多大聲」這件事永久消失。
   Future<void> toggleMute() async {
     if (state.volume > 0) {
       // 儲存靜音前的音量
@@ -1265,7 +1268,10 @@ class AudioController extends Notifier<PlayerState>
     });
   }
 
-  /// 設定為自動選擇音訊裝置（跟隨系統預設）
+  /// 設定為自動選擇音訊裝置（跟隨系統預設）。
+  ///
+  /// 這是唯一會清掉記住的裝置的地方。裝置當下沒接上**不會**清 —— 使用者把耳機
+  /// 插回去時會期待它還是被選中的。
   Future<void> setAudioDeviceAuto() async {
     await _audioService.setAudioDeviceAuto();
     await _settingsRepository?.update((s) {

@@ -12,7 +12,6 @@ import 'package:fmp/providers/settings/theme_provider.dart';
 import 'package:fmp/services/audio/queue_state.dart';
 import 'package:fmp/services/import/playlist_import_service.dart';
 
-import '../support/fakes/fake_isar.dart';
 import '../support/fakes/fake_settings_repository.dart';
 
 /// Riverpod 3 的 `Notifier` 與被它取代的 `StateNotifier` 有一個靜默的語意差：

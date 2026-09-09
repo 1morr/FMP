@@ -155,6 +155,11 @@ Windows SMTC 透過 `AppUserModelID` 識別應用程式身分。本專案在兩�
 
 ### 發布流程
 
+> **Release 建出來是草稿。** workflow 跑完之後要到 GitHub Releases 頁面按
+> Publish 才會對外，README 的 `releases/latest/download/...` 連結在那之前看不到
+> 它 —— 忘了按只會讓上一版繼續當最新版，不會發出半成品。這一步是給人看 body 與
+> 產物的機會。
+
 ```bash
 # 1. 確保程式碼已 commit 並 push
 git add .
@@ -168,7 +173,8 @@ git push origin v1.2.0
 
 ### CI 流程
 
-一般驗證由 `.github/workflows/ci.yml` 負責：
+一般驗證由 `.github/workflows/ci.yml` 負責。**沒有 path filter** —— 純文檔的
+commit 一樣跑滿，因為 `AGENTS.md` 裡的規則是由測試強制的：
 
 ```text
 pull_request / main push / workflow_dispatch
@@ -178,7 +184,7 @@ CI
        │
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
-       │   ├─ dart format --output=none --set-exit-if-changed .
+       │   ├─ dart format --output=none --set-exit-if-changed lib test
        │   ├─ dart run build_runner build
        │   ├─ dart run slang
        │   ├─ flutter analyze
@@ -235,21 +241,20 @@ GitHub Actions (release.yml)
 
 ### Release Notes
 
-`release` job 組裝 body 的順序是：
-
-1. **`docs/release-notes/<tag>.md` 存在**（例如 `docs/release-notes/v1.10.0.md`）
-   —— 整份 body 由該檔決定，包含它自己的標題與 Full Changelog 連結。
-2. **不存在** —— 沿用自動產生：`git describe` 找上一個 tag，列出兩者之間的 commit
-   標題，附上 compare 連結。一般節奏的小版本走這條。
-
-手寫檔是為了那種「自動產生的清單沒有意義」的版本。v1.10.0 就是一例：2026-09-01 的
-歷史重寫讓 v1.2.0–v1.9.1 全部脫離 `main` 的血緣，`git describe` 只找得到 v1.1.4，
-產出 1134 行、97,785 字元的清單 —— 而換任何一個 previous tag 都得到同一個結果，因為
-那些 tag 都落在共同祖先線上或以下。
+body 一律由 `release` job 從 commit 範圍產生，沒有手寫檔這條路。做法是把
+`<上一個 tag>..<本次 tag>` 之間的 commit 依 Conventional Commits 前綴分成
+**Features / Fixes / Performance / Dependencies** 四段，其餘（`refactor`、
+`docs`、`test`、`ci`、`style`）留給結尾的 compare 連結 —— 那些是使用者看不到的
+改動，放進來只會把真正該讀的東西擠掉。四段都空的時候（例如整輪都是重構）才退回
+列出全部 commit。
 
 body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
-`releaseNotes`，App 內的更新對話框以**純文字**顯示（不渲染 markdown）在一個
-`maxHeight: 200` 的捲動框裡。
+`releaseNotes` 餵給 App 內的更新對話框。所以 markdown 要淺，長度要短。
+
+> **一次性的歷史問題（已過去）**：2026-09-01 的歷史重寫讓 v1.2.0–v1.9.1 全部脫離
+> `main` 的血緣，發 v1.10.0 時 `git describe` 只找得到 v1.1.4，任何候選 tag 都產出
+> 同一份 1134 行清單，所以那一版的 body 是手寫的。v1.10.0 是在重寫後的歷史上打的
+> tag，`git describe HEAD` 現在回它，之後的版本不再有這個問題。
 
 > Release 頁面的 compare 連結預設是三點（`a...b`，走 merge-base）。因為上述重寫，
 > v1.9.1 → v1.10.0 要用**兩點**（`a..b`）才會只顯示端點之間的實際差異。
@@ -257,12 +262,20 @@ body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 ### 版本號規則
 
 - Tag 格式：`v{major}.{minor}.{patch}`，如 `v1.2.0`
-- CI 自動將 tag 版本寫入 `pubspec.yaml`：`version: 1.2.0+1002000`
-- `pubspec.yaml` 中的版本號無需手動修改，CI 會覆蓋
+- CI 建置時會把 tag 的版本寫進 `pubspec.yaml`：`version: 1.2.0+1002000`，但**不回寫
+  repo** —— 所以**發完版要記得把 `pubspec.yaml` 的版本補上並 commit**
+- `test/workflows/pubspec_version_test.dart` 守著這件事：committed 的版本不得低於
+  HEAD 上最新的 tag。忘了補，下一次 CI 就會紅。之所以需要它，是因為開發建置讀的是
+  committed 的值 —— 落後時 app 會自報舊版本，然後對自己跳出「有新版可用」
 - `+{versionCode}` 由 tag 計算：`major * 1000000 + minor * 1000 + patch`
 - Android 升級只接受更大的 `versionCode`；不要使用 `github.run_number`
   作為正式 APK build number，否則 workflow run number 重置或換 workflow
   可能導致新版 `versionName` 的 APK 被系統視為降級而拒絕安裝。
+- **版本號的補寫是手動的，而且刻意維持手動。** 曾評估過一支
+  `prepare-release.yml`（改 pubspec、commit、打 tag、push 一鍵完成）。不做的理由：
+  真正出過事的是「忘了補、沒有人發現」，而那件事現在由上面那條測試在 CI 上擋住；
+  剩下的是每兩個月三個指令。重新評估的觸發條件是**版本在有守門的情況下又漂移一次**，
+  或發版頻率上升到每月。
 
 ### Release 產物命名
 

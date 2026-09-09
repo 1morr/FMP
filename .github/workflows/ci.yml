@@ -1,26 +1,17 @@
 name: CI
 
-# Documentation-only commits skip the whole workflow: the Android and Windows
-# build jobs cost ~40 minutes of runner time and cannot be affected by a prose
-# change. `main` is not a protected branch, so no required check is left
-# hanging by the filter.
+# No path filter. Markdown carries rules that tests enforce -- the agent
+# instruction files most of all -- so a prose-only commit is exactly the one
+# that must not skip `validate`. `paths-ignore` is trigger-level and cannot
+# skip only the build jobs; measured run time is 23 minutes total (validate 7,
+# Android 6, Windows 10), which is not worth a changed-files job to avoid.
 on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.github/ISSUE_TEMPLATE/**'
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
 permissions:
@@ -44,6 +35,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # test/workflows/pubspec_version_test.dart compares the committed
+          # version against the newest reachable tag; a shallow checkout has
+          # no tags and the guard would silently skip.
+          fetch-depth: 0
 
       - name: Setup Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0

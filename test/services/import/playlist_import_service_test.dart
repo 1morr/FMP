@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 import 'package:fmp/services/import/playlist_import_service.dart';
 

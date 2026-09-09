@@ -148,7 +148,7 @@ void main() {
       return;
     }
 
-    final got = await probe(playable!, headers: {'User-Agent': 'Mozilla/5.0'});
+    final got = await probe(playable, headers: {'User-Agent': 'Mozilla/5.0'});
     expect(got.status, anyOf(200, 206), reason: 'stream URL not fetchable');
     expect(got.bytes, greaterThan(0));
   }, timeout: const Timeout(Duration(minutes: 2)));

@@ -32,7 +32,7 @@ void main() {
 
       final subscription = container.listen(
         currentLyricsContentProvider,
-        (_, __) {},
+        (_, _) {},
         fireImmediately: true,
       );
       addTearDown(subscription.close);

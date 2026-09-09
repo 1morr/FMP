@@ -12,7 +12,7 @@ import 'package:fmp/services/search/search_service.dart';
 import '../../../support/fakes/fake_isar.dart';
 
 void main() {
-  group('Phase 2 key and boundary coverage', () {
+  group('search page keys and paging boundaries', () {
     test('dynamic row widgets accept keys via super.key', () {
       final searchPageSource = File(
         'lib/ui/pages/search/search_page.dart',

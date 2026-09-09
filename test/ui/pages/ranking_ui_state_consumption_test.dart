@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/ui/selection_provider.dart';
 import 'package:fmp/providers/audio/audio_player_selectors.dart';
@@ -191,29 +190,6 @@ class _StaticRankingCacheService extends RankingCacheService {
 
   @override
   Future<void> refreshSource(String sourceType) async {}
-}
-
-class _FakeRankingSource implements RankingSource {
-  _FakeRankingSource(this.sourceType);
-
-  @override
-  final String sourceType;
-
-  @override
-  SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
-    SourceIds.bilibili => const SourceRankingRequest(regionId: 1003),
-    SourceIds.youtube => const SourceRankingRequest(category: 'music'),
-    SourceIds.netease => const SourceRankingRequest(limit: 50),
-    _ => throw StateError('unconfigured fake source: $sourceType'),
-  };
-
-  @override
-  String get rankingLabel => '${sourceType} ranking';
-
-  @override
-  Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
-    return const <Track>[];
-  }
 }
 
 Track _track(String sourceId, String sourceType, String title) {

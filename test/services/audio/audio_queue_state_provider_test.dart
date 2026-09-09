@@ -91,7 +91,12 @@ void main() {
       ]) {
         expect(
           source.contains(
-            RegExp('^' + r'\s+final .* ' + field + ';', multiLine: true),
+            RegExp(
+              '^'
+              r'\s+final .* '
+              '$field;',
+              multiLine: true,
+            ),
           ),
           isFalse,
           reason: 'PlayerState.$field belongs to QueueState',

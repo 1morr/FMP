@@ -180,12 +180,12 @@ Future<RadioControllerImportHarness> createHarness({
   bool waitForInitialLoad = true,
 }) async {
   final tempDir = await Directory.systemTemp.createTemp(
-    'radio_controller_phase2_import_test_',
+    'radio_controller_account_import_test_',
   );
   final isar = await Isar.open(
     [RadioStationSchema],
     directory: tempDir.path,
-    name: 'radio_controller_phase2_import_test',
+    name: 'radio_controller_account_import_test',
   );
   final repository = RadioRepository(isar);
   if (initialStations.isNotEmpty) await repository.saveAll(initialStations);

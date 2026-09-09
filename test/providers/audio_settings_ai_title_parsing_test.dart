@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
 import '../support/audio_settings_notifier.dart';
-import '../support/fakes/fake_isar.dart';
 import '../support/fakes/fake_settings_repository.dart';
 
 void main() {

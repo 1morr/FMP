@@ -199,11 +199,9 @@ void main() {
 
     testWidgets('shows placeholder when no track provided', (tester) async {
       await tester.pumpWidget(
-        ProviderScope(
+        const ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: SizedBox(width: 320, child: const TrackCover()),
-            ),
+            home: Scaffold(body: SizedBox(width: 320, child: TrackCover())),
           ),
         ),
       );
@@ -240,13 +238,10 @@ void main() {
 
     testWidgets('applies custom border radius', (tester) async {
       await tester.pumpWidget(
-        ProviderScope(
+        const ProviderScope(
           child: MaterialApp(
             home: Scaffold(
-              body: SizedBox(
-                width: 320,
-                child: const TrackCover(borderRadius: 24),
-              ),
+              body: SizedBox(width: 320, child: TrackCover(borderRadius: 24)),
             ),
           ),
         ),

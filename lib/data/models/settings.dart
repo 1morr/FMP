@@ -205,7 +205,7 @@ class Settings {
 
   /// 持久化 schema 的版本號。
   ///
-  /// Isar 對新增的 int 欄位一律補 0，而 0 剛好就是「這是 Phase 3 之前的資料庫」
+  /// Isar 對新增的 int 欄位一律補 0，而 0 剛好就是「這是還沒有版本欄位的資料庫」
   /// 的意思，所以不需要另外推斷。遷移步驟表在
   /// `lib/data/database/database_migration.dart`。
   int schemaVersion = 0;
@@ -222,7 +222,7 @@ class Settings {
 
   /// 詳情面板是否展開。
   ///
-  /// **業務預設從 true 改成 false**（決策 04-D2）：面板現在從 840dp 就開始
+  /// **業務預設從 true 改成 false**：面板現在從 840dp 就開始
   /// 提供，而在 840–1199dp 上它會吃掉 40% 的主內容，所以讓使用者自己展開。
   /// 這只影響新建的列 —— 既有使用者存下來的值原封不動，而
   /// `database_migration.dart` 的 v0 救援仍然把舊列補成 true，因為那些列在

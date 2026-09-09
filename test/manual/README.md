@@ -27,8 +27,8 @@ Windows 端用 `http://127.0.0.1:<port>/...`，Android 模擬器用 `http://10.0
 （mpv / ExoPlayer）自己對一條生病的連線會做什麼，而那是 FMP 這一側看不到、
 也沒有辦法假造的。真實 CDN 也不會配合你演出這兩種行為。
 
-各平台的實測基準記在 `docs/review/02-playback-sources.md` §12.14，
-程式碼開頭的註解也抄了一份。
+各平台的實測基準（mpv 與 ExoPlayer 各自要多久才承認連線壞了）記在
+`pathological_stream_servers.dart` 的檔頭註解裡 —— 那是改動必須超越的那條線。
 
 ## real_db_probe.dart
 

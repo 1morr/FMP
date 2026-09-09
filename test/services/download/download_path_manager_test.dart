@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/source_ids.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/services/download/download_path_manager.dart';
 import 'package:isar_community/isar.dart';
@@ -41,7 +42,7 @@ void main() {
     test('saveDownloadPath preserves unrelated settings', () async {
       final settings = await settingsRepository.get();
       settings.audioQualityLevelIndex = 2;
-      settings.useNeteaseAuthForPlay = false;
+      settings.setUseAuthForPlay(SourceIds.netease, false);
       await settingsRepository.save(settings);
 
       await manager.saveDownloadPath('/tmp/fmp-downloads');
@@ -49,14 +50,14 @@ void main() {
       final updated = await settingsRepository.get();
       expect(updated.customDownloadDir, '/tmp/fmp-downloads');
       expect(updated.audioQualityLevelIndex, 2);
-      expect(updated.useNeteaseAuthForPlay, isFalse);
+      expect(updated.useAuthForPlay(SourceIds.netease), isFalse);
     });
 
     test('clearDownloadPath preserves unrelated settings', () async {
       final settings = await settingsRepository.get();
       settings.customDownloadDir = '/tmp/fmp-downloads';
       settings.audioQualityLevelIndex = 1;
-      settings.useNeteaseAuthForPlay = false;
+      settings.setUseAuthForPlay(SourceIds.netease, false);
       await settingsRepository.save(settings);
 
       await manager.clearDownloadPath();
@@ -64,7 +65,7 @@ void main() {
       final updated = await settingsRepository.get();
       expect(updated.customDownloadDir, isNull);
       expect(updated.audioQualityLevelIndex, 1);
-      expect(updated.useNeteaseAuthForPlay, isFalse);
+      expect(updated.useAuthForPlay(SourceIds.netease), isFalse);
     });
   });
 }

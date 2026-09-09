@@ -13,6 +13,13 @@ a clone.
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
+## Issue templates
+
+There are none, deliberately. Every issue in this repo so far was opened by the
+owner, and a template is a form you fill in for yourself. Add
+`.github/ISSUE_TEMPLATE/` when the **first issue from someone else** arrives —
+that is the trigger, not a repo-size milestone.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

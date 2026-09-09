@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/play_queue.dart';
-import 'package:fmp/data/models/source_ids.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
@@ -17,7 +16,7 @@ import 'package:isar_community/isar.dart';
 import '../../support/isar_test_harness.dart';
 import '../../support/pump_until.dart';
 
-/// `QueueCommands` 是 Phase 4 步驟 E 從 `AudioController` 抽出來的第一個協作者。
+/// `QueueCommands` 是從 `AudioController` 抽出來的第一個協作者。
 ///
 /// 這裡測的是它獨自負責的三件事：Mix 模式閘門、佇列已滿的提示、以及把例外
 /// 轉成 `QueueMutationStatus.failed` 而不是往上拋。狀態投影不在它身上，所以

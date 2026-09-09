@@ -32,7 +32,7 @@ import '../../support/pump_until.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('DownloadService phase 1 cleanup', () {
+  group('DownloadService progress buffering and disposal', () {
     late Directory tempDir;
     late Isar isar;
     late DownloadRepository downloadRepository;
@@ -44,11 +44,13 @@ void main() {
     });
 
     setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('download_phase1_test_');
+      tempDir = await Directory.systemTemp.createTemp(
+        'download_progress_disposal_test_',
+      );
       isar = await Isar.open(
         [TrackSchema, DownloadTaskSchema, SettingsSchema, AccountSchema],
         directory: tempDir.path,
-        name: 'download_service_phase1_test',
+        name: 'download_service_progress_disposal_test',
       );
       downloadRepository = DownloadRepository(isar);
       trackRepository = TrackRepository(isar);
@@ -1176,7 +1178,7 @@ void main() {
 
         final settings = await settingsRepository.get();
         settings.customDownloadDir = baseDir.path;
-        settings.useYoutubeAuthForPlay = false;
+        settings.setUseAuthForPlay(SourceIds.youtube, false);
         await settingsRepository.save(settings);
 
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

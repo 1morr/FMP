@@ -1,3 +1,7 @@
+// ignore_for_file: deprecated_member_use_from_same_package
+// v1 到 v2 的遷移就是「讀那六個 @Deprecated 欄位、折進 sourceSettings」，
+// 所以這個檔是唯一有理由讀它們的測試 —— 它斷言的正是那條路徑。
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -116,7 +120,7 @@ void main() {
           migratedSettings!.homeRankingSourcePriority,
           'youtube,bilibili,netease',
         );
-        expect(migratedSettings!.homeRankingSourcePriorityList, [
+        expect(migratedSettings.homeRankingSourcePriorityList, [
           'youtube',
           'bilibili',
           'netease',
@@ -377,7 +381,7 @@ void main() {
     test('rescues layout fields from their Isar upgrade defaults', () async {
       await openTestDatabase();
 
-      // 模擬 Phase 3 之前的那一列：新欄位讀出來會是 bool false / double NaN，
+      // 模擬還沒有這些欄位的舊列：新欄位讀出來會是 bool false / double NaN，
       // 而 detailPanelExpanded 的業務預設是 true。
       final legacySettings = Settings()
         ..schemaVersion = -9223372036854775808

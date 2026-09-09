@@ -84,11 +84,29 @@ reverse-engineering write-ups rather than from any project's source:
 
 | Source | License | Used for |
 |---|---|---|
-| [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | CC BY-NC 4.0 | Bilibili endpoints, the WBI and cookie-refresh signing steps |
+| [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | CC BY-NC 4.0 | Bilibili endpoints and the cookie-refresh public key |
 | [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music) | MIT | NetEase request-format reference |
 
 `bilibili-API-collect` is licensed **CC BY-NC 4.0**. Attribution is given here
-and in the README; its NonCommercial term applies to that documentation.
+and in the README; its NonCommercial term applies to that documentation. The
+upstream repository was emptied in January 2026 and its history rewritten, so
+the GitHub API now reports no license for it; contributor mirrors still carry
+the CC BY-NC 4.0 `LICENSE`, with commits dating to 2020.
+
+**FMP implements no WBI signing at all.** What it took from each write-up is
+the protocol fact, not an implementation. The two crypto units were compared
+against the community projects implementing the same protocols and share no
+structure with them:
+
+- **NetEase** (`lib/core/utils/netease_crypto.dart`) -- the keys, IV and RSA
+  modulus are shipped verbatim in music.163.com's own `core.js`. FMP writes
+  fixed-mode three-argument private helpers and its own `BigInt.modPow`; the
+  reference implementations dispatch through a general
+  `aesEncrypt(text, mode, key, iv, format)` and parse PEM with a library.
+- **Bilibili** (`lib/services/account/bilibili_crypto.dart`) -- the public key,
+  the `refresh_{ts}` plaintext and the choice of RSA-OAEP/SHA-256 are protocol
+  facts. Every demo in the write-up parses the PEM with a library; FMP hand
+  writes a DER/ASN.1 parser instead.
 
 ## 4. License texts
 

@@ -25,7 +25,7 @@ const _busyRounds = 50;
 ///   提早到期，本身就會改變被測程式的行為，而且會整段錯過只存在幾圈的瞬間狀態。
 /// - 一輪是完整的 `pumpEventQueue()`（20 圈），不是一圈。改成一圈一檢查會讓等待
 ///   在更早的時點返回，而呼叫端的下一步就落在不同的交錯上 ——
-///   `audio_controller_phase1_test` 的「superseded source error」那條會因此卡死。
+///   `audio_controller_handoff_and_errors_test` 的「superseded source error」那條會因此卡死。
 ///   20 圈是套件裡既有區域 helper 一直在用的粒度。
 /// - 之後改成睡 10ms。走到這裡通常是在等一個真計時器，熱迴圈只會讓滿載的機器
 ///   更慢，而這正是本來要修的病。

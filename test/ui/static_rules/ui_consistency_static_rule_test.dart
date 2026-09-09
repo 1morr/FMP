@@ -169,10 +169,6 @@ void main() {
       );
       expect(
         trackThumbnail,
-        contains('targetDisplaySize: ImageTargetSizes.medium'),
-      );
-      expect(
-        trackThumbnail,
         contains('targetDisplaySize: variant.targetDisplaySize'),
       );
       expect(

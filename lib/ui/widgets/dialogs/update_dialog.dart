@@ -9,6 +9,39 @@ import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/services/update/update_service.dart';
 
+/// 把 GitHub release body 的 markdown 攤成純文字。
+///
+/// 這個對話框用的是 `Text`，不是 markdown 元件 —— body 由 `release.yml` 產生，
+/// 形狀是我們自己決定的（標題 + 分段 + 條列），所以把它讀得懂比拉一個渲染器
+/// 進來便宜。**沒有渲染的東西不要留下記號**：使用者看到字面的 `###` 與 `**`
+/// 就是 issue #82。
+///
+/// 只處理實際會出現的：ATX 標題、無序清單、粗體、行內程式碼、連續空行。
+String plainTextReleaseNotes(String source) {
+  final out = <String>[];
+  for (final raw in source.replaceAll('\r\n', '\n').split('\n')) {
+    var line = raw.trimRight();
+    line = line.replaceFirst(RegExp(r'^\s{0,3}#{1,6}\s+'), '');
+    line = line.replaceFirstMapped(
+      RegExp(r'^(\s*)[-*+]\s+'),
+      (m) => '${m[1]}• ',
+    );
+    line = line.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m[1]!);
+    line = line.replaceAllMapped(RegExp('`(.+?)`'), (m) => m[1]!);
+    // 跨行的粗體（開頭在這一行、收尾在下一行）逐行對不上。實機在 v1.10.0 的
+    // Upgrading 段撞到過。留一次無條件清除 —— 目標是畫面上沒有記號，不是解析
+    // markdown。
+    line = line.replaceAll('**', '');
+    // 連續空行壓成一行，否則段落之間會空得像內容斷掉了。
+    if (line.isEmpty && (out.isEmpty || out.last.isEmpty)) continue;
+    out.add(line);
+  }
+  while (out.isNotEmpty && out.last.isEmpty) {
+    out.removeLast();
+  }
+  return out.join('\n');
+}
+
 /// 更新对话框
 class UpdateDialog extends ConsumerWidget {
   final UpdateInfo updateInfo;
@@ -37,6 +70,9 @@ class UpdateDialog extends ConsumerWidget {
     final isBusy = isDownloading || isInstalling;
 
     return AlertDialog(
+      // 內容高度由 release notes 決定，橫向手機根本裝不下 —— 讓整個對話框
+      // 捲動，而不是替 notes 框猜一個高度上限。
+      scrollable: true,
       title: Row(
         children: [
           Icon(Icons.system_update, color: theme.colorScheme.primary),
@@ -110,14 +146,9 @@ class UpdateDialog extends ConsumerWidget {
                 style: theme.textTheme.labelLarge,
               ),
               const SizedBox(height: 4),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 200),
-                child: SingleChildScrollView(
-                  child: Text(
-                    updateInfo.releaseNotes,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
+              Text(
+                plainTextReleaseNotes(updateInfo.releaseNotes),
+                style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
             ],

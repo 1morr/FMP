@@ -5,7 +5,7 @@ import 'package:fmp/services/audio/playback_handoff_gate.dart';
 
 import '../../support/pump_until.dart';
 
-/// `PlaybackHandoffGate` 是 Phase 4 步驟 C 抽出來的協作者，擁有「控制器正在交接
+/// `PlaybackHandoffGate` 擁有「控制器正在交接
 /// 一次播放請求」這段期間的狀態：載入閂存、延後中的 seek、切歌後的穩定化視窗。
 ///
 /// 這裡大半的測試在守同一件事：**任何一條作廢路徑都必須 `complete()`**。

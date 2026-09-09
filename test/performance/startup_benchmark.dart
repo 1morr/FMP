@@ -25,7 +25,7 @@ void main() {
           ..sourceType = SourceIds.bilibili
           ..title = 'Test Track $i - A Long Title That Might Be Common'
           ..artist = 'Test Artist $i'
-          ..durationMs = Duration(minutes: 3, seconds: 30).inMilliseconds
+          ..durationMs = const Duration(minutes: 3, seconds: 30).inMilliseconds
           ..thumbnailUrl = 'https://example.com/thumb/$i.jpg'
           ..audioUrl = 'https://example.com/audio/$i.m4a'
           ..createdAt = DateTime.now()

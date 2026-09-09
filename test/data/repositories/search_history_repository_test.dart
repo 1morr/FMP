@@ -76,7 +76,7 @@ void main() {
     test(
       'saveQuery caps history to maxSearchHistoryCount (evicts oldest)',
       () async {
-        final cap = AppConstants.maxSearchHistoryCount;
+        const cap = AppConstants.maxSearchHistoryCount;
         // 存入 cap + 5 個相異查詢，時間戳嚴格遞增（2ms 間隔）。
         for (var i = 0; i < cap + 5; i++) {
           await repo.saveQuery('query-$i');

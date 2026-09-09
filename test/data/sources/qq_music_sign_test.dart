@@ -4,8 +4,9 @@ import 'package:fmp/data/sources/playlist_import/qq_music_sign.dart';
 /// QQ 音樂歌單 API 的 `sign` 是伺服器驗的，簽錯不會拋錯，只會拿到一個看起來
 /// 像「歌單不存在」的回應 —— 也就是說改壞了不會有任何測試以外的訊號。
 ///
-/// 這些向量是從**改寫前**的實作抓下來的。改寫的目的是換掉表達方式
-/// （見 `docs/review/03-data-platform-license.md` P1-12），輸出必須逐字元不變。
+/// 這些向量是從**改寫前**的實作抓下來的。當時的改寫只換表達方式、不換演算法
+/// （原本是某個社群實作的逐行移植），所以輸出必須逐字元不變 —— 這些向量是唯一
+/// 能證明那件事的東西。
 void main() {
   group('QQMusicSign.encrypt', () {
     // 每一組都是 (輸入, 改寫前的輸出)。

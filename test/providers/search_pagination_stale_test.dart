@@ -546,7 +546,7 @@ class _CompletingSearchService extends SearchService {
       results: {
         for (final sourceType in requestedSources)
           sourceType: SearchResult(
-            tracks: [_track('${sourceType}-$query', sourceType: sourceType)],
+            tracks: [_track('$sourceType-$query', sourceType: sourceType)],
             totalCount: 1,
             page: page,
             pageSize: pageSize,
@@ -585,7 +585,7 @@ class _CompletingSearchService extends SearchService {
   }
 
   String _sourceKey(String sourceType, String query, int page) =>
-      '${sourceType}|$query|$page';
+      '$sourceType|$query|$page';
 }
 
 class _PendingOnlineSearch {

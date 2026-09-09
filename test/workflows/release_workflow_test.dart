@@ -24,15 +24,31 @@ void main() {
       expect(workflow, contains(r'''printf '\n%s\n' "$output_delimiter"'''));
     });
 
-    test('lets a hand-written notes file own the release body', () {
+    test('groups the generated body by conventional commit prefix', () {
       final workflow = File('.github/workflows/release.yml').readAsStringSync();
 
+      // 沒有手寫檔那條路了 —— body 一定是從 commit 範圍算出來的。
+      expect(workflow, isNot(contains('docs/release-notes/')));
+      for (final section in const [
+        "section 'Features'",
+        "section 'Fixes'",
+        "section 'Performance'",
+        "section 'Dependencies'",
+      ]) {
+        expect(workflow, contains(section));
+      }
+      // 分組全空時要退回列出全部，否則純重構的版本會發出一份空 body。
+      expect(workflow, contains(r'if [ "$matched" = 0 ]'));
+      // grep 沒命中會回 1，而 GitHub 的 bash step 帶 -eo pipefail。
       expect(
         workflow,
-        contains(r'notes_file="docs/release-notes/${current_tag}.md"'),
+        contains(r'{ grep -E "$pattern" commits.txt || true; }'),
       );
-      expect(workflow, contains(r'if [ -f "$notes_file" ]'));
-      // 手寫檔存在時它必須完全擁有 body，標題不能再由 Create Release 前綴。
+      // 合併 commit 的標題不是變更，列出來只會洗掉真正的條目。
+      expect(workflow, contains('git log --no-merges'));
+      // 產物與 body 都要人看過才對外，所以 release 建成草稿。
+      expect(workflow, contains('draft: true'));
+      // body 由 changelog step 完全擁有，標題不能再由 Create Release 前綴。
       expect(workflow, contains(r'body: ${{ steps.changelog.outputs.body }}'));
       expect(
         workflow,

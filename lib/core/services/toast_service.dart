@@ -173,7 +173,7 @@ class ToastService {
   ///
   /// 這是 UI 顯示例外的唯一入口。畫面上只會出現 [userMessageFor] 翻出來的一句
   /// 話，例外原文與 stack 進 `AppLogger.error` —— App 內的日誌檢視頁看得到，
-  /// 使用者看不到。直接把 `e.toString()` 交給 [error] 是 04 報告的 P1-7，
+  /// 使用者看不到。直接把 `e.toString()` 交給 [error] 正是這個入口要擋掉的，
   /// `test/ui/static_rules/error_presentation_static_rule_test.dart` 守著它。
   ///
   /// [tag] 是 log 的分類標籤，通常給呼叫端的頁面或服務名。

@@ -3,11 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -15,19 +13,14 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/services/audio/queue_state.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
-import 'package:fmp/services/audio/audio_stream_manager.dart';
-import 'package:fmp/services/audio/queue_manager.dart';
-import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:fmp/ui/pages/queue/queue_page.dart';
 import 'package:isar_community/isar.dart';
 
 import 'package:fmp/providers/audio/playback_settings_provider.dart';
 
-import '../../../support/fakes/fake_audio_service.dart';
 import '../../../support/fakes/fake_source_auth_context.dart';
 import '../../../support/isar_test_harness.dart';
-import '../../../support/now_playing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -104,14 +97,8 @@ class _QueuePageHarness {
       name: 'queue_page_reorder_lockout_test',
     );
 
-    final queueRepository = QueueRepository(isar);
     final trackRepository = TrackRepository(isar);
     final settingsRepository = SettingsRepository(isar);
-    final queuePersistenceManager = QueuePersistenceManager(
-      queueRepository: queueRepository,
-      trackRepository: trackRepository,
-      settingsRepository: settingsRepository,
-    );
     final sourceManager = SourceManager();
     final sourceAuthContext = FakeSourceAuthContext();
     final streamResolutionService = DefaultStreamResolutionService(
@@ -120,16 +107,6 @@ class _QueuePageHarness {
       sourceManager: sourceManager,
       sourceAuthContext: sourceAuthContext,
     );
-    final audioStreamManager = AudioStreamManager(
-      streamResolutionService: streamResolutionService,
-      sourceAuthContext: sourceAuthContext,
-    );
-    final queueManager = QueueManager(
-      queueRepository: queueRepository,
-      trackRepository: trackRepository,
-      queuePersistenceManager: queuePersistenceManager,
-    );
-
     final controller = _QueuePageTestAudioController();
 
     final queue = [

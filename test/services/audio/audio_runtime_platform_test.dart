@@ -6,7 +6,7 @@ import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
 
 void main() {
-  group('Audio runtime platform phase 4', () {
+  group('audio runtime platform selection', () {
     test(
       'selectAudioRuntimePlatform chooses desktop for windows and linux',
       () {

@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/download/download_providers.dart';
 
 void main() {
-  group('Phase 4 Task 2 download providers', () {
+  group('task-scoped download progress providers', () {
     test(
       'download providers expose a nullable task-scoped progress provider',
       () {

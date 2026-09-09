@@ -16,7 +16,7 @@ import '../support/pump_until.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('playlist provider phase 2 invalidation rules', () {
+  group('playlist provider invalidation rules', () {
     setUpAll(() async {
       await initializeIsarForTests();
     });
@@ -24,7 +24,7 @@ void main() {
     test(
       'playlist list stays watch-driven while allPlaylists still needs explicit invalidation',
       () async {
-        final harness = await createPlaylistPhase2Harness();
+        final harness = await createPlaylistInvalidationHarness();
         addTearDown(harness.dispose);
 
         expect(await harness.readAllPlaylists(), isEmpty);
@@ -84,7 +84,7 @@ void main() {
     test(
       'playlist detail addTrack refreshes skipped duplicate back to canonical rows',
       () async {
-        final harness = await createPlaylistPhase2Harness();
+        final harness = await createPlaylistInvalidationHarness();
         addTearDown(harness.dispose);
 
         final playlist = await harness.container
@@ -133,7 +133,7 @@ void main() {
     );
 
     test('playlist detail refreshes after playlist metadata update', () async {
-      final harness = await createPlaylistPhase2Harness();
+      final harness = await createPlaylistInvalidationHarness();
       addTearDown(harness.dispose);
 
       final notifier = harness.container.read(playlistListProvider.notifier);
@@ -185,8 +185,8 @@ void main() {
   });
 }
 
-class PlaylistPhase2Harness {
-  PlaylistPhase2Harness({
+class PlaylistInvalidationHarness {
+  PlaylistInvalidationHarness({
     required this.container,
     required this.isar,
     required this.tempDir,
@@ -212,21 +212,21 @@ class PlaylistPhase2Harness {
   }
 }
 
-Future<PlaylistPhase2Harness> createPlaylistPhase2Harness() async {
+Future<PlaylistInvalidationHarness> createPlaylistInvalidationHarness() async {
   final tempDir = await Directory.systemTemp.createTemp(
-    'playlist_provider_phase2_test_',
+    'playlist_provider_invalidation_test_',
   );
   final isar = await Isar.open(
     [TrackSchema, PlaylistSchema, PlayQueueSchema, SettingsSchema],
     directory: tempDir.path,
-    name: 'playlist_provider_phase2_test',
+    name: 'playlist_provider_invalidation_test',
   );
 
   final container = ProviderContainer(
     overrides: [databaseProvider.overrideWith((ref) => isar)],
   );
 
-  return PlaylistPhase2Harness(
+  return PlaylistInvalidationHarness(
     container: container,
     isar: isar,
     tempDir: tempDir,

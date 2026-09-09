@@ -9,7 +9,7 @@ import 'package:fmp/data/repositories/play_history_repository.dart';
 /// 播放路徑**不等它**：每次呼叫都排進一個 microtask，例外只記 log。寫歷史失敗
 /// 是統計少一筆，不該讓歌停下來。
 ///
-/// [repository] 為 null 是正常情況 —— 資料庫還沒初始化時
+/// `repository` 為 null 是正常情況 —— 資料庫還沒初始化時
 /// `audioControllerProvider` 就是傳 null 進來的（見 `audio_provider.dart` 的
 /// provider 工廠）。這時整個記錄行為靜默略過。
 ///

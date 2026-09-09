@@ -217,7 +217,7 @@ void main() {
         audioStreamManager: streamManager,
         getNextTrack: () => null,
         onLoadingStarted: loadingStarted.add,
-        onLoadingFinished: (_, __) {},
+        onLoadingFinished: (_, _) {},
         terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
         delay: (_) async {},
       );
@@ -368,7 +368,7 @@ void main() {
         final track = _track('fallback-fails');
         final primaryError = Exception('primary failed');
         audioService.enqueuePlayUrlError(primaryError);
-        streamManager.onSelectFallbackPlayback = (_, __) async {
+        streamManager.onSelectFallbackPlayback = (_, _) async {
           throw Exception('fallback failed');
         };
 
@@ -429,7 +429,7 @@ void main() {
           audioStreamManager: streamManager,
           getNextTrack: () => nextTrack,
           onLoadingStarted: loadingStarted.add,
-          onLoadingFinished: (_, __) {},
+          onLoadingFinished: (_, _) {},
           terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
           delay: (_) async {},
         );
@@ -459,7 +459,7 @@ void main() {
         audioStreamManager: streamManager,
         getNextTrack: () => nextTrack,
         onLoadingStarted: loadingStarted.add,
-        onLoadingFinished: (_, __) {},
+        onLoadingFinished: (_, _) {},
         terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
         delay: (_) async {},
       );
@@ -517,7 +517,7 @@ void main() {
           audioStreamManager: streamManager,
           getNextTrack: getNextTrack ?? () => null,
           onLoadingStarted: loadingStarted.add,
-          onLoadingFinished: (_, __) {},
+          onLoadingFinished: (_, _) {},
           terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
           delay: (_) async {},
           budget: const PlaybackTimeoutBudget(
@@ -533,7 +533,7 @@ void main() {
         'stream selection that outlives its budget fails with a timeout',
         () async {
           build();
-          streamManager.onSelectPlayback = (_, __) =>
+          streamManager.onSelectPlayback = (_, _) =>
               Completer<PlaybackSelection>().future; // 永不完成，就像一個卡住的 CDN
 
           final result = await budgeted.start(
@@ -594,7 +594,7 @@ void main() {
             audioStreamManager: streamManager,
             getNextTrack: () => null,
             onLoadingStarted: loadingStarted.add,
-            onLoadingFinished: (_, __) {},
+            onLoadingFinished: (_, _) {},
             terminalMediaOpenMessage: (track) => 'Cannot play ${track.title}',
             delay: (_) async {},
             budget: const PlaybackTimeoutBudget(
@@ -638,7 +638,7 @@ void main() {
         () async {
           build();
           audioService.enqueuePendingPlayUrl();
-          streamManager.onSelectFallbackPlayback = (_, __) async => null;
+          streamManager.onSelectFallbackPlayback = (_, _) async => null;
 
           final result = await budgeted.start(
             PlaybackSessionCommand(
@@ -1146,7 +1146,6 @@ class _HarnessPlaybackRequestStreamAccess
         Future.value(null);
   }
 
-  @override
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
     Track track, {
     int retryCount = 0,
@@ -1168,7 +1167,6 @@ class _HarnessPlaybackRequestStreamAccess
     );
   }
 
-  @override
   Future<RemotePlaybackMedia> prepareNetworkPlayback(
     Track track,
     String url,

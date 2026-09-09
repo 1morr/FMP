@@ -50,7 +50,7 @@ String sourceErrorReason(SourceApiException error) {
 /// 任何例外 → 使用者讀得懂的一句話。
 ///
 /// **回傳值裡不會有 Dart 例外的原文。** 使用者看到 `Exception: <伺服器原文>`
-/// 這種字串是 04 報告的 P1-7：標題翻譯了，真正要讀的細節仍是未翻譯的平台訊息。
+/// 這種字串的問題在於：標題翻譯了，真正要讀的細節仍是未翻譯的平台訊息。
 /// 原文屬於 log，不屬於畫面 —— 呼叫端要嘛走 `ToastService.failure`（它會寫
 /// log），要嘛自己在 catch 處 `AppLogger.error` 留全文。
 ///

@@ -200,7 +200,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
   /// 主視窗是否已經停止找歌詞。子視窗自己只看得到「沒有行」，分不出「還在抓」
   /// 和「這首沒有歌詞」—— 沒有這個旗標，沒歌詞的曲目會永遠停在「等待歌詞…」，
-  /// 而同一時刻 App 內的面板已經正確顯示「暫無歌詞」（04 報告 P0-4）。
+  /// 而同一時刻 App 內的面板已經正確顯示「暫無歌詞」。
   bool _lyricsSettled = false;
   bool _alwaysOnTop = true;
   bool _showOffsetControls = false;

@@ -68,7 +68,7 @@ void main() {
     );
 
     test('a wide window with a wide panel still asks the container', () {
-      // 這正是舊模型測不到的情境（05-roadmap Phase 5 驗收）：視窗 1700、
+      // 這正是舊的「視窗級距直接當欄數」模型測不到的情境：視窗 1700、
       // 面板 500、導覽軌 72、spacer 24 —— 內容區 1104dp 是兩欄，不是視窗
       // 級距說的三欄。
       expect(columnsFor(1700 - 500 - 72 - 24), 2);

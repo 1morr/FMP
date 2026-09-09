@@ -62,37 +62,14 @@ lib/
 
 ## 資料模型分類
 
-`lib/data/models/` 裡的檔案不全是 Isar collection。
+`lib/data/models/` 裡的檔案不全是 Isar collection。註冊為 collection 的那些列在
+`lib/data/database/database_catalog.dart`（那是權威清單，不要在別處抄一份）；其餘
+是 DTO 與 value object，放在旁邊只是因為它們描述同一批概念，除非顯式註冊否則不
+需要資料庫遷移。
 
-### 持久化 Isar Collections
-
-以下 collection 註冊在 `lib/data/database/database_catalog.dart`；`database_provider.dart` 只負責 open/遷移/default repair。欄位變化時需要檢查遷移/default repair，並同步檢查資料庫檢視器。
-
-資料庫檔案透過 `openFmpDatabase()` 開啟，固定存放在應用程式 documents 目錄下的 `FMP/` 子目錄中。不要在其他位置手寫 `getApplicationDocumentsDirectory()/fmp_database.isar`；需要路徑或大小資訊時複用 `resolveFmpDatabaseDirectory()` 和 `fmpDatabaseFileName`。
-
-| Collection | 用途 |
-|------------|------|
-| `Track` | 歌曲/音訊實體和音源後設資料 |
-| `Playlist` | 本機/匯入歌單後設資料 |
-| `PlayQueue` | 佇列、Mix 模式、播放持久化 |
-| `Settings` | 應用程式設定、音質、認證、歌詞、重新整理間隔 |
-| `SearchHistory` | 搜尋歷史 |
-| `DownloadTask` | 下載佇列/任務狀態 |
-| `PlayHistory` | 播放歷史 |
-| `RadioStation` | 電臺/直播站點 |
-| `LyricsMatch` | Track 到歌詞源的匹配記錄 |
-| `LyricsTitleParseCache` | 執行期 AI 標題解析快取（執行期暫存、啟動時清空、非耐用資料；權威規則見 `lib/data/AGENTS.md`） |
-| `Account` | 平臺登入/帳號狀態 |
-
-### 非持久化 DTO / Value Objects
-
-這些型別放在 data model 附近，是因為它們描述音源或 UI 資料；除非顯式註冊為 Isar schema，否則不需要資料庫遷移。
-
-| 型別 | 用途 |
-|------|------|
-| `LiveRoom` / `LiveSearchResult` | Bilibili 直播間搜尋，以及轉換成 radio/track |
-| `VideoDetail` / `VideoPage` / `VideoComment` | 詳情面板和後設資料顯示 |
-| `HotkeyConfig` / `HotkeyBinding` | 透過 `Settings` 儲存的 JSON 桌面快速鍵設定 |
+資料庫固定開在應用程式 documents 目錄下的 `FMP/` 子目錄，入口只有
+`openFmpDatabase()`。欄位變動時的遷移與 default repair 規則見
+`lib/data/AGENTS.md`。
 
 ## 音源支援
 
@@ -132,22 +109,14 @@ lib/
 
 ## 響應式版面配置
 
-權威定義在 `lib/core/constants/breakpoints.dart`。那裡有**兩組**API，回答的是
-兩個不同的問題，不可以互相代用：
+權威定義在 `lib/core/constants/breakpoints.dart`。那裡有**兩組** API，回答兩個
+不同的問題，不可以互相代用：`WindowClass.of(width)` 決定視窗骨架（底部導覽列還是
+側邊導覽軌、要不要給詳情面板），`columnsFor(containerWidth)` 決定一個容器內部放
+幾欄。
 
-`WindowClass.of(width)` 決定視窗骨架（值取自 Material 3 與 `androidx.window`）：
-
-| WindowClass | 寬度 | 導覽方式 |
-|------|------|----------|
-| `compact` | `< 600dp` | 底部導覽列 |
-| `medium` | `600–839dp` | 精簡側邊導覽軌 |
-| `expanded` | `840–1199dp` | 可收合側邊導覽軌 + 可選詳情面板 |
-| `large` | `1200–1599dp` | 同上 |
-| `extraLarge` | `>= 1600dp` | 同上 |
-
-`columnsFor(containerWidth)` 決定**一個容器內部**放幾欄（每 400dp 一欄，上限
-3）。容器拿到的寬度已經扣掉導覽軌與詳情面板，所以 1280dp 的視窗可能只給內容區
-868dp —— 那時候容器該回答「2 欄」，即使視窗級距是 `large`。
+容器拿到的寬度已經扣掉導覽軌與詳情面板，所以 1280dp 的視窗可能只給內容區
+868dp —— 那時候容器該回答「2 欄」，即使視窗級距是 `large`。混用兩者正是「拖寬
+面板讓首頁掉一個音源」那個 bug 的成因。
 
 ## 常用指令
 
@@ -164,17 +133,10 @@ dart run slang
 
 ## 開發規則摘要
 
-這裡只保留簡短摘要。詳細目前規則見 [AGENTS.md](../AGENTS.md)。
-
-- UI 程式碼呼叫 `AudioController`，不要直接呼叫平臺音訊 service。
-- 修改 Isar collection 或註冊 schema 時，需要檢查遷移/default repair 和資料庫檢視器。
-- UI 圖片載入應使用語義圖片元件，例如 `TrackThumbnail`、`TrackCover`、
-  `PlaylistCoverImage`、`RadioCoverImage`、`RecentPlayCoverImage` 或
-  `AvatarImage`。
-- 公共 track actions 應走 `TrackActionCoordinator` 和共享 menu builders。
-- 檔案系統 `FutureProvider` 資料源被修改後必須 invalidate。
-- 清單/網格重複項應使用穩定 key。
-- `AppBar.actions` 如果最後一個是 `IconButton`，末尾應加 `SizedBox(width: 8)`。
+不在這裡重複。AI agent 的強約束規則在 [AGENTS.md](../AGENTS.md)（根目錄）以及
+`lib/data`、`lib/data/sources`、`lib/providers`、`lib/services`、
+`lib/services/audio`、`lib/ui` 各自的 `AGENTS.md`；人類貢獻者適用同一套。抄一份
+摘要到這裡只會多一個會漂移的副本。
 
 ## 更多文件
 

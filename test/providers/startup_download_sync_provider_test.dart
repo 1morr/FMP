@@ -250,7 +250,7 @@ class _RecordingLibraryInvalidationCoordinator
          },
          refreshLoadedPlaylistDetail: (_) async {},
          startRefreshLoadedPlaylistDetail: (_) {},
-         logBackgroundError: (_, __, ___) {},
+         logBackgroundError: (_, _, _) {},
        );
 
   final List<_DownloadStateChange> changes;

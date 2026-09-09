@@ -32,7 +32,7 @@ import '../../support/pump_until.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  /// `MixSessionCoordinator` 是 Phase 4 步驟 D 抽出來的第三個副作用協作者。
+  /// `MixSessionCoordinator` 是三個播放副作用協作者之一。
   ///
   /// 它吸收了原本的 `MixPlaylistHandler`（工作階段身分 + 載入旗標）與原本留在
   /// `AudioController` 的預取（觸發門檻、重試迴圈、in-flight future）。合併的理由

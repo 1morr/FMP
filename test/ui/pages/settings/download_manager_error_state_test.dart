@@ -20,7 +20,7 @@ import 'package:isar_community/isar.dart';
 
 import '../../../support/isar_test_harness.dart';
 
-/// P0-2：一列的曲目查詢永久失敗時，畫面必須說它失敗，不能一直說「載入中」。
+/// 一列的曲目查詢永久失敗時，畫面必須說它失敗，不能一直說「載入中」。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

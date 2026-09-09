@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/settings/home_ranking_settings_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
@@ -99,7 +97,7 @@ void main() {
     test(
       'a panel that shrinks the content wraps a source instead of dropping it',
       () {
-        // P0-1：1280dp 平板開啟曲目詳情面板（約 412dp）之後，內容區只剩約 868dp，
+        // 1280dp 平板開啟曲目詳情面板（約 412dp）之後，內容區只剩約 868dp，
         // 斷點從 desktop 掉到 tablet。以前第三個音源會整個消失。
         final plan = buildHomeRankingLayoutPlan(
           maxWidth: 1280 - 412,
@@ -225,27 +223,4 @@ class _StaticRankingCacheService extends RankingCacheService {
   @override
   RankingCacheState build() =>
       RankingCacheState(isInitialLoading: isInitialLoading);
-}
-
-class _FakeRankingSource implements RankingSource {
-  _FakeRankingSource(this.sourceType);
-
-  @override
-  final String sourceType;
-
-  @override
-  SourceRankingRequest get defaultRankingRequest => switch (sourceType) {
-    SourceIds.bilibili => const SourceRankingRequest(regionId: 1003),
-    SourceIds.youtube => const SourceRankingRequest(category: 'music'),
-    SourceIds.netease => const SourceRankingRequest(limit: 50),
-    _ => throw StateError('unconfigured fake source: $sourceType'),
-  };
-
-  @override
-  String get rankingLabel => '${sourceType} ranking';
-
-  @override
-  Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
-    return const <Track>[];
-  }
 }

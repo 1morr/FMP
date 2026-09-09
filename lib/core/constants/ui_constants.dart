@@ -36,35 +36,6 @@ class AppRadius {
   static final BorderRadius borderRadiusPill = BorderRadius.circular(pill);
 }
 
-/// 統一間距級距。
-///
-/// M3 2026 改版引入了 spacing system；FMP 的 260 個 `EdgeInsets` 構造呼叫裡，
-/// 76% 的數值本來就落在這六階上，剩下的是 6 / 20 / 2 / 10 這些一次性數字。
-///
-/// **不做全量遷移**（決策 04-D10）：零行為變更的巨大 diff 會把真正的改動淹掉。
-/// 新程式碼與本來就要動的檔案改用它即可。
-class AppSpacing {
-  AppSpacing._();
-
-  /// 4dp - 圖示與文字之間、密集列表的內距
-  static const double xs = 4.0;
-
-  /// 8dp - 元件之間的標準間隙
-  static const double sm = 8.0;
-
-  /// 12dp - 卡片內距
-  static const double md = 12.0;
-
-  /// 16dp - 頁面水平邊距、區塊之間
-  static const double lg = 16.0;
-
-  /// 24dp - 大區塊之間、M3 large 版面的邊距與 pane spacer
-  static const double xl = 24.0;
-
-  /// 32dp - 版面級的大留白
-  static const double xxl = 32.0;
-}
-
 /// 统一动画时长常量
 class AnimationDurations {
   AnimationDurations._();
@@ -136,6 +107,23 @@ class AppSizes {
 ///
 /// 档位取值按「使用该档位界面的最大逻辑显示尺寸 × 最高支持的 DPR
 /// （约 2.666）」留足余量，确保高 DPI 屏幕上解码后的位图不需要再放大。
+///
+/// 那個 2.666 是**假設**的 DPR 上限，不是量到的 —— 1080p 手機是 2.625（實測
+/// Medium_Phone AVD：`wm density 420`），1440p 旗艦到 3.5–4.0。2026-09 逐檔核過
+/// 各檔位在 DPR 3.5 下的餘量：
+///
+/// - [thumbnail]：呼叫端最大 56dp，56 × 3.5 = 196 vs 160，差 22%，但實際呼叫端
+///   幾乎都是 48dp（168 vs 160，差 5%），DPR 3.5 實機看不出來。
+/// - [medium]：首頁最近播放卡片最大 140dp，140 × 3.5 = 490 vs 400，**差 22%**。
+///   這是唯一有實質差距的一檔。維持 400 是刻意的：升回 [high] 等於為 1440p 旗艦
+///   把每一張首頁卡片的下載量變成三倍，而 1080p（2.625）本來就夠。
+/// - [fullscreen]：只有電台 hero 用，而電台只有 Bilibili。Bilibili 的尺寸檔位是
+///   200/400/640/1280，960 會被 `_selectBilibiliSize` 進位到 1280 —— 對唯一的
+///   使用者而言這一檔和 [highest] 產生**同一個 URL**。
+///
+/// 另外這些值同時被當成 CDN 尺寸（源像素）和 `_cacheExtent` 的邏輯尺寸
+/// （再乘 DPR）。兩種用法不衝突只是因為分檔後的源圖本來就在這個尺寸附近，
+/// memCache 邊界咬不到；真正咬得到的是未分檔的原始 URL 候選與本機檔案。
 class ImageTargetSizes {
   ImageTargetSizes._();
 

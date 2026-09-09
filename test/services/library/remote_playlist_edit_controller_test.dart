@@ -206,7 +206,7 @@ void main() {
     test('YouTube adapter skips removals when setVideoId is missing', () async {
       final removeCalls = <String>[];
       final adapter = YouTubeRemotePlaylistEditAdapter(
-        addToPlaylist: (_, __) async {},
+        addToPlaylist: (_, _) async {},
         getSetVideoId: (playlistId, videoId) async =>
             videoId == 'ok' ? 'set-ok' : null,
         removeFromPlaylist: (playlistId, videoId, setVideoId) async =>
@@ -240,7 +240,7 @@ void main() {
         final adapter = NeteaseRemotePlaylistEditAdapter(
           addTracksToPlaylist: (playlistId, trackIds) async =>
               addCalls.add('$playlistId:${trackIds.join(',')}'),
-          removeTracksFromPlaylist: (_, __) async {},
+          removeTracksFromPlaylist: (_, _) async {},
         );
 
         final result = await adapter.submit(
@@ -268,7 +268,7 @@ void main() {
     test('Netease adapter removes editable tracks in a batch', () async {
       final removeCalls = <String>[];
       final adapter = NeteaseRemotePlaylistEditAdapter(
-        addTracksToPlaylist: (_, __) async {},
+        addTracksToPlaylist: (_, _) async {},
         removeTracksFromPlaylist: (playlistId, trackIds) async =>
             removeCalls.add('$playlistId:${trackIds.join(',')}'),
       );
@@ -310,7 +310,7 @@ RemotePlaylistEditController _controller({
     refreshMatchingImportedPlaylists:
         ({required sourceType, required remotePlaylistIds}) async =>
             refreshRemoteIds?.call(sourceType, remotePlaylistIds),
-    removeTracksFromLocalPlaylist: removeLocalTracks ?? (_, __) async => true,
+    removeTracksFromLocalPlaylist: removeLocalTracks ?? (_, _) async => true,
     isLoggedIn: (_) => true,
   );
 }

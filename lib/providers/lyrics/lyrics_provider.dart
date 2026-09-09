@@ -107,7 +107,7 @@ final lyricsAutoMatchingProvider =
       LyricsAutoMatchingNotifier.new,
     );
 
-/// 只是一個布林旗標，寫入口在 [AudioController]。
+/// 只是一個布林旗標，寫入口在 `AudioController`。
 class LyricsAutoMatchingNotifier extends Notifier<bool> {
   @override
   bool build() => false;

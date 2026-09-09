@@ -20,7 +20,7 @@ import '../../support/isar_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('ImportService phase 4 dispatch', () {
+  group('ImportService dispatch', () {
     late Directory tempDir;
     late Isar isar;
     late PlaylistRepository playlistRepository;
@@ -32,11 +32,11 @@ void main() {
     });
 
     setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('import_service_phase4_');
+      tempDir = await Directory.systemTemp.createTemp('import_service_test_');
       isar = await Isar.open(
         [PlaylistSchema, TrackSchema],
         directory: tempDir.path,
-        name: 'import_service_phase4_test',
+        name: 'import_service_test_test',
       );
       playlistRepository = PlaylistRepository(isar);
       trackRepository = TrackRepository(isar);

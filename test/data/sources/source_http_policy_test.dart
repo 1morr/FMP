@@ -12,7 +12,7 @@ void main() {
         expect(
           headers.keys.map((k) => k.toLowerCase()),
           isNot(contains('cookie')),
-          reason: '$sourceType',
+          reason: sourceType,
         );
       }
 

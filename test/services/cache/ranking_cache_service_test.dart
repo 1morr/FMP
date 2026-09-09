@@ -4,7 +4,6 @@ import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -437,12 +436,6 @@ void main() {
     );
 
     test('dispose is idempotent', () {
-      final service = _bareService([
-        _FakeRankingSource(SourceIds.bilibili),
-        _FakeRankingSource(SourceIds.youtube),
-        _FakeRankingSource(SourceIds.netease),
-      ]);
-
       // 釋放現在由 container 負責；`_teardown` 的 `_isDisposed` 守衛仍在，
       // 這條就變成「重複釋放 container 不會炸」。
       final container = ProviderContainer(
@@ -768,7 +761,7 @@ class _FakeRankingSource implements RankingSource {
   };
 
   @override
-  String get rankingLabel => '${sourceType} ranking';
+  String get rankingLabel => '$sourceType ranking';
 
   int fetchCount = 0;
   Completer<void>? nextFetchCompleter;

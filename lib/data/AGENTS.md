@@ -1,103 +1,64 @@
 # lib/data AGENTS.md
 
-Data-layer guidance for models, repositories, and migration decisions. For
-concrete source adapter rules, read `lib/data/sources/AGENTS.md`. For database
-startup/open wiring, read `lib/providers/AGENTS.md`.
+Models, repositories, database startup and migration. Source adapter rules live
+in `lib/data/sources/AGENTS.md`.
 
-## Dependency Note — Isar v3 On The Community Fork
+## Isar v3 On The Community Fork
 
 `isar_community` / `isar_community_flutter_libs` / `isar_community_generator`
-are pinned at `^3.3.2` (`pubspec.yaml`). FMP moved off the upstream
-`isar` packages in Phase 2 (see `docs/review/05-roadmap.md`).
+are pinned at `^3.3.2`. Why the fork:
 
-Why the fork:
-
-- Upstream `isar/isar` has been dormant since 2025-07; its `isar_generator`
+- Upstream `isar/isar` has been dormant since 2025-07 and its generator
   constrains `analyzer >=4.6.0 <6.0.0`, which froze the whole toolchain at
-  analyzer 5.13.0 / build 2.4.1. The fork's generator wants
-  `analyzer >=8.0.0 <11.0.0`, which is what unblocked analyzer 10.x.
-- The fork also ships 16 KB-aligned Android libraries: every `libisar.so`
-  LOAD segment moved from `0x1000` to `0x4000` across all four ABIs, which is
-  what Android 15+ requires.
+  analyzer 5.13.0 / build 2.4.1. The fork wants `analyzer >=8.0.0 <11.0.0`.
+- It ships 16 KB-aligned Android libraries — every `libisar.so` LOAD segment
+  moved from `0x1000` to `0x4000`, which Android 15+ requires.
 
-Why it is safe for existing databases:
+It is still Isar **v3 on disk**: all collections regenerate to semantically
+identical code, and `CollectionSchema.version` is a build-time assert guarding
+stale generated files, not an on-disk format check.
 
-- Still Isar **v3** on disk. All eleven collections regenerate to semantically
-  identical code — the schema id hashes, property ids, and index/link
-  definitions are unchanged; only formatting and the embedded generator
-  version string differ.
-- `CollectionSchema.version` is a build-time `assert(Isar.version == version)`
-  guarding stale generated files. It is not an on-disk format check.
+What bites if forgotten:
 
-What differs and bites if forgotten:
-
-- The Windows dynamic library is named `libisar.dll`, not `isar.dll`. Linux
-  and macOS names are unchanged.
-- The Windows plugin header moved to
-  `<isar_community_flutter_libs/isar_flutter_libs_plugin.h>`; the plugin class
-  and registrar name (`IsarFlutterLibsPlugin`) did not change. FMP registers it
-  by hand for sub-windows in `windows/runner/flutter_window.cpp`.
+- The Windows dynamic library is `libisar.dll`, not `isar.dll`, and its plugin
+  header moved to `<isar_community_flutter_libs/isar_flutter_libs_plugin.h>`.
+  FMP registers the plugin by hand for sub-windows in
+  `windows/runner/flutter_window.cpp`.
 - `test/support/isar_test_harness.dart` is the only place in `test/` that knows
   the package name and per-platform library file names. Keep it that way.
 
 Honest limitation: the fork is *maintained*, not actively developed — five
-releases total, the last one months old. It solves "nobody is minding the
-upstream", not "back under active development". **Do not upgrade to v4**
-without a migration tool and a tested migration path. Long-term fallback
-candidates if v3 ever becomes unbuildable: `drift`, `sqflite`, or `objectbox`.
+releases, the last months old. It solves "nobody is minding the upstream", not
+"back under active development". **Do not upgrade to v4** without a migration
+tool and a tested migration path. Long-term fallbacks if v3 becomes
+unbuildable: `drift`, `sqflite`, `objectbox`.
 
 ## Models And Repositories
 
 **`isar.` / `_isar.` may appear only under `lib/data/repositories/`**, plus two
-named exemptions: `lib/data/database/database_migration.dart` (it runs
-after `Isar.open()` and is by definition the layer holding the `Isar` handle)
-and `lib/data/database/database_catalog.dart` (its `query: (isar) => …`
-closures *are* the debug viewer). Anything else that needs Isar gets a
-repository method.
+named exemptions in `lib/data/database/`: `database_migration.dart` (it runs
+after `Isar.open()` and is by definition the layer holding the handle) and
+`database_catalog.dart` (its `query: (isar) => …` closures *are* the debug
+viewer). Anything else that needs Isar gets a repository method.
+`test/data/repositories/isar_boundary_static_rule_test.dart` pins this and
+carries the allowlist.
 
-`test/data/repositories/isar_boundary_static_rule_test.dart` pins this rule and
-carries the same allowlist. Measured counts, import lines excluded:
-`database_catalog.dart` 11, `database_migration.dart` 8, everything else outside
-`lib/data/repositories/` zero. `database_provider.dart` and
-`database_viewer_page.dart` import the `Isar` **type** but never touch an
-instance, so neither needs an exemption.
+A repository is **not** "one per collection" — several own write transactions
+spanning up to five. Cross-collection atomic writes are the data layer's job; a
+service that opens its own `writeTxn` has the boundary in the wrong place. **Do
+not add an `abstract interface class Repository` layer.** The reasoning, and the
+alternatives that were rejected, are in `docs/adr/0002-repository-boundary.md`.
 
-A repository is **not** "one per collection". `TrackRepository` reads
-`playlists`, `playQueues` and `lyricsMatchs` for its orphan sweep;
-`DownloadRepository` reads `tracks`; `PlaylistMutationRepository` and
-`DataIntegrityRepository` own write transactions spanning up to five
-collections. Cross-collection atomic writes are the data layer's job — a
-service that opens its own `writeTxn` has the boundary in the wrong place.
-
-**Do not add an `abstract interface class Repository` layer.** Immich spent
-20+ PRs deleting theirs. The existing classes are already the thin abstraction.
-
-- Isar collections live in `lib/data/models/`; `models.dart` is the barrel
-  export for persisted model types, including `Account`.
-- CRUD repositories live in `lib/data/repositories/`.
+- Isar collections live in `lib/data/models/`; `models.dart` is the barrel for
+  persisted model types.
 - Source parsers live in `lib/data/sources/` and share `SourceApiException`.
-- Repository bulk status changes should mutate loaded Isar objects and call
-  `putAll()` inside one write transaction instead of issuing per-row `put()`.
-
-## Persisted Isar Collections
-
-| Model | Description |
-|-------|-------------|
-| `Track` | Song entity (`sourceType` as a `SourceIds` string, `isVip`, `originalSongId`/`originalSource`, `bilibiliAid` populated on demand) |
-| `Playlist` | Playlist (`ownerName`, `ownerUserId`, `useAuthForRefresh`) |
-| `PlayQueue` | Play queue, Mix state, position persistence, volume persistence |
-| `Settings` | Quality, lyrics, AI modes, popup style, refresh intervals, desktop layout, and one embedded `sourceSettings` entry per source (stream priority + play auth) |
-| `Account` | Platform account login/VIP state |
-| `RadioStation` | Radio/live station |
-| `PlayHistory` | Play history record |
-| `SearchHistory` | Search history |
-| `DownloadTask` | Download task |
-| `LyricsMatch` | Track-to-lyrics match (`lrclib`/Netease/QQ Music) |
-| `LyricsTitleParseCache` | AI-parsed title cache; registered so lyrics matching can share repository/query code, but cleared on startup — treat as ephemeral runtime cache, not durable user data |
-
-Non-persisted DTO/value objects in `lib/data/models/` include `LiveRoom`,
-`VideoDetail`, and `HotkeyConfig`. Do not add migration logic for those unless
-they become registered Isar schemas.
+- Bulk status changes mutate loaded objects and call `putAll()` inside one write
+  transaction, never per-row `put()`.
+- `LyricsTitleParseCache` is registered as a collection so lyrics matching can
+  share repository code, but it is cleared on startup — treat it as an ephemeral
+  runtime cache, not durable user data.
+- Non-persisted DTOs also live in `lib/data/models/`. Do not add migration logic
+  for one unless it becomes a registered schema.
 
 ## Migration And Default Repair
 
@@ -112,81 +73,58 @@ Isar upgrade defaults for a newly added field:
 | `String?` | `null` |
 | `List` | `[]` |
 
-The two numeric rows were measured against a real pre-Phase-3 database when
-`Settings.schemaVersion` was added: the existing row read back as
-`-9223372036854775808`. Isar's generated reader calls `readLong`/`readDouble`,
-which return the type's null sentinel for a property the stored schema does not
-have — it does not fall back to the Dart field initialiser. **A new
-non-nullable numeric field therefore always needs repair**, even when its
-business default looks like zero.
+The two numeric rows were measured against a real pre-`schemaVersion` database:
+the existing row read back as `-9223372036854775808`. Isar's generated reader
+calls `readLong`/`readDouble`, which return the type's null sentinel for a
+property the stored schema does not have — it does not fall back to the Dart
+field initialiser. **A new non-nullable numeric field therefore always needs
+repair**, even when its business default looks like zero. Read the stored
+version through `effectiveSchemaVersion()`, never the raw field, for the same
+reason.
 
 **Repair is needed only when Isar's type default does not match the business
-default.** `bool isVip = false` upgrades to `false` automatically, so no repair.
-Netease's `useAuthForPlay`, whose business default is `true`
-(`kDefaultUseAuthForPlayBySource`) while Isar upgrades to `false`, must be
-repaired — since v2 that happens in the `SourceIds.values` loop of
-`repairSettingsInvariants`, which also guards against a bad backup import and a
-downgrade round-trip. Nullable sentinels (e.g. the lyrics popup style fields,
-where `null` means "built-in default") also need no repair.
+default.** `bool isVip = false` upgrades to `false`, so no repair. Netease's
+`useAuthForPlay`, whose business default is `true`, must be repaired. Nullable
+sentinels (where `null` means "built-in default") need none.
 
-`runDatabaseMigration()` in `lib/data/database/database_migration.dart` is
-the single entry point and the authoritative list of repaired fields — read it
-rather than maintaining a duplicate list here. `runDatabaseMigrationForTesting()`
-in `database_provider.dart` is the test hook, covered by
-`test/providers/database_migration_test.dart`.
+`database_migration.dart` separates two things that used to be one:
+
+- **Versioned steps** (`fmpMigrationSteps`, gated on `Settings.schemaVersion`)
+  run once each, in order, and stamp the version. Add a step and bump
+  `kFmpSchemaVersion` together.
+- **Invariants** (`repairSettingsInvariants`, `hasUnwrittenQueueSignature`) run
+  on every launch regardless of version. They also defend against a bad backup
+  import and a downgrade round-trip, so never version-gate them.
+
+The v1 to v2 step **copies without clearing**: the six old per-source columns
+stay populated so installing an older build back over the database keeps
+per-source settings. They are `@Deprecated`, and
+`deprecated_member_use_from_same_package` makes "only the migration reads them"
+a compiler rule rather than a convention.
+
+`runDatabaseMigration()` is the single entry point and the authoritative list of
+repaired fields — read it rather than maintaining a duplicate list here.
+`runDatabaseMigrationForTesting()` in `database_provider.dart` is the test hook.
 
 When adding a persisted field:
 
 1. Modify the model in `lib/data/models/`.
-2. Decide whether the Isar default equals the business default.
-3. If not, add repair logic in `_migrateDatabase()`.
-4. Run `dart run build_runner build`.
-5. Run `flutter test test/providers/database_migration_test.dart` and test
-   old-version to new-version upgrade behavior.
-
-Database open path, collection registration, and the catalog rules live in
-`lib/providers/AGENTS.md` § Database Startup And Migration. Never open the Isar
-database through an ad-hoc path.
+2. Decide whether the Isar default equals the business default; if not, add
+   repair logic in `runDatabaseMigration()`.
+3. `dart run build_runner build`.
+4. `flutter test test/providers/database_migration_test.dart`, and test an
+   old-version to new-version upgrade.
+5. If collection or schema visibility changed, update `database_catalog.dart`
+   and run `test/ui/pages/settings/database_viewer_page_coverage_test.dart`.
 
 ## Database Startup
 
-Opening, registration and migration wiring. The "does this field need repair?"
-decision rules are in § Migration And Default Repair above.
-
-- Runtime Isar files live under the app documents directory's `FMP/` child
-  folder. Open the DB through `openFmpDatabase()`
-  (`lib/data/database/database_provider.dart`) **only** — never open
-  `fmp_database` directly from `getApplicationDocumentsDirectory()` elsewhere.
-- Collection registration is catalog-owned in
-  `lib/data/database/database_catalog.dart`. `database_provider.dart` owns
-  opening and path handling; `database_migration.dart` owns migration.
-- `database_migration.dart` separates two things that used to be one:
-  - **Versioned steps** (`fmpMigrationSteps`, gated on `Settings.schemaVersion`)
-    run once each, in order, and stamp the version. Add a step and bump
-    `kFmpSchemaVersion` together.
-  - **Invariants** (`repairSettingsInvariants`, `hasUnwrittenQueueSignature`)
-    run on every launch regardless of version. They also defend against a bad
-    backup import and a downgrade round-trip, so never version-gate them.
-- Steps so far: v0 to v1 rewrites every `PlayHistory` row so the `trackKey`
-  index exists; v1 to v2 folds the six per-source `Settings` columns into
-  `sourceSettings`. The v1 to v2 step **copies without clearing** — the old
-  columns stay populated so installing an older build back over the database
-  keeps per-source settings. They are `@Deprecated` and
-  `deprecated_member_use_from_same_package` makes "only the migration reads
-  them" a compiler rule rather than a convention.
-- Read the stored version through `effectiveSchemaVersion()`, never the raw
-  field: Isar returns `Isar.minLong` for an int column an old row does not have.
-- `runDatabaseMigrationForTesting()` is the test hook.
-- Home ranking settings fields must stay in sync with migration/default repair.
-
-When model schemas or persisted defaults change:
-
-1. Read § Migration And Default Repair above.
-2. Update the model and migration/default repair together when needed.
-3. Run `dart run build_runner build`.
-4. Run `flutter test test/providers/database_migration_test.dart`.
-5. If collection/schema visibility changes, update `database_catalog.dart` and
-   run `flutter test test/ui/pages/settings/database_viewer_page_coverage_test.dart`.
+- Runtime Isar files live under the app documents directory's `FMP/` child.
+  Open through `openFmpDatabase()` **only** — never open `fmp_database`
+  directly from `getApplicationDocumentsDirectory()` elsewhere.
+- Collection registration is catalog-owned in `database_catalog.dart`;
+  `database_provider.dart` owns opening and paths; `database_migration.dart`
+  owns migration.
 
 ## Stable Keys
 
@@ -202,14 +140,10 @@ That string is part of the persisted format, not an internal detail:
 - `TrackBackup.uniqueKey` and `PlayHistoryBackup.trackKey` are the foreign key
   the backup format uses to reattach play history to tracks.
 
-`test/data/models/track_key_test.dart` pins the literal output and asserts all
-nine producers agree. Keep it that way.
+`test/data/models/track_key_test.dart` pins the literal output and asserts every
+producer agrees. The key discriminates parts by **`cid`, not `pageNum`**;
+callers needing pageNum append it themselves.
 
-The key discriminates parts by **`cid`, not `pageNum`**. Callers that need
-pageNum (the in-process stream-resolution cache) append it themselves — see
-`stream_resolution_service.dart`.
-
-List/grid items should use stable identity keys. For persisted models,
-`ValueKey(item.id)` is usually enough. For tracks that may be unpersisted,
-grouped, or multi-page, prefer source/group/page identity such as `sourceId` +
-`pageNum` / `groupKey`.
+List/grid items should use stable identity keys — `ValueKey(item.id)` for
+persisted models, source/group/page identity for tracks that may be
+unpersisted, grouped or multi-page.

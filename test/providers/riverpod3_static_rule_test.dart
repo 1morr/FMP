@@ -40,7 +40,7 @@ void main() {
     });
 
     test('lib does not import the riverpod legacy barrel', () {
-      // 整個可變狀態層已經改寫成 `Notifier`（Phase 4 收尾）。legacy 家族仍然
+      // 整個可變狀態層已經改寫成 `Notifier`。legacy 家族仍然
       // 可用，所以漏改一個不會有任何編譯錯誤 —— 只會留下一個沒人記得的
       // `StateNotifier`，然後下一個人以為那是現行寫法。
       final offenders = <String>[];

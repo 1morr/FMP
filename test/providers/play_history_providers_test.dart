@@ -11,7 +11,7 @@ import 'package:fmp/data/database/repository_providers.dart';
 import '../support/fakes/fake_isar.dart';
 
 void main() {
-  group('Phase 4 Task 4 play history providers', () {
+  group('play history providers', () {
     test('play history providers expose a shared snapshot provider', () {
       final source = playHistorySnapshotProvider;
       expect(source, isA<StreamProvider<List<PlayHistory>>>());
@@ -111,12 +111,12 @@ void main() {
 
         final recentSubscription = container.listen(
           recentPlayHistoryProvider,
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         final statsSubscription = container.listen(
           playHistoryStatsProvider,
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(recentSubscription.close);

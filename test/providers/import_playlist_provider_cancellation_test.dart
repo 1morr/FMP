@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/library/import_playlist_provider.dart';
@@ -11,7 +10,7 @@ import 'package:fmp/providers/library/playlist_import_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/import/playlist_import_service.dart'
     as legacy_import;
-import 'package:riverpod/riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../support/pump_until.dart';
 
@@ -57,7 +56,7 @@ void main() {
     );
   });
 
-  group('import playlist provider phase 2', () {
+  group('import playlist provider cancellation', () {
     test(
       'legacy PlaylistImportNotifier ignores late importAndMatch results',
       () async {
@@ -98,13 +97,10 @@ void main() {
         final service = _FakePlaylistImportService();
         final notifier = _legacyNotifier(service);
         notifier.setSeedState(
-          PlaylistImportState(
+          const PlaylistImportState(
             matchedTracks: [
               MatchedTrack(
-                original: const ImportedTrack(
-                  title: 'Original',
-                  artists: ['Artist'],
-                ),
+                original: ImportedTrack(title: 'Original', artists: ['Artist']),
                 status: MatchStatus.noResult,
               ),
             ],
@@ -150,16 +146,16 @@ void main() {
         addTearDown(container.dispose);
 
         final subscription = container.listen<ImportPlaylistState>(
-          importPlaylistProvider('phase2-test'),
-          (_, __) {},
+          importPlaylistProvider('cancellation-test'),
+          (_, _) {},
           fireImmediately: true,
         );
 
         final notifier = container.read(
-          importPlaylistProvider('phase2-test').notifier,
+          importPlaylistProvider('cancellation-test').notifier,
         );
         final importFuture = notifier.importFromUrl(
-          'https://example.com/playlist?list=phase2',
+          'https://example.com/playlist?list=cancel',
           useAuth: true,
         );
 
@@ -174,12 +170,14 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         expect(
-          container.read(importPlaylistProvider('phase2-test')).isImporting,
+          container
+              .read(importPlaylistProvider('cancellation-test'))
+              .isImporting,
           isTrue,
         );
         expect(
           container
-              .read(importPlaylistProvider('phase2-test'))
+              .read(importPlaylistProvider('cancellation-test'))
               .progress
               .currentItem,
           'Track 1',
@@ -202,7 +200,9 @@ void main() {
         expect(result, isNull);
         expect(fakeService.cleanupCalls, 1);
         expect(
-          container.read(importPlaylistProvider('phase2-test')).wasCancelled,
+          container
+              .read(importPlaylistProvider('cancellation-test'))
+              .wasCancelled,
           isTrue,
         );
 
@@ -227,7 +227,7 @@ void main() {
 
         final subscription = container.listen<ImportPlaylistState>(
           importPlaylistProvider('async-cancel'),
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(subscription.close);
@@ -280,7 +280,7 @@ void main() {
 
         final subscription = container.listen<ImportPlaylistState>(
           importPlaylistProvider('reset-stale'),
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(subscription.close);
@@ -323,7 +323,7 @@ void main() {
 
         final subscription = container.listen<ImportPlaylistState>(
           importPlaylistProvider('overlap-stale'),
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
         addTearDown(subscription.close);
