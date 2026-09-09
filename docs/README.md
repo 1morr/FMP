@@ -15,7 +15,6 @@
 | 遇到看起來像錯誤的建置或 runtime log 噪音 | [疑難排解](troubleshooting.md) |
 | 想知道接下來要做什麼、順序與驗收 | [整頓與重構計劃](plan.md) |
 | 想知道某個架構決定「當初為什麼這樣選」 | [adr/](adr/) |
-| 想知道某一輪執行時推翻了哪條先前結論 | [review/execution-log.md](review/execution-log.md) |
 | 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
 
 ## 目前文件
@@ -30,7 +29,6 @@
 | [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性建置與 runtime 噪音（如 Windows `Failed to update ui::AXTree`、`resolve_symlinks.ps1` 的 `Get-Item` 警告）與其成因 |
 | [adr/](adr/) | 貢獻者 / agent | 架構決策記錄：決定了什麼、為什麼，以及被否決的替代方案與否決的證據 |
 | [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
-| [review/execution-log.md](review/execution-log.md) | 維護者 | Phase 0–7 執行期每一輪開工前推翻了哪些先前結論、收工時實機看到什麼 |
 
 ## 權威來源
 
@@ -49,8 +47,6 @@
 - Runtime 調試流程或 VM Service 腳本變更：更新 [VM Service 調試指南](debugging-with-vm-service.md)。
 - 模擬器啟動方式、實機驗證流程或裝置端限制變更：更新 [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md)，並讓 `AGENTS.md` 的 Agent Skills 只保留一行指引。
 - 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
-- `review/execution-log.md` 是**歷史**，不是規則。**程式碼、測試與 `AGENTS.md` 不得
-  引用它** —— 一份被引用的歷史快照不是歷史快照，是沒人維護的活文檔。要留下的事實
-  請寫進它所描述的那個檔案裡。`test/support/agents_docs_static_rule_test.dart` 守著
-  這條規則。截圖留在 `review/assets/04-ui-ux/`，它是 UI 回歸唯一的歷史視覺基準。
+- 審查記錄不進 `docs/`。一輪審計的結論要嘛寫進它所描述的檔案、要嘛開成 issue，
+  要嘛留在 git 歷史；2026-09 的五份報告與執行記錄都在 `35d3c7a2` 之前的歷史裡。
 - 不要把同一條規則複製到多個文件，除非目標文件確實擁有對應讀者和維護責任。

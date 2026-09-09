@@ -103,15 +103,14 @@ Never:
 - Do not add an import edge between two features without recording it. A feature
   is a subdirectory name under `lib/services/` or `lib/providers/` — those hold
   two halves of the same features.
-- Do not cite `docs/review/execution-log.md` from code, tests or `AGENTS.md`. It
-  is history; a cited snapshot becomes an unmaintained live document.
 - Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
   it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
   See `docs/troubleshooting.md`.
 
-The last five are enforced by tests under `test/support/` and
-`test/ui/static_rules/`, which carry the exception lists. Add a line with a
-reason when you add a legitimate exception; delete it when it goes away.
+The pump, upward-import and feature-edge rules are enforced by tests under
+`test/support/` and `test/ui/static_rules/`, which carry the exception lists.
+Add a line with a reason when you add a legitimate exception; delete it when it
+goes away. The AXTree line is a stop-loss note; no static test can check it.
 
 ## Architecture
 

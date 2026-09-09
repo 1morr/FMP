@@ -118,32 +118,6 @@ void main() {
       }
     });
 
-    // 01-決策-2 選過「進 repo 但禁止程式碼引用」，然後那條規則從來沒有被寫進任何
-    // 地方，也從來沒有被遵守 —— 清掉的時候有 22 處引用要改，其中兩處指向一個幾個
-    // 月前就刪掉的檔案。這條測試就是那個決定第一次真的有閘門。
-    //
-    // 根 AGENTS.md 與本檔不算：規則本身總得叫得出它禁止的那個名字。
-    test('code does not cite the execution log', () {
-      final offenders = <String>[];
-      for (final path in [
-        ..._dartFilesUnder('lib'),
-        ..._dartFilesUnder('test'),
-        ..._agentDocs().where((p) => p != 'AGENTS.md'),
-      ]) {
-        if (path == _selfPath) continue;
-        if (File(path).readAsStringSync().contains('docs/review')) {
-          offenders.add(path);
-        }
-      }
-      expect(
-        offenders,
-        isEmpty,
-        reason:
-            'docs/review/execution-log.md is history. Put the fact in the file '
-            'it describes instead.',
-      );
-    });
-
     test('the path extractor reads paths, not prose or placeholders', () {
       const doc = '''
 Real: `lib/core/logger.dart` and `docs/README.md` and `analysis_options.yaml`.
