@@ -14,8 +14,9 @@
 // Then point playback at one of the URLs it prints. Windows reaches the host as
 // 127.0.0.1; the Android emulator reaches it as 10.0.2.2.
 //
-// Measured engine behaviour these reproduce (docs/review/02-playback-sources.md
-// §12.14), which is what a fix has to change:
+// Measured engine behaviour these reproduce, which is what a fix has to change.
+// Taken with the engines driven directly, no AudioController attached, so these
+// are the engines' own numbers and not FMP's:
 //
 //   hold  | Windows/mpv       `open()` returns in ~0.6s, playUrl "succeeds" in
 //         |                   6.1s with duration: null, then completes at 12.4s

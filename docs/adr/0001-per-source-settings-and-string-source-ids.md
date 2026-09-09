@@ -77,7 +77,7 @@ extension type 的 `DartType` 帶的是 `ExtensionTypeElement`，不是 `dartCor
 
 ### `Map<String, SourceSettings>`
 
-`docs/review/05-roadmap.md:310` 原本提的是這個形狀。Isar 的 `@embedded` 不支援
+當初的路線圖提的是這個形狀。Isar 的 `@embedded` 不支援
 `Map<String, @embedded>`，只支援 `List`。實際交付的是
 `List<SourceSettingsEntry>`，查表由 `Settings` 上的私有 helper 負責。
 
@@ -128,7 +128,7 @@ v1 → v2 的遷移**只搬不刪**：六個舊欄位保留、標上
 
 ### 排程理由的更正
 
-`docs/review/05-roadmap.md:482` 原本把這件事排進 3c，理由是「併進批次 schema
+當初的路線圖把這件事排進 Phase 3c，理由是「併進批次 schema
 變更，邊際成本近零」。**這個前提不成立**：`@Enumerated(EnumType.name)` 本來就寫
 字串，這項改動不改磁碟格式、不需要 migration、不碰備份格式、不碰 catalog，它與
 那個批次共用的成本是 **0**。

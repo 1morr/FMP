@@ -7,7 +7,7 @@ import 'package:fmp/data/models/search_history.dart';
 ///
 /// 封裝 `SearchHistory` 的讀寫、去重與上限邏輯，讓 `SearchService` 不再直接
 /// 碰 Isar——與其他 collection（Track/Playlist/PlayHistory…）一致走 repository
-/// 模式（C10 / 01-action-plan.md）。
+/// 模式，見 `docs/adr/0002-repository-boundary.md`。
 class SearchHistoryRepository {
   SearchHistoryRepository(this._isar);
 

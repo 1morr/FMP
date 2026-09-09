@@ -47,8 +47,8 @@ APIs. Endpoint shapes, signing steps and protocol constants come from public
 reverse-engineering write-ups rather than from any project's source code.
 
 bilibili-API-collect (https://github.com/SocialSisterYi/bilibili-API-collect)
-is licensed CC BY-NC 4.0. It documents the Bilibili endpoints, the WBI signing
-steps and the cookie-refresh public key.
+is licensed CC BY-NC 4.0. It documents the Bilibili endpoints and the
+cookie-refresh public key.
 
 netease-cloud-music (https://github.com/chaunsin/netease-cloud-music) is
 licensed MIT and was used as a reference for the NetEase request format.

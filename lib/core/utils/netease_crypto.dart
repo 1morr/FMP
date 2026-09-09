@@ -14,8 +14,7 @@ import 'package:encrypt/encrypt.dart';
 /// `core.js`，多份獨立的逆向筆記引用的是同一段。實作是獨立表達：這裡是寫死
 /// CBC 的三參數私有方法加自行 `BigInt.modPow`，與社群常見的通用
 /// `aesEncrypt(text, mode, key, iv, format)` 分派 + PEM 解析寫法沒有對映關係。
-/// 出處與比對過程見 `THIRD_PARTY_LICENSES.md` 與
-/// `docs/review/03-data-platform-license.md` §5.1.1。
+/// 出處與比對過程見 `THIRD_PARTY_LICENSES.md` § Protocol research。
 class NeteaseCrypto {
   NeteaseCrypto._();
 

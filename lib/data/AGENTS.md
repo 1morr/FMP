@@ -8,7 +8,7 @@ startup/open wiring, read `lib/providers/AGENTS.md`.
 
 `isar_community` / `isar_community_flutter_libs` / `isar_community_generator`
 are pinned at `^3.3.2` (`pubspec.yaml`). FMP moved off the upstream
-`isar` packages in Phase 2 (see `docs/review/05-roadmap.md`).
+`isar` packages when the upstream toolchain ceiling became unbreakable.
 
 Why the fork:
 

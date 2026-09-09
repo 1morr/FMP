@@ -7,7 +7,7 @@
 ///
 /// **這個型別回答的是「視窗骨架長什麼樣」**：底部導覽還是導覽軌、要不要給
 /// Detail Panel。一個 pane 內部放幾欄是另一個問題，那是 [columnsFor] ——
-/// 兩者不可以互相代用，混用正是 P0-1（拖寬面板讓首頁掉一個音源）的成因。
+/// 兩者不可以互相代用 —— 混用正是「拖寬面板讓首頁掉一個音源」那個 bug 的成因。
 ///
 /// 舊的 `LayoutType { mobile, tablet, desktop }` 用硬體名稱回答尺寸問題，
 /// 違反 Flutter 官方 adaptive design 指南的 *Avoid checking for hardware

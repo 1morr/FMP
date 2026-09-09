@@ -307,7 +307,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       // mpv 手冊自稱這個選項 "Highly experimental"，並警告 "This can give
       // subtly wrong results if per-file options are used" —— 而 media_kit 正是
       // 用 per-file 的 `http-header-fields`（`on_load` hook）送出 Referer /
-      // Origin。實測結果記在 docs/review/05-roadmap.md §6.13。
+      // Origin。拿一台只認正確 Referer 的本機伺服器實測過：前瞻開流帶的 header
+      // 是對的，警告在這個用法下不成立。
       await (nativePlayer as dynamic).setProperty('prefetch-playlist', 'yes');
 
       // 禁止 demuxer 将已用 buffer 捐赠给其他线程（减少内存碎片）

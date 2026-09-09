@@ -21,7 +21,7 @@ default, because resetting throws away a width the user actually chose. Render
 and drag both go through `AppLayout.detailPanelWidthFor`; if they ever use
 different bounds, the handle drags to a width that cannot be drawn.
 
-`detailPanelExpanded` defaults to **false** for new rows (04-D2): the panel is
+`detailPanelExpanded` defaults to **false** for new rows: the panel is
 offered from `WindowClass.expanded` (840dp) upward, where it would take 40% of
 the content. Existing rows keep whatever they stored, and the v0 migration
 still rescues pre-Phase-3 rows to `true` — those users did have it open.
@@ -341,8 +341,8 @@ is kept free of Flutter imports so the data and migration layers can share the
 detail-panel bounds with the shell. Rail widths, panel bounds, the pane spacer
 and the player content/cover caps belong there, not in a page.
 
-`AppSpacing` is **not** swept over the existing `EdgeInsets` literals
-(decision 04-D10): a zero-behaviour-change diff across 260 call sites buries
+`AppSpacing` is **not** swept over the existing `EdgeInsets` literals:
+a zero-behaviour-change diff across 260 call sites buries
 real changes, and 76% of those values are already on the scale. Use it in new
 code and in files you are already editing.
 

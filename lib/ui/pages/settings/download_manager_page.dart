@@ -342,7 +342,7 @@ class _DownloadTaskTile extends ConsumerWidget {
     final totalBytes = effectiveProgress.$3;
 
     // loading 與 error 不能收斂成同一個字串：查詢永久失敗的那一列會一直顯示
-    // 「載入中…」，使用者永遠不知道它壞了（04 報告 P0-2）。
+    // 「載入中…」，使用者永遠不知道它壞了。
     final title = trackAsync.when(
       data: (track) => track?.title ?? t.settings.downloadManager.unknownTrack,
       loading: () => t.general.loading,

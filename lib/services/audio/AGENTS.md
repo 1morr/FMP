@@ -541,8 +541,8 @@ belongs to the backend**: there is no `EndedNaturally` at the boundary, and
 
 Only one lookahead item, never a whole queue. Stream URLs are resolved one
 track at a time, expire in 1–2 hours, and can be rate-limited, so
-`setQueue(List<...>)` — which 02 §6.3 stage 4 originally asked for — cannot be
-honoured. There is no `supportsQueue`: both backends would return `true`.
+`setQueue(List<...>)` — the shape this work was originally specced with —
+cannot be honoured. There is no `supportsQueue`: both backends would return `true`.
 
 **Arming and disarming**
 
@@ -579,7 +579,7 @@ honoured. There is no `supportsQueue`: both backends would return `true`.
   the boundary. mpv calls the option experimental and warns it can misbehave
   with per-file options — and media_kit delivers HTTP headers exactly that way,
   through the `on_load` hook. Measured against a header-gated local server: the
-  headers do survive (05 §6.13). Do not remove the property casually.
+  headers do survive. Do not remove the property casually.
 - `audio_backend_static_test.dart` pins the playlist wrapper, the mpv property,
   and the fact that the follow path goes through `_updatePlayingTrack` — the
   shared track-change path that `PlaybackHandoffGate.currentTrackKey` and
@@ -621,6 +621,6 @@ dart run test/manual/pathological_stream_servers.dart
 ```
 
 `hold` connects and then sends nothing forever; `stall` sends four seconds of
-audio and cuts the socket, refusing every reconnect. See `test/manual/README.md`
-for the URLs and `docs/review/02-playback-sources.md` §12.14 for the per-platform
-baselines a change has to improve on.
+audio and cuts the socket, refusing every reconnect. `test/manual/README.md` has
+the URLs; the script's own header carries the measured per-platform baselines a
+change has to improve on.

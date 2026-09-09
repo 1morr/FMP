@@ -73,7 +73,7 @@ void main() {
     });
 
     test('no raw exception text is handed to a user-facing widget', () {
-      // P1-7：`Exception: <伺服器原文>` 不該出現在畫面上。原文走 AppLogger，
+      // `Exception: <伺服器原文>` 不該出現在畫面上。原文走 AppLogger，
       // 畫面走 userMessageFor。
       final offenders = <String>[];
       final raw = RegExp(

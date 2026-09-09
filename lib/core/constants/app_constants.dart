@@ -198,7 +198,7 @@ class PlaybackTimeoutBudget {
   ///
   /// 實測：YouTube 的 androidVr audio-only 被 bot 檢查擋下之後（那是常態不是
   /// 例外），退到 muxed 在 Android 模擬器上量到 21.3–22.7 秒、在 Windows 主機上
-  /// 9.9 秒。這一層是「別無限等下去」的兜底，不是用來逼快的閘門 —— P0-2 要的是
+  /// 9.9 秒。這一層是「別無限等下去」的兜底，不是用來逼快的閘門 —— 要的是
   /// **有界**，不是短。太緊的代價是那些影片一律播不出來，太鬆只是多轉一下才
   /// 誠實失敗，所以取值偏寬。命中 audio-only 的常見路徑只要 1–2 秒。
   final Duration streamResolution;
