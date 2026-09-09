@@ -16,6 +16,11 @@ import 'package:fmp/ui/widgets/indicators/now_playing_cover_overlay.dart';
 /// - 回退到网络封面
 /// - 无封面时显示占位符
 /// - 支持播放中指示器覆盖
+///
+/// **列表列的小方塊專用，實際呼叫端都在 32–56dp。** 圖片源固定在
+/// [ImageTargetSizes.thumbnail]（160px），48dp 在 DPR 3 需要 144px，還有餘。
+/// 卡片級以上的封面走 [TrackCover]，它按 [TrackCoverVariant] 選檔 —— 不要在這
+/// 裡按 [size] 分檔，那條分支存在過兩個月，一個呼叫端都沒有。
 class TrackThumbnail extends ConsumerWidget {
   /// 歌曲数据
   final Track track;
@@ -98,20 +103,6 @@ class TrackThumbnail extends ConsumerWidget {
   ) {
     final placeholder = _buildPlaceholder(colorScheme);
 
-    // 卡片级大尺寸（>=100dp）在高 DPR 下需要 medium 档源图，避免解码后再
-    // 放大而模糊；列表小缩略图（32–56dp）走 thumbnail 档即可。
-    if (size >= 100) {
-      return ImageLoadingService.loadImage(
-        localPath: localCoverPath,
-        networkUrl: track.thumbnailUrl,
-        placeholder: placeholder,
-        fit: BoxFit.cover,
-        width: size,
-        height: size,
-        targetDisplaySize: ImageTargetSizes.medium,
-      );
-    }
-
     return ImageLoadingService.loadImage(
       localPath: localCoverPath,
       networkUrl: track.thumbnailUrl,
@@ -146,9 +137,6 @@ enum TrackCoverVariant {
   /// 播放器模糊背景，使用高画质图片源减少全屏模糊后的色带和条纹。
   backdrop,
 
-  /// 首页、详情等卡片封面（约 100–140dp）。
-  card,
-
   /// 播放器、Detail Panel 等大图场景。
   ///
   /// 各源可用封面尺寸上限：Bilibili 1280w、NetEase 800、YouTube 720 高
@@ -163,8 +151,6 @@ extension TrackCoverVariantTarget on TrackCoverVariant {
     switch (this) {
       case TrackCoverVariant.backdrop:
         return ImageTargetSizes.high;
-      case TrackCoverVariant.card:
-        return ImageTargetSizes.medium;
       case TrackCoverVariant.hero:
         return ImageTargetSizes.highest;
     }
