@@ -55,6 +55,12 @@ adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do slee
 
 ## 2. Run the app
 
+Run `dart run slang` first (and `dart run build_runner build` after a schema
+change). The generated `lib/i18n/strings*.g.dart` and Isar `*.g.dart` files
+are gitignored, so a checkout that moved past an i18n or schema edit fails in
+`assembleDebug` with a missing-getter error that looks like a source bug. A
+fresh worktree needs both before its first build.
+
 Own the process in an Orca terminal so it survives across turns and accepts
 hot-reload keystrokes:
 
