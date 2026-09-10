@@ -102,15 +102,17 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | 2.2 | 走新的 release 流程 | draft release 的 body 由 commit 範圍自動產生；你審過 draft 再 publish。流程以 `docs/build-and-release.md` 為準 |
 | 2.3 | 五項只有你能做的實機驗證 | 見下表，結果各記一行到對應 issue |
 
-| 驗證 | 怎麼做 | 對應 |
-|---|---|---|
-| 登入狀態下的 secure storage 9→10 遷移 | 三個來源都登入的 v1.9.1 或 v1.10.0 覆蓋升級，看 logcat 的 `Migrated N items` | #89 |
-| Windows 托盤 | 點托盤圖示、右鍵選單、關閉到托盤 | #90 |
-| 高 DPI 封面清晰度 | DPR ≥ 3 的實機看首頁與播放頁封面 | C3 的 P-7c |
-| Android gapless | 連播兩首，聽交界 | just_audio 0.10 升級 |
-| 音訊裝置失效 | Windows 播放中停用輸出裝置，看錯誤文案 | #41 |
+| 驗證 | 怎麼做 | 對應 | 2026-09-10 結果 |
+|---|---|---|---|
+| 登入狀態下的 secure storage 9→10 遷移 | v1.9.1 覆蓋升級（v1.10.0 已是 10.x，不是基準），看 logcat 的 `Migrated N items` | #89 | 通過：placeholder 憑證，`Migrated 4 items`，四把 key 重新加密且讀得回；細節在 #89 |
+| Windows 托盤 | 點托盤圖示、右鍵選單、關閉到托盤 | #90 | 七項全過，#90 已關 |
+| 高 DPI 封面清晰度 | DPR ≥ 3 的實機看首頁與播放頁封面 | C3 的 P-7c | 量到問題：封面在所有 DPR 下都被放大，根因是 URL 檔位不乘 DPR 加 16:9 塞正方形，開了 #107 |
+| Android gapless | 連播兩首，聽交界 | just_audio 0.10 升級 | 通過：本地 WAV 三首兩個交界都印 `Following the backend across a gapless boundary`，同一個 `AudioTrack` 連續 120 s 未重建；網路串流交界未驗 |
+| 音訊裝置失效 | Windows 播放中停用輸出裝置，看錯誤文案 | #41 | 音樂與電台都顯示「音訊輸出裝置無法使用，播放已停止」，#41 已關；失效後仍重試一次並記 `Retry playback succeeded` 分到 #106 |
 
-出口：`v1.10.1` 發布，更新對話框在 v1.10.0 上能讀到可讀的 release notes（#82 已修）。
+出口：`v1.10.1` 發布。更新對話框的可讀 release notes（#82）在 1.10.0 → 1.10.1 這條路徑上驗不到，
+因為畫對話框的是舊版程式；改為 v1.10.2 發版時在 v1.10.1 上驗。更新流程本身在 v1.10.0 上走過：
+選中 installer、靜默安裝、11 秒內重啟為 1.10.1，帳號登入狀態保留。
 
 ### M3 文檔與測試樹清理
 
@@ -220,8 +222,8 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | 里程碑 | 狀態 | 分支 / PR | 備註 |
 |---|---|---|---|
 | M0 | 完成 2026-09-10 | #94 | `main` 有 `protect-main` ruleset |
-| M1 | 完成 2026-09-10（1.2、1.3 延後） | #96、#101 | 1.2 與 1.3 等 Clash 規則修好、直連下重跑 live 測試再決定（#95）；#85 的標題寬度只到 6 個全形字，再寬要動封面或選單按鈕，超出 issue 範圍 |
-| M2 | 等你 publish | #103 升版；tag `v1.10.1` 在 `8fbd3517`；draft release 已建，9 個產物、workflow 全綠 | 2.3 的五項實機驗證只有你能做，做完各記一行到對應 issue，再 publish draft |
+| M1 | 完成 2026-09-10（1.2、1.3 延後） | #96、#101 | 1.2 與 1.3：直連下重跑 live 測試，匿名 `playurl` 仍被 -412 擋下（#95），風控不只是 Clash；建議先做 1.2 再看 1.3；#85 的標題寬度只到 6 個全形字，再寬要動封面或選單按鈕，超出 issue 範圍 |
+| M2 | 完成 2026-09-10 | #103 升版；tag `v1.10.1` 在 `8fbd3517`；release 已 publish | 五項實機驗證由子代理做完並記到 issue：#89、#90、#41 關閉，分出 #106、#107；#82 的對話框修正要等 v1.10.2 才驗得到 |
 | M3 | 進行中 | #97、#98、#99、#100 已合併 | 3.4（#91 README 截圖）與 3.5（兩份超過 200 行的 `AGENTS.md`）未開始；#102 記錄了一條 CI 偶發失敗的音訊測試，歸 M4 步驟 9 判定 |
 | M4 | 進行中 | 4.1 在 #104 | 4.2 不再是純刪除：`NeteasePlaylistSource` 還有 `netease_playlist_service.dart` 的 `getPlaylistDetail` 這條零呼叫鏈在用，連帶約 115 行 account 層程式碼，且 `source_url_policy_test.dart` 的 SSRF 迴歸測試拿它當載體，要先移植到 `NeteaseSource._resolveShortUrl` 再刪。列為 4.2 的前置，下一輪做 |
 | M5 | 未開始 | | |
