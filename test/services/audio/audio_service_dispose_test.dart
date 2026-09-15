@@ -17,7 +17,12 @@ import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
+import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/lyrics_auto_match_coordinator.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
+import 'package:fmp/services/audio/play_history_recorder.dart';
+import 'package:fmp/services/audio/playback_capabilities.dart';
+import 'package:fmp/services/audio/playback_side_effects.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
@@ -217,6 +222,97 @@ void main() {
     );
 
     test(
+      'teardown disposes every side effect once, in reverse order',
+      () async {
+        final audioService = _RecordingLifecycleAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _RecordingLifecycleQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        // 真的那三個 adapter，外面各包一層只負責記名字的裝飾 —— 順序要守的是
+        // registry 的行為，而通知欄那一格還要真的把系統媒體控制交還回去。
+        final publisher = testNowPlayingPublisher();
+        final disposeOrder = <String>[];
+        final effects = [
+          _NamedSideEffect(
+            'nowPlaying',
+            NowPlayingSideEffect(publisher),
+            disposeOrder,
+          ),
+          _NamedSideEffect(
+            'history',
+            PlayHistorySideEffect(PlayHistoryRecorder()),
+            disposeOrder,
+          ),
+          _NamedSideEffect(
+            'lyrics',
+            LyricsAutoMatchSideEffect(LyricsAutoMatchCoordinator()),
+            disposeOrder,
+          ),
+        ];
+        final registry = PlaybackSideEffectRegistry(effects);
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+          nowPlayingPublisher: publisher,
+          playbackSideEffects: registry,
+        );
+
+        final controller = container.read(audioControllerProvider.notifier);
+        await controller.initialize();
+        await drainEventQueue(
+          reason: 'let initialization settle before the container is disposed',
+        );
+        expect(
+          publisher.capabilities,
+          PlaybackCapabilities.music,
+          reason: 'the controller claims the system media controls on startup',
+        );
+        final notifiedBefore = effects.map((e) => e.notifications).toList();
+
+        container.dispose();
+        await drainEventQueue(reason: 'let the teardown microtasks run out');
+
+        expect(disposeOrder, ['lyrics', 'history', 'nowPlaying']);
+        expect(
+          publisher.capabilities,
+          PlaybackCapabilities.none,
+          reason: 'the media control binding is released with the controller',
+        );
+
+        // 閂住之後的呼叫既不拋也不記帳。
+        expect(
+          () => registry
+            ..onTrackStarted(_track(), countsAsNewPlay: true)
+            ..onPlaybackStateChanged(
+              const PlaybackStateSnapshot(
+                isPlaying: false,
+                position: Duration.zero,
+                bufferedPosition: Duration.zero,
+                processingState: FmpAudioProcessingState.idle,
+              ),
+            )
+            ..onStopped()
+            ..dispose(),
+          returnsNormally,
+        );
+        expect(disposeOrder, ['lyrics', 'history', 'nowPlaying']);
+        expect(effects.map((e) => e.notifications), notifiedBefore);
+      },
+    );
+
+    test(
       'just audio dispose is safe before initialization and on repeat calls',
       () async {
         final service = JustAudioService();
@@ -244,11 +340,17 @@ ProviderContainer _createContainer({
   required QueueManager queueManager,
   required QueuePersistenceManager queuePersistenceManager,
   LyricsAutoMatchService Function(Ref ref)? lyricsAutoMatchServiceFactory,
+  NowPlayingPublisher? nowPlayingPublisher,
+  PlaybackSideEffect? playbackSideEffects,
 }) {
   return ProviderContainer(
     overrides: [
       audioServiceProvider.overrideWith((ref) => audioService),
-      nowPlayingPublisherProvider.overrideWithValue(testNowPlayingPublisher()),
+      nowPlayingPublisherProvider.overrideWithValue(
+        nowPlayingPublisher ?? testNowPlayingPublisher(),
+      ),
+      if (playbackSideEffects != null)
+        playbackSideEffectsProvider.overrideWithValue(playbackSideEffects),
       queueManagerProvider.overrideWith((ref) => queueManager),
       queuePersistenceManagerProvider.overrideWith(
         (ref) => queuePersistenceManager,
@@ -424,3 +526,43 @@ class _Flag extends Notifier<bool> {
 
   void set(bool value) => state = value;
 }
+
+/// 只記名字的裝飾，其餘原樣轉發給真的 adapter。
+class _NamedSideEffect implements PlaybackSideEffect {
+  _NamedSideEffect(this.name, this._delegate, this._disposeOrder);
+
+  final String name;
+  final PlaybackSideEffect _delegate;
+  final List<String> _disposeOrder;
+
+  int notifications = 0;
+
+  @override
+  void onTrackStarted(Track track, {required bool countsAsNewPlay}) {
+    notifications++;
+    _delegate.onTrackStarted(track, countsAsNewPlay: countsAsNewPlay);
+  }
+
+  @override
+  void onPlaybackStateChanged(PlaybackStateSnapshot snapshot) {
+    notifications++;
+    _delegate.onPlaybackStateChanged(snapshot);
+  }
+
+  @override
+  void onStopped() {
+    notifications++;
+    _delegate.onStopped();
+  }
+
+  @override
+  void dispose() {
+    _disposeOrder.add(name);
+    _delegate.dispose();
+  }
+}
+
+Track _track() => Track()
+  ..sourceId = 'after-dispose'
+  ..sourceType = 'youtube'
+  ..title = 'After Dispose';
