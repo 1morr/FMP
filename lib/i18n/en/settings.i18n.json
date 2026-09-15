@@ -158,8 +158,6 @@
     "logLevelSubtitle": "Applies to this run only; resets on restart",
     "dbViewer": "Database Viewer",
     "dbViewerSubtitle": "Browse Isar database contents",
-    "ytStreamTest": "YouTube Stream Test",
-    "ytStreamTestSubtitle": "Test Audio-only / Muxed / HLS stream playback",
     "dataManagement": "Data Management",
     "devInfo": "Dev Info",
     "debugMode": "Debug Mode",
