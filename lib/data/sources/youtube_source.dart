@@ -11,6 +11,7 @@ import 'package:fmp/core/utils/innertube_utils.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/sources/audio_stream_quality_fallback.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/dynamic_playlist_types.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
@@ -496,7 +497,7 @@ class YouTubeSource
         (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
       );
 
-      final selected = _selectByQualityLevel(muxedStreams, config.qualityLevel);
+      final selected = selectByQualityLevel(muxedStreams, config.qualityLevel);
 
       if (selected != null) {
         logDebug(
@@ -592,12 +593,12 @@ class YouTubeSource
     for (final format in config.formatPriority) {
       final matching = streams.where((s) => _matchesFormat(s, format)).toList();
       if (matching.isNotEmpty) {
-        return _selectByQualityLevel(matching, config.qualityLevel);
+        return selectByQualityLevel(matching, config.qualityLevel);
       }
     }
 
     // 如果没有匹配的格式，按码率选择
-    return _selectByQualityLevel(streams, config.qualityLevel);
+    return selectByQualityLevel(streams, config.qualityLevel);
   }
 
   /// 检查流是否匹配指定格式
@@ -615,20 +616,6 @@ class YouTubeSource
             container == 'm4a' ||
             codec.contains('aac') ||
             codec.contains('mp4a');
-    }
-  }
-
-  /// 根据音质等级选择流
-  T? _selectByQualityLevel<T>(List<T> sortedStreams, AudioQualityLevel level) {
-    if (sortedStreams.isEmpty) return null;
-
-    switch (level) {
-      case AudioQualityLevel.high:
-        return sortedStreams.first; // 最高码率
-      case AudioQualityLevel.medium:
-        return sortedStreams[sortedStreams.length ~/ 2]; // 中间
-      case AudioQualityLevel.low:
-        return sortedStreams.last; // 最低码率
     }
   }
 
@@ -779,7 +766,7 @@ class YouTubeSource
         (a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond),
       );
 
-      final selected = _selectByQualityLevel(muxedStreams, config.qualityLevel);
+      final selected = selectByQualityLevel(muxedStreams, config.qualityLevel);
       if (selected != null) {
         logDebug('Got alternative muxed stream for $videoId');
         return AudioStreamResult(
@@ -1962,10 +1949,10 @@ class YouTubeSource
       final matching = audioFormats
           .where((candidate) => _innerTubeAudioFormatMatches(candidate, format))
           .toList();
-      selected = _selectByQualityLevel(matching, config.qualityLevel);
+      selected = selectByQualityLevel(matching, config.qualityLevel);
       if (selected != null) break;
     }
-    selected ??= _selectByQualityLevel(audioFormats, config.qualityLevel);
+    selected ??= selectByQualityLevel(audioFormats, config.qualityLevel);
     if (selected == null) return null;
 
     return AudioStreamResult(
@@ -2000,7 +1987,7 @@ class YouTubeSource
       return bitrateB.compareTo(bitrateA);
     });
 
-    final selected = _selectByQualityLevel(muxedFormats, config.qualityLevel);
+    final selected = selectByQualityLevel(muxedFormats, config.qualityLevel);
     if (selected == null) return null;
 
     return AudioStreamResult(
