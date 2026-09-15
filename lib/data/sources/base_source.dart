@@ -111,7 +111,7 @@ class AudioStreamResult {
   /// 解析過程中確定下來的 Bilibili cid（分P唯一標識）。
   ///
   /// cid 是不變值，但過去只存在於解析當下：搜尋或熱門榜來的曲目沒有 cid，
-  /// 於是每播一次就要多打一支 `/x/web-interface/view` 只為了把它查回來。
+  /// 於是每播一次就要多打一支 `/x/web-interface/wbi/view` 只為了把它查回來。
   /// 帶回來讓呼叫端寫進 track 之後，第二次播放就省掉那一次往返。
   final int? cid;
 

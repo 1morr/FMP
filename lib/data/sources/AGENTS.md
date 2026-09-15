@@ -21,12 +21,18 @@ what reading them will not tell you.
   so live Referer and media user agent stay consistent. `BilibiliLiveClient`
   owns every live helper; `BilibiliSource`, `RadioSource` and
   `BilibiliAccountService` delegate to it.
-- Ranking requests returning `-352` are risk control, not a broken endpoint:
-  refresh browser fingerprint cookies through `/x/frontend/finger/spi` and retry
-  once, instead of moving away from the ranking API. The rate-limit and
-  risk-control codes are `-352`, `-412`, `-509`, `-799`. `BilibiliLiveClient`
-  raises them as `rateLimited` from `getRoomInfo` too, rather than folding them
-  into "no such room", because the radio poller has to back off on them.
+- Risk control is rate- and UA-based, never buvid-based, so nothing retries with
+  a fresh fingerprint: the risk-control codes `-352`, `-412`, `-509`, `-799`
+  surface as `rateLimited` and the caller backs off. `BilibiliLiveClient` raises
+  them from `getRoomInfo` too, rather than folding them into "no such room",
+  because the radio poller has to back off on them. Two measurements back this
+  (2026-07 and 2026-09, both in `BilibiliSource._checkResponse`); re-measure in
+  a real trigger before adding a retry back.
+- Anonymous `/x/web-interface/view` answers HTTP 412 regardless of cookies while
+  `/x/web-interface/wbi/view` answers with the same body, so `BilibiliSource`
+  uses the wbi path and does not sign it — Bilibili accepted a wrong `w_rid` on
+  every wbi endpoint measured on 2026-09-15. Add signing when a live run shows
+  it enforced, not before.
 - A test that builds a real source with its default constructor must be tagged
   `live`; `test/support/live_source_tag_static_rule_test.dart` enforces it and
   carries the parse-only exceptions.
