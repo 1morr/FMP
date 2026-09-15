@@ -9,6 +9,7 @@ import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 import 'package:fmp/data/sources/playlist_import/qq_music_playlist_source.dart';
 import 'package:fmp/data/sources/playlist_import/spotify_playlist_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/search/source_search_fanout.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 /// 搜索来源配置
@@ -281,6 +282,19 @@ class PlaylistImportService with Logging {
     return results;
   }
 
+  /// 單一音源搜尋；音源沒註冊就直接丟，讓呼叫端知道設定壞了而不是拿到空結果。
+  Future<SearchResult> _searchFrom(
+    String type,
+    String query, {
+    required int pageSize,
+  }) {
+    final source = _sourceManager.searchSource(type);
+    if (source == null) {
+      throw StateError('Source not found: $type');
+    }
+    return source.search(query, pageSize: pageSize);
+  }
+
   Future<List<Track>> _searchTrack(
     ImportedTrack track, {
     required SearchSourceConfig searchSource,
@@ -293,25 +307,16 @@ class PlaylistImportService with Logging {
 
     switch (searchSource) {
       case SearchSourceConfig.all:
-        // 并行搜索 YouTube 和 Bilibili
-        final results = await Future.wait([
-          _sourceManager
-              .searchFrom(SourceIds.youtube, query, pageSize: searchPageSize)
-              .catchError((e) {
-                logWarning('YouTube search failed during import; ignoring: $e');
-                return SearchResult.empty();
-              }),
-          _sourceManager
-              .searchFrom(SourceIds.bilibili, query, pageSize: searchPageSize)
-              .catchError((e) {
-                logWarning(
-                  'Bilibili search failed during import; ignoring: $e',
-                );
-                return SearchResult.empty();
-              }),
-        ]);
-
-        for (final result in results) {
+        // 并行搜索 YouTube 和 Bilibili；单源失败只记 log，不中断匹配
+        final results = await searchSourcesInParallel(
+          _sourceManager,
+          query,
+          sourceTypes: const [SourceIds.youtube, SourceIds.bilibili],
+          pageSize: searchPageSize,
+          onSourceError: (type, e, _) =>
+              logWarning('$type search failed during import; ignoring: $e'),
+        );
+        for (final result in results.values) {
           allResults.addAll(result.tracks);
         }
 
@@ -320,7 +325,7 @@ class PlaylistImportService with Logging {
         break;
 
       case SearchSourceConfig.bilibiliOnly:
-        final result = await _sourceManager.searchFrom(
+        final result = await _searchFrom(
           SourceIds.bilibili,
           query,
           pageSize: searchPageSize,
@@ -330,7 +335,7 @@ class PlaylistImportService with Logging {
         break;
 
       case SearchSourceConfig.youtubeOnly:
-        final result = await _sourceManager.searchFrom(
+        final result = await _searchFrom(
           SourceIds.youtube,
           query,
           pageSize: searchPageSize,
@@ -1151,9 +1156,13 @@ class PlaylistImportService with Logging {
 
     switch (searchSource) {
       case SearchSourceConfig.all:
-        final results = await _sourceManager.searchAll(
+        final results = await searchSourcesInParallel(
+          _sourceManager,
           query,
+          sourceTypes: _sourceManager.registeredSourceTypes,
           pageSize: maxResults,
+          onSourceError: (type, e, _) =>
+              logWarning('$type search failed; returning partial results: $e'),
         );
         for (final result in results.values) {
           allResults.addAll(result.tracks);
@@ -1164,7 +1173,7 @@ class PlaylistImportService with Logging {
         break;
 
       case SearchSourceConfig.bilibiliOnly:
-        final result = await _sourceManager.searchFrom(
+        final result = await _searchFrom(
           SourceIds.bilibili,
           query,
           pageSize: maxResults,
@@ -1173,7 +1182,7 @@ class PlaylistImportService with Logging {
         break;
 
       case SearchSourceConfig.youtubeOnly:
-        final result = await _sourceManager.searchFrom(
+        final result = await _searchFrom(
           SourceIds.youtube,
           query,
           pageSize: maxResults,

@@ -3,8 +3,9 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/search/source_search_fanout.dart';
 
-/// 最小 SearchSource fake：只實作 search（其餘能力 searchAll 用不到）。
+/// 最小 SearchSource fake：只實作 search（其餘能力 fan-out 用不到）。
 class _FakeSearchSource implements SearchSource {
   _FakeSearchSource(this.sourceType, this._behaviour);
 
@@ -23,8 +24,8 @@ class _FakeSearchSource implements SearchSource {
 }
 
 void main() {
-  test('searchAll preserves partial results when one source throws '
-      '(a silent catch now logs instead of swallowing)', () async {
+  test('searchSourcesInParallel keeps partial results and reports the '
+      'failed source to the caller', () async {
     final manager = SourceManager(
       sources: [
         _FakeSearchSource(
@@ -45,12 +46,19 @@ void main() {
     );
     addTearDown(manager.dispose);
 
-    final results = await manager.searchAll('any query');
+    final failures = <String>[];
+    final results = await searchSourcesInParallel(
+      manager,
+      'any query',
+      sourceTypes: manager.registeredSourceTypes,
+      onSourceError: (type, e, _) => failures.add(type),
+    );
 
     // 失敗源被略過，成功源的結果仍回傳（部分結果語義不變）。
     expect(results, hasLength(1));
     expect(results.keys, contains(SourceIds.youtube));
     expect(results[SourceIds.youtube]!.tracks, hasLength(1));
     expect(results.keys, isNot(contains(SourceIds.bilibili)));
+    expect(failures, [SourceIds.bilibili]);
   });
 }

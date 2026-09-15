@@ -52,6 +52,8 @@ const _knownFeatureEdges = <String>{
   'download -> media',
   'download -> platform',
   'import -> account',
+  // 歌單匯入的逐曲比對用搜尋層的 fan-out，兩邊共用同一份部分結果語意
+  'import -> search',
   'library -> account',
   'library -> audio',
   'library -> download',

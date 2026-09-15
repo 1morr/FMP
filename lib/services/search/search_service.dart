@@ -10,6 +10,7 @@ import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/search/source_search_fanout.dart';
 
 /// 搜索结果（包含多个音源）
 class MultiSourceSearchResult {
@@ -93,35 +94,26 @@ class SearchService {
     }
 
     final sources = sourceTypes ?? _sourceManager.registeredSourceTypes;
-    final results = <String, SearchResult>{};
     final errors = <String>[];
 
-    // 并行搜索所有音源
-    await Future.wait(
-      sources.map((type) async {
-        try {
-          final source = _sourceManager.searchSource(type);
-          if (source != null) {
-            final result = await source.search(
-              query,
-              page: page,
-              pageSize: pageSize,
-              order: order,
-            );
-            results[type] = result;
-          }
-        } catch (e, stack) {
-          // 這一行的產物會整段畫進搜尋頁的 ErrorDisplay，所以不能是例外原文
-          // —— 實機上它曾經顯示一整條含 URL 的 ClientException。
-          final reason = failureMessage(
-            e,
-            stack,
-            'Searching $type failed',
-            tag: 'Search',
-          );
-          errors.add('$type: $reason');
-        }
-      }),
+    final results = await searchSourcesInParallel(
+      _sourceManager,
+      query,
+      sourceTypes: sources,
+      page: page,
+      pageSize: pageSize,
+      order: order,
+      onSourceError: (type, e, stack) {
+        // 這一行的產物會整段畫進搜尋頁的 ErrorDisplay，所以不能是例外原文
+        // —— 實機上它曾經顯示一整條含 URL 的 ClientException。
+        final reason = failureMessage(
+          e,
+          stack,
+          'Searching $type failed',
+          tag: 'Search',
+        );
+        errors.add('$type: $reason');
+      },
     );
 
     // 保存搜索历史
