@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/data/sources/playlist_import/netease_playlist_source.dart';
+import 'package:fmp/data/sources/netease_source.dart';
 import 'package:fmp/data/sources/playlist_import/qq_music_playlist_source.dart';
 import 'package:fmp/data/sources/playlist_import/spotify_playlist_source.dart';
 import 'package:fmp/data/sources/source_url_policy.dart';
@@ -23,9 +23,9 @@ void main() {
         isFalse,
       );
       expect(
-        NeteasePlaylistSource().canHandle(
-          'https://attacker.example/?u=music.163.com',
-        ),
+        NeteaseSource(
+          dio: Dio(),
+        ).isPlaylistUrl('https://attacker.example/?u=music.163.com'),
         isFalse,
       );
     });
@@ -42,7 +42,9 @@ void main() {
         isFalse,
       );
       expect(
-        NeteasePlaylistSource().canHandle('https://music.163.com/song?id=123'),
+        NeteaseSource(
+          dio: Dio(),
+        ).isPlaylistUrl('https://music.163.com/song?id=123'),
         isFalse,
       );
     });
@@ -53,7 +55,10 @@ void main() {
         isTrue,
       );
       expect(QQMusicPlaylistSource().canHandle('https://url.cn/abc'), isTrue);
-      expect(NeteasePlaylistSource().canHandle('https://163cn.tv/abc'), isTrue);
+      expect(
+        NeteaseSource(dio: Dio()).isPlaylistUrl('https://163cn.tv/abc'),
+        isTrue,
+      );
     });
 
     test('rejects local and private literal hosts', () {
@@ -79,10 +84,12 @@ void main() {
       final dio = Dio();
       final adapter = _RedirectAdapter('http://127.0.0.1:1234/private');
       dio.httpClientAdapter = adapter;
-      final source = NeteasePlaylistSource(dio: dio);
+      // 網易雲短鏈由 NeteaseSource._resolveShortUrl 解析（匯入對話框把所有網易雲
+      // URL 都交給內部來源），所以 SSRF 迴歸釘在這裡而不是外部匯入源上。
+      final source = NeteaseSource(dio: dio);
 
       await expectLater(
-        source.fetchPlaylist('https://163cn.tv/abc'),
+        source.parsePlaylist('https://163cn.tv/abc'),
         throwsA(anything),
       );
 

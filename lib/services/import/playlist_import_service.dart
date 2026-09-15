@@ -6,7 +6,6 @@ import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
-import 'package:fmp/data/sources/playlist_import/netease_playlist_source.dart';
 import 'package:fmp/data/sources/playlist_import/qq_music_playlist_source.dart';
 import 'package:fmp/data/sources/playlist_import/spotify_playlist_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -128,11 +127,7 @@ class PlaylistImportService with Logging {
 
   PlaylistImportService({required SourceManager sourceManager})
     : _sourceManager = sourceManager,
-      _importSources = [
-        NeteasePlaylistSource(),
-        QQMusicPlaylistSource(),
-        SpotifyPlaylistSource(),
-      ];
+      _importSources = [QQMusicPlaylistSource(), SpotifyPlaylistSource()];
 
   /// 检测链接对应的平台
   PlaylistSource? detectSource(String url) {
