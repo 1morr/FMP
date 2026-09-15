@@ -187,6 +187,14 @@ playing" compares source identity for the same reason — use a stronger key
   `leading`. Do not put it back into an outer `Column` + `Expanded`: that pushes
   Settings — the one destination with no other entry point — off-screen
   entirely, which is a functional failure, not a visual one (#84).
+- **Always-mounted chrome reads `context.t`, never the slang global `t`.** The
+  user's language is applied by `LocaleNotifier._loadSettings()` *after* the
+  first frame, so a subtree that only reads the global `t` has no dependency on
+  `TranslationProvider`, never rebuilds, and a cold start leaves the bottom
+  navigation in the system language until something else happens to rebuild it
+  (#112). `NavDestination` therefore stores a `String Function(Translations)`
+  instead of a string — the type is what forces the caller to resolve the label
+  inside `build`.
 - There is deliberately no `LayoutType`/`isMobile`/`isTablet`/`isDesktop`:
   naming window sizes after hardware violates Flutter's *Avoid checking for
   hardware types*, and a 600dp desktop window is not a tablet. For OS-level

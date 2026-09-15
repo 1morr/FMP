@@ -13,11 +13,20 @@ import 'package:fmp/ui/widgets/radio/radio_mini_player.dart';
 import 'package:fmp/ui/widgets/panels/track_detail_panel.dart';
 import 'package:fmp/providers/settings/layout_settings_provider.dart';
 
-/// 导航目的地定义
+/// 導覽目的地定義
 class NavDestination {
   final IconData icon;
   final IconData selectedIcon;
-  final String label;
+
+  /// 標籤的解析器，不是已經解析好的字串。
+  ///
+  /// 存字串會把標籤定格在建表當下的語言：`LocaleNotifier._loadSettings()` 是
+  /// 非同步的，使用者設定的語言要到首幀之後才套用，而只讀 slang 全域 `t` 的
+  /// subtree 不依賴 `TranslationProvider`，locale 換了也不會重建 —— 冷啟動後
+  /// 導覽列會停在系統語言，切一次分頁才刷新（#112）。收一個 [Translations]
+  /// 逼呼叫端在 build 裡用 `context.t` 取（slang 的 Method B），讀它的 widget
+  /// 就會跟著換語言重建。
+  final String Function(Translations t) label;
 
   /// 這個目的地的路由。以前索引與路徑的對應寫在 `app_shell.dart` 的兩個
   /// switch 裡，刪一個目的地要記得同時改三處位置編號。
@@ -31,42 +40,45 @@ class NavDestination {
   });
 }
 
-/// 导航目的地列表
-List<NavDestination> get destinations => [
+/// 導覽目的地列表。
+///
+/// 標籤是惰性的，所以這張表與當前 locale 無關，建一次就好 —— 它以前是每次取用
+/// 都重建整個 list 的 getter，因為那時 label 是當下語言的字串。
+final List<NavDestination> destinations = [
   NavDestination(
     icon: Icons.home_outlined,
     selectedIcon: Icons.home,
-    label: t.nav.home,
+    label: (t) => t.nav.home,
     path: RoutePaths.home,
   ),
   NavDestination(
     icon: Icons.search_outlined,
     selectedIcon: Icons.search,
-    label: t.nav.search,
+    label: (t) => t.nav.search,
     path: RoutePaths.search,
   ),
   NavDestination(
     icon: Icons.queue_music_outlined,
     selectedIcon: Icons.queue_music,
-    label: t.nav.queue,
+    label: (t) => t.nav.queue,
     path: RoutePaths.queue,
   ),
   NavDestination(
     icon: Icons.library_music_outlined,
     selectedIcon: Icons.library_music,
-    label: t.nav.library,
+    label: (t) => t.nav.library,
     path: RoutePaths.library,
   ),
   NavDestination(
     icon: Icons.radio_outlined,
     selectedIcon: Icons.radio,
-    label: t.nav.radio,
+    label: (t) => t.nav.radio,
     path: RoutePaths.radio,
   ),
   NavDestination(
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
-    label: t.nav.settings,
+    label: (t) => t.nav.settings,
     path: RoutePaths.settings,
   ),
 ];
@@ -143,6 +155,10 @@ class _CompactLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // `context.t` 而不是全域 `t`：它會登記對 TranslationProvider 的依賴，語言
+    // 在首幀之後才載入時這一層才會重建（#112）。
+    final t = context.t;
+
     return Scaffold(
       body: child,
       bottomNavigationBar: Column(
@@ -157,7 +173,7 @@ class _CompactLayout extends StatelessWidget {
                   (d) => NavigationDestination(
                     icon: Icon(d.icon),
                     selectedIcon: Icon(d.selectedIcon),
-                    label: d.label,
+                    label: d.label(t),
                   ),
                 )
                 .toList(),
@@ -230,6 +246,7 @@ class CollapsedNavRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final t = context.t;
     final onExpand = this.onExpand;
 
     return Container(
@@ -259,7 +276,7 @@ class CollapsedNavRail extends StatelessWidget {
               (d) => NavigationRailDestination(
                 icon: Icon(d.icon),
                 selectedIcon: Icon(d.selectedIcon),
-                label: Text(d.label),
+                label: Text(d.label(t)),
               ),
             )
             .toList(),
@@ -350,6 +367,7 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
 
   Widget _buildExpandedNav() {
     final colorScheme = Theme.of(context).colorScheme;
+    final t = context.t;
     return Container(
       color: colorScheme.surfaceContainerLow,
       child: Column(
@@ -406,7 +424,7 @@ class _ExpandedLayoutState extends ConsumerState<_ExpandedLayout> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                d.label,
+                                d.label(t),
                                 style: TextStyle(
                                   color: isSelected
                                       ? colorScheme.onSecondaryContainer
