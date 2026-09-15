@@ -107,6 +107,13 @@ connects but delivers zero bytes reports exactly that shape, and treating it as
 playback** — the device is broken regardless of who is playing, and
 `RadioController` has never subscribed to `endReasons`.
 
+It also **stops the premature-end retry** for the same request generation and
+track, in both directions — mpv declares the track completed *before* it logs
+the `ao` failure (measured 4 ms apart on Windows), so the controller has to
+cancel a retry it already scheduled as well as refuse a later one. Reopening the
+stream cannot revive a dead output, and the retry logs a misleading
+`Retry playback succeeded` over silence (issue #106).
+
 `MediaKitAudioService` must subscribe to **both** `player.stream.error` and
 `player.stream.log`: media_kit only forwards a fixed set of log prefixes to its
 error stream, so `ao`-prefixed audio-output failures never reach it at all.
