@@ -158,7 +158,7 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | 4.4 | 播放副作用 registry：4 方法介面（onTrackStarted、onPlaybackStateChanged、onStopped、dispose）收 `NowPlayingPublisher`、`PlayHistoryRecorder`、`LyricsAutoMatchCoordinator`，每次呼叫包 try-catch，刪第二個扇出站點 | 淨 +50 行 | S–M | 「兩條播放路徑通知同一組消費者」與「teardown 完整」兩條測試 |
 | 4.5 | 合併搜尋 fan-out：刪 `SourceManager.searchAll`／`searchFrom`，匯入改走 `SearchService` | 刪 45 行 | S | `flutter test test/services/search test/services/import` |
 | 4.6 | 合併排行榜路徑：熱門頁改走 `RankingCacheService` | 刪 60 行 | M | 探索頁實機，三個榜共用快取 |
-| 4.7 | 合併畫質選擇到 `audio_stream_quality_fallback.dart` | 刪 12 行 | S | `flutter test test/data/sources` |
+| 4.7 | 合併畫質選擇到 `audio_stream_quality_fallback.dart`：Bilibili 與 YouTube 各一份相同的 `_selectByQualityLevel<T>` 收成一個 `selectByQualityLevel<T>`（已完成） | 刪 12 行 | S | `flutter test test/data/sources` |
 | 4.8 | #88 debug 頁：加平台守衛並改走 `AudioController`，或直接刪那 1,297 行。建議刪 | 刪 0 或 1,297 行 | S | Android 實機點進開發者選項 |
 | 4.9（可選） | 事件路由改成回傳 `sealed class PlaybackAction`、控制器 switch 套用。這 540 行是 #41 #43 #54 #55 的宿主，風險最高，放最後；做之前先照 `5d7dd2da` 的方法量一次 | 棘輪可能下調 300–400 行 | M–L | `flutter test test/services/audio` 全綠，兩平台實機 |
 
