@@ -2583,6 +2583,7 @@ class AudioController extends Notifier<PlayerState>
       mode: _currentRecoveryMode,
     );
     _applyRecoveryEvent(event);
+    _prematureEndRetry = _playbackGenerationMark;
   }
 
   void _onDurationChanged(Duration? duration) {
@@ -2670,6 +2671,12 @@ class AudioController extends Notifier<PlayerState>
         _onTrackCompleted();
       case EndedPrematurely(:final at, :final expected):
         if (!_canHandlePlaybackEnd()) return;
+        // 重開串流換不回一個壞掉的輸出裝置。連「排重試」那一行都不能印 ——
+        // 跟在它後面的是誤導人的「Retry playback succeeded」（issue #106）。
+        if (_outputDeviceFailure == _playbackGenerationMark) {
+          logWarning('Output device failed; premature end not retried: $at');
+          return;
+        }
         logWarning(
           'Track ended before its natural end; scheduling retry: at=$at, expected=$expected',
         );
@@ -2702,6 +2709,15 @@ class AudioController extends Notifier<PlayerState>
   /// `cplayer` 的一條），所以這裡只對第一條做事，其餘在抑制窗內併掉。
   void _onOutputDeviceFailure(String raw) {
     logError('Audio output device failed: $raw');
+    final mark = _playbackGenerationMark;
+    _outputDeviceFailure = mark;
+    if (_prematureEndRetry == mark) {
+      // 實測（Windows）mpv 是先宣告 completed、4ms 後才吐 ao 錯誤，所以到這裡
+      // premature-end 已經把重試排好了。收回它，別讓它撞上同一個壞掉的裝置。
+      _prematureEndRetry = null;
+      logWarning('Output device failed; cancelling the premature-end retry');
+      _resetRetryState();
+    }
 
     final now = DateTime.now();
     final last = _lastOutputDeviceFailureAt;
@@ -2717,6 +2733,37 @@ class AudioController extends Notifier<PlayerState>
   /// 同一次裝置失敗的連續訊息在這個窗內只處理第一條（實測 mpv 一次吐三條）。
   static const _outputDeviceFailureSuppressWindow = Duration(seconds: 3);
   DateTime? _lastOutputDeviceFailureAt;
+
+  /// 裝置失敗當下是「哪一次請求、哪一首歌」—— premature-end 重試的抑制條件。
+  ///
+  /// AO 起不來之後 mpv 仍然把這次播放判成 completed，位置停在失敗的那一秒，於是
+  /// 同一次裝置失敗又走一次 premature-end 路徑去排重試。重試撞上同一面牆，最後
+  /// 留下一行「Retry playback succeeded」而完全沒有聲音（issue #106）。
+  ///
+  /// **兩個方向都要擋，因為兩條訊息的先後是量出來的、不是講道理講出來的。**
+  /// 2026-09-15 的 Windows 實測：`Track completed: EndedPrematurely` 在
+  /// 23:20:56.224，第一條 `ao` 錯誤在 .228 —— completed 先到 4ms。所以光靠這個
+  /// 標記擋不住，`_onOutputDeviceFailure` 還要回頭收掉已經排好的那次重試
+  /// （見 `_prematureEndRetry`）。這個標記負責的是反過來的順序，以及重試本身
+  /// 再撞一次裝置失敗之後的那一次 premature-end。
+  ///
+  /// 記世代與歌曲、不再開一個時間窗：抑制必須在使用者換歌或重按播放時失效，而
+  /// 那兩件事都會讓 `PlaybackRequestSession` 換一個 requestId。上面那個 3 秒窗
+  /// 管的是「同一次失敗吐三條訊息」，尺度對不上這件事 —— 實測重試排在 1 秒後、
+  /// 解析加開串流又花掉 9 秒。
+  ({int generation, String? trackKey})? _outputDeviceFailure;
+
+  /// 已排定、還沒起跑的 premature-end 重試是「哪一次請求、哪一首歌」。
+  ///
+  /// 重試起跑時 `PlaybackRequestSession` 會換一個 requestId，所以這個標記不必
+  /// 手動清 —— 世代對不上就自動失效。
+  ({int generation, String? trackKey})? _prematureEndRetry;
+
+  /// 現在的請求世代與播放中歌曲。記錄與比對用同一個值，兩邊才不會各自漂移。
+  ({int generation, String? trackKey}) get _playbackGenerationMark => (
+    generation: _playbackRequestSession.activeRequestId,
+    trackKey: _playingTrack?.uniqueKey,
+  );
 
   /// 裝置失敗之後，這段時間內任何「開始播放」都要立刻收回。
   ///
