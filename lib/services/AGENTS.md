@@ -73,6 +73,14 @@ it:
 - `allowPlainLyricsAutoMatch` defaults to `false`, so auto-match accepts only
   synced lyrics unless enabled, and advanced mode hides plain-only candidates.
 - Title parses are cached in `LyricsTitleParseCache` for the current run only.
+- **Auto-match must key off the track the player is showing.** Everything the
+  lyrics panel reads — the `LyricsMatch` row and the cache file — is keyed by
+  `Track.uniqueKey`, which carries the Bilibili `cid`, and the `cid` is written
+  during stream resolution onto the **copy** the playback request runs on. So
+  `LyricsAutoMatchCoordinator` gets `AudioController`'s resolved track, never
+  the one the request started from: the pre-resolution track has no `cid` yet,
+  and a match saved under that shorter key is one the panel never queries
+  (#113).
 
 The desktop lyrics popup uses an independent Flutter engine and a
 hide-instead-of-destroy lifecycle. Window lifecycle operations must be

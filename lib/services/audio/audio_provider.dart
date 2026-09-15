@@ -1888,9 +1888,16 @@ class AudioController extends Notifier<PlayerState>
       // 更新隊列狀態
       _updateQueueState();
 
-      // 自動匹配歌詞（後台執行，不阻塞播放）
+      // 自動匹配歌詞（後台執行，不阻塞播放）。
+      //
+      // 傳的是 `trackWithUrl`，不是這個方法收到的 `track`。請求走的是
+      // `_createPlaybackRequestTrack` 做的 **副本**，而 Bilibili 的 `cid` 是在
+      // 串流解析時就地寫進那份副本的 —— `cid` 又是 `Track.uniqueKey` 的一段。
+      // 傳原本那個 track 會把比對結果存在「少了 cid」的鍵底下，播放頁歌詞欄
+      // 讀的卻是 `state.currentTrack`（就是 trackWithUrl）的鍵，於是自動比對
+      // 明明命中了，歌詞欄還是一直顯示「暫無歌詞」（issue #113）。
       if (countsAsNewPlay) {
-        _lyricsAutoMatch.onTrackStarted(track);
+        _lyricsAutoMatch.onTrackStarted(trackWithUrl);
       }
 
       // Mix 模式：接近尾端時提前加載更多歌曲
