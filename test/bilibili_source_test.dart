@@ -57,87 +57,43 @@ void main() {
     });
 
     group('getRankingVideos', () {
-      test(
-        'refreshes Bilibili fingerprint and retries after risk control',
-        () async {
-          final requests = <RequestOptions>[];
-          var rankingCalls = 0;
-          final dio = Dio();
-          dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-            requests.add(options);
+      test('reports risk control as rate limited without retrying', () async {
+        final requests = <RequestOptions>[];
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          requests.add(options);
+          if (options.path.endsWith('/x/web-interface/ranking/v2')) {
+            return ResponseBody.fromString(
+              jsonEncode({'code': -352, 'message': '-352'}),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
 
-            if (options.path.endsWith('/x/web-interface/ranking/v2')) {
-              rankingCalls++;
-              if (rankingCalls == 1) {
-                return ResponseBody.fromString(
-                  jsonEncode({'code': -352, 'message': '-352'}),
-                  200,
-                  headers: {
-                    Headers.contentTypeHeader: ['application/json'],
-                  },
-                );
-              }
-
-              return ResponseBody.fromString(
-                jsonEncode({
-                  'code': 0,
-                  'data': {
-                    'list': [
-                      {
-                        'bvid': 'BVrankingRetry',
-                        'title': 'Ranking Retry',
-                        'duration': 123,
-                        'pic': '//example.com/cover.jpg',
-                        'owner': {'name': 'Artist', 'mid': 1001},
-                        'stat': {'view': 456},
-                      },
-                    ],
-                  },
-                }),
-                200,
-                headers: {
-                  Headers.contentTypeHeader: ['application/json'],
-                },
-              );
-            }
-
-            if (options.path.endsWith('/x/frontend/finger/spi')) {
-              return ResponseBody.fromString(
-                jsonEncode({
-                  'code': 0,
-                  'data': {
-                    'b_3': 'OFFICIAL-BUVID3infoc',
-                    'b_4': 'OFFICIAL-BUVID4',
-                  },
-                }),
-                200,
-                headers: {
-                  Headers.contentTypeHeader: ['application/json'],
-                },
-              );
-            }
-
-            throw StateError('Unexpected request: ${options.path}');
-          });
-          final source = BilibiliSource(
-            dio: dio,
-            apiBase: 'https://api.bilibili.test',
-          );
-
-          final tracks = await source.getRankingVideos(rid: 1003);
-
-          expect(tracks, hasLength(1));
-          expect(tracks.single.sourceId, 'BVrankingRetry');
-          expect(requests.map((request) => request.path), [
-            'https://api.bilibili.test/x/web-interface/ranking/v2',
-            'https://api.bilibili.test/x/frontend/finger/spi',
-            'https://api.bilibili.test/x/web-interface/ranking/v2',
-          ]);
-          final retryCookie = requests.last.headers['Cookie'] as String?;
-          expect(retryCookie, contains('buvid3=OFFICIAL-BUVID3infoc'));
-          expect(retryCookie, contains('buvid4=OFFICIAL-BUVID4'));
-        },
-      );
+        await expectLater(
+          source.getRankingVideos(rid: 1003),
+          throwsA(
+            isA<BilibiliApiException>().having(
+              (e) => e.kind,
+              'kind',
+              SourceErrorKind.rateLimited,
+            ),
+          ),
+        );
+        // 風控是頻率型與 UA 型，換 buvid 救不回來（見 _checkResponse 的量測），
+        // 所以不能有第二次 ranking 請求，也不能去打 finger/spi。
+        expect(requests.map((request) => request.path), [
+          'https://api.bilibili.test/x/web-interface/ranking/v2',
+        ]);
+      });
     });
 
     group('parsePlaylist', () {
@@ -200,7 +156,7 @@ void main() {
       test('preserves rate-limit errors during stream fallback', () async {
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
+          if (options.path.endsWith('/x/web-interface/wbi/view')) {
             return ResponseBody.fromString(
               jsonEncode({
                 'code': 0,
@@ -254,7 +210,7 @@ void main() {
       test('preserves HTTP rate-limit errors during stream fallback', () async {
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
+          if (options.path.endsWith('/x/web-interface/wbi/view')) {
             return ResponseBody.fromString(
               jsonEncode({
                 'code': 0,
@@ -308,7 +264,7 @@ void main() {
       test('falls back to muxed stream after HTTP 503 DASH failure', () async {
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
+          if (options.path.endsWith('/x/web-interface/wbi/view')) {
             return ResponseBody.fromString(
               jsonEncode({
                 'code': 0,
@@ -375,7 +331,7 @@ void main() {
       test('returns explicit expiry metadata for DASH audio streams', () async {
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
+          if (options.path.endsWith('/x/web-interface/wbi/view')) {
             return ResponseBody.fromString(
               jsonEncode({
                 'code': 0,
@@ -433,7 +389,7 @@ void main() {
       test('returns explicit expiry metadata for muxed streams', () async {
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
+          if (options.path.endsWith('/x/web-interface/wbi/view')) {
             return ResponseBody.fromString(
               jsonEncode({
                 'code': 0,
@@ -494,7 +450,7 @@ void main() {
             'origin': request.headers.value('origin'),
           };
           request.response.headers.contentType = ContentType.json;
-          if (request.uri.path.endsWith('/x/web-interface/view')) {
+          if (request.uri.path.endsWith('/x/web-interface/wbi/view')) {
             request.response.write(
               jsonEncode({
                 'code': 0,
@@ -533,7 +489,7 @@ void main() {
           ),
         );
 
-        expect(seenHeadersByPath['/x/web-interface/view'], {
+        expect(seenHeadersByPath['/x/web-interface/wbi/view'], {
           'referer': 'https://www.bilibili.com/',
           'origin': 'https://www.bilibili.com',
         });
@@ -579,7 +535,7 @@ void main() {
         () async {
           final dio = Dio();
           dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-            if (options.path.endsWith('/x/web-interface/view')) {
+            if (options.path.endsWith('/x/web-interface/wbi/view')) {
               return ResponseBody.fromString(
                 jsonEncode({
                   'code': 0,
@@ -643,7 +599,7 @@ void main() {
             1000;
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-          if (options.path.endsWith('/x/web-interface/view')) {
+          if (options.path.endsWith('/x/web-interface/wbi/view')) {
             return ResponseBody.fromString(
               jsonEncode({
                 'code': 0,
@@ -697,7 +653,7 @@ void main() {
         () async {
           final dio = Dio();
           dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
-            if (options.path.endsWith('/x/web-interface/view')) {
+            if (options.path.endsWith('/x/web-interface/wbi/view')) {
               return ResponseBody.fromString(
                 jsonEncode({
                   'code': 0,
@@ -756,7 +712,7 @@ void main() {
           dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
             paths.add(options.path);
 
-            if (options.path.endsWith('/x/web-interface/view')) {
+            if (options.path.endsWith('/x/web-interface/wbi/view')) {
               return ResponseBody.fromString(
                 jsonEncode({
                   'code': 0,
@@ -807,7 +763,7 @@ void main() {
 
           expect(first.cid, 55667788);
           expect(
-            paths.where((path) => path.endsWith('/x/web-interface/view')),
+            paths.where((path) => path.endsWith('/x/web-interface/wbi/view')),
             hasLength(1),
           );
 
@@ -822,7 +778,7 @@ void main() {
           );
 
           expect(
-            paths.where((path) => path.endsWith('/x/web-interface/view')),
+            paths.where((path) => path.endsWith('/x/web-interface/wbi/view')),
             isEmpty,
           );
         },

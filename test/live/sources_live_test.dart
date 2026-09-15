@@ -50,10 +50,11 @@ Future<({int status, String type, int bytes})> probe(
 void main() {
   test('bilibili: search resolves to playable audio', () async {
     // BilibiliSource fabricates a buvid cookie and carries no SESSDATA, which
-    // is the path a user who has not signed in takes. Bilibili currently
-    // answers that with risk control, so this test reports the block rather
-    // than pretending the source is broken: signing in through Settings makes
-    // the same call work.
+    // is the path a user who has not signed in takes. Bilibili risk control is
+    // per IP and per rate (measured 2026-09-15: a fresh `finger/spi` buvid is
+    // refused exactly when a fabricated one is), so on a blocked day this test
+    // reports the block rather than pretending the source is broken: signing
+    // in through Settings makes the same call work.
     final source = BilibiliSource();
     late final Track track;
     late final AudioStreamResult stream;

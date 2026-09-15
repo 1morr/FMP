@@ -51,17 +51,16 @@ class BilibiliSource
         LiveSource {
   late final Dio _dio;
   late final Dio _liveDio;
-  late Options _searchOptions;
+  late final Options _searchOptions;
   late final String _viewApi;
   late final String _playUrlApi;
   late final String _searchApi;
   late final String _favListApi;
   late final String _replyApi;
   late final String _rankingApi;
-  late final String _fingerprintApi;
   late final BilibiliLiveClient _liveClient;
   late final bool _ownsLiveClient;
-  late String _browserCookie;
+  late final String _browserCookie;
 
   // API 端点
   static const String _defaultApiBase = 'https://api.bilibili.com';
@@ -74,13 +73,19 @@ class BilibiliSource
     String apiBase = _defaultApiBase,
     String liveApiBase = _defaultLiveApiBase,
   }) {
-    _viewApi = '$apiBase/x/web-interface/view';
+    // 走 wbi/view 而不是 view：實測（2026-09-15，匿名、直連）`/x/web-interface/view`
+    // 對任何 cookie 組合（無、本地亂數 buvid、finger/spi 領的 buvid、加上
+    // ExClimbWuzhi 啟用）一律回 HTTP 412 `request was banned`，而同一組請求打
+    // `/x/web-interface/wbi/view` 與 `/x/player/pagelist` 一律 200。搜尋結果不帶
+    // cid，匿名播放第一步就是這支查 cid，所以它是未登入時「播放失敗」的真正來源；
+    // `playurl` 本身在同一時段全部通過。回應結構與 view 相同。目前 Bilibili 對
+    // wbi 端點不驗簽（錯的 `w_rid` 也過），所以先不簽；哪天開始驗再補。
+    _viewApi = '$apiBase/x/web-interface/wbi/view';
     _playUrlApi = '$apiBase/x/player/playurl';
     _searchApi = '$apiBase/x/web-interface/search/type';
     _favListApi = '$apiBase/x/v3/fav/resource/list';
     _replyApi = '$apiBase/x/v2/reply';
     _rankingApi = '$apiBase/x/web-interface/ranking/v2';
-    _fingerprintApi = '$apiBase/x/frontend/finger/spi';
 
     _browserCookie = _buildBrowserCookie(
       buvid3: _generateBuvid3(),
@@ -138,14 +143,6 @@ class BilibiliSource
   String _buildBrowserCookie({required String buvid3, required String buvid4}) {
     final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return 'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3';
-  }
-
-  void _setBrowserCookie(String cookie) {
-    _browserCookie = cookie;
-    _dio.options.headers['Cookie'] = cookie;
-    _searchOptions = Options(
-      headers: SourceHttpPolicy.bilibiliSearchApiHeaders(cookie: cookie),
-    );
   }
 
   /// 将 SearchOrder 映射到 Bilibili API 的排序参数
@@ -873,19 +870,7 @@ class BilibiliSource
   /// [rid] 分区 ID：0=全站，1=动画，3=音乐，4=游戏，5=娱乐，36=科技，119=鬼畜，129=舞蹈，155=时尚，160=生活，181=影视
   Future<List<Track>> getRankingVideos({int rid = 0}) async {
     try {
-      var response = await _fetchRankingVideosResponse(rid);
-      if (_isBilibiliRiskControlResponse(response.data)) {
-        // 換發指紋後重試。實測已證明這修不了 UA 造成的 -352（見
-        // _isBilibiliRiskControlResponse），保留是因為量測只涵蓋匿名、低流量的
-        // 桌面情境，無法排除高頻請求或 IP 信譽不佳時換 buvid 仍有幫助；代價僅
-        // 一次請求。要移除請先在真實觸發情境下複驗，別只依文檔推論。
-        logWarning(
-          'Bilibili ranking hit risk control; refreshing fingerprint and retrying',
-        );
-        await _refreshBrowserFingerprintCookie();
-        response = await _fetchRankingVideosResponse(rid);
-      }
-
+      final response = await _fetchRankingVideosResponse(rid);
       _checkResponse(response.data);
 
       final list = response.data['data']['list'] as List? ?? [];
@@ -931,42 +916,19 @@ class BilibiliSource
     return _dio.get(_rankingApi, queryParameters: {'rid': rid, 'type': 'all'});
   }
 
-  /// Bilibili 風控碼 -352。
-  ///
-  /// 實測（2026-07-29，對 ranking/v2 發匿名請求）：觸發條件是 User-Agent
-  /// 黑名單，與 buvid 無關。
-  /// - `curl/8.5.0`、`okhttp/4.9.0` 必定回 -352（20/20），補上 buvid 也救不回
-  ///   來（10/10）；`python-requests` 甚至直接收到 HTML 攔截頁而非 JSON。
-  /// - 瀏覽器 UA 即使完全不帶 Cookie 也一律通過（30/30）。
-  /// - 黑名單而非白名單：`FMP/1.0`、`Dart/3.5 (dart:io)` 都能通過。
-  ///
-  /// 因此不要把 -352 當成「buvid 失效」的訊號。FMP 送的是 Chrome UA，正常情況
-  /// 下不會踩到；真的踩到時最可能的原因是 UA 被改動，而不是指紋過期。
-  bool _isBilibiliRiskControlResponse(Object? data) {
-    return data is Map && data['code'] == -352;
-  }
-
-  Future<void> _refreshBrowserFingerprintCookie() async {
-    final response = await _dio.get(_fingerprintApi);
-    _checkResponse(response.data);
-
-    final data = response.data['data'];
-    final buvid3 = data is Map ? data['b_3'] as String? : null;
-    final buvid4 = data is Map ? data['b_4'] as String? : null;
-
-    if (buvid3 == null || buvid3.isEmpty || buvid4 == null || buvid4.isEmpty) {
-      throw const BilibiliApiException(
-        numericCode: -352,
-        message: 'Failed to refresh Bilibili browser fingerprint',
-      );
-    }
-
-    _setBrowserCookie(_buildBrowserCookie(buvid3: buvid3, buvid4: buvid4));
-  }
-
   // ========== 辅助方法 ==========
 
   /// 检查 API 响应
+  ///
+  /// 風控碼不重試、不換指紋。兩輪實測都指向「換 buvid 救不回來」：
+  /// - 2026-07-29 對 ranking/v2 匿名請求：-352 的觸發條件是 User-Agent 黑名單
+  ///   （`curl/8.5.0`、`okhttp/4.9.0` 必定 -352，補上 buvid 也一樣；瀏覽器 UA
+  ///   不帶任何 Cookie 也一律通過），與 buvid 無關。
+  /// - 2026-09-15 直連匿名：一分鐘內打 ranking/v2 十餘次後開始回 -352，此時
+  ///   無 cookie、本地亂數 buvid、`finger/spi` 剛領的 buvid 一律 -352，也就是
+  ///   頻率型封鎖；換發指紋後立刻重試只是多打一次。以前這裡有「-352 就向
+  ///   `finger/spi` 換指紋重試一次」的路徑，就是照這個結果拿掉的。
+  /// 正確的處置是丟 `rateLimited` 讓上層退避（電台輪詢已經這樣做）。
   void _checkResponse(Map<String, dynamic> data) {
     final code = data['code'];
     if (code != 0) {
