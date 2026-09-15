@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/logger.dart';
-import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/netease_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
@@ -83,52 +82,6 @@ class SourceManager with Logging {
   String? sourceTypeForUrl(String url) {
     return playlistParsingSourceForUrl(url)?.sourceType ??
         trackInfoSourceForUrl(url)?.sourceType;
-  }
-
-  /// 搜索
-  Future<Map<String, SearchResult>> searchAll(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-  }) async {
-    final results = <String, SearchResult>{};
-
-    await Future.wait(
-      _sources.whereType<SearchSource>().map((source) async {
-        try {
-          final result = await source.search(
-            query,
-            page: page,
-            pageSize: pageSize,
-          );
-          results[source.sourceType] = result;
-        } catch (e) {
-          // 单源失败不应中断整体搜索（保留「部分结果」语义），但补上日志
-          // 避免限流/网络/程式错误被完全静默吞掉而无法排查。
-          logWarning(
-            '${source.sourceType} search failed; returning partial results: '
-            '$e',
-          );
-        }
-      }),
-    );
-
-    return results;
-  }
-
-  /// 从单个源搜索
-  Future<SearchResult> searchFrom(
-    String type,
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-  }) async {
-    final source = searchSource(type);
-    if (source == null) {
-      throw Exception('Source not found: $type');
-    }
-
-    return source.search(query, page: page, pageSize: pageSize);
   }
 
   /// 释放所有音源资源（关闭 HTTP 客户端等）
