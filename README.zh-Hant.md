@@ -26,16 +26,20 @@
 所有版本與發布說明：[GitHub Releases](https://github.com/1morr/FMP/releases)。
 
 <p align="center">
-  <img src="screenshots/home_desktop.png" alt="FMP 在 Windows 上執行" width="860">
+  <img src="screenshots/home-desktop.png" alt="FMP 在 Windows 上執行" width="860">
 </p>
 
 <p align="center">
-  <img src="screenshots/search-page.png" alt="跨來源搜尋" width="420">
-  <img src="screenshots/lyrics-features.png" alt="歌詞功能" width="420">
+  <img src="screenshots/search-page.png" alt="Windows 跨來源搜尋" width="420">
+  <img src="screenshots/lyrics-features.png" alt="Windows 歌詞功能" width="420">
 </p>
 
+| Android — 首頁 | Android — 播放頁 | Android — 歌詞 | Android — 搜尋 |
+|---|---|---|---|
+| <img src="screenshots/home-android.png" alt="Android 首頁" width="210"> | <img src="screenshots/player-android.png" alt="Android 播放頁" width="210"> | <img src="screenshots/lyrics-android.png" alt="Android 歌詞" width="210"> | <img src="screenshots/search-android.png" alt="Android 搜尋" width="210"> |
+
 <details>
-<summary>更多截圖</summary>
+<summary>更多 Windows 截圖</summary>
 
 | 首頁 | 媒體庫 |
 |---|---|

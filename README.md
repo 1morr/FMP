@@ -28,16 +28,20 @@ queue, one library and one set of listening history.
 All versions and release notes: [GitHub Releases](https://github.com/1morr/FMP/releases).
 
 <p align="center">
-  <img src="screenshots/home_desktop.png" alt="FMP on Windows" width="860">
+  <img src="screenshots/home-desktop.png" alt="FMP on Windows" width="860">
 </p>
 
 <p align="center">
-  <img src="screenshots/search-page.png" alt="Search across sources" width="420">
-  <img src="screenshots/lyrics-features.png" alt="Lyrics" width="420">
+  <img src="screenshots/search-page.png" alt="Search across sources (Windows)" width="420">
+  <img src="screenshots/lyrics-features.png" alt="Lyrics (Windows)" width="420">
 </p>
 
+| Android — Home | Android — Player | Android — Lyrics | Android — Search |
+|---|---|---|---|
+| <img src="screenshots/home-android.png" alt="Home on Android" width="210"> | <img src="screenshots/player-android.png" alt="Player on Android" width="210"> | <img src="screenshots/lyrics-android.png" alt="Lyrics on Android" width="210"> | <img src="screenshots/search-android.png" alt="Search on Android" width="210"> |
+
 <details>
-<summary>More screenshots</summary>
+<summary>More Windows screenshots</summary>
 
 | Home | Library |
 |---|---|
