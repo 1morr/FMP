@@ -36,6 +36,9 @@ const _exceptions = <String, String>{
       'same lyrics factory shape: NeteaseSource() is constructed, never called',
   'test/services/audio/lyrics_auto_match_coordinator_test.dart':
       'same lyrics factory shape: NeteaseSource() is constructed, never called',
+  'test/services/audio/audio_controller_lyrics_auto_match_track_test.dart':
+      'same lyrics factory shape: the subclass overrides tryAutoMatch, so '
+      'NeteaseSource() is constructed and never called',
   'test/bilibili_source_test.dart':
       'the group setUp builds a real source; the two tests that reach the '
       'network carry tags: live individually and the rest exercise parsing '

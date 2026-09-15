@@ -1408,6 +1408,12 @@ class AudioController extends Notifier<PlayerState>
     // 唯一的扇出站點。一次播放請求裡這個方法會被呼叫兩次（先更新 UI，拿到 URL
     // 後再補記），`countsAsNewPlay` 讓只認新播放的消費者自己閘掉第一次。這不是
     // 「聽滿幾秒才算」的門檻。
+    //
+    // 第二次傳進來的必須是解析後的那份 track（`trackWithUrl`）：Bilibili 的
+    // `cid` 是串流解析時才寫進副本的，而 `cid` 又是 `Track.uniqueKey` 的一段。
+    // 拿請求前的原件去做歌詞自動比對，結果會存在「少了 cid」的鍵底下，播放頁
+    // 歌詞欄讀的卻是 `state.currentTrack` 的鍵，於是命中了也顯示「暫無歌詞」
+    // （issue #113）。
     _sideEffects.onTrackStarted(track, countsAsNewPlay: countsAsNewPlay);
 
     logDebug('Updated playing track: ${track.title}');
