@@ -6,7 +6,6 @@ import 'package:pointycastle/export.dart';
 
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/playlist_import/netease_playlist_source.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
@@ -32,26 +31,6 @@ class NeteasePlaylistInfo {
   });
 }
 
-class NeteasePlaylistDetail {
-  final String playlistId;
-  final String title;
-  final String? description;
-  final String? thumbnailUrl;
-  final String? ownerId;
-  final String? ownerName;
-  final List<Map<String, dynamic>> tracks;
-
-  const NeteasePlaylistDetail({
-    required this.playlistId,
-    required this.title,
-    this.description,
-    this.thumbnailUrl,
-    this.ownerId,
-    this.ownerName,
-    required this.tracks,
-  });
-}
-
 class NeteasePlaylistException implements Exception {
   final String code;
   final String message;
@@ -70,15 +49,12 @@ class NeteasePlaylistService with Logging {
   static const String _linuxApiKey = 'rFgB&h#%2?^eDg:Q';
   final NeteaseAccountService _accountService;
   final Dio _dio;
-  final NeteasePlaylistSource _source;
 
   NeteasePlaylistService({
     required NeteaseAccountService accountService,
     Dio? dio,
-    NeteasePlaylistSource? source,
   }) : _accountService = accountService,
-       _dio = dio ?? _createDio(accountService),
-       _source = source ?? NeteasePlaylistSource();
+       _dio = dio ?? _createDio(accountService);
 
   static Dio _createDio(NeteaseAccountService accountService) {
     final dio = SourceHttpPolicy.createApiDio(
@@ -120,56 +96,6 @@ class NeteasePlaylistService with Logging {
   Future<List<NeteasePlaylistInfo>> getWritablePlaylists() async {
     final playlists = await getPlaylists();
     return playlists.where((playlist) => playlist.isMine).toList();
-  }
-
-  Future<NeteasePlaylistDetail> getPlaylistDetail(String playlistId) async {
-    final data = await _postLinuxApi(
-      path: 'v6/playlist/detail',
-      payload: {'id': playlistId},
-    );
-    _ensureSuccess(data, fallbackCode: 'DETAIL_FAILED');
-
-    final playlist = data['playlist'] as Map<String, dynamic>? ?? const {};
-    final trackIds = (playlist['trackIds'] as List? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map((item) => item['id'])
-        .whereType<num>()
-        .map((id) => id.toInt())
-        .toList();
-
-    List<Map<String, dynamic>> tracks = [];
-    if (trackIds.isNotEmpty) {
-      tracks = await _fetchTrackDetails(trackIds);
-    }
-
-    if (tracks.isEmpty) {
-      try {
-        final imported = await _source.fetchPlaylist(
-          canonicalPlaylistUrl(playlistId),
-        );
-        tracks = imported.tracks.map((track) {
-          return <String, dynamic>{
-            'sourceId': track.sourceId,
-            'title': track.title,
-            'artist': track.artists.join(', '),
-            'durationMs': track.duration?.inMilliseconds,
-          };
-        }).toList();
-      } catch (_) {
-        // Keep authenticated detail metadata even if public import fallback fails.
-      }
-    }
-
-    final creator = playlist['creator'] as Map<String, dynamic>?;
-    return NeteasePlaylistDetail(
-      playlistId: playlistId,
-      title: playlist['name'] as String? ?? '',
-      description: playlist['description'] as String?,
-      thumbnailUrl: playlist['coverImgUrl'] as String?,
-      ownerId: creator?['userId']?.toString(),
-      ownerName: creator?['nickname'] as String?,
-      tracks: tracks,
-    );
   }
 
   Future<String> createPlaylist({
@@ -283,10 +209,6 @@ class NeteasePlaylistService with Logging {
     _ensureSuccess(data, fallbackCode: code?.toString() ?? 'UPDATE_FAILED');
   }
 
-  static String canonicalPlaylistUrl(String playlistId) {
-    return 'https://music.163.com/playlist?id=$playlistId';
-  }
-
   @visibleForTesting
   static List<String> normalizeTrackIds(Iterable<String?> trackIds) {
     return trackIds
@@ -303,43 +225,6 @@ class NeteasePlaylistService with Logging {
         .where((id) => id != null && id.isNotEmpty)
         .cast<String>()
         .toSet();
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchTrackDetails(
-    List<int> trackIds,
-  ) async {
-    final tracks = <Map<String, dynamic>>[];
-    const batchSize = 400;
-
-    for (var i = 0; i < trackIds.length; i += batchSize) {
-      final batchIds = trackIds.skip(i).take(batchSize).toList();
-      final songIds = batchIds.map((id) => {'id': id}).toList();
-      final data = await _postLinuxApi(
-        path: 'v3/song/detail',
-        payload: {'c': jsonEncode(songIds)},
-      );
-      _ensureSuccess(data, fallbackCode: 'TRACK_DETAIL_FAILED');
-      final songs = data['songs'] as List? ?? const [];
-      tracks.addAll(
-        songs.whereType<Map<String, dynamic>>().map((song) {
-          final albumData = song['al'] as Map<String, dynamic>?;
-          final artists = (song['ar'] as List? ?? const [])
-              .whereType<Map<String, dynamic>>()
-              .map((artist) => artist['name']?.toString() ?? '')
-              .where((name) => name.isNotEmpty)
-              .join(', ');
-          return <String, dynamic>{
-            'sourceId': song['id']?.toString(),
-            'title': song['name']?.toString() ?? '',
-            'artist': artists,
-            'durationMs': (song['dt'] as num?)?.toInt(),
-            'thumbnailUrl': albumData?['picUrl']?.toString(),
-          };
-        }),
-      );
-    }
-
-    return tracks;
   }
 
   Future<Map<String, dynamic>> _postLinuxApi({
