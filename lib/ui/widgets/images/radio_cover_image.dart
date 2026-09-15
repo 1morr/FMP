@@ -5,7 +5,8 @@ import 'package:fmp/core/services/image_loading_service.dart';
 
 /// 电台/直播封面显示场景。
 enum RadioCoverVariant {
-  /// 播放器模糊背景，使用高画质图片源减少全屏模糊后的色带和条纹。
+  /// 播放器模糊背景，使用最高畫質圖片源減少全螢幕模糊後的色帶和條紋。
+  /// 理由與 `TrackCoverVariant.backdrop` 相同：背景吃的是整個視窗。
   backdrop,
 
   /// 迷你播放器、搜索列表等小图。
@@ -26,7 +27,7 @@ extension RadioCoverVariantTarget on RadioCoverVariant {
   double get targetDisplaySize {
     switch (this) {
       case RadioCoverVariant.backdrop:
-        return ImageTargetSizes.high;
+        return ImageTargetSizes.highest;
       case RadioCoverVariant.compact:
         return ImageTargetSizes.thumbnail;
       case RadioCoverVariant.card:

@@ -11,8 +11,6 @@ import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
-import 'package:fmp/data/repositories/play_history_repository.dart';
-import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 // `Notifier` 可以拿到 `ref`，所以接線從 provider 工廠搬進了 build()。
 // 控制器本身仍然不宣告任何 provider —— 見 lib/providers/AGENTS.md。
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
@@ -35,6 +33,7 @@ import 'package:fmp/services/audio/playback_capabilities.dart';
 import 'package:fmp/services/audio/playback_error_presenter.dart';
 import 'package:fmp/services/audio/playback_handoff_gate.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
+import 'package:fmp/services/audio/playback_side_effects.dart';
 import 'package:fmp/services/audio/queue_commands.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
@@ -43,7 +42,6 @@ import 'package:fmp/services/audio/player_state.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/mix_session_coordinator.dart';
 import 'package:fmp/services/audio/lyrics_auto_match_coordinator.dart';
-import 'package:fmp/services/audio/play_history_recorder.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/temporary_play_handler.dart';
 
@@ -74,7 +72,7 @@ class AudioController extends Notifier<PlayerState>
   late AudioStreamManager _audioStreamManager;
   late ToastService _toastService;
   late NowPlayingPublisher _publisher;
-  late PlayHistoryRecorder _playHistory;
+  late PlaybackSideEffect _sideEffects;
   late LyricsAutoMatchCoordinator _lyricsAutoMatch;
   SettingsRepository? _settingsRepository;
   QueuePersistenceManager? _queuePersistenceManager;
@@ -184,22 +182,18 @@ class AudioController extends Notifier<PlayerState>
     _audioStreamManager = ref.read(audioStreamManagerProvider);
     _toastService = ref.read(toastServiceProvider);
     _publisher = ref.read(nowPlayingPublisherProvider);
-    // 這四個協作者可以缺席：資料庫還沒開的時候它們的 provider 會拋。舊的
-    // provider 工廠對播放歷史就是這樣處理的，這裡把同一條容忍度套到全部四個。
-    // 歌詞設定同樣不該重建播放控制器：真正的值在自動匹配實際跑的時候才讀。
+    // 每一次播放都要通知的那一組消費者。控制器只認這個介面，不認誰在裡面。
+    _sideEffects = ref.read(playbackSideEffectsProvider);
+    // 同一個協作者的實例也在 `_sideEffects` 裡；這裡拿它只為了轉接 UI 的比對
+    // 狀態回呼。
+    _lyricsAutoMatch = ref.read(lyricsAutoMatchCoordinatorProvider);
+    // 這兩個協作者可以缺席：資料庫還沒開的時候它們的 provider 會拋。舊的
+    // provider 工廠對播放歷史就是這樣處理的，這裡把同一條容忍度沿用下來。
     _settingsRepository = _readOptional(settingsRepositoryProvider);
     _queuePersistenceManager = _readOptional(queuePersistenceManagerProvider);
-    final playHistoryRepository = _readOptional(playHistoryRepositoryProvider);
-    final lyricsAutoMatchService = _readOptional(
-      optionalLyricsAutoMatchServiceProvider,
-    );
     final mixTracksFetcher = ref.read(mixTracksFetcherProvider);
 
-    _wireCollaborators(
-      playHistoryRepository: playHistoryRepository,
-      lyricsAutoMatchService: lyricsAutoMatchService,
-      mixTracksFetcher: mixTracksFetcher,
-    );
+    _wireCollaborators(mixTracksFetcher: mixTracksFetcher);
     _wireProviderCallbacks();
 
     ref.onDispose(_teardown);
@@ -219,16 +213,7 @@ class AudioController extends Notifier<PlayerState>
     }
   }
 
-  void _wireCollaborators({
-    required PlayHistoryRepository? playHistoryRepository,
-    required LyricsAutoMatchService? lyricsAutoMatchService,
-    required MixTracksFetcher? mixTracksFetcher,
-  }) {
-    _playHistory = PlayHistoryRecorder(repository: playHistoryRepository);
-    _lyricsAutoMatch = LyricsAutoMatchCoordinator(
-      service: lyricsAutoMatchService,
-      settingsRepository: _settingsRepository,
-    );
+  void _wireCollaborators({required MixTracksFetcher? mixTracksFetcher}) {
     _queueCommands = QueueCommands(
       queueManager: _queueManager,
       toastService: _toastService,
@@ -465,7 +450,6 @@ class AudioController extends Notifier<PlayerState>
     if (_isDisposed) return;
     _isDisposed = true;
     _handoff.dispose();
-    _lyricsAutoMatch.dispose();
     _stopPositionCheckTimer();
     _cancelRetryTimer();
     _bufferWatchdog.dispose();
@@ -478,11 +462,9 @@ class AudioController extends Notifier<PlayerState>
     _subscriptions.clear();
     _mixSession.exit();
     _queueManager.dispose();
-    // 交還系統媒體控制。刻意**不** dispose 原生控制代碼：需要跟著 controller
-    // 一起消失的是回呼繫結，不是 SMTC 本身 —— 原生 session 只在 main.dart
-    // 建立一次，dispose 掉之後沒有任何程式碼會重建它。按鈕訂閱留著，解綁後
-    // 它派發到 null，正是 app 啟動時的狀態。
-    _publisher.release(NowPlayingOwner.music);
+    // 反著註冊順序 dispose，系統媒體控制最後才交還。為什麼交還而不是 dispose
+    // 原生控制代碼，寫在 `NowPlayingSideEffect` 上。
+    _sideEffects.dispose();
     unawaited(
       _audioService.dispose().catchError((Object e, StackTrace stack) {
         logError('Failed to dispose audio service', e, stack);
@@ -1423,14 +1405,16 @@ class AudioController extends Notifier<PlayerState>
     _playingTrack = track;
     state = state.copyWith(playingTrack: track);
 
-    // 更新系統媒體控制的媒體資訊（通知欄 / SMTC）
-    _publisher.publishTrack(NowPlayingOwner.music, track);
-
-    // 一次播放請求裡這個方法會被呼叫兩次（先更新 UI，拿到 URL 後再補記），
-    // 靠旗標避免記兩筆。這不是「聽滿幾秒才算」的門檻。
-    if (countsAsNewPlay) {
-      _playHistory.record(track);
-    }
+    // 唯一的扇出站點。一次播放請求裡這個方法會被呼叫兩次（先更新 UI，拿到 URL
+    // 後再補記），`countsAsNewPlay` 讓只認新播放的消費者自己閘掉第一次。這不是
+    // 「聽滿幾秒才算」的門檻。
+    //
+    // 第二次傳進來的必須是解析後的那份 track（`trackWithUrl`）：Bilibili 的
+    // `cid` 是串流解析時才寫進副本的，而 `cid` 又是 `Track.uniqueKey` 的一段。
+    // 拿請求前的原件去做歌詞自動比對，結果會存在「少了 cid」的鍵底下，播放頁
+    // 歌詞欄讀的卻是 `state.currentTrack` 的鍵，於是命中了也顯示「暫無歌詞」
+    // （issue #113）。
+    _sideEffects.onTrackStarted(track, countsAsNewPlay: countsAsNewPlay);
 
     logDebug('Updated playing track: ${track.title}');
   }
@@ -1447,7 +1431,7 @@ class AudioController extends Notifier<PlayerState>
     );
 
     // 系統媒體控制轉為停止狀態
-    _publisher.publishStopped(NowPlayingOwner.music);
+    _sideEffects.onStopped();
 
     logDebug('Cleared playing track');
   }
@@ -1489,14 +1473,15 @@ class AudioController extends Notifier<PlayerState>
     required Duration position,
     required FmpAudioProcessingState processingState,
   }) {
-    _publisher.publishPlaybackState(
-      NowPlayingOwner.music,
-      isPlaying: isPlaying,
-      position: position,
-      bufferedPosition: _audioService.bufferedPosition,
-      processingState: processingState,
-      duration: _audioService.duration,
-      speed: _audioService.speed,
+    _sideEffects.onPlaybackStateChanged(
+      PlaybackStateSnapshot(
+        isPlaying: isPlaying,
+        position: position,
+        bufferedPosition: _audioService.bufferedPosition,
+        processingState: processingState,
+        duration: _audioService.duration,
+        speed: _audioService.speed,
+      ),
     );
   }
 
@@ -1782,7 +1767,6 @@ class AudioController extends Notifier<PlayerState>
 
     _updatePlayingTrack(track, countsAsNewPlay: true);
     _updateQueueState();
-    _lyricsAutoMatch.onTrackStarted(track);
     _mixSession.onTrackStarted(_isMixMode ? PlayMode.mix : PlayMode.queue);
     unawaited(_prefetchAndArmAfterAdvance());
   }
@@ -1888,19 +1872,8 @@ class AudioController extends Notifier<PlayerState>
       // 更新隊列狀態
       _updateQueueState();
 
-      // 自動匹配歌詞（後台執行，不阻塞播放）。
-      //
-      // 傳的是 `trackWithUrl`，不是這個方法收到的 `track`。請求走的是
-      // `_createPlaybackRequestTrack` 做的 **副本**，而 Bilibili 的 `cid` 是在
-      // 串流解析時就地寫進那份副本的 —— `cid` 又是 `Track.uniqueKey` 的一段。
-      // 傳原本那個 track 會把比對結果存在「少了 cid」的鍵底下，播放頁歌詞欄
-      // 讀的卻是 `state.currentTrack`（就是 trackWithUrl）的鍵，於是自動比對
-      // 明明命中了，歌詞欄還是一直顯示「暫無歌詞」（issue #113）。
-      if (countsAsNewPlay) {
-        _lyricsAutoMatch.onTrackStarted(trackWithUrl);
-      }
-
-      // Mix 模式：接近尾端時提前加載更多歌曲
+      // Mix 模式：接近尾端時提前加載更多歌曲。它刻意不是 `PlaybackSideEffect`
+      // —— 見 lib/services/audio/AGENTS.md § Queue, Shuffle And Mix。
       _mixSession.onTrackStarted(mode);
 
       logDebug(

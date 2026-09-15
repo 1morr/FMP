@@ -228,7 +228,7 @@ class WindowsSmtcHandler with Logging {
       // SMTC uses Foundation::Uri to fetch thumbnails directly.
       // YouTube signed URLs (?sqp=...&rs=...) fail, so use clean URLs.
       final smtcThumbnail = (thumbnail != null && thumbnail.isNotEmpty)
-          ? ThumbnailUrlUtils.getLargeThumbnail(thumbnail)
+          ? ThumbnailUrlUtils.getOsMediaArtwork(thumbnail)
           : null;
       final normalizedThumbnail =
           (smtcThumbnail != null && smtcThumbnail.isNotEmpty)

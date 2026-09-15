@@ -78,7 +78,7 @@ void main() {
         radioCover,
         contains(
           RegExp(
-            r'case RadioCoverVariant\.backdrop:\s*return ImageTargetSizes\.high;',
+            r'case RadioCoverVariant\.backdrop:\s*return ImageTargetSizes\.highest;',
           ),
         ),
       );

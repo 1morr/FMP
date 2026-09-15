@@ -189,10 +189,22 @@ contain raw `hotkeyConfig` JSON.
 - Platform detection must parse the URL **host** and match an exact
   host/subdomain, not search the whole URL string. A proxy or a path containing
   a CDN's name is not that platform's CDN.
-- Candidate selection uses the semantic image component's explicit
-  `targetDisplaySize`, not device DPR. Decode and disk-cache sizing still use
-  the real DPR. UI call sites pass semantic variants, never raw target sizes —
-  see `lib/ui/AGENTS.md` § Image Components.
+- Candidate selection, decode sizing and the disk-cache key all start from the
+  semantic component's `targetDisplaySize` — **logical dp** — multiplied by the
+  device DPR. The URL tier and the disk-cache extent share
+  `ThumbnailUrlUtils.quantizeDevicePixelRatio` (nearest 0.5) so one URL does not
+  fan out into a cache entry per device; only the in-memory decode uses the
+  full-precision DPR. Leaving DPR out of the tier is what made every cover soft
+  on a phone (#107). UI call sites pass semantic variants, never raw target
+  sizes — see `lib/ui/AGENTS.md` § Image Components.
+- **Tiers are chosen by source height, not width.** Bilibili and YouTube covers
+  are 16:9 drawn into square boxes with `BoxFit.cover`, so only the source
+  height is usable: `@200w` is 113px tall and `maxresdefault` is 720px tall.
+  Bilibili is asked by width (`@{w}w`, needed height × 16/9 — never
+  `@{w}w_{h}h`, which centre-crops a square avatar), YouTube by picking the
+  16:9 tier whose height covers the box, NetEase by the square `?param=NyN`.
+  Decode hints pass **only** a height for the same reason: `ResizeImage`'s
+  default exact policy squashes a 16:9 cover when it gets both dimensions.
 - **YouTube video thumbnails**: adapters must store `hqdefault.jpg` as the
   canonical URL so the multi-tier candidate system works while stored metadata
   stays stable. Display may use **only** the 16:9 candidates; the 4:3 tiers can

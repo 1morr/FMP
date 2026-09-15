@@ -99,57 +99,63 @@ class AppSizes {
   static const double maxBottomSheetHeight = 800.0;
 }
 
-/// 图片源尺寸目标。
+/// 圖片檔位：每一檔是該場景 box 的**邏輯高度上限（dp）**。
 ///
-/// 这些值用于选择 CDN 缩略图候选和缓存缩放边界，是图片源尺寸提示，
-/// 不是 720p 这类视频分辨率。UI 图片和下载的 metadata 图片共用这些
-/// 语义档位，避免显示与落盘图片使用不同的画质规则。
+/// 這些值用於選擇 CDN 縮圖候選和快取縮放邊界。UI 圖片和下載的 metadata
+/// 圖片共用這些語義檔位，避免顯示與落盤圖片使用不同的畫質規則。
 ///
-/// 档位取值按「使用该档位界面的最大逻辑显示尺寸 × 最高支持的 DPR
-/// （约 2.666）」留足余量，确保高 DPI 屏幕上解码后的位图不需要再放大。
+/// ## 為什麼是「高度」而不是邊長
 ///
-/// 那個 2.666 是**假設**的 DPR 上限，不是量到的 —— 1080p 手機是 2.625（實測
-/// Medium_Phone AVD：`wm density 420`），1440p 旗艦到 3.5–4.0。2026-09 逐檔核過
-/// 各檔位在 DPR 3.5 下的餘量：
+/// Bilibili / YouTube 的封面是 16:9，而封面框多半是正方形，配 `BoxFit.cover`
+/// 時來源只有**高**能用：`@200w` 只有 113px 高，`maxresdefault` 只有 720px
+/// 高。所以檔位要表達的是「box 有多高」，換算成來源寬的 ×16/9 由
+/// `ThumbnailUrlUtils` 負責（issue #107）。
 ///
-/// - [thumbnail]：呼叫端最大 56dp，56 × 3.5 = 196 vs 160，差 22%，但實際呼叫端
-///   幾乎都是 48dp（168 vs 160，差 5%），DPR 3.5 實機看不出來。
-/// - [medium]：首頁最近播放卡片最大 140dp，140 × 3.5 = 490 vs 400，**差 22%**。
-///   這是唯一有實質差距的一檔。維持 400 是刻意的：升回 [high] 等於為 1440p 旗艦
-///   把每一張首頁卡片的下載量變成三倍，而 1080p（2.625）本來就夠。
-/// - [fullscreen]：只有電台 hero 用，而電台只有 Bilibili。Bilibili 的尺寸檔位是
-///   200/400/640/1280，960 會被 `_selectBilibiliSize` 進位到 1280 —— 對唯一的
-///   使用者而言這一檔和 [highest] 產生**同一個 URL**。
+/// box 不是正方形時取較大的那一邊仍然安全：`BoxFit.cover` 對 16:9 來源總是
+/// 按高對齊，較寬的 box 只是多要一點高。
 ///
-/// 另外這些值同時被當成 CDN 尺寸（源像素）和 `_cacheExtent` 的邏輯尺寸
-/// （再乘 DPR）。兩種用法不衝突只是因為分檔後的源圖本來就在這個尺寸附近，
-/// memCache 邊界咬不到；真正咬得到的是未分檔的原始 URL 候選與本機檔案。
+/// ## 這裡是 dp，DPR 在使用端才乘
+///
+/// 這些值**不含** DPR。URL 檔位與磁碟快取邊界都由
+/// `ThumbnailUrlUtils.neededSourceHeight(檔位, DPR)` 算出（DPR 量化到 0.5，
+/// 收斂跨裝置的快取鍵），記憶體解碼尺寸用全精度 DPR。2026-09 之前這些值把
+/// 一個假設的 DPR 2.666 寫死在常數裡，於是實際 DPR 是多少都選同一檔，高 DPI
+/// 螢幕上的封面一律被放大（issue #107）。
+///
+/// 已知不足：[medium] 取 120，而首頁最近播放卡片在寬版佈局最大到 128dp 高
+/// （卡片寬 140 × 1.25 減去文字區）。在同時是寬版佈局又是 DPR 3 的裝置上差
+/// 7%。拉到 140 會讓每張首頁卡片從 `@640w` 跳到 `@1280w`，為了 7% 付三倍流量
+/// 不划算 —— 手機上卡片寬度被 clamp 在 100dp，根本到不了 128dp。
 class ImageTargetSizes {
   ImageTargetSizes._();
 
-  /// 低画质：仅用于下载 metadata 的头像图（最大约 30dp；30 × 2.666 ≈ 80）。
-  /// UI 头像使用 [thumbnail] 档，见 AvatarImage。
-  static const double low = 80.0;
+  /// 下載 metadata 的頭像圖（最大約 30dp）。
+  /// UI 頭像使用 [thumbnail] 檔，見 AvatarImage。
+  static const double low = 32.0;
 
-  /// 缩略图画质：UI 头像（约 32–48dp）、列表小缩略图（约 32–56dp）与
-  /// 电台 compact 小图（56 × 2.666 ≈ 149，留余量取 160）。
-  static const double thumbnail = 160.0;
+  /// 列表小圖：UI 頭像（約 32–48dp）、列表縮圖（約 32–48dp）與
+  /// 電台 compact 小圖（56dp）。
+  static const double thumbnail = 56.0;
 
-  /// 中等画质：中等卡片与大号列表缩略图（约 100–140dp；
-  /// 140 × 2.666 ≈ 373，留余量取 400）。
-  static const double medium = 400.0;
+  /// 中等卡片：首頁最近播放卡片封面（約 78–128dp 高）、電台圓形卡片
+  /// （100dp）、歌單 compact 預覽。
+  static const double medium = 120.0;
 
-  /// 高画质：大卡片（约 200dp）与播放器模糊背景
-  /// （200 × 2.666 ≈ 533；模糊背景需要更高源尺寸以减少色带，取 720）。
-  static const double high = 720.0;
+  /// 大卡片（約 200dp）。
+  ///
+  /// 播放器模糊背景**不**在這一檔：它吃的是整個視窗而不是一張卡片，
+  /// 走 [highest]，見 `TrackCoverVariant.backdrop`。
+  static const double high = 200.0;
 
-  /// 全屏面板画质：Detail Panel、全屏详情对话框等大型封面
-  /// （约 360–460dp；360 × 2.666 ≈ 960，460dp 在 DPR ≤ 2.1 时无需再放大）。
-  static const double fullscreen = 960.0;
+  /// Detail Panel、全螢幕詳情對話框等大型封面（約 360–460dp）。
+  static const double fullscreen = 460.0;
 
-  /// 最高画质：主封面、全屏封面与 Hero 背景
-  /// （最大显示约 480dp；480 × 2.666 ≈ 1280）。
-  static const double highest = 1280.0;
+  /// 主封面、全螢幕封面與播放器模糊背景（最大顯示約 480dp；播放器封面框
+  /// 上限見 `AppLayout.playerCoverMax`）。
+  ///
+  /// 和 [fullscreen] 在三個源上都會選到同一個 URL 檔位（各源上限：Bilibili
+  /// 1280w、NetEase 800、YouTube 720 高）；兩檔分開只影響解碼尺寸。
+  static const double highest = 480.0;
 }
 
 /// Toast 时长常量

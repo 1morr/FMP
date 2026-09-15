@@ -155,7 +155,7 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | 4.1 | 刪死抽象與死 façade：`AvailabilitySource` 及 3 份實作、`SourceManager` 的 5 個零呼叫 façade、`TrackInfoSource` 的 4 個死方法、media_kit 服務的 mobile 分支與音量控制器。同輪改 `lib/data/sources/AGENTS.md` | 刪 600–800 行 | S | `flutter test test/data/sources test/services/audio` |
 | 4.2 | `NeteasePlaylistSource` 死路徑：匯入對話框第一步就把所有網易雲 URL（含 `163cn.tv` 短鏈）交給內部 `NeteaseSource`，外部匯入源永遠輪不到它；連帶刪 `NeteasePlaylistService.getPlaylistDetail` 這條零呼叫鏈。SSRF 迴歸測試改釘在 `NeteaseSource.parsePlaylist` 的短鏈解析上 | 刪 259 行加 account 層約 115 行 | S | 匯入 Netease 歌單實機 |
 | 4.3 | 後端契約測試：三份純規則（`playback_end_reason_rules.dart`、`live_edge_seek_policy.dart`、`next_media_plan.dart`）抽出來由兩個真後端與 `FakeAudioService` 共同轉呼叫，`backend_contract_test.dart` 測規則、`audio_backend_shared_rules_static_rule_test.dart` 釘住只有一份；media_kit 的 `seekToLive` 補上緩衝邊界那一步，fake 不再寫死回 false（已完成） | 加約 200 行測試 | M | 新測試綠；Windows 播 Bilibili 直播 |
-| 4.4 | 播放副作用 registry：4 方法介面（onTrackStarted、onPlaybackStateChanged、onStopped、dispose）收 `NowPlayingPublisher`、`PlayHistoryRecorder`、`LyricsAutoMatchCoordinator`，每次呼叫包 try-catch，刪第二個扇出站點 | 淨 +50 行 | S–M | 「兩條播放路徑通知同一組消費者」與「teardown 完整」兩條測試 |
+| 4.4 | 播放副作用 registry：4 方法介面（onTrackStarted、onPlaybackStateChanged、onStopped、dispose）收 `NowPlayingPublisher`、`PlayHistoryRecorder`、`LyricsAutoMatchCoordinator`，每次呼叫包 try-catch，刪第二個扇出站點（已完成：`_updatePlayingTrack` 成為唯一扇出站點，跟隨路徑與請求成功路徑都不再各自呼叫歌詞自動比對，歌詞改拿解析後的 `trackWithUrl`；`MixSessionCoordinator` 留在 registry 外，它是唯一會讓播放等待的副作用） | 淨 +232 行（新檔 258、控制器 −26），棘輪 2,184 → 2,160 | S–M | 「兩條播放路徑通知同一組消費者」與「teardown 完整」兩條測試 |
 | 4.5 | 合併搜尋 fan-out：刪 `SourceManager.searchAll`／`searchFrom`，並行搜尋收成 `lib/services/search/source_search_fanout.dart` 一個純函式，`SearchService.searchOnline` 與歌單匯入共用（已完成）。沒有直接讓匯入呼叫 `SearchService`：它會寫搜尋歷史又依賴 Isar repository，匯入的逐曲查詢不該進歷史 | 刪 45 行 | S | `flutter test test/services/search test/services/import` |
 | 4.6 | 合併排行榜路徑：探索頁與首頁其實早已走 `RankingCacheService`，`popular_provider.dart` 裡直接打音源的 `rankingVideosProvider`／`youtubeTrendingProvider` 沒有任何 UI 使用者，連同分區 enum 與 i18n 一起刪（已完成） | 刪 299 行 | S | 無 UI 變更，`flutter test test/services/cache test/ui/pages/home` |
 | 4.7 | 合併畫質選擇到 `audio_stream_quality_fallback.dart`：Bilibili 與 YouTube 各一份相同的 `_selectByQualityLevel<T>` 收成一個 `selectByQualityLevel<T>`（已完成） | 刪 12 行 | S | `flutter test test/data/sources` |
@@ -225,7 +225,7 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | M1 | 完成 2026-09-15 | #96、#101、1.2 見 #95 | 1.2 依量測改題：匿名斷點是 `view` 而非 buvid，改走 `wbi/view` 後 live 測試轉綠；1.3 量測後判定不做（目前不驗簽）；#85 的標題寬度只到 6 個全形字，再寬要動封面或選單按鈕，超出 issue 範圍 |
 | M2 | 完成 2026-09-10 | #103 升版；tag `v1.10.1` 在 `8fbd3517`；release 已 publish | 五項實機驗證由子代理做完並記到 issue：#89、#90、#41 關閉，分出 #106、#107；#82 的對話框修正要等 v1.10.2 才驗得到 |
 | M3 | 完成 2026-09-15 | #97、#98、#99、#100、#110、#111 | 3.4 補了四張 Android 截圖並關掉 #91；3.5 把 `lib/ui` 與 `lib/services/audio` 的 `AGENTS.md` 降到 247／204 行，只刪程式碼已講過的清單與過期數字。拍截圖時發現兩個既有 bug 另開 #112（導覽列語言）、#113（歌詞自動比對不顯示）。#102 的 CI 偶發失敗仍歸 M4 步驟 9 判定 |
-| M4 | 進行中 | 4.1 #104、4.2 #115、4.7 #116、4.6 #117、4.8 #118、4.5 #119 | 純刪除的六步全部合併，累計刪約 2,300 行；4.3、4.4 的設計已寫好等拍板；4.9 可選；#106、#107、#112、#113 排在這個里程碑 |
+| M4 | 進行中 | 4.1 #104、4.2 #115、4.7 #116、4.6 #117、4.8 #118、4.5 #119 | 純刪除的六步全部合併，累計刪約 2,300 行；4.3、4.4 已完成；4.9 可選；#106、#107、#112、#113 排在這個里程碑 |
 | M5 | 未開始 | | |
 
 ---

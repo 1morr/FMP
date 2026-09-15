@@ -104,7 +104,7 @@ void main() {
         trackCoverSource,
         contains(
           RegExp(
-            r'case TrackCoverVariant\.backdrop:\s*return ImageTargetSizes\.high;',
+            r'case TrackCoverVariant\.backdrop:\s*return ImageTargetSizes\.highest;',
           ),
         ),
       );
@@ -114,8 +114,13 @@ void main() {
       );
       expect(imageServiceSource, contains('imageProviderCandidates'));
       expect(imageServiceSource, contains('CachedNetworkImageProvider'));
-      expect(candidatesSource, contains('maxWidth: request.cacheExtent'));
+      // 只給 maxHeight：磁碟縮放同時拿到寬高時會按寬把 16:9 封面縮到不夠高
+      // （issue #107）。
       expect(candidatesSource, contains('maxHeight: request.cacheExtent'));
+      expect(
+        candidatesSource,
+        isNot(contains('maxWidth: request.cacheExtent')),
+      );
     });
 
     test('PlayerPage keeps one backdrop image layer behind the AppBar', () {
