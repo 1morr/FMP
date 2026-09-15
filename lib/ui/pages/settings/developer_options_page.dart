@@ -20,7 +20,6 @@ import 'package:fmp/providers/audio/audio_player_selectors.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
-import 'package:fmp/ui/pages/debug/youtube_stream_test_page.dart';
 import 'package:fmp/data/repositories/repositories.dart';
 import 'package:fmp/data/database/database_migration.dart';
 
@@ -53,19 +52,6 @@ class DeveloperOptionsPage extends ConsumerWidget {
                 subtitle: Text(t.settings.developerOptions.dbViewerSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(RouteNames.databaseViewer),
-              ),
-              ListTile(
-                leading: const Icon(Icons.music_note_outlined),
-                title: Text(t.settings.developerOptions.ytStreamTest),
-                subtitle: Text(
-                  t.settings.developerOptions.ytStreamTestSubtitle,
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const YouTubeStreamTestPage(),
-                  ),
-                ),
               ),
             ],
           ),
