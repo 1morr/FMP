@@ -46,8 +46,11 @@ under `lib/providers/`. Use `ls` for the current set.
   stream metadata, output device) come off `audioControllerProvider`; the
   queue's shape (contents, index, shuffle/loop, mix identity) comes off
   `queueStateProvider`. They share no field, so there is exactly one right
-  answer per field — see `lib/services/audio/AGENTS.md` for why both used to
-  carry the same twelve.
+  answer per field. The queue fields used to exist in both, with the controller
+  copying them across on every queue change; nothing forced the copies to
+  agree and consumers were split arbitrarily between them.
+  `audio_queue_state_provider_test.dart` fails if a queue field reappears on
+  `PlayerState`.
 
 ## Riverpod 3
 

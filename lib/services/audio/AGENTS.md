@@ -10,38 +10,11 @@ what spans files — the contracts no single class can state on its own.
 
 ## Architecture
 
-```text
-UI playback controls          RadioController
-        |                            |
-        v                            |
-AudioController (audio_provider.dart)|
-  - PlayerState projection           |
-  - temporary/mix/detached modes     |
-  - declares no provider: those live |
-    in providers/audio/              |
-        |         |         |        |
-        v         v         v        v
-FmpAudioService  Queue-   Queue-  NowPlayingPublisher
-  (abstract)     Commands Manager   - owner arbitration
-  |              - mix    - order    - PlaybackCapabilities
-  v                gate   - nav      |            |
-JustAudioService   - full            v            v
-MediaKitAudioService -> result  FmpAudioHandler  WindowsSmtcHandler
-                                (Android)        (Windows)
-
-One play request at a time runs through two collaborators the controller
-never bypasses:
-
-  PlaybackRequestSession       PlaybackHandoffGate
-  - request generation         - the controller's latch on that request
-  - supersession, budget       - deferred seeks, stabilization window
-
-A started track fans out to three side-effect collaborators, none of which
-the playback path waits for:
-
-  PlayHistoryRecorder        LyricsAutoMatchCoordinator   MixSessionCoordinator
-  - one write, no state      - own request generation     - session + prefetch
-```
+`AudioController` (`audio_provider.dart`) holds the state; the collaborators
+around it own one job each — `ls` this directory and read their dartdocs. The
+contract none of them can state alone: one play request at a time runs through
+`PlaybackRequestSession` and then `PlaybackHandoffGate`, and the controller never
+reaches the backend around that pair.
 
 **Projection stays in `AudioController`.** Every collaborator reports through
 callbacks and none of them touches `PlayerState`. `clearQueue` and `playAt` were
@@ -216,12 +189,7 @@ return `true`.
 
 ## Verification
 
-```bash
-flutter test test/services/audio
-```
-
-Also run `test/data/sources` if stream resolution, source fallback or auth
-headers changed.
+Root `AGENTS.md` § Verification has the commands for this directory.
 
 Loading, timeout and recovery behaviour cannot be covered by unit tests alone —
 what is under test is how mpv and ExoPlayer react to a sick connection, which

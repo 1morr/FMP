@@ -27,16 +27,11 @@ volume menu or device menu to either player page.
 ## Image Components
 
 Image components live under `lib/ui/widgets/images/`. **Never use
-`Image.network()` or `Image.file()` directly.**
-
-| Use | Widget |
-|-----|--------|
-| Song cover | `TrackThumbnail` / `TrackCover` |
-| Playlist cover | `PlaylistCoverImage` |
-| Radio/live cover | `RadioCoverImage` |
-| Home recent-play cover | `RecentPlayCoverImage` |
-| Avatar | `AvatarImage` |
-| Anything else | a small semantic widget wrapping `ImageLoadingService` |
+`Image.network()` or `Image.file()` directly.** Take the widget there whose name
+matches what you are showing — `track_thumbnail.dart` is the one file holding two
+of them, `TrackThumbnail` and `TrackCover` — and for anything they do not cover
+write a small semantic widget wrapping `ImageLoadingService` rather than reaching
+for the service at a call site.
 
 Page code passes **semantic variants**, not raw `targetDisplaySize`. Never infer
 image quality from `width`/`height` — those are layout-only. Use
@@ -50,23 +45,14 @@ against a fixed list of named widget files. A new page using them directly would
 pass CI. `lib/ui/pages`, `layouts` and `windows` currently hold zero
 `ImageTargetSizes.` references — that convention holds by review, not by test.
 
-Current tier mapping:
-
-| Tier | Used for |
-|------|----------|
-| `low` (80) | downloaded metadata avatars only |
-| `thumbnail` (160) | UI avatars, list-track tiles, radio compact images |
-| `medium` (400) | card-size covers ~100–140dp |
-| `high` (720) | ~200dp playlist cards, player blurred backdrops, downloaded metadata covers |
-| `fullscreen` (960) | large panel/detail-dialog covers ~460dp, radio hero |
-| `highest` (1280) | player cover art, radio fullscreen cover, playlist-detail hero |
+Which tier means what, and the dp-to-px arithmetic behind each number, is
+dartdoc'd on `ImageTargetSizes` itself (`lib/core/constants/ui_constants.dart`).
 
 Downloaded metadata images use the same semantics. Do not introduce a separate
 download image quality enum unless product requirements diverge.
 
-`ImageLoadingService` uses `MediaQuery.devicePixelRatio` for decode and
-disk-cache sizing **only** — candidate selection is the semantic widget's target
-size. URL rules: `lib/services/AGENTS.md` § Image Thumbnail Optimization.
+Candidate selection, DPR and URL rules: `lib/services/AGENTS.md` § Image
+Thumbnail Optimization.
 
 ## Error Presentation
 
@@ -80,10 +66,9 @@ platform message — at worst literally `Exception: <server text>`. Map it first
 | A provider/notifier writing `state.error` | `failureMessage(e, stack, 'what failed', tag: '…')` |
 | A `build` rendering an `AsyncValue` error | `userMessageFor(error)` — mapping only, never log here |
 
-`userMessageFor` knows `SourceApiException` (delegating to `sourceErrorReason`,
-the one `SourceErrorKind` switch), unwrapped `DioException`, the `dart:io`
-network and path exceptions, and `TimeoutException`; everything else becomes "an
-error occurred". Add a type there rather than special-casing a call site.
+`userMessageFor` is the one switch over exception types and `sourceErrorReason`
+the one switch over `SourceErrorKind`. Add a type there rather than
+special-casing a call site.
 
 **The original always goes to `AppLogger`, never `debugPrint`** — only
 `AppLogger` reaches the in-app log page, the one place a user can read it back.
@@ -218,9 +203,9 @@ there, not in a page.
 
 Small local layout/animation literals are fine when they are one-off
 measurements tied to a single widget interaction. There is deliberately **no**
-spacing scale constant: one existed, nothing in `lib/` ever called it, and the
-260 `EdgeInsets` literals stayed as they were. Do not reintroduce one without
-migrating the call sites in the same change.
+spacing scale constant: one existed, nothing in `lib/` ever called it, and every
+`EdgeInsets` literal in the tree stayed as it was. Do not reintroduce one
+without migrating the call sites in the same change.
 
 `AppRadius.borderRadiusXl` and similar are `static final`, not `const` — do not
 use them in `const` contexts.
