@@ -1471,6 +1471,7 @@ class DownloadService with Logging {
         final coverUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           track.thumbnailUrl!,
           displaySize: ImageTargetSizes.high,
+          devicePixelRatio: ThumbnailUrlUtils.persistedImageDevicePixelRatio,
         );
         await _downloadImageCandidates(coverUrls, coverPath, imageHeaders);
       } catch (e) {
@@ -1487,6 +1488,7 @@ class DownloadService with Logging {
         final avatarUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           videoDetail.ownerFace,
           displaySize: ImageTargetSizes.low,
+          devicePixelRatio: ThumbnailUrlUtils.persistedImageDevicePixelRatio,
         );
         await _downloadImageCandidates(avatarUrls, avatarPath, imageHeaders);
       } catch (e) {

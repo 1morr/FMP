@@ -18,7 +18,8 @@ import 'package:fmp/ui/widgets/indicators/now_playing_cover_overlay.dart';
 /// - 支持播放中指示器覆盖
 ///
 /// **列表列的小方塊專用，實際呼叫端都在 32–56dp。** 圖片源固定在
-/// [ImageTargetSizes.thumbnail]（160px），48dp 在 DPR 3 需要 144px，還有餘。
+/// [ImageTargetSizes.thumbnail]（56dp），實際來源尺寸由 DPR 決定：48dp 在
+/// DPR 3 需要 144px 高，選到的 Bilibili 檔位是 `@400w`（400×225）。
 /// 卡片級以上的封面走 [TrackCover]，它按 [TrackCoverVariant] 選檔 —— 不要在這
 /// 裡按 [size] 分檔，那條分支存在過兩個月，一個呼叫端都沒有。
 class TrackThumbnail extends ConsumerWidget {
@@ -134,15 +135,21 @@ class TrackThumbnail extends ConsumerWidget {
 
 /// 大封面显示场景。
 enum TrackCoverVariant {
-  /// 播放器模糊背景，使用高画质图片源减少全屏模糊后的色带和条纹。
+  /// 播放器模糊背景，使用最高畫質圖片源減少全螢幕模糊後的色帶和條紋。
+  ///
+  /// 它吃的是整個視窗，不是一張卡片，所以走 [ImageTargetSizes.highest]
+  /// 而不是 [ImageTargetSizes.high]：桌面 DPR 1.0 下 200dp 的卡片檔位只會
+  /// 換到 `@400w`。和 [hero] 同檔還有一個好處 —— 同一張封面的背景與主圖
+  /// 共用一個磁碟快取條目，不再各存一份（issue #107）。
   backdrop,
 
   /// 播放器、Detail Panel 等大图场景。
   ///
-  /// 各源可用封面尺寸上限：Bilibili 1280w、NetEase 800、YouTube 720 高
-  /// （maxresdefault）。因此 NetEase / YouTube 的播放器封面在高 DPR
-  /// 手机上会被 GPU 放大约 1.4–1.6 倍而略软；这是源端尺寸上限，
-  /// 图片管线无法再提升，请勿通过调高本档目标尺寸来"修复"。
+  /// 各源可用封面**高度**上限：Bilibili `@1280w` 只有 720px 高、NetEase 800、
+  /// YouTube maxresdefault 720。播放器封面是全寬正方框（DPR 3 的 1080p 手機
+  /// 約 936px 高），所以三個源在高 DPR 手機上都會被 GPU 放大約 1.2–1.6 倍而
+  /// 略軟；這是源端尺寸上限，圖片管線無法再提升，請勿通過調高本檔目標尺寸
+  /// 來「修復」（issue #107 量到的 1.3x 就是這一條）。
   hero,
 }
 
@@ -150,7 +157,7 @@ extension TrackCoverVariantTarget on TrackCoverVariant {
   double get targetDisplaySize {
     switch (this) {
       case TrackCoverVariant.backdrop:
-        return ImageTargetSizes.high;
+        return ImageTargetSizes.highest;
       case TrackCoverVariant.hero:
         return ImageTargetSizes.highest;
     }

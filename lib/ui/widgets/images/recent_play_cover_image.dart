@@ -5,8 +5,8 @@ import 'package:fmp/core/services/image_loading_service.dart';
 
 /// 首页最近播放封面。
 ///
-/// 最近播放卡片在首页以约 140dp 的封面展示，固定使用中等画质档位
-/// （140 × 2.666 ≈ 373，取 medium 的 400）。
+/// 最近播放卡片封面在首頁約 78–128dp 高（卡片寬 100–140dp，扣掉標題區），
+/// 固定使用 [ImageTargetSizes.medium] 檔位。
 class RecentPlayCoverImage extends StatelessWidget {
   final String? networkUrl;
   final Widget? placeholder;

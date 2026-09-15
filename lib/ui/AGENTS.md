@@ -45,8 +45,11 @@ against a fixed list of named widget files. A new page using them directly would
 pass CI. `lib/ui/pages`, `layouts` and `windows` currently hold zero
 `ImageTargetSizes.` references — that convention holds by review, not by test.
 
-Which tier means what, and the dp-to-px arithmetic behind each number, is
-dartdoc'd on `ImageTargetSizes` itself (`lib/core/constants/ui_constants.dart`).
+Which tier means what is dartdoc'd on `ImageTargetSizes` itself
+(`lib/core/constants/ui_constants.dart`). Each value is a **logical box height
+in dp** and carries no DPR: the physical pixels are `tier × DPR`, resolved once
+in `ThumbnailUrlUtils`. Do not bake an assumed DPR back into a tier — that is
+exactly what shipped as #107.
 
 Downloaded metadata images use the same semantics. Do not introduce a separate
 download image quality enum unless product requirements diverge.
