@@ -159,7 +159,7 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | 4.5 | 合併搜尋 fan-out：刪 `SourceManager.searchAll`／`searchFrom`，匯入改走 `SearchService` | 刪 45 行 | S | `flutter test test/services/search test/services/import` |
 | 4.6 | 合併排行榜路徑：熱門頁改走 `RankingCacheService` | 刪 60 行 | M | 探索頁實機，三個榜共用快取 |
 | 4.7 | 合併畫質選擇到 `audio_stream_quality_fallback.dart`：Bilibili 與 YouTube 各一份相同的 `_selectByQualityLevel<T>` 收成一個 `selectByQualityLevel<T>`（已完成） | 刪 12 行 | S | `flutter test test/data/sources` |
-| 4.8 | #88 debug 頁：加平台守衛並改走 `AudioController`，或直接刪那 1,297 行。建議刪 | 刪 0 或 1,297 行 | S | Android 實機點進開發者選項 |
+| 4.8 | #88 debug 頁：直接刪掉那 1,297 行的 YouTube 串流測試頁與它專用的 `debug` i18n（已完成，模擬器上開發者選項頁其餘項目完整） | 刪 1,297 行 | S | Android 實機點進開發者選項 |
 | 4.9（可選） | 事件路由改成回傳 `sealed class PlaybackAction`、控制器 switch 套用。這 540 行是 #41 #43 #54 #55 的宿主，風險最高，放最後；做之前先照 `5d7dd2da` 的方法量一次 | 棘輪可能下調 300–400 行 | M–L | `flutter test test/services/audio` 全綠，兩平台實機 |
 
 4.1、4.2、4.5、4.7 是純刪除，可以直接做。4.3、4.4 加機制，先給設計再做。4.6 動首頁，要實機。
