@@ -158,8 +158,6 @@
     "logLevelSubtitle": "只影響這次執行，重啟後回到預設",
     "dbViewer": "資料庫檢視器",
     "dbViewerSubtitle": "檢視和瀏覽 Isar 資料庫內容",
-    "ytStreamTest": "YouTube 串流測試",
-    "ytStreamTestSubtitle": "測試 Audio-only / Muxed / HLS 串流播放",
     "dataManagement": "資料管理",
     "devInfo": "開發資訊",
     "debugMode": "偵錯模式",
