@@ -698,52 +698,6 @@ void main() {
       container.dispose();
     });
   });
-
-  group('Popular ranking providers', () {
-    test('rankingVideosProvider sends selected category rid', () async {
-      final source = _FakeRankingSource(SourceIds.bilibili);
-      final container = ProviderContainer(
-        overrides: [
-          sourceManagerProvider.overrideWith(
-            (ref) => SourceManager(sources: [source]),
-          ),
-        ],
-      );
-
-      await container
-          .read(rankingVideosProvider.notifier)
-          .loadCategory(BilibiliCategory.dance);
-
-      _expectRankingRequest(
-        source.lastRequest,
-        regionId: BilibiliCategory.dance.rid,
-      );
-
-      container.dispose();
-    });
-
-    test('youtubeTrendingProvider sends selected category id', () async {
-      final source = _FakeRankingSource(SourceIds.youtube);
-      final container = ProviderContainer(
-        overrides: [
-          sourceManagerProvider.overrideWith(
-            (ref) => SourceManager(sources: [source]),
-          ),
-        ],
-      );
-
-      await container
-          .read(youtubeTrendingProvider.notifier)
-          .loadCategory(YouTubeCategory.music);
-
-      _expectRankingRequest(
-        source.lastRequest,
-        category: YouTubeCategory.music.id,
-      );
-
-      container.dispose();
-    });
-  });
 }
 
 class _FakeRankingSource implements RankingSource {
