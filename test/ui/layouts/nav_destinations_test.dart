@@ -13,7 +13,7 @@ void main() {
 
     test('every destination has a label and a distinct route', () {
       for (final d in destinations) {
-        expect(d.label, isNotEmpty);
+        expect(d.label(t), isNotEmpty);
         expect(d.path, startsWith('/'));
       }
       expect(
@@ -65,7 +65,7 @@ void main() {
   });
 
   test('the labels come from i18n, not hardcoded strings', () {
-    expect(destinations.first.label, t.nav.home);
-    expect(destinations.last.label, t.nav.settings);
+    expect(destinations.first.label(t), t.nav.home);
+    expect(destinations.last.label(t), t.nav.settings);
   });
 }
