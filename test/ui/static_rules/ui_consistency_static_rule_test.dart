@@ -157,14 +157,17 @@ void main() {
       expect(playlistCover, contains('return ImageTargetSizes.medium;'));
       expect(playlistCover, contains('return ImageTargetSizes.high;'));
       expect(playlistCover, contains('return ImageTargetSizes.highest;'));
+      expect(radioCover, contains('return ImageTargetSizes.thumbnail;'));
       expect(radioCover, contains('return ImageTargetSizes.medium;'));
-      expect(radioCover, contains('return ImageTargetSizes.high;'));
+      expect(radioCover, contains('return ImageTargetSizes.fullscreen;'));
       expect(radioCover, contains('return ImageTargetSizes.highest;'));
       expect(trackThumbnail, isNot(contains('TrackCoverQuality')));
       expect(trackThumbnail, contains('enum TrackCoverVariant'));
       expect(trackThumbnail, isNot(contains('TrackCoverVariant.compact')));
-      expect(trackThumbnail, contains('return ImageTargetSizes.high;'));
+      // backdrop 和 hero 都是 highest：模糊背景吃整個視窗，不是一張卡片，
+      // 而同檔位讓同一張封面的背景與主圖共用一個磁碟快取條目（issue #107）。
       expect(trackThumbnail, contains('return ImageTargetSizes.highest;'));
+      expect(trackThumbnail, isNot(contains('return ImageTargetSizes.high;')));
       expect(
         trackThumbnail,
         isNot(contains('required this.targetDisplaySize')),
@@ -346,16 +349,36 @@ void main() {
 
         expect(source, contains('ResizeImage('));
         expect(source, contains('MediaQuery.devicePixelRatioOf(context)'));
-        expect(source, isNot(contains('_urlCandidateDevicePixelRatio')));
         expect(source, contains('_networkImageCacheKey'));
         expect(source, contains('class _NetworkImageRequest'));
         expect(source, contains('cacheExtent: cacheExtent'));
         expect(source, contains('widget.request.cacheExtent'));
         expect(source, contains('final cacheExtent = _cacheExtent('));
-        expect(source, contains('maxWidth: request.cacheExtent'));
-        expect(source, contains('maxHeight: request.cacheExtent'));
         expect(source, contains('targetDisplaySize: targetDisplaySize'));
-        expect(thumbnailUtils, isNot(contains('devicePixelRatio')));
+
+        // 解碼邊界只給高度。底層 `ResizeImage.resizeIfNeeded` 的預設 exact
+        // 策略同時拿到寬和高時會把 16:9 封面壓成正方形；按高解碼也正好對上
+        // `BoxFit.cover` 在正方形 box 裡只用到來源高度（issue #107）。
+        expect(source, contains('memCacheHeight: widget.request.cacheExtent'));
+        expect(source, isNot(contains('memCacheWidth:')));
+        // `CachedNetworkImage` 把未 resize 的 provider 交給 imageBuilder，
+        // 所以 memCacheHeight 只有在 imageBuilder 自己包回去時才會生效。
+        expect(source, contains('ResizeImage.resizeIfNeeded('));
+        expect(source, contains('maxHeight: request.cacheExtent'));
+        expect(source, isNot(contains('maxWidth: request.cacheExtent')));
+
+        // URL 檔位與磁碟快取鍵共用同一個量化後的 DPR，兩者才會落在同一檔。
+        expect(thumbnailUtils, contains('required double devicePixelRatio'));
+        expect(
+          thumbnailUtils,
+          contains('static double quantizeDevicePixelRatio'),
+        );
+        expect(source, contains('devicePixelRatio: devicePixelRatio'));
+        expect(
+          source,
+          contains('diskCacheExtent: ThumbnailUrlUtils.neededSourceHeight('),
+        );
+        expect(source, isNot(contains('_quantizeDevicePixelRatio')));
         expect(source, isNot(contains('targetDisplaySize ?? width')));
         expect(source, isNot(contains('targetDisplaySize ?? height')));
         expect(

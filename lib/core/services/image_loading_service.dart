@@ -168,7 +168,6 @@ class ImageLoadingService {
           CachedNetworkImageProvider(
             url,
             cacheKey: request.cacheKey(url),
-            maxWidth: request.cacheExtent,
             maxHeight: request.cacheExtent,
             headers: request.headers,
             cacheManager: NetworkImageCacheService.defaultCacheManager,
@@ -302,27 +301,15 @@ class ImageLoadingService {
     final fileImage = FileImage(file);
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final cacheExtent = _cacheExtent(targetDisplaySize, devicePixelRatio);
-    // 使用 fit 策略保持宽高比：在 cacheExtent 边界框内等比缩放、只缩小不放大。
-    // 默认的 exact 策略会把非方形（如 16:9）的本地封面强制压成正方形。
-    return ResizeImage(
-      fileImage,
-      policy: ResizeImagePolicy.fit,
-      width: cacheExtent,
-      height: cacheExtent,
-    );
+    // 只給 height：16:9 的封面塞進正方形 box 時只有高能用，按高解碼才不會
+    // 又在渲染端放大回來。同時指定寬高會讓預設的 exact 策略把非方形（如
+    // 16:9）的本地封面壓成正方形；只給一個維度時 exact 自己保長寬比。
+    return ResizeImage(fileImage, height: cacheExtent);
   }
 
+  /// 解碼／記憶體快取的目標高度（實體像素，全精度 DPR）。
   static int _cacheExtent(double logicalSize, double devicePixelRatio) {
-    return (logicalSize * devicePixelRatio).round().clamp(1, 8192).toInt();
-  }
-
-  /// 将 DPR 量化到最接近的 0.5。
-  ///
-  /// 磁盘缓存键若使用全精度 DPR，同一 URL 在不同设备或细微 DPR 差异下
-  /// 会生成不同的 key，导致重复下载和重复缓存条目。量化到 0.5 可收敛
-  /// 这些差异；内存解码尺寸（memCache）仍使用全精度 DPR。
-  static double _quantizeDevicePixelRatio(double devicePixelRatio) {
-    return (devicePixelRatio * 2).round() / 2;
+    return (logicalSize * devicePixelRatio).ceil().clamp(1, 8192).toInt();
   }
 
   static String? _networkImageCacheKey(String url, {required int cacheExtent}) {
@@ -347,10 +334,10 @@ class ImageLoadingService {
 class _NetworkImageRequest {
   final List<String> urls;
 
-  /// 解码/内存缓存目标尺寸（全精度 DPR）
+  /// 解碼/記憶體快取目標高度（全精度 DPR）
   final int cacheExtent;
 
-  /// 磁盘缓存键使用的尺寸（DPR 量化到 0.5，收敛跨设备重复条目）
+  /// 磁碟快取鍵使用的高度（DPR 量化到 0.5，收斂跨裝置重複條目）
   final int diskCacheExtent;
   final Map<String, String>? headers;
 
@@ -376,11 +363,13 @@ class _NetworkImageRequest {
       urls: ThumbnailUrlUtils.getOptimizedUrlCandidates(
         networkUrl,
         displaySize: targetDisplaySize,
+        devicePixelRatio: devicePixelRatio,
       ),
       cacheExtent: cacheExtent,
-      diskCacheExtent: ImageLoadingService._cacheExtent(
+      // URL 檔位與磁碟快取鍵共用同一個量化後的 DPR，兩者才會落在同一檔。
+      diskCacheExtent: ThumbnailUrlUtils.neededSourceHeight(
         targetDisplaySize,
-        ImageLoadingService._quantizeDevicePixelRatio(devicePixelRatio),
+        devicePixelRatio,
       ),
       headers: headers ?? ImageLoadingService._defaultImageHeaders(networkUrl),
     );
@@ -622,11 +611,13 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       cacheManager: NetworkImageCacheService.defaultCacheManager,
       fadeInDuration: widget.fadeInDuration,
       fadeOutDuration: AnimationDurations.fastest,
-      // 限制内存缓存中的图片尺寸，减少内存占用。cacheExtent 是
-      // targetDisplaySize × DPR，而 URL 分档已经把源图压到 targetDisplaySize
-      // 附近，所以对分档候选它不生效；真正咬合的是最后那个未分档的原始 URL
-      // 候选（可能是 1920px 的原图）。
-      memCacheWidth: widget.request.cacheExtent,
+      // 限制記憶體快取中的圖片尺寸，減少記憶體佔用。cacheExtent 是
+      // targetDisplaySize × DPR，也就是 box 的實體高度。
+      //
+      // 只給 memCacheHeight：底層是 `ResizeImage.resizeIfNeeded`，預設的
+      // exact 策略同時拿到寬和高時會把 16:9 的封面壓成正方形，只給一個維度
+      // 才保長寬比。按高解碼也正好對上 `BoxFit.cover` 在正方形 box 裡只用
+      // 到來源高度這件事。
       memCacheHeight: widget.request.cacheExtent,
       // 不在主显示路径做磁盘缩放：URL 分档已限制下载尺寸，磁盘缩放会让
       // flutter_cache_manager 同时存原始图和 PNG 重编码副本（双份磁盘占用）。
@@ -653,7 +644,16 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
           NetworkImageCacheService.onImageLoaded();
         }
         return Image(
-          image: imageProvider,
+          // `CachedNetworkImage._octoImageBuilder` 把**未經 resize** 的
+          // provider 交給 imageBuilder，不是 OctoImage 內部那個已經套過
+          // `ResizeImage.resizeIfNeeded` 的。直接用它等於解碼邊界對畫面上的
+          // 圖完全無效，而且同一張圖會解碼兩次（OctoImage 一份、這裡一份）。
+          // 用同樣的參數包回去，兩邊的 provider key 就一致，回到一次解碼。
+          image: ResizeImage.resizeIfNeeded(
+            null,
+            widget.request.cacheExtent,
+            imageProvider,
+          ),
           fit: widget.fit,
           width: widget.width,
           height: widget.height,
