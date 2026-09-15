@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/live_edge_seek_policy.dart';
+import 'package:fmp/services/audio/playback_end_reason_rules.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 
 import 'count_waiters.dart';
@@ -74,7 +75,7 @@ class FakeAudioService implements FmpAudioService {
   bool _isPlaying = false;
   Duration _position = Duration.zero;
   Duration? _duration;
-  final Duration _bufferedPosition = Duration.zero;
+  Duration _bufferedPosition = Duration.zero;
   double _speed = 1.0;
   double _volume = 1.0;
   FmpAudioProcessingState _processingState = FmpAudioProcessingState.idle;
@@ -135,6 +136,11 @@ class FakeAudioService implements FmpAudioService {
     _duration = duration;
   }
 
+  /// 直播的「最前端」—— [seekToLive] 的第二段階梯量的就是這個。
+  void setBufferedPositionValue(Duration buffered) {
+    _bufferedPosition = buffered;
+  }
+
   void setPlayingValue(bool isPlaying) {
     _isPlaying = isPlaying;
   }
@@ -157,16 +163,8 @@ class FakeAudioService implements FmpAudioService {
     _endReasonController.add(const EndedNaturally());
   }
 
-  PlaybackEndReason _classifyCompletion() {
-    final duration = _duration;
-    if (duration == null || duration.inMilliseconds <= 0) {
-      return EndedPrematurely(at: _position, expected: null);
-    }
-    if (duration - _position > AppConstants.completionTolerance) {
-      return EndedPrematurely(at: _position, expected: duration);
-    }
-    return const EndedNaturally();
-  }
+  PlaybackEndReason _classifyCompletion() =>
+      classifyCompletion(duration: _duration, position: _position);
 
   /// 媒體本身開不起來（URL 過期、404、格式不支援）。
   void emitMediaOpenError(String raw) {
@@ -323,8 +321,27 @@ class FakeAudioService implements FmpAudioService {
     _emitState();
   }
 
+  /// 跑真的直播階梯，而不是寫死回 false。
+  ///
+  /// 寫死的 false 讓每一條「跳到最新」的測試都在驗重連路徑，而 seek 成功那一
+  /// 半從來沒有被跑過 —— 前提本身是假的。這裡用 fake 自己的 duration／緩衝位
+  /// 置跑 `live_edge_seek_policy.dart`，跟兩個真後端同一份規則。
+  ///
+  /// 刻意**不**等 [liveEdgeSeekVerificationDelay]：fake 的 [seekTo] 當場就把位
+  /// 置設好，睡覺只會讓每條測試多花 300ms，而且會讓真計時器提早到期。
   @override
-  Future<bool> seekToLive() async => false;
+  Future<bool> seekToLive() async {
+    for (final candidate in liveEdgeCandidates(
+      duration: _duration,
+      buffered: _bufferedPosition,
+    )) {
+      final before = _position;
+      await seekTo(candidate.target);
+      if (seekTookEffect(before, _position)) return true;
+    }
+    return false;
+  }
+
   @override
   Future<void> setSpeed(double speed) async => _speed = speed;
   @override
