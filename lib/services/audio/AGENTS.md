@@ -219,6 +219,10 @@ return `true`.
   add-to-queue commands are blocked. If the final queued track completes while
   load-more is pending, completion **waits** for it — the only place playback
   waits on a side effect, pinned by `audio_controller_mix_boundary_test.dart`.
+- That wait is why `MixSessionCoordinator` is deliberately **not** a
+  `PlaybackSideEffect` (`playback_side_effects.dart`): the registry swallows
+  every failure and gives no consumer a way to be waited on, and Mix is told the
+  `PlayMode`, not the track — `initialize()` notifies it with no track at all.
 - Mix metadata may only be read through `QueuePersistenceManager.restoreState()`.
   That guard scans **every** file under `lib/services/audio/`; scoped to one file
   it would go vacuous the moment the code moved.

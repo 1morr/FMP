@@ -11,6 +11,7 @@ import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
+import 'package:fmp/services/audio/playback_side_effects.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
@@ -59,6 +60,7 @@ buildTestAudioControllerIn({
   QueuePersistenceManager? queuePersistenceManager,
   LyricsAutoMatchService? lyricsAutoMatchService,
   MixTracksFetcher? mixTracksFetcher,
+  PlaybackSideEffect? playbackSideEffects,
   PlaybackTimeoutBudget budget = const PlaybackTimeoutBudget(),
 }) {
   final overrides = <Override>[
@@ -72,6 +74,11 @@ buildTestAudioControllerIn({
     connectivityProvider.overrideWith(_SilentConnectivityNotifier.new),
     audioControllerProvider.overrideWith(() => AudioController(budget: budget)),
   ];
+  if (playbackSideEffects != null) {
+    overrides.add(
+      playbackSideEffectsProvider.overrideWithValue(playbackSideEffects),
+    );
+  }
   if (settingsRepository != null) {
     overrides.add(
       settingsRepositoryProvider.overrideWith((ref) => settingsRepository),

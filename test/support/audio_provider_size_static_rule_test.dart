@@ -28,8 +28,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _path = 'lib/services/audio/audio_provider.dart';
 
-/// 2026-09-09 的實測值。
-const _maxCodeLines = 2184;
+/// 2026-09-15 的實測值（播放副作用 registry 之後）。
+const _maxCodeLines = 2160;
 
 /// 低於上限多少行就要求把上限調下來。
 const _slack = 50;
