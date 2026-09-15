@@ -224,7 +224,7 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | M0 | 完成 2026-09-10 | #94 | `main` 有 `protect-main` ruleset |
 | M1 | 完成 2026-09-15 | #96、#101、1.2 見 #95 | 1.2 依量測改題：匿名斷點是 `view` 而非 buvid，改走 `wbi/view` 後 live 測試轉綠；1.3 量測後判定不做（目前不驗簽）；#85 的標題寬度只到 6 個全形字，再寬要動封面或選單按鈕，超出 issue 範圍 |
 | M2 | 完成 2026-09-10 | #103 升版；tag `v1.10.1` 在 `8fbd3517`；release 已 publish | 五項實機驗證由子代理做完並記到 issue：#89、#90、#41 關閉，分出 #106、#107；#82 的對話框修正要等 v1.10.2 才驗得到 |
-| M3 | 進行中 | #97、#98、#99、#100 已合併 | 3.4（#91 README 截圖）與 3.5（兩份超過 200 行的 `AGENTS.md`）未開始；#102 記錄了一條 CI 偶發失敗的音訊測試，歸 M4 步驟 9 判定 |
+| M3 | 完成 2026-09-15 | #97、#98、#99、#100、#110、#111 | 3.4 補了四張 Android 截圖並關掉 #91；3.5 把 `lib/ui` 與 `lib/services/audio` 的 `AGENTS.md` 降到 247／204 行，只刪程式碼已講過的清單與過期數字。拍截圖時發現兩個既有 bug 另開 #112（導覽列語言）、#113（歌詞自動比對不顯示）。#102 的 CI 偶發失敗仍歸 M4 步驟 9 判定 |
 | M4 | 進行中 | 4.1 在 #104 | 4.2 不再是純刪除：`NeteasePlaylistSource` 還有 `netease_playlist_service.dart` 的 `getPlaylistDetail` 這條零呼叫鏈在用，連帶約 115 行 account 層程式碼，且 `source_url_policy_test.dart` 的 SSRF 迴歸測試拿它當載體，要先移植到 `NeteaseSource._resolveShortUrl` 再刪。列為 4.2 的前置，下一輪做 |
 | M5 | 未開始 | | |
 
