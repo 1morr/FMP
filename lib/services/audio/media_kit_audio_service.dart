@@ -9,6 +9,9 @@ import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/live_edge_seek_policy.dart';
+import 'package:fmp/services/audio/next_media_plan.dart';
+import 'package:fmp/services/audio/playback_end_reason_rules.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 
 /// 音频播放服务（使用 media_kit 直接实现）
@@ -434,7 +437,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _subscriptions.add(
       _player.stream.error.listen((error) {
         logError('media_kit error: $error');
-        _emitEndReason(_classifyMpvMessage(error));
+        _emitEndReason(classifyMpvMessage(error));
       }),
     );
 
@@ -490,80 +493,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   }
 
   /// mpv 宣告 completed 時，判斷是「真的播完」還是「提前結束」。
-  ///
-  /// 位置與時長由後端自己看得最準，上層只需要結論。`duration` 為 null 或 0 代
-  /// 表引擎從未回報過時長 —— 實測「連得上但零位元組」的串流正是這個形狀，而它
-  /// 過去會被當成正常播完、直接跳下一首。
-  PlaybackEndReason _classifyCompletion() {
-    final duration = _duration;
-    final position = _position;
-    if (duration == null || duration.inMilliseconds <= 0) {
-      return EndedPrematurely(at: position, expected: null);
-    }
-    if (duration - position > AppConstants.completionTolerance) {
-      return EndedPrematurely(at: position, expected: duration);
-    }
-    return const EndedNaturally();
-  }
-
-  /// 把 mpv 的錯誤訊息翻成型別。
-  ///
-  /// 關鍵字表留在這裡（貼著它要翻譯的引擎），不再由 `AudioController` 猜：
-  /// `could not open` 這個子字串在「媒體開不起來」與「音訊裝置開不起來」兩種
-  /// 語意上都成立，只有知道自己是哪個引擎的人分得出來。音訊裝置的判斷因此必
-  /// 須排在媒體開啟之前 —— 這正是 issue #41 的修法。
-  PlaybackEndReason _classifyMpvMessage(String raw) {
-    final text = raw.toLowerCase();
-
-    if (text.contains('audio device') ||
-        text.contains('audio output') ||
-        text.contains('audio driver') ||
-        text.contains('[ao]') ||
-        text.startsWith('ao:')) {
-      return OutputDeviceFailed(raw: raw);
-    }
-
-    if (text.startsWith('tcp:') ||
-        text.contains('ffurl_read') ||
-        text.contains('connection') ||
-        text.contains('socket') ||
-        text.contains('timed out') ||
-        text.contains('unreachable')) {
-      return TransportFailed(kind: _transportKind(text), raw: raw);
-    }
-
-    if (text.contains('failed to open') ||
-        text.contains('cannot open') ||
-        text.contains('could not open') ||
-        text.contains('no such file')) {
-      return MediaUnopenable(raw: raw);
-    }
-
-    if (text.contains('decoder') || text.contains('could not decode')) {
-      return DecoderFailed(raw: raw);
-    }
-
-    return UnclassifiedFailure(raw: raw);
-  }
-
-  static TransportFailureKind _transportKind(String text) {
-    if (text.contains('timed out') || text.contains('timeout')) {
-      return TransportFailureKind.timeout;
-    }
-    if (text.contains('reset')) return TransportFailureKind.reset;
-    if (text.contains('failed host lookup') ||
-        text.contains('name resolution') ||
-        text.contains('dns')) {
-      return TransportFailureKind.dns;
-    }
-    if (text.contains('tls') ||
-        text.contains('ssl') ||
-        text.contains('certificate')) {
-      return TransportFailureKind.tls;
-    }
-    if (text.contains('refused')) return TransportFailureKind.refused;
-    return TransportFailureKind.unknown;
-  }
+  PlaybackEndReason _classifyCompletion() =>
+      classifyCompletion(duration: _duration, position: _position);
 
   /// 更新合成的播放器状态
   void _updatePlayerState() {
@@ -675,44 +606,51 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     await _player.seek(position);
   }
 
-  /// 嘗試跳到直播流的最新位置
-  /// 返回 true 表示成功 seek，false 表示無法 seek（需要重新連接）
+  /// 嘗試跳到直播流的最新位置；false 代表跳不動，呼叫端該去重連。
+  ///
+  /// 階梯與驗證規則在 `live_edge_seek_policy.dart`，與 just_audio 共用。
+  ///
+  /// 緩衝邊界那一步是 2026-09 補上的（原本只有 duration 一步）。**在 Windows 上
+  /// 它不會先到**，這是量出來的，不是推論的：拿 Bilibili 直播間（FLV，
+  /// `live_status == 1`）實測，開流後約 50 秒內 mpv 的 position／duration／
+  /// `demuxer-cache-time` 同時都是 0，兩步都不成立，seekToLive 照樣回 false 交給
+  /// `RadioController` 重連；50 秒之後兩個值一起出現，而且 duration 永遠 ≥ 緩衝
+  /// 邊界（實測差距 < 0.3 秒），所以先成立的一定是 duration 那一步。緩衝邊界在
+  /// mpv 上因此只剩兩個用途：duration seek 沒有效果時的後備，以及與 just_audio
+  /// 共用同一份規則 —— ExoPlayer 那邊直播的 duration 才是真的常常沒有。
   @override
   Future<bool> seekToLive() async {
-    // 獲取當前 duration
-    final currentDuration = _duration ?? Duration.zero;
+    if (!_hasPlayer) return false;
 
-    // 如果 duration 為 0 或太短，無法 seek
-    if (currentDuration.inSeconds < 5) {
-      logDebug(
-        'seekToLive: duration too short (${currentDuration.inSeconds}s), cannot seek',
-      );
-      return false;
-    }
-
-    // 嘗試 seek 到接近末尾（留 1 秒緩衝）
-    final targetPosition = currentDuration - const Duration(seconds: 1);
-    logDebug(
-      'seekToLive: seeking to $targetPosition (duration: $currentDuration)',
+    final currentDuration = _duration;
+    final buffered = bufferedPosition;
+    final candidates = liveEdgeCandidates(
+      duration: currentDuration,
+      buffered: buffered,
     );
-
-    final positionBefore = _position;
-    await _player.seek(targetPosition);
-
-    // 等待一小段時間讓 seek 生效，然後檢查 position 是否真的變了
-    await Future.delayed(AppConstants.seekVerificationDelay);
-    final positionAfter = _position;
-    final seekWorked =
-        (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
-
-    if (!seekWorked) {
+    if (candidates.isEmpty) {
       logInfo(
-        'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter), stream not seekable',
+        'seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)',
       );
       return false;
     }
 
-    return true;
+    for (final candidate in candidates) {
+      logInfo(
+        'seekToLive: seeking to ${candidate.strategy.label} ${candidate.target} (edge: ${candidate.edge})',
+      );
+      final positionBefore = _position;
+      await _player.seek(candidate.target);
+      // 等一小段時間讓 seek 生效，然後回頭量位置 —— 不可 seek 的串流上 mpv
+      // 不會報錯，只是安靜地不動。
+      await Future.delayed(liveEdgeSeekVerificationDelay);
+      final positionAfter = _position;
+      if (seekTookEffect(positionBefore, positionAfter)) return true;
+      logInfo(
+        'seekToLive: ${candidate.strategy.label} seek had no effect (before: $positionBefore, after: $positionAfter)',
+      );
+    }
+    return false;
   }
 
   // ========== 播放速度 ==========
@@ -1091,25 +1029,27 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
-    if (!_hasPlayer || _player.state.playlist.medias.isEmpty) {
-      // 還沒有東西在播，沒有可以接上去的位置。
+    if (!_hasPlayer) {
       _nextMedia = null;
       return;
     }
 
-    // 清單永遠是「當前項目 ＋ 最多一個前瞻」。
-    final currentIndex = _player.state.playlist.index;
-    while (_player.state.playlist.medias.length > currentIndex + 1) {
-      await _player.remove(_player.state.playlist.medias.length - 1);
+    final plan = NextMediaPlan.of(
+      itemCount: _player.state.playlist.medias.length,
+      currentIndex: _player.state.playlist.index,
+      hasMedia: media != null,
+    );
+    for (final index in plan.removeIndices) {
+      await _player.remove(index);
     }
     _nextMedia = null;
 
-    if (media == null) {
-      logDebug('Next medium cleared');
+    if (!plan.shouldAppend) {
+      if (media == null) logDebug('Next medium cleared');
       return;
     }
 
-    await _player.add(_mediaFor(media));
+    await _player.add(_mediaFor(media!));
     _nextMedia = media;
     logDebug('Next medium armed: ${media.debugUrl}');
   }
@@ -1126,8 +1066,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   };
 
   /// 移掉剛剛播完、留在清單前面的那一個項目，讓當前項目回到 index 0。
+  ///
+  /// 條件在 [NextMediaPlan.shouldTrimPlayedEntry]，與 just_audio 共用。
   Future<void> _trimPlayedEntry() async {
-    if (_player.state.playlist.medias.length <= 1) return;
+    if (!NextMediaPlan.shouldTrimPlayedEntry(
+      _player.state.playlist.medias.length,
+    )) {
+      return;
+    }
     try {
       await _player.remove(0);
       // 同步更新，不要等 `stream.playlist` 的事件 —— 事件晚到的話下一次前進

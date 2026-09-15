@@ -4,11 +4,13 @@ import 'package:just_audio/just_audio.dart' as ja;
 import 'package:audio_session/audio_session.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/audio/audio_service.dart';
 import 'package:fmp/services/audio/audio_types.dart';
+import 'package:fmp/services/audio/live_edge_seek_policy.dart';
+import 'package:fmp/services/audio/next_media_plan.dart';
+import 'package:fmp/services/audio/playback_end_reason_rules.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 
 /// Android 音频播放服务（使用 just_audio / ExoPlayer）
@@ -320,61 +322,20 @@ class JustAudioService extends FmpAudioService with Logging {
   }
 
   /// ExoPlayer 宣告 completed 時，判斷是「真的播完」還是「提前結束」。
-  PlaybackEndReason _classifyCompletion() {
-    final duration = _player.duration;
-    final position = _player.position;
-    if (duration == null || duration.inMilliseconds <= 0) {
-      return EndedPrematurely(at: position, expected: null);
-    }
-    if (duration - position > AppConstants.completionTolerance) {
-      return EndedPrematurely(at: position, expected: duration);
-    }
-    return const EndedNaturally();
-  }
+  PlaybackEndReason _classifyCompletion() => classifyCompletion(
+    duration: _player.duration,
+    position: _player.position,
+  );
 
   /// 把 just_audio 的 `PlayerException` 翻成型別。
-  ///
-  /// ExoPlayer 把幾乎所有網路層問題都壓成 `code=0, message=Source error`，
-  /// 因此這裡以 code 為主、訊息為輔；分不出來的一律回 [UnclassifiedFailure]，
-  /// 而不是猜。
   PlaybackEndReason _classifyPlayerException(
     ja.PlayerException error,
     String raw,
-  ) {
-    final text = (error.message ?? '').toLowerCase();
-
-    if (text.contains('audio track') ||
-        text.contains('audio sink') ||
-        text.contains('audiotrack')) {
-      return OutputDeviceFailed(raw: raw);
-    }
-
-    if (text.contains('source error') ||
-        text.contains('unable to connect') ||
-        text.contains('socket') ||
-        text.contains('timeout') ||
-        text.contains('unexpected end of stream')) {
-      return TransportFailed(
-        kind: text.contains('timeout')
-            ? TransportFailureKind.timeout
-            : TransportFailureKind.reset,
-        raw: raw,
-      );
-    }
-
-    if (text.contains('response code: 40') ||
-        text.contains('response code: 41') ||
-        text.contains('unrecognized input format') ||
-        text.contains('none of the available extractors')) {
-      return MediaUnopenable(raw: raw);
-    }
-
-    if (text.contains('decoder') || text.contains('decoding')) {
-      return DecoderFailed(raw: raw);
-    }
-
-    return UnclassifiedFailure(raw: raw);
-  }
+  ) => classifyExoPlayerFailure(
+    code: error.code,
+    message: error.message,
+    raw: raw,
+  );
 
   @override
   Future<void> dispose() async {
@@ -453,57 +414,39 @@ class JustAudioService extends FmpAudioService with Logging {
     await _player.seek(position);
   }
 
+  /// 嘗試跳到直播流的最新位置；false 代表跳不動，呼叫端該去重連。
+  ///
+  /// 階梯與驗證規則在 `live_edge_seek_policy.dart`，與 media_kit 共用。
   @override
   Future<bool> seekToLive() async {
-    // 策略 1：用 duration（有些流会提供）
+    if (!_hasPlayer) return false;
+
     final currentDuration = _player.duration;
-    if (currentDuration != null && currentDuration.inSeconds >= 5) {
-      final targetPosition = currentDuration - const Duration(seconds: 1);
-      logInfo(
-        'seekToLive: seeking to $targetPosition (duration: $currentDuration)',
-      );
-      final positionBefore = _player.position;
-      await _player.seek(targetPosition);
-      // 等待 seek 生效后验证
-      await Future.delayed(const Duration(milliseconds: 300));
-      final positionAfter = _player.position;
-      final seekWorked =
-          (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
-      if (!seekWorked) {
-        logInfo(
-          'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter)',
-        );
-        // 继续尝试策略 2
-      } else {
-        return true;
-      }
-    }
-
-    // 策略 2：用 bufferedPosition（直播流通常 duration 为 null，但 bufferedPosition 可用）
     final buffered = _player.bufferedPosition;
-    if (buffered.inSeconds >= 5) {
-      final targetPosition = buffered - const Duration(seconds: 1);
+    final candidates = liveEdgeCandidates(
+      duration: currentDuration,
+      buffered: buffered,
+    );
+    if (candidates.isEmpty) {
       logInfo(
-        'seekToLive: seeking to buffered edge $targetPosition (buffered: $buffered)',
+        'seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)',
       );
-      final positionBefore = _player.position;
-      await _player.seek(targetPosition);
-      await Future.delayed(const Duration(milliseconds: 300));
-      final positionAfter = _player.position;
-      final seekWorked =
-          (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
-      if (!seekWorked) {
-        logInfo(
-          'seekToLive: buffered seek had no effect (before: $positionBefore, after: $positionAfter)',
-        );
-        return false;
-      }
-      return true;
+      return false;
     }
 
-    logInfo(
-      'seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)',
-    );
+    for (final candidate in candidates) {
+      logInfo(
+        'seekToLive: seeking to ${candidate.strategy.label} ${candidate.target} (edge: ${candidate.edge})',
+      );
+      final positionBefore = _player.position;
+      await _player.seek(candidate.target);
+      await Future.delayed(liveEdgeSeekVerificationDelay);
+      final positionAfter = _player.position;
+      if (seekTookEffect(positionBefore, positionAfter)) return true;
+      logInfo(
+        'seekToLive: ${candidate.strategy.label} seek had no effect (before: $positionBefore, after: $positionAfter)',
+      );
+    }
     return false;
   }
 
@@ -734,36 +677,40 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> setNextMedia(PreparedPlaybackMedia? media) async {
-    if (_player.audioSources.isEmpty) {
-      // 還沒有東西在播，沒有可以接上去的位置。
+    // `_player` 是 late final，`initialize()` 之前碰它會丟
+    // `LateInitializationError` —— media_kit 那邊一直有這個守衛。
+    if (!_hasPlayer) {
       _nextMedia = null;
       return;
     }
 
-    // 清單永遠是「當前項目 ＋ 最多一個前瞻」。
-    final currentIndex = _player.currentIndex ?? 0;
-    while (_player.audioSources.length > currentIndex + 1) {
-      await _player.removeAudioSourceAt(_player.audioSources.length - 1);
+    final plan = NextMediaPlan.of(
+      itemCount: _player.audioSources.length,
+      currentIndex: _player.currentIndex ?? 0,
+      hasMedia: media != null,
+    );
+    for (final index in plan.removeIndices) {
+      await _player.removeAudioSourceAt(index);
     }
     _nextMedia = null;
 
-    if (media == null) {
-      logDebug('Next medium cleared');
+    if (!plan.shouldAppend) {
+      if (media == null) logDebug('Next medium cleared');
       return;
     }
 
-    await _player.addAudioSource(_sourceFor(media));
+    await _player.addAudioSource(_sourceFor(media!));
     _nextMedia = media;
     logDebug('Next medium armed: ${media.debugUrl}');
   }
 
   /// 移掉剛剛播完、留在清單前面的那一個項目。
   ///
-  /// 不移的話清單每首歌長一個項目，而 `useLazyPreparation: false` 代表每個項目
-  /// 都是一條已經開著的連線。移完之後當前項目回到 index 0，「下一首」永遠是
-  /// index 1。
+  /// 條件在 [NextMediaPlan.shouldTrimPlayedEntry]，與 media_kit 共用。
   Future<void> _trimPlayedEntry() async {
-    if (_player.audioSources.length <= 1) return;
+    if (!NextMediaPlan.shouldTrimPlayedEntry(_player.audioSources.length)) {
+      return;
+    }
     try {
       await _player.removeAudioSourceAt(0);
     } catch (e, stack) {

@@ -78,6 +78,18 @@ error-string matching in the controller: that is what produced issue #41, where
 mpv's "could not open/initialize audio device" matched a keyword meant for
 *media* open failures and a dead output device was reported as a failed track.
 
+The translation *rules* — completion classification and both keyword tables —
+live in `playback_end_reason_rules.dart`, and all three backends
+(`JustAudioService`, `MediaKitAudioService`, `FakeAudioService`) keep only a
+delegator. Neither real backend can be instantiated in `flutter test`
+(just_audio needs platform channels, media_kit needs libmpv), so a second copy
+of a table diverges silently until someone runs it on a device — which is how
+issue #41 got in. `audio_backend_shared_rules_static_rule_test.dart` pins single
+ownership; `backend_contract_test.dart` holds the boundary cases. The ExoPlayer
+classifier takes the exception `code` but does not branch on it: measured,
+nearly the whole network family arrives as `code=0, message=Source error`, so
+only the message discriminates.
+
 | Variant | Backend emits it when | Controller does |
 |---|---|---|
 | `EndedNaturally` | position is within `completionTolerance` of duration | advance the queue |
@@ -113,6 +125,25 @@ Other rules that survive the change:
 - On resume after a long pause, refresh expired audio URLs before playing.
 - Fire-and-forget backend cleanup futures must catch and log; async `dispose()`
   failures must not become unhandled async errors.
+
+## Live Edge Seek
+
+`seekToLive()` is a ladder in `live_edge_seek_policy.dart`, shared by both
+backends: the reported duration first, then the buffered edge, each targeting
+one second before its edge and each **verified by re-reading the position**
+after `AppConstants.seekVerificationDelay`. The verification is the point — an
+unseekable stream reports no error on either engine, it just does not move, and
+a position change smaller than that one-second margin is indistinguishable from
+the stream playing on.
+
+Returning `false` is not a neutral outcome: `RadioController.sync()` reads it as
+"reconnect the whole stream". media_kit used to carry only the duration step;
+the buffered one was added for parity, and on Windows it is measured never to
+lead — mpv reports a duration for a Bilibili live FLV about 50 s after the
+stream opens, always at or ahead of its cache time, and before that instant
+position, duration and cache time are all exactly zero, so neither step can
+fire. The buffered step matters on ExoPlayer, where a live duration really is
+usually absent, and as the backstop when a duration seek has no effect.
 
 ## Timeout Budget
 
@@ -165,6 +196,11 @@ return `true`.
 - Disarming hangs off the queue-state update — every queue change already
   reaches it, so one comparison there replaces a disarm call on each of the
   seven queue commands.
+- The playlist edit itself is `NextMediaPlan` (`next_media_plan.dart`): the
+  invariant "current item plus at most one lookahead" is computed once and each
+  backend only calls its own list API with the result. The trim of the played
+  entry follows the same plan. Same reason as the end-reason rules — the loop
+  used to exist twice and neither copy runs in `flutter test`.
 - The one-second position fallback yields while something is armed, but only for
   a few ticks. It exists because Android loses the completed event in the
   background; standing down for good would trade one bug for another.
