@@ -10,6 +10,7 @@ import 'package:fmp/data/models/live_room.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/sources/audio_stream_quality_fallback.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/sources/bilibili_live_client.dart';
@@ -350,7 +351,7 @@ class BilibiliSource
     );
 
     // 根据音质等级选择
-    final selected = _selectByQualityLevel(sortedAudios, config.qualityLevel);
+    final selected = selectByQualityLevel(sortedAudios, config.qualityLevel);
     if (selected == null) return null;
 
     final audioUrl = _dashAudioUrls(
@@ -461,20 +462,6 @@ class BilibiliSource
       );
     }
     return cid as int;
-  }
-
-  /// 根据音质等级选择
-  T? _selectByQualityLevel<T>(List<T> sortedItems, AudioQualityLevel level) {
-    if (sortedItems.isEmpty) return null;
-
-    switch (level) {
-      case AudioQualityLevel.high:
-        return sortedItems.first;
-      case AudioQualityLevel.medium:
-        return sortedItems[sortedItems.length ~/ 2];
-      case AudioQualityLevel.low:
-        return sortedItems.last;
-    }
   }
 
   @override
