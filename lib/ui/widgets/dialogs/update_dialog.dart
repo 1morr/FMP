@@ -17,29 +17,83 @@ import 'package:fmp/services/update/update_service.dart';
 /// 就是 issue #82。
 ///
 /// 只處理實際會出現的：ATX 標題、無序清單、粗體、行內程式碼、連續空行。
+///
+/// 換行照 CommonMark 的軟換行規則走：body 是以約 76 欄硬換行寫的，逐行原樣
+/// 輸出會讓手機再折一次，畫面上是參差的縮排（issue #145）。所以先逐行去記號，
+/// 再把同一個區塊內的行用單一空白接起來 —— 空行分區塊，`• ` 開新項目，其餘
+/// 縮排續行併回目前的項目或段落。標題要在去記號**之前**認出來，否則它會跟
+/// 後面的段落黏成一行。
 String plainTextReleaseNotes(String source) {
-  final out = <String>[];
+  final blocks = <_NotesBlock>[];
+  _NotesBlock? open;
+
   for (final raw in source.replaceAll('\r\n', '\n').split('\n')) {
-    var line = raw.trimRight();
-    line = line.replaceFirst(RegExp(r'^\s{0,3}#{1,6}\s+'), '');
-    line = line.replaceFirstMapped(
-      RegExp(r'^(\s*)[-*+]\s+'),
-      (m) => '${m[1]}• ',
-    );
-    line = line.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m[1]!);
-    line = line.replaceAllMapped(RegExp('`(.+?)`'), (m) => m[1]!);
-    // 跨行的粗體（開頭在這一行、收尾在下一行）逐行對不上。實機在 v1.10.0 的
-    // Upgrading 段撞到過。留一次無條件清除 —— 目標是畫面上沒有記號，不是解析
-    // markdown。
-    line = line.replaceAll('**', '');
-    // 連續空行壓成一行，否則段落之間會空得像內容斷掉了。
-    if (line.isEmpty && (out.isEmpty || out.last.isEmpty)) continue;
-    out.add(line);
+    // 去記號後 `## A` 和 `A` 長得一樣，所以標題身分只能在這裡判定。
+    final isHeading = _headingPrefix.hasMatch(raw);
+    final line = _stripInlineMarkers(raw);
+    if (line.trim().isEmpty) {
+      open = null;
+      continue;
+    }
+    if (isHeading) {
+      blocks.add(_NotesBlock(_NotesBlockKind.heading, line.trim()));
+      open = null;
+      continue;
+    }
+    if (line.trimLeft().startsWith('• ')) {
+      open = _NotesBlock(_NotesBlockKind.listItem, line);
+      blocks.add(open);
+      continue;
+    }
+    if (open == null) {
+      open = _NotesBlock(_NotesBlockKind.paragraph, line.trim());
+      blocks.add(open);
+    } else {
+      open.text = '${open.text} ${line.trim()}';
+    }
   }
-  while (out.isNotEmpty && out.last.isEmpty) {
-    out.removeLast();
+
+  final buffer = StringBuffer();
+  for (var i = 0; i < blocks.length; i++) {
+    if (i > 0) {
+      // 區塊之間空一行；條列之間只隔一個換行。空一行是為了段落之間不要空得
+      // 像內容斷掉了，但同樣的空行用在清單上會把一份清單拆成好幾段。
+      final compact =
+          blocks[i].kind == _NotesBlockKind.listItem &&
+          blocks[i - 1].kind == _NotesBlockKind.listItem;
+      buffer.write(compact ? '\n' : '\n\n');
+    }
+    buffer.write(blocks[i].text.trimRight());
   }
-  return out.join('\n');
+  return buffer.toString();
+}
+
+final _headingPrefix = RegExp(r'^\s{0,3}#{1,6}\s+');
+final _bulletPrefix = RegExp(r'^(\s*)[-*+]\s+');
+final _boldSpan = RegExp(r'\*\*(.+?)\*\*');
+final _codeSpan = RegExp('`(.+?)`');
+
+/// 逐行去掉 markdown 記號，不動換行。
+String _stripInlineMarkers(String raw) {
+  var line = raw.trimRight();
+  line = line.replaceFirst(_headingPrefix, '');
+  line = line.replaceFirstMapped(_bulletPrefix, (m) => '${m[1]}• ');
+  line = line.replaceAllMapped(_boldSpan, (m) => m[1]!);
+  line = line.replaceAllMapped(_codeSpan, (m) => m[1]!);
+  // 跨行的粗體（開頭在這一行、收尾在下一行）逐行對不上。實機在 v1.10.0 的
+  // Upgrading 段撞到過。留一次無條件清除 —— 目標是畫面上沒有記號，不是解析
+  // markdown。
+  line = line.replaceAll('**', '');
+  return line;
+}
+
+enum _NotesBlockKind { heading, listItem, paragraph }
+
+class _NotesBlock {
+  _NotesBlock(this.kind, this.text);
+
+  final _NotesBlockKind kind;
+  String text;
 }
 
 /// 更新对话框
