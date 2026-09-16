@@ -281,7 +281,8 @@
     "normalMode": "正常启动",
     "normalModeDesc": "启动后显示主窗口",
     "minimizedMode": "最小化启动",
-    "minimizedModeDesc": "启动后最小化到系统托盘"
+    "minimizedModeDesc": "启动后最小化到系统托盘",
+    "portableHint": "便携版：移动 FMP 文件夹后，请在下次开机前先打开一次 FMP —— 在那之前 Windows 仍指向旧路径，不会启动它。"
   },
   "hotkeys": {
     "title": "全局快捷键",

@@ -1,6 +1,6 @@
 # 疑難排解
 
-已知的良性 runtime 噪音與其成因。這裡的結論已對照上游一手來源查證，**不要**再花時間「修好」它們。
+已知的良性 runtime 噪音、以及已查明「修不掉、只能繞過」的行為與其成因。這裡的結論都對照過一手來源，**不要**再花時間「修好」它們。
 
 ## Windows：`Failed to update ui::AXTree` log 洪水
 
@@ -43,6 +43,12 @@ flutter run -d windows 2> run.log
 Windows PowerShell 5.1 透過 `Select-String` pipe 時中文會變亂碼（UTF-8 位元組被系統代碼頁 GBK/CP936 解碼），先設 `[Console]::OutputEncoding` 即可修正（如上）。PowerShell 7（`pwsh`）預設 UTF-8，不受影響。
 
 VS Code 整合終端機沒有原生的「隱藏符合樣式的行」功能（已驗證至 v1.107）。請用上面任一種 pipe、把 stderr 導到檔案，或改用擷取後過濾的擴充套件（例如 *Better Terminal Logs*）。*Filter Lines* 擴充套件只作用於編輯器文件，不作用於即時終端機，因此不適用。
+
+## Windows 可攜版：搬動資料夾後的第一次開機不會自啟
+
+- **症狀**：可攜版（`fmp-<tag>-windows.zip`）把解壓資料夾搬到別的位置之後，**下一次開機**不會自動啟動 FMP，而設定頁的開關仍然顯示為開啟。**繞法**：手動開一次 FMP 就好了 —— 之後每一次開機都正常。開關顯示為開沒有說謊，它讀的是使用者自己存下來的設定，不是登錄檔。登錄檔項目在每次啟動時就被 `LaunchAtStartupNotifier._applyToSystem()` 用目前的執行檔路徑重寫過，所以「搬完之後有開過一次」與「搬完之後還沒開過」的差別只在那一次開機。
+
+這一段修不掉：要改寫登錄檔項目就得有一個正在跑的 FMP，而問題正是那一次開機 FMP 沒有被啟動。程式碼能做的只有把它講出來 —— 可攜版的開機自啟開關副標題多一行提示（`settings.launchAtStartup.portableHint`，安裝版不顯示）。安裝版沒有這個問題：安裝目錄不會被使用者搬走。
 
 ## 建置時的無害雜訊
 

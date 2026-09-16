@@ -281,7 +281,8 @@
     "normalMode": "Normal",
     "normalModeDesc": "Show main window on launch",
     "minimizedMode": "Minimized",
-    "minimizedModeDesc": "Minimize to system tray on launch"
+    "minimizedModeDesc": "Minimize to system tray on launch",
+    "portableHint": "Portable build: after moving the FMP folder, open FMP once before the next boot — until then Windows still points at the old path and will not start it."
   },
   "hotkeys": {
     "title": "Global Hotkeys",

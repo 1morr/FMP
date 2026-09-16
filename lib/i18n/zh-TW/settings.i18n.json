@@ -281,7 +281,8 @@
     "normalMode": "正常啟動",
     "normalModeDesc": "啟動後顯示主視窗",
     "minimizedMode": "最小化啟動",
-    "minimizedModeDesc": "啟動後最小化到系統列"
+    "minimizedModeDesc": "啟動後最小化到系統列",
+    "portableHint": "可攜版：搬動 FMP 資料夾後，請在下次開機前先開啟一次 FMP —— 在那之前 Windows 仍指向舊路徑，不會啟動它。"
   },
   "hotkeys": {
     "title": "全域快捷鍵",

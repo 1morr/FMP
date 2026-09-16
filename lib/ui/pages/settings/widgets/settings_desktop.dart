@@ -1,21 +1,54 @@
 part of '../settings_page.dart';
 
 /// 开机自启动设置
-class _LaunchAtStartupTile extends ConsumerWidget {
+///
+/// 公開（不是 `_LaunchAtStartupTile`）是為了讓 widget test 直接 pump 它 ——
+/// 可攜版提示分支只差一行副標題，值不得為此把整頁設定拉起來。同目錄的
+/// `AccountPlaylistsSheet` / `AccountRadioImportSheet` 已經是這個形狀。
+class LaunchAtStartupTile extends ConsumerWidget {
+  const LaunchAtStartupTile({super.key, this.isPortableBuild});
+
+  /// 覆寫「這份建置是不是可攜版」。
+  ///
+  /// 正式路徑留 null，由 [UpdateInfo.isInstalledVersion] 回答 —— 它看的是執行檔
+  /// 旁邊有沒有 `unins000.exe`，也就是唯一一份安裝型態偵測，不要再寫第二份。
+  /// 那個 getter 讀檔案系統，所以測試改用注入，而不是在暫存目錄裡擺一個假的
+  /// 反安裝程式。
+  final bool? isPortableBuild;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final startupState = ref.watch(launchAtStartupProvider);
+    final portable = isPortableBuild ?? !UpdateInfo.isInstalledVersion;
+
+    final modeText = startupState.enabled
+        ? (startupState.minimized
+              ? t.settings.launchAtStartup.minimizedMode
+              : t.settings.launchAtStartup.normalMode)
+        : t.settings.launchAtStartup.subtitle;
 
     return ListTile(
       leading: const Icon(Icons.power_settings_new_outlined),
       title: Text(t.settings.launchAtStartup.title),
-      subtitle: Text(
-        startupState.enabled
-            ? (startupState.minimized
-                  ? t.settings.launchAtStartup.minimizedMode
-                  : t.settings.launchAtStartup.normalMode)
-            : t.settings.launchAtStartup.subtitle,
-      ),
+      // 可攜版多一行提示，所以副標題會是兩行。
+      isThreeLine: portable,
+      subtitle: portable
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(modeText),
+                // 搬動資料夾之後的那一次開機修不了：app 沒跑就沒有機會改寫自己的
+                // 登錄檔項目（#39）。能做的只有讓使用者知道要先開一次。
+                Text(
+                  t.settings.launchAtStartup.portableHint,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ],
+            )
+          : Text(modeText),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
