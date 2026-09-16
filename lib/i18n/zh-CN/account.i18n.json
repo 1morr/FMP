@@ -35,6 +35,8 @@
   "neteaseVip": "网易云音乐VIP",
   "neteaseNotVip": "非网易云音乐VIP",
   "sessionExpired": "$platform 登录已失效，请重新登录",
+  "sessionExpiredShort": "登录已失效",
+  "relogin": "重新登录",
   "vipExpired": "$platform VIP 已过期",
   "checkingAccounts": "正在验证账号状态...",
   "accountsVerified": "账号验证完成",
