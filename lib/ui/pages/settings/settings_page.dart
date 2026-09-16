@@ -35,6 +35,7 @@ import 'package:fmp/providers/system/update_auto_check_provider.dart';
 import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/providers/system/backup_provider.dart';
 import 'package:fmp/services/backup/backup_service.dart';
+import 'package:fmp/services/update/update_service.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/widgets/dialogs/change_download_path_dialog.dart';
@@ -153,7 +154,7 @@ class SettingsPage extends ConsumerWidget {
             _SettingsSection(
               title: t.settings.desktop,
               children: [
-                _LaunchAtStartupTile(),
+                const LaunchAtStartupTile(),
                 _MinimizeToTrayTile(),
                 _GlobalHotkeysTile(),
               ],

@@ -12,7 +12,7 @@
 | 要發布新版本或調整 Release 流程 | [建置與發布指南](build-and-release.md) |
 | 要用 VM Service 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
 | 改了 UI／使用者可見行為，要做強制的 Android 模擬器實機驗證 | [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md) |
-| 遇到看起來像錯誤的建置或 runtime log 噪音 | [疑難排解](troubleshooting.md) |
+| 遇到看起來像錯誤的建置或 runtime log 噪音，或一個已知修不掉、只能繞過的行為 | [疑難排解](troubleshooting.md) |
 | 想知道接下來要做什麼、順序與驗收 | [整頓與重構計劃](plan.md)（2026-09-16 已全部執行完） |
 | 想知道 v1.9.1 之後改了什麼、能不能發版 | [v1.9.1 之後的變更與發版評估](changes-since-v1.9.1.md) |
 | 想知道某個架構決定「當初為什麼這樣選」 | [adr/](adr/) |
@@ -28,7 +28,7 @@
 | [建置指南](building.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
 | [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
 | [VM Service 調試指南](debugging-with-vm-service.md) | 調試者 / agent | 透過 Dart VM Service 與 Isar Inspector 做運行期檢查 |
-| [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性建置與 runtime 噪音（如 Windows `Failed to update ui::AXTree`、`resolve_symlinks.ps1` 的 `Get-Item` 警告）與其成因 |
+| [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性建置與 runtime 噪音（如 Windows `Failed to update ui::AXTree`、`resolve_symlinks.ps1` 的 `Get-Item` 警告），以及修不掉只能繞過的已知行為（如可攜版搬動後的第一次開機自啟）與其成因 |
 | [adr/](adr/) | 貢獻者 / agent | 架構決策記錄：決定了什麼、為什麼，以及被否決的替代方案與否決的證據 |
 | [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
 
