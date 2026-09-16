@@ -13,8 +13,6 @@
 | 要用 VM Service 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
 | 改了 UI／使用者可見行為，要做強制的 Android 模擬器實機驗證 | [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md) |
 | 遇到看起來像錯誤的建置或 runtime log 噪音，或一個已知修不掉、只能繞過的行為 | [疑難排解](troubleshooting.md) |
-| 想知道接下來要做什麼、順序與驗收 | [整頓與重構計劃](plan.md)（2026-09-16 已全部執行完） |
-| 想知道 v1.9.1 之後改了什麼、能不能發版 | [v1.9.1 之後的變更與發版評估](changes-since-v1.9.1.md) |
 | 想知道某個架構決定「當初為什麼這樣選」 | [adr/](adr/) |
 | 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
 
@@ -22,8 +20,6 @@
 
 | 文件 | 讀者 | 用途 |
 |------|------|------|
-| [整頓與重構計劃](plan.md) | 維護者 / agent | 2026-09 審計後的里程碑、任務、驗收與待拍板決策；完成一個里程碑就更新它的進度表 |
-| [v1.9.1 之後的變更與發版評估](changes-since-v1.9.1.md) | 維護者 | 一次性的發版評估：三段變更、逐類好壞判定、發版前四件事、發版後可清理清單。**v1.10.2 發布後連同 `plan.md` 一起刪** |
 | [開發文件](development.md) | 貢獻者 | 專案概覽、技術棧、架構地圖、目前開發規則摘要 |
 | [建置指南](building.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
 | [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
@@ -50,5 +46,5 @@
 - 模擬器啟動方式、實機驗證流程或裝置端限制變更：更新 [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md)，並讓 `AGENTS.md` 的 Agent Skills 只保留一行指引。
 - 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
 - 審查記錄不進 `docs/`。一輪審計的結論要嘛寫進它所描述的檔案、要嘛開成 issue，
-  要嘛留在 git 歷史；2026-09 的五份報告與執行記錄都在 `35d3c7a2` 之前的歷史裡。
+  要嘛留在 git 歷史；2026-09 的五份報告與執行記錄都在 `35d3c7a2` 之前的歷史裡，同一輪的整頓計劃（`plan.md`，M0–M5 的任務、驗收與結果）與 v1.10.2 的發版評估（`changes-since-v1.9.1.md`）在 `d0b05fde` 之前。
 - 不要把同一條規則複製到多個文件，除非目標文件確實擁有對應讀者和維護責任。
