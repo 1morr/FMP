@@ -20,6 +20,7 @@ import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/update/update_service.dart';
+import 'package:fmp/ui/startup_failure_app.dart';
 import 'package:fmp/ui/windows/lyrics_window.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 
@@ -40,6 +41,54 @@ Color? preloadedPrimaryColor;
 
 /// 预读的字体
 String? preloadedFontFamily;
+
+/// `runApp()` 是否已經被呼叫過。
+///
+/// 這是錯誤處理器唯一能分辨兩種失敗的依據。`runApp()` **之後**的例外已經有畫面
+/// 接手（`lib/app.dart` 的 init-failure 分支、各頁的 ErrorDisplay）；**之前**的
+/// 例外會讓整個 `runZonedGuarded` body 中止，`runApp()` 從不執行 —— 而 Flutter
+/// 的 Windows 桌面模板把視窗的 `Show` 綁在第一帧回呼上，於是沒有第一帧就沒有
+/// 視窗，使用者雙擊之後什麼都不會發生（issue #37）。
+bool _appStarted = false;
+
+/// 錯誤畫面只頂替一次：第一個例外之後的連鎖失敗覆蓋掉最初的原因沒有意義。
+bool _startupFailureShown = false;
+
+/// 綁定被初始化的那個 zone，也就是 `runZonedGuarded` 的 body 所在的 zone。
+///
+/// 錯誤畫面必須在**同一個** zone 裡 `runApp()`。zone 的 error handler 是在外層
+/// （root）zone 執行的，直接在那裡呼叫 `runApp()` 會撞上 `debugCheckZone` 的
+/// `Zone mismatch` 斷言 —— 實機驗證時看到的就是這個。
+Zone? _startupZone;
+
+/// 把 `runApp()` 之前的靜默失敗換成看得見的失敗。
+///
+/// 呼叫端都已經先把原文記進 [AppLogger]，這裡不再記一次 —— 這個函式只負責畫面。
+void _showStartupFailure(Object error) {
+  if (_appStarted || _startupFailureShown) return;
+  _startupFailureShown = true;
+  try {
+    // `run` 而不是 `runGuarded`：這裡拋出來的東西要由下面的 catch 收，
+    // 交回 zone handler 只會繞回自己。
+    (_startupZone ?? Zone.current).run(() {
+      runApp(
+        StartupFailureApp(
+          error: error,
+          logFilePath: AppLogger.fileSink?.currentFilePath,
+        ),
+      );
+    });
+  } catch (e, stack) {
+    // 連錯誤畫面都起不來就只剩 log 了。這裡絕不能再拋：拋出去就退回原本的
+    // 「無視窗、無提示」，比什麼都不做更糟。
+    AppLogger.error(
+      'Failed to show the startup failure screen',
+      e,
+      stack,
+      'Startup',
+    );
+  }
+}
 
 void main(List<String> args) async {
   // 子窗口入口：如果是由 desktop_multi_window 创建的子窗口，走独立入口
@@ -66,11 +115,16 @@ void main(List<String> args) async {
   // 错误走 PlatformDispatcher.onError；不设它们在 release 模式下不留任何痕迹。
   PlatformDispatcher.instance.onError = (error, stack) {
     AppLogger.error('Uncaught platform error', error, stack, 'PlatformError');
+    // 這個處理器掛在 runZonedGuarded **之前**，所以平台通道回呼在啟動期拋出的
+    // 錯誤同樣到得了這裡，而且同樣是一次無視窗的靜默失敗。
+    _showStartupFailure(error);
     return true;
   };
 
   runZonedGuarded(
     () async {
+      // 記在 binding 初始化之前，這樣錯誤畫面一定跟綁定在同一個 zone。
+      _startupZone = Zone.current;
       WidgetsFlutterBinding.ensureInitialized();
 
       // log 落盤。必須排在 binding 之後（path_provider 需要它），而上面兩個
@@ -208,9 +262,13 @@ void main(List<String> args) async {
           child: TranslationProvider(child: const FMPApp()),
         ),
       );
+      // 緊接著 runApp()，中間不要插任何會拋的東西：這一行沒跑到，錯誤處理器
+      // 就會判定「還沒起來」而頂上錯誤畫面。
+      _appStarted = true;
     },
     (error, stackTrace) {
       AppLogger.error('Uncaught async error', error, stackTrace, 'Zone');
+      _showStartupFailure(error);
     },
   );
 }
