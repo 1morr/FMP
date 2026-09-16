@@ -30,11 +30,11 @@ const _path = 'lib/services/audio/audio_provider.dart';
 
 /// 2026-09-16 的實測值（後端事件路由抽成 `playback_event_router.dart` 之後）。
 ///
-/// 上一格是 2,178（issue #106 的輸出裝置重試抑制）。**只降了十三行**，而那不是
+/// 上一格是 2,178（issue #106 的輸出裝置重試抑制）。**只降了十一行**，而那不是
 /// 抽取失敗：搬走的一百多行路由條件，換回來的是一張快照建構子（協作者一律在
 /// 那裡問完）與一個二十格的 `switch`。這一輪買的是「每一條路由決定都變成純斷
 /// 言」，不是行數 —— 決定住在 `PlaybackEventRouter`，控制器只剩下副作用本身。
-const _maxCodeLines = 2165;
+const _maxCodeLines = 2167;
 
 /// 低於上限多少行就要求把上限調下來。
 const _slack = 50;

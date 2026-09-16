@@ -2754,6 +2754,8 @@ class AudioController extends Notifier<PlayerState>
     switch (action) {
       case IgnoreEvent(:final reason):
         logDebug('Playback event ignored: $reason');
+      case NothingToDo():
+        break;
       case CancelBufferWatchdog():
         _bufferWatchdog.cancel();
       case PauseBackend(:final reason):

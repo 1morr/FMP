@@ -138,13 +138,23 @@ sealed class PlaybackAction {
   const PlaybackAction();
 }
 
-/// 什麼都不做，但留下一行說明為什麼。
+/// 有一個事件抵達了，但刻意丟棄 —— 留下一行說明為什麼。
 ///
-/// [reason] 是給日誌看的英文短句；靜默丟棄是這個檔案唯一禁止的結果。
+/// [reason] 是給日誌看的英文短句：一個事件被吞掉而日誌上什麼都沒有，是這個檔案
+/// 唯一禁止的結果。
 final class IgnoreEvent extends PlaybackAction {
   const IgnoreEvent(this.reason);
 
   final String reason;
+}
+
+/// 輪詢什麼都沒發現，**不記日誌**。
+///
+/// 與 [IgnoreEvent] 的差別是「有沒有事件」：位置檢查是一秒一格的輪詢，不是後端
+/// 送來的事件。沒在播的時候給它一行 `Playback event ignored`，一天就是八萬多
+/// 行，而 `LogFileSink` 只留三個檔 —— 真正要查的東西會被這些空轉刷掉。
+final class NothingToDo extends PlaybackAction {
+  const NothingToDo();
 }
 
 /// 收掉正在計時的緩衝看門狗。
@@ -447,16 +457,14 @@ abstract final class PlaybackEventRouter {
 
   /// 一秒一格的位置檢查備援（Android 背景播放會把 completed 事件弄丟）。
   static PlaybackAction routePositionCheck(PlaybackEventContext context) {
-    if (context.isDisposed) {
-      return const IgnoreEvent('the controller is disposed');
-    }
-    if (!context.backendIsPlaying) {
-      return const IgnoreEvent('the backend is not playing');
-    }
+    // 這三條都是 [NothingToDo] 而不是 [IgnoreEvent]：一秒一格的輪詢沒發現東西
+    // 不是「吞掉了一個事件」，記下來只會把日誌洗掉。
+    if (context.isDisposed) return const NothingToDo();
+    if (!context.backendIsPlaying) return const NothingToDo();
 
     final duration = context.duration;
     if (duration == null || duration.inMilliseconds <= 0) {
-      return const IgnoreEvent('no usable duration to compare against');
+      return const NothingToDo();
     }
     if (duration - context.position > AppConstants.positionCheckThreshold) {
       return const ResetArmedEndTicks();

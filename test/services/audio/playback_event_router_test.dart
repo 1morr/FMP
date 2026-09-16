@@ -499,7 +499,9 @@ void main() {
     // 容忍窗是 `AppConstants.positionCheckThreshold`（500ms），這裡剩 200ms。
     const nearTheEnd = Duration(minutes: 3, seconds: 3, milliseconds: 800);
 
-    test('a paused backend is not checked at all', () {
+    // 這一組刻意斷言 `NothingToDo` 而不是 `IgnoreEvent`：位置檢查一秒一格，
+    // 給每一格記一行「事件被忽略」一天就是八萬多行，而日誌只留三個檔。
+    test('a paused backend is not checked at all, and not logged either', () {
       expect(
         PlaybackEventRouter.routePositionCheck(
           _context(
@@ -508,7 +510,7 @@ void main() {
             duration: trackLength,
           ),
         ),
-        isA<IgnoreEvent>(),
+        isA<NothingToDo>(),
       );
     });
 
@@ -518,9 +520,22 @@ void main() {
           PlaybackEventRouter.routePositionCheck(
             _context(position: nearTheEnd, duration: duration),
           ),
-          isA<IgnoreEvent>(),
+          isA<NothingToDo>(),
         );
       }
+    });
+
+    test('a disposed controller polls nothing', () {
+      expect(
+        PlaybackEventRouter.routePositionCheck(
+          _context(
+            isDisposed: true,
+            position: nearTheEnd,
+            duration: trackLength,
+          ),
+        ),
+        isA<NothingToDo>(),
+      );
     });
 
     test('far from the end the armed tick count is reset', () {
