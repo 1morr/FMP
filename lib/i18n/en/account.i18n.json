@@ -35,6 +35,8 @@
   "neteaseVip": "NetEase VIP",
   "neteaseNotVip": "Not a NetEase VIP member",
   "sessionExpired": "$platform login has expired, please log in again",
+  "sessionExpiredShort": "Login expired",
+  "relogin": "Log in again",
   "vipExpired": "$platform VIP has expired",
   "checkingAccounts": "Verifying account status...",
   "accountsVerified": "Account verification complete",

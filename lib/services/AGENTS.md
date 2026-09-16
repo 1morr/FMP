@@ -116,6 +116,27 @@ and logs a fixed message rather than letting the exception out —
 exception turns every API request into an error. It does not latch: a transient
 failure is retried on the next call.
 
+**失效標記，登出刪列。** 憑證被來源拒絕時呼叫 `markSessionExpired()`：憑證照樣
+從 `SecureKeyValueStore` 清掉（失效的 cookie 再附到請求上只會換來同一個錯誤），
+但 `Account` 列留著，`isLoggedIn` 轉 false、`sessionExpired` 轉 true；`logout()`
+才是刪整列。差別是給使用者看的 —— 帳號頁必須能把「從沒登入過」和「登入過期了」
+分成兩種呈現，而列一旦被刪掉，這兩件事在 UI 上就長得一模一樣（#92 / #93）。登入
+成功會把旗標清回 false。
+
+三個偵測點：`verifyAllAccountStatuses` 的 `AccountStatus.invalid` 分支（啟動檢查
+與帳號頁的重新驗證）、Bilibili 攔截器的 -101/-111（**刷新也換不回有效 cookie 時
+才算**，否則正常的 cookie 輪替會被當成失效）、Netease 攔截器的 `code == 301`（只
+在帳號還是登入狀態時才算 —— 匿名請求本來就會拿到 301）。YouTube 只有狀態檢查這
+一條路。網易的串流錯誤分類（`netease_source.dart`）同樣看得到 301，但它在
+`lib/data/`，不能往上呼叫帳號服務，所以不是偵測點。
+
+提示的一次性由 `SessionExpiryNotifier`（`session_expiry_notifier.dart`）持有的
+`Set` 擋住：一個 app session 內每個平台最多提示一次。攔截器是在服務內部建構的，
+拿不到 Riverpod，所以請求期偵測到的失效只寫資料庫，提示由
+`accountSessionExpiryWatcherProvider`（`lib/providers/account/`）看著 `Account`
+列「轉成失效」的那一次變化補上。兩條路共用同一個 Set，所以同一次失效不會提示
+兩次；那個 watcher 錨在 `lib/app.dart`。
+
 FMP pins `flutter_secure_storage` to 10.x. v10 re-encrypts Android credentials
 on first read, and 11.x removes the 9.x ciphers it migrates from. **A bump to
 11.x is a release-sequencing decision, not a routine version bump.** A user who

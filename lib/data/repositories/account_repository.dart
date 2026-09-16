@@ -44,6 +44,7 @@ class AccountRepository {
     String? avatarUrl,
     DateTime? loginAt,
     bool? isVip,
+    bool? sessionExpired,
   }) async {
     await _isar.writeTxn(() async {
       final account =
@@ -55,11 +56,19 @@ class AccountRepository {
       if (avatarUrl != null) account.avatarUrl = avatarUrl;
       if (loginAt != null) account.loginAt = loginAt;
       if (isVip != null) account.isVip = isVip;
+      if (sessionExpired != null) account.sessionExpired = sessionExpired;
       account.lastRefreshed = DateTime.now();
 
       await _isar.accounts.put(account);
     });
   }
+
+  /// 刪除某平台的帳號列。
+  ///
+  /// 登出用這一條：列留著就分不出「沒登入過」和「登入失效」了（見
+  /// [Account.sessionExpired]）。
+  Future<void> deleteForPlatform(String platform) =>
+      replaceForPlatform(platform, null);
 
   /// 用 [account] 整個取代某平台的帳號；傳 null 表示刪除該平台的帳號。
   ///

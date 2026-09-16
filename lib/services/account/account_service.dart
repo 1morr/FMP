@@ -21,8 +21,14 @@ abstract class AccountService {
   /// 獲取當前用戶信息
   Future<Account?> getCurrentAccount();
 
-  /// 登出
+  /// 登出：清掉憑證並刪除 [Account] 列。
   Future<void> logout();
+
+  /// 標記登入已失效：清掉憑證，但保留 [Account] 列（`sessionExpired = true`）。
+  ///
+  /// 與 [logout] 的差別在於列留不留 —— 帳號頁要靠它把「從沒登入過」和「登入
+  /// 過期了」分成兩種呈現。憑證照樣清掉：失效的 cookie 不該再附到請求上。
+  Future<void> markSessionExpired();
 
   /// 刷新認證（Cookie/Token）
   /// 返回 true 表示刷新成功，false 表示需要重新登錄

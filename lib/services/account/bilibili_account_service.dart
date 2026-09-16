@@ -123,6 +123,7 @@ class BilibiliAccountService extends AccountService with Logging {
       isLoggedIn: true,
       userId: dedeUserId,
       loginAt: DateTime.now(),
+      sessionExpired: false,
     );
 
     logInfo('Bilibili login successful, userId: $dedeUserId');
@@ -290,8 +291,8 @@ class BilibiliAccountService extends AccountService with Logging {
     await _secureStorage.delete(key: _storageKey);
     _cachedCredentials = null;
 
-    // 更新 Account 記錄
-    await _updateAccount(isLoggedIn: false);
+    // 刪掉整列：登出之後要跟「從沒登入過」長得一樣
+    await _accounts.deleteForPlatform(SourceIds.bilibili);
 
     // 清除 WebView cookies，避免重新登入時自動使用舊帳號。
     // 域名與 bilibili_login_page.dart 載入的三個一致。
@@ -309,6 +310,15 @@ class BilibiliAccountService extends AccountService with Logging {
     }
 
     logInfo('Bilibili logged out');
+  }
+
+  @override
+  Future<void> markSessionExpired() async {
+    // 憑證照清 —— 失效的 cookie 再附到請求上只會換來同一個錯誤。
+    await _secureStorage.delete(key: _storageKey);
+    _cachedCredentials = null;
+    await _updateAccount(isLoggedIn: false, sessionExpired: true);
+    logWarning('Bilibili session expired, credentials cleared');
   }
 
   @override
@@ -574,6 +584,7 @@ class BilibiliAccountService extends AccountService with Logging {
     String? avatarUrl,
     DateTime? loginAt,
     bool? isVip,
+    bool? sessionExpired,
   }) async {
     await _accounts.upsert(
       SourceIds.bilibili,
@@ -583,6 +594,7 @@ class BilibiliAccountService extends AccountService with Logging {
       avatarUrl: avatarUrl,
       loginAt: loginAt,
       isVip: isVip,
+      sessionExpired: sessionExpired,
     );
   }
 

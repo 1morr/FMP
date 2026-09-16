@@ -10,6 +10,10 @@ import 'package:fmp/services/account/bilibili_account_service.dart';
 /// 自動注入認證 Cookie 到請求，並檢測 -101/-111 認證錯誤。
 /// Bilibili API 返回 HTTP 200 + JSON `{"code": -101}` 表示認證失敗，
 /// 因此需要在 onResponse 中攔截（而非 onError）。
+///
+/// 刷新換不回有效的 cookie 時把帳號標成失效（`markSessionExpired()`）。
+/// 攔截器是在服務內部建構的，拿不到 Riverpod，所以這裡只寫狀態 —— 提示由
+/// `accountSessionExpiryWatcherProvider` 看著 `Account` 列補上。
 class BilibiliAuthInterceptor extends Interceptor with Logging {
   final BilibiliAccountService _accountService;
   Completer<bool>? _refreshCompleter;
@@ -64,10 +68,20 @@ class BilibiliAuthInterceptor extends Interceptor with Logging {
   /// 使用 Completer 確保併發請求只觸發一次刷新，其他請求等待結果。
   Future<Response?> _refreshAndRetry(RequestOptions requestOptions) async {
     final refreshed = await _ensureRefreshed();
-    if (!refreshed) return null;
+    if (!refreshed) {
+      await _accountService.markSessionExpired();
+      return null;
+    }
 
     try {
-      return await _accountService.dio.fetch(requestOptions);
+      final retryResponse = await _accountService.dio.fetch(requestOptions);
+      // 換過 cookie 還是 -101/-111：憑證是真的失效，不是暫時的。刷新「不需要
+      // 刷新」時也會回 true，所以這條分支不是多餘的。
+      if (_isAuthError(retryResponse)) {
+        await _accountService.markSessionExpired();
+        return null;
+      }
+      return retryResponse;
     } catch (e) {
       logError('Retry after refresh failed', e);
       return null;

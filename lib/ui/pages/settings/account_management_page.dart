@@ -63,6 +63,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             icon: SimpleIcons.bilibili,
             iconColor: kBrandBilibili,
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
+            sessionExpired: bilibiliAccount?.sessionExpired ?? false,
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
             isVip: bilibiliAccount?.isLoggedIn == true
@@ -85,6 +86,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             icon: SimpleIcons.youtube,
             iconColor: kBrandYoutube,
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
+            sessionExpired: youtubeAccount?.sessionExpired ?? false,
             userName: youtubeAccount?.userName,
             avatarUrl: youtubeAccount?.avatarUrl,
             isVip: youtubeAccount?.isLoggedIn == true
@@ -106,6 +108,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             icon: SimpleIcons.neteasecloudmusic,
             iconColor: kBrandNetease,
             isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
+            sessionExpired: neteaseAccount?.sessionExpired ?? false,
             userName: neteaseAccount?.userName,
             avatarUrl: neteaseAccount?.avatarUrl,
             isVip: neteaseAccount?.isLoggedIn == true
@@ -137,7 +140,11 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
         ref.read(neteaseAccountServiceProvider),
       ];
 
-      final result = await verifyAllAccountStatuses(services, toastService);
+      final result = await verifyAllAccountStatuses(
+        services,
+        toastService,
+        sessionExpiry: ref.read(sessionExpiryNotifierProvider),
+      );
       if (result.hasFailures) {
         final platforms = result.failedPlatforms
             .map((platform) => SourceIds.displayNameFor(platform))
@@ -215,6 +222,7 @@ class _PlatformCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final bool isLoggedIn;
+  final bool sessionExpired;
   final String? userName;
   final String? avatarUrl;
   final bool? isVip;
@@ -230,6 +238,7 @@ class _PlatformCard extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     required this.isLoggedIn,
+    this.sessionExpired = false,
     this.userName,
     this.avatarUrl,
     this.isVip,
@@ -243,17 +252,28 @@ class _PlatformCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.t;
     final colorScheme = Theme.of(context).colorScheme;
-    final avatar = isLoggedIn && avatarUrl != null
+    // 失效態保留頭像與暱稱：使用者要認得出這是「我那個帳號」過期了，
+    // 而不是從沒登入過。
+    final isExpired = sessionExpired && !isLoggedIn;
+    final avatar = (isLoggedIn || isExpired) && avatarUrl != null
         ? AvatarImage(networkUrl: avatarUrl, size: 48)
         : CircleAvatar(
             radius: 24,
             backgroundColor: iconColor.withValues(alpha: 0.1),
             child: Icon(icon, color: iconColor, size: 28),
           );
-    final accountText = isLoggedIn
-        ? userName ?? t.account.loggedIn
-        : t.account.notLoggedIn;
+    final String accountText;
+    if (isLoggedIn) {
+      accountText = userName ?? t.account.loggedIn;
+    } else if (isExpired) {
+      accountText = userName == null
+          ? t.account.sessionExpiredShort
+          : '$userName · ${t.account.sessionExpiredShort}';
+    } else {
+      accountText = t.account.notLoggedIn;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -263,9 +283,6 @@ class _PlatformCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final shouldStackActions =
-                  isLoggedIn && constraints.maxWidth < 520;
-
               final info = Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,7 +304,11 @@ class _PlatformCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                                ?.copyWith(
+                                  color: isExpired
+                                      ? colorScheme.error
+                                      : colorScheme.onSurfaceVariant,
+                                ),
                           ),
                         ),
                         if (isLoggedIn && isVip == true) ...[
@@ -307,21 +328,45 @@ class _PlatformCard extends StatelessWidget {
                 ),
               );
 
-              final actionButtons = <Widget>[
-                OutlinedButton(
-                  onPressed: onManagePlaylists,
-                  child: Text(t.account.playlists),
-                ),
-                if (onImportRadio != null)
-                  OutlinedButton(
-                    onPressed: onImportRadio,
-                    child: Text(t.account.radioStations),
-                  ),
-                OutlinedButton(
-                  onPressed: onLogout,
-                  child: Text(t.account.logout),
-                ),
-              ];
+              // 三態各自的尾端按鈕：已登入、登入失效、未登入。
+              // 失效態的主按鈕走的是同一條登入流程，次按鈕把整列清掉。
+              final actionButtons = isLoggedIn
+                  ? <Widget>[
+                      OutlinedButton(
+                        onPressed: onManagePlaylists,
+                        child: Text(t.account.playlists),
+                      ),
+                      if (onImportRadio != null)
+                        OutlinedButton(
+                          onPressed: onImportRadio,
+                          child: Text(t.account.radioStations),
+                        ),
+                      OutlinedButton(
+                        onPressed: onLogout,
+                        child: Text(t.account.logout),
+                      ),
+                    ]
+                  : isExpired
+                  ? <Widget>[
+                      FilledButton(
+                        onPressed: onLogin,
+                        child: Text(t.account.relogin),
+                      ),
+                      OutlinedButton(
+                        onPressed: onLogout,
+                        child: Text(t.account.logout),
+                      ),
+                    ]
+                  : <Widget>[
+                      FilledButton(
+                        onPressed: onLogin,
+                        child: Text(t.account.login),
+                      ),
+                    ];
+
+              // 單顆按鈕永遠排得下，多顆才需要在窄卡片上換行。
+              final shouldStackActions =
+                  actionButtons.length > 1 && constraints.maxWidth < 520;
 
               if (shouldStackActions) {
                 return Column(
@@ -347,21 +392,15 @@ class _PlatformCard extends StatelessWidget {
                   avatar,
                   const SizedBox(width: 16),
                   info,
-                  if (isLoggedIn)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var i = 0; i < actionButtons.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 8),
-                          actionButtons[i],
-                        ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < actionButtons.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        actionButtons[i],
                       ],
-                    )
-                  else
-                    FilledButton(
-                      onPressed: onLogin,
-                      child: Text(t.account.login),
-                    ),
+                    ],
+                  ),
                 ],
               );
             },

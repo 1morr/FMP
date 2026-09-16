@@ -121,6 +121,9 @@ class FMPApp extends ConsumerWidget {
         // 啟動時檢查帳號狀態（含 Cookie 刷新，後台執行）
         ref.watch(accountStatusCheckProvider);
 
+        // 請求期偵測到的登入失效，由它補一次提示
+        ref.watch(accountSessionExpiryWatcherProvider);
+
         // 啟動後靜默同步已下載頁面的本地文件狀態
         ref.watch(startupDownloadSyncProvider);
 
