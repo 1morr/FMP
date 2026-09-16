@@ -60,6 +60,18 @@ alternatives that were rejected, are in `docs/adr/0002-repository-boundary.md`.
 - Non-persisted DTOs also live in `lib/data/models/`. Do not add migration logic
   for one unless it becomes a registered schema.
 
+播放歷史有保留上限，理由不是磁碟空間，而是 `PlayHistoryRepository` 裡三處
+`findAll()` 全表掃描：`getHistoryStats`、`getMostPlayed`，以及帶篩選條件時的
+`queryHistory`。沒有上限，它們的成本隨使用時間無界成長。倉庫負責裁
+（`addHistory(keepAtMost:)` 在插入的同一個 `writeTxn` 裡刪掉最舊的，
+`trimToLimit()` 讓調小後的上限立刻生效），但**數字由呼叫端給** —— 資料層不得
+往上 import，讀 `Settings.playHistoryLimit` 的是
+`PlayHistoryRecorder`（`lib/services/audio/`）。
+
+重新評估的觸發條件：任何需要比上限更舊的歷史的功能（年度統計、匯出）出現時，
+上限就得改成以**時間**為界，或者先把那三個掃描改寫成查詢 —— 不要用調高上限去
+換，那只是把同一個問題往後推。
+
 ## Migration And Default Repair
 
 Isar upgrade defaults for a newly added field:

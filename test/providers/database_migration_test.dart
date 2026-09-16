@@ -443,6 +443,24 @@ void main() {
       );
     });
 
+    test('repairs a play history limit that predates the field', () async {
+      await openTestDatabase();
+
+      // Isar 給舊列的非空 int 是 minLong，不是 Dart 的初值。不修的話上限
+      // 會是負數，而負數在倉庫裡代表「不裁」—— 靜默地等於沒有上限。
+      final stale = Settings()
+        ..schemaVersion = kFmpSchemaVersion
+        ..playHistoryLimit = -9223372036854775808;
+      await isar.writeTxn(() async => isar.settings.put(stale));
+
+      await runDatabaseMigration(isar);
+
+      expect(
+        (await isar.settings.get(0))!.playHistoryLimit,
+        kDefaultPlayHistoryLimit,
+      );
+    });
+
     test('a non-finite width falls back to the default', () async {
       await openTestDatabase();
 

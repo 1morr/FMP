@@ -198,6 +198,13 @@ Set<String> normalizeDisabledHomeRankingSources(String value) {
   return disabled;
 }
 
+/// 播放歷史的預設保留上限。
+///
+/// 上限存在的理由不是磁碟空間，而是 `PlayHistoryRepository` 裡三個
+/// `findAll()` 全表掃描（`getHistoryStats`、`getMostPlayed`、有篩選條件的
+/// `queryHistory`）—— 沒有上限時它們的成本隨使用時間無界成長。
+const int kDefaultPlayHistoryLimit = 10000;
+
 /// 应用设置实体（单例模式，始终使用 ID 0）
 @collection
 class Settings {
@@ -253,6 +260,12 @@ class Settings {
 
   /// 临时播放恢复时回退秒数
   int tempPlayRewindSeconds = 10;
+
+  /// 播放歷史保留的最大筆數；超出時由最舊的一筆開始刪。
+  ///
+  /// 倉庫只負責裁，數字由呼叫端給 —— `lib/data/AGENTS.md` § Models And
+  /// Repositories 記了為什麼。
+  int playHistoryLimit = kDefaultPlayHistoryLimit;
 
   // ========== 下载设置 ==========
 

@@ -105,6 +105,7 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.history),
               ),
+              _PlayHistoryLimitListTile(),
               _AutoScrollToPlayingTile(),
               _RememberPlaybackPositionTile(),
               _AutoMatchLyricsTile(),

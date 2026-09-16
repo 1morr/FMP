@@ -237,6 +237,7 @@ final playbackSideEffectsProvider = Provider<PlaybackSideEffect>((ref) {
     PlayHistorySideEffect(
       PlayHistoryRecorder(
         repository: _readOptional(ref, playHistoryRepositoryProvider),
+        settingsRepository: _readOptional(ref, settingsRepositoryProvider),
       ),
     ),
     LyricsAutoMatchSideEffect(ref.watch(lyricsAutoMatchCoordinatorProvider)),

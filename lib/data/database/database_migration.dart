@@ -217,6 +217,12 @@ bool repairSettingsInvariants(Settings settings) {
     settings.maxLyricsCacheFiles < 1,
     () => settings.maxLyricsCacheFiles = 50,
   );
+  // 新增的非空 int 欄位在舊列上讀出來是 Isar.minLong，不是 Dart 的初值。
+  // 這條同時擋下壞掉的備份匯入寫進 0 —— 0 會把整份歷史裁光。
+  fix(
+    settings.playHistoryLimit < 1,
+    () => settings.playHistoryLimit = kDefaultPlayHistoryLimit,
+  );
   fix(
     settings.lyricsAiTimeoutSeconds < 1,
     () => settings.lyricsAiTimeoutSeconds =

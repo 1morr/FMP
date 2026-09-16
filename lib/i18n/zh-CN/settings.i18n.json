@@ -62,6 +62,12 @@
     "title": "播放历史",
     "subtitle": "查看和管理播放记录"
   },
+  "playHistoryLimit": {
+    "title": "播放历史上限",
+    "subtitle": "最多保留 $n 条，超出后自动删除最旧的记录",
+    "dialogDescription": "超出上限时会自动删除最旧的播放记录，此操作不可撤销。",
+    "unit": "$n 条"
+  },
   "rememberPosition": {
     "title": "记住播放位置",
     "configRewind": "配置回退时间"

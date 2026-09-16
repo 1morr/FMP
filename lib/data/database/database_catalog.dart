@@ -397,6 +397,7 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'rememberPlaybackPosition': setting.rememberPlaybackPosition.toString(),
         'restartRewindSeconds': '${setting.restartRewindSeconds}s',
         'tempPlayRewindSeconds': '${setting.tempPlayRewindSeconds}s',
+        'playHistoryLimit': setting.playHistoryLimit.toString(),
       },
     ),
     DatabaseViewerSection(

@@ -34,9 +34,6 @@ class AppConstants {
   /// 队列最大容量
   static const int maxQueueSize = 10000;
 
-  /// 最大播放历史记录数
-  static const int maxPlayHistoryCount = 1000;
-
   // ==================== 播放控制 ====================
 
   /// 点击"上一首"时，如果当前播放超过此秒数则重新开始当前歌曲，否则切换到上一首

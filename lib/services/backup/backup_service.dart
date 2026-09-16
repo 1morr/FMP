@@ -223,6 +223,7 @@ class BackupService with Logging {
         rememberPlaybackPosition: settings.rememberPlaybackPosition,
         restartRewindSeconds: settings.restartRewindSeconds,
         tempPlayRewindSeconds: settings.tempPlayRewindSeconds,
+        playHistoryLimit: settings.playHistoryLimit,
         maxConcurrentDownloads: settings.maxConcurrentDownloads,
         downloadImageOptionIndex: settings.downloadImageOptionIndex,
         minimizeToTrayOnClose: settings.minimizeToTrayOnClose,
@@ -662,6 +663,7 @@ class BackupService with Logging {
           ..rememberPlaybackPosition = settingsBackup.rememberPlaybackPosition
           ..restartRewindSeconds = settingsBackup.restartRewindSeconds
           ..tempPlayRewindSeconds = settingsBackup.tempPlayRewindSeconds
+          ..playHistoryLimit = settingsBackup.playHistoryLimit
           ..maxConcurrentDownloads = settingsBackup.maxConcurrentDownloads
           ..downloadImageOptionIndex = settingsBackup.downloadImageOptionIndex
           ..fontFamily = settingsBackup.fontFamily

@@ -602,6 +602,7 @@ class SettingsBackup {
   final bool rememberPlaybackPosition;
   final int restartRewindSeconds;
   final int tempPlayRewindSeconds;
+  final int playHistoryLimit;
   final int maxConcurrentDownloads;
   final int downloadImageOptionIndex;
   final bool minimizeToTrayOnClose;
@@ -652,6 +653,7 @@ class SettingsBackup {
     this.rememberPlaybackPosition = true,
     this.restartRewindSeconds = 0,
     this.tempPlayRewindSeconds = 10,
+    this.playHistoryLimit = kDefaultPlayHistoryLimit,
     this.maxConcurrentDownloads = 3,
     this.downloadImageOptionIndex = 1,
     this.minimizeToTrayOnClose = false,
@@ -719,6 +721,8 @@ class SettingsBackup {
           json['rememberPlaybackPosition'] as bool? ?? true,
       restartRewindSeconds: json['restartRewindSeconds'] as int? ?? 0,
       tempPlayRewindSeconds: json['tempPlayRewindSeconds'] as int? ?? 10,
+      playHistoryLimit:
+          json['playHistoryLimit'] as int? ?? kDefaultPlayHistoryLimit,
       maxConcurrentDownloads: json['maxConcurrentDownloads'] as int? ?? 3,
       downloadImageOptionIndex: json['downloadImageOptionIndex'] as int? ?? 1,
       minimizeToTrayOnClose:
@@ -798,6 +802,7 @@ class SettingsBackup {
       'rememberPlaybackPosition': rememberPlaybackPosition,
       'restartRewindSeconds': restartRewindSeconds,
       'tempPlayRewindSeconds': tempPlayRewindSeconds,
+      'playHistoryLimit': playHistoryLimit,
       'maxConcurrentDownloads': maxConcurrentDownloads,
       'downloadImageOptionIndex': downloadImageOptionIndex,
       'minimizeToTrayOnClose': minimizeToTrayOnClose,

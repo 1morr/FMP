@@ -196,6 +196,7 @@ void main() {
             maxCacheSizeMB: 48,
             rememberPlaybackPosition: false,
             tempPlayRewindSeconds: 7,
+            playHistoryLimit: 5000,
             sourceSettings: const [
               SourceSettingsBackup(
                 sourceId: SourceIds.bilibili,
@@ -264,6 +265,7 @@ void main() {
         expect(restoredSettings.maxCacheSizeMB, 48);
         expect(restoredSettings.rememberPlaybackPosition, isFalse);
         expect(restoredSettings.tempPlayRewindSeconds, 7);
+        expect(restoredSettings.playHistoryLimit, 5000);
         expect(restoredSettings.streamPriorityFor(SourceIds.netease), [
           StreamType.audioOnly,
         ]);
