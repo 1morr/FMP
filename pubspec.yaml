@@ -93,7 +93,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # i18n 走 `dart run slang` 的獨立 CLI（設定在 slang.yaml），不經 build_runner。
   # slang_build_runner 因此是純負擔：它會把 dart_style/analyzer 的上界一起拖進解析。
-  slang: ^4.19.1
+  slang: ^4.19.2
   flutter_launcher_icons: ^0.14.1
   inno_bundle: ^0.12.0
 
