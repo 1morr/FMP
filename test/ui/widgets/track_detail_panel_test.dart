@@ -3,8 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 void main() {
+  // formatCount 依 LocaleSettings.currentLocale 選英文或中文縮寫。這裡從沒設過
+  // 語系，以前得到 en 是 slang < 4.19.2 的巧合：未設定的 `und` 會誤配到沒有
+  // 國碼的 en；4.19.2 起正確地退回 base locale zh-CN，所以要明講。
+  setUp(() => LocaleSettings.setLocaleSync(AppLocale.en));
+
   group('TrackDetailPanel Layout Tests', () {
     // Test responsive behavior without full Riverpod setup
 
