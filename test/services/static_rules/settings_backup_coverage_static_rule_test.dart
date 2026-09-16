@@ -21,6 +21,10 @@ const _deliberatelyExcludedSettingsFields = <String, String>{
   // 讓備份帶著舊版本號回來會讓遷移重跑。
   'schemaVersion': 'migration bookkeeping, stamped by the importer',
 
+  // 每日檢查更新的節流簿記。帶去另一台機器只會讓新機第一天不檢查，
+  // 匯入時由 `createBootstrapSettings()` 重設成 null（= 從未檢查）。
+  'lastUpdateCheckAt': 'transient device throttling state, reset on import',
+
   // 裝置相關：換一台機器就沒有意義，匯入時保留現值。
   'customDownloadDir': 'device-specific path, preserved on import',
   'preferredAudioDeviceId': 'device-specific audio device, preserved on import',

@@ -450,6 +450,14 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       },
     ),
     DatabaseViewerSection(
+      title: 'Update Settings',
+      data: {
+        'autoCheckUpdates': setting.autoCheckUpdates.toString(),
+        'lastUpdateCheckAt':
+            setting.lastUpdateCheckAt?.toIso8601String() ?? 'null',
+      },
+    ),
+    DatabaseViewerSection(
       title: t.databaseViewer.desktopSettings,
       data: {
         'minimizeToTrayOnClose': setting.minimizeToTrayOnClose.toString(),

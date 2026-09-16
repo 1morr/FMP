@@ -31,6 +31,7 @@ import 'package:fmp/providers/settings/desktop_settings_provider.dart';
 import 'package:fmp/providers/settings/hotkey_config_provider.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/download/download_path_provider.dart';
+import 'package:fmp/providers/system/update_auto_check_provider.dart';
 import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/providers/system/backup_provider.dart';
 import 'package:fmp/services/backup/backup_service.dart';
@@ -170,6 +171,7 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push(RoutePaths.userGuide),
               ),
               _CheckUpdateListTile(),
+              _AutoCheckUpdatesTile(),
               _VersionListTile(),
               ListTile(
                 leading: const Icon(Icons.code_outlined),

@@ -17,7 +17,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/source_ids.dart';
 
 /// 目前的持久化 schema 版本。每加一個遷移步驟就 +1。
-const int kFmpSchemaVersion = 2;
+const int kFmpSchemaVersion = 3;
 
 /// 資料庫啟動時的唯一入口：套用未跑過的遷移步驟，再修復與版本無關的不變式。
 ///
@@ -107,6 +107,12 @@ const List<NamedMigrationStep> fmpMigrationSteps = <NamedMigrationStep>[
     name: 'fold per-source settings into one list',
     run: _migrateV1ToV2,
   ),
+  NamedMigrationStep(
+    from: 2,
+    to: 3,
+    name: 'turn the automatic update check on for existing installs',
+    run: _migrateV2ToV3,
+  ),
 ];
 
 /// 讀出這一列真正的 schema 版本。
@@ -156,7 +162,7 @@ void _migrateV0ToV1(Settings settings) {
 /// 2. 不清空舊欄位，降級（裝回舊版 APK）時每源設定是**無損**的。若在這裡把
 ///    它們清成 ''，舊版的預設值修復會把使用者的選擇覆蓋掉。
 ///
-/// 舊欄位在 schema v3 才刪。
+/// 舊欄位要等到有一次專門刪它們的 schema 版本才會消失 —— v3 不是那一次。
 void _migrateV1ToV2(Settings settings) {
   settings.sourceSettings = [
     SourceSettingsEntry()
@@ -172,6 +178,16 @@ void _migrateV1ToV2(Settings settings) {
       ..streamPriority = settings.neteaseStreamPriority
       ..useAuthForPlay = settings.useNeteaseAuthForPlay,
   ];
+}
+
+/// v2 → v3：`autoCheckUpdates` 的業務預設是 true。
+///
+/// Isar 對舊列缺少的 bool 一律回 false，而 false 同時也是「使用者自己關掉了」
+/// 的合法值 —— 兩者事後分不開，所以這件事只能在遷移裡做一次，不能放進每次啟動
+/// 都跑的不變式修復。`lastUpdateCheckAt` 是可空欄位，舊列讀出來就是 null，
+/// 語意正好是「從未檢查過」，不需要修。
+void _migrateV2ToV3(Settings settings) {
+  settings.autoCheckUpdates = true;
 }
 
 bool _hasLegacyPlaybackAndLyricsDefaultsSignature(Settings settings) {

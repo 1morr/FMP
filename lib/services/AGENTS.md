@@ -55,6 +55,18 @@ Auth and header boundary:
 - Startup cleanup may delete **only** FMP update artifacts in the temp
   directory.
 
+啟動後的自動檢查（`updateAutoCheckProvider`，`lib/providers/system/`）一天最多
+一次。一天一次是因為 GitHub 的未認證 API 額度按 IP 計（每小時 60 次），而 FMP
+跟其他裝置共用出口 IP 是常態；同時它也必須真的會跑，因為從不打開「關於」頁的
+使用者是多數，而那是手動檢查的唯一入口。**時間戳在送出請求之前就寫下去**：失敗
+的檢查同樣算用掉當天的額度，否則一台連不上 GitHub 的機器會在每次啟動時重試，而
+使用者永遠看不到任何結果 —— 節流的目的是「一天最多打擾 GitHub 一次」，不是
+「保證每天成功一次」。
+
+重新評估的觸發條件：FMP 若透過自己擁有更新權的商店通路（Play 商店、
+Microsoft Store）出貨，該通路的建置必須關掉自動檢查 —— 兩套更新機制同時指揮
+安裝是使用者能遇到最糟的一種。
+
 ## Lyrics System
 
 Auto-match order is in `LyricsAutoMatchService.tryAutoMatch()`. The rules around

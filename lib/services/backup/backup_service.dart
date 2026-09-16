@@ -26,11 +26,12 @@ import 'package:fmp/services/backup/backup_data.dart';
 /// v3：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
 /// v4：6 個每源具名設定欄位收成 `sourceSettings` 清單；補上
 /// `railExpanded` / `detailPanelExpanded` / `detailPanelWidth` 三個版面欄位。
+/// v5：補上 `playHistoryLimit` 與 `autoCheckUpdates`。
 ///
 /// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，被移除的欄位
 /// 在任何既有備份裡都是 null，而 v3 以前的每源設定由 `_readSourceSettings`
 /// 折進 `sourceSettings`。
-const int kBackupVersion = 4;
+const int kBackupVersion = 5;
 
 /// 备份服务
 ///
@@ -276,6 +277,7 @@ class BackupService with Logging {
           ',',
         ),
         radioRefreshIntervalMinutes: settings.radioRefreshIntervalMinutes,
+        autoCheckUpdates: settings.autoCheckUpdates,
       );
     }
 
@@ -687,6 +689,7 @@ class BackupService with Logging {
           )
           ..radioRefreshIntervalMinutes =
               settingsBackup.radioRefreshIntervalMinutes
+          ..autoCheckUpdates = settingsBackup.autoCheckUpdates
           // 桌面专属设置 - 仅在桌面平台导入，否则保留当前值
           ..minimizeToTrayOnClose = Platform.isWindows
               ? settingsBackup.minimizeToTrayOnClose
@@ -742,6 +745,10 @@ class BackupService with Logging {
               settingsBackup.lyricsWindowShadowBlurRadius
           ..lyricsWindowShadowOffsetX = settingsBackup.lyricsWindowShadowOffsetX
           ..lyricsWindowShadowOffsetY = settingsBackup.lyricsWindowShadowOffsetY
+          // 這一列是用**現在**這個版本的欄位語意重建出來的，所以它就是目前的
+          // schema 版本。不蓋版本號的話下次啟動會從 v0 重跑一輪遷移，把剛匯入
+          // 的值（版面狀態、自動檢查更新）覆蓋回遷移步驟裡的救援值。
+          ..schemaVersion = kFmpSchemaVersion
           // 设备相关设置 - 保留当前值
           ..customDownloadDir = currentSettings?.customDownloadDir
           ..preferredAudioDeviceId = currentSettings?.preferredAudioDeviceId

@@ -310,15 +310,21 @@ class Settings {
   List<SourceSettingsEntry> sourceSettings = [];
 
   /// YouTube 流优先级 (逗号分隔: "audioOnly,muxed,hls")
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   String youtubeStreamPriority = 'audioOnly,muxed,hls';
 
   /// Bilibili 流优先级 (逗号分隔: "audioOnly,muxed")
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   String bilibiliStreamPriority = 'audioOnly,muxed';
 
   /// 網易雲流優先級 (逗號分隔: "audioOnly")
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   String neteaseStreamPriority = 'audioOnly';
 
   /// 首选音频输出设备 ID (null = 自动/跟随系统)
@@ -397,15 +403,21 @@ class Settings {
   // ========== 播放認證設置 ==========
 
   /// Bilibili 播放時使用登入狀態
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   bool useBilibiliAuthForPlay = false;
 
   /// YouTube 播放時使用登入狀態
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   bool useYoutubeAuthForPlay = false;
 
   /// 網易雲播放時使用登入狀態
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   bool useNeteaseAuthForPlay = true;
 
   // ========== 刷新间隔设置 ==========
@@ -421,6 +433,20 @@ class Settings {
 
   /// 电台直播状态刷新间隔（分钟），默认 5
   int radioRefreshIntervalMinutes = 5;
+
+  // ========== 更新設置 ==========
+
+  /// 啟動後在背景自動檢查更新。
+  ///
+  /// 業務預設是 true，而 Isar 對舊列的 bool 一律補 false，所以它需要一個
+  /// 版本化的遷移步驟（見 `database_migration.dart` 的 v2 → v3）。
+  bool autoCheckUpdates = true;
+
+  /// 上一次自動檢查更新的時間（null = 從未檢查）。
+  ///
+  /// 這是裝置本機的節流簿記，不進備份 —— 換一台機器沿用舊時間戳只會讓新機
+  /// 第一天不檢查。
+  DateTime? lastUpdateCheckAt;
 
   /// 获取 ThemeMode
   @ignore
