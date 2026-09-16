@@ -161,15 +161,23 @@ Windows SMTC 透過 `AppUserModelID` 識別應用程式身分。本專案在兩�
 > 產物的機會。
 
 ```bash
-# 1. 確保程式碼已 commit 並 push
-git add .
-git commit -m "feat: ..."
-git push
+# 1. 先把 pubspec.yaml 的版本升到要發的號碼，走 PR 合併進 main
+#    （version: 1.2.0+1002000，build number 依下面的公式）
+git checkout -b chore/bump-version-1-2-0
+sed -i 's/^version: .*/version: 1.2.0+1002000/' pubspec.yaml
+git commit -am "chore: bump the app version to 1.2.0" && git push -u origin HEAD
+gh pr create && gh pr merge --merge --delete-branch
 
-# 2. 打 tag 並 push（觸發 CI 建置和 Release）
+# 2. 在合併後的 main 上打 tag 並 push（觸發 Release）
+git checkout main && git pull
 git tag v1.2.0
 git push origin v1.2.0
 ```
+
+> **順序不能反。** Release workflow 會在 tag 那個 commit 上跑完整測試，而
+> `pubspec_version_test.dart` 要求 committed 的版本不低於最新可達的 tag。先打 tag
+> 再升版本，release job 會在測試那一步就紅（2026-09-16 發 v1.10.2 時踩過：tag 打在
+> `1.10.1` 的 pubspec 上，只好刪 tag、合併升版 PR 後重打）。
 
 ### CI 流程
 
@@ -263,9 +271,10 @@ body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 
 - Tag 格式：`v{major}.{minor}.{patch}`，如 `v1.2.0`
 - CI 建置時會把 tag 的版本寫進 `pubspec.yaml`：`version: 1.2.0+1002000`，但**不回寫
-  repo** —— 所以**發完版要記得把 `pubspec.yaml` 的版本補上並 commit**
+  repo** —— 所以 **打 tag 之前要先把 `pubspec.yaml` 的版本升上去並合併**
 - `test/workflows/pubspec_version_test.dart` 守著這件事：committed 的版本不得低於
-  HEAD 上最新的 tag。忘了補，下一次 CI 就會紅。之所以需要它，是因為開發建置讀的是
+  最新可達的 tag。它在一般 CI 與 release job 都會跑，所以「先 tag 後升版」會讓
+  release 直接紅，「發完忘了升」會讓下一次 CI 紅。之所以需要它，是因為開發建置讀的是
   committed 的值 —— 落後時 app 會自報舊版本，然後對自己跳出「有新版可用」
 - `+{versionCode}` 由 tag 計算：`major * 1000000 + minor * 1000 + patch`
 - Android 升級只接受更大的 `versionCode`；不要使用 `github.run_number`
