@@ -280,6 +280,12 @@ raising the window first.
   sometimes — it silently no-ops when the foreground-lock rules say no, and the
   next capture is then of the wrong window. Prefer the flag; if you do use
   Win32, assert `GetForegroundWindow()` returns your HWND before you click.
+  Measured again on 2026-09-16 (#37/#39 run): the flag did **not** raise FMP on
+  this machine and the capture was of another window; an `AttachThreadInput`
+  raise with an `HWND_TOPMOST` / `HWND_NOTOPMOST` round trip did. It also
+  restored the window to 1200×3586 — most of it off-screen — which reads as
+  "the settings page cannot scroll". Maximize first, then drive. Check the
+  window rect from `list-windows` before trusting any scroll observation.
 - **`PrintWindow` with `PW_RENDERFULLCONTENT` returns a frozen frame.** It looks
   like a working capture — real colours, real layout — but it is the frame from
   whenever the surface was last handed to the DWM, and it does not advance. Four
