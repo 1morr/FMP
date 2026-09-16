@@ -170,11 +170,11 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 
 | # | 任務 | 內容 |
 |---|---|---|
-| 5.1 | 產品決策寫回 repo | §4 的 P-1 到 P-3 拍板後各一段寫進對應 `AGENTS.md` 或 ADR，附觸發重新評估的條件 |
-| 5.2 | #92 #93 憑證失效統一呈現 | 產品面的功能，等 M4 之後做；先把 `expiredPlatforms` 這個零讀取的欄位處理掉 |
-| 5.3 | 全局 `CLAUDE.md` 增補 | E 的 29 行草稿裡先進「Agent 指令檔」與「規則要有閘門」兩節共約 22 行；「數字要可追溯」只有一個實例，等第二個 |
-| 5.4 | repo-hygiene skill | 以 E 的草稿為底，套到你其他 4 個 public repo 時逐條驗證 |
-| 5.5 | 其他 repo 的最小動作 | 四個 repo 各加 `.gitattributes`；`biliStreamMonitor` 補隱私聲明（它要 cookies 權限讀 B 站登入態） |
+| 5.1 | 產品決策寫回 repo | §4 的 P-1 到 P-3 拍板後各一段寫進對應 `AGENTS.md` 或 ADR，附觸發重新評估的條件。2026-09-16：P-1、P-2 不只寫段落，先做成真的行為再記（#132：`Settings.playHistoryLimit` 預設 10,000、同一 `writeTxn` 刪最舊；`autoCheckUpdates` 啟動 8 秒後檢查、24 小時節流、先寫時間戳再送請求），理由與重評條件在 `lib/data/AGENTS.md` 與 `lib/services/AGENTS.md`；P-3 在 M3 已執行；D-5／D-6／D-7 一段一條寫進 `lib/services/audio/AGENTS.md` 與 `lib/data/sources/AGENTS.md`（#131） |
+| 5.2 | #92 #93 憑證失效統一呈現 | 產品面的功能，等 M4 之後做；先把 `expiredPlatforms` 這個零讀取的欄位處理掉。2026-09-16：欄位已刪（#131）；#92／#93 本體動到 auth 邊界（失效時保留 `Account` 列改標失效而非 `logout()`），依根 `AGENTS.md` 先給設計等拍板，設計見 #92 留言 |
+| 5.3 | 全局 `CLAUDE.md` 增補 | E 的 29 行草稿裡先進「Agent 指令檔」與「規則要有閘門」兩節共約 22 行；「數字要可追溯」只有一個實例，等第二個。2026-09-16 已進（`~/.claude` 的 `5e42449`），55 → 70 行 |
+| 5.4 | repo-hygiene skill | 以 E 的草稿為底，套到你其他 4 個 public repo 時逐條驗證。2026-09-16：`~/.claude/skills/repo-hygiene/SKILL.md` 建好並套到四個 repo；第一次實用改了八處（預設分支不一定是 `main`、`core.autocrlf` 會掩蓋 CR、多處版本字串沒有 tag 也要互相對齊、`docs/security.md` 不是 `SECURITY.md`、自架服務不算隱私聲明的觸發條件）；13 列裡只有 `.gitattributes` 四個都成立 |
+| 5.5 | 其他 repo 的最小動作 | 四個 repo 各加 `.gitattributes`；`biliStreamMonitor` 補隱私聲明（它要 cookies 權限讀 B 站登入態）。2026-09-16 四個 repo 各 PR #1 已合併，`git add --renormalize` 四個都是零 diff；`PRIVACY.md` 每句都標了依據的檔案（只讀 `DedeUserID` 一個 cookie、五個 endpoint 全在 `api.live.bilibili.com`、無 telemetry） |
 
 ---
 
@@ -226,7 +226,7 @@ M1 與 M3 互不依賴，可以在兩個 worktree 並行。M4 等 M3 是因為�
 | M2 | 完成 2026-09-10 | #103 升版；tag `v1.10.1` 在 `8fbd3517`；release 已 publish | 五項實機驗證由子代理做完並記到 issue：#89、#90、#41 關閉，分出 #106、#107；#82 的對話框修正要等 v1.10.2 才驗得到 |
 | M3 | 完成 2026-09-15 | #97、#98、#99、#100、#110、#111 | 3.4 補了四張 Android 截圖並關掉 #91；3.5 把 `lib/ui` 與 `lib/services/audio` 的 `AGENTS.md` 降到 247／204 行，只刪程式碼已講過的清單與過期數字。拍截圖時發現兩個既有 bug 另開 #112（導覽列語言）、#113（歌詞自動比對不顯示）。#102 的 CI 偶發失敗仍歸 M4 步驟 9 判定 |
 | M4 | 完成 2026-09-16（4.9 待決） | 4.1 #104、4.2 #115、4.7 #116、4.6 #117、4.8 #118、4.5 #119、4.3 #122、4.4 #127；順帶修 #107 #126、#112 #121、#113 #128、#106 #129 | 出口的行數條件**沒有達到**：以 4.1 之前的 `8fbd3517` 為基準，音訊層加音源層的程式碼行 14,453 → 14,048，淨減 405（音源層 −797，音訊層因契約規則檔與 registry 淨增）；整個 `lib` 淨減 1,936 行。後端等價已由 `backend_contract_test.dart` 與靜態規則保證。要再壓音訊層只剩可選的 4.9，做不做另議 |
-| M5 | 未開始 | | |
+| M5 | 完成 2026-09-16 | #131、#132；四個外部 repo 各 PR #1；`~/.claude` 的 `5e42449`、`4e47efc` | P-1／P-2 做成行為而非只寫段落，因為寫一條沒有實作的決策正是 5.3 新規則要禁的「文檔宣稱了不存在的東西」；#132 順帶修了備份匯入不蓋 `schemaVersion` 的既有 bug，並把 settings schema 升到 v3、備份格式升到 v5。#92／#93 的設計等拍板，是 M5 唯一未結的產品項；4.9 仍待決 |
 
 ---
 
