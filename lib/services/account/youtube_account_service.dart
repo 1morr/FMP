@@ -87,7 +87,11 @@ class YouTubeAccountService extends AccountService with Logging {
     );
     _cachedCredentials = credentials;
 
-    await _updateAccount(isLoggedIn: true, loginAt: DateTime.now());
+    await _updateAccount(
+      isLoggedIn: true,
+      loginAt: DateTime.now(),
+      sessionExpired: false,
+    );
     logInfo('YouTube login successful');
   }
 
@@ -132,7 +136,8 @@ class YouTubeAccountService extends AccountService with Logging {
   Future<void> logout() async {
     _cachedCredentials = null;
     await _secureStorage.delete(key: _storageKey);
-    await _updateAccount(isLoggedIn: false);
+    // 刪掉整列：登出之後要跟「從沒登入過」長得一樣
+    await _accounts.deleteForPlatform(SourceIds.youtube);
 
     // 清除 WebView cookies，避免重新登入時自動使用舊帳號
     try {
@@ -146,6 +151,15 @@ class YouTubeAccountService extends AccountService with Logging {
     }
 
     logInfo('YouTube logged out');
+  }
+
+  @override
+  Future<void> markSessionExpired() async {
+    // 憑證照清 —— 失效的 cookie 再附到請求上只會換來同一個錯誤。
+    _cachedCredentials = null;
+    await _secureStorage.delete(key: _storageKey);
+    await _updateAccount(isLoggedIn: false, sessionExpired: true);
+    logWarning('YouTube session expired, credentials cleared');
   }
 
   /// YouTube Cookie 不需要刷新（有效期 ~2 年）
@@ -560,6 +574,7 @@ class YouTubeAccountService extends AccountService with Logging {
     String? avatarUrl,
     DateTime? loginAt,
     bool? isVip,
+    bool? sessionExpired,
   }) async {
     await _accounts.upsert(
       SourceIds.youtube,
@@ -569,6 +584,7 @@ class YouTubeAccountService extends AccountService with Logging {
       avatarUrl: avatarUrl,
       loginAt: loginAt,
       isVip: isVip,
+      sessionExpired: sessionExpired,
     );
   }
 }

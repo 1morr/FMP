@@ -12,6 +12,7 @@ import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/account/bilibili_favorites_service.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/netease_playlist_service.dart';
+import 'package:fmp/services/account/session_expiry_notifier.dart';
 import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:fmp/services/account/youtube_playlist_service.dart';
 import 'package:fmp/data/database/database_provider.dart';
@@ -147,6 +148,7 @@ final accountStatusCheckProvider = FutureProvider<void>((ref) async {
   // Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException（2.x 只有
   // debug assert），在 await 之前讀完比事後補 ref.mounted 護欄更直接。
   final toastService = ref.read(toastServiceProvider);
+  final sessionExpiry = ref.read(sessionExpiryNotifierProvider);
   final services = <AccountService>[
     ref.read(bilibiliAccountServiceProvider),
     ref.read(youtubeAccountServiceProvider),
@@ -156,7 +158,41 @@ final accountStatusCheckProvider = FutureProvider<void>((ref) async {
   // 先完成 Bilibili Cookie 刷新
   await ref.watch(accountCookieRefreshProvider.future);
 
-  await verifyAllAccountStatuses(services, toastService);
+  await verifyAllAccountStatuses(
+    services,
+    toastService,
+    sessionExpiry: sessionExpiry,
+  );
+});
+
+/// 登入失效提示的去重閘門（見 [SessionExpiryNotifier]）。
+final sessionExpiryNotifierProvider = Provider<SessionExpiryNotifier>((ref) {
+  return SessionExpiryNotifier(ref.watch(toastServiceProvider));
+});
+
+/// 監看三個平台的帳號列，在「剛轉成失效」時提示一次。
+///
+/// 攔截器建構時拿不到 Riverpod，所以請求期偵測到的失效只寫得進 Isar；提示由
+/// 這裡補。只認「從非失效轉成失效」的那一次變化 —— 開 app 時就已經是失效的列
+/// 不該每次啟動都再唸一遍。實際的一次性由 [SessionExpiryNotifier] 保證。
+///
+/// 副作用 provider 必須錨在 `MaterialApp` 之上（`lib/app.dart`），
+/// 見 `lib/providers/AGENTS.md`。
+final accountSessionExpiryWatcherProvider = Provider<void>((ref) {
+  final sessionExpiry = ref.watch(sessionExpiryNotifierProvider);
+  final watched = <String, NotifierProvider<AccountNotifier, Account?>>{
+    SourceIds.bilibili: bilibiliAccountProvider,
+    SourceIds.youtube: youtubeAccountProvider,
+    SourceIds.netease: neteaseAccountProvider,
+  };
+
+  for (final entry in watched.entries) {
+    ref.listen(entry.value, (previous, next) {
+      if (previous?.sessionExpired != true && next?.sessionExpired == true) {
+        sessionExpiry.notifyExpired(entry.key);
+      }
+    });
+  }
 });
 
 class AccountStatusVerificationResult {
@@ -176,8 +212,9 @@ class AccountStatusVerificationResult {
 /// 供 [accountStatusCheckProvider] 和帳號管理頁面共用。
 Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
   List<AccountService> services,
-  ToastService toastService,
-) async {
+  ToastService toastService, {
+  required SessionExpiryNotifier sessionExpiry,
+}) async {
   final checkedPlatforms = <String>[];
   final failedPlatforms = <String>[];
 
@@ -191,8 +228,9 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
       final result = await service.checkAccountStatus();
       checkedPlatforms.add(service.platform);
       if (result.status == AccountStatus.invalid) {
-        await service.logout();
-        toastService.showWarning(t.account.sessionExpired(platform: name));
+        // 標記而不是登出：帳號列留著，帳號頁才有第三態可以畫。
+        await service.markSessionExpired();
+        sessionExpiry.notifyExpired(service.platform);
       } else if (result.status == AccountStatus.valid) {
         if (oldIsVip && result.isVip == false) {
           toastService.showInfo(t.account.vipExpired(platform: name));

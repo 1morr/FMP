@@ -737,6 +737,7 @@ List<DatabaseViewerSection> _accountSections(Account account) {
       title: 'Login State',
       data: {
         'isLoggedIn': account.isLoggedIn.toString(),
+        'sessionExpired': account.sessionExpired.toString(),
         'isVip': account.isVip.toString(),
         'lastRefreshed': account.lastRefreshed?.toIso8601String() ?? 'null',
         'loginAt': account.loginAt?.toIso8601String() ?? 'null',

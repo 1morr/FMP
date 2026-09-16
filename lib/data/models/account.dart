@@ -34,7 +34,15 @@ class Account {
   /// 是否為 VIP（目前僅網易雲使用）
   bool isVip = false;
 
+  /// 登入是否已失效
+  ///
+  /// 憑證被來源拒絕時，憑證會被清掉、[isLoggedIn] 轉 false，但這一列會留著並把
+  /// 這個旗標設為 true —— 帳號頁要能把「從沒登入過」和「登入過期了」分開呈現。
+  /// 登出走的是刪列，所以不會留下 true。
+  bool sessionExpired = false;
+
   @override
   String toString() =>
-      'Account(id: $id, platform: $platform, userName: $userName, isLoggedIn: $isLoggedIn)';
+      'Account(id: $id, platform: $platform, userName: $userName, '
+      'isLoggedIn: $isLoggedIn, sessionExpired: $sessionExpired)';
 }

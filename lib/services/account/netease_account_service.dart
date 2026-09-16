@@ -270,7 +270,8 @@ class NeteaseAccountService extends AccountService with Logging {
     await _secureStorage.delete(key: _storageKey);
     _cachedCredentials = null;
     _credentialsLoaded = false;
-    await _updateAccount(isLoggedIn: false);
+    // 刪掉整列：登出之後要跟「從沒登入過」長得一樣
+    await _accounts.deleteForPlatform(SourceIds.netease);
 
     // 清除 WebView cookies，避免重新登入時自動使用舊帳號。
     // 域名與 netease_login_page.dart 載入的一致。
@@ -283,6 +284,16 @@ class NeteaseAccountService extends AccountService with Logging {
     }
 
     logInfo('Netease logged out');
+  }
+
+  @override
+  Future<void> markSessionExpired() async {
+    // 憑證照清 —— 失效的 cookie 再附到請求上只會換來同一個錯誤。
+    await _secureStorage.delete(key: _storageKey);
+    _cachedCredentials = null;
+    _credentialsLoaded = false;
+    await _updateAccount(isLoggedIn: false, sessionExpired: true);
+    logWarning('Netease session expired, credentials cleared');
   }
 
   /// MUSIC_U 有效期長，無需刷新
@@ -435,6 +446,7 @@ class NeteaseAccountService extends AccountService with Logging {
     String? avatarUrl,
     DateTime? loginAt,
     bool? isVip,
+    bool? sessionExpired,
   }) async {
     await _accounts.upsert(
       SourceIds.netease,
@@ -444,6 +456,7 @@ class NeteaseAccountService extends AccountService with Logging {
       avatarUrl: avatarUrl,
       loginAt: loginAt,
       isVip: isVip,
+      sessionExpired: sessionExpired,
     );
   }
 
@@ -454,7 +467,11 @@ class NeteaseAccountService extends AccountService with Logging {
     );
     _cachedCredentials = credentials;
     _credentialsLoaded = true;
-    await _updateAccount(isLoggedIn: true, userId: credentials.userId);
+    await _updateAccount(
+      isLoggedIn: true,
+      userId: credentials.userId,
+      sessionExpired: false,
+    );
   }
 
   Future<_LoginSnapshot> _captureLoginSnapshot() async {
@@ -498,7 +515,8 @@ class NeteaseAccountService extends AccountService with Logging {
         ..isLoggedIn = account.isLoggedIn
         ..lastRefreshed = account.lastRefreshed
         ..loginAt = account.loginAt
-        ..isVip = account.isVip;
+        ..isVip = account.isVip
+        ..sessionExpired = account.sessionExpired;
     }
 
     return _LoginSnapshot(
