@@ -44,26 +44,31 @@ void main() {
       expect(source, contains('error.kind.shouldSkipTrack'));
     });
 
+    /// 型樣比對本身搬進了 `playback_event_router.dart`（哪一個變體對到哪一個
+    /// 動作由 `playback_event_routing_static_rule_test.dart` 逐列守著），所以
+    /// 這裡只確認兩端還接得上、而且分派的那一段仍然沒有字串比對。
     test('backend playback events are dispatched by type, not by string', () {
-      final source = File(
+      final controller = File(
         'lib/services/audio/audio_provider.dart',
+      ).readAsStringSync();
+      final router = File(
+        'lib/services/audio/playback_event_router.dart',
       ).readAsStringSync();
 
       // 後端事件走型別化的 PlaybackEndReason，不再比對錯誤字串。
-      expect(source, contains('_onPlaybackEnded(PlaybackEndReason reason)'));
-      expect(source, contains('case OutputDeviceFailed('));
-      expect(source, contains('case EndedPrematurely('));
-      expect(source, contains('case TransportFailed('));
+      expect(
+        controller,
+        contains('_onPlaybackEnded(PlaybackEndReason reason)'),
+      );
+      expect(controller, contains('PlaybackEventRouter.routeEnd('));
 
       // 這兩個字串比對器是 issue #41 的成因，必須已經消失。
-      expect(source, isNot(contains('_isStringMediaOpenError')));
-      expect(source, isNot(contains('_shouldHandleTrackCompleted')));
+      expect(controller, isNot(contains('_isStringMediaOpenError')));
+      expect(controller, isNot(contains('_shouldHandleTrackCompleted')));
 
-      final dispatchStart = source.indexOf(
-        'void _onPlaybackEnded(PlaybackEndReason reason)',
-      );
+      final dispatchStart = router.indexOf('static PlaybackAction routeEnd(');
       expect(dispatchStart, isNot(-1));
-      final dispatchBody = source.substring(dispatchStart);
+      final dispatchBody = router.substring(dispatchStart);
       expect(dispatchBody, isNot(contains('.contains(')));
     });
 

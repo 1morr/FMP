@@ -28,14 +28,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _path = 'lib/services/audio/audio_provider.dart';
 
-/// 2026-09-15 的實測值（issue #106 的輸出裝置重試抑制之後）。
+/// 2026-09-16 的實測值（後端事件路由抽成 `playback_event_router.dart` 之後）。
 ///
-/// 上一格是 2,160（播放副作用 registry 之後）。多出來的十八行是兩個「請求世代
-/// 加當前歌曲」標記與它們的比對：一個記裝置失敗、一個記已排定的 premature-end
-/// 重試，兩個方向各擋一種訊息順序。它們要讀的 `PlaybackRequestSession` 世代與
-/// `_playingTrack` 都只有控制器拿得到，搬進任何協作者都得先把這兩樣傳進去，等
-/// 於把同一條規則拆成兩處。
-const _maxCodeLines = 2178;
+/// 上一格是 2,178（issue #106 的輸出裝置重試抑制）。**只降了十一行**，而那不是
+/// 抽取失敗：搬走的一百多行路由條件，換回來的是一張快照建構子（協作者一律在
+/// 那裡問完）與一個二十格的 `switch`。這一輪買的是「每一條路由決定都變成純斷
+/// 言」，不是行數 —— 決定住在 `PlaybackEventRouter`，控制器只剩下副作用本身。
+const _maxCodeLines = 2167;
 
 /// 低於上限多少行就要求把上限調下來。
 const _slack = 50;
