@@ -198,6 +198,13 @@ Set<String> normalizeDisabledHomeRankingSources(String value) {
   return disabled;
 }
 
+/// 播放歷史的預設保留上限。
+///
+/// 上限存在的理由不是磁碟空間，而是 `PlayHistoryRepository` 裡三個
+/// `findAll()` 全表掃描（`getHistoryStats`、`getMostPlayed`、有篩選條件的
+/// `queryHistory`）—— 沒有上限時它們的成本隨使用時間無界成長。
+const int kDefaultPlayHistoryLimit = 10000;
+
 /// 应用设置实体（单例模式，始终使用 ID 0）
 @collection
 class Settings {
@@ -254,6 +261,12 @@ class Settings {
   /// 临时播放恢复时回退秒数
   int tempPlayRewindSeconds = 10;
 
+  /// 播放歷史保留的最大筆數；超出時由最舊的一筆開始刪。
+  ///
+  /// 倉庫只負責裁，數字由呼叫端給 —— `lib/data/AGENTS.md` § Models And
+  /// Repositories 記了為什麼。
+  int playHistoryLimit = kDefaultPlayHistoryLimit;
+
   // ========== 下载设置 ==========
 
   /// 最大并发下载数 (1-5)
@@ -297,15 +310,21 @@ class Settings {
   List<SourceSettingsEntry> sourceSettings = [];
 
   /// YouTube 流优先级 (逗号分隔: "audioOnly,muxed,hls")
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   String youtubeStreamPriority = 'audioOnly,muxed,hls';
 
   /// Bilibili 流优先级 (逗号分隔: "audioOnly,muxed")
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   String bilibiliStreamPriority = 'audioOnly,muxed';
 
   /// 網易雲流優先級 (逗號分隔: "audioOnly")
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   String neteaseStreamPriority = 'audioOnly';
 
   /// 首选音频输出设备 ID (null = 自动/跟随系统)
@@ -384,15 +403,21 @@ class Settings {
   // ========== 播放認證設置 ==========
 
   /// Bilibili 播放時使用登入狀態
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   bool useBilibiliAuthForPlay = false;
 
   /// YouTube 播放時使用登入狀態
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   bool useYoutubeAuthForPlay = false;
 
   /// 網易雲播放時使用登入狀態
-  @Deprecated('read only by the v1 to v2 migration; removed in schema v3')
+  @Deprecated(
+    'read only by the v1 to v2 migration; removed in a later schema version',
+  )
   bool useNeteaseAuthForPlay = true;
 
   // ========== 刷新间隔设置 ==========
@@ -408,6 +433,20 @@ class Settings {
 
   /// 电台直播状态刷新间隔（分钟），默认 5
   int radioRefreshIntervalMinutes = 5;
+
+  // ========== 更新設置 ==========
+
+  /// 啟動後在背景自動檢查更新。
+  ///
+  /// 業務預設是 true，而 Isar 對舊列的 bool 一律補 false，所以它需要一個
+  /// 版本化的遷移步驟（見 `database_migration.dart` 的 v2 → v3）。
+  bool autoCheckUpdates = true;
+
+  /// 上一次自動檢查更新的時間（null = 從未檢查）。
+  ///
+  /// 這是裝置本機的節流簿記，不進備份 —— 換一台機器沿用舊時間戳只會讓新機
+  /// 第一天不檢查。
+  DateTime? lastUpdateCheckAt;
 
   /// 获取 ThemeMode
   @ignore

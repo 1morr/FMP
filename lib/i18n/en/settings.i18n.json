@@ -62,6 +62,12 @@
     "title": "Play History",
     "subtitle": "View and manage play history"
   },
+  "playHistoryLimit": {
+    "title": "Play History Limit",
+    "subtitle": "Keep up to $n entries; the oldest are deleted beyond that",
+    "dialogDescription": "The oldest play history records are deleted once the limit is exceeded. This cannot be undone.",
+    "unit": "$n entries"
+  },
   "rememberPosition": {
     "title": "Remember playback position",
     "configRewind": "Configure rewind time"
@@ -139,6 +145,11 @@
     "error": "Check failed, tap to retry",
     "checkGitHub": "Check for new version on GitHub",
     "checkFailed": "Failed to check for updates"
+  },
+  "autoCheckUpdates": {
+    "title": "Check for Updates Automatically",
+    "subtitle": "Checks in the background after startup, at most once a day",
+    "found": "Version $version is available - install it from Settings > About"
   },
   "userGuide": {
     "title": "User Guide",

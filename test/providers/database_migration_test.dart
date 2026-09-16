@@ -443,6 +443,24 @@ void main() {
       );
     });
 
+    test('repairs a play history limit that predates the field', () async {
+      await openTestDatabase();
+
+      // Isar 給舊列的非空 int 是 minLong，不是 Dart 的初值。不修的話上限
+      // 會是負數，而負數在倉庫裡代表「不裁」—— 靜默地等於沒有上限。
+      final stale = Settings()
+        ..schemaVersion = kFmpSchemaVersion
+        ..playHistoryLimit = -9223372036854775808;
+      await isar.writeTxn(() async => isar.settings.put(stale));
+
+      await runDatabaseMigration(isar);
+
+      expect(
+        (await isar.settings.get(0))!.playHistoryLimit,
+        kDefaultPlayHistoryLimit,
+      );
+    });
+
     test('a non-finite width falls back to the default', () async {
       await openTestDatabase();
 
@@ -503,7 +521,7 @@ void main() {
         await runDatabaseMigration(isar);
 
         final after = (await isar.settings.get(0))!;
-        expect(after.schemaVersion, 2);
+        expect(after.schemaVersion, kFmpSchemaVersion);
         expect(after.streamPriorityFor(SourceIds.bilibili), [StreamType.muxed]);
         expect(after.streamPriorityFor(SourceIds.youtube), [
           StreamType.hls,
@@ -555,6 +573,37 @@ void main() {
       final after = (await isar.settings.get(0))!;
       expect(after.streamPriorityFor(SourceIds.bilibili), [StreamType.muxed]);
       expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
+    });
+
+    test('the v2 to v3 step turns the automatic update check on', () async {
+      await openTestDatabase();
+
+      // Isar 對舊列缺少的 bool 一律回 false，而 false 同時也是「使用者自己
+      // 關掉了」的合法值 —— 所以這件事只能在遷移裡做一次。
+      final v2 = Settings()
+        ..schemaVersion = 2
+        ..autoCheckUpdates = false;
+      await isar.writeTxn(() async => isar.settings.put(v2));
+
+      await runDatabaseMigration(isar);
+
+      final after = (await isar.settings.get(0))!;
+      expect(after.schemaVersion, kFmpSchemaVersion);
+      expect(after.autoCheckUpdates, isTrue);
+      expect(after.lastUpdateCheckAt, isNull);
+    });
+
+    test('a database already at v3 keeps a disabled update check', () async {
+      await openTestDatabase();
+
+      final v3 = Settings()
+        ..schemaVersion = kFmpSchemaVersion
+        ..autoCheckUpdates = false;
+      await isar.writeTxn(() async => isar.settings.put(v3));
+
+      await runDatabaseMigration(isar);
+
+      expect((await isar.settings.get(0))!.autoCheckUpdates, isFalse);
     });
 
     test('stamps the current schema version on a fresh install', () async {

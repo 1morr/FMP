@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/play_history.dart';
+import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:isar_community/isar.dart';
@@ -174,26 +174,98 @@ void main() {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
 
-      for (var i = 0; i < AppConstants.maxPlayHistoryCount + 1; i++) {
+      // 1000 是舊的快照上限。留著這條是為了釘住它已經不是寫入端的上限了 ——
+      // `loadHistorySnapshot` 一次只讀 1000 筆，但資料庫裡可以有更多。
+      const beyondOldSnapshotCap = 1001;
+      for (var i = 0; i < beyondOldSnapshotCap; i++) {
         await harness.repository.addHistory(
-          Track()
-            ..sourceId = 'song-$i'
-            ..sourceType = SourceIds.youtube
-            ..title = 'Song $i'
-            ..durationMs = 1000,
+          _track(i),
+          keepAtMost: kDefaultPlayHistoryLimit,
         );
       }
 
       final stats = await harness.repository.getHistoryStats();
 
-      expect(stats.totalCount, AppConstants.maxPlayHistoryCount + 1);
-      expect(
-        stats.totalDurationMs,
-        (AppConstants.maxPlayHistoryCount + 1) * 1000,
+      expect(stats.totalCount, beyondOldSnapshotCap);
+      expect(stats.totalDurationMs, beyondOldSnapshotCap * 1000);
+    });
+
+    test('addHistory deletes the oldest rows once past the cap', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      // 既有列的 playedAt 明寫。`PlayHistory.fromTrack` 只會蓋上
+      // `DateTime.now()`，而連續幾次寫入的 now 有可能落在同一個刻度上 ——
+      // 那樣「哪一筆最舊」就成了平手，斷言會時紅時綠。
+      const cap = 5;
+      await harness.seedMany([
+        for (var i = 0; i < cap; i++)
+          _history(
+            sourceId: 'seeded-$i',
+            sourceType: SourceIds.youtube,
+            title: 'Seeded $i',
+            playedAt: DateTime(2026, 4, 1 + i),
+          ),
+      ]);
+
+      await harness.repository.addHistory(_track(0), keepAtMost: cap);
+
+      final remaining = await harness.repository.getAllHistory(limit: 100);
+
+      // 總數停在上限，而被擠掉的正好是最舊的那一筆。
+      expect(remaining, hasLength(cap));
+      expect(remaining.first.sourceId, 'song-0');
+      expect(remaining.map((h) => h.sourceId), isNot(contains('seeded-0')));
+      expect(remaining.map((h) => h.sourceId), contains('seeded-4'));
+    });
+
+    test('trimToLimit applies a lowered cap to existing rows', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedMany([
+        for (var i = 0; i < 10; i++)
+          _history(
+            sourceId: 'seeded-$i',
+            sourceType: SourceIds.youtube,
+            title: 'Seeded $i',
+            playedAt: DateTime(2026, 4, 1 + i),
+          ),
+      ]);
+
+      final deleted = await harness.repository.trimToLimit(4);
+
+      expect(deleted, 6);
+      final remaining = await harness.repository.getAllHistory(limit: 100);
+      expect(remaining.map((h) => h.sourceId).toList(), [
+        'seeded-9',
+        'seeded-8',
+        'seeded-7',
+        'seeded-6',
+      ]);
+    });
+
+    test('a non-positive cap never empties the history', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.repository.addHistory(
+        _track(0),
+        keepAtMost: kDefaultPlayHistoryLimit,
       );
+
+      // 壞掉的設定值（備份匯入、降級往返）不該把使用者的歷史清空。
+      expect(await harness.repository.trimToLimit(0), 0);
+      expect(await harness.repository.getHistoryCount(), 1);
     });
   });
 }
+
+Track _track(int index) => Track()
+  ..sourceId = 'song-$index'
+  ..sourceType = SourceIds.youtube
+  ..title = 'Song $index'
+  ..durationMs = 1000;
 
 class _Harness {
   _Harness({

@@ -397,6 +397,7 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
         'rememberPlaybackPosition': setting.rememberPlaybackPosition.toString(),
         'restartRewindSeconds': '${setting.restartRewindSeconds}s',
         'tempPlayRewindSeconds': '${setting.tempPlayRewindSeconds}s',
+        'playHistoryLimit': setting.playHistoryLimit.toString(),
       },
     ),
     DatabaseViewerSection(
@@ -446,6 +447,14 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
             .join(', '),
         'radioRefreshIntervalMinutes':
             '${setting.radioRefreshIntervalMinutes} min',
+      },
+    ),
+    DatabaseViewerSection(
+      title: 'Update Settings',
+      data: {
+        'autoCheckUpdates': setting.autoCheckUpdates.toString(),
+        'lastUpdateCheckAt':
+            setting.lastUpdateCheckAt?.toIso8601String() ?? 'null',
       },
     ),
     DatabaseViewerSection(

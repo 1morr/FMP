@@ -13,11 +13,42 @@ class PlayHistoryRepository {
 
   /// 记录播放历史
   /// 每次播放都会新增一条记录（用于统计播放次数）
-  Future<void> addHistory(Track track) async {
+  ///
+  /// [keepAtMost] 是這一次寫入之後允許留下的最大筆數，超出的部分在**同一個**
+  /// 寫入交易裡由最舊的一筆開始刪。它是必填參數而不是有預設值：倉庫不讀
+  /// `Settings`（資料層不得往上 import），所以「留幾筆」永遠由呼叫端決定，
+  /// 漏傳應該是編譯錯誤而不是悄悄套上一個猜的數字。
+  Future<void> addHistory(Track track, {required int keepAtMost}) async {
     final history = PlayHistory.fromTrack(track);
     await _isar.writeTxn(() async {
       await _isar.playHistorys.put(history);
+      await _trimInTxn(keepAtMost);
     });
+  }
+
+  /// 把歷史裁到 [keepAtMost] 筆，回傳刪掉的筆數。
+  ///
+  /// 使用者把上限調小時要立刻生效，而不是等下一次播放才慢慢收斂。
+  Future<int> trimToLimit(int keepAtMost) async {
+    return _isar.writeTxn(() => _trimInTxn(keepAtMost));
+  }
+
+  /// 必須在寫入交易內呼叫。
+  ///
+  /// 走 `anyPlayedAt()` 的索引而不是 `sortByPlayedAt()`：後者每次都要把整表
+  /// 排一遍，而這個函式在每一次播放後都會跑。非正數的上限一律當成「不裁」，
+  /// 不要讓一個壞掉的設定值把使用者的歷史清空。
+  Future<int> _trimInTxn(int keepAtMost) async {
+    if (keepAtMost <= 0) return 0;
+    final excess = await _isar.playHistorys.count() - keepAtMost;
+    if (excess <= 0) return 0;
+
+    final oldest = await _isar.playHistorys
+        .where()
+        .anyPlayedAt()
+        .limit(excess)
+        .findAll();
+    return _isar.playHistorys.deleteAll([for (final h in oldest) h.id]);
   }
 
   /// 获取歌曲播放次数

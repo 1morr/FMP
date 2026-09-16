@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 
@@ -8,6 +10,7 @@ class PlaybackSettingsState {
   final bool rememberPlaybackPosition;
   final int restartRewindSeconds;
   final int tempPlayRewindSeconds;
+  final int playHistoryLimit;
   final bool isLoading;
 
   const PlaybackSettingsState({
@@ -15,6 +18,7 @@ class PlaybackSettingsState {
     this.rememberPlaybackPosition = true,
     this.restartRewindSeconds = 0,
     this.tempPlayRewindSeconds = 10,
+    this.playHistoryLimit = kDefaultPlayHistoryLimit,
     this.isLoading = true,
   });
 
@@ -23,6 +27,7 @@ class PlaybackSettingsState {
     bool? rememberPlaybackPosition,
     int? restartRewindSeconds,
     int? tempPlayRewindSeconds,
+    int? playHistoryLimit,
     bool? isLoading,
   }) {
     return PlaybackSettingsState(
@@ -33,6 +38,7 @@ class PlaybackSettingsState {
       restartRewindSeconds: restartRewindSeconds ?? this.restartRewindSeconds,
       tempPlayRewindSeconds:
           tempPlayRewindSeconds ?? this.tempPlayRewindSeconds,
+      playHistoryLimit: playHistoryLimit ?? this.playHistoryLimit,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -56,6 +62,7 @@ class PlaybackSettingsNotifier extends Notifier<PlaybackSettingsState> {
       rememberPlaybackPosition: _settings!.rememberPlaybackPosition,
       restartRewindSeconds: _settings!.restartRewindSeconds,
       tempPlayRewindSeconds: _settings!.tempPlayRewindSeconds,
+      playHistoryLimit: _settings!.playHistoryLimit,
       isLoading: false,
     );
   }
@@ -94,6 +101,29 @@ class PlaybackSettingsNotifier extends Notifier<PlaybackSettingsState> {
     await settingsRepository.update((s) => s.tempPlayRewindSeconds = value);
     _settings!.tempPlayRewindSeconds = value;
     state = state.copyWith(tempPlayRewindSeconds: value);
+  }
+
+  /// 設定播放歷史保留上限，並立刻套用到既有資料。
+  ///
+  /// 調小之後馬上裁，而不是等下一次播放 —— 使用者剛剛在對話框裡讀到「超出時會
+  /// 刪掉最舊的紀錄」，設定頁上的筆數卻沒動的話，那句話看起來就像沒發生。
+  Future<void> setPlayHistoryLimit(int value) async {
+    if (_settings == null) return;
+
+    final settingsRepository = ref.read(settingsRepositoryProvider);
+    await settingsRepository.update((s) => s.playHistoryLimit = value);
+    _settings!.playHistoryLimit = value;
+    state = state.copyWith(playHistoryLimit: value);
+
+    final deleted = await ref
+        .read(playHistoryRepositoryProvider)
+        .trimToLimit(value);
+    if (deleted > 0) {
+      AppLogger.info(
+        'Play history limit lowered to $value, trimmed $deleted oldest rows',
+        'PlaybackSettings',
+      );
+    }
   }
 }
 

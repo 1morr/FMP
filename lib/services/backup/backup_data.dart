@@ -602,6 +602,7 @@ class SettingsBackup {
   final bool rememberPlaybackPosition;
   final int restartRewindSeconds;
   final int tempPlayRewindSeconds;
+  final int playHistoryLimit;
   final int maxConcurrentDownloads;
   final int downloadImageOptionIndex;
   final bool minimizeToTrayOnClose;
@@ -643,6 +644,7 @@ class SettingsBackup {
   final String homeRankingSourcePriority;
   final String disabledHomeRankingSources;
   final int radioRefreshIntervalMinutes;
+  final bool autoCheckUpdates;
 
   SettingsBackup({
     this.themeModeIndex = 0,
@@ -652,6 +654,7 @@ class SettingsBackup {
     this.rememberPlaybackPosition = true,
     this.restartRewindSeconds = 0,
     this.tempPlayRewindSeconds = 10,
+    this.playHistoryLimit = kDefaultPlayHistoryLimit,
     this.maxConcurrentDownloads = 3,
     this.downloadImageOptionIndex = 1,
     this.minimizeToTrayOnClose = false,
@@ -693,6 +696,7 @@ class SettingsBackup {
     String? homeRankingSourcePriority,
     String? disabledHomeRankingSources,
     this.radioRefreshIntervalMinutes = 5,
+    this.autoCheckUpdates = true,
   }) : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
        lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
          lyricsAiTitleParsingModeIndex,
@@ -719,6 +723,8 @@ class SettingsBackup {
           json['rememberPlaybackPosition'] as bool? ?? true,
       restartRewindSeconds: json['restartRewindSeconds'] as int? ?? 0,
       tempPlayRewindSeconds: json['tempPlayRewindSeconds'] as int? ?? 10,
+      playHistoryLimit:
+          json['playHistoryLimit'] as int? ?? kDefaultPlayHistoryLimit,
       maxConcurrentDownloads: json['maxConcurrentDownloads'] as int? ?? 3,
       downloadImageOptionIndex: json['downloadImageOptionIndex'] as int? ?? 1,
       minimizeToTrayOnClose:
@@ -786,6 +792,7 @@ class SettingsBackup {
           json['disabledHomeRankingSources'] as String? ?? '',
       radioRefreshIntervalMinutes:
           json['radioRefreshIntervalMinutes'] as int? ?? 5,
+      autoCheckUpdates: json['autoCheckUpdates'] as bool? ?? true,
     );
   }
 
@@ -798,6 +805,7 @@ class SettingsBackup {
       'rememberPlaybackPosition': rememberPlaybackPosition,
       'restartRewindSeconds': restartRewindSeconds,
       'tempPlayRewindSeconds': tempPlayRewindSeconds,
+      'playHistoryLimit': playHistoryLimit,
       'maxConcurrentDownloads': maxConcurrentDownloads,
       'downloadImageOptionIndex': downloadImageOptionIndex,
       'minimizeToTrayOnClose': minimizeToTrayOnClose,
@@ -850,6 +858,7 @@ class SettingsBackup {
       'homeRankingSourcePriority': homeRankingSourcePriority,
       'disabledHomeRankingSources': disabledHomeRankingSources,
       'radioRefreshIntervalMinutes': radioRefreshIntervalMinutes,
+      'autoCheckUpdates': autoCheckUpdates,
     };
   }
 }
