@@ -99,6 +99,25 @@ only the message discriminates.
 | `MediaUnopenable` / `DecoderFailed` | the media cannot be opened or decoded | delay briefly for self-recovery, then a terminal error |
 | `UnclassifiedFailure` | anything the backend cannot place | log it and ignore — but visibly |
 
+**The routing is pure and lives in one file.** `playback_event_router.dart`
+turns an event plus an immutable `PlaybackEventContext` snapshot into exactly one
+`PlaybackAction`; `AudioController` builds the snapshot, calls the router, and
+applies the result through a single exhaustive `switch` with no `default`. Every
+rule below is therefore one assertion in
+`test/services/audio/playback_event_router_test.dart` rather than a controller,
+a fake backend and an Isar. The snapshot deliberately holds no collaborators —
+"is there a next track" is `QueueManager.hasNext`, never `moveToNext()`, because
+a router that mutates is a router nobody can assert twice.
+`playback_event_routing_static_rule_test.dart` pins the split: nothing under
+`lib/` but the router may pattern-match a `PlaybackEndReason` variant.
+Constructing one is fine — the position-check fallback has to synthesize the
+completion event Android loses in the background.
+
+**Adding a decision means adding a variant and a router test, never an `if` in
+the applier.** One variant per effect, and no boolean that turns one variant
+into two behaviours: the moment the applier branches, half the routing lives
+somewhere nothing tests.
+
 `duration == null` counts as `EndedPrematurely`, not a natural end: a stream that
 connects but delivers zero bytes reports exactly that shape, and treating it as
 "finished" makes the player skip the whole queue in silence.
