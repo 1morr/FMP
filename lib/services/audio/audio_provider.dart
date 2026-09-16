@@ -31,6 +31,7 @@ import 'package:fmp/services/audio/playback_recovery_coordinator.dart';
 import 'package:fmp/services/audio/playback_request_session.dart';
 import 'package:fmp/services/audio/playback_capabilities.dart';
 import 'package:fmp/services/audio/playback_error_presenter.dart';
+import 'package:fmp/services/audio/playback_event_router.dart';
 import 'package:fmp/services/audio/playback_handoff_gate.dart';
 import 'package:fmp/services/audio/now_playing_publisher.dart';
 import 'package:fmp/services/audio/playback_side_effects.dart';
@@ -91,10 +92,10 @@ class AudioController extends Notifier<PlayerState>
   AudioStreamResult? _armedStreamResult;
 
   /// arm 期間輪詢備援連續看到「已經到結尾」的次數。
+  ///
+  /// 讓幾格才收回推進權由 [PlaybackEventRouter.armedAdvanceGraceTicks] 決定。
   int _armedEndTicks = 0;
 
-  /// 讓給後端幾格之後就收回推進權。1 秒一格，所以是 3 秒。
-  static const _armedAdvanceGraceTicks = 3;
   String? _terminalMediaOpenErrorTrackKey;
 
   // 導航請求ID - 防止快速點擊 next/previous 時的競態條件
@@ -1309,35 +1310,15 @@ class AudioController extends Notifier<PlayerState>
   }
 
   void _checkPositionForAutoNext() {
-    if (!_audioService.isPlaying) return;
+    if (_isDisposed) return;
+    unawaited(_apply(PlaybackEventRouter.routePositionCheck(_eventContext())));
+  }
 
-    final position = _audioService.position;
-    final duration = _audioService.duration;
-
-    if (duration == null || duration.inMilliseconds <= 0) return;
-
-    final remaining = duration - position;
-    if (remaining > AppConstants.positionCheckThreshold) {
-      _armedEndTicks = 0;
-      return;
-    }
-
-    if (_armedNextTrack != null) {
-      // 推進權在後端手上，這裡再合成一次「播完」就是二次前進。但這個備援本來
-      // 就是為了「後台 completed 事件丟失」而存在的，所以不是無限期讓路：
-      // 連續三格還停在結尾就當後端沒接上去，把推進權收回來。
-      if (++_armedEndTicks < _armedAdvanceGraceTicks) return;
-      logWarning(
-        'The backend did not advance within $_armedAdvanceGraceTicks '
-        'position checks; taking the queue back',
-      );
-      _disarmNextMedia('the backend did not advance at the boundary');
-    }
-
+  /// 後端把完成事件弄丟了，由位置檢查補一次。
+  void _synthesizeCompletion(Duration position, Duration duration) {
     logDebug(
       'Position check triggered auto-next: position=$position, duration=$duration',
     );
-    // 走到這裡代表 remaining 已在容忍窗內，是真的播完。
     _onPlaybackEnded(const EndedNaturally());
   }
 
@@ -2361,35 +2342,20 @@ class AudioController extends Notifier<PlayerState>
 
   void _onPlayerStateChanged(FmpPlayerState playerState) {
     if (_isDisposed) return;
-    // 電台播放中的狀態變化由 RadioController 處理，AudioController 不應更新自身狀態
-    if (isRadioPlaying?.call() == true) {
-      // 進電台時如果計時器正在跑，之後就再也收不到事件來取消它了。
-      _bufferWatchdog.cancel();
-      return;
-    }
-    if (_terminalMediaOpenErrorTrackKey != null &&
-        state.playingTrack?.uniqueKey == _terminalMediaOpenErrorTrackKey &&
-        state.error != null) {
-      logDebug('Backend state ignored after terminal media open error');
-      return;
-    }
-
-    // 音訊裝置剛失敗：引擎可能仍宣稱在播（mpv 沒有輸出裝置也會把 playing
-    // 翻真），把它收回，否則 UI 會停在「正在播放」卻完全沒有聲音。
-    if (playerState.playing && _isWithinOutputDeviceFailureGuard) {
-      logDebug('Pausing: audio output device failed moments ago');
-      unawaited(_audioService.pause());
-      return;
-    }
-
-    final effective = EffectivePlaybackState.from(
-      backend: playerState,
-      controllerIsLoading: _isLoadingPlayback,
-      backendPosition: _audioService.position,
+    unawaited(
+      _apply(
+        PlaybackEventRouter.routePlayerState(playerState, _eventContext()),
+      ),
     );
+  }
 
+  void _projectPlayerState(
+    FmpPlayerState backend,
+    EffectivePlaybackState effective, {
+    required bool suppressWatchdog,
+  }) {
     logDebug(
-      'PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}',
+      'PlayerState changed: playing=${backend.playing}, processingState=${backend.processingState}',
     );
     state = state.copyWith(
       isPlaying: effective.isPlaying,
@@ -2403,11 +2369,7 @@ class AudioController extends Notifier<PlayerState>
     _bufferWatchdog.onPlayerStateChanged(
       isBuffering: effective.isBuffering,
       isPlaying: effective.isPlaying,
-      isSuppressed:
-          _isLoadingPlayback ||
-          state.isRetrying ||
-          state.isNetworkError ||
-          _isWithinOutputDeviceFailureGuard,
+      isSuppressed: suppressWatchdog,
     );
 
     // 更新系統媒體控制的播放狀態（通知欄 / SMTC）
@@ -2456,18 +2418,16 @@ class AudioController extends Notifier<PlayerState>
   /// 那會變成繞過 [PlaybackRequestSession] 的第二條播放路徑。作廢快取的解析
   /// 結果之後交給 retryPlayback 重發一次請求，`_execute` 內建的「fallback
   /// 一次」就是那一次機會。
-  Future<void> _onBufferStarvation() async {
-    if (_isDisposed) return;
+  Future<void> _onBufferStarvation() {
+    if (_isDisposed) return Future<void>.value();
+    return _apply(PlaybackEventRouter.routeBufferStarvation(_eventContext()));
+  }
+
+  /// 救援本身。是否該救、救第幾次由
+  /// [PlaybackEventRouter.routeBufferStarvation] 決定。
+  Future<void> _retryStalledStream() async {
     final track = state.playingTrack;
     if (track == null) return;
-    if (_isLoadingPlayback || state.isRetrying || state.isNetworkError) {
-      return;
-    }
-
-    if (_bufferStarvationTrackKey == track.uniqueKey) {
-      _failStalledPlayback(track);
-      return;
-    }
     _bufferStarvationTrackKey = track.uniqueKey;
 
     logWarning('Buffer starved during playback: ${track.title}');
@@ -2498,12 +2458,8 @@ class AudioController extends Notifier<PlayerState>
   void _onTransportFailure(TransportFailed failure) {
     logError('Transport failure during playback: $failure');
 
-    // 獲取當前播放的歌曲
     final track = state.playingTrack;
-    if (track == null) {
-      logDebug('No playing track, ignoring error');
-      return;
-    }
+    if (track == null) return;
 
     logWarning('Network error detected during playback: ${track.title}');
 
@@ -2523,45 +2479,32 @@ class AudioController extends Notifier<PlayerState>
     // 保存當前位置，stop() 可能會透過 positionStream 將 position 重置為 zero
     final positionBeforeStop = state.position;
 
-    // 停止播放並觸發重試
-    _audioService
-        .stop()
-        .then((_) {
-          if (!_isAudioErrorRetryContextCurrent(
-            track,
-            retryRequestGeneration,
-          )) {
-            return;
-          }
-          state = state.copyWith(isLoading: false, isPlaying: false);
-          _resetLoadingState();
-          final event = _recoveryCoordinator.onBackendNetworkError(
-            track: track,
-            position: positionBeforeStop,
-            isActiveRetryHandoff: activeRetryRequestId != null,
-            mode: _currentRecoveryMode,
-          );
-          _applyRecoveryEvent(event);
-        })
-        .catchError((e) {
-          if (!_isAudioErrorRetryContextCurrent(
-            track,
-            retryRequestGeneration,
-          )) {
-            return;
-          }
-          logError('Failed to stop player after error', e);
-          // stop() 失敗時仍需觸發重試，否則播放器會卡在錯誤狀態
-          state = state.copyWith(isLoading: false, isPlaying: false);
-          _resetLoadingState();
-          final event = _recoveryCoordinator.onBackendNetworkError(
-            track: track,
-            position: positionBeforeStop,
-            isActiveRetryHandoff: activeRetryRequestId != null,
-            mode: _currentRecoveryMode,
-          );
-          _applyRecoveryEvent(event);
-        });
+    // 停止播放並觸發重試。**stop() 失敗照樣要走重試**，否則播放器會卡在錯誤
+    // 狀態 —— 所以成功與失敗是同一段後續，只差一行日誌。
+    unawaited(() async {
+      Object? stopError;
+      try {
+        await _audioService.stop();
+      } catch (error) {
+        stopError = error;
+      }
+      if (!_isAudioErrorRetryContextCurrent(track, retryRequestGeneration)) {
+        return;
+      }
+      if (stopError != null) {
+        logError('Failed to stop player after error', stopError);
+      }
+      state = state.copyWith(isLoading: false, isPlaying: false);
+      _resetLoadingState();
+      _applyRecoveryEvent(
+        _recoveryCoordinator.onBackendNetworkError(
+          track: track,
+          position: positionBeforeStop,
+          isActiveRetryHandoff: activeRetryRequestId != null,
+          mode: _currentRecoveryMode,
+        ),
+      );
+    }());
   }
 
   bool _isAudioErrorRetryContextCurrent(Track track, int requestGeneration) {
@@ -2629,9 +2572,11 @@ class AudioController extends Notifier<PlayerState>
     state = state.copyWith(currentAudioDevice: device, error: state.error);
   }
 
+  /// Mix 尾端等補歌完成再推進。回傳 false 代表補完之後仍然沒有下一首。
+  ///
+  /// 這是整個播放路徑唯一一處「等一個副作用」，也是 `MixSessionCoordinator`
+  /// 刻意不是 `PlaybackSideEffect` 的理由。
   Future<bool> _advanceAfterPendingMixLoadMore() async {
-    if (!_isMixMode) return false;
-
     final pendingLoad = _mixSession.pendingLoad;
     if (pendingLoad == null) return false;
 
@@ -2649,75 +2594,41 @@ class AudioController extends Notifier<PlayerState>
     return true;
   }
 
-  /// 後端回報「播放停下來了」的統一入口。
-  ///
-  /// 這裡只做型別分派：**判斷是哪一種結束是後端的責任**，因為只有後端知道自己
-  /// 面對的是 mpv 還是 ExoPlayer。上層過去靠比對錯誤字串，實測會把「音訊輸出
-  /// 裝置開不起來」誤判成「這首歌開不起來」（issue #41），而且兩個後端連走哪
-  /// 條通道都不一致。
-  void _onPlaybackEnded(PlaybackEndReason reason) {
-    if (_isDisposed) return;
+  /// 正常佇列播放：移動到下一首。
+  Future<void> _advanceQueue() async {
+    if (_queueManager.moveToNext() == null) return;
+    final track = _queueManager.currentTrack;
+    if (track == null) return;
+    await _playTrack(track);
+  }
 
-    // 電台的結束與失敗由 RadioController 自行處理（重連等），這裡不介入 ——
-    // **輸出裝置失效除外**。裝置壞掉與現在播的是歌還是電台無關，而
-    // RadioController 從來沒有訂閱過 endReasons，所以過去電台播放中拔掉音效
-    // 裝置是零回饋（issue #41 症狀二）。_onOutputDeviceFailure 只發 toast、
-    // 不動任何播放狀態，在電台情境下安全。
-    if (isRadioPlaying?.call() == true) {
-      if (reason case OutputDeviceFailed(:final raw)) {
-        _onOutputDeviceFailure(raw);
-        return;
-      }
-      logDebug('Playback end ignored: radio is playing ($reason)');
-      return;
-    }
-
-    switch (reason) {
-      case EndedNaturally():
-        _onTrackCompleted();
-      case EndedPrematurely(:final at, :final expected):
-        if (!_canHandlePlaybackEnd()) return;
-        // 重開串流換不回一個壞掉的輸出裝置。連「排重試」那一行都不能印 ——
-        // 跟在它後面的是誤導人的「Retry playback succeeded」（issue #106）。
-        if (_outputDeviceFailure == _playbackGenerationMark) {
-          logWarning('Output device failed; premature end not retried: $at');
-          return;
-        }
-        logWarning(
-          'Track ended before its natural end; scheduling retry: at=$at, expected=$expected',
-        );
-        _recoverFromPrematureCompletion(at);
-      case TransportFailed():
-        _onTransportFailure(reason);
-      case OutputDeviceFailed(:final raw):
-        _onOutputDeviceFailure(raw);
-      case MediaUnopenable(:final raw):
-      case DecoderFailed(:final raw):
-        _onMediaOpenFailure(raw);
-      case UnclassifiedFailure(:final raw):
-        // 顯性地丟棄：至少留下一行，而不是消失在一串字串比對之後。
-        logWarning('Unclassified playback failure, ignoring: $raw');
+  /// 隊列播完了，但後端仍可能回報 playing（位置停在結尾）。不暫停的話位置檢查
+  /// 計時器每秒都會再判定一次「播完」—— 實測會無限重複觸發。
+  Future<void> _pauseAtQueueEnd() async {
+    logDebug('No next track available');
+    if (_audioService.isPlaying) {
+      await _audioService.pause();
     }
   }
 
-  /// 播放結束事件是否該被處理（載入中／重試中／網路錯誤狀態下一律不處理）。
-  bool _canHandlePlaybackEnd() {
-    if (_isLoadingPlayback || state.isRetrying || state.isNetworkError) {
-      logDebug('Playback end ignored during loading/retry state');
-      return false;
-    }
-    return true;
+  /// 後端回報「播放停下來了」的統一入口。
+  ///
+  /// **判斷是哪一種結束是後端的責任**，因為只有後端知道自己面對的是 mpv 還是
+  /// ExoPlayer。上層過去靠比對錯誤字串，實測會把「音訊輸出裝置開不起來」誤判成
+  /// 「這首歌開不起來」（issue #41），而且兩個後端連走哪條通道都不一致。
+  ///
+  /// **每一種結束該做什麼則是 [PlaybackEventRouter.routeEnd] 的事**：這裡只拍
+  /// 一張快照、問它、然後套用它回傳的那一個動作。
+  void _onPlaybackEnded(PlaybackEndReason reason) {
+    if (_isDisposed) return;
+    unawaited(_apply(PlaybackEventRouter.routeEnd(reason, _eventContext())));
   }
 
   /// 音訊「輸出裝置」失敗 —— 與這首歌無關，所以不能報「播放失敗: <歌名>」。
-  ///
-  /// 一次裝置失敗會連續產生多則訊息（實測 mpv 一次吐三條：`ao` 的兩條加上
-  /// `cplayer` 的一條），所以這裡只對第一條做事，其餘在抑制窗內併掉。
-  void _onOutputDeviceFailure(String raw) {
-    logError('Audio output device failed: $raw');
-    final mark = _playbackGenerationMark;
-    _outputDeviceFailure = mark;
-    if (_prematureEndRetry == mark) {
+  void _reportOutputDeviceFailure(ReportOutputDeviceFailure action) {
+    logError('Audio output device failed: ${action.raw}');
+    _outputDeviceFailure = _playbackGenerationMark;
+    if (action.cancelScheduledRetry) {
       // 實測（Windows）mpv 是先宣告 completed、4ms 後才吐 ao 錯誤，所以到這裡
       // premature-end 已經把重試排好了。收回它，別讓它撞上同一個壞掉的裝置。
       _prematureEndRetry = null;
@@ -2725,19 +2636,15 @@ class AudioController extends Notifier<PlayerState>
       _resetRetryState();
     }
 
-    final now = DateTime.now();
-    final last = _lastOutputDeviceFailureAt;
-    _lastOutputDeviceFailureAt = now;
-    if (last != null &&
-        now.difference(last) < _outputDeviceFailureSuppressWindow) {
-      return;
+    _lastOutputDeviceFailureAt = action.at;
+    if (action.showToast) {
+      _toastService.showError(t.audio.audioOutputFailed);
     }
-
-    _toastService.showError(t.audio.audioOutputFailed);
   }
 
-  /// 同一次裝置失敗的連續訊息在這個窗內只處理第一條（實測 mpv 一次吐三條）。
-  static const _outputDeviceFailureSuppressWindow = Duration(seconds: 3);
+  /// 上一次輸出裝置失敗的時刻。抑制窗與保護窗都從它算起 ——
+  /// 見 [PlaybackEventRouter.outputDeviceFailureSuppressWindow] 與
+  /// [PlaybackEventRouter.outputDeviceFailureGuardWindow]。
   DateTime? _lastOutputDeviceFailureAt;
 
   /// 裝置失敗當下是「哪一次請求、哪一首歌」—— premature-end 重試的抑制條件。
@@ -2749,14 +2656,15 @@ class AudioController extends Notifier<PlayerState>
   /// **兩個方向都要擋，因為兩條訊息的先後是量出來的、不是講道理講出來的。**
   /// 2026-09-15 的 Windows 實測：`Track completed: EndedPrematurely` 在
   /// 23:20:56.224，第一條 `ao` 錯誤在 .228 —— completed 先到 4ms。所以光靠這個
-  /// 標記擋不住，`_onOutputDeviceFailure` 還要回頭收掉已經排好的那次重試
-  /// （見 `_prematureEndRetry`）。這個標記負責的是反過來的順序，以及重試本身
+  /// 標記擋不住，[_reportOutputDeviceFailure] 還要回頭收掉已經排好的那次重試
+  /// （見 [_prematureEndRetry]）。這個標記負責的是反過來的順序，以及重試本身
   /// 再撞一次裝置失敗之後的那一次 premature-end。
   ///
   /// 記世代與歌曲、不再開一個時間窗：抑制必須在使用者換歌或重按播放時失效，而
-  /// 那兩件事都會讓 `PlaybackRequestSession` 換一個 requestId。上面那個 3 秒窗
-  /// 管的是「同一次失敗吐三條訊息」，尺度對不上這件事 —— 實測重試排在 1 秒後、
-  /// 解析加開串流又花掉 9 秒。
+  /// 那兩件事都會讓 `PlaybackRequestSession` 換一個 requestId。
+  /// [PlaybackEventRouter.outputDeviceFailureSuppressWindow] 那個 3 秒窗管的是
+  /// 「同一次失敗吐三條訊息」，尺度對不上這件事 —— 實測重試排在 1 秒後、解析加
+  /// 開串流又花掉 9 秒。
   ({int generation, String? trackKey})? _outputDeviceFailure;
 
   /// 已排定、還沒起跑的 premature-end 重試是「哪一次請求、哪一首歌」。
@@ -2771,26 +2679,10 @@ class AudioController extends Notifier<PlayerState>
     trackKey: _playingTrack?.uniqueKey,
   );
 
-  /// 裝置失敗之後，這段時間內任何「開始播放」都要立刻收回。
-  ///
-  /// 失敗訊息會在播放 handoff **完成之前**抵達（實測：錯誤 48.68，
-  /// `_ensurePlayback` 49.81 才把 playing 設回 true），所以不能用定時暫停去賭
-  /// 順序 —— 改成看到 playing 翻真就收回。不 stop、不 cancelActive：媒體本身是
-  /// 好的，使用者修好裝置後按播放即可繼續。
-  static const _outputDeviceFailureGuardWindow = Duration(seconds: 5);
-
-  bool get _isWithinOutputDeviceFailureGuard {
-    final last = _lastOutputDeviceFailureAt;
-    return last != null &&
-        DateTime.now().difference(last) < _outputDeviceFailureGuardWindow;
-  }
-
-  void _onMediaOpenFailure(String raw) {
+  /// 媒體開啟／解碼失敗：作廢解析結果，交給播放請求決定要不要延遲自癒。
+  void _reopenAfterMediaFailure(String raw) {
     final track = state.playingTrack;
-    if (track == null) {
-      logDebug('Media open failure ignored: no playing track ($raw)');
-      return;
-    }
+    if (track == null) return;
     _audioStreamManager.invalidateResolvedStream(track);
     unawaited(
       _playbackRequestSession.onMediaOpenError(
@@ -2801,12 +2693,11 @@ class AudioController extends Notifier<PlayerState>
     );
   }
 
+  /// 正常播完之後的處理。往哪裡去由 [PlaybackEventRouter.routeCompletion] 決定。
   void _onTrackCompleted() {
-    // 防止重複處理
+    // 重入閂。這不是路由決定，是這個 effect 自己的鎖：完成處理跨越好幾個
+    // `await`，期間後端還會再吐事件進來。
     if (_isHandlingCompletion) return;
-
-    if (!_canHandlePlaybackEnd()) return;
-
     _isHandlingCompletion = true;
 
     // 使用 Future.microtask 來避免在流監聽器中直接操作
@@ -2815,45 +2706,122 @@ class AudioController extends Notifier<PlayerState>
         logDebug(
           'Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, isPlayingOutOfQueue: $_isPlayingOutOfQueue',
         );
-        // 單曲迴圈優先：即使在臨時播放模式下也繼續迴圈播放
-        if (_queueManager.loopMode == LoopMode.one) {
-          // 單曲迴圈：重新播放當前歌曲
-          logDebug('LoopOne mode: replaying current track');
-          final track = _playingTrack;
-          if (track != null) {
-            await _playTrack(track);
-          }
-          return;
-        }
-
-        // 檢測是否脫離佇列播放
-        if (_isPlayingOutOfQueue) {
-          logDebug('Track completed while playing out of queue');
-          await _returnToQueue();
-          return;
-        }
-
-        // 正常佇列播放：移動到下一首
-        final nextIdx = _queueManager.moveToNext();
-        if (nextIdx != null) {
-          final track = _queueManager.currentTrack;
-          if (track != null) {
-            await _playTrack(track);
-          }
-        } else if (!await _advanceAfterPendingMixLoadMore()) {
-          logDebug('No next track available');
-          // 隊列播完了，但後端仍可能回報 playing（位置停在結尾）。不暫停的話
-          // 位置檢查計時器每秒都會再判定一次「播完」—— 實測會無限重複觸發。
-          if (_audioService.isPlaying) {
-            await _audioService.pause();
-          }
-        }
+        await _apply(PlaybackEventRouter.routeCompletion(_eventContext()));
       } catch (e, stack) {
         logError('Track completion handler failed', e, stack);
       } finally {
         _isHandlingCompletion = false;
       }
     });
+  }
+
+  /// 路由要看的那張快照。協作者一律在這裡問完，路由本身拿不到它們。
+  PlaybackEventContext _eventContext() => PlaybackEventContext(
+    isDisposed: _isDisposed,
+    radioOwnsPlayback: isRadioPlaying?.call() ?? false,
+    isLoadingPlayback: _isLoadingPlayback,
+    isRetrying: state.isRetrying,
+    isNetworkError: state.isNetworkError,
+    playingTrackKey: _playingTrack?.uniqueKey,
+    hasError: state.error != null,
+    terminalMediaOpenErrorTrackKey: _terminalMediaOpenErrorTrackKey,
+    generationMark: _playbackGenerationMark,
+    outputDeviceFailureMark: _outputDeviceFailure,
+    prematureEndRetryMark: _prematureEndRetry,
+    lastOutputDeviceFailureAt: _lastOutputDeviceFailureAt,
+    now: DateTime.now(),
+    loopMode: _queueManager.loopMode,
+    isPlayingOutOfQueue: _isPlayingOutOfQueue,
+    // 非變動式的問法。`moveToNext()` 會就地改索引，用它來決定等於在路由階段
+    // 就動了狀態。
+    hasNextInQueue: _queueManager.hasNext,
+    mixLoadMorePending: _isMixMode && _mixSession.pendingLoad != null,
+    armedNextTrackKey: _armedNextTrack == null
+        ? null
+        : _armKey(_armedNextTrack!),
+    armedEndTicks: _armedEndTicks,
+    bufferStarvationTrackKey: _bufferStarvationTrackKey,
+    backendIsPlaying: _audioService.isPlaying,
+    position: _audioService.position,
+    duration: _audioService.duration,
+  );
+
+  /// 套用一個路由決定。**窮盡的 `switch`，沒有 `default`** —— 新增一個
+  /// [PlaybackAction] 變體時編譯器會指出這裡漏了哪一格。
+  ///
+  /// 這裡不做決定：需要新的條件時加一個變體與一條路由測試，不要在這裡寫 `if`。
+  Future<void> _apply(PlaybackAction action) async {
+    switch (action) {
+      case IgnoreEvent(:final reason):
+        logDebug('Playback event ignored: $reason');
+      case CancelBufferWatchdog():
+        _bufferWatchdog.cancel();
+      case PauseBackend(:final reason):
+        logDebug('Pausing the backend: $reason');
+        unawaited(_audioService.pause());
+      case ProjectPlayerState(
+        :final backend,
+        :final effective,
+        :final suppressWatchdog,
+      ):
+        _projectPlayerState(
+          backend,
+          effective,
+          suppressWatchdog: suppressWatchdog,
+        );
+      case HandleTrackCompletion():
+        _onTrackCompleted();
+      case ReplayCurrentTrack():
+        logDebug('LoopOne mode: replaying current track');
+        final track = _playingTrack;
+        if (track != null) await _playTrack(track);
+      case ReturnToQueue():
+        logDebug('Track completed while playing out of queue');
+        await _returnToQueue();
+      case AdvanceQueue():
+        await _advanceQueue();
+      case WaitForMixLoadMore():
+        if (!await _advanceAfterPendingMixLoadMore()) {
+          await _pauseAtQueueEnd();
+        }
+      case PauseAtQueueEnd():
+        await _pauseAtQueueEnd();
+      case RetryPrematureEnd(:final at, :final expected):
+        logWarning(
+          'Track ended before its natural end; scheduling retry: at=$at, expected=$expected',
+        );
+        _recoverFromPrematureCompletion(at);
+      case SkipPrematureEndRetry(:final at):
+        logWarning('Output device failed; premature end not retried: $at');
+      case RecoverTransportFailure(:final failure):
+        _onTransportFailure(failure);
+      case ReportOutputDeviceFailure():
+        _reportOutputDeviceFailure(action);
+      case ReopenAfterMediaFailure(:final raw):
+        _reopenAfterMediaFailure(raw);
+      case ReportUnclassifiedFailure(:final raw):
+        // 顯性地丟棄：至少留下一行，而不是消失在一串字串比對之後。
+        logWarning('Unclassified playback failure, ignoring: $raw');
+      case RetryStalledStream():
+        await _retryStalledStream();
+      case FailStalledPlayback():
+        final track = state.playingTrack;
+        if (track != null) _failStalledPlayback(track);
+      case ResetArmedEndTicks():
+        _armedEndTicks = 0;
+      case IncrementArmedEndTicks():
+        _armedEndTicks++;
+      case TakeBackAdvanceAndComplete(:final position, :final duration):
+        logWarning(
+          'The backend did not advance within '
+          '${PlaybackEventRouter.armedAdvanceGraceTicks} position checks; '
+          'taking the queue back',
+        );
+        _disarmNextMedia('the backend did not advance at the boundary');
+        _synthesizeCompletion(position, duration);
+      case SynthesizeCompletion(:final position, :final duration):
+        _synthesizeCompletion(position, duration);
+    }
   }
 
   void _onQueueStateChanged(void _) {
