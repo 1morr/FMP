@@ -88,12 +88,16 @@ Both rules are machine-checked by `error_presentation_static_rule_test.dart`.
 The i18n-template rule scans all of `lib/`, not just `lib/ui`: the leak that
 actually shipped was in a service.
 
-Two deliberate exceptions, both outside `lib/ui`: `lib/app.dart` shows the raw
-error on the init-failure screen (the log page is unreachable while startup
-providers are still failing, so that text is the user's only clue), and
-`log_viewer_page.dart` renders `entry.error` because it *is* the log viewer.
-Neither covers an exception thrown before `runApp()` — that case still has no
-window at all (issue #37).
+Three deliberate exceptions: `lib/app.dart` shows the raw error on the
+init-failure screen (the log page is unreachable while startup providers are
+still failing, so that text is the user's only clue), `log_viewer_page.dart`
+renders `entry.error` because it *is* the log viewer, and
+`startup_failure_app.dart` shows the raw error because it runs *before*
+`runApp()` succeeded, when there is no log page, no translations and no theme —
+`main.dart` calls it from the zone handler when its `runApp()` flag is still
+false, which is the only thing standing between an exception thrown during
+initialization and a Windows launch with no window at all (issue #37). Keep that
+widget free of `t` / `context.t`: slang is itself part of what can fail.
 
 ## Accessibility
 

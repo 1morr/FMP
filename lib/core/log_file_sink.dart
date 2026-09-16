@@ -38,6 +38,13 @@ class LogFileSink {
 
   File get _current => File(p.join(directory.path, fileName));
 
+  /// 目前正在寫入的 log 檔完整路徑。
+  ///
+  /// 啟動失敗畫面（`lib/ui/startup_failure_app.dart`）要把它顯示給使用者。
+  /// 在呼叫端用 [directory] + [fileName] 重拼一次就是第二份路徑規則，輪替命名
+  /// 一改就會對不上，所以路徑只從這裡出去。
+  String get currentFilePath => _current.path;
+
   int _currentBytes = 0;
   bool _isOpen = false;
 
