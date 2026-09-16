@@ -9,7 +9,7 @@
 
 ## 0. 結論
 
-**可以發 v1.10.2。** `main`（`1c074e82`）CI 綠燈、open PR 為零、最近 40 次 `main`
+**可以發 v1.10.2。** `main`（`41334860`）CI 綠燈、open PR 為零、**open issue 為零**（#37、#39 於 #139、#140 修完，#95、#102 已結案）、最近 40 次 `main`
 的 CI 只有 2026-09-08 一次失敗（那次是 #73 之前的格式問題，已修）。發版前要做的只有
 §4 的四件事，其中兩件是把「預設會刪資料」與「預設會連網」寫進 release notes。
 
@@ -66,6 +66,8 @@ Bilibili 風控退避與背景停輪詢（#95 的電台那半）、release notes
 | **自動檢查更新**：啟動 8 秒後背景檢查一次、每日至多一次、可關 | 計劃 P-2、PR #132 | Android 實機 |
 | 帳號失效改成**標記而非登出**：帳號頁多一個「登入已失效／重新登入」態，每平台每次啟動最多提示一次 | #92、#93、PR #134 | Android 實機（Windows 未實測） |
 | README 補 Android 截圖 | #91 | — |
+| `runApp()` 之前的例外不再是無視窗的靜默失敗：改顯示一個最小錯誤畫面（例外、log 路徑、issues 連結） | #37、PR #139 | Windows 實機（插入 probe 例外看到視窗）；Android 未跑，錯誤畫面是純 widget，由測試覆蓋 |
+| 可攜版的「開機自啟」開關副標題說明搬動資料夾後要再開一次 FMP；疑難排解補一節 | #39、PR #140 | Windows 實機截圖（dev build 走可攜版分支） |
 
 內部：刪掉零呼叫的抽象（`AvailabilitySource`、`SourceManager` facade、`TrackInfoSource`
 死方法、media_kit 的手機與音量路徑、Netease 歌單匯入源、YouTube 串流測試頁、無快取的排
