@@ -234,6 +234,29 @@ return `true`.
   That guard scans **every** file under `lib/services/audio/`; scoped to one file
   it would go vacuous the moment the code moved.
 
+## Decided Against (2026-09)
+
+Two features every comparable player gets asked for were evaluated and closed
+so the next audit does not reopen them. Each carries the condition that would
+reopen it.
+
+**No automatic byte cache.** The user-visible download feature *is* FMP's byte
+cache: explicit, listed, deletable, and `StreamResolutionService` short-circuits
+to a local file before touching the network. An implicit cache would have to be
+either just_audio's `LockCachingAudioSource` (Android-only, still experimental,
+and its proxy let a `SocketException` escape as an unhandled async error in the
+offline measurement) or a loopback HTTP server, which FMP has no infrastructure
+for and which on Android needs a foreground service plus a cleartext policy.
+Reopen only if a backend ships caching that works on both platforms without a
+local server.
+
+**No crossfade.** Gapless playback here is a single decode path: `setNextMedia`
+hands the advance to the backend. Crossfade needs two tracks decoding at once —
+just_audio has no API for it, and media_kit would need a second `Player`, which
+is exactly the configuration behind harmonoid's `[Android] Crossfade + FLAC`
+background-skip bug (#585). Three of the four reference players decline it
+too. Reopen only if a backend offers crossfade natively on one player instance.
+
 ## Verification
 
 Root `AGENTS.md` § Verification has the commands for this directory.

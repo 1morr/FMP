@@ -163,12 +163,10 @@ class AccountStatusVerificationResult {
   const AccountStatusVerificationResult({
     required this.checkedPlatforms,
     required this.failedPlatforms,
-    required this.expiredPlatforms,
   });
 
   final List<String> checkedPlatforms;
   final List<String> failedPlatforms;
-  final List<String> expiredPlatforms;
 
   bool get hasFailures => failedPlatforms.isNotEmpty;
 }
@@ -182,7 +180,6 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
 ) async {
   final checkedPlatforms = <String>[];
   final failedPlatforms = <String>[];
-  final expiredPlatforms = <String>[];
 
   for (final service in services) {
     if (!await service.isLoggedIn()) continue;
@@ -195,7 +192,6 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
       checkedPlatforms.add(service.platform);
       if (result.status == AccountStatus.invalid) {
         await service.logout();
-        expiredPlatforms.add(service.platform);
         toastService.showWarning(t.account.sessionExpired(platform: name));
       } else if (result.status == AccountStatus.valid) {
         if (oldIsVip && result.isVip == false) {
@@ -214,7 +210,6 @@ Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
   return AccountStatusVerificationResult(
     checkedPlatforms: checkedPlatforms,
     failedPlatforms: failedPlatforms,
-    expiredPlatforms: expiredPlatforms,
   );
 }
 
