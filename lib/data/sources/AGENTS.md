@@ -130,6 +130,17 @@ platform's chart is meant to read. Adapters owning disposable resources
 `whereType`, so a newly registered source is cleaned up without enumerating
 concrete types.
 
+**Source plugins (user-added sources, an "empty on first install" build) are
+closed, not deferred (2026-09).** A plugin system needs a frozen public API, and
+the capability set is not one: several interfaces have one implementation and
+one consumer, and the 2026-09 cleanup deleted capabilities nothing read.
+Freezing them now would make that shape permanent. The upstream that was going
+to host plugins, `flutter_js`, has been unmaintained since early 2026, and
+spotube's alternative pulls in four packages, three of them git dependencies.
+String source ids (ADR-0001) already make a fourth built-in source one adapter.
+Reopen only when a capability surface has gone two releases without changing
+and a maintained Dart script runtime exists.
+
 ## Audio Quality And Stream Config
 
 User-configurable per source: `AudioQualityLevel` (high/medium/low),
