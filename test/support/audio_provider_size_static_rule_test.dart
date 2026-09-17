@@ -28,13 +28,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _path = 'lib/services/audio/audio_provider.dart';
 
-/// 2026-09-16 的實測值（後端事件路由抽成 `playback_event_router.dart` 之後）。
+/// 2026-09-17 的實測值：Mix 補歌邊界不再在套用端做決定（等完就交回 router
+/// 重判），加上 `readOptional` 只剩 `playback_side_effects.dart` 那一份。
 ///
-/// 上一格是 2,178（issue #106 的輸出裝置重試抑制）。**只降了十一行**，而那不是
-/// 抽取失敗：搬走的一百多行路由條件，換回來的是一張快照建構子（協作者一律在
-/// 那裡問完）與一個二十格的 `switch`。這一輪買的是「每一條路由決定都變成純斷
-/// 言」，不是行數 —— 決定住在 `PlaybackEventRouter`，控制器只剩下副作用本身。
-const _maxCodeLines = 2167;
+/// 上一格 2,167 是 2026-09-16 後端事件路由抽成 `playback_event_router.dart`
+/// 之後的值；再上一格是 2,178（issue #106 的輸出裝置重試抑制）。那一輪**只降了
+/// 十一行**，而那不是抽取失敗：搬走的一百多行路由條件，換回來的是一張快照建構
+/// 子（協作者一律在那裡問完）與一個二十格的 `switch`。買的是「每一條路由決定
+/// 都變成純斷言」，不是行數 —— 決定住在 `PlaybackEventRouter`，控制器只剩下
+/// 副作用本身。
+const _maxCodeLines = 2155;
 
 /// 低於上限多少行就要求把上限調下來。
 const _slack = 50;

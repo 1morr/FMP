@@ -13,17 +13,33 @@ import 'package:flutter_test/flutter_test.dart';
 /// `.github/dependabot.yml` 因此逐一排除仍在 0.x 的直接依賴。清單會隨著套件
 /// 各自走到 1.0 而漂移，所以由這條規則守著：**新增一個 0.x 依賴卻忘了排除**
 /// 會紅，而**排除了一個已經離開 0.x 的套件**也會紅。
+///
+/// 同一份設定還有一條 `ignore`：`flutter_secure_storage` 的大版本不交給
+/// dependabot。11.x 拿掉了 10.x 從 9.x 遷移時用的舊 cipher，跳過 10.x 的安裝
+/// 一升上去就丟登入（`lib/services/AGENTS.md`）。這裡守的是那條 ignore 還在。
 void main() {
   group('dependabot grouping', () {
     late Set<String> zeroVersion;
     late Set<String> excluded;
+    late Map<String, Set<String>> ignored;
 
     setUp(() {
+      final config = File('.github/dependabot.yml').readAsStringSync();
       zeroVersion = zeroVersionDirectDependencies(
         File('pubspec.yaml').readAsStringSync(),
       );
-      excluded = groupExcludePatterns(
-        File('.github/dependabot.yml').readAsStringSync(),
+      excluded = groupExcludePatterns(config);
+      ignored = ignoredUpdateTypes(config);
+    });
+
+    test('flutter_secure_storage majors are kept away from dependabot', () {
+      expect(
+        ignored['flutter_secure_storage'],
+        contains('version-update:semver-major'),
+        reason:
+            'a bump to flutter_secure_storage 11.x signs out every install '
+            'that never ran a 10.x build; it is a release decision, not a PR '
+            'dependabot may open',
       );
     });
 
@@ -86,6 +102,23 @@ flutter:
 ''';
       expect(groupExcludePatterns(config), {'just_audio', 'tray_manager'});
     });
+
+    test('the ignore parser pairs each dependency with its update types', () {
+      const config = '''
+        update-types: ['minor', 'patch']
+    # a comment mentioning dependency-name: 'not_this_one'
+    ignore:
+      - dependency-name: 'flutter_secure_storage'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'other'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+''';
+      expect(ignoredUpdateTypes(config), {
+        'flutter_secure_storage': {'version-update:semver-major'},
+        'other': {'version-update:semver-major', 'version-update:semver-minor'},
+      });
+      expect(ignoredUpdateTypes('groups:\n  x:\n'), isEmpty);
+    });
   });
 }
 
@@ -126,4 +159,31 @@ Set<String> groupExcludePatterns(String config) {
     names.add(match.group(1)!);
   }
   return names;
+}
+
+/// `.github/dependabot.yml` 的 `ignore:` 清單：每個 `dependency-name` 對應的
+/// `update-types`。註解行不算。
+Map<String, Set<String>> ignoredUpdateTypes(String config) {
+  final result = <String, Set<String>>{};
+  String? current;
+
+  for (final rawLine in const LineSplitter().convert(config)) {
+    final line = rawLine.trim();
+    if (line.startsWith('#')) continue;
+    final name = RegExp(r"^- dependency-name:\s*'([^']+)'").firstMatch(line);
+    if (name != null) {
+      current = name.group(1)!;
+      result.putIfAbsent(current, () => <String>{});
+      continue;
+    }
+    final types = RegExp(r"^update-types:\s*\[(.*)\]").firstMatch(line);
+    if (types != null && current != null) {
+      result[current]!.addAll(
+        RegExp(
+          r"'([^']+)'",
+        ).allMatches(types.group(1)!).map((m) => m.group(1)!),
+      );
+    }
+  }
+  return result;
 }

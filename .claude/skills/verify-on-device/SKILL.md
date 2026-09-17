@@ -130,7 +130,10 @@ Then re-observe. This is the inner loop: edit → `r` → `ax`/screenshot → as
 
 The Windows app exposes **no semantics tree** to UI Automation — `get-app-state`
 returns only `window > pane FLUTTERVIEW`. On Windows you drive by screenshot and
-window-local coordinates, not element indexes:
+window-local coordinates, not element indexes. The window *can* be driven; the
+step earlier rounds missed is raising it to the foreground first, and
+`--restore-window` does not reliably do that — see "Driving the Windows build"
+under §7 for what does:
 
 ```bash
 orca computer list-apps --json                     # find pid of "fmp"
@@ -262,30 +265,28 @@ observation on the emulator is worth.
   under the session scratchpad exceeds the Windows path limit and fails with
   confusing compiler errors. Use a short root such as `C:/t/`.
 
-### Driving the Windows build (measured in the 2026-09-04 Windows run)
+### Driving the Windows build (measured 2026-09-04 and 2026-09-16)
 
-§6 says Windows gives you screenshots and window coordinates only. That is still
-true of the Flutter view — but the round that wrote §6 concluded the window
-could not be driven at all, and that was wrong. It can. The missing step was
-raising the window first.
+§6 is true of the Flutter view, but the window is drivable once it is in the
+foreground. `get-app-state` reports `coordinateSpace: "window"`, so `--x/--y`
+are window-local and correct as soon as the window is on top; without that,
+clicks land on whatever is topmost at that screen point and captures are of
+whatever is on top — in one run, one of the user's unrelated windows.
 
-- **Pass `--restore-window` on every click, scroll and capture.**
-  `orca computer get-app-state --app pid:<n>` reports
-  `coordinateSpace: "window"`, so `--x/--y` are window-local and correct — but
-  without the flag the operation lands on whatever is topmost at that screen
-  point, and `get-app-state` screenshots whatever is on top, which in this run
-  meant capturing one of the user's unrelated windows. `--restore-window`
-  brings the target forward first and is the whole fix.
-  Win32 `SetForegroundWindow` + `AttachThreadInput` also works, but only
-  sometimes — it silently no-ops when the foreground-lock rules say no, and the
-  next capture is then of the wrong window. Prefer the flag; if you do use
-  Win32, assert `GetForegroundWindow()` returns your HWND before you click.
-  Measured again on 2026-09-16 (#37/#39 run): the flag did **not** raise FMP on
-  this machine and the capture was of another window; an `AttachThreadInput`
-  raise with an `HWND_TOPMOST` / `HWND_NOTOPMOST` round trip did. It also
-  restored the window to 1200×3586 — most of it off-screen — which reads as
-  "the settings page cannot scroll". Maximize first, then drive. Check the
-  window rect from `list-windows` before trusting any scroll observation.
+- **Raise the window yourself; do not trust `--restore-window`.** The flag is
+  documented to bring the target forward before a click, scroll or capture. On
+  2026-09-04 it appeared to; on 2026-09-16 it did **not** raise FMP and the
+  capture was of another window. What worked both times: Win32
+  `AttachThreadInput` to the foreground thread, an `HWND_TOPMOST` /
+  `HWND_NOTOPMOST` round trip through `SetWindowPos`, then
+  `SetForegroundWindow`. Assert `GetForegroundWindow()` returns your HWND
+  before every click — a bare `SetForegroundWindow` silently no-ops when the
+  foreground-lock rules say no, and the next capture is then of the wrong
+  window.
+- **Maximize before driving.** The 2026-09-16 raise restored the window to
+  1200×3586 with most of it off-screen, which reads as "the settings page
+  cannot scroll". Check the rect from `list-windows` before trusting any
+  scroll observation.
 - **`PrintWindow` with `PW_RENDERFULLCONTENT` returns a frozen frame.** It looks
   like a working capture — real colours, real layout — but it is the frame from
   whenever the surface was last handed to the DWM, and it does not advance. Four

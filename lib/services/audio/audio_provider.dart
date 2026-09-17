@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/logger.dart';
@@ -190,8 +189,11 @@ class AudioController extends Notifier<PlayerState>
     _lyricsAutoMatch = ref.read(lyricsAutoMatchCoordinatorProvider);
     // 這兩個協作者可以缺席：資料庫還沒開的時候它們的 provider 會拋。舊的
     // provider 工廠對播放歷史就是這樣處理的，這裡把同一條容忍度沿用下來。
-    _settingsRepository = _readOptional(settingsRepositoryProvider);
-    _queuePersistenceManager = _readOptional(queuePersistenceManagerProvider);
+    _settingsRepository = readOptional(ref, settingsRepositoryProvider);
+    _queuePersistenceManager = readOptional(
+      ref,
+      queuePersistenceManagerProvider,
+    );
     final mixTracksFetcher = ref.read(mixTracksFetcherProvider);
 
     _wireCollaborators(mixTracksFetcher: mixTracksFetcher);
@@ -204,14 +206,6 @@ class AudioController extends Notifier<PlayerState>
     Future.microtask(initialize);
 
     return const PlayerState();
-  }
-
-  T? _readOptional<T>(ProviderListenable<T> provider) {
-    try {
-      return ref.read(provider);
-    } catch (_) {
-      return null;
-    }
   }
 
   void _wireCollaborators({required MixTracksFetcher? mixTracksFetcher}) {
@@ -2572,26 +2566,21 @@ class AudioController extends Notifier<PlayerState>
     state = state.copyWith(currentAudioDevice: device, error: state.error);
   }
 
-  /// Mix 尾端等補歌完成再推進。回傳 false 代表補完之後仍然沒有下一首。
+  /// Mix 尾端等補歌完成，再把「現在有沒有下一首」交回 router 重判。
   ///
   /// 這是整個播放路徑唯一一處「等一個副作用」，也是 `MixSessionCoordinator`
-  /// 刻意不是 `PlaybackSideEffect` 的理由。
-  Future<bool> _advanceAfterPendingMixLoadMore() async {
+  /// 刻意不是 `PlaybackSideEffect` 的理由。等完之後這裡**不做決定**：補進來的
+  /// 歌會讓下一次 [PlaybackEventRouter.routeCompletion] 走 [AdvanceQueue]，
+  /// 什麼都沒補到就走 [PauseAtQueueEnd]，釋放了就被忽略 —— 三條都有路由測試。
+  /// 預取完成時 `MixSessionCoordinator` 會先清掉 `pendingLoad`，所以重判不會
+  /// 再回到這裡；還在飛的是**新的**一批時才會再等一次。
+  Future<void> _rerouteAfterPendingMixLoadMore() async {
     final pendingLoad = _mixSession.pendingLoad;
-    if (pendingLoad == null) return false;
-
-    logDebug('Mix queue end reached while load-more is pending; waiting...');
-    await pendingLoad;
-    if (_isDisposed || !_isMixMode) return false;
-
-    final nextIdx = _queueManager.moveToNext();
-    if (nextIdx == null) return false;
-
-    final track = _queueManager.currentTrack;
-    if (track == null) return false;
-
-    await _playTrack(track);
-    return true;
+    if (pendingLoad != null) {
+      logDebug('Mix queue end reached while load-more is pending; waiting...');
+      await pendingLoad;
+    }
+    await _apply(PlaybackEventRouter.routeCompletion(_eventContext()));
   }
 
   /// 正常佇列播放：移動到下一首。
@@ -2783,9 +2772,7 @@ class AudioController extends Notifier<PlayerState>
       case AdvanceQueue():
         await _advanceQueue();
       case WaitForMixLoadMore():
-        if (!await _advanceAfterPendingMixLoadMore()) {
-          await _pauseAtQueueEnd();
-        }
+        await _rerouteAfterPendingMixLoadMore();
       case PauseAtQueueEnd():
         await _pauseAtQueueEnd();
       case RetryPrematureEnd(:final at, :final expected):
