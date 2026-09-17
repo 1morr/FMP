@@ -50,6 +50,13 @@ VS Code 整合終端機沒有原生的「隱藏符合樣式的行」功能（已
 
 這一段修不掉：要改寫登錄檔項目就得有一個正在跑的 FMP，而問題正是那一次開機 FMP 沒有被啟動。程式碼能做的只有把它講出來 —— 可攜版的開機自啟開關副標題多一行提示（`settings.launchAtStartup.portableHint`，安裝版不顯示）。安裝版沒有這個問題：安裝目錄不會被使用者搬走。
 
+## Android：換手機時 FMP 的資料不會跟著系統備份走
+
+- **症狀**：新手機用 Google 帳號「還原應用程式資料」把 FMP 裝回來之後，歌單、播放紀錄、設定與登入全是空的。**原因**：manifest 刻意設了 `android:allowBackup="false"`。系統備份會把 shared preferences 原樣還原到另一台裝置，但那台的 keystore 沒有原本的金鑰，`flutter_secure_storage` 解不開還原回來的憑證，之後每一次帳號讀取都拋例外，app 停在永久載入態（issue #35）。與其還原到一半、留一個打不開的 app，不如整個不還原。
+- **換機的做法**：舊手機在「設定 → 資料管理 → 資料備份」匯出 JSON，新手機匯入，再重新登入三個音源。備份檔本來就不含登入憑證與下載檔案。
+
+這一條由 `test/support/android_manifest_static_rule_test.dart` 守著：改回 `true` 或把屬性拿掉都會紅。
+
 ## 建置時的無害雜訊
 
 一次成功的 `flutter build windows --release` 過程中，會看到下面三則訊息。它們都不代表建置失敗，初次建置者看到也不需要排查。

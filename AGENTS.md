@@ -45,7 +45,7 @@ file in the same change as the code. Human-facing docs live in `docs/`;
 | Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart` |
 | UI widgets/pages | targeted tests under `test/ui` + `flutter analyze` + on-device |
 | i18n JSON | `dart run slang` + `flutter analyze` |
-| `AGENTS.md` and other docs | `flutter test test/support/agents_docs_static_rule_test.dart` |
+| The seven `AGENTS.md` files | `flutter test test/support/agents_docs_static_rule_test.dart` — it scans only those files; `docs/` and the READMEs have no gate |
 
 `flutter analyze` covers `lib`, `test` **and** `tool`; `dart format lib test
 tool` is a CI gate. `tool/demo/` holds hand-run scripts that hit the real

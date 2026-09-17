@@ -215,11 +215,11 @@ class LyricsAutoMatchSideEffect implements PlaybackSideEffect {
 final lyricsAutoMatchCoordinatorProvider = Provider<LyricsAutoMatchCoordinator>(
   (ref) => LyricsAutoMatchCoordinator(
     // 明寫型別參數：`service` 的型別本身可為 null，推斷會把 T 收成非 null。
-    service: _readOptional<LyricsAutoMatchService?>(
+    service: readOptional<LyricsAutoMatchService?>(
       ref,
       optionalLyricsAutoMatchServiceProvider,
     ),
-    settingsRepository: _readOptional(ref, settingsRepositoryProvider),
+    settingsRepository: readOptional(ref, settingsRepositoryProvider),
   ),
 );
 
@@ -236,21 +236,28 @@ final playbackSideEffectsProvider = Provider<PlaybackSideEffect>((ref) {
     NowPlayingSideEffect(ref.watch(nowPlayingPublisherProvider)),
     PlayHistorySideEffect(
       PlayHistoryRecorder(
-        repository: _readOptional(ref, playHistoryRepositoryProvider),
-        settingsRepository: _readOptional(ref, settingsRepositoryProvider),
+        repository: readOptional(ref, playHistoryRepositoryProvider),
+        settingsRepository: readOptional(ref, settingsRepositoryProvider),
       ),
     ),
     LyricsAutoMatchSideEffect(ref.watch(lyricsAutoMatchCoordinatorProvider)),
   ]);
 });
 
-/// 資料庫還沒開的時候這些 provider 會拋 `StateError`。兩個協作者都把 null 當成
+/// 資料庫還沒開的時候這些 provider 會拋 `StateError`。拿它的每一處（這個檔案
+/// 裡的協作者，與 `AudioController` 自己的兩個可缺席協作者）都把 null 當成
 /// 「這件事整個靜默略過」，所以這裡吞掉例外而不是讓播放器建不起來。
+///
+/// 吞的是所有例外而不只 `StateError`：Riverpod 3 把 provider 建構時拋出的例外
+/// 包成 `ProviderException` 再丟出來（3.0 migration guide），而依賴鏈上游先
+/// 壞掉時包的層數不只一層；只接 `StateError` 會讓兩個協作者一起建不起來。真
+/// 正的建構錯誤因此會變成「這個協作者不存在」，播放照走 —— 這是已知的代價，
+/// 不是疏漏。
 ///
 /// 用 `read` 不是 `watch`：拋出來的那一次若留下訂閱，資料庫就緒時會重建整組
 /// 消費者，而 `AudioController` 手上握著的還是舊的那一組。`AudioController`
 /// 對它的協作者是同樣的取捨，理由寫在它的 `build()` 上。
-T? _readOptional<T>(Ref ref, ProviderListenable<T> provider) {
+T? readOptional<T>(Ref ref, ProviderListenable<T> provider) {
   try {
     return ref.read(provider);
   } catch (_) {

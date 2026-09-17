@@ -60,17 +60,23 @@ written as a set of additional permissions on top of GPL-3.0, so
 
 ## 2. Dart and Flutter packages
 
-`pubspec.lock` pins 207 packages: 202 from pub.dev and 5 from the Flutter SDK.
-Reading the `LICENSE` file of every hosted package gives:
+As of v1.10.2, `pubspec.lock` pins 199 packages: 194 from pub.dev and 5 from
+the Flutter SDK. Reading the `LICENSE` file of every hosted package gives:
 
 | License | Packages |
 |---|---:|
-| BSD-3-Clause | 116 |
+| BSD-3-Clause | 107 |
 | MIT | 60 |
 | Apache-2.0 | 19 |
 | BSD-2-Clause | 6 |
 | CC0-1.0 | 1 |
-| **GPL / LGPL / MPL / AGPL** | **0** |
+| MPL-2.0 | 1 |
+| **GPL / LGPL / AGPL** | **0** |
+
+The one MPL-2.0 package is `dbus`, pulled in transitively by the Linux
+implementations of several plugins. FMP ships no Linux build, so it is in no
+released binary. The counts are only as current as the version above; re-derive
+them when the lockfile changes.
 
 The full text of every one of those licenses is available inside the app under
 **Settings → About → Open-source licenses**, which also lists the entries in

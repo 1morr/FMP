@@ -2,8 +2,16 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+/// 播放頁與其共享 widget 的幾條跨檔規則。
+///
+/// 2026-09-17 之前這個檔案還釘著 `appBar: null`、四個 overlay alpha 常數、
+/// `showLyricsActions = isWideLayout || _showLyrics` 這類版面結構。那些只有實機
+/// 能驗（見根 `AGENTS.md` 的 on-device 規則），釘成源碼字串守不住任何 bug，
+/// 只會讓正當的重構變紅，所以刪掉了。留下來的是三種還有消費者的規則：
+/// watch 範圍（整頁不准 watch 整個控制器）、標題列的擁有權、以及兩個尚未有
+/// widget 測試接手的行為（backdrop 清除、fade image 換 provider 時重載）。
 void main() {
-  group('player page structure contract', () {
+  group('player page watch scope and ownership', () {
     late String repoRoot;
 
     setUp(() {
@@ -13,28 +21,6 @@ void main() {
     String readSource(String relativePath) {
       return File('$repoRoot/$relativePath').readAsStringSync();
     }
-
-    test('audio selector providers file defines shared player selectors', () {
-      final selectorFile = File(
-        '$repoRoot/lib/providers/audio/audio_player_selectors.dart',
-      );
-
-      expect(selectorFile.existsSync(), isTrue);
-
-      final source = selectorFile.readAsStringSync();
-      expect(source, contains('playbackSpeedProvider'));
-      expect(source, contains('desktopAudioDeviceStateProvider'));
-      expect(source, contains('currentStreamMetadataProvider'));
-    });
-
-    test(
-      'PlayerPage selector does not capture the whole PlayerState object',
-      () {
-        final source = readSource('lib/ui/pages/player/player_page.dart');
-
-        expect(source, isNot(contains('state: state')));
-      },
-    );
 
     test(
       'PlayerPage uses shared selectors instead of broad controller watch',
@@ -48,212 +34,15 @@ void main() {
       },
     );
 
-    test('PlayerPage splits cover and lyrics on desktop width', () {
-      final source = readSource('lib/ui/pages/player/player_page.dart');
-      final backdropSource = readSource(
-        'lib/ui/widgets/player/blurred_cover_backdrop.dart',
-      );
-
-      expect(source, contains('resolvePlayerLayout('));
-      expect(backdropSource, contains('ImageFilter.blur'));
-      expect(source, contains('ImmersivePlayerScaffold('));
-      expect(source, contains('_buildDesktopPlayerContent'));
-      expect(source, contains('_buildControlSection'));
-      expect(
-        source,
-        contains('showLyricsActions = isWideLayout || _showLyrics'),
-      );
-    });
-
-    test('PlayerPage uses a preloaded cover backdrop for all widths', () {
-      final playerSource = readSource('lib/ui/pages/player/player_page.dart');
-      final backdropSource = readSource(
-        'lib/ui/widgets/player/blurred_cover_backdrop.dart',
-      );
-      final trackCoverSource = readSource(
-        'lib/ui/widgets/images/track_thumbnail.dart',
-      );
-      final imageServiceSource = readSource(
-        'lib/core/services/image_loading_service.dart',
-      );
-      final candidatesStart = imageServiceSource.indexOf(
-        'static List<ImageProvider>',
-      );
-      final candidatesEnd = imageServiceSource.indexOf(
-        '/// 加载网络图片',
-        candidatesStart,
-      );
-      final candidatesSource = imageServiceSource.substring(
-        candidatesStart,
-        candidatesEnd,
-      );
-
-      expect(playerSource, contains('body: ImmersivePlayerScaffold('));
-      expect(playerSource, contains('appBar: null'));
-      expect(playerSource, isNot(contains('appBar: appBar')));
-      expect(playerSource, contains('TrackBlurredBackdrop('));
-      expect(backdropSource, contains('class BlurredCoverBackdrop'));
-      expect(backdropSource, contains('precacheImage'));
-      expect(backdropSource, contains('Future<bool> _precacheImage'));
-      expect(backdropSource, contains('onError:'));
-      expect(backdropSource, contains('BlurredCoverBackdropLoadState'));
-      expect(backdropSource, contains('loadedKey'));
-      expect(backdropSource, contains('desiredKey'));
-      expect(backdropSource, contains('TrackCover.imageProviderCandidates'));
-      expect(
-        trackCoverSource,
-        contains(
-          RegExp(
-            r'case TrackCoverVariant\.backdrop:\s*return ImageTargetSizes\.highest;',
-          ),
-        ),
-      );
-      expect(
-        playerSource,
-        isNot(contains('ImageLoadingService.imageProviderCandidates')),
-      );
-      expect(imageServiceSource, contains('imageProviderCandidates'));
-      expect(imageServiceSource, contains('CachedNetworkImageProvider'));
-      // 只給 maxHeight：磁碟縮放同時拿到寬高時會按寬把 16:9 封面縮到不夠高
-      // （issue #107）。
-      expect(candidatesSource, contains('maxHeight: request.cacheExtent'));
-      expect(
-        candidatesSource,
-        isNot(contains('maxWidth: request.cacheExtent')),
-      );
-    });
-
-    test('PlayerPage keeps one backdrop image layer behind the AppBar', () {
-      final playerSource = readSource('lib/ui/pages/player/player_page.dart');
-      final scaffoldSource = readSource(
-        'lib/ui/widgets/layout/immersive_player_scaffold.dart',
-      );
-
-      expect(playerSource, contains('appBar: null'));
-      expect(playerSource, isNot(contains('appBar: appBar')));
-      // AppBar 與其 flexibleSpace overlay 由共享 scaffold 建立。
-      expect(scaffoldSource, contains('flexibleSpace: _buildAppBarOverlay'));
-      expect(
-        playerSource,
-        isNot(contains('flexibleSpace: _buildAppBarBackdrop')),
-      );
-      expect(
-        RegExp(r'TrackBlurredBackdrop\(').allMatches(playerSource),
-        hasLength(1),
-      );
-      expect(scaffoldSource, contains('top: _appBarHeight'));
-      expect(scaffoldSource, contains('height: _appBarHeight'));
-    });
-
     test(
-      'PlayerPage clears stale cover backdrop when no cover is available',
+      'TrackDetailPanel uses shared stream selector without broad watch',
       () {
         final source = readSource(
-          'lib/ui/widgets/player/blurred_cover_backdrop.dart',
-        );
-
-        expect(source, contains('void _clearLoadedImage()'));
-        expect(source, contains('_imageProvider = null'));
-        expect(source, contains('_loadState.clearLoaded()'));
-        expect(source, contains('sourceKey == null || candidates.isEmpty'));
-      },
-    );
-
-    test(
-      'ImageLoadingService exposes shared precache helper for image users',
-      () {
-        final imageServiceSource = readSource(
-          'lib/core/services/image_loading_service.dart',
-        );
-        final trackDetailSource = readSource(
           'lib/ui/widgets/panels/track_detail_panel.dart',
         );
 
-        expect(imageServiceSource, contains('precacheImageCandidates'));
-        expect(
-          trackDetailSource,
-          contains('RadioCoverImage.precacheImageCandidates'),
-        );
-        expect(
-          trackDetailSource,
-          isNot(contains('ImageLoadingService.precacheImageCandidates')),
-        );
-        expect(
-          trackDetailSource,
-          isNot(contains('CachedNetworkImageProvider(')),
-        );
-        expect(
-          trackDetailSource,
-          isNot(contains('ThumbnailUrlUtils.getOptimizedUrl(')),
-        );
-      },
-    );
-
-    test(
-      'ImageLoadingService reloads local fade images when provider changes',
-      () {
-        final source = readSource(
-          'lib/core/services/image_loading_service.dart',
-        );
-
-        expect(source, contains('void didUpdateWidget'));
-        expect(source, contains('oldWidget.image != widget.image'));
-        expect(source, contains('_stream?.removeListener'));
-        expect(source, contains('_error = null'));
-        expect(source, contains('_loadImage();'));
-      },
-    );
-
-    test(
-      'ImmersivePlayerScaffold keeps AppBar overlay opacity independent from body',
-      () {
-        final scaffoldSource = readSource(
-          'lib/ui/widgets/layout/immersive_player_scaffold.dart',
-        );
-        final playerSource = readSource('lib/ui/pages/player/player_page.dart');
-        final radioSource = readSource(
-          'lib/ui/pages/radio/radio_player_page.dart',
-        );
-
-        // 四個 overlay alpha 常數與 overlay 方法由共享 scaffold 單一持有。
-        expect(
-          scaffoldSource,
-          contains(
-            'static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;',
-          ),
-        );
-        expect(
-          scaffoldSource,
-          contains(
-            'static const double _bodyBackdropContainerOverlayAlpha = 0.08;',
-          ),
-        );
-        expect(
-          scaffoldSource,
-          contains(
-            'static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;',
-          ),
-        );
-        expect(
-          scaffoldSource,
-          contains(
-            'static const double _appBarBackdropContainerOverlayAlpha = 0.06;',
-          ),
-        );
-        expect(
-          scaffoldSource,
-          contains('_buildBodyBackdropOverlays(colorScheme)'),
-        );
-        expect(scaffoldSource, contains('_buildAppBarOverlay(colorScheme)'));
-        // 兩頁都不再自帶沉浸式 overlay 常數（去重契約）。
-        expect(
-          playerSource,
-          isNot(contains('_bodyBackdropSurfaceOverlayAlpha')),
-        );
-        expect(
-          radioSource,
-          isNot(contains('_bodyBackdropSurfaceOverlayAlpha')),
-        );
+        expect(source, isNot(contains('ref.watch(audioControllerProvider)')));
+        expect(source, contains('ref.watch(currentStreamMetadataProvider)'));
       },
     );
 
@@ -279,14 +68,31 @@ void main() {
     });
 
     test(
-      'TrackDetailPanel uses shared stream selector without broad watch',
+      'PlayerPage clears stale cover backdrop when no cover is available',
       () {
         final source = readSource(
-          'lib/ui/widgets/panels/track_detail_panel.dart',
+          'lib/ui/widgets/player/blurred_cover_backdrop.dart',
         );
 
-        expect(source, isNot(contains('ref.watch(audioControllerProvider)')));
-        expect(source, contains('ref.watch(currentStreamMetadataProvider)'));
+        expect(source, contains('void _clearLoadedImage()'));
+        expect(source, contains('_imageProvider = null'));
+        expect(source, contains('_loadState.clearLoaded()'));
+        expect(source, contains('sourceKey == null || candidates.isEmpty'));
+      },
+    );
+
+    test(
+      'ImageLoadingService reloads local fade images when provider changes',
+      () {
+        final source = readSource(
+          'lib/core/services/image_loading_service.dart',
+        );
+
+        expect(source, contains('void didUpdateWidget'));
+        expect(source, contains('oldWidget.image != widget.image'));
+        expect(source, contains('_stream?.removeListener'));
+        expect(source, contains('_error = null'));
+        expect(source, contains('_loadImage();'));
       },
     );
   });

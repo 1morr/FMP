@@ -1,7 +1,8 @@
 /// `lib/core/` 裡兩條只有讀源碼才驗得到的規則。
 ///
-/// 兩條原本各自藏在一支行為測試裡（`third_party_licenses_test.dart` 與
-/// `thumbnail_url_utils_test.dart`），從檔名看不出它們在 grep 源碼。
+/// 授權登記那條原本藏在 `third_party_licenses_test.dart` 裡，從檔名看不出它在
+/// grep 源碼。#107 那條原本混在播放頁的結構規則裡，跟著那些結構斷言一起被砍時
+/// 留了下來 —— 它守的是一個修過的 bug，不是版面。
 library;
 
 import 'dart:io';
@@ -28,14 +29,22 @@ void main() {
       );
     });
 
-    test('ThumbnailUrlUtils documents itself as a single-URL helper', () {
-      // 它只換一個 URL，不做退回載入。呼叫端誤以為它會退回就會少一層保護。
-      final content = File(
-        'lib/core/utils/thumbnail_url_utils.dart',
+    test('image candidates scale the disk cache by height only (#107)', () {
+      // 磁碟縮放同時拿到寬高時會按寬把 16:9 封面縮到不夠高（issue #107），
+      // 所以候選 provider 只給 maxHeight。
+      final source = File(
+        'lib/core/services/image_loading_service.dart',
       ).readAsStringSync();
+      final start = source.indexOf(
+        'static List<ImageProvider> imageProviderCandidates(',
+      );
+      expect(start, greaterThanOrEqualTo(0));
+      final end = source.indexOf('\n  static ', start);
+      expect(end, greaterThan(start));
+      final candidates = source.substring(start, end);
 
-      expect(content, contains('single URL consumer'));
-      expect(content, contains('does not perform fallback loading'));
+      expect(candidates, contains('maxHeight: request.cacheExtent'));
+      expect(candidates, isNot(contains('maxWidth: request.cacheExtent')));
     });
   });
 }

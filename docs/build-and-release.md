@@ -192,11 +192,11 @@ CI
        │
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
-       │   ├─ dart format --output=none --set-exit-if-changed lib test
+       │   ├─ dart format --output=none --set-exit-if-changed lib test tool
        │   ├─ dart run build_runner build
        │   ├─ dart run slang
        │   ├─ flutter analyze
-       │   └─ flutter test
+       │   └─ flutter test --coverage --exclude-tags live
        │
        ├─ build-android (ubuntu)
        │   └─ flutter build apk --release --target-platform android-arm64
@@ -223,7 +223,7 @@ GitHub Actions (release.yml)
        │
        ├─ validate (ubuntu)
        │   ├─ flutter analyze
-       │   └─ flutter test
+       │   └─ flutter test --exclude-tags live
        │
        ├─ build-android (ubuntu)
        │   ├─ 按 ABI matrix 建置 arm64-v8a / armeabi-v7a / x86_64 / universal
@@ -243,7 +243,7 @@ GitHub Actions (release.yml)
        │
        └─ release
            ├─ 下載所有平臺的產物
-           ├─ 組裝 Release Notes（手寫檔優先，否則自動產生）
+           ├─ 從 commit 範圍產生 Release Notes（見下節）
            └─ 建立 GitHub Release（multi-ABI APK + ZIP + Installer + latest 穩定下載別名）
 ```
 
