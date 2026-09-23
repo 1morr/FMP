@@ -8,6 +8,8 @@
   "collapsePanel": "Collapse panel",
   "nowPlaying": "Now Playing",
   "topComments": "Top Comments",
+  "previousComment": "Previous comment",
+  "nextComment": "Next comment",
   "streamerAnnouncement": "Streamer Announcement",
   "tags": "Tags"
 }

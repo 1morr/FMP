@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 评论分页组件（手动翻页 + 可选自动翻页 + 动画）。
 ///
@@ -168,6 +169,7 @@ class _CommentPagerState extends State<CommentPager> {
             if (comments.length > 1) ...[
               _buildSmallNavButton(
                 icon: Icons.chevron_left_rounded,
+                tooltip: t.trackDetail.previousComment,
                 onPressed: _hasPrevious ? _goToPrevious : null,
               ),
               Padding(
@@ -182,6 +184,7 @@ class _CommentPagerState extends State<CommentPager> {
               ),
               _buildSmallNavButton(
                 icon: Icons.chevron_right_rounded,
+                tooltip: t.trackDetail.nextComment,
                 onPressed: _hasNext ? () => _goToNext() : null,
               ),
             ],
@@ -265,31 +268,33 @@ class _CommentPagerState extends State<CommentPager> {
     );
   }
 
+  /// 看起來仍是 24dp 的小圓鈕，觸控區由 `tapTargetSize: padded` 撐到 48dp。
+  /// 以前是 InkWell 包 24dp 的 SizedBox，觸控區就是那 24dp，也沒有 tooltip。
+  /// 桌面的預設是 shrinkWrap，所以這裡明寫。
   Widget _buildSmallNavButton({
     required IconData icon,
+    required String tooltip,
     required VoidCallback? onPressed,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isEnabled = onPressed != null;
 
-    return Material(
-      color: isEnabled
-          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: AppRadius.borderRadiusLg,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: AppRadius.borderRadiusLg,
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: Icon(
-            icon,
-            size: 16,
-            color: isEnabled
-                ? colorScheme.primary
-                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon, size: 16),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(24),
+        minimumSize: const Size.square(24),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.padded,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
+        backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.5),
+        foregroundColor: colorScheme.primary,
+        disabledBackgroundColor: colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.5,
+        ),
+        disabledForegroundColor: colorScheme.onSurfaceVariant.withValues(
+          alpha: 0.3,
         ),
       ),
     );

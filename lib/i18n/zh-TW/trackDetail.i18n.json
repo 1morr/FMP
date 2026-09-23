@@ -8,6 +8,8 @@
   "collapsePanel": "收起面板",
   "nowPlaying": "正在播放",
   "topComments": "熱門評論",
+  "previousComment": "上一則評論",
+  "nextComment": "下一則評論",
   "streamerAnnouncement": "主播公告",
   "tags": "標籤"
 }

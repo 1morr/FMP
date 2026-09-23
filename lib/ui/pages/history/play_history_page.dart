@@ -1049,9 +1049,12 @@ class _GroupSelectionCheckbox extends StatelessWidget {
       color = colorScheme.outline;
     }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Icon(icon, color: color, size: 24),
+    // 與歌單詳情頁、搜尋頁的同名勾選框一致：IconButton 給 48dp 觸控區與
+    // tooltip。以前是裸的 GestureDetector，只有圖示本身 24dp 可點。
+    return IconButton(
+      icon: Icon(icon, color: color),
+      tooltip: isFullySelected ? t.general.deselect : t.general.select,
+      onPressed: onTap,
     );
   }
 }
