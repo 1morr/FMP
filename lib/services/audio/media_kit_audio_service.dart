@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:rxdart/rxdart.dart';
 
@@ -34,6 +35,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   static const String desktopLavfReconnectOptions =
       'reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,'
       'reconnect_delay_max=2,reconnect_max_retries=3';
+
+  MediaKitAudioService({@visibleForTesting PlatformPlayer? platformPlayer})
+    : _platformPlayer = platformPlayer;
+
+  /// 換掉 libmpv 的那一層。`flutter test` 裡沒有 libmpv，不換就建不起來。
+  final PlatformPlayer? _platformPlayer;
 
   late final Player _player;
   bool _hasPlayer = false;
@@ -166,6 +173,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       configuration: const PlayerConfiguration(
         bufferSize: desktopPlayerBufferSizeBytes,
       ),
+      platformPlayer: _platformPlayer,
     );
     _hasPlayer = true;
 
@@ -522,6 +530,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// 切换播放/暂停
   @override
   Future<void> togglePlayPause() async {
+    // 與 [pause] 同一道護欄：開流期間 `_ensurePlayback` 還在等 ready，這裡不
+    // 取消的話，它結束時看到沒在播，會把使用者剛按的暫停再播起來。
+    _cancelEnsurePlayback();
     await _player.playOrPause();
   }
 
@@ -636,7 +647,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   // ========== 音频源设置 ==========
 
-  // 用于取消 _ensurePlayback 的重试逻辑
+  // 用于取消 _ensurePlayback 的重试逻辑。由 playUrl / playFile 開流時重設。
   bool _playbackCancelled = false;
 
   /// 取消正在进行的 _ensurePlayback 重试
@@ -646,8 +657,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   /// 确保播放开始
   Future<void> _ensurePlayback() async {
-    _playbackCancelled = false;
-
     logDebug(
       '_ensurePlayback called, current state: ${_synthesizeProcessingState()}',
     );
@@ -736,6 +745,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
     try {
+      // 開流一開始就重設，不是在 `_ensurePlayback` 裡：等時長的那段期間按下的
+      // 暫停也要算數，在那裡才重設會把它清掉，迴圈結束時又播起來。
+      _playbackCancelled = false;
       // 先停止当前播放
       _hasCompletionFired = false;
       _isCompleted = false;
@@ -841,6 +853,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   Future<Duration?> playFile(String filePath, {Track? track}) async {
     logDebug('Playing file: $filePath');
     try {
+      // 開流一開始就重設，不是在 `_ensurePlayback` 裡：等時長的那段期間按下的
+      // 暫停也要算數，在那裡才重設會把它清掉，迴圈結束時又播起來。
+      _playbackCancelled = false;
       // 先停止当前播放
       _hasCompletionFired = false;
       _isCompleted = false;
