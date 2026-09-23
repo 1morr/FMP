@@ -13,9 +13,9 @@ class BilibiliApiException extends SourceApiException {
   });
 
   /// B 站的風控碼。遇到一律分類成 `rateLimited`，由呼叫端退避，不換指紋重試；
-  /// 為什麼見 `BilibiliSource._checkResponse` 的三輪量測。
+  /// 為什麼見 `bilibili_source.dart` 裡 `_checkResponse` 的三輪量測。
   ///
-  /// 這份清單是唯一來源：`_checkResponse` 與 `BilibiliLiveClient` 都經過
+  /// 這份清單是唯一來源：`_checkResponse` 與直播 client 都經過
   /// [isRiskControlCode]。`source_exception_test.dart` 釘住它的內容。
   static const Set<int> riskControlCodes = {-352, -412, -509, -799};
 
