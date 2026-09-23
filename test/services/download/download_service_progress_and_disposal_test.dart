@@ -1513,6 +1513,103 @@ void main() {
     );
 
     test(
+      'download rejects an HLS stream instead of saving the manifest as audio',
+      () async {
+        final baseDir = await Directory.systemTemp.createTemp(
+          'download_hls_reject_',
+        );
+        addTearDown(() async {
+          for (var i = 0; i < 100; i++) {
+            if (!await baseDir.exists()) return;
+            try {
+              await baseDir.delete(recursive: true);
+              return;
+            } on FileSystemException {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+          }
+        });
+
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.parse(
+            'application/vnd.apple.mpegurl',
+          );
+          request.response.write('''
+#EXTM3U
+#EXT-X-VERSION:3
+#EXTINF:4.0,
+segment0.ts
+''');
+          await request.response.close();
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final track = Track()
+          ..sourceId = 'hls-stream'
+          ..sourceType = SourceIds.youtube
+          ..title = 'HLS Stream'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/index.m3u8',
+              streamType: StreamType.hls,
+              container: 'm3u8',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(() async {
+          await service.debugStartDownloadForTesting(task);
+          await _waitUntil(() async => service.debugActiveDownloads == 0);
+        }, _DirectHttpOverrides());
+
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.failed);
+        expect(updatedTask?.errorMessage, contains('HLS'));
+        // manifest 不得落到最終路徑，也不得留下半截的暫存檔
+        expect(await File(savePath).exists(), isFalse);
+        expect(await File('$savePath.downloading').exists(), isFalse);
+        final updatedTrack = await trackRepository.getById(savedTrack.id);
+        expect(
+          updatedTrack?.getDownloadPath(
+            playlist.id,
+            playlistName: playlist.name,
+          ),
+          isNull,
+        );
+      },
+    );
+
+    test(
       'download start preserves Bilibili cid during stream resolution',
       () async {
         final baseDir = await Directory.systemTemp.createTemp(
@@ -2016,11 +2113,15 @@ class _StaticAudioSource implements AudioStreamSource {
     this.audioUrl, {
     this.sourceTypeOverride = SourceIds.youtube,
     this.streamExpiry,
+    this.streamType = StreamType.audioOnly,
+    this.container,
   });
 
   final String audioUrl;
   final String sourceTypeOverride;
   final Duration? streamExpiry;
+  final StreamType streamType;
+  final String? container;
 
   @override
   String get sourceType => sourceTypeOverride;
@@ -2029,7 +2130,8 @@ class _StaticAudioSource implements AudioStreamSource {
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(
       url: audioUrl,
-      streamType: StreamType.audioOnly,
+      streamType: streamType,
+      container: container,
       expiry: streamExpiry,
     );
   }

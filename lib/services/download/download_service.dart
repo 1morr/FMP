@@ -1060,6 +1060,18 @@ class DownloadService with Logging {
     final streamResult = resolution.stream;
     final resolvedTrack = resolution.track;
 
+    // HLS 是索引清單（`#EXTM3U` 文字），片段要合併才是音訊檔。isolate 只做
+    // 一次 HttpClient GET 後原樣落到 `savePath`，於是多媒體清單文字會存成
+    // `audio.m4a` 並標記完成，播放端「本機檔案優先」短路從此永遠播這個假檔。
+    // ffmpeg 合併明確不在本批範圍 → 直接拒絕，讓任務失敗可重試。
+    // 這裡在建立任何檔案之前，沒有殘留物要清。
+    if (streamResult.streamType == StreamType.hls) {
+      throw UnsupportedDownloadStreamException(
+        sourceType: track.sourceType,
+        container: streamResult.container,
+      );
+    }
+
     // 更新 track 的 URL 信息
     track.audioUrl = resolvedTrack.audioUrl;
     track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
@@ -1638,6 +1650,27 @@ class DownloadCompletionEvent {
     this.playlistId,
     required this.savePath,
   });
+}
+
+/// 下載串流格式不支援（目前只有 HLS）。
+///
+/// 專用型別而非 [StateError]：`_handleDownloadFailure` 把 `e.toString()` 原樣
+/// 存進 `DownloadTask.errorMessage`，`StateError` 會變成 `Bad state: ...`，
+/// 與既有 `'Download destination already exists'` 的短診斷慣例不一致。
+/// 不提供 `userMessageFor` 分支 —— 沒有呼叫端把例外物件交給 UI（多了是死碼）。
+class UnsupportedDownloadStreamException implements Exception {
+  final String sourceType;
+  final String? container;
+
+  UnsupportedDownloadStreamException({
+    required this.sourceType,
+    required this.container,
+  });
+
+  @override
+  String toString() =>
+      'HLS streams cannot be downloaded (source=$sourceType, '
+      'container=${container ?? 'unknown'})';
 }
 
 /// 下载失败事件
