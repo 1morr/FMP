@@ -48,6 +48,13 @@ enum PlayerLayoutMode {
 
   /// 寬版雙欄：左邊封面與控制列，右邊歌詞。
   wideSplit,
+
+  /// 矮而寬（橫向手機）：左邊封面／歌詞（長按切換），右邊控制列。
+  ///
+  /// 以前這種視窗走 [narrow]，而 [narrow] 是直向形狀：封面在上可伸縮、下面壓著
+  /// 約 240dp 的控制列。411dp 高的橫向手機扣掉工具列與內距後只剩約 280dp，
+  /// 封面被合法地壓到約 6dp，沒有任何 overflow 警告。
+  shortSplit,
 }
 
 /// [size] 這個視窗、這首曲目該用哪一套播放頁版面。
@@ -59,12 +66,52 @@ enum PlayerLayoutMode {
 ///
 /// [hasLyrics] 讓比例跟著內容走：以前右欄是寫死的 `flex: 7`，沒有歌詞的曲目
 /// 會把 58% 的畫面留給一句「暫無歌詞」。
+///
+/// 高度不夠雙欄、而且寬大於高時走 [PlayerLayoutMode.shortSplit]：封面與控制列
+/// 左右並排，同 Auxio 的 `layout-land`。
 PlayerLayoutMode resolvePlayerLayout(Size size, {required bool hasLyrics}) {
+  final isShort = size.height < AppLayout.playerWideMinHeight;
   final fitsTwoColumns =
-      WindowClass.of(size.width).atLeast(WindowClass.expanded) &&
-      size.height >= AppLayout.playerWideMinHeight;
-  if (!fitsTwoColumns) return PlayerLayoutMode.narrow;
+      WindowClass.of(size.width).atLeast(WindowClass.expanded) && !isShort;
+  if (!fitsTwoColumns) {
+    return isShort && size.width > size.height
+        ? PlayerLayoutMode.shortSplit
+        : PlayerLayoutMode.narrow;
+  }
   return hasLyrics ? PlayerLayoutMode.wideSplit : PlayerLayoutMode.wideSingle;
+}
+
+/// [PlayerLayoutMode.shortSplit] 的內容：左邊 [media]，右邊 [controls]。
+///
+/// 控制列在右欄垂直置中；放大字級撐得比視窗高時改成可以捲動，不讓播放按鈕被
+/// 裁掉。
+class PlayerShortSplitContent extends StatelessWidget {
+  const PlayerShortSplitContent({
+    super.key,
+    required this.media,
+    required this.controls,
+  });
+
+  final Widget media;
+  final Widget controls;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        children: [
+          Expanded(child: media),
+          const SizedBox(width: 32),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(primary: false, child: controls),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 播放器页面（全屏）
@@ -111,7 +158,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       MediaQuery.sizeOf(context),
       hasLyrics: ref.watch(lyricsPaneHasContentProvider),
     );
-    final isWideLayout = layoutMode != PlayerLayoutMode.narrow;
+    final isWideLayout =
+        layoutMode == PlayerLayoutMode.wideSplit ||
+        layoutMode == PlayerLayoutMode.wideSingle;
+    // 並排版面的高度就是瓶頸，間距跟寬版一樣收緊。
+    final useCompactGaps = layoutMode != PlayerLayoutMode.narrow;
     // 沒有歌詞時工具列的「搜尋歌詞」反而更需要在，所以這裡看的是版面寬不寬，
     // 不是右欄開了沒有。
     final showLyricsActions = isWideLayout || _showLyrics;
@@ -150,8 +201,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       isPlaying: playerState.isPlaying,
       loopMode: queueControls.loopMode,
       controller: controller,
-      trackInfoGap: isWideLayout ? 20 : 32,
-      controlsGap: isWideLayout ? 16 : 24,
+      trackInfoGap: useCompactGaps ? 20 : 32,
+      controlsGap: useCompactGaps ? 16 : 24,
     );
 
     final narrowContent = _buildNarrowPlayerContent(
@@ -176,6 +227,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ),
           child: narrowContent,
         ),
+      ),
+      PlayerLayoutMode.shortSplit => PlayerShortSplitContent(
+        media: _buildNarrowMediaSection(context, currentTrack, colorScheme),
+        controls: controlSection,
       ),
       PlayerLayoutMode.narrow => narrowContent,
     };
