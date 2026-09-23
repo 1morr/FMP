@@ -107,6 +107,10 @@ class SearchState extends Equatable {
 ''';
 
       expect(importsLegacyRiverpod(legacy), isTrue);
+      expect(
+        importsLegacyRiverpod("import 'package:riverpod/legacy.dart';"),
+        isTrue,
+      );
       expect(equatablePropsOmissions(missingProp), [
         'SearchState.page is missing from props',
       ]);
@@ -135,9 +139,14 @@ class SearchState extends Equatable {
   });
 }
 
-/// 這個檔案把 legacy 家族（`StateNotifier` 等）import 回來了。
+/// 這個檔案把 legacy 家族（`StateNotifier` 等）import 回來了。`riverpod`、
+/// `flutter_riverpod`、`hooks_riverpod` 三個套件都有自己的 `legacy.dart`。
 bool importsLegacyRiverpod(String source) =>
-    stripDartComments(source).contains('package:flutter_riverpod/legacy.dart');
+    _legacyBarrel.hasMatch(stripDartComments(source));
+
+final _legacyBarrel = RegExp(
+  r'package:(?:flutter_|hooks_)?riverpod/legacy\.dart',
+);
 
 /// `Equatable` 子類別裡沒有列進 `props` 的公開欄位。
 List<String> equatablePropsOmissions(String source) {

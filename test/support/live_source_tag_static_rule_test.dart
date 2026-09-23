@@ -24,6 +24,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart_source.dart';
+
 /// 判準涵蓋的音源類別，也是 [_realSourcePattern] 唯一的真相來源。
 ///
 /// 這裡曾經是寫死在正則裡的字串，於是漂移了：樹裡有九個預設建構子會連網的音源
@@ -71,10 +73,6 @@ const _exceptions = <String, String>{
       'same lyrics factory shape: the subclass overrides tryAutoMatch, so '
       'NeteaseSource(), LrclibSource() and QQMusicSource() are constructed '
       'and never called',
-  'test/bilibili_source_test.dart':
-      'the group setUp builds a real source; the two tests that reach the '
-      'network carry tags: live individually and the rest exercise parsing '
-      '(#56, c2a79fbb)',
 };
 
 void main() {
@@ -107,6 +105,12 @@ void main() {
           _buildsRealSource(file.readAsStringSync()),
           isTrue,
           reason: '${entry.key} no longer needs its exception',
+        );
+        // 已經有 live 標籤的檔案本來就會過，例外只會讓它的理由變成沒人驗的敘述。
+        expect(
+          _liveTagPattern.hasMatch(stripDartComments(file.readAsStringSync())),
+          isFalse,
+          reason: '${entry.key} is tagged live already; drop the exception',
         );
       }
     });
@@ -159,13 +163,8 @@ final qqmusic = QQMusicSource(dio: dio);
   });
 }
 
-bool _buildsRealSource(String source) {
-  final code = source
-      .split('\n')
-      .where((line) => !line.trimLeft().startsWith('//'))
-      .join('\n');
-  return _realSourcePattern.hasMatch(code);
-}
+bool _buildsRealSource(String source) =>
+    _realSourcePattern.hasMatch(stripDartComments(source));
 
 Iterable<String> _testFiles() => Directory('test')
     .listSync(recursive: true)
