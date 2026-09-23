@@ -974,11 +974,11 @@ class DownloadService with Logging {
   }
 
   /// 抓取 VideoDetail 用于保存完整元数据；失败只记录不抛（与原 inline
-  /// 行为一致）。Netease 没有 detail source，直接跳过。
+  /// 行为一致）。沒有 detail source 的音源直接跳過。
   Future<VideoDetail?> _fetchVideoDetail(Track track) async {
     try {
       final detailSource = _sourceManager.trackDetailSource(track.sourceType);
-      if (detailSource != null && track.sourceType != SourceIds.netease) {
+      if (detailSource != null) {
         final detailAuthHeaders = await _sourceAuthContext.authForPlay(
           track.sourceType,
         );

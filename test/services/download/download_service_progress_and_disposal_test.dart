@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -1308,6 +1309,73 @@ void main() {
       },
     );
 
+    test('netease downloads save the track detail into metadata', () async {
+      final baseDir = await _createTempDirDeletedOnTearDown(
+        'download_netease_detail_',
+      );
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = 4;
+        request.response.add(Uint8List.fromList([1, 2, 3, 4]));
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final savedTrack = await trackRepository.save(
+        Track()
+          ..sourceId = '12345'
+          ..sourceType = SourceIds.netease
+          ..title = 'Netease Song'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now(),
+      );
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistName = 'Netease Playlist'
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final source = _RecordingDetailAudioSource(
+        'http://${server.address.address}:${server.port}/audio.m4a',
+        sourceTypeOverride: SourceIds.netease,
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(source),
+        sourceAuthContext: _FakeSourceAuthContext(),
+      );
+      addTearDown(service.dispose);
+
+      await service.debugStartDownloadForTesting(task);
+      await _waitUntil(() async => service.debugActiveDownloads == 0);
+
+      expect(source.detailAuthHeaders, hasLength(1));
+      final completed = await trackRepository.getById(savedTrack.id);
+      final audioPath = completed!.allDownloadPaths.single;
+      final metadata =
+          jsonDecode(
+                await File(
+                  p.join(p.dirname(audioPath), 'metadata.json'),
+                ).readAsString(),
+              )
+              as Map<String, dynamic>;
+      // 詳情頁離線讀本地 metadata 時以 viewCount 判斷有沒有詳情資料。
+      expect(metadata['ownerName'], 'Test Artist');
+      expect(metadata, contains('viewCount'));
+    });
+
     test(
       'downloaded metadata images use SourceAuthContext image headers',
       () async {
@@ -2463,7 +2531,7 @@ class _RecordingAudioSource extends _StaticAudioSource {
 
 class _RecordingDetailAudioSource extends _StaticAudioSource
     implements TrackDetailSource {
-  _RecordingDetailAudioSource(super.audioUrl);
+  _RecordingDetailAudioSource(super.audioUrl, {super.sourceTypeOverride});
 
   final List<Map<String, String>?> detailAuthHeaders = [];
 
