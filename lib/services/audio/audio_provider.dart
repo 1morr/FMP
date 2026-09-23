@@ -308,6 +308,10 @@ class AudioController extends Notifier<PlayerState>
   late BufferStarvationWatchdog _bufferWatchdog;
 
   /// 已經為哪一首歌出手救過一次。同一首只救一次，否則就變成無限重載。
+  ///
+  /// 清掉它的只有換歌與 [_failStalledPlayback]。救回來之後不清：播兩秒卡
+  /// 十五秒的串流會變成每十幾秒重載一次。代價是救回來、正常播了很久之後再卡
+  /// 一次會直接失敗 —— 要改得先定「播滿多久才算救回來」，目前沒有 repro。
   String? _bufferStarvationTrackKey;
 
   /// 是否已初始化
@@ -2455,8 +2459,12 @@ class AudioController extends Notifier<PlayerState>
   /// `error` 時播放鍵走的是後端 toggle，按播放等於把還在播的 mpv 暫停。先記下
   /// 錯誤再停後端，UI 不必等 `stop()` 返回；代價是 `stop()` 帶出來的後端事件
   /// 會被路由的 terminal 規則擋掉，所以通知欄 / SMTC 要由這裡補發。
+  ///
+  /// 這次救援到此結束，記號跟著清掉：後端停了，之後再播這首只可能是使用者
+  /// 按的，重新給一次救援，與網路錯誤的手動重試把次數歸零同一個慣例。
   Future<void> _failStalledPlayback(Track track) async {
     if (_isDisposed) return;
+    _bufferStarvationTrackKey = null;
     _handleTerminalMediaOpen(
       track: track,
       message: t.audio.cannotPlayReason(

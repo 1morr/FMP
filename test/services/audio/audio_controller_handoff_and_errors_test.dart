@@ -2001,7 +2001,7 @@ void main() {
     );
 
     test(
-      'a second starvation on the same track stops and offers a replay',
+      'a second starvation stops the track and a replay gets its own rescue',
       () async {
         final trackRepository = TrackRepository(isar);
         final settingsRepository = SettingsRepository(isar);
@@ -2037,21 +2037,35 @@ void main() {
         await controller.playSingle(_track('held', title: 'Held'));
         holdForever();
         await audioService.waitForPlayUrlCallCount(2);
+        // 重試自己的 stop() 已經過了；接下來那一次是放棄時發的，先卡住它。
+        final stopping = audioService.enqueuePendingStop();
         holdForever();
         await pumpUntil(
           () => controller.state.error != null,
           reason: 'the retried stream starved too',
         );
 
-        expect(audioService.isPlaying, isFalse, reason: 'backend stopped');
+        // 轉圈不等 stop() 返回就要消失。
         expect(controller.state.isBuffering, isFalse);
         expect(controller.state.isPlaying, isFalse);
-        expect(handler.playbackState.value.playing, isFalse);
+
+        stopping.complete();
+        await pumpUntil(
+          () =>
+              handler.playbackState.value.processingState ==
+              AudioProcessingState.idle,
+          reason: 'the stopped backend reached the notification',
+        );
+        expect(audioService.isPlaying, isFalse, reason: 'backend stopped');
 
         final pausesBefore = audioService.pauseCallCount;
         await controller.togglePlayPause();
         expect(audioService.playUrlCalls, hasLength(3));
         expect(audioService.pauseCallCount, pausesBefore);
+
+        // 使用者按的重播是一次新的嘗試：再卡住要先救一次，不是直接失敗。
+        holdForever();
+        await audioService.waitForPlayUrlCallCount(4);
       },
     );
 
