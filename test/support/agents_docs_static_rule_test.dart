@@ -40,44 +40,87 @@ const _knownAbsent = <String, String>{
   'CLAUDE.local.md': '根 AGENTS.md 明文禁止新增的檔名',
 };
 
+/// 文件裡引用、實際卻不存在的路徑，以及總共檢查了幾個。
+///
+/// 帶斜線的 token 用 [pathExists] 判斷；裸檔名只查它在不在 [basenames] 裡
+/// （樹裡有同名檔就算數），不去猜它指哪一個 —— 會被停用的閘門不如沒有。
+({List<String> broken, int scanned}) brokenRefs(
+  String doc, {
+  required bool Function(String path) pathExists,
+  required Set<String> basenames,
+}) {
+  var scanned = 0;
+  final broken = <String>[];
+  for (final match in _pathPattern.allMatches(doc)) {
+    final token = match.group(1)!;
+    if (_isPlaceholder(token)) continue;
+    if (_knownAbsent.containsKey(token)) continue;
+    scanned++;
+    final exists = token.contains('/')
+        ? pathExists(token)
+        : basenames.contains(token);
+    if (!exists) broken.add(token);
+  }
+  return (broken: broken, scanned: scanned);
+}
+
 void main() {
   group('agent instruction references', () {
     test('every cited path exists', () {
-      final basenames = <String, int>{};
-      for (final file in _trackedFiles()) {
-        final name = file.split('/').last;
-        basenames[name] = (basenames[name] ?? 0) + 1;
-      }
+      final basenames = {for (final f in _trackedFiles()) f.split('/').last};
 
       var scanned = 0;
       final broken = <String>[];
       for (final doc in _agentDocs()) {
-        final source = File(doc).readAsStringSync();
-        for (final match in _pathPattern.allMatches(source)) {
-          final token = match.group(1)!;
-          if (_isPlaceholder(token)) continue;
-          if (_knownAbsent.containsKey(token)) continue;
-          scanned++;
-          if (token.contains('/')) {
-            if (!File(token).existsSync() && !Directory(token).existsSync()) {
-              broken.add('$doc -> $token');
-            }
-            continue;
-          }
-          // 裸檔名：只在剛好有一個同名檔時才判斷，否則跳過。
-          // 抄 chrishayuk/larql 的降噪法 —— 會被停用的閘門不如沒有。
-          if (basenames[token] == null) broken.add('$doc -> $token');
-        }
+        final result = brokenRefs(
+          File(doc).readAsStringSync(),
+          pathExists: (p) => File(p).existsSync() || Directory(p).existsSync(),
+          basenames: basenames,
+        );
+        scanned += result.scanned;
+        broken.addAll(result.broken.map((token) => '$doc -> $token'));
       }
 
       expect(scanned, greaterThan(20), reason: 'extractor matched nothing');
       expect(broken, isEmpty);
     });
 
+    test('a missing path turns the check red, prose around it does not', () {
+      const existing = {'lib/core/logger.dart', 'docs'};
+      bool exists(String p) => existing.contains(p);
+      const names = {'analysis_options.yaml'};
+
+      const cited = '''
+See `lib/core/logger.dart`, `docs` and `analysis_options.yaml`.
+''';
+      const withGone = '''
+See `lib/core/logger.dart`, `docs` and `analysis_options.yaml`.
+The old helper lived in `lib/core/gone.dart`, next to `gone_options.yaml`.
+''';
+      const rearranged = '''
+- `analysis_options.yaml`
+
+Moved to another section: `docs`, then `lib/core/logger.dart`, then a
+placeholder `lib/**/*.dart` and prose like `flutter test`.
+''';
+
+      expect(
+        brokenRefs(cited, pathExists: exists, basenames: names).broken,
+        isEmpty,
+      );
+      expect(
+        brokenRefs(withGone, pathExists: exists, basenames: names).broken,
+        ['lib/core/gone.dart', 'gone_options.yaml'],
+      );
+      expect(
+        brokenRefs(rearranged, pathExists: exists, basenames: names).broken,
+        isEmpty,
+      );
+    });
+
     test('every named exception is still absent', () {
       for (final entry in _knownAbsent.entries) {
         final token = entry.key;
-        if (token.endsWith('()')) continue;
         expect(
           File(token).existsSync() || Directory(token).existsSync(),
           isFalse,

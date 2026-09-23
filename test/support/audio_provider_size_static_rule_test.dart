@@ -26,6 +26,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart_source.dart';
+
 const _path = 'lib/services/audio/audio_provider.dart';
 
 /// 2026-09-23 第三次調整：放棄時清掉「已經救過一次」的記號，使用者重播同一首
@@ -53,47 +55,66 @@ const _maxCodeLines = 2169;
 /// 低於上限多少行就要求把上限調下來。
 const _slack = 50;
 
-int _codeLines(String source) => source
-    .split('\n')
-    .map((line) => line.trim())
-    .where((line) => line.isNotEmpty && !line.startsWith('//'))
-    .length;
+/// 非空、非註解的行數。`/* */` 區塊註解也不算 —— 以前只跳過 `//` 開頭的行，
+/// 區塊註解裡 ` * ` 開頭的每一行都被算成程式碼。
+int codeLines(String source) => stripDartComments(
+  source,
+).split('\n').where((line) => line.trim().isNotEmpty).length;
+
+/// 行數出了棘輪的範圍時說明是哪一邊，在範圍內回 null。
+String? ratchetProblem(int actual, {int max = _maxCodeLines}) {
+  if (actual > max) return 'grew';
+  if (actual <= max - _slack) return 'shrank';
+  return null;
+}
 
 void main() {
   group('AudioController size ratchet', () {
     test('audio_provider.dart does not grow', () {
-      final actual = _codeLines(File(_path).readAsStringSync());
+      final actual = codeLines(File(_path).readAsStringSync());
 
       expect(
-        actual,
-        lessThanOrEqualTo(_maxCodeLines),
-        reason:
-            '$_path grew to $actual code lines (limit $_maxCodeLines). Move the '
-            'new rule into a collaborator, or raise the limit in this same '
-            'commit and say in the body why those lines belong on the '
-            'controller.',
-      );
-
-      expect(
-        actual,
-        greaterThan(_maxCodeLines - _slack),
-        reason:
-            '$_path is down to $actual code lines. Lower _maxCodeLines to that '
-            'number so the gate keeps its grip.',
+        ratchetProblem(actual),
+        isNull,
+        reason: switch (ratchetProblem(actual)) {
+          'grew' =>
+            '$_path grew to $actual code lines (limit $_maxCodeLines). Move '
+                'the new rule into a collaborator, or raise the limit in this '
+                'same commit and say in the body why those lines belong on the '
+                'controller.',
+          _ =>
+            '$_path is down to $actual code lines. Lower _maxCodeLines to '
+                'that number so the gate keeps its grip.',
+        },
       );
     });
 
-    test('the counter skips blank lines and comments', () {
-      expect(
-        _codeLines('''
+    test('growing past the limit or shrinking past the slack is red', () {
+      expect(ratchetProblem(1000, max: 1000), isNull);
+      expect(ratchetProblem(1001, max: 1000), 'grew');
+      expect(ratchetProblem(1000 - _slack, max: 1000), 'shrank');
+      expect(ratchetProblem(1000 - _slack + 1, max: 1000), isNull);
+    });
+
+    test('comments, dartdoc and blank lines do not move the count', () {
+      const code = '''
+int a = 1;
+int b = 2;
+''';
+      const documented = '''
+/// dartdoc
 int a = 1;
 
 // a comment
-  /// dartdoc
-int b = 2;
-'''),
-        2,
-      );
+/*
+ * a block comment
+ */
+  int b = 2; // trailing
+''';
+
+      expect(codeLines(code), 2);
+      expect(codeLines(documented), 2);
+      expect(codeLines('${code}int c = 3;\n'), 3);
     });
   });
 }

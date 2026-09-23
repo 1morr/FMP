@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/dart_source.dart';
+
 final _importExportUriPattern = RegExp(
   r'''(?:import|export)\s+['"]([^'"]+)['"]''',
 );
@@ -123,6 +125,32 @@ final netease = NeteaseSource();
       },
     );
 
+    test('runtime guard ignores comments and look-alike names', () {
+      const source = '''
+// 以前這裡是 YouTubeSource()，改走 SourceManager 的窄能力。
+/* final s = ref.watch(bilibiliSourceProvider); */
+import 'package:fmp/data/sources/source_provider.dart';
+
+final type = manager.bilibiliSourceType;
+final ids = BilibiliSourceIds.all;
+''';
+
+      expect(
+        _runtimeConcreteSourceOffenders('lib/services/example.dart', source),
+        isEmpty,
+      );
+    });
+
+    test('source provider guard ignores narrow capabilities and comments', () {
+      const source = '''
+// BilibiliSource? get bilibiliSource => null;  （已移除）
+SearchCapability get search => _search;
+final sourceManagerProvider = Provider<SourceManager>((ref) => SourceManager());
+''';
+
+      expect(_sourceProviderConcreteAccessors(source), isEmpty);
+    });
+
     test('source provider guard detects reformatted concrete accessors', () {
       const source = '''
 BilibiliSource?
@@ -145,7 +173,8 @@ youtubeSourceProvider
   });
 }
 
-List<String> _runtimeConcreteSourceOffenders(String path, String source) {
+List<String> _runtimeConcreteSourceOffenders(String path, String raw) {
+  final source = stripDartComments(raw);
   return [
     for (final importUri in _importedUris(source))
       if (_isDataSourceAdapterImport(path, importUri))
@@ -159,7 +188,8 @@ List<String> _runtimeConcreteSourceOffenders(String path, String source) {
   ];
 }
 
-List<String> _sourceProviderConcreteAccessors(String source) {
+List<String> _sourceProviderConcreteAccessors(String raw) {
+  final source = stripDartComments(raw);
   return [
     if (_concreteGetterDeclarationPattern.hasMatch(source))
       'source_provider.dart declares concrete source getter',

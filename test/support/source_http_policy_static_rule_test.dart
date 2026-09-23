@@ -42,6 +42,27 @@ bool buildsARawSourceClient(String path, String source) {
   return !code.contains('SourceHttpPolicy.');
 }
 
+final _policyApiClientPattern = RegExp(
+  r'SourceHttpPolicy\s*\.\s*createApiDio\s*\(',
+);
+
+/// 向 policy 要 API 客戶端的檔案，哪裡沒講清楚它替哪個音源說話；不要客戶端
+/// 的檔案回 null。
+///
+/// 沒指名音源，policy 就挑不出 UA 與 Referer；路徑裡有 `netease` 卻只指名
+/// bilibili，是複製貼上最常留下的錯。
+List<String>? policyClientProblems(String path, String source) {
+  final code = stripDartComments(source);
+  if (!_policyApiClientPattern.hasMatch(code)) return null;
+  return [
+    if (!code.contains('SourceIds.')) '$path names no source',
+    for (final MapEntry(key: token, value: sourceId)
+        in _sourceOfPathToken.entries)
+      if (path.contains(token) && !code.contains(sourceId))
+        '$path does not use $sourceId',
+  ];
+}
+
 Map<String, String> _libSources() {
   final sources = <String, String>{};
   for (final entity in Directory('lib').listSync(recursive: true)) {
@@ -74,30 +95,16 @@ void main() {
 
     test('every policy client identifies the source it speaks for', () {
       final clients = <String>[];
-      final wrongSource = <String>[];
+      final problems = <String>[];
 
       for (final entry in libSources.entries) {
-        final code = stripDartComments(entry.value);
-        if (!code.contains('SourceHttpPolicy.createApiDio')) continue;
+        final found = policyClientProblems(entry.key, entry.value);
+        if (found == null) continue;
         clients.add(entry.key);
-
-        expect(
-          code,
-          contains('SourceIds.'),
-          reason:
-              '${entry.key} asks the policy for a Dio without naming a '
-              'source; the policy cannot pick a UA or a Referer',
-        );
-
-        for (final token in _sourceOfPathToken.entries) {
-          if (!entry.key.contains(token.key)) continue;
-          if (!code.contains(token.value)) {
-            wrongSource.add('${entry.key} does not use ${token.value}');
-          }
-        }
+        problems.addAll(found);
       }
 
-      expect(wrongSource, isEmpty);
+      expect(problems, isEmpty);
       // 三個音源都還在，否則整條規則會安靜地變成空掃描。
       for (final token in _sourceOfPathToken.keys) {
         expect(
@@ -186,6 +193,47 @@ class PolicySource {
           commented,
         ),
         isFalse,
+      );
+    });
+
+    test('a client that names no source or the wrong one is caught', () {
+      const unnamed = '''
+final _dio = SourceHttpPolicy.createApiDio(sourceType);
+''';
+      const wrongSource = '''
+final _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili);
+''';
+
+      expect(policyClientProblems('lib/data/sources/netease_x.dart', unnamed), [
+        'lib/data/sources/netease_x.dart names no source',
+        'lib/data/sources/netease_x.dart does not use SourceIds.netease',
+      ]);
+      expect(
+        policyClientProblems('lib/data/sources/netease_x.dart', wrongSource),
+        ['lib/data/sources/netease_x.dart does not use SourceIds.netease'],
+      );
+    });
+
+    test('line breaks and comments do not change the client verdict', () {
+      const reformatted = '''
+// 以前寫成 SourceHttpPolicy.createApiDio(SourceIds.bilibili)，註解不算。
+final _renamedClient = SourceHttpPolicy
+    .createApiDio(
+  SourceIds.netease,
+);
+''';
+      const noClient = '''
+// final _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili);
+final id = SourceIds.netease;
+''';
+
+      expect(
+        policyClientProblems('lib/data/sources/netease_x.dart', reformatted),
+        isEmpty,
+      );
+      expect(
+        policyClientProblems('lib/data/sources/netease_x.dart', noClient),
+        isNull,
       );
     });
   });

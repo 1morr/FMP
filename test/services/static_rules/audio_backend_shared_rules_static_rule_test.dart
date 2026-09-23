@@ -50,6 +50,18 @@ const _movedKeywords = <String>[
 
 String _read(String path) => File(path).readAsStringSync();
 
+/// [source] 去掉註解後，含有哪些搬走了的關鍵字字串常量。單雙引號都算。
+List<String> duplicatedKeywords(String source) {
+  final code = stripDartComments(source);
+  return [
+    for (final keyword in _movedKeywords)
+      if (RegExp(
+        '([\'"])${RegExp.escape(keyword.substring(1, keyword.length - 1))}\\1',
+      ).hasMatch(code))
+        keyword,
+  ];
+}
+
 void main() {
   group('audio backend shared rules', () {
     test('both real backends and the fake delegate to the shared units', () {
@@ -84,15 +96,11 @@ void main() {
           .where((file) => file.path.replaceAll(r'\', '/') != _rules);
       expect(files, isNotEmpty);
 
-      final offenders = <String>[];
-      for (final file in files) {
-        final code = stripDartComments(file.readAsStringSync());
-        for (final keyword in _movedKeywords) {
-          if (code.contains(keyword)) {
-            offenders.add('${file.path.replaceAll(r'\', '/')}: $keyword');
-          }
-        }
-      }
+      final offenders = [
+        for (final file in files)
+          for (final keyword in duplicatedKeywords(file.readAsStringSync()))
+            '${file.path.replaceAll(r'\', '/')}: $keyword',
+      ];
 
       expect(
         offenders,
@@ -102,6 +110,28 @@ void main() {
             'silently: neither backend can be instantiated in flutter test, so '
             'only a device finds the drift.',
       );
+    });
+
+    test('a copied keyword turns the check red, in either quote style', () {
+      const copied = '''
+bool isTimeout(String m) => m.contains('timed out');
+bool isDns(String m) => m.contains("failed host lookup");
+''';
+
+      expect(duplicatedKeywords(copied), [
+        "'timed out'",
+        "'failed host lookup'",
+      ]);
+    });
+
+    test('comments, identifiers and longer messages do not', () {
+      const unrelated = '''
+// 以前這裡有 'timed out' 的比對，已搬到 playback_end_reason_rules.dart。
+final timedOut = reason is PlaybackTimedOut;
+const hint = 'the request timed out twice';
+''';
+
+      expect(duplicatedKeywords(unrelated), isEmpty);
     });
   });
 }
