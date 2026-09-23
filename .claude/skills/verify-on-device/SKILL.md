@@ -84,7 +84,7 @@ out when reading, never "fix" it.
 | Screenshot (Android) | `adb exec-out screencap -p > shot.png` |
 | Dart/`I/flutter` logs | `orca terminal read --terminal <handle> --json` (`tail`, `nextCursor`) |
 | Raw device log | `orca emulator logcat --lines <n> --device emulator-5554 --json` |
-| Heap, GC, isolates, Isar | Dart VM Service — see `docs/debugging-with-vm-service.md` |
+| Heap, GC, isolates, Isar | Dart VM Service — see `docs/development.md` § 執行期除錯 |
 
 `scripts/ax_flatten.py` collapses the `ax` tree into one line per interesting
 node with both pixel and normalized centers:
@@ -209,7 +209,7 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
   download path can only be chosen through the Android SAF picker, which does
   not respond to synthetic taps. Writing `Settings.customDownloadDir` through the
   Isar inspector extension sets up the precondition without faking the thing
-  being verified. See `docs/debugging-with-vm-service.md` §5.
+  being verified. See `docs/development.md` § 執行期除錯 (Isar).
 - **A directory created with `adb shell mkdir` belongs to `shell`, not the app**,
   so the app gets `PathAccessException ... errno = 13`. Create it with
   `adb shell run-as <package> mkdir -p files/<dir>` and point the setting at
@@ -235,9 +235,9 @@ observation on the emulator is worth.
   interface ignores the throttle, so it cannot be used to reproduce slow-network
   playback. Shape traffic on the host, or point the app at a deliberately slow
   local server instead.
-- **Prefer the VM Service over screenshots for reading state.** Evaluating an
-  expression against the running isolate
-  (`docs/debugging-with-vm-service.md`) answers "what is the controller's state"
+- **Prefer the VM Service over screenshots for reading state.** Reading a live
+  object's fields (`getInstances` + `getObject`; `evaluate` does not work over
+  HTTP — see `docs/development.md` § 執行期除錯) answers "what is the controller's state"
   directly, in one call, and returns text. A screenshot answers it indirectly,
   costs context, and cannot see anything off-screen. Reach for pixels only when
   the question is genuinely about layout.
@@ -352,7 +352,7 @@ Two traps around that:
   the current queue. A track that is in no playlist and no longer in the queue
   is **gone** — this run destroyed a leftover test track that way.
 - **A DB edit under a running app is not durable.** See the write-race note in
-  `docs/debugging-with-vm-service.md` §5: reading the new value back proves
+  `docs/development.md` § 執行期除錯 (Isar): reading the new value back proves
   nothing. Kill the process immediately after the edit, or make the change
   through the app's own UI. Restoring the play queue at the end only stuck once
   it went through the queue page's clear button and the mini player's loop

@@ -10,7 +10,7 @@
 | 想在本機編譯 Android / Windows | [建置指南](building.md) |
 | 想理解專案架構與主要模組 | [開發文件](development.md) |
 | 要發布新版本或調整 Release 流程 | [建置與發布指南](build-and-release.md) |
-| 要用 VM Service 做 Runtime 調試 | [VM Service 調試指南](debugging-with-vm-service.md) |
+| 要用 VM Service 做 Runtime 調試 | [開發文件〈執行期除錯〉](development.md#執行期除錯vm-service) |
 | 改了 UI／使用者可見行為，要做強制的 Android 模擬器實機驗證 | [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md) |
 | 遇到看起來像錯誤的建置或 runtime log 噪音，或一個已知修不掉、只能繞過的行為 | [疑難排解](troubleshooting.md) |
 | 想知道某個架構決定「當初為什麼這樣選」 | [adr/](adr/) |
@@ -20,10 +20,9 @@
 
 | 文件 | 讀者 | 用途 |
 |------|------|------|
-| [開發文件](development.md) | 貢獻者 | 專案概覽、技術棧、架構地圖、目前開發規則摘要 |
+| [開發文件](development.md) | 貢獻者 / agent | 專案概覽、技術棧、架構地圖、執行期除錯（VM Service 與 Isar Inspector） |
 | [建置指南](building.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
 | [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
-| [VM Service 調試指南](debugging-with-vm-service.md) | 調試者 / agent | 透過 Dart VM Service 與 Isar Inspector 做運行期檢查 |
 | [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性建置與 runtime 噪音（如 Windows `Failed to update ui::AXTree`、`resolve_symlinks.ps1` 的 `Get-Item` 警告），以及修不掉只能繞過的已知行為（如可攜版搬動後的第一次開機自啟）與其成因 |
 | [adr/](adr/) | 貢獻者 / agent | 架構決策記錄：決定了什麼、為什麼，以及被否決的替代方案與否決的證據 |
 | [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
@@ -42,7 +41,7 @@
 - 架構、資料模型、遷移、UI 或音源行為變更：理由寫在被改的程式碼旁（dartdoc 或守著它的測試）；只有跨檔契約與程式碼查不到的地雷才進 `AGENTS.md`，必要時同步更新 [開發文件](development.md)。
 - 本機建置環境、工具鏈或打包前置條件變更：更新 [建置指南](building.md)。
 - CI 產物命名、Release workflow、簽名 secrets、應用內更新資產識別變更：更新 [建置與發布指南](build-and-release.md)。
-- Runtime 調試流程或 VM Service 腳本變更：更新 [VM Service 調試指南](debugging-with-vm-service.md)。
+- Runtime 調試流程變更：更新 [開發文件〈執行期除錯〉](development.md#執行期除錯vm-service)。
 - 模擬器啟動方式、實機驗證流程或裝置端限制變更：更新 [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md)，並讓 `AGENTS.md` 的 Agent Skills 只保留一行指引。
 - 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
 - 審查記錄不進 `docs/`。一輪審計的結論要嘛寫進它所描述的檔案、要嘛開成 issue，

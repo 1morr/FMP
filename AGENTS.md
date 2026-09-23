@@ -29,7 +29,7 @@ in the test that gates it — not here. Human-facing docs live in `docs/`;
   `docs/agents/domain.md`.
 - **On-device verification** — `.claude/skills/verify-on-device/SKILL.md`.
   Required, not optional; see below.
-- **Runtime debugging** — `docs/debugging-with-vm-service.md`. Reach for it when
+- **Runtime debugging** — `docs/development.md` § 執行期除錯. Reach for it when
   the question is about the running app rather than the source. Enable `dart:io`
   profiling *before* the traffic you want to see, or it records nothing.
 
