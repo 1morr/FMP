@@ -1076,6 +1076,76 @@ void main() {
       },
     );
 
+    test('resume appends the 206 remainder to the partial temp file', () async {
+      final baseDir = await _createTempDirDeletedOnTearDown(
+        'download_resume_http206_',
+      );
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final fullBytes = Uint8List.fromList([10, 20, 30, 40, 50, 60]);
+      final partialBytes = Uint8List.fromList(fullBytes.take(2).toList());
+      final remainder = Uint8List.fromList(fullBytes.skip(2).toList());
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.statusCode = HttpStatus.partialContent;
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = remainder.length;
+        request.response.add(remainder);
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final track = Track()
+        ..sourceId = 'yt-resume-http206'
+        ..sourceType = SourceIds.youtube
+        ..title = 'Resume HTTP 206'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+      final playlist = Playlist()..name = 'Download Playlist';
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      final tempPath = '$savePath.downloading';
+      await Directory(tempPath).parent.create(recursive: true);
+      await File(tempPath).writeAsBytes(partialBytes, flush: true);
+
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..tempFilePath = tempPath
+          ..downloadedBytes = partialBytes.length
+          ..createdAt = DateTime.now(),
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(
+          _StaticAudioSource(
+            'http://${server.address.address}:${server.port}/audio.m4a',
+          ),
+        ),
+      );
+      addTearDown(service.dispose);
+
+      await service.debugStartDownloadForTesting(task);
+
+      expect(await File(savePath).readAsBytes(), fullBytes);
+      final updatedTask = await downloadRepository.getTaskById(task.id);
+      expect(updatedTask?.status, DownloadStatus.completed);
+    });
+
     test(
       'download start passes auth headers to source.getAudioStream only when auth-for-play is enabled',
       () async {
