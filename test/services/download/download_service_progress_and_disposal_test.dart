@@ -2094,6 +2094,74 @@ segment0.ts
       },
     );
 
+    test('a body cut short of its Content-Length fails the task', () async {
+      // 下載完成只檢查檔案存在，不比對位元組數；擋住截斷檔的是 HttpClient：
+      // 有 Content-Length 時連線提早斷掉會拋 HttpException。換掉 HTTP 層時
+      // 這條測試要跟著守住同一件事。
+      final baseDir = await _createTempDirDeletedOnTearDown(
+        'download_truncated_body_',
+      );
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((socket) async {
+        socket.listen((_) {}, onError: (_) {});
+        socket.add('HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n'.codeUnits);
+        socket.add(Uint8List(500));
+        await socket.flush();
+        await socket.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close();
+      });
+
+      final savedTrack = await trackRepository.save(
+        _downloadTrack('truncated-body'),
+      );
+      final playlist = Playlist()..name = 'Download Playlist';
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(
+          _StaticAudioSource(
+            'http://${server.address.address}:${server.port}/audio.m4a',
+          ),
+        ),
+      );
+      addTearDown(service.dispose);
+
+      await HttpOverrides.runWithHttpOverrides<Future<void>>(
+        () => service
+            .debugStartDownloadForTesting(task)
+            .timeout(const Duration(seconds: 10)),
+        _DirectHttpOverrides(),
+      );
+
+      final updatedTask = await downloadRepository.getTaskById(task.id);
+      expect(updatedTask?.status, DownloadStatus.failed);
+      expect(updatedTask?.errorMessage, contains('"type":"http"'));
+      expect(await File(savePath).exists(), isFalse);
+      final updatedTrack = await trackRepository.getById(savedTrack.id);
+      expect(updatedTrack?.allDownloadPaths, isEmpty);
+    });
+
     test(
       'a temp file the isolate cannot open fails the task instead of hanging',
       () async {
