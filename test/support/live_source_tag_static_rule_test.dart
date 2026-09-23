@@ -6,39 +6,71 @@
 /// 真的 `BilibiliSource()`，某條測試 `await` 了它的搜尋。人工修過一次，這裡是
 /// 第一次有東西擋回歸。
 ///
-/// 判準是「用預設建構子建出真的音源」：`BilibiliSource()`、`YouTubeSource()`、
-/// `NeteaseSource()`、`BilibiliLiveClient()`、`RadioSource()` 沒有注入任何
-/// Dio 或 client，就會拿到會連 Bilibili / YouTube / Netease 的實例。有注入的
-/// （`BilibiliLiveClient(apiDio: Dio(), liveDio: fake)`）不算。
+/// 判準是「用預設建構子建出真的音源」：沒有注入任何 Dio 或 client 的建構子，就會
+/// 拿到會連 Bilibili / YouTube / Netease / QQ 音樂 / lrclib / Spotify 的實例。有注入的
+/// （`BilibiliLiveClient(apiDio: Dio(), liveDio: fake)`）不算。涵蓋哪些類別見
+/// [_guardedClasses]。
 ///
 /// 例外清單裡的檔案建了真的音源但只呼叫純函式（URL 解析、建構子副作用），
 /// 每一條都寫理由。加例外時先問：這支測試真的沒有 `await` 音源的任何方法嗎。
+///
+/// 例外清單的說法是「沒被呼叫」，那是個關於行為的斷言，不是關於程式碼形狀的，
+/// 所以量過：2026-09-23 在 `HttpClientFactory.create` 加一個印出並拒絕每個請求的
+/// interceptor，只跑例外清單裡的檔案（`--exclude-tags live`），攔到的請求全部打向
+/// `localhost` 的假伺服器，沒有一個打到真實主機。加例外之後照這個方法再量一次。
 library;
 
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+/// 判準涵蓋的音源類別，也是 [_realSourcePattern] 唯一的真相來源。
+///
+/// 這裡曾經是寫死在正則裡的字串，於是漂移了：樹裡有九個預設建構子會連網的音源
+/// 類別，判準只有五個，歌詞與歌單匯入的四個用預設建構子建出實例卻不被看見。
+/// 例外清單剛好蓋住那四個檔案，所以漂移沒有任何症狀 —— 一條瞎掉的規則不會紅。
+///
+/// 新增音源時加在這裡；`the detector catches a synthetic offender for every`
+/// `guarded class` 會逐一驗證每個名字真的被認出來。
+const _guardedClasses = <String>[
+  'BilibiliSource',
+  'YouTubeSource',
+  'NeteaseSource',
+  'BilibiliLiveClient',
+  'RadioSource',
+  'QQMusicSource',
+  'LrclibSource',
+  'QQMusicPlaylistSource',
+  'SpotifyPlaylistSource',
+];
+
 /// 預設建構子：類別名後面緊接空括號。
 final _realSourcePattern = RegExp(
-  r'\b(BilibiliSource|YouTubeSource|NeteaseSource|BilibiliLiveClient|RadioSource)\(\)',
+  r'\b(' + _guardedClasses.join('|') + r')\(\)',
 );
 
 final _liveTagPattern = RegExp(r"@Tags\(\[\s*'live'\s*\]\)|tags:\s*'live'");
 
 /// 建了真的音源但只用純函式的測試，附理由。
 const _exceptions = <String, String>{
+  'test/data/sources/source_url_policy_test.dart':
+      'only calls canHandle on the playlist import sources, which parses the '
+      'URL and never touches the Dio',
   'test/data/sources/netease_source_test.dart':
       'only exercises parseId / isPlaylistUrl, which never touch the network',
   'test/services/audio/audio_service_dispose_test.dart':
-      'NeteaseSource() is handed to a lyrics factory the test never invokes',
+      'NeteaseSource(), LrclibSource() and QQMusicSource() are handed to a '
+      'lyrics factory the test never invokes',
   'test/services/audio/audio_controller_handoff_and_errors_test.dart':
-      'same lyrics factory shape: NeteaseSource() is constructed, never called',
+      'same lyrics factory shape: NeteaseSource(), LrclibSource() and '
+      'QQMusicSource() are constructed, never called',
   'test/services/audio/lyrics_auto_match_coordinator_test.dart':
-      'same lyrics factory shape: NeteaseSource() is constructed, never called',
+      'same lyrics factory shape: NeteaseSource(), LrclibSource() and '
+      'QQMusicSource() are constructed, never called',
   'test/services/audio/audio_controller_lyrics_auto_match_track_test.dart':
       'same lyrics factory shape: the subclass overrides tryAutoMatch, so '
-      'NeteaseSource() is constructed and never called',
+      'NeteaseSource(), LrclibSource() and QQMusicSource() are constructed '
+      'and never called',
   'test/bilibili_source_test.dart':
       'the group setUp builds a real source; the two tests that reach the '
       'network carry tags: live individually and the rest exercise parsing '
@@ -79,24 +111,42 @@ void main() {
       }
     });
 
-    test('the detector catches a synthetic offender', () {
-      const offender = '''
+    test(
+      'the detector catches a synthetic offender for every guarded class',
+      () {
+        // 逐一走過判準裡的每個類別名。少一個名字在這裡就會紅 —— 這正是這條測試
+        // 存在的理由：上一次漏掉兩個的時候，沒有任何東西會發現。
+        for (final name in _guardedClasses) {
+          final offender =
+              '''
 void main() {
-  test('search', () async {
-    final source = BilibiliSource();
+  test('lyrics', () async {
+    final source = $name();
     await source.search('x');
   });
 }
 ''';
-      expect(_buildsRealSource(offender), isTrue);
-      expect(_liveTagPattern.hasMatch(offender), isFalse);
-    });
+          expect(_buildsRealSource(offender), isTrue, reason: name);
+          expect(_liveTagPattern.hasMatch(offender), isFalse, reason: name);
+        }
+      },
+    );
 
     test('the detector ignores injected clients and commented-out code', () {
       const injected = '''
 final client = BilibiliLiveClient(apiDio: Dio(), liveDio: fake);
 final source = BilibiliSource(liveClient: client);
 // final real = BilibiliSource();
+''';
+      expect(_buildsRealSource(injected), isFalse);
+    });
+
+    test('the detector ignores an injected Dio for the lyric sources', () {
+      // 反方向：判準認的是「類別名後面緊接空括號」，不是類別名本身。
+      // `QQMusicSource(dio: dio)` 在測試裡是常態寫法，不能被判成連網。
+      const injected = '''
+final lrclib = LrclibSource(dio: dio);
+final qqmusic = QQMusicSource(dio: dio);
 ''';
       expect(_buildsRealSource(injected), isFalse);
     });
