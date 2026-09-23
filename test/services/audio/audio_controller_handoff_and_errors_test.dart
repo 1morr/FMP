@@ -404,7 +404,8 @@ void main() {
           reason: 'the first track should settle before the next one fails',
         );
 
-        sourceManager.throwGetAudioStreamOnce(
+        // 一直限流：只擋一次的話串流解析的重試會救回來，這條就測不到失敗。
+        sourceManager.throwGetAudioStreamAlways(
           const YouTubeApiException(
             code: 'rate_limited',
             message: 'rate limited',
@@ -1582,7 +1583,8 @@ void main() {
     test(
       'rate-limited source error remains visible after loading resets',
       () async {
-        sourceManager.throwGetAudioStreamOnce(
+        // 一直限流：串流解析會重試一次，兩次都被擋才輪到使用者看見。
+        sourceManager.throwGetAudioStreamAlways(
           const YouTubeApiException(
             code: 'rate_limited',
             message: 'Too many requests',
@@ -2192,6 +2194,7 @@ AudioStreamManager _createAudioStreamManager({
     settingsRepository: settingsRepository,
     sourceManager: sourceManager,
     sourceAuthContext: FakeSourceAuthContext(),
+    rateLimitRetryDelay: Duration.zero,
   );
   addTearDown(streamResolutionService.dispose);
   return AudioStreamManager(
