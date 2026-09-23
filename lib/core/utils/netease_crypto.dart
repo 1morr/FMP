@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart';
@@ -88,20 +87,6 @@ class NeteaseCrypto {
     return _bytesToHex(encrypted.bytes).toUpperCase();
   }
 
-  // ===== eapi 解密 =====
-
-  /// eapi 響應解密
-  ///
-  /// [hexEncrypted] hex 編碼的加密數據
-  /// 返回解密後的 JSON 對象。
-  static Map<String, dynamic> eapiDecrypt(String hexEncrypted) {
-    final bytes = _hexToBytes(hexEncrypted);
-    final key = Key.fromUtf8(_eapiKey);
-    final encrypter = Encrypter(AES(key, mode: AESMode.ecb, padding: 'PKCS7'));
-    final decrypted = encrypter.decryptBytes(Encrypted(bytes));
-    return jsonDecode(utf8.decode(decrypted)) as Map<String, dynamic>;
-  }
-
   // ===== 內部方法 =====
 
   /// AES-128-CBC 加密，返回 base64 字串
@@ -138,15 +123,5 @@ class NeteaseCrypto {
   /// 字節數組轉 hex 字串
   static String _bytesToHex(List<int> bytes) {
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  }
-
-  /// hex 字串轉字節數組
-  static Uint8List _hexToBytes(String hex) {
-    return Uint8List.fromList(
-      List.generate(
-        hex.length ~/ 2,
-        (i) => int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16),
-      ),
-    );
   }
 }

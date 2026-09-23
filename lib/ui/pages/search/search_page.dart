@@ -1633,7 +1633,7 @@ class _LiveRoomTile extends StatelessWidget {
               Icon(Icons.visibility, size: 14, color: colorScheme.outline),
               const SizedBox(width: 2),
               Text(
-                _formatOnlineCount(room.online!),
+                formatCount(room.online!),
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
@@ -1697,6 +1697,4 @@ class _LiveRoomTile extends StatelessWidget {
       ),
     ),
   ];
-
-  String _formatOnlineCount(int count) => formatCount(count);
 }

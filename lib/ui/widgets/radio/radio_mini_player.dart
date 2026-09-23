@@ -137,7 +137,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     // 觀眾數
     if (radioState.viewerCount != null) {
       parts.add(
-        t.radio.viewersCount(count: _formatCount(radioState.viewerCount!)),
+        t.radio.viewersCount(count: formatCount(radioState.viewerCount!)),
       );
     }
 
@@ -197,6 +197,4 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       onPressed: isDisabled ? null : () => controller.reload(),
     );
   }
-
-  String _formatCount(int count) => formatCount(count);
 }
