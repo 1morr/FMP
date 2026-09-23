@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
-import 'package:media_kit/media_kit.dart';
+import 'package:fmp/services/audio/playback_media.dart';
+import 'package:media_kit/media_kit.dart' hide Track;
 
 import '../../support/pump_until.dart';
 
@@ -101,6 +103,60 @@ void main() {
       );
     });
   });
+
+  group('gapless handover', () {
+    test('asks mpv to open the next playlist entry ahead of time', () {
+      // mpv 的 `prefetch-playlist` 預設是 `no`，media_kit 從不設它。少了這個
+      // 屬性，前瞻項目要等到交界才開流 —— 不會有任何錯誤，只是不再 gapless。
+      expect(engine.properties, containsPair('prefetch-playlist', 'yes'));
+      // 純音訊設定跟它走同一段，一起確認有送到引擎。
+      expect(engine.properties, containsPair('vid', 'no'));
+      expect(
+        engine.properties,
+        containsPair(
+          'network-timeout',
+          '${MediaKitAudioService.desktopNetworkTimeoutSeconds}',
+        ),
+      );
+    });
+
+    test('an engine that moves to the next entry hands it over', () async {
+      final opening = service.playUrl('https://example.com/a.m4a');
+      await pumpUntil(
+        () => engine.opened,
+        reason: 'playUrl has handed the medium to the engine',
+      );
+      engine.emitDuration(const Duration(minutes: 3));
+      await opening;
+
+      final next = RemotePlaybackMedia(
+        url: Uri.parse('https://example.com/b.m4a'),
+        headers: const {'Referer': 'https://example.com/'},
+        track: Track()
+          ..sourceType = SourceIds.bilibili
+          ..sourceId = 'b'
+          ..title = 'b',
+      );
+      await service.setNextMedia(next);
+      expect(engine.state.playlist.medias, hasLength(2));
+
+      // 第一首播完時 mpv 不發 `completed`（那是整串播完才有），只把索引往前推。
+      final handedOver = <PreparedPlaybackMedia>[];
+      final subscription = service.advancedToNext.listen(handedOver.add);
+      addTearDown(subscription.cancel);
+      engine.advance();
+
+      await pumpUntil(
+        () => handedOver.isNotEmpty,
+        reason: 'the index change is reported as a handover',
+      );
+      expect(handedOver.single, same(next));
+      await pumpUntil(
+        () => engine.state.playlist.medias.length == 1,
+        reason: 'the finished entry is trimmed off the front',
+      );
+    });
+  });
 }
 
 /// 只做開流與播放控制，其餘由測試直接推事件，就像 libmpv 回報屬性變化。
@@ -108,6 +164,41 @@ class _FakePlatformPlayer extends PlatformPlayer {
   _FakePlatformPlayer() : super(configuration: const PlayerConfiguration());
 
   bool opened = false;
+
+  /// 服務透過 `(platform as dynamic).setProperty` 送給 libmpv 的屬性。
+  final properties = <String, String>{};
+
+  Future<void> setProperty(String property, String value) async {
+    properties[property] = value;
+  }
+
+  /// 像 mpv 播完當前項目、接上下一個那樣把索引往前推一格。
+  void advance() {
+    final playlist = state.playlist.copyWith(index: state.playlist.index + 1);
+    state = state.copyWith(playlist: playlist);
+    playlistController.add(playlist);
+  }
+
+  @override
+  Future<void> add(Media media) async {
+    final playlist = state.playlist.copyWith(
+      medias: [...state.playlist.medias, media],
+    );
+    state = state.copyWith(playlist: playlist);
+    playlistController.add(playlist);
+  }
+
+  @override
+  Future<void> remove(int index) async {
+    final medias = [...state.playlist.medias]..removeAt(index);
+    final current = state.playlist.index;
+    final playlist = Playlist(
+      medias,
+      index: index < current ? current - 1 : current,
+    );
+    state = state.copyWith(playlist: playlist);
+    playlistController.add(playlist);
+  }
 
   void emitPlaying(bool playing) {
     state = state.copyWith(playing: playing);

@@ -1920,6 +1920,11 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     int receivedBytes = resumePosition;
     double lastProgress = 0;
 
+    // 逐塊套接收逾時：伺服器送完標頭後就不再送資料（CDN 掛住、連線半開）時，
+    // HttpClient 本身沒有讀取逾時，這個 isolate 會永遠停在 await for 上，任務
+    // 就一直卡在「下載中」。逾時以 TimeoutException 落到下面的 catch 分支，回報
+    // 成 'timeout'。沒有自動化測試：值是 30 秒的常數，isolate 裡推不動假時鐘，
+    // 要驗證只能真的等。
     await for (final chunk in response.timeout(
       AppConstants.networkReceiveTimeout,
     )) {
