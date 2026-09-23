@@ -38,6 +38,11 @@ class TrackDetailState {
 }
 
 /// 歌曲详情 Notifier
+///
+/// 詳情是**影片層**的資料（`getVideoDetail` 只吃 sourceId，離線 metadata 也優先
+/// 讀 `parentTitle`），所以去重看 [Track.groupKey]，不看含 cid 的 `uniqueKey`：
+/// 播放途中串流解析會把 cid 從 null 補上，用 `uniqueKey` 的話同一首歌會被當成
+/// 換歌，清掉已顯示的詳情再打一次同樣的請求（面板二次閃爍）。換分 P 也一樣不重載。
 class TrackDetailNotifier extends Notifier<TrackDetailState> {
   late SourceManager _sourceManager;
   late SourcePlaybackAuthContext _sourceAuthContext;
@@ -50,7 +55,7 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
 
     // 监听当前播放的歌曲变化
     ref.listen<Track?>(currentTrackProvider, (previous, next) {
-      if (previous?.uniqueKey != next?.uniqueKey) {
+      if (previous?.groupKey != next?.groupKey) {
         loadDetail(next);
       }
     });
@@ -74,10 +79,12 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
       return;
     }
 
-    final trackKey = track.uniqueKey;
+    final trackKey = track.groupKey;
 
-    // 如果是同一首歌曲，不重复加载
-    if (_currentTrack?.uniqueKey == trackKey && state.detail != null) {
+    // 同一支影片：已經有詳情或正在載入，都不再打一次
+    if (_currentTrack?.groupKey == trackKey &&
+        (state.detail != null || state.isLoading)) {
+      _currentTrack = track;
       return;
     }
 
@@ -105,11 +112,11 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
       }
 
       // 确保加载的还是当前歌曲
-      if (_currentTrack?.uniqueKey == trackKey) {
+      if (_currentTrack?.groupKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
     } catch (e, stack) {
-      if (_currentTrack?.uniqueKey == trackKey) {
+      if (_currentTrack?.groupKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
           error: failureMessage(
@@ -175,17 +182,17 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
     final track = _currentTrack;
     if (track == null) return;
 
-    final trackKey = track.uniqueKey;
+    final trackKey = track.groupKey;
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
       final source = _requireTrackDetailSource(track);
       final detail = await _loadNetworkDetail(track, source);
-      if (_currentTrack?.uniqueKey == trackKey) {
+      if (_currentTrack?.groupKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
     } catch (e, stack) {
-      if (_currentTrack?.uniqueKey == trackKey) {
+      if (_currentTrack?.groupKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
           error: failureMessage(

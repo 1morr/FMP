@@ -16,46 +16,91 @@ import 'package:path/path.dart' as p;
 import '../support/pump_until.dart';
 
 void main() {
+  test('loadDetail keeps the detail across pages of the same video', () async {
+    final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+    final sourceManager = SourceManager(sources: [bilibili]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+    final pageOne = _track('BV-SAME', SourceIds.bilibili)
+      ..cid = 101
+      ..pageNum = 1;
+    final pageTwo = _track('BV-SAME', SourceIds.bilibili)
+      ..cid = 202
+      ..pageNum = 2;
+
+    final firstLoad = notifier.loadDetail(pageOne);
+    await pumpUntil(
+      () => bilibili.requests.length == 1,
+      reason: 'the first load should reach the source',
+    );
+    bilibili.complete('BV-SAME', _detail('BV-SAME', 'Video'));
+    await firstLoad;
+
+    // 詳情是影片層的資料：換分 P 拿到的會是同一份，不該再打一次。
+    await notifier.loadDetail(pageTwo);
+    await drainEventQueue(reason: 'a page switch must not re-request');
+
+    expect(bilibili.requests, ['BV-SAME']);
+    expect(notifier.state.detail!.title, 'Video');
+  });
+
+  test('a cid filled in after loading does not reload the detail', () async {
+    final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+    final sourceManager = SourceManager(sources: [bilibili]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+    final firstLoad = notifier.loadDetail(_track('BV-CID', SourceIds.bilibili));
+    await pumpUntil(
+      () => bilibili.requests.length == 1,
+      reason: 'the first load should reach the source',
+    );
+    bilibili.complete('BV-CID', _detail('BV-CID', 'Loaded'));
+    await firstLoad;
+
+    // 串流解析把 cid 從 null 補上 —— uniqueKey 變了，但還是同一首。
+    final resolved = _track('BV-CID', SourceIds.bilibili)..cid = 5;
+    final second = notifier.loadDetail(resolved);
+    expect(
+      notifier.state.detail?.title,
+      'Loaded',
+      reason: 'the shown detail must not be cleared (the double flash)',
+    );
+    await second;
+    await drainEventQueue(reason: 'a filled-in cid must not re-request');
+
+    expect(bilibili.requests, ['BV-CID']);
+  });
+
   test(
-    'loadDetail treats same-source multi-page tracks as different tracks',
+    'a cid filled in while loading does not send a second request',
     () async {
       final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
-      final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
-      final netease = _CompletingTrackDetailSource(SourceIds.netease);
-      final sourceManager = SourceManager(
-        sources: [bilibili, youtube, netease],
-      );
+      final sourceManager = SourceManager(sources: [bilibili]);
       addTearDown(sourceManager.dispose);
 
       final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-      final pageOne = _track('BV-SAME', SourceIds.bilibili)
-        ..cid = 101
-        ..pageNum = 1;
-      final pageTwo = _track('BV-SAME', SourceIds.bilibili)
-        ..cid = 202
-        ..pageNum = 2;
-
-      final firstLoad = notifier.loadDetail(pageOne);
+      final firstLoad = notifier.loadDetail(
+        _track('BV-INFLIGHT', SourceIds.bilibili),
+      );
       await pumpUntil(
         () => bilibili.requests.length == 1,
         reason: 'the first load should reach the source',
       );
-      bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page One'));
-      await firstLoad;
 
-      final secondLoad = notifier.loadDetail(pageTwo);
-      await pumpUntil(
-        () => bilibili.requests.length == 2,
-        reason: 'a different page of the same id should re-request',
+      await notifier.loadDetail(
+        _track('BV-INFLIGHT', SourceIds.bilibili)..cid = 7,
       );
+      await drainEventQueue(reason: 'the in-flight load already covers it');
+      expect(bilibili.requests, ['BV-INFLIGHT']);
 
-      expect(bilibili.requests, ['BV-SAME', 'BV-SAME']);
-
-      bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page Two'));
-      await secondLoad;
-
-      expect(notifier.state.detail!.title, 'Page Two');
+      bilibili.complete('BV-INFLIGHT', _detail('BV-INFLIGHT', 'Loaded'));
+      await firstLoad;
+      expect(notifier.state.detail!.title, 'Loaded');
     },
   );
 
