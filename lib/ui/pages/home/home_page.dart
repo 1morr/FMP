@@ -24,21 +24,16 @@ import 'package:fmp/ui/handlers/track_action_handler.dart';
 import 'package:fmp/ui/handlers/track_action_menu.dart';
 import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
 import 'package:fmp/ui/widgets/layout/horizontal_scroll_section.dart';
-import 'package:fmp/ui/widgets/layout/playlist_card.dart';
+import 'package:fmp/ui/widgets/layout/playlist_grid_card.dart';
 import 'package:fmp/ui/widgets/menus/context_menu_region.dart';
 import 'package:fmp/ui/widgets/menus/menu_action.dart';
-import 'package:fmp/ui/widgets/menus/playlist_card_actions.dart';
 import 'package:fmp/ui/widgets/radio/radio_station_card.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/ui/widgets/feedback/error_display.dart';
-import 'package:fmp/ui/widgets/images/playlist_cover_image.dart';
 import 'package:fmp/ui/widgets/images/recent_play_cover_image.dart';
 import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
 import 'package:fmp/ui/widgets/track_tiles/ranking_track_tile.dart';
-import 'package:fmp/data/models/playlist.dart';
-import 'package:fmp/providers/library/refresh_provider.dart';
 import 'package:fmp/services/library/playlist_service.dart';
-import 'package:fmp/ui/pages/library/widgets/create_playlist_dialog.dart';
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/services/audio/queue_state.dart';
 
@@ -408,8 +403,9 @@ class _RecentPlaylistsSection extends ConsumerWidget {
                   final playlistCards = recentLists.map((playlist) {
                     return SizedBox(
                       width: cardWidth,
-                      child: _HomePlaylistCard(
+                      child: PlaylistGridCard(
                         playlist: playlist,
+                        margin: EdgeInsets.zero,
                         coverAsync: _coverForPlaylist(
                           coverMapAsync,
                           playlist.id,
@@ -929,141 +925,6 @@ class _RecentHistorySection extends ConsumerWidget {
 }
 
 /// 首頁歌單卡片（帶右鍵/長按菜單）
-class _HomePlaylistCard extends ConsumerWidget {
-  final Playlist playlist;
-  final AsyncValue<PlaylistCoverData> coverAsync;
-
-  const _HomePlaylistCard({required this.playlist, required this.coverAsync});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ContextMenuRegion(
-      menuBuilder: (_) => _buildContextMenuItems(context, ref),
-      onSelected: (value) => _handleContextMenuAction(context, ref, value),
-      child: PlaylistCard(
-        playlist: playlist,
-        margin: EdgeInsets.zero,
-        onTap: () => context.push(RoutePaths.playlistDetailPath(playlist.id)),
-        onLongPress: () => _showOptionsMenu(context, ref),
-        cover: coverAsync.when(
-          skipLoadingOnReload: true,
-          data: (coverData) => coverData.hasCover
-              ? PlaylistCoverImage(
-                  localPath: coverData.localPath,
-                  networkUrl: coverData.networkUrl,
-                  placeholder: const ImagePlaceholder.playlist(),
-                  fit: BoxFit.cover,
-                  variant: PlaylistCoverVariant.card,
-                )
-              : const ImagePlaceholder.playlist(),
-          loading: () => const ImagePlaceholder.playlist(),
-          error: (e, s) => const ImagePlaceholder.playlist(),
-        ),
-      ),
-    );
-  }
-
-  List<PopupMenuEntry<String>> _buildContextMenuItems(
-    BuildContext context,
-    WidgetRef ref,
-  ) {
-    final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
-    return PlaylistCardActions.buildPopupMenuEntries(
-      context: context,
-      items: PlaylistCardActions.buildMenuItems(
-        playlist: playlist,
-        isRefreshing: isRefreshing,
-      ),
-    );
-  }
-
-  void _handleContextMenuAction(
-    BuildContext context,
-    WidgetRef ref,
-    String value,
-  ) {
-    switch (value) {
-      case PlaylistCardActions.actionPlayMix:
-        _playMix(context, ref);
-      case PlaylistCardActions.actionAddAll:
-        _addAllToQueue(context, ref);
-      case PlaylistCardActions.actionShuffleAdd:
-        _shuffleAddToQueue(context, ref);
-      case PlaylistCardActions.actionEdit:
-        _showEditDialog(context, ref);
-      case PlaylistCardActions.actionRefresh:
-        _refreshPlaylist(context, ref);
-      case PlaylistCardActions.actionDelete:
-        _showDeleteConfirm(context, ref);
-    }
-  }
-
-  void _showOptionsMenu(BuildContext context, WidgetRef ref) {
-    final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
-    final items = PlaylistCardActions.buildMenuItems(
-      playlist: playlist,
-      isRefreshing: isRefreshing,
-    );
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: PlaylistCardActions.buildBottomSheetTiles(
-              context: context,
-              items: items,
-              onSelected: (value) =>
-                  _handleContextMenuAction(context, ref, value),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _addAllToQueue(BuildContext context, WidgetRef ref) async {
-    await PlaylistCardActions.addAllToQueue(context, ref, playlist);
-  }
-
-  void _shuffleAddToQueue(BuildContext context, WidgetRef ref) async {
-    await PlaylistCardActions.shuffleAddToQueue(context, ref, playlist);
-  }
-
-  Future<void> _playMix(BuildContext context, WidgetRef ref) async {
-    await PlaylistCardActions.playMix(context, ref, playlist);
-  }
-
-  void _refreshPlaylist(BuildContext context, WidgetRef ref) {
-    ref.read(refreshManagerProvider.notifier).refreshPlaylist(playlist);
-  }
-
-  void _showEditDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => CreatePlaylistDialog(playlist: playlist),
-    );
-  }
-
-  void _showDeleteConfirm(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showConfirmDestructiveDialog(
-      context,
-      title: t.library.main.deletePlaylist,
-      content: t.library.main.deletePlaylistConfirm(name: playlist.name),
-      confirmLabel: t.general.delete,
-    );
-    if (confirmed == true) {
-      ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
-      if (context.mounted) {
-        ToastService.success(context, t.library.main.playlistDeleted);
-      }
-    }
-  }
-}
-
-/// 正在播放区域（独立 ConsumerWidget）
 class _NowPlayingSection extends ConsumerWidget {
   const _NowPlayingSection();
 

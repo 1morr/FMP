@@ -47,6 +47,11 @@ void main() {
 
     test('known image loads use named display-size targets', () {
       final home = File('lib/ui/pages/home/home_page.dart').readAsStringSync();
+      // 首頁與音樂庫的歌單卡封面在 2026-09 合併後住在 PlaylistGridCard；
+      // 兩個頁面自己不再建構封面。
+      final playlistGridCard = File(
+        'lib/ui/widgets/layout/playlist_grid_card.dart',
+      ).readAsStringSync();
       final downloaded = File(
         'lib/ui/pages/library/downloaded_page.dart',
       ).readAsStringSync();
@@ -58,9 +63,6 @@ void main() {
       ).readAsStringSync();
       final createPlaylist = File(
         'lib/ui/pages/library/widgets/create_playlist_dialog.dart',
-      ).readAsStringSync();
-      final library = File(
-        'lib/ui/pages/library/library_page.dart',
       ).readAsStringSync();
       final playlistDetail = File(
         'lib/ui/pages/library/playlist_detail_page.dart',
@@ -112,7 +114,7 @@ void main() {
       ).readAsStringSync();
 
       expect(home, contains('RecentPlayCoverImage('));
-      expect(home, contains('variant: PlaylistCoverVariant.card'));
+      expect(playlistGridCard, contains('variant: PlaylistCoverVariant.card'));
       expect(home, contains('RadioStationCard('));
       expect(downloaded, contains('variant: PlaylistCoverVariant.card'));
       expect(
@@ -125,7 +127,6 @@ void main() {
       );
       expect(coverPicker, contains('variant: PlaylistCoverVariant.compact'));
       expect(createPlaylist, contains('variant: PlaylistCoverVariant.compact'));
-      expect(library, contains('variant: PlaylistCoverVariant.card'));
       expect(playlistDetail, contains('variant: PlaylistCoverVariant.hero'));
       expect(playlistDetail, contains('variant: PlaylistCoverVariant.compact'));
       expect(radioPage, contains('RadioStationCard('));
@@ -268,10 +269,9 @@ void main() {
       expect(directLoadImage, isEmpty);
 
       final expectedPlaylistUsers = <String>[
-        'lib/ui/pages/home/home_page.dart',
+        'lib/ui/widgets/layout/playlist_grid_card.dart',
         'lib/ui/pages/library/downloaded_page.dart',
         'lib/ui/pages/library/downloaded_category_page.dart',
-        'lib/ui/pages/library/library_page.dart',
         'lib/ui/pages/library/playlist_detail_page.dart',
         'lib/ui/pages/library/widgets/create_playlist_dialog.dart',
         'lib/ui/pages/library/widgets/cover_picker_dialog.dart',
