@@ -85,15 +85,19 @@ class DefaultStreamResolutionService
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     required SourcePlaybackAuthContext sourceAuthContext,
+    Duration rateLimitRetryDelay =
+        AppConstants.streamResolutionRateLimitRetryDelay,
   }) : _trackRepository = trackRepository,
        _settingsRepository = settingsRepository,
        _sourceManager = sourceManager,
-       _sourceAuthContext = sourceAuthContext;
+       _sourceAuthContext = sourceAuthContext,
+       _rateLimitRetryDelay = rateLimitRetryDelay;
 
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
   final SourcePlaybackAuthContext _sourceAuthContext;
+  final Duration _rateLimitRetryDelay;
   final Set<int> _prefetchingTrackIds = {};
 
   /// 行程內的串流解析快取。
@@ -201,6 +205,23 @@ class DefaultStreamResolutionService
         authHeaders: requestContext.authHeaders,
       );
     } on SourceApiException catch (error) {
+      // 音源錯誤裡只有限流在這一層重試：網路與逾時由播放的退避階梯接手
+      // （`PlaybackErrorPresenter.isRetryable`），其餘的重打也不會變。
+      if (error.isRateLimited && retryCount < 1) {
+        logWarning(
+          'Rate limited resolving ${_describe(track)} after '
+          '${stopwatch.elapsedMilliseconds}ms, retrying in '
+          '${_rateLimitRetryDelay.inMilliseconds}ms',
+        );
+        await Future.delayed(_rateLimitRetryDelay);
+        return _resolveRemotePrimary(
+          track,
+          requestContext: await _buildRequestContext(track),
+          purpose: purpose,
+          persist: persist,
+          retryCount: retryCount + 1,
+        );
+      }
       logWarning(
         'Stream resolution failed for ${_describe(track)} after '
         '${stopwatch.elapsedMilliseconds}ms: ${error.kind.name}',

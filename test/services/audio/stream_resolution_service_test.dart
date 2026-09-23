@@ -47,6 +47,7 @@ void main() {
       settingsRepository: settingsRepository,
       sourceManager: sourceManager,
       sourceAuthContext: sourceAuthContext,
+      rateLimitRetryDelay: Duration.zero,
     );
   });
 
@@ -82,6 +83,49 @@ void main() {
       });
     },
   );
+
+  test(
+    'resolvePrimary retries a source error only when it is rateLimited',
+    () async {
+      // 對每一種 kind 各跑一次，收集「解析了兩次」的那些 kind。集合相等同時擋兩個
+      // 方向：限流不再重試會少一個，其他 kind 被加進重試會多一個。
+      final retried = <SourceErrorKind>{};
+      for (final kind in SourceErrorKind.values) {
+        source
+          ..failuresBeforeSuccess = 5
+          ..failureKind = kind
+          ..primaryRequests.clear();
+        sourceAuthContext.authForPlayRequests.clear();
+        try {
+          await service.resolvePrimary(
+            _track('retry-${kind.name}'),
+            purpose: StreamResolutionPurpose.playback,
+            persist: false,
+          );
+        } on SourceApiException catch (error) {
+          expect(error.kind, kind);
+        }
+        if (sourceAuthContext.authForPlayRequests.length > 1) retried.add(kind);
+      }
+
+      expect(retried, {SourceErrorKind.rateLimited});
+    },
+  );
+
+  test('a rate-limited resolution that clears on retry succeeds', () async {
+    source
+      ..failuresBeforeSuccess = 1
+      ..failureKind = SourceErrorKind.rateLimited;
+
+    final result = await service.resolvePrimary(
+      _track('rate-limited-once'),
+      purpose: StreamResolutionPurpose.playback,
+      persist: false,
+    );
+
+    expect(result, isA<RemoteStreamResolution>());
+    expect(sourceAuthContext.authForPlayRequests, hasLength(2));
+  });
 
   test(
     'resolvePrimary clears missing download paths before local playback',
@@ -407,6 +451,10 @@ class _RecordingAudioStreamSource implements AudioStreamSource {
   final primaryRequests = <AudioStreamRequest>[];
   final alternativeRequests = <AudioStreamRequest>[];
   final failingQualities = <AudioQualityLevel>{};
+
+  /// 前 N 次 `getAudioStream` 以 [failureKind] 失敗。
+  int failuresBeforeSuccess = 0;
+  SourceErrorKind failureKind = SourceErrorKind.unknown;
   Duration? nextExpiry;
   int? nextCid;
 
@@ -416,6 +464,10 @@ class _RecordingAudioStreamSource implements AudioStreamSource {
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     primaryRequests.add(request);
+    if (failuresBeforeSuccess > 0) {
+      failuresBeforeSuccess--;
+      throw _FakeSourceException(failureKind);
+    }
     if (failingQualities.contains(request.config.qualityLevel)) {
       throw const _FakeSourceException(SourceErrorKind.unavailable);
     }

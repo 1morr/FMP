@@ -149,6 +149,14 @@ class AppConstants {
   /// 調整佇列保存的節奏會連帶改到播放解析的重試。
   static const Duration streamResolutionRetryDelay = Duration(seconds: 1);
 
+  /// 音源回報限流後，串流解析重試前的等待。
+  ///
+  /// 比 [streamResolutionRetryDelay] 長：B 站匿名節流是短時間窗，立刻重打只會
+  /// 再撞一次（2026-09-22 量到連續 22 次 -352 之後才放行）。
+  static const Duration streamResolutionRateLimitRetryDelay = Duration(
+    seconds: 3,
+  );
+
   // ==================== 后台服务 ====================
 
   /// 自动刷新检查间隔
