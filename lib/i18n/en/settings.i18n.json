@@ -217,7 +217,9 @@
     "resume": "Resume",
     "retry": "Retry",
     "delete": "Delete",
-    "loadFailed": "Load failed: $error"
+    "loadFailed": "Load failed: $error",
+    "unsupportedStream": "This stream format (HLS) can't be downloaded",
+    "destinationExists": "Another file already exists at the download location"
   },
   "downloadPath": {
     "title": "Download Path",

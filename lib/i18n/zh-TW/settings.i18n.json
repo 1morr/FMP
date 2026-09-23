@@ -217,7 +217,9 @@
     "resume": "繼續",
     "retry": "重試",
     "delete": "刪除",
-    "loadFailed": "載入失敗: $error"
+    "loadFailed": "載入失敗: $error",
+    "unsupportedStream": "這個串流格式（HLS）無法下載",
+    "destinationExists": "下載位置已經有另一個檔案"
   },
   "downloadPath": {
     "title": "下載路徑",

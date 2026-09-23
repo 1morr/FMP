@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/constants/download_filenames.dart';
 import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/download_task.dart';
 import 'package:fmp/data/models/track.dart';
@@ -22,6 +23,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_url_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/core/utils/thumbnail_url_utils.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
@@ -870,7 +872,7 @@ class DownloadService with Logging {
       }
 
       if (outcome.error != null) {
-        throw Exception('Download failed: ${outcome.error}');
+        throw _isolateFailure(outcome.error!);
       }
 
       // 下载完成：promote 暂存档、抓元资料、写下载路径（每步 abort 检查）。
@@ -893,7 +895,7 @@ class DownloadService with Logging {
         return;
       }
       logError('Download failed for task: ${task.id}: $e', e, stack);
-      await _handleDownloadFailure(task, trackTitle, e.toString());
+      await _handleDownloadFailure(task, trackTitle, _failureMessageFor(e));
     } finally {
       final stopped = isolateStopped;
       if (stopped != null &&
@@ -1341,6 +1343,47 @@ class DownloadService with Logging {
     );
   }
 
+  /// isolate 只能把錯誤當字串傳回來（見 `_isolateDownload` 的 catch）。這裡
+  /// 還原成同類的例外，讓 [_failureMessageFor] 能照型別翻譯。
+  static Object _isolateFailure(String error) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(error);
+    } on FormatException {
+      // isolate 崩潰或沒有結果就結束：不是 JSON。
+      return Exception('Download failed: $error');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      return Exception('Download failed: $error');
+    }
+    final message = decoded['message'] as String? ?? '';
+    final path = decoded['path'] as String?;
+    return switch (decoded['type']) {
+      'timeout' => TimeoutException(message),
+      'network' => SocketException(message),
+      'http' => HttpException(message),
+      'filesystem' when decoded['access'] == true => PathAccessException(
+        path ?? '',
+        const OSError(),
+        message,
+      ),
+      'filesystem' => FileSystemException(message, path),
+      _ => Exception('Download failed: $message'),
+    };
+  }
+
+  /// 存進 `DownloadTask.errorMessage` 的那一句。下載管理頁把它原樣顯示，所以
+  /// 必須是翻譯過的句子；原文與 stack 已經在呼叫端的 `logError` 裡。
+  ///
+  /// 存的是失敗當下的語言，切換語言後舊紀錄不會跟著變 —— 另一個做法是存原因
+  /// 碼、顯示時查表，但那要改這個持久化欄位的語意。
+  static String _failureMessageFor(Object error) => switch (error) {
+    UnsupportedDownloadStreamException() =>
+      t.settings.downloadManager.unsupportedStream,
+    PathExistsException() => t.settings.downloadManager.destinationExists,
+    _ => userMessageFor(error),
+  };
+
   /// 处理下载失败：保存续传进度、更新状态、发送失败事件
   Future<void> _handleDownloadFailure(
     DownloadTask task,
@@ -1407,7 +1450,11 @@ class DownloadService with Logging {
   ) async {
     task.savePath = null;
     await _downloadRepository.saveTask(task);
-    throw FileSystemException('Download destination already exists', savePath);
+    throw PathExistsException(
+      savePath,
+      const OSError(),
+      'Download destination already exists',
+    );
   }
 
   Future<void> _promoteTempFileWithoutReplacing(
@@ -1668,10 +1715,9 @@ class DownloadCompletionEvent {
 
 /// 下載串流格式不支援（目前只有 HLS）。
 ///
-/// 專用型別而非 [StateError]：`_handleDownloadFailure` 把 `e.toString()` 原樣
-/// 存進 `DownloadTask.errorMessage`，`StateError` 會變成 `Bad state: ...`，
-/// 與既有 `'Download destination already exists'` 的短診斷慣例不一致。
-/// 不提供 `userMessageFor` 分支 —— 沒有呼叫端把例外物件交給 UI（多了是死碼）。
+/// 專用型別而非 [StateError]：`DownloadService._failureMessageFor` 靠型別給它
+/// 一句專屬的翻譯；`toString()` 只進 log。不放進 `userMessageFor` —— 除了下載
+/// 失敗之外沒有呼叫端會把它交給 UI。
 class UnsupportedDownloadStreamException implements Exception {
   final String sourceType;
   final String? container;
@@ -1918,7 +1964,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     sendPort.send(
       _IsolateMessage(
         _IsolateMessageType.error,
-        jsonEncode({'type': 'network', 'message': e.message ?? 'Timeout'}),
+        jsonEncode({'type': 'timeout', 'message': e.message ?? 'Timeout'}),
       ),
     );
   } on SocketException catch (e) {
@@ -1948,7 +1994,13 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     sendPort.send(
       _IsolateMessage(
         _IsolateMessageType.error,
-        jsonEncode({'type': 'filesystem', 'message': e.message}),
+        jsonEncode({
+          'type': 'filesystem',
+          'message': e.message,
+          'path': e.path,
+          // Android scoped storage 拒絕開檔（`Music/` 沒有權限）是這一類。
+          'access': e is PathAccessException,
+        }),
       ),
     );
   } catch (e) {

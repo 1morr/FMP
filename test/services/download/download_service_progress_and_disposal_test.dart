@@ -13,6 +13,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/repositories/download_repository.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
@@ -1620,7 +1621,10 @@ void main() {
         expect(await File('$savePath.downloading').exists(), isFalse);
         final updatedTask = await downloadRepository.getTaskById(task.id);
         expect(updatedTask?.status, DownloadStatus.failed);
-        expect(updatedTask?.errorMessage, contains('already exists'));
+        expect(
+          updatedTask?.errorMessage,
+          t.settings.downloadManager.destinationExists,
+        );
 
         await service.cancelTask(task.id);
         expect(await File(savePath).readAsBytes(), [9, 9, 9]);
@@ -1714,7 +1718,10 @@ void main() {
         expect(await File(savePath).readAsBytes(), [7, 7, 7]);
         final updatedTask = await downloadRepository.getTaskById(task.id);
         expect(updatedTask?.status, DownloadStatus.failed);
-        expect(updatedTask?.errorMessage, contains('already exists'));
+        expect(
+          updatedTask?.errorMessage,
+          t.settings.downloadManager.destinationExists,
+        );
 
         await service.cancelTask(task.id);
         expect(await File(savePath).readAsBytes(), [7, 7, 7]);
@@ -1881,7 +1888,10 @@ segment0.ts
 
         final updatedTask = await downloadRepository.getTaskById(task.id);
         expect(updatedTask?.status, DownloadStatus.failed);
-        expect(updatedTask?.errorMessage, contains('HLS'));
+        expect(
+          updatedTask?.errorMessage,
+          t.settings.downloadManager.unsupportedStream,
+        );
         // manifest 不得落到最終路徑，也不得留下半截的暫存檔
         expect(await File(savePath).exists(), isFalse);
         expect(await File('$savePath.downloading').exists(), isFalse);
@@ -2220,7 +2230,8 @@ segment0.ts
 
       final updatedTask = await downloadRepository.getTaskById(task.id);
       expect(updatedTask?.status, DownloadStatus.failed);
-      expect(updatedTask?.errorMessage, contains('"type":"http"'));
+      // 下載管理頁顯示的是翻譯過的一句，不是 isolate 回傳的 JSON。
+      expect(updatedTask?.errorMessage, t.error.networkError);
       expect(await File(savePath).exists(), isFalse);
       final updatedTrack = await trackRepository.getById(savedTrack.id);
       expect(updatedTrack?.allDownloadPaths, isEmpty);
@@ -2306,7 +2317,7 @@ segment0.ts
         final updatedTask = await downloadRepository.getTaskById(task.id);
         expect(updatedTask?.status, DownloadStatus.failed);
         // 要走進 isolate 的 filesystem 分支，而不是只被 onError 兜住
-        expect(updatedTask?.errorMessage, contains('"type":"filesystem"'));
+        expect(updatedTask?.errorMessage, t.error.noPermission);
       },
     );
 
