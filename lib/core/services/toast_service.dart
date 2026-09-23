@@ -118,12 +118,20 @@ class ToastService {
           ),
         ],
       ),
+      // 帶按鈕的給長一點，1.5 秒來不及去點。
       duration:
           duration ??
-          (type == ToastType.error || type == ToastType.warning
+          (type == ToastType.error ||
+                  type == ToastType.warning ||
+                  action != null
               ? ToastDurations.long
               : ToastDurations.short),
       action: action,
+      // Flutter 的 `persist` 預設是 `action != null`：帶按鈕的 SnackBar 會一直
+      // 留著，直到有人點掉它，跟 duration 無關。只在讀屏模式保留這個行為，同
+      // Android Snackbar —— 開啟觸控探索時帶 action 的 Snackbar 不自動消失，
+      // 因為讀屏使用者需要時間移到按鈕上。
+      persist: action != null && MediaQuery.accessibleNavigationOf(context),
     );
   }
 
