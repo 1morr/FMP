@@ -5,7 +5,7 @@ import 'package:media_kit/media_kit.dart';
 
 import '../../support/pump_until.dart';
 
-/// 桌面後端的暫停，跑在真的 [MediaKitAudioService] 上。
+/// 桌面後端的暫停與緩衝狀態，跑在真的 [MediaKitAudioService] 上。
 ///
 /// `flutter test` 裡沒有 libmpv，所以把 media_kit 的 [PlatformPlayer] 換成
 /// [_FakePlatformPlayer]：服務本身的狀態合成與開流流程照樣執行，只有引擎是假的。
@@ -73,6 +73,32 @@ void main() {
       await opening;
 
       expect(engine.state.playing, isTrue);
+    });
+  });
+
+  group('processing state while playing', () {
+    test('mpv buffering mid-playback reports buffering, not ready', () async {
+      engine
+        ..emitDuration(const Duration(minutes: 3))
+        ..emitPlaying(true);
+      await pumpUntil(
+        () => service.processingState == FmpAudioProcessingState.ready,
+        reason: 'playing with a known duration is ready',
+      );
+
+      // mpv 的 `paused-for-cache`：還在「播放」，但沒有聲音。
+      engine.emitBuffering(true);
+      await pumpUntil(
+        () => service.processingState == FmpAudioProcessingState.buffering,
+        reason: 'the cache ran dry while playing',
+      );
+      expect(service.isPlaying, isTrue);
+
+      engine.emitBuffering(false);
+      await pumpUntil(
+        () => service.processingState == FmpAudioProcessingState.ready,
+        reason: 'the cache refilled',
+      );
     });
   });
 }

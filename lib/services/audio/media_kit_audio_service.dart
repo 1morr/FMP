@@ -450,12 +450,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     if (_isCompleted) {
       return FmpAudioProcessingState.completed;
     }
-    // 如果正在播放，即使在缓冲也视为 ready（音频实际在播放）
-    if (_isPlaying) {
-      return FmpAudioProcessingState.ready;
-    }
+    // 緩衝要排在「正在播放」之前。mpv 的 buffering 來自 `paused-for-cache` 與
+    // `core-idle`：播放中遇到它時其實沒有聲音。以前 playing 優先，Windows 上
+    // 就永遠報不出 buffering，T3 緩衝飢餓看門狗與 UI 的轉圈都等不到它。
     if (_isBuffering) {
       return FmpAudioProcessingState.buffering;
+    }
+    if (_isPlaying) {
+      return FmpAudioProcessingState.ready;
     }
     if (_duration != null && _duration!.inMilliseconds > 0) {
       return FmpAudioProcessingState.ready;
