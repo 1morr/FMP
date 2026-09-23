@@ -1,5 +1,4 @@
 import 'package:isar_community/isar.dart';
-import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/data/models/track_key.dart';
 
 import 'package:fmp/data/models/track.dart';
@@ -70,15 +69,6 @@ class PlayHistory {
       ..artist = artist
       ..durationMs = durationMs
       ..thumbnailUrl = thumbnailUrl;
-  }
-
-  /// 格式化时长显示
-  ///
-  /// Isar 會把這個 getter 也存成欄位，但讀回物件時用的是這裡重算的值，改格式
-  /// 不需要遷移。
-  String get formattedDuration {
-    final ms = durationMs;
-    return ms == null ? '--:--' : DurationFormatter.formatMs(ms);
   }
 
   @override

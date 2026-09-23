@@ -639,7 +639,6 @@ class SettingsBackup {
   final String homeRankingSourcePriority;
   final String disabledHomeRankingSources;
   final int radioRefreshIntervalMinutes;
-  final bool autoCheckUpdates;
 
   SettingsBackup({
     this.themeModeIndex = 0,
@@ -691,7 +690,6 @@ class SettingsBackup {
     String? homeRankingSourcePriority,
     String? disabledHomeRankingSources,
     this.radioRefreshIntervalMinutes = 5,
-    this.autoCheckUpdates = true,
   }) : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
        lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
          lyricsAiTitleParsingModeIndex,
@@ -787,7 +785,6 @@ class SettingsBackup {
           json['disabledHomeRankingSources'] as String? ?? '',
       radioRefreshIntervalMinutes:
           json['radioRefreshIntervalMinutes'] as int? ?? 5,
-      autoCheckUpdates: json['autoCheckUpdates'] as bool? ?? true,
     );
   }
 
@@ -853,7 +850,6 @@ class SettingsBackup {
       'homeRankingSourcePriority': homeRankingSourcePriority,
       'disabledHomeRankingSources': disabledHomeRankingSources,
       'radioRefreshIntervalMinutes': radioRefreshIntervalMinutes,
-      'autoCheckUpdates': autoCheckUpdates,
     };
   }
 }

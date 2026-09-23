@@ -442,20 +442,6 @@ class Settings {
   /// 电台直播状态刷新间隔（分钟），默认 5
   int radioRefreshIntervalMinutes = 5;
 
-  // ========== 更新設置 ==========
-
-  /// 啟動後在背景自動檢查更新。
-  ///
-  /// 業務預設是 true，而 Isar 對舊列的 bool 一律補 false，所以它需要一個
-  /// 版本化的遷移步驟（見 `database_migration.dart` 的 v2 → v3）。
-  bool autoCheckUpdates = true;
-
-  /// 上一次自動檢查更新的時間（null = 從未檢查）。
-  ///
-  /// 這是裝置本機的節流簿記，不進備份 —— 換一台機器沿用舊時間戳只會讓新機
-  /// 第一天不檢查。
-  DateTime? lastUpdateCheckAt;
-
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {

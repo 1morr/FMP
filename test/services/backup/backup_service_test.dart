@@ -244,7 +244,6 @@ void main() {
             detailPanelExpanded: false,
             detailPanelWidth: 420,
             hotkeyConfig: jsonEncode({'next': 'Ctrl+Alt+Right'}),
-            autoCheckUpdates: false,
           ),
         );
 
@@ -308,12 +307,9 @@ void main() {
         expect(restoredSettings.disabledHomeRankingSources, 'netease');
         expect(restoredSettings.disabledHomeRankingSourcesSet, {'netease'});
         expect(restoredSettings.radioRefreshIntervalMinutes, 9);
-        expect(restoredSettings.autoCheckUpdates, isFalse);
         // 匯入的那一列是用現在的欄位語意重建的，所以蓋上目前的版本號 ——
         // 不蓋的話下次啟動會從 v0 重跑遷移，把剛還原的值覆蓋回救援值。
         expect(restoredSettings.schemaVersion, kFmpSchemaVersion);
-        // 每日檢查的節流簿記是本機狀態，匯入後重置成「從未檢查」。
-        expect(restoredSettings.lastUpdateCheckAt, isNull);
         expect(restoredSettings.customDownloadDir, '/device/downloads');
         expect(restoredSettings.preferredAudioDeviceId, 'device-1');
         expect(restoredSettings.preferredAudioDeviceName, 'USB DAC');

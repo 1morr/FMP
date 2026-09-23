@@ -120,7 +120,7 @@ const List<NamedMigrationStep> fmpMigrationSteps = <NamedMigrationStep>[
   NamedMigrationStep(
     from: 2,
     to: 3,
-    name: 'turn the automatic update check on for existing installs',
+    name: 'retired: turned the automatic update check on',
     run: _migrateV2ToV3,
   ),
   NamedMigrationStep(
@@ -196,15 +196,12 @@ void _migrateV1ToV2(Settings settings) {
   ];
 }
 
-/// v2 → v3：`autoCheckUpdates` 的業務預設是 true。
+/// v2 → v3：原本把 `autoCheckUpdates` 打開，那個欄位已隨自動檢查更新一起刪除。
 ///
-/// Isar 對舊列缺少的 bool 一律回 false，而 false 同時也是「使用者自己關掉了」
-/// 的合法值 —— 兩者事後分不開，所以這件事只能在遷移裡做一次，不能放進每次啟動
-/// 都跑的不變式修復。`lastUpdateCheckAt` 是可空欄位，舊列讀出來就是 null，
-/// 語意正好是「從未檢查過」，不需要修。
-void _migrateV2ToV3(Settings settings) {
-  settings.autoCheckUpdates = true;
-}
+/// 步驟本身留著、內容清空：拿掉的話 v2 的資料庫一樣會套用 v3 → v4 —— 迴圈只看
+/// `step.to` —— 但 v3 這個版本號就從步驟表上消失了，下一個讀的人會以為中間
+/// 漏了一步。
+void _migrateV2ToV3(Settings settings) {}
 
 /// v3 → v4：Bilibili 的 `useAuthForPlay` 業務預設改成 true。
 ///

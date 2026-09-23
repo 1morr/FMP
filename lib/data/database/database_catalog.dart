@@ -450,14 +450,6 @@ List<DatabaseViewerSection> _settingsSections(Settings setting) {
       },
     ),
     DatabaseViewerSection(
-      title: 'Update Settings',
-      data: {
-        'autoCheckUpdates': setting.autoCheckUpdates.toString(),
-        'lastUpdateCheckAt':
-            setting.lastUpdateCheckAt?.toIso8601String() ?? 'null',
-      },
-    ),
-    DatabaseViewerSection(
       title: t.databaseViewer.desktopSettings,
       data: {
         'minimizeToTrayOnClose': setting.minimizeToTrayOnClose.toString(),
@@ -550,7 +542,6 @@ List<DatabaseViewerSection> _playHistorySections(PlayHistory history) {
         'title': history.title,
         'artist': history.artist ?? 'null',
         'durationMs': history.durationMs?.toString() ?? 'null',
-        'formattedDuration': history.formattedDuration,
         'thumbnailUrl': _truncate(history.thumbnailUrl, 60),
       },
     ),
