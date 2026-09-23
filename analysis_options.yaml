@@ -14,9 +14,9 @@ analyzer:
     - "**/*.g.dart"
     - build/**
     - android/**
+    - windows/**
     - ios/**
     - web/**
-    - windows/**
     - macos/**
     - linux/**
 
