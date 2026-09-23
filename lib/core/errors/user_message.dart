@@ -26,24 +26,36 @@ const _syntheticDiagnostics = <String>{
 ///
 /// 這個 switch 是窮舉的 —— `SourceErrorKind` 多一個成員時分析器會擋下來，
 /// 那正是它可以離開 `PlaybackErrorPresenter` 的原因。
-String sourceErrorReason(SourceApiException error) {
-  final diagnostic = _diagnosticOrNull(error);
+String sourceErrorReason(SourceApiException error) => _reasonFor(
+  kind: error.kind,
+  code: error.code,
+  message: error.message,
+  sourceType: error.sourceType,
+);
+
+String _reasonFor({
+  required SourceErrorKind kind,
+  required String code,
+  required String message,
+  String? sourceType,
+}) {
+  final diagnostic = _diagnosticOrNull(code: code, message: message);
   if (diagnostic != null) return diagnostic;
 
-  return switch (error.kind) {
+  return switch (kind) {
     SourceErrorKind.unavailable => t.audio.sourceErrorUnavailable,
     SourceErrorKind.geoRestricted => t.audio.sourceErrorGeoRestricted,
     SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
     SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
     SourceErrorKind.permissionDenied =>
-      error.sourceType == SourceIds.bilibili
+      sourceType == SourceIds.bilibili
           ? t.audio.sourceErrorBilibiliPermissionDenied
           : t.audio.sourceErrorPermissionDenied,
     SourceErrorKind.network => t.audio.sourceErrorNetwork,
     SourceErrorKind.timeout => t.audio.sourceErrorTimeout,
-    SourceErrorKind.rateLimited => error.message,
+    SourceErrorKind.rateLimited => message,
     SourceErrorKind.unknown =>
-      error.message.trim().isNotEmpty ? error.message : t.error.unknownError,
+      message.trim().isNotEmpty ? message : t.error.unknownError,
   };
 }
 
@@ -62,8 +74,9 @@ String userMessageFor(Object error) => switch (error) {
   // Dio 是全 App 的 HTTP 層，而沒被 adapter 包成 SourceApiException 的
   // DioException 確實會逃到 UI —— 實機驗收時電台播放失敗的 toast 就是一整條
   // `DioException [connection error] ... Failed host lookup`。分類沿用
-  // adapter 用的同一個 classifyDioError，不另立一套詞彙。
-  DioException() => SourceApiException.classifyDioError(error).message,
+  // adapter 用的同一個 classifyDioError，不另立一套詞彙；翻譯也走同一條
+  // 路，否則 403/404/503 的英文診斷會繞過上面的過濾直接上畫面。
+  DioException() => _dioErrorReason(error),
   SocketException() ||
   HttpException() ||
   TlsException() => t.error.networkError,
@@ -91,16 +104,25 @@ String failureMessage(
   return userMessageFor(error);
 }
 
-String? _diagnosticOrNull(SourceApiException error) {
-  final message = error.message.trim();
-  if (message.isEmpty) return null;
-  if (_isLowSignal(error, message)) return null;
-  if (_syntheticDiagnostics.contains(message)) return null;
-  return message;
+String _dioErrorReason(DioException error) {
+  final classified = SourceApiException.classifyDioError(error);
+  return _reasonFor(
+    kind: classified.kind,
+    code: classified.code,
+    message: classified.message,
+  );
+}
+
+String? _diagnosticOrNull({required String code, required String message}) {
+  final trimmed = message.trim();
+  if (trimmed.isEmpty) return null;
+  if (_isLowSignal(code, trimmed)) return null;
+  if (_syntheticDiagnostics.contains(trimmed)) return null;
+  return trimmed;
 }
 
 /// 一個純數字或與 `code` 相同的訊息對使用者沒有任何意義。
-bool _isLowSignal(SourceApiException error, String message) {
-  if (message == error.code) return true;
+bool _isLowSignal(String code, String message) {
+  if (message == code) return true;
   return RegExp(r'^-?\d+$').hasMatch(message);
 }

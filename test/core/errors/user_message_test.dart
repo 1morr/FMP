@@ -85,6 +85,25 @@ void main() {
       expect(userMessageFor(error), isNot(contains('api.live.bilibili.com')));
     });
 
+    test('an unwrapped HTTP error status gets the same translation as a '
+        'wrapped one', () {
+      // 以前 DioException 分支在過濾英文診斷之前就 return，於是 403/404/503
+      // 的 `Access forbidden (HTTP 403)` 這類英文句直接上畫面。
+      DioException status(int code) {
+        final options = RequestOptions(path: '/x');
+        return DioException(
+          requestOptions: options,
+          type: DioExceptionType.badResponse,
+          response: Response<void>(requestOptions: options, statusCode: code),
+        );
+      }
+
+      expect(userMessageFor(status(403)), t.audio.sourceErrorPermissionDenied);
+      expect(userMessageFor(status(404)), t.audio.sourceErrorUnavailable);
+      expect(userMessageFor(status(503)), t.audio.sourceErrorUnavailable);
+      expect(userMessageFor(status(500)), t.error.serverError(code: 500));
+    });
+
     test('maps a timeout', () {
       expect(
         userMessageFor(TimeoutException('slow')),
