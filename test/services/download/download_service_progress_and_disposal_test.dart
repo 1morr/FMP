@@ -1675,6 +1675,163 @@ void main() {
       },
     );
 
+    test(
+      'a temp file the isolate cannot open fails the task instead of hanging',
+      () async {
+        // 真機上是 Android scoped storage 拒絕寫入 Music/（errno=1）：目錄建得
+        // 起來，檔案開不了。這裡讓暫存路徑本身是資料夾，重現同一種開檔失敗。
+        final baseDir = await _createTempDirDeletedOnTearDown(
+          'download_unopenable_temp_',
+        );
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 64 * 1024;
+          // body 慢慢送：真機上 CDN 的串流遠比開檔慢，開檔失敗時下載迴圈一定
+          // 還在跑。一次送完的話，迴圈在開檔結果回來前就走到 close()，錯誤會
+          // 順著 close() 回來，測不到會殺掉 isolate 的那條路。
+          try {
+            for (var i = 0; i < 64; i++) {
+              request.response.add(Uint8List(1024));
+              await request.response.flush();
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+            await request.response.close();
+          } on Object {
+            // 客戶端已經放棄這個連線
+          }
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final track = Track()
+          ..sourceId = 'unopenable-temp'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Unopenable Temp'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+        await Directory('$savePath.downloading').create(recursive: true);
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(
+          () => service
+              .debugStartDownloadForTesting(task)
+              .timeout(const Duration(seconds: 10)),
+          _DirectHttpOverrides(),
+        );
+
+        expect(service.debugActiveDownloads, 0);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.failed);
+        // 要走進 isolate 的 filesystem 分支，而不是只被 onError 兜住
+        expect(updatedTask?.errorMessage, contains('"type":"filesystem"'));
+      },
+    );
+
+    test(
+      'a download isolate that dies without a message fails the task',
+      () async {
+        // try/catch 攔不到的死法（被外部 kill、OOM）：isolate 一個訊息都不送。
+        final baseDir = await _createTempDirDeletedOnTearDown(
+          'download_isolate_killed_',
+        );
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final release = Completer<void>();
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 64 * 1024;
+          request.response.add(Uint8List(1024));
+          try {
+            await request.response.flush();
+            await release.future;
+            await request.response.close();
+          } on Object {
+            // 客戶端的 isolate 已經被殺，連線斷了
+          }
+        });
+        addTearDown(() async {
+          if (!release.isCompleted) release.complete();
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final track = Track()
+          ..sourceId = 'isolate-killed'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Isolate Killed'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(() async {
+          final download = service.debugStartDownloadForTesting(task);
+          await service.debugWaitForTaskToBecomeActiveForTesting(task.id);
+          service.debugKillDownloadIsolateForTesting(task.id);
+          await download.timeout(const Duration(seconds: 10));
+        }, _DirectHttpOverrides());
+
+        expect(service.debugActiveDownloads, 0);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.failed);
+        expect(updatedTask?.errorMessage, isNotNull);
+      },
+    );
+
     test('provider disposal keeps a late-initializing service inert', () async {
       final delayedRepository = _DelayedDownloadRepository(isar);
       final container = ProviderContainer(
@@ -2031,4 +2188,21 @@ Future<void> _waitUntil(Future<bool> Function() condition) async {
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
   throw StateError('Condition was not met in time');
+}
+
+/// 暫存目錄，teardown 時重試刪除（Windows 上 isolate 剛關的檔案可能還被佔用）。
+Future<Directory> _createTempDirDeletedOnTearDown(String prefix) async {
+  final dir = await Directory.systemTemp.createTemp(prefix);
+  addTearDown(() async {
+    for (var i = 0; i < 100; i++) {
+      if (!await dir.exists()) return;
+      try {
+        await dir.delete(recursive: true);
+        return;
+      } on FileSystemException {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+  });
+  return dir;
 }

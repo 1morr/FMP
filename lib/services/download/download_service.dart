@@ -828,6 +828,11 @@ class DownloadService with Logging {
           resumePosition: resumePosition,
           sendPort: receivePort.sendPort,
         ),
+        // isolate 以 try/catch 攔不到的方式死掉時（未處理的 async error、被系統
+        // 殺掉），它不會再送任何訊息；沒有這兩個通知，下面的 await for 會永遠
+        // 等下去，finally 不執行，併發槽位也跟著洩漏。
+        onError: receivePort.sendPort,
+        onExit: receivePort.sendPort,
       );
 
       if (_shouldAbortBeforeRegistration(task.id)) {
@@ -914,6 +919,7 @@ class DownloadService with Logging {
   /// 消费 Isolate 的 ready/progress/completed/error/cancelled 讯息直到串流结束。
   ///
   /// [cancelPortReady] 于收到 ready 讯息时完成（供 cancelTask 取得取消通道）。
+  /// 也接 spawn 的 onError / onExit 通知，把 isolate 的非正常死亡當成錯誤。
   /// 回传 (error, cancelled)：error 非 null 代表 isolate 回报错误；
   /// cancelled 代表收到取消讯号。
   Future<({String? error, bool cancelled})> _drainIsolateMessages(
@@ -954,6 +960,14 @@ class DownloadService with Logging {
         wasCancelled = true;
         receivePort.close();
         break;
+      } else if (message is List) {
+        // onError：[錯誤字串, stack 字串]
+        downloadError = 'Download isolate crashed: ${message.first}';
+        receivePort.close();
+      } else if (message == null) {
+        // onExit：正常結束會先送 completed/error 並關閉 port，走不到這裡
+        downloadError = 'Download isolate exited without a result';
+        receivePort.close();
       }
     }
     return (error: downloadError, cancelled: wasCancelled);
@@ -1573,6 +1587,12 @@ class DownloadService with Logging {
     return _startDownload(task);
   }
 
+  /// 模擬 try/catch 攔不到的 isolate 死亡（被系統殺掉、OOM）：不送任何訊息。
+  @visibleForTesting
+  void debugKillDownloadIsolateForTesting(int taskId) {
+    _activeDownloadIsolates[taskId]?.isolate.kill(priority: Isolate.immediate);
+  }
+
   @visibleForTesting
   Future<void> debugWaitForTaskToBecomeActiveForTesting(int taskId) async {
     for (var i = 0; i < 100; i++) {
@@ -1688,7 +1708,18 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
   }
 
   HttpClient? client;
-  IOSink? sink;
+  RandomAccessFile? output;
+  // 收尾用：錯誤已由呼叫它的那個分支回報，關檔失敗不能再逃出 catch。
+  Future<void> closeOutputQuietly() async {
+    final file = output;
+    output = null;
+    try {
+      await file?.close();
+    } on Object {
+      // 忽略
+    }
+  }
+
   try {
     client = HttpClient();
     client.connectionTimeout = AppConstants.downloadConnectTimeout;
@@ -1779,10 +1810,15 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
         params.resumePosition > 0 && response.statusCode == HttpStatus.ok;
     final resumePosition = shouldRestartFromZero ? 0 : params.resumePosition;
 
-    final file = File(params.savePath);
-    sink = file.openWrite(
-      mode: resumePosition > 0 ? FileMode.append : FileMode.write,
-    );
+    // 不用 openWrite()：它回傳的 IOSink 在建構時就發出開檔，開檔若在第一次
+    // add() 之前失敗（Android scoped storage 拒絕寫入 Music/，errno=1），那個
+    // future 沒有任何監聽者 —— 監聽 sink.done 也接不到 —— 成為未處理的 async
+    // error 直接殺掉這個 isolate。自己 open 讓錯誤留在 await 鏈上，走進下面的
+    // FileSystemException 分支。逐塊 await 寫入也正是 IOSink 內部的做法。
+    final file = await File(
+      params.savePath,
+    ).open(mode: resumePosition > 0 ? FileMode.append : FileMode.write);
+    output = file;
 
     final contentLength = response.contentLength;
     final totalBytes = contentLength > 0 ? contentLength + resumePosition : -1;
@@ -1793,13 +1829,13 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       AppConstants.networkReceiveTimeout,
     )) {
       if (isCancelled) {
-        await sink.close();
+        await closeOutputQuietly();
         client.close(force: true);
         await closeCancelPort();
         sendPort.send('cancelled');
         return;
       }
-      sink.add(chunk);
+      await file.writeFrom(chunk);
       receivedBytes += chunk.length;
 
       if (totalBytes > 0) {
@@ -1820,13 +1856,14 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       }
     }
 
-    await sink.close();
+    output = null;
+    await file.close();
     client.close();
     await closeCancelPort();
 
     sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
   } on TimeoutException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
@@ -1836,7 +1873,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       ),
     );
   } on SocketException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
@@ -1846,7 +1883,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       ),
     );
   } on HttpException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
@@ -1856,7 +1893,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       ),
     );
   } on FileSystemException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
@@ -1866,7 +1903,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       ),
     );
   } catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
