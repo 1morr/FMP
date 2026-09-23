@@ -260,7 +260,8 @@
     "radioTitle": "电台状态刷新间隔",
     "radioSubtitle": "$interval",
     "minutes": "$n 分钟",
-    "hours": "$n 小时"
+    "hours": "$n 小时",
+    "off": "关闭"
   },
   "tray": {
     "title": "最小化到托盘",

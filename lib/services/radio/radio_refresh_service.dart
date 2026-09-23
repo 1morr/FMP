@@ -13,7 +13,8 @@ import 'package:fmp/services/radio/radio_source.dart';
 ///
 /// 主動後台刷新模式：
 /// - 應用啟動時立即獲取直播狀態
-/// - 按設定的間隔自動後台刷新（預設 5 分鐘）
+/// - 按設定的間隔自動後台刷新（預設 5 分鐘）；設成關閉時兩者都不做，只剩
+///   電台頁的下拉刷新
 /// - 用戶進入任何頁面時直接顯示緩存，無需等待
 /// - 緩存直播狀態和電台資訊（封面、標題、主播名）
 ///
@@ -32,17 +33,25 @@ class RadioRefreshService with Logging {
 
   static const defaultRefreshInterval = Duration(minutes: 5);
 
-  /// 設定裡存的分鐘數換成輪詢間隔。讀不到的、非法的（還沒寫過這個欄位的舊列
-  /// 讀出來是負數，而這時遷移還沒把它修好）照預設。
-  static Duration intervalFromMinutes(int? minutes) =>
-      minutes == null || minutes < 1
-      ? defaultRefreshInterval
-      : Duration(minutes: minutes);
+  /// 設定裡代表「關閉」的分鐘數。沿用同一個欄位而不是另開一個布林：Isar 對
+  /// 舊列的 int 補的是負數，不會撞上 0（AntennaPod 的更新間隔也是 0 = 關閉）。
+  static const offMinutes = 0;
+
+  /// 設定裡存的分鐘數換成輪詢間隔，null 代表關閉。讀不到的、非法的（還沒寫過
+  /// 這個欄位的舊列讀出來是負數，而這時遷移還沒把它修好）照預設。
+  static Duration? intervalFromMinutes(int? minutes) => switch (minutes) {
+    offMinutes => null,
+    final int m when m > 0 => Duration(minutes: m),
+    _ => defaultRefreshInterval,
+  };
 
   RadioRepository? _repository;
   final RadioSource _radioSource;
   final DateTime Function() _now;
-  Duration _refreshInterval;
+
+  /// null = 使用者關掉了自動刷新。
+  Duration? _refreshInterval;
+  bool _started = false;
 
   Timer? _refreshTimer;
   Future<void>? _activeRefreshAll;
@@ -62,10 +71,10 @@ class RadioRefreshService with Logging {
 
   RadioRefreshService({
     RadioSource? radioSource,
-    Duration? refreshInterval,
+    Duration? refreshInterval = defaultRefreshInterval,
     DateTime Function()? now,
   }) : _radioSource = radioSource ?? RadioSource(),
-       _refreshInterval = refreshInterval ?? defaultRefreshInterval,
+       _refreshInterval = refreshInterval,
        _now = now ?? DateTime.now;
 
   /// 緩存的直播狀態
@@ -83,33 +92,37 @@ class RadioRefreshService with Logging {
   /// 設置 Repository（由 RadioController 調用）
   void setRepository(RadioRepository repository) {
     _repository = repository;
-    // 如果已設置 repository 且尚未啟動定時器，啟動刷新
-    if (_refreshTimer == null) {
-      _startRefreshTimer();
-      // 立即執行一次刷新
-      refreshAll();
-    }
+    if (_started) return;
+    _started = true;
+    _startRefreshTimer();
+    // 立即執行一次刷新；關閉時連這一次也不做，那同樣是沒人按的請求。
+    if (_refreshInterval != null) refreshAll();
   }
 
-  /// 啟動定時刷新
+  /// 啟動定時刷新；關閉時只停掉舊的。
   void _startRefreshTimer() {
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(_refreshInterval, (_) => tick());
+    _refreshTimer = null;
+    final interval = _refreshInterval;
+    if (interval == null) return;
+    _refreshTimer = Timer.periodic(interval, (_) => tick());
   }
 
-  /// 更新刷新間隔（重啟定時器）
-  void updateRefreshInterval(Duration interval) {
+  /// 更新刷新間隔（重啟定時器），null 代表關閉。
+  void updateRefreshInterval(Duration? interval) {
+    final wasOff = _refreshInterval == null;
     _refreshInterval = interval;
-    // 僅在定時器已啟動時重啟（即 repository 已設置後）
-    if (_refreshTimer != null) {
-      _startRefreshTimer();
-    }
+    // 僅在已經啟動時重啟（即 repository 已設置後）
+    if (!_started) return;
+    _startRefreshTimer();
+    // 從關閉打開：列表上的狀態可能是很久以前的，照回前景的規則補一輪。
+    if (wasOff) _refreshIfStale();
   }
 
   /// 定時器每一拍做的事。獨立成方法是為了讓測試不用等真實時間。
   @visibleForTesting
   void tick() {
-    if (_paused) return;
+    if (_paused || _refreshInterval == null) return;
     final backoffUntil = _backoffUntil;
     if (backoffUntil != null && _now().isBefore(backoffUntil)) {
       logDebug('[RadioRefresh] Backing off until $backoffUntil');
@@ -130,9 +143,15 @@ class RadioRefreshService with Logging {
   void resume() {
     if (!_paused) return;
     _paused = false;
+    _refreshIfStale();
+  }
+
+  void _refreshIfStale() {
+    final interval = _refreshInterval;
+    if (interval == null) return;
     final last = _lastCleanRoundAt;
-    final stale = last == null || _now().difference(last) >= _refreshInterval;
-    logDebug('[RadioRefresh] Resumed (stale: $stale)');
+    final stale = last == null || _now().difference(last) >= interval;
+    logDebug('[RadioRefresh] Refreshing if stale (stale: $stale)');
     if (stale) tick();
   }
 
@@ -221,7 +240,8 @@ class RadioRefreshService with Logging {
   void _enterBackoff(SourceApiException e) {
     _rateLimitedRounds++;
     final shift = math.min(_rateLimitedRounds, 10);
-    final delay = _refreshInterval * (1 << shift);
+    // 關閉時被風控的是手動刷新；退避只擋定時那一拍，照預設間隔算就好。
+    final delay = (_refreshInterval ?? defaultRefreshInterval) * (1 << shift);
     final capped = delay > maxBackoff ? maxBackoff : delay;
     _backoffUntil = _now().add(capped);
     logWarning(

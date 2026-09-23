@@ -317,8 +317,9 @@ bool repairSettingsInvariants(Settings settings) {
     () => settings.disabledHomeRankingSources = normalizedDisabled,
   );
 
+  // 0 是「關閉」（`RadioRefreshService.offMinutes`），不是壞值。
   fix(
-    settings.radioRefreshIntervalMinutes < 1,
+    settings.radioRefreshIntervalMinutes < 0,
     () => settings.radioRefreshIntervalMinutes = 5,
   );
 

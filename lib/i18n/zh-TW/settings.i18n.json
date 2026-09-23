@@ -260,7 +260,8 @@
     "radioTitle": "電台狀態重新整理間隔",
     "radioSubtitle": "$interval",
     "minutes": "$n 分鐘",
-    "hours": "$n 小時"
+    "hours": "$n 小時",
+    "off": "關閉"
   },
   "tray": {
     "title": "最小化到系統列",

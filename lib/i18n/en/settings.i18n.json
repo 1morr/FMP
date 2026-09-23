@@ -260,7 +260,8 @@
     "radioTitle": "Radio status refresh interval",
     "radioSubtitle": "$interval",
     "minutes": "$n min",
-    "hours": "$n hr"
+    "hours": "$n hr",
+    "off": "Off"
   },
   "tray": {
     "title": "Minimize to tray",

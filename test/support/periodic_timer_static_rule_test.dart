@@ -58,7 +58,7 @@ const _timers = <String, List<_Periodic>>{
     _Periodic(
       '輪詢每個電台的直播狀態（Bilibili）',
       source: '`c4fc940b` 引入；風控退避與背景暫停是 #95',
-      canTurnOff: '不能；設定 > 電台刷新間隔可調；App 在背景時暫停',
+      canTurnOff: '能：設定 > 電台刷新間隔 > 關閉；App 在背景時暫停',
     ),
   ],
   'lib/services/radio/radio_controller.dart': [

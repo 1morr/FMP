@@ -307,8 +307,13 @@ class _RankingRefreshIntervalListTile extends ConsumerWidget {
 
 /// 电台状态刷新间隔设置。
 class _RadioRefreshIntervalListTile extends ConsumerWidget {
-  // 选项: 1分钟, 3分钟, 5分钟, 10分钟
-  static const _options = [1, 3, 5, 10];
+  // 选项: 關閉, 1分钟, 3分钟, 5分钟, 10分钟
+  static const _options = [RadioRefreshService.offMinutes, 1, 3, 5, 10];
+
+  String _formatInterval(int minutes) =>
+      minutes == RadioRefreshService.offMinutes
+      ? t.settings.refreshInterval.off
+      : t.settings.refreshInterval.minutes(n: minutes);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -320,7 +325,7 @@ class _RadioRefreshIntervalListTile extends ConsumerWidget {
       title: Text(t.settings.refreshInterval.radioTitle),
       subtitle: Text(
         t.settings.refreshInterval.radioSubtitle(
-          interval: t.settings.refreshInterval.minutes(n: current),
+          interval: _formatInterval(current),
         ),
       ),
       trailing: const Icon(Icons.chevron_right),
@@ -347,7 +352,7 @@ class _RadioRefreshIntervalListTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: _options.map((minutes) {
               return RadioListTile<int>(
-                title: Text(t.settings.refreshInterval.minutes(n: minutes)),
+                title: Text(_formatInterval(minutes)),
                 value: minutes,
               );
             }).toList(),

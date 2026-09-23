@@ -658,6 +658,23 @@ void main() {
       expect(match.offsetMs, -300);
     });
 
+    test('keeps the radio poll turned off', () async {
+      await openTestDatabase();
+
+      // 0 是設定頁的「關閉」，不是壞值；負數才是還沒寫過這個欄位的舊列。
+      await isar.writeTxn(
+        () async => isar.settings.put(
+          Settings()
+            ..schemaVersion = kFmpSchemaVersion
+            ..radioRefreshIntervalMinutes = 0,
+        ),
+      );
+
+      await runDatabaseMigration(isar);
+
+      expect((await isar.settings.get(0))!.radioRefreshIntervalMinutes, 0);
+    });
+
     test('a v2 database walks through the retired v3 step', () async {
       await openTestDatabase();
 
