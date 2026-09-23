@@ -88,7 +88,7 @@
     "deleteCategoryTitle": "删除分类",
     "deleteCategoryConfirm": "确定要删除 \"$name\" 的所有下载文件吗？此操作无法撤销。",
     "categoryDeleted": "已删除 \"$name\"",
-    "keptForeignItems": "已保留 $n 个非 FMP 创建的项目",
+    "keptForeignItems": "已保留 $n 个无法确认由 FMP 下载的项目",
     "deleteFailed": "删除失败: $error"
   },
   "downloadedCategory": {
