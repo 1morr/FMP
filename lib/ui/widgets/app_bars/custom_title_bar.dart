@@ -91,7 +91,7 @@ class _CustomTitleBarState extends ConsumerState<CustomTitleBar>
             },
             tooltip: _isMaximized ? t.general.restore : t.general.maximize,
           ),
-          // 关闭（直接调用 handleCloseButton，不依赖 window_manager 事件链）
+          // 關閉（直接呼叫 handleCloseIntent，不依賴 window_manager 事件鏈）
           _TitleBarButton(
             icon: Icons.close,
             onPressed: () {

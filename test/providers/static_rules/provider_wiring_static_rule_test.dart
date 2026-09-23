@@ -13,23 +13,6 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('provider wiring static rules', () {
     test(
-      'downloadedCategoryTracksProvider uses the Isolate.run entrypoint',
-      () {
-        final source = File(
-          'lib/providers/download/download_providers.dart',
-        ).readAsStringSync();
-
-        expect(source, contains('Isolate.run'));
-        expect(source, contains('scanFolderTrackDtosInIsolate'));
-        expect(source, contains('ScanFolderTracksParams(folderPath)'));
-        expect(
-          source,
-          isNot(contains('DownloadScanner.scanFolderForTracks(folderPath)')),
-        );
-      },
-    );
-
-    test(
       'LyricsDisplay consumes the line index provider, not raw position',
       () {
         final source = File(

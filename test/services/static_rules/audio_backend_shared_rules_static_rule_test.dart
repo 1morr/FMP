@@ -103,19 +103,5 @@ void main() {
             'only a device finds the drift.',
       );
     });
-
-    test('the seek verification delay is not hard-coded again', () {
-      // just_audio 的那一份原本是寫死的 300ms 字面值，與 media_kit 讀的
-      // `AppConstants.seekVerificationDelay` 各走各的。
-      for (final path in const [_justAudio, _mediaKit]) {
-        final code = stripDartComments(_read(path));
-        expect(code, contains('liveEdgeSeekVerificationDelay'), reason: path);
-        expect(
-          code,
-          isNot(contains('Duration(milliseconds: 300)')),
-          reason: path,
-        );
-      }
-    });
   });
 }

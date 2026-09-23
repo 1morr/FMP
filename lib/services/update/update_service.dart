@@ -874,6 +874,9 @@ endlocal
 ''';
 }
 
+/// 串流解壓，在 worker isolate 裡跑。**不要改成整包讀進記憶體**
+/// （`readAsBytesSync` + `decodeBytes`）：release ZIP 約 200 MB，會直接把應用打死；
+/// 改回去不會有編譯錯誤，測試用的 ZIP 只有幾 KB，也不會有行為測試變紅。
 void _extractZipToDirectorySync(String zipPath, String extractDir) {
   final input = InputFileStream(zipPath);
   try {

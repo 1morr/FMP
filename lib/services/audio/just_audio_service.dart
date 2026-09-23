@@ -660,7 +660,9 @@ class JustAudioService extends FmpAudioService with Logging {
   ///
   /// 走清單 API 而不是 `setAudioSource` 的單一來源，是因為單一來源沒有辦法在
   /// 播放中追加第二個項目，只能整個重設 —— 而重設就是重新開媒體，正是
-  /// [setNextMedia] 要避免的那件事。只有一個項目時兩者行為相同。
+  /// [setNextMedia] 要避免的那件事。只有一個項目時兩者行為相同。換回單一來源
+  /// 不會有編譯錯誤也不會有執行期錯誤，只是靜靜地不再 gapless，而真後端在
+  /// `flutter test` 裡建不起來 —— 只有實機驗得到。
   Future<Duration?> _setSingleSource(ja.AudioSource source) {
     _nextMedia = null;
     return _player.setAudioSources([source]);

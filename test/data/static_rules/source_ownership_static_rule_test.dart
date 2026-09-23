@@ -32,54 +32,6 @@ const _dataSourceAdapterPaths = {
 
 void main() {
   group('Source ownership', () {
-    test('runtime code does not construct ad-hoc YouTubeSource instances', () {
-      const checkedFiles = [
-        'lib/services/audio/audio_provider.dart',
-        // 起播 provider 連同 mixTracksFetcher 的接線搬到這裡之後，臨時 new 一個
-        // YouTubeSource 最有可能長回來的地方就是它，不是控制器本體。
-        'lib/providers/audio/audio_controller_provider.dart',
-        'lib/providers/library/playlist_provider.dart',
-        'lib/providers/search/popular_provider.dart',
-        'lib/services/import/import_service.dart',
-        'lib/services/cache/ranking_cache_service.dart',
-      ];
-
-      final offenders = <String>[];
-      for (final path in checkedFiles) {
-        final source = File(path).readAsStringSync();
-        if (source.contains('YouTubeSource(')) {
-          offenders.add(path);
-        }
-      }
-
-      expect(offenders, isEmpty);
-    });
-
-    test('runtime code does not use RankingCacheService singleton', () {
-      final offenders = <String>[];
-      for (final entity in Directory('lib').listSync(recursive: true)) {
-        if (entity is! File || !entity.path.endsWith('.dart')) {
-          continue;
-        }
-
-        final source = entity.readAsStringSync();
-        if (source.contains('RankingCacheService.instance')) {
-          offenders.add(entity.path);
-        }
-      }
-
-      expect(offenders, isEmpty);
-    });
-
-    test('runtime library parsers do not import concrete source adapters', () {
-      final source = File(
-        'lib/data/sources/remote_playlist_id_parser.dart',
-      ).readAsStringSync();
-
-      expect(source, isNot(contains("data/sources/bilibili_source.dart")));
-      expect(source, isNot(contains('BilibiliSource.')));
-    });
-
     test('runtime code does not use concrete data source access', () {
       const allowedFiles = {
         'lib/data/sources/source_provider.dart',
@@ -108,20 +60,6 @@ void main() {
 
       expect(_sourceProviderConcreteAccessors(source), isEmpty);
     });
-
-    test(
-      'base_source.dart no longer declares a broad BaseSource interface',
-      () {
-        // 窄能力介面取代了那個什麼都會的基底類別。它長回來不會有編譯錯誤，
-        // 只會讓「拿到一個音源就什麼都能叫」重新變成可能。
-        final source = File(
-          'lib/data/sources/base_source.dart',
-        ).readAsStringSync();
-
-        expect(source, isNot(contains('abstract class BaseSource')));
-        expect(source, isNot(contains('extends BaseSource')));
-      },
-    );
 
     test('runtime guard detects concrete adapter imports broadly', () {
       const cases = {

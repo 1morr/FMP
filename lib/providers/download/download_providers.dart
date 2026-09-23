@@ -208,6 +208,8 @@ final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((
 });
 
 /// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）
+/// 與 [downloadedCategoriesProvider] 一樣在 isolate 裡掃描，不要改回在主
+/// isolate 直接呼叫 `DownloadScanner.scanFolderForTracks`：大資料夾會卡住 UI。
 final downloadedCategoryTracksProvider =
     FutureProvider.family<List<Track>, String>((ref, folderPath) async {
       final dtos = await Isolate.run(

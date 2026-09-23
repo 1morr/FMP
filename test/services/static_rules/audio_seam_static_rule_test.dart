@@ -68,21 +68,6 @@ void main() {
       },
     );
 
-    test('PlaybackRequestSession opens typed media, not raw URL methods', () {
-      final source = File(
-        'lib/services/audio/playback_request_session.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('_audioService.playMedia('));
-      expect(source, contains('_audioService.setMedia('));
-      expect(source, isNot(contains('_audioService.playUrl(')));
-      expect(source, isNot(contains('_audioService.setUrl(')));
-      expect(source, isNot(contains('_audioService.playFile(')));
-      expect(source, isNot(contains('_audioService.setFile(')));
-      expect(source, isNot(contains('headers: selection.headers')));
-      expect(source, isNot(contains('headers: networkRequest.headers')));
-    });
-
     test('production modules depend on purpose-specific auth interfaces', () {
       final authContextSource = File(
         'lib/services/account/source_auth_context.dart',

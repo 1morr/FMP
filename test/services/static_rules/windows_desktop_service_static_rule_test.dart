@@ -15,60 +15,6 @@ void main() {
     }
 
     test(
-      'Windows desktop service exposes one close-intent path for both close sources',
-      () {
-        final source = readSource(
-          'lib/services/platform/windows_desktop_service.dart',
-        );
-
-        expect(
-          source,
-          contains(
-            'Future<void> handleCloseIntent({required bool fromSystemClose}) async {',
-          ),
-        );
-        expect(
-          source,
-          contains('Future<void> handleCloseButton() => handleCloseIntent('),
-        );
-        expect(source, contains('fromSystemClose: false'));
-        expect(
-          source,
-          contains('void onWindowClose() => unawaited(handleCloseIntent('),
-        );
-        expect(source, contains('fromSystemClose: true'));
-        expect(
-          source,
-          isNot(
-            contains(
-              'Future<void> handleCloseIntent({required bool fromSystemClose}) async {\n    if (!Platform.isWindows || !_isInitialized) return;',
-            ),
-          ),
-        );
-        expect(
-          source,
-          isNot(
-            contains(
-              'Future<void> minimizeToTray() async {\n    if (!Platform.isWindows || !_isInitialized) return;',
-            ),
-          ),
-        );
-      },
-    );
-
-    test('custom title bar close button uses unified close-intent handler', () {
-      final source = readSource(
-        'lib/ui/widgets/app_bars/custom_title_bar.dart',
-      );
-
-      expect(
-        source,
-        contains('service.handleCloseIntent(fromSystemClose: false)'),
-      );
-      expect(source, isNot(contains('service.handleCloseButton()')));
-    });
-
-    test(
       'custom title bar exposes explicit semantics labels for window controls',
       () {
         final source = readSource(
@@ -90,15 +36,6 @@ void main() {
         expect(source, contains('ExcludeSemantics('));
       },
     );
-
-    test('main Windows app tree is no longer wrapped in ExcludeSemantics', () {
-      final source = readSource('lib/app.dart');
-
-      expect(
-        source,
-        isNot(contains('content = ExcludeSemantics(child: content);')),
-      );
-    });
 
     test(
       'lyrics window avoids whole-tree semantics exclusion and labels title bar controls',

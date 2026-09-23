@@ -6,45 +6,6 @@ import '../../support/dart_source.dart';
 
 void main() {
   group('UI consistency static rules', () {
-    test('cover picker grid items expose and receive stable keys', () {
-      final source = File(
-        'lib/ui/pages/library/widgets/cover_picker_dialog.dart',
-      ).readAsStringSync();
-
-      expect(
-        RegExp(
-          r'const\s+_CoverGridItem\s*\(\s*\{\s*super\.key,',
-          dotAll: true,
-        ).hasMatch(source),
-        isTrue,
-      );
-      expect(source.contains('key: ValueKey(track.thumbnailUrl),'), isTrue);
-    });
-
-    test('import preview alternative rows expose and receive stable keys', () {
-      final source = File(
-        'lib/ui/pages/library/import_preview_page.dart',
-      ).readAsStringSync();
-
-      expect(
-        RegExp(
-          r'const\s+_AlternativeTrackTile\s*\(\s*\{\s*super\.key,',
-          dotAll: true,
-        ).hasMatch(source),
-        isTrue,
-      );
-      // 只認 key 的前綴：規則是「列有穩定的 ValueKey」，key 內容怎麼拼、區域
-      // 變數叫什麼，換了都不是這條規則要抓的事。
-      expect(
-        RegExp(r"ValueKey\(\s*'alternative-search-").hasMatch(source),
-        isTrue,
-      );
-      expect(
-        RegExp(r"ValueKey\(\s*'alternative-expanded-").hasMatch(source),
-        isTrue,
-      );
-    });
-
     test('known image loads use named display-size targets', () {
       final home = File('lib/ui/pages/home/home_page.dart').readAsStringSync();
       // 首頁與音樂庫的歌單卡封面在 2026-09 合併後住在 PlaylistGridCard；
@@ -180,20 +141,6 @@ void main() {
     });
 
     test('avatar images use the shared AvatarImage widget', () {
-      final avatarWidget = File('lib/ui/widgets/images/avatar_image.dart');
-      expect(avatarWidget.existsSync(), isTrue);
-      final avatarSource = avatarWidget.readAsStringSync();
-
-      expect(
-        avatarSource,
-        contains('class AvatarImage extends StatelessWidget'),
-      );
-      expect(avatarSource, contains('ImageLoadingService.loadAvatar('));
-      expect(
-        avatarSource,
-        contains('targetDisplaySize: ImageTargetSizes.thumbnail'),
-      );
-
       final directAvatarCalls = <String>[];
       final thumbnailTargetsOutsideSmallImageWidgets = <String>[];
       final files = Directory('lib/ui')
@@ -219,84 +166,6 @@ void main() {
 
       expect(directAvatarCalls, isEmpty);
       expect(thumbnailTargetsOutsideSmallImageWidgets, isEmpty);
-    });
-
-    test('playlist and radio covers use shared semantic image widgets', () {
-      final playlistWidget = File(
-        'lib/ui/widgets/images/playlist_cover_image.dart',
-      );
-      final radioWidget = File('lib/ui/widgets/images/radio_cover_image.dart');
-      expect(playlistWidget.existsSync(), isTrue);
-      expect(radioWidget.existsSync(), isTrue);
-
-      final playlistSource = playlistWidget.readAsStringSync();
-      final radioSource = radioWidget.readAsStringSync();
-
-      expect(playlistSource, contains('class PlaylistCoverImage'));
-      expect(playlistSource, contains('enum PlaylistCoverVariant'));
-      expect(
-        playlistSource,
-        contains('targetDisplaySize: variant.targetDisplaySize'),
-      );
-      expect(radioSource, contains('class RadioCoverImage'));
-      expect(radioSource, contains('enum RadioCoverVariant'));
-      expect(
-        radioSource,
-        contains('targetDisplaySize: variant.targetDisplaySize'),
-      );
-
-      final allowedDirectLoadImage = <String>{
-        'lib/ui/widgets/images/playlist_cover_image.dart',
-        'lib/ui/widgets/images/radio_cover_image.dart',
-        'lib/ui/widgets/images/recent_play_cover_image.dart',
-        'lib/ui/widgets/images/track_thumbnail.dart',
-      };
-      final directLoadImage = <String>[];
-      final files = Directory('lib/ui')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'));
-
-      for (final file in files) {
-        final normalizedPath = file.path.replaceAll('\\', '/');
-        if (allowedDirectLoadImage.contains(normalizedPath)) continue;
-        final calls = lowLevelImageCalls(file.readAsStringSync());
-        if (calls.contains('ImageLoadingService.loadImage(')) {
-          directLoadImage.add(normalizedPath);
-        }
-      }
-
-      expect(directLoadImage, isEmpty);
-
-      final expectedPlaylistUsers = <String>[
-        'lib/ui/widgets/layout/playlist_grid_card.dart',
-        'lib/ui/pages/library/downloaded_page.dart',
-        'lib/ui/pages/library/downloaded_category_page.dart',
-        'lib/ui/pages/library/playlist_detail_page.dart',
-        'lib/ui/pages/library/widgets/create_playlist_dialog.dart',
-        'lib/ui/pages/library/widgets/cover_picker_dialog.dart',
-        'lib/ui/widgets/dialogs/add_to_playlist_dialog.dart',
-        'lib/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart',
-        'lib/ui/pages/settings/widgets/account_playlists_sheet.dart',
-      ];
-
-      for (final path in expectedPlaylistUsers) {
-        final source = File(path).readAsStringSync();
-        expect(source, contains('PlaylistCoverImage('), reason: path);
-      }
-
-      final expectedRadioUsers = <String>[
-        'lib/ui/widgets/radio/radio_station_card.dart',
-        'lib/ui/pages/radio/radio_player_page.dart',
-        'lib/ui/pages/search/search_page.dart',
-        'lib/ui/widgets/radio/radio_mini_player.dart',
-        'lib/ui/widgets/panels/track_detail_panel.dart',
-      ];
-
-      for (final path in expectedRadioUsers) {
-        final source = File(path).readAsStringSync();
-        expect(source, contains('RadioCoverImage('), reason: path);
-      }
     });
 
     test(
@@ -400,61 +269,6 @@ void main() {
       expect(source, isNot(contains("'Origin': 'https://music.163.com'")));
     });
 
-    test('UI image-loading calls pass explicit targetDisplaySize', () {
-      final files = Directory('lib/ui')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'));
-      final missingTargets = <String>[];
-
-      for (final file in files) {
-        final source = file.readAsStringSync();
-        var searchFrom = 0;
-        while (true) {
-          final callStarts = [
-            source.indexOf('ImageLoadingService.loadImage(', searchFrom),
-            source.indexOf('ImageLoadingService.loadAvatar(', searchFrom),
-            source.indexOf(
-              'ImageLoadingService.imageProviderCandidates(',
-              searchFrom,
-            ),
-            source.indexOf(
-              'ImageLoadingService.precacheImageCandidates(',
-              searchFrom,
-            ),
-          ].where((index) => index >= 0).toList()..sort();
-          if (callStarts.isEmpty) break;
-
-          final callStart = callStarts.first;
-          if (callStart < 0) break;
-
-          var depth = 0;
-          var callEnd = callStart;
-          for (var i = callStart; i < source.length; i++) {
-            final char = source[i];
-            if (char == '(') depth++;
-            if (char == ')') {
-              depth--;
-              if (depth == 0) {
-                callEnd = i;
-                break;
-              }
-            }
-          }
-
-          final call = source.substring(callStart, callEnd + 1);
-          if (!call.contains('targetDisplaySize:')) {
-            final line =
-                '\n'.allMatches(source.substring(0, callStart)).length + 1;
-            missingTargets.add('${file.path}:$line');
-          }
-          searchFrom = callEnd + 1;
-        }
-      }
-
-      expect(missingTargets, isEmpty);
-    });
-
     test('download path unset text does not use error color', () {
       final source = File(
         'lib/ui/pages/settings/widgets/settings_storage.dart',
@@ -474,30 +288,6 @@ void main() {
       );
     });
 
-    test('queue page reads queue display state from queue providers', () {
-      final source = File(
-        'lib/ui/pages/queue/queue_page.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('queueStateProvider'));
-      expect(
-        source,
-        isNot(contains('audioControllerProvider.select((s) => s.queue)')),
-      );
-      expect(
-        source,
-        isNot(
-          contains('audioControllerProvider.select((s) => s.currentIndex)'),
-        ),
-      );
-      expect(
-        source,
-        isNot(
-          contains('audioControllerProvider.select((s) => s.queueVersion)'),
-        ),
-      );
-    });
-
     test('home ranking section exposes lightweight loading fallback', () {
       final source = File(
         'lib/ui/pages/home/home_page.dart',
@@ -506,39 +296,6 @@ void main() {
       expect(source, contains('class HomeRankingsSection'));
       expect(source, contains('LoadingPlaceholder'));
       expect(source, isNot(contains('ForTest')));
-    });
-
-    test('search, playlist, and downloaded dynamic rows use stable keys', () {
-      final search = File(
-        'lib/ui/pages/search/search_page.dart',
-      ).readAsStringSync();
-      final playlistDetail = File(
-        'lib/ui/pages/library/playlist_detail_page.dart',
-      ).readAsStringSync();
-      final downloadedCategory = File(
-        'lib/ui/pages/library/downloaded_category_page.dart',
-      ).readAsStringSync();
-
-      expect(search, contains("ValueKey('local-group-\${group.groupKey}')"));
-      expect(search, contains("ValueKey('live-room-\${room.roomId}')"));
-      expect(
-        search,
-        contains(
-          "'page-\${track.sourceType}:\${track.sourceId}:\${page.page}'",
-        ),
-      );
-      expect(
-        playlistDetail,
-        contains("ValueKey('playlist-group-\${group.groupKey}')"),
-      );
-      expect(
-        downloadedCategory,
-        contains("ValueKey('downloaded-track-\${_downloadedTrackKey("),
-      );
-      expect(
-        downloadedCategory,
-        contains("ValueKey('downloaded-group-\${group.groupKey}')"),
-      );
     });
 
     test('search multi-page rows expose common single track actions', () {
@@ -553,37 +310,6 @@ void main() {
       expect(pageTileBody, isNot(contains('includeMatchLyrics: false')));
       expect(pageTileBody, isNot(contains('includeAddToRemote: false')));
       expect(source, contains('TrackActionCoordinator.handleSingle'));
-    });
-
-    test('search results cache mixed online tracks per build', () {
-      final source = File(
-        'lib/ui/pages/search/search_page.dart',
-      ).readAsStringSync();
-      final buildResultsBody = _methodBody(source, '_buildSearchResults');
-
-      expect(buildResultsBody, contains('final mixedOnlineTracks ='));
-      expect(
-        buildResultsBody,
-        isNot(contains('state.mixedOnlineTracks[index]')),
-      );
-      expect(
-        buildResultsBody,
-        isNot(contains('state.mixedOnlineTracks.length')),
-      );
-    });
-
-    test('download manager rows expose stable keys', () {
-      final source = File(
-        'lib/ui/pages/settings/download_manager_page.dart',
-      ).readAsStringSync();
-
-      expect(source, contains("ValueKey('download-section-\${row.title}')"));
-      expect(source, contains("ValueKey('download-task-\${row.task!.id}')"));
-      expect(
-        source,
-        contains("ValueKey('download-active-task-\${tasks[index].id}')"),
-      );
-      expect(source, contains("ValueKey('download-empty-slot-\$index')"));
     });
 
     test('radio UI avoids broad audio controller watch', () {

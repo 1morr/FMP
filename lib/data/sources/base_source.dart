@@ -1,6 +1,9 @@
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 
+// 刻意沒有「什麼都會」的 BaseSource 基底類別：音源只透過窄能力介面被取用。
+// 它長回來不會有編譯錯誤，只會讓「拿到一個音源就什麼都能叫」重新變成可能。
+
 /// 音频流配置
 class AudioStreamConfig {
   /// 音质等级

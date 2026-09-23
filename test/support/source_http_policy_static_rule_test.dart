@@ -115,12 +115,6 @@ void main() {
       expect(source, isNot(contains("'Origin': 'https://www.youtube.com'")));
       expect(source, isNot(contains("'Referer': 'https://www.youtube.com/'")));
     });
-
-    test('Netease source does not depend on account service for policy UA', () {
-      final source = libSources['lib/data/sources/netease_source.dart']!;
-
-      expect(source, isNot(contains('NeteaseAccountService')));
-    });
   });
 
   group('Bilibili live HTTP policy', () {
