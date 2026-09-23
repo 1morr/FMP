@@ -28,11 +28,16 @@ final _fileSystemAccessPattern = RegExp(
   r'(?<![A-Za-z0-9_])(File|Directory)\s*\(',
 );
 
-/// 指向 `lib/` 的字面路徑：Dart 檔，或不含副檔名的目錄。
+/// 指向 `lib/` 的字面路徑：Dart 檔，或不含副檔名的目錄。單雙引號都認，前面
+/// 可以接一段插值出來的根目錄（`'${Directory.current.path}/lib/…'`、
+/// `'$repoRoot/lib/…'`）—— 以前只認 `'lib/…'` 開頭，8 支行為測試用插值寫法
+/// 藏了 24 條源碼斷言，這條規則照樣是綠的。
 ///
 /// `lib/i18n/**.json` 之類的翻譯資料不算 —— 那是產品資料，不是原始碼，讀它的
 /// 測試在斷言預設值與翻譯對得上，不是在凍結某次重構。
-final _libSourcePathPattern = RegExp(r"'lib(/[^']*\.dart|/[A-Za-z0-9_/]*|)'");
+final _libSourcePathPattern = RegExp(
+  r"""['"](?:\$(?:\{[^}'"]*\}|[A-Za-z_]\w*)/)?lib(/[^'"\n]*\.dart|/[A-Za-z0-9_/]*|)['"]""",
+);
 
 final _compliantDirectoryPattern = RegExp(
   r'^test/(support/|[^/]+/static_rules/)',
@@ -115,9 +120,24 @@ for (final entity in Directory('lib/ui').listSync(recursive: true)) {
 }
 ''';
 
+      const interpolatedRoot = r'''
+final source = File(
+  '${Directory.current.path}/lib/ui/widgets/panels/track_detail_panel.dart',
+).readAsStringSync();
+''';
+      const namedRoot = r'''
+final source = File('$repoRoot/lib/app.dart').readAsStringSync();
+''';
+      const doubleQuoted = '''
+final source = File("lib/app.dart").readAsStringSync();
+''';
+
       expect(readsLibSource(inlinePath), isTrue);
       expect(readsLibSource(viaConstant), isTrue);
       expect(readsLibSource(directoryScan), isTrue);
+      expect(readsLibSource(interpolatedRoot), isTrue);
+      expect(readsLibSource(namedRoot), isTrue);
+      expect(readsLibSource(doubleQuoted), isTrue);
       expect(
         isStaticRulePath('test/ui/widgets/mini_player_test.dart'),
         isFalse,
@@ -147,10 +167,26 @@ testWidgets('the search page shows an empty state', (tester) async {
       expect(readsLibSource(commented), isFalse);
     });
 
+    test(
+      'does not count a temp directory or a path that only contains lib',
+      () {
+        const tempFiles = r'''
+final a = File(p.join(tempDir.path, 'library', 'a.dart'));
+final b = File('${tempDir.path}/cache/lib.bin');
+final c = Directory('${Directory.current.path}/.dart_tool');
+final d = File('$root/build/lib/app.so');
+// File('${Directory.current.path}/lib/app.dart') 寫在註解裡不算。
+''';
+
+        expect(readsLibSource(tempFiles), isFalse);
+      },
+    );
+
     test('does not count translation data under lib/i18n', () {
       const i18nData = '''
 test('every HLS description marks the stream as not recommended', () {
   final file = File('lib/i18n/\$locale/audioSettings.i18n.json');
+  final other = File('\${Directory.current.path}/lib/i18n/en/x.i18n.json');
   expect(jsonDecode(file.readAsStringSync()), containsPair('hls', isNotNull));
 });
 ''';

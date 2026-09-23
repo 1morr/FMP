@@ -1,30 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/download/download_providers.dart';
 
 void main() {
   group('task-scoped download progress providers', () {
-    test(
-      'download providers expose a nullable task-scoped progress provider',
-      () {
-        final source = File(
-          '${Directory.current.path}/lib/providers/download/download_providers.dart',
-        ).readAsStringSync();
-
-        expect(source, contains('final downloadTaskProgressProvider'));
-        expect(source, contains('Provider.family<(double, int, int?)?, int>'));
-        expect(
-          source,
-          contains(
-            'downloadProgressStateProvider.select((state) => state[taskId])',
-          ),
-        );
-        expect(source, isNot(contains('entry ?? (0.0, 0, null)')));
-      },
-    );
-
     test(
       'task-scoped progress provider returns null when no live progress exists',
       () {

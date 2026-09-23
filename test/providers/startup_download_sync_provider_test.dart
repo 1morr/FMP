@@ -28,48 +28,6 @@ void main() {
   });
 
   group('startup download sync', () {
-    test('app starts the silent startup download sync provider', () {
-      final appSource = File(
-        '${Directory.current.path}/lib/app.dart',
-      ).readAsStringSync();
-
-      expect(
-        appSource,
-        contains(
-          "import 'package:fmp/providers/download/startup_download_sync_provider.dart';",
-        ),
-      );
-      expect(appSource, contains('ref.watch(startupDownloadSyncProvider);'));
-    });
-
-    test('provider syncs local files silently and refreshes changed state', () {
-      final providerFile = File(
-        '${Directory.current.path}/lib/providers/download/startup_download_sync_provider.dart',
-      );
-
-      expect(providerFile.existsSync(), isTrue);
-
-      final source = providerFile.readAsStringSync();
-      expect(source, contains('final startupDownloadSyncProvider'));
-      expect(source, contains('FutureProvider<void>'));
-      expect(source, contains('downloadPathSyncServiceProvider'));
-      expect(source, contains('syncLocalFiles('));
-      expect(source, contains('libraryInvalidationCoordinatorProvider'));
-      expect(source, contains('downloadStateChanged('));
-      expect(
-        source,
-        isNot(contains('ref.invalidate(downloadedCategoriesProvider)')),
-      );
-      expect(
-        source,
-        isNot(contains('ref.invalidate(fileExistsCacheProvider)')),
-      );
-      expect(source, isNot(contains('playlistListProvider.notifier')));
-      expect(source, contains('allPlaylistsProvider.future'));
-      expect(source, contains('affectedPlaylistIds:'));
-      expect(source, contains('AppLogger.error'));
-    });
-
     test(
       'unconfigured download path syncs the platform default directory',
       () async {
