@@ -1441,8 +1441,9 @@ class DownloadService with Logging {
       if (await _hasPairedMetadata(savePath)) {
         await _throwDestinationConflict(task, savePath);
       }
-      // 同上：無 metadata 的目的地是 promote 被 kill 留下的半檔，刪掉後
-      // 重試一次 exclusive create；再失敗才是真的 conflict。
+      // 同上：無 metadata 的目的地是 promote 被 kill 留下的空佔位檔（舊版是
+      // 複製到一半的半檔），刪掉後重試一次 exclusive create；再失敗才是真的
+      // conflict。
       logWarning('Replacing stale destination without metadata: $savePath');
       await destination.delete();
       try {
@@ -1452,10 +1453,12 @@ class DownloadService with Logging {
       }
     }
 
+    // 上面的 exclusive create 是在佔住目的地名稱；rename 在 POSIX 與 Windows
+    // 上都會直接取代既有目的地，所以不能省掉那一步 —— 它是「不覆蓋有
+    // metadata 的檔案」唯一的檢查點。這裡被取代的只會是自己剛建的空檔。
+    // 暫存檔與目的地同目錄，rename 不搬資料，完成時不必把整首歌再寫一遍。
     try {
-      final sink = destination.openWrite(mode: FileMode.writeOnly);
-      await tempFile.openRead().pipe(sink);
-      await tempFile.delete();
+      await tempFile.rename(savePath);
     } catch (_) {
       if (await destination.exists()) {
         await destination.delete();
