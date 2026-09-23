@@ -137,7 +137,7 @@ class SettingsPage extends ConsumerWidget {
             title: t.settings.storage,
             children: [
               _DownloadManagerListTile(),
-              _DownloadPathListTile(),
+              const DownloadPathListTile(),
               _ConcurrentDownloadsListTile(),
               _DownloadImageOptionListTile(),
             ],

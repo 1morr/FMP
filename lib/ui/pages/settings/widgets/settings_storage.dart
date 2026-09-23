@@ -14,8 +14,13 @@ class _DownloadManagerListTile extends StatelessWidget {
   }
 }
 
-/// 下载路径设置
-class _DownloadPathListTile extends ConsumerWidget {
+/// 下載路徑設定
+///
+/// 公開的理由同 [LaunchAtStartupTile]：「未設定」的顯示只差一行副標題，
+/// widget test 直接 pump 它，不必把整頁設定拉起來。
+class DownloadPathListTile extends ConsumerWidget {
+  const DownloadPathListTile({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final downloadPathAsync = ref.watch(downloadPathProvider);

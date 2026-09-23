@@ -60,7 +60,7 @@ class _BilibiliLoginPageState extends ConsumerState<BilibiliLoginPage>
         controller: _tabController,
         children: [
           _WebViewLoginTab(onLoginSuccess: _onLoginSuccess),
-          _QrCodeLoginTab(onLoginSuccess: _onLoginSuccess),
+          BilibiliQrLoginTab(onLoginSuccess: _onLoginSuccess),
         ],
       ),
     );
@@ -178,6 +178,10 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
 
         widget.onLoginSuccess();
       } catch (e) {
+        // 登入流程的每一步（讀 WebView cookie、寫入憑證、抓使用者資訊）都可能
+        // 失敗；失敗時一定要 toast，並把 `_loginHandled` 還原，使用者重新整理
+        // 頁面後才能再試。這條路徑依賴 InAppWebView 與 CookieManager 的平台
+        // 實作，widget test 建不起來，只能在實機上驗。
         _loginHandled = false;
         if (mounted) {
           setState(() => _isLoading = false);
@@ -214,16 +218,20 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
 
 // ===== QR 碼登錄 Tab =====
 
-class _QrCodeLoginTab extends ConsumerStatefulWidget {
+/// QR 碼登入分頁。
+///
+/// 公開是為了讓 widget test 直接 pump 它：整頁的第一個分頁是 WebView，
+/// 測試環境沒有 WebView 的平台實作，整頁拉不起來。
+class BilibiliQrLoginTab extends ConsumerStatefulWidget {
   final VoidCallback onLoginSuccess;
 
-  const _QrCodeLoginTab({required this.onLoginSuccess});
+  const BilibiliQrLoginTab({super.key, required this.onLoginSuccess});
 
   @override
-  ConsumerState<_QrCodeLoginTab> createState() => _QrCodeLoginTabState();
+  ConsumerState<BilibiliQrLoginTab> createState() => _QrCodeLoginTabState();
 }
 
-class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
+class _QrCodeLoginTabState extends ConsumerState<BilibiliQrLoginTab> {
   QrCodeData? _qrData;
   QrCodeStatus _status = QrCodeStatus.waiting;
   bool _isGenerating = false;

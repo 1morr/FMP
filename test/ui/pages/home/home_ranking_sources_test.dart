@@ -8,6 +8,7 @@ import 'package:fmp/providers/settings/home_ranking_settings_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/ui/pages/home/home_page.dart';
+import 'package:fmp/ui/widgets/feedback/error_display.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -168,6 +169,35 @@ void main() {
 
         expect(find.text(t.home.recentTrending), findsNothing);
         expect(find.byType(CircularProgressIndicator), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'an enabled source with no data yet shows a loading placeholder '
+      'during initial loading',
+      (tester) async {
+        LocaleSettings.setLocale(AppLocale.en);
+
+        await tester.pumpWidget(
+          _testApp(
+            overrides: [
+              enabledHomeRankingSourceOrderProvider.overrideWith(
+                (ref) => const ['youtube'],
+              ),
+              rankingCacheServiceProvider.overrideWith(
+                () => _StaticRankingCacheService(isInitialLoading: true),
+              ),
+              homeYouTubeMusicRankingProvider.overrideWith(
+                (ref) => const <Track>[],
+              ),
+            ],
+          ),
+        );
+
+        // 首次載入時快取還是空的；整段藏起來會讓首頁先少一塊再突然長出來，
+        // 所以要留標題並放一個輕量佔位。
+        expect(find.text(t.home.recentTrending), findsOneWidget);
+        expect(find.byType(LoadingPlaceholder), findsOneWidget);
       },
     );
 

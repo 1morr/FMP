@@ -118,10 +118,11 @@ Never:
 
 The pump, upward-import, feature-edge and placement rules are enforced by tests
 under `test/support/`, which carry the exception lists. Add a line with a reason
-when you add a legitimate exception; delete it when it goes away. Nothing
-checks the `AudioController` bypass, ad-hoc Isar opening, hidden search filters
-or direct `Image.network()` / `Image.file()` for you, and the AXTree line is a
-stop-loss note that no static test could.
+when you add a legitimate exception; delete it when it goes away. The image rule
+is enforced by `test/ui/static_rules/ui_consistency_static_rule_test.dart`,
+which lists what each semantic image widget may call. Nothing checks the
+`AudioController` bypass, ad-hoc Isar opening or hidden search filters for you,
+and the AXTree line is a stop-loss note that no static test could.
 
 ## Architecture
 

@@ -1,8 +1,8 @@
-/// `lib/core/` 裡兩條只有讀源碼才驗得到的規則。
+/// `lib/core/` 裡只有讀源碼才驗得到的規則。
 ///
 /// 授權登記那條原本藏在 `third_party_licenses_test.dart` 裡，從檔名看不出它在
-/// grep 源碼。#107 那條原本混在播放頁的結構規則裡，跟著那些結構斷言一起被砍時
-/// 留了下來 —— 它守的是一個修過的 bug，不是版面。
+/// grep 源碼。#107 的「只按高度縮放」已經改由
+/// `test/core/services/image_loading_service_test.dart` 直接檢查 provider。
 library;
 
 import 'dart:io';
@@ -80,24 +80,6 @@ void main() {
 ''';
 
       expect(registersLicencesBeforeRunApp(reformatted), isTrue);
-    });
-
-    test('image candidates scale the disk cache by height only (#107)', () {
-      // 磁碟縮放同時拿到寬高時會按寬把 16:9 封面縮到不夠高（issue #107），
-      // 所以候選 provider 只給 maxHeight。
-      final source = File(
-        'lib/core/services/image_loading_service.dart',
-      ).readAsStringSync();
-      final start = source.indexOf(
-        'static List<ImageProvider> imageProviderCandidates(',
-      );
-      expect(start, greaterThanOrEqualTo(0));
-      final end = source.indexOf('\n  static ', start);
-      expect(end, greaterThan(start));
-      final candidates = source.substring(start, end);
-
-      expect(candidates, contains('maxHeight: request.cacheExtent'));
-      expect(candidates, isNot(contains('maxWidth: request.cacheExtent')));
     });
   });
 }
