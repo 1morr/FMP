@@ -130,16 +130,25 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
     }
   }
 
-  /// 从本地 metadata.json 加载详情（遍历所有下载路径查找）
+  /// 從本地 metadata 載入詳情（遍歷所有下載路徑查找）。多頁下載的 metadata
+  /// 是 `metadata_P{N}.json`，配對規則與寫入端共用 `DownloadFileNames`。
   Future<VideoDetail?> _loadFromLocalMetadata(Track track) async {
     if (!track.hasAnyDownload) return null;
 
-    // 遍历所有下载路径，查找第一个存在 metadata.json 的路径
     for (final downloadPath in track.allDownloadPaths) {
       try {
         final dir = Directory(downloadPath).parent;
-        final metadataFile = File(p.join(dir.path, DownloadFileNames.metadata));
-        if (!await metadataFile.exists()) continue;
+        File? metadataFile;
+        for (final candidate in DownloadFileNames.metadataCandidatesForAudio(
+          downloadPath,
+        )) {
+          final file = File(p.join(dir.path, candidate));
+          if (await file.exists()) {
+            metadataFile = file;
+            break;
+          }
+        }
+        if (metadataFile == null) continue;
 
         final json =
             jsonDecode(await metadataFile.readAsString())

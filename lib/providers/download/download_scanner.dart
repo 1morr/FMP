@@ -327,27 +327,20 @@ class DownloadScanner {
           File? metadataFile;
           Map<String, dynamic>? metadata;
 
-          if (newPageMatch != null) {
-            final pageNumStr = newPageMatch.group(1)!;
-            final pageMetadataFile = File(
-              p.join(entity.path, 'metadata_P$pageNumStr.json'),
-            );
-            final defaultMetadataFile = File(
-              p.join(entity.path, DownloadFileNames.metadata),
-            );
-
-            if (await pageMetadataFile.exists()) {
-              metadataFile = pageMetadataFile;
-            } else if (await defaultMetadataFile.exists()) {
-              metadataFile = defaultMetadataFile;
+          // 配對候選由檔名決定：`P{N}.m4a` 先找 `metadata_P{N}.json`，找不到
+          // 退回共用的 `metadata.json`（舊版佈局）；其餘（含 `audio.m4a` 與舊版
+          // `P{N} - 標題.m4a`）只有共用檔。規則本身在 DownloadFileNames。
+          for (final candidate in DownloadFileNames.metadataCandidatesForAudio(
+            p.basename(audioEntity.path),
+          )) {
+            final candidateFile = File(p.join(entity.path, candidate));
+            if (await candidateFile.exists()) {
+              metadataFile = candidateFile;
+              break;
             }
-          } else {
-            metadataFile = File(
-              p.join(entity.path, DownloadFileNames.metadata),
-            );
           }
 
-          if (metadataFile != null && await metadataFile.exists()) {
+          if (metadataFile != null) {
             try {
               final content = await metadataFile.readAsString();
               metadata = jsonDecode(content) as Map<String, dynamic>;

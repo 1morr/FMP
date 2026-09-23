@@ -1465,10 +1465,12 @@ class DownloadService with Logging {
       });
     }
 
-    // 多P视频使用分P专属的 metadata 文件名，避免覆盖
-    final metadataFileName = track.isPartOfMultiPage && track.pageNum != null
-        ? 'metadata_P${track.pageNum!.toString().padLeft(2, '0')}.json'
-        : DownloadFileNames.metadata;
+    // 多P影片使用分P專屬的 metadata 檔名，避免覆蓋。
+    // 分頁號取自檔名本身（`computeDownloadPath` 對多頁一律給 `P{NN}.m4a`），
+    // 不再另外從 track 推導，寫入端與掃描／刪除端的配對規則因此只有一份。
+    final metadataFileName = DownloadFileNames.metadataCandidatesForAudio(
+      p.basename(audioPath),
+    ).first;
     final metadataFile = File(p.join(videoDir.path, metadataFileName));
     try {
       await metadataFile.writeAsString(jsonEncode(metadata));

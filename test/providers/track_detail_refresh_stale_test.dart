@@ -311,6 +311,52 @@ void main() {
     },
   );
 
+  test(
+    'local metadata fallback reads the page file of a multi-page download',
+    () async {
+      final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+      final sourceManager = SourceManager(sources: [bilibili]);
+      addTearDown(sourceManager.dispose);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'track_detail_multi_page_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      // 新版多頁佈局：`P02.m4a` 配 `metadata_P02.json`，資料夾裡沒有共用檔。
+      final downloadDir = await Directory(
+        p.join(tempDir.path, 'download'),
+      ).create(recursive: true);
+      await File(p.join(downloadDir.path, 'metadata_P02.json')).writeAsString(
+        '''
+{
+  "sourceId": "BV-PAGES",
+  "title": "Page two metadata",
+  "viewCount": 789
+}
+''',
+      );
+
+      final track = _track('BV-PAGES', SourceIds.bilibili)
+        ..setDownloadPath(1, p.join(downloadDir.path, 'P02.m4a'));
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+      final loadFuture = notifier.loadDetail(track);
+      await pumpUntil(
+        () => bilibili.requests.length == 1,
+        reason: 'the load should reach the source',
+      );
+      bilibili.completeError(
+        'BV-PAGES',
+        StateError('simulated detail failure'),
+      );
+      await loadFuture;
+
+      expect(notifier.state.error, isNull);
+      expect(notifier.state.detail!.title, 'Page two metadata');
+    },
+  );
+
   test('loadDetail gets auth from SourceAuthContext authForPlay', () async {
     final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
     final sourceManager = SourceManager(sources: [youtube]);

@@ -278,7 +278,7 @@ Future<void> _deleteFilesInIsolate(List<String> paths) async {
       final parentDir = file.parent;
       foldersToDelete.add(parentDir.path);
       await file.delete();
-      await _deleteMetadataForAudioFile(parentDir, file.path);
+      await _deletePageMetadataForAudio(parentDir, file.path);
     } on FileSystemException {
       // Keep best-effort deletion behavior for UI flows.
     }
@@ -297,18 +297,24 @@ Future<void> _deleteFilesInIsolate(List<String> paths) async {
   }
 }
 
-Future<void> _deleteMetadataForAudioFile(
+/// 刪掉與音檔同頁的 `metadata_P{N}.json`。
+///
+/// 共用的 `metadata.json` **不在這裡刪**：舊版佈局的多頁資料夾共用同一個
+/// `metadata.json`（檔名分不出誰是擁有者），在這裡刪掉會讓兄弟頁當場失去
+/// metadata。它跟著資料夾一起走 —— 資料夾沒有剩餘音檔時才會被清掉。
+Future<void> _deletePageMetadataForAudio(
   Directory parentDir,
   String audioPath,
 ) async {
-  final audioFileName = p.basename(audioPath);
-  final metadataName =
-      audioFileName.startsWith('P') && audioFileName.contains('.')
-      ? 'metadata_P${audioFileName.substring(1, audioFileName.indexOf('.'))}.json'
-      : DownloadFileNames.metadata;
-  final metadataFile = File(p.join(parentDir.path, metadataName));
-  if (await metadataFile.exists()) {
-    await metadataFile.delete();
+  for (final candidate in DownloadFileNames.metadataCandidatesForAudio(
+    p.basename(audioPath),
+  )) {
+    if (candidate == DownloadFileNames.metadata) continue;
+    final metadataFile = File(p.join(parentDir.path, candidate));
+    if (await metadataFile.exists()) {
+      await metadataFile.delete();
+      return;
+    }
   }
 }
 
