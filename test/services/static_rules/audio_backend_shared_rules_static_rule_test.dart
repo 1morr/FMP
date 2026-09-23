@@ -50,6 +50,78 @@ const _movedKeywords = <String>[
 
 String _read(String path) => File(path).readAsStringSync();
 
+/// 三份共用規則。
+const _sharedUnits = <String>[
+  _rules,
+  'lib/services/audio/live_edge_seek_policy.dart',
+  'lib/services/audio/next_media_plan.dart',
+];
+
+/// 每個後端轉呼叫哪些共用入口。
+///
+/// 引擎專屬的那一半各自只有一個後端會用到；假替身沒有播放清單，所以不碰
+/// `NextMediaPlan`。
+const _delegation = <String, Set<String>>{
+  _justAudio: {
+    'classifyCompletion',
+    'liveEdgeCandidates',
+    'seekTookEffect',
+    'classifyExoPlayerFailure',
+    'NextMediaPlan.of',
+    'NextMediaPlan.shouldTrimPlayedEntry',
+  },
+  _mediaKit: {
+    'classifyCompletion',
+    'liveEdgeCandidates',
+    'seekTookEffect',
+    'classifyMpvMessage',
+    'NextMediaPlan.of',
+    'NextMediaPlan.shouldTrimPlayedEntry',
+  },
+  _fake: {'classifyCompletion', 'liveEdgeCandidates', 'seekTookEffect'},
+};
+
+/// 共用檔對外的入口：頂層公開函式，以及公開類別的 factory 與 static 方法
+/// （寫成 `類別.方法`）。
+Set<String> sharedEntryPoints(Map<String, String> sourcesByPath) {
+  final entries = <String>{};
+  for (final source in sourcesByPath.values) {
+    final code = stripDartComments(source);
+    entries.addAll(
+      RegExp(
+        r'^[A-Za-z][\w<>?, ]*\s+([a-z]\w*)\s*\(',
+        multiLine: true,
+      ).allMatches(code).map((m) => m.group(1)!),
+    );
+    for (final type in RegExp(
+      r'^class\s+([A-Z]\w*)',
+      multiLine: true,
+    ).allMatches(code)) {
+      final name = type.group(1)!;
+      for (final member in RegExp(
+        r'(?:factory\s+' + name + r'\.|static\s+[\w<>?, ]+\s+)([a-z]\w*)\s*\(',
+      ).allMatches(code)) {
+        entries.add('$name.${member.group(1)}');
+      }
+    }
+  }
+  return entries;
+}
+
+/// [source] 在註解之外呼叫了 [entries] 裡的哪些入口。
+Set<String> entryPointsCalled(String source, Set<String> entries) {
+  final code = stripDartComments(source);
+  return {
+    for (final entry in entries)
+      if (RegExp(
+        r'(?<![\w.])' +
+            entry.split('.').map(RegExp.escape).join(r'\s*\.\s*') +
+            r'\s*\(',
+      ).hasMatch(code))
+        entry,
+  };
+}
+
 /// [source] 去掉註解後，含有哪些搬走了的關鍵字字串常量。單雙引號都算。
 List<String> duplicatedKeywords(String source) {
   final code = stripDartComments(source);
@@ -65,27 +137,23 @@ List<String> duplicatedKeywords(String source) {
 void main() {
   group('audio backend shared rules', () {
     test('both real backends and the fake delegate to the shared units', () {
-      for (final path in const [_justAudio, _mediaKit, _fake]) {
-        final source = _read(path);
-        expect(source, contains('classifyCompletion('), reason: path);
-        expect(source, contains('liveEdgeCandidates('), reason: path);
-        expect(source, contains('seekTookEffect('), reason: path);
-      }
+      final entries = sharedEntryPoints({
+        for (final path in _sharedUnits) path: _read(path),
+      });
+      // 解析本身要有作用 —— 共用檔改名時入口會是空的，每個後端也就「都對」。
+      expect(entries, containsAll(_delegation.values.expand((e) => e).toSet()));
 
-      // 引擎專屬的那一半各自只有一個後端會用到。
-      expect(_read(_justAudio), contains('classifyExoPlayerFailure('));
-      expect(_read(_mediaKit), contains('classifyMpvMessage('));
-
-      // 假替身沒有播放清單，所以只轉呼叫三份規則裡的兩份。
-      for (final path in const [_justAudio, _mediaKit]) {
-        final source = _read(path);
-        expect(source, contains('NextMediaPlan.of('), reason: path);
-        expect(
-          source,
-          contains('NextMediaPlan.shouldTrimPlayedEntry('),
-          reason: path,
-        );
-      }
+      expect(
+        {
+          for (final path in _delegation.keys)
+            path: entryPointsCalled(_read(path), entries),
+        },
+        equals(_delegation),
+        reason:
+            'A backend stopped delegating to a shared unit (it probably grew '
+            'its own copy), or started calling a new one. Update _delegation '
+            'in this file.',
+      );
     });
 
     test('no second keyword table lives under lib/services/audio', () {
@@ -122,6 +190,54 @@ bool isDns(String m) => m.contains("failed host lookup");
         "'timed out'",
         "'failed host lookup'",
       ]);
+    });
+
+    test('entry points are parsed and a dropped call is caught', () {
+      const unit = '''
+PlaybackEndReason classifyCompletion({required Duration position}) => x;
+const Duration liveEdgeMargin = Duration(seconds: 1);
+class NextMediaPlan {
+  factory NextMediaPlan.of({required int itemCount}) => x;
+  static bool shouldTrimPlayedEntry(int itemCount) => itemCount > 1;
+  bool get isEmpty => false;
+}
+''';
+      final entries = sharedEntryPoints({'lib/unit.dart': unit});
+      expect(entries, {
+        'classifyCompletion',
+        'NextMediaPlan.of',
+        'NextMediaPlan.shouldTrimPlayedEntry',
+      });
+
+      // 後端自己抄了一份判斷，不再呼叫共用入口。
+      const copied = '''
+PlaybackEndReason _classify(Duration position) =>
+    position > Duration.zero ? completed : failed;
+final plan = NextMediaPlan.of(itemCount: 2);
+''';
+      expect(entryPointsCalled(copied, entries), {'NextMediaPlan.of'});
+    });
+
+    test('line breaks, comments and lookalike names keep the call set', () {
+      const backend = '''
+// 以前自己算，現在交給 classifyCompletion(...)。
+final reason = classifyCompletion(
+  position: position,
+);
+final plan = NextMediaPlan
+    .of(itemCount: count);
+final trim = _myNextMediaPlan.shouldTrimPlayedEntry(1);
+final other = reclassifyCompletion();
+''';
+
+      expect(
+        entryPointsCalled(backend, {
+          'classifyCompletion',
+          'NextMediaPlan.of',
+          'NextMediaPlan.shouldTrimPlayedEntry',
+        }),
+        {'classifyCompletion', 'NextMediaPlan.of'},
+      );
     });
 
     test('comments, identifiers and longer messages do not', () {

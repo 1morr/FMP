@@ -9,43 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/services/lyrics/lyrics_window_service.dart';
 import 'package:fmp/services/lyrics/lyrics_window_style.dart';
 
-/// P0-4：子視窗只看得到「沒有行」，分不出「還在抓」和「這首沒有歌詞」。
-/// 這兩條守住那個差別是怎麼被送過去的。
+import '../../support/dart_source.dart';
+
+/// 歌詞子視窗讀的翻譯字串，每一個都要有人推過去。
+///
+/// `lyricsSettled`（「還在抓」與「這首沒有歌詞」的差別）怎麼送過去，是行為，
+/// 在 `test/services/lyrics/lyrics_window_service_test.dart`。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  test('syncLyrics tells the window whether the search has settled', () async {
-    final payloads = <String, Map<String, dynamic>>{};
-    final service = await _openService(payloads);
-
-    await service.syncLyrics(
-      lyrics: null,
-      currentLineIndex: -1,
-      positionMs: 0,
-      offsetMs: 0,
-      trackTitle: 'A track with no lyrics',
-      trackArtist: 'Someone',
-      trackUniqueKey: 'bilibili:BV1',
-      lyricsSettled: true,
-    );
-
-    expect(payloads['updateLyrics']!['lyricsSettled'], isTrue);
-
-    await service.syncLyrics(
-      lyrics: null,
-      currentLineIndex: -1,
-      positionMs: 0,
-      offsetMs: 0,
-      trackTitle: 'Still looking',
-      trackArtist: 'Someone',
-      trackUniqueKey: 'bilibili:BV2',
-      lyricsSettled: false,
-    );
-
-    expect(payloads['updateLyrics']!['lyricsSettled'], isFalse);
-
-    await service.destroy();
-  });
 
   test('every string the window reads is actually pushed to it', () async {
     // 子視窗是獨立的 runApp 進入點，拿不到主 isolate 的 slang 實例，所以它自帶
@@ -63,25 +34,84 @@ void main() {
 
     final pushed = (payloads['updateTheme']!['strings'] as Map).keys.toSet();
 
-    final windowSource = File(
-      'lib/ui/windows/lyrics_window.dart',
-    ).readAsStringSync();
-    // 只認 `_LyricsWindowStrings.updateFrom` 的那個形狀
-    // （`field = map['key'] as String? ?? field;`）—— 歌詞行本身也從 map 讀
-    // String，不是翻譯字串。
-    final consumed = RegExp(
-      r"(\w+) = map\['(\w+)'\] as String\? \?\? \1;",
-    ).allMatches(windowSource).map((m) => m.group(2)!).toSet();
+    final consumed = consumedStringKeys(
+      File('lib/ui/windows/lyrics_window.dart').readAsStringSync(),
+    );
 
     expect(consumed, isNotEmpty, reason: 'the key scan must find something');
     expect(
-      consumed.difference(pushed),
-      isEmpty,
-      reason: 'these keys fall back to the hardcoded simplified defaults',
+      consumed,
+      equals(pushed),
+      reason:
+          'A key the window reads but nobody pushes falls back to the '
+          'hardcoded simplified default; a key pushed but never read is dead.',
     );
 
     await service.destroy();
   });
+
+  group('the consumed-key parser', () {
+    test('reads every key in updateFrom, however it is written', () {
+      const window = '''
+class _LyricsWindowStrings {
+  void updateFrom(Map<String, dynamic> map) {
+    play = map['play'] as String? ?? play;
+    displayPreferTranslated =
+        map["displayPreferTranslated"] as String? ?? displayPreferTranslated;
+    pause = map[ 'pause' ] as String? ?? pause;
+  }
+}
+''';
+
+      expect(consumedStringKeys(window), {
+        'play',
+        'displayPreferTranslated',
+        'pause',
+      });
+    });
+
+    test('lyric rows and comments outside updateFrom are not keys', () {
+      const window = '''
+class _LyricsWindowStrings {
+  void updateFrom(Map<String, dynamic> map) {
+    // next = map['next'] as String? ?? next; 已經拿掉。
+    play = map['play'] as String? ?? play;
+  }
+}
+
+LyricsLine _line(Map<String, dynamic> map) =>
+    LyricsLine(text: map['text'] as String, subText: map['subText'] as String?);
+''';
+
+      expect(consumedStringKeys(window), {'play'});
+    });
+  });
+}
+
+/// 子視窗 `updateFrom` 從推過去的 map 讀的鍵。
+///
+/// 只看 `updateFrom` 本體 —— 歌詞行本身也從 map 讀 String，不是翻譯字串。
+Set<String> consumedStringKeys(String windowSource) {
+  final code = stripDartComments(windowSource);
+  final header = RegExp(
+    r'\bvoid\s+updateFrom\s*\([^)]*\)\s*\{',
+  ).firstMatch(code);
+  if (header == null) throw StateError('updateFrom not found');
+
+  var depth = 1;
+  var end = header.end;
+  while (end < code.length && depth > 0) {
+    if (code[end] == '{') depth++;
+    if (code[end] == '}') depth--;
+    end++;
+  }
+
+  return {
+    for (final match in RegExp(
+      r'''\bmap\s*\[\s*(['"])(\w+)\1\s*\]''',
+    ).allMatches(code.substring(header.end, end)))
+      match.group(2)!,
+  };
 }
 
 Future<LyricsWindowService> _openService(

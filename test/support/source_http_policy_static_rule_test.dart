@@ -63,6 +63,72 @@ List<String>? policyClientProblems(String path, String source) {
   ];
 }
 
+/// 自己寫 `Referer` / `Origin` / `User-Agent` 標頭字面值的檔案 → 寫了哪幾個，
+/// 以及為什麼不走 policy。
+///
+/// 手寫一份標頭不會編譯錯誤，也不會在本機失敗；它只是和 policy 那一份各自
+/// 演化，直到某一端的風控開始只認其中一份。新的檔案要寫標頭，先問能不能改用
+/// `SourceHttpPolicy`；真的不能就加在這裡，寫明理由。已經在名單上的檔案多寫
+/// 一個標頭也會紅 —— 下載服務的預設標頭曾經綁著 Bilibili 的 Referer。
+const _headerLiteralOwners = <String, ({Set<String> headers, String why})>{
+  'lib/data/sources/source_http_policy.dart': (
+    headers: {'origin', 'referer', 'user-agent'},
+    why: '標頭政策本身',
+  ),
+  'lib/core/utils/http_client_factory.dart': (
+    headers: {'user-agent'},
+    why: '所有客戶端的預設 User-Agent',
+  ),
+  'lib/services/download/download_service.dart': (
+    headers: {'user-agent'},
+    why: '下載用的 Dio 只帶 policy 的 mediaUserAgent；各音源的 Referer 由媒體請求自己帶',
+  ),
+  'lib/services/lyrics/lrclib_source.dart': (
+    headers: {'user-agent'},
+    why: '歌詞音源不屬於播放音源，policy 不涵蓋；LRCLIB 要求可辨識的 UA',
+  ),
+  'lib/services/lyrics/netease_source.dart': (
+    headers: {'origin', 'referer', 'user-agent'},
+    why: '歌詞音源，policy 不涵蓋',
+  ),
+  'lib/services/lyrics/qqmusic_source.dart': (
+    headers: {'user-agent'},
+    why: '歌詞音源，policy 不涵蓋',
+  ),
+  'lib/data/sources/playlist_import/qq_music_playlist_source.dart': (
+    headers: {'referer', 'user-agent'},
+    why: '歌單匯入音源，policy 不涵蓋；API 要行動版 UA 與 y.qq.com 的 Referer',
+  ),
+  'lib/data/sources/playlist_import/spotify_playlist_source.dart': (
+    headers: {'user-agent'},
+    why: '歌單匯入讀的是嵌入頁，要桌面瀏覽器的 UA 才拿得到 __NEXT_DATA__',
+  ),
+  'lib/services/account/netease_account_service.dart': (
+    headers: {'origin', 'referer', 'user-agent'},
+    why: '帶 Cookie 的帳號請求，標頭要和登入時的 Cookie 一起組',
+  ),
+  'lib/services/account/netease_playlist_service.dart': (
+    headers: {'referer', 'user-agent'},
+    why: '走 Linux API（eparams），要配 os=linux 的 Cookie 與對應的 UA',
+  ),
+};
+
+final _headerLiteral = RegExp(
+  r'''(?:(['"])(referer|origin|user-agent)\1\s*:|\[\s*(['"])(referer|origin|user-agent)\3\s*\])''',
+  caseSensitive: false,
+);
+
+/// 在註解之外寫了標頭字面值（map 鍵或 `headers['...']`）的檔案 → 寫了哪幾個
+/// 標頭（小寫）。
+Map<String, Set<String>> headerLiterals(Map<String, String> sourcesByPath) => {
+  for (final MapEntry(key: path, value: source) in sourcesByPath.entries)
+    if (_headerLiteral.allMatches(stripDartComments(source)) case final matches
+        when matches.isNotEmpty)
+      path: {
+        for (final m in matches) (m.group(2) ?? m.group(4))!.toLowerCase(),
+      },
+};
+
 Map<String, String> _libSources() {
   final sources = <String, String>{};
   for (final entity in Directory('lib').listSync(recursive: true)) {
@@ -115,49 +181,18 @@ void main() {
       }
     });
 
-    test('InnerTube request options reuse policy headers', () {
-      final source = libSources['lib/data/sources/youtube_source.dart']!;
-
-      expect(source, contains('SourceHttpPolicy.apiHeaders'));
-      expect(source, isNot(contains("'Origin': 'https://www.youtube.com'")));
-      expect(source, isNot(contains("'Referer': 'https://www.youtube.com/'")));
-    });
-  });
-
-  group('Bilibili live HTTP policy', () {
-    test('the live client owns the live headers', () {
-      final source = libSources['lib/data/sources/bilibili_live_client.dart']!;
-
-      expect(source, contains('SourceHttpPolicy.createBilibiliLiveDio'));
-      expect(source, contains('SourceHttpPolicy.bilibiliLiveHeaders'));
-      expect(source, contains('/room/v1/Room/playUrl'));
+    test('only the listed files write header literals', () {
       expect(
-        source,
-        isNot(contains("'Referer': 'https://live.bilibili.com/'")),
-      );
-    });
-
-    test('sources delegate Bilibili live mechanics to the live client', () {
-      final bilibiliSource =
-          libSources['lib/data/sources/bilibili_source.dart']!;
-      final radioSource = libSources['lib/services/radio/radio_source.dart']!;
-
-      expect(bilibiliSource, contains('BilibiliLiveClient'));
-      expect(radioSource, contains('BilibiliLiveClient'));
-      expect(bilibiliSource, isNot(contains('/room/v1/Room/playUrl')));
-      expect(radioSource, isNot(contains('/room/v1/Room/playUrl')));
-    });
-
-    test('radio cover preloader relies on the URL-based header policy', () {
-      final source =
-          libSources['lib/ui/widgets/panels/track_detail_panel.dart']!;
-
-      // 電台封面不得自帶 headers：ImageLoadingService 會自動套
-      // SourceHttpPolicy.imageHeadersForUrl，與其他 RadioCoverImage 呼叫點一致。
-      expect(source, isNot(contains('SourceHttpPolicy.bilibiliLiveHeaders')));
-      expect(
-        source,
-        isNot(contains("headers: {'Referer': 'https://www.bilibili.com'}")),
+        headerLiterals(libSources),
+        equals({
+          for (final MapEntry(key: path, value: owner)
+              in _headerLiteralOwners.entries)
+            path: owner.headers,
+        }),
+        reason:
+            'A file started or stopped writing Referer / Origin / User-Agent '
+            'by hand. Use SourceHttpPolicy, or update _headerLiteralOwners in '
+            'this file and say why the policy does not fit.',
       );
     });
   });
@@ -235,6 +270,62 @@ final id = SourceIds.netease;
         policyClientProblems('lib/data/sources/netease_x.dart', noClient),
         isNull,
       );
+    });
+  });
+
+  group('the header-literal detector', () {
+    test('a hand-written header in any spelling turns the rule red', () {
+      const sources = {
+        'lib/ui/a.dart': '''
+final headers = {'Referer': 'https://www.bilibili.com'};
+''',
+        'lib/ui/b.dart': '''
+options.headers["origin"] = 'https://www.youtube.com';
+''',
+        'lib/ui/c.dart': '''
+final headers = {
+  'user-agent'
+      : 'Mozilla/5.0',
+};
+''',
+      };
+
+      expect(headerLiterals(sources), {
+        'lib/ui/a.dart': {'referer'},
+        'lib/ui/b.dart': {'origin'},
+        'lib/ui/c.dart': {'user-agent'},
+      });
+
+      // 已經在名單上的檔案多寫一個標頭，也和名單不一樣了。
+      expect(
+        headerLiterals({
+          'lib/services/download/download_service.dart': '''
+headers: {
+  'User-Agent': SourceHttpPolicy.mediaUserAgent,
+  'Referer': 'https://www.bilibili.com',
+},
+''',
+        }),
+        {
+          'lib/services/download/download_service.dart': {
+            'user-agent',
+            'referer',
+          },
+        },
+      );
+    });
+
+    test('policy calls, comments and other headers do not', () {
+      const sources = {
+        'lib/ui/a.dart': '''
+// 以前寫成 {'Referer': 'https://www.bilibili.com'}，改走 policy。
+final headers = SourceHttpPolicy.imageHeadersForUrl(url);
+final other = {'Cookie': cookie, 'Accept-Language': 'en'};
+const hint = 'set the Referer: header yourself';
+''',
+      };
+
+      expect(headerLiterals(sources), isEmpty);
     });
   });
 }
