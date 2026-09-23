@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/services/download/download_path_utils.dart';
 import 'package:fmp/services/platform/storage_permission_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -74,6 +75,13 @@ class DownloadPathManager {
     final settings = await _settingsRepo.get();
     return settings.customDownloadDir;
   }
+
+  /// 取得目前有效的下載根目錄（使用者自選目錄，否則平台預設）。
+  ///
+  /// 刪除路徑的 containment guard 拿它當基準：認不出基準就無法確定要刪的是
+  /// FMP 自己的下載目錄，那個 guard 也就無從判斷。
+  Future<String> getEffectiveBaseDir() =>
+      DownloadPathUtils.getDefaultBaseDir(_settingsRepo);
 
   /// 清除下载路径配置
   Future<void> clearDownloadPath() async {

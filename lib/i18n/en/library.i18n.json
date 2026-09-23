@@ -88,6 +88,7 @@
     "deleteCategoryTitle": "Delete Category",
     "deleteCategoryConfirm": "Delete all downloaded files in \"$name\"? This cannot be undone.",
     "categoryDeleted": "Deleted \"$name\"",
+    "keptForeignItems": "Kept $n item(s) not created by FMP",
     "deleteFailed": "Delete failed: $error"
   },
   "downloadedCategory": {

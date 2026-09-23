@@ -12,6 +12,7 @@ import 'package:fmp/providers/download/download_path_provider.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/providers/audio/audio_player_selectors.dart';
+import 'package:fmp/services/download/download_path_maintenance_service.dart';
 import 'package:fmp/ui/handlers/track_action_coordinator.dart';
 import 'package:fmp/ui/handlers/track_action_menu.dart';
 import 'package:fmp/ui/widgets/app_bars/collapsing_hero_sliver_app_bar.dart';
@@ -524,19 +525,30 @@ class _GroupHeader extends ConsumerWidget {
           confirmLabel: t.general.delete,
         );
         if (confirmed == true && context.mounted) {
-          await _deleteAllDownloads(ref);
+          final result = await _deleteAllDownloads(ref);
           if (context.mounted) {
-            ToastService.success(
-              context,
-              t.library.downloadedCategory.deletedParts(n: group.tracks.length),
-            );
+            if (result.skippedForeignCount > 0) {
+              ToastService.warning(
+                context,
+                t.library.downloadedPage.keptForeignItems(
+                  n: result.skippedForeignCount,
+                ),
+              );
+            } else {
+              ToastService.success(
+                context,
+                t.library.downloadedCategory.deletedParts(
+                  n: group.tracks.length,
+                ),
+              );
+            }
           }
         }
         break;
     }
   }
 
-  Future<void> _deleteAllDownloads(WidgetRef ref) async {
+  Future<DownloadPathDeletionResult> _deleteAllDownloads(WidgetRef ref) async {
     final maintenanceService = ref.read(downloadPathMaintenanceServiceProvider);
     final result = await maintenanceService.deleteDownloadedTracks(
       group.tracks,
@@ -548,6 +560,8 @@ class _GroupHeader extends ConsumerWidget {
           categoryPaths: [folderPath],
           affectedPlaylistIds: result.affectedPlaylistIds,
         );
+
+    return result;
   }
 }
 
@@ -680,9 +694,18 @@ class _DownloadedTrackTile extends ConsumerWidget {
         confirmLabel: t.general.delete,
       );
       if (confirmed == true && context.mounted) {
-        await _deleteDownload(ref);
+        final result = await _deleteDownload(ref);
         if (context.mounted) {
-          ToastService.success(context, t.library.downloadDeleted);
+          if (result.skippedForeignCount > 0) {
+            ToastService.warning(
+              context,
+              t.library.downloadedPage.keptForeignItems(
+                n: result.skippedForeignCount,
+              ),
+            );
+          } else {
+            ToastService.success(context, t.library.downloadDeleted);
+          }
         }
       }
       return;
@@ -696,7 +719,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _deleteDownload(WidgetRef ref) async {
+  Future<DownloadPathDeletionResult> _deleteDownload(WidgetRef ref) async {
     final maintenanceService = ref.read(downloadPathMaintenanceServiceProvider);
     final result = await maintenanceService.deleteDownloadedTracks([track]);
 
@@ -712,6 +735,8 @@ class _DownloadedTrackTile extends ConsumerWidget {
           categoryPaths: [folderPath],
           affectedPlaylistIds: result.affectedPlaylistIds,
         );
+
+    return result;
   }
 }
 
