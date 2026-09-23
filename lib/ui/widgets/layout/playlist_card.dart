@@ -121,13 +121,19 @@ class _PlaylistCardInfo extends StatelessWidget {
         const SizedBox(height: 2),
         Row(
           children: [
+            // 文字都包 Flexible：卡片只有約 150dp 寬，字級 2.0 時「154 songs」
+            // 這種長度就會把整列撐出卡片。
             if (playlist.isMix) ...[
               Icon(Icons.radio, size: 12, color: colorScheme.tertiary),
               const SizedBox(width: 4),
-              Text(
-                'Mix',
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.tertiary,
+              Flexible(
+                child: Text(
+                  'Mix',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.tertiary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ] else ...[
@@ -139,10 +145,14 @@ class _PlaylistCardInfo extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
               ],
-              Text(
-                t.library.trackCount(n: playlist.trackCount),
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
+              Flexible(
+                child: Text(
+                  t.library.trackCount(n: playlist.trackCount),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
