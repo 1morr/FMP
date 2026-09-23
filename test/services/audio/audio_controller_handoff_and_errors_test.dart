@@ -1951,6 +1951,55 @@ void main() {
       },
     );
 
+    test(
+      'buffering that began while the stream was opening still starves',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        audioService = FakeAudioService()..playUrlSettlesReady = false;
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: _createAudioStreamManager(
+            trackRepository: trackRepository,
+            settingsRepository: settingsRepository,
+            sourceManager: sourceManager,
+          ),
+          toastService: toastService,
+          nowPlayingPublisher: testNowPlayingPublisher(),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+          budget: const PlaybackTimeoutBudget(
+            bufferStarvation: Duration(milliseconds: 30),
+          ),
+        );
+        await controller.initialize();
+
+        // Windows 上的零位元組串流：mpv 在開流時就進了 buffering，`playUrl`
+        // 照樣返回，之後再也沒有任何事件。載入期間的緩衝不餵看門狗。
+        final opening = audioService.enqueuePendingPlayUrl();
+        final playing = controller.playSingle(
+          _track('silent', title: 'Silent'),
+        );
+        await audioService.waitForPlayUrlCallCount(1);
+        audioService.setPlayingValue(true);
+        audioService.emitProcessingState(FmpAudioProcessingState.buffering);
+        await pumpUntil(
+          () => controller.state.isBuffering,
+          reason: 'the controller has seen the buffering while loading',
+        );
+
+        final playsBeforeStarvation = audioService.playUrlCalls.length;
+        opening.complete();
+        await playing;
+
+        await pumpUntil(
+          () => audioService.playUrlCalls.length > playsBeforeStarvation,
+          reason: 'loading ended with the backend still buffering',
+        );
+      },
+    );
+
     test('playback prefetch fills the queue-owned next track url', () async {
       final tracks = [
         _track('prefetch-play-current', title: 'Prefetch Play Current'),

@@ -72,6 +72,10 @@ class FakeAudioService implements FmpAudioService {
   late final _setUrlWaiters = CountWaiters(() => setUrlCalls.length);
   late final _seekWaiters = CountWaiters(() => seekCalls.length);
 
+  /// false 時 `playUrl` 返回前不改狀態、不發事件：開流期間發過的就是最後一個
+  /// 事件。mpv 遇到零位元組串流就是這樣，停在 buffering 之後一聲不吭。
+  bool playUrlSettlesReady = true;
+
   bool _isPlaying = false;
   Duration _position = Duration.zero;
   Duration? _duration;
@@ -413,6 +417,7 @@ class FakeAudioService implements FmpAudioService {
     if (_playUrlErrors.isNotEmpty) {
       throw _playUrlErrors.removeAt(0);
     }
+    if (!playUrlSettlesReady) return _duration;
     _isPlaying = true;
     _processingState = FmpAudioProcessingState.ready;
     _emitState();

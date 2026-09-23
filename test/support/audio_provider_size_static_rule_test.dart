@@ -28,16 +28,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _path = 'lib/services/audio/audio_provider.dart';
 
-/// 2026-09-17 的實測值：Mix 補歌邊界不再在套用端做決定（等完就交回 router
-/// 重判），加上 `readOptional` 只剩 `playback_side_effects.dart` 那一份。
+/// 2026-09-23 的實測值：離開載入時把後端當下狀態補走一次路由，緩衝看門狗才
+/// 等得到開流時就進入的 buffering（Windows 零位元組串流）。只有控制器知道載入
+/// 何時結束，後端在 `playUrl` 返回前補發的事件會先到、照樣被抑制。
 ///
-/// 上一格 2,167 是 2026-09-16 後端事件路由抽成 `playback_event_router.dart`
+/// 上一格 2,155 是 2026-09-17 的值：Mix 補歌邊界不再在套用端做決定（等完就交回
+/// router 重判），加上 `readOptional` 只剩 `playback_side_effects.dart` 那一份。
+///
+/// 再上一格 2,167 是 2026-09-16 後端事件路由抽成 `playback_event_router.dart`
 /// 之後的值；再上一格是 2,178（issue #106 的輸出裝置重試抑制）。那一輪**只降了
 /// 十一行**，而那不是抽取失敗：搬走的一百多行路由條件，換回來的是一張快照建構
 /// 子（協作者一律在那裡問完）與一個二十格的 `switch`。買的是「每一條路由決定
 /// 都變成純斷言」，不是行數 —— 決定住在 `PlaybackEventRouter`，控制器只剩下
 /// 副作用本身。
-const _maxCodeLines = 2155;
+const _maxCodeLines = 2161;
 
 /// 低於上限多少行就要求把上限調下來。
 const _slack = 50;

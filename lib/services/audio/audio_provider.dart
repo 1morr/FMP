@@ -1508,6 +1508,16 @@ class AudioController extends Notifier<PlayerState>
       }
     }
     _handoff.applyPendingIfCurrent(requestId);
+
+    // 載入期間的後端事件不餵緩衝看門狗。零位元組串流在開流時就進了
+    // buffering，之後後端再也不發事件（Windows 實測），所以離開載入時用後端
+    // 當下的狀態補走一次路由，否則看門狗永遠等不到它該計時的那一格。
+    _onPlayerStateChanged(
+      FmpPlayerState(
+        playing: _audioService.isPlaying,
+        processingState: _audioService.processingState,
+      ),
+    );
   }
 
   /// 重置加載狀態（在請求被取代或失敗時使用）
