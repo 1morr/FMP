@@ -136,8 +136,3 @@ final downloadSettingsProvider =
 final maxConcurrentDownloadsProvider = Provider<int>((ref) {
   return ref.watch(downloadSettingsProvider).maxConcurrentDownloads;
 });
-
-/// 便捷 Provider - 下载图片选项
-final downloadImageOptionProvider = Provider<DownloadImageOption>((ref) {
-  return ref.watch(downloadSettingsProvider).downloadImageOption;
-});

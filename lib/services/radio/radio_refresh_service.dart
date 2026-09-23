@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/radio_station.dart';
@@ -274,13 +273,3 @@ class RadioRefreshService with Logging {
     _stateController.close();
   }
 }
-
-/// RadioRefreshService Provider（用於訪問單例）
-///
-/// 注意：此 Provider 不需要 dispose，因為：
-/// 1. RadioRefreshService.instance 是全局單例，生命週期與應用相同
-/// 2. 單例的 dispose() 由應用退出時統一處理
-/// 3. Provider 僅作為訪問入口，不擁有資源所有權
-final radioRefreshServiceProvider = Provider<RadioRefreshService>((ref) {
-  return RadioRefreshService.instance;
-});

@@ -48,17 +48,3 @@ final windowsDesktopServiceProvider = Provider<WindowsDesktopService?>((ref) {
 
   return service;
 });
-
-/// Windows 桌面服务初始化 Provider
-///
-/// 用于在应用启动时初始化 Windows 桌面特性。
-/// 返回 true 表示初始化成功。
-final windowsDesktopInitProvider = FutureProvider<bool>((ref) async {
-  if (!Platform.isWindows) return false;
-
-  final service = ref.watch(windowsDesktopServiceProvider);
-  if (service == null) return false;
-
-  await service.initialize();
-  return true;
-});

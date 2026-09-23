@@ -344,16 +344,6 @@ final audioSettingsProvider =
       AudioSettingsNotifier.new,
     );
 
-/// 便捷 Provider - 音质等级
-final audioQualityLevelProvider = Provider<AudioQualityLevel>((ref) {
-  return ref.watch(audioSettingsProvider).qualityLevel;
-});
-
-/// 便捷 Provider - 格式优先级
-final audioFormatPriorityProvider = Provider<List<AudioFormat>>((ref) {
-  return ref.watch(audioSettingsProvider).formatPriority;
-});
-
 /// 便捷 Provider - 歌词源优先级顺序
 final lyricsSourceOrderProvider = Provider<List<String>>((ref) {
   return ref.watch(audioSettingsProvider).lyricsSourceOrder;
@@ -362,9 +352,4 @@ final lyricsSourceOrderProvider = Provider<List<String>>((ref) {
 /// 便捷 Provider - 禁用的歌词源
 final disabledLyricsSourcesProvider = Provider<Set<String>>((ref) {
   return ref.watch(audioSettingsProvider).disabledLyricsSources;
-});
-
-/// 便捷 Provider - 启用的歌词源（按优先级排序）
-final enabledLyricsSourceOrderProvider = Provider<List<String>>((ref) {
-  return ref.watch(audioSettingsProvider).enabledLyricsSourceOrder;
 });

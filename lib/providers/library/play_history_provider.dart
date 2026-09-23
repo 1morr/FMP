@@ -36,29 +36,6 @@ final recentPlayHistoryProvider = FutureProvider.autoDispose<List<PlayHistory>>(
   },
 );
 
-/// 播放次数最多的歌曲 Provider
-final mostPlayedProvider =
-    FutureProvider.autoDispose<List<({PlayHistory history, int count})>>((
-      ref,
-    ) async {
-      final repo = ref.watch(playHistoryRepositoryProvider);
-      return repo.getMostPlayed(limit: 10);
-    });
-
-/// 所有播放历史 Provider（用于历史页面，支持分页）
-final allPlayHistoryProvider = FutureProvider.autoDispose
-    .family<List<PlayHistory>, int>((ref, page) async {
-      final repo = ref.watch(playHistoryRepositoryProvider);
-      const pageSize = 50;
-      return repo.getAllHistory(offset: page * pageSize, limit: pageSize);
-    });
-
-/// 播放历史总数 Provider
-final playHistoryCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  final repo = ref.watch(playHistoryRepositoryProvider);
-  return repo.getHistoryCount();
-});
-
 /// 播放历史操作 Provider
 final playHistoryActionsProvider = Provider<PlayHistoryActions>((ref) {
   final repo = ref.watch(playHistoryRepositoryProvider);
@@ -380,12 +357,3 @@ final groupedPlayHistoryProvider =
       final filtered = ref.watch(filteredPlayHistoryProvider);
       return filtered.whenData(_groupHistoryByDate);
     });
-
-/// 获取某首歌的播放次数 Provider
-final trackPlayCountProvider = FutureProvider.autoDispose.family<int, String>((
-  ref,
-  trackKey,
-) async {
-  final repo = ref.watch(playHistoryRepositoryProvider);
-  return repo.getPlayCountByKey(trackKey);
-});

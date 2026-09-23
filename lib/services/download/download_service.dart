@@ -1520,33 +1520,6 @@ class DownloadService with Logging {
     }
   }
 
-  /// 获取下载目录信息
-  Future<DownloadDirInfo> getDownloadDirInfo() async {
-    final downloadDir = await DownloadPathUtils.getDefaultBaseDir(
-      _settingsRepository,
-    );
-
-    final dir = Directory(downloadDir);
-    int totalSize = 0;
-    int fileCount = 0;
-
-    if (await dir.exists()) {
-      await for (final entity in dir.list(recursive: true)) {
-        if (entity is File) {
-          final stat = await entity.stat();
-          totalSize += stat.size;
-          fileCount++;
-        }
-      }
-    }
-
-    return DownloadDirInfo(
-      path: downloadDir,
-      totalSize: totalSize,
-      fileCount: fileCount,
-    );
-  }
-
   @visibleForTesting
   int get debugActiveDownloads => _activeDownloads;
 
@@ -1658,32 +1631,6 @@ class DownloadFailureEvent {
     required this.trackTitle,
     required this.errorMessage,
   });
-}
-
-/// 下载目录信息
-class DownloadDirInfo {
-  final String path;
-  final int totalSize;
-  final int fileCount;
-
-  DownloadDirInfo({
-    required this.path,
-    required this.totalSize,
-    required this.fileCount,
-  });
-
-  /// 格式化大小显示
-  String get formattedSize {
-    if (totalSize < 1024) {
-      return '$totalSize B';
-    } else if (totalSize < 1024 * 1024) {
-      return '${(totalSize / 1024).toStringAsFixed(1)} KB';
-    } else if (totalSize < 1024 * 1024 * 1024) {
-      return '${(totalSize / 1024 / 1024).toStringAsFixed(1)} MB';
-    } else {
-      return '${(totalSize / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
-    }
-  }
 }
 
 // ==================== Isolate 下载相关 ====================

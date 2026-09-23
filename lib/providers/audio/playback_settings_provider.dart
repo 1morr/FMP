@@ -137,8 +137,3 @@ final playbackSettingsProvider =
 final autoScrollToCurrentTrackProvider = Provider<bool>((ref) {
   return ref.watch(playbackSettingsProvider).autoScrollToCurrentTrack;
 });
-
-/// 便捷 Provider - 是否记住播放位置
-final rememberPlaybackPositionProvider = Provider<bool>((ref) {
-  return ref.watch(playbackSettingsProvider).rememberPlaybackPosition;
-});
