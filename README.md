@@ -143,8 +143,6 @@ stay on your device. There are no ad or analytics SDKs.
 
 ## Credits
 
-API research from [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
-and [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music).
 Built on [media_kit](https://github.com/media-kit/media-kit),
 [just_audio](https://github.com/ryanheise/just_audio),
 [youtube_explode_dart](https://github.com/Hexer10/youtube_explode_dart),

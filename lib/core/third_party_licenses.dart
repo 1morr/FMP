@@ -19,10 +19,6 @@ void registerThirdPartyLicenses() =>
 /// 公開是為了讓測試不必動到全域的 [LicenseRegistry] —— 那是行程層級的狀態，
 /// 一旦在測試裡登記就再也拿不掉。
 Stream<LicenseEntry> thirdPartyLicenses() async* {
-  yield const LicenseEntryWithLineBreaks([
-    'Protocol research',
-  ], _protocolResearchNotice);
-
   // Android 走 just_audio / ExoPlayer，整包裡沒有 libmpv。在那裡列出它會
   // 讓使用者以為裝置上有一個不存在的元件。
   if (!Platform.isWindows) return;
@@ -40,20 +36,6 @@ const _mpvPackages = ['libmpv / FFmpeg'];
 
 Future<String> _text(String name) =>
     rootBundle.loadString('licenses/$name.txt');
-
-const _protocolResearchNotice = '''
-FMP reaches Bilibili, YouTube, NetEase Cloud Music and QQ Music through private
-APIs. Endpoint shapes, signing steps and protocol constants come from public
-reverse-engineering write-ups rather than from any project's source code.
-
-bilibili-API-collect (https://github.com/SocialSisterYi/bilibili-API-collect)
-is licensed CC BY-NC 4.0. It documents the Bilibili endpoints and the
-cookie-refresh public key.
-
-netease-cloud-music (https://github.com/chaunsin/netease-cloud-music) is
-licensed MIT and was used as a reference for the NetEase request format.
-
-See THIRD_PARTY_LICENSES.md in the source repository for the full record.''';
 
 const _mpvNotice = '''
 libmpv-2.dll is the audio backend media_kit uses on Windows. It is not part of

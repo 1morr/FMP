@@ -9,11 +9,11 @@ import 'package:encrypt/encrypt.dart';
 /// 支持 weapi（Web API）和 eapi（Enhanced API）兩種加密模式。
 /// weapi 用於 Web 端請求，eapi 用於移動端請求。
 ///
-/// 金鑰、IV 與 RSA 公鑰是協定事實 —— 它們逐字出自 music.163.com 自己出貨的
-/// `core.js`，多份獨立的逆向筆記引用的是同一段。實作是獨立表達：這裡是寫死
-/// CBC 的三參數私有方法加自行 `BigInt.modPow`，與社群常見的通用
-/// `aesEncrypt(text, mode, key, iv, format)` 分派 + PEM 解析寫法沒有對映關係。
-/// 出處與比對過程見 `THIRD_PARTY_LICENSES.md` § Protocol research。
+/// 金鑰、IV 與 RSA 公鑰逐字出自 music.163.com 自己出貨的 `core.js`。實作是
+/// 獨立表達：這裡是寫死 CBC 的三參數私有方法、`eapi` 內聯 ECB，加自行
+/// `BigInt.modPow`，與社群常見的通用 `aesEncrypt(text, mode, key, iv, format)`
+/// 分派 + PEM 解析寫法沒有對映關係。見 `THIRD_PARTY_LICENSES.md`
+/// § Implementation independence。
 class NeteaseCrypto {
   NeteaseCrypto._();
 
