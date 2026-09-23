@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:fmp/core/constants/download_filenames.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
-import 'package:fmp/core/utils/duration_formatter.dart';
 
 /// Track 模型扩展方法
 extension TrackExtensions on Track {
@@ -72,8 +71,7 @@ extension TrackExtensions on Track {
   /// 頭像存儲在視頻文件夾內：{videoDir}/avatar.jpg
   ///
   /// [cache] FileExistsCache 實例
-  /// [baseDir] 下載基礎目錄（已廢棄，保留參數以兼容現有調用）
-  String? getLocalAvatarPath(FileExistsCache cache, {String? baseDir}) {
+  String? getLocalAvatarPath(FileExistsCache cache) {
     // 從所有下載路徑中查找頭像
     final avatarPaths = allDownloadPaths.map((downloadPath) {
       final dir = Directory(downloadPath).parent;
@@ -81,12 +79,6 @@ extension TrackExtensions on Track {
     }).toList();
 
     return cache.getFirstExisting(avatarPaths);
-  }
-
-  /// 格式化时长显示
-  String get formattedDuration {
-    if (durationMs == null) return '--:--';
-    return DurationFormatter.formatMs(durationMs!);
   }
 
   /// 是否有网络封面

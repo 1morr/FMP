@@ -8,7 +8,6 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
-import 'package:fmp/providers/download/download_providers.dart';
 import 'package:fmp/core/constants/app_layout.dart';
 import 'package:fmp/core/constants/breakpoints.dart';
 import 'package:fmp/core/constants/app_constants.dart';
@@ -773,11 +772,8 @@ class _TrackInfoDialog extends ConsumerWidget {
     final currentTrack = ref.watch(currentTrackProvider);
     final currentStreamMetadata = ref.watch(currentStreamMetadataProvider);
 
-    // Watch 文件存在缓存和下载基础目录
     ref.watch(fileExistsCacheProvider);
     final cache = ref.read(fileExistsCacheProvider.notifier);
-    final baseDirAsync = ref.watch(downloadBaseDirProvider);
-    final baseDir = baseDirAsync.value;
 
     final isYouTube = currentTrack?.sourceType == SourceIds.youtube;
 
@@ -803,7 +799,6 @@ class _TrackInfoDialog extends ConsumerWidget {
                     isNetease: currentTrack?.sourceType == SourceIds.netease,
                     track: currentTrack,
                     cache: cache,
-                    baseDir: baseDir,
                   )
                 else if (detailState.isLoading)
                   const Center(
@@ -833,7 +828,6 @@ class _DetailContent extends StatelessWidget {
   final bool isNetease;
   final Track? track;
   final FileExistsCache cache;
-  final String? baseDir;
 
   const _DetailContent({
     required this.detail,
@@ -841,7 +835,6 @@ class _DetailContent extends StatelessWidget {
     this.isNetease = false,
     required this.track,
     required this.cache,
-    required this.baseDir,
   });
 
   @override
@@ -942,10 +935,7 @@ class _DetailContent extends StatelessWidget {
                 children: [
                   // 头像
                   AvatarImage(
-                    localPath: track?.getLocalAvatarPath(
-                      cache,
-                      baseDir: baseDir,
-                    ),
+                    localPath: track?.getLocalAvatarPath(cache),
                     networkUrl: detail.ownerFace.isNotEmpty
                         ? detail.ownerFace
                         : null,
