@@ -908,8 +908,8 @@ class BilibiliSource
   /// 检查 API 响应
   ///
   /// 風控碼（見 [BilibiliApiException.riskControlCodes]）不換指紋重試，丟
-  /// `rateLimited` 讓上層退避（電台輪詢已經這樣做）。三輪實測都指向「換 buvid
-  /// 救不回來」：
+  /// `rateLimited` 讓上層退避：串流解析隔幾秒重試一次，排行榜與電台輪詢各有
+  /// 退避階梯。三輪實測都指向「換 buvid 救不回來」：
   /// - 2026-07-29 對 ranking/v2 匿名請求：`curl/8.5.0`、`okhttp/4.9.0` 這類 UA
   ///   必定 -352，補上 buvid 也一樣；瀏覽器 UA 不帶任何 Cookie 也通過。
   /// - 2026-09-15 直連匿名：一分鐘內打 ranking/v2 十餘次後開始回 -352，此時

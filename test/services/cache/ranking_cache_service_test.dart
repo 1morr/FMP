@@ -252,6 +252,62 @@ void main() {
       );
     });
 
+    test('a failed refresh retries after the first backoff delay', () async {
+      final track = _track('recovered-bv', SourceIds.bilibili);
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili)
+        ..tracks = [track]
+        ..nextError = Exception('-352');
+      final service = _bareService(
+        [bilibiliSource],
+        failureRetryDelays: const [Duration(milliseconds: 1)],
+      );
+
+      await service.refreshSource(SourceIds.bilibili);
+      expect(service.state.errorFor(SourceIds.bilibili), contains('-352'));
+
+      await pumpUntil(
+        () => service.state.isLoaded(SourceIds.bilibili),
+        reason: 'the backoff retry should refresh the ranking again',
+      );
+      expect(bilibiliSource.fetchCount, 2);
+      expect(service.state.tracksFor(SourceIds.bilibili), [track]);
+      expect(service.state.errorFor(SourceIds.bilibili), isNull);
+    });
+
+    test('backoff stops once every delay has been used', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
+      for (var i = 0; i < 5; i++) {
+        bilibiliSource.enqueueFetch(error: Exception('-352'));
+      }
+      final service = _bareService(
+        [bilibiliSource],
+        failureRetryDelays: const [Duration.zero, Duration.zero],
+      );
+
+      await service.refreshSource(SourceIds.bilibili);
+      await pumpUntil(
+        () => bilibiliSource.fetchCount == 3,
+        reason: 'one refresh plus one retry per delay',
+      );
+      await drainEventQueue(reason: 'no retry is left after the last delay');
+      expect(bilibiliSource.fetchCount, 3);
+    });
+
+    test('disposing cancels a pending backoff retry', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili)
+        ..nextError = Exception('-352');
+      final harness = _bareServiceIn(
+        [bilibiliSource],
+        failureRetryDelays: const [Duration(milliseconds: 20)],
+      );
+
+      await harness.service.refreshSource(SourceIds.bilibili);
+      harness.container.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(bilibiliSource.fetchCount, 1);
+    });
+
     test(
       'refreshSource sends source-specific requests and stores by source',
       () async {
@@ -796,12 +852,18 @@ void _expectRankingRequest(
 RankingCacheService _bareService(
   List<SourceCapability> sources, {
   Duration? initialLoadTimeout,
-}) => _bareServiceIn(sources, initialLoadTimeout: initialLoadTimeout).service;
+  List<Duration>? failureRetryDelays,
+}) => _bareServiceIn(
+  sources,
+  initialLoadTimeout: initialLoadTimeout,
+  failureRetryDelays: failureRetryDelays,
+).service;
 
 /// 需要在測試中途主動釋放時用這個 —— 釋放現在是 container 的事。
 ({RankingCacheService service, ProviderContainer container}) _bareServiceIn(
   List<SourceCapability> sources, {
   Duration? initialLoadTimeout,
+  List<Duration>? failureRetryDelays,
 }) {
   final container = ProviderContainer(
     overrides: [
@@ -810,9 +872,12 @@ RankingCacheService _bareService(
       ),
       connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
       rankingCacheServiceProvider.overrideWith(
-        () => initialLoadTimeout == null
-            ? _BareRankingCacheService()
-            : _BareRankingCacheService(initialLoadTimeout: initialLoadTimeout),
+        () => _BareRankingCacheService(
+          initialLoadTimeout: initialLoadTimeout ?? const Duration(seconds: 5),
+          failureRetryDelays:
+              failureRetryDelays ??
+              RankingCacheService.defaultFailureRetryDelays,
+        ),
       ),
     ],
   );
@@ -824,7 +889,10 @@ RankingCacheService _bareService(
 }
 
 class _BareRankingCacheService extends RankingCacheService {
-  _BareRankingCacheService({super.initialLoadTimeout});
+  _BareRankingCacheService({
+    super.initialLoadTimeout,
+    super.failureRetryDelays,
+  });
 
   @override
   RankingCacheState build() => bindSources();
