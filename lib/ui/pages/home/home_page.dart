@@ -56,17 +56,19 @@ class HomeRankingSourcePlan {
 ///
 /// 沒有任何設定說「最多顯示 N 個排行榜」，那個上限純粹是版面產物。放不下就換到
 /// 下一列，不要把使用者自己開啟的內容藏起來。
+///
+/// 排法只有兩種：放得下全部就排成一橫列，放不下就每個音源各佔一列。以前是按
+/// 欄數換行，三個音源在兩欄寬的容器裡變成 2 + 1，最後一列右半整片空白。
 class HomeRankingLayoutPlan {
   HomeRankingLayoutPlan({
-    required this.columns,
     required this.hasCandidateSources,
     required List<List<HomeRankingSourcePlan>> rows,
   }) : rows = List.unmodifiable(
          rows.map(List<HomeRankingSourcePlan>.unmodifiable),
        );
 
-  /// 一列放幾個。最後一列可能不滿，渲染時要補空欄位維持對齊。
-  final int columns;
+  /// 一列放幾個。每一列都是滿的，所以就是第一列的長度。
+  int get columns => rows.isEmpty ? 0 : rows.first.length;
 
   /// 有沒有任何已啟用的音源（即使它們都還沒有資料）。載入中要不要顯示佔位符看
   /// 這個，看 [sources] 會在第一次載入時把整段藏起來。
@@ -83,8 +85,6 @@ HomeRankingLayoutPlan buildHomeRankingLayoutPlan({
   required List<String> enabledSourceOrder,
   required Map<String, List<Track>> tracksBySource,
 }) {
-  final columns = columnsFor(maxWidth);
-
   final candidateSources = enabledSourceOrder
       .where(tracksBySource.containsKey)
       .map(
@@ -98,13 +98,14 @@ HomeRankingLayoutPlan buildHomeRankingLayoutPlan({
       .where((source) => source.tracks.isNotEmpty)
       .toList();
 
-  final rows = <List<HomeRankingSourcePlan>>[
-    for (var i = 0; i < availableSources.length; i += columns)
-      availableSources.skip(i).take(columns).toList(),
-  ];
+  final fitsOnOneRow = availableSources.length <= columnsFor(maxWidth);
+  final rows = fitsOnOneRow
+      ? [if (availableSources.isNotEmpty) availableSources]
+      : [
+          for (final source in availableSources) [source],
+        ];
 
   return HomeRankingLayoutPlan(
-    columns: columns,
     hasCandidateSources: candidateSources.isNotEmpty,
     rows: rows,
   );
@@ -279,21 +280,16 @@ class HomeRankingsSection extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 補到 plan.columns 個欄位而不是只放這一列有的，最後一列不
-                    // 滿時才不會把僅有的那個排行榜拉成整列寬、與上一列錯開。
-                    for (var column = 0; column < plan.columns; column++) ...[
-                      if (column > 0) const SizedBox(width: 16),
+                    for (final source in plan.rows[rowIndex]) ...[
+                      if (source != plan.rows[rowIndex].first)
+                        const SizedBox(width: 16),
                       Expanded(
-                        child: column < plan.rows[rowIndex].length
-                            ? _buildRankingCard(
-                                context,
-                                colorScheme,
-                                title: SourceIds.displayNameFor(
-                                  plan.rows[rowIndex][column].id,
-                                ),
-                                tracks: plan.rows[rowIndex][column].tracks,
-                              )
-                            : const SizedBox.shrink(),
+                        child: _buildRankingCard(
+                          context,
+                          colorScheme,
+                          title: SourceIds.displayNameFor(source.id),
+                          tracks: source.tracks,
+                        ),
                       ),
                     ],
                   ],

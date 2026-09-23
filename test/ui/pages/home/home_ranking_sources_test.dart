@@ -94,26 +94,37 @@ void main() {
       ]);
     });
 
-    test(
-      'a panel that shrinks the content wraps a source instead of dropping it',
-      () {
-        // 1280dp 平板開啟曲目詳情面板（約 412dp）之後，內容區只剩約 868dp，
-        // 斷點從 desktop 掉到 tablet。以前第三個音源會整個消失。
-        final plan = buildHomeRankingLayoutPlan(
-          maxWidth: 1280 - 412,
-          enabledSourceOrder: const ['bilibili', 'youtube', 'netease'],
-          tracksBySource: _allTracks,
-        );
+    test('a panel that shrinks the content stacks the sources instead of '
+        'dropping one', () {
+      // 1280dp 平板開啟曲目詳情面板（約 412dp）之後，內容區只剩約 868dp，
+      // 只放得下兩欄。以前第三個音源會整個消失；之後改成 2 + 1 換行，最後
+      // 一列右半整片空白。三個放不下一列，就每個各佔一列。
+      final plan = buildHomeRankingLayoutPlan(
+        maxWidth: 1280 - 412,
+        enabledSourceOrder: const ['bilibili', 'youtube', 'netease'],
+        tracksBySource: _allTracks,
+      );
 
-        expect(plan.columns, 2);
-        expect(plan.rows.map((row) => row.length), [2, 1]);
-        expect(plan.sources.map((source) => source.id), [
-          'bilibili',
-          'youtube',
-          'netease',
-        ]);
-      },
-    );
+      expect(plan.columns, 1);
+      expect(plan.rows.map((row) => row.length), [1, 1, 1]);
+      expect(plan.sources.map((source) => source.id), [
+        'bilibili',
+        'youtube',
+        'netease',
+      ]);
+    });
+
+    test('fewer sources than the width fits share one row between them', () {
+      // 1200dp 放得下三欄，但只有兩個音源有資料：兩個各佔一半，不留一個空欄。
+      final plan = buildHomeRankingLayoutPlan(
+        maxWidth: 1200,
+        enabledSourceOrder: const ['bilibili', 'youtube'],
+        tracksBySource: _allTracks,
+      );
+
+      expect(plan.columns, 2);
+      expect(plan.rows.map((row) => row.length), [2]);
+    });
 
     test('the plan reports enabled sources that have no data yet', () {
       // 載入中要顯示佔位符而不是把整段藏起來，靠的是這個旗標而不是 sources。
