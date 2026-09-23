@@ -11,7 +11,6 @@
   "responseDataFormatError": "响应数据格式错误",
   "cannotParsePlaylistId": "无法解析歌单ID: $url",
   "fetchPlaylistFailed": "获取歌单失败",
-  "playlistDataFormatError": "歌单数据格式错误",
   "spotifyCannotParsePageData": "无法解析 Spotify 页面数据，页面结构可能已变更",
   "spotifyPageDataAbnormal": "Spotify 页面数据结构异常",
   "spotifyCannotGetTrackList": "无法获取曲目列表",

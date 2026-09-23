@@ -98,7 +98,6 @@
     "sourceLrclib": "lrclib",
     "enabled": "已啟用",
     "disabled": "已停用",
-    "sourceDisabledToast": "該歌詞源已停用",
     "aiSectionTitle": "AI 歌詞匹配",
     "aiMode": "模式",
     "aiModeOff": "關閉",
@@ -246,9 +245,7 @@
     "title": "圖片快取大小",
     "maxSize": "最大 $size",
     "clearTitle": "清除圖片快取",
-    "currentCache": "目前快取: $size",
     "calculating": "正在計算...",
-    "clearConfirm": "確定要清除所有快取的圖片嗎？這不會影響已下載的本機圖片。",
     "currentCacheSize": "目前快取大小: $size",
     "cacheCleared": "圖片快取已清除"
   },
@@ -257,9 +254,7 @@
     "currentCache": "$count 個檔案，$size",
     "calculating": "計算中...",
     "maxFiles": "最多 $count 個",
-    "maxFilesTitle": "最大快取數量",
     "clearTitle": "清除歌詞快取",
-    "clearConfirm": "清除所有快取的歌詞？需要時會重新下載。",
     "cacheCleared": "歌詞快取已清除"
   },
   "refreshInterval": {

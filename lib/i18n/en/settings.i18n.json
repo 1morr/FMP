@@ -98,7 +98,6 @@
     "sourceLrclib": "lrclib",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "sourceDisabledToast": "This lyrics source is disabled",
     "aiSectionTitle": "AI lyrics matching",
     "aiMode": "Mode",
     "aiModeOff": "Off",
@@ -246,9 +245,7 @@
     "title": "Image Cache Size",
     "maxSize": "Max $size",
     "clearTitle": "Clear Image Cache",
-    "currentCache": "Current cache: $size",
     "calculating": "Calculating...",
-    "clearConfirm": "Clear all cached images? This will not affect downloaded local images.",
     "currentCacheSize": "Current cache size: $size",
     "cacheCleared": "Image cache cleared"
   },
@@ -257,9 +254,7 @@
     "currentCache": "$count files, $size",
     "calculating": "Calculating...",
     "maxFiles": "Max $count",
-    "maxFilesTitle": "Max Cache Count",
     "clearTitle": "Clear Lyrics Cache",
-    "clearConfirm": "Clear all cached lyrics? They will be re-downloaded when needed.",
     "cacheCleared": "Lyrics cache cleared"
   },
   "refreshInterval": {

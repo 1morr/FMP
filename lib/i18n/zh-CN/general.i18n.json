@@ -14,7 +14,6 @@
   "enabled": "已启用",
   "disabled": "已禁用",
   "notSet": "未设置",
-  "defaultLabel": "默认",
   "custom": "自定义",
   "systemDefault": "系统默认",
   "initializing": "正在初始化...",

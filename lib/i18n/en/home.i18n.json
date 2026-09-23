@@ -7,7 +7,5 @@
   "nowPlaying": "Now Playing",
   "upNext": "Up Next",
   "viewQueue": "View Queue",
-  "radio": "Radio",
-
-  "loadFailed": "Load failed"
+  "radio": "Radio"
 }

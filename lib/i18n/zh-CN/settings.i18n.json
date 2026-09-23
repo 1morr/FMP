@@ -98,7 +98,6 @@
     "sourceLrclib": "lrclib",
     "enabled": "已启用",
     "disabled": "已禁用",
-    "sourceDisabledToast": "该歌词源已禁用",
     "aiSectionTitle": "AI 歌词匹配",
     "aiMode": "模式",
     "aiModeOff": "关闭",
@@ -246,9 +245,7 @@
     "title": "图片缓存大小",
     "maxSize": "最大 $size",
     "clearTitle": "清除图片缓存",
-    "currentCache": "当前缓存: $size",
     "calculating": "正在计算...",
-    "clearConfirm": "确定要清除所有缓存的图片吗？这不会影响已下载的本地图片。",
     "currentCacheSize": "当前缓存大小: $size",
     "cacheCleared": "图片缓存已清除"
   },
@@ -257,9 +254,7 @@
     "currentCache": "$count 个文件，$size",
     "calculating": "计算中...",
     "maxFiles": "最多 $count 个",
-    "maxFilesTitle": "最大缓存数量",
     "clearTitle": "清除歌词缓存",
-    "clearConfirm": "清除所有缓存的歌词？需要时会重新下载。",
     "cacheCleared": "歌词缓存已清除"
   },
   "refreshInterval": {

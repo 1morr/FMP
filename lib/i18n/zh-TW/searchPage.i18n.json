@@ -3,7 +3,6 @@
   "searchMusic": "搜尋你喜歡的音樂",
   "history": "搜尋紀錄",
   "clear": "清空",
-  "retry": "重試",
   "allLoaded": "已載入全部",
   "noResults": "未找到「$query」相關結果",
   "noLiveRooms": "未找到「$query」相關直播間",

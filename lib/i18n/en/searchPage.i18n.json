@@ -3,7 +3,6 @@
   "searchMusic": "Search for music you like",
   "history": "Search History",
   "clear": "Clear",
-  "retry": "Retry",
   "allLoaded": "All loaded",
   "noResults": "No results found for \"$query\"",
   "noLiveRooms": "No live rooms found for \"$query\"",

@@ -7,7 +7,5 @@
   "nowPlaying": "正在播放",
   "upNext": "接下來播放",
   "viewQueue": "查看佇列",
-  "radio": "電台",
-
-  "loadFailed": "載入失敗"
+  "radio": "電台"
 }

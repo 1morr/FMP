@@ -1,5 +1,4 @@
 {
-  "cannotPlay": "無法播放「$title」",
   "cannotPlayReason": "無法播放「$title」：$reason",
   "playbackFailed": "播放失敗: $message",
   "queueFull": "播放清單已滿（最多${count}首）",
@@ -7,7 +6,6 @@
   "mixPlaylistNoAdd": "Mix 播放清單不支援新增歌曲",
   "mixLoadMoreFailed": "無法取得更多歌曲，請稍後重試",
   "mixLoadMoreError": "載入更多歌曲失敗",
-  "cannotPlaySkipped": "無法播放「$title」，已跳過",
   "cannotPlaySkippedReason": "無法播放「$title」：$reason，已跳過",
   "sourceErrorUnavailable": "歌曲已下架或暫不可播放",
   "sourceErrorGeoRestricted": "受版權或地區限制",
