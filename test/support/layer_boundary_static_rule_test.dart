@@ -44,6 +44,8 @@ const _knownFeatureEdges = <String>{
   'audio -> library',
   'audio -> lyrics',
   'audio -> network',
+  // 排行榜要跟播放一樣帶登入狀態：B 站對匿名身分另有節流配額
+  'cache -> account',
   'cache -> network',
   'download -> account',
   'download -> audio',

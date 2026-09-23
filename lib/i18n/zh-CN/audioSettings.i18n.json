@@ -31,8 +31,8 @@
   },
   "authForPlay": {
     "title": "播放认证",
-    "subtitle": "仅在音源播放需要登录凭证时使用账号状态。",
-    "bilibiliDescription": "默认开启：B 站会限流未登录的请求。",
+    "subtitle": "播放与歌曲详情的请求是否带上已登录的账号。",
+    "bilibiliDescription": "默认开启：B 站会限流未登录的请求，排行榜也受影响。",
     "youtubeDescription": "除非需要账号限定内容播放，否则建议关闭。",
     "neteaseDescription": "默认开启，用于 VIP 或账号受限歌曲。"
   },

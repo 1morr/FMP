@@ -7,8 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
 
 import '../../support/pump_until.dart';
@@ -62,6 +64,7 @@ void main() {
       final notifier = _TestConnectivityNotifier();
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(
               sources: [bilibiliSource, youtubeSource, neteaseSource],
@@ -131,6 +134,9 @@ void main() {
         final notifier = _TestConnectivityNotifier();
         final container = ProviderContainer(
           overrides: [
+            sourceAuthContextProvider.overrideWithValue(
+              _RecordingAuthContext(),
+            ),
             sourceManagerProvider.overrideWith(
               (ref) => SourceManager(
                 sources: [
@@ -250,6 +256,30 @@ void main() {
         service.state.errorFor(SourceIds.bilibili),
         contains('network down'),
       );
+    });
+
+    test('ranking requests carry the auth-for-play headers', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
+      final authContext = _RecordingAuthContext()
+        ..headers = {'Cookie': 'SESSDATA=sentinel'};
+      final service = _bareService([bilibiliSource], authContext: authContext);
+
+      await service.refreshSource(SourceIds.bilibili);
+
+      expect(authContext.requests, [SourceIds.bilibili]);
+      expect(bilibiliSource.lastRequest!.authHeaders, {
+        'Cookie': 'SESSDATA=sentinel',
+      });
+      _expectRankingRequest(bilibiliSource.lastRequest, regionId: 1003);
+    });
+
+    test('a signed-out ranking request carries no auth headers', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
+      final service = _bareService([bilibiliSource]);
+
+      await service.refreshSource(SourceIds.bilibili);
+
+      expect(bilibiliSource.lastRequest!.authHeaders, isNull);
     });
 
     test('a failed refresh retries after the first backoff delay', () async {
@@ -496,6 +526,7 @@ void main() {
       // 這條就變成「重複釋放 container 不會炸」。
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(
               sources: [
@@ -526,6 +557,9 @@ void main() {
         final firstNotifier = _TestConnectivityNotifier();
         final firstContainer = ProviderContainer(
           overrides: [
+            sourceAuthContextProvider.overrideWithValue(
+              _RecordingAuthContext(),
+            ),
             sourceManagerProvider.overrideWith(
               (ref) => SourceManager(
                 sources: [
@@ -565,6 +599,9 @@ void main() {
         final secondNotifier = _TestConnectivityNotifier();
         final secondContainer = ProviderContainer(
           overrides: [
+            sourceAuthContextProvider.overrideWithValue(
+              _RecordingAuthContext(),
+            ),
             sourceManagerProvider.overrideWith(
               (ref) => SourceManager(
                 sources: [
@@ -709,6 +746,7 @@ void main() {
     test('provider only refreshes sources that expose a RankingSource', () {
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(
               sources: [_FakeRankingSource(SourceIds.bilibili)],
@@ -728,6 +766,7 @@ void main() {
     test('provider throws when no source exposes a RankingSource', () {
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(sources: const []),
           ),
@@ -853,10 +892,12 @@ RankingCacheService _bareService(
   List<SourceCapability> sources, {
   Duration? initialLoadTimeout,
   List<Duration>? failureRetryDelays,
+  _RecordingAuthContext? authContext,
 }) => _bareServiceIn(
   sources,
   initialLoadTimeout: initialLoadTimeout,
   failureRetryDelays: failureRetryDelays,
+  authContext: authContext,
 ).service;
 
 /// 需要在測試中途主動釋放時用這個 —— 釋放現在是 container 的事。
@@ -864,9 +905,13 @@ RankingCacheService _bareService(
   List<SourceCapability> sources, {
   Duration? initialLoadTimeout,
   List<Duration>? failureRetryDelays,
+  _RecordingAuthContext? authContext,
 }) {
   final container = ProviderContainer(
     overrides: [
+      sourceAuthContextProvider.overrideWithValue(
+        authContext ?? _RecordingAuthContext(),
+      ),
       sourceManagerProvider.overrideWith(
         (ref) => SourceManager(sources: sources),
       ),
@@ -886,6 +931,21 @@ RankingCacheService _bareService(
     service: container.read(rankingCacheServiceProvider.notifier),
     container: container,
   );
+}
+
+/// 未登入時 `authForPlay` 回 null；[headers] 設了就回那一份。
+class _RecordingAuthContext implements SourceAuthContext {
+  Map<String, String>? headers;
+  final requests = <String>[];
+
+  @override
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
+    requests.add(sourceType);
+    return headers;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _BareRankingCacheService extends RankingCacheService {

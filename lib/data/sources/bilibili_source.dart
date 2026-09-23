@@ -764,8 +764,12 @@ class BilibiliSource
           )
           .toList();
 
-      // 获取热门评论
-      final comments = await getHotComments(bvid, limit: 3);
+      // 評論 API 要的是 aid，而它就在上面這份 view 回應裡。
+      final comments = await _getHotComments(
+        data['aid'],
+        limit: 3,
+        authHeaders: authHeaders,
+      );
 
       return VideoDetail(
         bvid: bvid,
@@ -799,21 +803,15 @@ class BilibiliSource
   }
 
   /// 获取热门评论
-  Future<List<VideoComment>> getHotComments(
-    String bvid, {
-    int limit = 5,
+  ///
+  /// 帶不帶登入狀態跟詳情同一個開關；帶了是否能避開 `/x/v2/reply` 的 -412
+  /// 還沒量過（2026-09-22 的量測被自己的測試流量污染），失敗照舊回空列表。
+  Future<List<VideoComment>> _getHotComments(
+    Object? aid, {
+    required int limit,
+    Map<String, String>? authHeaders,
   }) async {
     try {
-      // 首先获取视频的 aid
-      final viewResponse = await _dio.get(
-        _viewApi,
-        queryParameters: {'bvid': bvid},
-      );
-
-      _checkResponse(viewResponse.data);
-      final aid = viewResponse.data['data']['aid'];
-
-      // 获取热门评论
       final replyResponse = await _dio.get(
         _replyApi,
         queryParameters: {
@@ -823,6 +821,7 @@ class BilibiliSource
           'ps': limit,
           'pn': 1,
         },
+        options: authHeaders != null ? _withAuth(authHeaders) : null,
       );
 
       _checkResponse(replyResponse.data);
@@ -843,10 +842,10 @@ class BilibiliSource
         );
       }).toList();
     } on DioException catch (e) {
-      logError('Failed to get hot comments for $bvid: ${e.message}');
+      logError('Failed to get hot comments for aid $aid: ${e.message}');
       return []; // 评论获取失败不影响主要功能
     } catch (e) {
-      logError('Failed to get hot comments for $bvid: $e');
+      logError('Failed to get hot comments for aid $aid: $e');
       return [];
     }
   }
@@ -855,9 +854,16 @@ class BilibiliSource
 
   /// 获取排行榜视频
   /// [rid] 分区 ID：0=全站，1=动画，3=音乐，4=游戏，5=娱乐，36=科技，119=鬼畜，129=舞蹈，155=时尚，160=生活，181=影视
-  Future<List<Track>> getRankingVideos({int rid = 0}) async {
+  Future<List<Track>> getRankingVideos({
+    int rid = 0,
+    Map<String, String>? authHeaders,
+  }) async {
     try {
-      final response = await _fetchRankingVideosResponse(rid);
+      final response = await _dio.get(
+        _rankingApi,
+        queryParameters: {'rid': rid, 'type': 'all'},
+        options: authHeaders != null ? _withAuth(authHeaders) : null,
+      );
       _checkResponse(response.data);
 
       final list = response.data['data']['list'] as List? ?? [];
@@ -888,7 +894,10 @@ class BilibiliSource
 
   @override
   Future<List<Track>> getRankingTracks(SourceRankingRequest request) {
-    return getRankingVideos(rid: request.regionId ?? 0);
+    return getRankingVideos(
+      rid: request.regionId ?? 0,
+      authHeaders: request.authHeaders,
+    );
   }
 
   // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
@@ -898,10 +907,6 @@ class BilibiliSource
 
   @override
   String get rankingLabel => 'Bilibili 音樂排行榜';
-
-  Future<Response<dynamic>> _fetchRankingVideosResponse(int rid) {
-    return _dio.get(_rankingApi, queryParameters: {'rid': rid, 'type': 'all'});
-  }
 
   // ========== 辅助方法 ==========
 

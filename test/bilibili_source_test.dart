@@ -12,6 +12,7 @@ import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/sources/bilibili_live_client.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
@@ -56,7 +57,88 @@ void main() {
       expect(liveClient.streamRoomId, 12345);
     });
 
+    group('getVideoDetail', () {
+      test('asks view once and sends the login cookie to both calls', () async {
+        final requests = <RequestOptions>[];
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          requests.add(options);
+          final body = options.path.endsWith('/x/web-interface/wbi/view')
+              ? {
+                  'code': 0,
+                  'data': {'aid': 424242, 'title': 'Song', 'pages': []},
+                }
+              : {
+                  'code': 0,
+                  'data': {'replies': []},
+                };
+          return ResponseBody.fromString(
+            jsonEncode(body),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        await source.getVideoDetail(
+          'BVdetail',
+          authHeaders: const {'Cookie': 'SESSDATA=sentinel'},
+        );
+
+        // 評論要的 aid 就在第一份 view 回應裡，不能為了它再打一次 view。
+        expect(requests.map((r) => Uri.parse(r.path).path), [
+          '/x/web-interface/wbi/view',
+          '/x/v2/reply',
+        ]);
+        expect(requests.last.queryParameters['oid'], 424242);
+        for (final request in requests) {
+          expect(request.headers['Cookie'], contains('SESSDATA=sentinel'));
+        }
+      });
+    });
+
     group('getRankingVideos', () {
+      test('sends the login cookie only when auth headers are given', () async {
+        final cookies = <String?>[];
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          cookies.add(options.headers['Cookie'] as String?);
+          return ResponseBody.fromString(
+            jsonEncode({
+              'code': 0,
+              'data': {'list': []},
+            }),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        await source.getRankingTracks(
+          const SourceRankingRequest(
+            regionId: 1003,
+            authHeaders: {'Cookie': 'SESSDATA=sentinel'},
+          ),
+        );
+        await source.getRankingTracks(
+          const SourceRankingRequest(regionId: 1003),
+        );
+
+        expect(cookies, hasLength(2));
+        expect(cookies.first, contains('SESSDATA=sentinel'));
+        expect(cookies.last ?? '', isNot(contains('SESSDATA')));
+      });
+
       test('reports risk control as rate limited without retrying', () async {
         final requests = <RequestOptions>[];
         final dio = Dio();

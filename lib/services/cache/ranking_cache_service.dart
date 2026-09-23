@@ -6,6 +6,7 @@ import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
 
 /// 首頁排行榜緩存服務
@@ -265,8 +266,12 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
     _failureRetryTimers.remove(sourceType)?.cancel();
     final generation = _nextRefreshGeneration(sourceType);
     try {
+      // 登入狀態跟著播放認證走：關掉就匿名，與播放、詳情同一個開關。
+      final authHeaders = await ref
+          .read(sourceAuthContextProvider)
+          .authForPlay(sourceType);
       final tracks = await source.getRankingTracks(
-        source.defaultRankingRequest,
+        source.defaultRankingRequest.withAuth(authHeaders),
       );
       if (_isDisposed || generation != _refreshGenerations[sourceType]) return;
 
