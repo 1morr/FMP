@@ -35,6 +35,7 @@ import 'package:fmp/ui/widgets/player/cover_art_container.dart';
 import 'package:fmp/ui/widgets/player/fmp_audio_device_selector.dart';
 import 'package:fmp/ui/widgets/player/player_play_pause_button.dart';
 import 'package:fmp/ui/widgets/lyrics/lyrics_display.dart';
+import 'package:fmp/ui/widgets/menus/popup_menu_row.dart';
 import 'package:fmp/ui/pages/lyrics/lyrics_search_sheet.dart';
 
 /// 播放頁的三種版面。
@@ -267,15 +268,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         itemBuilder: (context) => [
           PopupMenuItem(
             value: 'speed',
-            child: ListTile(
-              leading: const Icon(Icons.speed),
-              title: Text('${playbackSpeed}x'),
-              trailing: Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              contentPadding: EdgeInsets.zero,
+            child: PopupMenuRow(
+              icon: const Icon(Icons.speed),
+              label: '${playbackSpeed}x',
+              trailing: const Icon(Icons.chevron_right, size: 18),
             ),
           ),
           // 歌词选项（仅在显示歌词时显示）
@@ -283,35 +279,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             const PopupMenuDivider(),
             PopupMenuItem(
               value: 'lyrics_search',
-              child: ListTile(
-                leading: const Icon(Icons.search),
-                title: Text(t.lyrics.searchLyrics),
-                contentPadding: EdgeInsets.zero,
+              child: PopupMenuRow(
+                icon: const Icon(Icons.search),
+                label: t.lyrics.searchLyrics,
               ),
             ),
             PopupMenuItem(
               value: 'lyrics_offset',
-              child: ListTile(
-                leading: Icon(
+              child: PopupMenuRow(
+                icon: Icon(
                   _showOffsetControls
                       ? Icons.check_box
                       : Icons.check_box_outline_blank,
                 ),
-                title: Text(t.lyrics.adjustOffset),
-                contentPadding: EdgeInsets.zero,
+                label: t.lyrics.adjustOffset,
               ),
             ),
             PopupMenuItem(
               value: 'lyrics_display_mode',
-              child: ListTile(
-                leading: const Icon(Icons.translate),
-                title: Text(t.lyrics.displayMode),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                contentPadding: EdgeInsets.zero,
+              child: PopupMenuRow(
+                icon: const Icon(Icons.translate),
+                label: t.lyrics.displayMode,
+                trailing: const Icon(Icons.chevron_right, size: 18),
               ),
             ),
           ],

@@ -25,6 +25,7 @@ import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/ui/widgets/images/avatar_image.dart';
 import 'package:fmp/ui/widgets/images/radio_cover_image.dart';
 import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
+import 'package:fmp/ui/widgets/menus/popup_menu_row.dart';
 import 'package:fmp/ui/widgets/indicators/live_badge.dart';
 import 'package:fmp/ui/widgets/indicators/vip_badge.dart';
 import 'package:fmp/ui/widgets/layout/detail_stats_row.dart';
@@ -499,36 +500,29 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'search',
-                    child: ListTile(
-                      leading: const Icon(Icons.search, size: 20),
-                      title: Text(t.lyrics.searchLyrics),
-                      contentPadding: EdgeInsets.zero,
+                    child: PopupMenuRow(
+                      icon: const Icon(Icons.search, size: 20),
+                      label: t.lyrics.searchLyrics,
                     ),
                   ),
                   PopupMenuItem(
                     value: 'offset',
-                    child: ListTile(
-                      leading: Icon(
+                    child: PopupMenuRow(
+                      icon: Icon(
                         _showOffsetControls
                             ? Icons.check_box
                             : Icons.check_box_outline_blank,
                         size: 20,
                       ),
-                      title: Text(t.lyrics.adjustOffset),
-                      contentPadding: EdgeInsets.zero,
+                      label: t.lyrics.adjustOffset,
                     ),
                   ),
                   PopupMenuItem(
                     value: 'display_mode',
-                    child: ListTile(
-                      leading: const Icon(Icons.translate, size: 20),
-                      title: Text(t.lyrics.displayMode),
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      contentPadding: EdgeInsets.zero,
+                    child: PopupMenuRow(
+                      icon: const Icon(Icons.translate, size: 20),
+                      label: t.lyrics.displayMode,
+                      trailing: const Icon(Icons.chevron_right, size: 18),
                     ),
                   ),
                 ],
