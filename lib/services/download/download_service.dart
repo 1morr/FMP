@@ -1094,7 +1094,14 @@ class DownloadService with Logging {
     if (_shouldAbortBeforeRegistration(task.id)) return null;
     final tempPath = '$savePath.downloading';
     if (await File(savePath).exists()) {
-      await _throwDestinationConflict(task, savePath);
+      if (await _hasPairedMetadata(savePath)) {
+        await _throwDestinationConflict(task, savePath);
+      }
+      // 無配對 metadata 的目的地是 finalization 未完成留下的殘骸。留著它
+      // 會讓這首曲子永久卡在 conflict：失敗任務在啟動時被刪，retryTask 也
+      // 不碰磁碟。刪掉重下才是使用者要的結果。
+      logWarning('Replacing stale destination without metadata: $savePath');
+      await File(savePath).delete();
     }
 
     // 确保目录存在
@@ -1389,6 +1396,30 @@ class DownloadService with Logging {
     );
   }
 
+  /// 目的地音訊檔是否有配對的 metadata 檔。
+  ///
+  /// 有配對 metadata ＝ FMP 自己完成寫入的檔案，永不覆蓋。metadata 只在
+  /// promote 成功之後才寫（`_finalizeDownload` 的順序），所以「有音訊檔、
+  /// 沒有 metadata」只可能是 finalization 中途被 kill 留下的殘骸。
+  ///
+  /// 查詢途中任何 IO 例外一律回 `true`：讀不到不等於不存在，寧可維持
+  /// conflict 讓使用者自己處理，也不能因為查不動就把他的檔案刪掉。
+  Future<bool> _hasPairedMetadata(String savePath) async {
+    final dir = p.dirname(savePath);
+    final candidates = DownloadFileNames.metadataCandidatesForAudio(
+      p.basename(savePath),
+    );
+    try {
+      for (final name in candidates) {
+        if (await File(p.join(dir, name)).exists()) return true;
+      }
+      return false;
+    } catch (e) {
+      logWarning('Failed to check paired metadata for $savePath: $e');
+      return true;
+    }
+  }
+
   Future<void> _throwDestinationConflict(
     DownloadTask task,
     String savePath,
@@ -1407,7 +1438,18 @@ class DownloadService with Logging {
     try {
       await destination.create(exclusive: true);
     } on FileSystemException {
-      await _throwDestinationConflict(task, savePath);
+      if (await _hasPairedMetadata(savePath)) {
+        await _throwDestinationConflict(task, savePath);
+      }
+      // 同上：無 metadata 的目的地是 promote 被 kill 留下的半檔，刪掉後
+      // 重試一次 exclusive create；再失敗才是真的 conflict。
+      logWarning('Replacing stale destination without metadata: $savePath');
+      await destination.delete();
+      try {
+        await destination.create(exclusive: true);
+      } on FileSystemException {
+        await _throwDestinationConflict(task, savePath);
+      }
     }
 
     try {

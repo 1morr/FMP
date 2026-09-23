@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
 import 'package:fmp/data/models/account.dart';
 import 'package:fmp/data/models/download_task.dart';
 import 'package:fmp/data/models/playlist.dart';
@@ -1387,6 +1388,11 @@ void main() {
         );
         await File(savePath).parent.create(recursive: true);
         await File(savePath).writeAsBytes([9, 9, 9], flush: true);
+        // 配對 metadata 一併植入：有 metadata 的目的地是已完成的檔案，
+        // 沒有 metadata 的會被當成 finalization 殘骸覆蓋掉。
+        await File(
+          p.join(p.dirname(savePath), DownloadFileNames.metadata),
+        ).writeAsString('{}', flush: true);
 
         final task = await downloadRepository.saveTask(
           DownloadTask()
@@ -1467,6 +1473,10 @@ void main() {
             plantedConflict = true;
             await File(savePath).parent.create(recursive: true);
             await File(savePath).writeAsBytes([7, 7, 7], flush: true);
+            // 配對 metadata 一併植入，見上一個測試的說明。
+            await File(
+              p.join(p.dirname(savePath), DownloadFileNames.metadata),
+            ).writeAsString('{}', flush: true);
           }
           await Future<void>.delayed(const Duration(milliseconds: 20));
           request.response.add([3, 4]);
@@ -1509,6 +1519,81 @@ void main() {
         expect(await File('$savePath.downloading').exists(), isFalse);
 
         service.dispose();
+      },
+    );
+
+    test(
+      'finalization replaces a destination that appears without metadata',
+      () async {
+        // promote 被 kill 的殘骸在這次下載途中出現：exclusive create 失敗後，
+        // 沒有配對 metadata 就刪掉它再建一次。
+        final baseDir = await _createTempDirDeletedOnTearDown(
+          'download_final_stale_',
+        );
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final track = Track()
+          ..sourceId = 'final-stale'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Final Stale'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+        var plantedDebris = false;
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 4;
+          request.response.add([1, 2]);
+          await request.response.flush();
+          if (!plantedDebris) {
+            plantedDebris = true;
+            await File(savePath).writeAsBytes([7, 7, 7], flush: true);
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          request.response.add([3, 4]);
+          await request.response.close();
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..savePath = savePath
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.host}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await service.debugStartDownloadForTesting(task);
+
+        expect(plantedDebris, isTrue);
+        expect(await File(savePath).readAsBytes(), [1, 2, 3, 4]);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.completed);
       },
     );
 
@@ -1605,6 +1690,105 @@ segment0.ts
             playlistName: playlist.name,
           ),
           isNull,
+        );
+      },
+    );
+
+    test(
+      'download replaces a destination left without paired metadata',
+      () async {
+        final baseDir = await Directory.systemTemp.createTemp(
+          'download_stale_dest_',
+        );
+        addTearDown(() async {
+          for (var i = 0; i < 100; i++) {
+            if (!await baseDir.exists()) return;
+            try {
+              await baseDir.delete(recursive: true);
+              return;
+            } on FileSystemException {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+          }
+        });
+
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final track = Track()
+          ..sourceId = 'stale-destination'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Stale Destination'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+
+        // finalization 被 kill 的殘骸：有音訊檔、沒有配對 metadata。
+        await File(savePath).parent.create(recursive: true);
+        await File(savePath).writeAsBytes([1, 2], flush: true);
+
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 4;
+          request.response.add(Uint8List.fromList([5, 6, 7, 8]));
+          await request.response.close();
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..savePath = savePath
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(() async {
+          await service.debugStartDownloadForTesting(task);
+          await _waitUntil(() async => service.debugActiveDownloads == 0);
+        }, _DirectHttpOverrides());
+
+        expect(await File(savePath).readAsBytes(), [5, 6, 7, 8]);
+        expect(
+          await File(
+            p.join(p.dirname(savePath), DownloadFileNames.metadata),
+          ).exists(),
+          isTrue,
+        );
+        expect(await File('$savePath.downloading').exists(), isFalse);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.completed);
+        final updatedTrack = await trackRepository.getById(savedTrack.id);
+        expect(
+          updatedTrack?.getDownloadPath(
+            playlist.id,
+            playlistName: playlist.name,
+          ),
+          savePath,
         );
       },
     );
