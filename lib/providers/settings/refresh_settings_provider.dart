@@ -56,13 +56,12 @@ class RefreshSettingsNotifier extends Notifier<RefreshSettingsState> {
       isLoading: false,
     );
 
-    // 用用户设置的间隔更新服务定时器
+    // 排行榜服務先用預設間隔起跑，這裡換成使用者存的值 —— 所以這個 provider
+    // 要在啟動時就建（`FMPApp.build` 錨著），不能等設定頁打開。電台服務在
+    // `main.dart` 建立時就帶了存的值，而且這時它可能還不存在。
     ref
         .read(rankingCacheServiceProvider.notifier)
         .updateRefreshInterval(Duration(minutes: rankingMinutes));
-    RadioRefreshService.instance.updateRefreshInterval(
-      Duration(minutes: radioMinutes),
-    );
   }
 
   Future<void> setRankingRefreshInterval(int minutes) async {
@@ -93,7 +92,7 @@ class RefreshSettingsNotifier extends Notifier<RefreshSettingsState> {
     state = state.copyWith(radioRefreshIntervalMinutes: minutes);
 
     RadioRefreshService.instance.updateRefreshInterval(
-      Duration(minutes: minutes),
+      RadioRefreshService.intervalFromMinutes(minutes),
     );
   }
 }

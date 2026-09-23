@@ -13,7 +13,7 @@ import 'package:fmp/services/radio/radio_source.dart';
 ///
 /// 主動後台刷新模式：
 /// - 應用啟動時立即獲取直播狀態
-/// - 每 5 分鐘自動後台刷新
+/// - 按設定的間隔自動後台刷新（預設 5 分鐘）
 /// - 用戶進入任何頁面時直接顯示緩存，無需等待
 /// - 緩存直播狀態和電台資訊（封面、標題、主播名）
 ///
@@ -29,6 +29,15 @@ class RadioRefreshService with Logging {
 
   /// 退避上限。再長就等於「這一天不刷新」，使用者會以為壞了。
   static const maxBackoff = Duration(minutes: 30);
+
+  static const defaultRefreshInterval = Duration(minutes: 5);
+
+  /// 設定裡存的分鐘數換成輪詢間隔。讀不到的、非法的（還沒寫過這個欄位的舊列
+  /// 讀出來是負數，而這時遷移還沒把它修好）照預設。
+  static Duration intervalFromMinutes(int? minutes) =>
+      minutes == null || minutes < 1
+      ? defaultRefreshInterval
+      : Duration(minutes: minutes);
 
   RadioRepository? _repository;
   final RadioSource _radioSource;
@@ -56,7 +65,7 @@ class RadioRefreshService with Logging {
     Duration? refreshInterval,
     DateTime Function()? now,
   }) : _radioSource = radioSource ?? RadioSource(),
-       _refreshInterval = refreshInterval ?? const Duration(minutes: 5),
+       _refreshInterval = refreshInterval ?? defaultRefreshInterval,
        _now = now ?? DateTime.now;
 
   /// 緩存的直播狀態

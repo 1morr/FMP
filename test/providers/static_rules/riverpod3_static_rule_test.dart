@@ -20,6 +20,8 @@ void main() {
         'themeProvider',
         'localeProvider',
         'playbackSettingsProvider',
+        // 載入時才把存的排行榜刷新間隔推給服務；等設定頁打開就太晚了。
+        'refreshSettingsProvider',
         'autoRefreshServiceProvider',
         'accountStatusCheckProvider',
         'startupDownloadSyncProvider',

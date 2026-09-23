@@ -22,6 +22,7 @@ import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/update/update_service.dart';
 import 'package:fmp/ui/startup_failure_app.dart';
 import 'package:fmp/ui/windows/lyrics_window.dart';
+import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
@@ -146,7 +147,7 @@ void main(List<String> args) async {
       LocaleSettings.useDeviceLocaleSync();
 
       // 预读主题设置，避免启动时主题闪烁（白→黑→白）
-      await _preloadThemeSettings();
+      final preloadedSettings = await _preloadSettings();
 
       // 限制 Flutter 图片内存缓存大小，减少内存占用
       // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
@@ -245,7 +246,13 @@ void main(List<String> args) async {
       // 首頁排行榜和電台刷新在第一帧渲染后启动，用户感知不到延迟
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // 初始化電台刷新服務（後台加載）
-        RadioRefreshService.instance = RadioRefreshService();
+        // 間隔在這裡就要是使用者存的值：建好之後第一個呼叫 `setRepository` 的
+        // 是電台控制器，那一刻就開始輪詢，等不到設定頁載入。
+        RadioRefreshService.instance = RadioRefreshService(
+          refreshInterval: RadioRefreshService.intervalFromMinutes(
+            preloadedSettings?.radioRefreshIntervalMinutes,
+          ),
+        );
         WidgetsBinding.instance.addObserver(
           _RadioRefreshLifecycleObserver(RadioRefreshService.instance),
         );
@@ -360,7 +367,9 @@ class _RadioRefreshLifecycleObserver with WidgetsBindingObserver {
 /// 预读主题设置（在 runApp 之前调用，避免启动时主题闪烁）
 ///
 /// 提前打开 Isar 读取 Settings，databaseProvider 后续 open 同名数据库会复用此实例。
-Future<void> _preloadThemeSettings() async {
+/// 回傳讀到的那一列，給其他在 Riverpod 之外、runApp 之前就要建好的服務用；
+/// 讀不到（全新安裝或讀取失敗）時是 null。注意這時遷移還沒跑。
+Future<Settings?> _preloadSettings() async {
   try {
     final isar = await openFmpDatabase();
     final settings = await SettingsRepository(isar).getOrNull();
@@ -369,6 +378,7 @@ Future<void> _preloadThemeSettings() async {
       preloadedPrimaryColor = settings.primaryColorValue;
       preloadedFontFamily = settings.fontFamily;
     }
+    return settings;
   } catch (e, stack) {
     // 预读失败不影响启动（继续用默认主题），但必须留痕：这里是 Isar 第一次
     // 打开数据库的地方，吞掉异常会让真正的数据库故障看起来像"主题没生效"。
@@ -378,5 +388,6 @@ Future<void> _preloadThemeSettings() async {
       stack,
       'Startup',
     );
+    return null;
   }
 }

@@ -18,6 +18,7 @@ import 'package:fmp/providers/system/windows_desktop_provider.dart';
 import 'package:fmp/services/library/auto_refresh_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/settings/locale_provider.dart';
+import 'package:fmp/providers/settings/refresh_settings_provider.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/widgets/app_bars/custom_title_bar.dart';
@@ -113,6 +114,9 @@ class FMPApp extends ConsumerWidget {
 
         // 提前初始化播放设置（避免进入设置页时 Switch 出现开启动画）
         ref.watch(playbackSettingsProvider);
+
+        // 載入時把存的排行榜刷新間隔套到服務上；以前要打開設定頁才生效
+        ref.watch(refreshSettingsProvider);
 
         // 初始化自动刷新服务（后台运行，不阻塞 UI）
         ref.watch(autoRefreshServiceProvider);
