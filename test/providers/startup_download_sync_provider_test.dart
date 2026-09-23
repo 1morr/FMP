@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logger.dart';
@@ -70,21 +71,64 @@ void main() {
     });
 
     test(
-      'unconfigured download path is skipped without error logging',
+      'unconfigured download path syncs the platform default directory',
       () async {
         final harness = await _createHarness(
           'startup_download_sync_unconfigured',
         );
         addTearDown(harness.dispose);
+
+        // 舊版未選目錄時下載到平台預設（桌面是 Documents/FMP）；那些檔案要能
+        // 被同步回來，不能因為使用者沒選過目錄就整段跳過。
+        final documentsDir = p.join(harness.tempDir.path, 'documents');
+        const pathProviderChannel = MethodChannel(
+          'plugins.flutter.io/path_provider',
+        );
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(pathProviderChannel, (call) async {
+          if (call.method == 'getApplicationDocumentsDirectory') {
+            return documentsDir;
+          }
+          return null;
+        });
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(pathProviderChannel, null),
+        );
+
+        final videoDir = Directory(
+          p.join(documentsDir, 'FMP', 'Playlist A', 'video-a'),
+        );
+        await videoDir.create(recursive: true);
+        final audioPath = p.join(videoDir.path, 'audio.m4a');
+        await File(audioPath).writeAsString('audio');
+        await File(p.join(videoDir.path, 'metadata.json')).writeAsString(
+          jsonEncode({
+            'sourceId': 'video-a',
+            'sourceType': 'youtube',
+            'title': 'Video A',
+            'artist': 'Artist',
+          }),
+        );
+
+        final trackRepo = TrackRepository(harness.isar);
+        final savedTrack = await trackRepo.save(
+          Track()
+            ..sourceId = 'video-a'
+            ..sourceType = SourceIds.youtube
+            ..title = 'Video A'
+            ..artist = 'Artist',
+        );
         AppLogger.clearLogs();
 
         await harness.container.read(startupDownloadSyncProvider.future);
 
-        final startupLogs = AppLogger.logs
-            .where((entry) => entry.tag == 'StartupDownloadSync')
-            .toList();
-        expect(startupLogs.map((entry) => entry.level), [LogLevel.info]);
-        expect(startupLogs.single.message, contains('not configured'));
+        final refreshedTrack = await trackRepo.getById(savedTrack.id);
+        expect(refreshedTrack?.allDownloadPaths, [audioPath]);
+        expect(
+          AppLogger.logs.where((entry) => entry.level == LogLevel.error),
+          isEmpty,
+        );
       },
     );
 

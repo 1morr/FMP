@@ -8,19 +8,10 @@ import 'package:fmp/providers/library/playlist_provider.dart'
 
 final startupDownloadSyncProvider = FutureProvider<void>((ref) async {
   try {
-    // 三個 Provider 都不依賴任何 await 的結果，在第一個 await 之前一次讀完 ——
+    // 兩個 Provider 都不依賴任何 await 的結果，在第一個 await 之前一次讀完 ——
     // Riverpod 3 對 dispose 之後的 Ref 會拋 UnmountedRefException。
-    final pathManager = ref.read(downloadPathManagerProvider);
     final syncService = ref.read(downloadPathSyncServiceProvider);
     final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
-
-    if (!await pathManager.hasConfiguredPath()) {
-      AppLogger.info(
-        'Skipping startup download sync: download path not configured',
-        'StartupDownloadSync',
-      );
-      return;
-    }
 
     final (added, removed) = await syncService.syncLocalFiles();
 

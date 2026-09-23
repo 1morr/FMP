@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'package:fmp/i18n/strings.g.dart';
-
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/track_key.dart';
@@ -28,10 +26,8 @@ class DownloadPathSyncService with Logging {
   Future<(int added, int removed)> syncLocalFiles({
     void Function(int current, int total)? onProgress,
   }) async {
-    final basePath = await _pathManager.getCurrentDownloadPath();
-    if (basePath == null) {
-      throw Exception(t.download.pathNotConfigured);
-    }
+    // 掃描的是實際寫檔的那個根目錄，與已下載頁列出分類用的是同一個定義。
+    final basePath = await _pathManager.getEffectiveBaseDir();
 
     final baseDir = Directory(basePath);
     if (!await baseDir.exists()) {
