@@ -154,18 +154,28 @@ class FMPApp extends ConsumerWidget {
           routerConfig: appRouter,
 
           // 全局内容包装器 - 确保标题栏 / 网络状态在所有页面（包括播放器）一致显示
-          builder: (context, child) => _AppContentWrapper(child: child),
+          builder: (context, child) => AppContentWrapper(child: child),
         );
       },
     );
   }
 }
 
-/// App 内容包装器 - 处理 Windows 标题栏、网络状态 Banner 和 SafeArea
-class _AppContentWrapper extends ConsumerWidget {
+/// App 內容包裝器：Windows 標題列、網路狀態 Banner 與 SafeArea。
+///
+/// 這些控制項掛在 Navigator 之上。每個路由的 ModalBarrier 都帶
+/// `BlockSemantics`，會把同一個語意容器裡、比它先畫的節點整段丟掉 —— 標題列
+/// 的三個按鈕和 Banner 因此不在語意樹上，讀屏聽不到。路由那一格包成獨立的
+/// 語意容器（[_routeSemantics]），擋的範圍就只剩路由自己。
+///
+/// 公開是為了讓 widget test 在真的 Navigator 底下量語意樹。
+class AppContentWrapper extends ConsumerWidget {
   final Widget? child;
 
-  const _AppContentWrapper({this.child});
+  const AppContentWrapper({super.key, this.child});
+
+  Widget _routeSemantics() =>
+      Semantics(container: true, child: child ?? const SizedBox.shrink());
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -174,7 +184,7 @@ class _AppContentWrapper extends ConsumerWidget {
         children: [
           const CustomTitleBar(),
           const NetworkStatusBanner(),
-          Expanded(child: child ?? const SizedBox.shrink()),
+          Expanded(child: _routeSemantics()),
         ],
       );
     }
@@ -199,7 +209,7 @@ class _AppContentWrapper extends ConsumerWidget {
               child: MediaQuery.removePadding(
                 context: context,
                 removeTop: true,
-                child: child ?? const SizedBox.shrink(),
+                child: _routeSemantics(),
               ),
             ),
           ],

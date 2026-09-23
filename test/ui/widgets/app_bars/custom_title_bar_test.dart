@@ -83,8 +83,9 @@ void main() {
   testWidgets('each window control is announced by its own label', (
     tester,
   ) async {
-    // 不在 `MaterialApp.builder` 裡量：那裡的節點會被第一個路由 ModalBarrier 的
-    // `BlockSemantics` 整段丟掉，量到的是 app 外層的事，不是這個元件的。
+    // 只量元件自己的標籤。掛在 `MaterialApp.builder` 裡還能不能被讀屏看到，
+    // 取決於 app 外層有沒有把路由隔成獨立的語意容器，由
+    // `test/app_content_wrapper_test.dart` 量。
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(bare());
     await tester.pump();
