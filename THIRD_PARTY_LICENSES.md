@@ -24,7 +24,14 @@ media_kit_libs_windows_audio-1.0.9/windows/CMakeLists.txt:66,69
 
 That archive is produced by
 <https://github.com/media-kit/libmpv-win32-audio-build> (archived, and carrying
-no license file of its own). Its build scripts exclude every GPL-only
+no license file of its own).
+
+**This binary is frozen.** It is the 2023-09-24 snapshot; the build repository
+was archived on 2024-10-09, and `media_kit_libs_windows_audio` 1.0.9
+(2023-09-27) is still the latest release. No dependency bump can bring a newer
+mpv or FFmpeg, security fixes included, and FMP does not build its own.
+
+Its build scripts exclude every GPL-only component: Its build scripts exclude every GPL-only
 component:
 
 | Script | Flags |
