@@ -907,21 +907,22 @@ class BilibiliSource
 
   /// 检查 API 响应
   ///
-  /// 風控碼不重試、不換指紋。兩輪實測都指向「換 buvid 救不回來」：
-  /// - 2026-07-29 對 ranking/v2 匿名請求：-352 的觸發條件是 User-Agent 黑名單
-  ///   （`curl/8.5.0`、`okhttp/4.9.0` 必定 -352，補上 buvid 也一樣；瀏覽器 UA
-  ///   不帶任何 Cookie 也一律通過），與 buvid 無關。
+  /// 風控碼（見 [BilibiliApiException.riskControlCodes]）不換指紋重試，丟
+  /// `rateLimited` 讓上層退避（電台輪詢已經這樣做）。三輪實測都指向「換 buvid
+  /// 救不回來」：
+  /// - 2026-07-29 對 ranking/v2 匿名請求：`curl/8.5.0`、`okhttp/4.9.0` 這類 UA
+  ///   必定 -352，補上 buvid 也一樣；瀏覽器 UA 不帶任何 Cookie 也通過。
   /// - 2026-09-15 直連匿名：一分鐘內打 ranking/v2 十餘次後開始回 -352，此時
-  ///   無 cookie、本地亂數 buvid、`finger/spi` 剛領的 buvid 一律 -352，也就是
-  ///   頻率型封鎖；換發指紋後立刻重試只是多打一次。以前這裡有「-352 就向
-  ///   `finger/spi` 換指紋重試一次」的路徑，就是照這個結果拿掉的。
-  /// 正確的處置是丟 `rateLimited` 讓上層退避（電台輪詢已經這樣做）。
+  ///   無 cookie、本地亂數 buvid、`finger/spi` 剛領的 buvid 一律 -352。以前這裡
+  ///   有「-352 就向 `finger/spi` 換指紋重試一次」的路徑，就是照這個結果拿掉的。
+  /// - 2026-09-22 同一時間窗交錯：匿名 23/40 回 -352，帶 SESSDATA 0/40。節流對的
+  ///   是**匿名身分**，所以已登入時要真的把登入狀態帶上（`useAuthForPlay`）。
   void _checkResponse(Map<String, dynamic> data) {
     final code = data['code'];
     if (code != 0) {
       final message = data['message'] ?? 'Unknown error';
       // 记录API错误，特别关注限流相关错误
-      if (code == -352 || code == -412 || code == -509 || code == -799) {
+      if (code is int && BilibiliApiException.isRiskControlCode(code)) {
         logWarning('Bilibili rate limited: code=$code, message=$message');
         throw BilibiliApiException(
           numericCode: code,

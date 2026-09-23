@@ -12,6 +12,18 @@ class BilibiliApiException extends SourceApiException {
     required this.message,
   });
 
+  /// B 站的風控碼。遇到一律分類成 `rateLimited`，由呼叫端退避，不換指紋重試；
+  /// 為什麼見 `BilibiliSource._checkResponse` 的三輪量測。
+  ///
+  /// 這份清單是唯一來源：`_checkResponse` 與 `BilibiliLiveClient` 都經過
+  /// [isRiskControlCode]。`source_exception_test.dart` 釘住它的內容。
+  static const Set<int> riskControlCodes = {-352, -412, -509, -799};
+
+  static bool isRiskControlCode(int code) => riskControlCodes.contains(code);
+
+  /// HTTP 412 / 429 在 `_handleDioError` 裡轉成的合成碼，同樣算限流。
+  static const int httpRateLimitedCode = -429;
+
   @override
   String get code => _mapCode(numericCode);
 
@@ -25,11 +37,7 @@ class BilibiliApiException extends SourceApiException {
   SourceErrorKind get kind {
     if (numericCode == -1) return SourceErrorKind.timeout;
     if (numericCode == -2) return SourceErrorKind.network;
-    if (numericCode == -352 ||
-        numericCode == -412 ||
-        numericCode == -509 ||
-        numericCode == -799 ||
-        numericCode == -429) {
+    if (isRiskControlCode(numericCode) || numericCode == httpRateLimitedCode) {
       return SourceErrorKind.rateLimited;
     }
     if (numericCode == -404 || numericCode == -503 || numericCode == 62002) {
@@ -46,11 +54,7 @@ class BilibiliApiException extends SourceApiException {
   /// 将数字错误码映射为语义化字符串
   static String _mapCode(int code) {
     if (code == -404 || code == -503 || code == 62002) return 'unavailable';
-    if (code == -352 ||
-        code == -412 ||
-        code == -509 ||
-        code == -799 ||
-        code == -429) {
+    if (isRiskControlCode(code) || code == httpRateLimitedCode) {
       return 'rate_limited';
     }
     if (code == -10403) return 'geo_restricted';
