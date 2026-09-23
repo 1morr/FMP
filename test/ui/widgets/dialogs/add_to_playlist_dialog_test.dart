@@ -21,20 +21,30 @@ import '../../../support/isar_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  _Harness? created;
+  final created = <_Harness>[];
 
   setUpAll(() async {
     await initializeIsarForTests();
   });
 
   // 在 testWidgets 的假時鐘區域裡關 Isar 會卡住，所以資料庫留到這裡才收。
-  tearDownAll(() async => created?.closeDatabase());
+  tearDownAll(() async {
+    for (final harness in created) {
+      await harness.closeDatabase();
+    }
+  });
+
+  Future<_Harness> createHarness(WidgetTester tester) async {
+    final harness = (await tester.runAsync(_Harness.create))!;
+    created.add(harness);
+    addTearDown(harness.container.dispose);
+    return harness;
+  }
 
   testWidgets(
     'unticking a playlist removes the tracks in one call and creates none',
     (tester) async {
-      final harness = created = (await tester.runAsync(_Harness.create))!;
-      addTearDown(harness.container.dispose);
+      final harness = await createHarness(tester);
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.binding.setSurfaceSize(const Size(800, 1200));
       LocaleSettings.setLocale(AppLocale.en);
@@ -117,6 +127,70 @@ void main() {
       expect(trackCount, 0);
     },
   );
+
+  testWidgets('opening and cancelling the sheet writes no track', (
+    tester,
+  ) async {
+    final harness = await createHarness(tester);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    LocaleSettings.setLocale(AppLocale.en);
+    final createsBefore = harness.trackRepository.getOrCreateCalls;
+    final lookupsBefore = harness.trackRepository.lookups;
+
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: UncontrolledProviderScope(
+          container: harness.container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  // BV9 是搜尋結果裡還沒存過的曲目。
+                  onPressed: () => showAddToPlaylistDialog(
+                    context: context,
+                    tracks: [_track('BV1'), _track('BV9')],
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await _settle(
+      tester,
+      () => harness.trackRepository.lookups - lookupsBefore == 2,
+      reason: 'the sheet reads both tracks to preselect playlists',
+    );
+    // BV9 不在任何歌單裡，所以沒有歌單被預選。
+    expect(find.byIcon(Icons.check_circle), findsNothing);
+
+    Navigator.of(tester.element(find.text('Favourites'))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    // 還在跑的歌單讀取要在這裡跑完，否則之後關資料庫會一直等它。
+    await _settle(
+      tester,
+      () => !harness.container.read(allPlaylistsProvider).isLoading,
+      reason: 'no playlist read is left in flight',
+    );
+
+    expect(harness.trackRepository.getOrCreateCalls, createsBefore);
+    final saved = await tester.runAsync(
+      () => harness.isar.tracks.where().sourceIdEqualTo('BV9').findAll(),
+    );
+    expect(
+      saved,
+      isEmpty,
+      reason: 'cancelling must leave the library as it was',
+    );
+  });
 }
 
 Track _track(String sourceId) => Track()
@@ -169,7 +243,8 @@ class _Harness {
     final isar = await Isar.open(
       [TrackSchema, PlaylistSchema, SettingsSchema],
       directory: tempDir.path,
-      name: 'add_to_playlist_dialog_test',
+      // 每條測試各開一個資料庫，要到最後才一起關，名字不能重複。
+      name: tempDir.path.split(Platform.pathSeparator).last,
     );
 
     final playlist = Playlist()..name = 'Favourites';
@@ -225,10 +300,29 @@ class _RecordingTrackRepository extends TrackRepository {
 
   int getOrCreateCalls = 0;
 
+  /// 已經**完成**的查詢次數。在開始時計數的話，條件成立時最後一筆讀取還在
+  /// 跑，之後關資料庫會一直等它。
+  int lookups = 0;
+
   @override
   Future<Track> getOrCreate(Track track) {
     getOrCreateCalls++;
     return super.getOrCreate(track);
+  }
+
+  @override
+  Future<Track?> getBySourceIdAndCid(
+    String sourceId,
+    String sourceType, {
+    int? cid,
+  }) async {
+    final track = await super.getBySourceIdAndCid(
+      sourceId,
+      sourceType,
+      cid: cid,
+    );
+    lookups++;
+    return track;
   }
 }
 

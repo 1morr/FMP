@@ -70,13 +70,20 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
   ) async {
     if (_isInitialized) return;
 
-    // 先从数据库获取最新的 track 数据（包含 playlistInfo）
+    // 從資料庫讀最新的 track（包含 playlistInfo），只讀不建：資料庫裡還沒有
+    // 的曲目本來就不在任何歌單裡。以前用 getOrCreate，只是打開再取消，
+    // 搜尋結果裡的曲目就被寫進資料庫。查詢沿用 getOrCreate 那一條
+    // （沒有 cid 時只比 sourceId），預選結果和以前一樣。
     final trackRepo = ref.read(trackRepositoryProvider);
     final loadedTracks = <Track>[];
     for (final track in tracks) {
       try {
-        final saved = await trackRepo.getOrCreate(track);
-        loadedTracks.add(saved);
+        final saved = await trackRepo.getBySourceIdAndCid(
+          track.sourceId,
+          track.sourceType,
+          cid: track.cid,
+        );
+        loadedTracks.add(saved ?? track);
       } catch (_) {
         // 如果获取失败，使用原始 track
         loadedTracks.add(track);
