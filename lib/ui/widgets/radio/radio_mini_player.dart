@@ -42,8 +42,10 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       label: t.player.openPlayer,
       child: GestureDetector(
         onTap: () => context.push(RoutePaths.radioPlayer),
+        // 高度是下限不是定值，理由同音樂的迷你播放器：大字級時標題加狀態
+        // 兩行會超過 64dp。
         child: Container(
-          height: 64,
+          constraints: const BoxConstraints(minHeight: 64),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHigh,
             border: Border(

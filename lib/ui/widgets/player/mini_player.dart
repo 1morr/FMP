@@ -60,8 +60,10 @@ class _MiniPlayerContentState extends ConsumerState<_MiniPlayerContent> {
             clipBehavior: Clip.none,
             children: [
               // 主内容容器
+              // 高度是下限不是定值：字級 1.8 起標題加歌手兩行就超過 62dp，
+              // 固定高度會把歌手名裁掉一半。
               Container(
-                height: 64,
+                constraints: const BoxConstraints(minHeight: 64),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHigh,
                   border: Border(
@@ -72,12 +74,14 @@ class _MiniPlayerContentState extends ConsumerState<_MiniPlayerContent> {
                   ),
                 ),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // 进度条占位（固定 2px 高度）
                     const SizedBox(height: 2),
 
                     // 内容
-                    Expanded(
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 62),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Row(

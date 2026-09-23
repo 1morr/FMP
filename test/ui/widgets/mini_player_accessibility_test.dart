@@ -119,6 +119,26 @@ void main() {
 
     handle.dispose();
   });
+
+  for (final scale in const [1.8, 2.0]) {
+    testWidgets(
+      'text at ${scale}x grows the bar instead of clipping the artist',
+      (tester) async {
+        final harness = (await tester.runAsync(_Harness.create))!;
+        addTearDown(() => tester.runAsync(() => harness.dispose()));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        await pumpMiniPlayer(tester, harness);
+
+        // 以前是固定 64dp：字級 1.8 起標題加歌手兩行放不下，實機 logcat 是
+        // `A RenderFlex overflowed by 7.5 pixels on the bottom`，歌手名被裁半。
+        expect(tester.takeException(), isNull);
+        expect(find.text('Someone'), findsOneWidget);
+      },
+    );
+  }
 }
 
 class _Harness {
