@@ -133,6 +133,13 @@ class DownloadService with Logging {
   /// 待发送进度的硬上限，避免 flush 停滞时无限增长
   static const int _pendingProgressUpdateLimit = 256;
 
+  /// 進行中任務最後已知的總長度（位元組）。
+  ///
+  /// 總長度只出現在 isolate 的進度訊息裡，而進度只發給 UI、不寫 DB，flush
+  /// 後就從 [_pendingProgressUpdates] 清掉；暫停時要算續傳進度只能靠這份。
+  /// 在 [_finalizeTaskCleanup] 移除，所以最多只有進行中的任務數那麼多筆。
+  final Map<int, int> _knownTotalBytes = {};
+
   /// 进度更新定时器（主线程定时器，统一处理所有进度更新）
   Timer? _progressUpdateTimer;
 
@@ -290,6 +297,7 @@ class DownloadService with Logging {
     _activeDownloadIsolates.clear();
 
     _pendingProgressUpdates.clear();
+    _knownTotalBytes.clear();
     _externallyCleaned.clear();
     _tasksInSetupWindow.clear();
     _setupAbortedTasks.clear();
@@ -358,6 +366,7 @@ class DownloadService with Logging {
   ) {
     if (_isDisposed) return;
 
+    if (totalBytes > 0) _knownTotalBytes[taskId] = totalBytes;
     // 只更新内存中的 Map，线程安全（Dart 单 Isolate 内所有代码在同一事件循环中执行，无并发竞争）
     _pendingProgressUpdates[taskId] = (
       trackId,
@@ -1194,6 +1203,7 @@ class DownloadService with Logging {
 
   void _finalizeTaskCleanup(int taskId) {
     final wasStillActive = _activeDownloadIsolates.remove(taskId) != null;
+    _knownTotalBytes.remove(taskId);
     _tasksInSetupWindow.remove(taskId);
     final wasSetupAborted = _setupAbortedTasks.remove(taskId);
     final wasExternallyCleaned = _externallyCleaned.remove(taskId);
@@ -1210,33 +1220,19 @@ class DownloadService with Logging {
     }
 
     try {
-      final pendingProgress = _pendingProgressUpdates[task.id];
-      if (pendingProgress != null) {
-        final (_, progress, downloadedBytes, totalBytes) = pendingProgress;
-        await _downloadRepository.updateTaskProgress(
-          task.id,
-          progress,
-          downloadedBytes,
-          totalBytes,
-        );
-        logDebug(
-          'Saved buffered resume progress: $downloadedBytes bytes for task ${task.id}',
-        );
-        return;
-      }
-
       if (task.tempFilePath == null) {
         return;
       }
 
       final tempFile = File(task.tempFilePath!);
       if (await tempFile.exists()) {
+        // 已下載量以暫存檔實際長度為準（續傳也從這個長度接著下）；總長度取
+        // 記憶體裡最後已知的那份。傳進來的 task 可能是下載啟動時的那份
+        // （isolate 收尾時的這次存檔），它的 progress / totalBytes 停在啟動
+        // 當下，所以後備改讀 DB 裡最新的。
         final downloadedBytes = await tempFile.length();
-        // 傳進來的 task 可能是下載啟動時的那份（isolate 收尾時的這次存檔），
-        // 它的 progress / totalBytes 停在啟動當下；直接寫回會把 pauseTask 剛存
-        // 的進度蓋成 0。以 DB 裡最新的總長度重算。
         final latest = await _downloadRepository.getTaskById(task.id) ?? task;
-        final totalBytes = latest.totalBytes;
+        final totalBytes = _knownTotalBytes[task.id] ?? latest.totalBytes;
         await _downloadRepository.updateTaskProgress(
           task.id,
           totalBytes != null && totalBytes > 0

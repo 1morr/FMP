@@ -204,6 +204,10 @@ void main() {
           () => service.debugPendingProgressCount > 0,
           reason: 'the isolate reports progress',
         );
+        // 進度每秒 flush 成 UI 事件後就從記憶體清掉、不寫 DB。實機按暫停時
+        // 多半落在這種狀態（進度訊息每 5% 才一則）。
+        service.debugFlushPendingProgressUpdatesForTesting();
+        expect(service.debugPendingProgressCount, 0);
         await service.pauseTask(task.id);
         await download;
 
