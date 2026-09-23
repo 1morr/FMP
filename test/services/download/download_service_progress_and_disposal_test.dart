@@ -141,47 +141,43 @@ void main() {
       },
     );
 
-    test(
-      'pauseAll persists buffered progress for active tasks before clearing',
-      () async {
-        final service = DownloadService(
-          downloadRepository: downloadRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-          sourceManager: SourceManager(),
-        );
-        final tempFile = File(
-          '${tempDir.path}/pause-all-progress/audio.m4a.downloading',
-        );
-        await tempFile.parent.create(recursive: true);
-        await tempFile.writeAsBytes(List<int>.filled(75, 1));
-        final task = await downloadRepository.saveTask(
-          _task(trackId: 13)
-            ..tempFilePath = tempFile.path
-            ..totalBytes = 100,
-        );
+    test('pauseAll keeps the progress of a running download', () async {
+      final audioUrl = await _startTricklingAudioServer(
+        contentLength: 1024 * 1024,
+      );
+      final savedTrack = await trackRepository.save(
+        _downloadTrack('pause-all-running'),
+      );
+      final task = await downloadRepository.saveTask(
+        _task(trackId: savedTrack.id)..playlistName = 'Download Playlist',
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
+      );
+      addTearDown(service.dispose);
 
-        service.debugMarkTaskActiveForTesting(task.id);
-        service.debugRecordProgressUpdateForTesting(
-          task.id,
-          task.trackId,
-          0.75,
-          75,
-          100,
-        );
-        await service.pauseAll();
+      final download = service.debugStartDownloadForTesting(task);
+      await pumpUntil(
+        () => service.debugPendingProgressCount > 0,
+        reason: 'the isolate reports progress',
+      );
+      await service.pauseAll();
+      await download;
 
-        final updatedTask = await downloadRepository.getTaskById(task.id);
-        expect(updatedTask?.status, DownloadStatus.paused);
-        expect(updatedTask?.progress, 0.75);
-        expect(updatedTask?.downloadedBytes, 75);
-        expect(updatedTask?.totalBytes, 100);
-        expect(service.debugPendingProgressCount, 0);
-        expect(service.debugActiveDownloads, 0);
-
-        service.dispose();
-      },
-    );
+      final paused = await downloadRepository.getTaskById(task.id);
+      expect(paused?.status, DownloadStatus.paused);
+      expect(paused?.progress, greaterThan(0));
+      expect(paused?.totalBytes, 1024 * 1024);
+      expect(
+        paused?.downloadedBytes,
+        await File(paused!.tempFilePath!).length(),
+      );
+      expect(service.debugPendingProgressCount, 0);
+      expect(service.debugActiveDownloads, 0);
+    });
 
     test(
       'pausing a running download keeps its progress after the isolate stops',
@@ -360,22 +356,38 @@ void main() {
     test(
       'external cleanup and final cleanup do not double-decrement active downloads',
       () async {
+        final audioUrl = await _startTricklingAudioServer();
         final service = DownloadService(
           downloadRepository: downloadRepository,
           trackRepository: trackRepository,
           settingsRepository: settingsRepository,
-          sourceManager: SourceManager(),
+          sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
         );
-        final task = await downloadRepository.saveTask(_task(trackId: 33));
+        addTearDown(service.dispose);
+        Future<(DownloadTask, Future<void>)> startRunning(String id) async {
+          final savedTrack = await trackRepository.save(_downloadTrack(id));
+          final task = await downloadRepository.saveTask(
+            _task(trackId: savedTrack.id)..playlistName = 'Download Playlist',
+          );
+          final download = service.debugStartDownloadForTesting(task);
+          await service.debugWaitForTaskToBecomeActiveForTesting(task.id);
+          return (task, download);
+        }
 
-        service.debugMarkTaskActiveForTesting(task.id);
+        final (pausedTask, pausedDownload) = await startRunning('dd-paused');
+        final (otherTask, otherDownload) = await startRunning('dd-other');
+        expect(service.debugActiveDownloads, 2);
+
+        // pauseTask 先做外部清理，isolate 停下後 _startDownload 的 finally
+        // 再做一次最終清理；兩者只能扣一次。計數有下限 0，所以要留另一個
+        // 任務在跑才看得出多扣。
+        await service.pauseTask(pausedTask.id);
+        await pausedDownload;
         expect(service.debugActiveDownloads, 1);
 
-        await service.pauseTask(task.id);
-        service.debugFinalizeTaskCleanupForTesting(task.id);
-
+        await service.pauseTask(otherTask.id);
+        await otherDownload;
         expect(service.debugActiveDownloads, 0);
-        service.dispose();
       },
     );
 
@@ -591,12 +603,19 @@ void main() {
             ..status = DownloadStatus.downloading
             ..createdAt = DateTime.now(),
         );
+        final activeTrack = await trackRepository.save(
+          _downloadTrack('setup-double-cleanup-active'),
+        );
         final activeTask = await downloadRepository.saveTask(
-          _task(trackId: 44),
+          _task(trackId: activeTrack.id)..playlistName = 'Download Playlist',
         );
 
         final sourceManager = _SingleSourceManager(
-          _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
+          _BlockingAudioSource(
+            'http://127.0.0.1:1/audio.m4a',
+            blockedSourceId: track.sourceId,
+            unblockedUrl: await _startTricklingAudioServer(),
+          ),
         );
         final blockedSource =
             sourceManager.audioStreamSource(SourceIds.youtube)!
@@ -607,7 +626,8 @@ void main() {
           settingsRepository: settingsRepository,
           sourceManager: sourceManager,
         );
-        service.debugMarkTaskActiveForTesting(activeTask.id);
+        final activeDownload = service.debugStartDownloadForTesting(activeTask);
+        await service.debugWaitForTaskToBecomeActiveForTesting(activeTask.id);
 
         final downloadFuture = service.debugStartDownloadForTesting(setupTask);
         await blockedSource.waitUntilRequested();
@@ -621,6 +641,7 @@ void main() {
         blockedSource.release();
         await downloadFuture;
         await service.pauseTask(activeTask.id);
+        await activeDownload;
         expect(service.debugActiveDownloads, 0);
 
         service.dispose();
@@ -2574,7 +2595,16 @@ class _StaticAudioSource implements AudioStreamSource {
 }
 
 class _BlockingAudioSource extends _StaticAudioSource {
-  _BlockingAudioSource(super.audioUrl);
+  /// [blockedSourceId] 為 null 時擋所有曲目；否則只擋那一首，其他曲目直接
+  /// 解析成 [unblockedUrl]。
+  _BlockingAudioSource(
+    super.audioUrl, {
+    this.blockedSourceId,
+    this.unblockedUrl,
+  });
+
+  final String? blockedSourceId;
+  final String? unblockedUrl;
 
   final Completer<void> _requested = Completer<void>();
   final Completer<void> _release = Completer<void>();
@@ -2589,6 +2619,13 @@ class _BlockingAudioSource extends _StaticAudioSource {
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    final blocked = blockedSourceId;
+    if (blocked != null && request.sourceId != blocked) {
+      return AudioStreamResult(
+        url: unblockedUrl ?? audioUrl,
+        streamType: StreamType.audioOnly,
+      );
+    }
     if (!_requested.isCompleted) {
       _requested.complete();
     }

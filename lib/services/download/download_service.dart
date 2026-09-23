@@ -77,14 +77,6 @@ class DownloadService with Logging {
   >
   _activeDownloadIsolates = {};
 
-  /// 測試注入的「活躍任務」標記。
-  ///
-  /// 生產環境永遠為空（下載一律走 [_activeDownloadIsolates]）；僅由
-  /// [debugMarkTaskActiveForTesting] 寫入，讓 bookkeeping 測試（pauseAll /
-  /// 計數 / 並發等待）不必啟動真實 isolate 即可模擬活躍下載。取代舊的 dead
-  /// CancelToken map——cancel 語意已由 isolate kill 承擔，不再需要 token。
-  final Set<int> _injectedActiveTaskIds = {};
-
   /// 已被外部清理的任务 ID（pauseTask/cancelTask 已递减 _activeDownloads）
   final Set<int> _externallyCleaned = {};
 
@@ -297,7 +289,6 @@ class DownloadService with Logging {
     }
     _activeDownloadIsolates.clear();
 
-    _injectedActiveTaskIds.clear();
     _pendingProgressUpdates.clear();
     _externallyCleaned.clear();
     _tasksInSetupWindow.clear();
@@ -693,10 +684,7 @@ class DownloadService with Logging {
   Future<void> pauseAll() async {
     logDebug('Pausing all downloads');
 
-    final activeTaskIds = {
-      ..._activeDownloadIsolates.keys,
-      ..._injectedActiveTaskIds,
-    }.toList();
+    final activeTaskIds = _activeDownloadIsolates.keys.toList();
     for (final taskId in activeTaskIds) {
       final task = await _downloadRepository.getTaskById(taskId);
       if (task != null) {
@@ -726,7 +714,6 @@ class DownloadService with Logging {
     final tasksToDelete = tasks.where((task) => !task.isCompleted).toList();
     final activeTaskIds = {
       ..._activeDownloadIsolates.keys,
-      ..._injectedActiveTaskIds,
       ..._tasksInSetupWindow,
     }.toList();
     final guardedTaskIds = tasksToDelete
@@ -776,8 +763,7 @@ class DownloadService with Logging {
     if (_discardedTaskIds.contains(task.id)) return;
 
     // 检查是否已经在下载
-    if (_activeDownloadIsolates.containsKey(task.id) ||
-        _injectedActiveTaskIds.contains(task.id)) {
+    if (_activeDownloadIsolates.containsKey(task.id)) {
       logDebug('Task already downloading: ${task.id}');
       return;
     }
@@ -1156,7 +1142,6 @@ class DownloadService with Logging {
 
   bool _isTaskActiveOrStarting(int taskId) {
     return _activeDownloadIsolates.containsKey(taskId) ||
-        _injectedActiveTaskIds.contains(taskId) ||
         _tasksInSetupWindow.contains(taskId) ||
         _externallyCleaned.contains(taskId);
   }
@@ -1171,22 +1156,7 @@ class DownloadService with Logging {
   }) async {
     logDebug('Cleanup active download task=$taskId reason=$cancelReason');
     final isolateInfo = _activeDownloadIsolates.remove(taskId);
-    if (isolateInfo != null) {
-      if (isolateInfo.cancelPortReady.isCompleted) {
-        isolateInfo.cancelPortReady.future.then((sendPort) {
-          if (!isolateInfo.stopped.isCompleted) {
-            sendPort.send('cancel');
-          }
-        });
-      } else {
-        isolateInfo.receivePort.close();
-        isolateInfo.isolate.kill();
-      }
-    }
-
-    final wasInjected = _injectedActiveTaskIds.remove(taskId);
-
-    if (isolateInfo == null && !wasInjected) {
+    if (isolateInfo == null) {
       if (_tasksInSetupWindow.contains(taskId)) {
         _setupAbortedTasks.add(taskId);
         if (!_externallyCleaned.contains(taskId)) {
@@ -1198,24 +1168,32 @@ class DownloadService with Logging {
       return;
     }
 
+    if (isolateInfo.cancelPortReady.isCompleted) {
+      isolateInfo.cancelPortReady.future.then((sendPort) {
+        if (!isolateInfo.stopped.isCompleted) {
+          sendPort.send('cancel');
+        }
+      });
+    } else {
+      isolateInfo.receivePort.close();
+      isolateInfo.isolate.kill();
+    }
+
     _externallyCleaned.add(taskId);
     _activeDownloads--;
     if (_activeDownloads < 0) _activeDownloads = 0;
 
-    if (isolateInfo != null) {
-      await isolateInfo.stopped.future.timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          isolateInfo.receivePort.close();
-          isolateInfo.isolate.kill();
-        },
-      );
-    }
+    await isolateInfo.stopped.future.timeout(
+      const Duration(seconds: 2),
+      onTimeout: () {
+        isolateInfo.receivePort.close();
+        isolateInfo.isolate.kill();
+      },
+    );
   }
 
   void _finalizeTaskCleanup(int taskId) {
     final wasStillActive = _activeDownloadIsolates.remove(taskId) != null;
-    _injectedActiveTaskIds.remove(taskId);
     _tasksInSetupWindow.remove(taskId);
     final wasSetupAborted = _setupAbortedTasks.remove(taskId);
     final wasExternallyCleaned = _externallyCleaned.remove(taskId);
@@ -1638,17 +1616,6 @@ class DownloadService with Logging {
   }
 
   @visibleForTesting
-  void debugMarkTaskActiveForTesting(int taskId) {
-    _injectedActiveTaskIds.add(taskId);
-    _activeDownloads++;
-  }
-
-  @visibleForTesting
-  void debugFinalizeTaskCleanupForTesting(int taskId) {
-    _finalizeTaskCleanup(taskId);
-  }
-
-  @visibleForTesting
   Future<void> debugStartDownloadForTesting(DownloadTask task) {
     return _startDownload(task);
   }
@@ -1662,8 +1629,7 @@ class DownloadService with Logging {
   @visibleForTesting
   Future<void> debugWaitForTaskToBecomeActiveForTesting(int taskId) async {
     for (var i = 0; i < 100; i++) {
-      if (_activeDownloadIsolates.containsKey(taskId) ||
-          _injectedActiveTaskIds.contains(taskId)) {
+      if (_activeDownloadIsolates.containsKey(taskId)) {
         return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 10));
