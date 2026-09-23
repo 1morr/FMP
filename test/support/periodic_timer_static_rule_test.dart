@@ -22,8 +22,7 @@ import 'dart_source.dart';
 
 /// 一個週期性 timer 做什麼、誰要的、使用者關不關得掉。
 ///
-/// 需求來源寫 issue / PR；沒有的就寫引入它的 commit，並照實寫「沒有 issue / PR」
-/// —— 那一欄空著的樣子本身就是資訊。
+/// 需求來源寫 issue / PR，或「使用者要求」；再附上引入它的 commit，方便回頭查。
 class _Periodic {
   const _Periodic(this.what, {required this.source, required this.canTurnOff});
 
@@ -36,21 +35,21 @@ const _timers = <String, List<_Periodic>>{
   'lib/services/network/connectivity_service.dart': [
     _Periodic(
       '對三個公共 DNS 做解析，判斷有沒有網路；恢復時通知排行榜重抓',
-      source: '`512fc470` 換掉 connectivity_plus 時引入，沒有 issue / PR',
+      source: '使用者要求；`512fc470` 換掉 connectivity_plus 時引入',
       canTurnOff: '不能。2026-09 決定不改行為，只列在這裡與對外主機清單上',
     ),
   ],
   'lib/services/cache/ranking_cache_service.dart': [
     _Periodic(
       '重抓首頁排行榜',
-      source: '`c7a77242` 引入、`92c249d2` 加間隔設定，沒有 issue / PR',
+      source: '使用者要求；`c7a77242` 引入、`92c249d2` 加間隔設定',
       canTurnOff: '不能；設定 > 排行榜刷新間隔可調',
     ),
   ],
   'lib/services/library/auto_refresh_service.dart': [
     _Periodic(
       '檢查哪些匯入歌單到了刷新時間並刷新',
-      source: '`d5ddd7e7` 引入，沒有 issue / PR',
+      source: '使用者要求；`d5ddd7e7` 引入',
       canTurnOff: '每個匯入歌單各自設定，預設不刷新；timer 本身只讀資料庫，不能關',
     ),
   ],
