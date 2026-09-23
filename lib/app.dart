@@ -14,7 +14,6 @@ import 'package:fmp/providers/download/startup_download_sync_provider.dart';
 import 'package:fmp/providers/settings/desktop_settings_provider.dart';
 import 'package:fmp/providers/settings/hotkey_config_provider.dart';
 import 'package:fmp/providers/settings/theme_provider.dart';
-import 'package:fmp/providers/system/update_auto_check_provider.dart';
 import 'package:fmp/providers/system/windows_desktop_provider.dart';
 import 'package:fmp/services/library/auto_refresh_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
@@ -126,9 +125,6 @@ class FMPApp extends ConsumerWidget {
 
         // 啟動後靜默同步已下載頁面的本地文件狀態
         ref.watch(startupDownloadSyncProvider);
-
-        // 啟動後在背景檢查一次更新（可關閉，每天最多一次）
-        ref.watch(updateAutoCheckProvider);
 
         return MaterialApp.router(
           title: '${AppConstants.appName} - ${AppConstants.appFullName}',

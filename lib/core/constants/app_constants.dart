@@ -120,18 +120,6 @@ class AppConstants {
   /// 更新服务连接超时 (GitHub Releases 可能较慢)
   static const Duration updateConnectTimeout = Duration(seconds: 15);
 
-  // ==================== 自動檢查更新 ====================
-
-  /// 啟動後隔多久才做自動檢查。
-  ///
-  /// 這段延遲不是為了「等畫面畫好」，而是為了不要跟啟動時已經排好的兩件網路
-  /// 工作搶頻寬：帳號狀態檢查（含 Bilibili Cookie 刷新）與還原上次播放時的串
-  /// 流解析。檢查更新沒有任何即時性，晚幾秒沒有代價。
-  static const Duration autoUpdateCheckStartupDelay = Duration(seconds: 8);
-
-  /// 兩次自動檢查之間的最短間隔。
-  static const Duration autoUpdateCheckInterval = Duration(hours: 24);
-
   /// 下载连接超时
   static const Duration downloadConnectTimeout = Duration(seconds: 30);
 

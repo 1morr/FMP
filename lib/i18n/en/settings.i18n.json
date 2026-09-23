@@ -145,11 +145,6 @@
     "checkGitHub": "Check for new version on GitHub",
     "checkFailed": "Failed to check for updates"
   },
-  "autoCheckUpdates": {
-    "title": "Check for Updates Automatically",
-    "subtitle": "Checks in the background after startup, at most once a day",
-    "found": "Version $version is available - install it from Settings > About"
-  },
   "userGuide": {
     "title": "User Guide",
     "subtitle": "Quick start, features, tips"

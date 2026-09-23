@@ -145,11 +145,6 @@
     "checkGitHub": "檢查 GitHub 上的新版本",
     "checkFailed": "檢查更新失敗"
   },
-  "autoCheckUpdates": {
-    "title": "自動檢查更新",
-    "subtitle": "啟動後在背景檢查，每天最多一次",
-    "found": "發現新版本 $version，可在「設定 › 關於」中安裝"
-  },
   "userGuide": {
     "title": "使用說明",
     "subtitle": "快速入門、功能介紹、使用提示"

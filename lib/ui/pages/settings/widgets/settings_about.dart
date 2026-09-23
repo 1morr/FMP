@@ -87,23 +87,6 @@ class _CheckUpdateListTile extends ConsumerWidget {
   }
 }
 
-/// 自動檢查更新開關
-class _AutoCheckUpdatesTile extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(autoCheckUpdatesProvider);
-
-    return SwitchListTile(
-      secondary: const Icon(Icons.update_outlined),
-      title: Text(t.settings.autoCheckUpdates.title),
-      subtitle: Text(t.settings.autoCheckUpdates.subtitle),
-      value: enabled,
-      onChanged: (value) =>
-          ref.read(autoCheckUpdatesProvider.notifier).setEnabled(value),
-    );
-  }
-}
-
 /// 开发者选项区域（隐藏，需要解锁）
 class _DeveloperOptionsSection extends ConsumerWidget {
   @override
