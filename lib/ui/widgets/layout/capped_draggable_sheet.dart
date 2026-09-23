@@ -109,11 +109,15 @@ class CappedDraggableSheet extends StatelessWidget {
       snapSizes: snapSizes,
       expand: expand,
       builder: (context, scrollController) {
-        return Container(
+        // 底色必須畫在 Material 上，不能畫在 Container 上：呼叫端的
+        // showModalBottomSheet 傳 `backgroundColor: Colors.transparent`，
+        // 內容裡 ListTile / InkWell 的水波紋畫在最近的 Material 上，
+        // 有底色的 Container 夾在中間就會把它整個蓋住，點擊沒有回饋。
+        return Material(
+          color: colorScheme.surfaceContainerLow,
           clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: const BorderRadius.vertical(
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
               top: Radius.circular(AppRadius.sheet),
             ),
           ),

@@ -72,46 +72,30 @@ void main() {
   testWidgets('a match that cannot be saved is reported to the user', (
     tester,
   ) async {
-    // 結果列是放在面板底色 Container 裡的 ListTile，Flutter 在 debug 模式會回報
-    // 「ink splashes may be invisible」。那是面板版面既有的問題，與這裡要驗的
-    // 錯誤提示無關，所以只濾掉這一句，其他錯誤照常讓測試失敗。
-    final reportError = FlutterError.onError;
-    FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains(
-        'ListTile background color or ink splashes may be invisible',
-      )) {
-        return;
-      }
-      reportError?.call(details);
-    };
-    try {
-      final saves = Completer<void>();
-      final notifier = await pumpSheet(
-        tester,
-        notifier: _ScriptedLyricsSearchNotifier(
-          results: const [result],
-          onSave: () => saves.future,
-        ),
-      );
+    final saves = Completer<void>();
+    final notifier = await pumpSheet(
+      tester,
+      notifier: _ScriptedLyricsSearchNotifier(
+        results: const [result],
+        onSave: () => saves.future,
+      ),
+    );
 
-      await tester.tap(find.text(result.trackName));
-      await tester.pump();
-      // 寫入還在進行時再點一次不會送出第二次。
-      await tester.tap(find.text(result.trackName), warnIfMissed: false);
-      await tester.pump();
-      expect(notifier.saveCalls, 1);
+    await tester.tap(find.text(result.trackName));
+    await tester.pump();
+    // 寫入還在進行時再點一次不會送出第二次。
+    await tester.tap(find.text(result.trackName), warnIfMissed: false);
+    await tester.pump();
+    expect(notifier.saveCalls, 1);
 
-      saves.completeError(const SocketException('offline'));
-      await tester.pumpAndSettle();
+    saves.completeError(const SocketException('offline'));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(
-        find.text(t.lyrics.saveFailed(error: t.error.networkError)),
-        findsOneWidget,
-      );
-    } finally {
-      FlutterError.onError = reportError;
-    }
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(
+      find.text(t.lyrics.saveFailed(error: t.error.networkError)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a match that cannot be removed is reported to the user', (
