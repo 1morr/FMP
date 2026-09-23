@@ -105,7 +105,7 @@ void main() {
         settingsBackup.sourceSettings
             .firstWhere((e) => e.sourceId == SourceIds.bilibili)
             .useAuthForPlay,
-        isFalse,
+        isTrue,
       );
       expect(
         settingsBackup.sourceSettings

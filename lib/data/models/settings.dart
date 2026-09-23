@@ -69,9 +69,12 @@ const String kFallbackStreamPriority = 'audioOnly,muxed';
 
 /// 預設就啟用播放認證的音源。
 ///
-/// 網易雲不帶登入狀態時大量歌曲只回試聽片段，所以它的預設是 true；
-/// 其餘音源預設 false。
+/// 網易雲不帶登入狀態時大量歌曲只回試聽片段。Bilibili 對匿名身分另有一份短窗
+/// 節流配額：2026-09-22 同一時間窗交錯打 `ranking/v2`，匿名 23/40 回 -352，帶
+/// SESSDATA 0/40 —— 已登入卻不帶，排行榜、詳情與播放就會一直撞 -352。YouTube
+/// 預設 false。改這張表時看 `database_migration.dart`：既有安裝存的是舊預設。
 const Map<String, bool> kDefaultUseAuthForPlayBySource = {
+  SourceIds.bilibili: true,
   SourceIds.netease: true,
 };
 

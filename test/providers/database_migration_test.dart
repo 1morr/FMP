@@ -593,7 +593,7 @@ void main() {
       expect(after.lastUpdateCheckAt, isNull);
     });
 
-    test('a database already at v3 keeps a disabled update check', () async {
+    test('a database past v3 keeps a disabled update check', () async {
       await openTestDatabase();
 
       final v3 = Settings()
@@ -604,6 +604,54 @@ void main() {
       await runDatabaseMigration(isar);
 
       expect((await isar.settings.get(0))!.autoCheckUpdates, isFalse);
+    });
+
+    test('the v3 to v4 step turns Bilibili auth-for-play on', () async {
+      await openTestDatabase();
+
+      // v3 存的 false 分不出是舊預設還是使用者自己關的；決定是一律打開，
+      // 而且只動 Bilibili 這一筆。
+      final v3 = Settings()..schemaVersion = 3;
+      v3
+        ..setUseAuthForPlay(SourceIds.bilibili, false)
+        ..setUseAuthForPlay(SourceIds.youtube, false)
+        ..setUseAuthForPlay(SourceIds.netease, false);
+      await isar.writeTxn(() async => isar.settings.put(v3));
+
+      await runDatabaseMigration(isar);
+
+      final after = (await isar.settings.get(0))!;
+      expect(after.schemaVersion, kFmpSchemaVersion);
+      expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
+      expect(after.useAuthForPlay(SourceIds.youtube), isFalse);
+      expect(after.useAuthForPlay(SourceIds.netease), isFalse);
+    });
+
+    test('a database past v4 keeps Bilibili auth-for-play off', () async {
+      await openTestDatabase();
+
+      // 遷移之後使用者自己關掉的，就是選擇，不能再被打開。
+      final v4 = Settings()..schemaVersion = kFmpSchemaVersion;
+      v4.setUseAuthForPlay(SourceIds.bilibili, false);
+      await isar.writeTxn(() async => isar.settings.put(v4));
+
+      await runDatabaseMigration(isar);
+
+      expect(
+        (await isar.settings.get(0))!.useAuthForPlay(SourceIds.bilibili),
+        isFalse,
+      );
+    });
+
+    test('a fresh install uses the Bilibili login state', () async {
+      await openTestDatabase();
+
+      await runDatabaseMigration(isar);
+
+      expect(
+        (await isar.settings.get(0))!.useAuthForPlay(SourceIds.bilibili),
+        isTrue,
+      );
     });
 
     test('stamps the current schema version on a fresh install', () async {

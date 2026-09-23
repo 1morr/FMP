@@ -545,7 +545,9 @@ class SourceSettingsBackup {
     return SourceSettingsBackup(
       sourceId: json['sourceId'] as String? ?? '',
       streamPriority: json['streamPriority'] as String? ?? '',
-      useAuthForPlay: json['useAuthForPlay'] as bool? ?? false,
+      useAuthForPlay:
+          json['useAuthForPlay'] as bool? ??
+          defaultUseAuthForPlayFor(json['sourceId'] as String? ?? ''),
     );
   }
 
@@ -569,18 +571,10 @@ List<SourceSettingsBackup> _readSourceSettings(Map<String, dynamic> json) {
     ];
   }
 
-  const legacyKeys = <String, (String, String, bool)>{
-    SourceIds.bilibili: (
-      'bilibiliStreamPriority',
-      'useBilibiliAuthForPlay',
-      false,
-    ),
-    SourceIds.youtube: (
-      'youtubeStreamPriority',
-      'useYoutubeAuthForPlay',
-      false,
-    ),
-    SourceIds.netease: ('neteaseStreamPriority', 'useNeteaseAuthForPlay', true),
+  const legacyKeys = <String, (String, String)>{
+    SourceIds.bilibili: ('bilibiliStreamPriority', 'useBilibiliAuthForPlay'),
+    SourceIds.youtube: ('youtubeStreamPriority', 'useYoutubeAuthForPlay'),
+    SourceIds.netease: ('neteaseStreamPriority', 'useNeteaseAuthForPlay'),
   };
   return [
     for (final MapEntry(key: sourceId, value: keys) in legacyKeys.entries)
@@ -589,7 +583,8 @@ List<SourceSettingsBackup> _readSourceSettings(Map<String, dynamic> json) {
         streamPriority:
             json[keys.$1] as String? ??
             kDefaultStreamPriorityBySource[sourceId]!,
-        useAuthForPlay: json[keys.$2] as bool? ?? keys.$3,
+        useAuthForPlay:
+            json[keys.$2] as bool? ?? defaultUseAuthForPlayFor(sourceId),
       ),
   ];
 }

@@ -32,7 +32,7 @@
   "authForPlay": {
     "title": "播放认证",
     "subtitle": "仅在音源播放需要登录凭证时使用账号状态。",
-    "bilibiliDescription": "除非需要大会员或私有内容播放，否则建议关闭。",
+    "bilibiliDescription": "默认开启：B 站会限流未登录的请求。",
     "youtubeDescription": "除非需要账号限定内容播放，否则建议关闭。",
     "neteaseDescription": "默认开启，用于 VIP 或账号受限歌曲。"
   },

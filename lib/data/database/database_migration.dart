@@ -27,7 +27,7 @@ import 'package:fmp/data/models/source_ids.dart';
 /// 改完跑 `dart run build_runner build` 與 `database_migration_test.dart`。
 /// collection 或欄位的可見性變了，同一個 commit 改 `database_catalog.dart`：
 /// debug viewer 完全靠它，漏了不會有任何編譯或測試失敗。
-const int kFmpSchemaVersion = 3;
+const int kFmpSchemaVersion = 4;
 
 /// 資料庫啟動時的唯一入口：套用未跑過的遷移步驟，再修復與版本無關的不變式。
 ///
@@ -123,6 +123,12 @@ const List<NamedMigrationStep> fmpMigrationSteps = <NamedMigrationStep>[
     name: 'turn the automatic update check on for existing installs',
     run: _migrateV2ToV3,
   ),
+  NamedMigrationStep(
+    from: 3,
+    to: 4,
+    name: 'use the Bilibili login state for playback requests',
+    run: _migrateV3ToV4,
+  ),
 ];
 
 /// 讀出這一列真正的 schema 版本。
@@ -198,6 +204,15 @@ void _migrateV1ToV2(Settings settings) {
 /// 語意正好是「從未檢查過」，不需要修。
 void _migrateV2ToV3(Settings settings) {
   settings.autoCheckUpdates = true;
+}
+
+/// v3 → v4：Bilibili 的 `useAuthForPlay` 業務預設改成 true。
+///
+/// 既有列存的 false 幾乎都是舊預設，但也可能是使用者自己關的 —— 兩者分不開。
+/// 2026-09-23 決定一律打開：不帶登入狀態時排行榜、詳情與播放持續撞匿名節流
+/// （見 `kDefaultUseAuthForPlayBySource`），而刻意關掉的人可以在音訊設定裡再關。
+void _migrateV3ToV4(Settings settings) {
+  settings.setUseAuthForPlay(SourceIds.bilibili, true);
 }
 
 bool _hasLegacyPlaybackAndLyricsDefaultsSignature(Settings settings) {
