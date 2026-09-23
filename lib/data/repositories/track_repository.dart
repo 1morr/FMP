@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/play_queue.dart';
-import 'package:fmp/data/models/lyrics_match.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track_key.dart';
 
@@ -607,6 +606,11 @@ class TrackRepository with Logging {
   /// 就不会被删除。这确保了歌单中的歌曲不会因为路径被清除而丢失。
   /// playlistId=0 的下载路径是 scanner 扫描发现的，下次打开已下载页面时会重新创建。
   ///
+  /// **不連帶刪 `LyricsMatch`。** Track 是可以重建的快取：同一首歌下次從搜尋或
+  /// 播放紀錄播起來，會以同一個 `uniqueKey` 重新建立。歌詞匹配不是 —— 裡面是
+  /// 使用者手動挑的歌詞版本與校正過的 `offsetMs`，跟著刪就是讓使用者重做一次。
+  /// 代價是孤兒 Track 的匹配紀錄留在資料庫裡，每首一列、幾十個位元組。
+  ///
   /// 返回删除的 Track 数量
   Future<int> deleteOrphanTracks({List<int> excludeTrackIds = const []}) async {
     logDebug(
@@ -615,7 +619,6 @@ class TrackRepository with Logging {
 
     final excludeSet = excludeTrackIds.toSet();
     final toDelete = <int>[];
-    final orphanUniqueKeys = <String>[];
 
     // 获取所有 tracks
     final allTracks = await _isar.tracks.where().findAll();
@@ -636,7 +639,6 @@ class TrackRepository with Logging {
 
       // 这是一个孤立的 track，标记为删除
       toDelete.add(track.id);
-      orphanUniqueKeys.add(track.uniqueKey);
     }
 
     if (toDelete.isEmpty) {
@@ -644,19 +646,9 @@ class TrackRepository with Logging {
       return 0;
     }
 
-    // 批量删除 tracks 和对应的歌词匹配记录
-    await _isar.writeTxn(() async {
-      await _isar.tracks.deleteAll(toDelete);
+    await _isar.writeTxn(() => _isar.tracks.deleteAll(toDelete));
 
-      // 清理孤儿 track 对应的 LyricsMatch 记录
-      for (final key in orphanUniqueKeys) {
-        await _isar.lyricsMatchs.where().trackUniqueKeyEqualTo(key).deleteAll();
-      }
-    });
-
-    logInfo(
-      'Deleted ${toDelete.length} orphan tracks and their lyrics matches',
-    );
+    logInfo('Deleted ${toDelete.length} orphan tracks');
     return toDelete.length;
   }
 }
