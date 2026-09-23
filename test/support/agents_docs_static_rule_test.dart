@@ -5,10 +5,9 @@
 /// 會把人導向重做，而一條壞掉的路徑會當場失敗），所以**綠燈不是文檔正確的證明**。
 /// 這一輪修掉的四條斷言錯誤裡只有一條是這裡抓得到的。
 ///
-/// 只認兩種形狀，都在反引號裡：
-///
-/// - **路徑**：`lib/` `test/` `docs/` `.github/` 開頭，或裸的 `*.dart` 檔名。
-/// - **方法**：小寫開頭 + `()`。
+/// 只認反引號裡的**路徑**：`lib/` `test/` `docs/` `.github/` 開頭，或裸的
+/// `*.dart` 檔名。原本還認「小寫開頭 + `()`」的方法呼叫，但那些引用全在已刪除
+/// 的巢狀 `AGENTS.md` 裡，根檔一個也沒有 —— 對著零個消費點的閘門就一起刪了。
 ///
 /// **刻意不認裸識別符。** 在這棵樹上實測 191 個候選、10 個零命中，而那 10 個
 /// 全部是文檔**刻意**提到不存在的東西：被明文禁止的名字（`isDesktop`）、明說
@@ -26,9 +25,6 @@ final _pathPattern = RegExp(
   r'`((?:lib|test|docs|android|ios|windows|macos|linux|web|assets|licenses|screenshots|\.github|\.claude)/[^`]+|[A-Za-z0-9_.-]+\.(?:dart|yaml|yml|json|md))`',
 );
 
-/// 反引號裡的方法呼叫：小寫或底線開頭，後面接一對空括號。
-final _methodPattern = RegExp(r'`(_?[a-z][A-Za-z0-9_]*)\(\)`');
-
 /// 佔位符，不是真的路徑。
 bool _isPlaceholder(String token) =>
     token.contains('*') ||
@@ -36,17 +32,13 @@ bool _isPlaceholder(String token) =>
     token.contains('…') ||
     token.contains(' ');
 
-/// 本檔自己的路徑。
-///
-/// 它必須被排除在被掃描的語料之外：下面 parser 自測裡的合成樣本含有真實的識別
-/// 符字面值，留在語料裡會讓「這個名字存在嗎」永遠答 yes —— 第一次寫的時候就是
-/// 這樣，`_migrateDatabase()` 的變異驗證因此靜靜地通過了。
-const _selfPath = 'test/support/agents_docs_static_rule_test.dart';
-
 /// 具名例外，value 是理由。
 ///
 /// 例外必須是「這個名字**故意**不存在」，不是「還沒修」。
-const _knownAbsent = <String, String>{};
+const _knownAbsent = <String, String>{
+  'CLAUDE.md': '根 AGENTS.md 明文禁止新增的檔名',
+  'CLAUDE.local.md': '根 AGENTS.md 明文禁止新增的檔名',
+};
 
 void main() {
   group('agent instruction references', () {
@@ -78,30 +70,6 @@ void main() {
         }
       }
 
-      expect(scanned, greaterThan(100), reason: 'extractor matched nothing');
-      expect(broken, isEmpty);
-    });
-
-    test('every cited method exists', () {
-      final sources = [..._dartFilesUnder('lib'), ..._dartFilesUnder('test')]
-          .where((p) => p != _selfPath)
-          .map(File.new)
-          .map((f) => f.readAsStringSync())
-          .toList();
-
-      var scanned = 0;
-      final broken = <String>[];
-      for (final doc in _agentDocs()) {
-        final source = File(doc).readAsStringSync();
-        for (final match in _methodPattern.allMatches(source)) {
-          final name = match.group(1)!;
-          if (_knownAbsent.containsKey('$name()')) continue;
-          scanned++;
-          final word = RegExp('\\b${RegExp.escape(name)}\\b');
-          if (!sources.any(word.hasMatch)) broken.add('$doc -> $name()');
-        }
-      }
-
       expect(scanned, greaterThan(20), reason: 'extractor matched nothing');
       expect(broken, isEmpty);
     });
@@ -117,6 +85,51 @@ void main() {
         );
       }
     });
+
+    test('every instruction file is the root one', () {
+      final found = _instructionFiles(_repoFiles());
+      expect(
+        found,
+        {'AGENTS.md'},
+        reason:
+            'Claude Code stops reading AGENTS.md once a CLAUDE.md or '
+            'CLAUDE.local.md exists; put the reason next to the code instead '
+            'of adding a scoped instruction file',
+      );
+    });
+
+    test(
+      'the instruction-file filter catches scoped files and nothing else',
+      () {
+        // 違規：巢狀 AGENTS.md、任何位置的 CLAUDE.md / CLAUDE.local.md 都要被抓到。
+        expect(
+          _instructionFiles(const [
+            'AGENTS.md',
+            'lib/ui/AGENTS.md',
+            'CLAUDE.md',
+            '.claude/CLAUDE.md',
+            'CLAUDE.local.md',
+          ]),
+          {
+            'AGENTS.md',
+            'lib/ui/AGENTS.md',
+            'CLAUDE.md',
+            '.claude/CLAUDE.md',
+            'CLAUDE.local.md',
+          },
+        );
+        // 無關：名字裡剛好有 agents / claude 的檔、以及順序不同，都不影響結果。
+        expect(
+          _instructionFiles(const [
+            'docs/agents/domain.md',
+            'lib/agents_md_notes.dart',
+            '.claude/skills/verify-on-device/SKILL.md',
+            'AGENTS.md',
+          ]),
+          {'AGENTS.md'},
+        );
+      },
+    );
 
     test('the path extractor reads paths, not prose or placeholders', () {
       const doc = '''
@@ -135,35 +148,12 @@ Prose: run `flutter test` and read `AudioController`.
         'analysis_options.yaml',
       ]);
     });
-
-    test('the method extractor ignores types and bare identifiers', () {
-      const doc = '''
-Calls: `openFmpDatabase()` and `_migrateDatabase()`.
-Not calls: `SourceManager`, `isDesktop`, `AudioController.playMedia`.
-''';
-      expect(_methodPattern.allMatches(doc).map((m) => m.group(1)).toList(), [
-        'openFmpDatabase',
-        '_migrateDatabase',
-      ]);
-    });
   });
 }
 
-List<String> _agentDocs() => [
-  'AGENTS.md',
-  ...Directory('lib')
-      .listSync(recursive: true)
-      .whereType<File>()
-      .map((f) => _posix(f.path))
-      .where((p) => p.endsWith('/AGENTS.md')),
-];
-
-List<String> _dartFilesUnder(String root) => Directory(root)
-    .listSync(recursive: true)
-    .whereType<File>()
-    .map((f) => _posix(f.path))
-    .where((p) => p.endsWith('.dart') && !p.endsWith('.g.dart'))
-    .toList();
+/// 只有根目錄一份：巢狀的 `AGENTS.md` 與 `CLAUDE.md` 已刪除，理由搬進了程式碼
+/// 旁的 dartdoc 與測試。見 `every instruction file is the root one`。
+List<String> _agentDocs() => const ['AGENTS.md'];
 
 /// 判斷裸檔名用的候選集合：整棵樹的檔案，排除建置產物。
 List<String> _trackedFiles() {
@@ -196,3 +186,30 @@ List<String> _trackedFiles() {
 }
 
 String _posix(String path) => path.replaceAll(r'\', '/');
+
+/// 指令檔：任何名為 `AGENTS.md`、`CLAUDE.md` 或 `CLAUDE.local.md` 的檔案。
+Set<String> _instructionFiles(Iterable<String> paths) => {
+  for (final p in paths)
+    if (const {
+      'AGENTS.md',
+      'CLAUDE.md',
+      'CLAUDE.local.md',
+    }.contains(p.split('/').last))
+      p,
+};
+
+/// 倉庫裡會被 agent 讀到的位置：根目錄的檔案加上各個原始碼樹。
+///
+/// 不掃 `build/`、`.dart_tool/` 這類建置產物；`.claude/` 要掃，因為
+/// `.claude/CLAUDE.md` 同樣會讓 Claude Code 停止讀 `AGENTS.md`。
+List<String> _repoFiles() => [
+  ..._trackedFiles(),
+  ...['tool', 'assets']
+      .where((r) => Directory(r).existsSync())
+      .expand(
+        (r) => Directory(r)
+            .listSync(recursive: true)
+            .whereType<File>()
+            .map((f) => _posix(f.path)),
+      ),
+];

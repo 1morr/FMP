@@ -32,15 +32,15 @@ final updateAutoCheckStartupDelayProvider = Provider<Duration>(
 
 /// 啟動後在背景檢查一次更新，一天最多一次。
 ///
-/// 由 `FMPApp.build` 的 `ref.watch` 錨住（見 `lib/providers/AGENTS.md` §
-/// Provider Rules 的「有副作用的 provider 必須錨在 MaterialApp 之上」）。
+/// 由 `FMPApp.build` 的 `ref.watch` 錨住：有副作用的 provider 必須錨在
+/// MaterialApp 之上（`riverpod3_static_rule_test.dart` 守著）。
 ///
 /// **時間戳先寫再送請求。** 失敗的檢查同樣要吃掉當天的額度：反過來寫的話，一台
 /// 連不上 GitHub 的機器會在每次啟動時重試，而使用者永遠看不到任何結果。節流的
 /// 目的本來就不是「保證每天檢查成功一次」，是「一天最多打擾 GitHub 一次」。
 ///
-/// 為什麼一天一次、以及什麼時候要重新評估這個決定，記在
-/// `lib/services/AGENTS.md` § Update System。
+/// 一天一次是因為 GitHub 的未認證 API 額度按 IP 計（每小時 60 次），而跟其他
+/// 裝置共用出口 IP 是常態。
 final updateAutoCheckProvider = FutureProvider<void>((ref) async {
   if (!ref.read(updateAutoCheckEnabledProvider)) return;
 

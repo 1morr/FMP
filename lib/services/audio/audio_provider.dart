@@ -11,7 +11,9 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 // `Notifier` 可以拿到 `ref`，所以接線從 provider 工廠搬進了 build()。
-// 控制器本身仍然不宣告任何 provider —— 見 lib/providers/AGENTS.md。
+// 控制器本身仍然不宣告任何 provider：它的 provider 與協作者的 provider 都在
+// lib/providers/audio/，兩個檔互相 import 是刻意的，不要把 provider 宣告搬進
+// 這個檔來「修」它。
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
@@ -1848,7 +1850,7 @@ class AudioController extends Notifier<PlayerState>
       _updateQueueState();
 
       // Mix 模式：接近尾端時提前加載更多歌曲。它刻意不是 `PlaybackSideEffect`
-      // —— 見 lib/services/audio/AGENTS.md § Queue, Shuffle And Mix。
+      // —— 理由見 playbackSideEffectsProvider 的 dartdoc。
       _mixSession.onTrackStarted(mode);
 
       logDebug(
@@ -2369,8 +2371,8 @@ class AudioController extends Notifier<PlayerState>
     // 更新系統媒體控制的播放狀態（通知欄 / SMTC）
     //
     // 兩個表面統一送 effective 值。過去 SMTC 收的是後端原始值，所以
-    // AGENTS.md 那條「控制器擁有的載入階段，後端 idle 事件不得覆蓋
-    // loading 狀態」只在 Android 通知欄成立 —— 沒有理由只保護一個平台。
+    // 「控制器擁有的載入階段，後端 idle 事件不得覆蓋 loading 狀態」這條規則
+    // 只在 Android 通知欄成立 —— 沒有理由只保護一個平台。
     _publishPlaybackState(
       isPlaying: effective.isPlaying,
       position: effective.position,

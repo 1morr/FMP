@@ -229,8 +229,11 @@ final lyricsAutoMatchCoordinatorProvider = Provider<LyricsAutoMatchCoordinator>(
 /// [PlaybackSideEffectRegistry.dispose] 反著走，於是系統媒體控制也就成了最後
 /// 才交還的那一個 —— 任何一則還在飛的發佈都已經落地了才解綁。
 ///
-/// `MixSessionCoordinator` **刻意不在這裡** —— 見
-/// `lib/services/audio/AGENTS.md` § Queue, Shuffle And Mix。
+/// `MixSessionCoordinator` **刻意不在這裡**：佇列最後一首播完時若 Mix 的
+/// load-more 還在跑，完成事件要**等**它 —— 那是播放唯一一處等待副作用的地方
+/// （`audio_controller_mix_boundary_test.dart` 守著），而這個 registry 吞掉每個
+/// 失敗、也不給消費者被等待的方式。另外 Mix 被告知的是 `PlayMode` 而不是
+/// track，`initialize()` 通知它時根本沒有 track。
 final playbackSideEffectsProvider = Provider<PlaybackSideEffect>((ref) {
   return PlaybackSideEffectRegistry([
     NowPlayingSideEffect(ref.watch(nowPlayingPublisherProvider)),

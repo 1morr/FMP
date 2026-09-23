@@ -16,8 +16,8 @@ const String kFmpIssuesUrl = 'https://github.com/1morr/FMP/issues';
 /// 啟動序列的前段，它自己拋出來的時候 `t.*` 讀到的是什麼沒有人知道。所以文案
 /// 是寫死的英文 + 繁體中文兩行，兩種語言的使用者至少都讀得懂一行。
 ///
-/// 這裡顯示原始的 `error.toString()`，是 `lib/ui/AGENTS.md` § Error Presentation
-/// 的第三個明示例外：這個時點連 log 頁面都還不存在，畫面上這幾行是使用者唯一
+/// 這裡顯示原始的 `error.toString()`，是「原始例外不得上畫面」這條規則的刻意
+/// 例外：這個時點連 log 頁面都還不存在，畫面上這幾行是使用者唯一
 /// 能拿到的線索。原文同時已經由 `main.dart` 的 zone handler 記進 `AppLogger`。
 class StartupFailureApp extends StatelessWidget {
   const StartupFailureApp({super.key, required this.error, this.logFilePath});

@@ -263,8 +263,13 @@ class Settings {
 
   /// 播放歷史保留的最大筆數；超出時由最舊的一筆開始刪。
   ///
-  /// 倉庫只負責裁，數字由呼叫端給 —— `lib/data/AGENTS.md` § Models And
-  /// Repositories 記了為什麼。
+  /// 上限的理由不是磁碟空間，是 `PlayHistoryRepository` 裡三處 `findAll()` 全表
+  /// 掃描（`getHistoryStats`、`getMostPlayed`、帶篩選的 `queryHistory`），沒有
+  /// 上限的話成本隨使用時間無界成長。倉庫只負責裁，數字由呼叫端
+  /// （`PlayHistoryRecorder`）給，因為資料層不得往上 import。
+  ///
+  /// 需要比上限更舊的歷史時（年度統計、匯出），改成以時間為界或先把那三個掃描
+  /// 改寫成查詢 —— 不要用調高上限去換。
   int playHistoryLimit = kDefaultPlayHistoryLimit;
 
   // ========== 下载设置 ==========

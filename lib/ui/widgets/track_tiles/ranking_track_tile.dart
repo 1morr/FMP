@@ -70,8 +70,8 @@ class RankingTrackTile extends ConsumerWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             // 這一列自己量自己的容器，不問視窗有多寬：同一個 tile 在首頁的單欄、
-            // 首頁的三欄與探索頁裡拿到的寬度都不一樣（見 lib/ui/AGENTS.md 的
-            // Layout Conventions）。
+            // 首頁的三欄與探索頁裡拿到的寬度都不一樣。視窗寬度只決定外框
+            // （`WindowClass`），內容一律量自己的 `LayoutBuilder`。
             final isNarrow = constraints.maxWidth < _viewCountMinTileWidth;
             final gap = isNarrow ? 8.0 : 16.0;
 

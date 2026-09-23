@@ -65,8 +65,11 @@ dependencies:
   # 帐号管理
   flutter_inappwebview: ^6.1.5   # WebView 登录（WebView2 on Windows）
   qr_flutter: ^4.1.0             # QR 码生成（备选登录方式）
-  # 升到 11.x 之前先讀 lib/services/AGENTS.md 的 Account System 一節：
-  # v10 是憑證遷移的必經踏腳石，跳過會讓既有使用者的憑證讀不出來。
+  # 升 11.x 是發版順序的決定，不是例行升級：v10 在第一次讀取時把 Android 憑證
+  # 重新加密，而 11.x 拿掉了它遷移來源的 9.x cipher。FMP 的更新允許跳版，所以
+  # 「10.x 發過一版」不等於「每個安裝都遷移過」—— 沒跑過 10.x 的安裝一升到 11.x
+  # 就讀不出憑證，只因 `SecureKeyValueStore` 的防護才降級成重新登入而不是崩潰。
+  # `.github/dependabot.yml` 因此 ignore 它的大版本。
   flutter_secure_storage: ^10.3.1  # Cookie/Token 安全儲存
   pointycastle: ^3.9.1           # RSA 加密（Cookie 刷新流程）
 

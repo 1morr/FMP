@@ -99,7 +99,7 @@ class DefaultStreamResolutionService
   /// 行程內的串流解析快取。
   ///
   /// 短路命中時沒有新的 [AudioStreamResult]，但「播放中的位元率/編碼/容器來自
-  /// 本次請求的 AudioStreamResult」是寫在 AGENTS.md 裡的契約，而 [Track] 沒有
+  /// 本次請求的 AudioStreamResult」是播放中繼資料的契約，而 [Track] 沒有
   /// 這些欄位、這一期也不能加（schema 變更集中在後續階段）。所以中繼資料只能
   /// 留在記憶體裡：重啟之後會落空，那一次照常重新解析。
   final _resolvedStreams = <String, _ResolvedStream>{};

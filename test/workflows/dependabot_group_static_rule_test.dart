@@ -16,7 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// 同一份設定還有一條 `ignore`：`flutter_secure_storage` 的大版本不交給
 /// dependabot。11.x 拿掉了 10.x 從 9.x 遷移時用的舊 cipher，跳過 10.x 的安裝
-/// 一升上去就丟登入（`lib/services/AGENTS.md`）。這裡守的是那條 ignore 還在。
+/// 一升上去就丟登入（完整理由在 `pubspec.yaml` 該依賴旁）。這裡守的是那條
+/// ignore 還在。
 void main() {
   group('dependabot grouping', () {
     late Set<String> zeroVersion;

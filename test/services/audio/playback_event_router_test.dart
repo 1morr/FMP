@@ -7,8 +7,7 @@ import 'package:fmp/services/audio/playback_event_router.dart';
 ///
 /// 這些規則以前只存在於 `AudioController` 的處理函式裡，要驗其中任何一條都得
 /// 架一整個控制器、一個假後端與一個 Isar，再從 toast 與日誌反推走了哪一條。
-/// `lib/services/audio/AGENTS.md` § Playback End Reasons 的那張表在這裡逐列
-/// 對上一條斷言。
+/// 這個檔就是「結束原因 → 控制器動作」那張表：每一列一條斷言。
 void main() {
   group('routeEnd — the end reason table', () {
     test('a natural end enters the completion path', () {

@@ -17,6 +17,16 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/source_ids.dart';
 
 /// 目前的持久化 schema 版本。每加一個遷移步驟就 +1。
+///
+/// 新增持久化欄位時，舊列讀出來的是 Isar 的型別預設，不是 Dart 的欄位初始值：
+/// 非空 `int` → `Isar.minLong`、非空 `double` → `double.nan`、`bool` → `false`、
+/// 非空 `String` → `''`、`String?` → `null`、`List` → `[]`（數字那兩列是在真實
+/// 舊資料庫上量的）。型別預設與業務預設不同時就要加步驟修 —— 例如網易雲的
+/// `useAuthForPlay` 業務預設是 `true`；非空數字欄位因此幾乎一定要修。
+///
+/// 改完跑 `dart run build_runner build` 與 `database_migration_test.dart`。
+/// collection 或欄位的可見性變了，同一個 commit 改 `database_catalog.dart`：
+/// debug viewer 完全靠它，漏了不會有任何編譯或測試失敗。
 const int kFmpSchemaVersion = 3;
 
 /// 資料庫啟動時的唯一入口：套用未跑過的遷移步驟，再修復與版本無關的不變式。

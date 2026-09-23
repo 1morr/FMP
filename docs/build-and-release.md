@@ -182,7 +182,7 @@ git push origin v1.2.0
 ### CI 流程
 
 一般驗證由 `.github/workflows/ci.yml` 負責。**沒有 path filter** —— 純文檔的
-commit 一樣跑滿，因為 `AGENTS.md` 裡的規則是由測試強制的：
+commit 一樣跑滿（`agents_docs_static_rule_test.dart` 會讀根 `AGENTS.md`，文檔改動也可能讓測試變紅）：
 
 ```text
 pull_request / main push / workflow_dispatch
@@ -207,7 +207,7 @@ CI
 
 `validate` 會執行程式碼產生、格式檢查、analyzer 與測試；兩個 build job 只作為跨平臺 release build 煙霧測試，不建立 GitHub Release。`*.g.dart` 等產生檔不進版本控制（見 `.gitignore`），所以本流程不對「產生檔已提交」做檢查——那類檢查在 git 從未追蹤這些檔案的情況下永遠會通過，無法真正偵測任何問題。圖示資產由維護者在本機執行 `dart run flutter_launcher_icons` 後提交，CI 不在每次驗證時重產圖示。
 
-> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平臺（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意凍結於 v3（見 `lib/data/AGENTS.md` 的 Dependency Note），不自行升級 v4。
+> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平臺（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意凍結於 v3（`isar_community` fork；上游自 2025-07 停擺，v4 沒有遷移工具也沒有測過的遷移路徑），不自行升級 v4。
 
 ### 發布自動化流程
 

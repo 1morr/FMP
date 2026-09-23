@@ -176,8 +176,9 @@ final sessionExpiryNotifierProvider = Provider<SessionExpiryNotifier>((ref) {
 /// 這裡補。只認「從非失效轉成失效」的那一次變化 —— 開 app 時就已經是失效的列
 /// 不該每次啟動都再唸一遍。實際的一次性由 [SessionExpiryNotifier] 保證。
 ///
-/// 副作用 provider 必須錨在 `MaterialApp` 之上（`lib/app.dart`），
-/// 見 `lib/providers/AGENTS.md`。
+/// 副作用 provider 必須錨在 `MaterialApp` 之上（`lib/app.dart`）：Riverpod 3 會
+/// 暫停被不透明路由蓋住的頁面上的 `ref.watch`，錨在頁面上的副作用在使用者打開
+/// 全螢幕播放頁時就停了（`riverpod3_static_rule_test.dart` 守著）。
 final accountSessionExpiryWatcherProvider = Provider<void>((ref) {
   final sessionExpiry = ref.watch(sessionExpiryNotifierProvider);
   final watched = <String, NotifierProvider<AccountNotifier, Account?>>{

@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/dart_source.dart';
 
 /// Riverpod 3 帶進來三個「測不到就會靜默壞掉」的規則，這裡用原始碼比對釘住它們。
-/// 三條規則都寫在 `lib/providers/AGENTS.md` § Riverpod 3。
+/// 每條規則的理由寫在各自的 test 裡。
 void main() {
   group('Riverpod 3 static rules', () {
     test('side-effect providers stay anchored above MaterialApp', () {
@@ -59,7 +59,7 @@ void main() {
         isEmpty,
         reason:
             'lib/ is fully on Notifier; legacy providers must not '
-            'come back without a decision recorded in AGENTS.md',
+            'come back without a decision recorded in this test',
       );
     });
 

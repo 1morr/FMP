@@ -57,8 +57,8 @@ lib/
 └── main.dart      # 行程啟動和平臺初始化
 ```
 
-更完整的檔案結構見 [AGENTS.md](../AGENTS.md#key-paths)，目前 provider 規則見
-[lib/providers/AGENTS.md](../lib/providers/AGENTS.md)。
+Agent 規則見 [AGENTS.md](../AGENTS.md)；各模組的設計理由寫在程式碼的 dartdoc
+與守著它的測試裡。
 
 ## 資料模型分類
 
@@ -69,7 +69,7 @@ lib/
 
 資料庫固定開在應用程式 documents 目錄下的 `FMP/` 子目錄，入口只有
 `openFmpDatabase()`。欄位變動時的遷移與 default repair 規則見
-`lib/data/AGENTS.md`。
+`lib/data/database/database_migration.dart` 的 `kFmpSchemaVersion` dartdoc。
 
 ## 音源支援
 
@@ -133,10 +133,9 @@ dart run slang
 
 ## 開發規則摘要
 
-不在這裡重複。AI agent 的強約束規則在 [AGENTS.md](../AGENTS.md)（根目錄）以及
-`lib/data`、`lib/data/sources`、`lib/providers`、`lib/services`、
-`lib/services/audio`、`lib/ui` 各自的 `AGENTS.md`；人類貢獻者適用同一套。抄一份
-摘要到這裡只會多一個會漂移的副本。
+不在這裡重複。AI agent 的規則只有根目錄一份 [AGENTS.md](../AGENTS.md)，人類貢獻者
+適用同一套；個別程式碼的理由寫在它旁邊的 dartdoc 與守著它的測試裡。抄一份摘要到
+這裡只會多一個會漂移的副本。
 
 ## 更多文件
 
