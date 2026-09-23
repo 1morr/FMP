@@ -79,7 +79,7 @@ void main() {
           orderedEquals(['yt-a', 'yt-b', 'yt-c']),
         );
 
-        await tester.tap(find.text(t.importPlatform.netease));
+        await tester.tap(find.text(t.importPlatform.neteaseShort));
         await tester.pumpAndSettle();
         expect(find.text('NE A'), findsOneWidget);
 

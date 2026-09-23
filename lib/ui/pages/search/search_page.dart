@@ -225,7 +225,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           ),
                           const SizedBox(width: 8),
                           ChoiceChip(
-                            label: Text(t.importPlatform.netease),
+                            label: Text(t.importPlatform.neteaseShort),
                             selected: state.selectedSource == SourceIds.netease,
                             onSelected: (_) {
                               ref

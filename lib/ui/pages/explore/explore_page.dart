@@ -73,6 +73,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           ref.read(exploreSelectionProvider.notifier).exitSelectionMode();
         }
       },
+      // 分頁列平分寬度，英文全名「NetEase Cloud Music」在手機上會被淡出截斷，
+      // 所以網易雲用短名。
       child: Scaffold(
         appBar: selectionState.isSelectionMode
             ? SelectionModeAppBar(
@@ -84,7 +86,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   tabs: [
                     Tab(text: t.importPlatform.bilibili),
                     const Tab(text: 'YouTube'),
-                    Tab(text: t.importPlatform.netease),
+                    Tab(text: t.importPlatform.neteaseShort),
                   ],
                 ),
               )
@@ -95,7 +97,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   tabs: [
                     Tab(text: t.importPlatform.bilibili),
                     const Tab(text: 'YouTube'),
-                    Tab(text: t.importPlatform.netease),
+                    Tab(text: t.importPlatform.neteaseShort),
                   ],
                 ),
               ),
