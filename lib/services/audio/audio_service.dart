@@ -2,9 +2,15 @@ import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/audio/playback_media.dart';
 
-/// 音频播放服务抽象接口
+/// 音訊播放服務抽象介面
 /// Android: JustAudioService (ExoPlayer)
-/// Windows/Linux: MediaKitAudioService (libmpv)
+/// Windows: MediaKitAudioService (libmpv)
+///
+/// **音訊焦點與中斷處理只有 Android 有**，不屬於這個介面的共同契約：
+/// `audio_session` 只為 android、ios、macos、web 出 plugin，Windows 上
+/// `setActive` 什麼都不做就回傳 true，`interruptionEventStream` 與
+/// `becomingNoisyEventStream` 永遠不發事件。所以來電 duck、中斷暫停、拔耳機
+/// 暫停都是 Android 專屬行為，不要替 `MediaKitAudioService` 寫斷言它們的測試。
 abstract class FmpAudioService {
   // === Lifecycle ===
   Future<void> initialize();

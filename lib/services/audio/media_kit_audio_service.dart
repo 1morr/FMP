@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:audio_session/audio_session.dart' hide AudioDevice;
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:rxdart/rxdart.dart';
 
@@ -37,7 +36,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       'reconnect_delay_max=2,reconnect_max_retries=3';
 
   late final Player _player;
-  late final AudioSession _session;
   bool _hasPlayer = false;
   bool _disposed = false;
 
@@ -56,12 +54,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   // 流订阅列表（用于 dispose 时取消）
   final List<StreamSubscription> _subscriptions = [];
-
-  // duck 前的音量（用于恢复）
-  double _volumeBeforeDuck = 1.0;
-
-  // 中断前是否正在播放（用于判断中断结束后是否恢复播放）
-  bool _wasPlayingBeforeInterruption = false;
 
   // 是否已触发过 completion 事件（防止重复触发）
   bool _hasCompletionFired = false;
@@ -179,66 +171,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
     // 优化 libmpv 内存占用（纯音频播放场景）
     await _configureForAudioOnly();
-
-    // 配置音频会话
-    _session = await AudioSession.instance;
-    await _session.configure(const AudioSessionConfiguration.music());
-
-    // 监听音频会话中断
-    _subscriptions.add(
-      _session.interruptionEventStream.listen((event) {
-        if (event.begin) {
-          // 中断开始
-          switch (event.type) {
-            case AudioInterruptionType.duck:
-              // 记住 duck 前的音量，以便正确恢复
-              _volumeBeforeDuck = _volume;
-              setVolume(_volume * 0.5);
-              break;
-            case AudioInterruptionType.pause:
-            case AudioInterruptionType.unknown:
-              // 记住中断前是否正在播放，只有正在播放时才在中断结束后恢复
-              _wasPlayingBeforeInterruption = _isPlaying;
-              if (_wasPlayingBeforeInterruption) {
-                logDebug(
-                  'Audio interrupted while playing, will resume after interruption ends',
-                );
-                pause();
-              }
-              break;
-          }
-        } else {
-          // 中断结束
-          switch (event.type) {
-            case AudioInterruptionType.duck:
-              // 恢复到 duck 前的音量
-              setVolume(_volumeBeforeDuck);
-              break;
-            case AudioInterruptionType.pause:
-              // 只有中断前正在播放时才恢复播放
-              if (_wasPlayingBeforeInterruption) {
-                logDebug('Interruption ended, resuming playback');
-                play();
-              } else {
-                logDebug(
-                  'Interruption ended, but was not playing before, staying paused',
-                );
-              }
-              _wasPlayingBeforeInterruption = false;
-              break;
-            case AudioInterruptionType.unknown:
-              break;
-          }
-        }
-      }),
-    );
-
-    // 监听音频设备变化（如耳机拔出）
-    _subscriptions.add(
-      _session.becomingNoisyEventStream.listen((_) {
-        pause();
-      }),
-    );
 
     // 设置 media_kit 流监听
     _setupMediaKitListeners();
@@ -575,8 +507,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _nextMedia = null;
     _playlistIndex = 0;
     await _player.stop();
-    // 释放音频焦点
-    await _session.setActive(false);
     // 重置状态，确保 _synthesizeProcessingState 返回 idle
     _isCompleted = false;
     _isBuffering = false;
@@ -823,9 +753,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         ),
       );
 
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
-
       // 使用 media_kit 直接打开 URL，原生支持 httpHeaders（不需要代理）
       final media = Media(url, httpHeaders: headers);
       // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
@@ -884,9 +811,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
 
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
-
       final media = Media(url, httpHeaders: headers);
       // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
       _nextMedia = null;
@@ -934,9 +858,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         ),
       );
 
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
-
       // 使用 media_kit 打开本地文件
       final media = Media(filePath);
       // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
@@ -975,9 +896,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     try {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
 
       final media = Media(filePath);
       // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
