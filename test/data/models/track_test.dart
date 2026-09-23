@@ -19,7 +19,7 @@ void main() {
         ..title = 'Test Track'
         ..durationMs = 45000; // 45 seconds
 
-      expect(track.formattedDuration, equals('00:45'));
+      expect(track.formattedDuration, equals('0:45'));
     });
 
     test('formats minutes and seconds correctly', () {
@@ -29,7 +29,7 @@ void main() {
         ..title = 'Test Track'
         ..durationMs = 185000; // 3:05
 
-      expect(track.formattedDuration, equals('03:05'));
+      expect(track.formattedDuration, equals('3:05'));
     });
 
     test('formats hours correctly', () {
@@ -39,7 +39,7 @@ void main() {
         ..title = 'Test Track'
         ..durationMs = 3725000; // 1:02:05
 
-      expect(track.formattedDuration, equals('01:02:05'));
+      expect(track.formattedDuration, equals('1:02:05'));
     });
   });
 }

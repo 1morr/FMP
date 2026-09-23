@@ -1,4 +1,5 @@
 import 'package:isar_community/isar.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/data/models/track_key.dart';
 
 export 'package:fmp/data/models/source_ids.dart';
@@ -333,17 +334,12 @@ class Track {
   String get uniqueKey => TrackKey.format(sourceType, sourceId, cid: cid);
 
   /// 格式化时长显示
+  ///
+  /// Isar 會把這個 getter 也存成欄位，但讀回物件時用的是這裡重算的值，改格式
+  /// 不需要遷移。
   String get formattedDuration {
-    if (durationMs == null) return '--:--';
-    final duration = Duration(milliseconds: durationMs!);
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    final ms = durationMs;
+    return ms == null ? '--:--' : DurationFormatter.formatMs(ms);
   }
 
   @override

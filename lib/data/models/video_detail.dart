@@ -1,5 +1,6 @@
 import 'package:fmp/i18n/strings.g.dart';
 
+import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/core/utils/number_format_utils.dart';
 import 'package:fmp/data/models/track.dart';
 
@@ -18,15 +19,7 @@ class VideoPage {
   });
 
   /// 格式化时长
-  String get formattedDuration {
-    final hours = duration ~/ 3600;
-    final minutes = (duration % 3600) ~/ 60;
-    final seconds = duration % 60;
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
+  String get formattedDuration => DurationFormatter.formatSeconds(duration);
 
   /// 转换为Track对象
   Track toTrack(Track parent) => Track()
@@ -265,15 +258,8 @@ class VideoDetail {
   String get formattedCommentCount => formatCount(commentCount);
 
   /// 格式化时长
-  String get formattedDuration {
-    final hours = durationSeconds ~/ 3600;
-    final minutes = (durationSeconds % 3600) ~/ 60;
-    final seconds = durationSeconds % 60;
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
+  String get formattedDuration =>
+      DurationFormatter.formatSeconds(durationSeconds);
 
   /// 格式化发布时间
   String get formattedPublishDate {
