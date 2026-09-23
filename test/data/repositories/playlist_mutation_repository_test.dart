@@ -514,6 +514,45 @@ void main() {
     );
 
     test(
+      'a partial refresh puts new tracks where the remote order has them',
+      () async {
+        // B 站收藏夾最新在前。不完整的刷新以前把新收藏一律接到末尾（使用者
+        // 回報：新歌沉底），現在按遠端順序插在後面第一首既有曲目之前。
+        final harness = await _createHarness();
+        addTearDown(harness.dispose);
+        final playlist = await _createPlaylist(harness, 'Refresh Anchored');
+        await harness.mutations.addTracks(playlist.id, [
+          _track('old-1', 'Old 1'),
+          _track('stale', 'Stale'),
+          _track('old-2', 'Old 2'),
+        ]);
+
+        await harness.mutations.replaceTracksFromRemoteRefresh(playlist.id, [
+          _track('newest', 'Newest'),
+          _track('newer', 'Newer'),
+          _track('old-1', 'Old 1'),
+          _track('between', 'Between'),
+          _track('old-2', 'Old 2'),
+          _track('oldest', 'Oldest'),
+        ], const RemoteRefreshMutationPolicy(sourceDataComplete: false));
+
+        final savedPlaylist = await harness.playlists.getById(playlist.id);
+        final savedTracks = await harness.tracks.getByIds(
+          savedPlaylist!.trackIds,
+        );
+        expect(savedTracks.map((track) => track.sourceId), [
+          'newest',
+          'newer',
+          'old-1',
+          'stale',
+          'between',
+          'old-2',
+          'oldest',
+        ]);
+      },
+    );
+
+    test(
       'replaceTracksFromRemoteRefresh preserves stale tracks when one track fails to persist',
       () async {
         final harness = await _createHarness();
