@@ -183,6 +183,45 @@ void main() {
       },
     );
 
+    test(
+      'pausing a running download keeps its progress after the isolate stops',
+      () async {
+        final audioUrl = await _startTricklingAudioServer(
+          contentLength: 1024 * 1024,
+        );
+        final savedTrack = await trackRepository.save(
+          _downloadTrack('pause-running'),
+        );
+        final task = await downloadRepository.saveTask(
+          _task(trackId: savedTrack.id)..playlistName = 'Download Playlist',
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
+        );
+        addTearDown(service.dispose);
+
+        final download = service.debugStartDownloadForTesting(task);
+        await pumpUntil(
+          () => service.debugPendingProgressCount > 0,
+          reason: 'the isolate reports progress',
+        );
+        await service.pauseTask(task.id);
+        await download;
+
+        final paused = await downloadRepository.getTaskById(task.id);
+        expect(paused?.status, DownloadStatus.paused);
+        expect(paused?.progress, greaterThan(0));
+        expect(paused?.totalBytes, 1024 * 1024);
+        expect(
+          paused?.downloadedBytes,
+          await File(paused!.tempFilePath!).length(),
+        );
+      },
+    );
+
     test('cancelTask clears buffered progress before a flush runs', () async {
       final service = DownloadService(
         downloadRepository: downloadRepository,
@@ -2680,6 +2719,35 @@ Future<void> _waitUntil(Future<bool> Function() condition) async {
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
   throw StateError('Condition was not met in time');
+}
+
+/// 慢慢送 body 的 loopback 伺服器：讓真的下載停在 downloading，暫停、取消
+/// 走的是 isolate 真正的收尾路徑。[contentLength] 為 null 時不送長度，isolate
+/// 不會回報進度。
+Future<String> _startTricklingAudioServer({int? contentLength}) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  final serverSub = server.listen((request) async {
+    request.response.headers.contentType = ContentType.binary;
+    if (contentLength != null) {
+      request.response.contentLength = contentLength;
+    }
+    try {
+      for (var sent = 0; contentLength == null || sent < contentLength;) {
+        request.response.add(Uint8List(16 * 1024));
+        sent += 16 * 1024;
+        await request.response.flush();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      await request.response.close();
+    } on Object {
+      // 客戶端暫停或取消時斷線
+    }
+  });
+  addTearDown(() async {
+    await serverSub.cancel();
+    await server.close(force: true);
+  });
+  return 'http://${server.address.address}:${server.port}/audio.m4a';
 }
 
 /// 暫存目錄，teardown 時重試刪除（Windows 上 isolate 剛關的檔案可能還被佔用）。

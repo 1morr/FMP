@@ -1254,11 +1254,18 @@ class DownloadService with Logging {
       final tempFile = File(task.tempFilePath!);
       if (await tempFile.exists()) {
         final downloadedBytes = await tempFile.length();
+        // 傳進來的 task 可能是下載啟動時的那份（isolate 收尾時的這次存檔），
+        // 它的 progress / totalBytes 停在啟動當下；直接寫回會把 pauseTask 剛存
+        // 的進度蓋成 0。以 DB 裡最新的總長度重算。
+        final latest = await _downloadRepository.getTaskById(task.id) ?? task;
+        final totalBytes = latest.totalBytes;
         await _downloadRepository.updateTaskProgress(
           task.id,
-          task.progress,
+          totalBytes != null && totalBytes > 0
+              ? downloadedBytes / totalBytes
+              : latest.progress,
           downloadedBytes,
-          task.totalBytes,
+          totalBytes,
         );
         logDebug(
           'Saved resume progress: $downloadedBytes bytes for task ${task.id}',
