@@ -2446,18 +2446,31 @@ class AudioController extends Notifier<PlayerState>
       mode: _currentRecoveryMode,
     );
     if (_isDisposed || result.isCompleted || result.isSuperseded) return;
-    _failStalledPlayback(track);
+    await _failStalledPlayback(track);
   }
 
-  void _failStalledPlayback(Track track) {
+  /// 救過一次還是卡住：這首歌就當作開不起來，收尾與媒體開啟失敗同一個形狀。
+  ///
+  /// 後端此時還在「播放中、緩衝中」—— 不停它，UI 會一直轉圈，而且沒有
+  /// `error` 時播放鍵走的是後端 toggle，按播放等於把還在播的 mpv 暫停。先記下
+  /// 錯誤再停後端，UI 不必等 `stop()` 返回；代價是 `stop()` 帶出來的後端事件
+  /// 會被路由的 terminal 規則擋掉，所以通知欄 / SMTC 要由這裡補發。
+  Future<void> _failStalledPlayback(Track track) async {
     if (_isDisposed) return;
-    state = state.copyWith(isPlaying: false, isLoading: false);
-    _toastService.showError(
-      t.audio.cannotPlayReason(
+    _handleTerminalMediaOpen(
+      track: track,
+      message: t.audio.cannotPlayReason(
         title: track.title,
         reason: t.audio.sourceErrorTimeout,
       ),
     );
+    try {
+      await _audioService.stop();
+    } catch (e, stack) {
+      logError('Failed to stop player after stalled playback', e, stack);
+    }
+    if (_isDisposed) return;
+    _publishCurrentPlaybackState();
   }
 
   /// 傳輸層失敗：連線中斷、逾時、DNS、TLS。分類由後端完成。
@@ -2807,7 +2820,7 @@ class AudioController extends Notifier<PlayerState>
         await _retryStalledStream();
       case FailStalledPlayback():
         final track = state.playingTrack;
-        if (track != null) _failStalledPlayback(track);
+        if (track != null) await _failStalledPlayback(track);
       case ResetArmedEndTicks():
         _armedEndTicks = 0;
       case IncrementArmedEndTicks():

@@ -2000,6 +2000,61 @@ void main() {
       },
     );
 
+    test(
+      'a second starvation on the same track stops and offers a replay',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final handler = FmpAudioHandler();
+        audioService = FakeAudioService()..playUrlSettlesReady = false;
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: _createAudioStreamManager(
+            trackRepository: trackRepository,
+            settingsRepository: settingsRepository,
+            sourceManager: sourceManager,
+          ),
+          toastService: toastService,
+          nowPlayingPublisher: testNowPlayingPublisher(
+            platform: AudioRuntimePlatform.mobile,
+            audioHandler: handler,
+          ),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+          budget: const PlaybackTimeoutBudget(
+            bufferStarvation: Duration(milliseconds: 30),
+          ),
+        );
+        await controller.initialize();
+
+        // hold 串流：每次開流 mpv 都停在「播放中、緩衝中」，再也沒有下文。
+        void holdForever() {
+          audioService.setPlayingValue(true);
+          audioService.emitProcessingState(FmpAudioProcessingState.buffering);
+        }
+
+        await controller.playSingle(_track('held', title: 'Held'));
+        holdForever();
+        await audioService.waitForPlayUrlCallCount(2);
+        holdForever();
+        await pumpUntil(
+          () => controller.state.error != null,
+          reason: 'the retried stream starved too',
+        );
+
+        expect(audioService.isPlaying, isFalse, reason: 'backend stopped');
+        expect(controller.state.isBuffering, isFalse);
+        expect(controller.state.isPlaying, isFalse);
+        expect(handler.playbackState.value.playing, isFalse);
+
+        final pausesBefore = audioService.pauseCallCount;
+        await controller.togglePlayPause();
+        expect(audioService.playUrlCalls, hasLength(3));
+        expect(audioService.pauseCallCount, pausesBefore);
+      },
+    );
+
     test('playback prefetch fills the queue-owned next track url', () async {
       final tracks = [
         _track('prefetch-play-current', title: 'Prefetch Play Current'),
