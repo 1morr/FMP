@@ -174,30 +174,14 @@ class HomeRankingsSection extends ConsumerWidget {
 
     final tracksBySource = {
       for (final source in enabledSourceOrder)
-        source: ?_tracksForRankingSource(ref, source),
+        source: ref.watch(homeRankingPreviewProvider(source)),
     };
-    if (tracksBySource.isEmpty) {
-      return const SizedBox.shrink();
-    }
 
     final isLoading = ref.watch(
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
 
-    final candidateSources = enabledSourceOrder
-        .where(tracksBySource.containsKey)
-        .map(
-          (source) => HomeRankingSourcePlan(
-            id: source,
-            tracks: tracksBySource[source] ?? const <Track>[],
-          ),
-        )
-        .toList();
-    final availableSources = candidateSources
-        .where((source) => source.tracks.isNotEmpty)
-        .toList();
-
-    if (!isLoading && availableSources.isEmpty) {
+    if (!isLoading && tracksBySource.values.every((tracks) => tracks.isEmpty)) {
       return const SizedBox.shrink();
     }
 
@@ -231,19 +215,6 @@ class HomeRankingsSection extends ConsumerWidget {
         ),
       ],
     );
-  }
-
-  List<Track>? _tracksForRankingSource(WidgetRef ref, String source) {
-    switch (source) {
-      case 'bilibili':
-        return ref.watch(homeBilibiliMusicRankingProvider);
-      case 'youtube':
-        return ref.watch(homeYouTubeMusicRankingProvider);
-      case 'netease':
-        return ref.watch(homeNeteaseHotRankingProvider);
-      default:
-        return null;
-    }
   }
 
   Widget _buildRankingContent(

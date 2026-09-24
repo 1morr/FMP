@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/providers/audio/audio_player_selectors.dart';
 import 'package:fmp/providers/settings/home_ranking_settings_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
@@ -154,13 +155,13 @@ void main() {
               rankingCacheServiceProvider.overrideWith(
                 () => _StaticRankingCacheService(isInitialLoading: true),
               ),
-              homeBilibiliMusicRankingProvider.overrideWith(
+              homeRankingPreviewProvider(SourceIds.bilibili).overrideWith(
                 (ref) => throw StateError('bilibili should not be watched'),
               ),
-              homeYouTubeMusicRankingProvider.overrideWith(
+              homeRankingPreviewProvider(SourceIds.youtube).overrideWith(
                 (ref) => throw StateError('youtube should not be watched'),
               ),
-              homeNeteaseHotRankingProvider.overrideWith(
+              homeRankingPreviewProvider(SourceIds.netease).overrideWith(
                 (ref) => throw StateError('netease should not be watched'),
               ),
             ],
@@ -187,9 +188,9 @@ void main() {
               rankingCacheServiceProvider.overrideWith(
                 () => _StaticRankingCacheService(isInitialLoading: true),
               ),
-              homeYouTubeMusicRankingProvider.overrideWith(
-                (ref) => const <Track>[],
-              ),
+              homeRankingPreviewProvider(
+                SourceIds.youtube,
+              ).overrideWith((ref) => const <Track>[]),
             ],
           ),
         );
@@ -198,6 +199,38 @@ void main() {
         // 所以要留標題並放一個輕量佔位。
         expect(find.text(t.home.recentTrending), findsOneWidget);
         expect(find.byType(LoadingPlaceholder), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a source with a cached ranking shows without its own provider',
+      (tester) async {
+        LocaleSettings.setLocale(AppLocale.en);
+
+        // 首頁以前按音源名 switch 取 provider，第三個 case 以外一律回 null：
+        // 設定頁列得出來的音源，在首頁永遠不出現。
+        await tester.pumpWidget(
+          _testApp(
+            overrides: [
+              enabledHomeRankingSourceOrderProvider.overrideWith(
+                (ref) => const ['soundcloud'],
+              ),
+              // 排行列會看目前播放的歌；不蓋掉就會拉起整個播放控制器。
+              currentTrackProvider.overrideWith((ref) => null),
+              rankingCacheServiceProvider.overrideWith(
+                () => _StaticRankingCacheService(
+                  isInitialLoading: false,
+                  tracksBySource: {
+                    'soundcloud': [_track('sc-hit', 'soundcloud')],
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+
+        expect(find.text(t.home.recentTrending), findsOneWidget);
+        expect(find.text('sc-hit'), findsOneWidget);
       },
     );
 
@@ -213,13 +246,13 @@ void main() {
             rankingCacheServiceProvider.overrideWith(
               () => _StaticRankingCacheService(isInitialLoading: false),
             ),
-            homeBilibiliMusicRankingProvider.overrideWith(
+            homeRankingPreviewProvider(SourceIds.bilibili).overrideWith(
               (ref) => throw StateError('bilibili should not be watched'),
             ),
-            homeYouTubeMusicRankingProvider.overrideWith(
-              (ref) => const <Track>[],
-            ),
-            homeNeteaseHotRankingProvider.overrideWith(
+            homeRankingPreviewProvider(
+              SourceIds.youtube,
+            ).overrideWith((ref) => const <Track>[]),
+            homeRankingPreviewProvider(SourceIds.netease).overrideWith(
               (ref) => throw StateError('netease should not be watched'),
             ),
           ],
@@ -257,11 +290,17 @@ Widget _testApp({required List<Override> overrides}) {
 
 /// 不呼叫 `super.build()`：真的那個會接線音源、啟動初次載入與網路監聽。
 class _StaticRankingCacheService extends RankingCacheService {
-  _StaticRankingCacheService({required this.isInitialLoading});
+  _StaticRankingCacheService({
+    required this.isInitialLoading,
+    this.tracksBySource = const {},
+  });
 
   final bool isInitialLoading;
+  final Map<String, List<Track>> tracksBySource;
 
   @override
-  RankingCacheState build() =>
-      RankingCacheState(isInitialLoading: isInitialLoading);
+  RankingCacheState build() => RankingCacheState(
+    isInitialLoading: isInitialLoading,
+    tracksBySource: tracksBySource,
+  );
 }

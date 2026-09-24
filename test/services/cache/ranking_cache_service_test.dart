@@ -158,13 +158,23 @@ void main() {
         );
 
         final bilibiliPreview = container.read(
-          homeBilibiliMusicRankingProvider,
+          homeRankingPreviewProvider(SourceIds.bilibili),
         );
-        final cachedBilibili = container.read(cachedBilibiliRankingProvider);
-        final youtubePreview = container.read(homeYouTubeMusicRankingProvider);
-        final cachedYouTube = container.read(cachedYouTubeRankingProvider);
-        final neteasePreview = container.read(homeNeteaseHotRankingProvider);
-        final cachedNetease = container.read(cachedNeteaseRankingProvider);
+        final cachedBilibili = container.read(
+          cachedRankingProvider(SourceIds.bilibili),
+        );
+        final youtubePreview = container.read(
+          homeRankingPreviewProvider(SourceIds.youtube),
+        );
+        final cachedYouTube = container.read(
+          cachedRankingProvider(SourceIds.youtube),
+        );
+        final neteasePreview = container.read(
+          homeRankingPreviewProvider(SourceIds.netease),
+        );
+        final cachedNetease = container.read(
+          cachedRankingProvider(SourceIds.netease),
+        );
 
         expect(bilibiliPreview, bilibiliTracks.take(10));
         expect(cachedBilibili, bilibiliTracks);
