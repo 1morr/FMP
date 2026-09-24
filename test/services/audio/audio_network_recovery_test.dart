@@ -479,9 +479,9 @@ void main() {
     test(
       'account auth loader keeps netease desktop playback headers',
       () async {
-        final headers = await AccountServiceAuthLoader(
-          neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
-        ).load(SourceIds.netease);
+        final headers = await AccountServiceAuthLoader([
+          _HeaderOnlyNeteaseAccountService(isar),
+        ]).load(SourceIds.netease);
 
         expect(headers, {
           'Cookie': 'MUSIC_U=music-u; __csrf=csrf',

@@ -72,19 +72,31 @@ final isYouTubeLoggedInProvider = Provider<bool>((ref) {
 
 // ===== 通用 =====
 
-/// 通用：根據平台獲取登錄狀態
+/// 各平台的帳號狀態，以音源 id 為鍵。
+final Map<String, NotifierProvider<AccountNotifier, Account?>>
+accountProvidersBySource = {
+  SourceIds.bilibili: bilibiliAccountProvider,
+  SourceIds.youtube: youtubeAccountProvider,
+  SourceIds.netease: neteaseAccountProvider,
+};
+
+/// 各平台的帳號服務，以音源 id（[AccountService.platform]）為鍵。
+final accountServicesProvider = Provider<Map<String, AccountService>>((ref) {
+  return {
+    for (final service in <AccountService>[
+      ref.watch(bilibiliAccountServiceProvider),
+      ref.watch(youtubeAccountServiceProvider),
+      ref.watch(neteaseAccountServiceProvider),
+    ])
+      service.platform: service,
+  };
+});
+
+/// 通用：根據平台獲取登錄狀態。沒有帳號體系的音源一律視為未登入。
 final isLoggedInProvider = Provider.family<bool, String>((ref, platform) {
-  switch (platform) {
-    case SourceIds.bilibili:
-      return ref.watch(isBilibiliLoggedInProvider);
-    case SourceIds.youtube:
-      return ref.watch(isYouTubeLoggedInProvider);
-    case SourceIds.netease:
-      return ref.watch(isNeteaseLoggedInProvider);
-    default:
-      // 沒有帳號體系的音源一律視為未登入。
-      return false;
-  }
+  final accountProvider = accountProvidersBySource[platform];
+  if (accountProvider == null) return false;
+  return ref.watch(accountProvider)?.isLoggedIn ?? false;
 });
 
 // ===== 網易雲 =====
@@ -149,11 +161,7 @@ final accountStatusCheckProvider = FutureProvider<void>((ref) async {
   // debug assert），在 await 之前讀完比事後補 ref.mounted 護欄更直接。
   final toastService = ref.read(toastServiceProvider);
   final sessionExpiry = ref.read(sessionExpiryNotifierProvider);
-  final services = <AccountService>[
-    ref.read(bilibiliAccountServiceProvider),
-    ref.read(youtubeAccountServiceProvider),
-    ref.read(neteaseAccountServiceProvider),
-  ];
+  final services = ref.read(accountServicesProvider).values.toList();
 
   // 先完成 Bilibili Cookie 刷新
   await ref.watch(accountCookieRefreshProvider.future);
@@ -181,13 +189,7 @@ final sessionExpiryNotifierProvider = Provider<SessionExpiryNotifier>((ref) {
 /// 全螢幕播放頁時就停了（`riverpod3_static_rule_test.dart` 守著）。
 final accountSessionExpiryWatcherProvider = Provider<void>((ref) {
   final sessionExpiry = ref.watch(sessionExpiryNotifierProvider);
-  final watched = <String, NotifierProvider<AccountNotifier, Account?>>{
-    SourceIds.bilibili: bilibiliAccountProvider,
-    SourceIds.youtube: youtubeAccountProvider,
-    SourceIds.netease: neteaseAccountProvider,
-  };
-
-  for (final entry in watched.entries) {
+  for (final entry in accountProvidersBySource.entries) {
     ref.listen(entry.value, (previous, next) {
       if (previous?.sessionExpired != true && next?.sessionExpired == true) {
         sessionExpiry.notifyExpired(entry.key);

@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/services/account/account_service.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
@@ -6,6 +8,29 @@ import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/media/media_handoff.dart';
 
 void main() {
+  group('AccountServiceAuthLoader', () {
+    test('each source gets the headers of its own account service', () async {
+      final loader = AccountServiceAuthLoader([
+        _HeaderAccountService(SourceIds.bilibili, {'Cookie': 'SESSDATA=b'}),
+        _HeaderAccountService(SourceIds.netease, {'Cookie': 'MUSIC_U=n'}),
+      ]);
+
+      expect(await loader.load(SourceIds.bilibili), {'Cookie': 'SESSDATA=b'});
+      expect(await loader.load(SourceIds.netease), {'Cookie': 'MUSIC_U=n'});
+    });
+
+    test('a source without an account service gets no headers', () async {
+      // 退回任何一個服務，都會把那個平台的 Cookie 送給不認識的主機。
+      final loader = AccountServiceAuthLoader([
+        _HeaderAccountService(SourceIds.bilibili, {'Cookie': 'SESSDATA=b'}),
+      ]);
+
+      expect(await loader.load(SourceIds.youtube), isNull);
+      expect(await loader.load('soundcloud'), isNull);
+      expect(await AccountServiceAuthLoader().load(SourceIds.bilibili), isNull);
+    });
+  });
+
   group('SourceAuthContext', () {
     late Settings settings;
     late _RecordingAccountAuthLoader authLoader;
@@ -132,7 +157,7 @@ void main() {
       () async {
         settings.setUseAuthForPlay(SourceIds.netease, true);
         authLoader.headersBySource[SourceIds.netease] =
-            SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token');
+            NeteaseAccountService.authHeadersFor('MUSIC_U=token');
         final context = DefaultSourceAuthContext(
           settingsLoader: () async => settings,
           accountAuthLoader: authLoader,
@@ -162,7 +187,7 @@ void main() {
       'playbackNetworkRequest delegates media request to MediaHandoff',
       () async {
         settings.setUseAuthForPlay(SourceIds.netease, true);
-        final authHeaders = SourceHttpPolicy.neteaseAuthHeaders(
+        final authHeaders = NeteaseAccountService.authHeadersFor(
           'MUSIC_U=delegate',
         );
         authLoader.headersBySource[SourceIds.netease] = authHeaders;
@@ -251,4 +276,19 @@ class _RecordingMediaHandoff implements MediaHandoff {
   MediaHandoffResult prepareDownloadHop(MediaHandoffRequest request) {
     throw UnimplementedError('download hops are not used by this test');
   }
+}
+
+class _HeaderAccountService implements AccountService {
+  _HeaderAccountService(this.platform, this.headers);
+
+  @override
+  final String platform;
+
+  final Map<String, String> headers;
+
+  @override
+  Future<Map<String, String>?> getAuthHeaders() async => headers;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

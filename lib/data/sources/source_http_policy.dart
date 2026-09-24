@@ -179,15 +179,6 @@ class SourceHttpPolicy {
     };
   }
 
-  static Map<String, String> neteaseAuthHeaders(String cookie) {
-    return {
-      'Cookie': cookie,
-      'Origin': neteaseOrigin,
-      'Referer': neteaseReferer,
-      'User-Agent': neteaseDesktopUserAgent,
-    };
-  }
-
   static Dio createApiDio(
     String sourceType, {
     Map<String, String>? extraHeaders,

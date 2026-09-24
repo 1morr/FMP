@@ -240,10 +240,10 @@ class NeteaseAccountService extends AccountService with Logging {
 
   /// 獲取完整認證 headers（Cookie + Origin + Referer + UA）
   /// 供音頻播放器直接使用（CDN 需要 Cookie 才能播放部分歌曲）
+  @override
   Future<Map<String, String>?> getAuthHeaders() async {
-    final credentials = await _loadCredentials();
-    if (credentials == null) return null;
-    return _buildAuthHeaders(credentials.toCookieString());
+    final cookies = await getAuthCookieString();
+    return cookies == null ? null : authHeadersFor(cookies);
   }
 
   /// 獲取 CSRF token
@@ -315,7 +315,7 @@ class NeteaseAccountService extends AccountService with Logging {
     }
 
     try {
-      final authHeaders = _buildAuthHeaders(cookieString);
+      final authHeaders = authHeadersFor(cookieString);
 
       Response<dynamic>? response;
       try {
@@ -589,7 +589,7 @@ class NeteaseAccountService extends AccountService with Logging {
   Dio get dio => _dio;
 
   /// 構建完整的認證 headers（Cookie + Origin + Referer + UA）
-  Map<String, String> _buildAuthHeaders(String cookieString) {
+  static Map<String, String> authHeadersFor(String cookieString) {
     return {
       'Cookie': cookieString,
       'Origin': _apiBase,

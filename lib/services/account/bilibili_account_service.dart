@@ -260,6 +260,12 @@ class BilibiliAccountService extends AccountService with Logging {
     return credentials?.toCookieString();
   }
 
+  @override
+  Future<Map<String, String>?> getAuthHeaders() async {
+    final cookies = await getAuthCookieString();
+    return cookies == null ? null : {'Cookie': cookies};
+  }
+
   /// 獲取 CSRF token
   Future<String?> getCsrfToken() async {
     final credentials = await _loadCredentials();

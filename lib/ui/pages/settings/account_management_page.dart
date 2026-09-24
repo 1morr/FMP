@@ -7,7 +7,6 @@ import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/account/account_provider.dart';
-import 'package:fmp/services/account/account_service.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/widgets/images/avatar_image.dart';
 import 'package:fmp/ui/pages/settings/widgets/account_playlists_sheet.dart';
@@ -134,11 +133,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
       final toastService = ref.read(toastServiceProvider);
       toastService.showInfo(t.account.checkingAccounts);
 
-      final services = <AccountService>[
-        ref.read(bilibiliAccountServiceProvider),
-        ref.read(youtubeAccountServiceProvider),
-        ref.read(neteaseAccountServiceProvider),
-      ];
+      final services = ref.read(accountServicesProvider).values.toList();
 
       final result = await verifyAllAccountStatuses(
         services,
@@ -183,14 +178,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
     );
 
     if (confirmed == true) {
-      switch (platform) {
-        case SourceIds.bilibili:
-          await ref.read(bilibiliAccountServiceProvider).logout();
-        case SourceIds.youtube:
-          await ref.read(youtubeAccountServiceProvider).logout();
-        case SourceIds.netease:
-          await ref.read(neteaseAccountServiceProvider).logout();
-      }
+      await ref.read(accountServicesProvider)[platform]?.logout();
       if (mounted) {
         ToastService.show(context, t.account.logoutSuccess);
       }

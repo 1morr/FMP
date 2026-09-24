@@ -104,6 +104,7 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   /// 獲取認證 headers（Cookie + Authorization）
+  @override
   Future<Map<String, String>?> getAuthHeaders() async {
     final credentials = await _loadCredentials();
     if (credentials == null || !credentials.isValid) return null;

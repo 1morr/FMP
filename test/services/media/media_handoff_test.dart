@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/services/media/media_handoff.dart';
@@ -28,7 +29,7 @@ void main() {
         ),
         SourceIds.netease: (
           'https://m701.music.126.net/song.m4a',
-          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=token'),
+          NeteaseAccountService.authHeadersFor('MUSIC_U=token'),
         ),
       };
 
@@ -56,7 +57,7 @@ void main() {
       final request = _request(
         SourceIds.netease,
         'http://m801.music.126.net/song.mp3',
-        streamResolutionAuth: SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=t'),
+        streamResolutionAuth: NeteaseAccountService.authHeadersFor('MUSIC_U=t'),
       );
 
       final playback = await handoff.preparePlayback(request);
