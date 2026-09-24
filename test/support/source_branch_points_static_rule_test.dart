@@ -27,7 +27,6 @@ const _budget = <String, int>{
   'lib/services/radio/radio_controller.dart': 1,
   'lib/ui/pages/library/widgets/import_playlist_dialog.dart': 3,
   'lib/ui/pages/player/player_page.dart': 3,
-  'lib/ui/pages/search/search_page.dart': 3,
   'lib/ui/pages/settings/account_management_page.dart': 3,
   'lib/ui/pages/settings/widgets/account_playlists_sheet.dart': 3,
   'lib/ui/widgets/dialogs/add_to_remote_playlist_dialog.dart': 3,

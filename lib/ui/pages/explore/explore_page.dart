@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/providers/ui/selection_provider.dart';
@@ -21,12 +22,9 @@ class ExplorePage extends ConsumerStatefulWidget {
 
 class _ExplorePageState extends ConsumerState<ExplorePage>
     with SingleTickerProviderStateMixin {
-  /// 分頁順序，要和 [TabBar] 的標籤一一對應。
-  static const _tabSources = [
-    SourceIds.bilibili,
-    SourceIds.youtube,
-    SourceIds.netease,
-  ];
+  /// 一個分頁一個有排行榜的音源。音源在執行期不會增減，所以進頁時讀一次就好，
+  /// [TabController] 的長度也跟著固定。
+  late final List<String> _tabSources;
 
   late TabController _tabController;
   int _activeTabIndex = 0;
@@ -34,6 +32,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   @override
   void initState() {
     super.initState();
+    _tabSources = ref.read(rankingSourceTypesProvider);
     _tabController = TabController(length: _tabSources.length, vsync: this);
     _tabController.addListener(_handleTabIndexChanged);
     // 不再需要手動加載，直接使用緩存服務的數據
@@ -63,6 +62,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       cachedRankingProvider(_tabSources[_activeTabIndex]),
     );
 
+    final tabs = [
+      for (final source in _tabSources)
+        Tab(text: SourceIds.shortNameFor(source)),
+    ];
+
     // 多選模式下的可用操作（探索頁不支持下載和刪除）
     const availableActions = <String>{
       selectionActionAddToQueue,
@@ -78,33 +82,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           ref.read(exploreSelectionProvider.notifier).exitSelectionMode();
         }
       },
-      // 分頁列平分寬度，英文全名「NetEase Cloud Music」在手機上會被淡出截斷，
-      // 所以網易雲用短名。
+      // 分頁列平分寬度，所以用短名（見 SourceIds.shortNameFor）。
       child: Scaffold(
         appBar: selectionState.isSelectionMode
             ? SelectionModeAppBar(
                 selectionProvider: exploreSelectionProvider,
                 allTracks: currentTracks,
                 availableActions: availableActions,
-                bottom: TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    Tab(text: t.importPlatform.bilibili),
-                    const Tab(text: 'YouTube'),
-                    Tab(text: t.importPlatform.neteaseShort),
-                  ],
-                ),
+                bottom: TabBar(controller: _tabController, tabs: tabs),
               )
             : AppBar(
                 title: Text(t.nav.explore),
-                bottom: TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    Tab(text: t.importPlatform.bilibili),
-                    const Tab(text: 'YouTube'),
-                    Tab(text: t.importPlatform.neteaseShort),
-                  ],
-                ),
+                bottom: TabBar(controller: _tabController, tabs: tabs),
               ),
         body: TabBarView(
           controller: _tabController,

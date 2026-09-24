@@ -11,6 +11,7 @@ import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/sources/base_source.dart' show SearchOrder;
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/search/search_provider.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
@@ -195,47 +196,27 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                   );
                             },
                           ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: Text(t.importPlatform.bilibili),
-                            selected:
-                                state.selectedSource == SourceIds.bilibili &&
-                                !state.isLiveSearchMode,
-                            onSelected: (_) {
-                              ref
-                                  .read(searchProvider.notifier)
-                                  .setFilters(
-                                    sourceType: SourceIds.bilibili,
-                                    clearLiveRoomFilter: true,
-                                  );
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: const Text('YouTube'),
-                            selected: state.selectedSource == SourceIds.youtube,
-                            onSelected: (_) {
-                              ref
-                                  .read(searchProvider.notifier)
-                                  .setFilters(
-                                    sourceType: SourceIds.youtube,
-                                    clearLiveRoomFilter: true,
-                                  );
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: Text(t.importPlatform.neteaseShort),
-                            selected: state.selectedSource == SourceIds.netease,
-                            onSelected: (_) {
-                              ref
-                                  .read(searchProvider.notifier)
-                                  .setFilters(
-                                    sourceType: SourceIds.netease,
-                                    clearLiveRoomFilter: true,
-                                  );
-                            },
-                          ),
+                          for (final source in ref.watch(
+                            searchSourceTypesProvider,
+                          )) ...[
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Text(SourceIds.shortNameFor(source)),
+                              // 直播搜尋也帶著 Bilibili 的 sourceType，那時選中的
+                              // 是右邊的直播 chip，不是這一個。
+                              selected:
+                                  state.selectedSource == source &&
+                                  !state.isLiveSearchMode,
+                              onSelected: (_) {
+                                ref
+                                    .read(searchProvider.notifier)
+                                    .setFilters(
+                                      sourceType: source,
+                                      clearLiveRoomFilter: true,
+                                    );
+                              },
+                            ),
+                          ],
                           const SizedBox(width: 16),
                           // 分隔线
                           Container(

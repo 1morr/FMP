@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/sources/base_source.dart' show SearchResult;
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/providers/search/search_provider.dart';
@@ -28,6 +29,7 @@ void main() {
   Future<void> pumpSearchPage(
     WidgetTester tester, {
     required Future<List<VideoPage>> Function(Track track) loadPages,
+    List<String> searchSources = SourceIds.values,
   }) async {
     await tester.binding.setSurfaceSize(const Size(900, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -41,6 +43,7 @@ void main() {
               () => _ResultsSearchNotifier(video, loadPages),
             ),
             audioControllerProvider.overrideWith(_IdleAudioController.new),
+            searchSourceTypesProvider.overrideWith((ref) => searchSources),
           ],
           child: const MaterialApp(home: SearchPage()),
         ),
@@ -48,6 +51,29 @@ void main() {
     );
     await tester.pump();
   }
+
+  testWidgets('a chip for every searchable source, in registration order', (
+    tester,
+  ) async {
+    await pumpSearchPage(
+      tester,
+      loadPages: (_) async => const [],
+      searchSources: const [...SourceIds.values, 'soundcloud'],
+    );
+
+    final labels = [
+      for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip)))
+        ((chip.label as Text).data)!,
+    ];
+    // 來源 chip 之後是三個直播篩選 chip。
+    expect(labels.take(5), [
+      t.searchPage.source.all,
+      'Bilibili',
+      'YouTube',
+      'NetEase',
+      'soundcloud',
+    ]);
+  });
 
   testWidgets('each expanded part row offers the full single-track menu', (
     tester,
