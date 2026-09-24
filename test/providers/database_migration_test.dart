@@ -43,7 +43,14 @@ void main() {
         'database_migration_test_',
       );
       isar = await Isar.open(
-        [SettingsSchema, PlayQueueSchema, LyricsTitleParseCacheSchema],
+        [
+          SettingsSchema,
+          PlayQueueSchema,
+          LyricsTitleParseCacheSchema,
+          // 啟動時會把舊鍵的歌詞匹配接到補上 cid 的曲目。
+          LyricsMatchSchema,
+          TrackSchema,
+        ],
         directory: tempDir.path,
         name: 'database_migration_test',
       );
@@ -832,6 +839,84 @@ void main() {
         expect(preservedQueue.currentIndex, 1);
       },
     );
+
+    group('lyrics matches saved before the Bilibili cid backfill', () {
+      Future<void> seed({
+        required List<int?> cids,
+        List<String> matchKeys = const ['bilibili:BV1old'],
+      }) async {
+        await isar.writeTxn(() async {
+          for (final (index, cid) in cids.indexed) {
+            await isar.tracks.put(
+              Track()
+                ..sourceType = SourceIds.bilibili
+                ..sourceId = 'BV1old'
+                ..title = 'p$index'
+                ..pageNum = index + 1
+                ..cid = cid,
+            );
+          }
+          for (final (index, key) in matchKeys.indexed) {
+            await isar.lyricsMatchs.put(
+              LyricsMatch()
+                ..trackUniqueKey = key
+                ..lyricsSource = 'netease'
+                ..externalId = 'e$index'
+                ..offsetMs = 300,
+            );
+          }
+        });
+      }
+
+      Future<Map<String, String>> matchesByKey() async => {
+        for (final match in await isar.lyricsMatchs.where().findAll())
+          match.trackUniqueKey: match.externalId,
+      };
+
+      test('follow the track to its cid key on startup', () async {
+        await openTestDatabase();
+        await seed(cids: [111]);
+
+        await runDatabaseMigration(isar);
+
+        expect(await matchesByKey(), {'bilibili:BV1old:111': 'e0'});
+        final moved = await isar.lyricsMatchs.where().findFirst();
+        expect(moved!.offsetMs, 300);
+      });
+
+      test('stay put while a row still reads the old key', () async {
+        await openTestDatabase();
+        await seed(cids: [111, null]);
+
+        await runDatabaseMigration(isar);
+
+        expect(await matchesByKey(), {'bilibili:BV1old': 'e0'});
+      });
+
+      test('stay put when the video has several pages', () async {
+        await openTestDatabase();
+        await seed(cids: [111, 222]);
+
+        await runDatabaseMigration(isar);
+
+        expect(await matchesByKey(), {'bilibili:BV1old': 'e0'});
+      });
+
+      test('never replace a match saved under the cid key', () async {
+        await openTestDatabase();
+        await seed(
+          cids: [111],
+          matchKeys: ['bilibili:BV1old', 'bilibili:BV1old:111'],
+        );
+
+        await runDatabaseMigration(isar);
+
+        expect(await matchesByKey(), {
+          'bilibili:BV1old': 'e0',
+          'bilibili:BV1old:111': 'e1',
+        });
+      });
+    });
 
     test('creates an empty queue when none exists', () async {
       await openTestDatabase();

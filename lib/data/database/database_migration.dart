@@ -11,10 +11,13 @@ import 'package:fmp/core/constants/app_layout.dart';
 
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
 import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/source_ids.dart';
+import 'package:fmp/data/models/track_key.dart';
+import 'package:fmp/data/repositories/lyrics_repository.dart';
 
 /// 目前的持久化 schema 版本。每加一個遷移步驟就 +1。
 ///
@@ -57,6 +60,7 @@ Future<void> runDatabaseMigration(Isar isar) async {
     }
 
     await _ensureHealthyPlayQueue(isar);
+    await _relinkLyricsMatchesToCidKeys(isar);
 
     // AI 標題解析快取是單次工作階段的快取，不是耐久資料。
     await isar.lyricsTitleParseCaches.clear();
@@ -74,6 +78,27 @@ Future<void> _ensureHealthyPlayQueue(Isar isar) async {
       queue.lastVolume = 1.0;
       await isar.playQueues.put(queue);
     }
+  }
+}
+
+/// 以兩段式鍵存、而曲目已經補上 cid 的歌詞匹配，改到三段式鍵。
+///
+/// **這不是遷移，不掛版本號。** 播放當下回填 cid 時 `TrackRepository.backfillCid`
+/// 會一起改鍵；這裡接住那之前就回填過的列（v1.10.0 起），以及備份匯入帶回來的
+/// 舊鍵，所以每次啟動都要跑。只有 Bilibili 有 cid。
+Future<void> _relinkLyricsMatchesToCidKeys(Isar isar) async {
+  final matches = await isar.lyricsMatchs
+      .filter()
+      .trackUniqueKeyStartsWith('${SourceIds.bilibili}:')
+      .findAll();
+  for (final match in matches) {
+    final parts = TrackKey.tryParse(match.trackUniqueKey);
+    if (parts == null || parts.cid != null) continue;
+    await relinkLyricsMatchToCidKeyInTxn(
+      isar,
+      sourceType: parts.sourceTypeId,
+      sourceId: parts.sourceId,
+    );
   }
 }
 

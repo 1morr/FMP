@@ -428,6 +428,21 @@ class DefaultStreamResolutionService
     track.audioUrlExpiry = now.add(
       streamResult.expiry ?? const Duration(hours: 1),
     );
+    final learnedCid = track.cid == null ? streamResult.cid : null;
+
+    // 資料庫那一列要用補上 cid 之前的身分找：先補的話 cid 精確比對，找不到
+    // 還沒有 cid 的那一列。預取是 fire-and-forget，關閉之後還在飛的那一次
+    // 不可以再碰資料庫 —— 它會撞上正在關閉的 Isar。
+    Track? persistedTrack;
+    if (!_isDisposed && (persist || learnedCid != null)) {
+      persistedTrack = await _findPersistedTrack(track);
+      // 沒有 cid 的曲目可能對到同一支影片的另一個分 P。
+      final storedCid = persistedTrack?.cid;
+      if (learnedCid != null && storedCid != null && storedCid != learnedCid) {
+        persistedTrack = null;
+      }
+    }
+
     // cid 是不變值。回寫之後下一次解析就會把它帶進請求裡，Bilibili 因此少打
     // 一支 /x/web-interface/wbi/view。已經有值的不覆蓋 —— 那是分 P 的身分。
     // 必須排在 _rememberResolution 之前：cid 會進 uniqueKey，也就進快取 key。
@@ -435,15 +450,28 @@ class DefaultStreamResolutionService
     track.updatedAt = now;
     _rememberResolution(track, streamResult, requestContext);
 
-    // 預取是 fire-and-forget，關閉之後還在飛的那一次不可以再碰資料庫 ——
-    // 它會撞上正在關閉的 Isar。
-    if (!persist || _isDisposed) return track;
+    if (_isDisposed) return track;
 
-    final persistedTrack = await _findPersistedTrack(track);
+    // cid 是身分不是快取，所以不持久化這次解析（臨時播放、預取）也要補進
+    // 資料庫裡已經有的那一列：歌單頁點歌走的就是臨時播放，只寫在副本上的話，
+    // 資料庫那一列永遠停在兩段式鍵，舊鍵的歌詞匹配也就一直接不上。不建新列。
+    if (persistedTrack != null &&
+        persistedTrack.cid == null &&
+        learnedCid != null) {
+      if (persist) {
+        persistedTrack.audioUrl = track.audioUrl;
+        persistedTrack.audioUrlExpiry = track.audioUrlExpiry;
+      }
+      await _trackRepository.backfillCid(persistedTrack, learnedCid);
+      if (persist) _syncPlaylistInfo(track, persistedTrack);
+      return track;
+    }
+
+    if (!persist) return track;
+
     if (persistedTrack != null) {
       persistedTrack.audioUrl = track.audioUrl;
       persistedTrack.audioUrlExpiry = track.audioUrlExpiry;
-      persistedTrack.cid ??= track.cid;
       await _trackRepository.save(persistedTrack);
       _syncPlaylistInfo(track, persistedTrack);
       return track;

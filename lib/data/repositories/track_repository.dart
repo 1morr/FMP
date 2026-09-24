@@ -6,6 +6,7 @@ import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track_key.dart';
+import 'package:fmp/data/repositories/lyrics_repository.dart';
 
 class TrackSourceIdentity {
   final String sourceType;
@@ -149,6 +150,25 @@ class TrackRepository with Logging {
     track.updatedAt = DateTime.now();
     final id = await _isar.writeTxn(() => _isar.tracks.put(track));
     track.id = id;
+    return track;
+  }
+
+  /// 補上 [cid] 並存檔；[track] 已經有 cid 時只存檔，不覆蓋。
+  ///
+  /// 補上 cid 會讓 [Track.uniqueKey] 從兩段變三段，所以同一筆交易把舊鍵下的
+  /// 歌詞匹配一起改過去，見 [relinkLyricsMatchToCidKeyInTxn]。
+  Future<Track> backfillCid(Track track, int cid) async {
+    if (track.cid != null) return save(track);
+    track.cid = cid;
+    track.updatedAt = DateTime.now();
+    await _isar.writeTxn(() async {
+      track.id = await _isar.tracks.put(track);
+      await relinkLyricsMatchToCidKeyInTxn(
+        _isar,
+        sourceType: track.sourceType,
+        sourceId: track.sourceId,
+      );
+    });
     return track;
   }
 
