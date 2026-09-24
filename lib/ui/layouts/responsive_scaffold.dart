@@ -116,23 +116,28 @@ class ResponsiveScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     // 使用 MediaQuery 而不是 LayoutBuilder 来避免与 go_router Navigator 的布局冲突
     final width = MediaQuery.of(context).size.width;
+    // child 是 shell 的內層 Navigator。它的路由 ModalBarrier 帶 BlockSemantics，
+    // 會把同一個語意容器裡先畫的節點整段丟掉；側欄與它同在一個 Row、畫在它前面，
+    // 於是整條側欄不在語意樹上，讀屏聽不到。包成獨立的語意容器，擋的範圍就只剩
+    // 路由自己（與 AppContentWrapper 對根 Navigator 的處理相同）。
+    final routes = Semantics(container: true, child: child);
     final layout = switch (WindowClass.of(width)) {
       WindowClass.compact => _CompactLayout(
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        child: child,
+        child: routes,
       ),
       WindowClass.medium => _MediumLayout(
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        child: child,
+        child: routes,
       ),
       WindowClass.expanded ||
       WindowClass.large ||
       WindowClass.extraLarge => _ExpandedLayout(
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
-        child: child,
+        child: routes,
       ),
     };
 
