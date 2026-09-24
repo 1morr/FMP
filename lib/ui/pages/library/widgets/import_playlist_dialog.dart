@@ -8,6 +8,7 @@ import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/core/errors/user_message.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/core/utils/icon_helpers.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -29,15 +30,40 @@ enum _UrlType {
   external,
 }
 
-/// 来源平台（统一标识，用于图标匹配等）
-enum _SourcePlatform { bilibili, youtube, netease, qqMusic, spotify }
-
 /// 检测到的 URL 信息
 class _DetectedUrl {
-  final _UrlType type;
-  final _SourcePlatform platform;
+  const _DetectedUrl.internal(String this.sourceType)
+    : type = _UrlType.internal,
+      externalSource = null;
 
-  const _DetectedUrl({required this.type, required this.platform});
+  const _DetectedUrl.external(PlaylistSource this.externalSource)
+    : type = _UrlType.external,
+      sourceType = null;
+
+  final _UrlType type;
+
+  /// 內部來源的音源 id；外部來源是 null。
+  final String? sourceType;
+
+  /// 外部來源；內部來源是 null。
+  final PlaylistSource? externalSource;
+
+  IconData get icon => switch (externalSource) {
+    PlaylistSource.netease => SimpleIcons.neteasecloudmusic,
+    PlaylistSource.qqMusic => SimpleIcons.qq,
+    PlaylistSource.spotify => SimpleIcons.spotify,
+    null => getImportSourceIcon(sourceType),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DetectedUrl &&
+      other.type == type &&
+      other.sourceType == sourceType &&
+      other.externalSource == externalSource;
+
+  @override
+  int get hashCode => Object.hash(type, sourceType, externalSource);
 }
 
 /// 统一的歌单导入对话框
@@ -112,37 +138,6 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     super.dispose();
   }
 
-  /// 将内部 _SourcePlatform 映射到 String（用于查询登录状态）
-  String _sourcePlatformToSourceType(_SourcePlatform platform) {
-    switch (platform) {
-      case _SourcePlatform.bilibili:
-        return SourceIds.bilibili;
-      case _SourcePlatform.youtube:
-        return SourceIds.youtube;
-      case _SourcePlatform.netease:
-        return SourceIds.netease;
-      default:
-        // fallback, should not happen for internal sources
-        return SourceIds.bilibili;
-    }
-  }
-
-  /// 根据来源平台返回对应图标
-  IconData _getSourceIcon(_SourcePlatform platform) {
-    switch (platform) {
-      case _SourcePlatform.bilibili:
-        return SimpleIcons.bilibili;
-      case _SourcePlatform.youtube:
-        return SimpleIcons.youtube;
-      case _SourcePlatform.netease:
-        return SimpleIcons.neteasecloudmusic;
-      case _SourcePlatform.qqMusic:
-        return SimpleIcons.qq;
-      case _SourcePlatform.spotify:
-        return SimpleIcons.spotify;
-    }
-  }
-
   /// 检测 URL 类型
   void _onUrlChanged(String url) {
     final trimmed = url.trim();
@@ -153,13 +148,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
 
     if (looksLikeYouTubeMixShorthand(trimmed)) {
       final newDetected = parseYouTubeMixShorthandSeedId(trimmed) != null
-          ? const _DetectedUrl(
-              type: _UrlType.internal,
-              platform: _SourcePlatform.youtube,
-            )
+          ? const _DetectedUrl.internal(SourceIds.youtube)
           : null;
-      if (_detected?.type != newDetected?.type ||
-          _detected?.platform != newDetected?.platform) {
+      if (_detected != newDetected) {
         setState(() => _detected = newDetected);
       }
       return;
@@ -169,21 +160,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     //    内部来源直接导入，NeteaseSource 注册后网易云 URL 走内部流程
     final sourceManager = ref.read(sourceManagerProvider);
     final internalSourceType = sourceManager.sourceTypeForUrl(trimmed);
-    // 認不得的音源 id 代表「有註冊 adapter 但這個對話框沒有對應的分頁」，
-    // 落到 null 之後會繼續往下走外部來源檢查，最後顯示「無法識別的連結」。
-    final platform = switch (internalSourceType) {
-      SourceIds.bilibili => _SourcePlatform.bilibili,
-      SourceIds.youtube => _SourcePlatform.youtube,
-      SourceIds.netease => _SourcePlatform.netease,
-      _ => null,
-    };
-    if (platform != null) {
-      final newDetected = _DetectedUrl(
-        type: _UrlType.internal,
-        platform: platform,
-      );
-      if (_detected?.type != newDetected.type ||
-          _detected?.platform != newDetected.platform) {
+    if (internalSourceType != null) {
+      final newDetected = _DetectedUrl.internal(internalSourceType);
+      if (_detected != newDetected) {
         setState(() => _detected = newDetected);
       }
       return;
@@ -194,17 +173,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     final notifier = ref.read(playlistImportProvider.notifier);
     final externalSource = notifier.detectSource(trimmed);
     if (externalSource != null) {
-      final platform = switch (externalSource) {
-        PlaylistSource.netease => _SourcePlatform.netease,
-        PlaylistSource.qqMusic => _SourcePlatform.qqMusic,
-        PlaylistSource.spotify => _SourcePlatform.spotify,
-      };
-      final newDetected = _DetectedUrl(
-        type: _UrlType.external,
-        platform: platform,
-      );
-      if (_detected?.type != newDetected.type ||
-          _detected?.platform != newDetected.platform) {
+      final newDetected = _DetectedUrl.external(externalSource);
+      if (_detected != newDetected) {
         setState(() => _detected = newDetected);
       }
       return;
@@ -254,7 +224,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                       ? Padding(
                           padding: const EdgeInsets.only(right: 12),
                           child: Icon(
-                            _getSourceIcon(_detected!.platform),
+                            _detected!.icon,
                             size: 18,
                             color: colorScheme.outline,
                           ),
@@ -301,13 +271,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 const SizedBox(height: 8),
                 Builder(
                   builder: (context) {
-                    final isLoggedIn = _detected != null
-                        ? ref.watch(
-                            isLoggedInProvider(
-                              _sourcePlatformToSourceType(_detected!.platform),
-                            ),
-                          )
-                        : false;
+                    final isLoggedIn = ref.watch(
+                      isLoggedInProvider(_detected!.sourceType!),
+                    );
                     return SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(t.library.importPlaylist.useAuth),
