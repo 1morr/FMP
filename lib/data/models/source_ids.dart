@@ -31,4 +31,12 @@ abstract final class SourceIds {
     final value = t['importPlatform.$sourceId'];
     return value is String ? value : sourceId;
   }
+
+  /// 平分寬度的分頁與 chip 用的短名稱：有 `importPlatform.<id>Short` 就用它，
+  /// 沒有就用 [displayNameFor]。英文全名「NetEase Cloud Music」在手機上的分頁
+  /// 列會被淡出截斷，所以網易雲有一個短名。
+  static String shortNameFor(String sourceId) {
+    final value = t['importPlatform.${sourceId}Short'];
+    return value is String ? value : displayNameFor(sourceId);
+  }
 }

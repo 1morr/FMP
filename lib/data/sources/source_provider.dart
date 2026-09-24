@@ -104,3 +104,27 @@ final sourceManagerProvider = Provider<SourceManager>((ref) {
   ref.onDispose(manager.dispose);
   return manager;
 });
+
+/// 已註冊的音源 id，依註冊順序。UI 要列出音源時從這裡或下面兩個拿，不要自己
+/// 寫一份清單：手寫的清單在加音源時不會跟著變。
+final registeredSourceTypesProvider = Provider<List<String>>((ref) {
+  return ref.watch(sourceManagerProvider).registeredSourceTypes;
+});
+
+/// 能搜尋的音源。
+final searchSourceTypesProvider = Provider<List<String>>((ref) {
+  final manager = ref.watch(sourceManagerProvider);
+  return [
+    for (final type in manager.registeredSourceTypes)
+      if (manager.searchSource(type) != null) type,
+  ];
+});
+
+/// 有排行榜的音源。
+final rankingSourceTypesProvider = Provider<List<String>>((ref) {
+  final manager = ref.watch(sourceManagerProvider);
+  return [
+    for (final type in manager.registeredSourceTypes)
+      if (manager.rankingSource(type) != null) type,
+  ];
+});

@@ -38,5 +38,29 @@ void main() {
       expect(SourceIds.displayNameFor('soundcloud'), 'soundcloud');
       expect(SourceIds.displayNameFor(''), '');
     });
+
+    test('shortNameFor prefers the short key, then the display name', () {
+      LocaleSettings.setLocale(AppLocale.en);
+      expect(SourceIds.shortNameFor(SourceIds.netease), 'NetEase');
+      expect(SourceIds.shortNameFor(SourceIds.youtube), 'YouTube');
+      expect(SourceIds.shortNameFor('soundcloud'), 'soundcloud');
+    });
+
+    // 音訊設定頁依音源 id 組出這些鍵去查，程式碼裡搜不到它們的名字；少了一個
+    // 不會編譯錯誤，那一段只會退回顯示音源名稱。
+    test('every built-in source has its audio settings texts', () {
+      for (final locale in AppLocale.values) {
+        LocaleSettings.setLocale(locale);
+        for (final id in SourceIds.values) {
+          for (final key in [
+            'audioSettings.streamPriority.${id}Title',
+            'audioSettings.authForPlay.${id}Description',
+          ]) {
+            expect(t[key], isA<String>(), reason: '$locale $key');
+          }
+        }
+      }
+      LocaleSettings.setLocale(AppLocale.en);
+    });
   });
 }

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/audio/audio_player_selectors.dart';
 import 'package:fmp/providers/library/play_history_provider.dart';
@@ -168,6 +169,9 @@ void main() {
                 ),
               ),
               currentTrackProvider.overrideWith((ref) => null),
+              registeredSourceTypesProvider.overrideWith(
+                (ref) => SourceIds.values,
+              ),
             ],
             child: const MaterialApp(home: PlayHistoryPage()),
           ),
@@ -189,6 +193,15 @@ void main() {
 
       expect(builtTrackRows, greaterThan(0));
       expect(builtTrackRows, lessThan(60));
+    });
+
+    testWidgets('every registered source has a filter chip', (tester) async {
+      await pumpHistoryPage(tester);
+
+      // 以前只寫了 Bilibili 與 YouTube 兩個 chip，網易雲的紀錄篩不出來。
+      for (final name in ['All', 'Bilibili', 'YouTube', 'NetEase']) {
+        expect(find.widgetWithText(ChoiceChip, name), findsOneWidget);
+      }
     });
 
     testWidgets('rows are keyed by stable date and history ids', (
