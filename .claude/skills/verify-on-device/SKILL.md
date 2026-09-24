@@ -129,12 +129,35 @@ Then re-observe. This is the inner loop: edit → `r` → `ax`/screenshot → as
 
 ## 6. Windows desktop build
 
-The Windows app exposes **no semantics tree** to UI Automation — `get-app-state`
-returns only `window > pane FLUTTERVIEW`. On Windows you drive by screenshot and
-window-local coordinates, not element indexes. The window *can* be driven; the
-step earlier rounds missed is raising it to the foreground first, and
-`--restore-window` does not reliably do that — see "Driving the Windows build"
-under §7 for what does:
+The Windows app exposes **no semantics tree** to UI Automation, so
+`get-app-state` returns only `window > pane FLUTTERVIEW`, and so does every
+other UIA client. The engine answers through MSAA only (checked in
+`flutter_windows.dll`, Flutter 3.47.1), so the tree is still readable:
+
+```bash
+S=.claude/skills/verify-on-device/scripts
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Filter button
+#   [push button] '查看佇列' @(3156,1228 121x49)     screen rect, physical px
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Click '查看佇列'
+#   clicked [push button] '查看佇列' at (3216,1252), match 1 of 1
+```
+
+`-Click` raises the window, clicks the element's centre and parks the cursor
+on the title bar (`-Role`, `-Index` pick among duplicates; exit 2 = no match).
+There is no MSAA default action, so it is still a real mouse click and the
+element must be on screen. It sees only what the semantics tree carries: the
+desktop `NavigationRail` is absent from the framework tree itself (checked
+2026-09-25), so drive the side rail by coordinates.
+
+**Know what `-Click` will do before you run it.** It clicks for real, like any
+other input here. On 2026-09-25 a stray `-Click '清空佇列'` opened the
+clear-queue confirmation on the user's own queue of 1194 tracks. It was
+cancelled with `-Click '取消'`.
+
+Fall back to screenshots and window-local coordinates for anything the tree does
+not carry. The window *can* be driven that way. The step earlier rounds missed
+is raising it to the foreground first, and `--restore-window` does not do that
+reliably. See "Driving the Windows build" under §7 for what does:
 
 ```bash
 orca computer list-apps --json                     # find pid of "fmp"
@@ -182,7 +205,8 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
   centre off it, and drive with `adb shell input tap <x> <y>`. Measured on
   `Medium_Tablet` (2560x1600); the same menus come back fine on
   `Medium_Phone`.
-- **No element tree on Windows** (§6).
+- **No UI Automation tree on Windows.** Read and click it through MSAA
+  instead (§6).
 - `orca screenshot` (Orca's embedded browser) returns inline base64 and burns
   context. For device pixels always use `adb exec-out screencap -p > file.png`.
 - **A snapshot-restored `Medium_Phone` can come up wedged.** The screen is a
@@ -253,12 +277,14 @@ observation on the emulator is worth.
   same steps can disagree. Park the cursor on empty space before the step you
   measure, or drive it by keyboard.
 - **Check what Narrator can reach through MSAA, not UI Automation.** UIA shows
-  nothing under `pane FLUTTERVIEW`, walked or hit-tested, even with Narrator
-  running. `scripts/msaa_tree.ps1` walks the tree through oleacc and prints
-  `nodes=<n>` first; Narrator does not need to be on. Measured 2026-09-24: 7
-  nodes when the bridge was stuck, against 93 in the framework tree, and 120-odd
-  once it was not. To toggle Narrator itself, send Win+Ctrl+Enter.
-  `Stop-Process` cannot stop it.
+  nothing under `pane FLUTTERVIEW`, walked or hit-tested, even with a healthy
+  tree and Narrator running. `scripts/msaa_tree.ps1` prints `nodes=<n>` first,
+  and Narrator does not need to be on. Measured 2026-09-24:
+  - 7 nodes while the bridge was stuck, against 93 in the framework tree;
+  - 120-odd once the bridge was healthy.
+
+  To toggle Narrator itself, send Win+Ctrl+Enter. `Stop-Process` cannot stop
+  it.
 - **Read SMTC through WinRT, not the flyout.** Querying
   `GlobalSystemMediaTransportControlsSessionManager` returns the actual session
   properties as text; screenshotting the media flyout is unreliable because the
