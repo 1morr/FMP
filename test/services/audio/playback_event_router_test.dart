@@ -55,6 +55,40 @@ void main() {
       expect((action as RecoverTransportFailure).failure, same(failure));
     });
 
+    test('a transport failure while paused waits for play', () {
+      // 實機：還原後暫停著，CDN 關掉連線。重試會真的開始播放。
+      const failure = TransportFailed(
+        kind: TransportFailureKind.unknown,
+        raw: 'tcp: ffurl_read returned 0xdfb9b0bb',
+      );
+
+      final action = PlaybackEventRouter.routeEnd(
+        failure,
+        _context(backendIsPlaying: false),
+      );
+
+      expect(action, isA<DeferTransportFailureUntilPlay>());
+      expect((action as DeferTransportFailureUntilPlay).failure, same(failure));
+    });
+
+    test('a transport failure while opening or retrying still recovers', () {
+      // 這兩段後端也沒在播，但使用者要的是播放。
+      const failure = TransportFailed(
+        kind: TransportFailureKind.timeout,
+        raw: 'tcp: timed out',
+      );
+
+      for (final context in [
+        _context(backendIsPlaying: false, isLoadingPlayback: true),
+        _context(backendIsPlaying: false, isRetrying: true),
+      ]) {
+        expect(
+          PlaybackEventRouter.routeEnd(failure, context),
+          isA<RecoverTransportFailure>(),
+        );
+      }
+    });
+
     test('a transport failure with no playing track is ignored', () {
       expect(
         PlaybackEventRouter.routeEnd(

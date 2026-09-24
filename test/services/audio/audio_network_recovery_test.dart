@@ -434,6 +434,53 @@ void main() {
     );
 
     test(
+      'a transport failure while paused waits for play instead of retrying',
+      () async {
+        // 實機：啟動還原曲目後停在暫停，CDN 關掉連線 —— 排出去的重試會真的
+        // 開始播放，使用者什麼都沒按就有聲音。暫停中應該什麼都不做，按播放
+        // 時才重新開流，從原位置接著播。
+        final track = _track('paused-transport-failure');
+
+        await controller.playTrack(track);
+        await pumpUntil(
+          () => controller.state.isPlaying,
+          reason: 'the track should be playing before it is paused',
+        );
+        audioService.emitPosition(const Duration(seconds: 37));
+        await controller.pause();
+        await pumpUntil(
+          () => !controller.state.isPlaying,
+          reason: 'the pause should reach the controller',
+        );
+        final stopsBeforeFailure = audioService.stopCallCount;
+        audioService.playUrlCalls.clear();
+        audioService.seekCalls.clear();
+
+        audioService.emitTransportFailure(
+          'tcp: ffurl_read returned 0xdfb9b0bb',
+        );
+        await drainEventQueue(reason: 'let the failure reach the controller');
+
+        expect(controller.state.isRetrying, isFalse);
+        expect(controller.state.nextRetryAt, isNull);
+        expect(controller.state.isNetworkError, isFalse);
+        expect(controller.state.isPlaying, isFalse);
+        expect(audioService.stopCallCount, stopsBeforeFailure);
+        expect(audioService.playUrlCalls, isEmpty);
+
+        await controller.togglePlayPause();
+        await audioService.waitForPlayUrlCallCount(1);
+        await audioService.waitForSeekCallCount(1);
+
+        expect(
+          audioService.playUrlCalls.single.url,
+          'https://example.com/paused-transport-failure.m4a',
+        );
+        expect(audioService.seekCalls.single, const Duration(seconds: 37));
+      },
+    );
+
+    test(
       'typed source network kind schedules retry without string matching',
       () async {
         final track = _track('typed-network-kind');

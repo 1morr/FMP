@@ -248,6 +248,13 @@ final class RecoverTransportFailure extends PlaybackAction {
   final TransportFailed failure;
 }
 
+/// 暫停中的傳輸層失敗：不重試，等使用者按播放再重新開流。
+final class DeferTransportFailureUntilPlay extends PlaybackAction {
+  const DeferTransportFailureUntilPlay(this.failure);
+
+  final TransportFailed failure;
+}
+
 /// 音訊輸出裝置失敗。
 ///
 /// 三個動作在一個變體裡，因為它們是同一次失敗的同一段處理：記下世代標記、
@@ -422,6 +429,13 @@ abstract final class PlaybackEventRouter {
       case TransportFailed():
         if (context.playingTrackKey == null) {
           return const IgnoreEvent('transport failure with no playing track');
+        }
+        // 暫停著就不重試：重試會真的開始播放，使用者沒按任何東西就有聲音。
+        // 開流中與重試中後端也沒在播，但那時使用者要的是播放。
+        if (!context.backendIsPlaying &&
+            !context.isLoadingPlayback &&
+            !context.isRetrying) {
+          return DeferTransportFailureUntilPlay(reason);
         }
         return RecoverTransportFailure(reason);
       case OutputDeviceFailed(:final raw):

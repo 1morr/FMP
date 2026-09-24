@@ -376,6 +376,85 @@ void main() {
     );
 
     test(
+      'a retry that succeeds and fails again still counts toward the limit',
+      () async {
+        // 實機：串流每次重開都播一兩秒就斷。重試「成功」就歸零的話，每一輪都
+        // 從 1/5 重來，兩分鐘重試了 29 次，永遠不會停。
+        final track = _track('flapping-stream');
+        final events = <PlaybackRecoveryEvent>[];
+        coordinator.dispose();
+        coordinator = PlaybackRecoveryCoordinator(
+          retryExecutor: executor,
+          timerFactory: timerFactory.create,
+          delay: timerFactory.delay,
+          onRecoveryEvent: events.add,
+        );
+        executor.nextResult = PlaybackSessionResult.completed(
+          requestId: 30,
+          track: track,
+          attemptedUrl: 'https://example.com/flapping-stream.m4a',
+          streamResult: null,
+        );
+
+        PlaybackRecoveryEvent failAgain() => coordinator.onBackendNetworkError(
+          track: track,
+          position: const Duration(seconds: 37),
+          isActiveRetryHandoff: false,
+          mode: PlayMode.queue,
+        );
+
+        for (var i = 0; i < NetworkRetryConfig.maxRetries; i++) {
+          expect(failAgain().kind, PlaybackRecoveryEventKind.retryScheduled);
+          timerFactory.timers.last.fire();
+          await pumpUntil(
+            () =>
+                events.isNotEmpty &&
+                events.last.kind == PlaybackRecoveryEventKind.retrySucceeded,
+            reason: 'retry ${i + 1} should reopen the stream',
+          );
+          events.clear();
+        }
+
+        expect(failAgain().kind, PlaybackRecoveryEventKind.retryExhausted);
+        expect(executor.calls, hasLength(NetworkRetryConfig.maxRetries));
+      },
+    );
+
+    test('a failure on another track starts its own retry count', () async {
+      final first = _track('flapping-first');
+      executor.nextResult = PlaybackSessionResult.completed(
+        requestId: 31,
+        track: first,
+        attemptedUrl: 'https://example.com/flapping-first.m4a',
+        streamResult: null,
+      );
+      for (var i = 0; i < NetworkRetryConfig.maxRetries; i++) {
+        coordinator.onBackendNetworkError(
+          track: first,
+          position: Duration.zero,
+          isActiveRetryHandoff: false,
+          mode: PlayMode.queue,
+        );
+        timerFactory.timers.last.fire();
+        await pumpUntil(
+          () => executor.calls.length == i + 1,
+          reason: 'retry ${i + 1} should reach the executor',
+        );
+        await drainEventQueue(reason: 'let retry ${i + 1} settle');
+      }
+
+      final event = coordinator.onBackendNetworkError(
+        track: _track('flapping-second'),
+        position: Duration.zero,
+        isActiveRetryHandoff: false,
+        mode: PlayMode.queue,
+      );
+
+      expect(event.kind, PlaybackRecoveryEventKind.retryScheduled);
+      expect(event.state.retryAttempt, 0);
+    });
+
+    test(
       'scheduled retry retryable failure notifies rescheduled retry',
       () async {
         final track = _track('scheduled-retryable');

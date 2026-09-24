@@ -314,6 +314,12 @@ class AudioController extends Notifier<PlayerState>
   /// 一次會直接失敗 —— 要改得先定「播滿多久才算救回來」，目前沒有 repro。
   String? _bufferStarvationTrackKey;
 
+  /// 暫停中連線斷掉的那一首。按播放時要重新開流，不能直接叫後端接著播。
+  ///
+  /// 暫停中不排重試：重試會真的開始播放，使用者沒按任何東西就有聲音。任何新
+  /// 的播放請求都會開一條新連線，所以由請求入口清掉。
+  String? _streamDroppedWhilePausedKey;
+
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
 
@@ -1805,6 +1811,7 @@ class AudioController extends Notifier<PlayerState>
     // 保存當前播放位置，用於網路錯誤重試時恢復
     // 必須在 session loading state（重置 position 為 zero）之前保存
     final positionBeforeLoad = state.position;
+    _streamDroppedWhilePausedKey = null;
 
     // 階段 1：立即更新 UI（在任何 await 之前）
     _updatePlayingTrack(track);
@@ -1999,6 +2006,7 @@ class AudioController extends Notifier<PlayerState>
     required PlayMode mode,
   }) async {
     logInfo('Retrying playback for: ${track.title}, savedPosition: $position');
+    _streamDroppedWhilePausedKey = null;
 
     _updatePlayingTrack(track);
     _updateQueueState();
@@ -2219,14 +2227,16 @@ class AudioController extends Notifier<PlayerState>
     final track = state.currentTrack;
     if (track == null) return false;
 
-    // 只在 URL 確實過期時觸發（有 URL 但已過期）
-    if (track.audioUrl == null || track.hasValidAudioUrl) return false;
+    // URL 確實過期（有 URL 但已過期），或暫停中連線斷了
+    final droppedWhilePaused = _streamDroppedWhilePausedKey == track.uniqueKey;
+    final urlExpired = track.audioUrl != null && !track.hasValidAudioUrl;
+    if (!droppedWhilePaused && !urlExpired) return false;
 
     // 排除已下載的本地檔案（本地檔案不會過期）
     if (track.allDownloadPaths.any((p) => File(p).existsSync())) return false;
 
     logDebug(
-      'Audio URL expired for: ${track.title}, re-fetching and resuming from ${state.position}',
+      '${droppedWhilePaused ? 'Stream dropped while paused' : 'Audio URL expired'} for: ${track.title}, re-fetching and resuming from ${state.position}',
     );
     final position = state.position;
     final trackKey = track.uniqueKey;
@@ -2482,7 +2492,13 @@ class AudioController extends Notifier<PlayerState>
   }
 
   /// 傳輸層失敗：連線中斷、逾時、DNS、TLS。分類由後端完成。
-  void _onTransportFailure(TransportFailed failure) {
+  ///
+  /// [deferUntilPlay]：暫停中斷線（見 [DeferTransportFailureUntilPlay]），只記下
+  /// 來，由 [_resumeWithFreshUrlIfNeeded] 在按播放時重新開流。
+  void _onTransportFailure(
+    TransportFailed failure, {
+    bool deferUntilPlay = false,
+  }) {
     logError('Transport failure during playback: $failure');
 
     final track = state.playingTrack;
@@ -2493,6 +2509,12 @@ class AudioController extends Notifier<PlayerState>
     // URL 沒過期不等於 URL 還能用。失敗過的那一個必須從可重用的解析結果裡拿掉，
     // 否則重試會一次又一次拿到同一個死 URL。
     _audioStreamManager.invalidateResolvedStream(track);
+
+    if (deferUntilPlay) {
+      logInfo('Stream dropped while paused, reopening on play: ${track.title}');
+      _streamDroppedWhilePausedKey = track.uniqueKey;
+      return;
+    }
 
     final activeRetryRequestId = state.isRetrying && _isLoadingPlayback
         ? _handoff.activeRequestId
@@ -2817,6 +2839,8 @@ class AudioController extends Notifier<PlayerState>
         logWarning('Output device failed; premature end not retried: $at');
       case RecoverTransportFailure(:final failure):
         _onTransportFailure(failure);
+      case DeferTransportFailureUntilPlay(:final failure):
+        _onTransportFailure(failure, deferUntilPlay: true);
       case ReportOutputDeviceFailure():
         _reportOutputDeviceFailure(action);
       case ReopenAfterMediaFailure(:final raw):
