@@ -1,6 +1,6 @@
 # 0006 — Release 驗過產物就直接發布，不再留草稿等人按
 
-- 狀態：已決定、尚未實作
+- 狀態：已實作
 - 日期：2026-09-24
 - 影響範圍：`.github/workflows/release.yml`、`test/workflows/release_workflow_test.dart`、`docs/build-and-release.md` 的發布流程
 
@@ -27,7 +27,8 @@ build-windows → release`。`prepare` 檢查 tag 是 `vMAJOR.MINOR.PATCH` 且�
 - 3 個穩定別名：`fmp-latest-android-universal.apk`、`fmp-latest-windows.zip`、
   `fmp-latest-windows-installer.exe`
 - `fmp-<tag>-windows.zip`、`fmp-<tag>-windows-installer.exe`
-- `fmp-<tag>-checksums.sha256`：只涵蓋 7 個版本化檔案，刻意排除 `fmp-latest-*`
+- `fmp-<tag>-checksums.sha256`：只涵蓋 6 個版本化檔案（4 個 APK、zip、installer），
+  刻意排除 `fmp-latest-*`
 
 App 內更新讀的正是這份 checksums（`update_service.dart` 找
 `-checksums.sha256` 結尾的 asset）與 Release body（`data['body']` 成為更新對話框
@@ -42,7 +43,7 @@ App 內更新讀的正是這份 checksums（`update_service.dart` 找
 1. **asset 齊全**：上面 10 個檔名一個不少。將來加別名（例如 arm64 的
    `fmp-latest-*`）時，這份清單與數字要一起改。
 2. **checksums 與產物一致**：manifest 每一行的 hash 與對應的版本化檔案相符，
-   7 個版本化檔案都在 manifest 裡。
+   6 個版本化檔案都在 manifest 裡。
 3. **APK 版本對得上 tag**：`versionName` 等於 tag 去掉 `v`，`versionCode` 等於
    `prepare` 算出來的值。今天這靠建置時的 pubspec 改寫成立；倉庫裡的 pubspec
    與 tag 不一致確實發生過（`v1.10.0` 這個 tag 上的 `pubspec.yaml` 是
@@ -75,6 +76,22 @@ App 內更新讀的正是這份 checksums（`update_service.dart` 找
   自動分組產生的，發布後直接成為 App 內更新對話框的內容。這是知情接受的取捨。
 - **驗證通過就立刻對外**：README 的穩定連結與 App 內更新同時指向新版。驗證 job
   只擋結構性錯誤（缺檔、hash 不符、版本錯、壞的安裝檔），不擋執行期的壞 build。
-- 實作時 `docs/build-and-release.md` 的「發布流程」一節要一起改，它現在描述的是
-  草稿流程。
-- 實作之前，`draft: true` 與釘住它的測試照舊有效。
+- `docs/build-and-release.md` 的「發布流程」一節隨實作改寫，不再描述草稿流程。
+
+## 實作
+
+- 檢查寫在 `tool/release/verify_release_assets.dart`，由 `verify` job 執行；
+  `test/workflows/release_assets_verification_test.dart` 用假產物證明每一項會紅。
+  `release_workflow_test.dart` 以解析 YAML 的方式釘住 job 關係：`verify` 等所有
+  `build-*`，`release` 等 `verify`，並且只上傳 `verify` 檢查過、打包成
+  `release-assets` 的那一份，不再從各 build job 重新收集。
+- manifest 的產生從 `release` job 搬進 `verify`，檢查的是產生出來的結果。
+- 實作時同時加了 arm64 的穩定別名 `fmp-latest-android-arm64-v8a.apk`，所以現在是
+  **11 個** asset。
+- 第 1 項之外多檢查一件事：每個 `fmp-latest-*` 與同後綴的版本化檔逐位元相同。
+  `update_service.dart` 依 ABI 或平台收下載網址時，別名與版本化檔落在同一格，
+  實際下載的可能是別名，而 hash 一律拿版本化檔名去 checksums 查 —— 兩者不同，
+  App 內更新就會以校驗失敗收場。
+- 第 4 項只看 PE 標頭（`MZ` 與 `PE\0\0` 簽章）。尾端被截斷的安裝檔、壞掉的
+  zip 仍然擋不下。
+- 以 v1.10.2 的實際產物跑過：通過；把 versionCode 改錯、把安裝檔換成 zip 都會紅。

@@ -155,10 +155,12 @@ Windows SMTC 透過 `AppUserModelID` 識別應用程式身分。本專案在兩�
 
 ### 發布流程
 
-> **Release 建出來是草稿。** workflow 跑完之後要到 GitHub Releases 頁面按
-> Publish 才會對外，README 的 `releases/latest/download/...` 連結在那之前看不到
-> 它 —— 忘了按只會讓上一版繼續當最新版，不會發出半成品。這一步是給人看 body 與
-> 產物的機會。
+> **push tag 就是發布，沒有草稿那一步。** workflow 的 `verify` job 通過後，
+> Release 直接對外：README 的 `releases/latest/download/...` 連結與 App 內更新
+> 同時指向新版，自動產生的 body 也不再有人先讀過（取捨見
+> [ADR 0006](adr/0006-release-publishes-after-artifact-check.md)）。`verify` 只擋
+> 結構性錯誤 —— 缺檔、checksums 不符、APK 版本不是 tag 的版本、安裝檔不是執行檔
+> —— 執行期才會壞的 build 它擋不下，所以 tag 要打在已經驗過的 commit 上。
 
 ```bash
 # 1. 先把 pubspec.yaml 的版本升到要發的號碼，走 PR 合併進 main
@@ -241,10 +243,17 @@ GitHub Actions (release.yml)
        │   └─ 產物: fmp-v1.2.0-windows.zip
        │          fmp-v1.2.0-windows-installer.exe
        │
-       └─ release
-           ├─ 下載所有平臺的產物
+       ├─ verify (ubuntu，等所有 build 完成)
+       │   ├─ 下載所有平臺的產物，產生 checksums manifest
+       │   ├─ tool/release/verify_release_assets.dart：11 個檔一個不多一個不少、
+       │   │   checksums 與別名逐位元對得上、APK 的 versionName / versionCode 是 tag 的、
+       │   │   安裝檔是 PE 執行檔
+       │   └─ 把檢查過的整份打包成 release-assets artifact
+       │
+       └─ release（等 verify 通過）
+           ├─ 下載 release-assets
            ├─ 從 commit 範圍產生 Release Notes（見下節）
-           └─ 建立 GitHub Release（multi-ABI APK + ZIP + Installer + latest 穩定下載別名）
+           └─ 建立並直接發布 GitHub Release（只上傳 release-assets 裡的檔）
 ```
 
 ### Release Notes
@@ -294,12 +303,17 @@ body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 | Android | `fmp-v1.2.0-android-armeabi-v7a.apk` | ABI 專用 APK |
 | Android | `fmp-v1.2.0-android-x86_64.apk` | 模擬器 / x86_64 APK |
 | Android | `fmp-v1.2.0-android-universal.apk` | 應用內更新的 universal fallback |
+| Android | `fmp-latest-android-arm64-v8a.apk` | 穩定下載連結（arm64 專用，檔案較小） |
 | Android | `fmp-latest-android-universal.apk` | README 穩定下載連結 |
 | Windows | `fmp-v1.2.0-windows.zip` | 免安裝版 |
 | Windows | `fmp-v1.2.0-windows-installer.exe` | 安裝版 |
 | Windows | `fmp-latest-windows.zip` | README 穩定下載連結 |
 | Windows | `fmp-latest-windows-installer.exe` | README 穩定下載連結 |
 | All | `fmp-v1.2.0-checksums.sha256` | 應用內更新校驗 manifest |
+
+這張表與 `tool/release/verify_release_assets.dart` 的清單要一起改：多一個或少一個檔，
+`verify` job 都會紅。`fmp-latest-*` 必須與同後綴的版本化檔逐位元相同 —— App 內
+更新可能從別名下載，卻用版本化檔名查 checksums。
 
 應用內更新支援 multi-ABI Android 命名格式，找不到符合裝置 ABI 的 asset 時會 fallback 到 `universal`。Release workflow 會為版本化 APK、ZIP、installer 產生 `sha256` manifest；App 下載時先寫入 `.part`，完成後驗證 GitHub asset size 和 manifest checksum，通過後才改名成正式檔。README 使用 `https://github.com/1morr/FMP/releases/latest/download/fmp-latest-*` 穩定下載連結，因此 Release workflow 不需要 commit 回 `main` 更新版本化下載 URL。
 

@@ -104,6 +104,9 @@ dev_dependencies:
   # 用 http 而不是 app 的 Dio 設定，才不會把 SourceHttpPolicy 的預設帶進來。
   http: ^1.6.0
 
+  # test/workflows 讀 job 之間的 needs 關係，照 YAML 結構比對，不比對字串。
+  yaml: ^3.1.4
+
 flutter:
   uses-material-design: true
 
