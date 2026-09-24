@@ -72,9 +72,10 @@ Keep the returned `terminal.handle`. First Android build takes several minutes;
 `orca terminal wait --for tui-idle` can time out while the build is still
 healthy — read the tail before concluding anything failed.
 
-`flutter run -d windows` works the same way. Its output is flooded by the benign
-`Failed to update ui::AXTree` spam (see `docs/troubleshooting.md`) — filter it
-out when reading, never "fix" it.
+`flutter run -d windows` works the same way. A `Failed to update ui::AXTree`
+line in its output is not noise: the Windows accessibility tree has frozen and
+Narrator reads stale content (see `docs/troubleshooting.md`). Find the node
+before filtering the line away.
 
 ## 3. Observe
 
@@ -241,11 +242,23 @@ observation on the emulator is worth.
   directly, in one call, and returns text. A screenshot answers it indirectly,
   costs context, and cannot see anything off-screen. Reach for pixels only when
   the question is genuinely about layout.
-- **The Windows `flutter run` terminal is unreadable.** `Failed to update
-  ui::AXTree` spam (`flutter/flutter#182444`) scrolls Dart logs away within
-  seconds. On Windows, read state through the VM Service and confirm visuals by
-  screenshot — and raise the window to the foreground first, or the capture is
-  of whatever is on top.
+- **The Windows `flutter run` terminal floods once a tooltip shows.**
+  `Failed to update ui::AXTree` lines (`flutter/flutter#182444`) scroll Dart
+  logs away within seconds. The first line comes from hovering a tooltip, which
+  a synthetic click does too. On Windows, read state through the VM Service,
+  and confirm visuals by screenshot. Raise the window to the foreground first,
+  or the capture is of whatever is on top.
+- **Accessibility measurements depend on where the cursor rests.** A tooltip
+  under the pointer breaks the tree for the rest of the run, so two runs of the
+  same steps can disagree. Park the cursor on empty space before the step you
+  measure, or drive it by keyboard.
+- **Check what Narrator can reach through MSAA, not UI Automation.** UIA shows
+  nothing under `pane FLUTTERVIEW`, walked or hit-tested, even with Narrator
+  running. `scripts/msaa_tree.ps1` walks the tree through oleacc and prints
+  `nodes=<n>` first; Narrator does not need to be on. Measured 2026-09-24: 7
+  nodes when the bridge was stuck, against 93 in the framework tree, and 120-odd
+  once it was not. To toggle Narrator itself, send Win+Ctrl+Enter.
+  `Stop-Process` cannot stop it.
 - **Read SMTC through WinRT, not the flyout.** Querying
   `GlobalSystemMediaTransportControlsSessionManager` returns the actual session
   properties as text; screenshotting the media flyout is unreliable because the

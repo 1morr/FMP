@@ -1,32 +1,56 @@
 # 疑難排解
 
-已知的良性 runtime 噪音、以及已查明「修不掉、只能繞過」的行為與其成因。這裡的結論都對照過一手來源，**不要**再花時間「修好」它們。
+已知的 runtime 噪音、以及已查明「修不掉、只能繞過」的行為與其成因。這裡的結論都對照過一手來源；標明「不要做」的就不要再花時間。
 
-## Windows：`Failed to update ui::AXTree` log 洪水
+## Windows：`Failed to update ui::AXTree`
 
-`flutter run -d windows` 會反覆輸出：
+`flutter run -d windows` 輸出這行時：
 
 ```text
 [ERROR:flutter/shell/platform/common/accessibility_bridge.cc(114)] Failed to update ui::AXTree, error: <N> will not be in the tree and is not the new root
 ```
 
-這是**已知的 Flutter engine bug，不是 FMP 缺陷，而且無害**。以下每一條都在 2026-07 對照一手來源（engine 原始碼、`flutter/flutter` GitHub、Flutter 3.44 release notes）查證過。
+**它不是無害的噪音。** 看到它，就代表 Windows 的無障礙樹已經停在舊狀態，Narrator 讀不到 App 內容。這是 Flutter engine 的 bug（`flutter/flutter#182444`，僅 Windows，截至 2026-09 仍 OPEN），但 FMP 可以避開已知的觸發點。
 
-### 成因
+### 後果（2026-09-24 實測，Flutter 3.47.1）
 
-- **Engine 行為**：`AccessibilityBridge::CommitUpdates()` 無法在單次 update 內序列化 semantics node 的 reparent，於是執行 `FML_LOG(ERROR) ... ; return;`，丟棄該次 update，並在下一個 frame 重送修正後的 tree。不會 crash，也沒有功能影響。
-- **上游追蹤**：`flutter/flutter#182444`（ListView + Tooltip + OverlayPortal，僅 Windows，截至 2026-07 仍 OPEN）與 `flutter/flutter#188662`（bridge 洩漏其 `AXTreeManager`）。包含 master 在內，尚無任何 Flutter 版本修好它。
-- **為何 FMP 特別容易觸發**：每個 `desktop_multi_window` 子視窗都跑自己的 Flutter engine（各自有一份 `AccessibilityBridge`），而自訂標題列與歌詞標題列使用 `IconButton` tooltip 搭配 `Semantics` / `ExcludeSemantics`——正好是 `#182444` 的 reparent 模式。該套件放大了觸發面積，但它本身不是 bug 來源。
-- **影響範圍**：這行是 C++ `FML_LOG` 寫到 platform stderr。它不會進入 `AppLogger` 或 app 內的 Log Viewer，release build 也看不到（沒有掛載 console）。它只汙染開發用終端機。
+- `AccessibilityBridge::CommitUpdates()` 遇到這種 update 會整批丟掉，而且**不會在下一個 frame 自己修好**。沒送進去的節點之後每一次更新都會再失敗，錯誤一路連鎖。
+- 修正前的 FMP：
+  - 框架的語意樹有 93 個節點，送到 Windows 的只有 7 個：標題列三顆按鈕，加上一個空的路由容器；
+  - 視窗已最大化，按鈕仍標著「最大化」；
+  - 用 oleacc 走 MSAA 可以看到這些，debug 與 release 都一樣。
+- release 開著 Narrator 操作約 5 分鐘沒有結束程序。上游另有人回報 release 會因同一個損壞狀態終止程序，沒有重現。
+- C++ `FML_LOG` 寫到 platform stderr，不會進 `AppLogger` 或 app 內的 Log Viewer；release 沒有 console，所以使用者那邊完全看不到。
 
-### 這些都「修不好」，不要做
+### 已知觸發點
 
-- 只為了這個而升級 Flutter、`desktop_multi_window` 或 `window_manager`。
-- 對主視窗全域 `setSemanticsEnabled(false)`（會全 app 停掉 Narrator / NVDA 無障礙支援）。
-- 使用 `FLUTTER_A11Y=off` 環境變數或 `FlutterWindows.instance?.setSemanticsEnabled(...)`——**這兩個都不是真實存在的 Flutter API**（論壇捏造，engine 與 framework 都查無此物）。
-- 把 `IconButton` 包進 `Tooltip(child: ...)`——那正是 `#182444` 的 OverlayPortal 反模式。
+兩者都是同一個機制：`OverlayPortal` 的內容實體上掛在 Overlay 底下，走訪順序卻嫁接回觸發它的元件。落在 Navigator 的 Overlay 時，bridge 就收不下。
 
-### 只想降低終端機噪音
+- **Material `Slider`（已避開）**
+  - `Slider` 與 `RangeSlider` 一建立就把數值指示器放進最近的 Overlay，所以只要畫面上有 Slider 就會壞。
+  - 實測兩個入口：桌面迷你播放列的音量 Slider，啟動時就壞；播放頁的進度與音量 Slider，打開播放頁就壞。
+  - FMP 的避法：所有 Slider 都走 `lib/ui/widgets/controls/scoped_slider.dart`（`ScopedSlider`）。它用 `Overlay.wrap` 讓指示器留在自己的 Overlay。
+  - 閘門：`test/ui/static_rules/slider_overlay_static_rule_test.dart` 擋直接建 `Slider(`。
+- **滑鼠 hover 彈出的 Tooltip（未避開）**
+  - Tooltip 顯示的那一刻，同樣把內容放進 Navigator 的 Overlay。
+  - 實測（Slider 已修）：啟動、開播放頁、收起，做兩輪，每次點擊前滑鼠都停在有 tooltip 的按鈕上。結果累計 104 行錯誤，節點數最後剩 8 個。同一條路徑全域關掉 tooltip：0 行，首頁 129 個、播放頁 34 個節點，每次都跟著頁面切換。
+  - 只用鍵盤操作（Narrator 的一般用法）不會 hover，所以不會觸發。
+  - 不能直接關掉 tooltip：它也是 `IconButton` 的無障礙名稱來源。
+- 用 `flutter create` 的範本加 Slider 重現不出來，FMP 外殼還有別的條件，所以還沒回報上游。
+
+### 再看到這行時
+
+先找出是哪個節點。用 VM Service 的 `ext.flutter.debugDumpSemanticsTreeInInverseHitTestOrder` 倒出語意樹，對照錯誤裡的 `<N>`。帶 `traversalChildIdentifier: _OverlayPortalState` 的節點，就是某個 `OverlayPortal` 的內容嫁接到了 Navigator 的 Overlay。找到那個元件，替它包一層本地 Overlay。
+
+### 這些沒有用，不要做
+
+- 只為了這個而升級 Flutter、`desktop_multi_window` 或 `window_manager`。包含 master 在內，尚無任何 Flutter 版本修好它。
+- 對主視窗全域 `setSemanticsEnabled(false)`：會全 app 停掉 Narrator / NVDA 無障礙支援。
+- 使用 `FLUTTER_A11Y=off` 環境變數或 `FlutterWindows.instance?.setSemanticsEnabled(...)`。**這兩個都不是真實存在的 Flutter API**（論壇捏造，engine 與 framework 都查無此物）。
+- 把 `IconButton` 包進 `Tooltip(child: ...)`。
+- 把 `ExcludeSemantics` 包在觸發元件外面。overlay 節點不在它底下，實測沒有效果。
+
+### 只想降低終端機噪音（例如別的視窗仍在觸發）
 
 ```bash
 # Git Bash 直接過濾（注意：這會讓 flutter run 失去 hot-reload 互動）

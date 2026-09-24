@@ -23,7 +23,7 @@
 | [開發文件](development.md) | 貢獻者 / agent | 專案概覽、技術棧、架構地圖、執行期除錯（VM Service 與 Isar Inspector） |
 | [建置指南](building.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
 | [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
-| [疑難排解](troubleshooting.md) | 開發者 / agent | 已查證的良性建置與 runtime 噪音（如 Windows `Failed to update ui::AXTree`、`resolve_symlinks.ps1` 的 `Get-Item` 警告），以及修不掉只能繞過的已知行為（如可攜版搬動後的第一次開機自啟）與其成因 |
+| [疑難排解](troubleshooting.md) | 開發者 / agent | Windows `Failed to update ui::AXTree` 的後果與避法、已查證的良性建置噪音（如 `resolve_symlinks.ps1` 的 `Get-Item` 警告），以及修不掉只能繞過的已知行為（如可攜版搬動後的第一次開機自啟）與其成因 |
 | [adr/](adr/) | 貢獻者 / agent | 架構決策記錄：決定了什麼、為什麼，以及被否決的替代方案與否決的證據 |
 | [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
 
