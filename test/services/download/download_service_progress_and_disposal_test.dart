@@ -2241,7 +2241,7 @@ segment0.ts
       'a temp file the isolate cannot open fails the task instead of hanging',
       () async {
         // 真機上是 Android scoped storage 拒絕寫入 Music/（errno=1）：目錄建得
-        // 起來，檔案開不了。這裡讓暫存路徑本身是資料夾，重現同一種開檔失敗。
+        // 起來，檔案開不了。下面依平台重現同一種開檔被拒。
         final baseDir = await _createTempDirDeletedOnTearDown(
           'download_unopenable_temp_',
         );
@@ -2285,7 +2285,18 @@ segment0.ts
           playlistName: playlist.name,
           track: savedTrack,
         );
-        await Directory('$savePath.downloading').create(recursive: true);
+        // 兩個平台要用不同方式才拿得到「拒絕存取」：Windows 開一個資料夾當
+        // 檔案會回 access denied；Linux 回的是 EISDIR（不是權限錯誤），要改成
+        // 在唯讀資料夾裡開檔才是 EACCES。CI 跑在非 root 的 Linux 上。
+        if (Platform.isWindows) {
+          await Directory('$savePath.downloading').create(recursive: true);
+        } else {
+          final trackDir = await Directory(
+            p.dirname(savePath),
+          ).create(recursive: true);
+          await Process.run('chmod', ['555', trackDir.path]);
+          addTearDown(() => Process.run('chmod', ['755', trackDir.path]));
+        }
         final task = await downloadRepository.saveTask(
           DownloadTask()
             ..trackId = savedTrack.id
