@@ -18,7 +18,8 @@
 <!-- DOWNLOAD_START -->
 | Platform | | |
 |---|---|---|
-| **Android** | [APK](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-universal.apk) | 直接安裝在裝置上 |
+| **Android** | [APK（推薦）](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-arm64-v8a.apk) | 64 位元 ARM，近年的手機幾乎都是；檔案較小 |
+| Android | [通用 APK](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-universal.apk) | 任何裝置都能裝，包括 32 位元 ARM 與 x86_64；檔案較大 |
 | **Windows** | [安裝程式（推薦）](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows-installer.exe) | 完整支援 SMTC、開始功能表、捷徑與系統整合 |
 | Windows | [免安裝 ZIP](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows.zip) | 解壓縮即可執行；媒體鍵與捷徑識別可能不完整 |
 <!-- DOWNLOAD_END -->

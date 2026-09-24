@@ -303,7 +303,7 @@ body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 | Android | `fmp-v1.2.0-android-armeabi-v7a.apk` | ABI 專用 APK |
 | Android | `fmp-v1.2.0-android-x86_64.apk` | 模擬器 / x86_64 APK |
 | Android | `fmp-v1.2.0-android-universal.apk` | 應用內更新的 universal fallback |
-| Android | `fmp-latest-android-arm64-v8a.apk` | 穩定下載連結（arm64 專用，檔案較小） |
+| Android | `fmp-latest-android-arm64-v8a.apk` | README 穩定下載連結（推薦，arm64 專用，檔案較小） |
 | Android | `fmp-latest-android-universal.apk` | README 穩定下載連結 |
 | Windows | `fmp-v1.2.0-windows.zip` | 免安裝版 |
 | Windows | `fmp-v1.2.0-windows-installer.exe` | 安裝版 |
