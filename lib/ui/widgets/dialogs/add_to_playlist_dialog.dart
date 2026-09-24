@@ -7,7 +7,6 @@ import 'package:fmp/core/errors/user_message.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
 import 'package:fmp/data/database/repository_providers.dart';
@@ -54,6 +53,11 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
   final _newPlaylistController = TextEditingController();
   Set<int> _selectedPlaylistIds = {};
   Set<int> _originalPlaylistIds = {}; // 原始状态：打开对话框时 track 已在的歌单
+
+  /// 預選時查到的資料庫列。移除要用同一批：預選沒有 cid 時只比 sourceId，
+  /// 改用 cid 完全相同的查詢的話，播放後才補上 cid 的曲目會被預選，取消勾選
+  /// 卻移除不到。
+  List<int> _existingTrackIds = const [];
   bool _isAdding = false;
   bool _isInitialized = false;
 
@@ -106,6 +110,10 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
       }
     }
 
+    _existingTrackIds = loadedTracks
+        .map((track) => track.id)
+        .where((id) => id > 0)
+        .toList(growable: false);
     _originalPlaylistIds = Set.from(preselectedIds);
     _selectedPlaylistIds = Set.from(preselectedIds);
     _isInitialized = true;
@@ -526,21 +534,12 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
       final changedPlaylistIds = <int>{};
 
       // 先处理移除
-      final trackRepository = ref.read(trackRepositoryProvider);
-      final existingTrackMap = await trackRepository.getBySourceIdentities(
-        widget.tracks.map(TrackSourceIdentity.fromTrack),
-      );
-      final existingTrackIds = existingTrackMap.values
-          .map((track) => track.id)
-          .where((id) => id > 0)
-          .toList(growable: false);
-
       for (final playlistId in toRemove) {
         try {
-          if (existingTrackIds.isNotEmpty) {
+          if (_existingTrackIds.isNotEmpty) {
             await service.removeTracksFromPlaylist(
               playlistId,
-              existingTrackIds,
+              _existingTrackIds,
             );
           }
           removeSuccessCount++;
