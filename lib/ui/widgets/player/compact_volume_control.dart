@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fmp/core/utils/icon_helpers.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/ui/widgets/controls/scoped_slider.dart';
 
 /// 緊湊音量控制（AppBar 內使用），音樂/電台全螢幕播放器共用。
 ///
@@ -49,7 +50,7 @@ class CompactVolumeControl extends StatelessWidget {
               thumbColor: colorScheme.primary,
               overlayColor: colorScheme.primary.withValues(alpha: 0.2),
             ),
-            child: Slider(
+            child: ScopedSlider(
               value: volume,
               min: 0.0,
               max: 1.0,

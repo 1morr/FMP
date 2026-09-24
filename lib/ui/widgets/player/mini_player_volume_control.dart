@@ -4,6 +4,7 @@ import 'package:fmp/core/constants/breakpoints.dart';
 import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/core/utils/icon_helpers.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/ui/widgets/controls/scoped_slider.dart';
 
 /// 迷你播放器音量控制（僅桌面端顯示），音樂/電台迷你播放器共用。
 ///
@@ -67,7 +68,7 @@ class MiniPlayerVolumeControl extends StatelessWidget {
               quarterTurns: 3,
               child: SliderTheme(
                 data: _sliderThemeData,
-                child: Slider(
+                child: ScopedSlider(
                   value: volume,
                   min: 0.0,
                   max: 1.0,
@@ -95,7 +96,7 @@ class MiniPlayerVolumeControl extends StatelessWidget {
           width: 100,
           child: SliderTheme(
             data: _sliderThemeData,
-            child: Slider(
+            child: ScopedSlider(
               value: volume,
               min: 0.0,
               max: 1.0,

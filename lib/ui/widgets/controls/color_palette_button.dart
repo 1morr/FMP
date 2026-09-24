@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/ui/widgets/controls/scoped_slider.dart';
 
 class ColorPaletteButton extends StatelessWidget {
   static const paletteKey = ValueKey('color-palette-dialog');
@@ -247,7 +248,7 @@ class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
                                   overlayRadius: 12,
                                 ),
                               ),
-                              child: Slider(
+                              child: ScopedSlider(
                                 value: _hsv.value,
                                 min: 0,
                                 max: 1,

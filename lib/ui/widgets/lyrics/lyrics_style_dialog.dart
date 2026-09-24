@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fmp/services/lyrics/lyrics_window_style.dart';
 import 'package:fmp/ui/widgets/controls/color_palette_button.dart';
 import 'package:fmp/ui/widgets/controls/switch_expansion_tile.dart';
+import 'package:fmp/ui/widgets/controls/scoped_slider.dart';
 
 class LyricsStyleDialogStrings {
   final String styleSettings;
@@ -144,7 +145,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
           ),
-          child: Slider(
+          child: ScopedSlider(
             key: key,
             value: value.clamp(min, max).toDouble(),
             min: min,
