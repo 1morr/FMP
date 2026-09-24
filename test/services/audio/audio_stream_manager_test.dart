@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
@@ -943,7 +944,7 @@ void main() {
           ..artist = 'Tester';
 
         for (final authHeaders in [
-          SourceHttpPolicy.neteaseAuthHeaders('MUSIC_U=music-u; __csrf=csrf'),
+          NeteaseAccountService.authHeadersFor('MUSIC_U=music-u; __csrf=csrf'),
           null,
         ]) {
           neteaseContext.authHeaders = authHeaders;
@@ -967,7 +968,7 @@ void main() {
 
     test('prepareNetworkPlayback follows the resolved playback URL', () async {
       final neteaseContext = _FakeSourceAuthContext()
-        ..authHeaders = SourceHttpPolicy.neteaseAuthHeaders(
+        ..authHeaders = NeteaseAccountService.authHeadersFor(
           'MUSIC_U=music-u; __csrf=csrf',
         )
         ..playbackUrlResolver = (sourceType, url, authHeaders) async {

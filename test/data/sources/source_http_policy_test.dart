@@ -102,6 +102,149 @@ void main() {
       dio.close();
     });
 
+    // 每一個請求都帶著這些 header，而錯了不會編譯失敗、在本機也看不出來 ——
+    // 只會在有風控的那一端變成 403 或 412。這裡用字面值逐字釘住，改動 policy
+    // 的寫法時，輸出必須一字不差。
+    group('exact output', () {
+      const media =
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      const neteaseDesktop =
+          'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 '
+          'NeteaseMusicDesktop/3.0.18.203152';
+      const web =
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+      const json = 'application/json, text/plain, */*';
+      const custom = 'Custom-UA';
+
+      test('media headers', () {
+        expect(SourceHttpPolicy.mediaHeaders('bilibili'), {
+          'Referer': 'https://www.bilibili.com',
+          'User-Agent': media,
+        });
+        expect(SourceHttpPolicy.mediaHeaders('youtube'), {
+          'Origin': 'https://www.youtube.com',
+          'Referer': 'https://www.youtube.com/',
+          'User-Agent': media,
+        });
+        expect(SourceHttpPolicy.mediaHeaders('netease'), {
+          'Origin': 'https://music.163.com',
+          'Referer': 'https://music.163.com/',
+          'User-Agent': media,
+        });
+        expect(SourceHttpPolicy.mediaHeaders('soundcloud'), {
+          'User-Agent': media,
+        });
+      });
+
+      test('image headers', () {
+        expect(SourceHttpPolicy.imageHeaders('bilibili'), {
+          'Referer': 'https://www.bilibili.com',
+          'User-Agent': media,
+        });
+        expect(SourceHttpPolicy.imageHeaders('youtube'), {
+          'Origin': 'https://www.youtube.com',
+          'Referer': 'https://www.youtube.com/',
+          'User-Agent': media,
+        });
+        expect(SourceHttpPolicy.imageHeaders('netease'), {
+          'Origin': 'https://music.163.com',
+          'Referer': 'https://music.163.com/',
+          'User-Agent': media,
+        });
+        expect(SourceHttpPolicy.imageHeaders('soundcloud'), {
+          'User-Agent': media,
+        });
+        expect(
+          SourceHttpPolicy.imageHeaders('bilibili', includeUserAgent: false),
+          {'Referer': 'https://www.bilibili.com'},
+        );
+        expect(
+          SourceHttpPolicy.imageHeaders('soundcloud', includeUserAgent: false),
+          <String, String>{},
+        );
+      });
+
+      test('image headers by host', () {
+        const bilibili = {'Referer': 'https://www.bilibili.com'};
+        const youtube = {
+          'Origin': 'https://www.youtube.com',
+          'Referer': 'https://www.youtube.com/',
+        };
+        const netease = {
+          'Origin': 'https://music.163.com',
+          'Referer': 'https://music.163.com/',
+        };
+        const cases = <String, Map<String, String>?>{
+          'https://i0.hdslb.com/bfs/a.jpg': bilibili,
+          'https://hdslb.com/a.jpg': bilibili,
+          'https://i.bilibili.com/a.jpg': bilibili,
+          'https://I1.HDSLB.COM/a.jpg': bilibili,
+          'https://i.ytimg.com/vi/x/hq.jpg': youtube,
+          'https://yt3.ggpht.com/a': youtube,
+          'https://lh3.googleusercontent.com/a': youtube,
+          'https://p1.music.126.net/a.jpg': netease,
+          'https://music.126.net/a.jpg': netease,
+          'https://nothdslb.com/a.jpg': null,
+          'https://example.com/a.jpg': null,
+          'not a url': null,
+          '': null,
+        };
+        for (final MapEntry(key: url, value: expected) in cases.entries) {
+          expect(
+            SourceHttpPolicy.imageHeadersForUrl(url),
+            expected,
+            reason: url,
+          );
+        }
+        expect(
+          SourceHttpPolicy.imageHeadersForUrl(
+            'https://i.ytimg.com/a.jpg',
+            includeUserAgent: true,
+          ),
+          {...youtube, 'User-Agent': media},
+        );
+      });
+
+      test('api headers', () {
+        expect(SourceHttpPolicy.apiHeaders('bilibili'), {
+          'User-Agent': web,
+          'Referer': 'https://www.bilibili.com/',
+          'Origin': 'https://www.bilibili.com',
+          'Accept': json,
+        });
+        expect(SourceHttpPolicy.apiHeaders('youtube'), {
+          'User-Agent': media,
+          'Origin': 'https://www.youtube.com',
+          'Referer': 'https://www.youtube.com/',
+        });
+        expect(SourceHttpPolicy.apiHeaders('netease'), {
+          'User-Agent': neteaseDesktop,
+          'Referer': 'https://music.163.com/',
+          'Origin': 'https://music.163.com',
+          'Accept': json,
+        });
+        expect(SourceHttpPolicy.apiHeaders('soundcloud'), {'User-Agent': web});
+        for (final source in ['bilibili', 'youtube', 'netease', 'soundcloud']) {
+          expect(
+            SourceHttpPolicy.apiHeaders(
+              source,
+              userAgent: custom,
+              extraHeaders: {'Referer': 'https://x/', 'X-Extra': '1'},
+            ),
+            allOf(
+              containsPair('User-Agent', custom),
+              containsPair('Referer', 'https://x/'),
+              containsPair('X-Extra', '1'),
+            ),
+            reason: source,
+          );
+        }
+      });
+    });
+
     test('createApiDio applies source defaults and optional content type', () {
       final dio = SourceHttpPolicy.createApiDio(
         SourceIds.youtube,

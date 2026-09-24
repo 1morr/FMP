@@ -607,7 +607,13 @@ class ImportService with Logging implements ImportServiceFacade {
         // 添加小延迟避免请求过快
         await Future.delayed(const Duration(milliseconds: 100));
       } catch (e) {
-        // 获取分P失败，直接添加原始track
+        // 取不到分 P（例如影片已失效）就保留原始那一筆，並把這次刷新標成不完整：
+        // 完整的刷新會刪掉遠端沒有的曲目，而這支影片先前展開的分 P 在這次結果
+        // 裡並不存在。這裡曾經什麼都不記，歌單因此走了不完整路徑卻查不出原因。
+        logWarning(
+          'Page expansion failed for ${track.sourceId}, '
+          'marking the refresh incomplete: $e',
+        );
         isComplete = false;
         expandedTracks.add(track);
       }

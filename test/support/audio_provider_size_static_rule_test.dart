@@ -26,63 +26,95 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart_source.dart';
+
 const _path = 'lib/services/audio/audio_provider.dart';
 
-/// 2026-09-17 的實測值：Mix 補歌邊界不再在套用端做決定（等完就交回 router
-/// 重判），加上 `readOptional` 只剩 `playback_side_effects.dart` 那一份。
+/// 2026-09-23 第三次調整：放棄時清掉「已經救過一次」的記號，使用者重播同一首
+/// 才有自己的一次救援。記號是控制器的欄位，清它的地方只能在控制器。
 ///
-/// 上一格 2,167 是 2026-09-16 後端事件路由抽成 `playback_event_router.dart`
+/// 上一格 2,168 是同一天第二次調整：第二次緩衝逾時改成跟媒體開啟失敗一樣收尾
+/// —— 停後端、補發通知欄 / SMTC。停後端與發佈都是副作用，路由那邊只負責說
+/// 「該失敗了」，沒有可以搬出去的決定。
+///
+/// 再上一格 2,161 是同一天稍早的值：離開載入時把後端當下狀態補走一次路由，緩衝
+/// 看門狗才等得到開流時就進入的 buffering（Windows 零位元組串流）。只有控制器
+/// 知道載入何時結束，後端在 `playUrl` 返回前補發的事件會先到、照樣被抑制。
+///
+/// 再上一格 2,155 是 2026-09-17 的值：Mix 補歌邊界不再在套用端做決定（等完就交回
+/// router 重判），加上 `readOptional` 只剩 `playback_side_effects.dart` 那一份。
+///
+/// 再上一格 2,167 是 2026-09-16 後端事件路由抽成 `playback_event_router.dart`
 /// 之後的值；再上一格是 2,178（issue #106 的輸出裝置重試抑制）。那一輪**只降了
 /// 十一行**，而那不是抽取失敗：搬走的一百多行路由條件，換回來的是一張快照建構
 /// 子（協作者一律在那裡問完）與一個二十格的 `switch`。買的是「每一條路由決定
 /// 都變成純斷言」，不是行數 —— 決定住在 `PlaybackEventRouter`，控制器只剩下
 /// 副作用本身。
-const _maxCodeLines = 2155;
+const _maxCodeLines = 2169;
 
 /// 低於上限多少行就要求把上限調下來。
 const _slack = 50;
 
-int _codeLines(String source) => source
-    .split('\n')
-    .map((line) => line.trim())
-    .where((line) => line.isNotEmpty && !line.startsWith('//'))
-    .length;
+/// 非空、非註解的行數。`/* */` 區塊註解也不算 —— 以前只跳過 `//` 開頭的行，
+/// 區塊註解裡 ` * ` 開頭的每一行都被算成程式碼。
+int codeLines(String source) => stripDartComments(
+  source,
+).split('\n').where((line) => line.trim().isNotEmpty).length;
+
+/// 行數出了棘輪的範圍時說明是哪一邊，在範圍內回 null。
+String? ratchetProblem(int actual, {int max = _maxCodeLines}) {
+  if (actual > max) return 'grew';
+  if (actual <= max - _slack) return 'shrank';
+  return null;
+}
 
 void main() {
   group('AudioController size ratchet', () {
     test('audio_provider.dart does not grow', () {
-      final actual = _codeLines(File(_path).readAsStringSync());
+      final actual = codeLines(File(_path).readAsStringSync());
 
       expect(
-        actual,
-        lessThanOrEqualTo(_maxCodeLines),
-        reason:
-            '$_path grew to $actual code lines (limit $_maxCodeLines). Move the '
-            'new rule into a collaborator, or raise the limit in this same '
-            'commit and say in the body why those lines belong on the '
-            'controller.',
-      );
-
-      expect(
-        actual,
-        greaterThan(_maxCodeLines - _slack),
-        reason:
-            '$_path is down to $actual code lines. Lower _maxCodeLines to that '
-            'number so the gate keeps its grip.',
+        ratchetProblem(actual),
+        isNull,
+        reason: switch (ratchetProblem(actual)) {
+          'grew' =>
+            '$_path grew to $actual code lines (limit $_maxCodeLines). Move '
+                'the new rule into a collaborator, or raise the limit in this '
+                'same commit and say in the body why those lines belong on the '
+                'controller.',
+          _ =>
+            '$_path is down to $actual code lines. Lower _maxCodeLines to '
+                'that number so the gate keeps its grip.',
+        },
       );
     });
 
-    test('the counter skips blank lines and comments', () {
-      expect(
-        _codeLines('''
+    test('growing past the limit or shrinking past the slack is red', () {
+      expect(ratchetProblem(1000, max: 1000), isNull);
+      expect(ratchetProblem(1001, max: 1000), 'grew');
+      expect(ratchetProblem(1000 - _slack, max: 1000), 'shrank');
+      expect(ratchetProblem(1000 - _slack + 1, max: 1000), isNull);
+    });
+
+    test('comments, dartdoc and blank lines do not move the count', () {
+      const code = '''
+int a = 1;
+int b = 2;
+''';
+      const documented = '''
+/// dartdoc
 int a = 1;
 
 // a comment
-  /// dartdoc
-int b = 2;
-'''),
-        2,
-      );
+/*
+ * a block comment
+ */
+  int b = 2; // trailing
+''';
+
+      expect(codeLines(code), 2);
+      expect(codeLines(documented), 2);
+      expect(codeLines('${code}int c = 3;\n'), 3);
     });
   });
 }

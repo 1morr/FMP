@@ -161,7 +161,7 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   /// 丟棄這首歌可重用的解析結果。
   ///
   /// 刻意不放在 [PlaybackRequestStreamAccess] 上 —— 那個介面只該有選擇、
-  /// fallback 與預取（見 lib/services/audio/AGENTS.md），而作廢是控制器層在
+  /// fallback 與預取，而作廢是控制器層在
   /// 播放失敗後做的決定。
   void invalidateResolvedStream(Track track) =>
       _streamResolutionService.invalidateStream(track);

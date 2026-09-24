@@ -14,7 +14,7 @@ import 'package:fmp/services/audio/windows_smtc_handler.dart';
 /// 誰正在擁有系統媒體控制。
 ///
 /// 只有兩個：音樂（`AudioController`）與電台（`RadioController`）。電台是
-/// `lib/services/audio/AGENTS.md` 記載的刻意例外 —— 它繞過 `AudioController`
+/// 刻意的例外 —— 它繞過 `AudioController`
 /// 直接用共用後端，但系統媒體控制只有一組，必須有人仲裁。
 enum NowPlayingOwner { music, radio }
 

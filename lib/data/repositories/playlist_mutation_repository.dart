@@ -840,18 +840,36 @@ class PlaylistMutationRepository with Logging {
     return true;
   }
 
+  /// 資料不完整時的合併：既有曲目一首不刪、順序不動，新曲目按遠端順序就位。
+  ///
+  /// 新曲目插在「遠端順序裡排在它後面的第一首既有曲目」之前；後面沒有既有曲目
+  /// 才接到末尾。以前一律接到末尾，而 B 站收藏夾是最新在前 —— 只要這次刷新
+  /// 不完整（例如某支多 P 影片已失效、分 P 查不到），新收藏就沉到歌單底部。
   List<int> _mergePreservingExistingTrackOrder(
     List<int> existingTrackIds,
     List<int> refreshedTrackIds,
   ) {
-    final merged = List<int>.from(existingTrackIds);
-    final seen = merged.toSet();
-    for (final trackId in refreshedTrackIds) {
-      if (seen.add(trackId)) {
-        merged.add(trackId);
+    final existing = existingTrackIds.toSet();
+    final insertBefore = <int, List<int>>{};
+    final trailing = <int>[];
+    final placed = <int>{};
+    int? anchor;
+    for (final trackId in refreshedTrackIds.reversed) {
+      if (existing.contains(trackId)) {
+        anchor = trackId;
+      } else if (placed.add(trackId)) {
+        (anchor == null ? trailing : insertBefore.putIfAbsent(anchor, () => []))
+            .add(trackId);
       }
     }
-    return merged;
+
+    return [
+      for (final trackId in existingTrackIds) ...[
+        ...?insertBefore[trackId]?.reversed,
+        trackId,
+      ],
+      ...trailing.reversed,
+    ];
   }
 
   List<int> _remapAndDedupeIds(List<int> ids, Map<int, int> remap) {

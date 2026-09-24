@@ -20,7 +20,8 @@ queue, one library and one set of listening history.
 <!-- DOWNLOAD_START -->
 | Platform | | |
 |---|---|---|
-| **Android** | [APK](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-universal.apk) | Install directly on the device |
+| **Android** | [APK (recommended)](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-arm64-v8a.apk) | 64-bit ARM, which is nearly every phone from recent years; smaller download |
+| Android | [Universal APK](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-universal.apk) | Any device, including 32-bit ARM and x86_64; larger download |
 | **Windows** | [Installer (recommended)](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows-installer.exe) | Full SMTC, Start menu, shortcuts, system integration |
 | Windows | [Portable ZIP](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows.zip) | Unzip and run; media keys and shortcut identity may be incomplete |
 <!-- DOWNLOAD_END -->
@@ -143,8 +144,6 @@ stay on your device. There are no ad or analytics SDKs.
 
 ## Credits
 
-API research from [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
-and [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music).
 Built on [media_kit](https://github.com/media-kit/media-kit),
 [just_audio](https://github.com/ryanheise/just_audio),
 [youtube_explode_dart](https://github.com/Hexer10/youtube_explode_dart),

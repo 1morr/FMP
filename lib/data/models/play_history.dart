@@ -71,20 +71,6 @@ class PlayHistory {
       ..thumbnailUrl = thumbnailUrl;
   }
 
-  /// 格式化时长显示
-  String get formattedDuration {
-    if (durationMs == null) return '--:--';
-    final duration = Duration(milliseconds: durationMs!);
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
   @override
   String toString() =>
       'PlayHistory(title: $title, artist: $artist, playedAt: $playedAt)';

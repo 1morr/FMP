@@ -6,7 +6,7 @@ import 'package:fmp/services/audio/audio_types.dart';
 /// `idle`。那個 `idle` 是控制器自己造成的，不是「播放結束了」—— 直接投影出去
 /// 的話，換歌的瞬間 UI 與通知列會閃一下「已停止」，然後才回到載入中。
 ///
-/// 這條規則在 `AGENTS.md`（Platform Split 一節）寫了很久，但一直只存在於
+/// 這條規則以文字寫在指令檔裡很久，但程式碼裡一直只存在於
 /// `_onPlayerStateChanged` 裡的區域變數，沒有任何測試。抽成純函數是為了讓它
 /// 可以被單獨釘住 —— 它曾經只套用在 Android 通知列，Windows SMTC 收的是後端
 /// 原始值，兩個平台對同一件事說法不同。

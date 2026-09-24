@@ -12,15 +12,29 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/source_ids.dart';
 
 import 'dart_source.dart';
 
-/// 從路徑推出這個檔案服務哪個音源。
-const _sourceOfPathToken = <String, String>{
-  'bilibili': 'SourceIds.bilibili',
-  'youtube': 'SourceIds.youtube',
-  'netease': 'SourceIds.netease',
+/// 從路徑推出這個檔案服務哪個音源：路徑裡的音源 id → 程式碼裡該寫的常數。
+final _sourceOfPathToken = sourceIdConstants(
+  File('lib/data/models/source_ids.dart').readAsStringSync(),
+);
+
+/// `SourceIds` 的字串常數：值 → `SourceIds.<名字>`。
+///
+/// 從 `source_ids.dart` 讀，不手列：這裡以前寫死三個音源，第四個音源的客戶端
+/// 指名錯音源也不會紅，而「每個音源都還有客戶端」那條檢查也看不到它。
+Map<String, String> sourceIdConstants(String sourceIdsDart) => {
+  for (final match in _sourceIdConstant.allMatches(
+    stripDartComments(sourceIdsDart),
+  ))
+    match.group(2)!: 'SourceIds.${match.group(1)}',
 };
+
+final _sourceIdConstant = RegExp(
+  r"""static\s+const\s+(?:String\s+)?(\w+)\s*=\s*['"]([^'"]+)['"]""",
+);
 
 /// 直接生出 HTTP 客戶端 —— 繞過 policy 的唯一方式。
 final _rawClientPattern = RegExp(
@@ -41,6 +55,93 @@ bool buildsARawSourceClient(String path, String source) {
   if (!RegExp(r'SourceIds\.[a-z]').hasMatch(code)) return false;
   return !code.contains('SourceHttpPolicy.');
 }
+
+final _policyApiClientPattern = RegExp(
+  r'SourceHttpPolicy\s*\.\s*createApiDio\s*\(',
+);
+
+/// 向 policy 要 API 客戶端的檔案，哪裡沒講清楚它替哪個音源說話；不要客戶端
+/// 的檔案回 null。
+///
+/// 沒指名音源，policy 就挑不出 UA 與 Referer；路徑裡有 `netease` 卻只指名
+/// bilibili，是複製貼上最常留下的錯。
+List<String>? policyClientProblems(String path, String source) {
+  final code = stripDartComments(source);
+  if (!_policyApiClientPattern.hasMatch(code)) return null;
+  return [
+    if (!code.contains('SourceIds.')) '$path names no source',
+    for (final MapEntry(key: token, value: sourceId)
+        in _sourceOfPathToken.entries)
+      if (path.contains(token) && !code.contains(sourceId))
+        '$path does not use $sourceId',
+  ];
+}
+
+/// 自己寫 `Referer` / `Origin` / `User-Agent` 標頭字面值的檔案 → 寫了哪幾個，
+/// 以及為什麼不走 policy。
+///
+/// 手寫一份標頭不會編譯錯誤，也不會在本機失敗；它只是和 policy 那一份各自
+/// 演化，直到某一端的風控開始只認其中一份。新的檔案要寫標頭，先問能不能改用
+/// `SourceHttpPolicy`；真的不能就加在這裡，寫明理由。已經在名單上的檔案多寫
+/// 一個標頭也會紅 —— 下載服務的預設標頭曾經綁著 Bilibili 的 Referer。
+const _headerLiteralOwners = <String, ({Set<String> headers, String why})>{
+  'lib/data/sources/source_http_policy.dart': (
+    headers: {'origin', 'referer', 'user-agent'},
+    why: '標頭政策本身',
+  ),
+  'lib/core/utils/http_client_factory.dart': (
+    headers: {'user-agent'},
+    why: '所有客戶端的預設 User-Agent',
+  ),
+  'lib/services/download/download_service.dart': (
+    headers: {'user-agent'},
+    why: '下載用的 Dio 只帶 policy 的 mediaUserAgent；各音源的 Referer 由媒體請求自己帶',
+  ),
+  'lib/services/lyrics/lrclib_source.dart': (
+    headers: {'user-agent'},
+    why: '歌詞音源不屬於播放音源，policy 不涵蓋；LRCLIB 要求可辨識的 UA',
+  ),
+  'lib/services/lyrics/netease_source.dart': (
+    headers: {'origin', 'referer', 'user-agent'},
+    why: '歌詞音源，policy 不涵蓋',
+  ),
+  'lib/services/lyrics/qqmusic_source.dart': (
+    headers: {'user-agent'},
+    why: '歌詞音源，policy 不涵蓋',
+  ),
+  'lib/data/sources/playlist_import/qq_music_playlist_source.dart': (
+    headers: {'referer', 'user-agent'},
+    why: '歌單匯入音源，policy 不涵蓋；API 要行動版 UA 與 y.qq.com 的 Referer',
+  ),
+  'lib/data/sources/playlist_import/spotify_playlist_source.dart': (
+    headers: {'user-agent'},
+    why: '歌單匯入讀的是嵌入頁，要桌面瀏覽器的 UA 才拿得到 __NEXT_DATA__',
+  ),
+  'lib/services/account/netease_account_service.dart': (
+    headers: {'origin', 'referer', 'user-agent'},
+    why: '帶 Cookie 的帳號請求，標頭要和登入時的 Cookie 一起組',
+  ),
+  'lib/services/account/netease_playlist_service.dart': (
+    headers: {'referer', 'user-agent'},
+    why: '走 Linux API（eparams），要配 os=linux 的 Cookie 與對應的 UA',
+  ),
+};
+
+final _headerLiteral = RegExp(
+  r'''(?:(['"])(referer|origin|user-agent)\1\s*:|\[\s*(['"])(referer|origin|user-agent)\3\s*\])''',
+  caseSensitive: false,
+);
+
+/// 在註解之外寫了標頭字面值（map 鍵或 `headers['...']`）的檔案 → 寫了哪幾個
+/// 標頭（小寫）。
+Map<String, Set<String>> headerLiterals(Map<String, String> sourcesByPath) => {
+  for (final MapEntry(key: path, value: source) in sourcesByPath.entries)
+    if (_headerLiteral.allMatches(stripDartComments(source)) case final matches
+        when matches.isNotEmpty)
+      path: {
+        for (final m in matches) (m.group(2) ?? m.group(4))!.toLowerCase(),
+      },
+};
 
 Map<String, String> _libSources() {
   final sources = <String, String>{};
@@ -74,31 +175,19 @@ void main() {
 
     test('every policy client identifies the source it speaks for', () {
       final clients = <String>[];
-      final wrongSource = <String>[];
+      final problems = <String>[];
 
       for (final entry in libSources.entries) {
-        final code = stripDartComments(entry.value);
-        if (!code.contains('SourceHttpPolicy.createApiDio')) continue;
+        final found = policyClientProblems(entry.key, entry.value);
+        if (found == null) continue;
         clients.add(entry.key);
-
-        expect(
-          code,
-          contains('SourceIds.'),
-          reason:
-              '${entry.key} asks the policy for a Dio without naming a '
-              'source; the policy cannot pick a UA or a Referer',
-        );
-
-        for (final token in _sourceOfPathToken.entries) {
-          if (!entry.key.contains(token.key)) continue;
-          if (!code.contains(token.value)) {
-            wrongSource.add('${entry.key} does not use ${token.value}');
-          }
-        }
+        problems.addAll(found);
       }
 
-      expect(wrongSource, isEmpty);
-      // 三個音源都還在，否則整條規則會安靜地變成空掃描。
+      expect(problems, isEmpty);
+      // 讀出來的就是 SourceIds.values，否則推導本身壞了。
+      expect(_sourceOfPathToken.keys.toSet(), SourceIds.values.toSet());
+      // 每個音源都還有客戶端，否則整條規則會安靜地變成空掃描。
       for (final token in _sourceOfPathToken.keys) {
         expect(
           clients.any((path) => path.contains(token)),
@@ -108,55 +197,18 @@ void main() {
       }
     });
 
-    test('InnerTube request options reuse policy headers', () {
-      final source = libSources['lib/data/sources/youtube_source.dart']!;
-
-      expect(source, contains('SourceHttpPolicy.apiHeaders'));
-      expect(source, isNot(contains("'Origin': 'https://www.youtube.com'")));
-      expect(source, isNot(contains("'Referer': 'https://www.youtube.com/'")));
-    });
-
-    test('Netease source does not depend on account service for policy UA', () {
-      final source = libSources['lib/data/sources/netease_source.dart']!;
-
-      expect(source, isNot(contains('NeteaseAccountService')));
-    });
-  });
-
-  group('Bilibili live HTTP policy', () {
-    test('the live client owns the live headers', () {
-      final source = libSources['lib/data/sources/bilibili_live_client.dart']!;
-
-      expect(source, contains('SourceHttpPolicy.createBilibiliLiveDio'));
-      expect(source, contains('SourceHttpPolicy.bilibiliLiveHeaders'));
-      expect(source, contains('/room/v1/Room/playUrl'));
+    test('only the listed files write header literals', () {
       expect(
-        source,
-        isNot(contains("'Referer': 'https://live.bilibili.com/'")),
-      );
-    });
-
-    test('sources delegate Bilibili live mechanics to the live client', () {
-      final bilibiliSource =
-          libSources['lib/data/sources/bilibili_source.dart']!;
-      final radioSource = libSources['lib/services/radio/radio_source.dart']!;
-
-      expect(bilibiliSource, contains('BilibiliLiveClient'));
-      expect(radioSource, contains('BilibiliLiveClient'));
-      expect(bilibiliSource, isNot(contains('/room/v1/Room/playUrl')));
-      expect(radioSource, isNot(contains('/room/v1/Room/playUrl')));
-    });
-
-    test('radio cover preloader relies on the URL-based header policy', () {
-      final source =
-          libSources['lib/ui/widgets/panels/track_detail_panel.dart']!;
-
-      // 電台封面不得自帶 headers：ImageLoadingService 會自動套
-      // SourceHttpPolicy.imageHeadersForUrl，與其他 RadioCoverImage 呼叫點一致。
-      expect(source, isNot(contains('SourceHttpPolicy.bilibiliLiveHeaders')));
-      expect(
-        source,
-        isNot(contains("headers: {'Referer': 'https://www.bilibili.com'}")),
+        headerLiterals(libSources),
+        equals({
+          for (final MapEntry(key: path, value: owner)
+              in _headerLiteralOwners.entries)
+            path: owner.headers,
+        }),
+        reason:
+            'A file started or stopped writing Referer / Origin / User-Agent '
+            'by hand. Use SourceHttpPolicy, or update _headerLiteralOwners in '
+            'this file and say why the policy does not fit.',
       );
     });
   });
@@ -193,6 +245,119 @@ class PolicySource {
         ),
         isFalse,
       );
+    });
+
+    test('reads every source id constant, however it is written', () {
+      const sourceIds = '''
+abstract final class SourceIds {
+  static const String bilibili = 'bilibili';
+  static const soundcloud="soundcloud";
+  // static const String removed = 'removed';
+  static const List<String> values = [bilibili, soundcloud];
+}
+''';
+
+      expect(sourceIdConstants(sourceIds), {
+        'bilibili': 'SourceIds.bilibili',
+        'soundcloud': 'SourceIds.soundcloud',
+      });
+    });
+
+    test('a client that names no source or the wrong one is caught', () {
+      const unnamed = '''
+final _dio = SourceHttpPolicy.createApiDio(sourceType);
+''';
+      const wrongSource = '''
+final _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili);
+''';
+
+      expect(policyClientProblems('lib/data/sources/netease_x.dart', unnamed), [
+        'lib/data/sources/netease_x.dart names no source',
+        'lib/data/sources/netease_x.dart does not use SourceIds.netease',
+      ]);
+      expect(
+        policyClientProblems('lib/data/sources/netease_x.dart', wrongSource),
+        ['lib/data/sources/netease_x.dart does not use SourceIds.netease'],
+      );
+    });
+
+    test('line breaks and comments do not change the client verdict', () {
+      const reformatted = '''
+// 以前寫成 SourceHttpPolicy.createApiDio(SourceIds.bilibili)，註解不算。
+final _renamedClient = SourceHttpPolicy
+    .createApiDio(
+  SourceIds.netease,
+);
+''';
+      const noClient = '''
+// final _dio = SourceHttpPolicy.createApiDio(SourceIds.bilibili);
+final id = SourceIds.netease;
+''';
+
+      expect(
+        policyClientProblems('lib/data/sources/netease_x.dart', reformatted),
+        isEmpty,
+      );
+      expect(
+        policyClientProblems('lib/data/sources/netease_x.dart', noClient),
+        isNull,
+      );
+    });
+  });
+
+  group('the header-literal detector', () {
+    test('a hand-written header in any spelling turns the rule red', () {
+      const sources = {
+        'lib/ui/a.dart': '''
+final headers = {'Referer': 'https://www.bilibili.com'};
+''',
+        'lib/ui/b.dart': '''
+options.headers["origin"] = 'https://www.youtube.com';
+''',
+        'lib/ui/c.dart': '''
+final headers = {
+  'user-agent'
+      : 'Mozilla/5.0',
+};
+''',
+      };
+
+      expect(headerLiterals(sources), {
+        'lib/ui/a.dart': {'referer'},
+        'lib/ui/b.dart': {'origin'},
+        'lib/ui/c.dart': {'user-agent'},
+      });
+
+      // 已經在名單上的檔案多寫一個標頭，也和名單不一樣了。
+      expect(
+        headerLiterals({
+          'lib/services/download/download_service.dart': '''
+headers: {
+  'User-Agent': SourceHttpPolicy.mediaUserAgent,
+  'Referer': 'https://www.bilibili.com',
+},
+''',
+        }),
+        {
+          'lib/services/download/download_service.dart': {
+            'user-agent',
+            'referer',
+          },
+        },
+      );
+    });
+
+    test('policy calls, comments and other headers do not', () {
+      const sources = {
+        'lib/ui/a.dart': '''
+// 以前寫成 {'Referer': 'https://www.bilibili.com'}，改走 policy。
+final headers = SourceHttpPolicy.imageHeadersForUrl(url);
+final other = {'Cookie': cookie, 'Accept-Language': 'en'};
+const hint = 'set the Referer: header yourself';
+''',
+      };
+
+      expect(headerLiterals(sources), isEmpty);
     });
   });
 }

@@ -146,6 +146,65 @@ void main() {
       expect(find.byIcon(Icons.timer_outlined), findsNothing);
     });
 
+    testWidgets('each control is announced as a button by its own label', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        host(
+          child: LyricsTitleBar(
+            title: 't',
+            artist: null,
+            transparentMode: false,
+            isPlaying: true,
+            displayModeIcon: Icons.title,
+            displayModeTooltip: 'mode',
+            singleLineMode: false,
+            alwaysOnTop: true,
+            isSynced: true,
+            hasLines: true,
+            showOffsetControls: false,
+            labels: _labels,
+            onDragStart: (_) {},
+            onPrevious: () {},
+            onPlayPause: () {},
+            onNext: () {},
+            onCycleDisplayMode: () {},
+            onShowStyleDialog: () {},
+            onToggleSingleLine: () {},
+            onToggleTransparent: () {},
+            onToggleAlwaysOnTop: () {},
+            onToggleOffsetControls: () {},
+            onClose: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 目前狀態決定念哪一個：播放中念「暫停」、已置頂念「取消置頂」。
+      for (final label in [
+        'prev',
+        'pause',
+        'next',
+        'mode',
+        'style',
+        'single',
+        'transparent',
+        'unpin',
+        'offset',
+        'close',
+      ]) {
+        final control = find.bySemanticsLabel(label);
+        expect(control, findsOneWidget, reason: label);
+        expect(
+          tester.getSemantics(control).flagsCollection.isButton,
+          isTrue,
+          reason: label,
+        );
+      }
+      semantics.dispose();
+    });
+
     testWidgets('tapping transport buttons fires injected callbacks', (
       tester,
     ) async {

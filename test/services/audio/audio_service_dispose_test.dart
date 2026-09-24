@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
@@ -313,6 +314,57 @@ void main() {
     );
 
     test(
+      'teardown finishes and logs when the backend fails to dispose',
+      () async {
+        final audioService = _FailingDisposeAudioService();
+        final queueRepository = QueueRepository(isar);
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final queuePersistenceManager = QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        );
+        final queueManager = _RecordingLifecycleQueueManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final container = _createContainer(
+          isar: isar,
+          audioService: audioService,
+          queueManager: queueManager,
+          queuePersistenceManager: queuePersistenceManager,
+        );
+        final logged = <LogEntry>[];
+        final logSubscription = AppLogger.logStream.listen(logged.add);
+        addTearDown(logSubscription.cancel);
+
+        final controller = container.read(audioControllerProvider.notifier);
+        await controller.initialize();
+        await drainEventQueue(
+          reason: 'let initialization settle before the container is disposed',
+        );
+
+        // 後端的釋放是非同步的，失敗只會出現在它回傳的 future 上。沒人接住的話
+        // 那是一個未處理的 async error —— 在 app 裡直接進 zone 的錯誤處理，
+        // 在這裡會讓測試失敗。
+        expect(container.dispose, returnsNormally);
+        // 日誌裡的 error 是 redact 過的字串，不是原物件。
+        bool isDisposeFailure(LogEntry entry) =>
+            entry.level == LogLevel.error &&
+            entry.error == audioService.failure.toString();
+        await pumpUntil(
+          () => logged.any(isDisposeFailure),
+          reason: 'the backend dispose failure is logged',
+        );
+
+        expect(audioService.disposeCallCount, 1);
+        expect(queueManager.disposeCallCount, 1);
+      },
+    );
+
+    test(
       'just audio dispose is safe before initialization and on repeat calls',
       () async {
         final service = JustAudioService();
@@ -419,6 +471,20 @@ class _ThrowOnSecondDisposeAudioService extends FakeAudioService {
       throw StateError('audio service disposed more than once');
     }
     return super.dispose();
+  }
+}
+
+/// 釋放時照常收掉假替身自己的資源，然後以非同步錯誤結束 —— 真後端的原生
+/// 播放器釋放失敗就是這個形狀。
+class _FailingDisposeAudioService extends FakeAudioService {
+  final failure = StateError('native player refused to dispose');
+  int disposeCallCount = 0;
+
+  @override
+  Future<void> dispose() async {
+    disposeCallCount++;
+    await super.dispose();
+    throw failure;
   }
 }
 

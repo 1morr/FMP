@@ -98,7 +98,6 @@
     "sourceLrclib": "lrclib",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "sourceDisabledToast": "This lyrics source is disabled",
     "aiSectionTitle": "AI lyrics matching",
     "aiMode": "Mode",
     "aiModeOff": "Off",
@@ -145,11 +144,6 @@
     "error": "Check failed, tap to retry",
     "checkGitHub": "Check for new version on GitHub",
     "checkFailed": "Failed to check for updates"
-  },
-  "autoCheckUpdates": {
-    "title": "Check for Updates Automatically",
-    "subtitle": "Checks in the background after startup, at most once a day",
-    "found": "Version $version is available - install it from Settings > About"
   },
   "userGuide": {
     "title": "User Guide",
@@ -218,7 +212,9 @@
     "resume": "Resume",
     "retry": "Retry",
     "delete": "Delete",
-    "loadFailed": "Load failed: $error"
+    "loadFailed": "Load failed: $error",
+    "unsupportedStream": "This stream format (HLS) can't be downloaded",
+    "destinationExists": "Another file already exists at the download location"
   },
   "downloadPath": {
     "title": "Download Path",
@@ -246,9 +242,7 @@
     "title": "Image Cache Size",
     "maxSize": "Max $size",
     "clearTitle": "Clear Image Cache",
-    "currentCache": "Current cache: $size",
     "calculating": "Calculating...",
-    "clearConfirm": "Clear all cached images? This will not affect downloaded local images.",
     "currentCacheSize": "Current cache size: $size",
     "cacheCleared": "Image cache cleared"
   },
@@ -257,9 +251,7 @@
     "currentCache": "$count files, $size",
     "calculating": "Calculating...",
     "maxFiles": "Max $count",
-    "maxFilesTitle": "Max Cache Count",
     "clearTitle": "Clear Lyrics Cache",
-    "clearConfirm": "Clear all cached lyrics? They will be re-downloaded when needed.",
     "cacheCleared": "Lyrics cache cleared"
   },
   "refreshInterval": {
@@ -268,7 +260,8 @@
     "radioTitle": "Radio status refresh interval",
     "radioSubtitle": "$interval",
     "minutes": "$n min",
-    "hours": "$n hr"
+    "hours": "$n hr",
+    "off": "Off"
   },
   "tray": {
     "title": "Minimize to tray",

@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/effective_playback_state.dart';
 
-/// `AGENTS.md` 的 Platform Split 一節寫著「控制器擁有的載入階段，後端 idle
-/// 事件不得覆蓋 loading 狀態」。這條規則在抽出來之前只存在於
+/// 「控制器擁有的載入階段，後端 idle 事件不得覆蓋 loading 狀態」。這條規則在
+/// 抽出來之前只存在於
 /// `_onPlayerStateChanged` 的區域變數裡，沒有任何測試守著。
 void main() {
   EffectivePlaybackState effectiveOf(

@@ -17,8 +17,11 @@ on:
 permissions:
   contents: read
 
+# PR 的新 push 取代同一個 PR 還在跑的 run；main 與手動觸發則一個 commit 一組，
+# 互不取消。以 ref 分組時，連續合併兩個 PR 會取消前一個 commit 的 run，那個
+# commit 就永遠沒有 CI 結果（2026-09 查到 main 上有 20 個 commit 是這樣）。
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: true
 
 env:

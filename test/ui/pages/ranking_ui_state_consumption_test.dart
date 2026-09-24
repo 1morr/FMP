@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/ui/selection_provider.dart';
 import 'package:fmp/providers/audio/audio_player_selectors.dart';
@@ -12,6 +13,39 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Ranking UI state consumption', () {
+    testWidgets('one tab per source with a ranking, in registration order', (
+      tester,
+    ) async {
+      LocaleSettings.setLocale(AppLocale.en);
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: ProviderScope(
+            overrides: [
+              rankingCacheServiceProvider.overrideWith(
+                () => _StaticRankingCacheService(
+                  bilibiliTracks: const [],
+                  youtubeTracks: const [],
+                  neteaseTracks: const [],
+                ),
+              ),
+              currentTrackProvider.overrideWithValue(null),
+              rankingSourceTypesProvider.overrideWithValue(const [
+                ...SourceIds.values,
+                'soundcloud',
+              ]),
+            ],
+            child: const MaterialApp(home: ExplorePage()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        [for (final tab in tester.widgetList<Tab>(find.byType(Tab))) tab.text],
+        ['Bilibili', 'YouTube', 'NetEase', 'soundcloud'],
+      );
+    });
+
     testWidgets(
       'select all uses visible ranking tab after switching tabs in selection mode',
       (tester) async {
@@ -40,6 +74,7 @@ void main() {
               ),
             ),
             currentTrackProvider.overrideWithValue(null),
+            rankingSourceTypesProvider.overrideWithValue(SourceIds.values),
           ],
         );
         addTearDown(container.dispose);
@@ -79,7 +114,7 @@ void main() {
           orderedEquals(['yt-a', 'yt-b', 'yt-c']),
         );
 
-        await tester.tap(find.text(t.importPlatform.netease));
+        await tester.tap(find.text(t.importPlatform.neteaseShort));
         await tester.pumpAndSettle();
         expect(find.text('NE A'), findsOneWidget);
 

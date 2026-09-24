@@ -219,9 +219,11 @@ class BilibiliFavoritesService with Logging {
       return track.bilibiliAid!;
     }
 
-    // 調用 view API 獲取 aid
+    // 走 wbi/view，與 bilibili_source.dart 的 `_viewApi` 同一支。舊的
+    // `/x/web-interface/view` 匿名實測一律 HTTP 412；帶登入時 2026-09-23 量到
+    // 回 0。兩支回應結構相同，全 App 只留一支。
     final response = await _dio.get(
-      '$_apiBase/x/web-interface/view',
+      '$_apiBase/x/web-interface/wbi/view',
       queryParameters: {'bvid': track.sourceId},
     );
 

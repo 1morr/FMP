@@ -42,8 +42,10 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       label: t.player.openPlayer,
       child: GestureDetector(
         onTap: () => context.push(RoutePaths.radioPlayer),
+        // 高度是下限不是定值，理由同音樂的迷你播放器：大字級時標題加狀態
+        // 兩行會超過 64dp。
         child: Container(
-          height: 64,
+          constraints: const BoxConstraints(minHeight: 64),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHigh,
             border: Border(
@@ -137,7 +139,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     // 觀眾數
     if (radioState.viewerCount != null) {
       parts.add(
-        t.radio.viewersCount(count: _formatCount(radioState.viewerCount!)),
+        t.radio.viewersCount(count: formatCount(radioState.viewerCount!)),
       );
     }
 
@@ -197,6 +199,4 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       onPressed: isDisabled ? null : () => controller.reload(),
     );
   }
-
-  String _formatCount(int count) => formatCount(count);
 }

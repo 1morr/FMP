@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dart_source.dart';
+
 /// 唯一允許直接呼叫 `pumpEventQueue` 的地方。
 ///
 /// `pump_until.dart` 是包裝它的那一層；它自己的測試要拿原始的固定圈數來當對照，
@@ -14,18 +16,18 @@ const _allowedFiles = <String>[
 
 /// 找出直接呼叫 `pumpEventQueue` 的行。
 ///
-/// 註解不算 —— 有幾份說明本來就在講這個 API 為什麼不可靠。
+/// 註解不算 —— 有幾份說明本來就在講這個 API 為什麼不可靠。認的是識別符本身，
+/// 不是 `pumpEventQueue(`：以前多一個空格或先存成 tear-off 就繞得過。
 List<String> fixedPumpOffenders(String path, String source) {
-  final offenders = <String>[];
-  final lines = source.split('\n');
-  for (var i = 0; i < lines.length; i++) {
-    final code = lines[i].trim();
-    if (code.startsWith('//')) continue;
-    if (!code.contains('pumpEventQueue(')) continue;
-    offenders.add('$path:${i + 1}: ${code.trim()}');
-  }
-  return offenders;
+  final lines = stripDartComments(source).split('\n');
+  return [
+    for (var i = 0; i < lines.length; i++)
+      if (_pumpEventQueue.hasMatch(lines[i]))
+        '$path:${i + 1}: ${lines[i].trim()}',
+  ];
 }
+
+final _pumpEventQueue = RegExp(r'\bpumpEventQueue\b');
 
 void main() {
   group('fixed pump counts', () {
@@ -74,6 +76,15 @@ test('something', () async {
 ''';
 
       expect(fixedPumpOffenders('test/fake_test.dart', source), hasLength(1));
+    });
+
+    test('guard detects a spaced call and a tear-off', () {
+      const source = '''
+await pumpEventQueue (times: 10);
+final settle = pumpEventQueue;
+''';
+
+      expect(fixedPumpOffenders('test/fake_test.dart', source), hasLength(2));
     });
 
     test('guard ignores comments that mention the api', () {

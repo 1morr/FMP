@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/playlist.dart';
@@ -10,13 +12,18 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/database/database_provider.dart';
+import 'package:fmp/data/database/repository_providers.dart'
+    show trackRepositoryProvider;
+import 'package:fmp/providers/download/download_path_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart'
     show downloadedCategoriesProvider;
 import 'package:fmp/providers/download/file_exists_cache.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/download/startup_download_sync_provider.dart';
+import 'package:fmp/services/download/download_path_sync_service.dart';
 import 'package:isar_community/isar.dart';
 import '../support/isar_test_harness.dart';
+import '../support/pump_until.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -27,64 +34,65 @@ void main() {
   });
 
   group('startup download sync', () {
-    test('app starts the silent startup download sync provider', () {
-      final appSource = File(
-        '${Directory.current.path}/lib/app.dart',
-      ).readAsStringSync();
-
-      expect(
-        appSource,
-        contains(
-          "import 'package:fmp/providers/download/startup_download_sync_provider.dart';",
-        ),
-      );
-      expect(appSource, contains('ref.watch(startupDownloadSyncProvider);'));
-    });
-
-    test('provider syncs local files silently and refreshes changed state', () {
-      final providerFile = File(
-        '${Directory.current.path}/lib/providers/download/startup_download_sync_provider.dart',
-      );
-
-      expect(providerFile.existsSync(), isTrue);
-
-      final source = providerFile.readAsStringSync();
-      expect(source, contains('final startupDownloadSyncProvider'));
-      expect(source, contains('FutureProvider<void>'));
-      expect(source, contains('downloadPathSyncServiceProvider'));
-      expect(source, contains('syncLocalFiles('));
-      expect(source, contains('libraryInvalidationCoordinatorProvider'));
-      expect(source, contains('downloadStateChanged('));
-      expect(
-        source,
-        isNot(contains('ref.invalidate(downloadedCategoriesProvider)')),
-      );
-      expect(
-        source,
-        isNot(contains('ref.invalidate(fileExistsCacheProvider)')),
-      );
-      expect(source, isNot(contains('playlistListProvider.notifier')));
-      expect(source, contains('allPlaylistsProvider.future'));
-      expect(source, contains('affectedPlaylistIds:'));
-      expect(source, contains('AppLogger.error'));
-    });
-
     test(
-      'unconfigured download path is skipped without error logging',
+      'unconfigured download path syncs the platform default directory',
       () async {
         final harness = await _createHarness(
           'startup_download_sync_unconfigured',
         );
         addTearDown(harness.dispose);
+
+        // 舊版未選目錄時下載到平台預設（桌面是 Documents/FMP）；那些檔案要能
+        // 被同步回來，不能因為使用者沒選過目錄就整段跳過。
+        final documentsDir = p.join(harness.tempDir.path, 'documents');
+        const pathProviderChannel = MethodChannel(
+          'plugins.flutter.io/path_provider',
+        );
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(pathProviderChannel, (call) async {
+          if (call.method == 'getApplicationDocumentsDirectory') {
+            return documentsDir;
+          }
+          return null;
+        });
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(pathProviderChannel, null),
+        );
+
+        final videoDir = Directory(
+          p.join(documentsDir, 'FMP', 'Playlist A', 'video-a'),
+        );
+        await videoDir.create(recursive: true);
+        final audioPath = p.join(videoDir.path, 'audio.m4a');
+        await File(audioPath).writeAsString('audio');
+        await File(p.join(videoDir.path, 'metadata.json')).writeAsString(
+          jsonEncode({
+            'sourceId': 'video-a',
+            'sourceType': 'youtube',
+            'title': 'Video A',
+            'artist': 'Artist',
+          }),
+        );
+
+        final trackRepo = TrackRepository(harness.isar);
+        final savedTrack = await trackRepo.save(
+          Track()
+            ..sourceId = 'video-a'
+            ..sourceType = SourceIds.youtube
+            ..title = 'Video A'
+            ..artist = 'Artist',
+        );
         AppLogger.clearLogs();
 
         await harness.container.read(startupDownloadSyncProvider.future);
 
-        final startupLogs = AppLogger.logs
-            .where((entry) => entry.tag == 'StartupDownloadSync')
-            .toList();
-        expect(startupLogs.map((entry) => entry.level), [LogLevel.info]);
-        expect(startupLogs.single.message, contains('not configured'));
+        final refreshedTrack = await trackRepo.getById(savedTrack.id);
+        expect(refreshedTrack?.allDownloadPaths, [audioPath]);
+        expect(
+          AppLogger.logs.where((entry) => entry.level == LogLevel.error),
+          isEmpty,
+        );
       },
     );
 
@@ -151,6 +159,87 @@ void main() {
         expect(categories.single.folderName, 'Playlist A');
       },
     );
+
+    test('a sync that changes nothing keeps the file-exists cache', () async {
+      final downloadStateChanges = <_DownloadStateChange>[];
+      final harness = await _createHarness(
+        'startup_download_sync_unchanged',
+        downloadStateChanges: downloadStateChanges,
+      );
+      addTearDown(harness.dispose);
+
+      final downloadsDir = Directory(p.join(harness.tempDir.path, 'downloads'));
+      await downloadsDir.create(recursive: true);
+      await SettingsRepository(harness.isar).update((settings) {
+        settings.customDownloadDir = downloadsDir.path;
+      });
+      final playlist = Playlist()..name = 'Playlist A';
+      await harness.isar.writeTxn(() => harness.isar.playlists.put(playlist));
+
+      harness.container
+          .read(fileExistsCacheProvider.notifier)
+          .markAsExisting('/kept/cover.jpg');
+
+      await harness.container.read(startupDownloadSyncProvider.future);
+
+      // 沒有任何路徑變動時，已確認存在的檔案仍然存在：清掉快取只會讓每張封面
+      // 重新打一次檔案系統。歌單也沒有被影響，不該有任何一個被點名刷新。
+      expect(downloadStateChanges, hasLength(1));
+      expect(downloadStateChanges.single.fileExistsChanged, isFalse);
+      expect(downloadStateChanges.single.affectedPlaylistIds, isEmpty);
+      expect(harness.container.read(fileExistsCacheProvider), {
+        '/kept/cover.jpg',
+      });
+    });
+
+    test('a failing sync is logged instead of failing startup', () async {
+      final downloadStateChanges = <_DownloadStateChange>[];
+      const failure = FileSystemException('scan refused');
+      final harness = await _createHarness(
+        'startup_download_sync_failure',
+        downloadStateChanges: downloadStateChanges,
+        overrides: [
+          downloadPathSyncServiceProvider.overrideWith(
+            (ref) => _FailingDownloadPathSyncService(
+              ref.watch(trackRepositoryProvider),
+              ref.watch(downloadPathManagerProvider),
+              failure,
+            ),
+          ),
+        ],
+      );
+      addTearDown(harness.dispose);
+      AppLogger.clearLogs();
+
+      // app.dart 只 watch 這個 provider、不處理它的錯誤。它自己拋出來的話不只
+      // 是一個錯誤狀態：Riverpod 3 會自動重試，於是每次啟動都反覆掃描同一個
+      // 失敗的目錄。所以看的是 provider 的狀態，不是 `.future`（重試期間它一直
+      // 不會完成）。
+      final subscription = harness.container.listen(
+        startupDownloadSyncProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      // 重試期間狀態停在 loading、但已經帶著錯誤，所以兩個出口都要等。
+      await pumpUntil(() {
+        final state = subscription.read();
+        return state.hasValue || state.hasError;
+      }, reason: 'the startup sync settles');
+
+      final state = subscription.read();
+      expect(state.hasError, isFalse, reason: '${state.error}');
+      expect(state.hasValue, isTrue);
+
+      expect(
+        AppLogger.logs.where(
+          (entry) =>
+              entry.level == LogLevel.error &&
+              entry.error == failure.toString(),
+        ),
+        hasLength(1),
+      );
+      expect(downloadStateChanges, isEmpty);
+    });
 
     test(
       'startup sync matches null-cid metadata to DB track by page number',
@@ -222,6 +311,23 @@ class _Harness {
   }
 }
 
+class _FailingDownloadPathSyncService extends DownloadPathSyncService {
+  _FailingDownloadPathSyncService(
+    super.trackRepo,
+    super.pathManager,
+    this.failure,
+  );
+
+  final Object failure;
+
+  @override
+  Future<(int added, int removed)> syncLocalFiles({
+    void Function(int current, int total)? onProgress,
+  }) async {
+    throw failure;
+  }
+}
+
 class _DownloadStateChange {
   const _DownloadStateChange({
     required this.affectedPlaylistIds,
@@ -282,6 +388,7 @@ class _RecordingLibraryInvalidationCoordinator
 Future<_Harness> _createHarness(
   String name, {
   List<_DownloadStateChange>? downloadStateChanges,
+  List<Override> overrides = const [],
 }) async {
   final tempDir = await Directory.systemTemp.createTemp('${name}_');
   final isar = await Isar.open(
@@ -300,6 +407,7 @@ Future<_Harness> _createHarness(
             changes: downloadStateChanges,
           );
         }),
+      ...overrides,
     ],
   );
 

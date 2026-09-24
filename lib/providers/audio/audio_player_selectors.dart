@@ -165,47 +165,14 @@ bool _sameAudioDeviceList(List<FmpAudioDevice> a, List<FmpAudioDevice> b) {
   return true;
 }
 
-/// 当前播放状态
-final isPlayingProvider = Provider<bool>((ref) {
-  return ref.watch(audioControllerProvider).isPlaying;
-});
-
 /// 当前歌曲
 final currentTrackProvider = Provider<Track?>((ref) {
   return ref.watch(audioControllerProvider.select((s) => s.currentTrack));
 });
 
-/// 当前进度
-final positionProvider = Provider<Duration>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.position));
-});
-
-/// 总时长
-final durationProvider = Provider<Duration?>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.duration));
-});
-
 /// 播放队列
 final queueProvider = Provider<List<Track>>((ref) {
   return ref.watch(queueStateProvider.select((s) => s.queue));
-});
-
-final queueVersionProvider = Provider<int>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queueVersion));
-});
-
-final queueTrackProvider = Provider<Track?>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.queueTrack));
-});
-
-/// 是否啟用隨機播放
-final isShuffleEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.isShuffleEnabled));
-});
-
-/// 迴圈模式
-final loopModeProvider = Provider<LoopMode>((ref) {
-  return ref.watch(queueStateProvider.select((s) => s.loopMode));
 });
 
 /// 接下來要播的曲目

@@ -17,7 +17,7 @@
 // breaking tray icon click events and global hotkey functionality.
 // window_manager also has this issue for C++ to Dart events, but sub-windows
 // need it for setSize/setAlwaysOnTop/etc. We handle the broken event chain
-// by bypassing it in Dart code (handleCloseButton).
+// by bypassing it in Dart code (WindowsDesktopService.handleCloseIntent).
 static void RegisterPluginsForSubWindow(flutter::PluginRegistry* registry) {
   DesktopMultiWindowPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("DesktopMultiWindowPlugin"));

@@ -85,21 +85,25 @@ class DefaultStreamResolutionService
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     required SourcePlaybackAuthContext sourceAuthContext,
+    Duration rateLimitRetryDelay =
+        AppConstants.streamResolutionRateLimitRetryDelay,
   }) : _trackRepository = trackRepository,
        _settingsRepository = settingsRepository,
        _sourceManager = sourceManager,
-       _sourceAuthContext = sourceAuthContext;
+       _sourceAuthContext = sourceAuthContext,
+       _rateLimitRetryDelay = rateLimitRetryDelay;
 
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
   final SourcePlaybackAuthContext _sourceAuthContext;
+  final Duration _rateLimitRetryDelay;
   final Set<int> _prefetchingTrackIds = {};
 
   /// 行程內的串流解析快取。
   ///
   /// 短路命中時沒有新的 [AudioStreamResult]，但「播放中的位元率/編碼/容器來自
-  /// 本次請求的 AudioStreamResult」是寫在 AGENTS.md 裡的契約，而 [Track] 沒有
+  /// 本次請求的 AudioStreamResult」是播放中繼資料的契約，而 [Track] 沒有
   /// 這些欄位、這一期也不能加（schema 變更集中在後續階段）。所以中繼資料只能
   /// 留在記憶體裡：重啟之後會落空，那一次照常重新解析。
   final _resolvedStreams = <String, _ResolvedStream>{};
@@ -201,6 +205,23 @@ class DefaultStreamResolutionService
         authHeaders: requestContext.authHeaders,
       );
     } on SourceApiException catch (error) {
+      // 音源錯誤裡只有限流在這一層重試：網路與逾時由播放的退避階梯接手
+      // （`PlaybackErrorPresenter.isRetryable`），其餘的重打也不會變。
+      if (error.isRateLimited && retryCount < 1) {
+        logWarning(
+          'Rate limited resolving ${_describe(track)} after '
+          '${stopwatch.elapsedMilliseconds}ms, retrying in '
+          '${_rateLimitRetryDelay.inMilliseconds}ms',
+        );
+        await Future.delayed(_rateLimitRetryDelay);
+        return _resolveRemotePrimary(
+          track,
+          requestContext: await _buildRequestContext(track),
+          purpose: purpose,
+          persist: persist,
+          retryCount: retryCount + 1,
+        );
+      }
       logWarning(
         'Stream resolution failed for ${_describe(track)} after '
         '${stopwatch.elapsedMilliseconds}ms: ${error.kind.name}',

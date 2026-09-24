@@ -6,6 +6,7 @@ import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
 
 /// 首頁排行榜緩存服務
@@ -13,6 +14,7 @@ import 'package:fmp/services/network/connectivity_service.dart';
 /// 主動後台刷新模式：
 /// - 應用啟動時立即獲取數據
 /// - 每小時自動後台刷新
+/// - 單一榜單失敗後依 [RankingCacheService.defaultFailureRetryDelays] 退避重試
 /// - 網絡恢復時自動重新獲取數據
 /// - 用戶進入首頁時直接顯示緩存，無需等待
 /// - 緩存完整數據，首頁預覽只顯示前 10 首，探索頁使用完整緩存
@@ -108,11 +110,28 @@ class RankingCacheState {
 class RankingCacheService extends Notifier<RankingCacheState> with Logging {
   RankingCacheService({
     Duration initialLoadTimeout = _defaultInitialLoadTimeout,
-  }) : _initialLoadTimeout = initialLoadTimeout;
+    List<Duration> failureRetryDelays = defaultFailureRetryDelays,
+  }) : _initialLoadTimeout = initialLoadTimeout,
+       _failureRetryDelays = failureRetryDelays;
 
   static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
+  /// 單一榜單刷新失敗後，下一次嘗試前的等待；用完就交還給定時刷新與網路恢復。
+  ///
+  /// 以前失敗之後要等下一輪定時刷新（預設一小時）。B 站的匿名節流是短時間窗
+  /// （2026-09-22 量到 -352 連續 22 次之後放行），幾秒後再試常常就過了；而一次
+  /// 刷新只有一個請求，退避四次的量遠低於使用者手動重整。
+  static const defaultFailureRetryDelays = <Duration>[
+    Duration(seconds: 5),
+    Duration(seconds: 30),
+    Duration(minutes: 2),
+    Duration(minutes: 10),
+  ];
+
   final Duration _initialLoadTimeout;
+  final List<Duration> _failureRetryDelays;
+  final Map<String, int> _failureRetryAttempts = {};
+  final Map<String, Timer> _failureRetryTimers = {};
 
   late Map<String, RankingSource> _rankingSourcesByType;
 
@@ -213,6 +232,8 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
   /// 刷新所有數據
   Future<void> _refreshAll() async {
     if (_isDisposed) return;
+    // 定時刷新與網路恢復都是新的一輪：退避階梯從頭開始。
+    _failureRetryAttempts.clear();
 
     // 並行獲取所有已註冊榜單，使用 catchError 確保單一失敗不會中斷其他來源
     await Future.wait(
@@ -242,10 +263,15 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
       throw StateError('Ranking source not registered: $sourceType');
     }
 
+    _failureRetryTimers.remove(sourceType)?.cancel();
     final generation = _nextRefreshGeneration(sourceType);
     try {
+      // 登入狀態跟著播放認證走：關掉就匿名，與播放、詳情同一個開關。
+      final authHeaders = await ref
+          .read(sourceAuthContextProvider)
+          .authForPlay(sourceType);
       final tracks = await source.getRankingTracks(
-        source.defaultRankingRequest,
+        source.defaultRankingRequest.withAuth(authHeaders),
       );
       if (_isDisposed || generation != _refreshGenerations[sourceType]) return;
 
@@ -255,6 +281,7 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
         loaded: true,
         clearError: true,
       );
+      _failureRetryAttempts.remove(sourceType);
       logDebug(
         '[RankingCache] ${source.rankingLabel} 緩存已刷新: ${state.tracksFor(sourceType).length} 首',
       );
@@ -263,7 +290,24 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
       state = state.updateSource(sourceType, error: e.toString());
       logWarning('[RankingCache] ${source.rankingLabel} 刷新失敗: $e');
       // 失敗時保留舊緩存
+      _scheduleFailureRetry(sourceType);
     }
+  }
+
+  void _scheduleFailureRetry(String sourceType) {
+    final attempt = _failureRetryAttempts[sourceType] ?? 0;
+    if (attempt >= _failureRetryDelays.length) return;
+    _failureRetryAttempts[sourceType] = attempt + 1;
+    final delay = _failureRetryDelays[attempt];
+    logInfo(
+      '[RankingCache] $sourceType 第 ${attempt + 1} 次退避，'
+      '${delay.inSeconds} 秒後重試',
+    );
+    _failureRetryTimers[sourceType] = Timer(delay, () {
+      _failureRetryTimers.remove(sourceType);
+      if (_isDisposed) return;
+      refreshSource(sourceType);
+    });
   }
 
   int _nextRefreshGeneration(String sourceType) {
@@ -283,6 +327,10 @@ class RankingCacheService extends Notifier<RankingCacheState> with Logging {
     _isDisposed = true;
     _refreshTimer?.cancel();
     _refreshTimer = null;
+    for (final timer in _failureRetryTimers.values) {
+      timer.cancel();
+    }
+    _failureRetryTimers.clear();
     clearNetworkMonitoring();
   }
 }

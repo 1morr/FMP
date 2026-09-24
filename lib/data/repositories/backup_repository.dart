@@ -70,7 +70,9 @@ class BackupImportBatch {
 /// 備份子系統的 Isar 存取。
 ///
 /// `BackupService` 負責備份格式的解析與組裝，資料庫進出走這裡 —— 跟其他
-/// service 一樣，它不該自己拿著 `Isar` 實例（見 `lib/data/AGENTS.md`）。
+/// service 一樣，它不該自己拿著 `Isar` 實例：`isar.` 只准出現在
+/// `lib/data/repositories/`（`isar_boundary_static_rule_test.dart` 守著），跨
+/// collection 的原子寫入是資料層的事，service 自己開 `writeTxn` 就是邊界放錯了。
 class BackupRepository {
   BackupRepository(this._isar, {PlaylistMutationRepository? mutations})
     : _mutations = mutations ?? PlaylistMutationRepository(isar: _isar);

@@ -46,8 +46,8 @@ void main() {
     });
 
     test('explore and history highlight home', () {
-      // 刻意的：它們都是從首頁推進去的子頁（見 lib/ui/AGENTS.md 的
-      // Page Conventions）。
+      // 刻意的：它們都是從首頁推進去的子頁（見 `navIndexForLocation` 的
+      // dartdoc）。
       expect(navIndexForLocation(RoutePaths.explore), 0);
       expect(navIndexForLocation(RoutePaths.history), 0);
       expect(navIndexForLocation(RoutePaths.home), 0);

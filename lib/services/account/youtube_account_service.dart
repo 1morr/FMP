@@ -104,6 +104,7 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   /// 獲取認證 headers（Cookie + Authorization）
+  @override
   Future<Map<String, String>?> getAuthHeaders() async {
     final credentials = await _loadCredentials();
     if (credentials == null || !credentials.isValid) return null;
@@ -542,7 +543,8 @@ class YouTubeAccountService extends AccountService with Logging {
       // 「讀不到憑證」與「沒有憑證」是兩回事，但呼叫端要的是一個能繼續走的答案，
       // 而且這條路徑會被播放與啟動流程碰到 —— 往上丟會讓 provider 進 error state。
       // 降級成未登入，真正的原因寫進固定訊息的 log（憑證相關的 log 只寫消毒過的
-      // 內容，見 lib/services/AGENTS.md）。不設已載入旗標，讓暫時性失敗還能復原。
+      // 固定訊息：原始 JSON、cookie 字串、帶 token 的例外都不得進 AppLogger）。
+      // 不設已載入旗標，讓暫時性失敗還能復原。
       logWarning('YouTube credential store unavailable: $error');
       return null;
     }

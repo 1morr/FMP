@@ -7,6 +7,39 @@ import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/models/track.dart';
 
 void main() {
+  group('Bilibili risk-control codes', () {
+    test('are exactly the four codes Bilibili answers when it throttles', () {
+      // 釘住清單本身：少一個，那個碼會被當成一般 API 錯誤而不退避；多一個，一般
+      // 錯誤會被當成限流。改這裡之前先在真實觸發下量過。
+      expect(BilibiliApiException.riskControlCodes, {-352, -412, -509, -799});
+    });
+
+    test('classify as rateLimited exactly when listed or HTTP-throttled', () {
+      // 對一整段碼掃過去比對兩個集合：清單之外的碼（-400、-404、62002…）不能
+      // 被判成限流，清單之內的每一個都要。兩個方向都在這一個斷言裡。
+      final codes = <int>{
+        for (var code = -1000; code <= 0; code++) code,
+        62002,
+        62012,
+        -10403,
+      };
+      final rateLimited = {
+        for (final code in codes)
+          if (BilibiliApiException(numericCode: code, message: '').kind ==
+              SourceErrorKind.rateLimited)
+            code,
+      };
+      expect(rateLimited, {
+        ...BilibiliApiException.riskControlCodes,
+        BilibiliApiException.httpRateLimitedCode,
+      });
+      expect(
+        const BilibiliApiException(numericCode: -352, message: '').code,
+        'rate_limited',
+      );
+    });
+  });
+
   group('BilibiliApiException', () {
     test('isUnavailable for -404', () {
       const e = BilibiliApiException(numericCode: -404, message: 'Not found');

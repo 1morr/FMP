@@ -12,7 +12,7 @@ void main() {
     final notifier = audioSettingsNotifierFor(repository);
     await Future<void>.delayed(Duration.zero);
 
-    expect(notifier.state.authForPlay(SourceIds.bilibili), isFalse);
+    expect(notifier.state.authForPlay(SourceIds.bilibili), isTrue);
     expect(notifier.state.authForPlay(SourceIds.youtube), isFalse);
     expect(notifier.state.authForPlay(SourceIds.netease), isTrue);
   });

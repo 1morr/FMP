@@ -751,15 +751,6 @@ final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
   SearchNotifier.new,
 );
 
-/// 搜索建议 Provider
-final searchSuggestionsProvider = FutureProvider.family<List<String>, String>((
-  ref,
-  prefix,
-) async {
-  final service = ref.watch(searchServiceProvider);
-  return service.getSearchSuggestions(prefix);
-});
-
 /// 搜索历史管理器
 class SearchHistoryNotifier extends Notifier<List<SearchHistory>> {
   late SearchService _service;

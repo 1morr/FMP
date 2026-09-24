@@ -14,11 +14,11 @@ import 'package:fmp/providers/download/startup_download_sync_provider.dart';
 import 'package:fmp/providers/settings/desktop_settings_provider.dart';
 import 'package:fmp/providers/settings/hotkey_config_provider.dart';
 import 'package:fmp/providers/settings/theme_provider.dart';
-import 'package:fmp/providers/system/update_auto_check_provider.dart';
 import 'package:fmp/providers/system/windows_desktop_provider.dart';
 import 'package:fmp/services/library/auto_refresh_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/settings/locale_provider.dart';
+import 'package:fmp/providers/settings/refresh_settings_provider.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/widgets/app_bars/custom_title_bar.dart';
@@ -115,6 +115,9 @@ class FMPApp extends ConsumerWidget {
         // 提前初始化播放设置（避免进入设置页时 Switch 出现开启动画）
         ref.watch(playbackSettingsProvider);
 
+        // 載入時把存的排行榜刷新間隔套到服務上；以前要打開設定頁才生效
+        ref.watch(refreshSettingsProvider);
+
         // 初始化自动刷新服务（后台运行，不阻塞 UI）
         ref.watch(autoRefreshServiceProvider);
 
@@ -126,9 +129,6 @@ class FMPApp extends ConsumerWidget {
 
         // 啟動後靜默同步已下載頁面的本地文件狀態
         ref.watch(startupDownloadSyncProvider);
-
-        // 啟動後在背景檢查一次更新（可關閉，每天最多一次）
-        ref.watch(updateAutoCheckProvider);
 
         return MaterialApp.router(
           title: '${AppConstants.appName} - ${AppConstants.appFullName}',
@@ -154,18 +154,28 @@ class FMPApp extends ConsumerWidget {
           routerConfig: appRouter,
 
           // 全局内容包装器 - 确保标题栏 / 网络状态在所有页面（包括播放器）一致显示
-          builder: (context, child) => _AppContentWrapper(child: child),
+          builder: (context, child) => AppContentWrapper(child: child),
         );
       },
     );
   }
 }
 
-/// App 内容包装器 - 处理 Windows 标题栏、网络状态 Banner 和 SafeArea
-class _AppContentWrapper extends ConsumerWidget {
+/// App 內容包裝器：Windows 標題列、網路狀態 Banner 與 SafeArea。
+///
+/// 這些控制項掛在 Navigator 之上。每個路由的 ModalBarrier 都帶
+/// `BlockSemantics`，會把同一個語意容器裡、比它先畫的節點整段丟掉 —— 標題列
+/// 的三個按鈕和 Banner 因此不在語意樹上，讀屏聽不到。路由那一格包成獨立的
+/// 語意容器（[_routeSemantics]），擋的範圍就只剩路由自己。
+///
+/// 公開是為了讓 widget test 在真的 Navigator 底下量語意樹。
+class AppContentWrapper extends ConsumerWidget {
   final Widget? child;
 
-  const _AppContentWrapper({this.child});
+  const AppContentWrapper({super.key, this.child});
+
+  Widget _routeSemantics() =>
+      Semantics(container: true, child: child ?? const SizedBox.shrink());
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -174,7 +184,7 @@ class _AppContentWrapper extends ConsumerWidget {
         children: [
           const CustomTitleBar(),
           const NetworkStatusBanner(),
-          Expanded(child: child ?? const SizedBox.shrink()),
+          Expanded(child: _routeSemantics()),
         ],
       );
     }
@@ -199,7 +209,7 @@ class _AppContentWrapper extends ConsumerWidget {
               child: MediaQuery.removePadding(
                 context: context,
                 removeTop: true,
-                child: child ?? const SizedBox.shrink(),
+                child: _routeSemantics(),
               ),
             ),
           ],

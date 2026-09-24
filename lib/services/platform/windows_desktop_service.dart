@@ -418,9 +418,6 @@ class WindowsDesktopService with TrayListener, WindowListener, Logging {
     }
   }
 
-  /// 处理标题栏关闭按钮点击
-  Future<void> handleCloseButton() => handleCloseIntent(fromSystemClose: false);
-
   /// 最小化到托盘
   Future<void> minimizeToTray() async {
     if (!Platform.isWindows) return;

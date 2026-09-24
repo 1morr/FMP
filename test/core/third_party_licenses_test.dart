@@ -9,20 +9,6 @@ import 'package:fmp/core/third_party_licenses.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('the protocol research notice is listed on every platform', () async {
-    final entries = await thirdPartyLicenses().toList();
-
-    final protocol = entries.firstWhere(
-      (entry) => entry.packages.contains('Protocol research'),
-    );
-    final text = protocol.paragraphs.map((p) => p.text).join(' ');
-
-    expect(text, contains('bilibili-API-collect'));
-    // NC 條款是這一則存在的理由之一，不能只留一個連結。
-    expect(text, contains('CC BY-NC 4.0'));
-    expect(text, contains('netease-cloud-music'));
-  });
-
   test('the lgpl texts are listed on windows and only there', () async {
     final entries = await thirdPartyLicenses().toList();
     final mpv = entries

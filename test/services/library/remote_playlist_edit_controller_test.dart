@@ -7,6 +7,24 @@ import 'package:fmp/services/library/remote_playlist_edit_result.dart';
 
 void main() {
   group('RemotePlaylistEditController', () {
+    test('a source without an editor never reaches another one', () async {
+      final bilibili = _FakeAdapter(addConfirmedIds: [1], changedIds: ['FAV']);
+      final controller = _controller(adapters: {SourceIds.bilibili: bilibili});
+
+      final result = await controller.submitSelectionEdit(
+        sourceType: SourceIds.youtube,
+        tracks: [_track(SourceIds.youtube, 1, 'a')],
+        selectedPlaylistIds: {'PL'},
+        originalPlaylistIds: const {},
+        deselectedPartialPlaylistIds: const {},
+        existingTrackSourceIdsByPlaylist: const {},
+      );
+
+      expect(bilibili.submittedPlans, isEmpty);
+      expect(result.confirmedAddedTrackIds, isEmpty);
+      expect(result.failures, isNotEmpty);
+    });
+
     test('submitSelectionEdit refreshes changed remote playlists', () async {
       final refreshed = <String>[];
       final controller = _controller(
@@ -298,15 +316,20 @@ void main() {
 
 RemotePlaylistEditController _controller({
   RemotePlaylistEditAdapter? adapter,
+  Map<String, RemotePlaylistEditAdapter>? adapters,
   Future<void> Function(String sourceType, Iterable<String> remoteIds)?
   refreshRemoteIds,
   Future<bool> Function(int playlistId, List<int> trackIds)? removeLocalTracks,
 }) {
-  final fallback = adapter ?? _FakeAdapter();
+  final shared = adapter ?? _FakeAdapter();
   return RemotePlaylistEditController(
-    bilibiliAdapter: fallback,
-    youtubeAdapter: fallback,
-    neteaseAdapter: fallback,
+    adapters:
+        adapters ??
+        {
+          SourceIds.bilibili: shared,
+          SourceIds.youtube: shared,
+          SourceIds.netease: shared,
+        },
     refreshMatchingImportedPlaylists:
         ({required sourceType, required remotePlaylistIds}) async =>
             refreshRemoteIds?.call(sourceType, remotePlaylistIds),
@@ -327,9 +350,11 @@ class _FakeAdapter implements RemotePlaylistEditAdapter {
   final List<int> removeConfirmedIds;
   final List<int> skippedIds;
   final List<String> changedIds;
+  final submittedPlans = <RemotePlaylistEditPlan>[];
 
   @override
   Future<RemotePlaylistEditResult> submit(RemotePlaylistEditPlan plan) async {
+    submittedPlans.add(plan);
     return RemotePlaylistEditResult(
       sourceType: plan.sourceType,
       confirmedAddedTrackIds: addConfirmedIds,

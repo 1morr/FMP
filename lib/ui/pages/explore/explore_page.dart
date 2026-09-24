@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/providers/ui/selection_provider.dart';
@@ -21,13 +22,18 @@ class ExplorePage extends ConsumerStatefulWidget {
 
 class _ExplorePageState extends ConsumerState<ExplorePage>
     with SingleTickerProviderStateMixin {
+  /// 一個分頁一個有排行榜的音源。音源在執行期不會增減，所以進頁時讀一次就好，
+  /// [TabController] 的長度也跟著固定。
+  late final List<String> _tabSources;
+
   late TabController _tabController;
   int _activeTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabSources = ref.read(rankingSourceTypesProvider);
+    _tabController = TabController(length: _tabSources.length, vsync: this);
     _tabController.addListener(_handleTabIndexChanged);
     // 不再需要手動加載，直接使用緩存服務的數據
   }
@@ -52,11 +58,14 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     final selectionState = ref.watch(exploreSelectionProvider);
 
     // 獲取當前 tab 的 tracks 用於全選
-    final currentTracks = switch (_activeTabIndex) {
-      0 => ref.watch(cachedBilibiliRankingProvider),
-      1 => ref.watch(cachedYouTubeRankingProvider),
-      _ => ref.watch(cachedNeteaseRankingProvider),
-    };
+    final currentTracks = ref.watch(
+      cachedRankingProvider(_tabSources[_activeTabIndex]),
+    );
+
+    final tabs = [
+      for (final source in _tabSources)
+        Tab(text: SourceIds.shortNameFor(source)),
+    ];
 
     // 多選模式下的可用操作（探索頁不支持下載和刪除）
     const availableActions = <String>{
@@ -73,53 +82,36 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           ref.read(exploreSelectionProvider.notifier).exitSelectionMode();
         }
       },
+      // 分頁列平分寬度，所以用短名（見 SourceIds.shortNameFor）。
       child: Scaffold(
         appBar: selectionState.isSelectionMode
             ? SelectionModeAppBar(
                 selectionProvider: exploreSelectionProvider,
                 allTracks: currentTracks,
                 availableActions: availableActions,
-                bottom: TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    Tab(text: t.importPlatform.bilibili),
-                    const Tab(text: 'YouTube'),
-                    Tab(text: t.importPlatform.netease),
-                  ],
-                ),
+                bottom: TabBar(controller: _tabController, tabs: tabs),
               )
             : AppBar(
                 title: Text(t.nav.explore),
-                bottom: TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    Tab(text: t.importPlatform.bilibili),
-                    const Tab(text: 'YouTube'),
-                    Tab(text: t.importPlatform.netease),
-                  ],
-                ),
+                bottom: TabBar(controller: _tabController, tabs: tabs),
               ),
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildBilibiliTab(),
-            _buildYouTubeTab(),
-            _buildNeteaseTab(),
+            for (final source in _tabSources) _buildRankingTab(source),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBilibiliTab() {
-    final tracks = ref.watch(cachedBilibiliRankingProvider);
+  Widget _buildRankingTab(String sourceType) {
+    final tracks = ref.watch(cachedRankingProvider(sourceType));
     final isInitialLoading = ref.watch(
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
     final error = ref.watch(
-      rankingCacheServiceProvider.select(
-        (state) => state.errorFor(SourceIds.bilibili),
-      ),
+      rankingCacheServiceProvider.select((state) => state.errorFor(sourceType)),
     );
     return _buildRankingContent(
       tracks: tracks,
@@ -127,47 +119,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       error: error,
       onRefresh: () => ref
           .read(rankingCacheServiceProvider.notifier)
-          .refreshSource(SourceIds.bilibili),
-    );
-  }
-
-  Widget _buildYouTubeTab() {
-    final tracks = ref.watch(cachedYouTubeRankingProvider);
-    final isInitialLoading = ref.watch(
-      rankingCacheServiceProvider.select((state) => state.isInitialLoading),
-    );
-    final error = ref.watch(
-      rankingCacheServiceProvider.select(
-        (state) => state.errorFor(SourceIds.youtube),
-      ),
-    );
-    return _buildRankingContent(
-      tracks: tracks,
-      isLoading: isInitialLoading && tracks.isEmpty,
-      error: error,
-      onRefresh: () => ref
-          .read(rankingCacheServiceProvider.notifier)
-          .refreshSource(SourceIds.youtube),
-    );
-  }
-
-  Widget _buildNeteaseTab() {
-    final tracks = ref.watch(cachedNeteaseRankingProvider);
-    final isInitialLoading = ref.watch(
-      rankingCacheServiceProvider.select((state) => state.isInitialLoading),
-    );
-    final error = ref.watch(
-      rankingCacheServiceProvider.select(
-        (state) => state.errorFor(SourceIds.netease),
-      ),
-    );
-    return _buildRankingContent(
-      tracks: tracks,
-      isLoading: isInitialLoading && tracks.isEmpty,
-      error: error,
-      onRefresh: () => ref
-          .read(rankingCacheServiceProvider.notifier)
-          .refreshSource(SourceIds.netease),
+          .refreshSource(sourceType),
     );
   }
 

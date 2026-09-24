@@ -478,10 +478,23 @@ class _CategoryCard extends ConsumerWidget {
           );
 
       if (context.mounted) {
-        ToastService.success(
-          context,
-          t.library.downloadedPage.categoryDeleted(name: category.displayName),
-        );
+        // 一次操作只發一個 toast：有東西因為認不出擁有權而留下來時，那件事比
+        // 「已刪除」更該被看到。
+        if (result.skippedForeignCount > 0) {
+          ToastService.warning(
+            context,
+            t.library.downloadedPage.keptForeignItems(
+              n: result.skippedForeignCount,
+            ),
+          );
+        } else {
+          ToastService.success(
+            context,
+            t.library.downloadedPage.categoryDeleted(
+              name: category.displayName,
+            ),
+          );
+        }
       }
     } catch (e, stack) {
       AppLogger.error(

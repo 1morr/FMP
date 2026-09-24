@@ -190,7 +190,7 @@ class BilibiliLiveClient with Logging {
       // 決定要不要退避。其他非零碼維持回 null，因為直播間下架與查詢失敗對
       // 使用者是同一件事。
       final code = data is Map ? _asInt(data['code']) : null;
-      if (code != null && _isRateLimitCode(code)) {
+      if (code != null && BilibiliApiException.isRiskControlCode(code)) {
         logWarning('Bilibili rate limited: code=$code, room=$realRoomId');
         throw BilibiliApiException(
           numericCode: code,
@@ -580,7 +580,7 @@ class BilibiliLiveClient with Logging {
 
     if (code != 0) {
       final message = responseData['message']?.toString() ?? 'Unknown error';
-      if (_isRateLimitCode(code)) {
+      if (BilibiliApiException.isRiskControlCode(code)) {
         logWarning('Bilibili rate limited: code=$code, message=$message');
         throw BilibiliApiException(
           numericCode: code,
@@ -601,10 +601,6 @@ class BilibiliLiveClient with Logging {
       numericCode: -999,
       message: 'Invalid Bilibili search response',
     );
-  }
-
-  static bool _isRateLimitCode(int code) {
-    return code == -352 || code == -412 || code == -509 || code == -799;
   }
 
   static DateTime? _parseLiveStartTime(Object? value) {

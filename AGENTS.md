@@ -10,15 +10,13 @@ name or a count goes stale and nothing notices.
 
 ## Instruction Scope
 
-Read this file, then the nearest `AGENTS.md` in the directory you are editing.
-Six subtrees have one: `lib/data`, `lib/data/sources`, `lib/providers`,
-`lib/services`, `lib/services/audio`, `lib/ui`. Each is paired with a
-`CLAUDE.md` holding a single `@AGENTS.md` line, because Claude Code loads nested
-`CLAUDE.md`, not `AGENTS.md`, while Codex and opencode read the `AGENTS.md`.
-Adding a scoped file means adding both.
+This is the only instruction file. **Do not add a nested `AGENTS.md`, a
+`CLAUDE.md` or a `CLAUDE.local.md`.** Claude Code reads `AGENTS.md` directly
+only while no `CLAUDE.md` / `CLAUDE.local.md` exists in the working directory
+or above it, so adding one silently stops it from reading this file.
 
-State each rule in exactly one file and cross-reference it. Update the scoped
-file in the same change as the code. Human-facing docs live in `docs/`;
+The reason behind a piece of code lives next to that code — in its dartdoc, or
+in the test that gates it — not here. Human-facing docs live in `docs/`;
 `docs/README.md` is the map.
 
 ## Agent Skills
@@ -31,7 +29,7 @@ file in the same change as the code. Human-facing docs live in `docs/`;
   `docs/agents/domain.md`.
 - **On-device verification** — `.claude/skills/verify-on-device/SKILL.md`.
   Required, not optional; see below.
-- **Runtime debugging** — `docs/debugging-with-vm-service.md`. Reach for it when
+- **Runtime debugging** — `docs/development.md` § 執行期除錯. Reach for it when
   the question is about the running app rather than the source. Enable `dart:io`
   profiling *before* the traffic you want to see, or it records nothing.
 
@@ -45,14 +43,13 @@ file in the same change as the code. Human-facing docs live in `docs/`;
 | Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart` |
 | UI widgets/pages | targeted tests under `test/ui` + `flutter analyze` + on-device |
 | i18n JSON | `dart run slang` + `flutter analyze` |
-| The seven `AGENTS.md` files | `flutter test test/support/agents_docs_static_rule_test.dart` — it scans only those files; `docs/` and the READMEs have no gate |
+| This file | `flutter test test/support/agents_docs_static_rule_test.dart` — it checks that cited paths exist and that no other `AGENTS.md` / `CLAUDE.md` exists, not that the prose is true; `docs/` and the READMEs have no gate |
 
 `flutter analyze` covers `lib`, `test` **and** `tool`; `dart format lib test
 tool` is a CI gate. `tool/demo/` holds hand-run scripts that hit the real
 source APIs — they are not tests and CI never executes them, but they are
-analysed and formatted like everything else. CI runs every job on
-documentation-only commits, because the rules in these files are enforced by
-tests.
+analysed and formatted like everything else. CI has no path filter:
+documentation-only commits run every job too.
 
 **On-device verification is mandatory for user-visible changes** — UI pages or
 widgets, playback controls, how source results render, or a string that can
@@ -93,8 +90,10 @@ Never:
 - Do not bypass `AudioController` from UI playback controls.
 - Do not open or migrate the Isar database through ad-hoc paths.
 - Do not add hidden global enabled-source filters for search.
-- Do not use direct `Image.network()` / `Image.file()` in UI — see
-  `lib/ui/AGENTS.md` § Image Components.
+- Do not use direct `Image.network()` / `Image.file()` in UI. Use the semantic
+  widgets under `lib/ui/widgets/images/` and pass a semantic variant, never a
+  raw size: they carry the DPR-aware URL tier and decode sizing, and baking a
+  size in at a call site is what shipped as #107.
 - Do not call `pumpEventQueue` in tests. A pump count buys event loop turns, not
   progress, so it fails under load in one direction and on an idle machine in
   the other (issues #43, #55). Use `pumpUntil` for a condition that is false on
@@ -119,9 +118,11 @@ Never:
 
 The pump, upward-import, feature-edge and placement rules are enforced by tests
 under `test/support/`, which carry the exception lists. Add a line with a reason
-when you add a legitimate exception; delete it when it goes away. The first
-four are conventions nothing checks for you, and the AXTree line is a stop-loss
-note that no static test could.
+when you add a legitimate exception; delete it when it goes away. The image rule
+is enforced by `test/ui/static_rules/ui_consistency_static_rule_test.dart`,
+which lists what each semantic image widget may call. Nothing checks the
+`AudioController` bypass, ad-hoc Isar opening or hidden search filters for you,
+and the AXTree line is a stop-loss note that no static test could.
 
 ## Architecture
 

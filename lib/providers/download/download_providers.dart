@@ -125,24 +125,6 @@ final downloadTasksProvider = StreamProvider<List<DownloadTask>>((ref) {
   return repo.watchAllTasks();
 });
 
-/// 进行中的下载任务 Provider
-final activeDownloadsProvider = Provider<List<DownloadTask>>((ref) {
-  final tasks = ref.watch(downloadTasksProvider);
-  return tasks.maybeWhen(
-    data: (data) => data.where((t) => t.isDownloading || t.isPending).toList(),
-    orElse: () => [],
-  );
-});
-
-/// 已完成的下载任务 Provider
-final completedDownloadsProvider = Provider<List<DownloadTask>>((ref) {
-  final tasks = ref.watch(downloadTasksProvider);
-  return tasks.maybeWhen(
-    data: (data) => data.where((t) => t.isCompleted).toList(),
-    orElse: () => [],
-  );
-});
-
 // ==================== Progress Providers ====================
 
 /// 内存中的下载进度状态（避免频繁写数据库触发 Isar watch）
@@ -187,18 +169,6 @@ final downloadTaskProgressProvider = Provider.family<(double, int, int?)?, int>(
   },
 );
 
-/// 下载进度流 Provider（原始 stream，进度更新由 downloadServiceProvider 处理）
-final downloadProgressProvider = StreamProvider<DownloadProgressEvent>((ref) {
-  final service = ref.watch(downloadServiceProvider);
-  return service.progressStream;
-});
-
-/// 下载目录信息 Provider
-final downloadDirInfoProvider = FutureProvider<DownloadDirInfo>((ref) async {
-  final service = ref.watch(downloadServiceProvider);
-  return service.getDownloadDirInfo();
-});
-
 /// 下載基礎目錄 Provider
 final downloadBaseDirProvider = FutureProvider<String>((ref) async {
   final settingsRepo = ref.watch(settingsRepositoryProvider);
@@ -206,35 +176,6 @@ final downloadBaseDirProvider = FutureProvider<String>((ref) async {
 });
 
 // ==================== Track Providers ====================
-
-/// 检查歌曲是否正在下载
-final isTrackDownloadingProvider = Provider.family<bool, int>((ref, trackId) {
-  final tasks = ref.watch(downloadTasksProvider);
-  return tasks.maybeWhen(
-    data: (data) => data.any(
-      (t) => t.trackId == trackId && (t.isDownloading || t.isPending),
-    ),
-    orElse: () => false,
-  );
-});
-
-/// 获取歌曲的下载任务
-final trackDownloadTaskProvider = Provider.family<DownloadTask?, int>((
-  ref,
-  trackId,
-) {
-  final tasks = ref.watch(downloadTasksProvider);
-  return tasks.maybeWhen(
-    data: (data) {
-      try {
-        return data.firstWhere((t) => t.trackId == trackId);
-      } catch (_) {
-        return null;
-      }
-    },
-    orElse: () => null,
-  );
-});
 
 /// 根据 trackId 获取 Track 信息（带缓存）
 final trackByIdProvider = FutureProvider.family<Track?, int>((
@@ -267,6 +208,8 @@ final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((
 });
 
 /// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）
+/// 與 [downloadedCategoriesProvider] 一樣在 isolate 裡掃描，不要改回在主
+/// isolate 直接呼叫 `DownloadScanner.scanFolderForTracks`：大資料夾會卡住 UI。
 final downloadedCategoryTracksProvider =
     FutureProvider.family<List<Track>, String>((ref, folderPath) async {
       final dtos = await Isolate.run(

@@ -115,9 +115,3 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
 
   return isar;
 });
-
-/// 数据库是否已初始化
-final isDatabaseReadyProvider = Provider<bool>((ref) {
-  final db = ref.watch(databaseProvider);
-  return db.hasValue;
-});

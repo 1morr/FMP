@@ -1101,8 +1101,3 @@ final showRadioPlaybackUiProvider = Provider<bool>((ref) {
 final currentRadioStationProvider = Provider<RadioStation?>((ref) {
   return ref.watch(radioControllerProvider).currentStation;
 });
-
-/// 電台列表 Provider
-final radioStationsProvider = Provider<List<RadioStation>>((ref) {
-  return ref.watch(radioControllerProvider).stations;
-});

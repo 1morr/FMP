@@ -7,8 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/providers/account/source_auth_context_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
 
 import '../../support/pump_until.dart';
@@ -62,6 +64,7 @@ void main() {
       final notifier = _TestConnectivityNotifier();
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(
               sources: [bilibiliSource, youtubeSource, neteaseSource],
@@ -131,6 +134,9 @@ void main() {
         final notifier = _TestConnectivityNotifier();
         final container = ProviderContainer(
           overrides: [
+            sourceAuthContextProvider.overrideWithValue(
+              _RecordingAuthContext(),
+            ),
             sourceManagerProvider.overrideWith(
               (ref) => SourceManager(
                 sources: [
@@ -152,13 +158,23 @@ void main() {
         );
 
         final bilibiliPreview = container.read(
-          homeBilibiliMusicRankingProvider,
+          homeRankingPreviewProvider(SourceIds.bilibili),
         );
-        final cachedBilibili = container.read(cachedBilibiliRankingProvider);
-        final youtubePreview = container.read(homeYouTubeMusicRankingProvider);
-        final cachedYouTube = container.read(cachedYouTubeRankingProvider);
-        final neteasePreview = container.read(homeNeteaseHotRankingProvider);
-        final cachedNetease = container.read(cachedNeteaseRankingProvider);
+        final cachedBilibili = container.read(
+          cachedRankingProvider(SourceIds.bilibili),
+        );
+        final youtubePreview = container.read(
+          homeRankingPreviewProvider(SourceIds.youtube),
+        );
+        final cachedYouTube = container.read(
+          cachedRankingProvider(SourceIds.youtube),
+        );
+        final neteasePreview = container.read(
+          homeRankingPreviewProvider(SourceIds.netease),
+        );
+        final cachedNetease = container.read(
+          cachedRankingProvider(SourceIds.netease),
+        );
 
         expect(bilibiliPreview, bilibiliTracks.take(10));
         expect(cachedBilibili, bilibiliTracks);
@@ -250,6 +266,86 @@ void main() {
         service.state.errorFor(SourceIds.bilibili),
         contains('network down'),
       );
+    });
+
+    test('ranking requests carry the auth-for-play headers', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
+      final authContext = _RecordingAuthContext()
+        ..headers = {'Cookie': 'SESSDATA=sentinel'};
+      final service = _bareService([bilibiliSource], authContext: authContext);
+
+      await service.refreshSource(SourceIds.bilibili);
+
+      expect(authContext.requests, [SourceIds.bilibili]);
+      expect(bilibiliSource.lastRequest!.authHeaders, {
+        'Cookie': 'SESSDATA=sentinel',
+      });
+      _expectRankingRequest(bilibiliSource.lastRequest, regionId: 1003);
+    });
+
+    test('a signed-out ranking request carries no auth headers', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
+      final service = _bareService([bilibiliSource]);
+
+      await service.refreshSource(SourceIds.bilibili);
+
+      expect(bilibiliSource.lastRequest!.authHeaders, isNull);
+    });
+
+    test('a failed refresh retries after the first backoff delay', () async {
+      final track = _track('recovered-bv', SourceIds.bilibili);
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili)
+        ..tracks = [track]
+        ..nextError = Exception('-352');
+      final service = _bareService(
+        [bilibiliSource],
+        failureRetryDelays: const [Duration(milliseconds: 1)],
+      );
+
+      await service.refreshSource(SourceIds.bilibili);
+      expect(service.state.errorFor(SourceIds.bilibili), contains('-352'));
+
+      await pumpUntil(
+        () => service.state.isLoaded(SourceIds.bilibili),
+        reason: 'the backoff retry should refresh the ranking again',
+      );
+      expect(bilibiliSource.fetchCount, 2);
+      expect(service.state.tracksFor(SourceIds.bilibili), [track]);
+      expect(service.state.errorFor(SourceIds.bilibili), isNull);
+    });
+
+    test('backoff stops once every delay has been used', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili);
+      for (var i = 0; i < 5; i++) {
+        bilibiliSource.enqueueFetch(error: Exception('-352'));
+      }
+      final service = _bareService(
+        [bilibiliSource],
+        failureRetryDelays: const [Duration.zero, Duration.zero],
+      );
+
+      await service.refreshSource(SourceIds.bilibili);
+      await pumpUntil(
+        () => bilibiliSource.fetchCount == 3,
+        reason: 'one refresh plus one retry per delay',
+      );
+      await drainEventQueue(reason: 'no retry is left after the last delay');
+      expect(bilibiliSource.fetchCount, 3);
+    });
+
+    test('disposing cancels a pending backoff retry', () async {
+      final bilibiliSource = _FakeRankingSource(SourceIds.bilibili)
+        ..nextError = Exception('-352');
+      final harness = _bareServiceIn(
+        [bilibiliSource],
+        failureRetryDelays: const [Duration(milliseconds: 20)],
+      );
+
+      await harness.service.refreshSource(SourceIds.bilibili);
+      harness.container.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(bilibiliSource.fetchCount, 1);
     });
 
     test(
@@ -440,6 +536,7 @@ void main() {
       // 這條就變成「重複釋放 container 不會炸」。
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(
               sources: [
@@ -470,6 +567,9 @@ void main() {
         final firstNotifier = _TestConnectivityNotifier();
         final firstContainer = ProviderContainer(
           overrides: [
+            sourceAuthContextProvider.overrideWithValue(
+              _RecordingAuthContext(),
+            ),
             sourceManagerProvider.overrideWith(
               (ref) => SourceManager(
                 sources: [
@@ -509,6 +609,9 @@ void main() {
         final secondNotifier = _TestConnectivityNotifier();
         final secondContainer = ProviderContainer(
           overrides: [
+            sourceAuthContextProvider.overrideWithValue(
+              _RecordingAuthContext(),
+            ),
             sourceManagerProvider.overrideWith(
               (ref) => SourceManager(
                 sources: [
@@ -653,6 +756,7 @@ void main() {
     test('provider only refreshes sources that expose a RankingSource', () {
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(
               sources: [_FakeRankingSource(SourceIds.bilibili)],
@@ -672,6 +776,7 @@ void main() {
     test('provider throws when no source exposes a RankingSource', () {
       final container = ProviderContainer(
         overrides: [
+          sourceAuthContextProvider.overrideWithValue(_RecordingAuthContext()),
           sourceManagerProvider.overrideWith(
             (ref) => SourceManager(sources: const []),
           ),
@@ -796,23 +901,38 @@ void _expectRankingRequest(
 RankingCacheService _bareService(
   List<SourceCapability> sources, {
   Duration? initialLoadTimeout,
-}) => _bareServiceIn(sources, initialLoadTimeout: initialLoadTimeout).service;
+  List<Duration>? failureRetryDelays,
+  _RecordingAuthContext? authContext,
+}) => _bareServiceIn(
+  sources,
+  initialLoadTimeout: initialLoadTimeout,
+  failureRetryDelays: failureRetryDelays,
+  authContext: authContext,
+).service;
 
 /// 需要在測試中途主動釋放時用這個 —— 釋放現在是 container 的事。
 ({RankingCacheService service, ProviderContainer container}) _bareServiceIn(
   List<SourceCapability> sources, {
   Duration? initialLoadTimeout,
+  List<Duration>? failureRetryDelays,
+  _RecordingAuthContext? authContext,
 }) {
   final container = ProviderContainer(
     overrides: [
+      sourceAuthContextProvider.overrideWithValue(
+        authContext ?? _RecordingAuthContext(),
+      ),
       sourceManagerProvider.overrideWith(
         (ref) => SourceManager(sources: sources),
       ),
       connectivityProvider.overrideWith(_TestConnectivityNotifier.new),
       rankingCacheServiceProvider.overrideWith(
-        () => initialLoadTimeout == null
-            ? _BareRankingCacheService()
-            : _BareRankingCacheService(initialLoadTimeout: initialLoadTimeout),
+        () => _BareRankingCacheService(
+          initialLoadTimeout: initialLoadTimeout ?? const Duration(seconds: 5),
+          failureRetryDelays:
+              failureRetryDelays ??
+              RankingCacheService.defaultFailureRetryDelays,
+        ),
       ),
     ],
   );
@@ -823,8 +943,26 @@ RankingCacheService _bareService(
   );
 }
 
+/// 未登入時 `authForPlay` 回 null；[headers] 設了就回那一份。
+class _RecordingAuthContext implements SourceAuthContext {
+  Map<String, String>? headers;
+  final requests = <String>[];
+
+  @override
+  Future<Map<String, String>?> authForPlay(String sourceType) async {
+    requests.add(sourceType);
+    return headers;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _BareRankingCacheService extends RankingCacheService {
-  _BareRankingCacheService({super.initialLoadTimeout});
+  _BareRankingCacheService({
+    super.initialLoadTimeout,
+    super.failureRetryDelays,
+  });
 
   @override
   RankingCacheState build() => bindSources();

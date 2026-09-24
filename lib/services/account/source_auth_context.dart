@@ -3,9 +3,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/services/media/media_handoff.dart';
-import 'package:fmp/services/account/bilibili_account_service.dart';
-import 'package:fmp/services/account/netease_account_service.dart';
-import 'package:fmp/services/account/youtube_account_service.dart';
+import 'package:fmp/services/account/account_service.dart';
 
 typedef SourceSettingsLoader = Future<Settings> Function();
 
@@ -20,44 +18,21 @@ abstract interface class SourceAccountAuthLoader {
   Future<Map<String, String>?> load(String sourceType);
 }
 
-/// Compatibility adapter for existing account-service header shapes.
-///
-/// Future source auth header changes should be made here instead of duplicated
-/// in callers.
+/// 依音源 id 找到它的帳號服務，由服務自己組 headers。
 class AccountServiceAuthLoader implements SourceAccountAuthLoader {
-  AccountServiceAuthLoader({
-    BilibiliAccountService? bilibiliAccountService,
-    YouTubeAccountService? youtubeAccountService,
-    NeteaseAccountService? neteaseAccountService,
-  }) : _bilibiliAccountService = bilibiliAccountService,
-       _youtubeAccountService = youtubeAccountService,
-       _neteaseAccountService = neteaseAccountService;
+  AccountServiceAuthLoader([
+    Iterable<AccountService> accountServices = const [],
+  ]) : _servicesBySource = {
+         for (final service in accountServices) service.platform: service,
+       };
 
-  final BilibiliAccountService? _bilibiliAccountService;
-  final YouTubeAccountService? _youtubeAccountService;
-  final NeteaseAccountService? _neteaseAccountService;
+  final Map<String, AccountService> _servicesBySource;
 
+  /// 沒有帳號服務的音源拿不到任何憑證。這裡若 fallback 到別的服務，等於把
+  /// 那個平台的 Cookie 送給一個我們不認識的主機。
   @override
-  Future<Map<String, String>?> load(String sourceType) async {
-    switch (sourceType) {
-      case SourceIds.bilibili:
-        final cookies = await _bilibiliAccountService?.getAuthCookieString();
-        if (cookies == null) return null;
-        return {'Cookie': cookies};
-      case SourceIds.youtube:
-        final youtubeAccountService = _youtubeAccountService;
-        if (youtubeAccountService == null) return null;
-        return youtubeAccountService.getAuthHeaders();
-      case SourceIds.netease:
-        final cookies = await _neteaseAccountService?.getAuthCookieString();
-        if (cookies == null) return null;
-        return SourceHttpPolicy.neteaseAuthHeaders(cookies);
-      default:
-        // 認不得的音源拿不到任何憑證。這裡若 fallback 到 B 站，等於把
-        // SESSDATA 送給一個我們不認識的主機。
-        return null;
-    }
-  }
+  Future<Map<String, String>?> load(String sourceType) async =>
+      _servicesBySource[sourceType]?.getAuthHeaders();
 }
 
 abstract interface class SourcePlaybackAuthContext {

@@ -218,15 +218,6 @@ class NeteasePlaylistService with Logging {
         .toList();
   }
 
-  @visibleForTesting
-  static Set<String> extractTrackIds(Iterable<Map<String, dynamic>> tracks) {
-    return tracks
-        .map((track) => track['sourceId']?.toString().trim())
-        .where((id) => id != null && id.isNotEmpty)
-        .cast<String>()
-        .toSet();
-  }
-
   Future<Map<String, dynamic>> _postLinuxApi({
     required String path,
     required Map<String, dynamic> payload,

@@ -98,7 +98,6 @@
     "sourceLrclib": "lrclib",
     "enabled": "已啟用",
     "disabled": "已停用",
-    "sourceDisabledToast": "該歌詞源已停用",
     "aiSectionTitle": "AI 歌詞匹配",
     "aiMode": "模式",
     "aiModeOff": "關閉",
@@ -145,11 +144,6 @@
     "error": "檢查失敗，點擊重試",
     "checkGitHub": "檢查 GitHub 上的新版本",
     "checkFailed": "檢查更新失敗"
-  },
-  "autoCheckUpdates": {
-    "title": "自動檢查更新",
-    "subtitle": "啟動後在背景檢查，每天最多一次",
-    "found": "發現新版本 $version，可在「設定 › 關於」中安裝"
   },
   "userGuide": {
     "title": "使用說明",
@@ -218,7 +212,9 @@
     "resume": "繼續",
     "retry": "重試",
     "delete": "刪除",
-    "loadFailed": "載入失敗: $error"
+    "loadFailed": "載入失敗: $error",
+    "unsupportedStream": "這個串流格式（HLS）無法下載",
+    "destinationExists": "下載位置已經有另一個檔案"
   },
   "downloadPath": {
     "title": "下載路徑",
@@ -246,9 +242,7 @@
     "title": "圖片快取大小",
     "maxSize": "最大 $size",
     "clearTitle": "清除圖片快取",
-    "currentCache": "目前快取: $size",
     "calculating": "正在計算...",
-    "clearConfirm": "確定要清除所有快取的圖片嗎？這不會影響已下載的本機圖片。",
     "currentCacheSize": "目前快取大小: $size",
     "cacheCleared": "圖片快取已清除"
   },
@@ -257,9 +251,7 @@
     "currentCache": "$count 個檔案，$size",
     "calculating": "計算中...",
     "maxFiles": "最多 $count 個",
-    "maxFilesTitle": "最大快取數量",
     "clearTitle": "清除歌詞快取",
-    "clearConfirm": "清除所有快取的歌詞？需要時會重新下載。",
     "cacheCleared": "歌詞快取已清除"
   },
   "refreshInterval": {
@@ -268,7 +260,8 @@
     "radioTitle": "電台狀態重新整理間隔",
     "radioSubtitle": "$interval",
     "minutes": "$n 分鐘",
-    "hours": "$n 小時"
+    "hours": "$n 小時",
+    "off": "關閉"
   },
   "tray": {
     "title": "最小化到系統列",

@@ -1,5 +1,6 @@
 import 'package:fmp/i18n/strings.g.dart';
 
+import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/core/utils/number_format_utils.dart';
 import 'package:fmp/data/models/track.dart';
 
@@ -18,15 +19,7 @@ class VideoPage {
   });
 
   /// 格式化时长
-  String get formattedDuration {
-    final hours = duration ~/ 3600;
-    final minutes = (duration % 3600) ~/ 60;
-    final seconds = duration % 60;
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
+  String get formattedDuration => DurationFormatter.formatSeconds(duration);
 
   /// 转换为Track对象
   Track toTrack(Track parent) => Track()
@@ -244,39 +237,29 @@ class VideoDetail {
   int get pageCount => pages.length;
 
   /// 格式化播放数
-  String get formattedViewCount => _formatCount(viewCount);
+  String get formattedViewCount => formatCount(viewCount);
 
   /// 格式化点赞数
-  String get formattedLikeCount => _formatCount(likeCount);
+  String get formattedLikeCount => formatCount(likeCount);
 
   /// 格式化投币数
-  String get formattedCoinCount => _formatCount(coinCount);
+  String get formattedCoinCount => formatCount(coinCount);
 
   /// 格式化收藏数
-  String get formattedFavoriteCount => _formatCount(favoriteCount);
+  String get formattedFavoriteCount => formatCount(favoriteCount);
 
   /// 格式化分享数
-  String get formattedShareCount => _formatCount(shareCount);
+  String get formattedShareCount => formatCount(shareCount);
 
   /// 格式化弹幕数
-  String get formattedDanmakuCount => _formatCount(danmakuCount);
+  String get formattedDanmakuCount => formatCount(danmakuCount);
 
   /// 格式化评论数
-  String get formattedCommentCount => _formatCount(commentCount);
-
-  /// 格式化数字
-  static String _formatCount(int count) => formatCount(count);
+  String get formattedCommentCount => formatCount(commentCount);
 
   /// 格式化时长
-  String get formattedDuration {
-    final hours = durationSeconds ~/ 3600;
-    final minutes = (durationSeconds % 3600) ~/ 60;
-    final seconds = durationSeconds % 60;
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
+  String get formattedDuration =>
+      DurationFormatter.formatSeconds(durationSeconds);
 
   /// 格式化发布时间
   String get formattedPublishDate {
@@ -316,7 +299,7 @@ class VideoComment {
   });
 
   /// 格式化点赞数
-  String get formattedLikeCount => VideoDetail._formatCount(likeCount);
+  String get formattedLikeCount => formatCount(likeCount);
 
   /// 格式化时间
   String get formattedTime {

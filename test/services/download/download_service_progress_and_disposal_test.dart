@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/download_filenames.dart';
 import 'package:fmp/data/models/account.dart';
 import 'package:fmp/data/models/download_task.dart';
 import 'package:fmp/data/models/playlist.dart';
@@ -11,6 +13,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/repositories/download_repository.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
@@ -139,45 +142,84 @@ void main() {
       },
     );
 
+    test('pauseAll keeps the progress of a running download', () async {
+      final audioUrl = await _startTricklingAudioServer(
+        contentLength: 1024 * 1024,
+      );
+      final savedTrack = await trackRepository.save(
+        _downloadTrack('pause-all-running'),
+      );
+      final task = await downloadRepository.saveTask(
+        _task(trackId: savedTrack.id)..playlistName = 'Download Playlist',
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
+      );
+      addTearDown(service.dispose);
+
+      final download = service.debugStartDownloadForTesting(task);
+      await pumpUntil(
+        () => service.debugPendingProgressCount > 0,
+        reason: 'the isolate reports progress',
+      );
+      await service.pauseAll();
+      await download;
+
+      final paused = await downloadRepository.getTaskById(task.id);
+      expect(paused?.status, DownloadStatus.paused);
+      expect(paused?.progress, greaterThan(0));
+      expect(paused?.totalBytes, 1024 * 1024);
+      expect(
+        paused?.downloadedBytes,
+        await File(paused!.tempFilePath!).length(),
+      );
+      expect(service.debugPendingProgressCount, 0);
+      expect(service.debugActiveDownloads, 0);
+    });
+
     test(
-      'pauseAll persists buffered progress for active tasks before clearing',
+      'pausing a running download keeps its progress after the isolate stops',
       () async {
+        final audioUrl = await _startTricklingAudioServer(
+          contentLength: 1024 * 1024,
+        );
+        final savedTrack = await trackRepository.save(
+          _downloadTrack('pause-running'),
+        );
+        final task = await downloadRepository.saveTask(
+          _task(trackId: savedTrack.id)..playlistName = 'Download Playlist',
+        );
         final service = DownloadService(
           downloadRepository: downloadRepository,
           trackRepository: trackRepository,
           settingsRepository: settingsRepository,
-          sourceManager: SourceManager(),
+          sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
         );
-        final tempFile = File(
-          '${tempDir.path}/pause-all-progress/audio.m4a.downloading',
-        );
-        await tempFile.parent.create(recursive: true);
-        await tempFile.writeAsBytes(List<int>.filled(75, 1));
-        final task = await downloadRepository.saveTask(
-          _task(trackId: 13)
-            ..tempFilePath = tempFile.path
-            ..totalBytes = 100,
-        );
+        addTearDown(service.dispose);
 
-        service.debugMarkTaskActiveForTesting(task.id);
-        service.debugRecordProgressUpdateForTesting(
-          task.id,
-          task.trackId,
-          0.75,
-          75,
-          100,
+        final download = service.debugStartDownloadForTesting(task);
+        await pumpUntil(
+          () => service.debugPendingProgressCount > 0,
+          reason: 'the isolate reports progress',
         );
-        await service.pauseAll();
-
-        final updatedTask = await downloadRepository.getTaskById(task.id);
-        expect(updatedTask?.status, DownloadStatus.paused);
-        expect(updatedTask?.progress, 0.75);
-        expect(updatedTask?.downloadedBytes, 75);
-        expect(updatedTask?.totalBytes, 100);
+        // 進度每秒 flush 成 UI 事件後就從記憶體清掉、不寫 DB。實機按暫停時
+        // 多半落在這種狀態（進度訊息每 5% 才一則）。
+        service.debugFlushPendingProgressUpdatesForTesting();
         expect(service.debugPendingProgressCount, 0);
-        expect(service.debugActiveDownloads, 0);
+        await service.pauseTask(task.id);
+        await download;
 
-        service.dispose();
+        final paused = await downloadRepository.getTaskById(task.id);
+        expect(paused?.status, DownloadStatus.paused);
+        expect(paused?.progress, greaterThan(0));
+        expect(paused?.totalBytes, 1024 * 1024);
+        expect(
+          paused?.downloadedBytes,
+          await File(paused!.tempFilePath!).length(),
+        );
       },
     );
 
@@ -319,22 +361,38 @@ void main() {
     test(
       'external cleanup and final cleanup do not double-decrement active downloads',
       () async {
+        final audioUrl = await _startTricklingAudioServer();
         final service = DownloadService(
           downloadRepository: downloadRepository,
           trackRepository: trackRepository,
           settingsRepository: settingsRepository,
-          sourceManager: SourceManager(),
+          sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
         );
-        final task = await downloadRepository.saveTask(_task(trackId: 33));
+        addTearDown(service.dispose);
+        Future<(DownloadTask, Future<void>)> startRunning(String id) async {
+          final savedTrack = await trackRepository.save(_downloadTrack(id));
+          final task = await downloadRepository.saveTask(
+            _task(trackId: savedTrack.id)..playlistName = 'Download Playlist',
+          );
+          final download = service.debugStartDownloadForTesting(task);
+          await service.debugWaitForTaskToBecomeActiveForTesting(task.id);
+          return (task, download);
+        }
 
-        service.debugMarkTaskActiveForTesting(task.id);
+        final (pausedTask, pausedDownload) = await startRunning('dd-paused');
+        final (otherTask, otherDownload) = await startRunning('dd-other');
+        expect(service.debugActiveDownloads, 2);
+
+        // pauseTask 先做外部清理，isolate 停下後 _startDownload 的 finally
+        // 再做一次最終清理；兩者只能扣一次。計數有下限 0，所以要留另一個
+        // 任務在跑才看得出多扣。
+        await service.pauseTask(pausedTask.id);
+        await pausedDownload;
         expect(service.debugActiveDownloads, 1);
 
-        await service.pauseTask(task.id);
-        service.debugFinalizeTaskCleanupForTesting(task.id);
-
+        await service.pauseTask(otherTask.id);
+        await otherDownload;
         expect(service.debugActiveDownloads, 0);
-        service.dispose();
       },
     );
 
@@ -550,12 +608,19 @@ void main() {
             ..status = DownloadStatus.downloading
             ..createdAt = DateTime.now(),
         );
+        final activeTrack = await trackRepository.save(
+          _downloadTrack('setup-double-cleanup-active'),
+        );
         final activeTask = await downloadRepository.saveTask(
-          _task(trackId: 44),
+          _task(trackId: activeTrack.id)..playlistName = 'Download Playlist',
         );
 
         final sourceManager = _SingleSourceManager(
-          _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
+          _BlockingAudioSource(
+            'http://127.0.0.1:1/audio.m4a',
+            blockedSourceId: track.sourceId,
+            unblockedUrl: await _startTricklingAudioServer(),
+          ),
         );
         final blockedSource =
             sourceManager.audioStreamSource(SourceIds.youtube)!
@@ -566,7 +631,8 @@ void main() {
           settingsRepository: settingsRepository,
           sourceManager: sourceManager,
         );
-        service.debugMarkTaskActiveForTesting(activeTask.id);
+        final activeDownload = service.debugStartDownloadForTesting(activeTask);
+        await service.debugWaitForTaskToBecomeActiveForTesting(activeTask.id);
 
         final downloadFuture = service.debugStartDownloadForTesting(setupTask);
         await blockedSource.waitUntilRequested();
@@ -580,6 +646,7 @@ void main() {
         blockedSource.release();
         await downloadFuture;
         await service.pauseTask(activeTask.id);
+        await activeDownload;
         expect(service.debugActiveDownloads, 0);
 
         service.dispose();
@@ -1075,6 +1142,76 @@ void main() {
       },
     );
 
+    test('resume appends the 206 remainder to the partial temp file', () async {
+      final baseDir = await _createTempDirDeletedOnTearDown(
+        'download_resume_http206_',
+      );
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final fullBytes = Uint8List.fromList([10, 20, 30, 40, 50, 60]);
+      final partialBytes = Uint8List.fromList(fullBytes.take(2).toList());
+      final remainder = Uint8List.fromList(fullBytes.skip(2).toList());
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.statusCode = HttpStatus.partialContent;
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = remainder.length;
+        request.response.add(remainder);
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final track = Track()
+        ..sourceId = 'yt-resume-http206'
+        ..sourceType = SourceIds.youtube
+        ..title = 'Resume HTTP 206'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+      final playlist = Playlist()..name = 'Download Playlist';
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      final tempPath = '$savePath.downloading';
+      await Directory(tempPath).parent.create(recursive: true);
+      await File(tempPath).writeAsBytes(partialBytes, flush: true);
+
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..tempFilePath = tempPath
+          ..downloadedBytes = partialBytes.length
+          ..createdAt = DateTime.now(),
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(
+          _StaticAudioSource(
+            'http://${server.address.address}:${server.port}/audio.m4a',
+          ),
+        ),
+      );
+      addTearDown(service.dispose);
+
+      await service.debugStartDownloadForTesting(task);
+
+      expect(await File(savePath).readAsBytes(), fullBytes);
+      final updatedTask = await downloadRepository.getTaskById(task.id);
+      expect(updatedTask?.status, DownloadStatus.completed);
+    });
+
     test(
       'download start passes auth headers to source.getAudioStream only when auth-for-play is enabled',
       () async {
@@ -1237,6 +1374,73 @@ void main() {
       },
     );
 
+    test('netease downloads save the track detail into metadata', () async {
+      final baseDir = await _createTempDirDeletedOnTearDown(
+        'download_netease_detail_',
+      );
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = 4;
+        request.response.add(Uint8List.fromList([1, 2, 3, 4]));
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final savedTrack = await trackRepository.save(
+        Track()
+          ..sourceId = '12345'
+          ..sourceType = SourceIds.netease
+          ..title = 'Netease Song'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now(),
+      );
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistName = 'Netease Playlist'
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final source = _RecordingDetailAudioSource(
+        'http://${server.address.address}:${server.port}/audio.m4a',
+        sourceTypeOverride: SourceIds.netease,
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(source),
+        sourceAuthContext: _FakeSourceAuthContext(),
+      );
+      addTearDown(service.dispose);
+
+      await service.debugStartDownloadForTesting(task);
+      await _waitUntil(() async => service.debugActiveDownloads == 0);
+
+      expect(source.detailAuthHeaders, hasLength(1));
+      final completed = await trackRepository.getById(savedTrack.id);
+      final audioPath = completed!.allDownloadPaths.single;
+      final metadata =
+          jsonDecode(
+                await File(
+                  p.join(p.dirname(audioPath), 'metadata.json'),
+                ).readAsString(),
+              )
+              as Map<String, dynamic>;
+      // 詳情頁離線讀本地 metadata 時以 viewCount 判斷有沒有詳情資料。
+      expect(metadata['ownerName'], 'Test Artist');
+      expect(metadata, contains('viewCount'));
+    });
+
     test(
       'downloaded metadata images use SourceAuthContext image headers',
       () async {
@@ -1387,6 +1591,11 @@ void main() {
         );
         await File(savePath).parent.create(recursive: true);
         await File(savePath).writeAsBytes([9, 9, 9], flush: true);
+        // 配對 metadata 一併植入：有 metadata 的目的地是已完成的檔案，
+        // 沒有 metadata 的會被當成 finalization 殘骸覆蓋掉。
+        await File(
+          p.join(p.dirname(savePath), DownloadFileNames.metadata),
+        ).writeAsString('{}', flush: true);
 
         final task = await downloadRepository.saveTask(
           DownloadTask()
@@ -1412,7 +1621,10 @@ void main() {
         expect(await File('$savePath.downloading').exists(), isFalse);
         final updatedTask = await downloadRepository.getTaskById(task.id);
         expect(updatedTask?.status, DownloadStatus.failed);
-        expect(updatedTask?.errorMessage, contains('already exists'));
+        expect(
+          updatedTask?.errorMessage,
+          t.settings.downloadManager.destinationExists,
+        );
 
         await service.cancelTask(task.id);
         expect(await File(savePath).readAsBytes(), [9, 9, 9]);
@@ -1467,6 +1679,10 @@ void main() {
             plantedConflict = true;
             await File(savePath).parent.create(recursive: true);
             await File(savePath).writeAsBytes([7, 7, 7], flush: true);
+            // 配對 metadata 一併植入，見上一個測試的說明。
+            await File(
+              p.join(p.dirname(savePath), DownloadFileNames.metadata),
+            ).writeAsString('{}', flush: true);
           }
           await Future<void>.delayed(const Duration(milliseconds: 20));
           request.response.add([3, 4]);
@@ -1502,13 +1718,290 @@ void main() {
         expect(await File(savePath).readAsBytes(), [7, 7, 7]);
         final updatedTask = await downloadRepository.getTaskById(task.id);
         expect(updatedTask?.status, DownloadStatus.failed);
-        expect(updatedTask?.errorMessage, contains('already exists'));
+        expect(
+          updatedTask?.errorMessage,
+          t.settings.downloadManager.destinationExists,
+        );
 
         await service.cancelTask(task.id);
         expect(await File(savePath).readAsBytes(), [7, 7, 7]);
         expect(await File('$savePath.downloading').exists(), isFalse);
 
         service.dispose();
+      },
+    );
+
+    test(
+      'finalization replaces a destination that appears without metadata',
+      () async {
+        // promote 被 kill 的殘骸在這次下載途中出現：exclusive create 失敗後，
+        // 沒有配對 metadata 就刪掉它再建一次。
+        final baseDir = await _createTempDirDeletedOnTearDown(
+          'download_final_stale_',
+        );
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final track = Track()
+          ..sourceId = 'final-stale'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Final Stale'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+        var plantedDebris = false;
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 4;
+          request.response.add([1, 2]);
+          await request.response.flush();
+          if (!plantedDebris) {
+            plantedDebris = true;
+            await File(savePath).writeAsBytes([7, 7, 7], flush: true);
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          request.response.add([3, 4]);
+          await request.response.close();
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..savePath = savePath
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.host}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await service.debugStartDownloadForTesting(task);
+
+        expect(plantedDebris, isTrue);
+        expect(await File(savePath).readAsBytes(), [1, 2, 3, 4]);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.completed);
+      },
+    );
+
+    test(
+      'download rejects an HLS stream instead of saving the manifest as audio',
+      () async {
+        final baseDir = await Directory.systemTemp.createTemp(
+          'download_hls_reject_',
+        );
+        addTearDown(() async {
+          for (var i = 0; i < 100; i++) {
+            if (!await baseDir.exists()) return;
+            try {
+              await baseDir.delete(recursive: true);
+              return;
+            } on FileSystemException {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+          }
+        });
+
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.parse(
+            'application/vnd.apple.mpegurl',
+          );
+          request.response.write('''
+#EXTM3U
+#EXT-X-VERSION:3
+#EXTINF:4.0,
+segment0.ts
+''');
+          await request.response.close();
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final track = Track()
+          ..sourceId = 'hls-stream'
+          ..sourceType = SourceIds.youtube
+          ..title = 'HLS Stream'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/index.m3u8',
+              streamType: StreamType.hls,
+              container: 'm3u8',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(() async {
+          await service.debugStartDownloadForTesting(task);
+          await _waitUntil(() async => service.debugActiveDownloads == 0);
+        }, _DirectHttpOverrides());
+
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.failed);
+        expect(
+          updatedTask?.errorMessage,
+          t.settings.downloadManager.unsupportedStream,
+        );
+        // manifest 不得落到最終路徑，也不得留下半截的暫存檔
+        expect(await File(savePath).exists(), isFalse);
+        expect(await File('$savePath.downloading').exists(), isFalse);
+        final updatedTrack = await trackRepository.getById(savedTrack.id);
+        expect(
+          updatedTrack?.getDownloadPath(
+            playlist.id,
+            playlistName: playlist.name,
+          ),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'download replaces a destination left without paired metadata',
+      () async {
+        final baseDir = await Directory.systemTemp.createTemp(
+          'download_stale_dest_',
+        );
+        addTearDown(() async {
+          for (var i = 0; i < 100; i++) {
+            if (!await baseDir.exists()) return;
+            try {
+              await baseDir.delete(recursive: true);
+              return;
+            } on FileSystemException {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+          }
+        });
+
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final track = Track()
+          ..sourceId = 'stale-destination'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Stale Destination'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+
+        // finalization 被 kill 的殘骸：有音訊檔、沒有配對 metadata。
+        await File(savePath).parent.create(recursive: true);
+        await File(savePath).writeAsBytes([1, 2], flush: true);
+
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 4;
+          request.response.add(Uint8List.fromList([5, 6, 7, 8]));
+          await request.response.close();
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..savePath = savePath
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(() async {
+          await service.debugStartDownloadForTesting(task);
+          await _waitUntil(() async => service.debugActiveDownloads == 0);
+        }, _DirectHttpOverrides());
+
+        expect(await File(savePath).readAsBytes(), [5, 6, 7, 8]);
+        expect(
+          await File(
+            p.join(p.dirname(savePath), DownloadFileNames.metadata),
+          ).exists(),
+          isTrue,
+        );
+        expect(await File('$savePath.downloading').exists(), isFalse);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.completed);
+        final updatedTrack = await trackRepository.getById(savedTrack.id);
+        expect(
+          updatedTrack?.getDownloadPath(
+            playlist.id,
+            playlistName: playlist.name,
+          ),
+          savePath,
+        );
       },
     );
 
@@ -1672,6 +2165,243 @@ void main() {
         );
 
         service.dispose();
+      },
+    );
+
+    test('a body cut short of its Content-Length fails the task', () async {
+      // 下載完成只檢查檔案存在，不比對位元組數；擋住截斷檔的是 HttpClient：
+      // 有 Content-Length 時連線提早斷掉會拋 HttpException。換掉 HTTP 層時
+      // 這條測試要跟著守住同一件事。
+      final baseDir = await _createTempDirDeletedOnTearDown(
+        'download_truncated_body_',
+      );
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((socket) async {
+        socket.listen((_) {}, onError: (_) {});
+        socket.add('HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n'.codeUnits);
+        socket.add(Uint8List(500));
+        await socket.flush();
+        await socket.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close();
+      });
+
+      final savedTrack = await trackRepository.save(
+        _downloadTrack('truncated-body'),
+      );
+      final playlist = Playlist()..name = 'Download Playlist';
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(
+          _StaticAudioSource(
+            'http://${server.address.address}:${server.port}/audio.m4a',
+          ),
+        ),
+      );
+      addTearDown(service.dispose);
+
+      await HttpOverrides.runWithHttpOverrides<Future<void>>(
+        () => service
+            .debugStartDownloadForTesting(task)
+            .timeout(const Duration(seconds: 10)),
+        _DirectHttpOverrides(),
+      );
+
+      final updatedTask = await downloadRepository.getTaskById(task.id);
+      expect(updatedTask?.status, DownloadStatus.failed);
+      // 下載管理頁顯示的是翻譯過的一句，不是 isolate 回傳的 JSON。
+      expect(updatedTask?.errorMessage, t.error.networkError);
+      expect(await File(savePath).exists(), isFalse);
+      final updatedTrack = await trackRepository.getById(savedTrack.id);
+      expect(updatedTrack?.allDownloadPaths, isEmpty);
+    });
+
+    test(
+      'a temp file the isolate cannot open fails the task instead of hanging',
+      () async {
+        // 真機上是 Android scoped storage 拒絕寫入 Music/（errno=1）：目錄建得
+        // 起來，檔案開不了。下面依平台重現同一種開檔被拒。
+        final baseDir = await _createTempDirDeletedOnTearDown(
+          'download_unopenable_temp_',
+        );
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 64 * 1024;
+          // body 慢慢送：真機上 CDN 的串流遠比開檔慢，開檔失敗時下載迴圈一定
+          // 還在跑。一次送完的話，迴圈在開檔結果回來前就走到 close()，錯誤會
+          // 順著 close() 回來，測不到會殺掉 isolate 的那條路。
+          try {
+            for (var i = 0; i < 64; i++) {
+              request.response.add(Uint8List(1024));
+              await request.response.flush();
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+            await request.response.close();
+          } on Object {
+            // 客戶端已經放棄這個連線
+          }
+        });
+        addTearDown(() async {
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final track = Track()
+          ..sourceId = 'unopenable-temp'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Unopenable Temp'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final savePath = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir.path,
+          playlistName: playlist.name,
+          track: savedTrack,
+        );
+        // 兩個平台要用不同方式才拿得到「拒絕存取」：Windows 開一個資料夾當
+        // 檔案會回 access denied；Linux 回的是 EISDIR（不是權限錯誤），要改成
+        // 在唯讀資料夾裡開檔才是 EACCES。CI 跑在非 root 的 Linux 上。
+        if (Platform.isWindows) {
+          await Directory('$savePath.downloading').create(recursive: true);
+        } else {
+          final trackDir = await Directory(
+            p.dirname(savePath),
+          ).create(recursive: true);
+          await Process.run('chmod', ['555', trackDir.path]);
+          addTearDown(() => Process.run('chmod', ['755', trackDir.path]));
+        }
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(
+          () => service
+              .debugStartDownloadForTesting(task)
+              .timeout(const Duration(seconds: 10)),
+          _DirectHttpOverrides(),
+        );
+
+        expect(service.debugActiveDownloads, 0);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.failed);
+        // 要走進 isolate 的 filesystem 分支，而不是只被 onError 兜住
+        expect(updatedTask?.errorMessage, t.error.noPermission);
+      },
+    );
+
+    test(
+      'a download isolate that dies without a message fails the task',
+      () async {
+        // try/catch 攔不到的死法（被外部 kill、OOM）：isolate 一個訊息都不送。
+        final baseDir = await _createTempDirDeletedOnTearDown(
+          'download_isolate_killed_',
+        );
+        final settings = await settingsRepository.get();
+        settings.customDownloadDir = baseDir.path;
+        await settingsRepository.save(settings);
+
+        final release = Completer<void>();
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final serverSub = server.listen((request) async {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 64 * 1024;
+          request.response.add(Uint8List(1024));
+          try {
+            await request.response.flush();
+            await release.future;
+            await request.response.close();
+          } on Object {
+            // 客戶端的 isolate 已經被殺，連線斷了
+          }
+        });
+        addTearDown(() async {
+          if (!release.isCompleted) release.complete();
+          await serverSub.cancel();
+          await server.close(force: true);
+        });
+
+        final track = Track()
+          ..sourceId = 'isolate-killed'
+          ..sourceType = SourceIds.youtube
+          ..title = 'Isolate Killed'
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Download Playlist';
+        final task = await downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+        final service = DownloadService(
+          downloadRepository: downloadRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: _SingleSourceManager(
+            _StaticAudioSource(
+              'http://${server.address.address}:${server.port}/audio.m4a',
+            ),
+          ),
+        );
+        addTearDown(service.dispose);
+
+        await HttpOverrides.runWithHttpOverrides<Future<void>>(() async {
+          final download = service.debugStartDownloadForTesting(task);
+          await service.debugWaitForTaskToBecomeActiveForTesting(task.id);
+          service.debugKillDownloadIsolateForTesting(task.id);
+          await download.timeout(const Duration(seconds: 10));
+        }, _DirectHttpOverrides());
+
+        expect(service.debugActiveDownloads, 0);
+        final updatedTask = await downloadRepository.getTaskById(task.id);
+        expect(updatedTask?.status, DownloadStatus.failed);
+        expect(updatedTask?.errorMessage, isNotNull);
       },
     );
 
@@ -1859,11 +2589,15 @@ class _StaticAudioSource implements AudioStreamSource {
     this.audioUrl, {
     this.sourceTypeOverride = SourceIds.youtube,
     this.streamExpiry,
+    this.streamType = StreamType.audioOnly,
+    this.container,
   });
 
   final String audioUrl;
   final String sourceTypeOverride;
   final Duration? streamExpiry;
+  final StreamType streamType;
+  final String? container;
 
   @override
   String get sourceType => sourceTypeOverride;
@@ -1872,7 +2606,8 @@ class _StaticAudioSource implements AudioStreamSource {
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(
       url: audioUrl,
-      streamType: StreamType.audioOnly,
+      streamType: streamType,
+      container: container,
       expiry: streamExpiry,
     );
   }
@@ -1886,7 +2621,16 @@ class _StaticAudioSource implements AudioStreamSource {
 }
 
 class _BlockingAudioSource extends _StaticAudioSource {
-  _BlockingAudioSource(super.audioUrl);
+  /// [blockedSourceId] 為 null 時擋所有曲目；否則只擋那一首，其他曲目直接
+  /// 解析成 [unblockedUrl]。
+  _BlockingAudioSource(
+    super.audioUrl, {
+    this.blockedSourceId,
+    this.unblockedUrl,
+  });
+
+  final String? blockedSourceId;
+  final String? unblockedUrl;
 
   final Completer<void> _requested = Completer<void>();
   final Completer<void> _release = Completer<void>();
@@ -1901,6 +2645,13 @@ class _BlockingAudioSource extends _StaticAudioSource {
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    final blocked = blockedSourceId;
+    if (blocked != null && request.sourceId != blocked) {
+      return AudioStreamResult(
+        url: unblockedUrl ?? audioUrl,
+        streamType: StreamType.audioOnly,
+      );
+    }
     if (!_requested.isCompleted) {
       _requested.complete();
     }
@@ -1950,7 +2701,7 @@ class _RecordingAudioSource extends _StaticAudioSource {
 
 class _RecordingDetailAudioSource extends _StaticAudioSource
     implements TrackDetailSource {
-  _RecordingDetailAudioSource(super.audioUrl);
+  _RecordingDetailAudioSource(super.audioUrl, {super.sourceTypeOverride});
 
   final List<Map<String, String>?> detailAuthHeaders = [];
 
@@ -2031,4 +2782,50 @@ Future<void> _waitUntil(Future<bool> Function() condition) async {
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
   throw StateError('Condition was not met in time');
+}
+
+/// 慢慢送 body 的 loopback 伺服器：讓真的下載停在 downloading，暫停、取消
+/// 走的是 isolate 真正的收尾路徑。[contentLength] 為 null 時不送長度，isolate
+/// 不會回報進度。
+Future<String> _startTricklingAudioServer({int? contentLength}) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  final serverSub = server.listen((request) async {
+    request.response.headers.contentType = ContentType.binary;
+    if (contentLength != null) {
+      request.response.contentLength = contentLength;
+    }
+    try {
+      for (var sent = 0; contentLength == null || sent < contentLength;) {
+        request.response.add(Uint8List(16 * 1024));
+        sent += 16 * 1024;
+        await request.response.flush();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      await request.response.close();
+    } on Object {
+      // 客戶端暫停或取消時斷線
+    }
+  });
+  addTearDown(() async {
+    await serverSub.cancel();
+    await server.close(force: true);
+  });
+  return 'http://${server.address.address}:${server.port}/audio.m4a';
+}
+
+/// 暫存目錄，teardown 時重試刪除（Windows 上 isolate 剛關的檔案可能還被佔用）。
+Future<Directory> _createTempDirDeletedOnTearDown(String prefix) async {
+  final dir = await Directory.systemTemp.createTemp(prefix);
+  addTearDown(() async {
+    for (var i = 0; i < 100; i++) {
+      if (!await dir.exists()) return;
+      try {
+        await dir.delete(recursive: true);
+        return;
+      } on FileSystemException {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+  });
+  return dir;
 }

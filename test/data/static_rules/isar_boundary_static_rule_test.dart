@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/dart_source.dart';
+
 /// 對 `Isar` 實例的成員存取。
 ///
 /// `\s*` 是必要的：dart format 會在 `.` 前面斷行。開頭的否定判斷擋掉
@@ -120,7 +122,8 @@ class ImportService {
       const source =
           '// 舊版在這裡直接寫 isar.tracks.put(track)，現在走 repository。\n'
           '/// 見 `isar.playlists` 的說明。\n'
-          'class Thing {}';
+          '/* 以前是 isar.tracks.clear() */\n'
+          'class Thing {} // 不要寫 isar.tracks.put(track)\n';
 
       expect(
         isarBoundaryOffenders('lib/services/example.dart', source),
@@ -141,7 +144,8 @@ bool _isAllowed(String path) {
 /// 抓不抓得到違規，也驗證它不會誤報。
 List<String> isarBoundaryOffenders(String path, String source) {
   final offenders = <String>[];
-  final lines = source.split('\n');
+  // 先去掉註解：行首 `//` 以外，`/* */` 與行尾註解裡提到的呼叫也不算。
+  final lines = stripDartComments(source).split('\n');
 
   for (var index = 0; index < lines.length; index++) {
     final line = lines[index];

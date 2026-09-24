@@ -39,4 +39,10 @@ abstract class AccountService {
 
   /// 檢查帳號登錄狀態和 VIP 狀態
   Future<AccountCheckResult> checkAccountStatus();
+
+  /// 給音源 adapter 用的登入 headers（串流解析、詳情等）；沒登入回 null。
+  ///
+  /// 形狀由各平台決定：Bilibili 只要 Cookie，YouTube 另帶 SAPISIDHASH，網易雲
+  /// 要連同 Origin / Referer / 桌面版 UA 一起送。
+  Future<Map<String, String>?> getAuthHeaders();
 }

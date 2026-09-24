@@ -128,12 +128,9 @@ class PlaybackSessionResult {
 typedef PlaybackSessionLoadingStarted = void Function(int requestId);
 typedef PlaybackSessionLoadingFinished =
     void Function(int requestId, PlaybackSessionResult result);
-typedef PlaybackSessionCurrentTrack = Track? Function();
 typedef PlaybackSessionTerminalMessage = String Function(Track track);
 typedef PlaybackSessionTerminalMediaOpen =
     void Function({required Track track, required String message});
-typedef PlaybackSessionPosition = Duration Function();
-typedef PlaybackSessionIsPlaying = bool Function();
 typedef PlaybackSessionDelay = Future<void> Function(Duration duration);
 
 /// 下一首的串流已經預取好了。回傳的 future 完成之前不會有第二次通知。

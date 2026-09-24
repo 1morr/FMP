@@ -5,7 +5,26 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/dart_source.dart';
 
 /// Riverpod 3 帶進來三個「測不到就會靜默壞掉」的規則，這裡用原始碼比對釘住它們。
-/// 三條規則都寫在 `lib/providers/AGENTS.md` § Riverpod 3。
+/// 每條規則的理由寫在各自的 test 裡。
+///
+/// 錨在 `FMPApp.build` 的 provider → 為什麼等不到頁面打開。
+const _anchoredProviders = <String, String>{
+  'databaseProvider': '其他一切都等它開好才建',
+  'themeProvider': '第一幀就要用存的主題',
+  'localeProvider': '第一幀就要用存的語言',
+  'playbackSettingsProvider': '先載好，設定頁的開關才不會一打開就播放開啟動畫',
+  'refreshSettingsProvider': '載入時就把存的排行榜刷新間隔推給服務；等設定頁打開就太晚了',
+  'autoRefreshServiceProvider': '背景自動刷新，沒有頁面會去 watch 它',
+  'accountStatusCheckProvider': '啟動時檢查帳號狀態與刷新 Cookie',
+  'accountSessionExpiryWatcherProvider': '請求期偵測到登入失效時補一次提示，在哪一頁都要看得到',
+  'startupDownloadSyncProvider': '啟動後靜默同步已下載檔案的狀態',
+  'windowsDesktopServiceProvider': 'Windows 的托盤與視窗事件',
+  'minimizeToTrayProvider': 'Windows：套用存的托盤設定',
+  'globalHotkeysEnabledProvider': 'Windows：套用存的全域快捷鍵開關',
+  'launchAtStartupProvider': 'Windows：套用存的開機自啟設定',
+  'hotkeyConfigProvider': 'Windows：載入自訂快捷鍵',
+};
+
 void main() {
   group('Riverpod 3 static rules', () {
     test('side-effect providers stay anchored above MaterialApp', () {
@@ -13,32 +32,17 @@ void main() {
       // FMPApp.build 位於 MaterialApp 之上，沒有 TickerMode 祖先，所以掛在
       // 那裡的 provider 永遠不會被暫停。把某個 provider 搬去頁面上 watch，
       // 使用者一打開全螢幕播放頁它就停了 —— 這條測試就是防這件事。
-      final source = stripDartComments(File('lib/app.dart').readAsStringSync());
-
-      const anchoredProviders = <String>[
-        'databaseProvider',
-        'themeProvider',
-        'localeProvider',
-        'playbackSettingsProvider',
-        'autoRefreshServiceProvider',
-        'accountStatusCheckProvider',
-        'startupDownloadSyncProvider',
-        'windowsDesktopServiceProvider',
-        'minimizeToTrayProvider',
-        'globalHotkeysEnabledProvider',
-        'launchAtStartupProvider',
-        'hotkeyConfigProvider',
-      ];
-
-      for (final provider in anchoredProviders) {
-        expect(
-          source,
-          contains('ref.watch($provider'),
-          reason:
-              '$provider must stay anchored in FMPApp.build (lib/app.dart); '
-              'a page-level watch would be paused behind the full-screen player',
-        );
-      }
+      //
+      // 比的是集合：搬走一個會紅，新錨一個沒寫進名單也會紅 —— 後者是要下一個
+      // 人寫下它為什麼得錨在這裡。
+      expect(
+        buildWatches(File('lib/app.dart').readAsStringSync(), 'FMPApp'),
+        equals(_anchoredProviders.keys.toSet()),
+        reason:
+            'FMPApp.build (lib/app.dart) watches a different set of providers '
+            'than _anchoredProviders; a page-level watch would be paused '
+            'behind the full-screen player',
+      );
     });
 
     test('lib does not import the riverpod legacy barrel', () {
@@ -59,7 +63,7 @@ void main() {
         isEmpty,
         reason:
             'lib/ is fully on Notifier; legacy providers must not '
-            'come back without a decision recorded in AGENTS.md',
+            'come back without a decision recorded in this test',
       );
     });
 
@@ -86,6 +90,49 @@ void main() {
   });
 
   group('the riverpod 3 detectors', () {
+    test('a moved or an unlisted anchor changes the watch set', () {
+      const app = '''
+class FMPApp extends ConsumerWidget {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(databaseProvider);
+    ref.watch(newBackgroundServiceProvider);
+    return const SizedBox();
+  }
+}
+
+class _Shell extends ConsumerWidget {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(themeProvider);
+    return const SizedBox();
+  }
+}
+''';
+
+      // themeProvider 搬到了別的 widget，新的服務沒寫進名單。
+      expect(buildWatches(app, 'FMPApp'), {
+        'databaseProvider',
+        'newBackgroundServiceProvider',
+      });
+    });
+
+    test('line breaks, selects and comments keep the watch set', () {
+      const app = '''
+class FMPApp extends ConsumerWidget {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // ref.watch(oldProvider); 已經拿掉。
+    final theme = ref
+        .watch(
+          themeProvider,
+        );
+    final locale = ref.watch(localeProvider.select((s) => s.locale));
+    return const SizedBox();
+  }
+}
+''';
+
+      expect(buildWatches(app, 'FMPApp'), {'themeProvider', 'localeProvider'});
+    });
+
     test('a synthesised violation is caught', () {
       const legacy = '''
 import 'package:flutter_riverpod/legacy.dart';
@@ -105,6 +152,10 @@ class SearchState extends Equatable {
 ''';
 
       expect(importsLegacyRiverpod(legacy), isTrue);
+      expect(
+        importsLegacyRiverpod("import 'package:riverpod/legacy.dart';"),
+        isTrue,
+      );
       expect(equatablePropsOmissions(missingProp), [
         'SearchState.page is missing from props',
       ]);
@@ -133,9 +184,14 @@ class SearchState extends Equatable {
   });
 }
 
-/// 這個檔案把 legacy 家族（`StateNotifier` 等）import 回來了。
+/// 這個檔案把 legacy 家族（`StateNotifier` 等）import 回來了。`riverpod`、
+/// `flutter_riverpod`、`hooks_riverpod` 三個套件都有自己的 `legacy.dart`。
 bool importsLegacyRiverpod(String source) =>
-    stripDartComments(source).contains('package:flutter_riverpod/legacy.dart');
+    _legacyBarrel.hasMatch(stripDartComments(source));
+
+final _legacyBarrel = RegExp(
+  r'package:(?:flutter_|hooks_)?riverpod/legacy\.dart',
+);
 
 /// `Equatable` 子類別裡沒有列進 `props` 的公開欄位。
 List<String> equatablePropsOmissions(String source) {
@@ -176,4 +232,36 @@ List<String> equatablePropsOmissions(String source) {
   }
 
   return offenders;
+}
+
+/// [className] 的 `build` 方法裡 `ref.watch` 的 provider 名稱。
+Set<String> buildWatches(String source, String className) {
+  final code = stripDartComments(source);
+  final header = RegExp(
+    r'\bclass\s+' + RegExp.escape(className) + r'\b[^{]*\{',
+  ).firstMatch(code);
+  if (header == null) throw StateError('class $className not found');
+  final build = RegExp(
+    r'\bWidget\s+build\s*\(',
+  ).firstMatch(code.substring(header.end));
+  if (build == null) throw StateError('$className has no build');
+
+  // 從 build 的本體開頭數大括號，找到本體結尾。
+  final bodyStart = code.indexOf('{', header.end + build.end);
+  var depth = 0;
+  var bodyEnd = bodyStart;
+  for (var i = bodyStart; i < code.length; i++) {
+    if (code[i] == '{') depth++;
+    if (code[i] == '}' && --depth == 0) {
+      bodyEnd = i;
+      break;
+    }
+  }
+
+  return {
+    for (final match in RegExp(
+      r'\bref\s*\.\s*watch\s*\(\s*(\w+Provider)\b',
+    ).allMatches(code.substring(bodyStart, bodyEnd)))
+      match.group(1)!,
+  };
 }

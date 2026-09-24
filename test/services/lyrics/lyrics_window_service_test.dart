@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
@@ -90,6 +91,64 @@ void main() {
 
     await service.destroy();
     await windowsChanged.close();
+  });
+
+  test('syncLyrics tells the window whether the search has settled', () async {
+    // 子視窗只看得到「沒有行」，分不出「還在抓」和「這首沒有歌詞」；這個旗標
+    // 就是那個差別，兩個值都要原樣送過去。
+    final windowsChanged = StreamController<void>.broadcast();
+    addTearDown(windowsChanged.close);
+    final createdWindows = <_FakeWindowController>[];
+    final payloads = <String, Map<String, dynamic>>{};
+
+    final service = LyricsWindowService.forTesting(
+      _FakeLyricsWindowPlatform(
+        windowsChanged: windowsChanged.stream,
+        getAllWindows: () async =>
+            List<LyricsWindowControllerHandle>.from(createdWindows),
+        createWindow: (WindowConfiguration configuration) async {
+          final controller = _FakeWindowController(
+            (createdWindows.length + 1).toString(),
+          );
+          createdWindows.add(controller);
+          return controller;
+        },
+        invokeMethod: (method, arguments) async {
+          if (arguments.startsWith('{')) {
+            payloads[method] = jsonDecode(arguments) as Map<String, dynamic>;
+          }
+          return 'ok';
+        },
+        setMethodCallHandler: (_) async {},
+      ),
+    );
+    await service.open();
+
+    await service.syncLyrics(
+      lyrics: null,
+      currentLineIndex: -1,
+      positionMs: 0,
+      offsetMs: 0,
+      trackTitle: 'A track with no lyrics',
+      trackArtist: 'Someone',
+      trackUniqueKey: 'bilibili:BV1',
+      lyricsSettled: true,
+    );
+    expect(payloads['updateLyrics']!['lyricsSettled'], isTrue);
+
+    await service.syncLyrics(
+      lyrics: null,
+      currentLineIndex: -1,
+      positionMs: 0,
+      offsetMs: 0,
+      trackTitle: 'Still looking',
+      trackArtist: 'Someone',
+      trackUniqueKey: 'bilibili:BV2',
+      lyricsSettled: false,
+    );
+    expect(payloads['updateLyrics']!['lyricsSettled'], isFalse);
+
+    await service.destroy();
   });
 }
 

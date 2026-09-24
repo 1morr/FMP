@@ -660,20 +660,3 @@ final allPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
   final service = ref.watch(playlistServiceProvider);
   return service.getAllPlaylists();
 });
-
-/// 添加歌曲到歌单的快捷方法
-final addTrackToPlaylistProvider =
-    FutureProvider.family<bool, ({int playlistId, Track track})>((
-      ref,
-      params,
-    ) async {
-      final service = ref.watch(playlistServiceProvider);
-      final result = await service.addTrackToPlaylist(
-        params.playlistId,
-        params.track,
-      );
-      ref
-          .read(libraryInvalidationCoordinatorProvider)
-          .playlistMutationCompleted(result);
-      return true;
-    });

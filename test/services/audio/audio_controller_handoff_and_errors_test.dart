@@ -404,7 +404,8 @@ void main() {
           reason: 'the first track should settle before the next one fails',
         );
 
-        sourceManager.throwGetAudioStreamOnce(
+        // 一直限流：只擋一次的話串流解析的重試會救回來，這條就測不到失敗。
+        sourceManager.throwGetAudioStreamAlways(
           const YouTubeApiException(
             code: 'rate_limited',
             message: 'rate limited',
@@ -1582,7 +1583,8 @@ void main() {
     test(
       'rate-limited source error remains visible after loading resets',
       () async {
-        sourceManager.throwGetAudioStreamOnce(
+        // 一直限流：串流解析會重試一次，兩次都被擋才輪到使用者看見。
+        sourceManager.throwGetAudioStreamAlways(
           const YouTubeApiException(
             code: 'rate_limited',
             message: 'Too many requests',
@@ -1949,6 +1951,124 @@ void main() {
       },
     );
 
+    test(
+      'buffering that began while the stream was opening still starves',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        audioService = FakeAudioService()..playUrlSettlesReady = false;
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: _createAudioStreamManager(
+            trackRepository: trackRepository,
+            settingsRepository: settingsRepository,
+            sourceManager: sourceManager,
+          ),
+          toastService: toastService,
+          nowPlayingPublisher: testNowPlayingPublisher(),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+          budget: const PlaybackTimeoutBudget(
+            bufferStarvation: Duration(milliseconds: 30),
+          ),
+        );
+        await controller.initialize();
+
+        // Windows 上的零位元組串流：mpv 在開流時就進了 buffering，`playUrl`
+        // 照樣返回，之後再也沒有任何事件。載入期間的緩衝不餵看門狗。
+        final opening = audioService.enqueuePendingPlayUrl();
+        final playing = controller.playSingle(
+          _track('silent', title: 'Silent'),
+        );
+        await audioService.waitForPlayUrlCallCount(1);
+        audioService.setPlayingValue(true);
+        audioService.emitProcessingState(FmpAudioProcessingState.buffering);
+        await pumpUntil(
+          () => controller.state.isBuffering,
+          reason: 'the controller has seen the buffering while loading',
+        );
+
+        final playsBeforeStarvation = audioService.playUrlCalls.length;
+        opening.complete();
+        await playing;
+
+        await pumpUntil(
+          () => audioService.playUrlCalls.length > playsBeforeStarvation,
+          reason: 'loading ended with the backend still buffering',
+        );
+      },
+    );
+
+    test(
+      'a second starvation stops the track and a replay gets its own rescue',
+      () async {
+        final trackRepository = TrackRepository(isar);
+        final settingsRepository = SettingsRepository(isar);
+        final handler = FmpAudioHandler();
+        audioService = FakeAudioService()..playUrlSettlesReady = false;
+        controller = buildTestAudioController(
+          audioService: audioService,
+          queueManager: queueManager,
+          audioStreamManager: _createAudioStreamManager(
+            trackRepository: trackRepository,
+            settingsRepository: settingsRepository,
+            sourceManager: sourceManager,
+          ),
+          toastService: toastService,
+          nowPlayingPublisher: testNowPlayingPublisher(
+            platform: AudioRuntimePlatform.mobile,
+            audioHandler: handler,
+          ),
+          settingsRepository: settingsRepository,
+          mixTracksFetcher: mixTracksFetcher.call,
+          budget: const PlaybackTimeoutBudget(
+            bufferStarvation: Duration(milliseconds: 30),
+          ),
+        );
+        await controller.initialize();
+
+        // hold 串流：每次開流 mpv 都停在「播放中、緩衝中」，再也沒有下文。
+        void holdForever() {
+          audioService.setPlayingValue(true);
+          audioService.emitProcessingState(FmpAudioProcessingState.buffering);
+        }
+
+        await controller.playSingle(_track('held', title: 'Held'));
+        holdForever();
+        await audioService.waitForPlayUrlCallCount(2);
+        // 重試自己的 stop() 已經過了；接下來那一次是放棄時發的，先卡住它。
+        final stopping = audioService.enqueuePendingStop();
+        holdForever();
+        await pumpUntil(
+          () => controller.state.error != null,
+          reason: 'the retried stream starved too',
+        );
+
+        // 轉圈不等 stop() 返回就要消失。
+        expect(controller.state.isBuffering, isFalse);
+        expect(controller.state.isPlaying, isFalse);
+
+        stopping.complete();
+        await pumpUntil(
+          () =>
+              handler.playbackState.value.processingState ==
+              AudioProcessingState.idle,
+          reason: 'the stopped backend reached the notification',
+        );
+        expect(audioService.isPlaying, isFalse, reason: 'backend stopped');
+
+        final pausesBefore = audioService.pauseCallCount;
+        await controller.togglePlayPause();
+        expect(audioService.playUrlCalls, hasLength(3));
+        expect(audioService.pauseCallCount, pausesBefore);
+
+        // 使用者按的重播是一次新的嘗試：再卡住要先救一次，不是直接失敗。
+        holdForever();
+        await audioService.waitForPlayUrlCallCount(4);
+      },
+    );
+
     test('playback prefetch fills the queue-owned next track url', () async {
       final tracks = [
         _track('prefetch-play-current', title: 'Prefetch Play Current'),
@@ -2192,6 +2312,7 @@ AudioStreamManager _createAudioStreamManager({
     settingsRepository: settingsRepository,
     sourceManager: sourceManager,
     sourceAuthContext: FakeSourceAuthContext(),
+    rateLimitRetryDelay: Duration.zero,
   );
   addTearDown(streamResolutionService.dispose);
   return AudioStreamManager(

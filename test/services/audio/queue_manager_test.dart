@@ -56,16 +56,6 @@ void main() {
       }
     });
 
-    test('source no longer attaches a queue track updater callback', () async {
-      final sourceFile = File(
-        '${Directory.current.path}/lib/services/audio/queue_manager.dart',
-      );
-
-      final source = await sourceFile.readAsString();
-
-      expect(source, isNot(contains('attachQueueTrackUpdater')));
-    });
-
     test(
       'replaceTrack updates the queue-visible track only through explicit caller ownership',
       () async {

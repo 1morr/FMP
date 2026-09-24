@@ -180,6 +180,10 @@ class DownloadPathUtils {
   /// 1. 用户自定义目录（settings.customDownloadDir）
   /// 2. Android: /storage/emulated/0/Music/FMP
   /// 3. Windows/其他: Documents/FMP
+  ///
+  /// 2、3 不會收到新下載：每個下載入口都先檢查 `hasConfiguredPath()`，沒選過
+  /// 就跳目錄選擇對話框。平台預設留著，是為了讓舊版寫進預設目錄的檔案仍能
+  /// 被掃描與同步；Android 沒有所有檔案存取權時，`Music/` 其實寫不進去。
   static Future<String> getDefaultBaseDir(
     SettingsRepository settingsRepo,
   ) async {

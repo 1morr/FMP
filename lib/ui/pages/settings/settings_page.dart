@@ -31,11 +31,11 @@ import 'package:fmp/providers/settings/desktop_settings_provider.dart';
 import 'package:fmp/providers/settings/hotkey_config_provider.dart';
 import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/download/download_path_provider.dart';
-import 'package:fmp/providers/system/update_auto_check_provider.dart';
 import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/providers/system/backup_provider.dart';
 import 'package:fmp/services/backup/backup_service.dart';
 import 'package:fmp/services/update/update_service.dart';
+import 'package:fmp/services/radio/radio_refresh_service.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/ui/router.dart';
 import 'package:fmp/ui/widgets/dialogs/change_download_path_dialog.dart';
@@ -137,7 +137,7 @@ class SettingsPage extends ConsumerWidget {
             title: t.settings.storage,
             children: [
               _DownloadManagerListTile(),
-              _DownloadPathListTile(),
+              const DownloadPathListTile(),
               _ConcurrentDownloadsListTile(),
               _DownloadImageOptionListTile(),
             ],
@@ -172,7 +172,6 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push(RoutePaths.userGuide),
               ),
               _CheckUpdateListTile(),
-              _AutoCheckUpdatesTile(),
               _VersionListTile(),
               ListTile(
                 leading: const Icon(Icons.code_outlined),

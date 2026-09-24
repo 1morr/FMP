@@ -146,6 +146,72 @@ void main() {
 
     expect(source.calls, ['101', '202', '303']);
   });
+
+  test('the settings value 0 means off; anything unreadable means the '
+      'default', () {
+    expect(
+      RadioRefreshService.intervalFromMinutes(RadioRefreshService.offMinutes),
+      isNull,
+    );
+    expect(
+      RadioRefreshService.intervalFromMinutes(10),
+      const Duration(minutes: 10),
+    );
+    // 還沒寫過這個欄位的舊列，Isar 讀出來是 minLong。
+    for (final unreadable in [null, -9223372036854775808]) {
+      expect(
+        RadioRefreshService.intervalFromMinutes(unreadable),
+        RadioRefreshService.defaultRefreshInterval,
+      );
+    }
+  });
+
+  test('turning it off stops the ticks', () async {
+    service.updateRefreshInterval(null);
+
+    service.tick();
+    await drainEventQueue(reason: 'a tick after turning it off must stay idle');
+    expect(source.calls, isEmpty);
+  });
+
+  group('started while turned off', () {
+    late RadioRefreshService off;
+
+    setUp(() {
+      off = RadioRefreshService(
+        radioSource: source,
+        refreshInterval: null,
+        now: clock.now,
+      );
+      addTearDown(off.dispose);
+      off.setRepository(repository);
+    });
+
+    test('asks nobody on start, on a tick or on resume', () async {
+      off.tick();
+      off.pause();
+      clock.advance(interval * 3);
+      off.resume();
+
+      await drainEventQueue(reason: 'a service turned off must not poll');
+      expect(source.calls, isEmpty);
+    });
+
+    test('pull-to-refresh still asks every station', () async {
+      await off.refreshAll();
+
+      expect(source.calls, ['101', '202', '303']);
+    });
+
+    test('turning it on refreshes the list it never refreshed', () async {
+      off.updateRefreshInterval(interval);
+
+      await pumpUntil(
+        () => source.calls.length == 3,
+        reason: 'the list has never been refreshed, so it is stale',
+      );
+    });
+  });
 }
 
 RadioStation _station({required int id, required String sourceId}) {

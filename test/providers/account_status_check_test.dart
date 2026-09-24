@@ -125,6 +125,9 @@ class _FakeAccountService extends AccountService {
   Future<AccountCheckResult> checkAccountStatus() => _check();
 
   @override
+  Future<Map<String, String>?> getAuthHeaders() async => null;
+
+  @override
   Future<Account?> getCurrentAccount() async => Account()
     ..platform = platform
     ..isLoggedIn = loggedIn

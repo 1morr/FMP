@@ -29,6 +29,9 @@
       credentials it finds and every account read throws PlatformException.
       This is the trigger the flutter_secure_storage README names, and the root
       cause behind the permanent loading states tracked in issue #35.
+
+      usesCleartextTraffic=true 也是必要的：網易雲 eapi 回傳的串流 URL 是
+      http://（2026-09-01 已登入實測），關掉它網易雲就播不了。
     -->
     <application
         android:label="FMP"

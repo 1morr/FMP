@@ -6,10 +6,15 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/constants/app_layout.dart';
+import 'package:fmp/data/database/database_catalog.dart';
+import 'package:fmp/data/models/download_task.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/data/models/play_history.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
-import 'package:fmp/data/models/source_ids.dart';
 import 'package:fmp/data/database/database_migration.dart';
 import 'package:fmp/data/database/database_provider.dart';
 import 'package:isar_community/isar.dart';
@@ -575,35 +580,163 @@ void main() {
       expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
     });
 
-    test('the v2 to v3 step turns the automatic update check on', () async {
+    test('an upgrade keeps downloads, playlists, history and lyrics matches '
+        'intact', () async {
+      // 其他測試只開三個 collection；這一條開全部，確認遷移之外的資料原封不動地
+      // 走過一次關閉、重開與遷移。從真的舊 schema（還帶著 `autoCheckUpdates`
+      // 那些欄位）升級要在實機上驗 —— 測試進程裡沒有舊版的生成程式碼。
+      tempDir = await Directory.systemTemp.createTemp(
+        'database_migration_test_',
+      );
+      Future<Isar> open() => Isar.open(
+        fmpDatabaseSchemas,
+        directory: tempDir.path,
+        name: 'database_migration_upgrade_test',
+      );
+
+      isar = await open();
+      final track = Track()
+        ..sourceId = 'BV1kept'
+        ..sourceType = SourceIds.bilibili
+        ..title = 'Kept';
+      await isar.writeTxn(() async {
+        await isar.settings.put(Settings()..schemaVersion = 2);
+        final playlistId = await isar.playlists.put(
+          Playlist()..name = 'Favourites',
+        );
+        track.playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = playlistId
+            ..playlistName = 'Favourites'
+            ..downloadPath = '/music/Favourites/Kept.m4a',
+        ];
+        final trackId = await isar.tracks.put(track);
+        await isar.playlists.put(
+          (await isar.playlists.get(playlistId))!..trackIds = [trackId],
+        );
+        await isar.downloadTasks.put(
+          DownloadTask()
+            ..trackId = trackId
+            ..playlistId = playlistId
+            ..status = DownloadStatus.completed
+            ..savePath = '/music/Favourites/Kept.m4a',
+        );
+        await isar.playHistorys.put(
+          PlayHistory()
+            ..sourceId = 'BV1kept'
+            ..sourceType = SourceIds.bilibili
+            ..title = 'Kept'
+            ..durationMs = 185000,
+        );
+        await isar.lyricsMatchs.put(
+          LyricsMatch()
+            ..trackUniqueKey = track.uniqueKey
+            ..lyricsSource = 'netease'
+            ..externalId = '42'
+            ..offsetMs = -300,
+        );
+      });
+      await isar.close();
+
+      isar = await open();
+      await runDatabaseMigration(isar);
+
+      expect((await isar.settings.get(0))!.schemaVersion, kFmpSchemaVersion);
+      final playlist = (await isar.playlists.where().findAll()).single;
+      expect(playlist.name, 'Favourites');
+      final kept = (await isar.tracks.where().findAll()).single;
+      expect(playlist.trackIds, [kept.id]);
+      expect(kept.getDownloadPath(playlist.id), '/music/Favourites/Kept.m4a');
+      final task = (await isar.downloadTasks.where().findAll()).single;
+      expect(task.trackId, kept.id);
+      expect(task.status, DownloadStatus.completed);
+      final history = (await isar.playHistorys.where().findAll()).single;
+      expect(history.trackKey, kept.uniqueKey);
+      expect(history.durationMs, 185000);
+      final match = (await isar.lyricsMatchs.where().findAll()).single;
+      expect(match.trackUniqueKey, kept.uniqueKey);
+      expect(match.offsetMs, -300);
+    });
+
+    test('keeps the radio poll turned off', () async {
       await openTestDatabase();
 
-      // Isar 對舊列缺少的 bool 一律回 false，而 false 同時也是「使用者自己
-      // 關掉了」的合法值 —— 所以這件事只能在遷移裡做一次。
-      final v2 = Settings()
-        ..schemaVersion = 2
-        ..autoCheckUpdates = false;
+      // 0 是設定頁的「關閉」，不是壞值；負數才是還沒寫過這個欄位的舊列。
+      await isar.writeTxn(
+        () async => isar.settings.put(
+          Settings()
+            ..schemaVersion = kFmpSchemaVersion
+            ..radioRefreshIntervalMinutes = 0,
+        ),
+      );
+
+      await runDatabaseMigration(isar);
+
+      expect((await isar.settings.get(0))!.radioRefreshIntervalMinutes, 0);
+    });
+
+    test('a v2 database walks through the retired v3 step', () async {
+      await openTestDatabase();
+
+      // v2 → v3 已經沒有內容（它打開的欄位刪掉了），但 v2 的資料庫仍要走到
+      // 最新版本，而且後面的步驟照樣套用。
+      final v2 = Settings()..schemaVersion = 2;
+      v2.setUseAuthForPlay(SourceIds.bilibili, false);
       await isar.writeTxn(() async => isar.settings.put(v2));
 
       await runDatabaseMigration(isar);
 
       final after = (await isar.settings.get(0))!;
       expect(after.schemaVersion, kFmpSchemaVersion);
-      expect(after.autoCheckUpdates, isTrue);
-      expect(after.lastUpdateCheckAt, isNull);
+      expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
     });
 
-    test('a database already at v3 keeps a disabled update check', () async {
+    test('the v3 to v4 step turns Bilibili auth-for-play on', () async {
       await openTestDatabase();
 
-      final v3 = Settings()
-        ..schemaVersion = kFmpSchemaVersion
-        ..autoCheckUpdates = false;
+      // v3 存的 false 分不出是舊預設還是使用者自己關的；決定是一律打開，
+      // 而且只動 Bilibili 這一筆。
+      final v3 = Settings()..schemaVersion = 3;
+      v3
+        ..setUseAuthForPlay(SourceIds.bilibili, false)
+        ..setUseAuthForPlay(SourceIds.youtube, false)
+        ..setUseAuthForPlay(SourceIds.netease, false);
       await isar.writeTxn(() async => isar.settings.put(v3));
 
       await runDatabaseMigration(isar);
 
-      expect((await isar.settings.get(0))!.autoCheckUpdates, isFalse);
+      final after = (await isar.settings.get(0))!;
+      expect(after.schemaVersion, kFmpSchemaVersion);
+      expect(after.useAuthForPlay(SourceIds.bilibili), isTrue);
+      expect(after.useAuthForPlay(SourceIds.youtube), isFalse);
+      expect(after.useAuthForPlay(SourceIds.netease), isFalse);
+    });
+
+    test('a database past v4 keeps Bilibili auth-for-play off', () async {
+      await openTestDatabase();
+
+      // 遷移之後使用者自己關掉的，就是選擇，不能再被打開。
+      final v4 = Settings()..schemaVersion = kFmpSchemaVersion;
+      v4.setUseAuthForPlay(SourceIds.bilibili, false);
+      await isar.writeTxn(() async => isar.settings.put(v4));
+
+      await runDatabaseMigration(isar);
+
+      expect(
+        (await isar.settings.get(0))!.useAuthForPlay(SourceIds.bilibili),
+        isFalse,
+      );
+    });
+
+    test('a fresh install uses the Bilibili login state', () async {
+      await openTestDatabase();
+
+      await runDatabaseMigration(isar);
+
+      expect(
+        (await isar.settings.get(0))!.useAuthForPlay(SourceIds.bilibili),
+        isTrue,
+      );
     });
 
     test('stamps the current schema version on a fresh install', () async {

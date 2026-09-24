@@ -69,9 +69,12 @@ const String kFallbackStreamPriority = 'audioOnly,muxed';
 
 /// 預設就啟用播放認證的音源。
 ///
-/// 網易雲不帶登入狀態時大量歌曲只回試聽片段，所以它的預設是 true；
-/// 其餘音源預設 false。
+/// 網易雲不帶登入狀態時大量歌曲只回試聽片段。Bilibili 對匿名身分另有一份短窗
+/// 節流配額：2026-09-22 同一時間窗交錯打 `ranking/v2`，匿名 23/40 回 -352，帶
+/// SESSDATA 0/40 —— 已登入卻不帶，排行榜、詳情與播放就會一直撞 -352。YouTube
+/// 預設 false。改這張表時看 `database_migration.dart`：既有安裝存的是舊預設。
 const Map<String, bool> kDefaultUseAuthForPlayBySource = {
+  SourceIds.bilibili: true,
   SourceIds.netease: true,
 };
 
@@ -263,8 +266,13 @@ class Settings {
 
   /// 播放歷史保留的最大筆數；超出時由最舊的一筆開始刪。
   ///
-  /// 倉庫只負責裁，數字由呼叫端給 —— `lib/data/AGENTS.md` § Models And
-  /// Repositories 記了為什麼。
+  /// 上限的理由不是磁碟空間，是 `PlayHistoryRepository` 裡三處 `findAll()` 全表
+  /// 掃描（`getHistoryStats`、`getMostPlayed`、帶篩選的 `queryHistory`），沒有
+  /// 上限的話成本隨使用時間無界成長。倉庫只負責裁，數字由呼叫端
+  /// （`PlayHistoryRecorder`）給，因為資料層不得往上 import。
+  ///
+  /// 需要比上限更舊的歷史時（年度統計、匯出），改成以時間為界或先把那三個掃描
+  /// 改寫成查詢 —— 不要用調高上限去換。
   int playHistoryLimit = kDefaultPlayHistoryLimit;
 
   // ========== 下载设置 ==========
@@ -433,20 +441,6 @@ class Settings {
 
   /// 电台直播状态刷新间隔（分钟），默认 5
   int radioRefreshIntervalMinutes = 5;
-
-  // ========== 更新設置 ==========
-
-  /// 啟動後在背景自動檢查更新。
-  ///
-  /// 業務預設是 true，而 Isar 對舊列的 bool 一律補 false，所以它需要一個
-  /// 版本化的遷移步驟（見 `database_migration.dart` 的 v2 → v3）。
-  bool autoCheckUpdates = true;
-
-  /// 上一次自動檢查更新的時間（null = 從未檢查）。
-  ///
-  /// 這是裝置本機的節流簿記，不進備份 —— 換一台機器沿用舊時間戳只會讓新機
-  /// 第一天不檢查。
-  DateTime? lastUpdateCheckAt;
 
   /// 获取 ThemeMode
   @ignore

@@ -7,9 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// 全庫的指令都是 `package:fmp/…` 形式（`always_use_package_imports` 加上
 /// barrel 檔的手動收斂），所以只認這一種就夠了 —— 相對路徑一旦出現，
 /// analyzer 會先擋下來。
+/// 單雙引號都認：`prefer_single_quotes` 沒開，`import "package:fmp/…"` 合法，
+/// 以前只認單引號時它會直接穿過這兩條規則。
 /// 用 `[ \t]*` 而不是 `\s*`：後者會把前一行的換行一起吃掉，行號會少一。
 final _fmpDirectivePattern = RegExp(
-  r"^[ \t]*(?:import|export)\s+'package:fmp/([^']+)'",
+  r"""^[ \t]*(?:import|export)\s+(['"])package:fmp/([^'"]+)\1""",
   multiLine: true,
 );
 
@@ -44,6 +46,8 @@ const _knownFeatureEdges = <String>{
   'audio -> library',
   'audio -> lyrics',
   'audio -> network',
+  // 排行榜要跟播放一樣帶登入狀態：B 站對匿名身分另有節流配額
+  'cache -> account',
   'cache -> network',
   'download -> account',
   'download -> audio',
@@ -109,22 +113,14 @@ void main() {
     });
 
     test('no new edge between features', () {
-      final edges = <String>{};
-      var scanned = 0;
+      final sources = {
+        for (final file in _libDartFiles())
+          if (featureOf(_posix(file.path)) != null)
+            _posix(file.path): file.readAsStringSync(),
+      };
+      final edges = featureEdges(sources);
 
-      for (final file in _libDartFiles()) {
-        final from = featureOf(_posix(file.path));
-        if (from == null) continue;
-        scanned++;
-        for (final match in _fmpDirectivePattern.allMatches(
-          file.readAsStringSync(),
-        )) {
-          final to = featureOf('lib/${match.group(1)}');
-          if (to != null && to != from) edges.add('$from -> $to');
-        }
-      }
-
-      expect(scanned, greaterThan(100));
+      expect(sources.length, greaterThan(100));
       expect(
         edges.difference(_knownFeatureEdges),
         isEmpty,
@@ -146,6 +142,56 @@ import 'package:fmp/data/models/track.dart';
       expect(
         upwardImportOffenders('lib/data/repositories/example.dart', source),
         ['lib/data/repositories/example.dart:1 imports services/audio/'],
+      );
+    });
+
+    test('the upward import rule ignores comments and order, not quotes', () {
+      const clean = '''
+// import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/track.dart';
+''';
+      const doubleQuoted = '''
+import "package:fmp/data/models/track.dart";
+import "package:fmp/providers/audio/audio_providers.dart";
+''';
+
+      expect(
+        upwardImportOffenders('lib/data/repositories/example.dart', clean),
+        isEmpty,
+      );
+      expect(
+        upwardImportOffenders(
+          'lib/data/repositories/example.dart',
+          doubleQuoted,
+        ),
+        ['lib/data/repositories/example.dart:2 imports providers/audio/'],
+      );
+    });
+
+    test('a new feature edge shows up, a same-feature import does not', () {
+      const radio = '''
+import 'package:fmp/services/audio/audio_provider.dart';
+''';
+      const radioWithLyrics = '''
+import 'package:fmp/services/lyrics/lyrics_service.dart';
+import 'package:fmp/services/audio/audio_provider.dart';
+''';
+      const sameFeature = '''
+// import 'package:fmp/services/library/playlist_service.dart';
+import "package:fmp/services/audio/audio_provider.dart";
+''';
+
+      expect(featureEdges({'lib/services/radio/x.dart': radio}), {
+        'radio -> audio',
+      });
+      expect(featureEdges({'lib/services/radio/x.dart': radioWithLyrics}), {
+        'radio -> audio',
+        'radio -> lyrics',
+      });
+      expect(
+        featureEdges({'lib/providers/audio/x.dart': sameFeature}),
+        isEmpty,
       );
     });
 
@@ -171,13 +217,24 @@ String? featureOf(String path) {
   return parts[2];
 }
 
+/// 這些檔案 import 出去的 feature 對 feature 邊（`from -> to`）。
+Set<String> featureEdges(Map<String, String> sourcesByPath) => {
+  for (final MapEntry(key: path, value: source) in sourcesByPath.entries)
+    for (final match in _fmpDirectivePattern.allMatches(source))
+      if ((featureOf(path), featureOf('lib/${match.group(2)}')) case (
+        final String from,
+        final String to,
+      ) when from != to)
+        '$from -> $to',
+};
+
 /// [path] 這個底層檔案裡，違反規則 A 的每一行。
 List<String> upwardImportOffenders(String path, String source) {
   final allowed = _lowerLayerExceptions[path];
   final offenders = <String>[];
 
   for (final match in _fmpDirectivePattern.allMatches(source)) {
-    final target = match.group(1)!;
+    final target = match.group(2)!;
     if (!target.startsWith('services/') && !target.startsWith('providers/')) {
       continue;
     }

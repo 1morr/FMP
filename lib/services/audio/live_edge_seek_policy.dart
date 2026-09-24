@@ -55,7 +55,8 @@ const Duration liveEdgeMargin = Duration(seconds: 1);
 /// seek 之後等多久才回頭看位置。
 ///
 /// 值在 [AppConstants.seekVerificationDelay]；階梯的三個數字放在一起，改其中
-/// 一個的人看得到另外兩個。just_audio 那份原本是寫死的 300ms 字面值。
+/// 一個的人看得到另外兩個。just_audio 那份原本是寫死的 300ms 字面值；兩個後端
+/// 都讀這裡，不要在後端裡再寫一份。
 const Duration liveEdgeSeekVerificationDelay =
     AppConstants.seekVerificationDelay;
 

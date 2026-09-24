@@ -362,10 +362,3 @@ final isPlaylistRefreshingProvider = Provider.family<bool, int>((
   final state = ref.watch(refreshManagerProvider);
   return state.isRefreshing(playlistId);
 });
-
-/// 获取特定歌单的刷新状态
-final playlistRefreshStateProvider =
-    Provider.family<PlaylistRefreshState?, int>((ref, playlistId) {
-      final state = ref.watch(refreshManagerProvider);
-      return state.getRefreshState(playlistId);
-    });

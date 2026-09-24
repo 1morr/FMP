@@ -11,7 +11,9 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 // `Notifier` 可以拿到 `ref`，所以接線從 provider 工廠搬進了 build()。
-// 控制器本身仍然不宣告任何 provider —— 見 lib/providers/AGENTS.md。
+// 控制器本身仍然不宣告任何 provider：它的 provider 與協作者的 provider 都在
+// lib/providers/audio/，兩個檔互相 import 是刻意的，不要把 provider 宣告搬進
+// 這個檔來「修」它。
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
@@ -306,6 +308,10 @@ class AudioController extends Notifier<PlayerState>
   late BufferStarvationWatchdog _bufferWatchdog;
 
   /// 已經為哪一首歌出手救過一次。同一首只救一次，否則就變成無限重載。
+  ///
+  /// 清掉它的只有換歌與 [_failStalledPlayback]。救回來之後不清：播兩秒卡
+  /// 十五秒的串流會變成每十幾秒重載一次。代價是救回來、正常播了很久之後再卡
+  /// 一次會直接失敗 —— 要改得先定「播滿多久才算救回來」，目前沒有 repro。
   String? _bufferStarvationTrackKey;
 
   /// 是否已初始化
@@ -1506,6 +1512,16 @@ class AudioController extends Notifier<PlayerState>
       }
     }
     _handoff.applyPendingIfCurrent(requestId);
+
+    // 載入期間的後端事件不餵緩衝看門狗。零位元組串流在開流時就進了
+    // buffering，之後後端再也不發事件（Windows 實測），所以離開載入時用後端
+    // 當下的狀態補走一次路由，否則看門狗永遠等不到它該計時的那一格。
+    _onPlayerStateChanged(
+      FmpPlayerState(
+        playing: _audioService.isPlaying,
+        processingState: _audioService.processingState,
+      ),
+    );
   }
 
   /// 重置加載狀態（在請求被取代或失敗時使用）
@@ -1848,7 +1864,7 @@ class AudioController extends Notifier<PlayerState>
       _updateQueueState();
 
       // Mix 模式：接近尾端時提前加載更多歌曲。它刻意不是 `PlaybackSideEffect`
-      // —— 見 lib/services/audio/AGENTS.md § Queue, Shuffle And Mix。
+      // —— 理由見 playbackSideEffectsProvider 的 dartdoc。
       _mixSession.onTrackStarted(mode);
 
       logDebug(
@@ -2369,8 +2385,8 @@ class AudioController extends Notifier<PlayerState>
     // 更新系統媒體控制的播放狀態（通知欄 / SMTC）
     //
     // 兩個表面統一送 effective 值。過去 SMTC 收的是後端原始值，所以
-    // AGENTS.md 那條「控制器擁有的載入階段，後端 idle 事件不得覆蓋
-    // loading 狀態」只在 Android 通知欄成立 —— 沒有理由只保護一個平台。
+    // 「控制器擁有的載入階段，後端 idle 事件不得覆蓋 loading 狀態」這條規則
+    // 只在 Android 通知欄成立 —— 沒有理由只保護一個平台。
     _publishPlaybackState(
       isPlaying: effective.isPlaying,
       position: effective.position,
@@ -2434,18 +2450,35 @@ class AudioController extends Notifier<PlayerState>
       mode: _currentRecoveryMode,
     );
     if (_isDisposed || result.isCompleted || result.isSuperseded) return;
-    _failStalledPlayback(track);
+    await _failStalledPlayback(track);
   }
 
-  void _failStalledPlayback(Track track) {
+  /// 救過一次還是卡住：這首歌就當作開不起來，收尾與媒體開啟失敗同一個形狀。
+  ///
+  /// 後端此時還在「播放中、緩衝中」—— 不停它，UI 會一直轉圈，而且沒有
+  /// `error` 時播放鍵走的是後端 toggle，按播放等於把還在播的 mpv 暫停。先記下
+  /// 錯誤再停後端，UI 不必等 `stop()` 返回；代價是 `stop()` 帶出來的後端事件
+  /// 會被路由的 terminal 規則擋掉，所以通知欄 / SMTC 要由這裡補發。
+  ///
+  /// 這次救援到此結束，記號跟著清掉：後端停了，之後再播這首只可能是使用者
+  /// 按的，重新給一次救援，與網路錯誤的手動重試把次數歸零同一個慣例。
+  Future<void> _failStalledPlayback(Track track) async {
     if (_isDisposed) return;
-    state = state.copyWith(isPlaying: false, isLoading: false);
-    _toastService.showError(
-      t.audio.cannotPlayReason(
+    _bufferStarvationTrackKey = null;
+    _handleTerminalMediaOpen(
+      track: track,
+      message: t.audio.cannotPlayReason(
         title: track.title,
         reason: t.audio.sourceErrorTimeout,
       ),
     );
+    try {
+      await _audioService.stop();
+    } catch (e, stack) {
+      logError('Failed to stop player after stalled playback', e, stack);
+    }
+    if (_isDisposed) return;
+    _publishCurrentPlaybackState();
   }
 
   /// 傳輸層失敗：連線中斷、逾時、DNS、TLS。分類由後端完成。
@@ -2795,7 +2828,7 @@ class AudioController extends Notifier<PlayerState>
         await _retryStalledStream();
       case FailStalledPlayback():
         final track = state.playingTrack;
-        if (track != null) _failStalledPlayback(track);
+        if (track != null) await _failStalledPlayback(track);
       case ResetArmedEndTicks():
         _armedEndTicks = 0;
       case IncrementArmedEndTicks():

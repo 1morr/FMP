@@ -43,10 +43,7 @@
   },
   "liveRadio": {
     "title": "Live & Radio",
-    "biliLive": "Bilibili Live",
-    "biliLiveDesc": "Search live rooms, listen to live audio",
-    "autoRefresh": "Auto Refresh",
-    "autoRefreshDesc": "Automatically refreshes when stream URL expires, maintains continuous playback"
+    "biliLiveDesc": "Search live rooms, listen to live audio"
   },
   "download": {
     "title": "Download Music",
@@ -59,43 +56,21 @@
   },
   "explore": {
     "title": "Explore",
-    "ranking": "Trending Charts",
-    "rankingDesc": "View Bilibili, YouTube, and Netease music trending charts",
-    "autoUpdate": "Auto Update",
-    "autoUpdateDesc": "Charts refresh hourly in background, instant access with no wait",
-    "homeSources": "Home sources",
     "homeSourcesDesc": "Choose and order Home ranking sources in Settings → Home ranking sources"
   },
   "history": {
-    "title": "Play History",
-    "timeline": "Timeline",
-    "timelineDesc": "View all play records in chronological order",
-    "stats": "Statistics",
-    "statsDesc": "View play count and other statistics",
-    "filter": "Filter & Sort",
-    "filterDesc": "Filter and sort to quickly find songs"
+    "title": "Play History"
   },
   "audioSettingsGuide": {
-    "title": "Audio Settings",
-    "qualityLevel": "Quality Level",
-    "qualityLevelDesc": "High/Medium/Low, applies to all sources",
-    "formatPriority": "Format Priority",
-    "formatPriorityDesc": "Choose Opus or AAC format for YouTube",
-    "streamPriority": "Stream Type Priority",
-    "streamPriorityDesc": "Audio-only (saves data) or muxed (more compatible)"
+    "title": "Audio Settings"
   },
   "ytMix": {
-    "dynamicPlaylist": "Dynamic Playlist",
-    "dynamicPlaylistDesc": "Import YouTube Mix/Radio playlists, automatically loads more songs",
     "infinitePlay": "Infinite Playback",
     "infinitePlayDesc": "Automatically fetches new songs when approaching queue end"
   },
   "appUpdate": {
     "title": "App Updates",
-    "checkUpdate": "Check for Updates",
-    "checkUpdateDesc": "Settings → About → Check for Updates, fetches latest version from GitHub",
-    "autoInstall": "Auto Install",
-    "autoInstallDesc": "Android auto-installs APK after download, Windows auto-replaces on update"
+    "checkUpdateDesc": "Settings → About → Check for Updates, fetches latest version from GitHub"
   },
   "tips": {
     "youtubeMixShortcut": "YouTube Mix shortcut",

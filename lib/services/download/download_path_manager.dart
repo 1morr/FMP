@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/services/download/download_path_utils.dart';
 import 'package:fmp/services/platform/storage_permission_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -16,7 +17,11 @@ class DownloadPathManager {
 
   DownloadPathManager(this._settingsRepo);
 
-  /// 检查是否已配置下载路径
+  /// 使用者是否親自選過下載目錄。
+  ///
+  /// 只用來決定下載前要不要先跳目錄選擇對話框（Android 要在那裡取得檔案
+  /// 權限）。讀寫下載檔案一律用 [getEffectiveBaseDir]：未選過時它回平台預設，
+  /// 舊版下載到預設目錄的檔案仍在那裡。
   Future<bool> hasConfiguredPath() async {
     final settings = await _settingsRepo.get();
     return settings.customDownloadDir != null &&
@@ -69,11 +74,18 @@ class DownloadPathManager {
     });
   }
 
-  /// 获取当前下载路径
+  /// 使用者選的下載目錄；沒選過回 null（設定頁據此顯示「未設定」）。
   Future<String?> getCurrentDownloadPath() async {
     final settings = await _settingsRepo.get();
     return settings.customDownloadDir;
   }
+
+  /// 取得目前有效的下載根目錄（使用者自選目錄，否則平台預設）。
+  ///
+  /// 寫檔、掃描、同步、刪除都以它為準。刪除路徑的 containment guard 也拿它
+  /// 當基準：認不出基準就無法確定要刪的是 FMP 自己的下載目錄。
+  Future<String> getEffectiveBaseDir() =>
+      DownloadPathUtils.getDefaultBaseDir(_settingsRepo);
 
   /// 清除下载路径配置
   Future<void> clearDownloadPath() async {

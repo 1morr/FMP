@@ -7,13 +7,13 @@
 | 層級 | 技術 | 說明 |
 |------|------|------|
 | UI | Flutter / Dart | Material 3，Android + Windows 響應式 UI |
-| 狀態管理 | Riverpod 2.x | Providers、StateNotifier、FutureProvider、StreamProvider |
+| 狀態管理 | Riverpod 3.x | `Notifier`、`FutureProvider`、`StreamProvider`；沒有 `StateNotifier` |
 | 本機儲存 | Isar 3.x | 持久化應用程式資料和設定 |
 | 路由 | go_router | 宣告式路由 |
 | 網路 | Dio | 音源 API 和媒體請求 |
 | 國際化 | slang | 產生型別安全翻譯程式碼 |
 | 音訊 | just_audio / media_kit | Android 使用 just_audio，桌面使用 media_kit |
-| 加密 | crypto / encrypt / pointycastle | 網易雲 eapi/weapi 支援 |
+| 加密 | crypto / encrypt / pointycastle | 網易雲 eapi/weapi、Bilibili Cookie 刷新 |
 
 ## 平臺分工
 
@@ -33,7 +33,7 @@ Windows 本機建置還需要部分原生工具：
 
 ## 架構地圖
 
-FMP 大體採用 UI -> Provider/Controller -> Service -> Data/Source 的分層。最重要的邊界是音訊邊界：UI 必須呼叫 `AudioController`，不要直接呼叫 `AudioService`。
+FMP 大體採用 UI -> Provider/Controller -> Service -> Data/Source 的分層。最重要的邊界是音訊邊界：UI 必須呼叫 `AudioController`，不要直接呼叫 `FmpAudioService`。兩個後端哪裡行為不同，寫在 `FmpAudioService` 各成員的 dartdoc。
 
 ```
 UI pages/widgets
@@ -57,8 +57,8 @@ lib/
 └── main.dart      # 行程啟動和平臺初始化
 ```
 
-更完整的檔案結構見 [AGENTS.md](../AGENTS.md#key-paths)，目前 provider 規則見
-[lib/providers/AGENTS.md](../lib/providers/AGENTS.md)。
+Agent 規則見 [AGENTS.md](../AGENTS.md)；各模組的設計理由寫在程式碼的 dartdoc
+與守著它的測試裡。
 
 ## 資料模型分類
 
@@ -69,7 +69,7 @@ lib/
 
 資料庫固定開在應用程式 documents 目錄下的 `FMP/` 子目錄，入口只有
 `openFmpDatabase()`。欄位變動時的遷移與 default repair 規則見
-`lib/data/AGENTS.md`。
+`lib/data/database/database_migration.dart` 的 `kFmpSchemaVersion` dartdoc。
 
 ## 音源支援
 
@@ -124,24 +124,93 @@ lib/
 flutter run
 flutter run -d windows
 flutter analyze
-flutter test
+flutter test --exclude-tags live
 dart run build_runner build
 dart run slang
 ```
 
+`live` 標籤的測試會打真實的音源 API，CI 排除它們（見 `dart_test.yaml`）；本機也照
+這樣跑，只有在查上游 API 是否改了時才單獨跑 `--tags live`。
+
 本機 release 建置見〈[建置指南](building.md)〉，CI/release 行為見〈[建置與發布指南](build-and-release.md)〉。
+
+## 執行期除錯（VM Service）
+
+問題是關於「正在跑的 app」而不是原始碼時用它：某個服務現在的欄位值、打了哪些
+HTTP 請求、資料庫裡實際存了什麼。只在 debug / profile build 可用；Isar 的
+`ext.isar.*` 只在 debug（`Isar.open` 的 `inspector` 在 profile / release 被
+tree shake 掉）。
+
+**取得 BASE。** `flutter run` 會印出 `A Dart VM Service on <device> is available
+at: http://127.0.0.1:<PORT>/<TOKEN>/`。去掉結尾的 `/` 就是 BASE；token 通常已經
+以 `=` 結尾，再補一個會讓每個請求回 403。**token 是本機除錯憑證**：不要貼進
+issue、PR、log 或報告，要提只寫埠號與用途。每次 `flutter run` 都換新的；hot
+reload / hot restart 不換。isolate id 從 `$BASE/getVM` 的 `result.isolates[].id`
+拿（`isolates/<number>`）。Windows 的 PowerShell 裡 `curl` 是別名，用 `curl.exe`。
+
+```bash
+BASE="http://127.0.0.1:<PORT>/<TOKEN>="
+ISOLATE="isolates/<number>"
+```
+
+**HTTP 請求：先開、再產生流量。** profiling 只記開啟之後的請求。app 起來才拿得
+到 URI，所以啟動那幾秒的流量量不到。
+
+```bash
+curl -s "$BASE/ext.dart.io.httpEnableTimelineLogging?isolateId=$ISOLATE&enabled=true"
+# 操作 app 之後
+curl -s "$BASE/ext.dart.io.getHttpProfile?isolateId=$ISOLATE"
+curl -s "$BASE/ext.dart.io.getHttpProfileRequest?isolateId=$ISOLATE&id=<id>"  # 單筆，含 header 與 body
+curl -s "$BASE/ext.dart.io.clearHttpProfile?isolateId=$ISOLATE"
+```
+
+FMP 的 Dio 沒有自訂 `httpClientAdapter`，走的是 `dart:io HttpClient`，三個音源與
+圖片 CDN 都攔得到。回應裡有簽名過的串流 URL 與 Cookie，同樣不要貼出去。
+
+**讀活物件的欄位。** HTTP 端點的 `evaluate` 不通（`No compilation service
+available` —— 編譯服務註冊在 `flutter run` 自己那條連線上）。改用三個 RPC：
+`getClassList` 找 class id → `getInstances`（`objectId=classes/<n>`）拿活實例 →
+`getObject` 讀 `fields[]`（`decl.name`、`value.valueAsString`）。`Duration`
+欄位要再 `getObject` 一層，讀它的 `_duration`（微秒）。
+
+**Isar。** 除了 `isolateId`，參數全部包在一個 `args` JSON 字串裡（`isar_community`
+的 `isar_connect.dart` 只讀 `parameters['args']`，直接掛在 URL 上會回
+`type 'Null' is not a subtype of type 'String'`）。回傳是雙層包裝：
+`{"result": {"result": ...}}`。
+
+```bash
+ARGS='{"instance":"fmp_database","collection":"Track","limit":1}'
+curl -s -G "$BASE/ext.isar.executeQuery" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "args=$ARGS"
+ARGS='{"instance":"fmp_database","collection":"Settings","id":0,"path":"minimizeToTrayOnClose","value":true}'
+curl -s -G "$BASE/ext.isar.editProperty" --data-urlencode "isolateId=$ISOLATE" --data-urlencode "args=$ARGS"
+```
+
+其餘端點：`listInstances`、`getSchema`、`exportJson`、`importJson`。三個地雷：
+
+- **`editProperty` 的路徑用 `.` 分段**，清單索引寫成數字段。`sourceSettings[1].streamPriority`
+  這種寫法寫不進去；實測可行的是把整個 `sourceSettings` 清單當 `value` 覆寫。
+  （`sourceSettings.1.streamPriority` 照 `isar_connect.dart` 的實作應該可行，未實測。）
+- **`Settings.youtubeStreamPriority` 是 `@Deprecated` 的 v1 欄位**，改它沒有效果；
+  生效的是 `sourceSettings` 裡各音源的那一筆。
+- **寫入會和 app 自己的寫入者搶。** 例如 `QueueManager` 每 10 秒
+  （`AppConstants.positionSaveInterval`）把記憶體裡的 `PlayQueue` 整份存回去，改完
+  讀回來看到新值不代表留得住。改完立刻結束進程，或改走 app 自己的 UI。
+
+查詢與匯出會帶出搜尋詞、播放紀錄、本機路徑與帳號資料：只查需要的 collection 與
+欄位，匯出檔用完就刪，不要附進報告。
+
+其他 RPC（記憶體、timeline、widget tree dump）是上游的通用 API，見
+[Dart VM Service Protocol](https://github.com/dart-lang/sdk/blob/main/runtime/vm/service/service.md)。
 
 ## 開發規則摘要
 
-不在這裡重複。AI agent 的強約束規則在 [AGENTS.md](../AGENTS.md)（根目錄）以及
-`lib/data`、`lib/data/sources`、`lib/providers`、`lib/services`、
-`lib/services/audio`、`lib/ui` 各自的 `AGENTS.md`；人類貢獻者適用同一套。抄一份
-摘要到這裡只會多一個會漂移的副本。
+不在這裡重複。AI agent 的規則只有根目錄一份 [AGENTS.md](../AGENTS.md)，人類貢獻者
+適用同一套；個別程式碼的理由寫在它旁邊的 dartdoc 與守著它的測試裡。抄一份摘要到
+這裡只會多一個會漂移的副本。
 
 ## 更多文件
 
 - [文件地圖](README.md)
 - [建置指南](building.md)
 - [建置與發布指南](build-and-release.md)
-- [VM Service 除錯指南](debugging-with-vm-service.md)
 - [Agent 規則](../AGENTS.md)

@@ -14,7 +14,6 @@
   "enabled": "Enabled",
   "disabled": "Disabled",
   "notSet": "Not set",
-  "defaultLabel": "Default",
   "custom": "Custom",
   "systemDefault": "System default",
   "initializing": "Initializing...",

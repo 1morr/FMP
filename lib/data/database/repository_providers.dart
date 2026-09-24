@@ -21,15 +21,6 @@ final playlistRepositoryProvider = Provider<PlaylistRepository>((ref) {
   return PlaylistRepository(db);
 });
 
-/// Queue Repository Provider
-final queueRepositoryProvider = Provider<QueueRepository>((ref) {
-  final db = ref.watch(databaseProvider).value;
-  if (db == null) {
-    throw StateError('Database not initialized');
-  }
-  return QueueRepository(db);
-});
-
 /// Settings Repository Provider
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   final db = ref.watch(databaseProvider).value;

@@ -30,57 +30,67 @@ class SourceHttpPolicy {
   static const String neteaseOrigin = 'https://music.163.com';
   static const String neteaseReferer = 'https://music.163.com/';
 
+  static const String _acceptJson = 'application/json, text/plain, */*';
+
+  /// 每個音源送給對方的 header，一個音源一筆；加音源時只改這裡。
+  ///
+  /// - `cdn`：媒體位元組與圖片請求的 Origin / Referer。
+  /// - `api` / `apiUserAgent`：API 請求的其餘 header 與預設 UA。
+  /// - `imageHosts`：圖片 CDN 的網域（含子網域），[imageHeadersForUrl] 靠它
+  ///   從網址認出音源。
+  ///
+  /// 以前這是三個各自的 switch 加一串主機名 if，四處要一起改才不會漂移。
+  static const Map<String, _SourceHeaders> _bySource = {
+    SourceIds.bilibili: (
+      // 媒體與圖片的 Referer 刻意不帶結尾斜線，API 的帶。
+      cdn: {'Referer': bilibiliWebReferer},
+      api: {
+        'Referer': bilibiliReferer,
+        'Origin': bilibiliOrigin,
+        'Accept': _acceptJson,
+      },
+      apiUserAgent: webUserAgent,
+      imageHosts: ['hdslb.com', 'bilibili.com'],
+    ),
+    SourceIds.youtube: (
+      cdn: {'Origin': youtubeOrigin, 'Referer': youtubeReferer},
+      api: {'Origin': youtubeOrigin, 'Referer': youtubeReferer},
+      apiUserAgent: mediaUserAgent,
+      imageHosts: ['ytimg.com', 'ggpht.com', 'googleusercontent.com'],
+    ),
+    SourceIds.netease: (
+      cdn: {'Origin': neteaseOrigin, 'Referer': neteaseReferer},
+      api: {
+        'Referer': neteaseReferer,
+        'Origin': neteaseOrigin,
+        'Accept': _acceptJson,
+      },
+      apiUserAgent: neteaseDesktopUserAgent,
+      imageHosts: ['music.126.net'],
+    ),
+  };
+
   /// 媒體位元組請求的 header。
   ///
   /// **刻意不帶任何帳號憑證。** 三個音源的媒體 URL 都是簽名過的：音質與播放權
   /// 限在串流解析當下就決定了，CDN 只需要 Origin/Referer/User-Agent。曾經有一
   /// 段「對網易的 https URL 附上 Cookie」的分支，實測 eapi 回的是 `http://`，
   /// 那段程式碼在生產環境一次都沒執行過，已移除。
+  ///
+  /// 認不得的音源只拿得到 User-Agent。送錯的 Referer/Origin 會讓 CDN 拒絕，
+  /// 還會把來源洩漏給不相干的主機；漏送只是退化成匿名請求。
   static Map<String, String> mediaHeaders(String sourceType) {
-    final headers = switch (sourceType) {
-      SourceIds.bilibili => <String, String>{
-        'Referer': bilibiliWebReferer,
-        'User-Agent': mediaUserAgent,
-      },
-      SourceIds.youtube => <String, String>{
-        'Origin': youtubeOrigin,
-        'Referer': youtubeReferer,
-        'User-Agent': mediaUserAgent,
-      },
-      SourceIds.netease => <String, String>{
-        'Origin': neteaseOrigin,
-        'Referer': neteaseReferer,
-        'User-Agent': mediaUserAgent,
-      },
-      // 認不得的音源只拿得到 User-Agent。送錯的 Referer/Origin 會讓 CDN
-      // 拒絕，還會把來源洩漏給不相干的主機；漏送只是退化成匿名請求。
-      _ => <String, String>{'User-Agent': mediaUserAgent},
-    };
-
-    return headers;
+    return {...?_bySource[sourceType]?.cdn, 'User-Agent': mediaUserAgent};
   }
 
   static Map<String, String> imageHeaders(
     String sourceType, {
     bool includeUserAgent = true,
   }) {
-    final headers = switch (sourceType) {
-      SourceIds.bilibili => <String, String>{'Referer': bilibiliWebReferer},
-      SourceIds.youtube => <String, String>{
-        'Origin': youtubeOrigin,
-        'Referer': youtubeReferer,
-      },
-      SourceIds.netease => <String, String>{
-        'Origin': neteaseOrigin,
-        'Referer': neteaseReferer,
-      },
-      _ => <String, String>{},
+    return {
+      ...?_bySource[sourceType]?.cdn,
+      if (includeUserAgent) 'User-Agent': mediaUserAgent,
     };
-
-    if (includeUserAgent) {
-      headers['User-Agent'] = mediaUserAgent;
-    }
-    return headers;
   }
 
   /// 依 URL 主機回傳圖片請求標頭。
@@ -98,26 +108,12 @@ class SourceHttpPolicy {
     final host = Uri.tryParse(url)?.host.toLowerCase();
     if (host == null || host.isEmpty) return null;
 
-    if (_isHostOrSubdomain(host, 'hdslb.com') ||
-        _isHostOrSubdomain(host, 'bilibili.com')) {
-      return imageHeaders(
-        SourceIds.bilibili,
-        includeUserAgent: includeUserAgent,
-      );
-    }
-    if (_isHostOrSubdomain(host, 'ytimg.com') ||
-        _isHostOrSubdomain(host, 'ggpht.com') ||
-        _isHostOrSubdomain(host, 'googleusercontent.com')) {
-      return imageHeaders(
-        SourceIds.youtube,
-        includeUserAgent: includeUserAgent,
-      );
-    }
-    if (_isHostOrSubdomain(host, 'music.126.net')) {
-      return imageHeaders(
-        SourceIds.netease,
-        includeUserAgent: includeUserAgent,
-      );
+    for (final MapEntry(key: sourceType, value: headers) in _bySource.entries) {
+      if (headers.imageHosts.any(
+        (domain) => _isHostOrSubdomain(host, domain),
+      )) {
+        return imageHeaders(sourceType, includeUserAgent: includeUserAgent);
+      }
     }
     return null;
   }
@@ -131,29 +127,12 @@ class SourceHttpPolicy {
     Map<String, String>? extraHeaders,
     String? userAgent,
   }) {
-    final headers = switch (sourceType) {
-      SourceIds.bilibili => <String, String>{
-        'User-Agent': userAgent ?? webUserAgent,
-        'Referer': bilibiliReferer,
-        'Origin': bilibiliOrigin,
-        'Accept': 'application/json, text/plain, */*',
-      },
-      SourceIds.youtube => <String, String>{
-        'User-Agent': userAgent ?? mediaUserAgent,
-        'Origin': youtubeOrigin,
-        'Referer': youtubeReferer,
-      },
-      SourceIds.netease => <String, String>{
-        'User-Agent': userAgent ?? neteaseDesktopUserAgent,
-        'Referer': neteaseReferer,
-        'Origin': neteaseOrigin,
-        'Accept': 'application/json, text/plain, */*',
-      },
-      _ => <String, String>{'User-Agent': userAgent ?? webUserAgent},
+    final source = _bySource[sourceType];
+    return {
+      'User-Agent': userAgent ?? source?.apiUserAgent ?? webUserAgent,
+      ...?source?.api,
+      ...?extraHeaders,
     };
-
-    headers.addAll(extraHeaders ?? const <String, String>{});
-    return headers;
   }
 
   static Map<String, String> bilibiliSearchApiHeaders({
@@ -179,15 +158,6 @@ class SourceHttpPolicy {
     };
   }
 
-  static Map<String, String> neteaseAuthHeaders(String cookie) {
-    return {
-      'Cookie': cookie,
-      'Origin': neteaseOrigin,
-      'Referer': neteaseReferer,
-      'User-Agent': neteaseDesktopUserAgent,
-    };
-  }
-
   static Dio createApiDio(
     String sourceType, {
     Map<String, String>? extraHeaders,
@@ -210,3 +180,10 @@ class SourceHttpPolicy {
     );
   }
 }
+
+typedef _SourceHeaders = ({
+  Map<String, String> cdn,
+  Map<String, String> api,
+  String apiUserAgent,
+  List<String> imageHosts,
+});

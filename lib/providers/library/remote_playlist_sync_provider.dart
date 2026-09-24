@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/logger.dart';
+import 'package:fmp/data/models/source_ids.dart';
 import 'package:fmp/services/library/remote_playlist_edit_controller.dart';
 import 'package:fmp/services/library/remote_playlist_sync_service.dart';
 import 'package:fmp/providers/account/account_provider.dart';
@@ -42,19 +43,21 @@ final remotePlaylistEditControllerProvider =
       final neteaseService = ref.watch(neteasePlaylistServiceProvider);
 
       return RemotePlaylistEditController(
-        bilibiliAdapter: BilibiliRemotePlaylistEditAdapter(
-          getVideoAid: bilibiliService.getVideoAid,
-          updateVideoFavorites: bilibiliService.updateVideoFavorites,
-        ),
-        youtubeAdapter: YouTubeRemotePlaylistEditAdapter(
-          addToPlaylist: youtubeService.addToPlaylist,
-          getSetVideoId: youtubeService.getSetVideoId,
-          removeFromPlaylist: youtubeService.removeFromPlaylist,
-        ),
-        neteaseAdapter: NeteaseRemotePlaylistEditAdapter(
-          addTracksToPlaylist: neteaseService.addTracksToPlaylist,
-          removeTracksFromPlaylist: neteaseService.removeTracksFromPlaylist,
-        ),
+        adapters: {
+          SourceIds.bilibili: BilibiliRemotePlaylistEditAdapter(
+            getVideoAid: bilibiliService.getVideoAid,
+            updateVideoFavorites: bilibiliService.updateVideoFavorites,
+          ),
+          SourceIds.youtube: YouTubeRemotePlaylistEditAdapter(
+            addToPlaylist: youtubeService.addToPlaylist,
+            getSetVideoId: youtubeService.getSetVideoId,
+            removeFromPlaylist: youtubeService.removeFromPlaylist,
+          ),
+          SourceIds.netease: NeteaseRemotePlaylistEditAdapter(
+            addTracksToPlaylist: neteaseService.addTracksToPlaylist,
+            removeTracksFromPlaylist: neteaseService.removeTracksFromPlaylist,
+          ),
+        },
         refreshMatchingImportedPlaylists:
             ({required sourceType, required remotePlaylistIds}) {
               return ref

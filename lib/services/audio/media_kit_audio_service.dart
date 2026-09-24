@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:audio_session/audio_session.dart' hide AudioDevice;
+import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:rxdart/rxdart.dart';
 
@@ -36,8 +36,13 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       'reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,'
       'reconnect_delay_max=2,reconnect_max_retries=3';
 
+  MediaKitAudioService({@visibleForTesting PlatformPlayer? platformPlayer})
+    : _platformPlayer = platformPlayer;
+
+  /// 換掉 libmpv 的那一層。`flutter test` 裡沒有 libmpv，不換就建不起來。
+  final PlatformPlayer? _platformPlayer;
+
   late final Player _player;
-  late final AudioSession _session;
   bool _hasPlayer = false;
   bool _disposed = false;
 
@@ -56,12 +61,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   // 流订阅列表（用于 dispose 时取消）
   final List<StreamSubscription> _subscriptions = [];
-
-  // duck 前的音量（用于恢复）
-  double _volumeBeforeDuck = 1.0;
-
-  // 中断前是否正在播放（用于判断中断结束后是否恢复播放）
-  bool _wasPlayingBeforeInterruption = false;
 
   // 是否已触发过 completion 事件（防止重复触发）
   bool _hasCompletionFired = false;
@@ -174,71 +173,12 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       configuration: const PlayerConfiguration(
         bufferSize: desktopPlayerBufferSizeBytes,
       ),
+      platformPlayer: _platformPlayer,
     );
     _hasPlayer = true;
 
     // 优化 libmpv 内存占用（纯音频播放场景）
     await _configureForAudioOnly();
-
-    // 配置音频会话
-    _session = await AudioSession.instance;
-    await _session.configure(const AudioSessionConfiguration.music());
-
-    // 监听音频会话中断
-    _subscriptions.add(
-      _session.interruptionEventStream.listen((event) {
-        if (event.begin) {
-          // 中断开始
-          switch (event.type) {
-            case AudioInterruptionType.duck:
-              // 记住 duck 前的音量，以便正确恢复
-              _volumeBeforeDuck = _volume;
-              setVolume(_volume * 0.5);
-              break;
-            case AudioInterruptionType.pause:
-            case AudioInterruptionType.unknown:
-              // 记住中断前是否正在播放，只有正在播放时才在中断结束后恢复
-              _wasPlayingBeforeInterruption = _isPlaying;
-              if (_wasPlayingBeforeInterruption) {
-                logDebug(
-                  'Audio interrupted while playing, will resume after interruption ends',
-                );
-                pause();
-              }
-              break;
-          }
-        } else {
-          // 中断结束
-          switch (event.type) {
-            case AudioInterruptionType.duck:
-              // 恢复到 duck 前的音量
-              setVolume(_volumeBeforeDuck);
-              break;
-            case AudioInterruptionType.pause:
-              // 只有中断前正在播放时才恢复播放
-              if (_wasPlayingBeforeInterruption) {
-                logDebug('Interruption ended, resuming playback');
-                play();
-              } else {
-                logDebug(
-                  'Interruption ended, but was not playing before, staying paused',
-                );
-              }
-              _wasPlayingBeforeInterruption = false;
-              break;
-            case AudioInterruptionType.unknown:
-              break;
-          }
-        }
-      }),
-    );
-
-    // 监听音频设备变化（如耳机拔出）
-    _subscriptions.add(
-      _session.becomingNoisyEventStream.listen((_) {
-        pause();
-      }),
-    );
 
     // 设置 media_kit 流监听
     _setupMediaKitListeners();
@@ -510,12 +450,14 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     if (_isCompleted) {
       return FmpAudioProcessingState.completed;
     }
-    // 如果正在播放，即使在缓冲也视为 ready（音频实际在播放）
-    if (_isPlaying) {
-      return FmpAudioProcessingState.ready;
-    }
+    // 緩衝要排在「正在播放」之前。mpv 的 buffering 來自 `paused-for-cache` 與
+    // `core-idle`：播放中遇到它時其實沒有聲音。以前 playing 優先，Windows 上
+    // 就永遠報不出 buffering，T3 緩衝飢餓看門狗與 UI 的轉圈都等不到它。
     if (_isBuffering) {
       return FmpAudioProcessingState.buffering;
+    }
+    if (_isPlaying) {
+      return FmpAudioProcessingState.ready;
     }
     if (_duration != null && _duration!.inMilliseconds > 0) {
       return FmpAudioProcessingState.ready;
@@ -575,8 +517,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _nextMedia = null;
     _playlistIndex = 0;
     await _player.stop();
-    // 释放音频焦点
-    await _session.setActive(false);
     // 重置状态，确保 _synthesizeProcessingState 返回 idle
     _isCompleted = false;
     _isBuffering = false;
@@ -592,6 +532,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// 切换播放/暂停
   @override
   Future<void> togglePlayPause() async {
+    // 與 [pause] 同一道護欄：開流期間 `_ensurePlayback` 還在等 ready，這裡不
+    // 取消的話，它結束時看到沒在播，會把使用者剛按的暫停再播起來。
+    _cancelEnsurePlayback();
     await _player.playOrPause();
   }
 
@@ -706,7 +649,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   // ========== 音频源设置 ==========
 
-  // 用于取消 _ensurePlayback 的重试逻辑
+  // 用于取消 _ensurePlayback 的重试逻辑。由 playUrl / playFile 開流時重設。
   bool _playbackCancelled = false;
 
   /// 取消正在进行的 _ensurePlayback 重试
@@ -716,8 +659,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   /// 确保播放开始
   Future<void> _ensurePlayback() async {
-    _playbackCancelled = false;
-
     logDebug(
       '_ensurePlayback called, current state: ${_synthesizeProcessingState()}',
     );
@@ -806,6 +747,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
     try {
+      // 開流一開始就重設，不是在 `_ensurePlayback` 裡：等時長的那段期間按下的
+      // 暫停也要算數，在那裡才重設會把它清掉，迴圈結束時又播起來。
+      _playbackCancelled = false;
       // 先停止当前播放
       _hasCompletionFired = false;
       _isCompleted = false;
@@ -822,9 +766,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
           processingState: FmpAudioProcessingState.loading,
         ),
       );
-
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
 
       // 使用 media_kit 直接打开 URL，原生支持 httpHeaders（不需要代理）
       final media = Media(url, httpHeaders: headers);
@@ -884,9 +825,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
 
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
-
       final media = Media(url, httpHeaders: headers);
       // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。
       _nextMedia = null;
@@ -917,6 +855,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   Future<Duration?> playFile(String filePath, {Track? track}) async {
     logDebug('Playing file: $filePath');
     try {
+      // 開流一開始就重設，不是在 `_ensurePlayback` 裡：等時長的那段期間按下的
+      // 暫停也要算數，在那裡才重設會把它清掉，迴圈結束時又播起來。
+      _playbackCancelled = false;
       // 先停止当前播放
       _hasCompletionFired = false;
       _isCompleted = false;
@@ -933,9 +874,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
           processingState: FmpAudioProcessingState.loading,
         ),
       );
-
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
 
       // 使用 media_kit 打开本地文件
       final media = Media(filePath);
@@ -975,9 +913,6 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     try {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-
-      // 激活音频会话（请求音频焦点）
-      await _session.setActive(true);
 
       final media = Media(filePath);
       // 重開媒體 = 換一份播放清單，先前交出去的前瞻項目跟著作廢。

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/core/utils/source_presentation.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/core/utils/platform_utils.dart';
@@ -8,7 +9,6 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
-import 'package:fmp/providers/download/download_providers.dart';
 import 'package:fmp/core/constants/app_layout.dart';
 import 'package:fmp/core/constants/breakpoints.dart';
 import 'package:fmp/core/constants/app_constants.dart';
@@ -36,6 +36,7 @@ import 'package:fmp/ui/widgets/player/cover_art_container.dart';
 import 'package:fmp/ui/widgets/player/fmp_audio_device_selector.dart';
 import 'package:fmp/ui/widgets/player/player_play_pause_button.dart';
 import 'package:fmp/ui/widgets/lyrics/lyrics_display.dart';
+import 'package:fmp/ui/widgets/menus/popup_menu_row.dart';
 import 'package:fmp/ui/pages/lyrics/lyrics_search_sheet.dart';
 
 /// 播放頁的三種版面。
@@ -48,6 +49,13 @@ enum PlayerLayoutMode {
 
   /// 寬版雙欄：左邊封面與控制列，右邊歌詞。
   wideSplit,
+
+  /// 矮而寬（橫向手機）：左邊封面／歌詞（長按切換），右邊控制列。
+  ///
+  /// 以前這種視窗走 [narrow]，而 [narrow] 是直向形狀：封面在上可伸縮、下面壓著
+  /// 約 240dp 的控制列。411dp 高的橫向手機扣掉工具列與內距後只剩約 280dp，
+  /// 封面被合法地壓到約 6dp，沒有任何 overflow 警告。
+  shortSplit,
 }
 
 /// [size] 這個視窗、這首曲目該用哪一套播放頁版面。
@@ -59,12 +67,52 @@ enum PlayerLayoutMode {
 ///
 /// [hasLyrics] 讓比例跟著內容走：以前右欄是寫死的 `flex: 7`，沒有歌詞的曲目
 /// 會把 58% 的畫面留給一句「暫無歌詞」。
+///
+/// 高度不夠雙欄、而且寬大於高時走 [PlayerLayoutMode.shortSplit]：封面與控制列
+/// 左右並排，同 Auxio 的 `layout-land`。
 PlayerLayoutMode resolvePlayerLayout(Size size, {required bool hasLyrics}) {
+  final isShort = size.height < AppLayout.playerWideMinHeight;
   final fitsTwoColumns =
-      WindowClass.of(size.width).atLeast(WindowClass.expanded) &&
-      size.height >= AppLayout.playerWideMinHeight;
-  if (!fitsTwoColumns) return PlayerLayoutMode.narrow;
+      WindowClass.of(size.width).atLeast(WindowClass.expanded) && !isShort;
+  if (!fitsTwoColumns) {
+    return isShort && size.width > size.height
+        ? PlayerLayoutMode.shortSplit
+        : PlayerLayoutMode.narrow;
+  }
   return hasLyrics ? PlayerLayoutMode.wideSplit : PlayerLayoutMode.wideSingle;
+}
+
+/// [PlayerLayoutMode.shortSplit] 的內容：左邊 [media]，右邊 [controls]。
+///
+/// 控制列在右欄垂直置中；放大字級撐得比視窗高時改成可以捲動，不讓播放按鈕被
+/// 裁掉。
+class PlayerShortSplitContent extends StatelessWidget {
+  const PlayerShortSplitContent({
+    super.key,
+    required this.media,
+    required this.controls,
+  });
+
+  final Widget media;
+  final Widget controls;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Row(
+        children: [
+          Expanded(child: media),
+          const SizedBox(width: 32),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(primary: false, child: controls),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 播放器页面（全屏）
@@ -111,7 +159,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       MediaQuery.sizeOf(context),
       hasLyrics: ref.watch(lyricsPaneHasContentProvider),
     );
-    final isWideLayout = layoutMode != PlayerLayoutMode.narrow;
+    final isWideLayout =
+        layoutMode == PlayerLayoutMode.wideSplit ||
+        layoutMode == PlayerLayoutMode.wideSingle;
+    // 並排版面的高度就是瓶頸，間距跟寬版一樣收緊。
+    final useCompactGaps = layoutMode != PlayerLayoutMode.narrow;
     // 沒有歌詞時工具列的「搜尋歌詞」反而更需要在，所以這裡看的是版面寬不寬，
     // 不是右欄開了沒有。
     final showLyricsActions = isWideLayout || _showLyrics;
@@ -150,8 +202,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       isPlaying: playerState.isPlaying,
       loopMode: queueControls.loopMode,
       controller: controller,
-      trackInfoGap: isWideLayout ? 20 : 32,
-      controlsGap: isWideLayout ? 16 : 24,
+      trackInfoGap: useCompactGaps ? 20 : 32,
+      controlsGap: useCompactGaps ? 16 : 24,
     );
 
     final narrowContent = _buildNarrowPlayerContent(
@@ -176,6 +228,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ),
           child: narrowContent,
         ),
+      ),
+      PlayerLayoutMode.shortSplit => PlayerShortSplitContent(
+        media: _buildNarrowMediaSection(context, currentTrack, colorScheme),
+        controls: controlSection,
       ),
       PlayerLayoutMode.narrow => narrowContent,
     };
@@ -268,15 +324,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         itemBuilder: (context) => [
           PopupMenuItem(
             value: 'speed',
-            child: ListTile(
-              leading: const Icon(Icons.speed),
-              title: Text('${playbackSpeed}x'),
-              trailing: Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              contentPadding: EdgeInsets.zero,
+            child: PopupMenuRow(
+              icon: const Icon(Icons.speed),
+              label: '${playbackSpeed}x',
+              trailing: const Icon(Icons.chevron_right, size: 18),
             ),
           ),
           // 歌词选项（仅在显示歌词时显示）
@@ -284,35 +335,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             const PopupMenuDivider(),
             PopupMenuItem(
               value: 'lyrics_search',
-              child: ListTile(
-                leading: const Icon(Icons.search),
-                title: Text(t.lyrics.searchLyrics),
-                contentPadding: EdgeInsets.zero,
+              child: PopupMenuRow(
+                icon: const Icon(Icons.search),
+                label: t.lyrics.searchLyrics,
               ),
             ),
             PopupMenuItem(
               value: 'lyrics_offset',
-              child: ListTile(
-                leading: Icon(
+              child: PopupMenuRow(
+                icon: Icon(
                   _showOffsetControls
                       ? Icons.check_box
                       : Icons.check_box_outline_blank,
                 ),
-                title: Text(t.lyrics.adjustOffset),
-                contentPadding: EdgeInsets.zero,
+                label: t.lyrics.adjustOffset,
               ),
             ),
             PopupMenuItem(
               value: 'lyrics_display_mode',
-              child: ListTile(
-                leading: const Icon(Icons.translate),
-                title: Text(t.lyrics.displayMode),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                contentPadding: EdgeInsets.zero,
+              child: PopupMenuRow(
+                icon: const Icon(Icons.translate),
+                label: t.lyrics.displayMode,
+                trailing: const Icon(Icons.chevron_right, size: 18),
               ),
             ),
           ],
@@ -773,19 +817,14 @@ class _TrackInfoDialog extends ConsumerWidget {
     final currentTrack = ref.watch(currentTrackProvider);
     final currentStreamMetadata = ref.watch(currentStreamMetadataProvider);
 
-    // Watch 文件存在缓存和下载基础目录
     ref.watch(fileExistsCacheProvider);
     final cache = ref.read(fileExistsCacheProvider.notifier);
-    final baseDirAsync = ref.watch(downloadBaseDirProvider);
-    final baseDir = baseDirAsync.value;
 
-    final isYouTube = currentTrack?.sourceType == SourceIds.youtube;
+    final isSong = isSongSource(currentTrack?.sourceType);
 
     return CappedDraggableSheet(
       icon: Icons.info_outline_rounded,
-      title: currentTrack?.sourceType == SourceIds.netease
-          ? t.player.songInfo
-          : t.player.videoInfo,
+      title: isSong ? t.player.songInfo : t.player.videoInfo,
       onClose: () => Navigator.of(context).pop(),
       bodySlivers: (context, scrollController) => [
         // 内容区域
@@ -799,11 +838,12 @@ class _TrackInfoDialog extends ConsumerWidget {
                 if (detailState.detail != null)
                   _DetailContent(
                     detail: detailState.detail!,
-                    isYouTube: isYouTube,
-                    isNetease: currentTrack?.sourceType == SourceIds.netease,
+                    showFavoriteCount: showsFavoriteCount(
+                      currentTrack?.sourceType,
+                    ),
+                    isSong: isSong,
                     track: currentTrack,
                     cache: cache,
-                    baseDir: baseDir,
                   )
                 else if (detailState.isLoading)
                   const Center(
@@ -829,19 +869,17 @@ class _TrackInfoDialog extends ConsumerWidget {
 /// 详情内容（有 VideoDetail 数据）
 class _DetailContent extends StatelessWidget {
   final VideoDetail detail;
-  final bool isYouTube;
-  final bool isNetease;
+  final bool showFavoriteCount;
+  final bool isSong;
   final Track? track;
   final FileExistsCache cache;
-  final String? baseDir;
 
   const _DetailContent({
     required this.detail,
-    required this.isYouTube,
-    this.isNetease = false,
+    required this.showFavoriteCount,
+    this.isSong = false,
     required this.track,
     required this.cache,
-    required this.baseDir,
   });
 
   @override
@@ -849,7 +887,7 @@ class _DetailContent extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     // 網易雲封面為 1:1，其餘為 16:9（與桌面 Detail Panel 一致）
-    final coverAspectRatio = isNetease ? 1.0 : 16 / 9;
+    final coverAspectRatio = isSong ? 1.0 : 16 / 9;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -905,7 +943,7 @@ class _DetailContent extends StatelessWidget {
         const SizedBox(height: 16),
 
         // UP主/歌手信息
-        if (isNetease)
+        if (isSong)
           // 網易雲：歌手頭像 + 歌手名
           Row(
             children: [
@@ -942,10 +980,7 @@ class _DetailContent extends StatelessWidget {
                 children: [
                   // 头像
                   AvatarImage(
-                    localPath: track?.getLocalAvatarPath(
-                      cache,
-                      baseDir: baseDir,
-                    ),
+                    localPath: track?.getLocalAvatarPath(cache),
                     networkUrl: detail.ownerFace.isNotEmpty
                         ? detail.ownerFace
                         : null,
@@ -978,7 +1013,7 @@ class _DetailContent extends StatelessWidget {
         // 统计数据
         DetailStatsRow(
           items: [
-            if (isNetease) ...[
+            if (isSong) ...[
               // 網易雲：專輯、評論數、發布日期、時長
               if (detail.albumName.isNotEmpty)
                 DetailStatItem(
@@ -1008,8 +1043,7 @@ class _DetailContent extends StatelessWidget {
                 icon: Icons.thumb_up_rounded,
                 label: detail.formattedLikeCount,
               ),
-              // YouTube 不显示收藏数
-              if (!isYouTube)
+              if (showFavoriteCount)
                 DetailStatItem(
                   icon: Icons.star_rounded,
                   label: detail.formattedFavoriteCount,

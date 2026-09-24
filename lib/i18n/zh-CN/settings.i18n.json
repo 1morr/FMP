@@ -98,7 +98,6 @@
     "sourceLrclib": "lrclib",
     "enabled": "已启用",
     "disabled": "已禁用",
-    "sourceDisabledToast": "该歌词源已禁用",
     "aiSectionTitle": "AI 歌词匹配",
     "aiMode": "模式",
     "aiModeOff": "关闭",
@@ -145,11 +144,6 @@
     "error": "检查失败，点击重试",
     "checkGitHub": "检查 GitHub 上的新版本",
     "checkFailed": "检查更新失败"
-  },
-  "autoCheckUpdates": {
-    "title": "自动检查更新",
-    "subtitle": "启动后在后台检查，每天最多一次",
-    "found": "发现新版本 $version，可在「设置 › 关于」中安装"
   },
   "userGuide": {
     "title": "使用说明",
@@ -218,7 +212,9 @@
     "resume": "继续",
     "retry": "重试",
     "delete": "删除",
-    "loadFailed": "加载失败: $error"
+    "loadFailed": "加载失败: $error",
+    "unsupportedStream": "该串流格式（HLS）无法下载",
+    "destinationExists": "下载位置已经有另一个文件"
   },
   "downloadPath": {
     "title": "下载路径",
@@ -246,9 +242,7 @@
     "title": "图片缓存大小",
     "maxSize": "最大 $size",
     "clearTitle": "清除图片缓存",
-    "currentCache": "当前缓存: $size",
     "calculating": "正在计算...",
-    "clearConfirm": "确定要清除所有缓存的图片吗？这不会影响已下载的本地图片。",
     "currentCacheSize": "当前缓存大小: $size",
     "cacheCleared": "图片缓存已清除"
   },
@@ -257,9 +251,7 @@
     "currentCache": "$count 个文件，$size",
     "calculating": "计算中...",
     "maxFiles": "最多 $count 个",
-    "maxFilesTitle": "最大缓存数量",
     "clearTitle": "清除歌词缓存",
-    "clearConfirm": "清除所有缓存的歌词？需要时会重新下载。",
     "cacheCleared": "歌词缓存已清除"
   },
   "refreshInterval": {
@@ -268,7 +260,8 @@
     "radioTitle": "电台状态刷新间隔",
     "radioSubtitle": "$interval",
     "minutes": "$n 分钟",
-    "hours": "$n 小时"
+    "hours": "$n 小时",
+    "off": "关闭"
   },
   "tray": {
     "title": "最小化到托盘",

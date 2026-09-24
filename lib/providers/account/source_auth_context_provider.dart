@@ -10,9 +10,7 @@ final sourceAuthContextProvider = Provider<SourceAuthContext>((ref) {
   return DefaultSourceAuthContext.fromRepositories(
     settingsRepository: SettingsRepository(db),
     accountAuthLoader: AccountServiceAuthLoader(
-      bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-      youtubeAccountService: ref.read(youtubeAccountServiceProvider),
-      neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+      ref.read(accountServicesProvider).values,
     ),
   );
 });

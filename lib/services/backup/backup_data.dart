@@ -545,7 +545,9 @@ class SourceSettingsBackup {
     return SourceSettingsBackup(
       sourceId: json['sourceId'] as String? ?? '',
       streamPriority: json['streamPriority'] as String? ?? '',
-      useAuthForPlay: json['useAuthForPlay'] as bool? ?? false,
+      useAuthForPlay:
+          json['useAuthForPlay'] as bool? ??
+          defaultUseAuthForPlayFor(json['sourceId'] as String? ?? ''),
     );
   }
 
@@ -569,18 +571,10 @@ List<SourceSettingsBackup> _readSourceSettings(Map<String, dynamic> json) {
     ];
   }
 
-  const legacyKeys = <String, (String, String, bool)>{
-    SourceIds.bilibili: (
-      'bilibiliStreamPriority',
-      'useBilibiliAuthForPlay',
-      false,
-    ),
-    SourceIds.youtube: (
-      'youtubeStreamPriority',
-      'useYoutubeAuthForPlay',
-      false,
-    ),
-    SourceIds.netease: ('neteaseStreamPriority', 'useNeteaseAuthForPlay', true),
+  const legacyKeys = <String, (String, String)>{
+    SourceIds.bilibili: ('bilibiliStreamPriority', 'useBilibiliAuthForPlay'),
+    SourceIds.youtube: ('youtubeStreamPriority', 'useYoutubeAuthForPlay'),
+    SourceIds.netease: ('neteaseStreamPriority', 'useNeteaseAuthForPlay'),
   };
   return [
     for (final MapEntry(key: sourceId, value: keys) in legacyKeys.entries)
@@ -589,7 +583,8 @@ List<SourceSettingsBackup> _readSourceSettings(Map<String, dynamic> json) {
         streamPriority:
             json[keys.$1] as String? ??
             kDefaultStreamPriorityBySource[sourceId]!,
-        useAuthForPlay: json[keys.$2] as bool? ?? keys.$3,
+        useAuthForPlay:
+            json[keys.$2] as bool? ?? defaultUseAuthForPlayFor(sourceId),
       ),
   ];
 }
@@ -644,7 +639,6 @@ class SettingsBackup {
   final String homeRankingSourcePriority;
   final String disabledHomeRankingSources;
   final int radioRefreshIntervalMinutes;
-  final bool autoCheckUpdates;
 
   SettingsBackup({
     this.themeModeIndex = 0,
@@ -696,7 +690,6 @@ class SettingsBackup {
     String? homeRankingSourcePriority,
     String? disabledHomeRankingSources,
     this.radioRefreshIntervalMinutes = 5,
-    this.autoCheckUpdates = true,
   }) : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
        lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
          lyricsAiTitleParsingModeIndex,
@@ -792,7 +785,6 @@ class SettingsBackup {
           json['disabledHomeRankingSources'] as String? ?? '',
       radioRefreshIntervalMinutes:
           json['radioRefreshIntervalMinutes'] as int? ?? 5,
-      autoCheckUpdates: json['autoCheckUpdates'] as bool? ?? true,
     );
   }
 
@@ -858,7 +850,6 @@ class SettingsBackup {
       'homeRankingSourcePriority': homeRankingSourcePriority,
       'disabledHomeRankingSources': disabledHomeRankingSources,
       'radioRefreshIntervalMinutes': radioRefreshIntervalMinutes,
-      'autoCheckUpdates': autoCheckUpdates,
     };
   }
 }

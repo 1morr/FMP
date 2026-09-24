@@ -108,17 +108,6 @@ void main() {
     });
 
     group('getLocalAvatarPath', () {
-      test('returns null when baseDir is null', () {
-        final track = Track()
-          ..sourceId = 'test123'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Test Track'
-          ..ownerId = 12345;
-
-        final cache = _cache(const {});
-        expect(track.getLocalAvatarPath(cache, baseDir: null), isNull);
-      });
-
       test('returns null when ownerId is null for Bilibili', () {
         final track = Track()
           ..sourceId = 'test123'
@@ -126,7 +115,7 @@ void main() {
           ..title = 'Test Track';
 
         final cache = _cache(const {});
-        expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
+        expect(track.getLocalAvatarPath(cache), isNull);
       });
 
       test('returns null when channelId is null for YouTube', () {
@@ -136,12 +125,10 @@ void main() {
           ..title = 'Test Track';
 
         final cache = _cache(const {});
-        expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
+        expect(track.getLocalAvatarPath(cache), isNull);
       });
 
       test('returns null when avatar does not exist for Bilibili', () {
-        const baseDir = '/downloads';
-
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceIds.bilibili
@@ -150,7 +137,7 @@ void main() {
 
         // Empty set = file does not exist
         final cache = _cache(const {});
-        expect(track.getLocalAvatarPath(cache, baseDir: baseDir), isNull);
+        expect(track.getLocalAvatarPath(cache), isNull);
       });
 
       test('returns avatar path for Bilibili when file exists', () {
@@ -167,7 +154,7 @@ void main() {
 
         final cache = _cache({p.join('/downloads/video', 'avatar.jpg')});
         expect(
-          track.getLocalAvatarPath(cache, baseDir: '/downloads'),
+          track.getLocalAvatarPath(cache),
           equals(p.join('/downloads/video', 'avatar.jpg')),
         );
       });
@@ -186,50 +173,9 @@ void main() {
 
         final cache = _cache({p.join('/downloads/video', 'avatar.jpg')});
         expect(
-          track.getLocalAvatarPath(cache, baseDir: '/downloads'),
+          track.getLocalAvatarPath(cache),
           equals(p.join('/downloads/video', 'avatar.jpg')),
         );
-      });
-    });
-
-    group('formattedDuration', () {
-      test('returns --:-- when durationMs is null', () {
-        final track = Track()
-          ..sourceId = 'test123'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Test Track';
-
-        expect(track.formattedDuration, equals('--:--'));
-      });
-
-      test('formats seconds correctly', () {
-        final track = Track()
-          ..sourceId = 'test123'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Test Track'
-          ..durationMs = 45000; // 45 seconds
-
-        expect(track.formattedDuration, equals('00:45'));
-      });
-
-      test('formats minutes and seconds correctly', () {
-        final track = Track()
-          ..sourceId = 'test123'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Test Track'
-          ..durationMs = 185000; // 3:05
-
-        expect(track.formattedDuration, equals('03:05'));
-      });
-
-      test('formats hours correctly', () {
-        final track = Track()
-          ..sourceId = 'test123'
-          ..sourceType = SourceIds.bilibili
-          ..title = 'Test Track'
-          ..durationMs = 3725000; // 1:02:05
-
-        expect(track.formattedDuration, equals('01:02:05'));
       });
     });
 

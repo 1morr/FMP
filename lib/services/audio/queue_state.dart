@@ -12,8 +12,8 @@ import 'package:fmp/data/models/track.dart';
 ///
 /// **這裡的 12 個欄位曾經在 `PlayerState` 裡各存一份**，靠控制器每次逐欄位抄
 /// 過去維持一致，而消費端會因為問了不同的 provider 拿到不同的答案。
-/// `audio_queue_state_provider_test.dart` 的
-/// `PlayerState declares none of the queue fields` 守著它不要長回來。
+/// `audio_seam_static_rule_test.dart` 的
+/// `PlayerState and QueueState share no field` 守著它不要長回來。
 class QueueState {
   final List<Track> queue;
   final List<Track> upcomingTracks;

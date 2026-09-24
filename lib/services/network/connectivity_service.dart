@@ -128,14 +128,3 @@ final connectivityProvider =
     NotifierProvider<ConnectivityNotifier, ConnectivityState>(
       ConnectivityNotifier.new,
     );
-
-/// 是否已连接网络 Provider
-final isConnectedProvider = Provider<bool>((ref) {
-  return ref.watch(connectivityProvider).isConnected;
-});
-
-/// 网络恢复事件流 Provider
-final networkRecoveredStreamProvider = StreamProvider<void>((ref) {
-  final notifier = ref.watch(connectivityProvider.notifier);
-  return notifier.onNetworkRecovered;
-});

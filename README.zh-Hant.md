@@ -18,7 +18,8 @@
 <!-- DOWNLOAD_START -->
 | Platform | | |
 |---|---|---|
-| **Android** | [APK](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-universal.apk) | 直接安裝在裝置上 |
+| **Android** | [APK（推薦）](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-arm64-v8a.apk) | 64 位元 ARM，近年的手機幾乎都是；檔案較小 |
+| Android | [通用 APK](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-android-universal.apk) | 任何裝置都能裝，包括 32 位元 ARM 與 x86_64；檔案較大 |
 | **Windows** | [安裝程式（推薦）](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows-installer.exe) | 完整支援 SMTC、開始功能表、捷徑與系統整合 |
 | Windows | [免安裝 ZIP](https://github.com/1morr/FMP/releases/latest/download/fmp-latest-windows.zip) | 解壓縮即可執行；媒體鍵與捷徑識別可能不完整 |
 <!-- DOWNLOAD_END -->
@@ -120,7 +121,7 @@ FMP 不託管任何音樂。它讀取的是你已經擁有帳號的那些平台�
 
 ## 致謝
 
-API 研究參考自 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 與 [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music)。建置於 [media_kit](https://github.com/media-kit/media-kit)、[just_audio](https://github.com/ryanheise/just_audio)、[youtube_explode_dart](https://github.com/Hexer10/youtube_explode_dart)、[Isar](https://github.com/isar-community/isar-community) 與 [Riverpod](https://github.com/rrousselGit/riverpod) 之上。
+建置於 [media_kit](https://github.com/media-kit/media-kit)、[just_audio](https://github.com/ryanheise/just_audio)、[youtube_explode_dart](https://github.com/Hexer10/youtube_explode_dart)、[Isar](https://github.com/isar-community/isar-community) 與 [Riverpod](https://github.com/rrousselGit/riverpod) 之上。
 
 ## 授權
 

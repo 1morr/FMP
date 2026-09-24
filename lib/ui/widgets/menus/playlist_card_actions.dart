@@ -10,6 +10,9 @@ import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/providers/library/playlist_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/ui/widgets/menus/menu_action.dart';
+import 'package:fmp/providers/library/refresh_provider.dart';
+import 'package:fmp/ui/pages/library/widgets/create_playlist_dialog.dart';
+import 'package:fmp/ui/widgets/dialogs/confirm_destructive_dialog.dart';
 
 /// PlaylistCard 共享操作工具类
 class PlaylistCardActions {
@@ -166,6 +169,106 @@ class PlaylistCardActions {
           context,
           '${t.library.main.playMixFailed}: ${userMessageFor(e)}',
         );
+      }
+    }
+  }
+
+  /// 右鍵選單條目。首頁與音樂庫的歌單卡共用這一份。
+  static List<PopupMenuEntry<String>> buildContextMenuEntries(
+    BuildContext context,
+    WidgetRef ref,
+    Playlist playlist,
+  ) {
+    return buildPopupMenuEntries(
+      context: context,
+      items: buildMenuItems(
+        playlist: playlist,
+        isRefreshing: ref.read(isPlaylistRefreshingProvider(playlist.id)),
+      ),
+    );
+  }
+
+  /// 長按彈出的底部選單，條目與右鍵選單同一份 [buildMenuItems]。
+  static void showOptionsSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Playlist playlist,
+  ) {
+    final items = buildMenuItems(
+      playlist: playlist,
+      isRefreshing: ref.read(isPlaylistRefreshingProvider(playlist.id)),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: buildBottomSheetTiles(
+              context: context,
+              items: items,
+              onSelected: (value) =>
+                  handleAction(context, ref, playlist, value),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 把選單 id 派到對應動作。兩個入口（右鍵、長按）都走這裡。
+  static void handleAction(
+    BuildContext context,
+    WidgetRef ref,
+    Playlist playlist,
+    String value,
+  ) {
+    switch (value) {
+      case actionPlayMix:
+        playMix(context, ref, playlist);
+      case actionAddAll:
+        addAllToQueue(context, ref, playlist);
+      case actionShuffleAdd:
+        shuffleAddToQueue(context, ref, playlist);
+      case actionEdit:
+        showEditDialog(context, playlist);
+      case actionRefresh:
+        refreshPlaylist(ref, playlist);
+      case actionDelete:
+        showDeleteConfirm(context, ref, playlist);
+    }
+  }
+
+  static void showEditDialog(BuildContext context, Playlist playlist) {
+    showDialog(
+      context: context,
+      builder: (context) => CreatePlaylistDialog(playlist: playlist),
+    );
+  }
+
+  /// 刷新沒有 context 回饋：大歌單刷很久，提示由 RefreshManagerNotifier 發，
+  /// 那時這裡的 context 多半已經失效。
+  static void refreshPlaylist(WidgetRef ref, Playlist playlist) {
+    ref.read(refreshManagerProvider.notifier).refreshPlaylist(playlist);
+  }
+
+  static Future<void> showDeleteConfirm(
+    BuildContext context,
+    WidgetRef ref,
+    Playlist playlist,
+  ) async {
+    final confirmed = await showConfirmDestructiveDialog(
+      context,
+      title: t.library.main.deletePlaylist,
+      content: t.library.main.deletePlaylistConfirm(name: playlist.name),
+      confirmLabel: t.general.delete,
+    );
+    if (confirmed == true) {
+      ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
+      if (context.mounted) {
+        ToastService.success(context, t.library.main.playlistDeleted);
       }
     }
   }

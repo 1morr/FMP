@@ -43,10 +43,7 @@
   },
   "liveRadio": {
     "title": "直播与电台",
-    "biliLive": "哔哩哔哩 直播",
-    "biliLiveDesc": "搜索直播间，收听直播音频",
-    "autoRefresh": "自动刷新",
-    "autoRefreshDesc": "直播流地址过期时自动刷新，保持持续播放"
+    "biliLiveDesc": "搜索直播间，收听直播音频"
   },
   "download": {
     "title": "下载音乐",
@@ -59,43 +56,21 @@
   },
   "explore": {
     "title": "探索页面",
-    "ranking": "热门排行榜",
-    "rankingDesc": "查看 哔哩哔哩、YouTube 和网易云音乐热门排行",
-    "autoUpdate": "自动更新",
-    "autoUpdateDesc": "排行榜每小时自动后台刷新，打开即看无需等待",
-    "homeSources": "主页热门来源",
     "homeSourcesDesc": "在设置 → 主页热门来源中选择并排序主页显示的排行榜来源"
   },
   "history": {
-    "title": "播放历史",
-    "timeline": "时间轴",
-    "timelineDesc": "按时间顺序查看所有播放记录",
-    "stats": "统计信息",
-    "statsDesc": "查看播放次数等统计数据",
-    "filter": "筛选排序",
-    "filterDesc": "支持筛选和排序，快速找到想听的歌曲"
+    "title": "播放历史"
   },
   "audioSettingsGuide": {
-    "title": "音频设置",
-    "qualityLevel": "音质等级",
-    "qualityLevelDesc": "支持高/中/低三档，适用于所有音源",
-    "formatPriority": "格式优先级",
-    "formatPriorityDesc": "YouTube 支持选择 Opus 或 AAC 格式",
-    "streamPriority": "流类型优先级",
-    "streamPriorityDesc": "可选纯音频流（省流量）或混合流（兼容性好）"
+    "title": "音频设置"
   },
   "ytMix": {
-    "dynamicPlaylist": "动态播放列表",
-    "dynamicPlaylistDesc": "导入 YouTube Mix/Radio 播放列表，自动加载更多歌曲",
     "infinitePlay": "无限播放",
     "infinitePlayDesc": "播放接近队列末尾时自动获取新歌曲，持续不断"
   },
   "appUpdate": {
     "title": "应用更新",
-    "checkUpdate": "检查更新",
-    "checkUpdateDesc": "设置 → 关于 → 检查更新，自动从 GitHub 获取最新版本",
-    "autoInstall": "自动安装",
-    "autoInstallDesc": "Android 下载 APK 后自动安装，Windows 下载后自动替换更新"
+    "checkUpdateDesc": "设置 → 关于 → 检查更新，自动从 GitHub 获取最新版本"
   },
   "tips": {
     "youtubeMixShortcut": "YouTube Mix 快捷导入",

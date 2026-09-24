@@ -7,6 +7,7 @@ import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/core/utils/icon_helpers.dart';
 import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/library/play_history_provider.dart';
@@ -352,18 +353,16 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                     selected: pageState.selectedSource == null,
                     onSelected: (_) => notifier.setSource(null),
                   ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(t.importPlatform.bilibili),
-                    selected: pageState.selectedSource == SourceIds.bilibili,
-                    onSelected: (_) => notifier.setSource(SourceIds.bilibili),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('YouTube'),
-                    selected: pageState.selectedSource == SourceIds.youtube,
-                    onSelected: (_) => notifier.setSource(SourceIds.youtube),
-                  ),
+                  for (final source in ref.watch(
+                    registeredSourceTypesProvider,
+                  )) ...[
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(SourceIds.shortNameFor(source)),
+                      selected: pageState.selectedSource == source,
+                      onSelected: (_) => notifier.setSource(source),
+                    ),
+                  ],
                   if (pageState.selectedDate != null) ...[
                     const SizedBox(width: 8),
                     InputChip(
@@ -1049,9 +1048,12 @@ class _GroupSelectionCheckbox extends StatelessWidget {
       color = colorScheme.outline;
     }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Icon(icon, color: color, size: 24),
+    // 與歌單詳情頁、搜尋頁的同名勾選框一致：IconButton 給 48dp 觸控區與
+    // tooltip。以前是裸的 GestureDetector，只有圖示本身 24dp 可點。
+    return IconButton(
+      icon: Icon(icon, color: color),
+      tooltip: isFullySelected ? t.general.deselect : t.general.select,
+      onPressed: onTap,
     );
   }
 }

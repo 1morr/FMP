@@ -155,10 +155,12 @@ Windows SMTC 透過 `AppUserModelID` 識別應用程式身分。本專案在兩�
 
 ### 發布流程
 
-> **Release 建出來是草稿。** workflow 跑完之後要到 GitHub Releases 頁面按
-> Publish 才會對外，README 的 `releases/latest/download/...` 連結在那之前看不到
-> 它 —— 忘了按只會讓上一版繼續當最新版，不會發出半成品。這一步是給人看 body 與
-> 產物的機會。
+> **push tag 就是發布，沒有草稿那一步。** workflow 的 `verify` job 通過後，
+> Release 直接對外：README 的 `releases/latest/download/...` 連結與 App 內更新
+> 同時指向新版，自動產生的 body 也不再有人先讀過（取捨見
+> [ADR 0006](adr/0006-release-publishes-after-artifact-check.md)）。`verify` 只擋
+> 結構性錯誤 —— 缺檔、checksums 不符、APK 版本不是 tag 的版本、安裝檔不是執行檔
+> —— 執行期才會壞的 build 它擋不下，所以 tag 要打在已經驗過的 commit 上。
 
 ```bash
 # 1. 先把 pubspec.yaml 的版本升到要發的號碼，走 PR 合併進 main
@@ -182,7 +184,7 @@ git push origin v1.2.0
 ### CI 流程
 
 一般驗證由 `.github/workflows/ci.yml` 負責。**沒有 path filter** —— 純文檔的
-commit 一樣跑滿，因為 `AGENTS.md` 裡的規則是由測試強制的：
+commit 一樣跑滿（`agents_docs_static_rule_test.dart` 會讀根 `AGENTS.md`，文檔改動也可能讓測試變紅）：
 
 ```text
 pull_request / main push / workflow_dispatch
@@ -207,7 +209,7 @@ CI
 
 `validate` 會執行程式碼產生、格式檢查、analyzer 與測試；兩個 build job 只作為跨平臺 release build 煙霧測試，不建立 GitHub Release。`*.g.dart` 等產生檔不進版本控制（見 `.gitignore`），所以本流程不對「產生檔已提交」做檢查——那類檢查在 git 從未追蹤這些檔案的情況下永遠會通過，無法真正偵測任何問題。圖示資產由維護者在本機執行 `dart run flutter_launcher_icons` 後提交，CI 不在每次驗證時重產圖示。
 
-> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平臺（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意凍結於 v3（見 `lib/data/AGENTS.md` 的 Dependency Note），不自行升級 v4。
+> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平臺（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意凍結於 v3（`isar_community` fork；上游自 2025-07 停擺，v4 沒有遷移工具也沒有測過的遷移路徑），不自行升級 v4。
 
 ### 發布自動化流程
 
@@ -241,10 +243,17 @@ GitHub Actions (release.yml)
        │   └─ 產物: fmp-v1.2.0-windows.zip
        │          fmp-v1.2.0-windows-installer.exe
        │
-       └─ release
-           ├─ 下載所有平臺的產物
+       ├─ verify (ubuntu，等所有 build 完成)
+       │   ├─ 下載所有平臺的產物，產生 checksums manifest
+       │   ├─ tool/release/verify_release_assets.dart：11 個檔一個不多一個不少、
+       │   │   checksums 與別名逐位元對得上、APK 的 versionName / versionCode 是 tag 的、
+       │   │   安裝檔是 PE 執行檔
+       │   └─ 把檢查過的整份打包成 release-assets artifact
+       │
+       └─ release（等 verify 通過）
+           ├─ 下載 release-assets
            ├─ 從 commit 範圍產生 Release Notes（見下節）
-           └─ 建立 GitHub Release（multi-ABI APK + ZIP + Installer + latest 穩定下載別名）
+           └─ 建立並直接發布 GitHub Release（只上傳 release-assets 裡的檔）
 ```
 
 ### Release Notes
@@ -294,12 +303,17 @@ body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 | Android | `fmp-v1.2.0-android-armeabi-v7a.apk` | ABI 專用 APK |
 | Android | `fmp-v1.2.0-android-x86_64.apk` | 模擬器 / x86_64 APK |
 | Android | `fmp-v1.2.0-android-universal.apk` | 應用內更新的 universal fallback |
+| Android | `fmp-latest-android-arm64-v8a.apk` | README 穩定下載連結（推薦，arm64 專用，檔案較小） |
 | Android | `fmp-latest-android-universal.apk` | README 穩定下載連結 |
 | Windows | `fmp-v1.2.0-windows.zip` | 免安裝版 |
 | Windows | `fmp-v1.2.0-windows-installer.exe` | 安裝版 |
 | Windows | `fmp-latest-windows.zip` | README 穩定下載連結 |
 | Windows | `fmp-latest-windows-installer.exe` | README 穩定下載連結 |
 | All | `fmp-v1.2.0-checksums.sha256` | 應用內更新校驗 manifest |
+
+這張表與 `tool/release/verify_release_assets.dart` 的清單要一起改：多一個或少一個檔，
+`verify` job 都會紅。`fmp-latest-*` 必須與同後綴的版本化檔逐位元相同 —— App 內
+更新可能從別名下載，卻用版本化檔名查 checksums。
 
 應用內更新支援 multi-ABI Android 命名格式，找不到符合裝置 ABI 的 asset 時會 fallback 到 `universal`。Release workflow 會為版本化 APK、ZIP、installer 產生 `sha256` manifest；App 下載時先寫入 `.part`，完成後驗證 GitHub asset size 和 manifest checksum，通過後才改名成正式檔。README 使用 `https://github.com/1morr/FMP/releases/latest/download/fmp-latest-*` 穩定下載連結，因此 Release workflow 不需要 commit 回 `main` 更新版本化下載 URL。
 
@@ -319,6 +333,10 @@ Windows CI 固定使用 `windows-2022`，避免 `windows-latest` 遷移到新版
 ### 使用者操作
 
 設定 → 關於 → 檢查更新
+
+**只有這個手動入口。** 啟動時不會自動檢查，也沒有設定開關（`a28fdea3` 拿掉）：
+使用者不按，App 就不會連 GitHub，也不會知道有新版。發版公告因此要靠 Release
+頁面與 README，不能假設使用者會在 App 裡被提醒。
 
 ### 技術實作
 

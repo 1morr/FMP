@@ -31,8 +31,8 @@
   },
   "authForPlay": {
     "title": "Playback Authentication",
-    "subtitle": "Use logged-in account credentials only when a source needs them for playback.",
-    "bilibiliDescription": "Keep off unless playback needs member or private-content access.",
+    "subtitle": "Send your signed-in account with a source's playback and track-detail requests.",
+    "bilibiliDescription": "On by default: Bilibili throttles signed-out requests, the ranking included.",
     "youtubeDescription": "Keep off unless playback needs account-only access.",
     "neteaseDescription": "Enabled by default for VIP and account-restricted tracks."
   },

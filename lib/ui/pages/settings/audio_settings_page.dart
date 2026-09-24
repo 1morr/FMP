@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/audio/audio_settings_provider.dart';
 
@@ -13,6 +14,7 @@ class AudioSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final audioSettings = ref.watch(audioSettingsProvider);
+    final sources = ref.watch(registeredSourceTypesProvider);
 
     if (audioSettings.isLoading) {
       return Scaffold(
@@ -47,52 +49,27 @@ class AudioSettingsPage extends ConsumerWidget {
             },
           ),
           const Divider(),
-          // YouTube 流优先级
-          _StreamPrioritySection(
-            title: t.audioSettings.streamPriority.youtubeTitle,
-            streamPriority: audioSettings.streamPriorityFor(SourceIds.youtube),
-            availableTypes: const [
-              StreamType.audioOnly,
-              StreamType.muxed,
-              StreamType.hls,
-            ],
-            onReorder: (newPriority) {
-              ref
-                  .read(audioSettingsProvider.notifier)
-                  .setStreamPriority(SourceIds.youtube, newPriority);
-            },
-          ),
-          const Divider(),
-          // Bilibili 流优先级
-          _StreamPrioritySection(
-            title: t.audioSettings.streamPriority.bilibiliTitle,
-            streamPriority: audioSettings.streamPriorityFor(SourceIds.bilibili),
-            availableTypes: const [StreamType.audioOnly, StreamType.muxed],
-            onReorder: (newPriority) {
-              ref
-                  .read(audioSettingsProvider.notifier)
-                  .setStreamPriority(SourceIds.bilibili, newPriority);
-            },
-          ),
-          const Divider(),
-          // Netease 流优先级
-          _StreamPrioritySection(
-            title: t.audioSettings.streamPriority.neteaseTitle,
-            streamPriority: audioSettings.streamPriorityFor(SourceIds.netease),
-            availableTypes: const [StreamType.audioOnly],
-            onReorder: (newPriority) {
-              ref
-                  .read(audioSettingsProvider.notifier)
-                  .setStreamPriority(SourceIds.netease, newPriority);
-            },
-          ),
-          const Divider(),
-          _AuthForPlaySection(
-            useBilibiliAuthForPlay: audioSettings.authForPlay(
-              SourceIds.bilibili,
+          // 每個音源一段串流優先序，可選的類型就是它預設優先序裡的那幾種
+          for (final source in sources) ...[
+            _StreamPrioritySection(
+              title:
+                  _perSourceText(
+                    'audioSettings.streamPriority.${source}Title',
+                  ) ??
+                  SourceIds.displayNameFor(source),
+              streamPriority: audioSettings.streamPriorityFor(source),
+              availableTypes: defaultStreamPriorityFor(source),
+              onReorder: (newPriority) {
+                ref
+                    .read(audioSettingsProvider.notifier)
+                    .setStreamPriority(source, newPriority);
+              },
             ),
-            useYoutubeAuthForPlay: audioSettings.authForPlay(SourceIds.youtube),
-            useNeteaseAuthForPlay: audioSettings.authForPlay(SourceIds.netease),
+            const Divider(),
+          ],
+          _AuthForPlaySection(
+            sources: sources,
+            authForPlay: audioSettings.authForPlay,
             onChanged: (sourceType, enabled) {
               ref
                   .read(audioSettingsProvider.notifier)
@@ -128,16 +105,20 @@ class _SecureStorageUnavailableNotice extends StatelessWidget {
   }
 }
 
+/// 依音源 id 組出來的翻譯鍵；這個音源沒有專屬文案時回 null。
+String? _perSourceText(String key) {
+  final value = t[key];
+  return value is String ? value : null;
+}
+
 class _AuthForPlaySection extends StatelessWidget {
-  final bool useBilibiliAuthForPlay;
-  final bool useYoutubeAuthForPlay;
-  final bool useNeteaseAuthForPlay;
+  final List<String> sources;
+  final bool Function(String sourceType) authForPlay;
   final void Function(String sourceType, bool enabled) onChanged;
 
   const _AuthForPlaySection({
-    required this.useBilibiliAuthForPlay,
-    required this.useYoutubeAuthForPlay,
-    required this.useNeteaseAuthForPlay,
+    required this.sources,
+    required this.authForPlay,
     required this.onChanged,
   });
 
@@ -166,24 +147,18 @@ class _AuthForPlaySection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        SwitchListTile(
-          title: Text(t.importPlatform.bilibili),
-          subtitle: Text(t.audioSettings.authForPlay.bilibiliDescription),
-          value: useBilibiliAuthForPlay,
-          onChanged: (enabled) => onChanged(SourceIds.bilibili, enabled),
-        ),
-        SwitchListTile(
-          title: const Text('YouTube'),
-          subtitle: Text(t.audioSettings.authForPlay.youtubeDescription),
-          value: useYoutubeAuthForPlay,
-          onChanged: (enabled) => onChanged(SourceIds.youtube, enabled),
-        ),
-        SwitchListTile(
-          title: Text(t.importPlatform.netease),
-          subtitle: Text(t.audioSettings.authForPlay.neteaseDescription),
-          value: useNeteaseAuthForPlay,
-          onChanged: (enabled) => onChanged(SourceIds.netease, enabled),
-        ),
+        for (final source in sources)
+          SwitchListTile(
+            title: Text(SourceIds.displayNameFor(source)),
+            subtitle: switch (_perSourceText(
+              'audioSettings.authForPlay.${source}Description',
+            )) {
+              final description? => Text(description),
+              null => null,
+            },
+            value: authForPlay(source),
+            onChanged: (enabled) => onChanged(source, enabled),
+          ),
       ],
     );
   }

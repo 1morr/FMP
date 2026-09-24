@@ -163,5 +163,48 @@ void main() {
       await tester.tap(actionButton, warnIfMissed: false);
       expect(actionTapped, isTrue);
     });
+
+    testWidgets('a toast with an action still goes away on its own', (
+      tester,
+    ) async {
+      await pumpHost(tester);
+
+      ToastService.showWithAction(
+        toastContext,
+        'queued',
+        actionLabel: 'VIEW',
+        onAction: () {},
+      );
+      await tester.pumpAndSettle();
+      expect(shownSnackBar(tester).duration, ToastDurations.long);
+
+      // Flutter 的 persist 預設是 action != null，以前這則會永遠留在畫面上。
+      await tester.pump(ToastDurations.long);
+      await tester.pumpAndSettle();
+      expect(find.text('queued'), findsNothing);
+    });
+
+    testWidgets('with a screen reader a toast with an action stays', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await pumpHost(tester);
+
+      ToastService.showWithAction(
+        toastContext,
+        'queued',
+        actionLabel: 'VIEW',
+        onAction: () {},
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(ToastDurations.long * 3);
+      await tester.pumpAndSettle();
+
+      expect(find.text('queued'), findsOneWidget);
+    });
   });
 }

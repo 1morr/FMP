@@ -6,6 +6,7 @@ import 'package:simple_icons/simple_icons.dart';
 
 import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/core/errors/user_message.dart';
+import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/track.dart';
@@ -533,7 +534,7 @@ class _LyricsResultTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _formatDuration(result.duration),
+                DurationFormatter.formatSeconds(result.duration),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: durationMatch ?? colorScheme.outline,
                 ),
@@ -552,19 +553,6 @@ class _LyricsResultTile extends StatelessWidget {
       _ => Icons.library_music_outlined,
     };
     return Icon(icon, size: 14, color: colorScheme.outline);
-  }
-
-  /// 格式化秒数为 mm:ss 或 h:mm:ss
-  String _formatDuration(int seconds) {
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    final secs = seconds % 60;
-
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-    } else {
-      return '$minutes:${secs.toString().padLeft(2, '0')}';
-    }
   }
 
   /// 返回时长匹配颜色，null 表示无法比较

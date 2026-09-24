@@ -16,46 +16,91 @@ import 'package:path/path.dart' as p;
 import '../support/pump_until.dart';
 
 void main() {
+  test('loadDetail keeps the detail across pages of the same video', () async {
+    final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+    final sourceManager = SourceManager(sources: [bilibili]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+    final pageOne = _track('BV-SAME', SourceIds.bilibili)
+      ..cid = 101
+      ..pageNum = 1;
+    final pageTwo = _track('BV-SAME', SourceIds.bilibili)
+      ..cid = 202
+      ..pageNum = 2;
+
+    final firstLoad = notifier.loadDetail(pageOne);
+    await pumpUntil(
+      () => bilibili.requests.length == 1,
+      reason: 'the first load should reach the source',
+    );
+    bilibili.complete('BV-SAME', _detail('BV-SAME', 'Video'));
+    await firstLoad;
+
+    // 詳情是影片層的資料：換分 P 拿到的會是同一份，不該再打一次。
+    await notifier.loadDetail(pageTwo);
+    await drainEventQueue(reason: 'a page switch must not re-request');
+
+    expect(bilibili.requests, ['BV-SAME']);
+    expect(notifier.state.detail!.title, 'Video');
+  });
+
+  test('a cid filled in after loading does not reload the detail', () async {
+    final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+    final sourceManager = SourceManager(sources: [bilibili]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+    final firstLoad = notifier.loadDetail(_track('BV-CID', SourceIds.bilibili));
+    await pumpUntil(
+      () => bilibili.requests.length == 1,
+      reason: 'the first load should reach the source',
+    );
+    bilibili.complete('BV-CID', _detail('BV-CID', 'Loaded'));
+    await firstLoad;
+
+    // 串流解析把 cid 從 null 補上 —— uniqueKey 變了，但還是同一首。
+    final resolved = _track('BV-CID', SourceIds.bilibili)..cid = 5;
+    final second = notifier.loadDetail(resolved);
+    expect(
+      notifier.state.detail?.title,
+      'Loaded',
+      reason: 'the shown detail must not be cleared (the double flash)',
+    );
+    await second;
+    await drainEventQueue(reason: 'a filled-in cid must not re-request');
+
+    expect(bilibili.requests, ['BV-CID']);
+  });
+
   test(
-    'loadDetail treats same-source multi-page tracks as different tracks',
+    'a cid filled in while loading does not send a second request',
     () async {
       final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
-      final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
-      final netease = _CompletingTrackDetailSource(SourceIds.netease);
-      final sourceManager = SourceManager(
-        sources: [bilibili, youtube, netease],
-      );
+      final sourceManager = SourceManager(sources: [bilibili]);
       addTearDown(sourceManager.dispose);
 
       final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
 
-      final pageOne = _track('BV-SAME', SourceIds.bilibili)
-        ..cid = 101
-        ..pageNum = 1;
-      final pageTwo = _track('BV-SAME', SourceIds.bilibili)
-        ..cid = 202
-        ..pageNum = 2;
-
-      final firstLoad = notifier.loadDetail(pageOne);
+      final firstLoad = notifier.loadDetail(
+        _track('BV-INFLIGHT', SourceIds.bilibili),
+      );
       await pumpUntil(
         () => bilibili.requests.length == 1,
         reason: 'the first load should reach the source',
       );
-      bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page One'));
-      await firstLoad;
 
-      final secondLoad = notifier.loadDetail(pageTwo);
-      await pumpUntil(
-        () => bilibili.requests.length == 2,
-        reason: 'a different page of the same id should re-request',
+      await notifier.loadDetail(
+        _track('BV-INFLIGHT', SourceIds.bilibili)..cid = 7,
       );
+      await drainEventQueue(reason: 'the in-flight load already covers it');
+      expect(bilibili.requests, ['BV-INFLIGHT']);
 
-      expect(bilibili.requests, ['BV-SAME', 'BV-SAME']);
-
-      bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page Two'));
-      await secondLoad;
-
-      expect(notifier.state.detail!.title, 'Page Two');
+      bilibili.complete('BV-INFLIGHT', _detail('BV-INFLIGHT', 'Loaded'));
+      await firstLoad;
+      expect(notifier.state.detail!.title, 'Loaded');
     },
   );
 
@@ -263,6 +308,93 @@ void main() {
         notifier.state.detail!.title,
         'Local metadata after source StateError',
       );
+    },
+  );
+
+  test(
+    'local metadata fallback reads the page file of a multi-page download',
+    () async {
+      final bilibili = _CompletingTrackDetailSource(SourceIds.bilibili);
+      final sourceManager = SourceManager(sources: [bilibili]);
+      addTearDown(sourceManager.dispose);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'track_detail_multi_page_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      // 新版多頁佈局：`P02.m4a` 配 `metadata_P02.json`，資料夾裡沒有共用檔。
+      final downloadDir = await Directory(
+        p.join(tempDir.path, 'download'),
+      ).create(recursive: true);
+      await File(p.join(downloadDir.path, 'metadata_P02.json')).writeAsString(
+        '''
+{
+  "sourceId": "BV-PAGES",
+  "title": "Page two metadata",
+  "viewCount": 789
+}
+''',
+      );
+
+      final track = _track('BV-PAGES', SourceIds.bilibili)
+        ..setDownloadPath(1, p.join(downloadDir.path, 'P02.m4a'));
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+      final loadFuture = notifier.loadDetail(track);
+      await pumpUntil(
+        () => bilibili.requests.length == 1,
+        reason: 'the load should reach the source',
+      );
+      bilibili.completeError(
+        'BV-PAGES',
+        StateError('simulated detail failure'),
+      );
+      await loadFuture;
+
+      expect(notifier.state.error, isNull);
+      expect(notifier.state.detail!.title, 'Page two metadata');
+    },
+  );
+
+  test(
+    'a downloaded netease track falls back to its metadata offline',
+    () async {
+      final netease = _CompletingTrackDetailSource(SourceIds.netease);
+      final sourceManager = SourceManager(sources: [netease]);
+      addTearDown(sourceManager.dispose);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'track_detail_netease_offline_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      // 下載時寫的網易雲 metadata：網易雲沒有公開播放數，viewCount 存的是 0。
+      final downloadDir = await Directory(
+        p.join(tempDir.path, 'download'),
+      ).create(recursive: true);
+      await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
+{
+  "sourceId": "NE-OFFLINE",
+  "title": "Netease metadata offline",
+  "viewCount": 0
+}
+''');
+
+      final track = _track('NE-OFFLINE', SourceIds.netease)
+        ..setDownloadPath(1, p.join(downloadDir.path, 'audio.mp3'));
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+      final loadFuture = notifier.loadDetail(track);
+      await pumpUntil(
+        () => netease.requests.length == 1,
+        reason: 'the load should reach the source',
+      );
+      netease.completeError('NE-OFFLINE', const SocketException('offline'));
+      await loadFuture;
+
+      expect(notifier.state.error, isNull);
+      expect(notifier.state.detail!.title, 'Netease metadata offline');
     },
   );
 

@@ -10,7 +10,6 @@
   "unknownUploader": "未知UP主",
   "refresh": "刷新",
   "loadFailedWithError": "加载失败: $error",
-  "retry": "重试",
   "deleteDownload": "删除下载",
   "downloadDeleted": "已删除下载文件",
   "downloadFailed": "下载失败: $title",
@@ -46,8 +45,6 @@
     "deselectAll": "取消全选",
     "confirmDeleteSongs": "确定要从歌单中删除 $n 首歌曲吗？",
     "deletedSongs": "已删除 $n 首歌曲",
-    "addedNextCount": "已添加 $n 首到下一首播放",
-    "addedQueueCount": "已加入 $n 首到队列",
     "download": "下载",
     "remove": "移除",
     "trackRemoved": "歌曲已移除",
@@ -62,7 +59,6 @@
     "playFirstPart": "播放第一个分P",
     "addAllPartsToQueue": "全部加入队列",
     "downloadAllParts": "下载全部分P",
-    "addToOtherPlaylist": "添加到其他歌单",
     "removeAllFromPlaylist": "从歌单移除全部",
     "addedPartsToDownloadQueue": "已添加 $n 个分P到下载队列",
     "removedPartsFromPlaylist": "已从歌单移除 $n 个分P",
@@ -92,6 +88,7 @@
     "deleteCategoryTitle": "删除分类",
     "deleteCategoryConfirm": "确定要删除 \"$name\" 的所有下载文件吗？此操作无法撤销。",
     "categoryDeleted": "已删除 \"$name\"",
+    "keptForeignItems": "已保留 $n 个无法确认由 FMP 下载的项目",
     "deleteFailed": "删除失败: $error"
   },
   "downloadedCategory": {

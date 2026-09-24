@@ -26,7 +26,8 @@ import 'package:fmp/services/backup/backup_data.dart';
 /// v3：移除 5 個從來沒有讀者的自訂色欄位與 `RadioStation.note`。
 /// v4：6 個每源具名設定欄位收成 `sourceSettings` 清單；補上
 /// `railExpanded` / `detailPanelExpanded` / `detailPanelWidth` 三個版面欄位。
-/// v5：補上 `playHistoryLimit` 與 `autoCheckUpdates`。
+/// v5：補上 `playHistoryLimit` 與 `autoCheckUpdates`（後者 2026-09 隨自動檢查
+/// 更新一起拿掉，匯出不再寫、匯入忽略，所以沒有升版本）。
 ///
 /// 舊版備份仍然讀得進來 —— `fromJson` 對缺少的鍵一律走預設值，被移除的欄位
 /// 在任何既有備份裡都是 null，而 v3 以前的每源設定由 `_readSourceSettings`
@@ -277,7 +278,6 @@ class BackupService with Logging {
           ',',
         ),
         radioRefreshIntervalMinutes: settings.radioRefreshIntervalMinutes,
-        autoCheckUpdates: settings.autoCheckUpdates,
       );
     }
 
@@ -689,7 +689,6 @@ class BackupService with Logging {
           )
           ..radioRefreshIntervalMinutes =
               settingsBackup.radioRefreshIntervalMinutes
-          ..autoCheckUpdates = settingsBackup.autoCheckUpdates
           // 桌面专属设置 - 仅在桌面平台导入，否则保留当前值
           ..minimizeToTrayOnClose = Platform.isWindows
               ? settingsBackup.minimizeToTrayOnClose

@@ -55,11 +55,28 @@ abstract interface class DynamicPlaylistSource implements SourceCapability {
 }
 
 class SourceRankingRequest {
-  const SourceRankingRequest({this.regionId, this.category, this.limit});
+  const SourceRankingRequest({
+    this.regionId,
+    this.category,
+    this.limit,
+    this.authHeaders,
+  });
 
   final int? regionId;
   final String? category;
   final int? limit;
+
+  /// `SourceAuthContext.authForPlay` 給的帳號 header；使用者關掉播放認證或沒
+  /// 登入時是 null。目前只有 Bilibili 用得到：它對匿名身分另有一份節流配額。
+  final Map<String, String>? authHeaders;
+
+  SourceRankingRequest withAuth(Map<String, String>? headers) =>
+      SourceRankingRequest(
+        regionId: regionId,
+        category: category,
+        limit: limit,
+        authHeaders: headers,
+      );
 }
 
 abstract interface class RankingSource implements SourceCapability {

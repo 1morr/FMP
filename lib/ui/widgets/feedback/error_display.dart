@@ -234,119 +234,87 @@ class ErrorDisplay extends StatelessWidget {
     );
   }
 
+  /// 可用高度低於這個值就改用緊湊間距。完整版面固定約 300dp，而橫向手機扣掉
+  /// 狀態列、工具列與迷你播放器後只剩約 267dp。
+  static const double _shortHeight = 400;
+
   Widget _buildFull(
     BuildContext context,
     ColorScheme colorScheme,
     TextTheme textTheme,
     String displayMessage,
   ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _getIcon(),
-              size: 80,
-              color: type == ErrorType.empty
-                  ? colorScheme.outline
-                  : colorScheme.error,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _getTitle(),
-              style: textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              displayMessage,
-              style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
-              textAlign: TextAlign.center,
-            ),
-            if (action != null) ...[
-              const SizedBox(height: 32),
-              action!,
-            ] else if (onRetry != null) ...[
-              const SizedBox(height: 32),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(t.error.retry),
-              ),
-            ],
-          ],
-        ),
-      ),
+    // 空狀態與錯誤狀態共用這一個版面，約 24 個呼叫點。垂直預算以前全是固定
+    // 值，在橫向手機溢出 41px，被裁掉的正好是最底下的「重試」或建立按鈕。
+    // 矮視窗先縮間距與圖示，字級放大仍放不下時可以捲動。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isShort = constraints.maxHeight < _shortHeight;
+        final content = _buildFullContent(
+          colorScheme,
+          textTheme,
+          displayMessage,
+          isShort: isShort,
+        );
+        // 放在沒有高度上限的地方（例如捲動清單裡）時，沒有「剩餘高度」可以
+        // 置中，也不需要自己捲動。
+        if (!constraints.hasBoundedHeight) return Center(child: content);
+        return SingleChildScrollView(
+          // 不接 PrimaryScrollController：呼叫點常常已經在一個用它的捲動
+          // 視圖裡（例如 SliverFillRemaining）。
+          primary: false,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: content),
+          ),
+        );
+      },
     );
   }
-}
 
-/// 图片加载错误占位符
-class ImageErrorPlaceholder extends StatelessWidget {
-  /// 占位符大小
-  final double? size;
-
-  /// 自定义图标
-  final IconData icon;
-
-  /// 背景颜色
-  final Color? backgroundColor;
-
-  /// 图标颜色
-  final Color? iconColor;
-
-  /// 圆角半径
-  final BorderRadius? borderRadius;
-
-  const ImageErrorPlaceholder({
-    super.key,
-    this.size,
-    this.icon = Icons.broken_image_rounded,
-    this.backgroundColor,
-    this.iconColor,
-    this.borderRadius,
-  });
-
-  /// 音乐封面错误占位符
-  const ImageErrorPlaceholder.music({
-    super.key,
-    this.size,
-    this.backgroundColor,
-    this.iconColor,
-    this.borderRadius,
-  }) : icon = Icons.music_note_rounded;
-
-  /// 头像错误占位符
-  const ImageErrorPlaceholder.avatar({
-    super.key,
-    this.size,
-    this.backgroundColor,
-    this.iconColor,
-    this.borderRadius,
-  }) : icon = Icons.person_rounded;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final bgColor = backgroundColor ?? colorScheme.surfaceContainerHighest;
-    final fgColor =
-        iconColor ?? colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: borderRadius ?? AppRadius.borderRadiusMd,
-      ),
-      child: Center(
-        child: Icon(
-          icon,
-          size: size != null ? size! * 0.4 : 32,
-          color: fgColor,
-        ),
+  Widget _buildFullContent(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    String displayMessage, {
+    required bool isShort,
+  }) {
+    final actionGap = SizedBox(height: isShort ? 16 : 32);
+    return Padding(
+      padding: EdgeInsets.all(isShort ? 16 : 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _getIcon(),
+            size: isShort ? 48 : 80,
+            color: type == ErrorType.empty
+                ? colorScheme.outline
+                : colorScheme.error,
+          ),
+          SizedBox(height: isShort ? 12 : 24),
+          Text(
+            _getTitle(),
+            style: textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            displayMessage,
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+            textAlign: TextAlign.center,
+          ),
+          if (action != null) ...[
+            actionGap,
+            action!,
+          ] else if (onRetry != null) ...[
+            actionGap,
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(t.error.retry),
+            ),
+          ],
+        ],
       ),
     );
   }

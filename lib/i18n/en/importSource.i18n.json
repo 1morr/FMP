@@ -11,7 +11,6 @@
   "responseDataFormatError": "Response data format error",
   "cannotParsePlaylistId": "Cannot parse playlist ID: $url",
   "fetchPlaylistFailed": "Failed to fetch playlist",
-  "playlistDataFormatError": "Playlist data format error",
   "spotifyCannotParsePageData": "Cannot parse Spotify page data, page structure may have changed",
   "spotifyPageDataAbnormal": "Spotify page data structure abnormal",
   "spotifyCannotGetTrackList": "Cannot get track list",

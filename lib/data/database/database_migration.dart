@@ -17,7 +17,17 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/source_ids.dart';
 
 /// 目前的持久化 schema 版本。每加一個遷移步驟就 +1。
-const int kFmpSchemaVersion = 3;
+///
+/// 新增持久化欄位時，舊列讀出來的是 Isar 的型別預設，不是 Dart 的欄位初始值：
+/// 非空 `int` → `Isar.minLong`、非空 `double` → `double.nan`、`bool` → `false`、
+/// 非空 `String` → `''`、`String?` → `null`、`List` → `[]`（數字那兩列是在真實
+/// 舊資料庫上量的）。型別預設與業務預設不同時就要加步驟修 —— 例如網易雲的
+/// `useAuthForPlay` 業務預設是 `true`；非空數字欄位因此幾乎一定要修。
+///
+/// 改完跑 `dart run build_runner build` 與 `database_migration_test.dart`。
+/// collection 或欄位的可見性變了，同一個 commit 改 `database_catalog.dart`：
+/// debug viewer 完全靠它，漏了不會有任何編譯或測試失敗。
+const int kFmpSchemaVersion = 4;
 
 /// 資料庫啟動時的唯一入口：套用未跑過的遷移步驟，再修復與版本無關的不變式。
 ///
@@ -110,8 +120,14 @@ const List<NamedMigrationStep> fmpMigrationSteps = <NamedMigrationStep>[
   NamedMigrationStep(
     from: 2,
     to: 3,
-    name: 'turn the automatic update check on for existing installs',
+    name: 'retired: turned the automatic update check on',
     run: _migrateV2ToV3,
+  ),
+  NamedMigrationStep(
+    from: 3,
+    to: 4,
+    name: 'use the Bilibili login state for playback requests',
+    run: _migrateV3ToV4,
   ),
 ];
 
@@ -180,14 +196,20 @@ void _migrateV1ToV2(Settings settings) {
   ];
 }
 
-/// v2 → v3：`autoCheckUpdates` 的業務預設是 true。
+/// v2 → v3：原本把 `autoCheckUpdates` 打開，那個欄位已隨自動檢查更新一起刪除。
 ///
-/// Isar 對舊列缺少的 bool 一律回 false，而 false 同時也是「使用者自己關掉了」
-/// 的合法值 —— 兩者事後分不開，所以這件事只能在遷移裡做一次，不能放進每次啟動
-/// 都跑的不變式修復。`lastUpdateCheckAt` 是可空欄位，舊列讀出來就是 null，
-/// 語意正好是「從未檢查過」，不需要修。
-void _migrateV2ToV3(Settings settings) {
-  settings.autoCheckUpdates = true;
+/// 步驟本身留著、內容清空：拿掉的話 v2 的資料庫一樣會套用 v3 → v4 —— 迴圈只看
+/// `step.to` —— 但 v3 這個版本號就從步驟表上消失了，下一個讀的人會以為中間
+/// 漏了一步。
+void _migrateV2ToV3(Settings settings) {}
+
+/// v3 → v4：Bilibili 的 `useAuthForPlay` 業務預設改成 true。
+///
+/// 既有列存的 false 幾乎都是舊預設，但也可能是使用者自己關的 —— 兩者分不開。
+/// 2026-09-23 決定一律打開：不帶登入狀態時排行榜、詳情與播放持續撞匿名節流
+/// （見 `kDefaultUseAuthForPlayBySource`），而刻意關掉的人可以在音訊設定裡再關。
+void _migrateV3ToV4(Settings settings) {
+  settings.setUseAuthForPlay(SourceIds.bilibili, true);
 }
 
 bool _hasLegacyPlaybackAndLyricsDefaultsSignature(Settings settings) {
@@ -295,8 +317,9 @@ bool repairSettingsInvariants(Settings settings) {
     () => settings.disabledHomeRankingSources = normalizedDisabled,
   );
 
+  // 0 是「關閉」（`RadioRefreshService.offMinutes`），不是壞值。
   fix(
-    settings.radioRefreshIntervalMinutes < 1,
+    settings.radioRefreshIntervalMinutes < 0,
     () => settings.radioRefreshIntervalMinutes = 5,
   );
 

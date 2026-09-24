@@ -86,8 +86,7 @@ final List<NavDestination> destinations = [
 /// [location] 對應導覽列的第幾個目的地。
 ///
 /// 對不上就回首頁（0）：`/explore`、`/history` 都落在這裡。那是刻意的：
-/// 它們是從首頁推進去的子頁，高亮留在首頁（見 `lib/ui/AGENTS.md` 的
-/// Page Conventions）。
+/// 它們是從首頁推進去的子頁，高亮留在首頁。
 ///
 /// 比對用「完全相等或以 `路徑/` 開頭」而不是 `startsWith(路徑)`，否則
 /// `/radio-player` 會被算成電台分頁。

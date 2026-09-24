@@ -94,7 +94,7 @@ extension type 的 `DartType` 帶的是 `ExtensionTypeElement`，不是 `dartCor
 ### 降級是無損的
 
 v1 → v2 的遷移**只搬不刪**：六個舊欄位保留、標上
-`@Deprecated('read only by the v1 to v2 migration; removed in schema v3')`，
+`@Deprecated('read only by the v1 to v2 migration; removed in a later schema version')`，
 遷移把值折進 `sourceSettings` 之後**刻意不清空**。
 
 理由：使用者裝回舊版 APK 時，舊版讀的是那六個欄位。如果折疊時清空了它們，舊版的

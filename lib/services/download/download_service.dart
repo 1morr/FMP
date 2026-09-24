@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/constants/download_filenames.dart';
 import 'package:fmp/core/constants/ui_constants.dart';
+import 'package:fmp/core/errors/user_message.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/download_task.dart';
 import 'package:fmp/data/models/track.dart';
@@ -22,6 +23,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_url_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/core/utils/thumbnail_url_utils.dart';
 import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
@@ -76,14 +78,6 @@ class DownloadService with Logging {
     })
   >
   _activeDownloadIsolates = {};
-
-  /// 測試注入的「活躍任務」標記。
-  ///
-  /// 生產環境永遠為空（下載一律走 [_activeDownloadIsolates]）；僅由
-  /// [debugMarkTaskActiveForTesting] 寫入，讓 bookkeeping 測試（pauseAll /
-  /// 計數 / 並發等待）不必啟動真實 isolate 即可模擬活躍下載。取代舊的 dead
-  /// CancelToken map——cancel 語意已由 isolate kill 承擔，不再需要 token。
-  final Set<int> _injectedActiveTaskIds = {};
 
   /// 已被外部清理的任务 ID（pauseTask/cancelTask 已递减 _activeDownloads）
   final Set<int> _externallyCleaned = {};
@@ -140,6 +134,13 @@ class DownloadService with Logging {
 
   /// 待发送进度的硬上限，避免 flush 停滞时无限增长
   static const int _pendingProgressUpdateLimit = 256;
+
+  /// 進行中任務最後已知的總長度（位元組）。
+  ///
+  /// 總長度只出現在 isolate 的進度訊息裡，而進度只發給 UI、不寫 DB，flush
+  /// 後就從 [_pendingProgressUpdates] 清掉；暫停時要算續傳進度只能靠這份。
+  /// 在 [_finalizeTaskCleanup] 移除，所以最多只有進行中的任務數那麼多筆。
+  final Map<int, int> _knownTotalBytes = {};
 
   /// 进度更新定时器（主线程定时器，统一处理所有进度更新）
   Timer? _progressUpdateTimer;
@@ -297,8 +298,8 @@ class DownloadService with Logging {
     }
     _activeDownloadIsolates.clear();
 
-    _injectedActiveTaskIds.clear();
     _pendingProgressUpdates.clear();
+    _knownTotalBytes.clear();
     _externallyCleaned.clear();
     _tasksInSetupWindow.clear();
     _setupAbortedTasks.clear();
@@ -367,6 +368,7 @@ class DownloadService with Logging {
   ) {
     if (_isDisposed) return;
 
+    if (totalBytes > 0) _knownTotalBytes[taskId] = totalBytes;
     // 只更新内存中的 Map，线程安全（Dart 单 Isolate 内所有代码在同一事件循环中执行，无并发竞争）
     _pendingProgressUpdates[taskId] = (
       trackId,
@@ -693,10 +695,7 @@ class DownloadService with Logging {
   Future<void> pauseAll() async {
     logDebug('Pausing all downloads');
 
-    final activeTaskIds = {
-      ..._activeDownloadIsolates.keys,
-      ..._injectedActiveTaskIds,
-    }.toList();
+    final activeTaskIds = _activeDownloadIsolates.keys.toList();
     for (final taskId in activeTaskIds) {
       final task = await _downloadRepository.getTaskById(taskId);
       if (task != null) {
@@ -726,7 +725,6 @@ class DownloadService with Logging {
     final tasksToDelete = tasks.where((task) => !task.isCompleted).toList();
     final activeTaskIds = {
       ..._activeDownloadIsolates.keys,
-      ..._injectedActiveTaskIds,
       ..._tasksInSetupWindow,
     }.toList();
     final guardedTaskIds = tasksToDelete
@@ -776,8 +774,7 @@ class DownloadService with Logging {
     if (_discardedTaskIds.contains(task.id)) return;
 
     // 检查是否已经在下载
-    if (_activeDownloadIsolates.containsKey(task.id) ||
-        _injectedActiveTaskIds.contains(task.id)) {
+    if (_activeDownloadIsolates.containsKey(task.id)) {
       logDebug('Task already downloading: ${task.id}');
       return;
     }
@@ -828,6 +825,11 @@ class DownloadService with Logging {
           resumePosition: resumePosition,
           sendPort: receivePort.sendPort,
         ),
+        // isolate 以 try/catch 攔不到的方式死掉時（未處理的 async error、被系統
+        // 殺掉），它不會再送任何訊息；沒有這兩個通知，下面的 await for 會永遠
+        // 等下去，finally 不執行，併發槽位也跟著洩漏。
+        onError: receivePort.sendPort,
+        onExit: receivePort.sendPort,
       );
 
       if (_shouldAbortBeforeRegistration(task.id)) {
@@ -870,7 +872,7 @@ class DownloadService with Logging {
       }
 
       if (outcome.error != null) {
-        throw Exception('Download failed: ${outcome.error}');
+        throw _isolateFailure(outcome.error!);
       }
 
       // 下载完成：promote 暂存档、抓元资料、写下载路径（每步 abort 检查）。
@@ -893,7 +895,7 @@ class DownloadService with Logging {
         return;
       }
       logError('Download failed for task: ${task.id}: $e', e, stack);
-      await _handleDownloadFailure(task, trackTitle, e.toString());
+      await _handleDownloadFailure(task, trackTitle, _failureMessageFor(e));
     } finally {
       final stopped = isolateStopped;
       if (stopped != null &&
@@ -914,6 +916,7 @@ class DownloadService with Logging {
   /// 消费 Isolate 的 ready/progress/completed/error/cancelled 讯息直到串流结束。
   ///
   /// [cancelPortReady] 于收到 ready 讯息时完成（供 cancelTask 取得取消通道）。
+  /// 也接 spawn 的 onError / onExit 通知，把 isolate 的非正常死亡當成錯誤。
   /// 回传 (error, cancelled)：error 非 null 代表 isolate 回报错误；
   /// cancelled 代表收到取消讯号。
   Future<({String? error, bool cancelled})> _drainIsolateMessages(
@@ -954,17 +957,25 @@ class DownloadService with Logging {
         wasCancelled = true;
         receivePort.close();
         break;
+      } else if (message is List) {
+        // onError：[錯誤字串, stack 字串]
+        downloadError = 'Download isolate crashed: ${message.first}';
+        receivePort.close();
+      } else if (message == null) {
+        // onExit：正常結束會先送 completed/error 並關閉 port，走不到這裡
+        downloadError = 'Download isolate exited without a result';
+        receivePort.close();
       }
     }
     return (error: downloadError, cancelled: wasCancelled);
   }
 
   /// 抓取 VideoDetail 用于保存完整元数据；失败只记录不抛（与原 inline
-  /// 行为一致）。Netease 没有 detail source，直接跳过。
+  /// 行为一致）。沒有 detail source 的音源直接跳過。
   Future<VideoDetail?> _fetchVideoDetail(Track track) async {
     try {
       final detailSource = _sourceManager.trackDetailSource(track.sourceType);
-      if (detailSource != null && track.sourceType != SourceIds.netease) {
+      if (detailSource != null) {
         final detailAuthHeaders = await _sourceAuthContext.authForPlay(
           track.sourceType,
         );
@@ -1046,6 +1057,18 @@ class DownloadService with Logging {
     final streamResult = resolution.stream;
     final resolvedTrack = resolution.track;
 
+    // HLS 是索引清單（`#EXTM3U` 文字），片段要合併才是音訊檔。isolate 只做
+    // 一次 HttpClient GET 後原樣落到 `savePath`，於是多媒體清單文字會存成
+    // `audio.m4a` 並標記完成，播放端「本機檔案優先」短路從此永遠播這個假檔。
+    // ffmpeg 合併明確不在本批範圍 → 直接拒絕，讓任務失敗可重試。
+    // 這裡在建立任何檔案之前，沒有殘留物要清。
+    if (streamResult.streamType == StreamType.hls) {
+      throw UnsupportedDownloadStreamException(
+        sourceType: track.sourceType,
+        container: streamResult.container,
+      );
+    }
+
     // 更新 track 的 URL 信息
     track.audioUrl = resolvedTrack.audioUrl;
     track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
@@ -1068,7 +1091,14 @@ class DownloadService with Logging {
     if (_shouldAbortBeforeRegistration(task.id)) return null;
     final tempPath = '$savePath.downloading';
     if (await File(savePath).exists()) {
-      await _throwDestinationConflict(task, savePath);
+      if (await _hasPairedMetadata(savePath)) {
+        await _throwDestinationConflict(task, savePath);
+      }
+      // 無配對 metadata 的目的地是 finalization 未完成留下的殘骸。留著它
+      // 會讓這首曲子永久卡在 conflict：失敗任務在啟動時被刪，retryTask 也
+      // 不碰磁碟。刪掉重下才是使用者要的結果。
+      logWarning('Replacing stale destination without metadata: $savePath');
+      await File(savePath).delete();
     }
 
     // 确保目录存在
@@ -1123,7 +1153,6 @@ class DownloadService with Logging {
 
   bool _isTaskActiveOrStarting(int taskId) {
     return _activeDownloadIsolates.containsKey(taskId) ||
-        _injectedActiveTaskIds.contains(taskId) ||
         _tasksInSetupWindow.contains(taskId) ||
         _externallyCleaned.contains(taskId);
   }
@@ -1138,22 +1167,7 @@ class DownloadService with Logging {
   }) async {
     logDebug('Cleanup active download task=$taskId reason=$cancelReason');
     final isolateInfo = _activeDownloadIsolates.remove(taskId);
-    if (isolateInfo != null) {
-      if (isolateInfo.cancelPortReady.isCompleted) {
-        isolateInfo.cancelPortReady.future.then((sendPort) {
-          if (!isolateInfo.stopped.isCompleted) {
-            sendPort.send('cancel');
-          }
-        });
-      } else {
-        isolateInfo.receivePort.close();
-        isolateInfo.isolate.kill();
-      }
-    }
-
-    final wasInjected = _injectedActiveTaskIds.remove(taskId);
-
-    if (isolateInfo == null && !wasInjected) {
+    if (isolateInfo == null) {
       if (_tasksInSetupWindow.contains(taskId)) {
         _setupAbortedTasks.add(taskId);
         if (!_externallyCleaned.contains(taskId)) {
@@ -1165,24 +1179,33 @@ class DownloadService with Logging {
       return;
     }
 
+    if (isolateInfo.cancelPortReady.isCompleted) {
+      isolateInfo.cancelPortReady.future.then((sendPort) {
+        if (!isolateInfo.stopped.isCompleted) {
+          sendPort.send('cancel');
+        }
+      });
+    } else {
+      isolateInfo.receivePort.close();
+      isolateInfo.isolate.kill();
+    }
+
     _externallyCleaned.add(taskId);
     _activeDownloads--;
     if (_activeDownloads < 0) _activeDownloads = 0;
 
-    if (isolateInfo != null) {
-      await isolateInfo.stopped.future.timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          isolateInfo.receivePort.close();
-          isolateInfo.isolate.kill();
-        },
-      );
-    }
+    await isolateInfo.stopped.future.timeout(
+      const Duration(seconds: 2),
+      onTimeout: () {
+        isolateInfo.receivePort.close();
+        isolateInfo.isolate.kill();
+      },
+    );
   }
 
   void _finalizeTaskCleanup(int taskId) {
     final wasStillActive = _activeDownloadIsolates.remove(taskId) != null;
-    _injectedActiveTaskIds.remove(taskId);
+    _knownTotalBytes.remove(taskId);
     _tasksInSetupWindow.remove(taskId);
     final wasSetupAborted = _setupAbortedTasks.remove(taskId);
     final wasExternallyCleaned = _externallyCleaned.remove(taskId);
@@ -1199,33 +1222,26 @@ class DownloadService with Logging {
     }
 
     try {
-      final pendingProgress = _pendingProgressUpdates[task.id];
-      if (pendingProgress != null) {
-        final (_, progress, downloadedBytes, totalBytes) = pendingProgress;
-        await _downloadRepository.updateTaskProgress(
-          task.id,
-          progress,
-          downloadedBytes,
-          totalBytes,
-        );
-        logDebug(
-          'Saved buffered resume progress: $downloadedBytes bytes for task ${task.id}',
-        );
-        return;
-      }
-
       if (task.tempFilePath == null) {
         return;
       }
 
       final tempFile = File(task.tempFilePath!);
       if (await tempFile.exists()) {
+        // 已下載量以暫存檔實際長度為準（續傳也從這個長度接著下）；總長度取
+        // 記憶體裡最後已知的那份。傳進來的 task 可能是下載啟動時的那份
+        // （isolate 收尾時的這次存檔），它的 progress / totalBytes 停在啟動
+        // 當下，所以後備改讀 DB 裡最新的。
         final downloadedBytes = await tempFile.length();
+        final latest = await _downloadRepository.getTaskById(task.id) ?? task;
+        final totalBytes = _knownTotalBytes[task.id] ?? latest.totalBytes;
         await _downloadRepository.updateTaskProgress(
           task.id,
-          task.progress,
+          totalBytes != null && totalBytes > 0
+              ? downloadedBytes / totalBytes
+              : latest.progress,
           downloadedBytes,
-          task.totalBytes,
+          totalBytes,
         );
         logDebug(
           'Saved resume progress: $downloadedBytes bytes for task ${task.id}',
@@ -1327,6 +1343,47 @@ class DownloadService with Logging {
     );
   }
 
+  /// isolate 只能把錯誤當字串傳回來（見 `_isolateDownload` 的 catch）。這裡
+  /// 還原成同類的例外，讓 [_failureMessageFor] 能照型別翻譯。
+  static Object _isolateFailure(String error) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(error);
+    } on FormatException {
+      // isolate 崩潰或沒有結果就結束：不是 JSON。
+      return Exception('Download failed: $error');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      return Exception('Download failed: $error');
+    }
+    final message = decoded['message'] as String? ?? '';
+    final path = decoded['path'] as String?;
+    return switch (decoded['type']) {
+      'timeout' => TimeoutException(message),
+      'network' => SocketException(message),
+      'http' => HttpException(message),
+      'filesystem' when decoded['access'] == true => PathAccessException(
+        path ?? '',
+        const OSError(),
+        message,
+      ),
+      'filesystem' => FileSystemException(message, path),
+      _ => Exception('Download failed: $message'),
+    };
+  }
+
+  /// 存進 `DownloadTask.errorMessage` 的那一句。下載管理頁把它原樣顯示，所以
+  /// 必須是翻譯過的句子；原文與 stack 已經在呼叫端的 `logError` 裡。
+  ///
+  /// 存的是失敗當下的語言，切換語言後舊紀錄不會跟著變 —— 另一個做法是存原因
+  /// 碼、顯示時查表，但那要改這個持久化欄位的語意。
+  static String _failureMessageFor(Object error) => switch (error) {
+    UnsupportedDownloadStreamException() =>
+      t.settings.downloadManager.unsupportedStream,
+    PathExistsException() => t.settings.downloadManager.destinationExists,
+    _ => userMessageFor(error),
+  };
+
   /// 处理下载失败：保存续传进度、更新状态、发送失败事件
   Future<void> _handleDownloadFailure(
     DownloadTask task,
@@ -1363,13 +1420,41 @@ class DownloadService with Logging {
     );
   }
 
+  /// 目的地音訊檔是否有配對的 metadata 檔。
+  ///
+  /// 有配對 metadata ＝ FMP 自己完成寫入的檔案，永不覆蓋。metadata 只在
+  /// promote 成功之後才寫（`_finalizeDownload` 的順序），所以「有音訊檔、
+  /// 沒有 metadata」只可能是 finalization 中途被 kill 留下的殘骸。
+  ///
+  /// 查詢途中任何 IO 例外一律回 `true`：讀不到不等於不存在，寧可維持
+  /// conflict 讓使用者自己處理，也不能因為查不動就把他的檔案刪掉。
+  Future<bool> _hasPairedMetadata(String savePath) async {
+    final dir = p.dirname(savePath);
+    final candidates = DownloadFileNames.metadataCandidatesForAudio(
+      p.basename(savePath),
+    );
+    try {
+      for (final name in candidates) {
+        if (await File(p.join(dir, name)).exists()) return true;
+      }
+      return false;
+    } catch (e) {
+      logWarning('Failed to check paired metadata for $savePath: $e');
+      return true;
+    }
+  }
+
   Future<void> _throwDestinationConflict(
     DownloadTask task,
     String savePath,
   ) async {
     task.savePath = null;
     await _downloadRepository.saveTask(task);
-    throw FileSystemException('Download destination already exists', savePath);
+    throw PathExistsException(
+      savePath,
+      const OSError(),
+      'Download destination already exists',
+    );
   }
 
   Future<void> _promoteTempFileWithoutReplacing(
@@ -1381,13 +1466,27 @@ class DownloadService with Logging {
     try {
       await destination.create(exclusive: true);
     } on FileSystemException {
-      await _throwDestinationConflict(task, savePath);
+      if (await _hasPairedMetadata(savePath)) {
+        await _throwDestinationConflict(task, savePath);
+      }
+      // 同上：無 metadata 的目的地是 promote 被 kill 留下的空佔位檔（舊版是
+      // 複製到一半的半檔），刪掉後重試一次 exclusive create；再失敗才是真的
+      // conflict。
+      logWarning('Replacing stale destination without metadata: $savePath');
+      await destination.delete();
+      try {
+        await destination.create(exclusive: true);
+      } on FileSystemException {
+        await _throwDestinationConflict(task, savePath);
+      }
     }
 
+    // 上面的 exclusive create 是在佔住目的地名稱；rename 在 POSIX 與 Windows
+    // 上都會直接取代既有目的地，所以不能省掉那一步 —— 它是「不覆蓋有
+    // metadata 的檔案」唯一的檢查點。這裡被取代的只會是自己剛建的空檔。
+    // 暫存檔與目的地同目錄，rename 不搬資料，完成時不必把整首歌再寫一遍。
     try {
-      final sink = destination.openWrite(mode: FileMode.writeOnly);
-      await tempFile.openRead().pipe(sink);
-      await tempFile.delete();
+      await tempFile.rename(savePath);
     } catch (_) {
       if (await destination.exists()) {
         await destination.delete();
@@ -1451,10 +1550,12 @@ class DownloadService with Logging {
       });
     }
 
-    // 多P视频使用分P专属的 metadata 文件名，避免覆盖
-    final metadataFileName = track.isPartOfMultiPage && track.pageNum != null
-        ? 'metadata_P${track.pageNum!.toString().padLeft(2, '0')}.json'
-        : DownloadFileNames.metadata;
+    // 多P影片使用分P專屬的 metadata 檔名，避免覆蓋。
+    // 分頁號取自檔名本身（`computeDownloadPath` 對多頁一律給 `P{NN}.m4a`），
+    // 不再另外從 track 推導，寫入端與掃描／刪除端的配對規則因此只有一份。
+    final metadataFileName = DownloadFileNames.metadataCandidatesForAudio(
+      p.basename(audioPath),
+    ).first;
     final metadataFile = File(p.join(videoDir.path, metadataFileName));
     try {
       await metadataFile.writeAsString(jsonEncode(metadata));
@@ -1520,33 +1621,6 @@ class DownloadService with Logging {
     }
   }
 
-  /// 获取下载目录信息
-  Future<DownloadDirInfo> getDownloadDirInfo() async {
-    final downloadDir = await DownloadPathUtils.getDefaultBaseDir(
-      _settingsRepository,
-    );
-
-    final dir = Directory(downloadDir);
-    int totalSize = 0;
-    int fileCount = 0;
-
-    if (await dir.exists()) {
-      await for (final entity in dir.list(recursive: true)) {
-        if (entity is File) {
-          final stat = await entity.stat();
-          totalSize += stat.size;
-          fileCount++;
-        }
-      }
-    }
-
-    return DownloadDirInfo(
-      path: downloadDir,
-      totalSize: totalSize,
-      fileCount: fileCount,
-    );
-  }
-
   @visibleForTesting
   int get debugActiveDownloads => _activeDownloads;
 
@@ -1585,26 +1659,20 @@ class DownloadService with Logging {
   }
 
   @visibleForTesting
-  void debugMarkTaskActiveForTesting(int taskId) {
-    _injectedActiveTaskIds.add(taskId);
-    _activeDownloads++;
-  }
-
-  @visibleForTesting
-  void debugFinalizeTaskCleanupForTesting(int taskId) {
-    _finalizeTaskCleanup(taskId);
-  }
-
-  @visibleForTesting
   Future<void> debugStartDownloadForTesting(DownloadTask task) {
     return _startDownload(task);
+  }
+
+  /// 模擬 try/catch 攔不到的 isolate 死亡（被系統殺掉、OOM）：不送任何訊息。
+  @visibleForTesting
+  void debugKillDownloadIsolateForTesting(int taskId) {
+    _activeDownloadIsolates[taskId]?.isolate.kill(priority: Isolate.immediate);
   }
 
   @visibleForTesting
   Future<void> debugWaitForTaskToBecomeActiveForTesting(int taskId) async {
     for (var i = 0; i < 100; i++) {
-      if (_activeDownloadIsolates.containsKey(taskId) ||
-          _injectedActiveTaskIds.contains(taskId)) {
+      if (_activeDownloadIsolates.containsKey(taskId)) {
         return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -1645,6 +1713,26 @@ class DownloadCompletionEvent {
   });
 }
 
+/// 下載串流格式不支援（目前只有 HLS）。
+///
+/// 專用型別而非 [StateError]：`DownloadService._failureMessageFor` 靠型別給它
+/// 一句專屬的翻譯；`toString()` 只進 log。不放進 `userMessageFor` —— 除了下載
+/// 失敗之外沒有呼叫端會把它交給 UI。
+class UnsupportedDownloadStreamException implements Exception {
+  final String sourceType;
+  final String? container;
+
+  UnsupportedDownloadStreamException({
+    required this.sourceType,
+    required this.container,
+  });
+
+  @override
+  String toString() =>
+      'HLS streams cannot be downloaded (source=$sourceType, '
+      'container=${container ?? 'unknown'})';
+}
+
 /// 下载失败事件
 class DownloadFailureEvent {
   final int taskId;
@@ -1658,32 +1746,6 @@ class DownloadFailureEvent {
     required this.trackTitle,
     required this.errorMessage,
   });
-}
-
-/// 下载目录信息
-class DownloadDirInfo {
-  final String path;
-  final int totalSize;
-  final int fileCount;
-
-  DownloadDirInfo({
-    required this.path,
-    required this.totalSize,
-    required this.fileCount,
-  });
-
-  /// 格式化大小显示
-  String get formattedSize {
-    if (totalSize < 1024) {
-      return '$totalSize B';
-    } else if (totalSize < 1024 * 1024) {
-      return '${(totalSize / 1024).toStringAsFixed(1)} KB';
-    } else if (totalSize < 1024 * 1024 * 1024) {
-      return '${(totalSize / 1024 / 1024).toStringAsFixed(1)} MB';
-    } else {
-      return '${(totalSize / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
-    }
-  }
 }
 
 // ==================== Isolate 下载相关 ====================
@@ -1741,7 +1803,18 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
   }
 
   HttpClient? client;
-  IOSink? sink;
+  RandomAccessFile? output;
+  // 收尾用：錯誤已由呼叫它的那個分支回報，關檔失敗不能再逃出 catch。
+  Future<void> closeOutputQuietly() async {
+    final file = output;
+    output = null;
+    try {
+      await file?.close();
+    } on Object {
+      // 忽略
+    }
+  }
+
   try {
     client = HttpClient();
     client.connectionTimeout = AppConstants.downloadConnectTimeout;
@@ -1832,27 +1905,37 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
         params.resumePosition > 0 && response.statusCode == HttpStatus.ok;
     final resumePosition = shouldRestartFromZero ? 0 : params.resumePosition;
 
-    final file = File(params.savePath);
-    sink = file.openWrite(
-      mode: resumePosition > 0 ? FileMode.append : FileMode.write,
-    );
+    // 不用 openWrite()：它回傳的 IOSink 在建構時就發出開檔，開檔若在第一次
+    // add() 之前失敗（Android scoped storage 拒絕寫入 Music/，errno=1），那個
+    // future 沒有任何監聽者 —— 監聽 sink.done 也接不到 —— 成為未處理的 async
+    // error 直接殺掉這個 isolate。自己 open 讓錯誤留在 await 鏈上，走進下面的
+    // FileSystemException 分支。逐塊 await 寫入也正是 IOSink 內部的做法。
+    final file = await File(
+      params.savePath,
+    ).open(mode: resumePosition > 0 ? FileMode.append : FileMode.write);
+    output = file;
 
     final contentLength = response.contentLength;
     final totalBytes = contentLength > 0 ? contentLength + resumePosition : -1;
     int receivedBytes = resumePosition;
     double lastProgress = 0;
 
+    // 逐塊套接收逾時：伺服器送完標頭後就不再送資料（CDN 掛住、連線半開）時，
+    // HttpClient 本身沒有讀取逾時，這個 isolate 會永遠停在 await for 上，任務
+    // 就一直卡在「下載中」。逾時以 TimeoutException 落到下面的 catch 分支，回報
+    // 成 'timeout'。沒有自動化測試：值是 30 秒的常數，isolate 裡推不動假時鐘，
+    // 要驗證只能真的等。
     await for (final chunk in response.timeout(
       AppConstants.networkReceiveTimeout,
     )) {
       if (isCancelled) {
-        await sink.close();
+        await closeOutputQuietly();
         client.close(force: true);
         await closeCancelPort();
         sendPort.send('cancelled');
         return;
       }
-      sink.add(chunk);
+      await file.writeFrom(chunk);
       receivedBytes += chunk.length;
 
       if (totalBytes > 0) {
@@ -1873,23 +1956,24 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       }
     }
 
-    await sink.close();
+    output = null;
+    await file.close();
     client.close();
     await closeCancelPort();
 
     sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
   } on TimeoutException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
       _IsolateMessage(
         _IsolateMessageType.error,
-        jsonEncode({'type': 'network', 'message': e.message ?? 'Timeout'}),
+        jsonEncode({'type': 'timeout', 'message': e.message ?? 'Timeout'}),
       ),
     );
   } on SocketException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
@@ -1899,7 +1983,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       ),
     );
   } on HttpException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
@@ -1909,17 +1993,23 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       ),
     );
   } on FileSystemException catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(
       _IsolateMessage(
         _IsolateMessageType.error,
-        jsonEncode({'type': 'filesystem', 'message': e.message}),
+        jsonEncode({
+          'type': 'filesystem',
+          'message': e.message,
+          'path': e.path,
+          // Android scoped storage 拒絕開檔（`Music/` 沒有權限）是這一類。
+          'access': e is PathAccessException,
+        }),
       ),
     );
   } catch (e) {
-    await sink?.close();
+    await closeOutputQuietly();
     client?.close(force: true);
     await closeCancelPort();
     sendPort.send(

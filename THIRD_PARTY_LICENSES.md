@@ -24,7 +24,14 @@ media_kit_libs_windows_audio-1.0.9/windows/CMakeLists.txt:66,69
 
 That archive is produced by
 <https://github.com/media-kit/libmpv-win32-audio-build> (archived, and carrying
-no license file of its own). Its build scripts exclude every GPL-only
+no license file of its own).
+
+**This binary is frozen.** It is the 2023-09-24 snapshot; the build repository
+was archived on 2024-10-09, and `media_kit_libs_windows_audio` 1.0.9
+(2023-09-27) is still the latest release. No dependency bump can bring a newer
+mpv or FFmpeg, security fixes included, and FMP does not build its own.
+
+Its build scripts exclude every GPL-only component: Its build scripts exclude every GPL-only
 component:
 
 | Script | Flags |
@@ -82,37 +89,23 @@ The full text of every one of those licenses is available inside the app under
 **Settings → About → Open-source licenses**, which also lists the entries in
 section 1.
 
-## 3. Protocol research
+## 3. Implementation independence
 
-FMP reaches Bilibili, YouTube, NetEase Cloud Music and QQ Music through private
-APIs. Endpoint shapes, signing steps and protocol constants come from public
-reverse-engineering write-ups rather than from any project's source:
-
-| Source | License | Used for |
-|---|---|---|
-| [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | CC BY-NC 4.0 | Bilibili endpoints and the cookie-refresh public key |
-| [netease-cloud-music](https://github.com/chaunsin/netease-cloud-music) | MIT | NetEase request-format reference |
-
-`bilibili-API-collect` is licensed **CC BY-NC 4.0**. Attribution is given here
-and in the README; its NonCommercial term applies to that documentation. The
-upstream repository was emptied in January 2026 and its history rewritten, so
-the GitHub API now reports no license for it; contributor mirrors still carry
-the CC BY-NC 4.0 `LICENSE`, with commits dating to 2020.
-
-**FMP implements no WBI signing at all.** What it took from each write-up is
-the protocol fact, not an implementation. The two crypto units were compared
-against the community projects implementing the same protocols and share no
-structure with them:
+FMP does not copy source code from any third-party project. The two
+cryptographic units were compared against community implementations of the same
+protocols and share no structure with them:
 
 - **NetEase** (`lib/core/utils/netease_crypto.dart`) -- the keys, IV and RSA
-  modulus are shipped verbatim in music.163.com's own `core.js`. FMP writes
-  fixed-mode three-argument private helpers and its own `BigInt.modPow`; the
-  reference implementations dispatch through a general
-  `aesEncrypt(text, mode, key, iv, format)` and parse PEM with a library.
-- **Bilibili** (`lib/services/account/bilibili_crypto.dart`) -- the public key,
-  the `refresh_{ts}` plaintext and the choice of RSA-OAEP/SHA-256 are protocol
-  facts. Every demo in the write-up parses the PEM with a library; FMP hand
-  writes a DER/ASN.1 parser instead.
+  modulus are shipped verbatim in music.163.com's own `core.js`. FMP writes a
+  fixed-CBC three-argument private helper, does ECB inline in `eapi`, and runs
+  its own `BigInt.modPow`; the reference implementations dispatch through a
+  general `aesEncrypt(text, mode, key, iv, format)` and parse PEM with a
+  library.
+- **Bilibili** (`lib/services/account/bilibili_crypto.dart`) -- every demo in
+  circulation parses the PEM with a library; FMP hand-writes a DER/ASN.1 parser
+  instead.
+
+**FMP implements no WBI signing at all.**
 
 ## 4. License texts
 

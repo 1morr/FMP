@@ -8,25 +8,6 @@ import '../../support/pump_until.dart';
 
 void main() {
   group('file exists cache', () {
-    test(
-      'file exists cache exposes path-scoped and reactive epoch providers',
-      () {
-        final source = File(
-          '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
-        ).readAsStringSync();
-
-        expect(source, contains('final filePathExistsProvider'));
-        expect(source, contains('final fileExistsCacheEpochProvider'));
-        expect(source, contains('NotifierProvider<FileExistsCacheEpoch, int>'));
-        expect(
-          source,
-          contains(
-            'fileExistsCacheProvider.select((paths) => paths.contains(path))',
-          ),
-        );
-      },
-    );
-
     test('path-scoped selector provider only updates for the watched path', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -96,16 +77,6 @@ void main() {
       container.read(fileExistsCacheProvider.notifier).clearAll();
 
       expect(values, [0, 1]);
-    });
-
-    test('downloaded category delete removes deleted paths from file cache', () {
-      final source = File(
-        '${Directory.current.path}/lib/ui/pages/library/downloaded_category_page.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('fileExistsCacheProvider.notifier'));
-      expect(source, contains('removeAll(track.allDownloadPaths)'));
-      expect(source, contains('FileExistsCache is updated explicitly'));
     });
 
     test(
@@ -218,87 +189,6 @@ void main() {
         expect(values, [0, 1, 2, 3]);
       },
     );
-
-    test('preloadPaths batches uncached unique paths in source', () {
-      final source = File(
-        '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
-      ).readAsStringSync();
-
-      expect(
-        source,
-        contains(
-          'Future<void> preloadPaths(List<String> paths, {int batchSize = 64}) async',
-        ),
-      );
-      expect(source, contains('paths.toSet().difference(state).toList()'));
-      expect(source, contains('Future.wait('));
-    });
-
-    test('getFirstExisting schedules one refresh per unresolved path set', () {
-      final source = File(
-        '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
-      ).readAsStringSync();
-
-      expect(
-        source,
-        contains("final Set<String> _pendingRefreshPaths = <String>{};"),
-      );
-      expect(
-        source,
-        contains('final pending = uncached.difference(_pendingRefreshPaths);'),
-      );
-      expect(source, contains('_pendingRefreshPaths.addAll(pending);'));
-      expect(source, contains('_pendingRefreshPaths.removeAll(pending);'));
-    });
-
-    test(
-      'playlist detail page tracks a cached download file-path set and watches the reactive cache epoch provider',
-      () {
-        final source = File(
-          '${Directory.current.path}/lib/ui/pages/library/playlist_detail_page.dart',
-        ).readAsStringSync();
-
-        expect(source, contains('_cachedDownloadFilePaths'));
-        expect(source, contains('_buildDownloadFilePathsSet'));
-        expect(source, contains('setEquals(paths, _cachedDownloadFilePaths)'));
-        expect(source, contains('preloadPaths(paths.toList())'));
-        expect(source, contains('_lastCacheEpoch'));
-        expect(source, contains('fileExistsCacheEpochProvider'));
-        expect(
-          source,
-          isNot(contains('tracks.length != _lastRefreshedTracksLength')),
-        );
-        expect(
-          source,
-          isNot(
-            contains(
-              'fileExistsCacheProvider.notifier.select((cache) => cache.cacheEpoch)',
-            ),
-          ),
-        );
-        expect(
-          source,
-          isNot(
-            contains('ref.read(fileExistsCacheProvider.notifier).cacheEpoch'),
-          ),
-        );
-      },
-    );
-
-    test('track detail panel watches the reactive cache epoch provider', () {
-      final source = File(
-        '${Directory.current.path}/lib/ui/widgets/panels/track_detail_panel.dart',
-      ).readAsStringSync();
-
-      expect(source, contains('_lastAvatarCacheEpoch'));
-      expect(source, contains('fileExistsCacheEpochProvider'));
-      expect(
-        source,
-        isNot(
-          contains('ref.read(fileExistsCacheProvider.notifier).cacheEpoch'),
-        ),
-      );
-    });
 
     test(
       'missing paths are cached to avoid repeated refresh scheduling',

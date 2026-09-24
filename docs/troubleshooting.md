@@ -57,6 +57,12 @@ VS Code 整合終端機沒有原生的「隱藏符合樣式的行」功能（已
 
 這一條由 `test/support/android_manifest_static_rule_test.dart` 守著：改回 `true` 或把屬性拿掉都會紅。
 
+## Windows：某個串流在 Android 能播、在 Windows 開不起來
+
+Windows 的解碼器是 `libmpv-2.dll` 與它內建的 FFmpeg，而那是 **2023-09-24 的快照，沒有升級路徑**：產出它的 `media-kit/libmpv-win32-audio-build` 已於 2024-10-09 封存，`media_kit_libs_windows_audio` 1.0.9（2023-09-27）至今仍是最新版。`flutter pub upgrade` 換不到更新的 mpv 或 FFmpeg。
+
+所以兩個平台對同一條串流說法不同時，先懷疑 Windows 的舊 FFmpeg 不認得那個格式或容器，而不是 FMP 的解析層。Android 走 ExoPlayer，不受影響。FMP 不自建這個二進位；授權細節見 `THIRD_PARTY_LICENSES.md`。
+
 ## 建置時的無害雜訊
 
 一次成功的 `flutter build windows --release` 過程中，會看到下面三則訊息。它們都不代表建置失敗，初次建置者看到也不需要排查。

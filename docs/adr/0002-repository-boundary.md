@@ -58,9 +58,10 @@ Immich 加過這層，後來用 20 幾個 PR 把它刪掉。現有的具體 clas
 
 ### 用 lint 而不是測試
 
-`custom_lint` 是額外的依賴與額外的建置步驟。掃原始碼的測試在這個庫已經有四份
-前例（`ui_consistency`、`list_tile_leading`、`riverpod3_static_rule`、
-`source_ownership_static_rule`），跟著既有做法走。
+`custom_lint` 是額外的依賴與額外的建置步驟。寫下這份 ADR 時，掃原始碼的測試在
+這個庫已經有四份前例（`ui_consistency`、`list_tile_leading`、`riverpod3_static_rule`、
+`source_ownership_static_rule`），跟著既有做法走。`list_tile_leading` 後來併進了
+`ui_consistency_static_rule_test.dart`；現在的靜態規則都叫 `*_static_rule_test.dart`。
 
 ## 後果
 

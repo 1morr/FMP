@@ -133,7 +133,7 @@ abstract class SourceApiException implements Exception {
         return (
           kind: SourceErrorKind.unknown,
           code: 'api_error',
-          message: 'Server error: $statusCode',
+          message: t.error.serverError(code: statusCode),
         );
       default:
         return (
