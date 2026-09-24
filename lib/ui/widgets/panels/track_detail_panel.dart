@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/core/utils/source_presentation.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import 'package:fmp/core/constants/ui_constants.dart';
@@ -826,8 +827,8 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
         const SizedBox(height: 12),
 
         // UP主/歌手信息
-        if (currentTrack?.sourceType == SourceIds.netease)
-          // 網易雲：歌手頭像 + 歌手名 + 發布時間
+        if (isSongSource(currentTrack?.sourceType))
+          // 歌曲：歌手頭像 + 歌手名 + 發布時間
           Row(
             children: [
               AvatarImage(
@@ -939,14 +940,10 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
   }
 
   /// 简化的统计数据
-  /// Bilibili: 播放数、点赞数、收藏数
-  /// YouTube: 播放数、点赞数（无收藏数）
-  /// Netease: 专辑名、评论数
+  /// 影片：播放数、点赞数、收藏数（見 [showsFavoriteCount]）
+  /// 歌曲：专辑名、评论数
   Widget _buildSimpleStats(BuildContext context, Track? track) {
-    final isYouTube = track?.sourceType == SourceIds.youtube;
-    final isNetease = track?.sourceType == SourceIds.netease;
-
-    if (isNetease) {
+    if (isSongSource(track?.sourceType)) {
       return DetailStatsRow(
         alignment: WrapAlignment.spaceEvenly,
         items: [
@@ -975,8 +972,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
           icon: Icons.thumb_up_rounded,
           label: widget.detail.formattedLikeCount,
         ),
-        // YouTube 不显示收藏数
-        if (!isYouTube)
+        if (showsFavoriteCount(track?.sourceType))
           DetailStatItem(
             icon: Icons.star_rounded,
             label: widget.detail.formattedFavoriteCount,
@@ -1060,11 +1056,9 @@ class _ClickableCover extends StatelessWidget {
     required this.detailState,
   });
 
-  bool get _isNetease => track?.sourceType == SourceIds.netease;
-
   @override
   Widget build(BuildContext context) {
-    final aspectRatio = _isNetease ? 1.0 : 16 / 9;
+    final aspectRatio = isSongSource(track?.sourceType) ? 1.0 : 16 / 9;
 
     return ClickableSourceCover(
       aspectRatio: aspectRatio,

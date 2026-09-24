@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/core/utils/source_presentation.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/core/utils/duration_formatter.dart';
 import 'package:fmp/core/utils/platform_utils.dart';
@@ -819,13 +820,11 @@ class _TrackInfoDialog extends ConsumerWidget {
     ref.watch(fileExistsCacheProvider);
     final cache = ref.read(fileExistsCacheProvider.notifier);
 
-    final isYouTube = currentTrack?.sourceType == SourceIds.youtube;
+    final isSong = isSongSource(currentTrack?.sourceType);
 
     return CappedDraggableSheet(
       icon: Icons.info_outline_rounded,
-      title: currentTrack?.sourceType == SourceIds.netease
-          ? t.player.songInfo
-          : t.player.videoInfo,
+      title: isSong ? t.player.songInfo : t.player.videoInfo,
       onClose: () => Navigator.of(context).pop(),
       bodySlivers: (context, scrollController) => [
         // 内容区域
@@ -839,8 +838,10 @@ class _TrackInfoDialog extends ConsumerWidget {
                 if (detailState.detail != null)
                   _DetailContent(
                     detail: detailState.detail!,
-                    isYouTube: isYouTube,
-                    isNetease: currentTrack?.sourceType == SourceIds.netease,
+                    showFavoriteCount: showsFavoriteCount(
+                      currentTrack?.sourceType,
+                    ),
+                    isSong: isSong,
                     track: currentTrack,
                     cache: cache,
                   )
@@ -868,15 +869,15 @@ class _TrackInfoDialog extends ConsumerWidget {
 /// 详情内容（有 VideoDetail 数据）
 class _DetailContent extends StatelessWidget {
   final VideoDetail detail;
-  final bool isYouTube;
-  final bool isNetease;
+  final bool showFavoriteCount;
+  final bool isSong;
   final Track? track;
   final FileExistsCache cache;
 
   const _DetailContent({
     required this.detail,
-    required this.isYouTube,
-    this.isNetease = false,
+    required this.showFavoriteCount,
+    this.isSong = false,
     required this.track,
     required this.cache,
   });
@@ -886,7 +887,7 @@ class _DetailContent extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     // 網易雲封面為 1:1，其餘為 16:9（與桌面 Detail Panel 一致）
-    final coverAspectRatio = isNetease ? 1.0 : 16 / 9;
+    final coverAspectRatio = isSong ? 1.0 : 16 / 9;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -942,7 +943,7 @@ class _DetailContent extends StatelessWidget {
         const SizedBox(height: 16),
 
         // UP主/歌手信息
-        if (isNetease)
+        if (isSong)
           // 網易雲：歌手頭像 + 歌手名
           Row(
             children: [
@@ -1012,7 +1013,7 @@ class _DetailContent extends StatelessWidget {
         // 统计数据
         DetailStatsRow(
           items: [
-            if (isNetease) ...[
+            if (isSong) ...[
               // 網易雲：專輯、評論數、發布日期、時長
               if (detail.albumName.isNotEmpty)
                 DetailStatItem(
@@ -1042,8 +1043,7 @@ class _DetailContent extends StatelessWidget {
                 icon: Icons.thumb_up_rounded,
                 label: detail.formattedLikeCount,
               ),
-              // YouTube 不显示收藏数
-              if (!isYouTube)
+              if (showFavoriteCount)
                 DetailStatItem(
                   icon: Icons.star_rounded,
                   label: detail.formattedFavoriteCount,

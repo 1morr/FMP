@@ -16,15 +16,32 @@ import 'package:fmp/data/models/source_ids.dart';
 
 import 'dart_source.dart';
 
-/// 檔案 → 分支點數。只記錄現況，不代表這些分支都該留著。
-const _budget = <String, int>{
-  'lib/core/errors/user_message.dart': 1,
-  'lib/core/utils/icon_helpers.dart': 3,
-  'lib/services/lyrics/lyrics_auto_match_service.dart': 1,
-  'lib/services/radio/radio_controller.dart': 1,
-  'lib/ui/pages/player/player_page.dart': 3,
-  'lib/ui/pages/settings/widgets/account_playlists_sheet.dart': 3,
-  'lib/ui/widgets/panels/track_detail_panel.dart': 4,
+/// 檔案 → 分支點數，以及為什麼留著。
+///
+/// 留下的都是「這件事本來就只有那一個音源有」，換成查表只是換個寫法，加音源時
+/// 也不必改。新增一筆之前先問：它是不是其實在問某種能力或屬性？是的話，改成
+/// 問能力（`SourceManager`）或屬性（像 `source_presentation.dart`）。
+const _budget = <String, ({int count, String why})>{
+  'lib/core/errors/user_message.dart': (
+    count: 1,
+    why: 'Bilibili 的私人與受限影片有一句專屬說明（要登入才能播）',
+  ),
+  'lib/core/utils/icon_helpers.dart': (
+    count: 3,
+    why: '每個音源的品牌圖示；認不得的 id 有刻意不同的後備圖示',
+  ),
+  'lib/services/lyrics/lyrics_auto_match_service.dart': (
+    count: 1,
+    why: '網易雲曲目的 sourceId 本身就是網易雲歌詞的 id，可以跳過搜尋',
+  ),
+  'lib/services/radio/radio_controller.dart': (
+    count: 1,
+    why: '電台刻意只支援 Bilibili 直播',
+  ),
+  'lib/ui/pages/settings/widgets/account_playlists_sheet.dart': (
+    count: 3,
+    why: '三個帳號歌單服務的 API 與資料模型各不相同，還沒有共同介面',
+  ),
 };
 
 /// 分支點：拿音源 id 做 `==` / `!=`、`case`，或當 switch 運算式的分支。
@@ -76,7 +93,10 @@ void main() {
 
     expect(
       sourceBranchPoints(sources),
-      equals(_budget),
+      equals({
+        for (final MapEntry(key: path, value: budget) in _budget.entries)
+          path: budget.count,
+      }),
       reason:
           'A file gained or lost a branch on a concrete source id. Gained: '
           'ask SourceManager for a capability or look the source up in a map '
