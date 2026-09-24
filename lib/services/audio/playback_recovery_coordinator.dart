@@ -137,6 +137,13 @@ class PlaybackRecoveryCoordinator {
 
   PlaybackRecoveryTimer? _retryTimer;
   int _retryAttempt = 0;
+
+  /// [_retryAttempt] 算的是哪一首。
+  ///
+  /// 自動重試成功不歸零：開得起來、播一兩秒又斷的串流，歸零就是無限重開。
+  /// 換一首歌、使用者手動重試、網路恢復才歸零。代價是同一首歌隔很久才偶爾
+  /// 斷一次，也會累計到上限 —— 到時按播放就是手動重試，會重新給五次。
+  String? _retryAttemptTrackKey;
   int _retryGeneration = 0;
   int? _scheduledRetryGeneration;
   String? _scheduledRetryTrackKey;
@@ -155,6 +162,10 @@ class PlaybackRecoveryCoordinator {
     final generation = ++_retryGeneration;
     _recoveryTrack = track;
     _saveMeaningfulPosition(position);
+    if (_retryAttemptTrackKey != track.uniqueKey) {
+      _retryAttemptTrackKey = track.uniqueKey;
+      _retryAttempt = 0;
+    }
 
     if (_retryAttempt >= NetworkRetryConfig.maxRetries) {
       _cancelRetryTimer();
@@ -233,6 +244,7 @@ class PlaybackRecoveryCoordinator {
     _recoveryTrack = track;
     _saveMeaningfulPosition(position);
     _retryAttempt = 0;
+    _retryAttemptTrackKey = track.uniqueKey;
     _clearScheduledRetryMarker();
     _cancelRetryTimer();
 
@@ -256,6 +268,7 @@ class PlaybackRecoveryCoordinator {
     final position = _recoveryPosition;
     final generation = ++_retryGeneration;
     _retryAttempt = 0;
+    _retryAttemptTrackKey = track.uniqueKey;
     _clearScheduledRetryMarker();
     _cancelRetryTimer();
 
@@ -281,9 +294,15 @@ class PlaybackRecoveryCoordinator {
   }
 
   PlaybackRecoveryEvent reset() {
+    _retryAttempt = 0;
+    _retryAttemptTrackKey = null;
+    return _clearRecovery();
+  }
+
+  /// 收掉這一輪重試，次數留著（見 [_retryAttemptTrackKey]）。
+  PlaybackRecoveryEvent _clearRecovery() {
     _retryGeneration++;
     _cancelRetryTimer();
-    _retryAttempt = 0;
     _recoveryTrack = null;
     _recoveryPosition = null;
     _clearScheduledRetryMarker();
@@ -363,7 +382,7 @@ class PlaybackRecoveryCoordinator {
     }
 
     if (result.isCompleted) {
-      reset();
+      _clearRecovery();
       return PlaybackRecoveryEvent(
         kind: PlaybackRecoveryEventKind.retrySucceeded,
         state: const PlaybackRecoveryState.clear(),
