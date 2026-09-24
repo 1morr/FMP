@@ -128,6 +128,81 @@ void main() {
     },
   );
 
+  testWidgets(
+    'unticking removes a track whose row gained a cid after it was saved',
+    (tester) async {
+      final harness = await createHarness(tester);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      LocaleSettings.setLocale(AppLocale.en);
+      // 播放時串流解析把 cid 補寫進資料庫那一列；搜尋結果裡的同一首歌仍然
+      // 沒有 cid。
+      await tester.runAsync(() async {
+        final row = (await harness.isar.tracks
+            .where()
+            .sourceIdEqualTo('BV1')
+            .findFirst())!;
+        row.cid = 111;
+        await harness.isar.writeTxn(() => harness.isar.tracks.put(row));
+      });
+
+      bool? result;
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: UncontrolledProviderScope(
+            container: harness.container,
+            child: MaterialApp(
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () async =>
+                        result = await showAddToPlaylistDialog(
+                          context: context,
+                          track: _track('BV1'),
+                        ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await _settle(
+        tester,
+        () => find.byIcon(Icons.check_circle).evaluate().isNotEmpty,
+        reason: 'the playlist holding the backfilled row is preselected',
+      );
+
+      await tester.tap(find.text('Favourites'));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.save));
+      await _settle(
+        tester,
+        () => result != null,
+        reason: 'the sheet closes after saving',
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await _settle(
+        tester,
+        () => !harness.container.read(allPlaylistsProvider).isLoading,
+        reason: 'the playlist list refresh triggered by the save finishes',
+      );
+
+      // 預選看到的是哪一列，移除的就要是哪一列：否則勾選框取消了、提示也說
+      // 成功，歌單裡卻還在。
+      final remaining = (await tester.runAsync(() async {
+        final playlist = await harness.isar.playlists.get(harness.playlistId);
+        return playlist!.trackIds;
+      }))!;
+      expect(remaining, [harness.trackIds[1]]);
+    },
+  );
+
   testWidgets('opening and cancelling the sheet writes no track', (
     tester,
   ) async {
