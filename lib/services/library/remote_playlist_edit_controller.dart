@@ -21,17 +21,17 @@ abstract class RemotePlaylistEditAdapter {
 }
 
 class RemotePlaylistEditController {
-  final RemotePlaylistEditAdapter bilibiliAdapter;
-  final RemotePlaylistEditAdapter youtubeAdapter;
-  final RemotePlaylistEditAdapter neteaseAdapter;
+  /// 每個音源自己的遠端編輯器，以音源 id 為鍵。
+  ///
+  /// 查不到就是這個音源沒有遠端編輯器，這裡**刻意不 fallback** —— 隨便挑一個
+  /// adapter 會把歌曲加到／刪掉另一個平台的歌單，那是無法復原的遠端寫入。
+  final Map<String, RemotePlaylistEditAdapter> adapters;
   final RefreshMatchingImportedPlaylists refreshMatchingImportedPlaylists;
   final RemoveTracksFromLocalPlaylist removeTracksFromLocalPlaylist;
   final IsRemoteSourceLoggedIn isLoggedIn;
 
   const RemotePlaylistEditController({
-    required this.bilibiliAdapter,
-    required this.youtubeAdapter,
-    required this.neteaseAdapter,
+    required this.adapters,
     required this.refreshMatchingImportedPlaylists,
     required this.removeTracksFromLocalPlaylist,
     required this.isLoggedIn,
@@ -93,7 +93,7 @@ class RemotePlaylistEditController {
     RemotePlaylistEditPlan plan, {
     int? localRemovalPlaylistId,
   }) async {
-    final adapter = _adapterFor(plan.sourceType);
+    final adapter = adapters[plan.sourceType];
     if (adapter == null) {
       return _unsupportedSourceResult(plan);
     }
@@ -197,23 +197,6 @@ class RemotePlaylistEditController {
             ),
       ],
     );
-  }
-
-  /// 認不得的音源沒有遠端編輯器。
-  ///
-  /// 這裡**刻意不 fallback** —— 隨便挑一個 adapter 會把歌曲加到／刪掉
-  /// 另一個平台的歌單，那是無法復原的遠端寫入。
-  RemotePlaylistEditAdapter? _adapterFor(String sourceType) {
-    switch (sourceType) {
-      case SourceIds.bilibili:
-        return bilibiliAdapter;
-      case SourceIds.youtube:
-        return youtubeAdapter;
-      case SourceIds.netease:
-        return neteaseAdapter;
-      default:
-        return null;
-    }
   }
 
   String _sourceTypeForImportedPlaylist(Playlist playlist, List<Track> tracks) {
