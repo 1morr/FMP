@@ -103,8 +103,8 @@ class TrackDetailNotifier extends Notifier<TrackDetailState> {
       try {
         detail = await _loadNetworkDetail(track, source);
       } catch (_) {
-        // 网络获取失败，已下载歌曲回退到本地 metadata（Bilibili/YouTube）
-        if (track.hasAnyDownload && track.sourceType != SourceIds.netease) {
+        // 網路取不到時，已下載的歌曲退回下載時存的本地 metadata
+        if (track.hasAnyDownload) {
           detail = await _loadFromLocalMetadata(track);
         }
         // 本地也没有则重新抛出原始异常

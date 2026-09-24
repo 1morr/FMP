@@ -357,6 +357,47 @@ void main() {
     },
   );
 
+  test(
+    'a downloaded netease track falls back to its metadata offline',
+    () async {
+      final netease = _CompletingTrackDetailSource(SourceIds.netease);
+      final sourceManager = SourceManager(sources: [netease]);
+      addTearDown(sourceManager.dispose);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'track_detail_netease_offline_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      // 下載時寫的網易雲 metadata：網易雲沒有公開播放數，viewCount 存的是 0。
+      final downloadDir = await Directory(
+        p.join(tempDir.path, 'download'),
+      ).create(recursive: true);
+      await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
+{
+  "sourceId": "NE-OFFLINE",
+  "title": "Netease metadata offline",
+  "viewCount": 0
+}
+''');
+
+      final track = _track('NE-OFFLINE', SourceIds.netease)
+        ..setDownloadPath(1, p.join(downloadDir.path, 'audio.mp3'));
+      final notifier = _notifier(sourceManager, _FakeSourceAuthContext());
+
+      final loadFuture = notifier.loadDetail(track);
+      await pumpUntil(
+        () => netease.requests.length == 1,
+        reason: 'the load should reach the source',
+      );
+      netease.completeError('NE-OFFLINE', const SocketException('offline'));
+      await loadFuture;
+
+      expect(notifier.state.error, isNull);
+      expect(notifier.state.detail!.title, 'Netease metadata offline');
+    },
+  );
+
   test('loadDetail gets auth from SourceAuthContext authForPlay', () async {
     final youtube = _CompletingTrackDetailSource(SourceIds.youtube);
     final sourceManager = SourceManager(sources: [youtube]);
