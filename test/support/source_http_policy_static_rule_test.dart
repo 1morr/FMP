@@ -12,15 +12,29 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/source_ids.dart';
 
 import 'dart_source.dart';
 
-/// 從路徑推出這個檔案服務哪個音源。
-const _sourceOfPathToken = <String, String>{
-  'bilibili': 'SourceIds.bilibili',
-  'youtube': 'SourceIds.youtube',
-  'netease': 'SourceIds.netease',
+/// 從路徑推出這個檔案服務哪個音源：路徑裡的音源 id → 程式碼裡該寫的常數。
+final _sourceOfPathToken = sourceIdConstants(
+  File('lib/data/models/source_ids.dart').readAsStringSync(),
+);
+
+/// `SourceIds` 的字串常數：值 → `SourceIds.<名字>`。
+///
+/// 從 `source_ids.dart` 讀，不手列：這裡以前寫死三個音源，第四個音源的客戶端
+/// 指名錯音源也不會紅，而「每個音源都還有客戶端」那條檢查也看不到它。
+Map<String, String> sourceIdConstants(String sourceIdsDart) => {
+  for (final match in _sourceIdConstant.allMatches(
+    stripDartComments(sourceIdsDart),
+  ))
+    match.group(2)!: 'SourceIds.${match.group(1)}',
 };
+
+final _sourceIdConstant = RegExp(
+  r"""static\s+const\s+(?:String\s+)?(\w+)\s*=\s*['"]([^'"]+)['"]""",
+);
 
 /// 直接生出 HTTP 客戶端 —— 繞過 policy 的唯一方式。
 final _rawClientPattern = RegExp(
@@ -171,7 +185,9 @@ void main() {
       }
 
       expect(problems, isEmpty);
-      // 三個音源都還在，否則整條規則會安靜地變成空掃描。
+      // 讀出來的就是 SourceIds.values，否則推導本身壞了。
+      expect(_sourceOfPathToken.keys.toSet(), SourceIds.values.toSet());
+      // 每個音源都還有客戶端，否則整條規則會安靜地變成空掃描。
       for (final token in _sourceOfPathToken.keys) {
         expect(
           clients.any((path) => path.contains(token)),
@@ -229,6 +245,22 @@ class PolicySource {
         ),
         isFalse,
       );
+    });
+
+    test('reads every source id constant, however it is written', () {
+      const sourceIds = '''
+abstract final class SourceIds {
+  static const String bilibili = 'bilibili';
+  static const soundcloud="soundcloud";
+  // static const String removed = 'removed';
+  static const List<String> values = [bilibili, soundcloud];
+}
+''';
+
+      expect(sourceIdConstants(sourceIds), {
+        'bilibili': 'SourceIds.bilibili',
+        'soundcloud': 'SourceIds.soundcloud',
+      });
     });
 
     test('a client that names no source or the wrong one is caught', () {
