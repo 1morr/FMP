@@ -28,7 +28,6 @@ const _budget = <String, int>{
   'lib/ui/pages/player/player_page.dart': 3,
   'lib/ui/pages/settings/account_management_page.dart': 3,
   'lib/ui/pages/settings/widgets/account_playlists_sheet.dart': 3,
-  'lib/ui/widgets/dialogs/add_to_remote_playlist_dialog.dart': 3,
   'lib/ui/widgets/panels/track_detail_panel.dart': 4,
 };
 

@@ -12,21 +12,25 @@ Future<bool> showAddToRemotePlaylistDialog({
   return showAddToRemotePlaylistDialogMulti(context: context, tracks: [track]);
 }
 
+typedef _RemotePlaylistDialog =
+    Future<bool> Function({
+      required BuildContext context,
+      required List<Track> tracks,
+    });
+
+/// 每個音源自己的遠端歌單對話框，依這個順序逐一顯示。沒有對話框的音源，
+/// 它的曲目就不會被加到任何遠端歌單。
+const Map<String, _RemotePlaylistDialog> _dialogsBySource = {
+  SourceIds.bilibili: showAddToBilibiliPlaylistDialog,
+  SourceIds.youtube: showAddToYouTubePlaylistDialog,
+  SourceIds.netease: showAddToNeteasePlaylistDialog,
+};
+
 Future<bool> showAddToRemotePlaylistDialogMulti({
   required BuildContext context,
   required List<Track> tracks,
 }) async {
   if (tracks.isEmpty) return false;
-
-  final bilibiliTracks = tracks
-      .where((t) => t.sourceType == SourceIds.bilibili)
-      .toList();
-  final youtubeTracks = tracks
-      .where((t) => t.sourceType == SourceIds.youtube)
-      .toList();
-  final neteaseTracks = tracks
-      .where((t) => t.sourceType == SourceIds.netease)
-      .toList();
 
   // 提前捕獲 navigator，避免調用方 widget dispose 後 context 失效
   final navigator = Navigator.of(context);
@@ -34,26 +38,15 @@ Future<bool> showAddToRemotePlaylistDialogMulti({
 
   bool anySuccess = false;
 
-  if (bilibiliTracks.isNotEmpty && overlay != null && overlay.mounted) {
-    final result = await showAddToBilibiliPlaylistDialog(
+  for (final MapEntry(key: sourceType, value: showDialog)
+      in _dialogsBySource.entries) {
+    final sourceTracks = tracks
+        .where((t) => t.sourceType == sourceType)
+        .toList();
+    if (sourceTracks.isEmpty || overlay == null || !overlay.mounted) continue;
+    final result = await showDialog(
       context: overlay.context,
-      tracks: bilibiliTracks,
-    );
-    if (result) anySuccess = true;
-  }
-
-  if (youtubeTracks.isNotEmpty && overlay != null && overlay.mounted) {
-    final result = await showAddToYouTubePlaylistDialog(
-      context: overlay.context,
-      tracks: youtubeTracks,
-    );
-    if (result) anySuccess = true;
-  }
-
-  if (neteaseTracks.isNotEmpty && overlay != null && overlay.mounted) {
-    final result = await showAddToNeteasePlaylistDialog(
-      context: overlay.context,
-      tracks: neteaseTracks,
+      tracks: sourceTracks,
     );
     if (result) anySuccess = true;
   }
