@@ -21,7 +21,6 @@ const _budget = <String, int>{
   'lib/core/errors/user_message.dart': 1,
   'lib/core/utils/icon_helpers.dart': 3,
   'lib/services/lyrics/lyrics_auto_match_service.dart': 1,
-  'lib/services/platform/url_launcher_service.dart': 8,
   'lib/services/radio/radio_controller.dart': 1,
   'lib/ui/pages/player/player_page.dart': 3,
   'lib/ui/pages/settings/widgets/account_playlists_sheet.dart': 3,
