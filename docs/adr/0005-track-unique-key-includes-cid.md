@@ -67,10 +67,27 @@ cid 可以是 null。從搜尋與排行榜來的 Bilibili 曲目一開始沒有 
 的 `uniqueKey` 就從兩段式變成三段式。歌單匯入則在 `import_service.dart` 當下就
 填 cid。
 
-程式裡沒有任何地方會在回填時改寫以舊鍵存下的列：寫
-`trackUniqueKey` 的地方（`lyrics_auto_match_service.dart`、`lyrics_provider.dart`、
+寫 `trackUniqueKey` 的地方（`lyrics_auto_match_service.dart`、`lyrics_provider.dart`、
 `lyrics_title_parse_cache_repository.dart`、`backup_service.dart`）都用寫入當下的
-`uniqueKey`。這在實務上會不會讓某筆匹配失聯，本 ADR 沒有查證。
+`uniqueKey`。2026-09-25 查證過，這確實會讓歌詞匹配失聯：v1.9.1 以前，搜尋來的
+曲目存下的匹配都是兩段式鍵；升到 v1.10.x 後第一次播放回填 cid，歌詞欄與自動匹配
+就都讀不到它了，手動選的歌詞與 offset 跟著不見。
+
+現在的處理：
+
+- **回填當下**：`TrackRepository.backfillCid` 在同一筆交易裡把匹配改到三段式鍵。
+  不持久化的解析（臨時播放、預取）也會把 cid 補進資料庫裡已經有的那一列：歌單頁
+  點歌走的就是臨時播放，以前 cid 只寫在副本上，資料庫那一列一直停在兩段式鍵。
+- **每次啟動**：`database_migration.dart` 補救更早回填過的列，以及備份匯入帶回來
+  的舊鍵。
+
+兩處共用 `relinkLyricsMatchToCidKeyInTxn`，只在以下條件都成立時改：
+
+- 同一支影片的列都已經有 cid，而且只有一個 cid；
+- 三段式鍵還沒有匹配。
+
+分 P 影片分不出舊匹配屬於哪一 P，所以不改。`LyricsTitleParseCache` 每次啟動都會
+清空，不需要處理。
 
 同理，`DataIntegrityRepository` 以 `uniqueKey` 找重複曲目，同一支影片一筆有
 cid、一筆沒有，不會被當成重複。

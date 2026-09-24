@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
@@ -33,7 +34,7 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('stream_resolution_');
     isar = await Isar.open(
-      [TrackSchema, SettingsSchema],
+      [TrackSchema, SettingsSchema, LyricsMatchSchema],
       directory: tempDir.path,
       name: 'stream_resolution_test',
     );
@@ -404,6 +405,99 @@ void main() {
     expect(result.track.cid, 998877);
     final persisted = await trackRepository.getById(result.track.id);
     expect(persisted!.cid, 998877);
+  });
+
+  test(
+    'a lyrics match follows the cid written back onto a saved track',
+    () async {
+      source.nextCid = 998877;
+      final track = await trackRepository.save(_track('cid-lyrics'));
+      // 回填之前存的匹配，鍵是兩段式。
+      await isar.writeTxn(
+        () => isar.lyricsMatchs.put(
+          LyricsMatch()
+            ..trackUniqueKey = track.uniqueKey
+            ..lyricsSource = 'netease'
+            ..externalId = '42'
+            ..offsetMs = 300,
+        ),
+      );
+
+      final result = await service.resolvePrimary(
+        track,
+        purpose: StreamResolutionPurpose.playback,
+      );
+
+      // 歌詞欄與自動匹配都用解析後的鍵查。
+      final match = await isar.lyricsMatchs
+          .where()
+          .trackUniqueKeyEqualTo(result.track.uniqueKey)
+          .findFirst();
+      expect(result.track.uniqueKey, endsWith(':998877'));
+      expect(match?.externalId, '42');
+      expect(match?.offsetMs, 300);
+      expect(await isar.lyricsMatchs.count(), 1);
+    },
+  );
+
+  test('a temporary play writes the cid onto the saved row', () async {
+    source.nextCid = 998877;
+    final saved = await trackRepository.save(_track('cid-temporary'));
+    await isar.writeTxn(
+      () => isar.lyricsMatchs.put(
+        LyricsMatch()
+          ..trackUniqueKey = saved.uniqueKey
+          ..lyricsSource = 'netease'
+          ..externalId = '42',
+      ),
+    );
+
+    // 臨時播放，不持久化這次解析。傳的是搜尋結果裡的同一首：還沒存過，只靠
+    // 來源身分對到資料庫那一列。
+    final result = await service.resolvePrimary(
+      _track('cid-temporary'),
+      purpose: StreamResolutionPurpose.playback,
+      persist: false,
+    );
+
+    final row = await trackRepository.getById(saved.id);
+    expect(row!.cid, 998877);
+    expect(row.audioUrl, isNull, reason: 'the resolution itself is not kept');
+    final match = await isar.lyricsMatchs
+        .where()
+        .trackUniqueKeyEqualTo(result.track.uniqueKey)
+        .findFirst();
+    expect(match?.externalId, '42');
+  });
+
+  test('a temporary play of an unsaved track creates no row', () async {
+    source.nextCid = 998877;
+
+    await service.resolvePrimary(
+      _track('cid-search-result'),
+      purpose: StreamResolutionPurpose.playback,
+      persist: false,
+    );
+
+    expect(await isar.tracks.count(), 0);
+  });
+
+  test('a learned cid never lands on another page of the video', () async {
+    source.nextCid = 998877;
+    final otherPage = await trackRepository.save(
+      _track('cid-pages')
+        ..cid = 111
+        ..pageNum = 2,
+    );
+
+    await service.resolvePrimary(
+      _track('cid-pages'),
+      purpose: StreamResolutionPurpose.playback,
+    );
+
+    final row = await trackRepository.getById(otherPage.id);
+    expect(row!.cid, 111);
+    expect(row.audioUrl, isNull);
   });
 
   test('resolvePrimary never overwrites a cid the track already has', () async {
