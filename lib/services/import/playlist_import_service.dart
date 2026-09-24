@@ -12,7 +12,13 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/search/source_search_fanout.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-/// 搜索来源配置
+/// 歌單匯入時拿來比對的播放音源。
+///
+/// 網易雲不在裡面，「全部」也只搜 YouTube 與 Bilibili。這不是當初權衡過的結果：
+/// 這個 enum 寫於 2026-02，那時網易雲只是歌單匯入的來源，要到 2026-03 才接成播放
+/// 音源，而接上時沒有回頭加進來。現在維持不加，因為一加就會改變使用者匯入的
+/// 結果：比對會多出一整個平台的候選，而網易雲有不少曲目要 VIP 才能播。要加的話，
+/// 這是產品決定，不是補漏。
 enum SearchSourceConfig {
   all,
   bilibiliOnly,
