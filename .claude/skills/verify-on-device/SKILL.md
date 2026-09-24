@@ -145,9 +145,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Click 
 `-Click` raises the window, clicks the element's centre and parks the cursor
 on the title bar (`-Role`, `-Index` pick among duplicates; exit 2 = no match).
 There is no MSAA default action, so it is still a real mouse click and the
-element must be on screen. It sees only what the semantics tree carries: the
-desktop `NavigationRail` is absent from the framework tree itself (checked
-2026-09-25), so drive the side rail by coordinates.
+element must be on screen. It matches a name exactly or by its first line, so
+`-Click '設定'` reaches the rail tab named `設定` + `第 6 個分頁 (共 6 個)`. It
+sees only what the semantics tree carries.
 
 **Know what `-Click` will do before you run it.** It clicks for real, like any
 other input here. On 2026-09-25 a stray `-Click '清空佇列'` opened the

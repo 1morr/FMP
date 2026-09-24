@@ -19,9 +19,9 @@
 # The engine exposes no MSAA default action, so -Click moves the mouse to the
 # element's centre and clicks; the element must be on screen. It then parks the
 # cursor on the window's top-left corner: a tooltip left under the pointer
-# freezes the tree for the rest of the run (docs/troubleshooting.md). Names are
-# matched exactly; list rows often carry multi-line names, so read them with
-# -Filter first.
+# freezes the tree for the rest of the run (docs/troubleshooting.md). A name
+# matches when it equals -Click or when its first line does: rail tabs and list
+# rows carry multi-line names such as "設定" + "第 6 個分頁 (共 6 個)".
 #
 # First output line is `nodes=<n>`. Compare it with the framework's tree
 # (`ext.flutter.debugDumpSemanticsTreeInInverseHitTestOrder`): a handful of
@@ -153,7 +153,12 @@ if (-not $Click) {
     exit 0
 }
 
-$found = @($nodes | Where-Object { $_.Name -eq $Click -and $_.HasRect -and (-not $Role -or $_.Role -eq $Role) })
+# 名稱整段相符，或第一行相符：導覽分頁與列表項目的名稱常是多行（「設定」換行接
+# 「第 6 個分頁 (共 6 個)」）。
+$found = @($nodes | Where-Object {
+    ($_.Name -eq $Click -or ($_.Name -split "`n")[0] -eq $Click) -and $_.HasRect -and
+    (-not $Role -or $_.Role -eq $Role)
+})
 if ($found.Count -le $Index) {
     Write-Output "no element named '$Click'$(if ($Role) { " with role '$Role'" }) at index $Index ($($found.Count) found)"
     exit 2
