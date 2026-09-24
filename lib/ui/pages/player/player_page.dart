@@ -38,6 +38,7 @@ import 'package:fmp/ui/widgets/player/player_play_pause_button.dart';
 import 'package:fmp/ui/widgets/lyrics/lyrics_display.dart';
 import 'package:fmp/ui/widgets/menus/popup_menu_row.dart';
 import 'package:fmp/ui/pages/lyrics/lyrics_search_sheet.dart';
+import 'package:fmp/ui/widgets/controls/scoped_slider.dart';
 
 /// 播放頁的三種版面。
 enum PlayerLayoutMode {
@@ -610,7 +611,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
           ),
-          child: Slider(
+          child: ScopedSlider(
             value: displayProgress,
             // 不设时读屏软件会念"50%"。进度条上有意义的是时间位置，
             // 而 Slider 的值是 0..1 的比例，没人能从"50%"知道跳到哪里。

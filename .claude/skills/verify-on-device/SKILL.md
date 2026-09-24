@@ -72,9 +72,10 @@ Keep the returned `terminal.handle`. First Android build takes several minutes;
 `orca terminal wait --for tui-idle` can time out while the build is still
 healthy — read the tail before concluding anything failed.
 
-`flutter run -d windows` works the same way. Its output is flooded by the benign
-`Failed to update ui::AXTree` spam (see `docs/troubleshooting.md`) — filter it
-out when reading, never "fix" it.
+`flutter run -d windows` works the same way. A `Failed to update ui::AXTree`
+line in its output is not noise: the Windows accessibility tree has frozen and
+Narrator reads stale content (see `docs/troubleshooting.md`). Find the node
+before filtering the line away.
 
 ## 3. Observe
 
@@ -128,12 +129,35 @@ Then re-observe. This is the inner loop: edit → `r` → `ax`/screenshot → as
 
 ## 6. Windows desktop build
 
-The Windows app exposes **no semantics tree** to UI Automation — `get-app-state`
-returns only `window > pane FLUTTERVIEW`. On Windows you drive by screenshot and
-window-local coordinates, not element indexes. The window *can* be driven; the
-step earlier rounds missed is raising it to the foreground first, and
-`--restore-window` does not reliably do that — see "Driving the Windows build"
-under §7 for what does:
+The Windows app exposes **no semantics tree** to UI Automation, so
+`get-app-state` returns only `window > pane FLUTTERVIEW`, and so does every
+other UIA client. The engine answers through MSAA only (checked in
+`flutter_windows.dll`, Flutter 3.47.1), so the tree is still readable:
+
+```bash
+S=.claude/skills/verify-on-device/scripts
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Filter button
+#   [push button] '查看佇列' @(3156,1228 121x49)     screen rect, physical px
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Click '查看佇列'
+#   clicked [push button] '查看佇列' at (3216,1252), match 1 of 1
+```
+
+`-Click` raises the window, clicks the element's centre and parks the cursor
+on the title bar (`-Role`, `-Index` pick among duplicates; exit 2 = no match).
+There is no MSAA default action, so it is still a real mouse click and the
+element must be on screen. It matches a name exactly or by its first line, so
+`-Click '設定'` reaches the rail tab named `設定` + `第 6 個分頁 (共 6 個)`. It
+sees only what the semantics tree carries.
+
+**Know what `-Click` will do before you run it.** It clicks for real, like any
+other input here. On 2026-09-25 a stray `-Click '清空佇列'` opened the
+clear-queue confirmation on the user's own queue of 1194 tracks. It was
+cancelled with `-Click '取消'`.
+
+Fall back to screenshots and window-local coordinates for anything the tree does
+not carry. The window *can* be driven that way. The step earlier rounds missed
+is raising it to the foreground first, and `--restore-window` does not do that
+reliably. See "Driving the Windows build" under §7 for what does:
 
 ```bash
 orca computer list-apps --json                     # find pid of "fmp"
@@ -181,7 +205,8 @@ rotate, back) via its `qemu-system-x86_64` process — but drive the guest throu
   centre off it, and drive with `adb shell input tap <x> <y>`. Measured on
   `Medium_Tablet` (2560x1600); the same menus come back fine on
   `Medium_Phone`.
-- **No element tree on Windows** (§6).
+- **No UI Automation tree on Windows.** Read and click it through MSAA
+  instead (§6).
 - `orca screenshot` (Orca's embedded browser) returns inline base64 and burns
   context. For device pixels always use `adb exec-out screencap -p > file.png`.
 - **A snapshot-restored `Medium_Phone` can come up wedged.** The screen is a
@@ -241,11 +266,25 @@ observation on the emulator is worth.
   directly, in one call, and returns text. A screenshot answers it indirectly,
   costs context, and cannot see anything off-screen. Reach for pixels only when
   the question is genuinely about layout.
-- **The Windows `flutter run` terminal is unreadable.** `Failed to update
-  ui::AXTree` spam (`flutter/flutter#182444`) scrolls Dart logs away within
-  seconds. On Windows, read state through the VM Service and confirm visuals by
-  screenshot — and raise the window to the foreground first, or the capture is
-  of whatever is on top.
+- **The Windows `flutter run` terminal floods once a tooltip shows.**
+  `Failed to update ui::AXTree` lines (`flutter/flutter#182444`) scroll Dart
+  logs away within seconds. The first line comes from hovering a tooltip, which
+  a synthetic click does too. On Windows, read state through the VM Service,
+  and confirm visuals by screenshot. Raise the window to the foreground first,
+  or the capture is of whatever is on top.
+- **Accessibility measurements depend on where the cursor rests.** A tooltip
+  under the pointer breaks the tree for the rest of the run, so two runs of the
+  same steps can disagree. Park the cursor on empty space before the step you
+  measure, or drive it by keyboard.
+- **Check what Narrator can reach through MSAA, not UI Automation.** UIA shows
+  nothing under `pane FLUTTERVIEW`, walked or hit-tested, even with a healthy
+  tree and Narrator running. `scripts/msaa_tree.ps1` prints `nodes=<n>` first,
+  and Narrator does not need to be on. Measured 2026-09-24:
+  - 7 nodes while the bridge was stuck, against 93 in the framework tree;
+  - 120-odd once the bridge was healthy.
+
+  To toggle Narrator itself, send Win+Ctrl+Enter. `Stop-Process` cannot stop
+  it.
 - **Read SMTC through WinRT, not the flyout.** Querying
   `GlobalSystemMediaTransportControlsSessionManager` returns the actual session
   properties as text; screenshotting the media flyout is unreliable because the

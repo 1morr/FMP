@@ -112,17 +112,21 @@ Never:
   assertion out, not the file.
   `test/support/static_rule_placement_static_rule_test.dart` enforces this and
   deliberately carries no exception list.
-- Do not try to "fix" the benign `Failed to update ui::AXTree` Windows log spam —
-  it is a known Flutter engine bug (`flutter/flutter#182444`), not an FMP defect.
-  See `docs/troubleshooting.md`.
+- Do not build a Material `Slider` directly; use `ScopedSlider`
+  (`lib/ui/widgets/controls/scoped_slider.dart`). A slider's value indicator
+  lands in the Navigator's Overlay, and on Windows that freezes the
+  accessibility tree (`flutter/flutter#182444`): Narrator reads nothing past the
+  title bar, and the only trace is a `Failed to update ui::AXTree` line on
+  stderr. That line is not noise. A tooltip shown on mouse hover still triggers
+  it — see `docs/troubleshooting.md`.
 
 The pump, upward-import, feature-edge and placement rules are enforced by tests
 under `test/support/`, which carry the exception lists. Add a line with a reason
 when you add a legitimate exception; delete it when it goes away. The image rule
 is enforced by `test/ui/static_rules/ui_consistency_static_rule_test.dart`,
-which lists what each semantic image widget may call. Nothing checks the
-`AudioController` bypass, ad-hoc Isar opening or hidden search filters for you,
-and the AXTree line is a stop-loss note that no static test could.
+which lists what each semantic image widget may call, and the slider rule by
+`test/ui/static_rules/slider_overlay_static_rule_test.dart`. Nothing checks the
+`AudioController` bypass, ad-hoc Isar opening or hidden search filters for you.
 
 ## Architecture
 
