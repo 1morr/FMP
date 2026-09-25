@@ -64,11 +64,13 @@ No test checks these; hold them yourself:
   the `kFmpSchemaVersion` dartdoc in `lib/data/database/database_migration.dart`.
 - **Search** — the visible source chips on the search page are the only source
   selector; no setting filters search behind the user's back (`db41b987`).
-- **Providers** — `audioControllerProvider` and the providers building its
-  collaborators live in `lib/providers/audio/`; the controller class declares
-  none. `neteaseSourceProvider` is the **lyrics-layer** `NeteaseSource`
-  (`lib/services/lyrics/`); the same-named data source adapter is reached only
-  through `SourceManager`'s narrow capabilities.
+- **Providers** — `audio_provider.dart` declares no providers.
+  `audioControllerProvider` and the backend, queue and stream providers live in
+  `lib/providers/audio/`; collaborators such as `nowPlayingPublisherProvider`,
+  `playbackSideEffectsProvider` and `queueStateProvider` declare theirs beside
+  their class in `lib/services/audio/`. `neteaseSourceProvider` is the
+  **lyrics-layer** `NeteaseSource` (`lib/services/lyrics/`); the same-named data
+  source adapter is reached only through `SourceManager`'s narrow capabilities.
 
 Gated by static-rule tests. The tests hold the exception lists: add an entry
 with a reason, delete it when it goes away.
@@ -93,3 +95,36 @@ with a reason, delete it when it goes away.
   `*_static_rule_test.dart` and lives in `test/support/` or
   `test/<layer>/static_rules/` —
   `test/support/static_rule_placement_static_rule_test.dart`.
+
+## Trellis
+
+- **Rules vs patterns** — binding rules stay in this file;
+  `.trellis/spec/<layer>/` holds how each layer's code is written and links
+  here instead of restating a rule. A new rule goes in exactly one of them.
+- **`trellis update`** — keep the local `.claude/agents/trellis-check.md` and
+  `trellis-implement.md`: their Verify steps run § Verification above. Journals
+  stay local because the repo is public (`.trellis/workspace/` is gitignored,
+  `session_auto_commit: false`); if an update re-adds a journal `merge=union`
+  line to `.gitattributes`, drop it.
+
+<!-- TRELLIS:START -->
+# Trellis Instructions
+
+These instructions are for AI assistants working in this project.
+
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+
+- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
+- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` — per-developer journals and session traces
+- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
+
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+- `.agents/skills/` — reusable Trellis skills
+- `.codex/agents/` — optional custom subagents
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
