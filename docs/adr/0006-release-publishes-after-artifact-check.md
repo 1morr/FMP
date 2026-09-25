@@ -30,6 +30,9 @@ build-windows → release`。`prepare` 檢查 tag 是 `vMAJOR.MINOR.PATCH` 且�
 - `fmp-<tag>-checksums.sha256`：只涵蓋 6 個版本化檔案（4 個 APK、zip、installer），
   刻意排除 `fmp-latest-*`
 
+v1.11.0 起多了 `fmp-latest-android-arm64-v8a.apk`，README 的 arm64 連結指向它，
+所以一個 Release 是 11 個 asset（2026-09-25 以 `gh release view` 查證）。
+
 App 內更新讀的正是這份 checksums（`update_service.dart` 找
 `-checksums.sha256` 結尾的 asset）與 Release body（`data['body']` 成為更新對話框
 的 `releaseNotes`）。
