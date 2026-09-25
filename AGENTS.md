@@ -27,7 +27,7 @@ FMP is a Flutter music player for Android and Windows that plays from
 - Generated `*.g.dart` files (Isar and slang) are gitignored. After a pull, a
   branch switch or in a fresh worktree, run `dart run build_runner build` and
   `dart run slang` first: stale codegen fails as a missing getter that looks
-  like a source bug.
+  like a source bug. An Orca worktree runs them in the `orca.yaml` setup.
 - A full run is `flutter test --exclude-tags live`, as in CI; `live` tests hit
   the real source APIs.
 - `flutter analyze` and the `dart format lib test tool` CI gate cover `tool/`
@@ -104,8 +104,9 @@ with a reason, delete it when it goes away.
 - **`trellis update`** — keep the local `.claude/agents/trellis-check.md` and
   `trellis-implement.md`: their Verify steps run § Verification above. Journals
   stay local because the repo is public (`.trellis/workspace/` is gitignored,
-  `session_auto_commit: false`); if an update re-adds a journal `merge=union`
-  line to `.gitattributes`, drop it.
+  `session_auto_commit: false`; `orca.yaml` shares the main checkout's copy
+  with Orca worktrees); if an update re-adds a journal `merge=union` line to
+  `.gitattributes`, drop it.
 
 <!-- TRELLIS:START -->
 # Trellis Instructions
