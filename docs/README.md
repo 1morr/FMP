@@ -1,49 +1,23 @@
 # FMP 文件地圖
 
-此目錄保存面向使用者、貢獻者與維護者的專案文件。根目錄 [README](../README.md) 是產品入口；AI coding agent 的強約束規則在 [AGENTS.md](../AGENTS.md)。
+根目錄 [README](../README.md) 是產品入口；AI coding agent 的規則在 [AGENTS.md](../AGENTS.md)，人類貢獻者適用同一套。
 
-## 先讀哪份文件
+| 文件 | 什麼時候讀 | 什麼變了要更新它 |
+|------|------------|------------------|
+| [README](../README.md) | 想下載或快速了解 FMP | 使用者可見功能、截圖、下載入口、專案定位 |
+| [建置指南](building.md) | 在本機編譯 Android / Windows | 本機建置環境、工具鏈、打包前置條件 |
+| [開發文件](development.md) | 理解架構與主要模組；用 VM Service 查正在跑的 app | 架構分層、Runtime 調試流程 |
+| [建置與發布指南](build-and-release.md) | 發新版本、調整 CI 或 Release 流程 | CI、產物命名、Release workflow、簽名 secrets、應用內更新資產 |
+| [疑難排解](troubleshooting.md) | 看到像錯誤的建置或 runtime log，或遇到修不掉只能繞過的行為 | 新查明的噪音或已知行為 |
+| [adr/](adr/) | 想知道某個跨模組決定「當初為什麼這樣選」 | 新的跨模組決策（決定、理由、被否決的方案） |
+| [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md) | 改了使用者可見行為，要做強制的實機驗證 | 模擬器啟動方式、驗證流程、裝置端限制 |
+| [agents/](agents/) | （給 engineering skills 讀，不是給人讀）| 換 issue 追蹤系統或標籤詞彙 |
 
-| 情境 | 建議文件 |
-|------|----------|
-| 想下載或快速了解 FMP | [專案 README](../README.md) |
-| 想在本機編譯 Android / Windows | [建置指南](building.md) |
-| 想理解專案架構與主要模組 | [開發文件](development.md) |
-| 要發布新版本或調整 Release 流程 | [建置與發布指南](build-and-release.md) |
-| 要用 VM Service 做 Runtime 調試 | [開發文件〈執行期除錯〉](development.md#執行期除錯vm-service) |
-| 改了 UI／使用者可見行為，要做強制的 Android 模擬器實機驗證 | [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md) |
-| 遇到看起來像錯誤的建置或 runtime log 噪音，或一個已知修不掉、只能繞過的行為 | [疑難排解](troubleshooting.md) |
-| 想知道某個架構決定「當初為什麼這樣選」 | [adr/](adr/) |
-| 要修改程式碼並遵守 agent 規則 | [AGENTS.md](../AGENTS.md) |
+## 分工
 
-## 目前文件
-
-| 文件 | 讀者 | 用途 |
-|------|------|------|
-| [開發文件](development.md) | 貢獻者 / agent | 專案概覽、技術棧、架構地圖、執行期除錯（VM Service 與 Isar Inspector） |
-| [建置指南](building.md) | 本機建置者 | Android APK、Windows 免安裝版與安裝包的本機建置說明 |
-| [建置與發布指南](build-and-release.md) | 維護者 | CI、簽名、GitHub Releases、更新資產與發版流程 |
-| [疑難排解](troubleshooting.md) | 開發者 / agent | Windows `Failed to update ui::AXTree` 的後果與避法、已查證的良性建置噪音（如 `resolve_symlinks.ps1` 的 `Get-Item` 警告），以及修不掉只能繞過的已知行為（如可攜版搬動後的第一次開機自啟）與其成因 |
-| [adr/](adr/) | 貢獻者 / agent | 架構決策記錄：決定了什麼、為什麼，以及被否決的替代方案與否決的證據 |
-| [agents/](agents/) | agent 工具鏈 | engineering skills 讀取的專案設定：issue 追蹤、triage 標籤、domain 文檔規則 |
-
-## 權威來源
-
-- [AGENTS.md](../AGENTS.md) 是 AI coding agent 的權威規則，包含架構邊界、遷移規則、UI 編碼約束，以及會影響程式修改的專案注意事項。
-- [開發文件](development.md) 是人類貢獻者的 onboarding 文件，只摘要目前架構並連回 `AGENTS.md`，不要在兩邊重複維護每條 agent 規則。
-- [建置與發布指南](build-and-release.md) 是 Release 行為的權威文件；下載連結、產物命名與應用內更新規則變更時優先更新它。
-- **語系分工是刻意的**：`AGENTS.md`（只有根目錄一份，不要新增巢狀的 `AGENTS.md` 或任何 `CLAUDE.md`）與 `docs/agents/` 維持英文，與程式碼、commit、識別字一致，方便 agent 與跨語言貢獻者比對；`docs/` 其餘文件與根目錄 `README` 以中文撰寫，面向人類使用者與貢獻者。不強制統一語系。
-- `.claude/skills/` 放可被 Claude Code 直接叫用的專案 skill（目前只有 `verify-on-device`：模擬器與桌面版的實機驗證迴圈）。`.gitignore` 只追蹤這個子目錄，`.claude/` 其餘內容是本機狀態，不進版控。
-- `docs/agents/` 是 engineering skills（`/triage`、`/to-tickets`、`/to-spec`、`/wayfinder`、`/domain-modeling` 等）讀取的專案設定，不是給人讀的說明文件；要換 issue 追蹤系統或標籤詞彙時直接改這裡的檔案即可。這三個檔是 `/setup-matt-pocock-skills` 的產出**再加上 FMP 專屬修改**（repo 釘死成 `1morr/FMP`、繁中語言政策、與 `AGENTS.md` 的分工），重跑那個 skill 會用泛用模板覆蓋掉它們。
-
-## 維護規則
-
-- 架構、資料模型、遷移、UI 或音源行為變更：理由寫在被改的程式碼旁（dartdoc 或守著它的測試）；只有跨檔契約與程式碼查不到的地雷才進 `AGENTS.md`，必要時同步更新 [開發文件](development.md)。
-- 本機建置環境、工具鏈或打包前置條件變更：更新 [建置指南](building.md)。
-- CI 產物命名、Release workflow、簽名 secrets、應用內更新資產識別變更：更新 [建置與發布指南](build-and-release.md)。
-- Runtime 調試流程變更：更新 [開發文件〈執行期除錯〉](development.md#執行期除錯vm-service)。
-- 模擬器啟動方式、實機驗證流程或裝置端限制變更：更新 [verify-on-device skill](../.claude/skills/verify-on-device/SKILL.md)，並讓 `AGENTS.md` 的 Agent Skills 只保留一行指引。
-- 使用者可見功能、截圖、下載入口或專案定位變更：更新根目錄 [README](../README.md)。
-- 審查記錄不進 `docs/`。一輪審計的結論要嘛寫進它所描述的檔案、要嘛開成 issue，
-  要嘛留在 git 歷史；2026-09 的五份報告與執行記錄都在 `35d3c7a2` 之前的歷史裡，同一輪的整頓計劃（`plan.md`，M0–M5 的任務、驗收與結果）與 v1.10.2 的發版評估（`changes-since-v1.9.1.md`）在 `d0b05fde` 之前。
-- 不要把同一條規則複製到多個文件，除非目標文件確實擁有對應讀者和維護責任。
+- 單一段程式碼的理由寫在它旁邊（dartdoc 或守著它的測試）；只有程式碼查不到的跨檔契約與地雷才進 `AGENTS.md`。
+- 同一條規則只寫在一個地方，除非另一份文件確實有自己的讀者。
+- **語系分工是刻意的**：`AGENTS.md` 與 `docs/agents/` 維持英文，與程式碼、commit、識別字一致；`docs/` 其餘文件與根目錄 `README.zh-Hant.md` 以繁體中文撰寫。
+- `.claude/skills/` 放可被 Claude Code 直接叫用的專案 skill。`.gitignore` 只追蹤這個子目錄，`.claude/` 其餘內容是本機狀態。
+- `docs/agents/` 的三個檔是 `/setup-matt-pocock-skills` 的產出**再加上 FMP 專屬修改**（repo 釘死成 `1morr/FMP`、繁中語言政策），重跑那個 skill 會用泛用模板覆蓋掉它們。
+- 審查記錄不進 `docs/`。一輪審計的結論寫進它所描述的檔案、開成 issue，或留在 git 歷史。

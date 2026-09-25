@@ -99,7 +99,7 @@ flutter pub get
 dart run build_runner build
 dart run slang
 flutter analyze
-flutter test
+flutter test --exclude-tags live
 ```
 
 產生的程式碼不會提交進版本控制 —— 執行分析前，請先跑完那兩個 codegen 步驟。

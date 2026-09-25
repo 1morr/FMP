@@ -1,25 +1,10 @@
 # AGENTS.md
 
-Repository-wide rules for AI coding agents working in FMP — a cross-platform
-music player (Android + Windows) that plays from **Bilibili**, **YouTube** and
-**NetEase Cloud Music**.
+FMP is a Flutter music player for Android and Windows that plays from
+**Bilibili**, **YouTube** and **NetEase Cloud Music**. Human-facing docs live in
+`docs/`; `docs/README.md` is the map.
 
-Write down only what the code cannot tell you: the unwritten convention, the
-reason behind a choice, the trap no config confesses. A file listing, a symbol
-name or a count goes stale and nothing notices.
-
-## Instruction Scope
-
-This is the only instruction file. **Do not add a nested `AGENTS.md`, a
-`CLAUDE.md` or a `CLAUDE.local.md`.** Claude Code reads `AGENTS.md` directly
-only while no `CLAUDE.md` / `CLAUDE.local.md` exists in the working directory
-or above it, so adding one silently stops it from reading this file.
-
-The reason behind a piece of code lives next to that code — in its dartdoc, or
-in the test that gates it — not here. Human-facing docs live in `docs/`;
-`docs/README.md` is the map.
-
-## Agent Skills
+## Agent skills
 
 - **Issue tracker** — GitHub Issues on `1morr/FMP` via `gh`. See
   `docs/agents/issue-tracker.md`.
@@ -27,15 +12,10 @@ in the test that gates it — not here. Human-facing docs live in `docs/`;
   `docs/agents/triage-labels.md`.
 - **Domain docs** — single-context: `CONTEXT.md` + `docs/adr/`. See
   `docs/agents/domain.md`.
-- **On-device verification** — `.claude/skills/verify-on-device/SKILL.md`.
-  Required, not optional; see below.
-- **Runtime debugging** — `docs/development.md` § 執行期除錯. Reach for it when
-  the question is about the running app rather than the source. Enable `dart:io`
-  profiling *before* the traffic you want to see, or it records nothing.
 
 ## Verification
 
-| Change Area | Minimum |
+| Change area | Minimum |
 |------------|---------|
 | Audio playback/controller/queue | `flutter test test/services/audio` (+ `test/data/sources` when stream resolution changes) |
 | Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
@@ -43,109 +23,73 @@ in the test that gates it — not here. Human-facing docs live in `docs/`;
 | Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart` |
 | UI widgets/pages | targeted tests under `test/ui` + `flutter analyze` + on-device |
 | i18n JSON | `dart run slang` + `flutter analyze` |
-| This file | `flutter test test/support/agents_docs_static_rule_test.dart` — it checks that cited paths exist and that no other `AGENTS.md` / `CLAUDE.md` exists, not that the prose is true; `docs/` and the READMEs have no gate |
 
-`flutter analyze` covers `lib`, `test` **and** `tool`; `dart format lib test
-tool` is a CI gate. `tool/demo/` holds hand-run scripts that hit the real
-source APIs — they are not tests and CI never executes them, but they are
-analysed and formatted like everything else. CI has no path filter:
-documentation-only commits run every job too.
+- Generated `*.g.dart` files (Isar and slang) are gitignored. After a pull, a
+  branch switch or in a fresh worktree, run `dart run build_runner build` and
+  `dart run slang` first: stale codegen fails as a missing getter that looks
+  like a source bug.
+- A full run is `flutter test --exclude-tags live`, as in CI; `live` tests hit
+  the real source APIs.
+- `flutter analyze` and the `dart format lib test tool` CI gate cover `tool/`
+  too. `tool/demo/` holds hand-run scripts against the real APIs: analysed and
+  formatted, never executed by CI.
 
 **On-device verification is mandatory for user-visible changes** — UI pages or
 widgets, playback controls, how source results render, or a string that can
-affect layout. Tests and `flutter analyze` are not sufficient on their own.
+affect layout. Run the `verify-on-device` skill on the Android emulator (add
+Windows only for Windows-specific work) and report the element, log line or
+screenshot you observed. When the emulator cannot come up or the change cannot
+be reached, report that blocker by name; tests alone do not count.
 
-- **The Android emulator is the required platform**; its semantics tree lets you
-  assert on real elements. Verify on Windows too only for Windows-specific work.
-- Report what you drove and what you observed — the element, log line or
-  screenshot. "Should work" is not a verification.
-- If the emulator cannot be brought up or the change cannot be reached, say so
-  and name the blocker. Never silently downgrade to tests.
+## Conventions
 
-## Hard Boundaries
+- Comments are Traditional Chinese. The tree is mixed — everything written
+  before the 2026-09 rounds is Simplified. Convert the lines you are already
+  editing and leave the rest: a whole-tree conversion buries every real change.
+- Ask first before changing persisted schema semantics, the auth boundary,
+  public architecture or cross-platform behaviour in a way not already
+  documented.
+- For questions about the running app — live field values, HTTP traffic, what
+  Isar actually holds — use the VM Service recipes in `docs/development.md`
+  § 執行期除錯.
 
-Always:
-- Prefer `rg` / `rg --files` for searching.
-- Preserve unrelated user changes in the working tree.
-- Preserve comments that explain non-obvious intent, historical rationale, edge
-  cases, upstream behaviour or bug workarounds. When updating one, keep the
-  original reason unless it is demonstrably stale, and replace it with equivalent
-  current rationale rather than deleting it.
-- Use repository patterns and local helper APIs before inventing abstractions.
-- Write comments in Traditional Chinese. The tree is mixed — everything written
-  before the 2026-09 rounds is Simplified and many files hold both. Convert the
-  lines you are already editing and leave the rest alone: a whole-tree conversion
-  buries every real change in it, and the cost of the mix is readability, not
-  correctness. Identifiers, string constants, log messages, commit messages and
-  branch names stay English.
-- Keep generated Isar/slang outputs in sync when changing schemas or i18n JSON.
-- Include the focused verification you actually ran in the final report.
+## Boundaries
 
-Ask first:
-- Before changing public architecture, persisted schema semantics, the auth
-  boundary, or cross-platform behaviour in a way not already documented.
-- Before destructive git operations or broad rewrites unrelated to the request.
+No test checks these; hold them yourself:
 
-Never:
-- Do not bypass `AudioController` from UI playback controls.
-- Do not open or migrate the Isar database through ad-hoc paths.
-- Do not add hidden global enabled-source filters for search.
-- Do not use direct `Image.network()` / `Image.file()` in UI. Use the semantic
-  widgets under `lib/ui/widgets/images/` and pass a semantic variant, never a
-  raw size: they carry the DPR-aware URL tier and decode sizing, and baking a
-  size in at a call site is what shipped as #107.
-- Do not call `pumpEventQueue` in tests. A pump count buys event loop turns, not
-  progress, so it fails under load in one direction and on an idle machine in
-  the other (issues #43, #55). Use `pumpUntil` for a condition that is false on
-  entry, `drainEventQueue` when asserting something did *not* happen.
-- Do not import `lib/services/` or `lib/providers/` from `lib/core/` or
-  `lib/data/`. Those two are the base every feature sits on, and an upward
-  import makes a feature impossible to move or delete while the compiler stays
-  silent.
-- Do not add an import edge between two features without recording it. A feature
-  is a subdirectory name under `lib/services/` or `lib/providers/` — those hold
-  two halves of the same features.
-- Do not hide a `lib/` source grep inside a test named after a widget or a page.
-  A test that reads `lib/` source is a static rule: it belongs in
-  `test/support/` or `test/<layer>/static_rules/`, with a name ending in
-  `*_static_rule_test.dart`. When a behaviour test needs one grep, move the
-  assertion out, not the file.
-  `test/support/static_rule_placement_static_rule_test.dart` enforces this and
-  deliberately carries no exception list.
-- Do not build a Material `Slider` directly; use `ScopedSlider`
-  (`lib/ui/widgets/controls/scoped_slider.dart`). A slider's value indicator
-  lands in the Navigator's Overlay, and on Windows that freezes the
-  accessibility tree (`flutter/flutter#182444`): Narrator reads nothing past the
-  title bar, and the only trace is a `Failed to update ui::AXTree` line on
-  stderr. That line is not noise. A tooltip shown on mouse hover still triggers
-  it — see `docs/troubleshooting.md`.
+- **Audio** — UI playback controls call `AudioController`
+  (`lib/services/audio/audio_provider.dart`), never `FmpAudioService`. Radio is
+  the one intentional exception.
+- **Database** — Isar is opened only by `openFmpDatabase()`; migrations follow
+  the `kFmpSchemaVersion` dartdoc in `lib/data/database/database_migration.dart`.
+- **Search** — the visible source chips on the search page are the only source
+  selector; no setting filters search behind the user's back (`db41b987`).
+- **Providers** — `audioControllerProvider` and the providers building its
+  collaborators live in `lib/providers/audio/`; the controller class declares
+  none. `neteaseSourceProvider` is the **lyrics-layer** `NeteaseSource`
+  (`lib/services/lyrics/`); the same-named data source adapter is reached only
+  through `SourceManager`'s narrow capabilities.
 
-The pump, upward-import, feature-edge and placement rules are enforced by tests
-under `test/support/`, which carry the exception lists. Add a line with a reason
-when you add a legitimate exception; delete it when it goes away. The image rule
-is enforced by `test/ui/static_rules/ui_consistency_static_rule_test.dart`,
-which lists what each semantic image widget may call, and the slider rule by
-`test/ui/static_rules/slider_overlay_static_rule_test.dart`. Nothing checks the
-`AudioController` bypass, ad-hoc Isar opening or hidden search filters for you.
+Gated by static-rule tests. The tests hold the exception lists: add an entry
+with a reason, delete it when it goes away.
 
-## Architecture
-
-**Audio** — UI playback controls call `AudioController`
-(`lib/services/audio/audio_provider.dart`), never `FmpAudioService` directly.
-Android uses `JustAudioService`, desktop `MediaKitAudioService`. Radio is the one
-intentional exception.
-
-**State** — Riverpod. Two provider facts that are not obvious from the file
-layout:
-
-- `audioControllerProvider` and the providers building the controller's
-  collaborators live in `lib/providers/audio/`, not beside the controller class,
-  which declares no provider of its own.
-- `neteaseSourceProvider` is the **lyrics-layer** `NeteaseSource`
-  (`lib/services/lyrics/`). The same-named data source adapter
-  (`lib/data/sources/`) is registered inside `SourceManager` and must be reached
-  through narrow capabilities — never through a concrete source provider.
-
-**Data** — Isar collections in `lib/data/models/`, repositories in
-`lib/data/repositories/` (the only place `isar.` may appear, plus two named
-exemptions), source adapters in `lib/data/sources/`.
+- **Layers** — `lib/core/` and `lib/data/` import nothing from `lib/services/`
+  or `lib/providers/`, and a new import edge between two features (a
+  subdirectory name under either) is recorded —
+  `test/support/layer_boundary_static_rule_test.dart`.
+- **Isar access** — `isar.` appears only in `lib/data/repositories/` (ADR 0002)
+  — `test/data/static_rules/isar_boundary_static_rule_test.dart`.
+- **Images** — UI images go through the semantic widgets in
+  `lib/ui/widgets/images/` with a semantic variant, never a raw size (#107) —
+  `test/ui/static_rules/ui_consistency_static_rule_test.dart`.
+- **Sliders** — build `ScopedSlider`; a raw Material `Slider` freezes the
+  Windows accessibility tree (`docs/troubleshooting.md`) —
+  `test/ui/static_rules/slider_overlay_static_rule_test.dart`.
+- **Test waits** — `pumpUntil` for a condition false on entry,
+  `drainEventQueue` to assert something did *not* happen
+  (`test/support/pump_until.dart`); a fixed pump count is flaky in both
+  directions (#43, #55) — `test/support/wait_convention_static_rule_test.dart`.
+- **Static rules** — a test that reads `lib/` source is named
+  `*_static_rule_test.dart` and lives in `test/support/` or
+  `test/<layer>/static_rules/` —
+  `test/support/static_rule_placement_static_rule_test.dart`.

@@ -118,6 +118,7 @@ flutter:
 
 # Windows 安装包配置 (InnoSetup)
 inno_bundle:
+  # 安裝包的 AppId。發布後不可更改：改了之後，使用者機器會把更新當成另一個應用程式。
   id: BAF6CE8D-E1C8-4C29-AE0B-EDE98D5F8FAA
   name: FMP
   description: "Flutter Music Player - 跨平台音乐播放器"

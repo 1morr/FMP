@@ -12,15 +12,19 @@ description: >-
 
 # Verify on Device
 
-Closed loop for verifying FMP against a running app rather than tests alone:
-**bring up → run → observe → act → hot reload → tear down.**
+Closed loop for verifying FMP against a running app:
+**bring up → run → observe → act → hot reload → tear down.** The Android
+emulator is the required platform; add Windows for Windows-specific work. If the
+loop cannot be completed, report the blocker.
 
 Verified on a Windows 11 host with Orca CLI 1.4.187, AVD `Medium_Phone`
 (Android SDK 37, x86_64), and Flutter 3.47.x.
 
-Root `AGENTS.md` makes this loop **mandatory** for user-visible changes and names
-the Android emulator as the required platform. This file is the procedure. If the
-loop cannot be completed, report the blocker — never fall back to tests silently.
+| When | Read |
+|------|------|
+| An Android tap, typed text, timing or cold start behaves unexpectedly | `references/android.md` |
+| Driving or measuring the Windows build | `references/windows.md` |
+| Reading state instead of pixels, setting up a precondition the UI cannot reach, or needing playable media offline | `references/runtime-state.md` |
 
 ## Preconditions
 
@@ -29,8 +33,8 @@ loop cannot be completed, report the blocker — never fall back to tests silent
 - `orca` on `PATH` and the app running (`orca status --json`; `orca open --json`
   if not). Substitute the executable per Orca's own rule: `ORCA_CLI_COMMAND` when
   set, `orca-dev` in a dev checkout, `orca-ide` on bare Linux, else `orca`.
-- Run `orca skills get computer-use` / `orca skills get orca-cli` for the full
-  version-matched command reference. Do not guess flags from memory.
+- Run `orca skills get computer-use` / `orca skills get orca-cli` for the
+  version-matched command reference rather than recalling flags.
 - Git Bash mangles non-ASCII on stdout: prefix Python one-liners with
   `PYTHONIOENCODING=utf-8`, and read Orca JSON with `encoding='utf-8'`.
 
@@ -40,14 +44,14 @@ loop cannot be completed, report the blocker — never fall back to tests silent
 "$ANDROID_HOME/emulator/emulator.exe" -list-avds
 ```
 
-Launch **detached**. Do not start it from a backgrounded Bash task — the
-emulator receives a graceful shutdown when that task ends and dies mid-session:
+Launch it **detached** — an emulator started from a backgrounded Bash task gets
+a graceful shutdown when that task ends:
 
 ```powershell
 Start-Process -FilePath "$env:ANDROID_HOME\emulator\emulator.exe" -ArgumentList "-avd","<AVD>" -PassThru
 ```
 
-Block until boot completes (the `sleep` runs on the device, not the host):
+Block until boot completes (the `sleep` runs on the device):
 
 ```bash
 adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done; echo BOOTED'
@@ -55,11 +59,10 @@ adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do slee
 
 ## 2. Run the app
 
-Run `dart run slang` first (and `dart run build_runner build` after a schema
-change). The generated `lib/i18n/strings*.g.dart` and Isar `*.g.dart` files
-are gitignored, so a checkout that moved past an i18n or schema edit fails in
-`assembleDebug` with a missing-getter error that looks like a source bug. A
-fresh worktree needs both before its first build.
+Run `dart run build_runner build` and `dart run slang` first. The generated
+`*.g.dart` files are gitignored, so a checkout that moved past a schema or i18n
+edit fails in `assembleDebug` with a missing getter that looks like a source
+bug. A fresh worktree needs both before its first build.
 
 Own the process in an Orca terminal so it survives across turns and accepts
 hot-reload keystrokes:
@@ -68,14 +71,13 @@ hot-reload keystrokes:
 orca terminal create --worktree active --command "flutter run -d emulator-5554" --json
 ```
 
-Keep the returned `terminal.handle`. First Android build takes several minutes;
-`orca terminal wait --for tui-idle` can time out while the build is still
-healthy — read the tail before concluding anything failed.
+Keep the returned `terminal.handle`. The first Android build takes several
+minutes; `orca terminal wait --for tui-idle` can time out while the build is
+still healthy — read the tail before concluding anything failed.
 
 `flutter run -d windows` works the same way. A `Failed to update ui::AXTree`
-line in its output is not noise: the Windows accessibility tree has frozen and
-Narrator reads stale content (see `docs/troubleshooting.md`). Find the node
-before filtering the line away.
+line in its output means the Windows accessibility tree has frozen (see
+`docs/troubleshooting.md`); find the node before filtering the line away.
 
 ## 3. Observe
 
@@ -85,23 +87,24 @@ before filtering the line away.
 | Screenshot (Android) | `adb exec-out screencap -p > shot.png` |
 | Dart/`I/flutter` logs | `orca terminal read --terminal <handle> --json` (`tail`, `nextCursor`) |
 | Raw device log | `orca emulator logcat --lines <n> --device emulator-5554 --json` |
-| Heap, GC, isolates, Isar | Dart VM Service — see `docs/development.md` § 執行期除錯 |
+| Live object fields, HTTP traffic, Isar | Dart VM Service — `references/runtime-state.md` |
+| Element tree (Windows) | MSAA — `references/windows.md` |
 
 `scripts/ax_flatten.py` collapses the `ax` tree into one line per interesting
-node with both pixel and normalized centers:
+node with pixel and normalized centers:
 
 ```bash
 PYTHONIOENCODING=utf-8 python .claude/skills/verify-on-device/scripts/ax_flatten.py --limit 30
 ```
 
-Flutter's semantics surface through uiautomator, so widget labels, list rows,
-and nav destinations come back as real text — prefer this over reading pixels.
-Take a screenshot when the question is visual (layout, overflow, theming) or
-when the tree is empty.
+Flutter's semantics surface through uiautomator, so labels, list rows and nav
+destinations come back as text — prefer that to pixels. Screenshot when the
+question is visual (layout, overflow, theming) or the tree is empty. Take device
+pixels with `adb exec-out screencap`; `orca screenshot` returns inline base64
+and burns context.
 
-The VM Service URI appears in the run terminal's tail. **It is a local debug
-credential — never paste the token into issues, PR bodies, logs, or reports.**
-Quote the port and purpose only.
+The VM Service URI in the run terminal is a local debug credential: quote the
+port and purpose only.
 
 ## 4. Act
 
@@ -114,10 +117,8 @@ orca emulator install <apk> --device emulator-5554 --json
 orca emulator launch com.personal.fmp --device emulator-5554 --json
 ```
 
-Element indexes and coordinates go stale after navigation or re-render. Re-dump
+Element indexes and coordinates go stale after navigation or re-render: re-dump
 `ax` after every UI-changing action before choosing the next target.
-
-`adb shell input keyevent 66` submits a text field (Enter).
 
 ## 5. Hot reload
 
@@ -126,325 +127,23 @@ orca terminal send --terminal <handle> --text "r" --enter --json   # R = restart
 ```
 
 Then re-observe. This is the inner loop: edit → `r` → `ax`/screenshot → assert.
+On Windows, `R` ends the process; quit with `q` and start a new run instead.
 
-## 6. Windows desktop build
+## 6. Tear down
 
-The Windows app exposes **no semantics tree** to UI Automation, so
-`get-app-state` returns only `window > pane FLUTTERVIEW`, and so does every
-other UIA client. The engine answers through MSAA only (checked in
-`flutter_windows.dll`, Flutter 3.47.1), so the tree is still readable:
-
-```bash
-S=.claude/skills/verify-on-device/scripts
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Filter button
-#   [push button] '查看佇列' @(3156,1228 121x49)     screen rect, physical px
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Click '查看佇列'
-#   clicked [push button] '查看佇列' at (3216,1252), match 1 of 1
-```
-
-`-Click` raises the window, clicks the element's centre and parks the cursor
-on the title bar (`-Role`, `-Index` pick among duplicates; exit 2 = no match).
-There is no MSAA default action, so it is still a real mouse click and the
-element must be on screen. It matches a name exactly or by its first line, so
-`-Click '設定'` reaches the rail tab named `設定` + `第 6 個分頁 (共 6 個)`. It
-sees only what the semantics tree carries.
-
-**Know what `-Click` will do before you run it.** It clicks for real, like any
-other input here. On 2026-09-25 a stray `-Click '清空佇列'` opened the
-clear-queue confirmation on the user's own queue of 1194 tracks. It was
-cancelled with `-Click '取消'`.
-
-Fall back to screenshots and window-local coordinates for anything the tree does
-not carry. The window *can* be driven that way. The step earlier rounds missed
-is raising it to the foreground first, and `--restore-window` does not do that
-reliably. See "Driving the Windows build" under §7 for what does:
-
-```bash
-orca computer list-apps --json                     # find pid of "fmp"
-orca computer get-app-state --app pid:<pid> --json # screenshot only
-orca computer click --app pid:<pid> --x <x> --y <y> --json
-orca computer paste-text --app pid:<pid> --text "周杰倫" --json
-orca computer press-key --app pid:<pid> --key Return --json
-```
-
-Windows Orca has no bundle IDs — select apps by name or `pid:<n>`. If the
-screenshot reports `scale != 1`, divide screenshot pixels by it before using
-them as action coordinates. Synthetic input reports `unverified`; confirm every
-action with a fresh screenshot.
-
-Computer-use also reaches the emulator's own window chrome (power, volume,
-rotate, back) via its `qemu-system-x86_64` process — but drive the guest through
-`orca emulator` instead; the bezel buttons' accessibility actions are unreliable.
-
-## 7. Known limitations
-
-- **Gboard's "Try out your stylus" tutorial overlay steals `adb shell input
-  text`.** On a fresh AVD the first tap into any text field can raise this
-  overlay; the typed characters land in *its* field and the Flutter field stays
-  empty, so it reads as a missed tap. The `ax` tree does not show the overlay.
-  Screenshot to spot it, tap its Cancel, then retype.
-- **`adb shell input text` silently composes instead of committing when
-  Gboard's active language is Zhuyin**, which is the default on this AVD. The
-  characters land in the candidate strip, the Flutter field stays empty, and the
-  semantics tree shows an empty `EditText` either way — so it looks like the tap
-  missed. Screenshot the keyboard to spot it: the spacebar reads `注音`. Tap the
-  globe key (bottom-right) to switch to English, then retype. This applies to
-  plain ASCII, so it is a separate problem from the CJK limitation below.
-- **Non-ASCII input on Android is unavailable.** `orca emulator type` shells out
-  to `adb shell input text`, which throws `NullPointerException` on CJK. Three
-  workarounds were tested and all failed on SDK 37: ADBKeyboard (broadcast
-  receivers no longer delivered), `cmd clipboard` (not implemented), host
-  clipboard + `KEYCODE_PASTE` (Flutter ignores it). For Chinese-input coverage
-  write an `integration_test` and use `WidgetTester.enterText`. Windows is
-  unaffected — `orca computer paste-text` handles CJK.
-- **Popup menus do not reach uiautomator on the tablet AVD.** An open
-  `PopupMenuButton` is plainly visible in a screenshot while
-  `orca emulator ax` reports zero `MenuItem` nodes — the tree looks exactly
-  like the menu never opened, so the natural next move (tap the row again) is
-  wrong and plays the track instead. Screenshot first, read the item's pixel
-  centre off it, and drive with `adb shell input tap <x> <y>`. Measured on
-  `Medium_Tablet` (2560x1600); the same menus come back fine on
-  `Medium_Phone`.
-- **No UI Automation tree on Windows.** Read and click it through MSAA
-  instead (§6).
-- `orca screenshot` (Orca's embedded browser) returns inline base64 and burns
-  context. For device pixels always use `adb exec-out screencap -p > file.png`.
-- **A snapshot-restored `Medium_Phone` can come up wedged.** The screen is a
-  frozen frame, `orca emulator tap` and `adb shell input` both do nothing, the
-  `ax` tree reads `nodes=0`, and even a hot restart leaves the display
-  unchanged; logcat shows only `F/bluetooth ... on_hardware_error ... code
-  0x42`. Relaunch with `-no-snapshot-load` — do not spend time debugging the
-  app, it is the emulator. `topResumedActivity` still names the app, so that
-  check will not tell you either.
-- Android's 16 KB page-size dialog appears on first launch on modern emulator
-  images (`libisar.so` LOAD segment not aligned). Dismiss it via `ax` before
-  asserting on the first screen.
-
-### Measured during the 2026-09-04 data-layer acceptance run
-
-- **Back at the root route exits the app; it does not background it.** Use
-  `adb shell input keyevent 3` (HOME) to background. Pressing back and then
-  relaunching from the launcher restarts the process and loses playback, which
-  reads as "playback stopped in the background" if you are not watching for it.
-- **`dumpsys media_session` is the cheapest continuous playback probe.** Grep for
-  `state=PLAYING(3), position=` — position is in ms and advances monotonically,
-  so polling it every minute shows both continuity and the wrap-around at a
-  track/loop boundary without any UI interaction.
-- **Setting up state the UI cannot reach: use `ext.isar.editProperty`.** The
-  download path can only be chosen through the Android SAF picker, which does
-  not respond to synthetic taps. Writing `Settings.customDownloadDir` through the
-  Isar inspector extension sets up the precondition without faking the thing
-  being verified. See `docs/development.md` § 執行期除錯 (Isar).
-- **A directory created with `adb shell mkdir` belongs to `shell`, not the app**,
-  so the app gets `PathAccessException ... errno = 13`. Create it with
-  `adb shell run-as <package> mkdir -p files/<dir>` and point the setting at
-  `/data/user/0/<package>/files/<dir>`.
-- **Git Bash rewrites `/storage/...` and `/sdcard/...` into Windows paths.**
-  Prefix `adb shell` calls with `MSYS_NO_PATHCONV=1`, or the argument arrives as
-  `C:/Program Files/Git/storage/...`.
-
-### Measured during the round-02 playback audit
-
-Each of these cost real time to discover. They change what a timing or audio
-observation on the emulator is worth.
-
-- **Emulator audio runs ~1.68x faster than wall clock.** A track that should
-  take 60s of playback reaches its end in ~36s. Never quote an emulator figure
-  as a playback duration, and never assert gapless timing there — measure
-  playback timing on Windows or a physical device.
-- **The AVD resolver does not cache.** Every DNS lookup costs ~1s, on every
-  request, so a "slow first play" on the emulator is usually resolver overhead
-  rather than an FMP regression. Subtract it before reporting a stream-resolution
-  measurement.
-- **`adb emu network speed` does not affect Wi-Fi.** The emulator's Wi-Fi
-  interface ignores the throttle, so it cannot be used to reproduce slow-network
-  playback. Shape traffic on the host, or point the app at a deliberately slow
-  local server instead.
-- **Prefer the VM Service over screenshots for reading state.** Reading a live
-  object's fields (`getInstances` + `getObject`; `evaluate` does not work over
-  HTTP — see `docs/development.md` § 執行期除錯) answers "what is the controller's state"
-  directly, in one call, and returns text. A screenshot answers it indirectly,
-  costs context, and cannot see anything off-screen. Reach for pixels only when
-  the question is genuinely about layout.
-- **The Windows `flutter run` terminal floods once a tooltip shows.**
-  `Failed to update ui::AXTree` lines (`flutter/flutter#182444`) scroll Dart
-  logs away within seconds. The first line comes from hovering a tooltip, which
-  a synthetic click does too. On Windows, read state through the VM Service,
-  and confirm visuals by screenshot. Raise the window to the foreground first,
-  or the capture is of whatever is on top.
-- **Accessibility measurements depend on where the cursor rests.** A tooltip
-  under the pointer breaks the tree for the rest of the run, so two runs of the
-  same steps can disagree. Park the cursor on empty space before the step you
-  measure, or drive it by keyboard.
-- **Check what Narrator can reach through MSAA, not UI Automation.** UIA shows
-  nothing under `pane FLUTTERVIEW`, walked or hit-tested, even with a healthy
-  tree and Narrator running. `scripts/msaa_tree.ps1` prints `nodes=<n>` first,
-  and Narrator does not need to be on. Measured 2026-09-24:
-  - 7 nodes while the bridge was stuck, against 93 in the framework tree;
-  - 120-odd once the bridge was healthy.
-
-  To toggle Narrator itself, send Win+Ctrl+Enter. `Stop-Process` cannot stop
-  it.
-- **Read SMTC through WinRT, not the flyout.** Querying
-  `GlobalSystemMediaTransportControlsSessionManager` returns the actual session
-  properties as text; screenshotting the media flyout is unreliable because the
-  popup dismisses on focus change. Use `scripts/smtc_probe.ps1`:
-
-  ```bash
-  powershell.exe -NoProfile -ExecutionPolicy Bypass     -File .claude/skills/verify-on-device/scripts/smtc_probe.ps1 -AppFilter fmp
-  ```
-
-  It prints `IsNextEnabled` / `IsPreviousEnabled` / `IsPlaybackPositionEnabled` /
-  `IsShuffleEnabled` / `IsRepeatEnabled` per session. **It must run under
-  `powershell.exe` (Windows PowerShell 5.1)** — `pwsh` 7 has no WinRT projection
-  and `Add-Type -AssemblyName System.Runtime.WindowsRuntime` fails there. The
-  session manager is readable from any process, so this sidesteps the
-  foreground-focus problem entirely: FMP does not need to be visible.
-- **CMake scratch projects must not sit deep in the path.** Building a probe
-  under the session scratchpad exceeds the Windows path limit and fails with
-  confusing compiler errors. Use a short root such as `C:/t/`.
-
-### Driving the Windows build (measured 2026-09-04 and 2026-09-16)
-
-§6 is true of the Flutter view, but the window is drivable once it is in the
-foreground. `get-app-state` reports `coordinateSpace: "window"`, so `--x/--y`
-are window-local and correct as soon as the window is on top; without that,
-clicks land on whatever is topmost at that screen point and captures are of
-whatever is on top — in one run, one of the user's unrelated windows.
-
-- **Raise the window yourself; do not trust `--restore-window`.** The flag is
-  documented to bring the target forward before a click, scroll or capture. On
-  2026-09-04 it appeared to; on 2026-09-16 it did **not** raise FMP and the
-  capture was of another window. What worked both times: Win32
-  `AttachThreadInput` to the foreground thread, an `HWND_TOPMOST` /
-  `HWND_NOTOPMOST` round trip through `SetWindowPos`, then
-  `SetForegroundWindow`. Assert `GetForegroundWindow()` returns your HWND
-  before every click — a bare `SetForegroundWindow` silently no-ops when the
-  foreground-lock rules say no, and the next capture is then of the wrong
-  window.
-- **Maximize before driving.** The 2026-09-16 raise restored the window to
-  1200×3586 with most of it off-screen, which reads as "the settings page
-  cannot scroll". Check the rect from `list-windows` before trusting any
-  scroll observation.
-- **`PrintWindow` with `PW_RENDERFULLCONTENT` returns a frozen frame.** It looks
-  like a working capture — real colours, real layout — but it is the frame from
-  whenever the surface was last handed to the DWM, and it does not advance. Four
-  consecutive captures across two clicks and a keypress came back byte-identical
-  (same md5), which reads exactly like "the input never landed" and sent this
-  round chasing a non-existent click problem. Capture with
-  `Graphics.CopyFromScreen` over the window rect instead; raise the window first.
-- **A driving process that is not DPI-aware measures a different screen.**
-  Without `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` (pass `-4`),
-  `GetWindowRect` and `SetCursorPos` speak virtualized coordinates while
-  `CopyFromScreen` speaks physical pixels — a 1.5x gap at 150% scaling. The
-  symptom is that clicks computed off a screenshot land somewhere else entirely,
-  and that a crop at the reported rect shows a neighbouring window. Call it once
-  at the top of every script that measures, clicks or captures, and the three
-  agree. `orca computer list-windows` already reports physical coordinates, so
-  it disagreeing with your `GetWindowRect` by exactly the scale factor is the
-  tell.
-- **Pin the window with `--window-id`.** An app can own several top-level
-  windows (FMP has the SMTC message window and two IME windows), and a modal
-  file dialog is a window of its own.
-- **Native dialogs *do* expose a full UIA tree.** The Flutter view is still
-  `window > pane FLUTTERVIEW`, but a `FilePicker.saveFile` dialog comes back
-  with ~100 real elements. Address it with `--window-id` from
-  `orca computer list-windows` and click by `--element-index`. Both file exports
-  (backup, log) were driven this way.
-- **The save dialog's filename field rejects `set-value`**
-  (`value_not_settable`), and `orca computer hotkey Control+a` does not reach
-  it. What works: click the field's element, then `Set-Clipboard` the full path
-  and send Ctrl+A / Ctrl+V with Win32 `keybd_event`. Typing a full path into the
-  filename box is how you redirect an export away from the user's Documents.
-- **`orca computer scroll` needs `--pages`.** There is no `--amount`; passing
-  one is silently ignored and nothing scrolls.
-- **Global hotkeys are the one input path that needs no focus at all.**
-  `RegisterHotKey` combinations are swallowed by the system and delivered only
-  to the registering app, so `keybd_event` cannot leak them into another window.
-  **Read `Settings.hotkeyConfig` first** — it is a JSON string of custom
-  bindings and the user's may differ from `HotkeyConfig.defaults()`. Decode the
-  `keyId` numbers against `keyboard_key.g.dart`; in this run `toggleWindow` was
-  Alt + numpadDivide (`0x20000022f`), not the default Ctrl+Alt+W.
-- **Hot restart (`R`) ends the Windows process.** Measured 2026-09-24: the
-  app exits while media_kit tears down its native player, and `flutter run`
-  loses the device. Hot reload (`r`) is fine. When a change needs a restart
-  (startup code, a migration), quit with `q` and start a new run instead.
-  Android hot restart does not have this problem.
-- **`WM_CLOSE` to the main HWND is the honest "user clicked X".** `PostMessage`
-  it to the specific window handle — no coordinates, nothing else on the desktop
-  touched. With `minimizeToTrayOnClose`, `IsWindowVisible` flips to false while
-  the process stays alive; that pair is the tray assertion.
-
-### Getting media to play when every source is blocked
-
-Playback verification needs playing media, and all three sources can be
-unavailable at once on a dev machine (Bilibili `playurl` answering HTTP 412
-`request was banned`, YouTube demanding sign-in, and a library with nothing
-downloaded). `Track.audioUrl` does not rescue you — the reuse cache
-(`stream_resolution_service.dart:326`) also requires an in-memory entry.
-
-What works offline: `_inspectLocalFiles` (`:428`) plays the first
-`Track.allDownloadPaths` entry that exists on disk, with **no playlist-id
-match** and no network. Generate a long near-silent WAV, point one track's
-`playlistInfo[].downloadPath` at it, and playback is real, local, and silent.
-Save the original `playlistInfo` first and put it back afterwards.
-
-Two traps around that:
-
-- **Orphan cleanup deletes tracks you swap out of the queue.** `QueueManager`
-  runs `TrackRepository.deleteOrphanTracks` ~10 s after start, excluding only
-  the current queue. A track that is in no playlist and no longer in the queue
-  is **gone** — this run destroyed a leftover test track that way.
-- **A DB edit under a running app is not durable.** See the write-race note in
-  `docs/development.md` § 執行期除錯 (Isar): reading the new value back proves
-  nothing. Kill the process immediately after the edit, or make the change
-  through the app's own UI. Restoring the play queue at the end only stuck once
-  it went through the queue page's clear button and the mini player's loop
-  toggle.
-- **The VM Service URI scrolls out of the terminal tail.** Read it with
-  `orca terminal read --cursor 0 --limit 5000`, not from the default tail.
-
-## 8. Tear down
-
-Leaving an emulator plus two `flutter run` sessions alive is expensive. Unless
-the user asked to keep them:
+An emulator plus two `flutter run` sessions is expensive. Unless the user asked
+to keep them:
 
 ```bash
 orca terminal close --terminal <handle> --json    # each run terminal
 adb emu kill                                      # emulator
 ```
 
-Revert anything installed for the session (test APKs, IME changes) and confirm
-with `adb devices` and `tasklist`.
+Revert anything installed or changed for the session (test APKs, IME changes,
+DB edits) and confirm with `adb devices` and `tasklist`.
 
 ## Reporting
 
-Report what was observed, not what should have happened: quote the log line, the
-tree node, or attach the screenshot path. Say explicitly when a step was skipped
-or a limitation blocked it.
-
-### Measured during the 2026-09-07 UI acceptance run
-
-- **`adb shell am force-stop` detaches `flutter run`, and every later `r` / `R`
-  is then a silent no-op.** The terminal prints `Lost connection to device.`
-  once and nothing after, so the app keeps running from the *last installed*
-  kernel while you think you are driving your edits. This run produced two
-  screenshots of pre-fix behaviour that looked like the fix had failed. If you
-  need a cold process start, close the run terminal and start a new
-  `flutter run` instead — and read the tail for `Lost connection` before
-  trusting any observation that follows a force-stop.
-- **Toast assertions need the state to change, not just the action to repeat.**
-  Error toasts here fire from `ref.listen(... next.error != previous?.error)`,
-  so a second identical failure shows nothing. Hot restart (`R`) between
-  attempts, or drive a different failure.
-- **Catch a toast by burst-screenshotting, not by sleeping.** `adb exec-out
-  screencap -p` costs ~0.4 s, so a bare `for i in $(seq 1 20)` loop covers ~8 s
-  with no gaps; fire the taps in a backgrounded subshell so the loop is already
-  running. Then score the frames for the toast's colour rather than eyeballing
-  twenty images.
-- **Turn the network off with `adb shell svc wifi disable && adb shell svc data
-  disable`** (`adb emu network speed` does not touch Wi-Fi, see above). It is
-  the cheapest way to reach real error paths: search, radio playback, login and
-  remote playlist refresh all fail immediately with `Failed host lookup`. Local
-  Isar reads do not, so provider-backed sections that read only the database
-  cannot be failed this way at all — say so rather than claiming coverage.
+Report what was observed: quote the log line or tree node, or give the
+screenshot path. Name every step that was skipped or blocked, and what blocked
+it.

@@ -118,9 +118,7 @@ CI 不直接使用 inno_bundle 的預設輸出：`release.yml` 會以多組 rege
 
 ### 設定
 
-安裝包設定位於 `pubspec.yaml` 的 `inno_bundle` 區塊，完整欄位說明見〈[建置指南 §安裝包設定](building.md#安裝包設定)〉。
-
-> **重要**：`id` 是 GUID 格式的 AppId，**發布後不可更改**。更改會導致使用者機器將更新視為不同的應用程式。
+安裝包設定位於 `pubspec.yaml` 的 `inno_bundle` 區塊，見〈[建置指南 §安裝包設定](building.md#安裝包設定)〉。
 
 ### SMTC AppUserModelID
 
@@ -184,7 +182,7 @@ git push origin v1.2.0
 ### CI 流程
 
 一般驗證由 `.github/workflows/ci.yml` 負責。**沒有 path filter** —— 純文檔的
-commit 一樣跑滿（`agents_docs_static_rule_test.dart` 會讀根 `AGENTS.md`，文檔改動也可能讓測試變紅）：
+commit 一樣跑滿：
 
 ```text
 pull_request / main push / workflow_dispatch
@@ -209,7 +207,7 @@ CI
 
 `validate` 會執行程式碼產生、格式檢查、analyzer 與測試；兩個 build job 只作為跨平臺 release build 煙霧測試，不建立 GitHub Release。`*.g.dart` 等產生檔不進版本控制（見 `.gitignore`），所以本流程不對「產生檔已提交」做檢查——那類檢查在 git 從未追蹤這些檔案的情況下永遠會通過，無法真正偵測任何問題。圖示資產由維護者在本機執行 `dart run flutter_launcher_icons` 後提交，CI 不在每次驗證時重產圖示。
 
-> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平臺（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意凍結於 v3（`isar_community` fork；上游自 2025-07 停擺，v4 沒有遷移工具也沒有測過的遷移路徑），不自行升級 v4。
+> Release 前（release checklist）：確認 `isar` / `isar_flutter_libs` 於目標平臺（Android `arm64-v8a` / `armeabi-v7a` / `x86_64`、Windows `x86_64`，必要時 Windows `arm64`）的 native libs 可用且對應 build job 通過。Isar 刻意停在 v3，理由見 [ADR 0007](adr/0007-isar-stays-on-v3.md)。
 
 ### 發布自動化流程
 
@@ -267,14 +265,6 @@ body 一律由 `release` job 從 commit 範圍產生，沒有手寫檔這條路�
 
 body 不只出現在 GitHub Release 頁面：`update_service.dart` 把它當成
 `releaseNotes` 餵給 App 內的更新對話框。所以 markdown 要淺，長度要短。
-
-> **一次性的歷史問題（已過去）**：2026-09-01 的歷史重寫讓 v1.2.0–v1.9.1 全部脫離
-> `main` 的血緣，發 v1.10.0 時 `git describe` 只找得到 v1.1.4，任何候選 tag 都產出
-> 同一份 1134 行清單，所以那一版的 body 是手寫的。v1.10.0 是在重寫後的歷史上打的
-> tag，`git describe HEAD` 現在回它，之後的版本不再有這個問題。
-
-> Release 頁面的 compare 連結預設是三點（`a...b`，走 merge-base）。因為上述重寫，
-> v1.9.1 → v1.10.0 要用**兩點**（`a..b`）才會只顯示端點之間的實際差異。
 
 ### 版本號規則
 
@@ -393,6 +383,3 @@ GET https://api.github.com/repos/1morr/FMP/releases/latest
 
 ### Q: 版本號沒有更新
 **A:** 確認使用 `v` 開頭的 tag（如 `v1.2.0`）。非 tag push 不會更新版本號。
-
-### Q: Windows 更新時彈出 CMD 視窗
-**A:** 已透過 VBScript 包裝解決。更新指令碼透過 `wscript` 隱藏啟動。

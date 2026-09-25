@@ -115,7 +115,7 @@ flutter pub get
 dart run build_runner build
 dart run slang
 flutter analyze
-flutter test
+flutter test --exclude-tags live
 ```
 
 Generated code is not committed — run the two codegen steps before analyzing.
