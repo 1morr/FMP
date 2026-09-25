@@ -46,7 +46,7 @@ updates:
     # flutter_secure_storage stays on 10.x until a release-sequencing decision
     # says otherwise: v10 re-encrypts Android credentials on first read and 11.x
     # removes the 9.x ciphers it migrates from, so an install that skipped every
-    # 10.x build loses its logins on reaching 11.x (lib/services/AGENTS.md).
+    # 10.x build loses its logins on reaching 11.x.
     # test/workflows/dependabot_group_static_rule_test.dart fails if this
     # ignore entry disappears.
     ignore:
