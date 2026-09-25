@@ -34,7 +34,7 @@ _Avoid_: import auth, search auth
 **Media Request Credentials**:
 Credentials that are allowed on the actual audio byte request. In current FMP
 policy there are none: `SourceHttpPolicy.mediaHeaders(String sourceType)`
-(`lib/data/sources/source_http_policy.dart:39`) takes only the source id, so
+(`lib/data/sources/source_http_policy.dart`) takes only the source id, so
 no cookie or token can reach the media host through it. The former Netease
 media allowlist was removed in `c09aec10`.
 _Avoid_: stream auth, source auth

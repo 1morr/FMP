@@ -8,7 +8,7 @@
 
 | 工具 | 版本要求 | 用途 |
 |------|---------|------|
-| [Flutter SDK](https://flutter.dev/docs/get-started/install) | >= 3.35.1（Dart >= 3.9.0，isar_community_generator 的要求） | 跨平臺框架 |
+| [Flutter SDK](https://flutter.dev/docs/get-started/install) | 與 CI 相同：`.github/workflows/ci.yml` 的 `FLUTTER_VERSION`（最低需 Dart >= 3.9.0，isar_community_generator 的要求） | 跨平臺框架 |
 | [Java JDK](https://adoptium.net/) | 17 | Android 建置（同時提供 `keytool` 指令） |
 
 ### Windows 本機建置額外要求
@@ -46,12 +46,13 @@ cd FMP
 # 安裝依賴
 flutter pub get
 
-# 程式碼產生（Isar models、i18n 等）
+# 程式碼產生：Isar models 走 build_runner，i18n 走 slang 自己的 CLI
 dart run build_runner build
-
-# 產生應用程式圖示
-dart run flutter_launcher_icons
+dart run slang
 ```
+
+產生的 `*.g.dart` 不進版控，所以 pull 或切分支之後編譯報「找不到 getter」，多半是這兩步沒重跑。
+應用程式圖示已經提交在 repo 裡，不需要重產；要換圖示見 `assets/icon/README.md`。
 
 ## 建置 Android APK
 
@@ -163,8 +164,8 @@ flutter run -d windows
 # 靜態分析
 flutter analyze
 
-# 執行測試
-flutter test
+# 執行測試（排除會打真實音源 API 的 live 測試，與 CI 相同）
+flutter test --exclude-tags live
 
 # 重新產生程式碼（修改 Isar model 後必須執行）
 dart run build_runner build
