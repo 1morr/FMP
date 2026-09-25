@@ -470,6 +470,22 @@ void main() {
     expect(match?.externalId, '42');
   });
 
+  test('a search result of a saved track resolves onto that row', () async {
+    source.nextCid = 998877;
+    final saved = await trackRepository.save(_track('cid-duplicate'));
+
+    // 搜尋結果裡的同一首：還沒存過，cid 也還沒解析出來。
+    await service.resolvePrimary(
+      _track('cid-duplicate'),
+      purpose: StreamResolutionPurpose.playback,
+    );
+
+    final rows = await isar.tracks.where().findAll();
+    expect(rows.map((track) => track.id), [saved.id]);
+    expect(rows.single.cid, 998877);
+    expect(rows.single.audioUrl, isNotNull);
+  });
+
   test('a temporary play of an unsaved track creates no row', () async {
     source.nextCid = 998877;
 
