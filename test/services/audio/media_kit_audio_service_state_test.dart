@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
@@ -156,6 +157,100 @@ void main() {
         reason: 'the finished entry is trimmed off the front',
       );
     });
+  });
+
+  // 簽名串流網址會落盤到 log 檔（#163）。三個來源的簽章分別在 query（Bilibili）
+  // 與中間的 path 段（YouTube HLS、網易雲），只去掉 query 不夠。
+  group('signed stream URLs stay out of the log', () {
+    const bilibili =
+        'https://upos-sz-mirror.bilivideo.com/upgcxcode/30/12/123/'
+        '123-1-30280.m4s?e=ig8eux&deadline=1758800000&upsig=0123abcdef';
+    const youtube =
+        'https://manifest.googlevideo.com/api/manifest/hls_playlist/'
+        'expire/1758800000/ei/abc/sig/SECRETSIG/file/index.m3u8';
+    const netease =
+        'http://m701.music.126.net/20260925120000/'
+        '0123456789abcdef0123456789abcdef/jdymusic/obj/abc/123/file.flac';
+
+    String logText() => AppLogger.logs.map((e) => e.message).join('\n');
+
+    setUp(AppLogger.clearLogs);
+
+    test('opening and playing a URL logs only its label', () async {
+      final opening = service.playUrl(bilibili);
+      await pumpUntil(
+        () => engine.opened,
+        reason: 'playUrl has handed the medium to the engine',
+      );
+      engine.emitDuration(const Duration(minutes: 3));
+      await opening;
+
+      final text = logText();
+      expect(text, contains('upos-sz-mirror.bilivideo.com'));
+      expect(text, contains('123-1-30280.m4s'));
+      // 舊的 80 字元截斷剛好切在 query 開頭之後，所以比對 `?e=` 而不是整段簽章。
+      expect(text, isNot(contains('?e=')));
+      expect(text, isNot(contains('deadline')));
+      expect(text, isNot(contains('0123abcdef')));
+    });
+
+    test('setting a URL logs only its label', () async {
+      final setting = service.setUrl(netease);
+      await pumpUntil(
+        () => engine.opened,
+        reason: 'setUrl has handed the medium to the engine',
+      );
+      engine.emitDuration(const Duration(minutes: 3));
+      await setting;
+
+      final text = logText();
+      expect(text, contains('m701.music.126.net'));
+      expect(text, isNot(contains('20260925120000')));
+      expect(text, isNot(contains('0123456789abcdef')));
+    });
+
+    test(
+      'arming and advancing to the next medium log only its label',
+      () async {
+        final opening = service.playUrl('https://example.com/a.m4a');
+        await pumpUntil(
+          () => engine.opened,
+          reason: 'playUrl has handed the medium to the engine',
+        );
+        engine.emitDuration(const Duration(minutes: 3));
+        await opening;
+
+        final next = RemotePlaybackMedia(
+          url: Uri.parse(youtube),
+          headers: const {},
+          track: Track()
+            ..sourceType = SourceIds.youtube
+            ..sourceId = 'b'
+            ..title = 'b',
+        );
+        await service.setNextMedia(next);
+        final handedOver = <PreparedPlaybackMedia>[];
+        final subscription = service.advancedToNext.listen(handedOver.add);
+        addTearDown(subscription.cancel);
+        engine.advance();
+        await pumpUntil(
+          () => handedOver.isNotEmpty,
+          reason: 'the index change is reported as a handover',
+        );
+
+        final messages = AppLogger.logs.map((e) => e.message).toList();
+        final armed = messages.where((m) => m.contains('Next medium armed'));
+        final advanced = messages.where(
+          (m) => m.contains('Backend advanced to next medium'),
+        );
+        expect(armed.single, contains('manifest.googlevideo.com'));
+        expect(advanced.single, contains('index.m3u8'));
+
+        final text = logText();
+        expect(text, isNot(contains('SECRETSIG')));
+        expect(text, isNot(contains('expire/1758800000')));
+      },
+    );
   });
 }
 

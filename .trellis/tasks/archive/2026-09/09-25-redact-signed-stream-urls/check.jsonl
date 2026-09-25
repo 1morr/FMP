@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/services/index.md", "reason": "spec for audio logging fix"}
+{"file": ".trellis/spec/services/audio.md", "reason": "spec for audio logging fix"}
+{"file": ".trellis/spec/shared/errors-and-logging.md", "reason": "spec for audio logging fix"}
+{"file": ".trellis/spec/shared/code-style.md", "reason": "spec for audio logging fix"}
+{"file": ".trellis/spec/testing/test-conventions.md", "reason": "spec for audio logging fix"}
+{"file": ".trellis/spec/testing/static-rules.md", "reason": "spec for audio logging fix"}
+{"file": "docs/adr/0003-two-audio-backends.md", "reason": "spec for audio logging fix"}

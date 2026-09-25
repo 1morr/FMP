@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
@@ -365,6 +366,44 @@ void main() {
         expect(streamManager.fallbackSelectionFailedUrls, [
           'https://example.com/fallback-fails.m4a',
         ]);
+      },
+    );
+
+    test(
+      'the fallback log names the failed stream without its signature',
+      () async {
+        const signed =
+            'https://upos-sz-mirror.bilivideo.com/upgcxcode/30/12/123/'
+            '123-1-30280.m4s?e=ig8eux&deadline=1758800000&upsig=0123abcdef';
+        final track = _track('signed-fallback');
+        streamManager.onSelectPlayback = (track, _) async => PlaybackSelection(
+          media: RemotePlaybackMedia(
+            url: Uri.parse(signed),
+            headers: const {},
+            track: track,
+          ),
+          streamResult: null,
+        );
+        audioService.enqueuePlayUrlError(Exception('primary failed'));
+        AppLogger.clearLogs();
+
+        await session.start(
+          PlaybackSessionCommand(
+            track: track,
+            mode: PlayMode.queue,
+            positionBeforeLoad: Duration.zero,
+          ),
+        );
+
+        // fallback 比對仍拿完整網址；只有 log 換成標籤（#163）。
+        expect(streamManager.fallbackSelectionFailedUrls, [signed]);
+        final fallbackLog = AppLogger.logs
+            .map((e) => e.message)
+            .singleWhere((m) => m.contains('fallback playback'));
+        expect(fallbackLog, contains('upos-sz-mirror.bilivideo.com'));
+        final text = AppLogger.logs.map((e) => e.message).join('\n');
+        expect(text, isNot(contains('upsig')));
+        expect(text, isNot(contains('deadline')));
       },
     );
 

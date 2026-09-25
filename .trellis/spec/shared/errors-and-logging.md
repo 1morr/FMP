@@ -49,7 +49,13 @@ device.
   not header maps, cookies, credential JSON or token-bearing exceptions. A new
   credential shape gets a key in `logger.dart` and a case in
   `test/core/logger/redaction_test.dart`.
-- Signed stream URLs are **not** redacted. Do not add new log lines that print
-  one.
+- `redactSensitive` does **not** catch signed stream URLs: the signature sits in
+  the query (Bilibili) or in middle path segments (YouTube HLS, NetEase). Log
+  `PreparedPlaybackMedia.logLabel` or `redactStreamUrl(url)`
+  (`lib/services/audio/playback_media.dart`), never `debugUrl` or a raw stream
+  URL (#163). Behaviour tests read `AppLogger.logs` for `MediaKitAudioService`,
+  `PlaybackRequestSession` and `AudioController`; `JustAudioService` is held
+  only by `audio_backend_shared_rules_static_rule_test.dart` (it must call
+  `redactStreamUrl`). A new log line elsewhere is not gated.
 - Logs persist to a rotating file (`LogFileSink`); a per-second log line evicts
   everything useful (`e1bf1712`).

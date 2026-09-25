@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/playlist.dart';
@@ -295,6 +296,40 @@ void main() {
         () => queueManager.currentIndex == 1,
         reason: 'the completion path to advance the queue',
       );
+    });
+
+    test('the unrecognised-advance warning leaves out the signature', () async {
+      await playPair();
+      await pumpUntil(
+        () => audioService.setNextMediaCalls.isNotEmpty,
+        reason: 'the next medium to be armed',
+      );
+      AppLogger.clearLogs();
+
+      // 這一行是 warning，release build 也會落盤（#163）。
+      audioService.emitAdvancedToNext(
+        RemotePlaybackMedia(
+          url: Uri.parse(
+            'https://manifest.googlevideo.com/api/manifest/hls_playlist/'
+            'expire/1758800000/ei/abc/sig/SECRETSIG/file/index.m3u8',
+          ),
+          headers: const {},
+          track: _track('stranger', title: 'Stranger'),
+        ),
+      );
+      await pumpUntil(
+        () => queueManager.currentIndex == 1,
+        reason: 'the completion path to advance the queue',
+      );
+
+      final warning = AppLogger.logs.singleWhere(
+        (e) => e.message.contains('did not arm'),
+      );
+      expect(warning.message, contains('manifest.googlevideo.com'));
+      expect(warning.message, contains('index.m3u8'));
+      final text = AppLogger.logs.map((e) => e.message).join('\n');
+      expect(text, isNot(contains('SECRETSIG')));
+      expect(text, isNot(contains('expire/1758800000')));
     });
   });
 }
