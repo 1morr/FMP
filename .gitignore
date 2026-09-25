@@ -80,9 +80,16 @@ secrets.json
 /test/.test_coverage.dart
 
 # Local agent/tool state
-# Track shared agent skills; everything else under /.claude/ stays local.
+# Track shared agent skills and the Trellis wiring (hooks, subagents,
+# commands, settings.json); settings.local.json and the rest stay local.
 /.claude/*
 !/.claude/skills/
+!/.claude/agents/
+!/.claude/commands/
+!/.claude/hooks/
+!/.claude/settings.json
+# Trellis session journals stay local: the repo is public.
+/.trellis/workspace/
 /.codex/
 /.gstack/
 /.agents/

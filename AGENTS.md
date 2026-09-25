@@ -93,3 +93,36 @@ with a reason, delete it when it goes away.
   `*_static_rule_test.dart` and lives in `test/support/` or
   `test/<layer>/static_rules/` —
   `test/support/static_rule_placement_static_rule_test.dart`.
+
+## Trellis
+
+- **Rules vs patterns** — binding rules stay in this file;
+  `.trellis/spec/<layer>/` holds how each layer's code is written and links
+  here instead of restating a rule. A new rule goes in exactly one of them.
+- **`trellis update`** — keep the local `.claude/agents/trellis-check.md` and
+  `trellis-implement.md`: their Verify steps run § Verification above. Journals
+  stay local because the repo is public (`.trellis/workspace/` is gitignored,
+  `session_auto_commit: false`); if an update re-adds a journal `merge=union`
+  line to `.gitattributes`, drop it.
+
+<!-- TRELLIS:START -->
+# Trellis Instructions
+
+These instructions are for AI assistants working in this project.
+
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+
+- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
+- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` — per-developer journals and session traces
+- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
+
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+- `.agents/skills/` — reusable Trellis skills
+- `.codex/agents/` — optional custom subagents
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
