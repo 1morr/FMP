@@ -1,0 +1,21 @@
+# Orca 建立 worktree 時套用的設定：https://www.onorca.dev/docs/model/worktrees
+
+worktree:
+  sharedDirectories:
+    # Trellis 的 session 日誌被 gitignore（repo 是公開的），新 worktree 裡沒有這個
+    # 目錄，`/trellis:finish-work` 寫 journal 會失敗。共用主 checkout 那一份，
+    # 所有 worktree 記在同一處；Orca 在 Windows 上用 junction，刪 worktree 時只解連結。
+    - .trellis/workspace
+
+# codegen 沒跑完就啟動的 agent 會把 stale codegen 的 missing getter 當成原始碼的錯。
+setupAgentStartupPolicy: wait-for-setup
+
+scripts:
+  # `*.g.dart` 被 gitignore，新 worktree 必須先生成（AGENTS.md § Verification）。
+  # 每行只放一個 cmd 與 bash 都成立的指令：Windows 上 Orca 用 cmd 把每行包成
+  # `call …` 並在失敗時中止，其他平台用 bash `set -e`。不加 `#!`，cmd 會拒跑。
+  # 改動這段會讓 Orca 的信任失效，要在 GUI 重新選 Always trust。
+  setup: |
+    flutter pub get
+    dart run build_runner build
+    dart run slang
