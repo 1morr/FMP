@@ -1650,7 +1650,11 @@ void main() {
           title: 'Fresh After Error',
         );
         final secondPlayGate = audioService.enqueuePendingPlayUrl();
-        sourceManager.throwGetAudioStreamOnce(
+        // 第一個請求停在串流解析，等第二個請求接手之後才以來源錯誤失敗。
+        // 以前是「第一次解析拋錯」：解析會改拿備用串流而成功，第一個請求於是
+        // 一路走到 playUrl，機器快的時候還搶走排給第二個請求的閘門（#102）。
+        final firstFailure = sourceManager.holdThenFailGetAudioStream(
+          'stale-source-error',
           const YouTubeApiException(code: 'unavailable', message: 'gone'),
         );
 
@@ -1665,7 +1669,11 @@ void main() {
 
         final secondPlay = controller.playTrack(secondTrack);
         await audioService.waitForPlayUrlCallCount(1);
+        firstFailure.complete();
         await firstPlay;
+        expect(audioService.playUrlCalls.map((call) => call.track?.sourceId), [
+          'fresh-after-error',
+        ], reason: 'the stale request failed before opening a stream');
         // 這是 issue #43 標題那條測試在 CI 上實際掛掉的地方：作廢的第一個請求
         // 結束之後，狀態要換手給第二個請求，而那不是固定圈數換得到的。
         await pumpUntil(
@@ -2336,6 +2344,9 @@ class _FakeSourceManager extends SourceManager {
     _source.throwGetAudioStreamAlways(error);
   }
 
+  Completer<void> holdThenFailGetAudioStream(String sourceId, Object error) =>
+      _source.holdThenFail(sourceId, error);
+
   void setNextAudioExpiry(Duration? expiry) {
     _source.nextAudioExpiry = expiry;
   }
@@ -2451,12 +2462,26 @@ class _FakeSource implements AudioStreamSource {
     _alwaysGetAudioStreamError = error;
   }
 
+  final _heldFailures = <String, (Completer<void>, Object)>{};
+
+  /// [sourceId] 的解析停住，放行後以 [error] 失敗，而且拿不到備用串流。
+  Completer<void> holdThenFail(String sourceId, Object error) {
+    final gate = Completer<void>();
+    _heldFailures[sourceId] = (gate, error);
+    return gate;
+  }
+
   @override
   String get sourceType => SourceIds.youtube;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     getAudioStreamCallCount++;
+    final held = _heldFailures[request.sourceId];
+    if (held != null) {
+      await held.$1.future;
+      throw held.$2;
+    }
     final error = _alwaysGetAudioStreamError ?? _nextGetAudioStreamError;
     if (error != null) {
       if (_alwaysGetAudioStreamError == null) {
@@ -2480,6 +2505,7 @@ class _FakeSource implements AudioStreamSource {
   Future<AudioStreamResult?> getAlternativeAudioStream(
     AudioStreamRequest request,
   ) async {
+    if (_heldFailures.containsKey(request.sourceId)) return null;
     return AudioStreamResult(
       url: 'https://example.com/${request.sourceId}-fallback.m4a',
       container: 'm4a',
