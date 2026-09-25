@@ -18,18 +18,17 @@ These are different documents with different jobs — don't merge or duplicate t
 
 - **`CONTEXT.md`** defines *vocabulary* — what a term means and which synonyms to avoid.
 - **`docs/adr/`** records *why* a decision was made, including rejected alternatives.
-- **`AGENTS.md`** (root only) states *binding rules* for changing code.
+- **`AGENTS.md`** states *binding rules* for changing code.
 
-If a rule belongs in `AGENTS.md`, put it in the root file and reference it.
-There are no scoped instruction files; the reason behind a piece of code lives
-in its dartdoc or in the test that gates it.
+The reason behind a single piece of code lives in its dartdoc or in the test
+that gates it; an ADR is for a decision that spans modules.
 
 ## File structure
 
 ```
 /
 ├── CONTEXT.md
-├── AGENTS.md              ← binding agent rules (the only one)
+├── AGENTS.md              ← binding agent rules
 ├── docs/adr/
 │   └── NNNN-<slug>.md
 └── lib/

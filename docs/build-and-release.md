@@ -184,7 +184,7 @@ git push origin v1.2.0
 ### CI 流程
 
 一般驗證由 `.github/workflows/ci.yml` 負責。**沒有 path filter** —— 純文檔的
-commit 一樣跑滿（`agents_docs_static_rule_test.dart` 會讀根 `AGENTS.md`，文檔改動也可能讓測試變紅）：
+commit 一樣跑滿：
 
 ```text
 pull_request / main push / workflow_dispatch
