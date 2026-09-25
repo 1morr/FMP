@@ -183,8 +183,9 @@ void main() {
         isEmpty,
         reason:
             'These keywords belong to $_rules alone. A second copy diverges '
-            'silently: neither backend can be instantiated in flutter test, so '
-            'only a device finds the drift.',
+            'silently: JustAudioService cannot be instantiated in flutter '
+            'test and MediaKitAudioService only runs on a fake engine, so only '
+            'a device finds the drift.',
       );
     });
 
