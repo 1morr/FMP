@@ -365,6 +365,11 @@ whatever is on top — in one run, one of the user's unrelated windows.
   bindings and the user's may differ from `HotkeyConfig.defaults()`. Decode the
   `keyId` numbers against `keyboard_key.g.dart`; in this run `toggleWindow` was
   Alt + numpadDivide (`0x20000022f`), not the default Ctrl+Alt+W.
+- **Hot restart (`R`) ends the Windows process.** Measured 2026-09-24: the
+  app exits while media_kit tears down its native player, and `flutter run`
+  loses the device. Hot reload (`r`) is fine. When a change needs a restart
+  (startup code, a migration), quit with `q` and start a new run instead.
+  Android hot restart does not have this problem.
 - **`WM_CLOSE` to the main HWND is the honest "user clicked X".** `PostMessage`
   it to the specific window handle — no coordinates, nothing else on the desktop
   touched. With `minimizeToTrayOnClose`, `IsWindowVisible` flips to false while
