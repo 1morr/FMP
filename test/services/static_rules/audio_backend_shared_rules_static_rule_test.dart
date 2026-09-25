@@ -1,9 +1,14 @@
-/// 三份共用規則只准有一份，而且三個後端都得真的轉呼叫它。
+/// 共用規則只准有一份，而且用得到它的後端都得真的轉呼叫它。
 ///
 /// `backend_contract_test.dart` 驗的是規則本身；規則之所以能代表三個後端，
 /// 前提是後端沒有各自留一份。複製一份關鍵字表回後端不會編譯錯誤，也不會讓任何
-/// 行為測試變紅 —— 兩個真後端在 `flutter test` 裡根本建不起來，第二份表要到實機
-/// 上才分岔得出來（issue #41 就是這樣長出來的）。
+/// 行為測試變紅 —— `JustAudioService` 在 `flutter test` 裡建不起來，
+/// `MediaKitAudioService` 也只接得上假引擎，第二份表要到實機上才分岔得出來
+/// （issue #41 就是這樣長出來的）。
+///
+/// 串流網址寫進 log 的形狀（`redactStreamUrl`，#163）也釘在這裡：
+/// `MediaKitAudioService` 有假引擎的行為測試讀 log，`JustAudioService` 建不起來，
+/// 它有沒有轉呼叫只有這裡看得到。
 library;
 
 import 'dart:io';
@@ -50,17 +55,18 @@ const _movedKeywords = <String>[
 
 String _read(String path) => File(path).readAsStringSync();
 
-/// 三份共用規則。
+/// 共用規則。
 const _sharedUnits = <String>[
   _rules,
   'lib/services/audio/live_edge_seek_policy.dart',
   'lib/services/audio/next_media_plan.dart',
+  'lib/services/audio/playback_media.dart',
 ];
 
 /// 每個後端轉呼叫哪些共用入口。
 ///
 /// 引擎專屬的那一半各自只有一個後端會用到；假替身沒有播放清單，所以不碰
-/// `NextMediaPlan`。
+/// `NextMediaPlan`，也不寫 log，所以不碰 `redactStreamUrl`。
 const _delegation = <String, Set<String>>{
   _justAudio: {
     'classifyCompletion',
@@ -69,6 +75,7 @@ const _delegation = <String, Set<String>>{
     'classifyExoPlayerFailure',
     'NextMediaPlan.of',
     'NextMediaPlan.shouldTrimPlayedEntry',
+    'redactStreamUrl',
   },
   _mediaKit: {
     'classifyCompletion',
@@ -77,6 +84,7 @@ const _delegation = <String, Set<String>>{
     'classifyMpvMessage',
     'NextMediaPlan.of',
     'NextMediaPlan.shouldTrimPlayedEntry',
+    'redactStreamUrl',
   },
   _fake: {'classifyCompletion', 'liveEdgeCandidates', 'seekTookEffect'},
 };

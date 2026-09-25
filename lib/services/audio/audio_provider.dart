@@ -1730,7 +1730,7 @@ class AudioController extends Notifier<PlayerState>
       // 後端接上去的不是我們交出去的那一個。沒有安全的跟隨方式，交還推進權。
       logWarning(
         'The backend advanced to a medium this controller did not '
-        'arm (${media.debugUrl}); falling back to the completion path',
+        'arm (${media.logLabel}); falling back to the completion path',
       );
       _onTrackCompleted();
       return;

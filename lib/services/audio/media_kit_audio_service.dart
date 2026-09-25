@@ -300,7 +300,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         _nextMedia = null;
         if (advanced == null) return;
 
-        logDebug('Backend advanced to next medium: ${advanced.debugUrl}');
+        logDebug('Backend advanced to next medium: ${advanced.logLabel}');
         _hasCompletionFired = false;
         _isCompleted = false;
         if (!_advancedToNextController.isClosed) {
@@ -740,9 +740,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     Map<String, String>? headers,
     Track? track,
   }) async {
-    logDebug(
-      'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...',
-    );
+    logDebug('Playing URL: ${redactStreamUrl(url)}');
     if (headers != null) {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
@@ -818,9 +816,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     Map<String, String>? headers,
     Track? track,
   }) async {
-    logDebug(
-      'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...',
-    );
+    logDebug('Setting URL: ${redactStreamUrl(url)}');
     try {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
@@ -986,7 +982,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
     await _player.add(_mediaFor(media!));
     _nextMedia = media;
-    logDebug('Next medium armed: ${media.debugUrl}');
+    logDebug('Next medium armed: ${media.logLabel}');
   }
 
   /// headers 掛在 `Media` 上，由 mpv 的 `on_load` hook 在開檔時取出來設成

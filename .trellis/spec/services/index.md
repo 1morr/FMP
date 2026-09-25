@@ -29,4 +29,4 @@ Error and logging rules shared with other layers: [../shared/errors-and-logging.
 - Run the AGENTS.md § Verification row that matches: *Audio playback/controller/queue*, *Source adapters / HTTP policy*, or *Download pipeline*.
 - Playback controls or anything the user hears/sees → on-device check with the `verify-on-device` skill.
 - Every `await` in a disposable service or notifier is followed by a disposed / superseded / `ref.mounted` check where state is touched afterwards.
-- Not gated — check by hand: provider owns `dispose`; no signed URL, cookie or token in a new log line; `Platform.is*` placement; `unawaited(...)` with `.catchError` for futures that can fail.
+- Not gated — check by hand: provider owns `dispose`; no cookie or token in a new log line, and a stream URL goes through `logLabel` / `redactStreamUrl`; `Platform.is*` placement; `unawaited(...)` with `.catchError` for futures that can fail.

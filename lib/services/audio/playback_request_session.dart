@@ -541,7 +541,7 @@ class PlaybackRequestSession with Logging {
       if (!isSuperseded(requestId)) {
         try {
           logInfo(
-            'Attempting manager-selected fallback playback for: ${track.title} (failed URL: ${selection.media.debugUrl})',
+            'Attempting manager-selected fallback playback for: ${track.title} (failed URL: ${selection.media.logLabel})',
           );
           final fallbackSelection = await _withBudget(
             _audioStreamManager.selectFallbackPlayback(

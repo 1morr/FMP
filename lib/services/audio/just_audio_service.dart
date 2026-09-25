@@ -256,7 +256,7 @@ class JustAudioService extends FmpAudioService with Logging {
         _nextMedia = null;
         if (advanced == null) return;
 
-        logDebug('Backend advanced to next medium: ${advanced.debugUrl}');
+        logDebug('Backend advanced to next medium: ${advanced.logLabel}');
         _hasCompletionFired = false;
         if (!_advancedToNextController.isClosed) {
           _advancedToNextController.add(advanced);
@@ -538,9 +538,7 @@ class JustAudioService extends FmpAudioService with Logging {
     Map<String, String>? headers,
     Track? track,
   }) async {
-    logDebug(
-      'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...',
-    );
+    logDebug('Playing URL: ${redactStreamUrl(url)}');
     if (headers != null) {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
@@ -588,9 +586,7 @@ class JustAudioService extends FmpAudioService with Logging {
     Map<String, String>? headers,
     Track? track,
   }) async {
-    logDebug(
-      'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...',
-    );
+    logDebug('Setting URL: ${redactStreamUrl(url)}');
     try {
       _processingStateController.add(FmpAudioProcessingState.loading);
       await _session.setActive(true);
@@ -703,7 +699,7 @@ class JustAudioService extends FmpAudioService with Logging {
 
     await _player.addAudioSource(_sourceFor(media!));
     _nextMedia = media;
-    logDebug('Next medium armed: ${media.debugUrl}');
+    logDebug('Next medium armed: ${media.logLabel}');
   }
 
   /// 移掉剛剛播完、留在清單前面的那一個項目。
