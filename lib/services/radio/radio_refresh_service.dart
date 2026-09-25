@@ -63,8 +63,7 @@ class RadioRefreshService with Logging {
   bool _paused = false;
 
   // 緩存數據
-  // ignore: prefer_final_fields
-  Map<int, bool> _liveStatus = {};
+  final Map<int, bool> _liveStatus = {};
 
   // 狀態變更通知
   final _stateController = StreamController<void>.broadcast();

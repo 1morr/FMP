@@ -295,6 +295,8 @@ class YouTubeSource
     try {
       // 如果没有传入 video，需要先获取
       final videoObj = video ?? await _youtube.videos.get(videoId);
+      // youtube_explode_dart 把 comments 介面標為不再支援，也沒有替代 API；它的
+      // dartdoc 註明自 2.2.0 起可能失效，失敗由這個 try 接住、回傳空清單。
       // ignore: deprecated_member_use
       final comments = await _youtube.videos.comments.getComments(videoObj);
 
