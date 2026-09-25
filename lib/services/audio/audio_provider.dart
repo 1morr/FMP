@@ -11,9 +11,9 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 // `Notifier` 可以拿到 `ref`，所以接線從 provider 工廠搬進了 build()。
-// 控制器本身仍然不宣告任何 provider：它的 provider 與協作者的 provider 都在
-// lib/providers/audio/，兩個檔互相 import 是刻意的，不要把 provider 宣告搬進
-// 這個檔來「修」它。
+// 控制器本身仍然不宣告任何 provider：它的 provider 在 lib/providers/audio/，
+// 協作者的 provider 在 lib/providers/audio/ 或協作者自己的檔案旁。兩個檔互相
+// import 是刻意的，不要把 provider 宣告搬進這個檔來「修」它。
 import 'package:fmp/providers/audio/audio_controller_provider.dart';
 import 'package:fmp/data/database/repository_providers.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';

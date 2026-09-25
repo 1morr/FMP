@@ -64,11 +64,13 @@ No test checks these; hold them yourself:
   the `kFmpSchemaVersion` dartdoc in `lib/data/database/database_migration.dart`.
 - **Search** — the visible source chips on the search page are the only source
   selector; no setting filters search behind the user's back (`db41b987`).
-- **Providers** — `audioControllerProvider` and the providers building its
-  collaborators live in `lib/providers/audio/`; the controller class declares
-  none. `neteaseSourceProvider` is the **lyrics-layer** `NeteaseSource`
-  (`lib/services/lyrics/`); the same-named data source adapter is reached only
-  through `SourceManager`'s narrow capabilities.
+- **Providers** — `audio_provider.dart` declares no providers.
+  `audioControllerProvider` and the backend, queue and stream providers live in
+  `lib/providers/audio/`; collaborators such as `nowPlayingPublisherProvider`,
+  `playbackSideEffectsProvider` and `queueStateProvider` declare theirs beside
+  their class in `lib/services/audio/`. `neteaseSourceProvider` is the
+  **lyrics-layer** `NeteaseSource` (`lib/services/lyrics/`); the same-named data
+  source adapter is reached only through `SourceManager`'s narrow capabilities.
 
 Gated by static-rule tests. The tests hold the exception lists: add an entry
 with a reason, delete it when it goes away.
