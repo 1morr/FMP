@@ -138,19 +138,7 @@ dart run inno_bundle:build --release --no-app --no-installer
 
 ### 安裝包設定
 
-設定位於 `pubspec.yaml` 的 `inno_bundle` 區塊：
-
-```yaml
-inno_bundle:
-  id: BAF6CE8D-E1C8-4C29-AE0B-EDE98D5F8FAA  # AppId，發布後不可更改
-  name: FMP
-  description: "Flutter Music Player - 跨平台音乐播放器"
-  publisher: FMP
-  installer_icon: windows/runner/resources/app_icon.ico
-  admin: false  # 不需要系統管理員權限安裝
-```
-
-> **重要**：`id` 是 GUID 格式的 AppId，**發布後不可更改**。更改會導致使用者機器將更新視為不同的應用程式。
+設定位於 `pubspec.yaml` 的 `inno_bundle` 區塊。其中 `id` 是 AppId，**發布後不可更改**（理由寫在該欄位的註解）。
 
 ## 常用指令
 
@@ -167,8 +155,9 @@ flutter analyze
 # 執行測試（排除會打真實音源 API 的 live 測試，與 CI 相同）
 flutter test --exclude-tags live
 
-# 重新產生程式碼（修改 Isar model 後必須執行）
+# 重新產生程式碼（修改 Isar model 或 i18n JSON 後，以及 pull / 切分支之後）
 dart run build_runner build
+dart run slang
 ```
 
 ## Windows 建置排錯

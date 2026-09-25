@@ -1,19 +1,6 @@
 # FMP 開發文件
 
-本文件面向想了解專案結構或參與開發的貢獻者。更詳細的 agent 規則、資料庫遷移規則和專案特定編碼約束維護在 [AGENTS.md](../AGENTS.md)。
-
-## 技術棧
-
-| 層級 | 技術 | 說明 |
-|------|------|------|
-| UI | Flutter / Dart | Material 3，Android + Windows 響應式 UI |
-| 狀態管理 | Riverpod 3.x | `Notifier`、`FutureProvider`、`StreamProvider`；沒有 `StateNotifier` |
-| 本機儲存 | Isar 3.x | 持久化應用程式資料和設定 |
-| 路由 | go_router | 宣告式路由 |
-| 網路 | Dio | 音源 API 和媒體請求 |
-| 國際化 | slang | 產生型別安全翻譯程式碼 |
-| 音訊 | just_audio / media_kit | Android 使用 just_audio，桌面使用 media_kit |
-| 加密 | crypto / encrypt / pointycastle | 網易雲 eapi/weapi、Bilibili Cookie 刷新 |
+本文件面向想了解專案結構或參與開發的貢獻者。架構邊界、驗證要求與專案慣例在 [AGENTS.md](../AGENTS.md)，人類貢獻者適用同一套。
 
 ## 平臺分工
 
@@ -22,14 +9,7 @@
 | Android | `JustAudioService` / ExoPlayer | 背景播放、通知列控制、儲存權限 |
 | Windows | `MediaKitAudioService` / libmpv | 音訊裝置切換、SMTC、系統匣、全域快速鍵、歌詞子視窗 |
 
-Windows 本機建置還需要部分原生工具：
-
-| 工具 | 相關外掛 | 用途 |
-|------|----------|------|
-| NuGet CLI | `flutter_inappwebview_windows` | 下載 WebView2、WIL 等原生依賴 |
-| Rust 工具鏈 | `smtc_windows` | 建置 cargokit 原生函式庫 |
-
-安裝和排錯細節見〈[建置指南](building.md)〉。
+為什麼保留兩個後端見 [ADR 0003](adr/0003-two-audio-backends.md)。技術棧見 [README](../README.md#built-with)，版本以 `pubspec.yaml` 為準；Windows 本機建置需要的原生工具見〈[建置指南](building.md)〉。
 
 ## 架構地圖
 
@@ -57,8 +37,8 @@ lib/
 └── main.dart      # 行程啟動和平臺初始化
 ```
 
-Agent 規則見 [AGENTS.md](../AGENTS.md)；各模組的設計理由寫在程式碼的 dartdoc
-與守著它的測試裡。
+狀態管理是 Riverpod 3 的 `Notifier` / `FutureProvider` / `StreamProvider`，沒有 `StateNotifier`。
+各模組的設計理由寫在程式碼的 dartdoc 與守著它的測試裡。
 
 ## 資料模型分類
 
@@ -71,16 +51,9 @@ Agent 規則見 [AGENTS.md](../AGENTS.md)；各模組的設計理由寫在程式
 `openFmpDatabase()`。欄位變動時的遷移與 default repair 規則見
 `lib/data/database/database_migration.dart` 的 `kFmpSchemaVersion` dartdoc。
 
-## 音源支援
+## 音源
 
-| 音源 | 目前支援 |
-|------|----------|
-| Bilibili | 影片音訊、多 P 影片、直播間音訊、收藏夾匯入 |
-| YouTube | 影片音訊、播放清單、Mix/Radio 動態佇列、Opus/AAC 偏好 |
-| Netease | 搜尋、歌曲詳情、eapi 音訊流、歌單匯入、VIP/可用性處理 |
-| 外部歌單匯入 | Netease、QQ Music、Spotify 搜尋匹配匯入 |
-
-直接音源的 API 例外共享 `SourceApiException`，播放層可以統一處理不可用、限流、需要登入和網路錯誤等情況。
+各音源支援的功能見 [README](../README.md#what-it-does)。直接音源的 API 例外共享 `SourceApiException`（`lib/data/sources/source_exception.dart`），播放層可以統一處理不可用、限流、需要登入和網路錯誤等情況。
 
 ## 歌詞系統概覽
 
@@ -98,14 +71,7 @@ Agent 規則見 [AGENTS.md](../AGENTS.md)；各模組的設計理由寫在程式
 
 ## 路由
 
-重要路由常量在 `lib/ui/router.dart`。
-
-| 區域 | 路由 |
-|------|------|
-| 主導覽 | `/`、`/search`、`/explore`、`/queue`、`/history`、`/library`、`/radio`、`/settings` |
-| 詳情頁 | `/player`、`/radio-player`、`/library/:id`、`/library/downloaded`、`/library/downloaded/:folderName` |
-| 設定 | `/settings/audio`、`/settings/lyrics-source`、`/settings/download-manager`、`/settings/user-guide`、`/settings/home-ranking`、`/settings/account`、`/settings/account/bilibili-login`、`/settings/account/youtube-login`、`/settings/account/netease-login`、`/settings/developer` |
-| 開發者工具 | `/settings/developer/database`、`/settings/developer/logs` |
+路由常量與完整清單在 `lib/ui/router.dart`。
 
 ## 響應式版面配置
 
@@ -120,19 +86,7 @@ Agent 規則見 [AGENTS.md](../AGENTS.md)；各模組的設計理由寫在程式
 
 ## 常用指令
 
-```bash
-flutter run
-flutter run -d windows
-flutter analyze
-flutter test --exclude-tags live
-dart run build_runner build
-dart run slang
-```
-
-`live` 標籤的測試會打真實的音源 API，CI 排除它們（見 `dart_test.yaml`）；本機也照
-這樣跑，只有在查上游 API 是否改了時才單獨跑 `--tags live`。
-
-本機 release 建置見〈[建置指南](building.md)〉，CI/release 行為見〈[建置與發布指南](build-and-release.md)〉。
+見〈[建置指南](building.md#常用指令)〉；CI/release 行為見〈[建置與發布指南](build-and-release.md)〉。
 
 ## 執行期除錯（VM Service）
 
@@ -201,12 +155,6 @@ curl -s -G "$BASE/ext.isar.editProperty" --data-urlencode "isolateId=$ISOLATE" -
 
 其他 RPC（記憶體、timeline、widget tree dump）是上游的通用 API，見
 [Dart VM Service Protocol](https://github.com/dart-lang/sdk/blob/main/runtime/vm/service/service.md)。
-
-## 開發規則摘要
-
-不在這裡重複。AI agent 的規則只有根目錄一份 [AGENTS.md](../AGENTS.md)，人類貢獻者
-適用同一套；個別程式碼的理由寫在它旁邊的 dartdoc 與守著它的測試裡。抄一份摘要到
-這裡只會多一個會漂移的副本。
 
 ## 更多文件
 

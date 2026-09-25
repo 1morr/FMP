@@ -45,7 +45,7 @@ Run `gh issue view <number> --comments`.
 Issue titles and bodies are written in **Traditional Chinese** (台港用語), matching
 `docs/` and the root `README`. Keep code identifiers, log strings, commit
 messages, branch names, and label strings in English — see the language split
-documented in `docs/README.md` § 權威來源.
+documented in `docs/README.md` § 分工.
 
 ## Wayfinding operations
 
