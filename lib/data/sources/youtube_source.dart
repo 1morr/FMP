@@ -17,6 +17,7 @@ import 'package:fmp/data/sources/dynamic_playlist_types.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
+import 'package:fmp/data/sources/source_url_policy.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
 
 export 'package:fmp/data/sources/dynamic_playlist_types.dart'
@@ -183,17 +184,20 @@ class YouTubeSource
 
   @override
   bool isPlaylistUrl(String url) {
-    // 播放列表 URL 格式:
+    // 播放清單 URL 格式:
     // - https://www.youtube.com/playlist?list=PLAYLIST_ID
     // - https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIST_ID
     // - https://music.youtube.com/playlist?list=PLAYLIST_ID
-    // 必须先确认是 YouTube 域名，避免误匹配其他平台含 /playlist 的 URL（如 Spotify）
-    final isYouTubeDomain =
-        url.contains('youtube.com') ||
-        url.contains('youtu.be') ||
-        url.contains('music.youtube.com');
-    if (!isYouTubeDomain) return false;
-    return url.contains('list=') || url.contains('/playlist');
+    // - https://youtu.be/VIDEO_ID?list=PLAYLIST_ID
+    // 先比對主機白名單再看形狀：以前用子字串判斷網域，
+    // `attacker.example/?u=youtube.com&list=x` 也會被認成 YouTube 歌單。
+    final uri = SourceUrlPolicy.parseTrustedHttpUrl(
+      SourceUrlPolicy.withDefaultHttpsScheme(url),
+      allowedHosts: SourceUrlPolicy.youtubeHosts,
+    );
+    if (uri == null) return false;
+    return uri.queryParameters.containsKey('list') ||
+        uri.path.startsWith('/playlist');
   }
 
   /// 从 URL 解析播放列表 ID

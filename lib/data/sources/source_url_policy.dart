@@ -11,6 +11,32 @@ class SourceUrlPolicy {
   static const qqMusicShortHosts = {'c.y.qq.com', 'url.cn'};
   static const neteaseHosts = {'music.163.com', 'y.music.163.com'};
   static const neteaseShortHosts = {'163cn.tv'};
+  static const youtubeHosts = {
+    'youtube.com',
+    'www.youtube.com',
+    'm.youtube.com',
+    'music.youtube.com',
+    'youtu.be',
+  };
+  // b23.tv 短鏈不在這裡：歌單解析從來不支援它，要支援得先解析重定向。
+  static const bilibiliHosts = {
+    'bilibili.com',
+    'www.bilibili.com',
+    'm.bilibili.com',
+    'space.bilibili.com',
+  };
+
+  static final _schemePrefix = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://');
+
+  /// 沒有 `scheme://` 的輸入當成 `https://` 讀。
+  ///
+  /// 使用者常貼 `www.youtube.com/playlist?list=…` 這種不帶協定的網址，舊的子字串
+  /// 判斷接受它們，也可能已經存成歌單的 `sourceUrl`；`Uri.tryParse` 對它們拿不到
+  /// host，不補協定就會在主機檢查被擋掉。
+  static String withDefaultHttpsScheme(String url) {
+    final trimmed = url.trim();
+    return _schemePrefix.hasMatch(trimmed) ? trimmed : 'https://$trimmed';
+  }
 
   static String? parseBilibiliFavoritesId(String url) {
     final fidMatch = RegExp(r'fid=(\d+)').firstMatch(url);
