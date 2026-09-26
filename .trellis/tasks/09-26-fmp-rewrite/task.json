@@ -21,7 +21,8 @@
   "children": [
     "09-26-audit",
     "09-27-design-docs",
-    "09-27-design-rewrite-strategy"
+    "09-27-design-rewrite-strategy",
+    "09-27-design-platform"
   ],
   "parent": null,
   "relatedFiles": [],
