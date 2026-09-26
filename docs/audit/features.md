@@ -394,14 +394,14 @@ flowchart LR
 | 行為 | 什麼時候發生 | 端點 | 證據 |
 |---|---|---|---|
 | B 站：建立收藏夾 | 「加入遠端」對話框裡按新建 | `POST /x/v3/fav/folder/add` | `bilibili_favorites_service.dart:117-131`；UI `add_to_bilibili_playlist_dialog.dart:61-75` |
-| B 站：影片加入／移出收藏夾 | 「加入遠端」勾選變更；**從匯入的 B 站收藏夾歌單刪曲目** | `POST /x/v3/fav/resource/deal` | `bilibili_favorites_service.dart:154-168`；`remote_playlist_sync_provider.dart:47-50` |
+| B 站：影片加入／移出收藏夾 | 「加入遠端」勾選變更；在匯入的 B 站收藏夾歌單裡，對曲目按紅色的「從遠程播放列表移除」（單曲選單或多選） | `POST /x/v3/fav/resource/deal` | `bilibili_favorites_service.dart:154-168`；`remote_playlist_sync_provider.dart:47-50` |
 | YouTube：加入／移出播放清單 | 同上（YouTube 歌單） | `POST /youtubei/v1/browse/edit_playlist` | `lib/services/account/youtube_playlist_service.dart:88-111` |
 | YouTube：建立播放清單 | 對話框新建 | `POST /youtubei/v1/playlist/create` | `youtube_playlist_service.dart:218-223` |
 | 網易雲：建立歌單、加入／移出曲目 | 同上（網易雲歌單） | `playlist/create`、`playlist/manipulate/tracks`，經 linux API 加密轉送，並附偽造的 `X-Real-IP: 118.88.88.88` | `lib/services/account/netease_playlist_service.dart:101-106,146-188,240-253` |
 | **B 站 Cookie 自動刷新** | 每次啟動（已登入時）；伺服器回報需要刷新才真的換 | `GET cookie/info` → `GET /correspond/1/...` → `POST cookie/refresh` → `POST confirm/refresh`（舊 refresh_token 作廢） | `account_provider.dart:131-152`；`bilibili_account_service.dart:350-444` |
 | 播放紀錄上報、心跳、按讚、投幣、點擊統計 | **查不到**。grep `heartbeat\|history/report\|scrobble\|click-interface\|/like\|thumbup\|coin` 在 `lib/data/sources`、`lib/services/account`、`lib/services/library` 只命中讀取用的 `coin` 統計欄位（`lib/data/sources/bilibili_source.dart:792`） | — | — |
 
-移除匯入歌單的曲目時會先跳確認框（`t.remote.confirmRemove`，`playlist_detail_page.dart:565-573`），但「在本機歌單刪曲目＝在平台刪曲目」這件事只在確認框文案裡說。
+（核查更正：原寫「在本機歌單刪曲目＝在平台刪曲目，只在確認框文案裡說」，措辭誤導。）實際行為：匯入歌單**沒有**本地「從歌單移除」，選單只提供明確標示的紅色「從遠程播放列表移除」（`playlist_detail_page.dart:210-212,1502-1515`）；按下後確認框寫「確定要從遠程播放列表中移除嗎？同時會從本地歌單中移除」，先寫遠端、成功後才刪本地，再從遠端刷新（`remote_playlist_edit_controller.dart:61-135`）。匯入歌單也不會出現在「加入歌單」對話框（`add_to_playlist_dialog.dart:100,254`）；本地只能改名稱、描述、封面與自動刷新設定（`create_playlist_dialog.dart:120-124,454-458`）。刷新以遠端為準、整批取代曲目（`import_service.dart:498-506`）。
 
 ### 15.2 會把資料送到第三方的（非三個主音源）
 

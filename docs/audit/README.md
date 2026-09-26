@@ -51,7 +51,7 @@
 
 **帳號與隱私。** UI 的登入狀態讀 Isar，實際送請求只看 secure storage；「重設所有資料」不清憑證，重設後 UI 顯示未登入但請求仍帶舊 cookie（已由程式碼確認）。log 遮蔽不涵蓋 CDN 簽名參數與 stackTrace。v3→v4 migration 把使用者自己關掉的 B 站「用登入狀態播放」強制打開。YouTube／網易的首頁排行永遠不帶登入（`accounts-network.md`）。
 
-**你很可能不知道的。** 在本機刪「匯入的平台歌單」裡的曲目，會同步在 B 站／YouTube／網易雲上刪；每次啟動可能自動換 B 站 cookie；網易雲寫入請求帶偽造的 `X-Real-IP`；AI 歌詞匹配（預設關）會把影片描述與歌詞預覽連同 API key 送到自訂端點、不強制 https；Windows 更新會靜默執行下載的安裝程式或用隱藏的 bat 覆蓋程式目錄，SHA-256 只在 release 附了 checksum 檔時才驗；每 15 秒解析三個公共 DNS 名稱（`features.md` §15）。
+**你很可能不知道的。** 匯入歌單的曲目選單有一個明確標示的「從遠程播放列表移除」，會真的刪平台上的曲目（本地沒有單純的刪除）；「加入遠端」會在平台上建歌單、加曲目；每次啟動可能自動換 B 站 cookie；網易雲寫入請求帶偽造的 `X-Real-IP`；AI 歌詞匹配（預設關）會把影片描述與歌詞預覽連同 API key 送到自訂端點、不強制 https；Windows 更新會靜默執行下載的安裝程式或用隱藏的 bat 覆蓋程式目錄，SHA-256 只在 release 附了 checksum 檔時才驗；每 15 秒解析三個公共 DNS 名稱（`features.md` §15）。
 
 **平台。** 88 處平台判斷、三種寫法並存。macOS／Linux 會出現半套桌面 UI、沒有標題列、推測無法播放；iOS 程式碼最接近能跑但缺背景播放與 ATS 設定。Linux 缺 just_audio／audio_service／flutter_inappwebview 實作；`media_kit_libs_windows_audio` 在 pub.dev 已 unlisted（`platforms.md`）。
 
