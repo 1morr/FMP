@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "09-26-audit",
-    "09-27-design-docs"
+    "09-27-design-docs",
+    "09-27-design-rewrite-strategy"
   ],
   "parent": null,
   "relatedFiles": [],
