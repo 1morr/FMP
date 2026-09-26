@@ -12,16 +12,8 @@ say *what else a change touches*.
 
 - [ ] The change touches 3+ of: `lib/data/sources`, `lib/data/models`, `lib/services`, `lib/providers`, `lib/ui`, `lib/i18n` → cross-layer guide.
 - [ ] You are writing a list of source ids, a header, a user message, a retry ladder, an image widget, a confirm dialog → code-reuse guide; the owner already exists.
-- [ ] You are changing a value → `rg` for it across `lib/`, `test/` and `docs/` first.
+- [ ] You are editing `.trellis/spec/` (e.g. in `trellis-update-spec`) → a must / never / only sentence names the test that gates it, or you grepped and found no counterexample; otherwise describe the majority pattern and its known exceptions. The 2026-09 audit had to reword 71 of 421 sentences for this (`.trellis/tasks/archive/2026-09/09-26-align-specs-with-code/research/spec-audit.md`).
 
 ## Quality Check
 
-- The cross-layer guide's "Before you finish" list holds for every arrow touched.
-
-## Reviewing AI findings
-
-Before acting on a review finding, check it against the code:
-- "Untrusted input" — trace where the data comes from (bundled JSON, a source API, user text).
-- "Missing validation" — the boundary may already validate (`SourceUrlPolicy`, `SourceHttpPolicy`).
-- "Behaviour change" — read the dartdoc; FMP records intentional behaviour there with the issue or commit.
-- "Bug in the test" — mentally delete the feature under test; if the test still passes, it is tautological.
+- A new error path stays typed until the user-facing edge and becomes a sentence there through `userMessageFor` / `failureMessage`. The existing exceptions (the import path translating early, `e.toString()` in some `state.error`) are listed in `../shared/errors-and-logging.md`; do not extend them.

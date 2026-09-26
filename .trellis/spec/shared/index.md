@@ -11,11 +11,10 @@ Applies to all Dart code in `lib/`, `test/` and `tool/`, and to commits.
 
 ## Pre-Development Checklist
 
-- [ ] Read `code-style.md` once per session.
 - [ ] The change touches an error path or adds logging → read `errors-and-logging.md`.
 
 ## Quality Check
 
 - `dart format --output=none --set-exit-if-changed lib test tool` and `flutter analyze` are clean (CI order: format → `build_runner` → `slang` → analyze → test).
-- No user-visible text built from `e.toString()`; no secret, cookie or signed URL in a new log line.
+- New user-visible text and new `state.error` values are not built from `e.toString()` (existing `state.error` offenders are listed in `errors-and-logging.md`); no secret, cookie or signed URL in a new log line.
 - Comments on edited lines are Traditional Chinese; untouched Simplified lines are left alone.

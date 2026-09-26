@@ -8,20 +8,26 @@
   `SourceApiException`, `DioException`, socket/HTTP/TLS, timeout, format and
   path-access errors; anything else is "unknown error" rather than a guess (#41).
 - `failureMessage(error, stack, what, {tag})` logs the original and returns the
-  sentence — use it for `state.error` in notifiers and services.
-- In widgets, the only way to show an exception is
-  `ToastService.failure(context, error, stackTrace:, tag:)`, or an
-  `ErrorDisplay(message: userMessageFor(e))`.
-- Never put `e.toString()` or `'$e'` into an i18n template, a toast, an
-  `ErrorDisplay` or `state.error` (`5e9d2929`). Gated by
+  sentence — the pattern for `state.error` in notifiers and services. Older code
+  still stores `e.toString()` there (`AudioController`, `RankingCacheService`).
+- In widgets, an exception reaches the user through
+  `ToastService.failure(context, error, stackTrace:, tag:)`, an
+  `ErrorDisplay(message: userMessageFor(e))`, or a template fed `userMessageFor(e)`
+  (`t.library.downloadedPage.deleteFailed(error: userMessageFor(e))`).
+- `e.toString()` or `'$e'` does not go into an i18n template, a toast or an
+  `ErrorDisplay` (`5e9d2929`). Gated by
   `test/ui/static_rules/error_presentation_static_rule_test.dart` for templates
-  (all of `lib/`) and for toasts / `ErrorDisplay` (`lib/ui/`); `state.error` is
-  held by convention only.
+  (all of `lib/`) and for toasts / `ErrorDisplay` (`lib/ui/`). The same holds for
+  `state.error` by convention only, with the exceptions above.
 
-Lower layers throw typed exceptions: a `SourceApiException` subtype, a repository
-exception (`PlaylistNotFoundException`), or `SecureStorageUnavailable` (it carries
-the platform code only — the message can leak a key alias or path). A bare
-`DioException` that reaches the UI is still classified, not shown as "unknown".
+Lower layers mostly throw typed exceptions: a `SourceApiException` subtype, a
+repository exception (`PlaylistNotFoundException`), or `SecureStorageUnavailable`
+(it carries the platform code only — the message can leak a key alias or path).
+Exceptions: the playlist import sources throw `Exception` with a translated
+message, `ImportService` throws `ImportException` with translated text, and
+`DownloadService` maps a non-JSON isolate failure to a plain
+`Exception('Download failed: …')`. A bare `DioException` that reaches the UI is
+still classified, not shown as "unknown".
 
 Global handlers (`FlutterError.onError`, `PlatformDispatcher.instance.onError`,
 `runZonedGuarded`) are in `lib/main.dart`; a failure before `runApp` renders
@@ -41,7 +47,8 @@ device.
   above.
 - Stream-resolution logs identify tracks with `TrackKey.formatGroup(sourceType, sourceId)`
   so `AudioStreamManager` and `StreamResolutionService` lines join up (many older
-  controller lines still log titles). Time things as
+  controller lines still log titles, and the prefetch-failure line in
+  `StreamResolutionService` inlines `sourceType:sourceId`). Time things as
   `${stopwatch.elapsedMilliseconds}ms`.
 - **Redaction is a safety net, not permission.** `AppLogger.redactSensitive`
   scrubs known header and key shapes (`Cookie:`, `Authorization`, `SESSDATA`,

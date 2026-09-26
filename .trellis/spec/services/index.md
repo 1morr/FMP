@@ -28,5 +28,5 @@ Error and logging rules shared with other layers: [../shared/errors-and-logging.
 
 - Run the AGENTS.md § Verification row that matches: *Audio playback/controller/queue*, *Source adapters / HTTP policy*, or *Download pipeline*.
 - Playback controls or anything the user hears/sees → on-device check with the `verify-on-device` skill.
-- Every `await` in a disposable service or notifier is followed by a disposed / superseded / `ref.mounted` check where state is touched afterwards.
-- Not gated — check by hand: provider owns `dispose`; no cookie or token in a new log line, and a stream URL goes through `logLabel` / `redactStreamUrl`; `Platform.is*` placement; `unawaited(...)` with `.catchError` for futures that can fail.
+- New async code in a disposable service or notifier checks disposed / superseded / `ref.mounted` after an `await` that is followed by a state write. Existing code is uneven (the audio and download paths check; `ImportService` and many settings notifiers do not), so do not take an unchecked file as the pattern.
+- Not gated — check by hand: the provider of a new service calls its `dispose` (see `service-conventions.md` § Disposal for the existing exceptions); no cookie or token in a new log line, and a stream URL goes through `logLabel` / `redactStreamUrl`; `Platform.is*` placement; a fire-and-forget future that can fail logs its error (see `service-conventions.md` § Async guards).

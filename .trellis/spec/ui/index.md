@@ -26,4 +26,4 @@ Stack: `flutter_riverpod` 3 written by hand (no codegen, no freezed, no hooks),
 - Run the AGENTS.md § Verification row *UI widgets/pages* (targeted `test/ui` tests + `flutter analyze`); for i18n JSON also `dart run slang`.
 - On-device verification with the `verify-on-device` skill is mandatory for user-visible changes; report what was observed, or name the blocker.
 - Static rules that commonly fire here (all under `test/ui/static_rules/` or `test/providers/static_rules/`): image widgets, `ScopedSlider`, watch scope, error presentation, anchored providers, Equatable `props`. When one fires, follow its failure `reason:`.
-- Not gated — check by hand: `ref.mounted` after awaits, `context.mounted` after awaits, `IconButton` tooltips, `AppRadius` / `AnimationDurations` instead of literals.
+- Not gated — check by hand: `ref.mounted` after awaits, `IconButton` tooltips, `AppRadius` / `AnimationDurations` instead of literals. (Using a `BuildContext` after an await without a `mounted` check is caught by `use_build_context_synchronously`, part of `flutter_lints`.)

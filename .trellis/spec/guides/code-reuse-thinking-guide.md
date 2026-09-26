@@ -1,12 +1,7 @@
 # Code-reuse thinking guide
 
 FMP keeps one owner per concern, and several of those owners are guarded by
-static rules. Writing a second copy is usually what the rule catches. Search
-first:
-
-```bash
-rg -n "<value or name>" lib test docs
-```
+static rules. Writing a second copy is usually what the rule catches.
 
 ## Owners of recurring concerns
 
@@ -29,8 +24,6 @@ rg -n "<value or name>" lib test docs
 
 ## When there are two near-copies
 
-- Three or more copies of the same shape → extract to the owner above, or make
-  that owner.
 - Two copies that must stay identical across backends or layers → a shared pure
   function, plus a test both sides run (`backend_contract_test.dart` pattern).
 - Do not add an abstraction for a single caller or an imagined future caller;
