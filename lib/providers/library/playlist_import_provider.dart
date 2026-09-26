@@ -325,15 +325,18 @@ class PlaylistImportNotifier extends Notifier<PlaylistImportState> {
     _importOperationId++;
     _activeImportOperationId = null;
     _manualSearchOperations.clear();
+    // 只關自己的訂閱；服務由 playlistImportServiceProvider 擁有並釋放。
     _progressSubscription?.cancel();
-    _service.dispose();
   }
 }
 
 /// Provider
 final playlistImportServiceProvider = Provider<PlaylistImportService>((ref) {
   final sourceManager = ref.watch(sourceManagerProvider);
-  return PlaylistImportService(sourceManager: sourceManager);
+  final service = PlaylistImportService(sourceManager: sourceManager);
+  // 服務由這個 provider 擁有：rebuild 或釋放時關掉它的 progress controller。
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 final playlistImportProvider =
