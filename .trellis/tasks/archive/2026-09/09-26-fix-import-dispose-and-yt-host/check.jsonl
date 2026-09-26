@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/data/sources.md", "reason": "Verify URL handling matches the SourceUrlPolicy convention and the spec passage is updated"}
+{"file": ".trellis/spec/services/service-conventions.md", "reason": "Verify the dispose-ownership passage no longer lists the import provider as a gap"}
+{"file": ".trellis/spec/ui/riverpod.md", "reason": "Verify onDispose registration and the updated known-exceptions list"}
+{"file": ".trellis/spec/testing/test-conventions.md", "reason": "Verify new tests follow the project's wait and container conventions"}
