@@ -12,7 +12,10 @@ gated by `test/data/static_rules/isar_boundary_static_rule_test.dart`).
   `bool isAvailable = true`. Build them with cascades
   (`PlayHistory()..sourceId = …`). No `const`, `copyWith` or `==` on collections;
   copies use a hand-written `copy()` (`Track.copy`).
-- Conversions are methods on the model: `PlayHistory.fromTrack(track)`, `toTrack()`.
+- Model-to-model conversions are methods on the model: `PlayHistory.fromTrack(track)`,
+  `PlayHistory.toTrack()`, `LiveRoom.toTrack()`. Code that builds a `Track` from
+  outside data (a backup file, a scanned download folder) assembles it in place
+  (`BackupService`, `download_scanner.dart`).
 - `@Index()` on lookup and sort fields. Getter indexes
   (`Track.sourcePageKey`, `PlayHistory.trackKey`) are recomputed only on `put`, so
   changing a getter's output needs a rewrite migration.
@@ -63,11 +66,18 @@ Points that bite:
 - Concrete class taking `Isar` (usually `XRepository(this._isar)`;
   `PlaylistMutationRepository({required Isar isar})` is the named-param outlier);
   no repository interface layer (ADR 0002). Add `with Logging` if it logs.
-- Most providers live in `lib/data/database/repository_providers.dart` in this
-  shape. Exceptions: `downloadRepositoryProvider` (`lib/providers/download/`,
-  `requireValue`), `radioRepositoryProvider` (`radio_controller.dart`, nullable),
-  and `QueueRepository` / `PlaylistMutationRepository`, which providers construct
-  inline with no provider of their own:
+- Eight repositories have a provider in `lib/data/database/repository_providers.dart`
+  in the shape below; `downloadRepositoryProvider` (`download_providers.dart`,
+  `requireValue`) and `radioRepositoryProvider` (`radio_controller.dart`,
+  nullable) live with their feature. `QueueRepository`,
+  `PlaylistMutationRepository`, `BackupRepository` and `DataIntegrityRepository`
+  have no provider: providers, services and `developer_options_page.dart`
+  construct them from an `Isar` inline. Repositories that do have a provider are
+  also constructed inline in places (`TrackRepository` / `SettingsRepository` in
+  `audio_controller_provider.dart`, `stream_resolution_provider.dart`,
+  `source_auth_context_provider.dart`, `download_providers.dart`,
+  `BilibiliFavoritesService`, `developer_options_page.dart` and `main.dart`;
+  `AccountRepository` inside the account services).
 
   ```dart
   final xRepositoryProvider = Provider<XRepository>((ref) {
@@ -77,19 +87,27 @@ Points that bite:
   });
   ```
 
-- Method names: reads `getById` / `getAll` / `getBySourceId` / `getOrCreate`,
+- Common method names: reads `getById` / `getAll` / `getBySourceId` / `getOrCreate`,
   writes `save` / `saveAll` / `delete` / `upsert` / `update(mutate)`, streams
-  `watch` / `watchAll` / `watchById`. Return Isar models directly, no mapping layer.
+  `watch` / `watchAll` / `watchById`. Other names exist (`BackupRepository.allTracks`,
+  `DownloadRepository.saveTask`, `PlayHistoryRepository.addHistory`, `clear…`).
+  Return Isar models directly, no mapping layer.
 - Every write is inside `_isar.writeTxn(...)`. Read-modify-write happens in the
   **same** txn (`SettingsRepository.update(void Function(Settings) mutate)` —
   separate get/save lost updates between notifiers).
 - A method named `…InTxn` assumes the caller is already inside `writeTxn` and
-  takes no txn handle; a nested `writeTxn` throws (`4bfab27d`). Pair it with a
-  wrapper: `addTracks => _isar.writeTxn(() => addTracksInTxn(...))`.
+  takes no txn handle; a nested `writeTxn` throws (`4bfab27d`). A public one
+  that is also called on its own has a wrapper
+  (`addTracks => _isar.writeTxn(() => addTracksInTxn(...))`); ones called only
+  from inside another txn (a repository or the migration) have none
+  (`mergeDuplicateTrackMembershipsInTxn`, `remapPlaylistTrackReferencesInTxn`,
+  `relinkLyricsMatchToCidKeyInTxn`).
 - Cross-collection atomic writes belong in a repository, not a service
   (`BackupRepository.writeImport`: all or nothing, `8a43d914`).
-- Repositories set `updatedAt` before `put`, and take policy numbers from callers
-  (`addHistory(keepAtMost:)`) instead of reading settings.
+- `updatedAt` is set by whoever builds or edits the model before `put` — repositories,
+  and services too (`StreamResolutionService`, `ImportService`, `BackupService`).
+  Repositories take policy numbers from callers (`addHistory(keepAtMost:)`) instead
+  of reading settings.
 - Watch streams use `watch(fireImmediately: true)` for lists and
   `watchLazy()` for change pings.
 

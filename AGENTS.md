@@ -81,8 +81,11 @@ with a reason, delete it when it goes away.
   `test/support/layer_boundary_static_rule_test.dart`.
 - **Isar access** — `isar.` appears only in `lib/data/repositories/` (ADR 0002)
   — `test/data/static_rules/isar_boundary_static_rule_test.dart`.
-- **Images** — UI images go through the semantic widgets in
-  `lib/ui/widgets/images/` with a semantic variant, never a raw size (#107) —
+- **Images** — in `lib/ui/`, only the semantic widgets in
+  `lib/ui/widgets/images/` load images (the `ImageLoadingService` loaders,
+  `Image.network` / `Image.file`, `CachedNetworkImage` /
+  `CachedNetworkImageProvider`, `NetworkImage` / `FileImage`) or name an
+  `ImageTargetSizes` tier; pages pass them a variant or a display size (#107) —
   `test/ui/static_rules/ui_consistency_static_rule_test.dart`.
 - **Sliders** — build `ScopedSlider`; a raw Material `Slider` freezes the
   Windows accessibility tree (`docs/troubleshooting.md`) —

@@ -7,7 +7,7 @@ Read ADR 0003 first: Android uses `JustAudioService` (ExoPlayer), Windows uses
 
 | Class | File | Owns |
 |-------|------|------|
-| `AudioController` (`Notifier<PlayerState>`) | `audio_provider.dart` | The only playback entry point for UI. Projection state, transport commands, applying routed actions. Declares no providers. `audioControllerProvider` and its core collaborators' providers live in `lib/providers/audio/audio_controller_provider.dart` (the two files import each other on purpose); `nowPlayingPublisherProvider`, `playbackSideEffectsProvider`, `queueStateProvider`, `audioRuntimePlatformProvider` sit next to their class in `lib/services/audio/`. |
+| `AudioController` (`Notifier<PlayerState>`) | `audio_provider.dart` | The only playback entry point for UI. Projection state, transport commands, applying routed actions. Declares no providers. `audioControllerProvider` and its core collaborators' providers live in `lib/providers/audio/audio_controller_provider.dart` (the two files import each other on purpose); the rest sit in `lib/services/audio/`, mostly next to their class: `nowPlayingPublisherProvider`, `fmpAudioHandlerProvider` and `windowsSmtcHandlerProvider` in `now_playing_publisher.dart`; `playbackSideEffectsProvider` and `lyricsAutoMatchCoordinatorProvider` in `playback_side_effects.dart`; `queueStateProvider`; `audioRuntimePlatformProvider`. |
 | `FmpAudioService` | `audio_service.dart` | Backend contract. **Backend differences are documented on each member's dartdoc.** |
 | `QueueManager` | `queue_manager.dart` | Pure queue logic and persistence; never operates the player. |
 | `PlaybackRequestSession` | `playback_request_session.dart` | Mints the request id, runs start/restore, returns `PlaybackSessionResult`. |
@@ -68,10 +68,8 @@ directly and coordinates through `onPlaybackStarting` / `isRadioPlaying`.
 
 The request id from `PlaybackRequestSession` is checked with
 `isSuperseded(requestId)` after every await. Navigation (`_navRequestId`) and Mix
-start (`_mixStartRequestId`) have their own counters. Before adding another
-counter, check whether an existing one already orders the operation. Pause during
-open and a stream drop while paused are both deliberate cases (`eef6f1bb`,
-`349e20d0`).
+start (`_mixStartRequestId`) have their own counters. Pause during open and a
+stream drop while paused are both deliberate cases (`eef6f1bb`, `349e20d0`).
 
 ## Tests
 
@@ -80,5 +78,10 @@ open and a stream drop while paused are both deliberate cases (`eef6f1bb`,
   over `FakeAudioService` (`test/support/fakes/fake_audio_service.dart`), which
   records `playMediaCalls`, `seekCalls`, … and emits backend events.
 - Now-playing: `testNowPlayingPublisher()` (`test/support/now_playing.dart`).
-- Short `PlaybackTimeoutBudget` values, injected `timerFactory:` — no real waits.
+- Short `PlaybackTimeoutBudget` values, and an injected `timerFactory:` where the
+  class takes one (`PlaybackRecoveryCoordinator`, `BufferStarvationWatchdog`).
+  Other timers are not injectable, so some tests wait in real time
+  (`queue_manager_test.dart` waits 11 s on the `QueueManager` position saver;
+  `audio_controller_handoff_and_errors_test.dart`,
+  `audio_controller_output_device_failure_test.dart` wait 1–2 s).
 - Wait with `pumpUntil` / `drainEventQueue` / `CountWaiters` (`../testing/test-conventions.md`).

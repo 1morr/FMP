@@ -2,8 +2,11 @@
 
 ## Layout and naming
 
-- `test/` mirrors `lib/`: `test/{core,data,providers,services,ui}/<feature>/`,
+- `test/` mostly mirrors `lib/`: `test/{core,data,services,ui}/<feature>/`,
   plus `support/`, `live/`, `workflows/`, `manual/` and `performance/`.
+  `test/providers/` is largely flat (only `download/` and `static_rules/` are
+  subdirectories), and two files sit at the root (`test/bilibili_source_test.dart`,
+  `test/app_content_wrapper_test.dart`).
 - One class may have several files split by behaviour:
   `<class>_<aspect>_test.dart` (`audio_controller_handoff_and_errors_test.dart`,
   `media_kit_audio_service_buffer_test.dart`).
@@ -15,7 +18,8 @@
   `test/performance/*_benchmark.dart` (wall-clock budgets), `tool/demo/*_demo.dart`
   (real APIs; analysed and formatted, never executed).
 - Test names and `reason:` strings are English sentences in behavioural voice:
-  `'the superseded seek must not reach the backend'`.
+  `'the superseded seek must not reach the backend'`. Some older tests have
+  Chinese names (`test/core/constants/download_filenames_test.dart`).
 
 ## Tags
 
@@ -30,8 +34,9 @@ builds a real source with its default constructor must carry it
   `class _FakeX extends RealY` overriding members, or `extends Fake implements Y`.
   Unimplemented members throw (`noSuchMethod`) rather than return a fake value.
 - Fakes record calls in public lists for assertions (`FakeAudioService.seekCalls`).
-- Shared fakes cover the default case only; a test-specific variation is a
-  file-local `_Fake…` (dartdoc on `FakeSourceAuthContext`).
+- Shared fakes cover the default case; a test-specific variation is usually a
+  file-local `_Fake…` (dartdoc on `FakeSourceAuthContext`). A few shared fakes
+  carry a switch (`FakeAudioService.playUrlSettlesReady`).
 - Reuse before writing: `FakeAudioService`, `CountWaiters`, `FakeIsar`,
   `FakeSettingsRepository`, `FakeSourceAuthContext`,
   `MemorySecureKeyValueStore` / `UnavailableSecureKeyValueStore`,
@@ -41,10 +46,12 @@ builds a real source with its default constructor must carry it
 
 ## Time
 
-No `fake_async` or clock package. Production classes take the time source:
-timer factories (`PlaybackRecoveryTimerFactory`), `DateTime Function()? now`,
-`delay:` params, `PlaybackTimeoutBudget` values. When adding a timer to production
-code, add the injection point with it.
+No `fake_async` or clock package. Some production classes take the time source:
+timer factories (`PlaybackRecoveryTimerFactory` in `BufferStarvationWatchdog` /
+`PlaybackRecoveryCoordinator`), `DateTime Function()? now`, `delay:` params,
+`PlaybackTimeoutBudget` values. Most timers are not injectable, so their tests wait
+in real time (`QueueManager`'s position saver makes `queue_manager_test.dart`
+wait 11 s). A new timer in production code comes with its injection point.
 
 ## Isar
 
@@ -63,8 +70,10 @@ knows the native library's location; it needs `flutter pub get` first.
 
 ## Riverpod and widgets
 
-`ProviderContainer(overrides: …)` + `addTearDown(container.dispose)`; widget
-tests under `TranslationProvider` + `ProviderScope` with the locale set to `en`.
+`ProviderContainer(overrides: …)` + `addTearDown(container.dispose)` (a few use
+`tearDown`, e.g. `search_pagination_stale_test.dart`). About half of the widget
+test files wrap in `TranslationProvider` + `ProviderScope` with the locale set to
+`en`; the rest pump without `TranslationProvider`.
 Details in `../ui/riverpod.md` § Tests and `../ui/widgets.md` § Widget tests.
 Clean up with `addTearDown(...)`.
 

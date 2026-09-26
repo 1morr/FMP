@@ -19,7 +19,7 @@ exception list.
 
 Follow `test/support/outbound_hosts_static_rule_test.dart` or
 `test/support/periodic_timer_static_rule_test.dart` (older rules such as
-`isar_boundary_static_rule_test.dart` predate points 1 and 6):
+`isar_boundary_static_rule_test.dart` predate points 1, 6 and 8):
 
 1. **Top dartdoc is the rationale**, with the issue or commit that motivated it,
    then `library;`.
@@ -30,6 +30,9 @@ Follow `test/support/outbound_hosts_static_rule_test.dart` or
    (`_lowerLayerExceptions`, `_anchoredProviders`, `_hosts`; `_timers` maps to
    `_Periodic` records that also say who asked and whether it can be turned off).
    A bare path list needs the reasons in the dartdoc above it.
+   `_knownFeatureEdges` in `test/support/layer_boundary_static_rule_test.dart` is
+   a deliberate exception: a snapshot `Set` in which most edges carry no reason
+   (its dartdoc explains why); a newly added edge gets a reason beside it.
 4. **Stale-exception test**: every entry must still exist or still be needed, so
    an exception that stopped applying turns red.
 5. **Scan sanity**: `expect(scanned, greaterThan(N))`, so a wrong path cannot
@@ -37,7 +40,7 @@ Follow `test/support/outbound_hosts_static_rule_test.dart` or
    `.replaceAll('\\', '/')`.
 6. **Compare sets, not substring presence**: the found set must equal the
    declared set, so one extra and one missing are both red (`12c487ab`).
-7. **Two-way mutation tests inside the file**, in their own group: feed a
+7. **Two-way mutation tests inside the file**: feed a
    synthesised violation to the detector and assert it is caught; feed a harmless
    variant — comment, reformatting, line break, look-alike name — and assert it is
    not. Detectors are public top-level functions (`upwardImportOffenders`,

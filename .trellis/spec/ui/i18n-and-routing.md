@@ -2,12 +2,12 @@
 
 ## Strings
 
-- Every user-visible string is a slang key. Files are
+- User-visible strings are slang keys (a known literal: the `'Info+'` /
+  `'Warning+'` filter labels in `log_viewer_page.dart`). Files are
   `lib/i18n/{zh-CN,zh-TW,en}/<namespace>.i18n.json`; `zh-CN` is the base locale
   (`slang.yaml`). A new key goes into **all three** files of the namespace.
 - Namespaces and keys are camelCase; nested objects are fine
-  (`t.settings.launchAtStartup.portableHint`). Remove dead keys from all three
-  locales.
+  (`t.settings.launchAtStartup.portableHint`).
 - Parameters use `$name`: `"Load failed: $error"` →
   `t.library.loadFailedWithError(error: userMessageFor(e))`. No plural forms are
   in use. Never pass raw exception text into a template (the `error:` parameter is
@@ -21,8 +21,6 @@
   deliberately not used). `dart run slang analyze` writes
   `_missing_translations.json` / `_unused_translations.json` into `lib/i18n/` —
   delete them afterwards.
-- Human docs are Traditional Chinese, but the app's base locale is zh-CN: write
-  all three translations, do not copy one into the others.
 
 ## Routes
 

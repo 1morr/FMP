@@ -13,14 +13,12 @@ change is AGENTS.md § Verification; the full CI run is
 
 ## Pre-Development Checklist
 
-- [ ] A behaviour change ships with the test that pins it, in the same commit.
 - [ ] Before writing a fake, look in `test/support/` and `test/support/fakes/`.
 - [ ] A test that needs the network is tagged `live`; a probe or benchmark is **not** named `*_test.dart`.
 - [ ] Prefer a behavioural test over a static rule; write a static rule only for a boundary behaviour tests cannot see.
 
 ## Quality Check
 
-- The new test fails without the change (for a fix: reproduce first).
-- No fixed pump counts: `pumpUntil` for a condition that is false on entry, `drainEventQueue` to assert absence.
+- New waits use `pumpUntil` for a condition that is false on entry and `drainEventQueue` to assert absence, not a fixed pump count. Only a direct `pumpEventQueue` is gated; fixed runs of `Future.delayed(Duration.zero)` still appear in provider tests (`test/providers/home_ranking_settings_provider_test.dart`, `test/providers/import_playlist_provider_cancellation_test.dart`).
 - A new static rule has both mutation tests (see `static-rules.md`).
 - `dart format lib test tool` is clean; `flutter analyze` covers `test/` and `tool/`.

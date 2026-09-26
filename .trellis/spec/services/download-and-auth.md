@@ -67,6 +67,8 @@ user's approval.
   `UnavailableSecureKeyValueStore`, or `mockSecureStorageChannel(...)` for the
   platform channel. Prefer these over `FlutterSecureStorage.setMockInitialValues`
   (global, never restored — it silently bypasses channel mocks later in the same
-  file; some older provider tests still use it, never mix the two in one file).
+  file). It is still used in a number of tests (`account_credentials_redaction_test.dart`,
+  the NetEase / YouTube account service tests, `backup_service_test.dart`,
+  `lyrics_source_settings_page_test.dart`); no file mixes the two, keep it that way.
 - Download bytes: a loopback `HttpServer.bind(InternetAddress.loopbackIPv4, 0)`
   (`test/services/download/download_service_progress_and_disposal_test.dart`).

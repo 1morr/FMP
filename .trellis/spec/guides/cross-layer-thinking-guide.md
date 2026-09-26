@@ -9,9 +9,9 @@ source API ─► adapter (lib/data/sources) ─► SourceManager capability
 media bytes: StreamResolutionService ─► MediaHandoff ─► audio backend / download isolate
 ```
 
-Each arrow is a contract. Before implementing, name the type that crosses each
-arrow you touch, who converts it, and where the error becomes a user sentence
-(`userMessageFor`, once, at the edge — see `../shared/errors-and-logging.md`).
+Each arrow is a contract. An error usually becomes a user sentence once, at the
+edge (`userMessageFor` — see `../shared/errors-and-logging.md`); the import path
+translates earlier (`ImportService`, the playlist import sources).
 
 ## Changes that always fan out
 
@@ -51,10 +51,3 @@ relinked in the same transaction.
 Name which of the `CONTEXT.md` terms applies: Stream Resolution Auth
 (adapter request) and Media Request Credentials (byte request, empty by
 construction) are different arrows. Changing either needs the user's approval.
-
-## Before you finish
-
-- [ ] Each touched arrow has a test on the side that owns the conversion.
-- [ ] Errors are typed until the edge, translated once at the edge.
-- [ ] Nothing downstream casts or re-parses a payload that an upstream type already models.
-- [ ] Docs that name the changed contract are updated in the same change (AGENTS.md, `CONTEXT.md`, an ADR, `docs/`).

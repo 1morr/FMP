@@ -51,10 +51,12 @@ capability requires is `String get sourceType => SourceIds.<id>`.
   takes only the id, so the boundary lives in the signature
   (`c09aec10`; pinned by `test/data/sources/source_http_policy_test.dart`). Do not
   add a parameter to it.
-- URLs from users or redirects go through `SourceUrlPolicy`
+- In `BilibiliSource`, `NeteaseSource`, `remote_playlist_id_parser.dart` and the
+  download pipeline, URLs from users or redirects go through `SourceUrlPolicy`
   (`parseTrustedHttpUrl(url, allowedHosts:)`, `resolveRedirects(...)`): exact host
-  allowlists, http/https only, private hosts rejected. Never detect a platform by
-  substring-matching the raw URL.
+  allowlists, http/https only, private hosts rejected. `YouTubeSource` does not
+  use it yet and still recognises its URLs by substring (`url.contains('youtube.com')`);
+  new URL handling follows the `SourceUrlPolicy` path instead.
 
 ## Auth: passed in, never read
 
@@ -95,8 +97,9 @@ defined in `CONTEXT.md`.
   reordering.
 - Lower-quality fallback is shared (`audio_stream_quality_fallback.dart`) and runs
   only when `SourceErrorKind.canFallbackToLowerAudioQuality`.
-- Return the URL expiry the source reports in `AudioStreamResult.expiry`; do not
-  hard-code a TTL (`b1fa0fc5`).
+- When the source reports a URL expiry, return it in `AudioStreamResult.expiry`
+  rather than a hard-coded TTL (`b1fa0fc5`). `YouTubeSource` gets none and uses
+  the fixed `AppConstants.youtubeAudioUrlExpiryHours`.
 
 ## Value types and parsing
 
@@ -126,8 +129,10 @@ into the main adapters.
   (`test/data/sources/youtube_source_test.dart`) or an interceptor
   (`test/data/sources/netease_source_test.dart`). Fixtures are inline Dart maps;
   there is no fixture directory.
-- Assert errors by kind:
-  `throwsA(isA<YouTubeApiException>().having((e) => e.kind, 'kind', SourceErrorKind.loginRequired))`.
+- Error assertions come in two styles: by kind, which is what callers read —
+  `throwsA(isA<YouTubeApiException>().having((e) => e.kind, 'kind', SourceErrorKind.loginRequired))` —
+  and by `numericCode` or `message`
+  (`test/data/sources/bilibili_live_client_test.dart`, `test/data/sources/netease_source_test.dart`).
 - A test that builds an adapter with its default constructor hits the network and
   must be tagged `live` (`test/support/live_source_tag_static_rule_test.dart`; a
   new adapter class is added to its `_guardedClasses`).
