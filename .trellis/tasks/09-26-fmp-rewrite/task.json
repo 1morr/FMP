@@ -1,0 +1,28 @@
+{
+  "id": "fmp-rewrite",
+  "name": "fmp-rewrite",
+  "title": "FMP rewrite",
+  "description": "Audit, redesign and rewrite FMP into a plugin-based, all-platform architecture",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "1morr",
+  "assignee": "1morr",
+  "createdAt": "2026-09-26",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-26-audit"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
