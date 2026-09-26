@@ -38,8 +38,10 @@
 - The provider usually owns the call: `ref.onDispose(service.dispose)`. A missing
   `onDispose` is a known bug class (`491f76f9`). Exceptions:
   `audioServiceProvider` and `queueManagerProvider` are disposed by
-  `AudioController.dispose`; `playlistImportServiceProvider` registers nothing
-  (an open gap, not a pattern).
+  `AudioController.dispose`. A consumer that `ref.watch`es a service does not
+  dispose it: `playlistImportServiceProvider` disposes the service it built
+  (`test/providers/playlist_import_service_provider_test.dart`), and
+  `PlaylistImportNotifier` cancels only its own subscription.
 
 ## Exposing state
 

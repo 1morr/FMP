@@ -410,7 +410,13 @@ PlaylistImportNotifier _legacyNotifier(
   legacy_import.PlaylistImportService service,
 ) {
   final container = ProviderContainer(
-    overrides: [playlistImportServiceProvider.overrideWith((ref) => service)],
+    overrides: [
+      // 和正式 provider 一樣由 provider 釋放服務；notifier 不再替它關。
+      playlistImportServiceProvider.overrideWith((ref) {
+        ref.onDispose(service.dispose);
+        return service;
+      }),
+    ],
   );
   addTearDown(container.dispose);
   return container.read(playlistImportProvider.notifier);

@@ -57,8 +57,11 @@ final xServiceProvider = Provider<XService>((ref) {
 
 A provider that owns something disposable registers `ref.onDispose`
 (`491f76f9`: lyrics sources leaked Dio pools). Known exceptions:
-`audioServiceProvider` / `queueManagerProvider` (disposed by `AudioController`)
-and `playlistImportServiceProvider` (registers nothing — a gap, not a pattern). Database access uses
+`audioServiceProvider` / `queueManagerProvider` (disposed by `AudioController`).
+A notifier that watches a service leaves disposal to the provider that built
+it: disposing it from the notifier closes a service other readers still share
+(`playlistImportServiceProvider`, pinned by
+`test/providers/playlist_import_service_provider_test.dart`). Database access uses
 `ref.watch(databaseProvider).requireValue` or `.value` + `StateError`.
 
 ## Notifier `build()`

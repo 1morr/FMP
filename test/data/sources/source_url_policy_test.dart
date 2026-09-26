@@ -2,10 +2,14 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/source_ids.dart';
+import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/netease_source.dart';
 import 'package:fmp/data/sources/playlist_import/qq_music_playlist_source.dart';
 import 'package:fmp/data/sources/playlist_import/spotify_playlist_source.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/source_url_policy.dart';
+import 'package:fmp/data/sources/youtube_source.dart';
 
 void main() {
   group('source URL validation', () {
@@ -27,6 +31,100 @@ void main() {
           dio: Dio(),
         ).isPlaylistUrl('https://attacker.example/?u=music.163.com'),
         isFalse,
+      );
+      // 比對「被接受的網址」整個清單，一次紅就看得到每一個被放行的案例。
+      final youtube = YouTubeSource(dio: Dio());
+      final bilibili = BilibiliSource(dio: Dio(), liveDio: Dio());
+      expect([
+        ...const [
+          'https://attacker.example/?u=youtube.com&list=x',
+          'https://youtube.com.attacker.example/playlist?list=x',
+          'https://attacker.example/youtu.be/playlist',
+          'attacker.example/?u=youtube.com&list=x',
+        ].where(youtube.isPlaylistUrl),
+        ...const [
+          'https://attacker.example/?u=space.bilibili.com&fid=123',
+          'https://bilibili.com.attacker.example/medialist/detail/ml123',
+          'https://attacker.example/favlist',
+        ].where(bilibili.isPlaylistUrl),
+      ], isEmpty);
+    });
+
+    test('YouTube isPlaylistUrl accepts playlist shapes on YouTube hosts', () {
+      final source = YouTubeSource(dio: Dio());
+      for (final url in const [
+        'https://www.youtube.com/playlist?list=PLabc',
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabc',
+        'https://m.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabc',
+        'https://music.youtube.com/playlist?list=PLabc',
+        'https://youtu.be/dQw4w9WgXcQ?list=PLabc',
+        // 不帶協定的輸入當成 https 讀（舊資料可能這樣存著）。
+        'www.youtube.com/playlist?list=PLabc',
+      ]) {
+        expect(source.isPlaylistUrl(url), isTrue, reason: url);
+      }
+      expect(
+        source.isPlaylistUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+        isFalse,
+        reason: 'a video URL without list is not a playlist',
+      );
+    });
+
+    test(
+      'Bilibili isPlaylistUrl accepts favorites shapes on Bilibili hosts',
+      () {
+        final source = BilibiliSource(dio: Dio(), liveDio: Dio());
+        for (final url in const [
+          'https://space.bilibili.com/12345/favlist?fid=67890',
+          'https://www.bilibili.com/medialist/detail/ml67890',
+          // 不帶協定的輸入當成 https 讀（舊資料可能這樣存著）。
+          'space.bilibili.com/12345/favlist?fid=67890',
+        ]) {
+          expect(source.isPlaylistUrl(url), isTrue, reason: url);
+        }
+        expect(
+          source.isPlaylistUrl('https://b23.tv/abc'),
+          isFalse,
+          reason: 'b23.tv short links stay unsupported',
+        );
+      },
+    );
+
+    test('SourceManager routes a YouTube playlist whose id contains ml + digit '
+        'to YouTube', () {
+      // 與預設 SourceManager() 同樣的順序：Bilibili → YouTube → Netease。
+      final manager = SourceManager(
+        sources: [
+          BilibiliSource(dio: Dio(), liveDio: Dio()),
+          YouTubeSource(dio: Dio()),
+          NeteaseSource(dio: Dio()),
+        ],
+      );
+      addTearDown(manager.dispose);
+
+      expect(
+        manager
+            .playlistParsingSourceForUrl(
+              'https://www.youtube.com/playlist?list=PLhtml5abc',
+            )
+            ?.sourceType,
+        SourceIds.youtube,
+      );
+    });
+
+    test('withDefaultHttpsScheme only prefixes scheme-less input', () {
+      expect(
+        SourceUrlPolicy.withDefaultHttpsScheme('www.youtube.com/playlist'),
+        'https://www.youtube.com/playlist',
+      );
+      expect(
+        SourceUrlPolicy.withDefaultHttpsScheme('http://www.bilibili.com/x'),
+        'http://www.bilibili.com/x',
+      );
+      expect(
+        SourceUrlPolicy.withDefaultHttpsScheme('ftp://www.youtube.com/x'),
+        'ftp://www.youtube.com/x',
+        reason: 'a non-http scheme is kept so the host check rejects it',
       );
     });
 

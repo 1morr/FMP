@@ -51,12 +51,25 @@ capability requires is `String get sourceType => SourceIds.<id>`.
   takes only the id, so the boundary lives in the signature
   (`c09aec10`; pinned by `test/data/sources/source_http_policy_test.dart`). Do not
   add a parameter to it.
-- In `BilibiliSource`, `NeteaseSource`, `remote_playlist_id_parser.dart` and the
-  download pipeline, URLs from users or redirects go through `SourceUrlPolicy`
+- In `NeteaseSource`, the three adapters' `isPlaylistUrl` and the Spotify / QQ Music
+  import sources, URLs from users or redirects go through `SourceUrlPolicy`
   (`parseTrustedHttpUrl(url, allowedHosts:)`, `resolveRedirects(...)`): exact host
-  allowlists, http/https only, private hosts rejected. `YouTubeSource` does not
-  use it yet and still recognises its URLs by substring (`url.contains('youtube.com')`);
-  new URL handling follows the `SourceUrlPolicy` path instead.
+  allowlists (`neteaseHosts`, `youtubeHosts`, `bilibiliHosts`, …), http/https only,
+  private hosts rejected. The download pipeline uses only `isLocalOrPrivateHost`
+  (no redirect from a public host into a private one), and
+  `remote_playlist_id_parser.dart` reads ids without a host check (the caller
+  already knows the source).
+- The host check comes before any shape check. `SourceManager` asks sources in
+  order, so a host-blind shape check steals other sources' URLs: before
+  `BilibiliSource` did the host check, its `ml\d+` shape took YouTube lists whose
+  ids contain `html5`. YouTube and Bilibili playlist URLs pass through
+  `SourceUrlPolicy.withDefaultHttpsScheme` first, because scheme-less input
+  (`www.youtube.com/playlist?list=…`) was accepted before and may be stored as
+  `sourceUrl`. Still host-blind: `BilibiliSource.parseId` (BV regex),
+  `YouTubeSource.parseId` (`youtube_explode_dart`) and `isMixPlaylistUrl`. New URL
+  handling follows the `SourceUrlPolicy` path. The `isPlaylistUrl` / `canHandle`
+  host checks, the scheme default, the routing case and the private-host rules are
+  pinned by `test/data/sources/source_url_policy_test.dart`.
 
 ## Auth: passed in, never read
 

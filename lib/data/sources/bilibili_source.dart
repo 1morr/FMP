@@ -191,14 +191,22 @@ class BilibiliSource
 
   @override
   bool isPlaylistUrl(String url) {
-    // 收藏夹 URL 格式:
+    // 收藏夾 URL 格式:
     // - https://space.bilibili.com/xxx/favlist?fid=xxx
     // - https://www.bilibili.com/medialist/detail/mlxxx
-    return url.contains('favlist') ||
-        url.contains('medialist') ||
-        url.contains('/fav/') ||
-        RegExp(r'fid=\d+').hasMatch(url) ||
-        RegExp(r'ml\d+').hasMatch(url);
+    // 先比對主機白名單再看形狀：以前不看主機，網址裡任何地方出現 `ml` + 數字都算，
+    // 所以清單 id 含 `html5` 的 YouTube 歌單會先被這裡搶走（路由時 Bilibili 排第一）。
+    final uri = SourceUrlPolicy.parseTrustedHttpUrl(
+      SourceUrlPolicy.withDefaultHttpsScheme(url),
+      allowedHosts: SourceUrlPolicy.bilibiliHosts,
+    );
+    if (uri == null) return false;
+    final accepted = uri.toString();
+    return accepted.contains('favlist') ||
+        accepted.contains('medialist') ||
+        accepted.contains('/fav/') ||
+        RegExp(r'fid=\d+').hasMatch(accepted) ||
+        RegExp(r'ml\d+').hasMatch(accepted);
   }
 
   @override
