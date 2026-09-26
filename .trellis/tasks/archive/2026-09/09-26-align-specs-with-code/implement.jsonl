@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/09-26-align-specs-with-code/research/spec-audit.md", "reason": "Line-by-line audit: every S/W/I row to fix, with evidence and counterexamples"}
+{"file": ".claude/skills/trellis-spec-bootstrap/references/spec-writing.md", "reason": "How Trellis specs are written: evidence-backed, no generic advice"}
+{"file": ".trellis/spec/testing/static-rules.md", "reason": "Needed to judge which rules are gated vs convention when rewording"}
