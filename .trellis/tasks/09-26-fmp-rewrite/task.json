@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "09-26-audit"
+    "09-26-audit",
+    "09-27-design-docs"
   ],
   "parent": null,
   "relatedFiles": [],

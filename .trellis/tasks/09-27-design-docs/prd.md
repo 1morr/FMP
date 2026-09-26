@@ -31,10 +31,10 @@
 
 ## 驗收標準
 
-- [ ] `design.md` 給出目標文檔地圖、規則放置表、ADR 機制、舊 ADR 與 `CONTEXT.md` 的逐項處理、`docs/audit/` 生命週期、階段三衝突清單。
-- [ ] `docs/adr/template.md` 存在，章節與 design.md §3 一致。
-- [ ] `implement.md` 列出階段三的執行步驟與 `git grep` 驗證指令。
-- [ ] `phase2-plan.md` 標記第 9 項完成。
+- [x] `design.md` 給出目標文檔地圖、規則放置表、ADR 機制、舊 ADR 與 `CONTEXT.md` 的逐項處理、`docs/audit/` 生命週期、階段三衝突清單。
+- [x] `docs/adr/template.md` 存在，章節與 design.md §3 一致。
+- [x] `implement.md` 列出階段三的執行步驟與 `git grep` 驗證指令。
+- [x] `phase2-plan.md` 標記第 9 項完成。
 
 ## 範圍外
 

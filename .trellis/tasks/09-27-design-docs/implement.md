@@ -4,9 +4,9 @@
 
 ## A. 本任務核准後立即做
 
-- [ ] 在 `docs/adr/` 新增 `template.md`（design.md §3 的章節）。之後第 1 項起的 ADR 都從它複製。
-- [ ] `phase2-plan.md` 把第 9 項標為完成，並連到本任務。
-- [ ] 歸檔本任務。
+- [x] 在 `docs/adr/` 新增 `template.md`（design.md §3 的章節）。之後第 1 項起的 ADR 都從它複製。
+- [x] `phase2-plan.md` 把第 9 項標為完成，並連到本任務。
+- [x] 歸檔本任務。
 
 不動 `AGENTS.md`、`docs/README.md`、`.trellis/spec/`：它們描述的是舊程式碼，在階段三與各里程碑改寫。
 
