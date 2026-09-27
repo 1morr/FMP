@@ -51,9 +51,11 @@ ADR 0013 的呈現表：無法取得／找不到「播放時跳過並提示」�
 1. **後端（A5，2026-09-28 選 A）**：`just_audio` 用於 Android、iOS、macOS（ExoPlayer／AVPlayer，系統媒體控制經 `audio_service`）；`media_kit` 用於 Windows、Linux（libmpv，SMTC 經 `smtc_windows`、MPRIS 經 `audio_service_mpris`）。仍是一個介面、兩個實作。
    AVPlayer 格式較窄（無 FLV、無 webm/opus）：平台層宣告可播的容器與編碼，插件的 `resolveStream` 依此挑格式（B 站直播在蘋果平台改用 HLS、YouTube 用 m4a）；iOS／macOS 依 ADR 0009 待有機器時實作並實測。Windows 的 libmpv 庫停在 2023-09 是兩方案共同的風險。
 
+2. **隨機模式的拖曳（D7 之二，2026-09-28）**：隨機順序是「位置」的順序，不是「歌曲」的順序。拖曳後，歌曲落在哪個位置，輪到那個位置時就播它（與舊版 `QueueManager.move` 不動 `_shuffleOrder` 的行為一致，`queue_manager.dart:593-612`）。拖進本輪已播過的位置，本輪不會再播。
+
 ## 待決定
 
-- [ ] D7：隨機模式下「下一首播放」插到隨機位置、拖曳不更新隨機順序，是否真的保留
+- [ ] D7 之一：隨機模式下「下一首播放」插到哪裡
 
 ## 驗收條件
 
