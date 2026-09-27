@@ -45,6 +45,6 @@
 
 ## 驗收標準
 
-- [ ] design.md 涵蓋 HTTP 層、帶憑證宣告、憑證存放與狀態、登入方式、刷新與失效、開關語意、只匯入的來源。
-- [ ] `docs/adr/0012-*.md` 依範本寫成。
-- [ ] `phase2-plan.md` 標記第 12 項完成並記下 YouTube WebView 實測項目。
+- [x] design.md 涵蓋 HTTP 層、帶憑證宣告、憑證存放與狀態、登入方式、刷新與失效、開關語意、只匯入的來源。
+- [x] `docs/adr/0012-*.md` 依範本寫成。
+- [x] `phase2-plan.md` 標記第 12 項完成並記下 YouTube WebView 實測項目。
