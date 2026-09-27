@@ -48,6 +48,8 @@ log 只經門面、禁止空 catch、音源 id 不得出現在 UI 與 service、
    | `fmp_ignore_reason` | `// ignore: fmp_…` 同行必須寫理由 |
    | `fmp_platform_checks` | `Platform.isXxx`、`defaultTargetPlatform`、`Platform.operatingSystem` 只在平台層 |
 
+   後續 ADR 新增的規則：`fmp_periodic_timer_owner`（ADR 0017）。
+
    每條規則以官方 `analyzer_testing` 做雙向變異測試。`flutter analyze` 目前不顯示插件診斷並回報 No issues
    （flutter/flutter#193203），所以 CI 跑 `dart analyze --fatal-infos`，並以接線哨兵（暫放違規檔、斷言分析失敗且含規則名）證明規則接上了 `app/`。
 3. **預設零聯網**：`app/dart_test.yaml` 對 `live` tag 設 `skip`、以 preset 解除；`app/test/flutter_test_config.dart` 以
