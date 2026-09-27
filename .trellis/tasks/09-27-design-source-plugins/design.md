@@ -13,8 +13,8 @@ flowchart TB
   REG --> SP2[ScriptSource：netease.js]
   REG --> SP3[ScriptSource：youtube.js<br/>或暫時的 Dart 實作]
   REG --> SP4[ScriptSource：其他來源的腳本]
-  IDX[插件庫 index.json<br/>官方 1morr/fmp-plugins 或自訂] -.安裝／更新.-> REG
-  subgraph 宿主（App）
+  IDX[插件庫 index.json<br/>官方 1morr/fmp-plugins 或自訂] -. "安裝／更新" .-> REG
+  subgraph HOSTG["宿主（App）"]
     RT[JS 執行環境 flutter_js<br/>QuickJS / JavaScriptCore]
     HOST[宿主 API v1<br/>http、crypto、storage、log、login]
     NET[網路層 ADR 0012／0013]
