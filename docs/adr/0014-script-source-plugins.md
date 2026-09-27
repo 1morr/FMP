@@ -42,7 +42,7 @@ manifest 與腳本承擔。
    只讀自己音源的 `credentials`、`log`（經 ADR 0011 門面）、結構化錯誤（宿主轉成 `AppError`）。沒有檔案系統、任意 socket、其他插件的資料。
    資料交換為以 `apiVersion` 版本化的 JSON DTO，宿主提供 TypeScript 型別定義。`resolveStream` 回傳網址期限 `expiresAt`（插件從網址本身讀），
    封面為多尺寸清單 `artwork`（ADR 0016）。
-   `resolveStream` 的輸入含平台可播格式、輸出為依優先序排好的候選串流；`live` 提供直播串流與直播狀態（ADR 0018）。
+   `resolveStream` 的輸入含平台可播格式與用途（播放／下載，ADR 0020）、輸出為依優先序排好的候選串流；`live` 提供直播串流與直播狀態（ADR 0018）。
 6. **插件庫**：官方插件在獨立 repo `1morr/fmp-plugins`，每插件一目錄（腳本、manifest、錄下的測試 fixture），其 CI 跑契約測試並產生
    `index.json`（含 SHA-256）。App 插件頁預設讀官方 index，可加自訂 index 網址，也可從檔案或網址安裝；由 index 安裝時驗證 SHA-256。
    安裝前顯示能力與會連的網域，並警告「此腳本會以你的登入身分存取這些網站」。
