@@ -49,6 +49,6 @@ A4（資料位置，按推薦）、B6（串流 URL 不存資料庫）、M3／M4�
 
 ## 驗收標準
 
-- [ ] design.md 涵蓋選型、schema 原則、schema 演進、legacy import 流程與失敗處理、實測風險、舊 ADR 處理。
-- [ ] `docs/adr/0010-*.md` 依範本寫成；ADR 0002、0007 加註只適用舊專案。
-- [ ] `phase2-plan.md` 標記第 6 項完成並記下第一個里程碑的必要驗證。
+- [x] design.md 涵蓋選型、schema 原則、schema 演進、legacy import 流程與失敗處理、實測風險、舊 ADR 處理。
+- [x] `docs/adr/0010-*.md` 依範本寫成；ADR 0002、0007 加註只適用舊專案。
+- [x] `phase2-plan.md` 標記第 6 項完成並記下第一個里程碑的必要驗證。
