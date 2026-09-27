@@ -12,7 +12,8 @@ flowchart TB
   REG --> SP1[ScriptSource：bilibili.js]
   REG --> SP2[ScriptSource：netease.js]
   REG --> SP3[ScriptSource：youtube.js<br/>或暫時的 Dart 實作]
-  REG --> SP4[ScriptSource：使用者安裝的腳本]
+  REG --> SP4[ScriptSource：其他來源的腳本]
+  IDX[插件庫 index.json<br/>官方 1morr/fmp-plugins 或自訂] -.安裝／更新.-> REG
   subgraph 宿主（App）
     RT[JS 執行環境 flutter_js<br/>QuickJS / JavaScriptCore]
     HOST[宿主 API v1<br/>http、crypto、storage、log、login]
@@ -22,8 +23,8 @@ flowchart TB
 ```
 
 - **一套介面 `SourcePlugin`**：App 其他部分只認它與能力宣告，分不出來源是哪個、是不是腳本。
-- **所有來源都是 JS 腳本**：可播放音源（B 站、網易、YouTube）、僅元資料來源（Spotify、QQ 匯入）、歌詞源（網易、QQ、lrclib）。
-  內建腳本隨 App 打包在 assets，標為「內建」，可停用不可刪除；使用者安裝的腳本不得使用內建腳本的 id。
+- **所有來源都是 JS 腳本，App 不內建任何來源**：可播放音源（B 站、網易、YouTube）、僅元資料來源（Spotify、QQ 匯入）、
+  歌詞源（網易、QQ、lrclib）都放在獨立的官方插件庫，由使用者在 App 內安裝（§5）。官方插件與使用者自己的插件走同一條安裝路徑。
 - **YouTube 例外的退路**：可行性驗證失敗時，YouTube 暫時以 Dart 實作同一個 `SourcePlugin` 介面；找到解法後換回腳本。
 - **腳本引擎**：`flutter_js`（Android／Windows／Linux 用 QuickJS，iOS／macOS 用 JavaScriptCore）。腳本以 ES2020 JS 撰寫；作者可用 TypeScript 再打包。
 
@@ -76,12 +77,23 @@ flowchart TB
 沒有檔案系統、沒有任意 socket、沒有其他插件的資料。資料交換一律是 JSON DTO（曲目、歌單、串流結果、歌詞候選…），
 以 `apiVersion` 版本化；宿主提供 TypeScript 型別定義檔。
 
-## 5. 安裝與信任
+## 5. 插件庫、安裝與信任
 
-- 從檔案或網址安裝；安裝前顯示 manifest：名稱、作者、能力、**會連的網域**，並警告「此腳本會以你的登入身分存取這些網站」。
-- 更新：重新安裝新版本（自動檢查插件更新列入第 20 項待辦）。
-- 停用與移除：移除時一併清除該插件的 storage 與憑證。
-- Debug 頁提供「音源健康檢查」：對每個插件跑一組基本呼叫（第 4、8 項）。
+採用的慣例：MusicFree 的「訂閱」插件來源、LX Music 的自訂源匯入（App 本體不附音源）。
+
+- **官方插件庫是另一個 repo**（`1morr/fmp-plugins`）：每個插件一個目錄（腳本＋manifest＋錄下的測試 fixture）；
+  它自己的 CI 跑每個插件的契約測試，並產生 `index.json`（id、名稱、版本、`apiVersion`、能力、網域、下載網址、SHA-256）。
+  主 repo 只放播放器本體，測試用假插件與錄下的回應。
+- **插件頁**：預設讀官方 index；可加入其他 index 網址；也可從檔案或單一網址安裝。
+- **安裝前顯示** manifest：名稱、作者、來自哪個插件庫、能力、**會連的網域**，並警告「此腳本會以你的登入身分存取這些網站」。
+  由 index 安裝時以 SHA-256 驗證檔案。
+- **更新**：不在背景定時檢查；打開插件頁或手動「檢查更新」時比對 index，可一鍵全部更新。音源壞掉時更新插件即可，不必發 App 新版。
+- **首次啟動**：沒有任何來源時顯示引導，列出官方插件，勾選後一鍵安裝。
+- **舊版升級**：legacy import 不依賴插件；匯入時偵測舊資料用到的音源（B 站、YouTube、網易），提示一鍵安裝對應的官方插件；
+  未安裝前這些曲目標示「音源未安裝」。
+- **停用與移除**：移除時一併清除該插件的 storage 與憑證；已存在的曲目保留並標示「音源未安裝」。
+- Debug 頁提供「音源健康檢查」：對每個已安裝插件跑一組基本呼叫（第 4、8 項）。
+- 法律面：App 本體不含呼叫非官方 API 的程式碼，降低主 repo 的暴露面，但不消除風險（B 站社群 API 文件庫已於 2026-01 因存證信函關閉，`research/login-methods.md` §0）。
 
 ## 6. 匹配流程（宿主統一）
 
@@ -99,5 +111,6 @@ flowchart TB
 ## 8. 第一個里程碑與可行性驗證
 
 - 第一個里程碑的 tracer bullet 用一個腳本音源（哪一個在里程碑規劃時定）完成搜尋與播放，同時建立 JS 執行環境、宿主 API 的最小集合、腳本契約測試的雛形。
+  插件庫 repo 與插件頁可在後續里程碑建立；第一個里程碑以「從檔案安裝」載入腳本即可。
 - **YouTube 可行性驗證（有時限）**：YouTube.js（MIT，官方只寫支援 Node.js、Deno、瀏覽器）在 `flutter_js` 裡能否搜尋並解出可播放串流；它需要宿主提供 `fetch` 與 eval。時限內失敗則 YouTube 暫以 Dart 實作。
 - `flutter_js` 在 Android 與 Windows 上的非同步（Promise）、記憶體與啟動成本實測。
