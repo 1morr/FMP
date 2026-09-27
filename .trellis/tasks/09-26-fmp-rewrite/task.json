@@ -31,7 +31,8 @@
     "09-27-design-testing",
     "09-27-design-cache-offline",
     "09-27-design-background-tasks",
-    "09-27-design-playback-core"
+    "09-27-design-playback-core",
+    "09-28-design-library-sync"
   ],
   "parent": null,
   "relatedFiles": [],
