@@ -238,12 +238,19 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - 腳本插件（ADR 0014）由擁有者明確納入重寫範圍（2026-09-27），是功能凍結的唯一例外。
 - 建立 `1morr/fmp-plugins` repo、其 CI 與 `index.json`、App 插件頁與首次啟動引導：排入里程碑規劃（第 20 步）；第一個里程碑不需要。
 
-## 10. 目前進度與下一步（交接用，2026-09-27）
+## 10. 目前進度與下一步（交接用，2026-09-28 更新）
 
 - 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0020`；舊 ADR 0001–0007 仍描述根目錄舊專案。
 - 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限。
-  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-27-design-*`。
+  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0021（歌詞）。
 - **進行中：第 15 項「歌詞」**，task `.trellis/tasks/09-28-design-lyrics/`（planning）；研究代理寫到 `research/`（`current-state.md`、`prior-art.md`、`packages-and-platform.md`），三個檔齊了才代表研究完成。
 - 之後順序：19 發版與更新 → 3 Toast → 5 UI/UX → 4 Debug 頁 → 7 里程碑定稿。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
 - 使用者偏好：全程繁中；多數細節「按推薦」，但每項仍需最終摘要與明確核准；Mermaid 圖需以 mermaid-cli 實際渲染（子圖標題含全形括號要用 `id["標題"]`）。
+- 工作守則（本輪累積）：
+  - 使用者不是專業開發者：問題用白話、給具體例子（例如資料夾結構範例），選項附建議與代價；使用者提出反例時（例如 B 站、YouTube 的「歌手」其實是上傳者）要修正方案再問，不要辯護原方案。
+  - 使用者對 `questions.md` 的勾選可能誤讀題意（例如 D7 勾「保留」其實是保留功能）：勾選與推薦方向矛盾時，先用程式碼確認現況再請使用者確認。
+  - 研究子代理的結論要抽查（例如它曾誤稱 ExoPlayer 不支援 FLV，官方格式表為支援、不可 seek），更正寫進 prd。
+  - 子代理因額度中斷：先 SendMessage 續跑；使用者手動停掉的代理不能續跑，使用者要求時才重新發起，並告知保留已寫的研究檔。
+  - 更新他項 ADR 的引用時只加一句指向新 ADR，不改原決定；新 lint 規則補記到 ADR 0015 的「後續 ADR 新增的規則」。
+  - 每項最終摘要需列：你已定的、技術選擇（在核准範圍內）、放進待辦、不在範圍、核准後會做什麼、下一項。
