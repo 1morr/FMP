@@ -118,7 +118,7 @@ flowchart LR
 | 6 | 12 網路與帳號（✅ 完成，ADR 0012） | HTTP client、憑證、「哪些請求帶憑證」的單一宣告點。 |
 | 7 | 2 錯誤模型（✅ 完成，ADR 0013） | 音源插件介面的回傳與例外型別要先定。 |
 | 8 | 1 音源插件（✅ 完成，ADR 0014） | 核心抽象；依賴 10、12、2。 |
-| 9 | 8 測試與開發環境 | 契約測試、fixture 錄製綁在插件介面上，所以緊接在 1 後面。 |
+| 9 | 8 測試與開發環境（✅ 完成，ADR 0015） | 契約測試、fixture 錄製綁在插件介面上，所以緊接在 1 後面。 |
 | 10 | 17 快取與離線 | 串流 URL、圖片、排行快取的策略，播放核心要用。 |
 | 11 | 16 背景任務 | 刷新、清理、更新檢查誰來排程。 |
 | 12 | 13 播放核心 | 最大的一塊；依賴 1、2、10、17。 |
@@ -223,6 +223,7 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - ADR 0008：`app/` 的 App 身分識別與舊版一致（開發版除外）。
 - ADR 0011：log 門面與遮蔽函式是第一個里程碑的基礎，含遮蔽測試。
 - ADR 0014：JS 執行環境（`flutter_js`）與宿主 API 最小集合；以「從檔案安裝」載入第一個腳本音源；`flutter_js` 在 Android、Windows 的 Promise／記憶體／啟動成本實測；YouTube.js 可行性驗證（有時限，失敗則 YouTube 暫以 Dart 實作）。
+- ADR 0015：`fmp_lints` 接上 `app/`，`dart analyze` 看得到插件診斷且接線哨兵會紅（比對 `flutter analyze`）；契約執行器能否在 `flutter test` 內載入 QuickJS（不行改用桌面 `integration_test`）；dev 與 prod flavor 同時開啟時 AppUserModelID、單一實例鎖、資料目錄各自獨立；零聯網兩道防線（故意聯網的測試被跳過、解除 tag 後被 `HttpOverrides` 擋下）。
 
 ## 8. 延後到特定里程碑的實測
 
@@ -236,12 +237,10 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 
 ## 10. 目前進度與下一步（交接用，2026-09-27）
 
-- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0014`；舊 ADR 0001–0007 仍描述根目錄舊專案。
-- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件。
+- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0015`；舊 ADR 0001–0007 仍描述根目錄舊專案。
+- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境。
   每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-27-design-*`。
-- **進行中：第 8 項「測試、閘門與開發環境」**，task `.trellis/tasks/09-27-design-testing/`（planning 狀態）；
-  研究代理的產出寫到該目錄 `research/`（`lint-and-gates.md`、`fixtures-and-network.md`、`dev-env-and-ci.md`）。
-  下一步：讀研究 → 寫 prd.md（現況、研究結論、待決定）→ 一次問使用者一個問題 → design.md／implement.md → 最終摘要等核准 → 寫 ADR 0015 → 歸檔。
-- 之後順序：17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞 → 19 發版與更新 → 3 Toast → 5 UI/UX → 4 Debug 頁 → 7 里程碑定稿。
+- 下一項：第 17 項「快取與離線」（尚未建 task）。
+- 之後順序：16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞 → 19 發版與更新 → 3 Toast → 5 UI/UX → 4 Debug 頁 → 7 里程碑定稿。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
 - 使用者偏好：全程繁中；多數細節「按推薦」，但每項仍需最終摘要與明確核准；Mermaid 圖需以 mermaid-cli 實際渲染（子圖標題含全形括號要用 `id["標題"]`）。
