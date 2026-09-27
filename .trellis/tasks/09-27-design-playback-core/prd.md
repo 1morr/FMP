@@ -46,10 +46,14 @@ D5 限流由網路層退避、播放多次失敗才跳過並提示；D6 開流�
 D10 區分「未開播」與「查詢失敗」；E12 電台、E13 Mix、E19 速度／音量／輸出裝置保留（均衡器、響度、睡眠定時器在待辦）；
 ADR 0013 的呈現表：無法取得／找不到「播放時跳過並提示」。
 
+## 已決定
+
+1. **後端（A5，2026-09-28 選 A）**：`just_audio` 用於 Android、iOS、macOS（ExoPlayer／AVPlayer，系統媒體控制經 `audio_service`）；`media_kit` 用於 Windows、Linux（libmpv，SMTC 經 `smtc_windows`、MPRIS 經 `audio_service_mpris`）。仍是一個介面、兩個實作。
+   AVPlayer 格式較窄（無 FLV、無 webm/opus）：平台層宣告可播的容器與編碼，插件的 `resolveStream` 依此挑格式（B 站直播在蘋果平台改用 HLS、YouTube 用 m4a）；iOS／macOS 依 ADR 0009 待有機器時實作並實測。Windows 的 libmpv 庫停在 2023-09 是兩方案共同的風險。
+
 ## 待決定
 
-- [ ] A5：Android 用 just_audio＋桌面 media_kit，還是全平台 media_kit
-- [ ] 其餘待逐一確認
+- [ ] D7：隨機模式下「下一首播放」插到隨機位置、拖曳不更新隨機順序，是否真的保留
 
 ## 驗收條件
 
