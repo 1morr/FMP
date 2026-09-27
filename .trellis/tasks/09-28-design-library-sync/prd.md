@@ -1,19 +1,50 @@
-# Design: library and sync
+# 設計：音樂庫與同步（階段二第 14 項）
 
-## Goal
+## 目標
 
-Phase-2 item 14: local vs imported remote playlists, sync direction and conflicts, confirmation before writing back to a platform, auto-refresh rules, metadata-only imports with matching
+為 `app/` 定下本地歌單與匯入歌單的資料模型、刷新（只從遠端往下）的差異處理、寫回平台的遠端操作與確認、
+僅元資料來源（Spotify、QQ）匯入的匹配流程與失敗處理。產出 ADR 0019。
 
-## Requirements
+依據：parent `prd.md` 階段二第 14 項；`docs/audit/questions.md` 第 131 行 B1／B2 備註；E4、E5、E7 保留；
+ADR 0010（drift、外鍵）、0013（錯誤呈現）、0014 決定 9（共用匹配評分）、0016（離線）、0017（自動刷新排程與間隔）。
 
-- TBD
+## 現況（`research/current-state.md`，已以程式碼核對）
 
-## Acceptance Criteria
+- 本地與匯入歌單同一個 collection，只靠 `sourceUrl != null` 區分（`playlist.dart:70`）；歌單名稱唯一，重名自動加「(2)」。
+- 曲目與歌單的關係是手動維護的整數陣列＋反向 `playlistInfo`，沒有外鍵；ADR 0010 記載曾因此遺失資料（孤兒清理誤刪）。
+- 刷新：整批以遠端覆寫順序；**只有遠端資料完整時才刪除**，否則靜默變成「只增不刪」，UI 不顯示（`playlist_mutation_repository.dart:531-532,841-873`）。
+  遠端改標題不會同步下來；描述只在首次匯入寫入；封面自訂過就不動。重新匯入會覆寫「使用登入狀態刷新」與刷新間隔（M12）。
+- 遠端歌單被刪或變私人：沒有狀態，只有一次錯誤 toast（且被壓成通用「發生錯誤」），排程繼續重試。
+- 已失效曲目：`markUnavailable` 零呼叫端，`isAvailable` 只在網易建構時判定一次。
+- B1 移除遠端：有確認框、先寫遠端再刪本地、再背景刷新；B2 加入遠端：勾選歌單後送出，沒有額外確認，未登入的來源被過濾並提示。
+- Spotify／QQ 匯入：逐首搜尋（只搜 YouTube 與 B 站）、評分取前 5、第一名自動選、預覽頁可改選與重搜；手動重搜只依播放量排序、不打分。
+  與歌詞匹配是兩套評分（ADR 0014 已定合併）。
+- 沒有曲目層的收藏／喜歡。
 
-- [ ] TBD
+## 研究結論（`research/prior-art.md`、`research/sync-and-matching.md`）
 
-## Notes
+- 最接近的是 Finamp 的 id 集合差集（遠端−本地＝新增、本地−遠端＝移除）。寫回確認只有 Namida 分得剛好：移除要確認、加入不用。
+  五個產品都沒有逐曲匹配信心分數或人工修正 UI，FMP 的匯入預覽頁已比它們完整。
+- 單向權威同步不需要 LCS／Myers，id 差集加遠端順序即可；大歌單宜「抓一頁寫一頁」加刷新代際標記，避免長時間持有寫鎖（drift `transaction()` 發 `BEGIN IMMEDIATE`）。
+- YouTube 歌單可含重複影片：關聯表不可對（歌單, 曲目鍵）設唯一。網易換版本是新 song id、新舊並存。
+- 匹配正規化：NFKC → 小寫 → 繁簡統一 → 去裝飾 → 括號內容單獨比對（不整段刪）；時長取「絕對值與百分比較寬者」。
+  套件：`string_similarity` 2.2.0（MIT）、`unorm_dart` 0.3.2（MIT）、`opencc` 1.1.0（Apache-2.0，需 native assets）；`fuzzywuzzy` 為 GPL-2.0，不用。
 
-- Keep `prd.md` focused on requirements, constraints, and acceptance criteria.
-- Lightweight tasks can remain PRD-only.
-- For complex tasks, add `design.md` for technical design and `implement.md` for execution planning before `task.py start`.
+## 已確定的方向
+
+- B1／B2：遠端是權威、只往下同步；匯入歌單不能在本地增刪曲目；保留明確標示的遠端操作；名稱、描述、封面、自動刷新設定可在本地改。
+- 自動刷新的排程與間隔（ADR 0017）；刷新時是否帶登入依音源設定（ADR 0012），不再每張歌單各存一份（M12 的覆寫問題隨之消失）。
+
+## 待決定
+
+- [ ] 刷新時，遠端清單裡已經沒有的曲目怎麼處理
+
+## 驗收條件
+
+- [ ] ADR 0019 記錄：資料模型與外鍵、刷新差異處理（新增、移除、順序、元資料、部分失敗）、遠端歌單失效、遠端操作與確認、匹配流程與失敗、孤兒清理。
+- [ ] B1、B2、E4、E5、E7、M12 各自對到決定。
+- [ ] `phase2-plan.md` §3 第 14 項標 ✅ 與 ADR 編號。
+
+## 不在範圍
+
+- 下載檔案的管理與刪除（第 11 項）；歌詞匹配的歌詞端細節（第 15 項，但共用評分核心在本項定）；歌單頁版面（第 5 項）。
