@@ -25,7 +25,8 @@
     "09-27-design-platform",
     "09-27-design-data",
     "09-27-design-settings-logging",
-    "09-27-design-network-accounts"
+    "09-27-design-network-accounts",
+    "09-27-design-errors"
   ],
   "parent": null,
   "relatedFiles": [],
