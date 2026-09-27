@@ -1,5 +1,7 @@
 # 0008 — 重寫：在同一 repo 的 `app/` 另建新專案，搬運葉節點邏輯
 
+> 補充（2026-09-27）：音源相關的邏輯不搬運 Dart 程式碼，改以舊程式碼為規格、用 JS 腳本重寫並放在獨立插件庫，見 [ADR 0014](0014-script-source-plugins.md)。其他葉節點（例如 `TrackKey` 格式）照本 ADR 搬運。
+
 - 狀態：已採納
 - 日期：2026-09-27
 - 影響範圍：repo 目錄結構、`.github/workflows/`、`orca.yaml`、`AGENTS.md`、App 身分識別、舊版發版流程

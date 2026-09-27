@@ -42,6 +42,6 @@
 
 ## 驗收標準
 
-- [ ] design.md 涵蓋介面形狀、manifest、能力、宿主 API、插件庫與安裝與信任、匹配流程、對其他 ADR 的影響、第一個里程碑與 YouTube 驗證。
-- [ ] `docs/adr/0014-*.md` 依範本寫成；ADR 0008 加註音源邏輯改為 JS 重寫。
-- [ ] `phase2-plan.md` 標記第 1 項完成；記下 YouTube 可行性驗證與 flutter_js 實測；記下「腳本插件」為解除凍結的例外。
+- [x] design.md 涵蓋介面形狀、manifest、能力、宿主 API、插件庫與安裝與信任、匹配流程、對其他 ADR 的影響、第一個里程碑與 YouTube 驗證。
+- [x] `docs/adr/0014-*.md` 依範本寫成；ADR 0008 加註音源邏輯改為 JS 重寫。
+- [x] `phase2-plan.md` 標記第 1 項完成；記下 YouTube 可行性驗證與 flutter_js 實測；記下「腳本插件」為解除凍結的例外。
