@@ -76,5 +76,5 @@
 
 - Schema 快照與每個 migration 的升級測試在 CI 執行。
 - 「migration 不改使用者設定過的值」有專門測試：先寫入使用者值，跑 migration，斷言值不變。
-- 資料庫只由資料層存取、`legacy_import/` 不被其他模組 import：import lint（測試策略 ADR 落實）。
+- 資料庫只由資料層存取、`legacy_import/` 不被其他模組 import：lint `fmp_layer_imports`（ADR 0015）。
 - 切換前，在擁有者真實資料的副本上完整跑一次匯入，並把筆數比對結果附在切換 PR 的 review 指南。

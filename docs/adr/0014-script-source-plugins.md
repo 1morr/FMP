@@ -67,6 +67,6 @@ Flutter federated plugin 的「一套介面、多種實作」；Spotube 的匹�
 ## 如何確認
 
 - 結構測試：每個插件的 manifest 能力與它實際匯出的函式一致；`apiVersion` 不相容時拒絕載入。
-- 契約測試：以錄下的 HTTP 回應重播執行每個插件，涵蓋 ADR 0011（遮蔽）、0012（媒體請求不帶憑證、`AuthRequirement`）、0013（錯誤對應）；插件 repo 的 CI 與插件作者本機都能跑。
+- 契約測試：以錄下的 HTTP 回應重播執行每個插件的檢查案例（執行器與 fixture 格式見 ADR 0015），涵蓋 ADR 0011（遮蔽）、0012（媒體請求不帶憑證、`AuthRequirement`）、0013（錯誤對應）；插件 repo 的 CI 與插件作者本機都能跑。
 - 測試：宿主 HTTP 拒絕 manifest 網域以外的請求；腳本無法讀取其他插件的 storage 與憑證。
-- lint：UI 與 service 不得出現音源 id 字串常數或特定音源的型別（測試策略 ADR 落實）。
+- lint：UI 與 service 不得出現音源 id 字串常數或特定音源的型別：lint `fmp_source_id_literal`（ADR 0015）。

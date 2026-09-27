@@ -56,6 +56,6 @@ Spotube 以 drift 存設定並以 `watchSingle()` 接 Riverpod。
 
 ## 如何確認
 
-- lint：門面以外禁止 `print`、`debugPrint`、`developer.log`、import talker（測試策略 ADR 落實）。
+- lint：門面以外禁止 `print`、`debugPrint`、`developer.log`、import talker：lint `fmp_log_facade`（ADR 0015）。
 - 遮蔽測試：每個音源一組假憑證與假簽名 URL，斷言經 log 檔、記憶體歷史、診斷包、網路紀錄後都不再出現原值，包括出現在 stackTrace 的情況。
 - 設定測試：寫入使用者值後改變程式預設，斷言讀到的仍是使用者值；未設定的欄位讀到新預設。

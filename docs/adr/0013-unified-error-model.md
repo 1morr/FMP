@@ -73,4 +73,4 @@ Finamp 以「類別＋來源」去重；Riverpod 官方的全域 `retry` 設定�
 
 - 契約測試：每個音源以錄下的錯誤回應 fixture，斷言對應到的 `AppError` 類別。
 - 測試：`ProviderScope` 的 retry 為關閉；網路層只對冪等請求重試、尊重 `Retry-After`。
-- lint：禁止空 catch；禁止在 UI 顯示 `toString()` 之類的原文（以只接受 i18n key 的呈現 API 在型別上擋住）。
+- lint：禁止空 catch（`fmp_no_empty_catch`，ADR 0015）；禁止在 UI 顯示 `toString()` 之類的原文（以只接受 i18n key 的呈現 API 在型別上擋住）。

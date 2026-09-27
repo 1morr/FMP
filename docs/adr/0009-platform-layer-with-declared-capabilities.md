@@ -76,6 +76,6 @@ Linux、macOS 加入時要回頭改介面。
 
 ## 如何確認
 
-- 平台層以外禁止平台判斷與平台套件 import：Dart analyzer lint（測試策略 ADR 選定工具後加上）；在那之前由 PR review 檢查。
+- 平台層以外禁止平台判斷與平台套件 import：lint `fmp_platform_checks` 與 `fmp_layer_imports`（ADR 0015）。
 - 能力宣告與 UI 一致：每個平台 child task 的驗收包含「宣告為沒有的能力，UI 不出現入口」。
 - CI：從第一個里程碑起建置矩陣含 Linux、macOS、iOS（不簽名）。

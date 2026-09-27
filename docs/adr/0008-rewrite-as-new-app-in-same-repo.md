@@ -65,10 +65,10 @@ FMP 經過多輪 AI agent 自主修改（`lib/` 343 檔 99,063 行），擁有�
 - 壞的：重寫期間 CI 要跑兩個專案，時間變長；兩份 `AGENTS.md` 要各自寫清楚適用範圍；
   新 App 功能齊全前不能取代舊版。
 - 之後要注意：新 App 的身分識別一旦與舊版不同就無法自動遷移，任何改動 `applicationId`、簽名、AppId 的變更都必須另立 ADR。
-  CI 如何同時處理兩個專案、舊專案不穩的測試是否擋 PR，由測試策略的 ADR 決定。
+  CI 依專案切分，舊專案的測試只在根目錄變動時跑、不擋 `app/` 的 PR（ADR 0015）。
 
 ## 如何確認
 
-- `app/` 不得 import 根目錄舊專案：由 `app/` 的 analyzer 設定與 import lint 守（測試策略 ADR 落實時加上）；在那之前靠 PR review。
-- App 身分識別：切換前的里程碑加一項檢查，比對 `app/` 的 `applicationId`、AppUserModelID、Inno Setup AppId 與上列現值一致。
+- `app/` 不得 import 根目錄舊專案：lint `fmp_layer_imports`（ADR 0015）。
+- App 身分識別：測試斷言 prod flavor 的身分值與上列一致（ADR 0015）；切換前的里程碑另加一項檢查，比對 `app/` 的 `applicationId`、AppUserModelID、Inno Setup AppId 與上列現值一致。
 - 切換條件：切換 PR 的 review 指南逐項列出 `features.md` 勾「保留」的功能與效能量測結果。
