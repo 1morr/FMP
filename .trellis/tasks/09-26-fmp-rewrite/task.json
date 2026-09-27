@@ -29,7 +29,8 @@
     "09-27-design-errors",
     "09-27-design-source-plugins",
     "09-27-design-testing",
-    "09-27-design-cache-offline"
+    "09-27-design-cache-offline",
+    "09-27-design-background-tasks"
   ],
   "parent": null,
   "relatedFiles": [],
