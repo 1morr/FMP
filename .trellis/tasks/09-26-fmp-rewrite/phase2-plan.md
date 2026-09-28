@@ -250,13 +250,22 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - 以上是功能凍結僅有的例外。
 - 建立 `1morr/fmp-plugins` repo、其 CI 與 `index.json`、App 插件頁與首次啟動引導：排入里程碑規劃（第 20 步）；第一個里程碑不需要。
 
-## 10. 目前進度與下一步（交接用，2026-09-28 更新，階段二完成）
+## 10. 目前進度與下一步（交接用，2026-09-28 更新，階段二、三完成）
 
-- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0026`；舊 ADR 0001–0007 仍描述根目錄舊專案，於切換 PR 刪除。
-- **階段二完成**：§3 的 20 項全部 ✅；每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0027。
+- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0027`；舊 ADR 0001–0007 仍描述根目錄舊專案，於切換 PR 刪除。
+- **階段二完成**：§3 的 20 項全部 ✅；每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0028。
 - 里程碑清單與狀態：`.trellis/tasks/09-26-fmp-rewrite/milestones.md`（ADR 0026）。
-- **進行中：階段三（Trellis／docs 清理）**，task `.trellis/tasks/09-28-phase3-docs-cleanup/`（planning）；研究代理寫到 `research/`（`current-state.md`、`open-questions.md`），兩個檔齊了才代表研究完成，接著抽查→prd→一次一問。依據是第 9 項的設計（`archive/2026-09/09-27-design-docs` 的 design §4、§6 與 implement §B）與 parent prd 的階段三。範圍：刪 `docs/agents/`、AGENTS.md 的「Agent skills」段、把 CONTEXT.md 併入、修正引用、以 `git grep` 確認沒有殘留。
-- 之後順序：階段三 → M1（里程碑任務，brainstorm 核准一次，底下開 PR 子任務）→ M1 完成後開 Linux 平台任務。
+- **階段三完成**（2026-09-28，`archive/2026-09/09-28-phase3-docs-cleanup`）：
+  - `docs/agents/`、`CONTEXT.md` 已刪；術語移到舊專案的 `.trellis/spec/services/download-and-auth.md` § Auth vocabulary，原則在 ADR 0012；
+  - 舊 ADR 0001–0007 都加了「只適用舊專案」註記；
+  - `docs/README.md` 地圖有類型欄與 `audit/` 列；
+  - AGENTS.md 的 Trellis 段說明哪些管理檔維持原樣；
+  - 實機驗證規則見 ADR 0027（預設重播）。
+  - 語言範圍：根目錄 AGENTS.md 與 spec 維持英文到切換 PR，`app/` 的新文件用繁中。
+- **下一步：M1「骨架＋曳光彈」**（`milestones.md`）。建里程碑任務（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite`），走 brainstorm，擁有者核准一次 prd／design／implement，implement 列出 PR 子任務與順序（ADR 0026）。
+  - M1 開工時要決定：`app/` 的 spec 放哪（Trellis `packages:` 或其他）。
+  - 同時為 `app/` 改寫 verify-on-device（ADR 0027）。
+- 之後順序：M1 → Linux 平台任務 → M2 …（見 `milestones.md`）。
 - 視覺選擇類的問題可用 Artifact 做示意頁（例：第 5 項的播放頁三方案 https://claude.ai/artifact/WbYKvNKgS2XpJbCuGr9xTZ ）。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
 - 使用者偏好：全程繁中；多數細節「按推薦」，但每項仍需最終摘要與明確核准；Mermaid 圖需以 mermaid-cli 實際渲染（子圖標題含全形括號要用 `id["標題"]`）。
