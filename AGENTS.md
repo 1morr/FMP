@@ -4,14 +4,11 @@ FMP is a Flutter music player for Android and Windows that plays from
 **Bilibili**, **YouTube** and **NetEase Cloud Music**. Human-facing docs live in
 `docs/`; `docs/README.md` is the map.
 
-## Agent skills
+## Issues
 
-- **Issue tracker** — GitHub Issues on `1morr/FMP` via `gh`. See
-  `docs/agents/issue-tracker.md`.
-- **Triage labels** — the five canonical roles. See
-  `docs/agents/triage-labels.md`.
-- **Domain docs** — single-context: `CONTEXT.md` + `docs/adr/`. See
-  `docs/agents/domain.md`.
+Issues live on `1morr/FMP` and are handled with `gh`. Titles and bodies are
+written in Traditional Chinese (Taiwan/Hong Kong usage); identifiers, log
+strings, commit messages, branch and label names stay in English.
 
 ## Verification
 
