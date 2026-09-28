@@ -78,7 +78,7 @@ Adapters never read accounts. Credentials arrive per request as
 `getVideoDetail(…, {authHeaders})`, `parsePlaylist(…, {authHeaders})`), and the
 adapter keeps only what it needs (`NeteaseSource._withAuth` keeps `Cookie`). The
 caller side is `SourceAuthContext` in `lib/services/account/`; the terms are
-defined in `CONTEXT.md`.
+defined in `services/download-and-auth.md` § Auth vocabulary.
 
 ## Errors: one `SourceApiException` subtype per source
 

@@ -48,6 +48,6 @@ relinked in the same transaction.
 
 ### Anything about credentials
 
-Name which of the `CONTEXT.md` terms applies: Stream Resolution Auth
+Name which of the auth vocabulary terms (`services/download-and-auth.md`) applies: Stream Resolution Auth
 (adapter request) and Media Request Credentials (byte request, empty by
 construction) are different arrows. Changing either needs the user's approval.

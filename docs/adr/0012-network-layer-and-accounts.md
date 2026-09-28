@@ -13,7 +13,7 @@
 - 帶不帶憑證散落在各 service 手動組 header；每個 service 各自一個 dio。
 - B 站 QR 登入可能假成功；B 站刷新憑證後用舊 options 重送；網易任何非 200 都當失效並清憑證；播放用的連線偵測不到失效；secure storage 暫時讀不到就刪憑證；失效提示每次執行只跳一次。
 
-`CONTEXT.md` 記錄的原則經審計驗證仍成立，併入本 ADR：**憑證只用在向音源解析串流與 API 請求，實際抓取音訊位元組的請求一律不帶憑證**。
+舊版 `CONTEXT.md`（階段三刪除，術語移到舊專案的 `.trellis/spec/services/download-and-auth.md`）記錄的原則經審計驗證仍成立，併入本 ADR：**憑證只用在向音源解析串流與 API 請求，實際抓取音訊位元組的請求一律不帶憑證**。
 
 ## 考慮過的選項
 
@@ -29,6 +29,7 @@
 1. **HTTP 層**：每個音源一個 API client（dio），該音源所有 service 共用；攔截器順序為認證注入、cookie 管理、錯誤對應、
    限流與退避（策略由音源宣告）、網路紀錄（ADR 0011）。另有一個**媒體 client** 專抓音訊位元組，只加媒體 headers（Referer、UA），
    不掛認證攔截器與 cookie 管理。匿名用的非機密 cookie（例如 B 站 `buvid`）存資料庫。
+   轉址：宿主 HTTP 跟隨轉址時每一跳都要在 manifest 網域內，最多 5 跳（舊版 `SourceUrlPolicy.resolveRedirects` 的做法）；媒體 client 跟隨轉址時每一跳只帶媒體 headers。
 2. **帶憑證的單一宣告點**：每個請求在音源插件的定義處宣告 `AuthRequirement`：
    - `required`：寫入遠端歌單、讀收藏夾與私人歌單；未登入就不發請求，直接回「需要登入」。
    - `userPreference`：搜尋、排行、詳情、串流解析、下載詳情、歌單刷新、電台、Mix；已登入且開關開啟才帶。
