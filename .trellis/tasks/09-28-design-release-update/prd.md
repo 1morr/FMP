@@ -53,12 +53,15 @@ ADR 0004（不上架商店）、0006（驗過就直接發布）、0008（App 身
 
 1. **改用 `release-please`（2026-09-28，按建議）**：commit 進 main 時機器人維護「發版 PR」（依 Conventional Commits 算下一版、改 pubspec、寫 `CHANGELOG.md`）；
    合併該 PR 即打 tag 並接續建置、驗證、發布；發佈說明與 App 內更新對話框取 CHANGELOG 中該版段落。只看 `app/` 路徑。
+2. **Linux 只發 AppImage、macOS 發未公證的 zip（2026-09-28，按建議）**：
+   - Linux：App 內下載驗證後，按「安裝」把舊檔改名、放上新檔、重啟，下次啟動刪舊檔；所在資料夾不可寫時說明並提供「打開下載頁」。不發 Flatpak、deb。
+   - macOS：暫不付 Apple 開發者年費；第一次安裝要到系統設定按「仍要打開」；App 內下載驗證後替換整個 App 並重啟。
+     「App 自己下載的檔案不帶 quarantine、更新後不必再放行」為推測，列入 macOS 平台任務的實測。
 
 ## 待決定
 
-1. Linux、macOS 的發佈格式與更新方式。
-2. Windows 程式碼簽章（SignPath Foundation 申請）。
-3. 新 App 第一個版本的版本號。
+1. Windows 程式碼簽章（SignPath Foundation 申請）。
+2. 新 App 第一個版本的版本號。
 
 ## 不在範圍
 
