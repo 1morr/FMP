@@ -63,4 +63,4 @@ Riverpod 3 在 Notifier 內建立計時器並以 `ref.onDispose` 取消、由生
   - 退避與 `retryAfter`；
   - 上次成功時間重啟後生效。
 - lint `fmp_periodic_timer_owner`（加入 ADR 0015 的 `fmp_lints`）：`Timer.periodic`、`Stream.periodic` 只准在排程器與播放核心模組，
-  取代舊 `periodic_timer` static-rule 的登記表；依 ADR 0015 寫雙向變異測試。
+  取代舊 `periodic_timer` static-rule 的登記表；依 ADR 0015 寫雙向變異測試。平台層桌面歌詞模組的查游標計時器也允許，見 ADR 0021。

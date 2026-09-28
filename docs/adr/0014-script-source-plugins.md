@@ -37,7 +37,7 @@ manifest 與腳本承擔。
 3. **manifest**：`id`（字串音源 id）、名稱、版本、作者、`apiVersion`、能力、允許的網域、登入方式、重試與限流策略、遮蔽名單追加、預設值、圖示。
 4. **能力**：`search`、`resolveStream`、`trackDetail`、`multiPart`、`importPlaylist`、`libraryRead`、`libraryWrite`、`charts`、`live`、`mix`、`lyrics`、`login`。
    可播放音源＝有 `resolveStream`；僅元資料來源與歌詞源依能力區分，不另立型別。下載由宿主處理，不是插件能力。
-   同一能力有多個提供者時 UI 全部列出。
+   同一能力有多個提供者時 UI 全部列出。`lyrics` 的介面與歌詞文件格式、新增的 AI 能力 `aiAssist` 見 ADR 0021。
 5. **宿主 API v1**（腳本能用的全部）：`http.request`（經 ADR 0012／0013 網路層、只能連 manifest 網域）、`crypto`、每插件 `storage`、
    只讀自己音源的 `credentials`、`log`（經 ADR 0011 門面）、結構化錯誤（宿主轉成 `AppError`）。沒有檔案系統、任意 socket、其他插件的資料。
    資料交換為以 `apiVersion` 版本化的 JSON DTO，宿主提供 TypeScript 型別定義。`resolveStream` 回傳網址期限 `expiresAt`（插件從網址本身讀），

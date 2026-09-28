@@ -65,7 +65,8 @@
 9. **權限統一入口**：平台層 `PermissionGateway` 依能力宣告需要的權限：
    - 下載資料夾寫入（Android `MANAGE_EXTERNAL_STORAGE`）；
    - 下載通知（Android 13+ `POST_NOTIFICATIONS`，第一次下載時請求）；
-   - 安裝更新（`REQUEST_INSTALL_PACKAGES`）。
+   - 安裝更新（`REQUEST_INSTALL_PACKAGES`）；
+   - 顯示在其他應用上層（Android 懸浮歌詞，ADR 0021）。
    
    流程固定為說明 → 請求 → 被拒時說明影響並提供「前往系統設定」→ 回到 App 時重新檢查，永久拒絕另外處理。
    通知被拒照樣下載；儲存被拒不開始下載並引導設定。Android 用 `permission_handler`（見「如何確認」的 Windows 實測）。
