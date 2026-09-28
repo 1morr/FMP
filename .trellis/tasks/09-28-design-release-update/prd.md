@@ -60,10 +60,11 @@ ADR 0004（不上架商店）、0006（驗過就直接發布）、0008（App 身
 3. **Windows 維持不簽章（2026-09-28，按建議）**：SignPath Foundation 的條款要求「Every release needs manual approval for signing」，
    與自動發布衝突；發行者顯示為 SignPath Foundation；簽章也不保證 SmartScreen 不警告。列為之後的選項。
    「App 自己下載的安裝檔不帶 Mark of the Web、更新時不跳 SmartScreen」為推測，列入 Windows 更新的實測。
-
-## 待決定
-
-1. 新 App 第一個版本的版本號。
+4. **新 App 第一版為 `2.0.0`（2026-09-28，按建議）**：以 `Release-As: 2.0.0` 指定；大於 1.11.0，舊版更新器必定認為是新版。
+5. **技術選擇（`design.md`）**：release-please 與建置、驗證、發布在同一個 workflow；發佈物檔名、Inno AppId、Android 金鑰沿用並在 verify 加「舊版更新器相容」檢查；
+   平台層能力 `appUpdate` 宣告安裝類型；檢查經網路層、`pub_semver` 比版本、處理 rate limit；下載經 ADR 0020 的下載引擎；
+   checksums 必驗、GitHub `digest` 有值時也要相符；Windows 免安裝版改為「解壓到旁邊再以目錄改名替換」並由獨立的 `fmp_updater.exe` 執行；
+   清理登記在啟動維護清單；iOS、dev flavor 不提供應用內更新。
 
 ## 不在範圍
 
@@ -72,6 +73,6 @@ ADR 0004（不上架商店）、0006（驗過就直接發布）、0008（App 身
 
 ## 驗收條件
 
-- [ ] ADR 0022 記錄：版本號與發版流程、發佈說明、各平台發佈格式、更新的檢查／下載／驗證／安裝／清理、各平台差異、切換相容、dev flavor 行為。
-- [ ] A6、B7、B8、B9、E17 各自對到決定。
-- [ ] `phase2-plan.md` §3 第 19 項標 ✅ 與 ADR 編號。
+- [ ] ADR 0022 記錄：release-please 發版流程與版本號、發佈說明、各平台發佈物、更新的檢查／下載／驗證／安裝／清理、各平台差異、切換相容、dev flavor 與 iOS 行為、不簽章的理由。
+- [ ] A6（各平台 GitHub Release、iOS 另定）、B7（免安裝版改名替換）、B8（checksums 必驗）、B9（Android 下載後選安裝或刪除）、E17（保留）各自對到決定。
+- [ ] ADR 0009、0017、0020 加上指向 ADR 0022 的一句話；`phase2-plan.md` §3 第 19 項標 ✅，§7／§8 加入實測項目。
