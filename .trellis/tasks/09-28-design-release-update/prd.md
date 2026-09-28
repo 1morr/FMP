@@ -49,12 +49,16 @@ ADR 0004（不上架商店）、0006（驗過就直接發布）、0008（App 身
 - **切換相容（由 ADR 0008 推得）**：舊版 v1.x 的更新器依檔名挑 asset、驗 checksums、以 `unins000.exe` 判斷安裝版、只比三段版本。
   新 App 的第一個版本必須沿用這些檔名、Inno AppId、Android 簽名金鑰，且版本號大於 1.11.0，舊版使用者才能在 App 內直接升上來。
 
+## 已決定
+
+1. **改用 `release-please`（2026-09-28，按建議）**：commit 進 main 時機器人維護「發版 PR」（依 Conventional Commits 算下一版、改 pubspec、寫 `CHANGELOG.md`）；
+   合併該 PR 即打 tag 並接續建置、驗證、發布；發佈說明與 App 內更新對話框取 CHANGELOG 中該版段落。只看 `app/` 路徑。
+
 ## 待決定
 
-1. 版本號與發佈說明的流程：沿用「手動改 pubspec＋打 tag、說明由 commit 產生」，或改用 `release-please`（自動改版本、寫 CHANGELOG、合併 release PR 即發版）。
-2. Linux、macOS 的發佈格式與更新方式。
-3. Windows 程式碼簽章（SignPath Foundation 申請）。
-4. 新 App 第一個版本的版本號。
+1. Linux、macOS 的發佈格式與更新方式。
+2. Windows 程式碼簽章（SignPath Foundation 申請）。
+3. 新 App 第一個版本的版本號。
 
 ## 不在範圍
 
