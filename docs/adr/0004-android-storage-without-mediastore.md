@@ -1,5 +1,7 @@
 # 0004 — Android 下載用所有檔案存取權與裸路徑，不用 MediaStore
 
+> 只適用根目錄舊專案；新專案（`app/`）見 [ADR 0020](0020-downloads-and-permissions.md)。本檔在切換 PR 隨舊專案刪除（ADR 0008）。
+
 - 狀態：已採納
 - 日期：2026-09-24
 - 影響範圍：`android/app/src/main/AndroidManifest.xml`、`lib/services/platform/storage_permission_service.dart`、`lib/services/download/`、`lib/providers/download/`

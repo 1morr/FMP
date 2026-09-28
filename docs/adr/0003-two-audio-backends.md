@@ -1,5 +1,7 @@
 # 0003 — 保留兩個音訊後端
 
+> 只適用根目錄舊專案；新專案（`app/`）見 [ADR 0018](0018-playback-core.md)。本檔在切換 PR 隨舊專案刪除（ADR 0008）。
+
 - 狀態：已採納
 - 日期：2026-09-24
 - 影響範圍：`lib/services/audio/`、`lib/providers/audio/audio_controller_provider.dart`、`pubspec.yaml` 的音訊依賴

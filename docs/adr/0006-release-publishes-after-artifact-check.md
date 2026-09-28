@@ -1,5 +1,7 @@
 # 0006 — Release 驗過產物就直接發布，不再留草稿等人按
 
+> 只適用根目錄舊專案；新專案（`app/`）見 [ADR 0022](0022-release-and-in-app-update.md)。本檔在切換 PR 隨舊專案刪除（ADR 0008）。
+
 - 狀態：已實作
 - 日期：2026-09-24
 - 影響範圍：`.github/workflows/release.yml`、`test/workflows/release_workflow_test.dart`、`docs/build-and-release.md` 的發布流程
