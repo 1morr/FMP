@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/research/m1-scope-digest.md", "reason": "Per-ADR M1 scope, fixed names, dependency order"}
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/research/m1-tooling-facts.md", "reason": "Package versions and Trellis packages mechanism as of 2026-09-28"}
+{"file": ".trellis/tasks/09-26-fmp-rewrite/milestones.md", "reason": "M1 scope and acceptance"}
+{"file": "docs/adr/0026-milestones-and-cut-over.md", "reason": "Milestone and PR child task structure"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "On-device verification rules for app/"}
