@@ -245,12 +245,13 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - 以上是功能凍結僅有的例外。
 - 建立 `1morr/fmp-plugins` repo、其 CI 與 `index.json`、App 插件頁與首次啟動引導：排入里程碑規劃（第 20 步）；第一個里程碑不需要。
 
-## 10. 目前進度與下一步（交接用，2026-09-28 更新，第 5 項完成後）
+## 10. 目前進度與下一步（交接用，2026-09-28 更新，第 4 項研究中）
 
 - 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0024`；舊 ADR 0001–0007 仍描述根目錄舊專案。
 - 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞 → 19 發版與更新 → 3 Toast → 5 UI/UX。
   每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0025（Debug 頁）。
-- **下一項：第 4 項「Debug 頁」**（尚未建 task）：含 log 檢視與錯誤歷史（ADR 0011、0023 的詳細頁）、網路請求檢視、播放與佇列即時狀態、資料庫檢視、音源健康檢查（ADR 0015）、插件開發工具（ADR 0015）、快取管理（ADR 0016）、診斷包匯出（ADR 0011）；版面用 ADR 0024 的設計系統。
+- **進行中：第 4 項「Debug 頁」**，task `.trellis/tasks/09-28-design-debug-page/`（planning）；研究代理寫到 `research/`（`current-state.md`、`prior-art.md`、`packages-and-platform.md`），三個檔齊了才代表研究完成，接著抽查→prd→一次一問。
+  已知輸入：J1 開發者模式（版本連點 7 次、不持久化、沒有關閉入口；擁有者勾保留）、J2 Debug 頁區塊（不確定，重做）、J3 log 寫檔（方向：保留並加輪替與保留期限）、J4 `DataIntegrityRepository.scan/repair`（方向：收進 Debug 頁）；ADR 0011 明寫「Debug 頁與開發者模式的持久化由 Debug 頁的設計定」、ADR 0015 明寫「插件開發工具的版面由 Debug 頁的設計定」。範圍：含 log 檢視與錯誤歷史（ADR 0011、0023 的詳細頁）、網路請求檢視、播放與佇列即時狀態、資料庫檢視、音源健康檢查（ADR 0015）、插件開發工具（ADR 0015）、快取管理（ADR 0016）、診斷包匯出（ADR 0011）；版面用 ADR 0024 的設計系統。
 - 之後順序：7 里程碑定稿。
 - 視覺選擇類的問題可用 Artifact 做示意頁（例：第 5 項的播放頁三方案 https://claude.ai/artifact/WbYKvNKgS2XpJbCuGr9xTZ ）。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
@@ -262,4 +263,7 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
   - 子代理因額度中斷：先 SendMessage 續跑；使用者手動停掉的代理不能續跑，使用者要求時才重新發起，並告知保留已寫的研究檔。
   - 更新他項 ADR 的引用時只加一句指向新 ADR，不改原決定；新 lint 規則補記到 ADR 0015 的「後續 ADR 新增的規則」。
   - 使用者提出新概念（例如 Jev）或要求把新功能一起做時，先派研究查成熟做法與可行性，再把可行性表攤開問範圍；使用者反駁建議的理由時（例如「插件只要更新插件」）若成立就改建議並寫進 prd 的決定。
+  - 使用者對建議提出「為什麼」類問題（例如「只有全域快捷鍵不行嗎」）時：先查證據、直接回答並說明衝突與限制，再把選項重新攤開問一次，不要把問題當成否決。
+  - 使用者問「能不能用某種新風格／新技術」（例如液態玻璃）時：自己快速查 pub.dev 與官方 issue（不必派代理），給出可行性、平台限制與效能代價，再以選項問。
+  - 視覺選擇先載入 Artifact quickstart（intent `other`）再寫示意頁；草稿放 scratchpad，playwright 不能開 `file://`，所以直接發布、不先截圖。
   - 每項最終摘要需列：你已定的、技術選擇（在核准範圍內）、放進待辦、不在範圍、核准後會做什麼、下一項。
