@@ -54,7 +54,7 @@ Linux、macOS 加入時要回頭改介面。
 8. **外觀**：Windows、Linux 用自訂標題列；macOS 保留系統紅綠燈按鈕。CJK 字型不內建，依平台 fallback。
 9. **上線順序**：Android、Windows 從第一個里程碑起全面驗證；Linux、macOS、iOS 從第一個里程碑起在 CI 編譯
    （iOS 加模擬器測試）；Linux 在第一個里程碑後開 child task 於虛擬機實機驗證，之後每個里程碑冒煙測試；
-   macOS、iOS 取得設備後各開 child task。各平台在實機驗證完成後才發佈。
+   macOS、iOS 取得設備後各開 child task。各平台在實機驗證完成後才發佈。平台任務的時程與測試環境見 ADR 0026。
 
 ### 平台政策（決定的前提，免得重新研究）
 

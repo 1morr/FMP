@@ -64,7 +64,7 @@ Flutter federated plugin 的「一套介面、多種實作」；Spotube 的匹�
   App 本體不含非官方 API 呼叫，降低主 repo 的暴露面（不消除風險；B 站社群 API 文件庫已於 2026-01 因存證信函關閉）。
 - 壞的：第一個里程碑變重（要先有 JS 執行環境與宿主 API）；腳本除錯比 Dart 難；首次啟動多一步安裝；要維護第二個 repo 與其 CI；
   宿主 API 一經發佈就要維持相容（以 `apiVersion` 管理）。
-- 之後要注意：`flutter_js` 在 Android 與 Windows 的 Promise、記憶體與啟動成本需實測；YouTube 可行性驗證；插件庫 repo 與插件頁的建立時程在里程碑規劃定；
+- 之後要注意：`flutter_js` 在 Android 與 Windows 的 Promise、記憶體與啟動成本需實測；YouTube 可行性驗證；插件庫 repo 與插件頁在 M3 建立（ADR 0026）；
   自動檢查插件更新若日後需要，另立決定。
 
 ## 如何確認

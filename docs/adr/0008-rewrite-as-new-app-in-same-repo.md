@@ -50,7 +50,7 @@ FMP 經過多輪 AI agent 自主修改（`lib/` 343 檔 99,063 行），擁有�
    只有同一身分，Android 上才讀得到舊 App 私有目錄的資料庫與 Keystore 保護的憑證，舊版也才能直接升級。
    開發版另用身分，與正式版分開。
 4. **舊版緊急修正**：在 `main` 上改根目錄舊專案、走一般 PR、照舊以 `vX.Y.Z` tag 發版；每次先經擁有者同意。
-5. **切換**：`docs/audit/features.md` 中勾「保留」的功能全部在 `app/` 跑通、效能不低於
+5. **切換**：`docs/audit/questions.md` 勾「保留」的功能（E1–E17）與各 ADR 定下的行為全部在 `app/` 跑通、效能不低於
    `docs/audit/perf-baseline.md`、舊資料自動遷移在真實資料副本上驗證過之後，以一個 PR 刪除根目錄舊專案與
    `docs/audit/`，並把 `release.yml`、`ci.yml`、`orca.yaml`、`tool/release/` 改指向 `app/`。
    新 App 的第一個正式版本號接在舊版之後，經應用內更新送達，首次啟動執行自動遷移。
@@ -71,4 +71,4 @@ FMP 經過多輪 AI agent 自主修改（`lib/` 343 檔 99,063 行），擁有�
 
 - `app/` 不得 import 根目錄舊專案：lint `fmp_layer_imports`（ADR 0015）。
 - App 身分識別：測試斷言 prod flavor 的身分值與上列一致（ADR 0015）；切換前的里程碑另加一項檢查，比對 `app/` 的 `applicationId`、AppUserModelID、Inno Setup AppId 與上列現值一致。
-- 切換條件：切換 PR 的 review 指南逐項列出 `features.md` 勾「保留」的功能與效能量測結果。
+- 切換條件：切換 PR 的 review 指南逐項列出 `questions.md` 勾「保留」的功能與效能量測結果；里程碑與放行條件的細節見 ADR 0026。

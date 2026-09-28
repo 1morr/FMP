@@ -52,7 +52,7 @@ Spotube 以 drift 存設定並以 `watchSingle()` 接 Riverpod。
 
 - 好的：任何出口都不會漏出未遮蔽的內容；錯誤可依類型與音源追查；設定的預設值可以安全調整；新增音源不必改設定 schema。
 - 壞的：Debug 頁的 log 檢視要自己做；遮蔽名單要隨音源維護；release 版在本機留有 info 級別的使用紀錄（已遮蔽、不上傳）。
-- 之後要注意：統一錯誤型別的欄位由錯誤模型的 ADR 定；開發者模式的持久化、log 保留 7 天與 JSON Lines 格式、Debug 頁見 ADR 0025；各組設定的欄位清單在里程碑中依 `docs/audit/data.md` §7 定案。
+- 之後要注意：統一錯誤型別的欄位由錯誤模型的 ADR 定；開發者模式的持久化、log 保留 7 天與 JSON Lines 格式、Debug 頁見 ADR 0025；各組設定的欄位清單在引入該組設定的里程碑中依 `docs/audit/data.md` §7 定案（ADR 0026）。
 
 ## 如何確認
 
