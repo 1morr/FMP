@@ -57,11 +57,13 @@ ADR 0004（不上架商店）、0006（驗過就直接發布）、0008（App 身
    - Linux：App 內下載驗證後，按「安裝」把舊檔改名、放上新檔、重啟，下次啟動刪舊檔；所在資料夾不可寫時說明並提供「打開下載頁」。不發 Flatpak、deb。
    - macOS：暫不付 Apple 開發者年費；第一次安裝要到系統設定按「仍要打開」；App 內下載驗證後替換整個 App 並重啟。
      「App 自己下載的檔案不帶 quarantine、更新後不必再放行」為推測，列入 macOS 平台任務的實測。
+3. **Windows 維持不簽章（2026-09-28，按建議）**：SignPath Foundation 的條款要求「Every release needs manual approval for signing」，
+   與自動發布衝突；發行者顯示為 SignPath Foundation；簽章也不保證 SmartScreen 不警告。列為之後的選項。
+   「App 自己下載的安裝檔不帶 Mark of the Web、更新時不跳 SmartScreen」為推測，列入 Windows 更新的實測。
 
 ## 待決定
 
-1. Windows 程式碼簽章（SignPath Foundation 申請）。
-2. 新 App 第一個版本的版本號。
+1. 新 App 第一個版本的版本號。
 
 ## 不在範圍
 
