@@ -1,5 +1,7 @@
 # 0001 — 每源設定收成一份清單，音源改用字串 id
 
+> 只適用根目錄舊專案；新專案（`app/`）的字串音源 id 見 [ADR 0014](0014-script-source-plugins.md)，每源設定見 [ADR 0011](0011-settings-and-logging.md)、[ADR 0012](0012-network-layer-and-accounts.md)。本檔在切換 PR 隨舊專案刪除（ADR 0008）。
+
 - 狀態：已採納
 - 日期：2026-09-03
 - 影響範圍：`lib/data/models/`、`lib/data/sources/`、備份格式、schema v1 → v2

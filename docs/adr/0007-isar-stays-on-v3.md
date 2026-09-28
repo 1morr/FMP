@@ -1,5 +1,7 @@
 # 0007 — Isar 停在 v3，改用 isar_community fork
 
+> 只適用根目錄舊專案；新專案（`app/`）見 [ADR 0010](0010-drift-data-layer-and-legacy-import.md)。本檔在切換 PR 隨舊專案刪除（ADR 0008）。
+
 - 狀態：已採納
 - 日期：2026-09-25（補記；決策本身在 `35007eb0`（2026-07-05）與 `3b1c7244`（2026-09-02））
 - 影響範圍：`pubspec.yaml` 的 Isar 依賴、`lib/data/models/` 的所有 collection、release 前的 native libs 檢查

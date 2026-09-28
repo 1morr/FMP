@@ -1,6 +1,32 @@
 # Download pipeline, media handoff, accounts
 
-Vocabulary: `CONTEXT.md`. Storage paths and Android permissions: ADR 0004.
+Vocabulary: § Auth vocabulary below (the principle is recorded in ADR 0012).
+Storage paths and Android permissions: ADR 0004.
+
+## Auth vocabulary
+
+Use these terms as defined; avoid the synonyms in brackets.
+
+- **Source Auth Context** — the policy that decides which source credentials a
+  given source operation may use; distinct from account login and credential
+  storage. (Not: auth helper, header utility, account service.)
+- **Media Handoff** — the move from a resolved stream URL to the audio or
+  download backend: redirect checks, per-hop media headers, resumed-download
+  range headers, and Source Auth Context credentials narrowed into Media Request
+  Credentials. (Not: playback URL helper, download header helper.)
+- **Stream Resolution Auth** — credentials used while asking a source adapter to
+  resolve or refresh a stream URL; broader than Media Request Credentials and may
+  include Bilibili or YouTube auth that must never reach a media/CDN request.
+  (Not: media auth, playback headers.)
+- **Auth For Play** — the user setting that gates credentials for stream
+  resolution, playback handoff, download, track detail and auth-aware
+  metadata/detail paths; it does not control playlist import, playlist refresh
+  or search. (Not: import auth, search auth.)
+- **Media Request Credentials** — credentials allowed on the actual audio byte
+  request. There are none: `SourceHttpPolicy.mediaHeaders(String sourceType)`
+  (`lib/data/sources/source_http_policy.dart`) takes only the source id, so no
+  cookie or token can reach the media host through it; the former Netease media
+  allowlist was removed in `c09aec10`. (Not: stream auth, source auth.)
 
 ## Download (`lib/services/download/`)
 
@@ -35,8 +61,8 @@ Media byte requests — playback and download — carry only
 `SourceHttpPolicy.mediaHeaders(sourceType)` plus `Range`.
 `streamResolutionAuth` is carried through but deliberately unused. Stream
 Resolution Auth is for asking the adapter for a URL, never for fetching the
-bytes. Do not add credentials here without changing `CONTEXT.md` and getting the
-user's approval.
+bytes. Do not add credentials here without changing § Auth vocabulary and getting
+the user's approval.
 
 ## Accounts and credentials (`lib/services/account/`)
 

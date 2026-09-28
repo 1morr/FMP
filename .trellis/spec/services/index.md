@@ -5,7 +5,7 @@ radio, search, cache, network, platform, update, backup, and the shared
 `ToastService` / image-loading services in `lib/core/services/`.
 
 Terms used here — Source Auth Context, Media Handoff, Auth For Play, Media Request
-Credentials — are defined in `CONTEXT.md`; use them as defined.
+Credentials — are defined in `download-and-auth.md` § Auth vocabulary; use them as defined.
 
 ## Guidelines
 
@@ -21,7 +21,7 @@ Error and logging rules shared with other layers: [../shared/errors-and-logging.
 
 - [ ] Audio change → read `audio.md` and ADR 0003 (two backends). UI calls `AudioController`, never `FmpAudioService`; radio is the one exception (AGENTS.md § Boundaries).
 - [ ] Download / storage path change → read `download-and-auth.md` and ADR 0004.
-- [ ] Anything that decides which credentials go where → read `CONTEXT.md` first. Changing the auth boundary needs the user's approval (AGENTS.md § Conventions).
+- [ ] Anything that decides which credentials go where → read `download-and-auth.md` § Auth vocabulary first. Changing the auth boundary needs the user's approval (AGENTS.md § Conventions).
 - [ ] A new repeating timer, outbound host or cross-feature import → plan the static-rule entry with its reason.
 
 ## Quality Check

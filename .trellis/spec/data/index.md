@@ -6,7 +6,7 @@ and the shared foundation in `lib/core/` (errors, logger, constants, utils).
 
 Neither directory imports `lib/services/` or `lib/providers/` (one recorded
 exception, `lib/core/extensions/track_extensions.dart`, in
-`test/support/layer_boundary_static_rule_test.dart`) — see AGENTS.md § Boundaries. Vocabulary for auth and media handoff is in `CONTEXT.md`.
+`test/support/layer_boundary_static_rule_test.dart`) — see AGENTS.md § Boundaries. Vocabulary for auth and media handoff is in `services/download-and-auth.md` § Auth vocabulary.
 
 ## Guidelines
 
