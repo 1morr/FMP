@@ -63,10 +63,27 @@
    - skill 在 M1 為 `app/` 改寫；舊專案的 skill 維持原樣，給緊急修正用。階段三只把規劃寫進 ADR。
    - 理由：真實音源常被限流（B 站 412）、帳號有被風控的風險、上游一改版無關的 PR 也驗不過；上游改版改由 Debug 頁健康檢查與手動冒煙測試發現。
 
+我自行定下、未另外詢問的處置（design §1–§5，理由寫在該處）：
+- 只把「issue 用繁中」搬進 AGENTS.md，label 慣例隨目錄刪除；
+- 舊 ADR 現在就補註記；
+- ADR 0012 補上轉址原則；
+- 本機 `.agents/` 的實測筆記併進 skill 後刪除；
+- Trellis 管理的檔案不改，說明寫在 AGENTS.md 標記區塊外；
+- 「Test waits」縮成閘門實際守的範圍；
+- `merge=union` 的指示保留。
+
+## 範圍外
+
+- `app/` 的 spec 放哪：在 M1 決定。
+- 根目錄 AGENTS.md 與 spec 的翻譯：不做。
+- GitHub 上的 label 清理。
+
 ## 驗收條件
 
-- [ ] 兩條 `git grep`（第 9 項 implement §B）只命中刻意保留的檔案。
-- [ ] `docs/agents/`、`CONTEXT.md` 已刪除；「issue 用繁中撰寫」寫進 AGENTS.md。
+- [ ] design §8 的兩條 `git grep` 只命中允許的檔案。
+- [ ] `docs/agents/`、`CONTEXT.md` 已刪除；AGENTS.md 有 `## Issues`。
 - [ ] 舊 ADR 0001、0003–0006 都有「只適用舊專案」註記。
-- [ ] ADR 0012 補上 Media Handoff 的轉址網域檢查原則。
-- [ ] 第 9 項 design §6 的衝突各有處置，並記在 AGENTS.md 的 Trellis 段（標記區塊外）。
+- [ ] ADR 0012 有轉址原則；ADR 0027 記下實機驗證的決定，ADR 0015、0026 有指向。
+- [ ] `docs/README.md` 地圖有類型欄與 `audit/` 列，語言規則照已決定 1 改寫。
+- [ ] AGENTS.md 的 Trellis 段有三句說明，「Test waits」已縮窄；static-rule 測試保持綠。
+- [ ] 本機 `.agents/` 的實測筆記已併進 skill 並 commit，本機 `.agents/` 已刪除。
