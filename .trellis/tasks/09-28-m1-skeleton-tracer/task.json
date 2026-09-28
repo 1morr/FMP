@@ -6,7 +6,7 @@
   "status": "in_progress",
   "dev_type": null,
   "scope": null,
-  "package": null,
+  "package": "app",
   "priority": "P2",
   "creator": "1morr",
   "assignee": "1morr",
@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "09-29-split-agent-instructions"
+  ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
   "notes": "",

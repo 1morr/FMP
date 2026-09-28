@@ -39,7 +39,8 @@
   ```
   - package 名不用 `data` 或 `.`。研究查過：spec 目錄名取自 package 名；取 `data` 會回報 `Spec: not configured`，取 `.` 會讓掃描指到 spec 根。
   - 現有的 active task（`09-26-fmp-rewrite`、本任務）在 `task.json` 補 `"package": "app"`；兩者都不寫舊專案程式碼。
-- `app/` 的 spec 在 PR 2 建 `.trellis/spec/app/index.md`，各層寫到時再加 `.trellis/spec/app/<layer>/index.md`（繁中）。
+- `app/` 的 spec 只放在 `.trellis/spec/app/<layer>/index.md`（繁中），各層寫到時才建。
+  - 不建 `.trellis/spec/app/index.md`：`session-start.py:680-682` 會把有 `index.md` 的第一層目錄當成扁平層，不看 scope 一律注入，legacy 任務也會載入，而且底下的各層索引反而不列（PR 1 檢查時發現）。
 - `.claude/agents/trellis-implement.md`、`trellis-check.md` 是本機客製檔，可以改：
   - 驗證步驟改成「讀 `task.json` 的 package：legacy 跑 `lib/AGENTS.md` § Verification，app 跑 `app/AGENTS.md` § 驗證」；
   - spec 路徑改成 `.trellis/spec/<package>/<layer>/`。

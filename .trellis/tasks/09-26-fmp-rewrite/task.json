@@ -6,7 +6,7 @@
   "status": "planning",
   "dev_type": null,
   "scope": null,
-  "package": null,
+  "package": "app",
   "priority": "P2",
   "creator": "1morr",
   "assignee": "1morr",

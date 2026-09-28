@@ -56,7 +56,8 @@
 - [ ] 單一實例鎖（Windows）。
 - [ ] 零聯網兩道防線：`dart_test.yaml`、`flutter_test_config.dart`。
 - [ ] `material_ui` import 路徑的決定。
-- [ ] `app/AGENTS.md`、`.trellis/spec/app/index.md`。
+- [ ] `app/AGENTS.md`；第一個 `.trellis/spec/app/<layer>/index.md`（不建 `spec/app/index.md`，design §1）。
+- [ ] `trellis-check.md`、`trellis-implement.md` 第 2 步的 format／analyze 指令依 package 分流（`app` 在 `app/` 內跑）。
 - [ ] `ci.yml` 以 paths-filter 分兩半，加 `app` 的 format／analyze／test 與 `always()` 彙總；合併後在 ruleset 設彙總 job 為必要檢查。
 - [ ] `orca.yaml` 加入 `app/` 的 setup。
 - 測試：
