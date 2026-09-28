@@ -62,7 +62,7 @@
    - 詳細頁文字可選取，按鈕：
      - 「複製」：Markdown 格式；
      - 「在 GitHub 回報」：先複製，再開新增 issue 頁（bug 範本），內容不放進網址。第一次使用提醒 repo 公開、送出前檢查。
-   - Debug 頁的錯誤歷史用同一個詳細頁。
+   - Debug 頁的錯誤歷史用同一個詳細頁（ADR 0025）。
 5. **無障礙**：
    - 使用 `SnackBar` 內建的 live region：朗讀但不搶焦點。
    - 單獨朗讀用 `SemanticsService.sendAnnouncement(View.of(context), …)`，不用已棄用的 `announce`（與多視窗不相容）。

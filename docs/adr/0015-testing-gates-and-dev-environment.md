@@ -63,7 +63,7 @@ log 只經門面、禁止空 catch、音源 id 不得出現在 UI 與 service、
    媒體請求不帶憑證（0012）、只連 manifest 網域、log 經遮蔽（0011）。插件庫 CI 以固定的 FMP 版本執行；`app/` 的 CI 對 `app/test/fixtures/plugins/`
    內的測試插件執行（合成資料、播放本機音檔），不依賴官方插件庫；同一個測試插件也供開發版離線開發。
 7. **App 內插件開發工具**：開發者模式下從資料夾載入插件（先限桌面平台，由平台層宣告）、重新載入、跑案例看 log、
-   以 App 內登入錄 fixture、每插件切換真實／錄製／重播。命令列只負責重播。版面由 Debug 頁的設計定。
+   以 App 內登入錄 fixture、每插件切換真實／錄製／重播。命令列只負責重播。版面見 ADR 0025。
 8. **開發版**：flavor `dev`／`prod`，`pubspec.yaml` 設 `default-flavor: dev`，發版明確帶 `--flavor prod`。
    dev 的 Android `applicationIdSuffix ".dev"`、Windows AppUserModelID `com.personal.fmp.dev`、名稱「FMP Dev」與標記圖示、
    資料目錄／單一實例鎖／secure storage 命名空間加 `-dev`；prod 維持 ADR 0008 的身分。開發版資料預設空白，

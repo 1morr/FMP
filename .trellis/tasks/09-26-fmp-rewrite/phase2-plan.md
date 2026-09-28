@@ -128,7 +128,7 @@ flowchart LR
 | 16 | 19 發版與更新（✅ 完成，ADR 0022） | 依賴 10、16；你已給出流程要求。 |
 | 17 | 3 Toast（✅ 完成，ADR 0023） | 依賴 2、18。 |
 | 18 | 5 UI／UX（✅ 完成，ADR 0024） | 設計系統與桌面播放器版面方案（2–3 個讓你選）。 |
-| 19 | 4 Debug 頁 | 把 18、3、8 的成果收成正式工具。 |
+| 19 | 4 Debug 頁（✅ 完成，ADR 0025） | 把 18、3、8 的成果收成正式工具。 |
 | 20 | 7 重寫策略（里程碑定稿） | 所有設計確定後拆成可獨立驗證的里程碑與 child task。 |
 
 ## 4. 你在 questions.md 直接問的問題
@@ -236,6 +236,7 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - ADR 0018：蘋果平台 AVPlayer 對 B 站 DASH 音訊與直播 HLS 的支援——iOS／macOS child task。
 - ADR 0020：加入下載的里程碑——`permission_handler` 在 Windows 是否使 FMP 出現在位置權限清單；寫入的標籤能被常見播放器讀到；Android 以 `MANAGE_EXTERNAL_STORAGE` 搬移到使用者資料夾。
 - ADR 0021：加入桌面歌詞的里程碑——macOS、Linux X11、Wayland 的穿透、置頂、定位；`window_manager` 在子 engine 設穿透作用在歌詞視窗。加入 Android 懸浮歌詞的里程碑——`flutter_overlay_window` 的記憶體與 Android 15 前景服務限制。加入逐字的里程碑——`flutter_lyric` 直接用或自寫。iOS 平台任務——Live Activity 本機逐行更新。
+- ADR 0025：加入 Debug 頁的里程碑——Windows release 版開啟開發者模式、重啟後仍開啟、再從總開關關掉；Debug 頁看得到一次搜尋的網路摘要；匯出的診斷包能以解壓工具打開。
 - ADR 0022：切換 PR 前以舊版 v1.11.0 實際更新到新 App（Android、Windows 安裝版與免安裝版）；Windows App 自行下載的安裝檔不帶 Mark of the Web。macOS 平台任務——App 自行下載的更新不帶 quarantine。Linux 平台任務——AppImage 的改名替換。
 
 ## 9. 功能凍結的例外與里程碑規劃備忘
@@ -245,14 +246,13 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - 以上是功能凍結僅有的例外。
 - 建立 `1morr/fmp-plugins` repo、其 CI 與 `index.json`、App 插件頁與首次啟動引導：排入里程碑規劃（第 20 步）；第一個里程碑不需要。
 
-## 10. 目前進度與下一步（交接用，2026-09-28 更新，第 4 項研究中）
+## 10. 目前進度與下一步（交接用，2026-09-28 更新，第 4 項完成）
 
-- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0024`；舊 ADR 0001–0007 仍描述根目錄舊專案。
-- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞 → 19 發版與更新 → 3 Toast → 5 UI/UX。
-  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0025（Debug 頁）。
-- **進行中：第 4 項「Debug 頁」**，task `.trellis/tasks/09-28-design-debug-page/`（planning）；研究代理寫到 `research/`（`current-state.md`、`prior-art.md`、`packages-and-platform.md`），三個檔齊了才代表研究完成，接著抽查→prd→一次一問。
-  已知輸入：J1 開發者模式（版本連點 7 次、不持久化、沒有關閉入口；擁有者勾保留）、J2 Debug 頁區塊（不確定，重做）、J3 log 寫檔（方向：保留並加輪替與保留期限）、J4 `DataIntegrityRepository.scan/repair`（方向：收進 Debug 頁）；ADR 0011 明寫「Debug 頁與開發者模式的持久化由 Debug 頁的設計定」、ADR 0015 明寫「插件開發工具的版面由 Debug 頁的設計定」。範圍：含 log 檢視與錯誤歷史（ADR 0011、0023 的詳細頁）、網路請求檢視、播放與佇列即時狀態、資料庫檢視、音源健康檢查（ADR 0015）、插件開發工具（ADR 0015）、快取管理（ADR 0016）、診斷包匯出（ADR 0011）；版面用 ADR 0024 的設計系統。
-- 之後順序：7 里程碑定稿。
+- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0025`；舊 ADR 0001–0007 仍描述根目錄舊專案。
+- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞 → 19 發版與更新 → 3 Toast → 5 UI/UX → 4 Debug 頁。
+  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0026。
+- **下一項：第 7 項「重寫策略（里程碑定稿）」**：把 ADR 0008–0025 拆成可獨立驗證的里程碑與 child task；輸入含 §7 第一個里程碑的必要驗證、§8 延後的實測、§9 功能凍結例外與里程碑備忘、ADR 0008 的高層策略。
+- 之後順序：7 里程碑定稿 → 階段三（Trellis／docs 清理）。
 - 視覺選擇類的問題可用 Artifact 做示意頁（例：第 5 項的播放頁三方案 https://claude.ai/artifact/WbYKvNKgS2XpJbCuGr9xTZ ）。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
 - 使用者偏好：全程繁中；多數細節「按推薦」，但每項仍需最終摘要與明確核准；Mermaid 圖需以 mermaid-cli 實際渲染（子圖標題含全形括號要用 `id["標題"]`）。
