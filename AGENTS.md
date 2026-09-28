@@ -87,10 +87,10 @@ with a reason, delete it when it goes away.
 - **Sliders** — build `ScopedSlider`; a raw Material `Slider` freezes the
   Windows accessibility tree (`docs/troubleshooting.md`) —
   `test/ui/static_rules/slider_overlay_static_rule_test.dart`.
-- **Test waits** — `pumpUntil` for a condition false on entry,
-  `drainEventQueue` to assert something did *not* happen
-  (`test/support/pump_until.dart`); a fixed pump count is flaky in both
-  directions (#43, #55) — `test/support/wait_convention_static_rule_test.dart`.
+- **Test waits** — no direct `pumpEventQueue` outside
+  `test/support/pump_until.dart`: use its `pumpUntil` / `drainEventQueue`
+  (how: `.trellis/spec/testing/test-conventions.md`; #43, #55) —
+  `test/support/wait_convention_static_rule_test.dart`.
 - **Static rules** — a test that reads `lib/` source is named
   `*_static_rule_test.dart` and lives in `test/support/` or
   `test/<layer>/static_rules/` —
@@ -107,6 +107,13 @@ with a reason, delete it when it goes away.
   `session_auto_commit: false`; `orca.yaml` shares the main checkout's copy
   with Orca worktrees); if an update re-adds a journal `merge=union` line to
   `.gitattributes`, drop it.
+- **Managed files left as shipped** — Claude Code runs the customised
+  `.claude/agents/trellis-check.md`; the `trellis-check` skill and
+  `.trellis/agents/check.md` are Trellis-generated and not used for FMP work.
+  With `session_auto_commit: false`, archive and journal steps make no commits:
+  commit task changes by hand, whatever the Trellis command docs say. The
+  managed block's `.agents/` and `.codex/` lines do not apply: both are
+  gitignored local state.
 
 <!-- TRELLIS:START -->
 # Trellis Instructions
