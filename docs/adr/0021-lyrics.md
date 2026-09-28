@@ -85,7 +85,7 @@
    - 播放狀態、位置、速度、時間戳只在播放、暫停、seek、換歌、換速時推送，各顯示端以 frame callback 外推，不開週期計時器。
    - 子 engine 與主 engine 以一個共用 Dart 檔定義的型別化訊息溝通（JSON 序列化）；子視窗與懸浮窗不顯示提示，錯誤轉給主視窗（ADR 0023）。
    - 播放頁、桌面視窗、Android 懸浮共用一套歌詞 widget；逐字漸變用 `CustomPainter`＋分段 shader＋`saveLayer(dstIn)` 遮罩。
-   - 顯示模式沿用（原文／優先翻譯／優先羅馬音），另加「逐字高亮」（預設開）。
+   - 顯示模式沿用（原文／優先翻譯／優先羅馬音），另加「逐字高亮」（預設開）。播放頁上歌詞的位置（右欄分頁或超寬時的中欄）見 ADR 0024。
 8. **桌面歌詞視窗**（E11）：
    - 平台能力 `desktopLyrics`，細分 `clickThrough`、`alwaysOnTop`（ADR 0009）；入口只在宣告時出現。
    - 以 `desktop_multi_window`（每視窗一個 engine）實作；透明、置頂、單行、11 項樣式、hover 工具列、點行跳轉、右鍵校正沿用；關閉是隱藏不銷毀。

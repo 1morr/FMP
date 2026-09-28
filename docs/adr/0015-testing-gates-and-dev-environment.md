@@ -48,7 +48,7 @@ log 只經門面、禁止空 catch、音源 id 不得出現在 UI 與 service、
    | `fmp_ignore_reason` | `// ignore: fmp_…` 同行必須寫理由 |
    | `fmp_platform_checks` | `Platform.isXxx`、`defaultTargetPlatform`、`Platform.operatingSystem` 只在平台層 |
 
-   後續 ADR 新增的規則：`fmp_periodic_timer_owner`（ADR 0017；ADR 0021 加入桌面歌詞查游標的允許擁有者）、`fmp_toast_entry`（ADR 0023）。
+   後續 ADR 新增的規則：`fmp_periodic_timer_owner`（ADR 0017；ADR 0021 加入桌面歌詞查游標的允許擁有者）、`fmp_toast_entry`（ADR 0023）、`fmp_design_tokens`（ADR 0024）。
 
    每條規則以官方 `analyzer_testing` 做雙向變異測試。`flutter analyze` 目前不顯示插件診斷並回報 No issues
    （flutter/flutter#193203），所以 CI 跑 `dart analyze --fatal-infos`，並以接線哨兵（暫放違規檔、斷言分析失敗且含規則名）證明規則接上了 `app/`。
