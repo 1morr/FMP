@@ -55,7 +55,7 @@ log 只經門面、禁止空 catch、音源 id 不得出現在 UI 與 service、
 3. **預設零聯網**：`app/dart_test.yaml` 對 `live` tag 設 `skip`、以 preset 解除；`app/test/flutter_test_config.dart` 以
    `HttpOverrides.global` 讓建立真實 `HttpClient` 直接失敗，要聯網的測試在自己的 zone 明確放行。JS 腳本只能經宿主 `http.request` 出網，同樣受限。
 4. **檢查案例一份四用**：每插件每能力最多一條檢查案例（`checks.json`），同一份用於契約測試（重播 fixture，進 CI）、
-   冒煙測試（真實連線，插件庫 `--live` 手動執行）、Debug 頁健康檢查（真實連線，App 內）、錄製（真實連線，遮蔽後存 fixture）。冒煙測試不進任何 CI、不排程。
+   冒煙測試（真實連線，插件庫 `--live` 手動執行）、Debug 頁健康檢查（真實連線，App 內）、錄製（真實連線，遮蔽後存 fixture）。冒煙測試不進任何 CI、不排程。實機驗證預設用重播，見 ADR 0027。
 5. **fixture**：錄製與重播在宿主網路層最底部的 dio `HttpClientAdapter`；一次請求／回應一個 JSON 檔（`meta`＋`request`＋`response`）。
    寫檔前一律經 ADR 0011 的正式遮蔽函式；重播比對 method＋排序後的 URL＋順序，被遮蔽的欄位不參與比對；比對不到就讓測試失敗。
    錯誤案例可手改 fixture 並標記。

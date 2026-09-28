@@ -86,6 +86,7 @@ ADR 0008 定了高層策略：
      - 驗收在 VMware Workstation Pro（個人使用免費）的 Ubuntu LTS 桌面虛擬機，X11 與 Wayland 各一次；
      - 日常開發用 WSL2；
      - 之後每個里程碑在虛擬機跑一次冒煙測試。
+     - 各平台實機驗證的時機與模式見 ADR 0027。
    - **macOS、iOS**：Mac 到貨後開。
      - 到貨前只靠 GitHub macOS runner 的編譯與 iOS 模擬器測試（ADR 0009）；
      - iOS 要不要實機、要不要付費帳號，在該任務決定。
