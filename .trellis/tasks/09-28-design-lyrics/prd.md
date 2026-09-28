@@ -51,10 +51,27 @@ ADR 0009（桌面歌詞視窗是平台能力）、0011（log 遮蔽、設定分�
 2. **歌詞的新功能解除凍結（2026-09-28）**：擁有者把逐字歌詞、桌面歌詞的點擊穿透與鎖定、Android／iOS 的懸浮歌詞納入本項，
    依成熟做法設計；各平台做不到的以能力宣告降級。可行性補查見 `research/extra-features.md`。
 
+## 補查結論（`research/extra-features.md`、`research/ai-decision-models.md`，2026-09-28，關鍵項已抽查）
+
+- **逐字格式**：YRC、QRC 的字時間是絕對時間，KRC 相對行首；QRC 需非標準 DES、KRC 是 XOR＋zlib，各有多份公開實作互證。
+  成熟產品一律把各格式正規化成「行＋字、整數毫秒」的內部結構；降級只有逐字→逐行（行起訖＝首字起、末字訖），沒有逐行→逐字。
+  逐字翻譯只有 Apple TTML 原生支援，其他來源的翻譯與羅馬音都是行級，以時間戳相等（LX 容差 100ms）合併。
+- **逐字渲染**：`flutter_lyric` 3.0.8 以 `CustomPainter`＋分段 shader＋`saveLayer(dstIn)` 遮罩做漸變高亮。
+- **桌面穿透**：`window_manager` 的 `setIgnoreMouseEvents` 在 Windows 只切 `WS_EX_TRANSPARENT`、`forward` 參數被忽略（已核對原始碼），macOS 可用，Linux 未實作；
+  `window_manager` 0.5.x 已停止維護，0.6.0 改建在 `nativeapi` 上。Linux 可用 GTK3 空 input region 穿透（`desktop_lyrics` 的做法），GTK3 的 Wayland 後端也實作了 input region，但 Wayland 下實際效果未驗證、置頂與定位不保證。
+  成熟產品的「鎖定」＝不能拖＋點擊穿透（＋淡化）；穿透後靠托盤選單、全域快捷鍵、主視窗開關解鎖，Windows 上 hover 顯示解鎖鈕要輪詢游標（LX 500ms、BetterLyrics 50ms）。
+- **Android 懸浮**：`flutter_overlay_window` 0.5.0（2025-04-20）開第二個 engine、不註冊其他插件，只能以它自帶的訊息通道與主 isolate 溝通；
+  LX Mobile、MusicFree 用原生 View。鎖定＝`FLAG_NOT_TOUCHABLE`，Android 12 起穿透觸控要求視窗不透明度 ≤ 0.8。小米、ColorOS 另有「後台彈出介面」「懸浮窗」權限，都沒有可程式判斷的 API。
+- **Android 狀態列歌詞**：AOSP 自 API 21 不顯示 `tickerText`、`MediaMetadata` 沒有歌詞欄位；不需 root 的只有魅族 Flyme（文件化的反射 flag）與小米 HyperOS 焦點通知（需寄信申請）；其餘要 root＋LSPosed 模組。
+- **iOS**：系統級懸浮不可能。Live Activity 可在鎖屏／動態島顯示一行歌詞：最長 8 小時、資料 ≤ 4KB、不能連網；官方只對「推播更新」記載每小時預算，App 在前景或背景以本機 `Activity.update` 更新是否受限未記載，需實測。媒體報導 iOS 26 的 Apple Music 就在 Live Activity 逐行顯示歌詞。
+- **決策模型**：`POST /v1/systemone` 已有三個實作者——TypeSafe（官方）、OpenRouter（改 base URL 即可，用 OpenRouter 的 key 計費）、開源 Laya（Apache-2.0，可自架，宣稱 100+ 語言）；
+  沒有跨廠商標準，這個形狀就是事實標準。各實作的 confidence 定義不同（Laya 文件明說不能沿用 Jev 的門檻）。另有多個 9 月才出現的開源復刻，都未經驗證。
+  OpenAI 相容端點可用 `logprobs` 取選項機率，但 `top_logprobs` 最多 5。音樂或歌詞領域沒有產品級先例。
+
 ## 待決定
 
-1. 是否接入 TypeSafe Jev 這類「結構化決策」模型做候選挑選，以及以什麼形式接入（補查見 `research/ai-decision-models.md`）。
-2. 各新功能的平台範圍與降級方式（等補查結果）。
+1. AI 候選挑選要不要也支援 `/v1/systemone`（Jev 類）端點，以什麼形式接入。
+2. 各新功能的平台範圍與降級方式。
 
 ### Jev 已核對的事實（2026-09-28，docs.typesafe.ai 與 NanoJev README）
 
