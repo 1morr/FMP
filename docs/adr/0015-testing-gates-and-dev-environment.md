@@ -86,6 +86,7 @@ Flutter 官方 flavor 與 `default-flavor`；`dorny/paths-filter` 的 monorepo �
 - 壞的：要維護自寫的 lint 套件；fixture 會隨上游改版過時，要重錄；Debug 頁多一塊插件開發工具；flavor 的 Windows 身分、鎖與資料目錄要自己接。
 - 之後要注意：`flutter analyze` 的插件診斷 bug 修好後可以拿掉 `dart analyze` 的重複步驟，但接線哨兵保留；
   播放核心、歌詞、背景任務、UI、發版各自決定 `design.md` §6 標給它們的規則；`riverpod_lint` 是否已遷移到新插件系統在落地時查證。
+  更正（2026-09-29）：上面「`flutter analyze` 不顯示插件診斷」引用的 flutter/flutter#193203 已於 2026-09-23 以重複關閉，正確 issue 是仍為 open 的 flutter/flutter#187999。
 
 ## 如何確認
 
