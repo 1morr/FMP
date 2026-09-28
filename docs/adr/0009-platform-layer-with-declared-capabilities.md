@@ -42,7 +42,7 @@ Linux、macOS 加入時要回頭改介面。
    `smtc_windows`…）只在實作檔 import。
 2. **能力宣告**：每個平台一份不可變的 `PlatformCapabilities`。UI 依它決定是否顯示入口；service 只呼叫介面。
    要在執行期才能判斷的（例如 Linux 在 Wayland 下沒有全域快捷鍵）由實作在啟動時寫進宣告。
-   宣告也包含音訊後端與可播格式（容器、編碼、是否支援 FLV／HLS），見 ADR 0018；權限由平台層 `PermissionGateway` 統一請求，見 ADR 0020；桌面歌詞的穿透與置頂、Android 懸浮歌詞、iOS Live Activity 歌詞的能力見 ADR 0021。
+   宣告也包含音訊後端與可播格式（容器、編碼、是否支援 FLV／HLS），見 ADR 0018；權限由平台層 `PermissionGateway` 統一請求，見 ADR 0020；桌面歌詞的穿透與置頂、Android 懸浮歌詞、iOS Live Activity 歌詞的能力見 ADR 0021；應用內更新的安裝類型（`appUpdate`）見 ADR 0022。
 3. **平台層以外禁止** `dart:io` 的 `Platform.isX`、`defaultTargetPlatform`、`TargetPlatform` 與平台套件的 import。
 4. **不寫空實作**：未驗證的平台宣告全部能力為「沒有」、沒有實作檔；該平台的 child task 開始時才加入實作。
 5. **原生呼叫**：新的 MethodChannel 一律用 Pigeon 產生型別安全介面。
