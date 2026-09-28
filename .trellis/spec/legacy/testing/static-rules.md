@@ -3,7 +3,7 @@
 A static-rule test reads `lib/` source to hold a boundary that behaviour tests
 cannot see. List them with
 `find test -name '*_static_rule_test.dart'`; each file's top dartdoc is the
-rule's rationale. AGENTS.md names only the ones an agent is most likely to trip.
+rule's rationale. lib/AGENTS.md names only the ones an agent is most likely to trip.
 
 Prefer a behavioural test when one can observe the rule (`20a96dc9`, `175e5d2a`
 replaced static rules with behaviour tests).

@@ -27,14 +27,15 @@ Look for the `<!-- trellis-hook-injected -->` marker in your input above.
 
 Before implementing, read:
 - `.trellis/workflow.md` - Project workflow
-- `.trellis/spec/` - Development guidelines
+- Task `task.json`'s `package` field (`legacy` or `app`) - picks the spec tree and the `AGENTS.md` below
+- `.trellis/spec/<package>/` - Development guidelines
 - Task `prd.md` - Requirements document
 - Task `design.md` - Technical design (if exists)
 - Task `implement.md` - Execution plan (if exists)
 
 ## Core Responsibilities
 
-1. **Understand specs** - Read relevant spec files in `.trellis/spec/`
+1. **Understand specs** - Read relevant spec files in `.trellis/spec/<package>/`
 2. **Understand task artifacts** - Read prd.md, design.md if present, and implement.md if present
 3. **Implement features** - Write code following specs and task artifacts
 4. **Self-check** - Ensure code quality
@@ -75,13 +76,13 @@ Read the task's prd.md, design.md if present, and implement.md if present:
 
 ### 4. Verify
 
-FMP is a Flutter app: "lint and typecheck" is `flutter analyze`.
+FMP is a Flutter app: "lint and typecheck" is `flutter analyze`. Read the task's `package` from `task.json` first: `legacy` verifies against `lib/AGENTS.md` § Verification, `app` against `app/AGENTS.md` § 驗證.
 
 1. Codegen when a model or `*.i18n.json` changed, or `*.g.dart` is missing: `dart run build_runner build`, `dart run slang`.
 2. `dart format lib test tool`, then `flutter analyze`.
-3. The tests named by the matching rows of AGENTS.md § Verification, plus the tests you wrote.
+3. The tests named by the matching rows of the package's § Verification / § 驗證, plus the tests you wrote.
 
-If the change is user-visible, say so in the report: on-device verification is the main session's job (`verify-on-device` skill).
+If the change is user-visible, say so in the report: on-device verification is the main session's job (`verify-legacy-on-device` skill for `legacy`, `verify-on-device` for `app`).
 
 ---
 

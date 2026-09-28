@@ -1,7 +1,7 @@
 # Testing (`test/`, `tool/`)
 
 Applies to every test and to static-rule tests. Which tests to run for which
-change is AGENTS.md § Verification; the full CI run is
+change is lib/AGENTS.md § Verification; the full CI run is
 `flutter test --exclude-tags live`.
 
 ## Guidelines

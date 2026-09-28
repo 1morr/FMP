@@ -1,8 +1,29 @@
 # AGENTS.md
 
-FMP is a Flutter music player for Android and Windows that plays from
-**Bilibili**, **YouTube** and **NetEase Cloud Music**. Human-facing docs live in
-`docs/`; `docs/README.md` is the map.
+FMP is a Flutter music player that plays from **Bilibili**, **YouTube** and
+**NetEase Cloud Music**. It is being rewritten: the new app grows in `app/`
+while the old one stays at the repo root until the cut-over PR (ADR 0008,
+ADR 0026). Human-facing docs live in `docs/`; `docs/README.md` is the map.
+
+## Where things live
+
+| Path | What | Rules to read first |
+|------|------|---------------------|
+| `lib/`, `test/`, `tool/`, `android/`, `windows/`, `assets/`, root `pubspec.yaml` | The old app — frozen, hotfixes only | `lib/AGENTS.md` |
+| `docs/adr/` | Decisions. 0008 onward is the rewrite; 0001–0007 describe the old app only | — |
+| `.github/workflows/` | `ci.yml` and `release.yml` build and release the old app | — |
+| `.claude/skills/` | `verify-legacy-on-device` for old-app hotfixes; `trellis-*` come with Trellis | — |
+| `.trellis/` | Tasks and specs: `spec/legacy/` for the old app, `spec/guides/` shared | — |
+
+Claude Code loads a subdirectory's `AGENTS.md` only when it reads a file there,
+so open `lib/AGENTS.md` yourself before an old-app change that touches only
+`test/` or other paths outside `lib/`.
+
+## Decisions
+
+No code in `app/` without an accepted ADR covering it. A new cross-module
+decision gets a new ADR (`docs/adr/template.md`); an ADR that turns out wrong
+on a fact gets a one-line correction, not a rewrite of the decision.
 
 ## Issues
 
@@ -10,103 +31,25 @@ Issues live on `1morr/FMP` and are handled with `gh`. Titles and bodies are
 written in Traditional Chinese (Taiwan/Hong Kong usage); identifiers, log
 strings, commit messages, branch and label names stay in English.
 
-## Verification
-
-| Change area | Minimum |
-|------------|---------|
-| Audio playback/controller/queue | `flutter test test/services/audio` (+ `test/data/sources` when stream resolution changes) |
-| Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
-| Download pipeline | `flutter test test/services/download test/providers/download` |
-| Isar models / migrations | `dart run build_runner build` + `flutter test test/providers/database_migration_test.dart` |
-| UI widgets/pages | targeted tests under `test/ui` + `flutter analyze` + on-device |
-| i18n JSON | `dart run slang` + `flutter analyze` |
-
-- Generated `*.g.dart` files (Isar and slang) are gitignored. After a pull, a
-  branch switch or in a fresh worktree, run `dart run build_runner build` and
-  `dart run slang` first: stale codegen fails as a missing getter that looks
-  like a source bug. An Orca worktree runs them in the `orca.yaml` setup.
-- A full run is `flutter test --exclude-tags live`, as in CI; `live` tests hit
-  the real source APIs.
-- `flutter analyze` and the `dart format lib test tool` CI gate cover `tool/`
-  too. `tool/demo/` holds hand-run scripts against the real APIs: analysed and
-  formatted, never executed by CI.
-
-**On-device verification is mandatory for user-visible changes** — UI pages or
-widgets, playback controls, how source results render, or a string that can
-affect layout. Run the `verify-on-device` skill on the Android emulator (add
-Windows only for Windows-specific work) and report the element, log line or
-screenshot you observed. When the emulator cannot come up or the change cannot
-be reached, report that blocker by name; tests alone do not count.
-
-## Conventions
-
-- Comments are Traditional Chinese. The tree is mixed — everything written
-  before the 2026-09 rounds is Simplified. Convert the lines you are already
-  editing and leave the rest: a whole-tree conversion buries every real change.
-- Ask first before changing persisted schema semantics, the auth boundary,
-  public architecture or cross-platform behaviour in a way not already
-  documented.
-- For questions about the running app — live field values, HTTP traffic, what
-  Isar actually holds — use the VM Service recipes in `docs/development.md`
-  § 執行期除錯.
-
-## Boundaries
-
-No test checks these; hold them yourself:
-
-- **Audio** — UI playback controls call `AudioController`
-  (`lib/services/audio/audio_provider.dart`), never `FmpAudioService`. Radio is
-  the one intentional exception.
-- **Database** — Isar is opened only by `openFmpDatabase()`; migrations follow
-  the `kFmpSchemaVersion` dartdoc in `lib/data/database/database_migration.dart`.
-- **Search** — the visible source chips on the search page are the only source
-  selector; no setting filters search behind the user's back (`db41b987`).
-- **Providers** — `audio_provider.dart` declares no providers.
-  `audioControllerProvider` and the backend, queue and stream providers live in
-  `lib/providers/audio/`; collaborators such as `nowPlayingPublisherProvider`,
-  `playbackSideEffectsProvider` and `queueStateProvider` declare theirs beside
-  their class in `lib/services/audio/`. `neteaseSourceProvider` is the
-  **lyrics-layer** `NeteaseSource` (`lib/services/lyrics/`); the same-named data
-  source adapter is reached only through `SourceManager`'s narrow capabilities.
-
-Gated by static-rule tests. The tests hold the exception lists: add an entry
-with a reason, delete it when it goes away.
-
-- **Layers** — `lib/core/` and `lib/data/` import nothing from `lib/services/`
-  or `lib/providers/`, and a new import edge between two features (a
-  subdirectory name under either) is recorded —
-  `test/support/layer_boundary_static_rule_test.dart`.
-- **Isar access** — `isar.` appears only in `lib/data/repositories/` (ADR 0002)
-  — `test/data/static_rules/isar_boundary_static_rule_test.dart`.
-- **Images** — in `lib/ui/`, only the semantic widgets in
-  `lib/ui/widgets/images/` load images (the `ImageLoadingService` loaders,
-  `Image.network` / `Image.file`, `CachedNetworkImage` /
-  `CachedNetworkImageProvider`, `NetworkImage` / `FileImage`) or name an
-  `ImageTargetSizes` tier; pages pass them a variant or a display size (#107) —
-  `test/ui/static_rules/ui_consistency_static_rule_test.dart`.
-- **Sliders** — build `ScopedSlider`; a raw Material `Slider` freezes the
-  Windows accessibility tree (`docs/troubleshooting.md`) —
-  `test/ui/static_rules/slider_overlay_static_rule_test.dart`.
-- **Test waits** — no direct `pumpEventQueue` outside
-  `test/support/pump_until.dart`: use its `pumpUntil` / `drainEventQueue`
-  (how: `.trellis/spec/testing/test-conventions.md`; #43, #55) —
-  `test/support/wait_convention_static_rule_test.dart`.
-- **Static rules** — a test that reads `lib/` source is named
-  `*_static_rule_test.dart` and lives in `test/support/` or
-  `test/<layer>/static_rules/` —
-  `test/support/static_rule_placement_static_rule_test.dart`.
-
 ## Trellis
 
-- **Rules vs patterns** — binding rules stay in this file;
-  `.trellis/spec/<layer>/` holds how each layer's code is written and links
-  here instead of restating a rule. A new rule goes in exactly one of them.
+- **Packages** — `.trellis/config.yaml` declares `legacy` (the repo root) and
+  `app`; a task's `package` picks its spec tree and its `AGENTS.md`, and
+  `session.spec_scope: active_task` limits SessionStart to that package
+  (`app` when no task is active). A flat `.trellis/spec/<layer>/` directory is
+  injected whatever the scope, so every layer lives under a package directory and
+  no `index.md` sits directly in `.trellis/spec/<package>/`; only `guides/` is
+  shared.
+- **Rules vs patterns** — binding rules stay in the package's `AGENTS.md`;
+  `.trellis/spec/<package>/<layer>/` holds how each layer's code is written and
+  links there instead of restating a rule. A new rule goes in exactly one of
+  them.
 - **`trellis update`** — keep the local `.claude/agents/trellis-check.md` and
-  `trellis-implement.md`: their Verify steps run § Verification above. Journals
-  stay local because the repo is public (`.trellis/workspace/` is gitignored,
-  `session_auto_commit: false`; `orca.yaml` shares the main checkout's copy
-  with Orca worktrees); if an update re-adds a journal `merge=union` line to
-  `.gitattributes`, drop it.
+  `trellis-implement.md`: their Verify steps run the task package's
+  verification section. Journals stay local because the repo is public
+  (`.trellis/workspace/` is gitignored, `session_auto_commit: false`;
+  `orca.yaml` shares the main checkout's copy with Orca worktrees); if an
+  update re-adds a journal `merge=union` line to `.gitattributes`, drop it.
 - **Managed files left as shipped** — Claude Code runs the customised
   `.claude/agents/trellis-check.md`; the `trellis-check` skill and
   `.trellis/agents/check.md` are Trellis-generated and not used for FMP work.

@@ -13,7 +13,7 @@
 - 帶不帶憑證散落在各 service 手動組 header；每個 service 各自一個 dio。
 - B 站 QR 登入可能假成功；B 站刷新憑證後用舊 options 重送；網易任何非 200 都當失效並清憑證；播放用的連線偵測不到失效；secure storage 暫時讀不到就刪憑證；失效提示每次執行只跳一次。
 
-舊版 `CONTEXT.md`（階段三刪除，術語移到舊專案的 `.trellis/spec/services/download-and-auth.md`）記錄的原則經審計驗證仍成立，併入本 ADR：**憑證只用在向音源解析串流與 API 請求，實際抓取音訊位元組的請求一律不帶憑證**。
+舊版 `CONTEXT.md`（階段三刪除，術語移到舊專案的 `.trellis/spec/legacy/services/download-and-auth.md`）記錄的原則經審計驗證仍成立，併入本 ADR：**憑證只用在向音源解析串流與 API 請求，實際抓取音訊位元組的請求一律不帶憑證**。
 
 ## 考慮過的選項
 

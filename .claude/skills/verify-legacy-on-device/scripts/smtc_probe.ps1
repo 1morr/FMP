@@ -11,7 +11,7 @@
 # System.Runtime.WindowsRuntime` fails there.
 #
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass `
-#     -File .claude/skills/verify-on-device/scripts/smtc_probe.ps1 [-AppFilter fmp]
+#     -File .claude/skills/verify-legacy-on-device/scripts/smtc_probe.ps1 [-AppFilter fmp]
 #
 # Exit codes: 0 = at least one session found, 1 = no sessions, 2 = WinRT failed.
 

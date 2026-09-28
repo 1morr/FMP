@@ -10,7 +10,7 @@ media bytes: StreamResolutionService ─► MediaHandoff ─► audio backend / 
 ```
 
 Each arrow is a contract. An error usually becomes a user sentence once, at the
-edge (`userMessageFor` — see `../shared/errors-and-logging.md`); the import path
+edge (`userMessageFor` — see `../legacy/shared/errors-and-logging.md`); the import path
 translates earlier (`ImportService`, the playlist import sources).
 
 ## Changes that always fan out
@@ -18,7 +18,7 @@ translates earlier (`ImportService`, the playlist import sources).
 ### A new persisted setting
 
 1. Field on `Settings` with a default; decide whether Isar's type default for old
-   rows is acceptable → migration step or not (`../data/persistence.md`).
+   rows is acceptable → migration step or not (`../legacy/data/persistence.md`).
 2. `dart run build_runner build`.
 3. Backup export + import, or an entry in `_deliberatelyExcludedSettingsFields`
    with a reason.
@@ -48,6 +48,6 @@ relinked in the same transaction.
 
 ### Anything about credentials
 
-Name which of the auth vocabulary terms (`services/download-and-auth.md`) applies: Stream Resolution Auth
+Name which of the auth vocabulary terms (`../legacy/services/download-and-auth.md`) applies: Stream Resolution Auth
 (adapter request) and Media Request Credentials (byte request, empty by
 construction) are different arrows. Changing either needs the user's approval.
