@@ -70,7 +70,13 @@
 5. **刪除 App 內使用者指南（2026-09-28，按建議，E20）**：改為 repo 的 `docs/user-guide.md`（繁中，隨新功能重寫）；
    「設定 → 關於」連到使用說明、CHANGELOG、回報問題、原始碼；容易卡住的地方在畫面上就地說明（首次引導、權限說明、快捷鍵清單）。
    否決：保留 App 內指南（三語言、易過時）。
-6. **技術選擇（`design.md`）**：`ThemeExtension` 的間距、圓角、語意色 token 與 lint `fmp_design_tokens`；字級只用 M3 `textTheme` 角色；
+6. **設計風格：Material 3，播放頁局部毛玻璃（2026-09-28，按建議）**：全 App 用 Material 3 元件與本 ADR 的 token；
+   播放頁在既有模糊封面背景上，把右欄分頁、佇列、控制區做成半透明霧面（一般模糊、無折射）；系統「減少透明度」或高對比時改不透明。
+   擁有者問液態玻璃能否做到：Flutter 官方 2025-06-11 表示不在 Cupertino 開發 Apple '26 設計（#170310）；社群套件 `liquid_glass_renderer` 實驗性且只支援 Impeller、
+   不支援 Windows／Linux／Web；`liquid_glass_easy` 真折射只在 Impeller、Skia 退化為毛玻璃、每片玻璃都要讀背景重算；`cupertino_native` 只限 Apple 平台。
+   否決：全 App 局部毛玻璃（捲動內容下每幀重算模糊、對比度難守）、整套液態玻璃（實驗性套件、Android／Windows 效果與效能無保證、需自做元件與無障礙）、
+   各平台原生風格（三套 UI）。
+7. **技術選擇（`design.md`）**：`ThemeExtension` 的間距、圓角、語意色 token 與 lint `fmp_design_tokens`；字級只用 M3 `textTheme` 角色；
    自有 `WindowClass`（不用已停止維護的 `flutter_adaptive_scaffold`）；large 以上改用常駐導覽抽屜；搜尋篩選列可捲動並有漸層提示（U5）；
    無障礙以 `meetsGuideline`（點擊目標標籤、對比度）測主要頁面兩種主題；少量 `alchemist` golden 守版面；`material_ui` 的遷移時機在建立 `app/` 時依官方建議定。
 

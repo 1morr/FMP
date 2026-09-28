@@ -13,6 +13,14 @@
   也不得寫 `Color(0x…)`、`Colors.*`；允許 `0`。依 ADR 0015 寫雙向變異測試。
 - Material 正拆出為 `material_ui` 套件：建立 `app/` 時依當時 stable 的官方建議決定 import 路徑，不提前遷移。
 
+## 1a. 設計風格（已決定 6）
+
+- 全 App 為 Material 3 元件加 §1 的 token。
+- 播放頁：背景沿用模糊封面＋表面色遮罩；右欄分頁、佇列清單、控制區用半透明表面色（約 60–72% 不透明）加一般 `BackdropFilter` 模糊，不做折射。
+  背景靜態，所以模糊成本只在換歌與視窗大小改變時。
+- 系統開啟「減少透明度」或高對比（`MediaQuery.highContrast`，各平台對應設定由平台層提供）時改為不透明表面色。
+- 播放頁的對比度同樣要通過 §9 的 `textContrastGuideline`（以最淺與最深的測試封面各測一次）。
+
 ## 2. 字型（i18n 決定的一部分）
 
 - 不指定主字型時用各平台預設（Windows 為 Segoe UI），`fontFamilyFallback` 依目前語言排序：
