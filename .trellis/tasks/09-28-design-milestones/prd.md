@@ -84,9 +84,22 @@
        - 不用 WSLg 驗收的原因：它是 Weston 加 RDP，沒有托盤（wslg #532）、鑰匙圈預設沒在跑，桌面歌詞的置頂與穿透也測不準。
      - **macOS、iOS**：Mac 預計下個月到貨。到貨前只靠 GitHub macOS runner 編譯與 iOS 模擬器測試（ADR 0009）。到貨後開平台任務；iOS 要不要實機、要不要付費帳號，屆時再問。
 
+2. **里程碑與 PR 的對應**（2026-09-28，擁有者「按你建議」）：
+   - **里程碑任務**：fmp-rewrite 的 child，例 `m1-tracer-bullet`。
+     - 開工時走 brainstorm，prd／design／implement 核准一次；
+     - implement 列出 PR 子任務與先後順序；
+     - 驗收＝端到端實際操作，加上併入的 `phase2-plan` §7／§8 實測。
+   - **PR 子任務**：里程碑任務的 child，例 `m1-log-facade`。
+     - 一個分支、一個 PR；
+     - 只寫簡短的 prd（做什麼、驗收）；
+     - PR 描述附 review 指南（改了什麼、為什麼、看哪幾個檔、怎麼實際驗證）；
+     - 合進 `main` 後 `app/` 可編譯、測試全綠。
+   - PR 子任務在里程碑已核准的範圍內直接做，遇到未定的事才問。
+   - 追蹤只用 Trellis 任務樹，不開 GitHub Milestones／Projects。
+   - 此決定調和 parent prd「每個里程碑是 child task」與「每個 child task 一個 PR」兩條規則。
+
 ## 待決定（一次問一題）
 
-2. 里程碑與 PR 的對應：里程碑底下是否再分 PR 級的子任務。
 3. 切換放行條件的細節：勾選來源改指 `questions.md`、效能重量方式、擁有者試用多久。
 
 ## 驗收條件
