@@ -70,7 +70,8 @@ parent prd 階段三要求：規劃新平台加入時實機驗證如何擴充，
   - fixture 要定期重錄。
 - 之後要注意：
   - 若測試插件的合成資料不足以涵蓋某類 UI，先補測試插件，不要改成打真實 API；
-  - Linux、macOS、iOS 的操作說明由各自的平台任務負責。
+  - Linux、macOS、iOS 的操作說明由各自的平台任務負責；
+  - 更正（2026-09-29）：根目錄舊專案的 verify-on-device skill 已改名 `verify-legacy-on-device`（M1 PR 1），只更新 skill 內指向自身的路徑；`verify-on-device` 這個名字留給本 ADR 決定 4 要建立的 `app/` 版 skill。
 
 ## 如何確認
 

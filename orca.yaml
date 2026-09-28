@@ -11,7 +11,7 @@ worktree:
 setupAgentStartupPolicy: wait-for-setup
 
 scripts:
-  # `*.g.dart` 被 gitignore，新 worktree 必須先生成（AGENTS.md § Verification）。
+  # `*.g.dart` 被 gitignore，新 worktree 必須先生成（lib/AGENTS.md § Verification）。
   # 每行只放一個 cmd 與 bash 都成立的指令：Windows 上 Orca 用 cmd 把每行包成
   # `call …` 並在失敗時中止，其他平台用 bash `set -e`。不加 `#!`，cmd 會拒跑。
   # 改動這段會讓 Orca 的信任失效，要在 GUI 重新選 Always trust。

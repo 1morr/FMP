@@ -1,11 +1,12 @@
 ---
-name: verify-on-device
+name: verify-legacy-on-device
 description: >-
-  Run FMP on the Android emulator or the Windows desktop build and verify a
+  Legacy-app hotfixes only (the app under `app/` uses the `verify-on-device`
+  skill). Run FMP on the Android emulator or the Windows desktop build and verify a
   change against the live app: boot the emulator, install and launch, drive the
   UI, read Dart logs, hot reload, and inspect runtime state. Use after every
   change to UI pages or widgets, playback controls, source result rendering, or
-  layout-affecting strings — root AGENTS.md requires an on-device check for those
+  layout-affecting strings — `lib/AGENTS.md` requires an on-device check for those
   before reporting — and whenever asked to run, screenshot, tap, type into, or
   observe FMP on a device or emulator.
 ---
@@ -94,7 +95,7 @@ line in its output means the Windows accessibility tree has frozen (see
 node with pixel and normalized centers:
 
 ```bash
-PYTHONIOENCODING=utf-8 python .claude/skills/verify-on-device/scripts/ax_flatten.py --limit 30
+PYTHONIOENCODING=utf-8 python .claude/skills/verify-legacy-on-device/scripts/ax_flatten.py --limit 30
 ```
 
 Flutter's semantics surface through uiautomator, so labels, list rows and nav

@@ -19,8 +19,8 @@ static rules. Writing a second copy is usually what the rule catches.
 | Backend decisions both players share | `playback_end_reason_rules.dart`, `live_edge_seek_policy.dart`, `next_media_plan.dart` |
 | Playlist provider refresh after a mutation | `libraryInvalidationCoordinatorProvider` |
 | Duration text | `DurationFormatter` |
-| Widgets: images, sliders, dialogs, menus, toasts, errors | the table in `../ui/widgets.md` |
-| Test doubles and waits | `test/support/`, `test/support/fakes/` (`../testing/test-conventions.md`) |
+| Widgets: images, sliders, dialogs, menus, toasts, errors | the table in `../legacy/ui/widgets.md` |
+| Test doubles and waits | `test/support/`, `test/support/fakes/` (`../legacy/testing/test-conventions.md`) |
 
 ## When there are two near-copies
 

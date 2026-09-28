@@ -11,7 +11,7 @@ Narrator running. The engine answers through MSAA only (checked in
 `flutter_windows.dll`, Flutter 3.47.1):
 
 ```bash
-S=.claude/skills/verify-on-device/scripts
+S=.claude/skills/verify-legacy-on-device/scripts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Filter button
 #   [push button] '查看佇列' @(3156,1228 121x49)     screen rect, physical px
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Click '查看佇列'
@@ -108,7 +108,7 @@ Read SMTC through WinRT, not the media flyout (the flyout dismisses on focus
 change). FMP does not need to be visible:
 
 ```bash
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .claude/skills/verify-on-device/scripts/smtc_probe.ps1 -AppFilter fmp
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .claude/skills/verify-legacy-on-device/scripts/smtc_probe.ps1 -AppFilter fmp
 ```
 
 It prints `IsNextEnabled` / `IsPreviousEnabled` / `IsPlaybackPositionEnabled` /

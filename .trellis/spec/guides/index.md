@@ -16,4 +16,4 @@ say *what else a change touches*.
 
 ## Quality Check
 
-- A new error path stays typed until the user-facing edge and becomes a sentence there through `userMessageFor` / `failureMessage`. The existing exceptions (the import path translating early, `e.toString()` in some `state.error`) are listed in `../shared/errors-and-logging.md`; do not extend them.
+- A new error path stays typed until the user-facing edge and becomes a sentence there through `userMessageFor` / `failureMessage`. The existing exceptions (the import path translating early, `e.toString()` in some `state.error`) are listed in `../legacy/shared/errors-and-logging.md`; do not extend them.

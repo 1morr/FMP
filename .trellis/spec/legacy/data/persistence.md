@@ -57,7 +57,7 @@ Points that bite:
 - A new `Settings` field must also be exported and imported by backup, or listed
   in `_deliberatelyExcludedSettingsFields` with a reason
   (`test/services/static_rules/settings_backup_coverage_static_rule_test.dart`).
-- Verify with the *Isar models / migrations* row of AGENTS.md § Verification; for
+- Verify with the *Isar models / migrations* row of lib/AGENTS.md § Verification; for
   risky schema work also run `test/manual/real_db_probe.dart` against a **copy**
   of a real database.
 

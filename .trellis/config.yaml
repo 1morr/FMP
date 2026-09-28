@@ -77,6 +77,18 @@ session_auto_commit: false
 # Default package used when --package is not specified.
 # default_package: frontend
 
+packages:
+  legacy:
+    path: .
+  app:
+    path: app
+default_package: app
+
+# FMP: inject only the active task's package spec (default_package when no
+# task is active). Without it SessionStart lists every package's spec.
+session:
+  spec_scope: active_task
+
 #-------------------------------------------------------------------------------
 # Channel worker OOM guard
 #-------------------------------------------------------------------------------

@@ -10,7 +10,7 @@
 # Dump, with each element's screen rectangle in physical pixels:
 #
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass `
-#     -File .claude/skills/verify-on-device/scripts/msaa_tree.ps1 [-Proc fmp] [-Filter button]
+#     -File .claude/skills/verify-legacy-on-device/scripts/msaa_tree.ps1 [-Proc fmp] [-Filter button]
 #
 # Click an element by its exact accessible name (after raising the window):
 #

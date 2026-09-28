@@ -26,7 +26,8 @@ Look for the `<!-- trellis-hook-injected -->` marker in your input above.
 ## Context
 
 Before checking, read:
-- `.trellis/spec/` - Development guidelines
+- Task `task.json`'s `package` field (`legacy` or `app`) - picks the spec tree and the `AGENTS.md` below
+- `.trellis/spec/<package>/` - Development guidelines
 - Task `prd.md` - Requirements document
 - Task `design.md` - Technical design (if exists)
 - Task `implement.md` - Execution plan (if exists)
@@ -59,7 +60,7 @@ git diff              # View specific changes
 
 ### Step 2: Check Against Specs and Task Artifacts
 
-Read the task's prd.md, design.md if present, and implement.md if present, then read relevant specs in `.trellis/spec/` to check code:
+Read the task's prd.md, design.md if present, and implement.md if present, then read relevant specs in `.trellis/spec/<package>/` to check code:
 
 - Does it satisfy the task requirements
 - Does it follow the technical design and implementation plan when present
@@ -79,15 +80,15 @@ After finding issues:
 
 ### Step 4: Run Verification
 
-FMP is a Flutter app: "lint and typecheck" is `flutter analyze`. Run, in order:
+FMP is a Flutter app: "lint and typecheck" is `flutter analyze`. Read the task's `package` from `task.json` first: `legacy` verifies against `lib/AGENTS.md`, `app` against `app/AGENTS.md`. Run, in order:
 
 1. Codegen when a model or `*.i18n.json` changed, or `*.g.dart` is missing: `dart run build_runner build`, `dart run slang`. Stale codegen fails as a missing getter that looks like a source bug.
 2. `dart format lib test tool`, then `flutter analyze`.
-3. The tests for every changed area: the matching rows of AGENTS.md § Verification, plus the Quality Check section of each touched `.trellis/spec/<layer>/index.md`.
+3. The tests for every changed area: the matching rows of the package's `AGENTS.md` § Verification / § 驗證, plus the Quality Check section of each touched `.trellis/spec/<package>/<layer>/index.md`.
 
 If anything fails, fix it and re-run.
 
-On-device verification is mandatory for user-visible changes (AGENTS.md), but it needs the emulator and the `verify-on-device` skill, which you cannot run. Never mark it passed: report it as required, with what to observe, so the main session runs it.
+On-device verification is mandatory for user-visible changes (the package's `AGENTS.md`), but it needs the emulator and the `verify-legacy-on-device` skill (`legacy`) or `verify-on-device` skill (`app`), which you cannot run. Never mark it passed: report it as required, with what to observe, so the main session runs it.
 
 ---
 

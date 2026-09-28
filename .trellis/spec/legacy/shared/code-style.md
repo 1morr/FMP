@@ -18,7 +18,7 @@
 
 ## Comments and dartdoc
 
-- New and edited comments are Traditional Chinese (AGENTS.md § Conventions).
+- New and edited comments are Traditional Chinese (lib/AGENTS.md § Conventions).
   The tree still holds Simplified lines; convert only lines you are editing.
   Log messages and identifiers are English, as are most exception messages and
   test names. Exceptions: the playlist import sources throw translated messages on
