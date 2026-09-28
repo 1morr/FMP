@@ -31,7 +31,7 @@ prd 的 18 項，加上從你的勾選裡長出來、需要獨立決定的兩項
 | 17 | 快取與離線 | B6 |
 | 18 | 設定與日誌基礎設施 | C2、J3 |
 | 19 | 發版與應用內更新（新增） | A6、B7–B9、E17 |
-| 20 | 功能凍結待辦（新增，不設計，只記錄） | 均衡器、響度平衡；B 站 geetest 驗證互動（ADR 0013）；邊聽邊存、手動離線模式、已下載內容容量管理（ADR 0016）；來源失效時另存為本地歌單、曲目收藏、疑似換版本偵測（ADR 0019） |
+| 20 | 功能凍結待辦（新增，不設計，只記錄） | 均衡器、響度平衡；B 站 geetest 驗證互動（ADR 0013）；邊聽邊存、手動離線模式、已下載內容容量管理（ADR 0016）；來源失效時另存為本地歌單、曲目收藏、疑似換版本偵測（ADR 0019）；Android 狀態列歌詞、本機歌詞檔匯入（ADR 0021） |
 
 ## 2. 依賴關係
 
@@ -124,7 +124,7 @@ flowchart LR
 | 12 | 13 播放核心（✅ 完成，ADR 0018） | 最大的一塊；依賴 1、2、10、17。 |
 | 13 | 14 音樂庫與同步（✅ 完成，ADR 0019） | B1／B2 已定方向，細節依賴 6、1、12、16。 |
 | 14 | 11 下載與權限（✅ 完成，ADR 0020） | 依賴播放核心的本地播放路徑。 |
-| 15 | 15 歌詞 | 依賴 1、13。 |
+| 15 | 15 歌詞（✅ 完成，ADR 0021） | 依賴 1、13。 |
 | 16 | 19 發版與更新 | 依賴 10、16；你已給出流程要求。 |
 | 17 | 3 Toast | 依賴 2、18。 |
 | 18 | 5 UI／UX | 設計系統與桌面播放器版面方案（2–3 個讓你選）。 |
@@ -232,6 +232,7 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - ADR 0012：Linux 沒有 keyring 時 secure storage 的行為——Linux child task。
 - ADR 0018：蘋果平台 AVPlayer 對 B 站 DASH 音訊與直播 HLS 的支援——iOS／macOS child task。
 - ADR 0020：加入下載的里程碑——`permission_handler` 在 Windows 是否使 FMP 出現在位置權限清單；寫入的標籤能被常見播放器讀到；Android 以 `MANAGE_EXTERNAL_STORAGE` 搬移到使用者資料夾。
+- ADR 0021：加入桌面歌詞的里程碑——macOS、Linux X11、Wayland 的穿透、置頂、定位；`window_manager` 在子 engine 設穿透作用在歌詞視窗。加入 Android 懸浮歌詞的里程碑——`flutter_overlay_window` 的記憶體與 Android 15 前景服務限制。加入逐字的里程碑——`flutter_lyric` 直接用或自寫。iOS 平台任務——Live Activity 本機逐行更新。
 
 ## 9. 功能凍結的例外與里程碑規劃備忘
 
@@ -240,13 +241,13 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - 以上是功能凍結僅有的例外。
 - 建立 `1morr/fmp-plugins` repo、其 CI 與 `index.json`、App 插件頁與首次啟動引導：排入里程碑規劃（第 20 步）；第一個里程碑不需要。
 
-## 10. 目前進度與下一步（交接用，2026-09-28 更新）
+## 10. 目前進度與下一步（交接用，2026-09-28 更新，第 15 項完成後）
 
-- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0020`；舊 ADR 0001–0007 仍描述根目錄舊專案。
-- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限。
-  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0021（歌詞）。
-- **進行中：第 15 項「歌詞」**，task `.trellis/tasks/09-28-design-lyrics/`（planning）；研究代理寫到 `research/`（`current-state.md`、`prior-art.md`、`packages-and-platform.md`），三個檔齊了才代表研究完成。
-- 之後順序：19 發版與更新 → 3 Toast → 5 UI/UX → 4 Debug 頁 → 7 里程碑定稿。
+- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0021`；舊 ADR 0001–0007 仍描述根目錄舊專案。
+- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞。
+  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0022（發版與更新）。
+- **下一項：第 19 項「發版與更新」**（尚未建 task）。已知方向：只手動檢查更新；下載後安裝或刪除；重啟後清掉舊安裝檔；release notes 由 CHANGELOG／commit 自動產生；保留自動發布。
+- 之後順序：3 Toast → 5 UI/UX → 4 Debug 頁 → 7 里程碑定稿。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
 - 使用者偏好：全程繁中；多數細節「按推薦」，但每項仍需最終摘要與明確核准；Mermaid 圖需以 mermaid-cli 實際渲染（子圖標題含全形括號要用 `id["標題"]`）。
 - 工作守則（本輪累積）：
@@ -255,4 +256,5 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
   - 研究子代理的結論要抽查（例如它曾誤稱 ExoPlayer 不支援 FLV，官方格式表為支援、不可 seek），更正寫進 prd。
   - 子代理因額度中斷：先 SendMessage 續跑；使用者手動停掉的代理不能續跑，使用者要求時才重新發起，並告知保留已寫的研究檔。
   - 更新他項 ADR 的引用時只加一句指向新 ADR，不改原決定；新 lint 規則補記到 ADR 0015 的「後續 ADR 新增的規則」。
+  - 使用者提出新概念（例如 Jev）或要求把新功能一起做時，先派研究查成熟做法與可行性，再把可行性表攤開問範圍；使用者反駁建議的理由時（例如「插件只要更新插件」）若成立就改建議並寫進 prd 的決定。
   - 每項最終摘要需列：你已定的、技術選擇（在核准範圍內）、放進待辦、不在範圍、核准後會做什麼、下一項。
