@@ -262,7 +262,8 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
   - AGENTS.md 的 Trellis 段說明哪些管理檔維持原樣；
   - 實機驗證規則見 ADR 0027（預設重播）。
   - 語言範圍：根目錄 AGENTS.md 與 spec 維持英文到切換 PR，`app/` 的新文件用繁中。
-- **下一步：M1「骨架＋曳光彈」**（`milestones.md`）。建里程碑任務（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite`），走 brainstorm，擁有者核准一次 prd／design／implement，implement 列出 PR 子任務與順序（ADR 0026）。
+- **M1 已開工**（2026-09-29 核准）：`.trellis/tasks/09-28-m1-skeleton-tracer/`，prd 記擁有者五個決定，design 記技術選擇，implement 記 PR 順序（0 合併 #173 → 1 指令檔分家 → … → 13）與子代理模型。下面這段是開工前的盤點，已併入該任務。
+- **（開工前）下一步：M1「骨架＋曳光彈」**（`milestones.md`）。建里程碑任務（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite`），走 brainstorm，擁有者核准一次 prd／design／implement，implement 列出 PR 子任務與順序（ADR 0026）。
   - M1 開工時要決定：`app/` 的 spec 放哪（Trellis `packages:` 或其他）。
   - **M1 的第一個 PR：指令檔分家**（2026-09-28 盤點，尚未問擁有者，M1 brainstorm 時提出）。舊內容會誤導在 `app/` 工作的 AI：
     - 根目錄 AGENTS.md 全是舊專案的規則（`lib/` 路徑、Isar、`AudioController`、舊測試路徑的驗證表）。Claude Code 以 repo 根目錄為工作目錄時，**每個 session 開頭都會載入它**；`app/AGENTS.md` 只在讀到 `app/` 裡的檔案時才載入（code.claude.com/docs/en/memory「When Claude Code reads AGENTS.md」）。
