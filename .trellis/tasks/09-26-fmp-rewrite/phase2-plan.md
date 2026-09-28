@@ -255,7 +255,7 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0026`；舊 ADR 0001–0007 仍描述根目錄舊專案，於切換 PR 刪除。
 - **階段二完成**：§3 的 20 項全部 ✅；每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0027。
 - 里程碑清單與狀態：`.trellis/tasks/09-26-fmp-rewrite/milestones.md`（ADR 0026）。
-- **下一步：階段三（Trellis／docs 清理）**，依 parent prd 的階段三開 child task：刪 `docs/agents/`、AGENTS.md 的「Agent skills」段、把 CONTEXT.md 併入、修正引用、以 `git grep` 確認沒有殘留。
+- **進行中：階段三（Trellis／docs 清理）**，task `.trellis/tasks/09-28-phase3-docs-cleanup/`（planning）；研究代理寫到 `research/`（`current-state.md`、`open-questions.md`），兩個檔齊了才代表研究完成，接著抽查→prd→一次一問。依據是第 9 項的設計（`archive/2026-09/09-27-design-docs` 的 design §4、§6 與 implement §B）與 parent prd 的階段三。範圍：刪 `docs/agents/`、AGENTS.md 的「Agent skills」段、把 CONTEXT.md 併入、修正引用、以 `git grep` 確認沒有殘留。
 - 之後順序：階段三 → M1（里程碑任務，brainstorm 核准一次，底下開 PR 子任務）→ M1 完成後開 Linux 平台任務。
 - 視覺選擇類的問題可用 Artifact 做示意頁（例：第 5 項的播放頁三方案 https://claude.ai/artifact/WbYKvNKgS2XpJbCuGr9xTZ ）。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
