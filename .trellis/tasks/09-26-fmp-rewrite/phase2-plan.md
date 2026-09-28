@@ -31,7 +31,7 @@ prd 的 18 項，加上從你的勾選裡長出來、需要獨立決定的兩項
 | 17 | 快取與離線 | B6 |
 | 18 | 設定與日誌基礎設施 | C2、J3 |
 | 19 | 發版與應用內更新（新增） | A6、B7–B9、E17 |
-| 20 | 功能凍結待辦（新增，不設計，只記錄） | 均衡器、響度平衡、睡眠定時器（ADR 0018）；dynamic color（ADR 0024）；B 站 geetest 驗證互動（ADR 0013）；邊聽邊存、手動離線模式、已下載內容容量管理（ADR 0016）；來源失效時另存為本地歌單、曲目收藏、疑似換版本偵測（ADR 0019）；Android 狀態列歌詞、本機歌詞檔匯入（ADR 0021） |
+| 20 | 功能凍結待辦（新增，不設計，只記錄） | 均衡器、響度平衡；B 站 geetest 驗證互動（ADR 0013）；邊聽邊存、手動離線模式、已下載內容容量管理（ADR 0016）；來源失效時另存為本地歌單、曲目收藏、疑似換版本偵測（ADR 0019）；Android 狀態列歌詞、本機歌詞檔匯入（ADR 0021） |
 
 ## 2. 依賴關係
 
@@ -264,6 +264,16 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
   - 語言範圍：根目錄 AGENTS.md 與 spec 維持英文到切換 PR，`app/` 的新文件用繁中。
 - **下一步：M1「骨架＋曳光彈」**（`milestones.md`）。建里程碑任務（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite`），走 brainstorm，擁有者核准一次 prd／design／implement，implement 列出 PR 子任務與順序（ADR 0026）。
   - M1 開工時要決定：`app/` 的 spec 放哪（Trellis `packages:` 或其他）。
+  - **M1 的第一個 PR：指令檔分家**（2026-09-28 盤點，尚未問擁有者，M1 brainstorm 時提出）。舊內容會誤導在 `app/` 工作的 AI：
+    - 根目錄 AGENTS.md 全是舊專案的規則（`lib/` 路徑、Isar、`AudioController`、舊測試路徑的驗證表）。Claude Code 以 repo 根目錄為工作目錄時，**每個 session 開頭都會載入它**；`app/AGENTS.md` 只在讀到 `app/` 裡的檔案時才載入（code.claude.com/docs/en/memory「When Claude Code reads AGENTS.md」）。
+    - `.trellis/spec/` 20 檔描述舊專案；`session-start.py` 會列出 spec 索引，`trellis-implement`／`trellis-check` 子代理依 `.trellis/spec/<package>/<layer>/` 載入。
+    - `.claude/skills/verify-on-device/` 對舊專案、打真實 API（M1 依 ADR 0027 改寫）。
+    - `docs/building.md`、`development.md`、`build-and-release.md`、`troubleshooting.md`、`orca.yaml` 的 setup、`ci.yml` 都只對舊專案。前四份是按需讀的人類文件，風險較低。
+    - 建議做法：
+      - 根目錄 AGENTS.md 縮成共用部分（repo 地圖：根目錄＝凍結舊專案、`app/`＝新專案；Issues；ADR 位置；Trellis 段）；
+      - 舊專案規則搬到 `lib/AGENTS.md`，讀舊程式碼時才載入；
+      - `app/AGENTS.md` 用繁中；
+      - spec 以 Trellis `packages:` 分成舊專案與 `app`。
   - 同時為 `app/` 改寫 verify-on-device（ADR 0027）。
 - 之後順序：M1 → Linux 平台任務 → M2 …（見 `milestones.md`）。
 - 視覺選擇類的問題可用 Artifact 做示意頁（例：第 5 項的播放頁三方案 https://claude.ai/artifact/WbYKvNKgS2XpJbCuGr9xTZ ）。
