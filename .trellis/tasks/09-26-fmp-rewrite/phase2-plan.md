@@ -126,7 +126,7 @@ flowchart LR
 | 14 | 11 下載與權限（✅ 完成，ADR 0020） | 依賴播放核心的本地播放路徑。 |
 | 15 | 15 歌詞（✅ 完成，ADR 0021） | 依賴 1、13。 |
 | 16 | 19 發版與更新（✅ 完成，ADR 0022） | 依賴 10、16；你已給出流程要求。 |
-| 17 | 3 Toast | 依賴 2、18。 |
+| 17 | 3 Toast（✅ 完成，ADR 0023） | 依賴 2、18。 |
 | 18 | 5 UI／UX | 設計系統與桌面播放器版面方案（2–3 個讓你選）。 |
 | 19 | 4 Debug 頁 | 把 18、3、8 的成果收成正式工具。 |
 | 20 | 7 重寫策略（里程碑定稿） | 所有設計確定後拆成可獨立驗證的里程碑與 child task。 |
@@ -226,6 +226,7 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - ADR 0018：兩個後端的前瞻交接（gapless）；Android 換歌時不釋放音訊焦點。
 - ADR 0015：`fmp_lints` 接上 `app/`，`dart analyze` 看得到插件診斷且接線哨兵會紅（比對 `flutter analyze`）；契約執行器能否在 `flutter test` 內載入 QuickJS（不行改用桌面 `integration_test`）；dev 與 prod flavor 同時開啟時 AppUserModelID、單一實例鎖、資料目錄各自獨立；零聯網兩道防線（故意聯網的測試被跳過、解除 tag 後被 `HttpOverrides` 擋下）。
 - ADR 0022：release-please 的發版 PR 與同一 workflow 的建置、驗證、發布跑通（測試 repo 或 dry-run）。
+- ADR 0023：提示在全螢幕頁與對話框之上可見；Windows Narrator 下提示不凍結無障礙樹。
 
 ## 8. 延後到特定里程碑的實測
 
@@ -243,13 +244,13 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
 - 以上是功能凍結僅有的例外。
 - 建立 `1morr/fmp-plugins` repo、其 CI 與 `index.json`、App 插件頁與首次啟動引導：排入里程碑規劃（第 20 步）；第一個里程碑不需要。
 
-## 10. 目前進度與下一步（交接用，2026-09-28 更新，第 19 項完成後）
+## 10. 目前進度與下一步（交接用，2026-09-28 更新，第 3 項完成後）
 
-- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0022`；舊 ADR 0001–0007 仍描述根目錄舊專案。
-- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞 → 19 發版與更新。
-  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0023（Toast）。
-- **下一項：第 3 項「Toast」**（尚未建 task）。
-- 之後順序：5 UI/UX（桌面播放器版面給 2–3 種讓使用者選）→ 4 Debug 頁（含插件開發工具、音源健康檢查）→ 7 里程碑定稿。
+- 分支：`docs/audit`（draft PR #173）。所有設計決定以 ADR 為準：`docs/adr/0008`–`0023`；舊 ADR 0001–0007 仍描述根目錄舊專案。
+- 已完成（依 §3 順序）：9 文檔結構 → 7 重寫策略（高層）→ 10 平台層 → 6 資料層 → 18 設定與日誌 → 12 網路與帳號 → 2 錯誤模型 → 1 音源插件 → 8 測試與開發環境 → 17 快取與離線 → 16 背景任務 → 13 播放核心 → 14 音樂庫與同步 → 11 下載與權限 → 15 歌詞 → 19 發版與更新 → 3 Toast。
+  每項的 prd／design／research 在 `.trellis/tasks/archive/2026-09/09-2?-design-*`。下一份 ADR 編號 0024（UI/UX）。
+- **下一項：第 5 項「UI/UX」**（尚未建 task）：設計系統 token、響應式規則、i18n、無障礙與鍵盤操作；桌面播放器頁給 2–3 個版面方案讓使用者選。
+- 之後順序：4 Debug 頁（含插件開發工具、音源健康檢查、錯誤歷史用 ADR 0023 的詳細頁）→ 7 里程碑定稿。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
 - 使用者偏好：全程繁中；多數細節「按推薦」，但每項仍需最終摘要與明確核准；Mermaid 圖需以 mermaid-cli 實際渲染（子圖標題含全形括號要用 `id["標題"]`）。
 - 工作守則（本輪累積）：
