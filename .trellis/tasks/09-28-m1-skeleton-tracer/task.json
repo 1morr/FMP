@@ -23,7 +23,8 @@
     "09-29-app-skeleton",
     "09-29-fmp-lints",
     "09-29-platform-layer",
-    "09-29-drift-schema"
+    "09-29-drift-schema",
+    "09-29-logging-settings"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
