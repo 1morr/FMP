@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/design.md", "reason": "M1 layout, drift table list and technical choices"}
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/research/m1-tooling-facts.md", "reason": "drift and sqlite3 versions, sqlite3_flutter_libs EOL"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Data layer rules"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "How to get the app data directory"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint rules the data layer must satisfy"}

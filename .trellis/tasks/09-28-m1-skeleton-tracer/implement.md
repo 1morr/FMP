@@ -89,7 +89,7 @@
   - v1 schema 快照；
   - repository。
 - [ ] `TrackKey`（`domain/`）照舊版格式，加測試。
-- [ ] 探針分支：`isar_community`＋`sqlite3` 共存、16KB 對齊，結論寫進本任務 `research/`。
+- [x] 探針分支：`isar_community`＋`sqlite3` 共存、16KB 對齊，結論寫進本任務 `research/`（2026-09-29：兩平台共存、全部對齊，`research/isar-sqlite3-coexistence.md`；ADR 0010 已補）。
 - 測試：快照一致；設定「使用者值不被新預設蓋掉」（ADR 0011）。
 
 ### 6. 設定與 log

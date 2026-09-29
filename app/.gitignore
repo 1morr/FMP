@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# 根目錄的 .gitignore 忽略 *.g.dart（舊專案不提交產生檔）；app/ 提交 drift
+# 產生的程式碼，CI 檢查它與原始碼一致（app/AGENTS.md § 資料層）。
+!*.g.dart

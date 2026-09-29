@@ -12,8 +12,10 @@
 | 任何改動 | `dart format --output=none --set-exit-if-changed .`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test` |
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
+| drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 
-- `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列；
+- `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
+  與產生檔檢查（見「資料層」）；
   `fmp_lints` 的測試另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次（Windows 路徑）。
 - `flutter analyze` 看不到 analyzer 插件的診斷、照樣回 No issues（flutter/flutter#187999），
   所以兩個都要跑：插件規則看 `dart analyze`，Flutter 專屬的診斷看 `flutter analyze`。
@@ -82,6 +84,32 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - dev 解析到舊版正式資料的位置（Windows 的 `Documents\FMP` 與
   `%APPDATA%\com.personal\fmp`、Android 舊版沙盒 `com.personal.fmp`）或其下，`main()` 在
   `runApp` 之前就拋 `LegacyDataLocationException`：Windows 的原生視窗仍會開，但內容空白。
+
+## 資料層
+
+`lib/data/`（ADR 0010）。怎麼加表、改 schema：`.trellis/spec/app/data/index.md`。
+
+- 只有 `lib/data/` import `drift`／`sqlite3`。閘門：lint `fmp_layer_imports`。上層拿到的是
+  repository 自己的值型別（`AppearanceSettings`、`InstalledPlugin`），不是 drift 產生的
+  `*Row` 類別；這半條沒有閘門，review 時看。
+- 資料庫是資料目錄下的 `fmp.db`，`main()` 在 `runApp` 之前開啟並跑一次查詢；開不起來只
+  顯示 `DatabaseErrorApp`，不在半開的資料庫上啟動（ADR 0010 §決定 3）。閘門：
+  `test/data/database/open_app_database_test.dart`（損壞的檔案在開啟時就拋）。`main()`
+  的分支本身沒有測試。
+- 外鍵每次開啟都在 `beforeOpen` 打開（SQLite 預設關、只對當前連線有效；ADR 0019 §決定 1）。
+  閘門：`test/data/database/app_database_test.dart` 與 repository 測試的 cascade 案例。
+- drift 產生的 `*.g.dart` 提交進 repo（`app/.gitignore` 覆寫根目錄對 `*.g.dart` 的忽略），
+  拉下來不用先跑 codegen。改了 table 或 `@DriftDatabase` 就重跑
+  `dart run build_runner build` 並提交產生檔。閘門：CI `app` job 的
+  「Check generated code is up to date」；本機沒有東西擋。
+- schema 快照在 `drift_schemas/app_database/`。閘門：`test/drift/app_database/schema_test.dart`
+  ——程式碼建出的 schema 必須等於最新快照，`schemaVersion` 必須等於最新快照的版本。
+- 持久化格式：列舉存 `lib/data/database/converters.dart` 寫死的字串（不是 enum 的
+  `name`）、時間存 UTC epoch 毫秒、`TrackKey`（`lib/domain/track_key.dart`）的字面輸出
+  與舊版逐字相同（M5 匯入要對得上）。改任何一個就是改資料格式。閘門：repository 測試的
+  `stored format` 案例、`test/domain/track_key_test.dart`。
+- `sqlite3` 3.x 以 build hooks 在建置時從它的 GitHub releases 下載預先編譯的 SQLite；
+  第一次建置或 `flutter test` 要能連 GitHub。
 
 ## 零聯網
 

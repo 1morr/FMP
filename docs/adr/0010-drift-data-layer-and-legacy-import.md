@@ -70,6 +70,8 @@
 - 之後要注意：
   - `isar_community` 與 `sqlite3` 兩套原生庫共存沒有直接先例，第一個里程碑在 Android、Windows 實測；若衝突，legacy import 改成由新 App 啟動的獨立一次性小程式。
   - `sqlite3` 原生庫的 Android 16KB page size 對齊，第一個里程碑用官方對齊檢查確認。
+  - 實測結果（2026-09-29，M1 PR 5 期間）：`isar_community` 3.3.2 與 `sqlite3` 3.6.0 在 Android（debug、release，16KB 頁的模擬器）與 Windows 共存、各自讀寫成功；Android 所有 `.so` 的 LOAD 段 p_align ≥ 0x4000，`zipalign -c -P 16` 通過。不需要獨立小程式。紀錄在 `.trellis/tasks/09-28-m1-skeleton-tracer/research/isar-sqlite3-coexistence.md`。
+  - `isar_community_generator` 3.3.2 要求 `analyzer <11`，與 `app/` workspace 的 analyzer 13 衝突，無法在 workspace 內跑 Isar codegen；M5 在 workspace 外產生 `*.g.dart` 後提交（上述實測已證實可行），或等 generator 放寬。
   - 新憑證存放處在網路與帳號的 ADR 決定；`flutter_secure_storage` 升到 11.x 的條件同樣在那裡處理。
 
 ## 如何確認
