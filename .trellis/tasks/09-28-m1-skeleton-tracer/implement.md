@@ -125,6 +125,7 @@
 - [ ] TypeScript 型別定義。
 - [ ] `packages/plugin_contract/`：契約執行器、fixture 格式、`checks.json`。
 - [ ] `test/fixtures/plugins/test_plugin/`：合成資料、本機音檔。
+- [ ] 接真實 B 站時觀察：伺服器回不合法的 `Set-Cookie` 是否讓請求變成 `UnexpectedError`（`dio_cookie_manager` 的 `ignoreInvalidCookies` 預設 false；PR 8 檢查提出，沒有重現案例前不改）。
 - [ ] 建立 `1morr/fmp-plugins`：
   - `bilibili/` 的 `search`、`resolveStream`；
   - 錄一次 fixture（真實連線，最少操作）。

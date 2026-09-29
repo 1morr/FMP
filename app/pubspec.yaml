@@ -14,6 +14,11 @@ workspace:
   - packages/fmp_lints
 
 dependencies:
+  # 網路層（ADR 0012 §決定 1）：每插件一個 dio 與記憶體 cookie jar。三個都只准
+  # 在 lib/core/network/ import（fmp_layer_imports）。
+  cookie_jar: ^4.0.9
+  dio: ^5.11.1
+  dio_cookie_manager: ^3.5.0
   # 資料層（ADR 0010）。sqlite3 3.x 以 build hooks 打包 SQLite 原生庫，不用已
   # EOL 的 sqlite3_flutter_libs；兩者只准在 lib/data/ import（fmp_layer_imports）。
   drift: ^2.35.0

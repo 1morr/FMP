@@ -84,6 +84,8 @@ void main() {
         expect(error.pluginId, isNull);
         expect(error.retryAfter, isNull);
         expect(error.networkRecordId, isNull);
+        // 測試不混淆，runtimeType 就是類別名。
+        expect(error.typeName, '${error.runtimeType}');
       });
     }
 

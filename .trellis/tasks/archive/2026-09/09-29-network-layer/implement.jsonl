@@ -1,0 +1,5 @@
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Network layer, redirects, AuthRequirement"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "Transport error mapping and retry"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "AppError and retry policy usage"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Log facade and redaction"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint rules incl. fmp_http_client_owner"}

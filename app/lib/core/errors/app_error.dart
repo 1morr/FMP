@@ -83,11 +83,16 @@ sealed class AppError implements Exception {
   /// bug，為假。決定錯誤歷史的層級。
   final bool expected;
 
-  /// 對應的網路紀錄 id（ADR 0011 §決定 4），網路層在 PR 8 填入。
+  /// 對應的網路紀錄 id（ADR 0011 §決定 4）。網路層建立錯誤時填入那次送出的
+  /// 紀錄 id；沒有送出（例如網域不符）時為 `null`。
   final int? networkRecordId;
 
   final Object? _cause;
   final StackTrace? _stackTrace;
+
+  /// log 與網路紀錄用的型別名稱（寫死的類別名，不是 `runtimeType`）。它是
+  /// log 檔的持久化值，不是給使用者看的文字。
+  String get typeName => _typeName(this);
 
   /// 只給 log 用。不含原始 error：原文可能帶憑證或伺服器訊息，只經
   /// [AppErrorReport.report] 交給門面遮蔽後寫出。
