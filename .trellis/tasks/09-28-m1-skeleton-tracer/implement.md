@@ -94,7 +94,8 @@
 
 ### 6. 設定與 log
 
-- [ ] 設定的 Notifier 模式（外觀組）。
+- [ ] 設定的 Notifier 模式（外觀組），放在 `lib/settings/`。
+- [ ] 第一次用 Riverpod：`main.dart` 包 `ProviderScope`，並在 `app/analysis_options.yaml` 重新開啟 `riverpod_lint` 的 `missing_provider_scope`（PR 3 暫時關閉）。
 - [ ] log 門面、遮蔽函式；log 檔：JSON Lines、2MB×3、在 `logs/`。
 - 測試：遮蔽，含 stackTrace（ADR 0011 §如何確認）；檔案輪替；壞行略過。
 
@@ -200,6 +201,10 @@
 - [ ] 逐項勾 phase2-plan §7，在 PR 描述或研究檔找到每項的實測紀錄。
 - [ ] 更新 `milestones.md` 的 M1 狀態與勾選；開 Linux 平台任務。
 - [ ] 本任務 `finish`、`archive`。
+
+## 待升級
+
+- `analysis_server_plugin`、`analyzer`、`analyzer_testing` 停在 0.3.18／13.3.0／0.3.2：Flutter 3.47.5 的 `flutter_test` 釘 `test_api 0.7.12`，把 analyzer 限制在 14 以下（PR 3 發現）。Flutter 放寬後三個一起升到最新。
 
 ## 風險與回滾點
 
