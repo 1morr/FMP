@@ -21,7 +21,8 @@
   "children": [
     "09-29-split-agent-instructions",
     "09-29-app-skeleton",
-    "09-29-fmp-lints"
+    "09-29-fmp-lints",
+    "09-29-platform-layer"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

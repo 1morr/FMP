@@ -55,6 +55,22 @@ ADR；dev 每一項都不同（ADR 0015 §決定 8）。
 - Windows 的 ProductName 決定 path_provider 的目錄（`%APPDATA%\com.personal\<ProductName>`），
   dev 的 application support、cache 等目錄因此全部與 prod 分開。
 
+## 平台層
+
+`lib/platform/`（ADR 0009）。怎麼加一個能力：`.trellis/spec/app/platform/index.md`。
+
+- `PlatformCapabilities` 只含已經有實作的能力。Linux、macOS、iOS 驗證前宣告全部為
+  「沒有」、沒有實作檔；`main()` 看到沒有資料目錄就只開「此平台尚未支援」的畫面。
+- 新能力連同實作一起加：宣告欄位、各平台實作、組裝點的分支、測試列在同一個 PR，
+  不先為之後的里程碑預留欄位。
+- 平台判斷（`defaultTargetPlatform`、`TargetPlatform`、`Platform.isXxx`）只寫在組裝點
+  `lib/platform/platform.dart`；其他程式從 `AppPlatform` 拿宣告與實作。
+
+閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
+平台必須全部為沒有）；lint `fmp_platform_checks` 擋 `lib/platform/` 以外的平台判斷。
+lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、以及「不預留欄位」沒有
+自動閘門，review 時看。
+
 ## 資料目錄
 
 `lib/platform/app_data_directory/`（ADR 0009 §決定 7）。閘門：
@@ -127,7 +143,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
   照常忽略。
 - `fmp_lints` 釘 `analyzer` 13.3.0，不是 pub.dev 最新：它和 `flutter_test` 同一個
   workspace，`flutter_test` 釘的 `test_api` 讓 `analyzer_testing` 用不了 14.x。新 Flutter
-  放寬後三個套件一起升（`.trellis/tasks/09-29-fmp-lints/research/notes.md` §1）。
+  放寬後三個套件一起升（`.trellis/tasks/archive/2026-09/09-29-fmp-lints/research/notes.md` §1）。
 - `riverpod_lint` 也接在 `plugins:`；`missing_provider_scope` 暫時關掉，第一個加
   `ProviderScope` 的 PR 打開。
 - 新規則怎麼加：`.trellis/spec/app/lints/index.md`。
