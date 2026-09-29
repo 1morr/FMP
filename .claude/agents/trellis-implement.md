@@ -79,7 +79,7 @@ Read the task's prd.md, design.md if present, and implement.md if present:
 FMP is a Flutter app: "lint and typecheck" is `flutter analyze`. Read the task's `package` from `task.json` first: `legacy` verifies against `lib/AGENTS.md` § Verification, `app` against `app/AGENTS.md` § 驗證.
 
 1. Codegen when a model or `*.i18n.json` changed, or `*.g.dart` is missing: `dart run build_runner build`, `dart run slang`.
-2. Format, then analyze. `legacy`: `dart format lib test tool`, then `flutter analyze`, at the repo root. `app`: inside `app/`, `dart format --output=none --set-exit-if-changed .`, then `flutter analyze`.
+2. Format, then analyze. `legacy`: `dart format lib test tool`, then `flutter analyze`, at the repo root. `app`: inside `app/`, `dart format --output=none --set-exit-if-changed .`, then `dart analyze --fatal-infos` (the only one that shows the `fmp_lints` / `riverpod_lint` plugin diagnostics) and `flutter analyze`.
 3. The tests named by the matching rows of the package's § Verification / § 驗證, plus the tests you wrote.
 
 If the change is user-visible, say so in the report: on-device verification is the main session's job (`verify-legacy-on-device` skill for `legacy`, `verify-on-device` for `app`).
