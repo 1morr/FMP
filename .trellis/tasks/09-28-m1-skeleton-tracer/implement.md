@@ -186,6 +186,7 @@
 - [ ] CI 加入：
   - Linux、macOS、iOS（不簽名）建置；
   - Linux 與 Windows 的整合測試：搜尋→播放、從檔案安裝插件，用測試插件。
+- [ ] `default-flavor: dev` 讓 iOS、macOS 建置需要 `dev`／`prod` 兩個 Xcode scheme，這個 PR 補上（PR 2 發現）。
 - [ ] `app-release.yml`（只有 `workflow_dispatch`）與 release-please 設定：
   - `app/CHANGELOG.md`；
   - manifest；
