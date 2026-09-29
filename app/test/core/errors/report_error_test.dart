@@ -32,6 +32,17 @@ void main() {
     expect(log.history.map((r) => r.level), [LogLevel.warning, LogLevel.error]);
   });
 
+  test('an explicit level (uncaught errors only) overrides expected', () {
+    log.report(
+      'Uncaught error',
+      NetworkError(),
+      tag: 'platform',
+      level: LogLevel.error,
+    );
+
+    expect(log.history.single.level, LogLevel.error);
+  });
+
   test('writes the structured fields', () {
     log.report(
       'Stream failed',

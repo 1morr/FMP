@@ -47,6 +47,8 @@ class LayerImportsTest extends FmpRuleTest {
     'lib/playback/controller.dart',
     "import [!'package:just_audio/just_audio.dart'!];\n"
         "import [!'package:dio/dio.dart'!];\n"
+        "import [!'package:dio_cookie_manager/dio_cookie_manager.dart'!];\n"
+        "import [!'package:cookie_jar/cookie_jar.dart'!];\n"
         "import [!'package:flutter_js/flutter_js.dart'!];\n"
         "import [!'package:isar_community/isar.dart'!];\n"
         "import [!'package:background_downloader/background_downloader.dart'!];\n",
@@ -97,7 +99,9 @@ class LayerImportsTest extends FmpRuleTest {
     );
     await assertLints(
       'lib/core/network/http.dart',
-      "import 'package:dio/dio.dart';\n",
+      "import 'package:dio/dio.dart';\n"
+          "import 'package:dio_cookie_manager/dio_cookie_manager.dart';\n"
+          "import 'package:cookie_jar/cookie_jar.dart';\n",
     );
     await assertLints(
       'lib/legacy_import/reader.dart',

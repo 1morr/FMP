@@ -25,6 +25,7 @@ const _reviewedSurface = {
   'AppError.messageArgs': 'Map<String, Object>',
   'AppError.expected': 'bool',
   'AppError.networkRecordId': 'int?',
+  'AppError.typeName': 'String',
   'AppError.toString()': 'String',
   'Unavailable.reason': 'UnavailableReason',
   'AppErrorReport.report()': 'void',
@@ -34,6 +35,8 @@ const _reviewedSurface = {
 const _allowedTextMembers = {
   // 插件 id，不是訊息；呈現層拿它查插件的顯示名稱。
   'AppError.pluginId',
+  // 寫死的類別名，給 log 與網路紀錄的 `type`／`error` 欄位；不含任何值。
+  'AppError.typeName',
   // 只給 log，而且不含原始 error（app_error_test.dart 驗證）。
   'AppError.toString()',
 };

@@ -133,7 +133,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   追加）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
   歷史。閘門：`test/core/logging/log_test.dart`（假憑證經訊息、error、stackTrace、深層
   欄位寫入後，記憶體歷史與 log 檔都沒有原值）、`test/core/redaction/redactor_test.dart`。
-  「其他出口也經過它」要等出口出現（網路紀錄 PR 8、診斷包 M3）各自補測試。
+  網路紀錄經門面寫入，閘門見「網路」；診斷包（M3）出現時各自補測試。
 - 遮蔽本身拋錯時，門面把那筆換成只有層級與失敗型別的 `Redaction failed` 紀錄，不退回
   原文。閘門：`log_test.dart` 的 `a record that cannot be redacted`。
 - log 檔：資料目錄的 `logs/fmp.jsonl`，JSON Lines，單檔 2MB，輪替成 `fmp.1.jsonl`、
@@ -143,7 +143,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `lastFailure`。沒有資料目錄的平台只有記憶體歷史。
 - 層級：debug build 為 `debug`，profile／release 為 `info`；console 只在 debug build。
   未捕捉的錯誤（`FlutterError.onError`、`PlatformDispatcher.onError`）經門面以 `error`
-  寫入，`main()` 在解析資料目錄之後才接上，之前的錯誤走 Flutter 預設處理。
+  寫入；是 `AppError` 的改走 `log.report`（才寫得出原因），以 `level` 參數固定為
+  `error`，不依 `expected`（沒人接就是沒處理）。`level` 只給這裡用，處理過的錯誤不傳。
+  `main()` 在解析資料目錄之後才接上，之前的錯誤走 Flutter 預設處理。閘門：
+  `test/core/logging/uncaught_errors_test.dart`（預期內的 `AppError` 未捕捉仍是 `error`，
+  原因經遮蔽寫出）。
 
 ## 錯誤
 
@@ -160,12 +164,56 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   寫進錯誤歷史，那是唯一讀得到原始 error 的路徑。閘門：`report_error_test.dart`
   驗層級、欄位與遮蔽；「處理了卻沒 report」沒有閘門，review 時看。
 - 重試只有網路層一層，用 `retry_policy.dart` 的純函數；Riverpod 的重試已關（見
-  「Riverpod」）。閘門：`retry_policy_test.dart`；網路層真的只在那裡重試，由 PR 8 的
-  測試接手。
+  「Riverpod」）。閘門：`retry_policy_test.dart`；網路層的重試見「網路」。
 - 禁止空 catch 與靜默吞錯。閘門：lint `fmp_no_empty_catch`（只擋空的本體；catch 了
   只 `return null` 之類的吞錯沒有閘門）。
 - `report` 的欄位名稱與 `type` 的值（寫死的類別名，不是 `runtimeType`）進 log 檔，
   是持久化格式。閘門：`report_error_test.dart` 的 `writes the structured fields`。
+
+## 網路
+
+`lib/core/network/`（ADR 0012 §決定 1–2、ADR 0013 §決定 2、4）。怎麼發請求、改攔截器、
+寫測試：`.trellis/spec/app/network/index.md`。測試都在 `test/core/network/`。
+
+- 每插件一個 `SourceHttpClient`，由 `SourceHttpClientFactory.create` 建立；`Dio` 只在
+  那裡建立，`dio`（含 `dio_cookie_manager`）與 `cookie_jar` 只准在 `lib/core/network/`
+  import。閘門：lint `fmp_http_client_owner`、`fmp_layer_imports`。
+- 攔截器順序：認證 → cookie → 錯誤對應 → 限流 → 網路紀錄。dio 的 onRequest、
+  onResponse、onError 都依加入順序執行，回程不反轉。攔截器 reject 一律帶第二個參數
+  `true`，否則後面的 onError 全被跳過：限流拿不回位置、網路紀錄少一筆。閘門：
+  `source_http_client_test.dart` 的 `interceptors run in the ADR 0012 order`（看得到的
+  前後關係）、`a failed request gives its place back`。
+- 重試在 `SourceHttpClient` 的迴圈裡，不在攔截器：每次重試重新走整條攔截器鏈（重新
+  判斷認證、重新排限流），每次送出各一筆網路紀錄。閘門：同一檔的 `retry` 群組（只重試
+  冪等請求、次數上限、`Retry-After`、取消不重試）。
+- 網域：只准 `https`，host 等於 manifest 允許清單的項目或是它的子網域（帶百分比編碼的
+  host 一律不准）；不符就不發請求，丟 `Unsupported`。轉址手動跟隨
+  （`followRedirects: false`），每跳都檢查，最多 5 次，`Location` 解析不了也是
+  `Unsupported`；跨 host 的下一跳拿掉原請求的 `Cookie`、`Authorization`，之後各跳都不再
+  帶憑證。閘門：`allowed_hosts_test.dart`、`redirects` 群組。
+- cookie 只存給設它的 host：`dio_cookie_manager` 原本會把轉址回應的 `Set-Cookie` 也存給
+  `Location` 的 host，`cookie_jar` 也不檢查 `Domain` 屬性；這裡兩處都改了，`Domain`
+  必須涵蓋回應的 host 而且本身在允許清單內，否則丟掉。閘門：`redirects` 群組的
+  `a cross-host hop drops Cookie…`、`Set-Cookie Domain`。
+- 狀態碼：網路層只把 429 與帶 `Retry-After` 的 503 轉成 `RateLimited`，其他回應原樣
+  交給插件對應；傳輸錯誤轉 `NetworkError`。閘門：`error mapping` 群組。
+- 取消（`abortTrigger`）丟 `RequestCancelled`，不是 `AppError`：只有取消的一方收到，
+  不重試、不 report。
+- cookie：每插件一個記憶體 jar，網路層不持久化。匿名 cookie（B 站 `buvid`）要跨重啟
+  時，由插件從回應的 `Set-Cookie` 取值寫進自己的 storage（`plugin_storage`，ADR 0014
+  §決定 5），下次以 `Cookie` header 帶上（cookie 管理會併進 jar 的 cookie）。沒有閘門，
+  review 時看。
+- 網路紀錄：tag `network`，每次送出一筆，欄位 `id`、`pluginId`、`method`、`host`、
+  `path`、`query`、`status`、`ms`、`bytes`、`error`、`credentials`、`retry`；不記
+  body。未登入而拒絕的 `required` 請求沒送出，也有一筆（沒有 `status`、`ms`），
+  `AuthRequired` 帶它的 id。失敗或狀態碼 ≥ 400 用 `warning`，其餘 `debug`。欄位名稱是 log 檔的持久化格式；
+  網路層產生的 `AppError` 帶那一筆的 `networkRecordId`。閘門：`network log` 群組
+  （欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體歷史與 log 檔）。
+- 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。M1 的認證來源是
+  `NoCredentials`（每個音源都未登入）。閘門：`auth_test.dart`（三種標記 × 三種狀態）。
+- 媒體 client 延到 M6。交給播放後端的串流 headers 一律先經 `mediaRequestHeaders`：只留
+  `Referer`、`User-Agent`、`Origin`、`Range`。閘門：`media_headers_test.dart`；後端確實
+  經過它，由 PR 10 的測試接手。
 
 ## 設定
 

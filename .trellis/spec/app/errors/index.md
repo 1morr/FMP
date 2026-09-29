@@ -36,7 +36,7 @@ throw RateLimited(
 ```
 
 - `report` 的 `message` 寫失敗的動作（英文），會變的值不拼進去；`tag` 是模組或音源 id。
-  層級由 `expected` 決定，不自己選。
+  層級由 `expected` 決定，不自己選；`level` 參數只給未捕捉錯誤的處理器用。
 - 背景工作也 `report`，但不跳 toast，只更新對應畫面的狀態（ADR 0013 §決定 5）。
 - 不要把 `AppError` 直接傳給 `log.error(error: ...)`：它的 `toString()` 沒有原始 error，
   那筆 log 就少了原因。
@@ -87,7 +87,10 @@ extension 的成員（含靜態）與頂層宣告。加欄位、方法或頂層�
 並寫出為什麼不是給使用者看的文字。原始 error 這類只給 log 的東西用私有欄位，在
 `report_error.dart` 讀。
 
-## 重試（網路層，PR 8 起）
+## 重試（網路層）
+
+實作在 `SourceHttpClient._sendWithRetry`（`.trellis/spec/app/network/index.md`），
+形狀如下：
 
 ```dart
 for (var attempt = 0; ; attempt++) {

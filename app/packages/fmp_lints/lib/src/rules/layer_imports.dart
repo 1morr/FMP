@@ -17,7 +17,10 @@ final externalPackageOwners = <String, String>{
   // ADR 0018：兩個播放後端。
   'just_audio': 'lib/playback/backends',
   'media_kit': 'lib/playback/backends',
+  // ADR 0012：HTTP client 與 cookie 只在網路層；`dio_cookie_manager` 算在
+  // `dio` 系列裡。
   'dio': 'lib/core/network',
+  'cookie_jar': 'lib/core/network',
   'flutter_js': 'lib/plugins/runtime',
   // M6 才有，先列入。
   'background_downloader': 'lib/downloads',
