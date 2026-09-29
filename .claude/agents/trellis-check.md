@@ -83,7 +83,7 @@ After finding issues:
 FMP is a Flutter app: "lint and typecheck" is `flutter analyze`. Read the task's `package` from `task.json` first: `legacy` verifies against `lib/AGENTS.md`, `app` against `app/AGENTS.md`. Run, in order:
 
 1. Codegen when a model or `*.i18n.json` changed, or `*.g.dart` is missing: `dart run build_runner build`, `dart run slang`. Stale codegen fails as a missing getter that looks like a source bug.
-2. Format, then analyze. `legacy`: `dart format lib test tool`, then `flutter analyze`, at the repo root. `app`: inside `app/`, `dart format --output=none --set-exit-if-changed .`, then `flutter analyze`.
+2. Format, then analyze. `legacy`: `dart format lib test tool`, then `flutter analyze`, at the repo root. `app`: inside `app/`, `dart format --output=none --set-exit-if-changed .`, then `dart analyze --fatal-infos` (the only one that shows the `fmp_lints` / `riverpod_lint` plugin diagnostics) and `flutter analyze`.
 3. The tests for every changed area: the matching rows of the package's `AGENTS.md` § Verification / § 驗證, plus the Quality Check section of each touched `.trellis/spec/<package>/<layer>/index.md`.
 
 If anything fails, fix it and re-run.

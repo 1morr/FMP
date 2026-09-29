@@ -1,0 +1,6 @@
+include: ../../analysis_options.yaml
+
+linter:
+  rules:
+    # test_reflective_loader 以 `test_` 前綴的方法名找測試。
+    non_constant_identifier_names: false

@@ -203,7 +203,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 兩次 dart analyze（含第一次編譯插件）比 PR 2 多幾分鐘。
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: app
@@ -226,8 +227,26 @@ jobs:
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
 
+      # fmp_lints 與 riverpod_lint 是 analyzer 插件，只有 dart analyze 看得到
+      # 它們的診斷（flutter/flutter#187999）。第一次會解析並編譯插件，要連 pub。
+      - name: Plugin lints (dart analyze)
+        run: dart analyze --fatal-infos
+
+      # 暫放違反每條 fmp 規則的檔案，斷言 dart analyze 失敗且報出每條規則名：
+      # 插件沒載入或規則沒開時，上一步會照樣綠。
+      - name: Lint wiring sentinel
+        run: dart run tool/lint_sentinel.dart
+
+      # 留著：Flutter 專屬的診斷只在這裡。它不顯示插件診斷，見上。
       - name: Static analysis
         run: flutter analyze
+
+      # 第二次以 Windows 路徑重跑，驗證規則的允許清單不受分隔符影響。
+      - name: Lint rule tests
+        working-directory: app/packages/fmp_lints
+        run: |
+          dart test
+          TEST_ANALYZER_WINDOWS_PATHS=true dart test
 
       # 不加參數：dart_test.yaml 讓 live 預設跳過（ADR 0015 §決定 3）。
       # 身分測試要 cmake，ubuntu runner 內建。

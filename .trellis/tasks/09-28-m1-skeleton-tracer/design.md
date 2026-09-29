@@ -73,7 +73,8 @@ app/
   lib/
     main.dart             # 由 flavor 決定身分；組 ProviderScope（retry 關閉）
     app/                  # MaterialApp、路由、外殼、ToastHost
-    core/                 # logging/、redaction/、errors/、network/、settings/
+    core/                 # logging/、redaction/、errors/、network/、endpoints.dart；不 import data/ 以上
+    settings/             # 各組設定的 Notifier（讀 data/ 的 repository）
     data/                 # drift database、tables、repositories
     domain/               # TrackKey 等純型別
     platform/             # 每能力一目錄：<能力>.dart＋<能力>_<平台>.dart
