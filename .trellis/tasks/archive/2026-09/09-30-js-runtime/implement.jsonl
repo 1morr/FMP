@@ -1,0 +1,7 @@
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Plugin model, manifest, host API v1, install format"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Test plugin and contract runner context"}
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/research/m1-tooling-facts.md", "reason": "flutter_js facts incl. flutter test loading"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "SourceHttpClient usage"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "AppError mapping at the plugin boundary"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "installed_plugins and plugin_storage repositories"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint rules"}

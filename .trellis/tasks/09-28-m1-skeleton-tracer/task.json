@@ -26,7 +26,8 @@
     "09-29-drift-schema",
     "09-29-logging-settings",
     "09-29-error-model",
-    "09-29-network-layer"
+    "09-29-network-layer",
+    "09-30-js-runtime"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
