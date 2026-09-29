@@ -1,0 +1,3 @@
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "Error taxonomy, propagation and retry"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Log facade and redaction usage"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint rules"}

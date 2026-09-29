@@ -108,6 +108,8 @@
 
 - [ ] API client 與媒體 client、攔截器順序、轉址規則（manifest 網域、最多 5 跳）、網路紀錄。
 - [ ] `AuthRequirement` 型別與宣告點。
+- [ ] 未捕捉錯誤若是 `AppError`，改走 `log.report` 帶出原因（PR 7 發現）。
+- 記錄：冪等只看 HTTP 方法，YouTube innertube 與網易查詢是 POST、照規則不會重試；讓音源標記「語意冪等的 POST」屬 M3 加入這兩個插件時決定（RFC 9110 §9.2.2 允許），B 站的 M1 請求是 GET 不受影響。
 - 測試：
   - 媒體請求不帶 Cookie／Authorization；
   - manifest 網域外的請求被拒；
@@ -168,6 +170,7 @@
   - 字型 fallback；
   - slang 三語言。
 - [ ] `Toaster`、`ToastHost`。
+- [ ] 接 slang 時收窄 `AppError.messageArgs` 的型別（目前 `Map<String, Object>`，插件可塞伺服器原文進 UI；PR 7 檢查發現），例如只收數字與已知的具名值。
 - [ ] 外殼（兩個導覽項）、搜尋頁、設定頁的外觀組、播放列。
 - [ ] 快捷鍵與 F6 三區。
 - [ ] 設定頁的「跟隨系統」：`AppearanceSettingsRepository.write` 目前不能把欄位清回 `null`（PR 6 檢查發現），設定頁需要時補上並測試。
