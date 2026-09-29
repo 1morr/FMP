@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 /// App 資料目錄（資料庫、設定、log）的能力（ADR 0009 §決定 7）。
@@ -11,6 +12,15 @@ abstract interface class AppDataDirectory {
   /// 解析並建立目錄。
   Future<Directory> resolve();
 }
+
+/// 已解析的資料目錄。`main()` 在 `runApp` 之前解析，再以 override 注入；
+/// 其他地方不自己解析。
+final dataDirectoryProvider = Provider<Directory>(
+  (ref) => throw UnimplementedError(
+    'dataDirectoryProvider is overridden by main() with the resolved '
+    'directory',
+  ),
+);
 
 /// 開發版解析出的資料目錄等於或位於舊版正式資料位置之下時拋出。
 final class LegacyDataLocationException implements Exception {

@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/design.md", "reason": "M1 layout and technical choices"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "Log facade, redaction, settings groups"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "JSON Lines log format"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Repositories and schema change steps"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint rules including fmp_log_facade"}

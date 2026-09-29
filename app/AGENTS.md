@@ -111,6 +111,53 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `sqlite3` 3.x 以 build hooks 在建置時從它的 GitHub releases 下載預先編譯的 SQLite；
   第一次建置或 `flutter test` 要能連 GitHub。
 
+## Riverpod
+
+- `main()` 的每個 `runApp` 都包在 `lib/app/app_scope.dart` 的 `appProviderScope`：全域
+  `retry` 關閉（ADR 0013 §決定 4）。閘門：`test/app/app_scope_test.dart`（含一個預設
+  重試會重試的對照案例）；lint `missing_provider_scope` 擋沒有 `ProviderScope` 的 `runApp`。
+- 開好的資料庫（`appDatabaseProvider`，`lib/data/providers.dart`）與資料目錄
+  （`dataDirectoryProvider`，`lib/platform/app_data_directory/`）只由 `main()` 以
+  `overrides` 注入；沒 override 就讀會拋錯。測試照樣 override（記憶體資料庫）。
+  「只有 `main()` 開庫」沒有閘門，review 時看。
+- 不用 `riverpod_generator`：provider 少，手寫。
+
+## Log 與遮蔽
+
+`lib/core/logging/`、`lib/core/redaction/`（ADR 0011、ADR 0025 §決定 3）。怎麼加遮蔽
+名單、怎麼寫 log：`.trellis/spec/app/logging/index.md`。
+
+- 門面 `Log` 是唯一的 log 入口；`print`、`debugPrint`、`dart:developer` 的 `log`、
+  `package:talker*` 只准在 `lib/core/logging/`。閘門：lint `fmp_log_facade`。
+- `Redactor` 是唯一的遮蔽函式，名單只在 `redaction_lists.dart`（插件以 `addRules`
+  追加）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
+  歷史。閘門：`test/core/logging/log_test.dart`（假憑證經訊息、error、stackTrace、深層
+  欄位寫入後，記憶體歷史與 log 檔都沒有原值）、`test/core/redaction/redactor_test.dart`。
+  「其他出口也經過它」要等出口出現（網路紀錄 PR 8、診斷包 M3）各自補測試。
+- 遮蔽本身拋錯時，門面把那筆換成只有層級與失敗型別的 `Redaction failed` 紀錄，不退回
+  原文。閘門：`log_test.dart` 的 `a record that cannot be redacted`。
+- log 檔：資料目錄的 `logs/fmp.jsonl`，JSON Lines，單檔 2MB，輪替成 `fmp.1.jsonl`、
+  `fmp.2.jsonl`，共 3 個。欄位名稱與層級字串是持久化格式（Debug 頁在 M3 讀舊檔）。
+  閘門：`test/core/logging/log_record_test.dart` 的 `stored format`、`log_file_test.dart`。
+- 寫檔失敗不拋出、不影響 App，次數與最後一個錯誤留在 `LogFile.failureCount`／
+  `lastFailure`。沒有資料目錄的平台只有記憶體歷史。
+- 層級：debug build 為 `debug`，profile／release 為 `info`；console 只在 debug build。
+  未捕捉的錯誤（`FlutterError.onError`、`PlatformDispatcher.onError`）經門面以 `error`
+  寫入，`main()` 在解析資料目錄之後才接上，之前的錯誤走 Flutter 預設處理。
+
+## 設定
+
+`lib/settings/`（ADR 0011 §決定 7）。怎麼加一個設定欄位：`.trellis/spec/app/settings/index.md`。
+
+- 設定表的欄位為空＝使用者沒設定過；預設值只在讀取時由 Notifier 套用，不寫進資料庫，
+  所以改預設不需要 migration，也不會動到使用者設定過的值。閘門：
+  `test/settings/appearance_settings_test.dart`（改預設後使用者值不變、未設定的欄位
+  不被寫入）。
+- 每組一個 Notifier，只寫改動的欄位；對外給套用預設後的值，另帶 `stored` 讓設定頁
+  分辨「跟隨系統」。
+- 語言沒設定過時跟隨系統的語言偏好清單（執行中改變也跟）：取清單中第一個對得到
+  zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。
+
 ## 零聯網
 
 ADR 0015 §決定 3 的兩道防線：
@@ -172,6 +219,6 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 - `fmp_lints` 釘 `analyzer` 13.3.0，不是 pub.dev 最新：它和 `flutter_test` 同一個
   workspace，`flutter_test` 釘的 `test_api` 讓 `analyzer_testing` 用不了 14.x。新 Flutter
   放寬後三個套件一起升（`.trellis/tasks/archive/2026-09/09-29-fmp-lints/research/notes.md` §1）。
-- `riverpod_lint` 也接在 `plugins:`；`missing_provider_scope` 暫時關掉，第一個加
-  `ProviderScope` 的 PR 打開。
+- `riverpod_lint` 也接在 `plugins:`，規則全開。哨兵只驗 `fmp_` 規則，`riverpod_lint`
+  沒載入時沒有東西會紅。
 - 新規則怎麼加：`.trellis/spec/app/lints/index.md`。
