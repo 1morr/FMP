@@ -35,3 +35,34 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+# analyzer 插件（app/AGENTS.md § Lint）。頂層 plugins:，不在 analyzer: 底下；
+# 只能寫在 workspace 根，也就是這個檔案。改過這段要重啟 analysis server。
+# `flutter analyze` 看不到插件診斷（flutter/flutter#187999），要看就跑
+# `dart analyze --fatal-infos`。
+plugins:
+  # 自寫規則（ADR 0015 §決定 2）。lint rule 預設關閉，逐條開啟；
+  # packages/fmp_lints/test/plugin_test.dart 斷言這裡開的正好是註冊的全部規則。
+  fmp_lints:
+    path: packages/fmp_lints
+    diagnostics:
+      fmp_layer_imports: true
+      fmp_no_empty_catch: true
+      fmp_log_facade: true
+      fmp_source_id_literal: true
+      fmp_url_literal: true
+      fmp_no_for_testing: true
+      fmp_http_client_owner: true
+      fmp_test_waits: true
+      fmp_ignore_reason: true
+      fmp_platform_checks: true
+      fmp_toast_entry: true
+      fmp_design_tokens: true
+      fmp_material_import: true
+  # 規則都是 warning，預設開啟。
+  riverpod_lint:
+    version: ^3.1.9
+    diagnostics:
+      # app/ 還沒有 Riverpod，main.dart 的 runApp 沒有 ProviderScope 是事實
+      # 而不是遺漏。第一個加 ProviderScope 的 PR 刪掉這兩行。
+      missing_provider_scope: false

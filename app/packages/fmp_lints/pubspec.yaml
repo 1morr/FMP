@@ -1,0 +1,26 @@
+name: fmp_lints
+description: FMP app 的自寫 lint 規則（ADR 0015 §決定 2）。
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.4
+
+resolution: workspace
+
+# analyzer 與 analysis_server_plugin／analyzer_testing 逐版互相釘死。
+# 不能用 pub.dev 最新的 analyzer 14.4.0：這個 package 在 app/ 的 workspace
+# 內，Flutter 3.47.5 的 flutter_test 釘 test_api 0.7.12 → test 1.31.1 →
+# analyzer <14。能解出來的最新一組是 analyzer 13.3.0（預設語言版本已是
+# 3.13）。flutter_test 放寬 test_api 後三個一起升（research/notes.md）。
+dependencies:
+  analysis_server_plugin: 0.3.18
+  analyzer: 13.3.0
+  path: ^1.9.1
+
+dev_dependencies:
+  analyzer_testing: 0.3.2
+  # 版本由 flutter_test 的 test_api 釘版決定，見上。
+  test: ^1.31.1
+  test_reflective_loader: ^0.4.0
+  yaml: ^3.1.4

@@ -131,13 +131,8 @@ IdentityResult runIdentity(String? flavor) {
 final String _cmake = _findCmake();
 
 String _findCmake() {
-  try {
-    if (Process.runSync('cmake', ['--version']).exitCode == 0) {
-      return 'cmake';
-    }
-  } on ProcessException {
-    // PATH 上沒有，改找 Visual Studio 附的 cmake（flutter 建置 Windows 也用它）。
-  }
+  if (_cmakeOnPath()) return 'cmake';
+  // PATH 上沒有，改找 Visual Studio 附的 cmake（flutter 建置 Windows 也用它）。
   const vswhere =
       r'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe';
   if (File(vswhere).existsSync()) {
@@ -154,4 +149,12 @@ String _findCmake() {
     }
   }
   throw StateError('cmake not found on PATH or via vswhere');
+}
+
+bool _cmakeOnPath() {
+  try {
+    return Process.runSync('cmake', ['--version']).exitCode == 0;
+  } on ProcessException {
+    return false;
+  }
 }
