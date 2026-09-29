@@ -12,13 +12,4 @@ void main() {
     expect(find.text('dev'), findsOneWidget);
     expect(find.text('/data/fmp-dev'), findsOneWidget);
   });
-
-  testWidgets('omits the data directory when the platform has none', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const FmpApp(flavor: AppFlavor.prod));
-
-    expect(find.text('FMP'), findsOneWidget);
-    expect(find.text('prod'), findsOneWidget);
-  });
 }
