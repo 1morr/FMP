@@ -15,7 +15,9 @@ scripts:
   # 每行只放一個 cmd 與 bash 都成立的指令：Windows 上 Orca 用 cmd 把每行包成
   # `call …` 並在失敗時中止，其他平台用 bash `set -e`。不加 `#!`，cmd 會拒跑。
   # 改動這段會讓 Orca 的信任失效，要在 GUI 重新選 Always trust。
+  # app/ 用 `--directory`，不用 `cd`：cd 會留到後面幾行。
   setup: |
     flutter pub get
     dart run build_runner build
     dart run slang
+    flutter pub get --directory app
