@@ -227,6 +227,20 @@ jobs:
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
 
+      # drift 產生的 *.g.dart 有提交（app/AGENTS.md § 資料層）。重跑 codegen 後
+      # app/ 有任何變動或新檔，就是改了 table 卻沒重跑 build_runner。
+      # 路徑用 `.`：這個 job 的工作目錄已經是 app/。
+      - name: Check generated code is up to date
+        run: |
+          dart run build_runner build
+          changes="$(git status --porcelain -- .)"
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git diff -- .
+            echo "Generated code is stale: run 'dart run build_runner build' in app/ and commit the result."
+            exit 1
+          fi
+
       # fmp_lints 與 riverpod_lint 是 analyzer 插件，只有 dart analyze 看得到
       # 它們的診斷（flutter/flutter#187999）。第一次會解析並編譯插件，要連 pub。
       - name: Plugin lints (dart analyze)

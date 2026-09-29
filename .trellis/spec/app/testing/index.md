@@ -15,6 +15,8 @@
 | 建置設定 | 原生身分：能執行就執行（`cmake -P`），不能就解析設定檔並附變異案例 | `test/identity/` |
 | 插件契約、整合、golden | M1 PR 9、PR 13 與設計系統元件加入時再寫 | — |
 
+- 碰資料庫的測試用 `test/support/memory_database.dart`，寫法見
+  `.trellis/spec/app/data/index.md` § 測試。
 - 正式程式碼不留測試掛鉤（`*ForTesting`、`@visibleForTesting` 的後門）；要替換的東西
   經建構子或 provider 注入。
 - 不設覆蓋率門檻。
