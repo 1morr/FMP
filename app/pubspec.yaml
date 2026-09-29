@@ -1,0 +1,33 @@
+name: fmp
+description: "FMP — Flutter music player (rewrite)."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+# pub workspace 的根（ADR 0015；成員從 PR 3 的 packages/fmp_lints 起加入）。
+# analysis_server_plugin 的 `plugins:` 只能寫在 package 或 workspace 根，
+# 所以 app/ 本身就是根，不另設外層 pubspec。
+workspace: []
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Flutter 3.47 起 Material 以獨立套件發佈，app/ 直接用它，不 import
+  # package:flutter/material.dart（app/AGENTS.md § Material）。
+  material_ui: ^1.5.0
+  path: ^1.9.1
+  path_provider: ^2.1.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  yaml: ^3.1.4
+
+flutter:
+  uses-material-design: true
+  # 沒帶 --flavor 的 run／build／test 一律是開發版（ADR 0015 §決定 8）；
+  # 發版必須明確帶 --flavor prod。
+  default-flavor: dev

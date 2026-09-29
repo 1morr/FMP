@@ -1,0 +1,7 @@
+tags:
+  # 打真實 API 的測試。測試預設零聯網（ADR 0015 §決定 3）：`flutter test` 一律
+  # 跳過；要跑時明確解除：
+  #   flutter test --run-skipped --tags live
+  # （flutter test 沒有 package:test 的 --preset，解除只能靠 --run-skipped。）
+  live:
+    skip: "live: hits real APIs; run with --run-skipped --tags live"

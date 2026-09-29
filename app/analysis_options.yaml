@@ -11,18 +11,12 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   exclude:
-    - "**/*.g.dart"
     - build/**
     - android/**
-    - windows/**
     - ios/**
-    - web/**
+    - windows/**
     - macos/**
     - linux/**
-    # 新專案：自己的 pubspec 與 analysis_options，由 CI 的 `app` job 分析。沒排除
-    # 的話，舊專案 job 沒對 app/ 跑 pub get，它的 package import 全報
-    # uri_does_not_exist。
-    - app/**
 
 linter:
   # The lint rules applied to this project can be customized in the
@@ -36,17 +30,6 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    prefer_const_constructors: true
-    prefer_const_declarations: true
-    # 相對 import 讓「搬一個檔案」變成「重算所有 ../ 深度」。統一成 package:
-    # 之後搬移就只是路徑字串替換，git 也認得出是純重新命名。
-    always_use_package_imports: true
-    # Schema 遷移期間會刻意留著「只給 migration 讀」的舊欄位。這條讓
-    # 「還有誰在讀它」變成編譯器問題，而不是靠註解自律。
-    deprecated_member_use_from_same_package: true
-    # 規則的理由寫在 dartdoc 而不是 markdown，而 `[Identifier]` 引用只有這條 lint
-    # 守得到 —— 同樣一句話寫在 markdown 裡沒有任何東西會告訴你它爛掉了。
-    comment_references: true
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
