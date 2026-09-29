@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/design.md", "reason": "Directory layout the allow-lists refer to"}
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/research/m1-tooling-facts.md", "reason": "analysis_server_plugin, analyzer_testing and riverpod_lint facts"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Lint rule table and gates"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Existing app test conventions"}
