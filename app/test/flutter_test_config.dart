@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/quickjs.dart';
+
 /// 測試預設零聯網的第二道防線（ADR 0015 §決定 3；第一道是 `dart_test.yaml`
 /// 把 `live` tag 設成跳過）。
 ///
@@ -15,6 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = NoNetworkHttpOverrides();
+  // 插件執行環境的測試要真的跑 QuickJS（見 support/quickjs.dart）。
+  loadQuickJsForTests();
   await testMain();
 }
 
