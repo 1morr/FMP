@@ -24,7 +24,8 @@
     "09-29-fmp-lints",
     "09-29-platform-layer",
     "09-29-drift-schema",
-    "09-29-logging-settings"
+    "09-29-logging-settings",
+    "09-29-error-model"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
