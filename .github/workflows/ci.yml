@@ -1,10 +1,16 @@
 name: CI
 
-# No path filter. Markdown carries rules that tests enforce -- the agent
-# instruction files most of all -- so a prose-only commit is exactly the one
-# that must not skip `validate`. `paths-ignore` is trigger-level and cannot
-# skip only the build jobs; measured run time is 23 minutes total (validate 7,
-# Android 6, Windows 10), which is not worth a changed-files job to avoid.
+# repo 裡有兩個專案：根目錄的舊專案（凍結，只收緊急修正）與 app/ 的新專案
+# （ADR 0008）。`changes` job 依變動路徑分流（ADR 0015 §決定 9），兩邊的 CI
+# 失敗不會互相擋 PR：
+# - app/** 或 .github/** 有變動：跑 `app`。
+# - app/ 以外有任何變動：跑舊專案的三個 job。文件變更也算，因為 Markdown
+#   承載由測試守著的規則（尤其是 agent 指令檔），只改文字的 commit 正是最
+#   不能跳過 `validate` 的那種。所以舊專案的篩選條件是「app/ 以外」，不是
+#   「是不是程式碼」。
+# - 手動觸發一律全跑。
+# 分流在 job 層級做，不用觸發層級的 `paths`／`paths-ignore`：必要檢查只有最後
+# 的 `CI Result`，它每次都要回報，被跳過的 job 算通過、失敗或取消的算失敗。
 on:
   pull_request:
     branches:
@@ -26,12 +32,50 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.47.1'
+  # app/ 跟隨當時的 stable（ADR 0015；M1 design §3）；舊專案維持上面那版。
+  APP_FLUTTER_VERSION: '3.47.5'
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # pull_request 事件以 REST API 取變動檔案清單。
+      pull-requests: read
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      legacy: ${{ steps.filter.outputs.legacy }}
+
+    steps:
+      # push 事件以 git 比對變動，需要 checkout。
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Filter changed paths
+        id: filter
+        # 手動觸發時下游 job 本來就全跑；跳過比對，免得找不到比對基準時整條 CI 被擋。
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          # `legacy` 要「符合 ** 且不符合 !app/**」；預設的 `some` 只要符合
+          # 任一條就算，app/ 的檔案也會觸發舊專案。
+          predicate-quantifier: some-with-excludes
+          filters: |
+            app:
+              - 'app/**'
+              - '.github/**'
+            legacy:
+              - '**'
+              - '!app/**'
+
   validate:
     name: Analyze and Test
+    needs: changes
+    if: needs.changes.outputs.legacy == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -153,3 +197,61 @@ jobs:
 
       - name: Build Windows release
         run: flutter build windows --release
+
+  app:
+    name: App Analyze and Test
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Static analysis
+        run: flutter analyze
+
+      # 不加參數：dart_test.yaml 讓 live 預設跳過（ADR 0015 §決定 3）。
+      # 身分測試要 cmake，ubuntu runner 內建。
+      - name: Unit and widget tests
+        run: flutter test
+
+  ci-result:
+    name: CI Result
+    if: always()
+    needs: [changes, validate, build-android, build-windows, app]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # 唯一的必要檢查。被路徑篩掉而跳過的 job 算通過；失敗、取消或
+      # `changes` 本身失敗（下游全被跳過）都算失敗。
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          done

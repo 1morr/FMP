@@ -19,6 +19,10 @@ analyzer:
     - web/**
     - macos/**
     - linux/**
+    # 新專案：自己的 pubspec 與 analysis_options，由 CI 的 `app` job 分析。沒排除
+    # 的話，舊專案 job 沒對 app/ 跑 pub get，它的 package import 全報
+    # uri_does_not_exist。
+    - app/**
 
 linter:
   # The lint rules applied to this project can be customized in the

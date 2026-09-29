@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/design.md", "reason": "M1 layout, technical choices and CI plan"}
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/research/m1-tooling-facts.md", "reason": "Package versions and CI action versions"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Zero-network, flavors, CI split"}
+{"file": "docs/adr/0008-rewrite-as-new-app-in-same-repo.md", "reason": "App identity"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Directory rules"}

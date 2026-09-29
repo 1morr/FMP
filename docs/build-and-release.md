@@ -181,14 +181,24 @@ git push origin v1.2.0
 
 ### CI 流程
 
-一般驗證由 `.github/workflows/ci.yml` 負責。**沒有 path filter** —— 純文檔的
-commit 一樣跑滿：
+一般驗證由 `.github/workflows/ci.yml` 負責。`changes` job 依變動路徑分流兩個專案
+（ADR 0015 §決定 9）：`app/**` 與 `.github/**` 跑新專案的 `app`，`app/` 以外有任何
+變動（含純文件）跑舊專案的三個 job，手動觸發全跑。最後的 `CI Result` 彙總所有 job：
+被跳過的算通過，失敗或取消的算失敗。
 
 ```text
 pull_request / main push / workflow_dispatch
        │
        ▼
 CI
+       │
+       ├─ changes (ubuntu) ── dorny/paths-filter：app／legacy
+       │
+       ├─ app (ubuntu，app/ 內，Flutter 3.47.5)
+       │   ├─ flutter pub get
+       │   ├─ dart format --output=none --set-exit-if-changed .
+       │   ├─ flutter analyze
+       │   └─ flutter test
        │
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
@@ -201,8 +211,10 @@ CI
        ├─ build-android (ubuntu)
        │   └─ flutter build apk --release --target-platform android-arm64
        │
-       └─ build-windows (windows-2022)
-           └─ flutter build windows --release
+       ├─ build-windows (windows-2022)
+       │   └─ flutter build windows --release
+       │
+       └─ CI Result（always）
 ```
 
 `validate` 會執行程式碼產生、格式檢查、analyzer 與測試；兩個 build job 只作為跨平臺 release build 煙霧測試，不建立 GitHub Release。`*.g.dart` 等產生檔不進版本控制（見 `.gitignore`），所以本流程不對「產生檔已提交」做檢查——那類檢查在 git 從未追蹤這些檔案的情況下永遠會通過，無法真正偵測任何問題。圖示資產由維護者在本機執行 `dart run flutter_launcher_icons` 後提交，CI 不在每次驗證時重產圖示。

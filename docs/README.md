@@ -12,6 +12,7 @@
 | [建置與發布指南](build-and-release.md) | 操作指南、參考 | 發新版本、調整 CI 或 Release 流程 | CI、產物命名、Release workflow、簽名 secrets、應用內更新資產 |
 | [疑難排解](troubleshooting.md) | 參考 | 看到像錯誤的建置或 runtime log，或遇到修不掉只能繞過的行為 | 新查明的噪音或已知行為 |
 | [.trellis/spec/legacy/](../.trellis/spec/legacy/) | 參考 | 用 Trellis 跑舊專案任務，或想知道舊專案某一層的程式碼照什麼模式寫（英文） | 某層的寫法慣例變了；有閘門的規則改在 `lib/AGENTS.md`，spec 只連過去 |
+| [.trellis/spec/app/](../.trellis/spec/app/) | 參考 | 用 Trellis 跑 `app/` 任務，或想知道新專案某一層照什麼模式寫（繁中） | 某層的寫法慣例變了；有閘門的規則改在 `app/AGENTS.md`，spec 只連過去 |
 | [adr/](adr/) | 說明 | 想知道某個跨模組決定「當初為什麼這樣選」 | 新的跨模組決策（決定、理由、被否決的方案） |
 | [verify-legacy-on-device skill](../.claude/skills/verify-legacy-on-device/SKILL.md) | 操作指南 | 舊專案緊急修正改了使用者可見行為，要做強制的實機驗證 | 模擬器啟動方式、驗證流程、裝置端限制 |
 | [audit/](audit/) | 快照（凍結） | 對照重寫前的現況、功能勾選與效能基準 | 只允許核查更正；切換 PR 刪除（ADR 0008、0026） |

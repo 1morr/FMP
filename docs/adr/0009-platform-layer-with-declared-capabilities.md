@@ -74,6 +74,7 @@ Linux、macOS 加入時要回頭改介面。
 - 壞的：每個能力多一層介面；Linux／macOS／iOS 在其 child task 完成前只有核心功能。
 - 之後要注意：登入 WebView 在 Linux 的選型、Android 下載儲存、音訊後端、Linux 打包與各平台更新機制分別在
   網路與帳號、下載與權限、播放核心、發版與更新的 ADR 決定，並更新本 ADR 的套件表引用。
+- 更正（2026-09-29）：§決定 7 的 Portable 版資料夾改名為程式旁的 `userdata/`（開發版 `userdata-dev/`）。Flutter 的 Windows 產物本身在程式旁放 `data/`（`flutter_assets`、`app.so`），同名會讓使用者資料混進程式目錄，更新時有被覆蓋的風險；擁有者 2026-09-29 選定（M1 PR 2）。
 
 ## 如何確認
 
