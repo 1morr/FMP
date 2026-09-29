@@ -32,6 +32,9 @@ dependencies:
   talker: ^5.1.20
 
 dev_dependencies:
+  # 只給 test/core/errors/app_error_surface_test.dart 解析原始碼（parseString）。
+  # 版本由 packages/fmp_lints 的釘版決定（同一個 workspace 只解出一份）。
+  analyzer: any
   build_runner: ^2.16.1
   drift_dev: ^2.35.0
   flutter_test:

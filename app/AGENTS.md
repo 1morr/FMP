@@ -145,6 +145,28 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   未捕捉的錯誤（`FlutterError.onError`、`PlatformDispatcher.onError`）經門面以 `error`
   寫入，`main()` 在解析資料目錄之後才接上，之前的錯誤走 Flutter 預設處理。
 
+## 錯誤
+
+`lib/core/errors/`（ADR 0013）。怎麼加錯誤類型或 i18n key、音源怎麼寫對應表：
+`.trellis/spec/app/errors/index.md`。
+
+- 音源邊界以上只看得到 `AppError`：音源把自己的錯誤碼轉好，其他例外在邊界以
+  `AppError.wrap` 包成 `UnexpectedError`。閘門：PR 9 的插件契約測試；在那之前沒有。
+- `AppError` 沒有可以直接顯示的字串：使用者訊息只有 `messageKey`／`messageArgs`；
+  原始 error 與 stackTrace 是函式庫私有欄位，`toString()` 不含它們。閘門：
+  `test/core/errors/app_error_surface_test.dart`（列出全部公開成員，含變異案例）、
+  `app_error_test.dart` 的 `toString`。
+- 被處理的錯誤一律經 `log.report(...)`（`report_error.dart`，`app_error.dart` 的 `part`）
+  寫進錯誤歷史，那是唯一讀得到原始 error 的路徑。閘門：`report_error_test.dart`
+  驗層級、欄位與遮蔽；「處理了卻沒 report」沒有閘門，review 時看。
+- 重試只有網路層一層，用 `retry_policy.dart` 的純函數；Riverpod 的重試已關（見
+  「Riverpod」）。閘門：`retry_policy_test.dart`；網路層真的只在那裡重試，由 PR 8 的
+  測試接手。
+- 禁止空 catch 與靜默吞錯。閘門：lint `fmp_no_empty_catch`（只擋空的本體；catch 了
+  只 `return null` 之類的吞錯沒有閘門）。
+- `report` 的欄位名稱與 `type` 的值（寫死的類別名，不是 `runtimeType`）進 log 檔，
+  是持久化格式。閘門：`report_error_test.dart` 的 `writes the structured fields`。
+
 ## 設定
 
 `lib/settings/`（ADR 0011 §決定 7）。怎麼加一個設定欄位：`.trellis/spec/app/settings/index.md`。
