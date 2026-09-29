@@ -58,6 +58,10 @@ manifest 與腳本承擔。
 採用的慣例：MusicFree、LX Music 的 JS 腳本插件與插件訂閱（App 本體不附音源）；Spotube 的 manifest（能力、API 版本）與 iOS 側載發佈；
 Flutter federated plugin 的「一套介面、多種實作」；Spotube 的匹配結果快取與使用者改選。只參考設計，不複製程式碼（MusicFree 為 AGPL-3.0）。
 
+補充（2026-09-30，M1）：從檔案或網址安裝的單位是**單一 `.js` 檔**，開頭以 `/* ==FMP Plugin==` 與 `==/FMP Plugin== */` 包一段 JSON manifest；宿主不執行腳本即可讀出 manifest，先檢查網域與能力再載入（使用者腳本 metadata block 的慣例）。index 的 SHA-256 針對這個檔。擁有者 2026-09-30 選定。
+
+補充（2026-09-30，M1）：每個插件的 JS 執行環境在自己的背景 isolate 執行。`flutter_js` 0.8.7 的 QuickJS 沒有中斷機制，同步無窮迴圈會卡住所在的執行緒；放在背景 isolate 後 UI 不受影響。呼叫逾時時宿主先送存活探測：有回應代表只是在等網路，這次呼叫以 `NetworkError` 失敗、插件照常；沒有回應或 isolate 已結束，插件標為「沒有回應」並停用到 App 重啟（卡住的執行緒無法回收）。宿主 API 的安全檢查仍在主 isolate。擁有者 2026-09-30 選定；可中斷的替代套件（`flutter_qjs_next`、`quickjs_engine`）因單一作者、低採用而未採用。
+
 ## 後果
 
 - 好的：新增音源＝在插件庫新增一個目錄或自行安裝腳本；修音源不必發 App；ADR 0011–0013 的保護自動套用到所有腳本；

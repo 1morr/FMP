@@ -14,6 +14,8 @@ workspace:
   - packages/fmp_lints
 
 dependencies:
+  # 插件宿主 API 的 crypto.md5／sha256（ADR 0014 §決定 5）。
+  crypto: ^3.0.7
   # 網路層（ADR 0012 §決定 1）：每插件一個 dio 與記憶體 cookie jar。三個都只准
   # 在 lib/core/network/ import（fmp_layer_imports）。
   cookie_jar: ^4.0.9
@@ -24,6 +26,11 @@ dependencies:
   drift: ^2.35.0
   flutter:
     sdk: flutter
+  # 插件的 JS 引擎（ADR 0014 §決定 2），只准在 lib/plugins/runtime/ import
+  # （fmp_layer_imports）。釘死版本：執行環境繼承 QuickJsRuntime2 並依賴它在
+  # 建構子呼叫 init()，測試直接載入套件內附的原生庫（test/support/quickjs.dart），
+  # 兩者都是套件的內部結構，升版時要重看。
+  flutter_js: 0.8.7
   # 狀態管理（ADR 0013）。不用 riverpod_generator：provider 少，手寫即可。
   flutter_riverpod: ^3.4.3
   # Flutter 3.47 起 Material 以獨立套件發佈，app/ 直接用它，不 import
@@ -45,6 +52,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # 插件執行環境的實機量測（integration_test/plugin_runtime_benchmark_test.dart）。
+  integration_test:
+    sdk: flutter
   yaml: ^3.1.4
 
 flutter:
@@ -52,3 +62,9 @@ flutter:
   # 沒帶 --flavor 的 run／build／test 一律是開發版（ADR 0015 §決定 8）；
   # 發版必須明確帶 --flavor prod。
   default-flavor: dev
+  # 測試插件（ADR 0015 §決定 6）只打包進開發版：實機驗證與量測從 asset 讀
+  # 腳本，它的串流指向同目錄的音檔（asset:///…）。
+  assets:
+    - path: test/fixtures/plugins/test_plugin/
+      flavors:
+        - dev

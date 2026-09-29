@@ -24,6 +24,38 @@
   - 實作用 opus：PR 2–10、12、13 與 YouTube.js 探針。
   - `trellis-check` 一律 opus；研究代理一律 sonnet。
 
+## 進度與交接（2026-09-30 更新；compact 後從這裡接）
+
+- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）。#176 是 CI 路徑探測，已關閉。
+- **isar／sqlite3 共存探針**：已完成，兩平台共存、全部 16KB 對齊（`research/isar-sqlite3-coexistence.md`，ADR 0010 已補）。
+- **PR 9a 完成**（分支 `feat/js-runtime`，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
+  - 實機：Windows dev 開發入口裝上、重啟後從資料庫載入、prod 不理會旗標；Android 模擬器 dev 的前兩項。模擬器上的 `com.personal.fmp` 是舊版 1.11.0，prod 沒裝上去驗；prod 那一段由單元測試守（`devPluginPath` 對 prod 一律回 `null`，有變異驗證）。
+- **下一步**：9b（fixture 錄製重播、`checks.json`、契約執行器）→ 9c（建 `1morr/fmp-plugins`、B 站插件、錄一次 fixture）→ YouTube.js 探針（與 10–13 並行）→ 10 播放核心 → 11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **擁有者決定**：1–7 都在父任務 `prd.md`「擁有者的決定」。9a 期間新增了兩項：
+  - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
+  - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟。
+- **每個 PR 的固定流程**：
+  1. 從最新 `main` 開分支；
+  2. `task.py create … --parent .trellis/tasks/09-28-m1-skeleton-tracer --package app --no-start`；
+  3. 寫 prd（繁中，列做什麼與驗收）與 `implement.jsonl`／`check.jsonl`；
+  4. `task.py start`；
+  5. 派 opus `trellis-implement`，驗證清單固定為：format、build_runner 後沒有實質變動、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、哨兵、需要時建置；
+  6. 使用者看得到的改動，由主對話實機驗證（Windows 用 msaa_tree.ps1 讀畫面文字；Android 用 adb 的 `run-as` 與 `screencap`）；
+  7. 派 opus `trellis-check`，要它試著攻破安全相關的部分；
+  8. 把後續待辦寫進本檔；
+  9. `git checkout --` 還原只有換行差異的產生檔（`generated_plugin*`、`app_database.g.dart`、`GeneratedPluginRegistrant.swift`）；
+  10. 分開 commit；
+  11. `task.py finish`，再 `archive <slug> --no-commit --skip-branch-validation`，把 archive commit 掉；
+  12. push，`gh pr create`（繁中描述＋review 指南）；
+  13. 背景跑 `gh pr checks --watch`；
+  14. 全綠後 `gh pr merge --merge`，main 快轉。
+- **地雷**：
+  - 文件或程式碼引用子任務的研究檔時，一律寫 archive 後的路徑 `.trellis/tasks/archive/2026-09/<任務>/…`。
+  - CI 的 `app` job 工作目錄已經是 `app/`，路徑不要再加 `app/`。
+  - 子代理有時用不了 context7 或 WebFetch，會改用 curl 或 pub cache 原始碼查證，這是可以接受的。
+  - 子代理曾因 API 403（`oauth_org_not_allowed`）中斷，用 SendMessage 續跑就成功了。
+  - 第 5 項的播放頁示意 Artifact 已被刪除，`phase2-plan.md` §10 的連結失效，決定仍以 ADR 0024 為準。
+
 ## 順序
 
 ### 0. 合併 #173（設計文件進 `main`）
@@ -115,16 +147,22 @@
   - manifest 網域外的請求被拒；
   - 轉址超過 5 跳或出網域會失敗。
 
-### 9. JS 執行環境與插件
+### 9. JS 執行環境與插件（拆成 9a、9b、9c 三個 PR）
 
-- [ ] 在 `lib/plugins/` 建 `flutter_js`：
+- **9a** JS 執行環境、宿主 API v1、manifest 解析（安裝檔格式見 prd 擁有者決定 6）、`SourcePlugin` 轉接、從檔案安裝、測試插件；`flutter_js` 實測（含能否在 `flutter test` 內載入 QuickJS）。
+- **9b** fixture 錄製與重播 adapter、`checks.json`、`packages/plugin_contract` 契約執行器、CI 步驟。
+- **9c** 在 `1morr/fmp-plugins` 建 repo 與 B 站插件（`search`、`resolveStream`），錄一次 fixture；FMP 端無程式碼，或只有文件。
+
+原清單：
+
+- [x] 在 `lib/plugins/` 建 `flutter_js`（9a）：
   - 宿主 API v1 最小集；
   - manifest 驗證；
   - `apiVersion` 相容檢查；
   - 從檔案安裝。
-- [ ] TypeScript 型別定義。
+- [x] TypeScript 型別定義（9a）。
 - [ ] `packages/plugin_contract/`：契約執行器、fixture 格式、`checks.json`。
-- [ ] `test/fixtures/plugins/test_plugin/`：合成資料、本機音檔。
+- [x] `test/fixtures/plugins/test_plugin/`：合成資料、本機音檔（9a）。
 - [ ] 接真實 B 站時觀察：伺服器回不合法的 `Set-Cookie` 是否讓請求變成 `UnexpectedError`（`dio_cookie_manager` 的 `ignoreInvalidCookies` 預設 false；PR 8 檢查提出，沒有重現案例前不改）。
 - [ ] 建立 `1morr/fmp-plugins`：
   - `bilibili/` 的 `search`、`resolveStream`；
@@ -136,6 +174,12 @@
   - 能力與匯出一致；
   - 讀不到其他插件的 storage；
   - fixture 掃描不得有未遮蔽的憑證。
+
+9a 留下的後續：
+
+- [ ] 探測的取捨：插件若無限迴圈地呼叫宿主 API，每次都回應探測，只會一直得到 `NetworkError`、不會被停用（PR 9a 檢查提出）。M3 插件頁若要讓使用者手動停用，一併處理。
+- [ ] Android 的跨 isolate 成本：模擬器 debug 下每次宿主呼叫多約 7 ms，不經宿主的 `search` 也比純 Dart 對照慢，差額未查明。有實機時用 profile 模式重量（`integration_test/plugin_runtime_benchmark_test.dart`）。
+- [ ] Android 上 prod 的開發入口實機驗證：需要一台沒裝舊版的模擬器或實機（PR 13 或 M9 前）。
 
 ### 探針：YouTube.js（擁有者決定 3）
 

@@ -13,6 +13,7 @@
 *.ico binary
 *.keystore binary
 *.jks binary
+*.wav binary
 
 # Resolved by `flutter pub get`; collapse it in review diffs.
 pubspec.lock linguist-generated=true

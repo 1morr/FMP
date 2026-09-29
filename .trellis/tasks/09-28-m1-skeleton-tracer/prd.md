@@ -59,6 +59,9 @@
    - M1 就建公開的 `1morr/fmp-plugins`，只放 README 與 `bilibili/`；
    - CI、`index.json`、插件頁留在 M3。
 
+6. **插件安裝檔格式**（2026-09-30）：單一 `.js` 檔，開頭以 `/* ==FMP Plugin== … ==/FMP Plugin== */` 包一段 JSON manifest，App 不執行腳本就能讀出 manifest 並先檢查網域與能力（沿用使用者腳本 metadata block 的慣例；MusicFree、LX Music 也是一檔一插件）。插件庫可把 manifest 另存、由腳本合併成安裝檔；圖示只能用網址或內嵌 base64。
+7. **插件在背景 isolate 執行**（2026-09-30）：`flutter_js` 0.8.7 的 QuickJS 沒有中斷機制，同步無窮迴圈會凍住 UI isolate（PR 9a 實測）。每個插件的 JS 執行環境放在自己的背景 isolate；呼叫逾時先送存活探測：背景 isolate 有回應就只讓這次呼叫以 `NetworkError` 失敗（只是在等網路），沒有回應或 isolate 已結束才把插件標成「沒有回應」並停用到 App 重啟（2026-09-30 擁有者確認）；運算重的腳本（YouTube 解簽名）也不會讓畫面卡頓。不換引擎：可中斷的替代套件（`flutter_qjs_next`、`quickjs_engine`）都是單一作者、低採用的新套件。
+
 ## 需求
 
 - **R1**：PR 1 完成指令檔與 spec 分家（決定 1，design §1），同時更正 ADR 0015、0021、0027 的事實。

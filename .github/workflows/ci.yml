@@ -263,7 +263,9 @@ jobs:
           TEST_ANALYZER_WINDOWS_PATHS=true dart test
 
       # 不加參數：dart_test.yaml 讓 live 預設跳過（ADR 0015 §決定 3）。
-      # 身分測試要 cmake，ubuntu runner 內建。
+      # 身分測試要 cmake，ubuntu runner 內建。插件執行環境的測試跑真的
+      # QuickJS：test/support/quickjs.dart 預先載入 flutter_js 內附的 .so，
+      # 不用先建置桌面版；載入失敗會讓測試失敗，不會跳過。
       - name: Unit and widget tests
         run: flutter test
 
