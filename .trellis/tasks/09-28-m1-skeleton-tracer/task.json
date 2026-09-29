@@ -25,7 +25,8 @@
     "09-29-platform-layer",
     "09-29-drift-schema",
     "09-29-logging-settings",
-    "09-29-error-model"
+    "09-29-error-model",
+    "09-29-network-layer"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

@@ -100,7 +100,8 @@ app/
 | § | 項目 | 決定 | 理由 |
 |---|---|---|---|
 | 3.2 | Flutter 版本 | `app/` 用 3.47.5（Dart 3.13.4），CI 的 `app` job 釘這版；舊專案 job 維持 3.47.1。本機升到 3.47.5，舊專案同一個 minor，照常建置 | ADR「當時的 stable」 |
-| 3.4 | `AuthRequirement` | M1 建型別與宣告點（manifest、請求 DTO），認證攔截器在沒有 `CredentialStore` 時一律不注入；`CredentialStore` 與三種標記的注入測試在 M3 | B 站搜尋與解串流不需登入；宣告點是插件 API 的一部分，晚加會改 DTO |
+| 3.4 | `AuthRequirement` | M1 建型別與宣告點（manifest、請求 DTO），認證攔截器在沒有 `CredentialStore` 時一律不注入；三種標記的注入測試在 PR 8 以假的認證來源寫，`CredentialStore` 在 M3 | B 站搜尋與解串流不需登入；宣告點是插件 API 的一部分，晚加會改 DTO |
+| — | 媒體 client | 延到 M6。M1 在 PR 8 建媒體 header 政策（`mediaRequestHeaders`：只留 `Referer`、`User-Agent`、`Origin`、`Range`），PR 10 的播放後端拿到的串流 headers 一律先經過它 | M1 沒有使用者：播放後端自己抓串流網址，下載在 M6；M1 需要的只是「交給播放後端的 headers 不帶憑證」。ADR 0009「不寫空實作」 |
 | 3.5 | `PermissionGateway` | M1 不建 | M1 沒有需要執行期權限的功能；ADR 0009「不寫空實作」 |
 | 3.6 | 串流網址快取 | M1 不建；`StreamResolver` 每次呼叫插件 | ADR 0016 整包在 M2；兩首的佇列用不到 |
 | 3.8 | log 檔格式 | 一開始就寫 JSON Lines（ADR 0025 §決定 3 的欄位），2MB×3 | 先寫純文字、M3 再改，等於改兩次；7 天保留仍在 M2 的維護清單 |
