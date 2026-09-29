@@ -170,6 +170,7 @@
 - [ ] `Toaster`、`ToastHost`。
 - [ ] 外殼（兩個導覽項）、搜尋頁、設定頁的外觀組、播放列。
 - [ ] 快捷鍵與 F6 三區。
+- [ ] 字形：`MaterialApp.locale` 帶介面語言（`zh-Hant-TW` 等帶 script 的形式）。Android 不指名字型，英文介面時歌名等漢字可能落到簡中字形（AOSP `fonts.xml` 的 `zh-Hans` 在前，PR 4 推論、未實測）：實測後決定是否在漢字文字上指定 `zh-Hant`。
 - 測試：
   - 三語言 key 集合相同；
   - Toast 去重、取代與時長；
