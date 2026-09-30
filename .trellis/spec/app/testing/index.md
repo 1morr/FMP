@@ -64,7 +64,8 @@
   `audio_backend_contract_test.dart`，實機手動跑。
 - 等待用實際時間：插件在背景 isolate、資料庫在 drift 的 isolate。逐格 `tester.pump(50ms)` 直到
   條件成立、設上限（例子：`install_search_play_test.dart` 的 `_waitFor`）；畫面有轉圈時
-  `pumpAndSettle` 不會結束。
+  `pumpAndSettle` 不會結束。只維持一下子的狀態（例如一首 1 秒的播放）不要輪詢當下的值，
+  慢的 runner 會整段錯過：先訂閱 stream 記下每次變動，再等紀錄裡出現。
 - 輸入文字照 widget 測試寫（`enterText`、`testTextInput.receiveAction`）：整合測試的 binding 沒有
   註冊假的文字輸入，但這兩個不需要註冊。
 - 找畫面上的字用插件回的資料（例如測試插件的曲名），不用介面字串：介面語言跟著機器的系統語言。

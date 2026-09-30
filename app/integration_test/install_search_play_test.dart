@@ -78,11 +78,36 @@ void main() {
     await _waitFor(tester, () => app.plugins.contains(_pluginId), 'install');
 
     await _search(tester, 'tone');
-    await tester.tap(find.text('Test tone 220 Hz (tone)'));
     final controller = app.container.read(playbackControllerProvider);
+    // 一首只播 1 秒，交接時狀態一直是 Playing、只有佇列往下：輪詢當下的值，
+    // 慢一點的 runner 可能整首錯過。改記下每次變動時在播的是第幾首。
+    final playedIndexes = <int?>{};
+    var state = controller.state;
+    var index = controller.queue.currentIndex;
+    void note() {
+      if (state is Playing) playedIndexes.add(index);
+    }
+
+    final subscriptions = [
+      controller.states.listen((value) {
+        state = value;
+        note();
+      }),
+      controller.queueStates.listen((value) {
+        index = value.currentIndex;
+        note();
+      }),
+    ];
+    addTearDown(() async {
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+    });
+
+    await tester.tap(find.text('Test tone 220 Hz (tone)'));
     await _waitFor(
       tester,
-      () => controller.state is Playing && controller.queue.currentIndex == 0,
+      () => playedIndexes.contains(0),
       'the first track plays',
     );
     expect(controller.queue.tracks.map((track) => track.sourceId), [
@@ -92,7 +117,7 @@ void main() {
 
     await _waitFor(
       tester,
-      () => controller.state is Playing && controller.queue.currentIndex == 1,
+      () => playedIndexes.contains(1),
       'the second track plays',
     );
     // 第二首是前瞻交給後端、由後端自己接上的，不是重新開流。
