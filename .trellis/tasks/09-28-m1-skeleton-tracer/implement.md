@@ -26,14 +26,16 @@
 
 ## 進度與交接（2026-09-30 更新；compact 後從這裡接）
 
-- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）。#176 是 CI 路徑探測，已關閉。
+- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）。#176 是 CI 路徑探測，已關閉。
 - **isar／sqlite3 共存探針**：已完成，兩平台共存、全部 16KB 對齊（`research/isar-sqlite3-coexistence.md`，ADR 0010 已補）。
-- **PR 9a 完成**（分支 `feat/js-runtime`，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
+- **PR 9a 完成**（#183，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
   - 實機：Windows dev 開發入口裝上、重啟後從資料庫載入、prod 不理會旗標；Android 模擬器 dev 的前兩項。模擬器上的 `com.personal.fmp` 是舊版 1.11.0，prod 沒裝上去驗；prod 那一段由單元測試守（`devPluginPath` 對 prod 一律回 `null`，有變異驗證）。
-- **下一步**：9b（fixture 錄製重播、`checks.json`、契約執行器）→ 9c（建 `1morr/fmp-plugins`、B 站插件、錄一次 fixture）→ YouTube.js 探針（與 10–13 並行）→ 10 播放核心 → 11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
-- **擁有者決定**：1–7 都在父任務 `prd.md`「擁有者的決定」。9a 期間新增了兩項：
+- **PR 9b 待合併**（分支 `feat/plugin-contract`，子任務 `.trellis/tasks/09-30-plugin-contract`）：fixture 錄製重播、`checks.json`、契約執行器；擁有者決定 8 讓執行器可在命令列做免登入的錄製（`live` tag），ADR 0015 §決定 7 已補更正。
+- **之後**：9c（建 `1morr/fmp-plugins`、B 站插件、錄一次 fixture）→ YouTube.js 探針（與 10–13 並行）→ 10 播放核心 → 11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
-  - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟。
+  - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
+  - 決定 8（9b）：M1 的 fixture 由契約執行器在命令列錄製，限免登入案例。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支；
   2. `task.py create … --parent .trellis/tasks/09-28-m1-skeleton-tracer --package app --no-start`；
@@ -150,7 +152,7 @@
 ### 9. JS 執行環境與插件（拆成 9a、9b、9c 三個 PR）
 
 - **9a** JS 執行環境、宿主 API v1、manifest 解析（安裝檔格式見 prd 擁有者決定 6）、`SourcePlugin` 轉接、從檔案安裝、測試插件；`flutter_js` 實測（含能否在 `flutter test` 內載入 QuickJS）。
-- **9b** fixture 錄製與重播 adapter、`checks.json`、`packages/plugin_contract` 契約執行器、CI 步驟。
+- **9b** fixture 錄製與重播 adapter、`checks.json`、契約執行器（放在 `app/test/plugins/contract/`）、CI 步驟。
 - **9c** 在 `1morr/fmp-plugins` 建 repo 與 B 站插件（`search`、`resolveStream`），錄一次 fixture；FMP 端無程式碼，或只有文件。
 
 原清單：
@@ -161,7 +163,7 @@
   - `apiVersion` 相容檢查；
   - 從檔案安裝。
 - [x] TypeScript 型別定義（9a）。
-- [ ] `packages/plugin_contract/`：契約執行器、fixture 格式、`checks.json`。
+- [x] 契約執行器、fixture 格式、`checks.json`（9b，`app/test/plugins/contract/`）。
 - [x] `test/fixtures/plugins/test_plugin/`：合成資料、本機音檔（9a）。
 - [ ] 接真實 B 站時觀察：伺服器回不合法的 `Set-Cookie` 是否讓請求變成 `UnexpectedError`（`dio_cookie_manager` 的 `ignoreInvalidCookies` 預設 false；PR 8 檢查提出，沒有重現案例前不改）。
 - [ ] 建立 `1morr/fmp-plugins`：
@@ -180,6 +182,13 @@
 - [ ] 探測的取捨：插件若無限迴圈地呼叫宿主 API，每次都回應探測，只會一直得到 `NetworkError`、不會被停用（PR 9a 檢查提出）。M3 插件頁若要讓使用者手動停用，一併處理。
 - [ ] Android 的跨 isolate 成本：模擬器 debug 下每次宿主呼叫多約 7 ms，不經宿主的 `search` 也比純 Dart 對照慢，差額未查明。有實機時用 profile 模式重量（`integration_test/plugin_runtime_benchmark_test.dart`）。
 - [ ] Android 上 prod 的開發入口實機驗證：需要一台沒裝舊版的模擬器或實機（PR 13 或 M9 前）。
+
+9b 留下的後續：
+
+- [ ] 錄製與重播的 adapter 現在在 `app/test/plugins/contract/`；M3 的 App 內開發工具要用時移進 `lib/core/network/`，格式不變。
+- [ ] 執行器看不到插件自己吞掉的「網域不在清單」錯誤（網路層照樣不送出），也分不出插件自拋的 `ParseError` 與 DTO 驗證失敗；要看到前者得讓網路層替被拒的請求寫紀錄。
+- [ ] 串流候選的網址本身（query 裡的 `access_key` 之類）不在憑證檢查內，現在只查 headers。9c 接 B 站時看要不要加。
+- [ ] 9b 審查時有一次 `flutter test` 兩個契約測試檔卡在 loading（編譯階段，20 分鐘無進度），之後 14 次沒重現。CI 若出現同樣的卡住，從 flutter_tools 層查。
 
 ### 探針：YouTube.js（擁有者決定 3）
 
