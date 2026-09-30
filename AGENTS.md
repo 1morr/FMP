@@ -13,7 +13,7 @@ ADR 0026). Human-facing docs live in `docs/`; `docs/README.md` is the map.
 | `app/` | The new app — its own Flutter project and pub workspace root | `app/AGENTS.md` |
 | `docs/adr/` | Decisions. 0008 onward is the rewrite; 0001–0007 describe the old app only | — |
 | `.github/workflows/` | `ci.yml` splits by changed path — `app/**` and `.github/**` run the `app` job, anything outside `app/` runs the old app's jobs — and `CI Result` fails if any of them did; `release.yml` releases the old app | — |
-| `.claude/skills/` | `verify-legacy-on-device` for old-app hotfixes; `trellis-*` come with Trellis | — |
+| `.claude/skills/` | `verify-on-device` for `app/`, `verify-legacy-on-device` for old-app hotfixes; `trellis-*` come with Trellis | — |
 | `.trellis/` | Tasks and specs: `spec/legacy/` for the old app, `spec/app/` for the new one, `spec/guides/` shared | — |
 
 Claude Code loads a subdirectory's `AGENTS.md` only when it reads a file there,
