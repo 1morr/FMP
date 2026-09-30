@@ -57,7 +57,7 @@ https://drift.simonbinder.eu/migrations/step_by_step/、
 https://drift.simonbinder.eu/migrations/tests/。
 
 1. 改 `tables.dart`，`AppDatabase.schemaVersion` 加一。
-2. `dart run build_runner build`。
+2. `dart run build_runner build --delete-conflicting-outputs`。
 3. `dart run drift_dev make-migrations`。它會：
    - 存 `drift_schemas/app_database/drift_schema_v<N>.json`；
    - 產生 `lib/data/database/app_database.steps.dart`（`stepByStep`）；
@@ -96,6 +96,6 @@ https://drift.simonbinder.eu/migrations/tests/。
 
 ## Quality Check
 
-- `dart run build_runner build` 後 `git status` 沒有變動（CI 同一步）。
+- `dart run build_runner build --delete-conflicting-outputs` 後 `git status` 沒有變動（CI 同一步）。
 - `schema_test.dart` 綠；改過 schema 就有新快照與第 5 步的三種測試。
 - `lib/data/` 以外沒有 drift 型別出現在 import 或公開 API。

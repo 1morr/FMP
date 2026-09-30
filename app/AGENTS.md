@@ -12,8 +12,8 @@
 | 任何改動 | `dart format --output=none --set-exit-if-changed .`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test` |
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
-| drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
-| 翻譯（`lib/i18n/*.i18n.json`）或 `build.yaml` 的 slang 設定 | 先 `dart run build_runner build`，再跑第一列 |
+| drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
+| 翻譯（`lib/i18n/*.i18n.json`）或 `build.yaml` 的 slang 設定 | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
@@ -127,7 +127,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`test/data/database/app_database_test.dart` 與 repository 測試的 cascade 案例。
 - drift 與 slang（§ 介面）產生的 `*.g.dart` 提交進 repo（`app/.gitignore` 覆寫根目錄對
   `*.g.dart` 的忽略），拉下來不用先跑 codegen。改了 table、`@DriftDatabase` 或翻譯檔就重跑
-  `dart run build_runner build`（兩者一起產生）並提交產生檔。閘門：CI `app` job 的
+  `dart run build_runner build --delete-conflicting-outputs`（兩者一起產生）並提交產生檔。閘門：CI `app` job 的
   「Check generated code is up to date」；本機沒有東西擋。在 Windows 上重跑會把產生檔與
   `linux/`、`macos/`、`windows/` 的 plugin registrant 改成 LF，內容沒變的（`git diff
   --ignore-all-space --ignore-cr-at-eol` 為空）直接還原。

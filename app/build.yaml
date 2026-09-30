@@ -1,4 +1,4 @@
-# 程式碼產生器設定；`dart run build_runner build` 一次跑完兩者，產生檔都提交
+# 程式碼產生器設定；`dart run build_runner build --delete-conflicting-outputs` 一次跑完兩者，產生檔都提交
 # （app/AGENTS.md § 資料層、§ 介面）。
 targets:
   $default:

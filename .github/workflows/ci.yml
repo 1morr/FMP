@@ -233,12 +233,14 @@ jobs:
       # 路徑用 `.`：這個 job 的工作目錄已經是 app/。
       - name: Check generated code is up to date
         run: |
-          dart run build_runner build
+          # 乾淨的 checkout 沒有 build_runner 的資產圖，已提交的產生檔會被當成
+          # 衝突而拒寫；允許覆寫後，再用 git 判斷內容有沒有變。
+          dart run build_runner build --delete-conflicting-outputs
           changes="$(git status --porcelain -- .)"
           if [ -n "$changes" ]; then
             echo "$changes"
             git diff -- .
-            echo "Generated code is stale: run 'dart run build_runner build' in app/ and commit the result."
+            echo "Generated code is stale: run 'dart run build_runner build --delete-conflicting-outputs' in app/ and commit the result."
             exit 1
           fi
 
