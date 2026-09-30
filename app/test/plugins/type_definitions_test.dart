@@ -8,6 +8,8 @@ import 'package:fmp/plugins/runtime/plugin_host.dart';
 import 'package:fmp/plugins/runtime/script_errors.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
+import 'contract/checks.dart';
+import 'contract/fixture.dart';
 import 'plugin_harness.dart';
 
 // `lib/plugins/types/fmp-plugin.d.ts` 是給插件作者的介面說明。這裡以一個只
@@ -19,11 +21,14 @@ final _dts = File('lib/plugins/types/fmp-plugin.d.ts')
     .readAsStringSync()
     .replaceAll('\r\n', '\n');
 
-/// Dart 端有欄位表的 interface。
+/// Dart 端有欄位表的 interface。契約檢查的格式（checks.json、fixture）由
+/// 契約執行器解碼。
 final _shapes = <String, JsonShape>{
   ...manifestShapes,
   ...sourceDtoShapes,
   ...hostApiShapes,
+  ...checkShapes,
+  ...fixtureShapes,
 };
 
 /// 沒有 JSON 欄位表的 interface：宿主 API 由執行中的 runtime 比對，其他是

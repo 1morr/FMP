@@ -1,0 +1,17 @@
+{
+  "search": {
+    "input": { "keyword": "tone", "page": 1 },
+    "expect": {
+      "minItems": 2,
+      "nonEmpty": ["sourceId", "title", "uploader", "durationMs"]
+    }
+  },
+  "resolveStream": {
+    "input": {
+      "sourceId": "tone-440",
+      "purpose": "playback",
+      "formats": [{ "container": "wav", "codec": "pcm_s16le" }]
+    },
+    "expect": { "minItems": 1, "nonEmpty": ["url", "container", "codec"] }
+  }
+}

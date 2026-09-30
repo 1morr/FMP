@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "edited": "手寫的合成資料，不是錄的"
+  },
+  "request": {
+    "method": "GET",
+    "url": "https://api.fmp.test/search?access_key=***&keyword=tone&page=1",
+    "headers": {
+      "referer": "https://www.fmp.test/"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": ["application/json; charset=utf-8"],
+      "set-cookie": ["demo_session=***; Path=/; Secure"]
+    },
+    "jsonBody": {
+      "demo_session": "***",
+      "list": [
+        { "id": "a1", "name": "Tone A", "owner": "FMP", "ms": 2000 },
+        { "id": "a2", "name": "Tone B", "owner": "FMP", "ms": 3000 }
+      ],
+      "more": false
+    }
+  }
+}

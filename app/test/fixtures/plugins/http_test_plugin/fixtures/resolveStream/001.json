@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "edited": "手寫的錯誤案例：上游對版權受限的曲目回 code 403"
+  },
+  "request": {
+    "method": "GET",
+    "url": "https://api.fmp.test/stream?id=a1"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": ["application/json; charset=utf-8"]
+    },
+    "jsonBody": { "code": 403 }
+  }
+}
