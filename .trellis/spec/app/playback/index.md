@@ -13,8 +13,7 @@ lib/playback/
   queue_model.dart          # QueueModel、QueueState（M1：記憶體、依序）
   stream_resolver.dart      # StreamResolver、ResolvedStream（期限）
   recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別（純函數）
-  playback_providers.dart   # audioBackendProvider、playbackControllerProvider、兩個狀態 stream
-  dev_playback_entry.dart   # --fmp-dev-playback（只在 dev）
+  playback_providers.dart   # audioBackendProvider、playbackControllerProvider、狀態／佇列／進度 stream
   backends/
     audio_backend.dart      # AudioBackend 介面、BackendSource、狀態與事件
     backend_rules.dart      # classifyTrackEnd、LookAheadEdit（兩個後端共用）
@@ -79,24 +78,15 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 
 ## 實機驗證（ADR 0018 §如何確認）
 
-測試插件的三首都是同一個 2 秒的 `tone.wav`（dev flavor 的 asset），不連網。
+建置、安裝、啟動、讀 log 與 `dumpsys audio` 照 `verify-on-device` skill（`.claude/skills/verify-on-device/`）。
+播放一律從 UI 開始：以 `--fmp-dev-plugin` 裝測試插件（重播，三首同一個 2 秒的 `tone.wav`、
+不連網）或 B 站插件（真實），搜尋後點一首。播放相關要看的：
 
-- Windows：`flutter build windows --flavor dev --debug`，再
-  `build\windows\x64\dev\runner\Debug\fmp.exe --fmp-dev-playback`。dev 是單一實例，先關掉其他
-  開著的 FMP Dev（包括別的 worktree 的）。log 在同目錄的 `userdata-dev\logs\fmp.jsonl`。
-- Android 模擬器：`flutter build apk --flavor dev --debug`、`adb install -r
-  build\app\outputs\flutter-apk\app-dev-debug.apk`，再 `adb shell am start -n
-  com.personal.fmp.dev/com.personal.fmp.MainActivity --esal dart_entrypoint_args
-  --fmp-dev-playback`。debug build 的 log 在 `adb logcat -s flutter`。模擬器要有聲音輸出
-  （不是 `-no-audio` 啟動的），ExoPlayer 才會真的播。
-- 看交接：`Look-ahead handover`（`previousPositionMs` 是上一首最後回報的位置）與接著的
+- 交接：`Look-ahead handover`（`previousPositionMs` 是上一首最後回報的位置）與接著的
   `Track audible`：`sinceHandoverMs` 是交接事件到這首第一次回報位置，`estimatedGapMs` 是從
   上一首最後的位置推算的結束時間到這首第一次回報位置（含位置回報的間隔，只是估計）。
-  身分頁的 `Dev playback:` 一行是狀態與第幾首。
-- Android 音訊焦點：播放中與交接前後重複 `adb shell dumpsys audio`，看 `Audio Focus stack`
-  的最上面一直是 `com.personal.fmp.dev`（`AUDIOFOCUS_GAIN`），沒有被 abandon 又重新 request；
-  播完之後也仍在（just_audio 不主動放）。
-- 真實連線（可選、ADR 0027 §決定 2 的最少操作）：`--fmp-dev-plugin=<B 站插件>
-  --fmp-dev-playback=bilibili:<BV 號>` 播一首，看 `Opening stream` 的 `headers` 有
-  `Referer`。多首就重複 `--fmp-dev-playback=`；Android 的 `--esal` 以逗號分隔陣列，寫成
-  `--esal dart_entrypoint_args --fmp-dev-plugin=<路徑>,--fmp-dev-playback=bilibili:<BV 號>`。
+- Android 音訊焦點：播放中與交接前後，`Audio Focus stack` 的最上面一直是
+  `com.personal.fmp.dev`（`AUDIOFOCUS_GAIN`），沒有被 abandon 又重新 request；播完之後也仍在
+  （just_audio 不主動放）。模擬器要有聲音輸出（不是 `-no-audio` 啟動的），ExoPlayer 才會真的播。
+- 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
+  `Referer`。

@@ -125,7 +125,8 @@ export async function resolveStream({ sourceId, cid, formats }) {
 
 - 測試：`PluginHarness().load(source)`（`test/plugins/plugin_harness.dart`），HTTP 走假 adapter。
 - dev 實機：Windows `flutter run --dart-entrypoint-args=--fmp-dev-plugin=<路徑>`，或設環境變數
-  `FMP_DEV_PLUGIN`；Android 見 `app/AGENTS.md` § 插件的 `adb` 指令。身分頁列出載入的插件。
+  `FMP_DEV_PLUGIN`；Android 見 `verify-on-device` skill 的 `references/android.md`。有 `search`
+  能力的插件出現在搜尋頁的音源 chip。
 
 ## 加一個宿主 API
 
