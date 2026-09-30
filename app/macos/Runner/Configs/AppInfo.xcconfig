@@ -7,8 +7,8 @@
 // The application's name. By default this is also the title of the Flutter window.
 PRODUCT_NAME = fmp
 
-// The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.personal.fmp
+// bundle identifier 與顯示名稱（APP_DISPLAY_NAME）依 flavor 不同，寫在
+// Runner.xcodeproj/project.pbxproj 的每個 build configuration（app/AGENTS.md § App 身分）。
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.personal. All rights reserved.
