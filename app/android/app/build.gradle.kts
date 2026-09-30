@@ -1,7 +1,26 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// 發版簽名（app/AGENTS.md § 發版）：與舊版同一把金鑰（ADR 0008 §決定 3），
+// 舊版使用者才升得上來。android/key.properties 只在發版 workflow 裡由 secrets
+// 寫出（已 gitignore）；沒有這個檔時 release 用 debug 簽名，本機與 CI 的建置
+// 照常能跑。檔案在但缺欄位就讓建置失敗，不默默退回 debug。
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties: Properties? = if (keyPropertiesFile.exists()) {
+    Properties().apply { keyPropertiesFile.inputStream().use { load(it) } }.also { properties ->
+        val missing = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+            .filter { properties.getProperty(it).isNullOrBlank() }
+        if (missing.isNotEmpty()) {
+            throw GradleException("android/key.properties is missing ${missing.joinToString()}")
+        }
+    }
+} else {
+    null
 }
 
 android {
@@ -30,10 +49,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (keyProperties != null) {
+            create("release") {
+                storeFile = file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // release 簽名在發版工作接 key.properties（M1 PR 13），先用 debug 簽名。
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (keyProperties != null) "release" else "debug")
         }
     }
 
