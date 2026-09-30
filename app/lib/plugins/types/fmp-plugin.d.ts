@@ -9,7 +9,8 @@
 // 可以省略或給 null。
 //
 // 與宿主的 Dart 端一致：interface 的欄位對 `manifestShapes`、`sourceDtoShapes`、
-// `hostApiShapes`，FmpHost 對 `js_prelude.dart` 實際建出的 `fmp`
+// `hostApiShapes`，契約檢查的格式對契約執行器的 `checkShapes`、`fixtureShapes`
+// （app/test/plugins/contract/），FmpHost 對 `js_prelude.dart` 實際建出的 `fmp`
 // （app/test/plugins/type_definitions_test.dart 比對）。
 
 // ---------------------------------------------------------------- manifest
@@ -246,6 +247,95 @@ export interface FmpError {
 export interface FmpPluginExports {
   search?(query: SearchQuery): SearchPage | Promise<SearchPage>;
   resolveStream?(request: StreamRequest): StreamResult | Promise<StreamResult>;
+}
+
+// ---------------------------------------------------------------- 契約檢查
+//
+// 插件目錄（插件庫的一個插件、app/test/fixtures/plugins/ 的測試插件）：
+//
+//   <目錄>/<名稱>.js                  安裝檔，只能有一個
+//   <目錄>/checks.json                FmpChecks
+//   <目錄>/fixtures/<能力>/<序號>.json FmpFixture，依檔名排序就是請求的順序
+//
+// 契約執行器以 fixture 重播每條案例，檢查能力與匯出一致、回傳值通過 DTO 驗證、
+// 案例的期望、錯誤類別、只連 allowedHosts、串流 headers 不帶憑證、log 與
+// fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
+// fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
+
+/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這兩個。 */
+export interface FmpChecks {
+  search?: FmpSearchCheck | null;
+  resolveStream?: FmpResolveStreamCheck | null;
+}
+
+export interface FmpSearchCheck {
+  input: SearchQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+}
+
+export interface FmpResolveStreamCheck {
+  input: StreamRequest;
+  expect: FmpExpectSuccess | FmpExpectError;
+}
+
+/** 成功；回傳的清單（search 的 items、resolveStream 的 candidates）符合條件。 */
+export interface FmpExpectSuccess {
+  /** 至少幾筆，預設 0。 */
+  minItems?: number | null;
+  /**
+   * 每一筆都要有值的欄位，名稱同 TrackSummary／StreamCandidate：不是 null、
+   * 空白字串、空陣列或空物件。
+   */
+  nonEmpty?: string[] | null;
+}
+
+/** 以這個錯誤失敗。 */
+export interface FmpExpectError {
+  error: FmpErrorName;
+  /** 只有 Unavailable 能給。 */
+  reason?: FmpUnavailableReason | null;
+}
+
+/**
+ * 一次請求與它的回應，一個檔案。欄位名稱沿用 WireMock 的 stub mapping。
+ * 錄製時寫檔前一律經宿主的遮蔽函式；手寫的也必須是遮過的樣子（值換成 `***`），
+ * 否則契約檢查失敗。
+ */
+export interface FmpFixture {
+  meta: FmpFixtureMeta;
+  request: FmpFixtureRequest;
+  response: FmpFixtureResponse;
+}
+
+export interface FmpFixtureMeta {
+  /** 錄製時間（ISO 8601，UTC）；手寫的沒有。 */
+  recordedAt?: string | null;
+  /** 手寫或手改的理由（例如錯誤案例）。有它的案例，錄製模式不覆蓋。 */
+  edited?: string | null;
+}
+
+export interface FmpFixtureRequest {
+  /** 與實際請求比對。 */
+  method: string;
+  /**
+   * 與實際請求比對（實際的網址先經同一個遮蔽函式）：scheme、host、port、路徑
+   * 與 query，query 不分順序；值是 `***` 的 query 參數與路徑段不比對值。
+   */
+  url: string;
+  /** 只供閱讀，不比對。名稱小寫。 */
+  headers?: Record<string, string> | null;
+  /** 只供閱讀，不比對。 */
+  body?: string | null;
+}
+
+export interface FmpFixtureResponse {
+  status: number;
+  /** 名稱小寫。錄製時不留 content-length、content-encoding、transfer-encoding。 */
+  headers?: Record<string, string[]> | null;
+  /** 文字 body；與 jsonBody 最多給一個。 */
+  body?: string | null;
+  /** JSON 物件或陣列的 body，重播時編碼成緊湊的 JSON 文字。 */
+  jsonBody?: unknown;
 }
 
 declare global {

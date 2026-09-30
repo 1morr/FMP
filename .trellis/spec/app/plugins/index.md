@@ -27,6 +27,15 @@ lib/plugins/
     plugin_installer.dart     # PluginInstaller：解析 → 載入 → 寫入 → 註冊
     dev_plugin_entry.dart     # dev 的開發入口
   types/fmp-plugin.d.ts       # 給插件作者的 TypeScript 型別
+
+test/plugins/contract/        # 契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
+  contract_runner.dart        # PluginDirectory、runContract／runCheck／recordContract
+  checks.dart                 # checks.json、checkShapes、期望的比對
+  fixture.dart                # fixture 格式、fixtureShapes、遮蔽、重播的網址比對
+  fixture_adapters.dart       # ReplayAdapter、RecordingAdapter（dio 最底層的 adapter）
+  credential_scan.dart        # fixture、log、串流 headers 的憑證檢查
+  contract_test.dart          # 重播的入口（FMP_PLUGIN_DIR）
+  record_test.dart            # 錄製（live 測試是真實連線的入口）
 ```
 
 ## 寫一個插件
@@ -69,7 +78,48 @@ export async function resolveStream({ sourceId, cid, formats }) {
   對應表）；`fmp.http.request` 自己丟的錯誤（網域不符、限流重試後仍失敗、傳輸錯誤）直接讓它往上拋。
 - 要跨重啟的值（匿名 cookie 等）存 `fmp.storage`；`fmp.credentials.get()` 在 M1 一律是 `null`。
 - 沒有 `setTimeout`、`fetch`、`require`，也不能 `import` 其他 module：一個檔案就是全部。
-- 用 `fmp-test` 當範本：`app/test/fixtures/plugins/test_plugin/test_plugin.js`。
+- 用 `fmp-test` 當範本：`app/test/fixtures/plugins/test_plugin/test_plugin.js`；會發請求的範本是
+  `app/test/fixtures/plugins/http_test_plugin/`。
+
+## 寫檢查案例與 fixture
+
+插件目錄是契約檢查的單位（格式在 `fmp-plugin.d.ts` 的 `FmpChecks`、`FmpFixture`）：
+
+```
+<插件目錄>/
+  <名稱>.js                     # 安裝檔，只能有一個
+  checks.json                   # 每能力最多一條
+  fixtures/<能力>/001.json …    # 該案例依序的請求與回應
+```
+
+```json
+{
+  "search": {
+    "input": { "keyword": "tone", "page": 1 },
+    "expect": { "minItems": 2, "nonEmpty": ["sourceId", "title"] }
+  },
+  "resolveStream": {
+    "input": {
+      "sourceId": "a1",
+      "purpose": "playback",
+      "formats": [{ "container": "mp4", "codec": "aac" }]
+    },
+    "expect": { "error": "Unavailable", "reason": "copyright" }
+  }
+}
+```
+
+- 成功的案例盡量用錄的：`FMP_PLUGIN_DIR=<絕對路徑> flutter test --run-skipped --tags live
+  test/plugins/contract/record_test.dart`（`app/` 內；真實連線，照 ADR 0027 §決定 2 回報）。
+  那個能力原本的 fixture 整組重寫，但只在結果符合 `expect` 時寫（不符就不動原本的檔案並回報）；
+  需要登入的案例錄不了（M1 沒有憑證，會以 `AuthRequired` 失敗）。
+- 錯誤案例（風控、下架）多半錄不到：手寫或把錄到的改掉，在 `meta.edited` 寫理由，錄製就不會蓋掉
+  那個案例。手寫的 fixture 也要是遮過的樣子（值寫 `***`），掃描不會放過。
+- 會變的 query 參數（時間戳、簽名）在 fixture 裡寫 `***` 就不比值；遮蔽名單上的參數錄的時候
+  已經是 `***`。
+- 跑：`FMP_PLUGIN_DIR=<絕對路徑> flutter test test/plugins/contract/contract_test.dart`；沒設
+  `FMP_PLUGIN_DIR` 就是跑 `app/` 內的測試插件（裸 `flutter test` 已包含）。失敗訊息列出每一條
+  違反，例如 `search: request #1 (GET …) does not match fixtures/search/001.json (GET …)`。
 
 ## 在 App 裡試插件
 
@@ -124,10 +174,15 @@ export async function resolveStream({ sourceId, cid, formats }) {
   回訊息再拋錯），不在正式程式碼留開關。
 - 走 Riverpod 的測試（安裝、清單）用 `ProviderContainer(retry: (_, _) => null, ...)`：App 關了重試，
   不關的話失敗的 provider 會一直重試到測試逾時。
-- 錯誤 fixture 的契約測試、`checks.json` 在 PR 9b。
+- 契約執行器本身（`test/plugins/contract/`）：改它的檢查時，在 `contract_runner_test.dart` 以
+  `copyPlugin`／`edit`（`plugin_copy.dart`）在測試插件的副本上造一個會紅的變異，並留一個改無關處
+  不紅的案例。`edit` 找不到要換的字串會讓測試失敗（Windows checkout 可能是 CRLF，只換單行）。
 
 ## Quality Check
 
-- `test/plugins/` 全綠；新的宿主 API 有隔離案例；`type_definitions_test.dart` 綠。
+- `test/plugins/` 全綠（含契約執行器）；新的宿主 API 有隔離案例；`type_definitions_test.dart` 綠。
 - `lib/plugins/` 以外沒有 import `flutter_js`；沒有網址字面值（`fmp_url_literal`）。
 - 改了 `fmp` 形狀或 DTO：`fmp-plugin.d.ts` 一起改，`app/AGENTS.md` § 插件若規則變了也改。
+- 加了 DTO 欄位：`test/plugins/contract/checks.dart` 的 `trackFields`／`candidateFields` 一起加
+  （`checks_test.dart` 比對）；`SourcePlugin` 加了能力的方法：`checkShapes['FmpChecks']`、
+  `PluginCheck.run` 與 d.ts 的 `FmpChecks` 一起加。

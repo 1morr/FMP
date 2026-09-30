@@ -18,3 +18,9 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ```
 
 以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 釋出至公有領域。
+
+## 契約檢查
+
+`checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search` 與
+`resolveStream` 都期望成功。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
+也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

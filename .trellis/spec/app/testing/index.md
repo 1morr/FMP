@@ -13,7 +13,8 @@
 | 單元 | 純邏輯、平台層實作（注入路徑與 callback，在暫存目錄上跑） | `test/platform/app_data_directory_test.dart` |
 | widget | 畫面；依賴以建構子或 provider override 注入 | `test/app/fmp_app_test.dart` |
 | 建置設定 | 原生身分：能執行就執行（`cmake -P`），不能就解析設定檔並附變異案例 | `test/identity/` |
-| 插件契約、整合、golden | M1 PR 9、PR 13 與設計系統元件加入時再寫 | — |
+| 插件契約 | 插件目錄的 `checks.json` 以 fixture 重播（寫法見 `.trellis/spec/app/plugins/index.md` § 寫檢查案例與 fixture） | `test/plugins/contract/contract_test.dart` |
+| 整合、golden | M1 PR 13 與設計系統元件加入時再寫 | — |
 
 - 碰資料庫的測試用 `test/support/memory_database.dart`，寫法見
   `.trellis/spec/app/data/index.md` § 測試。

@@ -84,10 +84,10 @@ app/
     i18n/                 # slang：zh-TW（base）、zh-CN、en
   packages/
     fmp_lints/            # analysis_server_plugin；analyzer_testing 測試
-    plugin_contract/      # 契約執行器（重播 fixture 跑 checks.json）
   test/
     flutter_test_config.dart   # HttpOverrides.global 擋真實 HttpClient
     fixtures/plugins/test_plugin/   # 合成資料、播放本機音檔
+    plugins/contract/     # 契約執行器（重播 fixture 跑 checks.json；9b 改放這裡，ADR 0015 更正）
   integration_test/
 ```
 
@@ -135,7 +135,7 @@ M1 的 drift 表：
   - `checks.json`。
 - 插件以舊專案 `lib/data/sources/bilibili*` 為規格，用 JS 重寫（ADR 0008 檔頭補充）。M1 只需要 `search` 與 `resolveStream` 兩個能力。
 - fixture 以真實連線錄製一次（ADR 0027 §決定 2），寫檔前經遮蔽函式；提交前人工確認沒有 cookie 或 token 原值。
-- fmp-plugins 的變更以該 repo 自己的 PR 合併，本機跑 `app/packages/plugin_contract` 的執行器驗證。
+- fmp-plugins 的變更以該 repo 自己的 PR 合併，本機以 `FMP_PLUGIN_DIR=<插件目錄> flutter test test/plugins/contract/contract_test.dart`（在 `app/` 內）驗證。
 
 ## 5. CI（PR 2 起逐步擴充）
 

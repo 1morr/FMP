@@ -1,0 +1,8 @@
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Fixture format, check cases, contract runner, recording correction"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Plugin model, manifest, host API v1, contract tests"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "Redaction applied before fixtures are written"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "How plugins and the runtime are built (9a)"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "SourceHttpClient and createAdapter injection point"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions, live tag, zero-network guard"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint rules and layer imports"}
+{"file": ".trellis/tasks/archive/2026-09/09-30-js-runtime/research/notes.md", "reason": "flutter_js facts, QuickJS in flutter test"}
