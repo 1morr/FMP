@@ -63,8 +63,10 @@ log 只經門面、禁止空 catch、音源 id 不得出現在 UI 與 service、
 6. **契約執行器**：一個通用套件以重播執行每個案例，斷言能力與匯出一致、DTO 驗證、案例期望、錯誤對到 `AppError` 類別（0013）、
    媒體請求不帶憑證（0012）、只連 manifest 網域、log 經遮蔽（0011）。插件庫 CI 以固定的 FMP 版本執行；`app/` 的 CI 對 `app/test/fixtures/plugins/`
    內的測試插件執行（合成資料、播放本機音檔），不依賴官方插件庫；同一個測試插件也供開發版離線開發。
+   更正（2026-09-30，M1）：執行器不是獨立套件，放在 `app/test/plugins/contract/`，以 `flutter test` 加環境變數 `FMP_PLUGIN_DIR` 對任一插件目錄執行。QuickJS 與零聯網的準備在 `app/test/`，獨立套件會與 `fmp` 互相依賴，錄製與重播的 adapter 放進 `lib/` 也違反分層；插件庫 CI 一樣是 checkout 固定版本的 FMP 再執行。
 7. **App 內插件開發工具**：開發者模式下從資料夾載入插件（先限桌面平台，由平台層宣告）、重新載入、跑案例看 log、
    以 App 內登入錄 fixture、每插件切換真實／錄製／重播。命令列只負責重播。版面見 ADR 0025。
+   更正（2026-09-30，M1）：命令列的契約執行器也能錄製，限不需要登入的案例，打 `live` tag 手動執行、寫檔前經遮蔽；需要登入的錄製仍只在 App 內。理由：App 內工具在 M3，M1 的 B 站 fixture 要能先錄、過時能重錄。
 8. **開發版**：flavor `dev`／`prod`，`pubspec.yaml` 設 `default-flavor: dev`，發版明確帶 `--flavor prod`。
    dev 的 Android `applicationIdSuffix ".dev"`、Windows AppUserModelID `com.personal.fmp.dev`、名稱「FMP Dev」與標記圖示、
    資料目錄／單一實例鎖／secure storage 命名空間加 `-dev`；prod 維持 ADR 0008 的身分。開發版資料預設空白，
