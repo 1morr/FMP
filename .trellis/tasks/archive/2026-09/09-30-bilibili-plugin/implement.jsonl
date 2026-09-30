@@ -1,0 +1,7 @@
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Plugin model, manifest, host API v1, install format, plugin repo"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "checks.json, fixtures, contract runner, CLI recording correction"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Media requests without credentials, Bilibili anonymous buvid"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "When real network is allowed and how to report it"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "How to write a plugin, check cases and fixtures"}
+{"file": ".trellis/tasks/archive/2026-09/09-30-plugin-contract/research/notes.md", "reason": "Fixture and checks.json formats, recording rules"}
+{"file": "lib/data/sources/bilibili_source.dart", "reason": "Legacy Bilibili behaviour that the plugin reimplements"}
