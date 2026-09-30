@@ -42,7 +42,8 @@
 - **PR 12b 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-app-shell/`）：外殼、搜尋、設定、播放列、快捷鍵與 F6；**M1 端到端驗收通過**（Windows、Android 模擬器各搜尋 B 站並連播兩首，模式：真實）。
 - **PR 13 拆分**（2026-10-01 擁有者核准）：**13a** CI 五平台建置、Xcode scheme、INTERNET 權限、Linux 與 Windows 整合測試（`.trellis/tasks/10-01-app-ci-platforms`）；**13b** release-please、`app-release.yml`、sandbox 實跑。
 - **PR 13a 完成**（#192，子任務已 archive 到 `.trellis/tasks/archive/2026-10/10-01-app-ci-platforms/`）：CI 五平台建置（macOS、iOS 各建 dev／prod）、Linux 與 Windows 整合測試、Xcode scheme、INTERNET 權限；順帶修了 flutter_js 在 Linux 漏裝 QuickJS 原生庫。
-- **下一步**：13b → 里程碑驗收。
+- **PR 13b 完成**（#193，子任務已 archive 到 `.trellis/tasks/archive/2026-10/10-01-app-release-workflow/`）：release-please、只能手動觸發的 `app-release.yml`、verify 與舊版更新器相容檢查；sandbox 完整發版（含一次失敗後由 2.0.1 補上）通過並已封存，紀錄在該子任務 `research/sandbox-run.md`。
+- **下一步**：M1 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -234,6 +235,14 @@ PR 10 留下的後續：
 - [ ] Runner scheme 與不帶 flavor 的三個 configuration 照官方文件保留；在 Xcode 用 Runner 建置時身分是 prod、`appFlavor` 卻取 `Generated.xcconfig` 的上一次值（`app/AGENTS.md` 已寫）。iOS／macOS 平台任務決定要不要刪。
 - [ ] `apple_identity_test.dart` 只比身分與 base xcconfig，不比 build settings 其餘內容（檢查時以解析器比過，目前完全相同）。
 - [ ] flutter_js 0.8.7 的 Linux CMake bug（清單變數寫成 `flutter_qjs_bundled_libraries`）由 `app/linux/CMakeLists.txt` 補上；向上游 `abner/flutter_js` 回報要擁有者當次同意。升版時拿掉補丁。
+
+13b 留下的後續（M9 發版前）：
+
+- [ ] 發佈物沒有授權聲明：舊版附 LICENSE、THIRD_PARTY_LICENSES（libmpv 是 LGPL），新 App 的 zip 與安裝檔沒有；公開發版前補上。
+- [ ] 發版 PR 由 `GITHUB_TOKEN` 開，不會觸發 `ci.yml`，`main` 的必要檢查 `CI Result` 永遠等不到：改用 GitHub App／PAT 的 token，或允許略過；同時開「允許 Actions 建 PR」。
+- [ ] 2.0.0 發出後刪 `release-please-config.json` 的 `release-as`（`app/test/release/release_please_test.dart` 會逼）。2.0.0 的 CHANGELOG 會收 M1–M9 全部，可能要在發版 PR 精簡；它的比較連結是 `v0.1.0...v2.0.0`（沒有這個 tag）。
+- [ ] Android 四個 ABI 在同一個 job 連建：sandbox（2 核）有一次第三個 APK 卡住被 runner 關掉，重跑成功；再出現就拆成 matrix。
+- [ ] 正式金鑰與 v1.11.0 在 App 內升級到 2.x 的實測（ADR 0022 §如何確認的延後實測），切換 PR 前。
 
 ### 探針：YouTube.js（擁有者決定 3）
 
