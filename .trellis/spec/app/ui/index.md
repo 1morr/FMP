@@ -2,7 +2,7 @@
 
 寫畫面、加字串、跳提示時適用。規則（token、字串來源、提示入口）與閘門見
 `app/AGENTS.md` § 介面；為什麼是這些選擇，見 ADR 0023、ADR 0024 與
-`.trellis/tasks/09-30-ui-foundation/research/notes.md`。這裡只寫怎麼做。
+`.trellis/tasks/archive/2026-09/09-30-ui-foundation/research/notes.md`。這裡只寫怎麼做。
 
 ## 目錄
 
