@@ -16,6 +16,8 @@ import 'package:media_kit/media_kit.dart' as mk;
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
+import 'package:fmp/plugins/manifest/plugin_file.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
@@ -111,6 +113,40 @@ class _State extends ConsumerState<YoutubeJsProbePanel> {
 
   int get _rssMb => ProcessInfo.currentRss ~/ (1024 * 1024);
 
+  static const _emptyPlugin = '''
+/* ==FMP Plugin==
+{"id": "probe-empty", "name": "Empty", "version": "1", "author": "FMP",
+ "apiVersion": 1, "capabilities": ["search"], "allowedHosts": []}
+==/FMP Plugin== */
+export function search() { return { items: [], hasMore: false }; }
+''';
+
+  /// Isolate spawn + QuickJS + module evaluation, no network (Innertube is lazy).
+  Future<void> _loadBench() async {
+    final loader = ref.read(scriptPluginLoaderProvider);
+    final path = ref.read(devPluginPathProvider)!;
+    final probe = PluginFile.parse(await File(path).readAsString());
+    final empty = PluginFile.parse(_emptyPlugin);
+    for (final (name, file) in [('empty', empty), ('youtubejs', probe)]) {
+      final times = <int>[];
+      final rssBefore = _rssMb;
+      final open = <SourcePlugin>[];
+      for (var i = 0; i < 3; i++) {
+        final sw = Stopwatch()..start();
+        open.add(await loader.load(file));
+        times.add(sw.elapsedMilliseconds);
+      }
+      final rssAfter = _rssMb;
+      for (final p in open) {
+        p.close();
+      }
+      _out(
+        'loadBench $name ms=$times rss +${rssAfter - rssBefore}MB for 3 '
+        'runtimes (${rssBefore}MB -> ${rssAfter}MB)',
+      );
+    }
+  }
+
   Future<void> _run(SourcePlugin plugin) async {
     final log = ref.read(logProvider);
     final platform = Platform.isAndroid ? 'android' : 'windows';
@@ -120,6 +156,7 @@ class _State extends ConsumerState<YoutubeJsProbePanel> {
     );
     final sw = Stopwatch();
     try {
+      await _loadBench();
       sw.start();
       final page = await plugin.search(SearchQuery(keyword: 'rick astley'));
       _out(
