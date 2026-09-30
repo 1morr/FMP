@@ -26,7 +26,7 @@
 
 ## 進度與交接（2026-09-30 更新；compact 後從這裡接）
 
-- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）。#176 是 CI 路徑探測，已關閉。
+- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）、#185（PR 9c 紀錄）、#186（遮蔽修正）。#176 是 CI 路徑探測，已關閉。
 - **isar／sqlite3 共存探針**：已完成，兩平台共存、全部 16KB 對齊（`research/isar-sqlite3-coexistence.md`，ADR 0010 已補）。
 - **PR 9a 完成**（#183，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
   - 實機：Windows dev 開發入口裝上、重啟後從資料庫載入、prod 不理會旗標；Android 模擬器 dev 的前兩項。模擬器上的 `com.personal.fmp` 是舊版 1.11.0，prod 沒裝上去驗；prod 那一段由單元測試守（`devPluginPath` 對 prod 一律回 `null`，有變異驗證）。
@@ -35,7 +35,10 @@
   - 在 dev App 裝它：`fmp.exe --fmp-dev-plugin=<fmp-plugins>/bilibili/bilibili.js`（Android 照 9a 的 `run-as` 做法）。
   - 真實連線：兩次錄製共 8 個 GET，沒有遇到風控；fixture 人工逐檔檢查過。
 - **遮蔽修正**：`hdnts`／`buvid` 進內建名單、同 host 的規則合併套用；fmp-plugins 的 B 站 fixture 同步重新遮蔽。
-- **下一步**：YouTube.js 探針（與 10–13 並行）→ 10 播放核心 → 11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **進行中（2026-09-30 起並行）**：
+  - PR 10 播放核心：分支 `feat/playback-core`，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-playback-core/`。實機（審查前的產物）：Windows 測試插件三首連播、交接估計間隔 49 ms；Android 估計 -43／18 ms，整段只有一次 `requestAudioFocus`、沒有 `abandonAudioFocus`；Windows 以 B 站插件真實播放一首（3 個 API 請求、只帶 Referer／User-Agent，log 無 CDN 網址）。審查修了 5 個缺陷（含 Android 載入中暫停會永遠卡在 Loading）；修正後 Android 真後端契約連續 5 次 10/10、Windows 10/10，兩平台連播與焦點重跑通過（Windows 50／49 ms，Android -206／30 ms、焦點只要求一次）。
+  - YouTube.js 探針：在 Agent 的 worktree、分支 `probe/youtubejs`（不合併、不 push）；結論寫在該 worktree 的 `research/youtubejs-probe.md`，回報後由主對話開子任務收進 `research/`，並在 ADR 0014 §決定 10 補一句結論。
+- **之後**：11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -49,7 +52,7 @@
   6. 使用者看得到的改動，由主對話實機驗證（Windows 用 msaa_tree.ps1 讀畫面文字；Android 用 adb 的 `run-as` 與 `screencap`）；
   7. 派 opus `trellis-check`，要它試著攻破安全相關的部分；
   8. 把後續待辦寫進本檔；
-  9. `git checkout --` 還原只有換行差異的產生檔（`generated_plugin*`、`app_database.g.dart`、`GeneratedPluginRegistrant.swift`）；
+  9. `git checkout --` 還原只有換行差異的產生檔（`generated_plugin*`、`app_database.g.dart`、`GeneratedPluginRegistrant.swift`）——**逐檔**用 `git diff --ignore-all-space --ignore-cr-at-eol` 確認是空的才還原；加了原生插件的 PR 有真正新增的註冊，整批還原會把它們弄丟（PR 10 踩過，`flutter pub get` 可重新產生）；
   10. 分開 commit；
   11. `task.py finish`，再 `archive <slug> --no-commit --skip-branch-validation`，把 archive commit 掉；
   12. push，`gh pr create`（繁中描述＋review 指南）；
@@ -201,6 +204,13 @@
 - [ ] 登入後 `_AuthInterceptor` 以 `headers.addAll` 注入 `Cookie`，會整個蓋掉插件送的匿名 `buvid3`；舊專案是合併。M3 登入任務決定合併或交給插件。
 - [ ] B 站插件的 `rateLimit`（併發 2、間隔 300ms）沒有量測依據；`allowedHosts` 外的 PCDN（`szbdyd.com`、直接寫 IP 的節點）會被丟掉，舊專案不限制。M6 媒體 client 接上時一併看。
 - [ ] PR 8 的 `ignoreInvalidCookies` 觀察：兩次錄製的回應都沒有 `Set-Cookie`，沒觀察到；留到會發 cookie 的端點（登入）。
+
+PR 10 留下的後續：
+
+- [ ] `app/android/app/src/main/AndroidManifest.xml` 沒有 `INTERNET` 權限（只有 `debug/`、`profile/` 有），release 建置連不了網路；PR 13 處理。
+- [ ] 開不起來的串流在換過候選後對應 `Unsupported`，ADR 0013 會顯示成「視為 bug」的通用訊息；CDN 403 落到這裡不貼切，PR 12 做提示時再看。
+- [ ] 前瞻開不起來時兩個後端的行為沒有契約案例（Android 會被當成目前這首中斷；Windows 可能卡在 Playing）；前瞻解析比目前這首播完還慢時會多解析一次。M2 補契約案例。
+- [ ] 被取代的 `resolveStream` 只丟結果、不取消網路工作（`SourcePlugin` 沒有取消參數）。
 - [ ] 媒體 CDN 的簽名參數目前是整個拿掉；內建名單每變嚴格一次，既有 fixture 就過不了「再遮蔽一次不變」的掃描（遮蔽修正 PR 時手動改了 fmp-plugins 的 24 個網址）。審查建議改成「值換成 `***`」：已遮過的不再誤紅、明文照樣紅。改動是 `_redactMediaUrl` 一行加既有測試期望，M3 插件庫 CI 上線前做。
 - [ ] 插件每重新載入一次，`Redactor._mediaCdns` 就多一份相同規則（輸出不受影響，只是多掃）；M3 插件頁的重新載入出現時一併去重。
 
