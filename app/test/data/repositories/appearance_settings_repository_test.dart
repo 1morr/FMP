@@ -45,6 +45,61 @@ void main() {
     );
   });
 
+  group('clear', () {
+    test('sets only the named fields back to unset', () async {
+      final repository = AppearanceSettingsRepository(memoryDatabase());
+      await repository.write(
+        themeMode: ThemeModeSetting.dark,
+        locale: LocaleSetting.en,
+      );
+
+      await repository.clear(locale: true);
+      expect(
+        await repository.read(),
+        const AppearanceSettings(themeMode: ThemeModeSetting.dark),
+      );
+
+      await repository.clear(themeMode: true);
+      expect(await repository.read(), AppearanceSettings.empty);
+    });
+
+    test('stores NULL, not a default value', () async {
+      final database = memoryDatabase();
+      final repository = AppearanceSettingsRepository(database);
+      await repository.write(
+        themeMode: ThemeModeSetting.light,
+        locale: LocaleSetting.zhCn,
+      );
+
+      await repository.clear(themeMode: true, locale: true);
+
+      final row = await database
+          .customSelect('SELECT theme_mode, locale FROM appearance_settings')
+          .getSingle();
+      expect(row.data, {'theme_mode': null, 'locale': null});
+    });
+
+    test('with nothing named changes nothing', () async {
+      final repository = AppearanceSettingsRepository(memoryDatabase());
+      await repository.write(locale: LocaleSetting.zhTw);
+
+      await repository.clear();
+
+      expect(
+        await repository.read(),
+        const AppearanceSettings(locale: LocaleSetting.zhTw),
+      );
+    });
+
+    test('before any write leaves the row unset', () async {
+      final repository = AppearanceSettingsRepository(memoryDatabase());
+
+      await repository.clear(themeMode: true);
+
+      expect(await repository.read(), AppearanceSettings.empty);
+    });
+  });
+
   test('watch emits the current value and every write', () async {
     final repository = AppearanceSettingsRepository(memoryDatabase());
     final events = StreamIterator(repository.watch());

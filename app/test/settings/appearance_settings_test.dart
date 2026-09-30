@@ -194,6 +194,40 @@ void main() {
       expect(values.current.locale, LocaleSetting.zhCn);
     });
 
+    test('null clears a field back to following the system', () async {
+      setSystemLocale(const Locale('en', 'US'));
+      final database = memoryDatabase();
+      final container = containerFor(database);
+      final values = appearances(container);
+      expect(await values.moveNext(), isTrue);
+      final notifier = container.read(appearanceProvider.notifier);
+      await notifier.setLocale(LocaleSetting.zhCn);
+      expect(await values.moveNext(), isTrue);
+      await notifier.setThemeMode(ThemeModeSetting.dark);
+      expect(await values.moveNext(), isTrue);
+
+      await notifier.setLocale(null);
+      expect(await values.moveNext(), isTrue);
+      // 語言回到系統的；主題不動。
+      expect(values.current.locale, LocaleSetting.en);
+      expect(values.current.stored.locale, isNull);
+      expect(values.current.themeMode, ThemeModeSetting.dark);
+
+      await notifier.setThemeMode(null);
+      expect(await values.moveNext(), isTrue);
+      expect(values.current.themeMode, ThemeModeSetting.system);
+      expect(values.current.stored, AppearanceSettings.empty);
+
+      // 清掉之後又跟著系統變。
+      setSystemLocale(const Locale('zh', 'TW'));
+      expect(await values.moveNext(), isTrue);
+      expect(values.current.locale, LocaleSetting.zhTw);
+      final row = await database
+          .customSelect('SELECT theme_mode, locale FROM appearance_settings')
+          .getSingle();
+      expect(row.data, {'theme_mode': null, 'locale': null});
+    });
+
     test('each setter writes only its own field', () async {
       setSystemLocale(const Locale('en', 'US'));
       final container = containerFor(memoryDatabase());

@@ -122,12 +122,19 @@ final class AppearanceNotifier extends StreamNotifier<Appearance> {
         );
   }
 
-  /// 只寫主題模式這個欄位。
-  Future<void> setThemeMode(ThemeModeSetting themeMode) => ref
-      .read(appearanceSettingsRepositoryProvider)
-      .write(themeMode: themeMode);
+  /// 只寫主題模式這個欄位；`null` 清回沒設定過（跟隨預設，也就是系統）。
+  Future<void> setThemeMode(ThemeModeSetting? themeMode) {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    return themeMode == null
+        ? repository.clear(themeMode: true)
+        : repository.write(themeMode: themeMode);
+  }
 
-  /// 只寫語言這個欄位。
-  Future<void> setLocale(LocaleSetting locale) =>
-      ref.read(appearanceSettingsRepositoryProvider).write(locale: locale);
+  /// 只寫語言這個欄位；`null` 清回沒設定過（跟隨系統的語言偏好）。
+  Future<void> setLocale(LocaleSetting? locale) {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    return locale == null
+        ? repository.clear(locale: true)
+        : repository.write(locale: locale);
+  }
 }
