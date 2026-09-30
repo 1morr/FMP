@@ -3,7 +3,8 @@ name: CI
 # repo 裡有兩個專案：根目錄的舊專案（凍結，只收緊急修正）與 app/ 的新專案
 # （ADR 0008）。`changes` job 依變動路徑分流（ADR 0015 §決定 9），兩邊的 CI
 # 失敗不會互相擋 PR：
-# - app/** 或 .github/** 有變動：跑 `app` 與 `app-` 開頭的 job。
+# - app/**、.github/** 或 repo 根的 release-please 設定有變動：跑 `app` 與
+#   `app-` 開頭的 job。
 # - app/ 以外有任何變動：跑舊專案的三個 job。文件變更也算，因為 Markdown
 #   承載由測試守著的規則（尤其是 agent 指令檔），只改文字的 commit 正是最
 #   不能跳過 `validate` 的那種。所以舊專案的篩選條件是「app/ 以外」，不是
@@ -68,6 +69,10 @@ jobs:
             app:
               - 'app/**'
               - '.github/**'
+              # app 的發版設定在 repo 根（release-please 的慣例），由
+              # app/test/release/ 守著。
+              - 'release-please-config.json'
+              - '.release-please-manifest.json'
             legacy:
               - '**'
               - '!app/**'
@@ -321,7 +326,8 @@ jobs:
       - name: Flutter dependencies
         run: flutter pub get
 
-      # 正式簽名在發版 workflow（M1 PR 13b）；在那之前 release 用 debug 金鑰。
+      # 沒有 android/key.properties，release 用 debug 金鑰；正式簽名只在
+      # app-release.yml（app/AGENTS.md § 發版）。
       - name: Build APK (prod, release)
         run: flutter build apk --flavor prod --release
 
