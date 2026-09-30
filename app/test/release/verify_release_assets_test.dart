@@ -307,6 +307,31 @@ void main() {
       expect(parseSigners('DOES NOT VERIFY\n'), isEmpty);
     });
 
+    // build-tools 37.0.0（runner 映像）的格式，取自 sandbox 發版的 APK。
+    test('apksigner 37 lists each scheme and one certificate counts once', () {
+      String scheme(String label, String hex) =>
+          '$label: certificate DN: CN=FMP Release Sandbox\n'
+          '$label: certificate SHA-256 digest: $hex\n'
+          '$label: certificate SHA-1 digest: ${'01' * 20}\n';
+      const cn = 'CN=FMP Release Sandbox';
+      expect(parseSigners(scheme('V2 Signer', 'AB' * 32)), [
+        (dn: cn, sha256: 'ab' * 32),
+      ]);
+      expect(
+        parseSigners(
+          scheme('V2 Signer', 'AB' * 32) + scheme('V3 Signer', 'ab' * 32),
+        ),
+        [(dn: cn, sha256: 'ab' * 32)],
+      );
+      // 兩張不同的憑證不會被去重掉：呼叫端要看得到第二張。
+      expect(
+        parseSigners(
+          scheme('V2 Signer', 'AB' * 32) + scheme('V3 Signer', 'CD' * 32),
+        ),
+        hasLength(2),
+      );
+    });
+
     test('PE header', () {
       expect(isWindowsExecutable(minimalPe()), isTrue);
       expect(isWindowsExecutable([0x4D, 0x5A]), isFalse);

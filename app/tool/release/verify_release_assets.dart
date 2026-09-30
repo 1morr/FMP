@@ -285,24 +285,33 @@ ApkBadging? parseBadging(String output) {
   );
 }
 
-/// 從 `apksigner verify --print-certs` 的輸出讀每個 signer 的 DN 與憑證
-/// SHA-256。
+/// 從 `apksigner verify --print-certs` 的輸出讀每張簽名憑證的 DN 與
+/// SHA-256，同一張憑證只算一次。
+///
+/// 每列的開頭是 signer 的標籤：build-tools 36 是 `Signer #1`，37 改成依簽名
+/// 方案列出 `V2 Signer:`、`V3 Signer:`（runner 映像換版時在 sandbox 抓到的）。
+/// 各方案用同一把金鑰簽時是同一張憑證，所以依憑證去重；出現第二張不同的
+/// 憑證（例如金鑰輪替）就會多一筆，由呼叫端擋下。
 List<ApkSigner> parseSigners(String output) {
   final dn = <String, String>{};
   final digest = <String, String>{};
   for (final line in output.split(RegExp(r'\r?\n'))) {
-    final match = RegExp(
-      r'^Signer #(\d+) certificate (DN|SHA-256 digest): (.*)$',
-    ).firstMatch(line.trim());
+    final match = RegExp(r'^(.+?):? certificate (DN|SHA-256 digest): (.*)$')
+        .firstMatch(line.trim());
     if (match == null) continue;
     final target = match.group(2) == 'DN' ? dn : digest;
     target[match.group(1)!] = match.group(3)!.trim();
   }
-  return [
-    for (final signer in dn.keys)
-      if (digest[signer] case final sha256?)
-        (dn: dn[signer]!, sha256: sha256.toLowerCase()),
-  ];
+  final byCertificate = <String, ApkSigner>{};
+  for (final signer in dn.keys) {
+    if (digest[signer] case final sha256?) {
+      byCertificate.putIfAbsent(
+        sha256.toLowerCase(),
+        () => (dn: dn[signer]!, sha256: sha256.toLowerCase()),
+      );
+    }
+  }
+  return byCertificate.values.toList();
 }
 
 Future<void> main(List<String> args) async {
