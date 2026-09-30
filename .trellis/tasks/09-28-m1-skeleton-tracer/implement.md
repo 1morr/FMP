@@ -26,7 +26,7 @@
 
 ## 進度與交接（2026-09-30 更新；compact 後從這裡接）
 
-- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）、#185（PR 9c 紀錄）、#186（遮蔽修正）。#176 是 CI 路徑探測，已關閉。
+- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）、#185（PR 9c 紀錄）、#186（遮蔽修正）、#187（PR 10 播放核心）。#176 是 CI 路徑探測，已關閉。
 - **isar／sqlite3 共存探針**：已完成，兩平台共存、全部 16KB 對齊（`research/isar-sqlite3-coexistence.md`，ADR 0010 已補）。
 - **PR 9a 完成**（#183，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
   - 實機：Windows dev 開發入口裝上、重啟後從資料庫載入、prod 不理會旗標；Android 模擬器 dev 的前兩項。模擬器上的 `com.personal.fmp` 是舊版 1.11.0，prod 沒裝上去驗；prod 那一段由單元測試守（`devPluginPath` 對 prod 一律回 `null`，有變異驗證）。
@@ -35,10 +35,9 @@
   - 在 dev App 裝它：`fmp.exe --fmp-dev-plugin=<fmp-plugins>/bilibili/bilibili.js`（Android 照 9a 的 `run-as` 做法）。
   - 真實連線：兩次錄製共 8 個 GET，沒有遇到風控；fixture 人工逐檔檢查過。
 - **遮蔽修正**：`hdnts`／`buvid` 進內建名單、同 host 的規則合併套用；fmp-plugins 的 B 站 fixture 同步重新遮蔽。
-- **進行中（2026-09-30 起並行）**：
-  - PR 10 播放核心：分支 `feat/playback-core`，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-playback-core/`。實機（審查前的產物）：Windows 測試插件三首連播、交接估計間隔 49 ms；Android 估計 -43／18 ms，整段只有一次 `requestAudioFocus`、沒有 `abandonAudioFocus`；Windows 以 B 站插件真實播放一首（3 個 API 請求、只帶 Referer／User-Agent，log 無 CDN 網址）。審查修了 5 個缺陷（含 Android 載入中暫停會永遠卡在 Loading）；修正後 Android 真後端契約連續 5 次 10/10、Windows 10/10，兩平台連播與焦點重跑通過（Windows 50／49 ms，Android -206／30 ms、焦點只要求一次）。
-  - YouTube.js 探針：在 Agent 的 worktree、分支 `probe/youtubejs`（不合併、不 push）；結論寫在該 worktree 的 `research/youtubejs-probe.md`，回報後由主對話開子任務收進 `research/`，並在 ADR 0014 §決定 10 補一句結論。
-- **之後**：11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **PR 10 完成**（#187，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-playback-core/`）：播放核心、兩個後端、前瞻交接。dev 入口 `--fmp-dev-playback`（可加 `=<曲目鍵>`）；實機數字在該子任務與 #187 描述。
+- **YouTube.js 探針完成**：通過（VISIONOS client），M3 的 YouTube 走插件；程式碼在分支 `probe/youtubejs`（已 push，不合併），結論在 `.trellis/tasks/archive/2026-09/09-30-youtubejs-probe/`，ADR 0014 §決定 10 已補。Android 只驗到音訊系統層（模擬器 `-no-audio`）。
+- **下一步**：11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -216,9 +215,9 @@ PR 10 留下的後續：
 
 ### 探針：YouTube.js（擁有者決定 3）
 
-- [ ] 9 合併後開一個子任務，時限約 2–3 個 session。
-- [ ] 分支不合併，結論寫進研究檔。
-- [ ] ADR 0014 補一句結論。
+- [x] 9 合併後開一個子任務，時限約 2–3 個 session。
+- [x] 分支不合併，結論寫進研究檔。
+- [x] ADR 0014 補一句結論。
 
 ### 10. 播放核心最小集
 
