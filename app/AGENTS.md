@@ -13,7 +13,7 @@
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
 | drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
-| 翻譯（`lib/i18n/*.i18n.json`）或 `build.yaml` 的 slang 設定 | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列 |
+| 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
@@ -126,8 +126,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 外鍵每次開啟都在 `beforeOpen` 打開（SQLite 預設關、只對當前連線有效；ADR 0019 §決定 1）。
   閘門：`test/data/database/app_database_test.dart` 與 repository 測試的 cascade 案例。
 - drift 與 slang（§ 介面）產生的 `*.g.dart` 提交進 repo（`app/.gitignore` 覆寫根目錄對
-  `*.g.dart` 的忽略），拉下來不用先跑 codegen。改了 table、`@DriftDatabase` 或翻譯檔就重跑
-  `dart run build_runner build --delete-conflicting-outputs`（兩者一起產生）並提交產生檔。閘門：CI `app` job 的
+  `*.g.dart` 的忽略），拉下來不用先跑 codegen。改了 table、`@DriftDatabase` 就重跑
+  `dart run build_runner build --delete-conflicting-outputs`，改了翻譯檔就重跑 `dart run slang`（不用
+  slang_build_runner：它在乾淨的 checkout 會把已提交的產生檔當成衝突），並提交產生檔。閘門：CI `app` job 的
   「Check generated code is up to date」；本機沒有東西擋。在 Windows 上重跑會把產生檔與
   `linux/`、`macos/`、`windows/` 的 plugin registrant 改成 LF，內容沒變的（`git diff
   --ignore-all-space --ignore-cr-at-eol` 為空）直接還原。
@@ -392,7 +393,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   所以編譯擋不住漏翻。閘門：`test/i18n/translations_test.dart`（三個語言的 key 與 `{參數}`
   相同、每個 `ErrorMessageKey`／`UnavailableReason` 都有字串；含變異案例）。widget 裡寫死的
   字串沒有閘門，review 時看；身分頁的 `Dev playback:` 之類是開發用標籤，刻意不翻。
-- 翻譯只經 `translationsProvider`（`lib/ui/i18n/ui_locale.dart`）注入：`build.yaml` 設
+- 翻譯只經 `translationsProvider`（`lib/ui/i18n/ui_locale.dart`）注入：`slang.yaml` 設
   `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。
 - `MaterialApp.locale` 一律給帶書寫系統的 locale（`zh-Hant-TW`、`zh-Hans-CN`、`en`），由
   `flutterLocaleOf` 從 `LocaleSetting` 對出；它決定 Android 的繁簡字形與 Material 內建字串。

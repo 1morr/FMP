@@ -34,8 +34,8 @@ description: >-
 - `adb` 在 `PATH`；`emulator.exe` 不在，用 `$ANDROID_HOME/emulator/emulator.exe`。
 - 只用 dev flavor（`com.personal.fmp.dev`、視窗標題 `FMP Dev`）。**不要動模擬器上的舊版
   `com.personal.fmp`，也不要把 prod APK 裝上去**：它放著舊版的測試資料。
-- `app/` 沒有 slang，drift 的 `*.g.dart` 已提交：建置前不必跑 codegen（改了 table 才跑
-  `dart run build_runner build --delete-conflicting-outputs`）。
+- drift 與 slang 的 `*.g.dart` 已提交：建置前不必跑 codegen（改了 table 才跑
+  `dart run build_runner build --delete-conflicting-outputs`，改了翻譯才跑 `dart run slang`）。
 - Git Bash 會改寫 `/data/...` 這類路徑：`adb shell` 前加 `MSYS_NO_PATHCONV=1`。Python 單行指令前加
   `PYTHONIOENCODING=utf-8`。
 - 有 Orca 時，`orca skills get computer-use`／`orca-cli` 取得與版本相符的指令參考；不靠記憶。

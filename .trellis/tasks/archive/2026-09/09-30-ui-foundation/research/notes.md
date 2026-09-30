@@ -8,7 +8,7 @@
 | 套件 | 版本 | 用途 | 決定 |
 |---|---|---|---|
 | `slang` | ^4.19.2（pub.dev 最新，2026-09-12） | 介面字串 | 採用；ADR 0024 §決定 7 指定 |
-| `slang_build_runner` | ^4.19.0（最新；它釘 `slang >=4.19.0 <4.20.0`） | 讓 `dart run build_runner build` 一併產生翻譯 | dev 依賴；CI 既有的「Check generated code is up to date」就涵蓋 slang，不另加步驟 |
+| ~~`slang_build_runner`~~ | 已移除（PR #190 的 CI 發現） | — | 乾淨 checkout 下它的彙總輸出把已提交的 `lib/i18n/*.g.dart` 當成衝突，`--delete-conflicting-outputs` 也一樣拒寫；官方把它定位成「不提交產生檔、CI 時才產生」。改用 `dart run slang`，設定移到 `slang.yaml`，CI 另跑一次再看 `git status` |
 | `slang_flutter` | — | `TranslationProvider`、`context.t`、`LocaleSettings` 的 Flutter 部分 | **不用**：翻譯以 Riverpod 注入（§3） |
 | `clock` | ^1.1.3（原本就是 fake_async／flutter_test 的傳遞依賴） | Toast 去重讀時間 | 採用：`fake_async` 的 `run` 以 `withClock` 包住，`clock.now()` 跟著假時間走 |
 | `intl` | ^0.20.2（跟 `material_ui` 的限制） | slang 產生檔的 import；之後 ADR 0024 §決定 6 的數字縮寫 | 直接依賴：產生檔一律 import 它，不宣告就是 import 沒宣告的套件（check agent 改） |

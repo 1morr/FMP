@@ -59,7 +59,7 @@ switch (WindowClass.of(context)) {
 加一條字串：
 
 1. 三個 JSON 都加同一個 key，先寫繁中。參數寫 `{name}`，三個語言的參數要一樣。
-2. `dart run build_runner build --delete-conflicting-outputs`（和 drift 一起產生），提交 `lib/i18n/*.g.dart`。
+2. `dart run slang`（設定在 `slang.yaml`），提交 `lib/i18n/*.g.dart`。
 3. widget 裡 `final t = ref.watch(translationsProvider);`，`t.section.key` 或
    `t.section.key(name: …)`。沒有 slang 的全域 `t`、`context.t`。
 
