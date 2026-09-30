@@ -1,0 +1,10 @@
+{
+  "name": "youtubejs-probe",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "core-js": "^3.50.0",
+    "esbuild": "^0.28.2",
+    "youtubei.js": "^18.1.0"
+  }
+}
