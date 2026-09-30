@@ -1,0 +1,8 @@
+{"file": "docs/adr/0018-playback-core.md", "reason": "Playback core decisions and verification"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "Error classes driving recovery"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Platform capabilities, playable formats"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer and capability declarations"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "SourcePlugin, resolveStream DTOs"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "mediaRequestHeaders policy"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_layer_imports dependency table"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions"}

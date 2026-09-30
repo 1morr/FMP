@@ -13,6 +13,7 @@
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
 | drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
+| 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
@@ -233,7 +234,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `NoCredentials`（每個音源都未登入）。閘門：`auth_test.dart`（三種標記 × 三種狀態）。
 - 媒體 client 延到 M6。交給播放後端的串流 headers 一律先經 `mediaRequestHeaders`：只留
   `Referer`、`User-Agent`、`Origin`、`Range`。閘門：`media_headers_test.dart`；後端確實
-  經過它，由 PR 10 的測試接手。
+  經過它，見「播放」。
 
 ## 插件
 
@@ -302,6 +303,56 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `record_test.dart`（假上游錄出的檔案沒有假憑證、重播通過）。
 - 執行器看不到的：插件接住並吞掉「網域不在清單」的錯誤（網路層照樣不送出）；插件自己拋的
   `ParseError` 與 DTO 驗證失敗的 `ParseError` 分不出來。沒有閘門，已知限制。
+
+## 播放
+
+`lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
+`.trellis/spec/app/playback/index.md`。M1 只有依序播放一個清單、播放與暫停、上一首與
+下一首、seek，佇列只在記憶體。
+
+- `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
+  `QueueModel`、`StreamResolver`、`decideRecovery`（純函數）與後端只回報。沒有閘門，
+  review 時看。
+- `just_audio`、`media_kit`（含 `media_kit_libs_*`）只准在 `lib/playback/backends/`
+  import。閘門：lint `fmp_layer_imports`（`layer_imports_test.dart` 的
+  `test_playbackEnginesOutsideTheBackends`：同前綴的 `lib/playback/backends_helpers.dart`
+  也報；`test_playbackEnginesInTheBackends`：後端目錄與 `media_kitchen` 這類相似套件名
+  不報）。ADR 0018 另外兩條（結束原因型別只給後端與路由器、串流存取的窄介面只給
+  `PlaybackSession`）等 M2 有路由器與 `PlaybackSession` 時再加；M1 的路由在控制器裡。
+- 兩個後端共用的規則（結束分類 `classifyTrackEnd`、前瞻的清單修改 `LookAheadEdit`）只在
+  `backends/backend_rules.dart`，後端只轉呼叫。閘門：`backend_rules_test.dart`；後端契約
+  `test/playback/backends/audio_backend_contract.dart` 以同一份斷言跑假後端（`flutter
+  test`）與平台的真後端（`integration_test/audio_backend_contract_test.dart`：Windows
+  是 media_kit、Android 是 just_audio）。**真後端的那一份 CI 不跑**，改後端時照上面的
+  驗證表在兩個平台手動跑。
+- 交給後端的串流只能是 `BackendSource`，它在建構時就經過 `mediaRequestHeaders`，所以
+  沒有別的路徑把 `Cookie` 之類交給播放引擎。閘門：`backend_rules_test.dart` 的
+  `BackendSource`、`playback_controller_test.dart` 的 `the backend only gets media headers`。
+- 引擎的錯誤（mpv 的 log 行、ExoPlayer 的例外）可能帶完整的簽名網址：後端只以
+  `SourceFailed.cause` 交出或以 `error:` 交給門面，不放進訊息、不自己印。閘門：
+  `playback_controller_test.dart` 的 `engine messages in the log`（假的 googlevideo 簽名
+  網址經 mpv 行與例外兩種形狀，記憶體歷史與 log 檔都沒有原值）。media_kit 後端自己的
+  那一行 warning 走同一個 `error:` 參數，但後端在 `flutter test` 裡建不起來，沒有直接的
+  閘門。
+- 整個 App 只有一個後端實例（`audioBackendProvider`）：just_audio 在 `play()` 經
+  audio_session 要求 Android 音訊焦點，只在失去焦點或引擎卸載時放掉，換來源、`stop()`
+  都不放；重建 `AudioPlayer` 才會（ADR 0018 §決定 3；來源在 `AudioBackend` 的
+  dartdoc）。沒有自動閘門，實機以 `dumpsys audio` 確認（見 spec）。
+- 前瞻：目前這首載入好後解析下一首一次，交接時不再解析；候選的 `expiresAt` 前 30 秒
+  （`ResolvedStream.expiryMargin`）重新解析並換掉前瞻，手動下一首也先檢查。閘門：
+  `playback_controller_test.dart` 的 `hands over to the look-ahead…`、`pausing and
+  resuming…`、`expiry` 群組。
+- 恢復（ADR 0018 §決定 7 的 M1 部分）：網路錯誤、限流、中斷與提前結束從目前位置重試
+  1／3／9 秒；開不起來換下一個候選一次；其他錯誤類別跳過；連續跳過達佇列長度（最多 10）
+  停在 `Failed`。M1 沒有連線偵測、試聽片段設定（一律跳過）、緩衝飢餓與輸出裝置的處理、
+  「正常播放 10 秒後重試計數歸零」（M1 換歌才歸零），也沒有提示 UI（PR 12）。閘門：`recovery_policy_test.dart`、`playback_controller_test.dart`
+  的 `recovery` 群組。
+- 被取代的解析結果丟掉，但插件的 `resolveStream` 沒有取消參數，網路工作不取消
+  （ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
+- 播放的開發入口：dev flavor 帶 `--fmp-dev-playback` 啟動就安裝內附的測試插件並依序播
+  它的三首；`--fmp-dev-playback=<曲目鍵>`（可重複；不用逗號，Android 的 `--esal` 以逗號切
+  陣列）播指定的曲目（插件同時以 `--fmp-dev-plugin` 安裝）。prod 不讀，理由同插件的開發入口。PR 12 的播放列能走同一條路後刪掉。閘門：
+  `dev_playback_entry_test.dart` 的 `prod reads nothing`。
 
 ## 設定
 
