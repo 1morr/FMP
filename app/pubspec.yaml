@@ -14,6 +14,9 @@ workspace:
   - packages/fmp_lints
 
 dependencies:
+  # Toast 去重的時間（ADR 0023 §決定 2）：lib/ 以 clock.now() 讀時間，測試的
+  # fake_async 才改得到它。
+  clock: ^1.1.3
   # 插件宿主 API 的 crypto.md5／sha256（ADR 0014 §決定 5）。
   crypto: ^3.0.7
   # 網路層（ADR 0012 §決定 1）：每插件一個 dio 與記憶體 cookie jar。三個都只准
@@ -36,6 +39,10 @@ dependencies:
   # 播放後端（ADR 0018 §決定 3）：just_audio（ExoPlayer）給 Android，media_kit
   # （libmpv）給 Windows；兩者只准在 lib/playback/backends/ import
   # （fmp_layer_imports）。
+  # slang 的產生檔（lib/i18n/strings.g.dart）一律 import 它，不宣告就是靠
+  # material_ui 的傳遞依賴；數字縮寫（ADR 0024 §決定 6）也用它。版本跟
+  # material_ui 的限制走。
+  intl: ^0.20.2
   just_audio: ^0.10.6
   # Flutter 3.47 起 Material 以獨立套件發佈，app/ 直接用它，不 import
   # package:flutter/material.dart（app/AGENTS.md § Material）。
@@ -47,6 +54,9 @@ dependencies:
   media_kit_libs_windows_audio: ^1.0.9
   path: ^1.9.1
   path_provider: ^2.1.6
+  # 介面字串（ADR 0024 §決定 7）。不用 slang_flutter：翻譯以 Riverpod 注入
+  # （lib/ui/i18n/），不用 slang 的 LocaleSettings／TranslationProvider。
+  slang: ^4.19.2
   sqlite3: ^3.6.0
   # log 門面的歷史與分派（ADR 0011 §決定 1）；只准在 lib/core/logging/
   # import（fmp_log_facade）。
@@ -66,6 +76,9 @@ dev_dependencies:
   # 插件執行環境的實機量測（integration_test/plugin_runtime_benchmark_test.dart）。
   integration_test:
     sdk: flutter
+  # 讓 `dart run build_runner build` 一併產生 lib/i18n/ 的翻譯程式碼（設定在
+  # build.yaml）。它釘 slang 的 minor 版本，兩者一起升。
+  slang_build_runner: ^4.19.0
   yaml: ^3.1.4
 
 flutter:

@@ -99,12 +99,12 @@ void main() {
       pluginId: 'bilibili',
       retryable: true,
       messageKey: ErrorMessageKey.unavailable,
-      messageArgs: {'count': 3},
+      messageArgs: {ErrorMessageArg.count: 3},
     );
 
     expect(error.retryable, isTrue);
     expect(error.messageKey, ErrorMessageKey.unavailable);
-    expect(error.messageArgs, {'count': 3});
+    expect(error.messageArgs, {ErrorMessageArg.count: 3});
     expect(RateLimited(retryable: false).retryable, isFalse);
   });
 

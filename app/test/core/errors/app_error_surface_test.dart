@@ -22,7 +22,7 @@ const _reviewedSurface = {
   'AppError.retryable': 'bool',
   'AppError.retryAfter': 'Duration?',
   'AppError.messageKey': 'ErrorMessageKey',
-  'AppError.messageArgs': 'Map<String, Object>',
+  'AppError.messageArgs': 'Map<ErrorMessageArg, int>',
   'AppError.expected': 'bool',
   'AppError.networkRecordId': 'int?',
   'AppError.typeName': 'String',
@@ -123,6 +123,12 @@ void main() {
         _library,
         'final class UnexpectedError extends AppError {',
         "\n  static String get fallback => '';",
+      ),
+      // messageArgs 收窄前的型別：值裝得下插件或伺服器的原文。
+      'text in a type argument': (
+        _library,
+        'final UnavailableReason reason;',
+        '\n  final Map<ErrorMessageArg, Object> extraArgs = const {};',
       ),
     };
     for (final MapEntry(key: name, value: (path, anchor, insert))
@@ -242,14 +248,14 @@ String _key(
   return '${owner == null ? '' : '$owner.'}${name.lexeme}$suffix';
 }
 
-/// 可能被當成文字顯示的成員：型別是字串、裝得下任意值（`Object`、
-/// `dynamic`），或沒寫型別；扣掉 [_allowedTextMembers]。
+/// 可能被當成文字顯示的成員：型別裡有字串或裝得下任意值的型別（`Object`、
+/// `dynamic`），型別參數也算（`Map<String, Object>`、`List<String>`），或沒寫
+/// 型別；扣掉 [_allowedTextMembers]。
 Set<String> textMembers(Map<String, String?> members) => {
   for (final MapEntry(key: name, value: type) in members.entries)
     if (!_allowedTextMembers.contains(name) &&
-        switch (type?.replaceAll('?', '')) {
-          null || 'String' || 'Object' || 'dynamic' => true,
-          _ => false,
-        })
+        (type == null || _textTypes.hasMatch(type)))
       name,
 };
+
+final _textTypes = RegExp(r'\b(?:String|Object|dynamic)\b');

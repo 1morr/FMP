@@ -227,8 +227,9 @@ jobs:
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
 
-      # drift 產生的 *.g.dart 有提交（app/AGENTS.md § 資料層）。重跑 codegen 後
-      # app/ 有任何變動或新檔，就是改了 table 卻沒重跑 build_runner。
+      # drift 與 slang 產生的 *.g.dart 有提交（app/AGENTS.md § 資料層）。重跑
+      # codegen 後 app/ 有任何變動或新檔，就是改了 table 或翻譯檔卻沒重跑
+      # build_runner（slang_build_runner 讓兩者一起產生）。
       # 路徑用 `.`：這個 job 的工作目錄已經是 app/。
       - name: Check generated code is up to date
         run: |

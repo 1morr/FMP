@@ -1,15 +1,30 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/app/app_scope.dart';
 import 'package:fmp/app/unsupported_platform_app.dart';
 import 'package:fmp/core/app_flavor.dart';
 
 void main() {
-  testWidgets('tells the user the platform is not supported yet', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const UnsupportedPlatformApp(flavor: AppFlavor.dev),
-    );
+  final dispatcher = TestWidgetsFlutterBinding.instance.platformDispatcher;
 
-    expect(find.text('此平台尚未支援'), findsOneWidget);
-  });
+  for (final (system, text) in [
+    (const Locale('zh', 'TW'), '此平台尚未支援'),
+    (const Locale('en', 'US'), "This platform isn't supported yet"),
+  ]) {
+    testWidgets('tells the user the platform is not supported in $system', (
+      tester,
+    ) async {
+      dispatcher.localesTestValue = [system];
+      addTearDown(dispatcher.clearLocalesTestValue);
+
+      await tester.pumpWidget(
+        appProviderScope(
+          child: const UnsupportedPlatformApp(flavor: AppFlavor.dev),
+        ),
+      );
+
+      expect(find.text(text), findsOneWidget);
+    });
+  }
 }

@@ -1,0 +1,34 @@
+{
+  "startup": {
+    "databaseError": "无法打开数据库",
+    "unsupportedPlatform": "暂不支持此平台"
+  },
+  "appearance": {
+    "theme": "主题",
+    "themeSystem": "跟随系统",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "language": "语言",
+    "languageSystem": "跟随系统"
+  },
+  "errors": {
+    "network": "网络连接失败，请检查网络后重试",
+    "rateLimited": "{source} 请求过于频繁，请稍后再试",
+    "authRequired": "需要登录 {source}",
+    "credentialInvalid": "{source} 的登录已失效，请重新登录",
+    "verificationRequired": "{source} 要求验证：请登录、粘贴 Cookie 或稍后再试",
+    "unavailable": "无法获取此内容",
+    "unavailableBecause": "无法获取：{reason}",
+    "notFound": "找不到内容，可能已失效",
+    "parseError": "{source} 的响应格式已变化，可能需要更新",
+    "unexpected": "发生意外错误",
+    "unknownSource": "音源",
+    "unavailableReasons": {
+      "region": "所在地区不可用",
+      "copyright": "版权限制",
+      "membership": "需要会员",
+      "age": "有年龄限制",
+      "previewOnly": "仅可试听片段"
+    }
+  }
+}

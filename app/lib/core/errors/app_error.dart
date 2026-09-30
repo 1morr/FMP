@@ -5,9 +5,10 @@ part 'report_error.dart';
 
 /// 給使用者的錯誤訊息 key，ADR 0013 §決定 5 的類別表一列一個。
 ///
-/// 值的名稱就是 slang 的 key（PR 12 接上，放在 `errors.` 之下）；改名等於改
-/// 翻譯檔的 key。「不支援」與「預期外」在類別表裡共用通用訊息，所以
-/// [Unsupported] 與 [UnexpectedError] 都預設 [unexpected]。
+/// 值的名稱就是 slang 的 key（`lib/i18n/*.i18n.json` 的 `errors.` 之下），由
+/// `lib/ui/errors/error_message.dart` 對到字串；改名等於改翻譯檔的 key。
+/// 「不支援」與「預期外」在類別表裡共用通用訊息，所以 [Unsupported] 與
+/// [UnexpectedError] 都預設 [unexpected]。
 enum ErrorMessageKey {
   network,
   rateLimited,
@@ -19,6 +20,13 @@ enum ErrorMessageKey {
   parseError,
   unexpected,
 }
+
+/// i18n 訊息參數的名稱：封閉的清單，值一律是整數（[AppError.messageArgs]）。
+///
+/// 伺服器或插件給的文字沒有地方可放：音源名稱由呈現層以 [AppError.pluginId]
+/// 查插件的顯示名稱，不經參數。M1 沒有訊息用到參數；第一個用到的訊息在呈現層
+/// 的對應函式裡讀它。
+enum ErrorMessageArg { count, seconds }
 
 /// [Unavailable] 的原因（ADR 0013 §決定 1）。曲目上標示的就是它。
 enum UnavailableReason { region, copyright, membership, age, previewOnly }
@@ -75,9 +83,9 @@ sealed class AppError implements Exception {
   /// 使用者訊息的 i18n key。每個子類有預設值，音源可以覆寫。
   final ErrorMessageKey messageKey;
 
-  /// i18n 訊息的參數。只放數字、enum 之類的值；伺服器或例外的原文放
-  /// `cause`，不放這裡。
-  final Map<String, Object> messageArgs;
+  /// i18n 訊息的參數：名稱是封閉的 [ErrorMessageArg]，值只能是整數，型別上就
+  /// 放不進伺服器或例外的原文（原文放 `cause`，只進 log）。
+  final Map<ErrorMessageArg, int> messageArgs;
 
   /// 預期內的錯誤（網路、限流、需登入等）為真；解析失敗、不支援與預期外視為
   /// bug，為假。決定錯誤歷史的層級。
