@@ -1,0 +1,9 @@
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Tokens, breakpoints, fonts, i18n, accessibility"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Toaster and ToastHost"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "Error message mapping"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "Appearance settings"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_design_tokens, fmp_toast_entry"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "AppError fields"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Settings notifier and repository"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Font fallback capability"}
+{"file": ".trellis/tasks/archive/2026-09/09-29-platform-layer/research/notes.md", "reason": "Font facts incl. Android glyph behaviour"}
