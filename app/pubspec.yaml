@@ -42,6 +42,9 @@ dependencies:
   # log 門面的歷史與分派（ADR 0011 §決定 1）；只准在 lib/core/logging/
   # import（fmp_log_facade）。
   talker: ^5.1.20
+  just_audio: 0.10.6
+  media_kit: 1.2.6
+  media_kit_libs_windows_audio: 1.0.9
 
 dev_dependencies:
   # 只給 test/core/errors/app_error_surface_test.dart 解析原始碼（parseString）。

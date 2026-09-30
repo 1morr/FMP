@@ -122,16 +122,19 @@ void main() {
           'expiresAt=${c.expiresAt} headers=${c.headers.keys.toList()}',
         );
       }
+      // Past the ~60 s cap that token-free ANDROID_VR URLs hit since 2026-08-26.
+      final clen = int.parse(candidates.first.url.queryParameters['clen']!);
+      final deep = clen * 8 ~/ 10;
       final res = await Dio().getUri<List<int>>(
         candidates.first.url,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {'Range': 'bytes=0-65535'},
+          headers: {'Range': 'bytes=$deep-'},
           validateStatus: (_) => true,
         ),
       );
       out(
-        'range GET status=${res.statusCode} '
+        'range GET bytes=$deep- (80% of $clen) status=${res.statusCode} '
         'type=${res.headers.value('content-type')} bytes=${res.data?.length}',
       );
       expect(res.statusCode, 206);

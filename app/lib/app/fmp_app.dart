@@ -7,6 +7,7 @@ import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/probe/youtubejs_probe.dart';
 
 /// App 根元件。目前只顯示 App 名稱、flavor、資料目錄與載入的插件，供實機確認
 /// 身分與插件的開發入口；正式的外殼在 M1 PR 12。
@@ -43,6 +44,7 @@ class _IdentityPage extends ConsumerWidget {
             Text(flavor.name),
             SelectableText(ref.watch(dataDirectoryProvider).path),
             const _PluginList(),
+            const YoutubeJsProbePanel(), // PROBE ONLY
           ],
         ),
       ),

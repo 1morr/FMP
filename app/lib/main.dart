@@ -21,8 +21,10 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
+import 'package:fmp/probe/youtubejs_probe.dart';
 
 Future<void> main(List<String> arguments) async {
+  probeClock.start(); // PROBE ONLY
   WidgetsFlutterBinding.ensureInitialized();
   final flavor = AppFlavor.parse(appFlavor);
   final platform = AppPlatform.current(flavor);

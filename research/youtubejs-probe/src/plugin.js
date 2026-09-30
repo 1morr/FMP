@@ -31,7 +31,7 @@ Platform.load({
   sha1Hash: async () => { throw new Error('sha1Hash is only used for logged-in requests'); },
   uuidv4: () => globalThis.crypto.randomUUID(),
   // Player JS deciphering (signature / n). QuickJS has eval/new Function; the
-  // ANDROID_VR path never needs it (its URLs are not ciphered), kept for completeness.
+  // VISIONOS/IOS paths never need it (their URLs are not ciphered), kept for completeness.
   eval: (data, env) => {
     const props = [];
     if (env.n) props.push(`n: exportedVars.nFunction(${JSON.stringify(env.n)})`);
@@ -50,7 +50,10 @@ Platform.load({
 Log.setLevel(Log.Level.ERROR);
 
 // ---------------------------------------------------------------- session
-const CLIENT = 'ANDROID_VR';
+// Since 2026-08-26 token-free ANDROID_VR googlevideo URLs are capped at ~60 s of
+// media (403 after that, and 403 on open-ended Range). VISIONOS returns full-length
+// plain URLs without PO token (verified 2026-09-30). IOS as fallback.
+const CLIENTS = ['VISIONOS', 'IOS'];
 let innertubePromise = null;
 const now = () => Date.now();
 
@@ -58,7 +61,7 @@ function innertube() {
   if (!innertubePromise) {
     const t0 = now();
     innertubePromise = Innertube.create({
-      retrieve_player: false, // ANDROID_VR URLs are plain; no player JS download/parse
+      retrieve_player: false, // VISIONOS/IOS URLs are plain; no player JS download/parse
       timezone: 'UTC', // Session's default reads Intl, which QuickJS lacks
       cache: new StorageCache(),
       enable_session_cache: true,
@@ -114,17 +117,24 @@ function describe(mime) {
 export async function resolveStream({ sourceId, formats }) {
   const yt = await innertube();
   const t0 = now();
-  const info = await yt.getBasicInfo(sourceId, { client: CLIENT });
-  const ps = info.playability_status || {};
-  if (ps.status !== 'OK') {
-    throw { fmpError: 'Unavailable', reason: 'region', message: `${CLIENT} playability ${ps.status}: ${ps.reason || ''}` };
+  let audio = [];
+  let CLIENT = null;
+  const tried = [];
+  for (const client of CLIENTS) {
+    const info = await yt.getBasicInfo(sourceId, { client });
+    const ps = info.playability_status || {};
+    audio = ((info.streaming_data && info.streaming_data.adaptive_formats) || []).filter((f) => f.has_audio && !f.has_video && f.url);
+    tried.push(`${client}:${ps.status}:${audio.length}`);
+    if (ps.status === 'OK' && audio.length > 0) { CLIENT = client; break; }
   }
-  const audio = ((info.streaming_data && info.streaming_data.adaptive_formats) || []).filter((f) => f.has_audio && !f.has_video);
+  if (!CLIENT) {
+    throw { fmpError: 'Unavailable', reason: 'region', message: `no client gave audio: ${tried.join(' ')}` };
+  }
   const wanted = (formats || []).map((f) => `${f.container}/${f.codec}`);
   const rank = (c) => { const i = wanted.indexOf(`${c.container}/${c.codec}`); return i < 0 ? wanted.length : i; };
   const candidates = [];
   for (const f of audio) {
-    const url = await f.decipher(undefined); // plain URL for ANDROID_VR
+    const url = await f.decipher(undefined); // plain URL for VISIONOS/IOS
     if (!url) continue;
     const { container, codec } = describe(f.mime_type);
     const expire = Number(new URL(url).searchParams.get('expire'));
