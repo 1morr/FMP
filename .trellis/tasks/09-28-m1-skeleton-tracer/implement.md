@@ -34,7 +34,8 @@
 - **PR 9c 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-bilibili-plugin/`）：公開 repo `1morr/fmp-plugins`，本機 clone 在與 FMP 同層的 `fmp-plugins/`；B 站插件由該 repo 的 #1 合併（`e2b224b`），`bilibili/bilibili.js` 只有 `search`、`resolveStream`。
   - 在 dev App 裝它：`fmp.exe --fmp-dev-plugin=<fmp-plugins>/bilibili/bilibili.js`（Android 照 9a 的 `run-as` 做法）。
   - 真實連線：兩次錄製共 8 個 GET，沒有遇到風控；fixture 人工逐檔檢查過。
-- **下一步**：FMP 遮蔽修正（「9c 留下的後續」前兩項，小 PR）→ YouTube.js 探針（與 10–13 並行）→ 10 播放核心 → 11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **遮蔽修正**：`hdnts`／`buvid` 進內建名單、同 host 的規則合併套用；fmp-plugins 的 B 站 fixture 同步重新遮蔽。
+- **下一步**：YouTube.js 探針（與 10–13 並行）→ 10 播放核心 → 11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -195,11 +196,13 @@
 
 9c 留下的後續：
 
-- [ ] 內建遮蔽名單缺 `hdnts`（Akamai）與 `buvid`（`app/lib/core/redaction/redaction_lists.dart` 的 `_bilibiliSigned`）；官方插件靠 manifest 補上，使用者自寫的插件會漏。
-- [ ] `Redactor` 只套用第一個符合的 `MediaCdn`（`redactor.dart` 的 `firstOrNull`），插件追加的 CDN 規則蓋不到內建已有的 host；應合併所有符合項的參數。
+- [x] （遮蔽修正 PR）內建遮蔽名單缺 `hdnts`（Akamai）與 `buvid`（`app/lib/core/redaction/redaction_lists.dart` 的 `_bilibiliSigned`）；官方插件靠 manifest 補上，使用者自寫的插件會漏。
+- [x] （遮蔽修正 PR）`Redactor` 只套用第一個符合的 `MediaCdn`（`redactor.dart` 的 `firstOrNull`），插件追加的 CDN 規則蓋不到內建已有的 host；應合併所有符合項的參數。
 - [ ] 登入後 `_AuthInterceptor` 以 `headers.addAll` 注入 `Cookie`，會整個蓋掉插件送的匿名 `buvid3`；舊專案是合併。M3 登入任務決定合併或交給插件。
 - [ ] B 站插件的 `rateLimit`（併發 2、間隔 300ms）沒有量測依據；`allowedHosts` 外的 PCDN（`szbdyd.com`、直接寫 IP 的節點）會被丟掉，舊專案不限制。M6 媒體 client 接上時一併看。
 - [ ] PR 8 的 `ignoreInvalidCookies` 觀察：兩次錄製的回應都沒有 `Set-Cookie`，沒觀察到；留到會發 cookie 的端點（登入）。
+- [ ] 媒體 CDN 的簽名參數目前是整個拿掉；內建名單每變嚴格一次，既有 fixture 就過不了「再遮蔽一次不變」的掃描（遮蔽修正 PR 時手動改了 fmp-plugins 的 24 個網址）。審查建議改成「值換成 `***`」：已遮過的不再誤紅、明文照樣紅。改動是 `_redactMediaUrl` 一行加既有測試期望，M3 插件庫 CI 上線前做。
+- [ ] 插件每重新載入一次，`Redactor._mediaCdns` 就多一份相同規則（輸出不受影響，只是多掃）；M3 插件頁的重新載入出現時一併去重。
 
 ### 探針：YouTube.js（擁有者決定 3）
 

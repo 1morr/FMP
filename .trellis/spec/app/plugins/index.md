@@ -115,8 +115,8 @@ export async function resolveStream({ sourceId, cid, formats }) {
   需要登入的案例錄不了（M1 沒有憑證，會以 `AuthRequired` 失敗）。
 - 錯誤案例（風控、下架）多半錄不到：手寫或把錄到的改掉，在 `meta.edited` 寫理由，錄製就不會蓋掉
   那個案例。手寫的 fixture 也要是遮過的樣子（值寫 `***`），掃描不會放過。
-- 會變的 query 參數（時間戳、簽名）在 fixture 裡寫 `***` 就不比值；遮蔽名單上的參數錄的時候
-  已經是 `***`。
+- 會變的 query 參數（時間戳、簽名）在 fixture 裡寫 `***` 就不比值；鍵名名單上的參數錄的時候
+  已經是 `***`，媒體 CDN 規則上的簽名參數則整個拿掉。
 - 跑：`FMP_PLUGIN_DIR=<絕對路徑> flutter test test/plugins/contract/contract_test.dart`；沒設
   `FMP_PLUGIN_DIR` 就是跑 `app/` 內的測試插件（裸 `flutter test` 已包含）。失敗訊息列出每一條
   違反，例如 `search: request #1 (GET …) does not match fixtures/search/001.json (GET …)`。

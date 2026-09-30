@@ -54,7 +54,8 @@ const builtInKeyNames = <String>[
 
 /// 已知媒體 CDN：串流網址裡的簽名、到期時間、使用者 IP 與 id。
 const builtInMediaCdns = <MediaCdn>[
-  // Bilibili upos；`e` 是編碼過的簽名內容，`mid` 是使用者 id、`oi` 由 IP 算出。
+  // Bilibili upos；`e` 是編碼過的簽名內容，`mid` 是使用者 id、`oi` 由 IP 算出，
+  // `buvid` 是請求帶的裝置 id，`hdnts` 是 Akamai 鏡像的 token（`exp=…~hmac=…`）。
   MediaCdn(host: 'bilivideo.com', signedQueryParameters: _bilibiliSigned),
   MediaCdn(host: 'bilivideo.cn', signedQueryParameters: _bilibiliSigned),
   MediaCdn(host: 'akamaized.net', signedQueryParameters: _bilibiliSigned),
@@ -92,9 +93,12 @@ const _bilibiliSigned = {
   'trid',
   'mid',
   'oi',
+  'buvid',
+  'hdnts',
 };
 
-/// 一個媒體 CDN 的遮蔽規則。
+/// 一個媒體 CDN 的遮蔽規則。一個網址符合多條規則（內建與插件追加的）時，
+/// `Redactor` 全部合併套用。
 @immutable
 final class MediaCdn {
   const MediaCdn({

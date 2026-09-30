@@ -258,6 +258,51 @@ void main() {
 
       expect(redactor.redact(url), 'https://cdn.fake-source.test/a.mp3?q=1');
     });
+
+    test('Bilibili stream URLs lose the device id and the Akamai token', () {
+      expect(
+        redactor.redact(
+          'https://upos-hz-mirrorakam.akamaized.net/x.m4s?gen=playurlv3'
+          '&hdnts=exp=1~hmac=FAKE_HMAC_1&bw=1&buvid=FAKE_BUVID_1',
+        ),
+        'https://upos-hz-mirrorakam.akamaized.net/x.m4s?gen=playurlv3&bw=1',
+      );
+    });
+
+    test('a plugin rule adds to a built-in rule for the same host', () {
+      const url =
+          'https://upos-fake.bilivideo.com/a.m4s?upsig=FAKE_UP_3&fake_sig=FAKE_S&q=1';
+
+      redactor.addRules(
+        mediaCdns: [
+          const MediaCdn(
+            host: 'upos-fake.bilivideo.com',
+            signedQueryParameters: {'fake_sig'},
+          ),
+        ],
+      );
+
+      expect(redactor.redact(url), 'https://upos-fake.bilivideo.com/a.m4s?q=1');
+    });
+
+    test('a signed path from any matching rule applies', () {
+      const url = 'https://m1.fake-source.test/111/222/a.mp3?q=1';
+
+      redactor.addRules(
+        mediaCdns: [
+          const MediaCdn(
+            host: 'fake-source.test',
+            signedQueryParameters: {'x'},
+          ),
+          const MediaCdn(host: 'm1.fake-source.test', signedPath: true),
+        ],
+      );
+
+      expect(
+        redactor.redact(url),
+        'https://m1.fake-source.test/***/***/a.mp3?q=1',
+      );
+    });
   });
 
   group('plugin lists', () {
