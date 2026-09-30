@@ -12,14 +12,23 @@
 | 任何改動 | `dart format --output=none --set-exit-if-changed .`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test` |
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
+| Xcode 專案（`ios/`、`macos/`） | 第一列；本機沒有 Mac 時建置交給 CI 的 iOS、macOS job（prod release 與 dev debug 各一次） |
 | drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
+| 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
   `fmp_lints` 的測試另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次（Windows 路徑）。
+- CI 另有五個平台的建置 job（都是 `--flavor prod --release`，iOS 加 `--no-codesign`；macOS、
+  iOS 再建一次 `--flavor dev --debug`），以及 Linux（xvfb）與 Windows 的整合測試 job：
+  `install_search_play_test.dart`、`toast_layering_test.dart`。真後端的契約與插件量測只在實機
+  手動跑。
+- 桌面裝置一次 `flutter test` 只能跑一個整合測試檔：flutter_tools 每個桌面裝置只有一個 log
+  reader，第一個檔案的 App 結束時就關了，第二個檔案的 App 報 `Unable to start the app on the
+  device`（`desktop_device.dart` 的 `DesktopLogReader`）。多個檔案就分開下指令，CI 也是一檔一步。
 - `flutter analyze` 看不到 analyzer 插件的診斷、照樣回 No issues（flutter/flutter#187999），
   所以兩個都要跑：插件規則看 `dart analyze`，Flutter 專屬的診斷看 `flutter analyze`。
 - `test/identity/windows_identity_test.dart` 要 `cmake`：CI 的 ubuntu runner 內建；
@@ -78,11 +87,31 @@ ADR；dev 每一項都不同（ADR 0015 §決定 8）。
 | Windows 視窗標題、FileDescription | `FMP` | `FMP Dev` | 同上 |
 | Windows ProductName | `fmp` | `fmp-dev` | 同上 |
 | Windows 執行檔 | `fmp.exe` | `fmp.exe` | `windows/CMakeLists.txt` 的 `BINARY_NAME` |
+| iOS／macOS bundle identifier | `com.personal.fmp` | `com.personal.fmp.dev` | `ios/`、`macos/` 的 `Runner.xcodeproj/project.pbxproj`：App target 每個 build configuration 的 `PRODUCT_BUNDLE_IDENTIFIER` |
+| iOS／macOS 顯示名稱 | `FMP` | `FMP Dev` | 同上的 `APP_DISPLAY_NAME`；`Info.plist` 的 `CFBundleDisplayName`（macOS 另有選單列讀的 `CFBundleName`）指向它 |
+| macOS App 套件 | `fmp.app` | `fmp.app` | `macos/Runner/Configs/AppInfo.xcconfig` 的 `PRODUCT_NAME` |
 
-閘門：`test/identity/android_identity_test.dart`、`test/identity/windows_identity_test.dart`。
+iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`。
+
+閘門：`test/identity/android_identity_test.dart`（含 main manifest 的 INTERNET）、
+`test/identity/windows_identity_test.dart`、`test/identity/apple_identity_test.dart`；CI 的 Android
+建置 job 另以 `aapt2 dump permissions` 看 release APK 合併後的權限。
 沒有測試的兩處：mutex 的 `Local\` 前綴，以及 `main.cpp`／`Runner.rc` 確實讀這些定義；
 改到它們時，檢查建置出的 exe 的版本資源與內嵌的寬字串。
 
+- INTERNET 權限只寫在 main 的 manifest；`debug/`、`profile/` 的那一份是 Flutter 工具連進 App 用的，
+  release 不合併，少了 main 那一行 release 就連不了網路。
+- iOS、macOS 的 flavor 是 Xcode scheme（照 docs.flutter.dev/deployment/flavors-ios）：flutter 工具以
+  `--flavor` 找同名的 `dev`、`prod` scheme，再找 `<Debug|Profile|Release>-<flavor>` 的 build
+  configuration，並從 configuration 名稱取回 `appFlavor`，所以 scheme 名稱必須是小寫的 flavor 名。
+  每個 target（含 `RunnerTests`、macOS 的 `Flutter Assemble`）的 configuration list 都要有這六個，
+  少了的 target 會退回它的預設 configuration；`apple_identity_test.dart` 查這件事。
+- 範本的 `Runner` scheme 與不帶 flavor 的 Debug／Release／Profile 照官方文件留著，身分是 prod，
+  但 `appFlavor` 是上一次 flutter 指令寫進 `Flutter/Generated.xcconfig` 的 flavor：在 Xcode 裡不要用它
+  建置，選 `dev` 或 `prod`。
+- flutter_js 只有 podspec，iOS、macOS 建置時 flutter 會自己產生 Podfile（沒提交）。產生的 Podfile
+  只對應 Debug／Profile／Release，其他 configuration CocoaPods 一律當 release（`Debug-dev` 的 pod
+  也用 release 編）；要在 Xcode 除錯 pod 時，提交 Podfile 並照官方文件補上六個 configuration。
 - Android namespace 兩個 flavor 都是 `com.personal.fmp`；只有 applicationId 帶後綴。
 - Windows 的第二個實例以「視窗類別＋標題」找第一個實例帶到前景，所以兩個 flavor
   的標題必須不同；之後若在 Dart 端改視窗標題，要一併改 `main.cpp` 的尋找方式。
@@ -287,7 +316,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - **卡住的執行緒回收不了**：QuickJS 的原生碼中斷不了，`Isolate.kill` 要等 isolate 回到 Dart 才生效，
   那條執行緒一直忙到 App 結束。沒有閘門，已知限制。
 - `flutter_js` 只准在 `lib/plugins/runtime/` import（`fmp_layer_imports`），版本釘死
-  （`pubspec.yaml` 的註解）。
+  （`pubspec.yaml` 的註解）。它的 Linux 建置不會把 QuickJS 的 `.so` 裝進 App 的 `bundle/lib`，
+  `linux/CMakeLists.txt` 自己補；少了它插件在 Linux 一載入就失敗，閘門是 CI 的 Linux 整合測試。
 - `fmp-plugin.d.ts` 與 Dart 端一致：interface 的欄位與必填對 `manifestShapes`、`sourceDtoShapes`、
   `hostApiShapes`，`FmpHost` 對 prelude 實際建出的 `fmp`，能力、錯誤名稱、`Unavailable` 原因三個
   union 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的

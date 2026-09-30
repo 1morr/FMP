@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 插件經網路層連線（ADR 0012）。debug、profile 另有一份，只給 Flutter
+         工具連進 App；release 只看這裡。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"

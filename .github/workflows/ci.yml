@@ -3,7 +3,7 @@ name: CI
 # repo 裡有兩個專案：根目錄的舊專案（凍結，只收緊急修正）與 app/ 的新專案
 # （ADR 0008）。`changes` job 依變動路徑分流（ADR 0015 §決定 9），兩邊的 CI
 # 失敗不會互相擋 PR：
-# - app/** 或 .github/** 有變動：跑 `app`。
+# - app/** 或 .github/** 有變動：跑 `app` 與 `app-` 開頭的 job。
 # - app/ 以外有任何變動：跑舊專案的三個 job。文件變更也算，因為 Markdown
 #   承載由測試守著的規則（尤其是 agent 指令檔），只改文字的 commit 正是最
 #   不能跳過 `validate` 的那種。所以舊專案的篩選條件是「app/ 以外」，不是
@@ -283,10 +283,279 @@ jobs:
           path: app/test/**/failures/
           if-no-files-found: ignore
 
+  # 五個平台的建置（ADR 0009 §決定 9、ADR 0015 §決定 9），都建發出去的 prod
+  # release；dev 由下面的整合測試與本機建置涵蓋。只有 macOS、iOS 另建 dev：
+  # 兩者的 dev／prod Xcode scheme 與 build configuration 是手寫的，兩個都要有
+  # CI 守著。Linux、macOS、iOS 還沒有平台實作，App 只開「此平台尚未支援」，
+  # 這裡只證明建得起來。
+  app-build-android:
+    name: App Build (Android)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # AGP 9 要 JDK 17 以上；順便快取 Gradle。
+      - name: Setup Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      # 正式簽名在發版 workflow（M1 PR 13b）；在那之前 release 用 debug 金鑰。
+      - name: Build APK (prod, release)
+        run: flutter build apk --flavor prod --release
+
+      # INTERNET 只寫在 main 的 manifest（debug、profile 另有一份給 Flutter
+      # 工具）。身分測試守原始檔，這一步看合併後的 release manifest。
+      - name: Check the release APK requests INTERNET
+        run: |
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          aapt2="$build_tools/aapt2"
+          permissions="$("$aapt2" dump permissions build/app/outputs/flutter-apk/app-prod-release.apk)"
+          echo "$permissions"
+          grep -q "android.permission.INTERNET" <<< "$permissions"
+
+  app-build-windows:
+    name: App Build (Windows)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      # media_kit_libs_windows_audio 在建置時從 GitHub 下載 libmpv。
+      - name: Build Windows (prod, release)
+        run: flutter build windows --flavor prod --release
+
+  app-build-linux:
+    name: App Build (Linux)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Flutter 官方 Linux 桌面的建置依賴（docs.flutter.dev/platform-integration/linux/setup）。
+      # 插件沒有另外的系統依賴：flutter_js 用 runner 內建的 gcc 與 GTK，
+      # jni 的原生庫只在找得到 JDK 時才建（它的 src/CMakeLists.txt）。
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Linux (prod, release)
+        run: flutter build linux --flavor prod --release
+
+  app-build-macos:
+    name: App Build (macOS)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      # flutter 工具以 flavor 找同名 scheme，再找 <模式>-<flavor> 的 build
+      # configuration；prod 走 Release-prod，dev 走 Debug-dev，兩組都建一次。
+      # flutter_js 只有 podspec，建置時會產生 Podfile 並 pod install。
+      - name: Build macOS (prod, release)
+        run: flutter build macos --flavor prod --release
+
+      - name: Build macOS (dev, debug)
+        run: flutter build macos --flavor dev --debug
+
+  app-build-ios:
+    name: App Build (iOS)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      # 不簽名（ADR 0009 §決定 9）：iOS 經 GitHub 發 IPA、由使用者側載時重簽。
+      - name: Build iOS (prod, release)
+        run: flutter build ios --flavor prod --release --no-codesign
+
+      - name: Build iOS (dev, debug)
+        run: flutter build ios --flavor dev --debug --no-codesign
+
+  # ADR 0015 §決定 9 的整合測試：插件執行環境、安裝與資料庫是真的，播放後端
+  # 是假的（runner 沒有音訊裝置，Linux 也還沒有後端）。桌面裝置一次
+  # `flutter test` 只能跑一個整合測試檔：flutter_tools 每個桌面裝置只有一個
+  # log reader，第一個 App 結束時就關掉了，第二個檔案的 App 找不到 VM
+  # service（desktop_device.dart 的 DesktopLogReader），所以每個檔案一步。
+  # 真後端的 audio_backend_contract_test.dart 與量測不在 CI 跑。
+  app-integration-linux:
+    name: App Integration Tests (Linux)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 建置依賴同 app-build-linux；xvfb 給 GTK 視窗一個畫面。
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev xvfb
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Install a plugin, search and play
+        run: xvfb-run -a flutter test integration_test/install_search_play_test.dart -d linux
+
+      - name: Toasts above routes
+        run: xvfb-run -a flutter test integration_test/toast_layering_test.dart -d linux
+
+  app-integration-windows:
+    name: App Integration Tests (Windows)
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      - name: Install a plugin, search and play
+        run: flutter test integration_test/install_search_play_test.dart -d windows
+
+      - name: Toasts above routes
+        run: flutter test integration_test/toast_layering_test.dart -d windows
+
   ci-result:
     name: CI Result
     if: always()
-    needs: [changes, validate, build-android, build-windows, app]
+    needs:
+      - changes
+      - validate
+      - build-android
+      - build-windows
+      - app
+      - app-build-android
+      - app-build-windows
+      - app-build-linux
+      - app-build-macos
+      - app-build-ios
+      - app-integration-linux
+      - app-integration-windows
     runs-on: ubuntu-latest
     timeout-minutes: 5
 

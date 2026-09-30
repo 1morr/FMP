@@ -74,6 +74,13 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# flutter_js 0.8.7 把 QuickJS 的原生庫放在 flutter_qjs_bundled_libraries（Flutter
+# 讀的是 flutter_js_bundled_libraries），它自己的 install 又裝到插件自己的建置目錄，
+# App 的 bundle/lib 裡沒有這個檔，插件一執行就載入失敗（整合測試在 Linux 抓到的）。
+# 這裡補進 Flutter 的清單；套件修好或升版時拿掉，flutter_js 的版本釘在 pubspec.yaml。
+list(APPEND PLUGIN_BUNDLED_LIBRARIES
+  "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/.plugin_symlinks/flutter_js/linux/shared/libquickjs_c_bridge_plugin.so")
+
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build

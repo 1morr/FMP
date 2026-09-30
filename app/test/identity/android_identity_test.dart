@@ -27,10 +27,17 @@ void main() {
     expect(appName(AppFlavor.dev), 'FMP Dev');
   });
 
+  final manifest = File('android/app/src/main/AndroidManifest.xml')
+      .readAsStringSync();
+
   test('the launcher label reads the flavor app name', () {
-    final manifest = File('android/app/src/main/AndroidManifest.xml')
-        .readAsStringSync();
     expect(manifest, contains('android:label="@string/app_name"'));
+  });
+
+  test('the main manifest requests INTERNET', () {
+    // debug、profile 的 manifest 各有一份，只給 Flutter 工具連進 App；release
+    // 只合併 main 這一份，少了它插件連不了網路。
+    expect(usesPermissions(manifest), contains(internetPermission));
   });
 
   test('the Dart display name matches the Android app name', () {
@@ -70,6 +77,28 @@ void main() {
       expect(parseNamespace(reformatted), parseNamespace(gradle));
     });
 
+    test('a removed or commented-out permission is not requested', () {
+      const element =
+          '<uses-permission android:name="android.permission.INTERNET"/>';
+      expect(manifest, contains(element));
+      for (final mutated in [
+        manifest.replaceFirst(element, ''),
+        manifest.replaceFirst(element, '<!-- $element -->'),
+      ]) {
+        expect(usesPermissions(mutated), isNot(contains(internetPermission)));
+      }
+    });
+
+    test('attribute layout does not change the permissions', () {
+      final reformatted = manifest.replaceFirst(
+        '<uses-permission android:name="android.permission.INTERNET"/>',
+        '<uses-permission\n        android:maxSdkVersion="99"\n'
+            '        android:name = "android.permission.INTERNET" />',
+      );
+      expect(reformatted, isNot(manifest));
+      expect(usesPermissions(reformatted), usesPermissions(manifest));
+    });
+
     test('app name parsing ignores other strings and layout', () {
       expect(
         parseAppName(
@@ -101,6 +130,20 @@ String parseApplicationId(String gradle, AppFlavor flavor) {
   final base =
       id.firstMatch(flavorBlock)?.group(1) ?? _single(id, defaultConfig);
   return base + (suffix.firstMatch(flavorBlock)?.group(1) ?? '');
+}
+
+const internetPermission = 'android.permission.INTERNET';
+
+/// manifest 裡 `<uses-permission>` 的 `android:name`；註解掉的不算。
+Set<String> usesPermissions(String manifest) {
+  final live = manifest.replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
+  final name = RegExp(r'android:name\s*=\s*"([^"]*)"');
+  return {
+    for (final element in RegExp(
+      r'<uses-permission(\s[^>]*)>',
+    ).allMatches(live))
+      if (name.firstMatch(element.group(1)!) case final match?) match.group(1)!,
+  };
 }
 
 String parseAppName(String stringsXml) => _single(
