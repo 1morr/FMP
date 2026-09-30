@@ -54,6 +54,7 @@ manifest 與腳本承擔。
    評分核心的正規化、相似度與套件見 ADR 0019。
 10. **YouTube 退路**：可行性驗證（YouTube.js 在 `flutter_js` 能否搜尋並解出串流；它官方只寫支援 Node.js、Deno、瀏覽器，需宿主提供 fetch 與 eval）
     有時限；失敗則 YouTube 暫以 Dart 實作同一個 `SourcePlugin` 介面。
+   補充（2026-09-30，M1 探針）：驗證通過。YouTube.js 18.1.0 以 esbuild 打成單一插件檔（793 KB，約 204 KB gzip），fetch／URL／TextEncoder 等 Web API 在插件檔內以 `fmp.http.request` 為底補上，不改宿主 API v1；Android 與 Windows 都能搜尋，並以 VISIONOS client 解出不需登入、不需 PO token 的完整音訊網址，由 just_audio／media_kit 播出（Android 只驗到音訊系統層）。可用的 client 會隨 YouTube 封鎖而換（ANDROID_VR 自 2026-08-26 起只給約 60 秒），插件不必發新版 App 就能跟上，所以 M3 的 YouTube 走插件、不改用 Dart。證據在 `.trellis/tasks/archive/2026-09/09-30-youtubejs-probe/research/youtubejs-probe.md`。
 
 採用的慣例：MusicFree、LX Music 的 JS 腳本插件與插件訂閱（App 本體不附音源）；Spotube 的 manifest（能力、API 版本）與 iOS 側載發佈；
 Flutter federated plugin 的「一套介面、多種實作」；Spotube 的匹配結果快取與使用者改選。只參考設計，不複製程式碼（MusicFree 為 AGPL-3.0）。
