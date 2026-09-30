@@ -54,6 +54,24 @@ class LayerImportsTest extends FmpRuleTest {
         "import [!'package:background_downloader/background_downloader.dart'!];\n",
   );
 
+  // ADR 0018：兩個播放引擎只在後端實作目錄；控制器、平台層、UI 都不行。
+  // media_kit 的 libs 套件（media_kit_libs_windows_audio）算在同一系列。
+  Future<void> test_playbackEnginesOutsideTheBackends() async {
+    for (final path in [
+      'lib/playback/playback_controller.dart',
+      'lib/playback/backends_helpers.dart',
+      'lib/platform/audio/audio_windows.dart',
+      'lib/ui/player_bar/player_bar.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:just_audio/just_audio.dart'!];\n"
+        "import [!'package:media_kit/media_kit.dart'!];\n"
+        "import [!'package:media_kit_libs_windows_audio/media_kit_libs_windows_audio.dart'!];\n",
+      );
+    }
+  }
+
   Future<void> test_legacyImportFromOutside() => assertLints(
     'lib/data/database.dart',
     "import [!'package:test/legacy_import/reader.dart'!];\n",
@@ -107,6 +125,21 @@ class LayerImportsTest extends FmpRuleTest {
       'lib/legacy_import/reader.dart',
       "import 'package:isar_community/isar.dart';\n"
           "import 'package:test/legacy_import/schema.dart';\n",
+    );
+  }
+
+  Future<void> test_playbackEnginesInTheBackends() async {
+    await assertLints(
+      'lib/playback/backends/media_kit_backend.dart',
+      "import 'package:media_kit/media_kit.dart';\n"
+          "import 'package:media_kit_libs_windows_audio/media_kit_libs_windows_audio.dart';\n"
+          "import 'package:just_audio/just_audio.dart';\n",
+    );
+    // 名稱相似但不同系列（不是 `<鍵>_` 開頭）的套件不算。
+    await assertLints(
+      'lib/playback/playback_controller.dart',
+      "import 'package:media_kitchen/media_kitchen.dart';\n"
+          "import 'package:just_audiobook/just_audiobook.dart';\n",
     );
   }
 

@@ -7,6 +7,8 @@ import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
+import 'package:fmp/platform/audio/audio_android.dart';
+import 'package:fmp/platform/audio/audio_windows.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
@@ -33,6 +35,7 @@ final class AppPlatform {
             dataDirectory: true,
             singleInstance: false,
             fontFallback: androidFontFallback,
+            playback: androidPlaybackSupport,
           ),
           dataDirectory: AndroidAppDataDirectory(
             flavor: flavor,
@@ -45,6 +48,7 @@ final class AppPlatform {
             dataDirectory: true,
             singleInstance: true,
             fontFallback: windowsFontFallback,
+            playback: windowsPlaybackSupport,
           ),
           dataDirectory: WindowsAppDataDirectory(
             flavor: flavor,

@@ -1,6 +1,16 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
+
+/// 目前平台的能力宣告。`main()` 以 `AppPlatform` 組出的宣告 override；沒
+/// override 就讀會拋錯。
+final platformCapabilitiesProvider = Provider<PlatformCapabilities>(
+  (ref) => throw UnimplementedError(
+    'platformCapabilitiesProvider is overridden by main()',
+  ),
+);
 
 /// 目前平台有哪些能力（ADR 0009 §決定 2）。每個平台一份，由
 /// `platform.dart` 組出；UI 依它決定是否顯示入口。
@@ -13,6 +23,7 @@ final class PlatformCapabilities {
     required this.dataDirectory,
     required this.singleInstance,
     required this.fontFallback,
+    required this.playback,
   });
 
   /// 還沒驗證的平台：什麼都沒有。
@@ -20,6 +31,7 @@ final class PlatformCapabilities {
     dataDirectory: false,
     singleInstance: false,
     fontFallback: FontFallback.none,
+    playback: null,
   );
 
   /// 有 App 資料目錄的實作（`app_data_directory/`）。沒有時 `main()` 不啟動
@@ -33,4 +45,7 @@ final class PlatformCapabilities {
 
   /// 各介面語言的 CJK 字型 fallback（ADR 0024 §決定 2）。
   final FontFallback fontFallback;
+
+  /// 播放用的後端與可播格式（ADR 0018 §決定 3）；沒有播放的實作時為 `null`。
+  final PlaybackSupport? playback;
 }

@@ -33,9 +33,18 @@ dependencies:
   flutter_js: 0.8.7
   # 狀態管理（ADR 0013）。不用 riverpod_generator：provider 少，手寫即可。
   flutter_riverpod: ^3.4.3
+  # 播放後端（ADR 0018 §決定 3）：just_audio（ExoPlayer）給 Android，media_kit
+  # （libmpv）給 Windows；兩者只准在 lib/playback/backends/ import
+  # （fmp_layer_imports）。
+  just_audio: ^0.10.6
   # Flutter 3.47 起 Material 以獨立套件發佈，app/ 直接用它，不 import
   # package:flutter/material.dart（app/AGENTS.md § Material）。
   material_ui: ^1.5.0
+  media_kit: ^1.2.6
+  # media_kit 的 README 建議的 media_kit_libs_audio 會連 Android 的 libmpv 一起
+  # 打包（每個 ABI 多幾 MB，ADR 0018 否決的做法），所以只加 Windows 那一個。它
+  # 停在 2023-09 的 libmpv，建置時從 GitHub 下載。
+  media_kit_libs_windows_audio: ^1.0.9
   path: ^1.9.1
   path_provider: ^2.1.6
   sqlite3: ^3.6.0
@@ -49,6 +58,8 @@ dev_dependencies:
   analyzer: any
   build_runner: ^2.16.1
   drift_dev: ^2.35.0
+  # 播放控制器的測試以假時間跑重試與網址期限（test/playback/）。
+  fake_async: ^1.3.3
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
