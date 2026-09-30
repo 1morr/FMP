@@ -43,9 +43,13 @@ log.warning(
   - 鍵名（`鍵=值`、`"鍵": "值"`、欄位的鍵）→ `builtInKeyNames`。比對不分大小寫，
     而且是「以名稱結尾」：加 `token` 就涵蓋 `access_token`，不必逐一列；
   - 媒體 CDN → `builtInMediaCdns`，`host` 涵蓋子網域，`signedQueryParameters` 列要去掉
-    的參數，路徑本身帶簽章時設 `signedPath: true`。
+    的參數，路徑本身帶簽章時設 `signedPath: true`。同一個網址符合多條規則（內建與插件
+    追加的）時全部合併：參數取聯集，任一條 `signedPath` 為真就換路徑。
 - 只有某個插件知道的：插件載入時呼叫 `Redactor.addRules(...)`（M1 的 B 站插件在 PR 9）。
   名單只增不減。
+- 內建名單變嚴格，插件庫（`1morr/fmp-plugins`）既有的 fixture 可能過不了契約測試的
+  「再遮一次不變」掃描：同一個 PR 裡用新名單跑一次各插件的契約測試，紅了就重錄，或照
+  遮蔽函式的輸出改那幾個值（例如拿掉 `buvid=***`），在插件庫另開 PR。
 - 帳號的實際憑證值：登入或載入帳號時 `registerSecret`，登出時 `unregisterSecret`
   （帳號層在 M3）。少於 4 個字元的值會被拒絕。
 - 每加一項，在 `test/core/redaction/redactor_test.dart` 加一個「會遮」的案例；名稱
