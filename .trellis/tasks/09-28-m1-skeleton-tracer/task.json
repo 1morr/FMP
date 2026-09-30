@@ -28,7 +28,8 @@
     "09-29-error-model",
     "09-29-network-layer",
     "09-30-js-runtime",
-    "09-30-plugin-contract"
+    "09-30-plugin-contract",
+    "09-30-bilibili-plugin"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
