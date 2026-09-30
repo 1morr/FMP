@@ -1,0 +1,7 @@
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "On-device verification decisions"}
+{"file": ".claude/skills/verify-legacy-on-device/SKILL.md", "reason": "Legacy skill structure to adapt"}
+{"file": ".claude/skills/verify-legacy-on-device/references/android.md", "reason": "Legacy Android reference"}
+{"file": ".claude/skills/verify-legacy-on-device/references/windows.md", "reason": "Legacy Windows reference"}
+{"file": ".claude/skills/verify-legacy-on-device/references/runtime-state.md", "reason": "Legacy runtime state reference"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Data directories and identity"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Dev playback entry"}

@@ -46,12 +46,17 @@
 
 ### 實機驗證
 
-- 預設用 dev flavor 加測試插件，或把插件切成重播模式（ADR 0027 §決定 1）。
-- 只有改動本身是插件、網路層、登入或正在錄 fixture 時才用真實連線，只做最少的
-  操作，回報寫明「模式：真實」與做了哪些請求（ADR 0027 §決定 2）。
-- 每個使用者看得到的 PR 都要在 Android 模擬器與 Windows 驗（ADR 0027 §決定 3）。
-- `app/` 版的 `verify-on-device` skill 在 M1 PR 11 才建立；在那之前照上面三條手動
-  驗，回報寫明平台與模式。根目錄的 `verify-legacy-on-device` 只給舊專案用。
+操作步驟在 skill `.claude/skills/verify-on-device/`；根目錄的 `verify-legacy-on-device` 只給舊專案。
+規則是 ADR 0027，實機驗證無法寫成測試，守它的是 review：
+
+- **預設重播**：dev flavor 加內附測試插件（`--fmp-dev-playback`）；App 有每插件的重播開關
+  之後也可以用它（§決定 1）。
+- **真實連線的條件**：改動本身是插件、網路層、登入，或正在錄 fixture；只做最少的操作，
+  不批次、不迴圈（§決定 2）。
+- **每個使用者看得到的 PR 都要在 Android 模擬器與 Windows 各驗一次**（§決定 3）。
+- **回報要有「平台」與「模式：重播／真實」**，真實時列出做了哪些請求；缺任一項 review 退回。
+  截圖與回報不得含個人資訊（Windows 的身分頁會印出含使用者名稱的資料目錄路徑）。
+- 驗證只用 dev flavor；模擬器上的舊版 `com.personal.fmp` 不碰，prod APK 不安裝。
 
 ## App 身分
 
