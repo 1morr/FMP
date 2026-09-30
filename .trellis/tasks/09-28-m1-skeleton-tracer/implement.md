@@ -26,7 +26,7 @@
 
 ## 進度與交接（2026-09-30 更新；compact 後從這裡接）
 
-- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）、#185（PR 9c 紀錄）、#186（遮蔽修正）、#187（PR 10 播放核心）。#176 是 CI 路徑探測，已關閉。
+- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）、#185（PR 9c 紀錄）、#186（遮蔽修正）、#187（PR 10 播放核心）、#188（YouTube.js 探針結論）。#176 是 CI 路徑探測，已關閉。
 - **isar／sqlite3 共存探針**：已完成，兩平台共存、全部 16KB 對齊（`research/isar-sqlite3-coexistence.md`，ADR 0010 已補）。
 - **PR 9a 完成**（#183，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
   - 實機：Windows dev 開發入口裝上、重啟後從資料庫載入、prod 不理會旗標；Android 模擬器 dev 的前兩項。模擬器上的 `com.personal.fmp` 是舊版 1.11.0，prod 沒裝上去驗；prod 那一段由單元測試守（`devPluginPath` 對 prod 一律回 `null`，有變異驗證）。
@@ -37,7 +37,8 @@
 - **遮蔽修正**：`hdnts`／`buvid` 進內建名單、同 host 的規則合併套用；fmp-plugins 的 B 站 fixture 同步重新遮蔽。
 - **PR 10 完成**（#187，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-playback-core/`）：播放核心、兩個後端、前瞻交接。dev 入口 `--fmp-dev-playback`（可加 `=<曲目鍵>`）；實機數字在該子任務與 #187 描述。
 - **YouTube.js 探針完成**：通過（VISIONOS client），M3 的 YouTube 走插件；程式碼在分支 `probe/youtubejs`（已 push，不合併），結論在 `.trellis/tasks/archive/2026-09/09-30-youtubejs-probe/`，ADR 0014 §決定 10 已補。Android 只驗到音訊系統層（模擬器 `-no-audio`）。
-- **下一步**：11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **PR 11 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-verify-on-device/`）：`.claude/skills/verify-on-device/`；實機驗證一律照它做，回報含平台與模式。Windows 腳本以視窗標題 `FMP Dev` 比對，避免點到同名 `fmp.exe` 的舊版。
+- **下一步**：12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -48,7 +49,7 @@
   3. 寫 prd（繁中，列做什麼與驗收）與 `implement.jsonl`／`check.jsonl`；
   4. `task.py start`；
   5. 派 opus `trellis-implement`，驗證清單固定為：format、build_runner 後沒有實質變動、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、哨兵、需要時建置；
-  6. 使用者看得到的改動，由主對話實機驗證（Windows 用 msaa_tree.ps1 讀畫面文字；Android 用 adb 的 `run-as` 與 `screencap`）；
+  6. 使用者看得到的改動，由主對話照 `verify-on-device` skill 實機驗證（Android 與 Windows，回報含平台與模式）；
   7. 派 opus `trellis-check`，要它試著攻破安全相關的部分；
   8. 把後續待辦寫進本檔；
   9. `git checkout --` 還原只有換行差異的產生檔（`generated_plugin*`、`app_database.g.dart`、`GeneratedPluginRegistrant.swift`）——**逐檔**用 `git diff --ignore-all-space --ignore-cr-at-eol` 確認是空的才還原；加了原生插件的 PR 有真正新增的註冊，整批還原會把它們弄丟（PR 10 踩過，`flutter pub get` 可重新產生）；
@@ -210,6 +211,7 @@ PR 10 留下的後續：
 - [ ] 開不起來的串流在換過候選後對應 `Unsupported`，ADR 0013 會顯示成「視為 bug」的通用訊息；CDN 403 落到這裡不貼切，PR 12 做提示時再看。
 - [ ] 前瞻開不起來時兩個後端的行為沒有契約案例（Android 會被當成目前這首中斷；Windows 可能卡在 Playing）；前瞻解析比目前這首播完還慢時會多解析一次。M2 補契約案例。
 - [ ] 被取代的 `resolveStream` 只丟結果、不取消網路工作（`SourcePlugin` 沒有取消參數）。
+- [ ] `.trellis/spec/app/playback/index.md` 的「實機驗證」段與 `verify-on-device` skill 的建置、安裝、`am start` 步驟重複；改成指向 skill（PR 12 動到播放時順手）。
 - [ ] 媒體 CDN 的簽名參數目前是整個拿掉；內建名單每變嚴格一次，既有 fixture 就過不了「再遮蔽一次不變」的掃描（遮蔽修正 PR 時手動改了 fmp-plugins 的 24 個網址）。審查建議改成「值換成 `***`」：已遮過的不再誤紅、明文照樣紅。改動是 `_redactMediaUrl` 一行加既有測試期望，M3 插件庫 CI 上線前做。
 - [ ] 插件每重新載入一次，`Redactor._mediaCdns` 就多一份相同規則（輸出不受影響，只是多掃）；M3 插件頁的重新載入出現時一併去重。
 
