@@ -1,0 +1,20 @@
+# slang（ADR 0024 §決定 7），以 `dart run slang` 產生 lib/i18n/*.g.dart 並提交。
+# 不用 slang_build_runner：它的彙總輸出在乾淨的 checkout 裡會把已提交的產生檔
+# 當成衝突而拒寫（官方把它定位成「不提交產生檔、CI 時才產生」的做法）。
+# 選項的理由見 .trellis/spec/app/ui/index.md 開頭連到的研究檔。
+base_locale: zh-TW
+fallback_strategy: base_locale
+input_directory: lib/i18n
+input_file_pattern: .i18n.json
+output_directory: lib/i18n
+output_file_name: strings.g.dart
+lazy: false
+locale_handling: false
+flutter_integration: false
+translation_class_visibility: public
+string_interpolation: braces
+timestamp: false
+flat_map: false
+format:
+  enabled: true
+  width: 80

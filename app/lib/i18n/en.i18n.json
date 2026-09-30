@@ -1,0 +1,34 @@
+{
+  "startup": {
+    "databaseError": "Can't open the database",
+    "unsupportedPlatform": "This platform isn't supported yet"
+  },
+  "appearance": {
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "languageSystem": "System default"
+  },
+  "errors": {
+    "network": "Network connection failed. Check your connection and try again.",
+    "rateLimited": "Too many requests to {source}. Try again later.",
+    "authRequired": "Sign in to {source} to continue.",
+    "credentialInvalid": "Your sign-in to {source} has expired. Sign in again.",
+    "verificationRequired": "Verification required by {source}. Sign in, paste a cookie, or try again later.",
+    "unavailable": "This isn't available.",
+    "unavailableBecause": "Not available: {reason}",
+    "notFound": "Not found. It may have been removed.",
+    "parseError": "The response format of {source} changed. An update may be needed.",
+    "unexpected": "Something went wrong.",
+    "unknownSource": "the source",
+    "unavailableReasons": {
+      "region": "not offered in your region",
+      "copyright": "copyright restriction",
+      "membership": "membership required",
+      "age": "age restricted",
+      "previewOnly": "preview only"
+    }
+  }
+}

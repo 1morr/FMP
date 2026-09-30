@@ -12,7 +12,8 @@
 | 任何改動 | `dart format --output=none --set-exit-if-changed .`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test` |
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
-| drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
+| drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
+| 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
@@ -124,10 +125,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   的分支本身沒有測試。
 - 外鍵每次開啟都在 `beforeOpen` 打開（SQLite 預設關、只對當前連線有效；ADR 0019 §決定 1）。
   閘門：`test/data/database/app_database_test.dart` 與 repository 測試的 cascade 案例。
-- drift 產生的 `*.g.dart` 提交進 repo（`app/.gitignore` 覆寫根目錄對 `*.g.dart` 的忽略），
-  拉下來不用先跑 codegen。改了 table 或 `@DriftDatabase` 就重跑
-  `dart run build_runner build` 並提交產生檔。閘門：CI `app` job 的
-  「Check generated code is up to date」；本機沒有東西擋。
+- drift 與 slang（§ 介面）產生的 `*.g.dart` 提交進 repo（`app/.gitignore` 覆寫根目錄對
+  `*.g.dart` 的忽略），拉下來不用先跑 codegen。改了 table、`@DriftDatabase` 就重跑
+  `dart run build_runner build --delete-conflicting-outputs`，改了翻譯檔就重跑 `dart run slang`（不用
+  slang_build_runner：它在乾淨的 checkout 會把已提交的產生檔當成衝突），並提交產生檔。閘門：CI `app` job 的
+  「Check generated code is up to date」；本機沒有東西擋。在 Windows 上重跑會把產生檔與
+  `linux/`、`macos/`、`windows/` 的 plugin registrant 改成 LF，內容沒變的（`git diff
+  --ignore-all-space --ignore-cr-at-eol` 為空）直接還原。
 - schema 快照在 `drift_schemas/app_database/`。閘門：`test/drift/app_database/schema_test.dart`
   ——程式碼建出的 schema 必須等於最新快照，`schemaVersion` 必須等於最新快照的版本。
 - 持久化格式：列舉存 `lib/data/database/converters.dart` 寫死的字串（不是 enum 的
@@ -183,9 +187,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 音源邊界以上只看得到 `AppError`：音源把自己的錯誤碼轉好，其他例外在邊界以
   `AppError.wrap` 包成 `UnexpectedError`。閘門：PR 9 的插件契約測試；在那之前沒有。
 - `AppError` 沒有可以直接顯示的字串：使用者訊息只有 `messageKey`／`messageArgs`；
-  原始 error 與 stackTrace 是函式庫私有欄位，`toString()` 不含它們。閘門：
-  `test/core/errors/app_error_surface_test.dart`（列出全部公開成員，含變異案例）、
-  `app_error_test.dart` 的 `toString`。
+  `messageArgs` 是 `Map<ErrorMessageArg, int>`，放不進插件或伺服器的文字；音源名稱由呈現層
+  以 `pluginId` 查。原始 error 與 stackTrace 是函式庫私有欄位，`toString()` 不含它們。閘門：
+  `test/core/errors/app_error_surface_test.dart`（列出全部公開成員；型別參數裡的
+  `String`／`Object`／`dynamic` 也算，含變異案例）、`app_error_test.dart` 的 `toString`。
 - 被處理的錯誤一律經 `log.report(...)`（`report_error.dart`，`app_error.dart` 的 `part`）
   寫進錯誤歷史，那是唯一讀得到原始 error 的路徑。閘門：`report_error_test.dart`
   驗層級、欄位與遮蔽；「處理了卻沒 report」沒有閘門，review 時看。
@@ -350,13 +355,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 恢復（ADR 0018 §決定 7 的 M1 部分）：網路錯誤、限流、中斷與提前結束從目前位置重試
   1／3／9 秒；開不起來換下一個候選一次；其他錯誤類別跳過；連續跳過達佇列長度（最多 10）
   停在 `Failed`。M1 沒有連線偵測、試聽片段設定（一律跳過）、緩衝飢餓與輸出裝置的處理、
-  「正常播放 10 秒後重試計數歸零」（M1 換歌才歸零），也沒有提示 UI（PR 12）。閘門：`recovery_policy_test.dart`、`playback_controller_test.dart`
+  「正常播放 10 秒後重試計數歸零」（M1 換歌才歸零），也沒有提示 UI（PR 12b）。閘門：`recovery_policy_test.dart`、`playback_controller_test.dart`
   的 `recovery` 群組。
 - 被取代的解析結果丟掉，但插件的 `resolveStream` 沒有取消參數，網路工作不取消
   （ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
 - 播放的開發入口：dev flavor 帶 `--fmp-dev-playback` 啟動就安裝內附的測試插件並依序播
   它的三首；`--fmp-dev-playback=<曲目鍵>`（可重複；不用逗號，Android 的 `--esal` 以逗號切
-  陣列）播指定的曲目（插件同時以 `--fmp-dev-plugin` 安裝）。prod 不讀，理由同插件的開發入口。PR 12 的播放列能走同一條路後刪掉。閘門：
+  陣列）播指定的曲目（插件同時以 `--fmp-dev-plugin` 安裝）。prod 不讀，理由同插件的開發入口。PR 12b 的播放列能走同一條路後刪掉。閘門：
   `dev_playback_entry_test.dart` 的 `prod reads nothing`。
 
 ## 設定
@@ -371,6 +376,52 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   分辨「跟隨系統」。
 - 語言沒設定過時跟隨系統的語言偏好清單（執行中改變也跟）：取清單中第一個對得到
   zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。
+- 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
+  存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
+  `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、
+  `appearance_settings_test.dart` 的 `null clears a field back to following the system`。
+
+## 介面
+
+`lib/ui/`、`lib/i18n/`（ADR 0023、ADR 0024）。怎麼用 token、加字串、跳提示：
+`.trellis/spec/app/ui/index.md`。
+
+- 間距、圓角、顏色只從 `lib/ui/theme/`（`AppTokens`、`AppLayout`、`ColorScheme`）取，字級只用
+  `TextTheme` 的角色。閘門：lint `fmp_design_tokens`（`lib/ui/`，theme 目錄豁免）。`lib/app/`
+  不在它的範圍；身分頁（12b 換掉）照樣用 token，但沒有閘門。
+- 使用者看到的字串只來自 `lib/i18n/*.i18n.json`；base locale 是 zh-TW，缺字在執行時退回繁中，
+  所以編譯擋不住漏翻。閘門：`test/i18n/translations_test.dart`（三個語言的 key 與 `{參數}`
+  相同、每個 `ErrorMessageKey`／`UnavailableReason` 都有字串；含變異案例）。widget 裡寫死的
+  字串沒有閘門，review 時看；身分頁的 `Dev playback:` 之類是開發用標籤，刻意不翻。
+- 翻譯只經 `translationsProvider`（`lib/ui/i18n/ui_locale.dart`）注入：`slang.yaml` 設
+  `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。
+- `MaterialApp.locale` 一律給帶書寫系統的 locale（`zh-Hant-TW`、`zh-Hans-CN`、`en`），由
+  `flutterLocaleOf` 從 `LocaleSetting` 對出；它決定 Android 的繁簡字形與 Material 內建字串。
+  `localizationsDelegates` 用 `material_ui` 的 `GlobalMaterialLocalizations.delegates`，不是
+  `flutter_localizations` 的（後者給的是凍結的 material.dart 型別）。閘門：
+  `test/ui/i18n/ui_locale_test.dart`（三種語言的 Material 字串）、`test/app/fmp_app_test.dart`
+  的 `appearance` 群組。
+- 主題的 `fontFamilyFallback` 取平台層依介面語言排序的清單（ADR 0024 §決定 2）；App 啟動與每次
+  換語言寫一筆 `UI locale applied`（`locale`、`fontFallback`）。閘門：`fmp_app_test.dart` 的
+  `the theme uses the platform fonts for the UI language`。字形是否正確只能實機看（身分頁的
+  字形樣本）。
+- 主題的每個文字樣式帶 `textLocaleOf` 的 locale（中文介面同介面語言，英文介面是繁中）：
+  Android 不指名字型，英文介面的漢字不帶它就落到簡中字形。樣式的 locale 蓋過 `Text.locale`，
+  要另一種字形的文字在樣式上指定。閘門：`app_theme_test.dart` 的
+  `widgets inherit the text locale`、`fmp_app_test.dart` 的
+  `CJK text takes the glyphs of the UI language`。
+- 提示只經 `Toaster`（`toasterProvider`）：`SnackBar`、`ScaffoldMessenger.of` 等只准在
+  `lib/ui/toast/`。閘門：lint `fmp_toast_entry`。`error` 只收 `AppError`，並自己
+  `log.report`（被去重掉的也寫）。閘門：`test/ui/toast/toaster_test.dart`。背景工作不呼叫
+  `Toaster`：沒有閘門，review 時看。
+- `ToastHost` 在 `MaterialApp.builder`，以自己的 `Overlay`、`ScaffoldMessenger`、透明
+  `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
+  時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
+  不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
+- 淺色與深色主題下，示範畫面、外觀設定控制項與四種提示通過點擊區與對比度 guideline。閘門：
+  `test/ui/guidelines_test.dart`。12b 的正式頁面要各自加進去。
+- `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
+  `test/ui/layout/window_class_test.dart`。
 
 ## 零聯網
 

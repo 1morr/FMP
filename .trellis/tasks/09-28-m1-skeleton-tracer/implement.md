@@ -38,7 +38,8 @@
 - **PR 10 完成**（#187，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-playback-core/`）：播放核心、兩個後端、前瞻交接。dev 入口 `--fmp-dev-playback`（可加 `=<曲目鍵>`）；實機數字在該子任務與 #187 描述。
 - **YouTube.js 探針完成**：通過（VISIONOS client），M3 的 YouTube 走插件；程式碼在分支 `probe/youtubejs`（已 push，不合併），結論在 `.trellis/tasks/archive/2026-09/09-30-youtubejs-probe/`，ADR 0014 §決定 10 已補。Android 只驗到音訊系統層（模擬器 `-no-audio`）。
 - **PR 11 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-verify-on-device/`）：`.claude/skills/verify-on-device/`；實機驗證一律照它做，回報含平台與模式。Windows 腳本以視窗標題 `FMP Dev` 比對，避免點到同名 `fmp.exe` 的舊版。
-- **下一步**：12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **PR 12a 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-ui-foundation/`）：主題 token、`WindowClass`、slang 三語言、`Toaster`／`ToastHost`、`messageArgs` 收窄、外觀可清回跟隨系統。實機：Windows 繁中／English 正黑體、简中雅黑；Android 英文介面原本落到簡中字形，已改為主題文字樣式帶 `zh-Hant` 並複驗。
+- **下一步**：12b（`.trellis/tasks/09-30-app-shell`，prd 已核准） → 13 五平台建置與發版 workflow → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -209,6 +210,7 @@ PR 10 留下的後續：
 
 - [ ] `app/android/app/src/main/AndroidManifest.xml` 沒有 `INTERNET` 權限（只有 `debug/`、`profile/` 有），release 建置連不了網路；PR 13 處理。
 - [ ] 開不起來的串流在換過候選後對應 `Unsupported`，ADR 0013 會顯示成「視為 bug」的通用訊息；CDN 403 落到這裡不貼切，PR 12 做提示時再看。
+- [ ] 12a 審查留給 12b：`ToastHost` 多包的 `Overlay` 成了 root overlay，搜尋框的文字選取工具列、放大鏡要實機確認；鍵盤彈出時提示位置（`viewInsets` 減 `viewPadding`）沒有測試；`Toaster` 的 stream 同步發送，在 build 階段呼叫會出錯（接 `ref.listen` 時留意）。
 - [ ] 前瞻開不起來時兩個後端的行為沒有契約案例（Android 會被當成目前這首中斷；Windows 可能卡在 Playing）；前瞻解析比目前這首播完還慢時會多解析一次。M2 補契約案例。
 - [ ] 被取代的 `resolveStream` 只丟結果、不取消網路工作（`SourcePlugin` 沒有取消參數）。
 - [ ] `.trellis/spec/app/playback/index.md` 的「實機驗證」段與 `verify-on-device` skill 的建置、安裝、`am start` 步驟重複；改成指向 skill（PR 12 動到播放時順手）。
@@ -242,6 +244,8 @@ PR 10 留下的後續：
 - 驗證：用新 skill 在兩個平台啟動 dev 版到首頁。
 
 ### 12. UI（擁有者決定 2）
+
+2026-09-30 擁有者核准：拆成 **12a** UI 基礎（`.trellis/tasks/09-30-ui-foundation`）與 **12b** 外殼與頁面（`.trellis/tasks/09-30-app-shell`）；ADR 0023 §決定 4 的 `ErrorReport`、詳細頁、「回報」延到 M3（與 Debug 頁的錯誤歷史共用）；12b 移除身分頁與 `--fmp-dev-playback`，保留 `--fmp-dev-plugin`。
 
 - [ ] 主題與字串：
   - `AppTokens`、`AppLayout`；

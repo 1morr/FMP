@@ -63,6 +63,22 @@ final class AppearanceSettingsRepository {
             ),
           );
 
+  /// 把傳 `true` 的欄位清回 `null`（沒設定過，由上層套用預設）；其他欄位不動。
+  ///
+  /// 和 [write] 分開：[write] 的 `null` 表示「沒給、不動」，所以清空另走這裡。
+  Future<void> clear({bool themeMode = false, bool locale = false}) {
+    if (!themeMode && !locale) return Future.value();
+    return _database
+        .into(_database.appearanceSettingsTable)
+        .insertOnConflictUpdate(
+          AppearanceSettingsTableCompanion(
+            id: const Value(_rowId),
+            themeMode: themeMode ? const Value(null) : const Value.absent(),
+            locale: locale ? const Value(null) : const Value.absent(),
+          ),
+        );
+  }
+
   static AppearanceSettings _fromRow(AppearanceSettingsRow? row) => row == null
       ? AppearanceSettings.empty
       : AppearanceSettings(themeMode: row.themeMode, locale: row.locale);

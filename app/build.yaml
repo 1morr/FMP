@@ -1,10 +1,12 @@
-# drift 的程式碼產生器設定（https://drift.simonbinder.eu/migrations/）。
-# `databases:` 給 `dart run drift_dev make-migrations` 找資料庫類別；快照存在
-# drift_schemas/app_database/，測試輔助碼在 test/drift/app_database/generated/
-# （兩者都是 make-migrations 的預設位置）。步驟見 .trellis/spec/app/data/index.md。
+# build_runner 的設定（drift）；產生檔提交（app/AGENTS.md § 資料層）。翻譯不走
+# build_runner，設定在 slang.yaml。
 targets:
   $default:
     builders:
+      # drift（https://drift.simonbinder.eu/migrations/）。`databases:` 給
+      # `dart run drift_dev make-migrations` 找資料庫類別；快照存在
+      # drift_schemas/app_database/，測試輔助碼在 test/drift/app_database/generated/
+      # （兩者都是 make-migrations 的預設位置）。步驟見 .trellis/spec/app/data/index.md。
       drift_dev:
         options:
           databases:

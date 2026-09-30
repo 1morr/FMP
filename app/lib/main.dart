@@ -69,7 +69,11 @@ Future<void> main(List<String> arguments) async {
     );
     runApp(
       appProviderScope(
-        child: DatabaseErrorApp(flavor: flavor, error: error),
+        child: DatabaseErrorApp(
+          flavor: flavor,
+          error: error,
+          fontFallback: platform.capabilities.fontFallback,
+        ),
       ),
     );
     return;

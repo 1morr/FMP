@@ -33,7 +33,9 @@
     "09-30-redaction-cdn-rules",
     "09-30-playback-core",
     "09-30-youtubejs-probe",
-    "09-30-verify-on-device"
+    "09-30-verify-on-device",
+    "09-30-ui-foundation",
+    "09-30-app-shell"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
