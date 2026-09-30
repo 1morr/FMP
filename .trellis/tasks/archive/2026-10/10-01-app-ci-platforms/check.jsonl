@@ -1,0 +1,8 @@
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Decision 8 flavors and identity, decision 9 CI contents"}
+{"file": "docs/adr/0008-rewrite-as-new-app-in-same-repo.md", "reason": "prod identity must match the old app"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Unsupported platforms stay declared as none"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test layout, QuickJS loading, integration tests"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer and identity rules"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "PluginInstaller and the test plugin"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "PlaybackController and fake backends"}
+{"file": ".claude/skills/verify-on-device/references/windows.md", "reason": "Integration tests overwrite the dev build; rebuild afterwards"}
