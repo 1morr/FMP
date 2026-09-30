@@ -40,7 +40,8 @@
 - **PR 11 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-verify-on-device/`）：`.claude/skills/verify-on-device/`；實機驗證一律照它做，回報含平台與模式。Windows 腳本以視窗標題 `FMP Dev` 比對，避免點到同名 `fmp.exe` 的舊版。
 - **PR 12a 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-ui-foundation/`）：主題 token、`WindowClass`、slang 三語言、`Toaster`／`ToastHost`、`messageArgs` 收窄、外觀可清回跟隨系統。實機：Windows 繁中／English 正黑體、简中雅黑；Android 英文介面原本落到簡中字形，已改為主題文字樣式帶 `zh-Hant` 並複驗。
 - **PR 12b 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-app-shell/`）：外殼、搜尋、設定、播放列、快捷鍵與 F6；**M1 端到端驗收通過**（Windows、Android 模擬器各搜尋 B 站並連播兩首，模式：真實）。
-- **下一步**：13 五平台建置與發版 workflow → 里程碑驗收。
+- **PR 13 拆分**（2026-10-01 擁有者核准）：**13a** CI 五平台建置、Xcode scheme、INTERNET 權限、Linux 與 Windows 整合測試（`.trellis/tasks/10-01-app-ci-platforms`）；**13b** release-please、`app-release.yml`、sandbox 實跑。
+- **下一步**：13a → 13b → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -280,6 +281,8 @@ PR 10 留下的後續：
   - 兩平台搜尋 B 站並連續播兩首（真實連線，最少操作）。
 
 ### 13. 五平台建置與發版 workflow（擁有者決定 4）
+
+2026-10-01 擁有者核准拆成 13a（CI 建置、scheme、整合測試）與 13b（發版 workflow、sandbox）。
 
 - [ ] CI 加入：
   - Linux、macOS、iOS（不簽名）建置；

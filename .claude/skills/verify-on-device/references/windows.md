@@ -73,6 +73,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/window_shot.ps1 -Atta
   `build\windows\x64\dev\runner\Debug\fmp.exe`，跑完後那裡是測試版，還可能留下一個沒有視窗、沒有 log
   的 `fmp.exe`（占住單一實例，之後啟動會直接結束）。跑完整合測試先結束它，再
   `flutter build windows --flavor dev --debug`。
+- **一次只給一個整合測試檔**：`flutter test integration_test/a.dart integration_test/b.dart -d windows`
+  第一個檔案照常，第二個建置完就報 `Error waiting for a debug connection: The log reader stopped
+  unexpectedly` 與 `Unable to start the app on the device`。不是單一實例擋住（那時沒有別的 `fmp.exe`），
+  是 flutter_tools 的桌面 log reader 只能用一次；每個檔案分開下指令。
 - **Narrator**：`Start-Process narrator.exe` 會帶出「快速入門」視窗搶前景（之後的 `-Click` 回 exit 3），
   `taskkill /F /IM NarratorQuickStart.exe` 關掉它；Narrator 本身 `taskkill` 會被拒，用 Win+Ctrl+Enter 關。
 
