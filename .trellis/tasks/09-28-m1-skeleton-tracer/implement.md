@@ -30,7 +30,7 @@
 - **isar／sqlite3 共存探針**：已完成，兩平台共存、全部 16KB 對齊（`research/isar-sqlite3-coexistence.md`，ADR 0010 已補）。
 - **PR 9a 完成**（#183，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
   - 實機：Windows dev 開發入口裝上、重啟後從資料庫載入、prod 不理會旗標；Android 模擬器 dev 的前兩項。模擬器上的 `com.personal.fmp` 是舊版 1.11.0，prod 沒裝上去驗；prod 那一段由單元測試守（`devPluginPath` 對 prod 一律回 `null`，有變異驗證）。
-- **PR 9b 待合併**（分支 `feat/plugin-contract`，子任務 `.trellis/tasks/09-30-plugin-contract`）：fixture 錄製重播、`checks.json`、契約執行器；擁有者決定 8 讓執行器可在命令列做免登入的錄製（`live` tag），ADR 0015 §決定 7 已補更正。
+- **PR 9b 待合併**（分支 `feat/plugin-contract`，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-plugin-contract/`）：fixture 錄製重播、`checks.json`、契約執行器；擁有者決定 8 讓執行器可在命令列做免登入的錄製（`live` tag），ADR 0015 §決定 7 已補更正。
 - **之後**：9c（建 `1morr/fmp-plugins`、B 站插件、錄一次 fixture）→ YouTube.js 探針（與 10–13 並行）→ 10 播放核心 → 11 verify-on-device → 12 UI → 13 五平台建置與發版 workflow → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
