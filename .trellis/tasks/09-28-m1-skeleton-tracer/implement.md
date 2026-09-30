@@ -26,7 +26,7 @@
 
 ## 進度與交接（2026-09-30 更新；compact 後從這裡接）
 
-- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）、#185（PR 9c 紀錄）、#186（遮蔽修正）、#187（PR 10 播放核心）、#188（YouTube.js 探針結論）。#176 是 CI 路徑探測，已關閉。
+- **已合併進 `main`**：#173（設計文件）、#174（PR 1 指令檔分家）、#175（PR 2 骨架與 CI）、#177（PR 3 lint）、#178（PR 4 平台層）、#179（PR 5 drift）、#180（PR 6 log 與設定）、#181（PR 7 錯誤模型）、#182（PR 8 網路層）、#183（PR 9a JS 執行環境）、#184（PR 9b 契約執行器）、#185（PR 9c 紀錄）、#186（遮蔽修正）、#187（PR 10 播放核心）、#188（YouTube.js 探針結論）、#189（PR 11 verify-on-device）、#190（PR 12a UI 基礎）。#176 是 CI 路徑探測，已關閉。
 - **isar／sqlite3 共存探針**：已完成，兩平台共存、全部 16KB 對齊（`research/isar-sqlite3-coexistence.md`，ADR 0010 已補）。
 - **PR 9a 完成**（#183，子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-js-runtime/`）：每插件一個背景 isolate 的 QuickJS、宿主 API v1、manifest、從檔案安裝與 dev 開發入口、測試插件 `fmp-test`；數字在該子任務 `research/notes.md` §4。
   - 實機：Windows dev 開發入口裝上、重啟後從資料庫載入、prod 不理會旗標；Android 模擬器 dev 的前兩項。模擬器上的 `com.personal.fmp` 是舊版 1.11.0，prod 沒裝上去驗；prod 那一段由單元測試守（`devPluginPath` 對 prod 一律回 `null`，有變異驗證）。
@@ -39,7 +39,8 @@
 - **YouTube.js 探針完成**：通過（VISIONOS client），M3 的 YouTube 走插件；程式碼在分支 `probe/youtubejs`（已 push，不合併），結論在 `.trellis/tasks/archive/2026-09/09-30-youtubejs-probe/`，ADR 0014 §決定 10 已補。Android 只驗到音訊系統層（模擬器 `-no-audio`）。
 - **PR 11 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-verify-on-device/`）：`.claude/skills/verify-on-device/`；實機驗證一律照它做，回報含平台與模式。Windows 腳本以視窗標題 `FMP Dev` 比對，避免點到同名 `fmp.exe` 的舊版。
 - **PR 12a 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-ui-foundation/`）：主題 token、`WindowClass`、slang 三語言、`Toaster`／`ToastHost`、`messageArgs` 收窄、外觀可清回跟隨系統。實機：Windows 繁中／English 正黑體、简中雅黑；Android 英文介面原本落到簡中字形，已改為主題文字樣式帶 `zh-Hant` 並複驗。
-- **下一步**：12b（`.trellis/tasks/09-30-app-shell`，prd 已核准） → 13 五平台建置與發版 workflow → 里程碑驗收。
+- **PR 12b 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-app-shell/`）：外殼、搜尋、設定、播放列、快捷鍵與 F6；**M1 端到端驗收通過**（Windows、Android 模擬器各搜尋 B 站並連播兩首，模式：真實）。
+- **下一步**：13 五平台建置與發版 workflow → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -210,7 +211,15 @@ PR 10 留下的後續：
 
 - [ ] `app/android/app/src/main/AndroidManifest.xml` 沒有 `INTERNET` 權限（只有 `debug/`、`profile/` 有），release 建置連不了網路；PR 13 處理。
 - [ ] 開不起來的串流在換過候選後對應 `Unsupported`，ADR 0013 會顯示成「視為 bug」的通用訊息；CDN 403 落到這裡不貼切，PR 12 做提示時再看。
-- [ ] 12a 審查留給 12b：`ToastHost` 多包的 `Overlay` 成了 root overlay，搜尋框的文字選取工具列、放大鏡要實機確認；鍵盤彈出時提示位置（`viewInsets` 減 `viewPadding`）沒有測試；`Toaster` 的 stream 同步發送，在 build 階段呼叫會出錯（接 `ref.listen` 時留意）。
+- [x] 12a 審查留給 12b（12b 已處理，有測試）：`ToastHost` 多包的 `Overlay` 成了 root overlay，搜尋框的文字選取工具列、放大鏡要實機確認；鍵盤彈出時提示位置（`viewInsets` 減 `viewPadding`）沒有測試；`Toaster` 的 stream 同步發送，在 build 階段呼叫會出錯（接 `ref.listen` 時留意）。
+
+12b 留下的後續：
+
+- [ ] 啟動 log 的 `App started` 帶 `dataDirectory`（含系統使用者名稱）；本機 log 可以，但 ADR 0011 §決定 6 的診斷包不得含帳號名稱：M3 做診斷包時遮掉或去掉。
+- [ ] CDN 403 開不起來會對到 `Unsupported`，提示是「視為 bug」的通用訊息（PR 10 起的待辦，12b 未處理）：M2 做恢復與提示時改對應。
+- [ ] 播放中「跳過並提示」：控制器沒有發出跳過事件，目前跳過不提示；M2。
+- [ ] 封面 `Image.network`：轉址的下一跳不經 `allowedHosts`、下載沒有大小上限與逾時；M6 的媒體 client 接手。
+- [ ] Android 返回鍵在任何分頁都直接離開 App（與舊版相同）；M2 做播放頁時一併看。
 - [ ] 前瞻開不起來時兩個後端的行為沒有契約案例（Android 會被當成目前這首中斷；Windows 可能卡在 Playing）；前瞻解析比目前這首播完還慢時會多解析一次。M2 補契約案例。
 - [ ] 被取代的 `resolveStream` 只丟結果、不取消網路工作（`SourcePlugin` 沒有取消參數）。
 - [ ] `.trellis/spec/app/playback/index.md` 的「實機驗證」段與 `verify-on-device` skill 的建置、安裝、`am start` 步驟重複；改成指向 skill（PR 12 動到播放時順手）。
