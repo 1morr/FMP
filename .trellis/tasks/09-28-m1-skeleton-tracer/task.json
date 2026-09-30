@@ -31,7 +31,8 @@
     "09-30-plugin-contract",
     "09-30-bilibili-plugin",
     "09-30-redaction-cdn-rules",
-    "09-30-playback-core"
+    "09-30-playback-core",
+    "09-30-youtubejs-probe"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
