@@ -3,6 +3,41 @@
     "databaseError": "無法開啟資料庫",
     "unsupportedPlatform": "此平台尚未支援"
   },
+  "shell": {
+    "search": "搜尋",
+    "settings": "設定",
+    "searchTooltip": "搜尋（Ctrl+F）",
+    "settingsTooltip": "設定（Ctrl+,）"
+  },
+  "search": {
+    "hint": "搜尋歌曲",
+    "clear": "清除",
+    "loadingSources": "正在載入音源",
+    "noSources": "沒有可以搜尋的音源",
+    "noSourcesHint": "安裝支援搜尋的插件後，就能在這裡搜尋",
+    "prompt": "輸入關鍵字開始搜尋",
+    "loading": "搜尋中",
+    "noResults": "找不到「{keyword}」的結果",
+    "failed": "搜尋失敗",
+    "retry": "重試",
+    "loadMore": "載入更多"
+  },
+  "settings": {
+    "title": "設定",
+    "appearance": "外觀"
+  },
+  "player": {
+    "play": "播放",
+    "pause": "暫停",
+    "previous": "上一首",
+    "next": "下一首",
+    "playTooltip": "播放（空白鍵）",
+    "pauseTooltip": "暫停（空白鍵）",
+    "previousTooltip": "上一首（Ctrl+←）",
+    "nextTooltip": "下一首（Ctrl+→）",
+    "progress": "播放進度",
+    "loading": "載入中"
+  },
   "appearance": {
     "theme": "主題",
     "themeSystem": "跟隨系統",

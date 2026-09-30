@@ -273,6 +273,16 @@ jobs:
       - name: Unit and widget tests
         run: flutter test
 
+      # golden（alchemist 的 CI 版）比對失敗時，flutter_test 把差異圖寫在
+      # 各 golden 目錄旁的 failures/；上傳才看得到哪裡不同。
+      - name: Upload golden failures
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app-golden-failures
+          path: app/test/**/failures/
+          if-no-files-found: ignore
+
   ci-result:
     name: CI Result
     if: always()

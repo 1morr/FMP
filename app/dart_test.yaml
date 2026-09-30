@@ -5,3 +5,6 @@ tags:
   # （flutter test 沒有 package:test 的 --preset，解除只能靠 --run-skipped。）
   live:
     skip: "live: hits real APIs; run with --run-skipped --tags live"
+  # alchemist 的 golden 測試（goldenTest 自動加上）。和其他測試一起跑：CI 版的
+  # golden（文字畫成色塊）在各平台相同，見 test/flutter_test_config.dart。
+  golden: {}

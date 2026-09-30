@@ -15,6 +15,7 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../plugins/plugin_harness.dart';
@@ -23,7 +24,7 @@ import '../support/memory_database.dart';
 void main() {
   final dispatcher = TestWidgetsFlutterBinding.instance.platformDispatcher;
 
-  /// 以身分頁啟動 App；回傳它的 log，讀記憶體歷史用。
+  /// 啟動 App（外殼）；回傳它的 log，讀記憶體歷史用。
   Future<Log> pumpApp(
     WidgetTester tester, {
     AppDatabase? database,
@@ -54,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('shows the app name, flavor, data directory and plugins', (
+  testWidgets('opens on search; installed plugins are the sources', (
     tester,
   ) async {
     final database = memoryDatabase();
@@ -72,19 +73,27 @@ void main() {
 
     await pumpApp(tester, database: database);
     // 插件在背景 isolate 載入：spawn 與 port 的訊息要真的事件迴圈，所以在
-    // runAsync 裡讓它跑，直到清單出現。
-    final plugin = find.text('fmp-test 1.0.0');
-    for (var round = 0; round < 100 && plugin.evaluate().isEmpty; round++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 20)),
-      );
-      await tester.pump();
+    // runAsync 裡讓它跑，直到音源出現。
+    Future<void> until(Finder finder) async {
+      for (var round = 0; round < 100 && finder.evaluate().isEmpty; round++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
     }
 
-    expect(find.text('FMP Dev'), findsOneWidget);
-    expect(find.text('dev'), findsOneWidget);
-    expect(find.text('/data/fmp-dev'), findsOneWidget);
-    expect(plugin, findsOneWidget);
+    final source = find.widgetWithText(ChoiceChip, 'FMP Test Plugin');
+    await until(source);
+    expect(source, findsOneWidget);
+
+    // 內附測試插件的搜尋（真的 QuickJS）：離線也有結果。
+    await tester.enterText(find.byType(TextField), 'tone');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    final result = find.text('Test tone 220 Hz (tone)');
+    await until(result);
+    expect(result, findsOneWidget);
+    expect(find.text('Load more'), findsOneWidget);
   });
 
   group('appearance', () {
@@ -94,11 +103,18 @@ void main() {
     });
 
     Locale appLocale(WidgetTester tester) =>
-        Localizations.localeOf(tester.element(find.text('FMP Dev')));
+        Localizations.localeOf(tester.element(find.byType(AppShell)));
+
+    /// 開到設定頁（外觀設定在那裡）。
+    Future<void> openSettings(WidgetTester tester) async {
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await settle(tester);
+    }
 
     testWidgets('an unset language follows the system', (tester) async {
       await pumpApp(tester);
       await settle(tester);
+      await openSettings(tester);
 
       expect(appLocale(tester), const Locale('en'));
       expect(find.text('Theme'), findsOneWidget);
@@ -109,6 +125,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await settle(tester);
+      await openSettings(tester);
 
       await tester.tap(find.text('繁體中文'));
       await settle(tester);
@@ -123,7 +140,7 @@ void main() {
       expect(find.text('主題'), findsOneWidget);
       // Material 的內建字串也是繁中。
       expect(
-        MaterialLocalizations.of(tester.element(find.text('FMP Dev')))
+        MaterialLocalizations.of(tester.element(find.byType(AppShell)))
             .okButtonLabel,
         '確定',
       );
@@ -138,7 +155,7 @@ void main() {
       );
       await settle(tester);
       expect(appLocale(tester), const Locale('en'));
-      expect(find.text('FMP Dev'), findsOneWidget);
+      expect(find.text('Theme'), findsOneWidget);
     });
 
     testWidgets('CJK text takes the glyphs of the UI language', (tester) async {
@@ -169,10 +186,11 @@ void main() {
       };
       await pumpApp(tester);
       await settle(tester);
+      await openSettings(tester);
 
       // 英文介面：漢字用繁中字形（ADR 0024 §決定 2），英文的 Material 字串不變。
       expect(appLocale(tester), const Locale('en'));
-      expect(textLocale(find.text('FMP Dev')), hant);
+      expect(textLocale(find.text('Theme')), hant);
       expect(textLocale(find.text('Dark')), hant);
       for (final MapEntry(key: text, value: locale) in endonyms.entries) {
         expect(textLocale(text), locale, reason: 'endonyms keep their own');
@@ -180,7 +198,7 @@ void main() {
 
       await tester.tap(find.text('简体中文'));
       await settle(tester);
-      expect(textLocale(find.text('FMP Dev')), hans);
+      expect(textLocale(find.text('主题')), hans);
       expect(textLocale(find.text('深色')), hans);
       for (final MapEntry(key: text, value: locale) in endonyms.entries) {
         expect(textLocale(text), locale, reason: 'endonyms keep their own');
@@ -188,15 +206,16 @@ void main() {
 
       await tester.tap(find.text('繁體中文'));
       await settle(tester);
-      expect(textLocale(find.text('FMP Dev')), hant);
+      expect(textLocale(find.text('主題')), hant);
       expect(textLocale(find.text('深色')), hant);
     });
 
     testWidgets('switching the theme changes the brightness', (tester) async {
       await pumpApp(tester);
       await settle(tester);
+      await openSettings(tester);
       Brightness brightness() =>
-          Theme.of(tester.element(find.text('FMP Dev'))).brightness;
+          Theme.of(tester.element(find.byType(AppShell))).brightness;
 
       await tester.tap(find.text('Dark'));
       await settle(tester);
@@ -205,7 +224,6 @@ void main() {
       await tester.tap(find.text('Light'));
       await settle(tester);
       expect(brightness(), Brightness.light);
-      expect(find.text('FMP Dev'), findsOneWidget);
     });
 
     testWidgets('the theme uses the platform fonts for the UI language', (
@@ -222,8 +240,9 @@ void main() {
       );
       final log = await pumpApp(tester, capabilities: capabilities);
       await settle(tester);
+      await openSettings(tester);
       List<String>? fallback() =>
-          Theme.of(tester.element(find.text('FMP Dev')))
+          Theme.of(tester.element(find.byType(AppShell)))
               .textTheme
               .bodyMedium
               ?.fontFamilyFallback;

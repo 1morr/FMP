@@ -50,3 +50,6 @@ app.*.map.json
 # 根目錄的 .gitignore 忽略 *.g.dart（舊專案不提交產生檔）；app/ 提交 drift
 # 產生的程式碼，CI 檢查它與原始碼一致（app/AGENTS.md § 資料層）。
 !*.g.dart
+
+# golden 比對失敗時 flutter_test 寫出的差異圖（在各 golden 目錄旁）。
+**/failures/

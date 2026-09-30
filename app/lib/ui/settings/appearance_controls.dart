@@ -9,9 +9,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 外觀設定的主題與語言（ADR 0011 §決定 7）。「跟隨系統」寫回 `null`（沒設定
-/// 過），不是存一個值。
-///
-/// M1 放在身分頁供實機切換；12b 的設定頁沿用。
+/// 過），不是存一個值。設定頁（`settings_page.dart`）的外觀組。
 class AppearanceControls extends ConsumerWidget {
   const AppearanceControls({super.key});
 
@@ -29,7 +27,7 @@ class AppearanceControls extends ConsumerWidget {
       children: [
         Text(t.theme, style: textTheme.titleSmall),
         SizedBox(height: spacing.x2),
-        // 舊資料或之後的設定頁可能存了明確的 system；兩者都顯示為跟隨系統，
+        // 舊資料可能存了明確的 system；兩者都顯示為跟隨系統，
         // 選它一律清回 null。
         SegmentedButton<ThemeModeSetting>(
           segments: [

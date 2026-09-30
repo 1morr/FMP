@@ -15,6 +15,7 @@
 | drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
+| 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
@@ -41,6 +42,10 @@
   每個案例的 fixture 整組重寫；有 `meta.edited` 的案例略過（手寫的錯誤案例不被蓋掉）；結果不符
   checks.json 期望的案例（例如連線失敗）什麼都不寫、原本的檔案不動。閘門：`record_test.dart`。
   錄完同一個測試以重播再跑一次。
+- golden 測試（`alchemist`）在裸 `flutter test` 裡，只比 CI 版（文字畫成色塊，Windows 產生的圖
+  在 CI 的 Linux 上逐像素相同；平台版在 `test/flutter_test_config.dart` 關掉）。改了版面就
+  `flutter test --update-goldens <那個測試檔>`，看過 `goldens/ci/` 的圖再提交；比對失敗的差異圖
+  寫在旁邊的 `failures/`（gitignore），CI 失敗時上傳成 artifact。
 - 插件執行環境的實機量測：`flutter test integration_test/plugin_runtime_benchmark_test.dart -d <裝置>`
   （dev flavor；結果是 `FMP_BENCH` 開頭的行）。數字與方法在
   `.trellis/tasks/archive/2026-09/09-30-js-runtime/research/notes.md` §4。
@@ -50,13 +55,13 @@
 操作步驟在 skill `.claude/skills/verify-on-device/`；根目錄的 `verify-legacy-on-device` 只給舊專案。
 規則是 ADR 0027，實機驗證無法寫成測試，守它的是 review：
 
-- **預設重播**：dev flavor 加內附測試插件（`--fmp-dev-playback`）；App 有每插件的重播開關
-  之後也可以用它（§決定 1）。
+- **預設重播**：dev flavor 加內附測試插件（以 `--fmp-dev-plugin` 安裝 `fmp-test`，操作走 UI）；
+  App 有每插件的重播開關之後也可以用它（§決定 1）。
 - **真實連線的條件**：改動本身是插件、網路層、登入，或正在錄 fixture；只做最少的操作，
   不批次、不迴圈（§決定 2）。
 - **每個使用者看得到的 PR 都要在 Android 模擬器與 Windows 各驗一次**（§決定 3）。
 - **回報要有「平台」與「模式：重播／真實」**，真實時列出做了哪些請求；缺任一項 review 退回。
-  截圖與回報不得含個人資訊（Windows 的身分頁會印出含使用者名稱的資料目錄路徑）。
+  截圖與回報不得含個人資訊（log 的 `App started` 帶含使用者名稱的資料目錄路徑）。
 - 驗證只用 dev flavor；模擬器上的舊版 `com.personal.fmp` 不碰，prod APK 不安裝。
 
 ## App 身分
@@ -293,7 +298,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   確認（ADR 0014 §決定 6），參數與環境變數都能由別的程式帶入。`devPluginPath` 在 prod 一律回
   `null`。閘門：`plugin_installer_test.dart` 的 `development entry`（含 `prod reads neither…`）。
 - 測試插件 `test/fixtures/plugins/test_plugin/`（`fmp-test`）只以 dev flavor 的 asset 打包，串流指向
-  同目錄的 `tone.wav`（`asset:///…`）。prod 的建置只留下空目錄，沒有檔案。第二個測試插件
+  同目錄的 `tone.wav`（`asset:///…`）。prod 的建置只留下空目錄，沒有檔案。實機以
+  `--fmp-dev-plugin` 裝它的 `.js`，搜尋任何關鍵字都有結果、都播得出來；關鍵字剛好是 `fail`
+  時以 `RateLimited` 失敗（離線看錯誤提示）。閘門：
+  `test/plugins/test_plugin_bundle_test.dart`。第二個測試插件
   `http_test_plugin/`（`fmp-test-http`）會發請求（`*.fmp.test`），只給契約執行器，不打包。
 - 插件目錄（契約檢查的單位）：剛好一個 `.js` 安裝檔、`checks.json`（鍵是能力名稱，所以每能力最多
   一條；只收 `SourcePlugin` 已有方法的能力）、`fixtures/<能力>/*.json`（依檔名是請求順序）。格式
@@ -355,14 +363,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 恢復（ADR 0018 §決定 7 的 M1 部分）：網路錯誤、限流、中斷與提前結束從目前位置重試
   1／3／9 秒；開不起來換下一個候選一次；其他錯誤類別跳過；連續跳過達佇列長度（最多 10）
   停在 `Failed`。M1 沒有連線偵測、試聽片段設定（一律跳過）、緩衝飢餓與輸出裝置的處理、
-  「正常播放 10 秒後重試計數歸零」（M1 換歌才歸零），也沒有提示 UI（PR 12b）。閘門：`recovery_policy_test.dart`、`playback_controller_test.dart`
-  的 `recovery` 群組。
+  「正常播放 10 秒後重試計數歸零」（M1 換歌才歸零）。停在 `Failed` 時外殼提示一次（跳過不提示，
+  控制器沒有發出跳過的事件）。閘門：`recovery_policy_test.dart`、`playback_controller_test.dart`
+  的 `recovery` 群組、`app_shell_test.dart` 的 `playback that stops failed shows a toast`。
 - 被取代的解析結果丟掉，但插件的 `resolveStream` 沒有取消參數，網路工作不取消
   （ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
-- 播放的開發入口：dev flavor 帶 `--fmp-dev-playback` 啟動就安裝內附的測試插件並依序播
-  它的三首；`--fmp-dev-playback=<曲目鍵>`（可重複；不用逗號，Android 的 `--esal` 以逗號切
-  陣列）播指定的曲目（插件同時以 `--fmp-dev-plugin` 安裝）。prod 不讀，理由同插件的開發入口。PR 12b 的播放列能走同一條路後刪掉。閘門：
-  `dev_playback_entry_test.dart` 的 `prod reads nothing`。
+- UI 開始播放只經 `playTracks`（`lib/ui/player/queue_tracks.dart`）：整份清單與起點交給
+  `playQueue`，顯示資料放 `queueTracksProvider`（M1 沒有曲目表，播放列以曲目鍵查它）。閘門：
+  `search_page_test.dart` 的 `tapping a result plays the whole list from it`。沒有播放的開發
+  入口：實機驗證從搜尋頁點一首。
 
 ## 設定
 
@@ -388,11 +397,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 - 間距、圓角、顏色只從 `lib/ui/theme/`（`AppTokens`、`AppLayout`、`ColorScheme`）取，字級只用
   `TextTheme` 的角色。閘門：lint `fmp_design_tokens`（`lib/ui/`，theme 目錄豁免）。`lib/app/`
-  不在它的範圍；身分頁（12b 換掉）照樣用 token，但沒有閘門。
+  不在它的範圍，畫面都放 `lib/ui/`。
 - 使用者看到的字串只來自 `lib/i18n/*.i18n.json`；base locale 是 zh-TW，缺字在執行時退回繁中，
   所以編譯擋不住漏翻。閘門：`test/i18n/translations_test.dart`（三個語言的 key 與 `{參數}`
   相同、每個 `ErrorMessageKey`／`UnavailableReason` 都有字串；含變異案例）。widget 裡寫死的
-  字串沒有閘門，review 時看；身分頁的 `Dev playback:` 之類是開發用標籤，刻意不翻。
+  字串沒有閘門，review 時看；時長（`3:05`、未知的 `-:--`）與語言名稱刻意不翻。
 - 翻譯只經 `translationsProvider`（`lib/ui/i18n/ui_locale.dart`）注入：`slang.yaml` 設
   `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。
 - `MaterialApp.locale` 一律給帶書寫系統的 locale（`zh-Hant-TW`、`zh-Hans-CN`、`en`），由
@@ -403,8 +412,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   的 `appearance` 群組。
 - 主題的 `fontFamilyFallback` 取平台層依介面語言排序的清單（ADR 0024 §決定 2）；App 啟動與每次
   換語言寫一筆 `UI locale applied`（`locale`、`fontFallback`）。閘門：`fmp_app_test.dart` 的
-  `the theme uses the platform fonts for the UI language`。字形是否正確只能實機看（身分頁的
-  字形樣本）。
+  `the theme uses the platform fonts for the UI language`。字形是否正確只能實機看（設定頁的
+  語言名稱、切到繁中與簡中介面）。
 - 主題的每個文字樣式帶 `textLocaleOf` 的 locale（中文介面同介面語言，英文介面是繁中）：
   Android 不指名字型，英文介面的漢字不帶它就落到簡中字形。樣式的 locale 蓋過 `Text.locale`，
   要另一種字形的文字在樣式上指定。閘門：`app_theme_test.dart` 的
@@ -418,10 +427,39 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
-- 淺色與深色主題下，示範畫面、外觀設定控制項與四種提示通過點擊區與對比度 guideline。閘門：
-  `test/ui/guidelines_test.dart`。12b 的正式頁面要各自加進去。
+  `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡。
+- 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列）與設定頁
+  在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
+  新頁面要加進去。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
+  語意名稱、輸入框只有 24dp 高）。
 - `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
   `test/ui/layout/window_class_test.dart`。
+- 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
+  在它上面）、medium 與 expanded `NavigationRail`、large 以上常駐 `NavigationDrawer`；都是 Material
+  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。播放列在內容區下方、與內容區同寬，佇列是空的時
+  不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的 `navigation per window class`。
+- 外殼量底部被佔住的高度（播放列＋底部導覽列＋安全區）發佈給 `toastBottomInsetProvider`；頁面
+  不發佈。閘門：同檔的 `the bottom inset for toasts`、`toast_host_test.dart` 的 `position` 群組
+  （含鍵盤：位移是鍵盤高度減 `viewPadding`）。
+- 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5，只放 M1 有的）：< 600 播放、下一首；
+  600 以上加上一首；曲名至少 160dp。閘門：`test/ui/player/player_bar_test.dart` 的
+  `controls per width`（599／600／839／840 等邊界）、golden `player_bar_golden_test.dart`（三個寬度，
+  只守版面結構）。
+- App 內快捷鍵（ADR 0024 §決定 8）只在 `lib/ui/shell/shell_shortcuts.dart` 的表，綁在外殼的
+  `Shortcuts`：空白鍵、Ctrl+←／→、Shift+←／→（5 秒）、Ctrl+F、Ctrl+,、F6。文字編輯的快捷鍵
+  （`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，外殼會先接走按鍵；所以
+  同時是文字編輯鍵的那幾個用 `TextInputAwareAction`，焦點在輸入框時停用、按鍵交還輸入框。閘門：
+  `app_shell_test.dart` 的 `shortcuts` 群組（`text-editing keys in the search field stay in the
+  field`：輸入框裡的空白鍵、Ctrl／Shift 加方向鍵不動播放）。
+- 焦點三區（導覽、內容、播放列）各是 `FocusScope`＋`FocusTraversalGroup`：Tab 只在區內循環，F6
+  依序換區、跳過不在畫面上的播放列。只有圖示的按鈕有 tooltip（附按鍵）與語意標籤。閘門：同檔的
+  `focus regions` 群組、guideline 測試（標籤）；tooltip 附按鍵沒有閘門，review 時看。
+- `ToastHost` 的 `Overlay` 是 root overlay，文字選取工具列與放大鏡插在那裡，照常運作。閘門：
+  `search_page_test.dart` 的 `text selection over the toast host`（Android 長按與放大鏡、Windows
+  右鍵選單）。
+- 封面以 `Image.network` 直接讀（網址已過 `allowedHosts`，不帶 header、沒有 cookie），只有 Flutter
+  記憶體的 `ImageCache`；轉址由 `HttpClient` 自己跟，下一跳不經 `allowedHosts`。磁碟快取與經媒體
+  client 讀圖（每跳檢查）在 M6（ADR 0016 §決定 4）。沒有閘門，review 時看。
 
 ## 零聯網
 

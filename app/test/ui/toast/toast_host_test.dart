@@ -211,6 +211,32 @@ void main() {
       );
     });
 
+    // 鍵盤比外殼高時，提示在鍵盤上面；鍵盤蓋住了安全區，所以位移是鍵盤高度
+    // 減掉 viewPadding（Scaffold 已經墊過的安全區），不是再加上去。
+    for (final (name, shell) in [
+      ('no shell', 0.0),
+      ('a shell under it', 80.0),
+    ]) {
+      testWidgets('sits above the keyboard with $name', (tester) async {
+        // FakeViewPadding 是物理像素；比例 1 讓數字就是 dp。
+        tester.view.physicalSize = const Size(800, 600);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(bottom: 24);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        addTearDown(tester.view.reset);
+        final toaster = await pumpHost(tester);
+        container.read(toastBottomInsetProvider.notifier).set(shell);
+
+        toaster.info('鍵盤之上');
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getRect(snackMaterial()).bottom,
+          600 - 300 - const AppSpacing().x4,
+        );
+      });
+    }
+
     testWidgets('is at most 560 wide and centred on a wide window', (
       tester,
     ) async {
