@@ -22,8 +22,10 @@ dev 解析到舊版正式資料的位置（Windows 的 `Documents\FMP`、`%APPDA
 - `logs/fmp.jsonl`（與輪替的 `fmp.1.jsonl`、`fmp.2.jsonl`）：JSON Lines，單檔 2MB，已經過遮蔽。
   每行 `{"time","level","tag","message","fields"}`，例如
   `{"level":"info","tag":"app","message":"App started","fields":{"flavor":"dev","buildMode":"debug"}}`。
-  驗證時用 `tag` 與 `message` 找（`Installed a plugin from the development entry`、
-  `Development playback started`、`Look-ahead handover`、`Track audible`）。
+  驗證時用 `tag` 與 `message` 找（`App started` 的 `flavor`、`dataDirectory`，
+  `Installed a plugin from the development entry`、`Track requested`、`Look-ahead handover`、
+  `Track audible`、`Search failed`、`Playback stopped`）。`dataDirectory` 含使用者名稱，引用時改成
+  `<資料目錄>`。
 
 ## 讀狀態
 
@@ -51,16 +53,19 @@ Dart VM Service（`flutter run` 印的 URI）可讀活的物件；URI 是本機�
 
 ## 開發入口（只在 dev flavor；prod 一律忽略）
 
-原始碼：`lib/plugins/install/dev_plugin_entry.dart`、`lib/playback/dev_playback_entry.dart`。
+原始碼：`lib/plugins/install/dev_plugin_entry.dart`。播放一律走 UI：搜尋頁選音源、搜尋、點一首，
+就從那一首開始依序播整份結果。
 
 | 入口 | 作用 |
 |---|---|
-| `--fmp-dev-plugin=<路徑>` 或環境變數 `FMP_DEV_PLUGIN` | 啟動時安裝該路徑的插件安裝檔（`.js`）；兩者都有時參數優先 |
-| `--fmp-dev-playback` | 安裝內附的測試插件（`fmp-test`），依序播它的三首（`tone-220`、`tone-440`、`tone-880`，每首是同一個 2 秒的本機 wav，不連網） |
-| `--fmp-dev-playback=<曲目鍵>` | 播指定曲目（例如 `bilibili:<BV 號>`）；重複參數播多首。插件要已安裝，或同時帶 `--fmp-dev-plugin`。要連網，屬於「真實」模式 |
+| `--fmp-dev-plugin=<路徑>` 或環境變數 `FMP_DEV_PLUGIN` | 啟動時安裝該路徑的插件安裝檔（`.js`）；兩者都有時參數優先。已安裝同 id 的視為更新 |
 
-- 參數不用逗號分隔（Android 的 `--esal` 會切陣列，見 `android.md`）。
+| 插件 | 安裝檔 | 模式 |
+|---|---|---|
+| 測試插件 `fmp-test`（音源名稱 `FMP Test Plugin`） | `app/test/fixtures/plugins/test_plugin/test_plugin.js` | 重播：搜尋任何關鍵字都回三首（第一頁兩首、「載入更多」第三首），串流是 dev 版內附的 2 秒 wav，不連網；關鍵字剛好是 `fail` 時搜尋以限流失敗，用來看錯誤提示 |
+| B 站 `bilibili` | `fmp-plugins/bilibili/bilibili.js`（與 FMP 同層的 clone） | 真實：搜尋與解析都連網，照 SKILL.md 只做最少的操作 |
+
+- Windows 直接給絕對路徑；Android 要先複製進 App 的私有目錄（`android.md`）。
 - Windows 的環境變數只對該行程有效：PowerShell 用
   `$env:FMP_DEV_PLUGIN='<路徑>'; Start-Process ...; Remove-Item Env:FMP_DEV_PLUGIN`。
-- 這兩個入口在 PR 12 的 UI 取代之前是驗證播放與插件的入口；之後以原始碼為準。
-- 身分頁的 `Dev playback: <狀態> <第幾首>/<總數>` 是播放入口的狀態。
+- 裝好的插件留在 `installed_plugins`，之後不帶參數啟動也會載入。

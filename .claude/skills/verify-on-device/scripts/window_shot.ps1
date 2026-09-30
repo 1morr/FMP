@@ -1,7 +1,7 @@
 # 只截 App 視窗（不含桌面與其他視窗，截圖不會帶到個人資訊），存成 PNG。
 #
 # 兩種用法：
-#   啟動並截圖：  ... -Exe <fmp.exe 路徑> [-ArgLine '--fmp-dev-playback'] -Out <png> [-Wait 8] [-KeepRunning]
+#   啟動並截圖：  ... -Exe <fmp.exe 路徑> [-ArgLine '--fmp-dev-plugin=<插件.js>'] -Out <png> [-Wait 8] [-KeepRunning]
 #   接上已開的：  ... -Attach -Out <png>            （找行程 -Proc、視窗標題 -Title 的，
 #                                                    預設 fmp 與 FMP Dev；舊版與 prod 也叫 fmp.exe）
 #
