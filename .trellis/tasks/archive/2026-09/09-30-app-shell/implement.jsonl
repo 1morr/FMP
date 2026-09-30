@@ -1,0 +1,10 @@
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Shell, breakpoints, player bar, search and settings layout, shortcuts"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Toast placement and bottom inset"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "PlaybackController as the only playback entry"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "On-device verification rules"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Tokens, translations, toasts"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "PlaybackController API and dev entry"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "SourcePlugin search DTOs"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Appearance settings"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Design token and toast lints"}
+{"file": ".claude/skills/verify-on-device/SKILL.md", "reason": "Verification steps to update when the identity page goes"}

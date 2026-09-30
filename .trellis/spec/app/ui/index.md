@@ -1,7 +1,7 @@
 # 介面（`app/lib/ui/`、`app/lib/i18n/`）
 
-寫畫面、加字串、跳提示時適用。規則（token、字串來源、提示入口）與閘門見
-`app/AGENTS.md` § 介面；為什麼是這些選擇，見 ADR 0023、ADR 0024 與
+寫畫面、加字串、跳提示、加快捷鍵時適用。規則（token、字串來源、提示入口、快捷鍵、焦點三區）
+與閘門見 `app/AGENTS.md` § 介面；為什麼是這些選擇，見 ADR 0023、ADR 0024 與
 `.trellis/tasks/archive/2026-09/09-30-ui-foundation/research/notes.md`。這裡只寫怎麼做。
 
 ## 目錄
@@ -18,7 +18,12 @@ lib/ui/
   i18n/ui_locale.dart  # LocaleSetting → Flutter locale／slang／字型；translationsProvider
   errors/              # AppError → 訊息
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
-  settings/            # 設定頁的控制項
+  shell/               # AppShell（導覽、內容、播放列三區）、快捷鍵表
+  search/              # 搜尋頁、searchProvider、音源 chip 列
+  settings/            # 設定頁（list-detail）與外觀的控制項
+  player/              # 播放列、queueTracksProvider（佇列的顯示資料）、playTracks
+  artwork/             # 封面縮圖與 pickArtwork
+  format/              # 時長文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
 
@@ -50,8 +55,9 @@ switch (WindowClass.of(context)) {
 }
 ```
 
-- `WindowClass.of` 讀最近的 `WindowClassScope`；App 根放了一個（量整個視窗），外殼（12b）
-  在內容區再放一個，頁面讀到的是內容區的等級。
+- `WindowClass.of` 讀最近的 `WindowClassScope`；App 根放了一個（量整個視窗，外殼用它選導覽
+  元件），外殼在內容區與播放列各放一個，頁面與播放列讀到的是自己那一塊的等級（視窗 900 寬時
+  內容區扣掉 rail 是 medium）。
 - 只在等級改變時重建。要精確寬度的版面仍用 `LayoutBuilder`。
 
 ## 字串
@@ -98,15 +104,50 @@ try {
 - `error` 自己呼叫 `log.report`，呼叫端不要再 report 一次。
 - 每則最多一個動作；帶動作的也照時長消失（成功與資訊 4 秒、警告與錯誤 6 秒）。
 - 去重 5 秒：訊息以「種類＋文字」，錯誤以「類別＋音源」。
-- 外殼（12b）以 `ref.read(toastBottomInsetProvider.notifier).set(高度)` 發佈從視窗底邊算起
-  被佔住的高度（含安全區）；全螢幕頁不發佈時要設回 0。
+- 外殼的 `_BottomInsetReporter` 量底部那一塊（compact 是播放列加底部導覽列，更寬是播放列）
+  的高度，排版後以 `toastBottomInsetProvider` 發佈；頁面不用管。M2 的全螢幕播放頁蓋住外殼時
+  要設回 0。
+- 要看狀態變化跳提示（播放停在 `Failed`），在 `ref.listen` 的 callback 裡呼叫 `Toaster`，不在
+  `build` 裡：`Toaster` 同步送出，`ToastHost` 當場 `showSnackBar`。
 - M1 沒有「詳細」與「回報」（ADR 0023 §決定 4 延到 M3，和 Debug 頁的錯誤歷史一起做）。
+
+## 外殼、快捷鍵與焦點
+
+- 導覽項只有 `ShellDestination` 的兩個；頁面放在內容區的 `IndexedStack`（換頁不丟狀態，沒選的
+  頁面焦點被排除）。
+- 加一個 App 內快捷鍵（ADR 0024 §決定 8 的表）：
+  1. `shell_shortcuts.dart` 加一個 `Intent` 與 `shellShortcuts` 的一列；
+  2. `AppShell` 的 `Actions` 接上。按鍵同時是文字編輯鍵（空白鍵、方向鍵、Home／End、
+     Ctrl+A 之類）的，用 `TextInputAwareAction`，焦點在輸入框時停用、交給輸入框；
+  3. 有對應按鈕的，翻譯檔的 `*Tooltip` 字串寫上按鍵（`播放（空白鍵）`），按鈕的語意標籤
+     （`Icon.semanticLabel`）不帶按鍵；
+  4. `test/ui/shell/app_shell_test.dart` 加案例，文字編輯鍵另外在輸入框裡按一次確認沒作用。
+- 焦點三區（導覽、內容、播放列）各是一個 `FocusScope` 加 `FocusTraversalGroup`：Tab 只在區內
+  循環；F6 回到那一區上次的焦點，沒有就是它的第一個可聚焦項目。新的可聚焦元件放在對的那一區裡。
+
+## 播放列與封面
+
+- 開始播放一律經 `playTracks(ref, tracks, index)`（`lib/ui/player/queue_tracks.dart`）：它把
+  顯示資料放進 `queueTracksProvider`，再把整份清單交給 `PlaybackController`。播放列以曲目鍵查
+  顯示資料；M2 有曲目表之後改從那裡查。
+- 播放列的控制項照 ADR 0024 §決定 5 的三段，只放已經有的功能；加功能時同時改
+  `player_bar_test.dart` 的 `controls per width` 與 golden。
+- 封面用 `ArtworkImage`：`pickArtwork` 挑一張、以顯示尺寸解碼，沒有、載入中與失敗都是同一個
+  佔位圖。網址在 DTO 解碼時已經過 `allowedHosts`；不帶 header（B 站的 hdslb 不帶 `Referer` 讀得到，
+  帶別的網域反而 403）。
 
 ## 測試
 
 - 畫面測試用 `buildAppTheme` 的主題；有提示的包 `ToastHost`，以
   `toasterProvider.overrideWithValue(Toaster(...))` 注入（例子：
   `test/ui/toast/toast_host_test.dart`）。
+- 外殼與頁面用 `test/ui/support/shell_harness.dart` 的 `ShellHarness`：可搜尋、可解析的假插件
+  （`searchSourcesProvider` override）、假後端上的真 `PlaybackController`、記憶體資料庫、英文
+  介面。`pumpShell` 開整個外殼，`pumpApp` 開單一個 widget，`play` 直接開始播。
+- golden（`alchemist`，只比 CI 版：文字畫成色塊、不畫陰影，`test/flutter_test_config.dart`
+  關掉平台版）：一個情境一個 `goldenTest`、不用 `GoldenTestScenario`（它的名稱標籤在 Windows 與
+  Linux 差一個像素）。更新：`flutter test --update-goldens <檔案>`，產生的圖在旁邊的
+  `goldens/ci/`，看過再提交。只守版面結構，數量保持少（ADR 0024 §如何確認）。
 - 時間：`Toaster` 讀 `clock.now()`，單元測試用 `fakeAsync`，widget 測試的
   `tester.pump(duration)` 也會推進它。
 - 新畫面加進 guideline 測試（`test/ui/guidelines_test.dart` 的寫法）：淺色、深色各跑
@@ -121,3 +162,4 @@ try {
   乾淨。
 - 新字串三個 JSON 都有、產生檔已重跑並提交。
 - 新畫面在淺色、深色都過 guideline 測試。
+- 新的只有圖示的按鈕有 tooltip（有快捷鍵就附上）與語意標籤。

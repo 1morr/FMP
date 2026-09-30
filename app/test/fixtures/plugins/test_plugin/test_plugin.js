@@ -17,8 +17,15 @@ const TONES = [220, 440, 880];
 const PAGE_SIZE = 2;
 const TONE_ASSET = 'asset:///test/fixtures/plugins/test_plugin/tone.wav';
 
+// 關鍵字剛好是它時，搜尋以限流失敗：實機不連網也能看到錯誤提示（ADR 0027
+// 「測試插件不足以涵蓋某類 UI 時先補測試插件」）。
+const FAIL_KEYWORD = 'fail';
+
 // 標題的前綴可以用 storage 改（`titlePrefix`），順便走一次非同步的宿主函式。
 export async function search(query) {
+  if (query.keyword === FAIL_KEYWORD) {
+    throw { fmpError: 'RateLimited', message: 'forced failure for on-device checks' };
+  }
   const prefix = (await fmp.storage.get('titlePrefix')) ?? 'Test tone';
   const start = (query.page - 1) * PAGE_SIZE;
   const items = TONES.slice(start, start + PAGE_SIZE).map((hz) => ({

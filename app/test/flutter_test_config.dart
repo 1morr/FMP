@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:alchemist/alchemist.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/quickjs.dart';
@@ -19,7 +20,14 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   HttpOverrides.global = NoNetworkHttpOverrides();
   // 插件執行環境的測試要真的跑 QuickJS（見 support/quickjs.dart）。
   loadQuickJsForTests();
-  await testMain();
+  // golden（alchemist）只比 CI 版：文字畫成色塊、不畫陰影，Windows 產生的檔
+  // 在 CI 的 Linux 上也對得上。平台版（真的字）各平台的字形不同，不提交也不跑。
+  await AlchemistConfig.runWithConfig(
+    config: const AlchemistConfig(
+      platformGoldensConfig: PlatformGoldensConfig(enabled: false),
+    ),
+    run: () async => testMain(),
+  );
 }
 
 /// 建立 [HttpClient] 就拋錯的 [HttpOverrides]。

@@ -3,6 +3,41 @@
     "databaseError": "Can't open the database",
     "unsupportedPlatform": "This platform isn't supported yet"
   },
+  "shell": {
+    "search": "Search",
+    "settings": "Settings",
+    "searchTooltip": "Search (Ctrl+F)",
+    "settingsTooltip": "Settings (Ctrl+,)"
+  },
+  "search": {
+    "hint": "Search songs",
+    "clear": "Clear",
+    "loadingSources": "Loading sources",
+    "noSources": "No sources to search",
+    "noSourcesHint": "Install a plugin that supports search to search here.",
+    "prompt": "Type a keyword to search",
+    "loading": "Searching",
+    "noResults": "No results for “{keyword}”",
+    "failed": "Search failed",
+    "retry": "Retry",
+    "loadMore": "Load more"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance"
+  },
+  "player": {
+    "play": "Play",
+    "pause": "Pause",
+    "previous": "Previous",
+    "next": "Next",
+    "playTooltip": "Play (Space)",
+    "pauseTooltip": "Pause (Space)",
+    "previousTooltip": "Previous (Ctrl+←)",
+    "nextTooltip": "Next (Ctrl+→)",
+    "progress": "Playback position",
+    "loading": "Loading"
+  },
   "appearance": {
     "theme": "Theme",
     "themeSystem": "System",

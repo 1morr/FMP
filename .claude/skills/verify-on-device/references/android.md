@@ -34,25 +34,23 @@ adb shell am start -n com.personal.fmp.dev/com.personal.fmp.MainActivity
 
 ### 帶開發入口的參數
 
-dev 入口（`--fmp-dev-plugin=`、`--fmp-dev-playback`，見 `runtime-state.md`）以 intent extra
-`dart_entrypoint_args` 傳進來。`--esal` 的值是**以逗號分隔的陣列**，所以多個參數用逗號接起來，
-參數值本身不能含逗號：
+dev 入口（`--fmp-dev-plugin=`，見 `runtime-state.md`）以 intent extra `dart_entrypoint_args` 傳進來。
+`--esal` 的值是**以逗號分隔的陣列**，所以多個參數用逗號接起來，參數值本身不能含逗號。
 
-```bash
-MSYS_NO_PATHCONV=1 adb shell am start -n com.personal.fmp.dev/com.personal.fmp.MainActivity \
-  --esal dart_entrypoint_args --fmp-dev-playback
-```
-
-用 `--fmp-dev-plugin=` 時，App 要讀得到插件檔：先推到 `/data/local/tmp`（App 讀不到），再以
-`run-as` 複製進 App 的私有目錄：
+App 要讀得到插件檔：先推到 `/data/local/tmp`（App 讀不到），再以 `run-as` 複製進 App 的私有目錄。
+測試插件（重播）是 `app/test/fixtures/plugins/test_plugin/test_plugin.js`，B 站插件（真實）是
+`fmp-plugins/bilibili/bilibili.js`：
 
 ```bash
 MSYS_NO_PATHCONV=1 adb push <插件.js 的本機路徑> /data/local/tmp/x.js
 MSYS_NO_PATHCONV=1 adb shell "run-as com.personal.fmp.dev sh -c 'mkdir -p files && cp /data/local/tmp/x.js files/x.js'"
 MSYS_NO_PATHCONV=1 adb shell rm /data/local/tmp/x.js
 MSYS_NO_PATHCONV=1 adb shell am start -n com.personal.fmp.dev/com.personal.fmp.MainActivity \
-  --esal dart_entrypoint_args --fmp-dev-plugin=/data/data/com.personal.fmp.dev/files/x.js,--fmp-dev-playback=bilibili:<BV 號>
+  --esal dart_entrypoint_args --fmp-dev-plugin=/data/data/com.personal.fmp.dev/files/x.js
 ```
+
+裝好的插件存在資料庫，之後不帶參數啟動也在（搜尋頁的音源 chip）。兩個插件都要時各裝一次，
+檔名分開（例如 `test.js`、`bilibili.js`）。
 
 用 `adb shell mkdir` 建的目錄屬於 `shell`，App 寫不進去（`errno = 13`）；一律用 `run-as`。
 要重新帶參數，先 `adb shell am force-stop com.personal.fmp.dev`（只停 dev）。
@@ -62,7 +60,7 @@ MSYS_NO_PATHCONV=1 adb shell am start -n com.personal.fmp.dev/com.personal.fmp.M
 - **語意樹**：`PYTHONIOENCODING=utf-8 python .claude/skills/verify-on-device/scripts/ax_flatten.py --limit 30`。
   預設經 `orca emulator ax`；沒有 Orca 時加 `--adb`，改讀
   `adb exec-out uiautomator dump /dev/tty`（直接輸出到 stdout，裝置上不留檔）。Flutter 的語意經
-  uiautomator 變成節點：多數文字在 `content-desc`，少數（例如身分頁的資料目錄）在 `text`，
+  uiautomator 變成節點：多數文字在 `content-desc`，少數（例如輸入框的內容）在 `text`，
   腳本兩個都讀。`norm=` 餵 `orca emulator tap <x> <y>`，`center=` 餵 `adb shell input tap <x> <y>`。
 - **log**：`adb logcat -s flutter`（debug build 的 console log）。結構化的 log 在 App 的
   `files/logs/fmp.jsonl`：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.jsonl`。
@@ -87,3 +85,6 @@ MSYS_NO_PATHCONV=1 adb shell am start -n com.personal.fmp.dev/com.personal.fmp.M
 - 模擬器卡死（畫面不動、`ax` 是 0 個節點）時，以 `-no-snapshot-load` 重開。
 - 模擬器的 DNS 不快取，第一次連線多約 1 秒；測錯誤路徑關網路：
   `adb shell svc wifi disable && adb shell svc data disable`（驗完開回來）。
+- `flutter test integration_test/... -d emulator-5554` 跑完會**解除安裝** `com.personal.fmp.dev`（資料與複製進
+  `files/` 的插件一起消失）。之後要重新 `adb install -r` dev APK、重新複製插件。
+- 播放中畫面一直在更新時 `uiautomator dump` 會回 `could not get idle state`：改用 `screencap` 看版面，或先暫停。

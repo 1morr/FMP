@@ -3,6 +3,41 @@
     "databaseError": "无法打开数据库",
     "unsupportedPlatform": "暂不支持此平台"
   },
+  "shell": {
+    "search": "搜索",
+    "settings": "设置",
+    "searchTooltip": "搜索（Ctrl+F）",
+    "settingsTooltip": "设置（Ctrl+,）"
+  },
+  "search": {
+    "hint": "搜索歌曲",
+    "clear": "清除",
+    "loadingSources": "正在加载音源",
+    "noSources": "没有可以搜索的音源",
+    "noSourcesHint": "安装支持搜索的插件后，就能在这里搜索",
+    "prompt": "输入关键词开始搜索",
+    "loading": "正在搜索",
+    "noResults": "找不到“{keyword}”的结果",
+    "failed": "搜索失败",
+    "retry": "重试",
+    "loadMore": "加载更多"
+  },
+  "settings": {
+    "title": "设置",
+    "appearance": "外观"
+  },
+  "player": {
+    "play": "播放",
+    "pause": "暂停",
+    "previous": "上一首",
+    "next": "下一首",
+    "playTooltip": "播放（空格键）",
+    "pauseTooltip": "暂停（空格键）",
+    "previousTooltip": "上一首（Ctrl+←）",
+    "nextTooltip": "下一首（Ctrl+→）",
+    "progress": "播放进度",
+    "loading": "正在加载"
+  },
   "appearance": {
     "theme": "主题",
     "themeSystem": "跟随系统",

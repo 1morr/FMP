@@ -53,6 +53,19 @@ class TranslationsZhCn extends Translations
   late final Translations$startup$zh_CN startup =
       Translations$startup$zh_CN.internal(_root);
   @override
+  late final Translations$shell$zh_CN shell = Translations$shell$zh_CN.internal(
+    _root,
+  );
+  @override
+  late final Translations$search$zh_CN search =
+      Translations$search$zh_CN.internal(_root);
+  @override
+  late final Translations$settings$zh_CN settings =
+      Translations$settings$zh_CN.internal(_root);
+  @override
+  late final Translations$player$zh_CN player =
+      Translations$player$zh_CN.internal(_root);
+  @override
   late final Translations$appearance$zh_CN appearance =
       Translations$appearance$zh_CN.internal(_root);
   @override
@@ -73,6 +86,104 @@ class Translations$startup$zh_CN extends Translations$startup$zh_TW {
   String get databaseError => '无法打开数据库';
   @override
   String get unsupportedPlatform => '暂不支持此平台';
+}
+
+// Path: shell
+class Translations$shell$zh_CN extends Translations$shell$zh_TW {
+  Translations$shell$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get search => '搜索';
+  @override
+  String get settings => '设置';
+  @override
+  String get searchTooltip => '搜索（Ctrl+F）';
+  @override
+  String get settingsTooltip => '设置（Ctrl+,）';
+}
+
+// Path: search
+class Translations$search$zh_CN extends Translations$search$zh_TW {
+  Translations$search$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get hint => '搜索歌曲';
+  @override
+  String get clear => '清除';
+  @override
+  String get loadingSources => '正在加载音源';
+  @override
+  String get noSources => '没有可以搜索的音源';
+  @override
+  String get noSourcesHint => '安装支持搜索的插件后，就能在这里搜索';
+  @override
+  String get prompt => '输入关键词开始搜索';
+  @override
+  String get loading => '正在搜索';
+  @override
+  String noResults({required Object keyword}) => '找不到“${keyword}”的结果';
+  @override
+  String get failed => '搜索失败';
+  @override
+  String get retry => '重试';
+  @override
+  String get loadMore => '加载更多';
+}
+
+// Path: settings
+class Translations$settings$zh_CN extends Translations$settings$zh_TW {
+  Translations$settings$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '设置';
+  @override
+  String get appearance => '外观';
+}
+
+// Path: player
+class Translations$player$zh_CN extends Translations$player$zh_TW {
+  Translations$player$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get play => '播放';
+  @override
+  String get pause => '暂停';
+  @override
+  String get previous => '上一首';
+  @override
+  String get next => '下一首';
+  @override
+  String get playTooltip => '播放（空格键）';
+  @override
+  String get pauseTooltip => '暂停（空格键）';
+  @override
+  String get previousTooltip => '上一首（Ctrl+←）';
+  @override
+  String get nextTooltip => '下一首（Ctrl+→）';
+  @override
+  String get progress => '播放进度';
+  @override
+  String get loading => '正在加载';
 }
 
 // Path: appearance

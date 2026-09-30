@@ -44,6 +44,15 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   // Translations
   late final Translations$startup$zh_TW startup =
       Translations$startup$zh_TW.internal(_root);
+  late final Translations$shell$zh_TW shell = Translations$shell$zh_TW.internal(
+    _root,
+  );
+  late final Translations$search$zh_TW search =
+      Translations$search$zh_TW.internal(_root);
+  late final Translations$settings$zh_TW settings =
+      Translations$settings$zh_TW.internal(_root);
+  late final Translations$player$zh_TW player =
+      Translations$player$zh_TW.internal(_root);
   late final Translations$appearance$zh_TW appearance =
       Translations$appearance$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
@@ -63,6 +72,123 @@ class Translations$startup$zh_TW {
 
   /// zh-TW: '此平台尚未支援'
   String get unsupportedPlatform => '此平台尚未支援';
+}
+
+// Path: shell
+class Translations$shell$zh_TW {
+  Translations$shell$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '搜尋'
+  String get search => '搜尋';
+
+  /// zh-TW: '設定'
+  String get settings => '設定';
+
+  /// zh-TW: '搜尋（Ctrl+F）'
+  String get searchTooltip => '搜尋（Ctrl+F）';
+
+  /// zh-TW: '設定（Ctrl+,）'
+  String get settingsTooltip => '設定（Ctrl+,）';
+}
+
+// Path: search
+class Translations$search$zh_TW {
+  Translations$search$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '搜尋歌曲'
+  String get hint => '搜尋歌曲';
+
+  /// zh-TW: '清除'
+  String get clear => '清除';
+
+  /// zh-TW: '正在載入音源'
+  String get loadingSources => '正在載入音源';
+
+  /// zh-TW: '沒有可以搜尋的音源'
+  String get noSources => '沒有可以搜尋的音源';
+
+  /// zh-TW: '安裝支援搜尋的插件後，就能在這裡搜尋'
+  String get noSourcesHint => '安裝支援搜尋的插件後，就能在這裡搜尋';
+
+  /// zh-TW: '輸入關鍵字開始搜尋'
+  String get prompt => '輸入關鍵字開始搜尋';
+
+  /// zh-TW: '搜尋中'
+  String get loading => '搜尋中';
+
+  /// zh-TW: '找不到「{keyword}」的結果'
+  String noResults({required Object keyword}) => '找不到「${keyword}」的結果';
+
+  /// zh-TW: '搜尋失敗'
+  String get failed => '搜尋失敗';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
+
+  /// zh-TW: '載入更多'
+  String get loadMore => '載入更多';
+}
+
+// Path: settings
+class Translations$settings$zh_TW {
+  Translations$settings$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '設定'
+  String get title => '設定';
+
+  /// zh-TW: '外觀'
+  String get appearance => '外觀';
+}
+
+// Path: player
+class Translations$player$zh_TW {
+  Translations$player$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '播放'
+  String get play => '播放';
+
+  /// zh-TW: '暫停'
+  String get pause => '暫停';
+
+  /// zh-TW: '上一首'
+  String get previous => '上一首';
+
+  /// zh-TW: '下一首'
+  String get next => '下一首';
+
+  /// zh-TW: '播放（空白鍵）'
+  String get playTooltip => '播放（空白鍵）';
+
+  /// zh-TW: '暫停（空白鍵）'
+  String get pauseTooltip => '暫停（空白鍵）';
+
+  /// zh-TW: '上一首（Ctrl+←）'
+  String get previousTooltip => '上一首（Ctrl+←）';
+
+  /// zh-TW: '下一首（Ctrl+→）'
+  String get nextTooltip => '下一首（Ctrl+→）';
+
+  /// zh-TW: '播放進度'
+  String get progress => '播放進度';
+
+  /// zh-TW: '載入中'
+  String get loading => '載入中';
 }
 
 // Path: appearance

@@ -5,7 +5,8 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`。
+  `resolveStream`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `RateLimited` 失敗，實機不連網也能看到錯誤提示。
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權

@@ -52,6 +52,16 @@ class TranslationsEn extends Translations
   @override
   late final Translations$startup$en startup = Translations$startup$en._(_root);
   @override
+  late final Translations$shell$en shell = Translations$shell$en._(_root);
+  @override
+  late final Translations$search$en search = Translations$search$en._(_root);
+  @override
+  late final Translations$settings$en settings = Translations$settings$en._(
+    _root,
+  );
+  @override
+  late final Translations$player$en player = Translations$player$en._(_root);
+  @override
   late final Translations$appearance$en appearance =
       Translations$appearance$en._(_root);
   @override
@@ -71,6 +81,105 @@ class Translations$startup$en extends Translations$startup$zh_TW {
   String get databaseError => 'Can\'t open the database';
   @override
   String get unsupportedPlatform => 'This platform isn\'t supported yet';
+}
+
+// Path: shell
+class Translations$shell$en extends Translations$shell$zh_TW {
+  Translations$shell$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get search => 'Search';
+  @override
+  String get settings => 'Settings';
+  @override
+  String get searchTooltip => 'Search (Ctrl+F)';
+  @override
+  String get settingsTooltip => 'Settings (Ctrl+,)';
+}
+
+// Path: search
+class Translations$search$en extends Translations$search$zh_TW {
+  Translations$search$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get hint => 'Search songs';
+  @override
+  String get clear => 'Clear';
+  @override
+  String get loadingSources => 'Loading sources';
+  @override
+  String get noSources => 'No sources to search';
+  @override
+  String get noSourcesHint =>
+      'Install a plugin that supports search to search here.';
+  @override
+  String get prompt => 'Type a keyword to search';
+  @override
+  String get loading => 'Searching';
+  @override
+  String noResults({required Object keyword}) => 'No results for “${keyword}”';
+  @override
+  String get failed => 'Search failed';
+  @override
+  String get retry => 'Retry';
+  @override
+  String get loadMore => 'Load more';
+}
+
+// Path: settings
+class Translations$settings$en extends Translations$settings$zh_TW {
+  Translations$settings$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Settings';
+  @override
+  String get appearance => 'Appearance';
+}
+
+// Path: player
+class Translations$player$en extends Translations$player$zh_TW {
+  Translations$player$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get play => 'Play';
+  @override
+  String get pause => 'Pause';
+  @override
+  String get previous => 'Previous';
+  @override
+  String get next => 'Next';
+  @override
+  String get playTooltip => 'Play (Space)';
+  @override
+  String get pauseTooltip => 'Pause (Space)';
+  @override
+  String get previousTooltip => 'Previous (Ctrl+←)';
+  @override
+  String get nextTooltip => 'Next (Ctrl+→)';
+  @override
+  String get progress => 'Playback position';
+  @override
+  String get loading => 'Loading';
 }
 
 // Path: appearance

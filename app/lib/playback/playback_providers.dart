@@ -58,3 +58,9 @@ final playbackQueueProvider = StreamProvider<QueueState>((ref) async* {
   yield controller.queue;
   yield* controller.queueStates;
 });
+
+/// 目前這首的位置、時長與緩衝（高頻，ADR 0018 §決定 2）。後端第一次回報前
+/// 還沒有值。
+final playbackProgressProvider = StreamProvider<PlaybackProgress>(
+  (ref) => ref.watch(playbackControllerProvider).progress,
+);

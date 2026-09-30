@@ -12,7 +12,7 @@ import 'package:fmp/ui/toast/toaster.dart';
 /// 視窗底部被外殼佔住的高度（dp，從視窗底邊算起，含系統的安全區），例如手機
 /// 的迷你播放列加底部導覽列、桌面的播放列（ADR 0023 §決定 2）。
 ///
-/// 外殼在自己的版面改變時寫入；沒有外殼（全螢幕頁、M1 的身分頁）時是 0，提示
+/// 外殼（`AppShell`）在自己的版面改變時寫入；沒有外殼時（全螢幕頁）是 0，提示
 /// 貼著底部安全區。
 final toastBottomInsetProvider = NotifierProvider<ToastBottomInset, double>(
   ToastBottomInset.new,

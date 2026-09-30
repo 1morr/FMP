@@ -4,21 +4,33 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
-/// 只有 `resolveStream` 的插件，回傳由 [respond] 決定；記下每次請求。
+/// 假的插件：`resolveStream` 的回傳由 [respond] 決定；給了 [onSearch] 才有
+/// `search` 能力。記下每次請求。
 final class FakeSourcePlugin implements SourcePlugin {
-  FakeSourcePlugin(this.respond, {String id = 'fmp-test'})
-    : manifest = PluginManifest(
-        id: id,
-        name: 'Fake',
-        version: '1.0.0',
-        author: 'FMP tests',
-        capabilities: const {PluginCapability.resolveStream},
-        allowedHosts: const ['cdn.example'],
-      );
+  FakeSourcePlugin(
+    this.respond, {
+    String id = 'fmp-test',
+    String name = 'Fake',
+    this.onSearch,
+  }) : manifest = PluginManifest(
+         id: id,
+         name: name,
+         version: '1.0.0',
+         author: 'FMP tests',
+         capabilities: {
+           PluginCapability.resolveStream,
+           if (onSearch != null) PluginCapability.search,
+         },
+         allowedHosts: const ['cdn.example'],
+       );
 
   FutureOr<List<StreamCandidate>> Function(StreamRequest request) respond;
 
+  /// 搜尋的回傳；`null` 表示沒有 `search` 能力。
+  final FutureOr<SearchPage> Function(SearchQuery query)? onSearch;
+
   final requests = <StreamRequest>[];
+  final searches = <SearchQuery>[];
 
   /// 對 [sourceId] 解析了幾次。
   int resolvedCount(String sourceId) =>
@@ -34,8 +46,12 @@ final class FakeSourcePlugin implements SourcePlugin {
   Future<void> get whenUnresponsive => Completer<void>().future;
 
   @override
-  Future<SearchPage> search(SearchQuery query) =>
-      throw UnimplementedError('search');
+  Future<SearchPage> search(SearchQuery query) async {
+    final onSearch = this.onSearch;
+    if (onSearch == null) throw UnimplementedError('search');
+    searches.add(query);
+    return onSearch(query);
+  }
 
   @override
   Future<List<StreamCandidate>> resolveStream(StreamRequest request) async {

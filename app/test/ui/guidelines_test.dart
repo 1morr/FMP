@@ -15,10 +15,11 @@ import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/memory_database.dart';
+import 'support/shell_harness.dart';
 
-// ADR 0024 §如何確認：淺色與深色主題下通過點擊區與對比度 guideline。M1 還沒有
-// 正式頁面（12b），這裡以示範畫面驗證主題本身：M3 元件、token 的語意色、四種
-// 提示，加上身分頁用的外觀設定控制項。
+// ADR 0024 §如何確認：淺色與深色主題下通過點擊區與對比度 guideline。示範畫面
+// 驗證主題本身（M3 元件、token 的語意色、四種提示）；外殼裡的搜尋頁、設定頁與
+// 播放列在窄與寬兩種視窗各驗一次。
 
 /// 示範畫面：文字角色、常見按鈕、外觀設定控制項。
 class _Demo extends StatelessWidget {
@@ -144,6 +145,53 @@ void main() {
           }
           await tester.pumpAndSettle();
           expect(find.byType(SnackBar), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        final width = size.width;
+
+        testWidgets('search, before searching, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await ShellHarness().pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+          );
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('search results and the player bar at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.enterText(find.byType(TextField), 'song');
+          await tester.testTextInput.receiveAction(TextInputAction.search);
+          await tester.pump();
+          await tester.tap(find.text('Song a'));
+          await tester.pump(const Duration(milliseconds: 200));
+          // 輸入框沒有焦點：游標閃爍會讓對比度的取樣時好時壞。
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('settings at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
 
           await expectGuidelines(tester);
           handle.dispose();

@@ -63,6 +63,9 @@ dependencies:
   talker: ^5.1.20
 
 dev_dependencies:
+  # 播放列的 golden（ADR 0024 §如何確認）。只用它的 CI 版（文字畫成色塊），
+  # 設定在 test/flutter_test_config.dart。
+  alchemist: ^0.14.0
   # 只給 test/core/errors/app_error_surface_test.dart 解析原始碼（parseString）。
   # 版本由 packages/fmp_lints 的釘版決定（同一個 workspace 只解出一份）。
   analyzer: any

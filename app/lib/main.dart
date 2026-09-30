@@ -21,7 +21,6 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
-import 'package:fmp/playback/dev_playback_entry.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -39,11 +38,14 @@ Future<void> main(List<String> arguments) async {
         : LogFile(Directory(p.join(directory.path, logDirectoryName))),
   );
   routeUncaughtErrors(log, PlatformDispatcher.instance);
+  // 實機驗證以這一筆確認是哪個 flavor、資料在哪（沒有身分頁了）。資料目錄的
+  // 路徑可能含使用者名稱：log 檔只在本機，診斷包（M3）匯出時另外處理。
   log.info(
     'App started',
     tag: 'app',
     fields: {
       'flavor': flavor.name,
+      'dataDirectory': ?directory?.path,
       'buildMode': kReleaseMode
           ? 'release'
           : kProfileMode
@@ -91,10 +93,6 @@ Future<void> main(List<String> arguments) async {
         // dev_plugin_entry.dart）。
         devPluginPathProvider.overrideWithValue(
           devPluginPath(flavor, arguments, Platform.environment),
-        ),
-        // 播放的開發入口也只在 dev（dev_playback_entry.dart）。
-        devPlaybackRequestProvider.overrideWithValue(
-          devPlaybackRequest(flavor, arguments),
         ),
       ],
       child: FmpApp(flavor: flavor),
