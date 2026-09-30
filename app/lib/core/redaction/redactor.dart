@@ -209,12 +209,15 @@ final class Redactor {
     final text = matched.replaceAll(r'\/', '/');
     final uri = Uri.tryParse(text);
     if (uri == null || !uri.hasAuthority) return matched;
-    final cdn = _mediaCdns.where((cdn) => cdn.matches(uri.host)).firstOrNull;
-    if (cdn == null) return matched;
+    // 內建與插件追加的規則可能同時符合同一個 host，全部合併套用。
+    final cdns = _mediaCdns.where((cdn) => cdn.matches(uri.host)).toList();
+    if (cdns.isEmpty) return matched;
 
     final signed = {
-      for (final name in cdn.signedQueryParameters) name.toLowerCase(),
+      for (final cdn in cdns)
+        for (final name in cdn.signedQueryParameters) name.toLowerCase(),
     };
+    final signedPath = cdns.any((cdn) => cdn.signedPath);
     final query = [
       for (final part in uri.query.split('&'))
         if (part.isNotEmpty && !signed.contains(_queryName(part).toLowerCase()))
@@ -222,7 +225,7 @@ final class Redactor {
     ].join('&');
     // 保留原本的編碼：切原始路徑，不用解碼過的 pathSegments。第一段是空字串。
     final segments = uri.path.split('/');
-    final path = cdn.signedPath && segments.length > 2
+    final path = signedPath && segments.length > 2
         ? [
             '',
             for (var i = 2; i < segments.length; i++) redactedValue,
