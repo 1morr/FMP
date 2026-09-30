@@ -29,7 +29,8 @@
     "09-29-network-layer",
     "09-30-js-runtime",
     "09-30-plugin-contract",
-    "09-30-bilibili-plugin"
+    "09-30-bilibili-plugin",
+    "09-30-redaction-cdn-rules"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
