@@ -32,7 +32,8 @@ dependencies:
   # 插件的 JS 引擎（ADR 0014 §決定 2），只准在 lib/plugins/runtime/ import
   # （fmp_layer_imports）。釘死版本：執行環境繼承 QuickJsRuntime2 並依賴它在
   # 建構子呼叫 init()，測試直接載入套件內附的原生庫（test/support/quickjs.dart），
-  # 兩者都是套件的內部結構，升版時要重看。
+  # Linux 的 bundle 由 linux/CMakeLists.txt 補上它漏裝的原生庫，三者都是套件的
+  # 內部結構，升版時要重看。
   flutter_js: 0.8.7
   # 狀態管理（ADR 0013）。不用 riverpod_generator：provider 少，手寫即可。
   flutter_riverpod: ^3.4.3
