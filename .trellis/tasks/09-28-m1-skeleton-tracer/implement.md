@@ -41,7 +41,8 @@
 - **PR 12a 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-ui-foundation/`）：主題 token、`WindowClass`、slang 三語言、`Toaster`／`ToastHost`、`messageArgs` 收窄、外觀可清回跟隨系統。實機：Windows 繁中／English 正黑體、简中雅黑；Android 英文介面原本落到簡中字形，已改為主題文字樣式帶 `zh-Hant` 並複驗。
 - **PR 12b 完成**（子任務已 archive 到 `.trellis/tasks/archive/2026-09/09-30-app-shell/`）：外殼、搜尋、設定、播放列、快捷鍵與 F6；**M1 端到端驗收通過**（Windows、Android 模擬器各搜尋 B 站並連播兩首，模式：真實）。
 - **PR 13 拆分**（2026-10-01 擁有者核准）：**13a** CI 五平台建置、Xcode scheme、INTERNET 權限、Linux 與 Windows 整合測試（`.trellis/tasks/10-01-app-ci-platforms`）；**13b** release-please、`app-release.yml`、sandbox 實跑。
-- **下一步**：13a → 13b → 里程碑驗收。
+- **PR 13a 完成**（#192，子任務已 archive 到 `.trellis/tasks/archive/2026-10/10-01-app-ci-platforms/`）：CI 五平台建置（macOS、iOS 各建 dev／prod）、Linux 與 Windows 整合測試、Xcode scheme、INTERNET 權限；順帶修了 flutter_js 在 Linux 漏裝 QuickJS 原生庫。
+- **下一步**：13b → 里程碑驗收。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -226,6 +227,13 @@ PR 10 留下的後續：
 - [ ] `.trellis/spec/app/playback/index.md` 的「實機驗證」段與 `verify-on-device` skill 的建置、安裝、`am start` 步驟重複；改成指向 skill（PR 12 動到播放時順手）。
 - [ ] 媒體 CDN 的簽名參數目前是整個拿掉；內建名單每變嚴格一次，既有 fixture 就過不了「再遮蔽一次不變」的掃描（遮蔽修正 PR 時手動改了 fmp-plugins 的 24 個網址）。審查建議改成「值換成 `***`」：已遮過的不再誤紅、明文照樣紅。改動是 `_redactMediaUrl` 一行加既有測試期望，M3 插件庫 CI 上線前做。
 - [ ] 插件每重新載入一次，`Redactor._mediaCdns` 就多一份相同規則（輸出不受影響，只是多掃）；M3 插件頁的重新載入出現時一併去重。
+
+13a 留下的後續：
+
+- [ ] 建置時產生的 Podfile 只列 `Debug`／`Profile`／`Release`，CocoaPods 把 `Debug-dev` 等當 release 編 pod；只影響在 Xcode 除錯 pod。iOS／macOS 平台任務提交 Podfile 並補對應。
+- [ ] Runner scheme 與不帶 flavor 的三個 configuration 照官方文件保留；在 Xcode 用 Runner 建置時身分是 prod、`appFlavor` 卻取 `Generated.xcconfig` 的上一次值（`app/AGENTS.md` 已寫）。iOS／macOS 平台任務決定要不要刪。
+- [ ] `apple_identity_test.dart` 只比身分與 base xcconfig，不比 build settings 其餘內容（檢查時以解析器比過，目前完全相同）。
+- [ ] flutter_js 0.8.7 的 Linux CMake bug（清單變數寫成 `flutter_qjs_bundled_libraries`）由 `app/linux/CMakeLists.txt` 補上；向上游 `abner/flutter_js` 回報要擁有者當次同意。升版時拿掉補丁。
 
 ### 探針：YouTube.js（擁有者決定 3）
 
