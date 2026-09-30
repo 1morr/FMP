@@ -29,9 +29,14 @@ throw RateLimited(
   throw AppError.wrap(error, stackTrace, pluginId: pluginId);
 }
 
-// 使用者動作的呼叫端：寫錯誤歷史，再交給呈現層（Toaster 在 PR 12）。
+// 使用者動作的呼叫端：交給 Toaster，它先寫錯誤歷史再顯示。
 } on AppError catch (error) {
-  log.report('Search failed', error, tag: 'search');
+  ref.read(toasterProvider).error(error, operation: 'Search failed', tag: 'search');
+}
+
+// 背景工作：只寫錯誤歷史，不跳提示，畫面的狀態自己更新。
+} on AppError catch (error) {
+  log.report('Sync failed', error, tag: 'sync');
 }
 ```
 
@@ -53,7 +58,8 @@ throw RateLimited(
 - 限流帶 `Retry-After` 時用 `parseRetryAfter` 填 `retryAfter`；`now` 用收到回應的時間。
 - 預設 `retryable` 不合用時才覆寫（例如某個 5xx 業務碼其實可重試）。覆寫只決定「錯誤
   可不可以重試」，請求是否冪等由網路層另外判斷。
-- `messageArgs` 只放數字、enum 之類的值；伺服器的訊息原文放 `cause`，只進 log。
+- `messageArgs` 的型別只收 `ErrorMessageArg` → 整數；伺服器的訊息原文放 `cause`，只進
+  log。
 - 每一列對應表配一個以錄下的錯誤回應 fixture 寫的契約測試，斷言轉出的子類
   （ADR 0013 §如何確認）。
 
@@ -74,9 +80,14 @@ throw RateLimited(
 ## 加一個 i18n key 或原因
 
 - `ErrorMessageKey` 一個值對應 ADR 0013 §決定 5 類別表的一列，名稱就是 slang 的 key
-  （PR 12 起在 `errors.` 之下）；加值要同時加翻譯，改名等於改翻譯檔的 key。
-- `UnavailableReason` 加值時，同時加曲目上標示原因的翻譯（PR 12 起）。`report` 以
-  `reason.name` 寫進 log，改名就是改 log 的值。
+  （`lib/i18n/*.i18n.json` 的 `errors.` 之下）；加值要同時在三個 JSON 加翻譯，並在
+  `lib/ui/errors/error_message.dart` 的 `switch` 補一列（編譯器會指出）。改名等於改翻譯檔的
+  key。
+- `UnavailableReason` 加值時，同時在 `errors.unavailableReasons.` 之下加翻譯，並補
+  `unavailableReasonText`。`report` 以 `reason.name` 寫進 log，改名就是改 log 的值。
+- 訊息要帶數值時加一個 `ErrorMessageArg`（值只能是整數），翻譯寫 `{參數}`，在
+  `errorMessage` 裡讀 `error.messageArgs`。音源名稱不是參數：呈現層以 `pluginId` 查。
+- 怎麼加 i18n key 的其他細節：`.trellis/spec/app/ui/index.md` § 字串。
 
 ## 加欄位
 

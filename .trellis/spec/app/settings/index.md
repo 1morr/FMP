@@ -18,7 +18,9 @@
   這個 `map` 裡套用（`resolveAppearance` 這類純函式），不寫回資料庫。
 - 對外的值型別同時帶「生效值」與 `stored`（使用者設定過的值），設定頁用 `stored` 的
   `null` 顯示「跟隨系統／預設」。
-- 設定方法一個欄位一個，只寫那個欄位（`repository.write(themeMode: ...)`）。
+- 設定方法一個欄位一個，只寫那個欄位（`repository.write(themeMode: ...)`）。參數可空，
+  `null` 是「清回沒設定過」，走 `repository.clear(themeMode: true)`：`write` 的 `null`
+  表示「沒給、不動」，兩者不能共用一個方法。
 
 ## 加一個設定欄位
 
@@ -28,14 +30,16 @@
    `schemaVersion` 加一、`build_runner`、`make-migrations` 存快照、`onUpgrade`、三種
    migration 測試。新欄位在舊資料上是 `NULL`，也就是「沒設定過」，migration 不填值。
 3. **repository**：值型別加欄位（含 `==`、`hashCode`、`toString`），`write` 加一個
-   可省略的參數，用 `Value.absentIfNull`。
-4. **Notifier**：生效值型別加欄位，在解析函式裡寫 `stored.x ?? 預設`；加一個 setter。
+   可省略的參數，用 `Value.absentIfNull`；`clear` 加一個 `bool` 參數，寫 `Value(null)`。
+4. **Notifier**：生效值型別加欄位，在解析函式裡寫 `stored.x ?? 預設`；加一個 setter
+   （`null` 呼叫 `clear`）。
 5. **預設值**：只寫在解析函式的呼叫處。之後改預設只改這一處，不需要 migration。
 6. **測試**：
    - repository：讀回寫入的值、部分寫入不動其他欄位、`stored format` 釘住字面值；
    - Notifier：沒設定時讀到預設；設定後讀到使用者值；
    - 改預設：同一份 `stored` 用兩組預設解析，使用者值不變、未設定的跟著新預設；
-   - 只寫改動的欄位：寫一個欄位後直接查表，其他欄位仍是 `NULL`。
+   - 只寫改動的欄位：寫一個欄位後直接查表，其他欄位仍是 `NULL`；
+   - 清回未設定：`clear` 後直接查表是 `NULL`，其他欄位不動，讀到的回到預設。
 
 ## 測試寫法
 
@@ -52,4 +56,4 @@
 
 - 表的新欄位是 `nullable()`，migration 沒有填預設值。
 - 預設值沒有出現在 `lib/data/`。
-- 上面第 6 步的四種測試都在。
+- 上面第 6 步的五種測試都在。
