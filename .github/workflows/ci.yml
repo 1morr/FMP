@@ -227,20 +227,19 @@ jobs:
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
 
-      # drift 與 slang 產生的 *.g.dart 有提交（app/AGENTS.md § 資料層）。重跑
-      # codegen 後 app/ 有任何變動或新檔，就是改了 table 或翻譯檔卻沒重跑
-      # build_runner（slang_build_runner 讓兩者一起產生）。
+      # drift 與 slang 產生的 *.g.dart 有提交（app/AGENTS.md § 資料層、§ 介面）。
+      # 重跑兩者後 app/ 有任何變動或新檔，就是改了 table 或翻譯檔卻沒重新產生。
+      # slang 用自己的 CLI（設定在 slang.yaml），不走 build_runner。
       # 路徑用 `.`：這個 job 的工作目錄已經是 app/。
       - name: Check generated code is up to date
         run: |
-          # 乾淨的 checkout 沒有 build_runner 的資產圖，已提交的產生檔會被當成
-          # 衝突而拒寫；允許覆寫後，再用 git 判斷內容有沒有變。
           dart run build_runner build --delete-conflicting-outputs
+          dart run slang
           changes="$(git status --porcelain -- .)"
           if [ -n "$changes" ]; then
             echo "$changes"
             git diff -- .
-            echo "Generated code is stale: run 'dart run build_runner build --delete-conflicting-outputs' in app/ and commit the result."
+            echo "Generated code is stale: run 'dart run build_runner build --delete-conflicting-outputs' and 'dart run slang' in app/ and commit the result."
             exit 1
           fi
 
