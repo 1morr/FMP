@@ -37,12 +37,25 @@ const a = EdgeInsets.all([!8!]);
   `newPackage(...)` 造最小的假套件。假宣告要照真套件的形狀：Flutter 的 `debugPrint` 是
   函式型別的頂層變數，呼叫解析成 `FunctionExpressionInvocation` 而不是
   `MethodInvocation`；名稱沒解析到時兩者都是 `MethodInvocation`，測試會綠、實際卻漏報。
+- 同一個測試方法裡，每個路徑只 `assertLints` 一次：對同一個路徑再寫一次內容，analyzer 仍回
+  第一次的解析結果，第二個斷言比對的是舊內容。要多種寫法就換路徑（迴圈裡各給一個檔名）。
 - 本機在 Windows 上跑的是 Windows 路徑；CI 另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次。
+
+## 依賴表（`fmp_layer_imports`）
+
+限制「誰能 import 某個檔案或目錄」加在 `rules/layer_imports.dart` 的 `restrictedImports`
+（被匯入端 → 允許的匯入端），不另寫規則。兩邊都用 `PackagePath.isIn` 比對，檔案與目錄
+都可以；只看 `lib/` 內的匯入端，`test/` 不受限。測試照上面的雙向變異，另外放一個同前綴
+的匯入端（`backends_helpers.dart` 之於 `backends/`、`playback_session_helpers.dart` 之於
+`playback_session.dart`）證明不是字串前綴比對。
 
 ## 哨兵
 
 在 `app/tool/lint_sentinel.dart` 的 `_violations` 加一行違反新規則的程式碼。沒加的話，
 哨兵會因為「開啟的規則沒被報」而失敗。
+
+在既有規則裡加一張表（`restrictedImports` 這類）時規則名已經被別的行報出，哨兵分不出新表
+有沒有接上：違規行之外，再把新診斷訊息裡固定的一段加進 `_expectedMessages`。
 
 ## Quality Check
 

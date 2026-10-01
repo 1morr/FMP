@@ -18,7 +18,7 @@
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
-| 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
+| 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`、`lib/playback/playback_session.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
@@ -401,14 +401,26 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 下一首、seek，佇列只在記憶體。
 
 - `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
-  `QueueModel`、`StreamResolver`、`decideRecovery`（純函數）與後端只回報。沒有閘門，
-  review 時看。
+  `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`PlaybackEventRouter`，純函數）、
+  `decideRecovery`（純函數）只回報。沒有閘門，review 時看。
 - `just_audio`、`media_kit`（含 `media_kit_libs_*`）只准在 `lib/playback/backends/`
   import。閘門：lint `fmp_layer_imports`（`layer_imports_test.dart` 的
   `test_playbackEnginesOutsideTheBackends`：同前綴的 `lib/playback/backends_helpers.dart`
   也報；`test_playbackEnginesInTheBackends`：後端目錄與 `media_kitchen` 這類相似套件名
-  不報）。ADR 0018 另外兩條（結束原因型別只給後端與路由器、串流存取的窄介面只給
-  `PlaybackSession`）等 M2 有路由器與 `PlaybackSession` 時再加；M1 的路由在控制器裡。
+  不報）。
+- 後端只有 `PlaybackSession` 碰：`backends/audio_backend.dart` 在 `lib/` 只准後端目錄、
+  `playback_session.dart` 與組裝點 `playback_providers.dart` import；結束原因
+  `TrackEndReason`（`backends/backend_rules.dart`）只准後端目錄與 `playback_event_router.dart`。
+  所以 session 交給控制器的事件型別（帶結束原因）定義在路由器的檔案，session 傳值但不寫出
+  型別名。閘門：lint `fmp_layer_imports` 的 `restrictedImports`（`layer_imports_test.dart` 的
+  `test_restrictedPlaybackFilesFromOutside`：同前綴的 `backends_helpers.dart`、
+  `playback_session_helpers.dart` 也報；`test_restrictedPlaybackFilesNearMisses`：
+  `audio_backends.dart` 這類相近檔名與註解不報）。`test/` 不受限。lint 只看 import：
+  `ref.watch(audioBackendProvider)` 不 import 也拿得到實例，這半條沒有閘門，review 時看。
+- session 的事件同步交給控制器（`StreamController.broadcast(sync: true)`），控制器處理時
+  不再經過一次微任務，時序與 M1 直接聽後端時相同；這靠後端在呼叫回來之前不送出回報，
+  否則同步 broadcast 會在處理途中重入而拋錯。閘門：後端契約的 `reports arrive only after
+  the call returns`（假後端在 `flutter test`，真後端照下一條手動跑）。
 - 兩個後端共用的規則（結束分類 `classifyTrackEnd`、前瞻的清單修改 `LookAheadEdit`）只在
   `backends/backend_rules.dart`，後端只轉呼叫。閘門：`backend_rules_test.dart`；後端契約
   `test/playback/backends/audio_backend_contract.dart` 以同一份斷言跑假後端（`flutter
@@ -564,7 +576,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/` | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/` | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |
@@ -582,8 +594,9 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 - 每條規則在 `packages/fmp_lints/test/rules/<規則>_test.dart` 有報與不報的案例；
   `test/plugin_test.dart` 斷言 `analysis_options.yaml` 開的正好是註冊的全部規則。
-- `tool/lint_sentinel.dart` 暫放違規檔跑 `dart analyze`，斷言每條開啟的規則都報出來。插件
-  沒載入或編譯失敗時 `dart analyze` 會照樣綠，只有它會紅。
+- `tool/lint_sentinel.dart` 暫放違規檔跑 `dart analyze`，斷言每條開啟的規則都報出來，同一條
+  規則裡另加的表（`restrictedImports`）以 `_expectedMessages` 的訊息認。插件沒載入或編譯
+  失敗時 `dart analyze` 會照樣綠，只有它會紅。
 
 幾件從設定看不出來的事：
 
