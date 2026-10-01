@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/research/m2-scope-digest.md", "reason": "Per-ADR M2 scope, fixed names, M1 follow-ups"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Playback core: queue, recovery, system media controls"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Cache library, stream URL cache, offline state"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Player page, player bar, shortcuts, focus"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback layer patterns"}
