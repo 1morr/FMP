@@ -157,6 +157,10 @@ void main() {
       // dart:io 會把網址裡的 user info 變成 `Authorization: Basic …`，繞過
       // mediaRequestHeaders；假 adapter 看不到那個 header，所以整個拒絕。
       'https://user:FAKE_PASSWORD_123@example.test/a',
+      // 只有使用者或只有密碼也會變成 `Basic`；只有 `https://@host` 不會。
+      'https://user@example.test/a',
+      'https://:FAKE_PASSWORD_123@example.test/a',
+      'https://%75ser@example.test/a',
     ]) {
       test('$url is refused without a request', () async {
         final harness = MediaHarness((_) => reply(200));
@@ -700,6 +704,21 @@ void main() {
         harness.download('https://example.test/a', to: destination),
       );
       expect(harness.outcomes, [RequestOutcome.networkError]);
+    });
+
+    // 插件更新時 PluginRegistry 關掉舊的 client；之後還拿著它的呼叫端不該讓
+    // 網路狀態以為連不上（API client 關閉後的請求也不回報）。
+    test('a closed client sends nothing and reports nothing', () async {
+      final harness = MediaHarness((_) => reply(200, body: 'x'))
+        ..client.close();
+      final error = await errorOf(
+        harness.download('https://example.test/a', to: destination),
+      );
+      expect(error, isA<UnexpectedError>());
+      expect((error as UnexpectedError).networkRecordId, isNull);
+      expect(harness.adapter.requests, isEmpty);
+      expect(harness.records, isEmpty);
+      expect(harness.outcomes, isEmpty);
     });
   });
 }

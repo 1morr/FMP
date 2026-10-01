@@ -140,10 +140,10 @@ void main() {
           download(updated, 'https://example.test/a.jpg'),
           throwsA(isA<Unsupported>()),
         );
-        // 舊的已關閉：請求到不了 adapter。
+        // 舊的已關閉：請求到不了 adapter，也不當成連不上。
         await expectLater(
           download(old, 'https://example.test/a.jpg'),
-          throwsA(isA<AppError>()),
+          throwsA(isA<UnexpectedError>()),
         );
         expect(harness.adapter.requests, hasLength(1));
       },

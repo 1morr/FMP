@@ -135,6 +135,7 @@ final class MediaHttpClient {
   ///   [NetworkError]。429 與帶 `Retry-After` 的 503：[RateLimited]；404、410：
   ///   [NotFound]；其他非 2xx：[UnexpectedError]（狀態碼在網路紀錄）。
   /// - [abortTrigger] 完成時取消，丟 [RequestCancelled]。
+  /// - 已經 [close]：[UnexpectedError]，那一跳不發出。
   Future<MediaDownload> download(
     Uri url, {
     required File destination,
@@ -185,8 +186,14 @@ final class MediaHttpClient {
     }
   }
 
-  /// 關閉底層的連線。
-  void close() => _dio.close(force: true);
+  /// 已經 [close]：之後的每一跳都不發出。
+  var _closed = false;
+
+  /// 關閉底層的連線；進行中的那一跳以傳輸錯誤結束。
+  void close() {
+    _closed = true;
+    _dio.close(force: true);
+  }
 
   /// 一跳：送出、依狀態碼處理、收內容。不論結果都寫一筆網路紀錄、回報網路
   /// 狀態最多一次。
@@ -198,6 +205,7 @@ final class MediaHttpClient {
     required int maxBytes,
   }) async {
     _throwIfStopped(stopper);
+    _throwIfClosed();
     final recordId = _recordIds.next();
     final startedAt = clock.now();
     final cancelToken = stopper.track(CancelToken());
@@ -448,6 +456,17 @@ final class MediaHttpClient {
       pluginId: pluginId,
       networkRecordId: networkRecordId,
       cause: StateError('Media URL carries user info: ${url.host}'),
+      stackTrace: StackTrace.current,
+    );
+  }
+
+  /// client 已關閉（插件更新後還拿著舊的）：那一跳不發出，不寫網路紀錄、不回報
+  /// 網路狀態。不能交給 dio：關閉後的 dio 丟 `connectionError`，會被當成連不上。
+  void _throwIfClosed() {
+    if (!_closed) return;
+    throw UnexpectedError(
+      pluginId: pluginId,
+      cause: StateError('Media client is closed'),
       stackTrace: StackTrace.current,
     );
   }
