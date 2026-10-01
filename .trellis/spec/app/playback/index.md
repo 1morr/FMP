@@ -9,6 +9,8 @@
 ```
 lib/playback/
   playback_controller.dart  # PlaybackController：唯一入口，唯一寫 PlaybackState
+  playback_session.dart     # PlaybackSession：唯一碰 AudioBackend；解析、開流、前瞻、代與來源 id
+  playback_event_router.dart # SessionEvent、routePlaybackEvent（純函數）與它的動作
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
   queue_model.dart          # QueueModel、QueueState（M1：記憶體、依序）
   stream_resolver.dart      # StreamResolver、ResolvedStream（期限）
@@ -26,18 +28,26 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 
 ## 一首歌怎麼播
 
-1. `playQueue`／`next`／`previous`／恢復 → `_load`：換一代（`_generation`）、狀態 `Loading`，
-   用前瞻留下的 `ResolvedStream`（還沒過期）或呼叫 `StreamResolver.resolve`。
-2. `_open`：建 `BackendSource`（新的 id、經 `mediaRequestHeaders`），`AudioBackend.open`。
-3. 後端回報 `ready` → `Playing`／`Paused`；第一次 ready 時 `_prepareLookAhead` 解析下一首一次，
-   `setNext` 交給後端，有期限就排一個計時器在過期前 30 秒重新解析。
-4. 引擎自己接上前瞻 → `SourceAdvanced`：佇列往下、換一代，接上的那首不再解析，再為下一首
-   準備前瞻。沒有前瞻時是 `SourceEnded`：還有下一首就照 1 開始，沒有就 `Idle`。
-5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`）→ `decideRecovery` → 重試、換候選、
-   跳過或停下。
+1. `playQueue`／`next`／`previous`／恢復 → 控制器的 `_load`：`session.beginRequest()` 換一代、
+   狀態 `Loading`，用前瞻留下的 `ResolvedStream`（`session.isFresh`）或 `session.resolve`。
+2. `session.open`：建 `BackendSource`（新的 id、經 `mediaRequestHeaders`），`AudioBackend.open`。
+3. 後端回報 `ready` → session 發 `SourceReady` → 路由器給 `MarkReady` → `Playing`／`Paused`；
+   第一次 ready 時 `session.prepareLookAhead` 解析下一首一次，`setNext` 交給後端，有期限就排一個
+   計時器在過期前 30 秒重新解析。
+4. 引擎自己接上前瞻 → `SourceAdvanced` → `LookAheadTookOver` → `AdoptLookAhead`：
+   `session.adoptLookAhead` 換一代，控制器把佇列往下，接上的那首不再解析，再為下一首準備前瞻。
+   沒有前瞻時是 `SourceEnded` → `SourceFinished`：還有下一首（`PlayNextTrack`）就照 1 開始，
+   沒有（`FinishQueue`）就 `Idle`。
+5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`）→ `Recover`／`decideRecovery` →
+   重試、換候選、跳過或停下。
 
-每個非同步步驟回來時比對代，不同就丟掉結果。狀態、位置、事件都帶來源 id，控制器只收
-目前來源的。
+狀態、位置、事件都帶來源 id，session 只轉目前來源的。每個非同步步驟回來時比對
+`session.generation`，不同就丟掉結果。
+
+分工：引擎的型別、來源 id、前瞻的計時器與交接的量測 log 在 session；「這個事件該做什麼」
+在 `routePlaybackEvent`（新的判斷先在這裡加一個事件或動作，並在
+`playback_event_router_test.dart` 加案例）；改狀態、動佇列、恢復計數在控制器。session 要給
+控制器新的資訊時，加在 `SessionEvent` 或 `PlaybackSnapshot`，不讓控制器 import 後端。
 
 ## 改後端
 
@@ -70,6 +80,9 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 - 解析次數用 `plugin.resolvedCount(sourceId)`；開了哪些網址用 `h.openedPaths`；前瞻用
   `backend.nextSources`；log 用 `h.logged(message)`。
 - 碰 log 檔的案例（遮蔽）不用 `fakeAsync`：真的 `LogFile` 在暫存目錄，等待用 `pumpUntil`。
+- 路由器：`test/playback/playback_event_router_test.dart` 直接以 `SessionEvent` 與
+  `PlaybackSnapshot` 呼叫 `routePlaybackEvent`，不組控制器。事件與快照的組合在這裡窮舉；
+  控制器測試只驗端到端的結果。
 - 後端契約：`audio_backend_contract.dart` 的 `audioBackendContract` 收一個 `DefineCase`，
   `flutter test` 傳 `test`，整合測試傳包了 `testWidgets`＋`runAsync` 的版本。新的後端行為在這裡
   加一個案例，假後端與真後端一起跑到；`FakeAudioBackend` 用同一份 `backend_rules.dart`。
@@ -78,15 +91,12 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 
 ## 實機驗證（ADR 0018 §如何確認）
 
-建置、安裝、啟動、讀 log 與 `dumpsys audio` 照 `verify-on-device` skill（`.claude/skills/verify-on-device/`）。
-播放一律從 UI 開始：以 `--fmp-dev-plugin` 裝測試插件（重播，三首同一個 2 秒的 `tone.wav`、
-不連網）或 B 站插件（真實），搜尋後點一首。播放相關要看的：
+照 `verify-on-device` skill（`.claude/skills/verify-on-device/`）：模式與平台、從搜尋頁開始播、
+讀 log、Android 音訊焦點（`references/android.md` 的「音訊焦點」）都在那裡。skill 沒寫的、
+播放的 log 欄位怎麼讀：
 
 - 交接：`Look-ahead handover`（`previousPositionMs` 是上一首最後回報的位置）與接著的
   `Track audible`：`sinceHandoverMs` 是交接事件到這首第一次回報位置，`estimatedGapMs` 是從
   上一首最後的位置推算的結束時間到這首第一次回報位置（含位置回報的間隔，只是估計）。
-- Android 音訊焦點：播放中與交接前後，`Audio Focus stack` 的最上面一直是
-  `com.personal.fmp.dev`（`AUDIOFOCUS_GAIN`），沒有被 abandon 又重新 request；播完之後也仍在
-  （just_audio 不主動放）。模擬器要有聲音輸出（不是 `-no-audio` 啟動的），ExoPlayer 才會真的播。
 - 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
   `Referer`。

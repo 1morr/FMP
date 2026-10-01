@@ -171,7 +171,7 @@ final class JustAudioBackend implements AudioBackend {
   }
 
   /// 清單的修改一個接一個做：每次都依當下的清單算 [LookAheadEdit]，交接後的
-  /// 修剪與控制器的下一次 [setNext] 才不會以同一份舊清單各算一次。
+  /// 修剪與 `PlaybackSession` 的下一次 [setNext] 才不會以同一份舊清單各算一次。
   Future<void> _edit(Future<void> Function() change) {
     final done = _edits.then((_) async {
       _editing++;
