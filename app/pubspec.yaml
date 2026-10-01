@@ -1,7 +1,10 @@
 name: fmp
 description: "FMP — Flutter music player (rewrite)."
 publish_to: 'none'
-version: 0.1.0+1
+# 只由 release-please 的發版 PR 改，等於 ../.release-please-manifest.json。
+# 不寫 +build：release-please 會把數字的 build number 加 1，versionCode 改由
+# 發版 workflow 從 tag 算（app/AGENTS.md § 發版）。本機建置的 versionCode 是 1。
+version: 0.1.0
 
 environment:
   sdk: ^3.13.4

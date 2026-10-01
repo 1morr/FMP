@@ -1,0 +1,5 @@
+{"file": "docs/adr/0022-release-and-in-app-update.md", "reason": "Release flow, asset names, legacy updater compatibility, workflow tests"}
+{"file": "docs/adr/0008-rewrite-as-new-app-in-same-repo.md", "reason": "Signing key, Inno AppId and identity shared with the old app"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Flavors: releases always use --flavor prod; CI layout"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test layout and static-rule mutation tests"}
+{"file": ".trellis/tasks/09-28-m1-skeleton-tracer/prd.md", "reason": "Owner decision 4: dispatch-only workflow, sandbox run"}

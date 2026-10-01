@@ -36,7 +36,8 @@
     "09-30-verify-on-device",
     "09-30-ui-foundation",
     "09-30-app-shell",
-    "10-01-app-ci-platforms"
+    "10-01-app-ci-platforms",
+    "10-01-app-release-workflow"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

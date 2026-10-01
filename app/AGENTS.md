@@ -17,6 +17,7 @@
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
+| 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
 
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
@@ -117,6 +118,47 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   的標題必須不同；之後若在 Dart 端改視窗標題，要一併改 `main.cpp` 的尋找方式。
 - Windows 的 ProductName 決定 path_provider 的目錄（`%APPDATA%\com.personal\<ProductName>`），
   dev 的 application support、cache 等目錄因此全部與 prod 分開。
+
+## 發版
+
+`../.github/workflows/app-release.yml`，設定在 repo 根的 `release-please-config.json`、
+`.release-please-manifest.json`（ADR 0022 §決定 1–4）。測試都在 `test/release/`。
+
+- 只能手動觸發，M9 才加 `push: branches: [main]`：重寫期間不發版。閘門：
+  `release_workflow_test.dart` 的 `only workflow_dispatch triggers it`。
+- 一個 run 內：release-please 維護發版 PR；發版 PR 合併後的那次 run 由它建 tag `v{版本}`
+  與**草稿** release，接著建置、verify、publish（上傳後才轉正式，`releases/latest` 不會指到缺檔的
+  版本）。沒有新 release 時建置以後的 job 全部跳過。閘門：同檔的 `nothing runs without a new
+  release`、`only verified assets are published`；`release_please_test.dart`（`draft`、
+  `force-tag-creation`、tag 不帶 component）。
+- 版本號只由發版 PR 改：`pubspec.yaml` 的 `version` 等於 manifest，而且整行只能是
+  `version: X.Y.Z`——release-please 的 `dart` 策略會把數字的 build number 加 1，同一行的註解會被
+  當成 build number。versionCode 由 workflow 從 tag 算（`major*1000000 + minor*1000 + patch`，
+  舊版的公式）以 `--build-number` 帶入；本機建置的 versionCode 是 1。閘門：
+  `release_please_test.dart`；verify 核對 APK 的 versionName、versionCode。
+- 第一版 2.0.0 由設定檔 `packages.app.release-as` 指定，不用 commit footer（落在哪個 commit、
+  squash 後還在不在都難保證）。那一版發出後要刪掉，否則下一個發版 PR 又提同一版。閘門：
+  `release_please_test.dart`（`release-as` 必須大於 manifest；2.0.0 的發版 PR 合併後 main 的 CI
+  會紅，刪掉那一行就好，也可以合併前在發版 PR 上加一個刪它的 commit）。
+- `bootstrap-sha` 是 `app/` 出現前 main 的最後一個 commit：第一個發版 PR 只收之後的 commit，
+  release-please 只算動到 `app/` 的那些。有了第一個 release 之後它不再被讀。
+- Android 與舊版同一把金鑰（ADR 0008 §決定 3），secrets 沿用舊 `release.yml` 的
+  `KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_PASSWORD`、`KEY_ALIAS`，缺一個 job 就失敗。
+  workflow 寫出 `android/key.properties`（gitignore）；沒有這個檔時 release 用 debug 簽名，本機與
+  CI 的建置照常能跑；檔案在但缺欄位時建置失敗。密碼寫進 Java properties，`\` 會被當成跳脫字元。
+  閘門：verify 擋 debug 簽名與四個 APK 簽名不一。
+- Windows 安裝檔是手寫的 `windows/installer/fmp.iss`，不用舊版的 inno_bundle（它不認得 flavor 的
+  輸出目錄，舊版還要以 regex 修補它產生的腳本）。AppId、安裝位置、捷徑的 AppUserModelID 與舊版
+  相同，理由在檔頭。閘門：`windows_installer_test.dart`。zip 與安裝檔包的是同一個程式目錄，另外
+  放了 VC++ runtime 的三個 DLL（安裝檔會先清空安裝目錄，舊版附的那一份也在其中）。
+- verify 是 `tool/release/verify_release_assets.dart`：檔名集合、checksums、別名逐位元相同、APK
+  的 applicationId／版本／簽名、安裝檔的 PE 標頭、zip 根目錄就是程式目錄，以及舊版更新器相容
+  （`tool/release/legacy_updater.dart`，移植自舊專案 `update_service.dart`；切換 PR 刪舊專案時它
+  留著，v1.x 還在使用者手上）。閘門：`verify_release_assets_test.dart`、`legacy_updater_test.dart`
+  （含 v1.11.0 的真實 asset 與 checksums）。
+- 建置或 verify 失敗時 release 還是草稿（使用者看不到），tag 已建。暫時性的失敗在同一個 run
+  重跑失敗的 job；要改程式就修好合併，下一個發版 PR 照常發布，失敗的草稿與 tag 手動刪。
+- Linux、macOS 的發佈物由各自的平台任務加進 workflow 與 `expectedAssets`。
 
 ## 平台層
 

@@ -12,7 +12,7 @@
 |---|---|---|
 | 單元 | 純邏輯、平台層實作（注入路徑與 callback，在暫存目錄上跑） | `test/platform/app_data_directory_test.dart` |
 | widget | 畫面；依賴以建構子或 provider override 注入 | `test/app/fmp_app_test.dart` |
-| 建置設定 | 原生身分：能執行就執行（`cmake -P`），不能就解析設定檔並附變異案例 | `test/identity/` |
+| 建置設定 | 原生身分、發版 workflow 與安裝檔：能執行就執行（`cmake -P`），不能就解析設定檔並附變異案例 | `test/identity/`、`test/release/` |
 | 插件契約 | 插件目錄的 `checks.json` 以 fixture 重播（寫法見 `.trellis/spec/app/plugins/index.md` § 寫檢查案例與 fixture） | `test/plugins/contract/contract_test.dart` |
 | 整合 | 只挑 ADR 0015 列的情境與只能在真引擎上看的事，寫法見下方「整合測試」 | `integration_test/install_search_play_test.dart` |
 | golden | 設計系統共用元件（寫法見 `.trellis/spec/app/ui/index.md`） | `test/ui/player/player_bar_golden_test.dart` |
