@@ -1,6 +1,6 @@
 # Linux 平台任務
 
-M1 之後開（`milestones.md` § 平台任務、ADR 0026 §決定 5）。**尚未規劃**：開工時先走 brainstorm，
+2026-10-01 擁有者決定：Mac 到貨後與 macOS、iOS 一起在 Mac 上做，M2 先行（ADR 0026 §決定 4 的修訂）。**尚未規劃**：開工時先走 brainstorm，
 本檔只記已知的範圍與從 M1 帶過來的線索。
 
 ## 已知範圍
@@ -8,7 +8,7 @@ M1 之後開（`milestones.md` § 平台任務、ADR 0026 §決定 5）。**尚�
 - 讓 Linux 從「此平台尚未支援」變成能用：平台層宣告與實作資料目錄、字型 fallback、播放（ADR 0009 §決定 4、7）。
 - 播放後端：`media_kit`（libmpv），需加入 Linux 的原生庫或改用系統 libmpv（`app/lib/platform/audio/audio.dart` 已註明「之後 Linux」）。
 - 單一實例（`phase2-plan.md` 的「§8 平台功能」決定：單一實例開到所有桌面平台）。
-- 驗收在 VMware Workstation Pro 的 Ubuntu LTS 桌面虛擬機，X11 與 Wayland 各一次；日常開發用 WSL2（ADR 0026）。
+- 驗收環境在 Mac 上，X11 與 Wayland 各一次；虛擬機與做法在本任務決定。留意 Apple Silicon 上的虛擬機是 arm64，而發佈物是 `linux-x86_64.AppImage`（ADR 0022 §決定 3）。
 - 之後每個里程碑在虛擬機跑一次冒煙測試。
 - 延後實測（`phase2-plan.md` §8）：
   - 沒有 keyring 時的 secure storage（ADR 0012）；

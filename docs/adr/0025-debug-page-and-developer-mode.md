@@ -109,6 +109,7 @@
    - 篩選：音源、狀態碼類別（2xx／3xx／4xx／5xx／失敗）、文字。
    - 單筆詳細：遮過的 query、錯誤類型、對應的錯誤紀錄。
 5. **播放狀態**：唯讀，播放控制仍只經 `AudioController`。
+   更正（2026-10-01）：播放控制的唯一入口是 ADR 0018 的 `PlaybackController`，不是 `AudioController`。
    - 顯示內容：
      - ADR 0018 的 sealed 狀態（`Failed` 附 `AppError`）；
      - 曲目：插件 id、曲目鍵；

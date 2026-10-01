@@ -7,7 +7,7 @@
 | # | 里程碑 | 依賴 | 狀態 |
 |---|---|---|---|
 | M1 | 骨架＋曳光彈 | — | 完成（2026-10-01，#173–#194；`archive/2026-10/09-28-m1-skeleton-tracer`） |
-| M2 | 完整播放 | M1 | 未開始 |
+| M2 | 完整播放 | M1 | 進行中（`10-01-m2-full-playback`） |
 | M3 | 三音源、帳號與開發工具 | M2 | 未開始 |
 | M4 | 音樂庫與同步 | M3 | 未開始 |
 | M5 | 舊資料匯入 | M4 | 未開始 |
@@ -15,7 +15,7 @@
 | M7 | 歌詞 | M5 | 未開始 |
 | M8 | 桌面整合 | M2 | 未開始 |
 | M9 | 發版、更新與切換 | M1–M8 | 未開始 |
-| L | Linux 平台 | M1 | 已開任務，未規劃（`10-01-linux-platform`） |
+| L | Linux 平台 | M1、Mac 到貨 | 已開任務，延後到 Mac 上與 macOS、iOS 一起做（`10-01-linux-platform`） |
 | Mac | macOS 平台 | Mac 到貨 | 未開始 |
 | iOS | iOS 平台 | Mac 到貨 | 未開始 |
 
@@ -41,7 +41,7 @@
 - **驗收**（證據：M1 任務 `research/m1-acceptance.md`）：
   - [x] 兩平台端到端操作
   - [x] §7 全部項目
-- **之後**：開 Linux 平台任務（已開：`10-01-linux-platform`）。
+- **之後**：開 Linux 平台任務（已開：`10-01-linux-platform`；2026-10-01 改為延後到 Mac 上做，先做 M2）。
 
 ## M2 完整播放
 
@@ -51,10 +51,12 @@
   - 播放頁方案 B、播放列三段、App 內快捷鍵全表、焦點三區（ADR 0024）；
   - 系統媒體控制；速度、音量、輸出裝置（E19）；播放歷史（E15）；
   - 統一快取庫與離線狀態（ADR 0016）；
-  - 背景排程器與啟動維護清單（ADR 0017），含 log 保留 7 天（ADR 0025）。
+  - 啟動維護清單（ADR 0017），含 log 保留 7 天（ADR 0025）；
+  - 2026-10-01 規劃時擁有者決定加入：媒體 client 與封面磁碟快取（原屬 M6）、「歷史」導覽項、右側「正在播放」面板、Android 返回鍵；`tracks` 表提前（原屬 M4）。
+  - 移出：背景排程器到 M3；`mix`、`live` 模式到 M3；已下載曲目的離線行為到 M6。明細見 `10-01-m2-full-playback/design.md` §1。
 - **驗收**：
   - [ ] 兩平台端到端操作
-  - [ ] ADR 0016、0017、0018 的測試
+  - [ ] ADR 0016、0018 的測試，與啟動維護清單、log 保留 7 天的測試（範圍見 M2 `design.md` §12 第 3 條）
 
 ## M3 三音源、帳號與開發工具
 
@@ -64,8 +66,10 @@
   - 帳號與 `CredentialStore`、`AuthRequirement`（ADR 0012，E6）；
   - `1morr/fmp-plugins` repo、CI、`index.json`；插件頁；首次啟動引導（ADR 0014）；
   - Debug 頁與插件開發工具（ADR 0025、0015 §7）；錯誤詳細頁、GitHub 回報、`.github/ISSUE_TEMPLATE/bug_report.yml`（ADR 0023）。
+  - 背景排程器（ADR 0017）與 lint `fmp_periodic_timer_owner`，第一個工作是電台狀態（2026-10-01 從 M2 移來）；`QueueModel` 的 `mix`、`live` 模式。
 - **驗收**：
   - [ ] 兩平台端到端操作
+  - [ ] ADR 0017 排程器的測試
   - [ ] §8：YouTube App 內網頁登入（ADR 0012）
   - [ ] §8：加入 Debug 頁的里程碑實測（ADR 0025）
 
@@ -90,7 +94,7 @@
 
 ## M6 下載
 
-- **範圍**：ADR 0020 全部（E8）；匯入舊下載紀錄。
+- **範圍**：ADR 0020 全部（E8）；匯入舊下載紀錄；ADR 0016 §決定 7 的已下載曲目離線行為。媒體 client 已在 M2 建好（2026-10-01）。
 - **驗收**：
   - [ ] 兩平台端到端操作
   - [ ] §8：加入下載的里程碑實測（ADR 0020）
@@ -129,8 +133,8 @@
 
 ## 平台任務
 
-- **Linux**（M1 之後）：
-  - 驗收在 VMware Workstation Pro 的 Ubuntu LTS 桌面虛擬機，X11 與 Wayland 各一次；日常開發用 WSL2。
+- **Linux**（2026-10-01 擁有者決定：Mac 到貨後與 macOS、iOS 一起在 Mac 上做，M2 先行；ADR 0026 §決定 4 的修訂）：
+  - 驗收的虛擬機與 X11／Wayland 的做法在該任務決定（原定 Windows 上的 VMware Workstation Pro）。
   - 之後每個里程碑在虛擬機跑一次冒煙測試。
   - [ ] §8：沒有 keyring 時的 secure storage（ADR 0012）
   - [ ] §8：X11／Wayland 桌面歌詞（ADR 0021）
