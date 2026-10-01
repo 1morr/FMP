@@ -38,6 +38,8 @@
 
 8. **核准規劃**（2026-10-01）：prd／design／implement 核准；`design.md` §12 的八條全部照設計：`tracks` 提前到 M2、離線整個佇列不能播時等網路自動續播、M2 驗收不含 `mix`／`live`／`detached`／已下載曲目／排程器、插件 API v1 在發佈前加可選的 `quality` 與 `previewOnly`、B 站 `deadline` 不再遮蔽、臨時播放不持久化、`layout_state` 不屬設定組、`Unavailable` 原因可空。
 
+9. **使用者操作不受「沒有介面」擋**（2026-10-01，PR 2）：Windows 的 `connectivity_plus` 以系統的「已連上網際網路」判斷，代理或 VPN 下會誤報沒有網路。使用者按下的請求照常送出，任何請求拿到回應就回到 `online`；頂端提示照常顯示。ADR 0016 §決定 7 加一行更正。
+
 已由既有決定回答、不再問的：點一首歌＝臨時播放、播完回原佇列（`docs/audit/questions.md` D1 勾「保留」）；播放歷史在開流成功時記一筆、單曲循環每圈都記（D6 的備註）。
 
 ## 驗收

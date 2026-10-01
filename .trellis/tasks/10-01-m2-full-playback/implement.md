@@ -43,7 +43,18 @@
 - **已合併進 `main`**：（無）
 - **PR 0 完成**（#195）：規劃檔、ADR 一行更正、`milestones.md` 範圍調整。
 - **PR 1 完成**（子任務 archive 到 `.trellis/tasks/archive/2026-10/10-01-playback-session-split/`）：`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 的 `restrictedImports`；後端契約加「回報在呼叫回來之後才送達」；哨兵以 `_expectedMessages` 斷言新表有接上。
-- **下一步**：PR 2（網路狀態）起；2–6 與 7、9、11 可並行。
+- **PR 1 已合併**：#196（`08449b17`）。
+- **PR 2 進行中**（2026-10-01；分支 `feat/app-network-status`，子任務 `.trellis/tasks/10-01-network-status`，未 commit）：
+  - 實作代理（opus）第一輪完成：`lib/platform/connectivity/`、`lib/core/network/network_status.dart`、`lib/app/app_lifecycle.dart`、`lib/ui/offline/`、共用 `lib/ui/empty_state/`；`connectivity_plus ^7.3.1`；`flutter test` 949 通過。
+  - 範圍外的建置修正：`connectivity_plus` 原生碼的非 ASCII 字元在繁中 Windows（cp950）觸發 C4819，`/utf-8` 從 `windows/runner/CMakeLists.txt` 移到 `windows/CMakeLists.txt` 的 `APPLY_STANDARD_SETTINGS`。
+  - 擁有者決定 9（`prd.md`）之後，同一個代理正在改：`noInterface` 時使用者的搜尋照送、任何回應就回 `online`；ADR 0016 §決定 7 一行更正；design §5.2／§5.4、`app/AGENTS.md` 同步；補建 Windows prod release（只建置）。
+  - 代理回來後：主對話實機驗證（Android 模擬器飛航模式開關、背景切換後回前景；Windows 停用再啟用網路卡；看頂端提示、搜尋頁離線畫面、log tag `network-status` 的 `Network status changed`；模式：重播）→ 派 opus `trellis-check` → 還原只有換行差異的產生檔（`connectivity_plus` 的 Windows／macOS registrant 是真的新增，保留）→ 分開 commit → archive → PR。
+  - `unreachable` 在實機難重現（`fmp-test` 不發 HTTP 請求），只有 widget 測試；PR 描述要寫明。
+- **下一步**：PR 2 合併後 PR 3（媒體 client）；2–6 與 7、9、11 可並行。
+- **本機環境備忘**（2026-10-01）：
+  - 模擬器是 `Medium_Phone`，序號 `emulator-5556`（不是 5554）；`ax_flatten.py` 要加 `--device emulator-5556`，`adb` 指令加 `-s emulator-5556`。上面裝著 dev 與測試插件（`files/test.js`），介面語言是 English。
+  - Windows 的 dev 產物在 PR 1 驗證後已重建；跑過整合測試要再 `flutter build windows --flavor dev --debug`，Android 要重裝 dev 並以 `run-as` 放回測試插件（skill 的 android.md）。
+  - F6 焦點的實機讀法：`msaa_tree.ps1` 加上 `accState` 的 `STATE_SYSTEM_FOCUSED`（0x4）；做法記在 M1 的 `research/m1-acceptance.md` § F6。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-queue-model`）；
   2. `task.py create … --parent .trellis/tasks/10-01-m2-full-playback --package app --no-start`；
@@ -138,7 +149,7 @@
 - [ ] 外殼的全域離線提示；共用的離線空狀態元件；搜尋頁的 `noInterface`／`unreachable` 行為（design §5.4）。
 - 測試：
   - 狀態轉換表逐列；`fakeAsync` 下斷言沒有待執行的計時器；
-  - 搜尋頁在兩種離線狀態下各一個 widget 測試（`noInterface` 不送請求、`unreachable` 送出）；
+  - 搜尋頁在兩種離線狀態下各一個 widget 測試（兩者都照送，失敗時才顯示離線空狀態；擁有者決定 9）；
   - 全域提示在離線時出現、回到 `online` 時消失；
   - guideline 測試加離線狀態。
 - 實測：
