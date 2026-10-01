@@ -60,6 +60,9 @@ class TranslationsZhCn extends Translations
   late final Translations$search$zh_CN search =
       Translations$search$zh_CN.internal(_root);
   @override
+  late final Translations$offline$zh_CN offline =
+      Translations$offline$zh_CN.internal(_root);
+  @override
   late final Translations$settings$zh_CN settings =
       Translations$settings$zh_CN.internal(_root);
   @override
@@ -138,6 +141,25 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   String get retry => '重试';
   @override
   String get loadMore => '加载更多';
+}
+
+// Path: offline
+class Translations$offline$zh_CN extends Translations$offline$zh_TW {
+  Translations$offline$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get noInterface => '没有网络连接';
+  @override
+  String get unreachable => '无法连接网络';
+  @override
+  String get noInterfaceHint => '连接网络后重试';
+  @override
+  String get unreachableHint => '请检查网络连接后重试';
 }
 
 // Path: settings

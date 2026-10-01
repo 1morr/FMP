@@ -22,6 +22,12 @@
     "retry": "重试",
     "loadMore": "加载更多"
   },
+  "offline": {
+    "noInterface": "没有网络连接",
+    "unreachable": "无法连接网络",
+    "noInterfaceHint": "连接网络后重试",
+    "unreachableHint": "请检查网络连接后重试"
+  },
   "settings": {
     "title": "设置",
     "appearance": "外观"

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
@@ -184,6 +185,34 @@ void main() {
           await expectGuidelines(tester);
           handle.dispose();
         });
+
+        for (final status in [
+          NetworkStatus.noInterface,
+          NetworkStatus.unreachable,
+        ]) {
+          testWidgets('a search that failed while ${status.name} at $width', (
+            tester,
+          ) async {
+            final handle = tester.ensureSemantics();
+            final h = ShellHarness(
+              onSearch: (_) => throw NetworkError(pluginId: 'fmp-test'),
+            );
+            await h.pumpShell(tester, size: size, brightness: brightness);
+            await h.setNetwork(tester, status);
+            await tester.enterText(find.byType(TextField), 'song');
+            await tester.testTextInput.receiveAction(TextInputAction.search);
+            FocusManager.instance.primaryFocus?.unfocus();
+            // 錯誤提示照時長消失，只量離線提示與離線空狀態。
+            await tester.pumpAndSettle();
+            await tester.pump(const Duration(seconds: 7));
+            await tester.pumpAndSettle();
+            expect(find.byType(SnackBar), findsNothing);
+            expect(find.text('Retry'), findsOneWidget);
+
+            await expectGuidelines(tester);
+            handle.dispose();
+          });
+        }
 
         testWidgets('settings at $width', (tester) async {
           final handle = tester.ensureSemantics();

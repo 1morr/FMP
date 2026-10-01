@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
+import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/queue_tracks.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/search/source_chips.dart';
@@ -15,6 +18,9 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 搜尋頁：輸入框、音源 chip 列、結果列表。點一首就把整份結果交給播放，
 /// 從那一首開始依序播。
+///
+/// 離線（design §5.4）：不在 `online` 時照常送出使用者的搜尋（系統的回報可能
+/// 是錯的），失敗時結果區換成離線空狀態與「重試」；已有的結果照常顯示。
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key, required this.fieldFocusNode});
 
@@ -46,6 +52,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final spacing = tokens.spacing;
     final sources = ref.watch(searchSourcesProvider);
     final search = ref.watch(searchProvider);
+    final network = ref.watch(networkStatusProvider);
     final list = sources.value ?? const [];
     final selected = selectedSourceOf(search.sourceId, list);
     return Column(
@@ -101,14 +108,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ],
         Expanded(
           child: switch (sources) {
-            AsyncData() when list.isEmpty => _Message(
+            AsyncData() when list.isEmpty => EmptyState(
               icon: Icons.extension_off_outlined,
               title: t.noSources,
               body: t.noSourcesHint,
             ),
-            AsyncData() => _Results(state: search, onRetry: _retry),
+            AsyncData() => _Results(
+              state: search,
+              network: network,
+              onRetry: _retry,
+            ),
             // 插件清單載入失敗時已經 log.report；畫面上等同沒有音源。
-            AsyncError() => _Message(
+            AsyncError() => EmptyState(
               icon: Icons.extension_off_outlined,
               title: t.noSources,
               body: t.noSourcesHint,
@@ -125,23 +136,33 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
 /// 結果區：依 [SearchPhase] 顯示提示、載入中、失敗、沒有結果或列表。
 class _Results extends ConsumerWidget {
-  const _Results({required this.state, required this.onRetry});
+  const _Results({
+    required this.state,
+    required this.network,
+    required this.onRetry,
+  });
 
   final SearchState state;
+  final NetworkStatus network;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).search;
+    final retry = FilledButton.tonal(onPressed: onRetry, child: Text(t.retry));
     return switch (state.phase) {
-      SearchPhase.idle => _Message(icon: Icons.search, title: t.prompt),
+      SearchPhase.idle => EmptyState(icon: Icons.search, title: t.prompt),
       SearchPhase.loading => _Loading(label: t.loading),
-      SearchPhase.failed => _Message(
+      SearchPhase.failed when network != NetworkStatus.online => OfflineMessage(
+        status: network,
+        action: retry,
+      ),
+      SearchPhase.failed => EmptyState(
         icon: Icons.error_outline,
         title: t.failed,
-        action: FilledButton.tonal(onPressed: onRetry, child: Text(t.retry)),
+        action: retry,
       ),
-      SearchPhase.loaded when state.items.isEmpty => _Message(
+      SearchPhase.loaded when state.items.isEmpty => EmptyState(
         icon: Icons.search_off,
         title: t.noResults(keyword: state.keyword),
       ),
@@ -211,61 +232,6 @@ class _TrackTile extends StatelessWidget {
           : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: duration == null ? null : Text(formatDuration(duration)),
       onTap: onTap,
-    );
-  }
-}
-
-/// 置中的圖示與說明：空狀態與失敗。
-class _Message extends StatelessWidget {
-  const _Message({
-    required this.icon,
-    required this.title,
-    this.body,
-    this.action,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? body;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = AppTokens.of(context).spacing;
-    final body = this.body;
-    final action = this.action;
-    return Center(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.all(spacing.x6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: AppLayout.emptyStateIcon,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            SizedBox(height: spacing.x4),
-            Text(
-              title,
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            if (body != null) ...[
-              SizedBox(height: spacing.x2),
-              Text(
-                body,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (action != null) ...[SizedBox(height: spacing.x4), action],
-          ],
-        ),
-      ),
     );
   }
 }

@@ -13,12 +13,14 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../plugins/plugin_harness.dart';
+import '../support/fake_network_interfaces.dart';
 import '../support/memory_database.dart';
 
 void main() {
@@ -29,6 +31,7 @@ void main() {
     WidgetTester tester, {
     AppDatabase? database,
     PlatformCapabilities capabilities = PlatformCapabilities.none,
+    FakeNetworkInterfaces? interfaces,
   }) async {
     final redactor = Redactor();
     final log = Log(redactor: redactor, minimumLevel: LogLevel.debug);
@@ -40,6 +43,9 @@ void main() {
           redactorProvider.overrideWithValue(redactor),
           logProvider.overrideWithValue(log),
           platformCapabilitiesProvider.overrideWithValue(capabilities),
+          networkInterfacesProvider.overrideWithValue(
+            interfaces ?? FakeNetworkInterfaces(),
+          ),
         ],
         child: const FmpApp(flavor: AppFlavor.dev),
       ),
@@ -94,6 +100,35 @@ void main() {
     await until(result);
     expect(result, findsOneWidget);
     expect(find.text('Load more'), findsOneWidget);
+  });
+
+  testWidgets('returning to the foreground checks the network interfaces '
+      'again', (tester) async {
+    // Android 8 起背景收不到介面變化（connectivity_plus 的 README）：回到
+    // 前景時再查一次，介面在背景消失也看得到。
+    final interfaces = FakeNetworkInterfaces();
+    await pumpApp(tester, interfaces: interfaces);
+    await tester.pump();
+    expect(interfaces.checks, 1, reason: 'checked once on start');
+    expect(find.text('No network connection'), findsNothing);
+
+    final binding = tester.binding;
+    interfaces.available = false;
+    binding
+      ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+      ..handleAppLifecycleStateChanged(AppLifecycleState.hidden)
+      ..handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(interfaces.checks, 1, reason: 'going to the background does not');
+
+    binding
+      ..handleAppLifecycleStateChanged(AppLifecycleState.hidden)
+      ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+      ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(interfaces.checks, 2);
+    expect(find.text('No network connection'), findsWidgets);
   });
 
   group('appearance', () {
@@ -237,6 +272,7 @@ void main() {
           simplifiedChinese: ['SC Font'],
         ),
         playback: null,
+        networkInterfaces: false,
       );
       final log = await pumpApp(tester, capabilities: capabilities);
       await settle(tester);

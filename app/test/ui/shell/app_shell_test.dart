@@ -1,8 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
@@ -361,5 +363,64 @@ void main() {
 
     expect(h.controller.state, isA<Failed>());
     expect(find.text('Not found. It may have been removed.'), findsOneWidget);
+  });
+
+  // ADR 0016 §決定 7：一個全域離線提示，在內容區頂端，不是 toast。
+  group('the offline banner', () {
+    Finder banner(String text) => find.descendant(
+      of: find.byType(OfflineBanner),
+      matching: find.text(text),
+    );
+
+    testWidgets('shows while offline, on every page, and goes away online', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      expect(find.byType(OfflineBanner), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(OfflineBanner)).height,
+        0,
+        reason: 'online takes no space',
+      );
+
+      await h.setNetwork(tester, NetworkStatus.noInterface);
+      expect(banner('No network connection'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      // 在內容區頂端：搜尋框在它下面。
+      expect(
+        tester.getBottomLeft(find.byType(OfflineBanner)).dy,
+        lessThanOrEqualTo(tester.getTopLeft(find.byType(TextField)).dy),
+      );
+
+      await tester.tap(find.text('Settings'));
+      await tester.pump();
+      expect(banner('No network connection'), findsOneWidget);
+
+      await h.setNetwork(tester, NetworkStatus.online);
+      await h.setNetwork(tester, NetworkStatus.unreachable);
+      expect(banner("Can't reach the network"), findsOneWidget);
+
+      h
+          .container(tester)
+          .read(networkStatusProvider.notifier)
+          .report(RequestOutcome.responded);
+      await tester.pump();
+      expect(find.text("Can't reach the network"), findsNothing);
+      expect(find.text('No network connection'), findsNothing);
+    });
+
+    testWidgets('screen readers hear it when it appears', (tester) async {
+      final handle = tester.ensureSemantics();
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await h.setNetwork(tester, NetworkStatus.noInterface);
+
+      expect(
+        tester.getSemantics(find.byType(OfflineBanner)),
+        isSemantics(isLiveRegion: true, label: 'No network connection'),
+      );
+      handle.dispose();
+    });
   });
 }

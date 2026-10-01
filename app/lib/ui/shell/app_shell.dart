@@ -9,6 +9,7 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
@@ -30,6 +31,9 @@ enum ShellDestination { search, settings }
 ///
 /// 後兩種的播放列在內容區下方、和內容區同寬（ADR 的「依內容區寬度」）。內容區
 /// 與播放列各自有 `WindowClassScope`，頁面讀到的是自己那一塊的寬度等級。
+///
+/// 內容區頂端是全域離線提示（`OfflineBanner`，ADR 0016 §決定 7），換頁時
+/// 留著。
 ///
 /// 三區各是一個 `FocusScope`：Tab 只在區內循環，F6 換區（`shell_shortcuts.dart`）。
 /// 底部被外殼佔住的高度（播放列、底部導覽列、安全區）量出來發佈給
@@ -156,12 +160,19 @@ class _AppShellState extends ConsumerState<AppShell> {
       node: _content,
       child: FocusTraversalGroup(
         child: WindowClassScope(
-          child: IndexedStack(
-            index: _destination.index,
-            sizing: StackFit.expand,
+          child: Column(
             children: [
-              SearchPage(fieldFocusNode: _searchField),
-              const SettingsPage(),
+              const OfflineBanner(),
+              Expanded(
+                child: IndexedStack(
+                  index: _destination.index,
+                  sizing: StackFit.expand,
+                  children: [
+                    SearchPage(fieldFocusNode: _searchField),
+                    const SettingsPage(),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

@@ -22,6 +22,12 @@
     "retry": "重試",
     "loadMore": "載入更多"
   },
+  "offline": {
+    "noInterface": "沒有網路連線",
+    "unreachable": "無法連上網路",
+    "noInterfaceHint": "連上網路後再試一次",
+    "unreachableHint": "請檢查網路連線後再試一次"
+  },
   "settings": {
     "title": "設定",
     "appearance": "外觀"
