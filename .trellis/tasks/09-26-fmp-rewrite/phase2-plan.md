@@ -276,7 +276,7 @@ mpv 的音訊濾鏡可以做等化與響度正規化。Android 端（just_audio�
       - `app/AGENTS.md` 用繁中；
       - spec 以 Trellis `packages:` 分成舊專案與 `app`。
   - 同時為 `app/` 改寫 verify-on-device（ADR 0027）。
-- 之後順序：M1 → Linux 平台任務 → M2 …（見 `milestones.md`）。
+- 之後順序：M1 → M2 …；Linux 平台任務 2026-10-01 改為 Mac 到貨後與 macOS、iOS 一起做（見 `milestones.md`）。
 - 視覺選擇類的問題可用 Artifact 做示意頁（例：第 5 項的播放頁三方案 https://claude.ai/artifact/WbYKvNKgS2XpJbCuGr9xTZ ）。
 - 每項固定流程：建 child task（`task.py create --parent .trellis/tasks/09-26-fmp-rewrite --no-start`）→ 派研究子代理（sonnet，寫進 task 的 research/）→ 核對關鍵事實 → prd → 一次一問（附建議與取捨）→ design＋implement → 最終摘要 → 使用者「核准」後 `task.py start`、寫 ADR（`docs/adr/template.md`）、更新本檔 §3 標記完成、`task.py finish`＋`archive --no-commit --skip-branch-validation`、commit＋push。
 - 使用者偏好：全程繁中；多數細節「按推薦」，但每項仍需最終摘要與明確核准；Mermaid 圖需以 mermaid-cli 實際渲染（子圖標題含全形括號要用 `id["標題"]`）。

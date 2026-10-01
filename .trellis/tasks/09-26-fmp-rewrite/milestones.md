@@ -15,7 +15,7 @@
 | M7 | 歌詞 | M5 | 未開始 |
 | M8 | 桌面整合 | M2 | 未開始 |
 | M9 | 發版、更新與切換 | M1–M8 | 未開始 |
-| L | Linux 平台 | M1 | 已開任務，未規劃（`10-01-linux-platform`） |
+| L | Linux 平台 | M1、Mac 到貨 | 已開任務，延後到 Mac 上與 macOS、iOS 一起做（`10-01-linux-platform`） |
 | Mac | macOS 平台 | Mac 到貨 | 未開始 |
 | iOS | iOS 平台 | Mac 到貨 | 未開始 |
 
@@ -41,7 +41,7 @@
 - **驗收**（證據：M1 任務 `research/m1-acceptance.md`）：
   - [x] 兩平台端到端操作
   - [x] §7 全部項目
-- **之後**：開 Linux 平台任務（已開：`10-01-linux-platform`）。
+- **之後**：開 Linux 平台任務（已開：`10-01-linux-platform`；2026-10-01 改為延後到 Mac 上做，先做 M2）。
 
 ## M2 完整播放
 
@@ -129,8 +129,8 @@
 
 ## 平台任務
 
-- **Linux**（M1 之後）：
-  - 驗收在 VMware Workstation Pro 的 Ubuntu LTS 桌面虛擬機，X11 與 Wayland 各一次；日常開發用 WSL2。
+- **Linux**（2026-10-01 擁有者決定：Mac 到貨後與 macOS、iOS 一起在 Mac 上做，M2 先行；ADR 0026 §決定 4 的修訂）：
+  - 驗收的虛擬機與 X11／Wayland 的做法在該任務決定（原定 Windows 上的 VMware Workstation Pro）。
   - 之後每個里程碑在虛擬機跑一次冒煙測試。
   - [ ] §8：沒有 keyring 時的 secure storage（ADR 0012）
   - [ ] §8：X11／Wayland 桌面歌詞（ADR 0021）
