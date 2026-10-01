@@ -30,9 +30,6 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_BUILD=${FLUTT
 # Disable Windows macros that collide with C++ standard library functions.
 target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 
-# 原始碼的註解是繁中：MSVC 預設以系統字碼頁讀檔，C4819 在警告即錯誤下會中斷建置。
-target_compile_options(${BINARY_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:/utf-8>")
-
 # App 身分依 flavor 決定；main.cpp 與 Runner.rc 只讀這些定義，不寫死身分。
 include("${CMAKE_CURRENT_SOURCE_DIR}/app_identity.cmake")
 target_compile_definitions(${BINARY_NAME} PRIVATE "FMP_APP_USER_MODEL_ID=\"${FMP_APP_USER_MODEL_ID}\"")
