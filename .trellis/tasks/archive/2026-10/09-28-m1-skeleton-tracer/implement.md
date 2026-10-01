@@ -43,7 +43,8 @@
 - **PR 13 拆分**（2026-10-01 擁有者核准）：**13a** CI 五平台建置、Xcode scheme、INTERNET 權限、Linux 與 Windows 整合測試（`.trellis/tasks/10-01-app-ci-platforms`）；**13b** release-please、`app-release.yml`、sandbox 實跑。
 - **PR 13a 完成**（#192，子任務已 archive 到 `.trellis/tasks/archive/2026-10/10-01-app-ci-platforms/`）：CI 五平台建置（macOS、iOS 各建 dev／prod）、Linux 與 Windows 整合測試、Xcode scheme、INTERNET 權限；順帶修了 flutter_js 在 Linux 漏裝 QuickJS 原生庫。
 - **PR 13b 完成**（#193，子任務已 archive 到 `.trellis/tasks/archive/2026-10/10-01-app-release-workflow/`）：release-please、只能手動觸發的 `app-release.yml`、verify 與舊版更新器相容檢查；sandbox 完整發版（含一次失敗後由 2.0.1 補上）通過並已封存，紀錄在該子任務 `research/sandbox-run.md`。
-- **下一步**：M1 里程碑驗收。
+- **M1 里程碑驗收完成**（2026-10-01）：證據與限制在 `research/m1-acceptance.md`；補了 Windows 的 F6 與 dev／prod 同時開啟的實測；`milestones.md` 已更新；Linux 平台任務已開（`.trellis/tasks/10-01-linux-platform`，未規劃）。
+- **下一步**：依 `phase2-plan.md`，M1 之後是 Linux 平台任務，再來 M2。
 - **擁有者決定**：1–8 都在父任務 `prd.md`「擁有者的決定」。9a、9b 期間新增了三項：
   - 決定 6：插件安裝檔是單一 `.js`，開頭帶 `==FMP Plugin==` manifest；
   - 決定 7：插件在背景 isolate 執行；逾時先送存活探測，沒回應才停用到重啟；
@@ -314,10 +315,10 @@ PR 10 留下的後續：
 
 ## 里程碑驗收（13 之後）
 
-- [ ] Android、Windows 端到端操作。
-- [ ] 逐項勾 phase2-plan §7，在 PR 描述或研究檔找到每項的實測紀錄。
-- [ ] 更新 `milestones.md` 的 M1 狀態與勾選；開 Linux 平台任務。
-- [ ] 本任務 `finish`、`archive`。
+- [x] Android、Windows 端到端操作。
+- [x] 逐項勾 phase2-plan §7，在 PR 描述或研究檔找到每項的實測紀錄。
+- [x] 更新 `milestones.md` 的 M1 狀態與勾選；開 Linux 平台任務。
+- [x] 本任務 `finish`、`archive`。
 
 ## 待升級
 

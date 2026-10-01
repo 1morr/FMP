@@ -97,28 +97,30 @@
 
 ## 驗收
 
-- [ ] Android、Windows 端到端操作：搜尋 B 站，點一首，兩首連續播完。
-- [ ] phase2-plan §7 每一項都有實測紀錄：
-  - [ ] ADR 0010：`isar_community`＋`sqlite3` 在 Android、Windows 共存；`sqlite3` 的 Android 16KB page size 對齊。
-  - [ ] ADR 0009：CI 建置矩陣含 Linux、macOS、iOS（不簽名）。
-  - [ ] ADR 0008：prod 的 App 身分與舊版一致，dev 不同。
-  - [ ] ADR 0011：log 門面與遮蔽函式，含遮蔽測試。
-  - [ ] ADR 0014：
+2026-10-01 全部通過，逐項證據與限制見 `research/m1-acceptance.md`。
+
+- [x] Android、Windows 端到端操作：搜尋 B 站，點一首，兩首連續播完。
+- [x] phase2-plan §7 每一項都有實測紀錄：
+  - [x] ADR 0010：`isar_community`＋`sqlite3` 在 Android、Windows 共存；`sqlite3` 的 Android 16KB page size 對齊。
+  - [x] ADR 0009：CI 建置矩陣含 Linux、macOS、iOS（不簽名）。
+  - [x] ADR 0008：prod 的 App 身分與舊版一致，dev 不同。
+  - [x] ADR 0011：log 門面與遮蔽函式，含遮蔽測試。
+  - [x] ADR 0014：
     - `flutter_js` 與宿主 API 最小集；
     - 從檔案安裝 B 站插件；
     - Android、Windows 的 Promise、記憶體、啟動成本實測；
     - YouTube.js 探針有結論。
-  - [ ] ADR 0018：兩個後端的前瞻交接；Android 換歌時不釋放音訊焦點。
-  - [ ] ADR 0015：
+  - [x] ADR 0018：兩個後端的前瞻交接；Android 換歌時不釋放音訊焦點。
+  - [x] ADR 0015：
     - `dart analyze` 看得到插件診斷，哨兵會紅；
     - 契約執行器與 QuickJS 的結論；
     - dev 與 prod 同時開啟時各自獨立；
     - 零聯網兩道防線。
-  - [ ] ADR 0022：release-please 的發版 PR 與同一 workflow 的建置、驗證、發布在 sandbox 跑通。
-  - [ ] ADR 0023：提示在全螢幕頁與對話框之上可見；Windows Narrator 下不凍結無障礙樹。
-  - [ ] ADR 0024：輸入框內空白鍵只輸入空格；F6 焦點切換；Windows 繁中字形由正黑體顯示。
-- [ ] 新 session 的 SessionStart 只列 `guides` 與 `app` 的 spec 索引（R1）。
-- [ ] `milestones.md` 的 M1 狀態與勾選已更新，並開好 Linux 平台任務。
+  - [x] ADR 0022：release-please 的發版 PR 與同一 workflow 的建置、驗證、發布在 sandbox 跑通。
+  - [x] ADR 0023：提示在全螢幕頁與對話框之上可見；Windows Narrator 下不凍結無障礙樹。
+  - [x] ADR 0024：輸入框內空白鍵只輸入空格；F6 焦點切換；Windows 繁中字形由正黑體顯示。
+- [x] 新 session 的 SessionStart 只列 `guides` 與 `app` 的 spec 索引（R1）。
+- [x] `milestones.md` 的 M1 狀態與勾選已更新，並開好 Linux 平台任務。
 
 ## 不在範圍
 

@@ -6,7 +6,7 @@
 
 | # | 里程碑 | 依賴 | 狀態 |
 |---|---|---|---|
-| M1 | 骨架＋曳光彈 | — | 進行中（`09-28-m1-skeleton-tracer`） |
+| M1 | 骨架＋曳光彈 | — | 完成（2026-10-01，#173–#194；`archive/2026-10/09-28-m1-skeleton-tracer`） |
 | M2 | 完整播放 | M1 | 未開始 |
 | M3 | 三音源、帳號與開發工具 | M2 | 未開始 |
 | M4 | 音樂庫與同步 | M3 | 未開始 |
@@ -15,7 +15,7 @@
 | M7 | 歌詞 | M5 | 未開始 |
 | M8 | 桌面整合 | M2 | 未開始 |
 | M9 | 發版、更新與切換 | M1–M8 | 未開始 |
-| L | Linux 平台 | M1 | 未開始 |
+| L | Linux 平台 | M1 | 已開任務，未規劃（`10-01-linux-platform`） |
 | Mac | macOS 平台 | Mac 到貨 | 未開始 |
 | iOS | iOS 平台 | Mac 到貨 | 未開始 |
 
@@ -36,12 +36,12 @@
   - 播放核心最小集：兩個後端、兩首的佇列、前瞻交接（ADR 0018）。
   - `ToastHost` 與 `Toaster`（ADR 0023）。
   - token、斷點、字型、slang 三語言骨架、播放快捷鍵（ADR 0024）。
-  - `app/` 發版 workflow 以 release-please dry-run 驗證（ADR 0022）。
+  - `app/` 發版 workflow 以 release-please dry-run 驗證（ADR 0022）。擁有者決定 4 改為在私人 sandbox 完整跑一次（#193）。
 - **限時探針**：YouTube.js 可行性。失敗就在 M3 以 Dart 實作 YouTube（ADR 0014）。
-- **驗收**：
-  - [ ] 兩平台端到端操作
-  - [ ] §7 全部項目
-- **之後**：開 Linux 平台任務。
+- **驗收**（證據：M1 任務 `research/m1-acceptance.md`）：
+  - [x] 兩平台端到端操作
+  - [x] §7 全部項目
+- **之後**：開 Linux 平台任務（已開：`10-01-linux-platform`）。
 
 ## M2 完整播放
 
