@@ -389,8 +389,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 網路紀錄每一跳一筆，在那一跳結束時寫（收內容時的失敗與已收的 `bytes` 也在同一筆）；
   `credentials` 永遠是 `false`、`retry` 永遠是 0。網路狀態每一跳最多回報一次：
   `NetworkError`（含收內容時中斷、逾時）是 `networkError`，其他拿到回應的是
-  `responded`，取消與沒送出的不回報。閘門：`network log`、`network status`、`timeouts`、
-  `cancel` 群組，以及 `allowed hosts and redirects` 的 `… is refused without a request`。
+  `responded`，取消與沒送出的不回報。已關閉的 client（插件更新後還拿著舊的）丟
+  `UnexpectedError`、不送出：關閉後的 dio 丟 `connectionError`，交給它會被當成連不上。
+  閘門：`network log`、`network status`（含 `a closed client sends nothing and reports
+  nothing`）、`timeouts`、`cancel` 群組，以及 `allowed hosts and redirects` 的
+  `… is refused without a request`。
 
 ## 插件
 

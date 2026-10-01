@@ -123,7 +123,8 @@ final class SourceHttpClientFactory {
     RateLimitPolicy? rateLimitPolicy,
   }) {
     final hosts = AllowedHosts(allowedHosts);
-    // 唯一建立 Dio 的地方（fmp_http_client_owner）。
+    // Dio 只在 lib/core/network/ 建立（fmp_http_client_owner）：這裡與
+    // MediaHttpClientFactory.create。
     final dio =
         Dio(
             BaseOptions(

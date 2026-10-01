@@ -44,7 +44,7 @@
   - PR 0：#195。
   - PR 1：#196（`08449b17`）。`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 加 `restrictedImports`。
   - PR 2：#197（`35077a47`）。網路狀態、離線提示與搜尋頁離線畫面；`connectivity_plus ^7.3.1`；Windows 的 `/utf-8` 改在 `windows/CMakeLists.txt` 的 `APPLY_STANDARD_SETTINGS`，連插件一起套用。
-- **PR 3 進行中**（2026-10-01；分支 `feat/app-media-client`，子任務 `.trellis/tasks/10-01-media-client`）：實作代理（opus）在做；沒有使用者看得到的改動，不做實機驗證。回來後：opus `trellis-check`（要它試著攻破憑證與轉址）→ commit → archive → PR。
+- **PR 3**：#198（媒體 client）。審查兩輪：第一輪找到網址 userinfo 會變成 `Authorization`；第二輪（第一輪中途藍屏、紀錄遺失後重審）找到已關閉的 client 被算成「連不上」。兩者都先寫失敗測試再修。
 - **下一步**：PR 3 合併後 PR 4（快取庫與封面）；2–6 與 7、9、11 可並行。
 - **本機環境備忘**（2026-10-01）：
   - 模擬器是 `Medium_Phone`，序號 `emulator-5556`（不是 5554）；`ax_flatten.py` 要加 `--device emulator-5556`，`adb` 指令加 `-s emulator-5556`。上面裝著 dev 與測試插件（`files/test.js`），介面語言是 English。
@@ -564,6 +564,12 @@ PR 2 留下的（沒有 repro，不修）：
 - [ ] 啟動時 `NetworkStatusNotifier.build()` 的 `check()` 還沒回來就先來一筆介面變化，晚到的舊結果可能蓋掉新狀態。
 - [ ] 離線時搜尋失敗會同時出現錯誤 toast 與 `OfflineMessage`；ADR 不禁止，擁有者覺得重複再決定。
 - [ ] Windows 停用網路卡的實機驗證沒做（會切斷驗證用的工作階段）；M2 驗收的離線步驟補做。
+
+PR 3 留下的：
+
+- [ ] 同一個 `destination` 同時下載兩次會共用 `.part`（只有 dartdoc 寫明）；PR 4 接 `flutter_cache_manager` 時確認它不會同時對同一個檔下載兩次。
+- [ ] dart:io 預設解壓 gzip：單一網路塊解壓時可能短暫佔用大量記憶體，磁碟大小仍守得住；沒有 repro，不修。
+- [ ] 總計逾時在收到第一塊之後的情況沒有測試（fakeAsync 裡跑不了檔案 I/O），走的是和取消同一條路。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
