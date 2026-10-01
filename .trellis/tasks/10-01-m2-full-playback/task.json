@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "10-01-playback-session-split",
-    "10-01-network-status"
+    "10-01-network-status",
+    "10-01-media-client"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

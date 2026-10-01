@@ -284,9 +284,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `lib/core/network/`（ADR 0012 §決定 1–2、ADR 0013 §決定 2、4）。怎麼發請求、改攔截器、
 寫測試：`.trellis/spec/app/network/index.md`。測試都在 `test/core/network/`。
 
-- 每插件一個 `SourceHttpClient`，由 `SourceHttpClientFactory.create` 建立；`Dio` 只在
-  那裡建立，`dio`（含 `dio_cookie_manager`）與 `cookie_jar` 只准在 `lib/core/network/`
-  import。閘門：lint `fmp_http_client_owner`、`fmp_layer_imports`。
+- 每插件兩個 client：API 用的 `SourceHttpClient`（`SourceHttpClientFactory.create`）與
+  抓圖片、檔案的 `MediaHttpClient`（`MediaHttpClientFactory.create`）。`Dio` 只在
+  `lib/core/network/` 建立（目前就是這兩個 `create`），`dio`（含 `dio_cookie_manager`）與
+  `cookie_jar` 只准在 `lib/core/network/` import。閘門：lint `fmp_http_client_owner`、
+  `fmp_layer_imports`（看目錄，不看是哪個函式）。
+- 網域、轉址、HTTP 通用的限流語意（429、帶 `Retry-After` 的 503）與傳輸錯誤的對應只寫在
+  `http_rules.dart`，兩種 client 都呼叫它，不各寫一份。閘門：兩個 client 測試的
+  `allowed hosts`、`redirects`／`allowed hosts and redirects`、`error mapping` 群組各自
+  斷言同樣的結果；「沒有另寫一份」沒有閘門，review 時看。
 - 攔截器順序：認證 → cookie → 錯誤對應 → 限流 → 網路紀錄。dio 的 onRequest、
   onResponse、onError 都依加入順序執行，回程不反轉。攔截器 reject 一律帶第二個參數
   `true`，否則後面的 onError 全被跳過：限流拿不回位置、網路紀錄少一筆。閘門：
@@ -312,12 +318,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   時，由插件從回應的 `Set-Cookie` 取值寫進自己的 storage（`plugin_storage`，ADR 0014
   §決定 5），下次以 `Cookie` header 帶上（cookie 管理會併進 jar 的 cookie）。沒有閘門，
   review 時看。
-- 網路紀錄：tag `network`，每次送出一筆，欄位 `id`、`pluginId`、`method`、`host`、
-  `path`、`query`、`status`、`ms`、`bytes`、`error`、`credentials`、`retry`；不記
-  body。未登入而拒絕的 `required` 請求沒送出，也有一筆（沒有 `status`、`ms`），
-  `AuthRequired` 帶它的 id。失敗或狀態碼 ≥ 400 用 `warning`，其餘 `debug`。欄位名稱是 log 檔的持久化格式；
-  網路層產生的 `AppError` 帶那一筆的 `networkRecordId`。閘門：`network log` 群組
-  （欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體歷史與 log 檔）。
+- 網路紀錄：tag `network`，每次送出一筆，欄位 `id`、`pluginId`、`client`（`source`／
+  `media`）、`method`、`host`、`path`、`query`、`status`、`ms`、`bytes`、`error`、
+  `credentials`、`retry`；不記 body。未登入而拒絕的 `required` 請求沒送出，也有一筆（沒有
+  `status`、`ms`），`AuthRequired` 帶它的 id。失敗或狀態碼 ≥ 400 用 `warning`，其餘
+  `debug`。欄位名稱與 `client` 的值是 log 檔的持久化格式（`network_log.dart`）；網路層
+  產生的 `AppError` 帶那一筆的 `networkRecordId`。兩種 client 的工廠共用一個
+  `NetworkRecordIds`（`networkRecordIdsProvider`），id 在同一次執行裡不重複。閘門：兩個
+  client 測試的 `network log` 群組（欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體
+  歷史與 log 檔）、`media_http_client_test.dart` 的 `no Cookie or Authorization…`（兩種
+  client 的 id 接續）；provider 的接線沒有閘門，review 時看。
 - 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。M1 的認證來源是
   `NoCredentials`（每個音源都未登入）。閘門：`auth_test.dart`（三種標記 × 三種狀態）。
 - 網路狀態（`network_status.dart`，ADR 0016 §決定 6）：輸入只有平台層的介面變化與
@@ -328,8 +338,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `online`；失敗不改變 `noInterface`（介面消失前送出的請求晚一點才失敗）。回到前景時查到
   有介面不算「介面變化」，`unreachable` 留著。時間以 `clock` 讀，不開計時器。閘門：
   `network_status_test.dart`（轉換表逐列；fakeAsync 裡跑完後沒有待執行的計時器）、
-  `source_http_client_test.dart` 的 `network status` 群組。新的 HTTP client（媒體
-  client）要接同一個 `NetworkStatusNotifier.report`；沒接沒有閘門，review 時看。
+  兩個 client 測試的 `network status` 群組。兩個工廠的 provider（`plugin_registry.dart`）都
+  接同一個 `NetworkStatusNotifier.report`；接線沒有閘門，review 時看。
 - 網路狀態不擋使用者發起的請求，`noInterface` 也照送（ADR 0016 §決定 7 的更正）：
   Windows 的 `connectivity_plus` 只把 Network List Manager 判定「連得上網際網路」
   （NCSI）的連線算成有介面，在 proxy、VPN 後面會誤報 `noInterface`，送出去拿到回應才
@@ -339,9 +349,51 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - Android 8 起背景收不到介面變化，`FmpApp` 在回到 `resumed` 時以 `recheckInterfaces`
   再查一次。閘門：`fmp_app_test.dart` 的
   `returning to the foreground checks the network interfaces again`。
-- 媒體 client 延到 M6。交給播放後端的串流 headers 一律先經 `mediaRequestHeaders`：只留
-  `Referer`、`User-Agent`、`Origin`、`Range`。閘門：`media_headers_test.dart`；後端確實
-  經過它，見「播放」。
+- 媒體 header：媒體 client 的每一跳、交給播放後端的串流 headers，一律先經
+  `mediaRequestHeaders`：只留 `Referer`、`User-Agent`、`Origin`、`Range`。閘門：
+  `media_headers_test.dart`；後端確實經過它，見「播放」。
+
+### 媒體 client
+
+`media_http_client.dart`（ADR 0012 §決定 1、design §4.1）。測試在
+`test/core/network/media_http_client_test.dart`，下面寫的群組都在這個檔。
+
+- 每插件一個，`PluginRegistry` 在插件加入清單時（啟動載入、安裝、更新）以 manifest 的
+  `allowedHosts` 建立，`mediaClient(pluginId)` 取得；插件被取代或清單釋放時關閉。閘門：
+  `plugin_installer_test.dart` 的 `media clients` 群組（允許網域與 manifest 一致、更新後
+  換成新網域、舊的關閉）。
+- 不帶憑證：沒有認證、cookie 攔截器，也沒有 cookie jar；呼叫端給的 header 先經
+  `mediaRequestHeaders`，每一跳都只帶這些。閘門：`credentials` 群組（同一插件的 API
+  client 帶著憑證、jar 裡有 cookie 時，媒體請求仍沒有 `Cookie`、`Authorization`）。
+- 網域與轉址照 API client 的規則（只准 `https`、每跳檢查、最多 5 次）；不符的那一跳不
+  發出。另外網址或轉址的下一跳帶 user info（`https://user:pass@host/`）也是 `Unsupported`、
+  不發出：dart:io 的 `HttpClient` 會把它變成 `Authorization: Basic …`，繞過
+  `mediaRequestHeaders`（假 adapter 看不到這個 header，所以只能整個拒絕）。這條只在媒體
+  client：API client 的 header 本來就由插件給。閘門：`allowed hosts and redirects` 群組
+  （含 user info 的網址與轉址）。
+- 下載到呼叫端給的 `destination`：內容先寫進旁邊的 `.part`（收到第一塊資料才建立），完成才
+  改名；失敗（任何原因）就刪掉 `.part`，`destination` 原本的檔案不動。`maxBytes` 先比
+  `Content-Length`，再邊收邊數，超過就中止、丟 `Unsupported`。同一個 `destination` 不要
+  同時下載兩次。閘門：`size limit` 群組（暫存目錄裡沒有留下檔案）。
+- 不讀的回應（轉址、錯誤狀態碼、超過上限）以取消那一跳的 `CancelToken` 關掉連線：dio 的
+  回應串流沒有人聽時不會自己關。閘門：各群組裡斷言 `released` 的案例。
+- 逾時：連線 10 秒、等標頭與兩次收到資料之間 15 秒，交給 dio 的 `connectTimeout`、
+  `receiveTimeout`（連線與等標頭由 `IOHttpClientAdapter` 計時，資料之間由 dio 核心計時）；
+  整個下載（含每一跳）30 秒是自己的 `Timer`，到時取消目前那一跳。三種都是
+  `NetworkError`；下載結束（成功或失敗）時取消那個 `Timer`。閘門：`timeouts` 群組
+  （資料之間與整個下載以 fakeAsync 跑、`no timer is left once a download ends`；連線逾時
+  只驗兩個值確實交給 adapter，計時本身在 dio 的 adapter 裡，沒有閘門）。
+- 狀態碼：2xx 是成功；429 與帶 `Retry-After` 的 503 是 `RateLimited`，404、410 是
+  `NotFound`，其他（含沒有 `Location` 的 3xx）是 `UnexpectedError`，狀態碼在網路紀錄。
+  不重試。閘門：`error mapping` 群組。
+- 網路紀錄每一跳一筆，在那一跳結束時寫（收內容時的失敗與已收的 `bytes` 也在同一筆）；
+  `credentials` 永遠是 `false`、`retry` 永遠是 0。網路狀態每一跳最多回報一次：
+  `NetworkError`（含收內容時中斷、逾時）是 `networkError`，其他拿到回應的是
+  `responded`，取消與沒送出的不回報。已關閉的 client（插件更新後還拿著舊的）丟
+  `UnexpectedError`、不送出：關閉後的 dio 丟 `connectionError`，交給它會被當成連不上。
+  閘門：`network log`、`network status`（含 `a closed client sends nothing and reports
+  nothing`）、`timeouts`、`cancel` 群組，以及 `allowed hosts and redirects` 的
+  `… is refused without a request`。
 
 ## 插件
 

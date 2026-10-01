@@ -10,6 +10,9 @@
 lib/core/network/
   source_http_client.dart  # SourceHttpClientFactory、SourceHttpClient、SourceRequest、SourceResponse、RequestCancelled
   interceptors.dart        # part：五個攔截器、每次送出的狀態 _Attempt、只收自己 host 的 cookie jar
+  media_http_client.dart   # MediaHttpClientFactory、MediaHttpClient、MediaDownload
+  http_rules.dart          # 兩種 client 共用：網域、轉址、限流語意、傳輸錯誤的對應
+  network_log.dart         # networkLogTag、NetworkClient、NetworkRecordIds、writeNetworkRecord
   auth.dart                # AuthRequirement、decideAuth、CredentialSource、NoCredentials
   allowed_hosts.dart       # AllowedHosts：manifest 網域比對（請求與 cookie 的 Domain 共用）
   request_throttle.dart    # RequestThrottle：併發上限＋最小間隔
@@ -113,22 +116,53 @@ if (failed && network != NetworkStatus.online) {
 }
 ```
 
-- 新的 client 在「每次送出」之後回報一次：拿到回應 `RequestOutcome.responded`，傳輸錯誤
+- API client 在「每次送出」之後回報一次：拿到回應 `RequestOutcome.responded`，傳輸錯誤
   `RequestOutcome.networkError`，沒送出與取消不回報（`SourceHttpClient._reportFailure`）。
+  媒體 client 在每一跳結束時回報一次（`MediaHttpClient._hop` 的 `finish`）：收內容時中斷
+  或逾時也是 `networkError`。
 - 轉換規則全在 `NetworkStatusMachine`（純 Dart，讀 `clock`）；Notifier 只接平台層與
   log（tag `network-status`，每次改變一筆 `Network status changed`，欄位 `from`、`to`、
   `cause`）。改規則先改 `network_status_test.dart` 的轉換表那一列。
 - 測試：狀態機直接建；要時間就包 `fakeAsync`，結尾斷言 `async.pendingTimers` 是空的。
-  client 的回報看 `Harness.outcomes`。畫面的測試用 `ShellHarness.setNetwork`。
+  client 的回報看 `Harness.outcomes`／`MediaHarness.outcomes`。畫面的測試用 `ShellHarness.setNetwork`。
+
+## 媒體 client
+
+```dart
+// 組裝點：PluginRegistry 在插件加入清單時建，畫面與播放層從這裡拿。
+final media = ref.read(pluginRegistryProvider.notifier).mediaClient(pluginId);
+
+final download = await media!.download(
+  url,
+  destination: File(p.join(directory, fileName)),
+  maxBytes: 10 * 1024 * 1024,
+  headers: {'Referer': referer},
+  abortTrigger: cancelled.future,
+);
+// download.headers 是回應標頭（Cache-Control、ETag、Content-Type）。
+```
+
+- `download` 丟的只有 `AppError` 與 `RequestCancelled`，錯誤對應見 `app/AGENTS.md`
+  § 網路的「媒體 client」。內容只在成功時出現在 `destination`；失敗時 `.part` 已刪掉。
+- 沒有重試。要重試的呼叫端（M6 的下載）自己決定，封面靠下一次顯示時再抓。
+- 一跳的流程在 `_hop`：送出 → 轉址就取消那一跳、回傳 `Location` → 錯誤狀態碼與
+  `Content-Length` 過大就丟 → `_save` 邊收邊數寫 `.part` → 改名。不讀的回應一定要
+  `cancelToken.cancel()`，否則連線一直開著。
+- 測試用 `harness.dart` 的 `MediaHarness`；要控制內容怎麼來（一塊一塊、中斷、不來）用
+  `streamed(StreamController)`，在 controller 的 `onCancel` 看連線有沒有放掉（取消是非同步
+  的，用 `pumpUntil` 等）。暫存目錄在 `setUp` 建，失敗的案例斷言目錄是空的。
+- 逾時用 `fakeAsync`：只在還沒收到資料、沒碰到檔案的情況下用（`.part` 收到第一塊才建立）。
+  真的檔案 I/O 在 fakeAsync 裡不會完成。
 
 ## 媒體 header
 
-媒體 client 延到 M6。播放後端（PR 10）拿到插件給的串流 headers 時先過
-`mediaRequestHeaders`，再交給 just_audio／media_kit。要多放一個 header 時改
-`mediaHeaderNames`，並在 `media_headers_test.dart` 加一個會留與一個不會留的案例。
+媒體 client 的每一跳、播放後端拿到的串流 headers 都先過 `mediaRequestHeaders`，再交給
+dio 或 just_audio／media_kit。要多放一個 header 時改 `mediaHeaderNames`，並在
+`media_headers_test.dart` 加一個會留與一個不會留的案例。
 
 ## Quality Check
 
 - `test/core/network/` 全綠；新行為在對應群組有案例。
 - `lib/core/network/` 沒有 import 上層（`fmp_layer_imports`）、沒有網址字面值。
-- 改了網路紀錄的欄位：`app/AGENTS.md` § 網路與 `network log` 群組一起改。
+- 改了網路紀錄的欄位（`network_log.dart`）：`app/AGENTS.md` § 網路與兩個 client 測試的
+  `network log` 群組一起改。

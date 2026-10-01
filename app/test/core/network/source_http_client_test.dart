@@ -9,6 +9,7 @@ import 'package:fmp/core/errors/retry_policy.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/http_rules.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:path/path.dart' as p;
@@ -768,6 +769,7 @@ void main() {
       expect(record.fields, {
         'id': 1,
         'pluginId': pluginId,
+        'client': 'source',
         'method': 'GET',
         'host': 'api.example.test',
         'path': '/x/search',

@@ -39,18 +39,13 @@
 ## 進度與交接（compact 後從這裡接）
 
 - **狀態**：2026-10-01 擁有者核准（`prd.md` 決定 8，design §12 八條全部照設計）。
-- **擁有者決定**：1–8 在 `prd.md`。
-- **已合併進 `main`**：（無）
-- **PR 0 完成**（#195）：規劃檔、ADR 一行更正、`milestones.md` 範圍調整。
-- **PR 1 完成**（子任務 archive 到 `.trellis/tasks/archive/2026-10/10-01-playback-session-split/`）：`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 的 `restrictedImports`；後端契約加「回報在呼叫回來之後才送達」；哨兵以 `_expectedMessages` 斷言新表有接上。
-- **PR 1 已合併**：#196（`08449b17`）。
-- **PR 2 進行中**（2026-10-01；分支 `feat/app-network-status`，子任務 `.trellis/tasks/10-01-network-status`，未 commit）：
-  - 實作代理（opus）第一輪完成：`lib/platform/connectivity/`、`lib/core/network/network_status.dart`、`lib/app/app_lifecycle.dart`、`lib/ui/offline/`、共用 `lib/ui/empty_state/`；`connectivity_plus ^7.3.1`；`flutter test` 949 通過。
-  - 範圍外的建置修正：`connectivity_plus` 原生碼的非 ASCII 字元在繁中 Windows（cp950）觸發 C4819，`/utf-8` 從 `windows/runner/CMakeLists.txt` 移到 `windows/CMakeLists.txt` 的 `APPLY_STANDARD_SETTINGS`。
-  - 擁有者決定 9（`prd.md`）之後，同一個代理正在改：`noInterface` 時使用者的搜尋照送、任何回應就回 `online`；ADR 0016 §決定 7 一行更正；design §5.2／§5.4、`app/AGENTS.md` 同步；補建 Windows prod release（只建置）。
-  - 代理回來後：主對話實機驗證（Android 模擬器飛航模式開關、背景切換後回前景；Windows 停用再啟用網路卡；看頂端提示、搜尋頁離線畫面、log tag `network-status` 的 `Network status changed`；模式：重播）→ 派 opus `trellis-check` → 還原只有換行差異的產生檔（`connectivity_plus` 的 Windows／macOS registrant 是真的新增，保留）→ 分開 commit → archive → PR。
-  - `unreachable` 在實機難重現（`fmp-test` 不發 HTTP 請求），只有 widget 測試；PR 描述要寫明。
-- **下一步**：PR 2 合併後 PR 3（媒體 client）；2–6 與 7、9、11 可並行。
+- **擁有者決定**：1–9 在 `prd.md`。
+- **已合併進 `main`**：
+  - PR 0：#195。
+  - PR 1：#196（`08449b17`）。`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 加 `restrictedImports`。
+  - PR 2：#197（`35077a47`）。網路狀態、離線提示與搜尋頁離線畫面；`connectivity_plus ^7.3.1`；Windows 的 `/utf-8` 改在 `windows/CMakeLists.txt` 的 `APPLY_STANDARD_SETTINGS`，連插件一起套用。
+- **PR 3**：#198（媒體 client）。審查兩輪：第一輪找到網址 userinfo 會變成 `Authorization`；第二輪（第一輪中途藍屏、紀錄遺失後重審）找到已關閉的 client 被算成「連不上」。兩者都先寫失敗測試再修。
+- **下一步**：PR 3 合併後 PR 4（快取庫與封面）；2–6 與 7、9、11 可並行。
 - **本機環境備忘**（2026-10-01）：
   - 模擬器是 `Medium_Phone`，序號 `emulator-5556`（不是 5554）；`ax_flatten.py` 要加 `--device emulator-5556`，`adb` 指令加 `-s emulator-5556`。上面裝著 dev 與測試插件（`files/test.js`），介面語言是 English。
   - Windows 的 dev 產物在 PR 1 驗證後已重建；跑過整合測試要再 `flutter build windows --flavor dev --debug`，Android 要重裝 dev 並以 `run-as` 放回測試插件（skill 的 android.md）。
@@ -563,6 +558,18 @@ PR 1 留下的：
 
 - [ ] `fmp_layer_imports` 不正規化含 `..` 的 package URI（`package:fmp/playback/../…`），既有限制，這次的 `restrictedImports` 一樣抓不到。
 - [ ] `audioBackendProvider` 不經 import 也能 `ref.watch` 拿到後端實例；lint 只管 import，這半條沒有閘門（`app/AGENTS.md` § 播放已註明），review 時看。
+
+PR 2 留下的（沒有 repro，不修）：
+
+- [ ] 啟動時 `NetworkStatusNotifier.build()` 的 `check()` 還沒回來就先來一筆介面變化，晚到的舊結果可能蓋掉新狀態。
+- [ ] 離線時搜尋失敗會同時出現錯誤 toast 與 `OfflineMessage`；ADR 不禁止，擁有者覺得重複再決定。
+- [ ] Windows 停用網路卡的實機驗證沒做（會切斷驗證用的工作階段）；M2 驗收的離線步驟補做。
+
+PR 3 留下的：
+
+- [ ] 同一個 `destination` 同時下載兩次會共用 `.part`（只有 dartdoc 寫明）；PR 4 接 `flutter_cache_manager` 時確認它不會同時對同一個檔下載兩次。
+- [ ] dart:io 預設解壓 gzip：單一網路塊解壓時可能短暫佔用大量記憶體，磁碟大小仍守得住；沒有 repro，不修。
+- [ ] 總計逾時在收到第一塊之後的情況沒有測試（fakeAsync 裡跑不了檔案 I/O），走的是和取消同一條路。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

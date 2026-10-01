@@ -12,7 +12,7 @@ lib/plugins/
   source_dto.dart             # DTO v1 與 sourceDtoShapes（欄位表）
   json_shape.dart             # JsonShape、JsonFields：封閉物件的解碼
   script_source_plugin.dart   # ScriptSourcePlugin、ScriptPluginLoader（載入、匯出檢查）
-  plugin_registry.dart        # pluginRegistryProvider：已載入的插件
+  plugin_registry.dart        # pluginRegistryProvider：已載入的插件與各自的媒體 client
   manifest/
     plugin_manifest.dart      # PluginManifest、PluginCapability、hostApiVersion、manifestShapes
     plugin_file.dart          # PluginFile：從安裝檔標頭取出 manifest

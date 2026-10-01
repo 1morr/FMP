@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fmp/core/errors/retry_policy.dart';
@@ -7,6 +9,8 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/media_http_client.dart';
+import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
@@ -90,3 +94,63 @@ final class Harness {
       if (record.tag == networkLogTag) record,
   ];
 }
+
+/// 一個媒體 client 加上它的假 adapter 與 log；[outcomes] 記下回報給網路狀態
+/// 的結果。時間是 `clock`（`fakeAsync`、`withClock` 改得到）。
+final class MediaHarness {
+  MediaHarness(
+    FutureOr<ResponseBody> Function(RequestOptions options) handler, {
+    LogFile? logFile,
+  }) : adapter = FakeHttpAdapter(handler) {
+    log = Log(
+      redactor: Redactor(),
+      minimumLevel: LogLevel.debug,
+      file: logFile,
+    );
+    client = MediaHttpClientFactory(
+      log: log,
+      reportOutcome: outcomes.add,
+      createAdapter: () => adapter,
+    ).create(pluginId: pluginId, allowedHosts: allowedHosts);
+  }
+
+  final FakeHttpAdapter adapter;
+  late final Log log;
+  late final MediaHttpClient client;
+  final outcomes = <RequestOutcome>[];
+
+  Future<MediaDownload> download(
+    String url, {
+    required File to,
+    int maxBytes = 1024,
+    Map<String, String> headers = const {},
+    Future<void>? abortTrigger,
+  }) => client.download(
+    Uri.parse(url),
+    destination: to,
+    maxBytes: maxBytes,
+    headers: headers,
+    abortTrigger: abortTrigger,
+  );
+
+  /// 網路紀錄（tag `network`），由舊到新。
+  List<LogRecord> get records => [
+    for (final record in log.history)
+      if (record.tag == networkLogTag) record,
+  ];
+}
+
+/// 內容由 [body] 送出的回應。dio 不再讀它（取消）時 [body] 的 `onCancel`
+/// 會被叫到。
+ResponseBody streamed(
+  StreamController<Uint8List> body, {
+  int status = 200,
+  Map<String, String> headers = const {},
+}) => ResponseBody(
+  body.stream,
+  status,
+  headers: {
+    for (final MapEntry(:key, :value) in headers.entries)
+      key.toLowerCase(): [value],
+  },
+);
