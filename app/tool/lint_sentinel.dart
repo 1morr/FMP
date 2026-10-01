@@ -21,6 +21,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
+import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:material_ui/material_ui.dart' as m;
 
 class Dio {
@@ -49,6 +50,14 @@ void violations(m.BuildContext context) {
 Future<void> wait() => pumpEventQueue();
 ''',
 };
+
+/// 規則名之外還要在暫放檔的診斷裡看到的訊息：同一條規則有好幾張表時，規則名
+/// 已經由別的行報出（`fmp_layer_imports` 由 `drift`），新表那一行只有訊息分得
+/// 出來。
+const _expectedMessages = [
+  // restrictedImports（`package:fmp/playback/backends/audio_backend.dart`）
+  'lib/playback/backends/audio_backend.dart is only imported from',
+];
 
 Future<void> main() async {
   final appRoot = p.dirname(p.dirname(p.fromUri(Platform.script)));
@@ -98,11 +107,14 @@ Future<void> main() async {
   }
 
   final output = '${result.stdout}\n${result.stderr}';
-  final found = <String>{
+  final violationLines = [
     for (final line in output.split(RegExp(r'\r?\n')))
-      if (_violations.keys.any((path) => line.contains(p.basename(path))))
-        if (RegExp(r' - (fmp_\w+)\s*$').firstMatch(line) case final match?)
-          match.group(1)!,
+      if (_violations.keys.any((path) => line.contains(p.basename(path)))) line,
+  ];
+  final found = <String>{
+    for (final line in violationLines)
+      if (RegExp(r' - (fmp_\w+)\s*$').firstMatch(line) case final match?)
+        match.group(1)!,
   };
   stdout.writeln(
     'fmp rules reported on the violation files (${found.length}):',
@@ -112,6 +124,10 @@ Future<void> main() async {
   }
 
   final missing = expected.where((name) => !found.contains(name)).toList();
+  final missingMessages = [
+    for (final message in _expectedMessages)
+      if (!violationLines.any((line) => line.contains(message))) message,
+  ];
   if (result.exitCode == 0) {
     _fail('dart analyze passed with the violation files in place.', output);
   }
@@ -119,6 +135,14 @@ Future<void> main() async {
     _fail(
       'Enabled rules not reported: ${missing.join(', ')}. Either the plugin '
       'is not wired, or a violation for the rule is missing in '
+      'tool/lint_sentinel.dart.',
+      output,
+    );
+  }
+  if (missingMessages.isNotEmpty) {
+    _fail(
+      'Expected diagnostics not reported: ${missingMessages.join('; ')}. '
+      'The running plugin lacks that table, or its violation is missing in '
       'tool/lint_sentinel.dart.',
       output,
     );

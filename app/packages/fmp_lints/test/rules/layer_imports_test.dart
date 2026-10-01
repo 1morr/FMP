@@ -72,6 +72,39 @@ class LayerImportsTest extends FmpRuleTest {
     }
   }
 
+  // ADR 0018：AudioBackend 只給後端目錄、PlaybackSession 與組裝點；結束原因
+  // 只給後端目錄與路由器。同前綴的 backends_helpers.dart、playback_session_x
+  // 不算在允許清單內；別名、show、相對路徑、export 都一樣報。
+  Future<void> test_restrictedPlaybackFilesFromOutside() async {
+    for (final path in [
+      'lib/playback/playback_controller.dart',
+      'lib/playback/backends_helpers.dart',
+      'lib/playback/playback_session_helpers.dart',
+      'lib/ui/player/player_bar.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:test/playback/backends/audio_backend.dart'!];\n"
+        "import [!'package:test/playback/backends/backend_rules.dart'!] as rules;\n",
+      );
+    }
+    // 同一個測試裡每個路徑只寫一次：analyzer 會沿用第一次的解析結果。
+    await assertLints(
+      'lib/playback/queue_model.dart',
+      "import [!'backends/audio_backend.dart'!] show AudioBackend;\n"
+          "export [!'backends/backend_rules.dart'!];\n",
+    );
+    // 各自只准一邊：路由器不碰後端介面，PlaybackSession 不碰結束原因。
+    await assertLints(
+      'lib/playback/playback_event_router.dart',
+      "import [!'package:test/playback/backends/audio_backend.dart'!];\n",
+    );
+    await assertLints(
+      'lib/playback/playback_session.dart',
+      "import [!'package:test/playback/backends/backend_rules.dart'!];\n",
+    );
+  }
+
   Future<void> test_legacyImportFromOutside() => assertLints(
     'lib/data/database.dart',
     "import [!'package:test/legacy_import/reader.dart'!];\n",
@@ -142,6 +175,42 @@ class LayerImportsTest extends FmpRuleTest {
           "import 'package:just_audiobook/just_audiobook.dart';\n",
     );
   }
+
+  Future<void> test_restrictedPlaybackFilesFromAllowedImporters() async {
+    await assertLints(
+      'lib/playback/playback_session.dart',
+      "import 'package:test/playback/backends/audio_backend.dart';\n"
+          "import 'backends/audio_backend.dart' as backend;\n",
+    );
+    await assertLints(
+      'lib/playback/playback_providers.dart',
+      "import 'package:test/playback/backends/audio_backend.dart';\n",
+    );
+    await assertLints(
+      'lib/playback/playback_event_router.dart',
+      "import 'package:test/playback/backends/backend_rules.dart';\n",
+    );
+    await assertLints(
+      'lib/playback/backends/media_kit_backend.dart',
+      "import 'package:test/playback/backends/audio_backend.dart';\n"
+          "import 'backend_rules.dart';\n",
+    );
+    // 測試照既有規則不受依賴表限制（假後端、契約）。
+    await assertLints(
+      'test/playback/fake_audio_backend.dart',
+      "import 'package:test/playback/backends/audio_backend.dart';\n"
+          "import 'package:test/playback/backends/backend_rules.dart';\n",
+    );
+  }
+
+  // 名稱相近的別的檔案（工廠 audio_backends.dart）、註解與字串裡提到的不報。
+  Future<void> test_restrictedPlaybackFilesNearMisses() => assertLints(
+    'lib/playback/playback_controller.dart',
+    "import 'package:test/playback/backends/audio_backends.dart';\n"
+        "import 'package:test/playback/backends/backend_rules_notes.dart';\n"
+        "// import 'package:test/playback/backends/audio_backend.dart';\n"
+        "const text = \"import 'backends/backend_rules.dart';\";\n",
+  );
 
   Future<void> test_testsMayImportAnyPackage() => assertLints(
     'test/data/database_test.dart',

@@ -65,6 +65,22 @@ const _upperLayers = [
 /// 只有自己目錄內能 import 的目錄（ADR 0010）。
 const sealedDirectories = ['lib/legacy_import'];
 
+/// 只准列出的位置 import 的檔案或目錄：被匯入端 → 允許的匯入端（檔案或目錄）。
+/// 被匯入端是目錄時，目錄內的檔案彼此 import 也要列出來。
+const restrictedImports = <String, List<String>>{
+  // ADR 0018：串流存取的窄介面只給 PlaybackSession；組裝點建後端實例。
+  'lib/playback/backends/audio_backend.dart': [
+    'lib/playback/backends',
+    'lib/playback/playback_session.dart',
+    'lib/playback/playback_providers.dart',
+  ],
+  // ADR 0018：結束原因（TrackEndReason）只給後端與路由器。
+  'lib/playback/backends/backend_rules.dart': [
+    'lib/playback/backends',
+    'lib/playback/playback_event_router.dart',
+  ],
+};
+
 /// `fmp_layer_imports`：依賴方向表（ADR 0015 §決定 2）。
 class LayerImports extends AnalysisRule {
   static const LintCode code = LintCode(
@@ -170,6 +186,12 @@ String? _internalViolation(PackagePath from, PackagePath target) {
   for (final sealed in sealedDirectories) {
     if (target.isIn(sealed) && !from.isIn(sealed)) {
       return '$sealed/ is only imported from inside itself';
+    }
+  }
+  for (final MapEntry(key: restricted, value: allowed)
+      in restrictedImports.entries) {
+    if (target.isIn(restricted) && !from.isInAny(allowed)) {
+      return '$restricted is only imported from ${allowed.join(', ')}';
     }
   }
   for (final MapEntry(key: layer, value: forbidden)
