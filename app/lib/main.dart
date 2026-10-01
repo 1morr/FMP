@@ -19,6 +19,7 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
@@ -89,6 +90,7 @@ Future<void> main(List<String> arguments) async {
         logProvider.overrideWithValue(log),
         redactorProvider.overrideWithValue(redactor),
         platformCapabilitiesProvider.overrideWithValue(platform.capabilities),
+        networkInterfacesProvider.overrideWithValue(platform.networkInterfaces),
         // 插件的開發入口只在 dev（devPluginPath 在 prod 回 null；理由見
         // dev_plugin_entry.dart）。
         devPluginPathProvider.overrideWithValue(

@@ -9,6 +9,8 @@ import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart'
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
+import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
@@ -17,8 +19,12 @@ import 'package:fmp/platform/platform_capabilities.dart';
 /// 實作。整個 App 只有這裡判斷平台；lint `fmp_platform_checks` 擋的是
 /// `lib/platform/` 以外。
 final class AppPlatform {
-  AppPlatform._({required this.capabilities, this.dataDirectory})
-    : assert(capabilities.dataDirectory == (dataDirectory != null));
+  AppPlatform._({
+    required this.capabilities,
+    this.dataDirectory,
+    this.networkInterfaces,
+  }) : assert(capabilities.dataDirectory == (dataDirectory != null)),
+       assert(capabilities.networkInterfaces == (networkInterfaces != null));
 
   /// 目前執行的平台。
   factory AppPlatform.current(AppFlavor flavor) =>
@@ -36,12 +42,14 @@ final class AppPlatform {
             singleInstance: false,
             fontFallback: androidFontFallback,
             playback: androidPlaybackSupport,
+            networkInterfaces: true,
           ),
           dataDirectory: AndroidAppDataDirectory(
             flavor: flavor,
             applicationSupportPath: () async =>
                 (await getApplicationSupportDirectory()).path,
           ),
+          networkInterfaces: ConnectivityPlusInterfaces.system(),
         ),
         TargetPlatform.windows => AppPlatform._(
           capabilities: const PlatformCapabilities(
@@ -49,6 +57,7 @@ final class AppPlatform {
             singleInstance: true,
             fontFallback: windowsFontFallback,
             playback: windowsPlaybackSupport,
+            networkInterfaces: true,
           ),
           dataDirectory: WindowsAppDataDirectory(
             flavor: flavor,
@@ -59,6 +68,7 @@ final class AppPlatform {
             documentsPath: () async =>
                 (await getApplicationDocumentsDirectory()).path,
           ),
+          networkInterfaces: ConnectivityPlusInterfaces.system(),
         ),
         TargetPlatform.linux ||
         TargetPlatform.macOS ||
@@ -72,4 +82,7 @@ final class AppPlatform {
 
   /// App 資料目錄；[PlatformCapabilities.dataDirectory] 為假時為 `null`。
   final AppDataDirectory? dataDirectory;
+
+  /// 網路介面；[PlatformCapabilities.networkInterfaces] 為假時為 `null`。
+  final NetworkInterfaces? networkInterfaces;
 }
