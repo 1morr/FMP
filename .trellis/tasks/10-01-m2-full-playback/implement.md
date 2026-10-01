@@ -38,10 +38,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**：規劃中。擁有者核准 prd／design／implement 之前不開工（ADR 0026 §決定 1）。
-- **擁有者決定**：1–7 在 `prd.md`；核准時 design §12 的八條另外逐條確認，結果補進 `prd.md`。
+- **狀態**：2026-10-01 擁有者核准（`prd.md` 決定 8，design §12 八條全部照設計）。
+- **擁有者決定**：1–8 在 `prd.md`。
 - **已合併進 `main`**：（無）
-- **下一步**：擁有者核准 → PR 0。
+- **下一步**：PR 0（本分支 `docs/m2-plan`）→ PR 1。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-queue-model`）；
   2. `task.py create … --parent .trellis/tasks/10-01-m2-full-playback --package app --no-start`；
@@ -104,13 +104,13 @@
 
 ## 0. 規劃檔與文件更正
 
-- [ ] 本任務的 `prd.md`（補上 design §12 的確認結果）、`design.md`、`implement.md`、`research/` commit。
-- [ ] design §11 標「PR 0」的更正：
+- [x] 本任務的 `prd.md`（補上 design §12 的確認結果）、`design.md`、`implement.md`、`research/` commit。
+- [x] design §11 標「PR 0」的更正：
   - ADR 0025 §決定 5；
   - ADR 0026 §決定 3；
   - ADR 0019 §決定 1 與 ADR 0018 §決定 4（確認後）；
   - `milestones.md` § M2、§ M3（範圍、驗收的調整）。
-- [ ] `09-26-fmp-rewrite/task.json` 的子任務清單（目前工作區有未提交的改動，一併整理）。
+- [x] `09-26-fmp-rewrite/task.json` 的子任務清單（目前工作區有未提交的改動，一併整理）。
 - 驗證：`main` 上有本任務目錄；`milestones.md` 的 M2 範圍與 design §1 一致。
 - 依賴：擁有者核准。模型：sonnet。
 
