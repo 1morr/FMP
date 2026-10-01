@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/media_http_client.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
@@ -14,6 +15,7 @@ import 'package:fmp/plugins/install/plugin_installer.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:path/path.dart' as p;
 
 import '../../support/pump_until.dart';
 import '../plugin_harness.dart';
@@ -28,6 +30,9 @@ ProviderContainer _container(PluginHarness harness, {String? devPluginPath}) {
       logProvider.overrideWithValue(harness.log),
       redactorProvider.overrideWithValue(harness.redactor),
       sourceHttpClientFactoryProvider.overrideWithValue(harness.httpClients),
+      mediaHttpClientFactoryProvider.overrideWithValue(
+        harness.mediaHttpClients,
+      ),
       scriptPluginLoaderProvider.overrideWithValue(harness.loader),
       devPluginPathProvider.overrideWithValue(devPluginPath),
     ],
@@ -67,10 +72,82 @@ void main() {
         .read(pluginInstallerProvider)
         .installSource(_version('1.0.0'));
 
-    final registered = await _container(harness)
-        .read(pluginRegistryProvider.future);
+    final container = _container(harness);
+    final registered = await container.read(pluginRegistryProvider.future);
 
     expect(registered.keys, ['plugin-a']);
+    expect(
+      container.read(pluginRegistryProvider.notifier).mediaClient('plugin-a'),
+      isNotNull,
+    );
+  });
+
+  group('media clients', () {
+    late Directory temp;
+    setUp(() async {
+      temp = await Directory.systemTemp.createTemp('fmp_registry_media');
+      addTearDown(() => temp.delete(recursive: true));
+    });
+
+    Future<void> download(MediaHttpClient client, String url) =>
+        client.download(
+          Uri.parse(url),
+          destination: File(p.join(temp.path, 'cover.jpg')),
+          maxBytes: 1024,
+        );
+
+    String withHosts(String version, List<String> hosts) => pluginSource(
+      'export function search() { return { items: [], hasMore: false }; }',
+      allowedHosts: hosts,
+    ).replaceFirst('"version": "1.0.0"', '"version": "$version"');
+
+    test('each plugin gets one for the hosts in its manifest', () async {
+      final harness = PluginHarness();
+      final container = _container(harness);
+      await container
+          .read(pluginInstallerProvider)
+          .installSource(withHosts('1.0.0', ['example.test']));
+      final registry = container.read(pluginRegistryProvider.notifier);
+
+      final media = registry.mediaClient('plugin-a')!;
+      expect(media.pluginId, 'plugin-a');
+      await download(media, 'https://cdn.example.test/a.jpg');
+      expect(harness.adapter.requests.single.uri.host, 'cdn.example.test');
+      await expectLater(
+        download(media, 'https://cdn.example/a.jpg'),
+        throwsA(isA<Unsupported>()),
+      );
+      expect(harness.adapter.requests, hasLength(1));
+      expect(registry.mediaClient('plugin-b'), isNull);
+    });
+
+    test(
+      'an update replaces it with the new hosts and closes the old one',
+      () async {
+        final harness = PluginHarness();
+        final container = _container(harness);
+        final installer = container.read(pluginInstallerProvider);
+        await installer.installSource(withHosts('1.0.0', ['example.test']));
+        final registry = container.read(pluginRegistryProvider.notifier);
+        final old = registry.mediaClient('plugin-a')!;
+
+        await installer.installSource(withHosts('2.0.0', ['cdn.example']));
+
+        final updated = registry.mediaClient('plugin-a')!;
+        expect(identical(updated, old), isFalse);
+        await download(updated, 'https://cdn.example/a.jpg');
+        await expectLater(
+          download(updated, 'https://example.test/a.jpg'),
+          throwsA(isA<Unsupported>()),
+        );
+        // 舊的已關閉：請求到不了 adapter。
+        await expectLater(
+          download(old, 'https://example.test/a.jpg'),
+          throwsA(isA<AppError>()),
+        );
+        expect(harness.adapter.requests, hasLength(1));
+      },
+    );
   });
 
   test(

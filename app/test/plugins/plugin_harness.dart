@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/core/network/media_http_client.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
@@ -45,8 +46,8 @@ String pluginSource(
 $body
 ''';
 
-/// 插件的執行環境加上記憶體資料庫、假 HTTP adapter（不聯網）、log 與遮蔽
-/// 函式。建立的 runtime 與插件在測試結束時釋放。
+/// 插件的執行環境加上記憶體資料庫、假 HTTP adapter（不聯網，API 與媒體 client
+/// 共用）、log 與遮蔽函式。建立的 runtime 與插件在測試結束時釋放。
 final class PluginHarness {
   PluginHarness({
     FutureOr<ResponseBody> Function(RequestOptions options)? handler,
@@ -63,6 +64,10 @@ final class PluginHarness {
       createAdapter: () => adapter,
       wait: (_) async {},
       random: math.Random(7),
+    );
+    mediaHttpClients = MediaHttpClientFactory(
+      log: log,
+      createAdapter: () => adapter,
     );
     loader = ScriptPluginLoader(
       log: log,
@@ -83,6 +88,9 @@ final class PluginHarness {
   late final PluginRepository plugins;
   late final PluginStorageRepository storage;
   late final SourceHttpClientFactory httpClients;
+
+  /// 媒體 client 的工廠，和 [httpClients] 用同一個假 adapter。
+  late final MediaHttpClientFactory mediaHttpClients;
   late final ScriptPluginLoader loader;
 
   /// 在 runtime 載入 [script]（只有 module，沒有標頭），網域清單是
