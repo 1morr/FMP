@@ -7,6 +7,7 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 
@@ -32,7 +33,7 @@ final class FakeCredentials implements CredentialSource {
 }
 
 /// 一個 client 加上它的假 adapter、假時鐘與 log。等待立刻完成並把時鐘
-/// 往前撥；[waits] 記下每次等了多久。
+/// 往前撥；[waits] 記下每次等了多久，[outcomes] 記下回報給網路狀態的結果。
 final class Harness {
   Harness(
     FutureOr<ResponseBody> Function(RequestOptions options) handler, {
@@ -49,6 +50,7 @@ final class Harness {
     client =
         SourceHttpClientFactory(
           log: log,
+          reportOutcome: outcomes.add,
           credentials: credentials,
           createAdapter: () => adapter,
           now: () => now,
@@ -70,6 +72,7 @@ final class Harness {
   late final SourceHttpClient client;
   DateTime now = DateTime.utc(2026, 9, 29, 12);
   final waits = <Duration>[];
+  final outcomes = <RequestOutcome>[];
 
   Future<SourceResponse> get(
     String url, {

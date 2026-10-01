@@ -41,6 +41,10 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_17)
   target_compile_options(${TARGET} PRIVATE /W4 /WX /wd"4100")
   target_compile_options(${TARGET} PRIVATE /EHsc)
+  # 以 UTF-8 讀原始碼：MSVC 預設用系統字碼頁（繁中 Windows 是 950），檔案裡有
+  # 非 ASCII 字元（runner 的繁中註解、connectivity_plus 的破折號）就報 C4819，
+  # 在 /WX 下中斷建置。插件也呼叫這個函式，所以放在這裡。
+  target_compile_options(${TARGET} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:/utf-8>")
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
 endfunction()

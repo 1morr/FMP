@@ -49,6 +49,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   );
   late final Translations$search$zh_TW search =
       Translations$search$zh_TW.internal(_root);
+  late final Translations$offline$zh_TW offline =
+      Translations$offline$zh_TW.internal(_root);
   late final Translations$settings$zh_TW settings =
       Translations$settings$zh_TW.internal(_root);
   late final Translations$player$zh_TW player =
@@ -135,6 +137,27 @@ class Translations$search$zh_TW {
 
   /// zh-TW: '載入更多'
   String get loadMore => '載入更多';
+}
+
+// Path: offline
+class Translations$offline$zh_TW {
+  Translations$offline$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '沒有網路連線'
+  String get noInterface => '沒有網路連線';
+
+  /// zh-TW: '無法連上網路'
+  String get unreachable => '無法連上網路';
+
+  /// zh-TW: '連上網路後再試一次'
+  String get noInterfaceHint => '連上網路後再試一次';
+
+  /// zh-TW: '請檢查網路連線後再試一次'
+  String get unreachableHint => '請檢查網路連線後再試一次';
 }
 
 // Path: settings

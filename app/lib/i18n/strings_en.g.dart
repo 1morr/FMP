@@ -56,6 +56,8 @@ class TranslationsEn extends Translations
   @override
   late final Translations$search$en search = Translations$search$en._(_root);
   @override
+  late final Translations$offline$en offline = Translations$offline$en._(_root);
+  @override
   late final Translations$settings$en settings = Translations$settings$en._(
     _root,
   );
@@ -134,6 +136,25 @@ class Translations$search$en extends Translations$search$zh_TW {
   String get retry => 'Retry';
   @override
   String get loadMore => 'Load more';
+}
+
+// Path: offline
+class Translations$offline$en extends Translations$offline$zh_TW {
+  Translations$offline$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get noInterface => 'No network connection';
+  @override
+  String get unreachable => 'Can\'t reach the network';
+  @override
+  String get noInterfaceHint => 'Connect to a network and try again.';
+  @override
+  String get unreachableHint => 'Check your connection and try again.';
 }
 
 // Path: settings

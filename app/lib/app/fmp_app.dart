@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/app/app_lifecycle.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
@@ -52,6 +56,14 @@ class _FmpAppState extends ConsumerState<FmpApp> {
       (_, _) {},
       fireImmediately: true,
     );
+    // 回到前景時再查一次網路介面：Android 8 起背景收不到介面變化
+    // （connectivity_plus 的 README）。事件觸發，不輪詢。
+    ref.listenManual(appLifecycleProvider, (previous, next) {
+      if (next == AppLifecycleState.resumed &&
+          previous != AppLifecycleState.resumed) {
+        unawaited(ref.read(networkStatusProvider.notifier).recheckInterfaces());
+      }
+    });
   }
 
   @override

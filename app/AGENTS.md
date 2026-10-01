@@ -222,9 +222,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `main()` 的每個 `runApp` 都包在 `lib/app/app_scope.dart` 的 `appProviderScope`：全域
   `retry` 關閉（ADR 0013 §決定 4）。閘門：`test/app/app_scope_test.dart`（含一個預設
   重試會重試的對照案例）；lint `missing_provider_scope` 擋沒有 `ProviderScope` 的 `runApp`。
-- 開好的資料庫（`appDatabaseProvider`，`lib/data/providers.dart`）與資料目錄
-  （`dataDirectoryProvider`，`lib/platform/app_data_directory/`）只由 `main()` 以
-  `overrides` 注入；沒 override 就讀會拋錯。測試照樣 override（記憶體資料庫）。
+- 開好的資料庫（`appDatabaseProvider`，`lib/data/providers.dart`）、資料目錄
+  （`dataDirectoryProvider`，`lib/platform/app_data_directory/`）與網路介面
+  （`networkInterfacesProvider`，`lib/platform/connectivity/`）只由 `main()` 以
+  `overrides` 注入；沒 override 就讀會拋錯。測試照樣 override（記憶體資料庫、
+  `test/support/fake_network_interfaces.dart`；不看介面的整合測試給 `null`）。
   「只有 `main()` 開庫」沒有閘門，review 時看。
 - 不用 `riverpod_generator`：provider 少，手寫。
 
@@ -318,6 +320,25 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體歷史與 log 檔）。
 - 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。M1 的認證來源是
   `NoCredentials`（每個音源都未登入）。閘門：`auth_test.dart`（三種標記 × 三種狀態）。
+- 網路狀態（`network_status.dart`，ADR 0016 §決定 6）：輸入只有平台層的介面變化與
+  HTTP client 每次送出的結果（`RequestOutcomeSink`）。拿到回應不論狀態碼都是
+  `responded`（被轉成 `RateLimited` 的 429 也是）；`NetworkError` 是失敗；沒送出的
+  （網域不符、未登入的 `required`）、取消與其他錯誤不回報；每次重試、每一跳各算一次。
+  播放後端的串流錯誤不是請求，不回報。任何回應都讓 `noInterface`、`unreachable` 回到
+  `online`；失敗不改變 `noInterface`（介面消失前送出的請求晚一點才失敗）。回到前景時查到
+  有介面不算「介面變化」，`unreachable` 留著。時間以 `clock` 讀，不開計時器。閘門：
+  `network_status_test.dart`（轉換表逐列；fakeAsync 裡跑完後沒有待執行的計時器）、
+  `source_http_client_test.dart` 的 `network status` 群組。新的 HTTP client（媒體
+  client）要接同一個 `NetworkStatusNotifier.report`；沒接沒有閘門，review 時看。
+- 網路狀態不擋使用者發起的請求，`noInterface` 也照送（ADR 0016 §決定 7 的更正）：
+  Windows 的 `connectivity_plus` 只把 Network List Manager 判定「連得上網際網路」
+  （NCSI）的連線算成有介面，在 proxy、VPN 後面會誤報 `noInterface`，送出去拿到回應才
+  回得到 `online`。不在 `online` 時不發背景請求（§決定 6；M2 還沒有背景請求，出現時
+  補閘門）。閘門：`network_status_test.dart` 的 `a response`（`noInterface` 收到回應回到
+  `online`）、`search_page_test.dart` 的 `offline` 群組（`noInterface` 仍送出搜尋）。
+- Android 8 起背景收不到介面變化，`FmpApp` 在回到 `resumed` 時以 `recheckInterfaces`
+  再查一次。閘門：`fmp_app_test.dart` 的
+  `returning to the foreground checks the network interfaces again`。
 - 媒體 client 延到 M6。交給播放後端的串流 headers 一律先經 `mediaRequestHeaders`：只留
   `Referer`、`User-Agent`、`Origin`、`Range`。閘門：`media_headers_test.dart`；後端確實
   經過它，見「播放」。
@@ -512,8 +533,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡。
-- 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列）與設定頁
-  在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
+- 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
+  或連不上時搜尋失敗）與設定頁在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：
+  `test/ui/guidelines_test.dart`。
   新頁面要加進去。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
 - `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
@@ -538,6 +560,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 焦點三區（導覽、內容、播放列）各是 `FocusScope`＋`FocusTraversalGroup`：Tab 只在區內循環，F6
   依序換區、跳過不在畫面上的播放列。只有圖示的按鈕有 tooltip（附按鍵）與語意標籤。閘門：同檔的
   `focus regions` 群組、guideline 測試（標籤）；tooltip 附按鍵沒有閘門，review 時看。
+- 離線（ADR 0016 §決定 7、design §5.4）只有兩個呈現，都不是 toast：外殼內容區頂端的
+  `OfflineBanner`（換頁仍在、`online` 時不佔位置、live region），以及頁面共用的
+  `OfflineMessage`（`lib/ui/offline/`）。要網路的頁面不在 `online` 時照常送出使用者的
+  操作（見「網路」），失敗時才顯示 `OfflineMessage` 與重試；已有的內容照常顯示。閘門：
+  `app_shell_test.dart` 的 `the offline banner` 群組、`search_page_test.dart` 的
+  `offline` 群組。
 - `ToastHost` 的 `Overlay` 是 root overlay，文字選取工具列與放大鏡插在那裡，照常運作。閘門：
   `search_page_test.dart` 的 `text selection over the toast host`（Android 長按與放大鏡、Windows
   右鍵選單）。

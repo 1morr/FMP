@@ -17,6 +17,8 @@ lib/ui/
   layout/              # WindowClass、WindowClassScope
   i18n/ui_locale.dart  # LocaleSetting → Flutter locale／slang／字型；translationsProvider
   errors/              # AppError → 訊息
+  empty_state/         # EmptyState：置中的圖示、標題、說明與動作
+  offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區）、快捷鍵表
   search/              # 搜尋頁、searchProvider、音源 chip 列
@@ -124,6 +126,20 @@ try {
   4. `test/ui/shell/app_shell_test.dart` 加案例，文字編輯鍵另外在輸入框裡按一次確認沒作用。
 - 焦點三區（導覽、內容、播放列）各是一個 `FocusScope` 加 `FocusTraversalGroup`：Tab 只在區內
   循環；F6 回到那一區上次的焦點，沒有就是它的第一個可聚焦項目。新的可聚焦元件放在對的那一區裡。
+
+## 離線
+
+- 外殼已經放了 `OfflineBanner`，頁面不另外提示離線，也不用 toast。
+- 頁面的內容要網路時：
+  - 使用者的操作在 `noInterface`、`unreachable` 都照常送出，不在 Notifier 擋（系統的
+    回報可能是錯的，見 `app/AGENTS.md` § 網路）。
+  - 失敗而狀態不是 `online` 時，內容區換成 `OfflineMessage(status: 目前狀態, action: 重試)`；
+    在 `online` 時失敗照一般的失敗畫面。已有的內容照常顯示。
+  - 背景請求（M3 起）在不是 `online` 時不發。
+  - 本機資料（設定、之後的音樂庫）照常顯示。
+- 空狀態與失敗用 `EmptyState`，離線的那一個樣子才一致。
+- 測試：`ShellHarness.setNetwork(tester, NetworkStatus.x)`；新頁面的離線狀態加進
+  guideline 測試。
 
 ## 播放列與封面
 

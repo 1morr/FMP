@@ -22,6 +22,12 @@
     "retry": "Retry",
     "loadMore": "Load more"
   },
+  "offline": {
+    "noInterface": "No network connection",
+    "unreachable": "Can't reach the network",
+    "noInterfaceHint": "Connect to a network and try again.",
+    "unreachableHint": "Check your connection and try again."
+  },
   "settings": {
     "title": "Settings",
     "appearance": "Appearance"

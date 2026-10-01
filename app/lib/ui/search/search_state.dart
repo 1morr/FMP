@@ -99,6 +99,9 @@ final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
 /// 搜尋與「載入更多」。新的搜尋開始後，之前還沒回來的結果丟掉。
 ///
 /// 失敗經 [Toaster.error] 提示（使用者按了搜尋，屬於使用者動作的回饋）。
+/// 網路狀態不擋使用者的搜尋，`noInterface`、`unreachable` 都照常送出（ADR 0016
+/// §決定 6「使用者操作照常發請求」、§決定 7 的更正）：系統回報可能是錯的，而狀態
+/// 要靠請求拿到回應才回得到 `online`。
 final class SearchNotifier extends Notifier<SearchState> {
   int _generation = 0;
 

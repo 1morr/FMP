@@ -7,12 +7,14 @@ import 'package:fmp/app/app_material.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/audio/audio.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -30,6 +32,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_audio_backend.dart';
 import '../../playback/fake_source_plugin.dart';
+import '../../support/fake_network_interfaces.dart';
 import '../../support/memory_database.dart';
 
 /// 一首搜尋結果（插件 `fmp-test`）。
@@ -42,8 +45,8 @@ TrackSummary summary(String id, {Duration? duration}) => TrackSummary(
 );
 
 /// 外殼與頁面的測試環境：可以搜尋、可以解析的假插件，假後端上的真
-/// `PlaybackController`，記憶體資料庫與 [Toaster]。介面語言是英文（測試的
-/// 系統語言 `en_US`）。
+/// `PlaybackController`，記憶體資料庫、[Toaster] 與有介面的假網路介面
+/// （[interfaces]）。介面語言是英文（測試的系統語言 `en_US`）。
 final class ShellHarness {
   ShellHarness({
     FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
@@ -90,12 +93,14 @@ final class ShellHarness {
   final log = Log(redactor: Redactor(), minimumLevel: LogLevel.warning);
   late final PlaybackController controller;
   late final Toaster toaster;
+  final interfaces = FakeNetworkInterfaces();
 
   List<Override> get overrides => [
     appDatabaseProvider.overrideWithValue(memoryDatabase()),
     logProvider.overrideWithValue(log),
     toasterProvider.overrideWithValue(toaster),
     searchSourcesProvider.overrideWithValue(AsyncData(sources)),
+    networkInterfacesProvider.overrideWithValue(interfaces),
     // 樹拆掉時停掉後端的計時器（測試結束時檢查沒有留下的計時器）。
     playbackControllerProvider.overrideWith((ref) {
       ref.onDispose(() {
@@ -165,6 +170,24 @@ final class ShellHarness {
     );
     await tester.pump();
     await tester.pump();
+  }
+
+  /// 把網路狀態帶到 [status]：`noInterface` 是系統回報介面消失，
+  /// `unreachable` 是連續失敗到門檻，`online` 是介面回來。
+  Future<void> setNetwork(WidgetTester tester, NetworkStatus status) async {
+    switch (status) {
+      case NetworkStatus.online:
+        interfaces.change(available: true);
+      case NetworkStatus.noInterface:
+        interfaces.change(available: false);
+      case NetworkStatus.unreachable:
+        final notifier = container(tester).read(networkStatusProvider.notifier);
+        for (var i = 0; i < unreachableFailures; i++) {
+          notifier.report(RequestOutcome.networkError);
+        }
+    }
+    await tester.pump();
+    expect(container(tester).read(networkStatusProvider), status);
   }
 
   /// 外觀設定從記憶體資料庫讀出來（drift 的串流要真的事件迴圈）。

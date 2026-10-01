@@ -6,6 +6,7 @@ import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart'
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
+import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
@@ -13,8 +14,8 @@ import 'package:fmp/platform/platform.dart';
 
 void main() {
   group('AppPlatform.assemble', () {
-    test('Android has a data directory, picks glyphs by locale and plays '
-        'with just_audio', () {
+    test('Android has a data directory, picks glyphs by locale, plays '
+        'with just_audio and sees network interfaces', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.android,
         AppFlavor.dev,
@@ -29,10 +30,12 @@ void main() {
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
       );
+      expect(platform.capabilities.networkInterfaces, isTrue);
+      expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
     });
 
-    test('Windows has a data directory, a single instance, named fonts and '
-        'plays with media_kit', () {
+    test('Windows has a data directory, a single instance, named fonts, '
+        'plays with media_kit and sees network interfaces', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.windows,
         AppFlavor.dev,
@@ -47,6 +50,8 @@ void main() {
         platform.capabilities.playback?.backend,
         AudioBackendKind.mediaKit,
       );
+      expect(platform.capabilities.networkInterfaces, isTrue);
+      expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
     });
 
     for (final unverified in [
@@ -62,6 +67,8 @@ void main() {
         expect(platform.dataDirectory, isNull);
         expect(platform.capabilities.singleInstance, isFalse);
         expect(platform.capabilities.playback, isNull);
+        expect(platform.capabilities.networkInterfaces, isFalse);
+        expect(platform.networkInterfaces, isNull);
         for (final language in FontLanguage.values) {
           expect(
             platform.capabilities.fontFallback.familiesFor(language),

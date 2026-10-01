@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -104,6 +106,86 @@ void main() {
     await tester.pump();
     expect(find.text('Song a'), findsOneWidget);
     expect(h.plugin.searches, hasLength(2));
+  });
+
+  // design §5.4、ADR 0016 §決定 7 的更正：沒有介面、連不上都照常送出使用者的
+  // 搜尋，失敗時才顯示離線空狀態。
+  group('offline', () {
+    Finder offlineMessage(String title) => find.descendant(
+      of: find.byType(OfflineMessage),
+      matching: find.text(title),
+    );
+
+    testWidgets('without an interface the results stay and the search is '
+        'still sent; a failure shows the offline state with retry', (
+      tester,
+    ) async {
+      var fail = false;
+      final h = ShellHarness(
+        onSearch: (query) => fail
+            ? throw NetworkError(pluginId: 'fmp-test')
+            : SearchPage(items: [summary(query.keyword)], hasMore: false),
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'a');
+      expect(find.text('Song a'), findsOneWidget);
+
+      // 系統回報可能是錯的（Windows 的 NCSI）：不擋使用者，已有的結果照常顯示。
+      await h.setNetwork(tester, NetworkStatus.noInterface);
+      expect(find.text('Song a'), findsOneWidget);
+      expect(find.byType(OfflineMessage), findsNothing);
+
+      fail = true;
+      await search(tester, 'b');
+      await tester.pumpAndSettle();
+      expect(h.plugin.searches.map((query) => query.keyword), ['a', 'b']);
+      expect(offlineMessage('No network connection'), findsOneWidget);
+      expect(find.text('Search failed'), findsNothing);
+
+      fail = false;
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      await tester.pump();
+      expect(h.plugin.searches, hasLength(3));
+      expect(find.text('Song b'), findsOneWidget);
+    });
+
+    testWidgets('unreachable still sends the search; a failure shows the '
+        'offline state with retry', (tester) async {
+      var fail = true;
+      final h = ShellHarness(
+        onSearch: (query) => fail
+            ? throw NetworkError(pluginId: 'fmp-test')
+            : SearchPage(items: [summary('a')], hasMore: false),
+      );
+      await h.pumpShell(tester);
+      await h.setNetwork(tester, NetworkStatus.unreachable);
+
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+      expect(h.plugin.searches, hasLength(1));
+      expect(offlineMessage("Can't reach the network"), findsOneWidget);
+      expect(find.text('Search failed'), findsNothing);
+
+      fail = false;
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      await tester.pump();
+      expect(h.plugin.searches, hasLength(2));
+      expect(find.text('Song a'), findsOneWidget);
+    });
+
+    testWidgets('a failure while online is the usual failure', (tester) async {
+      final h = ShellHarness(
+        onSearch: (query) => throw NetworkError(pluginId: 'fmp-test'),
+      );
+      await h.pumpShell(tester);
+
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+      expect(find.text('Search failed'), findsOneWidget);
+      expect(find.byType(OfflineMessage), findsNothing);
+    });
   });
 
   testWidgets('load more appends the next page', (tester) async {

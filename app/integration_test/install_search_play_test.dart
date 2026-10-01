@@ -16,6 +16,7 @@ import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/audio/audio.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_providers.dart';
@@ -217,8 +218,11 @@ final class _AppRun {
               singleInstance: false,
               fontFallback: FontFallback.none,
               playback: _playback,
+              networkInterfaces: false,
             ),
           ),
+          // 網路狀態只看請求結果：這個測試不看系統的網路介面。
+          networkInterfacesProvider.overrideWithValue(null),
           audioBackendProvider.overrideWith((ref) {
             ref.onDispose(() => unawaited(backend.dispose()));
             return backend;

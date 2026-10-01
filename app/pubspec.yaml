@@ -20,6 +20,9 @@ dependencies:
   # Toast 去重的時間（ADR 0023 §決定 2）：lib/ 以 clock.now() 讀時間，測試的
   # fake_async 才改得到它。
   clock: ^1.1.3
+  # 有沒有網路介面（ADR 0016 §決定 6）；只准在 lib/platform/ import
+  # （fmp_layer_imports）。它的 Android manifest 會併入 ACCESS_NETWORK_STATE。
+  connectivity_plus: ^7.3.1
   # 插件宿主 API 的 crypto.md5／sha256（ADR 0014 §決定 5）。
   crypto: ^3.0.7
   # 網路層（ADR 0012 §決定 1）：每插件一個 dio 與記憶體 cookie jar。三個都只准

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
@@ -9,8 +10,12 @@ import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
 /// App 共用的 HTTP client 工廠：每個插件由它建一個 client（ADR 0012 §決定 1）。
+/// 每次送出的結果回報給網路狀態（ADR 0016 §決定 6）。
 final sourceHttpClientFactoryProvider = Provider<SourceHttpClientFactory>(
-  (ref) => SourceHttpClientFactory(log: ref.watch(logProvider)),
+  (ref) => SourceHttpClientFactory(
+    log: ref.watch(logProvider),
+    reportOutcome: ref.watch(networkStatusProvider.notifier).report,
+  ),
 );
 
 final scriptPluginLoaderProvider = Provider<ScriptPluginLoader>(

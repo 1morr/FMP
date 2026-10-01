@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Section 5 network status and offline, section 2 module layout"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Decisions 6 and 7: offline detection and per-feature behaviour"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Declaring a new capability"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "Network layer patterns"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "How to add a platform capability"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Tokens, translations, shell, guideline tests"}

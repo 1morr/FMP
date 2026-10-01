@@ -14,6 +14,7 @@ lib/core/network/
   allowed_hosts.dart       # AllowedHosts：manifest 網域比對（請求與 cookie 的 Domain 共用）
   request_throttle.dart    # RequestThrottle：併發上限＋最小間隔
   media_headers.dart       # mediaRequestHeaders：媒體請求只留的 header
+  network_status.dart      # NetworkStatus、狀態機、networkStatusProvider、RequestOutcomeSink
 ```
 
 ## 發一個請求
@@ -95,6 +96,30 @@ expect(harness.records.single.fields['status'], 200);
 - 網域在測試裡用 `example.test`、`cdn.example`（RFC 2606 保留網域），不用真實網站。
 - 驗遮蔽時兩個出口都看：`harness.log.history` 與 `LogFile`（見
   `.trellis/spec/app/logging/index.md` § 測試）。
+
+## 網路狀態
+
+```dart
+// 組裝點：client 的工廠接上網路狀態（plugin_registry.dart 的寫法）。
+SourceHttpClientFactory(
+  log: ref.watch(logProvider),
+  reportOutcome: ref.watch(networkStatusProvider.notifier).report,
+);
+
+// 畫面：請求失敗而狀態不是 online 時換成離線空狀態。
+final network = ref.watch(networkStatusProvider);
+if (failed && network != NetworkStatus.online) {
+  return OfflineMessage(status: network, action: retryButton);
+}
+```
+
+- 新的 client 在「每次送出」之後回報一次：拿到回應 `RequestOutcome.responded`，傳輸錯誤
+  `RequestOutcome.networkError`，沒送出與取消不回報（`SourceHttpClient._reportFailure`）。
+- 轉換規則全在 `NetworkStatusMachine`（純 Dart，讀 `clock`）；Notifier 只接平台層與
+  log（tag `network-status`，每次改變一筆 `Network status changed`，欄位 `from`、`to`、
+  `cause`）。改規則先改 `network_status_test.dart` 的轉換表那一列。
+- 測試：狀態機直接建；要時間就包 `fakeAsync`，結尾斷言 `async.pendingTimers` 是空的。
+  client 的回報看 `Harness.outcomes`。畫面的測試用 `ShellHarness.setNetwork`。
 
 ## 媒體 header
 

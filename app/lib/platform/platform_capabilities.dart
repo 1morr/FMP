@@ -24,6 +24,7 @@ final class PlatformCapabilities {
     required this.singleInstance,
     required this.fontFallback,
     required this.playback,
+    required this.networkInterfaces,
   });
 
   /// 還沒驗證的平台：什麼都沒有。
@@ -32,6 +33,7 @@ final class PlatformCapabilities {
     singleInstance: false,
     fontFallback: FontFallback.none,
     playback: null,
+    networkInterfaces: false,
   );
 
   /// 有 App 資料目錄的實作（`app_data_directory/`）。沒有時 `main()` 不啟動
@@ -48,4 +50,8 @@ final class PlatformCapabilities {
 
   /// 播放用的後端與可播格式（ADR 0018 §決定 3）；沒有播放的實作時為 `null`。
   final PlaybackSupport? playback;
+
+  /// 有網路介面的實作（`connectivity/`）：網路層據此判斷 `noInterface`。沒有時
+  /// 網路狀態只看請求結果（ADR 0016 §決定 6）。
+  final bool networkInterfaces;
 }

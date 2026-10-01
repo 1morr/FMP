@@ -14,6 +14,7 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/request_throttle.dart';
 
 part 'interceptors.dart';
@@ -95,10 +96,12 @@ final class RequestCancelled implements Exception {
 ///
 /// [createAdapter] 是 dio 最底層的 `HttpClientAdapter`，每個 client 各建一個；
 /// fixture 的錄製與重播（ADR 0015 §決定 5）換掉它。[now]、[wait]、[random]
-/// 給重試、限流與網路紀錄用，測試注入假的。
+/// 給重試、限流與網路紀錄用，測試注入假的。[reportOutcome] 收每次送出的結果
+/// （網路狀態，ADR 0016 §決定 6）；契約執行器與量測不接。
 final class SourceHttpClientFactory {
   SourceHttpClientFactory({
     required this._log,
+    this._reportOutcome = _ignoreOutcome,
     this._credentials = const NoCredentials(),
     this._createAdapter = IOHttpClientAdapter.new,
     this._now = DateTime.now,
@@ -107,6 +110,7 @@ final class SourceHttpClientFactory {
   }) : _random = random ?? math.Random();
 
   final Log _log;
+  final RequestOutcomeSink _reportOutcome;
   final CredentialSource _credentials;
   final HttpClientAdapter Function() _createAdapter;
   final DateTime Function() _now;
@@ -153,6 +157,7 @@ final class SourceHttpClientFactory {
       retryPolicy: retryPolicy,
       dio: dio,
       nextRecordId: () => ++_lastRecordId,
+      reportOutcome: _reportOutcome,
       wait: _wait,
       random: _random,
     );
@@ -160,6 +165,8 @@ final class SourceHttpClientFactory {
 }
 
 Future<void> _delay(Duration duration) => Future<void>.delayed(duration);
+
+void _ignoreOutcome(RequestOutcome outcome) {}
 
 /// 一個插件的 API client：該插件所有請求共用（ADR 0012 §決定 1）。
 ///
@@ -173,6 +180,7 @@ final class SourceHttpClient {
     required this._retryPolicy,
     required this._dio,
     required this._nextRecordId,
+    required this._reportOutcome,
     required this._wait,
     required this._random,
   });
@@ -182,6 +190,7 @@ final class SourceHttpClient {
   final RetryPolicy _retryPolicy;
   final Dio _dio;
   final int Function() _nextRecordId;
+  final RequestOutcomeSink _reportOutcome;
   final Future<void> Function(Duration) _wait;
   final math.Random _random;
 
@@ -271,6 +280,7 @@ final class SourceHttpClient {
             validateStatus: (_) => true,
           ),
         );
+        _reportOutcome(RequestOutcome.responded);
         return (
           response: SourceResponse(
             url: request.url,
@@ -288,6 +298,7 @@ final class SourceHttpClient {
         if (failure.type == DioExceptionType.cancel) {
           throw const RequestCancelled();
         }
+        _reportFailure(failure);
         error = switch (failure.error) {
           final AppError mapped => mapped,
           // 錯誤對應攔截器已經轉好；走到這裡代表它之後的攔截器出錯。
@@ -315,6 +326,17 @@ final class SourceHttpClient {
           : null;
       if (delay == null) throw error;
       await Future.any([_wait(delay), cancelToken.whenCancel]);
+    }
+  }
+
+  /// 失敗的那次送出對網路狀態的意義：拿到了回應（攔截器把 429 轉成
+  /// `RateLimited`）也是連得上；`NetworkError` 是連不上；沒送出的
+  /// （`AuthRequired`）與其他錯誤不算。每次重試各算一次。
+  void _reportFailure(DioException failure) {
+    if (failure.response != null) {
+      _reportOutcome(RequestOutcome.responded);
+    } else if (failure.error is NetworkError) {
+      _reportOutcome(RequestOutcome.networkError);
     }
   }
 

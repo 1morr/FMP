@@ -14,7 +14,9 @@ lib/platform/
     <能力>_<平台>.dart          # 各平台實作；平台套件只在這裡 import
 ```
 
-現有的例子：`app_data_directory/`（介面＋兩個實作）、`fonts/`（值型別＋各平台的常數）。
+現有的例子：`app_data_directory/`（介面＋兩個實作）、`fonts/`（值型別＋各平台的常數）、
+`connectivity/`（介面＋一個實作給兩個平台：差異都在套件的原生端時，實作檔以套件命名，
+`connectivity_plus_interfaces.dart`，組裝點兩個分支各建一個）。
 
 ## 加一個能力
 
