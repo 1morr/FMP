@@ -9,6 +9,7 @@ import 'package:fmp/core/errors/retry_policy.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:path/path.dart' as p;
 
@@ -850,5 +851,89 @@ void main() {
       await harness.get('https://example.test/b');
       expect(harness.records.map((r) => r.fields['id']), [1, 2]);
     });
+  });
+
+  // ADR 0016 §決定 6：每次送出的結果進網路狀態。拿到回應（不論狀態碼）＝連得
+  // 上；NetworkError＝連不上；沒送出或取消的不算。
+  group('network status', () {
+    DioException refused(RequestOptions options) =>
+        DioException.connectionError(
+          requestOptions: options,
+          reason: 'refused',
+        );
+
+    test('any status code is a response', () async {
+      for (final status in [200, 404, 500]) {
+        final harness = Harness((_) => reply(status), retryPolicy: _noRetry);
+        await harness.get('https://example.test/a');
+        expect(harness.outcomes, [RequestOutcome.responded], reason: '$status');
+      }
+    });
+
+    test('429 is a response even though it fails as RateLimited', () async {
+      final harness = Harness((_) => reply(429), retryPolicy: _noRetry);
+      expect(
+        await errorOf(harness.get('https://example.test/a')),
+        isA<RateLimited>(),
+      );
+      expect(harness.outcomes, [RequestOutcome.responded]);
+    });
+
+    test('every attempt and every hop reports once', () async {
+      var calls = 0;
+      final harness = Harness(
+        (options) => switch (options.uri.path) {
+          '/a' => redirect('/b'),
+          _ => ++calls < 3 ? throw refused(options) : reply(200),
+        },
+      );
+      await harness.get('https://example.test/a');
+      expect(harness.outcomes, [
+        RequestOutcome.responded,
+        RequestOutcome.networkError,
+        RequestOutcome.networkError,
+        RequestOutcome.responded,
+      ]);
+    });
+
+    test('a rejected certificate is a network error', () async {
+      final harness = Harness(
+        (o) => throw DioException.badCertificate(requestOptions: o),
+        retryPolicy: _noRetry,
+      );
+      await errorOf(harness.get('https://example.test/a'));
+      expect(harness.outcomes, [RequestOutcome.networkError]);
+    });
+
+    test(
+      'requests that were not sent or were cancelled report nothing',
+      () async {
+        final harness = Harness(
+          (o) =>
+              throw DioException(requestOptions: o, error: StateError('bug')),
+          retryPolicy: _noRetry,
+        );
+        // 網域不符：沒送出。
+        await errorOf(harness.get('https://elsewhere.test/a'));
+        // 未登入的 required：沒送出。
+        await errorOf(
+          harness.get('https://example.test/a', auth: AuthRequirement.required),
+        );
+        // 不是傳輸錯誤的失敗（UnexpectedError）。
+        await errorOf(harness.get('https://example.test/a'));
+        expect(harness.outcomes, isEmpty);
+
+        final pending = Completer<ResponseBody>();
+        final abort = Completer<void>();
+        final hanging = Harness((_) => pending.future);
+        final send = errorOf(
+          hanging.get('https://example.test/a', abortTrigger: abort.future),
+        );
+        await pumpUntil(() => hanging.adapter.requests.isNotEmpty);
+        abort.complete();
+        expect(await send, isA<RequestCancelled>());
+        expect(hanging.outcomes, isEmpty);
+      },
+    );
   });
 }
