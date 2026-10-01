@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Section 7.1 and section 2 (restrictedImports table)"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Components, event routing and the two import rules in How to confirm"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback layer patterns and the on-device section to repoint"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "How fmp_lints rules and two-way mutation tests are written"}

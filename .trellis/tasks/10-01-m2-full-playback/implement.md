@@ -41,7 +41,9 @@
 - **狀態**：2026-10-01 擁有者核准（`prd.md` 決定 8，design §12 八條全部照設計）。
 - **擁有者決定**：1–8 在 `prd.md`。
 - **已合併進 `main`**：（無）
-- **下一步**：PR 0（本分支 `docs/m2-plan`）→ PR 1。
+- **PR 0 完成**（#195）：規劃檔、ADR 一行更正、`milestones.md` 範圍調整。
+- **PR 1 完成**（子任務 archive 到 `.trellis/tasks/archive/2026-10/10-01-playback-session-split/`）：`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 的 `restrictedImports`；後端契約加「回報在呼叫回來之後才送達」；哨兵以 `_expectedMessages` 斷言新表有接上。
+- **下一步**：PR 2（網路狀態）起；2–6 與 7、9、11 可並行。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-queue-model`）；
   2. `task.py create … --parent .trellis/tasks/10-01-m2-full-playback --package app --no-start`；
@@ -545,6 +547,11 @@
 - 依賴：18a。模型：opus。
 
 ## 留下的後續
+
+PR 1 留下的：
+
+- [ ] `fmp_layer_imports` 不正規化含 `..` 的 package URI（`package:fmp/playback/../…`），既有限制，這次的 `restrictedImports` 一樣抓不到。
+- [ ] `audioBackendProvider` 不經 import 也能 `ref.watch` 拿到後端實例；lint 只管 import，這半條沒有閘門（`app/AGENTS.md` § 播放已註明），review 時看。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
