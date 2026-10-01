@@ -9,6 +9,7 @@ import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/audio_backends.dart';
 import 'package:fmp/playback/playback_controller.dart';
+import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/stream_resolver.dart';
@@ -33,13 +34,17 @@ final audioBackendProvider = Provider<AudioBackend>((ref) {
 
 /// UI 唯一的播放入口（ADR 0018 §決定 1）。
 final playbackControllerProvider = Provider<PlaybackController>((ref) {
+  final log = ref.watch(logProvider);
   final controller = PlaybackController(
-    backend: ref.watch(audioBackendProvider),
-    resolver: StreamResolver(
-      plugin: (pluginId) => ref.read(pluginRegistryProvider).value?[pluginId],
-      formats: ref.watch(_playbackSupportProvider).formats,
+    session: PlaybackSession(
+      backend: ref.watch(audioBackendProvider),
+      resolver: StreamResolver(
+        plugin: (pluginId) => ref.read(pluginRegistryProvider).value?[pluginId],
+        formats: ref.watch(_playbackSupportProvider).formats,
+      ),
+      log: log,
     ),
-    log: ref.watch(logProvider),
+    log: log,
   );
   ref.onDispose(() => unawaited(controller.dispose()));
   return controller;

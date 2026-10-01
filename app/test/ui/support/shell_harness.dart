@@ -15,6 +15,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
@@ -61,10 +62,13 @@ final class ShellHarness {
        ) {
     this.sources = sources ?? [plugin];
     controller = PlaybackController(
-      backend: backend,
-      resolver: StreamResolver(
-        plugin: (id) => id == plugin.manifest.id ? plugin : null,
-        formats: const [PlayableFormat('mp4', 'aac')],
+      session: PlaybackSession(
+        backend: backend,
+        resolver: StreamResolver(
+          plugin: (id) => id == plugin.manifest.id ? plugin : null,
+          formats: const [PlayableFormat('mp4', 'aac')],
+        ),
+        log: log,
       ),
       log: log,
     );

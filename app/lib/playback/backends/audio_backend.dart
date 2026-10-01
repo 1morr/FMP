@@ -6,14 +6,14 @@ import 'package:fmp/playback/playback_state.dart';
 
 /// 播放引擎的介面（ADR 0018 §決定 3）：`JustAudioBackend`（Android）與
 /// `MediaKitBackend`（Windows）兩個實作，平台層宣告用哪一個
-/// （`PlaybackSupport.backend`）。只由 `PlaybackController` 呼叫。
+/// （`PlaybackSupport.backend`）。只由 `PlaybackSession` 呼叫。
 ///
 /// **只持有「目前＋一個前瞻」**：[open] 換掉整個清單，[setNext] 設定或清掉
 /// 前瞻；前瞻接上後，後端自己把播完的那一個移掉（[LookAheadEdit]）。後端不
 /// 知道佇列，也不解析網址。
 ///
 /// 狀態、位置與事件都帶 [BackendSource.id]：broadcast stream 是非同步送達的，
-/// 換來源之後還可能收到上一個來源的值，控制器以 id 過濾。
+/// 換來源之後還可能收到上一個來源的值，`PlaybackSession` 以 id 過濾。
 ///
 /// 收斂不了的差異：
 ///
@@ -76,7 +76,7 @@ final class BackendSource {
     Map<String, String> headers = const {},
   }) : headers = Map.unmodifiable(mediaRequestHeaders(headers));
 
-  /// 控制器給的代號，事件以它指回這個來源。
+  /// `PlaybackSession` 給的代號，事件以它指回這個來源。
   final int id;
 
   /// `https` 網址，或 App 內附的 `asset:///…`。

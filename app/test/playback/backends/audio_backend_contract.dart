@@ -261,6 +261,46 @@ void audioBackendContract({
     await recorder.close();
   });
 
+  // PlaybackSession 把回報同步轉給控制器（broadcast(sync: true)），控制器處理時
+  // 又會呼叫後端：回報在呼叫回來之前就送達的話，會在處理途中重入而拋錯。
+  defineCase('reports arrive only after the call returns', () async {
+    final recorder = await record();
+    var calling = false;
+    final early = <Object?>[];
+    void check(Object? value) {
+      if (calling) early.add(value);
+    }
+
+    final subscriptions = [
+      recorder.backend.status.listen(check),
+      recorder.backend.progress.listen(check),
+      recorder.backend.events.listen(check),
+    ];
+    Future<void> call(Future<void> Function() method) {
+      calling = true;
+      try {
+        return method();
+      } finally {
+        calling = false;
+      }
+    }
+
+    final a = source(track);
+    await call(() => recorder.backend.open(a));
+    await recorder.untilReady(a.id, slack);
+    await call(() => recorder.backend.setNext(source(track)));
+    await call(recorder.backend.pause);
+    await call(recorder.backend.play);
+    await call(() => recorder.backend.seek(Duration.zero));
+    await call(recorder.backend.stop);
+    await call(() => recorder.backend.open(source(missing)));
+    for (final subscription in subscriptions) {
+      await subscription.cancel();
+    }
+    expect(early, isEmpty);
+    await recorder.close();
+  });
+
   defineCase('pause and play toggle the playing flag', () async {
     final recorder = await record();
     final a = source(track);

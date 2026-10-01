@@ -11,6 +11,7 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/playback/playback_controller.dart';
+import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/source_dto.dart';
@@ -40,13 +41,16 @@ final class Harness {
          failsToOpen: failsToOpen ?? (_) => false,
        ) {
     controller = PlaybackController(
-      backend: backend,
-      resolver: StreamResolver(
-        plugin: (id) => id == plugin.manifest.id ? plugin : null,
-        formats: const [PlayableFormat('mp4', 'aac')],
+      session: PlaybackSession(
+        backend: backend,
+        resolver: StreamResolver(
+          plugin: (id) => id == plugin.manifest.id ? plugin : null,
+          formats: const [PlayableFormat('mp4', 'aac')],
+        ),
+        log: log,
+        now: now,
       ),
       log: log,
-      now: now,
     );
     controller.states.listen(states.add);
   }
@@ -614,10 +618,13 @@ void main() {
             durationOf: (_) => const Duration(minutes: 5),
           );
           final controller = PlaybackController(
-            backend: backend,
-            resolver: StreamResolver(
-              plugin: (_) => plugin,
-              formats: const [PlayableFormat('mp4', 'aac')],
+            session: PlaybackSession(
+              backend: backend,
+              resolver: StreamResolver(
+                plugin: (_) => plugin,
+                formats: const [PlayableFormat('mp4', 'aac')],
+              ),
+              log: log,
             ),
             log: log,
           );
