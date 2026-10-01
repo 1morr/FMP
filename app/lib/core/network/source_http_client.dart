@@ -11,27 +11,19 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/errors/retry_policy.dart';
 import 'package:fmp/core/logging/log.dart';
-import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/http_rules.dart';
+import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/request_throttle.dart';
 
 part 'interceptors.dart';
 
-/// 網路紀錄的 log tag。
-const networkLogTag = 'network';
-
-/// 一次最多跟隨幾次轉址（ADR 0012 §決定 1；dio 的 `maxRedirects` 預設也是 5）。
-const maxRedirects = 5;
-
 /// 沿用舊版 `AppConstants.networkConnectTimeout`／`networkReceiveTimeout`。
 /// receive 是兩次收到資料之間的上限，不是整個回應（dio `receiveTimeout`）。
 const _connectTimeout = Duration(seconds: 10);
 const _receiveTimeout = Duration(seconds: 30);
-
-/// 會轉址的狀態碼（RFC 9110 §15.4）。300 與 304 不自動跟隨。
-const _redirectStatuses = {301, 302, 303, 307, 308};
 
 /// 跨網域轉址時從原請求拿掉的 header（名稱小寫）。
 const _crossHostStrippedHeaders = {
@@ -97,28 +89,29 @@ final class RequestCancelled implements Exception {
 /// [createAdapter] 是 dio 最底層的 `HttpClientAdapter`，每個 client 各建一個；
 /// fixture 的錄製與重播（ADR 0015 §決定 5）換掉它。[now]、[wait]、[random]
 /// 給重試、限流與網路紀錄用，測試注入假的。[reportOutcome] 收每次送出的結果
-/// （網路狀態，ADR 0016 §決定 6）；契約執行器與量測不接。
+/// （網路狀態，ADR 0016 §決定 6）；契約執行器與量測不接。[recordIds] 是網路
+/// 紀錄的 id，App 裡與媒體 client 共用一個。
 final class SourceHttpClientFactory {
   SourceHttpClientFactory({
     required this._log,
     this._reportOutcome = _ignoreOutcome,
     this._credentials = const NoCredentials(),
+    NetworkRecordIds? recordIds,
     this._createAdapter = IOHttpClientAdapter.new,
     this._now = DateTime.now,
     this._wait = _delay,
     math.Random? random,
-  }) : _random = random ?? math.Random();
+  }) : _recordIds = recordIds ?? NetworkRecordIds(),
+       _random = random ?? math.Random();
 
   final Log _log;
   final RequestOutcomeSink _reportOutcome;
   final CredentialSource _credentials;
+  final NetworkRecordIds _recordIds;
   final HttpClientAdapter Function() _createAdapter;
   final DateTime Function() _now;
   final Future<void> Function(Duration) _wait;
   final math.Random _random;
-
-  /// 網路紀錄的 id，整個 App 執行期間遞增。
-  int _lastRecordId = 0;
 
   /// [pluginId] 的 client。[allowedHosts] 是 manifest 的允許網域；
   /// [retryPolicy]、[rateLimitPolicy] 是 manifest 宣告的策略，沒宣告限流就
@@ -156,7 +149,7 @@ final class SourceHttpClientFactory {
       allowedHosts: hosts,
       retryPolicy: retryPolicy,
       dio: dio,
-      nextRecordId: () => ++_lastRecordId,
+      nextRecordId: _recordIds.next,
       reportOutcome: _reportOutcome,
       wait: _wait,
       random: _random,
@@ -206,46 +199,20 @@ final class SourceHttpClient {
     final cancelToken = CancelToken();
     // 觸發的 Future 以錯誤結束也算取消。
     abortTrigger?.whenComplete(cancelToken.cancel).ignore();
+    requireAllowedHost(_allowedHosts, request.url, pluginId: pluginId);
     var hop = request;
     for (var redirects = 0; ; redirects++) {
-      if (!_allowedHosts.allows(hop.url)) {
-        throw Unsupported(
-          pluginId: pluginId,
-          cause: StateError('Host not allowed: ${hop.url.host}'),
-          stackTrace: StackTrace.current,
-        );
-      }
       final (:response, :recordId) = await _sendWithRetry(hop, cancelToken);
-      final location = _redirectLocation(response);
+      final location = redirectLocation(response.statusCode, response.headers);
       if (location == null) return response;
-      if (redirects == maxRedirects) {
-        throw Unsupported(
-          pluginId: pluginId,
-          networkRecordId: recordId,
-          cause: StateError('More than $maxRedirects redirects'),
-          stackTrace: StackTrace.current,
-        );
-      }
-      final Uri next;
-      try {
-        next = hop.url.resolve(location);
-      } on FormatException catch (error, stackTrace) {
-        // 伺服器給的 `Location` 解析不了：跟不下去，同出網域一樣失敗。
-        throw Unsupported(
-          pluginId: pluginId,
-          networkRecordId: recordId,
-          cause: error,
-          stackTrace: stackTrace,
-        );
-      }
-      if (!_allowedHosts.allows(next)) {
-        throw Unsupported(
-          pluginId: pluginId,
-          networkRecordId: recordId,
-          cause: StateError('Redirect to a host not allowed: ${next.host}'),
-          stackTrace: StackTrace.current,
-        );
-      }
+      final next = redirectTarget(
+        from: hop.url,
+        location: location,
+        redirects: redirects,
+        allowedHosts: _allowedHosts,
+        pluginId: pluginId,
+        networkRecordId: recordId,
+      );
       hop = _redirected(hop, next, response.statusCode);
     }
   }
@@ -338,13 +305,6 @@ final class SourceHttpClient {
     } else if (failure.error is NetworkError) {
       _reportOutcome(RequestOutcome.networkError);
     }
-  }
-
-  /// [response] 要跟隨的 `Location`；不是轉址回 `null`。
-  static String? _redirectLocation(SourceResponse response) {
-    if (!_redirectStatuses.contains(response.statusCode)) return null;
-    final location = response.headers[HttpHeaders.locationHeader]?.first;
-    return location == null || location.isEmpty ? null : location;
   }
 
   /// 往 [next] 的下一跳。

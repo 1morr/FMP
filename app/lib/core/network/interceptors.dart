@@ -162,23 +162,14 @@ final class _ErrorMappingInterceptor extends Interceptor {
     );
   }
 
-  /// RFC 6585 §4：429 Too Many Requests，可以帶 `Retry-After`。
-  /// RFC 9110 §15.6.4：503 Service Unavailable 帶 `Retry-After` 表示暫時超載、
-  /// 多久後再試；沒帶的 503 不一定是限流，交給插件。
   RateLimited? _rateLimited(Response<Object?> response) {
-    final status = response.statusCode;
-    if (status != 429 && status != 503) return null;
-    final header = response.headers[HttpHeaders.retryAfterHeader]?.first;
-    final retryAfter = header == null
-        ? null
-        : parseRetryAfter(header, now: _now());
-    if (status == 503 && retryAfter == null) return null;
     final attempt = _Attempt.of(response.requestOptions);
-    return RateLimited(
+    return rateLimitedResponse(
+      response.statusCode ?? 0,
+      response.headers.map,
+      now: _now(),
       pluginId: attempt.pluginId,
-      retryAfter: retryAfter,
       networkRecordId: attempt.recordId,
-      cause: 'HTTP $status',
     );
   }
 
@@ -188,37 +179,15 @@ final class _ErrorMappingInterceptor extends Interceptor {
       return handler.next(err);
     }
     final attempt = _Attempt.of(err.requestOptions);
-    handler.next(err.copyWith(error: _map(err, attempt)));
-  }
-
-  AppError _map(DioException err, _Attempt attempt) {
-    NetworkError network({bool retryable = true}) => NetworkError(
-      pluginId: attempt.pluginId,
-      retryable: retryable,
-      networkRecordId: attempt.recordId,
-      cause: err,
-      stackTrace: err.stackTrace,
-    );
-    return switch (err.type) {
-      DioExceptionType.connectionTimeout ||
-      DioExceptionType.sendTimeout ||
-      DioExceptionType.receiveTimeout ||
-      DioExceptionType.connectionError => network(),
-      // 憑證驗證不過，重送也一樣。
-      DioExceptionType.badCertificate => network(retryable: false),
-      // TLS 握手失敗（HandshakeException）、連線中斷（HttpException）等
-      // dio 沒歸類的傳輸錯誤都是 IOException。
-      DioExceptionType.unknown when err.error is IOException => network(),
-      DioExceptionType.unknown ||
-      DioExceptionType.badResponse ||
-      DioExceptionType.transformTimeout ||
-      DioExceptionType.cancel => UnexpectedError(
-        pluginId: attempt.pluginId,
-        networkRecordId: attempt.recordId,
-        cause: err,
-        stackTrace: err.stackTrace,
+    handler.next(
+      err.copyWith(
+        error: transportError(
+          err,
+          pluginId: attempt.pluginId,
+          networkRecordId: attempt.recordId,
+        ),
       ),
-    };
+    );
   }
 }
 
@@ -302,8 +271,6 @@ final class _NetworkLogInterceptor extends Interceptor {
     handler.next(err);
   }
 
-  /// [failed]：產生了錯誤，或狀態碼 ≥ 400。失敗用 `warning`，release 的預設
-  /// 層級（info）也看得到；其餘用 `debug`。
   void _write(
     RequestOptions options, {
     required bool failed,
@@ -311,26 +278,26 @@ final class _NetworkLogInterceptor extends Interceptor {
     String? error,
   }) {
     final attempt = _Attempt.of(options);
-    final uri = options.uri;
-    _log.write(
-      failed ? LogLevel.warning : LogLevel.debug,
-      failed ? 'HTTP request failed' : 'HTTP request',
-      tag: networkLogTag,
-      fields: {
-        'id': attempt.recordId,
-        'pluginId': attempt.pluginId,
-        'method': options.method,
-        'host': uri.host,
-        'path': uri.path,
-        if (uri.hasQuery) 'query': uri.query,
-        'status': ?response?.statusCode,
-        if (attempt.startedAt case final started?)
-          'ms': _now().difference(started).inMilliseconds,
-        if (response?.data case final List<int> body) 'bytes': body.length,
-        'error': ?error,
-        'credentials': attempt.credentialsAttached,
-        'retry': attempt.retry,
+    writeNetworkRecord(
+      _log,
+      client: NetworkClient.source,
+      id: attempt.recordId,
+      pluginId: attempt.pluginId,
+      method: options.method,
+      uri: options.uri,
+      failed: failed,
+      credentials: attempt.credentialsAttached,
+      retry: attempt.retry,
+      status: response?.statusCode,
+      ms: switch (attempt.startedAt) {
+        final started? => _now().difference(started).inMilliseconds,
+        null => null,
       },
+      bytes: switch (response?.data) {
+        final List<int> body => body.length,
+        _ => null,
+      },
+      error: error,
     );
   }
 }

@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log_record.dart';
-import 'package:fmp/core/network/source_http_client.dart';
+import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/plugins/runtime/worker_protocol.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
