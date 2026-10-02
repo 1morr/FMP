@@ -179,6 +179,15 @@ class LayerImportsTest extends FmpRuleTest {
   Future<void> test_dataImportsUi() =>
       assertLints('lib/data/database.dart', "import [!'../ui/page.dart'!];\n");
 
+  // 設定、播放、插件都讀資料層（Notifier 讀 repository、佇列存檔、插件清單），
+  // 資料層反過來 import 它們就是循環。
+  Future<void> test_dataImportsAnUpperLayer() => assertLints(
+    'lib/data/cache/cache_store.dart',
+    "import [!'package:test/settings/network_settings.dart'!];\n"
+        "import [!'../../playback/playback_controller.dart'!];\n"
+        "import [!'package:test/plugins/plugin_registry.dart'!];\n",
+  );
+
   Future<void> test_exportAndConditionalImport() => assertLints(
     'lib/ui/page.dart',
     "export [!'package:dio/dio.dart'!];\n"
@@ -342,6 +351,22 @@ class LayerImportsTest extends FmpRuleTest {
     'lib/data/database.dart',
     "import '../domain/track_key.dart';\n",
   );
+
+  // 反方向照常；資料層裡名稱相近的檔案與目錄（`settings` 開頭但不是
+  // `lib/settings/`）不報。
+  Future<void> test_upperLayersMayImportData() async {
+    await assertLints(
+      'lib/settings/network_settings.dart',
+      "import 'package:test/data/providers.dart';\n"
+          "import '../data/repositories/network_settings_repository.dart';\n",
+    );
+    await assertLints(
+      'lib/data/cache/cache_store.dart',
+      "import 'package:test/data/repositories/network_settings_repository.dart';\n"
+          "import 'package:test/settings_backup/backup.dart';\n"
+          "import 'package:test/platform/platform_capabilities.dart';\n",
+    );
+  }
 
   Future<void> test_mentionsInCommentsAndStrings() => assertLints(
     'lib/ui/page.dart',
