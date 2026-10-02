@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -24,8 +25,6 @@ import 'fake_source_plugin.dart';
 TrackKeyParts track(String id) =>
     TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: id);
 
-final _start = DateTime.utc(2026, 9, 30, 12);
-
 /// 控制器加假後端、假插件與 log，全部在 [async] 的假時間裡。
 final class Harness {
   Harness(
@@ -46,9 +45,9 @@ final class Harness {
         resolver: StreamResolver(
           plugin: (id) => id == plugin.manifest.id ? plugin : null,
           formats: const [PlayableFormat('mp4', 'aac')],
+          log: log,
         ),
         log: log,
-        now: now,
       ),
       log: log,
     );
@@ -62,7 +61,8 @@ final class Harness {
   late final PlaybackController controller;
   final states = <PlaybackState>[];
 
-  DateTime now() => _start.add(async.elapsed);
+  /// fakeAsync 裡的 `clock` 跟著假時間走。
+  DateTime now() => clock.now();
 
   void elapse(Duration duration) => async.elapse(duration);
 
@@ -337,11 +337,11 @@ void main() {
         late Harness h;
         h = Harness(
           async,
-          trackLength: const Duration(seconds: 120),
+          trackLength: const Duration(minutes: 3),
           respond: (request) => [
             candidate(
               '${request.sourceId}-${h.plugin.requests.length}.m4a',
-              expiresAt: h.now().add(const Duration(seconds: 60)),
+              expiresAt: h.now().add(const Duration(minutes: 6)),
             ),
           ],
         );
@@ -350,14 +350,15 @@ void main() {
         expect(h.plugin.resolvedCount('b'), 1);
         final first = h.backend.nextSources.last;
 
-        // 60 秒的期限、30 秒的餘裕：30 秒時換掉前瞻。
-        h.elapse(const Duration(seconds: 30));
+        // 6 分鐘的期限、5 分鐘的餘裕：1 分鐘時換掉前瞻，不拿快取裡同一個網址。
+        h.elapse(const Duration(minutes: 1));
         expect(h.plugin.resolvedCount('b'), 2);
         final refreshed = h.backend.nextSources.last;
         expect(refreshed?.id, isNot(first?.id));
+        expect(refreshed?.url.path, isNot(first?.url.path));
         expect(h.logged('Look-ahead refreshed before expiry'), hasLength(1));
 
-        h.elapse(const Duration(seconds: 90));
+        h.elapse(const Duration(minutes: 2));
         expect(h.controller.queue.currentIndex, 1);
         expect(h.openedPaths, hasLength(1));
       });
@@ -368,12 +369,13 @@ void main() {
         late Harness h;
         h = Harness(
           async,
-          trackLength: const Duration(seconds: 120),
+          trackLength: const Duration(minutes: 10),
           respond: (request) => [
             candidate(
               '${request.sourceId}.m4a',
-              // 解析出來就在餘裕內：不排重新解析，到用的時候才檢查。
-              expiresAt: h.now().add(const Duration(seconds: 20)),
+              // 解析出來就在 5 分鐘的餘裕內：不排重新解析、不進快取，到用的
+              // 時候才檢查。
+              expiresAt: h.now().add(const Duration(minutes: 4)),
             ),
           ],
         );
@@ -386,6 +388,117 @@ void main() {
         expect(h.plugin.resolvedCount('b'), 2);
         expect(h.logged('Look-ahead expired; resolving again'), hasLength(1));
         expect(h.openedPaths, ['/a.m4a', '/b.m4a']);
+      });
+    });
+
+    test('a look-ahead outside the margin is used as it is', () {
+      fakeAsync((async) {
+        late Harness h;
+        h = Harness(
+          async,
+          trackLength: const Duration(minutes: 10),
+          respond: (request) => [
+            candidate(
+              '${request.sourceId}.m4a',
+              expiresAt: h.now().add(const Duration(minutes: 6)),
+            ),
+          ],
+        );
+        unawaited(h.controller.playQueue([track('a'), track('b')]));
+        // 離過期還有 5 分鐘多一點。
+        h.elapse(const Duration(seconds: 50));
+
+        unawaited(h.controller.next());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.plugin.resolvedCount('b'), 1);
+        expect(h.logged('Look-ahead expired; resolving again'), isEmpty);
+      });
+    });
+  });
+
+  group('stream URL cache', () {
+    test('playing a track the look-ahead resolved does not resolve it '
+        'again', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(seconds: 60));
+        unawaited(h.controller.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.plugin.resolvedCount('b'), 1);
+
+        // 從搜尋結果再點 b：前瞻已經放掉，網址從快取拿。
+        unawaited(
+          h.controller.playQueue([track('a'), track('b')], startIndex: 1),
+        );
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Playing>());
+        expect(h.openedPaths, ['/a.m4a', '/b.m4a']);
+        expect(h.plugin.resolvedCount('b'), 1);
+        expect(h.logged('Resolving stream'), hasLength(2));
+      });
+    });
+
+    test(
+      'a look-ahead slower than the current track is resolved only once',
+      () {
+        fakeAsync((async) {
+          final gate = Completer<void>();
+          final h = Harness(
+            async,
+            respond: (request) async {
+              if (request.sourceId == 'b') await gate.future;
+              return [candidate('${request.sourceId}.m4a')];
+            },
+          );
+          unawaited(h.controller.playQueue([track('a'), track('b')]));
+          // a 播完（2 秒）時 b 的前瞻還在解析：照一般的下一首開始，共用同一個請求。
+          h.elapse(const Duration(seconds: 3));
+          expect(h.controller.queue.currentIndex, 1);
+          expect(h.controller.state, isA<Loading>());
+
+          gate.complete();
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.controller.state, isA<Playing>());
+          expect(h.openedPaths, ['/a.m4a', '/b.m4a']);
+          expect(h.plugin.resolvedCount('b'), 1);
+          expect(h.backend.nextSources.nonNulls, isEmpty);
+        });
+      },
+    );
+
+    test('playing a track again uses the cached stream', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.controller.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 3));
+        expect(h.controller.state, isA<Idle>());
+
+        unawaited(h.controller.playQueue([track('a')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
+        expect(h.plugin.resolvedCount('a'), 1);
+      });
+    });
+
+    test('a stream that failed to open is resolved again next time', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          respond: (request) => [
+            candidate('${request.sourceId}-1.m4a'),
+            candidate('${request.sourceId}-2.m4a'),
+          ],
+          failsToOpen: (url) => url.path == '/a-1.m4a',
+        );
+        unawaited(h.controller.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 3));
+        expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(h.logged('Stream URL invalidated'), hasLength(1));
+
+        unawaited(h.controller.playQueue([track('a')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.plugin.resolvedCount('a'), 2);
       });
     });
   });
@@ -623,6 +736,7 @@ void main() {
               resolver: StreamResolver(
                 plugin: (_) => plugin,
                 formats: const [PlayableFormat('mp4', 'aac')],
+                log: log,
               ),
               log: log,
             ),
