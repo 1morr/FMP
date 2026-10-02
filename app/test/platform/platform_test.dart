@@ -6,6 +6,9 @@ import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart'
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
+import 'package:fmp/platform/cache_directory/cache_directory.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes_android.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes_windows.dart';
 import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
@@ -15,7 +18,7 @@ import 'package:fmp/platform/platform.dart';
 void main() {
   group('AppPlatform.assemble', () {
     test('Android has a data directory, picks glyphs by locale, plays '
-        'with just_audio and sees network interfaces', () {
+        'with just_audio, sees network interfaces and has a cache', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.android,
         AppFlavor.dev,
@@ -32,10 +35,12 @@ void main() {
       );
       expect(platform.capabilities.networkInterfaces, isTrue);
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
+      expect(platform.capabilities.cache, same(androidCacheSizes));
+      expect(platform.cacheDirectory, isA<CacheDirectory>());
     });
 
     test('Windows has a data directory, a single instance, named fonts, '
-        'plays with media_kit and sees network interfaces', () {
+        'plays with media_kit, sees network interfaces and has a cache', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.windows,
         AppFlavor.dev,
@@ -52,6 +57,8 @@ void main() {
       );
       expect(platform.capabilities.networkInterfaces, isTrue);
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
+      expect(platform.capabilities.cache, same(windowsCacheSizes));
+      expect(platform.cacheDirectory, isA<CacheDirectory>());
     });
 
     for (final unverified in [
@@ -69,6 +76,8 @@ void main() {
         expect(platform.capabilities.playback, isNull);
         expect(platform.capabilities.networkInterfaces, isFalse);
         expect(platform.networkInterfaces, isNull);
+        expect(platform.capabilities.cache, isNull);
+        expect(platform.cacheDirectory, isNull);
         for (final language in FontLanguage.values) {
           expect(
             platform.capabilities.fontFallback.familiesFor(language),
@@ -77,6 +86,17 @@ void main() {
         }
       });
     }
+  });
+
+  test('cache sizes follow ADR 0016 and the old app', () {
+    // 快取上限的預設：行動 128MB、桌面 256MB（ADR 0016 §決定 3）；記憶體
+    // ImageCache 沿用舊版 lib/main.dart:156-164。
+    expect(androidCacheSizes.defaultLimitBytes, 128 * 1024 * 1024);
+    expect(androidCacheSizes.memoryImages, 100);
+    expect(androidCacheSizes.memoryImageBytes, 50 * 1024 * 1024);
+    expect(windowsCacheSizes.defaultLimitBytes, 256 * 1024 * 1024);
+    expect(windowsCacheSizes.memoryImages, 200);
+    expect(windowsCacheSizes.memoryImageBytes, 80 * 1024 * 1024);
   });
 
   test(
