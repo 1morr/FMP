@@ -270,6 +270,220 @@ class AppearanceSettingsTableCompanion
   }
 }
 
+class $NetworkSettingsTableTable extends NetworkSettingsTable
+    with TableInfo<$NetworkSettingsTableTable, NetworkSettingsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NetworkSettingsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    check: () => id.equals(1),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cacheLimitMbMeta = const VerificationMeta(
+    'cacheLimitMb',
+  );
+  @override
+  late final GeneratedColumn<int> cacheLimitMb = GeneratedColumn<int>(
+    'cache_limit_mb',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, cacheLimitMb];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'network_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NetworkSettingsRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('cache_limit_mb')) {
+      context.handle(
+        _cacheLimitMbMeta,
+        cacheLimitMb.isAcceptableOrUnknown(
+          data['cache_limit_mb']!,
+          _cacheLimitMbMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NetworkSettingsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NetworkSettingsRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cacheLimitMb: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cache_limit_mb'],
+      ),
+    );
+  }
+
+  @override
+  $NetworkSettingsTableTable createAlias(String alias) {
+    return $NetworkSettingsTableTable(attachedDatabase, alias);
+  }
+}
+
+class NetworkSettingsRow extends DataClass
+    implements Insertable<NetworkSettingsRow> {
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  final int id;
+
+  /// 快取上限（MiB）；空＝平台宣告的預設（ADR 0016 §決定 3）。
+  final int? cacheLimitMb;
+  const NetworkSettingsRow({required this.id, this.cacheLimitMb});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || cacheLimitMb != null) {
+      map['cache_limit_mb'] = Variable<int>(cacheLimitMb);
+    }
+    return map;
+  }
+
+  NetworkSettingsTableCompanion toCompanion(bool nullToAbsent) {
+    return NetworkSettingsTableCompanion(
+      id: Value(id),
+      cacheLimitMb: cacheLimitMb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cacheLimitMb),
+    );
+  }
+
+  factory NetworkSettingsRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NetworkSettingsRow(
+      id: serializer.fromJson<int>(json['id']),
+      cacheLimitMb: serializer.fromJson<int?>(json['cacheLimitMb']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cacheLimitMb': serializer.toJson<int?>(cacheLimitMb),
+    };
+  }
+
+  NetworkSettingsRow copyWith({
+    int? id,
+    Value<int?> cacheLimitMb = const Value.absent(),
+  }) => NetworkSettingsRow(
+    id: id ?? this.id,
+    cacheLimitMb: cacheLimitMb.present ? cacheLimitMb.value : this.cacheLimitMb,
+  );
+  NetworkSettingsRow copyWithCompanion(NetworkSettingsTableCompanion data) {
+    return NetworkSettingsRow(
+      id: data.id.present ? data.id.value : this.id,
+      cacheLimitMb: data.cacheLimitMb.present
+          ? data.cacheLimitMb.value
+          : this.cacheLimitMb,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NetworkSettingsRow(')
+          ..write('id: $id, ')
+          ..write('cacheLimitMb: $cacheLimitMb')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cacheLimitMb);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NetworkSettingsRow &&
+          other.id == this.id &&
+          other.cacheLimitMb == this.cacheLimitMb);
+}
+
+class NetworkSettingsTableCompanion
+    extends UpdateCompanion<NetworkSettingsRow> {
+  final Value<int> id;
+  final Value<int?> cacheLimitMb;
+  const NetworkSettingsTableCompanion({
+    this.id = const Value.absent(),
+    this.cacheLimitMb = const Value.absent(),
+  });
+  NetworkSettingsTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.cacheLimitMb = const Value.absent(),
+  });
+  static Insertable<NetworkSettingsRow> custom({
+    Expression<int>? id,
+    Expression<int>? cacheLimitMb,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cacheLimitMb != null) 'cache_limit_mb': cacheLimitMb,
+    });
+  }
+
+  NetworkSettingsTableCompanion copyWith({
+    Value<int>? id,
+    Value<int?>? cacheLimitMb,
+  }) {
+    return NetworkSettingsTableCompanion(
+      id: id ?? this.id,
+      cacheLimitMb: cacheLimitMb ?? this.cacheLimitMb,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cacheLimitMb.present) {
+      map['cache_limit_mb'] = Variable<int>(cacheLimitMb.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NetworkSettingsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('cacheLimitMb: $cacheLimitMb')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $InstalledPluginsTableTable extends InstalledPluginsTable
     with TableInfo<$InstalledPluginsTableTable, InstalledPluginRow> {
   @override
@@ -919,6 +1133,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $AppearanceSettingsTableTable appearanceSettingsTable =
       $AppearanceSettingsTableTable(this);
+  late final $NetworkSettingsTableTable networkSettingsTable =
+      $NetworkSettingsTableTable(this);
   late final $InstalledPluginsTableTable installedPluginsTable =
       $InstalledPluginsTableTable(this);
   late final $PluginStorageTableTable pluginStorageTable =
@@ -929,6 +1145,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     appearanceSettingsTable,
+    networkSettingsTable,
     installedPluginsTable,
     pluginStorageTable,
   ];
@@ -1131,6 +1348,172 @@ typedef $$AppearanceSettingsTableTableProcessedTableManager =
         >,
       ),
       AppearanceSettingsRow,
+      PrefetchHooks Function()
+    >;
+typedef $$NetworkSettingsTableTableCreateCompanionBuilder =
+    NetworkSettingsTableCompanion Function({
+      Value<int> id,
+      Value<int?> cacheLimitMb,
+    });
+typedef $$NetworkSettingsTableTableUpdateCompanionBuilder =
+    NetworkSettingsTableCompanion Function({
+      Value<int> id,
+      Value<int?> cacheLimitMb,
+    });
+
+class $$NetworkSettingsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $NetworkSettingsTableTable> {
+  $$NetworkSettingsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cacheLimitMb => $composableBuilder(
+    column: $table.cacheLimitMb,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NetworkSettingsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $NetworkSettingsTableTable> {
+  $$NetworkSettingsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cacheLimitMb => $composableBuilder(
+    column: $table.cacheLimitMb,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NetworkSettingsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NetworkSettingsTableTable> {
+  $$NetworkSettingsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get cacheLimitMb => $composableBuilder(
+    column: $table.cacheLimitMb,
+    builder: (column) => column,
+  );
+}
+
+class $$NetworkSettingsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NetworkSettingsTableTable,
+          NetworkSettingsRow,
+          $$NetworkSettingsTableTableFilterComposer,
+          $$NetworkSettingsTableTableOrderingComposer,
+          $$NetworkSettingsTableTableAnnotationComposer,
+          $$NetworkSettingsTableTableCreateCompanionBuilder,
+          $$NetworkSettingsTableTableUpdateCompanionBuilder,
+          (
+            NetworkSettingsRow,
+            BaseReferences<
+              _$AppDatabase,
+              $NetworkSettingsTableTable,
+              NetworkSettingsRow
+            >,
+          ),
+          NetworkSettingsRow,
+          PrefetchHooks Function()
+        > {
+  $$NetworkSettingsTableTableTableManager(
+    _$AppDatabase db,
+    $NetworkSettingsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NetworkSettingsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NetworkSettingsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$NetworkSettingsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int?> cacheLimitMb = const Value.absent(),
+              }) => NetworkSettingsTableCompanion(
+                id: id,
+                cacheLimitMb: cacheLimitMb,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int?> cacheLimitMb = const Value.absent(),
+              }) => NetworkSettingsTableCompanion.insert(
+                id: id,
+                cacheLimitMb: cacheLimitMb,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$NetworkSettingsTableTable, NetworkSettingsRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $NetworkSettingsTableTable,
+                    NetworkSettingsRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NetworkSettingsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NetworkSettingsTableTable,
+      NetworkSettingsRow,
+      $$NetworkSettingsTableTableFilterComposer,
+      $$NetworkSettingsTableTableOrderingComposer,
+      $$NetworkSettingsTableTableAnnotationComposer,
+      $$NetworkSettingsTableTableCreateCompanionBuilder,
+      $$NetworkSettingsTableTableUpdateCompanionBuilder,
+      (
+        NetworkSettingsRow,
+        BaseReferences<
+          _$AppDatabase,
+          $NetworkSettingsTableTable,
+          NetworkSettingsRow
+        >,
+      ),
+      NetworkSettingsRow,
       PrefetchHooks Function()
     >;
 typedef $$InstalledPluginsTableTableCreateCompanionBuilder =
@@ -1774,6 +2157,8 @@ class $AppDatabaseManager {
         _db,
         _db.appearanceSettingsTable,
       );
+  $$NetworkSettingsTableTableTableManager get networkSettingsTable =>
+      $$NetworkSettingsTableTableTableManager(_db, _db.networkSettingsTable);
   $$InstalledPluginsTableTableTableManager get installedPluginsTable =>
       $$InstalledPluginsTableTableTableManager(_db, _db.installedPluginsTable);
   $$PluginStorageTableTableTableManager get pluginStorageTable =>
