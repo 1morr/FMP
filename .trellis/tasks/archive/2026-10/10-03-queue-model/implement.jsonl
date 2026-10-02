@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Section 7.2 QueueModel rules and temporary play, 3.1 TrackInfo and TrackSummary conversion, 7.3 entry points for context"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decisions 4 and 5: queue modes, positional shuffle semantics, limit; how to verify"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Decision 2: TrackKey as the unique key, facts only"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback core patterns and tests"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin DTOs (TrackSummary) and conversions out of the plugin layer"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions, seeded randomness"}
