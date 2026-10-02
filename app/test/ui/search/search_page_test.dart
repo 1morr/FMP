@@ -230,7 +230,7 @@ void main() {
     expect(find.text('Song b'), findsOneWidget);
     await tester.tap(find.text('Song c'));
     await tester.pump();
-    expect(h.controller.queue.tracks.map((track) => track.sourceId), [
+    expect(h.controller.queue.entries.map((entry) => entry.track.sourceId), [
       'a',
       'b',
       'c',
@@ -266,11 +266,14 @@ void main() {
     await tester.pump();
 
     final queue = h.controller.queue;
-    expect(queue.tracks, const [
-      TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'a'),
-      TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'b'),
-      TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'c'),
-    ]);
+    expect(
+      [for (final entry in queue.entries) entry.track.key],
+      const [
+        TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'a'),
+        TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'b'),
+        TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'c'),
+      ],
+    );
     expect(queue.currentIndex, 1);
     // 播放列以曲目鍵找到顯示資料。
     expect(

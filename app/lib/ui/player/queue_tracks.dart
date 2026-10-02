@@ -6,8 +6,8 @@ import 'package:fmp/plugins/source_dto.dart';
 
 /// 佇列裡每首曲目的顯示資料（曲名、上傳者、封面），鍵是 [trackKeyOf]。
 ///
-/// M1 的佇列只有曲目鍵（ADR 0018 §決定 4），曲目的資料表在 M2 的音樂庫才有；
-/// 在那之前，開始播放的畫面把手上的 [TrackSummary] 放在這裡，播放列以鍵查。
+/// 開始播放的畫面把手上的 [TrackSummary] 放在這裡，播放列以鍵查。佇列的項目
+/// 已經帶著顯示資料（`QueueEntry`），播放列改讀它之後這裡就刪掉（M2）。
 /// 每次播放一份新的清單就整份換掉，不會一直長大。
 final queueTracksProvider =
     NotifierProvider<QueueTracks, Map<String, TrackSummary>>(QueueTracks.new);
@@ -30,11 +30,6 @@ String trackKeyOf(TrackSummary track) =>
 Future<void> playTracks(WidgetRef ref, List<TrackSummary> tracks, int index) {
   ref.read(queueTracksProvider.notifier).replace(tracks);
   return ref.read(playbackControllerProvider).playQueue([
-    for (final track in tracks)
-      TrackKeyParts(
-        sourceTypeId: track.sourceTypeId,
-        sourceId: track.sourceId,
-        cid: track.cid,
-      ),
+    for (final track in tracks) track.toTrackInfo(),
   ], startIndex: index);
 }

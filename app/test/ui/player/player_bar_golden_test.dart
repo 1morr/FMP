@@ -1,7 +1,6 @@
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/domain/appearance.dart';
-import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -31,9 +30,9 @@ Widget _bar(double width) {
         playbackQueueProvider.overrideWithValue(
           AsyncData(
             QueueState(
-              tracks: const [
-                TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'a'),
-                TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'b'),
+              entries: [
+                QueueEntry(track.toTrackInfo()),
+                QueueEntry(summary('b').toTrackInfo()),
               ],
               currentIndex: 0,
             ),

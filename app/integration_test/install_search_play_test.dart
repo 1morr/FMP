@@ -113,7 +113,7 @@ void main() {
       () => playedIndexes.contains(0),
       'the first track plays',
     );
-    expect(controller.queue.tracks.map((track) => track.sourceId), [
+    expect(controller.queue.entries.map((entry) => entry.track.sourceId), [
       'tone-220',
       'tone-440',
     ]);
