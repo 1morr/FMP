@@ -16,7 +16,9 @@ lib/platform/
 
 現有的例子：`app_data_directory/`（介面＋兩個實作）、`fonts/`（值型別＋各平台的常數）、
 `connectivity/`（介面＋一個實作給兩個平台：差異都在套件的原生端時，實作檔以套件命名，
-`connectivity_plus_interfaces.dart`，組裝點兩個分支各建一個）。
+`connectivity_plus_interfaces.dart`，組裝點兩個分支各建一個）、`cache_directory/`（沒有介面的
+一個類別：兩個平台只差在 path_provider 的原生端，路徑由組裝點注入；只准快取模組 import，所以
+它的大小宣告另放 `cache_sizes/`）。
 
 ## 加一個能力
 

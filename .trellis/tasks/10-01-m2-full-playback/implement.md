@@ -44,8 +44,9 @@
   - PR 0：#195。
   - PR 1：#196（`08449b17`）。`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 加 `restrictedImports`。
   - PR 2：#197（`35077a47`）。網路狀態、離線提示與搜尋頁離線畫面；`connectivity_plus ^7.3.1`；Windows 的 `/utf-8` 改在 `windows/CMakeLists.txt` 的 `APPLY_STANDARD_SETTINGS`，連插件一起套用。
-- **PR 3**：#198（媒體 client）。審查兩輪：第一輪找到網址 userinfo 會變成 `Authorization`；第二輪（第一輪中途藍屏、紀錄遺失後重審）找到已關閉的 client 被算成「連不上」。兩者都先寫失敗測試再修。
-- **下一步**：PR 3 合併後 PR 4（快取庫與封面）；2–6 與 7、9、11 可並行。
+- **PR 3 已合併**：#198（`02c70fbb`，媒體 client）。審查兩輪：第一輪找到網址 userinfo 會變成 `Authorization`；第二輪（第一輪中途藍屏、紀錄遺失後重審）找到已關閉的 client 被算成「連不上」。兩者都先寫失敗測試再修。
+- **PR 4 進行中**（2026-10-02；分支 `feat/app-artwork-cache`，子任務 `.trellis/tasks/10-02-artwork-cache`）：實作代理（opus）在做。回來後：實機真實連線（兩平台搜尋 B 站一次看封面、重開後沒有 `client: media` 新紀錄、`fmp_cache/` 有檔案）→ opus `trellis-check` → commit → archive → PR。
+- **下一步**：PR 4 合併後 PR 5（「網路」設定組）；2–6 與 7、9、11 可並行。
 - **本機環境備忘**（2026-10-01）：
   - 模擬器是 `Medium_Phone`，序號 `emulator-5556`（不是 5554）；`ax_flatten.py` 要加 `--device emulator-5556`，`adb` 指令加 `-s emulator-5556`。上面裝著 dev 與測試插件（`files/test.js`），介面語言是 English。
   - Windows 的 dev 產物在 PR 1 驗證後已重建；跑過整合測試要再 `flutter build windows --flavor dev --debug`，Android 要重裝 dev 並以 `run-as` 放回測試插件（skill 的 android.md）。
@@ -570,6 +571,14 @@ PR 3 留下的：
 - [ ] 同一個 `destination` 同時下載兩次會共用 `.part`（只有 dartdoc 寫明）；PR 4 接 `flutter_cache_manager` 時確認它不會同時對同一個檔下載兩次。
 - [ ] dart:io 預設解壓 gzip：單一網路塊解壓時可能短暫佔用大量記憶體，磁碟大小仍守得住；沒有 repro，不修。
 - [ ] 總計逾時在收到第一塊之後的情況沒有測試（fakeAsync 裡跑不了檔案 I/O），走的是和取消同一條路。
+
+PR 4 留下的：
+
+- [ ] B 站插件回傳原圖網址（實測每張最大約 885 KB、2–5 秒）：應由插件回傳多種尺寸（hdslb 的 `@160w` 這類後綴），宿主的 `pickArtwork` 已會挑；在 fmp-plugins 處理（PR 8 一起，或另開 issue）。宿主不組 B 站專用參數。
+- [x] ~~`flutter_cache_manager` 背景更新最後存取時間造成的幽靈列~~：第二輪審查（第一輪兩次藍屏後重審）寫出重現測試並修好（寫索引與清除、淘汰同一條隊伍，寫前先看檔案）；同輪另修索引大小取磁碟實際大小、`files/` 被系統刪掉後 `clear()` 丟例外。
+- [ ] 第二次 `_open` 也失敗的那一支沒有測試（造不出清空後仍開不起來的目錄）。
+- [ ] PR 5「清除快取」要另外清 Flutter 的 `ImageCache`；`CacheStore.clear()` 不碰它。
+- [ ] 本機 Windows 在 `make-migrations` 時把 checkout 的快照當成已存在且不同；暫時把快照轉成 LF 再跑（寫在 data spec）。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

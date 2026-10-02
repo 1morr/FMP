@@ -13,7 +13,7 @@
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
 | Xcode 專案（`ios/`、`macos/`） | 第一列；本機沒有 Mac 時建置交給 CI 的 iOS、macOS job（prod release 與 dev debug 各一次） |
-| drift 的 table 或資料庫類別（`lib/data/database/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
+| drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
@@ -217,16 +217,79 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `sqlite3` 3.x 以 build hooks 在建置時從它的 GitHub releases 下載預先編譯的 SQLite；
   第一次建置或 `flutter test` 要能連 GitHub。
 
+### 快取庫
+
+`lib/data/cache/`（ADR 0016 §決定 1–4、design §4.2–§4.4）。測試在 `test/data/cache/`，下面寫的
+群組都在 `cache_store_test.dart` 或 `image_cache_manager_test.dart`。
+
+- 快取目錄是平台快取目錄底下的 `fmp_cache/`（`cache.db`、`files/`、`staging/`），由
+  `lib/platform/cache_directory/` 解析；那個目錄在 `lib/` 只准快取模組、組裝點
+  `platform/platform.dart` 與 `main.dart` import，其他模組拿不到快取目錄。閘門：lint
+  `fmp_layer_imports` 的 `restrictedImports`（`layer_imports_test.dart` 的
+  `test_cacheDirectoryFromOutside`：能力宣告、同前綴的 `cache_directory_helpers.dart` 也報；
+  `test_cacheDirectoryFromAllowedImporters`：`cache_sizes/` 這類相近名稱不報）。
+- `cache.db` 是第二個 drift 資料庫，和主資料庫的規則不同：可以隨時丟。`cacheStoreProvider`
+  第一次被讀時才開（`main()` 只注入 `cacheDirectoryProvider`）；開不起來（損壞）就清空
+  `fmp_cache/` 重開一次、記 warning，不顯示錯誤頁；第二次也失敗是 `AsyncError`，封面只顯示
+  佔位圖。版本不同（升級或 revert 後的降級）就刪掉所有表照目前的 schema 重建，不寫逐步
+  migration。重建只清 `fmp_cache/` 裡面，平台快取目錄的其他東西不動。閘門：`opening` 群組
+  （不是資料庫的檔、別的版本的檔、旁邊的檔案留著）、`cacheStoreProvider` 群組（開不起來是
+  `AsyncError` 並記 error）、`test/drift/cache_database/schema_test.dart`（改了表沒加版本會
+  紅）。清空之後第二次 `_open` 也失敗的那一支沒有測試（造不出清空後仍開不起來的目錄）。
+- 開好之後先對帳才交出去：清空 `staging/`，刪掉檔案不見的列與 `files/` 裡不在索引的檔（寫到
+  一半被關掉的 App、刪不掉的舊檔）。閘門：`opening` 群組的 `reconciles the index…`。
+- 一個總上限（目前是平台宣告的預設，PR 5 接設定），寫進索引之後超過就不分類別、不分插件，
+  依 `last_access` 由舊到新刪到上限以下；`setLimit` 也馬上淘汰一次。不用計時器。寫索引、淘汰、
+  清除、移除插件一個接一個跑；刪檔失敗只記 log，留給下次開啟的對帳。閘門：`eviction` 群組、
+  `clear and remove` 群組。M2 只有 `image` 一個類別，「不分類別」是查詢沒有類別條件，沒有
+  兩個類別的測試。
+- 鍵在「類別＋插件」內唯一：兩個插件給同一個網址各存一份、各經自己的允許網域下載，移除插件
+  只刪自己的（design §4.2 寫 `key` 唯一，這裡加上兩欄）。閘門：`removing a plugin deletes
+  only that plugin's entries`。
+- 持久化格式：類別存 `cache_tables.dart` 的轉換器寫死的字串，時間是 UTC epoch 毫秒。閘門：
+  `stored format`。
+- `flutter_cache_manager` 只准在 `lib/data/cache/`、`cached_network_image` 只准在
+  `lib/ui/artwork/` import；上層拿到的 cache manager 型別是 `cache_store.dart` 轉出的
+  `BaseCacheManager`。閘門：lint `fmp_layer_imports`（`test_imageCachePackagesOutsideTheirOwners`、
+  `test_imageCachePackagesInTheirOwners`）。轉出只有 `BaseCacheManager` 這一個型別，沒有閘門，
+  review 時看。
+- `FmpImageCacheManager`（`image_cache_manager.dart`，`cache_store.dart` 的 `part`）把
+  `flutter_cache_manager` 的索引、檔案、下載三個介面換掉：
+  - 它自己的淘汰（`getObjectsOverCapacity`、`getOldObjects`）一律回空，每次讀索引之後排的
+    10 秒清理計時器因此什麼都不刪；它取檔前會先看檔案在不在，所以被快取庫淘汰的檔是未命中、
+    重新下載。閘門：`the unified store is the only one evicting` 群組。
+  - 索引以鍵寫入、不看 id：它記憶體裡的物件可能帶著已被淘汰的那一列的 id。閘門：
+    `an update that carries the id of an evicted entry is written again`。
+  - 讀到索引時才更新 `last_access`（記憶體裡已有的那份不更新），而且不等那次寫入；測試以
+    `cache_harness.dart` 的 `read` 等它。那次寫入可能晚於清除或淘汰，所以寫索引和淘汰、清除、
+    移除插件排在同一條隊伍，寫之前看檔案：不在就不寫，大小取磁碟上的（它的 `putFile` 對
+    已有的鍵沿用舊的 `length`）。閘門：`last access` 群組（含 `a last-access update that lands
+    after the file was removed…`）、`the size in the index is the size on disk`。
+  - 下載經插件的媒體 client（上限 `artworkMaxBytes` 10 MiB），先完整寫進 `staging/` 底下每次
+    不同名的檔，讀進記憶體才交給它寫檔。所以同一個 `destination` 不會同時下載兩次，它的
+    `WebHelper` 串流中途出錯時不刪寫一半的檔的問題也碰不到（寫檔本身失敗留下的檔由對帳刪）。
+    同一個 manager 同時要同一張圖只下載一次（`WebHelper` 合併）。閘門：`sharing` 群組、
+    `failures` 群組的 `a connection that breaks mid-body leaves nothing behind`。
+  - 新鮮度照它的 `HttpGetResponse`：`max-age`（大於 0）、`no-cache`，沒有就 7 天；它加的
+    `If-None-Match` 不在 `mediaRequestHeaders`，過期就整個重新下載。副檔名只給認得的圖片
+    類型，不由伺服器的字串組成檔名。閘門：`downloading` 群組。
+  - 下載失敗以 `log.report`（tag `cache`）記下。閘門：`a failed download leaves no file…`。
+- `flutter_cache_manager` 帶進 `sqflite`；App 不用它的預設索引，但不給 `cacheManager` 的
+  `CachedNetworkImage` 會用 `DefaultCacheManager`（另一套索引與目錄、直接以 `http` 連線），
+  所以 `CachedNetworkImage` 只在 `ArtworkImage` 用、而且一定給 cache manager（見「介面」）。
+
 ## Riverpod
 
 - `main()` 的每個 `runApp` 都包在 `lib/app/app_scope.dart` 的 `appProviderScope`：全域
   `retry` 關閉（ADR 0013 §決定 4）。閘門：`test/app/app_scope_test.dart`（含一個預設
   重試會重試的對照案例）；lint `missing_provider_scope` 擋沒有 `ProviderScope` 的 `runApp`。
 - 開好的資料庫（`appDatabaseProvider`，`lib/data/providers.dart`）、資料目錄
-  （`dataDirectoryProvider`，`lib/platform/app_data_directory/`）與網路介面
-  （`networkInterfacesProvider`，`lib/platform/connectivity/`）只由 `main()` 以
-  `overrides` 注入；沒 override 就讀會拋錯。測試照樣 override（記憶體資料庫、
-  `test/support/fake_network_interfaces.dart`；不看介面的整合測試給 `null`）。
+  （`dataDirectoryProvider`，`lib/platform/app_data_directory/`）、網路介面
+  （`networkInterfacesProvider`，`lib/platform/connectivity/`）與快取目錄
+  （`cacheDirectoryProvider`，`lib/platform/cache_directory/`）只由 `main()` 以
+  `overrides` 注入；沒 override 就讀會拋錯。快取庫不由 `main()` 開，見「快取庫」。測試照樣
+  override（記憶體資料庫、`test/support/fake_network_interfaces.dart`；不看介面的整合測試給
+  `null`）。
   「只有 `main()` 開庫」沒有閘門，review 時看。
 - 不用 `riverpod_generator`：provider 少，手寫。
 
@@ -362,6 +425,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `allowedHosts` 建立，`mediaClient(pluginId)` 取得；插件被取代或清單釋放時關閉。閘門：
   `plugin_installer_test.dart` 的 `media clients` 群組（允許網域與 manifest 一致、更新後
   換成新網域、舊的關閉）。
+- 目前唯一的呼叫端是封面：`artworkCacheManagerProvider(pluginId)`
+  （`lib/plugins/plugin_artwork.dart`）以快取庫加上那個插件的媒體 client 組出 cache manager；
+  清單裡那個插件的實例換掉（更新）時跟著重建、拿到新的 client，其他插件的變動不重建。閘門：
+  `test/plugins/plugin_artwork_test.dart`。
 - 不帶憑證：沒有認證、cookie 攔截器，也沒有 cookie jar；呼叫端給的 header 先經
   `mediaRequestHeaders`，每一跳都只帶這些。閘門：`credentials` 群組（同一插件的 API
   client 帶著憑證、jar 裡有 cookie 時，媒體請求仍沒有 `Cookie`、`Authorization`）。
@@ -374,7 +441,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 下載到呼叫端給的 `destination`：內容先寫進旁邊的 `.part`（收到第一塊資料才建立），完成才
   改名；失敗（任何原因）就刪掉 `.part`，`destination` 原本的檔案不動。`maxBytes` 先比
   `Content-Length`，再邊收邊數，超過就中止、丟 `Unsupported`。同一個 `destination` 不要
-  同時下載兩次。閘門：`size limit` 群組（暫存目錄裡沒有留下檔案）。
+  同時下載兩次（共用 `.part`）：封面的 cache manager 每次下載用不同的暫存檔（見「快取庫」）。
+  閘門：`size limit` 群組（暫存目錄裡沒有留下檔案）。
 - 不讀的回應（轉址、錯誤狀態碼、超過上限）以取消那一跳的 `CancelToken` 關掉連線：dio 的
   回應串流沒有人聽時不會自己關。閘門：各群組裡斷言 `released` 的案例。
 - 逾時：連線 10 秒、等標頭與兩次收到資料之間 15 秒，交給 dio 的 `connectTimeout`、
@@ -621,9 +689,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `ToastHost` 的 `Overlay` 是 root overlay，文字選取工具列與放大鏡插在那裡，照常運作。閘門：
   `search_page_test.dart` 的 `text selection over the toast host`（Android 長按與放大鏡、Windows
   右鍵選單）。
-- 封面以 `Image.network` 直接讀（網址已過 `allowedHosts`，不帶 header、沒有 cookie），只有 Flutter
-  記憶體的 `ImageCache`；轉址由 `HttpClient` 自己跟，下一跳不經 `allowedHosts`。磁碟快取與經媒體
-  client 讀圖（每跳檢查）在 M6（ADR 0016 §決定 4）。沒有閘門，review 時看。
+- 封面只經 `ArtworkImage`（`lib/ui/artwork/`）：`CachedNetworkImage` 加上
+  `artworkCacheManagerProvider(pluginId)` 的 cache manager，先看統一快取庫，沒有才經那個插件的
+  媒體 client 下載（每跳檢查允許網域、不帶憑證與 header、10 MiB、逾時；見「快取庫」「媒體
+  client」）。沒有 cache manager（快取庫開啟中或開不起來、插件不在清單上）、載入中與失敗都是同
+  一個佔位圖；以高解碼（`memCacheHeight`）；不進語意樹（封面是裝飾）。呼叫端給曲目鍵的第一段
+  當 `pluginId`。閘門：`test/ui/artwork/artwork_image_test.dart`（以假 cache manager：問的是哪個
+  插件、挑哪一張、解碼高度、佔位圖、沒有封面就不要 cache manager、語意樹）。
+- Flutter 記憶體的 `ImageCache` 大小由平台宣告（`PlatformCapabilities.cache`，Android 100 張／
+  50 MiB、Windows 200 張／80 MiB，沿用舊版），`main()` 在 `runApp` 前套用，不開放設定。閘門：
+  `platform_test.dart` 的宣告與數字；`main()` 的套用沒有測試。
 
 ## 零聯網
 
@@ -656,7 +731,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/` | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/` | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

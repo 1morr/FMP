@@ -16,8 +16,11 @@ lib/data/
     open_app_database.dart   # 開資料目錄裡的 fmp.db
   repositories/
     <名稱>_repository.dart   # 值型別＋repository，上層只看得到這一層
+  cache/                     # 快取庫（cache.db），見下方「快取庫」
 drift_schemas/app_database/  # 每版的 schema 快照（drift_schema_v<N>.json）
+drift_schemas/cache_database/
 test/drift/app_database/     # 快照測試；generated/ 是 drift_dev 產生的輔助碼
+test/drift/cache_database/
 ```
 
 `build.yaml` 的 `databases:` 讓 `drift_dev make-migrations` 找到資料庫類別，上面兩個
@@ -84,6 +87,36 @@ https://drift.simonbinder.eu/migrations/tests/。
 6. `schema_test.dart` 不用改：它比對的是「程式碼建出的 schema」與「最新快照」。
 
 開發中改 schema 還沒發版時，一樣走上面的步驟；不要改已提交的快照。
+
+Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比對會說「v<N> 已存在而且
+不同」：先把那個快照轉成 LF（`sed -i 's/\r$//' <快照>`）再跑；內容沒變，git 不會顯示差異。
+
+## 快取庫（`lib/data/cache/`）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的「快取庫」；為什麼這樣做，見 ADR 0016 §決定 1–4。
+
+```
+lib/data/cache/
+  cache_tables.dart          # cache_entries、CacheCategory 與它的轉換器
+  cache_database.dart        # 第二個 @DriftDatabase；版本不同就清空重建
+  cache_store.dart           # openCacheStore、CacheStore、cacheStoreProvider
+  image_cache_manager.dart   # part：FmpImageCacheManager 與三個轉接
+```
+
+- 改 `cache_tables.dart`：`CacheDatabase.schemaVersion` 加一 → `build_runner` →
+  `make-migrations`。它存新快照、重產 `test/drift/cache_database/generated/`，第二版起還會產生
+  `lib/data/cache/cache_database.steps.dart` 與 `test/drift/cache_database/migration_test.dart`：
+  steps 用不到（`onUpgrade` 是刪表重建），刪掉；migration_test 留著，它驗每個舊版開啟後的
+  schema 等於新版（2026-10-02 以假的 v2 試過，刪掉 steps 也跑得過）。不寫資料完整性與「不改
+  使用者值」的 migration 測試：快取沒有要保留的資料。
+- 只有一版時 `make-migrations` 不產生 `generated/`，用
+  `dart run drift_dev schema generate drift_schemas/cache_database/ test/drift/cache_database/generated/`。
+- 新的類別：`CacheCategory` 加一個值、轉換器加一個寫死的字串，用它的 cache manager 或
+  寫入路徑在索引記上類別；用量（`usage`）自動分開算。
+- 測試用 `test/data/cache/cache_harness.dart` 的 `CacheHarness`：暫存目錄當平台快取目錄、
+  假 adapter 的媒體 client、`open` 開真的檔案資料庫。`at(minute, …)` 固定時間（最後存取以它
+  排序），`read` 從索引讀並等最後存取寫完（`flutter_cache_manager` 不等那次寫入，不等的話測試
+  結束時關庫會撞上它）。
 
 ## 測試
 

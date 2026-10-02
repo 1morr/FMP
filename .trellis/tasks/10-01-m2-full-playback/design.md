@@ -114,7 +114,7 @@ drift_schemas/cache_database/       # cache.db 的快照（§4.2）
 | 表 | 改動 | PR |
 |---|---|---|
 | `externalPackageOwners` | 加 `flutter_cache_manager: lib/data/cache`、`cached_network_image: lib/ui/artwork`、`audio_session: lib/playback/backends`。`connectivity_plus`、`audio_service`、`smtc_windows`、`path_provider` 已在 `platformPackages`（只准在 `lib/platform/`） | 4、13 |
-| 新的 `restrictedImports`（被匯入端 → 允許的匯入端） | 一個通用機制取代逐條特例：`lib/playback/backends/audio_backend.dart` 只給 `lib/playback/backends/`、`lib/playback/playback_session.dart`、`lib/playback/playback_providers.dart`（組裝點）；`TrackEndReason` 所在的 `backend_rules.dart` 只給 `lib/playback/backends/`、`lib/playback/playback_event_router.dart`；`lib/platform/cache_directory/` 只給 `lib/data/cache/`、`lib/main.dart` | 1、4 |
+| 新的 `restrictedImports`（被匯入端 → 允許的匯入端） | 一個通用機制取代逐條特例：`lib/playback/backends/audio_backend.dart` 只給 `lib/playback/backends/`、`lib/playback/playback_session.dart`、`lib/playback/playback_providers.dart`（組裝點）；`TrackEndReason` 所在的 `backend_rules.dart` 只給 `lib/playback/backends/`、`lib/playback/playback_event_router.dart`；`lib/platform/cache_directory/` 只給 `lib/data/cache/`、`lib/main.dart`、`lib/platform/platform.dart`（組裝點，PR 4 加） | 1、4 |
 
 - 這三條就是 ADR 0018 §如何確認的兩條（`app/AGENTS.md:410-411` 寫明等 M2）與 ADR 0016 §如何確認的「快取目錄只經快取模組取得」。
 - 用同一張表而不是三個特例：`sealedDirectories`（只准自己匯入）是它的特例，但不併進來，免得動到 M1 的閘門。
@@ -258,14 +258,15 @@ M1 留下的「封面轉址不經 `allowedHosts`、沒有大小上限與逾時�
   - 平台快取目錄（`getApplicationCacheDirectory()`）下的 `fmp_cache/`，裡面有 `cache.db` 與 `files/`。
   - Windows 的快取目錄是 `%LOCALAPPDATA%\<公司>\<ProductName>`（`path_provider_windows` 2.3.0 的 `getApplicationCachePath`），dev 與 prod 的 ProductName 不同，自然分開（`app/AGENTS.md:119-120`）。
   - 多一層 `fmp_cache/` 是為了不和同目錄的其他東西混在一起（舊版 prod 的 ProductName 相同）。
-- **平台層**：`lib/platform/cache_directory/` 解析路徑（`path_provider` 只准在平台層）。`main()` 注入，只有 `lib/data/cache/` 能 import（§2 的 `restrictedImports`）。
+- **平台層**：`lib/platform/cache_directory/` 解析路徑（`path_provider` 只准在平台層）。`main()` 注入，只有 `lib/data/cache/`（與組裝點）能 import（§2 的 `restrictedImports`）。快取上限預設與 `ImageCache` 大小另放 `lib/platform/cache_sizes/`（`PlatformCapabilities.cache`），因為設定頁與 `main()` 也要讀（PR 4）。
 - **索引**：
-  - `cache_entries`：`id` 自增主鍵（`flutter_cache_manager` 的 `CacheObject.id` 是 int）、`key` text 唯一、`category` text（M2 只有 `image`）、`plugin_id` text?、`relative_path`、`size_bytes`、`last_access`、`valid_until`、`etag`?；
+  - `cache_entries`：`id` 自增主鍵（`flutter_cache_manager` 的 `CacheObject.id` 是 int）、`key` text、`category` text（M2 只有 `image`）、`plugin_id` text?、`relative_path`、`size_bytes`、`last_access`、`valid_until`、`etag`?；
+  - 唯一限制是（`category`、`plugin_id`、`key`）：兩個插件給同一個網址時各存一份，各自經自己的 `allowedHosts` 下載，`removePlugin` 只刪自己的（PR 4；原先寫 `key` 唯一，第二個插件寫入會撞限制）。
   - 索引建在 `last_access`、`plugin_id`。
 - **與主資料庫不同的規則**：快取可以隨時丟（ADR 0016 §決定 1）。
-  - **開不起來**（檔案損壞）：刪掉 `fmp_cache/` 重建，不顯示錯誤頁。主資料庫則是停在錯誤頁（ADR 0010 §決定 3）。
+  - **開不起來**（檔案損壞）：清空 `fmp_cache/` 裡面重開一次，不顯示錯誤頁；第二次也失敗時封面只顯示佔位圖，App 照常。快取庫由 `cacheStoreProvider` 第一次被讀時開啟，不拖慢啟動（PR 4）。主資料庫則是停在錯誤頁（ADR 0010 §決定 3）。
   - **schema 版本**：仍以 `drift_dev` 存快照到 `drift_schemas/cache_database/`，並有自己的 `schema_test`，守「改了表卻沒加版本」。
-  - **升級**：清空重建，不寫逐步 migration。升級測試只斷言「舊版本開啟後是空的、可以寫入」。
+  - **升級與降級**：版本不同就刪表重建，不寫逐步 migration（revert 後的降級走同一條路）。升級測試只斷言「舊版本開啟後是空的、可以寫入」。
   - `build.yaml` 的 `databases:` 加第二個資料庫。
 
 ### 4.3 封面接到快取庫（ADR 0016 §決定 4，決定 1）
