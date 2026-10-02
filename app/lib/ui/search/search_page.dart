@@ -223,6 +223,7 @@ class _TrackTile extends StatelessWidget {
     final duration = track.duration;
     return ListTile(
       leading: ArtworkImage(
+        pluginId: track.sourceTypeId,
         artwork: track.artwork,
         size: AppLayout.artworkThumbnail,
       ),

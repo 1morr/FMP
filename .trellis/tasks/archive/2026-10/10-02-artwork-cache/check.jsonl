@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 2 (module layout, lint tables), 4.2-4.4 cache.db and artwork cache, 8.3 sqflite 16KB alignment"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Decisions 1-4: unified cache, limits, eviction, artwork via cache manager; how-to-verify list"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Data layer ownership; main DB error page vs cache rebuild"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Declaring platform defaults"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Drift conventions, schema snapshots and schema tests"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Two-way mutation cases and lint sentinel for layer import rules"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "Media client usage"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Adding a platform capability or default"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "ArtworkImage and widget test conventions"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions, no real network"}

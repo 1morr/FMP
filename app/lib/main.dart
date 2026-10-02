@@ -19,6 +19,7 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
+import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
@@ -59,6 +60,12 @@ Future<void> main(List<String> arguments) async {
     runApp(appProviderScope(child: UnsupportedPlatformApp(flavor: flavor)));
     return;
   }
+  // 記憶體裡解碼好的圖片：大小由平台宣告，不開放設定（ADR 0016 §決定 4）。
+  if (platform.capabilities.cache case final sizes?) {
+    PaintingBinding.instance.imageCache
+      ..maximumSize = sizes.memoryImages
+      ..maximumSizeBytes = sizes.memoryImageBytes;
+  }
   // 開不起來就只顯示錯誤頁，不在半開的資料庫上啟動（ADR 0010 §決定 3）。
   final AppDatabase database;
   try {
@@ -91,6 +98,8 @@ Future<void> main(List<String> arguments) async {
         redactorProvider.overrideWithValue(redactor),
         platformCapabilitiesProvider.overrideWithValue(platform.capabilities),
         networkInterfacesProvider.overrideWithValue(platform.networkInterfaces),
+        // 快取目錄只交給快取模組開（cacheStoreProvider）；開不起來 App 照常。
+        cacheDirectoryProvider.overrideWithValue(platform.cacheDirectory!),
         // 插件的開發入口只在 dev（devPluginPath 在 prod 回 null；理由見
         // dev_plugin_entry.dart）。
         devPluginPathProvider.overrideWithValue(

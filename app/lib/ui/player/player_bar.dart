@@ -50,6 +50,7 @@ class PlayerBar extends ConsumerWidget {
     final track = Row(
       children: [
         ArtworkImage(
+          pluginId: current.sourceTypeId,
           artwork: info?.artwork ?? const [],
           size: AppLayout.artworkThumbnail,
         ),

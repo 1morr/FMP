@@ -145,6 +145,9 @@ final download = await media!.download(
 - `download` 丟的只有 `AppError` 與 `RequestCancelled`，錯誤對應見 `app/AGENTS.md`
   § 網路的「媒體 client」。內容只在成功時出現在 `destination`；失敗時 `.part` 已刪掉。
 - 沒有重試。要重試的呼叫端（M6 的下載）自己決定，封面靠下一次顯示時再抓。
+- 封面不直接呼叫 `download`：經 `artworkCacheManagerProvider(pluginId)`
+  （`lib/plugins/plugin_artwork.dart`）的 cache manager，下載的暫存檔、索引與淘汰都在快取庫
+  （`.trellis/spec/app/data/index.md` § 快取庫）。新的呼叫端每次下載給不同的 `destination`。
 - 一跳的流程在 `_hop`：送出 → 轉址就取消那一跳、回傳 `Location` → 錯誤狀態碼與
   `Content-Length` 過大就丟 → `_save` 邊收邊數寫 `.part` → 改名。不讀的回應一定要
   `cancelToken.cancel()`，否則連線一直開著。

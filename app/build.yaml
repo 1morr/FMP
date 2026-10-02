@@ -5,9 +5,12 @@ targets:
     builders:
       # drift（https://drift.simonbinder.eu/migrations/）。`databases:` 給
       # `dart run drift_dev make-migrations` 找資料庫類別；快照存在
-      # drift_schemas/app_database/，測試輔助碼在 test/drift/app_database/generated/
+      # drift_schemas/<名稱>/，測試輔助碼在 test/drift/<名稱>/generated/
       # （兩者都是 make-migrations 的預設位置）。步驟見 .trellis/spec/app/data/index.md。
+      # cache_database 是快取庫的索引 cache.db：版本不同就清空重建，不產生
+      # 逐步 migration，快照只給 schema_test 守「改了表卻沒加版本」。
       drift_dev:
         options:
           databases:
             app_database: lib/data/database/app_database.dart
+            cache_database: lib/data/cache/cache_database.dart

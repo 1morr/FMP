@@ -105,6 +105,60 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // ADR 0016：cache manager 只在快取模組，封面 widget 只在封面元件。同系列
+  // （`cached_network_image_platform_interface`）一樣報；同前綴的
+  // `lib/data/cache_helpers.dart`、`lib/ui/artwork_helpers.dart` 不在擁有的目錄裡。
+  Future<void> test_imageCachePackagesOutsideTheirOwners() async {
+    for (final path in [
+      'lib/data/repositories/plugin_repository.dart',
+      'lib/data/cache_helpers.dart',
+      'lib/plugins/plugin_artwork.dart',
+      'lib/ui/artwork_helpers.dart',
+      'lib/ui/search/search_page.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:flutter_cache_manager/flutter_cache_manager.dart'!];\n"
+        "import [!'package:cached_network_image/cached_network_image.dart'!];\n"
+        "import [!'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart'!];\n",
+      );
+    }
+    // 各自只准一邊：快取模組不碰 widget，封面元件不碰 cache manager。
+    await assertLints(
+      'lib/data/cache/cache_store.dart',
+      "import [!'package:cached_network_image/cached_network_image.dart'!];\n",
+    );
+    await assertLints(
+      'lib/ui/artwork/artwork_image.dart',
+      "import [!'package:flutter_cache_manager/flutter_cache_manager.dart'!];\n",
+    );
+  }
+
+  // ADR 0016：快取目錄只經快取模組取得。平台層的其他檔案（能力宣告）、資料層的
+  // 其他位置、同前綴的 `cache_directory_helpers.dart`、`lib/data/cache_helpers.dart`
+  // 都報；別名、相對路徑、export 一樣報。
+  Future<void> test_cacheDirectoryFromOutside() async {
+    for (final path in [
+      'lib/platform/platform_capabilities.dart',
+      'lib/platform/cache_directory_helpers.dart',
+      'lib/data/providers.dart',
+      'lib/data/cache_helpers.dart',
+      'lib/plugins/plugin_artwork.dart',
+      'lib/ui/settings/settings_page.dart',
+      'lib/main_helpers.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:test/platform/cache_directory/cache_directory.dart'!] as dir;\n",
+      );
+    }
+    await assertLints(
+      'lib/platform/connectivity/connectivity.dart',
+      "import [!'../cache_directory/cache_directory.dart'!];\n"
+          "export [!'package:test/platform/cache_directory/cache_directory.dart'!];\n",
+    );
+  }
+
   Future<void> test_legacyImportFromOutside() => assertLints(
     'lib/data/database.dart',
     "import [!'package:test/legacy_import/reader.dart'!];\n",
@@ -200,6 +254,57 @@ class LayerImportsTest extends FmpRuleTest {
       'test/playback/fake_audio_backend.dart',
       "import 'package:test/playback/backends/audio_backend.dart';\n"
           "import 'package:test/playback/backends/backend_rules.dart';\n",
+    );
+  }
+
+  Future<void> test_imageCachePackagesInTheirOwners() async {
+    await assertLints(
+      'lib/data/cache/image_cache_manager.dart',
+      "import 'package:flutter_cache_manager/flutter_cache_manager.dart';\n",
+    );
+    await assertLints(
+      'lib/ui/artwork/artwork_image.dart',
+      "import 'package:cached_network_image/cached_network_image.dart';\n"
+          "import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';\n",
+    );
+    // 名稱相近、不是 `<鍵>_` 開頭的套件不算；測試不受依賴表限制。
+    await assertLints(
+      'lib/ui/search/search_page.dart',
+      "import 'package:flutter_cache_managers/flutter_cache_managers.dart';\n"
+          "import 'package:cached_network_images/cached_network_images.dart';\n",
+    );
+    await assertLints(
+      'test/ui/artwork/artwork_image_test.dart',
+      "import 'package:flutter_cache_manager/flutter_cache_manager.dart';\n"
+          "import 'package:cached_network_image/cached_network_image.dart';\n",
+    );
+  }
+
+  Future<void> test_cacheDirectoryFromAllowedImporters() async {
+    await assertLints(
+      'lib/platform/platform.dart',
+      "import 'package:test/platform/cache_directory/cache_directory.dart';\n",
+    );
+    await assertLints(
+      'lib/data/cache/cache_store.dart',
+      "import 'package:test/platform/cache_directory/cache_directory.dart';\n",
+    );
+    await assertLints(
+      'lib/main.dart',
+      "import 'platform/cache_directory/cache_directory.dart';\n",
+    );
+    await assertLints(
+      'test/data/cache/cache_store_test.dart',
+      "import 'package:test/platform/cache_directory/cache_directory.dart';\n",
+    );
+    // 名稱相近的別的目錄與檔案、註解與字串裡提到的不報。
+    await assertLints(
+      'lib/settings/network_settings.dart',
+      "import 'package:test/platform/cache_sizes/cache_sizes.dart';\n"
+          "import 'package:test/platform/cache_directory.dart';\n"
+          "import 'package:test/platform/cache_directory_names/names.dart';\n"
+          "// import 'package:test/platform/cache_directory/cache_directory.dart';\n"
+          "const text = \"import 'cache_directory/cache_directory.dart';\";\n",
     );
   }
 

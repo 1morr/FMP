@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/platform/audio/audio.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 
 /// 目前平台的能力宣告。`main()` 以 `AppPlatform` 組出的宣告 override；沒
@@ -25,6 +26,7 @@ final class PlatformCapabilities {
     required this.fontFallback,
     required this.playback,
     required this.networkInterfaces,
+    required this.cache,
   });
 
   /// 還沒驗證的平台：什麼都沒有。
@@ -34,6 +36,7 @@ final class PlatformCapabilities {
     fontFallback: FontFallback.none,
     playback: null,
     networkInterfaces: false,
+    cache: null,
   );
 
   /// 有 App 資料目錄的實作（`app_data_directory/`）。沒有時 `main()` 不啟動
@@ -54,4 +57,9 @@ final class PlatformCapabilities {
   /// 有網路介面的實作（`connectivity/`）：網路層據此判斷 `noInterface`。沒有時
   /// 網路狀態只看請求結果（ADR 0016 §決定 6）。
   final bool networkInterfaces;
+
+  /// 有快取目錄的實作（`cache_directory/`）時的快取大小：磁碟上限的預設與
+  /// 記憶體 `ImageCache`（ADR 0016 §決定 3–4）。沒有時為 `null`，`ImageCache`
+  /// 維持 Flutter 的預設。
+  final CacheSizes? cache;
 }

@@ -9,6 +9,9 @@ import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart'
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
+import 'package:fmp/platform/cache_directory/cache_directory.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes_android.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes_windows.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
@@ -23,8 +26,10 @@ final class AppPlatform {
     required this.capabilities,
     this.dataDirectory,
     this.networkInterfaces,
+    this.cacheDirectory,
   }) : assert(capabilities.dataDirectory == (dataDirectory != null)),
-       assert(capabilities.networkInterfaces == (networkInterfaces != null));
+       assert(capabilities.networkInterfaces == (networkInterfaces != null)),
+       assert((capabilities.cache != null) == (cacheDirectory != null));
 
   /// 目前執行的平台。
   factory AppPlatform.current(AppFlavor flavor) =>
@@ -43,6 +48,7 @@ final class AppPlatform {
             fontFallback: androidFontFallback,
             playback: androidPlaybackSupport,
             networkInterfaces: true,
+            cache: androidCacheSizes,
           ),
           dataDirectory: AndroidAppDataDirectory(
             flavor: flavor,
@@ -50,6 +56,9 @@ final class AppPlatform {
                 (await getApplicationSupportDirectory()).path,
           ),
           networkInterfaces: ConnectivityPlusInterfaces.system(),
+          cacheDirectory: CacheDirectory(
+            applicationCachePath: _applicationCachePath,
+          ),
         ),
         TargetPlatform.windows => AppPlatform._(
           capabilities: const PlatformCapabilities(
@@ -58,6 +67,7 @@ final class AppPlatform {
             fontFallback: windowsFontFallback,
             playback: windowsPlaybackSupport,
             networkInterfaces: true,
+            cache: windowsCacheSizes,
           ),
           dataDirectory: WindowsAppDataDirectory(
             flavor: flavor,
@@ -69,6 +79,9 @@ final class AppPlatform {
                 (await getApplicationDocumentsDirectory()).path,
           ),
           networkInterfaces: ConnectivityPlusInterfaces.system(),
+          cacheDirectory: CacheDirectory(
+            applicationCachePath: _applicationCachePath,
+          ),
         ),
         TargetPlatform.linux ||
         TargetPlatform.macOS ||
@@ -85,4 +98,11 @@ final class AppPlatform {
 
   /// 網路介面；[PlatformCapabilities.networkInterfaces] 為假時為 `null`。
   final NetworkInterfaces? networkInterfaces;
+
+  /// 快取目錄；[PlatformCapabilities.cache] 為 `null` 時為 `null`。只交給快取
+  /// 模組（`openCacheStore`），其他地方不拿快取目錄（ADR 0016 §決定 2）。
+  final CacheDirectory? cacheDirectory;
 }
+
+Future<String> _applicationCachePath() async =>
+    (await getApplicationCacheDirectory()).path;

@@ -24,7 +24,7 @@ lib/ui/
   search/              # 搜尋頁、searchProvider、音源 chip 列
   settings/            # 設定頁（list-detail）與外觀的控制項
   player/              # 播放列、queueTracksProvider（佇列的顯示資料）、playTracks
-  artwork/             # 封面縮圖與 pickArtwork
+  artwork/             # 封面縮圖（CachedNetworkImage）與 pickArtwork；cached_network_image 只准在這裡
   format/              # 時長文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
@@ -148,9 +148,13 @@ try {
   顯示資料；M2 有曲目表之後改從那裡查。
 - 播放列的控制項照 ADR 0024 §決定 5 的三段，只放已經有的功能；加功能時同時改
   `player_bar_test.dart` 的 `controls per width` 與 golden。
-- 封面用 `ArtworkImage`：`pickArtwork` 挑一張、以顯示尺寸解碼，沒有、載入中與失敗都是同一個
-  佔位圖。網址在 DTO 解碼時已經過 `allowedHosts`；不帶 header（B 站的 hdslb 不帶 `Referer` 讀得到，
-  帶別的網域反而 403）。
+- 封面用 `ArtworkImage(pluginId: 曲目鍵的第一段, artwork: …, size: …)`：`pickArtwork` 挑一張、
+  以顯示尺寸的高解碼，經 `artworkCacheManagerProvider(pluginId)` 的 cache manager 讀（統一快取庫，
+  沒有才經那個插件的媒體 client 下載）。沒有、載入中、失敗與還沒有 cache manager 都是同一個
+  佔位圖。不帶 header（B 站的 hdslb 不帶 `Referer` 讀得到，帶別的網域反而 403）。
+- 測試 `ArtworkImage` 以 `artworkCacheManagerProvider.overrideWith((ref, pluginId) => 假的)`
+  注入只實作 `getFileStream` 的假 `BaseCacheManager`（`test/ui/artwork/artwork_image_test.dart`）；
+  解碼是真的非同步工作，要 `tester.runAsync`。外殼的測試插件沒有封面，不用 override。
 
 ## 測試
 

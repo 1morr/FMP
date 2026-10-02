@@ -273,6 +273,7 @@ void main() {
         ),
         playback: null,
         networkInterfaces: false,
+        cache: null,
       );
       final log = await pumpApp(tester, capabilities: capabilities);
       await settle(tester);
