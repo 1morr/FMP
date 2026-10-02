@@ -45,7 +45,7 @@
   - PR 1：#196（`08449b17`）。`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 加 `restrictedImports`。
   - PR 2：#197（`35077a47`）。網路狀態、離線提示與搜尋頁離線畫面；`connectivity_plus ^7.3.1`；Windows 的 `/utf-8` 改在 `windows/CMakeLists.txt` 的 `APPLY_STANDARD_SETTINGS`，連插件一起套用。
 - **PR 3 已合併**：#198（`02c70fbb`，媒體 client）。審查兩輪：第一輪找到網址 userinfo 會變成 `Authorization`；第二輪（第一輪中途藍屏、紀錄遺失後重審）找到已關閉的 client 被算成「連不上」。兩者都先寫失敗測試再修。
-- **PR 4 進行中**（2026-10-02；分支 `feat/app-artwork-cache`，子任務 `.trellis/tasks/10-02-artwork-cache`）：實作代理（opus）在做。回來後：實機真實連線（兩平台搜尋 B 站一次看封面、重開後沒有 `client: media` 新紀錄、`fmp_cache/` 有檔案）→ opus `trellis-check` → commit → archive → PR。
+- **PR 4**（分支 `feat/app-artwork-cache`）：審查兩輪（第一輪中途兩次藍屏）；第二輪修好幽靈列、索引大小、`files/` 被刪後的 `clear()`。實機兩平台真實連線通過（清空快取後第一次 13 張、重開同搜尋 0 張）。
 - **下一步**：PR 4 合併後 PR 5（「網路」設定組）；2–6 與 7、9、11 可並行。
 - **本機環境備忘**（2026-10-01）：
   - 模擬器是 `Medium_Phone`，序號 `emulator-5556`（不是 5554）；`ax_flatten.py` 要加 `--device emulator-5556`，`adb` 指令加 `-s emulator-5556`。上面裝著 dev 與測試插件（`files/test.js`），介面語言是 English。
