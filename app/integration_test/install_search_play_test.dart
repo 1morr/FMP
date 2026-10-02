@@ -16,6 +16,8 @@ import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/audio/audio.dart';
+import 'package:fmp/platform/cache_directory/cache_directory.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
@@ -219,6 +221,17 @@ final class _AppRun {
               fontFallback: FontFallback.none,
               playback: _playback,
               networkInterfaces: false,
+              cache: CacheSizes(
+                defaultLimitMebibytes: 16,
+                memoryImages: 50,
+                memoryImageMebibytes: 16,
+              ),
+            ),
+          ),
+          // 快取目錄在資料目錄旁（測試插件沒有封面，快取庫不會被開）。
+          cacheDirectoryProvider.overrideWithValue(
+            CacheDirectory(
+              applicationCachePath: () async => '${data.parent.path}/cache',
             ),
           ),
           // 網路狀態只看請求結果：這個測試不看系統的網路介面。
