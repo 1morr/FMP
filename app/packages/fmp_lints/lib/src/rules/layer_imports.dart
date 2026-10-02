@@ -22,6 +22,9 @@ final externalPackageOwners = <String, String>{
   'dio': 'lib/core/network',
   'cookie_jar': 'lib/core/network',
   'flutter_js': 'lib/plugins/runtime',
+  // ADR 0016：圖片的 cache manager 接到統一快取庫，widget 只在封面元件。
+  'flutter_cache_manager': 'lib/data/cache',
+  'cached_network_image': 'lib/ui/artwork',
   // M6 才有，先列入。
   'background_downloader': 'lib/downloads',
   for (final name in platformPackages) name: 'lib/platform',
@@ -78,6 +81,12 @@ const restrictedImports = <String, List<String>>{
   'lib/playback/backends/backend_rules.dart': [
     'lib/playback/backends',
     'lib/playback/playback_event_router.dart',
+  ],
+  // ADR 0016：快取目錄只經快取模組取得；組裝點建它，main() 注入。
+  'lib/platform/cache_directory': [
+    'lib/platform/platform.dart',
+    'lib/data/cache',
+    'lib/main.dart',
   ],
 };
 
