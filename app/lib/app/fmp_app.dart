@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/app/app_lifecycle.dart';
 import 'package:fmp/app/app_material.dart';
+import 'package:fmp/app/startup_maintenance.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/network/network_status.dart';
@@ -63,6 +65,16 @@ class _FmpAppState extends ConsumerState<FmpApp> {
           previous != AppLifecycleState.resumed) {
         unawaited(ref.read(networkStatusProvider.notifier).recheckInterfaces());
       }
+    });
+    // 啟動維護在第一幀之後跑一次，不拖慢第一個畫面（ADR 0017 §決定 1）。
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        runStartupMaintenance(
+          ref.read(startupMaintenanceTasksProvider),
+          ref.read(logProvider),
+        ),
+      );
     });
   }
 
