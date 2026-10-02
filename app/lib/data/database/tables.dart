@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v1（M1）。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
+// Schema v2（M1 的 v1 加 M2 的 network_settings）。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
 
@@ -18,6 +18,22 @@ class AppearanceSettingsTable extends Table {
     const ThemeModeSettingConverter(),
   )();
   late final locale = text().nullable().map(const LocaleSettingConverter())();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// 「網路」設定，單列（ADR 0011 §決定 7）。欄位為空＝使用者沒設定過。
+@DataClassName('NetworkSettingsRow')
+class NetworkSettingsTable extends Table {
+  @override
+  String get tableName => 'network_settings';
+
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  late final IntColumn id = integer().check(id.equals(1))();
+
+  /// 快取上限（MiB）；空＝平台宣告的預設（ADR 0016 §決定 3）。
+  late final cacheLimitMb = integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

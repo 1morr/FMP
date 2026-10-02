@@ -22,10 +22,10 @@ lib/ui/
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區）、快捷鍵表
   search/              # 搜尋頁、searchProvider、音源 chip 列
-  settings/            # 設定頁（list-detail）與外觀的控制項
+  settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
   player/              # 播放列、queueTracksProvider（佇列的顯示資料）、playTracks
   artwork/             # 封面縮圖（CachedNetworkImage）與 pickArtwork；cached_network_image 只准在這裡
-  format/              # 時長文字
+  format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
 

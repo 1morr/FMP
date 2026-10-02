@@ -17,6 +17,8 @@ import 'package:fmp/core/network/media_http_client.dart';
 import 'package:fmp/data/cache/cache_database.dart';
 import 'package:fmp/data/cache/cache_tables.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
+import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 
 // 上層拿到的 cache manager 只以這個型別出現（交給 `CachedNetworkImage`），不必
@@ -69,8 +71,31 @@ final class CacheStore {
 
   $CacheEntriesTableTable get _entries => _database.cacheEntriesTable;
 
-  /// 各類別用了多少位元組；沒有東西的類別是 0。
-  Future<Map<CacheCategory, int>> usage() async {
+  /// 各類別用了多少位元組（沒有東西的類別是 0）；之後索引每次變動（寫入、淘汰、
+  /// 清除、移除插件）再發一次。
+  ///
+  /// 聽的是 drift 的 `tableUpdates`，不是 `watch()` 的查詢 stream：後者在最後一個
+  /// listener 離開後以計時器多留一輪事件迴圈，widget 測試結束時會被當成沒跑完的
+  /// 計時器（`createInBackground` 的連線關不掉這個行為）。
+  Stream<Map<CacheCategory, int>> watchUsage() async* {
+    // 先訂閱再讀，讀的期間的變動不會漏掉。
+    final changed = StreamController<void>();
+    final subscription = _database
+        .tableUpdates(TableUpdateQuery.onTable(_entries))
+        .listen((_) => changed.add(null));
+    try {
+      yield await _usage();
+      await for (final _ in changed.stream) {
+        yield await _usage();
+      }
+    } finally {
+      await subscription.cancel();
+      // 沒有人聽過 `changed`（拿到第一個值就取消）時，close 的 future 不會完成。
+      unawaited(changed.close());
+    }
+  }
+
+  Future<Map<CacheCategory, int>> _usage() async {
     final total = _entries.sizeBytes.sum();
     final rows =
         await (_database.selectOnly(_entries)
@@ -268,17 +293,73 @@ Future<CacheStore> _open(Directory root, int limitBytes, Log log) async {
 /// App 的快取庫，第一次有人讀時開啟（`openCacheStore`）。開不起來是
 /// `AsyncError`：封面只顯示佔位圖，App 照常（ADR 0016 §決定 1）。
 ///
-/// 上限目前是平台宣告的預設；「快取上限」設定在 PR 5 接上。
+/// 上限是「網路」設定的快取上限，沒設定就是平台宣告的預設：開啟時取當時的值，
+/// 之後設定改了就 `setLimit`（馬上淘汰到新上限以下），不重開快取庫。
+///
+/// 直接訂閱 repository，不經 `networkProvider`：設定層在資料層之上
+/// （`fmp_layer_imports`）。預設與 `resolveNetwork` 同一個來源（平台宣告），
+/// 不在這裡另寫數字。訂閱的是 drift 的 stream，不是 Riverpod 的 provider，
+/// 沒有人聽這個 provider 時也照樣收到改動。
 final cacheStoreProvider = FutureProvider<CacheStore>((ref) async {
   final log = ref.watch(logProvider);
+  final directory = ref.watch(cacheDirectoryProvider);
+  final defaultMebibytes = ref
+      .watch(platformCapabilitiesProvider)
+      .cache!
+      .defaultLimitMebibytes;
+  int limitBytes(NetworkSettings stored) =>
+      (stored.cacheLimitMebibytes ?? defaultMebibytes) * 1024 * 1024;
+
+  // 第一個值是開啟時的上限；之後的每個值在開好之後套用，開啟期間來的留到開好。
+  final initial = Completer<int>();
+  CacheStore? opened;
+  int? pending;
+  void apply(int bytes) {
+    final store = opened;
+    if (store == null) {
+      pending = bytes;
+      return;
+    }
+    unawaited(
+      store
+          .setLimit(bytes)
+          .catchError(
+            (Object error, StackTrace stackTrace) => log.error(
+              'Failed to apply the cache limit',
+              tag: cacheLogTag,
+              error: error,
+              stackTrace: stackTrace,
+            ),
+          ),
+    );
+  }
+
+  final subscription = ref
+      .watch(networkSettingsRepositoryProvider)
+      .watch()
+      .listen(
+        (stored) => initial.isCompleted
+            ? apply(limitBytes(stored))
+            : initial.complete(limitBytes(stored)),
+        onError: (Object error, StackTrace stackTrace) {
+          if (!initial.isCompleted) {
+            initial.completeError(error, stackTrace);
+            return;
+          }
+          log.error(
+            'Failed to read the cache limit',
+            tag: cacheLogTag,
+            error: error,
+            stackTrace: stackTrace,
+          );
+        },
+      );
+  ref.onDispose(subscription.cancel);
   final CacheStore store;
   try {
     store = await openCacheStore(
-      ref.watch(cacheDirectoryProvider),
-      limitBytes: ref
-          .watch(platformCapabilitiesProvider)
-          .cache!
-          .defaultLimitBytes,
+      directory,
+      limitBytes: await initial.future,
       log: log,
     );
   } on Object catch (error, stackTrace) {
@@ -290,6 +371,8 @@ final cacheStoreProvider = FutureProvider<CacheStore>((ref) async {
     );
     rethrow;
   }
+  opened = store;
+  if (pending case final bytes?) apply(bytes);
   ref.onDispose(() => unawaited(store.close()));
   return store;
 });

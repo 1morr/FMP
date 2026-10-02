@@ -54,7 +54,8 @@ const platformPackages = [
 const forbiddenLayerImports = <String, List<String>>{
   'lib/core': _upperLayers,
   'lib/domain': _upperLayers,
-  'lib/data': ['lib/ui'],
+  // 設定的 Notifier、播放、插件都讀資料層；反過來 import 就是循環。
+  'lib/data': ['lib/ui', 'lib/settings', 'lib/playback', 'lib/plugins'],
 };
 
 const _upperLayers = [

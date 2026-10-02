@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 3.3 network settings group, 3.5 schema versioning and tests, 4.4 limits and clear, 9.8 settings page"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "Settings groups, nullable columns with defaults in the Notifier"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Decision 3: cache limit options and platform default"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Decision 6: settings page list-detail at expanded and above"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Shape of a settings group and the five test kinds"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change procedure: snapshot, stepByStep, three migration tests; cache store"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Tokens, translations, guideline tests, window classes"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions"}

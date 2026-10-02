@@ -57,6 +57,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$player$zh_TW.internal(_root);
   late final Translations$appearance$zh_TW appearance =
       Translations$appearance$zh_TW.internal(_root);
+  late final Translations$network$zh_TW network =
+      Translations$network$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
       Translations$errors$zh_TW.internal(_root);
 }
@@ -173,6 +175,12 @@ class Translations$settings$zh_TW {
 
   /// zh-TW: '外觀'
   String get appearance => '外觀';
+
+  /// zh-TW: '網路'
+  String get network => '網路';
+
+  /// zh-TW: '返回'
+  String get back => '返回';
 }
 
 // Path: player
@@ -239,6 +247,42 @@ class Translations$appearance$zh_TW {
 
   /// zh-TW: '跟隨系統'
   String get languageSystem => '跟隨系統';
+}
+
+// Path: network
+class Translations$network$zh_TW {
+  Translations$network$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '快取上限'
+  String get cacheLimit => '快取上限';
+
+  /// zh-TW: '{size}（預設）'
+  String cacheLimitDefault({required Object size}) => '${size}（預設）';
+
+  /// zh-TW: '快取用量'
+  String get usage => '快取用量';
+
+  /// zh-TW: '封面'
+  String get artwork => '封面';
+
+  /// zh-TW: '清除快取'
+  String get clear => '清除快取';
+
+  /// zh-TW: '清除快取？'
+  String get clearTitle => '清除快取？';
+
+  /// zh-TW: '已快取的封面會被刪除，需要時再重新下載。設定與資料不受影響。'
+  String get clearBody => '已快取的封面會被刪除，需要時再重新下載。設定與資料不受影響。';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '已清除快取'
+  String get cleared => '已清除快取';
 }
 
 // Path: errors

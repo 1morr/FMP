@@ -228,6 +228,194 @@ class AppearanceSettingsCompanion
   }
 }
 
+class NetworkSettings extends Table
+    with TableInfo<NetworkSettings, NetworkSettingsData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  NetworkSettings(this.attachedDatabase, [this._alias]);
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL CHECK (id = 1)',
+  );
+  late final GeneratedColumn<int> cacheLimitMb = GeneratedColumn<int>(
+    'cache_limit_mb',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NULL',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, cacheLimitMb];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'network_settings';
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NetworkSettingsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NetworkSettingsData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cacheLimitMb: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cache_limit_mb'],
+      ),
+    );
+  }
+
+  @override
+  NetworkSettings createAlias(String alias) {
+    return NetworkSettings(attachedDatabase, alias);
+  }
+
+  @override
+  List<String> get customConstraints => const ['PRIMARY KEY(id)'];
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class NetworkSettingsData extends DataClass
+    implements Insertable<NetworkSettingsData> {
+  final int id;
+  final int? cacheLimitMb;
+  const NetworkSettingsData({required this.id, this.cacheLimitMb});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || cacheLimitMb != null) {
+      map['cache_limit_mb'] = Variable<int>(cacheLimitMb);
+    }
+    return map;
+  }
+
+  NetworkSettingsCompanion toCompanion(bool nullToAbsent) {
+    return NetworkSettingsCompanion(
+      id: Value(id),
+      cacheLimitMb: cacheLimitMb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cacheLimitMb),
+    );
+  }
+
+  factory NetworkSettingsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NetworkSettingsData(
+      id: serializer.fromJson<int>(json['id']),
+      cacheLimitMb: serializer.fromJson<int?>(json['cacheLimitMb']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cacheLimitMb': serializer.toJson<int?>(cacheLimitMb),
+    };
+  }
+
+  NetworkSettingsData copyWith({
+    int? id,
+    Value<int?> cacheLimitMb = const Value.absent(),
+  }) => NetworkSettingsData(
+    id: id ?? this.id,
+    cacheLimitMb: cacheLimitMb.present ? cacheLimitMb.value : this.cacheLimitMb,
+  );
+  NetworkSettingsData copyWithCompanion(NetworkSettingsCompanion data) {
+    return NetworkSettingsData(
+      id: data.id.present ? data.id.value : this.id,
+      cacheLimitMb: data.cacheLimitMb.present
+          ? data.cacheLimitMb.value
+          : this.cacheLimitMb,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NetworkSettingsData(')
+          ..write('id: $id, ')
+          ..write('cacheLimitMb: $cacheLimitMb')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cacheLimitMb);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NetworkSettingsData &&
+          other.id == this.id &&
+          other.cacheLimitMb == this.cacheLimitMb);
+}
+
+class NetworkSettingsCompanion extends UpdateCompanion<NetworkSettingsData> {
+  final Value<int> id;
+  final Value<int?> cacheLimitMb;
+  const NetworkSettingsCompanion({
+    this.id = const Value.absent(),
+    this.cacheLimitMb = const Value.absent(),
+  });
+  NetworkSettingsCompanion.insert({
+    this.id = const Value.absent(),
+    this.cacheLimitMb = const Value.absent(),
+  });
+  static Insertable<NetworkSettingsData> custom({
+    Expression<int>? id,
+    Expression<int>? cacheLimitMb,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cacheLimitMb != null) 'cache_limit_mb': cacheLimitMb,
+    });
+  }
+
+  NetworkSettingsCompanion copyWith({
+    Value<int>? id,
+    Value<int?>? cacheLimitMb,
+  }) {
+    return NetworkSettingsCompanion(
+      id: id ?? this.id,
+      cacheLimitMb: cacheLimitMb ?? this.cacheLimitMb,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cacheLimitMb.present) {
+      map['cache_limit_mb'] = Variable<int>(cacheLimitMb.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NetworkSettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('cacheLimitMb: $cacheLimitMb')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class InstalledPlugins extends Table
     with TableInfo<InstalledPlugins, InstalledPluginsData> {
   @override
@@ -771,9 +959,10 @@ class PluginStorageCompanion extends UpdateCompanion<PluginStorageData> {
   }
 }
 
-class DatabaseAtV1 extends GeneratedDatabase {
-  DatabaseAtV1(QueryExecutor e) : super(e);
+class DatabaseAtV2 extends GeneratedDatabase {
+  DatabaseAtV2(QueryExecutor e) : super(e);
   late final AppearanceSettings appearanceSettings = AppearanceSettings(this);
+  late final NetworkSettings networkSettings = NetworkSettings(this);
   late final InstalledPlugins installedPlugins = InstalledPlugins(this);
   late final PluginStorage pluginStorage = PluginStorage(this);
   @override
@@ -782,6 +971,7 @@ class DatabaseAtV1 extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     appearanceSettings,
+    networkSettings,
     installedPlugins,
     pluginStorage,
   ];
@@ -796,5 +986,5 @@ class DatabaseAtV1 extends GeneratedDatabase {
     ),
   ]);
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 }

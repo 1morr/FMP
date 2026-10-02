@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import 'package:fmp/data/database/app_database.steps.dart';
 import 'package:fmp/data/database/converters.dart';
 import 'package:fmp/data/database/tables.dart';
 import 'package:fmp/domain/appearance.dart';
@@ -13,19 +14,51 @@ part 'app_database.g.dart';
 /// 執行器從建構子注入：App 用 `openAppDatabase` 開資料目錄裡的檔案，測試用
 /// `NativeDatabase.memory()`。
 @DriftDatabase(
-  tables: [AppearanceSettingsTable, InstalledPluginsTable, PluginStorageTable],
+  tables: [
+    AppearanceSettingsTable,
+    NetworkSettingsTable,
+    InstalledPluginsTable,
+    PluginStorageTable,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     // SQLite 預設不檢查外鍵，而且這個設定只對目前連線有效，每次開啟都要設
     // （ADR 0019 §決定 1）。放在 beforeOpen：migration 跑完之後、第一個查詢之前。
     beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
+    // 失敗要整個回滾（ADR 0010 §決定 3），而 drift 不會自己把 onUpgrade 包進
+    // 交易，所以照 `Migrator.runMigrationSteps` 的 dartdoc 改兩處：外鍵檢查與
+    // `user_version` 都在交易內。`PRAGMA foreign_keys` 在交易內無效，所以在交易外
+    // 關、開。
+    onUpgrade: (m, from, to) async {
+      await customStatement('PRAGMA foreign_keys = OFF');
+      await transaction(() async {
+        await m.runMigrationSteps(
+          from: from,
+          to: to,
+          steps: migrationSteps(
+            from1To2: (m, schema) async {
+              await m.create(schema.networkSettings);
+            },
+          ),
+        );
+        final violations = await customSelect('PRAGMA foreign_key_check').get();
+        if (violations.isNotEmpty) {
+          throw StateError(
+            'Foreign key check failed after migrating from $from to $to: '
+            '${violations.length} violation(s)',
+          );
+        }
+        await customStatement('PRAGMA user_version = $to');
+      });
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
   );
 }
