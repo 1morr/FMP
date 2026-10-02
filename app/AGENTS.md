@@ -238,11 +238,21 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   紅）。清空之後第二次 `_open` 也失敗的那一支沒有測試（造不出清空後仍開不起來的目錄）。
 - 開好之後先對帳才交出去：清空 `staging/`，刪掉檔案不見的列與 `files/` 裡不在索引的檔（寫到
   一半被關掉的 App、刪不掉的舊檔）。閘門：`opening` 群組的 `reconciles the index…`。
-- 一個總上限（目前是平台宣告的預設，PR 5 接設定），寫進索引之後超過就不分類別、不分插件，
-  依 `last_access` 由舊到新刪到上限以下；`setLimit` 也馬上淘汰一次。不用計時器。寫索引、淘汰、
-  清除、移除插件一個接一個跑；刪檔失敗只記 log，留給下次開啟的對帳。閘門：`eviction` 群組、
+- 一個總上限（設定頁「網路」組的快取上限，沒設定就是平台宣告的預設），寫進索引之後超過就
+  不分類別、不分插件，依 `last_access` 由舊到新刪到上限以下；`setLimit` 也馬上淘汰一次。不用
+  計時器。`cacheStoreProvider` 開啟時取當時的值，之後設定一改就 `setLimit`，不重開快取庫。它
+  直接訂閱 `NetworkSettingsRepository.watch()`、自己套用平台預設，不經 `networkProvider`：
+  設定層在資料層之上（lint 擋 `data/` import `settings/`），兩邊的預設都讀
+  `PlatformCapabilities.cache`，沒有另寫數字。訂閱的是 drift 的 stream，沒有人聽這個 provider
+  時（Riverpod 會暫停它的 provider 訂閱）也照樣套用。閘門：`cacheStoreProvider` 群組的
+  `a limit the user set replaces the platform default`、`changing the limit evicts down to it
+  right away`（都沒有 listen 這個 provider）。寫索引、淘汰、清除、移除插件一個接一個跑；刪檔失敗只記 log，留給下次開啟的對帳。閘門：`eviction` 群組、
   `clear and remove` 群組。M2 只有 `image` 一個類別，「不分類別」是查詢沒有類別條件，沒有
   兩個類別的測試。
+- 用量（`watchUsage`）每次索引變動都重發，設定頁靠它跟上下載、淘汰與清除。聽的是 drift 的
+  `tableUpdates`、不是 `watch()` 查詢：後者在最後一個 listener 離開時排一個計時器，widget 測試
+  結束時算成沒跑完的計時器，而 `createInBackground` 的連線關不掉它。閘門：`clear and remove`
+  群組的 `the usage is sent again after a write, an eviction and a clear`。
 - 鍵在「類別＋插件」內唯一：兩個插件給同一個網址各存一份、各經自己的允許網域下載，移除插件
   只刪自己的（design §4.2 寫 `key` 唯一，這裡加上兩欄）。閘門：`removing a plugin deletes
   only that plugin's entries`。
@@ -610,6 +620,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   分辨「跟隨系統」。
 - 語言沒設定過時跟隨系統的語言偏好清單（執行中改變也跟）：取清單中第一個對得到
   zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。
+- 「網路」組（`network_settings`）目前只有快取上限（MiB，空＝平台宣告的預設，選項 128／256／
+  512／1024）；舊版的快取設定不匯入（ADR 0016 §決定 3）。閘門：
+  `test/settings/network_settings_test.dart`（改預設後使用者值不變、未設定的跟著預設、清回
+  未設定）、`network_settings_repository_test.dart`（`clear` 群組直接查表是 `NULL`、
+  `stored format`）。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
   存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
   `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、
@@ -653,8 +668,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡。
+- 設定頁依 ADR 0011 的分組（外觀、網路；「播放」組在第一列設定出現時才加）：expanded 以上是
+  list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
+  標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。外殼以
+  `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）攔返回鍵。Android
+  返回鍵的整體分層（擁有者決定 7）在 M2 PR 16a，那時這個 `PopScope` 要併進外殼的規則。「網路」組
+  顯示快取上限、封面用量（跟著索引變動）與「清除快取」：確認後清快取庫並清 Flutter 的
+  `ImageCache`（`clear` 加 `clearLiveImages`；畫面上正在用的圖只有後者清得掉）；清除失敗記
+  error、不報成功。閘門：`test/ui/settings/settings_page_test.dart`（寬、窄兩種版面、跨斷點、
+  系統返回鍵、`a group left open does not hold the back key on another page`）、
+  `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
+  `ImageCache` 都空、清除失敗）。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗）與設定頁在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：
+  或連不上時搜尋失敗）與設定頁（外觀與網路兩組）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：
   `test/ui/guidelines_test.dart`。
   新頁面要加進去。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -731,7 +757,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/` | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/` | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

@@ -45,8 +45,9 @@
   - PR 1：#196（`08449b17`）。`PlaybackSession`、`routePlaybackEvent`（純函數）從控制器拆出；`fmp_layer_imports` 加 `restrictedImports`。
   - PR 2：#197（`35077a47`）。網路狀態、離線提示與搜尋頁離線畫面；`connectivity_plus ^7.3.1`；Windows 的 `/utf-8` 改在 `windows/CMakeLists.txt` 的 `APPLY_STANDARD_SETTINGS`，連插件一起套用。
 - **PR 3 已合併**：#198（`02c70fbb`，媒體 client）。審查兩輪：第一輪找到網址 userinfo 會變成 `Authorization`；第二輪（第一輪中途藍屏、紀錄遺失後重審）找到已關閉的 client 被算成「連不上」。兩者都先寫失敗測試再修。
-- **PR 4**（分支 `feat/app-artwork-cache`）：審查兩輪（第一輪中途兩次藍屏）；第二輪修好幽靈列、索引大小、`files/` 被刪後的 `clear()`。實機兩平台真實連線通過（清空快取後第一次 13 張、重開同搜尋 0 張）。
-- **下一步**：PR 4 合併後 PR 5（「網路」設定組）；2–6 與 7、9、11 可並行。
+- **PR 4 已合併**：#199（`b28fd138`）。審查兩輪（第一輪中途兩次藍屏）；第二輪修好幽靈列、索引大小、`files/` 被刪後的 `clear()`。實機兩平台真實連線通過（清空快取後第一次 13 張、重開同搜尋 0 張）。
+- **PR 5**（分支 `feat/app-network-settings`）：審查修了 7 項（data → settings 的反向 import 並補 lint、用量改即時、看不見的設定頁仍攔返回鍵、`clearLiveImages` 的測試、byte size 進位等）；修正後兩平台實機重驗通過。
+- **下一步**：PR 5 合併後 PR 6（啟動維護清單）；2–6 與 7、9、11 可並行。
 - **本機環境備忘**（2026-10-01）：
   - 模擬器是 `Medium_Phone`，序號 `emulator-5556`（不是 5554）；`ax_flatten.py` 要加 `--device emulator-5556`，`adb` 指令加 `-s emulator-5556`。上面裝著 dev 與測試插件（`files/test.js`），介面語言是 English。
   - Windows 的 dev 產物在 PR 1 驗證後已重建；跑過整合測試要再 `flutter build windows --flavor dev --debug`，Android 要重裝 dev 並以 `run-as` 放回測試插件（skill 的 android.md）。
@@ -577,8 +578,15 @@ PR 4 留下的：
 - [ ] B 站插件回傳原圖網址（實測每張最大約 885 KB、2–5 秒）：應由插件回傳多種尺寸（hdslb 的 `@160w` 這類後綴），宿主的 `pickArtwork` 已會挑；在 fmp-plugins 處理（PR 8 一起，或另開 issue）。宿主不組 B 站專用參數。
 - [x] ~~`flutter_cache_manager` 背景更新最後存取時間造成的幽靈列~~：第二輪審查（第一輪兩次藍屏後重審）寫出重現測試並修好（寫索引與清除、淘汰同一條隊伍，寫前先看檔案）；同輪另修索引大小取磁碟實際大小、`files/` 被系統刪掉後 `clear()` 丟例外。
 - [ ] 第二次 `_open` 也失敗的那一支沒有測試（造不出清空後仍開不起來的目錄）。
-- [ ] PR 5「清除快取」要另外清 Flutter 的 `ImageCache`；`CacheStore.clear()` 不碰它。
+- [x] PR 5「清除快取」要另外清 Flutter 的 `ImageCache`；`CacheStore.clear()` 不碰它。
 - [ ] 本機 Windows 在 `make-migrations` 時把 checkout 的快照當成已存在且不同；暫時把快照轉成 LF 再跑（寫在 data spec）。
+
+PR 5 留下的：
+
+- [ ] 「快取上限」選過之後回不到「（預設）」：UI 沒有「使用預設」選項，`setCacheLimit(null)` 只有測試在呼叫。平台預設固定時與選同一個值沒有差別；之後若改預設才會分歧。等擁有者決定是否加。
+- [ ] 快取庫開不起來時按「清除快取」只清了記憶體裡的圖，仍顯示「已清除快取」。
+- [ ] PR 16a：窄版設定頁組內的 `PopScope`（只在設定頁顯示時攔返回鍵）要併進外殼的返回鍵分層（決定 7）。目前在根路由按返回會結束 Activity，回來時設定頁回到分組清單；16a 改成退到背景後，狀態會保留。
+- [ ] 「調低上限時用量當場下降」在實機難造（要先有超過 128 MB 的封面，違反真實連線最少操作），只有 widget 測試。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

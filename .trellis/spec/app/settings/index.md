@@ -18,6 +18,9 @@
   這個 `map` 裡套用（`resolveAppearance` 這類純函式），不寫回資料庫。
 - 對外的值型別同時帶「生效值」與 `stored`（使用者設定過的值），設定頁用 `stored` 的
   `null` 顯示「跟隨系統／預設」。
+- 資料層自己要用設定值時（快取上限），直接訂閱 repository 的 `watch()`，預設從同一個來源
+  （平台宣告）取，不 import `lib/settings/`：設定層在資料層之上，`fmp_layer_imports` 擋反方向
+  （例子：`cacheStoreProvider`）。
 - 設定方法一個欄位一個，只寫那個欄位（`repository.write(themeMode: ...)`）。參數可空，
   `null` 是「清回沒設定過」，走 `repository.clear(themeMode: true)`：`write` 的 `null`
   表示「沒給、不動」，兩者不能共用一個方法。
