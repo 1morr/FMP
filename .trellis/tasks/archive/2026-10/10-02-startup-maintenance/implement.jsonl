@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Section 6: startup maintenance list shape, timing, failure handling, log retention item"}
+{"file": "docs/adr/0017-background-task-scheduler.md", "reason": "Decision 1: startup maintenance vs scheduler"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "Decision 3: log retention 7 days with size rotation; how to verify"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "Decision 5: background work reports to error history, no toast"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Log file, rotation and log.report conventions"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions, clock and file-time setup"}

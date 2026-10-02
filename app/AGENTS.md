@@ -329,6 +329,20 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `main()` 在解析資料目錄之後才接上，之前的錯誤走 Flutter 預設處理。閘門：
   `test/core/logging/uncaught_errors_test.dart`（預期內的 `AppError` 未捕捉仍是 `error`，
   原因經遮蔽寫出）。
+- 保留期限（`LogFile.deleteExpired`）：輪替出來的 `fmp.N.jsonl` 最後修改超過 7 天
+  就刪，目前寫入的 `fmp.jsonl` 不動，與大小輪替並存，不做設定項。只動 `logs/` 這一層
+  符合檔名的檔案。排在 `LogFile` 的寫入佇列裡，不和輪替的改名交錯；失敗交給呼叫端，
+  之後的寫入照常。由啟動維護清單的 `log-retention` 項目呼叫。閘門：`log_file_test.dart`
+  的 `retention` 群組。
+- 啟動維護清單：`lib/app/startup_maintenance.dart` 的
+  `startupMaintenanceTasksProvider`（有序清單，新項目加在那裡）。`FmpApp` 在第一幀之後
+  （`initState` 排的 post-frame callback，每次掛上只一次；`main()` 只掛一次）依序跑；
+  每項各自 try，失敗經 `log.report` 進錯誤歷史後接著跑下一項，不重試；每項跑完寫一筆
+  tag `maintenance` 的 log（`id`、`outcome`）。項目一個接一個 await，卡住的項目會擋住
+  後面的，所以項目只放有限的本機工作。閘門：`test/app/startup_maintenance_test.dart`
+  （畫過第一幀才跑、重建不重跑、失敗隔離、預設清單的 `log-retention`）。不跳提示（清單
+  拿不到 `Toaster`）、不放空的登記點、週期性工作不放這裡（M3 的排程器）沒有閘門，
+  review 時看。
 
 ## 錯誤
 

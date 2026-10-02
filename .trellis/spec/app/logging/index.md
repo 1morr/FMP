@@ -10,7 +10,7 @@
 lib/core/logging/
   log.dart              # 門面 Log：遮蔽 → talker（歷史 1,000 筆、console、分派到檔案）
   log_record.dart       # LogLevel、LogRecord（JSON Lines 一行）、parseLogLines
-  log_file.dart         # LogFile：排隊寫入、2MB × 3 輪替、失敗計數
+  log_file.dart         # LogFile：排隊寫入、2MB × 3 輪替、7 天保留、失敗計數
   uncaught_errors.dart  # routeUncaughtErrors：FlutterError／PlatformDispatcher → 門面
 lib/core/redaction/
   redaction_lists.dart  # 內建名單：header、鍵名、媒體 CDN（MediaCdn）
@@ -72,6 +72,10 @@ log.warning(
   資料格式：`log_record_test.dart` 的 `stored format` 會紅，要一起想舊檔怎麼讀。
 - 讀檔一律用 `parseLogLines`：壞行略過、不中止。
 - 寫入走 `LogFile.write`（不等待）；要讀檔或匯出前先 `await flush()`。
+- 會刪、改名 log 檔的操作（保留期限 `deleteExpired`，之後 Debug 頁的「清除 log」）寫成
+  `LogFile` 的方法、排進它的寫入佇列，不從外面直接動 `logs/`：輪替也在那條佇列上改名，
+  不排隊就會交錯。錯誤經回傳的 future 交給呼叫端，佇列本身不能帶著錯誤往下傳（否則之後
+  的寫入全被跳過）；`log_file_test.dart` 的 `retention` 群組是例子。
 
 ## 測試
 
