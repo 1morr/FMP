@@ -48,12 +48,28 @@
 - **PR 4 已合併**：#199（`b28fd138`）。審查兩輪（第一輪中途兩次藍屏）；第二輪修好幽靈列、索引大小、`files/` 被刪後的 `clear()`。實機兩平台真實連線通過（清空快取後第一次 13 張、重開同搜尋 0 張）。
 - **PR 5 已合併**：#201（`85ef2cc6`）。審查修了 7 項（data → settings 的反向 import 並補 lint、用量改即時、看不見的設定頁仍攔返回鍵、`clearLiveImages` 的測試、byte size 進位等）；修正後兩平台實機重驗通過。
 - **PR 6 已合併**：#202（`6dbf7656`）。審查找到保留期限在 `LogFile` 佇列外刪檔、會和輪替競態，改成 `LogFile.deleteExpired()` 排進寫入佇列；修正後兩平台實機重驗通過。
-- **PR 7**（分支 `feat/app-stream-url-cache`）：審查找到插件更新後仍沿用舊插件解析的網址，快取鍵加上插件實例；兩平台實機重播：兩首解析 2 次，重播兩首都 `from: cache`。
-- **下一步**：PR 7 合併後做 9、11（都只依賴 1），再 8；2–6 與 7、9、11 可並行。
-- **本機環境備忘**（2026-10-01）：
-  - 模擬器是 `Medium_Phone`，序號 `emulator-5556`（不是 5554）；`ax_flatten.py` 要加 `--device emulator-5556`，`adb` 指令加 `-s emulator-5556`。上面裝著 dev 與測試插件（`files/test.js`），介面語言是 English。
-  - Windows 的 dev 產物在 PR 1 驗證後已重建；跑過整合測試要再 `flutter build windows --flavor dev --debug`，Android 要重裝 dev 並以 `run-as` 放回測試插件（skill 的 android.md）。
+- **PR 7 已合併**：#203（`06353122`）。審查找到插件更新後仍沿用舊插件解析的網址，快取鍵加上插件實例；兩平台實機重播：兩首解析 2 次，重播兩首都 `from: cache`。
+- **PR 9 收尾中**（2026-10-03；分支 `feat/app-queue-model`）：實作與審查（opus）都完成，審查補了 4 個測試與 `app/AGENTS.md` 三處閘門宣稱。擁有者決定：隨機時一輪的第一首按上一首回到開頭、不往回繞。沒有使用者看得到的改動，不做實機。
+- **下一步**：PR 10（控制器的佇列操作、臨時播放與入口）；PR 11、8 可穿插。
+- **本機環境備忘**（2026-10-03 更新）：
+  - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
+  - **模擬器上的狀態**：dev 版裝著測試插件（`files/test.js`）與 B 站插件（`files/bilibili.js`），介面語言 English，快取上限設成 512 MB。跑過 Android 整合測試會解除安裝 dev，要重裝並以 `run-as` 放回兩個插件，各帶 `--fmp-dev-plugin` 啟動一次。
+  - **Windows dev**：跑過 Windows 整合測試要再 `flutter build windows --flavor dev --debug`。dev 的快取上限設成 128 MB。快取在 `%LOCALAPPDATA%/com.personal/fmp-dev/fmp_cache`；同層的 `fmp/`（舊版的 `lyrics`）不要動。
+  - **搜尋來源每次啟動都回到 Bilibili**：重播驗證前先點 `FMP Test Plugin` chip，截圖確認選中，否則會對 B 站發真實請求。
+  - **Windows 的自動輸入**：
+    - 前景鎖常擋住 `SetForegroundWindow`。可行的做法：把 FMP Dev 視窗最小化再還原取得前景，在同一個 PowerShell 程序裡點擊、輸入（`WScript.Shell.SendKeys`）；Enter 另外送，必要時重試。
+    - Ctrl+A 全選不可靠，會把字附加上去（例如打成 `lofilofi`），送出前截圖看關鍵字。
+    - 腳本在 session 暫存目錄的 `fgtype.ps1`，compact 後還在，換 session 就沒了。
+    - **擁有者在用電腦時不要跑會動滑鼠鍵盤的步驟**；被拒絕後要先確認 App 還開著、來源 chip 是哪個。
+  - **msaa_tree.ps1** 要用 Windows PowerShell 5.1（`powershell.exe`）跑，pwsh 7 編不過它的 C#。
+  - **藍屏的教訓**（10-02 兩次，都在子代理跑重負載測試時）：
+    - 重開後先 `git status`；`index file corrupt` 時把 `.git/index` 移到暫存目錄，`git reset` 重建，`git fsck` 檢查。
+    - 再掃改動與新增檔有沒有整檔變成 NUL；能從子代理紀錄的 Read／cat 輸出或 Write／Edit 重放救回，產生碼重新產生比對。
+    - 子代理的紀錄尾端會遺失，續跑的代理對藍屏前的事記憶不完整，結論要重驗。
+  - **殘留的測試行程**：子代理有時留下卡住的 `flutter test`（`dart.exe` 的命令列是 `flutter_tools.snapshot test …`）。派新的代理或自己跑測試前，先用 `Get-CimInstance Win32_Process` 看建立時間與命令列，只停掉確定殘留的那一個。
+  - **產生檔只差換行**時，`git diff --name-only` 的迴圈有時判斷不到；`git diff --ignore-all-space --ignore-cr-at-eol` 為空就直接 `git checkout -- app/linux/flutter app/windows/flutter app/macos/Flutter/GeneratedPluginRegistrant.swift`。新增原生插件的 PR 例外，有真正的註冊要保留。
   - F6 焦點的實機讀法：`msaa_tree.ps1` 加上 `accState` 的 `STATE_SYSTEM_FOCUSED`（0x4）；做法記在 M1 的 `research/m1-acceptance.md` § F6。
+  - **repo 外的待辦**：#200 是 Dependabot 對舊版根目錄 `pubspec` 的升級（`archive`、`flutter_cache_manager`、`go_router`），舊版凍結，留給擁有者決定。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-queue-model`）；
   2. `task.py create … --parent .trellis/tasks/10-01-m2-full-playback --package app --no-start`；
@@ -596,6 +612,15 @@ PR 7 留下的：
 - [ ] 佇列裡同一首連著兩次時，前瞻與目前這首共用同一個解析結果；目前這首失敗作廢後，前瞻仍持有壞網址，接著被跳到時會再失敗一次再恢復。條件很窄。
 - [ ] 已關閉的舊插件實例被最多 64 個快取鍵留住，到 LRU 淘汰為止。
 - [ ] 「插件更新後重新解析」只有單元測試；M3 有插件頁之後才有實機入口。
+
+PR 9 留下的（PR 10 接控制器時處理）：
+
+- [ ] 前瞻以位置索引對應；佇列被拖曳、插入或移除後，已準備的前瞻可能指到別首，控制器要在佇列編輯後重新準備前瞻。
+- [ ] 臨時播放中 `QueueModel.next` 回傳的是快照那首；若照前瞻交接，會從頭播而不是從 `snapshot.resumeAt(...)`。臨時播放中控制器應跳過前瞻或另外處理。
+- [ ] 臨時播放中而佇列是空的時，`QueueState.hasNext` 是 true、`QueueModel.next` 是 null：播放列的下一首按鈕可按卻沒反應。
+- [ ] 空佇列進入臨時播放，快照記「沒在播」；之後在臨時播放中附加或下一首播放，回到佇列時不自動播。對照 design §7.2「佇列原本是空的時停在 `Idle`」確認是否要的行為。
+- [ ] 單曲循環的重播（模型照循環關走上下一首）要由控制器在一首播完時接上。
+- 已定下、PR 10 不必再問：連續「下一首播放」在換歌、拖曳、取代、開隨機後從目前這首之後重新排（ADR 0018 採用的 Namida `insertAfterLatest`）；目前這首被拖曳時新舊位置交換排序（寫在 `app/AGENTS.md`）。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

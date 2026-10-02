@@ -25,7 +25,8 @@
     "10-02-artwork-cache",
     "10-02-network-settings",
     "10-02-startup-maintenance",
-    "10-02-stream-url-cache"
+    "10-02-stream-url-cache",
+    "10-03-queue-model"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
