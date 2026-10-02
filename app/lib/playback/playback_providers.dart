@@ -41,6 +41,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
       resolver: StreamResolver(
         plugin: (pluginId) => ref.read(pluginRegistryProvider).value?[pluginId],
         formats: ref.watch(_playbackSupportProvider).formats,
+        log: log,
       ),
       log: log,
     ),
