@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/data/cache/cache_store.dart';
+import 'package:fmp/data/database/app_database.dart';
+import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
@@ -13,6 +17,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 import 'cache_harness.dart';
+import '../../support/memory_database.dart';
 
 void main() {
   group('opening', () {
@@ -25,7 +30,7 @@ void main() {
 
         expect(harness.databaseFile.existsSync(), isTrue);
         expect(harness.files.existsSync(), isTrue);
-        expect(await store.usage(), {CacheCategory.image: 0});
+        expect(await store.watchUsage().first, {CacheCategory.image: 0});
       },
     );
 
@@ -49,7 +54,7 @@ void main() {
       expect(lyrics.listSync(), hasLength(1));
       expect(harness.fileNames(), isEmpty);
       await put(harness.manager(store), 'https://example.test/a.jpg', 10);
-      expect(await store.usage(), {CacheCategory.image: 10});
+      expect(await store.watchUsage().first, {CacheCategory.image: 10});
       expect(
         harness.records(cacheLogTag).map((record) => record.message),
         contains('Failed to open the cache, starting it over'),
@@ -78,14 +83,14 @@ void main() {
 
         final store = await harness.open();
 
-        expect(await store.usage(), {CacheCategory.image: 0});
+        expect(await store.watchUsage().first, {CacheCategory.image: 0});
         expect(
           harness.fileNames(),
           isEmpty,
           reason: 'its files are strays now',
         );
         await put(harness.manager(store), 'https://example.test/a.jpg', 10);
-        expect(await store.usage(), {CacheCategory.image: 10});
+        expect(await store.watchUsage().first, {CacheCategory.image: 10});
         final reopened = sqlite3.open(
           harness.databaseFile.path,
           mode: OpenMode.readOnly,
@@ -119,7 +124,7 @@ void main() {
 
       final store = await harness.open();
 
-      expect(await store.usage(), {CacheCategory.image: 10});
+      expect(await store.watchUsage().first, {CacheCategory.image: 10});
       expect(harness.fileNames(), hasLength(1));
       expect(harness.stagingEntries(), isEmpty);
       expect(
@@ -143,11 +148,11 @@ void main() {
       await at(1, () => put(a, 'https://example.test/1.jpg', 100));
       await at(2, () => put(b, 'https://example.test/2.jpg', 100));
       await at(3, () => put(a, 'https://example.test/3.jpg', 100));
-      expect(await store.usage(), {CacheCategory.image: 300});
+      expect(await store.watchUsage().first, {CacheCategory.image: 300});
 
       await at(4, () => put(b, 'https://example.test/4.jpg', 100));
 
-      expect(await store.usage(), {CacheCategory.image: 300});
+      expect(await store.watchUsage().first, {CacheCategory.image: 300});
       expect(await a.getFileFromCache('https://example.test/1.jpg'), isNull);
       expect(harness.fileNames(), hasLength(3));
 
@@ -157,7 +162,7 @@ void main() {
 
       expect(await a.getFileFromCache('https://example.test/3.jpg'), isNull);
       expect(await b.getFileFromCache('https://example.test/2.jpg'), isNotNull);
-      expect(await store.usage(), {CacheCategory.image: 300});
+      expect(await store.watchUsage().first, {CacheCategory.image: 300});
       expect(
         harness.records(cacheLogTag).where((r) => r.message == 'Cache evicted'),
         hasLength(2),
@@ -173,7 +178,7 @@ void main() {
 
       await store.setLimit(150);
 
-      expect(await store.usage(), {CacheCategory.image: 100});
+      expect(await store.watchUsage().first, {CacheCategory.image: 100});
       expect(
         await manager.getFileFromCache('https://example.test/2.jpg'),
         isNotNull,
@@ -192,7 +197,7 @@ void main() {
       await put(manager, 'https://example.test/1.jpg', 100);
       await put(manager, 'https://example.test/2.jpg', 100);
 
-      expect(await store.usage(), {CacheCategory.image: 200});
+      expect(await store.watchUsage().first, {CacheCategory.image: 200});
       expect(harness.records(cacheLogTag), isEmpty);
     });
   });
@@ -212,7 +217,7 @@ void main() {
 
       await store.clear();
 
-      expect(await store.usage(), {CacheCategory.image: 0});
+      expect(await store.watchUsage().first, {CacheCategory.image: 0});
       expect(harness.fileNames(), isEmpty);
       expect(
         await harness
@@ -221,6 +226,33 @@ void main() {
         isNull,
       );
     });
+
+    test(
+      'the usage is sent again after a write, an eviction and a clear',
+      () async {
+        final harness = CacheHarness();
+        final store = await harness.open(limitBytes: 100);
+        final manager = harness.manager(store);
+        final usage = StreamIterator(store.watchUsage());
+        addTearDown(usage.cancel);
+        // 一次動作可能改索引好幾次（寫入、更新最後存取）：等到出現想要的值。
+        Future<void> until(int bytes) async {
+          while (await usage.moveNext()) {
+            if (usage.current[CacheCategory.image] == bytes) return;
+          }
+          fail('the usage stream ended before $bytes');
+        }
+
+        await until(0);
+        await at(1, () => put(manager, 'https://example.test/1.jpg', 60));
+        await until(60);
+        // 超過上限：淘汰較舊的那張。
+        await at(2, () => put(manager, 'https://example.test/2.jpg', 70));
+        await until(70);
+        await store.clear();
+        await until(0);
+      },
+    );
 
     test('clearing works after the system removed files/', () async {
       // Android 可能在 App 執行中清掉整個 getCacheDir()。
@@ -231,7 +263,7 @@ void main() {
 
       await store.clear();
 
-      expect(await store.usage(), {CacheCategory.image: 0});
+      expect(await store.watchUsage().first, {CacheCategory.image: 0});
     });
 
     test("removing a plugin deletes only that plugin's entries", () async {
@@ -247,7 +279,7 @@ void main() {
 
       await store.removePlugin('a');
 
-      expect(await store.usage(), {CacheCategory.image: 60});
+      expect(await store.watchUsage().first, {CacheCategory.image: 60});
       expect(await a.config.repo.getAllObjects(), isEmpty);
       expect(
         (await b.config.repo.getAllObjects()).map((object) => object.key),
@@ -294,11 +326,13 @@ void main() {
   group('cacheStoreProvider', () {
     ProviderContainer container(
       CacheHarness harness,
-      CacheDirectory directory,
-    ) {
+      CacheDirectory directory, {
+      AppDatabase? database,
+    }) {
       final container = ProviderContainer(
         retry: (_, _) => null,
         overrides: [
+          appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
           logProvider.overrideWithValue(harness.log),
           cacheDirectoryProvider.overrideWithValue(directory),
           platformCapabilitiesProvider.overrideWithValue(
@@ -318,6 +352,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+      // 不 listen：沒有人聽這個 provider 時，設定的改動也要套用。
       return container;
     }
 
@@ -335,7 +370,62 @@ void main() {
       await at(2, () => put(manager, 'https://example.test/2.jpg', 600 * 1024));
 
       // 上限 1 MiB：第二張寫入後淘汰第一張。
-      expect(await store.usage(), {CacheCategory.image: 600 * 1024});
+      expect(await store.watchUsage().first, {CacheCategory.image: 600 * 1024});
+    });
+
+    test('a limit the user set replaces the platform default', () async {
+      final harness = CacheHarness();
+      final database = memoryDatabase();
+      await NetworkSettingsRepository(database).write(cacheLimitMebibytes: 2);
+      final store = await container(
+        harness,
+        harness.directory,
+        database: database,
+      ).read(cacheStoreProvider.future);
+      addTearDown(store.close);
+      final manager = harness.manager(store);
+
+      await at(1, () => put(manager, 'https://example.test/1.jpg', 900 * 1024));
+      await at(2, () => put(manager, 'https://example.test/2.jpg', 900 * 1024));
+
+      // 上限 2 MiB（預設是 1）：兩張都留著。
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 1800 * 1024,
+      });
+    });
+
+    test('changing the limit evicts down to it right away', () async {
+      final harness = CacheHarness();
+      final database = memoryDatabase();
+      final repository = NetworkSettingsRepository(database);
+      await repository.write(cacheLimitMebibytes: 2);
+      final container0 = container(
+        harness,
+        harness.directory,
+        database: database,
+      );
+      final store = await container0.read(cacheStoreProvider.future);
+      addTearDown(store.close);
+      final manager = harness.manager(store);
+      await at(1, () => put(manager, 'https://example.test/1.jpg', 900 * 1024));
+      await at(2, () => put(manager, 'https://example.test/2.jpg', 900 * 1024));
+
+      await repository.write(cacheLimitMebibytes: 1);
+      await eventually(
+        () async =>
+            (await store.watchUsage().first)[CacheCategory.image] == 900 * 1024,
+        reason: 'the cache was not evicted after the limit was lowered',
+      );
+
+      // 留下較新的那張。
+      expect(
+        await read(manager, 'https://example.test/1.jpg', minute: 3),
+        isNull,
+      );
+      expect(
+        await read(manager, 'https://example.test/2.jpg', minute: 4),
+        isNotNull,
+      );
     });
 
     test('a cache that cannot be opened is an error that is logged, '
