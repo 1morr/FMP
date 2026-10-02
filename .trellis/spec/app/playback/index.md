@@ -13,7 +13,7 @@ lib/playback/
   playback_event_router.dart # SessionEvent、routePlaybackEvent（純函數）與它的動作
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
   queue_model.dart          # QueueModel、QueueState（M1：記憶體、依序）
-  stream_resolver.dart      # StreamResolver、ResolvedStream（期限）
+  stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限）
   recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別（純函數）
   playback_providers.dart   # audioBackendProvider、playbackControllerProvider、狀態／佇列／進度 stream
   backends/
@@ -30,6 +30,8 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 
 1. `playQueue`／`next`／`previous`／恢復 → 控制器的 `_load`：`session.beginRequest()` 換一代、
    狀態 `Loading`，用前瞻留下的 `ResolvedStream`（`session.isFresh`）或 `session.resolve`。
+   解析一律經 `StreamResolver` 的網址快取：還有效的直接拿、同一首正在解析的共用請求，
+   所以前瞻解析過（或還在解析）的那首不會再問插件。
 2. `session.open`：建 `BackendSource`（新的 id、經 `mediaRequestHeaders`），`AudioBackend.open`。
 3. 後端回報 `ready` → session 發 `SourceReady` → 路由器給 `MarkReady` → `Playing`／`Paused`；
    第一次 ready 時 `session.prepareLookAhead` 解析下一首一次，`setNext` 交給後端，有期限就排一個
@@ -39,7 +41,8 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
    沒有前瞻時是 `SourceEnded` → `SourceFinished`：還有下一首（`PlayNextTrack`）就照 1 開始，
    沒有（`FinishQueue`）就 `Idle`。
 5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`）→ `Recover`／`decideRecovery` →
-   重試、換候選、跳過或停下。
+   重試、換候選、跳過或停下。串流本身的失敗（`Recover`）先 `session.invalidateCurrentStream`
+   作廢快取裡的那一筆；解析失敗本來就不進快取。
 
 狀態、位置、事件都帶來源 id，session 只轉目前來源的。每個非同步步驟回來時比對
 `session.generation`，不同就丟掉結果。
@@ -79,6 +82,11 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   或丟 `AppError`，記下每次請求）。`h.elapse` 前進時間，`h.settle` 只跑微任務。
 - 解析次數用 `plugin.resolvedCount(sourceId)`；開了哪些網址用 `h.openedPaths`；前瞻用
   `backend.nextSources`；log 用 `h.logged(message)`。
+- 時間：程式碼讀 `clock.now()`，`fakeAsync` 裡的 `clock` 跟著假時間走（`h.now()` 就是它）。
+  網址快取以時間判斷有效，同一個 `Harness` 裡的解析共用一份快取：要測「再解析一次」就讓
+  期限落在 5 分鐘的餘裕內，或製造一次串流失敗。
+- `StreamResolver` 自己的快取規則在 `stream_resolver_test.dart`，以 `withClock` 換一個可調
+  的時鐘，不用 `fakeAsync`。
 - 碰 log 檔的案例（遮蔽）不用 `fakeAsync`：真的 `LogFile` 在暫存目錄，等待用 `pumpUntil`。
 - 路由器：`test/playback/playback_event_router_test.dart` 直接以 `SessionEvent` 與
   `PlaybackSnapshot` 呼叫 `routePlaybackEvent`，不組控制器。事件與快照的組合在這裡窮舉；
@@ -98,5 +106,8 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 - 交接：`Look-ahead handover`（`previousPositionMs` 是上一首最後回報的位置）與接著的
   `Track audible`：`sinceHandoverMs` 是交接事件到這首第一次回報位置，`estimatedGapMs` 是從
   上一首最後的位置推算的結束時間到這首第一次回報位置（含位置回報的間隔，只是估計）。
+- 解析次數：`Resolving stream` 一筆是一次插件 `resolveStream`；連播 n 首應該剛好 n 筆，
+  多出來的看同一首旁邊有沒有 `Stream URL invalidated`（失敗後重解析是對的）或
+  `Look-ahead refreshed before expiry`。
 - 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
   `Referer`。

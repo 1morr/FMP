@@ -605,18 +605,44 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   audio_session 要求 Android 音訊焦點，只在失去焦點或引擎卸載時放掉，換來源、`stop()`
   都不放；重建 `AudioPlayer` 才會（ADR 0018 §決定 3；來源在 `AudioBackend` 的
   dartdoc）。沒有自動閘門，實機以 `dumpsys audio` 確認（見 spec）。
-- 前瞻：目前這首載入好後解析下一首一次，交接時不再解析；候選的 `expiresAt` 前 30 秒
-  （`ResolvedStream.expiryMargin`）重新解析並換掉前瞻，手動下一首也先檢查。閘門：
-  `playback_controller_test.dart` 的 `hands over to the look-ahead…`、`pausing and
-  resuming…`、`expiry` 群組。
+- 前瞻：目前這首載入好後解析下一首一次，交接時不再解析；候選的 `expiresAt` 前 5 分鐘
+  （`ResolvedStream.expiryMargin`，與網址快取同一個常數）作廢快取、重新解析並換掉前瞻，
+  手動下一首也先檢查。閘門：`playback_controller_test.dart` 的 `hands over to the
+  look-ahead…`、`pausing and resuming…`、`expiry` 群組；`stream_resolver_test.dart` 的
+  `the margin is five minutes`。
+- 網址快取（ADR 0016 §決定 5）在 `StreamResolver` 內、只在記憶體，前瞻與播放都經它：
+  - 鍵是曲目鍵（含分 P）加上送給插件的偏好（M2 PR 8 前只有平台格式的順序）；最多 64 筆，
+    淘汰最久沒用的。閘門：`stream_resolver_test.dart` 的 `the key is the whole track
+    key…`、`keeps the 64 most recently used streams`。
+  - 鍵也含解析它的插件實例：插件更新後是新的實例，舊實例的結果（以舊 manifest 的網域檢查
+    過）與還在進行的請求都不給新的呼叫。閘門：`stream_resolver_test.dart` 的 `a replaced
+    plugin is asked again…`。
+  - 有效到第一個候選的 `expiresAt` 減 5 分鐘；沒有 `expiresAt` 的解析後 5 分鐘；一回來
+    就在餘裕內的不放；時間經 `clock`。閘門：`stream_resolver_test.dart` 的
+    `a stream is valid until…`、`without expiresAt…`、`a stream already inside the
+    margin…`。
+  - 同一個鍵正在解析時共用同一個 `Future`；解析失敗不留下。所以前瞻還在解析時目前這首
+    播完，那首只解析一次。閘門：`stream_resolver_test.dart` 的 `concurrent calls…`、
+    `a failed resolution…`；`playback_controller_test.dart` 的 `a look-ahead slower than
+    the current track…`、`playing a track the look-ahead resolved…`。
+  - 串流本身失敗（路由器給 `Recover`：開不起來、中斷、提前結束）時控制器呼叫
+    `PlaybackSession.invalidateCurrentStream`，只作廢那一個解析結果（已被較新的取代就
+    不動）；重試與之後再播都重新解析，換候選照用手上的結果。閘門：
+    `playback_controller_test.dart` 的 `a stream that failed to open is resolved again…`
+    （反例 `playing a track again uses the cached stream`）、`an interrupted stream
+    retries from its position`（重試解析了第二次）；`stream_resolver_test.dart` 的
+    `an invalidated stream…`。
+  - 實機數解析次數：`Resolving stream`（tag `playback`）一筆就是一次插件
+    `resolveStream`；`Stream URL reused` 的 `from` 是 `cache` 或 `pending`；
+    `Stream URL invalidated` 是作廢。
 - 恢復（ADR 0018 §決定 7 的 M1 部分）：網路錯誤、限流、中斷與提前結束從目前位置重試
   1／3／9 秒；開不起來換下一個候選一次；其他錯誤類別跳過；連續跳過達佇列長度（最多 10）
   停在 `Failed`。M1 沒有連線偵測、試聽片段設定（一律跳過）、緩衝飢餓與輸出裝置的處理、
   「正常播放 10 秒後重試計數歸零」（M1 換歌才歸零）。停在 `Failed` 時外殼提示一次（跳過不提示，
   控制器沒有發出跳過的事件）。閘門：`recovery_policy_test.dart`、`playback_controller_test.dart`
   的 `recovery` 群組、`app_shell_test.dart` 的 `playback that stops failed shows a toast`。
-- 被取代的解析結果丟掉，但插件的 `resolveStream` 沒有取消參數，網路工作不取消
-  （ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
+- 被取代的解析結果丟掉（結果仍進網址快取），但插件的 `resolveStream` 沒有取消參數，
+  網路工作不取消（ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
 - UI 開始播放只經 `playTracks`（`lib/ui/player/queue_tracks.dart`）：整份清單與起點交給
   `playQueue`，顯示資料放 `queueTracksProvider`（M1 沒有曲目表，播放列以曲目鍵查它）。閘門：
   `search_page_test.dart` 的 `tapping a result plays the whole list from it`。沒有播放的開發
