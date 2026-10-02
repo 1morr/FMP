@@ -9,11 +9,12 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
-import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:path/path.dart' as p;
@@ -22,8 +23,8 @@ import '../support/pump_until.dart';
 import 'fake_audio_backend.dart';
 import 'fake_source_plugin.dart';
 
-TrackKeyParts track(String id) =>
-    TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: id);
+TrackInfo track(String id) =>
+    TrackInfo(sourceTypeId: 'fmp-test', sourceId: id, title: 'Song $id');
 
 /// 控制器加假後端、假插件與 log，全部在 [async] 的假時間裡。
 final class Harness {
@@ -175,6 +176,25 @@ void main() {
         h.elapse(const Duration(milliseconds: 100));
         expect(h.controller.queue.currentIndex, 0);
         expect(h.openedPaths, ['/a.m4a', '/b.m4a', '/a.m4a']);
+      });
+    });
+
+    test('a queue past the limit is not played; the current one goes on', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(seconds: 60));
+        unawaited(h.controller.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+        final queue = h.controller.queue;
+
+        unawaited(
+          h.controller.playQueue([
+            for (var i = 0; i <= QueueModel.maxLength; i++) track('$i'),
+          ]),
+        );
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.queue, same(queue));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.openedPaths, ['/a.m4a']);
       });
     });
 
@@ -669,7 +689,7 @@ void main() {
         final h = Harness(async);
         unawaited(
           h.controller.playQueue([
-            const TrackKeyParts(sourceTypeId: 'missing', sourceId: 'x'),
+            const TrackInfo(sourceTypeId: 'missing', sourceId: 'x', title: 'x'),
             track('b'),
           ]),
         );

@@ -11,7 +11,6 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
-import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/data/cache/cache_store.dart';
@@ -188,11 +187,7 @@ final class ShellHarness {
     container(tester).read(queueTracksProvider.notifier).replace(tracks);
     unawaited(
       controller.playQueue([
-        for (final track in tracks)
-          TrackKeyParts(
-            sourceTypeId: track.sourceTypeId,
-            sourceId: track.sourceId,
-          ),
+        for (final track in tracks) track.toTrackInfo(),
       ], startIndex: index),
     );
     await tester.pump();

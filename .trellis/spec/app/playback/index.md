@@ -12,7 +12,7 @@ lib/playback/
   playback_session.dart     # PlaybackSession：唯一碰 AudioBackend；解析、開流、前瞻、代與來源 id
   playback_event_router.dart # SessionEvent、routePlaybackEvent（純函數）與它的動作
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
-  queue_model.dart          # QueueModel、QueueState（M1：記憶體、依序）
+  queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限）
   stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限）
   recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別（純函數）
   playback_providers.dart   # audioBackendProvider、playbackControllerProvider、狀態／佇列／進度 stream
@@ -51,6 +51,21 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 在 `routePlaybackEvent`（新的判斷先在這裡加一個事件或動作，並在
 `playback_event_router_test.dart` 加案例）；改狀態、動佇列、恢復計數在控制器。session 要給
 控制器新的資訊時，加在 `SessionEvent` 或 `PlaybackSnapshot`，不讓控制器 import 後端。
+
+## 改佇列
+
+- 規則都在 `QueueModel`（純 Dart），控制器只依 `moveNext`／`movePrevious` 回的 `QueueStep`
+  做事：`MovedToTrack` 從頭開始、`RestartTrack` seek 回 0、`ReturnedToQueue` 從
+  `snapshot.resumeAt(...)` 開始（`current` 為空就停）、`QueueUnchanged` 不動。
+- 隨機的內部表示：`_order` 是本輪的位置排列，目前這首在 `_order.indexOf(_current)`；
+  `_playNextRun` 是緊接在目前這首之後、連續「下一首播放」的位置數（清單與排列上都緊接著）。
+  新的編輯要同時維持這兩件事，並讓 `_order` 仍是全部位置的排列。
+- 一輪的最後一首時，`next` 先決定下一輪的排列（`_nextRound`），`moveNext` 照用；任何編輯經
+  `_publish` 作廢它。所以前瞻看到的下一首與實際接上的一致。
+- 測試：`test/playback/queue_model_test.dart`，隨機一律 `QueueModel(random: Random(種子))`。
+  斷言用曲目 id 寫（`upcoming`、`played` 取本輪之後、之前的曲目），不寫死排列：排列由 `Random`
+  的實作決定，測試只認規則。新的編輯操作加進 `a seeded run of edits…` 的 `switch`，並照它
+  維護 `slots`（每個位置的身分）。
 
 ## 改後端
 

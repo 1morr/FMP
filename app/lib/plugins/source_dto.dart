@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/core/network/allowed_hosts.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/json_shape.dart';
 
 // 宿主與插件交換的 DTO，apiVersion 1（ADR 0014 §決定 5）。
@@ -155,6 +156,20 @@ final class TrackSummary {
 
   /// 多尺寸封面（ADR 0016 §決定 4）；宿主挑最接近顯示尺寸的一張。
   final List<Artwork> artwork;
+
+  /// 插件以外（佇列、歷史）用的曲目：欄位逐一照搬。
+  TrackInfo toTrackInfo() => TrackInfo(
+    sourceTypeId: sourceTypeId,
+    sourceId: sourceId,
+    cid: cid,
+    title: title,
+    uploader: uploader,
+    duration: duration,
+    artwork: List.unmodifiable([
+      for (final image in artwork)
+        TrackArtwork(url: image.url, width: image.width),
+    ]),
+  );
 }
 
 /// 封面的一個尺寸。

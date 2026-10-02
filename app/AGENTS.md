@@ -562,8 +562,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 播放
 
 `lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
-`.trellis/spec/app/playback/index.md`。M1 只有依序播放一個清單、播放與暫停、上一首與
-下一首、seek，佇列只在記憶體。
+`.trellis/spec/app/playback/index.md`。控制器目前只有依序播放一個清單、播放與暫停、
+上一首與下一首、seek；`QueueModel` 的規則已經完整（下面「佇列」幾條），但隨機、循環、
+臨時播放、下一首播放、加入、移除還沒有控制器的入口。佇列只在記憶體。
 
 - `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
   `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`PlaybackEventRouter`，純函數）、
@@ -643,8 +644,36 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   的 `recovery` 群組、`app_shell_test.dart` 的 `playback that stops failed shows a toast`。
 - 被取代的解析結果丟掉（結果仍進網址快取），但插件的 `resolveStream` 沒有取消參數，
   網路工作不取消（ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
+- 佇列（`QueueModel`）是純 Dart：不碰資料庫與後端、不 import Riverpod 與 UI；隨機經建構子
+  注入的 `Random`，播放位置與設定值（記住播放位置、倒退秒數）由呼叫端傳入。項目是
+  `QueueEntry(TrackInfo)`（`lib/domain/track_info.dart`，插件的 `TrackSummary` 以
+  `toTrackInfo` 轉過來）。純度沒有閘門，review 時看。
+- 佇列：隨機以位置為單位（ADR 0018 §決定 5）。排列是位置的順序，編輯只動受影響的位置，
+  其他未播位置的相對順序不變：拖曳只移動歌、不動排列（拖進本輪已播的位置本輪不再播）；
+  下一首播放排在目前這首之後、連續加入依加入順序（目前這首換了或拖曳過就重新排）；附加插在
+  下一首播放之後剩下未播的隨機一處；跳到某首把它的排序移到目前之後。一輪播完：循環全部時
+  重排、剛播完的那個位置不排第一，否則停下。閘門：`queue_model_test.dart` 的 `shuffle`
+  群組，其中 `a seeded run of edits plays every position once per round` 以固定種子跑一串
+  編輯，比對「每個位置一輪恰好播一次」。
+- 佇列：目前這首被拖到別的位置（自己被拖，或被別首推了一格）時，它的新舊位置交換排序，
+  所以目前這首仍在本輪的進度上；這是「拖曳不動排列」唯一的例外。閘門：
+  `dragging the current song keeps it current…`、上一條的種子測試。
+- 佇列：上一首在播放超過 3 秒時回到開頭，否則往排列的前一個；隨機時一輪的開頭不往回繞。
+  單曲循環時佇列的上一首、下一首照「循環關」走，重播歸控制器（還沒有循環的入口，所以還沒
+  接上）。閘門：`queue_model_test.dart` 的 `previous` 群組、`loop one leaves next and
+  previous…`。控制器還沒傳播放位置（傳 0），App 裡 3 秒的規則還不生效。
+- 佇列：任何加入（取代、附加、下一首播放）會超過 10,000 首就整批不加、回傳 `false`，臨時
+  播放不算。控制器的 `playQueue` 被拒時什麼都不做（目前的播放照舊），還沒有提示。閘門：
+  `queue_model_test.dart` 的 `limit` 群組、`playback_controller_test.dart` 的 `a queue past
+  the limit is not played…`。
+- 佇列：臨時播放進入時記快照（播放位置、在不在播；回到的那一首是 `currentIndex`，佇列照常可
+  編輯），已在臨時播放時只換曲目；下一首、上一首（含播完、跳過）回到佇列並交回快照，
+  `QueueSnapshot.resumeAt` 算出從哪裡開始（照快照從哪裡播、原本在播才播是控制器的事，還沒有
+  臨時播放的入口）；單曲循環不改模式；點選佇列（`jumpTo`）、取代、清空結束它並丟掉快照；下一首
+  播放插在快照那首之後。閘門：`queue_model_test.dart` 的 `temporary play` 群組、`clear empties
+  the queue and keeps loop and shuffle`。
 - UI 開始播放只經 `playTracks`（`lib/ui/player/queue_tracks.dart`）：整份清單與起點交給
-  `playQueue`，顯示資料放 `queueTracksProvider`（M1 沒有曲目表，播放列以曲目鍵查它）。閘門：
+  `playQueue`，顯示資料另放 `queueTracksProvider`（播放列還以曲目鍵查它，M2 改讀佇列）。閘門：
   `search_page_test.dart` 的 `tapping a result plays the whole list from it`。沒有播放的開發
   入口：實機驗證從搜尋頁點一首。
 

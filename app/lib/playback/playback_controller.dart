@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
-import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -60,9 +60,10 @@ final class PlaybackController {
   /// 目前這首的位置、時長與緩衝。
   Stream<PlaybackProgress> get progress => _session.progress;
 
-  /// 以 [tracks] 取代佇列，從 [startIndex] 開始播。
-  Future<void> playQueue(List<TrackKeyParts> tracks, {int startIndex = 0}) {
-    _queue.replace(tracks, startIndex: startIndex);
+  /// 以 [tracks] 取代佇列，從 [startIndex] 開始播。超過佇列上限時整批不加、
+  /// 什麼都不做。
+  Future<void> playQueue(List<TrackInfo> tracks, {int startIndex = 0}) {
+    if (!_queue.replace(tracks, startIndex: startIndex)) return Future.value();
     _emitQueue();
     _consecutiveSkips = 0;
     _playWhenReady = true;
@@ -113,9 +114,12 @@ final class PlaybackController {
     return _beginTrack(prepared: prepared);
   }
 
-  /// 上一首；已經是第一首就回到這首的開頭。
+  /// 上一首；已經是第一首就回到這首的開頭。播放位置還沒接上（傳 0），所以
+  /// 「播超過 3 秒回到開頭」不生效。
   Future<void> previous() {
-    if (!_queue.movePrevious()) return seek(Duration.zero);
+    if (_queue.movePrevious(position: Duration.zero) is! MovedToTrack) {
+      return seek(Duration.zero);
+    }
     _emitQueue();
     _consecutiveSkips = 0;
     return _beginTrack();
@@ -152,8 +156,8 @@ final class PlaybackController {
     Duration position = Duration.zero,
     ResolvedStream? prepared,
   }) async {
-    final track = _queue.state.current;
-    if (track == null) return;
+    final key = _queue.state.current?.key;
+    if (key == null) return;
     final generation = _session.beginRequest();
     _cancelRetry();
     _resumeAt = position;
@@ -161,7 +165,7 @@ final class PlaybackController {
     _log.info(
       'Track requested',
       tag: _tag,
-      fields: {'track': '$track', 'queueIndex': _queue.state.currentIndex},
+      fields: {'track': '$key', 'queueIndex': _queue.state.currentIndex},
     );
 
     final ResolvedStream stream;
@@ -172,11 +176,11 @@ final class PlaybackController {
         _log.info(
           'Look-ahead expired; resolving again',
           tag: _tag,
-          fields: {'track': '$track'},
+          fields: {'track': '$key'},
         );
       }
       try {
-        stream = await _session.resolve(track);
+        stream = await _session.resolve(key);
       } on AppError catch (error) {
         if (generation != _session.generation) return;
         _log.report('Stream resolution failed', error, tag: _tag);
@@ -209,14 +213,14 @@ final class PlaybackController {
         _session.markReady();
         _setState(playing ? const Playing() : const Paused());
         if (playing) _consecutiveSkips = 0;
-        if (first) unawaited(_session.prepareLookAhead(() => _queue.next));
+        if (first) unawaited(_session.prepareLookAhead(_nextTrack));
       case AdoptLookAhead():
         _session.adoptLookAhead(action);
         _queue.moveNext();
         _emitQueue();
         _retries = 0;
         _candidateSwitched = false;
-        unawaited(_session.prepareLookAhead(() => _queue.next));
+        unawaited(_session.prepareLookAhead(_nextTrack));
       case PlayNextTrack():
         // 前瞻沒來得及接上（例如還在解析）：照一般的下一首開始。路由器只在
         // 佇列還有下一首時給這個動作。
@@ -253,13 +257,13 @@ final class PlaybackController {
       candidateSwitched: _candidateSwitched,
       hasOtherCandidate: _session.hasOtherCandidate,
       consecutiveSkips: _consecutiveSkips,
-      queueLength: _queue.state.tracks.length,
+      queueLength: _queue.state.entries.length,
     );
     _log.info(
       'Playback recovery',
       tag: _tag,
       fields: {
-        'track': '${_queue.state.current}',
+        'track': '${_queue.state.current?.key}',
         'error': error.typeName,
         'action': switch (action) {
           RetryAfter() => 'retry',
@@ -336,6 +340,12 @@ final class PlaybackController {
     );
     if (!_states.isClosed) _states.add(state);
   }
+
+  /// 佇列的下一首，給前瞻用。
+  NextTrack? _nextTrack() => switch (_queue.next) {
+    (:final index, :final track)? => (index: index, track: track.key),
+    null => null,
+  };
 
   void _emitQueue() {
     if (!_queueStates.isClosed) _queueStates.add(_queue.state);
