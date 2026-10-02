@@ -75,6 +75,7 @@ final class ShellHarness {
         resolver: StreamResolver(
           plugin: (id) => id == plugin.manifest.id ? plugin : null,
           formats: const [PlayableFormat('mp4', 'aac')],
+          log: log,
         ),
         log: log,
       ),

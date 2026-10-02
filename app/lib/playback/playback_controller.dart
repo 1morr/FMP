@@ -234,6 +234,8 @@ final class PlaybackController {
         if (action.endedEarly) {
           _log.report('Stream ended early', error, tag: _tag);
         }
+        // 串流本身失敗了：網址不再從快取拿，重試與之後再播都重新解析。
+        _session.invalidateCurrentStream();
         unawaited(_recover(failure, error, position));
     }
   }

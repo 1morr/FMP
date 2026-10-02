@@ -24,7 +24,8 @@
     "10-01-media-client",
     "10-02-artwork-cache",
     "10-02-network-settings",
-    "10-02-startup-maintenance"
+    "10-02-startup-maintenance",
+    "10-02-stream-url-cache"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

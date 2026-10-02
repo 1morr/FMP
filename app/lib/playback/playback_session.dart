@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
+
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/domain/track_key.dart';
@@ -20,8 +22,10 @@ typedef NextTrack = ({int index, TrackKeyParts track});
 ///
 /// 前瞻（ADR 0018 §決定 3、6）：目前這首載入好之後，解析下一首一次、交給後端
 /// 的 [AudioBackend.setNext]；後端自己接上（[LookAheadTookOver]），接上的那首不
-/// 再解析。候選有期限時，在過期前（[ResolvedStream.expiryMargin]）重新解析並換掉
-/// 前瞻；手動下一首時由控制器以 [isFresh] 檢查。
+/// 再解析。候選有期限時，在過期前（[ResolvedStream.expiryMargin]）作廢快取、
+/// 重新解析並換掉前瞻；手動下一首時由控制器以 [isFresh] 檢查。解析都經
+/// [StreamResolver] 的網址快取，所以前瞻解析過的那首之後再播（或前瞻還在解析時
+/// 就要播）不會再問插件。
 ///
 /// 每次開始一首（含重試、換候選、接上前瞻）都換一個「代」：還在進行的解析回來
 /// 時代已經不同，結果就丟掉。插件的 `resolveStream` 沒有取消參數，M1 不取消網路
@@ -31,7 +35,6 @@ final class PlaybackSession {
     required this._backend,
     required this._resolver,
     required this._log,
-    this._now = DateTime.now,
   }) {
     _subscriptions
       ..add(_backend.status.listen(_onStatus))
@@ -44,7 +47,6 @@ final class PlaybackSession {
   final AudioBackend _backend;
   final StreamResolver _resolver;
   final Log _log;
-  final DateTime Function() _now;
   final _subscriptions = <StreamSubscription<Object?>>[];
 
   final _events = StreamController<SessionEvent>.broadcast(sync: true);
@@ -98,7 +100,7 @@ final class PlaybackSession {
   int beginRequest() {
     final generation = newGeneration();
     _handover = null;
-    _requestedAt = _now();
+    _requestedAt = clock.now();
     return generation;
   }
 
@@ -114,7 +116,14 @@ final class PlaybackSession {
   // ---- 解析與開流 -----------------------------------------------------------
 
   /// [stream] 現在還能用（沒有期限，或離過期還有餘裕）。
-  bool isFresh(ResolvedStream stream) => stream.isFreshAt(_now());
+  bool isFresh(ResolvedStream stream) => stream.isFreshAt(clock.now());
+
+  /// 目前的來源播放失敗（開不起來、中斷、提前結束）：從網址快取作廢它，重試
+  /// 與之後再播這首時重新解析。來源還留著，換候選照樣用。
+  void invalidateCurrentStream() {
+    final current = _current;
+    if (current != null) _resolver.invalidate(current.stream);
+  }
 
   /// 解析 [track]，丟出 `AppError`。解析期間不讓上一首繼續出聲。
   Future<ResolvedStream> resolve(TrackKeyParts track) {
@@ -225,7 +234,7 @@ final class PlaybackSession {
     );
     final refreshAt = stream.refreshAt;
     if (refreshAt != null) {
-      final delay = refreshAt.difference(_now());
+      final delay = refreshAt.difference(clock.now());
       // 一解析出來就快過期的不排：手動下一首時會再檢查。
       if (delay > Duration.zero) {
         lookAhead.refresh = Timer(delay, () => _refreshLookAhead(lookAhead));
@@ -239,9 +248,11 @@ final class PlaybackSession {
     await _backend.setNext(source);
   }
 
-  /// 前瞻的網址快過期了：重新解析並換掉。
+  /// 前瞻的網址快過期了：重新解析並換掉。先作廢快取裡的那一筆，計時器早一點
+  /// 觸發時也不會拿回同一個網址。
   Future<void> _refreshLookAhead(_LookAhead lookAhead) async {
     if (!identical(_lookAhead, lookAhead)) return;
+    _resolver.invalidate(lookAhead.stream);
     final ResolvedStream stream;
     try {
       stream = await _resolver.resolve(lookAhead.stream.track);
@@ -270,7 +281,7 @@ final class PlaybackSession {
   void adoptLookAhead(AdoptLookAhead handover) {
     final current = _current!;
     final lookAhead = _lookAhead!;
-    final now = _now();
+    final now = clock.now();
     final previous = current.progress;
     final lastProgressAt = _lastProgressAt;
     _log.info(
@@ -343,7 +354,7 @@ final class PlaybackSession {
     if (current == null || sourceProgress.sourceId != current.sourceId) return;
     final progress = sourceProgress.progress;
     current.progress = progress;
-    final now = _now();
+    final now = clock.now();
     _lastProgressAt = now;
     if (!current.audible && progress.position > Duration.zero) {
       current.audible = true;

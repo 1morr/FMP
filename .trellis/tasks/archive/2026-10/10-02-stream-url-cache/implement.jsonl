@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Section 7.4 stream URL cache and unified expiry margin; 7.1 session/router split"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Decision 5: stream URL cache, prefetch and playback share one entry; how to verify"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Look-ahead handover and recovery context"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback core patterns, controller/session/router, tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions, fake plugins, clock"}
