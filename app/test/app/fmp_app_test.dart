@@ -16,6 +16,7 @@ import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -140,10 +141,14 @@ void main() {
     Locale appLocale(WidgetTester tester) =>
         Localizations.localeOf(tester.element(find.byType(AppShell)));
 
-    /// 開到設定頁（外觀設定在那裡）。
+    /// 開到設定頁的外觀組。測試視窗是窄版，設定頁先給分組清單，要點進外觀。
     Future<void> openSettings(WidgetTester tester) async {
       await tester.tap(find.byIcon(Icons.settings_outlined));
       await settle(tester);
+      if (find.byType(AppearanceControls).evaluate().isEmpty) {
+        await tester.tap(find.widgetWithText(ListTile, 'Appearance'));
+        await settle(tester);
+      }
     }
 
     testWidgets('an unset language follows the system', (tester) async {

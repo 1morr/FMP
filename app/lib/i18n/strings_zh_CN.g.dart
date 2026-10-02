@@ -72,6 +72,9 @@ class TranslationsZhCn extends Translations
   late final Translations$appearance$zh_CN appearance =
       Translations$appearance$zh_CN.internal(_root);
   @override
+  late final Translations$network$zh_CN network =
+      Translations$network$zh_CN.internal(_root);
+  @override
   late final Translations$errors$zh_CN errors =
       Translations$errors$zh_CN.internal(_root);
 }
@@ -175,6 +178,10 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   String get title => '设置';
   @override
   String get appearance => '外观';
+  @override
+  String get network => '网络';
+  @override
+  String get back => '返回';
 }
 
 // Path: player
@@ -229,6 +236,35 @@ class Translations$appearance$zh_CN extends Translations$appearance$zh_TW {
   String get language => '语言';
   @override
   String get languageSystem => '跟随系统';
+}
+
+// Path: network
+class Translations$network$zh_CN extends Translations$network$zh_TW {
+  Translations$network$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get cacheLimit => '缓存上限';
+  @override
+  String cacheLimitDefault({required Object size}) => '${size}（默认）';
+  @override
+  String get usage => '缓存用量';
+  @override
+  String get artwork => '封面';
+  @override
+  String get clear => '清除缓存';
+  @override
+  String get clearTitle => '清除缓存？';
+  @override
+  String get clearBody => '已缓存的封面会被删除，需要时重新下载。设置和数据不受影响。';
+  @override
+  String get cancel => '取消';
+  @override
+  String get cleared => '已清除缓存';
 }
 
 // Path: errors

@@ -67,6 +67,8 @@ class TranslationsEn extends Translations
   late final Translations$appearance$en appearance =
       Translations$appearance$en._(_root);
   @override
+  late final Translations$network$en network = Translations$network$en._(_root);
+  @override
   late final Translations$errors$en errors = Translations$errors$en._(_root);
 }
 
@@ -170,6 +172,10 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   String get title => 'Settings';
   @override
   String get appearance => 'Appearance';
+  @override
+  String get network => 'Network';
+  @override
+  String get back => 'Back';
 }
 
 // Path: player
@@ -224,6 +230,36 @@ class Translations$appearance$en extends Translations$appearance$zh_TW {
   String get language => 'Language';
   @override
   String get languageSystem => 'System default';
+}
+
+// Path: network
+class Translations$network$en extends Translations$network$zh_TW {
+  Translations$network$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get cacheLimit => 'Cache limit';
+  @override
+  String cacheLimitDefault({required Object size}) => '${size} (default)';
+  @override
+  String get usage => 'Cache usage';
+  @override
+  String get artwork => 'Artwork';
+  @override
+  String get clear => 'Clear cache';
+  @override
+  String get clearTitle => 'Clear the cache?';
+  @override
+  String get clearBody =>
+      'Cached artwork is deleted and downloaded again when needed. Your settings and data aren\'t affected.';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get cleared => 'Cache cleared';
 }
 
 // Path: errors

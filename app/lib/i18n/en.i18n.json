@@ -30,7 +30,9 @@
   },
   "settings": {
     "title": "Settings",
-    "appearance": "Appearance"
+    "appearance": "Appearance",
+    "network": "Network",
+    "back": "Back"
   },
   "player": {
     "play": "Play",
@@ -51,6 +53,17 @@
     "themeDark": "Dark",
     "language": "Language",
     "languageSystem": "System default"
+  },
+  "network": {
+    "cacheLimit": "Cache limit",
+    "cacheLimitDefault": "{size} (default)",
+    "usage": "Cache usage",
+    "artwork": "Artwork",
+    "clear": "Clear cache",
+    "clearTitle": "Clear the cache?",
+    "clearBody": "Cached artwork is deleted and downloaded again when needed. Your settings and data aren't affected.",
+    "cancel": "Cancel",
+    "cleared": "Cache cleared"
   },
   "errors": {
     "network": "Network connection failed. Check your connection and try again.",

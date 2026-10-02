@@ -9,6 +9,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
+import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -221,6 +222,21 @@ void main() {
           await tester.tap(find.text('Settings').first);
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('network settings at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Network'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(NetworkControls), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

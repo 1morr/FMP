@@ -14,7 +14,11 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/audio/audio.dart';
+import 'package:fmp/data/cache/cache_store.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
+import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -51,6 +55,7 @@ final class ShellHarness {
   ShellHarness({
     FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
     List<SourcePlugin>? sources,
+    this.cacheStore,
   }) : plugin = FakeSourcePlugin(
          (request) => [candidate('${request.sourceId}.m4a')],
          name: 'Test Source',
@@ -83,6 +88,9 @@ final class ShellHarness {
     addTearDown(toaster.dispose);
   }
 
+  /// 設定頁「網路」組用的快取庫；不給就是還沒開好（用量不顯示）。
+  final CacheStore? cacheStore;
+
   final FakeSourcePlugin plugin;
   late final List<SourcePlugin> sources;
 
@@ -101,6 +109,24 @@ final class ShellHarness {
     toasterProvider.overrideWithValue(toaster),
     searchSourcesProvider.overrideWithValue(AsyncData(sources)),
     networkInterfacesProvider.overrideWithValue(interfaces),
+    // 「網路」設定的預設上限讀平台宣告：128 MiB。
+    platformCapabilitiesProvider.overrideWithValue(
+      const PlatformCapabilities(
+        dataDirectory: true,
+        singleInstance: false,
+        fontFallback: FontFallback.none,
+        playback: null,
+        networkInterfaces: false,
+        cache: CacheSizes(
+          defaultLimitMebibytes: 128,
+          memoryImages: 1,
+          memoryImageMebibytes: 1,
+        ),
+      ),
+    ),
+    cacheStoreProvider.overrideWith(
+      (ref) => cacheStore ?? Completer<CacheStore>().future,
+    ),
     // 樹拆掉時停掉後端的計時器（測試結束時檢查沒有留下的計時器）。
     playbackControllerProvider.overrideWith((ref) {
       ref.onDispose(() {

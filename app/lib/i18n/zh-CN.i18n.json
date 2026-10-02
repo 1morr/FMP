@@ -30,7 +30,9 @@
   },
   "settings": {
     "title": "设置",
-    "appearance": "外观"
+    "appearance": "外观",
+    "network": "网络",
+    "back": "返回"
   },
   "player": {
     "play": "播放",
@@ -51,6 +53,17 @@
     "themeDark": "深色",
     "language": "语言",
     "languageSystem": "跟随系统"
+  },
+  "network": {
+    "cacheLimit": "缓存上限",
+    "cacheLimitDefault": "{size}（默认）",
+    "usage": "缓存用量",
+    "artwork": "封面",
+    "clear": "清除缓存",
+    "clearTitle": "清除缓存？",
+    "clearBody": "已缓存的封面会被删除，需要时重新下载。设置和数据不受影响。",
+    "cancel": "取消",
+    "cleared": "已清除缓存"
   },
   "errors": {
     "network": "网络连接失败，请检查网络后重试",

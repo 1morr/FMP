@@ -169,7 +169,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                   sizing: StackFit.expand,
                   children: [
                     SearchPage(fieldFocusNode: _searchField),
-                    const SettingsPage(),
+                    SettingsPage(
+                      visible: _destination == ShellDestination.settings,
+                    ),
                   ],
                 ),
               ),
