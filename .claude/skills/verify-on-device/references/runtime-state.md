@@ -53,8 +53,9 @@ Dart VM Service（`flutter run` 印的 URI）可讀活的物件；URI 是本機�
 
 ## 開發入口（只在 dev flavor；prod 一律忽略）
 
-原始碼：`lib/plugins/install/dev_plugin_entry.dart`。播放一律走 UI：搜尋頁選音源、搜尋、點一首，
-就從那一首開始依序播整份結果。
+原始碼：`lib/plugins/install/dev_plugin_entry.dart`。播放一律走 UI：搜尋頁選音源、搜尋、點一首
+是臨時播放（不進佇列、播完回到佇列）；要排佇列用每首的選單（右鍵、長按或尾端「⋯」）的
+「下一首播放」「加入佇列」，再按播放列的播放。
 
 | 入口 | 作用 |
 |---|---|

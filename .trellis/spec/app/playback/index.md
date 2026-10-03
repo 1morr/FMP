@@ -11,11 +11,13 @@ lib/playback/
   playback_controller.dart  # PlaybackController：唯一入口，唯一寫 PlaybackState
   playback_session.dart     # PlaybackSession：唯一碰 AudioBackend；解析、開流、前瞻、代與來源 id
   playback_event_router.dart # SessionEvent、routePlaybackEvent（純函數）與它的動作
+  playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull）
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
   queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限）
   stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限）
   recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別（純函數）
-  playback_providers.dart   # audioBackendProvider、playbackControllerProvider、狀態／佇列／進度 stream
+  playback_providers.dart   # audioBackendProvider、playbackControllerProvider、temporaryReturnSettingsProvider、
+                            # 狀態／佇列／進度／事件 stream
   backends/
     audio_backend.dart      # AudioBackend 介面、BackendSource、狀態與事件
     backend_rules.dart      # classifyTrackEnd、LookAheadEdit（兩個後端共用）
@@ -28,7 +30,7 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 
 ## 一首歌怎麼播
 
-1. `playQueue`／`next`／`previous`／恢復 → 控制器的 `_load`：`session.beginRequest()` 換一代、
+1. `playTemporary`／`jumpTo`／`next`／`previous`／`play`／恢復 → 控制器的 `_load`：`session.beginRequest()` 換一代、
    狀態 `Loading`，用前瞻留下的 `ResolvedStream`（`session.isFresh`）或 `session.resolve`。
    解析一律經 `StreamResolver` 的網址快取：還有效的直接拿、同一首正在解析的共用請求，
    所以前瞻解析過（或還在解析）的那首不會再問插件。
@@ -38,8 +40,10 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
    計時器在過期前 30 秒重新解析。
 4. 引擎自己接上前瞻 → `SourceAdvanced` → `LookAheadTookOver` → `AdoptLookAhead`：
    `session.adoptLookAhead` 換一代，控制器把佇列往下，接上的那首不再解析，再為下一首準備前瞻。
-   沒有前瞻時是 `SourceEnded` → `SourceFinished`：還有下一首（`PlayNextTrack`）就照 1 開始，
-   沒有（`FinishQueue`）就 `Idle`。
+   沒有前瞻時是 `SourceEnded` → `SourceFinished`：單曲循環（`RepeatTrack`）從頭再開，還有下一首
+   （`PlayNextTrack`）就照 1 開始，沒有（`FinishQueue`）就 `Idle`。
+   前瞻要接什麼由控制器的 `_nextTrack` 決定：單曲循環是目前這首（位置 `null`，接上時
+   `adoptLookAhead` 回 `true`、佇列不動），臨時播放中沒有，其他是佇列的下一首。
 5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`）→ `Recover`／`decideRecovery` →
    重試、換候選、跳過或停下。串流本身的失敗（`Recover`）先 `session.invalidateCurrentStream`
    作廢快取裡的那一筆；解析失敗本來就不進快取。
@@ -55,8 +59,13 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 ## 改佇列
 
 - 規則都在 `QueueModel`（純 Dart），控制器只依 `moveNext`／`movePrevious` 回的 `QueueStep`
-  做事：`MovedToTrack` 從頭開始、`RestartTrack` seek 回 0、`ReturnedToQueue` 從
-  `snapshot.resumeAt(...)` 開始（`current` 為空就停）、`QueueUnchanged` 不動。
+  做事（`_follow`）：`MovedToTrack` 從頭開始、`RestartTrack` seek 回 0、`ReturnedToQueue` 交給
+  `_returnToQueue`（從 `snapshot.resumeAt(...)` 開始、原本在播才播；`current` 為空或進入時
+  那首沒載入就停在 `Idle`）、`QueueUnchanged` 不動。
+- 控制器加一個編輯入口時：改完 `QueueModel` 呼叫 `_queueEdited()`（發出佇列、重新指定前瞻）；
+  編輯換掉了正在播的那首時改走 `_beginTrack`。加入類回傳 `bool`，被拒時 `_add` 發 `QueueFull`。
+  在 `playback_controller_test.dart` 的 `editing the queue prepares the look-ahead again` 加一例
+  （交接到的是新的下一首、沒有再開流）。
 - 隨機的內部表示：`_order` 是本輪的位置排列，目前這首在 `_order.indexOf(_current)`；
   `_playNextRun` 是緊接在目前這首之後、連續「下一首播放」的位置數（清單與排列上都緊接著）。
   新的編輯要同時維持這兩件事，並讓 `_order` 仍是全部位置的排列。
@@ -95,8 +104,12 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 - 控制器：`test/playback/playback_controller_test.dart` 的 `Harness` 在 `fakeAsync` 裡組控制器、
   `FakeAudioBackend`（計時器推進位置，所以假時間也會播完）與 `FakeSourcePlugin`（依請求回候選
   或丟 `AppError`，記下每次請求）。`h.elapse` 前進時間，`h.settle` 只跑微任務。
-- 解析次數用 `plugin.resolvedCount(sourceId)`；開了哪些網址用 `h.openedPaths`；前瞻用
-  `backend.nextSources`；log 用 `h.logged(message)`。
+- 解析次數用 `plugin.resolvedCount(sourceId)`；開了哪些網址用 `h.openedPaths`（起點
+  `backend.openedAt`）；前瞻用 `backend.nextSources`；log 用 `h.logged(message)`；控制器的事件
+  用 `h.events`。佇列從 `h.playQueue(tracks, startIndex:)` 開始（加入再 `jumpTo`）；臨時播放回到
+  佇列讀的設定是 `h.returnSettings`。
+- 後端的清單修改還在排隊時引擎就接上了舊前瞻：`backend.setNextGate` 給一個沒完成的 Future，
+  `setNext` 會等它才套用。
 - 時間：程式碼讀 `clock.now()`，`fakeAsync` 裡的 `clock` 跟著假時間走（`h.now()` 就是它）。
   網址快取以時間判斷有效，同一個 `Harness` 裡的解析共用一份快取：要測「再解析一次」就讓
   期限落在 5 分鐘的餘裕內，或製造一次串流失敗。
@@ -124,5 +137,9 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 - 解析次數：`Resolving stream` 一筆是一次插件 `resolveStream`；連播 n 首應該剛好 n 筆，
   多出來的看同一首旁邊有沒有 `Stream URL invalidated`（失敗後重解析是對的）或
   `Look-ahead refreshed before expiry`。
+- 佇列編輯與交接撞在一起：`The engine took over a replaced look-ahead; stopping it` 表示引擎
+  接上了剛被換掉的前瞻，session 停下它、控制器重新開流（下一筆是新的下一首的 `Track
+  requested`，或佇列到底時的 `Queue finished`）。log 看不出被換掉的那首有沒有出聲（session
+  不轉它的回報），要用耳朵確認。
 - 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
   `Referer`。

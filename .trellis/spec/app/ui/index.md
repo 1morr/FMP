@@ -23,7 +23,7 @@ lib/ui/
   shell/               # AppShell（導覽、內容、播放列三區）、快捷鍵表
   search/              # 搜尋頁、searchProvider、音源 chip 列
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
-  player/              # 播放列、queueTracksProvider（佇列的顯示資料）、playTracks
+  player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）
   artwork/             # 封面縮圖（CachedNetworkImage）與 pickArtwork；cached_network_image 只准在這裡
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
@@ -143,12 +143,15 @@ try {
 
 ## 播放列與封面
 
-- 開始播放一律經 `playTracks(ref, tracks, index)`（`lib/ui/player/queue_tracks.dart`）：它把
-  顯示資料放進 `queueTracksProvider`，再把整份清單交給 `PlaybackController`。播放列以曲目鍵查
-  顯示資料；M2 有曲目表之後改從那裡查。
+- 開始播放與加入佇列都直接呼叫 `PlaybackController`（`playTemporary`、`playNext`、`addToQueue`，
+  曲目是 `TrackSummary.toTrackInfo()`）。播放列讀 `QueueState.current`（`TrackInfo`）的顯示資料。
+- 一首曲目的選單（搜尋頁的寫法）：`MenuAnchor` 包住整列，右鍵（`GestureDetector` 的
+  `onSecondaryTapUp`，`excludeFromSemantics: true`）在點的位置開、長按與尾端「⋯」在「⋯」下方開，
+  三處同一份選單。加入成功以 `toaster.success` 回饋，被上限拒絕的提示由外殼接 `QueueFull`。
+- 控制器的事件（`playbackEventsProvider`）只在外殼以 `ref.listen` 轉成提示；頁面不另外聽。
 - 播放列的控制項照 ADR 0024 §決定 5 的三段，只放已經有的功能；加功能時同時改
   `player_bar_test.dart` 的 `controls per width` 與 golden。
-- 封面用 `ArtworkImage(pluginId: 曲目鍵的第一段, artwork: …, size: …)`：`pickArtwork` 挑一張、
+- 封面用 `ArtworkImage(pluginId: 曲目鍵的第一段, artwork: TrackInfo.artwork, size: …)`：`pickArtwork` 挑一張、
   以顯示尺寸的高解碼，經 `artworkCacheManagerProvider(pluginId)` 的 cache manager 讀（統一快取庫，
   沒有才經那個插件的媒體 client 下載）。沒有、載入中、失敗與還沒有 cache manager 都是同一個
   佔位圖。不帶 header（B 站的 hdslb 不帶 `Referer` 讀得到，帶別的網域反而 403）。
