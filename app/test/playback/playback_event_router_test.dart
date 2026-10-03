@@ -9,13 +9,17 @@ const _generation = 3;
 const _resumeAt = Duration(seconds: 7);
 const _lastPosition = Duration(seconds: 42);
 
-PlaybackSnapshot snapshot({bool playWhenReady = true, bool hasNext = true}) =>
-    PlaybackSnapshot(
-      generation: _generation,
-      playWhenReady: playWhenReady,
-      hasNext: hasNext,
-      resumeAt: _resumeAt,
-    );
+PlaybackSnapshot snapshot({
+  bool playWhenReady = true,
+  bool hasNext = true,
+  bool repeatsTrack = false,
+}) => PlaybackSnapshot(
+  generation: _generation,
+  playWhenReady: playWhenReady,
+  hasNext: hasNext,
+  repeatsTrack: repeatsTrack,
+  resumeAt: _resumeAt,
+);
 
 Matcher recovers<F extends PlaybackFailure, E extends AppError>({
   required Duration position,
@@ -212,6 +216,36 @@ void main() {
           snapshot(hasNext: false),
         ),
         isA<FinishQueue>(),
+      );
+    });
+
+    // 單曲循環：前瞻（同一份解析結果）沒來得及接上時，播完就重播，不管後面
+    // 有沒有歌。
+    for (final hasNext in [true, false]) {
+      test(
+        'completed under loop one repeats the track (hasNext: $hasNext)',
+        () {
+          expect(
+            routePlaybackEvent(
+              finished(TrackEndReason.completed),
+              snapshot(hasNext: hasNext, repeatsTrack: true),
+            ),
+            isA<RepeatTrack>(),
+          );
+        },
+      );
+    }
+
+    test('ended early under loop one is still an interruption', () {
+      expect(
+        routePlaybackEvent(
+          finished(TrackEndReason.endedEarly, lastPosition: _lastPosition),
+          snapshot(repeatsTrack: true),
+        ),
+        recovers<StreamInterrupted, NetworkError>(
+          position: _lastPosition,
+          endedEarly: true,
+        ),
       );
     });
 

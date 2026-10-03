@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -227,15 +229,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Song b'), findsOneWidget);
-    await tester.tap(find.text('Song c'));
-    await tester.pump();
-    expect(h.controller.queue.entries.map((entry) => entry.track.sourceId), [
-      'a',
-      'b',
-      'c',
-    ]);
-    expect(h.controller.queue.currentIndex, 2);
+    for (final id in ['a', 'b', 'c']) {
+      expect(find.text('Song $id'), findsOneWidget);
+    }
+    expect(find.byType(ListTile), findsNWidgets(3));
   });
 
   testWidgets('a newer search wins over a slower older one', (tester) async {
@@ -256,33 +253,103 @@ void main() {
     expect(find.text('Song old'), findsNothing);
   });
 
-  testWidgets('tapping a result plays the whole list from it', (tester) async {
-    final h = ShellHarness();
-    await h.pumpShell(tester);
-    await search(tester, 'song');
-
-    await tester.tap(find.text('Song b'));
-    await tester.pump();
-    await tester.pump();
-
-    final queue = h.controller.queue;
-    expect(
-      [for (final entry in queue.entries) entry.track.key],
-      const [
-        TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'a'),
-        TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'b'),
-        TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'c'),
-      ],
+  group('playing a result', () {
+    /// 列 [title] 的「⋯」。
+    Finder moreOf(String title) => find.descendant(
+      of: find.widgetWithText(ListTile, title),
+      matching: find.byTooltip('More options'),
     );
-    expect(queue.currentIndex, 1);
-    // 播放列以曲目鍵找到顯示資料。
-    expect(
-      find.descendant(
-        of: find.byType(PlayerBar),
-        matching: find.text('Song b'),
-      ),
-      findsOneWidget,
-    );
+
+    List<String> queued(ShellHarness h) => [
+      for (final entry in h.controller.queue.entries) entry.track.sourceId,
+    ];
+
+    testWidgets('tapping a result plays it on its own (temporary play)', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      await tester.tap(find.text('Song b'));
+      await tester.pump();
+      await tester.pump();
+
+      final queue = h.controller.queue;
+      expect(queue.mode, QueueMode.temporary);
+      expect(
+        queue.current?.key,
+        const TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: 'b'),
+      );
+      expect(queue.entries, isEmpty, reason: 'the queue is untouched');
+      // 播放列讀佇列項目的顯示資料。
+      expect(
+        find.descendant(
+          of: find.byType(PlayerBar),
+          matching: find.text('Song b'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the menu adds to the queue, plays next, and plays', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      await tester.tap(moreOf('Song a'));
+      await tester.pump();
+      await tester.tap(find.text('Add to queue'));
+      await tester.pump();
+      expect(queued(h), ['a']);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Added to queue'), findsOneWidget);
+      expect(h.controller.state, isA<Idle>(), reason: 'adding does not play');
+
+      await tester.tap(moreOf('Song c'));
+      await tester.pump();
+      await tester.tap(find.text('Add to queue'));
+      await tester.pump();
+      await tester.tap(moreOf('Song b'));
+      await tester.pump();
+      await tester.tap(find.text('Play next'));
+      await tester.pump();
+      expect(queued(h), ['a', 'b', 'c']);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Added to play next'), findsOneWidget);
+
+      await tester.tap(moreOf('Song c'));
+      await tester.pump();
+      await tester.tap(find.text('Play'));
+      await tester.pump();
+      await tester.pump();
+      expect(h.controller.queue.mode, QueueMode.temporary);
+      expect(h.controller.queue.current?.sourceId, 'c');
+      expect(queued(h), ['a', 'b', 'c']);
+    });
+
+    testWidgets('right click and long press open the same menu', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      await tester.tap(find.text('Song a'), buttons: kSecondaryButton);
+      await tester.pump();
+      expect(find.text('Play next'), findsOneWidget);
+      await tester.tap(find.text('Play next'));
+      await tester.pump();
+      expect(queued(h), ['a']);
+
+      await tester.longPress(find.text('Song b'));
+      await tester.pump();
+      await tester.tap(find.text('Add to queue'));
+      await tester.pump();
+      expect(queued(h), ['a', 'b']);
+    });
   });
 
   group('source chips', () {

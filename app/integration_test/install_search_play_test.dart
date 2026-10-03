@@ -23,6 +23,7 @@ import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:integration_test/integration_test.dart';
@@ -71,7 +72,7 @@ void main() {
     },
   );
 
-  testWidgets('a search result plays and hands over to the next track', (
+  testWidgets('a search result plays on its own; queued results hand over', (
     tester,
   ) async {
     final root = await _tempRoot();
@@ -83,12 +84,18 @@ void main() {
     await _search(tester, 'tone');
     final controller = app.container.read(playbackControllerProvider);
     // 一首只播 1 秒，交接時狀態一直是 Playing、只有佇列往下：輪詢當下的值，
-    // 慢一點的 runner 可能整首錯過。改記下每次變動時在播的是第幾首。
-    final playedIndexes = <int?>{};
+    // 慢一點的 runner 可能整首錯過。改記下每次變動時在播的是哪一首。
+    final played = <String?>{};
     var state = controller.state;
-    var index = controller.queue.currentIndex;
+    var queue = controller.queue;
     void note() {
-      if (state is Playing) playedIndexes.add(index);
+      if (state is Playing) {
+        played.add(
+          queue.mode == QueueMode.temporary
+              ? 'temporary ${queue.current?.sourceId}'
+              : '${queue.currentIndex}',
+        );
+      }
     }
 
     final subscriptions = [
@@ -97,7 +104,7 @@ void main() {
         note();
       }),
       controller.queueStates.listen((value) {
-        index = value.currentIndex;
+        queue = value;
         note();
       }),
     ];
@@ -107,24 +114,52 @@ void main() {
       }
     });
 
+    // 點一首是臨時播放：不進佇列，播完回到（空的）佇列、停下。
     await tester.tap(find.text('Test tone 220 Hz (tone)'));
     await _waitFor(
       tester,
-      () => playedIndexes.contains(0),
-      'the first track plays',
+      () => played.contains('temporary tone-220'),
+      'the tapped result plays',
     );
+    expect(controller.queue.entries, isEmpty);
+    await _waitFor(
+      tester,
+      () => controller.state is Idle && controller.queue.current == null,
+      'the temporary play ends',
+    );
+
+    // 以選單把兩首加入佇列，再按播放列的播放：第二首由前瞻接上。介面字串跟著
+    // 機器的語言，所以以圖示找選單。
+    for (final title in [
+      'Test tone 220 Hz (tone)',
+      'Test tone 440 Hz (tone)',
+    ]) {
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(ListTile, title),
+          matching: find.byIcon(Icons.more_vert),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.add_to_queue));
+      await tester.pump();
+    }
     expect(controller.queue.entries.map((entry) => entry.track.sourceId), [
       'tone-220',
       'tone-440',
     ]);
+    expect(controller.state, isA<Idle>());
+    final opened = app.backend.opened.length;
 
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await _waitFor(tester, () => played.contains('0'), 'the first track plays');
     await _waitFor(
       tester,
-      () => playedIndexes.contains(1),
+      () => played.contains('1'),
       'the second track plays',
     );
     // 第二首是前瞻交給後端、由後端自己接上的，不是重新開流。
-    expect(app.backend.opened, hasLength(1));
+    expect(app.backend.opened, hasLength(opened + 1));
     expect(
       app.log.history.where(
         (record) => record.message == 'Look-ahead handover',

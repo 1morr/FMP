@@ -8,7 +8,6 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
-import 'package:fmp/ui/player/queue_tracks.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -20,7 +19,6 @@ import '../support/shell_harness.dart';
 
 /// 播放中、在 1:05 的一首，只有寬度不同。
 Widget _bar(double width) {
-  final track = summary('a');
   return SizedBox(
     width: width,
     height: 120,
@@ -31,7 +29,7 @@ Widget _bar(double width) {
           AsyncData(
             QueueState(
               entries: [
-                QueueEntry(track.toTrackInfo()),
+                QueueEntry(summary('a').toTrackInfo()),
                 QueueEntry(summary('b').toTrackInfo()),
               ],
               currentIndex: 0,
@@ -46,9 +44,6 @@ Widget _bar(double width) {
               duration: Duration(minutes: 3, seconds: 5),
             ),
           ),
-        ),
-        queueTracksProvider.overrideWithBuild(
-          (ref, notifier) => {trackKeyOf(track): track},
         ),
       ],
       child: MaterialApp(

@@ -20,7 +20,13 @@
     "noResults": "No results for “{keyword}”",
     "failed": "Search failed",
     "retry": "Retry",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "more": "More options",
+    "play": "Play",
+    "playNext": "Play next",
+    "addToQueue": "Add to queue",
+    "addedToNext": "Added to play next",
+    "addedToQueue": "Added to queue"
   },
   "offline": {
     "noInterface": "No network connection",
@@ -32,7 +38,8 @@
     "title": "Settings",
     "appearance": "Appearance",
     "network": "Network",
-    "back": "Back"
+    "back": "Back",
+    "playback": "Playback"
   },
   "player": {
     "play": "Play",
@@ -44,7 +51,13 @@
     "previousTooltip": "Previous (Ctrl+←)",
     "nextTooltip": "Next (Ctrl+→)",
     "progress": "Playback position",
-    "loading": "Loading"
+    "loading": "Loading",
+    "shuffle": "Shuffle",
+    "loopOff": "Repeat: off",
+    "loopAll": "Repeat: all",
+    "loopOne": "Repeat: one",
+    "more": "More",
+    "queueFull": "The queue is full ({count} songs at most); nothing was added"
   },
   "appearance": {
     "theme": "Theme",
@@ -53,6 +66,15 @@
     "themeDark": "Dark",
     "language": "Language",
     "languageSystem": "System default"
+  },
+  "playback": {
+    "rememberPosition": "Remember playback position",
+    "rememberPositionHint": "When a temporary play ends, the queue goes on from where it was",
+    "tempPlayRewind": "Rewind when returning to the queue",
+    "tempPlayRewindHint": "Go back a little from where the queue was, so it is easier to pick up",
+    "rewindNone": "No rewind",
+    "rewindSeconds": "{seconds} s",
+    "rewindDefault": "{label} (default)"
   },
   "network": {
     "cacheLimit": "Cache limit",

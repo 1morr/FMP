@@ -96,9 +96,14 @@ final class FakeAudioBackend implements AudioBackend {
     _schedule();
   }
 
+  /// 給了就在 [setNext] 套用之前等它：真後端的清單修改排隊執行，排隊期間引擎
+  /// 可能已經接上舊的前瞻。
+  Future<void>? setNextGate;
+
   @override
   Future<void> setNext(BackendSource? next) async {
     nextSources.add(next);
+    if (setNextGate case final gate?) await gate;
     if (current == null) return;
     final edit = LookAheadEdit.of(
       itemCount: _playlist.length,

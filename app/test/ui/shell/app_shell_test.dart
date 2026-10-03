@@ -2,8 +2,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
@@ -363,6 +365,32 @@ void main() {
 
     expect(h.controller.state, isA<Failed>());
     expect(find.text('Not found. It may have been removed.'), findsOneWidget);
+  });
+
+  testWidgets('adding past the queue limit shows a toast each time', (
+    tester,
+  ) async {
+    final h = ShellHarness();
+    await h.pumpShell(tester);
+    final tooMany = [
+      for (var i = 0; i <= QueueModel.maxLength; i++)
+        TrackInfo(sourceTypeId: 'fmp-test', sourceId: '$i', title: '$i'),
+    ];
+    const message =
+        'The queue is full (10,000 songs at most); nothing was added';
+
+    expect(h.controller.addToQueue(tooMany), isFalse);
+    await tester.pumpAndSettle();
+    expect(find.text(message), findsOneWidget);
+    expect(h.controller.queue.entries, isEmpty);
+
+    // 提示消失、過了去重的 5 秒之後再試一次：同樣的事件也要送到。
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
+    expect(find.text(message), findsNothing);
+    expect(h.controller.playNext(tooMany), isFalse);
+    await tester.pumpAndSettle();
+    expect(find.text(message), findsOneWidget);
   });
 
   // ADR 0016 §決定 7：一個全域離線提示，在內容區頂端，不是 toast。

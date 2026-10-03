@@ -4,16 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/audio_backends.dart';
 import 'package:fmp/playback/playback_controller.dart';
+import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/settings/playback_settings.dart';
 
 /// 平台宣告的播放能力；沒有時（未驗證的平台）讀它會拋 `Unsupported`。那些
 /// 平台在 `main()` 就只開「此平台尚未支援」，走不到這裡。
@@ -32,9 +35,25 @@ final audioBackendProvider = Provider<AudioBackend>((ref) {
   return backend;
 });
 
+/// 臨時播放回到佇列時要的兩個「播放」設定值。資料庫的值還沒讀出來時是預設。
+final temporaryReturnSettingsProvider = Provider<TemporaryReturnSettings>((
+  ref,
+) {
+  final preferences =
+      ref.watch(playbackPreferencesProvider).value ??
+      PlaybackPreferencesNotifier.resolve(PlaybackSettings.empty);
+  return (
+    rememberPosition: preferences.rememberPosition,
+    rewind: Duration(seconds: preferences.tempPlayRewindSeconds),
+  );
+});
+
 /// UI 唯一的播放入口（ADR 0018 §決定 1）。
 final playbackControllerProvider = Provider<PlaybackController>((ref) {
   final log = ref.watch(logProvider);
+  // 設定在臨時播放結束時才讀：先訂閱，資料庫的值那時已經讀出來；不用 watch，
+  // 改設定不重建控制器。
+  ref.listen(temporaryReturnSettingsProvider, (_, _) {});
   final controller = PlaybackController(
     session: PlaybackSession(
       backend: ref.watch(audioBackendProvider),
@@ -46,6 +65,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
       log: log,
     ),
     log: log,
+    temporaryReturnSettings: () => ref.read(temporaryReturnSettingsProvider),
   );
   ref.onDispose(() => unawaited(controller.dispose()));
   return controller;
@@ -64,6 +84,11 @@ final playbackQueueProvider = StreamProvider<QueueState>((ref) async* {
   yield controller.queue;
   yield* controller.queueStates;
 });
+
+/// 播放控制器的一次性事件（design §7.9）。外殼以 `ref.listen` 轉成提示。
+final playbackEventsProvider = StreamProvider<PlaybackEvent>(
+  (ref) => ref.watch(playbackControllerProvider).events,
+);
 
 /// 目前這首的位置、時長與緩衝（高頻，ADR 0018 §決定 2）。後端第一次回報前
 /// 還沒有值。

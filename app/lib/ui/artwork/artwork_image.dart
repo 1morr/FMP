@@ -2,17 +2,17 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
-import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 從插件給的多尺寸封面挑一張（ADR 0016 §決定 4）：寬度不小於 [pixels] 的
+/// 從曲目的多尺寸封面（插件給的，ADR 0016 §決定 4）挑一張：寬度不小於 [pixels] 的
 /// 裡面最小的；都比它小時，先取沒標寬度的（插件多半只給原圖，例如 B 站），
 /// 再來才是最大的那張。沒有封面就是 `null`。
-Artwork? pickArtwork(List<Artwork> artwork, double pixels) {
-  Artwork? smallestEnough;
-  Artwork? largest;
-  Artwork? unknown;
+TrackArtwork? pickArtwork(List<TrackArtwork> artwork, double pixels) {
+  TrackArtwork? smallestEnough;
+  TrackArtwork? largest;
+  TrackArtwork? unknown;
   for (final candidate in artwork) {
     final width = candidate.width;
     if (width == null) {
@@ -46,7 +46,7 @@ class ArtworkImage extends ConsumerWidget {
   /// 封面所屬的插件（曲目鍵的第一段）。
   final String pluginId;
 
-  final List<Artwork> artwork;
+  final List<TrackArtwork> artwork;
 
   /// 邊長（dp）。
   final double size;

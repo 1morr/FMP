@@ -7,7 +7,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
-import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:material_ui/material_ui.dart';
@@ -49,14 +49,14 @@ Stream<FileResponse> _cached(String url) {
   );
 }
 
-Artwork _art(String name, int width) =>
-    Artwork(url: Uri.parse('https://img.example/$name'), width: width);
+TrackArtwork _art(String name, int width) =>
+    TrackArtwork(url: Uri.parse('https://img.example/$name'), width: width);
 
 void main() {
   /// [manager] 是每個插件拿到的 cache manager；[asked] 記下問了哪些插件。
   Future<void> pump(
     WidgetTester tester, {
-    required List<Artwork> artwork,
+    required List<TrackArtwork> artwork,
     required BaseCacheManager? manager,
     List<String>? asked,
     double devicePixelRatio = 1,

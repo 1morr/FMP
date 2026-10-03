@@ -67,6 +67,10 @@ class TranslationsEn extends Translations
   late final Translations$appearance$en appearance =
       Translations$appearance$en._(_root);
   @override
+  late final Translations$playback$en playback = Translations$playback$en._(
+    _root,
+  );
+  @override
   late final Translations$network$en network = Translations$network$en._(_root);
   @override
   late final Translations$errors$en errors = Translations$errors$en._(_root);
@@ -138,6 +142,18 @@ class Translations$search$en extends Translations$search$zh_TW {
   String get retry => 'Retry';
   @override
   String get loadMore => 'Load more';
+  @override
+  String get more => 'More options';
+  @override
+  String get play => 'Play';
+  @override
+  String get playNext => 'Play next';
+  @override
+  String get addToQueue => 'Add to queue';
+  @override
+  String get addedToNext => 'Added to play next';
+  @override
+  String get addedToQueue => 'Added to queue';
 }
 
 // Path: offline
@@ -176,6 +192,8 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   String get network => 'Network';
   @override
   String get back => 'Back';
+  @override
+  String get playback => 'Playback';
 }
 
 // Path: player
@@ -207,6 +225,19 @@ class Translations$player$en extends Translations$player$zh_TW {
   String get progress => 'Playback position';
   @override
   String get loading => 'Loading';
+  @override
+  String get shuffle => 'Shuffle';
+  @override
+  String get loopOff => 'Repeat: off';
+  @override
+  String get loopAll => 'Repeat: all';
+  @override
+  String get loopOne => 'Repeat: one';
+  @override
+  String get more => 'More';
+  @override
+  String queueFull({required Object count}) =>
+      'The queue is full (${count} songs at most); nothing was added';
 }
 
 // Path: appearance
@@ -230,6 +261,33 @@ class Translations$appearance$en extends Translations$appearance$zh_TW {
   String get language => 'Language';
   @override
   String get languageSystem => 'System default';
+}
+
+// Path: playback
+class Translations$playback$en extends Translations$playback$zh_TW {
+  Translations$playback$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get rememberPosition => 'Remember playback position';
+  @override
+  String get rememberPositionHint =>
+      'When a temporary play ends, the queue goes on from where it was';
+  @override
+  String get tempPlayRewind => 'Rewind when returning to the queue';
+  @override
+  String get tempPlayRewindHint =>
+      'Go back a little from where the queue was, so it is easier to pick up';
+  @override
+  String get rewindNone => 'No rewind';
+  @override
+  String rewindSeconds({required Object seconds}) => '${seconds} s';
+  @override
+  String rewindDefault({required Object label}) => '${label} (default)';
 }
 
 // Path: network
