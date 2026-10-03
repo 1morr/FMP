@@ -57,6 +57,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$player$zh_TW.internal(_root);
   late final Translations$appearance$zh_TW appearance =
       Translations$appearance$zh_TW.internal(_root);
+  late final Translations$playback$zh_TW playback =
+      Translations$playback$zh_TW.internal(_root);
   late final Translations$network$zh_TW network =
       Translations$network$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
@@ -139,6 +141,24 @@ class Translations$search$zh_TW {
 
   /// zh-TW: '載入更多'
   String get loadMore => '載入更多';
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '播放'
+  String get play => '播放';
+
+  /// zh-TW: '下一首播放'
+  String get playNext => '下一首播放';
+
+  /// zh-TW: '加入佇列'
+  String get addToQueue => '加入佇列';
+
+  /// zh-TW: '已加入下一首播放'
+  String get addedToNext => '已加入下一首播放';
+
+  /// zh-TW: '已加入佇列'
+  String get addedToQueue => '已加入佇列';
 }
 
 // Path: offline
@@ -181,6 +201,9 @@ class Translations$settings$zh_TW {
 
   /// zh-TW: '返回'
   String get back => '返回';
+
+  /// zh-TW: '播放'
+  String get playback => '播放';
 }
 
 // Path: player
@@ -220,6 +243,24 @@ class Translations$player$zh_TW {
 
   /// zh-TW: '載入中'
   String get loading => '載入中';
+
+  /// zh-TW: '隨機播放'
+  String get shuffle => '隨機播放';
+
+  /// zh-TW: '循環：關閉'
+  String get loopOff => '循環：關閉';
+
+  /// zh-TW: '循環：全部'
+  String get loopAll => '循環：全部';
+
+  /// zh-TW: '循環：單曲'
+  String get loopOne => '循環：單曲';
+
+  /// zh-TW: '更多'
+  String get more => '更多';
+
+  /// zh-TW: '佇列已滿（最多 {count} 首），沒有加入'
+  String queueFull({required Object count}) => '佇列已滿（最多 ${count} 首），沒有加入';
 }
 
 // Path: appearance
@@ -247,6 +288,36 @@ class Translations$appearance$zh_TW {
 
   /// zh-TW: '跟隨系統'
   String get languageSystem => '跟隨系統';
+}
+
+// Path: playback
+class Translations$playback$zh_TW {
+  Translations$playback$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '記住播放位置'
+  String get rememberPosition => '記住播放位置';
+
+  /// zh-TW: '臨時播放結束回到佇列時，從原本的位置繼續'
+  String get rememberPositionHint => '臨時播放結束回到佇列時，從原本的位置繼續';
+
+  /// zh-TW: '臨時播放回佇列倒退'
+  String get tempPlayRewind => '臨時播放回佇列倒退';
+
+  /// zh-TW: '回到原本的位置時稍微往回一點，方便接上'
+  String get tempPlayRewindHint => '回到原本的位置時稍微往回一點，方便接上';
+
+  /// zh-TW: '不倒退'
+  String get rewindNone => '不倒退';
+
+  /// zh-TW: '{seconds} 秒'
+  String rewindSeconds({required Object seconds}) => '${seconds} 秒';
+
+  /// zh-TW: '{label}（預設）'
+  String rewindDefault({required Object label}) => '${label}（預設）';
 }
 
 // Path: network

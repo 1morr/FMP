@@ -25,7 +25,6 @@ import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/layout/window_class.dart';
-import 'package:fmp/ui/player/queue_tracks.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
@@ -79,6 +78,8 @@ final class ShellHarness {
         log: log,
       ),
       log: log,
+      // 和 App 的組裝點一樣讀「播放」設定（記憶體資料庫裡的值）。
+      temporaryReturnSettings: () => _readReturnSettings(),
     );
     toaster = Toaster(
       log: log,
@@ -101,6 +102,9 @@ final class ShellHarness {
   final log = Log(redactor: Redactor(), minimumLevel: LogLevel.warning);
   late final PlaybackController controller;
   late final Toaster toaster;
+
+  /// 由 [overrides] 的 `playbackControllerProvider` 接上 provider。
+  late TemporaryReturnSettings Function() _readReturnSettings;
   final interfaces = FakeNetworkInterfaces();
 
   List<Override> get overrides => [
@@ -129,6 +133,8 @@ final class ShellHarness {
     ),
     // 樹拆掉時停掉後端的計時器（測試結束時檢查沒有留下的計時器）。
     playbackControllerProvider.overrideWith((ref) {
+      ref.listen(temporaryReturnSettingsProvider, (_, _) {});
+      _readReturnSettings = () => ref.read(temporaryReturnSettingsProvider);
       ref.onDispose(() {
         unawaited(controller.dispose());
         unawaited(backend.dispose());
@@ -178,18 +184,19 @@ final class ShellHarness {
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(ToastHost)));
 
-  /// 從 [tracks] 的第 [index] 首開始播，像搜尋頁點了一首。
+  /// 把 [tracks] 加進佇列，從第 [index] 首開始播（像在佇列裡點了那一首）。
   Future<void> play(
     WidgetTester tester,
     List<TrackSummary> tracks, {
     int index = 0,
   }) async {
-    container(tester).read(queueTracksProvider.notifier).replace(tracks);
-    unawaited(
-      controller.playQueue([
-        for (final track in tracks) track.toTrackInfo(),
-      ], startIndex: index),
+    expect(
+      controller.addToQueue([for (final track in tracks) track.toTrackInfo()]),
+      isTrue,
     );
+    unawaited(controller.jumpTo(index));
+    // 佇列發出兩次（加入、跳到），播放列看到第一次才開始訂閱播放狀態。
+    await tester.pump();
     await tester.pump();
     await tester.pump();
   }

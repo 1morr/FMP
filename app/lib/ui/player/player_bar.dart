@@ -3,28 +3,31 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
-import 'package:fmp/ui/player/queue_tracks.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 播放列（ADR 0024 §決定 5）：封面、曲名、上傳者、播放控制與可拖動的進度條。
 /// 佇列是空的時候不佔位置。
 ///
-/// 控制項依它所在的寬度（最近的 `WindowClassScope`）分三段，只放 M1 有的功能：
+/// 控制項依它所在的寬度（最近的 `WindowClassScope`）分三段，只放已經有的功能：
 ///
 /// - compact（< 600）：播放、下一首；
-/// - medium（600–839）：上一首、播放、下一首（ADR 的音量與「⋯」在 M2）；
-/// - expanded 以上：同 medium，控制與進度條置中，右側留給 M2 的音量等控制項。
+/// - medium（600–839）：上一首、播放、下一首、「⋯」（隨機、循環；ADR 的音量
+///   圖示與輸出裝置在 M2 PR 13）；
+/// - expanded 以上：隨機、上一首、播放、下一首、循環，控制與進度條置中，右側
+///   留給 PR 13 的輸出裝置與音量。
 ///
-/// 曲名至少約 160dp（ADR 0024 §決定 5）。狀態都來自 `PlaybackController`；
-/// 點空白處開播放頁是 M2。
+/// 曲名至少約 160dp（ADR 0024 §決定 5）。曲名、上傳者、封面是佇列項目的
+/// `TrackInfo`；狀態都來自 `PlaybackController`。點空白處開播放頁在 M2 PR 18a。
 class PlayerBar extends ConsumerWidget {
   const PlayerBar({super.key});
 
@@ -36,12 +39,6 @@ class PlayerBar extends ConsumerWidget {
     final queue = ref.watch(playbackQueueProvider).value;
     final current = queue?.current;
     if (queue == null || current == null) return const SizedBox.shrink();
-    final info =
-        ref.watch(queueTracksProvider)[TrackKey.format(
-          current.sourceTypeId,
-          current.sourceId,
-          cid: current.cid,
-        )];
     final state = ref.watch(playbackStateProvider).value ?? const Idle();
     final t = ref.watch(translationsProvider).player;
     final theme = Theme.of(context);
@@ -51,17 +48,13 @@ class PlayerBar extends ConsumerWidget {
       children: [
         ArtworkImage(
           pluginId: current.sourceTypeId,
-          artwork: info?.artwork ?? const [],
+          artwork: current.artwork,
           size: AppLayout.artworkThumbnail,
         ),
         SizedBox(width: spacing.x3),
         Expanded(
           key: titleKey,
-          child: _TrackText(
-            // 沒有顯示資料時（不經搜尋頁開始的播放）至少顯示音源內的 id。
-            title: info?.title ?? current.sourceId,
-            uploader: info?.uploader,
-          ),
+          child: _TrackText(title: current.title, uploader: current.uploader),
         ),
       ],
     );
@@ -80,6 +73,8 @@ class PlayerBar extends ConsumerWidget {
           : null,
     );
     final playPause = _PlayPauseButton(state: state);
+    final shuffle = _ShuffleButton(enabled: queue.shuffleEnabled);
+    final loop = _LoopButton(mode: queue.loopMode);
     const progress = _ProgressRow();
 
     return Material(
@@ -113,6 +108,7 @@ class PlayerBar extends ConsumerWidget {
                   previous,
                   playPause,
                   next,
+                  _MoreMenu(queue: queue),
                 ],
               ),
             ],
@@ -130,7 +126,7 @@ class PlayerBar extends ConsumerWidget {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [previous, playPause, next],
+                      children: [shuffle, previous, playPause, next, loop],
                     ),
                     progress,
                   ],
@@ -175,6 +171,90 @@ class _TrackText extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// 隨機開關（ADR 0018 §決定 5：隨機以位置為單位）。
+class _ShuffleButton extends ConsumerWidget {
+  const _ShuffleButton({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).player;
+    return IconButton(
+      tooltip: t.shuffle,
+      isSelected: enabled,
+      icon: Icon(Icons.shuffle, semanticLabel: t.shuffle),
+      onPressed: () =>
+          ref.read(playbackControllerProvider).setShuffle(!enabled),
+    );
+  }
+}
+
+/// 循環：按一下依關閉 → 全部 → 單曲輪轉（舊版 `cycleLoopMode`）。
+class _LoopButton extends ConsumerWidget {
+  const _LoopButton({required this.mode});
+
+  final LoopMode mode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final label = loopLabel(ref.watch(translationsProvider), mode);
+    return IconButton(
+      tooltip: label,
+      isSelected: mode != LoopMode.off,
+      icon: Icon(loopIcon(mode), semanticLabel: label),
+      onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
+    );
+  }
+}
+
+/// 循環模式的圖示：單曲是 `repeat_one`，其他是 `repeat`（關閉時不選取）。
+IconData loopIcon(LoopMode mode) => switch (mode) {
+  LoopMode.off || LoopMode.all => Icons.repeat,
+  LoopMode.one => Icons.repeat_one,
+};
+
+/// 循環模式的名稱（tooltip 與語意標籤）。
+String loopLabel(Translations t, LoopMode mode) => switch (mode) {
+  LoopMode.off => t.player.loopOff,
+  LoopMode.all => t.player.loopAll,
+  LoopMode.one => t.player.loopOne,
+};
+
+/// medium 寬度的「⋯」：隨機與循環（ADR 0024 §決定 5）。
+class _MoreMenu extends ConsumerWidget {
+  const _MoreMenu({required this.queue});
+
+  final QueueState queue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final translations = ref.watch(translationsProvider);
+    final t = translations.player;
+    return MenuAnchor(
+      menuChildren: [
+        CheckboxMenuButton(
+          value: queue.shuffleEnabled,
+          onChanged: (_) => ref
+              .read(playbackControllerProvider)
+              .setShuffle(!queue.shuffleEnabled),
+          child: Text(t.shuffle),
+        ),
+        MenuItemButton(
+          leadingIcon: Icon(loopIcon(queue.loopMode)),
+          onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
+          child: Text(loopLabel(translations, queue.loopMode)),
+        ),
+      ],
+      builder: (context, menu, _) => IconButton(
+        tooltip: t.more,
+        icon: Icon(Icons.more_horiz, semanticLabel: t.more),
+        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+      ),
     );
   }
 }

@@ -10,8 +10,9 @@ import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 
-/// 佇列裡的下一首：位置與曲目。
-typedef NextTrack = ({int index, TrackKeyParts track});
+/// 前瞻要接的曲目：佇列裡的位置與曲目；位置為 `null` 是重播目前這首（單曲
+/// 循環，佇列不動）。
+typedef NextTrack = ({int? index, TrackKeyParts track});
 
 /// 唯一持有 [AudioBackend] 的協作者（ADR 0018 §決定 1）：解析與開流、前瞻、
 /// 代與來源 id。只由 `PlaybackController` 呼叫，不寫播放狀態。
@@ -22,10 +23,11 @@ typedef NextTrack = ({int index, TrackKeyParts track});
 ///
 /// 前瞻（ADR 0018 §決定 3、6）：目前這首載入好之後，解析下一首一次、交給後端
 /// 的 [AudioBackend.setNext]；後端自己接上（[LookAheadTookOver]），接上的那首不
-/// 再解析。候選有期限時，在過期前（[ResolvedStream.expiryMargin]）作廢快取、
-/// 重新解析並換掉前瞻；手動下一首時由控制器以 [isFresh] 檢查。解析都經
-/// [StreamResolver] 的網址快取，所以前瞻解析過的那首之後再播（或前瞻還在解析時
-/// 就要播）不會再問插件。
+/// 再解析。佇列改了（[retargetLookAhead]）就改指新的下一首。單曲循環時前瞻是
+/// 目前這首的同一份解析結果，引擎無縫重播。候選有期限時，在過期前
+/// （[ResolvedStream.expiryMargin]）作廢快取、重新解析並換掉前瞻；手動下一首時
+/// 由控制器以 [isFresh] 檢查。解析都經 [StreamResolver] 的網址快取，所以前瞻解析
+/// 過的那首之後再播（或前瞻還在解析時就要播）不會再問插件。
 ///
 /// 每次開始一首（含重試、換候選、接上前瞻）都換一個「代」：還在進行的解析回來
 /// 時代已經不同，結果就丟掉。插件的 `resolveStream` 沒有取消參數，M1 不取消網路
@@ -62,6 +64,9 @@ final class PlaybackSession {
   /// 已經為哪一代要求過前瞻（每首只解析一次）。
   int? _lookAheadFor;
 
+  /// 前瞻的要求編號：較新的要求（佇列改了）蓋掉還在解析的舊要求。
+  int _lookAheadRequest = 0;
+
   // 交接的量測（實機驗證用，見 app/AGENTS.md § 播放）。
   DateTime? _requestedAt;
   _Handover? _handover;
@@ -72,6 +77,9 @@ final class PlaybackSession {
 
   /// 目前的來源已經交給後端（不在解析、等重試或停下）。
   bool get hasSource => _current != null;
+
+  /// 目前來源最後回報的位置；沒有來源或還沒回報過時為 `null`。
+  Duration? get position => _current?.progress?.position;
 
   /// 目前的來源還有沒開過的候選。
   bool get hasOtherCandidate {
@@ -202,7 +210,34 @@ final class PlaybackSession {
     final current = _current;
     if (current == null || _lookAheadFor == current.generation) return;
     _lookAheadFor = current.generation;
+    await _prepareLookAhead(current, next());
+  }
+
+  /// 佇列改了（拖曳、插入、移除、隨機、循環）：前瞻改指 [next] 當下的下一首。
+  /// 還是同一首（位置可能變了）就留著、只改位置；不同就清掉後端的前瞻再重新
+  /// 解析。目前這首還沒載入好時不動：載入好時 [prepareLookAhead] 照當下的佇列
+  /// 準備。
+  Future<void> retargetLookAhead(NextTrack? Function() next) async {
+    final current = _current;
+    if (current == null || _lookAheadFor != current.generation) return;
     final target = next();
+    final lookAhead = _lookAhead;
+    if (lookAhead != null &&
+        target != null &&
+        (lookAhead.index == null) == (target.index == null) &&
+        lookAhead.stream.track == target.track) {
+      lookAhead.index = target.index;
+      return;
+    }
+    await _prepareLookAhead(current, target);
+  }
+
+  Future<void> _prepareLookAhead(_Current current, NextTrack? target) async {
+    final request = ++_lookAheadRequest;
+    if (_lookAhead != null) {
+      _clearLookAhead();
+      await _backend.setNext(null);
+    }
     if (target == null) return;
     final ResolvedStream stream;
     try {
@@ -212,14 +247,14 @@ final class PlaybackSession {
       _log.report('Look-ahead resolution failed', error, tag: _tag);
       return;
     }
-    if (_current?.generation != current.generation ||
-        next()?.index != target.index) {
+    if (request != _lookAheadRequest ||
+        _current?.generation != current.generation) {
       return;
     }
     await _setLookAhead(target.index, stream);
   }
 
-  Future<void> _setLookAhead(int queueIndex, ResolvedStream stream) async {
+  Future<void> _setLookAhead(int? index, ResolvedStream stream) async {
     _clearLookAhead();
     final chosen = stream.candidates.first;
     final source = BackendSource(
@@ -228,7 +263,7 @@ final class PlaybackSession {
       headers: chosen.headers,
     );
     final lookAhead = _lookAhead = _LookAhead(
-      queueIndex: queueIndex,
+      index: index,
       stream: stream,
       sourceId: source.id,
     );
@@ -243,7 +278,7 @@ final class PlaybackSession {
     _log.info(
       'Look-ahead prepared',
       tag: _tag,
-      fields: {'track': '${stream.track}'},
+      fields: {'track': '${stream.track}', if (index == null) 'repeat': true},
     );
     await _backend.setNext(source);
   }
@@ -266,19 +301,21 @@ final class PlaybackSession {
       tag: _tag,
       fields: {'track': '${stream.track}'},
     );
-    await _setLookAhead(lookAhead.queueIndex, stream);
+    await _setLookAhead(lookAhead.index, stream);
   }
 
-  /// 取走位置 [queueIndex] 的前瞻解析結果（手動下一首、跳過時沿用）。
+  /// 取走位置 [queueIndex] 的前瞻解析結果（手動下一首、跳過時沿用）。單曲
+  /// 循環的前瞻（重播目前這首）不算佇列的位置，不會被取走。
   ResolvedStream? takeLookAhead(int queueIndex) {
     final lookAhead = _lookAhead;
-    if (lookAhead == null || lookAhead.queueIndex != queueIndex) return null;
+    if (lookAhead == null || lookAhead.index != queueIndex) return null;
     _clearLookAhead();
     return lookAhead.stream;
   }
 
-  /// [AdoptLookAhead]：前瞻成為目前的來源（新的一代，已經載入好）。
-  void adoptLookAhead(AdoptLookAhead handover) {
+  /// [AdoptLookAhead]：前瞻成為目前的來源（新的一代，已經載入好）。回傳接上的
+  /// 是不是重播目前這首（單曲循環）：是的話佇列不動。
+  bool adoptLookAhead(AdoptLookAhead handover) {
     final current = _current!;
     final lookAhead = _lookAhead!;
     final now = clock.now();
@@ -290,6 +327,7 @@ final class PlaybackSession {
       fields: {
         'from': '${current.stream.track}',
         'to': '${lookAhead.stream.track}',
+        if (lookAhead.index == null) 'repeat': true,
         'end': handover.end.name,
         'previousPositionMs': ?previous?.position.inMilliseconds,
         'previousDurationMs': ?previous?.duration?.inMilliseconds,
@@ -315,6 +353,7 @@ final class PlaybackSession {
       stream: lookAhead.stream,
       candidate: 0,
     )..ready = true;
+    return lookAhead.index == null;
   }
 
   void _clearLookAhead() {
@@ -369,8 +408,29 @@ final class PlaybackSession {
     final pluginId = current.stream.track.sourceTypeId;
     switch (event) {
       case SourceAdvanced(:final from, :final to, :final end):
-        if (current.sourceId != from || _lookAhead?.sourceId != to) return;
-        _emit(LookAheadTookOver(generation: current.generation, end: end));
+        if (current.sourceId != from) return;
+        if (_lookAhead?.sourceId == to) {
+          _emit(LookAheadTookOver(generation: current.generation, end: end));
+          return;
+        }
+        // 引擎接上的是剛被換掉的前瞻（佇列改了，清掉前瞻的修改還在排隊）：
+        // 先讓引擎停下，再當成目前這首播完、沒有前瞻，控制器照一般的下一首
+        // 重新開流。不停的話，佇列沒有下一首（停在 Idle）或等重試時，被換掉
+        // 的那首會一直出聲。
+        _log.info(
+          'The engine took over a replaced look-ahead; stopping it',
+          tag: _tag,
+          fields: {'track': '${current.stream.track}'},
+        );
+        unawaited(_backend.stop());
+        _emit(
+          SourceFinished(
+            generation: current.generation,
+            pluginId: pluginId,
+            end: end,
+            lastPosition: current.progress?.position,
+          ),
+        );
       case SourceEnded(:final id, :final end):
         if (id != current.sourceId) return;
         _emit(
@@ -478,12 +538,13 @@ final class _Current {
 
 final class _LookAhead {
   _LookAhead({
-    required this.queueIndex,
+    required this.index,
     required this.stream,
     required this.sourceId,
   });
 
-  final int queueIndex;
+  /// 佇列裡的位置；`null` 是重播目前這首。佇列改了而曲目沒變時跟著改。
+  int? index;
   final ResolvedStream stream;
   final int sourceId;
   Timer? refresh;

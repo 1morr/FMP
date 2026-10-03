@@ -5,12 +5,14 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
+import 'package:fmp/ui/settings/playback_controls.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 設定的分組（ADR 0011 §決定 7）。「播放」組在有第一列設定的 PR 才加。
+/// 設定的分組（ADR 0011 §決定 7），依 design §9.8 的順序：外觀、播放、網路。
 enum SettingsGroup {
   appearance(Icons.palette_outlined),
+  playback(Icons.play_circle_outline),
   network(Icons.public);
 
   const SettingsGroup(this.icon);
@@ -46,6 +48,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final spacing = AppTokens.of(context).spacing;
     String name(SettingsGroup group) => switch (group) {
       SettingsGroup.appearance => t.appearance,
+      SettingsGroup.playback => t.playback,
       SettingsGroup.network => t.network,
     };
     Widget header(Widget? leading, String text, TextStyle? style) => Padding(
@@ -89,6 +92,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ],
               switch (group) {
                 SettingsGroup.appearance => const AppearanceControls(),
+                SettingsGroup.playback => const PlaybackControls(),
                 SettingsGroup.network => const NetworkControls(),
               },
             ],

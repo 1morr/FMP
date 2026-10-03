@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/format/byte_size.dart';
 import 'package:fmp/ui/format/duration_text.dart';
@@ -38,9 +38,9 @@ void main() {
 
   // ADR 0016 §決定 4：最接近且不小於顯示尺寸的一張。
   group('pickArtwork', () {
-    Artwork art(String name, [int? width]) =>
-        Artwork(url: Uri.parse('https://img.example/$name'), width: width);
-    String? pick(List<Artwork> artwork, double pixels) =>
+    TrackArtwork art(String name, [int? width]) =>
+        TrackArtwork(url: Uri.parse('https://img.example/$name'), width: width);
+    String? pick(List<TrackArtwork> artwork, double pixels) =>
         pickArtwork(artwork, pixels)?.url.pathSegments.last;
 
     test('the smallest one that is big enough', () {

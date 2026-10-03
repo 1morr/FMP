@@ -484,6 +484,771 @@ class NetworkSettingsTableCompanion
   }
 }
 
+class $PlaybackSettingsTableTable extends PlaybackSettingsTable
+    with TableInfo<$PlaybackSettingsTableTable, PlaybackSettingsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaybackSettingsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    check: () => id.equals(1),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<AudioQuality?, String>
+  audioQuality =
+      GeneratedColumn<String>(
+        'audio_quality',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<AudioQuality?>(
+        $PlaybackSettingsTableTable.$converteraudioQualityn,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<AudioFormatPriority?, String>
+  audioFormatPriority =
+      GeneratedColumn<String>(
+        'audio_format_priority',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<AudioFormatPriority?>(
+        $PlaybackSettingsTableTable.$converteraudioFormatPriorityn,
+      );
+  static const VerificationMeta _rememberPositionMeta = const VerificationMeta(
+    'rememberPosition',
+  );
+  @override
+  late final GeneratedColumn<bool> rememberPosition = GeneratedColumn<bool>(
+    'remember_position',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("remember_position" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _tempPlayRewindSecondsMeta =
+      const VerificationMeta('tempPlayRewindSeconds');
+  @override
+  late final GeneratedColumn<int> tempPlayRewindSeconds = GeneratedColumn<int>(
+    'temp_play_rewind_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _skipPreviewClipsMeta = const VerificationMeta(
+    'skipPreviewClips',
+  );
+  @override
+  late final GeneratedColumn<bool> skipPreviewClips = GeneratedColumn<bool>(
+    'skip_preview_clips',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("skip_preview_clips" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _outputDeviceIdMeta = const VerificationMeta(
+    'outputDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> outputDeviceId = GeneratedColumn<String>(
+    'output_device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _outputDeviceNameMeta = const VerificationMeta(
+    'outputDeviceName',
+  );
+  @override
+  late final GeneratedColumn<String> outputDeviceName = GeneratedColumn<String>(
+    'output_device_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _restartRewindSecondsMeta =
+      const VerificationMeta('restartRewindSeconds');
+  @override
+  late final GeneratedColumn<int> restartRewindSeconds = GeneratedColumn<int>(
+    'restart_rewind_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _playHistoryLimitMeta = const VerificationMeta(
+    'playHistoryLimit',
+  );
+  @override
+  late final GeneratedColumn<int> playHistoryLimit = GeneratedColumn<int>(
+    'play_history_limit',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _autoScrollToCurrentMeta =
+      const VerificationMeta('autoScrollToCurrent');
+  @override
+  late final GeneratedColumn<bool> autoScrollToCurrent = GeneratedColumn<bool>(
+    'auto_scroll_to_current',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_scroll_to_current" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    audioQuality,
+    audioFormatPriority,
+    rememberPosition,
+    tempPlayRewindSeconds,
+    skipPreviewClips,
+    outputDeviceId,
+    outputDeviceName,
+    restartRewindSeconds,
+    playHistoryLimit,
+    autoScrollToCurrent,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'playback_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaybackSettingsRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('remember_position')) {
+      context.handle(
+        _rememberPositionMeta,
+        rememberPosition.isAcceptableOrUnknown(
+          data['remember_position']!,
+          _rememberPositionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('temp_play_rewind_seconds')) {
+      context.handle(
+        _tempPlayRewindSecondsMeta,
+        tempPlayRewindSeconds.isAcceptableOrUnknown(
+          data['temp_play_rewind_seconds']!,
+          _tempPlayRewindSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('skip_preview_clips')) {
+      context.handle(
+        _skipPreviewClipsMeta,
+        skipPreviewClips.isAcceptableOrUnknown(
+          data['skip_preview_clips']!,
+          _skipPreviewClipsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('output_device_id')) {
+      context.handle(
+        _outputDeviceIdMeta,
+        outputDeviceId.isAcceptableOrUnknown(
+          data['output_device_id']!,
+          _outputDeviceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('output_device_name')) {
+      context.handle(
+        _outputDeviceNameMeta,
+        outputDeviceName.isAcceptableOrUnknown(
+          data['output_device_name']!,
+          _outputDeviceNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('restart_rewind_seconds')) {
+      context.handle(
+        _restartRewindSecondsMeta,
+        restartRewindSeconds.isAcceptableOrUnknown(
+          data['restart_rewind_seconds']!,
+          _restartRewindSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('play_history_limit')) {
+      context.handle(
+        _playHistoryLimitMeta,
+        playHistoryLimit.isAcceptableOrUnknown(
+          data['play_history_limit']!,
+          _playHistoryLimitMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auto_scroll_to_current')) {
+      context.handle(
+        _autoScrollToCurrentMeta,
+        autoScrollToCurrent.isAcceptableOrUnknown(
+          data['auto_scroll_to_current']!,
+          _autoScrollToCurrentMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlaybackSettingsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaybackSettingsRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      audioQuality: $PlaybackSettingsTableTable.$converteraudioQualityn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}audio_quality'],
+        ),
+      ),
+      audioFormatPriority: $PlaybackSettingsTableTable
+          .$converteraudioFormatPriorityn
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}audio_format_priority'],
+            ),
+          ),
+      rememberPosition: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}remember_position'],
+      ),
+      tempPlayRewindSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}temp_play_rewind_seconds'],
+      ),
+      skipPreviewClips: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}skip_preview_clips'],
+      ),
+      outputDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}output_device_id'],
+      ),
+      outputDeviceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}output_device_name'],
+      ),
+      restartRewindSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}restart_rewind_seconds'],
+      ),
+      playHistoryLimit: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}play_history_limit'],
+      ),
+      autoScrollToCurrent: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_scroll_to_current'],
+      ),
+    );
+  }
+
+  @override
+  $PlaybackSettingsTableTable createAlias(String alias) {
+    return $PlaybackSettingsTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<AudioQuality, String> $converteraudioQuality =
+      const AudioQualityConverter();
+  static TypeConverter<AudioQuality?, String?> $converteraudioQualityn =
+      NullAwareTypeConverter.wrap($converteraudioQuality);
+  static TypeConverter<AudioFormatPriority, String>
+  $converteraudioFormatPriority = const AudioFormatPriorityConverter();
+  static TypeConverter<AudioFormatPriority?, String?>
+  $converteraudioFormatPriorityn = NullAwareTypeConverter.wrap(
+    $converteraudioFormatPriority,
+  );
+}
+
+class PlaybackSettingsRow extends DataClass
+    implements Insertable<PlaybackSettingsRow> {
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  final int id;
+  final AudioQuality? audioQuality;
+  final AudioFormatPriority? audioFormatPriority;
+  final bool? rememberPosition;
+  final int? tempPlayRewindSeconds;
+  final bool? skipPreviewClips;
+
+  /// 偏好的輸出裝置（只有 Windows）：mpv 的裝置名與顯示用的描述。
+  final String? outputDeviceId;
+  final String? outputDeviceName;
+  final int? restartRewindSeconds;
+  final int? playHistoryLimit;
+  final bool? autoScrollToCurrent;
+  const PlaybackSettingsRow({
+    required this.id,
+    this.audioQuality,
+    this.audioFormatPriority,
+    this.rememberPosition,
+    this.tempPlayRewindSeconds,
+    this.skipPreviewClips,
+    this.outputDeviceId,
+    this.outputDeviceName,
+    this.restartRewindSeconds,
+    this.playHistoryLimit,
+    this.autoScrollToCurrent,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || audioQuality != null) {
+      map['audio_quality'] = Variable<String>(
+        $PlaybackSettingsTableTable.$converteraudioQualityn.toSql(audioQuality),
+      );
+    }
+    if (!nullToAbsent || audioFormatPriority != null) {
+      map['audio_format_priority'] = Variable<String>(
+        $PlaybackSettingsTableTable.$converteraudioFormatPriorityn.toSql(
+          audioFormatPriority,
+        ),
+      );
+    }
+    if (!nullToAbsent || rememberPosition != null) {
+      map['remember_position'] = Variable<bool>(rememberPosition);
+    }
+    if (!nullToAbsent || tempPlayRewindSeconds != null) {
+      map['temp_play_rewind_seconds'] = Variable<int>(tempPlayRewindSeconds);
+    }
+    if (!nullToAbsent || skipPreviewClips != null) {
+      map['skip_preview_clips'] = Variable<bool>(skipPreviewClips);
+    }
+    if (!nullToAbsent || outputDeviceId != null) {
+      map['output_device_id'] = Variable<String>(outputDeviceId);
+    }
+    if (!nullToAbsent || outputDeviceName != null) {
+      map['output_device_name'] = Variable<String>(outputDeviceName);
+    }
+    if (!nullToAbsent || restartRewindSeconds != null) {
+      map['restart_rewind_seconds'] = Variable<int>(restartRewindSeconds);
+    }
+    if (!nullToAbsent || playHistoryLimit != null) {
+      map['play_history_limit'] = Variable<int>(playHistoryLimit);
+    }
+    if (!nullToAbsent || autoScrollToCurrent != null) {
+      map['auto_scroll_to_current'] = Variable<bool>(autoScrollToCurrent);
+    }
+    return map;
+  }
+
+  PlaybackSettingsTableCompanion toCompanion(bool nullToAbsent) {
+    return PlaybackSettingsTableCompanion(
+      id: Value(id),
+      audioQuality: audioQuality == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioQuality),
+      audioFormatPriority: audioFormatPriority == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioFormatPriority),
+      rememberPosition: rememberPosition == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rememberPosition),
+      tempPlayRewindSeconds: tempPlayRewindSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tempPlayRewindSeconds),
+      skipPreviewClips: skipPreviewClips == null && nullToAbsent
+          ? const Value.absent()
+          : Value(skipPreviewClips),
+      outputDeviceId: outputDeviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outputDeviceId),
+      outputDeviceName: outputDeviceName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outputDeviceName),
+      restartRewindSeconds: restartRewindSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(restartRewindSeconds),
+      playHistoryLimit: playHistoryLimit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(playHistoryLimit),
+      autoScrollToCurrent: autoScrollToCurrent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(autoScrollToCurrent),
+    );
+  }
+
+  factory PlaybackSettingsRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaybackSettingsRow(
+      id: serializer.fromJson<int>(json['id']),
+      audioQuality: serializer.fromJson<AudioQuality?>(json['audioQuality']),
+      audioFormatPriority: serializer.fromJson<AudioFormatPriority?>(
+        json['audioFormatPriority'],
+      ),
+      rememberPosition: serializer.fromJson<bool?>(json['rememberPosition']),
+      tempPlayRewindSeconds: serializer.fromJson<int?>(
+        json['tempPlayRewindSeconds'],
+      ),
+      skipPreviewClips: serializer.fromJson<bool?>(json['skipPreviewClips']),
+      outputDeviceId: serializer.fromJson<String?>(json['outputDeviceId']),
+      outputDeviceName: serializer.fromJson<String?>(json['outputDeviceName']),
+      restartRewindSeconds: serializer.fromJson<int?>(
+        json['restartRewindSeconds'],
+      ),
+      playHistoryLimit: serializer.fromJson<int?>(json['playHistoryLimit']),
+      autoScrollToCurrent: serializer.fromJson<bool?>(
+        json['autoScrollToCurrent'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'audioQuality': serializer.toJson<AudioQuality?>(audioQuality),
+      'audioFormatPriority': serializer.toJson<AudioFormatPriority?>(
+        audioFormatPriority,
+      ),
+      'rememberPosition': serializer.toJson<bool?>(rememberPosition),
+      'tempPlayRewindSeconds': serializer.toJson<int?>(tempPlayRewindSeconds),
+      'skipPreviewClips': serializer.toJson<bool?>(skipPreviewClips),
+      'outputDeviceId': serializer.toJson<String?>(outputDeviceId),
+      'outputDeviceName': serializer.toJson<String?>(outputDeviceName),
+      'restartRewindSeconds': serializer.toJson<int?>(restartRewindSeconds),
+      'playHistoryLimit': serializer.toJson<int?>(playHistoryLimit),
+      'autoScrollToCurrent': serializer.toJson<bool?>(autoScrollToCurrent),
+    };
+  }
+
+  PlaybackSettingsRow copyWith({
+    int? id,
+    Value<AudioQuality?> audioQuality = const Value.absent(),
+    Value<AudioFormatPriority?> audioFormatPriority = const Value.absent(),
+    Value<bool?> rememberPosition = const Value.absent(),
+    Value<int?> tempPlayRewindSeconds = const Value.absent(),
+    Value<bool?> skipPreviewClips = const Value.absent(),
+    Value<String?> outputDeviceId = const Value.absent(),
+    Value<String?> outputDeviceName = const Value.absent(),
+    Value<int?> restartRewindSeconds = const Value.absent(),
+    Value<int?> playHistoryLimit = const Value.absent(),
+    Value<bool?> autoScrollToCurrent = const Value.absent(),
+  }) => PlaybackSettingsRow(
+    id: id ?? this.id,
+    audioQuality: audioQuality.present ? audioQuality.value : this.audioQuality,
+    audioFormatPriority: audioFormatPriority.present
+        ? audioFormatPriority.value
+        : this.audioFormatPriority,
+    rememberPosition: rememberPosition.present
+        ? rememberPosition.value
+        : this.rememberPosition,
+    tempPlayRewindSeconds: tempPlayRewindSeconds.present
+        ? tempPlayRewindSeconds.value
+        : this.tempPlayRewindSeconds,
+    skipPreviewClips: skipPreviewClips.present
+        ? skipPreviewClips.value
+        : this.skipPreviewClips,
+    outputDeviceId: outputDeviceId.present
+        ? outputDeviceId.value
+        : this.outputDeviceId,
+    outputDeviceName: outputDeviceName.present
+        ? outputDeviceName.value
+        : this.outputDeviceName,
+    restartRewindSeconds: restartRewindSeconds.present
+        ? restartRewindSeconds.value
+        : this.restartRewindSeconds,
+    playHistoryLimit: playHistoryLimit.present
+        ? playHistoryLimit.value
+        : this.playHistoryLimit,
+    autoScrollToCurrent: autoScrollToCurrent.present
+        ? autoScrollToCurrent.value
+        : this.autoScrollToCurrent,
+  );
+  PlaybackSettingsRow copyWithCompanion(PlaybackSettingsTableCompanion data) {
+    return PlaybackSettingsRow(
+      id: data.id.present ? data.id.value : this.id,
+      audioQuality: data.audioQuality.present
+          ? data.audioQuality.value
+          : this.audioQuality,
+      audioFormatPriority: data.audioFormatPriority.present
+          ? data.audioFormatPriority.value
+          : this.audioFormatPriority,
+      rememberPosition: data.rememberPosition.present
+          ? data.rememberPosition.value
+          : this.rememberPosition,
+      tempPlayRewindSeconds: data.tempPlayRewindSeconds.present
+          ? data.tempPlayRewindSeconds.value
+          : this.tempPlayRewindSeconds,
+      skipPreviewClips: data.skipPreviewClips.present
+          ? data.skipPreviewClips.value
+          : this.skipPreviewClips,
+      outputDeviceId: data.outputDeviceId.present
+          ? data.outputDeviceId.value
+          : this.outputDeviceId,
+      outputDeviceName: data.outputDeviceName.present
+          ? data.outputDeviceName.value
+          : this.outputDeviceName,
+      restartRewindSeconds: data.restartRewindSeconds.present
+          ? data.restartRewindSeconds.value
+          : this.restartRewindSeconds,
+      playHistoryLimit: data.playHistoryLimit.present
+          ? data.playHistoryLimit.value
+          : this.playHistoryLimit,
+      autoScrollToCurrent: data.autoScrollToCurrent.present
+          ? data.autoScrollToCurrent.value
+          : this.autoScrollToCurrent,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackSettingsRow(')
+          ..write('id: $id, ')
+          ..write('audioQuality: $audioQuality, ')
+          ..write('audioFormatPriority: $audioFormatPriority, ')
+          ..write('rememberPosition: $rememberPosition, ')
+          ..write('tempPlayRewindSeconds: $tempPlayRewindSeconds, ')
+          ..write('skipPreviewClips: $skipPreviewClips, ')
+          ..write('outputDeviceId: $outputDeviceId, ')
+          ..write('outputDeviceName: $outputDeviceName, ')
+          ..write('restartRewindSeconds: $restartRewindSeconds, ')
+          ..write('playHistoryLimit: $playHistoryLimit, ')
+          ..write('autoScrollToCurrent: $autoScrollToCurrent')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    audioQuality,
+    audioFormatPriority,
+    rememberPosition,
+    tempPlayRewindSeconds,
+    skipPreviewClips,
+    outputDeviceId,
+    outputDeviceName,
+    restartRewindSeconds,
+    playHistoryLimit,
+    autoScrollToCurrent,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaybackSettingsRow &&
+          other.id == this.id &&
+          other.audioQuality == this.audioQuality &&
+          other.audioFormatPriority == this.audioFormatPriority &&
+          other.rememberPosition == this.rememberPosition &&
+          other.tempPlayRewindSeconds == this.tempPlayRewindSeconds &&
+          other.skipPreviewClips == this.skipPreviewClips &&
+          other.outputDeviceId == this.outputDeviceId &&
+          other.outputDeviceName == this.outputDeviceName &&
+          other.restartRewindSeconds == this.restartRewindSeconds &&
+          other.playHistoryLimit == this.playHistoryLimit &&
+          other.autoScrollToCurrent == this.autoScrollToCurrent);
+}
+
+class PlaybackSettingsTableCompanion
+    extends UpdateCompanion<PlaybackSettingsRow> {
+  final Value<int> id;
+  final Value<AudioQuality?> audioQuality;
+  final Value<AudioFormatPriority?> audioFormatPriority;
+  final Value<bool?> rememberPosition;
+  final Value<int?> tempPlayRewindSeconds;
+  final Value<bool?> skipPreviewClips;
+  final Value<String?> outputDeviceId;
+  final Value<String?> outputDeviceName;
+  final Value<int?> restartRewindSeconds;
+  final Value<int?> playHistoryLimit;
+  final Value<bool?> autoScrollToCurrent;
+  const PlaybackSettingsTableCompanion({
+    this.id = const Value.absent(),
+    this.audioQuality = const Value.absent(),
+    this.audioFormatPriority = const Value.absent(),
+    this.rememberPosition = const Value.absent(),
+    this.tempPlayRewindSeconds = const Value.absent(),
+    this.skipPreviewClips = const Value.absent(),
+    this.outputDeviceId = const Value.absent(),
+    this.outputDeviceName = const Value.absent(),
+    this.restartRewindSeconds = const Value.absent(),
+    this.playHistoryLimit = const Value.absent(),
+    this.autoScrollToCurrent = const Value.absent(),
+  });
+  PlaybackSettingsTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.audioQuality = const Value.absent(),
+    this.audioFormatPriority = const Value.absent(),
+    this.rememberPosition = const Value.absent(),
+    this.tempPlayRewindSeconds = const Value.absent(),
+    this.skipPreviewClips = const Value.absent(),
+    this.outputDeviceId = const Value.absent(),
+    this.outputDeviceName = const Value.absent(),
+    this.restartRewindSeconds = const Value.absent(),
+    this.playHistoryLimit = const Value.absent(),
+    this.autoScrollToCurrent = const Value.absent(),
+  });
+  static Insertable<PlaybackSettingsRow> custom({
+    Expression<int>? id,
+    Expression<String>? audioQuality,
+    Expression<String>? audioFormatPriority,
+    Expression<bool>? rememberPosition,
+    Expression<int>? tempPlayRewindSeconds,
+    Expression<bool>? skipPreviewClips,
+    Expression<String>? outputDeviceId,
+    Expression<String>? outputDeviceName,
+    Expression<int>? restartRewindSeconds,
+    Expression<int>? playHistoryLimit,
+    Expression<bool>? autoScrollToCurrent,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (audioQuality != null) 'audio_quality': audioQuality,
+      if (audioFormatPriority != null)
+        'audio_format_priority': audioFormatPriority,
+      if (rememberPosition != null) 'remember_position': rememberPosition,
+      if (tempPlayRewindSeconds != null)
+        'temp_play_rewind_seconds': tempPlayRewindSeconds,
+      if (skipPreviewClips != null) 'skip_preview_clips': skipPreviewClips,
+      if (outputDeviceId != null) 'output_device_id': outputDeviceId,
+      if (outputDeviceName != null) 'output_device_name': outputDeviceName,
+      if (restartRewindSeconds != null)
+        'restart_rewind_seconds': restartRewindSeconds,
+      if (playHistoryLimit != null) 'play_history_limit': playHistoryLimit,
+      if (autoScrollToCurrent != null)
+        'auto_scroll_to_current': autoScrollToCurrent,
+    });
+  }
+
+  PlaybackSettingsTableCompanion copyWith({
+    Value<int>? id,
+    Value<AudioQuality?>? audioQuality,
+    Value<AudioFormatPriority?>? audioFormatPriority,
+    Value<bool?>? rememberPosition,
+    Value<int?>? tempPlayRewindSeconds,
+    Value<bool?>? skipPreviewClips,
+    Value<String?>? outputDeviceId,
+    Value<String?>? outputDeviceName,
+    Value<int?>? restartRewindSeconds,
+    Value<int?>? playHistoryLimit,
+    Value<bool?>? autoScrollToCurrent,
+  }) {
+    return PlaybackSettingsTableCompanion(
+      id: id ?? this.id,
+      audioQuality: audioQuality ?? this.audioQuality,
+      audioFormatPriority: audioFormatPriority ?? this.audioFormatPriority,
+      rememberPosition: rememberPosition ?? this.rememberPosition,
+      tempPlayRewindSeconds:
+          tempPlayRewindSeconds ?? this.tempPlayRewindSeconds,
+      skipPreviewClips: skipPreviewClips ?? this.skipPreviewClips,
+      outputDeviceId: outputDeviceId ?? this.outputDeviceId,
+      outputDeviceName: outputDeviceName ?? this.outputDeviceName,
+      restartRewindSeconds: restartRewindSeconds ?? this.restartRewindSeconds,
+      playHistoryLimit: playHistoryLimit ?? this.playHistoryLimit,
+      autoScrollToCurrent: autoScrollToCurrent ?? this.autoScrollToCurrent,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (audioQuality.present) {
+      map['audio_quality'] = Variable<String>(
+        $PlaybackSettingsTableTable.$converteraudioQualityn.toSql(
+          audioQuality.value,
+        ),
+      );
+    }
+    if (audioFormatPriority.present) {
+      map['audio_format_priority'] = Variable<String>(
+        $PlaybackSettingsTableTable.$converteraudioFormatPriorityn.toSql(
+          audioFormatPriority.value,
+        ),
+      );
+    }
+    if (rememberPosition.present) {
+      map['remember_position'] = Variable<bool>(rememberPosition.value);
+    }
+    if (tempPlayRewindSeconds.present) {
+      map['temp_play_rewind_seconds'] = Variable<int>(
+        tempPlayRewindSeconds.value,
+      );
+    }
+    if (skipPreviewClips.present) {
+      map['skip_preview_clips'] = Variable<bool>(skipPreviewClips.value);
+    }
+    if (outputDeviceId.present) {
+      map['output_device_id'] = Variable<String>(outputDeviceId.value);
+    }
+    if (outputDeviceName.present) {
+      map['output_device_name'] = Variable<String>(outputDeviceName.value);
+    }
+    if (restartRewindSeconds.present) {
+      map['restart_rewind_seconds'] = Variable<int>(restartRewindSeconds.value);
+    }
+    if (playHistoryLimit.present) {
+      map['play_history_limit'] = Variable<int>(playHistoryLimit.value);
+    }
+    if (autoScrollToCurrent.present) {
+      map['auto_scroll_to_current'] = Variable<bool>(autoScrollToCurrent.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackSettingsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('audioQuality: $audioQuality, ')
+          ..write('audioFormatPriority: $audioFormatPriority, ')
+          ..write('rememberPosition: $rememberPosition, ')
+          ..write('tempPlayRewindSeconds: $tempPlayRewindSeconds, ')
+          ..write('skipPreviewClips: $skipPreviewClips, ')
+          ..write('outputDeviceId: $outputDeviceId, ')
+          ..write('outputDeviceName: $outputDeviceName, ')
+          ..write('restartRewindSeconds: $restartRewindSeconds, ')
+          ..write('playHistoryLimit: $playHistoryLimit, ')
+          ..write('autoScrollToCurrent: $autoScrollToCurrent')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $InstalledPluginsTableTable extends InstalledPluginsTable
     with TableInfo<$InstalledPluginsTableTable, InstalledPluginRow> {
   @override
@@ -1135,6 +1900,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $AppearanceSettingsTableTable(this);
   late final $NetworkSettingsTableTable networkSettingsTable =
       $NetworkSettingsTableTable(this);
+  late final $PlaybackSettingsTableTable playbackSettingsTable =
+      $PlaybackSettingsTableTable(this);
   late final $InstalledPluginsTableTable installedPluginsTable =
       $InstalledPluginsTableTable(this);
   late final $PluginStorageTableTable pluginStorageTable =
@@ -1146,6 +1913,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     appearanceSettingsTable,
     networkSettingsTable,
+    playbackSettingsTable,
     installedPluginsTable,
     pluginStorageTable,
   ];
@@ -1514,6 +2282,374 @@ typedef $$NetworkSettingsTableTableProcessedTableManager =
         >,
       ),
       NetworkSettingsRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PlaybackSettingsTableTableCreateCompanionBuilder =
+    PlaybackSettingsTableCompanion Function({
+      Value<int> id,
+      Value<AudioQuality?> audioQuality,
+      Value<AudioFormatPriority?> audioFormatPriority,
+      Value<bool?> rememberPosition,
+      Value<int?> tempPlayRewindSeconds,
+      Value<bool?> skipPreviewClips,
+      Value<String?> outputDeviceId,
+      Value<String?> outputDeviceName,
+      Value<int?> restartRewindSeconds,
+      Value<int?> playHistoryLimit,
+      Value<bool?> autoScrollToCurrent,
+    });
+typedef $$PlaybackSettingsTableTableUpdateCompanionBuilder =
+    PlaybackSettingsTableCompanion Function({
+      Value<int> id,
+      Value<AudioQuality?> audioQuality,
+      Value<AudioFormatPriority?> audioFormatPriority,
+      Value<bool?> rememberPosition,
+      Value<int?> tempPlayRewindSeconds,
+      Value<bool?> skipPreviewClips,
+      Value<String?> outputDeviceId,
+      Value<String?> outputDeviceName,
+      Value<int?> restartRewindSeconds,
+      Value<int?> playHistoryLimit,
+      Value<bool?> autoScrollToCurrent,
+    });
+
+class $$PlaybackSettingsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $PlaybackSettingsTableTable> {
+  $$PlaybackSettingsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<AudioQuality?, AudioQuality, String>
+  get audioQuality => $composableBuilder(
+    column: $table.audioQuality,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    AudioFormatPriority?,
+    AudioFormatPriority,
+    String
+  >
+  get audioFormatPriority => $composableBuilder(
+    column: $table.audioFormatPriority,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<bool> get rememberPosition => $composableBuilder(
+    column: $table.rememberPosition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tempPlayRewindSeconds => $composableBuilder(
+    column: $table.tempPlayRewindSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get skipPreviewClips => $composableBuilder(
+    column: $table.skipPreviewClips,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get outputDeviceId => $composableBuilder(
+    column: $table.outputDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get outputDeviceName => $composableBuilder(
+    column: $table.outputDeviceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get restartRewindSeconds => $composableBuilder(
+    column: $table.restartRewindSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get playHistoryLimit => $composableBuilder(
+    column: $table.playHistoryLimit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoScrollToCurrent => $composableBuilder(
+    column: $table.autoScrollToCurrent,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlaybackSettingsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlaybackSettingsTableTable> {
+  $$PlaybackSettingsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get audioQuality => $composableBuilder(
+    column: $table.audioQuality,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get audioFormatPriority => $composableBuilder(
+    column: $table.audioFormatPriority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get rememberPosition => $composableBuilder(
+    column: $table.rememberPosition,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tempPlayRewindSeconds => $composableBuilder(
+    column: $table.tempPlayRewindSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get skipPreviewClips => $composableBuilder(
+    column: $table.skipPreviewClips,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get outputDeviceId => $composableBuilder(
+    column: $table.outputDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get outputDeviceName => $composableBuilder(
+    column: $table.outputDeviceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get restartRewindSeconds => $composableBuilder(
+    column: $table.restartRewindSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get playHistoryLimit => $composableBuilder(
+    column: $table.playHistoryLimit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoScrollToCurrent => $composableBuilder(
+    column: $table.autoScrollToCurrent,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlaybackSettingsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlaybackSettingsTableTable> {
+  $$PlaybackSettingsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<AudioQuality?, String> get audioQuality =>
+      $composableBuilder(
+        column: $table.audioQuality,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<AudioFormatPriority?, String>
+  get audioFormatPriority => $composableBuilder(
+    column: $table.audioFormatPriority,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get rememberPosition => $composableBuilder(
+    column: $table.rememberPosition,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get tempPlayRewindSeconds => $composableBuilder(
+    column: $table.tempPlayRewindSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get skipPreviewClips => $composableBuilder(
+    column: $table.skipPreviewClips,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get outputDeviceId => $composableBuilder(
+    column: $table.outputDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get outputDeviceName => $composableBuilder(
+    column: $table.outputDeviceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get restartRewindSeconds => $composableBuilder(
+    column: $table.restartRewindSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get playHistoryLimit => $composableBuilder(
+    column: $table.playHistoryLimit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoScrollToCurrent => $composableBuilder(
+    column: $table.autoScrollToCurrent,
+    builder: (column) => column,
+  );
+}
+
+class $$PlaybackSettingsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlaybackSettingsTableTable,
+          PlaybackSettingsRow,
+          $$PlaybackSettingsTableTableFilterComposer,
+          $$PlaybackSettingsTableTableOrderingComposer,
+          $$PlaybackSettingsTableTableAnnotationComposer,
+          $$PlaybackSettingsTableTableCreateCompanionBuilder,
+          $$PlaybackSettingsTableTableUpdateCompanionBuilder,
+          (
+            PlaybackSettingsRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PlaybackSettingsTableTable,
+              PlaybackSettingsRow
+            >,
+          ),
+          PlaybackSettingsRow,
+          PrefetchHooks Function()
+        > {
+  $$PlaybackSettingsTableTableTableManager(
+    _$AppDatabase db,
+    $PlaybackSettingsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaybackSettingsTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PlaybackSettingsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PlaybackSettingsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<AudioQuality?> audioQuality = const Value.absent(),
+                Value<AudioFormatPriority?> audioFormatPriority =
+                    const Value.absent(),
+                Value<bool?> rememberPosition = const Value.absent(),
+                Value<int?> tempPlayRewindSeconds = const Value.absent(),
+                Value<bool?> skipPreviewClips = const Value.absent(),
+                Value<String?> outputDeviceId = const Value.absent(),
+                Value<String?> outputDeviceName = const Value.absent(),
+                Value<int?> restartRewindSeconds = const Value.absent(),
+                Value<int?> playHistoryLimit = const Value.absent(),
+                Value<bool?> autoScrollToCurrent = const Value.absent(),
+              }) => PlaybackSettingsTableCompanion(
+                id: id,
+                audioQuality: audioQuality,
+                audioFormatPriority: audioFormatPriority,
+                rememberPosition: rememberPosition,
+                tempPlayRewindSeconds: tempPlayRewindSeconds,
+                skipPreviewClips: skipPreviewClips,
+                outputDeviceId: outputDeviceId,
+                outputDeviceName: outputDeviceName,
+                restartRewindSeconds: restartRewindSeconds,
+                playHistoryLimit: playHistoryLimit,
+                autoScrollToCurrent: autoScrollToCurrent,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<AudioQuality?> audioQuality = const Value.absent(),
+                Value<AudioFormatPriority?> audioFormatPriority =
+                    const Value.absent(),
+                Value<bool?> rememberPosition = const Value.absent(),
+                Value<int?> tempPlayRewindSeconds = const Value.absent(),
+                Value<bool?> skipPreviewClips = const Value.absent(),
+                Value<String?> outputDeviceId = const Value.absent(),
+                Value<String?> outputDeviceName = const Value.absent(),
+                Value<int?> restartRewindSeconds = const Value.absent(),
+                Value<int?> playHistoryLimit = const Value.absent(),
+                Value<bool?> autoScrollToCurrent = const Value.absent(),
+              }) => PlaybackSettingsTableCompanion.insert(
+                id: id,
+                audioQuality: audioQuality,
+                audioFormatPriority: audioFormatPriority,
+                rememberPosition: rememberPosition,
+                tempPlayRewindSeconds: tempPlayRewindSeconds,
+                skipPreviewClips: skipPreviewClips,
+                outputDeviceId: outputDeviceId,
+                outputDeviceName: outputDeviceName,
+                restartRewindSeconds: restartRewindSeconds,
+                playHistoryLimit: playHistoryLimit,
+                autoScrollToCurrent: autoScrollToCurrent,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PlaybackSettingsTableTable, PlaybackSettingsRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $PlaybackSettingsTableTable,
+                    PlaybackSettingsRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlaybackSettingsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlaybackSettingsTableTable,
+      PlaybackSettingsRow,
+      $$PlaybackSettingsTableTableFilterComposer,
+      $$PlaybackSettingsTableTableOrderingComposer,
+      $$PlaybackSettingsTableTableAnnotationComposer,
+      $$PlaybackSettingsTableTableCreateCompanionBuilder,
+      $$PlaybackSettingsTableTableUpdateCompanionBuilder,
+      (
+        PlaybackSettingsRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PlaybackSettingsTableTable,
+          PlaybackSettingsRow
+        >,
+      ),
+      PlaybackSettingsRow,
       PrefetchHooks Function()
     >;
 typedef $$InstalledPluginsTableTableCreateCompanionBuilder =
@@ -2159,6 +3295,8 @@ class $AppDatabaseManager {
       );
   $$NetworkSettingsTableTableTableManager get networkSettingsTable =>
       $$NetworkSettingsTableTableTableManager(_db, _db.networkSettingsTable);
+  $$PlaybackSettingsTableTableTableManager get playbackSettingsTable =>
+      $$PlaybackSettingsTableTableTableManager(_db, _db.playbackSettingsTable);
   $$InstalledPluginsTableTableTableManager get installedPluginsTable =>
       $$InstalledPluginsTableTableTableManager(_db, _db.installedPluginsTable);
   $$PluginStorageTableTableTableManager get pluginStorageTable =>

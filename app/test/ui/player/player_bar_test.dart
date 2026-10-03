@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/plugins/source_dto.dart';
@@ -36,6 +37,9 @@ void main() {
   const pause = 'Pause (Space)';
   const previous = 'Previous (Ctrl+←)';
   const next = 'Next (Ctrl+→)';
+  const shuffle = 'Shuffle';
+  const loopOff = 'Repeat: off';
+  const more = 'More';
 
   testWidgets('takes no space while nothing is queued', (tester) async {
     await pumpBar(tester);
@@ -43,15 +47,15 @@ void main() {
     expect(tester.getSize(find.byType(PlayerBar)).height, 0);
   });
 
-  // ADR 0024 §決定 5，只放 M1 有的功能（音量、隨機、循環、輸出裝置在 M2）。
+  // ADR 0024 §決定 5，只放已經有的功能（音量、輸出裝置在 M2 PR 13）。
   group('controls per width', () {
     for (final (width, controls) in [
       (360.0, {pause, next}),
       (599.0, {pause, next}),
-      (600.0, {previous, pause, next}),
-      (839.0, {previous, pause, next}),
-      (840.0, {previous, pause, next}),
-      (1600.0, {previous, pause, next}),
+      (600.0, {previous, pause, next, more}),
+      (839.0, {previous, pause, next, more}),
+      (840.0, {shuffle, previous, pause, next, loopOff}),
+      (1600.0, {shuffle, previous, pause, next, loopOff}),
     ]) {
       testWidgets('$width wide: $controls; the title keeps 160dp', (
         tester,
@@ -166,6 +170,68 @@ void main() {
           .position
           .inSeconds;
       expect(position, greaterThan(60));
+    });
+  });
+
+  group('shuffle and loop', () {
+    testWidgets('the buttons switch shuffle and cycle the loop mode', (
+      tester,
+    ) async {
+      final h = await pumpBar(tester, width: 1000);
+      await h.play(tester, [summary('a'), summary('b'), summary('c')]);
+
+      await tester.tap(find.byTooltip(shuffle));
+      await tester.pump();
+      expect(h.controller.queue.shuffleEnabled, isTrue);
+      expect(
+        tester
+            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.shuffle))
+            .isSelected,
+        isTrue,
+      );
+      await tester.tap(find.byTooltip(shuffle));
+      await tester.pump();
+      expect(h.controller.queue.shuffleEnabled, isFalse);
+
+      for (final (mode, tooltip, icon) in [
+        (LoopMode.all, 'Repeat: all', Icons.repeat),
+        (LoopMode.one, 'Repeat: one', Icons.repeat_one),
+        (LoopMode.off, loopOff, Icons.repeat),
+      ]) {
+        await tester.tap(
+          find.byWidgetPredicate(
+            (w) =>
+                w is IconButton && (w.tooltip?.startsWith('Repeat') ?? false),
+          ),
+        );
+        await tester.pump();
+        expect(h.controller.queue.loopMode, mode);
+        expect(find.byTooltip(tooltip), findsOneWidget);
+        expect(find.widgetWithIcon(IconButton, icon), findsOneWidget);
+      }
+    });
+
+    testWidgets('at medium width they are in the "more" menu', (tester) async {
+      final h = await pumpBar(tester, width: 720);
+      await h.play(tester, [summary('a'), summary('b')]);
+
+      await tester.tap(find.byTooltip(more));
+      await tester.pump();
+      await tester.tap(find.text(shuffle));
+      await tester.pump();
+      expect(h.controller.queue.shuffleEnabled, isTrue);
+
+      await tester.tap(find.byTooltip(more));
+      await tester.pump();
+      expect(
+        tester
+            .widget<CheckboxMenuButton>(find.byType(CheckboxMenuButton))
+            .value,
+        isTrue,
+      );
+      await tester.tap(find.text(loopOff));
+      await tester.pump();
+      expect(h.controller.queue.loopMode, LoopMode.all);
     });
   });
 }

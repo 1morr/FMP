@@ -9,6 +9,7 @@ import 'generated/schema.dart';
 
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
+import 'generated/schema_v3.dart' as v3;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -86,6 +87,84 @@ void main() {
           const v2.PluginStorageData(pluginId: 'p', key: 'k', value: 'v'),
         ]);
         expect(await newDb.select(newDb.networkSettings).get(), isEmpty);
+      },
+    );
+  });
+
+  // v3 只加 playback_settings（design §3.3）：既有表的資料原樣保留，新表升級後是
+  // 空的（每個欄位都是沒設定過，讀取時才套用預設）。
+  test('migration from v2 to v3 keeps existing data', () async {
+    const plugin = v2.InstalledPluginsData(
+      id: 'p',
+      version: '1.0.0',
+      manifestJson: '{}',
+      script: 'script',
+      installedAt: 1790000000000,
+    );
+    const storage = v2.PluginStorageData(pluginId: 'p', key: 'k', value: 'v');
+
+    await verifier.testWithDataIntegrity(
+      oldVersion: 2,
+      newVersion: 3,
+      createOld: v2.DatabaseAtV2.new,
+      createNew: v3.DatabaseAtV3.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(oldDb.installedPlugins, plugin);
+        batch.insert(oldDb.pluginStorage, storage);
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.installedPlugins).get(), [
+          const v3.InstalledPluginsData(
+            id: 'p',
+            version: '1.0.0',
+            manifestJson: '{}',
+            script: 'script',
+            installedAt: 1790000000000,
+          ),
+        ]);
+        expect(await newDb.select(newDb.pluginStorage).get(), [
+          const v3.PluginStorageData(pluginId: 'p', key: 'k', value: 'v'),
+        ]);
+        expect(await newDb.select(newDb.playbackSettings).get(), isEmpty);
+      },
+    );
+  });
+
+  // ADR 0010 §決定 3：migration 不改使用者設定過的值。新表沒有舊資料，所以以
+  // 升級前就有的設定組（外觀、網路）的使用者值代表。
+  test('migration from v2 to v3 keeps the values the user set', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 2,
+      newVersion: 3,
+      createOld: v2.DatabaseAtV2.new,
+      createNew: v3.DatabaseAtV3.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v2.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'light',
+            locale: 'en',
+          ),
+        );
+        batch.insert(
+          oldDb.networkSettings,
+          const v2.NetworkSettingsData(id: 1, cacheLimitMb: 1024),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v3.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'light',
+            locale: 'en',
+          ),
+        ]);
+        expect(await newDb.select(newDb.networkSettings).get(), [
+          const v3.NetworkSettingsData(id: 1, cacheLimitMb: 1024),
+        ]);
       },
     );
   });

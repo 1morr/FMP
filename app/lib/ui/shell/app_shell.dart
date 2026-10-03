@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -131,7 +133,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     return true;
   }
 
-  // ---- 播放失敗的提示 ---------------------------------------------------------
+  // ---- 播放的提示 -------------------------------------------------------------
 
   /// 播放停在 `Failed`（連續跳過到上限或最後一首也播不了）時提示一次。在
   /// listener 裡呼叫，不在 build 裡：`Toaster` 同步送出，`ToastHost` 會馬上
@@ -148,9 +150,34 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  /// 播放控制器的一次性事件轉成提示（design §7.9）。同樣在 listener 裡。
+  void _onPlaybackEvent(
+    AsyncValue<PlaybackEvent>? previous,
+    AsyncValue<PlaybackEvent> next,
+  ) {
+    if (next case AsyncData(:final value)
+        when !identical(previous?.value, value)) {
+      switch (value) {
+        case QueueFull(:final limit):
+          ref
+              .read(toasterProvider)
+              .warning(
+                ref
+                    .read(translationsProvider)
+                    .player
+                    .queueFull(
+                      // 千分位：三種介面語言都寫成 10,000。
+                      count: NumberFormat.decimalPattern('en').format(limit),
+                    ),
+              );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(playbackStateProvider, _onPlaybackState);
+    ref.listen(playbackEventsProvider, _onPlaybackEvent);
     final t = ref.watch(translationsProvider).shell;
     final hasTrack = ref.watch(
       playbackQueueProvider.select((queue) => queue.value?.current != null),

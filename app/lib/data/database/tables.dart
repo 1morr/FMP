@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v2（M1 的 v1 加 M2 的 network_settings）。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
+// Schema v3（M1 的 v1，M2 加 network_settings（v2）與 playback_settings（v3））。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
 
@@ -34,6 +34,37 @@ class NetworkSettingsTable extends Table {
 
   /// 快取上限（MiB）；空＝平台宣告的預設（ADR 0016 §決定 3）。
   late final cacheLimitMb = integer().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// 「播放」設定，單列（ADR 0011 §決定 7、design §3.3）。欄位為空＝使用者沒設定過，
+/// 預設只在 Notifier 套用。整組欄位在 M2 PR 10 一次建好，各欄位的 setter 跟著
+/// 用到它的 PR 加。
+@DataClassName('PlaybackSettingsRow')
+class PlaybackSettingsTable extends Table {
+  @override
+  String get tableName => 'playback_settings';
+
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  late final IntColumn id = integer().check(id.equals(1))();
+  late final audioQuality = text().nullable().map(
+    const AudioQualityConverter(),
+  )();
+  late final audioFormatPriority = text().nullable().map(
+    const AudioFormatPriorityConverter(),
+  )();
+  late final rememberPosition = boolean().nullable()();
+  late final tempPlayRewindSeconds = integer().nullable()();
+  late final skipPreviewClips = boolean().nullable()();
+
+  /// 偏好的輸出裝置（只有 Windows）：mpv 的裝置名與顯示用的描述。
+  late final outputDeviceId = text().nullable()();
+  late final outputDeviceName = text().nullable()();
+  late final restartRewindSeconds = integer().nullable()();
+  late final playHistoryLimit = integer().nullable()();
+  late final autoScrollToCurrent = boolean().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

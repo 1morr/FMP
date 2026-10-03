@@ -93,6 +93,7 @@ final class PlaybackSnapshot {
     required this.generation,
     required this.playWhenReady,
     required this.hasNext,
+    required this.repeatsTrack,
     required this.resumeAt,
   });
 
@@ -102,8 +103,11 @@ final class PlaybackSnapshot {
   /// 使用者要不要出聲。
   final bool playWhenReady;
 
-  /// 佇列裡還有下一首。
+  /// 往下一首會換曲目（`QueueState.hasNext`；臨時播放中一律是：回到佇列）。
   final bool hasNext;
+
+  /// 單曲循環：播完重播目前這首。
+  final bool repeatsTrack;
 
   /// 沒有位置回報時，從哪裡重新開始。
   final Duration resumeAt;
@@ -151,6 +155,11 @@ final class PlayNextTrack extends EventAction {
   const PlayNextTrack();
 }
 
+/// 單曲循環的這首播完了，前瞻沒來得及接上：從頭再播一次（網址從快取拿）。
+final class RepeatTrack extends EventAction {
+  const RepeatTrack();
+}
+
 /// 播完了，佇列也到底：停在 [Idle]。
 final class FinishQueue extends EventAction {
   const FinishQueue();
@@ -189,6 +198,8 @@ EventAction routePlaybackEvent(SessionEvent event, PlaybackSnapshot snapshot) {
       first: !wasReady,
     ),
     LookAheadTookOver(:final end) => AdoptLookAhead(end: end),
+    SourceFinished(end: TrackEndReason.completed) when snapshot.repeatsTrack =>
+      const RepeatTrack(),
     SourceFinished(end: TrackEndReason.completed) =>
       snapshot.hasNext ? const PlayNextTrack() : const FinishQueue(),
     SourceFinished(

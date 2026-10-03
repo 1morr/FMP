@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 
 // 列舉與時間存進資料庫的格式（ADR 0010 §決定 2）。字串逐一寫死，不用 enum 的
 // `name`：Dart 端改名不該悄悄改掉已存的資料。讀到不認得的值就拋錯，不猜。
@@ -44,6 +45,49 @@ final class LocaleSettingConverter
     LocaleSetting.zhTw => 'zh-TW',
     LocaleSetting.zhCn => 'zh-CN',
     LocaleSetting.en => 'en',
+  };
+}
+
+/// [AudioQuality] ↔ `high`／`medium`／`low`。
+final class AudioQualityConverter extends TypeConverter<AudioQuality, String> {
+  const AudioQualityConverter();
+
+  @override
+  AudioQuality fromSql(String fromDb) => switch (fromDb) {
+    'high' => AudioQuality.high,
+    'medium' => AudioQuality.medium,
+    'low' => AudioQuality.low,
+    _ => throw FormatException('Unknown audio quality in the database', fromDb),
+  };
+
+  @override
+  String toSql(AudioQuality value) => switch (value) {
+    AudioQuality.high => 'high',
+    AudioQuality.medium => 'medium',
+    AudioQuality.low => 'low',
+  };
+}
+
+/// [AudioFormatPriority] ↔ `opus,aac`／`aac,opus`：與舊版 `audioFormatPriority`
+/// 的字面值相同，M5 匯入直接對得上（design §3.2）。
+final class AudioFormatPriorityConverter
+    extends TypeConverter<AudioFormatPriority, String> {
+  const AudioFormatPriorityConverter();
+
+  @override
+  AudioFormatPriority fromSql(String fromDb) => switch (fromDb) {
+    'opus,aac' => AudioFormatPriority.opusFirst,
+    'aac,opus' => AudioFormatPriority.aacFirst,
+    _ => throw FormatException(
+      'Unknown audio format priority in the database',
+      fromDb,
+    ),
+  };
+
+  @override
+  String toSql(AudioFormatPriority value) => switch (value) {
+    AudioFormatPriority.opusFirst => 'opus,aac',
+    AudioFormatPriority.aacFirst => 'aac,opus',
   };
 }
 

@@ -20,7 +20,13 @@
     "noResults": "找不到「{keyword}」的結果",
     "failed": "搜尋失敗",
     "retry": "重試",
-    "loadMore": "載入更多"
+    "loadMore": "載入更多",
+    "more": "更多選項",
+    "play": "播放",
+    "playNext": "下一首播放",
+    "addToQueue": "加入佇列",
+    "addedToNext": "已加入下一首播放",
+    "addedToQueue": "已加入佇列"
   },
   "offline": {
     "noInterface": "沒有網路連線",
@@ -32,7 +38,8 @@
     "title": "設定",
     "appearance": "外觀",
     "network": "網路",
-    "back": "返回"
+    "back": "返回",
+    "playback": "播放"
   },
   "player": {
     "play": "播放",
@@ -44,7 +51,13 @@
     "previousTooltip": "上一首（Ctrl+←）",
     "nextTooltip": "下一首（Ctrl+→）",
     "progress": "播放進度",
-    "loading": "載入中"
+    "loading": "載入中",
+    "shuffle": "隨機播放",
+    "loopOff": "循環：關閉",
+    "loopAll": "循環：全部",
+    "loopOne": "循環：單曲",
+    "more": "更多",
+    "queueFull": "佇列已滿（最多 {count} 首），沒有加入"
   },
   "appearance": {
     "theme": "主題",
@@ -53,6 +66,15 @@
     "themeDark": "深色",
     "language": "語言",
     "languageSystem": "跟隨系統"
+  },
+  "playback": {
+    "rememberPosition": "記住播放位置",
+    "rememberPositionHint": "臨時播放結束回到佇列時，從原本的位置繼續",
+    "tempPlayRewind": "臨時播放回佇列倒退",
+    "tempPlayRewindHint": "回到原本的位置時稍微往回一點，方便接上",
+    "rewindNone": "不倒退",
+    "rewindSeconds": "{seconds} 秒",
+    "rewindDefault": "{label}（預設）"
   },
   "network": {
     "cacheLimit": "快取上限",

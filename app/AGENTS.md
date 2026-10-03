@@ -562,9 +562,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 播放
 
 `lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
-`.trellis/spec/app/playback/index.md`。控制器目前只有依序播放一個清單、播放與暫停、
-上一首與下一首、seek；`QueueModel` 的規則已經完整（下面「佇列」幾條），但隨機、循環、
-臨時播放、下一首播放、加入、移除還沒有控制器的入口。佇列只在記憶體。
+`.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、加入
+（`addToQueue`）、下一首播放（`playNext`）、跳到（`jumpTo`）、移除（`removeAt`）、拖曳
+（`move`）、清空（`clear`）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
+上一首與下一首、seek。佇列只在記憶體（持久化在 M2 PR 14）。
 
 - `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
   `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`PlaybackEventRouter`，純函數）、
@@ -611,6 +612,22 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   手動下一首也先檢查。閘門：`playback_controller_test.dart` 的 `hands over to the
   look-ahead…`、`pausing and resuming…`、`expiry` 群組；`stream_resolver_test.dart` 的
   `the margin is five minutes`。
+- 前瞻跟著佇列：每個編輯（拖曳、加入、下一首播放、移除、隨機、循環）之後控制器呼叫
+  `PlaybackSession.retargetLookAhead`，下一首還是同一首就留著（只改位置），換了就先清掉
+  後端的前瞻再解析新的。清前瞻的修改還在後端排隊時引擎接上了舊的那首，session 先停下引擎、
+  再把它當成目前這首播完（`SourceFinished`），控制器照一般的下一首重新開流；佇列沒有下一首
+  時停在 `Idle`，被換掉的那首不出聲。閘門：
+  `playback_controller_test.dart` 的 `editing the queue prepares the look-ahead again` 群組
+  （拖曳、下一首播放、附加、移除、開隨機各一例，`an edit that keeps the next song…`、
+  `the engine taking over the replaced look-ahead…`、`the engine taking over the look-ahead
+  of a removed last song…`）。
+- 臨時播放中不準備前瞻（舊版「臨時播放不預取」）：臨時曲目播完回到的那一首要從快照的位置
+  開始，不能由引擎從頭接上。閘門：`temporary play` 群組的 `prepares no look-ahead…`。
+- 單曲循環：前瞻是目前這首的同一份解析結果（`NextTrack` 的位置為 `null`），引擎無縫重播，
+  交接時佇列不動；網址快過期時由前瞻原本的過期計時器重新解析。前瞻沒來得及接上時路由器給
+  `RepeatTrack`，從頭再開（網址從快取拿）。臨時播放中循環的是臨時曲目，模式維持
+  `temporary`。閘門：`loop one` 群組（兩圈只有一次 `Resolving stream`、快過期時重新解析、
+  臨時播放中仍回到快照）、`playback_event_router_test.dart` 的 `completed under loop one…`。
 - 網址快取（ADR 0016 §決定 5）在 `StreamResolver` 內、只在記憶體，前瞻與播放都經它：
   - 鍵是曲目鍵（含分 P）加上送給插件的偏好（M2 PR 8 前只有平台格式的順序）；最多 64 筆，
     淘汰最久沒用的。閘門：`stream_resolver_test.dart` 的 `the key is the whole track
@@ -659,22 +676,37 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   所以目前這首仍在本輪的進度上；這是「拖曳不動排列」唯一的例外。閘門：
   `dragging the current song keeps it current…`、上一條的種子測試。
 - 佇列：上一首在播放超過 3 秒時回到開頭，否則往排列的前一個；隨機時一輪的開頭不往回繞。
-  單曲循環時佇列的上一首、下一首照「循環關」走，重播歸控制器（還沒有循環的入口，所以還沒
-  接上）。閘門：`queue_model_test.dart` 的 `previous` 群組、`loop one leaves next and
-  previous…`。控制器還沒傳播放位置（傳 0），App 裡 3 秒的規則還不生效。
-- 佇列：任何加入（取代、附加、下一首播放）會超過 10,000 首就整批不加、回傳 `false`，臨時
-  播放不算。控制器的 `playQueue` 被拒時什麼都不做（目前的播放照舊），還沒有提示。閘門：
-  `queue_model_test.dart` 的 `limit` 群組、`playback_controller_test.dart` 的 `a queue past
-  the limit is not played…`。
+  控制器傳的是來源最後回報的位置（解析中、等重試時是下次開始的位置）。單曲循環時佇列的
+  上一首、下一首照「循環關」走，重播在控制器（見上面「單曲循環」）。閘門：
+  `queue_model_test.dart` 的 `previous` 群組、`loop one leaves next and previous…`；
+  `playback_controller_test.dart` 的 `previous within 3 s goes back…`。
+- 佇列：任何加入（附加、下一首播放）會超過 10,000 首就整批不加、回傳 `false`，臨時播放
+  不算；控制器另發 `QueueFull` 事件（`events`），外殼以 `ref.listen(playbackEventsProvider)`
+  轉成警告提示。事件沒有 `const`、不覆寫 `==`：provider 以 `==` 決定要不要通知，連續兩次
+  的 `QueueFull` 都要送到。閘門：`queue_model_test.dart` 的 `limit` 群組、
+  `playback_controller_test.dart` 的 `adding past the limit adds nothing…`、
+  `app_shell_test.dart` 的 `adding past the queue limit shows a toast each time`（第二次在
+  去重的 5 秒之後）。
+- 佇列：加入到空的佇列時第一首成為目前這首，但不開始播（播放列顯示它，按播放才解析）。
+  閘門：`adding to an empty queue shows the song without playing it`。
 - 佇列：臨時播放進入時記快照（播放位置、在不在播；回到的那一首是 `currentIndex`，佇列照常可
-  編輯），已在臨時播放時只換曲目；下一首、上一首（含播完、跳過）回到佇列並交回快照，
-  `QueueSnapshot.resumeAt` 算出從哪裡開始（照快照從哪裡播、原本在播才播是控制器的事，還沒有
-  臨時播放的入口）；單曲循環不改模式；點選佇列（`jumpTo`）、取代、清空結束它並丟掉快照；下一首
-  播放插在快照那首之後。閘門：`queue_model_test.dart` 的 `temporary play` 群組、`clear empties
-  the queue and keeps loop and shuffle`。
-- UI 開始播放只經 `playTracks`（`lib/ui/player/queue_tracks.dart`）：整份清單與起點交給
-  `playQueue`，顯示資料另放 `queueTracksProvider`（播放列還以曲目鍵查它，M2 改讀佇列）。閘門：
-  `search_page_test.dart` 的 `tapping a result plays the whole list from it`。沒有播放的開發
+  編輯），已在臨時播放時只換曲目；下一首、上一首、播完、被跳過回到佇列並交回快照；單曲循環
+  不改模式；點選佇列（`jumpTo`）、清空結束它並丟掉快照；下一首播放插在快照那首之後。閘門：
+  `queue_model_test.dart` 的 `temporary play` 群組、`clear empties the queue and keeps loop
+  and shuffle`。
+- 臨時播放回到佇列（控制器，design §7.2）：「記住播放位置」開著時從快照的位置倒退「臨時播放
+  回佇列倒退秒數」，關著時從頭；原本在播才自動播，原本暫停就只載入不播。進入時佇列那一首沒有
+  載入（`Idle`、`Failed`、佇列是空的）就停在 `Idle`：臨時播放中才加進空佇列的歌也不自動播，
+  播放列顯示佇列那一首，按播放從頭開始。臨時播放中佇列是空的時下一首可按（`hasNext` 為真），
+  按下去結束臨時播放、停在 `Idle`。兩個設定值在回到佇列的當下經 `temporaryReturnSettingsProvider`
+  讀（組裝點訂閱它，資料庫的值那時已讀出來）。閘門：`playback_controller_test.dart` 的
+  `temporary play` 群組（三種觸發、四種設定組合、原本暫停、第二次臨時播放、空佇列兩例、
+  臨時曲目播不了也回到佇列）、`playback_controls_test.dart` 的 `a rewind chosen here is used
+  when a temporary play ends`。
+- UI 開始播放：搜尋結果點一下是臨時播放；每首的選單（右鍵、長按、尾端「⋯」同一份）有播放
+  （＝臨時播放，舊版 TrackAction 也是）、下一首播放、加入佇列，後兩者成功時提示一次（舊版的
+  「已加入」）。播放列讀佇列項目的 `TrackInfo`。閘門：`search_page_test.dart` 的
+  `playing a result` 群組、`integration_test/install_search_play_test.dart`。沒有播放的開發
   入口：實機驗證從搜尋頁點一首。
 
 ## 設定
@@ -694,6 +726,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `test/settings/network_settings_test.dart`（改預設後使用者值不變、未設定的跟著預設、清回
   未設定）、`network_settings_repository_test.dart`（`clear` 群組直接查表是 `NULL`、
   `stored format`）。
+- 「播放」組（`playback_settings`）的整張表在 M2 PR 10 一次建好（design §3.3 的十個欄位，
+  schema v3），repository 的 `write`／`clear` 涵蓋全部欄位；Notifier（`playbackPreferencesProvider`）
+  與設定頁只有已經有人用的欄位：記住播放位置（預設開）、臨時播放回佇列倒退秒數（預設 10，
+  選項 0／3／5／10／15／30）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好
+  的列舉存 `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
+  `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
+  （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
+  的 v2→v3 兩例。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
   存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
   `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、
@@ -737,7 +777,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡。
-- 設定頁依 ADR 0011 的分組（外觀、網路；「播放」組在第一列設定出現時才加）：expanded 以上是
+- 設定頁依 ADR 0011 的分組（外觀、播放、網路，design §9.8 的順序）：expanded 以上是
   list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
   標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。外殼以
   `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）攔返回鍵。Android
@@ -749,7 +789,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
   `ImageCache` 都空、清除失敗）。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗）與設定頁（外觀與網路兩組）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：
+  或連不上時搜尋失敗）與設定頁（外觀、播放、網路三組）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：
   `test/ui/guidelines_test.dart`。
   新頁面要加進去。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -762,10 +802,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 外殼量底部被佔住的高度（播放列＋底部導覽列＋安全區）發佈給 `toastBottomInsetProvider`；頁面
   不發佈。閘門：同檔的 `the bottom inset for toasts`、`toast_host_test.dart` 的 `position` 群組
   （含鍵盤：位移是鍵盤高度減 `viewPadding`）。
-- 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5，只放 M1 有的）：< 600 播放、下一首；
-  600 以上加上一首；曲名至少 160dp。閘門：`test/ui/player/player_bar_test.dart` 的
-  `controls per width`（599／600／839／840 等邊界）、golden `player_bar_golden_test.dart`（三個寬度，
-  只守版面結構）。
+- 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5，只放已經有的）：< 600 播放、下一首；
+  600–839 上一首、播放、下一首、「⋯」選單（隨機、循環）；840 以上隨機、上一首、播放、下一首、
+  循環（音量、輸出裝置在 M2 PR 13）；曲名至少 160dp。循環按一下依關閉 → 全部 → 單曲輪轉。
+  隨機、循環的 tooltip 還沒附按鍵（Ctrl+S、Ctrl+R 在 PR 17）。閘門：
+  `test/ui/player/player_bar_test.dart` 的 `controls per width`（599／600／839／840 等邊界）、
+  `shuffle and loop` 群組、golden `player_bar_golden_test.dart`（三個寬度，只守版面結構）。
+- 搜尋結果列的右鍵辨識器排除在語意樹外（`excludeFromSemantics`）：它會多一個沒有名稱的點擊
+  動作，guideline 測試因此紅；同一份選單由「⋯」提供給輔助技術。閘門：guideline 測試的
+  `search results and the player bar`。
 - App 內快捷鍵（ADR 0024 §決定 8）只在 `lib/ui/shell/shell_shortcuts.dart` 的表，綁在外殼的
   `Shortcuts`：空白鍵、Ctrl+←／→、Shift+←／→（5 秒）、Ctrl+F、Ctrl+,、F6。文字編輯的快捷鍵
   （`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，外殼會先接走按鍵；所以

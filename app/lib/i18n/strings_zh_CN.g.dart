@@ -72,6 +72,9 @@ class TranslationsZhCn extends Translations
   late final Translations$appearance$zh_CN appearance =
       Translations$appearance$zh_CN.internal(_root);
   @override
+  late final Translations$playback$zh_CN playback =
+      Translations$playback$zh_CN.internal(_root);
+  @override
   late final Translations$network$zh_CN network =
       Translations$network$zh_CN.internal(_root);
   @override
@@ -144,6 +147,18 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   String get retry => '重试';
   @override
   String get loadMore => '加载更多';
+  @override
+  String get more => '更多选项';
+  @override
+  String get play => '播放';
+  @override
+  String get playNext => '下一首播放';
+  @override
+  String get addToQueue => '添加到队列';
+  @override
+  String get addedToNext => '已添加为下一首播放';
+  @override
+  String get addedToQueue => '已添加到队列';
 }
 
 // Path: offline
@@ -182,6 +197,8 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   String get network => '网络';
   @override
   String get back => '返回';
+  @override
+  String get playback => '播放';
 }
 
 // Path: player
@@ -213,6 +230,18 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   String get progress => '播放进度';
   @override
   String get loading => '正在加载';
+  @override
+  String get shuffle => '随机播放';
+  @override
+  String get loopOff => '循环：关闭';
+  @override
+  String get loopAll => '循环：全部';
+  @override
+  String get loopOne => '循环：单曲';
+  @override
+  String get more => '更多';
+  @override
+  String queueFull({required Object count}) => '队列已满（最多 ${count} 首），没有添加';
 }
 
 // Path: appearance
@@ -236,6 +265,31 @@ class Translations$appearance$zh_CN extends Translations$appearance$zh_TW {
   String get language => '语言';
   @override
   String get languageSystem => '跟随系统';
+}
+
+// Path: playback
+class Translations$playback$zh_CN extends Translations$playback$zh_TW {
+  Translations$playback$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get rememberPosition => '记住播放位置';
+  @override
+  String get rememberPositionHint => '临时播放结束回到队列时，从原来的位置继续';
+  @override
+  String get tempPlayRewind => '临时播放回队列后退';
+  @override
+  String get tempPlayRewindHint => '回到原来的位置时稍微往回一点，方便接上';
+  @override
+  String get rewindNone => '不后退';
+  @override
+  String rewindSeconds({required Object seconds}) => '${seconds} 秒';
+  @override
+  String rewindDefault({required Object label}) => '${label}（默认）';
 }
 
 // Path: network

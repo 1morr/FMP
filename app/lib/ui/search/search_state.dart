@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
-import 'package:fmp/ui/player/queue_tracks.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
 /// 可以搜尋的音源：已載入、宣告了 `search`、沒有停用的插件，照插件清單的順序。
@@ -173,12 +173,12 @@ final class SearchNotifier extends Notifier<SearchState> {
     }
     if (!ref.mounted || generation != _generation) return;
     // 兩次請求之間排序變了時，下一頁會有上一頁已經列出的曲目：只留第一次的，
-    // 同一首不會在列表與佇列裡出現兩次。
-    final listed = {if (page > 1) ...state.items.map(trackKeyOf)};
+    // 同一首不會在列表裡出現兩次。
+    final listed = {if (page > 1) ...state.items.map(_keyOf)};
     state = state.copyWith(
       items: List.unmodifiable([
         if (page > 1) ...state.items,
-        ...result.items.where((track) => listed.add(trackKeyOf(track))),
+        ...result.items.where((track) => listed.add(_keyOf(track))),
       ]),
       hasMore: result.hasMore,
       page: page,
@@ -186,3 +186,10 @@ final class SearchNotifier extends Notifier<SearchState> {
     );
   }
 }
+
+/// [track] 的曲目鍵（含分 P）：列表去重用。
+TrackKeyParts _keyOf(TrackSummary track) => TrackKeyParts(
+  sourceTypeId: track.sourceTypeId,
+  sourceId: track.sourceId,
+  cid: track.cid,
+);
