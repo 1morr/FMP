@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 7.2 temporary play and return, 7.3 entry points, 7.6 end single-track loop, 7.9 events, 3.3 playback_settings, 9.8 settings page"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decisions 4, 5, 7: queue modes, temporary play snapshot, loop one without re-resolving"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Player bar, menus (right click, long press, trailing more), settings list-detail"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Settings tables, nullable columns, migrations"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback core patterns, queue model, look-ahead, tests"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Settings groups, repository and Notifier shape"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Drift migration workflow: snapshot, stepByStep, migration tests"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Search page, player bar, menus, toasts via listener"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Widget, golden and integration test conventions"}
+{"file": "docs/audit/playback.md", "reason": "Legacy temporary play behaviour (sections 1.2, 3.10) and TrackAction play"}
