@@ -117,9 +117,19 @@ export interface StreamRequest {
   sourceId: string;
   cid?: number | null;
   purpose: 'playback';
-  /** 平台能播的格式；依它挑候選。 */
+  /**
+   * 平台能播的格式；依它挑候選。順序已依使用者的格式偏好排過（例如 Opus
+   * 優先時 opus 在 aac 前面）：同一首有多種格式時，依這個順序排候選。
+   */
   formats: StreamFormat[];
+  /**
+   * 使用者的音質偏好。依它挑串流（例如同一首有多個碼率時：high 最高、low
+   * 最低、medium 居中），其他的排在後面當備援。沒給時自行決定（舊的宿主不送）。
+   */
+  quality?: FmpAudioQuality | null;
 }
+
+export type FmpAudioQuality = 'high' | 'medium' | 'low';
 
 export interface StreamFormat {
   container: string;
@@ -282,6 +292,13 @@ export interface FmpSearchCheck {
 export interface FmpResolveStreamCheck {
   input: StreamRequest;
   expect: FmpExpectSuccess | FmpExpectError;
+  /**
+   * 網址裡的期限：一個正規式，剛好一個擷取群組，擷取 unix 秒（例如 JSON 裡寫
+   * `"[?&]deadline=(\\d+)"`）。給了就逐一核對候選：網址對得上的，`expiresAt`
+   * 必須等於擷取到的時間；至少要有一個候選對得上。只能配成功的 expect。
+   * 網址沒有期限參數的音源不寫。
+   */
+  expiresAtPattern?: string | null;
 }
 
 /** 成功；回傳的清單（search 的 items、resolveStream 的 candidates）符合條件。 */
