@@ -33,7 +33,9 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 1. `playTemporary`／`jumpTo`／`next`／`previous`／`play`／恢復 → 控制器的 `_load`：`session.beginRequest()` 換一代、
    狀態 `Loading`，用前瞻留下的 `ResolvedStream`（`session.isFresh`）或 `session.resolve`。
    解析一律經 `StreamResolver` 的網址快取：還有效的直接拿、同一首正在解析的共用請求，
-   所以前瞻解析過（或還在解析）的那首不會再問插件。
+   所以前瞻解析過（或還在解析）的那首不會再問插件。每次解析讀一次使用者的偏好
+   （`streamPreferencesProvider`）：音質放進 `StreamRequest.quality`，格式偏好重排平台的
+   `formats`；兩者都在快取鍵裡，改了偏好的那首會再問插件。
 2. `session.open`：建 `BackendSource`（新的 id、經 `mediaRequestHeaders`），`AudioBackend.open`。
 3. 後端回報 `ready` → session 發 `SourceReady` → 路由器給 `MarkReady` → `Playing`／`Paused`；
    第一次 ready 時 `session.prepareLookAhead` 解析下一首一次，`setNext` 交給後端，有期限就排一個
@@ -128,7 +130,8 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 - 解析次數用 `plugin.resolvedCount(sourceId)`；開了哪些網址用 `h.openedPaths`（起點
   `backend.openedAt`）；前瞻用 `backend.nextSources`；log 用 `h.logged(message)`；控制器的事件
   用 `h.events`。佇列從 `h.playQueue(tracks, startIndex:)` 開始（加入再 `jumpTo`）；臨時播放回到
-  佇列讀的設定是 `h.returnSettings`，「跳過試聽片段」是 `h.skipPreviewClips`。
+  佇列讀的設定是 `h.returnSettings`，「跳過試聽片段」是 `h.skipPreviewClips`，送給插件的偏好
+  是 `h.streamPreferences`（`plugin.requests` 看送出的 `quality`、`formats`）。
 - 恢復的情境：網路狀態用 `h.setNetwork(NetworkStatus.x)`（同時通知控制器）；插件回試聽片段用
   `plugin.previewOnly = (request) => …`；開流被 HTTP 拒絕用 `Harness(failsToOpen:, httpStatusOf:)`
   （`httpStatusOf` 回 `null` 就是 Android 那種沒有狀態碼的失敗）；中途緩衝用 `backend.stall()`、
@@ -184,4 +187,4 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   playback`；緩衝飢餓記 `Buffering stalled`。試聽片段不當前瞻時記 `Look-ahead skipped: preview
   only`。測試插件的關鍵字 `preview`、`flaky`、`unavailable` 造這些情境（`test_plugin/README.md`）。
 - 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
-  `Referer`。
+  `Referer`；音質切到「低」時 `bitrate` 是那首最低的一軌（B 站 DASH 音訊最低約 6–7 萬）。

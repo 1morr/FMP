@@ -21,8 +21,9 @@
 - 資料層自己要用設定值時（快取上限），直接訂閱 repository 的 `watch()`，預設從同一個來源
   （平台宣告）取，不 import `lib/settings/`：設定層在資料層之上，`fmp_layer_imports` 擋反方向
   （例子：`cacheStoreProvider`）。
-- 播放控制器要用設定值時（臨時播放回佇列的兩個值、跳過試聽片段），組裝點 `playback_providers.dart`
-  包一個 provider 讀 Notifier（`temporaryReturnSettingsProvider`、`skipPreviewClipsProvider`），
+- 播放控制器要用設定值時（臨時播放回佇列的兩個值、跳過試聽片段、解析時的音質與格式偏好），組裝點
+  `playback_providers.dart` 包一個 provider 讀 Notifier（`temporaryReturnSettingsProvider`、
+  `skipPreviewClipsProvider`、`streamPreferencesProvider`），
   控制器建構時拿到「當下讀一次」的函式；組裝點 `ref.listen` 它讓資料庫的值先讀出來，不用
   `watch`（改設定不重建控制器）。測試的 `ShellHarness` 照同樣的方式接（`playbackControllerProvider`
   的 override）。
