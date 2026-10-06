@@ -2,7 +2,8 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v3（M1 的 v1，M2 加 network_settings（v2）與 playback_settings（v3））。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
+// Schema v4（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）與 tracks、
+// queue_entries、player_state（v4））。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
 
@@ -106,4 +107,82 @@ class PluginStorageTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {pluginId, key};
+}
+
+/// 曲目的顯示資料（design §3.1）：佇列與（之後的）播放歷史以外鍵參照它，音源是
+/// 權威，曲目進入佇列時以新值覆蓋。只放 M2 用得到、而且是音源給的事實。
+@DataClassName('TrackRow')
+class TracksTable extends Table {
+  @override
+  String get tableName => 'tracks';
+
+  /// `TrackKey.format` 的輸出（ADR 0005）。
+  late final trackKey = text()();
+
+  /// 曲目鍵的三段，查詢與 M5 對照用。
+  late final sourceTypeId = text()();
+  late final sourceId = text()();
+  late final cid = integer().nullable()();
+  late final title = text()();
+  late final uploader = text().nullable()();
+  late final durationMs = integer().nullable()();
+
+  /// `[{url, width?}]`，ADR 0016 §決定 4 的 DTO 原樣。
+  late final artworkJson = text().nullable()();
+
+  /// 最後一次 upsert。
+  late final updatedAt = integer().map(const EpochMillisecondsConverter())();
+
+  @override
+  Set<Column<Object>> get primaryKey => {trackKey};
+}
+
+/// 佇列的每個位置（design §3.2）。`RESTRICT`：被佇列參照的曲目刪不掉，孤兒清理
+/// 只刪沒人參照的。主鍵是位置，位移時先改成負值再改回，避開主鍵衝突，所以不能
+/// 加 `position >= 0` 的檢查。`track_key` 有索引：刪曲目時 `RESTRICT` 的檢查靠它，沒有的話
+/// 每刪一列都要掃一次佇列（孤兒清理）。
+@TableIndex(name: 'queue_entries_track_key', columns: {#trackKey})
+@DataClassName('QueueEntryRow')
+class QueueEntriesTable extends Table {
+  @override
+  String get tableName => 'queue_entries';
+
+  late final position = integer()();
+  late final trackKey = text().references(
+    TracksTable,
+    #trackKey,
+    onDelete: KeyAction.restrict,
+  )();
+
+  /// 隨機開啟時，這個位置在本輪排列裡的名次（ADR 0018 §決定 5：隨機順序以位置為
+  /// 單位，所以跟著位置走，不跟著歌）；沒開隨機時為空。
+  late final shuffleRank = integer().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {position};
+}
+
+/// 播放狀態，單列（design §3.2、ADR 0018 §決定 10）。不是設定：音量與靜音隨佇列
+/// 存在這裡。速度不持久化。
+@DataClassName('PlayerStateRow')
+class PlayerStateTable extends Table {
+  @override
+  String get tableName => 'player_state';
+
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  late final IntColumn id = integer().check(id.equals(1))();
+
+  /// 佇列目前這首的位置；佇列是空的時為空。
+  late final currentPosition = integer().nullable()();
+  late final positionMs = integer()();
+  late final loopMode = text().map(const LoopModeConverter())();
+  late final shuffleEnabled = boolean()();
+
+  /// 0–1；靜音時是取消靜音後回到的值。
+  late final volume = real()();
+  late final muted = boolean()();
+  late final updatedAt = integer().map(const EpochMillisecondsConverter())();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 }

@@ -388,9 +388,349 @@ i1.GeneratedColumn<int> _column_21(String aliasedName) =>
       type: i1.DriftSqlType.int,
       $customConstraints: 'NULL CHECK (auto_scroll_to_current IN (0, 1))',
     );
+
+final class Schema4 extends i0.VersionedSchema {
+  Schema4({required super.database}) : super(version: 4);
+  @override
+  late final List<i1.DatabaseSchemaEntity> entities = [
+    appearanceSettings,
+    networkSettings,
+    playbackSettings,
+    installedPlugins,
+    pluginStorage,
+    tracks,
+    queueEntries,
+    playerState,
+    queueEntriesTrackKey,
+  ];
+  late final Shape0 appearanceSettings = Shape0(
+    source: i0.VersionedTable(
+      entityName: 'appearance_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_0, _column_1, _column_2],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape1 networkSettings = Shape1(
+    source: i0.VersionedTable(
+      entityName: 'network_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_0, _column_3],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape4 playbackSettings = Shape4(
+    source: i0.VersionedTable(
+      entityName: 'playback_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_12,
+        _column_13,
+        _column_14,
+        _column_15,
+        _column_16,
+        _column_17,
+        _column_18,
+        _column_19,
+        _column_20,
+        _column_21,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape2 installedPlugins = Shape2(
+    source: i0.VersionedTable(
+      entityName: 'installed_plugins',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_4, _column_5, _column_6, _column_7, _column_8],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape3 pluginStorage = Shape3(
+    source: i0.VersionedTable(
+      entityName: 'plugin_storage',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(plugin_id, "key")'],
+      columns: [_column_9, _column_10, _column_11],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape5 tracks = Shape5(
+    source: i0.VersionedTable(
+      entityName: 'tracks',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(track_key)'],
+      columns: [
+        _column_22,
+        _column_23,
+        _column_24,
+        _column_25,
+        _column_26,
+        _column_27,
+        _column_28,
+        _column_29,
+        _column_30,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape6 queueEntries = Shape6(
+    source: i0.VersionedTable(
+      entityName: 'queue_entries',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(position)'],
+      columns: [_column_31, _column_32, _column_33],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape7 playerState = Shape7(
+    source: i0.VersionedTable(
+      entityName: 'player_state',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_34,
+        _column_35,
+        _column_36,
+        _column_37,
+        _column_38,
+        _column_39,
+        _column_30,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index queueEntriesTrackKey = i1.Index(
+    'queue_entries_track_key',
+    'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
+  );
+}
+
+class Shape5 extends i0.VersionedTable {
+  Shape5({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get trackKey =>
+      columnsByName['track_key']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get sourceTypeId =>
+      columnsByName['source_type_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get sourceId =>
+      columnsByName['source_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get cid =>
+      columnsByName['cid']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get title =>
+      columnsByName['title']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get uploader =>
+      columnsByName['uploader']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get durationMs =>
+      columnsByName['duration_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get artworkJson =>
+      columnsByName['artwork_json']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get updatedAt =>
+      columnsByName['updated_at']! as i1.GeneratedColumn<int>;
+}
+
+i1.GeneratedColumn<String> _column_22(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'track_key',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<String> _column_23(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'source_type_id',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<String> _column_24(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'source_id',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<int> _column_25(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'cid',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NULL',
+    );
+i1.GeneratedColumn<String> _column_26(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'title',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<String> _column_27(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'uploader',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NULL',
+    );
+i1.GeneratedColumn<int> _column_28(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'duration_ms',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NULL',
+    );
+i1.GeneratedColumn<String> _column_29(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'artwork_json',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NULL',
+    );
+i1.GeneratedColumn<int> _column_30(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'updated_at',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL',
+    );
+
+class Shape6 extends i0.VersionedTable {
+  Shape6({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<int> get position =>
+      columnsByName['position']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get trackKey =>
+      columnsByName['track_key']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get shuffleRank =>
+      columnsByName['shuffle_rank']! as i1.GeneratedColumn<int>;
+}
+
+i1.GeneratedColumn<int> _column_31(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'position',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<String> _column_32(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'track_key',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints:
+          'NOT NULL REFERENCES tracks(track_key)ON DELETE RESTRICT',
+    );
+i1.GeneratedColumn<int> _column_33(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'shuffle_rank',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NULL',
+    );
+
+class Shape7 extends i0.VersionedTable {
+  Shape7({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<int> get id =>
+      columnsByName['id']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get currentPosition =>
+      columnsByName['current_position']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get positionMs =>
+      columnsByName['position_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get loopMode =>
+      columnsByName['loop_mode']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get shuffleEnabled =>
+      columnsByName['shuffle_enabled']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<double> get volume =>
+      columnsByName['volume']! as i1.GeneratedColumn<double>;
+  i1.GeneratedColumn<int> get muted =>
+      columnsByName['muted']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get updatedAt =>
+      columnsByName['updated_at']! as i1.GeneratedColumn<int>;
+}
+
+i1.GeneratedColumn<int> _column_34(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'current_position',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NULL',
+    );
+i1.GeneratedColumn<int> _column_35(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'position_ms',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<String> _column_36(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'loop_mode',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<int> _column_37(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'shuffle_enabled',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL CHECK (shuffle_enabled IN (0, 1))',
+    );
+i1.GeneratedColumn<double> _column_38(String aliasedName) =>
+    i1.GeneratedColumn<double>(
+      'volume',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.double,
+      $customConstraints: 'NOT NULL',
+    );
+i1.GeneratedColumn<int> _column_39(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'muted',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL CHECK (muted IN (0, 1))',
+    );
 i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
+  required Future<void> Function(i1.Migrator m, Schema4 schema) from3To4,
 }) {
   return (currentVersion, database) async {
     switch (currentVersion) {
@@ -404,6 +744,11 @@ i0.MigrationStepWithVersion migrationSteps({
         final migrator = i1.Migrator(database, schema);
         await from2To3(migrator, schema);
         return 3;
+      case 3:
+        final schema = Schema4(database: database);
+        final migrator = i1.Migrator(database, schema);
+        await from3To4(migrator, schema);
+        return 4;
       default:
         throw ArgumentError.value('Unknown migration from $currentVersion');
     }
@@ -413,6 +758,11 @@ i0.MigrationStepWithVersion migrationSteps({
 i1.OnUpgrade stepByStep({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
+  required Future<void> Function(i1.Migrator m, Schema4 schema) from3To4,
 }) => i0.VersionedSchema.stepByStepHelper(
-  step: migrationSteps(from1To2: from1To2, from2To3: from2To3),
+  step: migrationSteps(
+    from1To2: from1To2,
+    from2To3: from2To3,
+    from3To4: from3To4,
+  ),
 );

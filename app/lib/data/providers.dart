@@ -6,6 +6,8 @@ import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/tracks_repository.dart';
 
 /// App 唯一的資料庫。`main()` 在 `runApp` 之前開啟（`openAppDatabase`），
 /// 再以 override 注入；其他地方不自己開庫（ADR 0010 §決定 3）。
@@ -34,4 +36,12 @@ final pluginStorageRepositoryProvider = Provider<PluginStorageRepository>(
 
 final playbackSettingsRepositoryProvider = Provider<PlaybackSettingsRepository>(
   (ref) => PlaybackSettingsRepository(ref.watch(appDatabaseProvider)),
+);
+
+final queueRepositoryProvider = Provider<QueueRepository>(
+  (ref) => QueueRepository(ref.watch(appDatabaseProvider)),
+);
+
+final tracksRepositoryProvider = Provider<TracksRepository>(
+  (ref) => TracksRepository(ref.watch(appDatabaseProvider)),
 );

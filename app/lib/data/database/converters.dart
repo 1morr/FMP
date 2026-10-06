@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
 // 列舉與時間存進資料庫的格式（ADR 0010 §決定 2）。字串逐一寫死，不用 enum 的
@@ -88,6 +89,26 @@ final class AudioFormatPriorityConverter
   String toSql(AudioFormatPriority value) => switch (value) {
     AudioFormatPriority.opusFirst => 'opus,aac',
     AudioFormatPriority.aacFirst => 'aac,opus',
+  };
+}
+
+/// [LoopMode] ↔ `off`／`all`／`one`。
+final class LoopModeConverter extends TypeConverter<LoopMode, String> {
+  const LoopModeConverter();
+
+  @override
+  LoopMode fromSql(String fromDb) => switch (fromDb) {
+    'off' => LoopMode.off,
+    'all' => LoopMode.all,
+    'one' => LoopMode.one,
+    _ => throw FormatException('Unknown loop mode in the database', fromDb),
+  };
+
+  @override
+  String toSql(LoopMode value) => switch (value) {
+    LoopMode.off => 'off',
+    LoopMode.all => 'all',
+    LoopMode.one => 'one',
   };
 }
 
