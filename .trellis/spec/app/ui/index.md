@@ -104,13 +104,15 @@ try {
 
 - 只給使用者動作的回饋。背景工作不呼叫 `Toaster`：`log.report` 後更新畫面上的狀態。
 - `error` 自己呼叫 `log.report`，呼叫端不要再 report 一次。
+- 錯誤訊息要放進一句話（「已跳過「歌名」：原因」）時給 `sentence: (message) => t.x(reason:
+  message)`：`message` 是依類別表翻譯好的訊息，去重仍是「類別＋音源」。
 - 每則最多一個動作；帶動作的也照時長消失（成功與資訊 4 秒、警告與錯誤 6 秒）。
 - 去重 5 秒：訊息以「種類＋文字」，錯誤以「類別＋音源」。
 - 外殼的 `_BottomInsetReporter` 量底部那一塊（compact 是播放列加底部導覽列，更寬是播放列）
   的高度，排版後以 `toastBottomInsetProvider` 發佈；頁面不用管。M2 的全螢幕播放頁蓋住外殼時
   要設回 0。
-- 要看狀態變化跳提示（播放停在 `Failed`），在 `ref.listen` 的 callback 裡呼叫 `Toaster`，不在
-  `build` 裡：`Toaster` 同步送出，`ToastHost` 當場 `showSnackBar`。
+- 要看狀態變化或事件跳提示（播放控制器的 `events`），在 `ref.listen` 的 callback 裡呼叫
+  `Toaster`，不在 `build` 裡：`Toaster` 同步送出，`ToastHost` 當場 `showSnackBar`。
 - M1 沒有「詳細」與「回報」（ADR 0023 §決定 4 延到 M3，和 Debug 頁的錯誤歷史一起做）。
 
 ## 外殼、快捷鍵與焦點
@@ -148,7 +150,12 @@ try {
 - 一首曲目的選單（搜尋頁的寫法）：`MenuAnchor` 包住整列，右鍵（`GestureDetector` 的
   `onSecondaryTapUp`，`excludeFromSemantics: true`）在點的位置開、長按與尾端「⋯」在「⋯」下方開，
   三處同一份選單。加入成功以 `toaster.success` 回饋，被上限拒絕的提示由外殼接 `QueueFull`。
-- 控制器的事件（`playbackEventsProvider`）只在外殼以 `ref.listen` 轉成提示；頁面不另外聽。
+- 控制器的事件（`playbackEventsProvider`：佇列滿、跳過、停下、試聽）只在外殼的
+  `_onPlaybackEvent` 轉成提示；頁面不另外聽。新的事件類型加在那個 `switch`（編譯器會指出），
+  並在 `app_shell_test.dart` 的 `playback toasts` 群組加一例。
+- 播放列曲名下那一行的狀態標示（重試中、等待網路連線、試聽）由 `PlayerBar` 從
+  `playbackStateProvider`、`playbackPreviewProvider` 推出；新的標示加在同一個 `switch`，並在
+  `player_bar_test.dart` 的 `status labels` 三個寬度各加一例。
 - 播放列的控制項照 ADR 0024 §決定 5 的三段，只放已經有的功能；加功能時同時改
   `player_bar_test.dart` 的 `controls per width` 與 golden。
 - 封面用 `ArtworkImage(pluginId: 曲目鍵的第一段, artwork: TrackInfo.artwork, size: …)`：`pickArtwork` 挑一張、

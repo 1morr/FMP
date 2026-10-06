@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -27,28 +29,49 @@ typedef TemporaryReturnSettings = ({bool rememberPosition, Duration rewind});
 /// 循環的前瞻是目前這首的同一份解析結果，接上時佇列不動。
 ///
 /// 每個非同步步驟回來時以 [PlaybackSession.generation] 比對，代不同就丟掉結果。
+///
+/// 失敗由 [decideRecovery] 決定怎麼辦（ADR 0018 §決定 7、design §7.5）；計數
+/// （重試、重新解析、換候選、連續跳過）只在這裡改。網路狀態不是 `online` 時停在
+/// 這首等網路，回到 `online` 立刻從原位置重試（design §5.3）。緩衝飢餓以一次性
+/// 計時器量，進 [Buffering] 開、離開取消；重試計數以位置前進累計
+/// [retryResetAfter] 後歸零，不開計時器。
 final class PlaybackController {
   /// [session] 由控制器擁有，[dispose] 時一起釋放。[temporaryReturnSettings]
-  /// 在臨時播放回到佇列時讀。
+  /// 在臨時播放回到佇列時讀，[skipPreviewClips] 在遇到試聽片段時讀，
+  /// [networkStatus] 在失敗時讀；[networkStatusChanges] 是之後的每次改變。
   PlaybackController({
     required this._session,
     required this._log,
     required this._temporaryReturnSettings,
+    required this._skipPreviewClips,
+    required this._networkStatus,
+    required Stream<NetworkStatus> networkStatusChanges,
   }) {
     _sessionEvents = _session.events.listen(_onSessionEvent);
+    _progressEvents = _session.progress.listen(_onProgress);
+    _networkChanges = networkStatusChanges.listen(_onNetworkStatus);
   }
 
   static const _tag = 'playback';
 
+  /// 兩次位置回報之間算「正常前進」的上限（後端每 50–200 毫秒回報一次）；
+  /// 跳得更遠的是 seek。
+  static const _maxProgressStep = Duration(seconds: 2);
+
   final PlaybackSession _session;
   final Log _log;
   final TemporaryReturnSettings Function() _temporaryReturnSettings;
+  final bool Function() _skipPreviewClips;
+  final NetworkStatus Function() _networkStatus;
   late final StreamSubscription<SessionEvent> _sessionEvents;
+  late final StreamSubscription<PlaybackProgress> _progressEvents;
+  late final StreamSubscription<NetworkStatus> _networkChanges;
 
   final _queue = QueueModel();
   final _states = StreamController<PlaybackState>.broadcast();
   final _queueStates = StreamController<QueueState>.broadcast();
   final _events = StreamController<PlaybackEvent>.broadcast();
+  final _previews = StreamController<bool>.broadcast();
 
   PlaybackState _state = const Idle();
 
@@ -59,12 +82,26 @@ final class PlaybackController {
   Duration _resumeAt = Duration.zero;
   Timer? _retryTimer;
 
+  /// 在等網路時是那時的代；網路回來時代沒變才重試。
+  int? _waitingForNetwork;
+
+  /// 緩衝飢餓的計時：進 [Buffering] 開，離開取消。
+  Timer? _stallTimer;
+
+  /// 這次開流以來在 [Playing] 中前進的位置（重試計數歸零用）與上一次的位置。
+  Duration _playedSinceLoad = Duration.zero;
+  Duration? _lastPosition;
+
+  /// 照播試聽片段的那一首；不是試聽時為 `null`。
+  TrackKeyParts? _previewTrack;
+
   /// 臨時播放結束時要不要載入佇列那一首：進入臨時播放時那一首有載入（在播或
   /// 暫停）才載入；原本停著（`Idle`、`Failed`、佇列是空的）就停在 `Idle`。
   bool _returnLoadsQueueTrack = false;
 
   // RecoveryPolicy 的計數，只在這裡改。
   int _retries = 0;
+  int _reResolves = 0;
   bool _candidateSwitched = false;
   int _consecutiveSkips = 0;
 
@@ -80,8 +117,14 @@ final class PlaybackController {
   /// 目前這首的位置、時長與緩衝。
   Stream<PlaybackProgress> get progress => _session.progress;
 
-  /// 使用者要知道的一次性事件（佇列滿了等，design §7.9）。
+  /// 使用者要知道的一次性事件（佇列滿了、跳過、停下、試聽，design §7.9）。
   Stream<PlaybackEvent> get events => _events.stream;
+
+  /// 目前這首照播的是試聽片段（播放列標「試聽」）。
+  bool get previewing => _previewTrack != null;
+
+  /// [previewing] 的變化（只在改變時發出）。
+  Stream<bool> get previewChanges => _previews.stream;
 
   // ---- 佇列 -----------------------------------------------------------------
 
@@ -234,12 +277,16 @@ final class PlaybackController {
 
   Future<void> dispose() async {
     _cancelRetry();
+    _stallTimer?.cancel();
     // dispose 的同步部分先換一代：還在進行的解析回來時不再開流或設定前瞻。
     await _session.dispose();
     await _sessionEvents.cancel();
+    await _progressEvents.cancel();
+    await _networkChanges.cancel();
     await _states.close();
     await _queueStates.close();
     await _events.close();
+    await _previews.close();
   }
 
   // ---- 換曲目 ---------------------------------------------------------------
@@ -305,9 +352,7 @@ final class PlaybackController {
           'queueLength': _queue.state.entries.length,
         },
       );
-      if (!_events.isClosed) {
-        _events.add(QueueFull(limit: QueueModel.maxLength));
-      }
+      _emitEvent(QueueFull(limit: QueueModel.maxLength));
       return false;
     }
     _queueEdited();
@@ -322,21 +367,32 @@ final class PlaybackController {
     ResolvedStream? prepared,
     Duration position = Duration.zero,
   }) {
-    _retries = 0;
-    _candidateSwitched = false;
+    _resetTrackCounters();
     return _load(prepared: prepared, position: position);
   }
 
-  /// 解析（或用 [prepared]）並交給後端，從 [position] 開始。
+  /// 換了一首：這首的重試、重新解析、換候選都從頭算。
+  void _resetTrackCounters() {
+    _retries = 0;
+    _reResolves = 0;
+    _candidateSwitched = false;
+  }
+
+  /// 解析（或用 [prepared]）並交給後端，從 [position] 開始。插件說只有試聽
+  /// 片段時，依「跳過試聽片段」跳過或照播並標「試聽」。
   Future<void> _load({
     Duration position = Duration.zero,
     ResolvedStream? prepared,
   }) async {
-    final key = _queue.state.current?.key;
-    if (key == null) return;
+    final track = _queue.state.current;
+    if (track == null) return;
+    final key = track.key;
     final generation = _session.beginRequest();
     _cancelRetry();
     _resumeAt = position;
+    _playedSinceLoad = Duration.zero;
+    _lastPosition = null;
+    if (_previewTrack != key) _setPreview(null);
     _setState(const Loading());
     _log.info(
       'Track requested',
@@ -367,6 +423,19 @@ final class PlaybackController {
         return _recover(ResolveFailed(error), error, position);
       }
       if (generation != _session.generation) return;
+    }
+    if (stream.previewOnly) {
+      final error = Unavailable(
+        reason: UnavailableReason.previewOnly,
+        pluginId: key.sourceTypeId,
+      );
+      final action = _decide(const PreviewOnly(), error);
+      if (action is! PlayAsPreview) return _apply(action, error, _resumeAt);
+      // 同一首重播（單曲循環、重試、重新解析）不再提示。
+      if (_previewTrack != key) _emitEvent(PreviewPlaying(track: track));
+      _setPreview(key);
+    } else {
+      _setPreview(null);
     }
     // 解析期間的 seek 記在 _resumeAt。
     await _session.open(stream, position: _resumeAt, play: _playWhenReady);
@@ -401,9 +470,12 @@ final class PlaybackController {
         if (!_session.adoptLookAhead(action)) {
           _queue.moveNext();
           _emitQueue();
+          // 試聽片段不當前瞻（PlaybackSession），接上的一定不是試聽。
+          _setPreview(null);
         }
-        _retries = 0;
-        _candidateSwitched = false;
+        _resetTrackCounters();
+        _playedSinceLoad = Duration.zero;
+        _lastPosition = null;
         unawaited(_session.prepareLookAhead(_nextTrack));
       case RepeatTrack():
         // 單曲循環而前瞻沒來得及接上：從頭再播，網址從快取拿。
@@ -416,6 +488,7 @@ final class PlaybackController {
         _log.info('Queue finished', tag: _tag);
         _session.release();
         _resumeAt = Duration.zero;
+        _setPreview(null);
         _setState(const Idle());
       case Recover(:final failure, :final error, :final position):
         if (action.endedEarly) {
@@ -427,35 +500,85 @@ final class PlaybackController {
     }
   }
 
+  /// 位置前進：在 [Playing] 中累計，到 [retryResetAfter] 時重試計數歸零（一首
+  /// 正常播放 10 秒，ADR 0018 §決定 7）。不開計時器。
+  void _onProgress(PlaybackProgress progress) {
+    final last = _lastPosition;
+    _lastPosition = progress.position;
+    if (last == null || _state is! Playing || _retries == 0) return;
+    final step = progress.position - last;
+    if (step <= Duration.zero || step > _maxProgressStep) return;
+    _playedSinceLoad += step;
+    if (_playedSinceLoad < retryResetAfter) return;
+    _log.info(
+      'Retry count reset after normal playback',
+      tag: _tag,
+      fields: {'track': '${_queue.state.current?.key}', 'retries': _retries},
+    );
+    _retries = 0;
+  }
+
   // ---- 恢復 -----------------------------------------------------------------
 
   Future<void> _recover(
     PlaybackFailure failure,
     AppError error,
     Duration position,
-  ) async {
+  ) => _apply(_decide(failure, error), error, position);
+
+  /// 以目前的計數、網路狀態與設定問 [decideRecovery]，記一筆 log。
+  RecoveryAction _decide(PlaybackFailure failure, AppError error) {
+    final network = _networkStatus();
     final action = decideRecovery(
       failure,
+      network: network,
+      skipPreviewClips: _skipPreviewClips(),
       retries: _retries,
+      reResolves: _reResolves,
       candidateSwitched: _candidateSwitched,
       hasOtherCandidate: _session.hasOtherCandidate,
       consecutiveSkips: _consecutiveSkips,
-      queueLength: _queue.state.entries.length,
+      // 臨時曲目不在佇列裡，但也是這一輪連著播不了的一首：不加它的話，佇列
+      // 只有一首時臨時曲目一跳過就停下，回不到佇列。
+      queueLength:
+          _queue.state.entries.length +
+          (_queue.state.mode == QueueMode.temporary ? 1 : 0),
     );
     _log.info(
       'Playback recovery',
       tag: _tag,
       fields: {
         'track': '${_queue.state.current?.key}',
+        'failure': switch (failure) {
+          ResolveFailed() => 'resolve',
+          PreviewOnly() => 'previewOnly',
+          StreamUnopenable() => 'open',
+          StreamInterrupted() => 'interrupted',
+          BufferingStalled() => 'bufferingStalled',
+        },
         'error': error.typeName,
+        if (failure case StreamUnopenable(:final httpStatus?))
+          'httpStatus': httpStatus,
+        if (network != NetworkStatus.online) 'network': network.name,
         'action': switch (action) {
           RetryAfter() => 'retry',
+          WaitForNetwork() => 'waitForNetwork',
+          ReResolve() => 'reResolve',
           TryNextCandidate() => 'nextCandidate',
+          PlayAsPreview() => 'playAsPreview',
           SkipTrack() => 'skip',
           StopPlayback() => 'stop',
         },
       },
     );
+    return action;
+  }
+
+  Future<void> _apply(
+    RecoveryAction action,
+    AppError error,
+    Duration position,
+  ) async {
     switch (action) {
       case RetryAfter(:final delay, :final attempt):
         _retries++;
@@ -469,25 +592,92 @@ final class PlaybackController {
             unawaited(_load(position: _resumeAt));
           }
         });
+      case WaitForNetwork():
+        // 不計次數、不跳過、不提示（全域離線提示已經在畫面上，design §5.3）。
+        final generation = _session.newGeneration();
+        _resumeAt = position;
+        _waitingForNetwork = generation;
+        _setState(Retrying(error: error, attempt: 0, delay: null));
+        await _session.stop();
+      case ReResolve():
+        // 網址快取裡的那一筆已經作廢（Recover、緩衝飢餓），_load 會再問插件。
+        _reResolves++;
+        await _load(position: position);
       case TryNextCandidate():
         _candidateSwitched = true;
         await _session.openNextCandidate(
           position: position,
           play: _playWhenReady,
         );
+      case PlayAsPreview():
+        // 只有 _load 遇到試聽片段時會得到它，照播在那裡。
+        return;
       case SkipTrack():
         _consecutiveSkips++;
+        final skipped = _queue.state.current;
         // 臨時播放中是回到佇列（佇列是空的時沒有可去的地方，停下）。
-        if (_queue.next == null) return _stopWith(Failed(error));
+        if (_queue.next == null || skipped == null) {
+          return _stopFailed(error, failedInARow: _consecutiveSkips);
+        }
+        _emitEvent(TrackSkipped(error: error, track: skipped));
         await _moveNext();
       case StopPlayback():
-        await _stopWith(Failed(error));
+        await _stopFailed(error, failedInARow: _consecutiveSkips + 1);
     }
+  }
+
+  /// 停在 [Failed] 並發 [PlaybackStopped]（外殼提示一次）。
+  Future<void> _stopFailed(AppError error, {required int failedInARow}) {
+    final track = _queue.state.current;
+    if (track != null) {
+      _emitEvent(
+        PlaybackStopped(error: error, track: track, failedInARow: failedInARow),
+      );
+    }
+    return _stopWith(Failed(error));
+  }
+
+  /// 網路回到 `online`：在等網路的那首立刻從原位置重試（重試計數不變）。
+  void _onNetworkStatus(NetworkStatus status) {
+    final waiting = _waitingForNetwork;
+    if (status != NetworkStatus.online || waiting == null) return;
+    _waitingForNetwork = null;
+    if (waiting != _session.generation) return;
+    _log.info(
+      'Network is back; retrying',
+      tag: _tag,
+      fields: {'track': '${_queue.state.current?.key}'},
+    );
+    unawaited(_load(position: _resumeAt));
+  }
+
+  /// 緩衝飢餓（[bufferingStallTimeout]）：作廢網址、交給 [decideRecovery]。
+  void _onBufferingStalled() {
+    final track = _queue.state.current;
+    if (track == null) return;
+    _log.warning(
+      'Buffering stalled',
+      tag: _tag,
+      fields: {
+        'track': '${track.key}',
+        'seconds': bufferingStallTimeout.inSeconds,
+      },
+    );
+    final position = _position;
+    _session.invalidateCurrentStream();
+    unawaited(
+      _recover(
+        const BufferingStalled(),
+        NetworkError(pluginId: track.sourceTypeId),
+        position,
+      ),
+    );
   }
 
   Future<void> _stopWith(PlaybackState state) async {
     _session.newGeneration();
     _cancelRetry();
+    _setPreview(null);
     _setState(state);
     await _session.stop();
   }
@@ -495,6 +685,7 @@ final class PlaybackController {
   void _cancelRetry() {
     _retryTimer?.cancel();
     _retryTimer = null;
+    _waitingForNetwork = null;
   }
 
   // ---- 輸出 -----------------------------------------------------------------
@@ -503,6 +694,7 @@ final class PlaybackController {
     // 沒有欄位的狀態是 const 單例；Retrying、Failed 每次都是新的。
     if (identical(state, _state)) return;
     _state = state;
+    _watchBuffering(state);
     _log.debug(
       'Playback state',
       tag: _tag,
@@ -513,12 +705,40 @@ final class PlaybackController {
           Playing() => 'playing',
           Paused() => 'paused',
           Buffering() => 'buffering',
+          Retrying(waitingForNetwork: true) => 'waitingForNetwork',
           Retrying() => 'retrying',
           Failed() => 'failed',
         },
       },
     );
     if (!_states.isClosed) _states.add(state);
+  }
+
+  /// 進 [Buffering] 時開緩衝飢餓的計時，離開時取消。
+  void _watchBuffering(PlaybackState state) {
+    if (state is! Buffering) {
+      _stallTimer?.cancel();
+      _stallTimer = null;
+      return;
+    }
+    if (_stallTimer != null) return;
+    final generation = _session.generation;
+    _stallTimer = Timer(bufferingStallTimeout, () {
+      _stallTimer = null;
+      if (generation == _session.generation && _state is Buffering) {
+        _onBufferingStalled();
+      }
+    });
+  }
+
+  void _setPreview(TrackKeyParts? track) {
+    final was = previewing;
+    _previewTrack = track;
+    if (previewing != was && !_previews.isClosed) _previews.add(previewing);
+  }
+
+  void _emitEvent(PlaybackEvent event) {
+    if (!_events.isClosed) _events.add(event);
   }
 
   /// 目前這首播到的位置：來源最後回報的；沒有來源（解析中、等重試）時是下次

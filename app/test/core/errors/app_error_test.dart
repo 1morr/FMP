@@ -153,6 +153,8 @@ void main() {
             'retryable: false, retryAfter: 0:00:30.000000, networkRecordId: 7)',
       );
       expect('${NetworkError()}', 'NetworkError(retryable: true)');
+      // 原因不明（CDN 拒絕）時不寫 reason。
+      expect('${Unavailable()}', 'Unavailable(retryable: false)');
     });
 
     test('never includes the cause or its stack trace', () {

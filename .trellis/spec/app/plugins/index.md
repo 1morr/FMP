@@ -76,6 +76,9 @@ export async function resolveStream({ sourceId, cid, formats }) {
 - 能力名稱＝匯出函式名稱。其他匯出（常數、helper）不影響。
 - 狀態碼與業務錯誤碼在插件裡轉成結構化錯誤（`.trellis/spec/app/errors/index.md` § 音源的錯誤
   對應表）；`fmp.http.request` 自己丟的錯誤（網域不符、限流重試後仍失敗、傳輸錯誤）直接讓它往上拋。
+- 候選只有試聽片段（非會員之類）時回 `{ candidates: [...], previewOnly: true }`：宿主依使用者的
+  「跳過試聽片段」跳過或照播並標「試聽」。連試聽都沒有就拋
+  `{ fmpError: 'Unavailable', reason: 'previewOnly' }`。
 - 要跨重啟的值（匿名 cookie 等）存 `fmp.storage`；`fmp.credentials.get()` 在 M1 一律是 `null`。
 - 沒有 `setTimeout`、`fetch`、`require`，也不能 `import` 其他 module：一個檔案就是全部。
 - 用 `fmp-test` 當範本：`app/test/fixtures/plugins/test_plugin/test_plugin.js`；會發請求的範本是

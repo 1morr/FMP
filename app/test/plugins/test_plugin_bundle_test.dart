@@ -25,12 +25,13 @@ void main() {
     expect(ids, hasLength(greaterThanOrEqualTo(2)));
 
     for (final id in ids) {
-      final candidates = await plugin.resolveStream(
+      final result = await plugin.resolveStream(
         StreamRequest(
           sourceId: id,
           formats: [StreamFormat(container: 'wav', codec: 'pcm_s16le')],
         ),
       );
+      final candidates = result.candidates;
       expect(candidates.first.url.scheme, 'asset');
       expect(
         candidates.first.url.path,
@@ -68,7 +69,7 @@ void main() {
         sourceId: sourceId,
         formats: [StreamFormat(container: 'wav', codec: 'pcm_s16le')],
       ),
-    )).first.url;
+    )).candidates.first.url;
 
     final items = (await plugin.search(SearchQuery(keyword: 'missing'))).items;
     expect(items, hasLength(2));
@@ -83,6 +84,73 @@ void main() {
     expect(await streamOf(other[1].sourceId), first);
     final page2 = await plugin.search(SearchQuery(keyword: 'missing', page: 2));
     expect(await streamOf(page2.items.single.sourceId), first);
+  });
+
+  // 播放恢復的實機驗證（ADR 0018 §決定 7），不連網。
+  group('recovery keywords', () {
+    late Future<StreamResult> Function(String sourceId) resolve;
+    late Future<List<String>> Function(String keyword) search;
+
+    setUp(() async {
+      final plugin = await PluginHarness().load(
+        testPluginFile.readAsStringSync(),
+      );
+      resolve = (sourceId) => plugin.resolveStream(
+        StreamRequest(
+          sourceId: sourceId,
+          formats: [StreamFormat(container: 'wav', codec: 'pcm_s16le')],
+        ),
+      );
+      search = (keyword) async => [
+        for (final item in (await plugin.search(
+          SearchQuery(keyword: keyword),
+        )).items)
+          item.sourceId,
+      ];
+    });
+
+    test('"preview" songs are preview clips of the bundled tone', () async {
+      final ids = await search('preview');
+      expect(ids, hasLength(2));
+      for (final id in ids) {
+        final result = await resolve(id);
+        expect(result.previewOnly, isTrue);
+        expect(result.candidates.single.url.scheme, 'asset');
+      }
+      // 其他關鍵字的歌不是試聽。
+      expect(
+        (await resolve((await search('previews')).first)).previewOnly,
+        isFalse,
+      );
+    });
+
+    test('"flaky" songs fail with NetworkError every other time, starting '
+        'with the first', () async {
+      final [first, second] = await search('flaky');
+      await expectLater(resolve(first), throwsA(isA<NetworkError>()));
+      expect((await resolve(first)).candidates, hasLength(1));
+      await expectLater(resolve(first), throwsA(isA<NetworkError>()));
+      // 每一首各自算。
+      await expectLater(resolve(second), throwsA(isA<NetworkError>()));
+    });
+
+    test(
+      '"unavailable" makes only the first song unavailable for copyright',
+      () async {
+        final [first, second] = await search('unavailable');
+        await expectLater(
+          resolve(first),
+          throwsA(
+            isA<Unavailable>().having(
+              (e) => e.reason,
+              'reason',
+              UnavailableReason.copyright,
+            ),
+          ),
+        );
+        expect((await resolve(second)).candidates, hasLength(1));
+      },
+    );
   });
 
   test('the test plugin is bundled only in the dev flavor', () {

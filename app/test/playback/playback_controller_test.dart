@@ -8,6 +8,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
@@ -56,9 +57,27 @@ final class Harness {
       ),
       log: log,
       temporaryReturnSettings: () => returnSettings,
+      skipPreviewClips: () => skipPreviewClips,
+      networkStatus: () => network,
+      networkStatusChanges: _networkChanges.stream,
     );
     controller.states.listen(states.add);
     controller.events.listen(events.add);
+  }
+
+  final _networkChanges = StreamController<NetworkStatus>.broadcast();
+
+  /// 控制器讀到的網路狀態；改它用 [setNetwork]。
+  NetworkStatus network = NetworkStatus.online;
+
+  /// 「跳過試聽片段」（預設同 App 的預設：開）。
+  bool skipPreviewClips = true;
+
+  /// 網路狀態變成 [status]，並通知控制器。
+  void setNetwork(NetworkStatus status) {
+    network = status;
+    _networkChanges.add(status);
+    settle();
   }
 
   final FakeAsync async;
@@ -540,13 +559,17 @@ void main() {
         );
         unawaited(h.playQueue([track('a')]));
         h.elapse(const Duration(seconds: 3));
-        expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
-        expect(h.plugin.resolvedCount('a'), 1);
-        expect(h.logged('Stream URL invalidated'), hasLength(1));
+        // 沒有狀態碼：先重新解析一次（插件回同樣的網址），再換候選。
+        expect(h.openedPaths, ['/a-1.m4a', '/a-1.m4a', '/a-2.m4a']);
+        expect(h.plugin.resolvedCount('a'), 2);
+        expect(h.logged('Stream URL invalidated'), hasLength(2));
 
+        // 再播一次：快取裡沒有它，重新解析；第一個候選照樣開不起來，又走一次
+        // 重新解析與換候選。
         unawaited(h.controller.play());
         h.elapse(const Duration(milliseconds: 100));
-        expect(h.plugin.resolvedCount('a'), 2);
+        expect(h.plugin.resolvedCount('a'), 4);
+        expect(h.openedPaths.last, '/a-2.m4a');
       });
     });
   });
@@ -605,12 +628,14 @@ void main() {
         unawaited(h.playQueue([track('a'), track('b')]));
         h.elapse(const Duration(seconds: 2, milliseconds: 100));
 
-        // 重新解析還是同一個網址（插件就是這麼回）：開不起來、換候選。
-        expect(h.openedPaths, ['/a-1.m4a', '/b-1.m4a', '/b-2.m4a']);
-        expect(h.plugin.resolvedCount('b'), 2);
+        // 重新解析還是同一個網址（插件就是這麼回）：開不起來、沒有狀態碼，
+        // 再重新解析一次，仍開不起來就換候選。
+        expect(h.openedPaths, ['/a-1.m4a', '/b-1.m4a', '/b-1.m4a', '/b-2.m4a']);
+        expect(h.plugin.resolvedCount('b'), 3);
         expect(h.controller.queue.currentIndex, 1);
         expect(h.controller.state, isA<Playing>());
         expect(h.logged('Playback recovery').map((r) => r.fields['action']), [
+          'reResolve',
           'nextCandidate',
         ]);
       });
@@ -631,9 +656,10 @@ void main() {
           containsPair('httpStatus', 403),
         );
         expect(
-          h.logged('Stream failed').single.fields,
-          containsPair('httpStatus', 403),
+          h.logged('Stream failed').map((r) => r.fields['httpStatus']),
+          everyElement(403),
         );
+        expect(h.logged('Stream failed'), isNotEmpty);
       });
     });
   });
@@ -655,9 +681,10 @@ void main() {
           unawaited(h.playQueue([track('a'), track('b')]));
           h.elapse(const Duration(milliseconds: 100));
 
-          expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
+          // 沒有狀態碼的先重新解析一次（design §7.5），之後才換候選。
+          expect(h.openedPaths, ['/a-1.m4a', '/a-1.m4a', '/a-2.m4a']);
           expect(h.controller.state, isA<Playing>());
-          expect(h.plugin.resolvedCount('a'), 1);
+          expect(h.plugin.resolvedCount('a'), 2);
         });
       },
     );
@@ -676,9 +703,15 @@ void main() {
         unawaited(h.playQueue([track('a'), track('b')]));
         h.elapse(const Duration(milliseconds: 100));
 
-        expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a', '/b-1.m4a']);
+        expect(h.openedPaths, ['/a-1.m4a', '/a-1.m4a', '/a-2.m4a', '/b-1.m4a']);
         expect(h.controller.queue.currentIndex, 1);
         expect(h.controller.state, isA<Playing>());
+        expect(
+          h.events.single,
+          isA<TrackSkipped>()
+              .having((e) => e.error, 'error', isA<Unsupported>())
+              .having((e) => e.track, 'track', track('a')),
+        );
       });
     });
 
@@ -791,6 +824,14 @@ void main() {
         );
         expect(h.plugin.requests, hasLength(2));
         expect(h.backend.current, isNull);
+        // 第一首跳過，第二首停下：停下只提示一次。
+        expect(h.events, [
+          isA<TrackSkipped>().having((e) => e.track, 'track', track('a')),
+          isA<PlaybackStopped>()
+              .having((e) => e.track, 'track', track('b'))
+              .having((e) => e.failedInARow, 'failedInARow', 2)
+              .having((e) => e.error, 'error', isA<NotFound>()),
+        ]);
 
         // 再按播放從目前這首（b）重新開始，連續跳過的計數歸零。
         unawaited(h.controller.play());
@@ -812,6 +853,551 @@ void main() {
         expect(h.controller.queue.currentIndex, 1);
         expect(h.controller.state, isA<Playing>());
       });
+    });
+  });
+
+  // design §7.5 的表在控制器上的樣子（純規則在 recovery_policy_test.dart）。
+  group('recovery: refused and unopenable streams', () {
+    List<Object?> actions(Harness h) => [
+      for (final record in h.logged('Playback recovery'))
+        record.fields['action'],
+    ];
+
+    test('a 403 resolves again first; a fresh URL plays', () {
+      fakeAsync((async) {
+        var resolutions = 0;
+        final h = Harness(
+          async,
+          respond: (request) => [
+            candidate('${request.sourceId}-${++resolutions}.m4a'),
+          ],
+          failsToOpen: (url) => url.path == '/a-1.m4a',
+          httpStatusOf: (_) => 403,
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
+        expect(h.plugin.resolvedCount('a'), 2);
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.queue.currentIndex, 0);
+        expect(actions(h), ['reResolve']);
+        expect(h.events, isEmpty);
+      });
+    });
+
+    test('still refused: the next candidate once, then skipped as '
+        'Unavailable without a reason', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          respond: (request) => [
+            candidate('${request.sourceId}-1.m4a'),
+            candidate('${request.sourceId}-2.m4a'),
+          ],
+          failsToOpen: (url) => url.path.startsWith('/a-'),
+          httpStatusOf: (_) => 403,
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.openedPaths, ['/a-1.m4a', '/a-1.m4a', '/a-2.m4a', '/b-1.m4a']);
+        expect(actions(h), ['reResolve', 'nextCandidate', 'skip']);
+        expect(
+          h.events.single,
+          isA<TrackSkipped>().having(
+            (e) => e.error,
+            'error',
+            isA<Unavailable>().having((e) => e.reason, 'reason', isNull),
+          ),
+        );
+        expect(h.controller.queue.currentIndex, 1);
+      });
+    });
+
+    for (final status in [404, 410]) {
+      test('$status: resolves again once, then skipped as NotFound', () {
+        fakeAsync((async) {
+          final h = Harness(
+            async,
+            failsToOpen: (url) => url.path == '/a.m4a',
+            httpStatusOf: (_) => status,
+          );
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.openedPaths, ['/a.m4a', '/a.m4a', '/b.m4a']);
+          expect(actions(h), ['reResolve', 'skip']);
+          expect(
+            h.events.single,
+            isA<TrackSkipped>().having(
+              (e) => e.error,
+              'error',
+              isA<NotFound>(),
+            ),
+          );
+        });
+      });
+    }
+
+    // Android（just_audio）的開流失敗一律沒有狀態碼（design §7.6 的更正）。
+    test('without a status it also resolves again first', () {
+      fakeAsync((async) {
+        var resolutions = 0;
+        final h = Harness(
+          async,
+          respond: (request) => [
+            candidate('${request.sourceId}-${++resolutions}.m4a'),
+          ],
+          failsToOpen: (url) => url.path == '/a-1.m4a',
+        );
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
+        expect(h.controller.state, isA<Playing>());
+        expect(actions(h), ['reResolve']);
+      });
+    });
+
+    test('another status switches the candidate without resolving again', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          respond: (request) => [
+            candidate('${request.sourceId}-1.m4a'),
+            candidate('${request.sourceId}-2.m4a'),
+          ],
+          failsToOpen: (url) => url.path == '/a-1.m4a',
+          httpStatusOf: (_) => 500,
+        );
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(actions(h), ['nextCandidate']);
+      });
+    });
+  });
+
+  group('recovery: offline (design §5.3)', () {
+    test('a network error while offline waits without counting or skipping, '
+        'and retries as soon as the network is back', () {
+      fakeAsync((async) {
+        var failing = true;
+        final h = Harness(
+          async,
+          respond: (request) => failing && request.sourceId == 'a'
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : [candidate('${request.sourceId}.m4a')],
+        );
+        h.setNetwork(NetworkStatus.noInterface);
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.settle();
+
+        expect(
+          h.controller.state,
+          isA<Retrying>()
+              .having((s) => s.delay, 'delay', isNull)
+              .having((s) => s.waitingForNetwork, 'waiting', isTrue)
+              .having((s) => s.attempt, 'attempt', 0)
+              .having((s) => s.error, 'error', isA<NetworkError>()),
+        );
+        // 等多久都不重試、不跳過、不提示。
+        h.elapse(const Duration(minutes: 1));
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(h.controller.queue.currentIndex, 0);
+        expect(h.events, isEmpty);
+        // unreachable 也還是在等。
+        h.setNetwork(NetworkStatus.unreachable);
+        expect(h.plugin.resolvedCount('a'), 1);
+
+        failing = false;
+        h.setNetwork(NetworkStatus.online);
+        expect(h.plugin.resolvedCount('a'), 2);
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.queue.currentIndex, 0);
+        expect(h.logged('Network is back; retrying'), hasLength(1));
+        expect(h.events, isEmpty);
+      });
+    });
+
+    test('waiting does not use up the retries', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          respond: (request) => request.sourceId == 'a'
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : [candidate('${request.sourceId}.m4a')],
+        );
+        h.setNetwork(NetworkStatus.noInterface);
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.settle();
+
+        h.setNetwork(NetworkStatus.online);
+        // 回來後還是失敗：照常從第一次重試開始。
+        expect(
+          h.controller.state,
+          isA<Retrying>()
+              .having((s) => s.attempt, 'attempt', 1)
+              .having((s) => s.delay, 'delay', const Duration(seconds: 1)),
+        );
+      });
+    });
+
+    test('an interruption while offline resumes from its position', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(seconds: 60));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+
+        h.setNetwork(NetworkStatus.unreachable);
+        h.backend.interrupt();
+        h.settle();
+        expect(
+          h.controller.state,
+          isA<Retrying>().having((s) => s.waitingForNetwork, 'waiting', true),
+        );
+        expect(h.backend.current, isNull);
+        h.elapse(const Duration(seconds: 20));
+        expect(h.backend.opened, hasLength(1));
+
+        h.setNetwork(NetworkStatus.online);
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.backend.openedAt.last.inMilliseconds, closeTo(5000, 100));
+        expect(h.controller.state, isA<Playing>());
+      });
+    });
+
+    test('pausing while waiting stops waiting; play starts again', () {
+      fakeAsync((async) {
+        var failing = true;
+        final h = Harness(
+          async,
+          respond: (request) => failing
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : [candidate('${request.sourceId}.m4a')],
+        );
+        h.setNetwork(NetworkStatus.noInterface);
+        unawaited(h.playQueue([track('a')]));
+        h.settle();
+
+        unawaited(h.controller.pause());
+        h.settle();
+        expect(h.controller.state, isA<Paused>());
+        failing = false;
+        h.setNetwork(NetworkStatus.online);
+        expect(h.plugin.resolvedCount('a'), 1);
+
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+      });
+    });
+  });
+
+  group('recovery: counting', () {
+    test('ten seconds of normal playback reset the retry count', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+
+        h.backend.interrupt();
+        h.elapse(const Duration(seconds: 1, milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        h.elapse(const Duration(seconds: 11));
+        expect(
+          h.logged('Retry count reset after normal playback'),
+          hasLength(1),
+        );
+        // 以位置前進累計：週期計時器只有假後端自己的那一個。
+        expect(async.periodicTimerCount, 1);
+
+        h.backend.interrupt();
+        h.settle();
+        expect(
+          h.controller.state,
+          isA<Retrying>().having((s) => s.attempt, 'attempt', 1),
+        );
+      });
+    });
+
+    test('less than ten seconds keeps counting', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+
+        h.backend.interrupt();
+        h.elapse(const Duration(seconds: 1, milliseconds: 100));
+        h.elapse(const Duration(seconds: 8));
+
+        h.backend.interrupt();
+        h.settle();
+        expect(
+          h.controller.state,
+          isA<Retrying>().having((s) => s.attempt, 'attempt', 2),
+        );
+        expect(h.logged('Retry count reset after normal playback'), isEmpty);
+      });
+    });
+
+    test('seeking forward is not playback', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+
+        h.backend.interrupt();
+        h.elapse(const Duration(seconds: 1, milliseconds: 100));
+        unawaited(h.controller.seek(const Duration(minutes: 2)));
+        h.elapse(const Duration(seconds: 1));
+
+        h.backend.interrupt();
+        h.settle();
+        expect(
+          h.controller.state,
+          isA<Retrying>().having((s) => s.attempt, 'attempt', 2),
+        );
+      });
+    });
+  });
+
+  group('recovery: buffering starved for 15 seconds', () {
+    test('resolves again the first time and plays on from there', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 20));
+
+        h.backend.stall();
+        h.elapse(const Duration(seconds: 14));
+        expect(h.controller.state, isA<Buffering>());
+        expect(h.plugin.resolvedCount('a'), 1);
+
+        h.elapse(const Duration(seconds: 1, milliseconds: 100));
+        expect(h.logged('Buffering stalled'), hasLength(1));
+        expect(h.plugin.resolvedCount('a'), 2);
+        expect(h.backend.openedAt.last.inMilliseconds, closeTo(20000, 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.queue.currentIndex, 0);
+      });
+    });
+
+    test('the second time on the same track it is skipped', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 2));
+        h.backend.stall();
+        h.elapse(const Duration(seconds: 16));
+        h.elapse(const Duration(seconds: 2));
+
+        h.backend.stall();
+        h.elapse(const Duration(seconds: 16));
+        expect(h.controller.queue.currentIndex, 1);
+        expect(
+          h.events.single,
+          isA<TrackSkipped>().having(
+            (e) => e.error,
+            'error',
+            isA<NetworkError>(),
+          ),
+        );
+      });
+    });
+
+    test('data arriving in time cancels it', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 2));
+
+        h.backend.stall();
+        h.elapse(const Duration(seconds: 10));
+        h.backend.resume();
+        h.elapse(const Duration(seconds: 30));
+
+        expect(h.logged('Buffering stalled'), isEmpty);
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(h.controller.state, isA<Playing>());
+      });
+    });
+
+    test('offline it waits for the network instead', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 2));
+
+        h.setNetwork(NetworkStatus.noInterface);
+        h.backend.stall();
+        h.elapse(const Duration(seconds: 16));
+        expect(
+          h.controller.state,
+          isA<Retrying>().having((s) => s.waitingForNetwork, 'waiting', true),
+        );
+      });
+    });
+  });
+
+  group('recovery: preview clips', () {
+    test('"skip preview clips" on: skipped with the reason', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        h.plugin.previewOnly = (request) => request.sourceId == 'a';
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.openedPaths, ['/b.m4a']);
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.previewing, isFalse);
+        expect(
+          h.events.single,
+          isA<TrackSkipped>().having(
+            (e) => e.error,
+            'error',
+            isA<Unavailable>().having(
+              (e) => e.reason,
+              'reason',
+              UnavailableReason.previewOnly,
+            ),
+          ),
+        );
+      });
+    });
+
+    test('off: plays it marked as a preview, announced once', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        h.skipPreviewClips = false;
+        h.plugin.previewOnly = (request) => request.sourceId == 'a';
+        final previews = <bool>[];
+        h.controller.previewChanges.listen(previews.add);
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.openedPaths, ['/a.m4a']);
+        expect(h.controller.previewing, isTrue);
+        expect(
+          h.events.single,
+          isA<PreviewPlaying>().having((e) => e.track, 'track', track('a')),
+        );
+
+        // 下一首不是試聽：標示拿掉。
+        h.elapse(const Duration(seconds: 2));
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.previewing, isFalse);
+        expect(previews, [true, false]);
+      });
+    });
+
+    test('a preview clip is not prepared as the look-ahead; it is handled '
+        'when its turn comes', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        h.skipPreviewClips = false;
+        h.plugin.previewOnly = (request) => request.sourceId == 'b';
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.backend.nextSources.nonNulls, isEmpty);
+        expect(h.logged('Look-ahead skipped: preview only'), hasLength(1));
+
+        h.elapse(const Duration(seconds: 2));
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.openedPaths, ['/a.m4a', '/b.m4a']);
+        expect(h.plugin.resolvedCount('b'), 1);
+        expect(h.controller.previewing, isTrue);
+      });
+    });
+
+    test('looping a preview clip announces it only once', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        h.skipPreviewClips = false;
+        h.plugin.previewOnly = (_) => true;
+        h.controller
+          ..cycleLoopMode()
+          ..cycleLoopMode();
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+
+        expect(h.openedPaths, hasLength(greaterThanOrEqualTo(2)));
+        expect(h.events.whereType<PreviewPlaying>(), hasLength(1));
+        expect(h.controller.previewing, isTrue);
+      });
+    });
+  });
+
+  // PR 10 留下的：單曲循環時換過候選，前瞻要接換過的那個，不是開不起來的第一個。
+  test('loop one after a candidate switch repeats the candidate that '
+      'played', () {
+    fakeAsync((async) {
+      final h = Harness(
+        async,
+        respond: (request) => [
+          candidate('${request.sourceId}-1.m4a'),
+          candidate('${request.sourceId}-2.m4a'),
+        ],
+        failsToOpen: (url) => url.path == '/a-1.m4a',
+        httpStatusOf: (_) => 500,
+      );
+      h.controller
+        ..cycleLoopMode()
+        ..cycleLoopMode();
+      unawaited(h.playQueue([track('a')]));
+      h.elapse(const Duration(milliseconds: 100));
+      expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
+      expect(h.backend.nextSources.last?.url.path, '/a-2.m4a');
+
+      h.elapse(const Duration(seconds: 2));
+      expect(h.logged('Look-ahead handover'), hasLength(1));
+      expect(h.openedPaths, ['/a-1.m4a', '/a-2.m4a']);
+      expect(h.logged('Playback recovery'), hasLength(1));
+      expect(h.controller.state, isA<Playing>());
+    });
+  });
+
+  // 換成單曲循環時清前瞻的修改還在後端排隊，使用者就換了歌：排隊回來後不能
+  // 把上一首當成新那首的前瞻。
+  test('switching to loop one and then to another song does not prepare the '
+      'previous song as the look-ahead', () {
+    fakeAsync((async) {
+      final pending = Completer<List<StreamCandidate>>();
+      final h = Harness(
+        async,
+        respond: (request) => request.sourceId == 'c'
+            ? pending.future
+            : [candidate('${request.sourceId}.m4a')],
+      );
+      unawaited(h.playQueue([track('a'), track('b'), track('c')]));
+      h.elapse(const Duration(milliseconds: 100));
+      final gate = Completer<void>();
+      h.backend.setNextGate = gate.future;
+
+      h.controller
+        ..cycleLoopMode()
+        ..cycleLoopMode();
+      h.settle();
+      unawaited(h.controller.jumpTo(2));
+      h.settle();
+      gate.complete();
+      h.settle();
+
+      expect(
+        [
+          for (final record in h.logged('Look-ahead prepared'))
+            record.fields['track'],
+        ],
+        ['fmp-test:b'],
+      );
+      pending.complete([candidate('c.m4a')]);
+      h.elapse(const Duration(milliseconds: 100));
+      expect(h.controller.queue.current?.sourceId, 'c');
+      expect(h.controller.state, isA<Playing>());
     });
   });
 
@@ -998,6 +1584,40 @@ void main() {
         expect(h.controller.queue.currentIndex, 0);
         expect(h.backend.openedAt.last.inMilliseconds, closeTo(20000, 100));
         expect(h.controller.state, isA<Playing>());
+        // 跳過（回到佇列）並提示是哪一首。
+        expect(
+          h.events.single,
+          isA<TrackSkipped>()
+              .having((e) => e.track, 'track', track('x'))
+              .having((e) => e.error, 'error', isA<NotFound>()),
+        );
+      });
+    });
+
+    // 臨時曲目不在佇列裡：跳過它不會讓「連續跳過達佇列長度」提早成立，佇列
+    // 只有一首時也回到那一首。
+    test('a temporary track that cannot be played returns to a queue of one '
+        'song', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(seconds: 60),
+          respond: (request) => request.sourceId == 'x'
+              ? throw NotFound(pluginId: 'fmp-test')
+              : [candidate('${request.sourceId}.m4a')],
+        );
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 30));
+
+        unawaited(h.controller.playTemporary(track('x')));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.queue.mode, QueueMode.queue);
+        expect(h.controller.state, isA<Playing>());
+        expect(
+          h.events.single,
+          isA<TrackSkipped>().having((e) => e.track, 'track', track('x')),
+        );
       });
     });
   });
@@ -1376,6 +1996,9 @@ void main() {
             log: log,
             temporaryReturnSettings: () =>
                 (rememberPosition: true, rewind: Duration.zero),
+            skipPreviewClips: () => true,
+            networkStatus: () => NetworkStatus.online,
+            networkStatusChanges: const Stream.empty(),
           );
           addTearDown(controller.dispose);
           addTearDown(backend.dispose);

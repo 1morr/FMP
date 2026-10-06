@@ -104,14 +104,18 @@ final class StreamResolver {
     SourcePlugin plugin,
     TrackKeyParts track,
   ) async {
-    final candidates = await plugin.resolveStream(
+    final result = await plugin.resolveStream(
       StreamRequest(
         sourceId: track.sourceId,
         cid: track.cid,
         formats: _formats,
       ),
     );
-    return ResolvedStream(track: track, candidates: candidates);
+    return ResolvedStream(
+      track: track,
+      candidates: result.candidates,
+      previewOnly: result.previewOnly,
+    );
   }
 
   ResolvedStream _remember(_CacheKey key, ResolvedStream stream) {
@@ -159,8 +163,11 @@ final class _CachedStream {
 /// 一首曲目解析出的候選，依優先序排好，至少一個。
 @immutable
 final class ResolvedStream {
-  ResolvedStream({required this.track, required this.candidates})
-    : assert(candidates.isNotEmpty);
+  ResolvedStream({
+    required this.track,
+    required this.candidates,
+    this.previewOnly = false,
+  }) : assert(candidates.isNotEmpty);
 
   /// 網址剩下不到這麼久就當成過期，前瞻的重新解析、交接前的檢查與網址快取
   /// 共用（ADR 0016 §決定 5）：要撐得過開流與接下來的播放，Android 只緩衝
@@ -169,6 +176,9 @@ final class ResolvedStream {
 
   final TrackKeyParts track;
   final List<StreamCandidate> candidates;
+
+  /// 插件說候選只有試聽片段（`StreamResult.previewOnly`）。
+  final bool previewOnly;
 
   /// 第一個候選（前瞻用它）的網址在 [now] 還能不能用；沒有期限就一直能用。
   bool isFreshAt(DateTime now) => switch (candidates.first.expiresAt) {

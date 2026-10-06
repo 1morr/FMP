@@ -63,7 +63,7 @@ Dart VM Service（`flutter run` 印的 URI）可讀活的物件；URI 是本機�
 
 | 插件 | 安裝檔 | 模式 |
 |---|---|---|
-| 測試插件 `fmp-test`（音源名稱 `FMP Test Plugin`） | `app/test/fixtures/plugins/test_plugin/test_plugin.js` | 重播：搜尋任何關鍵字都回三首（第一頁兩首、「載入更多」第三首），串流是 dev 版內附的 2 秒 wav，不連網；關鍵字剛好是 `fail` 時搜尋以限流失敗，用來看錯誤提示 |
+| 測試插件 `fmp-test`（音源名稱 `FMP Test Plugin`） | `app/test/fixtures/plugins/test_plugin/test_plugin.js` | 重播：搜尋任何關鍵字都回三首（第一頁兩首、「載入更多」第三首），串流是 dev 版內附的 2 秒 wav，不連網；關鍵字剛好是 `fail` 時搜尋以限流失敗，用來看錯誤提示；`missing`、`preview`、`flaky`、`unavailable` 造播放恢復的情境（前瞻開不起來、試聽、重試與等網路、跳過），說明在旁邊的 `README.md` |
 | B 站 `bilibili` | `fmp-plugins/bilibili/bilibili.js`（與 FMP 同層的 clone） | 真實：搜尋與解析都連網，照 SKILL.md 只做最少的操作 |
 
 - Windows 直接給絕對路徑；Android 要先複製進 App 的私有目錄（`android.md`）。

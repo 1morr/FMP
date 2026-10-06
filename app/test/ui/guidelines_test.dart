@@ -216,6 +216,27 @@ void main() {
           });
         }
 
+        // 播放列的狀態標示（ADR 0018 §決定 7）：以主色寫在曲名下面。
+        testWidgets('the player bar waiting for the network at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          h.plugin.respond = (_) => throw NetworkError(pluginId: 'fmp-test');
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.setNetwork(tester, NetworkStatus.noInterface);
+          await h.play(tester, [summary('a')]);
+          // 按鈕裡的轉圈一直在動，不能等 pumpAndSettle。
+          await tester.pump(const Duration(seconds: 1));
+          expect(
+            find.textContaining('Waiting for the network'),
+            findsOneWidget,
+          );
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('settings at $width', (tester) async {
           final handle = tester.ensureSemantics();
           final h = ShellHarness();

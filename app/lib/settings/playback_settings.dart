@@ -14,6 +14,7 @@ final class PlaybackPreferences {
   const PlaybackPreferences({
     required this.rememberPosition,
     required this.tempPlayRewindSeconds,
+    required this.skipPreviewClips,
     required this.stored,
   });
 
@@ -24,6 +25,10 @@ final class PlaybackPreferences {
   /// 臨時播放回到佇列時倒退幾秒。
   final int tempPlayRewindSeconds;
 
+  /// 跳過試聽片段：插件說只有試聽片段時跳過並提示；關著就照播並標「試聽」
+  /// （ADR 0018 §決定 7、D4）。
+  final bool skipPreviewClips;
+
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設。
   final PlaybackSettings stored;
 
@@ -32,16 +37,22 @@ final class PlaybackPreferences {
       other is PlaybackPreferences &&
       other.rememberPosition == rememberPosition &&
       other.tempPlayRewindSeconds == tempPlayRewindSeconds &&
+      other.skipPreviewClips == skipPreviewClips &&
       other.stored == stored;
 
   @override
-  int get hashCode =>
-      Object.hash(rememberPosition, tempPlayRewindSeconds, stored);
+  int get hashCode => Object.hash(
+    rememberPosition,
+    tempPlayRewindSeconds,
+    skipPreviewClips,
+    stored,
+  );
 
   @override
   String toString() =>
       'PlaybackPreferences(rememberPosition: $rememberPosition, '
-      'tempPlayRewindSeconds: $tempPlayRewindSeconds, stored: $stored)';
+      'tempPlayRewindSeconds: $tempPlayRewindSeconds, '
+      'skipPreviewClips: $skipPreviewClips, stored: $stored)';
 }
 
 /// 在讀取時套用預設：沒設定過的欄位用傳進來的預設。預設值不寫進資料庫，改
@@ -50,10 +61,12 @@ PlaybackPreferences resolvePlaybackPreferences(
   PlaybackSettings stored, {
   required bool defaultRememberPosition,
   required int defaultTempPlayRewindSeconds,
+  required bool defaultSkipPreviewClips,
 }) => PlaybackPreferences(
   rememberPosition: stored.rememberPosition ?? defaultRememberPosition,
   tempPlayRewindSeconds:
       stored.tempPlayRewindSeconds ?? defaultTempPlayRewindSeconds,
+  skipPreviewClips: stored.skipPreviewClips ?? defaultSkipPreviewClips,
   stored: stored,
 );
 
@@ -66,13 +79,15 @@ final playbackPreferencesProvider =
 
 final class PlaybackPreferencesNotifier
     extends StreamNotifier<PlaybackPreferences> {
-  /// [stored] 套用目前的預設（記住播放位置：開；倒退 10 秒，照舊版）。預設只
-  /// 寫在這裡；資料庫還沒讀出來時，播放控制器也以它解析空的設定。
+  /// [stored] 套用目前的預設（記住播放位置：開；倒退 10 秒，照舊版；跳過試聽
+  /// 片段：開，ADR 0018 §決定 7）。預設只寫在這裡；資料庫還沒讀出來時，播放
+  /// 控制器也以它解析空的設定。
   static PlaybackPreferences resolve(PlaybackSettings stored) =>
       resolvePlaybackPreferences(
         stored,
         defaultRememberPosition: true,
         defaultTempPlayRewindSeconds: 10,
+        defaultSkipPreviewClips: true,
       );
 
   @override
@@ -85,6 +100,14 @@ final class PlaybackPreferencesNotifier
     return remember == null
         ? repository.clear(rememberPosition: true)
         : repository.write(rememberPosition: remember);
+  }
+
+  /// 只寫「跳過試聽片段」；`null` 清回沒設定過（跟隨預設）。
+  Future<void> setSkipPreviewClips(bool? skip) {
+    final repository = ref.read(playbackSettingsRepositoryProvider);
+    return skip == null
+        ? repository.clear(skipPreviewClips: true)
+        : repository.write(skipPreviewClips: skip);
   }
 
   /// 只寫「臨時播放回佇列倒退秒數」；`null` 清回沒設定過（跟隨預設）。

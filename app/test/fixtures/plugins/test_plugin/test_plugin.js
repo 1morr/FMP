@@ -26,6 +26,36 @@ const FAIL_KEYWORD = 'fail';
 // 第二首的前瞻開不起來，第一首照常播完、第二首走恢復（實機不連網也看得到）。
 const MISSING_NEXT_KEYWORD = 'missing';
 
+// 播放恢復的實機驗證（ADR 0018 §決定 7），都不連網：
+// - 關鍵字剛好是 `preview` 時，每一首都只回試聽片段（previewOnly）：「跳過試聽
+//   片段」開著就跳過並提示，關著就照播並在播放列標「試聽」。
+// - 關鍵字剛好是 `flaky` 時，每一首的解析輪流以 NetworkError 失敗與成功（第一次
+//   失敗）：在線上是「重試中」一秒後播起來；網路狀態不是 online（模擬器開飛航
+//   模式）時停在「等待網路連線」，網路回來後自動從原位置續播。
+// - 關鍵字剛好是 `unavailable` 時，第一頁第一首以 Unavailable（版權）失敗：和
+//   第二首一起加進佇列播放，第一首跳過並提示原因。
+const PREVIEW_KEYWORD = 'preview';
+const FLAKY_KEYWORD = 'flaky';
+const UNAVAILABLE_KEYWORD = 'unavailable';
+
+// `flaky-` 曲目各自解析過幾次（插件的 isolate 活著就一直留著）。
+const flakyCalls = new Map();
+
+function sourceIdFor(keyword, index, hz) {
+  switch (keyword) {
+    case MISSING_NEXT_KEYWORD:
+      return index === 1 ? `missing-${hz}` : `tone-${hz}`;
+    case UNAVAILABLE_KEYWORD:
+      return index === 0 ? `unavailable-${hz}` : `tone-${hz}`;
+    case PREVIEW_KEYWORD:
+      return `preview-${hz}`;
+    case FLAKY_KEYWORD:
+      return `flaky-${hz}`;
+    default:
+      return `tone-${hz}`;
+  }
+}
+
 // 標題的前綴可以用 storage 改（`titlePrefix`），順便走一次非同步的宿主函式。
 export async function search(query) {
   if (query.keyword === FAIL_KEYWORD) {
@@ -34,10 +64,7 @@ export async function search(query) {
   const prefix = (await fmp.storage.get('titlePrefix')) ?? 'Test tone';
   const start = (query.page - 1) * PAGE_SIZE;
   const items = TONES.slice(start, start + PAGE_SIZE).map((hz, index) => ({
-    sourceId:
-      query.keyword === MISSING_NEXT_KEYWORD && start + index === 1
-        ? `missing-${hz}`
-        : `tone-${hz}`,
+    sourceId: sourceIdFor(query.keyword, start + index, hz),
     title: `${prefix} ${hz} Hz (${query.keyword})`,
     uploader: 'FMP',
     durationMs: 2000,
@@ -60,11 +87,25 @@ export async function resolveStream(request) {
       ],
     };
   }
-  if (!/^tone-\d+$/.test(request.sourceId)) {
+  if (/^unavailable-\d+$/.test(request.sourceId)) {
+    throw {
+      fmpError: 'Unavailable',
+      reason: 'copyright',
+      message: 'forced failure for on-device checks',
+    };
+  }
+  if (/^flaky-\d+$/.test(request.sourceId)) {
+    const calls = (flakyCalls.get(request.sourceId) ?? 0) + 1;
+    flakyCalls.set(request.sourceId, calls);
+    if (calls % 2 === 1) {
+      throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
+    }
+  } else if (!/^(tone|preview)-\d+$/.test(request.sourceId)) {
     throw { fmpError: 'NotFound', message: `no such tone: ${request.sourceId}` };
   }
   // 內附的音檔只有 440 Hz 一個；其他音高也回它。
   return {
+    previewOnly: request.sourceId.startsWith('preview-'),
     candidates: [
       {
         url: TONE_ASSET,

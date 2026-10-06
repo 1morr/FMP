@@ -78,8 +78,11 @@ final class ShellHarness {
         log: log,
       ),
       log: log,
-      // 和 App 的組裝點一樣讀「播放」設定（記憶體資料庫裡的值）。
+      // 和 App 的組裝點一樣讀「播放」設定（記憶體資料庫裡的值）與網路狀態。
       temporaryReturnSettings: () => _readReturnSettings(),
+      skipPreviewClips: () => _readSkipPreviewClips(),
+      networkStatus: () => _readNetworkStatus(),
+      networkStatusChanges: _networkChanges.stream,
     );
     toaster = Toaster(
       log: log,
@@ -105,6 +108,9 @@ final class ShellHarness {
 
   /// 由 [overrides] 的 `playbackControllerProvider` 接上 provider。
   late TemporaryReturnSettings Function() _readReturnSettings;
+  late bool Function() _readSkipPreviewClips;
+  late NetworkStatus Function() _readNetworkStatus;
+  final _networkChanges = StreamController<NetworkStatus>.broadcast();
   final interfaces = FakeNetworkInterfaces();
 
   List<Override> get overrides => [
@@ -134,7 +140,13 @@ final class ShellHarness {
     // 樹拆掉時停掉後端的計時器（測試結束時檢查沒有留下的計時器）。
     playbackControllerProvider.overrideWith((ref) {
       ref.listen(temporaryReturnSettingsProvider, (_, _) {});
+      ref.listen(skipPreviewClipsProvider, (_, _) {});
+      ref.listen(networkStatusProvider, (_, status) {
+        _networkChanges.add(status);
+      });
       _readReturnSettings = () => ref.read(temporaryReturnSettingsProvider);
+      _readSkipPreviewClips = () => ref.read(skipPreviewClipsProvider);
+      _readNetworkStatus = () => ref.read(networkStatusProvider);
       ref.onDispose(() {
         unawaited(controller.dispose());
         unawaited(backend.dispose());

@@ -28,6 +28,9 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 ///
 /// 曲名至少約 160dp（ADR 0024 §決定 5）。曲名、上傳者、封面是佇列項目的
 /// `TrackInfo`；狀態都來自 `PlaybackController`。點空白處開播放頁在 M2 PR 18a。
+///
+/// 曲名下面那一行在「重試中」「等待網路連線」「試聽」時先寫狀態再接上傳者，
+/// 三種寬度都在曲名欄裡，不另外佔位置。
 class PlayerBar extends ConsumerWidget {
   const PlayerBar({super.key});
 
@@ -40,7 +43,14 @@ class PlayerBar extends ConsumerWidget {
     final current = queue?.current;
     if (queue == null || current == null) return const SizedBox.shrink();
     final state = ref.watch(playbackStateProvider).value ?? const Idle();
+    final previewing = ref.watch(playbackPreviewProvider).value ?? false;
     final t = ref.watch(translationsProvider).player;
+    final status = switch (state) {
+      Retrying(waitingForNetwork: true) => t.waitingForNetwork,
+      Retrying() => t.retrying,
+      _ when previewing => t.preview,
+      _ => null,
+    };
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
 
@@ -54,7 +64,11 @@ class PlayerBar extends ConsumerWidget {
         SizedBox(width: spacing.x3),
         Expanded(
           key: titleKey,
-          child: _TrackText(title: current.title, uploader: current.uploader),
+          child: _TrackText(
+            title: current.title,
+            uploader: current.uploader,
+            status: status,
+          ),
         ),
       ],
     );
@@ -142,15 +156,26 @@ class PlayerBar extends ConsumerWidget {
 }
 
 class _TrackText extends StatelessWidget {
-  const _TrackText({required this.title, required this.uploader});
+  const _TrackText({
+    required this.title,
+    required this.uploader,
+    required this.status,
+  });
 
   final String title;
   final String? uploader;
+
+  /// 播放的狀態標示（重試中、等待網路連線、試聽）；沒有時為 `null`。
+  final String? status;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final uploader = this.uploader;
+    final status = this.status;
+    final subtitleStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -161,13 +186,29 @@ class _TrackText extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.titleSmall,
         ),
-        if (uploader != null)
-          Text(
-            uploader,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        if (status != null || uploader != null)
+          // 一行、放不下就省略：窄的時候狀態在前面，先看得到。狀態改變時讀出來
+          // （live region），不搶焦點。
+          Semantics(
+            liveRegion: status != null,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  if (status != null)
+                    TextSpan(
+                      text: status,
+                      style: TextStyle(color: theme.colorScheme.primary),
+                    ),
+                  if (status != null && uploader != null)
+                    WidgetSpan(
+                      child: SizedBox(width: AppTokens.of(context).spacing.x2),
+                    ),
+                  if (uploader != null) TextSpan(text: uploader),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: subtitleStyle,
             ),
           ),
       ],

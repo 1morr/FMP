@@ -57,7 +57,14 @@
     "loopAll": "循环：全部",
     "loopOne": "循环：单曲",
     "more": "更多",
-    "queueFull": "队列已满（最多 {count} 首），没有添加"
+    "queueFull": "队列已满（最多 {count} 首），没有添加",
+    "retrying": "重试中",
+    "waitingForNetwork": "等待网络连接",
+    "preview": "试听",
+    "trackSkipped": "已跳过「{title}」：{reason}",
+    "cannotPlay": "无法播放「{title}」：{reason}",
+    "stoppedAfterFailures": "连续 {count} 首无法播放，已停止播放",
+    "previewPlaying": "「{title}」只有试听片段"
   },
   "appearance": {
     "theme": "主题",
@@ -74,7 +81,9 @@
     "tempPlayRewindHint": "回到原来的位置时稍微往回一点，方便接上",
     "rewindNone": "不后退",
     "rewindSeconds": "{seconds} 秒",
-    "rewindDefault": "{label}（默认）"
+    "rewindDefault": "{label}（默认）",
+    "skipPreviewClips": "跳过试听片段",
+    "skipPreviewClipsHint": "只有试听片段的歌曲直接跳过；关闭时照播并标示「试听」"
   },
   "network": {
     "cacheLimit": "缓存上限",

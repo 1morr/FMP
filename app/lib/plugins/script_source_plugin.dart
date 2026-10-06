@@ -42,13 +42,13 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
-  Future<List<StreamCandidate>> resolveStream(StreamRequest request) async {
+  Future<StreamResult> resolveStream(StreamRequest request) async {
     final json = await _invoke(
       PluginCapability.resolveStream,
       request.toJson(),
     );
     return _decode(
-      () => StreamCandidate.listFromJson(json, allowedHosts: _allowedHosts),
+      () => StreamResult.fromJson(json, allowedHosts: _allowedHosts),
     );
   }
 

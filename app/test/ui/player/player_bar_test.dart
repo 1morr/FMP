@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:material_ui/material_ui.dart';
@@ -83,6 +86,68 @@ void main() {
         expect(find.text('Uploader a'), findsOneWidget);
       });
     }
+  });
+
+  // ADR 0018 §決定 7、design §5.3：曲名下面那一行先寫狀態。三種寬度都看得到、
+  // 不溢出。
+  group('status labels', () {
+    Finder inBar(String text) => find.descendant(
+      of: find.byType(PlayerBar),
+      matching: find.textContaining(text),
+    );
+
+    for (final width in [360.0, 600.0, 1000.0]) {
+      testWidgets('$width wide: retrying', (tester) async {
+        final h = ShellHarness();
+        h.plugin.respond = (_) => throw NetworkError(pluginId: 'fmp-test');
+        await pumpBar(tester, width: width, harness: h);
+        await h.play(tester, [summary('a')]);
+
+        expect(h.controller.state, isA<Retrying>());
+        expect(inBar('Retrying'), findsOneWidget);
+        expect(inBar('Uploader a'), findsOneWidget);
+      });
+
+      testWidgets('$width wide: waiting for the network', (tester) async {
+        final h = ShellHarness();
+        h.plugin.respond = (_) => throw NetworkError(pluginId: 'fmp-test');
+        await pumpBar(tester, width: width, harness: h);
+        await h.setNetwork(tester, NetworkStatus.noInterface);
+        await h.play(tester, [summary('a')]);
+
+        expect(inBar('Waiting for the network'), findsOneWidget);
+        expect(inBar('Retrying'), findsNothing);
+      });
+
+      testWidgets('$width wide: preview', (tester) async {
+        final h = ShellHarness();
+        h.plugin.previewOnly = (_) => true;
+        await pumpBar(tester, width: width, harness: h);
+        await tester.runAsync(
+          () => h
+              .container(tester)
+              .read(playbackPreferencesProvider.notifier)
+              .setSkipPreviewClips(false),
+        );
+        await h.loadSettings(tester);
+        await h.play(tester, [summary('a')]);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Playing>());
+        expect(inBar('Preview'), findsOneWidget);
+      });
+    }
+
+    testWidgets('nothing extra while playing normally', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      for (final label in ['Retrying', 'Waiting for the network', 'Preview']) {
+        expect(inBar(label), findsNothing);
+      }
+      expect(inBar('Uploader a'), findsOneWidget);
+    });
   });
 
   group('state from the controller', () {

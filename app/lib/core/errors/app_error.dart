@@ -108,7 +108,7 @@ sealed class AppError implements Exception {
   String toString() {
     final parts = [
       if (pluginId case final id?) 'pluginId: $id',
-      if (this case Unavailable(:final reason)) 'reason: ${reason.name}',
+      if (this case Unavailable(:final reason?)) 'reason: ${reason.name}',
       'retryable: $retryable',
       if (retryAfter case final delay?) 'retryAfter: $delay',
       if (networkRecordId case final id?) 'networkRecordId: $id',
@@ -205,7 +205,7 @@ final class VerificationRequired extends AppError {
 /// 內容存在但取不到，原因見 [reason]。
 final class Unavailable extends AppError {
   Unavailable({
-    required this.reason,
+    this.reason,
     super.pluginId,
     super.retryable = false,
     super.retryAfter,
@@ -216,7 +216,9 @@ final class Unavailable extends AppError {
     super.stackTrace,
   }) : super._(expected: true);
 
-  final UnavailableReason reason;
+  /// 取不到的原因；不知道時為 `null`（例如串流被 CDN 以 403 拒絕，重新解析
+  /// 後仍被拒）。插件丟的 `Unavailable` 一定有原因（`structuredScriptError`）。
+  final UnavailableReason? reason;
 }
 
 /// 內容不存在：已刪除、已下架、id 錯誤。

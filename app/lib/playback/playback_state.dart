@@ -34,7 +34,11 @@ final class Buffering extends PlaybackState {
   const Buffering();
 }
 
-/// 失敗後等著重試（ADR 0018 §決定 7）：[attempt] 從 1 起算，[delay] 後重試。
+/// 失敗後等著重試（ADR 0018 §決定 7）。
+///
+/// - [delay] 不為空：[delay] 後重試，[attempt] 是第幾次（從 1 起算）。
+/// - [delay] 為空：等網路（design §5.3），網路狀態回到 `online` 時立刻重試；
+///   等網路不算一次重試，[attempt] 為 0。
 final class Retrying extends PlaybackState {
   const Retrying({
     required this.error,
@@ -44,7 +48,10 @@ final class Retrying extends PlaybackState {
 
   final AppError error;
   final int attempt;
-  final Duration delay;
+  final Duration? delay;
+
+  /// 在等網路，不是倒數重試。
+  bool get waitingForNetwork => delay == null;
 }
 
 /// 停下來了：連續跳過到上限，或最後一首也播不了（ADR 0018 §決定 7）。

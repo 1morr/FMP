@@ -284,6 +284,43 @@ void main() {
       );
     });
 
+    // design §7.5：跳過時給使用者的原因依狀態碼。
+    for (final (status, matcher) in [
+      (404, isA<NotFound>()),
+      (410, isA<NotFound>()),
+      (403, isA<Unavailable>().having((e) => e.reason, 'reason', isNull)),
+      (500, isA<Unsupported>()),
+    ]) {
+      test(
+        'a source refused with $status carries the status and its error',
+        () {
+          final action = routePlaybackEvent(
+            SourceUnopenable(
+              generation: _generation,
+              pluginId: 'fmp-test',
+              httpStatus: status,
+            ),
+            snapshot(),
+          );
+          expect(
+            action,
+            isA<Recover>()
+                .having(
+                  (a) => a.failure,
+                  'failure',
+                  isA<StreamUnopenable>().having(
+                    (f) => f.httpStatus,
+                    'httpStatus',
+                    status,
+                  ),
+                )
+                .having((a) => a.error, 'error', matcher)
+                .having((a) => a.error.pluginId, 'pluginId', 'fmp-test'),
+          );
+        },
+      );
+    }
+
     test('an interrupted source is a network error from its position', () {
       expect(
         routePlaybackEvent(

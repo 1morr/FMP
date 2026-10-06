@@ -35,6 +35,7 @@
    YouTube 的「確認你不是機器人」歸 `VerificationRequired`（NewPipeExtractor 同樣獨立處理）。
    共同欄位：音源 id、`retryable`、`retryAfter`、給使用者的 i18n 訊息 key 與參數、`expected`（預期內的不當 bug）、
    原始 error 與 stackTrace（只進 log、經遮蔽）、對應的網路紀錄 id。
+   更正（2026-10-06，M2 PR 12）：`Unavailable` 的原因可為空——串流被 CDN 以 403 拒絕、重新解析後仍被拒時，上列原因都對不上；插件丟出的 `Unavailable` 仍必須帶原因。
 2. **轉換位置**：網路層把傳輸錯誤轉成 `NetworkError`；**每個音源在自己的目錄內**以對應表把狀態碼與錯誤碼轉成 `AppError`
    （含 ADR 0012 的「憑證無效」判定）；未知例外在音源邊界包成 `UnexpectedError`。音源邊界以上只看得到 `AppError`。
 3. **傳遞**：音源與 service 丟出 `AppError`；Riverpod provider 以 `AsyncValue.error` 承接，UI 以 exhaustive `switch` 呈現；

@@ -387,7 +387,7 @@ final class PluginRuntime {
           final delay => delay.inMilliseconds / 1000,
         },
         'reason': switch (error) {
-          Unavailable(:final reason) => unavailableReasonWireName(reason),
+          Unavailable(:final reason?) => unavailableReasonWireName(reason),
           _ => null,
         },
       },

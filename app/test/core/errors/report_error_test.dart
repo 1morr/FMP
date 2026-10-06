@@ -68,6 +68,12 @@ void main() {
     });
   });
 
+  test('an Unavailable without a reason writes no reason', () {
+    log.report('Stream refused', Unavailable(), tag: 'playback');
+
+    expect(log.history.single.fields, isNot(contains('reason')));
+  });
+
   test('leaves out fields that have no value', () {
     log.report('Failed', AuthRequired(), tag: 'library');
 

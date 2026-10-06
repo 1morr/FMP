@@ -86,24 +86,27 @@ final class Toaster {
   ///
   /// [operation] 是失敗的動作（英文，例如 `'Search failed'`），[tag] 是模組
   /// 或音源 id，比照 `log.report`。去重以「錯誤類別＋音源」為鍵。
+  ///
+  /// [sentence] 把錯誤訊息放進一句翻譯過的話（例如「已跳過「歌名」：訊息」），
+  /// 收到的是依類別表翻譯好的訊息；沒給就只顯示訊息。
   void error(
     AppError error, {
     required String operation,
     required String tag,
+    String Function(String message)? sentence,
     ToastAction? action,
   }) {
     _log.report(operation, error, tag: tag);
     final pluginId = error.pluginId;
+    final message = errorMessage(
+      _translations(),
+      error,
+      sourceName: pluginId == null ? null : _sourceName(pluginId) ?? pluginId,
+    );
     _show(
       Toast(
         kind: ToastKind.error,
-        message: errorMessage(
-          _translations(),
-          error,
-          sourceName: pluginId == null
-              ? null
-              : _sourceName(pluginId) ?? pluginId,
-        ),
+        message: sentence == null ? message : sentence(message),
         action: action,
       ),
       key: (error.typeName, pluginId),

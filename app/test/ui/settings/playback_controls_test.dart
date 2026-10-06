@@ -26,16 +26,23 @@ void main() {
             h.container(tester).read(playbackSettingsRepositoryProvider).read(),
       ))!;
 
+  final remember = find.widgetWithText(
+    SwitchListTile,
+    'Remember playback position',
+  );
+  final skipPreviews = find.widgetWithText(
+    SwitchListTile,
+    'Skip preview clips',
+  );
+
   ChoiceChip chip(WidgetTester tester, String label) =>
       tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label));
 
   testWidgets('unset fields show the defaults and say so', (tester) async {
     await openPlayback(tester);
 
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isTrue,
-    );
+    expect(tester.widget<SwitchListTile>(remember).value, isTrue);
+    expect(tester.widget<SwitchListTile>(skipPreviews).value, isTrue);
     expect(find.byType(ChoiceChip), findsNWidgets(6));
     expect(chip(tester, '10 s (default)').selected, isTrue);
     for (final other in ['No rewind', '3 s', '5 s', '15 s', '30 s']) {
@@ -55,25 +62,38 @@ void main() {
     expect(chip(tester, '3 s').selected, isTrue);
     expect(find.text('10 s'), findsOneWidget, reason: 'no longer the default');
 
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(remember);
     await h.loadSettings(tester);
     expect(
       await stored(tester, h),
       const PlaybackSettings(rememberPosition: false, tempPlayRewindSeconds: 3),
     );
+
+    await tester.ensureVisible(skipPreviews);
+    await tester.tap(skipPreviews);
+    await h.loadSettings(tester);
+    expect(
+      await stored(tester, h),
+      const PlaybackSettings(
+        rememberPosition: false,
+        tempPlayRewindSeconds: 3,
+        skipPreviewClips: false,
+      ),
+    );
+    expect(tester.widget<SwitchListTile>(skipPreviews).value, isFalse);
   });
 
   testWidgets('the rewind is disabled while the position is not remembered', (
     tester,
   ) async {
     final h = await openPlayback(tester);
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(remember);
     await h.loadSettings(tester);
 
     expect(chip(tester, '10 s (default)').onSelected, isNull);
     expect(chip(tester, '10 s (default)').selected, isTrue, reason: 'kept');
 
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(remember);
     await h.loadSettings(tester);
     expect(chip(tester, '10 s (default)').onSelected, isNotNull);
   });

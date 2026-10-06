@@ -537,7 +537,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 測試插件 `test/fixtures/plugins/test_plugin/`（`fmp-test`）只以 dev flavor 的 asset 打包，串流指向
   同目錄的 `tone.wav`（`asset:///…`）。prod 的建置只留下空目錄，沒有檔案。實機以
   `--fmp-dev-plugin` 裝它的 `.js`，搜尋任何關鍵字都有結果、都播得出來；關鍵字剛好是 `fail`
-  時以 `RateLimited` 失敗（離線看錯誤提示）。閘門：
+  時以 `RateLimited` 失敗（離線看錯誤提示）；`missing`、`preview`、`flaky`、`unavailable` 給播放
+  恢復的實機驗證（`test_plugin/README.md`）。閘門：
   `test/plugins/test_plugin_bundle_test.dart`。第二個測試插件
   `http_test_plugin/`（`fmp-test-http`）會發請求（`*.fmp.test`），只給契約執行器，不打包。
 - 插件目錄（契約檢查的單位）：剛好一個 `.js` 安裝檔、`checks.json`（鍵是能力名稱，所以每能力最多
@@ -639,7 +640,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   App 只有一個後端所以拿得到，契約的 `a source refused over HTTP…` 因此排第一（它斷言自己建的是
   第一個後端，順序被改了在假後端就紅）。just_audio 0.10.6
   交給 Dart 的只有 `ExoPlaybackException.getMessage()`（一律 `Source error`），Android 一律
-  `null`。目前只記進 log（`Stream failed`、`Look-ahead failed to open` 的 `httpStatus`）。閘門：
+  `null`。狀態碼進 log（`Stream failed`、`Look-ahead failed to open`、`Playback recovery` 的
+  `httpStatus`），並決定開流失敗怎麼恢復（見下面「恢復」）。閘門：
   `backend_rules_test.dart` 的 `httpStatusFromLogLine`（錄下的 mpv 行與反例）、契約的 `a source
   refused over HTTP…`（`reportsHttpStatus`）。契約的 HTTP 案例由測試在 loopback 起一個一律回 403
   的伺服器；Android 的 debug 建置以 `android/app/src/debug/res/xml/network_security_config.xml`
@@ -668,7 +670,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     播完，那首只解析一次。閘門：`stream_resolver_test.dart` 的 `concurrent calls…`、
     `a failed resolution…`；`playback_controller_test.dart` 的 `a look-ahead slower than
     the current track…`、`playing a track the look-ahead resolved…`。
-  - 串流本身失敗（路由器給 `Recover`：開不起來、中斷、提前結束）時控制器呼叫
+  - 串流本身失敗（路由器給 `Recover`：開不起來、中斷、提前結束；以及緩衝飢餓）時控制器呼叫
     `PlaybackSession.invalidateCurrentStream`，只作廢那一個解析結果（已被較新的取代就
     不動）；重試與之後再播都重新解析，換候選照用手上的結果。閘門：
     `playback_controller_test.dart` 的 `a stream that failed to open is resolved again…`
@@ -678,12 +680,51 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 實機數解析次數：`Resolving stream`（tag `playback`）一筆就是一次插件
     `resolveStream`；`Stream URL reused` 的 `from` 是 `cache` 或 `pending`；
     `Stream URL invalidated` 是作廢。
-- 恢復（ADR 0018 §決定 7 的 M1 部分）：網路錯誤、限流、中斷與提前結束從目前位置重試
-  1／3／9 秒；開不起來換下一個候選一次；其他錯誤類別跳過；連續跳過達佇列長度（最多 10）
-  停在 `Failed`。M1 沒有連線偵測、試聽片段設定（一律跳過）、緩衝飢餓與輸出裝置的處理、
-  「正常播放 10 秒後重試計數歸零」（M1 換歌才歸零）。停在 `Failed` 時外殼提示一次（跳過不提示，
-  控制器沒有發出跳過的事件）。閘門：`recovery_policy_test.dart`、`playback_controller_test.dart`
-  的 `recovery` 群組、`app_shell_test.dart` 的 `playback that stops failed shows a toast`。
+- 恢復（ADR 0018 §決定 7、design §7.5）由純函數 `decideRecovery` 決定，計數只在控制器：重試
+  次數（`_retries`）、重新解析次數（換一首才歸零）、換過候選、連續跳過。表（每列在
+  `recovery_policy_test.dart` 至少一例）：
+  - `NetworkError`、`RateLimited`、中斷、提前結束：`online` 時從目前位置重試 1／3／9 秒，
+    仍失敗跳過；不是 `online` 時等網路（下一條）。
+  - 其他錯誤類別（含插件丟的 `Unavailable(previewOnly)`）立即跳過。
+  - 開流被 HTTP 403／404／410 拒絕，或開流失敗而沒有狀態碼（Android 一律如此，擁有者
+    2026-10-06）：作廢網址快取、重新解析一次（`ReResolve`），仍失敗換候選一次，再不行跳過；
+    跳過時的錯誤 404、410 是 `NotFound`，403 是 `Unavailable`（原因為空），其他是 `Unsupported`
+    （`openFailureError`，在路由器）。其他狀態碼（mpv 的 5xx 等）只換候選一次。沒有狀態碼又不在
+    `online` 時先等網路。
+  - 緩衝飢餓：進 `Buffering` 開一次性的 15 秒計時器、離開就取消；到期時第一次重新解析，同一首
+    第二次跳過。
+  - 一首在 `Playing` 中位置前進累計 10 秒，重試計數歸零（不開計時器；兩次回報相差超過 2 秒的是
+    seek，不算）。
+  - 跳過在 `queue` 往下一首，在 `temporary` 回到佇列；連續跳過達佇列長度（最多 10；臨時播放中
+    臨時那一首也算一首，佇列只有一首時才回得去）停在 `Failed`。
+  閘門：`recovery_policy_test.dart`；`playback_controller_test.dart` 的 `recovery` 與
+  `recovery: refused and unopenable streams`、`recovery: counting`（含 `periodicTimerCount`）、
+  `recovery: buffering starved for 15 seconds` 群組、`temporary play` 群組的 `a temporary track that
+  cannot be played returns to a queue of one song`；`playback_event_router_test.dart` 的
+  `a source refused with … carries the status and its error`。
+- 等網路（design §5.3）：網路狀態（`networkStatusProvider`，組裝點以 stream 交給控制器，不重建它）
+  不是 `online` 時，上一條標「等網路」的失敗停在這首：狀態是 `Retrying(delay: null)`（`attempt`
+  為 0）、後端停下，不計重試、不算跳過、不提示（全域離線提示已經在畫面上）。回到 `online` 立刻從
+  原位置重試，重試計數不變；等的時候暫停、換歌就不再等。M2 沒有本機檔，「跳到下一首已下載的」
+  在 M6。閘門：`recovery: offline (design §5.3)` 群組、`app_shell_test.dart` 的 `waiting for the
+  network shows no toast`。兩者都經測試自己的接線（`Harness`、`ShellHarness` 的
+  `playbackControllerProvider` override）；組裝點 `playback_providers.dart` 把網路狀態與「跳過試聽
+  片段」交給控制器的那幾行沒有閘門，review 時看。
+- 試聽片段：插件回 `StreamResult.previewOnly: true` 時，「跳過試聽片段」開（預設）就跳過並提示，
+  關就照播、播放列標「試聽」並發一次 `PreviewPlaying`（同一首重播、重試不再發）。試聽片段不當前瞻
+  （到那首時才依設定處理，所以不會無縫接上）。設定在遇到試聽時經 `skipPreviewClipsProvider` 讀。
+  閘門：`recovery: preview clips` 群組、`app_shell_test.dart` 的 `a preview clip played as one…`。
+- 單曲循環的前瞻是目前開著的那個候選（換過候選就是換過的那個），不再經網址快取：換候選時快取
+  已經作廢，再解析會拿回開不起來的第一個。清前瞻的修改排隊期間換了歌就不設（和解析回來時一樣
+  比對代）。閘門：`loop one after a candidate switch repeats the candidate that played`、
+  `switching to loop one and then to another song does not prepare the previous song…`。
+- 控制器的 `events`（design §7.9）：`QueueFull`、`TrackSkipped`（跳過，帶錯誤與曲目）、
+  `PlaybackStopped`（停在 `Failed`，帶連著播不了的首數）、`PreviewPlaying`。外殼以一個
+  `ref.listen(playbackEventsProvider)` 轉成提示：跳過與只有一首播不了時以 `Toaster.error` 的
+  `sentence` 說是哪一首、什麼原因（ADR 0013 類別表的訊息），去重是 `Toaster` 的同類同音源 5 秒；
+  連續播不了停下時是一則警告「連續 n 首無法播放」（每首的原因已在跳過時提示過，同類的被去重，
+  用錯誤提示會被去重吞掉）。閘門：`app_shell_test.dart` 的 `playback toasts` 群組、
+  `playback_controller_test.dart` 斷言事件的案例。
 - 被取代的解析結果丟掉（結果仍進網址快取），但插件的 `resolveStream` 沒有取消參數，
   網路工作不取消（ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
 - 佇列（`QueueModel`）是純 Dart：不碰資料庫與後端、不 import Riverpod 與 UI；隨機經建構子
@@ -754,9 +795,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 「播放」組（`playback_settings`）的整張表在 M2 PR 10 一次建好（design §3.3 的十個欄位，
   schema v3），repository 的 `write`／`clear` 涵蓋全部欄位；Notifier（`playbackPreferencesProvider`）
   與設定頁只有已經有人用的欄位：記住播放位置（預設開）、臨時播放回佇列倒退秒數（預設 10，
-  選項 0／3／5／10／15／30）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好
-  的列舉存 `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
-  `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
+  選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見「播放」）。其他欄位的 setter 與設定列
+  跟著用到它的 PR 加。音質、格式偏好的列舉存 `high`／`medium`／`low`、`opus,aac`／`aac,opus`
+  （後者與舊版字面相同）。閘門：`test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
   （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
   的 v2→v3 兩例。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
@@ -833,6 +874,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   隨機、循環的 tooltip 還沒附按鍵（Ctrl+S、Ctrl+R 在 PR 17）。閘門：
   `test/ui/player/player_bar_test.dart` 的 `controls per width`（599／600／839／840 等邊界）、
   `shuffle and loop` 群組、golden `player_bar_golden_test.dart`（三個寬度，只守版面結構）。
+- 播放列的狀態標示（ADR 0018 §決定 7）：「等待網路連線」（`Retrying` 的 `delay` 為空）、「重試中」
+  （其他 `Retrying`）、「試聽」（`playbackPreviewProvider`）以主色寫在曲名下那一行、上傳者之前，
+  一行放不下就省略，三段寬度都在曲名欄裡、不另佔位置；狀態是 live region。閘門：
+  `player_bar_test.dart` 的 `status labels` 群組（360／600／1000 三個寬度各三種）、guideline 測試的
+  `the player bar waiting for the network`。
 - 搜尋結果列的右鍵辨識器排除在語意樹外（`excludeFromSemantics`）：它會多一個沒有名稱的點擊
   動作，guideline 測試因此紅；同一份選單由「⋯」提供給輔助技術。閘門：guideline 測試的
   `search results and the player bar`。

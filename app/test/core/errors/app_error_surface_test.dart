@@ -27,7 +27,7 @@ const _reviewedSurface = {
   'AppError.networkRecordId': 'int?',
   'AppError.typeName': 'String',
   'AppError.toString()': 'String',
-  'Unavailable.reason': 'UnavailableReason',
+  'Unavailable.reason': 'UnavailableReason?',
   'AppErrorReport.report()': 'void',
 };
 
@@ -86,7 +86,7 @@ void main() {
       ),
       'an untyped field': (
         _library,
-        'final UnavailableReason reason;',
+        'final UnavailableReason? reason;',
         "\n  final displayText = '';",
       ),
       'a method returning String': (
@@ -127,7 +127,7 @@ void main() {
       // messageArgs 收窄前的型別：值裝得下插件或伺服器的原文。
       'text in a type argument': (
         _library,
-        'final UnavailableReason reason;',
+        'final UnavailableReason? reason;',
         '\n  final Map<ErrorMessageArg, Object> extraArgs = const {};',
       ),
     };
