@@ -20,8 +20,9 @@ abstract interface class SourcePlugin {
   /// [PluginCapability.search]。
   Future<SearchPage> search(SearchQuery query);
 
-  /// [PluginCapability.resolveStream]：依優先序排好的候選，至少一個。
-  Future<List<StreamCandidate>> resolveStream(StreamRequest request);
+  /// [PluginCapability.resolveStream]：依優先序排好的候選（至少一個），以及它們
+  /// 是不是只有試聽片段。
+  Future<StreamResult> resolveStream(StreamRequest request);
 
   /// 釋放資源（JS runtime、連線）。之後的呼叫失敗。
   void close();

@@ -129,6 +129,12 @@ export interface StreamFormat {
 export interface StreamResult {
   /** 依優先序；至少一個，找不到就拋 NotFound 或 Unavailable。 */
   candidates: StreamCandidate[];
+  /**
+   * 候選只有試聽片段（例如非會員）時為 true。宿主依使用者的「跳過試聽片段」
+   * 設定跳過，或照播並標「試聽」。完全沒有可播的串流時改拋
+   * `{ fmpError: 'Unavailable', reason: 'previewOnly' }`。
+   */
+  previewOnly?: boolean | null;
 }
 
 export interface StreamCandidate {

@@ -7,7 +7,7 @@ import 'package:fmp/plugins/json_shape.dart';
 // 宿主與插件交換的 DTO，apiVersion 1（ADR 0014 §決定 5）。
 //
 // 送給插件的（SearchQuery、StreamRequest）在建構時檢查參數，錯了是 App 的 bug，
-// 拋 ArgumentError；插件回傳的（SearchPage、StreamCandidate）以 fromJson 解碼，
+// 拋 ArgumentError；插件回傳的（SearchPage、StreamResult）以 fromJson 解碼，
 // 形狀不對拋 FormatException，由 ScriptSourcePlugin 轉成 ParseError。
 //
 // 欄位名稱是插件的介面：改名或改必填就是不相容的改動，要加 hostApiVersion。
@@ -34,7 +34,7 @@ const sourceDtoShapes = <String, JsonShape>{
     'formats': true,
   },
   'StreamFormat': {'container': true, 'codec': true},
-  'StreamResult': {'candidates': true},
+  'StreamResult': {'candidates': true, 'previewOnly': false},
   'StreamCandidate': {
     'url': true,
     'headers': false,
@@ -255,7 +255,51 @@ final class StreamRequest {
   };
 }
 
-/// 一個候選串流。`resolveStream` 回傳依優先序排好的清單（ADR 0018 §決定 6）。
+/// `resolveStream` 的回傳值：依優先序排好的候選（ADR 0018 §決定 6），至少一個。
+@immutable
+final class StreamResult {
+  StreamResult({required this.candidates, this.previewOnly = false})
+    : assert(candidates.isNotEmpty);
+
+  /// 解碼插件回傳的 `{candidates: [...], previewOnly?}`。
+  factory StreamResult.fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+  }) {
+    final fields = JsonFields(
+      json,
+      sourceDtoShapes['StreamResult']!,
+      path: 'StreamResult',
+    );
+    final candidates = fields.list('candidates');
+    if (candidates.isEmpty) {
+      throw const FormatException(
+        'StreamResult.candidates: must not be empty; throw NotFound or '
+        'Unavailable instead',
+      );
+    }
+    return StreamResult(
+      candidates: List.unmodifiable([
+        for (final (index, item) in candidates.indexed)
+          StreamCandidate._fromJson(
+            item,
+            allowedHosts: allowedHosts,
+            path: 'StreamResult.candidates[$index]',
+          ),
+      ]),
+      previewOnly: fields.optionalBool('previewOnly') ?? false,
+    );
+  }
+
+  final List<StreamCandidate> candidates;
+
+  /// 候選只有試聽片段（例如網易的非會員）：可以播，但不是整首。宿主依「跳過
+  /// 試聽片段」設定跳過或標「試聽」後播放（ADR 0018 §決定 7、D4）。插件 API v1
+  /// 的選填欄位，沒給就是 `false`。
+  final bool previewOnly;
+}
+
+/// 一個候選串流。
 @immutable
 final class StreamCandidate {
   const StreamCandidate({
@@ -298,33 +342,6 @@ final class StreamCandidate {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(expiresAt, isUtc: true),
     );
-  }
-
-  /// 解碼 `resolveStream` 的回傳值（`{candidates: [...]}`），至少一個候選。
-  static List<StreamCandidate> listFromJson(
-    Object? json, {
-    required AllowedHosts allowedHosts,
-  }) {
-    final fields = JsonFields(
-      json,
-      sourceDtoShapes['StreamResult']!,
-      path: 'StreamResult',
-    );
-    final candidates = fields.list('candidates');
-    if (candidates.isEmpty) {
-      throw const FormatException(
-        'StreamResult.candidates: must not be empty; throw NotFound or '
-        'Unavailable instead',
-      );
-    }
-    return List.unmodifiable([
-      for (final (index, item) in candidates.indexed)
-        StreamCandidate._fromJson(
-          item,
-          allowedHosts: allowedHosts,
-          path: 'StreamResult.candidates[$index]',
-        ),
-    ]);
   }
 
   /// `https` 網址（網域在 manifest 的允許清單內），或 App 內附的 asset

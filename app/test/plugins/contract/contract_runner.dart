@@ -389,10 +389,10 @@ Future<({List<String> problems, bool matched})> _executeLoaded(
   problems.addAll([
     for (final problem in mismatches ?? const <String>[]) '$name: $problem',
   ]);
-  if (result case final List<StreamCandidate> candidates) {
+  if (result case final StreamResult stream) {
     problems.addAll([
       for (final problem in mediaHeaderProblems(
-        candidates,
+        stream.candidates,
         environment.redactor,
         names,
       ))

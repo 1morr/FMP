@@ -249,8 +249,8 @@ final class ExpectError extends CheckExpectation {
 /// 回傳值裡要檢查的清單，每一筆以 `fmp-plugin.d.ts` 的欄位名稱表示。
 List<Map<String, Object?>> checkItems(Object result) => switch (result) {
   final SearchPage page => [for (final track in page.items) trackFields(track)],
-  final List<StreamCandidate> candidates => [
-    for (final candidate in candidates) candidateFields(candidate),
+  final StreamResult stream => [
+    for (final candidate in stream.candidates) candidateFields(candidate),
   ],
   _ => throw ArgumentError.value(result, 'result'),
 };

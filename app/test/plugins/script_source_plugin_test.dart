@@ -44,11 +44,12 @@ void main() {
         testPluginFile.readAsStringSync(),
       );
 
-      final candidates = await plugin.resolveStream(
+      final result = await plugin.resolveStream(
         StreamRequest(sourceId: 'tone-440', formats: _formats),
       );
 
-      final candidate = candidates.single;
+      expect(result.previewOnly, isFalse);
+      final candidate = result.candidates.single;
       expect(
         candidate.url,
         Uri.parse('asset:///test/fixtures/plugins/test_plugin/tone.wav'),
@@ -167,7 +168,7 @@ void main() {
       );
       return plugin
           .resolveStream(StreamRequest(sourceId: 'a', formats: _formats))
-          .then<Object>((list) => list, onError: (Object error) => error);
+          .then<Object>((result) => result, onError: (Object error) => error);
     }
 
     test('the plugin cannot claim another source', () async {
@@ -230,17 +231,46 @@ void main() {
         "codec: 'aac', bitrate: 192000, expiresAt: 1790000000000 }] }",
       );
 
-      candidates as List<StreamCandidate>;
-      final candidate = candidates.single;
+      candidates as StreamResult;
+      final candidate = candidates.candidates.single;
       expect(candidate.headers, {'Referer': 'https://example.test/'});
       expect(
         candidate.expiresAt,
         DateTime.fromMillisecondsSinceEpoch(1790000000000, isUtc: true),
       );
+      // previewOnly 是選填，沒給就不是試聽。
+      expect(candidates.previewOnly, isFalse);
+    });
+
+    test('a preview-only result says so', () async {
+      for (final (value, expected) in [
+        ('true', true),
+        ('false', false),
+        ('null', false),
+      ]) {
+        final result = await resolve(
+          "{ candidates: [{ url: 'https://cdn.example.test/a.m4a' }], "
+          'previewOnly: $value }',
+        );
+
+        expect(
+          result,
+          isA<StreamResult>().having(
+            (r) => r.previewOnly,
+            'previewOnly',
+            expected,
+          ),
+          reason: value,
+        );
+      }
     });
 
     for (final (description, result) in [
       ('no candidates', '{ candidates: [] }'),
+      (
+        'a previewOnly that is not a boolean',
+        "{ candidates: [{ url: 'https://example.test/a' }], previewOnly: 1 }",
+      ),
       ('an http stream', "{ candidates: [{ url: 'http://example.test/a' }] }"),
       (
         'a stream on another host',
@@ -300,7 +330,7 @@ void main() {
 
       expect(page.items.single.title, '{"keyword":"k","page":3}');
       expect(
-        Uri.decodeComponent(stream.single.url.pathSegments.single),
+        Uri.decodeComponent(stream.candidates.single.url.pathSegments.single),
         '{"sourceId":"bv1","cid":9,"purpose":"playback",'
         '"formats":[{"container":"mp4","codec":"aac"}]}',
       );

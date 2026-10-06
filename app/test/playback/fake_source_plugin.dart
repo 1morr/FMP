@@ -4,8 +4,8 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
-/// 假的插件：`resolveStream` 的回傳由 [respond] 決定；給了 [onSearch] 才有
-/// `search` 能力。記下每次請求。
+/// 假的插件：`resolveStream` 的候選由 [respond] 決定、是不是試聽片段由
+/// [previewOnly] 決定；給了 [onSearch] 才有 `search` 能力。記下每次請求。
 final class FakeSourcePlugin implements SourcePlugin {
   FakeSourcePlugin(
     this.respond, {
@@ -25,6 +25,9 @@ final class FakeSourcePlugin implements SourcePlugin {
        );
 
   FutureOr<List<StreamCandidate>> Function(StreamRequest request) respond;
+
+  /// 回傳的 [StreamResult.previewOnly]。
+  bool Function(StreamRequest request) previewOnly = (_) => false;
 
   /// 搜尋的回傳；`null` 表示沒有 `search` 能力。
   final FutureOr<SearchPage> Function(SearchQuery query)? onSearch;
@@ -54,9 +57,12 @@ final class FakeSourcePlugin implements SourcePlugin {
   }
 
   @override
-  Future<List<StreamCandidate>> resolveStream(StreamRequest request) async {
+  Future<StreamResult> resolveStream(StreamRequest request) async {
     requests.add(request);
-    return respond(request);
+    return StreamResult(
+      candidates: await respond(request),
+      previewOnly: previewOnly(request),
+    );
   }
 
   @override
