@@ -28,7 +28,7 @@ extension AppErrorReport on Log {
     fields: {
       'type': _typeName(error),
       'pluginId': ?error.pluginId,
-      if (error case Unavailable(:final reason)) 'reason': reason.name,
+      if (error case Unavailable(:final reason?)) 'reason': reason.name,
       'networkRecordId': ?error.networkRecordId,
       'retryable': error.retryable,
       if (error.retryAfter case final delay?)
