@@ -6,6 +6,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/playback/stream_resolver.dart';
@@ -13,16 +14,35 @@ import 'package:fmp/plugins/source_dto.dart';
 
 import 'fake_source_plugin.dart';
 
-const formats = [PlayableFormat('mp4', 'aac'), PlayableFormat('webm', 'opus')];
+/// 平台的順序：AAC 在前（和 Android、Windows 的宣告一樣），其他編碼在後。
+const formats = [
+  PlayableFormat('mp4', 'aac'),
+  PlayableFormat('webm', 'opus'),
+  PlayableFormat('mp3', 'mp3'),
+];
+
+const highOpusFirst = (
+  quality: AudioQuality.high,
+  formatPriority: AudioFormatPriority.opusFirst,
+);
 
 TrackKeyParts track(String id, {int? cid}) =>
     TrackKeyParts(sourceTypeId: 'fmp-test', sourceId: id, cid: cid);
 
-StreamResolver resolverFor(FakeSourcePlugin plugin) => StreamResolver(
+/// [preferences] 每次解析時讀一次（和 App 的組裝點一樣）。
+StreamResolver resolverFor(
+  FakeSourcePlugin plugin, {
+  StreamPreferences Function()? preferences,
+}) => StreamResolver(
   plugin: (id) => id == plugin.manifest.id ? plugin : null,
   formats: formats,
+  preferences: preferences ?? () => highOpusFirst,
   log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
 );
+
+List<String> codecs(StreamRequest request) => [
+  for (final format in request.formats) format.codec,
+];
 
 /// 以可調的 `clock` 跑 [body]：改 [FakeTime.now] 就是時間前進，不真的等。
 Future<void> withFakeTime(Future<void> Function(FakeTime time) body) {
@@ -37,7 +57,8 @@ final class FakeTime {
 }
 
 void main() {
-  test('asks the plugin for playback with the platform formats', () async {
+  test('asks the plugin for playback with the platform formats and the '
+      'preferences', () async {
     final plugin = FakeSourcePlugin((_) => [candidate('a.m4a')]);
 
     final stream = await resolverFor(plugin).resolve(track('BV1', cid: 7));
@@ -49,17 +70,110 @@ void main() {
       'cid': 7,
       'purpose': 'playback',
       'formats': [
-        {'container': 'mp4', 'codec': 'aac'},
         {'container': 'webm', 'codec': 'opus'},
+        {'container': 'mp4', 'codec': 'aac'},
+        {'container': 'mp3', 'codec': 'mp3'},
       ],
+      'quality': 'high',
     });
     expect(request.purpose, StreamPurpose.playback);
+  });
+
+  group('preferences', () {
+    test('the format priority puts that codec first and keeps the rest in '
+        'the platform order', () async {
+      var priority = AudioFormatPriority.opusFirst;
+      final plugin = FakeSourcePlugin((_) => [candidate('a.m4a')]);
+      final resolver = resolverFor(
+        plugin,
+        preferences: () =>
+            (quality: AudioQuality.high, formatPriority: priority),
+      );
+
+      await resolver.resolve(track('a'));
+      priority = AudioFormatPriority.aacFirst;
+      await resolver.resolve(track('b'));
+
+      expect(plugin.requests.map(codecs), [
+        ['opus', 'aac', 'mp3'],
+        ['aac', 'opus', 'mp3'],
+      ]);
+    });
+
+    test('a codec the platform cannot play is not added', () async {
+      final plugin = FakeSourcePlugin((_) => [candidate('a.m4a')]);
+      final resolver = StreamResolver(
+        plugin: (_) => plugin,
+        formats: const [PlayableFormat('wav', 'pcm_s16le')],
+        preferences: () => highOpusFirst,
+        log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+      );
+
+      await resolver.resolve(track('a'));
+
+      expect(codecs(plugin.requests.single), ['pcm_s16le']);
+    });
+
+    test('each quality goes to the plugin by its wire name', () async {
+      var quality = AudioQuality.high;
+      final plugin = FakeSourcePlugin((_) => [candidate('a.m4a')]);
+      final resolver = resolverFor(
+        plugin,
+        preferences: () =>
+            (quality: quality, formatPriority: AudioFormatPriority.opusFirst),
+      );
+
+      for (final (index, value) in AudioQuality.values.indexed) {
+        quality = value;
+        await resolver.resolve(track('t$index'));
+      }
+
+      expect(
+        [for (final request in plugin.requests) request.toJson()['quality']],
+        ['high', 'medium', 'low'],
+      );
+    });
+
+    test('changing a preference resolves the track again; changing it back '
+        'uses the stream cached for it', () async {
+      var preferences = highOpusFirst;
+      final plugin = FakeSourcePlugin(
+        (request) => [
+          candidate(
+            '${request.toJson()['quality']}-${request.formats.first.codec}.m4a',
+          ),
+        ],
+      );
+      final resolver = resolverFor(plugin, preferences: () => preferences);
+      final high = await resolver.resolve(track('a'));
+
+      preferences = (
+        quality: AudioQuality.low,
+        formatPriority: AudioFormatPriority.opusFirst,
+      );
+      final low = await resolver.resolve(track('a'));
+      preferences = (
+        quality: AudioQuality.low,
+        formatPriority: AudioFormatPriority.aacFirst,
+      );
+      final lowAac = await resolver.resolve(track('a'));
+
+      expect(high.candidates.single.url.path, '/high-opus.m4a');
+      expect(low.candidates.single.url.path, '/low-opus.m4a');
+      expect(lowAac.candidates.single.url.path, '/low-aac.m4a');
+      expect(plugin.resolvedCount('a'), 3);
+
+      preferences = highOpusFirst;
+      expect(await resolver.resolve(track('a')), same(high));
+      expect(plugin.resolvedCount('a'), 3);
+    });
   });
 
   test('a source without an installed plugin is Unsupported', () async {
     final resolver = StreamResolver(
       plugin: (_) => null,
       formats: formats,
+      preferences: () => highOpusFirst,
       log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
     );
     await expectLater(
@@ -226,6 +340,7 @@ void main() {
       final resolver = StreamResolver(
         plugin: (id) => id == current.manifest.id ? current : null,
         formats: formats,
+        preferences: () => highOpusFirst,
         log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
       );
       await resolver.resolve(track('a'));

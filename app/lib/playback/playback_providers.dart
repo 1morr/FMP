@@ -6,6 +6,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
@@ -57,14 +58,26 @@ final skipPreviewClipsProvider = Provider<bool>(
           .skipPreviewClips,
 );
 
+/// 解析串流時送給插件的偏好（音質、格式偏好）。資料庫的值還沒讀出來時是預設。
+final streamPreferencesProvider = Provider<StreamPreferences>((ref) {
+  final preferences =
+      ref.watch(playbackPreferencesProvider).value ??
+      PlaybackPreferencesNotifier.resolve(PlaybackSettings.empty);
+  return (
+    quality: preferences.audioQuality,
+    formatPriority: preferences.audioFormatPriority,
+  );
+});
+
 /// UI 唯一的播放入口（ADR 0018 §決定 1）。
 final playbackControllerProvider = Provider<PlaybackController>((ref) {
   final log = ref.watch(logProvider);
-  // 設定在用到時才讀（臨時播放結束、遇到試聽片段）：先訂閱，資料庫的值那時
-  // 已經讀出來；不用 watch，改設定不重建控制器。網路狀態同樣不重建，改變經
-  // stream 交給控制器。
+  // 設定在用到時才讀（臨時播放結束、遇到試聽片段、每次解析）：先訂閱，資料庫
+  // 的值那時已經讀出來；不用 watch，改設定不重建控制器。網路狀態同樣不重建，
+  // 改變經 stream 交給控制器。
   ref.listen(temporaryReturnSettingsProvider, (_, _) {});
   ref.listen(skipPreviewClipsProvider, (_, _) {});
+  ref.listen(streamPreferencesProvider, (_, _) {});
   final networkChanges = StreamController<NetworkStatus>.broadcast();
   ref.listen(networkStatusProvider, (_, status) => networkChanges.add(status));
   final controller = PlaybackController(
@@ -73,6 +86,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
       resolver: StreamResolver(
         plugin: (pluginId) => ref.read(pluginRegistryProvider).value?[pluginId],
         formats: ref.watch(_playbackSupportProvider).formats,
+        preferences: () => ref.read(streamPreferencesProvider),
         log: log,
       ),
       log: log,

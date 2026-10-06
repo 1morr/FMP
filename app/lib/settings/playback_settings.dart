@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 
 /// 設定頁「臨時播放回佇列倒退秒數」的選項（沿用舊版 `_rewindOptions`）。
 const tempPlayRewindOptionsSeconds = [0, 3, 5, 10, 15, 30];
@@ -12,11 +13,19 @@ const tempPlayRewindOptionsSeconds = [0, 3, 5, 10, 15, 30];
 @immutable
 final class PlaybackPreferences {
   const PlaybackPreferences({
+    required this.audioQuality,
+    required this.audioFormatPriority,
     required this.rememberPosition,
     required this.tempPlayRewindSeconds,
     required this.skipPreviewClips,
     required this.stored,
   });
+
+  /// 音質：插件依它挑串流（`StreamRequest.quality`）。
+  final AudioQuality audioQuality;
+
+  /// 格式偏好：宿主依它重排平台可播的格式再交給插件。
+  final AudioFormatPriority audioFormatPriority;
 
   /// 記住播放位置：臨時播放結束回到佇列時從原本的位置（倒退
   /// [tempPlayRewindSeconds]）繼續，否則從頭。
@@ -35,6 +44,8 @@ final class PlaybackPreferences {
   @override
   bool operator ==(Object other) =>
       other is PlaybackPreferences &&
+      other.audioQuality == audioQuality &&
+      other.audioFormatPriority == audioFormatPriority &&
       other.rememberPosition == rememberPosition &&
       other.tempPlayRewindSeconds == tempPlayRewindSeconds &&
       other.skipPreviewClips == skipPreviewClips &&
@@ -42,6 +53,8 @@ final class PlaybackPreferences {
 
   @override
   int get hashCode => Object.hash(
+    audioQuality,
+    audioFormatPriority,
     rememberPosition,
     tempPlayRewindSeconds,
     skipPreviewClips,
@@ -50,7 +63,9 @@ final class PlaybackPreferences {
 
   @override
   String toString() =>
-      'PlaybackPreferences(rememberPosition: $rememberPosition, '
+      'PlaybackPreferences(audioQuality: $audioQuality, '
+      'audioFormatPriority: $audioFormatPriority, '
+      'rememberPosition: $rememberPosition, '
       'tempPlayRewindSeconds: $tempPlayRewindSeconds, '
       'skipPreviewClips: $skipPreviewClips, stored: $stored)';
 }
@@ -59,10 +74,14 @@ final class PlaybackPreferences {
 /// 預設不需要 migration。
 PlaybackPreferences resolvePlaybackPreferences(
   PlaybackSettings stored, {
+  required AudioQuality defaultAudioQuality,
+  required AudioFormatPriority defaultAudioFormatPriority,
   required bool defaultRememberPosition,
   required int defaultTempPlayRewindSeconds,
   required bool defaultSkipPreviewClips,
 }) => PlaybackPreferences(
+  audioQuality: stored.audioQuality ?? defaultAudioQuality,
+  audioFormatPriority: stored.audioFormatPriority ?? defaultAudioFormatPriority,
   rememberPosition: stored.rememberPosition ?? defaultRememberPosition,
   tempPlayRewindSeconds:
       stored.tempPlayRewindSeconds ?? defaultTempPlayRewindSeconds,
@@ -79,12 +98,14 @@ final playbackPreferencesProvider =
 
 final class PlaybackPreferencesNotifier
     extends StreamNotifier<PlaybackPreferences> {
-  /// [stored] 套用目前的預設（記住播放位置：開；倒退 10 秒，照舊版；跳過試聽
-  /// 片段：開，ADR 0018 §決定 7）。預設只寫在這裡；資料庫還沒讀出來時，播放
-  /// 控制器也以它解析空的設定。
+  /// [stored] 套用目前的預設（音質：高、格式：Opus 優先，照舊版；記住播放
+  /// 位置：開；倒退 10 秒，照舊版；跳過試聽片段：開，ADR 0018 §決定 7）。預設
+  /// 只寫在這裡；資料庫還沒讀出來時，播放控制器也以它解析空的設定。
   static PlaybackPreferences resolve(PlaybackSettings stored) =>
       resolvePlaybackPreferences(
         stored,
+        defaultAudioQuality: AudioQuality.high,
+        defaultAudioFormatPriority: AudioFormatPriority.opusFirst,
         defaultRememberPosition: true,
         defaultTempPlayRewindSeconds: 10,
         defaultSkipPreviewClips: true,
@@ -93,6 +114,22 @@ final class PlaybackPreferencesNotifier
   @override
   Stream<PlaybackPreferences> build() =>
       ref.watch(playbackSettingsRepositoryProvider).watch().map(resolve);
+
+  /// 只寫「音質」；`null` 清回沒設定過（跟隨預設）。
+  Future<void> setAudioQuality(AudioQuality? quality) {
+    final repository = ref.read(playbackSettingsRepositoryProvider);
+    return quality == null
+        ? repository.clear(audioQuality: true)
+        : repository.write(audioQuality: quality);
+  }
+
+  /// 只寫「格式偏好」；`null` 清回沒設定過（跟隨預設）。
+  Future<void> setAudioFormatPriority(AudioFormatPriority? priority) {
+    final repository = ref.read(playbackSettingsRepositoryProvider);
+    return priority == null
+        ? repository.clear(audioFormatPriority: true)
+        : repository.write(audioFormatPriority: priority);
+  }
 
   /// 只寫「記住播放位置」；`null` 清回沒設定過（跟隨預設）。
   Future<void> setRememberPosition(bool? remember) {

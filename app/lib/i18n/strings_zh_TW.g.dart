@@ -322,6 +322,33 @@ class Translations$playback$zh_TW {
 
   // Translations
 
+  /// zh-TW: '音質'
+  String get audioQuality => '音質';
+
+  /// zh-TW: '適用於所有音源'
+  String get audioQualityHint => '適用於所有音源';
+
+  /// zh-TW: '高'
+  String get qualityHigh => '高';
+
+  /// zh-TW: '中'
+  String get qualityMedium => '中';
+
+  /// zh-TW: '低'
+  String get qualityLow => '低';
+
+  /// zh-TW: '格式偏好'
+  String get formatPriority => '格式偏好';
+
+  /// zh-TW: '音源同時提供兩種格式時先選哪一種'
+  String get formatPriorityHint => '音源同時提供兩種格式時先選哪一種';
+
+  /// zh-TW: 'Opus 優先'
+  String get formatOpusFirst => 'Opus 優先';
+
+  /// zh-TW: 'AAC 優先'
+  String get formatAacFirst => 'AAC 優先';
+
   /// zh-TW: '記住播放位置'
   String get rememberPosition => '記住播放位置';
 
@@ -341,7 +368,7 @@ class Translations$playback$zh_TW {
   String rewindSeconds({required Object seconds}) => '${seconds} 秒';
 
   /// zh-TW: '{label}（預設）'
-  String rewindDefault({required Object label}) => '${label}（預設）';
+  String optionDefault({required Object label}) => '${label}（預設）';
 
   /// zh-TW: '跳過試聽片段'
   String get skipPreviewClips => '跳過試聽片段';

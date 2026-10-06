@@ -52,10 +52,13 @@ const builtInKeyNames = <String>[
   'password',
 ];
 
-/// 已知媒體 CDN：串流網址裡的簽名、到期時間、使用者 IP 與 id。
+/// 已知媒體 CDN：串流網址裡的簽名、使用者 IP 與 id，以及（YouTube 的）到期時間。
 const builtInMediaCdns = <MediaCdn>[
   // Bilibili upos；`e` 是編碼過的簽名內容，`mid` 是使用者 id、`oi` 由 IP 算出，
   // `buvid` 是請求帶的裝置 id，`hdnts` 是 Akamai 鏡像的 token（`exp=…~hmac=…`）。
+  // `deadline`（到期的 unix 秒）不遮：它是公開的時間戳、不是憑證，網址少了
+  // `upsig` 照樣不能用；fixture 留著它，契約檢查才核對得了 `expiresAt`
+  // （`checks.json` 的 `expiresAtPattern`，design §10）。
   MediaCdn(host: 'bilivideo.com', signedQueryParameters: _bilibiliSigned),
   MediaCdn(host: 'bilivideo.cn', signedQueryParameters: _bilibiliSigned),
   MediaCdn(host: 'akamaized.net', signedQueryParameters: _bilibiliSigned),
@@ -89,7 +92,6 @@ const _bilibiliSigned = {
   'e',
   'upsig',
   'uparams',
-  'deadline',
   'trid',
   'mid',
   'oi',

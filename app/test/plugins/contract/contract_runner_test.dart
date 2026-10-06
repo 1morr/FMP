@@ -36,6 +36,32 @@ void resolveStreamSucceeds(Directory directory) {
   );
 }
 
+/// 讓 `fmp-test-http` 的 resolveStream 成功，網址帶期限參數 `expires`（unix
+/// 秒），候選的 `expiresAt` 取自回應的 [expiresAt]（毫秒；`null` 就不給），
+/// checks.json 以 `expiresAtPattern` 核對兩者。
+void expiringStream(Directory directory, {required int? expiresAt}) {
+  resolveStreamSucceeds(directory);
+  edit(
+    directory,
+    _script,
+    "codec: 'aac',",
+    "codec: 'aac', expiresAt: json.expiresAt ?? null,",
+  );
+  edit(
+    directory,
+    _streamFixture,
+    '"url": "https://media.fmp.test/a1.m4a" }',
+    '"url": "https://media.fmp.test/a1.m4a?expires=1790000000"'
+        '${expiresAt == null ? '' : ', "expiresAt": $expiresAt'} }',
+  );
+  edit(
+    directory,
+    _checks,
+    '"nonEmpty": ["url", "headers"] }',
+    r'"nonEmpty": ["url", "headers"] }, "expiresAtPattern": "[?&]expires=(\\d+)"',
+  );
+}
+
 /// 讓 `fmp-test-http` 的 search 把一個假的 demo_session 寫進 log 的欄位
 /// （manifest 追加的遮蔽鍵名）。
 void logDemoSession(Directory directory) {
@@ -109,6 +135,21 @@ void main() {
     test('when stream headers hold only media headers', () async {
       final directory = copyPlugin('http_test_plugin');
       resolveStreamSucceeds(directory);
+
+      expect(await runContract(directory), isEmpty);
+    });
+
+    test('when expiresAt agrees with the expiry in the URL', () async {
+      final directory = copyPlugin('http_test_plugin');
+      expiringStream(directory, expiresAt: 1790000000000);
+
+      expect(await runContract(directory), isEmpty);
+    });
+
+    test('when an unrelated part of the stream URL changes', () async {
+      final directory = copyPlugin('http_test_plugin');
+      expiringStream(directory, expiresAt: 1790000000000);
+      edit(directory, _streamFixture, '/a1.m4a?', '/b2.m4a?x=1&');
 
       expect(await runContract(directory), isEmpty);
     });
@@ -247,6 +288,44 @@ void main() {
           'resolveStream: expected Unavailable (copyright), but the call '
           'succeeded',
         ),
+      );
+    });
+
+    test('an expiresAt that disagrees with the URL', () async {
+      final directory = copyPlugin('http_test_plugin');
+      expiringStream(directory, expiresAt: 1790000001000);
+
+      expect(
+        await runContract(directory),
+        contains(
+          'resolveStream: candidate 0: expiresAt is 2026-09-21 '
+          '14:13:21.000Z, the URL says 2026-09-21 14:13:20.000Z',
+        ),
+      );
+    });
+
+    test('a missing expiresAt where the URL has one', () async {
+      final directory = copyPlugin('http_test_plugin');
+      expiringStream(directory, expiresAt: null);
+
+      expect(
+        await runContract(directory),
+        contains(
+          'resolveStream: candidate 0: expiresAt is null, the URL says '
+          '2026-09-21 14:13:20.000Z',
+        ),
+      );
+    });
+
+    test('an expiresAtPattern that no URL matches', () async {
+      // 例如 fixture 裡的期限參數被遮掉了：檢查什麼也沒核對到，不能算過。
+      final directory = copyPlugin('http_test_plugin');
+      expiringStream(directory, expiresAt: 1790000000000);
+      edit(directory, _streamFixture, '?expires=1790000000', '');
+
+      expect(
+        await runContract(directory),
+        contains('resolveStream: expiresAtPattern matched no candidate URL'),
       );
     });
 

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/plugins/source_dto.dart';
@@ -12,8 +13,8 @@ import 'package:fmp/plugins/source_plugin.dart';
 ///
 /// 解析結果放在記憶體網址快取（ADR 0016 §決定 5）：前瞻與播放共用同一份，
 /// 同一首在網址到期前不再問插件。
-/// - 鍵是曲目鍵（含分 P）加上送給插件的偏好，以及解析它的插件實例
-///   （[_CacheKey]）；
+/// - 鍵是曲目鍵（含分 P）加上送給插件的偏好（音質、依格式偏好排過的格式），
+///   以及解析它的插件實例（[_CacheKey]）；換了偏好就是另一個鍵，重新解析；
 /// - 最多 [capacity] 筆，淘汰最久沒用的；
 /// - 有效到第一個候選的 `expiresAt` 減 [ResolvedStream.expiryMargin]；沒有期限
 ///   的在解析後 [unknownExpiryLifetime] 內有效；
@@ -26,14 +27,9 @@ final class StreamResolver {
   StreamResolver({
     required this._plugin,
     required List<PlayableFormat> formats,
+    required this._preferences,
     required this._log,
-  }) : _formats = List.unmodifiable([
-         for (final format in formats)
-           StreamFormat(container: format.container, codec: format.codec),
-       ]),
-       _formatsKey = [
-         for (final format in formats) '${format.container}/${format.codec}',
-       ].join(',');
+  }) : _formats = List.unmodifiable(formats);
 
   /// 快取的筆數上限。
   static const capacity = 64;
@@ -46,11 +42,12 @@ final class StreamResolver {
   /// 以插件 id（曲目鍵的第一段）找插件；沒裝就是 `null`。
   final SourcePlugin? Function(String pluginId) _plugin;
 
-  /// 平台可播的格式（`PlaybackSupport.formats`），原樣交給插件挑候選。
-  final List<StreamFormat> _formats;
+  /// 平台可播的格式（`PlaybackSupport.formats`），依格式偏好重排後交給插件
+  /// 挑候選（[_orderFormats]）。
+  final List<PlayableFormat> _formats;
 
-  /// [_formats] 的順序，快取鍵的格式偏好。
-  final String _formatsKey;
+  /// 使用者目前的偏好，每次解析讀一次：改設定不必重建這個物件。
+  final StreamPreferences Function() _preferences;
 
   final Log _log;
 
@@ -65,7 +62,8 @@ final class StreamResolver {
     if (plugin == null) {
       return Future.error(Unsupported(pluginId: track.sourceTypeId));
     }
-    final key = (plugin: plugin, track: track, formats: _formatsKey);
+    final preferences = _preferences();
+    final key = (plugin: plugin, track: track, preferences: preferences);
     if (_cache.remove(key) case final cached?
         when clock.now().isBefore(cached.validUntil)) {
       // 重新放進去：成為最近用過的。
@@ -80,7 +78,7 @@ final class StreamResolver {
     _log.info('Resolving stream', tag: _tag, fields: {'track': '$track'});
     // whenComplete 至少晚一個微任務才跑，所以一定在登記之後才移除。回呼不能
     // 回傳 remove 的結果：那就是這個 Future 自己，會等自己而永遠不完成。
-    return _pending[key] = _fetch(plugin, track)
+    return _pending[key] = _fetch(plugin, track, preferences)
         .then((stream) => _remember(key, stream))
         .whenComplete(() {
           _pending.remove(key);
@@ -103,12 +101,20 @@ final class StreamResolver {
   Future<ResolvedStream> _fetch(
     SourcePlugin plugin,
     TrackKeyParts track,
+    StreamPreferences preferences,
   ) async {
     final result = await plugin.resolveStream(
       StreamRequest(
         sourceId: track.sourceId,
         cid: track.cid,
-        formats: _formats,
+        formats: [
+          for (final format in _orderFormats(
+            _formats,
+            preferences.formatPriority,
+          ))
+            StreamFormat(container: format.container, codec: format.codec),
+        ],
+        quality: preferences.quality,
       ),
     );
     return ResolvedStream(
@@ -140,16 +146,42 @@ final class StreamResolver {
   );
 }
 
-/// 快取鍵：曲目鍵（含分 P）＋送給插件的偏好。M2 PR 8 前偏好只有平台格式的
-/// 順序（固定），音質與使用者的格式偏好在 PR 8 加進來。
+/// 快取鍵：曲目鍵（含分 P）＋送給插件的偏好。平台的格式在 App 執行期間
+/// 不變，送出的格式順序由格式偏好決定，所以鍵裡放偏好就夠了。
 ///
 /// [plugin] 以實例比對：插件更新後是新的實例，舊實例的結果（以舊 manifest 的
 /// 網域檢查過）與還在進行的請求都不再給出，留在快取裡等 LRU 淘汰。
 typedef _CacheKey = ({
   SourcePlugin plugin,
   TrackKeyParts track,
-  String formats,
+  StreamPreferences preferences,
 });
+
+/// 依格式偏好重排平台的格式（design §7.4）：偏好裡的編碼依偏好的先後排到
+/// 最前面（同一編碼的多種容器維持平台的先後），其他的照平台的順序接在後面。
+/// 平台不能播的編碼不會被加進來。
+List<PlayableFormat> _orderFormats(
+  List<PlayableFormat> formats,
+  AudioFormatPriority priority,
+) {
+  final codecs = switch (priority) {
+    AudioFormatPriority.opusFirst => const ['opus', 'aac'],
+    AudioFormatPriority.aacFirst => const ['aac', 'opus'],
+  };
+  int rank(PlayableFormat format) => switch (codecs.indexOf(format.codec)) {
+    -1 => codecs.length,
+    final index => index,
+  };
+  // List.sort 不保證穩定：以原本的位置當第二個鍵。
+  final indexed = formats.indexed.toList()
+    ..sort(
+      (a, b) => switch (rank(a.$2).compareTo(rank(b.$2))) {
+        0 => a.$1.compareTo(b.$1),
+        final order => order,
+      },
+    );
+  return [for (final (_, format) in indexed) format];
+}
 
 final class _CachedStream {
   _CachedStream({required this.stream, required this.validUntil});

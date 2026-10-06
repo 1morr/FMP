@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/plugins/json_shape.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/runtime/script_errors.dart';
@@ -19,7 +20,11 @@ import 'package:fmp/plugins/source_plugin.dart';
 const checkShapes = <String, JsonShape>{
   'FmpChecks': {'search': false, 'resolveStream': false},
   'FmpSearchCheck': {'input': true, 'expect': true},
-  'FmpResolveStreamCheck': {'input': true, 'expect': true},
+  'FmpResolveStreamCheck': {
+    'input': true,
+    'expect': true,
+    'expiresAtPattern': false,
+  },
   'FmpExpectSuccess': {'minItems': false, 'nonEmpty': false},
   'FmpExpectError': {'error': true, 'reason': false},
 };
@@ -35,13 +40,32 @@ const _capabilities = {
 
 /// 一條檢查案例。
 final class PluginCheck {
-  const PluginCheck(this.capability, this.input, this.expectation);
+  const PluginCheck(
+    this.capability,
+    this.input,
+    this.expectation, {
+    this.expiresAtPattern,
+  });
 
   final PluginCapability capability;
 
   /// [SearchQuery] 或 [StreamRequest]。
   final Object input;
   final CheckExpectation expectation;
+
+  /// resolveStream：網址裡的期限（[expiresAtProblems]）。
+  final RegExp? expiresAtPattern;
+
+  /// 期望之外要核對的：[expiresAtPattern] 給了就逐一核對 [result] 的候選。
+  /// 回傳不符之處。
+  List<String> extraProblems(Object? result) =>
+      switch ((expiresAtPattern, result)) {
+        (final RegExp pattern, final StreamResult stream) => expiresAtProblems(
+          pattern,
+          stream.candidates,
+        ),
+        _ => const [],
+      };
 
   /// 以 [plugin] 執行這個案例。
   Future<Object> run(SourcePlugin plugin) => switch (input) {
@@ -82,14 +106,84 @@ PluginCheck _check(
   String item,
 ) {
   final path = fields.path;
+  final Object input;
   try {
-    return PluginCheck(capability, switch (capability) {
+    input = switch (capability) {
       PluginCapability.search => _searchQuery(fields.raw('input'), path),
       _ => _streamRequest(fields.raw('input'), path),
-    }, _expectation(fields.raw('expect'), '$path.expect', item));
+    };
   } on ArgumentError catch (error) {
     throw FormatException('$path.input: ${error.message}');
   }
+  final expectation = _expectation(fields.raw('expect'), '$path.expect', item);
+  final pattern = fields.optionalString('expiresAtPattern');
+  if (pattern != null && expectation is! ExpectSuccess) {
+    throw FormatException(
+      '$path.expiresAtPattern: only a successful expect has candidates',
+    );
+  }
+  return PluginCheck(
+    capability,
+    input,
+    expectation,
+    expiresAtPattern: pattern == null
+        ? null
+        : _expiresAtPattern(pattern, '$path.expiresAtPattern'),
+  );
+}
+
+/// 剛好一個擷取群組的正規式。
+RegExp _expiresAtPattern(String source, String path) {
+  final RegExp pattern;
+  try {
+    pattern = RegExp(source);
+  } on FormatException catch (error) {
+    throw FormatException('$path: not a regular expression (${error.message})');
+  }
+  // 加一個空的分支一定比對得到，才數得出群組數。
+  final groups = RegExp('$source|').firstMatch('')!.groupCount;
+  if (groups != 1) {
+    throw FormatException(
+      '$path: needs exactly one capture group, has $groups',
+    );
+  }
+  return pattern;
+}
+
+/// 每個網址對得上 [pattern] 的候選，`expiresAt` 都要等於擷取到的 unix 秒；
+/// 至少要有一個候選對得上，否則這條檢查什麼也沒核對到（例如 fixture 裡的
+/// 期限參數被遮掉了）。回傳不符之處。
+List<String> expiresAtProblems(
+  RegExp pattern,
+  List<StreamCandidate> candidates,
+) {
+  final problems = <String>[];
+  var checked = 0;
+  for (final (index, candidate) in candidates.indexed) {
+    final match = pattern.firstMatch(candidate.url.toString());
+    if (match == null) continue;
+    checked++;
+    final seconds = int.tryParse(match[1] ?? '');
+    // DateTime 的上限是 8.64e15 毫秒：超過的不是時間。
+    final expected = seconds == null || seconds > 8640000000000
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    if (expected == null) {
+      problems.add(
+        'candidate $index: expiresAtPattern captured "${match[1]}", '
+        'not unix seconds',
+      );
+    } else if (candidate.expiresAt?.isAtSameMomentAs(expected) != true) {
+      problems.add(
+        'candidate $index: expiresAt is ${candidate.expiresAt?.toUtc()}, '
+        'the URL says $expected',
+      );
+    }
+  }
+  if (checked == 0) {
+    problems.add('expiresAtPattern matched no candidate URL');
+  }
+  return problems;
 }
 
 SearchQuery _searchQuery(Object? json, String path) {
@@ -111,6 +205,7 @@ StreamRequest _streamRequest(Object? json, String path) {
     path: '$path.input',
   );
   final purpose = fields.string('purpose');
+  final quality = fields.optionalString('quality');
   return StreamRequest(
     sourceId: fields.string('sourceId'),
     cid: fields.optionalInteger('cid'),
@@ -123,6 +218,14 @@ StreamRequest _streamRequest(Object? json, String path) {
       for (final (index, format) in fields.list('formats').indexed)
         _streamFormat(format, '$path.input.formats[$index]'),
     ],
+    quality: quality == null
+        ? null
+        : AudioQuality.values.firstWhere(
+            (value) => audioQualityWireName(value) == quality,
+            orElse: () => throw FormatException(
+              '$path.input.quality: unknown "$quality"',
+            ),
+          ),
   );
 }
 

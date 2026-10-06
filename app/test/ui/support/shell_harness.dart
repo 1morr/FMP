@@ -11,6 +11,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/data/cache/cache_store.dart';
@@ -73,12 +74,14 @@ final class ShellHarness {
         resolver: StreamResolver(
           plugin: (id) => id == plugin.manifest.id ? plugin : null,
           formats: const [PlayableFormat('mp4', 'aac')],
+          preferences: () => _readStreamPreferences(),
           log: log,
         ),
         log: log,
       ),
       log: log,
-      // 和 App 的組裝點一樣讀「播放」設定（記憶體資料庫裡的值）與網路狀態。
+      // 和 App 的組裝點一樣讀「播放」設定（記憶體資料庫裡的值）與網路狀態；
+      // 解析時的偏好也是（見 resolver 的 preferences）。
       temporaryReturnSettings: () => _readReturnSettings(),
       skipPreviewClips: () => _readSkipPreviewClips(),
       networkStatus: () => _readNetworkStatus(),
@@ -109,6 +112,7 @@ final class ShellHarness {
   /// 由 [overrides] 的 `playbackControllerProvider` 接上 provider。
   late TemporaryReturnSettings Function() _readReturnSettings;
   late bool Function() _readSkipPreviewClips;
+  late StreamPreferences Function() _readStreamPreferences;
   late NetworkStatus Function() _readNetworkStatus;
   final _networkChanges = StreamController<NetworkStatus>.broadcast();
   final interfaces = FakeNetworkInterfaces();
@@ -141,11 +145,13 @@ final class ShellHarness {
     playbackControllerProvider.overrideWith((ref) {
       ref.listen(temporaryReturnSettingsProvider, (_, _) {});
       ref.listen(skipPreviewClipsProvider, (_, _) {});
+      ref.listen(streamPreferencesProvider, (_, _) {});
       ref.listen(networkStatusProvider, (_, status) {
         _networkChanges.add(status);
       });
       _readReturnSettings = () => ref.read(temporaryReturnSettingsProvider);
       _readSkipPreviewClips = () => ref.read(skipPreviewClipsProvider);
+      _readStreamPreferences = () => ref.read(streamPreferencesProvider);
       _readNetworkStatus = () => ref.read(networkStatusProvider);
       ref.onDispose(() {
         unawaited(controller.dispose());

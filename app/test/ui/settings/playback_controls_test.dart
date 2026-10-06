@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -43,7 +44,12 @@ void main() {
 
     expect(tester.widget<SwitchListTile>(remember).value, isTrue);
     expect(tester.widget<SwitchListTile>(skipPreviews).value, isTrue);
-    expect(find.byType(ChoiceChip), findsNWidgets(6));
+    expect(find.byType(ChoiceChip), findsNWidgets(3 + 2 + 6));
+    expect(chip(tester, 'High (default)').selected, isTrue);
+    expect(chip(tester, 'Medium').selected, isFalse);
+    expect(chip(tester, 'Low').selected, isFalse);
+    expect(chip(tester, 'Opus first (default)').selected, isTrue);
+    expect(chip(tester, 'AAC first').selected, isFalse);
     expect(chip(tester, '10 s (default)').selected, isTrue);
     for (final other in ['No rewind', '3 s', '5 s', '15 s', '30 s']) {
       expect(chip(tester, other).selected, isFalse);
@@ -83,6 +89,33 @@ void main() {
     expect(tester.widget<SwitchListTile>(skipPreviews).value, isFalse);
   });
 
+  testWidgets('choosing a quality or a format writes only that field', (
+    tester,
+  ) async {
+    final h = await openPlayback(tester);
+
+    await tester.tap(find.text('Low'));
+    await h.loadSettings(tester);
+    expect(
+      await stored(tester, h),
+      const PlaybackSettings(audioQuality: AudioQuality.low),
+    );
+    expect(chip(tester, 'Low').selected, isTrue);
+    expect(find.text('High'), findsOneWidget, reason: 'no longer the default');
+
+    await tester.tap(find.text('AAC first'));
+    await h.loadSettings(tester);
+    expect(
+      await stored(tester, h),
+      const PlaybackSettings(
+        audioQuality: AudioQuality.low,
+        audioFormatPriority: AudioFormatPriority.aacFirst,
+      ),
+    );
+    expect(chip(tester, 'AAC first').selected, isTrue);
+    expect(chip(tester, 'Opus first').selected, isFalse);
+  });
+
   testWidgets('the rewind is disabled while the position is not remembered', (
     tester,
   ) async {
@@ -111,6 +144,28 @@ void main() {
         tester.getCenter(find.widgetWithText(ListTile, title)).dy,
     ];
     expect(groups, orderedEquals([...groups]..sort()));
+  });
+
+  testWidgets('a quality and a format chosen here go to the plugin', (
+    tester,
+  ) async {
+    final h = ShellHarness();
+    await h.pumpShell(tester);
+    await tester.tap(find.text('Settings').first);
+    await h.loadSettings(tester);
+    await tester.tap(find.text('Playback'));
+    await h.loadSettings(tester);
+    await tester.tap(find.text('Low'));
+    await h.loadSettings(tester);
+    await tester.tap(find.text('AAC first'));
+    await h.loadSettings(tester);
+
+    await h.play(tester, [summary('a')]);
+
+    final request = h.plugin.requests.single;
+    expect(request.toJson()['quality'], 'low');
+    // ShellHarness 的平台只有 mp4/aac：格式偏好不會加進平台沒有的編碼。
+    expect([for (final f in request.formats) f.codec], ['aac']);
   });
 
   testWidgets('a rewind chosen here is used when a temporary play ends', (

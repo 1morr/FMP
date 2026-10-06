@@ -320,8 +320,8 @@ void _writeFixtures(Directory target, List<HttpFixture> fixtures) {
 }
 
 /// 載入插件、執行 [check]，檢查：錯誤都是 `AppError`、案例的期望（DTO 驗證
-/// 失敗是 `ParseError`，期望成功時就不符）、沒有試著連清單外的網域、串流
-/// headers 不帶憑證、log 都遮蔽過。[matched]：結果符合案例的期望。
+/// 失敗是 `ParseError`，期望成功時就不符；`expiresAtPattern` 也算期望）、沒有
+/// 試著連清單外的網域、串流 headers 不帶憑證、log 都遮蔽過。[matched]：結果符合案例的期望。
 Future<({List<String> problems, bool matched})> _execute(
   PluginDirectory plugin,
   PluginCheck check,
@@ -380,11 +380,14 @@ Future<({List<String> problems, bool matched})> _executeLoaded(
   }
   // 沒丟 AppError 以外的東西、沒試著出網域，才比對期望。
   final mismatches = problems.isEmpty
-      ? check.expectation.evaluate(
-          result: result,
-          error: error,
-          describe: describe,
-        )
+      ? [
+          ...check.expectation.evaluate(
+            result: result,
+            error: error,
+            describe: describe,
+          ),
+          ...check.extraProblems(result),
+        ]
       : null;
   problems.addAll([
     for (final problem in mismatches ?? const <String>[]) '$name: $problem',

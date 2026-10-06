@@ -329,6 +329,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `main()` 在解析資料目錄之後才接上，之前的錯誤走 Flutter 預設處理。閘門：
   `test/core/logging/uncaught_errors_test.dart`（預期內的 `AppError` 未捕捉仍是 `error`，
   原因經遮蔽寫出）。
+- 媒體 CDN 的名單刻意不遮 B 站的 `deadline`（到期的 unix 秒，公開的時間戳、不是憑證）：簽名
+  與帶身分的參數（`e`、`upsig`、`uparams`、`mid`、`oi`、`trid`、`buvid`、`hdnts`）照樣拿掉，
+  網址仍然不能用；fixture 留著期限，契約的 `expiresAtPattern` 才核對得了 `expiresAt`（見
+  「插件」）。閘門：`redactor_test.dart` 的 `strips signed parameters and keeps the others`
+  （`deadline` 留著、其他參數拿掉，含 Akamai 的 `hdnts=exp=…~hmac=…`）。
 - 保留期限（`LogFile.deleteExpired`）：輪替出來的 `fmp.N.jsonl` 最後修改超過 7 天
   就刪，目前寫入的 `fmp.jsonl` 不動，與大小輪替並存，不做設定項。只動 `logs/` 這一層
   符合檔名的檔案。排在 `LogFile` 的寫入佇列裡，不和輪替的改名交錯；失敗交給呼叫端，
@@ -548,6 +553,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   類別與 `Unavailable` 原因）、沒試著連清單外的網域、串流 headers 不帶憑證、log 與 fixture 都遮蔽
   過。閘門：`test/plugins/contract/contract_runner_test.dart`（每種違反一個會紅的變異，另有改無關
   處不紅的案例）、`checks_test.dart`。
+- `resolveStream` 的案例可帶 `expiresAtPattern`（ADR 0016 §如何確認）：剛好一個擷取群組、擷取
+  unix 秒的正規式，只能配成功的期望。網址對得上的候選，`expiresAt` 必須等於擷取到的時間；一個都
+  對不上也算違反（期限參數被遮掉時檢查不會默默恆真）。它也算期望，不符時錄製不寫檔。閘門：
+  `contract_runner_test.dart` 的 `when expiresAt agrees…`、`when an unrelated part of the stream URL
+  changes`、`an expiresAt that disagrees…`、`a missing expiresAt…`、`an expiresAtPattern that no URL
+  matches`；`checks_test.dart` 的群組數、錯誤期望、非正規式。
+- `StreamRequest.quality`（`high`／`medium`／`low`，選填）與依格式偏好排過的 `formats` 是插件 API
+  v1 內的擴充（ADR 0014 §決定 5 的補充）：宿主一律送 `quality`，插件沒給時自己決定。字面值由
+  `audioQualityWireName` 寫死。閘門：`type_definitions_test.dart` 的 `the audio qualities match
+  AudioQuality`、`stream_resolver_test.dart` 的 `each quality goes to the plugin by its wire name`。
 - 重播：第 n 個請求對第 n 個 fixture，比 method 與網址（實際網址先經 `Redactor`；query 不分順序；
   fixture 裡值為 `***` 的 query 參數與路徑段不比值）。對不上或用完就讓那次請求失敗、不送出；沒用
   到的 fixture 也算違反。header 與 body 不比。閘門：`contract_runner_test.dart`、
@@ -656,9 +671,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `temporary`。閘門：`loop one` 群組（兩圈只有一次 `Resolving stream`、快過期時重新解析、
   臨時播放中仍回到快照）、`playback_event_router_test.dart` 的 `completed under loop one…`。
 - 網址快取（ADR 0016 §決定 5）在 `StreamResolver` 內、只在記憶體，前瞻與播放都經它：
-  - 鍵是曲目鍵（含分 P）加上送給插件的偏好（M2 PR 8 前只有平台格式的順序）；最多 64 筆，
-    淘汰最久沒用的。閘門：`stream_resolver_test.dart` 的 `the key is the whole track
-    key…`、`keeps the 64 most recently used streams`。
+  - 鍵是曲目鍵（含分 P）加上送給插件的偏好（音質、格式偏好）；最多 64 筆，淘汰最久沒用的。
+    閘門：`stream_resolver_test.dart` 的 `the key is the whole track key…`、`keeps the 64 most
+    recently used streams`。
+  - 偏好在每次解析時經 `streamPreferencesProvider` 讀一次（組裝點訂閱它，改設定不重建控制器）：
+    換了偏好就是另一個鍵、重新解析，換回來時舊的那筆還有效就照用。音質原樣送給插件；格式偏好
+    把那兩個編碼依偏好排到最前面，其他格式照平台的順序接在後面，平台不能播的編碼不加。已經準備
+    好的前瞻不因改偏好而重新解析：下一首可能還是舊的偏好，沒有閘門，已知限制。閘門：
+    `stream_resolver_test.dart` 的 `preferences` 群組、`playback_controller_test.dart` 的 `after
+    the quality changes the track is resolved again with it`、`playback_controls_test.dart` 的 `a
+    quality and a format chosen here go to the plugin`（經 `ShellHarness` 的接線；組裝點
+    `playback_providers.dart` 那幾行沒有閘門，review 時看）。
   - 鍵也含解析它的插件實例：插件更新後是新的實例，舊實例的結果（以舊 manifest 的網域檢查
     過）與還在進行的請求都不給新的呼叫。閘門：`stream_resolver_test.dart` 的 `a replaced
     plugin is asked again…`。
@@ -794,12 +817,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `stored format`）。
 - 「播放」組（`playback_settings`）的整張表在 M2 PR 10 一次建好（design §3.3 的十個欄位，
   schema v3），repository 的 `write`／`clear` 涵蓋全部欄位；Notifier（`playbackPreferencesProvider`）
-  與設定頁只有已經有人用的欄位：記住播放位置（預設開）、臨時播放回佇列倒退秒數（預設 10，
-  選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見「播放」）。其他欄位的 setter 與設定列
-  跟著用到它的 PR 加。音質、格式偏好的列舉存 `high`／`medium`／`low`、`opus,aac`／`aac,opus`
-  （後者與舊版字面相同）。閘門：`test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
+  與設定頁只有已經有人用的欄位：音質（預設高，選項高／中／低）、格式偏好（預設 Opus 優先，
+  選項 Opus 優先／AAC 優先，兩者照舊版的預設，見「播放」的網址快取）、記住播放位置（預設開）、
+  臨時播放回佇列倒退秒數（預設 10，選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見
+  「播放」）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好的列舉存
+  `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
+  `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
   （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
-  的 v2→v3 兩例。
+  的 v2→v3 兩例、`test/ui/settings/playback_controls_test.dart`。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
   存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
   `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、

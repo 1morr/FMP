@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 7.4 quality and format preferences, 10 fmp-plugins changes and expiresAtPattern and deadline redaction, 3.3 playback_settings fields, 12 decisions 4 and 5"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Plugin API v1 compatibility, optional request fields, decision 5"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Contract runner, checks.json, fixtures and recording"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "expiresAt contract and how to verify"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "Real network only with minimal operations; recording fixtures"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "DTO shapes, d.ts, contract runner, fixtures, redaction"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "StreamResolver cache key and resolve requests"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Playback settings setters and settings page rows"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Redaction lists and redaction rules"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Contract and fixture scan tests"}

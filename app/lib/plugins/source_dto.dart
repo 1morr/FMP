@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/core/network/allowed_hosts.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/json_shape.dart';
 
@@ -32,6 +33,7 @@ const sourceDtoShapes = <String, JsonShape>{
     'cid': false,
     'purpose': true,
     'formats': true,
+    'quality': false,
   },
   'StreamFormat': {'container': true, 'codec': true},
   'StreamResult': {'candidates': true, 'previewOnly': false},
@@ -223,6 +225,13 @@ final class StreamFormat {
   Map<String, Object?> toJson() => {'container': container, 'codec': codec};
 }
 
+/// [AudioQuality] 在插件介面上的名稱（`fmp-plugin.d.ts` 的 `FmpAudioQuality`）。
+String audioQualityWireName(AudioQuality quality) => switch (quality) {
+  AudioQuality.high => 'high',
+  AudioQuality.medium => 'medium',
+  AudioQuality.low => 'low',
+};
+
 /// `resolveStream` 的輸入。
 @immutable
 final class StreamRequest {
@@ -231,6 +240,7 @@ final class StreamRequest {
     this.cid,
     required this.formats,
     this.purpose = StreamPurpose.playback,
+    this.quality,
   }) {
     if (sourceId.isEmpty || sourceId.contains(':')) {
       throw ArgumentError.value(sourceId, 'sourceId', 'empty or contains ":"');
@@ -244,14 +254,20 @@ final class StreamRequest {
   final String sourceId;
   final int? cid;
 
+  /// 平台能播的格式，依使用者的格式偏好排過（ADR 0018 §決定 6、design §7.4）。
   final List<StreamFormat> formats;
   final StreamPurpose purpose;
+
+  /// 使用者的音質偏好；插件依它挑串流，沒給時由插件決定（插件 API v1 的選填
+  /// 欄位，ADR 0014 §決定 5 的補充）。
+  final AudioQuality? quality;
 
   Map<String, Object?> toJson() => {
     'sourceId': sourceId,
     'cid': ?cid,
     'purpose': purpose.wireName,
     'formats': [for (final format in formats) format.toJson()],
+    if (quality case final quality?) 'quality': audioQualityWireName(quality),
   };
 }
 

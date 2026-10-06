@@ -66,8 +66,9 @@ export async function search({ keyword, page }) {
   };
 }
 
-export async function resolveStream({ sourceId, cid, formats }) {
-  // 依 formats 挑平台能播的；找不到就拋 NotFound 或 Unavailable，不回空清單。
+export async function resolveStream({ sourceId, cid, formats, quality }) {
+  // 依 formats 挑平台能播的（順序已依使用者的格式偏好排過）、依 quality 挑碼率；
+  // 找不到就拋 NotFound 或 Unavailable，不回空清單。
   return { candidates: [{ url: 'https://cdn.example.com/a.m4a', container: 'mp4', codec: 'aac' }] };
 }
 ```
@@ -76,6 +77,9 @@ export async function resolveStream({ sourceId, cid, formats }) {
 - 能力名稱＝匯出函式名稱。其他匯出（常數、helper）不影響。
 - 狀態碼與業務錯誤碼在插件裡轉成結構化錯誤（`.trellis/spec/app/errors/index.md` § 音源的錯誤
   對應表）；`fmp.http.request` 自己丟的錯誤（網域不符、限流重試後仍失敗、傳輸錯誤）直接讓它往上拋。
+- `quality`（`high`／`medium`／`low`）是使用者的音質偏好：選中的那一個放第一個候選，其他的排在後面
+  當備援（B 站：依頻寬排，`medium` 取中間；備援先往下降，沒有更低的才往上）；沒給時自己決定。`formats` 的先後就是使用者的格式偏好，
+  同一首有多種格式時照它排候選。
 - 候選只有試聽片段（非會員之類）時回 `{ candidates: [...], previewOnly: true }`：宿主依使用者的
   「跳過試聽片段」跳過或照播並標「試聽」。連試聽都沒有就拋
   `{ fmpError: 'Unavailable', reason: 'previewOnly' }`。
@@ -112,10 +116,17 @@ export async function resolveStream({ sourceId, cid, formats }) {
 }
 ```
 
+- 網址自己帶期限的音源，在成功的 `resolveStream` 案例加 `"expiresAtPattern"`（一個擷取群組，擷取
+  unix 秒；B 站是 `[?&](?:deadline=|hdnts=exp=)(\d+)`，JSON 裡反斜線要寫兩次）。執行器核對每個
+  網址對得上的候選，`expiresAt` 要等於那個時間，而且至少要有一個候選對得上。期限參數被遮蔽名單
+  拿掉的話這條會紅：先確認遮蔽名單（`redaction_lists.dart`）沒有遮它。
 - 成功的案例盡量用錄的：`FMP_PLUGIN_DIR=<絕對路徑> flutter test --run-skipped --tags live
   test/plugins/contract/record_test.dart`（`app/` 內；真實連線，照 ADR 0027 §決定 2 回報）。
   那個能力原本的 fixture 整組重寫，但只在結果符合 `expect` 時寫（不符就不動原本的檔案並回報）；
   需要登入的案例錄不了（M1 沒有憑證，會以 `AuthRequired` 失敗）。
+- 只重錄一個能力（錄製會跑 checks.json 的每一條）：把插件目錄複製到暫存處，在副本的
+  checks.json 與 `fixtures/` 拿掉其他能力再錄，錄完只把那個能力的 `fixtures/<能力>/` 複製回來，
+  再對原目錄重播一次。
 - 錯誤案例（風控、下架）多半錄不到：手寫或把錄到的改掉，在 `meta.edited` 寫理由，錄製就不會蓋掉
   那個案例。手寫的 fixture 也要是遮過的樣子（值寫 `***`），掃描不會放過。
 - 會變的 query 參數（時間戳、簽名）在 fixture 裡寫 `***` 就不比值；鍵名名單上的參數錄的時候

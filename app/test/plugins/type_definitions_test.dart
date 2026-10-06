@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/plugins/json_shape.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/runtime/plugin_host.dart';
@@ -201,6 +202,20 @@ export function shape() {
         name,
       );
     }
+  });
+
+  test('the audio qualities match AudioQuality', () {
+    expect(_union(_dts, 'FmpAudioQuality'), {
+      for (final quality in AudioQuality.values) audioQualityWireName(quality),
+    });
+    // 變異：少一個值就對不上。
+    expect(
+      _union(_dts.replaceFirst(" | 'low'", ''), 'FmpAudioQuality'),
+      isNot({
+        for (final quality in AudioQuality.values)
+          audioQualityWireName(quality),
+      }),
+    );
   });
 
   test('the Unavailable reasons match UnavailableReason', () {
