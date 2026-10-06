@@ -31,7 +31,8 @@
     "10-06-backend-contract",
     "10-06-recovery-policy",
     "10-06-stream-quality",
-    "10-07-volume-speed-device"
+    "10-07-volume-speed-device",
+    "10-07-queue-persistence"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

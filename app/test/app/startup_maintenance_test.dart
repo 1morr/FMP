@@ -11,7 +11,11 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
@@ -110,9 +114,12 @@ void main() {
       addTearDown(() => temp.delete(recursive: true));
     });
 
-    Future<void> runDefault(Log log) {
+    Future<void> runDefault(Log log, {AppDatabase? database}) {
       final container = ProviderContainer(
-        overrides: [logProvider.overrideWithValue(log)],
+        overrides: [
+          logProvider.overrideWithValue(log),
+          appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
+        ],
       );
       addTearDown(container.dispose);
       return runStartupMaintenance(
@@ -138,10 +145,15 @@ void main() {
       final records = maintenance(log).toList();
       expect(
         [for (final r in records) r.message],
-        ['Deleted expired log files', 'Startup maintenance task finished'],
+        [
+          'Deleted expired log files',
+          'Startup maintenance task finished',
+          'Deleted orphan tracks',
+          'Startup maintenance task finished',
+        ],
       );
       expect(records.first.fields, {'count': 1});
-      expect(records.last.fields, {'id': 'log-retention', 'outcome': 'ok'});
+      expect(records[1].fields, {'id': 'log-retention', 'outcome': 'ok'});
     });
 
     test('log-retention has nothing to do without a log file', () async {
@@ -149,10 +161,69 @@ void main() {
 
       await runDefault(log);
 
-      expect(maintenance(log).single.fields, {
-        'id': 'log-retention',
-        'outcome': 'ok',
-      });
+      expect(
+        [
+          for (final r in maintenance(log))
+            if (r.message == 'Startup maintenance task finished') r.fields,
+        ],
+        [
+          {'id': 'log-retention', 'outcome': 'ok'},
+          {'id': 'orphan-tracks', 'outcome': 'ok'},
+        ],
+      );
+    });
+
+    test('orphan-tracks deletes only the tracks nothing refers to', () async {
+      final database = memoryDatabase();
+      final repository = QueueRepository(database);
+      TrackInfo track(String id) =>
+          TrackInfo(sourceTypeId: 'fmp-test', sourceId: id, title: id);
+      await repository.write(
+        edit: QueueRangeEdit(
+          from: 0,
+          removed: 0,
+          inserted: [track('kept'), track('orphan')],
+        ),
+        player: const PlayerState(
+          currentPosition: 0,
+          position: Duration.zero,
+          loopMode: LoopMode.off,
+          shuffleEnabled: false,
+          volume: 1,
+          muted: false,
+        ),
+      );
+      await repository.write(
+        edit: const QueueRangeEdit(from: 1, removed: 1, inserted: []),
+        player: const PlayerState(
+          currentPosition: 0,
+          position: Duration.zero,
+          loopMode: LoopMode.off,
+          shuffleEnabled: false,
+          volume: 1,
+          muted: false,
+        ),
+      );
+      final log = newLog();
+
+      await runDefault(log, database: database);
+
+      expect(
+        [
+          for (final row
+              in await database
+                  .customSelect('SELECT track_key FROM tracks')
+                  .get())
+            row.read<String>('track_key'),
+        ],
+        ['fmp-test:kept'],
+      );
+      expect(
+        maintenance(log)
+            .firstWhere((r) => r.message == 'Deleted orphan tracks')
+            .fields,
+        {'count': 1},
+      );
     });
   });
 }

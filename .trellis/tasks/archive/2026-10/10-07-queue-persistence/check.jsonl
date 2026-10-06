@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 3.1 tracks table, 3.2 new tables and repository rules, 7.7 persistence and restore, 3.3 restart_rewind_seconds, 6 startup maintenance, 7.6 mute and volume decision, 12 decisions 1 and 6"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decision 10: persisted player state and restore"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Drift tables, TrackKey, migrations"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "tracks table ownership; one-line correction if design lists it"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Migration workflow, repositories, seeded invariant tests"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Controller, QueueModel, temporary play snapshot"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Playback settings setters and rows"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Startup maintenance logging"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Seeded random tests, fake clock, lifecycle tests"}

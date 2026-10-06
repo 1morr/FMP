@@ -91,6 +91,27 @@ https://drift.simonbinder.eu/migrations/tests/。
 Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比對會說「v<N> 已存在而且
 不同」：先把那個快照轉成 LF（`sed -i 's/\r$//' <快照>`）再跑；內容沒變，git 不會顯示差異。
 
+## 佇列與曲目（`queue_repository.dart`、`tracks_repository.dart`）
+
+規則與閘門見 `app/AGENTS.md` § 資料層；欄位與理由見 design §3.1、§3.2。
+
+- `QueueRepository.write` 是唯一的寫入口，一個 transaction 裡依序：套用 `QueueRangeEdit`（把位置
+  `[from, from + removed)` 換成 `inserted`，其後平移）、改隨機名次、寫 `player_state`。插入、移除、移動、
+  整份取代都寫成一個 range 編輯；誰算前後綴相同的列（`QueueStore.commonEnds`）在播放層，repository 只做
+  「換掉一段」。
+- 平移用兩個 `UPDATE`：先把受影響的列設成 `-(position + delta) - 1`，再設成 `-position - 1`。SQLite 逐列
+  檢查主鍵，直接 `position = position + 1` 會在中途撞到下一列。
+- 寫曲目一律 `TracksRepository.upsert`（`ON CONFLICT DO UPDATE`）；被佇列參照的列用 REPLACE 會因為
+  `RESTRICT` 失敗。同一個曲目鍵在同一批裡出現多次時，最後一份的顯示資料留下。
+- 孤兒清理的查詢（`deleteOrphans`）是各參照者的 `NOT IN` 子查詢；加一張參照 `tracks` 的表時，同一個
+  PR 把它加進去，並在 `queue_repository_test.dart` 的 `only unreferenced tracks are orphans` 加一個
+  被它參照的案例。`queue_entries.track_key` 有索引（`queue_entries_track_key`）：`RESTRICT` 的檢查在刪每一列曲目時
+  要查佇列，沒有索引就是每列掃一次。一萬首佇列加一萬個孤兒（清空一份大佇列之後）：沒有索引約 9.3 秒，
+  有索引約 14 ms。之後參照 `tracks` 的表（播放歷史、歌單項目、下載紀錄）同理，加表時也要替它的
+  `track_key` 建索引。
+- 測試：差量編輯以固定種子的隨機序列比對一個 `List`（`a seeded run of random edits…`）；
+  一萬首整份取代的耗時（目前約 150–230 ms）印在測試輸出，超過 500 ms 要在 PR 描述說明。
+
 ## 快取庫（`lib/data/cache/`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的「快取庫」；為什麼這樣做，見 ADR 0016 §決定 1–4。

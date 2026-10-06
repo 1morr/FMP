@@ -9,8 +9,8 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 設定頁的「播放」組（design §3.3、§9.8）：音質、格式偏好、記住播放位置、
-/// 臨時播放回佇列倒退秒數、跳過試聽片段（design §3.3 的順序）。其他欄位的那一列
-/// 跟著用到它的 PR 加。
+/// 臨時播放回佇列倒退秒數、跳過試聽片段、重啟恢復倒退秒數（design §3.3 的順序）。
+/// 其他欄位的那一列跟著用到它的 PR 加。
 class PlaybackControls extends ConsumerWidget {
   const PlaybackControls({super.key});
 
@@ -22,15 +22,35 @@ class PlaybackControls extends ConsumerWidget {
     final notifier = ref.read(playbackPreferencesProvider.notifier);
     final spacing = AppTokens.of(context).spacing;
     final theme = Theme.of(context);
-    final rewindDefault = preferences.stored.tempPlayRewindSeconds == null
-        ? preferences.tempPlayRewindSeconds
-        : null;
-    String rewindLabel(int seconds) {
-      final label = seconds == 0
-          ? t.rewindNone
-          : t.rewindSeconds(seconds: seconds);
-      return seconds == rewindDefault ? t.optionDefault(label: label) : label;
-    }
+    // 倒退秒數的選項：沒設定過時，生效的那一個標「（預設）」。倒退只在記住播放
+    // 位置時有作用（沒記住就從頭開始），關著時停用，選了什麼照樣留著（舊版只在
+    // 開著時才給設定）。
+    Widget rewindOptions({
+      required int current,
+      required bool isUnset,
+      required List<int> options,
+      required ValueChanged<int> onSelected,
+    }) => Wrap(
+      spacing: spacing.x2,
+      runSpacing: spacing.x2,
+      children: [
+        for (final seconds in {...options, current}.toList()..sort())
+          ChoiceChip(
+            label: Text(() {
+              final label = seconds == 0
+                  ? t.rewindNone
+                  : t.rewindSeconds(seconds: seconds);
+              return isUnset && seconds == current
+                  ? t.optionDefault(label: label)
+                  : label;
+            }()),
+            selected: seconds == current,
+            onSelected: preferences.rememberPosition
+                ? (_) => onSelected(seconds)
+                : null,
+          ),
+      ],
+    );
 
     // 沒設定過時，生效的那一個標「（預設）」（同倒退秒數與快取上限）。
     String defaultLabel(String label, {required bool isDefault}) =>
@@ -116,25 +136,12 @@ class PlaybackControls extends ConsumerWidget {
         ),
         SizedBox(height: spacing.x4),
         heading(t.tempPlayRewind, t.tempPlayRewindHint),
-        // 倒退只在記住播放位置時有作用（沒記住就從頭開始），關著時停用，選了
-        // 什麼照樣留著（舊版只在開著時才給設定）。
-        Wrap(
-          spacing: spacing.x2,
-          runSpacing: spacing.x2,
-          children: [
-            for (final seconds in {
-              ...tempPlayRewindOptionsSeconds,
-              preferences.tempPlayRewindSeconds,
-            }.toList()..sort())
-              ChoiceChip(
-                label: Text(rewindLabel(seconds)),
-                selected: seconds == preferences.tempPlayRewindSeconds,
-                onSelected: preferences.rememberPosition
-                    ? (_) =>
-                          unawaited(notifier.setTempPlayRewindSeconds(seconds))
-                    : null,
-              ),
-          ],
+        rewindOptions(
+          current: preferences.tempPlayRewindSeconds,
+          isUnset: preferences.stored.tempPlayRewindSeconds == null,
+          options: tempPlayRewindOptionsSeconds,
+          onSelected: (seconds) =>
+              unawaited(notifier.setTempPlayRewindSeconds(seconds)),
         ),
         SizedBox(height: spacing.x4),
         SwitchListTile(
@@ -143,6 +150,15 @@ class PlaybackControls extends ConsumerWidget {
           subtitle: Text(t.skipPreviewClipsHint),
           value: preferences.skipPreviewClips,
           onChanged: (skip) => unawaited(notifier.setSkipPreviewClips(skip)),
+        ),
+        SizedBox(height: spacing.x4),
+        heading(t.restartRewind, t.restartRewindHint),
+        rewindOptions(
+          current: preferences.restartRewindSeconds,
+          isUnset: preferences.stored.restartRewindSeconds == null,
+          options: restartRewindOptionsSeconds,
+          onSelected: (seconds) =>
+              unawaited(notifier.setRestartRewindSeconds(seconds)),
         ),
       ],
     );

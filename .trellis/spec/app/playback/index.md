@@ -13,7 +13,8 @@ lib/playback/
   playback_event_router.dart # SessionEvent（SourceEvent 與輸出事件）、routePlaybackEvent（純函數）與它的動作
   playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull、TrackSkipped、PlaybackStopped、PreviewPlaying、OutputDeviceFailed）
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
-  queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限）
+  queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限、restore）
+  queue_store.dart          # QueueStore：佇列與播放狀態的持久化、啟動恢復（聽控制器的 stream，不改它的狀態）
   stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限、previewOnly）
   recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別、各個常數（純函數）
   playback_providers.dart   # audioBackendProvider、playbackControllerProvider、temporaryReturnSettingsProvider、
@@ -115,6 +116,30 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
 - mpv 的 log 新格式先錄一行再加進 `isOutputDeviceFailure`：暫時在 `integration_test/` 寫一個檔
   直接用 media_kit 記每一行（`MPVLogLevel.warn`），選一個不存在的 `wasapi/{…}` 裝置就能重現，
   跑完刪掉。
+
+## 持久化與啟動恢復
+
+規則與閘門見 `app/AGENTS.md` § 播放的「持久化與啟動恢復」。
+
+- `QueueStore` 在組裝點（`playbackControllerProvider`）與控制器同時建立並 `attach`；它只聽控制器的輸出
+  （`queueStates`、`states`、`seeks`、`volumeChanges`）與生命週期，要它存什麼新東西時，先讓控制器發出
+  對應的 stream，不從 store 去讀控制器的私有狀態。想要存的值（佇列、位置、音量）放在 store 的「想要的」欄位，
+  每次寫入以它與「資料庫已有的」之差算 `QueueRangeEdit`；寫成功才更新後者。
+- 新的存檔時機：在 store 加一個觸發，改「想要的」欄位後呼叫 `_schedule()`，不直接寫；位置只有在有來源的
+  狀態才取控制器的位置（`_checkpoint`），`Idle`、`Failed`、臨時播放時不動。在 `queue_store_test.dart` 的
+  `writing` 群組加一例。
+- store 以「目前這首是不是同一個 `QueueEntry` 實例」（`_sameCurrent`）判斷換了一首、位置歸零。所以
+  `QueueModel` 的編輯（拖曳、插入、移除）要沿用既有項目的實例，只有新加入的歌才 `QueueEntry(track)`；
+  換成新實例會讓拖曳也把存的位置歸零（`dragging songs around the current one keeps its position` 會紅）。
+- 恢復新的欄位：`PlaybackController.restore` 加一個參數（`Idle`、不解析、不預取），store 的 `attach` 傳
+  進去；控制器改了資料庫沒有的東西（例如排列重新產生）時 `attach` 最後的補寫會讓兩邊一致。在
+  `restoring` 群組加一例，並確認 `h.plugin.requests` 仍是空的（恢復不解析）。
+- 測試：`StoreHarness`（`queue_store_test.dart`）在 `fakeAsync` 裡把控制器與 store 接在同一個記憶體資料庫上，
+  記憶體資料庫的讀寫在 `fakeAsync` 裡只靠微任務，`h.settle()` 就夠；`h.open()` 對同一個資料庫再建一組，
+  就是「重新啟動」。讀資料庫用 `h.storedQueue`、`h.storedPlayer`。曲目長度給 5 分鐘：seek 到恢復的位置
+  不能超過它，否則那首當場播完。
+- 組裝點的測試（`playback_providers_test.dart`）要先 `container.listen(playbackControllerProvider, …)`：
+  沒人聽時 Riverpod 暫停它依賴的設定串流，`ref.read(playbackPreferencesProvider.future)` 等不到值。
 
 ## 改後端
 

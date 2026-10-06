@@ -86,6 +86,9 @@ final class PlaybackController {
   final _queueStates = StreamController<QueueState>.broadcast();
   final _events = StreamController<PlaybackEvent>.broadcast();
   final _previews = StreamController<bool>.broadcast();
+  final _volumeChanges =
+      StreamController<({double volume, bool muted})>.broadcast();
+  final _seeks = StreamController<Duration>.broadcast();
 
   PlaybackState _state = const Idle();
 
@@ -120,6 +123,18 @@ final class PlaybackController {
   /// 使用者的音量（0–1）；靜音時是取消靜音後回到的值。
   double _volume = 1;
   bool _muted = false;
+
+  /// 啟動恢復帶回來的位置（已扣掉重啟倒退秒數），按播放時從這裡開始；沒有恢復、
+  /// 或已經開始播任何一首之後為 `null`。
+  Duration? _restoredPosition;
+
+  /// 恢復後還沒播就先臨時播放：[_restoredPosition] 被臨時曲目的開始清掉，先收在
+  /// 這裡（連同它屬於的佇列曲目），臨時播放結束、佇列仍停著時放回去。佇列那一首
+  /// 換了（跳到、移除、清空）就作廢。
+  ({Duration position, TrackKeyParts key})? _keptRestored;
+
+  /// 目前（最近一次）開始的這首是啟動恢復後的第一次播放。
+  bool _startedFromRestore = false;
 
   /// 輸出裝置清單已經就緒過（記住的裝置只在第一次套用），或使用者自己選過。
   bool _outputDeviceListSeen = false;
@@ -157,7 +172,69 @@ final class PlaybackController {
 
   bool get muted => _muted;
 
+  /// 音量或靜音改變（[setVolume]、[toggleMute]；[restore] 不算），給持久化用。
+  Stream<({double volume, bool muted})> get volumeChanges =>
+      _volumeChanges.stream;
+
+  /// 使用者 seek 的目標位置，給持久化用。
+  Stream<Duration> get seeks => _seeks.stream;
+
+  /// 目前這首播到的位置：來源最後回報的；沒有來源（解析中、等重試、剛恢復）時是
+  /// 下次開始的位置。
+  Duration get position => _position;
+
+  /// 目前（最近一次）開始的這首是啟動恢復後的第一次播放（M2 PR 15 的播放歷史
+  /// 不記這一次，design §7.8）；之後換了別首就是 `false`。
+  bool get startedFromRestore => _startedFromRestore;
+
   // ---- 佇列 -----------------------------------------------------------------
+
+  /// 啟動時帶回上次的佇列、循環、隨機、音量與靜音（design §7.7）：狀態是
+  /// `Idle`、不解析、不預取，按播放才開始，從 [position] 起。只在佇列還是空的、
+  /// 什麼都還沒播時有作用，否則什麼都不做、回傳 `false`。
+  bool restore({
+    required List<TrackInfo> tracks,
+    required int? currentIndex,
+    required LoopMode loopMode,
+    required bool shuffle,
+    List<int>? shuffleOrder,
+    required Duration position,
+    required double volume,
+    required bool muted,
+  }) {
+    final queue = _queue.state;
+    if (queue.entries.isNotEmpty ||
+        queue.temporary != null ||
+        _state is! Idle) {
+      return false;
+    }
+    _queue.restore(
+      tracks: tracks,
+      currentIndex: currentIndex,
+      loopMode: loopMode,
+      shuffle: shuffle,
+      shuffleOrder: shuffleOrder,
+    );
+    _volume = volume.clamp(0, 1).toDouble();
+    _muted = muted;
+    unawaited(_session.setVolume(_muted ? 0 : _volume));
+    _resumeAt = position;
+    _restoredPosition = _queue.state.current == null ? null : position;
+    _emitQueue();
+    _log.info(
+      'Playback restored',
+      tag: _tag,
+      fields: {
+        'queueLength': tracks.length,
+        'queueIndex': _queue.state.currentIndex,
+        'positionMs': position.inMilliseconds,
+        'loop': _queue.state.loopMode.name,
+        'shuffle': _queue.state.shuffleEnabled,
+        'muted': muted,
+      },
+    );
+    return true;
+  }
 
   /// 臨時播放 [track]（D1）：不放進佇列，播完或按上一首、下一首回到佇列進入
   /// 時的那一首。已經在臨時播放時只換曲目，回到的點不變。
@@ -168,11 +245,19 @@ final class PlaybackController {
         Loading() || Playing() || Paused() || Buffering() || Retrying() => true,
       };
     }
+    final kept = switch ((_restoredPosition, _queue.state.current)) {
+      (final position?, final current?)
+          when _queue.state.mode == QueueMode.queue =>
+        (position: position, key: current.key),
+      _ => _keptRestored,
+    };
     _queue.playTemporary(track, position: _position, playing: _wantsSound);
     _emitQueue();
     _consecutiveSkips = 0;
     _setPlayWhenReady(true);
-    return _beginTrack();
+    final started = _beginTrack();
+    _keptRestored = kept;
+    return started;
   }
 
   /// 加在佇列最後。會超過佇列上限就整批不加、發 [QueueFull]，回傳 `false`。
@@ -260,7 +345,12 @@ final class PlaybackController {
       case Idle() || Failed():
         if (_queue.state.current == null) return;
         _consecutiveSkips = 0;
-        await _beginTrack();
+        // 啟動恢復後的第一次播放從恢復的位置開始，之後都從頭。
+        final restored = _restoredPosition;
+        await _beginTrack(
+          position: restored ?? Duration.zero,
+          fromRestore: restored != null,
+        );
       case Playing() || Retrying():
         return;
     }
@@ -299,8 +389,10 @@ final class PlaybackController {
   }
 
   Future<void> seek(Duration position) async {
+    if (!_seeks.isClosed) _seeks.add(position);
     if (!_session.hasSource) {
       _resumeAt = position;
+      if (_restoredPosition != null) _restoredPosition = position;
       return;
     }
     await _session.seek(position);
@@ -309,10 +401,11 @@ final class PlaybackController {
   // ---- 音量、速度、輸出裝置 ------------------------------------------------
 
   /// 設定音量（夾到 0–1），並取消靜音（舊版拖音量條就是取消靜音）。後端換歌
-  /// 後維持。持久化在 M2 PR 14。
+  /// 後維持。
   Future<void> setVolume(double volume) {
     _volume = volume.clamp(0, 1).toDouble();
     _muted = false;
+    _emitVolume();
     return _session.setVolume(_volume);
   }
 
@@ -320,6 +413,7 @@ final class PlaybackController {
   /// §3.3）。
   Future<void> toggleMute() {
     _muted = !_muted;
+    _emitVolume();
     return _session.setVolume(_muted ? 0 : _volume);
   }
 
@@ -392,6 +486,8 @@ final class PlaybackController {
     await _queueStates.close();
     await _events.close();
     await _previews.close();
+    await _volumeChanges.close();
+    await _seeks.close();
   }
 
   // ---- 換曲目 ---------------------------------------------------------------
@@ -425,8 +521,16 @@ final class PlaybackController {
         tag: _tag,
         fields: {'track': '${track?.key}'},
       );
+      // 恢復後還沒播就臨時播放：佇列那一首仍是恢復的那一首時，按播放還是從恢復的
+      // 位置開始。
+      final kept = _keptRestored;
       _resumeAt = Duration.zero;
-      return _stopWith(const Idle());
+      final stopped = _stopWith(const Idle());
+      if (kept != null && track != null && kept.key == track.key) {
+        _restoredPosition = kept.position;
+        _resumeAt = kept.position;
+      }
+      return stopped;
     }
     final settings = _temporaryReturnSettings();
     final position = snapshot.resumeAt(
@@ -471,7 +575,11 @@ final class PlaybackController {
   Future<void> _beginTrack({
     ResolvedStream? prepared,
     Duration position = Duration.zero,
+    bool fromRestore = false,
   }) {
+    _restoredPosition = null;
+    _keptRestored = null;
+    _startedFromRestore = fromRestore;
     _resetTrackCounters();
     return _load(prepared: prepared, position: position);
   }
@@ -506,6 +614,7 @@ final class PlaybackController {
         'track': '$key',
         'queueIndex': _queue.state.currentIndex,
         if (_queue.state.mode == QueueMode.temporary) 'temporary': true,
+        if (_startedFromRestore) 'restored': true,
       },
     );
 
@@ -596,6 +705,7 @@ final class PlaybackController {
           // 試聽片段不當前瞻（PlaybackSession），接上的一定不是試聽。
           _setPreview(null);
         }
+        _startedFromRestore = false;
         _resetTrackCounters();
         _playedSinceLoad = Duration.zero;
         _lastPosition = null;
@@ -827,6 +937,8 @@ final class PlaybackController {
   }
 
   Future<void> _stopWith(PlaybackState state) async {
+    _restoredPosition = null;
+    _keptRestored = null;
     _pausedByInterruption = false;
     _session.newGeneration();
     _cancelRetry();
@@ -894,6 +1006,12 @@ final class PlaybackController {
     final was = previewing;
     _previewTrack = track;
     if (previewing != was && !_previews.isClosed) _previews.add(previewing);
+  }
+
+  void _emitVolume() {
+    if (!_volumeChanges.isClosed) {
+      _volumeChanges.add((volume: _volume, muted: _muted));
+    }
   }
 
   void _emitEvent(PlaybackEvent event) {

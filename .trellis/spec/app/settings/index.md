@@ -32,6 +32,9 @@
   （`preferredOutputDevice`、`saveOutputDevice`）。控制器不 import `lib/settings/`。
 - 一組的表可以先建好全部欄位（「播放」組，design §3.3）：repository 的 `write`／`clear` 涵蓋
   全部，Notifier 的生效值型別與 setter 只放已經有人用的欄位。
+- 兩列「倒退秒數」（臨時播放回佇列、重啟恢復）共用設定頁的 `rewindOptions`（選項、「（預設）」標示、
+  記住播放位置關著時停用）；新的同類欄位照它加，不另寫一份。重啟恢復的倒退在啟動時讀一次
+  （`QueueStore.attach` 的 `restartSettings`，組裝點等資料庫的值讀出來再給），改設定不影響已經恢復的佇列。
 - 設定方法一個欄位一個，只寫那個欄位（`repository.write(themeMode: ...)`）。參數可空，
   `null` 是「清回沒設定過」，走 `repository.clear(themeMode: true)`：`write` 的 `null`
   表示「沒給、不動」，兩者不能共用一個方法。

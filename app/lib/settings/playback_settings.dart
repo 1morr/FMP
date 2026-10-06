@@ -9,6 +9,9 @@ import 'package:fmp/domain/stream_preferences.dart';
 /// 設定頁「臨時播放回佇列倒退秒數」的選項（沿用舊版 `_rewindOptions`）。
 const tempPlayRewindOptionsSeconds = [0, 3, 5, 10, 15, 30];
 
+/// 設定頁「重啟恢復倒退秒數」的選項（同臨時播放回佇列倒退）。
+const restartRewindOptionsSeconds = tempPlayRewindOptionsSeconds;
+
 /// 「播放」設定套用預設之後的值（ADR 0011 §決定 7、design §3.3）。只有已經
 /// 有人用的欄位；其他欄位跟著用到它的 PR 加。
 @immutable
@@ -20,6 +23,7 @@ final class PlaybackPreferences {
     required this.tempPlayRewindSeconds,
     required this.skipPreviewClips,
     required this.outputDevice,
+    required this.restartRewindSeconds,
     required this.stored,
   });
 
@@ -44,6 +48,9 @@ final class PlaybackPreferences {
   /// 沒設定過就是系統預設。裝置不在時仍留著（design §7.6）。
   final OutputDevice? outputDevice;
 
+  /// 重啟後恢復播放時，從存下的位置倒退幾秒（「記住播放位置」開著時才有作用）。
+  final int restartRewindSeconds;
+
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設。
   final PlaybackSettings stored;
 
@@ -56,6 +63,7 @@ final class PlaybackPreferences {
       other.tempPlayRewindSeconds == tempPlayRewindSeconds &&
       other.skipPreviewClips == skipPreviewClips &&
       other.outputDevice == outputDevice &&
+      other.restartRewindSeconds == restartRewindSeconds &&
       other.stored == stored;
 
   @override
@@ -66,6 +74,7 @@ final class PlaybackPreferences {
     tempPlayRewindSeconds,
     skipPreviewClips,
     outputDevice,
+    restartRewindSeconds,
     stored,
   );
 
@@ -76,7 +85,7 @@ final class PlaybackPreferences {
       'rememberPosition: $rememberPosition, '
       'tempPlayRewindSeconds: $tempPlayRewindSeconds, '
       'skipPreviewClips: $skipPreviewClips, outputDevice: $outputDevice, '
-      'stored: $stored)';
+      'restartRewindSeconds: $restartRewindSeconds, stored: $stored)';
 }
 
 /// 在讀取時套用預設：沒設定過的欄位用傳進來的預設。預設值不寫進資料庫，改
@@ -88,6 +97,7 @@ PlaybackPreferences resolvePlaybackPreferences(
   required bool defaultRememberPosition,
   required int defaultTempPlayRewindSeconds,
   required bool defaultSkipPreviewClips,
+  required int defaultRestartRewindSeconds,
 }) => PlaybackPreferences(
   audioQuality: stored.audioQuality ?? defaultAudioQuality,
   audioFormatPriority: stored.audioFormatPriority ?? defaultAudioFormatPriority,
@@ -99,6 +109,8 @@ PlaybackPreferences resolvePlaybackPreferences(
     final id? => OutputDevice(id: id, name: stored.outputDeviceName ?? id),
     null => null,
   },
+  restartRewindSeconds:
+      stored.restartRewindSeconds ?? defaultRestartRewindSeconds,
   stored: stored,
 );
 
@@ -112,7 +124,7 @@ final playbackPreferencesProvider =
 final class PlaybackPreferencesNotifier
     extends StreamNotifier<PlaybackPreferences> {
   /// [stored] 套用目前的預設（音質：高、格式：Opus 優先，照舊版；記住播放
-  /// 位置：開；倒退 10 秒，照舊版；跳過試聽片段：開，ADR 0018 §決定 7）。預設
+  /// 位置：開；倒退 10 秒，照舊版；跳過試聽片段：開，ADR 0018 §決定 7；重啟恢復倒退 0 秒）。預設
   /// 只寫在這裡；資料庫還沒讀出來時，播放控制器也以它解析空的設定。
   static PlaybackPreferences resolve(PlaybackSettings stored) =>
       resolvePlaybackPreferences(
@@ -122,6 +134,7 @@ final class PlaybackPreferencesNotifier
         defaultRememberPosition: true,
         defaultTempPlayRewindSeconds: 10,
         defaultSkipPreviewClips: true,
+        defaultRestartRewindSeconds: 0,
       );
 
   @override
@@ -178,5 +191,13 @@ final class PlaybackPreferencesNotifier
     return seconds == null
         ? repository.clear(tempPlayRewindSeconds: true)
         : repository.write(tempPlayRewindSeconds: seconds);
+  }
+
+  /// 只寫「重啟恢復時倒退秒數」；`null` 清回沒設定過（跟隨預設）。
+  Future<void> setRestartRewindSeconds(int? seconds) {
+    final repository = ref.read(playbackSettingsRepositoryProvider);
+    return seconds == null
+        ? repository.clear(restartRewindSeconds: true)
+        : repository.write(restartRewindSeconds: seconds);
   }
 }

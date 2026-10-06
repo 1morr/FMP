@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/app/app_lifecycle.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/platform/audio/audio.dart';
@@ -15,6 +18,7 @@ import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/playback/queue_store.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
@@ -103,7 +107,30 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
     saveOutputDevice: (device) =>
         ref.read(playbackPreferencesProvider.notifier).setOutputDevice(device),
   );
+  // 佇列與播放狀態的持久化（design §7.7）：讀回上次的狀態交給控制器（`Idle`、
+  // 不解析），再跟著它存。重啟倒退的兩個設定在恢復時讀一次，等資料庫的值讀出來。
+  final lifecycleChanges = StreamController<AppLifecycleState>.broadcast();
+  ref.listen(appLifecycleProvider, (_, state) => lifecycleChanges.add(state));
+  final store = QueueStore(
+    repository: ref.watch(queueRepositoryProvider),
+    log: log,
+  );
+  unawaited(
+    store.attach(
+      controller,
+      lifecycle: lifecycleChanges.stream,
+      restartSettings: () async {
+        final preferences = await ref.read(playbackPreferencesProvider.future);
+        return (
+          rememberPosition: preferences.rememberPosition,
+          rewind: Duration(seconds: preferences.restartRewindSeconds),
+        );
+      },
+    ),
+  );
   ref.onDispose(() {
+    store.dispose();
+    unawaited(lifecycleChanges.close());
     unawaited(controller.dispose());
     unawaited(networkChanges.close());
   });

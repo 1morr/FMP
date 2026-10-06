@@ -805,4 +805,97 @@ void main() {
       );
     });
   });
+
+  group('restore', () {
+    test('brings back the queue, the current song and the loop mode', () {
+      final queue = QueueModel()
+        ..restore(
+          tracks: tracks(['a', 'b', 'c']),
+          currentIndex: 1,
+          loopMode: LoopMode.all,
+          shuffle: false,
+        );
+
+      expect(ids(queue.state), ['a', 'b', 'c']);
+      expect(currentId(queue.state), 'b');
+      expect(queue.state.loopMode, LoopMode.all);
+      expect(queue.state.shuffleEnabled, isFalse);
+      expect(queue.state.mode, QueueMode.queue);
+      expect(upcoming(queue.state), ['c']);
+    });
+
+    test('keeps the shuffle order it was given', () {
+      final queue = QueueModel()
+        ..restore(
+          tracks: tracks(['a', 'b', 'c', 'd']),
+          currentIndex: 2,
+          loopMode: LoopMode.off,
+          shuffle: true,
+          shuffleOrder: [3, 2, 0, 1],
+        );
+
+      expect(queue.state.shuffleOrder, [3, 2, 0, 1]);
+      expect(played(queue.state), ['d']);
+      expect(upcoming(queue.state), ['a', 'b']);
+      expect(playToEnd(queue), ['a', 'b']);
+    });
+
+    test('makes a new order, current song first, when shuffle is on but the '
+        'order was not stored', () {
+      final queue = QueueModel(random: Random(3))
+        ..restore(
+          tracks: numbered(6),
+          currentIndex: 4,
+          loopMode: LoopMode.off,
+          shuffle: true,
+        );
+
+      final order = queue.state.shuffleOrder!;
+      expect(order.first, 4);
+      expect([...order]..sort(), [0, 1, 2, 3, 4, 5]);
+    });
+
+    test('an empty queue has no current song, and shuffle stays on', () {
+      final queue = QueueModel()
+        ..restore(
+          tracks: const [],
+          currentIndex: null,
+          loopMode: LoopMode.one,
+          shuffle: true,
+        );
+
+      expect(queue.state.entries, isEmpty);
+      expect(queue.state.currentIndex, isNull);
+      expect(queue.state.shuffleEnabled, isTrue);
+      expect(queue.state.loopMode, LoopMode.one);
+    });
+
+    test('a position outside the queue is clamped', () {
+      final queue = QueueModel()
+        ..restore(
+          tracks: numbered(3),
+          currentIndex: 9,
+          loopMode: LoopMode.off,
+          shuffle: false,
+        );
+
+      expect(currentId(queue.state), '2');
+    });
+
+    test('a restored queue edits like any other', () {
+      final queue = QueueModel(random: Random(5))
+        ..restore(
+          tracks: numbered(4),
+          currentIndex: 0,
+          loopMode: LoopMode.off,
+          shuffle: true,
+          shuffleOrder: [0, 3, 2, 1],
+        );
+
+      queue.playNext(tracks(['x']));
+      expect(upcoming(queue.state).first, 'x');
+      expect(queue.moveNext(), isA<MovedToTrack>());
+      expect(currentId(queue.state), 'x');
+    });
+  });
 }

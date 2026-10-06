@@ -316,7 +316,7 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
   @override
   String get rememberPosition => '记住播放位置';
   @override
-  String get rememberPositionHint => '临时播放结束回到队列时，从原来的位置继续';
+  String get rememberPositionHint => '临时播放结束回到队列或重新打开 App 时，从原来的位置继续';
   @override
   String get tempPlayRewind => '临时播放回队列后退';
   @override
@@ -331,6 +331,10 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
   String get skipPreviewClips => '跳过试听片段';
   @override
   String get skipPreviewClipsHint => '只有试听片段的歌曲直接跳过；关闭时照播并标示「试听」';
+  @override
+  String get restartRewind => '重启后恢复后退';
+  @override
+  String get restartRewindHint => '重新打开 App 后按播放，从上次的位置稍微往回一点，方便接上';
 }
 
 // Path: network

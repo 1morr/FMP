@@ -222,6 +222,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `stored format` 案例、`test/domain/track_key_test.dart`。
 - `sqlite3` 3.x 以 build hooks 在建置時從它的 GitHub releases 下載預先編譯的 SQLite；
   第一次建置或 `flutter test` 要能連 GitHub。
+- `tracks`（曲目顯示資料，鍵是 `TrackKey` 的字面輸出）、`queue_entries`、`player_state` 是 schema v4
+  （design §3.1、§3.2）。`queue_entries.track_key` 以外鍵參照 `tracks`、`ON DELETE RESTRICT`：被佇列
+  參照的曲目刪不掉，孤兒清理（`TracksRepository.deleteOrphans`，啟動維護清單）只刪沒人參照的列，
+  之後加表的 PR（播放歷史、歌單項目、下載紀錄）各自把自己加進那個查詢。寫入曲目用
+  `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE。`queue_entries` 的主鍵是位置，
+  位移時先改成負值再改回，所以那張表不能加 `position >= 0` 的檢查。`player_state` 單列，音量與
+  靜音隨佇列存在這裡、不是設定；隨機排列存成每個位置的名次（`shuffle_rank`），不存排列本身。`queue_entries.track_key`
+  有索引，否則孤兒清理每刪一列掃一次佇列（一萬孤兒約 9 秒，有索引約 14 ms）；閘門：`migration_test.dart`
+  的 `indexes queue_entries.track_key`（升級來的與全新建的兩例，漏了 `m.create` 時升級驗證與該例會紅）。
+  閘門：`queue_repository_test.dart`（`RESTRICT` 與孤兒、差量編輯的隨機序列、`a write is one transaction`、
+  `stored format`、一萬首整份取代的耗時）、`migration_test.dart` 的 v3→v4 三例。
 
 ### 快取庫
 
@@ -349,9 +360,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `startupMaintenanceTasksProvider`（有序清單，新項目加在那裡）。`FmpApp` 在第一幀之後
   （`initState` 排的 post-frame callback，每次掛上只一次；`main()` 只掛一次）依序跑；
   每項各自 try，失敗經 `log.report` 進錯誤歷史後接著跑下一項，不重試；每項跑完寫一筆
-  tag `maintenance` 的 log（`id`、`outcome`）。項目一個接一個 await，卡住的項目會擋住
+  tag `maintenance` 的 log（`id`、`outcome`）。清單目前依序是 `log-retention`、`orphan-tracks`
+  （刪沒有被佇列參照的 `tracks` 列，記 `Deleted orphan tracks` 與 `count`；閘門：
+  `startup_maintenance_test.dart` 的 `orphan-tracks…`）。項目一個接一個 await，卡住的項目會擋住
   後面的，所以項目只放有限的本機工作。閘門：`test/app/startup_maintenance_test.dart`
-  （畫過第一幀才跑、重建不重跑、失敗隔離、預設清單的 `log-retention`）。不跳提示（清單
+  （畫過第一幀才跑、重建不重跑、失敗隔離、預設清單的 `log-retention`、`orphan-tracks`）。不跳提示（清單
   拿不到 `Toaster`）、不放空的登記點、週期性工作不放這裡（M3 的排程器）沒有閘門，
   review 時看。
 
@@ -588,7 +601,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 （`addToQueue`）、下一首播放（`playNext`）、跳到（`jumpTo`）、移除（`removeAt`）、拖曳
 （`move`）、清空（`clear`）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
 上一首與下一首、seek、音量（`setVolume`）、靜音（`toggleMute`）、速度（`setSpeed`）、輸出裝置
-（`selectOutputDevice`）。佇列與音量只在記憶體（持久化在 M2 PR 14）。
+（`selectOutputDevice`）。佇列、循環、隨機與音量持久化（見「持久化與啟動恢復」）。
 
 - `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
   `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`PlaybackEventRouter`，純函數）、
@@ -757,7 +770,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `playback_controller_test.dart` 斷言事件的案例。
 - 音量與速度（E19，design §7.6）：控制器交給後端，後端在 `open` 之前收到也生效、換來源與接上
   前瞻後維持；速度夾到 0.5–2.0、音量 0–1（`backend_rules.dart` 的 `clampSpeed`、`clampVolume`，
-  兩個後端都經過）。速度不持久化；音量與靜音在 PR 14 隨佇列存。靜音只把後端的音量設成 0，
+  兩個後端都經過）。速度不持久化；音量與靜音隨佇列存（見「持久化與啟動恢復」）。靜音只把後端的音量設成 0，
   控制器的 `volume` 不變，取消靜音回到它；靜音中 `setVolume` 就是取消靜音（舊版拖音量條的
   行為）。閘門：後端契約的 `volume and speed set before open hold across a handover and a new
   source`（2 倍速時兩首在一首半的時間內播完：引擎真的照速度播）、`the speed is clamped…`；
@@ -845,6 +858,52 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `temporary play` 群組（三種觸發、四種設定組合、原本暫停、第二次臨時播放、空佇列兩例、
   臨時曲目播不了也回到佇列）、`playback_controls_test.dart` 的 `a rewind chosen here is used
   when a temporary play ends`。
+- 持久化與啟動恢復（ADR 0018 §決定 10、design §7.7）在 `queue_store.dart` 的 `QueueStore`：
+  - 它不碰引擎也不改控制器的狀態，只聽控制器的佇列、狀態、`seeks`、`volumeChanges` 與 App 的生命週期，
+    把變動轉成 `QueueRepository.write` 的差量（前後各相同的列不動、中間換掉、其後平移）。連續的觸發合併，
+    寫入一個接一個；寫失敗只經 `log.report` 記下，下一次觸發以資料庫實際的樣子重算（閘門：`a failed
+    write is reported and the next change writes what it missed`）。恢復完成前不寫，空佇列才不會蓋掉
+    上次的資料；恢復前使用者已經動了佇列時不恢復、存的位置作廢（閘門：`a queue built before the
+    restore finished…`）。組裝在 `playbackControllerProvider`：建好控制器就 `attach`，
+    重啟倒退的兩個設定在恢復時讀一次（等資料庫的值）。閘門：`queue_store_test.dart` 的 `writing`、
+    `restoring` 與 `the whole path against the queue model`（固定種子的隨機操作，每一步讀回等於控制器的
+    佇列，最後重啟比對）、`playback_providers_test.dart`（接線）。生命週期進組裝點的那兩行沒有閘門，
+    review 時看。
+  - 存檔時機：佇列操作當下；播放中每 10 秒（`Timer.periodic`，只在 `Playing` 時開，`QueueStore` 是
+    ADR 0018 §決定 11 的播放模組）；暫停、seek、App 進入 `hidden` 或 `paused`；音量與靜音改變。
+    閘門：`writing` 群組逐項斷言（含 10 秒只在播放中、暫停之後兩分鐘不再寫、`inactive` 不寫）。
+  - 換了一首就從 0 開始，狀態回到 `Idle`（播完、清空）也是 0；「換了一首」比的是目前那個佇列項目
+    本身（`QueueModel` 編輯時沿用實例），不是位置或曲目鍵：拖曳讓目前這首落在差量的中間段時位置照留。
+    `Idle`、`Failed` 時的位置存檔不動：
+    重啟恢復後還沒按播放時控制器的位置是倒退過的，存回去會越退越多。閘門：`a new song starts at 0…`、
+    `dragging songs around the current one keeps its position`、`a drag across the current song after a
+    restart keeps the stored position`、
+    `nothing is saved over the stored position while idle after a restart`、`restarting twice without
+    playing keeps the rewind from adding up`。
+  - 臨時播放不持久化（design §12 第 6 條）：它期間資料庫停在佇列那一首與進入時的快照位置，各種存檔
+    時機都不覆寫；重啟回到佇列的那個點。閘門：`a temporary play leaves the snapshot in the database`、
+    `a restart after a temporary play returns to the snapshot`。
+  - 不變式：存的 `player_state.position` 永遠是使用者真正的位置，不是倒退過的起點；重啟倒退每次重啟只在
+    恢復時套用一次。恢復的那一首還沒真的播出來之前（`QueueStore` 的 `_holdingRestored`），store 不拿控制器的
+    位置覆寫它：位置存檔（含暫停、背景）、`Idle` 歸 0、臨時播放的快照位置都不動它。到佇列自己的那一首
+    進入 `Playing`（臨時曲目的 `Playing` 不算）、或目前這首換了（含清空）才結束；使用者在這期間 seek
+    是真的位置，照存。臨時播放期間控制器另外收著恢復的位置（`_keptRestored`），臨時播放結束、佇列仍
+    停著時放回去，所以按播放仍從倒退後的位置開始（`startedFromRestore` 為真）；佇列那一首換了（跳到、
+    移除、清空）就作廢。閘門：`restoring` 群組的 `a temporary play while idle after a restart does not
+    store the rewound position`、`closing before the restored song is audible keeps the stored position`
+    （倒退大於 0，停在 `Loading` 時進背景）、`once the restored song plays, its real position is stored`、
+    `a seek before playing is a real position and is stored`、`the restored position survives a temporary
+    play…`、`the kept restored position is dropped when the queue song changes…`、`jumping to a song
+    during the temporary play drops the kept restored position`、`restart, temporary play, it ends, restart
+    again: the rewind is applied once`（端到端：存 83 秒、倒退 10 秒，重啟兩次後仍是 83 與 73）。
+  - 啟動恢復（`PlaybackController.restore`）：狀態是 `Idle`，帶佇列、目前這首、循環、隨機排列、音量與
+    靜音；不解析、不預取、後端沒有來源。按播放才開始，從「存的位置 − 重啟恢復倒退秒數」（不低於 0）開始，
+    「記住播放位置」關著時從頭；只有恢復後的第一次播放用這個位置（`startedFromRestore` 為真，
+    「Track requested」的 log 帶 `restored`，M2 PR 15 的播放歷史不記這一次）。資料讀不回來（壞掉）時
+    記 error（`Stored playback could not be read; starting empty`）、清掉存的佇列與播放狀態（`tracks` 留著，
+    交給孤兒清理）、從空的開始，之後照常寫。閘門：`restoring` 群組的 `stored data that cannot be read is
+    dropped and reported`。其他閘門：`restoring` 群組（四種「記住位置 × 倒退」組合、倒退超過
+    位置、沒有存過、資料壞掉）、`QueueStore.restoredPosition` 的單元測試。
 - UI 開始播放：搜尋結果點一下是臨時播放；每首的選單（右鍵、長按、尾端「⋯」同一份）有播放
   （＝臨時播放，舊版 TrackAction 也是）、下一首播放、加入佇列，後兩者成功時提示一次（舊版的
   「已加入」）。播放列讀佇列項目的 `TrackInfo`。閘門：`search_page_test.dart` 的
@@ -873,12 +932,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   與設定頁只有已經有人用的欄位：音質（預設高，選項高／中／低）、格式偏好（預設 Opus 優先，
   選項 Opus 優先／AAC 優先，兩者照舊版的預設，見「播放」的網址快取）、記住播放位置（預設開）、
   臨時播放回佇列倒退秒數（預設 10，選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見
-  「播放」）、輸出裝置（沒有預設：沒設定過就是系統預設；`setOutputDevice` 兩欄一起寫、一起清，
+  「播放」）、重啟恢復時倒退秒數（預設 0，選項同上，設定頁在「跳過試聽片段」之後；啟動時讀一次，
+  見「播放」的持久化與啟動恢復）、輸出裝置（沒有預設：沒設定過就是系統預設；`setOutputDevice` 兩欄一起寫、一起清，
   見「播放」；設定列在 PR 17 的播放列）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好的列舉存
   `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
   `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
   （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
-  的 v2→v3 兩例、`test/ui/settings/playback_controls_test.dart`。
+  的 v2→v3 兩例、`test/ui/settings/playback_controls_test.dart`（含兩列倒退秒數各寫各的欄位、
+  沒記住位置時兩列都停用）。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
   存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
   `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、

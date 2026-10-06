@@ -4,6 +4,7 @@ import 'package:fmp/data/database/app_database.steps.dart';
 import 'package:fmp/data/database/converters.dart';
 import 'package:fmp/data/database/tables.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
 part 'app_database.g.dart';
@@ -21,6 +22,9 @@ part 'app_database.g.dart';
     PlaybackSettingsTable,
     InstalledPluginsTable,
     PluginStorageTable,
+    TracksTable,
+    QueueEntriesTable,
+    PlayerStateTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -28,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -51,6 +55,12 @@ class AppDatabase extends _$AppDatabase {
             },
             from2To3: (m, schema) async {
               await m.create(schema.playbackSettings);
+            },
+            from3To4: (m, schema) async {
+              await m.create(schema.tracks);
+              await m.create(schema.queueEntries);
+              await m.create(schema.queueEntriesTrackKey);
+              await m.create(schema.playerState);
             },
           ),
         );

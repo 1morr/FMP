@@ -316,7 +316,7 @@ class Translations$playback$en extends Translations$playback$zh_TW {
   String get rememberPosition => 'Remember playback position';
   @override
   String get rememberPositionHint =>
-      'When a temporary play ends, the queue goes on from where it was';
+      'After a temporary play or reopening the app, the queue goes on from where it was';
   @override
   String get tempPlayRewind => 'Rewind when returning to the queue';
   @override
@@ -333,6 +333,11 @@ class Translations$playback$en extends Translations$playback$zh_TW {
   @override
   String get skipPreviewClipsHint =>
       'Skip songs that only have a preview clip; when off, play the preview and mark it';
+  @override
+  String get restartRewind => 'Rewind when restarting';
+  @override
+  String get restartRewindHint =>
+      'After reopening the app, resume a little before where you left off';
 }
 
 // Path: network
