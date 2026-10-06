@@ -621,6 +621,31 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （拖曳、下一首播放、附加、移除、開隨機各一例，`an edit that keeps the next song…`、
   `the engine taking over the replaced look-ahead…`、`the engine taking over the look-ahead
   of a removed last song…`）。
+- 前瞻開不起來（`AudioBackend.setNext` 的 dartdoc）：後端不接上它，目前這首照常播完；先發
+  `SourceFailed(前瞻, open)`、再發目前這首的 `SourceEnded`，不發 `SourceAdvanced`，之後不再說在播。
+  ExoPlayer 換到沒預備好的前瞻時先報新的索引（`ready`、沒有時長），錯誤之後才到；mpv 預開失敗時記
+  一行不帶項目的錯誤、播完換過去後再記一次。所以兩個後端都等前瞻載入（ExoPlayer 的事件有時長、mpv
+  換過去後第一次回報位置或時長）才發 `SourceAdvanced`，這段期間前瞻被換掉或清掉時停下引擎、報目前
+  這首結束。session 收到前瞻的失敗就作廢它的網址快取、放掉前瞻（`Look-ahead failed to open`）；到
+  那首時控制器照一般的下一首重新解析，再失敗才走恢復；目前這首不重試、不跳過。閘門：後端契約的
+  `a look-ahead that cannot be opened…`（Dart 端就失敗的 asset）與 `a look-ahead refused over
+  HTTP…`（loopback 403，引擎開流時才失敗）；`playback_controller_test.dart` 的 `a look-ahead that
+  cannot be opened` 群組。換過去、還沒載入時前瞻被換掉的那一段時機抓不到，沒有自動閘門，review 時看。
+  已知限制：ExoPlayer 給不出時長的前瞻（沒有長度資訊的串流）一直不算接上，上一首不會結束
+  （`JustAudioBackend._pendingHandover` 的註解）。
+- `SourceFailed.httpStatus` 只有 Windows（mpv）拿得到：來自 ffmpeg 的 warn log `http: HTTP error 403
+  Forbidden`（所以 `MediaKitBackend` 以 `MPVLogLevel.warn` 收 log，`httpStatusFromLogLine` 解析），
+  mpv 只把 ffmpeg 的 log 交給行程裡第一個還活著的實例（media_kit 在 `dispose` 後 5 秒才銷毀），
+  App 只有一個後端所以拿得到，契約的 `a source refused over HTTP…` 因此排第一（它斷言自己建的是
+  第一個後端，順序被改了在假後端就紅）。just_audio 0.10.6
+  交給 Dart 的只有 `ExoPlaybackException.getMessage()`（一律 `Source error`），Android 一律
+  `null`。目前只記進 log（`Stream failed`、`Look-ahead failed to open` 的 `httpStatus`）。閘門：
+  `backend_rules_test.dart` 的 `httpStatusFromLogLine`（錄下的 mpv 行與反例）、契約的 `a source
+  refused over HTTP…`（`reportsHttpStatus`）。契約的 HTTP 案例由測試在 loopback 起一個一律回 403
+  的伺服器；Android 的 debug 建置以 `android/app/src/debug/res/xml/network_security_config.xml`
+  只對 127.0.0.1 放行明文，release 不合併這份。閘門：`test/identity/android_identity_test.dart` 的
+  `cleartext traffic` 群組（只有 debug 的 manifest 指向設定、只有 debug 有設定檔、只放行
+  127.0.0.1）與 `parser mutations` 的三個明文案例。
 - 臨時播放中不準備前瞻（舊版「臨時播放不預取」）：臨時曲目播完回到的那一首要從快照的位置
   開始，不能由引擎從頭接上。閘門：`temporary play` 群組的 `prepares no look-ahead…`。
 - 單曲循環：前瞻是目前這首的同一份解析結果（`NextTrack` 的位置為 `null`），引擎無縫重播，
