@@ -34,28 +34,39 @@ void main() {
       const stored = PlaybackSettings(
         rememberPosition: false,
         tempPlayRewindSeconds: 30,
+        skipPreviewClips: false,
       );
 
-      for (final (remember, rewind) in [(true, 10), (false, 0)]) {
+      for (final (remember, rewind, skip) in [
+        (true, 10, true),
+        (false, 0, false),
+      ]) {
         final resolved = resolvePlaybackPreferences(
           stored,
           defaultRememberPosition: remember,
           defaultTempPlayRewindSeconds: rewind,
+          defaultSkipPreviewClips: skip,
         );
         expect(resolved.rememberPosition, isFalse);
         expect(resolved.tempPlayRewindSeconds, 30);
+        expect(resolved.skipPreviewClips, isFalse);
       }
     });
 
     test('an unset field follows the new default', () {
-      for (final (remember, rewind) in [(true, 10), (false, 0)]) {
+      for (final (remember, rewind, skip) in [
+        (true, 10, true),
+        (false, 0, false),
+      ]) {
         final resolved = resolvePlaybackPreferences(
           PlaybackSettings.empty,
           defaultRememberPosition: remember,
           defaultTempPlayRewindSeconds: rewind,
+          defaultSkipPreviewClips: skip,
         );
         expect(resolved.rememberPosition, remember);
         expect(resolved.tempPlayRewindSeconds, rewind);
+        expect(resolved.skipPreviewClips, skip);
       }
     });
 
@@ -72,12 +83,14 @@ void main() {
   });
 
   group('PlaybackPreferencesNotifier', () {
-    test('unset fields read as remembering the position, 10 s back', () async {
+    test('unset fields read as remembering the position, 10 s back, '
+        'skipping preview clips', () async {
       final events = preferences(containerFor(memoryDatabase()));
 
       expect(await events.moveNext(), isTrue);
       expect(events.current.rememberPosition, isTrue);
       expect(events.current.tempPlayRewindSeconds, 10);
+      expect(events.current.skipPreviewClips, isTrue);
       expect(events.current.stored, PlaybackSettings.empty);
     });
 
@@ -94,11 +107,16 @@ void main() {
       await notifier.setTempPlayRewindSeconds(3);
       expect(await events.moveNext(), isTrue);
       expect(events.current.tempPlayRewindSeconds, 3);
+
+      await notifier.setSkipPreviewClips(false);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.skipPreviewClips, isFalse);
       expect(
         events.current.stored,
         const PlaybackSettings(
           rememberPosition: false,
           tempPlayRewindSeconds: 3,
+          skipPreviewClips: false,
         ),
       );
     });
@@ -115,13 +133,29 @@ void main() {
 
       final row = await database
           .customSelect(
-            'SELECT remember_position, temp_play_rewind_seconds '
-            'FROM playback_settings',
+            'SELECT remember_position, temp_play_rewind_seconds, '
+            'skip_preview_clips FROM playback_settings',
           )
           .getSingle();
       expect(row.data, {
         'remember_position': null,
         'temp_play_rewind_seconds': 15,
+        'skip_preview_clips': null,
+      });
+
+      await container
+          .read(playbackPreferencesProvider.notifier)
+          .setSkipPreviewClips(false);
+      final after = await database
+          .customSelect(
+            'SELECT remember_position, temp_play_rewind_seconds, '
+            'skip_preview_clips FROM playback_settings',
+          )
+          .getSingle();
+      expect(after.data, {
+        'remember_position': null,
+        'temp_play_rewind_seconds': 15,
+        'skip_preview_clips': 0,
       });
     });
 
@@ -142,17 +176,23 @@ void main() {
       await notifier.setTempPlayRewindSeconds(null);
       expect(await events.moveNext(), isTrue);
       expect(events.current.tempPlayRewindSeconds, 10);
+      await notifier.setSkipPreviewClips(false);
+      await events.moveNext();
+      await notifier.setSkipPreviewClips(null);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.skipPreviewClips, isTrue);
       expect(events.current.stored, PlaybackSettings.empty);
 
       final row = await database
           .customSelect(
-            'SELECT remember_position, temp_play_rewind_seconds '
-            'FROM playback_settings',
+            'SELECT remember_position, temp_play_rewind_seconds, '
+            'skip_preview_clips FROM playback_settings',
           )
           .getSingle();
       expect(row.data, {
         'remember_position': null,
         'temp_play_rewind_seconds': null,
+        'skip_preview_clips': null,
       });
     });
   });

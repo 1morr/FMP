@@ -173,6 +173,20 @@ final class FakeAudioBackend implements AudioBackend {
     );
   }
 
+  /// 目前的來源中途停下等資料（緩衝），到 [resume] 為止。
+  void stall() {
+    if (current == null) return;
+    _ticker?.cancel();
+    _emitStatus(BackendPhase.buffering);
+  }
+
+  /// [stall] 之後資料又來了。
+  void resume() {
+    if (current == null) return;
+    _emitStatus(BackendPhase.ready);
+    _schedule();
+  }
+
   void _apply(LookAheadEdit edit, BackendSource? next) {
     for (final index in edit.removeIndices) {
       _playlist.removeAt(index);

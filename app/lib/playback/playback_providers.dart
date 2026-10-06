@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
@@ -48,12 +49,24 @@ final temporaryReturnSettingsProvider = Provider<TemporaryReturnSettings>((
   );
 });
 
+/// 「跳過試聽片段」（預設開）。資料庫的值還沒讀出來時是預設。
+final skipPreviewClipsProvider = Provider<bool>(
+  (ref) =>
+      (ref.watch(playbackPreferencesProvider).value ??
+              PlaybackPreferencesNotifier.resolve(PlaybackSettings.empty))
+          .skipPreviewClips,
+);
+
 /// UI 唯一的播放入口（ADR 0018 §決定 1）。
 final playbackControllerProvider = Provider<PlaybackController>((ref) {
   final log = ref.watch(logProvider);
-  // 設定在臨時播放結束時才讀：先訂閱，資料庫的值那時已經讀出來；不用 watch，
-  // 改設定不重建控制器。
+  // 設定在用到時才讀（臨時播放結束、遇到試聽片段）：先訂閱，資料庫的值那時
+  // 已經讀出來；不用 watch，改設定不重建控制器。網路狀態同樣不重建，改變經
+  // stream 交給控制器。
   ref.listen(temporaryReturnSettingsProvider, (_, _) {});
+  ref.listen(skipPreviewClipsProvider, (_, _) {});
+  final networkChanges = StreamController<NetworkStatus>.broadcast();
+  ref.listen(networkStatusProvider, (_, status) => networkChanges.add(status));
   final controller = PlaybackController(
     session: PlaybackSession(
       backend: ref.watch(audioBackendProvider),
@@ -66,8 +79,14 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
     ),
     log: log,
     temporaryReturnSettings: () => ref.read(temporaryReturnSettingsProvider),
+    skipPreviewClips: () => ref.read(skipPreviewClipsProvider),
+    networkStatus: () => ref.read(networkStatusProvider),
+    networkStatusChanges: networkChanges.stream,
   );
-  ref.onDispose(() => unawaited(controller.dispose()));
+  ref.onDispose(() {
+    unawaited(controller.dispose());
+    unawaited(networkChanges.close());
+  });
   return controller;
 });
 
@@ -89,6 +108,14 @@ final playbackQueueProvider = StreamProvider<QueueState>((ref) async* {
 final playbackEventsProvider = StreamProvider<PlaybackEvent>(
   (ref) => ref.watch(playbackControllerProvider).events,
 );
+
+/// 目前這首照播的是不是試聽片段（播放列標「試聽」）：先給目前的值，之後每次
+/// 改變。
+final playbackPreviewProvider = StreamProvider<bool>((ref) async* {
+  final controller = ref.watch(playbackControllerProvider);
+  yield controller.previewing;
+  yield* controller.previewChanges;
+});
 
 /// 目前這首的位置、時長與緩衝（高頻，ADR 0018 §決定 2）。後端第一次回報前
 /// 還沒有值。

@@ -65,11 +65,17 @@ final class SourceFinished extends SessionEvent {
   final Duration? lastPosition;
 }
 
-/// 還沒載入就失敗：開不起來、格式解不了。
+/// 還沒載入就失敗：開不起來、格式解不了。[httpStatus] 是開流被 HTTP 拒絕時的
+/// 狀態碼（只有 mpv 拿得到）。
 final class SourceUnopenable extends SessionEvent {
-  const SourceUnopenable({required super.generation, required this.pluginId});
+  const SourceUnopenable({
+    required super.generation,
+    required this.pluginId,
+    this.httpStatus,
+  });
 
   final String pluginId;
+  final int? httpStatus;
 }
 
 /// 已經在播之後中斷。
@@ -213,10 +219,9 @@ EventAction routePlaybackEvent(SessionEvent event, PlaybackSnapshot snapshot) {
         position: lastPosition ?? snapshot.resumeAt,
         endedEarly: true,
       ),
-    // 開不起來、解不了：對使用者是「播不了」，不是網路問題。
-    SourceUnopenable(:final pluginId) => Recover(
-      failure: const StreamUnopenable(),
-      error: Unsupported(pluginId: pluginId),
+    SourceUnopenable(:final pluginId, :final httpStatus) => Recover(
+      failure: StreamUnopenable(httpStatus: httpStatus),
+      error: openFailureError(pluginId, httpStatus),
       position: snapshot.resumeAt,
     ),
     SourceInterrupted(:final pluginId, :final lastPosition) => Recover(
@@ -226,3 +231,13 @@ EventAction routePlaybackEvent(SessionEvent event, PlaybackSnapshot snapshot) {
     ),
   };
 }
+
+/// 開流失敗最後跳過時給使用者的錯誤（design §7.5）：被 HTTP 404、410 拒絕是
+/// 找不到；403 是取不到、原因不明（重新解析後仍被拒）；其他（解碼失敗、沒有
+/// 狀態碼）對使用者是「播不了」，不是網路問題。
+AppError openFailureError(String pluginId, int? httpStatus) =>
+    switch (httpStatus) {
+      404 || 410 => NotFound(pluginId: pluginId),
+      403 => Unavailable(pluginId: pluginId),
+      _ => Unsupported(pluginId: pluginId),
+    };
