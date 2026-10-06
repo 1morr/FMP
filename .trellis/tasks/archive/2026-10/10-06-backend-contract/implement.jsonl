@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Section 7.6 contract tests: look-ahead open failure and SourceFailed.httpStatus; 7.4 stream URL cache invalidate; 7.5 recovery context"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decisions 1-3 and 7: backend interface, look-ahead handover, recovery"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "Test plugin as replay mode; extend it when it cannot cover a case"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Backend contract, look-ahead, session and controller patterns"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Test plugin fixture, checks.json and contract fixtures"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Contract tests shared by fake and real backends, integration tests"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "Failure kinds and error fields"}
