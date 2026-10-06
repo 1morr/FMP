@@ -242,6 +242,23 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   String get more => '更多';
   @override
   String queueFull({required Object count}) => '队列已满（最多 ${count} 首），没有添加';
+  @override
+  String get retrying => '重试中';
+  @override
+  String get waitingForNetwork => '等待网络连接';
+  @override
+  String get preview => '试听';
+  @override
+  String trackSkipped({required Object title, required Object reason}) =>
+      '已跳过「${title}」：${reason}';
+  @override
+  String cannotPlay({required Object title, required Object reason}) =>
+      '无法播放「${title}」：${reason}';
+  @override
+  String stoppedAfterFailures({required Object count}) =>
+      '连续 ${count} 首无法播放，已停止播放';
+  @override
+  String previewPlaying({required Object title}) => '「${title}」只有试听片段';
 }
 
 // Path: appearance
@@ -290,6 +307,10 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
   String rewindSeconds({required Object seconds}) => '${seconds} 秒';
   @override
   String rewindDefault({required Object label}) => '${label}（默认）';
+  @override
+  String get skipPreviewClips => '跳过试听片段';
+  @override
+  String get skipPreviewClipsHint => '只有试听片段的歌曲直接跳过；关闭时照播并标示「试听」';
 }
 
 // Path: network

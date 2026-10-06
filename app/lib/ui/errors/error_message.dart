@@ -21,9 +21,10 @@ String errorMessage(Translations t, AppError error, {String? sourceName}) {
       source: source,
     ),
     ErrorMessageKey.unavailable => switch (error) {
-      Unavailable(:final reason) => errors.unavailableBecause(
+      Unavailable(:final reason?) => errors.unavailableBecause(
         reason: unavailableReasonText(t, reason),
       ),
+      // 原因不明（CDN 拒絕）或訊息 key 被音源覆寫成 unavailable。
       _ => errors.unavailable,
     },
     ErrorMessageKey.notFound => errors.notFound,

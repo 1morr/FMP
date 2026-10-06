@@ -68,6 +68,8 @@ void main() {
             contains(unavailableReasonText(t, reason)),
           );
         }
+        // 原因不明（串流被 CDN 拒絕）時用不帶原因的句子。
+        expect(errorMessage(t, Unavailable()), t.errors.unavailable);
         // 音源把別的類別覆寫成 unavailable 時沒有原因，用不帶原因的句子。
         expect(
           errorMessage(t, NotFound(messageKey: ErrorMessageKey.unavailable)),

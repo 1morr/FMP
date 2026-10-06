@@ -57,7 +57,14 @@
     "loopAll": "Repeat: all",
     "loopOne": "Repeat: one",
     "more": "More",
-    "queueFull": "The queue is full ({count} songs at most); nothing was added"
+    "queueFull": "The queue is full ({count} songs at most); nothing was added",
+    "retrying": "Retrying",
+    "waitingForNetwork": "Waiting for the network",
+    "preview": "Preview",
+    "trackSkipped": "Skipped \"{title}\": {reason}",
+    "cannotPlay": "Can't play \"{title}\": {reason}",
+    "stoppedAfterFailures": "{count} songs in a row could not be played; playback stopped",
+    "previewPlaying": "Only a preview of \"{title}\" is available"
   },
   "appearance": {
     "theme": "Theme",
@@ -74,7 +81,9 @@
     "tempPlayRewindHint": "Go back a little from where the queue was, so it is easier to pick up",
     "rewindNone": "No rewind",
     "rewindSeconds": "{seconds} s",
-    "rewindDefault": "{label} (default)"
+    "rewindDefault": "{label} (default)",
+    "skipPreviewClips": "Skip preview clips",
+    "skipPreviewClipsHint": "Skip songs that only have a preview clip; when off, play the preview and mark it"
   },
   "network": {
     "cacheLimit": "Cache limit",

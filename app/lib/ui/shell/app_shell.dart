@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/core/core_providers.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -135,48 +137,57 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   // ---- 播放的提示 -------------------------------------------------------------
 
-  /// 播放停在 `Failed`（連續跳過到上限或最後一首也播不了）時提示一次。在
-  /// listener 裡呼叫，不在 build 裡：`Toaster` 同步送出，`ToastHost` 會馬上
-  /// `showSnackBar`。
-  void _onPlaybackState(
-    AsyncValue<PlaybackState>? previous,
-    AsyncValue<PlaybackState> next,
-  ) {
-    if (next.value case Failed(:final error)
-        when !identical(previous?.value, next.value)) {
-      ref
-          .read(toasterProvider)
-          .error(error, operation: 'Playback stopped', tag: 'playback');
-    }
-  }
-
-  /// 播放控制器的一次性事件轉成提示（design §7.9）。同樣在 listener 裡。
+  /// 播放控制器的一次性事件轉成提示（design §7.9）。在 listener 裡呼叫，不在
+  /// build 裡：`Toaster` 同步送出，`ToastHost` 會馬上 `showSnackBar`。錯誤的
+  /// 提示經 `Toaster.error`：先寫錯誤歷史，同類別＋同音源 5 秒內只顯示一次。
   void _onPlaybackEvent(
     AsyncValue<PlaybackEvent>? previous,
     AsyncValue<PlaybackEvent> next,
   ) {
     if (next case AsyncData(:final value)
         when !identical(previous?.value, value)) {
+      final toaster = ref.read(toasterProvider);
+      final t = ref.read(translationsProvider).player;
       switch (value) {
         case QueueFull(:final limit):
+          toaster.warning(
+            t.queueFull(
+              // 千分位：三種介面語言都寫成 10,000。
+              count: NumberFormat.decimalPattern('en').format(limit),
+            ),
+          );
+        case TrackSkipped(:final error, :final track):
+          toaster.error(
+            error,
+            operation: 'Track skipped',
+            tag: 'playback',
+            sentence: (reason) =>
+                t.trackSkipped(title: track.title, reason: reason),
+          );
+        // 只有這一首播不了：說是哪一首、為什麼。
+        case PlaybackStopped(:final error, :final track, failedInARow: 1):
+          toaster.error(
+            error,
+            operation: 'Playback stopped',
+            tag: 'playback',
+            sentence: (reason) =>
+                t.cannotPlay(title: track.title, reason: reason),
+          );
+        // 連續跳過到上限：每一首的原因已經在跳過時提示過（同類的被去重），
+        // 這裡說停下來了。錯誤仍寫進錯誤歷史。
+        case PlaybackStopped(:final error, :final failedInARow):
           ref
-              .read(toasterProvider)
-              .warning(
-                ref
-                    .read(translationsProvider)
-                    .player
-                    .queueFull(
-                      // 千分位：三種介面語言都寫成 10,000。
-                      count: NumberFormat.decimalPattern('en').format(limit),
-                    ),
-              );
+              .read(logProvider)
+              .report('Playback stopped', error, tag: 'playback');
+          toaster.warning(t.stoppedAfterFailures(count: failedInARow));
+        case PreviewPlaying(:final track):
+          toaster.info(t.previewPlaying(title: track.title));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(playbackStateProvider, _onPlaybackState);
     ref.listen(playbackEventsProvider, _onPlaybackEvent);
     final t = ref.watch(translationsProvider).shell;
     final hasTrack = ref.watch(

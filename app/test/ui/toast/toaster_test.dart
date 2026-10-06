@@ -88,6 +88,29 @@ void main() {
       );
     });
 
+    test('a sentence wraps the mapped message; the key stays class and '
+        'plugin', () {
+      fakeAsync((async) {
+        final toasts = toaster();
+        toasts.error(
+          NotFound(pluginId: 'bilibili'),
+          operation: 'Track skipped',
+          tag: 'playback',
+          sentence: (message) => '已跳過「A」：$message',
+        );
+        // 同類別同音源、不同的句子：仍在去重的視窗內。
+        toasts.error(
+          NotFound(pluginId: 'bilibili'),
+          operation: 'Track skipped',
+          tag: 'playback',
+          sentence: (message) => '已跳過「B」：$message',
+        );
+
+        expect([for (final t in shown) t.message], ['已跳過「A」：找不到內容，可能已失效']);
+        expect(log.history, hasLength(2));
+      });
+    });
+
     test("never show the plugin's own message", () {
       toaster().error(
         structuredScriptError(

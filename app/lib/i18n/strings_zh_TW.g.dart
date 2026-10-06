@@ -261,6 +261,30 @@ class Translations$player$zh_TW {
 
   /// zh-TW: '佇列已滿（最多 {count} 首），沒有加入'
   String queueFull({required Object count}) => '佇列已滿（最多 ${count} 首），沒有加入';
+
+  /// zh-TW: '重試中'
+  String get retrying => '重試中';
+
+  /// zh-TW: '等待網路連線'
+  String get waitingForNetwork => '等待網路連線';
+
+  /// zh-TW: '試聽'
+  String get preview => '試聽';
+
+  /// zh-TW: '已跳過「{title}」：{reason}'
+  String trackSkipped({required Object title, required Object reason}) =>
+      '已跳過「${title}」：${reason}';
+
+  /// zh-TW: '無法播放「{title}」：{reason}'
+  String cannotPlay({required Object title, required Object reason}) =>
+      '無法播放「${title}」：${reason}';
+
+  /// zh-TW: '連續 {count} 首無法播放，已停止播放'
+  String stoppedAfterFailures({required Object count}) =>
+      '連續 ${count} 首無法播放，已停止播放';
+
+  /// zh-TW: '「{title}」只有試聽片段'
+  String previewPlaying({required Object title}) => '「${title}」只有試聽片段';
 }
 
 // Path: appearance
@@ -318,6 +342,12 @@ class Translations$playback$zh_TW {
 
   /// zh-TW: '{label}（預設）'
   String rewindDefault({required Object label}) => '${label}（預設）';
+
+  /// zh-TW: '跳過試聽片段'
+  String get skipPreviewClips => '跳過試聽片段';
+
+  /// zh-TW: '只有試聽片段的歌曲直接跳過；關閉時照播並標示「試聽」'
+  String get skipPreviewClipsHint => '只有試聽片段的歌曲直接跳過；關閉時照播並標示「試聽」';
 }
 
 // Path: network

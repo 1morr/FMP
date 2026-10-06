@@ -6,6 +6,7 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
+import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
@@ -13,6 +14,7 @@ import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/fake_source_plugin.dart';
 import '../support/shell_harness.dart';
 
 void main() {
@@ -355,16 +357,116 @@ void main() {
     });
   });
 
-  testWidgets('playback that stops failed shows a toast', (tester) async {
-    final h = ShellHarness();
-    h.plugin.respond = (_) => throw NotFound(pluginId: 'fmp-test');
-    await h.pumpShell(tester);
+  // design §7.9：控制器的事件在外殼轉成提示；文字依錯誤類別（ADR 0013）。
+  group('playback toasts', () {
+    testWidgets('a skipped song is named with the reason', (tester) async {
+      final h = ShellHarness();
+      h.plugin.respond = (request) => request.sourceId == 'a'
+          ? throw Unavailable(
+              reason: UnavailableReason.copyright,
+              pluginId: 'fmp-test',
+            )
+          : [candidate('${request.sourceId}.m4a')];
+      await h.pumpShell(tester);
 
-    await h.play(tester, [summary('a')]);
-    await tester.pumpAndSettle();
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(h.controller.state, isA<Failed>());
-    expect(find.text('Not found. It may have been removed.'), findsOneWidget);
+      expect(h.controller.queue.current?.sourceId, 'b');
+      expect(
+        find.text('Skipped "Song a": Not available: copyright restriction'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('stopping at the only song says which and why', (tester) async {
+      final h = ShellHarness();
+      h.plugin.respond = (_) => throw NotFound(pluginId: 'fmp-test');
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a')]);
+      await tester.pumpAndSettle();
+
+      expect(h.controller.state, isA<Failed>());
+      expect(
+        find.text(
+          "Can't play \"Song a\": Not found. It may have been removed.",
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('stopping after songs in a row says playback stopped', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      h.plugin.respond = (_) => throw NotFound(pluginId: 'fmp-test');
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a'), summary('b'), summary('c')]);
+      await tester.pumpAndSettle();
+
+      expect(h.controller.state, isA<Failed>());
+      // 新的提示取代舊的：最後看到的是停下的那一則。
+      expect(
+        find.text('3 songs in a row could not be played; playback stopped'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a preview clip played as one is announced and marked', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      h.plugin.previewOnly = (_) => true;
+      await h.pumpShell(tester);
+      await tester.runAsync(
+        () => h
+            .container(tester)
+            .read(playbackPreferencesProvider.notifier)
+            .setSkipPreviewClips(false),
+      );
+      await h.loadSettings(tester);
+
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(h.controller.state, isA<Playing>());
+      expect(
+        find.text('Only a preview of "Song a" is available'),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(PlayerBar),
+          matching: find.textContaining('Preview'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('waiting for the network shows no toast', (tester) async {
+      final h = ShellHarness();
+      h.plugin.respond = (_) => throw NetworkError(pluginId: 'fmp-test');
+      await h.pumpShell(tester);
+      await h.setNetwork(tester, NetworkStatus.noInterface);
+
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(minutes: 1));
+
+      expect(
+        h.controller.state,
+        isA<Retrying>().having((s) => s.waitingForNetwork, 'waiting', true),
+      );
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(PlayerBar),
+          matching: find.textContaining('Waiting for the network'),
+        ),
+        findsOneWidget,
+      );
+    });
   });
 
   testWidgets('adding past the queue limit shows a toast each time', (

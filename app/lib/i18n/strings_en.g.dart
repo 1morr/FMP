@@ -238,6 +238,24 @@ class Translations$player$en extends Translations$player$zh_TW {
   @override
   String queueFull({required Object count}) =>
       'The queue is full (${count} songs at most); nothing was added';
+  @override
+  String get retrying => 'Retrying';
+  @override
+  String get waitingForNetwork => 'Waiting for the network';
+  @override
+  String get preview => 'Preview';
+  @override
+  String trackSkipped({required Object title, required Object reason}) =>
+      'Skipped "${title}": ${reason}';
+  @override
+  String cannotPlay({required Object title, required Object reason}) =>
+      'Can\'t play "${title}": ${reason}';
+  @override
+  String stoppedAfterFailures({required Object count}) =>
+      '${count} songs in a row could not be played; playback stopped';
+  @override
+  String previewPlaying({required Object title}) =>
+      'Only a preview of "${title}" is available';
 }
 
 // Path: appearance
@@ -288,6 +306,11 @@ class Translations$playback$en extends Translations$playback$zh_TW {
   String rewindSeconds({required Object seconds}) => '${seconds} s';
   @override
   String rewindDefault({required Object label}) => '${label} (default)';
+  @override
+  String get skipPreviewClips => 'Skip preview clips';
+  @override
+  String get skipPreviewClipsHint =>
+      'Skip songs that only have a preview clip; when off, play the preview and mark it';
 }
 
 // Path: network
