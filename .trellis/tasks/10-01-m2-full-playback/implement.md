@@ -53,8 +53,9 @@
 - **PR 10 已合併**：#205（`c0a87b40`）。審查修了「被換掉的前瞻在佇列沒有下一首時仍出聲」；兩平台實機重播通過。
 - **PR 11 已合併**：#206（`73853671`）。兩個真後端契約 14/14；Android 拿不到 HTTP 狀態碼（design §7.6 更正、§7.5 新列）。
 - **PR 12 已合併**：#208（`6ed45ee3`）。
-- **PR 8 收尾中**（2026-10-06；FMP 分支 `feat/app-stream-quality`；fmp-plugins 1morr/fmp-plugins#3）：實作、審查（opus）完成；擁有者決定 B 站備援先往下降、沒有更低才往上。實機真實連線兩平台音質「低」都是 `bitrate: 65551`；`Opening stream` 實機時補上 `bitrate` 欄位。
-- **下一步**：PR 8 合併後 PR 13（音量、速度、輸出裝置），再 14、15；16a 可穿插。
+- **PR 8 已合併**：#209（`f84c8b00`）、fmp-plugins#3（`33caa3a`）。
+- **PR 13 收尾中**（2026-10-07；分支 `feat/app-volume-speed-device`）：實作、審查（opus，修了「duck 中被來電打斷後輸出停在一半」）完成；真後端契約兩平台 17/17。實機（Android 模擬器、重播）：`adb emu gsm call/cancel` 暫停與續播、先暫停則不續播都通過；拔耳機廣播被系統擋（`SecurityException`），未驗；Windows 輸出裝置失敗要停用系統音訊裝置，未驗，只驗了契約的 `auto`。擁有者確認中斷續播、靜音、裝置清單三項（design §7.6 已記）。
+- **下一步**：PR 13 合併後 PR 14（佇列持久化），再 15；16a、17 可穿插。
 - **本機環境備忘**（2026-10-03 更新）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **模擬器上的狀態**：dev 版裝著測試插件（`files/test.js`）與 B 站插件（`files/bilibili.js`），介面語言 English，快取上限設成 512 MB。跑過 Android 整合測試會解除安裝 dev，要重裝並以 `run-as` 放回兩個插件，各帶 `--fmp-dev-plugin` 啟動一次。
@@ -664,6 +665,18 @@ PR 8 留下的：
 - [ ] `expiresAtPattern` 取網址裡先出現的期限，插件先找 `deadline` 再找 `hdnts=exp=`；若以後重錄時某個 Akamai 網址同時有兩者、`hdnts` 在前且時間不同，錄製會拒絕寫檔。
 - [ ] `fmp-plugin.d.ts` 沒有規定候選的備援順序（只是 B 站的決定）；M3 寫網易插件時再看要不要成為插件規範。
 - [ ] B 站插件 manifest 仍是 0.1.0（還沒有發佈版本）。
+
+PR 13 留下的：
+
+- [ ] PR 17：播放列接音量、靜音、輸出裝置；控制器要對外提供裝置清單、目前裝置與音量的 stream。裝置清單只列 Windows 的音訊裝置（擁有者 2026-10-07：不列 mpv 的 `openal` 這類內部輸出，「系統預設」照常有）。
+- [ ] PR 18a：速度選單（需要速度的 getter 或 stream）。
+- [ ] PR 14：持久化音量與靜音（靜音與音量分開記，擁有者 2026-10-07 確認）。
+- [ ] 裝置失敗前先到的提前結束，在錯誤歷史留一筆 `Stream ended early`。
+- [ ] `JustAudioBackend` 接 audio_session、`MediaKitBackend` 接 log 的幾行沒有自動閘門（`flutter test` 裡建不起來）。
+- [ ] duck 在 Android 8 以上因系統自動 duck 幾乎不會觸發。
+- [ ] PR 17：記住的輸出裝置失效後 mpv 仍被強制指定它，按播放會再失敗；決定失敗時要不要自動退回系統預設。
+- [ ] `_onOutputDevices` 裡 `_session.selectOutputDevice` 丟錯會變成未捕捉的非同步錯誤（全域 handler 記 error），影響小。
+- [ ] 後端的 `volume`、`speed` getter 與 `OutputDevices.selected` 只有契約測試在讀（觀察真引擎狀態的唯一方式，保留）；控制器的 `volume`、`muted` 等 PR 17 的 UI 使用。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

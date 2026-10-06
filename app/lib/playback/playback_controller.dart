@@ -4,6 +4,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/playback/playback_event_router.dart';
@@ -23,6 +24,11 @@ typedef TemporaryReturnSettings = ({bool rememberPosition, Duration rewind});
 /// 並把後端的回報過濾成 [SessionEvent]；[routePlaybackEvent] 決定事件要做什麼；
 /// [decideRecovery] 決定失敗後怎麼辦。狀態只在這裡依它們的結果改。
 ///
+/// 音訊中斷、拔耳機與輸出裝置失敗由後端回報、[routePlaybackEvent] 決定，暫停與
+/// 續播只在這裡做（design §7.6）：只有因中斷而暫停的才在中斷結束時續播，使用者
+/// 在中斷期間按過播放或暫停就不再續播。音量、靜音與速度交給後端，換歌後由後端
+/// 維持。
+///
 /// 佇列的每個編輯都重新指定前瞻（[PlaybackSession.retargetLookAhead]），引擎接上
 /// 的一定是佇列當下的下一首。臨時播放中不準備佇列的前瞻：臨時曲目播完回到的那
 /// 一首要從快照的位置開始，不能由引擎從頭接上（舊版「臨時播放不預取」）。單曲
@@ -39,6 +45,8 @@ final class PlaybackController {
   /// [session] 由控制器擁有，[dispose] 時一起釋放。[temporaryReturnSettings]
   /// 在臨時播放回到佇列時讀，[skipPreviewClips] 在遇到試聽片段時讀，
   /// [networkStatus] 在失敗時讀；[networkStatusChanges] 是之後的每次改變。
+  /// [preferredOutputDevice] 在輸出裝置清單第一次就緒時讀（記住的裝置 id），
+  /// [saveOutputDevice] 在使用者選裝置時寫。
   PlaybackController({
     required this._session,
     required this._log,
@@ -46,10 +54,13 @@ final class PlaybackController {
     required this._skipPreviewClips,
     required this._networkStatus,
     required Stream<NetworkStatus> networkStatusChanges,
+    required this._preferredOutputDevice,
+    required this._saveOutputDevice,
   }) {
     _sessionEvents = _session.events.listen(_onSessionEvent);
     _progressEvents = _session.progress.listen(_onProgress);
     _networkChanges = networkStatusChanges.listen(_onNetworkStatus);
+    _outputDeviceLists = _session.outputDeviceLists?.listen(_onOutputDevices);
   }
 
   static const _tag = 'playback';
@@ -63,9 +74,12 @@ final class PlaybackController {
   final TemporaryReturnSettings Function() _temporaryReturnSettings;
   final bool Function() _skipPreviewClips;
   final NetworkStatus Function() _networkStatus;
+  final Future<String?> Function() _preferredOutputDevice;
+  final Future<void> Function(OutputDevice? device) _saveOutputDevice;
   late final StreamSubscription<SessionEvent> _sessionEvents;
   late final StreamSubscription<PlaybackProgress> _progressEvents;
   late final StreamSubscription<NetworkStatus> _networkChanges;
+  StreamSubscription<List<OutputDevice>>? _outputDeviceLists;
 
   final _queue = QueueModel();
   final _states = StreamController<PlaybackState>.broadcast();
@@ -99,6 +113,18 @@ final class PlaybackController {
   /// 暫停）才載入；原本停著（`Idle`、`Failed`、佇列是空的）就停在 `Idle`。
   bool _returnLoadsQueueTrack = false;
 
+  /// 目前的暫停是音訊中斷造成的：中斷結束時續播。使用者按播放或暫停、換一首
+  /// 開始播、拔耳機、停下時清掉。
+  bool _pausedByInterruption = false;
+
+  /// 使用者的音量（0–1）；靜音時是取消靜音後回到的值。
+  double _volume = 1;
+  bool _muted = false;
+
+  /// 輸出裝置清單已經就緒過（記住的裝置只在第一次套用），或使用者自己選過。
+  bool _outputDeviceListSeen = false;
+  bool _outputDeviceChosen = false;
+
   // RecoveryPolicy 的計數，只在這裡改。
   int _retries = 0;
   int _reResolves = 0;
@@ -126,6 +152,11 @@ final class PlaybackController {
   /// [previewing] 的變化（只在改變時發出）。
   Stream<bool> get previewChanges => _previews.stream;
 
+  /// 使用者的音量（0–1）；靜音時是取消靜音後回到的值。
+  double get volume => _volume;
+
+  bool get muted => _muted;
+
   // ---- 佇列 -----------------------------------------------------------------
 
   /// 臨時播放 [track]（D1）：不放進佇列，播完或按上一首、下一首回到佇列進入
@@ -140,7 +171,7 @@ final class PlaybackController {
     _queue.playTemporary(track, position: _position, playing: _wantsSound);
     _emitQueue();
     _consecutiveSkips = 0;
-    _playWhenReady = true;
+    _setPlayWhenReady(true);
     return _beginTrack();
   }
 
@@ -158,7 +189,7 @@ final class PlaybackController {
     _queue.jumpTo(index);
     _emitQueue();
     _consecutiveSkips = 0;
-    _playWhenReady = true;
+    _setPlayWhenReady(true);
     return _beginTrack(prepared: prepared);
   }
 
@@ -217,7 +248,7 @@ final class PlaybackController {
   // ---- 播放 -----------------------------------------------------------------
 
   Future<void> play() async {
-    _playWhenReady = true;
+    _setPlayWhenReady(true);
     switch (_state) {
       case Paused() || Loading() || Buffering():
         if (_session.hasSource) {
@@ -236,7 +267,7 @@ final class PlaybackController {
   }
 
   Future<void> pause() async {
-    _playWhenReady = false;
+    _setPlayWhenReady(false);
     switch (_state) {
       case Playing() || Buffering() || Loading():
         if (_session.hasSource) await _session.pause();
@@ -275,9 +306,83 @@ final class PlaybackController {
     await _session.seek(position);
   }
 
+  // ---- 音量、速度、輸出裝置 ------------------------------------------------
+
+  /// 設定音量（夾到 0–1），並取消靜音（舊版拖音量條就是取消靜音）。後端換歌
+  /// 後維持。持久化在 M2 PR 14。
+  Future<void> setVolume(double volume) {
+    _volume = volume.clamp(0, 1).toDouble();
+    _muted = false;
+    return _session.setVolume(_volume);
+  }
+
+  /// 切換靜音：靜音時後端的音量是 0，[volume] 不變，取消靜音回到它（design
+  /// §3.3）。
+  Future<void> toggleMute() {
+    _muted = !_muted;
+    return _session.setVolume(_muted ? 0 : _volume);
+  }
+
+  /// 設定速度：後端夾到 0.5–2.0，換歌後維持；不持久化（ADR 0018 §決定 10）。
+  Future<void> setSpeed(double speed) => _session.setSpeed(speed);
+
+  /// 選音訊輸出裝置並記成偏好；`null` 是系統預設（清掉偏好）。不能選裝置的
+  /// 平台（`PlaybackSupport.outputDeviceSelection` 為假）什麼都不做。
+  Future<void> selectOutputDevice(OutputDevice? device) async {
+    if (!_session.selectsOutputDevice) return;
+    _outputDeviceChosen = true;
+    _log.info(
+      'Output device selected',
+      tag: _tag,
+      fields: {'device': device?.id ?? 'auto'},
+    );
+    await _session.selectOutputDevice(device);
+    await _saveOutputDevice(device);
+  }
+
+  /// 裝置清單第一次就緒時套用記住的裝置（舊版 `audio_provider.dart` 的
+  /// `_restorePreferredAudioDevice`）：只套用這一次，之後插拔造成的清單變動不
+  /// 蓋掉使用者當下的選擇；不在清單裡就用系統預設，偏好不清掉（插回來時還要
+  /// 它）。
+  Future<void> _onOutputDevices(List<OutputDevice> devices) async {
+    if (_outputDeviceListSeen || devices.isEmpty) return;
+    _outputDeviceListSeen = true;
+    if (_outputDeviceChosen) return;
+    final String? preferred;
+    try {
+      preferred = await _preferredOutputDevice();
+    } on Object catch (error, stackTrace) {
+      _log.warning(
+        'Failed to read the preferred output device',
+        tag: _tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
+    // 讀設定的期間使用者自己選了：以使用者的為準。
+    if (preferred == null || _outputDeviceChosen) return;
+    final match = devices.where((device) => device.id == preferred);
+    if (match.isEmpty) {
+      _log.info(
+        'Preferred output device is not connected',
+        tag: _tag,
+        fields: {'device': preferred},
+      );
+      return;
+    }
+    _log.info(
+      'Preferred output device restored',
+      tag: _tag,
+      fields: {'device': preferred},
+    );
+    await _session.selectOutputDevice(match.first);
+  }
+
   Future<void> dispose() async {
     _cancelRetry();
     _stallTimer?.cancel();
+    await _outputDeviceLists?.cancel();
     // dispose 的同步部分先換一代：還在進行的解析回來時不再開流或設定前瞻。
     await _session.dispose();
     await _sessionEvents.cancel();
@@ -338,7 +443,7 @@ final class PlaybackController {
         'play': snapshot.playing,
       },
     );
-    _playWhenReady = snapshot.playing;
+    _setPlayWhenReady(snapshot.playing);
     return _beginTrack(position: position);
   }
 
@@ -452,11 +557,29 @@ final class PlaybackController {
         hasNext: _queue.state.hasNext,
         repeatsTrack: _queue.state.loopMode == LoopMode.one,
         resumeAt: _resumeAt,
+        wantsSound: _wantsSound,
+        pausedByInterruption: _pausedByInterruption,
       ),
     );
     switch (action) {
       case IgnoreEvent():
         return;
+      case PauseForInterruption():
+        _log.info('Audio interrupted; pausing', tag: _tag);
+        unawaited(pause());
+        // pause 清掉了它（當成使用者的暫停）；這次是中斷造成的，結束時續播。
+        _pausedByInterruption = true;
+      case ResumeAfterInterruption():
+        _log.info('Audio interruption ended; resuming', tag: _tag);
+        unawaited(play());
+      case PauseWithoutResuming():
+        _log.info(switch (event) {
+          HeadphonesUnplugged() => 'Headphones unplugged; pausing',
+          _ => 'Audio interruption ended; staying paused',
+        }, tag: _tag);
+        unawaited(pause());
+      case PauseForOutputFailure():
+        _pauseForOutputFailure();
       case ShowState(:final state):
         _setState(state);
       case MarkReady(:final playing, :final first):
@@ -626,6 +749,35 @@ final class PlaybackController {
     }
   }
 
+  /// 輸出裝置開不起來（design §7.6）：暫停並提示，不跳過。來源放掉、記下位置
+  /// （之後才到的提前結束、錯誤屬於舊的一代，丟掉；已經排好的重試也取消），按
+  /// 播放時從這裡重新開流：mpv 在裝置失敗後不會自己再開輸出。停著（`Idle`、
+  /// `Failed`）時只提示。
+  void _pauseForOutputFailure() {
+    _emitEvent(OutputDeviceFailed());
+    _pausedByInterruption = false;
+    switch (_state) {
+      case Idle() || Failed():
+        return;
+      case Loading() || Playing() || Paused() || Buffering() || Retrying():
+        final position = _position;
+        _log.info(
+          'Output device failed; pausing',
+          tag: _tag,
+          fields: {
+            'track': '${_queue.state.current?.key}',
+            'positionMs': position.inMilliseconds,
+          },
+        );
+        _playWhenReady = false;
+        _session.newGeneration();
+        _cancelRetry();
+        _resumeAt = position;
+        _setState(const Paused());
+        unawaited(_session.stop());
+    }
+  }
+
   /// 停在 [Failed] 並發 [PlaybackStopped]（外殼提示一次）。
   Future<void> _stopFailed(AppError error, {required int failedInARow}) {
     final track = _queue.state.current;
@@ -675,6 +827,7 @@ final class PlaybackController {
   }
 
   Future<void> _stopWith(PlaybackState state) async {
+    _pausedByInterruption = false;
     _session.newGeneration();
     _cancelRetry();
     _setPreview(null);
@@ -729,6 +882,12 @@ final class PlaybackController {
         _onBufferingStalled();
       }
     });
+  }
+
+  /// 使用者（或回到佇列的快照）決定要不要出聲：之後的暫停不再是中斷造成的。
+  void _setPlayWhenReady(bool value) {
+    _playWhenReady = value;
+    _pausedByInterruption = false;
   }
 
   void _setPreview(TrackKeyParts? track) {

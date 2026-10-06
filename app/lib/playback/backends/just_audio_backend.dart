@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 import 'package:fmp/core/logging/log.dart';
@@ -11,6 +12,10 @@ import 'package:fmp/playback/playback_state.dart';
 ///
 /// 整個 App 一個 `AudioPlayer`，換來源只換清單（音訊焦點見 [AudioBackend]）。
 /// 每個 just_audio 項目的 `tag` 是 [BackendSource.id]，索引以它對回來源。
+///
+/// 音訊中斷與拔耳機自己聽 audio_session（`handleInterruptions: false`，理由見
+/// `respondToInterruption`）：duck 只把引擎的輸出減半，其餘發事件給上層。焦點
+/// 的取得與釋放仍由 just_audio 管（`handleAudioSessionActivation` 預設開）。
 final class JustAudioBackend implements AudioBackend {
   JustAudioBackend({required this._log})
     : _player = AudioPlayer(
@@ -19,12 +24,15 @@ final class JustAudioBackend implements AudioBackend {
         useProxyForRequestHeaders: false,
         // 第二個項目（前瞻）一接上就預備，交接處才不用等開流。
         useLazyPreparation: false,
+        // 中斷由這裡轉成事件、控制器決定暫停或續播（design §7.6）。
+        handleInterruptions: false,
       ) {
     _subscriptions
       ..add(_player.playerStateStream.listen(_onPlayerState))
       ..add(_player.playbackEventStream.listen(_onPlaybackEvent))
       ..add(_player.errorStream.listen(_onError))
       ..add(_player.positionStream.listen(_onPosition));
+    unawaited(_listenToAudioSession());
   }
 
   final Log _log;
@@ -62,6 +70,15 @@ final class JustAudioBackend implements AudioBackend {
   /// 使用者要不要出聲：[open] 的 `play`、[play]、[pause] 設定。載入中被暫停時，
   /// 載入完不能再以 [open] 當時的 `play` 開始播。
   bool _wantPlaying = false;
+
+  /// 使用者的音量；交給引擎的是 [outputVolume]（duck 時減半）。
+  double _volume = 1;
+
+  /// 別的 App 要求 duck（`AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK`）中；每個中斷
+  /// 事件之後由 `duckedAfter` 決定。
+  bool _ducked = false;
+
+  bool _disposed = false;
 
   /// 清單正在修改：事件裡的索引可能還是舊的，改完再核對一次。
   int _editing = 0;
@@ -163,6 +180,27 @@ final class JustAudioBackend implements AudioBackend {
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
+  Future<void> setVolume(double volume) {
+    _volume = clampVolume(volume);
+    return _applyVolume();
+  }
+
+  /// just_audio 的速度跨來源保留（`setAudioSources` 不重設），引擎啟用時再套用
+  /// 一次（`_setPlatformActive`），所以 open 之前設定也生效。
+  @override
+  Future<void> setSpeed(double speed) => _player.setSpeed(clampSpeed(speed));
+
+  @override
+  double get volume => _player.volume;
+
+  @override
+  double get speed => _player.speed;
+
+  /// ExoPlayer 不讓 App 選裝置：輸出跟著系統。
+  @override
+  OutputDevices? get outputDevices => null;
+
+  @override
   Future<void> stop() {
     _currentId = null;
     _nextId = null;
@@ -177,6 +215,7 @@ final class JustAudioBackend implements AudioBackend {
 
   @override
   Future<void> dispose() async {
+    _disposed = true;
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }
@@ -185,6 +224,66 @@ final class JustAudioBackend implements AudioBackend {
     await _progress.close();
     await _events.close();
   }
+
+  Future<void> _applyVolume() =>
+      _player.setVolume(outputVolume(_volume, ducked: _ducked));
+
+  /// audio_session 的中斷與拔耳機（just_audio 的內建處理關掉了）。事件在
+  /// `AudioPlayer.play()` 經 `setActive(true)` 要求焦點之後才會來。
+  Future<void> _listenToAudioSession() async {
+    final session = await AudioSession.instance;
+    if (_disposed) return;
+    _subscriptions
+      ..add(session.interruptionEventStream.listen(_onInterruption))
+      ..add(session.becomingNoisyEventStream.listen((_) => _onBecomingNoisy()));
+  }
+
+  void _onInterruption(AudioInterruptionEvent event) {
+    final response = respondToInterruption(
+      begin: event.begin,
+      kind: switch (event.type) {
+        AudioInterruptionType.pause => InterruptionKind.pause,
+        AudioInterruptionType.duck => InterruptionKind.duck,
+        AudioInterruptionType.unknown => InterruptionKind.unknown,
+      },
+    );
+    _log.info(
+      'Audio interruption',
+      tag: 'playback',
+      fields: {
+        'begin': event.begin,
+        'type': event.type.name,
+        'response': response.name,
+      },
+    );
+    final ducked = duckedAfter(response);
+    if (ducked != _ducked) {
+      _ducked = ducked;
+      unawaited(_applyVolume().catchError(_logVolumeError));
+    }
+    switch (response) {
+      case InterruptionResponse.duck || InterruptionResponse.unduck:
+        break;
+      case InterruptionResponse.interrupted:
+        _add(_events, const Interrupted());
+      case InterruptionResponse.endedResumable:
+        _add(_events, const InterruptionEnded(resume: true));
+      case InterruptionResponse.ended:
+        _add(_events, const InterruptionEnded(resume: false));
+    }
+  }
+
+  void _onBecomingNoisy() {
+    _log.info('Audio becoming noisy', tag: 'playback');
+    _add(_events, const BecameNoisy());
+  }
+
+  void _logVolumeError(Object error, StackTrace stackTrace) => _log.warning(
+    'Failed to set the volume',
+    tag: 'playback',
+    error: error,
+    stackTrace: stackTrace,
+  );
 
   AudioSource _audioSource(BackendSource source) => AudioSource.uri(
     source.url,

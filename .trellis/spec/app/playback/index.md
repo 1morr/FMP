@@ -10,8 +10,8 @@
 lib/playback/
   playback_controller.dart  # PlaybackController：唯一入口，唯一寫 PlaybackState
   playback_session.dart     # PlaybackSession：唯一碰 AudioBackend；解析、開流、前瞻、代與來源 id
-  playback_event_router.dart # SessionEvent、routePlaybackEvent（純函數）與它的動作
-  playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull、TrackSkipped、PlaybackStopped、PreviewPlaying）
+  playback_event_router.dart # SessionEvent（SourceEvent 與輸出事件）、routePlaybackEvent（純函數）與它的動作
+  playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull、TrackSkipped、PlaybackStopped、PreviewPlaying、OutputDeviceFailed）
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
   queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限）
   stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限、previewOnly）
@@ -19,13 +19,15 @@ lib/playback/
   playback_providers.dart   # audioBackendProvider、playbackControllerProvider、temporaryReturnSettingsProvider、
                             # skipPreviewClipsProvider、狀態／佇列／試聽／進度／事件 stream
   backends/
-    audio_backend.dart      # AudioBackend 介面、BackendSource、狀態與事件
-    backend_rules.dart      # classifyTrackEnd、LookAheadEdit（兩個後端共用）
-    audio_backends.dart     # createAudioBackend：依平台宣告建實作
+    audio_backend.dart      # AudioBackend 介面、OutputDevices、BackendSource、狀態與事件
+    backend_rules.dart      # classifyTrackEnd、LookAheadEdit、速度與音量的夾取、中斷的對應、
+                            # mpv 的輸出裝置失敗行（兩個後端共用的純函數）
+    audio_backends.dart     # createAudioBackend：依平台宣告建實作，assert 宣告與 outputDevices 一致
     just_audio_backend.dart # Android
     media_kit_backend.dart  # Windows
 
 lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSupport 與兩個平台的宣告
+lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面用）
 ```
 
 ## 一首歌怎麼播
@@ -93,6 +95,27 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   的實作決定，測試只認規則。新的編輯操作加進 `a seeded run of edits…` 的 `switch`，並照它
   維護 `slots`（每個位置的身分）。
 
+## 音量、速度、中斷、輸出裝置
+
+- 音量與速度由後端維持（換來源、交接後不重設），控制器只轉一次；新的後端要在 `open` 之前收到
+  也生效。夾取規則在 `backend_rules.dart`，兩個後端都呼叫，不各寫一份。
+- 不屬於來源的後端事件（`Interrupted`、`InterruptionEnded`、`BecameNoisy`、`OutputDeviceFailed`）
+  在 session 的 `_onEvent` 最前面轉成 `SessionEvent`（`AudioInterrupted` 等），不看目前有沒有來源；
+  `routePlaybackEvent` 不比對代。新的輸出事件照這條路加：後端事件 → session 轉換 → 路由器的一列
+  （`playback_event_router_test.dart` 的 `output events`）→ 控制器的動作。
+- duck 是後端內部的狀態：每個 audio_session 事件先經 `respondToInterruption`，再以
+  `duckedAfter` 決定輸出要不要減半（不是只看 duck 的開始與結束）。新的事件序列在
+  `backend_rules_test.dart` 的 `the output is halved only during a duck` 加一例。
+- 「這次暫停是中斷造成的」只在控制器（`_pausedByInterruption`）：使用者決定要不要出聲的地方
+  一律經 `_setPlayWhenReady`，它會清掉這個記號；中斷造成的暫停在呼叫 `pause()` 之後才設回。
+- 輸出裝置失敗時控制器放掉來源（換一代），不是只呼叫後端的 `pause`：mpv 不會自己再開輸出，而且
+  同一次失敗的 `completed` 可能先到、排了重試。
+- 偏好裝置只在清單第一次就緒時套用（`_onOutputDevices`）；讀偏好是 `Future`，組裝點等資料庫的
+  值讀出來（`playbackPreferencesProvider.future`）。
+- mpv 的 log 新格式先錄一行再加進 `isOutputDeviceFailure`：暫時在 `integration_test/` 寫一個檔
+  直接用 media_kit 記每一行（`MPVLogLevel.warn`），選一個不存在的 `wasapi/{…}` 裝置就能重現，
+  跑完刪掉。
+
 ## 改後端
 
 - 引擎的型別只出現在兩個實作檔；介面的型別（`BackendStatus`、`BackendEvent`）以外的東西不要
@@ -139,6 +162,12 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   `action` 欄位。
 - 後端的清單修改還在排隊時引擎就接上了舊前瞻：`backend.setNextGate` 給一個沒完成的 Future，
   `setNext` 會等它才套用。
+- 音量、速度、中斷、輸出裝置：後端的值讀 `backend.volume`、`backend.speed`；中斷與拔耳機用
+  `backend.audioInterrupted()`、`audioInterruptionEnded(resume:)`、`becameNoisy()`；輸出裝置失敗用
+  `backend.failOutputDevice()`，mpv 那種先到的提前結束用 `backend.endEarly()`（`stop` 之後才到的
+  用 `endEarlyFor(source)`）。能選裝置的平台給 `Harness(outputDevices: FakeOutputDevices(...))`，
+  清單以 `devices.list(...)` 發出、`devices.selections` 看選了什麼；記住的裝置是
+  `h.preferredOutputDevice`，寫回設定的是 `h.savedOutputDevices`。
 - 時間：程式碼讀 `clock.now()`，`fakeAsync` 裡的 `clock` 跟著假時間走（`h.now()` 就是它）。
   網址快取以時間判斷有效，同一個 `Harness` 裡的解析共用一份快取：要測「再解析一次」就讓
   期限落在 5 分鐘的餘裕內，或製造一次串流失敗。
@@ -186,5 +215,16 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   `Network status changed`。正常播放 10 秒後重試計數歸零記 `Retry count reset after normal
   playback`；緩衝飢餓記 `Buffering stalled`。試聽片段不當前瞻時記 `Look-ahead skipped: preview
   only`。測試插件的關鍵字 `preview`、`flaky`、`unavailable` 造這些情境（`test_plugin/README.md`）。
+- 音訊中斷（Android，模擬器）：播放中 `adb emu gsm call 5551234`（來電鈴聲要走焦點），應該看到
+  `Audio interruption`（`begin: true`、`type: pause`、`response: interrupted`）接著 `Audio interrupted;
+  pausing`；`adb emu gsm cancel 5551234` 之後 `Audio interruption`（`begin: false`）與 `Audio
+  interruption ended; resuming`，同一首從原位置續播、沒有新的 `Opening stream`。中斷前先按暫停的，
+  結束時沒有 `resuming`。拔耳機：`BECOMING_NOISY` 是受保護的系統廣播，shell 送不出去；模擬器做不到時
+  記為未驗，log 是 `Audio becoming noisy` 與 `Headphones unplugged; pausing`。
+- 輸出裝置（Windows）：裝置清單第一次就緒時，有記住的裝置會記 `Preferred output device restored` 或
+  `… is not connected`；使用者選的記 `Output device selected`（`device` 是 mpv 的裝置名，系統預設是
+  `auto`）。播放中停用正在輸出的裝置：`Output device failed`（`error` 是 mpv 的那一行）接著 `Output
+  device failed; pausing`，播放列停在暫停、跳一則提示；可能先有一筆 `Stream ended early` 與
+  `Playback recovery`（`action: retry`），之後沒有 `Track requested`。
 - 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
   `Referer`；音質切到「低」時 `bitrate` 是那首最低的一軌（B 站 DASH 音訊最低約 6–7 萬）。

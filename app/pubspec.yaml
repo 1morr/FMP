@@ -17,6 +17,10 @@ workspace:
   - packages/fmp_lints
 
 dependencies:
+  # Android 的音訊中斷與拔耳機（design §7.6）：JustAudioBackend 關掉 just_audio
+  # 的內建處理、自己聽它的事件；只准在 lib/playback/backends/ import
+  # （fmp_layer_imports）。本來就是 just_audio 的傳遞依賴，直接依賴才能 import。
+  audio_session: ^0.2.4
   # 封面（ADR 0016 §決定 4）：widget 只准在 lib/ui/artwork/ import，它的磁碟
   # 快取經 flutter_cache_manager 的自訂 cache manager 接到統一快取庫
   # （lib/data/cache/，fmp_layer_imports）。

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/settings/playback_settings.dart';
 
@@ -251,6 +252,60 @@ void main() {
         'temp_play_rewind_seconds': null,
         'skip_preview_clips': null,
       });
+    });
+    // design §7.6：輸出裝置的 id 與顯示名稱一起寫、一起清；沒有預設（沒設定
+    // 過就是系統預設）。
+    test('the output device is written as a pair, read back and cleared '
+        'as a pair', () async {
+      final database = memoryDatabase();
+      final container = containerFor(database);
+      final events = preferences(container);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.outputDevice, isNull);
+      final notifier = container.read(playbackPreferencesProvider.notifier);
+      await notifier.setTempPlayRewindSeconds(5);
+      await events.moveNext();
+
+      const device = OutputDevice(
+        id: 'wasapi/{2698a574}',
+        name: 'Speakers (Realtek(R) Audio)',
+      );
+      await notifier.setOutputDevice(device);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.outputDevice, device);
+
+      Future<Map<String, Object?>> row() async =>
+          (await database
+                  .customSelect(
+                    'SELECT output_device_id, output_device_name, '
+                    'temp_play_rewind_seconds FROM playback_settings',
+                  )
+                  .getSingle())
+              .data;
+      expect(await row(), {
+        'output_device_id': 'wasapi/{2698a574}',
+        'output_device_name': 'Speakers (Realtek(R) Audio)',
+        'temp_play_rewind_seconds': 5,
+      });
+
+      await notifier.setOutputDevice(null);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.outputDevice, isNull);
+      expect(await row(), {
+        'output_device_id': null,
+        'output_device_name': null,
+        'temp_play_rewind_seconds': 5,
+      });
+    });
+
+    test('a stored id without a name shows the id', () {
+      final resolved = PlaybackPreferencesNotifier.resolve(
+        const PlaybackSettings(outputDeviceId: 'wasapi/{a}'),
+      );
+      expect(
+        resolved.outputDevice,
+        const OutputDevice(id: 'wasapi/{a}', name: 'wasapi/{a}'),
+      );
     });
   });
 }

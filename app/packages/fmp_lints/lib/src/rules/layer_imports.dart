@@ -14,9 +14,11 @@ final externalPackageOwners = <String, String>{
   'isar_community': 'lib/legacy_import',
   'drift': 'lib/data',
   'sqlite3': 'lib/data',
-  // ADR 0018：兩個播放後端。
+  // ADR 0018：兩個播放後端；Android 的音訊中斷由 just_audio 後端自己聽
+  // audio_session（design §7.6）。
   'just_audio': 'lib/playback/backends',
   'media_kit': 'lib/playback/backends',
+  'audio_session': 'lib/playback/backends',
   // ADR 0012：HTTP client 與 cookie 只在網路層；`dio_cookie_manager` 算在
   // `dio` 系列裡。
   'dio': 'lib/core/network',

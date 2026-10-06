@@ -13,4 +13,6 @@ const windowsPlaybackSupport = PlaybackSupport(
     PlayableFormat('flac', 'flac'),
     PlayableFormat('wav', 'pcm_s16le'),
   ],
+  // mpv 的 `audio-device`：WASAPI 的各個裝置（舊版同樣能選）。
+  outputDeviceSelection: true,
 );

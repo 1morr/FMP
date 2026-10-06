@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/backend_rules.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -14,6 +15,7 @@ final class FakeAudioBackend implements AudioBackend {
     this.failsToOpen = _never,
     this.httpStatusOf = _noStatus,
     this.tick = const Duration(milliseconds: 50),
+    this.outputDevices,
   });
 
   static Duration _twoSeconds(Uri url) => const Duration(seconds: 2);
@@ -33,6 +35,10 @@ final class FakeAudioBackend implements AudioBackend {
   /// 位置每次前進多少（也是位置回報的間隔）。
   final Duration tick;
 
+  /// 給了就像 Windows 一樣能選輸出裝置。
+  @override
+  final FakeOutputDevices? outputDevices;
+
   /// 每次 [open] 的來源與起點，依序。
   final opened = <BackendSource>[];
   final openedAt = <Duration>[];
@@ -50,6 +56,8 @@ final class FakeAudioBackend implements AudioBackend {
   bool _playing = false;
   bool _loaded = false;
   Timer? _ticker;
+  double _volume = 1;
+  double _speed = 1;
 
   BackendSource? get current =>
       _index >= 0 && _index < _playlist.length ? _playlist[_index] : null;
@@ -58,6 +66,13 @@ final class FakeAudioBackend implements AudioBackend {
   List<BackendSource> get playlist => List.unmodifiable(_playlist);
 
   bool get playing => _playing;
+
+  @override
+  double get volume => _volume;
+
+  /// 位置以這個倍數前進（假時間裡的播放速度）。
+  @override
+  double get speed => _speed;
 
   @override
   Stream<BackendStatus> get status => _status.stream;
@@ -142,6 +157,12 @@ final class FakeAudioBackend implements AudioBackend {
   }
 
   @override
+  Future<void> setVolume(double volume) async => _volume = clampVolume(volume);
+
+  @override
+  Future<void> setSpeed(double speed) async => _speed = clampSpeed(speed);
+
+  @override
   Future<void> stop() async {
     _ticker?.cancel();
     _playlist.clear();
@@ -171,6 +192,37 @@ final class FakeAudioBackend implements AudioBackend {
         cause: cause,
       ),
     );
+  }
+
+  /// 目前的來源提前結束（像 mpv 的輸出裝置失敗時先送到的 `completed`）。
+  void endEarly() {
+    final source = current;
+    if (source == null) return;
+    _ticker?.cancel();
+    _playing = false;
+    endEarlyFor(source);
+    _emitStatus(BackendPhase.ended);
+  }
+
+  /// 發出 [source] 提前結束的事件，不管它還是不是目前的來源（`stop` 之前就
+  /// 送出、晚一點才到的那種）。
+  void endEarlyFor(BackendSource source) =>
+      _events.add(SourceEnded(id: source.id, end: TrackEndReason.endedEarly));
+
+  /// 別的 App 拿走音訊焦點（Android 的暫停類中斷）。
+  void audioInterrupted() => _events.add(const Interrupted());
+
+  /// 中斷結束；[resume] 是暫停類的中斷結束。
+  void audioInterruptionEnded({bool resume = true}) =>
+      _events.add(InterruptionEnded(resume: resume));
+
+  /// 拔耳機。
+  void becameNoisy() => _events.add(const BecameNoisy());
+
+  /// 輸出裝置開不起來（mpv 的 `[ao]` 錯誤）：像 mpv 一樣，目前的來源也停下。
+  void failOutputDevice() {
+    _ticker?.cancel();
+    _events.add(const OutputDeviceFailed(cause: 'ao: no device'));
   }
 
   /// 目前的來源中途停下等資料（緩衝），到 [resume] 為止。
@@ -205,7 +257,7 @@ final class FakeAudioBackend implements AudioBackend {
     final source = current;
     if (source == null) return;
     final duration = durationOf(source.url);
-    _position += tick;
+    _position += tick * _speed;
     if (_position < duration) {
       _emitProgress();
       return;
@@ -263,5 +315,38 @@ final class FakeAudioBackend implements AudioBackend {
         ),
       ),
     );
+  }
+}
+
+/// 假的輸出裝置：清單由測試以 [list] 給，[select] 記下每次的選擇。
+final class FakeOutputDevices implements OutputDevices {
+  FakeOutputDevices([this._devices]);
+
+  List<OutputDevice>? _devices;
+  final _changes = StreamController<List<OutputDevice>>.broadcast();
+  OutputDevice? _selected;
+
+  /// 每次 [select] 的參數，依序。
+  final selections = <OutputDevice?>[];
+
+  /// 引擎列出（或插拔後重新列出）[devices]。
+  void list(List<OutputDevice> devices) {
+    _devices = devices;
+    _changes.add(devices);
+  }
+
+  @override
+  Stream<List<OutputDevice>> get available async* {
+    if (_devices case final devices?) yield devices;
+    yield* _changes.stream;
+  }
+
+  @override
+  OutputDevice? get selected => _selected;
+
+  @override
+  Future<void> select(OutputDevice? device) async {
+    selections.add(device);
+    _selected = device;
   }
 }

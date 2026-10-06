@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/playback_event_router.dart';
@@ -17,9 +18,10 @@ typedef NextTrack = ({int? index, TrackKeyParts track});
 /// 唯一持有 [AudioBackend] 的協作者（ADR 0018 §決定 1）：解析與開流、前瞻、
 /// 代與來源 id。只由 `PlaybackController` 呼叫，不寫播放狀態。
 ///
-/// 後端的狀態與事件以來源 id 過濾成目前這個來源的 [SessionEvent]，同步交給
-/// [events] 的監聽者（控制器）；後端的 stream 本身是非同步送達的，所以不會在
-/// 處理一個事件的途中再收到下一個。位置轉成 [progress]。
+/// 後端的狀態與事件以來源 id 過濾成目前這個來源的 [SourceEvent]，同步交給
+/// [events] 的監聽者（控制器）；不屬於來源的輸出事件（音訊中斷、拔耳機、輸出
+/// 裝置失敗）不過濾，照樣轉成 [SessionEvent]。後端的 stream 本身是非同步送達
+/// 的，所以不會在處理一個事件的途中再收到下一個。位置轉成 [progress]。
 ///
 /// 前瞻（ADR 0018 §決定 3、6）：目前這首載入好之後，解析下一首一次、交給後端
 /// 的 [AudioBackend.setNext]；後端自己接上（[LookAheadTookOver]），接上的那首不
@@ -205,6 +207,26 @@ final class PlaybackSession {
   Future<void> seek(Duration position) => _backend.seek(position);
 
   Future<void> stop() => _backend.stop();
+
+  // ---- 音量、速度、輸出裝置 ------------------------------------------------
+
+  /// 交給後端的音量（0–1）；換來源、交接後後端自己維持。
+  Future<void> setVolume(double volume) => _backend.setVolume(volume);
+
+  /// 交給後端的速度（後端夾到 0.5–2.0）。
+  Future<void> setSpeed(double speed) => _backend.setSpeed(speed);
+
+  /// 能選輸出裝置（只有 Windows）。
+  bool get selectsOutputDevice => _backend.outputDevices != null;
+
+  /// 可選的輸出裝置（不含系統預設）：先給目前的清單，之後每次插拔；不能選的
+  /// 平台為 `null`。
+  Stream<List<OutputDevice>>? get outputDeviceLists =>
+      _backend.outputDevices?.available;
+
+  /// 選 [device]；`null` 是系統預設。不能選的平台什麼都不做。
+  Future<void> selectOutputDevice(OutputDevice? device) async =>
+      _backend.outputDevices?.select(device);
 
   // ---- 前瞻 -----------------------------------------------------------------
 
@@ -441,6 +463,21 @@ final class PlaybackSession {
   }
 
   void _onEvent(BackendEvent event) {
+    // 輸出事件不屬於來源：沒有來源（停下、等重試）時也交給控制器。
+    switch (event) {
+      case Interrupted():
+        return _emit(const AudioInterrupted());
+      case InterruptionEnded(:final resume):
+        return _emit(AudioInterruptionEnded(resume: resume));
+      case BecameNoisy():
+        return _emit(const HeadphonesUnplugged());
+      case OutputDeviceFailed(:final cause):
+        // 引擎的那一行只以 error 交給 log 門面。
+        _log.warning('Output device failed', tag: _tag, error: cause);
+        return _emit(const OutputDeviceLost());
+      case SourceAdvanced() || SourceEnded() || SourceFailed():
+        break;
+    }
     final current = _current;
     if (current == null) return;
     final pluginId = current.stream.track.sourceTypeId;
@@ -513,6 +550,12 @@ final class PlaybackSession {
             lastPosition: current.progress?.position,
           ),
         });
+      // 上面已經轉出去了。
+      case Interrupted() ||
+          InterruptionEnded() ||
+          BecameNoisy() ||
+          OutputDeviceFailed():
+        return;
     }
   }
 

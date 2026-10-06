@@ -54,7 +54,7 @@ void main() {
         (tester) => tester.runAsync(body),
         timeout: const Timeout(Duration(minutes: 1)),
       ),
-      create: () async => createAudioBackend(support.backend, log: log),
+      create: () async => createAudioBackend(support, log: log),
       track: Uri.parse('asset:///test/fixtures/plugins/test_plugin/tone.wav'),
       missing: Uri.parse(
         'asset:///test/fixtures/plugins/test_plugin/missing.wav',
@@ -62,6 +62,7 @@ void main() {
       forbidden: () =>
           Uri.parse('http://127.0.0.1:${server.port}/forbidden.wav'),
       reportsHttpStatus: support.backend == AudioBackendKind.mediaKit,
+      selectsOutputDevice: support.outputDeviceSelection,
       trackLength: const Duration(seconds: 2),
     );
   });

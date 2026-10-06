@@ -91,3 +91,104 @@ int? httpStatusFromLogLine(String line) {
   final match = _httpErrorLine.firstMatch(line);
   return match == null ? null : int.parse(match.group(1)!);
 }
+
+/// 速度的範圍（舊版 `app_constants.dart` 的選項 0.5–2.0，design §7.6）。
+const minSpeed = 0.5;
+const maxSpeed = 2.0;
+
+/// 夾到 [minSpeed]–[maxSpeed]：兩個後端在交給引擎之前都經過它。
+double clampSpeed(double speed) => speed.clamp(minSpeed, maxSpeed).toDouble();
+
+/// 夾到 0–1。
+double clampVolume(double volume) => volume.clamp(0, 1).toDouble();
+
+/// Android 音訊中斷的種類：audio_session 的 `AudioInterruptionType` 一對一
+/// 轉過來（`AudioInterruptionEvent.type`）。暫停類是 `AUDIOFOCUS_LOSS_TRANSIENT`，
+/// duck 是 `…_CAN_DUCK`，unknown 是 `AUDIOFOCUS_LOSS`（不會再拿回焦點：
+/// audio_session 的原生端此時就放掉焦點，之後不會有結束的事件）。
+enum InterruptionKind { pause, duck, unknown }
+
+/// 中斷開始或結束時，後端要做的事（design §7.6）。
+enum InterruptionResponse {
+  /// 開始 duck：引擎的輸出減半（[outputVolume]），不改使用者的音量、不通知
+  /// 上層。
+  duck,
+
+  /// duck 結束：輸出回到使用者的音量。
+  unduck,
+
+  /// 發 `Interrupted`：由控制器決定暫停。
+  interrupted,
+
+  /// 發 `InterruptionEnded(resume: true)`：控制器只在原本因中斷而暫停時續播。
+  endedResumable,
+
+  /// 發 `InterruptionEnded(resume: false)`。audio_session 不會發 unknown 類的
+  /// 結束，這一支只讓對應是全的。
+  ended,
+}
+
+/// [begin] 是中斷開始還是結束，[kind] 是 audio_session 給的種類。
+///
+/// 不用 just_audio 的內建處理（`handleInterruptions: false`）：0.10.6 在 duck
+/// 結束時無條件把音量乘 2，音樂用途開始 duck 時卻不減半，會把使用者的音量放大
+/// 一倍；而且它自己暫停、續播，控制器的狀態會和引擎分岔。
+InterruptionResponse respondToInterruption({
+  required bool begin,
+  required InterruptionKind kind,
+}) => switch ((begin, kind)) {
+  (true, InterruptionKind.duck) => InterruptionResponse.duck,
+  (false, InterruptionKind.duck) => InterruptionResponse.unduck,
+  (true, InterruptionKind.pause || InterruptionKind.unknown) =>
+    InterruptionResponse.interrupted,
+  (false, InterruptionKind.pause) => InterruptionResponse.endedResumable,
+  (false, InterruptionKind.unknown) => InterruptionResponse.ended,
+};
+
+/// [response] 之後引擎的輸出要不要減半：只有 duck 開始之後要，其他事件一律
+/// 還原。
+///
+/// 不能只在 duck 結束時還原：audio_session 在暫停類、unknown 類中斷開始時就把
+/// 它自己的 duck 記號歸零，之後拿回焦點報的是暫停類的結束；unknown 類則再也
+/// 沒有事件（原生端已放掉焦點）。所以「duck 中來電」之後要在這裡還原，否則輸出
+/// 一直是一半。
+bool duckedAfter(InterruptionResponse response) =>
+    response == InterruptionResponse.duck;
+
+/// duck 時輸出乘上的倍數（舊版同值）。
+const duckFactor = 0.5;
+
+/// 交給引擎的音量：使用者的 [volume]，duck 時乘 [duckFactor]。
+///
+/// Android 8 起，以 `setWillPauseWhenDucked(false)`（audio_session 的預設）要求
+/// 焦點的 App 由系統自動 duck，不會收到 `…_CAN_DUCK` 的回呼
+/// （developer.android.com/media/optimize/audio-focus「Automatic ducking」）；
+/// 收得到時就是系統沒有代為 duck，這裡自己減半。
+double outputVolume(double volume, {required bool ducked}) =>
+    ducked ? volume * duckFactor : volume;
+
+/// mpv 在音訊輸出開不起來時、`[cplayer]` 那一行的開頭。
+const _noAudioDevice = 'Could not open/initialize audio device';
+
+/// mpv 的一行 log 是不是音訊輸出（裝置）開不起來：`[ao]`、`[ao/<驅動>]` 的
+/// error，與接著的 `[cplayer] Could not open/initialize audio device -> no
+/// sound.`。開流時選的裝置不在、播放中裝置被拔掉都是這一串（樣本見
+/// `backend_rules_test.dart`）。
+///
+/// media_kit 只把 `[cplayer]` 那一行轉進 error stream，`[ao]` 的只在 log；而
+/// 「could not open」看起來像來源開不起來（舊專案 issue #41），所以 error
+/// stream 那邊另以 [isOutputDeviceFailureMessage] 認出來、不算在來源上。
+bool isOutputDeviceFailure({
+  required String prefix,
+  required String level,
+  required String text,
+}) {
+  if (level != 'error') return false;
+  if (prefix == 'ao' || prefix.startsWith('ao/')) return true;
+  return prefix == 'cplayer' && text.startsWith(_noAudioDevice);
+}
+
+/// media_kit 的 error stream 只給文字（不帶前綴）：這一行是音訊輸出開不起來，
+/// 不是來源的錯誤。
+bool isOutputDeviceFailureMessage(String text) =>
+    text.startsWith(_noAudioDevice);

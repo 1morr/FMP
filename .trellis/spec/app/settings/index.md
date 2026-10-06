@@ -27,6 +27,9 @@
   控制器建構時拿到「當下讀一次」的函式；組裝點 `ref.listen` 它讓資料庫的值先讀出來，不用
   `watch`（改設定不重建控制器）。測試的 `ShellHarness` 照同樣的方式接（`playbackControllerProvider`
   的 override）。
+- 控制器要讀等資料庫讀出來的值、或要寫設定時（記住的輸出裝置），組裝點交給它非同步的函式：
+  讀 `ref.read(playbackPreferencesProvider.future)`、寫 Notifier 的 setter
+  （`preferredOutputDevice`、`saveOutputDevice`）。控制器不 import `lib/settings/`。
 - 一組的表可以先建好全部欄位（「播放」組，design §3.3）：repository 的 `write`／`clear` 涵蓋
   全部，Notifier 的生效值型別與 setter 只放已經有人用的欄位。
 - 設定方法一個欄位一個，只寫那個欄位（`repository.write(themeMode: ...)`）。參數可空，

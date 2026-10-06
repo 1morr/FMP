@@ -445,6 +445,25 @@ void main() {
       );
     });
 
+    // design §7.5：輸出裝置失敗暫停並提示，不跳過。
+    testWidgets('a failed output device says playback paused', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 100));
+      h.backend.failOutputDevice();
+      await tester.pump();
+      await tester.pump();
+
+      expect(h.controller.state, isA<Paused>());
+      expect(h.controller.queue.current?.sourceId, 'a');
+      expect(
+        find.text('The audio output device is unavailable; playback paused'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('waiting for the network shows no toast', (tester) async {
       final h = ShellHarness();
       h.plugin.respond = (_) => throw NetworkError(pluginId: 'fmp-test');

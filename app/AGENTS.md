@@ -170,6 +170,12 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   不先為之後的里程碑預留欄位。
 - 平台判斷（`defaultTargetPlatform`、`TargetPlatform`、`Platform.isXxx`）只寫在組裝點
   `lib/platform/platform.dart`；其他程式從 `AppPlatform` 拿宣告與實作。
+- 實作在播放後端的能力（`PlaybackSupport.outputDeviceSelection`：Windows 能選輸出裝置、
+  Android 不能）不在 `AppPlatform`：引擎只准在 `lib/playback/backends/`，宣告與後端的
+  `outputDevices` 是否為空由那裡的組裝點 `createAudioBackend` 的 assert 對齊。閘門：
+  `platform_test.dart` 的宣告值；assert 在 debug 建置執行，真後端契約（經
+  `createAudioBackend` 建後端）的 `output devices follow the platform declaration…` 在兩個平台
+  手動跑時一起檢查。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有）；lint `fmp_platform_checks` 擋 `lib/platform/` 以外的平台判斷。
@@ -581,16 +587,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、加入
 （`addToQueue`）、下一首播放（`playNext`）、跳到（`jumpTo`）、移除（`removeAt`）、拖曳
 （`move`）、清空（`clear`）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
-上一首與下一首、seek。佇列只在記憶體（持久化在 M2 PR 14）。
+上一首與下一首、seek、音量（`setVolume`）、靜音（`toggleMute`）、速度（`setSpeed`）、輸出裝置
+（`selectOutputDevice`）。佇列與音量只在記憶體（持久化在 M2 PR 14）。
 
 - `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
   `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`PlaybackEventRouter`，純函數）、
   `decideRecovery`（純函數）只回報。沒有閘門，review 時看。
-- `just_audio`、`media_kit`（含 `media_kit_libs_*`）只准在 `lib/playback/backends/`
-  import。閘門：lint `fmp_layer_imports`（`layer_imports_test.dart` 的
-  `test_playbackEnginesOutsideTheBackends`：同前綴的 `lib/playback/backends_helpers.dart`
-  也報；`test_playbackEnginesInTheBackends`：後端目錄與 `media_kitchen` 這類相似套件名
-  不報）。
+- `just_audio`、`media_kit`（含 `media_kit_libs_*`）與 `audio_session`（Android 的音訊中斷，
+  後端自己聽）只准在 `lib/playback/backends/` import。閘門：lint `fmp_layer_imports`
+  （`layer_imports_test.dart` 的 `test_playbackEnginesOutsideTheBackends`：同前綴的
+  `lib/playback/backends_helpers.dart` 也報；`test_playbackEnginesInTheBackends`：後端目錄與
+  `media_kitchen`、`audio_sessions` 這類相似套件名不報）、`tool/lint_sentinel.dart`。
 - 後端只有 `PlaybackSession` 碰：`backends/audio_backend.dart` 在 `lib/` 只准後端目錄、
   `playback_session.dart` 與組裝點 `playback_providers.dart` import；結束原因
   `TrackEndReason`（`backends/backend_rules.dart`）只准後端目錄與 `playback_event_router.dart`。
@@ -742,12 +749,58 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   比對代）。閘門：`loop one after a candidate switch repeats the candidate that played`、
   `switching to loop one and then to another song does not prepare the previous song…`。
 - 控制器的 `events`（design §7.9）：`QueueFull`、`TrackSkipped`（跳過，帶錯誤與曲目）、
-  `PlaybackStopped`（停在 `Failed`，帶連著播不了的首數）、`PreviewPlaying`。外殼以一個
-  `ref.listen(playbackEventsProvider)` 轉成提示：跳過與只有一首播不了時以 `Toaster.error` 的
+  `PlaybackStopped`（停在 `Failed`，帶連著播不了的首數）、`PreviewPlaying`、`OutputDeviceFailed`。
+  外殼以一個 `ref.listen(playbackEventsProvider)` 轉成提示：跳過與只有一首播不了時以 `Toaster.error` 的
   `sentence` 說是哪一首、什麼原因（ADR 0013 類別表的訊息），去重是 `Toaster` 的同類同音源 5 秒；
   連續播不了停下時是一則警告「連續 n 首無法播放」（每首的原因已在跳過時提示過，同類的被去重，
   用錯誤提示會被去重吞掉）。閘門：`app_shell_test.dart` 的 `playback toasts` 群組、
   `playback_controller_test.dart` 斷言事件的案例。
+- 音量與速度（E19，design §7.6）：控制器交給後端，後端在 `open` 之前收到也生效、換來源與接上
+  前瞻後維持；速度夾到 0.5–2.0、音量 0–1（`backend_rules.dart` 的 `clampSpeed`、`clampVolume`，
+  兩個後端都經過）。速度不持久化；音量與靜音在 PR 14 隨佇列存。靜音只把後端的音量設成 0，
+  控制器的 `volume` 不變，取消靜音回到它；靜音中 `setVolume` 就是取消靜音（舊版拖音量條的
+  行為）。閘門：後端契約的 `volume and speed set before open hold across a handover and a new
+  source`（2 倍速時兩首在一首半的時間內播完：引擎真的照速度播）、`the speed is clamped…`；
+  `backend_rules_test.dart` 的 `speed and volume`；`playback_controller_test.dart` 的 `volume,
+  mute and speed` 群組。
+- Android 的音訊中斷與拔耳機（design §7.6、舊版 `playback.md` §3.7）：`JustAudioBackend` 以
+  `handleInterruptions: false` 關掉 just_audio 的內建處理（0.10.6 在 duck 結束時無條件把音量乘 2），
+  自己聽 audio_session：duck 只把引擎輸出乘 0.5，不改使用者音量、不通知上層；duck 以外的任何
+  中斷事件都還原（`duckedAfter`：duck 中轉成暫停類或 unknown 類中斷時，audio_session 之後報的是
+  暫停類的結束或什麼都不報，等不到 duck 的結束）。暫停類與
+  unknown 類中斷發 `Interrupted`，暫停類結束發 `InterruptionEnded(resume: true)`，拔耳機發
+  `BecameNoisy`（對應表是 `respondToInterruption`）。焦點的取得與釋放仍由 just_audio 的
+  `handleAudioSessionActivation` 管，「換歌不放焦點」不變。暫停與續播由路由器決定、控制器執行：
+  在出聲時中斷才暫停並記下「因中斷而暫停」；中斷結束只續播這種暫停；使用者在中斷期間按了播放或
+  暫停、拔耳機都清掉它（拔耳機後不從喇叭續播）；中斷期間按下一首不清掉它，新的那首載入後停著、
+  中斷結束時續播；`Idle` 時的中斷不會在結束時開始播放；等重試時
+  的中斷取消那次重試，結束時從原位置重新開流。Android 8 起系統自動 duck
+  （`setWillPauseWhenDucked(false)` 是 audio_session 的預設），App 收不到 duck 的回呼，所以實機
+  幾乎看不到 duck 那一支。閘門：`backend_rules_test.dart` 的
+  `audio interruptions (Android)`、`playback_event_router_test.dart` 的 `output events`、
+  `playback_controller_test.dart` 的 `audio interruptions` 群組。`JustAudioBackend` 接
+  audio_session 的那幾行在 `flutter test` 裡建不起來，沒有自動閘門：實機以模擬器的來電觸發
+  （見 spec）。
+- 輸出裝置（只有 Windows，design §7.6）：`AudioBackend.outputDevices` 列 mpv 的
+  `audio-device-list`（不含 `auto`：系統預設是 `null`），選擇是 `audio-device`。記住的裝置
+  （「播放」組的 `output_device_id`＝mpv 的裝置名、`output_device_name`＝描述）在清單第一次
+  就緒時套用一次，之後插拔不蓋掉當下的選擇；不在清單裡就用系統預設、偏好不清掉；使用者在清單
+  就緒前選過就以使用者的為準。`selectOutputDevice` 選擇並寫進偏好（`null` 清掉）。閘門：
+  `playback_controller_test.dart` 的 `output devices` 群組；後端契約的 `output devices follow the
+  platform declaration and choosing the system default keeps playing`。組裝點
+  `playback_providers.dart` 讀寫偏好的兩行沒有閘門，review 時看。
+- 輸出裝置失敗（design §7.5）：mpv 只記 log，一次失敗是一串 `[ao/wasapi]`、`[ao]`、
+  `[cplayer] Could not open/initialize audio device -> no sound.`（`isOutputDeviceFailure`，樣本是
+  2026-10-07 錄的），`MediaKitBackend` 只發一次 `OutputDeviceFailed`（開流、播放、換裝置時重來）；
+  `[cplayer]` 那一行也進 media_kit 的 error stream，後端不把它算成來源開不起來（舊專案 issue
+  #41）。mpv 同時結束目前的檔案，`completed` 可能比這幾行早到（實測早 1 毫秒），先成了提前結束、
+  排了重試。所以控制器收到時暫停並放掉來源（換一代：已經排好的重試、晚到的結束都丟掉，舊專案
+  issue #106），記下位置，按播放時從那裡重新開流（mpv 才會再開一次輸出）；不跳過；發
+  `OutputDeviceFailed` 事件，外殼提示一則警告。`Idle`、`Failed` 時只提示。已知：先到的提前結束
+  已經在錯誤歷史記了一筆 `Stream ended early`。閘門：`backend_rules_test.dart` 的
+  `isOutputDeviceFailure`（錄下的行與反例）、`playback_controller_test.dart` 的 `a failed output
+  device` 群組（兩種先後）、`app_shell_test.dart` 的 `a failed output device says playback paused`。
+  `MediaKitBackend` 接 log 的那幾行沒有自動閘門（播放中拔裝置要實機）。
 - 被取代的解析結果丟掉（結果仍進網址快取），但插件的 `resolveStream` 沒有取消參數，
   網路工作不取消（ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
 - 佇列（`QueueModel`）是純 Dart：不碰資料庫與後端、不 import Riverpod 與 UI；隨機經建構子
@@ -820,7 +873,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   與設定頁只有已經有人用的欄位：音質（預設高，選項高／中／低）、格式偏好（預設 Opus 優先，
   選項 Opus 優先／AAC 優先，兩者照舊版的預設，見「播放」的網址快取）、記住播放位置（預設開）、
   臨時播放回佇列倒退秒數（預設 10，選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見
-  「播放」）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好的列舉存
+  「播放」）、輸出裝置（沒有預設：沒設定過就是系統預設；`setOutputDevice` 兩欄一起寫、一起清，
+  見「播放」；設定列在 PR 17 的播放列）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好的列舉存
   `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
   `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
   （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
@@ -895,7 +949,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （含鍵盤：位移是鍵盤高度減 `viewPadding`）。
 - 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5，只放已經有的）：< 600 播放、下一首；
   600–839 上一首、播放、下一首、「⋯」選單（隨機、循環）；840 以上隨機、上一首、播放、下一首、
-  循環（音量、輸出裝置在 M2 PR 13）；曲名至少 160dp。循環按一下依關閉 → 全部 → 單曲輪轉。
+  循環（音量、輸出裝置在 M2 PR 17）；曲名至少 160dp。循環按一下依關閉 → 全部 → 單曲輪轉。
   隨機、循環的 tooltip 還沒附按鍵（Ctrl+S、Ctrl+R 在 PR 17）。閘門：
   `test/ui/player/player_bar_test.dart` 的 `controls per width`（599／600／839／840 等邊界）、
   `shuffle and loop` 群組、golden `player_bar_golden_test.dart`（三個寬度，只守版面結構）。

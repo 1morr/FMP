@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:media_kit/media_kit.dart';
 
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/backend_rules.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -12,9 +13,14 @@ import 'package:fmp/playback/playback_state.dart';
 ///
 /// 播放清單裡的 `Media` 是這裡建的實例（media_kit 的清單保留原物件），以
 /// [Expando] 對回 [BackendSource.id]；不用網址對，因為不同來源可以是同一個網址。
+///
+/// 音量、速度是 mpv 的全域屬性（`volume`、`speed`），換檔不重設。輸出裝置是
+/// `audio-device`；裝置開不起來時 mpv 只記 log（`isOutputDeviceFailure`），發
+/// [OutputDeviceFailed]。
 final class MediaKitBackend implements AudioBackend {
   MediaKitBackend._(this._log, this._player) {
     _ready = _configure();
+    outputDevices = _MediaKitOutputDevices(this);
     final stream = _player.stream;
     _subscriptions
       ..add(stream.playlist.listen(_onPlaylist))
@@ -91,6 +97,14 @@ final class MediaKitBackend implements AudioBackend {
   /// 使用者要不要出聲：[open] 的 `play`、[play]、[pause] 設定。
   bool _wantPlaying = false;
 
+  /// 這次的輸出裝置失敗已經回報過：mpv 一次失敗會記好幾行（`[ao/wasapi]`、
+  /// 三行 `[ao]`、`[cplayer]`），只發一次 [OutputDeviceFailed]。開流、播放、
+  /// 換裝置時清掉。
+  bool _outputFailed = false;
+
+  @override
+  late final OutputDevices outputDevices;
+
   @override
   Stream<BackendStatus> get status => _status.stream;
 
@@ -123,6 +137,7 @@ final class MediaKitBackend implements AudioBackend {
     _resetCurrent();
     _opening = true;
     _httpStatus = null;
+    _outputFailed = false;
     return _edit(() async {
       if (_currentId != source.id) return;
       try {
@@ -177,6 +192,7 @@ final class MediaKitBackend implements AudioBackend {
   @override
   Future<void> play() async {
     _wantPlaying = true;
+    _outputFailed = false;
     await _ready;
     await _player.play();
     _emitStatus();
@@ -196,6 +212,21 @@ final class MediaKitBackend implements AudioBackend {
     _position = position;
     await _player.seek(position);
   }
+
+  /// mpv 的音量是 0–100（`volume-max` 預設 130，這裡不超過 100）。
+  @override
+  Future<void> setVolume(double volume) =>
+      _player.setVolume(clampVolume(volume) * 100);
+
+  @override
+  Future<void> setSpeed(double speed) => _player.setRate(clampSpeed(speed));
+
+  /// mpv 回報的 `volume` 屬性（設定後非同步才更新）。
+  @override
+  double get volume => _player.state.volume / 100;
+
+  @override
+  double get speed => _player.state.rate;
 
   @override
   Future<void> stop() {
@@ -376,6 +407,9 @@ final class MediaKitBackend implements AudioBackend {
   /// 這行字可能帶完整的簽名網址（例如 `ffmpeg: Opening '…/videoplayback?…'`）：
   /// 只以 `error` 交給 log 門面（經 `Redactor` 遮蔽），不自己印、不放進訊息。
   void _onError(String message) {
+    // 輸出裝置開不起來（`[cplayer] Could not open/initialize audio device`）不是
+    // 來源的錯誤（舊專案 issue #41）：由 [_onLog] 的 `[ao]` 那幾行回報。
+    if (isOutputDeviceFailureMessage(message)) return;
     final id = _currentId;
     if (id == null || _opening) return;
     if (_pendingHandover case final handover?) {
@@ -451,10 +485,27 @@ final class MediaKitBackend implements AudioBackend {
   }
 
   void _onLog(PlayerLog log) {
+    if (isOutputDeviceFailure(
+      prefix: log.prefix,
+      level: log.level,
+      text: log.text,
+    )) {
+      _onOutputFailure(log);
+      return;
+    }
     if (log.prefix != 'ffmpeg') return;
     if (httpStatusFromLogLine(log.text) case final status?) {
       _httpStatus = status;
     }
+  }
+
+  /// 輸出裝置開不起來：mpv 同時結束目前的檔案（`completed` 可能比這幾行早
+  /// 一點到，就成了提前結束）。控制器收到事件後暫停並放掉來源，按播放時重新
+  /// 開流，mpv 才會再開一次輸出。
+  void _onOutputFailure(PlayerLog log) {
+    if (_outputFailed) return;
+    _outputFailed = true;
+    _add(_events, OutputDeviceFailed(cause: '[${log.prefix}] ${log.text}'));
   }
 
   void _logEditError(Object error, StackTrace stackTrace) => _log.warning(
@@ -467,6 +518,54 @@ final class MediaKitBackend implements AudioBackend {
   static void _add<T>(StreamController<T> controller, T value) {
     if (!controller.isClosed) controller.add(value);
   }
+}
+
+/// mpv 的 `audio-device-list` 與 `audio-device`。清單第一項是「系統預設」
+/// （`auto`，`Autoselect device`），不列出來：它是 `null`。
+final class _MediaKitOutputDevices implements OutputDevices {
+  _MediaKitOutputDevices(this._backend);
+
+  final MediaKitBackend _backend;
+
+  Player get _player => _backend._player;
+
+  static const _auto = 'auto';
+
+  @override
+  Stream<List<OutputDevice>> get available async* {
+    // mpv 一建好就列出裝置（比 `idle-active` 早），訂閱時可能已經有了。
+    final current = _player.state.audioDevices;
+    if (current.any((device) => device.name != _auto)) yield _convert(current);
+    yield* _player.stream.audioDevices.map(_convert);
+  }
+
+  @override
+  OutputDevice? get selected {
+    final device = _player.state.audioDevice;
+    if (device.name == _auto) return null;
+    // `audio-device` 的事件不帶描述，從清單找。
+    final listed = _player.state.audioDevices
+        .where((candidate) => candidate.name == device.name)
+        .firstOrNull;
+    return OutputDevice(
+      id: device.name,
+      name: listed?.description ?? device.description,
+    );
+  }
+
+  @override
+  Future<void> select(OutputDevice? device) {
+    _backend._outputFailed = false;
+    return _player.setAudioDevice(
+      device == null ? AudioDevice.auto() : AudioDevice(device.id, device.name),
+    );
+  }
+
+  static List<OutputDevice> _convert(List<AudioDevice> devices) => [
+    for (final device in devices)
+      if (device.name != _auto)
+        OutputDevice(id: device.name, name: device.description),
+  ];
 }
 
 final class _PendingHandover {

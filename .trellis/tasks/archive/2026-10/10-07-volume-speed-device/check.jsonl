@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Section 7.6 backend members, capability declaration, preferred device, speed, volume, Android interruptions and becoming noisy, contract cases; 3.3 output device fields; 7.5 and 7.9 OutputDeviceFailed"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decisions 1, 7, 10: backend interface, recovery for output device, volume state"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Declared capabilities and assert at the composition root"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Backend contract, session, controller patterns, real backend contract runs"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "PlaybackSupport declarations and platform tests"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Playback settings setters"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Contract tests shared by fake and real backends, integration tests"}

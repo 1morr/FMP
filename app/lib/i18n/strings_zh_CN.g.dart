@@ -259,6 +259,8 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
       '连续 ${count} 首无法播放，已停止播放';
   @override
   String previewPlaying({required Object title}) => '「${title}」只有试听片段';
+  @override
+  String get outputDeviceFailed => '音频输出设备无法使用，已暂停播放';
 }
 
 // Path: appearance
