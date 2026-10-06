@@ -494,6 +494,7 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
 | 插件回傳 `previewOnly: true` 的結果（新的可選輸出欄位，§10） | 「跳過試聽片段」開：跳過並提示；關：`PlayAsPreview`，播放並在播放列與播放頁標「試聽」（D4） |
 | 開不起來、解碼失敗 | 換候選一次；再失敗跳過（`Unsupported`） |
 | 開流時 HTTP 403／404／410（後端回報狀態碼，§7.6） | 作廢網址快取、重解析一次（`ReResolve`）；仍被拒就換候選一次；再不行跳過：404、410 → `NotFound`，403 → `Unavailable`（原因不明） |
+| 開流失敗但沒有狀態碼（Android 一律如此，見 §7.6 更正） | 同上一列的前兩步：作廢網址快取、重解析一次；仍失敗換候選一次；再不行跳過（`Unsupported`）。擁有者 2026-10-06 決定：Android 拿不到狀態碼，網址過期仍要救得回來 |
 | 緩衝飢餓 15 秒 | 第一次重解析；同一首第二次跳過 |
 | 桌面輸出裝置失敗 | 暫停並提示，不跳過 |
 | 一首正常播放 10 秒 | 重試計數歸零。以位置前進累計，不開計時器 |
@@ -547,6 +548,7 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
   - **前瞻開不起來**（M1 follow-up 4）：目前這首照常播完，發 `SourceEnded(目前, completed)` 而不是 `SourceAdvanced`；失敗以 `SourceFailed(前瞻的 id, open)` 回報，不算在目前這首上。
   - 開流被 HTTP 拒絕時 `SourceFailed.httpStatus` 帶狀態碼。
     - 從 ExoPlayer 的 `InvalidResponseCodeException` 與 mpv 的 `HTTP error 403` log 行取得；
+    - **更正（PR 11 實測，2026-10-06）**：just_audio 0.10.6（pub.dev 最新）的 `onPlayerError` 只把 `getMessage()` 交給 Dart，開流失敗一律是 `Source error`，Android 的 `httpStatus` 永遠是空；只有 mpv 的 ffmpeg warn 行 `http: HTTP error 403 Forbidden` 取得到。§7.5 對沒有狀態碼的開流失敗另列一行。
     - 解析是 `backend_rules.dart` 的純函數，以錄下的兩種錯誤文字做單元測試；
     - 真後端另在實機以會回 403 的網址手動確認。
   - 輸出裝置：Windows 選 `auto` 之後仍在播；裝置失敗發 `OutputDeviceFailed`（真後端實機手動）。

@@ -27,7 +27,8 @@
     "10-02-startup-maintenance",
     "10-02-stream-url-cache",
     "10-03-queue-model",
-    "10-03-queue-controller"
+    "10-03-queue-controller",
+    "10-06-backend-contract"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
