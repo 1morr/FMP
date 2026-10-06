@@ -47,6 +47,18 @@ final class JustAudioBackend implements AudioBackend {
   /// 目前來源最後一次的事件，用來外推交接時的位置。
   PlaybackEvent? _lastEvent;
 
+  /// ExoPlayer 已經換到前瞻的索引，還不知道它開不開得起來：前瞻沒預備好時，
+  /// 換過去那一刻的事件仍是 `ready`、沒有時長，開不起來的錯誤之後才到。有時長
+  /// 才發 [SourceAdvanced]；這段期間目前的來源還是上一首。
+  ///
+  /// 已知限制：ExoPlayer 給不出時長的前瞻（沒有長度資訊的串流）因此一直不算
+  /// 接上，上一首不會結束。位置不能代替時長：just_audio 在 `ready` 時以時鐘外推
+  /// 位置，開不起來的前瞻也會「前進」。出現這種音源時要另找載入的訊號。
+  _PendingHandover? _pendingHandover;
+
+  /// 前瞻在交接時開不起來，目前的來源（上一首）已經結束、ExoPlayer 停在錯誤。
+  bool _ended = false;
+
   /// 使用者要不要出聲：[open] 的 `play`、[play]、[pause] 設定。載入中被暫停時，
   /// 載入完不能再以 [open] 當時的 `play` 開始播。
   bool _wantPlaying = false;
@@ -105,6 +117,10 @@ final class JustAudioBackend implements AudioBackend {
     return _edit(() async {
       // 排隊的期間換了來源（open、交接）：這次修改已經過時。
       if (_currentId != owner) return;
+      if (_pendingHandover case final handover? when handover.to != next?.id) {
+        await _abandonHandover(handover);
+        return;
+      }
       final edit = LookAheadEdit.of(
         itemCount: _player.sequence.length,
         currentIndex: _player.currentIndex ?? -1,
@@ -113,8 +129,20 @@ final class JustAudioBackend implements AudioBackend {
       for (final index in edit.removeIndices) {
         await _player.removeAudioSourceAt(index);
       }
-      if (edit.append && next != null && _nextId == next.id) {
+      if (!edit.append || next == null || _nextId != next.id) return;
+      try {
         await _player.addAudioSource(_audioSource(next));
+      } on PlayerInterruptedException {
+        return;
+      } on Object catch (error) {
+        // asset 找不到之類，交給 ExoPlayer 前就失敗（just_audio 的 Dart 清單裡
+        // 留著它，下一次修改會移掉）：目前的來源照常播完。
+        if (_currentId != owner || _nextId != next.id) return;
+        _nextId = null;
+        _add(
+          _events,
+          SourceFailed(id: next.id, failure: BackendFailure.open, cause: error),
+        );
       }
     });
   }
@@ -168,6 +196,8 @@ final class JustAudioBackend implements AudioBackend {
     _loaded = false;
     _settled = false;
     _lastEvent = null;
+    _pendingHandover = null;
+    _ended = false;
   }
 
   /// 清單的修改一個接一個做：每次都依當下的清單算 [LookAheadEdit]，交接後的
@@ -204,6 +234,7 @@ final class JustAudioBackend implements AudioBackend {
     final id = _currentId;
     final phase = switch (state.processingState) {
       _ when id == null => BackendPhase.idle,
+      _ when _ended => BackendPhase.ended,
       ProcessingState.idle => BackendPhase.idle,
       ProcessingState.loading ||
       ProcessingState.buffering => BackendPhase.buffering,
@@ -224,7 +255,7 @@ final class JustAudioBackend implements AudioBackend {
 
   void _onPlaybackEvent(PlaybackEvent event) {
     if (_editing > 0) return;
-    _checkCurrentSource();
+    _checkCurrentSource(event);
     if (_idAt(event.currentIndex) != _currentId) return;
     _lastEvent = event;
     if (!_loaded &&
@@ -251,16 +282,23 @@ final class JustAudioBackend implements AudioBackend {
     }
   }
 
-  /// ExoPlayer 自己換到前瞻時，目前的索引指到 [_nextId]。
-  void _checkCurrentSource() {
+  /// ExoPlayer 自己換到前瞻時，事件的索引指到 [_nextId]；事件有時長（前瞻
+  /// 預備好了）才算接上。
+  void _checkCurrentSource(PlaybackEvent event) {
     final current = _currentId;
     final next = _nextId;
     if (current == null || next == null) return;
-    if (_idAt(_player.currentIndex) != next) return;
-    final end = classifyTrackEnd(
-      position: _positionAtHandover(),
-      duration: _lastEvent?.duration,
+    if (_idAt(event.currentIndex) != next) return;
+    final handover = _pendingHandover ??= _PendingHandover(
+      from: current,
+      to: next,
+      end: classifyTrackEnd(
+        position: _positionAtHandover(),
+        duration: _lastEvent?.duration,
+      ),
     );
+    if (event.duration == null) return;
+    final end = handover.end;
     _currentId = next;
     _nextId = null;
     _resetCurrent();
@@ -286,7 +324,12 @@ final class JustAudioBackend implements AudioBackend {
 
   void _onError(PlayerException error) {
     final id = _idAt(error.index) ?? _currentId;
-    if (id == null || id != _currentId) return;
+    if (id == null) return;
+    if (id == _nextId) {
+      _failLookAhead(id, error);
+      return;
+    }
+    if (id != _currentId) return;
     _fail(
       id,
       _loaded ? BackendFailure.interrupted : BackendFailure.open,
@@ -294,15 +337,53 @@ final class JustAudioBackend implements AudioBackend {
     );
   }
 
+  /// 交給 Dart 的錯誤只有 `Source error` 這類文字，沒有 HTTP 狀態碼（見
+  /// `AudioBackend`），所以 [SourceFailed.httpStatus] 一律是 `null`。
   void _fail(int id, BackendFailure failure, Object cause) {
     if (id != _currentId || _settled) return;
     _settled = true;
     _add(_events, SourceFailed(id: id, failure: failure, cause: cause));
   }
 
+  /// 前瞻開不起來（錯誤的索引是前瞻）。ExoPlayer 只在換到前瞻之後才報這種錯誤
+  /// （上一首已經播完）：先報前瞻的失敗、再報上一首結束，ExoPlayer 停在錯誤，
+  /// 不再說在播。
+  void _failLookAhead(int id, PlayerException error) {
+    final handover = _pendingHandover;
+    _pendingHandover = null;
+    _nextId = null;
+    _add(
+      _events,
+      SourceFailed(id: id, failure: BackendFailure.open, cause: error),
+    );
+    if (handover == null) return;
+    if (!_settled) {
+      _settled = true;
+      _add(_events, SourceEnded(id: handover.from, end: handover.end));
+    }
+    _ended = true;
+    _emitStatus();
+  }
+
+  /// 引擎換到前瞻、還沒確定接上時，前瞻被換掉或清掉（佇列改了）：上一首已經
+  /// 播完。停下引擎，被換掉的那首不出聲；報上一首結束，`PlaybackSession` 照一般
+  /// 的下一首開流。
+  Future<void> _abandonHandover(_PendingHandover handover) async {
+    _pendingHandover = null;
+    _nextId = null;
+    _ended = true;
+    if (!_settled) {
+      _settled = true;
+      _add(_events, SourceEnded(id: handover.from, end: handover.end));
+    }
+    _emitStatus();
+    await _player.stop();
+  }
+
   void _onPosition(Duration position) {
     final id = _currentId;
-    if (id == null || !_loaded) return;
+    // 換到前瞻、還沒確定接上時的位置是前瞻的。
+    if (id == null || !_loaded || _pendingHandover != null) return;
     _add(
       _progress,
       SourceProgress(
@@ -326,4 +407,18 @@ final class JustAudioBackend implements AudioBackend {
   static void _add<T>(StreamController<T> controller, T value) {
     if (!controller.isClosed) controller.add(value);
   }
+}
+
+final class _PendingHandover {
+  const _PendingHandover({
+    required this.from,
+    required this.to,
+    required this.end,
+  });
+
+  final int from;
+  final int to;
+
+  /// 上一首怎麼結束的（換過去那一刻算）。
+  final TrackEndReason end;
 }

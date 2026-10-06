@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/playback/backends/audio_backends.dart';
 import 'package:integration_test/integration_test.dart';
@@ -18,6 +21,10 @@ import '../test/playback/backends/audio_backend_contract.dart';
 //   flutter test integration_test/audio_backend_contract_test.dart -d emulator-5554
 //
 // 會出聲。假後端的那一份在 test/playback/backends/，由 `flutter test` 跑。
+//
+// 「HTTP 拒絕」的網址是測試自己在 loopback 起的伺服器（一律回 403），不連外網；
+// Android 的 debug 建置以 `android/app/src/debug/res/xml/network_security_config.xml`
+// 只對 127.0.0.1 放行明文。
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -27,6 +34,18 @@ void main() {
     return;
   }
   final log = Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
+
+  late HttpServer server;
+  setUpAll(() async {
+    server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response
+        ..statusCode = HttpStatus.forbidden
+        ..write('forbidden');
+      await request.response.close();
+    });
+  });
+  tearDownAll(() => server.close(force: true));
 
   group(support.backend.name, () {
     audioBackendContract(
@@ -40,6 +59,9 @@ void main() {
       missing: Uri.parse(
         'asset:///test/fixtures/plugins/test_plugin/missing.wav',
       ),
+      forbidden: () =>
+          Uri.parse('http://127.0.0.1:${server.port}/forbidden.wav'),
+      reportsHttpStatus: support.backend == AudioBackendKind.mediaKit,
       trackLength: const Duration(seconds: 2),
     );
   });

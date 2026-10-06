@@ -75,3 +75,19 @@ final class LookAheadEdit {
   /// 移完後要不要把新的前瞻接在目前的項目之後（成為索引 1）。
   final bool append;
 }
+
+/// ffmpeg 回報 HTTP 錯誤的 log 行（mpv 以前綴 `ffmpeg` 轉出），例如
+/// `http: HTTP error 403 Forbidden`：前面是 ffmpeg 的協定名稱（`http`、`https`）。
+final _httpErrorLine = RegExp(r'^[a-z]+: HTTP error (\d{3})\b');
+
+/// 從 mpv 轉出的一行 ffmpeg log 取出 HTTP 狀態碼；不是 HTTP 錯誤的那一行就是
+/// `null`。
+///
+/// 只有 mpv 用得到：ExoPlayer 的狀態碼在 `InvalidResponseCodeException`
+/// （`Response code: 403`）裡，但 just_audio 0.10.6 交給 Dart 的只有
+/// `ExoPlaybackException.getMessage()`，開流失敗一律是 `Source error`
+/// （`AudioPlayer.java` 的 `onPlayerError`），拿不到狀態碼（見 `AudioBackend`）。
+int? httpStatusFromLogLine(String line) {
+  final match = _httpErrorLine.firstMatch(line);
+  return match == null ? null : int.parse(match.group(1)!);
+}

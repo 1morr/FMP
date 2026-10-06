@@ -111,6 +111,32 @@ void main() {
     });
   });
 
+  // 樣本是 2026-10-06 在 Windows 以 media_kit 1.2.6（libmpv，`PlayerConfiguration
+  // (logLevel: MPVLogLevel.warn)`）對 loopback HTTP 伺服器錄下的 `PlayerLog.text`。
+  group('httpStatusFromLogLine', () {
+    test('reads the status from the ffmpeg HTTP error lines mpv passes on', () {
+      // [ffmpeg] warn：伺服器回 403、404。
+      expect(httpStatusFromLogLine('http: HTTP error 403 Forbidden'), 403);
+      expect(httpStatusFromLogLine('http: HTTP error 404 Not Found'), 404);
+    });
+
+    test('other failures have no status', () {
+      for (final line in [
+        // [stream] error：緊接在 403 那一行之後，網址裡的數字不是狀態碼。
+        'Failed to open http://127.0.0.1:51442/forbidden.wav.',
+        // [ffmpeg] error：連不上（Windows 的 -138 是逾時）。
+        'tcp: Connection to tcp://127.0.0.1:1 failed: Error number -138 '
+            'occurred',
+        // [lavf] error：本機檔案也會有的一行。
+        'Failed to create file cache.',
+        // just_audio 在 Android 對同一個 403 給的 PlayerException（模擬器錄下）。
+        '(0) Source error',
+      ]) {
+        expect(httpStatusFromLogLine(line), isNull, reason: line);
+      }
+    });
+  });
+
   group('BackendSource', () {
     test('keeps only the media headers (ADR 0012)', () {
       final source = BackendSource(

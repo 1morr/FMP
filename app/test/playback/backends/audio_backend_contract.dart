@@ -15,12 +15,17 @@ import 'package:fmp/playback/backends/backend_rules.dart';
 typedef DefineCase = void Function(String description, Future<void> Function());
 
 /// 對 [create] 建出的後端跑契約。[track] 是長 [trackLength] 的音檔，
-/// [missing] 是開不起來的網址；[slack] 是引擎開流與事件延遲的餘裕。
+/// [missing] 是開不起來的網址（Dart 端就失敗，例如不存在的 asset），
+/// [forbidden] 是 HTTP 回 403 的網址（引擎開流時才失敗；整合測試的伺服器在
+/// `setUpAll` 才起來，所以在案例裡才讀）。[reportsHttpStatus]：引擎給不給得出
+/// 狀態碼（見 `AudioBackend` 的 dartdoc）。[slack] 是引擎開流與事件延遲的餘裕。
 void audioBackendContract({
   required DefineCase define,
   required Future<AudioBackend> Function() create,
   required Uri track,
   required Uri missing,
+  required Uri Function() forbidden,
+  required bool reportsHttpStatus,
   required Duration trackLength,
   Duration slack = const Duration(seconds: 5),
 }) {
@@ -28,7 +33,9 @@ void audioBackendContract({
   BackendSource source(Uri url) => BackendSource(id: ++nextId, url: url);
 
   final recorders = <Recorder>[];
+  var created = 0;
   Future<Recorder> record() async {
+    created++;
     final recorder = Recorder(await create());
     recorders.add(recorder);
     return recorder;
@@ -46,6 +53,39 @@ void audioBackendContract({
           recorders.clear();
         }
       });
+
+  // 這一案要排第一：mpv 只把 ffmpeg 的 log（狀態碼那一行）交給行程裡第一個
+  // 還活著的實例，前面的案例放掉的播放器 media_kit 5 秒後才銷毀（見
+  // `AudioBackend`）。順序被改了在假後端（`flutter test`）就紅，不必等到實機
+  // 才看到 mpv 少了狀態碼。ExoPlayer 對 403 會重試幾次才報錯，所以等久一點。
+  defineCase(
+    'a source refused over HTTP fails as open with the status',
+    () async {
+      final recorder = await record();
+      expect(
+        created,
+        1,
+        reason:
+            'this case must create the first backend of the run: mpv passes '
+            'ffmpeg log lines (the HTTP status) only to the first live player',
+      );
+      final refused = source(forbidden());
+      await recorder.backend.open(refused);
+
+      await recorder.until(() => recorder.events.isNotEmpty, slack * 2);
+      expect(recorder.events, [
+        isA<SourceFailed>()
+            .having((e) => e.id, 'id', refused.id)
+            .having((e) => e.failure, 'failure', BackendFailure.open)
+            .having(
+              (e) => e.httpStatus,
+              'httpStatus',
+              reportsHttpStatus ? 403 : isNull,
+            ),
+      ]);
+      await recorder.close();
+    },
+  );
 
   defineCase('plays a source to the end and reports it completed', () async {
     final recorder = await record();
@@ -151,6 +191,53 @@ void audioBackendContract({
     ]);
     await recorder.close();
   });
+
+  // 前瞻開不起來（M1 的後續）：目前這首照常播完、不接上前瞻，失敗算在前瞻上而且
+  // 先到；之後不再說自己在播。[bad] 有兩種：Dart 端就失敗的（不存在的 asset），
+  // 與引擎開流時才失敗的（HTTP 403：ExoPlayer 換到前瞻後才報、mpv 預開時與交接
+  // 時各報一次）。
+  Future<void> lookAheadFails(Uri Function() bad, Duration wait) async {
+    final recorder = await record();
+    final a = source(track);
+    final next = source(bad());
+    await recorder.backend.open(a);
+    await recorder.untilReady(a.id, slack);
+    await recorder.backend.setNext(next);
+
+    await recorder.until(
+      () => recorder.events.whereType<SourceEnded>().isNotEmpty,
+      trackLength + wait,
+    );
+    expect(recorder.events, [
+      isA<SourceFailed>()
+          .having((e) => e.id, 'id', next.id)
+          .having((e) => e.failure, 'failure', BackendFailure.open),
+      isA<SourceEnded>()
+          .having((e) => e.id, 'id', a.id)
+          .having((e) => e.end, 'end', TrackEndReason.completed),
+    ]);
+    await recorder.until(
+      () => recorder.statuses.lastOrNull?.playing == false,
+      slack,
+    );
+    expect(recorder.statuses.last.sourceId, isNot(next.id));
+    expect(recorder.progress.where((p) => p.sourceId == next.id), isEmpty);
+    // 不會晚一點又冒出來。
+    await Future<void>.delayed(trackLength);
+    expect(recorder.events, hasLength(2));
+    await recorder.close();
+  }
+
+  defineCase(
+    'a look-ahead that cannot be opened fails without cutting the current '
+    'source',
+    () => lookAheadFails(() => missing, slack),
+  );
+
+  defineCase(
+    'a look-ahead refused over HTTP fails without cutting the current source',
+    () => lookAheadFails(forbidden, slack * 2),
+  );
 
   defineCase('a source that cannot be opened fails as open', () async {
     final recorder = await record();
