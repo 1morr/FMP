@@ -34,6 +34,11 @@ lib/platform/
 5. **呼叫端**：UI 看 `capabilities` 決定是否顯示入口；服務拿 `AppPlatform` 上的實作。
    `lib/platform/` 以外不判斷平台。
 
+實作只能在別的模組的能力（例如播放引擎才有的「選輸出裝置」，引擎只准在
+`lib/playback/backends/`）：宣告照樣放在平台層（`PlaybackSupport.outputDeviceSelection`），
+實作不掛在 `AppPlatform`；那個模組的組裝點（`createAudioBackend`）以 assert 對齊宣告與實作，
+`platform_test.dart` 照樣逐平台斷言宣告的值。
+
 ## 測試
 
 - `test/platform/platform_test.dart`：`AppPlatform.assemble(TargetPlatform.x, …)` 注入平台值，
