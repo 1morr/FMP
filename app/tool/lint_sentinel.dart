@@ -19,6 +19,7 @@ const _violations = {
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
 import 'dart:io';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
@@ -65,6 +66,8 @@ const _expectedMessages = [
   // externalPackageOwners 的兩個圖片快取套件
   'package:flutter_cache_manager* is only allowed in lib/data/cache/',
   'package:cached_network_image* is only allowed in lib/ui/artwork/',
+  // externalPackageOwners 的 audio_session（Android 的音訊中斷）
+  'package:audio_session* is only allowed in lib/playback/backends/',
 ];
 
 Future<void> main() async {

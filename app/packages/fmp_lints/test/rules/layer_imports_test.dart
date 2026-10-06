@@ -56,6 +56,8 @@ class LayerImportsTest extends FmpRuleTest {
 
   // ADR 0018：兩個播放引擎只在後端實作目錄；控制器、平台層、UI 都不行。
   // media_kit 的 libs 套件（media_kit_libs_windows_audio）算在同一系列。
+  // audio_session（Android 的音訊中斷，design §7.6）也只在後端目錄：控制器
+  // 拿到的是後端轉好的事件。
   Future<void> test_playbackEnginesOutsideTheBackends() async {
     for (final path in [
       'lib/playback/playback_controller.dart',
@@ -67,7 +69,8 @@ class LayerImportsTest extends FmpRuleTest {
         path,
         "import [!'package:just_audio/just_audio.dart'!];\n"
         "import [!'package:media_kit/media_kit.dart'!];\n"
-        "import [!'package:media_kit_libs_windows_audio/media_kit_libs_windows_audio.dart'!];\n",
+        "import [!'package:media_kit_libs_windows_audio/media_kit_libs_windows_audio.dart'!];\n"
+        "import [!'package:audio_session/audio_session.dart'!];\n",
       );
     }
   }
@@ -231,11 +234,17 @@ class LayerImportsTest extends FmpRuleTest {
           "import 'package:media_kit_libs_windows_audio/media_kit_libs_windows_audio.dart';\n"
           "import 'package:just_audio/just_audio.dart';\n",
     );
+    await assertLints(
+      'lib/playback/backends/just_audio_backend.dart',
+      "import 'package:audio_session/audio_session.dart';\n"
+          "import 'package:just_audio/just_audio.dart';\n",
+    );
     // 名稱相似但不同系列（不是 `<鍵>_` 開頭）的套件不算。
     await assertLints(
       'lib/playback/playback_controller.dart',
       "import 'package:media_kitchen/media_kitchen.dart';\n"
-          "import 'package:just_audiobook/just_audiobook.dart';\n",
+          "import 'package:just_audiobook/just_audiobook.dart';\n"
+          "import 'package:audio_sessions/audio_sessions.dart';\n",
     );
   }
 
