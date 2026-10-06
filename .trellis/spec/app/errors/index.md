@@ -85,6 +85,9 @@ throw RateLimited(
   key。
 - `UnavailableReason` 加值時，同時在 `errors.unavailableReasons.` 之下加翻譯，並補
   `unavailableReasonText`。`report` 以 `reason.name` 寫進 log，改名就是改 log 的值。
+- `Unavailable.reason` 可為空（原因不明，例如串流被 CDN 以 403 拒絕，ADR 0013 的 2026-10-06
+  更正）：呈現層用不帶原因的 `errors.unavailable`，`report` 與 `toString` 不寫 `reason`。只有宿主
+  建這種錯誤；插件丟的 `Unavailable` 沒有合法的 `reason` 仍是插件的 bug（`UnexpectedError`）。
 - 訊息要帶數值時加一個 `ErrorMessageArg`（值只能是整數），翻譯寫 `{參數}`，在
   `errorMessage` 裡讀 `error.messageArgs`。音源名稱不是參數：呈現層以 `pluginId` 查。
 - 怎麼加 i18n key 的其他細節：`.trellis/spec/app/ui/index.md` § 字串。

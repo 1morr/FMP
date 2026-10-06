@@ -11,13 +11,13 @@ lib/playback/
   playback_controller.dart  # PlaybackController：唯一入口，唯一寫 PlaybackState
   playback_session.dart     # PlaybackSession：唯一碰 AudioBackend；解析、開流、前瞻、代與來源 id
   playback_event_router.dart # SessionEvent、routePlaybackEvent（純函數）與它的動作
-  playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull）
+  playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull、TrackSkipped、PlaybackStopped、PreviewPlaying）
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
   queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限）
-  stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限）
-  recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別（純函數）
+  stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限、previewOnly）
+  recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別、各個常數（純函數）
   playback_providers.dart   # audioBackendProvider、playbackControllerProvider、temporaryReturnSettingsProvider、
-                            # 狀態／佇列／進度／事件 stream
+                            # skipPreviewClipsProvider、狀態／佇列／試聽／進度／事件 stream
   backends/
     audio_backend.dart      # AudioBackend 介面、BackendSource、狀態與事件
     backend_rules.dart      # classifyTrackEnd、LookAheadEdit（兩個後端共用）
@@ -46,9 +46,22 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
    `adoptLookAhead` 回 `true`、佇列不動），臨時播放中沒有，其他是佇列的下一首。
    前瞻開不起來時後端不接上它：先發前瞻的 `SourceFailed`（session 作廢它的網址快取、放掉
    前瞻，不交給控制器），再發目前這首的 `SourceEnded`，照「沒有前瞻」往下，到那首時重新解析。
-5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`）→ `Recover`／`decideRecovery` →
-   重試、換候選、跳過或停下。串流本身的失敗（`Recover`）先 `session.invalidateCurrentStream`
-   作廢快取裡的那一筆；解析失敗本來就不進快取。
+5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`、插件說只有試聽片段、緩衝飢餓）→
+   控制器的 `_decide`（`decideRecovery` 加上當下的計數、網路狀態、設定，記一筆
+   `Playback recovery`）→ `_apply`：重試、等網路、重新解析、換候選、照播試聽、跳過或停下。
+   串流本身的失敗（`Recover`、緩衝飢餓）先 `session.invalidateCurrentStream` 作廢快取裡的
+   那一筆，所以 `ReResolve` 與重試都會再問插件；解析失敗本來就不進快取。
+
+## 改恢復策略
+
+- 新的情況先在 `recovery_policy.dart` 加一種 `PlaybackFailure` 或 `RecoveryAction`，在
+  `recovery_policy_test.dart` 照 design §7.5 的表加一列的案例（`online` 與不是 `online` 各一）；
+  控制器的 `_decide` 的 log 欄位（`failure`、`action`）與 `_apply` 的 `switch` 編譯器會指出。
+- 計數只在控制器：換一首（`_beginTrack`、交接）時 `_resetTrackCounters`；重試計數另外在位置前進
+  累計 10 秒時歸零（`_onProgress`）；重新解析的次數不因此歸零（「同一首第二次」才有意義）。
+- 會發提示的結果發 `PlaybackEvent`（`_emitEvent`），不在控制器裡碰 UI；外殼的 `_onPlaybackEvent`
+  的 `switch` 編譯器會指出要補的提示。
+- 時間：計時器只有一次性的（重試的等待、緩衝飢餓）；要「播了多久」就累計位置，不開週期計時器。
 
 狀態、位置、事件都帶來源 id，session 只轉目前來源的。每個非同步步驟回來時比對
 `session.generation`，不同就丟掉結果。
@@ -115,7 +128,12 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 - 解析次數用 `plugin.resolvedCount(sourceId)`；開了哪些網址用 `h.openedPaths`（起點
   `backend.openedAt`）；前瞻用 `backend.nextSources`；log 用 `h.logged(message)`；控制器的事件
   用 `h.events`。佇列從 `h.playQueue(tracks, startIndex:)` 開始（加入再 `jumpTo`）；臨時播放回到
-  佇列讀的設定是 `h.returnSettings`。
+  佇列讀的設定是 `h.returnSettings`，「跳過試聽片段」是 `h.skipPreviewClips`。
+- 恢復的情境：網路狀態用 `h.setNetwork(NetworkStatus.x)`（同時通知控制器）；插件回試聽片段用
+  `plugin.previewOnly = (request) => …`；開流被 HTTP 拒絕用 `Harness(failsToOpen:, httpStatusOf:)`
+  （`httpStatusOf` 回 `null` 就是 Android 那種沒有狀態碼的失敗）；中途緩衝用 `backend.stall()`、
+  `backend.resume()`；播放中中斷用 `backend.interrupt()`。斷言恢復的步驟看 `Playback recovery` 的
+  `action` 欄位。
 - 後端的清單修改還在排隊時引擎就接上了舊前瞻：`backend.setNextGate` 給一個沒完成的 Future，
   `setNext` 會等它才套用。
 - 時間：程式碼讀 `clock.now()`，`fakeAsync` 裡的 `clock` 跟著假時間走（`h.now()` 就是它）。
@@ -156,6 +174,14 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   不轉它的回報），要用耳朵確認。
 - 前瞻開不起來：`Look-ahead failed to open`（`track` 是下一首，Windows 有 `httpStatus`）之後
   沒有 `Look-ahead handover`；下一筆是那一首的 `Track requested` 與 `Resolving stream`（重新
-  解析）。重播模式用測試插件的關鍵字 `missing`（`test_plugin/README.md`）。
+  解析）。重播模式用測試插件的關鍵字 `missing`（`test_plugin/README.md`）。那首開流再失敗時
+  照恢復表走：沒有狀態碼先 `Playback recovery` 的 `action: reResolve`（再一筆 `Resolving
+  stream`），仍失敗才跳過或停下。
+- 恢復：每次決定一筆 `Playback recovery`（`failure`、`error`、`action`，不在 `online` 時有
+  `network`，開流被拒時有 `httpStatus`）。等網路是 `action: waitForNetwork`，網路回來時一筆
+  `Network is back; retrying` 接著 `Track requested`；網路狀態本身看 tag `network-status` 的
+  `Network status changed`。正常播放 10 秒後重試計數歸零記 `Retry count reset after normal
+  playback`；緩衝飢餓記 `Buffering stalled`。試聽片段不當前瞻時記 `Look-ahead skipped: preview
+  only`。測試插件的關鍵字 `preview`、`flaky`、`unavailable` 造這些情境（`test_plugin/README.md`）。
 - 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
   `Referer`。
