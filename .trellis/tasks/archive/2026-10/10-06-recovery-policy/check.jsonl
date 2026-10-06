@@ -1,0 +1,13 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 5.3 offline playback, 7.5 RecoveryPolicy table (incl. statusless open failure row), 7.9 events and toasts, 10 previewOnly, 3.3 skip_preview_clips"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decision 7 recovery policy; how to verify"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "Error types, retryable, presentation table, Unavailable reason"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Decision 7 offline playback and no toasts while offline"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Toaster, dedupe, listener rule"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Plugin API v1 optional output fields, d.ts and shapes"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Recovery, session, controller events, look-ahead"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "Error model and presentation"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "NetworkStatus provider and offline rules"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "DTO shapes, d.ts, test plugin fixture"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Playback settings Notifier setters and settings page rows"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Player bar labels, toasts via listener"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Fake clock, no timers, widget tests"}
