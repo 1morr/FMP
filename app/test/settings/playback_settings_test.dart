@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/settings/playback_settings.dart';
 
 import '../support/memory_database.dart';
@@ -32,21 +33,27 @@ void main() {
   group('defaults apply only to unset fields (ADR 0011)', () {
     test('a user value survives a change of the program default', () {
       const stored = PlaybackSettings(
+        audioQuality: AudioQuality.medium,
+        audioFormatPriority: AudioFormatPriority.aacFirst,
         rememberPosition: false,
         tempPlayRewindSeconds: 30,
         skipPreviewClips: false,
       );
 
-      for (final (remember, rewind, skip) in [
-        (true, 10, true),
-        (false, 0, false),
+      for (final (quality, format, remember, rewind, skip) in [
+        (AudioQuality.high, AudioFormatPriority.opusFirst, true, 10, true),
+        (AudioQuality.low, AudioFormatPriority.aacFirst, false, 0, false),
       ]) {
         final resolved = resolvePlaybackPreferences(
           stored,
+          defaultAudioQuality: quality,
+          defaultAudioFormatPriority: format,
           defaultRememberPosition: remember,
           defaultTempPlayRewindSeconds: rewind,
           defaultSkipPreviewClips: skip,
         );
+        expect(resolved.audioQuality, AudioQuality.medium);
+        expect(resolved.audioFormatPriority, AudioFormatPriority.aacFirst);
         expect(resolved.rememberPosition, isFalse);
         expect(resolved.tempPlayRewindSeconds, 30);
         expect(resolved.skipPreviewClips, isFalse);
@@ -54,16 +61,20 @@ void main() {
     });
 
     test('an unset field follows the new default', () {
-      for (final (remember, rewind, skip) in [
-        (true, 10, true),
-        (false, 0, false),
+      for (final (quality, format, remember, rewind, skip) in [
+        (AudioQuality.high, AudioFormatPriority.opusFirst, true, 10, true),
+        (AudioQuality.low, AudioFormatPriority.aacFirst, false, 0, false),
       ]) {
         final resolved = resolvePlaybackPreferences(
           PlaybackSettings.empty,
+          defaultAudioQuality: quality,
+          defaultAudioFormatPriority: format,
           defaultRememberPosition: remember,
           defaultTempPlayRewindSeconds: rewind,
           defaultSkipPreviewClips: skip,
         );
+        expect(resolved.audioQuality, quality);
+        expect(resolved.audioFormatPriority, format);
         expect(resolved.rememberPosition, remember);
         expect(resolved.tempPlayRewindSeconds, rewind);
         expect(resolved.skipPreviewClips, skip);
@@ -83,11 +94,13 @@ void main() {
   });
 
   group('PlaybackPreferencesNotifier', () {
-    test('unset fields read as remembering the position, 10 s back, '
-        'skipping preview clips', () async {
+    test('unset fields read as high quality, Opus first, remembering the '
+        'position, 10 s back, skipping preview clips', () async {
       final events = preferences(containerFor(memoryDatabase()));
 
       expect(await events.moveNext(), isTrue);
+      expect(events.current.audioQuality, AudioQuality.high);
+      expect(events.current.audioFormatPriority, AudioFormatPriority.opusFirst);
       expect(events.current.rememberPosition, isTrue);
       expect(events.current.tempPlayRewindSeconds, 10);
       expect(events.current.skipPreviewClips, isTrue);
@@ -99,6 +112,14 @@ void main() {
       final events = preferences(container);
       await events.moveNext();
       final notifier = container.read(playbackPreferencesProvider.notifier);
+
+      await notifier.setAudioQuality(AudioQuality.low);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.audioQuality, AudioQuality.low);
+
+      await notifier.setAudioFormatPriority(AudioFormatPriority.aacFirst);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.audioFormatPriority, AudioFormatPriority.aacFirst);
 
       await notifier.setRememberPosition(false);
       expect(await events.moveNext(), isTrue);
@@ -114,6 +135,8 @@ void main() {
       expect(
         events.current.stored,
         const PlaybackSettings(
+          audioQuality: AudioQuality.low,
+          audioFormatPriority: AudioFormatPriority.aacFirst,
           rememberPosition: false,
           tempPlayRewindSeconds: 3,
           skipPreviewClips: false,
@@ -131,28 +154,49 @@ void main() {
           .read(playbackPreferencesProvider.notifier)
           .setTempPlayRewindSeconds(15);
 
-      final row = await database
-          .customSelect(
-            'SELECT remember_position, temp_play_rewind_seconds, '
-            'skip_preview_clips FROM playback_settings',
-          )
-          .getSingle();
-      expect(row.data, {
+      Future<Map<String, Object?>> row() async =>
+          (await database
+                  .customSelect(
+                    'SELECT audio_quality, audio_format_priority, '
+                    'remember_position, temp_play_rewind_seconds, '
+                    'skip_preview_clips FROM playback_settings',
+                  )
+                  .getSingle())
+              .data;
+      expect(await row(), {
+        'audio_quality': null,
+        'audio_format_priority': null,
         'remember_position': null,
         'temp_play_rewind_seconds': 15,
         'skip_preview_clips': null,
       });
 
+      final notifier = container.read(playbackPreferencesProvider.notifier);
+      await notifier.setAudioQuality(AudioQuality.medium);
+      expect(await row(), {
+        'audio_quality': 'medium',
+        'audio_format_priority': null,
+        'remember_position': null,
+        'temp_play_rewind_seconds': 15,
+        'skip_preview_clips': null,
+      });
+      await notifier.setAudioFormatPriority(AudioFormatPriority.aacFirst);
+      expect(await row(), {
+        'audio_quality': 'medium',
+        'audio_format_priority': 'aac,opus',
+        'remember_position': null,
+        'temp_play_rewind_seconds': 15,
+        'skip_preview_clips': null,
+      });
+      await notifier.setAudioQuality(null);
+      await notifier.setAudioFormatPriority(null);
+
       await container
           .read(playbackPreferencesProvider.notifier)
           .setSkipPreviewClips(false);
-      final after = await database
-          .customSelect(
-            'SELECT remember_position, temp_play_rewind_seconds, '
-            'skip_preview_clips FROM playback_settings',
-          )
-          .getSingle();
-      expect(after.data, {
+      expect(await row(), {
+        'audio_quality': null,
+        'audio_format_priority': null,
         'remember_position': null,
         'temp_play_rewind_seconds': 15,
         'skip_preview_clips': 0,
@@ -181,15 +225,28 @@ void main() {
       await notifier.setSkipPreviewClips(null);
       expect(await events.moveNext(), isTrue);
       expect(events.current.skipPreviewClips, isTrue);
+      await notifier.setAudioQuality(AudioQuality.low);
+      await events.moveNext();
+      await notifier.setAudioQuality(null);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.audioQuality, AudioQuality.high);
+      await notifier.setAudioFormatPriority(AudioFormatPriority.aacFirst);
+      await events.moveNext();
+      await notifier.setAudioFormatPriority(null);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.audioFormatPriority, AudioFormatPriority.opusFirst);
       expect(events.current.stored, PlaybackSettings.empty);
 
       final row = await database
           .customSelect(
-            'SELECT remember_position, temp_play_rewind_seconds, '
+            'SELECT audio_quality, audio_format_priority, '
+            'remember_position, temp_play_rewind_seconds, '
             'skip_preview_clips FROM playback_settings',
           )
           .getSingle();
       expect(row.data, {
+        'audio_quality': null,
+        'audio_format_priority': null,
         'remember_position': null,
         'temp_play_rewind_seconds': null,
         'skip_preview_clips': null,

@@ -190,6 +190,7 @@ final class PlaybackSession {
         'candidate': candidate,
         'container': ?chosen.container,
         'codec': ?chosen.codec,
+        'bitrate': ?chosen.bitrate,
         // 只記名稱：值可能是 User-Agent 以外的識別資訊。
         'headers': source.headers.keys.toList(),
       },

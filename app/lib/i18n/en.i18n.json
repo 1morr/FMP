@@ -75,13 +75,22 @@
     "languageSystem": "System default"
   },
   "playback": {
+    "audioQuality": "Audio quality",
+    "audioQualityHint": "Applies to all sources",
+    "qualityHigh": "High",
+    "qualityMedium": "Medium",
+    "qualityLow": "Low",
+    "formatPriority": "Format preference",
+    "formatPriorityHint": "Which format to pick when a source offers both",
+    "formatOpusFirst": "Opus first",
+    "formatAacFirst": "AAC first",
     "rememberPosition": "Remember playback position",
     "rememberPositionHint": "When a temporary play ends, the queue goes on from where it was",
     "tempPlayRewind": "Rewind when returning to the queue",
     "tempPlayRewindHint": "Go back a little from where the queue was, so it is easier to pick up",
     "rewindNone": "No rewind",
     "rewindSeconds": "{seconds} s",
-    "rewindDefault": "{label} (default)",
+    "optionDefault": "{label} (default)",
     "skipPreviewClips": "Skip preview clips",
     "skipPreviewClipsHint": "Skip songs that only have a preview clip; when off, play the preview and mark it"
   },

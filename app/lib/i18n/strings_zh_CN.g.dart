@@ -294,6 +294,24 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
 
   // Translations
   @override
+  String get audioQuality => '音质';
+  @override
+  String get audioQualityHint => '适用于所有音源';
+  @override
+  String get qualityHigh => '高';
+  @override
+  String get qualityMedium => '中';
+  @override
+  String get qualityLow => '低';
+  @override
+  String get formatPriority => '格式偏好';
+  @override
+  String get formatPriorityHint => '音源同时提供两种格式时先选哪一种';
+  @override
+  String get formatOpusFirst => 'Opus 优先';
+  @override
+  String get formatAacFirst => 'AAC 优先';
+  @override
   String get rememberPosition => '记住播放位置';
   @override
   String get rememberPositionHint => '临时播放结束回到队列时，从原来的位置继续';
@@ -306,7 +324,7 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
   @override
   String rewindSeconds({required Object seconds}) => '${seconds} 秒';
   @override
-  String rewindDefault({required Object label}) => '${label}（默认）';
+  String optionDefault({required Object label}) => '${label}（默认）';
   @override
   String get skipPreviewClips => '跳过试听片段';
   @override

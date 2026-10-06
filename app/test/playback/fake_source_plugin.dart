@@ -74,10 +74,12 @@ StreamCandidate candidate(
   String name, {
   Map<String, String> headers = const {},
   DateTime? expiresAt,
+  int? bitrate,
 }) => StreamCandidate(
   url: Uri.parse('https://cdn.example/$name'),
   headers: headers,
   container: 'mp4',
   codec: 'aac',
+  bitrate: bitrate,
   expiresAt: expiresAt,
 );

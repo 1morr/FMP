@@ -291,6 +291,25 @@ class Translations$playback$en extends Translations$playback$zh_TW {
 
   // Translations
   @override
+  String get audioQuality => 'Audio quality';
+  @override
+  String get audioQualityHint => 'Applies to all sources';
+  @override
+  String get qualityHigh => 'High';
+  @override
+  String get qualityMedium => 'Medium';
+  @override
+  String get qualityLow => 'Low';
+  @override
+  String get formatPriority => 'Format preference';
+  @override
+  String get formatPriorityHint =>
+      'Which format to pick when a source offers both';
+  @override
+  String get formatOpusFirst => 'Opus first';
+  @override
+  String get formatAacFirst => 'AAC first';
+  @override
   String get rememberPosition => 'Remember playback position';
   @override
   String get rememberPositionHint =>
@@ -305,7 +324,7 @@ class Translations$playback$en extends Translations$playback$zh_TW {
   @override
   String rewindSeconds({required Object seconds}) => '${seconds} s';
   @override
-  String rewindDefault({required Object label}) => '${label} (default)';
+  String optionDefault({required Object label}) => '${label} (default)';
   @override
   String get skipPreviewClips => 'Skip preview clips';
   @override

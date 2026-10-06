@@ -11,6 +11,7 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/playback/playback_controller.dart';
@@ -51,6 +52,7 @@ final class Harness {
         resolver: StreamResolver(
           plugin: (id) => id == plugin.manifest.id ? plugin : null,
           formats: const [PlayableFormat('mp4', 'aac')],
+          preferences: () => streamPreferences,
           log: log,
         ),
         log: log,
@@ -72,6 +74,12 @@ final class Harness {
 
   /// 「跳過試聽片段」（預設同 App 的預設：開）。
   bool skipPreviewClips = true;
+
+  /// 送給插件的偏好（預設同 App 的預設：高音質、Opus 優先）。
+  StreamPreferences streamPreferences = (
+    quality: AudioQuality.high,
+    formatPriority: AudioFormatPriority.opusFirst,
+  );
 
   /// 網路狀態變成 [status]，並通知控制器。
   void setNetwork(NetworkStatus status) {
@@ -267,6 +275,33 @@ void main() {
         unawaited(h.controller.seek(const Duration(seconds: 30)));
         h.settle();
         expect(positions.last, const Duration(seconds: 30));
+      });
+    });
+
+    test('the opened candidate is logged with its format and bitrate', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          respond: (request) async => [
+            candidate(
+              '${request.sourceId}.m4a',
+              headers: const {'Referer': 'https://cdn.example/'},
+              bitrate: 66000,
+            ),
+          ],
+        );
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        // 實機驗證音質偏好時讀這一筆（M2 PR 8）；標頭只記名稱。
+        expect(h.logged('Opening stream').single.fields, {
+          'track': 'fmp-test:a',
+          'candidate': 0,
+          'container': 'mp4',
+          'codec': 'aac',
+          'bitrate': 66000,
+          'headers': ['Referer'],
+        });
       });
     });
 
@@ -544,6 +579,24 @@ void main() {
         h.elapse(const Duration(milliseconds: 100));
         expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
         expect(h.plugin.resolvedCount('a'), 1);
+      });
+    });
+
+    test('after the quality changes the track is resolved again with it', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 3));
+        expect(h.controller.state, isA<Idle>());
+
+        h.streamPreferences = (
+          quality: AudioQuality.low,
+          formatPriority: AudioFormatPriority.opusFirst,
+        );
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.plugin.resolvedCount('a'), 2);
+        expect(h.plugin.requests.last.quality, AudioQuality.low);
       });
     });
 
@@ -1944,7 +1997,6 @@ void main() {
       '203.0.113.9',
       'FAKE_UPSIG_VALUE',
       'FAKE_E_VALUE',
-      '1790000001',
     ];
     const signedUrl =
         'https://rr3---sn-fake.googlevideo.com/videoplayback?expire=1790000000'
@@ -1989,6 +2041,10 @@ void main() {
               resolver: StreamResolver(
                 plugin: (_) => plugin,
                 formats: const [PlayableFormat('mp4', 'aac')],
+                preferences: () => (
+                  quality: AudioQuality.high,
+                  formatPriority: AudioFormatPriority.opusFirst,
+                ),
                 log: log,
               ),
               log: log,

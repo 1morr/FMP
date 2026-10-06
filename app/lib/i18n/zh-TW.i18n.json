@@ -75,13 +75,22 @@
     "languageSystem": "跟隨系統"
   },
   "playback": {
+    "audioQuality": "音質",
+    "audioQualityHint": "適用於所有音源",
+    "qualityHigh": "高",
+    "qualityMedium": "中",
+    "qualityLow": "低",
+    "formatPriority": "格式偏好",
+    "formatPriorityHint": "音源同時提供兩種格式時先選哪一種",
+    "formatOpusFirst": "Opus 優先",
+    "formatAacFirst": "AAC 優先",
     "rememberPosition": "記住播放位置",
     "rememberPositionHint": "臨時播放結束回到佇列時，從原本的位置繼續",
     "tempPlayRewind": "臨時播放回佇列倒退",
     "tempPlayRewindHint": "回到原本的位置時稍微往回一點，方便接上",
     "rewindNone": "不倒退",
     "rewindSeconds": "{seconds} 秒",
-    "rewindDefault": "{label}（預設）",
+    "optionDefault": "{label}（預設）",
     "skipPreviewClips": "跳過試聽片段",
     "skipPreviewClipsHint": "只有試聽片段的歌曲直接跳過；關閉時照播並標示「試聽」"
   },
