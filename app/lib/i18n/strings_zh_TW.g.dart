@@ -355,8 +355,8 @@ class Translations$playback$zh_TW {
   /// zh-TW: '記住播放位置'
   String get rememberPosition => '記住播放位置';
 
-  /// zh-TW: '臨時播放結束回到佇列時，從原本的位置繼續'
-  String get rememberPositionHint => '臨時播放結束回到佇列時，從原本的位置繼續';
+  /// zh-TW: '臨時播放結束回到佇列或重開 App 時，從原本的位置繼續'
+  String get rememberPositionHint => '臨時播放結束回到佇列或重開 App 時，從原本的位置繼續';
 
   /// zh-TW: '臨時播放回佇列倒退'
   String get tempPlayRewind => '臨時播放回佇列倒退';
@@ -378,6 +378,12 @@ class Translations$playback$zh_TW {
 
   /// zh-TW: '只有試聽片段的歌曲直接跳過；關閉時照播並標示「試聽」'
   String get skipPreviewClipsHint => '只有試聽片段的歌曲直接跳過；關閉時照播並標示「試聽」';
+
+  /// zh-TW: '重啟後恢復倒退'
+  String get restartRewind => '重啟後恢復倒退';
+
+  /// zh-TW: '重新開啟 App 後按播放，從上次的位置稍微往回一點，方便接上'
+  String get restartRewindHint => '重新開啟 App 後按播放，從上次的位置稍微往回一點，方便接上';
 }
 
 // Path: network

@@ -36,15 +36,21 @@ void main() {
     'Skip preview clips',
   );
 
-  ChoiceChip chip(WidgetTester tester, String label) =>
-      tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label));
+  /// 倒退秒數有兩列（臨時播放回佇列在前、重啟恢復在後）：[restart] 取後一列。
+  Finder chipFinder(String label, {bool restart = false}) {
+    final chips = find.widgetWithText(ChoiceChip, label);
+    return restart ? chips.last : chips.first;
+  }
+
+  ChoiceChip chip(WidgetTester tester, String label, {bool restart = false}) =>
+      tester.widget<ChoiceChip>(chipFinder(label, restart: restart));
 
   testWidgets('unset fields show the defaults and say so', (tester) async {
     await openPlayback(tester);
 
     expect(tester.widget<SwitchListTile>(remember).value, isTrue);
     expect(tester.widget<SwitchListTile>(skipPreviews).value, isTrue);
-    expect(find.byType(ChoiceChip), findsNWidgets(3 + 2 + 6));
+    expect(find.byType(ChoiceChip), findsNWidgets(3 + 2 + 6 + 6));
     expect(chip(tester, 'High (default)').selected, isTrue);
     expect(chip(tester, 'Medium').selected, isFalse);
     expect(chip(tester, 'Low').selected, isFalse);
@@ -54,19 +60,28 @@ void main() {
     for (final other in ['No rewind', '3 s', '5 s', '15 s', '30 s']) {
       expect(chip(tester, other).selected, isFalse);
     }
+    // 重啟恢復的倒退預設 0 秒。
+    expect(chip(tester, 'No rewind (default)', restart: true).selected, isTrue);
+    for (final other in ['3 s', '5 s', '10 s', '15 s', '30 s']) {
+      expect(chip(tester, other, restart: true).selected, isFalse);
+    }
   });
 
   testWidgets('choosing writes only that field', (tester) async {
     final h = await openPlayback(tester);
 
-    await tester.tap(find.text('3 s'));
+    await tester.tap(chipFinder('3 s'));
     await h.loadSettings(tester);
     expect(
       await stored(tester, h),
       const PlaybackSettings(tempPlayRewindSeconds: 3),
     );
     expect(chip(tester, '3 s').selected, isTrue);
-    expect(find.text('10 s'), findsOneWidget, reason: 'no longer the default');
+    expect(
+      find.text('10 s (default)'),
+      findsNothing,
+      reason: 'no longer the default',
+    );
 
     await tester.tap(remember);
     await h.loadSettings(tester);
@@ -131,6 +146,46 @@ void main() {
     expect(chip(tester, '10 s (default)').onSelected, isNotNull);
   });
 
+  testWidgets('choosing a restart rewind writes only that field', (
+    tester,
+  ) async {
+    final h = await openPlayback(tester);
+
+    await tester.ensureVisible(chipFinder('15 s', restart: true));
+    await tester.tap(chipFinder('15 s', restart: true));
+    await h.loadSettings(tester);
+
+    expect(
+      await stored(tester, h),
+      const PlaybackSettings(restartRewindSeconds: 15),
+    );
+    expect(chip(tester, '15 s', restart: true).selected, isTrue);
+    expect(
+      chip(tester, '15 s').selected,
+      isFalse,
+      reason: 'the temporary-play rewind is a separate setting',
+    );
+    expect(
+      find.text('No rewind (default)'),
+      findsNothing,
+      reason: 'no longer the default',
+    );
+  });
+
+  testWidgets('the restart rewind is disabled while the position is not '
+      'remembered', (tester) async {
+    final h = await openPlayback(tester);
+    await tester.tap(remember);
+    await h.loadSettings(tester);
+
+    expect(chip(tester, '5 s', restart: true).onSelected, isNull);
+    expect(
+      chip(tester, 'No rewind (default)', restart: true).selected,
+      isTrue,
+      reason: 'kept',
+    );
+  });
+
   testWidgets('the settings page lists appearance, playback and network', (
     tester,
   ) async {
@@ -177,7 +232,7 @@ void main() {
     await h.loadSettings(tester);
     await tester.tap(find.text('Playback'));
     await h.loadSettings(tester);
-    await tester.tap(find.text('3 s'));
+    await tester.tap(chipFinder('3 s'));
     await h.loadSettings(tester);
 
     await h.play(tester, [summary('a')]);

@@ -39,6 +39,7 @@ void main() {
         rememberPosition: false,
         tempPlayRewindSeconds: 30,
         skipPreviewClips: false,
+        restartRewindSeconds: 15,
       );
 
       for (final (quality, format, remember, rewind, skip) in [
@@ -52,12 +53,14 @@ void main() {
           defaultRememberPosition: remember,
           defaultTempPlayRewindSeconds: rewind,
           defaultSkipPreviewClips: skip,
+          defaultRestartRewindSeconds: rewind,
         );
         expect(resolved.audioQuality, AudioQuality.medium);
         expect(resolved.audioFormatPriority, AudioFormatPriority.aacFirst);
         expect(resolved.rememberPosition, isFalse);
         expect(resolved.tempPlayRewindSeconds, 30);
         expect(resolved.skipPreviewClips, isFalse);
+        expect(resolved.restartRewindSeconds, 15);
       }
     });
 
@@ -73,12 +76,14 @@ void main() {
           defaultRememberPosition: remember,
           defaultTempPlayRewindSeconds: rewind,
           defaultSkipPreviewClips: skip,
+          defaultRestartRewindSeconds: rewind,
         );
         expect(resolved.audioQuality, quality);
         expect(resolved.audioFormatPriority, format);
         expect(resolved.rememberPosition, remember);
         expect(resolved.tempPlayRewindSeconds, rewind);
         expect(resolved.skipPreviewClips, skip);
+        expect(resolved.restartRewindSeconds, rewind);
       }
     });
 
@@ -95,18 +100,25 @@ void main() {
   });
 
   group('PlaybackPreferencesNotifier', () {
-    test('unset fields read as high quality, Opus first, remembering the '
-        'position, 10 s back, skipping preview clips', () async {
-      final events = preferences(containerFor(memoryDatabase()));
+    test(
+      'unset fields read as high quality, Opus first, remembering the '
+      'position, 10 s back, skipping preview clips, no restart rewind',
+      () async {
+        final events = preferences(containerFor(memoryDatabase()));
 
-      expect(await events.moveNext(), isTrue);
-      expect(events.current.audioQuality, AudioQuality.high);
-      expect(events.current.audioFormatPriority, AudioFormatPriority.opusFirst);
-      expect(events.current.rememberPosition, isTrue);
-      expect(events.current.tempPlayRewindSeconds, 10);
-      expect(events.current.skipPreviewClips, isTrue);
-      expect(events.current.stored, PlaybackSettings.empty);
-    });
+        expect(await events.moveNext(), isTrue);
+        expect(events.current.audioQuality, AudioQuality.high);
+        expect(
+          events.current.audioFormatPriority,
+          AudioFormatPriority.opusFirst,
+        );
+        expect(events.current.rememberPosition, isTrue);
+        expect(events.current.tempPlayRewindSeconds, 10);
+        expect(events.current.skipPreviewClips, isTrue);
+        expect(events.current.restartRewindSeconds, 0);
+        expect(events.current.stored, PlaybackSettings.empty);
+      },
+    );
 
     test('values the user set are read back', () async {
       final container = containerFor(memoryDatabase());
@@ -133,6 +145,10 @@ void main() {
       await notifier.setSkipPreviewClips(false);
       expect(await events.moveNext(), isTrue);
       expect(events.current.skipPreviewClips, isFalse);
+
+      await notifier.setRestartRewindSeconds(5);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.restartRewindSeconds, 5);
       expect(
         events.current.stored,
         const PlaybackSettings(
@@ -141,6 +157,7 @@ void main() {
           rememberPosition: false,
           tempPlayRewindSeconds: 3,
           skipPreviewClips: false,
+          restartRewindSeconds: 5,
         ),
       );
     });
@@ -160,7 +177,7 @@ void main() {
                   .customSelect(
                     'SELECT audio_quality, audio_format_priority, '
                     'remember_position, temp_play_rewind_seconds, '
-                    'skip_preview_clips FROM playback_settings',
+                    'skip_preview_clips, restart_rewind_seconds FROM playback_settings',
                   )
                   .getSingle())
               .data;
@@ -170,6 +187,7 @@ void main() {
         'remember_position': null,
         'temp_play_rewind_seconds': 15,
         'skip_preview_clips': null,
+        'restart_rewind_seconds': null,
       });
 
       final notifier = container.read(playbackPreferencesProvider.notifier);
@@ -180,6 +198,7 @@ void main() {
         'remember_position': null,
         'temp_play_rewind_seconds': 15,
         'skip_preview_clips': null,
+        'restart_rewind_seconds': null,
       });
       await notifier.setAudioFormatPriority(AudioFormatPriority.aacFirst);
       expect(await row(), {
@@ -188,6 +207,7 @@ void main() {
         'remember_position': null,
         'temp_play_rewind_seconds': 15,
         'skip_preview_clips': null,
+        'restart_rewind_seconds': null,
       });
       await notifier.setAudioQuality(null);
       await notifier.setAudioFormatPriority(null);
@@ -201,6 +221,17 @@ void main() {
         'remember_position': null,
         'temp_play_rewind_seconds': 15,
         'skip_preview_clips': 0,
+        'restart_rewind_seconds': null,
+      });
+
+      await notifier.setRestartRewindSeconds(30);
+      expect(await row(), {
+        'audio_quality': null,
+        'audio_format_priority': null,
+        'remember_position': null,
+        'temp_play_rewind_seconds': 15,
+        'skip_preview_clips': 0,
+        'restart_rewind_seconds': 30,
       });
     });
 
@@ -236,13 +267,18 @@ void main() {
       await notifier.setAudioFormatPriority(null);
       expect(await events.moveNext(), isTrue);
       expect(events.current.audioFormatPriority, AudioFormatPriority.opusFirst);
+      await notifier.setRestartRewindSeconds(15);
+      await events.moveNext();
+      await notifier.setRestartRewindSeconds(null);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.restartRewindSeconds, 0);
       expect(events.current.stored, PlaybackSettings.empty);
 
       final row = await database
           .customSelect(
             'SELECT audio_quality, audio_format_priority, '
             'remember_position, temp_play_rewind_seconds, '
-            'skip_preview_clips FROM playback_settings',
+            'skip_preview_clips, restart_rewind_seconds FROM playback_settings',
           )
           .getSingle();
       expect(row.data, {
@@ -251,6 +287,7 @@ void main() {
         'remember_position': null,
         'temp_play_rewind_seconds': null,
         'skip_preview_clips': null,
+        'restart_rewind_seconds': null,
       });
     });
     // design §7.6：輸出裝置的 id 與顯示名稱一起寫、一起清；沒有預設（沒設定

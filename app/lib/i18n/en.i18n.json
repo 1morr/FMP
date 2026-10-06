@@ -86,14 +86,16 @@
     "formatOpusFirst": "Opus first",
     "formatAacFirst": "AAC first",
     "rememberPosition": "Remember playback position",
-    "rememberPositionHint": "When a temporary play ends, the queue goes on from where it was",
+    "rememberPositionHint": "After a temporary play or reopening the app, the queue goes on from where it was",
     "tempPlayRewind": "Rewind when returning to the queue",
     "tempPlayRewindHint": "Go back a little from where the queue was, so it is easier to pick up",
     "rewindNone": "No rewind",
     "rewindSeconds": "{seconds} s",
     "optionDefault": "{label} (default)",
     "skipPreviewClips": "Skip preview clips",
-    "skipPreviewClipsHint": "Skip songs that only have a preview clip; when off, play the preview and mark it"
+    "skipPreviewClipsHint": "Skip songs that only have a preview clip; when off, play the preview and mark it",
+    "restartRewind": "Rewind when restarting",
+    "restartRewindHint": "After reopening the app, resume a little before where you left off"
   },
   "network": {
     "cacheLimit": "Cache limit",

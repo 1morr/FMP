@@ -86,14 +86,16 @@
     "formatOpusFirst": "Opus 优先",
     "formatAacFirst": "AAC 优先",
     "rememberPosition": "记住播放位置",
-    "rememberPositionHint": "临时播放结束回到队列时，从原来的位置继续",
+    "rememberPositionHint": "临时播放结束回到队列或重新打开 App 时，从原来的位置继续",
     "tempPlayRewind": "临时播放回队列后退",
     "tempPlayRewindHint": "回到原来的位置时稍微往回一点，方便接上",
     "rewindNone": "不后退",
     "rewindSeconds": "{seconds} 秒",
     "optionDefault": "{label}（默认）",
     "skipPreviewClips": "跳过试听片段",
-    "skipPreviewClipsHint": "只有试听片段的歌曲直接跳过；关闭时照播并标示「试听」"
+    "skipPreviewClipsHint": "只有试听片段的歌曲直接跳过；关闭时照播并标示「试听」",
+    "restartRewind": "重启后恢复后退",
+    "restartRewindHint": "重新打开 App 后按播放，从上次的位置稍微往回一点，方便接上"
   },
   "network": {
     "cacheLimit": "缓存上限",

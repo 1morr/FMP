@@ -276,6 +276,39 @@ final class QueueModel {
 
   // ---- 加入 -----------------------------------------------------------------
 
+  /// 啟動時帶回上次的佇列（design §7.7）：[tracks]、目前這首的位置、循環與隨機。
+  /// [shuffle] 為真而 [shuffleOrder] 是 `null`（沒存或不完整）時重新排一份，目前
+  /// 這首排第一；[shuffleOrder] 必須是 [tracks] 全部位置的排列。不在臨時播放，
+  /// 「下一首播放」的連續計數也不帶回來。
+  void restore({
+    required List<TrackInfo> tracks,
+    required int? currentIndex,
+    required LoopMode loopMode,
+    required bool shuffle,
+    List<int>? shuffleOrder,
+  }) {
+    assert(
+      shuffleOrder == null ||
+          (shuffleOrder.length == tracks.length &&
+              shuffleOrder.toSet().length == tracks.length &&
+              shuffleOrder.every((i) => i >= 0 && i < tracks.length)),
+      'shuffleOrder must be a permutation of the positions',
+    );
+    _entries = [for (final track in tracks) QueueEntry(track)];
+    _current = tracks.isEmpty
+        ? null
+        : (currentIndex ?? 0).clamp(0, tracks.length - 1);
+    _loop = loopMode;
+    _temporary = null;
+    _playNextRun = 0;
+    _order = switch ((shuffle, _current)) {
+      (false, _) => null,
+      (true, null) => [],
+      (true, final current?) => shuffleOrder ?? _orderStartingAt(current),
+    };
+    _publish();
+  }
+
   /// 以 [tracks] 取代佇列，從 [startIndex] 開始（臨時播放就此結束）。會超過
   /// [maxLength] 就整批不加、回傳 `false`。
   bool replace(List<TrackInfo> tracks, {int startIndex = 0}) {

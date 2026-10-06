@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/data/providers.dart';
 
 /// 啟動維護的一個項目（ADR 0017 §決定 1）。
 final class StartupMaintenanceTask {
@@ -28,6 +29,19 @@ final startupMaintenanceTasksProvider = Provider<List<StartupMaintenanceTask>>((
         final deleted = await file.deleteExpired();
         log.info(
           'Deleted expired log files',
+          tag: _tag,
+          fields: {'count': deleted},
+        );
+      },
+    ),
+    StartupMaintenanceTask(
+      id: 'orphan-tracks',
+      run: () async {
+        final deleted = await ref
+            .read(tracksRepositoryProvider)
+            .deleteOrphans();
+        log.info(
+          'Deleted orphan tracks',
           tag: _tag,
           fields: {'count': deleted},
         );
