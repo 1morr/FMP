@@ -52,8 +52,9 @@
 - **PR 9 已合併**：#204（`232e4185`）。審查補了 4 個測試與 `app/AGENTS.md` 三處閘門宣稱；擁有者決定隨機時一輪的第一首按上一首回到開頭、不往回繞。
 - **PR 10 已合併**：#205（`c0a87b40`）。審查修了「被換掉的前瞻在佇列沒有下一首時仍出聲」；兩平台實機重播通過。
 - **PR 11 已合併**：#206（`73853671`）。兩個真後端契約 14/14；Android 拿不到 HTTP 狀態碼（design §7.6 更正、§7.5 新列）。
-- **PR 12 收尾中**（2026-10-06；分支 `feat/app-recovery-policy`）：實作、審查（opus，修了「佇列一首時臨時曲目失敗直接停下」「單曲循環捷徑把上一首設成前瞻」）完成。擁有者確認提示文字、停下兩種提示、試聽提示一次加播放列標示、「只要連不上就等」（design §7.5、§7.9 已記）。兩平台實機重播通過；「等待網路」只在 Android（飛航模式）。
-- **下一步**：PR 12 合併後 PR 13（依賴 1、8）前要先做 PR 8；或 PR 15／16a／17。
+- **PR 12 已合併**：#208（`6ed45ee3`）。
+- **PR 8 收尾中**（2026-10-06；FMP 分支 `feat/app-stream-quality`；fmp-plugins 1morr/fmp-plugins#3）：實作、審查（opus）完成；擁有者決定 B 站備援先往下降、沒有更低才往上。實機真實連線兩平台音質「低」都是 `bitrate: 65551`；`Opening stream` 實機時補上 `bitrate` 欄位。
+- **下一步**：PR 8 合併後 PR 13（音量、速度、輸出裝置），再 14、15；16a 可穿插。
 - **本機環境備忘**（2026-10-03 更新）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **模擬器上的狀態**：dev 版裝著測試插件（`files/test.js`）與 B 站插件（`files/bilibili.js`），介面語言 English，快取上限設成 512 MB。跑過 Android 整合測試會解除安裝 dev，要重裝並以 `run-as` 放回兩個插件，各帶 `--fmp-dev-plugin` 啟動一次。
@@ -72,7 +73,7 @@
   - **殘留的測試行程**：子代理有時留下卡住的 `flutter test`（`dart.exe` 的命令列是 `flutter_tools.snapshot test …`）。派新的代理或自己跑測試前，先用 `Get-CimInstance Win32_Process` 看建立時間與命令列，只停掉確定殘留的那一個。
   - **產生檔只差換行**時，`git diff --name-only` 的迴圈有時判斷不到；`git diff --ignore-all-space --ignore-cr-at-eol` 為空就直接 `git checkout -- app/linux/flutter app/windows/flutter app/macos/Flutter/GeneratedPluginRegistrant.swift`。新增原生插件的 PR 例外，有真正的註冊要保留。
   - F6 焦點的實機讀法：`msaa_tree.ps1` 加上 `accState` 的 `STATE_SYSTEM_FOCUSED`（0x4）；做法記在 M1 的 `research/m1-acceptance.md` § F6。
-  - **repo 外的待辦**：#200 是 Dependabot 對舊版根目錄 `pubspec` 的升級（`archive`、`flutter_cache_manager`、`go_router`），舊版凍結，留給擁有者決定。
+  - **repo 外的待辦**：#207 是 Dependabot 對舊版根目錄 `pubspec` 的升級（`archive`、`flutter_cache_manager`、`go_router`），舊版凍結，留給擁有者決定。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-queue-model`）；
   2. `task.py create … --parent .trellis/tasks/10-01-m2-full-playback --package app --no-start`；
@@ -655,6 +656,14 @@ PR 12 留下的：
 - [ ] 佇列第二首的第一次解析失敗會被前瞻吃掉（錯誤歷史多一筆 `Look-ahead resolution failed`），輪到它時才重新解析。
 - [ ] PR 18a：播放頁的「試聽」標示。
 - [ ] log 小瑕疵：`Temporary play ended; the queue stays idle` 在佇列空時 `track` 欄位是字串 `"null"`（`playback_controller.dart` 的 `'${track?.key}'`）。
+
+PR 8 留下的：
+
+- [ ] 改音質或格式偏好時，已準備好的前瞻不重新解析，下一首可能還是舊偏好（`app/AGENTS.md` 寫明沒有閘門）。
+- [ ] B 站的音質選擇沒有自動測試（契約每個能力一條案例）；審查用 node 離線驗過各種軌數。
+- [ ] `expiresAtPattern` 取網址裡先出現的期限，插件先找 `deadline` 再找 `hdnts=exp=`；若以後重錄時某個 Akamai 網址同時有兩者、`hdnts` 在前且時間不同，錄製會拒絕寫檔。
+- [ ] `fmp-plugin.d.ts` 沒有規定候選的備援順序（只是 B 站的決定）；M3 寫網易插件時再看要不要成為插件規範。
+- [ ] B 站插件 manifest 仍是 0.1.0（還沒有發佈版本）。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
