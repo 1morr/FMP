@@ -12,17 +12,23 @@ final class FakeAudioBackend implements AudioBackend {
   FakeAudioBackend({
     this.durationOf = _twoSeconds,
     this.failsToOpen = _never,
+    this.httpStatusOf = _noStatus,
     this.tick = const Duration(milliseconds: 50),
   });
 
   static Duration _twoSeconds(Uri url) => const Duration(seconds: 2);
   static bool _never(Uri url) => false;
+  static int? _noStatus(Uri url) => null;
 
   /// 每個網址的長度。
   final Duration Function(Uri url) durationOf;
 
-  /// 開不起來的網址。
+  /// 開不起來的網址。開成目前的來源時馬上失敗；當前瞻時像 ExoPlayer 一樣，到
+  /// 交接時才失敗（先發失敗、再發目前這首的結束）。
   final bool Function(Uri url) failsToOpen;
+
+  /// 開不起來的網址被 HTTP 拒絕時的狀態碼（[SourceFailed.httpStatus]）。
+  final int? Function(Uri url) httpStatusOf;
 
   /// 位置每次前進多少（也是位置回報的間隔）。
   final Duration tick;
@@ -86,6 +92,7 @@ final class FakeAudioBackend implements AudioBackend {
           id: source.id,
           failure: BackendFailure.open,
           cause: 'unopenable',
+          httpStatus: httpStatusOf(source.url),
         ),
       );
       return;
@@ -190,6 +197,19 @@ final class FakeAudioBackend implements AudioBackend {
       return;
     }
     final end = classifyTrackEnd(position: duration, duration: duration);
+    if (_index + 1 < _playlist.length &&
+        failsToOpen(_playlist[_index + 1].url)) {
+      // 前瞻開不起來：不接上，目前這首就此結束。
+      final next = _playlist.removeAt(_index + 1);
+      _events.add(
+        SourceFailed(
+          id: next.id,
+          failure: BackendFailure.open,
+          cause: 'unopenable',
+          httpStatus: httpStatusOf(next.url),
+        ),
+      );
+    }
     if (_index + 1 < _playlist.length) {
       final next = _playlist[_index + 1];
       _index++;

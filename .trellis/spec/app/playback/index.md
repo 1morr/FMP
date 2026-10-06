@@ -44,6 +44,8 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
    （`PlayNextTrack`）就照 1 開始，沒有（`FinishQueue`）就 `Idle`。
    前瞻要接什麼由控制器的 `_nextTrack` 決定：單曲循環是目前這首（位置 `null`，接上時
    `adoptLookAhead` 回 `true`、佇列不動），臨時播放中沒有，其他是佇列的下一首。
+   前瞻開不起來時後端不接上它：先發前瞻的 `SourceFailed`（session 作廢它的網址快取、放掉
+   前瞻，不交給控制器），再發目前這首的 `SourceEnded`，照「沒有前瞻」往下，到那首時重新解析。
 5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`）→ `Recover`／`decideRecovery` →
    重試、換候選、跳過或停下。串流本身的失敗（`Recover`）先 `session.invalidateCurrentStream`
    作廢快取裡的那一筆；解析失敗本來就不進快取。
@@ -96,7 +98,13 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
 - 要不要出聲以執行當下的意願（`_wantPlaying`）為準：`open` 排隊或載入中被 `pause` 的，
   載入完不能照 `open` 當時的 `play` 開始播。契約的 `pausing before the source is ready…`
   守這條。
-- 引擎給的錯誤文字只放 `SourceFailed.cause` 或 log 的 `error:`，不接進訊息字串。
+- 引擎換到前瞻時先記下 `_PendingHandover`，前瞻真的載入（just_audio：事件有時長；media_kit：
+  換過去後的第一個位置或時長）才發 `SourceAdvanced`；載入前的錯誤算前瞻的（`SourceFailed`
+  之後補發上一首的 `SourceEnded`，`_ended` 讓狀態不再是在播），載入前 `setNext` 換掉前瞻就停下
+  引擎、補發 `SourceEnded`。新的交接邏輯要維持「失敗先到、不發 `SourceAdvanced`」。
+- 引擎給的錯誤文字只放 `SourceFailed.cause` 或 log 的 `error:`，不接進訊息字串。HTTP 狀態碼
+  只從錄下來的格式取（`backend_rules.dart` 的 `httpStatusFromLogLine`，單元測試附錄下的原文與
+  出處）；引擎的新格式先錄一行再加。
 - 改完照 `app/AGENTS.md` § 驗證 在 Windows 與 Android 各跑一次真後端的契約。
 
 ## 測試
@@ -124,6 +132,11 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   加一個案例，假後端與真後端一起跑到；`FakeAudioBackend` 用同一份 `backend_rules.dart`。
 - 真後端要實際播放，契約的 `Recorder.until` 等的是實際時間（事件驅動＋逾時計時器），不是
   `pumpUntil`。
+- 契約的兩種開不起來：`missing`（Dart 端就失敗：不存在的 asset）、`forbidden`（引擎開流時才
+  失敗：整合測試在 `setUpAll` 起的 loopback 伺服器一律回 403；假後端以 `failsToOpen`、
+  `httpStatusOf` 模擬）。假後端的前瞻在交接時才失敗（ExoPlayer 的形狀）。要看引擎實際怎麼報，
+  在 `integration_test/` 寫一個暫時的檔案直接用 just_audio／media_kit 記下每個事件（media_kit
+  加 `logLevel: MPVLogLevel.warn` 與 `stream.log`），跑完刪掉。
 
 ## 實機驗證（ADR 0018 §如何確認）
 
@@ -141,5 +154,8 @@ lib/platform/audio/         # AudioBackendKind、PlayableFormat、PlaybackSuppor
   接上了剛被換掉的前瞻，session 停下它、控制器重新開流（下一筆是新的下一首的 `Track
   requested`，或佇列到底時的 `Queue finished`）。log 看不出被換掉的那首有沒有出聲（session
   不轉它的回報），要用耳朵確認。
+- 前瞻開不起來：`Look-ahead failed to open`（`track` 是下一首，Windows 有 `httpStatus`）之後
+  沒有 `Look-ahead handover`；下一筆是那一首的 `Track requested` 與 `Resolving stream`（重新
+  解析）。重播模式用測試插件的關鍵字 `missing`（`test_plugin/README.md`）。
 - 真實連線（ADR 0027 §決定 2 的最少操作）：B 站播一首，看 `Opening stream` 的 `headers` 有
   `Referer`。

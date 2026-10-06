@@ -23,7 +23,8 @@ final class MediaKitBackend implements AudioBackend {
       ..add(stream.completed.listen(_onCompleted))
       ..add(stream.duration.listen(_onDuration))
       ..add(stream.position.listen(_onPosition))
-      ..add(stream.error.listen(_onError));
+      ..add(stream.error.listen(_onError))
+      ..add(stream.log.listen(_onLog));
   }
 
   /// 第一次建立時載入 libmpv（`MediaKit.ensureInitialized`）；找不到就拋錯。
@@ -31,8 +32,15 @@ final class MediaKitBackend implements AudioBackend {
     MediaKit.ensureInitialized();
     return MediaKitBackend._(
       log,
-      // title 是 Windows 音量混合器裡顯示的名稱。
-      Player(configuration: const PlayerConfiguration(title: 'FMP')),
+      Player(
+        configuration: const PlayerConfiguration(
+          // Windows 音量混合器裡顯示的名稱。
+          title: 'FMP',
+          // HTTP 狀態碼只在 ffmpeg 的 warn log（`HTTP error 403 Forbidden`），
+          // 預設的 error 收不到。
+          logLevel: MPVLogLevel.warn,
+        ),
+      ),
     );
   }
 
@@ -55,6 +63,18 @@ final class MediaKitBackend implements AudioBackend {
 
   /// 目前的來源是接上的前瞻：mpv 已經預先開好，載入前不必回報緩衝。
   bool _handedOver = false;
+
+  /// mpv 已經換到前瞻（`playlist-playing-pos`），還不知道它開不開得起來：等它
+  /// 回報位置或時長才發 [SourceAdvanced]，先收到錯誤就是前瞻開不起來。這段期間
+  /// 目前的來源還是上一首。
+  _PendingHandover? _pendingHandover;
+
+  /// 前瞻在交接時開不起來，目前的來源（上一首）已經結束、mpv 停在清單結尾。
+  bool _ended = false;
+
+  /// ffmpeg 最近一次回報的 HTTP 錯誤狀態碼，交給下一個開流失敗。log 不帶項目，
+  /// 所以每次開流、換前瞻時清掉，不讓上一個網址的狀態碼算到別的來源上。
+  int? _httpStatus;
 
   /// [open] 之後、`Player.open` 回來之前。這段期間收到的位置、時長、結束與
   /// 錯誤還是上一個檔案的：media_kit 的事件不帶項目，`Player.open` 內的 mpv
@@ -102,6 +122,7 @@ final class MediaKitBackend implements AudioBackend {
     _wantPlaying = play;
     _resetCurrent();
     _opening = true;
+    _httpStatus = null;
     return _edit(() async {
       if (_currentId != source.id) return;
       try {
@@ -120,8 +141,13 @@ final class MediaKitBackend implements AudioBackend {
     final owner = _currentId;
     if (owner == null) return Future.value();
     _nextId = next?.id;
+    _httpStatus = null;
     return _edit(() async {
       if (_currentId != owner) return;
+      if (_pendingHandover case final handover? when handover.to != next?.id) {
+        await _abandonHandover(handover);
+        return;
+      }
       final playlist = _player.state.playlist;
       final edit = LookAheadEdit.of(
         itemCount: playlist.medias.length,
@@ -131,9 +157,20 @@ final class MediaKitBackend implements AudioBackend {
       for (final index in edit.removeIndices) {
         await _player.remove(index);
       }
-      if (edit.append && next != null && _nextId == next.id) {
-        await _player.add(_media(next));
+      if (!edit.append || next == null || _nextId != next.id) return;
+      final Media media;
+      try {
+        media = _media(next);
+      } on Object catch (error) {
+        // asset 找不到之類，交給 mpv 前就失敗：目前的來源照常播完。
+        _nextId = null;
+        _add(
+          _events,
+          SourceFailed(id: next.id, failure: BackendFailure.open, cause: error),
+        );
+        return;
       }
+      await _player.add(media);
     });
   }
 
@@ -197,6 +234,8 @@ final class MediaKitBackend implements AudioBackend {
     _loaded = false;
     _settled = false;
     _handedOver = false;
+    _pendingHandover = null;
+    _ended = false;
     _position = Duration.zero;
     _duration = null;
   }
@@ -219,8 +258,18 @@ final class MediaKitBackend implements AudioBackend {
     if (id == null || current == null || id == current || id != _nextId) {
       return;
     }
-    final end = classifyTrackEnd(position: _position, duration: _duration);
-    _currentId = id;
+    if (_pendingHandover != null) return;
+    _pendingHandover = _PendingHandover(
+      from: current,
+      to: id,
+      end: classifyTrackEnd(position: _position, duration: _duration),
+    );
+  }
+
+  /// 換過去的前瞻回報了位置或時長：它開起來了，這時才算接上。
+  void _completeHandover() {
+    final handover = _pendingHandover!;
+    _currentId = handover.to;
     _nextId = null;
     _resetCurrent();
     _handedOver = true;
@@ -228,7 +277,10 @@ final class MediaKitBackend implements AudioBackend {
     // duration，所以先沿用引擎現在的值，不一樣時事件會再更新。
     final duration = _player.state.duration;
     if (duration > Duration.zero) _duration = duration;
-    _add(_events, SourceAdvanced(from: current, to: id, end: end));
+    _add(
+      _events,
+      SourceAdvanced(from: handover.from, to: handover.to, end: handover.end),
+    );
     _emitStatus();
     // 播完的那一個移掉，清單回到只有目前這一個。
     unawaited(setNext(null).catchError(_logEditError));
@@ -248,6 +300,7 @@ final class MediaKitBackend implements AudioBackend {
     final settling = _handedOver && !_loaded;
     final phase = switch (id) {
       null => BackendPhase.idle,
+      _ when _ended => BackendPhase.ended,
       _ when _opening => BackendPhase.buffering,
       _ when state.completed && _nextId == null => BackendPhase.ended,
       // open 之後、檔案載入前，mpv 的旗標還沒反映新檔：載入前都算緩衝。
@@ -284,13 +337,17 @@ final class MediaKitBackend implements AudioBackend {
 
   void _onDuration(Duration duration) {
     if (_currentId == null || _opening || duration <= Duration.zero) return;
+    if (_pendingHandover != null) _completeHandover();
     _duration = duration;
     _markLoaded();
   }
 
   void _onPosition(Duration position) {
-    final id = _currentId;
-    if (id == null || _opening) return;
+    if (_currentId == null || _opening) return;
+    // 換過去後的第一個位置（接上的前瞻一開始會報 0 與負值的預捲）。開不起來的
+    // 前瞻不會報位置。
+    if (_pendingHandover != null) _completeHandover();
+    final id = _currentId!;
     if (position > _position) _position = position;
     if (position > Duration.zero) _markLoaded();
     if (!_loaded) return;
@@ -321,6 +378,10 @@ final class MediaKitBackend implements AudioBackend {
   void _onError(String message) {
     final id = _currentId;
     if (id == null || _opening) return;
+    if (_pendingHandover case final handover?) {
+      _failHandover(handover, message);
+      return;
+    }
     if (_loaded) {
       _log.warning(
         'Audio engine reported an error',
@@ -335,7 +396,65 @@ final class MediaKitBackend implements AudioBackend {
   void _fail(int id, BackendFailure failure, Object cause) {
     if (id != _currentId || _settled) return;
     _settled = true;
-    _add(_events, SourceFailed(id: id, failure: failure, cause: cause));
+    _add(
+      _events,
+      SourceFailed(
+        id: id,
+        failure: failure,
+        cause: cause,
+        httpStatus: failure == BackendFailure.open ? _takeHttpStatus() : null,
+      ),
+    );
+  }
+
+  /// 換過去的前瞻在載入前出錯：它開不起來。上一首已經播完（mpv 是播完才換
+  /// 過去的），先報前瞻的失敗、再報上一首結束；mpv 停在清單結尾，不再說在播。
+  void _failHandover(_PendingHandover handover, String message) {
+    _pendingHandover = null;
+    _nextId = null;
+    _add(
+      _events,
+      SourceFailed(
+        id: handover.to,
+        failure: BackendFailure.open,
+        cause: message,
+        httpStatus: _takeHttpStatus(),
+      ),
+    );
+    if (!_settled) {
+      _settled = true;
+      _add(_events, SourceEnded(id: handover.from, end: handover.end));
+    }
+    _ended = true;
+    _emitStatus();
+  }
+
+  /// 引擎換到前瞻、還沒確定接上時，前瞻被換掉或清掉（佇列改了）：上一首已經
+  /// 播完。停下引擎，被換掉的那首不出聲；報上一首結束，`PlaybackSession` 照一般
+  /// 的下一首開流。
+  Future<void> _abandonHandover(_PendingHandover handover) async {
+    _pendingHandover = null;
+    _nextId = null;
+    _ended = true;
+    if (!_settled) {
+      _settled = true;
+      _add(_events, SourceEnded(id: handover.from, end: handover.end));
+    }
+    _emitStatus();
+    await _player.stop();
+  }
+
+  int? _takeHttpStatus() {
+    final status = _httpStatus;
+    _httpStatus = null;
+    return status;
+  }
+
+  void _onLog(PlayerLog log) {
+    if (log.prefix != 'ffmpeg') return;
+    if (httpStatusFromLogLine(log.text) case final status?) {
+      _httpStatus = status;
+    }
   }
 
   void _logEditError(Object error, StackTrace stackTrace) => _log.warning(
@@ -348,4 +467,18 @@ final class MediaKitBackend implements AudioBackend {
   static void _add<T>(StreamController<T> controller, T value) {
     if (!controller.isClosed) controller.add(value);
   }
+}
+
+final class _PendingHandover {
+  const _PendingHandover({
+    required this.from,
+    required this.to,
+    required this.end,
+  });
+
+  final int from;
+  final int to;
+
+  /// 上一首怎麼結束的（換過去那一刻算）。
+  final TrackEndReason end;
 }

@@ -25,12 +25,26 @@ import 'package:fmp/playback/playback_state.dart';
 ///   一接上就預備第二個項目；mpv 靠 `prefetch-playlist=yes`。交接都由引擎
 ///   自己做（gapless），這裡只收到 [SourceAdvanced]。
 /// - **錯誤是誰的**：ExoPlayer 的錯誤帶項目索引；mpv 只給一行 log，不帶項目，
-///   所以 [MediaKitBackend] 把錯誤算在目前的來源上，前瞻預備時的錯誤也一樣
-///   （只影響「還沒載入」的判斷）。
+///   所以 `MediaKitBackend` 把錯誤算在目前的來源上：還沒載入就是開不起來，
+///   載入後只記 log（前瞻預開失敗的那一行也是）；換到前瞻、它還沒載入時的
+///   錯誤算前瞻的。
 /// - **標頭**：just_audio 以 `useProxyForRequestHeaders: false` 直接交給
 ///   ExoPlayer（不開本機 proxy，不需要明文流量）；media_kit 在 mpv 的
 ///   `on_load` hook 設 `http-header-fields`，以網址為鍵，同一個網址只有一組
 ///   標頭。
+/// - **前瞻開不起來**（[setNext]）：ExoPlayer（media3 1.4.1）在播放中預備前瞻
+///   失敗時不報錯，播完目前這首、換到前瞻的索引後才報（`ExoPlayerImplInternal`
+///   只對正在播的項目拋 `maybeThrowPrepareError`），換過去那一刻的狀態還是
+///   `ready`、沒有時長；mpv 預開前瞻失敗時馬上記一行錯誤（不帶項目），播完
+///   目前這首時再開一次、`playlist-playing-pos` 換過去後再記一次。所以兩個
+///   後端都等前瞻真的載入（有時長，或換過去後的第一次位置）才發
+///   [SourceAdvanced]，載入前先收到錯誤就當成前瞻開不起來。
+/// - **HTTP 狀態碼**（[SourceFailed.httpStatus]）：只有 mpv 有。它來自 ffmpeg 的
+///   `HTTP error 403 Forbidden` 這行 warn log，而 mpv 只把 ffmpeg 的 log 交給行程裡
+///   第一個還活著的實例（mpv `common/av_log.c` 的 `init_libav`；media_kit 在
+///   `dispose` 後 5 秒才銷毀實例），App 只有一個後端所以拿得到。just_audio
+///   0.10.6 只把 `ExoPlaybackException.getMessage()` 交給 Dart，開流失敗一律是
+///   `Source error`，Android 一律是 `null`。
 abstract interface class AudioBackend {
   /// 狀態的變化。
   Stream<BackendStatus> get status;
@@ -50,6 +64,12 @@ abstract interface class AudioBackend {
   });
 
   /// 設定目前來源之後的前瞻；`null` 清掉。沒有目前的來源時什麼都不做。
+  ///
+  /// 前瞻開不起來時不接上它，目前的來源照常播完：先發
+  /// `SourceFailed(前瞻, BackendFailure.open)`，之後目前的來源結束時發
+  /// [SourceEnded]（不是 [SourceAdvanced]）。失敗一定先到：它可能在設定時就到
+  /// （Dart 端就失敗，例如 asset 不存在），也可能等到交接時才到（引擎播完目前
+  /// 這首才開前瞻，兩個事件緊接著發）。
   Future<void> setNext(BackendSource? next);
 
   Future<void> play();
@@ -167,11 +187,21 @@ final class SourceEnded extends BackendEvent {
 }
 
 /// 來源失敗。後端不自己跳到下一個。
+///
+/// [id] 可以是前瞻：前瞻開不起來時不接上它（見 [AudioBackend.setNext]）。
 final class SourceFailed extends BackendEvent {
-  const SourceFailed({required this.id, required this.failure, this.cause});
+  const SourceFailed({
+    required this.id,
+    required this.failure,
+    this.cause,
+    this.httpStatus,
+  });
 
   final int id;
   final BackendFailure failure;
+
+  /// 開流被 HTTP 拒絕時的狀態碼；引擎沒給就是 `null`（見 [AudioBackend]）。
+  final int? httpStatus;
 
   /// 引擎給的原始錯誤，可能帶完整的串流網址：只以 `error` 交給 log 門面
   /// （經 `Redactor` 遮蔽），不放進訊息或畫面。

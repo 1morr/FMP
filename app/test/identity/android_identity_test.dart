@@ -46,6 +46,49 @@ void main() {
     }
   });
 
+  // 後端契約的 loopback 403 伺服器（integration_test/audio_backend_contract_test.dart）
+  // 要明文 HTTP：只有 debug 建置、只對 127.0.0.1。release 只合併 main 與 flavor
+  // 的 source set，所以設定只能在 debug 那一份。
+  group('cleartext traffic', () {
+    final sourceSets = {
+      for (final directory in Directory(
+        'android/app/src',
+      ).listSync().whereType<Directory>())
+        directory.uri.pathSegments.lastWhere((s) => s.isNotEmpty): directory,
+    };
+
+    test('only the debug manifest points at a network security config', () {
+      for (final MapEntry(key: name, value: directory) in sourceSets.entries) {
+        final file = File('${directory.path}/AndroidManifest.xml');
+        if (!file.existsSync()) continue;
+        expect(
+          cleartextAttributes(file.readAsStringSync()),
+          name == 'debug'
+              ? {'networkSecurityConfig': '@xml/network_security_config'}
+              : isEmpty,
+          reason: name,
+        );
+      }
+    });
+
+    test('only the debug source set has a network security config', () {
+      final configs = {
+        for (final MapEntry(key: name, value: directory) in sourceSets.entries)
+          if (Directory('${directory.path}/res/xml').existsSync())
+            for (final file in Directory(
+              '${directory.path}/res/xml',
+            ).listSync().whereType<File>())
+              if (file.readAsStringSync().contains('<network-security-config'))
+                '$name/${file.uri.pathSegments.last}',
+      };
+      expect(configs, {'debug/network_security_config.xml'});
+    });
+
+    test('the debug config allows cleartext to 127.0.0.1 only', () {
+      expect(cleartextDomains(debugNetworkConfig()), {'127.0.0.1'});
+    });
+  });
+
   group('parser mutations', () {
     test('a removed dev suffix collapses dev onto the prod id', () {
       final mutated = gradle.replaceFirst('applicationIdSuffix = ".dev"', '');
@@ -99,6 +142,76 @@ void main() {
       expect(usesPermissions(reformatted), usesPermissions(manifest));
     });
 
+    test(
+      'cleartext settings anywhere are found, commented-out ones are not',
+      () {
+        const attribute = 'android:usesCleartextTraffic="true"';
+        final mutated = manifest.replaceFirst(
+          '<application',
+          '<application\n'
+              '        $attribute',
+        );
+        expect(mutated, isNot(manifest));
+        expect(cleartextAttributes(mutated), {'usesCleartextTraffic': 'true'});
+        expect(
+          cleartextAttributes(
+            manifest.replaceFirst(
+              '<application',
+              '<!-- <application $attribute> -->\n'
+                  '    <application',
+            ),
+          ),
+          isEmpty,
+        );
+      },
+    );
+
+    test('a wider cleartext config is found', () {
+      final config = debugNetworkConfig();
+      const domain = '<domain includeSubdomains="false">127.0.0.1</domain>';
+      expect(config, contains(domain));
+      expect(
+        cleartextDomains(
+          config.replaceFirst(domain, '$domain\n<domain>example.com</domain>'),
+        ),
+        {'127.0.0.1', 'example.com'},
+      );
+      expect(
+        cleartextDomains(
+          config.replaceFirst(
+            '<network-security-config>',
+            '<network-security-config>\n'
+                '<base-config cleartextTrafficPermitted="true" />',
+          ),
+        ),
+        contains('*'),
+      );
+      expect(
+        cleartextDomains(
+          config.replaceFirst(
+            domain,
+            '<domain includeSubdomains="true">127.0.0.1</domain>',
+          ),
+        ),
+        contains('127.0.0.1 (and subdomains)'),
+      );
+    });
+
+    test('layout and comments do not change the cleartext domains', () {
+      final config = debugNetworkConfig();
+      final reformatted = config
+          .replaceFirst(
+            '<domain-config cleartextTrafficPermitted="true">',
+            '<!-- 註解 -->\n<domain-config\n    cleartextTrafficPermitted = "true" >',
+          )
+          .replaceFirst(
+            '<domain includeSubdomains="false">',
+            '<domain  includeSubdomains = "false" >',
+          );
+      expect(reformatted, isNot(config));
+      expect(cleartextDomains(reformatted), cleartextDomains(config));
+    });
+
     test('app name parsing ignores other strings and layout', () {
       expect(
         parseAppName(
@@ -143,6 +256,43 @@ Set<String> usesPermissions(String manifest) {
       r'<uses-permission(\s[^>]*)>',
     ).allMatches(live))
       if (name.firstMatch(element.group(1)!) case final match?) match.group(1)!,
+  };
+}
+
+String debugNetworkConfig() =>
+    File('android/app/src/debug/res/xml/network_security_config.xml')
+        .readAsStringSync();
+
+String _withoutComments(String xml) =>
+    xml.replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
+
+/// manifest 裡放行明文的屬性（`networkSecurityConfig`、`usesCleartextTraffic`）
+/// 與它的值；註解掉的不算。
+Map<String, String> cleartextAttributes(String manifest) => {
+  for (final match in RegExp(
+    r'android:(networkSecurityConfig|usesCleartextTraffic)\s*=\s*"([^"]*)"',
+  ).allMatches(_withoutComments(manifest)))
+    match.group(1)!: match.group(2)!,
+};
+
+/// network security config 放行明文的網域。保守地算：檔案裡只要有放行，每個
+/// `<domain>` 都算（巢狀的 domain-config 會繼承上層的放行）；`base-config` 放行
+/// 就是 `*`。`includeSubdomains="true"`（預設是 `false`）的另外標出來。
+Set<String> cleartextDomains(String config) {
+  final live = _withoutComments(config);
+  final permitted = RegExp(r'cleartextTrafficPermitted\s*=\s*"true"')
+      .hasMatch(live);
+  if (!permitted) return {};
+  return {
+    if (RegExp(r'<base-config\s[^>]*cleartextTrafficPermitted\s*=\s*"true"')
+        .hasMatch(live))
+      '*',
+    for (final match in RegExp(
+      r'<domain(\s[^>]*)?>\s*([^<\s]+)\s*</domain>',
+    ).allMatches(live))
+      RegExp(r'includeSubdomains\s*=\s*"true"').hasMatch(match.group(1) ?? '')
+          ? '${match.group(2)!} (and subdomains)'
+          : match.group(2)!,
   };
 }
 
