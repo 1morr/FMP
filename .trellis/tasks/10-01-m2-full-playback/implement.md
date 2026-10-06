@@ -52,11 +52,16 @@
 - **PR 9 已合併**：#204（`232e4185`）。審查補了 4 個測試與 `app/AGENTS.md` 三處閘門宣稱；擁有者決定隨機時一輪的第一首按上一首回到開頭、不往回繞。
 - **PR 10 已合併**：#205（`c0a87b40`）。審查修了「被換掉的前瞻在佇列沒有下一首時仍出聲」；兩平台實機重播通過。
 - **PR 11 已合併**：#206（`73853671`）。兩個真後端契約 14/14；Android 拿不到 HTTP 狀態碼（design §7.6 更正、§7.5 新列）。
-- **PR 12 已合併**：#208（`6ed45ee3`）。
-- **PR 8 已合併**：#209（`f84c8b00`）、fmp-plugins#3（`33caa3a`）。
-- **PR 13 收尾中**（2026-10-07；分支 `feat/app-volume-speed-device`）：實作、審查（opus，修了「duck 中被來電打斷後輸出停在一半」）完成；真後端契約兩平台 17/17。實機（Android 模擬器、重播）：`adb emu gsm call/cancel` 暫停與續播、先暫停則不續播都通過；拔耳機廣播被系統擋（`SecurityException`），未驗；Windows 輸出裝置失敗要停用系統音訊裝置，未驗，只驗了契約的 `auto`。擁有者確認中斷續播、靜音、裝置清單三項（design §7.6 已記）。
-- **下一步**：PR 13 合併後 PR 14（佇列持久化），再 15；16a、17 可穿插。
-- **本機環境備忘**（2026-10-03 更新）：
+- **PR 12 已合併**：#208（`6ed45ee3`）。審查修了「佇列一首時臨時曲目失敗直接停下」「單曲循環捷徑把上一首設成前瞻」；擁有者定了提示文字、停下兩種提示、試聽提示、「只要連不上就等」（design §7.5、§7.9）。
+- **PR 8 已合併**：#209（`f84c8b00`）、fmp-plugins#3（`33caa3a`）。遮蔽名單不再拿掉 B 站 `deadline`；擁有者定 B 站備援先往下降；實機真實連線兩平台音質「低」`bitrate: 65551`。
+- **PR 13 已合併**：#210（`a137dc54`）。審查修了「duck 中被來電打斷後輸出停在一半」；擁有者定了中斷續播、靜音分開記、裝置清單只列 Windows 裝置（design §7.6）；拔耳機與 Windows 裝置失敗實機未驗。
+- **PR 14 完成**（2026-10-07；分支 `feat/app-queue-persistence`，子任務已封存；合併後在下一個 PR 補編號與合併提交）：
+  - 實作期定案：`queue_entries.track_key` 建索引（清 1 萬孤兒 9.3 s → 14 ms）；存的資料讀不回來就清掉從空佇列開始。
+  - 審查修了「拖曳越過目前這首把位置歸零」「恢復完成前先動了佇列，舊位置套到新的那首」，並補了「寫入失敗，下一次補寫」的閘門。
+  - 擁有者定：恢復後還沒播就先臨時播放，結束後按播放仍從恢復的位置開始（design §7.7）。同時修了兩條重複倒退。
+  - 實機兩平台（重播／測試插件）通過：五首（有重複曲目）、隨機、循環全部 → 關掉重開，`Playback restored` 欄位正確、啟動不解析，按播放 `restored: true`、從存的位置接著播、照存的隨機順序走；Android 另驗了倒退 10 秒＋臨時播放後，存的位置不被覆寫。音量與靜音沒有 UI（PR 17），只有單元測試。
+- **下一步**：PR 15（播放歷史）；16a、17 可穿插。
+- **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **模擬器上的狀態**：dev 版裝著測試插件（`files/test.js`）與 B 站插件（`files/bilibili.js`），介面語言 English，快取上限設成 512 MB。跑過 Android 整合測試會解除安裝 dev，要重裝並以 `run-as` 放回兩個插件，各帶 `--fmp-dev-plugin` 啟動一次。
   - **Windows dev**：跑過 Windows 整合測試要再 `flutter build windows --flavor dev --debug`。dev 的快取上限設成 128 MB。快取在 `%LOCALAPPDATA%/com.personal/fmp-dev/fmp_cache`；同層的 `fmp/`（舊版的 `lyrics`）不要動。
@@ -74,6 +79,15 @@
   - **殘留的測試行程**：子代理有時留下卡住的 `flutter test`（`dart.exe` 的命令列是 `flutter_tools.snapshot test …`）。派新的代理或自己跑測試前，先用 `Get-CimInstance Win32_Process` 看建立時間與命令列，只停掉確定殘留的那一個。
   - **產生檔只差換行**時，`git diff --name-only` 的迴圈有時判斷不到；`git diff --ignore-all-space --ignore-cr-at-eol` 為空就直接 `git checkout -- app/linux/flutter app/windows/flutter app/macos/Flutter/GeneratedPluginRegistrant.swift`。新增原生插件的 PR 例外，有真正的註冊要保留。
   - F6 焦點的實機讀法：`msaa_tree.ps1` 加上 `accState` 的 `STATE_SYSTEM_FOCUSED`（0x4）；做法記在 M1 的 `research/m1-acceptance.md` § F6。
+  - **10-06／10-07 新增的備忘**：
+    - **Android 跑過整合測試會清掉 dev 的資料**（插件也沒了）：`adb push "C:/Users/…/test_plugin.js" /data/local/tmp/test.js`（加了 `MSYS_NO_PATHCONV=1` 時本機路徑要寫 `C:/…`，不能寫 `/c/…`），`run-as` 複製進 `files/`，再帶 `--fmp-dev-plugin` 啟動。
+    - **資料庫裡的插件可能是舊版**：改過插件（含測試插件）後，兩平台都要帶 `--fmp-dev-plugin` 重新啟動一次才會更新。
+    - **模擬器可能停在上次的橫向**（`user_rotation`）：每次先 `adb shell settings get system user_rotation`，座標一律從 `ax_flatten.py` 讀，不要沿用上一輪的數字。PR 11 就因此誤點 B 站、送出真實請求。按返回鍵時鍵盤沒開會直接退出 App。
+    - 歌名多行的節點，取座標用 `grep -o "center=([0-9]*,[0-9]*)"`，不要用 `sed` 整行替換。
+    - **Android 音訊中斷**：`adb emu gsm call 5551234`／`adb emu gsm cancel 5551234` 可觸發暫停類中斷；`AUDIO_BECOMING_NOISY` 廣播被系統擋（`SecurityException`）。
+    - **Windows 中文輸入法**：`fgtype.ps1` 打完關鍵字要再送一次 Enter 才會搜尋。session 暫存目錄另有 `logsince.sh <log> <起始行>`（濾掉 debug 的 log 摘要）與 `restart_win.sh <關鍵字>`。
+    - **盯 CI**：PR 剛開時 run 還沒建立，用迴圈等 `gh run list` 拿到 id 再 `gh run watch`。
+    - **擁有者全域規則更新（10-07）**：push 分兩種（照核可計畫做的可直接推）；子代理預設 sonnet，只有設計、根因未知的 debug、審查用 opus。
   - **repo 外的待辦**：#207 是 Dependabot 對舊版根目錄 `pubspec` 的升級（`archive`、`flutter_cache_manager`、`go_router`），舊版凍結，留給擁有者決定。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-queue-model`）；
@@ -633,7 +647,7 @@ PR 10 留下的：
 - [ ] `RepeatTrack`（單曲循環時前瞻沒來得及接上）只有路由器測試；控制器層造不出「前瞻來不及」，重播一律從網址快取拿。
 - [x] PR 12：單曲循環時換候選之後，前瞻會再開一次開不起來的第一候選，要再走一次換候選才播得起來。
 - [ ] PR 17：隨機、循環的 tooltip 補上 Ctrl+S、Ctrl+R。
-- [ ] PR 14：做持久化後改「記住播放位置」的說明（目前只寫臨時播放）。
+- [x] PR 14：做持久化後改「記住播放位置」的說明（目前只寫臨時播放）。
 - [ ] PR 18a：compact（手機直向）的播放列沒有隨機、循環入口，要到播放頁 B 才有。
 - [ ] `playback_providers.dart` 為了 `PlaybackSettings.empty` import 資料層型別；可改由設定層提供預設值（沒有違反 lint）。
 - [ ] 搜尋結果「⋯」的語意標籤重複成「更多選項. 更多選項」（tooltip 與 label 同字），Windows MSAA 看得到。
@@ -670,13 +684,23 @@ PR 13 留下的：
 
 - [ ] PR 17：播放列接音量、靜音、輸出裝置；控制器要對外提供裝置清單、目前裝置與音量的 stream。裝置清單只列 Windows 的音訊裝置（擁有者 2026-10-07：不列 mpv 的 `openal` 這類內部輸出，「系統預設」照常有）。
 - [ ] PR 18a：速度選單（需要速度的 getter 或 stream）。
-- [ ] PR 14：持久化音量與靜音（靜音與音量分開記，擁有者 2026-10-07 確認）。
+- [x] PR 14：持久化音量與靜音（靜音與音量分開記，擁有者 2026-10-07 確認）。
 - [ ] 裝置失敗前先到的提前結束，在錯誤歷史留一筆 `Stream ended early`。
 - [ ] `JustAudioBackend` 接 audio_session、`MediaKitBackend` 接 log 的幾行沒有自動閘門（`flutter test` 裡建不起來）。
 - [ ] duck 在 Android 8 以上因系統自動 duck 幾乎不會觸發。
 - [ ] PR 17：記住的輸出裝置失效後 mpv 仍被強制指定它，按播放會再失敗；決定失敗時要不要自動退回系統預設。
 - [ ] `_onOutputDevices` 裡 `_session.selectOutputDevice` 丟錯會變成未捕捉的非同步錯誤（全域 handler 記 error），影響小。
 - [ ] 後端的 `volume`、`speed` getter 與 `OutputDevices.selected` 只有契約測試在讀（觀察真引擎狀態的唯一方式，保留）；控制器的 `volume`、`muted` 等 PR 17 的 UI 使用。
+
+PR 14 留下的：
+
+- [ ] PR 17：恢復後還沒按播放時，播放列的進度顯示 0:00，不是恢復的位置（按播放後才跳過去）；兩平台實機都看到。
+- [ ] 在 `attach` 訂閱之前就已開始播放時，10 秒存檔計時器要等下一次狀態變化才開（時間窗只有幾毫秒，沒有穩定的 repro）。
+- [ ] PR 15：`play_history` 參照 `tracks` 時照 `queue_entries.track_key` 建索引，否則孤兒清理會慢。
+- [ ] PR 15：「恢復後第一次播放不記歷史」只留了最小的 `PlaybackController.startedFromRestore`；接歷史時看夠不夠用。
+- [ ] 臨時播放期間收著的恢復位置用曲目鍵判斷「佇列那首換了沒」：同一首在佇列出現兩次、臨時播放期間跳到另一個同曲目的項目時，恢復位置不作廢（影響小）。
+- [ ] 「重啟恢復時倒退」選回「不倒退」時存成 0 而不是空值，標籤也不再帶「（預設）」；行為相同。
+- [ ] 測試插件的曲目鍵不含關鍵字（`fmp-test:tone-220`），不同關鍵字搜到的是同一首；實機湊不出五首不同的曲目。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
