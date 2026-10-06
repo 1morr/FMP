@@ -35,12 +35,14 @@ final class Harness {
     FutureOr<List<StreamCandidate>> Function(StreamRequest request)? respond,
     Duration trackLength = const Duration(seconds: 2),
     bool Function(Uri url)? failsToOpen,
+    int? Function(Uri url)? httpStatusOf,
   }) : plugin = FakeSourcePlugin(
          respond ?? (request) => [candidate('${request.sourceId}.m4a')],
        ),
        backend = FakeAudioBackend(
          durationOf: (_) => trackLength,
          failsToOpen: failsToOpen ?? (_) => false,
+         httpStatusOf: httpStatusOf ?? (_) => null,
        ) {
     controller = PlaybackController(
       session: PlaybackSession(
@@ -545,6 +547,93 @@ void main() {
         unawaited(h.controller.play());
         h.elapse(const Duration(milliseconds: 100));
         expect(h.plugin.resolvedCount('a'), 2);
+      });
+    });
+  });
+
+  // 假後端照契約：前瞻開不起來時，交接那一刻先報前瞻失敗、再報目前這首播完
+  // （ExoPlayer 的形狀）。
+  group('a look-ahead that cannot be opened', () {
+    test('the current track plays on to its end; the next is resolved again '
+        'when its turn comes', () {
+      fakeAsync((async) {
+        var resolutions = 0;
+        final h = Harness(
+          async,
+          respond: (request) => [
+            candidate(
+              request.sourceId == 'b'
+                  ? 'b-${++resolutions}.m4a'
+                  : '${request.sourceId}.m4a',
+            ),
+          ],
+          failsToOpen: (url) => url.path == '/b-1.m4a',
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.backend.nextSources.last?.url.path, '/b-1.m4a');
+
+        h.elapse(const Duration(seconds: 2));
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.state, isA<Playing>());
+        // 失敗的網址作廢了：b 重新解析、開的是新的網址；a 只開過一次、沒有重試。
+        expect(h.openedPaths, ['/a.m4a', '/b-2.m4a']);
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(h.plugin.resolvedCount('b'), 2);
+        expect(h.logged('Look-ahead failed to open'), hasLength(1));
+        expect(
+          h.logged('Look-ahead failed to open').single.fields,
+          containsPair('track', 'fmp-test:b'),
+        );
+        expect(h.logged('Stream URL invalidated'), hasLength(1));
+        expect(h.logged('Look-ahead handover'), isEmpty);
+        expect(h.logged('Playback recovery'), isEmpty);
+        expect(h.states.whereType<Retrying>(), isEmpty);
+      });
+    });
+
+    test('when the next track fails again it goes through recovery', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          respond: (request) => [
+            candidate('${request.sourceId}-1.m4a'),
+            candidate('${request.sourceId}-2.m4a'),
+          ],
+          failsToOpen: (url) => url.path == '/b-1.m4a',
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 2, milliseconds: 100));
+
+        // 重新解析還是同一個網址（插件就是這麼回）：開不起來、換候選。
+        expect(h.openedPaths, ['/a-1.m4a', '/b-1.m4a', '/b-2.m4a']);
+        expect(h.plugin.resolvedCount('b'), 2);
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.state, isA<Playing>());
+        expect(h.logged('Playback recovery').map((r) => r.fields['action']), [
+          'nextCandidate',
+        ]);
+      });
+    });
+
+    test('an HTTP status from the backend goes into the log', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          failsToOpen: (url) => url.path == '/b.m4a',
+          httpStatusOf: (url) => url.path == '/b.m4a' ? 403 : null,
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 2, milliseconds: 100));
+
+        expect(
+          h.logged('Look-ahead failed to open').single.fields,
+          containsPair('httpStatus', 403),
+        );
+        expect(
+          h.logged('Stream failed').single.fields,
+          containsPair('httpStatus', 403),
+        );
       });
     });
   });

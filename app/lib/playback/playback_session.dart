@@ -441,7 +441,15 @@ final class PlaybackSession {
             lastPosition: current.progress?.position,
           ),
         );
-      case SourceFailed(:final id, :final failure, :final cause):
+      case SourceFailed(:final id, :final cause, :final httpStatus)
+          when id == _lookAhead?.sourceId:
+        _lookAheadFailed(_lookAhead!, cause, httpStatus);
+      case SourceFailed(
+        :final id,
+        :final failure,
+        :final cause,
+        :final httpStatus,
+      ):
         if (id != current.sourceId) return;
         // 引擎的錯誤可能帶完整的串流網址：只以 error 交給 log 門面。
         _log.warning(
@@ -452,6 +460,7 @@ final class PlaybackSession {
             'track': '${current.stream.track}',
             'failure': failure.name,
             'candidate': current.candidate,
+            'httpStatus': ?httpStatus,
           },
         );
         _emit(switch (failure) {
@@ -466,6 +475,24 @@ final class PlaybackSession {
           ),
         });
     }
+  }
+
+  /// 前瞻開不起來（後端不接上它，目前這首照常播完）：當成那一首的開流失敗，
+  /// 作廢網址快取裡的那一筆、放掉前瞻；到那首時控制器照一般的下一首重新解析，
+  /// 再失敗就走恢復。目前這首不受影響。
+  void _lookAheadFailed(_LookAhead lookAhead, Object? cause, int? httpStatus) {
+    _log.warning(
+      'Look-ahead failed to open',
+      tag: _tag,
+      error: cause,
+      fields: {
+        'track': '${lookAhead.stream.track}',
+        if (lookAhead.index == null) 'repeat': true,
+        'httpStatus': ?httpStatus,
+      },
+    );
+    _resolver.invalidate(lookAhead.stream);
+    _clearLookAhead();
   }
 
   void _emit(SessionEvent event) {
