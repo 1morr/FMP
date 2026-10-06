@@ -18,7 +18,9 @@ typedef DefineCase = void Function(String description, Future<void> Function());
 /// [missing] 是開不起來的網址（Dart 端就失敗，例如不存在的 asset），
 /// [forbidden] 是 HTTP 回 403 的網址（引擎開流時才失敗；整合測試的伺服器在
 /// `setUpAll` 才起來，所以在案例裡才讀）。[reportsHttpStatus]：引擎給不給得出
-/// 狀態碼（見 `AudioBackend` 的 dartdoc）。[slack] 是引擎開流與事件延遲的餘裕。
+/// 狀態碼（見 `AudioBackend` 的 dartdoc）。[selectsOutputDevice]：平台宣告
+/// 能不能選輸出裝置（`PlaybackSupport.outputDeviceSelection`）。[slack] 是引擎
+/// 開流與事件延遲的餘裕。
 void audioBackendContract({
   required DefineCase define,
   required Future<AudioBackend> Function() create,
@@ -26,6 +28,7 @@ void audioBackendContract({
   required Uri missing,
   required Uri Function() forbidden,
   required bool reportsHttpStatus,
+  required bool selectsOutputDevice,
   required Duration trackLength,
   Duration slack = const Duration(seconds: 5),
 }) {
@@ -379,12 +382,115 @@ void audioBackendContract({
     await call(recorder.backend.pause);
     await call(recorder.backend.play);
     await call(() => recorder.backend.seek(Duration.zero));
+    await call(() => recorder.backend.setVolume(0.5));
+    await call(() => recorder.backend.setSpeed(1.5));
+    if (recorder.backend.outputDevices case final devices?) {
+      await call(() => devices.select(null));
+    }
     await call(recorder.backend.stop);
     await call(() => recorder.backend.open(source(missing)));
     for (final subscription in subscriptions) {
       await subscription.cancel();
     }
     expect(early, isEmpty);
+    await recorder.close();
+  });
+
+  // E19（design §7.6）：音量與速度在 open 之前設定也生效，接上前瞻、換來源後
+  // 維持。速度看實際的播放時間：2 倍速時兩首（中間交接）在一首半的時間內播完，
+  // 1 倍速要兩首的時間。
+  defineCase(
+    'volume and speed set before open hold across a handover and a new source',
+    () async {
+      final recorder = await record();
+      final backend = recorder.backend;
+      await backend.setVolume(0.4);
+      await backend.setSpeed(2);
+      final a = source(track);
+      final b = source(track);
+      await backend.open(a);
+      await recorder.untilReady(a.id, slack);
+      final readyAt = DateTime.now();
+      await backend.setNext(b);
+
+      await recorder.until(
+        () => recorder.events.whereType<SourceEnded>().isNotEmpty,
+        trackLength * 2 + slack,
+      );
+      final elapsed = DateTime.now().difference(readyAt);
+      expect(recorder.events, [
+        isA<SourceAdvanced>()
+            .having((e) => e.from, 'from', a.id)
+            .having((e) => e.to, 'to', b.id),
+        isA<SourceEnded>().having((e) => e.id, 'id', b.id),
+      ]);
+      expect(
+        elapsed,
+        lessThan(trackLength * 1.5),
+        reason: 'two tracks at 2x take about one track of time',
+      );
+      await eventually(
+        () => (backend.volume - 0.4).abs() < 0.001,
+        slack,
+        'the volume after the handover',
+      );
+      expect(backend.speed, 2);
+
+      final c = source(track);
+      await backend.open(c);
+      await recorder.untilReady(c.id, slack);
+      expect(backend.volume, closeTo(0.4, 0.001));
+      expect(backend.speed, 2);
+      await recorder.close();
+    },
+  );
+
+  defineCase('the speed is clamped to 0.5–2.0 and the volume to 0–1', () async {
+    final recorder = await record();
+    final backend = recorder.backend;
+    await backend.setSpeed(3);
+    expect(backend.speed, maxSpeed);
+    await backend.setSpeed(0.1);
+    expect(backend.speed, minSpeed);
+    await backend.setVolume(1.5);
+    await eventually(
+      () => (backend.volume - 1).abs() < 0.001,
+      slack,
+      'the volume clamped to 1',
+    );
+    await recorder.close();
+  });
+
+  // 輸出裝置（design §7.6）：有沒有與平台宣告一致；Windows 選「系統預設」之後
+  // 仍在播。裝置失敗（拔掉正在用的裝置）在實機手動驗。
+  defineCase('output devices follow the platform declaration and choosing the '
+      'system default keeps playing', () async {
+    final recorder = await record();
+    final devices = recorder.backend.outputDevices;
+    expect(devices != null, selectsOutputDevice);
+    if (devices == null) return recorder.close();
+
+    final listed = await devices.available.first.timeout(slack);
+    expect(listed, isNotEmpty);
+    expect(
+      [for (final device in listed) device.id],
+      isNot(contains('auto')),
+      reason: 'the system default is null, not a listed device',
+    );
+    final a = source(track);
+    await recorder.backend.open(a);
+    await recorder.untilReady(a.id, slack);
+    await devices.select(null);
+    final before = recorder.progress.length;
+
+    await recorder.until(
+      () => recorder.progress.skip(before).any((p) => p.sourceId == a.id),
+      slack,
+    );
+    expect(recorder.statuses.last.playing, isTrue);
+    expect(devices.selected, isNull);
+    expect(recorder.events.whereType<OutputDeviceFailed>(), isEmpty);
+    expect(recorder.events.whereType<SourceFailed>(), isEmpty);
     await recorder.close();
   });
 
@@ -410,6 +516,22 @@ void audioBackendContract({
     );
     await recorder.close();
   });
+}
+
+/// 每 20 毫秒看一次 [condition]，超過 [timeout] 就以 [what] 失敗：引擎的屬性
+/// （mpv 的 `volume`）晚一點才回報，又不一定伴隨事件。
+Future<void> eventually(
+  bool Function() condition,
+  Duration timeout,
+  String what,
+) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      throw TestFailure('Timed out after $timeout waiting for $what.');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  }
 }
 
 /// 收下後端發出的一切。

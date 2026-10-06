@@ -14,4 +14,6 @@ const androidPlaybackSupport = PlaybackSupport(
     PlayableFormat('flac', 'flac'),
     PlayableFormat('wav', 'pcm_s16le'),
   ],
+  // 輸出跟著系統（耳機、藍牙由系統切換），ExoPlayer 不讓 App 選裝置。
+  outputDeviceSelection: false,
 );

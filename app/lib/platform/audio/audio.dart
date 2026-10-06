@@ -33,13 +33,22 @@ final class PlayableFormat {
   String toString() => '$container/$codec';
 }
 
-/// 平台的播放能力：用哪個後端、能播哪些格式。
+/// 平台的播放能力：用哪個後端、能播哪些格式、能不能選輸出裝置。
 @immutable
 final class PlaybackSupport {
-  const PlaybackSupport({required this.backend, required this.formats});
+  const PlaybackSupport({
+    required this.backend,
+    required this.formats,
+    required this.outputDeviceSelection,
+  });
 
   final AudioBackendKind backend;
 
   /// 能播的格式，依偏好排序；插件依它挑候選串流。
   final List<PlayableFormat> formats;
+
+  /// 能在 App 裡選音訊輸出裝置（design §7.6）：後端的 `outputDevices` 不為空
+  /// （`createAudioBackend` 的 assert）。UI 依它決定是否顯示入口（ADR 0009
+  /// §如何確認）。
+  final bool outputDeviceSelection;
 }

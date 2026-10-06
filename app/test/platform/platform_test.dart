@@ -18,7 +18,8 @@ import 'package:fmp/platform/platform.dart';
 void main() {
   group('AppPlatform.assemble', () {
     test('Android has a data directory, picks glyphs by locale, plays '
-        'with just_audio, sees network interfaces and has a cache', () {
+        'with just_audio without choosing an output device, sees network '
+        'interfaces and has a cache', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.android,
         AppFlavor.dev,
@@ -33,6 +34,9 @@ void main() {
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
       );
+      // 輸出跟著系統；後端的 outputDevices 為空（createAudioBackend 的 assert、
+      // 真後端契約）。
+      expect(platform.capabilities.playback?.outputDeviceSelection, isFalse);
       expect(platform.capabilities.networkInterfaces, isTrue);
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
       expect(platform.capabilities.cache, same(androidCacheSizes));
@@ -40,7 +44,8 @@ void main() {
     });
 
     test('Windows has a data directory, a single instance, named fonts, '
-        'plays with media_kit, sees network interfaces and has a cache', () {
+        'plays with media_kit and chooses output devices, sees network '
+        'interfaces and has a cache', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.windows,
         AppFlavor.dev,
@@ -55,6 +60,7 @@ void main() {
         platform.capabilities.playback?.backend,
         AudioBackendKind.mediaKit,
       );
+      expect(platform.capabilities.playback?.outputDeviceSelection, isTrue);
       expect(platform.capabilities.networkInterfaces, isTrue);
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
       expect(platform.capabilities.cache, same(windowsCacheSizes));

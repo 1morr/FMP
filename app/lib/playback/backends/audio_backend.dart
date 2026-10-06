@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/core/network/media_headers.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/playback/backends/backend_rules.dart';
 import 'package:fmp/playback/playback_state.dart';
 
@@ -45,6 +46,14 @@ import 'package:fmp/playback/playback_state.dart';
 ///   `dispose` 後 5 秒才銷毀實例），App 只有一個後端所以拿得到。just_audio
 ///   0.10.6 只把 `ExoPlaybackException.getMessage()` 交給 Dart，開流失敗一律是
 ///   `Source error`，Android 一律是 `null`。
+/// - **音訊中斷與拔耳機**（[Interrupted]、[InterruptionEnded]、[BecameNoisy]）：
+///   只有 Android。`JustAudioBackend` 以 `handleInterruptions: false` 關掉
+///   just_audio 的內建處理、自己聽 audio_session（理由見 `respondToInterruption`），
+///   duck 在後端內部把輸出減半，其餘回報給上層，由控制器暫停或續播。焦點的
+///   取得與釋放仍由 just_audio 的 `handleAudioSessionActivation` 管，所以上一條
+///   「換來源不放焦點」不變。Windows 沒有焦點與中斷。
+/// - **輸出裝置**（[outputDevices]、[OutputDeviceFailed]）：只有 mpv 能選；裝置
+///   開不起來時 mpv 只記 log（`isOutputDeviceFailure`），目前的來源跟著結束。
 abstract interface class AudioBackend {
   /// 狀態的變化。
   Stream<BackendStatus> get status;
@@ -78,10 +87,42 @@ abstract interface class AudioBackend {
 
   Future<void> seek(Duration position);
 
+  /// 音量 0–1（夾取）。[open] 之前設定也生效；換來源、接上前瞻後維持。
+  Future<void> setVolume(double volume);
+
+  /// 速度，夾到 0.5–2.0（`clampSpeed`）。[open] 之前設定也生效；換來源、接上
+  /// 前瞻後維持。
+  Future<void> setSpeed(double speed);
+
+  /// 引擎目前的輸出音量（0–1）：讀引擎的狀態（mpv 的 `volume` 屬性回報得晚
+  /// 一點），Android 被 duck 時是一半。
+  double get volume;
+
+  /// 引擎目前的速度。
+  double get speed;
+
+  /// 輸出裝置；不能選的平台（Android）為 `null`。與平台宣告的
+  /// `PlaybackSupport.outputDeviceSelection` 一致（`createAudioBackend` 的
+  /// assert）。
+  OutputDevices? get outputDevices;
+
   /// 停止並清空清單。不放掉 Android 的音訊焦點（見上）。
   Future<void> stop();
 
   Future<void> dispose();
+}
+
+/// 後端的輸出裝置（只有 mpv）。
+abstract interface class OutputDevices {
+  /// 可選的裝置，不含「系統預設」（mpv 的 `auto`）。訂閱時先給目前的清單（引擎
+  /// 還沒列出來就等第一次），之後每次插拔都再發。
+  Stream<List<OutputDevice>> get available;
+
+  /// 目前選的裝置；`null` 是系統預設。
+  OutputDevice? get selected;
+
+  /// 選 [device]；`null` 是系統預設。不檢查它在不在清單裡。
+  Future<void> select(OutputDevice? device);
 }
 
 /// 交給後端的一個串流。
@@ -205,6 +246,35 @@ final class SourceFailed extends BackendEvent {
 
   /// 引擎給的原始錯誤，可能帶完整的串流網址：只以 `error` 交給 log 門面
   /// （經 `Redactor` 遮蔽），不放進訊息或畫面。
+  final Object? cause;
+}
+
+/// 別的 App 拿走音訊焦點（Android 的來電、別的播放器）：暫停類與 unknown 類
+/// 的中斷。不屬於某個來源；暫停與否由控制器決定。
+final class Interrupted extends BackendEvent {
+  const Interrupted();
+}
+
+/// 中斷結束。[resume]：暫停類的中斷結束（拿回焦點），控制器只在原本因中斷
+/// 而暫停時續播。
+final class InterruptionEnded extends BackendEvent {
+  const InterruptionEnded({required this.resume});
+
+  final bool resume;
+}
+
+/// 輸出要改到喇叭（Android 的 `ACTION_AUDIO_BECOMING_NOISY`：拔耳機、藍牙
+/// 斷線）：控制器只暫停。
+final class BecameNoisy extends BackendEvent {
+  const BecameNoisy();
+}
+
+/// 音訊輸出裝置開不起來（mpv 的 `[ao]` 錯誤：選的裝置不在、播放中被拔掉）。
+/// 不屬於某個來源：控制器暫停並提示，不跳過（ADR 0018 §決定 7）。
+final class OutputDeviceFailed extends BackendEvent {
+  const OutputDeviceFailed({this.cause});
+
+  /// 引擎給的那一行 log：只以 `error` 交給 log 門面。
   final Object? cause;
 }
 
