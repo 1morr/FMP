@@ -58,6 +58,33 @@ void main() {
     },
   );
 
+  test('searching "missing" makes the second song stream an asset that does '
+      'not exist, for an unopenable look-ahead', () async {
+    final plugin = await PluginHarness().load(
+      testPluginFile.readAsStringSync(),
+    );
+    Future<Uri> streamOf(String sourceId) async => (await plugin.resolveStream(
+      StreamRequest(
+        sourceId: sourceId,
+        formats: [StreamFormat(container: 'wav', codec: 'pcm_s16le')],
+      ),
+    )).first.url;
+
+    final items = (await plugin.search(SearchQuery(keyword: 'missing'))).items;
+    expect(items, hasLength(2));
+    final first = await streamOf(items[0].sourceId);
+    final second = await streamOf(items[1].sourceId);
+    // asset 鍵就是 app/ 底下的相對路徑：第一首的在，第二首的不在。
+    expect(File(first.path.substring(1)).existsSync(), isTrue);
+    expect(second.scheme, 'asset');
+    expect(File(second.path.substring(1)).existsSync(), isFalse);
+    // 只有剛好是它才改第二首；第二頁不受影響。
+    final other = (await plugin.search(SearchQuery(keyword: 'missing2'))).items;
+    expect(await streamOf(other[1].sourceId), first);
+    final page2 = await plugin.search(SearchQuery(keyword: 'missing', page: 2));
+    expect(await streamOf(page2.items.single.sourceId), first);
+  });
+
   test('the test plugin is bundled only in the dev flavor', () {
     final assets =
         (loadYaml(File('pubspec.yaml').readAsStringSync())

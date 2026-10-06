@@ -16,10 +16,15 @@
 const TONES = [220, 440, 880];
 const PAGE_SIZE = 2;
 const TONE_ASSET = 'asset:///test/fixtures/plugins/test_plugin/tone.wav';
+const MISSING_ASSET = 'asset:///test/fixtures/plugins/test_plugin/missing.wav';
 
 // 關鍵字剛好是它時，搜尋以限流失敗：實機不連網也能看到錯誤提示（ADR 0027
 // 「測試插件不足以涵蓋某類 UI 時先補測試插件」）。
 const FAIL_KEYWORD = 'fail';
+
+// 關鍵字剛好是它時，第一頁第二首的串流指向不存在的 asset：兩首加進佇列連播，
+// 第二首的前瞻開不起來，第一首照常播完、第二首走恢復（實機不連網也看得到）。
+const MISSING_NEXT_KEYWORD = 'missing';
 
 // 標題的前綴可以用 storage 改（`titlePrefix`），順便走一次非同步的宿主函式。
 export async function search(query) {
@@ -28,8 +33,11 @@ export async function search(query) {
   }
   const prefix = (await fmp.storage.get('titlePrefix')) ?? 'Test tone';
   const start = (query.page - 1) * PAGE_SIZE;
-  const items = TONES.slice(start, start + PAGE_SIZE).map((hz) => ({
-    sourceId: `tone-${hz}`,
+  const items = TONES.slice(start, start + PAGE_SIZE).map((hz, index) => ({
+    sourceId:
+      query.keyword === MISSING_NEXT_KEYWORD && start + index === 1
+        ? `missing-${hz}`
+        : `tone-${hz}`,
     title: `${prefix} ${hz} Hz (${query.keyword})`,
     uploader: 'FMP',
     durationMs: 2000,
@@ -39,6 +47,19 @@ export async function search(query) {
 }
 
 export async function resolveStream(request) {
+  if (/^missing-\d+$/.test(request.sourceId)) {
+    return {
+      candidates: [
+        {
+          url: MISSING_ASSET,
+          container: 'wav',
+          codec: 'pcm_s16le',
+          bitrate: 256000,
+          expiresAt: null,
+        },
+      ],
+    };
+  }
   if (!/^tone-\d+$/.test(request.sourceId)) {
     throw { fmpError: 'NotFound', message: `no such tone: ${request.sourceId}` };
   }
