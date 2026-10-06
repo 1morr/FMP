@@ -256,6 +256,9 @@ class Translations$player$en extends Translations$player$zh_TW {
   @override
   String previewPlaying({required Object title}) =>
       'Only a preview of "${title}" is available';
+  @override
+  String get outputDeviceFailed =>
+      'The audio output device is unavailable; playback paused';
 }
 
 // Path: appearance

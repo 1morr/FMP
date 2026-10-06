@@ -64,7 +64,8 @@
     "trackSkipped": "已跳过「{title}」：{reason}",
     "cannotPlay": "无法播放「{title}」：{reason}",
     "stoppedAfterFailures": "连续 {count} 首无法播放，已停止播放",
-    "previewPlaying": "「{title}」只有试听片段"
+    "previewPlaying": "「{title}」只有试听片段",
+    "outputDeviceFailed": "音频输出设备无法使用，已暂停播放"
   },
   "appearance": {
     "theme": "主题",

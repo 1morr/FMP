@@ -11,6 +11,7 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
@@ -38,6 +39,7 @@ final class Harness {
     Duration trackLength = const Duration(seconds: 2),
     bool Function(Uri url)? failsToOpen,
     int? Function(Uri url)? httpStatusOf,
+    FakeOutputDevices? outputDevices,
   }) : plugin = FakeSourcePlugin(
          respond ?? (request) => [candidate('${request.sourceId}.m4a')],
        ),
@@ -45,6 +47,7 @@ final class Harness {
          durationOf: (_) => trackLength,
          failsToOpen: failsToOpen ?? (_) => false,
          httpStatusOf: httpStatusOf ?? (_) => null,
+         outputDevices: outputDevices,
        ) {
     controller = PlaybackController(
       session: PlaybackSession(
@@ -62,6 +65,8 @@ final class Harness {
       skipPreviewClips: () => skipPreviewClips,
       networkStatus: () => network,
       networkStatusChanges: _networkChanges.stream,
+      preferredOutputDevice: () async => preferredOutputDevice,
+      saveOutputDevice: (device) async => savedOutputDevices.add(device),
     );
     controller.states.listen(states.add);
     controller.events.listen(events.add);
@@ -80,6 +85,12 @@ final class Harness {
     quality: AudioQuality.high,
     formatPriority: AudioFormatPriority.opusFirst,
   );
+
+  /// 記住的輸出裝置 id（「播放」設定的 `output_device_id`）。
+  String? preferredOutputDevice;
+
+  /// 控制器每次寫進設定的輸出裝置，依序。
+  final savedOutputDevices = <OutputDevice?>[];
 
   /// 網路狀態變成 [status]，並通知控制器。
   void setNetwork(NetworkStatus status) {
@@ -1986,6 +1997,443 @@ void main() {
     });
   });
 
+  // E19（design §7.6）：音量、靜音與速度交給後端（後端換歌後維持，見後端
+  // 契約）。
+  group('volume, mute and speed', () {
+    test('the volume goes to the backend and holds across tracks', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.controller.setVolume(0.3));
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 3));
+
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.backend.volume, 0.3);
+        expect(h.controller.volume, 0.3);
+
+        unawaited(h.controller.setVolume(1.4));
+        h.settle();
+        expect(h.controller.volume, 1);
+        expect(h.backend.volume, 1);
+      });
+    });
+
+    test('mute remembers the volume and unmuting returns to it', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.controller.setVolume(0.6));
+        unawaited(h.controller.toggleMute());
+        h.settle();
+        expect(h.controller.muted, isTrue);
+        expect(h.controller.volume, 0.6);
+        expect(h.backend.volume, 0);
+
+        unawaited(h.controller.toggleMute());
+        h.settle();
+        expect(h.controller.muted, isFalse);
+        expect(h.backend.volume, 0.6);
+      });
+    });
+
+    test('setting the volume while muted unmutes', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.controller.toggleMute());
+        unawaited(h.controller.setVolume(0.4));
+        h.settle();
+        expect(h.controller.muted, isFalse);
+        expect(h.backend.volume, 0.4);
+      });
+    });
+
+    test('the speed goes to the backend, clamped there', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(seconds: 60));
+        unawaited(h.controller.setSpeed(1.5));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 2));
+        expect(h.backend.speed, 1.5);
+
+        unawaited(h.controller.setSpeed(4));
+        h.settle();
+        expect(h.backend.speed, 2);
+      });
+    });
+  });
+
+  // Android 的音訊中斷與拔耳機（design §7.6、舊版 `playback.md` §3.7）：後端
+  // 只回報，暫停與續播在控制器。
+  group('audio interruptions', () {
+    Harness playing(FakeAsync async) {
+      final h = Harness(async, trackLength: const Duration(minutes: 3));
+      unawaited(h.playQueue([track('a'), track('b')]));
+      h.elapse(const Duration(seconds: 1));
+      expect(h.controller.state, isA<Playing>());
+      return h;
+    }
+
+    test('an interruption pauses and its end resumes the same track', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+        expect(h.backend.playing, isFalse);
+        expect(h.logged('Audio interrupted; pausing'), hasLength(1));
+
+        h.elapse(const Duration(seconds: 30));
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.queue.currentIndex, 0);
+        // 同一個來源接著播，沒有重新開流。
+        expect(h.openedPaths, ['/a.m4a']);
+        expect(h.logged('Audio interruption ended; resuming'), hasLength(1));
+      });
+    });
+
+    test('a song the user paused is not resumed by the end', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        unawaited(h.controller.pause());
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.backend.playing, isFalse);
+      });
+    });
+
+    test('pausing during the interruption keeps it paused after the end', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        unawaited(h.controller.pause());
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+      });
+    });
+
+    test('playing during the interruption, then pausing, is not resumed by '
+        'the end', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        unawaited(h.controller.pause());
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+      });
+    });
+
+    test('next during the interruption loads the next song paused and the '
+        'end resumes it', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        unawaited(h.controller.next());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.state, isA<Paused>());
+        expect(h.backend.playing, isFalse);
+
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.queue.currentIndex, 1);
+      });
+    });
+
+    test('an end that does not resume leaves it paused', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterruptionEnded(resume: false);
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+        // 之後再來一個結束也不續播：中斷已經忘掉了。
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+      });
+    });
+
+    test('an interruption while idle does not start anything at its end', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        expect(h.controller.addToQueue([track('a')]), isTrue);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Idle>());
+        expect(h.backend.opened, isEmpty);
+      });
+    });
+
+    test(
+      'an interruption while waiting to retry resumes from the position',
+      () {
+        fakeAsync((async) {
+          final h = Harness(async, trackLength: const Duration(minutes: 3));
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(seconds: 5));
+          h.backend.interrupt();
+          h.settle();
+          expect(h.controller.state, isA<Retrying>());
+
+          h.backend.audioInterrupted();
+          h.settle();
+          expect(h.controller.state, isA<Paused>());
+          // 排好的重試取消了：中斷期間不會自己開流出聲。
+          h.elapse(const Duration(seconds: 20));
+          expect(h.backend.opened, hasLength(1));
+
+          h.backend.audioInterruptionEnded();
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.controller.state, isA<Playing>());
+          expect(h.backend.opened, hasLength(2));
+          expect(
+            h.backend.openedAt.last,
+            greaterThan(const Duration(seconds: 4)),
+          );
+        });
+      },
+    );
+
+    test('unplugged headphones only pause', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.becameNoisy();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+        expect(h.logged('Headphones unplugged; pausing'), hasLength(1));
+        // 之後的中斷結束不會從喇叭續播。
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+      });
+    });
+
+    test('headphones unplugged during an interruption cancel the resume', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.becameNoisy();
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+      });
+    });
+  });
+
+  // design §7.5、§7.6：桌面輸出裝置失敗暫停並提示，不跳過。mpv 的 `completed`
+  // 可能比 `[ao]` 那幾行早到（2026-10-07 實測，backend_rules_test.dart），所以
+  // 已經排好的重試也要收掉（舊專案 issue #106）。
+  group('a failed output device', () {
+    test('pauses at the position and says so, without skipping', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 3));
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 5));
+
+        h.backend.failOutputDevice();
+        h.settle();
+        expect(h.controller.state, isA<Paused>());
+        expect(h.events.whereType<OutputDeviceFailed>(), hasLength(1));
+        expect(h.events.whereType<TrackSkipped>(), isEmpty);
+        expect(h.controller.queue.currentIndex, 0);
+        expect(h.backend.current, isNull, reason: 'the source is released');
+
+        // 按播放：從失敗的位置重新開流（mpv 才會再開一次輸出）。
+        h.elapse(const Duration(seconds: 10));
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
+        expect(
+          h.backend.openedAt.last,
+          greaterThan(const Duration(seconds: 4)),
+        );
+      });
+    });
+
+    test('an early end that arrived first does not retry into the dead '
+        'device', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 3));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+
+        h.backend.endEarly();
+        h.settle();
+        expect(h.controller.state, isA<Retrying>());
+        h.backend.failOutputDevice();
+        h.settle();
+        expect(h.controller.state, isA<Paused>());
+
+        h.elapse(const Duration(seconds: 30));
+        expect(h.controller.state, isA<Paused>());
+        expect(h.backend.opened, hasLength(1));
+      });
+    });
+
+    test('an early end that arrives after it is ignored', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 3));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+        final source = h.backend.current!;
+
+        h.backend.failOutputDevice();
+        h.settle();
+        // 停下之前就送出的結束（`stop` 還在路上）。
+        h.backend.endEarlyFor(source);
+        h.elapse(const Duration(seconds: 30));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.backend.opened, hasLength(1));
+      });
+    });
+
+    test('while idle only says so', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        h.backend.failOutputDevice();
+        h.settle();
+        expect(h.controller.state, isA<Idle>());
+        expect(h.events.whereType<OutputDeviceFailed>(), hasLength(1));
+      });
+    });
+  });
+
+  // design §7.6：記住的裝置在清單第一次就緒時套用一次；不在清單裡就用系統
+  // 預設，偏好不清掉（舊版 `audio_provider.dart` 的
+  // `_restorePreferredAudioDevice`）。
+  group('output devices', () {
+    const speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
+    const headphones = OutputDevice(id: 'wasapi/{b}', name: 'Headphones');
+
+    test('the remembered device is chosen when the list is first ready', () {
+      fakeAsync((async) {
+        final devices = FakeOutputDevices();
+        final h = Harness(async, outputDevices: devices)
+          ..preferredOutputDevice = headphones.id;
+        h.settle();
+        expect(devices.selections, isEmpty);
+
+        devices.list(const [speakers, headphones]);
+        h.settle();
+        expect(devices.selections, [headphones]);
+        expect(h.savedOutputDevices, isEmpty);
+        expect(h.logged('Preferred output device restored'), hasLength(1));
+      });
+    });
+
+    test('a remembered device that is not connected leaves the default and '
+        'the preference', () {
+      fakeAsync((async) {
+        final devices = FakeOutputDevices();
+        final h = Harness(async, outputDevices: devices)
+          ..preferredOutputDevice = headphones.id;
+        devices.list(const [speakers]);
+        h.settle();
+
+        expect(devices.selections, isEmpty);
+        expect(h.savedOutputDevices, isEmpty);
+        expect(
+          h.logged('Preferred output device is not connected'),
+          hasLength(1),
+        );
+
+        // 只套用第一次：之後插上那個裝置也不自己換過去。
+        devices.list(const [speakers, headphones]);
+        h.settle();
+        expect(devices.selections, isEmpty);
+      });
+    });
+
+    test('a list that was ready before the controller is used too', () {
+      fakeAsync((async) {
+        final devices = FakeOutputDevices(const [speakers, headphones]);
+        final h = Harness(async, outputDevices: devices)
+          ..preferredOutputDevice = speakers.id;
+        h.settle();
+        expect(devices.selections, [speakers]);
+      });
+    });
+
+    test('without a remembered device nothing is chosen', () {
+      fakeAsync((async) {
+        final devices = FakeOutputDevices(const [speakers]);
+        final h = Harness(async, outputDevices: devices);
+        h.settle();
+        expect(devices.selections, isEmpty);
+      });
+    });
+
+    test(
+      'choosing a device selects and remembers it; the default clears it',
+      () {
+        fakeAsync((async) {
+          final devices = FakeOutputDevices(const [speakers, headphones]);
+          final h = Harness(async, outputDevices: devices);
+          h.settle();
+
+          unawaited(h.controller.selectOutputDevice(headphones));
+          h.settle();
+          unawaited(h.controller.selectOutputDevice(null));
+          h.settle();
+
+          expect(devices.selections, [headphones, null]);
+          expect(h.savedOutputDevices, [headphones, null]);
+        });
+      },
+    );
+
+    test('a choice made before the list is ready is not overridden', () {
+      fakeAsync((async) {
+        final devices = FakeOutputDevices();
+        final h = Harness(async, outputDevices: devices)
+          ..preferredOutputDevice = headphones.id;
+        unawaited(h.controller.selectOutputDevice(speakers));
+        h.settle();
+        devices.list(const [speakers, headphones]);
+        h.settle();
+
+        expect(devices.selections, [speakers]);
+      });
+    });
+
+    test('a platform without output devices ignores a choice', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.controller.selectOutputDevice(speakers));
+        h.settle();
+        expect(h.savedOutputDevices, isEmpty);
+      });
+    });
+  });
+
   group('engine messages in the log', () {
     // 引擎的錯誤可能帶完整的簽名網址（YouTube.js 探針看到 mpv 的
     // `ffmpeg: Opening '…/videoplayback?…'`）。後端以 SourceFailed.cause 交出，
@@ -2055,6 +2503,8 @@ void main() {
             skipPreviewClips: () => true,
             networkStatus: () => NetworkStatus.online,
             networkStatusChanges: const Stream.empty(),
+            preferredOutputDevice: () async => null,
+            saveOutputDevice: (_) async {},
           );
           addTearDown(controller.dispose);
           addTearDown(backend.dispose);

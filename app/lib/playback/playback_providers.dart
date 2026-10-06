@@ -30,7 +30,7 @@ final _playbackSupportProvider = Provider<PlaybackSupport>(
 /// 整個 App 唯一的播放後端（Android 的音訊焦點見 `AudioBackend`）。
 final audioBackendProvider = Provider<AudioBackend>((ref) {
   final backend = createAudioBackend(
-    ref.watch(_playbackSupportProvider).backend,
+    ref.watch(_playbackSupportProvider),
     log: ref.watch(logProvider),
   );
   ref.onDispose(() => unawaited(backend.dispose()));
@@ -78,6 +78,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
   ref.listen(temporaryReturnSettingsProvider, (_, _) {});
   ref.listen(skipPreviewClipsProvider, (_, _) {});
   ref.listen(streamPreferencesProvider, (_, _) {});
+  ref.listen(playbackPreferencesProvider, (_, _) {});
   final networkChanges = StreamController<NetworkStatus>.broadcast();
   ref.listen(networkStatusProvider, (_, status) => networkChanges.add(status));
   final controller = PlaybackController(
@@ -96,6 +97,11 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
     skipPreviewClips: () => ref.read(skipPreviewClipsProvider),
     networkStatus: () => ref.read(networkStatusProvider),
     networkStatusChanges: networkChanges.stream,
+    // 裝置清單第一次就緒時才讀：等資料庫的值讀出來，不拿還沒載入的空設定。
+    preferredOutputDevice: () async =>
+        (await ref.read(playbackPreferencesProvider.future)).outputDevice?.id,
+    saveOutputDevice: (device) =>
+        ref.read(playbackPreferencesProvider.notifier).setOutputDevice(device),
   );
   ref.onDispose(() {
     unawaited(controller.dispose());

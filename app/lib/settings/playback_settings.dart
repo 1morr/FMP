@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
 /// 設定頁「臨時播放回佇列倒退秒數」的選項（沿用舊版 `_rewindOptions`）。
@@ -18,6 +19,7 @@ final class PlaybackPreferences {
     required this.rememberPosition,
     required this.tempPlayRewindSeconds,
     required this.skipPreviewClips,
+    required this.outputDevice,
     required this.stored,
   });
 
@@ -38,6 +40,10 @@ final class PlaybackPreferences {
   /// （ADR 0018 §決定 7、D4）。
   final bool skipPreviewClips;
 
+  /// 記住的輸出裝置（只有 Windows 能選）；`null` 是系統預設。沒有預設可套：
+  /// 沒設定過就是系統預設。裝置不在時仍留著（design §7.6）。
+  final OutputDevice? outputDevice;
+
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設。
   final PlaybackSettings stored;
 
@@ -49,6 +55,7 @@ final class PlaybackPreferences {
       other.rememberPosition == rememberPosition &&
       other.tempPlayRewindSeconds == tempPlayRewindSeconds &&
       other.skipPreviewClips == skipPreviewClips &&
+      other.outputDevice == outputDevice &&
       other.stored == stored;
 
   @override
@@ -58,6 +65,7 @@ final class PlaybackPreferences {
     rememberPosition,
     tempPlayRewindSeconds,
     skipPreviewClips,
+    outputDevice,
     stored,
   );
 
@@ -67,7 +75,8 @@ final class PlaybackPreferences {
       'audioFormatPriority: $audioFormatPriority, '
       'rememberPosition: $rememberPosition, '
       'tempPlayRewindSeconds: $tempPlayRewindSeconds, '
-      'skipPreviewClips: $skipPreviewClips, stored: $stored)';
+      'skipPreviewClips: $skipPreviewClips, outputDevice: $outputDevice, '
+      'stored: $stored)';
 }
 
 /// 在讀取時套用預設：沒設定過的欄位用傳進來的預設。預設值不寫進資料庫，改
@@ -86,6 +95,10 @@ PlaybackPreferences resolvePlaybackPreferences(
   tempPlayRewindSeconds:
       stored.tempPlayRewindSeconds ?? defaultTempPlayRewindSeconds,
   skipPreviewClips: stored.skipPreviewClips ?? defaultSkipPreviewClips,
+  outputDevice: switch (stored.outputDeviceId) {
+    final id? => OutputDevice(id: id, name: stored.outputDeviceName ?? id),
+    null => null,
+  },
   stored: stored,
 );
 
@@ -145,6 +158,18 @@ final class PlaybackPreferencesNotifier
     return skip == null
         ? repository.clear(skipPreviewClips: true)
         : repository.write(skipPreviewClips: skip);
+  }
+
+  /// 只寫「輸出裝置」（`output_device_id` 與顯示用的 `output_device_name`
+  /// 兩欄一起）；`null` 清回沒設定過（系統預設）。
+  Future<void> setOutputDevice(OutputDevice? device) {
+    final repository = ref.read(playbackSettingsRepositoryProvider);
+    return device == null
+        ? repository.clear(outputDeviceId: true, outputDeviceName: true)
+        : repository.write(
+            outputDeviceId: device.id,
+            outputDeviceName: device.name,
+          );
   }
 
   /// 只寫「臨時播放回佇列倒退秒數」；`null` 清回沒設定過（跟隨預設）。

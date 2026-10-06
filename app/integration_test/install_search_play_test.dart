@@ -180,6 +180,7 @@ const _testPluginAsset = 'test/fixtures/plugins/test_plugin/test_plugin.js';
 const _playback = PlaybackSupport(
   backend: AudioBackendKind.mediaKit,
   formats: [PlayableFormat('wav', 'pcm_s16le')],
+  outputDeviceSelection: false,
 );
 
 Future<Directory> _tempRoot() async {

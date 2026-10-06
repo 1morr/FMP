@@ -182,6 +182,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           toaster.warning(t.stoppedAfterFailures(count: failedInARow));
         case PreviewPlaying(:final track):
           toaster.info(t.previewPlaying(title: track.title));
+        // 已經暫停（不跳過）；原因（mpv 的那一行）已由播放模組寫進 log。
+        case OutputDeviceFailed():
+          toaster.warning(t.outputDeviceFailed);
       }
     }
   }

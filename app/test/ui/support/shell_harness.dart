@@ -11,6 +11,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/audio/audio.dart';
@@ -25,6 +26,7 @@ import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
@@ -86,6 +88,8 @@ final class ShellHarness {
       skipPreviewClips: () => _readSkipPreviewClips(),
       networkStatus: () => _readNetworkStatus(),
       networkStatusChanges: _networkChanges.stream,
+      preferredOutputDevice: () => _readPreferredOutputDevice(),
+      saveOutputDevice: (device) => _saveOutputDevice(device),
     );
     toaster = Toaster(
       log: log,
@@ -114,6 +118,8 @@ final class ShellHarness {
   late bool Function() _readSkipPreviewClips;
   late StreamPreferences Function() _readStreamPreferences;
   late NetworkStatus Function() _readNetworkStatus;
+  late Future<String?> Function() _readPreferredOutputDevice;
+  late Future<void> Function(OutputDevice? device) _saveOutputDevice;
   final _networkChanges = StreamController<NetworkStatus>.broadcast();
   final interfaces = FakeNetworkInterfaces();
 
@@ -153,6 +159,11 @@ final class ShellHarness {
       _readSkipPreviewClips = () => ref.read(skipPreviewClipsProvider);
       _readStreamPreferences = () => ref.read(streamPreferencesProvider);
       _readNetworkStatus = () => ref.read(networkStatusProvider);
+      _readPreferredOutputDevice = () async =>
+          (await ref.read(playbackPreferencesProvider.future)).outputDevice?.id;
+      _saveOutputDevice = (device) => ref
+          .read(playbackPreferencesProvider.notifier)
+          .setOutputDevice(device);
       ref.onDispose(() {
         unawaited(controller.dispose());
         unawaited(backend.dispose());

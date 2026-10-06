@@ -285,6 +285,9 @@ class Translations$player$zh_TW {
 
   /// zh-TW: '「{title}」只有試聽片段'
   String previewPlaying({required Object title}) => '「${title}」只有試聽片段';
+
+  /// zh-TW: '音訊輸出裝置無法使用，已暫停播放'
+  String get outputDeviceFailed => '音訊輸出裝置無法使用，已暫停播放';
 }
 
 // Path: appearance

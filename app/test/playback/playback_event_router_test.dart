@@ -13,12 +13,16 @@ PlaybackSnapshot snapshot({
   bool playWhenReady = true,
   bool hasNext = true,
   bool repeatsTrack = false,
+  bool wantsSound = true,
+  bool pausedByInterruption = false,
 }) => PlaybackSnapshot(
   generation: _generation,
   playWhenReady: playWhenReady,
   hasNext: hasNext,
   repeatsTrack: repeatsTrack,
   resumeAt: _resumeAt,
+  wantsSound: wantsSound,
+  pausedByInterruption: pausedByInterruption,
 );
 
 Matcher recovers<F extends PlaybackFailure, E extends AppError>({
@@ -33,7 +37,7 @@ Matcher recovers<F extends PlaybackFailure, E extends AppError>({
 
 void main() {
   group('an event from an older generation is ignored', () {
-    for (final event in <SessionEvent>[
+    for (final event in <SourceEvent>[
       const SourceBuffering(generation: _generation - 1, wasReady: true),
       const SourceReady(
         generation: _generation - 1,
@@ -347,6 +351,107 @@ void main() {
           snapshot(),
         ),
         recovers<StreamInterrupted, NetworkError>(position: _resumeAt),
+      );
+    });
+  });
+  // design §7.6、舊版 `playback.md` §3.7：暫停類中斷暫停、結束時只有因它暫停的才
+  // 續播；拔耳機只暫停；輸出裝置失敗暫停並提示。這些事件不屬於來源，不比對代。
+  group('output events', () {
+    test('an interruption while sound is wanted pauses to resume later', () {
+      expect(
+        routePlaybackEvent(const AudioInterrupted(), snapshot()),
+        isA<PauseForInterruption>(),
+      );
+    });
+
+    test('an interruption while nothing is wanted is ignored', () {
+      expect(
+        routePlaybackEvent(
+          const AudioInterrupted(),
+          snapshot(wantsSound: false),
+        ),
+        isA<IgnoreEvent>(),
+      );
+    });
+
+    test('the end of an interruption resumes only what it paused', () {
+      expect(
+        routePlaybackEvent(
+          const AudioInterruptionEnded(resume: true),
+          snapshot(wantsSound: false, pausedByInterruption: true),
+        ),
+        isA<ResumeAfterInterruption>(),
+      );
+      // 使用者自己暫停的（或在中斷期間按過播放、暫停的）不續播。
+      expect(
+        routePlaybackEvent(
+          const AudioInterruptionEnded(resume: true),
+          snapshot(wantsSound: false),
+        ),
+        isA<IgnoreEvent>(),
+      );
+    });
+
+    test('an end that does not resume forgets the interruption', () {
+      expect(
+        routePlaybackEvent(
+          const AudioInterruptionEnded(resume: false),
+          snapshot(wantsSound: false, pausedByInterruption: true),
+        ),
+        isA<PauseWithoutResuming>(),
+      );
+    });
+
+    test('unplugged headphones pause without resuming', () {
+      expect(
+        routePlaybackEvent(const HeadphonesUnplugged(), snapshot()),
+        isA<PauseWithoutResuming>(),
+      );
+      // 中斷期間拔掉：中斷結束時也不從喇叭續播。
+      expect(
+        routePlaybackEvent(
+          const HeadphonesUnplugged(),
+          snapshot(wantsSound: false, pausedByInterruption: true),
+        ),
+        isA<PauseWithoutResuming>(),
+      );
+      expect(
+        routePlaybackEvent(
+          const HeadphonesUnplugged(),
+          snapshot(wantsSound: false),
+        ),
+        isA<IgnoreEvent>(),
+      );
+    });
+
+    test('a failed output device pauses whatever the state', () {
+      for (final wantsSound in [true, false]) {
+        expect(
+          routePlaybackEvent(
+            const OutputDeviceLost(),
+            snapshot(wantsSound: wantsSound),
+          ),
+          isA<PauseForOutputFailure>(),
+        );
+      }
+    });
+
+    test('output events are not tied to a generation', () {
+      // 代比對只對來源的事件：輸出事件的 snapshot 代是什麼都照樣處理。
+      expect(
+        routePlaybackEvent(
+          const AudioInterrupted(),
+          PlaybackSnapshot(
+            generation: _generation + 5,
+            playWhenReady: true,
+            hasNext: true,
+            repeatsTrack: false,
+            resumeAt: _resumeAt,
+            wantsSound: true,
+            pausedByInterruption: false,
+          ),
+        ),
+        isA<PauseForInterruption>(),
       );
     });
   });

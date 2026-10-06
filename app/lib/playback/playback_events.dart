@@ -2,7 +2,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/track_info.dart';
 
 // `PlaybackController.events` 的事件（design §7.9）：使用者要知道、但不是播放
-// 狀態的事。外殼以 `ref.listen` 轉成提示。輸出裝置失敗在 M2 PR 13 加。
+// 狀態的事。外殼以 `ref.listen` 轉成提示。
 
 /// 播放控制器發出的一次性事件。
 ///
@@ -49,4 +49,10 @@ final class PreviewPlaying extends PlaybackEvent {
   PreviewPlaying({required this.track});
 
   final TrackInfo track;
+}
+
+/// 音訊輸出裝置開不起來（選的裝置不在、播放中被拔掉；只有 Windows）：已經暫停，
+/// 不跳過（ADR 0018 §決定 7）。按播放時重新開流，換了裝置就從那裡出聲。
+final class OutputDeviceFailed extends PlaybackEvent {
+  OutputDeviceFailed();
 }
