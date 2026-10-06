@@ -210,14 +210,25 @@ void main() {
 
   group('media CDN', () {
     test('strips signed parameters and keeps the others', () {
+      // B 站的 deadline 是公開的到期時間，留著給契約檢查核對 expiresAt；
+      // 簽名與帶身分的參數照樣拿掉，網址仍然不能用。
       expect(
         redactor.redact(
           'GET https://upos-sz-mirrorcos.bilivideo.com/upgcxcode/1/2/x.m4s'
           '?e=FAKE_E_PAYLOAD&deadline=1700000000&upsig=FAKE_UPSIG_123'
-          '&platform=pc failed',
+          '&uparams=e,deadline&mid=FAKE_MID_1&oi=FAKE_OI_1&trid=FAKE_TRID'
+          '&buvid=FAKE_BUVID&platform=pc failed',
         ),
         'GET https://upos-sz-mirrorcos.bilivideo.com/upgcxcode/1/2/x.m4s'
-        '?platform=pc failed',
+        '?deadline=1700000000&platform=pc failed',
+      );
+      expect(
+        redactor.redact(
+          'https://upos-hz-mirrorakam.akamaized.net/upgcxcode/x.m4s'
+          '?hdnts=exp=1700000000~hmac=FAKE_HMAC_123&deadline=1700000000',
+        ),
+        'https://upos-hz-mirrorakam.akamaized.net/upgcxcode/x.m4s'
+        '?deadline=1700000000',
       );
       expect(
         redactor.redact(
