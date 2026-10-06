@@ -30,7 +30,8 @@
     "10-03-queue-controller",
     "10-06-backend-contract",
     "10-06-recovery-policy",
-    "10-06-stream-quality"
+    "10-06-stream-quality",
+    "10-07-volume-speed-device"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

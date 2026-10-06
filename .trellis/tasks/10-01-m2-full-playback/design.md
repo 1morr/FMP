@@ -533,6 +533,8 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
   - 找不到那個裝置就用系統預設，不清掉偏好。
   - 播放中裝置消失：mpv 的 `ao` 錯誤 → 後端發 `OutputDeviceFailed` 事件 → 暫停並提示（ADR 0018 §決定 7）。
 - **速度**：0.5、0.75、1.0、1.25、1.5、1.75、2.0（舊版 `app_constants.dart:43-51`），放在播放頁的「⋯」選單（決定 3）；不持久化，重啟回到 1.0。
+- **靜音**（PR 13 定案，擁有者 2026-10-07）：靜音與音量分開記，靜音時後端音量設 0、`volume` 不變；靜音中拖音量等於取消靜音；音量拖到 0 不算靜音。
+- **輸出裝置清單**：只列 Windows 的音訊裝置與「系統預設」，不列 mpv 的 `openal` 這類內部輸出（擁有者 2026-10-07，PR 17 套用）。
 - **音量**：
   - 播放列滑桿與 Ctrl+↑／↓，一次 5%（YouTube 說明中心的鍵盤快捷鍵：方向鍵調整音量 5%）；
   - 點喇叭圖示切換靜音。
@@ -545,6 +547,7 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
     - 暫停類中斷結束：發 `InterruptionEnded(resume: true)`。
     - 拔耳機（`becomingNoisy`）：發 `BecameNoisy`。
   - 由控制器決定暫停或續播：控制器是唯一寫狀態的地方，`_playWhenReady` 才不會和引擎的實際狀態分岔。
+  - **PR 13 定案（擁有者 2026-10-07）**：只有出聲時被中斷才暫停；中斷期間使用者按了播放或暫停，結束時不續播（按下一首仍續播新的那首）；中斷期間拔耳機，結束時不續播（舊版會續播）。
   - 這不影響 M1 的「換歌不放音訊焦點」：焦點的取得與釋放仍由 `handleAudioSessionActivation` 管。
   - `audio_session` 改為直接依賴（它本來就是 `just_audio`、`audio_service` 的傳遞依賴），擁有者 `lib/playback/backends`。
   - Windows 沒有焦點與中斷（舊版也沒有）。
