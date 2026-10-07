@@ -14,13 +14,14 @@ lib/i18n/
   strings*.g.dart      # slang 產生，提交
 lib/ui/
   theme/               # AppTokens、AppLayout、buildAppTheme；fmp_design_tokens 豁免
-  layout/              # WindowClass、WindowClassScope
+  layout/              # WindowClass、WindowClassScope、layoutStateProvider 與面板展開、寬度（rememberPanel 寫入）
   i18n/ui_locale.dart  # LocaleSetting → Flutter locale／slang／字型；translationsProvider
   errors/              # AppError → 訊息
   empty_state/         # EmptyState：置中的圖示、標題、說明與動作
   offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
-  shell/               # AppShell（導覽、內容、播放列三區）、導覽類快捷鍵表、PlaybackShortcuts（播放類快捷鍵表）
+  shell/               # AppShell（導覽、內容、播放列三區）、導覽類快捷鍵表、PlaybackShortcuts（播放類快捷鍵表）、
+                       # now_playing_panel（右側面板、把手、面板寬度規則）
   search/              # 搜尋頁、searchProvider、音源 chip 列
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
@@ -203,6 +204,23 @@ try {
   `ShellHarness(artworkManager: FakeArtworkManager())` 與 `TestArtwork.lightest／darkest`
   （`test/ui/support/fake_artwork.dart`）；記住的分頁讀寫經 `layoutStateRepositoryProvider`，資料庫要真的事件迴圈
   （`tester.runAsync`）。golden 在 `player_page_golden_test.dart`，播放頁讀的 provider 在那裡 override。
+
+## 右側「正在播放」面板
+
+規則與閘門見 `app/AGENTS.md` § 介面的「右側『正在播放』面板」；design §9.4。
+
+- 面板的展開與寬度讀 `panelExpandedProvider`、`panelStoredWidthProvider`（`lib/ui/layout/layout_state.dart`，
+  與 `layoutStateProvider` 同檔），寫一律 `rememberPanel(ref, expanded:/width:)`（失敗只記 log）；要等寫入結果時用
+  `savePanel`（回 `bool`）。新的開關入口只呼叫 `rememberPanel(ref, expanded: !現在)`。
+- 畫面上的寬度只經 `panelWidthFor`（夾取在那裡，數值在 `AppLayout`）；元件本身（`NowPlayingPanelSide`）在 build 裡
+  讀視窗寬度（`MediaQuery`）與整個視窗的 `WindowClass`，所以要放在頁面的 `WindowClassScope` 之外。
+- 面板加進外殼內容區時結構不能隨有無面板而變（`if (hasPanel)` 放在 `Row` 的子項，不要換包法），否則視窗跨過 840
+  時頁面的 State 會丟。內容區的焦點順序靠 `FocusTraversalOrder`（頁面 0、面板 1）。
+- 播放列自己量不出整個視窗，要不要開關鈕由外殼的 `PlayerBar(panelToggle:)` 給。
+- 測試：`h.pumpShell(tester, collapsePanel: true)` 把面板收起（測頁面本身在內容區寬度下的版面時用）；找把手用
+  `Tooltip` 的 `message`（名稱在 `Semantics`，`find.byTooltip` 找不到）；拖曳用 `TestGesture`（把手用
+  `DragStartBehavior.down`，位移就是寬度變化）；寫入次數用 `tableUpdates` 的通知數（`now_playing_panel_test.dart` 的
+  `_countWrites`）；資料庫要真的事件迴圈（`_store`、`_stored` 包 `runAsync`），寫入加 stream 回來要兩次 `loadSettings`。
 
 ## 播放列與封面
 
