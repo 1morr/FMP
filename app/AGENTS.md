@@ -174,7 +174,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 `lib/platform/`（ADR 0009）。怎麼加一個能力：`.trellis/spec/app/platform/index.md`。
 
 - `PlatformCapabilities` 只含已經有實作的能力。Linux、macOS、iOS 驗證前宣告全部為
-  「沒有」、沒有實作檔；`main()` 看到沒有資料目錄就只開「此平台尚未支援」的畫面。
+  「沒有」、沒有實作檔；`main()` 看到沒有資料目錄就只開「此平台尚未支援」的畫面（`main()` 的分支沒有測試，review 時看）。
 - 新能力連同實作一起加：宣告欄位、各平台實作、組裝點的分支、測試列在同一個 PR，
   不先為之後的里程碑預留欄位。
 - 平台判斷（`defaultTargetPlatform`、`TargetPlatform`、`Platform.isXxx`）只寫在組裝點
@@ -278,7 +278,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （design §3.1、§3.2）。`queue_entries.track_key` 以外鍵參照 `tracks`、`ON DELETE RESTRICT`：被佇列
   參照的曲目刪不掉，孤兒清理（`TracksRepository.deleteOrphans`，啟動維護清單）只刪沒人參照的列，
   之後加表的 PR（歌單項目、下載紀錄）各自把自己加進那個查詢；`play_history` 已在裡面（見下一條）。寫入曲目用
-  `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE。`queue_entries` 的主鍵是位置，
+  `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE（REPLACE 會先刪再插，撞上 `RESTRICT`；沒有直接的閘門，review 時看）。`queue_entries` 的主鍵是位置，
   位移時先改成負值再改回，所以那張表不能加 `position >= 0` 的檢查。`player_state` 單列，音量與
   靜音隨佇列存在這裡、不是設定；隨機排列存成每個位置的名次（`shuffle_rank`），不存排列本身。`queue_entries.track_key`
   有索引，否則孤兒清理每刪一列掃一次佇列（一萬孤兒約 9 秒，有索引約 14 ms）；閘門：`migration_test.dart`
@@ -465,7 +465,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 網路
 
 `lib/core/network/`（ADR 0012 §決定 1–2、ADR 0013 §決定 2、4）。怎麼發請求、改攔截器、
-寫測試：`.trellis/spec/app/network/index.md`。測試都在 `test/core/network/`。
+寫測試：`.trellis/spec/app/network/index.md`。網路層自己的測試在 `test/core/network/`。
 
 - 每插件兩個 client：API 用的 `SourceHttpClient`（`SourceHttpClientFactory.create`）與
   抓圖片、檔案的 `MediaHttpClient`（`MediaHttpClientFactory.create`）。`Dio` 只在
@@ -496,7 +496,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 狀態碼：網路層只把 429 與帶 `Retry-After` 的 503 轉成 `RateLimited`，其他回應原樣
   交給插件對應；傳輸錯誤轉 `NetworkError`。閘門：`error mapping` 群組。
 - 取消（`abortTrigger`）丟 `RequestCancelled`，不是 `AppError`：只有取消的一方收到，
-  不重試、不 report。
+  不重試、不 report。閘門：`source_http_client_test.dart` 的 `a cancelled request is not retried`、
+  `requests that were not sent or were cancelled report nothing`。
 - cookie：每插件一個記憶體 jar，網路層不持久化。匿名 cookie（B 站 `buvid`）要跨重啟
   時，由插件從回應的 `Set-Cookie` 取值寫進自己的 storage（`plugin_storage`，ADR 0014
   §決定 5），下次以 `Cookie` header 帶上（cookie 管理會併進 jar 的 cookie）。沒有閘門，
@@ -511,7 +512,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   client 測試的 `network log` 群組（欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體
   歷史與 log 檔）、`media_http_client_test.dart` 的 `no Cookie or Authorization…`（兩種
   client 的 id 接續）；provider 的接線沒有閘門，review 時看。
-- 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。M1 的認證來源是
+- 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。目前（M2）的認證來源是
   `NoCredentials`（每個音源都未登入）。閘門：`auth_test.dart`（三種標記 × 三種狀態）。
 - 網路狀態（`network_status.dart`，ADR 0016 §決定 6）：輸入只有平台層的介面變化與
   HTTP client 每次送出的結果（`RequestOutcomeSink`）。拿到回應不論狀態碼都是
@@ -676,7 +677,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 （`selectOutputDevice`）。佇列、循環、隨機與音量持久化（見「持久化與啟動恢復」）。
 
 - `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
-  `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`PlaybackEventRouter`，純函數）、
+  `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`playback_event_router.dart`，純函數）、
   `decideRecovery`（純函數）只回報。沒有閘門，review 時看。
 - `just_audio`、`media_kit`（含 `media_kit_libs_*`）與 `audio_session`（Android 的音訊中斷，
   後端自己聽）只准在 `lib/playback/backends/` import。閘門：lint `fmp_layer_imports`
@@ -841,7 +842,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   用錯誤提示會被去重吞掉）。閘門：`app_shell_test.dart` 的 `playback toasts` 群組、
   `playback_controller_test.dart` 斷言事件的案例。
 - 音量與速度（E19，design §7.6）：控制器交給後端，後端在 `open` 之前收到也生效、換來源與接上
-  前瞻後維持；速度夾到 0.5–2.0、音量 0–1（`backend_rules.dart` 的 `clampSpeed`、`clampVolume`，
+  前瞻後維持；速度夾到 0.5–2.0、音量 0–1（`backend_rules.dart` 的 `clampSpeed`（定義在 `lib/domain/playback_speed.dart`、由它轉出）、`clampVolume`，
   兩個後端都經過）。速度不持久化，控制器對外給 `speed`、`speedChanges`（`playbackSpeedProvider`，播放頁的「⋯」與 `NowPlayingPublisher` 讀）；音量與靜音隨佇列存（見「持久化與啟動恢復」）。靜音只把後端的音量設成 0，
   控制器的 `volume` 不變，取消靜音回到它；靜音中 `setVolume` 就是取消靜音（舊版拖音量條的
   行為）。閘門：後端契約的 `volume and speed set before open hold across a handover and a new
@@ -1045,9 +1046,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `test/settings/appearance_settings_test.dart`（改預設後使用者值不變、未設定的欄位
   不被寫入）。
 - 每組一個 Notifier，只寫改動的欄位；對外給套用預設後的值，另帶 `stored` 讓設定頁
-  分辨「跟隨系統」。
+  分辨「跟隨系統」。閘門：「只寫改動的欄位」見各組的 repository 測試；`stored` 沒有直接的閘門，review 時看。
 - 語言沒設定過時跟隨系統的語言偏好清單（執行中改變也跟）：取清單中第一個對得到
-  zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。
+  zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。閘門：`appearance_settings_test.dart` 的
+  `an unset language follows the system as it changes`、`fmp_app_test.dart` 的 `an unset language follows the system`。
 - 「網路」組（`network_settings`）目前只有快取上限（MiB，空＝平台宣告的預設，選項 128／256／
   512／1024）；舊版的快取設定不匯入（ADR 0016 §決定 3）。閘門：
   `test/settings/network_settings_test.dart`（改預設後使用者值不變、未設定的跟著預設、清回
@@ -1055,14 +1057,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `stored format`）。
 - 「播放」組（`playback_settings`）的整張表在 M2 PR 10 一次建好（design §3.3 的十個欄位，
   schema v3），repository 的 `write`／`clear` 涵蓋全部欄位；Notifier（`playbackPreferencesProvider`）
-  與設定頁只有已經有人用的欄位：音質（預設高，選項高／中／低）、格式偏好（預設 Opus 優先，
+  與設定頁接上全部十個欄位：音質（預設高，選項高／中／低）、格式偏好（預設 Opus 優先，
   選項 Opus 優先／AAC 優先，兩者照舊版的預設，見「播放」的網址快取）、記住播放位置（預設開）、
   臨時播放回佇列倒退秒數（預設 10，選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見
   「播放」）、重啟恢復時倒退秒數（預設 0，選項同上，設定頁在「跳過試聽片段」之後；啟動時讀一次，
   見「播放」的持久化與啟動恢復）、播放歷史保留筆數（預設 10000，選項 1000／5000／10000／50000，設定頁在重啟恢復
   倒退之後；寫入時依它裁，`setPlayHistoryLimit` 寫完當下依生效的筆數 `trimTo`，所以改小馬上刪，見「播放」）、輸出裝置（沒有預設：沒設定過就是系統預設；`setOutputDevice` 兩欄一起寫、一起清，
   見「播放」；設定列在 PR 17 的播放列）、切歌時捲到目前歌曲（預設關，設定頁在播放歷史保留筆數之後，見「介面」的
-  播放頁佇列）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好的列舉存
+  播放頁佇列）。音質、格式偏好的列舉存
   `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
   `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
   （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
@@ -1087,7 +1089,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   相同、每個 `ErrorMessageKey`／`UnavailableReason` 都有字串；含變異案例）。widget 裡寫死的
   字串沒有閘門，review 時看；時長（`3:05`、未知的 `-:--`）與語言名稱刻意不翻。
 - 翻譯只經 `translationsProvider`（`lib/ui/i18n/ui_locale.dart`）注入：`slang.yaml` 設
-  `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。
+  `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。沒有閘門，review 時看。
 - `MaterialApp.locale` 一律給帶書寫系統的 locale（`zh-Hant-TW`、`zh-Hans-CN`、`en`），由
   `flutterLocaleOf` 從 `LocaleSetting` 對出；它決定 Android 的繁簡字形與 Material 內建字串。
   `localizationsDelegates` 用 `material_ui` 的 `GlobalMaterialLocalizations.delegates`，不是
@@ -1111,7 +1113,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
-  `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡。
+  `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡（沒有閘門，review 時看）。
 - 設定頁依 ADR 0011 的分組（外觀、播放、網路，design §9.8 的順序）：expanded 以上是
   list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
   標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
@@ -1120,19 +1122,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   顯示快取上限、封面用量（跟著索引變動）與「清除快取」：確認後清快取庫並清 Flutter 的
   `ImageCache`（`clear` 加 `clearLiveImages`；畫面上正在用的圖只有後者清得掉）；清除失敗記
   error、不報成功。閘門：`test/ui/settings/settings_page_test.dart`（寬、窄兩種版面、跨斷點、
-  系統返回鍵、`a group left open does not hold the back key on another page`）、
+  系統返回鍵、`400 wide: a group left open does not hold the back key on another page`）、
   `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
   `ImageCache` 都空、清除失敗）。
 - 返回鍵（擁有者決定 7，design §9.1）：播放頁、面板、對話框是 route，Navigator 先關最上面的；外殼是
   `PopScope(canPop: 在第一個分頁)`：窄版設定頁點進某一組時先回到分組清單，否則不在第一個分頁時回到第一
   個分頁（搜尋），在第一個分頁時放行，Android 端由 `MainActivity.popSystemNavigator` 退到背景（見
   § 平台層）。不要在頁面內另放 `PopScope`：同一次返回所有 `PopScope` 的 callback 都會執行，會和外殼同時
-  動作。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
+  動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
   `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）與設定頁（外觀、播放、網路三組）在窄（400）與寬（1000）視窗
   通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
-  新頁面要加進去。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
+  新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
 - 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
@@ -1187,7 +1189,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `now_playing_panel_golden_test.dart`（1000、1800，只守版面結構）。
 - 外殼量底部被佔住的高度（播放列＋底部導覽列＋安全區）發佈給 `toastBottomInsetProvider`；頁面
   不發佈。播放頁在最上層時（`playerPageOpenProvider`，由播放頁的 route 在 push、pop、被移除時設定）蓋住了
-  播放列與導覽，外殼改發佈底部安全區（`viewPadding.bottom`），關掉後回到最後量到的高度。閘門：同檔的
+  播放列與導覽，外殼改發佈底部安全區（`viewPadding.bottom`），關掉後回到最後量到的高度。閘門：`app_shell_test.dart` 的
   `the bottom inset for toasts`、`toast_host_test.dart` 的 `position` 群組（含鍵盤：位移是鍵盤高度減
   `viewPadding`）、`player_page_test.dart` 的 `toasts`、`integration_test/toast_layering_test.dart` 的
   `a toast shows above the player page, on the safe area`。
@@ -1317,7 +1319,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
 - 焦點三區（導覽、內容、播放列）各是 `FocusScope`＋`FocusTraversalGroup`：Tab 只在區內循環，F6
-  依序換區、跳過不在畫面上的播放列。閘門：同檔的 `focus regions` 群組。
+  依序換區、跳過不在畫面上的播放列。閘門：`app_shell_test.dart` 的 `focus regions` 群組。
 - 只有圖示的按鈕以 tooltip 當名稱（附按鍵，如「隨機播放（Ctrl+S）」，翻譯檔的 `*Tooltip`），不另外給
   `Icon.semanticLabel`：兩個都給時輔助技術念成「X. X」。閘門：`player_bar_test.dart` 的 `semantics`
   （播放列每個按鈕的語意只有 tooltip、標籤是空的）、`search_page_test.dart` 的 `the more button is
