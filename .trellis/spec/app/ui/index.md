@@ -22,6 +22,7 @@ lib/ui/
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區）、快捷鍵表
   search/              # 搜尋頁、searchProvider、音源 chip 列
+  history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）
   artwork/             # 封面縮圖（CachedNetworkImage）與 pickArtwork；cached_network_image 只准在這裡
@@ -142,6 +143,26 @@ try {
 - 空狀態與失敗用 `EmptyState`，離線的那一個樣子才一致。
 - 測試：`ShellHarness.setNetwork(tester, NetworkStatus.x)`；新頁面的離線狀態加進
   guideline 測試。
+
+## 歷史頁
+
+規則與閘門見 `app/AGENTS.md` § 介面。
+
+- 資料：`historyProvider`（`history_state.dart`）是 `AsyncNotifier`，載入的是「最新的前 N 筆」（N 從 50 起，
+  `loadMore` 每次加 50）；`PlayHistoryRepository.changes()` 一發出就重讀已載入的那麼多筆，每次重讀換一代、過時的重讀丟掉。
+  `loadMore` 的位移是照開始時的清單算的：讀的期間換了一代，或清單已經被別的結果換掉（開始時已有一次重讀在路上），
+  那一頁就丟掉，不接在新清單後面（接上會重複或漏列；`a page read while a reload is in flight…` 守著）。頁面是 `ListView.builder`，最後一列（還有下一頁時）在 build 時排一個 post-frame 去 `loadMore`。
+- 讀取失敗在 notifier 的 `_fail` 包成 `AppError` 並 `log.report` 一次，頁面的 `AsyncError` 分支顯示錯誤圖示與
+  `errorMessage` 的文字，不是空狀態；不要把這個報告搬進 build。
+- 分組在 `groupByDay`（純函數，以裝置本地日界）與 `dayKindOf`（今天、昨天用日期運算，不減 24 小時；現在讀
+  `clock.now()`，測試用 `withClock(Clock.fixed(...))`）。日期標題用 `MaterialLocalizations` 的
+  `formatMediumDate`（同年）與 `formatShortDate`（跨年），時刻用 `formatTimeOfDay(alwaysUse24HourFormat: true)`，
+  不自己拼格式。測試的資料用本地時間造（`DateTime(2026, 10, 7, 14, 5)`），不依賴機器的時區。
+- 一列的選單與搜尋結果列同一個寫法（`MenuAnchor`、右鍵 `excludeFromSemantics`、「⋯」下方開）；兩處沒有共用
+  元件，改一邊時看另一邊。
+- 測試：`h.pumpApp(tester, const HistoryPage())`（要離線橫幅就 `pumpShell` 後點「History」）；寫歷史用
+  `container.read(playHistoryRepositoryProvider).record(...)`，要包 `tester.runAsync`，之後 `h.loadSettings`
+  讓變動的串流與重讀跑完。
 
 ## 播放列與封面
 

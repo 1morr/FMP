@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
+
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/network/network_status.dart';
@@ -17,6 +19,9 @@ import 'package:fmp/playback/stream_resolver.dart';
 
 /// 臨時播放回到佇列時要的兩個設定值（「播放」設定組），在回到佇列的當下讀。
 typedef TemporaryReturnSettings = ({bool rememberPosition, Duration rewind});
+
+/// 算一次播放的一首歌（播放歷史，design §7.8）：[track] 在 [at] 開始被聽。
+typedef CountedPlay = ({TrackInfo track, DateTime at});
 
 /// UI 唯一的播放入口（ADR 0018 §決定 1），也是 [PlaybackState] 唯一的寫入者。
 ///
@@ -89,6 +94,7 @@ final class PlaybackController {
   final _volumeChanges =
       StreamController<({double volume, bool muted})>.broadcast();
   final _seeks = StreamController<Duration>.broadcast();
+  final _plays = StreamController<CountedPlay>.broadcast();
 
   PlaybackState _state = const Idle();
 
@@ -135,6 +141,11 @@ final class PlaybackController {
 
   /// 目前（最近一次）開始的這首是啟動恢復後的第一次播放。
   bool _startedFromRestore = false;
+
+  /// 目前這次「開始一首」還沒算過一次播放：第一次出聲（`MarkReady` 且在播）時算，
+  /// 之後同一次開始裡的重試、重新解析、換候選、暫停後繼續都不再算（design §7.8）。
+  /// 啟動恢復後的第一次播放與臨時播放結束回到佇列的那首不算，開始時就是 `false`。
+  bool _countPlayOnAudible = false;
 
   /// 輸出裝置清單已經就緒過（記住的裝置只在第一次套用），或使用者自己選過。
   bool _outputDeviceListSeen = false;
@@ -183,9 +194,15 @@ final class PlaybackController {
   /// 下次開始的位置。
   Duration get position => _position;
 
-  /// 目前（最近一次）開始的這首是啟動恢復後的第一次播放（M2 PR 15 的播放歷史
-  /// 不記這一次，design §7.8）；之後換了別首就是 `false`。
+  /// 目前（最近一次）開始的這首是啟動恢復後的第一次播放（播放歷史不記這一次，
+  /// design §7.8）；之後換了別首就是 `false`。
   bool get startedFromRestore => _startedFromRestore;
+
+  /// 每次「這一首算一次播放」（design §7.8）：換歌、臨時播放、前瞻接上、單曲循環的
+  /// 每一圈，在它第一次出聲時發出。重試、換候選、暫停後繼續、seek、啟動恢復後的第一次
+  /// 播放、臨時播放結束回到佇列的那首、「上一首」回到開頭都不發。給播放歷史的記錄者
+  /// 聽，控制器不碰資料層。
+  Stream<CountedPlay> get plays => _plays.stream;
 
   // ---- 佇列 -----------------------------------------------------------------
 
@@ -488,6 +505,7 @@ final class PlaybackController {
     await _previews.close();
     await _volumeChanges.close();
     await _seeks.close();
+    await _plays.close();
   }
 
   // ---- 換曲目 ---------------------------------------------------------------
@@ -548,7 +566,8 @@ final class PlaybackController {
       },
     );
     _setPlayWhenReady(snapshot.playing);
-    return _beginTrack(position: position);
+    // 回到佇列是續播，不是新的一次播放。
+    return _beginTrack(position: position, countsAsPlay: false);
   }
 
   bool _add(List<TrackInfo> tracks, bool Function(List<TrackInfo>) add) {
@@ -576,10 +595,12 @@ final class PlaybackController {
     ResolvedStream? prepared,
     Duration position = Duration.zero,
     bool fromRestore = false,
+    bool countsAsPlay = true,
   }) {
     _restoredPosition = null;
     _keptRestored = null;
     _startedFromRestore = fromRestore;
+    _countPlayOnAudible = countsAsPlay && !fromRestore;
     _resetTrackCounters();
     return _load(prepared: prepared, position: position);
   }
@@ -694,7 +715,10 @@ final class PlaybackController {
       case MarkReady(:final playing, :final first):
         _session.markReady();
         _setState(playing ? const Playing() : const Paused());
-        if (playing) _consecutiveSkips = 0;
+        if (playing) {
+          _consecutiveSkips = 0;
+          _countPlay();
+        }
         if (first) unawaited(_session.prepareLookAhead(_nextTrack));
       case AdoptLookAhead():
         // 單曲循環的前瞻是同一首：佇列不動。佇列的前瞻一定是佇列當下的下一首
@@ -706,6 +730,9 @@ final class PlaybackController {
           _setPreview(null);
         }
         _startedFromRestore = false;
+        // 引擎接上時前一首已經出過聲，接上的這首（或單曲循環的下一圈）直接算。
+        _countPlayOnAudible = true;
+        _countPlay();
         _resetTrackCounters();
         _playedSinceLoad = Duration.zero;
         _lastPosition = null;
@@ -942,6 +969,7 @@ final class PlaybackController {
     _pausedByInterruption = false;
     _session.newGeneration();
     _cancelRetry();
+    _countPlayOnAudible = false;
     _setPreview(null);
     _setState(state);
     await _session.stop();
@@ -1012,6 +1040,14 @@ final class PlaybackController {
     if (!_volumeChanges.isClosed) {
       _volumeChanges.add((volume: _volume, muted: _muted));
     }
+  }
+
+  /// 這一次開始還沒算過、而且現在出聲了：發一次 [plays]。
+  void _countPlay() {
+    final track = _queue.state.current;
+    if (!_countPlayOnAudible || track == null) return;
+    _countPlayOnAudible = false;
+    if (!_plays.isClosed) _plays.add((track: track, at: clock.now()));
   }
 
   void _emitEvent(PlaybackEvent event) {

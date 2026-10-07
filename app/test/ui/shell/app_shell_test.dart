@@ -7,6 +7,7 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/settings/playback_settings.dart';
+import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
@@ -37,8 +38,42 @@ void main() {
             reason: '$type at $width',
           );
         }
+        // 三種導覽元件都是三個項目：搜尋、歷史、設定。
+        final count = switch (expected) {
+          NavigationBar =>
+            tester
+                .widget<NavigationBar>(find.byType(NavigationBar))
+                .destinations
+                .length,
+          NavigationRail =>
+            tester
+                .widget<NavigationRail>(find.byType(NavigationRail))
+                .destinations
+                .length,
+          _ =>
+            tester
+                .widget<NavigationDrawer>(find.byType(NavigationDrawer))
+                .children
+                .whereType<NavigationDrawerDestination>()
+                .length,
+        };
+        expect(count, 3, reason: 'destinations at $width');
+        for (final label in ['Search', 'History', 'Settings']) {
+          expect(find.text(label), findsOneWidget, reason: '$label at $width');
+        }
       });
     }
+
+    testWidgets('selecting History shows the history page', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+
+      await tester.tap(find.text('History'));
+      await tester.pump();
+
+      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+      expect(find.byType(SearchPage).hitTestable(), findsNothing);
+    });
 
     testWidgets('selecting a destination switches the page', (tester) async {
       final h = ShellHarness();

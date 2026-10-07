@@ -107,8 +107,16 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
   PR 把它加進去，並在 `queue_repository_test.dart` 的 `only unreferenced tracks are orphans` 加一個
   被它參照的案例。`queue_entries.track_key` 有索引（`queue_entries_track_key`）：`RESTRICT` 的檢查在刪每一列曲目時
   要查佇列，沒有索引就是每列掃一次。一萬首佇列加一萬個孤兒（清空一份大佇列之後）：沒有索引約 9.3 秒，
-  有索引約 14 ms。之後參照 `tracks` 的表（播放歷史、歌單項目、下載紀錄）同理，加表時也要替它的
-  `track_key` 建索引。
+  有索引約 14 ms。之後參照 `tracks` 的表（歌單項目、下載紀錄）同理，加表時也要替它的
+  `track_key` 建索引；`play_history` 已照辦（`play_history_track_key`）。
+- 播放歷史（`play_history_repository.dart`，schema v5）：`record` 一個 transaction 做 upsert 曲目、插入、
+  `_trim`（`DELETE … WHERE id NOT IN (SELECT id … ORDER BY played_at DESC, id DESC LIMIT ?)`）；`page` 是 join
+  `tracks` 的 `LIMIT/OFFSET`，順序鍵與索引一致，所以是索引掃描；`changes()` 聽 `tableUpdates`（不是 `watch()`，
+  理由同快取庫的 `watchUsage`）。drift 的 `delete().go()` 沒刪到列時不通知串流，`customStatement` 寫的資料也
+  不通知：測試用 `markTablesUpdated`。孤兒查詢已把 `play_history` 加進去，測試是
+  `play_history_repository_test.dart` 的 `orphan cleanup keeps tracks the history refers to`。
+  `make-migrations` 在 Windows 上可能對別的資料庫的 CRLF 快照報「已存在而且不同」並中止；app_database 的輸出
+  （快照、steps、`generated/`）在它中止前已寫好，`migration_test.dart` 的新 import 要自己補。
 - 測試：差量編輯以固定種子的隨機序列比對一個 `List`（`a seeded run of random edits…`）；
   一萬首整份取代的耗時（目前約 150–230 ms）印在測試輸出，超過 500 ms 要在 PR 描述說明。
 

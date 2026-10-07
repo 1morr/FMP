@@ -49,6 +49,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   );
   late final Translations$search$zh_TW search =
       Translations$search$zh_TW.internal(_root);
+  late final Translations$history$zh_TW history =
+      Translations$history$zh_TW.internal(_root);
   late final Translations$offline$zh_TW offline =
       Translations$offline$zh_TW.internal(_root);
   late final Translations$settings$zh_TW settings =
@@ -99,6 +101,9 @@ class Translations$shell$zh_TW {
 
   /// zh-TW: '設定（Ctrl+,）'
   String get settingsTooltip => '設定（Ctrl+,）';
+
+  /// zh-TW: '歷史'
+  String get history => '歷史';
 }
 
 // Path: search
@@ -159,6 +164,73 @@ class Translations$search$zh_TW {
 
   /// zh-TW: '已加入佇列'
   String get addedToQueue => '已加入佇列';
+}
+
+// Path: history
+class Translations$history$zh_TW {
+  Translations$history$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '播放歷史'
+  String get title => '播放歷史';
+
+  /// zh-TW: '還沒有播放紀錄'
+  String get empty => '還沒有播放紀錄';
+
+  /// zh-TW: '聽過的歌會依日期出現在這裡'
+  String get emptyHint => '聽過的歌會依日期出現在這裡';
+
+  /// zh-TW: '今天'
+  String get today => '今天';
+
+  /// zh-TW: '昨天'
+  String get yesterday => '昨天';
+
+  /// zh-TW: '{artist} · {time}'
+  String subtitle({required Object artist, required Object time}) =>
+      '${artist} · ${time}';
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '播放'
+  String get play => '播放';
+
+  /// zh-TW: '下一首播放'
+  String get playNext => '下一首播放';
+
+  /// zh-TW: '加入佇列'
+  String get addToQueue => '加入佇列';
+
+  /// zh-TW: '已加入下一首播放'
+  String get addedToNext => '已加入下一首播放';
+
+  /// zh-TW: '已加入佇列'
+  String get addedToQueue => '已加入佇列';
+
+  /// zh-TW: '從歷史移除'
+  String get remove => '從歷史移除';
+
+  /// zh-TW: '清除全部歷史'
+  String get clearAll => '清除全部歷史';
+
+  /// zh-TW: '清除全部播放歷史？'
+  String get clearTitle => '清除全部播放歷史？';
+
+  /// zh-TW: '所有播放紀錄都會被刪除，無法復原。佇列與設定不受影響。'
+  String get clearBody => '所有播放紀錄都會被刪除，無法復原。佇列與設定不受影響。';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '清除'
+  String get confirm => '清除';
+
+  /// zh-TW: '已清除播放歷史'
+  String get cleared => '已清除播放歷史';
 }
 
 // Path: offline
@@ -384,6 +456,15 @@ class Translations$playback$zh_TW {
 
   /// zh-TW: '重新開啟 App 後按播放，從上次的位置稍微往回一點，方便接上'
   String get restartRewindHint => '重新開啟 App 後按播放，從上次的位置稍微往回一點，方便接上';
+
+  /// zh-TW: '播放歷史保留筆數'
+  String get playHistoryLimit => '播放歷史保留筆數';
+
+  /// zh-TW: '超過的舊紀錄會自動刪除；調小時馬上刪除'
+  String get playHistoryLimitHint => '超過的舊紀錄會自動刪除；調小時馬上刪除';
+
+  /// zh-TW: '{count} 筆'
+  String playHistoryLimitOption({required Object count}) => '${count} 筆';
 }
 
 // Path: network

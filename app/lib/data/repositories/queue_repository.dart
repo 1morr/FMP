@@ -116,7 +116,7 @@ final class QueueRepository {
           '${entry.position} at $index',
         );
       }
-      infos.add(_toTrackInfo(joined.readTable(tracks)));
+      infos.add(TracksRepository.toTrackInfo(joined.readTable(tracks)));
       ranks.add(entry.shuffleRank);
     }
     return StoredQueue(entries: infos, shuffleRanks: ranks);
@@ -221,18 +221,5 @@ final class QueueRepository {
         where: (t) => t.position.equals(position),
       );
     }),
-  );
-
-  static TrackInfo _toTrackInfo(TrackRow row) => TrackInfo(
-    sourceTypeId: row.sourceTypeId,
-    sourceId: row.sourceId,
-    cid: row.cid,
-    title: row.title,
-    uploader: row.uploader,
-    duration: switch (row.durationMs) {
-      final ms? => Duration(milliseconds: ms),
-      null => null,
-    },
-    artwork: TracksRepository.decodeArtwork(row.artworkJson),
   );
 }

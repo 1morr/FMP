@@ -6,6 +6,7 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/domain/loop_mode.dart';
@@ -17,11 +18,13 @@ import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 
 import '../support/fake_network_interfaces.dart';
 import '../support/memory_database.dart';
 import '../support/pump_until.dart';
 import 'fake_audio_backend.dart';
+import 'fake_source_plugin.dart';
 
 /// 組裝點（`playbackControllerProvider`）的接線：資料庫裡的佇列與「播放」設定怎麼
 /// 到控制器。控制器與 store 本身的行為在 `queue_store_test.dart`。
@@ -43,9 +46,14 @@ void main() {
   Future<ProviderContainer> start(
     AppDatabase database, {
     required FakeAudioBackend backend,
+    FakeSourcePlugin? plugin,
   }) async {
     final container = ProviderContainer(
       overrides: [
+        if (plugin != null)
+          pluginRegistryProvider.overrideWithBuild(
+            (ref, notifier) => {plugin.manifest.id: plugin},
+          ),
         appDatabaseProvider.overrideWithValue(database),
         logProvider.overrideWithValue(
           Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
@@ -142,5 +150,68 @@ void main() {
 
     expect(controller.queue.entries, isEmpty);
     expect(controller.state, isA<Idle>());
+  });
+
+  // design §7.8：控制器報的播放由記錄者寫進歷史，保留筆數讀「播放」設定。
+  group('play history', () {
+    Future<List<String>> historyTitles(AppDatabase database) async => [
+      for (final entry in await PlayHistoryRepository(database).page(limit: 10))
+        entry.track.sourceId,
+    ];
+
+    /// 等歷史裡的曲目 id 符合 [expected]（資料庫在 drift 的 isolate，要讓事件佇列跑）。
+    Future<void> historyBecomes(
+      AppDatabase database,
+      List<String> expected,
+    ) async {
+      var ids = <String>[];
+      for (var round = 0; round < 50; round++) {
+        ids = await historyTitles(database);
+        if (ids.length == expected.length && ids.join() == expected.join()) {
+          return;
+        }
+        await settle();
+      }
+      expect(ids, expected);
+    }
+
+    test('a counted play is written to the history', () async {
+      final database = memoryDatabase();
+      final plugin = FakeSourcePlugin(
+        (request) => [candidate('${request.sourceId}.m4a')],
+      );
+      final container = await start(
+        database,
+        backend: FakeAudioBackend(),
+        plugin: plugin,
+      );
+      container.listen(playbackControllerProvider, (_, _) {});
+      final controller = container.read(playbackControllerProvider);
+
+      await controller.playTemporary(track('a'));
+
+      await historyBecomes(database, ['a']);
+    });
+
+    test('the stored retention limit applies to what is written', () async {
+      final database = memoryDatabase();
+      await PlaybackSettingsRepository(database).write(playHistoryLimit: 1);
+      final plugin = FakeSourcePlugin(
+        (request) => [candidate('${request.sourceId}.m4a')],
+      );
+      final container = await start(
+        database,
+        backend: FakeAudioBackend(),
+        plugin: plugin,
+      );
+      container.listen(playbackControllerProvider, (_, _) {});
+      final controller = container.read(playbackControllerProvider);
+
+      await controller.playTemporary(track('a'));
+      await historyBecomes(database, ['a']);
+      await controller.playTemporary(track('b'));
+
+      await historyBecomes(database, ['b']);
+    });
   });
 }

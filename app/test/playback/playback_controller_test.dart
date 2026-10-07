@@ -70,6 +70,7 @@ final class Harness {
     );
     controller.states.listen(states.add);
     controller.events.listen(events.add);
+    controller.plays.listen(plays.add);
   }
 
   final _networkChanges = StreamController<NetworkStatus>.broadcast();
@@ -106,6 +107,12 @@ final class Harness {
   late final PlaybackController controller;
   final states = <PlaybackState>[];
   final events = <PlaybackEvent>[];
+
+  /// 控制器報的每一次「這一首算一次播放」，依序。
+  final plays = <CountedPlay>[];
+
+  /// [plays] 的曲目 id。
+  List<String> get playedIds => [for (final play in plays) play.track.sourceId];
 
   /// 臨時播放回到佇列時控制器讀到的設定（預設同 App 的預設）。
   TemporaryReturnSettings returnSettings = (
@@ -2527,5 +2534,341 @@ void main() {
         },
       );
     }
+  });
+
+  // design §7.8：一次「開始一首」在第一次出聲時算一次播放；同一次開始裡的重試、
+  // 換候選、暫停後繼續，啟動恢復後的第一次播放，以及回到佇列都不算。
+  group('play history counting', () {
+    Harness longTracks(FakeAsync async) =>
+        Harness(async, trackLength: const Duration(seconds: 60));
+
+    group('counts', () {
+      test('the first song of a queue, with the time it became audible', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          final start = h.now();
+
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.playedIds, ['a']);
+          expect(h.plays.single.track, track('a'));
+          expect(
+            h.plays.single.at.difference(start),
+            lessThan(const Duration(seconds: 1)),
+          );
+        });
+      });
+
+      test('next, previous and jumping to a song', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          unawaited(h.playQueue([track('a'), track('b'), track('c')]));
+          h.elapse(const Duration(milliseconds: 100));
+
+          unawaited(h.controller.next());
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.playedIds, ['a', 'b']);
+
+          // 播不到 3 秒按上一首：往前一首（超過 3 秒是回到開頭，不算）。
+          unawaited(h.controller.previous());
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.playedIds, ['a', 'b', 'a']);
+
+          unawaited(h.controller.jumpTo(2));
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.playedIds, ['a', 'b', 'a', 'c']);
+        });
+      });
+
+      test('a song that ends and the queue moves on, by look-ahead', () {
+        fakeAsync((async) {
+          final h = Harness(async);
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.playedIds, ['a']);
+
+          h.elapse(const Duration(seconds: 2));
+
+          expect(h.logged('Look-ahead handover'), hasLength(1));
+          expect(h.playedIds, ['a', 'b']);
+        });
+      });
+
+      test('a temporary play', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          unawaited(h.controller.playTemporary(track('x')));
+          h.elapse(const Duration(milliseconds: 100));
+
+          unawaited(h.controller.playTemporary(track('y')));
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.playedIds, ['x', 'y']);
+        });
+      });
+
+      test('every lap of loop one by look-ahead, without resolving again', () {
+        fakeAsync((async) {
+          final h = Harness(async);
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(milliseconds: 100));
+          h.controller
+            ..cycleLoopMode()
+            ..cycleLoopMode();
+          h.settle();
+
+          h.elapse(const Duration(milliseconds: 4200));
+
+          expect(h.logged('Look-ahead handover'), hasLength(2));
+          expect(h.playedIds, ['a', 'a', 'a'], reason: 'the start and 2 laps');
+          expect(h.plugin.resolvedCount('a'), 1);
+        });
+      });
+
+      test('every lap of loop one that restarts the song (no look-ahead)', () {
+        fakeAsync((async) {
+          final h = Harness(async);
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(milliseconds: 100));
+          // 設單曲循環的前瞻修改還在排隊：播完時引擎沒有東西可接，從頭再開。
+          h.backend.setNextGate = Completer<void>().future;
+          h.controller
+            ..cycleLoopMode()
+            ..cycleLoopMode();
+
+          h.elapse(const Duration(seconds: 2, milliseconds: 300));
+
+          expect(h.logged('Look-ahead handover'), isEmpty);
+          expect(h.openedPaths, ['/a.m4a', '/a.m4a'], reason: 'reopened');
+          expect(h.playedIds, ['a', 'a']);
+          expect(h.plugin.resolvedCount('a'), 1, reason: 'no new resolution');
+        });
+      });
+
+      test(
+        'a song the user paused on before it loaded counts once it plays',
+        () {
+          fakeAsync((async) {
+            final h = longTracks(async);
+            unawaited(h.playQueue([track('a'), track('b')]));
+            h.elapse(const Duration(milliseconds: 100));
+            unawaited(h.controller.pause());
+            h.settle();
+
+            unawaited(h.controller.next());
+            h.elapse(const Duration(milliseconds: 100));
+            expect(h.controller.state, isA<Paused>());
+            expect(h.playedIds, ['a'], reason: 'b is loaded but not audible');
+
+            unawaited(h.controller.play());
+            h.elapse(const Duration(milliseconds: 100));
+            expect(h.playedIds, ['a', 'b']);
+          });
+        },
+      );
+    });
+
+    group('does not count', () {
+      test('a retry; the song counts once when it finally plays', () {
+        fakeAsync((async) {
+          var calls = 0;
+          final h = Harness(
+            async,
+            trackLength: const Duration(seconds: 60),
+            respond: (request) => ++calls == 1
+                ? throw NetworkError(pluginId: 'fmp-test')
+                : [candidate('${request.sourceId}.m4a')],
+          );
+          unawaited(h.playQueue([track('a')]));
+          h.settle();
+          expect(h.controller.state, isA<Retrying>());
+          expect(h.playedIds, isEmpty, reason: 'it was never audible');
+
+          h.elapse(const Duration(seconds: 1, milliseconds: 100));
+
+          expect(h.controller.state, isA<Playing>());
+          expect(h.playedIds, ['a']);
+        });
+      });
+
+      test('a retry after the song was already audible', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(seconds: 5));
+          expect(h.playedIds, ['a']);
+
+          h.backend.endEarly();
+          h.settle();
+          expect(h.controller.state, isA<Retrying>());
+          h.elapse(const Duration(seconds: 1, milliseconds: 100));
+
+          expect(h.controller.state, isA<Playing>());
+          expect(h.playedIds, ['a']);
+          expect(h.plugin.resolvedCount('a'), 2, reason: 'it did re-resolve');
+        });
+      });
+
+      test('re-resolving and a candidate switch within the same start', () {
+        fakeAsync((async) {
+          final h = Harness(
+            async,
+            trackLength: const Duration(seconds: 60),
+            respond: (request) => [
+              candidate('${request.sourceId}-1.m4a'),
+              candidate('${request.sourceId}-2.m4a'),
+            ],
+            failsToOpen: (url) => !url.path.startsWith('/a-2'),
+          );
+
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.openedPaths, ['/a-1.m4a', '/a-1.m4a', '/a-2.m4a']);
+          expect(h.playedIds, ['a']);
+        });
+      });
+
+      test('pausing and resuming, and a seek', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(seconds: 1));
+
+          for (var i = 0; i < 3; i++) {
+            unawaited(h.controller.pause());
+            h.elapse(const Duration(milliseconds: 100));
+            unawaited(h.controller.play());
+            h.elapse(const Duration(milliseconds: 100));
+          }
+          unawaited(h.controller.seek(const Duration(seconds: 30)));
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.playedIds, ['a']);
+        });
+      });
+
+      test('previous after 3 seconds, which only restarts the song', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(seconds: 5));
+
+          unawaited(h.controller.previous());
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.openedPaths, ['/a.m4a'], reason: 'a seek, not a new open');
+          expect(h.playedIds, ['a']);
+        });
+      });
+
+      test('returning to the queue song after a temporary play', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(seconds: 30));
+          unawaited(h.controller.playTemporary(track('x')));
+          h.elapse(const Duration(seconds: 5));
+          expect(h.playedIds, ['a', 'x']);
+
+          unawaited(h.controller.next());
+          h.elapse(const Duration(milliseconds: 200));
+
+          expect(h.openedPaths, ['/a.m4a', '/x.m4a', '/a.m4a']);
+          expect(h.controller.state, isA<Playing>());
+          expect(h.playedIds, ['a', 'x']);
+        });
+      });
+
+      test('playing again after the output device failed', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(seconds: 5));
+          h.backend.failOutputDevice();
+          h.settle();
+
+          unawaited(h.controller.play());
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
+          expect(h.playedIds, ['a']);
+        });
+      });
+
+      test('a song that never became audible before the queue moved on', () {
+        fakeAsync((async) {
+          final h = Harness(
+            async,
+            trackLength: const Duration(seconds: 60),
+            respond: (request) => request.sourceId == 'a'
+                ? throw Unsupported(pluginId: 'fmp-test')
+                : [candidate('${request.sourceId}.m4a')],
+          );
+
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(milliseconds: 200));
+
+          expect(h.events.whereType<TrackSkipped>(), hasLength(1));
+          expect(h.playedIds, ['b'], reason: 'a was skipped without a sound');
+        });
+      });
+    });
+
+    group('after a restart', () {
+      void restore(Harness h) {
+        expect(
+          h.controller.restore(
+            tracks: [track('a'), track('b')],
+            currentIndex: 0,
+            loopMode: LoopMode.off,
+            shuffle: false,
+            position: const Duration(seconds: 30),
+            volume: 1,
+            muted: false,
+          ),
+          isTrue,
+        );
+      }
+
+      test('the first play is not counted, the next song is', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          restore(h);
+
+          unawaited(h.controller.play());
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.controller.state, isA<Playing>());
+          expect(h.playedIds, isEmpty);
+
+          unawaited(h.controller.next());
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.playedIds, ['b']);
+        });
+      });
+
+      test('a temporary play counts, the play that follows it does not', () {
+        fakeAsync((async) {
+          final h = longTracks(async);
+          restore(h);
+
+          unawaited(h.controller.playTemporary(track('x')));
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.playedIds, ['x']);
+
+          // 臨時播放結束、佇列仍停著；按播放仍是恢復後的第一次播放。
+          unawaited(h.controller.next());
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.controller.state, isA<Idle>());
+          unawaited(h.controller.play());
+          h.elapse(const Duration(milliseconds: 100));
+
+          expect(h.controller.state, isA<Playing>());
+          expect(h.controller.startedFromRestore, isTrue);
+          expect(h.playedIds, ['x']);
+        });
+      });
+    });
   });
 }

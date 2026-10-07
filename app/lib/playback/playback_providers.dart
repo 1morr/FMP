@@ -14,6 +14,7 @@ import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/audio_backends.dart';
+import 'package:fmp/playback/play_history_recorder.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -128,7 +129,15 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
       },
     ),
   );
+  // 播放歷史（design §7.8）：控制器報「這一首算一次播放」，記錄者寫進資料庫。
+  final recorder = PlayHistoryRecorder(
+    repository: ref.watch(playHistoryRepositoryProvider),
+    limit: () async =>
+        (await ref.read(playbackPreferencesProvider.future)).playHistoryLimit,
+    log: log,
+  )..listen(controller.plays);
   ref.onDispose(() {
+    recorder.dispose();
     store.dispose();
     unawaited(lifecycleChanges.close());
     unawaited(controller.dispose());

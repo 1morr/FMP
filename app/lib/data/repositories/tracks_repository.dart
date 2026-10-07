@@ -38,13 +38,28 @@ final class TracksRepository {
   }
 
   /// 刪掉沒有被任何東西參照的曲目，回傳刪了幾列（ADR 0019 §決定 1，啟動維護
-  /// 清單呼叫）。目前的參照者只有 `queue_entries`；播放歷史（M2 PR 15）、歌單項目
-  /// （M4）、下載紀錄（M6）各自在它們加表的 PR 加進這個查詢。
+  /// 清單呼叫）。目前的參照者是 `queue_entries` 與 `play_history`；歌單項目（M4）、
+  /// 下載紀錄（M6）各自在它們加表的 PR 加進這個查詢。
   Future<int> deleteOrphans() => _database.customUpdate(
     'DELETE FROM tracks WHERE track_key NOT IN '
-    '(SELECT track_key FROM queue_entries)',
+    '(SELECT track_key FROM queue_entries) '
+    'AND track_key NOT IN (SELECT track_key FROM play_history)',
     updates: {_database.tracksTable},
     updateKind: UpdateKind.delete,
+  );
+
+  /// `tracks` 的一列轉成上層的 [TrackInfo]；佇列與播放歷史讀曲目都經它。
+  static TrackInfo toTrackInfo(TrackRow row) => TrackInfo(
+    sourceTypeId: row.sourceTypeId,
+    sourceId: row.sourceId,
+    cid: row.cid,
+    title: row.title,
+    uploader: row.uploader,
+    duration: switch (row.durationMs) {
+      final ms? => Duration(milliseconds: ms),
+      null => null,
+    },
+    artwork: decodeArtwork(row.artworkJson),
   );
 
   /// 曲目的封面存成 `[{url, width?}]`（ADR 0016 §決定 4 的 DTO 原樣）；沒有封面

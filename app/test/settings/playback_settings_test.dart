@@ -40,6 +40,7 @@ void main() {
         tempPlayRewindSeconds: 30,
         skipPreviewClips: false,
         restartRewindSeconds: 15,
+        playHistoryLimit: 5000,
       );
 
       for (final (quality, format, remember, rewind, skip) in [
@@ -54,6 +55,7 @@ void main() {
           defaultTempPlayRewindSeconds: rewind,
           defaultSkipPreviewClips: skip,
           defaultRestartRewindSeconds: rewind,
+          defaultPlayHistoryLimit: skip ? 10000 : 1000,
         );
         expect(resolved.audioQuality, AudioQuality.medium);
         expect(resolved.audioFormatPriority, AudioFormatPriority.aacFirst);
@@ -61,6 +63,7 @@ void main() {
         expect(resolved.tempPlayRewindSeconds, 30);
         expect(resolved.skipPreviewClips, isFalse);
         expect(resolved.restartRewindSeconds, 15);
+        expect(resolved.playHistoryLimit, 5000);
       }
     });
 
@@ -77,6 +80,7 @@ void main() {
           defaultTempPlayRewindSeconds: rewind,
           defaultSkipPreviewClips: skip,
           defaultRestartRewindSeconds: rewind,
+          defaultPlayHistoryLimit: skip ? 10000 : 1000,
         );
         expect(resolved.audioQuality, quality);
         expect(resolved.audioFormatPriority, format);
@@ -84,6 +88,7 @@ void main() {
         expect(resolved.tempPlayRewindSeconds, rewind);
         expect(resolved.skipPreviewClips, skip);
         expect(resolved.restartRewindSeconds, rewind);
+        expect(resolved.playHistoryLimit, skip ? 10000 : 1000);
       }
     });
 
@@ -116,6 +121,7 @@ void main() {
         expect(events.current.tempPlayRewindSeconds, 10);
         expect(events.current.skipPreviewClips, isTrue);
         expect(events.current.restartRewindSeconds, 0);
+        expect(events.current.playHistoryLimit, 10000);
         expect(events.current.stored, PlaybackSettings.empty);
       },
     );
@@ -333,6 +339,66 @@ void main() {
         'output_device_name': null,
         'temp_play_rewind_seconds': 5,
       });
+    });
+
+    test('the play history limit is written alone and cleared back', () async {
+      final database = memoryDatabase();
+      final container = containerFor(database);
+      final events = preferences(container);
+      await events.moveNext();
+      final notifier = container.read(playbackPreferencesProvider.notifier);
+
+      await notifier.setPlayHistoryLimit(1000);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.playHistoryLimit, 1000);
+      Future<Map<String, Object?>> row() async =>
+          (await database
+                  .customSelect(
+                    'SELECT play_history_limit, restart_rewind_seconds '
+                    'FROM playback_settings',
+                  )
+                  .getSingle())
+              .data;
+      expect(await row(), {
+        'play_history_limit': 1000,
+        'restart_rewind_seconds': null,
+      });
+
+      await notifier.setPlayHistoryLimit(null);
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.playHistoryLimit, 10000);
+      expect(await row(), {
+        'play_history_limit': null,
+        'restart_rewind_seconds': null,
+      });
+    });
+
+    test('lowering the play history limit trims the history right away', () async {
+      final database = memoryDatabase();
+      final container = containerFor(database);
+      final events = preferences(container);
+      await events.moveNext();
+      await database.customStatement(
+        'INSERT INTO tracks (track_key, source_type_id, source_id, title, '
+        "updated_at) VALUES ('p:1', 'p', '1', 'T', 0)",
+      );
+      for (var i = 1; i <= 1500; i++) {
+        await database.customStatement(
+          "INSERT INTO play_history (track_key, played_at) VALUES ('p:1', $i)",
+        );
+      }
+
+      await container
+          .read(playbackPreferencesProvider.notifier)
+          .setPlayHistoryLimit(1000);
+
+      final rows = await database
+          .customSelect(
+            'SELECT COUNT(*) AS n, MIN(played_at) AS oldest FROM play_history',
+          )
+          .getSingle();
+      expect(rows.read<int>('n'), 1000);
+      expect(rows.read<int>('oldest'), 501, reason: 'the oldest were dropped');
     });
 
     test('a stored id without a name shows the id', () {

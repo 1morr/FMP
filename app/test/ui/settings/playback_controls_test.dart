@@ -50,7 +50,7 @@ void main() {
 
     expect(tester.widget<SwitchListTile>(remember).value, isTrue);
     expect(tester.widget<SwitchListTile>(skipPreviews).value, isTrue);
-    expect(find.byType(ChoiceChip), findsNWidgets(3 + 2 + 6 + 6));
+    expect(find.byType(ChoiceChip), findsNWidgets(3 + 2 + 6 + 6 + 4));
     expect(chip(tester, 'High (default)').selected, isTrue);
     expect(chip(tester, 'Medium').selected, isFalse);
     expect(chip(tester, 'Low').selected, isFalse);
@@ -65,6 +65,33 @@ void main() {
     for (final other in ['3 s', '5 s', '10 s', '15 s', '30 s']) {
       expect(chip(tester, other, restart: true).selected, isFalse);
     }
+    // 播放歷史保留筆數預設 10,000。
+    expect(chip(tester, '10,000 entries (default)').selected, isTrue);
+    for (final other in ['1,000 entries', '5,000 entries', '50,000 entries']) {
+      expect(chip(tester, other).selected, isFalse);
+    }
+  });
+
+  testWidgets('choosing a play history limit writes only that field', (
+    tester,
+  ) async {
+    final h = await openPlayback(tester);
+
+    await tester.ensureVisible(chipFinder('1,000 entries'));
+    await tester.tap(chipFinder('1,000 entries'));
+    await h.loadSettings(tester);
+
+    expect(
+      await stored(tester, h),
+      const PlaybackSettings(playHistoryLimit: 1000),
+    );
+    expect(chip(tester, '1,000 entries').selected, isTrue);
+    expect(
+      find.text('10,000 entries (default)'),
+      findsNothing,
+      reason: 'no longer the default',
+    );
+    expect(chip(tester, '10,000 entries').selected, isFalse);
   });
 
   testWidgets('choosing writes only that field', (tester) async {

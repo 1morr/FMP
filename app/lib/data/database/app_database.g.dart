@@ -3265,6 +3265,261 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
   }
 }
 
+class $PlayHistoryTableTable extends PlayHistoryTable
+    with TableInfo<$PlayHistoryTableTable, PlayHistoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlayHistoryTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _trackKeyMeta = const VerificationMeta(
+    'trackKey',
+  );
+  @override
+  late final GeneratedColumn<String> trackKey = GeneratedColumn<String>(
+    'track_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tracks (track_key) ON DELETE RESTRICT',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> playedAt =
+      GeneratedColumn<int>(
+        'played_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($PlayHistoryTableTable.$converterplayedAt);
+  @override
+  List<GeneratedColumn> get $columns => [id, trackKey, playedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'play_history';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlayHistoryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('track_key')) {
+      context.handle(
+        _trackKeyMeta,
+        trackKey.isAcceptableOrUnknown(data['track_key']!, _trackKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_trackKeyMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlayHistoryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlayHistoryRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      trackKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track_key'],
+      )!,
+      playedAt: $PlayHistoryTableTable.$converterplayedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}played_at'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $PlayHistoryTableTable createAlias(String alias) {
+    return $PlayHistoryTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $converterplayedAt =
+      const EpochMillisecondsConverter();
+}
+
+class PlayHistoryRow extends DataClass implements Insertable<PlayHistoryRow> {
+  final int id;
+  final String trackKey;
+  final DateTime playedAt;
+  const PlayHistoryRow({
+    required this.id,
+    required this.trackKey,
+    required this.playedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['track_key'] = Variable<String>(trackKey);
+    {
+      map['played_at'] = Variable<int>(
+        $PlayHistoryTableTable.$converterplayedAt.toSql(playedAt),
+      );
+    }
+    return map;
+  }
+
+  PlayHistoryTableCompanion toCompanion(bool nullToAbsent) {
+    return PlayHistoryTableCompanion(
+      id: Value(id),
+      trackKey: Value(trackKey),
+      playedAt: Value(playedAt),
+    );
+  }
+
+  factory PlayHistoryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlayHistoryRow(
+      id: serializer.fromJson<int>(json['id']),
+      trackKey: serializer.fromJson<String>(json['trackKey']),
+      playedAt: serializer.fromJson<DateTime>(json['playedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'trackKey': serializer.toJson<String>(trackKey),
+      'playedAt': serializer.toJson<DateTime>(playedAt),
+    };
+  }
+
+  PlayHistoryRow copyWith({int? id, String? trackKey, DateTime? playedAt}) =>
+      PlayHistoryRow(
+        id: id ?? this.id,
+        trackKey: trackKey ?? this.trackKey,
+        playedAt: playedAt ?? this.playedAt,
+      );
+  PlayHistoryRow copyWithCompanion(PlayHistoryTableCompanion data) {
+    return PlayHistoryRow(
+      id: data.id.present ? data.id.value : this.id,
+      trackKey: data.trackKey.present ? data.trackKey.value : this.trackKey,
+      playedAt: data.playedAt.present ? data.playedAt.value : this.playedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlayHistoryRow(')
+          ..write('id: $id, ')
+          ..write('trackKey: $trackKey, ')
+          ..write('playedAt: $playedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, trackKey, playedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlayHistoryRow &&
+          other.id == this.id &&
+          other.trackKey == this.trackKey &&
+          other.playedAt == this.playedAt);
+}
+
+class PlayHistoryTableCompanion extends UpdateCompanion<PlayHistoryRow> {
+  final Value<int> id;
+  final Value<String> trackKey;
+  final Value<DateTime> playedAt;
+  const PlayHistoryTableCompanion({
+    this.id = const Value.absent(),
+    this.trackKey = const Value.absent(),
+    this.playedAt = const Value.absent(),
+  });
+  PlayHistoryTableCompanion.insert({
+    this.id = const Value.absent(),
+    required String trackKey,
+    required DateTime playedAt,
+  }) : trackKey = Value(trackKey),
+       playedAt = Value(playedAt);
+  static Insertable<PlayHistoryRow> custom({
+    Expression<int>? id,
+    Expression<String>? trackKey,
+    Expression<int>? playedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (trackKey != null) 'track_key': trackKey,
+      if (playedAt != null) 'played_at': playedAt,
+    });
+  }
+
+  PlayHistoryTableCompanion copyWith({
+    Value<int>? id,
+    Value<String>? trackKey,
+    Value<DateTime>? playedAt,
+  }) {
+    return PlayHistoryTableCompanion(
+      id: id ?? this.id,
+      trackKey: trackKey ?? this.trackKey,
+      playedAt: playedAt ?? this.playedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (trackKey.present) {
+      map['track_key'] = Variable<String>(trackKey.value);
+    }
+    if (playedAt.present) {
+      map['played_at'] = Variable<int>(
+        $PlayHistoryTableTable.$converterplayedAt.toSql(playedAt.value),
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlayHistoryTableCompanion(')
+          ..write('id: $id, ')
+          ..write('trackKey: $trackKey, ')
+          ..write('playedAt: $playedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3284,9 +3539,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlayerStateTableTable playerStateTable = $PlayerStateTableTable(
     this,
   );
+  late final $PlayHistoryTableTable playHistoryTable = $PlayHistoryTableTable(
+    this,
+  );
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
+  );
+  late final Index playHistoryPlayedAt = Index(
+    'play_history_played_at',
+    'CREATE INDEX play_history_played_at ON play_history (played_at)',
+  );
+  late final Index playHistoryTrackKey = Index(
+    'play_history_track_key',
+    'CREATE INDEX play_history_track_key ON play_history (track_key)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -3301,7 +3567,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     tracksTable,
     queueEntriesTable,
     playerStateTable,
+    playHistoryTable,
     queueEntriesTrackKey,
+    playHistoryPlayedAt,
+    playHistoryTrackKey,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -4725,6 +4994,27 @@ final class $$TracksTableTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$PlayHistoryTableTable, List<PlayHistoryRow>>
+  _playHistoryTableRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.playHistoryTable,
+    aliasName: 'tracks__track_key__play_history__track_key',
+  );
+
+  $$PlayHistoryTableTableProcessedTableManager get playHistoryTableRefs {
+    final manager =
+        $$PlayHistoryTableTableTableManager($_db, $_db.playHistoryTable).filter(
+          (f) =>
+              f.trackKey.trackKey.sqlEquals($_itemColumn<String>('track_key')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _playHistoryTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$TracksTableTableFilterComposer
@@ -4798,6 +5088,31 @@ class $$TracksTableTableFilterComposer
           }) => $$QueueEntriesTableTableFilterComposer(
             $db: $db,
             $table: $db.queueEntriesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> playHistoryTableRefs(
+    Expression<bool> Function($$PlayHistoryTableTableFilterComposer f) f,
+  ) {
+    final $$PlayHistoryTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.playHistoryTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayHistoryTableTableFilterComposer(
+            $db: $db,
+            $table: $db.playHistoryTable,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4930,6 +5245,31 @@ class $$TracksTableTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> playHistoryTableRefs<T extends Object>(
+    Expression<T> Function($$PlayHistoryTableTableAnnotationComposer a) f,
+  ) {
+    final $$PlayHistoryTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.playHistoryTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlayHistoryTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.playHistoryTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TracksTableTableTableManager
@@ -4945,7 +5285,10 @@ class $$TracksTableTableTableManager
           $$TracksTableTableUpdateCompanionBuilder,
           (TrackRow, $$TracksTableTableReferences),
           TrackRow,
-          PrefetchHooks Function({bool queueEntriesTableRefs})
+          PrefetchHooks Function({
+            bool queueEntriesTableRefs,
+            bool playHistoryTableRefs,
+          })
         > {
   $$TracksTableTableTableManager(_$AppDatabase db, $TracksTableTable table)
     : super(
@@ -5014,40 +5357,63 @@ class $$TracksTableTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({queueEntriesTableRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (queueEntriesTableRefs) db.queueEntriesTable,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (queueEntriesTableRefs)
-                    await $_getPrefetchedData<
-                      TrackRow,
-                      $TracksTableTable,
-                      QueueEntryRow
-                    >(
-                      currentTable: table,
-                      referencedTable: $$TracksTableTableReferences
-                          ._queueEntriesTableRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$TracksTableTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).queueEntriesTableRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.trackKey == item.trackKey,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({queueEntriesTableRefs = false, playHistoryTableRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (queueEntriesTableRefs) db.queueEntriesTable,
+                    if (playHistoryTableRefs) db.playHistoryTable,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (queueEntriesTableRefs)
+                        await $_getPrefetchedData<
+                          TrackRow,
+                          $TracksTableTable,
+                          QueueEntryRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TracksTableTableReferences
+                              ._queueEntriesTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TracksTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).queueEntriesTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.trackKey == item.trackKey,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (playHistoryTableRefs)
+                        await $_getPrefetchedData<
+                          TrackRow,
+                          $TracksTableTable,
+                          PlayHistoryRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TracksTableTableReferences
+                              ._playHistoryTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TracksTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).playHistoryTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.trackKey == item.trackKey,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -5064,7 +5430,10 @@ typedef $$TracksTableTableProcessedTableManager =
       $$TracksTableTableUpdateCompanionBuilder,
       (TrackRow, $$TracksTableTableReferences),
       TrackRow,
-      PrefetchHooks Function({bool queueEntriesTableRefs})
+      PrefetchHooks Function({
+        bool queueEntriesTableRefs,
+        bool playHistoryTableRefs,
+      })
     >;
 typedef $$QueueEntriesTableTableCreateCompanionBuilder =
     QueueEntriesTableCompanion Function({
@@ -5623,6 +5992,285 @@ typedef $$PlayerStateTableTableProcessedTableManager =
       PlayerStateRow,
       PrefetchHooks Function()
     >;
+typedef $$PlayHistoryTableTableCreateCompanionBuilder =
+    PlayHistoryTableCompanion Function({
+      Value<int> id,
+      required String trackKey,
+      required DateTime playedAt,
+    });
+typedef $$PlayHistoryTableTableUpdateCompanionBuilder =
+    PlayHistoryTableCompanion Function({
+      Value<int> id,
+      Value<String> trackKey,
+      Value<DateTime> playedAt,
+    });
+
+final class $$PlayHistoryTableTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $PlayHistoryTableTable, PlayHistoryRow> {
+  $$PlayHistoryTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $TracksTableTable _trackKeyTable(_$AppDatabase db) =>
+      db.tracksTable.createAlias('play_history__track_key__tracks__track_key');
+
+  $$TracksTableTableProcessedTableManager get trackKey {
+    final $_column = $_itemColumn<String>('track_key')!;
+
+    final manager = $$TracksTableTableTableManager(
+      $_db,
+      $_db.tracksTable,
+    ).filter((f) => f.trackKey.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_trackKeyTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PlayHistoryTableTableFilterComposer
+    extends Composer<_$AppDatabase, $PlayHistoryTableTable> {
+  $$PlayHistoryTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get playedAt =>
+      $composableBuilder(
+        column: $table.playedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  $$TracksTableTableFilterComposer get trackKey {
+    final $$TracksTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableFilterComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlayHistoryTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlayHistoryTableTable> {
+  $$PlayHistoryTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get playedAt => $composableBuilder(
+    column: $table.playedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TracksTableTableOrderingComposer get trackKey {
+    final $$TracksTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlayHistoryTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlayHistoryTableTable> {
+  $$PlayHistoryTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get playedAt =>
+      $composableBuilder(column: $table.playedAt, builder: (column) => column);
+
+  $$TracksTableTableAnnotationComposer get trackKey {
+    final $$TracksTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlayHistoryTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlayHistoryTableTable,
+          PlayHistoryRow,
+          $$PlayHistoryTableTableFilterComposer,
+          $$PlayHistoryTableTableOrderingComposer,
+          $$PlayHistoryTableTableAnnotationComposer,
+          $$PlayHistoryTableTableCreateCompanionBuilder,
+          $$PlayHistoryTableTableUpdateCompanionBuilder,
+          (PlayHistoryRow, $$PlayHistoryTableTableReferences),
+          PlayHistoryRow,
+          PrefetchHooks Function({bool trackKey})
+        > {
+  $$PlayHistoryTableTableTableManager(
+    _$AppDatabase db,
+    $PlayHistoryTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlayHistoryTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlayHistoryTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlayHistoryTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> trackKey = const Value.absent(),
+                Value<DateTime> playedAt = const Value.absent(),
+              }) => PlayHistoryTableCompanion(
+                id: id,
+                trackKey: trackKey,
+                playedAt: playedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String trackKey,
+                required DateTime playedAt,
+              }) => PlayHistoryTableCompanion.insert(
+                id: id,
+                trackKey: trackKey,
+                playedAt: playedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PlayHistoryTableTable, PlayHistoryRow>(table),
+                  $$PlayHistoryTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({trackKey = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (trackKey) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.trackKey,
+                        referencedTable: $$PlayHistoryTableTableReferences
+                            ._trackKeyTable(db),
+                        referencedColumn: $$PlayHistoryTableTableReferences
+                            ._trackKeyTable(db)
+                            .trackKey,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PlayHistoryTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlayHistoryTableTable,
+      PlayHistoryRow,
+      $$PlayHistoryTableTableFilterComposer,
+      $$PlayHistoryTableTableOrderingComposer,
+      $$PlayHistoryTableTableAnnotationComposer,
+      $$PlayHistoryTableTableCreateCompanionBuilder,
+      $$PlayHistoryTableTableUpdateCompanionBuilder,
+      (PlayHistoryRow, $$PlayHistoryTableTableReferences),
+      PlayHistoryRow,
+      PrefetchHooks Function({bool trackKey})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5646,4 +6294,6 @@ class $AppDatabaseManager {
       $$QueueEntriesTableTableTableManager(_db, _db.queueEntriesTable);
   $$PlayerStateTableTableTableManager get playerStateTable =>
       $$PlayerStateTableTableTableManager(_db, _db.playerStateTable);
+  $$PlayHistoryTableTableTableManager get playHistoryTable =>
+      $$PlayHistoryTableTableTableManager(_db, _db.playHistoryTable);
 }
