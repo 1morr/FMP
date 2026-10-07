@@ -58,6 +58,8 @@ const forbiddenLayerImports = <String, List<String>>{
   'lib/domain': _upperLayers,
   // 設定的 Notifier、播放、插件都讀資料層；反過來 import 就是循環。
   'lib/data': ['lib/ui', 'lib/settings', 'lib/playback', 'lib/plugins'],
+  // 介面讀播放（控制器、狀態 stream）；播放（含系統媒體控制的組裝）不認得介面。
+  'lib/playback': ['lib/ui'],
 };
 
 const _upperLayers = [
