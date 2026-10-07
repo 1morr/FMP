@@ -62,8 +62,9 @@
   - 實機兩平台（重播／測試插件）通過：五首（有重複曲目）、隨機、循環全部 → 關掉重開，`Playback restored` 欄位正確、啟動不解析，按播放 `restored: true`、從存的位置接著播、照存的隨機順序走；Android 另驗了倒退 10 秒＋臨時播放後，存的位置不被覆寫。音量與靜音沒有 UI（PR 17），只有單元測試。
 - **PR 15 已合併**：#212（`7862559e`）：擁有者定了移除單筆、列的副標、只有清除全部提示。審查修了「讀下一頁時剛好記了一筆，清單重複一列、漏掉新的」「dispose 後仍寫入」；主對話另定讀取失敗不顯示成「沒有紀錄」（design §7.8）。實機兩平台（重播）通過：恢復後第一次不記、交接與單曲循環每圈一筆、臨時播放一筆、回到佇列不記，歷史頁「今天」分組、點一列臨時播放、移除單筆、清除全部（確認框、取消不清、提示）、重開仍在。
 - **PR 16a 已合併**：#213（`e5cfa91b`）：擁有者定停止＝暫停。審查修了「啟動恢復那首在通知上一直沒有封面」，並把 `pickArtwork` 移到 domain、加了 playback→ui 的 lint。實機（Android，重播＋一次真實 B 站搜尋與播放看封面）通過；鎖定畫面沒驗（模擬器沒設螢幕鎖）。
-- **PR 17 完成**（2026-10-07；分支 `feat/app-player-bar`，子任務已封存；合併後在下一個 PR 補編號與合併提交）：擁有者定輸出裝置失敗改用系統預設。審查修了「臨時播放後進度條顯示錯的位置」「Shift+←／→ 在恢復狀態無效或蓋掉恢復位置」「滑鼠打開的選單按 Esc 關不掉」，並把提示分成兩句。實機兩平台（重播）通過；Windows 的裝置停用要系統管理員權限，裝置失敗的退回沒有實機驗。
-- **下一步**：18a（播放頁 B）或 16b（Windows SMTC）。
+- **PR 17 已合併**：#214（`bab877df`）：擁有者定輸出裝置失敗改用系統預設。審查修了「臨時播放後進度條顯示錯的位置」「Shift+←／→ 在恢復狀態無效或蓋掉恢復位置」「滑鼠打開的選單按 Esc 關不掉」，並把提示分成兩句。實機兩平台（重播）通過；Windows 的裝置停用要系統管理員權限，裝置失敗的退回沒有實機驗。
+- **PR 18a 完成、待合併**（2026-10-07；分支 `feat/app-player-page`，子任務 `.trellis/tasks/10-07-player-page`）：主對話定佇列分頁先做唯讀清單＋點選跳到、「切換右側面板」延到 PR 19（`layout_state` 這次就含面板兩欄）、左上角收合鈕關閉；實作期推定的決定（預設歌詞分頁、route 自己設開關狀態、遮罩用 `surface`、「⋯」在控制列最後、compact 的切換不寫記憶、佇列分頁捲到目前這首前兩列）主對話接受，記在 design §9.3 末段。審查（opus）修了「關閉轉場中又開一頁，狀態被舊頁設成沒開、焦點被搶走」「第一幀前佇列就空了，留下關不掉的空白頁」「播放列點擊區沒有按鈕語意」，補了五條文件宣稱卻沒有測試的閘門。`flutter test` 1712 通過、2 跳過；Windows 的 `toast_layering_test.dart`、`install_search_play_test.dart` 與 Android 的 `toast_layering_test.dart` 通過。實機兩平台（重播）通過：Windows 點曲名與 Ctrl+Q 開頁、compact（700 px）／medium／expanded（1500 px）／large（1920 px）／extraLarge（2450 px）五種版面、compact 點封面切歌詞且不覆寫記憶、Esc 先關選單再關頁、焦點回到播放列、速度 1.5× 打勾、播放頁上的試聽提示貼底；Android 直向五個控制、點封面切歌詞、返回鍵只關播放頁。F6 只有 widget 測試。
+- **下一步**：18b（佇列分頁與底部面板）、16b、19。
 - **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **adb 可能多出別的裝置**（10-07 出現 `127.0.0.1:16384`，不是我們的模擬器）：一律 `export ANDROID_SERIAL=emulator-5554` 或 `adb -s`，`ax_flatten.py` 加 `--device`，不要碰別的裝置。
@@ -91,7 +92,7 @@
     - **模擬器可能停在上次的橫向**（`user_rotation`）：每次先 `adb shell settings get system user_rotation`，座標一律從 `ax_flatten.py` 讀，不要沿用上一輪的數字。PR 11 就因此誤點 B 站、送出真實請求。按返回鍵時鍵盤沒開會直接退出 App。
     - 歌名多行的節點，取座標用 `grep -o "center=([0-9]*,[0-9]*)"`，不要用 `sed` 整行替換。
     - **Android 音訊中斷**：`adb emu gsm call 5551234`／`adb emu gsm cancel 5551234` 可觸發暫停類中斷；`AUDIO_BECOMING_NOISY` 廣播被系統擋（`SecurityException`）。
-    - **Windows 中文輸入法**：`fgtype.ps1` 打完關鍵字要再送一次 Enter 才會搜尋。session 暫存目錄另有 `logsince.sh <log> <起始行>`（濾掉 debug 的 log 摘要）與 `restart_win.sh <關鍵字>`。
+    - **Windows 中文輸入法**：`fgtype.ps1` 打完關鍵字要再送一次 Enter 才會搜尋。session 暫存目錄另有 `logsince.sh <log> <起始行>`（濾掉 debug 的 log 摘要）、`restart_win.sh <關鍵字>`、`dbq.sh "<SQL>"`（拉 Android dev 的 `fmp.db` 查詢，已指定 `emulator-5554`）、`k.sh <VK,VK> <秒> <標籤>`＋`combo.ps1`（Windows 送快捷鍵並印新 log，`KX`／`KY` 環境變數指定先點的位置）。這些換 session 就沒了，PR 描述在 `pr-m2-*.md`。
     - **盯 CI**：PR 剛開時 run 還沒建立，用迴圈等 `gh run list` 拿到 id 再 `gh run watch`。
     - **擁有者全域規則更新（10-07）**：push 分兩種（照核可計畫做的可直接推）；子代理預設 sonnet，只有設計、根因未知的 debug、審查用 opus。
   - **repo 外的待辦**：#207 是 Dependabot 對舊版根目錄 `pubspec` 的升級（`archive`、`flutter_cache_manager`、`go_router`），舊版凍結，留給擁有者決定。
@@ -534,12 +535,12 @@
 
 ## 18a. 播放頁 B（design §9.3、§9.6）
 
-- [ ] 全螢幕路由；外殼得知它在最上層時提示貼底部安全區。
-- [ ] 三種版面（手機與 medium、B 兩欄、extraLarge 三欄）；左欄控制；「⋯」的速度與右側面板切換。
-- [ ] 歌詞空狀態；`TrackDetails`；毛玻璃（高對比時不透明）。
-- [ ] `layout_state` 表（schema bump，含右側面板的兩欄）；分頁記憶。
-- [ ] 頁內 F6 區、Esc 關閉、Ctrl+L／Q。
-- [ ] ADR 0024 §決定 1 的一行更正。
+- [x] 全螢幕路由；外殼得知它在最上層時提示貼底部安全區。
+- [x] 三種版面（手機與 medium、B 兩欄、extraLarge 三欄）；左欄控制；「⋯」的速度與右側面板切換。
+- [x] 歌詞空狀態；`TrackDetails`；毛玻璃（高對比時不透明）。
+- [x] `layout_state` 表（schema bump，含右側面板的兩欄）；分頁記憶。
+- [x] 頁內 F6 區、Esc 關閉、Ctrl+L／Q。
+- [x] ADR 0024 §決定 1 的一行更正。
 - 測試：
   - guideline（淺色、深色 × 最淺、最深的測試封面）；
   - golden 1000、1400、1800；
@@ -654,7 +655,7 @@ PR 10 留下的：
 - [x] PR 12：單曲循環時換候選之後，前瞻會再開一次開不起來的第一候選，要再走一次換候選才播得起來。
 - [x] PR 17：隨機、循環的 tooltip 補上 Ctrl+S、Ctrl+R。
 - [x] PR 14：做持久化後改「記住播放位置」的說明（目前只寫臨時播放）。
-- [ ] PR 18a：compact（手機直向）的播放列沒有隨機、循環入口，要到播放頁 B 才有。
+- [x] PR 18a：compact（手機直向）的播放列沒有隨機、循環入口，要到播放頁 B 才有。
 - [ ] `playback_providers.dart` 為了 `PlaybackSettings.empty` import 資料層型別；可改由設定層提供預設值（沒有違反 lint）。
 - [x] 搜尋結果「⋯」的語意標籤重複成「更多選項. 更多選項」（tooltip 與 label 同字），Windows MSAA 看得到。
 - [ ] 既有、不是 PR 10 造成：Android 橫向（約 411 dp 高）叫出鍵盤時，側邊導覽列與搜尋頁的 Column 底部溢出 3.8–9.9 px（佇列空、沒有播放列時也會；這兩處 PR 10 沒改）。實機 log 記成 `Uncaught Flutter error`。
@@ -675,7 +676,7 @@ PR 12 留下的：
 - [ ] 連續停下的警告不寫最後一首的具體原因。
 - [ ] 組裝點 `playback_providers.dart` 把網路狀態與「跳過試聽片段」交給控制器的幾行沒有測試守（`app/AGENTS.md` 已寫明）。
 - [ ] 佇列第二首的第一次解析失敗會被前瞻吃掉（錯誤歷史多一筆 `Look-ahead resolution failed`），輪到它時才重新解析。
-- [ ] PR 18a：播放頁的「試聽」標示。
+- [x] PR 18a：播放頁的「試聽」標示。
 - [ ] log 小瑕疵：`Temporary play ended; the queue stays idle` 在佇列空時 `track` 欄位是字串 `"null"`（`playback_controller.dart` 的 `'${track?.key}'`）。
 
 PR 8 留下的：
@@ -689,7 +690,7 @@ PR 8 留下的：
 PR 13 留下的：
 
 - [x] PR 17：播放列接音量、靜音、輸出裝置；控制器要對外提供裝置清單、目前裝置與音量的 stream。裝置清單只列 Windows 的音訊裝置（擁有者 2026-10-07：不列 mpv 的 `openal` 這類內部輸出，「系統預設」照常有）。
-- [ ] PR 18a：速度選單（需要速度的 getter 或 stream）。
+- [x] PR 18a：速度選單（需要速度的 getter 或 stream）。
 - [x] PR 14：持久化音量與靜音（靜音與音量分開記，擁有者 2026-10-07 確認）。
 - [ ] 裝置失敗前先到的提前結束，在錯誤歷史留一筆 `Stream ended early`。
 - [ ] `JustAudioBackend` 接 audio_session、`MediaKitBackend` 接 log 的幾行沒有自動閘門（`flutter test` 裡建不起來）。
@@ -719,7 +720,7 @@ PR 15 留下的：
 
 PR 16a 留下的：
 
-- [ ] PR 18a：`NowPlaying.speed` 固定 1.0；加速度選單時 publisher 要接控制器的速度，否則系統推算的進度會偏。
+- [x] PR 18a：`NowPlaying.speed` 固定 1.0；加速度選單時 publisher 要接控制器的速度，否則系統推算的進度會偏。
 - [ ] `AudioService.init` 的 `configure` 等媒體服務連上才回；一直連不上時 `main()` 會卡在 `runApp` 之前。沒有 repro，沒加 timeout。
 - [ ] publisher 建好前（`playbackControllerProvider` 還沒被讀）送來的媒體鍵會被丟掉。
 - [ ] 通知頻道名稱固定 `FMP`，沒有翻譯（舊版有）。
@@ -733,7 +734,14 @@ PR 17 留下的：
 - [ ] 輸出裝置失敗改用系統預設沒有實機驗（Windows 停用裝置要系統管理員權限）；M2 驗收時拔一次真的 USB／藍牙裝置。
 - [ ] `_useSystemOutput` 在等來源停下的幾毫秒內，使用者剛好選了別的裝置，會被改回系統預設（理論上的競態，寫不出重現條件）。
 - [ ] 焦點在播放列按鈕或選單項目上時，空白鍵是播放／暫停，不是觸發那個按鈕（Enter 才是）；照 ADR 字面與 M1，記下。
-- [ ] PR 18a：點播放列空白處開播放頁、Ctrl+L／Q、Esc 關播放頁；播放頁那層 `PlaybackShortcuts`。
+- [x] PR 18a：點播放列空白處開播放頁、Ctrl+L／Q、Esc 關播放頁；播放頁那層 `PlaybackShortcuts`。
+
+PR 18a 留下的：
+
+- [ ] 播放頁開著時旋轉螢幕或安全區改變，提示的底部位移不更新（外殼只在開頁那一刻讀 `viewPadding.bottom`）。
+- [ ] `setSpeed` 選同一個值也發 `speedChanges`（publisher 會去重，沒有實際影響）。
+- [ ] 既有、不是 PR 18a 造成：Windows `install_search_play_test.dart` 收尾時偶爾記一筆 `CouldNotRollBackException`（堆疊在 `PlayHistoryRecorder._write`），是第二首交接後 `record` 還在跑時 `close()` 關了資料庫；`main` 的 CI（PR #213、#214 的 run）也有。錯誤若在測試檢查「沒有 error log」之前落地會偶發失敗；可改成 dispose 時等寫入完成。
+- [ ] 播放頁的 F6 在實機只靠 widget 測試，沒有逐區確認焦點。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
