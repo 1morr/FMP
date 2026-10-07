@@ -23,6 +23,12 @@ typedef NextTrack = ({int? index, TrackKeyParts track});
 /// 裝置失敗）不過濾，照樣轉成 [SessionEvent]。後端的 stream 本身是非同步送達
 /// 的，所以不會在處理一個事件的途中再收到下一個。位置轉成 [progress]。
 ///
+/// [progress] 一直是目前這首的：開始要求一首（[beginRequest]）與交給後端
+/// （[open]、[openNextCandidate]）時先發出起點，不等後端。後端只保證播放中與
+/// seek 後回報（[AudioBackend.progress]），暫停中開的來源可能到按播放前都不
+/// 回報（ExoPlayer），不先發的話 stream 留著上一首的位置與時長。同一首重開
+/// （重試、換候選）時沿用已知的時長，其他是 `null`（還不知道）。
+///
 /// 前瞻（ADR 0018 §決定 3、6）：目前這首載入好之後，解析下一首一次、交給後端
 /// 的 [AudioBackend.setNext]；後端自己接上（[LookAheadTookOver]），接上的那首不
 /// 再解析。佇列改了（[retargetLookAhead]）就改指新的下一首。單曲循環時前瞻是
@@ -71,6 +77,9 @@ final class PlaybackSession {
   /// 前瞻的要求編號：較新的要求（佇列改了）蓋掉還在解析的舊要求。
   int _lookAheadRequest = 0;
 
+  /// [progress] 最後發出的是哪一首與它的時長：同一首重開時沿用時長。
+  ({TrackKeyParts track, Duration? duration})? _progressOf;
+
   // 交接的量測（實機驗證用，見 app/AGENTS.md § 播放）。
   DateTime? _requestedAt;
   _Handover? _handover;
@@ -108,11 +117,13 @@ final class PlaybackSession {
     return _generation;
   }
 
-  /// 開始要求一首：[newGeneration]，並從這裡量到出聲。
-  int beginRequest() {
+  /// 開始要求 [track]、從 [position] 開始：[newGeneration]，[progress] 先發出
+  /// 這個起點，並從這裡量到出聲。
+  int beginRequest(TrackKeyParts track, {required Duration position}) {
     final generation = newGeneration();
     _handover = null;
     _requestedAt = clock.now();
+    _startProgress(track, position);
     return generation;
   }
 
@@ -184,6 +195,8 @@ final class PlaybackSession {
       stream: stream,
       candidate: candidate,
     );
+    // 解析期間的 seek 改了起點；暫停中開的來源後端可能不回報（見類別說明）。
+    _startProgress(stream.track, position);
     _log.info(
       'Opening stream',
       tag: _tag,
@@ -416,6 +429,19 @@ final class PlaybackSession {
     return lookAhead.index == null;
   }
 
+  /// [progress] 發出 [track] 從 [position] 開始；時長只在同一首時沿用。不是
+  /// 後端的回報，所以不設 [position]、不算出聲。
+  void _startProgress(TrackKeyParts track, Duration position) {
+    final previous = _progressOf;
+    final duration = previous != null && previous.track == track
+        ? previous.duration
+        : null;
+    _progressOf = (track: track, duration: duration);
+    if (!_progress.isClosed) {
+      _progress.add(PlaybackProgress(position: position, duration: duration));
+    }
+  }
+
   void _clearLookAhead() {
     _lookAhead?.refresh?.cancel();
     _lookAhead = null;
@@ -453,6 +479,7 @@ final class PlaybackSession {
     if (current == null || sourceProgress.sourceId != current.sourceId) return;
     final progress = sourceProgress.progress;
     current.progress = progress;
+    _progressOf = (track: current.stream.track, duration: progress.duration);
     final now = clock.now();
     _lastProgressAt = now;
     if (!current.audible && progress.position > Duration.zero) {

@@ -114,7 +114,10 @@ final class FakeAudioBackend implements AudioBackend {
     }
     _loaded = true;
     _emitStatus(BackendPhase.ready);
-    _emitProgress();
+    // 暫停中開的來源不回報位置，到播放或 seek 才有（just_audio 的形狀：它的
+    // positionStream 只在播放中與引擎事件時發出，載入的事件在清單修改期間被
+    // 丟掉）。契約只保證播放中與 seek 後回報。
+    if (play) _emitProgress();
     _schedule();
   }
 

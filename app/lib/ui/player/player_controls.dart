@@ -224,11 +224,13 @@ class _ProgressRowState extends ConsumerState<ProgressRow> {
     // 前的歌），不是這首。按播放從哪裡開始就顯示哪裡：啟動恢復後還沒播（含先臨時
     // 播放、結束後停著）是恢復的位置，拖動就是改起點（沒有來源時控制器的 seek 改
     // 的是它）；其他從頭開始，不能拖。時長是曲目的。
+    // 有來源時進度 stream 一開始只有起點、沒有時長（暫停中載入的來源，Android
+    // 到按播放前都不回報），時長同樣先用曲目的。
     if (idle) ref.watch(playbackSeeksProvider);
     final restored = idle
         ? ref.read(playbackControllerProvider).restoredPosition
         : null;
-    final duration = idle ? current?.duration : progress?.duration;
+    final duration = (idle ? null : progress?.duration) ?? current?.duration;
     final startsAt = idle
         ? restored ?? Duration.zero
         : progress?.position ?? Duration.zero;

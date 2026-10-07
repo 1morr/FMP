@@ -217,6 +217,8 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
 - 控制器：`test/playback/playback_controller_test.dart` 的 `Harness` 在 `fakeAsync` 裡組控制器、
   `FakeAudioBackend`（計時器推進位置，所以假時間也會播完）與 `FakeSourcePlugin`（依請求回候選
   或丟 `AppError`，記下每次請求）。`h.elapse` 前進時間，`h.settle` 只跑微任務。
+- 假後端照 ExoPlayer 的形狀：暫停中 `open` 的來源不回報位置，到 `play` 或 `seek` 才有；之前進度 stream 上
+  只有 session 先發的起點（時長 `null`）。斷言進度就訂閱 `h.controller.progress` 收下每一筆。
 - 解析次數用 `plugin.resolvedCount(sourceId)`；開了哪些網址用 `h.openedPaths`（起點
   `backend.openedAt`）；前瞻用 `backend.nextSources`；log 用 `h.logged(message)`；控制器的事件
   用 `h.events`。佇列從 `h.playQueue(tracks, startIndex:)` 開始（加入再 `jumpTo`）；臨時播放回到

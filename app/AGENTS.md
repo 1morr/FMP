@@ -756,6 +756,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   只對 127.0.0.1 放行明文，release 不合併這份。閘門：`test/identity/android_identity_test.dart` 的
   `cleartext traffic` 群組（只有 debug 的 manifest 指向設定、只有 debug 有設定檔、只放行
   127.0.0.1）與 `parser mutations` 的三個明文案例。
+- 進度 stream（`PlaybackController.progress`，來自 session）一直是目前這首的：後端只保證播放中與 seek 後回報
+  （`AudioBackend.progress`），ExoPlayer 對暫停中開的來源到按播放前都不回報（just_audio 0.10.6 的
+  `positionStream` 只在播放中與引擎事件時發出，載入的那些事件落在 `JustAudioBackend` 的清單修改期間、被丟掉；
+  M2 驗收 2026-10-08 實機：臨時播放結束、佇列那首只載入不播，進度條停在臨時曲目的位置與時長）。所以 session
+  在開始要求一首（`beginRequest`）與交給後端（`_open`）時先發出起點，不等後端；時長在同一首重開（重試、換
+  候選）時沿用，換了一首是 `null`。假後端照 ExoPlayer 的形狀：暫停中 `open` 不回報位置。閘門：
+  `playback_controller_test.dart` 的 `progress of the current song` 群組（暫停中換歌、解析中、解析中 seek、
+  重試沿用時長）與 `temporary play` 群組的 `a queue that was paused reports its own start…`。
 - 臨時播放中不準備前瞻（舊版「臨時播放不預取」）：臨時曲目播完回到的那一首要從快照的位置
   開始，不能由引擎從頭接上。閘門：`temporary play` 群組的 `prepares no look-ahead…`。
 - 單曲循環：前瞻是目前這首的同一份解析結果（`NextTrack` 的位置為 `null`），引擎無縫重播，
@@ -1214,6 +1222,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   其他是 0:00、不能拖（按播放從頭開始）；時長未知時維持不能拖的樣子。閘門：`player_bar_test.dart` 的
   `after a restore` 群組（含臨時播放之後、沒有恢復的 `Idle`）、`app_shell_test.dart` 的 `Shift+arrows
   move the restored start…`。
+- 進度條在有來源的狀態讀進度 stream（一直是目前這首的，見 § 播放的「進度 stream」）；時長還沒回報（`null`，
+  暫停中載入的那首在 Android 到按播放前都是）時用曲目的時長（`TrackInfo.duration`），所以照樣能拖。閘門：
+  `player_bar_test.dart` 的 `a song loaded paused after a temporary play shows its own start and length…`
+  （M2 驗收 2026-10-08 的情境）。
 - 播放列的狀態標示（ADR 0018 §決定 7）：「等待網路連線」（`Retrying` 的 `delay` 為空）、「重試中」
   （其他 `Retrying`）、「試聽」（`playbackPreviewProvider`）以主色寫在曲名下那一行、上傳者之前，
   一行放不下就省略，三段寬度都在曲名欄裡、不另佔位置；狀態是 live region。閘門：

@@ -676,7 +676,7 @@ final class PlaybackController {
     final track = _queue.state.current;
     if (track == null) return;
     final key = track.key;
-    final generation = _session.beginRequest();
+    final generation = _session.beginRequest(key, position: position);
     _cancelRetry();
     _resumeAt = position;
     _playedSinceLoad = Duration.zero;
