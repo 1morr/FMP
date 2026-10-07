@@ -6,28 +6,6 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 從曲目的多尺寸封面（插件給的，ADR 0016 §決定 4）挑一張：寬度不小於 [pixels] 的
-/// 裡面最小的；都比它小時，先取沒標寬度的（插件多半只給原圖，例如 B 站），
-/// 再來才是最大的那張。沒有封面就是 `null`。
-TrackArtwork? pickArtwork(List<TrackArtwork> artwork, double pixels) {
-  TrackArtwork? smallestEnough;
-  TrackArtwork? largest;
-  TrackArtwork? unknown;
-  for (final candidate in artwork) {
-    final width = candidate.width;
-    if (width == null) {
-      unknown ??= candidate;
-    } else if (width >= pixels) {
-      if (smallestEnough == null || width < smallestEnough.width!) {
-        smallestEnough = candidate;
-      }
-    } else if (largest == null || width > largest.width!) {
-      largest = candidate;
-    }
-  }
-  return smallestEnough ?? unknown ?? largest;
-}
-
 /// 方形的封面縮圖；沒有封面、載入中與載入失敗時是同一個佔位圖。
 ///
 /// 圖片經 [pluginId] 的 cache manager（`artworkCacheManagerProvider`）讀：先看

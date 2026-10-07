@@ -7,13 +7,17 @@ import 'package:fmp/app/app_lifecycle.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/domain/stream_preferences.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
+import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/audio_backends.dart';
+import 'package:fmp/playback/now_playing_publisher.dart';
 import 'package:fmp/playback/play_history_recorder.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_events.dart';
@@ -22,6 +26,7 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_store.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/stream_resolver.dart';
+import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/settings/playback_settings.dart';
 
@@ -136,7 +141,20 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
         (await ref.read(playbackPreferencesProvider.future)).playHistoryLimit,
     log: log,
   )..listen(controller.plays);
+  // 系統媒體控制（design §8.2）：平台宣告有而且初始化成功才建。
+  final mediaControls =
+      ref.read(platformCapabilitiesProvider).mediaControls == null
+      ? null
+      : ref.read(systemMediaControlsProvider);
+  final publisher = mediaControls == null
+      ? null
+      : (NowPlayingPublisher(
+          controls: mediaControls,
+          artworkFile: (track) => _artworkFile(ref, track),
+          log: log,
+        )..attach(controller));
   ref.onDispose(() {
+    publisher?.dispose();
     recorder.dispose();
     store.dispose();
     unawaited(lifecycleChanges.close());
@@ -145,6 +163,23 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
   });
   return controller;
 });
+
+/// 系統媒體控制的封面：[track] 的封面經它的插件的 cache manager 取得本機檔
+/// （統一快取庫、每跳檢查、大小上限都套用）。通知上的封面較大，挑 512 px。
+///
+/// 快取庫第一次被讀時才開、插件清單在啟動時載入：啟動恢復的那首在兩者好之前就要
+/// 封面，所以先等它們（快取庫開不起來就丟出，publisher 當作沒有封面）。publisher
+/// 每首只問一次，這時回 `null` 那首在通知上就一直沒有封面。
+Future<Uri?> _artworkFile(Ref ref, TrackInfo track) async {
+  final picked = pickArtwork(track.artwork, 512);
+  if (picked == null) return null;
+  await ref.read(cacheStoreProvider.future);
+  await ref.read(pluginRegistryProvider.future);
+  final manager = ref.read(artworkCacheManagerProvider(track.sourceTypeId));
+  if (manager == null) return null;
+  final file = await manager.getSingleFile(picked.url.toString());
+  return file.uri;
+}
 
 /// 播放狀態：先給目前的值，之後每次改變。
 final playbackStateProvider = StreamProvider<PlaybackState>((ref) async* {

@@ -21,6 +21,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
+import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
@@ -28,7 +29,7 @@ import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
   final flavor = AppFlavor.parse(appFlavor);
-  final platform = AppPlatform.current(flavor);
+  var platform = AppPlatform.current(flavor);
   // 沒有資料目錄的平台不啟動資料層，也沒有 log 檔（能力宣告 dataDirectory 為假）。
   final directory = await platform.dataDirectory?.resolve();
   final redactor = Redactor();
@@ -88,6 +89,15 @@ Future<void> main(List<String> arguments) async {
     );
     return;
   }
+  // 系統媒體控制在資料庫開好之後初始化；失敗就宣告為沒有，App 照常啟動。
+  platform = await platform.withMediaControls(
+    onFailure: (error, stackTrace) => log.error(
+      'Failed to start the system media controls',
+      tag: 'platform',
+      error: error,
+      stackTrace: stackTrace,
+    ),
+  );
   // 開好的資料庫與資料目錄只從這裡注入，其他地方不自己開。
   runApp(
     appProviderScope(
@@ -98,6 +108,7 @@ Future<void> main(List<String> arguments) async {
         redactorProvider.overrideWithValue(redactor),
         platformCapabilitiesProvider.overrideWithValue(platform.capabilities),
         networkInterfacesProvider.overrideWithValue(platform.networkInterfaces),
+        systemMediaControlsProvider.overrideWithValue(platform.mediaControls),
         // 快取目錄只交給快取模組開（cacheStoreProvider）；開不起來 App 照常。
         cacheDirectoryProvider.overrideWithValue(platform.cacheDirectory!),
         // 插件的開發入口只在 dev（devPluginPath 在 prod 回 null；理由見

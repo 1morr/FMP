@@ -1,9 +1,15 @@
+import 'dart:async';
+
+import 'package:file/file.dart';
+import 'package:file/memory.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
@@ -15,15 +21,19 @@ import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
+import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 
+import '../data/cache/cache_harness.dart';
 import '../support/fake_network_interfaces.dart';
 import '../support/memory_database.dart';
 import '../support/pump_until.dart';
 import 'fake_audio_backend.dart';
+import 'fake_media_controls.dart';
 import 'fake_source_plugin.dart';
 
 /// 組裝點（`playbackControllerProvider`）的接線：資料庫裡的佇列與「播放」設定怎麼
@@ -47,9 +57,12 @@ void main() {
     AppDatabase database, {
     required FakeAudioBackend backend,
     FakeSourcePlugin? plugin,
+    FakeMediaControls? mediaControls,
+    List<Override> overrides = const [],
   }) async {
     final container = ProviderContainer(
       overrides: [
+        ...overrides,
         if (plugin != null)
           pluginRegistryProvider.overrideWithBuild(
             (ref, notifier) => {plugin.manifest.id: plugin},
@@ -60,22 +73,26 @@ void main() {
         ),
         networkInterfacesProvider.overrideWithValue(FakeNetworkInterfaces()),
         audioBackendProvider.overrideWithValue(backend),
+        systemMediaControlsProvider.overrideWithValue(mediaControls),
         platformCapabilitiesProvider.overrideWithValue(
-          const PlatformCapabilities(
+          PlatformCapabilities(
             dataDirectory: true,
             singleInstance: false,
             fontFallback: FontFallback.none,
-            playback: PlaybackSupport(
+            playback: const PlaybackSupport(
               backend: AudioBackendKind.justAudio,
               formats: [PlayableFormat('mp4', 'aac')],
               outputDeviceSelection: false,
             ),
             networkInterfaces: false,
-            cache: CacheSizes(
+            cache: const CacheSizes(
               defaultLimitMebibytes: 1,
               memoryImages: 1,
               memoryImageMebibytes: 1,
             ),
+            mediaControls: mediaControls == null
+                ? null
+                : const MediaControlsSupport(supportsSeek: true),
           ),
         ),
       ],
@@ -152,6 +169,103 @@ void main() {
     expect(controller.state, isA<Idle>());
   });
 
+  // design §8.2：平台宣告有系統媒體控制才建 publisher，系統指令經控制器。
+  group('system media controls', () {
+    test('a declared capability publishes the restored queue and takes '
+        'commands', () async {
+      final database = memoryDatabase();
+      await seed(database);
+      final controls = FakeMediaControls();
+      final plugin = FakeSourcePlugin(
+        (request) => [candidate('${request.sourceId}.m4a')],
+      );
+      final container = await start(
+        database,
+        backend: FakeAudioBackend(),
+        plugin: plugin,
+        mediaControls: controls,
+      );
+      container.listen(playbackControllerProvider, (_, _) {});
+      final controller = container.read(playbackControllerProvider);
+      await pumpUntil(() => controller.queue.entries.isNotEmpty);
+      await settle();
+
+      expect(controls.published.last.title, 'Song b');
+      expect(controls.published.last.phase, MediaPhase.idle);
+
+      controls.send(const MediaPlay());
+      await pumpUntil(() => controller.state is Playing);
+    });
+
+    // 啟動恢復時快取庫（第一次被讀才開）多半還沒開好：封面要等它，不然恢復的那首
+    // 在通知上一直沒有封面（同一首不會再拿一次）。
+    test(
+      'the artwork of the restored song waits for the cache store',
+      () async {
+        final database = memoryDatabase();
+        TrackInfo withArt(String id) => TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: id,
+          title: 'Song $id',
+          artwork: [
+            TrackArtwork(url: Uri.parse('https://img.example/$id.jpg')),
+          ],
+        );
+        await QueueRepository(database).write(
+          edit: QueueRangeEdit(
+            from: 0,
+            removed: 0,
+            inserted: [withArt('a'), withArt('b')],
+          ),
+          player: player,
+        );
+        final store = Completer<CacheStore>();
+        final manager = _FakeArtworkManager();
+        final controls = FakeMediaControls();
+        final container = await start(
+          database,
+          backend: FakeAudioBackend(),
+          plugin: FakeSourcePlugin(
+            (request) => [candidate('${request.sourceId}.m4a')],
+          ),
+          mediaControls: controls,
+          overrides: [
+            cacheStoreProvider.overrideWith((ref) => store.future),
+            // 照真的 provider：快取庫還沒開好時沒有 cache manager。
+            artworkCacheManagerProvider.overrideWith(
+              (ref, pluginId) =>
+                  ref.watch(cacheStoreProvider).value == null ? null : manager,
+            ),
+          ],
+        );
+        container.listen(playbackControllerProvider, (_, _) {});
+        final controller = container.read(playbackControllerProvider);
+        await pumpUntil(() => controller.queue.entries.isNotEmpty);
+        await settle();
+        expect(controls.published.last.title, 'Song b');
+        expect(controls.published.last.artworkFile, isNull);
+
+        store.complete(await CacheHarness().open());
+        await pumpUntil(() => controls.published.last.artworkFile != null);
+
+        expect(controls.published.last.artworkFile, manager.file.uri);
+        expect(manager.requested, ['https://img.example/b.jpg']);
+      },
+    );
+
+    test('no capability, no publisher', () async {
+      final database = memoryDatabase();
+      await seed(database);
+      final container = await start(database, backend: FakeAudioBackend());
+      container.listen(playbackControllerProvider, (_, _) {});
+      final controller = container.read(playbackControllerProvider);
+
+      await pumpUntil(() => controller.queue.entries.isNotEmpty);
+      // systemMediaControlsProvider 被 override 成 null；沒讀它也沒丟錯。
+      expect(controller.state, isA<Idle>());
+    });
+  });
+
   // design §7.8：控制器報的播放由記錄者寫進歷史，保留筆數讀「播放」設定。
   group('play history', () {
     Future<List<String>> historyTitles(AppDatabase database) async => [
@@ -214,4 +328,24 @@ void main() {
       await historyBecomes(database, ['b']);
     });
   });
+}
+
+/// 只實作 `getSingleFile` 的 cache manager：每張圖都回同一個記憶體檔。
+final class _FakeArtworkManager implements BaseCacheManager {
+  final file = MemoryFileSystem().file('/covers/cover.jpg');
+  final requested = <String>[];
+
+  @override
+  Future<File> getSingleFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) async {
+    requested.add(url);
+    return file;
+  }
+
+  @override
+  Never noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
 }

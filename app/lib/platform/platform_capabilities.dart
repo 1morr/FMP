@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/media_controls/media_controls.dart';
 
 /// 目前平台的能力宣告。`main()` 以 `AppPlatform` 組出的宣告 override；沒
 /// override 就讀會拋錯。
@@ -27,6 +28,7 @@ final class PlatformCapabilities {
     required this.playback,
     required this.networkInterfaces,
     required this.cache,
+    this.mediaControls,
   });
 
   /// 還沒驗證的平台：什麼都沒有。
@@ -37,6 +39,7 @@ final class PlatformCapabilities {
     playback: null,
     networkInterfaces: false,
     cache: null,
+    mediaControls: null,
   );
 
   /// 有 App 資料目錄的實作（`app_data_directory/`）。沒有時 `main()` 不啟動
@@ -62,4 +65,18 @@ final class PlatformCapabilities {
   /// 記憶體 `ImageCache`（ADR 0016 §決定 3–4）。沒有時為 `null`，`ImageCache`
   /// 維持 Flutter 的預設。
   final CacheSizes? cache;
+
+  /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
+  /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
+  final MediaControlsSupport? mediaControls;
+
+  /// 同一份宣告，但系統媒體控制改為沒有（初始化失敗時）。
+  PlatformCapabilities withoutMediaControls() => PlatformCapabilities(
+    dataDirectory: dataDirectory,
+    singleInstance: singleInstance,
+    fontFallback: fontFallback,
+    playback: playback,
+    networkInterfaces: networkInterfaces,
+    cache: cache,
+  );
 }

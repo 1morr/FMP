@@ -13,6 +13,7 @@ import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
+import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 
 void main() {
@@ -41,6 +42,7 @@ void main() {
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
       expect(platform.capabilities.cache, same(androidCacheSizes));
       expect(platform.cacheDirectory, isA<CacheDirectory>());
+      expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
     });
 
     test('Windows has a data directory, a single instance, named fonts, '
@@ -65,6 +67,9 @@ void main() {
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
       expect(platform.capabilities.cache, same(windowsCacheSizes));
       expect(platform.cacheDirectory, isA<CacheDirectory>());
+      // Windows 的 SMTC 在 M2 PR 16b 才有。
+      expect(platform.capabilities.mediaControls, isNull);
+      expect(platform.mediaControls, isNull);
     });
 
     for (final unverified in [
@@ -84,6 +89,8 @@ void main() {
         expect(platform.networkInterfaces, isNull);
         expect(platform.capabilities.cache, isNull);
         expect(platform.cacheDirectory, isNull);
+        expect(platform.capabilities.mediaControls, isNull);
+        expect(platform.mediaControls, isNull);
         for (final language in FontLanguage.values) {
           expect(
             platform.capabilities.fontFallback.familiesFor(language),
@@ -92,6 +99,48 @@ void main() {
         }
       });
     }
+  });
+
+  group('system media controls on Android', () {
+    test(
+      'initializing keeps the declaration and exposes the controls',
+      () async {
+        final controls = _FakeControls();
+        final platform = await AppPlatform.assemble(
+          TargetPlatform.android,
+          AppFlavor.dev,
+          androidMediaControls: () async => controls,
+        ).withMediaControls(onFailure: (_, _) => fail('should not fail'));
+
+        expect(platform.mediaControls, same(controls));
+        expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
+      },
+    );
+
+    test('a failed initialization is logged and declares none', () async {
+      final failures = <Object>[];
+      final platform = await AppPlatform.assemble(
+        TargetPlatform.android,
+        AppFlavor.dev,
+        androidMediaControls: () async => throw StateError('no service'),
+      ).withMediaControls(onFailure: (error, _) => failures.add(error));
+
+      expect(failures, hasLength(1));
+      expect(platform.mediaControls, isNull);
+      expect(platform.capabilities.mediaControls, isNull);
+      // 其他能力不受影響。
+      expect(platform.capabilities.playback, same(androidPlaybackSupport));
+      expect(platform.dataDirectory, isA<AndroidAppDataDirectory>());
+    });
+
+    test('a platform without the capability initializes nothing', () async {
+      final platform = await AppPlatform.assemble(
+        TargetPlatform.windows,
+        AppFlavor.dev,
+      ).withMediaControls(onFailure: (_, _) => fail('should not run'));
+
+      expect(platform.mediaControls, isNull);
+    });
   });
 
   test('cache sizes follow ADR 0016 and the old app', () {
@@ -120,4 +169,15 @@ void main() {
       }
     },
   );
+}
+
+final class _FakeControls implements SystemMediaControls {
+  @override
+  Stream<MediaCommand> get commands => const Stream.empty();
+
+  @override
+  Future<void> publish(NowPlaying nowPlaying) async {}
+
+  @override
+  Future<void> dispose() async {}
 }
