@@ -41,6 +41,7 @@ void main() {
         skipPreviewClips: false,
         restartRewindSeconds: 15,
         playHistoryLimit: 5000,
+        autoScrollToCurrent: true,
       );
 
       for (final (quality, format, remember, rewind, skip) in [
@@ -56,6 +57,7 @@ void main() {
           defaultSkipPreviewClips: skip,
           defaultRestartRewindSeconds: rewind,
           defaultPlayHistoryLimit: skip ? 10000 : 1000,
+          defaultAutoScrollToCurrent: skip,
         );
         expect(resolved.audioQuality, AudioQuality.medium);
         expect(resolved.audioFormatPriority, AudioFormatPriority.aacFirst);
@@ -64,6 +66,7 @@ void main() {
         expect(resolved.skipPreviewClips, isFalse);
         expect(resolved.restartRewindSeconds, 15);
         expect(resolved.playHistoryLimit, 5000);
+        expect(resolved.autoScrollToCurrent, isTrue);
       }
     });
 
@@ -81,6 +84,7 @@ void main() {
           defaultSkipPreviewClips: skip,
           defaultRestartRewindSeconds: rewind,
           defaultPlayHistoryLimit: skip ? 10000 : 1000,
+          defaultAutoScrollToCurrent: skip,
         );
         expect(resolved.audioQuality, quality);
         expect(resolved.audioFormatPriority, format);
@@ -89,6 +93,7 @@ void main() {
         expect(resolved.skipPreviewClips, skip);
         expect(resolved.restartRewindSeconds, rewind);
         expect(resolved.playHistoryLimit, skip ? 10000 : 1000);
+        expect(resolved.autoScrollToCurrent, skip);
       }
     });
 
@@ -122,6 +127,7 @@ void main() {
         expect(events.current.skipPreviewClips, isTrue);
         expect(events.current.restartRewindSeconds, 0);
         expect(events.current.playHistoryLimit, 10000);
+        expect(events.current.autoScrollToCurrent, isFalse);
         expect(events.current.stored, PlaybackSettings.empty);
       },
     );
@@ -340,6 +346,42 @@ void main() {
         'temp_play_rewind_seconds': 5,
       });
     });
+
+    test(
+      'scrolling to the current song is written alone and cleared back',
+      () async {
+        final database = memoryDatabase();
+        final container = containerFor(database);
+        final events = preferences(container);
+        await events.moveNext();
+        final notifier = container.read(playbackPreferencesProvider.notifier);
+        Future<Map<String, Object?>> row() async =>
+            (await database
+                    .customSelect(
+                      'SELECT auto_scroll_to_current, play_history_limit '
+                      'FROM playback_settings',
+                    )
+                    .getSingle())
+                .data;
+
+        await notifier.setAutoScrollToCurrent(true);
+        expect(await events.moveNext(), isTrue);
+        expect(events.current.autoScrollToCurrent, isTrue);
+        expect(events.current.stored.autoScrollToCurrent, isTrue);
+        expect(await row(), {
+          'auto_scroll_to_current': 1,
+          'play_history_limit': null,
+        });
+
+        await notifier.setAutoScrollToCurrent(null);
+        expect(await events.moveNext(), isTrue);
+        expect(events.current.autoScrollToCurrent, isFalse);
+        expect(await row(), {
+          'auto_scroll_to_current': null,
+          'play_history_limit': null,
+        });
+      },
+    );
 
     test('the play history limit is written alone and cleared back', () async {
       final database = memoryDatabase();

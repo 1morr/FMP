@@ -1825,6 +1825,14 @@ void main() {
       });
     });
 
+    test('moving a song to play next', () {
+      fakeAsync((async) {
+        final h = playing(async, ['a', 'b', 'c', 'd']);
+        h.controller.moveToNext(3);
+        expectHandoverTo(h, 'd');
+      });
+    });
+
     test('adding to a queue that had no next song', () {
       fakeAsync((async) {
         final h = playing(async, ['a']);

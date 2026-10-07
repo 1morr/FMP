@@ -113,7 +113,20 @@
     "speedValue": "{speed}×",
     "detailsUploader": "Uploader",
     "detailsDuration": "Duration",
-    "detailsSource": "Source"
+    "detailsSource": "Source",
+    "queueTooltip": "Queue (Ctrl+Q)",
+    "queueCount": "{count} in queue",
+    "queueShuffleNote": "The shuffle order follows positions; dragging only swaps songs, not the order",
+    "queueClear": "Clear the queue",
+    "queueClearTitle": "Clear the queue?",
+    "queueClearBody": "Every song in the queue is removed and playback stops. Play history and settings are not affected.",
+    "queueClearConfirm": "Clear",
+    "queueCancel": "Cancel",
+    "queueCleared": "Queue cleared",
+    "queueMore": "More options",
+    "queuePlayNext": "Play next",
+    "queueRemove": "Remove from queue",
+    "queueReorder": "Drag to reorder"
   },
   "appearance": {
     "theme": "Theme",
@@ -146,7 +159,9 @@
     "restartRewindHint": "After reopening the app, resume a little before where you left off",
     "playHistoryLimit": "Play history to keep",
     "playHistoryLimitHint": "Older records are deleted automatically; lowering the number deletes them right away",
-    "playHistoryLimitOption": "{count} entries"
+    "playHistoryLimitOption": "{count} entries",
+    "autoScrollToCurrent": "Scroll to the current song when it changes",
+    "autoScrollToCurrentHint": "While the queue list is open, it scrolls to the song that starts playing"
   },
   "network": {
     "cacheLimit": "Cache limit",

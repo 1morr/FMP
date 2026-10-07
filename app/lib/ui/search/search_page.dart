@@ -16,6 +16,7 @@ import 'package:fmp/ui/search/source_chips.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 搜尋頁：輸入框、音源 chip 列、結果列表。點一首是臨時播放（D1）：不動佇列，
 /// 播完回到佇列。每首的選單（右鍵、長按、尾端「⋯」）有播放、下一首播放、加入
@@ -210,128 +211,71 @@ class _ResultList extends ConsumerWidget {
 }
 
 /// 一首搜尋結果：封面、曲名、上傳者、時長、「⋯」。點一下臨時播放；選單在
-/// 右鍵、長按與「⋯」，三處同一份。
-class _TrackTile extends ConsumerStatefulWidget {
+/// 右鍵、長按與「⋯」，三處同一份（[TrackRowMenu]）。
+class _TrackTile extends ConsumerWidget {
   const _TrackTile({required this.track});
 
   final TrackInfo track;
 
   @override
-  ConsumerState<_TrackTile> createState() => _TrackTileState();
-}
-
-class _TrackTileState extends ConsumerState<_TrackTile> {
-  final _menu = MenuController();
-
-  /// 「⋯」的位置，選單從它下方開。
-  final _moreKey = GlobalKey();
-
-  /// 「⋯」的焦點，也是選單的 `childFocusNode`：選單打開時焦點移到這裡（選單的
-  /// 快捷鍵之內），以滑鼠、右鍵或長按打開的也能以 Esc 關掉、以方向鍵進入選單。
-  final _moreFocus = FocusNode(debugLabel: 'more');
-
-  @override
-  void dispose() {
-    _moreFocus.dispose();
-    super.dispose();
-  }
-
-  void _play() => unawaited(
-    ref.read(playbackControllerProvider).playTemporary(widget.track),
-  );
-
-  void _playNext() {
-    if (ref.read(playbackControllerProvider).playNext([widget.track])) {
-      ref
-          .read(toasterProvider)
-          .success(ref.read(translationsProvider).search.addedToNext);
-    }
-  }
-
-  void _addToQueue() {
-    if (ref.read(playbackControllerProvider).addToQueue([widget.track])) {
-      ref
-          .read(toasterProvider)
-          .success(ref.read(translationsProvider).search.addedToQueue);
-    }
-  }
-
-  /// 在列內的 [position]（沒給就是「⋯」下方）開選單。
-  void _openMenu([Offset? position]) {
-    if (position == null) {
-      final tile = context.findRenderObject() as RenderBox?;
-      final more = _moreKey.currentContext?.findRenderObject() as RenderBox?;
-      if (tile != null && more != null) {
-        position = more.localToGlobal(
-          Offset(0, more.size.height),
-          ancestor: tile,
-        );
-      }
-    }
-    _menu.open(position: position);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).search;
-    final track = widget.track;
     final uploader = track.uploader;
     final duration = track.duration;
-    return MenuAnchor(
-      controller: _menu,
-      childFocusNode: _moreFocus,
+
+    void play() =>
+        unawaited(ref.read(playbackControllerProvider).playTemporary(track));
+
+    void playNext() {
+      if (ref.read(playbackControllerProvider).playNext([track])) {
+        ref.read(toasterProvider).success(t.addedToNext);
+      }
+    }
+
+    void addToQueue() {
+      if (ref.read(playbackControllerProvider).addToQueue([track])) {
+        ref.read(toasterProvider).success(t.addedToQueue);
+      }
+    }
+
+    return TrackRowMenu(
+      moreTooltip: t.more,
       menuChildren: [
         MenuItemButton(
           leadingIcon: const Icon(Icons.play_arrow),
-          onPressed: _play,
+          onPressed: play,
           child: Text(t.play),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.queue_play_next),
-          onPressed: _playNext,
+          onPressed: playNext,
           child: Text(t.playNext),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.add_to_queue),
-          onPressed: _addToQueue,
+          onPressed: addToQueue,
           child: Text(t.addToQueue),
         ),
       ],
-      child: GestureDetector(
-        onSecondaryTapUp: (details) => _openMenu(details.localPosition),
-        // 右鍵的辨識器會在語意樹多一個沒有名稱的點擊動作；同一份選單由「⋯」
-        // 提供給輔助技術。
-        excludeFromSemantics: true,
-        child: ListTile(
-          leading: ArtworkImage(
-            pluginId: track.sourceTypeId,
-            artwork: track.artwork,
-            size: AppLayout.artworkThumbnail,
-          ),
-          title: Text(
-            track.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: uploader == null
-              ? null
-              : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (duration != null) Text(formatDuration(duration)),
-              IconButton(
-                key: _moreKey,
-                focusNode: _moreFocus,
-                tooltip: t.more,
-                icon: const Icon(Icons.more_vert),
-                onPressed: _openMenu,
-              ),
-            ],
-          ),
-          onTap: _play,
-          onLongPress: _openMenu,
+      builder: (context, more, openMenu) => ListTile(
+        leading: ArtworkImage(
+          pluginId: track.sourceTypeId,
+          artwork: track.artwork,
+          size: AppLayout.artworkThumbnail,
         ),
+        title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: uploader == null
+            ? null
+            : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (duration != null) Text(formatDuration(duration)),
+            more,
+          ],
+        ),
+        onTap: play,
+        onLongPress: openMenu,
       ),
     );
   }

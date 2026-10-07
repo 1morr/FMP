@@ -12,6 +12,7 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -437,15 +438,19 @@ void main() {
         expect(find.text('No lyrics'), findsNothing);
       });
 
-      testWidgets('$name: Ctrl+L shows the lyrics, Ctrl+Q does nothing', (
-        tester,
-      ) async {
+      testWidgets('$name: Ctrl+L shows the lyrics, Ctrl+Q opens the queue '
+          'sheet', (tester) async {
         await _pumpPlaying(tester, size: size);
         await _openByTap(tester);
 
         await _chord(tester, LogicalKeyboardKey.keyQ);
+        await tester.pumpAndSettle();
+        expect(find.byType(QueueView), findsOneWidget);
         expect(find.text('No lyrics'), findsNothing);
         expect(find.byType(TabBar), findsNothing);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(QueueView), findsNothing);
 
         await _chord(tester, LogicalKeyboardKey.keyL);
         expect(find.text('No lyrics'), findsOneWidget);
@@ -601,8 +606,10 @@ void main() {
       await tester.tap(find.widgetWithText(Tab, 'Queue'));
       await tester.pumpAndSettle();
 
-      final list = tester.widget<ListView>(find.byType(ListView));
-      expect(list.controller!.offset, 98 * list.itemExtent!);
+      final list = tester.widget<ReorderableListView>(
+        find.byType(ReorderableListView),
+      );
+      expect(list.scrollController!.offset, 98 * list.itemExtent!);
       expect(
         tester.widget<ListTile>(find.widgetWithText(ListTile, 'Song t100')),
         isA<ListTile>().having((tile) => tile.selected, 'selected', isTrue),

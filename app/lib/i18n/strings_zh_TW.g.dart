@@ -443,6 +443,45 @@ class Translations$playerPage$zh_TW {
 
   /// zh-TW: '音源'
   String get detailsSource => '音源';
+
+  /// zh-TW: '佇列（Ctrl+Q）'
+  String get queueTooltip => '佇列（Ctrl+Q）';
+
+  /// zh-TW: '共 {count} 首'
+  String queueCount({required Object count}) => '共 ${count} 首';
+
+  /// zh-TW: '隨機順序跟著位置；拖曳只換歌，不改順序'
+  String get queueShuffleNote => '隨機順序跟著位置；拖曳只換歌，不改順序';
+
+  /// zh-TW: '清空佇列'
+  String get queueClear => '清空佇列';
+
+  /// zh-TW: '清空佇列？'
+  String get queueClearTitle => '清空佇列？';
+
+  /// zh-TW: '佇列裡的歌都會移除並停止播放。播放歷史與設定不受影響。'
+  String get queueClearBody => '佇列裡的歌都會移除並停止播放。播放歷史與設定不受影響。';
+
+  /// zh-TW: '清空'
+  String get queueClearConfirm => '清空';
+
+  /// zh-TW: '取消'
+  String get queueCancel => '取消';
+
+  /// zh-TW: '已清空佇列'
+  String get queueCleared => '已清空佇列';
+
+  /// zh-TW: '更多選項'
+  String get queueMore => '更多選項';
+
+  /// zh-TW: '下一首播放'
+  String get queuePlayNext => '下一首播放';
+
+  /// zh-TW: '從佇列移除'
+  String get queueRemove => '從佇列移除';
+
+  /// zh-TW: '拖曳以重新排列'
+  String get queueReorder => '拖曳以重新排列';
 }
 
 // Path: appearance
@@ -548,6 +587,12 @@ class Translations$playback$zh_TW {
 
   /// zh-TW: '{count} 筆'
   String playHistoryLimitOption({required Object count}) => '${count} 筆';
+
+  /// zh-TW: '切歌時捲到目前歌曲'
+  String get autoScrollToCurrent => '切歌時捲到目前歌曲';
+
+  /// zh-TW: '佇列清單開著時，換歌後自動捲到正在播放的那一首'
+  String get autoScrollToCurrentHint => '佇列清單開著時，換歌後自動捲到正在播放的那一首';
 }
 
 // Path: network

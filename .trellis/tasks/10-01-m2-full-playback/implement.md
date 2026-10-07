@@ -63,8 +63,9 @@
 - **PR 15 已合併**：#212（`7862559e`）：擁有者定了移除單筆、列的副標、只有清除全部提示。審查修了「讀下一頁時剛好記了一筆，清單重複一列、漏掉新的」「dispose 後仍寫入」；主對話另定讀取失敗不顯示成「沒有紀錄」（design §7.8）。實機兩平台（重播）通過：恢復後第一次不記、交接與單曲循環每圈一筆、臨時播放一筆、回到佇列不記，歷史頁「今天」分組、點一列臨時播放、移除單筆、清除全部（確認框、取消不清、提示）、重開仍在。
 - **PR 16a 已合併**：#213（`e5cfa91b`）：擁有者定停止＝暫停。審查修了「啟動恢復那首在通知上一直沒有封面」，並把 `pickArtwork` 移到 domain、加了 playback→ui 的 lint。實機（Android，重播＋一次真實 B 站搜尋與播放看封面）通過；鎖定畫面沒驗（模擬器沒設螢幕鎖）。
 - **PR 17 已合併**：#214（`bab877df`）：擁有者定輸出裝置失敗改用系統預設。審查修了「臨時播放後進度條顯示錯的位置」「Shift+←／→ 在恢復狀態無效或蓋掉恢復位置」「滑鼠打開的選單按 Esc 關不掉」，並把提示分成兩句。實機兩平台（重播）通過；Windows 的裝置停用要系統管理員權限，裝置失敗的退回沒有實機驗。
-- **PR 18a 完成、待合併**（2026-10-07；分支 `feat/app-player-page`，子任務 `.trellis/tasks/10-07-player-page`）：主對話定佇列分頁先做唯讀清單＋點選跳到、「切換右側面板」延到 PR 19（`layout_state` 這次就含面板兩欄）、左上角收合鈕關閉；實作期推定的決定（預設歌詞分頁、route 自己設開關狀態、遮罩用 `surface`、「⋯」在控制列最後、compact 的切換不寫記憶、佇列分頁捲到目前這首前兩列）主對話接受，記在 design §9.3 末段。審查（opus）修了「關閉轉場中又開一頁，狀態被舊頁設成沒開、焦點被搶走」「第一幀前佇列就空了，留下關不掉的空白頁」「播放列點擊區沒有按鈕語意」，補了五條文件宣稱卻沒有測試的閘門。`flutter test` 1712 通過、2 跳過；Windows 的 `toast_layering_test.dart`、`install_search_play_test.dart` 與 Android 的 `toast_layering_test.dart` 通過。實機兩平台（重播）通過：Windows 點曲名與 Ctrl+Q 開頁、compact（700 px）／medium／expanded（1500 px）／large（1920 px）／extraLarge（2450 px）五種版面、compact 點封面切歌詞且不覆寫記憶、Esc 先關選單再關頁、焦點回到播放列、速度 1.5× 打勾、播放頁上的試聽提示貼底；Android 直向五個控制、點封面切歌詞、返回鍵只關播放頁。F6 只有 widget 測試。
-- **下一步**：18b（佇列分頁與底部面板）、16b、19。
+- **PR 18a 已合併**：#215（`cfde4a16`）。主對話定佇列分頁先做唯讀清單＋點選跳到、「切換右側面板」延到 PR 19（`layout_state` 這次就含面板兩欄）、左上角收合鈕關閉；實作期推定的決定（預設歌詞分頁、route 自己設開關狀態、遮罩用 `surface`、「⋯」在控制列最後、compact 的切換不寫記憶、佇列分頁捲到目前這首前兩列）主對話接受，記在 design §9.3 末段。審查（opus）修了「關閉轉場中又開一頁，狀態被舊頁設成沒開、焦點被搶走」「第一幀前佇列就空了，留下關不掉的空白頁」「播放列點擊區沒有按鈕語意」，補了五條文件宣稱卻沒有測試的閘門。`flutter test` 1712 通過、2 跳過；Windows 的 `toast_layering_test.dart`、`install_search_play_test.dart` 與 Android 的 `toast_layering_test.dart` 通過。實機兩平台（重播）通過：Windows 點曲名與 Ctrl+Q 開頁、compact（700 px）／medium／expanded（1500 px）／large（1920 px）／extraLarge（2450 px）五種版面、compact 點封面切歌詞且不覆寫記憶、Esc 先關選單再關頁、焦點回到播放列、速度 1.5× 打勾、播放頁上的試聽提示貼底；Android 直向五個控制、點封面切歌詞、返回鍵只關播放頁。F6 只有 widget 測試。
+- **PR 18b 完成、待合併**（2026-10-07；分支 `feat/app-queue-tab`，子任務 `.trellis/tasks/10-07-queue-tab`）：擁有者定佇列入口在播放頁右上角；主對話定 `moveToNext`（移除再以下一首播放加回，隨機時排序也移過去）、移除不提示清空才提示、三處列選單共用 `TrackRowMenu`、底部面板包 `PlaybackShortcuts`（design §7.3 末段）。審查（opus）修了「compact 清空後提示壓在底部導覽上」「拖曳被取消後自動捲動永遠失效」，並補了幾條原本沒驗到東西的測試。`flutter test` 1772 通過、2 跳過；Windows 兩個整合測試通過。實機兩平台（重播）通過：Windows 隨機下「下一首播放」後 Ctrl+→ 播的就是它、拖曳目前這首仍是目前這首、F6／Tab 到列 Enter 跳到、焦點在列上空白鍵是暫停、移除不提示、清空確認後頁面關閉並提示、medium（1100 px）Ctrl+Q 開頁加面板、面板內空白鍵播放暫停、Esc 只關面板；Android 右上角入口開面板、把手拖曳、長按選單的「下一首播放」、「⋯」移除、返回鍵只關面板、清空的提示在導覽列之上。
+- **下一步**：16b、19。
 - **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **adb 可能多出別的裝置**（10-07 出現 `127.0.0.1:16384`，不是我們的模擬器）：一律 `export ANDROID_SERIAL=emulator-5554` 或 `adb -s`，`ax_flatten.py` 加 `--device`，不要碰別的裝置。
@@ -557,13 +558,13 @@
 
 ## 18b. 佇列分頁與底部面板（design §7.3）
 
-- [ ] 播放頁的佇列分頁、手機與 medium 的底部面板：
+- [x] 播放頁的佇列分頁、手機與 medium 的底部面板：
   - 目前這首標示、點選跳到；
   - 拖曳把手重排、移除、下一首播放；
   - 清空（確認框）；
   - 隨機時的說明文字。
-- [ ] 「切歌時捲到目前歌曲」的 setter 與設定頁一列。
-- [ ] 一萬筆時以 `ListView.builder`／`ReorderableListView.builder` 不一次建出。
+- [x] 「切歌時捲到目前歌曲」的 setter 與設定頁一列。
+- [x] 一萬筆時以 `ListView.builder`／`ReorderableListView.builder` 不一次建出。
 - 測試：
   - 各動作經控制器；
   - 隨機開啟時拖曳後的「接下來」與 `QueueModel` 一致；
@@ -713,7 +714,7 @@ PR 15 留下的：
 
 - [ ] 歷史頁只在 `play_history` 變動時重讀；曲目標題被別處 upsert 更新後，要等下一次播放才顯示新標題。
 - [ ] 沒有 log 行標示「記了一筆歷史」，實機只能查資料庫或看歷史頁。
-- [ ] 歷史頁與搜尋頁的列選單各寫一份（spec 註明改一邊看另一邊）；PR 18b 的佇列分頁加第三份時考慮抽共用。
+- [x] 歷史頁與搜尋頁的列選單各寫一份（spec 註明改一邊看另一邊）；PR 18b 的佇列分頁加第三份時考慮抽共用。（PR 18b 抽成 `TrackRowMenu`）
 - [x] 「清除全部歷史」的語意標籤重複成「清除全部歷史. 清除全部歷史」（tooltip 與 label 同字），同搜尋結果「⋯」那條。
 - [ ] 臨時播放結束、回到佇列並以暫停狀態載入時，log 仍記一行 `Track audible`（不影響歷史，log 語意不準）。
 - [ ] 模擬器時區是 UTC，實機看到的時刻比本機少 8 小時；驗日分組時注意。
@@ -742,6 +743,12 @@ PR 18a 留下的：
 - [ ] `setSpeed` 選同一個值也發 `speedChanges`（publisher 會去重，沒有實際影響）。
 - [ ] 既有、不是 PR 18a 造成：Windows `install_search_play_test.dart` 收尾時偶爾記一筆 `CouldNotRollBackException`（堆疊在 `PlayHistoryRecorder._write`），是第二首交接後 `record` 還在跑時 `close()` 關了資料庫；`main` 的 CI（PR #213、#214 的 run）也有。錯誤若在測試檢查「沒有 error log」之前落地會偶發失敗；可改成 dispose 時等寫入完成。
 - [ ] 播放頁的 F6 在實機只靠 widget 測試，沒有逐區確認焦點。
+
+PR 18b 留下的：
+
+- [ ] 交接後馬上暫停、還沒出聲時，`Track audible` 這一行要等下一次佇列編輯（重新準備前瞻）才記，`sinceHandoverMs` 很大；播放歷史不受影響（交接當下已算），只是 log 語意不準（同 PR 15 那條）。
+- [ ] 拖曳把手沒有語意標籤（輔助技術用 `ReorderableListView` 的上移、下移動作）；實機的語意樹看不到它。
+- [ ] Windows 實機的 debug 標籤蓋住播放頁右上角佇列鈕的一角（只有 debug 建置）。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

@@ -10,7 +10,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 設定頁的「播放」組（design §3.3、§9.8）：音質、格式偏好、記住播放位置、
-/// 臨時播放回佇列倒退秒數、跳過試聽片段、重啟恢復倒退秒數、播放歷史保留筆數（design §3.3 的順序）。
+/// 臨時播放回佇列倒退秒數、跳過試聽片段、重啟恢復倒退秒數、播放歷史保留筆數、切歌時捲到目前歌曲（design §3.3 的順序）。
 /// 其他欄位的那一列跟著用到它的 PR 加。
 class PlaybackControls extends ConsumerWidget {
   const PlaybackControls({super.key});
@@ -188,6 +188,15 @@ class PlaybackControls extends ConsumerWidget {
                     unawaited(notifier.setPlayHistoryLimit(limit)),
               ),
           ],
+        ),
+        SizedBox(height: spacing.x4),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(t.autoScrollToCurrent),
+          subtitle: Text(t.autoScrollToCurrentHint),
+          value: preferences.autoScrollToCurrent,
+          onChanged: (enabled) =>
+              unawaited(notifier.setAutoScrollToCurrent(enabled)),
         ),
       ],
     );

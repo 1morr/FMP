@@ -72,6 +72,31 @@ void main() {
     }
   });
 
+  testWidgets('the scroll switch is off by default and writes only its '
+      'field', (tester) async {
+    final h = await openPlayback(tester);
+    final scroll = find.widgetWithText(
+      SwitchListTile,
+      'Scroll to the current song when it changes',
+    );
+    await tester.ensureVisible(scroll);
+    expect(tester.widget<SwitchListTile>(scroll).value, isFalse);
+    // 在「播放歷史保留筆數」之後（design §3.3 的順序）。
+    expect(
+      tester.getTopLeft(scroll).dy,
+      greaterThan(tester.getTopLeft(chipFinder('1,000 entries')).dy),
+    );
+
+    await tester.tap(scroll);
+    await h.loadSettings(tester);
+
+    expect(
+      await stored(tester, h),
+      const PlaybackSettings(autoScrollToCurrent: true),
+    );
+    expect(tester.widget<SwitchListTile>(scroll).value, isTrue);
+  });
+
   testWidgets('choosing a play history limit writes only that field', (
     tester,
   ) async {

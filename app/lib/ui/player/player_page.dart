@@ -18,11 +18,11 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
-import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/glass_panel.dart';
 import 'package:fmp/ui/player/player_controls.dart';
+import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
@@ -34,8 +34,8 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 /// 所以提示（`ToastHost` 包住 Navigator）仍在它上面。
 ///
 /// 版面依整個視窗的 `WindowClass`：
-/// - compact、medium：封面與歌詞切換（點封面或按 Ctrl+L），控制在下方；佇列的底部面板
-///   在 M2 PR 18b；
+/// - compact、medium：封面與歌詞切換（點封面或按 Ctrl+L），控制在下方；佇列在右上角
+///   「佇列」鈕（或 Ctrl+Q）開的底部面板（[showQueueSheet]）；
 /// - expanded、large：左右各半。左是封面、曲名、進度與控制，右是分頁「歌詞｜佇列｜詳細」；
 /// - extraLarge：三欄約 1：1.15：0.9，封面與控制｜歌詞｜分頁「佇列｜詳細」。
 ///
@@ -54,6 +54,9 @@ class PlayerPage extends ConsumerStatefulWidget {
 
   /// 收合（關閉）鈕；測試與外殼以它找。
   static const closeKey = ValueKey('player-page-close');
+
+  /// compact、medium 右上角的「佇列」鈕。
+  static const queueKey = ValueKey('player-page-queue');
 
   @override
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
@@ -169,6 +172,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// compact、medium：顯示歌詞而不是封面。
   var _lyricsFace = false;
 
+  /// compact、medium 的佇列底部面板開著（Ctrl+Q 不再開第二個）。
+  var _queueSheetOpen = false;
+
   @override
   void initState() {
     super.initState();
@@ -246,9 +252,23 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     }
   }
 
-  /// Ctrl+Q：右欄切到佇列；compact、medium 的佇列是 M2 PR 18b 的底部面板，先不做事。
+  /// Ctrl+Q：右欄切到佇列；compact、medium 的佇列是底部面板。
   void _showQueue() {
-    if (_hasTabs) _select(PlayerTab.queue);
+    if (_hasTabs) {
+      _select(PlayerTab.queue);
+    } else {
+      unawaited(_openQueueSheet());
+    }
+  }
+
+  Future<void> _openQueueSheet() async {
+    if (_queueSheetOpen) return;
+    _queueSheetOpen = true;
+    try {
+      await showQueueSheet(context);
+    } finally {
+      _queueSheetOpen = false;
+    }
   }
 
   void _close() => unawaited(Navigator.of(context).maybePop());
@@ -302,6 +322,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         onClose: _close,
         // compact、medium 的歌詞那一面在這一欄裡；更寬的版面歌詞在別欄。
         lyricsFace: !_hasTabs && _lyricsFace,
+        onOpenQueue: _hasTabs ? null : () => unawaited(_openQueueSheet()),
         onToggleFace: _hasTabs
             ? null
             : () => setState(() => _lyricsFace = !_lyricsFace),
@@ -457,6 +478,7 @@ class _MainColumn extends ConsumerWidget {
     required this.queue,
     required this.onClose,
     required this.lyricsFace,
+    required this.onOpenQueue,
     required this.onToggleFace,
   });
 
@@ -464,6 +486,9 @@ class _MainColumn extends ConsumerWidget {
   final QueueState queue;
   final VoidCallback onClose;
   final bool lyricsFace;
+
+  /// 右上角「佇列」鈕開底部面板；有分頁的版面沒有這顆鈕。
+  final VoidCallback? onOpenQueue;
 
   /// 點封面（歌詞）切換；有分頁的版面沒有這個動作。
   final VoidCallback? onToggleFace;
@@ -476,16 +501,25 @@ class _MainColumn extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: Padding(
-            padding: EdgeInsets.all(spacing.x2),
-            child: IconButton(
-              key: PlayerPage.closeKey,
-              tooltip: t.playerPage.closeTooltip,
-              icon: const Icon(Icons.keyboard_arrow_down),
-              onPressed: onClose,
-            ),
+        Padding(
+          padding: EdgeInsets.all(spacing.x2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                key: PlayerPage.closeKey,
+                tooltip: t.playerPage.closeTooltip,
+                icon: const Icon(Icons.keyboard_arrow_down),
+                onPressed: onClose,
+              ),
+              if (onOpenQueue != null)
+                IconButton(
+                  key: PlayerPage.queueKey,
+                  tooltip: t.playerPage.queueTooltip,
+                  icon: const Icon(Icons.queue_music),
+                  onPressed: onOpenQueue,
+                ),
+            ],
           ),
         ),
         Expanded(
@@ -720,84 +754,11 @@ class _PlayerTabsState extends ConsumerState<_PlayerTabs>
         Expanded(
           child: switch (selected) {
             PlayerTab.lyrics => const _NoLyrics(),
-            PlayerTab.queue => const _QueueList(),
+            PlayerTab.queue => const QueueView(),
             PlayerTab.details => TrackDetails(track: widget.track),
           },
         ),
       ],
-    );
-  }
-}
-
-/// 佇列分頁（M2 PR 18a 的最小版本）：唯讀清單，標出目前這首，點一下跳過去。拖曳、
-/// 移除、清空等編輯在 PR 18b。固定列高的 `ListView.builder`，一萬首也只建看得到的；
-/// 開啟時從目前這首附近開始。
-class _QueueList extends ConsumerStatefulWidget {
-  const _QueueList();
-
-  @override
-  ConsumerState<_QueueList> createState() => _QueueListState();
-}
-
-class _QueueListState extends ConsumerState<_QueueList> {
-  /// 開啟時目前這首之前先露出的幾列，讓前一首看得到。
-  static const _rowsAbove = 2;
-
-  late final ScrollController _scroll = ScrollController(
-    initialScrollOffset: _initialOffset(),
-  );
-
-  double _initialOffset() {
-    final queue = ref.read(playbackQueueProvider).value;
-    final current = queue?.temporary == null ? queue?.currentIndex : null;
-    final row = current == null ? 0 : math.max(0, current - _rowsAbove);
-    return row * AppLayout.queueItemHeight;
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final queue = ref.watch(playbackQueueProvider).value;
-    if (queue == null) return const SizedBox.shrink();
-    final entries = queue.entries;
-    return ListView.builder(
-      controller: _scroll,
-      itemExtent: AppLayout.queueItemHeight,
-      itemCount: entries.length,
-      itemBuilder: (context, index) {
-        final track = entries[index].track;
-        final duration = track.duration;
-        return ListTile(
-          dense: true,
-          // 臨時播放中 `currentIndex` 是回到佇列時的位置，不是在播的那首。
-          selected: queue.temporary == null && index == queue.currentIndex,
-          leading: ArtworkImage(
-            pluginId: track.sourceTypeId,
-            artwork: track.artwork,
-            size: AppLayout.artworkThumbnail,
-          ),
-          title: Text(
-            track.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: track.uploader == null
-              ? null
-              : Text(
-                  track.uploader!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-          trailing: duration == null ? null : Text(formatDuration(duration)),
-          onTap: () =>
-              unawaited(ref.read(playbackControllerProvider).jumpTo(index)),
-        );
-      },
     );
   }
 }

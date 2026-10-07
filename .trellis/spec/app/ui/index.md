@@ -25,8 +25,10 @@ lib/ui/
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
-                       # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails
+                       # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails、
+                       # 可編輯的佇列（QueueView：分頁與底部面板共用）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
+  tracks/              # TrackRowMenu：搜尋結果、歷史、佇列的一列曲目共用的選單（右鍵、長按、「⋯」）
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
@@ -132,7 +134,8 @@ try {
      （`Icon.semanticLabel`）不帶按鍵；
   4. `test/ui/shell/app_shell_test.dart` 的 `shortcuts` 群組加案例（`chord` 輔助函式按組合鍵），播放類
      另外在輸入框裡按一次確認沒作用、對話框開著時也沒作用。
-  5. 播放頁（M2 PR 18a）是另一個 route，不在外殼的 `Shortcuts` 之下：自己包一層 `PlaybackShortcuts`。
+  5. 播放頁（M2 PR 18a）與佇列的底部面板（PR 18b）各是另一個 route，不在外殼的 `Shortcuts` 之下：各自包一層
+     `PlaybackShortcuts`。新的全螢幕 route 或面板要讓播放鍵有效時照做（對話框不包：開著時播放鍵不作用）。
 - 焦點三區（導覽、內容、播放列）各是一個 `FocusScope` 加 `FocusTraversalGroup`：Tab 只在區內
   循環；F6 回到那一區上次的焦點，沒有就是它的第一個可聚焦項目。新的可聚焦元件放在對的那一區裡。
 
@@ -164,8 +167,9 @@ try {
   `clock.now()`，測試用 `withClock(Clock.fixed(...))`）。日期標題用 `MaterialLocalizations` 的
   `formatMediumDate`（同年）與 `formatShortDate`（跨年），時刻用 `formatTimeOfDay(alwaysUse24HourFormat: true)`，
   不自己拼格式。測試的資料用本地時間造（`DateTime(2026, 10, 7, 14, 5)`），不依賴機器的時區。
-- 一列的選單與搜尋結果列同一個寫法（`MenuAnchor`、右鍵 `excludeFromSemantics`、「⋯」下方開）；兩處沒有共用
-  元件，改一邊時看另一邊。
+- 一列的選單用 `TrackRowMenu`（`lib/ui/tracks/`，搜尋結果、歷史、佇列共用）：呼叫端給選單項目與 `builder`
+  （把給的「⋯」放在列尾、`openMenu` 接長按），機制（`MenuAnchor`、`childFocusNode`、右鍵 `excludeFromSemantics`、
+  「⋯」下方開）改一處。
 - 測試：`h.pumpApp(tester, const HistoryPage())`（要離線橫幅就 `pumpShell` 後點「History」）；寫歷史用
   `container.read(playHistoryRepositoryProvider).record(...)`，要包 `tester.runAsync`，之後 `h.loadSettings`
   讓變動的串流與重讀跑完。
@@ -187,6 +191,14 @@ try {
 - 毛玻璃只用 `GlassPanel`；數值（不透明度、模糊半徑、遮罩）在 `AppLayout`。新的文字放在毛玻璃上時，淺色、深色 ×
   最淺、最深的封面都要過 guideline（`guidelines_test.dart` 的 `the player page over …`）：次要文字用
   `onSurfaceVariant` 在深色封面上會不夠對比，遮罩用主題的 `surface` 就是為了這個。
+- 佇列（M2 PR 18b）：分頁與底部面板都是 `QueueView`（`queue_view.dart`），面板由 `showQueueSheet` 開，把
+  `DraggableScrollableSheet` 給的捲動控制器傳進去（不給就自己建，開啟時直接從目前這首附近開始）。改清單時：列的鍵是佇列
+  項目的實例（`ObjectKey`），所以編輯不能換掉既有項目的實例（`QueueModel` 的編輯本來就沿用）；拖曳只經把手，放下用
+  `onReorderItem`（`newIndex` 已調整），呼叫 `PlaybackController.move`；選單項目加在 `_QueueRow`。要在 widget
+  被拆掉之後還用的東西（清空後播放頁與面板都關）要在 `await` 之前先 `ref.read` 好，像 `_clear`。會讓播放頁關掉的動作
+  要跳提示時，先 `await WidgetsBinding.instance.endOfFrame` 再發：`ToastHost` 在顯示當下讀位移，頁面還開著就貼在底部
+  安全區、蓋住外殼的導覽列（`queue_view_test.dart` 的 `clearing from the sheet…` 守著）。切歌時自動捲動讀
+  `playbackPreferencesProvider` 的 `autoScrollToCurrent`，比的是目前項目的實例，不是位置。
 - 測試：`h.play(…)` 後點播放列的曲名開頁（`player_page_test.dart` 的 `_openByTap`）；要封面用
   `ShellHarness(artworkManager: FakeArtworkManager())` 與 `TestArtwork.lightest／darkest`
   （`test/ui/support/fake_artwork.dart`）；記住的分頁讀寫經 `layoutStateRepositoryProvider`，資料庫要真的事件迴圈
@@ -196,10 +208,9 @@ try {
 
 - 開始播放與加入佇列都直接呼叫 `PlaybackController`（`playTemporary`、`playNext`、`addToQueue`，
   曲目是 `TrackSummary.toTrackInfo()`）。播放列讀 `QueueState.current`（`TrackInfo`）的顯示資料。
-- 一首曲目的選單（搜尋頁的寫法）：`MenuAnchor` 包住整列，右鍵（`GestureDetector` 的
-  `onSecondaryTapUp`，`excludeFromSemantics: true`）在點的位置開、長按與尾端「⋯」在「⋯」下方開，
-  三處同一份選單；「⋯」的 `FocusNode` 同時是 `MenuAnchor` 的 `childFocusNode`（Esc 才關得掉以滑鼠開的
-  選單）。加入成功以 `toaster.success` 回饋，被上限拒絕的提示由外殼接 `QueueFull`。
+- 一首曲目的選單：用 `TrackRowMenu`（右鍵在點的位置開、長按與尾端「⋯」在「⋯」下方開，三處同一份選單；
+  「⋯」的 `FocusNode` 同時是 `MenuAnchor` 的 `childFocusNode`，Esc 才關得掉以滑鼠開的選單）。加入成功以
+  `toaster.success` 回饋，被上限拒絕的提示由外殼接 `QueueFull`。
 - 控制器的事件（`playbackEventsProvider`：佇列滿、跳過、停下、試聽）只在外殼的
   `_onPlaybackEvent` 轉成提示；頁面不另外聽。新的事件類型加在那個 `switch`（編譯器會指出），
   並在 `app_shell_test.dart` 的 `playback toasts` 群組加一例。

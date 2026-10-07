@@ -28,6 +28,7 @@ final class PlaybackPreferences {
     required this.outputDevice,
     required this.restartRewindSeconds,
     required this.playHistoryLimit,
+    required this.autoScrollToCurrent,
     required this.stored,
   });
 
@@ -58,6 +59,9 @@ final class PlaybackPreferences {
   /// 播放歷史保留筆數：每寫一筆就裁掉超過的最舊列，改小時當下裁一次。
   final int playHistoryLimit;
 
+  /// 切歌時把佇列清單捲到目前這首（只在清單開著時：播放頁的佇列分頁或底部面板）。
+  final bool autoScrollToCurrent;
+
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設。
   final PlaybackSettings stored;
 
@@ -72,6 +76,7 @@ final class PlaybackPreferences {
       other.outputDevice == outputDevice &&
       other.restartRewindSeconds == restartRewindSeconds &&
       other.playHistoryLimit == playHistoryLimit &&
+      other.autoScrollToCurrent == autoScrollToCurrent &&
       other.stored == stored;
 
   @override
@@ -84,6 +89,7 @@ final class PlaybackPreferences {
     outputDevice,
     restartRewindSeconds,
     playHistoryLimit,
+    autoScrollToCurrent,
     stored,
   );
 
@@ -95,7 +101,8 @@ final class PlaybackPreferences {
       'tempPlayRewindSeconds: $tempPlayRewindSeconds, '
       'skipPreviewClips: $skipPreviewClips, outputDevice: $outputDevice, '
       'restartRewindSeconds: $restartRewindSeconds, '
-      'playHistoryLimit: $playHistoryLimit, stored: $stored)';
+      'playHistoryLimit: $playHistoryLimit, '
+      'autoScrollToCurrent: $autoScrollToCurrent, stored: $stored)';
 }
 
 /// 在讀取時套用預設：沒設定過的欄位用傳進來的預設。預設值不寫進資料庫，改
@@ -109,6 +116,7 @@ PlaybackPreferences resolvePlaybackPreferences(
   required bool defaultSkipPreviewClips,
   required int defaultRestartRewindSeconds,
   required int defaultPlayHistoryLimit,
+  required bool defaultAutoScrollToCurrent,
 }) => PlaybackPreferences(
   audioQuality: stored.audioQuality ?? defaultAudioQuality,
   audioFormatPriority: stored.audioFormatPriority ?? defaultAudioFormatPriority,
@@ -123,6 +131,7 @@ PlaybackPreferences resolvePlaybackPreferences(
   restartRewindSeconds:
       stored.restartRewindSeconds ?? defaultRestartRewindSeconds,
   playHistoryLimit: stored.playHistoryLimit ?? defaultPlayHistoryLimit,
+  autoScrollToCurrent: stored.autoScrollToCurrent ?? defaultAutoScrollToCurrent,
   stored: stored,
 );
 
@@ -136,7 +145,7 @@ final playbackPreferencesProvider =
 final class PlaybackPreferencesNotifier
     extends StreamNotifier<PlaybackPreferences> {
   /// [stored] 套用目前的預設（音質：高、格式：Opus 優先，照舊版；記住播放
-  /// 位置：開；倒退 10 秒，照舊版；跳過試聽片段：開，ADR 0018 §決定 7；重啟恢復倒退 0 秒；播放歷史保留 10000 筆，照舊版）。預設
+  /// 位置：開；倒退 10 秒，照舊版；跳過試聽片段：開，ADR 0018 §決定 7；重啟恢復倒退 0 秒；播放歷史保留 10000 筆，照舊版；切歌時捲到目前歌曲：關，照舊版）。預設
   /// 只寫在這裡；資料庫還沒讀出來時，播放控制器也以它解析空的設定。
   static PlaybackPreferences resolve(PlaybackSettings stored) =>
       resolvePlaybackPreferences(
@@ -148,6 +157,7 @@ final class PlaybackPreferencesNotifier
         defaultSkipPreviewClips: true,
         defaultRestartRewindSeconds: 0,
         defaultPlayHistoryLimit: _defaultPlayHistoryLimit,
+        defaultAutoScrollToCurrent: false,
       );
 
   static const _defaultPlayHistoryLimit = 10000;
@@ -228,5 +238,13 @@ final class PlaybackPreferencesNotifier
     await ref
         .read(playHistoryRepositoryProvider)
         .trimTo(limit ?? _defaultPlayHistoryLimit);
+  }
+
+  /// 只寫「切歌時捲到目前歌曲」；`null` 清回沒設定過（跟隨預設）。
+  Future<void> setAutoScrollToCurrent(bool? enabled) {
+    final repository = ref.read(playbackSettingsRepositoryProvider);
+    return enabled == null
+        ? repository.clear(autoScrollToCurrent: true)
+        : repository.write(autoScrollToCurrent: enabled);
   }
 }

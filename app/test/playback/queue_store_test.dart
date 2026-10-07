@@ -188,6 +188,19 @@ void main() {
       expect(h.storedQueue.shuffleRanks, [null, null]);
     });
 
+    storeTest('moving a song to play next is written', (h) {
+      h.controller.addToQueue([track('a'), track('b'), track('c')]);
+      h.controller.setShuffle(true);
+      h.controller.moveToNext(2);
+      h.settle();
+
+      expect(h.storedQueue.entries.map((t) => t.sourceId), ['a', 'c', 'b']);
+      expect(h.storedPlayer?.currentPosition, 0);
+      final ranks = h.storedQueue.shuffleRanks;
+      expect(ranks[0], 0);
+      expect(ranks[1], 1, reason: 'the moved song plays right after a');
+    });
+
     storeTest('the position is written every 10 seconds only while playing', (
       h,
     ) {
@@ -845,7 +858,7 @@ void main() {
         for (var step = 0; step < 250; step++) {
           final length = h.controller.queue.entries.length;
           final String op;
-          switch (random.nextInt(11)) {
+          switch (random.nextInt(12)) {
             case 0 || 1:
               op = 'append';
               h.controller.addToQueue([
@@ -880,6 +893,9 @@ void main() {
             case 10 when random.nextInt(8) == 0:
               op = 'clear';
               unawaited(h.controller.clear());
+            case 11 when length > 0:
+              op = 'moveToNext';
+              h.controller.moveToNext(random.nextInt(length));
             default:
               op = 'append';
               h.controller.addToQueue([fresh()]);
