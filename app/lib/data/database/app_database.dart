@@ -25,6 +25,7 @@ part 'app_database.g.dart';
     TracksTable,
     QueueEntriesTable,
     PlayerStateTable,
+    PlayHistoryTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -32,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -61,6 +62,11 @@ class AppDatabase extends _$AppDatabase {
               await m.create(schema.queueEntries);
               await m.create(schema.queueEntriesTrackKey);
               await m.create(schema.playerState);
+            },
+            from4To5: (m, schema) async {
+              await m.create(schema.playHistory);
+              await m.create(schema.playHistoryPlayedAt);
+              await m.create(schema.playHistoryTrackKey);
             },
           ),
         );

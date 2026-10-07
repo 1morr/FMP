@@ -12,6 +12,7 @@ import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
 import 'generated/schema_v3.dart' as v3;
 import 'generated/schema_v4.dart' as v4;
+import 'generated/schema_v5.dart' as v5;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -311,5 +312,112 @@ void main() {
     addTearDown(db.close);
 
     expect(await queueEntryIndexes(db), contains('queue_entries_track_key'));
+  });
+
+  // v5 加 play_history（design §3.2）：既有表的資料與使用者值原樣保留，新表升級後是空的。
+  test('migration from v4 to v5 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 4,
+      newVersion: 5,
+      createOld: v4.DatabaseAtV4.new,
+      createNew: v5.DatabaseAtV5.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v4.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.playbackSettings,
+          const v4.PlaybackSettingsData(
+            id: 1,
+            audioQuality: 'low',
+            playHistoryLimit: 1000,
+          ),
+        );
+        batch.insert(
+          oldDb.tracks,
+          v4.TracksData(
+            trackKey: 'p:1',
+            sourceTypeId: 'p',
+            sourceId: '1',
+            title: 'T',
+            updatedAt: 1790000000000,
+          ),
+        );
+        batch.insert(
+          oldDb.queueEntries,
+          const v4.QueueEntriesData(position: 0, trackKey: 'p:1'),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v5.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ], reason: 'the user value is untouched');
+        expect(await newDb.select(newDb.playbackSettings).get(), [
+          const v5.PlaybackSettingsData(
+            id: 1,
+            audioQuality: 'low',
+            playHistoryLimit: 1000,
+          ),
+        ]);
+        expect(await newDb.select(newDb.tracks).get(), hasLength(1));
+        expect(await newDb.select(newDb.queueEntries).get(), hasLength(1));
+        expect(await newDb.select(newDb.playHistory).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<List<String>> playHistoryIndexes(AppDatabase db) async => [
+    for (final row
+        in await db.customSelect("PRAGMA index_list('play_history')").get())
+      row.read<String>('name'),
+  ];
+
+  // 刪曲目時 RESTRICT 的檢查要靠 play_history.track_key 的索引（同 queue_entries）；
+  // played_at 的索引給倒序分頁。從每個舊版升上來的與全新建的都要有。
+  for (final from in [1, 2, 3, 4]) {
+    test('migration from v$from to v5 creates play_history with its two '
+        'indexes and restricts track deletion', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 5);
+
+      expect(
+        await playHistoryIndexes(db),
+        containsAll(['play_history_played_at', 'play_history_track_key']),
+      );
+      await db.customStatement('PRAGMA foreign_keys = ON');
+      await db.customStatement(
+        "INSERT INTO tracks (track_key, source_type_id, source_id, title, "
+        "updated_at) VALUES ('p:1', 'p', '1', 'T', 0)",
+      );
+      await db.customStatement(
+        "INSERT INTO play_history (track_key, played_at) VALUES ('p:1', 1)",
+      );
+      await expectLater(
+        db.customStatement("DELETE FROM tracks WHERE track_key = 'p:1'"),
+        throwsA(anything),
+      );
+      await db.close();
+    });
+  }
+
+  test('a new database has play_history and its two indexes', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    expect(
+      await playHistoryIndexes(db),
+      containsAll(['play_history_played_at', 'play_history_track_key']),
+    );
   });
 }

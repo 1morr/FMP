@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
+import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
@@ -44,4 +45,8 @@ final queueRepositoryProvider = Provider<QueueRepository>(
 
 final tracksRepositoryProvider = Provider<TracksRepository>(
   (ref) => TracksRepository(ref.watch(appDatabaseProvider)),
+);
+
+final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>(
+  (ref) => PlayHistoryRepository(ref.watch(appDatabaseProvider)),
 );

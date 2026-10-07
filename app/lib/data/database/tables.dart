@@ -186,3 +186,22 @@ class PlayerStateTable extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// 播放歷史（design §3.2、§7.8）：一次播放一列。`RESTRICT`：被歷史參照的曲目刪不掉，
+/// 孤兒清理只刪沒人參照的。`played_at` 的索引給倒序分頁，`track_key` 的索引給刪曲目時
+/// `RESTRICT` 的檢查（沒有的話孤兒清理每刪一列掃一次整張表）。
+@TableIndex(name: 'play_history_played_at', columns: {#playedAt})
+@TableIndex(name: 'play_history_track_key', columns: {#trackKey})
+@DataClassName('PlayHistoryRow')
+class PlayHistoryTable extends Table {
+  @override
+  String get tableName => 'play_history';
+
+  late final id = integer().autoIncrement()();
+  late final trackKey = text().references(
+    TracksTable,
+    #trackKey,
+    onDelete: KeyAction.restrict,
+  )();
+  late final playedAt = integer().map(const EpochMillisecondsConverter())();
+}
