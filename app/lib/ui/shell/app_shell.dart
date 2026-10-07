@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,8 +15,10 @@ import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
+import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -63,6 +67,24 @@ class _AppShellState extends ConsumerState<AppShell> {
     _playerBar,
   ];
 
+  /// 外殼自己的底部被佔住的高度（最後一次量到的）；播放頁開著時提示不用它。
+  double _measuredInset = 0;
+
+  /// 量到外殼底部的高度。播放頁蓋在上面時不發佈：提示只需要避開底部安全區。
+  void _publishInset(double height) {
+    _measuredInset = height;
+    if (!ref.read(playerPageOpenProvider)) {
+      ref.read(toastBottomInsetProvider.notifier).set(height);
+    }
+  }
+
+  /// 播放頁開著時提示貼底部安全區（ADR 0023 §決定 2），關掉時回到外殼量到的高度。
+  void _onPlayerPageOpen(bool? previous, bool open) {
+    ref
+        .read(toastBottomInsetProvider.notifier)
+        .set(open ? MediaQuery.viewPaddingOf(context).bottom : _measuredInset);
+  }
+
   @override
   void dispose() {
     for (final node in [..._regions, _searchField]) {
@@ -89,30 +111,11 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// F6：從焦點所在的區往下一區，跳過不在畫面上或沒有可聚焦項目的區。焦點
   /// 不在任何一區時從導覽開始。
-  void _nextRegion() {
-    final focus = FocusManager.instance.primaryFocus;
-    final current = focus == null
-        ? -1
-        : _regions.indexWhere(
-            (region) => focus == region || focus.ancestors.contains(region),
-          );
-    for (var step = 1; step <= _regions.length; step++) {
-      final region = _regions[(current + step) % _regions.length];
-      if (_focusInto(region)) return;
-    }
-  }
+  void _nextRegion() => focusNextRegion(_regions);
 
-  /// 回到 [region] 上次的焦點，沒有就是它的第一個可聚焦項目（樹的順序，三區
-  /// 都是由上而下、由左而右排）。
-  bool _focusInto(FocusScopeNode region) {
-    if (region.context == null) return false;
-    final previous = region.focusedChild;
-    final target = previous != null && previous.canRequestFocus
-        ? previous
-        : region.traversalDescendants.firstOrNull;
-    if (target == null) return false;
-    target.requestFocus();
-    return true;
+  void _openPlayer(PlayerPageEntry entry) {
+    if (ref.read(playbackQueueProvider).value?.current == null) return;
+    unawaited(openPlayerPage(context, entry: entry));
   }
 
   // ---- 播放的提示 -------------------------------------------------------------
@@ -175,6 +178,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     ref.listen(playbackEventsProvider, _onPlaybackEvent);
+    ref.listen(playerPageOpenProvider, _onPlayerPageOpen);
+    // 記住的版面狀態先讀好，播放頁一開就是上次的分頁。
+    ref.listen(layoutStateProvider, (_, _) {});
     final t = ref.watch(translationsProvider).shell;
     final hasTrack = ref.watch(
       playbackQueueProvider.select((queue) => queue.value?.current != null),
@@ -225,6 +231,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       WindowClass.compact => Scaffold(
         body: SafeArea(bottom: false, child: content),
         bottomNavigationBar: _BottomInsetReporter(
+          onHeight: _publishInset,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -307,6 +314,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                   ),
                   _BottomInsetReporter(
+                    onHeight: _publishInset,
                     child: playerBar == null
                         ? const SizedBox.shrink()
                         : SafeArea(top: false, left: false, child: playerBar),
@@ -343,13 +351,21 @@ class _AppShellState extends ConsumerState<AppShell> {
               OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
                 onInvoke: (_) => _selectAndFocus(
                   ShellDestination.settings,
-                  () => _focusInto(_content),
+                  () => focusInto(_content),
                 ),
               ),
               NextRegionIntent: CallbackAction<NextRegionIntent>(
                 onInvoke: (_) => _nextRegion(),
               ),
               LeaveTextInputIntent: _LeaveTextInputAction(),
+              // 播放頁沒開時 Ctrl+L、Ctrl+Q 先開播放頁（佇列不空才開）；開著時是頁面自己
+              // 的 Actions 在處理（切分頁）。
+              ShowLyricsIntent: TextInputAwareAction<ShowLyricsIntent>(
+                onInvoke: (_) => _openPlayer(PlayerPageEntry.lyrics),
+              ),
+              ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(
+                onInvoke: (_) => _openPlayer(PlayerPageEntry.queue),
+              ),
             },
             // 一開始就有焦點在外殼裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
             child: Focus(autofocus: true, skipTraversal: true, child: body),
@@ -416,20 +432,19 @@ class _PermanentDrawer extends StatelessWidget {
   );
 }
 
-/// 量 [child] 的高度，發佈成 `toastBottomInsetProvider`：[child] 貼著視窗
-/// 底邊，所以它的高度就是從底邊算起被佔住的高度（含它自己處理的安全區）。
-class _BottomInsetReporter extends ConsumerWidget {
-  const _BottomInsetReporter({required this.child});
+/// 量 [child] 的高度交給 [onHeight]（外殼發佈成 `toastBottomInsetProvider`）：[child]
+/// 貼著視窗底邊，所以它的高度就是從底邊算起被佔住的高度（含它自己處理的安全區）。
+class _BottomInsetReporter extends StatelessWidget {
+  const _BottomInsetReporter({required this.onHeight, required this.child});
 
+  final ValueChanged<double> onHeight;
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => _HeightReporter(
+  Widget build(BuildContext context) => _HeightReporter(
     // 在排版之後的那一幀結束才寫：排版與 build 中不能改 provider。
     onHeight: (height) => SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (context.mounted) {
-        ref.read(toastBottomInsetProvider.notifier).set(height);
-      }
+      if (context.mounted) onHeight(height);
     }),
     child: child,
   );

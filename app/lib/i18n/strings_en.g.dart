@@ -66,6 +66,9 @@ class TranslationsEn extends Translations
   @override
   late final Translations$player$en player = Translations$player$en._(_root);
   @override
+  late final Translations$playerPage$en playerPage =
+      Translations$playerPage$en._(_root);
+  @override
   late final Translations$appearance$en appearance =
       Translations$appearance$en._(_root);
   @override
@@ -337,6 +340,43 @@ class Translations$player$en extends Translations$player$zh_TW {
   String get outputDevice => 'Output device';
   @override
   String get systemDefault => 'System default';
+}
+
+// Path: playerPage
+class Translations$playerPage$en extends Translations$playerPage$zh_TW {
+  Translations$playerPage$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get openHint => 'Open the player';
+  @override
+  String get closeTooltip => 'Close the player (Esc)';
+  @override
+  String get showLyricsTooltip => 'Show lyrics (Ctrl+L)';
+  @override
+  String get showArtworkTooltip => 'Show artwork';
+  @override
+  String get tabLyrics => 'Lyrics';
+  @override
+  String get tabQueue => 'Queue';
+  @override
+  String get tabDetails => 'Details';
+  @override
+  String get noLyrics => 'No lyrics';
+  @override
+  String get speed => 'Playback speed';
+  @override
+  String speedValue({required Object speed}) => '${speed}×';
+  @override
+  String get detailsUploader => 'Uploader';
+  @override
+  String get detailsDuration => 'Duration';
+  @override
+  String get detailsSource => 'Source';
 }
 
 // Path: appearance

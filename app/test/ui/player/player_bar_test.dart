@@ -708,5 +708,33 @@ void main() {
       }
       handle.dispose();
     });
+
+    // 曲名與封面那一塊是開播放頁的按鈕：名稱是曲名與上傳者，「開啟播放頁」是提示。
+    testWidgets('the title area is a button that opens the player', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final h = await pumpBar(tester, width: 1000);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final node = tester.getSemantics(
+        find
+            .ancestor(of: find.text('Song a'), matching: find.byType(InkWell))
+            .first,
+      );
+      expect(
+        node,
+        matchesSemantics(
+          isButton: true,
+          hasTapAction: true,
+          isFocusable: true,
+          hasFocusAction: true,
+          label: 'Song a\nUploader a',
+          hint: 'Open the player',
+        ),
+      );
+      handle.dispose();
+    });
   });
 }

@@ -51,6 +51,13 @@ final pluginRegistryProvider =
       PluginRegistry.new,
     );
 
+/// 插件的顯示名稱（manifest 的 `name`），給呈現層用；插件不在清單上（未安裝、還在載入）
+/// 時是 `null`。
+final pluginNameProvider = Provider.family<String?, String>(
+  (ref, pluginId) =>
+      ref.watch(pluginRegistryProvider).value?[pluginId]?.manifest.name,
+);
+
 /// 插件清單：啟動時載入 `installed_plugins` 裡的每個插件，安裝後由
 /// `PluginInstaller` 加入。
 ///

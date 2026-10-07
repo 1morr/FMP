@@ -11,7 +11,7 @@ import 'package:fmp/ui/shell/shell_shortcuts.dart';
 
 // App 內的播放快捷鍵（ADR 0024 §決定 8、design §9.5）：固定、不可自訂。
 //
-// 抽成一個 widget，外殼與（M2 PR 18a 的）播放頁各包一層：播放頁是另一個 route，
+// 抽成一個 widget，外殼與播放頁各包一層：播放頁是另一個 route，
 // 不在外殼的 `Shortcuts` 之下，放在 Navigator 之上又會搶走對話框裡的空白鍵。
 // 對話框開著時焦點在對話框的 route 裡，這些鍵不作用。
 //
@@ -55,6 +55,17 @@ final class CycleLoopIntent extends Intent {
   const CycleLoopIntent();
 }
 
+/// Ctrl+L：播放頁的右欄切到歌詞；播放頁沒開（佇列不空）時先開播放頁。這個 intent 的
+/// action 不在 [PlaybackShortcuts]：外殼（開播放頁）與播放頁（切分頁）各接各的。
+final class ShowLyricsIntent extends Intent {
+  const ShowLyricsIntent();
+}
+
+/// Ctrl+Q：同 [ShowLyricsIntent]，切到佇列。
+final class ShowQueueIntent extends Intent {
+  const ShowQueueIntent();
+}
+
 /// Shift+←／→ 一次移動幾秒。
 const seekStepSeconds = 5;
 
@@ -83,6 +94,8 @@ const playbackShortcuts = <ShortcutActivator, Intent>{
   SingleActivator(LogicalKeyboardKey.keyS, control: true):
       ToggleShuffleIntent(),
   SingleActivator(LogicalKeyboardKey.keyR, control: true): CycleLoopIntent(),
+  SingleActivator(LogicalKeyboardKey.keyL, control: true): ShowLyricsIntent(),
+  SingleActivator(LogicalKeyboardKey.keyQ, control: true): ShowQueueIntent(),
 };
 
 /// 在 [child] 之上加播放快捷鍵（[playbackShortcuts]），動作都呼叫

@@ -9,6 +9,8 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
@@ -20,6 +22,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../playback/fake_audio_backend.dart';
 import '../support/memory_database.dart';
+import 'support/fake_artwork.dart';
 import 'support/shell_harness.dart';
 
 // ADR 0024 §如何確認：淺色與深色主題下通過點擊區與對比度 guideline。示範畫面
@@ -356,6 +359,49 @@ void main() {
           await expectGuidelines(tester);
           handle.dispose();
         });
+      }
+
+      // 播放頁（design §9.3）：毛玻璃疊在模糊的封面上，最淺與最深的封面各驗一次對比度。
+      // 三種版面各一個寬度：手機、兩欄、三欄；沒有封面時是實色背景。
+      for (final size in const [
+        Size(400, 800),
+        Size(1000, 700),
+        Size(1800, 900),
+      ]) {
+        for (final artwork in [null, ...TestArtwork.values]) {
+          testWidgets(
+            'the player page over ${artwork?.name ?? 'no'} artwork at '
+            '${size.width}',
+            (tester) async {
+              final handle = tester.ensureSemantics();
+              final h = ShellHarness(artworkManager: FakeArtworkManager());
+              await h.pumpShell(tester, size: size, brightness: brightness);
+              await h.play(tester, [
+                summary('a', artwork: artwork?.artwork ?? const []),
+                summary('b'),
+              ]);
+              await tester.pump(const Duration(milliseconds: 200));
+              await tester.tap(
+                find
+                    .descendant(
+                      of: find.byKey(PlayerBar.titleKey),
+                      matching: find.byType(Text),
+                    )
+                    .first,
+              );
+              await tester.pumpAndSettle();
+              // 封面的解碼是真的非同步工作。
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 100)),
+              );
+              await tester.pumpAndSettle();
+              expect(find.byType(PlayerPage), findsOneWidget);
+
+              await expectGuidelines(tester);
+              handle.dispose();
+            },
+          );
+        }
       }
     });
   }

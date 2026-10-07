@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/playback/playback_controller.dart' show OutputDeviceState;
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
+import 'package:fmp/ui/player/player_controls.dart';
+import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
-import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -29,7 +29,7 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 ///   輸出裝置、靜音鈕與音量滑桿。輸出裝置只在平台宣告能選時（Windows）有。
 ///
 /// 曲名至少約 160dp（ADR 0024 §決定 5）。曲名、上傳者、封面是佇列項目的
-/// `TrackInfo`；狀態都來自 `PlaybackController`。點空白處開播放頁在 M2 PR 18a。
+/// `TrackInfo`；狀態都來自 `PlaybackController`。點曲名與封面那一塊開播放頁。
 ///
 /// 只有圖示的按鈕以 tooltip（附按鍵）當名稱，不另外給 `Icon.semanticLabel`：兩個都給
 /// 輔助技術會念成「X. X」。
@@ -50,16 +50,11 @@ class PlayerBar extends ConsumerWidget {
     final state = ref.watch(playbackStateProvider).value ?? const Idle();
     final previewing = ref.watch(playbackPreviewProvider).value ?? false;
     final t = ref.watch(translationsProvider).player;
-    final status = switch (state) {
-      Retrying(waitingForNetwork: true) => t.waitingForNetwork,
-      Retrying() => t.retrying,
-      _ when previewing => t.preview,
-      _ => null,
-    };
+    final status = playbackStatusLabel(t, state, previewing: previewing);
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
 
-    final track = Row(
+    final trackRow = Row(
       children: [
         ArtworkImage(
           pluginId: current.sourceTypeId,
@@ -77,24 +72,14 @@ class PlayerBar extends ConsumerWidget {
         ),
       ],
     );
-    final previous = IconButton(
-      tooltip: t.previousTooltip,
-      icon: const Icon(Icons.skip_previous),
-      // 第一首時回到這首開頭，所以一直可以按。
-      onPressed: () =>
-          unawaited(ref.read(playbackControllerProvider).previous()),
-    );
-    final next = IconButton(
-      tooltip: t.nextTooltip,
-      icon: const Icon(Icons.skip_next),
-      onPressed: queue.hasNext
-          ? () => unawaited(ref.read(playbackControllerProvider).next())
-          : null,
-    );
-    final playPause = _PlayPauseButton(state: state);
-    final shuffle = _ShuffleButton(enabled: queue.shuffleEnabled);
-    final loop = _LoopButton(mode: queue.loopMode);
-    const progress = _ProgressRow();
+    // 點曲名與封面那一塊開播放頁；點擊區與右邊的按鈕分開（ADR 0024 §決定 5）。
+    final track = _OpenPlayerArea(child: trackRow);
+    const previous = PreviousButton();
+    final next = NextButton(enabled: queue.hasNext);
+    final playPause = PlayPauseButton(state: state);
+    final shuffle = ShuffleButton(enabled: queue.shuffleEnabled);
+    final loop = LoopButton(mode: queue.loopMode);
+    const progress = ProgressRow();
     final selectsDevice = ref.watch(outputDeviceSelectionProvider);
 
     return Material(
@@ -178,6 +163,45 @@ class PlayerBar extends ConsumerWidget {
   }
 }
 
+/// 曲名與封面那一塊：點一下開播放頁。自己有一個 `FocusNode`，播放頁關掉後焦點回到
+/// 這裡。語意是按鈕，名稱是裡面的曲名與上傳者，「開啟播放頁」放在提示（hint）。
+class _OpenPlayerArea extends ConsumerStatefulWidget {
+  const _OpenPlayerArea({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_OpenPlayerArea> createState() => _OpenPlayerAreaState();
+}
+
+class _OpenPlayerAreaState extends ConsumerState<_OpenPlayerArea> {
+  final _focus = FocusNode(debugLabel: 'Open the player');
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider).playerPage;
+    // `InkWell` 只給點擊動作，不標成按鈕。
+    return Semantics(
+      button: true,
+      hint: t.openHint,
+      child: InkWell(
+        focusNode: _focus,
+        onTap: () {
+          _focus.requestFocus();
+          unawaited(openPlayerPage(context, opener: _focus));
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _TrackText extends StatelessWidget {
   const _TrackText({
     required this.title,
@@ -239,64 +263,6 @@ class _TrackText extends StatelessWidget {
   }
 }
 
-/// 隨機開關（ADR 0018 §決定 5：隨機以位置為單位）。
-class _ShuffleButton extends ConsumerWidget {
-  const _ShuffleButton({required this.enabled});
-
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).player;
-    return IconButton(
-      tooltip: t.shuffleTooltip,
-      isSelected: enabled,
-      icon: const Icon(Icons.shuffle),
-      onPressed: () =>
-          ref.read(playbackControllerProvider).setShuffle(!enabled),
-    );
-  }
-}
-
-/// 循環：按一下依關閉 → 全部 → 單曲輪轉（舊版 `cycleLoopMode`）。
-class _LoopButton extends ConsumerWidget {
-  const _LoopButton({required this.mode});
-
-  final LoopMode mode;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).player;
-    return IconButton(
-      tooltip: loopTooltip(t, mode),
-      isSelected: mode != LoopMode.off,
-      icon: Icon(loopIcon(mode)),
-      onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
-    );
-  }
-}
-
-/// 循環模式的圖示：單曲是 `repeat_one`，其他是 `repeat`（關閉時不選取）。
-IconData loopIcon(LoopMode mode) => switch (mode) {
-  LoopMode.off || LoopMode.all => Icons.repeat,
-  LoopMode.one => Icons.repeat_one,
-};
-
-/// 循環模式的 tooltip：名稱附按鍵 Ctrl+R（同時是按鈕的語意名稱）。
-String loopTooltip(Translations$player$zh_TW t, LoopMode mode) =>
-    switch (mode) {
-      LoopMode.off => t.loopOffTooltip,
-      LoopMode.all => t.loopAllTooltip,
-      LoopMode.one => t.loopOneTooltip,
-    };
-
-/// 循環模式的名稱（選單項目）。
-String loopLabel(Translations t, LoopMode mode) => switch (mode) {
-  LoopMode.off => t.player.loopOff,
-  LoopMode.all => t.player.loopAll,
-  LoopMode.one => t.player.loopOne,
-};
-
 /// medium 寬度的「⋯」：隨機、循環與（能選時的）輸出裝置（ADR 0024 §決定 5）。
 class _MoreMenu extends ConsumerWidget {
   const _MoreMenu({required this.queue, required this.selectsDevice});
@@ -311,7 +277,7 @@ class _MoreMenu extends ConsumerWidget {
     final devices = selectsDevice
         ? ref.watch(playbackOutputDevicesProvider).value
         : null;
-    return _IconMenu(
+    return IconMenu(
       tooltip: t.more,
       icon: const Icon(Icons.more_horiz),
       menuChildren: [
@@ -342,50 +308,6 @@ class _MoreMenu extends ConsumerWidget {
       ],
     );
   }
-}
-
-/// 以一個圖示鈕打開的選單。按鈕與 `MenuAnchor` 共用一個 `FocusNode`
-/// （`childFocusNode`，Flutter `MenuAnchor` 文件的寫法）：選單打開時焦點移到
-/// 按鈕、在選單的快捷鍵之內，以滑鼠打開的也能以 Esc 關掉、以方向鍵進入選單。
-/// 沒有它的話焦點留在外殼，Esc 到不了選單。
-class _IconMenu extends StatefulWidget {
-  const _IconMenu({
-    required this.tooltip,
-    required this.icon,
-    required this.menuChildren,
-    this.isSelected,
-  });
-
-  final String tooltip;
-  final Widget icon;
-  final List<Widget> menuChildren;
-  final bool? isSelected;
-
-  @override
-  State<_IconMenu> createState() => _IconMenuState();
-}
-
-class _IconMenuState extends State<_IconMenu> {
-  final _button = FocusNode(debugLabel: 'menu button');
-
-  @override
-  void dispose() {
-    _button.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => MenuAnchor(
-    childFocusNode: _button,
-    menuChildren: widget.menuChildren,
-    builder: (context, menu, _) => IconButton(
-      focusNode: _button,
-      tooltip: widget.tooltip,
-      isSelected: widget.isSelected,
-      icon: widget.icon,
-      onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-    ),
-  );
 }
 
 /// 輸出裝置選單的項目：「系統預設」與後端列出的裝置，目前的打勾。選了就交給
@@ -426,7 +348,7 @@ class _OutputDeviceButton extends ConsumerWidget {
     final state =
         ref.watch(playbackOutputDevicesProvider).value ??
         (devices: const <OutputDevice>[], selected: null);
-    return _IconMenu(
+    return IconMenu(
       tooltip: t.outputDevice,
       isSelected: state.selected != null,
       icon: const Icon(Icons.speaker),
@@ -515,7 +437,7 @@ class _VolumeMenu extends ConsumerWidget {
     final t = ref.watch(translationsProvider).player;
     final state =
         ref.watch(playbackVolumeProvider).value ?? (volume: 1.0, muted: false);
-    return _IconMenu(
+    return IconMenu(
       tooltip: t.volumeTooltip,
       icon: Icon(volumeIcon(state.volume, muted: state.muted)),
       menuChildren: const [
@@ -528,129 +450,6 @@ class _VolumeMenu extends ConsumerWidget {
               child: _VolumeSlider(autofocus: true),
             ),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-/// 播放／暫停。載入、緩衝與等重試時在按鈕裡轉圈，按下是暫停（使用者要的是
-/// 「別播了」）。
-class _PlayPauseButton extends ConsumerWidget {
-  const _PlayPauseButton({required this.state});
-
-  final PlaybackState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).player;
-    final busy = switch (state) {
-      Loading() || Buffering() || Retrying() => true,
-      Idle() || Playing() || Paused() || Failed() => false,
-    };
-    final wantsSound = busy || state is Playing;
-    return IconButton.filled(
-      tooltip: wantsSound ? t.pauseTooltip : t.playTooltip,
-      onPressed: () {
-        final controller = ref.read(playbackControllerProvider);
-        unawaited(wantsSound ? controller.pause() : controller.play());
-      },
-      icon: busy
-          ? SizedBox.square(
-              dimension: IconTheme.of(context).size,
-              child: CircularProgressIndicator(
-                semanticsLabel: t.loading,
-                color: Theme.of(context).colorScheme.onPrimary,
-              ),
-            )
-          : Icon(wantsSound ? Icons.pause : Icons.play_arrow),
-    );
-  }
-}
-
-/// 位置、進度條、時長。拖動時只改畫面上的位置，放開才 seek。
-class _ProgressRow extends ConsumerStatefulWidget {
-  const _ProgressRow();
-
-  @override
-  ConsumerState<_ProgressRow> createState() => _ProgressRowState();
-}
-
-class _ProgressRowState extends ConsumerState<_ProgressRow> {
-  /// 拖動中的位置（毫秒）；沒在拖是 `null`。
-  double? _dragging;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ref.watch(translationsProvider).player;
-    final theme = Theme.of(context);
-    final progress = ref.watch(playbackProgressProvider).value;
-    final current = ref.watch(playbackQueueProvider).value?.current;
-    final idle =
-        (ref.watch(playbackStateProvider).value ?? const Idle()) is Idle;
-    // `Idle` 時沒有來源，進度 stream 留著上一個來源最後的回報（臨時播放、清空之
-    // 前的歌），不是這首。按播放從哪裡開始就顯示哪裡：啟動恢復後還沒播（含先臨時
-    // 播放、結束後停著）是恢復的位置，拖動就是改起點（沒有來源時控制器的 seek 改
-    // 的是它）；其他從頭開始，不能拖。時長是曲目的。
-    if (idle) ref.watch(playbackSeeksProvider);
-    final restored = idle
-        ? ref.read(playbackControllerProvider).restoredPosition
-        : null;
-    final duration = idle ? current?.duration : progress?.duration;
-    final startsAt = idle
-        ? restored ?? Duration.zero
-        : progress?.position ?? Duration.zero;
-    final max = duration?.inMilliseconds.toDouble() ?? 0;
-    final seekable = max > 0 && (!idle || restored != null);
-    final position = seekable
-        ? (_dragging ?? startsAt.inMilliseconds.toDouble()).clamp(0.0, max)
-        : 0.0;
-    final timeStyle = theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    Duration at(double milliseconds) =>
-        Duration(milliseconds: milliseconds.round());
-    return Row(
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(
-            minWidth: AppLayout.playerTimeLabel,
-          ),
-          child: Text(
-            formatDuration(at(position)),
-            style: timeStyle,
-            textAlign: TextAlign.end,
-          ),
-        ),
-        Expanded(
-          child: Semantics(
-            label: t.progress,
-            child: Slider(
-              value: position,
-              max: seekable ? max : 1,
-              semanticFormatterCallback: (value) => formatDuration(at(value)),
-              onChanged: seekable
-                  ? (value) => setState(() => _dragging = value)
-                  : null,
-              onChangeEnd: seekable
-                  ? (value) {
-                      setState(() => _dragging = null);
-                      unawaited(
-                        ref.read(playbackControllerProvider).seek(at(value)),
-                      );
-                    }
-                  : null,
-            ),
-          ),
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(
-            minWidth: AppLayout.playerTimeLabel,
-          ),
-          child: Text(
-            duration == null ? '-:--' : formatDuration(duration),
-            style: timeStyle,
-          ),
         ),
       ],
     );

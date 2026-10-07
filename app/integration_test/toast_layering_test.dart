@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:integration_test/integration_test.dart';
@@ -16,7 +18,7 @@ import '../test/ui/support/shell_harness.dart';
 // ToastHost 與 MaterialApp 和 App 相同（FmpApp 的 builder），視窗是裝置自己的
 // 大小；插件與播放後端用測試的假實作（不連網、不出聲）。同一組斷言在
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
-// 跑；這裡在真的引擎與平台上再跑一次：
+// 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -96,5 +98,43 @@ void main() {
 
     await expectToastOnTop(tester, h);
     expect(find.text('A full-screen page'), findsOneWidget);
+  });
+
+  // 播放頁蓋住外殼的播放列與導覽：提示的底部位移只剩底部安全區（ADR 0023 §決定 2），
+  // 關掉播放頁後回到外殼量到的高度。
+  testWidgets('a toast shows above the player page, on the safe area', (
+    tester,
+  ) async {
+    final (h, _) = await pumpShell(tester);
+    await h.play(tester, [summary('a'), summary('b')]);
+    await tester.pump(const Duration(milliseconds: 200));
+    final container = h.container(tester);
+    final withBar = container.read(toastBottomInsetProvider);
+    expect(withBar, greaterThan(0));
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byKey(PlayerBar.titleKey),
+            matching: find.byType(Text),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerPage), findsOneWidget);
+    final safeArea = MediaQuery.viewPaddingOf(
+      tester.element(find.byType(PlayerPage)),
+    ).bottom;
+    expect(container.read(toastBottomInsetProvider), safeArea);
+
+    await expectToastOnTop(tester, h);
+    expect(find.byType(PlayerPage), findsOneWidget);
+
+    // 提示照時長消失之後關掉播放頁。
+    await tester.pump(const Duration(seconds: 7));
+    await tester.tap(find.byKey(PlayerPage.closeKey));
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerPage), findsNothing);
+    expect(container.read(toastBottomInsetProvider), withBar);
   });
 }
