@@ -23,6 +23,12 @@ typedef TemporaryReturnSettings = ({bool rememberPosition, Duration rewind});
 /// 算一次播放的一首歌（播放歷史，design §7.8）：[track] 在 [at] 開始被聽。
 typedef CountedPlay = ({TrackInfo track, DateTime at});
 
+/// 輸出裝置的清單（不含系統預設）與目前選的；`selected` 為 `null` 是系統預設。
+typedef OutputDeviceState = ({
+  List<OutputDevice> devices,
+  OutputDevice? selected,
+});
+
 /// UI 唯一的播放入口（ADR 0018 §決定 1），也是 [PlaybackState] 唯一的寫入者。
 ///
 /// 協作者只回報：[QueueModel] 保管佇列；[PlaybackSession] 解析、開流、前瞻，
@@ -93,6 +99,7 @@ final class PlaybackController {
   final _previews = StreamController<bool>.broadcast();
   final _volumeChanges =
       StreamController<({double volume, bool muted})>.broadcast();
+  final _outputDeviceStates = StreamController<OutputDeviceState>.broadcast();
   final _seeks = StreamController<Duration>.broadcast();
   final _plays = StreamController<CountedPlay>.broadcast();
 
@@ -151,6 +158,10 @@ final class PlaybackController {
   bool _outputDeviceListSeen = false;
   bool _outputDeviceChosen = false;
 
+  /// 後端列出的可選裝置，與目前選的（`null` 是系統預設），給播放列的選單看。
+  List<OutputDevice> _outputDevices = const [];
+  OutputDevice? _selectedOutputDevice;
+
   // RecoveryPolicy 的計數，只在這裡改。
   int _retries = 0;
   int _reResolves = 0;
@@ -187,12 +198,26 @@ final class PlaybackController {
   Stream<({double volume, bool muted})> get volumeChanges =>
       _volumeChanges.stream;
 
+  /// 輸出裝置的清單與目前選的；平台不能選裝置時清單永遠是空的。
+  OutputDeviceState get outputDeviceState =>
+      (devices: _outputDevices, selected: _selectedOutputDevice);
+
+  /// [outputDeviceState] 的變化：清單插拔、使用者選擇、記住的裝置套用、裝置
+  /// 失敗改回系統預設。
+  Stream<OutputDeviceState> get outputDeviceChanges =>
+      _outputDeviceStates.stream;
+
   /// 使用者 seek 的目標位置，給持久化用。
   Stream<Duration> get seeks => _seeks.stream;
 
   /// 目前這首播到的位置：來源最後回報的；沒有來源（解析中、等重試、剛恢復）時是
   /// 下次開始的位置。
   Duration get position => _position;
+
+  /// 啟動恢復後還沒播時，按播放要開始的位置（含恢復後先臨時播放、結束後停著的
+  /// 情況）；已經開始播佇列的那一首、或那一首換掉了就是 `null`。播放列以它顯示
+  /// 恢復的進度：進度 stream 留著上一個來源最後的回報。
+  Duration? get restoredPosition => _restoredPosition;
 
   /// 目前（最近一次）開始的這首是啟動恢復後的第一次播放（播放歷史不記這一次，
   /// design §7.8）；之後換了別首就是 `false`。
@@ -447,6 +472,8 @@ final class PlaybackController {
       tag: _tag,
       fields: {'device': device?.id ?? 'auto'},
     );
+    _selectedOutputDevice = device;
+    _emitOutputDevices();
     await _session.selectOutputDevice(device);
     await _saveOutputDevice(device);
   }
@@ -456,6 +483,8 @@ final class PlaybackController {
   /// 蓋掉使用者當下的選擇；不在清單裡就用系統預設，偏好不清掉（插回來時還要
   /// 它）。
   Future<void> _onOutputDevices(List<OutputDevice> devices) async {
+    _outputDevices = devices;
+    _emitOutputDevices();
     if (_outputDeviceListSeen || devices.isEmpty) return;
     _outputDeviceListSeen = true;
     if (_outputDeviceChosen) return;
@@ -487,6 +516,8 @@ final class PlaybackController {
       tag: _tag,
       fields: {'device': preferred},
     );
+    _selectedOutputDevice = match.first;
+    _emitOutputDevices();
     await _session.selectOutputDevice(match.first);
   }
 
@@ -504,6 +535,7 @@ final class PlaybackController {
     await _events.close();
     await _previews.close();
     await _volumeChanges.close();
+    await _outputDeviceStates.close();
     await _seeks.close();
     await _plays.close();
   }
@@ -890,12 +922,20 @@ final class PlaybackController {
   /// （之後才到的提前結束、錯誤屬於舊的一代，丟掉；已經排好的重試也取消），按
   /// 播放時從這裡重新開流：mpv 在裝置失敗後不會自己再開輸出。停著（`Idle`、
   /// `Failed`）時只提示。
+  ///
+  /// 失敗的是選過的裝置時，這次執行改用系統預設輸出（擁有者 2026-10-07），按播放
+  /// 才不會再撞同一個裝置；記住的偏好不清掉，下次啟動或裝置清單再出現它時照常
+  /// 套用。
   void _pauseForOutputFailure() {
-    _emitEvent(OutputDeviceFailed());
+    final failedDevice = _session.selectsOutputDevice
+        ? _selectedOutputDevice
+        : null;
+    _emitEvent(OutputDeviceFailed(fellBack: failedDevice != null));
     _pausedByInterruption = false;
+    var stopped = Future<void>.value();
     switch (_state) {
       case Idle() || Failed():
-        return;
+        break;
       case Loading() || Playing() || Paused() || Buffering() || Retrying():
         final position = _position;
         _log.info(
@@ -911,7 +951,35 @@ final class PlaybackController {
         _cancelRetry();
         _resumeAt = position;
         _setState(const Paused());
-        unawaited(_session.stop());
+        stopped = _session.stop();
+    }
+    if (failedDevice != null) {
+      unawaited(_useSystemOutput(failedDevice, after: stopped));
+    }
+  }
+
+  /// 來源停下之後把輸出改回系統預設（不寫偏好）。
+  Future<void> _useSystemOutput(
+    OutputDevice failed, {
+    required Future<void> after,
+  }) async {
+    _selectedOutputDevice = null;
+    _emitOutputDevices();
+    try {
+      await after;
+      await _session.selectOutputDevice(null);
+      _log.info(
+        'Output device failed; using the system default',
+        tag: _tag,
+        fields: {'device': failed.id},
+      );
+    } on Object catch (error, stackTrace) {
+      _log.warning(
+        'Failed to switch to the system default output',
+        tag: _tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -1034,6 +1102,12 @@ final class PlaybackController {
     final was = previewing;
     _previewTrack = track;
     if (previewing != was && !_previews.isClosed) _previews.add(previewing);
+  }
+
+  void _emitOutputDevices() {
+    if (!_outputDeviceStates.isClosed) {
+      _outputDeviceStates.add(outputDeviceState);
+    }
   }
 
   void _emitVolume() {

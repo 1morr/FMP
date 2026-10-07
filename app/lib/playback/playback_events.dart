@@ -53,6 +53,11 @@ final class PreviewPlaying extends PlaybackEvent {
 
 /// 音訊輸出裝置開不起來（選的裝置不在、播放中被拔掉；只有 Windows）：已經暫停，
 /// 不跳過（ADR 0018 §決定 7）。按播放時重新開流，換了裝置就從那裡出聲。
+///
+/// [fellBack]：失敗的是選過的裝置，這次執行已改用系統預設輸出（擁有者
+/// 2026-10-07）；失敗的本來就是系統預設時為假，沒有可以改用的。
 final class OutputDeviceFailed extends PlaybackEvent {
-  OutputDeviceFailed();
+  OutputDeviceFailed({required this.fellBack});
+
+  final bool fellBack;
 }

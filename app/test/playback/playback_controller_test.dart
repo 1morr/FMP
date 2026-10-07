@@ -2266,7 +2266,10 @@ void main() {
         h.backend.failOutputDevice();
         h.settle();
         expect(h.controller.state, isA<Paused>());
-        expect(h.events.whereType<OutputDeviceFailed>(), hasLength(1));
+        expect(
+          h.events.whereType<OutputDeviceFailed>().single.fellBack,
+          isFalse,
+        );
         expect(h.events.whereType<TrackSkipped>(), isEmpty);
         expect(h.controller.queue.currentIndex, 0);
         expect(h.backend.current, isNull, reason: 'the source is released');
@@ -2328,7 +2331,127 @@ void main() {
         h.backend.failOutputDevice();
         h.settle();
         expect(h.controller.state, isA<Idle>());
-        expect(h.events.whereType<OutputDeviceFailed>(), hasLength(1));
+        expect(
+          h.events.whereType<OutputDeviceFailed>().single.fellBack,
+          isFalse,
+        );
+      });
+    });
+
+    // 擁有者 2026-10-07：選過的裝置失敗時，這次執行改用系統預設輸出，偏好不清，
+    // 按播放才不會再撞同一個裝置。
+    group('falls back to the system default output', () {
+      const headphones = OutputDevice(id: 'wasapi/{b}', name: 'Headphones');
+      const speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
+
+      test('for a device the user chose, keeping the preference', () {
+        fakeAsync((async) {
+          final devices = FakeOutputDevices(const [speakers, headphones]);
+          final h = Harness(
+            async,
+            trackLength: const Duration(minutes: 3),
+            outputDevices: devices,
+          );
+          unawaited(h.controller.selectOutputDevice(headphones));
+          h.settle();
+          unawaited(h.playQueue([track('a'), track('b')]));
+          h.elapse(const Duration(seconds: 5));
+          expect(h.controller.outputDeviceState.selected, headphones);
+
+          h.backend.failOutputDevice();
+          h.settle();
+
+          expect(h.controller.state, isA<Paused>());
+          expect(devices.selections, [headphones, null]);
+          expect(h.controller.outputDeviceState.selected, isNull);
+          expect(h.savedOutputDevices, [
+            headphones,
+          ], reason: 'the remembered preference is not cleared');
+          expect(
+            h.events.whereType<OutputDeviceFailed>().single.fellBack,
+            isTrue,
+          );
+
+          // 按播放：從原位置繼續，輸出已經是系統預設，不再選回失敗的裝置。
+          unawaited(h.controller.play());
+          h.elapse(const Duration(milliseconds: 100));
+          expect(h.controller.state, isA<Playing>());
+          expect(devices.selections, [headphones, null]);
+          expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
+          expect(
+            h.backend.openedAt.last,
+            greaterThan(const Duration(seconds: 4)),
+          );
+        });
+      });
+
+      test('for the remembered device applied at start', () {
+        fakeAsync((async) {
+          final devices = FakeOutputDevices();
+          final h = Harness(
+            async,
+            trackLength: const Duration(minutes: 3),
+            outputDevices: devices,
+          )..preferredOutputDevice = headphones.id;
+          devices.list(const [speakers, headphones]);
+          h.settle();
+          expect(h.controller.outputDeviceState.selected, headphones);
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(seconds: 5));
+
+          h.backend.failOutputDevice();
+          h.settle();
+
+          expect(devices.selections, [headphones, null]);
+          expect(h.controller.outputDeviceState.selected, isNull);
+          expect(h.savedOutputDevices, isEmpty);
+          expect(
+            h.events.whereType<OutputDeviceFailed>().single.fellBack,
+            isTrue,
+          );
+        });
+      });
+
+      test('not when the system default itself failed', () {
+        fakeAsync((async) {
+          final devices = FakeOutputDevices(const [speakers]);
+          final h = Harness(
+            async,
+            trackLength: const Duration(minutes: 3),
+            outputDevices: devices,
+          );
+          unawaited(h.playQueue([track('a')]));
+          h.elapse(const Duration(seconds: 5));
+
+          h.backend.failOutputDevice();
+          h.settle();
+
+          expect(h.controller.state, isA<Paused>());
+          expect(devices.selections, isEmpty);
+          expect(
+            h.events.whereType<OutputDeviceFailed>().single.fellBack,
+            isFalse,
+          );
+        });
+      });
+
+      test('also while idle', () {
+        fakeAsync((async) {
+          final devices = FakeOutputDevices(const [speakers, headphones]);
+          final h = Harness(async, outputDevices: devices);
+          unawaited(h.controller.selectOutputDevice(headphones));
+          h.settle();
+
+          h.backend.failOutputDevice();
+          h.settle();
+
+          expect(devices.selections, [headphones, null]);
+          expect(h.controller.outputDeviceState.selected, isNull);
+          expect(
+            h.events.whereType<OutputDeviceFailed>().single.fellBack,
+            isTrue,
+          );
+        });
       });
     });
   });
@@ -2428,6 +2551,33 @@ void main() {
         h.settle();
 
         expect(devices.selections, [speakers]);
+      });
+    });
+
+    test('the state follows the list, the user and the remembered device', () {
+      fakeAsync((async) {
+        final devices = FakeOutputDevices();
+        final h = Harness(async, outputDevices: devices)
+          ..preferredOutputDevice = headphones.id;
+        final states = <OutputDeviceState>[];
+        h.controller.outputDeviceChanges.listen(states.add);
+        expect(h.controller.outputDeviceState.devices, isEmpty);
+        expect(h.controller.outputDeviceState.selected, isNull);
+
+        devices.list(const [speakers, headphones]);
+        h.settle();
+        expect(h.controller.outputDeviceState.devices, [speakers, headphones]);
+        expect(h.controller.outputDeviceState.selected, headphones);
+
+        unawaited(h.controller.selectOutputDevice(null));
+        h.settle();
+        expect(h.controller.outputDeviceState.selected, isNull);
+
+        devices.list(const [speakers]);
+        h.settle();
+        expect(h.controller.outputDeviceState.devices, const [speakers]);
+        expect(states, isNotEmpty);
+        expect(states.last.devices, [speakers]);
       });
     });
 
