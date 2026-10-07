@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 7.3 queue entry points, 9.3 player page B and its PR 18a decisions, 3.3 auto_scroll_to_current, 9.5 shortcuts, 9.6 focus"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decision 5 shuffle by position and consequences (explain shuffle on the queue page); controller as single entry"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Decisions 4 and 8: page B, bottom sheet on phones, shortcuts and focus, how to confirm"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Player page, row menus, tokens, goldens, guideline tests, i18n"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Controller edits, QueueModel invariants and seeded tests"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Adding a playback settings field and its settings row"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Widget tests, goldens, integration tests"}
