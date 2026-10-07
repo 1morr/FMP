@@ -58,6 +58,10 @@ dependencies:
   # 快取庫與媒體 client，只准在 lib/data/cache/ import（fmp_layer_imports）。
   # 它帶進 sqflite（Android 原生庫）；App 不用它的預設索引。
   flutter_cache_manager: ^3.4.5
+  # 必須等於 smtc_windows 的 rust/Cargo.toml 釘的版本（目前 =2.11.1）：套件的
+  # pubspec 寫 ^2.11.1，Dart 端會解析到較新的版本，執行時 SMTC 初始化就失敗。
+  # 升級 smtc_windows 時一起改（閘門 test/platform/smtc_bridge_version_test.dart）。
+  flutter_rust_bridge: 2.11.1
   # 狀態管理（ADR 0013）。不用 riverpod_generator：provider 少，手寫即可。
   flutter_riverpod: ^3.4.3
   # 播放後端（ADR 0018 §決定 3）：just_audio（ExoPlayer）給 Android，media_kit
@@ -81,6 +85,11 @@ dependencies:
   # 介面字串（ADR 0024 §決定 7）。不用 slang_flutter：翻譯以 Riverpod 注入
   # （lib/ui/i18n/），不用 slang 的 LocaleSettings／TranslationProvider。
   slang: ^4.19.2
+  # Windows 的系統媒體控制（SMTC，ADR 0018 §決定 8）；只准在 lib/platform/ import
+  # （fmp_layer_imports）。釘死版本：它每次建置都從原始碼編 Rust（cargokit 沒有
+  # 預編譯二進位），要升級就連建置一起驗。它依賴的 flutter_rust_bridge 見下方，
+  # 規則與閘門見 AGENTS.md § 平台層的 Windows SMTC。
+  smtc_windows: 1.1.0
   sqlite3: ^3.6.0
   # log 門面的歷史與分派（ADR 0011 §決定 1）；只准在 lib/core/logging/
   # import（fmp_log_facade）。
