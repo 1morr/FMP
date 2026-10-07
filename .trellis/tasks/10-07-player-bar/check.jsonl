@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 9.2 player bar tiers, 9.5 shortcuts table and text-input rule, 9.6 focus regions and Esc, 7.6 volume/mute/output device decisions, 7.9 toasts"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Decision 5 player bar per width, decision 8 shortcuts and focus, tooltips and semantics, guideline and golden tests"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Toast for output device failure"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Controller as the single entry for playback commands"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Player bar, shell shortcuts, window classes, i18n tooltips, goldens"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Controller volume/mute/output device API and events"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Widget tests, goldens, shortcut tests"}
