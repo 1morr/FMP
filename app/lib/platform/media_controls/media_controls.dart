@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///
 /// 轉接器只做兩件事：把 [NowPlaying] 推給系統，把系統按鍵變成 [commands]。
 /// 推什麼、何時推由 `NowPlayingPublisher` 決定；按鍵做什麼由
-/// `PlaybackController` 決定。實作只有 Android（`media_controls_android.dart`），
-/// 由 `platform.dart` 組裝。
+/// `PlaybackController` 決定。實作有 Android（`media_controls_android.dart`）與
+/// Windows（`media_controls_windows.dart`），由 `platform.dart` 組裝。
 abstract interface class SystemMediaControls {
   /// 把目前的播放內容推給系統。呼叫端保證依序、不重疊（等上一次完成才推下
   /// 一次）。
@@ -22,10 +22,17 @@ abstract interface class SystemMediaControls {
 /// 平台宣告的系統媒體控制能力（`PlatformCapabilities.mediaControls`）。
 @immutable
 final class MediaControlsSupport {
-  const MediaControlsSupport({required this.supportsSeek});
+  const MediaControlsSupport({
+    required this.supportsSeek,
+    this.positionRefresh,
+  });
 
   /// 系統的進度條可以拖（Android 真；Windows 的 SMTC 不支援）。
   final bool supportsSeek;
+
+  /// 播放中重推位置的最短間隔；`null` 表示系統依速度自己外推，只在狀態改變與
+  /// seek 時推（Android）。Windows 的 SMTC timeline 不會自己前進，所以要定期推。
+  final Duration? positionRefresh;
 }
 
 /// 通知上的按鈕。播放與暫停是同一個位置，依 [NowPlaying.playing] 擇一出現。
@@ -74,6 +81,7 @@ final class NowPlaying {
     this.uploader,
     this.duration,
     this.artworkFile,
+    this.artworkUrl,
     required this.phase,
     required this.playing,
     required this.position,
@@ -96,8 +104,13 @@ final class NowPlaying {
   final String? uploader;
   final Duration? duration;
 
-  /// 封面的本機檔（已經過統一快取庫）；拿不到時為 `null`。
+  /// 封面的本機檔（已經過統一快取庫）；拿不到時為 `null`。Android 用。
   final Uri? artworkFile;
+
+  /// 曲目封面挑出來的那張的網址（和取 [artworkFile] 的是同一張）；沒有封面為
+  /// `null`。Windows 用：SMTC 讀不到 `file:///`（2026-10-07 實測），由 Windows
+  /// 自己下載這個網址。
+  final Uri? artworkUrl;
   final MediaPhase phase;
 
   /// 是否在播：系統的播放鍵據此顯示成播放或暫停。
@@ -116,6 +129,7 @@ final class NowPlaying {
     uploader: uploader,
     duration: duration,
     artworkFile: artworkFile ?? this.artworkFile,
+    artworkUrl: artworkUrl,
     phase: phase,
     playing: playing,
     position: position ?? this.position,
@@ -132,6 +146,7 @@ final class NowPlaying {
           other.uploader == uploader &&
           other.duration == duration &&
           other.artworkFile == artworkFile &&
+          other.artworkUrl == artworkUrl &&
           other.phase == phase &&
           other.playing == playing &&
           other.position == position &&
@@ -145,6 +160,7 @@ final class NowPlaying {
     uploader,
     duration,
     artworkFile,
+    artworkUrl,
     phase,
     playing,
     position,
