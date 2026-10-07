@@ -17,6 +17,9 @@ workspace:
   - packages/fmp_lints
 
 dependencies:
+  # 系統媒體控制的 Android 實作（ADR 0018 §決定 8）：通知、鎖定畫面、媒體鍵。
+  # 只准在 lib/platform/ import（fmp_layer_imports）。
+  audio_service: ^0.18.19
   # Android 的音訊中斷與拔耳機（design §7.6）：JustAudioBackend 關掉 just_audio
   # 的內建處理、自己聽它的事件；只准在 lib/playback/backends/ import
   # （fmp_layer_imports）。本來就是 just_audio 的傳遞依賴，直接依賴才能 import。
@@ -100,6 +103,8 @@ dev_dependencies:
   # 插件執行環境的實機量測（integration_test/plugin_runtime_benchmark_test.dart）。
   integration_test:
     sdk: flutter
+  # test/identity/android_manifest_test.dart 解析 AndroidManifest.xml。
+  xml: ^7.1.0
   yaml: ^3.1.4
 
 flutter:
