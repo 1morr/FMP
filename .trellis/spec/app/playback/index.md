@@ -91,6 +91,9 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
 - 隨機的內部表示：`_order` 是本輪的位置排列，目前這首在 `_order.indexOf(_current)`；
   `_playNextRun` 是緊接在目前這首之後、連續「下一首播放」的位置數（清單與排列上都緊接著）。
   新的編輯要同時維持這兩件事，並讓 `_order` 仍是全部位置的排列。
+- 「移到下一首」（`moveToNext`）和 `playNext` 共用 `_playNextRun`：移除再插到目前這首之後那一串的尾端，已在那一串
+  裡的先把串縮一格再加回；隨機時排列裡也先拿掉、再插在目前這首之後那一串的尾端（位置先照移除、再照插入重新編號），
+  所以連本輪已播過的也會再播一次，種子測試把這種被移後的歌先從本輪紀錄拿掉。項目沿用同一個 `QueueEntry` 實例。
 - 一輪的最後一首時，`next` 先決定下一輪的排列（`_nextRound`），`moveNext` 照用；任何編輯經
   `_publish` 作廢它。所以前瞻看到的下一首與實際接上的一致。
 - 測試：`test/playback/queue_model_test.dart`，隨機一律 `QueueModel(random: Random(種子))`。
