@@ -408,6 +408,40 @@ final class QueueModel {
     _publish();
   }
 
+  /// 把位置 [index] 的歌移到目前這首之後，接在之前連續「下一首播放」的後面（佇列
+  /// 選單的「下一首播放」）。等於移除再以 [playNext] 加回，但項目是同一個實例、
+  /// 不檢查上限；隨機時它的排序也移到同一處，所以下一首（或接著的那幾首之後）
+  /// 一定播它，和 [move] 的「只換歌、不改排列」不同。[index] 是目前這首（臨時播放中
+  /// 是快照那首）時不做事；佇列是空的時沒有合法的 [index]，同其他編輯拋 [RangeError]。
+  void moveToNext(int index) {
+    RangeError.checkValidIndex(index, _entries, 'index');
+    final current = _current!;
+    if (index == current) return;
+    final entry = _entries.removeAt(index);
+    var cursor = current;
+    var run = _playNextRun;
+    if (index < current) {
+      cursor--;
+    } else if (index <= current + run) {
+      run--;
+    }
+    final at = cursor + 1 + run;
+    _entries.insert(at, entry);
+    if (_order case final order?) {
+      order.remove(index);
+      for (var i = 0; i < order.length; i++) {
+        if (order[i] > index) order[i]--;
+      }
+      for (var i = 0; i < order.length; i++) {
+        if (order[i] >= at) order[i]++;
+      }
+      order.insert(order.indexOf(cursor) + 1 + run, at);
+    }
+    _current = cursor;
+    _playNextRun = run + 1;
+    _publish();
+  }
+
   /// 移除位置 [index]。移除的是目前這首時往下一首（沒有下一首就往前一首）；
   /// 臨時播放中，回到佇列的那一首因此換了時，從頭開始。
   void remove(int index) {

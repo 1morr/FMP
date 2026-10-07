@@ -364,6 +364,13 @@ final class PlaybackController {
     _queueEdited();
   }
 
+  /// 把佇列位置 [index] 的歌移到目前這首之後（接在連續「下一首播放」的後面），
+  /// 隨機時下一首也是它（`QueueModel.moveToNext`）。目前這首不做事。
+  void moveToNext(int index) {
+    _queue.moveToNext(index);
+    _queueEdited();
+  }
+
   /// 清空佇列並停在 `Idle`（臨時播放也一起結束）。
   Future<void> clear() {
     _queue.clear();

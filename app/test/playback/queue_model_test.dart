@@ -56,6 +56,12 @@ QueueModel shuffled(int count, {int seed = 1, int start = 0}) =>
       ..replace(numbered(count), startIndex: start)
       ..setShuffle(true);
 
+/// 隨機挑一個不是目前這首的位置（[length] 至少 2）。
+int otherPosition(Random random, int current, int length) {
+  final index = random.nextInt(length - 1);
+  return index >= current ? index + 1 : index;
+}
+
 void main() {
   group('in order', () {
     test('an empty queue has no current track and cannot move', () {
@@ -426,7 +432,7 @@ void main() {
           final current = state.currentIndex!;
           final order = state.shuffleOrder!;
           final length = state.entries.length;
-          switch (random.nextInt(6)) {
+          switch (random.nextInt(7)) {
             case 0 || 1 || 2:
               final endOfRound = order.indexOf(current) == length - 1;
               final peeked = queue.next!.index;
@@ -475,6 +481,19 @@ void main() {
                 }
                 round.add(slots[queue.state.currentIndex!]);
               }
+            case 6:
+              final index = otherPosition(random, current, length);
+              final entry = state.entries[index];
+              queue.moveToNext(index);
+              expect(upcoming(queue.state), contains(entry.track.sourceId));
+              final at = queue.state.entries.indexWhere(
+                (candidate) => identical(candidate, entry),
+              );
+              // 排到目前這首之後：本輪已播過的這首要再播一次，和移除再加入一樣
+              // 先從本輪的紀錄拿掉，再播到它時算一次。
+              final slot = slots.removeAt(index);
+              slots.insert(at, slot);
+              round.remove(slot);
             default:
               break;
           }
@@ -519,6 +538,115 @@ void main() {
         ..playNext(tracks(['c']));
       expect(ids(next.state), ['a', 'b', 'c']);
       expect(currentId(next.state), 'a');
+    });
+  });
+
+  group('move to next', () {
+    test('without shuffle it goes after the current track and the run', () {
+      final queue = QueueModel()..replace(tracks(['a', 'b', 'c', 'd', 'e']));
+      queue.playNext(tracks(['x']));
+      expect(ids(queue.state), ['a', 'x', 'b', 'c', 'd', 'e']);
+
+      queue.moveToNext(4);
+      expect(ids(queue.state), ['a', 'x', 'd', 'b', 'c', 'e']);
+      expect(currentId(queue.state), 'a');
+      queue.playNext(tracks(['y']));
+      expect(ids(queue.state), ['a', 'x', 'd', 'y', 'b', 'c', 'e']);
+    });
+
+    test('a song before the current one moves past it', () {
+      final queue = QueueModel()
+        ..replace(tracks(['a', 'b', 'c', 'd']), startIndex: 2);
+      final entry = queue.state.entries[0];
+
+      queue.moveToNext(0);
+
+      expect(ids(queue.state), ['b', 'c', 'a', 'd']);
+      expect(currentId(queue.state), 'c');
+      expect(queue.state.currentIndex, 1);
+      expect(identical(queue.state.entries[2], entry), isTrue);
+    });
+
+    test('a song in the play-next run goes to the end of the run', () {
+      final queue = QueueModel()..replace(tracks(['a', 'b']));
+      queue.playNext(tracks(['x', 'y', 'z']));
+
+      queue.moveToNext(1);
+
+      expect(ids(queue.state), ['a', 'y', 'z', 'x', 'b']);
+      queue.playNext(tracks(['w']));
+      expect(ids(queue.state), ['a', 'y', 'z', 'x', 'w', 'b']);
+    });
+
+    test('two in a row play in the order they were chosen', () {
+      final queue = shuffled(8, seed: 7);
+      queue.moveToNext(ids(queue.state).indexOf('5'));
+      queue.moveToNext(ids(queue.state).indexOf('2'));
+
+      expect(upcoming(queue.state).take(2), ['5', '2']);
+      expect(queue.moveNext(), isA<MovedToTrack>());
+      expect(currentId(queue.state), '5');
+      expect(queue.moveNext(), isA<MovedToTrack>());
+      expect(currentId(queue.state), '2');
+    });
+
+    test('with shuffle the next track is the one chosen, even if played', () {
+      final queue = shuffled(8, seed: 3);
+      queue.moveNext();
+      queue.moveNext();
+      final replayed = played(queue.state).first;
+
+      queue.moveToNext(ids(queue.state).indexOf(replayed));
+
+      expect(upcoming(queue.state).first, replayed);
+      expect(played(queue.state), isNot(contains(replayed)));
+      expect([...queue.state.shuffleOrder!]..sort(), [
+        for (var i = 0; i < 8; i++) i,
+      ]);
+    });
+
+    test('it mixes with play next in either order', () {
+      final queue = shuffled(6, seed: 11);
+      queue.playNext(tracks(['x']));
+      queue.moveToNext(ids(queue.state).indexOf('4'));
+      queue.playNext(tracks(['y']));
+
+      expect(upcoming(queue.state).take(3), ['x', '4', 'y']);
+    });
+
+    test('during a temporary play it goes after the snapshot song', () {
+      final queue = QueueModel()..replace(tracks(['a', 'b', 'c']));
+      queue.playTemporary(track('t'), position: Duration.zero, playing: true);
+
+      queue.moveToNext(2);
+
+      expect(ids(queue.state), ['a', 'c', 'b']);
+      expect(queue.state.mode, QueueMode.temporary);
+      expect(queue.state.currentIndex, 0);
+    });
+
+    test('the current song does nothing; an empty queue has no position', () {
+      final queue = QueueModel();
+      expect(() => queue.moveToNext(0), throwsRangeError);
+
+      queue.replace(tracks(['a', 'b']));
+      final before = queue.state;
+      queue.moveToNext(0);
+      expect(ids(queue.state), ids(before));
+      expect(queue.state.currentIndex, 0);
+    });
+
+    test('changing song starts a new run', () {
+      final queue = QueueModel()..replace(tracks(['a', 'b', 'c', 'd', 'e']));
+      queue.moveToNext(4);
+      queue.moveNext();
+      expect(ids(queue.state), ['a', 'e', 'b', 'c', 'd']);
+      expect(currentId(queue.state), 'e');
+
+      queue.moveToNext(4);
+      queue.moveToNext(4);
+
+      expect(ids(queue.state), ['a', 'e', 'd', 'c', 'b']);
     });
   });
 
