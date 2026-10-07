@@ -43,6 +43,8 @@ void main() {
       expect(platform.capabilities.cache, same(androidCacheSizes));
       expect(platform.cacheDirectory, isA<CacheDirectory>());
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
+      // 系統依速度自己外推位置，不重推。
+      expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
     });
 
     test('Windows has a data directory, a single instance, named fonts, '
@@ -67,8 +69,13 @@ void main() {
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
       expect(platform.capabilities.cache, same(windowsCacheSizes));
       expect(platform.cacheDirectory, isA<CacheDirectory>());
-      // Windows 的 SMTC 在 M2 PR 16b 才有。
-      expect(platform.capabilities.mediaControls, isNull);
+      // SMTC：不能 seek、播放中每 5 秒重推位置；實作要啟動時初始化，所以
+      // assemble 之後還沒有（withMediaControls）。
+      expect(platform.capabilities.mediaControls?.supportsSeek, isFalse);
+      expect(
+        platform.capabilities.mediaControls?.positionRefresh,
+        const Duration(seconds: 5),
+      );
       expect(platform.mediaControls, isNull);
     });
 
@@ -135,11 +142,47 @@ void main() {
 
     test('a platform without the capability initializes nothing', () async {
       final platform = await AppPlatform.assemble(
-        TargetPlatform.windows,
+        TargetPlatform.linux,
         AppFlavor.dev,
       ).withMediaControls(onFailure: (_, _) => fail('should not run'));
 
       expect(platform.mediaControls, isNull);
+    });
+  });
+
+  group('system media controls on Windows', () {
+    test(
+      'initializing keeps the declaration and exposes the controls',
+      () async {
+        final controls = _FakeControls();
+        final platform = await AppPlatform.assemble(
+          TargetPlatform.windows,
+          AppFlavor.dev,
+          windowsMediaControls: () async => controls,
+        ).withMediaControls(onFailure: (_, _) => fail('should not fail'));
+
+        expect(platform.mediaControls, same(controls));
+        expect(platform.capabilities.mediaControls?.supportsSeek, isFalse);
+        expect(
+          platform.capabilities.mediaControls?.positionRefresh,
+          const Duration(seconds: 5),
+        );
+      },
+    );
+
+    test('a failed initialization is logged and declares none', () async {
+      final failures = <Object>[];
+      final platform = await AppPlatform.assemble(
+        TargetPlatform.windows,
+        AppFlavor.dev,
+        windowsMediaControls: () async => throw StateError('no smtc'),
+      ).withMediaControls(onFailure: (error, _) => failures.add(error));
+
+      expect(failures, hasLength(1));
+      expect(platform.mediaControls, isNull);
+      expect(platform.capabilities.mediaControls, isNull);
+      expect(platform.capabilities.playback, same(windowsPlaybackSupport));
+      expect(platform.dataDirectory, isA<WindowsAppDataDirectory>());
     });
   });
 

@@ -64,12 +64,16 @@
 - **PR 16a 已合併**：#213（`e5cfa91b`）：擁有者定停止＝暫停。審查修了「啟動恢復那首在通知上一直沒有封面」，並把 `pickArtwork` 移到 domain、加了 playback→ui 的 lint。實機（Android，重播＋一次真實 B 站搜尋與播放看封面）通過；鎖定畫面沒驗（模擬器沒設螢幕鎖）。
 - **PR 17 已合併**：#214（`bab877df`）：擁有者定輸出裝置失敗改用系統預設。審查修了「臨時播放後進度條顯示錯的位置」「Shift+←／→ 在恢復狀態無效或蓋掉恢復位置」「滑鼠打開的選單按 Esc 關不掉」，並把提示分成兩句。實機兩平台（重播）通過；Windows 的裝置停用要系統管理員權限，裝置失敗的退回沒有實機驗。
 - **PR 18a 已合併**：#215（`cfde4a16`）。主對話定佇列分頁先做唯讀清單＋點選跳到、「切換右側面板」延到 PR 19（`layout_state` 這次就含面板兩欄）、左上角收合鈕關閉；實作期推定的決定（預設歌詞分頁、route 自己設開關狀態、遮罩用 `surface`、「⋯」在控制列最後、compact 的切換不寫記憶、佇列分頁捲到目前這首前兩列）主對話接受，記在 design §9.3 末段。審查（opus）修了「關閉轉場中又開一頁，狀態被舊頁設成沒開、焦點被搶走」「第一幀前佇列就空了，留下關不掉的空白頁」「播放列點擊區沒有按鈕語意」，補了五條文件宣稱卻沒有測試的閘門。`flutter test` 1712 通過、2 跳過；Windows 的 `toast_layering_test.dart`、`install_search_play_test.dart` 與 Android 的 `toast_layering_test.dart` 通過。實機兩平台（重播）通過：Windows 點曲名與 Ctrl+Q 開頁、compact（700 px）／medium／expanded（1500 px）／large（1920 px）／extraLarge（2450 px）五種版面、compact 點封面切歌詞且不覆寫記憶、Esc 先關選單再關頁、焦點回到播放列、速度 1.5× 打勾、播放頁上的試聽提示貼底；Android 直向五個控制、點封面切歌詞、返回鍵只關播放頁。F6 只有 widget 測試。
-- **PR 18b 完成、待合併**（2026-10-07；分支 `feat/app-queue-tab`，子任務 `.trellis/tasks/10-07-queue-tab`）：擁有者定佇列入口在播放頁右上角；主對話定 `moveToNext`（移除再以下一首播放加回，隨機時排序也移過去）、移除不提示清空才提示、三處列選單共用 `TrackRowMenu`、底部面板包 `PlaybackShortcuts`（design §7.3 末段）。審查（opus）修了「compact 清空後提示壓在底部導覽上」「拖曳被取消後自動捲動永遠失效」，並補了幾條原本沒驗到東西的測試。`flutter test` 1772 通過、2 跳過；Windows 兩個整合測試通過。實機兩平台（重播）通過：Windows 隨機下「下一首播放」後 Ctrl+→ 播的就是它、拖曳目前這首仍是目前這首、F6／Tab 到列 Enter 跳到、焦點在列上空白鍵是暫停、移除不提示、清空確認後頁面關閉並提示、medium（1100 px）Ctrl+Q 開頁加面板、面板內空白鍵播放暫停、Esc 只關面板；Android 右上角入口開面板、把手拖曳、長按選單的「下一首播放」、「⋯」移除、返回鍵只關面板、清空的提示在導覽列之上。
-- **下一步**：16b、19。
+- **PR 18b 已合併**：#216（`a54b194a`）。擁有者定佇列入口在播放頁右上角；主對話定 `moveToNext`（移除再以下一首播放加回，隨機時排序也移過去）、移除不提示清空才提示、三處列選單共用 `TrackRowMenu`、底部面板包 `PlaybackShortcuts`（design §7.3 末段）。審查（opus）修了「compact 清空後提示壓在底部導覽上」「拖曳被取消後自動捲動永遠失效」，並補了幾條原本沒驗到東西的測試。`flutter test` 1772 通過、2 跳過；Windows 兩個整合測試通過。實機兩平台（重播）通過：Windows 隨機下「下一首播放」後 Ctrl+→ 播的就是它、拖曳目前這首仍是目前這首、F6／Tab 到列 Enter 跳到、焦點在列上空白鍵是暫停、移除不提示、清空確認後頁面關閉並提示、medium（1100 px）Ctrl+Q 開頁加面板、面板內空白鍵播放暫停、Esc 只關面板；Android 右上角入口開面板、把手拖曳、長按選單的「下一首播放」、「⋯」移除、返回鍵只關面板、清空的提示在導覽列之上。
+- **PR 16b 完成、待合併**（2026-10-08；分支 `feat/app-smtc`，子任務 `.trellis/tasks/10-07-smtc`）：實機（Windows）抓到三件，修好並重驗：`flutter_rust_bridge` 被解析成 2.13.0、與 `smtc_windows` 的 Rust 端 2.11.1 不符，啟動就初始化失敗（直接釘 2.11.1，加比對 lock 與 `Cargo.toml` 的閘門）；`file:///` 封面讀不到，改交 `https`（`NowPlaying.artworkUrl`）；停止鈕沒啟用，停止指令到不了 App。審查（opus）另修「下一首沒有上傳者時留著上一首的」「連接埠 > 65535 的封面網址讓 Rust panic」，補了 SMTC 呼叫順序的測試與 skill 的 `smtc_command.ps1`（只對 FMP 的 AUMID 送指令）。決定記在 design §8.4 末段。`flutter test` 1808 通過、2 跳過。實機：Windows（重播＋一次真實 B 站：搜尋 1、縮圖 10、`nav`／`wbi/view`／`playurl` 各 1；從歷史重播同一首再 `wbi/view`、`playurl` 各 1）idle 沒有工作階段、播放後曲名／上傳者／封面／狀態、toggle／next／stop、位置約每 5 秒；Android（重播）媒體工作階段與 MediaStyle 通知照常。
+- **下一步**：19。
 - **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **adb 可能多出別的裝置**（10-07 出現 `127.0.0.1:16384`，不是我們的模擬器）：一律 `export ANDROID_SERIAL=emulator-5554` 或 `adb -s`，`ax_flatten.py` 加 `--device`，不要碰別的裝置。
   - **PR 16a 之後**：播放中 uiautomator 會「could not get idle state」，先送 `adb shell input keyevent MEDIA_PAUSE` 再讀畫面；媒體狀態用 `dumpsys media_session`、通知用 `dumpsys notification --noredact`。模擬器沒設螢幕鎖，看不到鎖定畫面控制。**跑完 Android 整合測試後，`build/app/outputs/flutter-apk/app-dev-debug.apk` 已被換成整合測試的版本**（它的 `main()` 等測試工具連進來，裝上去會停在啟動畫面、isolate 閒置、堆疊是空的）：重裝前一定先 `flutter build apk --flavor dev --debug`。10-07 因此誤判過一次「全新安裝卡住」。
+  - **Windows 同一個坑**：`flutter test integration_test/... -d windows` 也把 `build/windows/x64/dev/runner/Debug/fmp.exe` 換成整合測試入口，直接執行是一個沒有視窗、log 沒有 `App started` 的程序；實機前先 `flutter build windows --flavor dev --debug`（或 `flutter run` 一次）。
+  - **送鍵前確認 FMP 在前景**：`SetForegroundWindow` 會被 Windows 的前景鎖擋下，鍵就送到別的視窗（10-07 擁有者看到空白鍵沒進 FMP）。送鍵前先點 FMP 視窗內的空白處（`KX`／`KY`），之後以截圖的標題列或 log 確認有反應。
+  - **`smtc_probe.ps1` 一律帶 `-AppFilter fmp`**：不帶會列出擁有者其他 App 的媒體工作階段（含曲名）。
   - **模擬器上的狀態**：dev 版裝著測試插件（`files/test.js`）與 B 站插件（`files/bilibili.js`），介面語言 English，快取上限設成 512 MB。跑過 Android 整合測試會解除安裝 dev，要重裝並以 `run-as` 放回兩個插件，各帶 `--fmp-dev-plugin` 啟動一次。
   - **Windows dev**：跑過 Windows 整合測試要再 `flutter build windows --flavor dev --debug`。dev 的快取上限設成 128 MB。快取在 `%LOCALAPPDATA%/com.personal/fmp-dev/fmp_cache`；同層的 `fmp/`（舊版的 `lyrics`）不要動。
   - **搜尋來源每次啟動都回到 Bilibili**：重播驗證前先點 `FMP Test Plugin` chip，截圖確認選中，否則會對 B 站發真實請求。
@@ -497,10 +501,10 @@
 
 ## 16b. 系統媒體控制：Windows SMTC（design §8.4）
 
-- [ ] `media_controls_windows.dart`（`smtc_windows` 1.1.0），宣告 `supportsSeek: false`。
-- [ ] 封面先試快取檔的 `file:///`，不行就交 `https` 原網址；交出前 `Uri.tryParse` 檢查。
-- [ ] `app/AGENTS.md` § 驗證：Windows 建置需要 `rustup`。
-- [ ] CI 的 Windows 建置與整合測試確認仍綠（runner 內建 Rust）；缺時才在 `ci.yml` 加步驟。
+- [x] `media_controls_windows.dart`（`smtc_windows` 1.1.0），宣告 `supportsSeek: false`。
+- [x] 封面先試快取檔的 `file:///`，不行就交 `https` 原網址；交出前 `Uri.tryParse` 檢查。
+- [x] `app/AGENTS.md` § 驗證：Windows 建置需要 `rustup`。
+- [x] CI 的 Windows 建置與整合測試確認仍綠（runner 內建 Rust）；缺時才在 `ci.yml` 加步驟。
 - 測試：`platform_test.dart`；Windows 實作的轉換函式（`NowPlaying` → SMTC 的 metadata 與 timeline、按鈕）單元測試。
 - 實測（Windows）：
   - 播放中按鍵盤媒體鍵（播放／暫停、下一首）；
@@ -749,6 +753,14 @@ PR 18b 留下的：
 - [ ] 交接後馬上暫停、還沒出聲時，`Track audible` 這一行要等下一次佇列編輯（重新準備前瞻）才記，`sinceHandoverMs` 很大；播放歷史不受影響（交接當下已算），只是 log 語意不準（同 PR 15 那條）。
 - [ ] 拖曳把手沒有語意標籤（輔助技術用 `ReorderableListView` 的上移、下移動作）；實機的語意樹看不到它。
 - [ ] Windows 實機的 debug 標籤蓋住播放頁右上角佇列鈕的一角（只有 debug 建置）。
+
+PR 16b 留下的：
+
+- [ ] Windows 上 publisher 照樣經 cache manager 下載 `artworkFile`，但 SMTC 用的是 `artworkUrl`：每首多一次下載與一次不起作用的推送，無害；要省就依平台宣告略過。
+- [ ] 鍵盤的實體媒體鍵沒有驗：Windows 自己決定送給哪個工作階段（可能是別的 App），實機只經工作階段 API 對 FMP 送指令。
+- [ ] 音量浮層的媒體卡片沒有截圖看（浮層上可能有擁有者其他 App 的卡片），以工作階段 API 讀的內容為準。
+- [ ] SMTC 回報 `IsShuffleEnabled`／`IsRepeatEnabled` 為真（套件替這兩個請求註冊了監聽），App 不處理；Win11 的浮層不顯示這兩顆鈕。
+- [ ] 建過 Windows 之後，`dart format … .` 會因 `build/` 底下 cargokit 產生的 `.dart` 回非零（`app/AGENTS.md` 已註明），CI 不受影響。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

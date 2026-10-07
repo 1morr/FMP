@@ -18,6 +18,7 @@ import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/media_controls/media_controls_android.dart';
+import 'package:fmp/platform/media_controls/media_controls_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 
 /// 平台層的組裝點（ADR 0009 §決定 1–4）：依平台組出能力宣告與各能力的
@@ -50,11 +51,13 @@ final class AppPlatform {
   /// 也沒有實作檔（ADR 0009 §決定 4）。
   ///
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
-  /// `AndroidSystemMediaControls.init`）。
+  /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
+  /// `WindowsSystemMediaControls.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
     AppFlavor flavor, {
     Future<SystemMediaControls> Function()? androidMediaControls,
+    Future<SystemMediaControls> Function()? windowsMediaControls,
   }) => switch (platform) {
     TargetPlatform.android => AppPlatform._(
       capabilities: const PlatformCapabilities(
@@ -86,6 +89,11 @@ final class AppPlatform {
         playback: windowsPlaybackSupport,
         networkInterfaces: true,
         cache: windowsCacheSizes,
+        // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
+        mediaControls: MediaControlsSupport(
+          supportsSeek: false,
+          positionRefresh: Duration(seconds: 5),
+        ),
       ),
       dataDirectory: WindowsAppDataDirectory(
         flavor: flavor,
@@ -100,6 +108,8 @@ final class AppPlatform {
       cacheDirectory: CacheDirectory(
         applicationCachePath: _applicationCachePath,
       ),
+      mediaControlsFactory:
+          windowsMediaControls ?? WindowsSystemMediaControls.init,
     ),
     TargetPlatform.linux ||
     TargetPlatform.macOS ||

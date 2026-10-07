@@ -80,13 +80,38 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/window_shot.ps1 -Atta
 - **Narrator**：`Start-Process narrator.exe` 會帶出「快速入門」視窗搶前景（之後的 `-Click` 回 exit 3），
   `taskkill /F /IM NarratorQuickStart.exe` 關掉它；Narrator 本身 `taskkill` 會被拒，用 Win+Ctrl+Enter 關。
 
-## SMTC（M2 起才有東西可讀）
+## SMTC（系統媒體控制，M2 PR 16b 起）
+
+**一律帶 `-AppFilter`／`-Aumid`**：不帶的話會列出、甚至操作擁有者其他 App 的媒體工作階段（含曲名）。
+
+讀狀態（唯讀）：
 
 ```bash
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/smtc_probe.ps1 -AppFilter com.personal.fmp.dev
 ```
 
-從 WinRT 讀每個媒體工作階段的 `IsNextEnabled`／`IsPreviousEnabled` 等，App 不必在前景。`-AppFilter`
-是 AppUserModelID 的子字串比對：只寫 `fmp` 會連舊版與 prod（`com.personal.fmp`）一起列出。必須是
-`powershell.exe`（5.1）；`pwsh` 沒有 WinRT 投影。M1 的 App 還沒有註冊媒體工作階段，目前的輸出是
-`SESSIONS=0` 與 `NO_SESSION`，不代表出錯。
+從 WinRT 讀媒體工作階段的 `TITLE`、`ARTIST`、`THUMBNAIL`（`present`／`none`，Windows 自己下載封面的結果）、
+`POSITION`／`END`、`STATUS` 與各按鈕的 `Is…Enabled`，App 不必在前景。`-AppFilter` 是 AppUserModelID 的子字串比對：
+只寫 `fmp` 會連舊版與 prod（`com.personal.fmp`）一起列出，但不會列出別的 App。必須是 `powershell.exe`（5.1）；
+`pwsh` 沒有 WinRT 投影。
+
+送指令（只送給 FMP）：
+
+```bash
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/smtc_command.ps1 -Command toggle   # play|pause|toggle|next|previous|stop
+```
+
+- **不要用全域鍵盤媒體鍵驗 FMP**（`SendKeys`、`keybd_event` 的 `VK_MEDIA_*`）：Windows 自己決定送給哪個工作階段，
+  別的 App 也在播時會送到它那裡。`smtc_command.ps1` 經 `GlobalSystemMediaTransportControlsSession` 的
+  `TryPlayAsync`／`TrySkipNextAsync`／`TryStopAsync` 等，只對 AppUserModelID **完全等於** `-Aumid`（預設
+  `com.personal.fmp.dev`）的工作階段送，別的 App、舊版與 prod 都碰不到；找不到就 exit 1、不送。
+  `ACCEPTED=False`（exit 3）是那顆按鈕沒啟用。
+- 送完以 log（tag `media-controls` 與 `Playback state`）或再跑一次 probe 確認反應。
+
+預期（2026-10-07 實機）：
+
+- 沒有曲目、或啟動恢復後還沒按播放：SMTC 停用，`SESSIONS=0` 與 `NO_SESSION`，不代表出錯。
+- 播放中 `POSITION` 約每 5 秒更新一次（沒有 seek）；暫停時 App 不再推位置。
+- `THUMBNAIL=present`（交的是 `https` 網址；`file:///` 讀不到）。
+- `IsStopEnabled=True`，`-Command stop` 之後 `STATUS=Paused`、位置保留（停止＝暫停）。
+- `IsShuffleEnabled`／`IsRepeatEnabled` 是 True：套件註冊了這兩種請求的監聽，App 不處理，不是錯。

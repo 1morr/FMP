@@ -62,7 +62,7 @@ terminal 從 repo 根目錄開始）。
 | 截圖（Android） | `adb exec-out screencap -p > <檔>` |
 | 截圖（Windows） | `scripts/window_shot.ps1`：只截 App 視窗 |
 | App 的 log | 資料目錄的 `logs/fmp.jsonl`；Android debug build 也可 `adb logcat -s flutter` |
-| 播放焦點、媒體工作階段 | `dumpsys audio`（Android）、`scripts/smtc_probe.ps1`（Windows，M2 起才有東西） |
+| 播放焦點、媒體工作階段 | `dumpsys audio`（Android）、`scripts/smtc_probe.ps1` 讀、`scripts/smtc_command.ps1` 只對 FMP 送指令（Windows；不按全域媒體鍵，見 `references/windows.md`） |
 
 優先讀文字（語意樹、log），畫面問題（版面、溢出、主題）才截圖。**截圖與貼進回報的內容不得含
 個人資訊**：log 的 `App started` 一行帶資料目錄的完整路徑（含使用者名稱），引用時改成

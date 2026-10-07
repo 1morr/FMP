@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 8.1 platform capability, 8.2 NowPlayingPublisher push rules incl. Windows timeline throttle, 8.4 Windows smtc_windows build, seek, artwork; 9.1 PR 16a decisions (stop = pause, idle no notification)"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decision 8 system media controls, publisher pushes on change and serialised"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Declared capabilities, init failure rewrites the declaration, platform packages only in implementation files"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "How to add a platform capability and implementation"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "NowPlayingPublisher and controller wiring"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Adding a package owner to fmp_layer_imports with two-way tests and the sentinel"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Unit tests, fakeAsync, integration tests"}

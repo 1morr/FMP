@@ -177,6 +177,9 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
   公開方法，不讀它的私有狀態。要推新的欄位：加在 `NowPlaying`（`lib/platform/media_controls/`，含 `==`），
   在 `_build` 填值，並在 `now_playing_publisher_test.dart` 加案例（值不變不推的案例要仍然過）。
 - seek 的事件在 seek 生效之前發出，所以 seek 那一次推送用事件帶的目標位置，不讀控制器的位置。
+- 系統不會自己外推位置的平台（Windows）在宣告裡給 `positionRefresh`：publisher 在進度 stream 的回呼裡比對
+  `clock.now()` 與上一次推送（任何一種推送都算）的時間，播放中（`Playing`）滿間隔才帶進度的位置強制推一次；
+  不開計時器。測試用 `PublisherHarness(positionRefresh:)`（`position refresh` 群組）。
 - 測試：`PublisherHarness`（假後端、假插件、`FakeMediaControls`）在 `fakeAsync` 裡；`FakeMediaControls.gate`
   卡住 `publish` 檢查不重疊，`send(command)` 模擬系統按鍵。
 

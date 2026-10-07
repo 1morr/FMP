@@ -16,11 +16,15 @@
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
-| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug`、Android 模擬器實機驗（§ 平台層的兩個覆寫、通知、`dumpsys media_session`、媒體鍵） |
+| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的兩個覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`、`lib/playback/playback_session.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
 
+- Windows 建置要有 `rustup`：`smtc_windows` 每次建置都從原始碼編 Rust（套件的 cargokit 沒有預編譯二進位）。
+  CI 的 Windows runner 映像內建 Rust，不必另裝。建過之後 `build/windows/x64/<flavor>/plugins/smtc_windows/cargokit_build/`
+  底下有 cargokit 自己產生的 `.dart`，`dart format … .` 會報它「Changed」而回非零：只有 `build/` 底下的那一個時不是
+  格式問題（CI 的格式檢查沒有 `build/`），其他檔案照常要修。
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
   `fmp_lints` 的測試另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次（Windows 路徑）。
@@ -185,7 +189,33 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
   （`supportsSeek`）；Android 以 `audio_service` 實作。宣告在組裝點，實作在 `main()` 開好資料庫之後、
   `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
-  Windows（SMTC）在 M2 PR 16b。`audio_service` 的擁有者是 `lib/platform/`（`platformPackages`）。
+  `audio_service` 與 `smtc_windows` 的擁有者都是 `lib/platform/`（`platformPackages`）。
+- Windows（SMTC，`media_controls_windows.dart`，`smtc_windows` 釘 1.1.0）：宣告 `supportsSeek: false`、
+  `positionRefresh: 5 秒`（SMTC 的 timeline 不會自己前進，`NowPlayingPublisher` 播放中依它從進度 stream 節流重推位置，
+  用 `clock.now()` 比對、不開計時器；Android 為 `null`，照舊只在狀態改變與 seek 時推）。轉換都是純函數
+  （`smtcMetadataOf`、`smtcTimelineOf`、`smtcStatusOf`、`smtcConfigOf`、`mediaCommandOf`）。`MediaPhase.idle`
+  （含啟動恢復後還沒播）呼叫 `disableSmtc`、媒體卡片不顯示，建構時也是停用的（`init` 的 `SMTCWindows(enabled: false)`，只有實機驗）；有曲目再 `enableSmtc`。
+  封面交曲目封面挑出來的那張的 `https` 網址（`NowPlaying.artworkUrl`，和 Android 的 `artworkFile` 同一張，
+  `pickArtwork(…, 512)`）：只收 host 不空、連接埠不超過 65535 的 `https`，交出前以 `Uri.tryParse` 重新驗過，因為套件讀
+  `thumbnail` 時 `CreateUri(..).unwrap()`，不合法的字串會讓 Rust 端 panic（`Uri` 接受任何連接埠，`CreateUri` 不收超過
+  65535 的；百分比編碼的空白、非 ASCII 收得下）。套件的 `updateMetadata` 只設不是 `null` 的欄位：上一首有、這一首沒有的
+  上傳者或封面要先 `clearMetadata`（`smtcClearsMetadata`），否則留著上一首的。**已知例外**：這張圖由 Windows 自己下載，不經 App 的
+  媒體 client（不帶 App 的 header 或 cookie；網址在 DTO 解碼時已通過 manifest 的 `allowedHosts`）。實測
+  結論：`file:///` 封面在未封裝 App 的 SMTC 讀不到（2026-10-07），所以不交快取檔。
+  停止鍵：有曲目（非 idle）時 `smtcConfigOf` 啟用 stop，否則系統送的停止指令不會轉給 App；`MediaStop` 由控制器當
+  暫停。套件替 shuffle／repeat 請求註冊了監聽，`IsShuffleEnabled`／`IsRepeatEnabled` 會回報 True，App 不處理
+  （Win11 的浮層卡片不顯示這兩顆鈕）。
+  **釘版**：`pubspec.yaml` 直接依賴 `flutter_rust_bridge: 2.11.1`，必須等於 `smtc_windows` 的 `rust/Cargo.toml`
+  釘的版本（`=2.11.1`）。套件的 `pubspec.yaml` 只寫 `^2.11.1`，不釘的話 Dart 端解析到較新版本，執行時
+  `SMTCWindows.initialize()` 丟 `codegen version … should be the same as runtime version …`；初始化失敗只記
+  log、App 照常啟動，所以沒有測試就沒人發現。升級 `smtc_windows` 時一起改。
+  閘門：`smtc_bridge_version_test.dart`（經 `.dart_tool/package_config.json` 找套件、比對 `Cargo.toml` 與
+  `pubspec.lock`，含解析函式的雙向變異案例）。
+  閘門：`media_controls_windows_test.dart`（轉換、封面只收 https 與合法連接埠、停止鍵啟用、按鍵含停止對應指令；
+  `the adapter` 群組以假的 `SMTCWindows` 守 idle 不啟用、離開 idle 先啟用再推全部、回到 idle 清掉並停用、只推變了的部分、
+  缺欄位先清）、`platform_test.dart`
+  的 `system media controls on Windows`（宣告與初始化失敗）、`now_playing_publisher_test.dart` 的
+  `position refresh`、`artwork url`；`layer_imports_test.dart` 的 `smtc_windows` 案例守「只在 `lib/platform/`」。
 - Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
   有兩個覆寫，**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
   - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
@@ -199,7 +229,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   背景、音樂繼續。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
-平台必須全部為沒有；含 Android 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
+平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
 `lib/platform/` 以外的平台判斷。
 lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、以及「不預留欄位」沒有
 自動閘門，review 時看。
@@ -987,19 +1017,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   初始化成功時才建。規則：
   - 只在值改變時推（`NowPlaying` 值相等），推送一個接一個、不重疊（等上一次 `publish` 完成）；推送失敗只記
     log，不影響播放。
-  - 位置只在狀態改變與 seek 時推（系統依速度自己外推，所以速度改變也推，`NowPlaying.speed` 是控制器的實際速度）；進度 stream 只用來取得時長，播放中不因位置前進而推。
+  - 位置只在狀態改變與 seek 時推（系統依速度自己外推，所以速度改變也推，`NowPlaying.speed` 是控制器的實際速度）；進度 stream 只用來取得時長，播放中不因位置前進而推。例外：平台宣告 `positionRefresh`（Windows 5 秒）時，播放中距上次推送滿該間隔才從進度 stream 重推一次位置。
   - 按鈕依能力推導：有目前曲目才有上一首；播放中、`Loading`、`Buffering`、`Retrying` 是暫停鍵，其他是播放鍵；
     有下一首或循環全部才有下一首。
   - 還沒按播放的 `Idle`（含啟動恢復後）是 `MediaPhase.idle`：系統不顯示通知、不搶前景。
-  - 封面經 `artworkCacheManagerProvider`（design §4.3）取得本機檔、以 `file://` 交給平台，晚於其他欄位送出；
-    拿不到就不帶封面。啟動恢復時快取庫與插件清單多半還沒好，組裝點先等它們（`cacheStoreProvider.future`、
+  - 封面經 `artworkCacheManagerProvider`（design §4.3）取得本機檔、以 `file://` 交給平台（`artworkFile`，Android 用），晚於
+    其他欄位送出；拿不到就不帶封面。同一張的原網址另放 `artworkUrl`，和曲目一起送出（Windows 用，見 § 平台層）。啟動恢復時快取庫與插件清單多半還沒好，組裝點先等它們（`cacheStoreProvider.future`、
     `pluginRegistryProvider.future`）再拿 cache manager：publisher 每首只問一次。
   - 系統指令一律呼叫控制器：播放、暫停、上一首、下一首、seek；停止當作暫停（擁有者決定：位置與佇列保留，
     之後按播放從原處繼續）。
-  閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停）、
+  閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停、`position refresh`、`artwork url`）、
   `playback_providers_test.dart` 的 `system media controls`（組裝點接線、`the artwork of the restored song waits for
   the cache store`）；Android 的通知、鎖定畫面、
-  `dumpsys media_session` 與媒體鍵沒有自動閘門，實機驗。
+  `dumpsys media_session` 與媒體鍵，Windows 的媒體卡片、封面與經工作階段送的指令，都沒有自動閘門，實機驗。
 - UI 開始播放：搜尋結果點一下是臨時播放；每首的選單（右鍵、長按、尾端「⋯」同一份）有播放
   （＝臨時播放，舊版 TrackAction 也是）、下一首播放、加入佇列，後兩者成功時提示一次（舊版的
   「已加入」）。播放列讀佇列項目的 `TrackInfo`。閘門：`search_page_test.dart` 的

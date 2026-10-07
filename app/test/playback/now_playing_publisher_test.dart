@@ -22,17 +22,20 @@ import 'fake_audio_backend.dart';
 import 'fake_media_controls.dart';
 import 'fake_source_plugin.dart';
 
-TrackInfo track(String id) => TrackInfo(
-  sourceTypeId: 'fmp-test',
-  sourceId: id,
-  title: 'Song $id',
-  uploader: 'Uploader $id',
-);
+TrackInfo track(String id, {List<TrackArtwork> artwork = const []}) =>
+    TrackInfo(
+      sourceTypeId: 'fmp-test',
+      sourceId: id,
+      title: 'Song $id',
+      uploader: 'Uploader $id',
+      artwork: artwork,
+    );
 
 final class PublisherHarness {
   PublisherHarness(
     this.async, {
     Future<Uri?> Function(TrackInfo track)? artwork,
+    Duration? positionRefresh,
   }) : plugin = FakeSourcePlugin(
          (request) => [candidate('${request.sourceId}.m4a')],
        ),
@@ -66,6 +69,7 @@ final class PublisherHarness {
       controls: controls,
       artworkFile: artwork ?? (_) async => null,
       log: log,
+      positionRefresh: positionRefresh,
     )..attach(controller);
   }
 
@@ -100,10 +104,15 @@ void main() {
     String description,
     void Function(PublisherHarness h) body, {
     Future<Uri?> Function(TrackInfo track)? artwork,
+    Duration? positionRefresh,
   }) {
     test(description, () {
       fakeAsync((async) {
-        final h = PublisherHarness(async, artwork: artwork);
+        final h = PublisherHarness(
+          async,
+          artwork: artwork,
+          positionRefresh: positionRefresh,
+        );
         body(h);
         h.publisher.dispose();
       });
@@ -249,6 +258,96 @@ void main() {
       expect(h.last.id, 'fmp-test:b');
       expect(h.last.title, 'Song b');
       expect(h.last.controls, isNot(contains(MediaControl.next)));
+    });
+  });
+
+  group('position refresh', () {
+    const refresh = Duration(seconds: 5);
+
+    harness('playing pushes the position at most every refresh interval', (h) {
+      h.queue([track('a')]);
+      h.playAt(0);
+      final before = h.published.length;
+
+      h.elapse(const Duration(seconds: 4));
+      expect(h.published.length, before);
+
+      h.elapse(const Duration(seconds: 2));
+      expect(h.published.length, before + 1);
+      expect(h.last.position, greaterThan(const Duration(seconds: 4)));
+
+      h.elapse(const Duration(seconds: 12));
+      // 6 + 12 秒之內再推兩次（約每 5 秒一次），不是每秒一次。
+      expect(h.published.length, lessThanOrEqualTo(before + 4));
+      expect(h.published.length, greaterThanOrEqualTo(before + 3));
+    }, positionRefresh: refresh);
+
+    harness('a paused track is not pushed again', (h) {
+      h.queue([track('a')]);
+      h.playAt(0);
+      unawaited(h.controller.pause());
+      h.settle();
+      final before = h.published.length;
+
+      h.elapse(const Duration(seconds: 30));
+
+      expect(h.published.length, before);
+    }, positionRefresh: refresh);
+
+    harness('without a refresh interval the position is not pushed', (h) {
+      h.queue([track('a')]);
+      h.playAt(0);
+      final before = h.published.length;
+
+      h.elapse(const Duration(seconds: 30));
+
+      expect(h.published.length, before);
+    });
+  });
+
+  group('artwork url', () {
+    harness('is the picked artwork of the track, in the first push', (h) {
+      h.queue([
+        track(
+          'a',
+          artwork: [
+            TrackArtwork(
+              url: Uri.parse('https://x.test/small.jpg'),
+              width: 100,
+            ),
+            TrackArtwork(url: Uri.parse('https://x.test/big.jpg'), width: 600),
+          ],
+        ),
+      ]);
+
+      expect(
+        h.published.firstWhere((p) => p.hasTrack).artworkUrl,
+        Uri.parse('https://x.test/big.jpg'),
+      );
+    });
+
+    harness('is null for a track without artwork', (h) {
+      h.queue([track('a')]);
+
+      expect(h.last.artworkUrl, isNull);
+    });
+
+    harness('follows the track', (h) {
+      h.queue([
+        track(
+          'a',
+          artwork: [TrackArtwork(url: Uri.parse('https://x.test/a.jpg'))],
+        ),
+        track('b'),
+      ]);
+      h.playAt(0);
+      expect(h.last.artworkUrl, Uri.parse('https://x.test/a.jpg'));
+
+      unawaited(h.controller.next());
+      h.elapse(const Duration(milliseconds: 100));
+
+      expect(h.last.id, 'fmp-test:b');
+      expect(h.last.artworkUrl, isNull);
     });
   });
 

@@ -19,7 +19,9 @@ lib/platform/
 `connectivity_plus_interfaces.dart`，組裝點兩個分支各建一個）、`cache_directory/`（沒有介面的
 一個類別：兩個平台只差在 path_provider 的原生端，路徑由組裝點注入；只准快取模組 import，所以
 它的大小宣告另放 `cache_sizes/`）、`media_controls/`（介面＋值型別＋一個實作；實作要在啟動時
-初始化，所以宣告在組裝點、`AppPlatform.withMediaControls` 在 `main()` 初始化，失敗時改宣告為沒有）。
+初始化，所以宣告在組裝點、`AppPlatform.withMediaControls` 在 `main()` 初始化，失敗時改宣告為沒有；
+兩個平台各一個實作檔，轉換成平台格式的部分寫成頂層純函數，單元測試不必建系統物件；Windows 的轉接器
+以建構子收 `SMTCWindows`，呼叫順序用 `implements` 它的假物件測，不載入 Rust 端）。
 
 ## 加一個能力
 
