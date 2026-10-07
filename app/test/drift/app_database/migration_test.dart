@@ -13,6 +13,7 @@ import 'generated/schema_v2.dart' as v2;
 import 'generated/schema_v3.dart' as v3;
 import 'generated/schema_v4.dart' as v4;
 import 'generated/schema_v5.dart' as v5;
+import 'generated/schema_v6.dart' as v6;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -419,5 +420,118 @@ void main() {
       await playHistoryIndexes(db),
       containsAll(['play_history_played_at', 'play_history_track_key']),
     );
+  });
+
+  // v6 只加 layout_state：既有表的資料與使用者設定過的值一個都不能變，新表升級後是空的。
+  test('migration from v5 to v6 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 5,
+      newVersion: 6,
+      createOld: v5.DatabaseAtV5.new,
+      createNew: v6.DatabaseAtV6.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v5.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.networkSettings,
+          const v5.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        );
+        batch.insert(
+          oldDb.playbackSettings,
+          const v5.PlaybackSettingsData(
+            id: 1,
+            audioQuality: 'low',
+            playHistoryLimit: 1000,
+          ),
+        );
+        batch.insert(
+          oldDb.tracks,
+          v5.TracksData(
+            trackKey: 'p:1',
+            sourceTypeId: 'p',
+            sourceId: '1',
+            title: 'T',
+            updatedAt: 1790000000000,
+          ),
+        );
+        batch.insert(
+          oldDb.queueEntries,
+          const v5.QueueEntriesData(position: 0, trackKey: 'p:1'),
+        );
+        batch.insert(
+          oldDb.playHistory,
+          v5.PlayHistoryData(id: 1, trackKey: 'p:1', playedAt: 1790000000001),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v6.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ], reason: 'the user value is untouched');
+        expect(await newDb.select(newDb.networkSettings).get(), [
+          const v6.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        ]);
+        expect(await newDb.select(newDb.playbackSettings).get(), [
+          const v6.PlaybackSettingsData(
+            id: 1,
+            audioQuality: 'low',
+            playHistoryLimit: 1000,
+          ),
+        ]);
+        expect(await newDb.select(newDb.tracks).get(), hasLength(1));
+        expect(await newDb.select(newDb.queueEntries).get(), hasLength(1));
+        expect(await newDb.select(newDb.playHistory).get(), hasLength(1));
+        expect(await newDb.select(newDb.layoutState).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectLayoutStateRules(AppDatabase db) async {
+    expect(await db.select(db.layoutStateTable).get(), isEmpty);
+    await db.customStatement(
+      "INSERT INTO layout_state (id, player_tab, panel_expanded, panel_width) "
+      "VALUES (1, 'queue', 1, 412.0)",
+    );
+    // 單列：第二列插不進去。
+    await expectLater(
+      db.customStatement('INSERT INTO layout_state (id) VALUES (2)'),
+      throwsA(anything),
+    );
+    // 只擋明顯的壞值：寬度超過 1600 寫不進去。
+    await expectLater(
+      db.customStatement('UPDATE layout_state SET panel_width = 1601.0'),
+      throwsA(anything),
+    );
+    await db.customStatement('UPDATE layout_state SET panel_width = 1600.0');
+  }
+
+  // 從每個舊版升上來的與全新建的都要有 layout_state 和它的檢查。
+  for (final from in [1, 2, 3, 4, 5]) {
+    test('migration from v$from to v6 creates layout_state with its '
+        'checks', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 6);
+
+      await expectLayoutStateRules(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has layout_state with its checks', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectLayoutStateRules(db);
   });
 }

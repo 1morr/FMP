@@ -5,6 +5,7 @@ import 'package:fmp/data/database/converters.dart';
 import 'package:fmp/data/database/tables.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
 part 'app_database.g.dart';
@@ -26,6 +27,7 @@ part 'app_database.g.dart';
     QueueEntriesTable,
     PlayerStateTable,
     PlayHistoryTable,
+    LayoutStateTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -33,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -67,6 +69,9 @@ class AppDatabase extends _$AppDatabase {
               await m.create(schema.playHistory);
               await m.create(schema.playHistoryPlayedAt);
               await m.create(schema.playHistoryTrackKey);
+            },
+            from5To6: (m, schema) async {
+              await m.create(schema.layoutState);
             },
           ),
         );

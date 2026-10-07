@@ -2,8 +2,8 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v4（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）與 tracks、
-// queue_entries、player_state（v4））。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
+// Schema v6（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6））。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
 
@@ -204,4 +204,30 @@ class PlayHistoryTable extends Table {
     onDelete: KeyAction.restrict,
   )();
   late final playedAt = integer().map(const EpochMillisecondsConverter())();
+}
+
+/// 依裝置記住的版面狀態，單列（design §3.4）。不屬於任何設定組：設定包含在備份裡，
+/// 還原到另一台裝置時不該帶來這台的面板寬度，所以 M4 的備份不收它。欄位為空＝沒記過。
+/// 面板的兩欄在播放頁這一版就建好（右側面板在 M2 PR 19 接上），免得再升 schema。
+@DataClassName('LayoutStateRow')
+class LayoutStateTable extends Table {
+  @override
+  String get tableName => 'layout_state';
+
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  late final IntColumn id = integer().check(id.equals(1))();
+
+  /// 播放頁右欄上次選的分頁。
+  late final playerTab = text().nullable().map(const PlayerTabConverter())();
+
+  /// 右側「正在播放」面板展開與否。
+  late final panelExpanded = boolean().nullable()();
+
+  /// 右側面板的寬度（dp）。資料庫只擋明顯的壞值，實際範圍在讀取時依視窗夾取。
+  late final RealColumn panelWidth = real().nullable().check(
+    panelWidth.isSmallerOrEqualValue(1600),
+  )();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 }
