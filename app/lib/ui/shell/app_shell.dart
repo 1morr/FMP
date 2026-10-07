@@ -52,6 +52,7 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   var _destination = ShellDestination.search;
+  final _settingsBack = SettingsBack();
 
   final _navigation = FocusScopeNode(debugLabel: 'Shell navigation');
   final _content = FocusScopeNode(debugLabel: 'Shell content');
@@ -214,6 +215,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     const HistoryPage(),
                     SettingsPage(
                       visible: _destination == ShellDestination.settings,
+                      back: _settingsBack,
                     ),
                   ],
                 ),
@@ -336,42 +338,53 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     };
 
-    return Shortcuts(
-      shortcuts: shellShortcuts,
-      child: Actions(
-        actions: {
-          PlayPauseIntent: TextInputAwareAction<PlayPauseIntent>(
-            onInvoke: (_) => _playPause(),
-          ),
-          PreviousTrackIntent: TextInputAwareAction<PreviousTrackIntent>(
-            onInvoke: (_) =>
-                unawaited(ref.read(playbackControllerProvider).previous()),
-          ),
-          NextTrackIntent: TextInputAwareAction<NextTrackIntent>(
-            onInvoke: (_) =>
-                unawaited(ref.read(playbackControllerProvider).next()),
-          ),
-          SeekByIntent: TextInputAwareAction<SeekByIntent>(
-            onInvoke: (intent) => _seekBy(intent.offset),
-          ),
-          FocusSearchIntent: CallbackAction<FocusSearchIntent>(
-            onInvoke: (_) => _selectAndFocus(
-              ShellDestination.search,
-              _searchField.requestFocus,
+    // 返回鍵（design §9.1）：窄版設定頁點進某一組時先回到分組清單；否則不在第
+    // 一個分頁時回到第一個分頁，在第一個分頁時放行
+    // （根 route 沒得 pop，Android 端把 App 退到背景，見 MainActivity）。播放頁、
+    // 面板與對話框是更上層的 route，Navigator 先關它們。
+    return PopScope(
+      canPop: _destination == ShellDestination.values.first,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || _settingsBack.release()) return;
+        _select(ShellDestination.values.first);
+      },
+      child: Shortcuts(
+        shortcuts: shellShortcuts,
+        child: Actions(
+          actions: {
+            PlayPauseIntent: TextInputAwareAction<PlayPauseIntent>(
+              onInvoke: (_) => _playPause(),
             ),
-          ),
-          OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
-            onInvoke: (_) => _selectAndFocus(
-              ShellDestination.settings,
-              () => _focusInto(_content),
+            PreviousTrackIntent: TextInputAwareAction<PreviousTrackIntent>(
+              onInvoke: (_) =>
+                  unawaited(ref.read(playbackControllerProvider).previous()),
             ),
-          ),
-          NextRegionIntent: CallbackAction<NextRegionIntent>(
-            onInvoke: (_) => _nextRegion(),
-          ),
-        },
-        // 一開始就有焦點在外殼裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
-        child: Focus(autofocus: true, skipTraversal: true, child: body),
+            NextTrackIntent: TextInputAwareAction<NextTrackIntent>(
+              onInvoke: (_) =>
+                  unawaited(ref.read(playbackControllerProvider).next()),
+            ),
+            SeekByIntent: TextInputAwareAction<SeekByIntent>(
+              onInvoke: (intent) => _seekBy(intent.offset),
+            ),
+            FocusSearchIntent: CallbackAction<FocusSearchIntent>(
+              onInvoke: (_) => _selectAndFocus(
+                ShellDestination.search,
+                _searchField.requestFocus,
+              ),
+            ),
+            OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
+              onInvoke: (_) => _selectAndFocus(
+                ShellDestination.settings,
+                () => _focusInto(_content),
+              ),
+            ),
+            NextRegionIntent: CallbackAction<NextRegionIntent>(
+              onInvoke: (_) => _nextRegion(),
+            ),
+          },
+          // 一開始就有焦點在外殼裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
+          child: Focus(autofocus: true, skipTraversal: true, child: body),
+        ),
       ),
     );
   }

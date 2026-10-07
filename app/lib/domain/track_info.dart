@@ -75,3 +75,27 @@ final class TrackArtwork {
   @override
   int get hashCode => Object.hash(url, width);
 }
+
+/// 從多尺寸封面（插件給的，ADR 0016 §決定 4）挑一張要顯示 [pixels] 像素的：寬度
+/// 不小於 [pixels] 的裡面最小的；都比它小時，先取沒標寬度的（插件多半只給原圖，
+/// 例如 B 站），再來才是最大的那張。沒有封面就是 `null`。
+///
+/// 放在這裡而不是封面元件：播放列的縮圖與系統媒體控制的封面（播放層）都用它。
+TrackArtwork? pickArtwork(List<TrackArtwork> artwork, double pixels) {
+  TrackArtwork? smallestEnough;
+  TrackArtwork? largest;
+  TrackArtwork? unknown;
+  for (final candidate in artwork) {
+    final width = candidate.width;
+    if (width == null) {
+      unknown ??= candidate;
+    } else if (width >= pixels) {
+      if (smallestEnough == null || width < smallestEnough.width!) {
+        smallestEnough = candidate;
+      }
+    } else if (largest == null || width > largest.width!) {
+      largest = candidate;
+    }
+  }
+  return smallestEnough ?? unknown ?? largest;
+}

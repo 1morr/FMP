@@ -607,4 +607,52 @@ void main() {
       handle.dispose();
     });
   });
+  group('the back key (design §9.1)', () {
+    // 在第一個分頁放行：根 route 沒得 pop，Flutter 呼叫 SystemNavigator.pop。
+    Future<List<MethodCall>> recordSystemPops(WidgetTester tester) async {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'SystemNavigator.pop') calls.add(call);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      return calls;
+    }
+
+    for (final label in ['History', 'Settings']) {
+      testWidgets('on $label it goes back to Search', (tester) async {
+        final h = ShellHarness();
+        await h.pumpShell(tester);
+        final pops = await recordSystemPops(tester);
+
+        await tester.tap(find.text(label));
+        await tester.pump();
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+
+        expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+        expect(pops, isEmpty);
+      });
+    }
+
+    testWidgets('on Search it lets the system leave the app', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      final pops = await recordSystemPops(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(pops, hasLength(1));
+      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+    });
+  });
 }

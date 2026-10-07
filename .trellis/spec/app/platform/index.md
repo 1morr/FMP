@@ -18,7 +18,8 @@ lib/platform/
 `connectivity/`（介面＋一個實作給兩個平台：差異都在套件的原生端時，實作檔以套件命名，
 `connectivity_plus_interfaces.dart`，組裝點兩個分支各建一個）、`cache_directory/`（沒有介面的
 一個類別：兩個平台只差在 path_provider 的原生端，路徑由組裝點注入；只准快取模組 import，所以
-它的大小宣告另放 `cache_sizes/`）。
+它的大小宣告另放 `cache_sizes/`）、`media_controls/`（介面＋值型別＋一個實作；實作要在啟動時
+初始化，所以宣告在組裝點、`AppPlatform.withMediaControls` 在 `main()` 初始化，失敗時改宣告為沒有）。
 
 ## 加一個能力
 
@@ -38,6 +39,14 @@ lib/platform/
 `lib/playback/backends/`）：宣告照樣放在平台層（`PlaybackSupport.outputDeviceSelection`），
 實作不掛在 `AppPlatform`；那個模組的組裝點（`createAudioBackend`）以 assert 對齊宣告與實作，
 `platform_test.dart` 照樣逐平台斷言宣告的值。
+
+## 啟動時才知道的能力
+
+實作要非同步初始化、而且可能失敗的能力（系統媒體控制）：`assemble` 先宣告「有」並帶一個工廠
+（可由參數注入，測試用），`AppPlatform.withMediaControls(onFailure:)` 在 `main()` 呼叫一次，回傳
+帶著實作的新 `AppPlatform`；失敗時呼叫 `onFailure`、宣告改成沒有（`withoutMediaControls`）。
+`AppPlatform` 的 `assert` 允許「有宣告、有工廠、還沒有實作」這個中間狀態。呼叫端只讀 provider
+（`systemMediaControlsProvider`，`main()` override）與 `capabilities`，不碰工廠。
 
 ## 測試
 

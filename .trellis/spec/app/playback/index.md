@@ -15,6 +15,7 @@ lib/playback/
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
   queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限、restore）
   queue_store.dart          # QueueStore：佇列與播放狀態的持久化、啟動恢復（聽控制器的 stream，不改它的狀態）
+  now_playing_publisher.dart # NowPlayingPublisher：系統媒體控制的唯一出口，系統指令回控制器
   play_history_recorder.dart # PlayHistoryRecorder：聽控制器的 plays，寫播放歷史（寫失敗只 report）
   stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限、previewOnly）
   recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別、各個常數（純函數）
@@ -157,6 +158,17 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
   記新的欄位，先讓控制器的 `CountedPlay` 帶出來。
 - 測試：`Harness` 的 `h.plays`、`h.playedIds`；時間是 `clock.now()`，`fakeAsync` 裡跟著假時間。恢復的情境用
   `h.controller.restore(...)`。
+
+## 系統媒體控制
+
+規則與閘門見 `app/AGENTS.md` § 播放的「系統媒體控制」。
+
+- `NowPlayingPublisher` 只聽控制器的輸出（`states`、`queueStates`、`seeks`、`progress` 的時長）並呼叫控制器的
+  公開方法，不讀它的私有狀態。要推新的欄位：加在 `NowPlaying`（`lib/platform/media_controls/`，含 `==`），
+  在 `_build` 填值，並在 `now_playing_publisher_test.dart` 加案例（值不變不推的案例要仍然過）。
+- seek 的事件在 seek 生效之前發出，所以 seek 那一次推送用事件帶的目標位置，不讀控制器的位置。
+- 測試：`PublisherHarness`（假後端、假插件、`FakeMediaControls`）在 `fakeAsync` 裡；`FakeMediaControls.gate`
+  卡住 `publish` 檢查不重疊，`send(command)` 模擬系統按鍵。
 
 ## 改後端
 

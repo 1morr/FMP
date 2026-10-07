@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 8.1-8.3 system media controls, 9.1 back key, 4.3 artwork cache manager, 2 lint owner tables"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Decision 1 collaborators injected via providers; decision 8 now-playing publishing rules"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Declared capabilities, startup-time declaration, adding fields with implementation"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "Android emulator verification rules"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer structure and capability declarations"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Controller API and playback collaborators"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Layer import owner table and two-way mutation tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Fakes, widget tests, identity tests"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "App shell navigation"}

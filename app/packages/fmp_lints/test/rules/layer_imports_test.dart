@@ -191,6 +191,42 @@ class LayerImportsTest extends FmpRuleTest {
         "import [!'package:test/plugins/plugin_registry.dart'!];\n",
   );
 
+  // 播放層不認得介面：系統媒體控制的封面曾經從 `lib/ui/artwork/` 借
+  // `pickArtwork`（M2 PR 16a，搬到 `lib/domain/`）。
+  Future<void> test_playbackImportsUi() async {
+    for (final path in [
+      'lib/playback/playback_providers.dart',
+      'lib/playback/backends/just_audio_backend.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:test/ui/artwork/artwork_image.dart'!] show pickArtwork;\n",
+      );
+    }
+    await assertLints(
+      'lib/playback/now_playing_publisher.dart',
+      "import [!'../ui/shell/app_shell.dart'!];\n"
+          "export [!'package:test/ui/toast/toast.dart'!];\n",
+    );
+  }
+
+  // 反方向照常；名稱以 `ui` 開頭的別的目錄、`playback` 開頭的介面檔不報。
+  Future<void> test_uiMayImportPlayback() async {
+    await assertLints(
+      'lib/ui/player/player_bar.dart',
+      "import 'package:test/playback/playback_controller.dart';\n",
+    );
+    await assertLints(
+      'lib/playback/queue_model.dart',
+      "import 'package:test/ui_kit/widgets.dart';\n"
+          "import '../domain/track_info.dart';\n",
+    );
+    await assertLints(
+      'lib/playback_ui/page.dart',
+      "import 'package:test/ui/toast/toast.dart';\n",
+    );
+  }
+
   Future<void> test_exportAndConditionalImport() => assertLints(
     'lib/ui/page.dart',
     "export [!'package:dio/dio.dart'!];\n"

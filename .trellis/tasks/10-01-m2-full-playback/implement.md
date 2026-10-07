@@ -60,10 +60,13 @@
   - 審查修了「拖曳越過目前這首把位置歸零」「恢復完成前先動了佇列，舊位置套到新的那首」，並補了「寫入失敗，下一次補寫」的閘門。
   - 擁有者定：恢復後還沒播就先臨時播放，結束後按播放仍從恢復的位置開始（design §7.7）。同時修了兩條重複倒退。
   - 實機兩平台（重播／測試插件）通過：五首（有重複曲目）、隨機、循環全部 → 關掉重開，`Playback restored` 欄位正確、啟動不解析，按播放 `restored: true`、從存的位置接著播、照存的隨機順序走；Android 另驗了倒退 10 秒＋臨時播放後，存的位置不被覆寫。音量與靜音沒有 UI（PR 17），只有單元測試。
-- **PR 15 完成**（2026-10-07；分支 `feat/app-play-history`，子任務已封存；合併後在下一個 PR 補編號與合併提交）：擁有者定了移除單筆、列的副標、只有清除全部提示。審查修了「讀下一頁時剛好記了一筆，清單重複一列、漏掉新的」「dispose 後仍寫入」；主對話另定讀取失敗不顯示成「沒有紀錄」（design §7.8）。實機兩平台（重播）通過：恢復後第一次不記、交接與單曲循環每圈一筆、臨時播放一筆、回到佇列不記，歷史頁「今天」分組、點一列臨時播放、移除單筆、清除全部（確認框、取消不清、提示）、重開仍在。
-- **下一步**：16a（Android 媒體控制與返回鍵）、17（播放列三段與快捷鍵）可穿插，照 `## 順序與相依`。
+- **PR 15 已合併**：#212（`7862559e`）：擁有者定了移除單筆、列的副標、只有清除全部提示。審查修了「讀下一頁時剛好記了一筆，清單重複一列、漏掉新的」「dispose 後仍寫入」；主對話另定讀取失敗不顯示成「沒有紀錄」（design §7.8）。實機兩平台（重播）通過：恢復後第一次不記、交接與單曲循環每圈一筆、臨時播放一筆、回到佇列不記，歷史頁「今天」分組、點一列臨時播放、移除單筆、清除全部（確認框、取消不清、提示）、重開仍在。
+- **PR 16a 完成**（2026-10-07；分支 `feat/app-android-media-controls`，子任務已封存；合併後在下一個 PR 補編號與合併提交）：擁有者定停止＝暫停。審查修了「啟動恢復那首在通知上一直沒有封面」，並把 `pickArtwork` 移到 domain、加了 playback→ui 的 lint。實機（Android，重播＋一次真實 B 站搜尋與播放看封面）通過；鎖定畫面沒驗（模擬器沒設螢幕鎖）。
+- **下一步**：17（播放列三段與快捷鍵）或 16b（Windows SMTC）。
 - **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
+  - **adb 可能多出別的裝置**（10-07 出現 `127.0.0.1:16384`，不是我們的模擬器）：一律 `export ANDROID_SERIAL=emulator-5554` 或 `adb -s`，`ax_flatten.py` 加 `--device`，不要碰別的裝置。
+  - **PR 16a 之後**：播放中 uiautomator 會「could not get idle state」，先送 `adb shell input keyevent MEDIA_PAUSE` 再讀畫面；媒體狀態用 `dumpsys media_session`、通知用 `dumpsys notification --noredact`。模擬器沒設螢幕鎖，看不到鎖定畫面控制。10-07 跑完 Android 整合測試後已重裝 dev 與兩個插件，但最後讀 `installed_plugins` 時拉到的資料庫不完整、沒確認到，下次先查。
   - **模擬器上的狀態**：dev 版裝著測試插件（`files/test.js`）與 B 站插件（`files/bilibili.js`），介面語言 English，快取上限設成 512 MB。跑過 Android 整合測試會解除安裝 dev，要重裝並以 `run-as` 放回兩個插件，各帶 `--fmp-dev-plugin` 啟動一次。
   - **Windows dev**：跑過 Windows 整合測試要再 `flutter build windows --flavor dev --debug`。dev 的快取上限設成 128 MB。快取在 `%LOCALAPPDATA%/com.personal/fmp-dev/fmp_cache`；同層的 `fmp/`（舊版的 `lyrics`）不要動。
   - **搜尋來源每次啟動都回到 Bilibili**：重播驗證前先點 `FMP Test Plugin` chip，截圖確認選中，否則會對 B 站發真實請求。
@@ -711,6 +714,17 @@ PR 15 留下的：
 - [ ] 「清除全部歷史」的語意標籤重複成「清除全部歷史. 清除全部歷史」（tooltip 與 label 同字），同搜尋結果「⋯」那條。
 - [ ] 臨時播放結束、回到佇列並以暫停狀態載入時，log 仍記一行 `Track audible`（不影響歷史，log 語意不準）。
 - [ ] 模擬器時區是 UTC，實機看到的時刻比本機少 8 小時；驗日分組時注意。
+
+PR 16a 留下的：
+
+- [ ] PR 18a：`NowPlaying.speed` 固定 1.0；加速度選單時 publisher 要接控制器的速度，否則系統推算的進度會偏。
+- [ ] `AudioService.init` 的 `configure` 等媒體服務連上才回；一直連不上時 `main()` 會卡在 `runApp` 之前。沒有 repro，沒加 timeout。
+- [ ] publisher 建好前（`playbackControllerProvider` 還沒被讀）送來的媒體鍵會被丟掉。
+- [ ] 通知頻道名稱固定 `FMP`，沒有翻譯（舊版有）。
+- [ ] 通知的小圖示是 Flutter 預設的 `ic_launcher`（dev），要等 App 圖示定案。
+- [ ] Android 16 以上的預測返回：實機（API 37）在「搜尋」按返回確實退到背景、Activity 沒被結束，但沒分辨是經 `popSystemNavigator` 還是系統直接處理。
+- [ ] 鎖定畫面的媒體控制沒有實機驗（模擬器沒設螢幕鎖）；M2 驗收時在有螢幕鎖的裝置看一次。
+- [ ] `plugins/`、`settings/` 也可以擋 import `ui/`（審查建議，這次沒加）。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
