@@ -20,7 +20,7 @@ lib/ui/
   empty_state/         # EmptyState：置中的圖示、標題、說明與動作
   offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
-  shell/               # AppShell（導覽、內容、播放列三區）、快捷鍵表
+  shell/               # AppShell（導覽、內容、播放列三區）、導覽類快捷鍵表、PlaybackShortcuts（播放類快捷鍵表）
   search/              # 搜尋頁、searchProvider、音源 chip 列
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
@@ -121,12 +121,17 @@ try {
 - 導覽項只有 `ShellDestination` 的兩個；頁面放在內容區的 `IndexedStack`（換頁不丟狀態，沒選的
   頁面焦點被排除）。
 - 加一個 App 內快捷鍵（ADR 0024 §決定 8 的表）：
-  1. `shell_shortcuts.dart` 加一個 `Intent` 與 `shellShortcuts` 的一列；
-  2. `AppShell` 的 `Actions` 接上。按鍵同時是文字編輯鍵（空白鍵、方向鍵、Home／End、
-     Ctrl+A 之類）的，用 `TextInputAwareAction`，焦點在輸入框時停用、交給輸入框；
+  1. 播放類：`playback_shortcuts.dart` 加一個 `Intent`、`playbackShortcuts` 的一列與
+     `PlaybackShortcuts` 的 action（讀控制器放在 `onInvoke` 裡，建構時讀會在沒有後端的環境拋錯）；
+     導覽類：`shell_shortcuts.dart` 加 `Intent` 與 `navigationShortcuts` 的一列，`AppShell` 的 `Actions`
+     接上。
+  2. 輸入框裡的規則一句話：導覽類（Esc、F6、Ctrl+F、Ctrl+,）有效，其餘讓給輸入框，所以播放類的 action
+     用 `TextInputAwareAction`，焦點在輸入框時停用、交給輸入框；
   3. 有對應按鈕的，翻譯檔的 `*Tooltip` 字串寫上按鍵（`播放（空白鍵）`），按鈕的語意標籤
      （`Icon.semanticLabel`）不帶按鍵；
-  4. `test/ui/shell/app_shell_test.dart` 加案例，文字編輯鍵另外在輸入框裡按一次確認沒作用。
+  4. `test/ui/shell/app_shell_test.dart` 的 `shortcuts` 群組加案例（`chord` 輔助函式按組合鍵），播放類
+     另外在輸入框裡按一次確認沒作用、對話框開著時也沒作用。
+  5. 播放頁（M2 PR 18a）是另一個 route，不在外殼的 `Shortcuts` 之下：自己包一層 `PlaybackShortcuts`。
 - 焦點三區（導覽、內容、播放列）各是一個 `FocusScope` 加 `FocusTraversalGroup`：Tab 只在區內
   循環；F6 回到那一區上次的焦點，沒有就是它的第一個可聚焦項目。新的可聚焦元件放在對的那一區裡。
 
@@ -170,15 +175,25 @@ try {
   曲目是 `TrackSummary.toTrackInfo()`）。播放列讀 `QueueState.current`（`TrackInfo`）的顯示資料。
 - 一首曲目的選單（搜尋頁的寫法）：`MenuAnchor` 包住整列，右鍵（`GestureDetector` 的
   `onSecondaryTapUp`，`excludeFromSemantics: true`）在點的位置開、長按與尾端「⋯」在「⋯」下方開，
-  三處同一份選單。加入成功以 `toaster.success` 回饋，被上限拒絕的提示由外殼接 `QueueFull`。
+  三處同一份選單；「⋯」的 `FocusNode` 同時是 `MenuAnchor` 的 `childFocusNode`（Esc 才關得掉以滑鼠開的
+  選單）。加入成功以 `toaster.success` 回饋，被上限拒絕的提示由外殼接 `QueueFull`。
 - 控制器的事件（`playbackEventsProvider`：佇列滿、跳過、停下、試聽）只在外殼的
   `_onPlaybackEvent` 轉成提示；頁面不另外聽。新的事件類型加在那個 `switch`（編譯器會指出），
   並在 `app_shell_test.dart` 的 `playback toasts` 群組加一例。
 - 播放列曲名下那一行的狀態標示（重試中、等待網路連線、試聽）由 `PlayerBar` 從
   `playbackStateProvider`、`playbackPreviewProvider` 推出；新的標示加在同一個 `switch`，並在
   `player_bar_test.dart` 的 `status labels` 三個寬度各加一例。
-- 播放列的控制項照 ADR 0024 §決定 5 的三段，只放已經有的功能；加功能時同時改
-  `player_bar_test.dart` 的 `controls per width` 與 golden。
+- 播放列的控制項照 ADR 0024 §決定 5 的三段；加功能時同時改 `player_bar_test.dart` 的
+  `controls per width`（有宣告與沒宣告輸出裝置兩組）與 golden。golden 沒有真的控制器：播放列新讀的
+  provider（音量、輸出裝置、`outputDeviceSelectionProvider`）要在 golden 的 `ProviderScope` override。
+- 只有圖示的 `IconButton`：tooltip 當名稱（有快捷鍵就附上，翻譯檔的 `*Tooltip`），`Icon` 不給
+  `semanticLabel`，否則輔助技術念成「X. X」。要把控制器的值放進畫面時，先看控制器有沒有發出它的
+  stream（音量、輸出裝置經 `playbackVolumeProvider`、`playbackOutputDevicesProvider`），沒有就先讓
+  控制器發，不從畫面讀它的私有狀態。
+- 輸出裝置與音量的選單／彈出滑桿用 `MenuAnchor`：Esc 與點外面都由它關。Esc 只在焦點在 anchor 或選單裡
+  時到得了它，所以給 `childFocusNode`，同一個 `FocusNode` 給打開它的按鈕（播放列的 `_IconMenu`；搜尋、歷史
+  的「⋯」照同樣寫）；彈出的滑桿另外 `autofocus`。選單項目的內容在 widget 裡要用到控制器時，在
+  `onPressed` 裡才 `ref.read`。
 - 封面用 `ArtworkImage(pluginId: 曲目鍵的第一段, artwork: TrackInfo.artwork, size: …)`：`pickArtwork`（`lib/domain/track_info.dart`，系統媒體控制的封面也用它）挑一張、
   以顯示尺寸的高解碼，經 `artworkCacheManagerProvider(pluginId)` 的 cache manager 讀（統一快取庫，
   沒有才經那個插件的媒體 client 下載）。沒有、載入中、失敗與還沒有 cache manager 都是同一個
