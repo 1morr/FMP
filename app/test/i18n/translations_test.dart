@@ -120,6 +120,7 @@ void main() {
       'player.volumeTooltip': ['Ctrl+↑'],
       'playerPage.closeTooltip': ['Esc'],
       'playerPage.showLyricsTooltip': ['Ctrl+L'],
+      'playerPage.queueTooltip': ['Ctrl+Q'],
     };
     for (final MapEntry(key: locale, value: strings) in catalog.entries) {
       test('in $locale', () {

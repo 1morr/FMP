@@ -378,6 +378,32 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   String get detailsDuration => '时长';
   @override
   String get detailsSource => '音源';
+  @override
+  String get queueTooltip => '队列（Ctrl+Q）';
+  @override
+  String queueCount({required Object count}) => '共 ${count} 首';
+  @override
+  String get queueShuffleNote => '随机顺序跟着位置；拖动只换歌，不改顺序';
+  @override
+  String get queueClear => '清空队列';
+  @override
+  String get queueClearTitle => '清空队列？';
+  @override
+  String get queueClearBody => '队列里的歌都会移除并停止播放。播放历史与设置不受影响。';
+  @override
+  String get queueClearConfirm => '清空';
+  @override
+  String get queueCancel => '取消';
+  @override
+  String get queueCleared => '已清空队列';
+  @override
+  String get queueMore => '更多选项';
+  @override
+  String get queuePlayNext => '下一首播放';
+  @override
+  String get queueRemove => '从队列移除';
+  @override
+  String get queueReorder => '拖动以重新排列';
 }
 
 // Path: appearance
@@ -458,6 +484,10 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
   String get playHistoryLimitHint => '超过的旧记录会自动删除；调小时立即删除';
   @override
   String playHistoryLimitOption({required Object count}) => '${count} 条';
+  @override
+  String get autoScrollToCurrent => '切歌时滚动到当前歌曲';
+  @override
+  String get autoScrollToCurrentHint => '队列列表打开时，换歌后自动滚动到正在播放的那一首';
 }
 
 // Path: network

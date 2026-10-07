@@ -11,6 +11,7 @@ import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
@@ -402,6 +403,41 @@ void main() {
             },
           );
         }
+      }
+
+      // 佇列（M2 PR 18b）：寬版是播放頁的佇列分頁，手機是底部面板；隨機開著、標題列的
+      // 說明在。
+      for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        testWidgets('the queue at ${size.width}, shuffle on', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.play(tester, [
+            for (final id in 'abcd'.split('')) summary(id),
+          ]);
+          h.controller.setShuffle(true);
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(PlayerBar.titleKey),
+                  matching: find.byType(Text),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          if (size.width < 840) {
+            await tester.tap(find.byKey(PlayerPage.queueKey));
+          } else {
+            await tester.tap(find.widgetWithText(Tab, 'Queue'));
+          }
+          await tester.pumpAndSettle();
+          expect(find.byType(QueueView), findsOneWidget);
+          expect(find.textContaining('shuffle order'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
       }
     });
   }

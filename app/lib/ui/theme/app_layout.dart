@@ -36,6 +36,12 @@ abstract final class AppLayout {
   /// 播放頁佇列分頁每一列的高度（固定高度讓一萬首的清單不必逐項量測）。
   static const double queueItemHeight = 64;
 
+  /// 佇列切歌時捲到目前這首的動畫時間，與底部面板（compact、medium）一開始與最小的高度
+  /// （占螢幕高度的比例）。
+  static const Duration queueScrollDuration = Duration(milliseconds: 250);
+  static const double queueSheetInitialSize = 0.6;
+  static const double queueSheetMinSize = 0.3;
+
   /// 詳細分頁（與之後的右側面板）封面的邊長上限。
   static const double trackDetailsArtworkMax = 240;
 }

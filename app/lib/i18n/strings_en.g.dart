@@ -377,6 +377,34 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   String get detailsDuration => 'Duration';
   @override
   String get detailsSource => 'Source';
+  @override
+  String get queueTooltip => 'Queue (Ctrl+Q)';
+  @override
+  String queueCount({required Object count}) => '${count} in queue';
+  @override
+  String get queueShuffleNote =>
+      'The shuffle order follows positions; dragging only swaps songs, not the order';
+  @override
+  String get queueClear => 'Clear the queue';
+  @override
+  String get queueClearTitle => 'Clear the queue?';
+  @override
+  String get queueClearBody =>
+      'Every song in the queue is removed and playback stops. Play history and settings are not affected.';
+  @override
+  String get queueClearConfirm => 'Clear';
+  @override
+  String get queueCancel => 'Cancel';
+  @override
+  String get queueCleared => 'Queue cleared';
+  @override
+  String get queueMore => 'More options';
+  @override
+  String get queuePlayNext => 'Play next';
+  @override
+  String get queueRemove => 'Remove from queue';
+  @override
+  String get queueReorder => 'Drag to reorder';
 }
 
 // Path: appearance
@@ -463,6 +491,12 @@ class Translations$playback$en extends Translations$playback$zh_TW {
       'Older records are deleted automatically; lowering the number deletes them right away';
   @override
   String playHistoryLimitOption({required Object count}) => '${count} entries';
+  @override
+  String get autoScrollToCurrent =>
+      'Scroll to the current song when it changes';
+  @override
+  String get autoScrollToCurrentHint =>
+      'While the queue list is open, it scrolls to the song that starts playing';
 }
 
 // Path: network

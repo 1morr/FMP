@@ -113,7 +113,20 @@
     "speedValue": "{speed}×",
     "detailsUploader": "上傳者",
     "detailsDuration": "時長",
-    "detailsSource": "音源"
+    "detailsSource": "音源",
+    "queueTooltip": "佇列（Ctrl+Q）",
+    "queueCount": "共 {count} 首",
+    "queueShuffleNote": "隨機順序跟著位置；拖曳只換歌，不改順序",
+    "queueClear": "清空佇列",
+    "queueClearTitle": "清空佇列？",
+    "queueClearBody": "佇列裡的歌都會移除並停止播放。播放歷史與設定不受影響。",
+    "queueClearConfirm": "清空",
+    "queueCancel": "取消",
+    "queueCleared": "已清空佇列",
+    "queueMore": "更多選項",
+    "queuePlayNext": "下一首播放",
+    "queueRemove": "從佇列移除",
+    "queueReorder": "拖曳以重新排列"
   },
   "appearance": {
     "theme": "主題",
@@ -146,7 +159,9 @@
     "restartRewindHint": "重新開啟 App 後按播放，從上次的位置稍微往回一點，方便接上",
     "playHistoryLimit": "播放歷史保留筆數",
     "playHistoryLimitHint": "超過的舊紀錄會自動刪除；調小時馬上刪除",
-    "playHistoryLimitOption": "{count} 筆"
+    "playHistoryLimitOption": "{count} 筆",
+    "autoScrollToCurrent": "切歌時捲到目前歌曲",
+    "autoScrollToCurrentHint": "佇列清單開著時，換歌後自動捲到正在播放的那一首"
   },
   "network": {
     "cacheLimit": "快取上限",
