@@ -1,0 +1,11 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 7.8 play history, 9.7 history page, 7.3 history row actions, 3.1-3.3 tables and play_history_limit, 3.5 schema versions, 6 orphan tracks, 9.1 three nav items, 5 offline table, 7.7 restore rules"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Single-track loop: one history entry per lap without re-resolving"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Drift tables, TrackKey, migrations"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "tracks table and orphan definition including play history"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Toast for clear-all"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Navigation per window class, list rows, menus, confirm dialogs, guideline tests"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change workflow, repositories, indexes"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Controller start paths, QueueStore pattern for persistence collaborators"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Pages, shell navigation, guideline tests, i18n"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Playback settings setters and rows"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Fake clock, widget tests, offline cases"}
