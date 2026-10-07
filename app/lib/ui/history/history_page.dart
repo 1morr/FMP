@@ -17,6 +17,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 歷史頁（design §9.7）：播放過的歌依時間倒序、以本地日期分組（今天、昨天、
 /// 日期，跨年才帶年份）。點一首是臨時播放；每筆的選單（右鍵、長按、尾端「⋯」）有
@@ -203,148 +204,92 @@ class _DayHeader extends ConsumerWidget {
 }
 
 /// 一筆紀錄：封面、曲名、「作者 · 播放時刻」、「⋯」。點一下臨時播放；選單在右鍵、
-/// 長按與「⋯」，三處同一份（同搜尋結果列）。
-class _HistoryTile extends ConsumerStatefulWidget {
+/// 長按與「⋯」，三處同一份（[TrackRowMenu]）。
+class _HistoryTile extends ConsumerWidget {
   const _HistoryTile({super.key, required this.entry});
 
   final PlayHistoryEntry entry;
 
   @override
-  ConsumerState<_HistoryTile> createState() => _HistoryTileState();
-}
-
-class _HistoryTileState extends ConsumerState<_HistoryTile> {
-  final _menu = MenuController();
-
-  /// 「⋯」的位置，選單從它下方開。
-  final _moreKey = GlobalKey();
-
-  /// 「⋯」的焦點，也是選單的 `childFocusNode`：選單打開時焦點移到這裡（選單的
-  /// 快捷鍵之內），以滑鼠、右鍵或長按打開的也能以 Esc 關掉、以方向鍵進入選單。
-  final _moreFocus = FocusNode(debugLabel: 'more');
-
-  @override
-  void dispose() {
-    _moreFocus.dispose();
-    super.dispose();
-  }
-
-  void _play() => unawaited(
-    ref.read(playbackControllerProvider).playTemporary(widget.entry.track),
-  );
-
-  void _playNext() {
-    if (ref.read(playbackControllerProvider).playNext([widget.entry.track])) {
-      ref
-          .read(toasterProvider)
-          .success(ref.read(translationsProvider).history.addedToNext);
-    }
-  }
-
-  void _addToQueue() {
-    if (ref.read(playbackControllerProvider).addToQueue([widget.entry.track])) {
-      ref
-          .read(toasterProvider)
-          .success(ref.read(translationsProvider).history.addedToQueue);
-    }
-  }
-
-  /// 只移除這一筆，不提示（擁有者決定）；失敗才提示。
-  Future<void> _remove() async {
-    final toaster = ref.read(toasterProvider);
-    try {
-      await ref.read(playHistoryRepositoryProvider).delete(widget.entry.id);
-    } on Object catch (error, stackTrace) {
-      toaster.error(
-        AppError.wrap(error, stackTrace),
-        operation: 'Failed to remove a play history entry',
-        tag: 'history',
-      );
-    }
-  }
-
-  /// 在列內的 [position]（沒給就是「⋯」下方）開選單。
-  void _openMenu([Offset? position]) {
-    if (position == null) {
-      final tile = context.findRenderObject() as RenderBox?;
-      final more = _moreKey.currentContext?.findRenderObject() as RenderBox?;
-      if (tile != null && more != null) {
-        position = more.localToGlobal(
-          Offset(0, more.size.height),
-          ancestor: tile,
-        );
-      }
-    }
-    _menu.open(position: position);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).history;
-    final track = widget.entry.track;
+    final track = entry.track;
     final uploader = track.uploader;
-    final local = widget.entry.playedAt.toLocal();
+    final local = entry.playedAt.toLocal();
     // HH:mm：24 小時制，不隨系統的 12 小時設定（日界與時刻都依裝置的本地時間）。
     final time = MaterialLocalizations.of(context).formatTimeOfDay(
       TimeOfDay.fromDateTime(local),
       alwaysUse24HourFormat: true,
     );
-    return MenuAnchor(
-      controller: _menu,
-      childFocusNode: _moreFocus,
+
+    void play() =>
+        unawaited(ref.read(playbackControllerProvider).playTemporary(track));
+
+    void playNext() {
+      if (ref.read(playbackControllerProvider).playNext([track])) {
+        ref.read(toasterProvider).success(t.addedToNext);
+      }
+    }
+
+    void addToQueue() {
+      if (ref.read(playbackControllerProvider).addToQueue([track])) {
+        ref.read(toasterProvider).success(t.addedToQueue);
+      }
+    }
+
+    // 只移除這一筆，不提示（擁有者決定）；失敗才提示。
+    Future<void> remove() async {
+      final toaster = ref.read(toasterProvider);
+      try {
+        await ref.read(playHistoryRepositoryProvider).delete(entry.id);
+      } on Object catch (error, stackTrace) {
+        toaster.error(
+          AppError.wrap(error, stackTrace),
+          operation: 'Failed to remove a play history entry',
+          tag: 'history',
+        );
+      }
+    }
+
+    return TrackRowMenu(
+      moreTooltip: t.more,
       menuChildren: [
         MenuItemButton(
           leadingIcon: const Icon(Icons.play_arrow),
-          onPressed: _play,
+          onPressed: play,
           child: Text(t.play),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.queue_play_next),
-          onPressed: _playNext,
+          onPressed: playNext,
           child: Text(t.playNext),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.add_to_queue),
-          onPressed: _addToQueue,
+          onPressed: addToQueue,
           child: Text(t.addToQueue),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.delete_outline),
-          onPressed: () => unawaited(_remove()),
+          onPressed: () => unawaited(remove()),
           child: Text(t.remove),
         ),
       ],
-      child: GestureDetector(
-        onSecondaryTapUp: (details) => _openMenu(details.localPosition),
-        // 右鍵的辨識器會在語意樹多一個沒有名稱的點擊動作；同一份選單由「⋯」
-        // 提供給輔助技術。
-        excludeFromSemantics: true,
-        child: ListTile(
-          leading: ArtworkImage(
-            pluginId: track.sourceTypeId,
-            artwork: track.artwork,
-            size: AppLayout.artworkThumbnail,
-          ),
-          title: Text(
-            track.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            uploader == null ? time : t.subtitle(artist: uploader, time: time),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: IconButton(
-            key: _moreKey,
-            focusNode: _moreFocus,
-            tooltip: t.more,
-            icon: const Icon(Icons.more_vert),
-            onPressed: _openMenu,
-          ),
-          onTap: _play,
-          onLongPress: _openMenu,
+      builder: (context, more, openMenu) => ListTile(
+        leading: ArtworkImage(
+          pluginId: track.sourceTypeId,
+          artwork: track.artwork,
+          size: AppLayout.artworkThumbnail,
         ),
+        title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          uploader == null ? time : t.subtitle(artist: uploader, time: time),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: more,
+        onTap: play,
+        onLongPress: openMenu,
       ),
     );
   }
