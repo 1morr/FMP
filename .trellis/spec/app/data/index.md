@@ -120,6 +120,15 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - 測試：差量編輯以固定種子的隨機序列比對一個 `List`（`a seeded run of random edits…`）；
   一萬首整份取代的耗時（目前約 150–230 ms）印在測試輸出，超過 500 ms 要在 PR 描述說明。
 
+## 版面狀態（`layout_state_repository.dart`）
+
+規則與閘門見 `app/AGENTS.md` § 資料層；design §3.4。
+
+- 單列表，欄位全可空（沒記過）。repository 目前只有 `playerTab`；PR 19 接面板時在 `LayoutState` 與 `write` 加
+  `panelExpanded`、`panelWidth`（表已有欄位，不必升 schema）。
+- 不屬於任何設定組：不進 `settings/`、不進備份。UI 經 `layoutStateProvider`（`lib/ui/player/player_page.dart`）讀。
+- 測試：`layout_state_repository_test.dart`；migration 的 `expectLayoutStateRules` 同時檢查單列 CHECK 與寬度上限。
+
 ## 快取庫（`lib/data/cache/`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的「快取庫」；為什麼這樣做，見 ADR 0016 §決定 1–4。

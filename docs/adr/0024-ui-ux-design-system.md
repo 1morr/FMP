@@ -146,6 +146,7 @@
   - Flutter 若提供官方 window size class 或液態玻璃支援時再評估；
   - Linux 的 CJK 字型內建由平台任務決定。
 - 更正（2026-09-29）：§決定 2 的 `Noto Sans TC`／`Noto Sans SC` 在 Android 無效。系統的 Noto CJK 在 `fonts.xml` 是沒有名稱的 fallback family，引擎以名稱找不到，所以 Android 不指名字型，繁簡字形交給文字的 locale；模擬器實測 `zh-Hant` 的 locale 拿到繁中字形（來源與實測見 `.trellis/tasks/archive/2026-09/09-29-platform-layer/research/notes.md`，M1 PR 4）。
+- 更正（2026-10-07，M2 PR 18a）：§決定 1 的「系統『減少透明度』時改為不透明」目前偵測不到：Flutter 3.47.5 的 `AccessibilityFeatures` 沒有這一項（有 `accessibleNavigation`、`invertColors`、`disableAnimations`、`boldText`、`reduceMotion`、`highContrast`），所以只照 `highContrast` 改成不透明。
 
 ## 如何確認
 
