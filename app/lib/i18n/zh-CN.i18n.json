@@ -87,7 +87,18 @@
     "cannotPlay": "无法播放「{title}」：{reason}",
     "stoppedAfterFailures": "连续 {count} 首无法播放，已停止播放",
     "previewPlaying": "「{title}」只有试听片段",
-    "outputDeviceFailed": "音频输出设备无法使用，已暂停播放"
+    "outputDeviceFailed": "音频输出设备无法使用，已暂停播放",
+    "outputDeviceFellBack": "音频输出设备无法使用，已改用系统默认",
+    "shuffleTooltip": "随机播放（Ctrl+S）",
+    "loopOffTooltip": "循环：关闭（Ctrl+R）",
+    "loopAllTooltip": "循环：全部（Ctrl+R）",
+    "loopOneTooltip": "循环：单曲（Ctrl+R）",
+    "volume": "音量",
+    "volumeTooltip": "音量（Ctrl+↑／↓）",
+    "mute": "静音",
+    "unmute": "取消静音",
+    "outputDevice": "输出设备",
+    "systemDefault": "系统默认"
   },
   "appearance": {
     "theme": "主题",

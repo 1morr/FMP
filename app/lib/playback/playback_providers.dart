@@ -181,6 +181,37 @@ Future<Uri?> _artworkFile(Ref ref, TrackInfo track) async {
   return file.uri;
 }
 
+/// 平台能不能在 App 裡選音訊輸出裝置（播放列的輸出裝置入口依它出現）。
+final outputDeviceSelectionProvider = Provider<bool>(
+  (ref) =>
+      ref.watch(platformCapabilitiesProvider).playback?.outputDeviceSelection ??
+      false,
+);
+
+/// 音量與靜音：先給目前的值，之後每次改變。
+final playbackVolumeProvider = StreamProvider<({double volume, bool muted})>((
+  ref,
+) async* {
+  final controller = ref.watch(playbackControllerProvider);
+  yield (volume: controller.volume, muted: controller.muted);
+  yield* controller.volumeChanges;
+});
+
+/// 輸出裝置的清單與目前選的：先給目前的值，之後每次改變。
+final playbackOutputDevicesProvider = StreamProvider<OutputDeviceState>((
+  ref,
+) async* {
+  final controller = ref.watch(playbackControllerProvider);
+  yield controller.outputDeviceState;
+  yield* controller.outputDeviceChanges;
+});
+
+/// 使用者 seek 的目標位置，每次一筆。播放列在沒有來源時（啟動恢復後還沒播）
+/// 靠它跟上鍵盤移動的起點：那時沒有進度回報。
+final playbackSeeksProvider = StreamProvider<Duration>(
+  (ref) => ref.watch(playbackControllerProvider).seeks,
+);
+
 /// 播放狀態：先給目前的值，之後每次改變。
 final playbackStateProvider = StreamProvider<PlaybackState>((ref) async* {
   final controller = ref.watch(playbackControllerProvider);

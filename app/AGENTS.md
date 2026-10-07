@@ -828,11 +828,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   audio_session 的那幾行在 `flutter test` 裡建不起來，沒有自動閘門：實機以模擬器的來電觸發
   （見 spec）。
 - 輸出裝置（只有 Windows，design §7.6）：`AudioBackend.outputDevices` 列 mpv 的
-  `audio-device-list`（不含 `auto`：系統預設是 `null`），選擇是 `audio-device`。記住的裝置
+  `audio-device-list`，不含 `auto`（系統預設是 `null`）與 `openal` 這類 mpv 內部的輸出
+  （`isSelectableOutputDevice`，`backend_rules.dart`，擁有者 2026-10-07；`MediaKitBackend` 轉換清單時
+  套用，那一行在 `flutter test` 裡建不起來，沒有直接的閘門，實機看選單），選擇是 `audio-device`。
+  控制器對外給 `outputDeviceState`／`outputDeviceChanges`（清單與目前選的，`null` 是系統預設；
+  選擇、記住的裝置套用、失敗改回預設都會發出），播放列的選單讀它。記住的裝置
   （「播放」組的 `output_device_id`＝mpv 的裝置名、`output_device_name`＝描述）在清單第一次
   就緒時套用一次，之後插拔不蓋掉當下的選擇；不在清單裡就用系統預設、偏好不清掉；使用者在清單
   就緒前選過就以使用者的為準。`selectOutputDevice` 選擇並寫進偏好（`null` 清掉）。閘門：
-  `playback_controller_test.dart` 的 `output devices` 群組；後端契約的 `output devices follow the
+  `playback_controller_test.dart` 的 `output devices` 群組（含 `the state follows the list…`）、
+  `backend_rules_test.dart` 的 `isSelectableOutputDevice`；後端契約的 `output devices follow the
   platform declaration and choosing the system default keeps playing`。組裝點
   `playback_providers.dart` 讀寫偏好的兩行沒有閘門，review 時看。
 - 輸出裝置失敗（design §7.5）：mpv 只記 log，一次失敗是一串 `[ao/wasapi]`、`[ao]`、
@@ -842,10 +847,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   #41）。mpv 同時結束目前的檔案，`completed` 可能比這幾行早到（實測早 1 毫秒），先成了提前結束、
   排了重試。所以控制器收到時暫停並放掉來源（換一代：已經排好的重試、晚到的結束都丟掉，舊專案
   issue #106），記下位置，按播放時從那裡重新開流（mpv 才會再開一次輸出）；不跳過；發
-  `OutputDeviceFailed` 事件，外殼提示一則警告。`Idle`、`Failed` 時只提示。已知：先到的提前結束
-  已經在錯誤歷史記了一筆 `Stream ended early`。閘門：`backend_rules_test.dart` 的
-  `isOutputDeviceFailure`（錄下的行與反例）、`playback_controller_test.dart` 的 `a failed output
-  device` 群組（兩種先後）、`app_shell_test.dart` 的 `a failed output device says playback paused`。
+  `OutputDeviceFailed` 事件，外殼提示一則警告。`Idle`、`Failed` 時只提示。失敗的是選過的裝置時
+  （記住的或使用者選的），來源停下之後這次執行改用系統預設輸出（`selected` 變 `null`），按播放才不會
+  再撞同一個裝置；記住的偏好不清（`saveOutputDevice` 不呼叫），下次啟動或清單第一次就緒時照常套用。
+  失敗的本來就是系統預設時不選。事件的 `fellBack` 分這兩種，提示依它：改用了是「音訊輸出裝置無法使用，
+  已改用系統預設」（`outputDeviceFellBack`），本來就是系統預設是 PR 13 的「…已暫停播放」
+  （`outputDeviceFailed`）。已知：先到的提前結束已經在錯誤歷史記了一筆 `Stream ended early`。閘門：
+  `backend_rules_test.dart` 的 `isOutputDeviceFailure`（錄下的行與反例）、`playback_controller_test.dart`
+  的 `a failed output device` 群組（兩種先後，各例斷言 `fellBack`）與它的 `falls back to the system
+  default output`（使用者選的、記住的、系統預設本身失敗、`Idle`）、`app_shell_test.dart` 的 `a failed
+  system default output says playback paused` 與 `a failed output device falls back to the system
+  default`（提示文字、偏好還在、按播放不再選回）。
   `MediaKitBackend` 接 log 的那幾行沒有自動閘門（播放中拔裝置要實機）。
 - 被取代的解析結果丟掉（結果仍進網址快取），但插件的 `resolveStream` 沒有取消參數，
   網路工作不取消（ADR 0018 §決定 6 的取消等插件 API 支援）。已知限制。
@@ -1095,12 +1107,27 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 外殼量底部被佔住的高度（播放列＋底部導覽列＋安全區）發佈給 `toastBottomInsetProvider`；頁面
   不發佈。閘門：同檔的 `the bottom inset for toasts`、`toast_host_test.dart` 的 `position` 群組
   （含鍵盤：位移是鍵盤高度減 `viewPadding`）。
-- 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5，只放已經有的）：< 600 播放、下一首；
-  600–839 上一首、播放、下一首、「⋯」選單（隨機、循環）；840 以上隨機、上一首、播放、下一首、
-  循環（音量、輸出裝置在 M2 PR 17）；曲名至少 160dp。循環按一下依關閉 → 全部 → 單曲輪轉。
-  隨機、循環的 tooltip 還沒附按鍵（Ctrl+S、Ctrl+R 在 PR 17）。閘門：
-  `test/ui/player/player_bar_test.dart` 的 `controls per width`（599／600／839／840 等邊界）、
-  `shuffle and loop` 群組、golden `player_bar_golden_test.dart`（三個寬度，只守版面結構）。
+- 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5）：< 600 播放、下一首；600–839 上一首、
+  播放、下一首、音量圖示（點開彈出式滑桿，裡面也能靜音）、「⋯」選單（隨機、循環、輸出裝置）；840 以上
+  隨機、上一首、播放、下一首、循環，右側是輸出裝置鈕、靜音鈕與音量滑桿；曲名至少 160dp。輸出裝置只在
+  平台宣告能選時（`outputDeviceSelectionProvider`，Android 沒有）出現，不是看後端有沒有清單。循環按一下
+  依關閉 → 全部 → 單曲輪轉。點空白處開播放頁在 M2 PR 18a。閘門：`test/ui/player/player_bar_test.dart`
+  的 `controls per width`（599／600／839／840 等邊界，各自有宣告與沒宣告輸出裝置的一組，Android 沒有輸出
+  裝置鈕、「⋯」裡也沒有）、`shuffle and loop` 群組、golden `player_bar_golden_test.dart`（三個寬度，只守
+  版面結構）。
+- 播放列的音量（ADR 0018 §決定 10 的音量與靜音分開記）：滑桿 0–100%，拖曳當下就 `setVolume`（同時取消
+  靜音）；音量拖到 0 不算靜音；靜音鈕切換 `toggleMute`，滑桿仍顯示記住的音量，圖示反映靜音與音量大小。
+  Ctrl+↑／↓ 一次 ±5%（整數百分點，夾在 0–100%，靜音中就是取消靜音再調整）。UI 讀
+  `playbackVolumeProvider`（建立時取控制器目前的值，之後跟著 `volumeChanges`；`restore` 不發 `volumeChanges`，
+  所以靠播放列在恢復之後才出現）。閘門：`player_bar_test.dart` 的 `volume` 群組、`app_shell_test.dart` 的
+  `Ctrl+Up and Ctrl+Down…`、`Ctrl+Up while muted…`。輸出裝置選單與其閘門：`player_bar_test.dart` 的
+  `output devices` 群組（系統預設與裝置、目前的打勾、選了呼叫控制器、插拔、medium 的子選單）。
+- 進度條在 `Idle`（沒有來源）時不讀進度 stream：它留著上一個來源最後的回報（臨時播放、清空之前的歌）。
+  `Idle` 顯示按播放會從哪裡開始與目前曲目的時長：啟動恢復後還沒播（含先臨時播放、結束後停著）是控制器的
+  `restoredPosition`，拖它或按 Shift+←／→ 就是改恢復的起點（`playbackSeeksProvider` 讓畫面跟上鍵盤）；
+  其他是 0:00、不能拖（按播放從頭開始）；時長未知時維持不能拖的樣子。閘門：`player_bar_test.dart` 的
+  `after a restore` 群組（含臨時播放之後、沒有恢復的 `Idle`）、`app_shell_test.dart` 的 `Shift+arrows
+  move the restored start…`。
 - 播放列的狀態標示（ADR 0018 §決定 7）：「等待網路連線」（`Retrying` 的 `delay` 為空）、「重試中」
   （其他 `Retrying`）、「試聽」（`playbackPreviewProvider`）以主色寫在曲名下那一行、上傳者之前，
   一行放不下就省略，三段寬度都在曲名欄裡、不另佔位置；狀態是 live region。閘門：
@@ -1109,15 +1136,32 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 搜尋結果列的右鍵辨識器排除在語意樹外（`excludeFromSemantics`）：它會多一個沒有名稱的點擊
   動作，guideline 測試因此紅；同一份選單由「⋯」提供給輔助技術。閘門：guideline 測試的
   `search results and the player bar`。
-- App 內快捷鍵（ADR 0024 §決定 8）只在 `lib/ui/shell/shell_shortcuts.dart` 的表，綁在外殼的
-  `Shortcuts`：空白鍵、Ctrl+←／→、Shift+←／→（5 秒）、Ctrl+F、Ctrl+,、F6。文字編輯的快捷鍵
-  （`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，外殼會先接走按鍵；所以
-  同時是文字編輯鍵的那幾個用 `TextInputAwareAction`，焦點在輸入框時停用、按鍵交還輸入框。閘門：
-  `app_shell_test.dart` 的 `shortcuts` 群組（`text-editing keys in the search field stay in the
-  field`：輸入框裡的空白鍵、Ctrl／Shift 加方向鍵不動播放）。
+- App 內快捷鍵（ADR 0024 §決定 8）分兩張表，都綁在外殼：播放類在
+  `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
+  Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼包一層，M2
+  PR 18a 的播放頁是另一個 route，要自己包一層）；導覽類在 `shell_shortcuts.dart` 的
+  `navigationShortcuts`（Ctrl+F、Ctrl+,、F6、Esc）。輸入框裡的規則一句話：導覽類在輸入框內也有效，其餘
+  都讓給輸入框。文字編輯的快捷鍵（`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，
+  外殼會先接走按鍵；所以播放類的 action 一律用 `TextInputAwareAction`，焦點在輸入框時停用、按鍵交還
+  輸入框。Esc 在外殼只做一件事：焦點在輸入框時離開它（焦點回到外殼）；對話框與彈出的選單、滑桿是自己的
+  route 或 overlay，由 Flutter 內建的 Esc 關閉，外殼不處理。選單的 Esc 只在焦點在選單的 anchor 或選單
+  裡時有效，以滑鼠打開的選單焦點還在外殼，所以每個 `MenuAnchor` 都給 `childFocusNode`，並把同一個
+  `FocusNode` 給打開它的按鈕（打開時焦點移過去）；閘門：`app_shell_test.dart` 的 `Esc closes the "…"
+  menu`（播放列三個）、`search_page_test.dart`、`history_page_test.dart` 的 `Esc closes the menu opened
+  from "⋯"`。Ctrl+L、Ctrl+Q 與 Esc 關播放頁在 PR 18a。
+  對話框開著時焦點在對話框的 route 裡，這些鍵不作用。閘門：`app_shell_test.dart` 的 `shortcuts` 群組
+  （`text-editing keys in the search field stay in the field`：輸入框裡的空白鍵、Ctrl／Shift 加方向鍵不動
+  播放；`in the search field Ctrl+S, Ctrl+R and Ctrl+Up stay with the field; Esc leaves it`；新鍵各一例；
+  `with a dialog open playback shortcuts do nothing and Esc closes the dialog`）。
 - 焦點三區（導覽、內容、播放列）各是 `FocusScope`＋`FocusTraversalGroup`：Tab 只在區內循環，F6
-  依序換區、跳過不在畫面上的播放列。只有圖示的按鈕有 tooltip（附按鍵）與語意標籤。閘門：同檔的
-  `focus regions` 群組、guideline 測試（標籤）；tooltip 附按鍵沒有閘門，review 時看。
+  依序換區、跳過不在畫面上的播放列。閘門：同檔的 `focus regions` 群組。
+- 只有圖示的按鈕以 tooltip 當名稱（附按鍵，如「隨機播放（Ctrl+S）」，翻譯檔的 `*Tooltip`），不另外給
+  `Icon.semanticLabel`：兩個都給時輔助技術念成「X. X」。閘門：`player_bar_test.dart` 的 `semantics`
+  （播放列每個按鈕的語意只有 tooltip、標籤是空的）、`search_page_test.dart` 的 `the more button is
+  named once…`、`history_page_test.dart` 的 `the clear button is named once…`、guideline 測試（標籤）；
+  tooltip 附上對的按鍵：`translations_test.dart` 的 `tooltips carry the shortcut`（三個語言的字串含按鍵，
+  按鍵本身與快捷鍵表一致沒有閘門，改表時 review 看）。新的只有圖示的 `IconButton` 照這條寫，沒有
+  自動閘門擋住（lint 不看這個），review 時看。
 - 離線（ADR 0016 §決定 7、design §5.4）只有兩個呈現，都不是 toast：外殼內容區頂端的
   `OfflineBanner`（換頁仍在、`online` 時不佔位置、live region），以及頁面共用的
   `OfflineMessage`（`lib/ui/offline/`）。要網路的頁面不在 `online` 時照常送出使用者的

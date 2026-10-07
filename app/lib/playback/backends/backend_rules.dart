@@ -102,6 +102,12 @@ double clampSpeed(double speed) => speed.clamp(minSpeed, maxSpeed).toDouble();
 /// 夾到 0–1。
 double clampVolume(double volume) => volume.clamp(0, 1).toDouble();
 
+/// mpv 的 `audio-device-list` 裡哪些給使用者選：不列「系統預設」（`auto`，在 App
+/// 裡是 `null`）與 `openal` 這類 mpv 內部的輸出，只留 Windows 的音訊裝置（擁有者
+/// 2026-10-07；舊版同樣濾掉這兩個）。
+bool isSelectableOutputDevice(String name) =>
+    name != 'auto' && name != 'openal';
+
 /// Android 音訊中斷的種類：audio_session 的 `AudioInterruptionType` 一對一
 /// 轉過來（`AudioInterruptionEvent.type`）。暫停類是 `AUDIOFOCUS_LOSS_TRANSIENT`，
 /// duck 是 `…_CAN_DUCK`，unknown 是 `AUDIOFOCUS_LOSS`（不會再拿回焦點：

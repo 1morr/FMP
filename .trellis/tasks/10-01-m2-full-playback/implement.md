@@ -61,12 +61,13 @@
   - 擁有者定：恢復後還沒播就先臨時播放，結束後按播放仍從恢復的位置開始（design §7.7）。同時修了兩條重複倒退。
   - 實機兩平台（重播／測試插件）通過：五首（有重複曲目）、隨機、循環全部 → 關掉重開，`Playback restored` 欄位正確、啟動不解析，按播放 `restored: true`、從存的位置接著播、照存的隨機順序走；Android 另驗了倒退 10 秒＋臨時播放後，存的位置不被覆寫。音量與靜音沒有 UI（PR 17），只有單元測試。
 - **PR 15 已合併**：#212（`7862559e`）：擁有者定了移除單筆、列的副標、只有清除全部提示。審查修了「讀下一頁時剛好記了一筆，清單重複一列、漏掉新的」「dispose 後仍寫入」；主對話另定讀取失敗不顯示成「沒有紀錄」（design §7.8）。實機兩平台（重播）通過：恢復後第一次不記、交接與單曲循環每圈一筆、臨時播放一筆、回到佇列不記，歷史頁「今天」分組、點一列臨時播放、移除單筆、清除全部（確認框、取消不清、提示）、重開仍在。
-- **PR 16a 完成**（2026-10-07；分支 `feat/app-android-media-controls`，子任務已封存；合併後在下一個 PR 補編號與合併提交）：擁有者定停止＝暫停。審查修了「啟動恢復那首在通知上一直沒有封面」，並把 `pickArtwork` 移到 domain、加了 playback→ui 的 lint。實機（Android，重播＋一次真實 B 站搜尋與播放看封面）通過；鎖定畫面沒驗（模擬器沒設螢幕鎖）。
-- **下一步**：17（播放列三段與快捷鍵）或 16b（Windows SMTC）。
+- **PR 16a 已合併**：#213（`e5cfa91b`）：擁有者定停止＝暫停。審查修了「啟動恢復那首在通知上一直沒有封面」，並把 `pickArtwork` 移到 domain、加了 playback→ui 的 lint。實機（Android，重播＋一次真實 B 站搜尋與播放看封面）通過；鎖定畫面沒驗（模擬器沒設螢幕鎖）。
+- **PR 17 完成**（2026-10-07；分支 `feat/app-player-bar`，子任務已封存；合併後在下一個 PR 補編號與合併提交）：擁有者定輸出裝置失敗改用系統預設。審查修了「臨時播放後進度條顯示錯的位置」「Shift+←／→ 在恢復狀態無效或蓋掉恢復位置」「滑鼠打開的選單按 Esc 關不掉」，並把提示分成兩句。實機兩平台（重播）通過；Windows 的裝置停用要系統管理員權限，裝置失敗的退回沒有實機驗。
+- **下一步**：18a（播放頁 B）或 16b（Windows SMTC）。
 - **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **adb 可能多出別的裝置**（10-07 出現 `127.0.0.1:16384`，不是我們的模擬器）：一律 `export ANDROID_SERIAL=emulator-5554` 或 `adb -s`，`ax_flatten.py` 加 `--device`，不要碰別的裝置。
-  - **PR 16a 之後**：播放中 uiautomator 會「could not get idle state」，先送 `adb shell input keyevent MEDIA_PAUSE` 再讀畫面；媒體狀態用 `dumpsys media_session`、通知用 `dumpsys notification --noredact`。模擬器沒設螢幕鎖，看不到鎖定畫面控制。10-07 跑完 Android 整合測試後已重裝 dev 與兩個插件，但最後讀 `installed_plugins` 時拉到的資料庫不完整、沒確認到，下次先查。
+  - **PR 16a 之後**：播放中 uiautomator 會「could not get idle state」，先送 `adb shell input keyevent MEDIA_PAUSE` 再讀畫面；媒體狀態用 `dumpsys media_session`、通知用 `dumpsys notification --noredact`。模擬器沒設螢幕鎖，看不到鎖定畫面控制。**跑完 Android 整合測試後，`build/app/outputs/flutter-apk/app-dev-debug.apk` 已被換成整合測試的版本**（它的 `main()` 等測試工具連進來，裝上去會停在啟動畫面、isolate 閒置、堆疊是空的）：重裝前一定先 `flutter build apk --flavor dev --debug`。10-07 因此誤判過一次「全新安裝卡住」。
   - **模擬器上的狀態**：dev 版裝著測試插件（`files/test.js`）與 B 站插件（`files/bilibili.js`），介面語言 English，快取上限設成 512 MB。跑過 Android 整合測試會解除安裝 dev，要重裝並以 `run-as` 放回兩個插件，各帶 `--fmp-dev-plugin` 啟動一次。
   - **Windows dev**：跑過 Windows 整合測試要再 `flutter build windows --flavor dev --debug`。dev 的快取上限設成 128 MB。快取在 `%LOCALAPPDATA%/com.personal/fmp-dev/fmp_cache`；同層的 `fmp/`（舊版的 `lyrics`）不要動。
   - **搜尋來源每次啟動都回到 Bilibili**：重播驗證前先點 `FMP Test Plugin` chip，截圖確認選中，否則會對 B 站發真實請求。
@@ -75,6 +76,7 @@
     - Ctrl+A 全選不可靠，會把字附加上去（例如打成 `lofilofi`），送出前截圖看關鍵字。
     - 腳本在 session 暫存目錄的 `fgtype.ps1`，compact 後還在，換 session 就沒了。
     - **擁有者在用電腦時不要跑會動滑鼠鍵盤的步驟**；被拒絕後要先確認 App 還開著、來源 chip 是哪個。
+  - **Windows 送快捷鍵**：用 `keybd_event` 而且掃描碼給 0 時，Flutter 認不出 Ctrl，之後連空白鍵都會失效（修飾鍵狀態被弄亂，要重開 App）。用 session 暫存目錄的 `combo.ps1`（`SendInput`，帶虛擬鍵碼與 `MapVirtualKey` 的掃描碼，方向鍵加 extended 旗標，`-X -Y` 先在同一個程序裡點一下取得焦點），配 `k.sh <VK,VK> <秒> <標籤>` 印出新的 log。停用音訊裝置（`Disable-PnpDevice`）要系統管理員權限，做不到。
   - **msaa_tree.ps1** 要用 Windows PowerShell 5.1（`powershell.exe`）跑，pwsh 7 編不過它的 C#。
   - **藍屏的教訓**（10-02 兩次，都在子代理跑重負載測試時）：
     - 重開後先 `git status`；`index file corrupt` 時把 `.git/index` 移到暫存目錄，`git reset` 重建，`git fsck` 檢查。
@@ -650,11 +652,11 @@ PR 10 留下的：
 - PR 9 留下的五件都在 PR 10 處理完（前瞻重新準備、臨時播放不交接、空佇列下一首、空佇列進入臨時播放、單曲循環重播）。
 - [ ] `RepeatTrack`（單曲循環時前瞻沒來得及接上）只有路由器測試；控制器層造不出「前瞻來不及」，重播一律從網址快取拿。
 - [x] PR 12：單曲循環時換候選之後，前瞻會再開一次開不起來的第一候選，要再走一次換候選才播得起來。
-- [ ] PR 17：隨機、循環的 tooltip 補上 Ctrl+S、Ctrl+R。
+- [x] PR 17：隨機、循環的 tooltip 補上 Ctrl+S、Ctrl+R。
 - [x] PR 14：做持久化後改「記住播放位置」的說明（目前只寫臨時播放）。
 - [ ] PR 18a：compact（手機直向）的播放列沒有隨機、循環入口，要到播放頁 B 才有。
 - [ ] `playback_providers.dart` 為了 `PlaybackSettings.empty` import 資料層型別；可改由設定層提供預設值（沒有違反 lint）。
-- [ ] 搜尋結果「⋯」的語意標籤重複成「更多選項. 更多選項」（tooltip 與 label 同字），Windows MSAA 看得到。
+- [x] 搜尋結果「⋯」的語意標籤重複成「更多選項. 更多選項」（tooltip 與 label 同字），Windows MSAA 看得到。
 - [ ] 既有、不是 PR 10 造成：Android 橫向（約 411 dp 高）叫出鍵盤時，側邊導覽列與搜尋頁的 Column 底部溢出 3.8–9.9 px（佇列空、沒有播放列時也會；這兩處 PR 10 沒改）。實機 log 記成 `Uncaught Flutter error`。
 
 PR 11 留下的：
@@ -686,19 +688,19 @@ PR 8 留下的：
 
 PR 13 留下的：
 
-- [ ] PR 17：播放列接音量、靜音、輸出裝置；控制器要對外提供裝置清單、目前裝置與音量的 stream。裝置清單只列 Windows 的音訊裝置（擁有者 2026-10-07：不列 mpv 的 `openal` 這類內部輸出，「系統預設」照常有）。
+- [x] PR 17：播放列接音量、靜音、輸出裝置；控制器要對外提供裝置清單、目前裝置與音量的 stream。裝置清單只列 Windows 的音訊裝置（擁有者 2026-10-07：不列 mpv 的 `openal` 這類內部輸出，「系統預設」照常有）。
 - [ ] PR 18a：速度選單（需要速度的 getter 或 stream）。
 - [x] PR 14：持久化音量與靜音（靜音與音量分開記，擁有者 2026-10-07 確認）。
 - [ ] 裝置失敗前先到的提前結束，在錯誤歷史留一筆 `Stream ended early`。
 - [ ] `JustAudioBackend` 接 audio_session、`MediaKitBackend` 接 log 的幾行沒有自動閘門（`flutter test` 裡建不起來）。
 - [ ] duck 在 Android 8 以上因系統自動 duck 幾乎不會觸發。
-- [ ] PR 17：記住的輸出裝置失效後 mpv 仍被強制指定它，按播放會再失敗；決定失敗時要不要自動退回系統預設。
+- [x] PR 17：記住的輸出裝置失效後 mpv 仍被強制指定它，按播放會再失敗；決定失敗時要不要自動退回系統預設。
 - [ ] `_onOutputDevices` 裡 `_session.selectOutputDevice` 丟錯會變成未捕捉的非同步錯誤（全域 handler 記 error），影響小。
 - [ ] 後端的 `volume`、`speed` getter 與 `OutputDevices.selected` 只有契約測試在讀（觀察真引擎狀態的唯一方式，保留）；控制器的 `volume`、`muted` 等 PR 17 的 UI 使用。
 
 PR 14 留下的：
 
-- [ ] PR 17：恢復後還沒按播放時，播放列的進度顯示 0:00，不是恢復的位置（按播放後才跳過去）；兩平台實機都看到。
+- [x] PR 17：恢復後還沒按播放時，播放列的進度顯示 0:00，不是恢復的位置（按播放後才跳過去）；兩平台實機都看到。
 - [ ] 在 `attach` 訂閱之前就已開始播放時，10 秒存檔計時器要等下一次狀態變化才開（時間窗只有幾毫秒，沒有穩定的 repro）。
 - [x] PR 15：`play_history` 參照 `tracks` 時照 `queue_entries.track_key` 建索引，否則孤兒清理會慢。
 - [x] PR 15：「恢復後第一次播放不記歷史」只留了最小的 `PlaybackController.startedFromRestore`；接歷史時看夠不夠用。（夠用：控制器內部改成「這次開始算不算一次播放」的旗標）
@@ -711,7 +713,7 @@ PR 15 留下的：
 - [ ] 歷史頁只在 `play_history` 變動時重讀；曲目標題被別處 upsert 更新後，要等下一次播放才顯示新標題。
 - [ ] 沒有 log 行標示「記了一筆歷史」，實機只能查資料庫或看歷史頁。
 - [ ] 歷史頁與搜尋頁的列選單各寫一份（spec 註明改一邊看另一邊）；PR 18b 的佇列分頁加第三份時考慮抽共用。
-- [ ] 「清除全部歷史」的語意標籤重複成「清除全部歷史. 清除全部歷史」（tooltip 與 label 同字），同搜尋結果「⋯」那條。
+- [x] 「清除全部歷史」的語意標籤重複成「清除全部歷史. 清除全部歷史」（tooltip 與 label 同字），同搜尋結果「⋯」那條。
 - [ ] 臨時播放結束、回到佇列並以暫停狀態載入時，log 仍記一行 `Track audible`（不影響歷史，log 語意不準）。
 - [ ] 模擬器時區是 UTC，實機看到的時刻比本機少 8 小時；驗日分組時注意。
 
@@ -725,6 +727,13 @@ PR 16a 留下的：
 - [ ] Android 16 以上的預測返回：實機（API 37）在「搜尋」按返回確實退到背景、Activity 沒被結束，但沒分辨是經 `popSystemNavigator` 還是系統直接處理。
 - [ ] 鎖定畫面的媒體控制沒有實機驗（模擬器沒設螢幕鎖）；M2 驗收時在有螢幕鎖的裝置看一次。
 - [ ] `plugins/`、`settings/` 也可以擋 import `ui/`（審查建議，這次沒加）。
+
+PR 17 留下的：
+
+- [ ] 輸出裝置失敗改用系統預設沒有實機驗（Windows 停用裝置要系統管理員權限）；M2 驗收時拔一次真的 USB／藍牙裝置。
+- [ ] `_useSystemOutput` 在等來源停下的幾毫秒內，使用者剛好選了別的裝置，會被改回系統預設（理論上的競態，寫不出重現條件）。
+- [ ] 焦點在播放列按鈕或選單項目上時，空白鍵是播放／暫停，不是觸發那個按鈕（Enter 才是）；照 ADR 字面與 M1，記下。
+- [ ] PR 18a：點播放列空白處開播放頁、Ctrl+L／Q、Esc 關播放頁；播放頁那層 `PlaybackShortcuts`。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 

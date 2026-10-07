@@ -137,6 +137,14 @@ void main() {
     });
   });
 
+  group('isSelectableOutputDevice', () {
+    test('lists the Windows audio devices, not auto or mpv internals', () {
+      expect(isSelectableOutputDevice('wasapi/{0.0.0.00000000}.{abc}'), isTrue);
+      expect(isSelectableOutputDevice('auto'), isFalse);
+      expect(isSelectableOutputDevice('openal'), isFalse);
+    });
+  });
+
   group('speed and volume', () {
     test('the speed is clamped to 0.5–2.0', () {
       expect(clampSpeed(1.25), 1.25);

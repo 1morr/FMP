@@ -535,7 +535,9 @@ final class _MediaKitOutputDevices implements OutputDevices {
   Stream<List<OutputDevice>> get available async* {
     // mpv 一建好就列出裝置（比 `idle-active` 早），訂閱時可能已經有了。
     final current = _player.state.audioDevices;
-    if (current.any((device) => device.name != _auto)) yield _convert(current);
+    if (current.any((device) => isSelectableOutputDevice(device.name))) {
+      yield _convert(current);
+    }
     yield* _player.stream.audioDevices.map(_convert);
   }
 
@@ -563,7 +565,7 @@ final class _MediaKitOutputDevices implements OutputDevices {
 
   static List<OutputDevice> _convert(List<AudioDevice> devices) => [
     for (final device in devices)
-      if (device.name != _auto)
+      if (isSelectableOutputDevice(device.name))
         OutputDevice(id: device.name, name: device.description),
   ];
 }

@@ -143,7 +143,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           children: [
             header(
               IconButton(
-                icon: Icon(Icons.arrow_back, semanticLabel: t.back),
+                icon: const Icon(Icons.arrow_back),
                 tooltip: t.back,
                 onPressed: () => setState(() => _selected = null),
               ),

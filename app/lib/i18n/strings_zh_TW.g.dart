@@ -360,6 +360,39 @@ class Translations$player$zh_TW {
 
   /// zh-TW: '音訊輸出裝置無法使用，已暫停播放'
   String get outputDeviceFailed => '音訊輸出裝置無法使用，已暫停播放';
+
+  /// zh-TW: '音訊輸出裝置無法使用，已改用系統預設'
+  String get outputDeviceFellBack => '音訊輸出裝置無法使用，已改用系統預設';
+
+  /// zh-TW: '隨機播放（Ctrl+S）'
+  String get shuffleTooltip => '隨機播放（Ctrl+S）';
+
+  /// zh-TW: '循環：關閉（Ctrl+R）'
+  String get loopOffTooltip => '循環：關閉（Ctrl+R）';
+
+  /// zh-TW: '循環：全部（Ctrl+R）'
+  String get loopAllTooltip => '循環：全部（Ctrl+R）';
+
+  /// zh-TW: '循環：單曲（Ctrl+R）'
+  String get loopOneTooltip => '循環：單曲（Ctrl+R）';
+
+  /// zh-TW: '音量'
+  String get volume => '音量';
+
+  /// zh-TW: '音量（Ctrl+↑／↓）'
+  String get volumeTooltip => '音量（Ctrl+↑／↓）';
+
+  /// zh-TW: '靜音'
+  String get mute => '靜音';
+
+  /// zh-TW: '取消靜音'
+  String get unmute => '取消靜音';
+
+  /// zh-TW: '輸出裝置'
+  String get outputDevice => '輸出裝置';
+
+  /// zh-TW: '系統預設'
+  String get systemDefault => '系統預設';
 }
 
 // Path: appearance

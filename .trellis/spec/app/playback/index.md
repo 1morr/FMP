@@ -113,6 +113,9 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
   一律經 `_setPlayWhenReady`，它會清掉這個記號；中斷造成的暫停在呼叫 `pause()` 之後才設回。
 - 輸出裝置失敗時控制器放掉來源（換一代），不是只呼叫後端的 `pause`：mpv 不會自己再開輸出，而且
   同一次失敗的 `completed` 可能先到、排了重試。
+  失敗的是選過的裝置時，來源停下之後控制器再把輸出改回系統預設（`_useSystemOutput`，不寫偏好），按播放才不會
+  再撞同一個；順序是先停來源再選，免得 mpv 在舊來源還開著時重開輸出。播放列的選單讀控制器的
+  `outputDeviceState`／`outputDeviceChanges`（清單、目前選的），不問後端。
 - 偏好裝置只在清單第一次就緒時套用（`_onOutputDevices`）；讀偏好是 `Future`，組裝點等資料庫的
   值讀出來（`playbackPreferencesProvider.future`）。
 - mpv 的 log 新格式先錄一行再加進 `isOutputDeviceFailure`：暫時在 `integration_test/` 寫一個檔

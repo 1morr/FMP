@@ -744,6 +744,14 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
   - 曲名 ≥ 160dp；
   - golden 三段。
 
+- **PR 17 實作與審查補的決定**：
+  - 點播放列空白處開播放頁、Ctrl+L／Q 延到 PR 18a，不先放佔位路由。
+  - 記住的輸出裝置開不起來時（擁有者決定），這次執行改用系統預設、維持暫停，提示「音訊輸出裝置無法使用，已改用系統預設」；偏好不清。失敗的本來就是系統預設時提示 PR 13 的「音訊輸出裝置無法使用，已暫停播放」。事件 `OutputDeviceFailed` 帶 `fellBack` 分兩種文字。
+  - `Idle` 時進度條不讀進度 stream（它留著上一個來源的值）：啟動恢復後還沒播時顯示控制器的 `restoredPosition`、可拖；其他 `Idle` 顯示 0:00、不能拖；時長用曲目的。Shift+←／→ 在恢復狀態下以 `restoredPosition` 為起點移動。
+  - Esc 在外殼只讓焦點離開輸入框；對話框、選單、彈出滑桿由 Flutter 內建的 Esc 關。用滑鼠打開的選單要收得到 Esc，`MenuAnchor` 的 `childFocusNode` 一律和打開它的按鈕共用。
+  - 靜音時音量滑桿顯示記住的音量；mpv 的 `auto`、`openal` 不列進裝置清單；裝置鈕依平台宣告顯示。
+  - 只有圖示的按鈕以 tooltip（附按鍵）當名稱，不另給 `Icon.semanticLabel`。
+
 ### 9.3 播放頁 B（ADR 0024 §決定 1、3、4，§5.22、§5.23）
 
 - **路由**：推在根 Navigator 的全螢幕頁，所以提示仍在上面（`ToastHost` 包住 Navigator）。

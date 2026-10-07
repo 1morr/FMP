@@ -34,7 +34,8 @@
     "10-07-volume-speed-device",
     "10-07-queue-persistence",
     "10-07-play-history",
-    "10-07-android-media-controls"
+    "10-07-android-media-controls",
+    "10-07-player-bar"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

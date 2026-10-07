@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/network/network_status.dart';
@@ -162,6 +163,21 @@ void main() {
       expect(h.controller.queue.entries, isEmpty);
     });
 
+    // 選單是 overlay：以滑鼠或點按打開的也要能以 Esc 關掉（design §9.5）。
+    testWidgets('Esc closes the menu opened from "⋯"', (tester) async {
+      final h = await openHistory(tester);
+      await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));
+      await reload(tester, h);
+
+      await tester.tap(find.byTooltip('More options').first);
+      await tester.pump();
+      expect(find.text('Remove from history'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.text('Remove from history'), findsNothing);
+    });
+
     testWidgets('the menu has four items and plays, plays next and queues', (
       tester,
     ) async {
@@ -268,6 +284,19 @@ void main() {
       await reload(tester, h);
       return h;
     }
+
+    // tooltip 是「清除全部」唯一的名稱：Icon 再給 semanticLabel 會念成「X. X」。
+    testWidgets('the clear button is named once, by its tooltip', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await openHistory(tester);
+
+      final node = tester.getSemantics(find.byTooltip('Clear all history'));
+      expect(node.tooltip, 'Clear all history');
+      expect(node.label, isEmpty);
+      handle.dispose();
+    });
 
     testWidgets('asks first; cancelling keeps everything', (tester) async {
       final h = await withTwoEntries(tester);
