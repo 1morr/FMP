@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
+
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/domain/track_info.dart';
@@ -18,7 +20,8 @@ import 'package:fmp/playback/queue_model.dart';
 /// 推送規則（Harmonoid 的慣例）：
 /// - 只在值改變時推，推送一個接一個、不重疊；
 /// - 位置只在狀態改變與 seek 時推：系統依速度自己外推，高頻的進度 stream
-///   只用來取得時長；
+///   只用來取得時長；平台宣告 `positionRefresh`（Windows）時，播放中另外
+///   每隔該時間從進度 stream 重推；
 /// - 還沒按過播放的 [Idle] 是 [MediaPhase.idle]：系統不顯示通知、不搶前景。
 final class NowPlayingPublisher {
   /// [artworkFile] 取得曲目封面的本機檔（經統一快取庫）；拿不到回 `null` 或
@@ -27,13 +30,22 @@ final class NowPlayingPublisher {
     required this._controls,
     required this._artworkFile,
     required this._log,
+    this._positionRefresh,
   });
 
   static const _tag = 'media-controls';
 
+  /// 系統媒體控制的封面要挑多大的那張（通知與 SMTC 的縮圖都較大）。
+  static const artworkPixels = 512.0;
+
   final SystemMediaControls _controls;
   final Future<Uri?> Function(TrackInfo track) _artworkFile;
   final Log _log;
+
+  /// 播放中重推位置的最短間隔（`MediaControlsSupport.positionRefresh`）；`null`
+  /// 不重推。
+  final Duration? _positionRefresh;
+  DateTime? _lastPushAt;
 
   late PlaybackController _controller;
   final _subscriptions = <StreamSubscription<Object?>>[];
@@ -61,9 +73,11 @@ final class NowPlayingPublisher {
       )
       ..add(
         controller.progress.listen((progress) {
-          if (progress.duration == _duration) return;
-          _duration = progress.duration;
-          _refresh();
+          if (progress.duration != _duration) {
+            _duration = progress.duration;
+            _refresh();
+          }
+          _refreshPosition(progress.position);
         }),
       )
       ..add(_controls.commands.listen(_onCommand));
@@ -100,6 +114,17 @@ final class NowPlayingPublisher {
     );
   }
 
+  /// 播放中、距離上次推送已過 [_positionRefresh] 就重推一次位置。時間用
+  /// `clock.now()` 比對，不開計時器：沒有進度就沒有推送。
+  void _refreshPosition(Duration position) {
+    final interval = _positionRefresh;
+    final last = _lastPushAt;
+    if (interval == null || last == null || _disposed) return;
+    if (_controller.state is! Playing) return;
+    if (clock.now().difference(last) < interval) return;
+    _refresh(position: position, force: true);
+  }
+
   /// 重算並在值改變時推送。[position] 是這次推送的位置（預設取控制器的）；
   /// 只有位置不同時，除非 [force]（seek）否則不推。
   void _refresh({Duration? position, bool force = false}) {
@@ -127,6 +152,7 @@ final class NowPlayingPublisher {
       if (!force && next.copyWith(position: last.position) == last) return;
     }
     _last = next;
+    _lastPushAt = clock.now();
     _pushing = _pushing.then((_) => _push(next));
   }
 
@@ -175,6 +201,7 @@ final class NowPlayingPublisher {
       uploader: track.uploader,
       duration: _duration ?? track.duration,
       artworkFile: _artwork,
+      artworkUrl: pickArtwork(track.artwork, artworkPixels)?.url,
       phase: switch (state) {
         Idle() => MediaPhase.idle,
         Loading() => MediaPhase.loading,

@@ -152,6 +152,10 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
           controls: mediaControls,
           artworkFile: (track) => _artworkFile(ref, track),
           log: log,
+          positionRefresh: ref
+              .read(platformCapabilitiesProvider)
+              .mediaControls
+              ?.positionRefresh,
         )..attach(controller));
   ref.onDispose(() {
     publisher?.dispose();
@@ -171,7 +175,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
 /// 封面，所以先等它們（快取庫開不起來就丟出，publisher 當作沒有封面）。publisher
 /// 每首只問一次，這時回 `null` 那首在通知上就一直沒有封面。
 Future<Uri?> _artworkFile(Ref ref, TrackInfo track) async {
-  final picked = pickArtwork(track.artwork, 512);
+  final picked = pickArtwork(track.artwork, NowPlayingPublisher.artworkPixels);
   if (picked == null) return null;
   await ref.read(cacheStoreProvider.future);
   await ref.read(pluginRegistryProvider.future);
