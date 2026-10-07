@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
 // 列舉與時間存進資料庫的格式（ADR 0010 §決定 2）。字串逐一寫死，不用 enum 的
@@ -109,6 +110,26 @@ final class LoopModeConverter extends TypeConverter<LoopMode, String> {
     LoopMode.off => 'off',
     LoopMode.all => 'all',
     LoopMode.one => 'one',
+  };
+}
+
+/// [PlayerTab] ↔ `lyrics`／`queue`／`details`。
+final class PlayerTabConverter extends TypeConverter<PlayerTab, String> {
+  const PlayerTabConverter();
+
+  @override
+  PlayerTab fromSql(String fromDb) => switch (fromDb) {
+    'lyrics' => PlayerTab.lyrics,
+    'queue' => PlayerTab.queue,
+    'details' => PlayerTab.details,
+    _ => throw FormatException('Unknown player tab in the database', fromDb),
+  };
+
+  @override
+  String toSql(PlayerTab value) => switch (value) {
+    PlayerTab.lyrics => 'lyrics',
+    PlayerTab.queue => 'queue',
+    PlayerTab.details => 'details',
   };
 }
 

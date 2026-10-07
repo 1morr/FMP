@@ -72,6 +72,9 @@ class TranslationsZhCn extends Translations
   late final Translations$player$zh_CN player =
       Translations$player$zh_CN.internal(_root);
   @override
+  late final Translations$playerPage$zh_CN playerPage =
+      Translations$playerPage$zh_CN.internal(_root);
+  @override
   late final Translations$appearance$zh_CN appearance =
       Translations$appearance$zh_CN.internal(_root);
   @override
@@ -338,6 +341,43 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   String get outputDevice => '输出设备';
   @override
   String get systemDefault => '系统默认';
+}
+
+// Path: playerPage
+class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
+  Translations$playerPage$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get openHint => '打开播放页';
+  @override
+  String get closeTooltip => '关闭播放页（Esc）';
+  @override
+  String get showLyricsTooltip => '显示歌词（Ctrl+L）';
+  @override
+  String get showArtworkTooltip => '显示封面';
+  @override
+  String get tabLyrics => '歌词';
+  @override
+  String get tabQueue => '队列';
+  @override
+  String get tabDetails => '详情';
+  @override
+  String get noLyrics => '没有歌词';
+  @override
+  String get speed => '播放速度';
+  @override
+  String speedValue({required Object speed}) => '${speed}×';
+  @override
+  String get detailsUploader => '上传者';
+  @override
+  String get detailsDuration => '时长';
+  @override
+  String get detailsSource => '音源';
 }
 
 // Path: appearance

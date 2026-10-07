@@ -57,6 +57,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$settings$zh_TW.internal(_root);
   late final Translations$player$zh_TW player =
       Translations$player$zh_TW.internal(_root);
+  late final Translations$playerPage$zh_TW playerPage =
+      Translations$playerPage$zh_TW.internal(_root);
   late final Translations$appearance$zh_TW appearance =
       Translations$appearance$zh_TW.internal(_root);
   late final Translations$playback$zh_TW playback =
@@ -393,6 +395,54 @@ class Translations$player$zh_TW {
 
   /// zh-TW: '系統預設'
   String get systemDefault => '系統預設';
+}
+
+// Path: playerPage
+class Translations$playerPage$zh_TW {
+  Translations$playerPage$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '開啟播放頁'
+  String get openHint => '開啟播放頁';
+
+  /// zh-TW: '關閉播放頁（Esc）'
+  String get closeTooltip => '關閉播放頁（Esc）';
+
+  /// zh-TW: '顯示歌詞（Ctrl+L）'
+  String get showLyricsTooltip => '顯示歌詞（Ctrl+L）';
+
+  /// zh-TW: '顯示封面'
+  String get showArtworkTooltip => '顯示封面';
+
+  /// zh-TW: '歌詞'
+  String get tabLyrics => '歌詞';
+
+  /// zh-TW: '佇列'
+  String get tabQueue => '佇列';
+
+  /// zh-TW: '詳細'
+  String get tabDetails => '詳細';
+
+  /// zh-TW: '沒有歌詞'
+  String get noLyrics => '沒有歌詞';
+
+  /// zh-TW: '播放速度'
+  String get speed => '播放速度';
+
+  /// zh-TW: '{speed}×'
+  String speedValue({required Object speed}) => '${speed}×';
+
+  /// zh-TW: '上傳者'
+  String get detailsUploader => '上傳者';
+
+  /// zh-TW: '時長'
+  String get detailsDuration => '時長';
+
+  /// zh-TW: '音源'
+  String get detailsSource => '音源';
 }
 
 // Path: appearance

@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 9.3 player page B, 9.6 focus regions and Esc, 9.5 shortcuts, 3.1-3.5 layout_state and schema workflow, 7.6 speed, 8.2 NowPlaying.speed, 11 ADR corrections"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Decisions 1, 3, 4, 8: page B layouts, blur, window classes, remembered tabs, shortcuts and focus, how to confirm (guidelines, goldens)"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Decision 2: toast position over full-screen pages"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Speed not persisted; controller as single entry"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Drift tables and migrations"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Shell, player bar, shortcuts, tokens, goldens, guideline tests, i18n"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change workflow and repositories"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Controller API, NowPlayingPublisher"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Widget tests, goldens, integration tests"}

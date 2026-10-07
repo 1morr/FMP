@@ -100,6 +100,21 @@
     "outputDevice": "输出设备",
     "systemDefault": "系统默认"
   },
+  "playerPage": {
+    "openHint": "打开播放页",
+    "closeTooltip": "关闭播放页（Esc）",
+    "showLyricsTooltip": "显示歌词（Ctrl+L）",
+    "showArtworkTooltip": "显示封面",
+    "tabLyrics": "歌词",
+    "tabQueue": "队列",
+    "tabDetails": "详情",
+    "noLyrics": "没有歌词",
+    "speed": "播放速度",
+    "speedValue": "{speed}×",
+    "detailsUploader": "上传者",
+    "detailsDuration": "时长",
+    "detailsSource": "音源"
+  },
   "appearance": {
     "theme": "主题",
     "themeSystem": "跟随系统",

@@ -118,6 +118,8 @@ void main() {
       'player.loopAllTooltip': ['Ctrl+R'],
       'player.loopOneTooltip': ['Ctrl+R'],
       'player.volumeTooltip': ['Ctrl+↑'],
+      'playerPage.closeTooltip': ['Esc'],
+      'playerPage.showLyricsTooltip': ['Ctrl+L'],
     };
     for (final MapEntry(key: locale, value: strings) in catalog.entries) {
       test('in $locale', () {

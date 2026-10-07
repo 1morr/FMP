@@ -100,6 +100,21 @@
     "outputDevice": "輸出裝置",
     "systemDefault": "系統預設"
   },
+  "playerPage": {
+    "openHint": "開啟播放頁",
+    "closeTooltip": "關閉播放頁（Esc）",
+    "showLyricsTooltip": "顯示歌詞（Ctrl+L）",
+    "showArtworkTooltip": "顯示封面",
+    "tabLyrics": "歌詞",
+    "tabQueue": "佇列",
+    "tabDetails": "詳細",
+    "noLyrics": "沒有歌詞",
+    "speed": "播放速度",
+    "speedValue": "{speed}×",
+    "detailsUploader": "上傳者",
+    "detailsDuration": "時長",
+    "detailsSource": "音源"
+  },
   "appearance": {
     "theme": "主題",
     "themeSystem": "跟隨系統",

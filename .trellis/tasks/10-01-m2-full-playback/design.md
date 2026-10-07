@@ -786,6 +786,14 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
   - golden：1000、1400、1800 寬，只守結構；
   - 播放頁加進 `test/ui/guidelines_test.dart`。
 
+- **PR 18a 實作與審查補的決定**：
+  - 關閉：左上角收合鈕（tooltip「關閉播放頁（Esc）」，照 Spotify、YouTube Music：桌面沒有返回鍵）、Esc、Android 返回鍵；佇列變空或沒有目前這首時自己關。
+  - 播放頁的 route 自己設 `playerPageOpenProvider`（push 時設開；pop 或被移除的 `didComplete` 當下設關，不等轉場結束的 `dispose`，關閉轉場中又開一頁時才不會被舊頁蓋掉），不用 route observer（三個 `MaterialApp` 根不必各自註冊）；外殼依它切換提示的底部位移。焦點還原前先看還有沒有播放頁開著。
+  - 沒記過分頁時是歌詞；compact、medium 的 Ctrl+L／點封面只切歌詞那一面，不寫入 `layout_state`。
+  - 遮罩用主題的 `surface`、不是黑色：淺色主題疊深色封面時，黑色遮罩讓毛玻璃上的次要文字對比只剩 3.76。
+  - 「⋯」在控制列最後，速度在「播放速度」子選單；PR 19 的面板開關加在同一個選單。
+  - 佇列分頁開啟時捲到目前這首前兩列（不是 18b 的自動捲動）；臨時播放中不標目前這首。
+
 ### 9.4 右側「正在播放」面板（決定 6，ADR 0024 §決定 3）
 
 - **出現條件**：整個視窗 ≥ 840（expanded 以上）才有，常駐在內容區右側，屬於內容的焦點區。

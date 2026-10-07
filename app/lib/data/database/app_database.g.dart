@@ -3520,6 +3520,335 @@ class PlayHistoryTableCompanion extends UpdateCompanion<PlayHistoryRow> {
   }
 }
 
+class $LayoutStateTableTable extends LayoutStateTable
+    with TableInfo<$LayoutStateTableTable, LayoutStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LayoutStateTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    check: () => id.equals(1),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PlayerTab?, String> playerTab =
+      GeneratedColumn<String>(
+        'player_tab',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<PlayerTab?>($LayoutStateTableTable.$converterplayerTabn);
+  static const VerificationMeta _panelExpandedMeta = const VerificationMeta(
+    'panelExpanded',
+  );
+  @override
+  late final GeneratedColumn<bool> panelExpanded = GeneratedColumn<bool>(
+    'panel_expanded',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("panel_expanded" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _panelWidthMeta = const VerificationMeta(
+    'panelWidth',
+  );
+  @override
+  late final GeneratedColumn<double> panelWidth = GeneratedColumn<double>(
+    'panel_width',
+    aliasedName,
+    true,
+    check: () => ComparableExpr(panelWidth).isSmallerOrEqualValue(1600),
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    playerTab,
+    panelExpanded,
+    panelWidth,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'layout_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LayoutStateRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('panel_expanded')) {
+      context.handle(
+        _panelExpandedMeta,
+        panelExpanded.isAcceptableOrUnknown(
+          data['panel_expanded']!,
+          _panelExpandedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('panel_width')) {
+      context.handle(
+        _panelWidthMeta,
+        panelWidth.isAcceptableOrUnknown(data['panel_width']!, _panelWidthMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LayoutStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LayoutStateRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      playerTab: $LayoutStateTableTable.$converterplayerTabn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}player_tab'],
+        ),
+      ),
+      panelExpanded: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}panel_expanded'],
+      ),
+      panelWidth: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}panel_width'],
+      ),
+    );
+  }
+
+  @override
+  $LayoutStateTableTable createAlias(String alias) {
+    return $LayoutStateTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<PlayerTab, String> $converterplayerTab =
+      const PlayerTabConverter();
+  static TypeConverter<PlayerTab?, String?> $converterplayerTabn =
+      NullAwareTypeConverter.wrap($converterplayerTab);
+}
+
+class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  final int id;
+
+  /// 播放頁右欄上次選的分頁。
+  final PlayerTab? playerTab;
+
+  /// 右側「正在播放」面板展開與否。
+  final bool? panelExpanded;
+
+  /// 右側面板的寬度（dp）。資料庫只擋明顯的壞值，實際範圍在讀取時依視窗夾取。
+  final double? panelWidth;
+  const LayoutStateRow({
+    required this.id,
+    this.playerTab,
+    this.panelExpanded,
+    this.panelWidth,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || playerTab != null) {
+      map['player_tab'] = Variable<String>(
+        $LayoutStateTableTable.$converterplayerTabn.toSql(playerTab),
+      );
+    }
+    if (!nullToAbsent || panelExpanded != null) {
+      map['panel_expanded'] = Variable<bool>(panelExpanded);
+    }
+    if (!nullToAbsent || panelWidth != null) {
+      map['panel_width'] = Variable<double>(panelWidth);
+    }
+    return map;
+  }
+
+  LayoutStateTableCompanion toCompanion(bool nullToAbsent) {
+    return LayoutStateTableCompanion(
+      id: Value(id),
+      playerTab: playerTab == null && nullToAbsent
+          ? const Value.absent()
+          : Value(playerTab),
+      panelExpanded: panelExpanded == null && nullToAbsent
+          ? const Value.absent()
+          : Value(panelExpanded),
+      panelWidth: panelWidth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(panelWidth),
+    );
+  }
+
+  factory LayoutStateRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LayoutStateRow(
+      id: serializer.fromJson<int>(json['id']),
+      playerTab: serializer.fromJson<PlayerTab?>(json['playerTab']),
+      panelExpanded: serializer.fromJson<bool?>(json['panelExpanded']),
+      panelWidth: serializer.fromJson<double?>(json['panelWidth']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'playerTab': serializer.toJson<PlayerTab?>(playerTab),
+      'panelExpanded': serializer.toJson<bool?>(panelExpanded),
+      'panelWidth': serializer.toJson<double?>(panelWidth),
+    };
+  }
+
+  LayoutStateRow copyWith({
+    int? id,
+    Value<PlayerTab?> playerTab = const Value.absent(),
+    Value<bool?> panelExpanded = const Value.absent(),
+    Value<double?> panelWidth = const Value.absent(),
+  }) => LayoutStateRow(
+    id: id ?? this.id,
+    playerTab: playerTab.present ? playerTab.value : this.playerTab,
+    panelExpanded: panelExpanded.present
+        ? panelExpanded.value
+        : this.panelExpanded,
+    panelWidth: panelWidth.present ? panelWidth.value : this.panelWidth,
+  );
+  LayoutStateRow copyWithCompanion(LayoutStateTableCompanion data) {
+    return LayoutStateRow(
+      id: data.id.present ? data.id.value : this.id,
+      playerTab: data.playerTab.present ? data.playerTab.value : this.playerTab,
+      panelExpanded: data.panelExpanded.present
+          ? data.panelExpanded.value
+          : this.panelExpanded,
+      panelWidth: data.panelWidth.present
+          ? data.panelWidth.value
+          : this.panelWidth,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LayoutStateRow(')
+          ..write('id: $id, ')
+          ..write('playerTab: $playerTab, ')
+          ..write('panelExpanded: $panelExpanded, ')
+          ..write('panelWidth: $panelWidth')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, playerTab, panelExpanded, panelWidth);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LayoutStateRow &&
+          other.id == this.id &&
+          other.playerTab == this.playerTab &&
+          other.panelExpanded == this.panelExpanded &&
+          other.panelWidth == this.panelWidth);
+}
+
+class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
+  final Value<int> id;
+  final Value<PlayerTab?> playerTab;
+  final Value<bool?> panelExpanded;
+  final Value<double?> panelWidth;
+  const LayoutStateTableCompanion({
+    this.id = const Value.absent(),
+    this.playerTab = const Value.absent(),
+    this.panelExpanded = const Value.absent(),
+    this.panelWidth = const Value.absent(),
+  });
+  LayoutStateTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.playerTab = const Value.absent(),
+    this.panelExpanded = const Value.absent(),
+    this.panelWidth = const Value.absent(),
+  });
+  static Insertable<LayoutStateRow> custom({
+    Expression<int>? id,
+    Expression<String>? playerTab,
+    Expression<bool>? panelExpanded,
+    Expression<double>? panelWidth,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (playerTab != null) 'player_tab': playerTab,
+      if (panelExpanded != null) 'panel_expanded': panelExpanded,
+      if (panelWidth != null) 'panel_width': panelWidth,
+    });
+  }
+
+  LayoutStateTableCompanion copyWith({
+    Value<int>? id,
+    Value<PlayerTab?>? playerTab,
+    Value<bool?>? panelExpanded,
+    Value<double?>? panelWidth,
+  }) {
+    return LayoutStateTableCompanion(
+      id: id ?? this.id,
+      playerTab: playerTab ?? this.playerTab,
+      panelExpanded: panelExpanded ?? this.panelExpanded,
+      panelWidth: panelWidth ?? this.panelWidth,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (playerTab.present) {
+      map['player_tab'] = Variable<String>(
+        $LayoutStateTableTable.$converterplayerTabn.toSql(playerTab.value),
+      );
+    }
+    if (panelExpanded.present) {
+      map['panel_expanded'] = Variable<bool>(panelExpanded.value);
+    }
+    if (panelWidth.present) {
+      map['panel_width'] = Variable<double>(panelWidth.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LayoutStateTableCompanion(')
+          ..write('id: $id, ')
+          ..write('playerTab: $playerTab, ')
+          ..write('panelExpanded: $panelExpanded, ')
+          ..write('panelWidth: $panelWidth')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3540,6 +3869,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $PlayHistoryTableTable playHistoryTable = $PlayHistoryTableTable(
+    this,
+  );
+  late final $LayoutStateTableTable layoutStateTable = $LayoutStateTableTable(
     this,
   );
   late final Index queueEntriesTrackKey = Index(
@@ -3568,6 +3900,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     queueEntriesTable,
     playerStateTable,
     playHistoryTable,
+    layoutStateTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -6271,6 +6604,201 @@ typedef $$PlayHistoryTableTableProcessedTableManager =
       PlayHistoryRow,
       PrefetchHooks Function({bool trackKey})
     >;
+typedef $$LayoutStateTableTableCreateCompanionBuilder =
+    LayoutStateTableCompanion Function({
+      Value<int> id,
+      Value<PlayerTab?> playerTab,
+      Value<bool?> panelExpanded,
+      Value<double?> panelWidth,
+    });
+typedef $$LayoutStateTableTableUpdateCompanionBuilder =
+    LayoutStateTableCompanion Function({
+      Value<int> id,
+      Value<PlayerTab?> playerTab,
+      Value<bool?> panelExpanded,
+      Value<double?> panelWidth,
+    });
+
+class $$LayoutStateTableTableFilterComposer
+    extends Composer<_$AppDatabase, $LayoutStateTableTable> {
+  $$LayoutStateTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PlayerTab?, PlayerTab, String> get playerTab =>
+      $composableBuilder(
+        column: $table.playerTab,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<bool> get panelExpanded => $composableBuilder(
+    column: $table.panelExpanded,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get panelWidth => $composableBuilder(
+    column: $table.panelWidth,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LayoutStateTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $LayoutStateTableTable> {
+  $$LayoutStateTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get playerTab => $composableBuilder(
+    column: $table.playerTab,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get panelExpanded => $composableBuilder(
+    column: $table.panelExpanded,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get panelWidth => $composableBuilder(
+    column: $table.panelWidth,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LayoutStateTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LayoutStateTableTable> {
+  $$LayoutStateTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PlayerTab?, String> get playerTab =>
+      $composableBuilder(column: $table.playerTab, builder: (column) => column);
+
+  GeneratedColumn<bool> get panelExpanded => $composableBuilder(
+    column: $table.panelExpanded,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get panelWidth => $composableBuilder(
+    column: $table.panelWidth,
+    builder: (column) => column,
+  );
+}
+
+class $$LayoutStateTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LayoutStateTableTable,
+          LayoutStateRow,
+          $$LayoutStateTableTableFilterComposer,
+          $$LayoutStateTableTableOrderingComposer,
+          $$LayoutStateTableTableAnnotationComposer,
+          $$LayoutStateTableTableCreateCompanionBuilder,
+          $$LayoutStateTableTableUpdateCompanionBuilder,
+          (
+            LayoutStateRow,
+            BaseReferences<
+              _$AppDatabase,
+              $LayoutStateTableTable,
+              LayoutStateRow
+            >,
+          ),
+          LayoutStateRow,
+          PrefetchHooks Function()
+        > {
+  $$LayoutStateTableTableTableManager(
+    _$AppDatabase db,
+    $LayoutStateTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LayoutStateTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LayoutStateTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LayoutStateTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<PlayerTab?> playerTab = const Value.absent(),
+                Value<bool?> panelExpanded = const Value.absent(),
+                Value<double?> panelWidth = const Value.absent(),
+              }) => LayoutStateTableCompanion(
+                id: id,
+                playerTab: playerTab,
+                panelExpanded: panelExpanded,
+                panelWidth: panelWidth,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<PlayerTab?> playerTab = const Value.absent(),
+                Value<bool?> panelExpanded = const Value.absent(),
+                Value<double?> panelWidth = const Value.absent(),
+              }) => LayoutStateTableCompanion.insert(
+                id: id,
+                playerTab: playerTab,
+                panelExpanded: panelExpanded,
+                panelWidth: panelWidth,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LayoutStateTableTable, LayoutStateRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LayoutStateTableTable,
+                    LayoutStateRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LayoutStateTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LayoutStateTableTable,
+      LayoutStateRow,
+      $$LayoutStateTableTableFilterComposer,
+      $$LayoutStateTableTableOrderingComposer,
+      $$LayoutStateTableTableAnnotationComposer,
+      $$LayoutStateTableTableCreateCompanionBuilder,
+      $$LayoutStateTableTableUpdateCompanionBuilder,
+      (
+        LayoutStateRow,
+        BaseReferences<_$AppDatabase, $LayoutStateTableTable, LayoutStateRow>,
+      ),
+      LayoutStateRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6296,4 +6824,6 @@ class $AppDatabaseManager {
       $$PlayerStateTableTableTableManager(_db, _db.playerStateTable);
   $$PlayHistoryTableTableTableManager get playHistoryTable =>
       $$PlayHistoryTableTableTableManager(_db, _db.playHistoryTable);
+  $$LayoutStateTableTableTableManager get layoutStateTable =>
+      $$LayoutStateTableTableTableManager(_db, _db.layoutStateTable);
 }

@@ -197,6 +197,13 @@ final playbackVolumeProvider = StreamProvider<({double volume, bool muted})>((
   yield* controller.volumeChanges;
 });
 
+/// 播放速度：先給目前的值，之後每次改變。
+final playbackSpeedProvider = StreamProvider<double>((ref) async* {
+  final controller = ref.watch(playbackControllerProvider);
+  yield controller.speed;
+  yield* controller.speedChanges;
+});
+
 /// 輸出裝置的清單與目前選的：先給目前的值，之後每次改變。
 final playbackOutputDevicesProvider = StreamProvider<OutputDeviceState>((
   ref,

@@ -24,7 +24,8 @@ lib/ui/
   search/              # 搜尋頁、searchProvider、音源 chip 列
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
-  player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）
+  player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
+                       # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
@@ -169,6 +170,28 @@ try {
   `container.read(playHistoryRepositoryProvider).record(...)`，要包 `tester.runAsync`，之後 `h.loadSettings`
   讓變動的串流與重讀跑完。
 
+## 播放頁
+
+規則與閘門見 `app/AGENTS.md` § 介面的「播放頁」；design §9.3、§9.5、§9.6。
+
+- 檔案：`player_page.dart`（route、開關、版面、分頁、佇列清單、速度選單）、`player_controls.dart`（播放列與播放頁
+  共用：`ShuffleButton`、`LoopButton`、`PreviousButton`、`NextButton`、`PlayPauseButton`、`ProgressRow`、`IconMenu`、
+  `playbackStatusLabel`）、`glass_panel.dart`、`track_details.dart`。播放列新加共用的控制時放 `player_controls.dart`，
+  兩邊都會有。
+- 開頁一律 `openPlayerPage(context, opener: …)`（不自己 `Navigator.push`）：它設 `playerPageOpenProvider`（外殼靠它改
+  提示的位移）、已開著就不推、關閉後把焦點還給 `opener`。給開它的元件一個 `FocusNode`（見播放列的 `_OpenPlayerArea`）。
+- 加一個頁內快捷鍵：在 `PlayerPage` 的 `Actions` 加（導覽類）或 `playbackShortcuts` 加一列、`PlaybackShortcuts` 接
+  action（播放類）；輸入框規則同外殼。要開頁的鍵（Ctrl+L、Ctrl+Q）外殼接開頁、頁面接切分頁，兩邊各一個 action。
+- 加一個頁內焦點區：`FocusScopeNode` 放進 `_PlayerPageState`、包 `FocusScope`＋`FocusTraversalGroup`、列進 `regions`；
+  區裡要至少有一個可聚焦的東西（歌詞欄用 `Focus(focusNode:)` 當目標），否則 F6 跳過它。
+- 毛玻璃只用 `GlassPanel`；數值（不透明度、模糊半徑、遮罩）在 `AppLayout`。新的文字放在毛玻璃上時，淺色、深色 ×
+  最淺、最深的封面都要過 guideline（`guidelines_test.dart` 的 `the player page over …`）：次要文字用
+  `onSurfaceVariant` 在深色封面上會不夠對比，遮罩用主題的 `surface` 就是為了這個。
+- 測試：`h.play(…)` 後點播放列的曲名開頁（`player_page_test.dart` 的 `_openByTap`）；要封面用
+  `ShellHarness(artworkManager: FakeArtworkManager())` 與 `TestArtwork.lightest／darkest`
+  （`test/ui/support/fake_artwork.dart`）；記住的分頁讀寫經 `layoutStateRepositoryProvider`，資料庫要真的事件迴圈
+  （`tester.runAsync`）。golden 在 `player_page_golden_test.dart`，播放頁讀的 provider 在那裡 override。
+
 ## 播放列與封面
 
 - 開始播放與加入佇列都直接呼叫 `PlaybackController`（`playTemporary`、`playNext`、`addToQueue`，
@@ -183,7 +206,7 @@ try {
 - 播放列曲名下那一行的狀態標示（重試中、等待網路連線、試聽）由 `PlayerBar` 從
   `playbackStateProvider`、`playbackPreviewProvider` 推出；新的標示加在同一個 `switch`，並在
   `player_bar_test.dart` 的 `status labels` 三個寬度各加一例。
-- 播放列的控制項照 ADR 0024 §決定 5 的三段；加功能時同時改 `player_bar_test.dart` 的
+- 播放列點曲名與封面那一塊開播放頁（`_OpenPlayerArea`，測試點曲名文字）；播放列的控制項照 ADR 0024 §決定 5 的三段；加功能時同時改 `player_bar_test.dart` 的
   `controls per width`（有宣告與沒宣告輸出裝置兩組）與 golden。golden 沒有真的控制器：播放列新讀的
   provider（音量、輸出裝置、`outputDeviceSelectionProvider`）要在 golden 的 `ProviderScope` override。
 - 只有圖示的 `IconButton`：tooltip 當名稱（有快捷鍵就附上，翻譯檔的 `*Tooltip`），`Icon` 不給

@@ -82,6 +82,21 @@ void main() {
     );
   });
 
+  test('pluginNameProvider gives the manifest name of a registered plugin, '
+      'null for one that is not', () async {
+    final harness = PluginHarness();
+    final container = _container(harness);
+    expect(container.read(pluginNameProvider('fmp-test')), isNull);
+
+    await container
+        .read(pluginInstallerProvider)
+        .installBytes(testPluginFile.readAsBytesSync());
+    await container.read(pluginRegistryProvider.future);
+
+    expect(container.read(pluginNameProvider('fmp-test')), 'FMP Test Plugin');
+    expect(container.read(pluginNameProvider('not-installed')), isNull);
+  });
+
   group('media clients', () {
     late Directory temp;
     setUp(() async {

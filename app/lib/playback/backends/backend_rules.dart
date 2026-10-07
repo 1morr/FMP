@@ -9,6 +9,10 @@
 //
 // 形狀照舊專案的 `playback_end_reason_rules.dart`、`next_media_plan.dart`。
 
+// 速度的範圍與夾取在 domain（控制器與播放頁也用），後端經這裡取得。
+export 'package:fmp/domain/playback_speed.dart'
+    show clampSpeed, maxSpeed, minSpeed;
+
 /// 一個來源為什麼停下來。
 enum TrackEndReason {
   /// 播到結尾。
@@ -91,13 +95,6 @@ int? httpStatusFromLogLine(String line) {
   final match = _httpErrorLine.firstMatch(line);
   return match == null ? null : int.parse(match.group(1)!);
 }
-
-/// 速度的範圍（舊版 `app_constants.dart` 的選項 0.5–2.0，design §7.6）。
-const minSpeed = 0.5;
-const maxSpeed = 2.0;
-
-/// 夾到 [minSpeed]–[maxSpeed]：兩個後端在交給引擎之前都經過它。
-double clampSpeed(double speed) => speed.clamp(minSpeed, maxSpeed).toDouble();
 
 /// 夾到 0–1。
 double clampVolume(double volume) => volume.clamp(0, 1).toDouble();

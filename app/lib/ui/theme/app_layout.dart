@@ -18,4 +18,24 @@ abstract final class AppLayout {
 
   /// 播放列上音量滑桿的寬度（expanded 以上在靜音鈕旁，medium 在彈出的選單裡）。
   static const double volumeSliderWidth = 112;
+
+  /// 播放頁大封面的邊長上限（ADR 0024 §決定 4）。
+  static const double playerArtworkMax = 420;
+
+  /// 播放頁的毛玻璃（ADR 0024 §決定 1）：右欄、佇列、控制區是約 66% 的 `surface` 加
+  /// 一般模糊。高對比時改不透明。
+  static const double playerGlassOpacity = 0.66;
+  static const double playerGlassBlur = 24;
+
+  /// 播放頁背景的模糊封面：模糊半徑、遮罩不透明度，以及載入封面時的邊長（只當模糊
+  /// 的底圖，不用大）。
+  static const double playerBackdropBlur = 48;
+  static const double playerScrimOpacity = 0.45;
+  static const double playerBackdropSource = 256;
+
+  /// 播放頁佇列分頁每一列的高度（固定高度讓一萬首的清單不必逐項量測）。
+  static const double queueItemHeight = 64;
+
+  /// 詳細分頁（與之後的右側面板）封面的邊長上限。
+  static const double trackDetailsArtworkMax = 240;
 }

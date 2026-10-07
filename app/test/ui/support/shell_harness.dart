@@ -24,6 +24,8 @@ import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/stream_resolver.dart';
+import 'package:fmp/plugins/plugin_artwork.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/settings/playback_settings.dart';
@@ -41,12 +43,17 @@ import '../../support/fake_network_interfaces.dart';
 import '../../support/memory_database.dart';
 
 /// 一首搜尋結果（插件 `fmp-test`）。
-TrackSummary summary(String id, {Duration? duration}) => TrackSummary(
+TrackSummary summary(
+  String id, {
+  Duration? duration,
+  List<Artwork> artwork = const [],
+}) => TrackSummary(
   sourceTypeId: 'fmp-test',
   sourceId: id,
   title: 'Song $id',
   uploader: 'Uploader $id',
   duration: duration ?? const Duration(minutes: 3, seconds: 5),
+  artwork: artwork,
 );
 
 /// 外殼與頁面的測試環境：可以搜尋、可以解析的假插件，假後端上的真
@@ -59,6 +66,7 @@ final class ShellHarness {
     this.cacheStore,
     FakeOutputDevices? outputDevices,
     this.outputDeviceSelection = false,
+    this.artworkManager,
   }) : backend = FakeAudioBackend(
          durationOf: (_) => const Duration(minutes: 3),
          outputDevices: outputDevices,
@@ -104,6 +112,10 @@ final class ShellHarness {
     );
     addTearDown(toaster.dispose);
   }
+
+  /// 封面的 cache manager（`artworkCacheManagerProvider` 的 override）；不給就不 override，
+  /// 封面都是佔位圖。
+  final BaseCacheManager? artworkManager;
 
   /// 設定頁「網路」組用的快取庫；不給就是還沒開好（用量不顯示）。
   final CacheStore? cacheStore;
@@ -160,6 +172,12 @@ final class ShellHarness {
         ),
       ),
     ),
+    pluginNameProvider.overrideWith(
+      (ref, pluginId) =>
+          pluginId == plugin.manifest.id ? plugin.manifest.name : null,
+    ),
+    if (artworkManager != null)
+      artworkCacheManagerProvider.overrideWith((ref, _) => artworkManager),
     cacheStoreProvider.overrideWith(
       (ref) => cacheStore ?? Completer<CacheStore>().future,
     ),

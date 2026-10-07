@@ -19,6 +19,8 @@ class ArtworkImage extends ConsumerWidget {
     required this.pluginId,
     required this.artwork,
     required this.size,
+    this.rounded = true,
+    this.fallback,
   });
 
   /// 封面所屬的插件（曲目鍵的第一段）。
@@ -29,6 +31,12 @@ class ArtworkImage extends ConsumerWidget {
   /// 邊長（dp）。
   final double size;
 
+  /// 小圓角；放大當背景（播放頁）時不要。
+  final bool rounded;
+
+  /// 沒有封面、載入中與失敗時顯示的東西，預設是帶音符圖示的佔位圖。
+  final Widget? fallback;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pixels = size * MediaQuery.devicePixelRatioOf(context);
@@ -36,9 +44,11 @@ class ArtworkImage extends ConsumerWidget {
     final cacheManager = chosen == null
         ? null
         : ref.watch(artworkCacheManagerProvider(pluginId));
-    final placeholder = _Placeholder(size: size);
+    final placeholder = fallback ?? _Placeholder(size: size);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTokens.of(context).radius.small),
+      borderRadius: rounded
+          ? BorderRadius.circular(AppTokens.of(context).radius.small)
+          : BorderRadius.zero,
       child: SizedBox.square(
         dimension: size,
         child: chosen == null || cacheManager == null

@@ -100,6 +100,10 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
 
 ## 音量、速度、中斷、輸出裝置
 
+- 速度的範圍、選項與夾取在 `lib/domain/playback_speed.dart`（控制器、播放頁選單、兩個後端共用；`backend_rules.dart`
+  轉出 `clampSpeed`）。控制器的 `speed`／`speedChanges`（`playbackSpeedProvider`）是 UI 與 `NowPlayingPublisher` 讀的值，
+  不要從後端讀（mpv 的屬性回報得晚）。
+
 - 音量與速度由後端維持（換來源、交接後不重設），控制器只轉一次；新的後端要在 `open` 之前收到
   也生效。夾取規則在 `backend_rules.dart`，兩個後端都呼叫，不各寫一份。
 - 不屬於來源的後端事件（`Interrupted`、`InterruptionEnded`、`BecameNoisy`、`OutputDeviceFailed`）

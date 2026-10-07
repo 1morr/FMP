@@ -295,6 +295,22 @@ void main() {
   });
 
   group('when it pushes', () {
+    harness('a new speed is pushed so the system extrapolates correctly', (h) {
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      expect(h.last.speed, 1.0);
+      final count = h.published.length;
+
+      unawaited(h.controller.setSpeed(1.5));
+      h.settle();
+      expect(h.published, hasLength(count + 1));
+      expect(h.last.speed, 1.5);
+
+      unawaited(h.controller.setSpeed(3));
+      h.settle();
+      expect(h.last.speed, 2.0);
+    });
+
     harness('an unchanged value is not pushed again', (h) {
       h.queue([track('a'), track('b')]);
       h.playAt(0);
