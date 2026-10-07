@@ -55,6 +55,19 @@ MSYS_NO_PATHCONV=1 adb shell am start -n com.personal.fmp.dev/com.personal.fmp.M
 用 `adb shell mkdir` 建的目錄屬於 `shell`，App 寫不進去（`errno = 13`）；一律用 `run-as`。
 要重新帶參數，先 `adb shell am force-stop com.personal.fmp.dev`（只停 dev）。
 
+`MainActivity` 繼承 `AudioServiceActivity`，引擎由它的 `provideFlutterEngine` 覆寫建立並帶
+`dart_entrypoint_args`（`app/AGENTS.md` § 平台層）：帶參數啟動後測試插件仍裝得上就是它有效；
+裝不上先看這個覆寫。
+
+### 系統媒體控制
+
+- 播放中：`adb shell dumpsys media_session` 有 `com.personal.fmp.dev` 的工作階段（`state=PlaybackState {state=PLAYING…`），
+  下拉通知有曲名、封面、上一首／播放暫停／下一首與進度條。
+- 媒體鍵：`adb shell input keyevent MEDIA_PLAY_PAUSE`、`MEDIA_NEXT`、`MEDIA_STOP`（停止等於暫停，之後按播放從
+  原處繼續）。
+- 返回鍵：`adb shell input keyevent KEYCODE_BACK`；在歷史頁回到搜尋，在搜尋退到背景、音樂繼續。
+- 重開 App、恢復後還沒按播放時沒有媒體通知（`processingState` 是 idle）。
+
 ## 觀察
 
 - **語意樹**：`PYTHONIOENCODING=utf-8 python .claude/skills/verify-on-device/scripts/ax_flatten.py --limit 30`。

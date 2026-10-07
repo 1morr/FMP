@@ -16,6 +16,7 @@
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
+| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug`、Android 模擬器實機驗（§ 平台層的兩個覆寫、通知、`dumpsys media_session`、媒體鍵） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`、`lib/playback/playback_session.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
@@ -97,6 +98,10 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 閘門：`test/identity/android_identity_test.dart`（含 main manifest 的 INTERNET）、
 `test/identity/windows_identity_test.dart`、`test/identity/apple_identity_test.dart`；CI 的 Android
 建置 job 另以 `aapt2 dump permissions` 看 release APK 合併後的權限。
+系統媒體控制的 manifest 設定（三個前景服務權限、`AudioService` 的屬性與 intent filter、
+`MediaButtonReceiver`、沒有 `POST_NOTIFICATIONS`）由 `test/identity/android_manifest_test.dart` 以 XML
+解析斷言，附變異案例（缺一項會紅，改屬性順序、縮排、註解不紅）。媒體工作階段的通知不受 Android 13 的
+通知權限限制，所以不宣告 `POST_NOTIFICATIONS`；M6 的下載通知另行處理（ADR 0020 §決定 9）。
 沒有測試的兩處：mutex 的 `Local\` 前綴，以及 `main.cpp`／`Runner.rc` 確實讀這些定義；
 改到它們時，檢查建置出的 exe 的版本資源與內嵌的寬字串。
 
@@ -177,8 +182,25 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `createAudioBackend` 建後端）的 `output devices follow the platform declaration…` 在兩個平台
   手動跑時一起檢查。
 
+- 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
+  （`supportsSeek`）；Android 以 `audio_service` 實作。宣告在組裝點，實作在 `main()` 開好資料庫之後、
+  `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
+  Windows（SMTC）在 M2 PR 16b。`audio_service` 的擁有者是 `lib/platform/`（`platformPackages`）。
+- Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
+  有兩個覆寫，**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
+  - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
+    `DartEntrypoint.createDefault()` 啟動引擎、不帶 intent 的 `dart_entrypoint_args`，原樣用的話
+    `--fmp-dev-plugin` 在 Android 失效。覆寫成快取裡沒有引擎時自己建、帶 `getDartEntrypointArgs()`
+    啟動，放進 `FlutterEngineCache`（鍵 `AudioServicePlugin.getFlutterEngineId()`）。升級
+    audio_service 時重看它的 `getFlutterEngine` 有沒有改。
+  - `popSystemNavigator`：Flutter 預設在根 route 沒得 pop 時 `finish()`，返回鍵直接結束 App 並停掉
+    播放；覆寫成 `moveTaskToBack(true)` 並回 `true`，App 退到背景、引擎與播放照常。
+  實機驗證：`--fmp-dev-plugin` 啟動後測試插件仍裝得上；在歷史頁按返回回到搜尋，在搜尋再按一次 App 退到
+  背景、音樂繼續。
+
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
-平台必須全部為沒有）；lint `fmp_platform_checks` 擋 `lib/platform/` 以外的平台判斷。
+平台必須全部為沒有；含 Android 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
+`lib/platform/` 以外的平台判斷。
 lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、以及「不預留欄位」沒有
 自動閘門，review 時看。
 
@@ -930,6 +952,24 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   (no look-ahead)`）、`play_history_recorder_test.dart`（順序、保留筆數、`a failed write is reported…`、
   `nothing is written or reported after dispose`）、
   `playback_providers_test.dart` 的 `play history`（組裝點接線與設定讀取）。
+- 系統媒體控制（design §8.2）：`NowPlayingPublisher`（`lib/playback/`，照 `QueueStore` 的分工，只聽控制器的
+  輸出、不改它的狀態）是唯一出口，在 `playbackControllerProvider` 組裝點、平台宣告有 `mediaControls` 而且
+  初始化成功時才建。規則：
+  - 只在值改變時推（`NowPlaying` 值相等），推送一個接一個、不重疊（等上一次 `publish` 完成）；推送失敗只記
+    log，不影響播放。
+  - 位置只在狀態改變與 seek 時推（系統依速度自己外推）；進度 stream 只用來取得時長，播放中不因位置前進而推。
+  - 按鈕依能力推導：有目前曲目才有上一首；播放中、`Loading`、`Buffering`、`Retrying` 是暫停鍵，其他是播放鍵；
+    有下一首或循環全部才有下一首。
+  - 還沒按播放的 `Idle`（含啟動恢復後）是 `MediaPhase.idle`：系統不顯示通知、不搶前景。
+  - 封面經 `artworkCacheManagerProvider`（design §4.3）取得本機檔、以 `file://` 交給平台，晚於其他欄位送出；
+    拿不到就不帶封面。啟動恢復時快取庫與插件清單多半還沒好，組裝點先等它們（`cacheStoreProvider.future`、
+    `pluginRegistryProvider.future`）再拿 cache manager：publisher 每首只問一次。
+  - 系統指令一律呼叫控制器：播放、暫停、上一首、下一首、seek；停止當作暫停（擁有者決定：位置與佇列保留，
+    之後按播放從原處繼續）。
+  閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停）、
+  `playback_providers_test.dart` 的 `system media controls`（組裝點接線、`the artwork of the restored song waits for
+  the cache store`）；Android 的通知、鎖定畫面、
+  `dumpsys media_session` 與媒體鍵沒有自動閘門，實機驗。
 - UI 開始播放：搜尋結果點一下是臨時播放；每首的選單（右鍵、長按、尾端「⋯」同一份）有播放
   （＝臨時播放，舊版 TrackAction 也是）、下一首播放、加入佇列，後兩者成功時提示一次（舊版的
   「已加入」）。播放列讀佇列項目的 `TrackInfo`。閘門：`search_page_test.dart` 的
@@ -1013,15 +1053,21 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡。
 - 設定頁依 ADR 0011 的分組（外觀、播放、網路，design §9.8 的順序）：expanded 以上是
   list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
-  標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。外殼以
-  `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）攔返回鍵。Android
-  返回鍵的整體分層（擁有者決定 7）在 M2 PR 16a，那時這個 `PopScope` 要併進外殼的規則。「網路」組
+  標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
+  外殼的 `PopScope` 一個（見下一條）：它先問設定頁（`SettingsBack.release`）有沒有一組要退回清單，
+  外殼以 `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）接住。「網路」組
   顯示快取上限、封面用量（跟著索引變動）與「清除快取」：確認後清快取庫並清 Flutter 的
   `ImageCache`（`clear` 加 `clearLiveImages`；畫面上正在用的圖只有後者清得掉）；清除失敗記
   error、不報成功。閘門：`test/ui/settings/settings_page_test.dart`（寬、窄兩種版面、跨斷點、
   系統返回鍵、`a group left open does not hold the back key on another page`）、
   `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
   `ImageCache` 都空、清除失敗）。
+- 返回鍵（擁有者決定 7，design §9.1）：播放頁、面板、對話框是 route，Navigator 先關最上面的；外殼是
+  `PopScope(canPop: 在第一個分頁)`：窄版設定頁點進某一組時先回到分組清單，否則不在第一個分頁時回到第一
+  個分頁（搜尋），在第一個分頁時放行，Android 端由 `MainActivity.popSystemNavigator` 退到背景（見
+  § 平台層）。不要在頁面內另放 `PopScope`：同一次返回所有 `PopScope` 的 callback 都會執行，會和外殼同時
+  動作。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
+  `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）與設定頁（外觀、播放、網路三組）在窄（400）與寬（1000）視窗
   通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
@@ -1123,7 +1169,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/` | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

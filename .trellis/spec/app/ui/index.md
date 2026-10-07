@@ -25,7 +25,7 @@ lib/ui/
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）
-  artwork/             # 封面縮圖（CachedNetworkImage）與 pickArtwork；cached_network_image 只准在這裡
+  artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
@@ -179,7 +179,7 @@ try {
   `player_bar_test.dart` 的 `status labels` 三個寬度各加一例。
 - 播放列的控制項照 ADR 0024 §決定 5 的三段，只放已經有的功能；加功能時同時改
   `player_bar_test.dart` 的 `controls per width` 與 golden。
-- 封面用 `ArtworkImage(pluginId: 曲目鍵的第一段, artwork: TrackInfo.artwork, size: …)`：`pickArtwork` 挑一張、
+- 封面用 `ArtworkImage(pluginId: 曲目鍵的第一段, artwork: TrackInfo.artwork, size: …)`：`pickArtwork`（`lib/domain/track_info.dart`，系統媒體控制的封面也用它）挑一張、
   以顯示尺寸的高解碼，經 `artworkCacheManagerProvider(pluginId)` 的 cache manager 讀（統一快取庫，
   沒有才經那個插件的媒體 client 下載）。沒有、載入中、失敗與還沒有 cache manager 都是同一個
   佔位圖。不帶 header（B 站的 hdslb 不帶 `Referer` 讀得到，帶別的網域反而 403）。
