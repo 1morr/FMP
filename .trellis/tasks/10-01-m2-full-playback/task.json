@@ -37,7 +37,8 @@
     "10-07-android-media-controls",
     "10-07-player-bar",
     "10-07-player-page",
-    "10-07-queue-tab"
+    "10-07-queue-tab",
+    "10-07-smtc"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

@@ -714,6 +714,13 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
   - 不行就交原本的 `https` 網址。那是 Windows 自己去抓，不帶 App 的任何 header 或 cookie，網址已在 DTO 解碼時通過 `allowedHosts`。列為已知例外，寫進 `app/AGENTS.md`。
   - 交出前一律以 `Uri.tryParse` 檢查，避開 panic。
 - **音訊中斷**：沒有（舊版也沒有）；裝置問題走 §7.6 的 `OutputDeviceFailed`。
+- **PR 16b 實作與實機補的決定**：
+  - `smtc_windows` 1.1.0 的 Dart 端寫 `flutter_rust_bridge: ^2.11.1`、Rust 端釘 `=2.11.1`；pub 解析到 2.13.0 時啟動就初始化失敗（只記 log、宣告改為沒有，所以測試抓不到）。`app/pubspec.yaml` 直接釘 `flutter_rust_bridge: 2.11.1`，閘門是比對 lock 與套件 `rust/Cargo.toml` 的測試。舊版能用是因為 lock 早就在 2.11.1。
+  - 封面：`file:///` 實測不可用（2026-10-07，未封裝 App 的 SMTC 工作階段從別的行程讀 Thumbnail 是空的），改交原本的 `https` 網址（`NowPlaying.artworkUrl`，與快取檔同一張），由 Windows 自己下載。Android 照舊用快取檔。
+  - 停止鈕在有曲目時啟用，否則系統不會把停止指令轉給 App；停止＝暫停（16a 擁有者決定）。
+  - 還沒按播放（`MediaPhase.idle`）時停用 SMTC，系統沒有 FMP 的工作階段。
+  - 位置推送頻率是平台宣告（`MediaControlsSupport.positionRefresh`：Android 空、Windows 5 秒）。
+  - 實機驗證不送全域媒體鍵：Windows 自己決定送給哪個工作階段，可能是別的 App；改以工作階段 API 只對 FMP 的 AUMID 送指令。
 
 ## 9. 介面（ADR 0024）
 
