@@ -721,6 +721,12 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
   - `MainActivity` 覆寫它：`moveTaskToBack(true)` 並回真。App 退到背景，引擎與播放都不動。
 - 不加 MethodChannel，所以不需要 Pigeon（ADR 0009 §決定 5 只管新的 channel）。Dart 端不判斷平台。
 - Windows 沒有返回鍵，不受影響。
+- **PR 16a 實作時補的決定**：
+  - 系統的「停止」指令（耳機、車機、通知被關掉）當作暫停，位置與佇列都保留（擁有者決定）；`systemActions` 帶 stop 才收得到。
+  - 啟動恢復後還沒按播放（`Idle`）時推 `processingState: idle`，不顯示媒體通知。
+  - 設定頁原本自己的 `PopScope` 併進外殼（`SettingsBack`）：窄版設定頁點進某一組時，返回依序是回清單 → 回「搜尋」→ 退到背景。兩個 `PopScope` 並存時同一次返回兩邊都會執行。
+  - 通知頻道 id `com.personal.fmp.playback`、名稱固定 `FMP`（舊版是翻譯過的頻道名）。
+  - `pickArtwork` 移到 `lib/domain/track_info.dart`；`fmp_layer_imports` 加「`lib/playback` 不得 import `lib/ui`」。
 
 ### 9.2 播放列三段（ADR 0024 §決定 5）
 
