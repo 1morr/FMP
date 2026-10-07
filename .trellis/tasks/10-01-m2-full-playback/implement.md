@@ -65,8 +65,9 @@
 - **PR 17 已合併**：#214（`bab877df`）：擁有者定輸出裝置失敗改用系統預設。審查修了「臨時播放後進度條顯示錯的位置」「Shift+←／→ 在恢復狀態無效或蓋掉恢復位置」「滑鼠打開的選單按 Esc 關不掉」，並把提示分成兩句。實機兩平台（重播）通過；Windows 的裝置停用要系統管理員權限，裝置失敗的退回沒有實機驗。
 - **PR 18a 已合併**：#215（`cfde4a16`）。主對話定佇列分頁先做唯讀清單＋點選跳到、「切換右側面板」延到 PR 19（`layout_state` 這次就含面板兩欄）、左上角收合鈕關閉；實作期推定的決定（預設歌詞分頁、route 自己設開關狀態、遮罩用 `surface`、「⋯」在控制列最後、compact 的切換不寫記憶、佇列分頁捲到目前這首前兩列）主對話接受，記在 design §9.3 末段。審查（opus）修了「關閉轉場中又開一頁，狀態被舊頁設成沒開、焦點被搶走」「第一幀前佇列就空了，留下關不掉的空白頁」「播放列點擊區沒有按鈕語意」，補了五條文件宣稱卻沒有測試的閘門。`flutter test` 1712 通過、2 跳過；Windows 的 `toast_layering_test.dart`、`install_search_play_test.dart` 與 Android 的 `toast_layering_test.dart` 通過。實機兩平台（重播）通過：Windows 點曲名與 Ctrl+Q 開頁、compact（700 px）／medium／expanded（1500 px）／large（1920 px）／extraLarge（2450 px）五種版面、compact 點封面切歌詞且不覆寫記憶、Esc 先關選單再關頁、焦點回到播放列、速度 1.5× 打勾、播放頁上的試聽提示貼底；Android 直向五個控制、點封面切歌詞、返回鍵只關播放頁。F6 只有 widget 測試。
 - **PR 18b 已合併**：#216（`a54b194a`）。擁有者定佇列入口在播放頁右上角；主對話定 `moveToNext`（移除再以下一首播放加回，隨機時排序也移過去）、移除不提示清空才提示、三處列選單共用 `TrackRowMenu`、底部面板包 `PlaybackShortcuts`（design §7.3 末段）。審查（opus）修了「compact 清空後提示壓在底部導覽上」「拖曳被取消後自動捲動永遠失效」，並補了幾條原本沒驗到東西的測試。`flutter test` 1772 通過、2 跳過；Windows 兩個整合測試通過。實機兩平台（重播）通過：Windows 隨機下「下一首播放」後 Ctrl+→ 播的就是它、拖曳目前這首仍是目前這首、F6／Tab 到列 Enter 跳到、焦點在列上空白鍵是暫停、移除不提示、清空確認後頁面關閉並提示、medium（1100 px）Ctrl+Q 開頁加面板、面板內空白鍵播放暫停、Esc 只關面板；Android 右上角入口開面板、把手拖曳、長按選單的「下一首播放」、「⋯」移除、返回鍵只關面板、清空的提示在導覽列之上。
-- **PR 16b 完成、待合併**（2026-10-08；分支 `feat/app-smtc`，子任務 `.trellis/tasks/10-07-smtc`）：實機（Windows）抓到三件，修好並重驗：`flutter_rust_bridge` 被解析成 2.13.0、與 `smtc_windows` 的 Rust 端 2.11.1 不符，啟動就初始化失敗（直接釘 2.11.1，加比對 lock 與 `Cargo.toml` 的閘門）；`file:///` 封面讀不到，改交 `https`（`NowPlaying.artworkUrl`）；停止鈕沒啟用，停止指令到不了 App。審查（opus）另修「下一首沒有上傳者時留著上一首的」「連接埠 > 65535 的封面網址讓 Rust panic」，補了 SMTC 呼叫順序的測試與 skill 的 `smtc_command.ps1`（只對 FMP 的 AUMID 送指令）。決定記在 design §8.4 末段。`flutter test` 1808 通過、2 跳過。實機：Windows（重播＋一次真實 B 站：搜尋 1、縮圖 10、`nav`／`wbi/view`／`playurl` 各 1；從歷史重播同一首再 `wbi/view`、`playurl` 各 1）idle 沒有工作階段、播放後曲名／上傳者／封面／狀態、toggle／next／stop、位置約每 5 秒；Android（重播）媒體工作階段與 MediaStyle 通知照常。
-- **下一步**：19。
+- **PR 16b 已合併**：#217（`54fa81b0`），CI 的 Windows runner 內建 Rust、不用改 `ci.yml`。實機（Windows）抓到三件，修好並重驗：`flutter_rust_bridge` 被解析成 2.13.0、與 `smtc_windows` 的 Rust 端 2.11.1 不符，啟動就初始化失敗（直接釘 2.11.1，加比對 lock 與 `Cargo.toml` 的閘門）；`file:///` 封面讀不到，改交 `https`（`NowPlaying.artworkUrl`）；停止鈕沒啟用，停止指令到不了 App。審查（opus）另修「下一首沒有上傳者時留著上一首的」「連接埠 > 65535 的封面網址讓 Rust panic」，補了 SMTC 呼叫順序的測試與 skill 的 `smtc_command.ps1`（只對 FMP 的 AUMID 送指令）。決定記在 design §8.4 末段。`flutter test` 1808 通過、2 跳過。實機：Windows（重播＋一次真實 B 站：搜尋 1、縮圖 10、`nav`／`wbi/view`／`playurl` 各 1；從歷史重播同一首再 `wbi/view`、`playurl` 各 1）idle 沒有工作階段、播放後曲名／上傳者／封面／狀態、toggle／next／stop、位置約每 5 秒；Android（重播）媒體工作階段與 MediaStyle 通知照常。
+- **PR 19 完成、待合併**（2026-10-08；分支 `feat/app-now-playing-panel`，子任務 `.trellis/tasks/10-08-now-playing-panel`）。擁有者定收起後從播放列的圖示鈕展開；其他決定記在 design §9.4 末段。審查（opus）修了「視窗 > 4000dp 時寬度寫不進資料庫（CHECK ≤ 1600）」，並更正四處與實測不符的文件與註解（1000 寬時頁面是 compact、`OrderedTraversalPolicy` 沒有閘門、寫失敗回退沒有測試）。實機抓到把手的線 0 高看不到，紅→綠修好。`flutter test` 1853 通過、2 跳過；Windows 與 Android 的 `toast_layering_test.dart` 通過。實機兩平台（重播）通過：Windows（縮放 150%）拖寬寫入一次、拖過上限停在 40%、游標是左右調整、Tab 到把手 ←／→ 各 16dp 每按寫入、線平時灰聚焦變主色、三個入口（標題列、播放列圖示鈕、播放頁「⋯」）都寫 `panel_expanded`、收起重啟後仍收起（連拍 60 張沒看到面板閃出）、寬度重啟後還在、785dp 時面板與開關都消失、885dp 時面板夾到 354 且播放列「⋯」的勾選項可切換、放大回來仍是 490；Android `Medium_Phone` 橫向（914dp）面板 366dp、空狀態、加歌後是詳細、播放列「⋯」與標題列收起鈕切換、觸控拖曳寫入一次。
+- **下一步**：PR 19 合併後做 M2 里程碑驗收（本檔「里程碑驗收」一節）。
 - **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **adb 可能多出別的裝置**（10-07 出現 `127.0.0.1:16384`，不是我們的模擬器）：一律 `export ANDROID_SERIAL=emulator-5554` 或 `adb -s`，`ax_flatten.py` 加 `--device`，不要碰別的裝置。
@@ -97,7 +98,7 @@
     - **模擬器可能停在上次的橫向**（`user_rotation`）：每次先 `adb shell settings get system user_rotation`，座標一律從 `ax_flatten.py` 讀，不要沿用上一輪的數字。PR 11 就因此誤點 B 站、送出真實請求。按返回鍵時鍵盤沒開會直接退出 App。
     - 歌名多行的節點，取座標用 `grep -o "center=([0-9]*,[0-9]*)"`，不要用 `sed` 整行替換。
     - **Android 音訊中斷**：`adb emu gsm call 5551234`／`adb emu gsm cancel 5551234` 可觸發暫停類中斷；`AUDIO_BECOMING_NOISY` 廣播被系統擋（`SecurityException`）。
-    - **Windows 中文輸入法**：`fgtype.ps1` 打完關鍵字要再送一次 Enter 才會搜尋。session 暫存目錄另有 `logsince.sh <log> <起始行>`（濾掉 debug 的 log 摘要）、`restart_win.sh <關鍵字>`、`dbq.sh "<SQL>"`（拉 Android dev 的 `fmp.db` 查詢，已指定 `emulator-5554`）、`k.sh <VK,VK> <秒> <標籤>`＋`combo.ps1`（Windows 送快捷鍵並印新 log，`KX`／`KY` 環境變數指定先點的位置）。這些換 session 就沒了，PR 描述在 `pr-m2-*.md`。
+    - **Windows 中文輸入法**：`fgtype.ps1` 打完關鍵字要再送一次 Enter 才會搜尋。session 暫存目錄另有 `logsince.sh <log> <起始行>`（濾掉 debug 的 log 摘要）、`restart_win.sh <關鍵字>`、`dbq.sh "<SQL>"`（拉 Android dev 的 `fmp.db` 查詢，已指定 `emulator-5554`）、`k.sh <VK,VK> <秒> <標籤>`＋`combo.ps1`（Windows 送快捷鍵並印新 log，`KX`／`KY` 環境變數指定先點的位置；已加 `-Raise` 先把 FMP Dev 帶到前景，但前景鎖仍可能擋，送鍵前一律給 `KX`／`KY` 點視窗內的空白處，再看截圖標題列或 log）、`drag.ps1 -X1 -Y1 -X2 -Y2`（真滑鼠拖曳，佇列把手用過）、`clickat.ps1`、`resize.ps1 -W -H`（`-W 0` 是最大化，會跑到別的螢幕尺寸，別用）。Windows 縮放 150%：dp × 1.5 = 視窗 px（extraLarge 要 2400 px 以上，`resize.ps1` 可以超出螢幕）。SMTC 改用 skill 的 `smtc_command.ps1`、`smtc_probe.ps1 -AppFilter fmp`。這些換 session 就沒了（skill 裡的除外），PR 描述在 `pr-m2-*.md`。
     - **盯 CI**：PR 剛開時 run 還沒建立，用迴圈等 `gh run list` 拿到 id 再 `gh run watch`。
     - **擁有者全域規則更新（10-07）**：push 分兩種（照核可計畫做的可直接推）；子代理預設 sonnet，只有設計、根因未知的 debug、審查用 opus。
   - **repo 外的待辦**：#207 是 Dependabot 對舊版根目錄 `pubspec` 的升級（`archive`、`flutter_cache_manager`、`go_router`），舊版凍結，留給擁有者決定。
@@ -761,6 +762,15 @@ PR 16b 留下的：
 - [ ] 音量浮層的媒體卡片沒有截圖看（浮層上可能有擁有者其他 App 的卡片），以工作階段 API 讀的內容為準。
 - [ ] SMTC 回報 `IsShuffleEnabled`／`IsRepeatEnabled` 為真（套件替這兩個請求註冊了監聽），App 不處理；Win11 的浮層不顯示這兩顆鈕。
 - [ ] 建過 Windows 之後，`dart format … .` 會因 `build/` 底下 cargokit 產生的 `.dart` 回非零（`app/AGENTS.md` 已註明），CI 不受影響。
+
+PR 19 留下的：
+
+- [ ] 記住收起又沒有歌時，沒有地方展開面板（播放列與播放頁都不在），加歌後才有入口。
+- [ ] 既有、不是 PR 19 造成：手機橫向（約 411dp 高）打開鍵盤時，`NavigationRail` 與搜尋頁的 `Column` 溢出（實機 8.8／9.9 px，記成 `Uncaught Flutter error`）；面板收起時一樣。
+- [ ] `layoutStateProvider` 還沒讀到值時面板當作展開、用預設寬度；Windows 連拍沒看到閃動，慢的裝置可能看得到（外觀主題也是同樣的寫法）。
+- [ ] `OrderedTraversalPolicy` 目前與閱讀順序結果相同，沒有測試會因拿掉它而紅（AGENTS.md 已註明，review 時看）。
+- [ ] 寫入失敗時寬度改回儲存值的那一支沒有測試。
+- [ ] 整個 App 重開仍記得面板狀態只有實機驗，沒有端到端的測試。
 
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
