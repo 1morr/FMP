@@ -60,6 +60,9 @@ class TranslationsZhCn extends Translations
   late final Translations$search$zh_CN search =
       Translations$search$zh_CN.internal(_root);
   @override
+  late final Translations$history$zh_CN history =
+      Translations$history$zh_CN.internal(_root);
+  @override
   late final Translations$offline$zh_CN offline =
       Translations$offline$zh_CN.internal(_root);
   @override
@@ -114,6 +117,8 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   String get searchTooltip => '搜索（Ctrl+F）';
   @override
   String get settingsTooltip => '设置（Ctrl+,）';
+  @override
+  String get history => '历史';
 }
 
 // Path: search
@@ -159,6 +164,56 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   String get addedToNext => '已添加为下一首播放';
   @override
   String get addedToQueue => '已添加到队列';
+}
+
+// Path: history
+class Translations$history$zh_CN extends Translations$history$zh_TW {
+  Translations$history$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '播放历史';
+  @override
+  String get empty => '还没有播放记录';
+  @override
+  String get emptyHint => '听过的歌会按日期出现在这里';
+  @override
+  String get today => '今天';
+  @override
+  String get yesterday => '昨天';
+  @override
+  String subtitle({required Object artist, required Object time}) =>
+      '${artist} · ${time}';
+  @override
+  String get more => '更多选项';
+  @override
+  String get play => '播放';
+  @override
+  String get playNext => '下一首播放';
+  @override
+  String get addToQueue => '加入队列';
+  @override
+  String get addedToNext => '已加入下一首播放';
+  @override
+  String get addedToQueue => '已加入队列';
+  @override
+  String get remove => '从历史移除';
+  @override
+  String get clearAll => '清除全部历史';
+  @override
+  String get clearTitle => '清除全部播放历史？';
+  @override
+  String get clearBody => '所有播放记录都会被删除，无法恢复。队列与设置不受影响。';
+  @override
+  String get cancel => '取消';
+  @override
+  String get confirm => '清除';
+  @override
+  String get cleared => '已清除播放历史';
 }
 
 // Path: offline
@@ -335,6 +390,12 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
   String get restartRewind => '重启后恢复后退';
   @override
   String get restartRewindHint => '重新打开 App 后按播放，从上次的位置稍微往回一点，方便接上';
+  @override
+  String get playHistoryLimit => '播放历史保留条数';
+  @override
+  String get playHistoryLimitHint => '超过的旧记录会自动删除；调小时立即删除';
+  @override
+  String playHistoryLimitOption({required Object count}) => '${count} 条';
 }
 
 // Path: network

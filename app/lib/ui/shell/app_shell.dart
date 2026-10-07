@@ -13,6 +13,7 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
@@ -22,7 +23,7 @@ import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
 /// 外殼的導覽項。
-enum ShellDestination { search, settings }
+enum ShellDestination { search, history, settings }
 
 /// App 的外殼（ADR 0024 §決定 3、5、8）：導覽、內容、播放列三區。
 ///
@@ -210,6 +211,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   sizing: StackFit.expand,
                   children: [
                     SearchPage(fieldFocusNode: _searchField),
+                    const HistoryPage(),
                     SettingsPage(
                       visible: _destination == ShellDestination.settings,
                     ),
@@ -256,6 +258,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                       tooltip: t.searchTooltip,
                     ),
                     NavigationDestination(
+                      icon: const Icon(Icons.history_outlined),
+                      selectedIcon: const Icon(Icons.history),
+                      label: t.history,
+                    ),
+                    NavigationDestination(
                       icon: const Icon(Icons.settings_outlined),
                       selectedIcon: const Icon(Icons.settings),
                       label: t.settings,
@@ -286,6 +293,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                       label: Text(t.search),
                     ),
                     NavigationRailDestination(
+                      icon: const Icon(Icons.history_outlined),
+                      selectedIcon: const Icon(Icons.history),
+                      label: Text(t.history),
+                    ),
+                    NavigationRailDestination(
                       icon: const Icon(Icons.settings_outlined),
                       selectedIcon: const Icon(Icons.settings),
                       label: Text(t.settings),
@@ -297,6 +309,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 selectedIndex: index,
                 onSelected: onSelected,
                 search: t.search,
+                history: t.history,
                 settings: t.settings,
               ),
             }),
@@ -371,12 +384,14 @@ class _PermanentDrawer extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.search,
+    required this.history,
     required this.settings,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final String search;
+  final String history;
   final String settings;
 
   @override
@@ -392,6 +407,11 @@ class _PermanentDrawer extends StatelessWidget {
           icon: const Icon(Icons.search_outlined),
           selectedIcon: const Icon(Icons.search),
           label: Text(search),
+        ),
+        NavigationDrawerDestination(
+          icon: const Icon(Icons.history_outlined),
+          selectedIcon: const Icon(Icons.history),
+          label: Text(history),
         ),
         NavigationDrawerDestination(
           icon: const Icon(Icons.settings_outlined),

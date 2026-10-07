@@ -12,6 +12,9 @@ const tempPlayRewindOptionsSeconds = [0, 3, 5, 10, 15, 30];
 /// 設定頁「重啟恢復倒退秒數」的選項（同臨時播放回佇列倒退）。
 const restartRewindOptionsSeconds = tempPlayRewindOptionsSeconds;
 
+/// 設定頁「播放歷史保留筆數」的選項（沿用舊版 `_options`）。
+const playHistoryLimitOptions = [1000, 5000, 10000, 50000];
+
 /// 「播放」設定套用預設之後的值（ADR 0011 §決定 7、design §3.3）。只有已經
 /// 有人用的欄位；其他欄位跟著用到它的 PR 加。
 @immutable
@@ -24,6 +27,7 @@ final class PlaybackPreferences {
     required this.skipPreviewClips,
     required this.outputDevice,
     required this.restartRewindSeconds,
+    required this.playHistoryLimit,
     required this.stored,
   });
 
@@ -51,6 +55,9 @@ final class PlaybackPreferences {
   /// 重啟後恢復播放時，從存下的位置倒退幾秒（「記住播放位置」開著時才有作用）。
   final int restartRewindSeconds;
 
+  /// 播放歷史保留筆數：每寫一筆就裁掉超過的最舊列，改小時當下裁一次。
+  final int playHistoryLimit;
+
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設。
   final PlaybackSettings stored;
 
@@ -64,6 +71,7 @@ final class PlaybackPreferences {
       other.skipPreviewClips == skipPreviewClips &&
       other.outputDevice == outputDevice &&
       other.restartRewindSeconds == restartRewindSeconds &&
+      other.playHistoryLimit == playHistoryLimit &&
       other.stored == stored;
 
   @override
@@ -75,6 +83,7 @@ final class PlaybackPreferences {
     skipPreviewClips,
     outputDevice,
     restartRewindSeconds,
+    playHistoryLimit,
     stored,
   );
 
@@ -85,7 +94,8 @@ final class PlaybackPreferences {
       'rememberPosition: $rememberPosition, '
       'tempPlayRewindSeconds: $tempPlayRewindSeconds, '
       'skipPreviewClips: $skipPreviewClips, outputDevice: $outputDevice, '
-      'restartRewindSeconds: $restartRewindSeconds, stored: $stored)';
+      'restartRewindSeconds: $restartRewindSeconds, '
+      'playHistoryLimit: $playHistoryLimit, stored: $stored)';
 }
 
 /// 在讀取時套用預設：沒設定過的欄位用傳進來的預設。預設值不寫進資料庫，改
@@ -98,6 +108,7 @@ PlaybackPreferences resolvePlaybackPreferences(
   required int defaultTempPlayRewindSeconds,
   required bool defaultSkipPreviewClips,
   required int defaultRestartRewindSeconds,
+  required int defaultPlayHistoryLimit,
 }) => PlaybackPreferences(
   audioQuality: stored.audioQuality ?? defaultAudioQuality,
   audioFormatPriority: stored.audioFormatPriority ?? defaultAudioFormatPriority,
@@ -111,6 +122,7 @@ PlaybackPreferences resolvePlaybackPreferences(
   },
   restartRewindSeconds:
       stored.restartRewindSeconds ?? defaultRestartRewindSeconds,
+  playHistoryLimit: stored.playHistoryLimit ?? defaultPlayHistoryLimit,
   stored: stored,
 );
 
@@ -124,7 +136,7 @@ final playbackPreferencesProvider =
 final class PlaybackPreferencesNotifier
     extends StreamNotifier<PlaybackPreferences> {
   /// [stored] 套用目前的預設（音質：高、格式：Opus 優先，照舊版；記住播放
-  /// 位置：開；倒退 10 秒，照舊版；跳過試聽片段：開，ADR 0018 §決定 7；重啟恢復倒退 0 秒）。預設
+  /// 位置：開；倒退 10 秒，照舊版；跳過試聽片段：開，ADR 0018 §決定 7；重啟恢復倒退 0 秒；播放歷史保留 10000 筆，照舊版）。預設
   /// 只寫在這裡；資料庫還沒讀出來時，播放控制器也以它解析空的設定。
   static PlaybackPreferences resolve(PlaybackSettings stored) =>
       resolvePlaybackPreferences(
@@ -135,7 +147,10 @@ final class PlaybackPreferencesNotifier
         defaultTempPlayRewindSeconds: 10,
         defaultSkipPreviewClips: true,
         defaultRestartRewindSeconds: 0,
+        defaultPlayHistoryLimit: _defaultPlayHistoryLimit,
       );
+
+  static const _defaultPlayHistoryLimit = 10000;
 
   @override
   Stream<PlaybackPreferences> build() =>
@@ -199,5 +214,19 @@ final class PlaybackPreferencesNotifier
     return seconds == null
         ? repository.clear(restartRewindSeconds: true)
         : repository.write(restartRewindSeconds: seconds);
+  }
+
+  /// 只寫「播放歷史保留筆數」；`null` 清回沒設定過（跟隨預設）。寫完當下依生效
+  /// 的筆數裁掉歷史裡多的最舊列（改小時才有東西可裁）。
+  Future<void> setPlayHistoryLimit(int? limit) async {
+    final repository = ref.read(playbackSettingsRepositoryProvider);
+    if (limit == null) {
+      await repository.clear(playHistoryLimit: true);
+    } else {
+      await repository.write(playHistoryLimit: limit);
+    }
+    await ref
+        .read(playHistoryRepositoryProvider)
+        .trimTo(limit ?? _defaultPlayHistoryLimit);
   }
 }

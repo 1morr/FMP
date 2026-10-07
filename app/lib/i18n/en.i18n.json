@@ -7,7 +7,8 @@
     "search": "Search",
     "settings": "Settings",
     "searchTooltip": "Search (Ctrl+F)",
-    "settingsTooltip": "Settings (Ctrl+,)"
+    "settingsTooltip": "Settings (Ctrl+,)",
+    "history": "History"
   },
   "search": {
     "hint": "Search songs",
@@ -27,6 +28,27 @@
     "addToQueue": "Add to queue",
     "addedToNext": "Added to play next",
     "addedToQueue": "Added to queue"
+  },
+  "history": {
+    "title": "Play history",
+    "empty": "No play history yet",
+    "emptyHint": "Songs you have listened to show up here by date",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "subtitle": "{artist} · {time}",
+    "more": "More options",
+    "play": "Play",
+    "playNext": "Play next",
+    "addToQueue": "Add to queue",
+    "addedToNext": "Added to play next",
+    "addedToQueue": "Added to the queue",
+    "remove": "Remove from history",
+    "clearAll": "Clear all history",
+    "clearTitle": "Clear all play history?",
+    "clearBody": "Every play record is deleted and cannot be restored. The queue and settings are not affected.",
+    "cancel": "Cancel",
+    "confirm": "Clear",
+    "cleared": "Play history cleared"
   },
   "offline": {
     "noInterface": "No network connection",
@@ -95,7 +117,10 @@
     "skipPreviewClips": "Skip preview clips",
     "skipPreviewClipsHint": "Skip songs that only have a preview clip; when off, play the preview and mark it",
     "restartRewind": "Rewind when restarting",
-    "restartRewindHint": "After reopening the app, resume a little before where you left off"
+    "restartRewindHint": "After reopening the app, resume a little before where you left off",
+    "playHistoryLimit": "Play history to keep",
+    "playHistoryLimitHint": "Older records are deleted automatically; lowering the number deletes them right away",
+    "playHistoryLimitOption": "{count} entries"
   },
   "network": {
     "cacheLimit": "Cache limit",

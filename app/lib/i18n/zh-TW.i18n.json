@@ -7,7 +7,8 @@
     "search": "搜尋",
     "settings": "設定",
     "searchTooltip": "搜尋（Ctrl+F）",
-    "settingsTooltip": "設定（Ctrl+,）"
+    "settingsTooltip": "設定（Ctrl+,）",
+    "history": "歷史"
   },
   "search": {
     "hint": "搜尋歌曲",
@@ -27,6 +28,27 @@
     "addToQueue": "加入佇列",
     "addedToNext": "已加入下一首播放",
     "addedToQueue": "已加入佇列"
+  },
+  "history": {
+    "title": "播放歷史",
+    "empty": "還沒有播放紀錄",
+    "emptyHint": "聽過的歌會依日期出現在這裡",
+    "today": "今天",
+    "yesterday": "昨天",
+    "subtitle": "{artist} · {time}",
+    "more": "更多選項",
+    "play": "播放",
+    "playNext": "下一首播放",
+    "addToQueue": "加入佇列",
+    "addedToNext": "已加入下一首播放",
+    "addedToQueue": "已加入佇列",
+    "remove": "從歷史移除",
+    "clearAll": "清除全部歷史",
+    "clearTitle": "清除全部播放歷史？",
+    "clearBody": "所有播放紀錄都會被刪除，無法復原。佇列與設定不受影響。",
+    "cancel": "取消",
+    "confirm": "清除",
+    "cleared": "已清除播放歷史"
   },
   "offline": {
     "noInterface": "沒有網路連線",
@@ -95,7 +117,10 @@
     "skipPreviewClips": "跳過試聽片段",
     "skipPreviewClipsHint": "只有試聽片段的歌曲直接跳過；關閉時照播並標示「試聽」",
     "restartRewind": "重啟後恢復倒退",
-    "restartRewindHint": "重新開啟 App 後按播放，從上次的位置稍微往回一點，方便接上"
+    "restartRewindHint": "重新開啟 App 後按播放，從上次的位置稍微往回一點，方便接上",
+    "playHistoryLimit": "播放歷史保留筆數",
+    "playHistoryLimitHint": "超過的舊紀錄會自動刪除；調小時馬上刪除",
+    "playHistoryLimitOption": "{count} 筆"
   },
   "network": {
     "cacheLimit": "快取上限",

@@ -56,6 +56,8 @@ class TranslationsEn extends Translations
   @override
   late final Translations$search$en search = Translations$search$en._(_root);
   @override
+  late final Translations$history$en history = Translations$history$en._(_root);
+  @override
   late final Translations$offline$en offline = Translations$offline$en._(_root);
   @override
   late final Translations$settings$en settings = Translations$settings$en._(
@@ -108,6 +110,8 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   String get searchTooltip => 'Search (Ctrl+F)';
   @override
   String get settingsTooltip => 'Settings (Ctrl+,)';
+  @override
+  String get history => 'History';
 }
 
 // Path: search
@@ -154,6 +158,57 @@ class Translations$search$en extends Translations$search$zh_TW {
   String get addedToNext => 'Added to play next';
   @override
   String get addedToQueue => 'Added to queue';
+}
+
+// Path: history
+class Translations$history$en extends Translations$history$zh_TW {
+  Translations$history$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Play history';
+  @override
+  String get empty => 'No play history yet';
+  @override
+  String get emptyHint => 'Songs you have listened to show up here by date';
+  @override
+  String get today => 'Today';
+  @override
+  String get yesterday => 'Yesterday';
+  @override
+  String subtitle({required Object artist, required Object time}) =>
+      '${artist} · ${time}';
+  @override
+  String get more => 'More options';
+  @override
+  String get play => 'Play';
+  @override
+  String get playNext => 'Play next';
+  @override
+  String get addToQueue => 'Add to queue';
+  @override
+  String get addedToNext => 'Added to play next';
+  @override
+  String get addedToQueue => 'Added to the queue';
+  @override
+  String get remove => 'Remove from history';
+  @override
+  String get clearAll => 'Clear all history';
+  @override
+  String get clearTitle => 'Clear all play history?';
+  @override
+  String get clearBody =>
+      'Every play record is deleted and cannot be restored. The queue and settings are not affected.';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get confirm => 'Clear';
+  @override
+  String get cleared => 'Play history cleared';
 }
 
 // Path: offline
@@ -338,6 +393,13 @@ class Translations$playback$en extends Translations$playback$zh_TW {
   @override
   String get restartRewindHint =>
       'After reopening the app, resume a little before where you left off';
+  @override
+  String get playHistoryLimit => 'Play history to keep';
+  @override
+  String get playHistoryLimitHint =>
+      'Older records are deleted automatically; lowering the number deletes them right away';
+  @override
+  String playHistoryLimitOption({required Object count}) => '${count} entries';
 }
 
 // Path: network

@@ -237,6 +237,52 @@ void main() {
           handle.dispose();
         });
 
+        testWidgets('history, empty, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('History'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('No play history yet'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('history with entries and the player bar at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('History'));
+          await tester.pump();
+          final repository = h
+              .container(tester)
+              .read(playHistoryRepositoryProvider);
+          await tester.runAsync(() async {
+            for (final (id, at) in [
+              ('a', DateTime(2026, 10, 7, 14, 5)),
+              ('b', DateTime(2026, 10, 6, 9, 30)),
+              ('c', DateTime(2025, 12, 31, 23, 30)),
+            ]) {
+              await repository.record(
+                summary(id).toTrackInfo(),
+                playedAt: at,
+                limit: 100,
+              );
+            }
+          });
+          await h.loadSettings(tester);
+          await h.play(tester, [summary('a')]);
+          await tester.pumpAndSettle(const Duration(seconds: 1));
+          expect(find.text('Song c'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('settings at $width', (tester) async {
           final handle = tester.ensureSemantics();
           final h = ShellHarness();
