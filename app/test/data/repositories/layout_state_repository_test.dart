@@ -73,4 +73,73 @@ void main() {
     expect(await events.moveNext(), isTrue);
     expect(events.current, const LayoutState(playerTab: PlayerTab.details));
   });
+
+  test('reads back the panel fields', () async {
+    final repository = LayoutStateRepository(memoryDatabase());
+
+    await repository.write(panelExpanded: false, panelWidth: 380.5);
+
+    expect(
+      await repository.read(),
+      const LayoutState(panelExpanded: false, panelWidth: 380.5),
+    );
+  });
+
+  test('a write only changes the fields it is given', () async {
+    final repository = LayoutStateRepository(memoryDatabase());
+    await repository.write(
+      playerTab: PlayerTab.queue,
+      panelExpanded: true,
+      panelWidth: 400,
+    );
+
+    await repository.write(panelWidth: 500);
+    expect(
+      await repository.read(),
+      const LayoutState(
+        playerTab: PlayerTab.queue,
+        panelExpanded: true,
+        panelWidth: 500,
+      ),
+    );
+
+    await repository.write(panelExpanded: false);
+    await repository.write(playerTab: PlayerTab.details);
+    expect(
+      await repository.read(),
+      const LayoutState(
+        playerTab: PlayerTab.details,
+        panelExpanded: false,
+        panelWidth: 500,
+      ),
+    );
+  });
+
+  test(
+    'stored format: the panel is a boolean and a real number of dp',
+    () async {
+      final database = memoryDatabase();
+      final repository = LayoutStateRepository(database);
+
+      await repository.write(panelExpanded: false, panelWidth: 412);
+      final row = await database
+          .customSelect('SELECT panel_expanded, panel_width FROM layout_state')
+          .getSingle();
+
+      expect(row.read<int>('panel_expanded'), 0);
+      expect(row.read<double>('panel_width'), 412.0);
+    },
+  );
+
+  test('watch emits a panel write', () async {
+    final repository = LayoutStateRepository(memoryDatabase());
+    final events = StreamIterator(repository.watch());
+    addTearDown(events.cancel);
+    expect(await events.moveNext(), isTrue);
+
+    await repository.write(panelWidth: 360);
+
+    expect(await events.moveNext(), isTrue);
+    expect(events.current, const LayoutState(panelWidth: 360));
+  });
 }
