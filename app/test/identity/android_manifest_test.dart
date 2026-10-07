@@ -6,7 +6,7 @@ import 'package:xml/xml.dart';
 /// 系統媒體控制要的 Android manifest 設定（design §8.3）。
 ///
 /// 以 XML 解析斷言，不比對字串：屬性的順序、縮排與註解改了不影響結果。最後一組
-/// 變異案例證明這一點（缺一項會紅、改格式不會紅）。`MainActivity` 的兩個覆寫沒有
+/// 變異案例證明這一點（缺一項會紅、改格式不會紅）。`MainActivity` 的覆寫沒有
 /// 自動閘門，在實機驗（app/AGENTS.md § 平台層）。
 void main() {
   final manifest = File('android/app/src/main/AndroidManifest.xml')

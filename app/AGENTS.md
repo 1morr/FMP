@@ -16,7 +16,7 @@
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
-| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的兩個覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
+| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`、`lib/playback/playback_session.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
@@ -217,16 +217,25 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   的 `system media controls on Windows`（宣告與初始化失敗）、`now_playing_publisher_test.dart` 的
   `position refresh`、`artwork url`；`layer_imports_test.dart` 的 `smtc_windows` 案例守「只在 `lib/platform/`」。
 - Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
-  有兩個覆寫，**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
+  下面的覆寫**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
   - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
     `DartEntrypoint.createDefault()` 啟動引擎、不帶 intent 的 `dart_entrypoint_args`，原樣用的話
     `--fmp-dev-plugin` 在 Android 失效。覆寫成快取裡沒有引擎時自己建、帶 `getDartEntrypointArgs()`
     啟動，放進 `FlutterEngineCache`（鍵 `AudioServicePlugin.getFlutterEngineId()`）。升級
     audio_service 時重看它的 `getFlutterEngine` 有沒有改。
-  - `popSystemNavigator`：Flutter 預設在根 route 沒得 pop 時 `finish()`，返回鍵直接結束 App 並停掉
-    播放；覆寫成 `moveTaskToBack(true)` 並回 `true`，App 退到背景、引擎與播放照常。
-  實機驗證：`--fmp-dev-plugin` 啟動後測試插件仍裝得上；在歷史頁按返回回到搜尋，在搜尋再按一次 App 退到
-  背景、音樂繼續。
+  - `popSystemNavigator`：Flutter 預設在根 route 沒得 pop 時 `finish()`，返回鍵直接結束 App；覆寫成
+    `moveTaskToBack(true)` 並回 `true`，App 退到背景、Activity 與引擎都留著。
+  - `setFrameworkHandlesBack` 一律以 `true` 交給父類別，`onCreate` 也先登記一次：返回鍵一律交給 Flutter，
+    上一條才走得到。Android 16 起 targetSdk 36（`flutter.targetSdkVersion`）預設啟用 predictive back，
+    返回不再經 `onBackPressed`；Flutter 在沒得 pop 時（搜尋分頁）取消登記自己的 `OnBackInvokedCallback`
+    交給系統，系統只對從桌面啟動的 task 退到背景（`ActivityClientController.shouldMoveTaskToBack`），
+    adb、通知、別的 App 開的一律 `finish()`，`popSystemNavigator` 不會被呼叫（M2 驗收實測，2026-10-08）。
+    代價是根 route 沒有系統的「回到桌面」預覽動畫。不用 manifest 的
+    `enableOnBackInvokedCallback="false"`：官方文件寫的是暫時的退出。接回 audio_service 留著的引擎時
+    Dart 端不重送返回的狀態，所以 `onCreate` 要自己登記。
+  實機驗證：`--fmp-dev-plugin` 啟動後測試插件仍裝得上；以 adb 啟動（不是從桌面），在歷史頁按返回回到搜尋，
+  在搜尋再按一次 App 退到背景，`logcat -b events` 沒有 `wm_finish_activity`，從桌面圖示回來時沒有新的
+  `App started`、搜尋字與分頁都在；播放中按返回音樂繼續。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
