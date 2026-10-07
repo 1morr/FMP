@@ -8,7 +8,14 @@
     "settings": "設定",
     "searchTooltip": "搜尋（Ctrl+F）",
     "settingsTooltip": "設定（Ctrl+,）",
-    "history": "歷史"
+    "history": "歷史",
+    "panelTitle": "正在播放",
+    "panelEmpty": "沒有正在播放的歌",
+    "panelCollapseTooltip": "收起正在播放面板",
+    "panelShowTooltip": "顯示正在播放面板",
+    "panelHideTooltip": "隱藏正在播放面板",
+    "panelMenuItem": "正在播放面板",
+    "panelResizeTooltip": "拖曳或按 ←／→ 調整寬度"
   },
   "search": {
     "hint": "搜尋歌曲",

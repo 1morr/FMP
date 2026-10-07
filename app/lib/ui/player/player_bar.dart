@@ -13,6 +13,7 @@ import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -36,8 +37,15 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 ///
 /// 曲名下面那一行在「重試中」「等待網路連線」「試聽」時先寫狀態再接上傳者，
 /// 三種寬度都在曲名欄裡，不另外佔位置。
+///
+/// [panelToggle] 是整個視窗 >= 840（右側「正在播放」面板可能出現）：expanded 以上那一段在
+/// 輸出裝置鈕前多一顆開關面板的鈕，medium 那一段把它放進「⋯」的勾選項。播放列自己的
+/// 寬度量不出整個視窗，所以由外殼給。
 class PlayerBar extends ConsumerWidget {
-  const PlayerBar({super.key});
+  const PlayerBar({super.key, this.panelToggle = false});
+
+  /// 是否提供開關右側面板的控制（見類別說明）。
+  final bool panelToggle;
 
   /// 曲名與上傳者那一欄；測試以它量曲名的寬度。
   static const titleKey = ValueKey('player-bar-title');
@@ -114,7 +122,11 @@ class PlayerBar extends ConsumerWidget {
                   playPause,
                   next,
                   const _VolumeMenu(),
-                  _MoreMenu(queue: queue, selectsDevice: selectsDevice),
+                  _MoreMenu(
+                    queue: queue,
+                    selectsDevice: selectsDevice,
+                    panelToggle: panelToggle,
+                  ),
                 ],
               ),
             ],
@@ -145,11 +157,17 @@ class PlayerBar extends ConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (panelToggle) const _PanelToggleButton(),
                       if (selectsDevice) const _OutputDeviceButton(),
                       const _MuteButton(),
-                      const SizedBox(
-                        width: AppLayout.volumeSliderWidth,
-                        child: _VolumeSlider(),
+                      // 開關面板的鈕讓右側變擠時，滑桿先縮短。
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: AppLayout.volumeSliderWidth,
+                          ),
+                          child: const _VolumeSlider(),
+                        ),
                       ),
                     ],
                   ),
@@ -265,10 +283,15 @@ class _TrackText extends StatelessWidget {
 
 /// medium 寬度的「⋯」：隨機、循環與（能選時的）輸出裝置（ADR 0024 §決定 5）。
 class _MoreMenu extends ConsumerWidget {
-  const _MoreMenu({required this.queue, required this.selectsDevice});
+  const _MoreMenu({
+    required this.queue,
+    required this.selectsDevice,
+    required this.panelToggle,
+  });
 
   final QueueState queue;
   final bool selectsDevice;
+  final bool panelToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -277,6 +300,7 @@ class _MoreMenu extends ConsumerWidget {
     final devices = selectsDevice
         ? ref.watch(playbackOutputDevicesProvider).value
         : null;
+    final panelExpanded = ref.watch(panelExpandedProvider);
     return IconMenu(
       tooltip: t.more,
       icon: const Icon(Icons.more_horiz),
@@ -293,6 +317,12 @@ class _MoreMenu extends ConsumerWidget {
           onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
           child: Text(loopLabel(translations, queue.loopMode)),
         ),
+        if (panelToggle)
+          CheckboxMenuButton(
+            value: panelExpanded,
+            onChanged: (_) => rememberPanel(ref, expanded: !panelExpanded),
+            child: Text(translations.shell.panelMenuItem),
+          ),
         if (selectsDevice)
           SubmenuButton(
             leadingIcon: const Icon(Icons.speaker),
@@ -336,6 +366,25 @@ List<Widget> _deviceItems(
     item(t.systemDefault, null),
     for (final device in state.devices) item(device.name, device),
   ];
+}
+
+/// 開關右側面板的鈕（整個視窗 >= 840 時，expanded 以上那一段），照 Spotify 的
+/// 「正在播放」鈕：面板開著時是選取的樣子。
+class _PanelToggleButton extends ConsumerWidget {
+  const _PanelToggleButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).shell;
+    final expanded = ref.watch(panelExpandedProvider);
+    return IconButton(
+      tooltip: expanded ? t.panelHideTooltip : t.panelShowTooltip,
+      isSelected: expanded,
+      icon: const Icon(Icons.view_sidebar_outlined),
+      selectedIcon: const Icon(Icons.view_sidebar),
+      onPressed: () => rememberPanel(ref, expanded: !expanded),
+    );
+  }
 }
 
 /// 輸出裝置鈕（expanded 以上，平台能選時）。

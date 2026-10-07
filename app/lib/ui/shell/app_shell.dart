@@ -11,6 +11,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
@@ -19,6 +20,7 @@ import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
+import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -36,8 +38,9 @@ enum ShellDestination { search, history, settings }
 /// - medium、expanded：左側 `NavigationRail`；
 /// - large 以上：左側常駐的 `NavigationDrawer`。
 ///
-/// 後兩種的播放列在內容區下方、和內容區同寬（ADR 的「依內容區寬度」）。內容區
-/// 與播放列各自有 `WindowClassScope`，頁面讀到的是自己那一塊的寬度等級。
+/// 後兩種的播放列在內容區（與右側面板）下方、橫跨兩者（ADR 的「依內容區寬度」）。
+/// 整個視窗 >= 840 時內容區右邊是「正在播放」面板與拖曳把手（[NowPlayingPanelSide]），
+/// 頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉面板後的寬度等級。
 ///
 /// 內容區頂端是全域離線提示（`OfflineBanner`，ADR 0016 §決定 7），換頁時
 /// 留著。
@@ -186,29 +189,53 @@ class _AppShellState extends ConsumerState<AppShell> {
       playbackQueueProvider.select((queue) => queue.value?.current != null),
     );
 
+    final windowClass = WindowClass.of(context);
+    final hasPanel = hasNowPlayingPanel(windowClass);
+    final pages = WindowClassScope(
+      child: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(
+            child: IndexedStack(
+              index: _destination.index,
+              sizing: StackFit.expand,
+              children: [
+                SearchPage(fieldFocusNode: _searchField),
+                const HistoryPage(),
+                SettingsPage(
+                  visible: _destination == ShellDestination.settings,
+                  back: _settingsBack,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    // 頁面與右側面板同在「內容」焦點區；頁面的 WindowClassScope 只量扣掉面板後的寬度。
     final content = FocusScope(
       node: _content,
+      // 面板在頁面之後：F6 進來是頁面的第一個項目，Tab 走完頁面才到把手與面板。
+      // 目前的版面裡預設的閱讀順序也是這樣（把手從頂端到底，同一帶裡由左而右），
+      // 明訂順序是為了不依賴把手的形狀。結構不隨面板有無而變，視窗跨過 840 時
+      // 頁面不重建（設定頁選的組、搜尋框的字都留著）。
       child: FocusTraversalGroup(
-        child: WindowClassScope(
-          child: Column(
-            children: [
-              const OfflineBanner(),
-              Expanded(
-                child: IndexedStack(
-                  index: _destination.index,
-                  sizing: StackFit.expand,
-                  children: [
-                    SearchPage(fieldFocusNode: _searchField),
-                    const HistoryPage(),
-                    SettingsPage(
-                      visible: _destination == ShellDestination.settings,
-                      back: _settingsBack,
-                    ),
-                  ],
-                ),
+        policy: OrderedTraversalPolicy(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: FocusTraversalOrder(
+                order: const NumericFocusOrder(0),
+                child: pages,
               ),
-            ],
-          ),
+            ),
+            if (hasPanel)
+              const FocusTraversalOrder(
+                order: NumericFocusOrder(1),
+                child: NowPlayingPanelSide(),
+              ),
+          ],
         ),
       ),
     );
@@ -216,7 +243,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         ? FocusScope(
             node: _playerBar,
             child: FocusTraversalGroup(
-              child: const WindowClassScope(child: PlayerBar()),
+              child: WindowClassScope(child: PlayerBar(panelToggle: hasPanel)),
             ),
           )
         : null;
@@ -227,7 +254,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     void onSelected(int index) => _select(ShellDestination.values[index]);
     final index = _destination.index;
 
-    final body = switch (WindowClass.of(context)) {
+    final body = switch (windowClass) {
       WindowClass.compact => Scaffold(
         body: SafeArea(bottom: false, child: content),
         bottomNavigationBar: _BottomInsetReporter(
@@ -265,7 +292,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         ),
       ),
-      final windowClass => Scaffold(
+      _ => Scaffold(
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

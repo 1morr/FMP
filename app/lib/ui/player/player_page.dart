@@ -9,7 +9,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
-import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/domain/playback_speed.dart';
 import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/track_info.dart';
@@ -19,12 +18,14 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/glass_panel.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
+import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -83,11 +84,6 @@ final class PlayerPageOpen extends Notifier<bool> {
 
   void set(bool open) => state = open;
 }
-
-/// 依裝置記住的版面狀態（`layout_state`，design §3.4）。
-final layoutStateProvider = StreamProvider<LayoutState>(
-  (ref) => ref.watch(layoutStateRepositoryProvider).watch(),
-);
 
 /// 開播放頁：推在根 Navigator 上。已經開著就什麼都不做。關閉之後（轉場結束）焦點回到
 /// [opener]（沒給就是開的當下有焦點的元件）。
@@ -641,7 +637,8 @@ class _Transport extends ConsumerWidget {
   }
 }
 
-/// 「⋯」：播放速度（不持久化，重啟回到 1.0；design §7.6）。「切換右側面板」在 M2 PR 19。
+/// 「⋯」：播放速度（不持久化，重啟回到 1.0；design §7.6），以及 expanded 以上的
+/// 「正在播放面板」勾選項（design §9.3；compact、medium 沒有面板）。
 class _MoreMenu extends ConsumerWidget {
   const _MoreMenu();
 
@@ -649,10 +646,19 @@ class _MoreMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
     final speed = ref.watch(playbackSpeedProvider).value ?? 1.0;
+    // 播放頁在根 Navigator 上，讀到的是整個視窗的等級。
+    final hasPanel = hasNowPlayingPanel(WindowClass.of(context));
+    final panelExpanded = ref.watch(panelExpandedProvider);
     return IconMenu(
       tooltip: t.player.more,
       icon: const Icon(Icons.more_horiz),
       menuChildren: [
+        if (hasPanel)
+          CheckboxMenuButton(
+            value: panelExpanded,
+            onChanged: (_) => rememberPanel(ref, expanded: !panelExpanded),
+            child: Text(t.shell.panelMenuItem),
+          ),
         SubmenuButton(
           leadingIcon: const Icon(Icons.speed),
           menuChildren: [

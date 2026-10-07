@@ -10,6 +10,7 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
@@ -326,6 +327,26 @@ void main() {
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.byType(NetworkControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // 右側「正在播放」面板（M2 PR 19）：有歌、1000 與 1800 寬；面板裡的詳細資料、
+      // 收起鈕與拖曳把手。
+      for (final width in const [1000.0, 1800.0]) {
+        testWidgets('the now playing panel at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(
+            tester,
+            size: Size(width, 800),
+            brightness: brightness,
+          );
+          await h.play(tester, [summary('a')]);
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.byType(NowPlayingPanel), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
