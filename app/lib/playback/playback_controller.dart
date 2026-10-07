@@ -7,6 +7,7 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/output_device.dart';
+import 'package:fmp/domain/playback_speed.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/playback/playback_event_router.dart';
@@ -100,6 +101,7 @@ final class PlaybackController {
   final _volumeChanges =
       StreamController<({double volume, bool muted})>.broadcast();
   final _outputDeviceStates = StreamController<OutputDeviceState>.broadcast();
+  final _speedChanges = StreamController<double>.broadcast();
   final _seeks = StreamController<Duration>.broadcast();
   final _plays = StreamController<CountedPlay>.broadcast();
 
@@ -136,6 +138,9 @@ final class PlaybackController {
   /// 使用者的音量（0–1）；靜音時是取消靜音後回到的值。
   double _volume = 1;
   bool _muted = false;
+
+  /// 播放速度（0.5–2.0）；不持久化，每次啟動是 1。
+  double _speed = 1;
 
   /// 啟動恢復帶回來的位置（已扣掉重啟倒退秒數），按播放時從這裡開始；沒有恢復、
   /// 或已經開始播任何一首之後為 `null`。
@@ -193,6 +198,12 @@ final class PlaybackController {
   double get volume => _volume;
 
   bool get muted => _muted;
+
+  /// 目前的播放速度（已夾到 0.5–2.0）。
+  double get speed => _speed;
+
+  /// [speed] 改變（[setSpeed]）。
+  Stream<double> get speedChanges => _speedChanges.stream;
 
   /// 音量或靜音改變（[setVolume]、[toggleMute]；[restore] 不算），給持久化用。
   Stream<({double volume, bool muted})> get volumeChanges =>
@@ -460,7 +471,11 @@ final class PlaybackController {
   }
 
   /// 設定速度：後端夾到 0.5–2.0，換歌後維持；不持久化（ADR 0018 §決定 10）。
-  Future<void> setSpeed(double speed) => _session.setSpeed(speed);
+  Future<void> setSpeed(double speed) {
+    _speed = clampSpeed(speed);
+    if (!_speedChanges.isClosed) _speedChanges.add(_speed);
+    return _session.setSpeed(_speed);
+  }
 
   /// 選音訊輸出裝置並記成偏好；`null` 是系統預設（清掉偏好）。不能選裝置的
   /// 平台（`PlaybackSupport.outputDeviceSelection` 為假）什麼都不做。
@@ -535,6 +550,7 @@ final class PlaybackController {
     await _events.close();
     await _previews.close();
     await _volumeChanges.close();
+    await _speedChanges.close();
     await _outputDeviceStates.close();
     await _seeks.close();
     await _plays.close();

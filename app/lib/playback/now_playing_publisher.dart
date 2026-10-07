@@ -53,6 +53,7 @@ final class NowPlayingPublisher {
     _subscriptions
       ..add(controller.states.listen((_) => _refresh()))
       ..add(controller.queueStates.listen((_) => _refresh()))
+      ..add(controller.speedChanges.listen((_) => _refresh()))
       ..add(
         controller.seeks.listen(
           (position) => _refresh(position: position, force: true),
@@ -182,6 +183,7 @@ final class NowPlayingPublisher {
       },
       playing: playing,
       position: position,
+      speed: _controller.speed,
       controls: [
         MediaControl.previous,
         if (playing) MediaControl.pause else MediaControl.play,

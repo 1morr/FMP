@@ -2053,6 +2053,23 @@ void main() {
       });
     });
 
+    test('the speed is observable, clamped and starts at 1', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        final seen = <double>[];
+        final subscription = h.controller.speedChanges.listen(seen.add);
+        expect(h.controller.speed, 1.0);
+
+        unawaited(h.controller.setSpeed(1.25));
+        unawaited(h.controller.setSpeed(5));
+        h.settle();
+
+        expect(h.controller.speed, 2.0);
+        expect(seen, [1.25, 2.0]);
+        unawaited(subscription.cancel());
+      });
+    });
+
     test('the speed goes to the backend, clamped there', () {
       fakeAsync((async) {
         final h = Harness(async, trackLength: const Duration(seconds: 60));
