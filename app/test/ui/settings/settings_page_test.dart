@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:material_ui/material_ui.dart';
@@ -94,8 +95,10 @@ void main() {
 
       expect(find.byType(NetworkControls), findsNothing);
       expect(find.widgetWithText(ListTile, 'Network'), findsOneWidget);
-      // 回到清單之後不再攔返回鍵。
-      expect(await tester.binding.handlePopRoute(), isFalse);
+      // 回到清單之後返回鍵歸外殼：回到第一個分頁（搜尋），設定頁看不到了。
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pump();
+      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
     },
   );
 
