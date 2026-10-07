@@ -225,7 +225,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `tracks`（曲目顯示資料，鍵是 `TrackKey` 的字面輸出）、`queue_entries`、`player_state` 是 schema v4
   （design §3.1、§3.2）。`queue_entries.track_key` 以外鍵參照 `tracks`、`ON DELETE RESTRICT`：被佇列
   參照的曲目刪不掉，孤兒清理（`TracksRepository.deleteOrphans`，啟動維護清單）只刪沒人參照的列，
-  之後加表的 PR（播放歷史、歌單項目、下載紀錄）各自把自己加進那個查詢。寫入曲目用
+  之後加表的 PR（歌單項目、下載紀錄）各自把自己加進那個查詢；`play_history` 已在裡面（見下一條）。寫入曲目用
   `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE。`queue_entries` 的主鍵是位置，
   位移時先改成負值再改回，所以那張表不能加 `position >= 0` 的檢查。`player_state` 單列，音量與
   靜音隨佇列存在這裡、不是設定；隨機排列存成每個位置的名次（`shuffle_rank`），不存排列本身。`queue_entries.track_key`
@@ -233,6 +233,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   的 `indexes queue_entries.track_key`（升級來的與全新建的兩例，漏了 `m.create` 時升級驗證與該例會紅）。
   閘門：`queue_repository_test.dart`（`RESTRICT` 與孤兒、差量編輯的隨機序列、`a write is one transaction`、
   `stored format`、一萬首整份取代的耗時）、`migration_test.dart` 的 v3→v4 三例。
+- `play_history` 是 schema v5（design §3.2、§7.8）：一次播放一列（`id` 自增、`track_key` 外鍵 `tracks`
+  `ON DELETE RESTRICT`、`played_at` UTC epoch 毫秒），同一首聽兩次是兩列。孤兒的定義是「沒有被佇列也沒有被
+  播放歷史參照」：`TracksRepository.deleteOrphans` 與啟動維護的 `orphan-tracks` 都排除歷史參照的曲目；清除歷史
+  之後那些曲目才成為孤兒。`track_key` 與 `played_at` 各有索引（`play_history_track_key`：同 `queue_entries`，
+  `RESTRICT` 的檢查靠它；`play_history_played_at`：倒序分頁）。`PlayHistoryRepository.record` 一個 transaction
+  做 upsert 曲目、插入、裁掉超過保留筆數的最舊列（依 `played_at`、同刻依 `id`）；讀是依
+  `played_at`、`id` 倒序的 `LIMIT/OFFSET` 分頁，一萬筆的第一頁與最後一頁各約 1–2 毫秒。閘門：
+  `play_history_repository_test.dart`（順序與分頁、刪一筆只刪那一筆、清除、保留筆數的邊界與 `trimTo`、`RESTRICT`
+  與外鍵、`orphan cleanup keeps tracks the history refers to`、`stored format`、`the first page of ten thousand
+  entries…`）、`migration_test.dart` 的 v4→v5 與 `migration from v<N> to v5 creates play_history…`（v1–v4 各一例：
+  表、兩個索引、`RESTRICT`）、`a new database has play_history and its two indexes`。
 
 ### 快取庫
 
@@ -361,8 +372,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （`initState` 排的 post-frame callback，每次掛上只一次；`main()` 只掛一次）依序跑；
   每項各自 try，失敗經 `log.report` 進錯誤歷史後接著跑下一項，不重試；每項跑完寫一筆
   tag `maintenance` 的 log（`id`、`outcome`）。清單目前依序是 `log-retention`、`orphan-tracks`
-  （刪沒有被佇列參照的 `tracks` 列，記 `Deleted orphan tracks` 與 `count`；閘門：
-  `startup_maintenance_test.dart` 的 `orphan-tracks…`）。項目一個接一個 await，卡住的項目會擋住
+  （刪沒有被佇列、播放歷史參照的 `tracks` 列，記 `Deleted orphan tracks` 與 `count`；閘門：
+  `startup_maintenance_test.dart` 的 `orphan-tracks…`、`play_history_repository_test.dart` 的 `orphan cleanup keeps tracks…`）。項目一個接一個 await，卡住的項目會擋住
   後面的，所以項目只放有限的本機工作。閘門：`test/app/startup_maintenance_test.dart`
   （畫過第一幀才跑、重建不重跑、失敗隔離、預設清單的 `log-retention`、`orphan-tracks`）。不跳提示（清單
   拿不到 `Toaster`）、不放空的登記點、週期性工作不放這裡（M3 的排程器）沒有閘門，
@@ -904,6 +915,21 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     交給孤兒清理）、從空的開始，之後照常寫。閘門：`restoring` 群組的 `stored data that cannot be read is
     dropped and reported`。其他閘門：`restoring` 群組（四種「記住位置 × 倒退」組合、倒退超過
     位置、沒有存過、資料壞掉）、`QueueStore.restoredPosition` 的單元測試。
+- 播放歷史（design §7.8）：控制器只對外報「這一首算一次播放」（`PlaybackController.plays`，帶 `TrackInfo` 與
+  `clock.now()`），`PlayHistoryRecorder`（`lib/playback/`，照 `QueueStore` 的分工，控制器不碰資料層）聽它、
+  經 `PlayHistoryRepository.record` 寫進 `play_history`，保留筆數每次寫入時讀「播放」設定。一次「開始一首」在
+  第一次出聲（`MarkReady` 且在播）時算一筆，之後同一次開始裡不再算：
+  - 算：換歌（下一首、上一首、跳到、播完往下、移除正在播的那首）、臨時播放、前瞻接上（交接當下算）、單曲循環的每一圈
+    （前瞻接上與 `RepeatTrack` 兩條路）、暫停中換到的歌（按播放、出聲時才算）。
+  - 不算：同一次開始裡的重試、重新解析、換候選；啟動恢復後的第一次播放（含恢復後先臨時播放、再按播放那次）；臨時播放
+    結束回到佇列那首（`_beginTrack(countsAsPlay: false)`）；「上一首」在播超過 3 秒回到開頭（是 seek）；暫停後繼續、
+    seek；輸出裝置失敗後按播放；一直沒出聲就換走或失敗的那首（跳過的歌不算）。
+  - 寫入失敗只經 `log.report`（tag `play-history`）記下，不提示、不影響播放，後面的寫入照常（一筆一筆依序）。
+  閘門：`playback_controller_test.dart` 的 `play history counting` 群組（`counts`、`does not count`、`after a
+  restart` 三組，每個算與不算的情況各一例；含 `every lap of loop one by look-ahead…` 與 `…that restarts the song
+  (no look-ahead)`）、`play_history_recorder_test.dart`（順序、保留筆數、`a failed write is reported…`、
+  `nothing is written or reported after dispose`）、
+  `playback_providers_test.dart` 的 `play history`（組裝點接線與設定讀取）。
 - UI 開始播放：搜尋結果點一下是臨時播放；每首的選單（右鍵、長按、尾端「⋯」同一份）有播放
   （＝臨時播放，舊版 TrackAction 也是）、下一首播放、加入佇列，後兩者成功時提示一次（舊版的
   「已加入」）。播放列讀佇列項目的 `TrackInfo`。閘門：`search_page_test.dart` 的
@@ -933,13 +959,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   選項 Opus 優先／AAC 優先，兩者照舊版的預設，見「播放」的網址快取）、記住播放位置（預設開）、
   臨時播放回佇列倒退秒數（預設 10，選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見
   「播放」）、重啟恢復時倒退秒數（預設 0，選項同上，設定頁在「跳過試聽片段」之後；啟動時讀一次，
-  見「播放」的持久化與啟動恢復）、輸出裝置（沒有預設：沒設定過就是系統預設；`setOutputDevice` 兩欄一起寫、一起清，
+  見「播放」的持久化與啟動恢復）、播放歷史保留筆數（預設 10000，選項 1000／5000／10000／50000，設定頁在重啟恢復
+  倒退之後；寫入時依它裁，`setPlayHistoryLimit` 寫完當下依生效的筆數 `trimTo`，所以改小馬上刪，見「播放」）、輸出裝置（沒有預設：沒設定過就是系統預設；`setOutputDevice` 兩欄一起寫、一起清，
   見「播放」；設定列在 PR 17 的播放列）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好的列舉存
   `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
   `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
   （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
   的 v2→v3 兩例、`test/ui/settings/playback_controls_test.dart`（含兩列倒退秒數各寫各的欄位、
-  沒記住位置時兩列都停用）。
+  沒記住位置時兩列都停用、`choosing a play history limit writes only that field`）、`playback_settings_test.dart`
+  的 `lowering the play history limit trims the history right away`。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
   存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
   `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、
@@ -995,16 +1023,29 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
   `ImageCache` 都空、清除失敗）。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗）與設定頁（外觀、播放、網路三組）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：
-  `test/ui/guidelines_test.dart`。
+  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）與設定頁（外觀、播放、網路三組）在窄（400）與寬（1000）視窗
+  通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
+- 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
+  帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
+  曲名、「作者 · 播放時刻」。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的
+  那麼多筆），一萬筆不一次載入；本機資料，離線照常可用、封面讀不到是佔位圖。點一列是臨時播放；選單（右鍵、長按、
+  尾端「⋯」）有播放、下一首播放、加入佇列、從歷史移除：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
+  提示「已清除播放歷史」（只有清除全部有提示；刪除或清除失敗才用 `Toaster.error`）。沒有紀錄是空狀態、清除鈕停用；讀取失敗不是空狀態：`HistoryNotifier` 把錯誤包成 `AppError`、`log.report` 一次（tag `history`，
+  在 notifier 不在 build，重建不重報），頁面以 `EmptyState` 加錯誤圖示顯示 `errorMessage` 的文字（資料庫錯誤是 `errors.unexpected`）。
+  不做舊版的搜尋、統計、排序、多選、日期篩選、折疊。閘門：`test/ui/history/history_page_test.dart`（`grouping by
+  day` 以 `withClock` 固定現在、`playing from the history`、`removing`、`clearing everything`、空狀態、`a failed
+  load shows the error…`、`it works
+  offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、guideline 測試。
 - `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
   在它上面）、medium 與 expanded `NavigationRail`、large 以上常駐 `NavigationDrawer`；都是 Material
-  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。播放列在內容區下方、與內容區同寬，佇列是空的時
-  不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的 `navigation per window class`。
+  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是搜尋｜歷史｜設定（M2 PR 15 加歷史；
+  `ShellDestination` 的順序就是 `IndexedStack` 的順序）。播放列在內容區下方、與內容區同寬，佇列是空的時
+  不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的 `navigation per window class`（含每種元件三個項目、
+  `selecting History shows the history page`）。
 - 外殼量底部被佔住的高度（播放列＋底部導覽列＋安全區）發佈給 `toastBottomInsetProvider`；頁面
   不發佈。閘門：同檔的 `the bottom inset for toasts`、`toast_host_test.dart` 的 `position` 群組
   （含鍵盤：位移是鍵盤高度減 `viewPadding`）。

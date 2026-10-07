@@ -32,6 +32,8 @@
   （`preferredOutputDevice`、`saveOutputDevice`）。控制器不 import `lib/settings/`。
 - 一組的表可以先建好全部欄位（「播放」組，design §3.3）：repository 的 `write`／`clear` 涵蓋
   全部，Notifier 的生效值型別與 setter 只放已經有人用的欄位。
+- 設定值要連帶改別處資料時（播放歷史保留筆數：改小要當下裁），在 Notifier 的 setter 裡寫完設定後呼叫該 repository
+  （`setPlayHistoryLimit` → `PlayHistoryRepository.trimTo`）；資料層本身不 import 設定層。
 - 兩列「倒退秒數」（臨時播放回佇列、重啟恢復）共用設定頁的 `rewindOptions`（選項、「（預設）」標示、
   記住播放位置關著時停用）；新的同類欄位照它加，不另寫一份。重啟恢復的倒退在啟動時讀一次
   （`QueueStore.attach` 的 `restartSettings`，組裝點等資料庫的值讀出來再給），改設定不影響已經恢復的佇列。
