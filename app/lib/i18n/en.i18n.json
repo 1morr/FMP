@@ -8,7 +8,14 @@
     "settings": "Settings",
     "searchTooltip": "Search (Ctrl+F)",
     "settingsTooltip": "Settings (Ctrl+,)",
-    "history": "History"
+    "history": "History",
+    "panelTitle": "Now playing",
+    "panelEmpty": "Nothing is playing",
+    "panelCollapseTooltip": "Collapse the now playing panel",
+    "panelShowTooltip": "Show the now playing panel",
+    "panelHideTooltip": "Hide the now playing panel",
+    "panelMenuItem": "Now playing panel",
+    "panelResizeTooltip": "Drag or press ←/→ to resize"
   },
   "search": {
     "hint": "Search songs",

@@ -7,26 +7,36 @@ import 'package:fmp/domain/player_tab.dart';
 /// 依裝置記住的版面狀態（design §3.4）。欄位為 `null` 表示沒記過。
 @immutable
 final class LayoutState {
-  const LayoutState({this.playerTab});
+  const LayoutState({this.playerTab, this.panelExpanded, this.panelWidth});
 
   static const empty = LayoutState();
 
   /// 播放頁右欄上次選的分頁。
   final PlayerTab? playerTab;
 
+  /// 右側「正在播放」面板是否展開；沒記過是 `null`（呼叫端當作展開）。
+  final bool? panelExpanded;
+
+  /// 右側面板的寬度（dp）；沒記過是 `null`。這是記住的值，畫面上的寬度依視窗夾取。
+  final double? panelWidth;
+
   @override
   bool operator ==(Object other) =>
-      other is LayoutState && other.playerTab == playerTab;
+      other is LayoutState &&
+      other.playerTab == playerTab &&
+      other.panelExpanded == panelExpanded &&
+      other.panelWidth == panelWidth;
 
   @override
-  int get hashCode => playerTab.hashCode;
+  int get hashCode => Object.hash(playerTab, panelExpanded, panelWidth);
 
   @override
-  String toString() => 'LayoutState(playerTab: $playerTab)';
+  String toString() =>
+      'LayoutState(playerTab: $playerTab, panelExpanded: $panelExpanded, '
+      'panelWidth: $panelWidth)';
 }
 
-/// `layout_state` 單列表的存取。表上另有面板展開與寬度兩欄（M2 PR 19 用），
-/// 這裡先只讀寫有人用的分頁。
+/// `layout_state` 單列表的存取：播放頁的分頁與右側面板的展開、寬度。
 final class LayoutStateRepository {
   LayoutStateRepository(this._database);
 
@@ -46,15 +56,26 @@ final class LayoutStateRepository {
   Stream<LayoutState> watch() => _row.watchSingleOrNull().map(_fromRow);
 
   /// 只寫入有給的欄位；沒給（`null`）的維持原值。
-  Future<void> write({PlayerTab? playerTab}) => _database
+  Future<void> write({
+    PlayerTab? playerTab,
+    bool? panelExpanded,
+    double? panelWidth,
+  }) => _database
       .into(_database.layoutStateTable)
       .insertOnConflictUpdate(
         LayoutStateTableCompanion(
           id: const Value(_rowId),
           playerTab: Value.absentIfNull(playerTab),
+          panelExpanded: Value.absentIfNull(panelExpanded),
+          panelWidth: Value.absentIfNull(panelWidth),
         ),
       );
 
-  static LayoutState _fromRow(LayoutStateRow? row) =>
-      row == null ? LayoutState.empty : LayoutState(playerTab: row.playerTab);
+  static LayoutState _fromRow(LayoutStateRow? row) => row == null
+      ? LayoutState.empty
+      : LayoutState(
+          playerTab: row.playerTab,
+          panelExpanded: row.panelExpanded,
+          panelWidth: row.panelWidth,
+        );
 }

@@ -38,7 +38,8 @@
     "10-07-player-bar",
     "10-07-player-page",
     "10-07-queue-tab",
-    "10-07-smtc"
+    "10-07-smtc",
+    "10-08-now-playing-panel"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

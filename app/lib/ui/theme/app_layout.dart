@@ -44,4 +44,17 @@ abstract final class AppLayout {
 
   /// 詳細分頁（與之後的右側面板）封面的邊長上限。
   static const double trackDetailsArtworkMax = 240;
+
+  /// 右側「正在播放」面板（design §9.4）的寬度：預設（extraLarge 較寬）、下限，與上限占
+  /// 視窗寬度的比例。上限低於下限時以下限為準。拖曳把手的可操作寬度與鍵盤一次調的量。
+  static const double panelDefaultWidth = 412;
+  static const double panelDefaultWidthExtraLarge = 480;
+  static const double panelMinWidth = 320;
+  static const double panelMaxFraction = 0.4;
+
+  /// 面板寬度的絕對上限：等於 `layout_state.panel_width` 的 CHECK（資料庫只收 <= 1600）。
+  /// 視窗超過 4000 時 40% 會超過它，不夾的話寫入會失敗。
+  static const double panelMaxWidth = 1600;
+  static const double panelHandleWidth = 8;
+  static const double panelKeyboardStep = 16;
 }

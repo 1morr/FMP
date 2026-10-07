@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-01-m2-full-playback/design.md", "reason": "Sections 9.4 now-playing panel, 9.2 player bar tiers and content width, 3.4 layout_state, 9.3 PR 18a decisions (more-menu panel toggle), 9.5 shortcuts, 9.6 focus regions"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Decision 3 panel at >= 840 (U7), decision 1 glass only on the player page, window classes, how to confirm (guidelines, goldens)"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Shell, player bar, tokens, goldens, guideline tests, i18n, tooltip-only names"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Repositories and stored format tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Widget tests, gestures, goldens, integration tests"}

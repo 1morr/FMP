@@ -85,7 +85,7 @@ void main() {
 
     testWidgets('selecting a destination switches the page', (tester) async {
       final h = ShellHarness();
-      await h.pumpShell(tester);
+      await h.pumpShell(tester, collapsePanel: true);
       expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
 
       await tester.tap(find.text('Settings'));
@@ -524,7 +524,7 @@ void main() {
       tester,
     ) async {
       final h = ShellHarness();
-      await h.pumpShell(tester);
+      await h.pumpShell(tester, collapsePanel: true);
       await tester.tap(find.byType(TextField));
       await tester.pump();
 

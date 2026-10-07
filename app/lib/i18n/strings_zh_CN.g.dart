@@ -122,6 +122,20 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   String get settingsTooltip => '设置（Ctrl+,）';
   @override
   String get history => '历史';
+  @override
+  String get panelTitle => '正在播放';
+  @override
+  String get panelEmpty => '没有正在播放的歌曲';
+  @override
+  String get panelCollapseTooltip => '收起正在播放面板';
+  @override
+  String get panelShowTooltip => '显示正在播放面板';
+  @override
+  String get panelHideTooltip => '隐藏正在播放面板';
+  @override
+  String get panelMenuItem => '正在播放面板';
+  @override
+  String get panelResizeTooltip => '拖动或按 ←／→ 调整宽度';
 }
 
 // Path: search

@@ -6,24 +6,26 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
 
-// ADR 0024 §如何確認：播放列三段寬度的 golden，只守版面結構（控制項的位置、
-// 曲名與進度條的排法），文字畫成色塊（test/flutter_test_config.dart）。更新：
-// `flutter test --update-goldens test/ui/player/player_bar_golden_test.dart`。
+// 右側「正在播放」面板在外殼右側的位置（M2 PR 19）：頁面區、把手、面板並排，播放列在
+// 三者下方橫跨。只守版面結構，文字畫成色塊（test/flutter_test_config.dart）。更新：
+// `flutter test --update-goldens test/ui/shell/now_playing_panel_golden_test.dart`。
+// 導覽欄與頁面不在這裡（要整個外殼的資料）：頁面區用一塊實色代替。
 
-/// 播放中、在 1:05 的一首，只有寬度不同。
-Widget _bar(double width, {bool panelToggle = false}) {
+Widget _shell(double width, double height) {
   return SizedBox(
     width: width,
-    height: 120,
+    height: height,
     child: ProviderScope(
       overrides: [
         translationsProvider.overrideWithValue(AppLocale.zhTw.buildSync()),
@@ -39,7 +41,7 @@ Widget _bar(double width, {bool panelToggle = false}) {
           ),
         ),
         playbackStateProvider.overrideWithValue(const AsyncData(Playing())),
-        // 音量 70%、平台能選輸出裝置（Windows）；沒有真的控制器。
+        playbackPreviewProvider.overrideWithValue(const AsyncData(false)),
         playbackVolumeProvider.overrideWithValue(
           const AsyncData((volume: 0.7, muted: false)),
         ),
@@ -47,8 +49,6 @@ Widget _bar(double width, {bool panelToggle = false}) {
           const AsyncData((devices: <OutputDevice>[], selected: null)),
         ),
         outputDeviceSelectionProvider.overrideWithValue(true),
-        // 右側面板展開（整個視窗 >= 840 時播放列有開關面板的鈕）。
-        panelExpandedProvider.overrideWithValue(true),
         playbackProgressProvider.overrideWithValue(
           const AsyncData(
             PlaybackProgress(
@@ -57,6 +57,9 @@ Widget _bar(double width, {bool panelToggle = false}) {
             ),
           ),
         ),
+        panelExpandedProvider.overrideWithValue(true),
+        panelStoredWidthProvider.overrideWithValue(null),
+        pluginNameProvider.overrideWith((ref, pluginId) => 'Test Source'),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -68,9 +71,34 @@ Widget _bar(double width, {bool panelToggle = false}) {
         locale: flutterLocaleOf(LocaleSetting.zhTw),
         supportedLocales: supportedFlutterLocales,
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: Align(
-          alignment: Alignment.bottomCenter,
-          child: WindowClassScope(child: PlayerBar(panelToggle: panelToggle)),
+        // 面板用視窗寬度夾取：視窗就是這個盒子，不是 golden 的畫布。
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(size: Size(width, height)),
+          child: child!,
+        ),
+        home: WindowClassScope(
+          child: Scaffold(
+            body: Column(
+              children: [
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Builder(
+                          builder: (context) => ColoredBox(
+                            color: Theme.of(context).colorScheme.surface,
+                          ),
+                        ),
+                      ),
+                      const NowPlayingPanelSide(),
+                    ],
+                  ),
+                ),
+                const WindowClassScope(child: PlayerBar(panelToggle: true)),
+              ],
+            ),
+          ),
         ),
       ),
     ),
@@ -78,18 +106,15 @@ Widget _bar(double width, {bool panelToggle = false}) {
 }
 
 void main() {
-  // 一個寬度一個檔、不用 GoldenTestScenario：它的名稱標籤由 alchemist 自己
-  // 排版，寬度在 Windows 與 Linux 差一個像素（色塊的邊），我們的元件則逐像素
-  // 相同（2026-09-30 以 Flutter 3.47.5 在兩個平台比對）。
-  for (final (name, width) in [
-    ('compact', 360.0),
-    ('medium', 720.0),
-    ('expanded', 1000.0),
+  // 一個寬度一個 goldenTest、不用 GoldenTestScenario（理由見 player_bar_golden_test.dart）。
+  for (final (name, width, height) in [
+    ('expanded', 1000.0, 520.0),
+    ('extra_large', 1800.0, 520.0),
   ]) {
     goldenTest(
-      'the player bar, $name ($width wide)',
-      fileName: 'player_bar_$name',
-      builder: () => _bar(width, panelToggle: name == 'expanded'),
+      'the now playing panel, $name ($width wide)',
+      fileName: 'now_playing_panel_$name',
+      builder: () => _shell(width, height),
     );
   }
 }

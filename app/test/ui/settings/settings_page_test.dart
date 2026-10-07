@@ -10,7 +10,8 @@ import '../support/shell_harness.dart';
 void main() {
   Future<ShellHarness> openSettings(WidgetTester tester, double width) async {
     final h = ShellHarness();
-    await h.pumpShell(tester, size: Size(width, 800));
+    // 面板收起：這裡測的是設定頁在內容區寬度下的版面。
+    await h.pumpShell(tester, size: Size(width, 800), collapsePanel: true);
     await tester.tap(find.text('Settings').first);
     await h.loadSettings(tester);
     return h;

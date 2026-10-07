@@ -279,7 +279,7 @@ void main() {
     tester,
   ) async {
     final h = ShellHarness();
-    await h.pumpShell(tester);
+    await h.pumpShell(tester, collapsePanel: true);
     await tester.tap(find.text('Settings').first);
     await h.loadSettings(tester);
     await tester.tap(find.text('Playback'));

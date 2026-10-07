@@ -124,9 +124,10 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 
 規則與閘門見 `app/AGENTS.md` § 資料層；design §3.4。
 
-- 單列表，欄位全可空（沒記過）。repository 目前只有 `playerTab`；PR 19 接面板時在 `LayoutState` 與 `write` 加
-  `panelExpanded`、`panelWidth`（表已有欄位，不必升 schema）。
-- 不屬於任何設定組：不進 `settings/`、不進備份。UI 經 `layoutStateProvider`（`lib/ui/player/player_page.dart`）讀。
+- 單列表，欄位全可空（沒記過）。`LayoutState` 有 `playerTab`、`panelExpanded`、`panelWidth`，`write` 的參數也是這三個，
+  沒給（`null`）的不動。
+- 不屬於任何設定組：不進 `settings/`、不進備份。UI 經 `layoutStateProvider`（`lib/ui/layout/layout_state.dart`）讀，
+  面板的寫入走同檔的 `rememberPanel`。
 - 測試：`layout_state_repository_test.dart`；migration 的 `expectLayoutStateRules` 同時檢查單列 CHECK 與寬度上限。
 
 ## 快取庫（`lib/data/cache/`）

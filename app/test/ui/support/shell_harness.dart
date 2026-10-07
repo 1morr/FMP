@@ -207,11 +207,25 @@ final class ShellHarness {
   ];
 
   /// 以 [size] 的視窗開 App 的外殼（和 `FmpApp` 同一份 `MaterialApp` 設定）。
+  ///
+  /// 視窗 >= 840 時外殼右側有「正在播放」面板，內容區因此變窄；測的是頁面本身的版面時給
+  /// [collapsePanel]，就像使用者收起了面板。
   Future<void> pumpShell(
     WidgetTester tester, {
     Size size = const Size(1000, 700),
     Brightness brightness = Brightness.light,
-  }) => pumpApp(tester, const AppShell(), size: size, brightness: brightness);
+    bool collapsePanel = false,
+  }) async {
+    await pumpApp(tester, const AppShell(), size: size, brightness: brightness);
+    if (!collapsePanel) return;
+    await tester.runAsync(
+      () =>
+          container(tester)
+              .read(layoutStateRepositoryProvider)
+              .write(panelExpanded: false),
+    );
+    await loadSettings(tester);
+  }
 
   /// 以 [size] 的視窗、App 的 `MaterialApp` 設定與 `ToastHost` 開 [home]。
   Future<void> pumpApp(

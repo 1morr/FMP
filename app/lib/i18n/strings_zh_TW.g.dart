@@ -106,6 +106,27 @@ class Translations$shell$zh_TW {
 
   /// zh-TW: '歷史'
   String get history => '歷史';
+
+  /// zh-TW: '正在播放'
+  String get panelTitle => '正在播放';
+
+  /// zh-TW: '沒有正在播放的歌'
+  String get panelEmpty => '沒有正在播放的歌';
+
+  /// zh-TW: '收起正在播放面板'
+  String get panelCollapseTooltip => '收起正在播放面板';
+
+  /// zh-TW: '顯示正在播放面板'
+  String get panelShowTooltip => '顯示正在播放面板';
+
+  /// zh-TW: '隱藏正在播放面板'
+  String get panelHideTooltip => '隱藏正在播放面板';
+
+  /// zh-TW: '正在播放面板'
+  String get panelMenuItem => '正在播放面板';
+
+  /// zh-TW: '拖曳或按 ←／→ 調整寬度'
+  String get panelResizeTooltip => '拖曳或按 ←／→ 調整寬度';
 }
 
 // Path: search

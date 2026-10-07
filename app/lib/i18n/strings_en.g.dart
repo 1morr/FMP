@@ -115,6 +115,20 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   String get settingsTooltip => 'Settings (Ctrl+,)';
   @override
   String get history => 'History';
+  @override
+  String get panelTitle => 'Now playing';
+  @override
+  String get panelEmpty => 'Nothing is playing';
+  @override
+  String get panelCollapseTooltip => 'Collapse the now playing panel';
+  @override
+  String get panelShowTooltip => 'Show the now playing panel';
+  @override
+  String get panelHideTooltip => 'Hide the now playing panel';
+  @override
+  String get panelMenuItem => 'Now playing panel';
+  @override
+  String get panelResizeTooltip => 'Drag or press ←/→ to resize';
 }
 
 // Path: search
