@@ -63,11 +63,24 @@ foreach ($session in $sessions) {
     $controls = $info.Controls
 
     $title = ''
-    try { $title = (Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])).Title }
+    $artist = ''
+    $thumbnail = ''
+    try {
+        $properties = Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+        $title = $properties.Title
+        $artist = $properties.Artist
+        # Only whether Windows got a thumbnail at all; it downloads it itself.
+        $thumbnail = if ($null -eq $properties.Thumbnail) { 'none' } else { 'present' }
+    }
     catch { $title = '<unavailable>' }
+    $timeline = $session.GetTimelineProperties()
 
     Write-Output ("APP={0}" -f $session.SourceAppUserModelId)
     Write-Output ("  TITLE={0}" -f $title)
+    Write-Output ("  ARTIST={0}" -f $artist)
+    Write-Output ("  THUMBNAIL={0}" -f $thumbnail)
+    Write-Output ("  POSITION={0:N1}s END={1:N1}s UPDATED={2:o}" -f `
+        $timeline.Position.TotalSeconds, $timeline.EndTime.TotalSeconds, $timeline.LastUpdatedTime)
     Write-Output ("  STATUS={0}" -f $info.PlaybackStatus)
     Write-Output ("  IsNextEnabled={0}" -f $controls.IsNextEnabled)
     Write-Output ("  IsPreviousEnabled={0}" -f $controls.IsPreviousEnabled)
