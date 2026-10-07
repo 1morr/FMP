@@ -1,6 +1,7 @@
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -37,6 +38,14 @@ Widget _bar(double width) {
           ),
         ),
         playbackStateProvider.overrideWithValue(const AsyncData(Playing())),
+        // 音量 70%、平台能選輸出裝置（Windows）；沒有真的控制器。
+        playbackVolumeProvider.overrideWithValue(
+          const AsyncData((volume: 0.7, muted: false)),
+        ),
+        playbackOutputDevicesProvider.overrideWithValue(
+          const AsyncData((devices: <OutputDevice>[], selected: null)),
+        ),
+        outputDeviceSelectionProvider.overrideWithValue(true),
         playbackProgressProvider.overrideWithValue(
           const AsyncData(
             PlaybackProgress(

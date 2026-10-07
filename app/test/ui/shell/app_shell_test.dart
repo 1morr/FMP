@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -11,12 +15,16 @@ import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/fake_audio_backend.dart';
 import '../../playback/fake_source_plugin.dart';
 import '../support/shell_harness.dart';
+
+const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
 
 void main() {
   group('navigation per window class (ADR 0024 §決定 3)', () {
@@ -243,6 +251,226 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await tester.pump(const Duration(milliseconds: 60));
       expect(position(h, tester), lessThan(forward));
+    });
+
+    Future<void> chord(
+      WidgetTester tester,
+      LogicalKeyboardKey key, {
+      LogicalKeyboardKey modifier = LogicalKeyboardKey.controlLeft,
+    }) async {
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(modifier);
+      await tester.pump();
+    }
+
+    // 啟動恢復後還沒播：Shift+←／→ 移動的是恢復的起點（和拖進度條一樣）。先臨時
+    // 播放再回到佇列時，以恢復的位置為準，不是臨時曲目最後的進度。
+    testWidgets('Shift+arrows move the restored start, also after a temporary '
+        'play', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      h.controller.restore(
+        tracks: [summary('a').toTrackInfo()],
+        currentIndex: 0,
+        loopMode: LoopMode.off,
+        shuffle: false,
+        position: const Duration(seconds: 83),
+        volume: 1,
+        muted: false,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await chord(
+        tester,
+        LogicalKeyboardKey.arrowRight,
+        modifier: LogicalKeyboardKey.shiftLeft,
+      );
+      expect(h.controller.restoredPosition, const Duration(seconds: 88));
+
+      unawaited(h.controller.playTemporary(summary('b').toTrackInfo()));
+      await tester.pump(const Duration(seconds: 2));
+      unawaited(h.controller.next());
+      await tester.pump();
+      await tester.pump();
+      expect(h.controller.state, isA<Idle>());
+
+      await chord(
+        tester,
+        LogicalKeyboardKey.arrowLeft,
+        modifier: LogicalKeyboardKey.shiftLeft,
+      );
+      expect(h.controller.restoredPosition, const Duration(seconds: 83));
+      expect(find.text('1:23'), findsOneWidget);
+    });
+
+    testWidgets('Ctrl+Up and Ctrl+Down change the volume by 5%, clamped', (
+      tester,
+    ) async {
+      final h = await playing(tester);
+      expect(h.controller.volume, 1);
+
+      await chord(tester, LogicalKeyboardKey.arrowDown);
+      expect(h.controller.volume, 0.95);
+      await chord(tester, LogicalKeyboardKey.arrowDown);
+      expect(h.controller.volume, 0.9);
+      await chord(tester, LogicalKeyboardKey.arrowUp);
+      await chord(tester, LogicalKeyboardKey.arrowUp);
+      await chord(tester, LogicalKeyboardKey.arrowUp);
+      expect(h.controller.volume, 1, reason: 'clamped at 100%');
+
+      await h.controller.setVolume(0.02);
+      await chord(tester, LogicalKeyboardKey.arrowDown);
+      expect(h.controller.volume, 0, reason: 'clamped at 0');
+      expect(h.controller.muted, isFalse, reason: '0 is not mute');
+    });
+
+    testWidgets('Ctrl+Up while muted unmutes and adjusts', (tester) async {
+      final h = await playing(tester);
+      await h.controller.setVolume(0.5);
+      await h.controller.toggleMute();
+      expect(h.controller.muted, isTrue);
+
+      await chord(tester, LogicalKeyboardKey.arrowUp);
+      expect(h.controller.muted, isFalse);
+      expect(h.controller.volume, 0.55);
+    });
+
+    testWidgets('Ctrl+S switches shuffle and Ctrl+R cycles the loop mode', (
+      tester,
+    ) async {
+      final h = await playing(tester);
+
+      await chord(tester, LogicalKeyboardKey.keyS);
+      expect(h.controller.queue.shuffleEnabled, isTrue);
+      await chord(tester, LogicalKeyboardKey.keyS);
+      expect(h.controller.queue.shuffleEnabled, isFalse);
+
+      for (final mode in [LoopMode.all, LoopMode.one, LoopMode.off]) {
+        await chord(tester, LogicalKeyboardKey.keyR);
+        expect(h.controller.queue.loopMode, mode);
+      }
+    });
+
+    // 輸入框裡的規則：導覽類（Esc、F6、Ctrl+F、Ctrl+,）有效，其餘讓給輸入框。
+    testWidgets('in the search field Ctrl+S, Ctrl+R and Ctrl+Up stay with the '
+        'field; Esc leaves it', (tester) async {
+      final h = await playing(tester);
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      final field = tester
+          .widget<EditableText>(find.byType(EditableText))
+          .focusNode;
+      expect(field.hasPrimaryFocus, isTrue);
+
+      await chord(tester, LogicalKeyboardKey.keyS);
+      await chord(tester, LogicalKeyboardKey.keyR);
+      await chord(tester, LogicalKeyboardKey.arrowUp);
+      await chord(tester, LogicalKeyboardKey.arrowDown);
+      expect(h.controller.queue.shuffleEnabled, isFalse);
+      expect(h.controller.queue.loopMode, LoopMode.off);
+      expect(h.controller.volume, 1);
+      expect(field.hasPrimaryFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(field.hasFocus, isFalse, reason: 'Esc leaves the field');
+      expect(h.controller.state, isA<Playing>());
+
+      // 離開之後，同樣的鍵又是播放的快捷鍵。
+      await chord(tester, LogicalKeyboardKey.keyS);
+      expect(h.controller.queue.shuffleEnabled, isTrue);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+    testWidgets('Esc outside an input does nothing to playback', (
+      tester,
+    ) async {
+      final h = await playing(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(h.controller.state, isA<Playing>());
+      expect(find.byType(AppShell), findsOneWidget);
+    });
+
+    // 對話框是另一個 route，焦點在它裡面：播放快捷鍵照 M1 不作用，Esc 由 Flutter
+    // 內建的對話框行為關閉它。
+    testWidgets('with a dialog open playback shortcuts do nothing and Esc '
+        'closes the dialog', (tester) async {
+      final h = await playing(tester);
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.byType(AppShell)),
+          builder: (_) => const AlertDialog(title: Text('A dialog')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('A dialog'), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.keyS);
+      await chord(tester, LogicalKeyboardKey.keyR);
+      await chord(tester, LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(h.controller.queue.shuffleEnabled, isFalse);
+      expect(h.controller.queue.loopMode, LoopMode.off);
+      expect(h.controller.volume, 1);
+      expect(h.controller.state, isA<Playing>());
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('A dialog'), findsNothing);
+    });
+
+    // 彈出的選單是 overlay，不是 route：以滑鼠打開的也要能以 Esc 關掉，焦點剛在
+    // 搜尋框裡也一樣（外殼的 Esc 只在輸入框裡作用）。
+    for (final (width, opener, item) in [
+      (1000.0, 'Output device', 'System default'),
+      (720.0, 'More', 'Shuffle'),
+      (720.0, 'Volume (Ctrl+↑/↓)', null),
+    ]) {
+      testWidgets('Esc closes the "$opener" menu at $width', (tester) async {
+        final h = ShellHarness(
+          outputDeviceSelection: true,
+          outputDevices: FakeOutputDevices(const [_speakers]),
+        );
+        await h.pumpShell(tester, size: Size(width, 700));
+        await h.play(tester, [summary('a')]);
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(find.byType(TextField));
+        await tester.pump();
+
+        Finder opened() => item == null
+            ? find.byTooltip('Mute')
+            : find.widgetWithText(MenuItemButton, item);
+        await tester.tap(find.byTooltip(opener));
+        await tester.pump();
+        expect(
+          item == null ? opened() : find.text(item),
+          findsWidgets,
+          reason: 'the menu is open',
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        expect(
+          item == null ? opened() : find.text(item),
+          findsNothing,
+          reason: 'Esc closes it',
+        );
+        expect(h.controller.state, isA<Playing>());
+      });
+    }
+
+    testWidgets('the shortcuts are in the tooltips', (tester) async {
+      await playing(tester);
+
+      expect(find.byTooltip('Shuffle (Ctrl+S)'), findsOneWidget);
+      expect(find.byTooltip('Repeat: off (Ctrl+R)'), findsOneWidget);
+      expect(find.byTooltip('Previous (Ctrl+←)'), findsOneWidget);
+      expect(find.byTooltip('Next (Ctrl+→)'), findsOneWidget);
+      expect(find.byTooltip('Pause (Space)'), findsOneWidget);
     });
 
     testWidgets('Ctrl+F goes to search and focuses the field', (tester) async {
@@ -480,9 +708,15 @@ void main() {
       );
     });
 
-    // design §7.5：輸出裝置失敗暫停並提示，不跳過。
-    testWidgets('a failed output device says playback paused', (tester) async {
-      final h = ShellHarness();
+    // design §7.5：輸出裝置失敗暫停並提示，不跳過。失敗的本來就是系統預設（沒有
+    // 選過裝置）時沒有可以改用的，提示照 PR 13 說已暫停，不說改用系統預設。
+    testWidgets('a failed system default output says playback paused', (
+      tester,
+    ) async {
+      final h = ShellHarness(
+        outputDeviceSelection: true,
+        outputDevices: FakeOutputDevices(const [_speakers]),
+      );
       await h.pumpShell(tester);
 
       await h.play(tester, [summary('a'), summary('b')]);
@@ -497,6 +731,54 @@ void main() {
         find.text('The audio output device is unavailable; playback paused'),
         findsOneWidget,
       );
+      expect(
+        find.textContaining('switched to the system default'),
+        findsNothing,
+      );
+    });
+
+    // 擁有者 2026-10-07：選過的裝置失敗時暫停、這次改用系統預設並提示，偏好不清掉。
+    testWidgets('a failed output device falls back to the system default', (
+      tester,
+    ) async {
+      final devices = FakeOutputDevices(const [_speakers]);
+      final h = ShellHarness(
+        outputDeviceSelection: true,
+        outputDevices: devices,
+      );
+      await h.pumpShell(tester);
+      await tester.runAsync(() => h.controller.selectOutputDevice(_speakers));
+      await h.loadSettings(tester);
+      expect(h.controller.outputDeviceState.selected, _speakers);
+
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 100));
+      h.backend.failOutputDevice();
+      await tester.pump();
+      await tester.pump();
+
+      expect(h.controller.state, isA<Paused>());
+      expect(h.controller.queue.current?.sourceId, 'a');
+      expect(
+        find.text(
+          'The audio output device is unavailable; '
+          'switched to the system default',
+        ),
+        findsOneWidget,
+      );
+      expect(devices.selections, [_speakers, null]);
+      expect(h.controller.outputDeviceState.selected, isNull);
+      // 記住的偏好還在。
+      final preferences = await tester.runAsync(
+        () => h.container(tester).read(playbackPreferencesProvider.future),
+      );
+      expect(preferences!.outputDevice, _speakers);
+
+      // 按播放：從原位置繼續，不再選回失敗的裝置。
+      await tester.tap(find.byTooltip('Play (Space)'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(h.controller.state, isA<Playing>());
+      expect(devices.selections, [_speakers, null]);
     });
 
     testWidgets('waiting for the network shows no toast', (tester) async {

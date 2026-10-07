@@ -316,6 +316,28 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   String previewPlaying({required Object title}) => '「${title}」只有试听片段';
   @override
   String get outputDeviceFailed => '音频输出设备无法使用，已暂停播放';
+  @override
+  String get outputDeviceFellBack => '音频输出设备无法使用，已改用系统默认';
+  @override
+  String get shuffleTooltip => '随机播放（Ctrl+S）';
+  @override
+  String get loopOffTooltip => '循环：关闭（Ctrl+R）';
+  @override
+  String get loopAllTooltip => '循环：全部（Ctrl+R）';
+  @override
+  String get loopOneTooltip => '循环：单曲（Ctrl+R）';
+  @override
+  String get volume => '音量';
+  @override
+  String get volumeTooltip => '音量（Ctrl+↑／↓）';
+  @override
+  String get mute => '静音';
+  @override
+  String get unmute => '取消静音';
+  @override
+  String get outputDevice => '输出设备';
+  @override
+  String get systemDefault => '系统默认';
 }
 
 // Path: appearance

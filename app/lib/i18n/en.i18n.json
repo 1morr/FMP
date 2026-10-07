@@ -87,7 +87,18 @@
     "cannotPlay": "Can't play \"{title}\": {reason}",
     "stoppedAfterFailures": "{count} songs in a row could not be played; playback stopped",
     "previewPlaying": "Only a preview of \"{title}\" is available",
-    "outputDeviceFailed": "The audio output device is unavailable; playback paused"
+    "outputDeviceFailed": "The audio output device is unavailable; playback paused",
+    "outputDeviceFellBack": "The audio output device is unavailable; switched to the system default",
+    "shuffleTooltip": "Shuffle (Ctrl+S)",
+    "loopOffTooltip": "Repeat: off (Ctrl+R)",
+    "loopAllTooltip": "Repeat: all (Ctrl+R)",
+    "loopOneTooltip": "Repeat: one (Ctrl+R)",
+    "volume": "Volume",
+    "volumeTooltip": "Volume (Ctrl+↑/↓)",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "outputDevice": "Output device",
+    "systemDefault": "System default"
   },
   "appearance": {
     "theme": "Theme",

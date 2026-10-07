@@ -105,6 +105,33 @@ void main() {
     }
   });
 
+  // ADR 0024 §決定 8：有快捷鍵的按鈕，tooltip 附上按鍵（三語言都要）。按鍵是固定
+  // 的，寫在 `playback_shortcuts.dart` 的表裡，改那邊要一起改這些字串。
+  group('tooltips carry the shortcut', () {
+    const keys = {
+      'player.playTooltip': ['Space', '空白鍵', '空格键'],
+      'player.pauseTooltip': ['Space', '空白鍵', '空格键'],
+      'player.previousTooltip': ['Ctrl+←'],
+      'player.nextTooltip': ['Ctrl+→'],
+      'player.shuffleTooltip': ['Ctrl+S'],
+      'player.loopOffTooltip': ['Ctrl+R'],
+      'player.loopAllTooltip': ['Ctrl+R'],
+      'player.loopOneTooltip': ['Ctrl+R'],
+      'player.volumeTooltip': ['Ctrl+↑'],
+    };
+    for (final MapEntry(key: locale, value: strings) in catalog.entries) {
+      test('in $locale', () {
+        for (final MapEntry(key: name, value: hints) in keys.entries) {
+          expect(
+            hints.any(strings[name]!.contains),
+            isTrue,
+            reason: '$locale $name: ${strings[name]}',
+          );
+        }
+      });
+    }
+  });
+
   group('mutations', () {
     Catalog mutate(
       String locale,

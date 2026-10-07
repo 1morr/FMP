@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/playback/playback_controller.dart' show OutputDeviceState;
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -18,16 +20,19 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 /// 播放列（ADR 0024 §決定 5）：封面、曲名、上傳者、播放控制與可拖動的進度條。
 /// 佇列是空的時候不佔位置。
 ///
-/// 控制項依它所在的寬度（最近的 `WindowClassScope`）分三段，只放已經有的功能：
+/// 控制項依它所在的寬度（最近的 `WindowClassScope`）分三段：
 ///
 /// - compact（< 600）：播放、下一首；
-/// - medium（600–839）：上一首、播放、下一首、「⋯」（隨機、循環；ADR 的音量
-///   圖示與輸出裝置在 M2 PR 13）；
-/// - expanded 以上：隨機、上一首、播放、下一首、循環，控制與進度條置中，右側
-///   留給 PR 13 的輸出裝置與音量。
+/// - medium（600–839）：上一首、播放、下一首、音量圖示（點開彈出式滑桿，裡面也能
+///   靜音）、「⋯」（隨機、循環、輸出裝置）；
+/// - expanded 以上：隨機、上一首、播放、下一首、循環，控制與進度條置中；右側是
+///   輸出裝置、靜音鈕與音量滑桿。輸出裝置只在平台宣告能選時（Windows）有。
 ///
 /// 曲名至少約 160dp（ADR 0024 §決定 5）。曲名、上傳者、封面是佇列項目的
 /// `TrackInfo`；狀態都來自 `PlaybackController`。點空白處開播放頁在 M2 PR 18a。
+///
+/// 只有圖示的按鈕以 tooltip（附按鍵）當名稱，不另外給 `Icon.semanticLabel`：兩個都給
+/// 輔助技術會念成「X. X」。
 ///
 /// 曲名下面那一行在「重試中」「等待網路連線」「試聽」時先寫狀態再接上傳者，
 /// 三種寬度都在曲名欄裡，不另外佔位置。
@@ -74,14 +79,14 @@ class PlayerBar extends ConsumerWidget {
     );
     final previous = IconButton(
       tooltip: t.previousTooltip,
-      icon: Icon(Icons.skip_previous, semanticLabel: t.previous),
+      icon: const Icon(Icons.skip_previous),
       // 第一首時回到這首開頭，所以一直可以按。
       onPressed: () =>
           unawaited(ref.read(playbackControllerProvider).previous()),
     );
     final next = IconButton(
       tooltip: t.nextTooltip,
-      icon: Icon(Icons.skip_next, semanticLabel: t.next),
+      icon: const Icon(Icons.skip_next),
       onPressed: queue.hasNext
           ? () => unawaited(ref.read(playbackControllerProvider).next())
           : null,
@@ -90,6 +95,7 @@ class PlayerBar extends ConsumerWidget {
     final shuffle = _ShuffleButton(enabled: queue.shuffleEnabled);
     final loop = _LoopButton(mode: queue.loopMode);
     const progress = _ProgressRow();
+    final selectsDevice = ref.watch(outputDeviceSelectionProvider);
 
     return Material(
       color: theme.colorScheme.surfaceContainer,
@@ -122,7 +128,8 @@ class PlayerBar extends ConsumerWidget {
                   previous,
                   playPause,
                   next,
-                  _MoreMenu(queue: queue),
+                  const _VolumeMenu(),
+                  _MoreMenu(queue: queue, selectsDevice: selectsDevice),
                 ],
               ),
             ],
@@ -146,7 +153,23 @@ class PlayerBar extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Spacer(flex: 3),
+              Expanded(
+                flex: 3,
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (selectsDevice) const _OutputDeviceButton(),
+                      const _MuteButton(),
+                      const SizedBox(
+                        width: AppLayout.volumeSliderWidth,
+                        child: _VolumeSlider(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         },
@@ -226,9 +249,9 @@ class _ShuffleButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
-      tooltip: t.shuffle,
+      tooltip: t.shuffleTooltip,
       isSelected: enabled,
-      icon: Icon(Icons.shuffle, semanticLabel: t.shuffle),
+      icon: const Icon(Icons.shuffle),
       onPressed: () =>
           ref.read(playbackControllerProvider).setShuffle(!enabled),
     );
@@ -243,11 +266,11 @@ class _LoopButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final label = loopLabel(ref.watch(translationsProvider), mode);
+    final t = ref.watch(translationsProvider).player;
     return IconButton(
-      tooltip: label,
+      tooltip: loopTooltip(t, mode),
       isSelected: mode != LoopMode.off,
-      icon: Icon(loopIcon(mode), semanticLabel: label),
+      icon: Icon(loopIcon(mode)),
       onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
     );
   }
@@ -259,24 +282,38 @@ IconData loopIcon(LoopMode mode) => switch (mode) {
   LoopMode.one => Icons.repeat_one,
 };
 
-/// 循環模式的名稱（tooltip 與語意標籤）。
+/// 循環模式的 tooltip：名稱附按鍵 Ctrl+R（同時是按鈕的語意名稱）。
+String loopTooltip(Translations$player$zh_TW t, LoopMode mode) =>
+    switch (mode) {
+      LoopMode.off => t.loopOffTooltip,
+      LoopMode.all => t.loopAllTooltip,
+      LoopMode.one => t.loopOneTooltip,
+    };
+
+/// 循環模式的名稱（選單項目）。
 String loopLabel(Translations t, LoopMode mode) => switch (mode) {
   LoopMode.off => t.player.loopOff,
   LoopMode.all => t.player.loopAll,
   LoopMode.one => t.player.loopOne,
 };
 
-/// medium 寬度的「⋯」：隨機與循環（ADR 0024 §決定 5）。
+/// medium 寬度的「⋯」：隨機、循環與（能選時的）輸出裝置（ADR 0024 §決定 5）。
 class _MoreMenu extends ConsumerWidget {
-  const _MoreMenu({required this.queue});
+  const _MoreMenu({required this.queue, required this.selectsDevice});
 
   final QueueState queue;
+  final bool selectsDevice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final translations = ref.watch(translationsProvider);
     final t = translations.player;
-    return MenuAnchor(
+    final devices = selectsDevice
+        ? ref.watch(playbackOutputDevicesProvider).value
+        : null;
+    return _IconMenu(
+      tooltip: t.more,
+      icon: const Icon(Icons.more_horiz),
       menuChildren: [
         CheckboxMenuButton(
           value: queue.shuffleEnabled,
@@ -290,12 +327,209 @@ class _MoreMenu extends ConsumerWidget {
           onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
           child: Text(loopLabel(translations, queue.loopMode)),
         ),
+        if (selectsDevice)
+          SubmenuButton(
+            leadingIcon: const Icon(Icons.speaker),
+            menuChildren: _deviceItems(
+              t,
+              devices ?? (devices: const [], selected: null),
+              (device) => unawaited(
+                ref.read(playbackControllerProvider).selectOutputDevice(device),
+              ),
+            ),
+            child: Text(t.outputDevice),
+          ),
       ],
-      builder: (context, menu, _) => IconButton(
-        tooltip: t.more,
-        icon: Icon(Icons.more_horiz, semanticLabel: t.more),
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+    );
+  }
+}
+
+/// 以一個圖示鈕打開的選單。按鈕與 `MenuAnchor` 共用一個 `FocusNode`
+/// （`childFocusNode`，Flutter `MenuAnchor` 文件的寫法）：選單打開時焦點移到
+/// 按鈕、在選單的快捷鍵之內，以滑鼠打開的也能以 Esc 關掉、以方向鍵進入選單。
+/// 沒有它的話焦點留在外殼，Esc 到不了選單。
+class _IconMenu extends StatefulWidget {
+  const _IconMenu({
+    required this.tooltip,
+    required this.icon,
+    required this.menuChildren,
+    this.isSelected,
+  });
+
+  final String tooltip;
+  final Widget icon;
+  final List<Widget> menuChildren;
+  final bool? isSelected;
+
+  @override
+  State<_IconMenu> createState() => _IconMenuState();
+}
+
+class _IconMenuState extends State<_IconMenu> {
+  final _button = FocusNode(debugLabel: 'menu button');
+
+  @override
+  void dispose() {
+    _button.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MenuAnchor(
+    childFocusNode: _button,
+    menuChildren: widget.menuChildren,
+    builder: (context, menu, _) => IconButton(
+      focusNode: _button,
+      tooltip: widget.tooltip,
+      isSelected: widget.isSelected,
+      icon: widget.icon,
+      onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+    ),
+  );
+}
+
+/// 輸出裝置選單的項目：「系統預設」與後端列出的裝置，目前的打勾。選了就交給
+/// 控制器（它也記成偏好）。
+List<Widget> _deviceItems(
+  Translations$player$zh_TW t,
+  OutputDeviceState state,
+  void Function(OutputDevice? device) select,
+) {
+  Widget item(String label, OutputDevice? device) {
+    final selected = state.selected == device;
+    return Semantics(
+      selected: selected,
+      child: MenuItemButton(
+        leadingIcon: Visibility.maintain(
+          visible: selected,
+          child: const Icon(Icons.check),
+        ),
+        onPressed: () => select(device),
+        child: Text(label),
       ),
+    );
+  }
+
+  return [
+    item(t.systemDefault, null),
+    for (final device in state.devices) item(device.name, device),
+  ];
+}
+
+/// 輸出裝置鈕（expanded 以上，平台能選時）。
+class _OutputDeviceButton extends ConsumerWidget {
+  const _OutputDeviceButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).player;
+    final state =
+        ref.watch(playbackOutputDevicesProvider).value ??
+        (devices: const <OutputDevice>[], selected: null);
+    return _IconMenu(
+      tooltip: t.outputDevice,
+      isSelected: state.selected != null,
+      icon: const Icon(Icons.speaker),
+      menuChildren: _deviceItems(
+        t,
+        state,
+        (device) => unawaited(
+          ref.read(playbackControllerProvider).selectOutputDevice(device),
+        ),
+      ),
+    );
+  }
+}
+
+/// 音量圖示：靜音或 0 是 off，未滿一半是 down。
+IconData volumeIcon(double volume, {required bool muted}) => switch (volume) {
+  _ when muted || volume <= 0 => Icons.volume_off,
+  < 0.5 => Icons.volume_down,
+  _ => Icons.volume_up,
+};
+
+/// 靜音鈕：切換靜音，圖示反映靜音與音量大小。
+class _MuteButton extends ConsumerWidget {
+  const _MuteButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).player;
+    final state =
+        ref.watch(playbackVolumeProvider).value ?? (volume: 1.0, muted: false);
+    return IconButton(
+      tooltip: state.muted ? t.unmute : t.mute,
+      icon: Icon(volumeIcon(state.volume, muted: state.muted)),
+      onPressed: () =>
+          unawaited(ref.read(playbackControllerProvider).toggleMute()),
+    );
+  }
+}
+
+/// 音量滑桿（0–100%）：拖曳時即時套用，`setVolume` 同時取消靜音；音量拖到 0 不算
+/// 靜音（靜音與音量分開記）。
+class _VolumeSlider extends ConsumerStatefulWidget {
+  const _VolumeSlider({this.autofocus = false});
+
+  /// 彈出的選單裡一開就拿焦點：Esc 才由選單接去關閉。
+  final bool autofocus;
+
+  @override
+  ConsumerState<_VolumeSlider> createState() => _VolumeSliderState();
+}
+
+class _VolumeSliderState extends ConsumerState<_VolumeSlider> {
+  /// 拖動中的值（0–100）；沒在拖是 `null`，免得跟 stream 的更新差一拍。
+  double? _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider).player;
+    final volume = ref.watch(playbackVolumeProvider).value?.volume ?? 1.0;
+    final value = (_dragging ?? volume * 100).clamp(0.0, 100.0);
+    return Semantics(
+      label: t.volume,
+      child: Slider(
+        autofocus: widget.autofocus,
+        value: value,
+        max: 100,
+        semanticFormatterCallback: (value) => '${value.round()}%',
+        onChanged: (value) {
+          setState(() => _dragging = value);
+          unawaited(
+            ref.read(playbackControllerProvider).setVolume(value / 100),
+          );
+        },
+        onChangeEnd: (_) => setState(() => _dragging = null),
+      ),
+    );
+  }
+}
+
+/// medium 寬度的音量圖示：點開彈出式滑桿，裡面也能切靜音。
+class _VolumeMenu extends ConsumerWidget {
+  const _VolumeMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).player;
+    final state =
+        ref.watch(playbackVolumeProvider).value ?? (volume: 1.0, muted: false);
+    return _IconMenu(
+      tooltip: t.volumeTooltip,
+      icon: Icon(volumeIcon(state.volume, muted: state.muted)),
+      menuChildren: const [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _MuteButton(),
+            SizedBox(
+              width: AppLayout.volumeSliderWidth,
+              child: _VolumeSlider(autofocus: true),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -329,10 +563,7 @@ class _PlayPauseButton extends ConsumerWidget {
                 color: Theme.of(context).colorScheme.onPrimary,
               ),
             )
-          : Icon(
-              wantsSound ? Icons.pause : Icons.play_arrow,
-              semanticLabel: wantsSound ? t.pause : t.play,
-            ),
+          : Icon(wantsSound ? Icons.pause : Icons.play_arrow),
     );
   }
 }
@@ -354,14 +585,25 @@ class _ProgressRowState extends ConsumerState<_ProgressRow> {
     final t = ref.watch(translationsProvider).player;
     final theme = Theme.of(context);
     final progress = ref.watch(playbackProgressProvider).value;
-    final duration = progress?.duration;
+    final current = ref.watch(playbackQueueProvider).value?.current;
+    final idle =
+        (ref.watch(playbackStateProvider).value ?? const Idle()) is Idle;
+    // `Idle` 時沒有來源，進度 stream 留著上一個來源最後的回報（臨時播放、清空之
+    // 前的歌），不是這首。按播放從哪裡開始就顯示哪裡：啟動恢復後還沒播（含先臨時
+    // 播放、結束後停著）是恢復的位置，拖動就是改起點（沒有來源時控制器的 seek 改
+    // 的是它）；其他從頭開始，不能拖。時長是曲目的。
+    if (idle) ref.watch(playbackSeeksProvider);
+    final restored = idle
+        ? ref.read(playbackControllerProvider).restoredPosition
+        : null;
+    final duration = idle ? current?.duration : progress?.duration;
+    final startsAt = idle
+        ? restored ?? Duration.zero
+        : progress?.position ?? Duration.zero;
     final max = duration?.inMilliseconds.toDouble() ?? 0;
-    final seekable = max > 0;
+    final seekable = max > 0 && (!idle || restored != null);
     final position = seekable
-        ? (_dragging ?? progress!.position.inMilliseconds.toDouble()).clamp(
-            0.0,
-            max,
-          )
+        ? (_dragging ?? startsAt.inMilliseconds.toDouble()).clamp(0.0, max)
         : 0.0;
     final timeStyle = theme.textTheme.labelSmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,

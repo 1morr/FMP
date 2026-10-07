@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
@@ -61,6 +62,21 @@ void main() {
       expect(h.plugin.searches, isEmpty);
       expect(find.text('Type a keyword to search'), findsOneWidget);
     });
+  });
+
+  // tooltip 是「⋯」唯一的名稱：Icon 再給 semanticLabel 會念成「More. More」。
+  testWidgets('the more button is named once, by its tooltip', (tester) async {
+    final handle = tester.ensureSemantics();
+    final h = ShellHarness();
+    await h.pumpShell(tester);
+    await search(tester, 'song');
+
+    final node = tester.getSemantics(
+      find.widgetWithIcon(IconButton, Icons.more_vert).first,
+    );
+    expect(node.tooltip, 'More options');
+    expect(node.label, isEmpty);
+    handle.dispose();
   });
 
   testWidgets('results show artwork, title, uploader and duration', (
@@ -263,6 +279,22 @@ void main() {
     List<String> queued(ShellHarness h) => [
       for (final entry in h.controller.queue.entries) entry.track.sourceId,
     ];
+
+    // 選單是 overlay：以滑鼠或點按打開的也要能以 Esc 關掉（design §9.5）。
+    testWidgets('Esc closes the menu opened from "⋯"', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      await tester.tap(moreOf('Song a'));
+      await tester.pump();
+      expect(find.text('Play next'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.text('Play next'), findsNothing);
+      expect(h.controller.queue.entries, isEmpty);
+    });
 
     testWidgets('tapping a result plays it on its own (temporary play)', (
       tester,

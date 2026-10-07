@@ -314,6 +314,29 @@ class Translations$player$en extends Translations$player$zh_TW {
   @override
   String get outputDeviceFailed =>
       'The audio output device is unavailable; playback paused';
+  @override
+  String get outputDeviceFellBack =>
+      'The audio output device is unavailable; switched to the system default';
+  @override
+  String get shuffleTooltip => 'Shuffle (Ctrl+S)';
+  @override
+  String get loopOffTooltip => 'Repeat: off (Ctrl+R)';
+  @override
+  String get loopAllTooltip => 'Repeat: all (Ctrl+R)';
+  @override
+  String get loopOneTooltip => 'Repeat: one (Ctrl+R)';
+  @override
+  String get volume => 'Volume';
+  @override
+  String get volumeTooltip => 'Volume (Ctrl+↑/↓)';
+  @override
+  String get mute => 'Mute';
+  @override
+  String get unmute => 'Unmute';
+  @override
+  String get outputDevice => 'Output device';
+  @override
+  String get systemDefault => 'System default';
 }
 
 // Path: appearance

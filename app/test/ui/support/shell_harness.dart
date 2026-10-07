@@ -57,7 +57,13 @@ final class ShellHarness {
     FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
     List<SourcePlugin>? sources,
     this.cacheStore,
-  }) : plugin = FakeSourcePlugin(
+    FakeOutputDevices? outputDevices,
+    this.outputDeviceSelection = false,
+  }) : backend = FakeAudioBackend(
+         durationOf: (_) => const Duration(minutes: 3),
+         outputDevices: outputDevices,
+       ),
+       plugin = FakeSourcePlugin(
          (request) => [candidate('${request.sourceId}.m4a')],
          name: 'Test Source',
          onSearch:
@@ -105,10 +111,12 @@ final class ShellHarness {
   final FakeSourcePlugin plugin;
   late final List<SourcePlugin> sources;
 
+  /// 平台宣告能選輸出裝置（Windows）；播放列的輸出裝置入口依它出現。後端的裝置
+  /// 清單另由 `outputDevices` 給。
+  final bool outputDeviceSelection;
+
   /// 曲目長 3 分鐘：測試期間不會自己播完。
-  final backend = FakeAudioBackend(
-    durationOf: (_) => const Duration(minutes: 3),
-  );
+  final FakeAudioBackend backend;
   final log = Log(redactor: Redactor(), minimumLevel: LogLevel.warning);
   late final PlaybackController controller;
   late final Toaster toaster;
@@ -118,8 +126,10 @@ final class ShellHarness {
   late bool Function() _readSkipPreviewClips;
   late StreamPreferences Function() _readStreamPreferences;
   late NetworkStatus Function() _readNetworkStatus;
-  late Future<String?> Function() _readPreferredOutputDevice;
-  late Future<void> Function(OutputDevice? device) _saveOutputDevice;
+  // 裝置清單一建好就讀記住的裝置：可能早於 provider 把它們接上（清單在後端建構時就
+  // 已就緒），所以有預設值。
+  Future<String?> Function() _readPreferredOutputDevice = () async => null;
+  Future<void> Function(OutputDevice? device) _saveOutputDevice = (_) async {};
   final _networkChanges = StreamController<NetworkStatus>.broadcast();
   final interfaces = FakeNetworkInterfaces();
 
@@ -131,13 +141,19 @@ final class ShellHarness {
     networkInterfacesProvider.overrideWithValue(interfaces),
     // 「網路」設定的預設上限讀平台宣告：128 MiB。
     platformCapabilitiesProvider.overrideWithValue(
-      const PlatformCapabilities(
+      PlatformCapabilities(
         dataDirectory: true,
         singleInstance: false,
         fontFallback: FontFallback.none,
-        playback: null,
+        playback: outputDeviceSelection
+            ? const PlaybackSupport(
+                backend: AudioBackendKind.mediaKit,
+                formats: [PlayableFormat('mp4', 'aac')],
+                outputDeviceSelection: true,
+              )
+            : null,
         networkInterfaces: false,
-        cache: CacheSizes(
+        cache: const CacheSizes(
           defaultLimitMebibytes: 128,
           memoryImages: 1,
           memoryImageMebibytes: 1,

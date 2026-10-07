@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +8,6 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
-import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/history/history_page.dart';
@@ -18,6 +15,7 @@ import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
+import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -40,7 +38,7 @@ enum ShellDestination { search, history, settings }
 /// 內容區頂端是全域離線提示（`OfflineBanner`，ADR 0016 §決定 7），換頁時
 /// 留著。
 ///
-/// 三區各是一個 `FocusScope`：Tab 只在區內循環，F6 換區（`shell_shortcuts.dart`）。
+/// 三區各是一個 `FocusScope`：Tab 只在區內循環，F6 換區（`shell_shortcuts.dart`；播放類快捷鍵在 `playback_shortcuts.dart`）。
 /// 底部被外殼佔住的高度（播放列、底部導覽列、安全區）量出來發佈給
 /// `toastBottomInsetProvider`，提示浮在它們上面（ADR 0023 §決定 2）。
 class AppShell extends ConsumerStatefulWidget {
@@ -87,27 +85,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
   }
 
-  // ---- 快捷鍵 ---------------------------------------------------------------
-
-  void _playPause() {
-    final controller = ref.read(playbackControllerProvider);
-    switch (controller.state) {
-      case Playing() || Loading() || Buffering() || Retrying():
-        unawaited(controller.pause());
-      case Idle() || Paused() || Failed():
-        unawaited(controller.play());
-    }
-  }
-
-  void _seekBy(Duration offset) {
-    final progress = ref.read(playbackProgressProvider).value;
-    if (progress == null) return;
-    var target = progress.position + offset;
-    if (target.isNegative) target = Duration.zero;
-    final duration = progress.duration;
-    if (duration != null && target > duration) target = duration;
-    unawaited(ref.read(playbackControllerProvider).seek(target));
-  }
+  // ---- 快捷鍵（播放類在 PlaybackShortcuts）-----------------------------------
 
   /// F6：從焦點所在的區往下一區，跳過不在畫面上或沒有可聚焦項目的區。焦點
   /// 不在任何一區時從導覽開始。
@@ -184,9 +162,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           toaster.warning(t.stoppedAfterFailures(count: failedInARow));
         case PreviewPlaying(:final track):
           toaster.info(t.previewPlaying(title: track.title));
-        // 已經暫停（不跳過）；原因（mpv 的那一行）已由播放模組寫進 log。
-        case OutputDeviceFailed():
-          toaster.warning(t.outputDeviceFailed);
+        // 已經暫停（不跳過）；原因（mpv 的那一行）已由播放模組寫進 log。選過的
+        // 裝置失敗時已改用系統預設；失敗的本來就是系統預設時只說已暫停。
+        case OutputDeviceFailed(:final fellBack):
+          toaster.warning(
+            fellBack ? t.outputDeviceFellBack : t.outputDeviceFailed,
+          );
       }
     }
   }
@@ -348,46 +329,45 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (didPop || _settingsBack.release()) return;
         _select(ShellDestination.values.first);
       },
-      child: Shortcuts(
-        shortcuts: shellShortcuts,
-        child: Actions(
-          actions: {
-            PlayPauseIntent: TextInputAwareAction<PlayPauseIntent>(
-              onInvoke: (_) => _playPause(),
-            ),
-            PreviousTrackIntent: TextInputAwareAction<PreviousTrackIntent>(
-              onInvoke: (_) =>
-                  unawaited(ref.read(playbackControllerProvider).previous()),
-            ),
-            NextTrackIntent: TextInputAwareAction<NextTrackIntent>(
-              onInvoke: (_) =>
-                  unawaited(ref.read(playbackControllerProvider).next()),
-            ),
-            SeekByIntent: TextInputAwareAction<SeekByIntent>(
-              onInvoke: (intent) => _seekBy(intent.offset),
-            ),
-            FocusSearchIntent: CallbackAction<FocusSearchIntent>(
-              onInvoke: (_) => _selectAndFocus(
-                ShellDestination.search,
-                _searchField.requestFocus,
+      child: PlaybackShortcuts(
+        child: Shortcuts(
+          shortcuts: navigationShortcuts,
+          child: Actions(
+            actions: {
+              FocusSearchIntent: CallbackAction<FocusSearchIntent>(
+                onInvoke: (_) => _selectAndFocus(
+                  ShellDestination.search,
+                  _searchField.requestFocus,
+                ),
               ),
-            ),
-            OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
-              onInvoke: (_) => _selectAndFocus(
-                ShellDestination.settings,
-                () => _focusInto(_content),
+              OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
+                onInvoke: (_) => _selectAndFocus(
+                  ShellDestination.settings,
+                  () => _focusInto(_content),
+                ),
               ),
-            ),
-            NextRegionIntent: CallbackAction<NextRegionIntent>(
-              onInvoke: (_) => _nextRegion(),
-            ),
-          },
-          // 一開始就有焦點在外殼裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
-          child: Focus(autofocus: true, skipTraversal: true, child: body),
+              NextRegionIntent: CallbackAction<NextRegionIntent>(
+                onInvoke: (_) => _nextRegion(),
+              ),
+              LeaveTextInputIntent: _LeaveTextInputAction(),
+            },
+            // 一開始就有焦點在外殼裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
+            child: Focus(autofocus: true, skipTraversal: true, child: body),
+          ),
         ),
       ),
     );
   }
+}
+
+/// Esc：焦點在輸入框時離開它；沒有在輸入框就不處理（讓按鍵往上走）。
+final class _LeaveTextInputAction extends Action<LeaveTextInputIntent> {
+  @override
+  bool isEnabled(LeaveTextInputIntent intent) => focusInTextInput();
+
+  @override
+  void invoke(LeaveTextInputIntent intent) =>
+      FocusManager.instance.primaryFocus?.unfocus();
 }
 
 /// large 以上的常駐導覽抽屜。M3 的 standard drawer：和內容並排、沒有遮罩，

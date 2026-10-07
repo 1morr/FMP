@@ -7,6 +7,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
@@ -17,6 +18,7 @@ import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../playback/fake_audio_backend.dart';
 import '../support/memory_database.dart';
 import 'support/shell_harness.dart';
 
@@ -320,6 +322,36 @@ void main() {
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.byType(NetworkControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // 播放列的音量與輸出裝置（design §9.2）：expanded 的靜音鈕與滑桿、輸出裝置鈕，
+      // medium 的音量圖示開出的彈出式滑桿。
+      for (final (name, size) in const [
+        ('expanded', Size(1000, 700)),
+        ('medium', Size(800, 700)),
+      ]) {
+        testWidgets('the player bar volume and output device, $name', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            outputDeviceSelection: true,
+            outputDevices: FakeOutputDevices(const [
+              OutputDevice(id: 'wasapi/{a}', name: 'Speakers'),
+            ]),
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.play(tester, [summary('a')]);
+          await tester.pump(const Duration(milliseconds: 200));
+          if (name == 'medium') {
+            await tester.tap(find.byTooltip('Volume (Ctrl+↑/↓)'));
+            await tester.pump();
+            expect(find.byTooltip('Mute'), findsOneWidget);
+          }
 
           await expectGuidelines(tester);
           handle.dispose();

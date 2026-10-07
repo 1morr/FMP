@@ -226,6 +226,16 @@ class _TrackTileState extends ConsumerState<_TrackTile> {
   /// 「⋯」的位置，選單從它下方開。
   final _moreKey = GlobalKey();
 
+  /// 「⋯」的焦點，也是選單的 `childFocusNode`：選單打開時焦點移到這裡（選單的
+  /// 快捷鍵之內），以滑鼠、右鍵或長按打開的也能以 Esc 關掉、以方向鍵進入選單。
+  final _moreFocus = FocusNode(debugLabel: 'more');
+
+  @override
+  void dispose() {
+    _moreFocus.dispose();
+    super.dispose();
+  }
+
   void _play() => unawaited(
     ref.read(playbackControllerProvider).playTemporary(widget.track),
   );
@@ -269,6 +279,7 @@ class _TrackTileState extends ConsumerState<_TrackTile> {
     final duration = track.duration;
     return MenuAnchor(
       controller: _menu,
+      childFocusNode: _moreFocus,
       menuChildren: [
         MenuItemButton(
           leadingIcon: const Icon(Icons.play_arrow),
@@ -311,8 +322,9 @@ class _TrackTileState extends ConsumerState<_TrackTile> {
               if (duration != null) Text(formatDuration(duration)),
               IconButton(
                 key: _moreKey,
+                focusNode: _moreFocus,
                 tooltip: t.more,
-                icon: Icon(Icons.more_vert, semanticLabel: t.more),
+                icon: const Icon(Icons.more_vert),
                 onPressed: _openMenu,
               ),
             ],

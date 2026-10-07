@@ -15,4 +15,7 @@ abstract final class AppLayout {
 
   /// 播放列上時間文字的最小寬度：位置在播放中變長變短時，進度條不跟著左右跳。
   static const double playerTimeLabel = 48;
+
+  /// 播放列上音量滑桿的寬度（expanded 以上在靜音鈕旁，medium 在彈出的選單裡）。
+  static const double volumeSliderWidth = 112;
 }
