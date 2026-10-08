@@ -156,6 +156,7 @@ final class ShellHarness {
       PlatformCapabilities(
         dataDirectory: true,
         singleInstance: false,
+        secureStorage: false,
         fontFallback: FontFallback.none,
         playback: outputDeviceSelection
             ? const PlaybackSupport(

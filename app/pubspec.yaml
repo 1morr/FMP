@@ -58,6 +58,9 @@ dependencies:
   # 快取庫與媒體 client，只准在 lib/data/cache/ import（fmp_layer_imports）。
   # 它帶進 sqflite（Android 原生庫）；App 不用它的預設索引。
   flutter_cache_manager: ^3.4.5
+  # 憑證存放（ADR 0012 §決定 3、ADR 0029 §決定 5）；只准在 lib/platform/ import
+  # （fmp_layer_imports）。
+  flutter_secure_storage: ^11.2.0
   # 必須等於 smtc_windows 的 rust/Cargo.toml 釘的版本（目前 =2.11.1）：套件的
   # pubspec 寫 ^2.11.1，Dart 端會解析到較新的版本，執行時 SMTC 初始化就失敗。
   # 升級 smtc_windows 時一起改（閘門 test/platform/smtc_bridge_version_test.dart）。

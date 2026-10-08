@@ -7,7 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/network_log.dart';
+import 'package:fmp/domain/account.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/runtime/worker_protocol.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
 import '../../support/fake_http_adapter.dart';
@@ -285,12 +288,144 @@ export function hashes() {
       ]);
     });
 
-    test('credentials are empty in M1', () async {
-      final runtime = await PluginHarness().runtime('''
+    group('credentials', () {
+      const read = '''
 export async function credentials() { return fmp.credentials.get(); }
+''';
+
+      Account account(
+        String id, [
+        AccountStatus status = AccountStatus.active,
+      ]) => Account(
+        pluginId: id,
+        userId: 'u',
+        displayName: 'Someone',
+        status: status,
+        loggedInAt: DateTime.utc(2026, 10, 9),
+      );
+
+      test('are null before a login', () async {
+        final runtime = await PluginHarness().runtime(read);
+
+        expect(await runtime.invoke('credentials', null), isNull);
+      });
+
+      test(
+        'are the plugin\'s own FmpLoginCredentials once logged in',
+        () async {
+          final harness = PluginHarness();
+          await harness.install('plugin-b');
+          await harness.credentials.save(
+            account('plugin-a'),
+            const LoginCredentials(
+              cookies: {'SESSDATA': 'FAKE_SESSDATA_A'},
+              extra: {'refresh_token': 'FAKE_REFRESH_A'},
+            ),
+          );
+          await harness.credentials.save(
+            account('plugin-b'),
+            const LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA_B'}),
+          );
+          final runtime = await harness.runtime(read);
+
+          expect(await runtime.invoke('credentials', null), {
+            'cookies': {'SESSDATA': 'FAKE_SESSDATA_A'},
+            'extra': {'refresh_token': 'FAKE_REFRESH_A'},
+          });
+        },
+      );
+
+      test('are null once invalidated', () async {
+        final harness = PluginHarness();
+        await harness.credentials.save(
+          account('plugin-a', AccountStatus.invalidated),
+          const LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA_A'}),
+        );
+        final runtime = await harness.runtime(read);
+
+        expect(await runtime.invoke('credentials', null), isNull);
+      });
+    });
+
+    group('http.request with credentials', () {
+      const script = '''
+export async function call(args) {
+  const response = await fmp.http.request({
+    url: 'https://example.test/',
+    auth: args.auth,
+    authHeaders: { 'X-Custom-Auth': 'FAKE_HASH_VALUE_1' },
+  });
+  return response.credentialsAttached;
+}
+''';
+
+      Future<PluginHarness> loggedIn() async {
+        final harness = PluginHarness();
+        await harness.install('plugin-a');
+        await harness.credentials.save(
+          Account(
+            pluginId: 'plugin-a',
+            userId: 'u',
+            displayName: 'Someone',
+            status: AccountStatus.active,
+            loggedInAt: DateTime.utc(2026, 10, 9),
+          ),
+          const LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA_A'}),
+        );
+        return harness;
+      }
+
+      test('authHeaders and credentials only go out when attached', () async {
+        final harness = await loggedIn();
+        final runtime = await harness.runtime(script, installed: false);
+
+        expect(
+          await runtime.invoke('call', {'auth': 'userPreference'}),
+          isTrue,
+        );
+        var sent = harness.adapter.requests.last;
+        expect(sent.headers['cookie'], 'SESSDATA=FAKE_SESSDATA_A');
+        expect(sent.headers['X-Custom-Auth'], 'FAKE_HASH_VALUE_1');
+
+        expect(await runtime.invoke('call', {'auth': 'never'}), isFalse);
+        sent = harness.adapter.requests.last;
+        expect(sent.headers['cookie'], isNull);
+        expect(sent.headers['X-Custom-Auth'], isNull);
+      });
+
+      test('the authHeaders names join the redaction list', () async {
+        final harness = await loggedIn();
+        final runtime = await harness.runtime(script, installed: false);
+        // 名稱不在內建名單裡：用過之後才遮。
+        expect(
+          harness.redactor.redact('x-custom-auth: FAKE_HASH_VALUE_1'),
+          contains('FAKE_HASH_VALUE_1'),
+        );
+
+        await runtime.invoke('call', {'auth': 'userPreference'});
+
+        expect(
+          harness.redactor.redact('x-custom-auth: FAKE_HASH_VALUE_1'),
+          isNot(contains('FAKE_HASH_VALUE_1')),
+        );
+      });
+
+      test('a mistyped authHeaders is a TypeError', () async {
+        final harness = PluginHarness();
+        final runtime = await harness.runtime('''
+export async function call() {
+  try {
+    await fmp.http.request({ url: 'https://example.test/', authHeaders: { a: 1 } });
+    return 'ok';
+  } catch (e) {
+    return e.name;
+  }
+}
 ''');
 
-      expect(await runtime.invoke('credentials', null), isNull);
+        expect(await runtime.invoke('call', null), 'TypeError');
+        expect(harness.adapter.requests, isEmpty);
+      });
     });
 
     test(

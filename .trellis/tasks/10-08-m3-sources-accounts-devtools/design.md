@@ -385,6 +385,7 @@ TrackDetail = {
 - **套件**：`flutter_secure_storage` 11.2.0（ADR 0012 §決定 3 的 11.x，2026-09-16 發佈）。
   - Android：RSA-OAEP 包 AES-GCM 的金鑰（11.x 的預設）。**`AndroidOptions(resetOnError: false)`**：套件預設讀取失敗時清空，違反 ADR 0012「讀取失敗時不刪除」。
   - Windows：值以 AES-GCM 加密存在 application support 目錄的 `.secure` 檔，金鑰在 Credential Manager（`flutter_secure_storage_windows` 4.2.2 的 README）。所以沒有 Credential Manager 單筆約 2.5 KB 的限制，YouTube 的整組 cookie 放得下。
+    - 更正（M3 PR 7）：4.2.2 實際把所有值存在 application support 目錄的單一加密檔 `flutter_secure_storage.dat`（`flutter_secure_storage_windows_ffi.dart` 的 `encryptedJsonFileName`），不是每鍵一個 `.secure` 檔；鍵的字元限制照舊保留（無害）。prod 的 application support 目錄（`com.personal/fmp`）與舊版 App 相同，舊版也用這個套件，同一個檔案。
   - dev 與 prod 分開（ADR 0015 §決定 8）：Android 以 `applicationIdSuffix` 自然分開；Windows 的 application support 目錄依 ProductName 分開。PR 7 實機確認兩個 flavor 的檔案在不同目錄，另以鍵前綴 `fmp-dev.`／`fmp.` 再保險一次（`AndroidOptions.storageNamespace` 為 `fmp-dev`／`fmp`）。
   - **鍵只用檔名安全的字元**（小寫英數、`.`、`-`）：Windows 實作直接以鍵當 `<鍵>.secure` 的檔名，不做跳脫（`flutter_secure_storage_windows` 的 `Write`／`Read`），`:` 在 NTFS 是替代資料流的分隔，`readAll` 也列不到。插件 id 只有小寫英數與 `-`，可以直接放進鍵。
 - **平台層** `lib/platform/secure_storage/`：介面 `SecureStorage { read(key), write(key, value), delete(key), deleteAll() }`（`deleteAll` 只刪自己前綴的鍵，不呼叫套件的全刪），宣告 `PlatformCapabilities.secureStorage`（Android、Windows 真）。`flutter_secure_storage` 只准在平台層（§2.2）。

@@ -18,6 +18,8 @@ import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:integration_test/integration_test.dart';
 
+import '../test/support/credentials.dart';
+
 // flutter_js 的實機量測（M1 phase2-plan §7；PRD 9a 第 8 項）。每個插件在自己的
 // 背景 isolate，所以「建立 runtime」含 isolate 的 spawn。只量，不斷言；
 // 結果以 `FMP_BENCH` 開頭的行印出。測試插件是 dev flavor 的 asset，所以要帶
@@ -79,11 +81,17 @@ void main() {
     final log = Log(redactor: redactor, minimumLevel: LogLevel.info);
     final database = AppDatabase(DatabaseConnection(NativeDatabase.memory()));
     addTearDown(database.close);
+    final credentials = credentialStoreFor(
+      database,
+      redactor: redactor,
+      log: log,
+    );
     final loader = ScriptPluginLoader(
       log: log,
       redactor: redactor,
-      httpClients: SourceHttpClientFactory(log: log),
+      httpClients: SourceHttpClientFactory(log: log, credentials: credentials),
       storage: PluginStorageRepository(database),
+      credentials: credentials,
     );
     final testPlugin = PluginFile.parse(
       await rootBundle.loadString(_testPluginAsset),

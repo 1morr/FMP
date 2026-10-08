@@ -128,6 +128,17 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
   `source_index_url`、`checks_json` 每次安裝都以傳入值覆蓋。
 - `PluginIndexRepository`（`plugin_indexes`）：`add` 用 `insertOrIgnore`，同網址保留最早的加入時間。
 
+## 帳號與每音源設定（`account_repository.dart`）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `accounts`、`source_settings`（schema v8）與 § 帳號。
+
+- 同一個檔案放 `AccountRepository`（`accounts`）與 `SourceSettingsRepository`（`source_settings`）：兩者都以插件 id
+  為鍵，沒有外鍵到 `installed_plugins`，移除插件時由 `PluginInstaller.remove` 明確刪。
+- `AccountRepository.upsert` 是 `insertOnConflictUpdate`（重新登入覆蓋）；`SourceSettingsRepository` 的欄位空＝沒設定過，
+  `setBrowseAsLoggedIn(value: null)` 清回空。
+- `status`、`last_refresh_result` 的字串寫在 `converters.dart`；測試 `account_repository_test.dart` 的 `stored format`
+  直接查表斷言。
+
 ## 版面狀態（`layout_state_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層；design §3.4。

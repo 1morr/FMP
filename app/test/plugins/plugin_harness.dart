@@ -12,12 +12,14 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/runtime/plugin_host.dart';
 import 'package:fmp/plugins/runtime/plugin_runtime.dart';
 import 'package:fmp/plugins/runtime/plugin_worker.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 
+import '../support/credentials.dart';
 import '../support/fake_http_adapter.dart';
 import '../support/memory_database.dart';
 
@@ -58,9 +60,16 @@ final class PluginHarness {
     database = memoryDatabase();
     plugins = PluginRepository(database);
     storage = PluginStorageRepository(database);
+    credentials = credentialStoreFor(
+      database,
+      redactor: redactor,
+      log: log,
+      storage: secureStorage,
+    );
     // 重試的等待立刻完成。
     httpClients = SourceHttpClientFactory(
       log: log,
+      credentials: credentials,
       createAdapter: () => adapter,
       wait: (_) async {},
       random: math.Random(7),
@@ -74,6 +83,7 @@ final class PluginHarness {
       redactor: redactor,
       httpClients: httpClients,
       storage: storage,
+      credentials: credentials,
       callTimeout: callTimeout,
       livenessGrace: livenessGrace,
     );
@@ -87,6 +97,10 @@ final class PluginHarness {
   late final AppDatabase database;
   late final PluginRepository plugins;
   late final PluginStorageRepository storage;
+
+  /// 憑證存放：接在記憶體資料庫與 [secureStorage]。
+  late final CredentialStore credentials;
+  final secureStorage = InMemorySecureStorage();
   late final SourceHttpClientFactory httpClients;
 
   /// 媒體 client 的工廠，和 [httpClients] 用同一個假 adapter。
@@ -109,6 +123,8 @@ final class PluginHarness {
       http: httpClients.create(pluginId: pluginId, allowedHosts: allowedHosts),
       storage: storage,
       log: log,
+      credentials: credentials,
+      redactor: redactor,
     );
     final runtime = await PluginRuntime.start(
       pluginId: pluginId,

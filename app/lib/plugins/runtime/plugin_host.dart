@@ -5,7 +5,9 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/auth.dart';
 import 'package:fmp/core/network/source_http_client.dart';
+import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/json_shape.dart';
 
 /// 宿主 API 的 JSON 形狀，鍵是 `fmp-plugin.d.ts` 裡的 interface 名稱。
@@ -16,9 +18,17 @@ const hostApiShapes = <String, JsonShape>{
     'headers': false,
     'body': false,
     'auth': false,
+    'authHeaders': false,
     'idempotent': false,
   },
-  'HttpResponse': {'status': true, 'url': true, 'headers': true, 'body': true},
+  'FmpLoginCredentials': {'cookies': true, 'extra': false},
+  'HttpResponse': {
+    'status': true,
+    'url': true,
+    'headers': true,
+    'body': true,
+    'credentialsAttached': false,
+  },
 };
 
 /// 一個插件的宿主 API v1（ADR 0014 §決定 5）在主 isolate 的那一半：網路、
@@ -35,12 +45,16 @@ final class PluginHost {
     required this._http,
     required this._storage,
     required this._log,
+    required this._credentials,
+    required this._redactor,
   });
 
   final String pluginId;
   final SourceHttpClient _http;
   final PluginStorageRepository _storage;
   final Log _log;
+  final CredentialStore _credentials;
+  final Redactor _redactor;
 
   /// [close] 時完成：取消還在進行的請求。
   final _closed = Completer<void>();
@@ -51,8 +65,11 @@ final class PluginHost {
     'storage.get' => _storage.read(pluginId, _key(args)),
     'storage.set' => _storageSet(args),
     'storage.delete' => _storage.delete(pluginId, _key(args)),
-    // M1 沒有登入，一律「沒有憑證」；CredentialStore 在 M3（ADR 0012 §決定 3）。
-    'credentials.get' => Future.value(),
+    // 只給 `active` 的憑證：沒登入、暫時讀不到與已失效都是 null（ADR 0012 §決定 5）。
+    'credentials.get' =>
+      _credentials
+          .activeCredentials(pluginId)
+          .then((credentials) => credentials?.toJson()),
     _ => throw ArgumentError.value(op, 'op', 'unknown host function'),
   };
 
@@ -86,6 +103,10 @@ final class PluginHost {
       hostApiShapes['HttpRequest']!,
       path: 'fmp.http.request',
     );
+    final authHeaders = fields.optionalStringMap('authHeaders') ?? const {};
+    // 值是時間相關的雜湊，逐字登記沒有用；header 名稱一律進遮蔽名單（ADR 0028
+    // §決定 2）。
+    _redactor.addRules(headerNames: authHeaders.keys);
     final response = await _http.send(
       SourceRequest(
         Uri.parse(fields.string('url')),
@@ -93,6 +114,7 @@ final class PluginHost {
         headers: fields.optionalStringMap('headers') ?? const {},
         body: fields.optionalString('body'),
         auth: _auth(fields.optionalString('auth')),
+        authHeaders: authHeaders,
         idempotent: fields.optionalBool('idempotent'),
       ),
       abortTrigger: _closed.future,
@@ -102,6 +124,7 @@ final class PluginHost {
       'url': response.url.toString(),
       'headers': response.headers,
       'body': utf8.decode(response.body, allowMalformed: true),
+      'credentialsAttached': response.credentialsAttached,
     };
   }
 

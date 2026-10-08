@@ -78,6 +78,7 @@ void main() {
           PlatformCapabilities(
             dataDirectory: true,
             singleInstance: false,
+            secureStorage: false,
             fontFallback: FontFallback.none,
             playback: const PlaybackSupport(
               backend: AudioBackendKind.justAudio,

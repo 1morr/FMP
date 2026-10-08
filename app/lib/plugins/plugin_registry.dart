@@ -7,6 +7,7 @@ import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_plugin.dart';
@@ -22,6 +23,7 @@ final sourceHttpClientFactoryProvider = Provider<SourceHttpClientFactory>(
   (ref) => SourceHttpClientFactory(
     log: ref.watch(logProvider),
     reportOutcome: ref.watch(networkStatusProvider.notifier).report,
+    credentials: ref.watch(credentialStoreProvider),
     recordIds: ref.watch(networkRecordIdsProvider),
   ),
 );
@@ -42,6 +44,7 @@ final scriptPluginLoaderProvider = Provider<ScriptPluginLoader>(
     redactor: ref.watch(redactorProvider),
     httpClients: ref.watch(sourceHttpClientFactoryProvider),
     storage: ref.watch(pluginStorageRepositoryProvider),
+    credentials: ref.watch(credentialStoreProvider),
   ),
 );
 

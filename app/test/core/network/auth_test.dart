@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/auth.dart';
 
+import '../../support/credentials.dart';
 import '../../support/fake_http_adapter.dart';
 import 'harness.dart';
 
@@ -22,7 +23,37 @@ const _expected = {
   (_State.loggedInOff, AuthRequirement.never): AuthDecision.omit,
 };
 
-const _credential = {'Authorization': 'Bearer FAKE_TOKEN_123'};
+const _sessdata = 'FAKE_SESSDATA_123';
+const _headers = {'X-Session': 'FAKE_SESSION'};
+
+String? _cookie(Harness harness) =>
+    harness.adapter.requests.last.headers['cookie'] as String?;
+
+/// 一個 jar 裡已經有 [seeded] 這些 cookie 的 harness：先對 `/seed/<名稱>` 各打
+/// 一次，回應設 cookie。回傳時 `adapter.requests` 已清空。
+Future<Harness> _harnessWithJar(
+  Map<String, String> seeded, {
+  CredentialSource? credentials,
+}) async {
+  final harness = Harness(
+    (options) => options.uri.path.startsWith('/seed/')
+        ? reply(
+            200,
+            headers: {
+              'Set-Cookie':
+                  '${options.uri.pathSegments.last}='
+                  '${seeded[options.uri.pathSegments.last]}; Path=/',
+            },
+          )
+        : reply(200),
+    credentials: credentials ?? const NoCredentials(),
+  );
+  for (final name in seeded.keys) {
+    await harness.get('https://example.test/seed/$name');
+  }
+  harness.adapter.requests.clear();
+  return harness;
+}
 
 void main() {
   test('the table covers every state and requirement', () {
@@ -52,11 +83,16 @@ void main() {
         final harness = Harness(
           (_) => reply(200),
           credentials: FakeCredentials(
-            headers: state == _State.loggedOut ? null : _credential,
+            cookies: state == _State.loggedOut ? null : {'SESSDATA': _sessdata},
+            headers: _headers,
             browseAsLoggedInValue: state != _State.loggedInOff,
           ),
         );
-        final send = harness.get('https://example.test/a', auth: requirement);
+        final send = harness.get(
+          'https://example.test/a',
+          auth: requirement,
+          authHeaders: {'Authorization': 'FAKE_AUTH_HASH'},
+        );
 
         switch (decision) {
           case AuthDecision.refuse:
@@ -69,17 +105,20 @@ void main() {
             // 不發請求。
             expect(harness.adapter.requests, isEmpty);
           case AuthDecision.attach:
-            await send;
-            expect(
-              harness.adapter.requests.single.headers['authorization'],
-              'Bearer FAKE_TOKEN_123',
-            );
+            final response = await send;
+            final request = harness.adapter.requests.single;
+            expect(request.headers['cookie'], 'SESSDATA=$_sessdata');
+            expect(request.headers['x-session'], 'FAKE_SESSION');
+            expect(request.headers['authorization'], 'FAKE_AUTH_HASH');
+            expect(response.credentialsAttached, isTrue);
           case AuthDecision.omit:
-            await send;
-            expect(
-              harness.adapter.requests.single.headers['authorization'],
-              isNull,
-            );
+            final response = await send;
+            final request = harness.adapter.requests.single;
+            expect(request.headers['cookie'], isNull);
+            expect(request.headers['x-session'], isNull);
+            // authHeaders 只在帶憑證時才出現。
+            expect(request.headers['authorization'], isNull);
+            expect(response.credentialsAttached, isFalse);
         }
         final record = harness.records.single;
         expect(record.fields['credentials'], decision == AuthDecision.attach);
@@ -87,16 +126,196 @@ void main() {
     }
   });
 
-  test('M1 has no credentials: nothing is attached', () async {
+  test('nothing is attached without a credential', () async {
     final harness = Harness((_) => reply(200));
-    await harness.get(
+    final response = await harness.get(
       'https://example.test/a',
       auth: AuthRequirement.userPreference,
     );
-    expect(harness.adapter.requests.single.headers['authorization'], isNull);
+    expect(harness.adapter.requests.single.headers['cookie'], isNull);
+    expect(response.credentialsAttached, isFalse);
     await expectLater(
       harness.get('https://example.test/a', auth: AuthRequirement.required),
       throwsA(isA<AuthRequired>()),
     );
+  });
+
+  group('Cookie merging (ADR 0029 §決定 4)', () {
+    test('the credential wins over the plugin header and the jar', () async {
+      final harness = await _harnessWithJar({
+        'sid': 'FAKE_JAR_SID',
+        'buvid3': 'FAKE_JAR_BUVID',
+      }, credentials: FakeCredentials(cookies: {'sid': _sessdata}));
+
+      await harness.get(
+        'https://example.test/a',
+        headers: {'Cookie': 'sid=FAKE_PLUGIN_SID; pref=FAKE_PREF'},
+        auth: AuthRequirement.userPreference,
+      );
+
+      // 同名：憑證 > 插件 header > jar；不同名的各自保留。
+      expect(
+        _cookie(harness),
+        'sid=$_sessdata; pref=FAKE_PREF; buvid3=FAKE_JAR_BUVID',
+      );
+    });
+
+    test(
+      'the plugin header wins over the jar when nothing is attached',
+      () async {
+        final harness = await _harnessWithJar({
+          'sid': 'FAKE_JAR_SID',
+          'buvid3': 'FAKE_JAR_BUVID',
+        });
+
+        await harness.get(
+          'https://example.test/a',
+          headers: {'Cookie': 'sid=FAKE_PLUGIN_SID'},
+        );
+
+        expect(_cookie(harness), 'sid=FAKE_PLUGIN_SID; buvid3=FAKE_JAR_BUVID');
+      },
+    );
+
+    test('with only the jar, the jar is sent', () async {
+      final harness = await _harnessWithJar({'buvid3': 'FAKE_JAR_BUVID'});
+
+      await harness.get('https://example.test/a');
+
+      expect(_cookie(harness), 'buvid3=FAKE_JAR_BUVID');
+    });
+
+    test('with only the plugin header, it is sent as it is', () async {
+      final harness = Harness((_) => reply(200));
+
+      await harness.get(
+        'https://example.test/a',
+        headers: {'Cookie': 'pref=FAKE_PREF'},
+      );
+
+      expect(_cookie(harness), 'pref=FAKE_PREF');
+    });
+
+    test('credential cookies are added to the plugin header', () async {
+      final harness = Harness(
+        (_) => reply(200),
+        credentials: FakeCredentials(cookies: {'SESSDATA': _sessdata}),
+      );
+
+      await harness.get(
+        'https://example.test/a',
+        headers: {'Cookie': 'buvid3=FAKE_PLUGIN_BUVID'},
+        auth: AuthRequirement.required,
+      );
+
+      expect(_cookie(harness), 'buvid3=FAKE_PLUGIN_BUVID; SESSDATA=$_sessdata');
+    });
+  });
+
+  group('credential cookies never come from the jar', () {
+    // jar 裡先放一個與憑證同名的 cookie（例如非登入請求的回應設的）。
+    const jarValue = 'FAKE_JAR_SESSDATA';
+    const seeded = {'SESSDATA': jarValue, 'buvid3': 'FAKE_JAR_BUVID'};
+
+    for (final (name, requirement, credentials, expected) in [
+      (
+        'attached',
+        AuthRequirement.userPreference,
+        FakeCredentials(cookies: {'SESSDATA': _sessdata}),
+        'SESSDATA=$_sessdata; buvid3=FAKE_JAR_BUVID',
+      ),
+      (
+        'omitted by the switch',
+        AuthRequirement.userPreference,
+        FakeCredentials(
+          cookies: {'SESSDATA': _sessdata},
+          browseAsLoggedInValue: false,
+        ),
+        'buvid3=FAKE_JAR_BUVID',
+      ),
+      (
+        'omitted by auth never after a login',
+        AuthRequirement.never,
+        FakeCredentials(cookies: {'SESSDATA': _sessdata}),
+        'buvid3=FAKE_JAR_BUVID',
+      ),
+      (
+        'invalidated',
+        AuthRequirement.userPreference,
+        FakeCredentials(invalidatedCookies: {'SESSDATA': _sessdata}),
+        'buvid3=FAKE_JAR_BUVID',
+      ),
+    ]) {
+      test(name, () async {
+        final harness = await _harnessWithJar(seeded, credentials: credentials);
+
+        await harness.get('https://example.test/a', auth: requirement);
+
+        expect(_cookie(harness), expected);
+        expect(_cookie(harness), isNot(contains(jarValue)));
+      });
+    }
+
+    test('logged out, the jar is sent as it was', () async {
+      final harness = await _harnessWithJar(seeded);
+
+      await harness.get('https://example.test/a');
+
+      expect(_cookie(harness), 'SESSDATA=$jarValue; buvid3=FAKE_JAR_BUVID');
+    });
+  });
+
+  group('authHeaders', () {
+    test('are dropped when the hop leaves the host', () async {
+      final harness = Harness(
+        (options) => options.uri.path == '/a'
+            ? redirect('https://cdn.example/b')
+            : reply(200),
+        credentials: FakeCredentials(cookies: {'SESSDATA': _sessdata}),
+      );
+
+      await harness.get(
+        'https://example.test/a',
+        auth: AuthRequirement.userPreference,
+        authHeaders: {'X-Hash': 'FAKE_HASH'},
+      );
+
+      final [first, hop] = harness.adapter.requests;
+      expect(first.headers['x-hash'], 'FAKE_HASH');
+      expect(hop.headers['x-hash'], isNull);
+    });
+
+    test('stay on a same-host hop', () async {
+      final harness = Harness(
+        (options) => options.uri.path == '/a' ? redirect('/b') : reply(200),
+        credentials: FakeCredentials(cookies: {'SESSDATA': _sessdata}),
+      );
+
+      await harness.get(
+        'https://example.test/a',
+        auth: AuthRequirement.userPreference,
+        authHeaders: {'X-Hash': 'FAKE_HASH'},
+      );
+
+      expect(harness.adapter.requests.last.headers['x-hash'], 'FAKE_HASH');
+    });
+
+    test('are not sent for an invalidated credential', () async {
+      final harness = Harness(
+        (_) => reply(200),
+        credentials: FakeCredentials(
+          invalidatedCookies: {'SESSDATA': _sessdata},
+        ),
+      );
+
+      final response = await harness.get(
+        'https://example.test/a',
+        auth: AuthRequirement.userPreference,
+        authHeaders: {'X-Hash': 'FAKE_HASH'},
+      );
+
+      expect(harness.adapter.requests.single.headers['x-hash'], isNull);
+      expect(response.credentialsAttached, isFalse);
+    });
   });
 }

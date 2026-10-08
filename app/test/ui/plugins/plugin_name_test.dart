@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/plugins/install/plugin_installer.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
@@ -17,6 +18,7 @@ ProviderContainer _container(PluginHarness harness, AppLocale locale) {
       appDatabaseProvider.overrideWithValue(harness.database),
       logProvider.overrideWithValue(harness.log),
       redactorProvider.overrideWithValue(harness.redactor),
+      credentialStoreProvider.overrideWithValue(harness.credentials),
       sourceHttpClientFactoryProvider.overrideWithValue(harness.httpClients),
       mediaHttpClientFactoryProvider.overrideWithValue(
         harness.mediaHttpClients,

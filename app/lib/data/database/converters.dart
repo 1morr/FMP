@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
@@ -130,6 +131,52 @@ final class PlayerTabConverter extends TypeConverter<PlayerTab, String> {
     PlayerTab.lyrics => 'lyrics',
     PlayerTab.queue => 'queue',
     PlayerTab.details => 'details',
+  };
+}
+
+/// [AccountStatus] ↔ `active`／`invalidated`。
+final class AccountStatusConverter
+    extends TypeConverter<AccountStatus, String> {
+  const AccountStatusConverter();
+
+  @override
+  AccountStatus fromSql(String fromDb) => switch (fromDb) {
+    'active' => AccountStatus.active,
+    'invalidated' => AccountStatus.invalidated,
+    _ => throw FormatException(
+      'Unknown account status in the database',
+      fromDb,
+    ),
+  };
+
+  @override
+  String toSql(AccountStatus value) => switch (value) {
+    AccountStatus.active => 'active',
+    AccountStatus.invalidated => 'invalidated',
+  };
+}
+
+/// [RefreshResult] ↔ `refreshed`／`unchanged`／`failed`。
+final class RefreshResultConverter
+    extends TypeConverter<RefreshResult, String> {
+  const RefreshResultConverter();
+
+  @override
+  RefreshResult fromSql(String fromDb) => switch (fromDb) {
+    'refreshed' => RefreshResult.refreshed,
+    'unchanged' => RefreshResult.unchanged,
+    'failed' => RefreshResult.failed,
+    _ => throw FormatException(
+      'Unknown refresh result in the database',
+      fromDb,
+    ),
+  };
+
+  @override
+  String toSql(RefreshResult value) => switch (value) {
+    RefreshResult.refreshed => 'refreshed',
+    RefreshResult.unchanged => 'unchanged',
+    RefreshResult.failed => 'failed',
   };
 }
 

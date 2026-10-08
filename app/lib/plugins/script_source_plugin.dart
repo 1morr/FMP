@@ -5,6 +5,7 @@ import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/runtime/plugin_host.dart';
@@ -89,6 +90,7 @@ final class ScriptPluginLoader {
     required this._redactor,
     required this._httpClients,
     required this._storage,
+    required this._credentials,
     this._callTimeout = defaultPluginCallTimeout,
     this._livenessGrace = defaultLivenessGrace,
   });
@@ -97,6 +99,7 @@ final class ScriptPluginLoader {
   final Redactor _redactor;
   final SourceHttpClientFactory _httpClients;
   final PluginStorageRepository _storage;
+  final CredentialStore _credentials;
   final Duration _callTimeout;
   final Duration _livenessGrace;
 
@@ -125,6 +128,8 @@ final class ScriptPluginLoader {
       ),
       storage: _storage,
       log: _log,
+      credentials: _credentials,
+      redactor: _redactor,
     );
     final PluginRuntime runtime;
     try {

@@ -2,8 +2,10 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v6（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
-// queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6））。改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
+// Schema v8（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6），M3 加
+// installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8））。
+// 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
 
@@ -255,4 +257,47 @@ class LayoutStateTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {id};
+}
+
+/// 登入過的插件的帳號顯示資訊（ADR 0029 §決定 6）。一列＝一個插件。憑證本身在
+/// secure storage，是否登入只看 `CredentialStore`；啟動時列與憑證不一致就刪掉多的
+/// 那一邊。沒有外鍵到 `installed_plugins`：插件 id 只是字串（design §3.1）。
+@DataClassName('AccountRow')
+class AccountsTable extends Table {
+  @override
+  String get tableName => 'accounts';
+
+  late final pluginId = text()();
+  late final userId = text()();
+  late final displayName = text()();
+
+  /// `Artwork[]` 的 JSON；沒有頭像為空。
+  late final avatarJson = text().nullable()();
+  late final status = text().map(const AccountStatusConverter())();
+  late final loggedInAt = integer().map(const EpochMillisecondsConverter())();
+  late final lastRefreshAt = integer().nullable().map(
+    const EpochMillisecondsConverter(),
+  )();
+  late final lastRefreshResult = text().nullable().map(
+    const RefreshResultConverter(),
+  )();
+
+  @override
+  Set<Column<Object>> get primaryKey => {pluginId};
+}
+
+/// 每音源設定（ADR 0011 §決定 7）。不是設定「組」：以插件 id 讀寫。欄位為空＝
+/// 沒設定過，用 manifest 宣告的預設。登出時保留。
+@DataClassName('SourceSettingsRow')
+class SourceSettingsTable extends Table {
+  @override
+  String get tableName => 'source_settings';
+
+  late final pluginId = text()();
+
+  /// 「以登入身分瀏覽與播放」（ADR 0012 §決定 6）。
+  late final browseAsLoggedIn = boolean().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {pluginId};
 }

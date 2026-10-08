@@ -7,6 +7,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
+import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/repository/plugin_downloader.dart';
@@ -21,6 +22,7 @@ final pluginInstallerProvider = Provider<PluginInstaller>(
         ref.read(pluginRegistryProvider.notifier).register(plugin),
     unregister: (id) =>
         ref.read(pluginRegistryProvider.notifier).unregister(id),
+    removeAccount: ref.read(accountServiceProvider).removePlugin,
     removeCache: (id) async {
       final CacheStore store;
       try {
@@ -59,6 +61,7 @@ final class PluginInstaller {
     required this._repository,
     required this._register,
     required this._unregister,
+    required this._removeAccount,
     required this._removeCache,
     this._now = DateTime.now,
   });
@@ -67,6 +70,7 @@ final class PluginInstaller {
   final PluginRepository _repository;
   final Future<void> Function(SourcePlugin plugin) _register;
   final Future<void> Function(String pluginId) _unregister;
+  final Future<void> Function(String pluginId) _removeAccount;
   final Future<void> Function(String pluginId) _removeCache;
   final DateTime Function() _now;
 
@@ -101,15 +105,17 @@ final class PluginInstaller {
     );
   }
 
-  /// 移除 [pluginId]（ADR 0030 §決定 10）：關閉 runtime → 刪快取項目 → 刪
-  /// `installed_plugins` 列（`plugin_storage` 由外鍵 cascade）。曲目與電台保留。
+  /// 移除 [pluginId]（ADR 0030 §決定 10）：關閉 runtime → 憑證與遮蔽登記、帳號、
+  /// 每音源設定 → 刪快取項目 → 刪 `installed_plugins` 列（`plugin_storage` 由外鍵
+  /// cascade）。曲目與電台保留。
   ///
   /// 每一步都可重複：中途失敗就停在那一步並丟出錯誤，再呼叫一次從頭跑完。之後的
-  /// 里程碑在對應的位置加：憑證與遮蔽登記、WebView cookie、帳號與每音源設定（M3
-  /// 帳號 PR）、排程器的工作（背景排程 PR），都在刪 `installed_plugins` 列之前。
+  /// 里程碑在對應的位置加：WebView cookie（帳號頁 PR，接在帳號之前）、排程器的
+  /// 工作（背景排程 PR），都在刪 `installed_plugins` 列之前。
   Future<void> remove(String pluginId) async {
     try {
       await _unregister(pluginId);
+      await _removeAccount(pluginId);
       await _removeCache(pluginId);
       await _repository.remove(pluginId);
     } on Object catch (error, stackTrace) {

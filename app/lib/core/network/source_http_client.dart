@@ -40,6 +40,7 @@ final class SourceRequest {
     this.headers = const {},
     this.body,
     this.auth = AuthRequirement.never,
+    this.authHeaders = const {},
     this.idempotent,
   });
 
@@ -55,6 +56,10 @@ final class SourceRequest {
   /// 帶不帶憑證（ADR 0012 §決定 2）。
   final AuthRequirement auth;
 
+  /// 只在認證攔截器判定要帶憑證時才加上的 header（例如從 cookie 算出來的
+  /// `SAPISIDHASH`）；其他情況整個丟掉（ADR 0028 §決定 2）。
+  final Map<String, String> authHeaders;
+
   /// 空＝依 [method]；`true` 讓語意冪等的 POST 也重試，`false` 一律不重試
   /// （ADR 0028 §決定 2）。只影響重試。
   final bool? idempotent;
@@ -68,6 +73,7 @@ final class SourceResponse {
     required this.statusCode,
     required this.headers,
     required this.body,
+    this.credentialsAttached = false,
   });
 
   /// 跟隨轉址後的最終網址。
@@ -77,6 +83,10 @@ final class SourceResponse {
   /// 名稱小寫。
   final Map<String, List<String>> headers;
   final Uint8List body;
+
+  /// 這次請求有沒有真的帶憑證（認證攔截器判定 attach）。插件的「憑證無效」判定
+  /// 只在它為真的回應上成立（ADR 0029 §決定 7）。
+  final bool credentialsAttached;
 }
 
 /// 呼叫端以 `abortTrigger` 取消了請求。只有取消的一方會收到，不是
@@ -100,7 +110,7 @@ final class SourceHttpClientFactory {
   SourceHttpClientFactory({
     required this._log,
     this._reportOutcome = _ignoreOutcome,
-    this._credentials = const NoCredentials(),
+    required this._credentials,
     NetworkRecordIds? recordIds,
     this._createAdapter = IOHttpClientAdapter.new,
     this._now = DateTime.now,
@@ -114,6 +124,7 @@ final class SourceHttpClientFactory {
   final CredentialSource _credentials;
   final NetworkRecordIds _recordIds;
   final HttpClientAdapter Function() _createAdapter;
+  final _clients = <String, SourceHttpClient>{};
   final DateTime Function() _now;
   final Future<void> Function(Duration) _wait;
   final math.Random _random;
@@ -128,6 +139,7 @@ final class SourceHttpClientFactory {
     RateLimitPolicy? rateLimitPolicy,
   }) {
     final hosts = AllowedHosts(allowedHosts);
+    final jar = _OwnHostCookieJar(hosts);
     // Dio 只在 lib/core/network/ 建立（fmp_http_client_owner）：這裡與
     // MediaHttpClientFactory.create。
     final dio =
@@ -142,7 +154,7 @@ final class SourceHttpClientFactory {
             _AuthInterceptor(_credentials),
             // 每插件一個記憶體 cookie jar；要跨重啟的匿名 cookie 由插件自己
             // 存（app/AGENTS.md § 網路）。
-            _OwnHostCookieManager(_OwnHostCookieJar(hosts)),
+            _OwnHostCookieManager(jar, pluginId, _credentials),
             _ErrorMappingInterceptor(_now),
             _ThrottleInterceptor(switch (rateLimitPolicy) {
               null => null,
@@ -150,17 +162,29 @@ final class SourceHttpClientFactory {
             }),
             _NetworkLogInterceptor(_log, _now),
           ]);
-    return SourceHttpClient._(
+    final client = SourceHttpClient._(
       pluginId: pluginId,
       allowedHosts: hosts,
       retryPolicy: retryPolicy,
       dio: dio,
+      cookieJar: jar,
       nextRecordId: _recordIds.next,
       reportOutcome: _reportOutcome,
       wait: _wait,
       random: _random,
+      onClose: (closed) {
+        // 更新時新的 client 先建、舊的後關：只收掉自己，不收新的。
+        if (identical(_clients[pluginId], closed)) _clients.remove(pluginId);
+      },
     );
+    _clients[pluginId] = client;
+    return client;
   }
+
+  /// 清掉 [pluginId] 目前的 client 的記憶體 cookie jar（登出，design §6.6）。沒有
+  /// client（插件未載入）時什麼都不做。
+  Future<void> clearCookies(String pluginId) async =>
+      _clients[pluginId]?.clearCookies();
 }
 
 Future<void> _delay(Duration duration) => Future<void>.delayed(duration);
@@ -178,16 +202,20 @@ final class SourceHttpClient {
     required this._allowedHosts,
     required this._retryPolicy,
     required this._dio,
+    required this._cookieJar,
     required this._nextRecordId,
     required this._reportOutcome,
     required this._wait,
     required this._random,
+    required this._onClose,
   });
 
   final String pluginId;
   final AllowedHosts _allowedHosts;
   final RetryPolicy _retryPolicy;
   final Dio _dio;
+  final CookieJar _cookieJar;
+  final void Function(SourceHttpClient client) _onClose;
   final int Function() _nextRecordId;
   final RequestOutcomeSink _reportOutcome;
   final Future<void> Function(Duration) _wait;
@@ -223,8 +251,14 @@ final class SourceHttpClient {
     }
   }
 
+  /// 清掉這個 client 的記憶體 cookie jar。
+  Future<void> clearCookies() => _cookieJar.deleteAll();
+
   /// 關閉底層的連線。
-  void close() => _dio.close(force: true);
+  void close() {
+    _dio.close(force: true);
+    _onClose(this);
+  }
 
   Future<({SourceResponse response, int recordId})> _sendWithRetry(
     SourceRequest request,
@@ -237,6 +271,7 @@ final class SourceHttpClient {
         pluginId: pluginId,
         auth: request.auth,
         retry: retry,
+        authHeaders: request.authHeaders,
       );
       final AppError error;
       try {
@@ -264,6 +299,7 @@ final class SourceHttpClient {
               final Uint8List bytes => bytes,
               final List<int> bytes => Uint8List.fromList(bytes),
             },
+            credentialsAttached: attempt.credentialsAttached,
           ),
           recordId: attempt.recordId,
         );
@@ -318,8 +354,8 @@ final class SourceHttpClient {
   ///
   /// - 303，以及 POST 收到 301／302：改用 GET、不帶 body（RFC 9110 §15.4.2–4；
   ///   瀏覽器的 fetch 也這樣做）。307／308 保留方法與 body。
-  /// - 跨 host：拿掉原請求的 `Cookie`、`Authorization`，而且不再帶憑證
-  ///   （[AuthRequirement.never]）。jar 裡的 cookie 由 cookie 管理照網域決定。
+  /// - 跨 host：拿掉原請求的 `Cookie`、`Authorization`、`authHeaders`，而且不再
+  ///   帶憑證（[AuthRequirement.never]）。jar 裡的 cookie 由 cookie 管理照網域決定。
   static SourceRequest _redirected(
     SourceRequest hop,
     Uri next,
@@ -341,6 +377,7 @@ final class SourceHttpClient {
       },
       body: toGet ? null : hop.body,
       auth: crossHost ? AuthRequirement.never : hop.auth,
+      authHeaders: crossHost ? const {} : hop.authHeaders,
       idempotent: hop.idempotent,
     );
   }

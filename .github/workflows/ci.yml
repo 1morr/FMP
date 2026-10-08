@@ -385,12 +385,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Flutter 官方 Linux 桌面的建置依賴（docs.flutter.dev/platform-integration/linux/setup）。
-      # 插件沒有另外的系統依賴：flutter_js 用 runner 內建的 gcc 與 GTK，
-      # jni 的原生庫只在找得到 JDK 時才建（它的 src/CMakeLists.txt）。
+      # 插件另外要的系統依賴只有 libsecret-1-dev：flutter_secure_storage_linux 的
+      # CMakeLists.txt 以 pkg_check_modules(... REQUIRED libsecret-1) 找它，沒有就建不起來
+      # （Linux 還沒宣告 secureStorage，但插件照樣編進去）。flutter_js 用 runner 內建的
+      # gcc 與 GTK，jni 的原生庫只在找得到 JDK 時才建（它的 src/CMakeLists.txt）。
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev
 
       - name: Setup Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -496,7 +498,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev xvfb
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libsecret-1-dev xvfb
 
       - name: Setup Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -545,6 +547,9 @@ jobs:
 
       - name: Toasts above routes
         run: flutter test integration_test/toast_layering_test.dart -d windows
+
+      - name: Secure storage
+        run: flutter test integration_test/secure_storage_test.dart -d windows
 
   ci-result:
     name: CI Result

@@ -15,6 +15,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 
+import '../../support/credentials.dart';
 import '../../support/fake_http_adapter.dart';
 
 const pluginId = 'test-source';
@@ -22,15 +23,32 @@ const allowedHosts = ['example.test', 'cdn.example'];
 
 /// 可以設定的假認證來源。
 final class FakeCredentials implements CredentialSource {
-  FakeCredentials({this.headers, this.browseAsLoggedInValue = true});
+  FakeCredentials({
+    this.cookies,
+    this.headers = const {},
+    this.invalidatedCookies = const {},
+    this.browseAsLoggedInValue = true,
+  });
 
   /// `null`＝未登入。
-  final Map<String, String>? headers;
+  final Map<String, String>? cookies;
+
+  /// 憑證附加的標頭（憑證不是 cookie 的音源）。
+  final Map<String, String> headers;
+
+  /// 已失效的憑證：不帶，但名稱照樣回報（jar 仍不准送出）。
+  final Map<String, String> invalidatedCookies;
   final bool browseAsLoggedInValue;
 
   @override
-  Future<Map<String, String>?> credentialHeaders(String pluginId) async =>
-      headers;
+  Future<CredentialMaterial?> credentialMaterial(String pluginId) async =>
+      cookies == null ? null : (cookies: cookies!, headers: headers);
+
+  @override
+  Future<Set<String>> credentialCookieNames(String pluginId) async => {
+    ...?cookies?.keys,
+    ...invalidatedCookies.keys,
+  };
 
   @override
   Future<bool> browseAsLoggedIn(String pluginId) async => browseAsLoggedInValue;
@@ -82,9 +100,15 @@ final class Harness {
     String url, {
     Map<String, String> headers = const {},
     AuthRequirement auth = AuthRequirement.never,
+    Map<String, String> authHeaders = const {},
     Future<void>? abortTrigger,
   }) => client.send(
-    SourceRequest(Uri.parse(url), headers: headers, auth: auth),
+    SourceRequest(
+      Uri.parse(url),
+      headers: headers,
+      auth: auth,
+      authHeaders: authHeaders,
+    ),
     abortTrigger: abortTrigger,
   );
 

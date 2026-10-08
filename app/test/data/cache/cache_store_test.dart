@@ -339,6 +339,7 @@ void main() {
             const PlatformCapabilities(
               dataDirectory: true,
               singleInstance: false,
+              secureStorage: false,
               fontFallback: FontFallback.none,
               playback: null,
               networkInterfaces: false,

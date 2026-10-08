@@ -49,7 +49,7 @@ void main() {
           _ => reply(200),
         },
         credentials: FakeCredentials(
-          headers: {'Cookie': 'SESSDATA=FAKE_SESSDATA_123'},
+          cookies: {'SESSDATA': 'FAKE_SESSDATA_123'},
         ),
         retryPolicy: _noRetry,
         rateLimitPolicy: const RateLimitPolicy(
@@ -175,7 +175,10 @@ void main() {
             ),
             _ => reply(200),
           },
-          credentials: FakeCredentials(headers: {'X-Session': 'FAKE_SESSION'}),
+          credentials: FakeCredentials(
+            cookies: const {},
+            headers: {'X-Session': 'FAKE_SESSION'},
+          ),
         );
 
         await harness.get(
@@ -290,7 +293,10 @@ void main() {
           ('cdn.example', _) => redirect('https://example.test/c'),
           _ => reply(200),
         },
-        credentials: FakeCredentials(headers: {'X-Session': 'FAKE_SESSION'}),
+        credentials: FakeCredentials(
+          cookies: const {},
+          headers: {'X-Session': 'FAKE_SESSION'},
+        ),
       );
       await harness.get(
         'https://example.test/a',
@@ -308,10 +314,40 @@ void main() {
       ]);
     });
 
+    test(
+      'credentialsAttached describes the hop the response came from',
+      () async {
+        final harness = Harness(
+          (options) => switch (options.uri.path) {
+            '/same' => redirect('/done'),
+            '/cross' => redirect('https://cdn.example/done'),
+            _ => reply(200),
+          },
+          credentials: FakeCredentials(
+            cookies: const {'SESSDATA': 'FAKE_1234'},
+          ),
+        );
+        Future<bool> attached(String path, AuthRequirement auth) async =>
+            (await harness.get(
+              'https://example.test$path',
+              auth: auth,
+            )).credentialsAttached;
+
+        expect(await attached('/a', AuthRequirement.userPreference), isTrue);
+        expect(await attached('/a', AuthRequirement.never), isFalse);
+        expect(await attached('/same', AuthRequirement.required), isTrue);
+        // 離開 host 的那一跳不再帶憑證，回應的旗標跟著變假。
+        expect(await attached('/cross', AuthRequirement.required), isFalse);
+      },
+    );
+
     test('a same-host hop keeps the credentials', () async {
       final harness = Harness(
         (options) => options.uri.path == '/a' ? redirect('/b') : reply(200),
-        credentials: FakeCredentials(headers: {'X-Session': 'FAKE_SESSION'}),
+        credentials: FakeCredentials(
+          cookies: const {},
+          headers: {'X-Session': 'FAKE_SESSION'},
+        ),
       );
       await harness.get(
         'https://example.test/a',
@@ -806,7 +842,10 @@ void main() {
     test('one record per request with every field', () async {
       final harness = Harness(
         (_) => reply(200, body: 'FAKE_RESPONSE_BODY'),
-        credentials: FakeCredentials(headers: {'X-Session': 'FAKE_SESSION'}),
+        credentials: FakeCredentials(
+          cookies: const {},
+          headers: {'X-Session': 'FAKE_SESSION'},
+        ),
       );
       await harness.get(
         'https://api.example.test/x/search?keyword=a&page=2',

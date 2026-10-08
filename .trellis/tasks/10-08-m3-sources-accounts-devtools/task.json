@@ -22,7 +22,8 @@
     "10-08-m3-youtube-plugin",
     "10-08-m3-netease-plugin",
     "10-08-m3-plugin-lifecycle",
-    "10-09-m3-index-endpoint"
+    "10-09-m3-index-endpoint",
+    "10-09-m3-credential-store"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

@@ -12,6 +12,10 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/media_http_client.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/domain/account.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/plugins/install/plugin_installer.dart';
@@ -42,6 +46,7 @@ ProviderContainer _container(
       appDatabaseProvider.overrideWithValue(harness.database),
       logProvider.overrideWithValue(harness.log),
       redactorProvider.overrideWithValue(harness.redactor),
+      credentialStoreProvider.overrideWithValue(harness.credentials),
       sourceHttpClientFactoryProvider.overrideWithValue(harness.httpClients),
       mediaHttpClientFactoryProvider.overrideWithValue(
         harness.mediaHttpClients,
@@ -719,6 +724,20 @@ void main() {
           source().replaceAll('plugin-a', 'plugin-b'),
         );
         await harness.storage.write('plugin-a', 'buvid', 'x');
+        for (final id in ['plugin-a', 'plugin-b']) {
+          await harness.credentials.save(
+            Account(
+              pluginId: id,
+              userId: 'u',
+              displayName: 'Someone',
+              status: AccountStatus.active,
+              loggedInAt: DateTime.utc(2026, 10, 9),
+            ),
+            LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA_$id'}),
+          );
+          await SourceSettingsRepository(harness.database)
+              .setBrowseAsLoggedIn(id, value: false);
+        }
         const url = 'https://example.test/a.jpg';
         final manager = cacheHarness.manager(store, pluginId: 'plugin-a');
         await put(manager, url, 4);
@@ -733,6 +752,29 @@ void main() {
 
         expect(await harness.plugins.byId('plugin-a'), isNull);
         expect(await harness.storage.read('plugin-a', 'buvid'), isNull);
+        // 憑證（含遮蔽登記）、帳號列、每音源設定都不在；另一個插件的不動。
+        expect(harness.secureStorage.values.keys, ['credentials.plugin-b']);
+        expect(
+          await harness.credentials.state('plugin-a'),
+          CredentialState.none,
+        );
+        expect(
+          harness.redactor.redact('FAKE_SESSDATA_plugin-a'),
+          'FAKE_SESSDATA_plugin-a',
+        );
+        expect(harness.redactor.redact('FAKE_SESSDATA_plugin-b'), '***');
+        expect(
+          [
+            for (final account in await AccountRepository(
+              harness.database,
+            ).list())
+              account.pluginId,
+          ],
+          ['plugin-b'],
+        );
+        final settings = SourceSettingsRepository(harness.database);
+        expect(await settings.browseAsLoggedIn('plugin-a'), isNull);
+        expect(await settings.browseAsLoggedIn('plugin-b'), isFalse);
         expect(await manager.getFileFromCache(url), isNull);
         expect(await other.getFileFromCache(url), isNotNull);
         expect(registry.mediaClient('plugin-a'), isNull);
@@ -780,6 +822,7 @@ void main() {
           repository: harness.plugins,
           register: registry.register,
           unregister: registry.unregister,
+          removeAccount: (_) async {},
           removeCache: (_) async {
             if (failures-- > 0) throw StateError('disk is gone');
           },

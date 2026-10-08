@@ -21,6 +21,8 @@ import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/media_controls/media_controls_android.dart';
 import 'package:fmp/platform/media_controls/media_controls_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
+import 'package:fmp/platform/secure_storage/secure_storage.dart';
 
 /// 平台層的組裝點（ADR 0009 §決定 1–4）：依平台組出能力宣告與各能力的
 /// 實作。整個 App 只有這裡判斷平台；lint `fmp_platform_checks` 擋的是
@@ -31,12 +33,14 @@ final class AppPlatform {
     this.dataDirectory,
     this.networkInterfaces,
     this.cacheDirectory,
+    this.secureStorage,
     this.mediaControls,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
        assert(capabilities.networkInterfaces == (networkInterfaces != null)),
        assert((capabilities.cache != null) == (cacheDirectory != null)),
+       assert(capabilities.secureStorage == (secureStorage != null)),
        assert(
          (capabilities.mediaControls != null) ==
              (mediaControls != null || mediaControlsFactory != null),
@@ -68,6 +72,7 @@ final class AppPlatform {
         playback: androidPlaybackSupport,
         networkInterfaces: true,
         cache: androidCacheSizes,
+        secureStorage: true,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
       dataDirectory: AndroidAppDataDirectory(
@@ -79,6 +84,7 @@ final class AppPlatform {
       cacheDirectory: CacheDirectory(
         applicationCachePath: _applicationCachePath,
       ),
+      secureStorage: FlutterSecureStorageAdapter.system(flavor),
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
     ),
@@ -90,6 +96,7 @@ final class AppPlatform {
         playback: windowsPlaybackSupport,
         networkInterfaces: true,
         cache: windowsCacheSizes,
+        secureStorage: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,
@@ -109,6 +116,7 @@ final class AppPlatform {
       cacheDirectory: CacheDirectory(
         applicationCachePath: _applicationCachePath,
       ),
+      secureStorage: FlutterSecureStorageAdapter.system(flavor),
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
     ),
@@ -131,6 +139,9 @@ final class AppPlatform {
   /// 快取目錄；[PlatformCapabilities.cache] 為 `null` 時為 `null`。只交給快取
   /// 模組（`openCacheStore`），其他地方不拿快取目錄（ADR 0016 §決定 2）。
   final CacheDirectory? cacheDirectory;
+
+  /// 憑證存放；[PlatformCapabilities.secureStorage] 為假時為 `null`。
+  final SecureStorage? secureStorage;
 
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
@@ -162,6 +173,7 @@ final class AppPlatform {
       dataDirectory: dataDirectory,
       networkInterfaces: networkInterfaces,
       cacheDirectory: cacheDirectory,
+      secureStorage: secureStorage,
       mediaControls: controls,
     );
   }

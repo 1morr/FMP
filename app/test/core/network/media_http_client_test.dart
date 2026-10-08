@@ -67,10 +67,8 @@ void main() {
       final source = SourceHttpClientFactory(
         log: log,
         credentials: FakeCredentials(
-          headers: {
-            'Cookie': 'SESSDATA=FAKE_SESSDATA_123',
-            'Authorization': 'Bearer FAKE_TOKEN_123',
-          },
+          cookies: {'SESSDATA': 'FAKE_SESSDATA_123'},
+          headers: {'Authorization': 'Bearer FAKE_TOKEN_123'},
         ),
         recordIds: recordIds,
         createAdapter: () => adapter,

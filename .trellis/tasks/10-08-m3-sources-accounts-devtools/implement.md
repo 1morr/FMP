@@ -45,12 +45,12 @@
 
 - **狀態**（2026-10-09）：規劃已核准（ADR 0028–0031 已採納）；R1 通過。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3。
-- **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）。
+- **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）；PR 3 的 FMP 端（#224）與 fmp-plugins#6（index、CI、B 站 1.0.0、網易 1.0.1；`FMP_REF`＝`fcb52d28`；Version Bump 會紅已在 `214e01c` 證明並 revert；raw `index.json` 可讀、SHA 相符）。
 - **進行中**：
-  - **PR 3**：FMP 端在分支 `feat/m3-index-endpoint`（任務 `10-09-m3-index-endpoint`）：`lib/core/endpoints.dart` 官方 index 網址、manifest 加選填 `description`（上限 200，慣例 Obsidian），design §7.1 加一行更正。實作中。fmp-plugins 端在本機分支 `feat/ci-and-index`（已 commit、未推）：`tool/build_index.dart`＋測試、`index.json`、`.github/workflows/ci.yml`（`FMP_REF` 寫在 workflow 的 `env`，不是 repo 變數：改 repo 設定要問擁有者）、B 站解 HTML 實體＋封面多尺寸＋1.0.0＋重錄 fixture。**FMP 端合併後**：三個插件 manifest 補 `description`、`build_index` 從 manifest 帶 `description`、重產 index、`FMP_REF` 改成新的 main SHA，再推、開 PR、證明 CI 會紅（沒升版本的 commit）再 revert。
-  - **PR 1 的 YouTube 插件**：fmp-plugins#4 是 draft，等 Windows 驗過再合併。Windows 開 VISIONOS `mp4/aac`（itag 139／140）回 403；之後本機（代理出口）被 YouTube 標記「確認你不是機器人」，2026-10-08～09 每隔數十分鐘以 `<scratchpad>/ytdiag/diag.mjs` 試 1 次仍未解除，推測要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。fmp-plugins 的 CI 要等它合併後才涵蓋 YouTube（動態列目錄，不必改 workflow）。
+  - **PR 7**：分支 `feat/m3-credential-store`（任務 `10-09-m3-credential-store`，schema v8），sonnet 實作中；之後 opus 審查、兩平台跑 `integration_test/secure_storage_test.dart`、Windows 確認 `.secure` 在 dev 的目錄。
+  - **PR 1 的 YouTube 插件**：fmp-plugins#4 是 draft，等 Windows 驗過再合併。Windows 開 VISIONOS `mp4/aac`（itag 139／140）回 403；之後本機（代理出口）被 YouTube 標記「確認你不是機器人」，2026-10-08～09 每隔數十分鐘以 `<scratchpad>/ytdiag/diag.mjs` 試 1 次仍未解除，推測要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。合併前要 rebase 到 fmp-plugins 的新 main：manifest 加 `description`、重產 `index.json`；CI 會自動涵蓋 YouTube（動態列目錄）。
 - **待擁有者回覆**：GitHub secret scanning 對 fmp-plugins `youtube/youtube.js` 的警告（#1）是 YouTube.js 內建的公開 InnerTube key（舊版 FMP 也有），不是外洩；是否由代理以 `gh` 關掉（false positive），等擁有者同意。
-- **下一步**：PR 3 收尾 → PR 5（插件頁，opus：自訂版面）、PR 7（CredentialStore，sonnet；schema v8）可依序做；PR 6 依賴 3、5。
+- **下一步**：PR 7 收尾 → PR 5（插件頁，opus：自訂版面；更新流程的實測要 push fmp-plugins 暫時分支 `test/m3-update-flow`，**先問擁有者**）→ PR 6（依賴 5）→ PR 8（依賴 4、7）。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -181,11 +181,11 @@
 
 ## 3. `fmp-plugins`：CI、`index.json`、B 站修正（design §5.3、§7.1、§7.2）
 
-- [ ] `tool/build_index.dart`：讀每個插件目錄 `.js` 的 manifest、算 `.js` 與 `checks.json` 的 SHA-256，寫 `index.json`（design §7.1 的欄位）；`--check` 模式比對。
-- [ ] `.github/workflows/ci.yml`：`FMP_REF` 變數 checkout FMP、Flutter 3.47.5、每個插件目錄跑契約、有 `package.json` 的插件目錄跑 `npm ci && npm test`（PR 1 起 YouTube 的錯誤對應表）、`build_index.dart --check`、`.js` 改了而版本沒升就失敗。
-- [ ] B 站：標題解 HTML 實體；封面多尺寸；manifest 升 1.0.0；fixture 重錄（匿名）。
-- [ ] README 改寫（index、CI、版本規則）。
-- [ ] FMP：`lib/core/endpoints.dart` 建檔，放官方 index 網址（`fmp_url_literal` 的允許檔第一次有內容）。
+- [x] `tool/build_index.dart`：讀每個插件目錄 `.js` 的 manifest、算 `.js` 與 `checks.json` 的 SHA-256，寫 `index.json`（design §7.1 的欄位）；`--check` 模式比對。
+- [x] `.github/workflows/ci.yml`：`FMP_REF` 變數 checkout FMP、Flutter 3.47.5、每個插件目錄跑契約、有 `package.json` 的插件目錄跑 `npm ci && npm test`（PR 1 起 YouTube 的錯誤對應表）、`build_index.dart --check`、`.js` 改了而版本沒升就失敗。
+- [x] B 站：標題解 HTML 實體；封面多尺寸；manifest 升 1.0.0；fixture 重錄（匿名）。
+- [x] README 改寫（index、CI、版本規則）。
+- [x] FMP：`lib/core/endpoints.dart` 建檔，放官方 index 網址（`fmp_url_literal` 的允許檔第一次有內容）。
 - 測試：`build_index.dart` 的單元測試（欄位、SHA、`--check` 對過時的 index 失敗）；CI 本身在 PR 上跑一次綠、再以一個故意沒升版本的 commit 證明會紅（之後 revert）。
 - 實測：瀏覽器打開 raw 的 `index.json` 確認可讀；不涉及 App。
 - 依賴：1、2。模型：sonnet（格式已定）。
@@ -486,6 +486,17 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 7 留下的
+
+1. **prod 與舊版 App 共用 secure storage 檔**：Windows 的 `%APPDATA%/com.personal/fmp/flutter_secure_storage.dat` 舊版（`flutter_secure_storage` 10.x）也在用；新版 prod 以鍵前綴 `fmp.` 區分，`deleteAll` 只刪自己的前綴。切換（M9）前確認舊版的鍵沒有 `fmp.` 開頭，並決定舊版憑證要不要遷移或清掉。
+2. **`Redactor.unregisterSecret` 沒有引用計數**：兩個插件剛好有同一個 cookie 值時，一個登出會連帶取消另一個的遮蔽。機率低；要修就在 `Redactor` 加計數，並補測試。
+3. **`PluginHost` 每個帶 `authHeaders` 的請求都呼叫 `Redactor.addRules`**，每次重新編譯 regex。YouTube 的 innertube 請求都會觸發；PR 9 實機若量到影響，改成名稱已登記就跳過。
+4. **登出先刪憑證、後清 jar**：中間的極短窗口，jar 裡伺服器設的同名 cookie 可能送出一次。PR 8 加「登入期間 jar 不存」之後再評估要不要調換順序。
+5. **`save` 寫入 storage 成功、帳號列寫入失敗**時，記憶體仍是舊憑證、storage 已是新的；下次啟動的對齊會把它收斂。PR 8 的登入流程要把這種失敗回報成登入失敗。
+6. **插件更新的窗口裡 `clearCookies` 只清最新那個 client 的 jar**。
+7. **「暫時無法讀取」時 `credentialCookieNames` 回空集合**：這段期間 jar 可能送出同名 cookie。PR 8 讓登入回應不進 jar 之後，jar 理論上不會有憑證 cookie。
+8. **Linux CI 加了 `libsecret-1-dev`**：`flutter_secure_storage_linux` 的 CMake 要它。Linux 還沒宣告 `secureStorage`，Linux 平台任務再決定要不要開。
 
 ## 待升級
 

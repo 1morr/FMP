@@ -4232,6 +4232,792 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
   }
 }
 
+class $AccountsTableTable extends AccountsTable
+    with TableInfo<$AccountsTableTable, AccountRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AccountsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _pluginIdMeta = const VerificationMeta(
+    'pluginId',
+  );
+  @override
+  late final GeneratedColumn<String> pluginId = GeneratedColumn<String>(
+    'plugin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _avatarJsonMeta = const VerificationMeta(
+    'avatarJson',
+  );
+  @override
+  late final GeneratedColumn<String> avatarJson = GeneratedColumn<String>(
+    'avatar_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<AccountStatus, String> status =
+      GeneratedColumn<String>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<AccountStatus>($AccountsTableTable.$converterstatus);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> loggedInAt =
+      GeneratedColumn<int>(
+        'logged_in_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($AccountsTableTable.$converterloggedInAt);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime?, int> lastRefreshAt =
+      GeneratedColumn<int>(
+        'last_refresh_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($AccountsTableTable.$converterlastRefreshAtn);
+  @override
+  late final GeneratedColumnWithTypeConverter<RefreshResult?, String>
+  lastRefreshResult =
+      GeneratedColumn<String>(
+        'last_refresh_result',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<RefreshResult?>(
+        $AccountsTableTable.$converterlastRefreshResultn,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    pluginId,
+    userId,
+    displayName,
+    avatarJson,
+    status,
+    loggedInAt,
+    lastRefreshAt,
+    lastRefreshResult,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'accounts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AccountRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('plugin_id')) {
+      context.handle(
+        _pluginIdMeta,
+        pluginId.isAcceptableOrUnknown(data['plugin_id']!, _pluginIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pluginIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('avatar_json')) {
+      context.handle(
+        _avatarJsonMeta,
+        avatarJson.isAcceptableOrUnknown(data['avatar_json']!, _avatarJsonMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {pluginId};
+  @override
+  AccountRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AccountRow(
+      pluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plugin_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      avatarJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}avatar_json'],
+      ),
+      status: $AccountsTableTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
+      loggedInAt: $AccountsTableTable.$converterloggedInAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}logged_in_at'],
+        )!,
+      ),
+      lastRefreshAt: $AccountsTableTable.$converterlastRefreshAtn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}last_refresh_at'],
+        ),
+      ),
+      lastRefreshResult: $AccountsTableTable.$converterlastRefreshResultn
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}last_refresh_result'],
+            ),
+          ),
+    );
+  }
+
+  @override
+  $AccountsTableTable createAlias(String alias) {
+    return $AccountsTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<AccountStatus, String> $converterstatus =
+      const AccountStatusConverter();
+  static TypeConverter<DateTime, int> $converterloggedInAt =
+      const EpochMillisecondsConverter();
+  static TypeConverter<DateTime, int> $converterlastRefreshAt =
+      const EpochMillisecondsConverter();
+  static TypeConverter<DateTime?, int?> $converterlastRefreshAtn =
+      NullAwareTypeConverter.wrap($converterlastRefreshAt);
+  static TypeConverter<RefreshResult, String> $converterlastRefreshResult =
+      const RefreshResultConverter();
+  static TypeConverter<RefreshResult?, String?> $converterlastRefreshResultn =
+      NullAwareTypeConverter.wrap($converterlastRefreshResult);
+}
+
+class AccountRow extends DataClass implements Insertable<AccountRow> {
+  final String pluginId;
+  final String userId;
+  final String displayName;
+
+  /// `Artwork[]` 的 JSON；沒有頭像為空。
+  final String? avatarJson;
+  final AccountStatus status;
+  final DateTime loggedInAt;
+  final DateTime? lastRefreshAt;
+  final RefreshResult? lastRefreshResult;
+  const AccountRow({
+    required this.pluginId,
+    required this.userId,
+    required this.displayName,
+    this.avatarJson,
+    required this.status,
+    required this.loggedInAt,
+    this.lastRefreshAt,
+    this.lastRefreshResult,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['plugin_id'] = Variable<String>(pluginId);
+    map['user_id'] = Variable<String>(userId);
+    map['display_name'] = Variable<String>(displayName);
+    if (!nullToAbsent || avatarJson != null) {
+      map['avatar_json'] = Variable<String>(avatarJson);
+    }
+    {
+      map['status'] = Variable<String>(
+        $AccountsTableTable.$converterstatus.toSql(status),
+      );
+    }
+    {
+      map['logged_in_at'] = Variable<int>(
+        $AccountsTableTable.$converterloggedInAt.toSql(loggedInAt),
+      );
+    }
+    if (!nullToAbsent || lastRefreshAt != null) {
+      map['last_refresh_at'] = Variable<int>(
+        $AccountsTableTable.$converterlastRefreshAtn.toSql(lastRefreshAt),
+      );
+    }
+    if (!nullToAbsent || lastRefreshResult != null) {
+      map['last_refresh_result'] = Variable<String>(
+        $AccountsTableTable.$converterlastRefreshResultn.toSql(
+          lastRefreshResult,
+        ),
+      );
+    }
+    return map;
+  }
+
+  AccountsTableCompanion toCompanion(bool nullToAbsent) {
+    return AccountsTableCompanion(
+      pluginId: Value(pluginId),
+      userId: Value(userId),
+      displayName: Value(displayName),
+      avatarJson: avatarJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avatarJson),
+      status: Value(status),
+      loggedInAt: Value(loggedInAt),
+      lastRefreshAt: lastRefreshAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRefreshAt),
+      lastRefreshResult: lastRefreshResult == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRefreshResult),
+    );
+  }
+
+  factory AccountRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AccountRow(
+      pluginId: serializer.fromJson<String>(json['pluginId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      avatarJson: serializer.fromJson<String?>(json['avatarJson']),
+      status: serializer.fromJson<AccountStatus>(json['status']),
+      loggedInAt: serializer.fromJson<DateTime>(json['loggedInAt']),
+      lastRefreshAt: serializer.fromJson<DateTime?>(json['lastRefreshAt']),
+      lastRefreshResult: serializer.fromJson<RefreshResult?>(
+        json['lastRefreshResult'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'pluginId': serializer.toJson<String>(pluginId),
+      'userId': serializer.toJson<String>(userId),
+      'displayName': serializer.toJson<String>(displayName),
+      'avatarJson': serializer.toJson<String?>(avatarJson),
+      'status': serializer.toJson<AccountStatus>(status),
+      'loggedInAt': serializer.toJson<DateTime>(loggedInAt),
+      'lastRefreshAt': serializer.toJson<DateTime?>(lastRefreshAt),
+      'lastRefreshResult': serializer.toJson<RefreshResult?>(lastRefreshResult),
+    };
+  }
+
+  AccountRow copyWith({
+    String? pluginId,
+    String? userId,
+    String? displayName,
+    Value<String?> avatarJson = const Value.absent(),
+    AccountStatus? status,
+    DateTime? loggedInAt,
+    Value<DateTime?> lastRefreshAt = const Value.absent(),
+    Value<RefreshResult?> lastRefreshResult = const Value.absent(),
+  }) => AccountRow(
+    pluginId: pluginId ?? this.pluginId,
+    userId: userId ?? this.userId,
+    displayName: displayName ?? this.displayName,
+    avatarJson: avatarJson.present ? avatarJson.value : this.avatarJson,
+    status: status ?? this.status,
+    loggedInAt: loggedInAt ?? this.loggedInAt,
+    lastRefreshAt: lastRefreshAt.present
+        ? lastRefreshAt.value
+        : this.lastRefreshAt,
+    lastRefreshResult: lastRefreshResult.present
+        ? lastRefreshResult.value
+        : this.lastRefreshResult,
+  );
+  AccountRow copyWithCompanion(AccountsTableCompanion data) {
+    return AccountRow(
+      pluginId: data.pluginId.present ? data.pluginId.value : this.pluginId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      avatarJson: data.avatarJson.present
+          ? data.avatarJson.value
+          : this.avatarJson,
+      status: data.status.present ? data.status.value : this.status,
+      loggedInAt: data.loggedInAt.present
+          ? data.loggedInAt.value
+          : this.loggedInAt,
+      lastRefreshAt: data.lastRefreshAt.present
+          ? data.lastRefreshAt.value
+          : this.lastRefreshAt,
+      lastRefreshResult: data.lastRefreshResult.present
+          ? data.lastRefreshResult.value
+          : this.lastRefreshResult,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AccountRow(')
+          ..write('pluginId: $pluginId, ')
+          ..write('userId: $userId, ')
+          ..write('displayName: $displayName, ')
+          ..write('avatarJson: $avatarJson, ')
+          ..write('status: $status, ')
+          ..write('loggedInAt: $loggedInAt, ')
+          ..write('lastRefreshAt: $lastRefreshAt, ')
+          ..write('lastRefreshResult: $lastRefreshResult')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    pluginId,
+    userId,
+    displayName,
+    avatarJson,
+    status,
+    loggedInAt,
+    lastRefreshAt,
+    lastRefreshResult,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AccountRow &&
+          other.pluginId == this.pluginId &&
+          other.userId == this.userId &&
+          other.displayName == this.displayName &&
+          other.avatarJson == this.avatarJson &&
+          other.status == this.status &&
+          other.loggedInAt == this.loggedInAt &&
+          other.lastRefreshAt == this.lastRefreshAt &&
+          other.lastRefreshResult == this.lastRefreshResult);
+}
+
+class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
+  final Value<String> pluginId;
+  final Value<String> userId;
+  final Value<String> displayName;
+  final Value<String?> avatarJson;
+  final Value<AccountStatus> status;
+  final Value<DateTime> loggedInAt;
+  final Value<DateTime?> lastRefreshAt;
+  final Value<RefreshResult?> lastRefreshResult;
+  final Value<int> rowid;
+  const AccountsTableCompanion({
+    this.pluginId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.avatarJson = const Value.absent(),
+    this.status = const Value.absent(),
+    this.loggedInAt = const Value.absent(),
+    this.lastRefreshAt = const Value.absent(),
+    this.lastRefreshResult = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AccountsTableCompanion.insert({
+    required String pluginId,
+    required String userId,
+    required String displayName,
+    this.avatarJson = const Value.absent(),
+    required AccountStatus status,
+    required DateTime loggedInAt,
+    this.lastRefreshAt = const Value.absent(),
+    this.lastRefreshResult = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : pluginId = Value(pluginId),
+       userId = Value(userId),
+       displayName = Value(displayName),
+       status = Value(status),
+       loggedInAt = Value(loggedInAt);
+  static Insertable<AccountRow> custom({
+    Expression<String>? pluginId,
+    Expression<String>? userId,
+    Expression<String>? displayName,
+    Expression<String>? avatarJson,
+    Expression<String>? status,
+    Expression<int>? loggedInAt,
+    Expression<int>? lastRefreshAt,
+    Expression<String>? lastRefreshResult,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (pluginId != null) 'plugin_id': pluginId,
+      if (userId != null) 'user_id': userId,
+      if (displayName != null) 'display_name': displayName,
+      if (avatarJson != null) 'avatar_json': avatarJson,
+      if (status != null) 'status': status,
+      if (loggedInAt != null) 'logged_in_at': loggedInAt,
+      if (lastRefreshAt != null) 'last_refresh_at': lastRefreshAt,
+      if (lastRefreshResult != null) 'last_refresh_result': lastRefreshResult,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AccountsTableCompanion copyWith({
+    Value<String>? pluginId,
+    Value<String>? userId,
+    Value<String>? displayName,
+    Value<String?>? avatarJson,
+    Value<AccountStatus>? status,
+    Value<DateTime>? loggedInAt,
+    Value<DateTime?>? lastRefreshAt,
+    Value<RefreshResult?>? lastRefreshResult,
+    Value<int>? rowid,
+  }) {
+    return AccountsTableCompanion(
+      pluginId: pluginId ?? this.pluginId,
+      userId: userId ?? this.userId,
+      displayName: displayName ?? this.displayName,
+      avatarJson: avatarJson ?? this.avatarJson,
+      status: status ?? this.status,
+      loggedInAt: loggedInAt ?? this.loggedInAt,
+      lastRefreshAt: lastRefreshAt ?? this.lastRefreshAt,
+      lastRefreshResult: lastRefreshResult ?? this.lastRefreshResult,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (pluginId.present) {
+      map['plugin_id'] = Variable<String>(pluginId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (avatarJson.present) {
+      map['avatar_json'] = Variable<String>(avatarJson.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(
+        $AccountsTableTable.$converterstatus.toSql(status.value),
+      );
+    }
+    if (loggedInAt.present) {
+      map['logged_in_at'] = Variable<int>(
+        $AccountsTableTable.$converterloggedInAt.toSql(loggedInAt.value),
+      );
+    }
+    if (lastRefreshAt.present) {
+      map['last_refresh_at'] = Variable<int>(
+        $AccountsTableTable.$converterlastRefreshAtn.toSql(lastRefreshAt.value),
+      );
+    }
+    if (lastRefreshResult.present) {
+      map['last_refresh_result'] = Variable<String>(
+        $AccountsTableTable.$converterlastRefreshResultn.toSql(
+          lastRefreshResult.value,
+        ),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AccountsTableCompanion(')
+          ..write('pluginId: $pluginId, ')
+          ..write('userId: $userId, ')
+          ..write('displayName: $displayName, ')
+          ..write('avatarJson: $avatarJson, ')
+          ..write('status: $status, ')
+          ..write('loggedInAt: $loggedInAt, ')
+          ..write('lastRefreshAt: $lastRefreshAt, ')
+          ..write('lastRefreshResult: $lastRefreshResult, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SourceSettingsTableTable extends SourceSettingsTable
+    with TableInfo<$SourceSettingsTableTable, SourceSettingsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SourceSettingsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _pluginIdMeta = const VerificationMeta(
+    'pluginId',
+  );
+  @override
+  late final GeneratedColumn<String> pluginId = GeneratedColumn<String>(
+    'plugin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _browseAsLoggedInMeta = const VerificationMeta(
+    'browseAsLoggedIn',
+  );
+  @override
+  late final GeneratedColumn<bool> browseAsLoggedIn = GeneratedColumn<bool>(
+    'browse_as_logged_in',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("browse_as_logged_in" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [pluginId, browseAsLoggedIn];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'source_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SourceSettingsRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('plugin_id')) {
+      context.handle(
+        _pluginIdMeta,
+        pluginId.isAcceptableOrUnknown(data['plugin_id']!, _pluginIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pluginIdMeta);
+    }
+    if (data.containsKey('browse_as_logged_in')) {
+      context.handle(
+        _browseAsLoggedInMeta,
+        browseAsLoggedIn.isAcceptableOrUnknown(
+          data['browse_as_logged_in']!,
+          _browseAsLoggedInMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {pluginId};
+  @override
+  SourceSettingsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SourceSettingsRow(
+      pluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plugin_id'],
+      )!,
+      browseAsLoggedIn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}browse_as_logged_in'],
+      ),
+    );
+  }
+
+  @override
+  $SourceSettingsTableTable createAlias(String alias) {
+    return $SourceSettingsTableTable(attachedDatabase, alias);
+  }
+}
+
+class SourceSettingsRow extends DataClass
+    implements Insertable<SourceSettingsRow> {
+  final String pluginId;
+
+  /// 「以登入身分瀏覽與播放」（ADR 0012 §決定 6）。
+  final bool? browseAsLoggedIn;
+  const SourceSettingsRow({required this.pluginId, this.browseAsLoggedIn});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['plugin_id'] = Variable<String>(pluginId);
+    if (!nullToAbsent || browseAsLoggedIn != null) {
+      map['browse_as_logged_in'] = Variable<bool>(browseAsLoggedIn);
+    }
+    return map;
+  }
+
+  SourceSettingsTableCompanion toCompanion(bool nullToAbsent) {
+    return SourceSettingsTableCompanion(
+      pluginId: Value(pluginId),
+      browseAsLoggedIn: browseAsLoggedIn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(browseAsLoggedIn),
+    );
+  }
+
+  factory SourceSettingsRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SourceSettingsRow(
+      pluginId: serializer.fromJson<String>(json['pluginId']),
+      browseAsLoggedIn: serializer.fromJson<bool?>(json['browseAsLoggedIn']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'pluginId': serializer.toJson<String>(pluginId),
+      'browseAsLoggedIn': serializer.toJson<bool?>(browseAsLoggedIn),
+    };
+  }
+
+  SourceSettingsRow copyWith({
+    String? pluginId,
+    Value<bool?> browseAsLoggedIn = const Value.absent(),
+  }) => SourceSettingsRow(
+    pluginId: pluginId ?? this.pluginId,
+    browseAsLoggedIn: browseAsLoggedIn.present
+        ? browseAsLoggedIn.value
+        : this.browseAsLoggedIn,
+  );
+  SourceSettingsRow copyWithCompanion(SourceSettingsTableCompanion data) {
+    return SourceSettingsRow(
+      pluginId: data.pluginId.present ? data.pluginId.value : this.pluginId,
+      browseAsLoggedIn: data.browseAsLoggedIn.present
+          ? data.browseAsLoggedIn.value
+          : this.browseAsLoggedIn,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SourceSettingsRow(')
+          ..write('pluginId: $pluginId, ')
+          ..write('browseAsLoggedIn: $browseAsLoggedIn')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(pluginId, browseAsLoggedIn);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SourceSettingsRow &&
+          other.pluginId == this.pluginId &&
+          other.browseAsLoggedIn == this.browseAsLoggedIn);
+}
+
+class SourceSettingsTableCompanion extends UpdateCompanion<SourceSettingsRow> {
+  final Value<String> pluginId;
+  final Value<bool?> browseAsLoggedIn;
+  final Value<int> rowid;
+  const SourceSettingsTableCompanion({
+    this.pluginId = const Value.absent(),
+    this.browseAsLoggedIn = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SourceSettingsTableCompanion.insert({
+    required String pluginId,
+    this.browseAsLoggedIn = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : pluginId = Value(pluginId);
+  static Insertable<SourceSettingsRow> custom({
+    Expression<String>? pluginId,
+    Expression<bool>? browseAsLoggedIn,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (pluginId != null) 'plugin_id': pluginId,
+      if (browseAsLoggedIn != null) 'browse_as_logged_in': browseAsLoggedIn,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SourceSettingsTableCompanion copyWith({
+    Value<String>? pluginId,
+    Value<bool?>? browseAsLoggedIn,
+    Value<int>? rowid,
+  }) {
+    return SourceSettingsTableCompanion(
+      pluginId: pluginId ?? this.pluginId,
+      browseAsLoggedIn: browseAsLoggedIn ?? this.browseAsLoggedIn,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (pluginId.present) {
+      map['plugin_id'] = Variable<String>(pluginId.value);
+    }
+    if (browseAsLoggedIn.present) {
+      map['browse_as_logged_in'] = Variable<bool>(browseAsLoggedIn.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SourceSettingsTableCompanion(')
+          ..write('pluginId: $pluginId, ')
+          ..write('browseAsLoggedIn: $browseAsLoggedIn, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4259,6 +5045,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LayoutStateTableTable layoutStateTable = $LayoutStateTableTable(
     this,
   );
+  late final $AccountsTableTable accountsTable = $AccountsTableTable(this);
+  late final $SourceSettingsTableTable sourceSettingsTable =
+      $SourceSettingsTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -4287,6 +5076,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playerStateTable,
     playHistoryTable,
     layoutStateTable,
+    accountsTable,
+    sourceSettingsTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -7408,6 +8199,461 @@ typedef $$LayoutStateTableTableProcessedTableManager =
       LayoutStateRow,
       PrefetchHooks Function()
     >;
+typedef $$AccountsTableTableCreateCompanionBuilder =
+    AccountsTableCompanion Function({
+      required String pluginId,
+      required String userId,
+      required String displayName,
+      Value<String?> avatarJson,
+      required AccountStatus status,
+      required DateTime loggedInAt,
+      Value<DateTime?> lastRefreshAt,
+      Value<RefreshResult?> lastRefreshResult,
+      Value<int> rowid,
+    });
+typedef $$AccountsTableTableUpdateCompanionBuilder =
+    AccountsTableCompanion Function({
+      Value<String> pluginId,
+      Value<String> userId,
+      Value<String> displayName,
+      Value<String?> avatarJson,
+      Value<AccountStatus> status,
+      Value<DateTime> loggedInAt,
+      Value<DateTime?> lastRefreshAt,
+      Value<RefreshResult?> lastRefreshResult,
+      Value<int> rowid,
+    });
+
+class $$AccountsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $AccountsTableTable> {
+  $$AccountsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get avatarJson => $composableBuilder(
+    column: $table.avatarJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<AccountStatus, AccountStatus, String>
+  get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get loggedInAt =>
+      $composableBuilder(
+        column: $table.loggedInAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<DateTime?, DateTime, int> get lastRefreshAt =>
+      $composableBuilder(
+        column: $table.lastRefreshAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<RefreshResult?, RefreshResult, String>
+  get lastRefreshResult => $composableBuilder(
+    column: $table.lastRefreshResult,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+}
+
+class $$AccountsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $AccountsTableTable> {
+  $$AccountsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get avatarJson => $composableBuilder(
+    column: $table.avatarJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get loggedInAt => $composableBuilder(
+    column: $table.loggedInAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastRefreshAt => $composableBuilder(
+    column: $table.lastRefreshAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastRefreshResult => $composableBuilder(
+    column: $table.lastRefreshResult,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AccountsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AccountsTableTable> {
+  $$AccountsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get pluginId =>
+      $composableBuilder(column: $table.pluginId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get avatarJson => $composableBuilder(
+    column: $table.avatarJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<AccountStatus, String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get loggedInAt =>
+      $composableBuilder(
+        column: $table.loggedInAt,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<DateTime?, int> get lastRefreshAt =>
+      $composableBuilder(
+        column: $table.lastRefreshAt,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<RefreshResult?, String>
+  get lastRefreshResult => $composableBuilder(
+    column: $table.lastRefreshResult,
+    builder: (column) => column,
+  );
+}
+
+class $$AccountsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AccountsTableTable,
+          AccountRow,
+          $$AccountsTableTableFilterComposer,
+          $$AccountsTableTableOrderingComposer,
+          $$AccountsTableTableAnnotationComposer,
+          $$AccountsTableTableCreateCompanionBuilder,
+          $$AccountsTableTableUpdateCompanionBuilder,
+          (
+            AccountRow,
+            BaseReferences<_$AppDatabase, $AccountsTableTable, AccountRow>,
+          ),
+          AccountRow,
+          PrefetchHooks Function()
+        > {
+  $$AccountsTableTableTableManager(_$AppDatabase db, $AccountsTableTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AccountsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AccountsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AccountsTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> pluginId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<String?> avatarJson = const Value.absent(),
+                Value<AccountStatus> status = const Value.absent(),
+                Value<DateTime> loggedInAt = const Value.absent(),
+                Value<DateTime?> lastRefreshAt = const Value.absent(),
+                Value<RefreshResult?> lastRefreshResult = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AccountsTableCompanion(
+                pluginId: pluginId,
+                userId: userId,
+                displayName: displayName,
+                avatarJson: avatarJson,
+                status: status,
+                loggedInAt: loggedInAt,
+                lastRefreshAt: lastRefreshAt,
+                lastRefreshResult: lastRefreshResult,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String pluginId,
+                required String userId,
+                required String displayName,
+                Value<String?> avatarJson = const Value.absent(),
+                required AccountStatus status,
+                required DateTime loggedInAt,
+                Value<DateTime?> lastRefreshAt = const Value.absent(),
+                Value<RefreshResult?> lastRefreshResult = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AccountsTableCompanion.insert(
+                pluginId: pluginId,
+                userId: userId,
+                displayName: displayName,
+                avatarJson: avatarJson,
+                status: status,
+                loggedInAt: loggedInAt,
+                lastRefreshAt: lastRefreshAt,
+                lastRefreshResult: lastRefreshResult,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AccountsTableTable, AccountRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $AccountsTableTable,
+                    AccountRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AccountsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AccountsTableTable,
+      AccountRow,
+      $$AccountsTableTableFilterComposer,
+      $$AccountsTableTableOrderingComposer,
+      $$AccountsTableTableAnnotationComposer,
+      $$AccountsTableTableCreateCompanionBuilder,
+      $$AccountsTableTableUpdateCompanionBuilder,
+      (
+        AccountRow,
+        BaseReferences<_$AppDatabase, $AccountsTableTable, AccountRow>,
+      ),
+      AccountRow,
+      PrefetchHooks Function()
+    >;
+typedef $$SourceSettingsTableTableCreateCompanionBuilder =
+    SourceSettingsTableCompanion Function({
+      required String pluginId,
+      Value<bool?> browseAsLoggedIn,
+      Value<int> rowid,
+    });
+typedef $$SourceSettingsTableTableUpdateCompanionBuilder =
+    SourceSettingsTableCompanion Function({
+      Value<String> pluginId,
+      Value<bool?> browseAsLoggedIn,
+      Value<int> rowid,
+    });
+
+class $$SourceSettingsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SourceSettingsTableTable> {
+  $$SourceSettingsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get browseAsLoggedIn => $composableBuilder(
+    column: $table.browseAsLoggedIn,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SourceSettingsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SourceSettingsTableTable> {
+  $$SourceSettingsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get browseAsLoggedIn => $composableBuilder(
+    column: $table.browseAsLoggedIn,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SourceSettingsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SourceSettingsTableTable> {
+  $$SourceSettingsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get pluginId =>
+      $composableBuilder(column: $table.pluginId, builder: (column) => column);
+
+  GeneratedColumn<bool> get browseAsLoggedIn => $composableBuilder(
+    column: $table.browseAsLoggedIn,
+    builder: (column) => column,
+  );
+}
+
+class $$SourceSettingsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SourceSettingsTableTable,
+          SourceSettingsRow,
+          $$SourceSettingsTableTableFilterComposer,
+          $$SourceSettingsTableTableOrderingComposer,
+          $$SourceSettingsTableTableAnnotationComposer,
+          $$SourceSettingsTableTableCreateCompanionBuilder,
+          $$SourceSettingsTableTableUpdateCompanionBuilder,
+          (
+            SourceSettingsRow,
+            BaseReferences<
+              _$AppDatabase,
+              $SourceSettingsTableTable,
+              SourceSettingsRow
+            >,
+          ),
+          SourceSettingsRow,
+          PrefetchHooks Function()
+        > {
+  $$SourceSettingsTableTableTableManager(
+    _$AppDatabase db,
+    $SourceSettingsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SourceSettingsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SourceSettingsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$SourceSettingsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> pluginId = const Value.absent(),
+                Value<bool?> browseAsLoggedIn = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SourceSettingsTableCompanion(
+                pluginId: pluginId,
+                browseAsLoggedIn: browseAsLoggedIn,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String pluginId,
+                Value<bool?> browseAsLoggedIn = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SourceSettingsTableCompanion.insert(
+                pluginId: pluginId,
+                browseAsLoggedIn: browseAsLoggedIn,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SourceSettingsTableTable, SourceSettingsRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SourceSettingsTableTable,
+                    SourceSettingsRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SourceSettingsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SourceSettingsTableTable,
+      SourceSettingsRow,
+      $$SourceSettingsTableTableFilterComposer,
+      $$SourceSettingsTableTableOrderingComposer,
+      $$SourceSettingsTableTableAnnotationComposer,
+      $$SourceSettingsTableTableCreateCompanionBuilder,
+      $$SourceSettingsTableTableUpdateCompanionBuilder,
+      (
+        SourceSettingsRow,
+        BaseReferences<
+          _$AppDatabase,
+          $SourceSettingsTableTable,
+          SourceSettingsRow
+        >,
+      ),
+      SourceSettingsRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7437,4 +8683,8 @@ class $AppDatabaseManager {
       $$PlayHistoryTableTableTableManager(_db, _db.playHistoryTable);
   $$LayoutStateTableTableTableManager get layoutStateTable =>
       $$LayoutStateTableTableTableManager(_db, _db.layoutStateTable);
+  $$AccountsTableTableTableManager get accountsTable =>
+      $$AccountsTableTableTableManager(_db, _db.accountsTable);
+  $$SourceSettingsTableTableTableManager get sourceSettingsTable =>
+      $$SourceSettingsTableTableTableManager(_db, _db.sourceSettingsTable);
 }

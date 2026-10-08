@@ -30,6 +30,10 @@ lib/plugins/
     plugin_index.dart         # PluginIndex、PluginIndexEntry、PluginRejected／PluginRejection
     plugin_downloader.dart    # PluginDownloader：讀 index、下載並驗證（SHA、manifest 比對、checks）
     plugin_updates.dart       # updateStatus（semver）、addedAccess（新增的能力與網域）
+  accounts/                   # 憑證與帳號（見 § 帳號）
+    login_credentials.dart    # LoginCredentials：{cookies, extra?}
+    credential_store.dart     # CredentialStore：secure storage 的憑證、狀態、遮蔽登記
+    account_service.dart      # AccountService：登出、移除插件的帳號面
   types/fmp-plugin.d.ts       # 給插件作者的 TypeScript 型別
 
 test/plugins/contract/        # 契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
@@ -87,7 +91,7 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 - 候選只有試聽片段（非會員之類）時回 `{ candidates: [...], previewOnly: true }`：宿主依使用者的
   「跳過試聽片段」跳過或照播並標「試聽」。連試聽都沒有就拋
   `{ fmpError: 'Unavailable', reason: 'previewOnly' }`。
-- 要跨重啟的值（匿名 cookie 等）存 `fmp.storage`；`fmp.credentials.get()` 在 M1 一律是 `null`。
+- 要跨重啟的值（匿名 cookie 等）存 `fmp.storage`；`fmp.credentials.get()` 回 `{cookies, extra?}`（`FmpLoginCredentials`），沒登入、暫時讀不到或已失效時是 `null`；憑證的值是秘密，不要寫進 log 或 storage。
 - 沒有 `setTimeout`、`fetch`、`require`，也不能 `import` 其他 module：一個檔案就是全部。
 - 用 `fmp-test` 當範本：`app/test/fixtures/plugins/test_plugin/test_plugin.js`；會發請求的範本是
   `app/test/fixtures/plugins/http_test_plugin/`。
@@ -156,6 +160,19 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   `PluginRegistry.isDisabled`（Map 每次改變都會發出新值，讀它的 provider 會跟著重建）。
 - 移除時之後的 PR 要加的步驟（憑證、帳號、排程器）加在 `PluginInstaller.remove` 刪 `installed_plugins` 列之前，並在
   `removing` 群組加對應的斷言。
+
+## 帳號
+
+規則與閘門見 `app/AGENTS.md` § 帳號。
+
+- 要憑證的程式碼拿 `credentialStoreProvider`（`CredentialStore`）：`state(id)` 是 `none`／`active`／`invalidated`／
+  `unreadable`，`activeCredentials(id)` 只在 `active` 回值；`save(account, credentials)` 先寫 secure storage 再寫
+  帳號列；`delete(id)` 只刪憑證與遮蔽登記，帳號列由 `AccountService.logout` 刪。
+- `PluginHarness` 自帶 `credentials`（接在記憶體資料庫與 `secureStorage`，一個 `InMemorySecureStorage`）；測試用
+  `harness.credentials.save(...)` 造出已登入的狀態。`InMemorySecureStorage.readError`／`writeError` 模擬 keystore 失敗。
+  需要 `ProviderContainer` 的測試要 override `credentialStoreProvider`（`harness.credentials`），App 層的測試
+  override `secureStorageProvider`。
+- 憑證值用 `FAKE_…` 開頭的假值，遮蔽才好斷言。
 
 ## 在 App 裡試插件
 

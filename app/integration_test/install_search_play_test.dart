@@ -21,6 +21,7 @@ import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -31,6 +32,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../test/flutter_test_config.dart' show NoNetworkHttpOverrides;
 import '../test/playback/fake_audio_backend.dart';
+import '../test/support/credentials.dart';
 
 // ADR 0015 §決定 1 挑出的兩個整合情境：從檔案安裝插件、搜尋→播放。App 從
 // `FmpApp` 開始，插件執行環境（QuickJS 背景 isolate）、安裝、資料目錄裡的
@@ -254,6 +256,7 @@ final class _AppRun {
             const PlatformCapabilities(
               dataDirectory: true,
               singleInstance: false,
+              secureStorage: false,
               fontFallback: FontFallback.none,
               playback: _playback,
               networkInterfaces: false,
@@ -270,6 +273,9 @@ final class _AppRun {
               applicationCachePath: () async => '${data.parent.path}/cache',
             ),
           ),
+          // 插件的 HTTP client 經 CredentialStore 讀憑證：給一個空的記憶體
+          // 存放（CI 的 runner 不一定有 keyring，這個測試也不登入）。
+          secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
           // 網路狀態只看請求結果：這個測試不看系統的網路介面。
           networkInterfacesProvider.overrideWithValue(null),
           audioBackendProvider.overrideWith((ref) {
