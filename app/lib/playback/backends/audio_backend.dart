@@ -249,10 +249,15 @@ final class SourceFailed extends BackendEvent {
   final Object? cause;
 }
 
-/// 別的 App 拿走音訊焦點（Android 的來電、別的播放器）：暫停類與 unknown 類
-/// 的中斷。不屬於某個來源；暫停與否由控制器決定。
+/// 別的 App 拿走音訊焦點（Android 的來電、別的播放器）。不屬於某個來源；暫停
+/// 與否由控制器決定。
 final class Interrupted extends BackendEvent {
-  const Interrupted();
+  const Interrupted({required this.transient});
+
+  /// 暫時的中斷（來電、語音助理）：之後會有 [InterruptionEnded]。為假是永久
+  /// 失去焦點（別的播放器開始播，Android 的 `AUDIOFOCUS_LOSS`），不會再有結束
+  /// 的事件。
+  final bool transient;
 }
 
 /// 中斷結束。[resume]：暫停類的中斷結束（拿回焦點），控制器只在原本因中斷

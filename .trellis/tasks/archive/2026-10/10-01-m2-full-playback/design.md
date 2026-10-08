@@ -694,7 +694,13 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
 - **閘門**：
   - `test/identity/android_manifest_test.dart` 以 XML 解析斷言權限、服務與 receiver。用解析而非比對字串，改格式不會紅；
   - CI 的 `aapt2 dump permissions` 照舊看 release APK；
-  - `MainActivity` 的兩個覆寫沒有自動閘門，實機驗。
+  - `MainActivity` 的覆寫沒有自動閘門，實機驗（驗收時加了第三個 `setFrameworkHandlesBack`，見 §9.1）。
+- **M2 驗收補的決定**（2026-10-08，實機抓到；擁有者選了「只在中斷時留住服務」）：
+  - **問題**：`androidStopForegroundOnPause: true` 讓來電暫停時放掉前景服務；掛斷後在背景自動續播，要重新 `startForegroundService`，被 Android 12+ 拒絕。之後服務不在前景，約 2–3 分鐘被凍結，音樂停。
+  - **做法**：只有「因中斷而暫停」期間推 `MediaPhase.interrupted`，Android 對成 `playing: true` 加 `buffering`，前景服務不放；平常的暫停照舊放掉。
+  - **永久失去焦點**（別的播放器搶走）：不留住前景服務，直接暫停、不等結束（審查抓到旗標會卡住）。
+  - **錯誤**：`AudioService.asyncError` 寫進 log。
+  - **已知限制**：中斷期間媒體卡片畫緩衝的轉圈，不能從卡片暫停。
 
 ### 8.4 Windows（`smtc_windows` 1.1.0）
 
@@ -737,6 +743,7 @@ ADR 0016 §決定 4 的主路線「`cached_network_image` 的自訂 cache manage
   - `MainActivity` 覆寫它：`moveTaskToBack(true)` 並回真。App 退到背景，引擎與播放都不動。
 - 不加 MethodChannel，所以不需要 Pigeon（ADR 0009 §決定 5 只管新的 channel）。Dart 端不判斷平台。
 - Windows 沒有返回鍵，不受影響。
+- **M2 驗收時的更正**（2026-10-08，實機抓到）：targetSdk 36 的 App 在 Android 16 起預設開啟 predictive back。在根 route 時 Flutter 把返回交給系統，系統只對從桌面啟動的 Activity 退到背景，其他情況 `finish()`，`popSystemNavigator` 根本沒被呼叫。暫停時再從圖示打開，`main()` 會重跑。`MainActivity` 因此再覆寫 `setFrameworkHandlesBack`（一律交給 Flutter），返回走 `SystemNavigator.pop` 再到 `popSystemNavigator`。代價是根 route 沒有系統「回到桌面」的預覽動畫。
 - **PR 16a 實作時補的決定**：
   - 系統的「停止」指令（耳機、車機、通知被關掉）當作暫停，位置與佇列都保留（擁有者決定）；`systemActions` 帶 stop 才收得到。
   - 啟動恢復後還沒按播放（`Idle`）時推 `processingState: idle`，不顯示媒體通知。

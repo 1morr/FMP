@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:fmp/core/app_flavor.dart';
+import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
@@ -31,7 +32,7 @@ final class AppPlatform {
     this.networkInterfaces,
     this.cacheDirectory,
     this.mediaControls,
-    Future<SystemMediaControls> Function()? mediaControlsFactory,
+    Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
        assert(capabilities.networkInterfaces == (networkInterfaces != null)),
@@ -56,8 +57,8 @@ final class AppPlatform {
   factory AppPlatform.assemble(
     TargetPlatform platform,
     AppFlavor flavor, {
-    Future<SystemMediaControls> Function()? androidMediaControls,
-    Future<SystemMediaControls> Function()? windowsMediaControls,
+    Future<SystemMediaControls> Function(Log log)? androidMediaControls,
+    Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
   }) => switch (platform) {
     TargetPlatform.android => AppPlatform._(
       capabilities: const PlatformCapabilities(
@@ -109,7 +110,7 @@ final class AppPlatform {
         applicationCachePath: _applicationCachePath,
       ),
       mediaControlsFactory:
-          windowsMediaControls ?? WindowsSystemMediaControls.init,
+          windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
     ),
     TargetPlatform.linux ||
     TargetPlatform.macOS ||
@@ -134,19 +135,23 @@ final class AppPlatform {
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
 
-  final Future<SystemMediaControls> Function()? _mediaControlsFactory;
+  final Future<SystemMediaControls> Function(Log log)? _mediaControlsFactory;
 
   /// 初始化系統媒體控制，回傳帶著它的平台。`main()` 在開好資料庫之後、`runApp`
   /// 之前呼叫一次。失敗時呼叫 [onFailure]、宣告改為沒有（ADR 0009 §決定 2），
   /// App 照常啟動。
+  ///
+  /// [log] 交給實作記下初始化之後才發生的錯誤（Android 的 `audio_service`
+  /// 非同步錯誤）。
   Future<AppPlatform> withMediaControls({
+    required Log log,
     required void Function(Object error, StackTrace stackTrace) onFailure,
   }) async {
     final factory = _mediaControlsFactory;
     if (factory == null) return this;
     SystemMediaControls? controls;
     try {
-      controls = await factory();
+      controls = await factory(log);
     } on Object catch (error, stackTrace) {
       onFailure(error, stackTrace);
     }

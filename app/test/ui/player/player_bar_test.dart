@@ -286,6 +286,38 @@ void main() {
           .inSeconds;
       expect(position, greaterThan(60));
     });
+
+    // M2 驗收（Android，2026-10-08）：臨時播放結束、佇列那首只載入不播時，
+    // ExoPlayer 不回報位置；進度條曾停在臨時曲目最後的位置與時長。時長還沒回報
+    // 時用曲目的（3:05），所以照樣能拖。
+    testWidgets('a song loaded paused after a temporary play shows its own '
+        'start and length, not the temporary track', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(seconds: 15));
+      unawaited(h.controller.pause());
+      await tester.pump();
+      unawaited(h.controller.playTemporary(summary('b').toTrackInfo()));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(find.text('0:02'), findsOneWidget, reason: 'live progress');
+
+      unawaited(h.controller.next());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(h.controller.state, isA<Paused>());
+      expect(h.controller.queue.current?.sourceId, 'a');
+      // 預設倒退 10 秒：從 0:05 開始。
+      expect(find.text('0:05'), findsOneWidget);
+      expect(find.text('3:05'), findsOneWidget);
+      expect(find.text('0:02'), findsNothing);
+      expect(find.text('3:00'), findsNothing);
+      expect(
+        tester.widget<Slider>(find.byType(Slider).first).onChanged,
+        isNotNull,
+      );
+    });
   });
 
   group('shuffle and loop', () {

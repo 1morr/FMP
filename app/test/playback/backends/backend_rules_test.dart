@@ -180,7 +180,7 @@ void main() {
       );
       expect(
         respondToInterruption(begin: true, kind: InterruptionKind.unknown),
-        InterruptionResponse.interrupted,
+        InterruptionResponse.lost,
       );
       expect(
         respondToInterruption(begin: false, kind: InterruptionKind.pause),

@@ -359,7 +359,7 @@ void main() {
   group('output events', () {
     test('an interruption while sound is wanted pauses to resume later', () {
       expect(
-        routePlaybackEvent(const AudioInterrupted(), snapshot()),
+        routePlaybackEvent(const AudioInterrupted(transient: true), snapshot()),
         isA<PauseForInterruption>(),
       );
     });
@@ -367,7 +367,34 @@ void main() {
     test('an interruption while nothing is wanted is ignored', () {
       expect(
         routePlaybackEvent(
-          const AudioInterrupted(),
+          const AudioInterrupted(transient: true),
+          snapshot(wantsSound: false),
+        ),
+        isA<IgnoreEvent>(),
+      );
+    });
+
+    // AUDIOFOCUS_LOSS（別的播放器開始播）之後不會有結束的事件：當成暫停類的中斷
+    // 的話「因中斷而暫停」一直留著，系統媒體控制就一直裝成在播放。
+    test('a permanent loss of focus pauses without waiting for an end', () {
+      expect(
+        routePlaybackEvent(
+          const AudioInterrupted(transient: false),
+          snapshot(),
+        ),
+        isA<PauseWithoutResuming>(),
+      );
+      // 來電中又被別的播放器拿走：不再等來電的結束。
+      expect(
+        routePlaybackEvent(
+          const AudioInterrupted(transient: false),
+          snapshot(wantsSound: false, pausedByInterruption: true),
+        ),
+        isA<PauseWithoutResuming>(),
+      );
+      expect(
+        routePlaybackEvent(
+          const AudioInterrupted(transient: false),
           snapshot(wantsSound: false),
         ),
         isA<IgnoreEvent>(),
@@ -440,7 +467,7 @@ void main() {
       // 代比對只對來源的事件：輸出事件的 snapshot 代是什麼都照樣處理。
       expect(
         routePlaybackEvent(
-          const AudioInterrupted(),
+          const AudioInterrupted(transient: true),
           PlaybackSnapshot(
             generation: _generation + 5,
             playWhenReady: true,

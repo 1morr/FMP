@@ -16,7 +16,7 @@
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
-| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的兩個覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
+| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`、`lib/playback/playback_session.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
@@ -174,7 +174,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 `lib/platform/`（ADR 0009）。怎麼加一個能力：`.trellis/spec/app/platform/index.md`。
 
 - `PlatformCapabilities` 只含已經有實作的能力。Linux、macOS、iOS 驗證前宣告全部為
-  「沒有」、沒有實作檔；`main()` 看到沒有資料目錄就只開「此平台尚未支援」的畫面。
+  「沒有」、沒有實作檔；`main()` 看到沒有資料目錄就只開「此平台尚未支援」的畫面（`main()` 的分支沒有測試，review 時看）。
 - 新能力連同實作一起加：宣告欄位、各平台實作、組裝點的分支、測試列在同一個 PR，
   不先為之後的里程碑預留欄位。
 - 平台判斷（`defaultTargetPlatform`、`TargetPlatform`、`Platform.isXxx`）只寫在組裝點
@@ -216,17 +216,46 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   缺欄位先清）、`platform_test.dart`
   的 `system media controls on Windows`（宣告與初始化失敗）、`now_playing_publisher_test.dart` 的
   `position refresh`、`artwork url`；`layer_imports_test.dart` 的 `smtc_windows` 案例守「只在 `lib/platform/`」。
+- Android 的前景服務與中斷（`media_controls_android.dart`）：`androidStopForegroundOnPause: true`，暫停時
+  `audio_service` 放掉前景服務、通知可以滑掉（舊版也是這樣，省電）。來電等中斷把播放暫停後，掛斷時控制器
+  自動續播，`audio_service` 的 `enterPlayingState` 要重新 `startForegroundService`，但 App 這時在背景，
+  Android 12 起拒絕（`ForegroundServiceStartNotAllowedException`，logcat `Background started FGS:
+  Disallowed`），例外只進 `AudioService.asyncError`；之後服務不在前景，約 1 分鐘 `am_stop_idle_service`、
+  再約 1.5 分鐘 `am_freeze`，音樂就停了（模擬器實測，2026-10-08）。所以只在「因中斷而暫停」的期間
+  （`MediaPhase.interrupted`）對 `audio_service` 回報 `playing: true` 加 `AudioProcessingState.buffering`：
+  `exitPlayingState` 不會跑、前景服務不放，buffering 讓系統不推算進度；續播時不必從背景重新啟動前景服務。
+  不改成永遠不放前景服務：一般暫停放掉是想要的行為。轉換是純函數 `androidPlaybackStateOf`；Windows 的
+  `smtcStatusOf` 把 `interrupted` 對成 SMTC 的暫停（Windows 沒有這個問題，也不會出現這個 phase，列舉要完整）。
+  `AudioService.asyncError` 由 `AndroidSystemMediaControls` 在初始化後聽，以 `log.report`（tag
+  `media-controls`）記下，不提示使用者（`AppPlatform.withMediaControls(log:)` 交給實作）。閘門：
+  `media_controls_android_test.dart`（`interrupted` → playing 加 buffering 加暫停鍵、一般階段不變；`reportAsyncErrors`
+  記 log、取消後不再記）、`media_controls_windows_test.dart` 的 `status`、`now_playing_publisher_test.dart` 的中斷案例。
+  **沒有自動閘門、要實機驗**：`audio_service` 的 `asyncError` stream 是私有的，`AndroidSystemMediaControls`
+  聽的是不是它、以及真的來電後前景服務有沒有留住，只能在 Android 模擬器驗：背景播放中
+  `adb emu gsm call 5551234`、`gsm cancel 5551234`，掛斷後音樂續播，`logcat` 沒有 `Background started FGS:
+  Disallowed`，`logcat -b events` 之後沒有 `am_stop_idle_service`、`am_freeze`；`dumpsys media_session` 在中斷期間
+  是 `BUFFERING`（2026-10-08 實測通過：關螢幕 3 分鐘照常播、前景服務一直在）。**已知限制**：Android 的媒體卡片對
+  `BUFFERING` 畫轉圈圖示、不是暫停鍵，通話期間不能從卡片暫停，掛斷後照常續播（實測）。
 - Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
-  有兩個覆寫，**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
+  下面的覆寫**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
   - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
     `DartEntrypoint.createDefault()` 啟動引擎、不帶 intent 的 `dart_entrypoint_args`，原樣用的話
     `--fmp-dev-plugin` 在 Android 失效。覆寫成快取裡沒有引擎時自己建、帶 `getDartEntrypointArgs()`
     啟動，放進 `FlutterEngineCache`（鍵 `AudioServicePlugin.getFlutterEngineId()`）。升級
     audio_service 時重看它的 `getFlutterEngine` 有沒有改。
-  - `popSystemNavigator`：Flutter 預設在根 route 沒得 pop 時 `finish()`，返回鍵直接結束 App 並停掉
-    播放；覆寫成 `moveTaskToBack(true)` 並回 `true`，App 退到背景、引擎與播放照常。
-  實機驗證：`--fmp-dev-plugin` 啟動後測試插件仍裝得上；在歷史頁按返回回到搜尋，在搜尋再按一次 App 退到
-  背景、音樂繼續。
+  - `popSystemNavigator`：Flutter 預設在根 route 沒得 pop 時 `finish()`，返回鍵直接結束 App；覆寫成
+    `moveTaskToBack(true)` 並回 `true`，App 退到背景、Activity 與引擎都留著。
+  - `setFrameworkHandlesBack` 一律以 `true` 交給父類別，`onCreate` 也先登記一次：返回鍵一律交給 Flutter，
+    上一條才走得到。Android 16 起 targetSdk 36（`flutter.targetSdkVersion`）預設啟用 predictive back，
+    返回不再經 `onBackPressed`；Flutter 在沒得 pop 時（搜尋分頁）取消登記自己的 `OnBackInvokedCallback`
+    交給系統，系統只對從桌面啟動的 task 退到背景（`ActivityClientController.shouldMoveTaskToBack`），
+    adb、通知、別的 App 開的一律 `finish()`，`popSystemNavigator` 不會被呼叫（M2 驗收實測，2026-10-08）。
+    代價是根 route 沒有系統的「回到桌面」預覽動畫。不用 manifest 的
+    `enableOnBackInvokedCallback="false"`：官方文件寫的是暫時的退出。接回 audio_service 留著的引擎時
+    Dart 端不重送返回的狀態，所以 `onCreate` 要自己登記。
+  實機驗證：`--fmp-dev-plugin` 啟動後測試插件仍裝得上；以 adb 啟動（不是從桌面），在歷史頁按返回回到搜尋，
+  在搜尋再按一次 App 退到背景，`logcat -b events` 沒有 `wm_finish_activity`，從桌面圖示回來時沒有新的
+  `App started`、搜尋字與分頁都在；播放中按返回音樂繼續。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
@@ -278,7 +307,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （design §3.1、§3.2）。`queue_entries.track_key` 以外鍵參照 `tracks`、`ON DELETE RESTRICT`：被佇列
   參照的曲目刪不掉，孤兒清理（`TracksRepository.deleteOrphans`，啟動維護清單）只刪沒人參照的列，
   之後加表的 PR（歌單項目、下載紀錄）各自把自己加進那個查詢；`play_history` 已在裡面（見下一條）。寫入曲目用
-  `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE。`queue_entries` 的主鍵是位置，
+  `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE（REPLACE 會先刪再插，撞上 `RESTRICT`；沒有直接的閘門，review 時看）。`queue_entries` 的主鍵是位置，
   位移時先改成負值再改回，所以那張表不能加 `position >= 0` 的檢查。`player_state` 單列，音量與
   靜音隨佇列存在這裡、不是設定；隨機排列存成每個位置的名次（`shuffle_rank`），不存排列本身。`queue_entries.track_key`
   有索引，否則孤兒清理每刪一列掃一次佇列（一萬孤兒約 9 秒，有索引約 14 ms）；閘門：`migration_test.dart`
@@ -465,7 +494,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 網路
 
 `lib/core/network/`（ADR 0012 §決定 1–2、ADR 0013 §決定 2、4）。怎麼發請求、改攔截器、
-寫測試：`.trellis/spec/app/network/index.md`。測試都在 `test/core/network/`。
+寫測試：`.trellis/spec/app/network/index.md`。網路層自己的測試在 `test/core/network/`。
 
 - 每插件兩個 client：API 用的 `SourceHttpClient`（`SourceHttpClientFactory.create`）與
   抓圖片、檔案的 `MediaHttpClient`（`MediaHttpClientFactory.create`）。`Dio` 只在
@@ -496,7 +525,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 狀態碼：網路層只把 429 與帶 `Retry-After` 的 503 轉成 `RateLimited`，其他回應原樣
   交給插件對應；傳輸錯誤轉 `NetworkError`。閘門：`error mapping` 群組。
 - 取消（`abortTrigger`）丟 `RequestCancelled`，不是 `AppError`：只有取消的一方收到，
-  不重試、不 report。
+  不重試、不 report。閘門：`source_http_client_test.dart` 的 `a cancelled request is not retried`、
+  `requests that were not sent or were cancelled report nothing`。
 - cookie：每插件一個記憶體 jar，網路層不持久化。匿名 cookie（B 站 `buvid`）要跨重啟
   時，由插件從回應的 `Set-Cookie` 取值寫進自己的 storage（`plugin_storage`，ADR 0014
   §決定 5），下次以 `Cookie` header 帶上（cookie 管理會併進 jar 的 cookie）。沒有閘門，
@@ -511,7 +541,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   client 測試的 `network log` 群組（欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體
   歷史與 log 檔）、`media_http_client_test.dart` 的 `no Cookie or Authorization…`（兩種
   client 的 id 接續）；provider 的接線沒有閘門，review 時看。
-- 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。M1 的認證來源是
+- 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。目前（M2）的認證來源是
   `NoCredentials`（每個音源都未登入）。閘門：`auth_test.dart`（三種標記 × 三種狀態）。
 - 網路狀態（`network_status.dart`，ADR 0016 §決定 6）：輸入只有平台層的介面變化與
   HTTP client 每次送出的結果（`RequestOutcomeSink`）。拿到回應不論狀態碼都是
@@ -676,7 +706,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 （`selectOutputDevice`）。佇列、循環、隨機與音量持久化（見「持久化與啟動恢復」）。
 
 - `PlaybackController` 是 UI 唯一的播放入口，也是 `PlaybackState` 唯一的寫入者；
-  `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`PlaybackEventRouter`，純函數）、
+  `QueueModel`、`PlaybackSession`、`routePlaybackEvent`（`playback_event_router.dart`，純函數）、
   `decideRecovery`（純函數）只回報。沒有閘門，review 時看。
 - `just_audio`、`media_kit`（含 `media_kit_libs_*`）與 `audio_session`（Android 的音訊中斷，
   後端自己聽）只准在 `lib/playback/backends/` import。閘門：lint `fmp_layer_imports`
@@ -755,6 +785,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   只對 127.0.0.1 放行明文，release 不合併這份。閘門：`test/identity/android_identity_test.dart` 的
   `cleartext traffic` 群組（只有 debug 的 manifest 指向設定、只有 debug 有設定檔、只放行
   127.0.0.1）與 `parser mutations` 的三個明文案例。
+- 進度 stream（`PlaybackController.progress`，來自 session）一直是目前這首的：後端只保證播放中與 seek 後回報
+  （`AudioBackend.progress`），ExoPlayer 對暫停中開的來源到按播放前都不回報（just_audio 0.10.6 的
+  `positionStream` 只在播放中與引擎事件時發出，載入的那些事件落在 `JustAudioBackend` 的清單修改期間、被丟掉；
+  M2 驗收 2026-10-08 實機：臨時播放結束、佇列那首只載入不播，進度條停在臨時曲目的位置與時長）。所以 session
+  在開始要求一首（`beginRequest`）與交給後端（`_open`）時先發出起點，不等後端；時長在同一首重開（重試、換
+  候選）時沿用，換了一首是 `null`。假後端照 ExoPlayer 的形狀：暫停中 `open` 不回報位置。閘門：
+  `playback_controller_test.dart` 的 `progress of the current song` 群組（暫停中換歌、解析中、解析中 seek、
+  重試沿用時長）與 `temporary play` 群組的 `a queue that was paused reports its own start…`。
 - 臨時播放中不準備前瞻（舊版「臨時播放不預取」）：臨時曲目播完回到的那一首要從快照的位置
   開始，不能由引擎從頭接上。閘門：`temporary play` 群組的 `prepares no look-ahead…`。
 - 單曲循環：前瞻是目前這首的同一份解析結果（`NextTrack` 的位置為 `null`），引擎無縫重播，
@@ -841,7 +879,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   用錯誤提示會被去重吞掉）。閘門：`app_shell_test.dart` 的 `playback toasts` 群組、
   `playback_controller_test.dart` 斷言事件的案例。
 - 音量與速度（E19，design §7.6）：控制器交給後端，後端在 `open` 之前收到也生效、換來源與接上
-  前瞻後維持；速度夾到 0.5–2.0、音量 0–1（`backend_rules.dart` 的 `clampSpeed`、`clampVolume`，
+  前瞻後維持；速度夾到 0.5–2.0、音量 0–1（`backend_rules.dart` 的 `clampSpeed`（定義在 `lib/domain/playback_speed.dart`、由它轉出）、`clampVolume`，
   兩個後端都經過）。速度不持久化，控制器對外給 `speed`、`speedChanges`（`playbackSpeedProvider`，播放頁的「⋯」與 `NowPlayingPublisher` 讀）；音量與靜音隨佇列存（見「持久化與啟動恢復」）。靜音只把後端的音量設成 0，
   控制器的 `volume` 不變，取消靜音回到它；靜音中 `setVolume` 就是取消靜音（舊版拖音量條的
   行為）。閘門：後端契約的 `volume and speed set before open hold across a handover and a new
@@ -852,18 +890,24 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `handleInterruptions: false` 關掉 just_audio 的內建處理（0.10.6 在 duck 結束時無條件把音量乘 2），
   自己聽 audio_session：duck 只把引擎輸出乘 0.5，不改使用者音量、不通知上層；duck 以外的任何
   中斷事件都還原（`duckedAfter`：duck 中轉成暫停類或 unknown 類中斷時，audio_session 之後報的是
-  暫停類的結束或什麼都不報，等不到 duck 的結束）。暫停類與
-  unknown 類中斷發 `Interrupted`，暫停類結束發 `InterruptionEnded(resume: true)`，拔耳機發
+  暫停類的結束或什麼都不報，等不到 duck 的結束）。暫停類中斷發 `Interrupted(transient: true)`，
+  unknown 類（`AUDIOFOCUS_LOSS`：別的播放器開始播，之後沒有結束的事件）發 `Interrupted(transient: false)`，
+  暫停類結束發 `InterruptionEnded(resume: true)`，拔耳機發
   `BecameNoisy`（對應表是 `respondToInterruption`）。焦點的取得與釋放仍由 just_audio 的
   `handleAudioSessionActivation` 管，「換歌不放焦點」不變。暫停與續播由路由器決定、控制器執行：
   在出聲時中斷才暫停並記下「因中斷而暫停」；中斷結束只續播這種暫停；使用者在中斷期間按了播放或
   暫停、拔耳機都清掉它（拔耳機後不從喇叭續播）；中斷期間按下一首不清掉它，新的那首載入後停著、
-  中斷結束時續播；`Idle` 時的中斷不會在結束時開始播放；等重試時
+  中斷結束時續播；永久失去焦點只暫停、不記「因中斷而暫停」，來電中又失去焦點的也清掉它（等不到
+  結束，留著的話系統媒體控制一直裝成在播放、前景服務不放）；`Idle` 時的中斷不會在結束時開始播放；等重試時
   的中斷取消那次重試，結束時從原位置重新開流。Android 8 起系統自動 duck
   （`setWillPauseWhenDucked(false)` 是 audio_session 的預設），App 收不到 duck 的回呼，所以實機
-  幾乎看不到 duck 那一支。閘門：`backend_rules_test.dart` 的
-  `audio interruptions (Android)`、`playback_event_router_test.dart` 的 `output events`、
-  `playback_controller_test.dart` 的 `audio interruptions` 群組。`JustAudioBackend` 接
+  幾乎看不到 duck 那一支。控制器對外給 `pausedByInterruption`、`pausedByInterruptionChanges`
+  （只在改變時發出，唯讀；`NowPlayingPublisher` 讀，見 § 系統媒體控制）：中斷暫停起為真，使用者
+  按播放或暫停、拔耳機、停下為假；中斷結束的續播發出後到後端報出播放之前（狀態仍是 `Paused`）
+  仍為真（`_resumingFromInterruption`），否則系統那邊會在續播前一刻先看到暫停。閘門：
+  `backend_rules_test.dart` 的 `audio interruptions (Android)`、`playback_event_router_test.dart` 的
+  `output events`、`playback_controller_test.dart` 的 `audio interruptions` 群組（名稱含 `flag` 的五個案例，
+  其中兩個是永久失去焦點）。`JustAudioBackend` 接
   audio_session 的那幾行在 `flutter test` 裡建不起來，沒有自動閘門：實機以模擬器的來電觸發
   （見 spec）。
 - 輸出裝置（只有 Windows，design §7.6）：`AudioBackend.outputDevices` 列 mpv 的
@@ -1021,12 +1065,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 按鈕依能力推導：有目前曲目才有上一首；播放中、`Loading`、`Buffering`、`Retrying` 是暫停鍵，其他是播放鍵；
     有下一首或循環全部才有下一首。
   - 還沒按播放的 `Idle`（含啟動恢復後）是 `MediaPhase.idle`：系統不顯示通知、不搶前景。
+  - 因音訊中斷而暫停（`Paused` 且 `pausedByInterruption`）是 `MediaPhase.interrupted`、`playing: true`、按鈕是
+    暫停鍵（Android 的卡片實際畫成緩衝的轉圈，見 § 平台層），位置照暫停（不外推）。理由在 § 平台層的 Android 前景服務：這段期間對 Android 要裝成還在播放，
+    前景服務才不會放掉。使用者從通知按暫停時控制器的 `pause()` 清掉旗標，phase 回到 `ready`、`playing: false`，
+    前景服務照常放掉；平常的暫停（使用者按的、其他原因）不經這條，耗電行為不變。
   - 封面經 `artworkCacheManagerProvider`（design §4.3）取得本機檔、以 `file://` 交給平台（`artworkFile`，Android 用），晚於
     其他欄位送出；拿不到就不帶封面。同一張的原網址另放 `artworkUrl`，和曲目一起送出（Windows 用，見 § 平台層）。啟動恢復時快取庫與插件清單多半還沒好，組裝點先等它們（`cacheStoreProvider.future`、
     `pluginRegistryProvider.future`）再拿 cache manager：publisher 每首只問一次。
   - 系統指令一律呼叫控制器：播放、暫停、上一首、下一首、seek；停止當作暫停（擁有者決定：位置與佇列保留，
     之後按播放從原處繼續）。
-  閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停、`position refresh`、`artwork url`）、
+  閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停、`position refresh`、`artwork url`；
+  中斷：`a pause by an interruption holds the session as playing`、`the held session never shows paused…`（續播前一刻不先推暫停，
+  拿掉控制器的 `_resumingFromInterruption` 會紅）、`pausing from the notification during an interruption…`、`a pause by the user is not held`、
+  `a permanent loss of focus is not held`）、
   `playback_providers_test.dart` 的 `system media controls`（組裝點接線、`the artwork of the restored song waits for
   the cache store`）；Android 的通知、鎖定畫面、
   `dumpsys media_session` 與媒體鍵，Windows 的媒體卡片、封面與經工作階段送的指令，都沒有自動閘門，實機驗。
@@ -1045,9 +1096,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `test/settings/appearance_settings_test.dart`（改預設後使用者值不變、未設定的欄位
   不被寫入）。
 - 每組一個 Notifier，只寫改動的欄位；對外給套用預設後的值，另帶 `stored` 讓設定頁
-  分辨「跟隨系統」。
+  分辨「跟隨系統」。閘門：「只寫改動的欄位」見各組的 repository 測試；`stored` 沒有直接的閘門，review 時看。
 - 語言沒設定過時跟隨系統的語言偏好清單（執行中改變也跟）：取清單中第一個對得到
-  zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。
+  zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。閘門：`appearance_settings_test.dart` 的
+  `an unset language follows the system as it changes`、`fmp_app_test.dart` 的 `an unset language follows the system`。
 - 「網路」組（`network_settings`）目前只有快取上限（MiB，空＝平台宣告的預設，選項 128／256／
   512／1024）；舊版的快取設定不匯入（ADR 0016 §決定 3）。閘門：
   `test/settings/network_settings_test.dart`（改預設後使用者值不變、未設定的跟著預設、清回
@@ -1055,14 +1107,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `stored format`）。
 - 「播放」組（`playback_settings`）的整張表在 M2 PR 10 一次建好（design §3.3 的十個欄位，
   schema v3），repository 的 `write`／`clear` 涵蓋全部欄位；Notifier（`playbackPreferencesProvider`）
-  與設定頁只有已經有人用的欄位：音質（預設高，選項高／中／低）、格式偏好（預設 Opus 優先，
+  與設定頁接上全部十個欄位：音質（預設高，選項高／中／低）、格式偏好（預設 Opus 優先，
   選項 Opus 優先／AAC 優先，兩者照舊版的預設，見「播放」的網址快取）、記住播放位置（預設開）、
   臨時播放回佇列倒退秒數（預設 10，選項 0／3／5／10／15／30）、跳過試聽片段（預設開，見
   「播放」）、重啟恢復時倒退秒數（預設 0，選項同上，設定頁在「跳過試聽片段」之後；啟動時讀一次，
   見「播放」的持久化與啟動恢復）、播放歷史保留筆數（預設 10000，選項 1000／5000／10000／50000，設定頁在重啟恢復
   倒退之後；寫入時依它裁，`setPlayHistoryLimit` 寫完當下依生效的筆數 `trimTo`，所以改小馬上刪，見「播放」）、輸出裝置（沒有預設：沒設定過就是系統預設；`setOutputDevice` 兩欄一起寫、一起清，
   見「播放」；設定列在 PR 17 的播放列）、切歌時捲到目前歌曲（預設關，設定頁在播放歷史保留筆數之後，見「介面」的
-  播放頁佇列）。其他欄位的 setter 與設定列跟著用到它的 PR 加。音質、格式偏好的列舉存
+  播放頁佇列）。音質、格式偏好的列舉存
   `high`／`medium`／`low`、`opus,aac`／`aac,opus`（後者與舊版字面相同）。閘門：
   `test/settings/playback_settings_test.dart`、`playback_settings_repository_test.dart`
   （`stored format`、`clear`、只寫改動的欄位）、`test/drift/app_database/migration_test.dart`
@@ -1087,7 +1139,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   相同、每個 `ErrorMessageKey`／`UnavailableReason` 都有字串；含變異案例）。widget 裡寫死的
   字串沒有閘門，review 時看；時長（`3:05`、未知的 `-:--`）與語言名稱刻意不翻。
 - 翻譯只經 `translationsProvider`（`lib/ui/i18n/ui_locale.dart`）注入：`slang.yaml` 設
-  `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。
+  `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。沒有閘門，review 時看。
 - `MaterialApp.locale` 一律給帶書寫系統的 locale（`zh-Hant-TW`、`zh-Hans-CN`、`en`），由
   `flutterLocaleOf` 從 `LocaleSetting` 對出；它決定 Android 的繁簡字形與 Material 內建字串。
   `localizationsDelegates` 用 `material_ui` 的 `GlobalMaterialLocalizations.delegates`，不是
@@ -1111,7 +1163,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
-  `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡。
+  `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡（沒有閘門，review 時看）。
 - 設定頁依 ADR 0011 的分組（外觀、播放、網路，design §9.8 的順序）：expanded 以上是
   list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
   標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
@@ -1120,19 +1172,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   顯示快取上限、封面用量（跟著索引變動）與「清除快取」：確認後清快取庫並清 Flutter 的
   `ImageCache`（`clear` 加 `clearLiveImages`；畫面上正在用的圖只有後者清得掉）；清除失敗記
   error、不報成功。閘門：`test/ui/settings/settings_page_test.dart`（寬、窄兩種版面、跨斷點、
-  系統返回鍵、`a group left open does not hold the back key on another page`）、
+  系統返回鍵、`400 wide: a group left open does not hold the back key on another page`）、
   `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
   `ImageCache` 都空、清除失敗）。
 - 返回鍵（擁有者決定 7，design §9.1）：播放頁、面板、對話框是 route，Navigator 先關最上面的；外殼是
   `PopScope(canPop: 在第一個分頁)`：窄版設定頁點進某一組時先回到分組清單，否則不在第一個分頁時回到第一
   個分頁（搜尋），在第一個分頁時放行，Android 端由 `MainActivity.popSystemNavigator` 退到背景（見
   § 平台層）。不要在頁面內另放 `PopScope`：同一次返回所有 `PopScope` 的 callback 都會執行，會和外殼同時
-  動作。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
+  動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
   `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）與設定頁（外觀、播放、網路三組）在窄（400）與寬（1000）視窗
   通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
-  新頁面要加進去。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
+  新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
 - 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
@@ -1187,7 +1239,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `now_playing_panel_golden_test.dart`（1000、1800，只守版面結構）。
 - 外殼量底部被佔住的高度（播放列＋底部導覽列＋安全區）發佈給 `toastBottomInsetProvider`；頁面
   不發佈。播放頁在最上層時（`playerPageOpenProvider`，由播放頁的 route 在 push、pop、被移除時設定）蓋住了
-  播放列與導覽，外殼改發佈底部安全區（`viewPadding.bottom`），關掉後回到最後量到的高度。閘門：同檔的
+  播放列與導覽，外殼改發佈底部安全區（`viewPadding.bottom`），關掉後回到最後量到的高度。閘門：`app_shell_test.dart` 的
   `the bottom inset for toasts`、`toast_host_test.dart` 的 `position` 群組（含鍵盤：位移是鍵盤高度減
   `viewPadding`）、`player_page_test.dart` 的 `toasts`、`integration_test/toast_layering_test.dart` 的
   `a toast shows above the player page, on the safe area`。
@@ -1212,6 +1264,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   其他是 0:00、不能拖（按播放從頭開始）；時長未知時維持不能拖的樣子。閘門：`player_bar_test.dart` 的
   `after a restore` 群組（含臨時播放之後、沒有恢復的 `Idle`）、`app_shell_test.dart` 的 `Shift+arrows
   move the restored start…`。
+- 進度條在有來源的狀態讀進度 stream（一直是目前這首的，見 § 播放的「進度 stream」）；時長還沒回報（`null`，
+  暫停中載入的那首在 Android 到按播放前都是）時用曲目的時長（`TrackInfo.duration`），所以照樣能拖。閘門：
+  `player_bar_test.dart` 的 `a song loaded paused after a temporary play shows its own start and length…`
+  （M2 驗收 2026-10-08 的情境）。
 - 播放列的狀態標示（ADR 0018 §決定 7）：「等待網路連線」（`Retrying` 的 `delay` 為空）、「重試中」
   （其他 `Retrying`）、「試聽」（`playbackPreviewProvider`）以主色寫在曲名下那一行、上傳者之前，
   一行放不下就省略，三段寬度都在曲名欄裡、不另佔位置；狀態是 live region。閘門：
@@ -1317,7 +1373,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
 - 焦點三區（導覽、內容、播放列）各是 `FocusScope`＋`FocusTraversalGroup`：Tab 只在區內循環，F6
-  依序換區、跳過不在畫面上的播放列。閘門：同檔的 `focus regions` 群組。
+  依序換區、跳過不在畫面上的播放列。閘門：`app_shell_test.dart` 的 `focus regions` 群組。
 - 只有圖示的按鈕以 tooltip 當名稱（附按鍵，如「隨機播放（Ctrl+S）」，翻譯檔的 `*Tooltip`），不另外給
   `Icon.semanticLabel`：兩個都給時輔助技術念成「X. X」。閘門：`player_bar_test.dart` 的 `semantics`
   （播放列每個按鈕的語意只有 tooltip、標籤是空的）、`search_page_test.dart` 的 `the more button is

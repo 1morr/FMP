@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
+import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/audio/audio.dart';
@@ -113,11 +116,15 @@ void main() {
       'initializing keeps the declaration and exposes the controls',
       () async {
         final controls = _FakeControls();
-        final platform = await AppPlatform.assemble(
-          TargetPlatform.android,
-          AppFlavor.dev,
-          androidMediaControls: () async => controls,
-        ).withMediaControls(onFailure: (_, _) => fail('should not fail'));
+        final platform =
+            await AppPlatform.assemble(
+              TargetPlatform.android,
+              AppFlavor.dev,
+              androidMediaControls: (_) async => controls,
+            ).withMediaControls(
+              log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+              onFailure: (_, _) => fail('should not fail'),
+            );
 
         expect(platform.mediaControls, same(controls));
         expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
@@ -126,11 +133,15 @@ void main() {
 
     test('a failed initialization is logged and declares none', () async {
       final failures = <Object>[];
-      final platform = await AppPlatform.assemble(
-        TargetPlatform.android,
-        AppFlavor.dev,
-        androidMediaControls: () async => throw StateError('no service'),
-      ).withMediaControls(onFailure: (error, _) => failures.add(error));
+      final platform =
+          await AppPlatform.assemble(
+            TargetPlatform.android,
+            AppFlavor.dev,
+            androidMediaControls: (_) async => throw StateError('no service'),
+          ).withMediaControls(
+            log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+            onFailure: (error, _) => failures.add(error),
+          );
 
       expect(failures, hasLength(1));
       expect(platform.mediaControls, isNull);
@@ -141,10 +152,14 @@ void main() {
     });
 
     test('a platform without the capability initializes nothing', () async {
-      final platform = await AppPlatform.assemble(
-        TargetPlatform.linux,
-        AppFlavor.dev,
-      ).withMediaControls(onFailure: (_, _) => fail('should not run'));
+      final platform =
+          await AppPlatform.assemble(
+            TargetPlatform.linux,
+            AppFlavor.dev,
+          ).withMediaControls(
+            log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+            onFailure: (_, _) => fail('should not run'),
+          );
 
       expect(platform.mediaControls, isNull);
     });
@@ -155,11 +170,15 @@ void main() {
       'initializing keeps the declaration and exposes the controls',
       () async {
         final controls = _FakeControls();
-        final platform = await AppPlatform.assemble(
-          TargetPlatform.windows,
-          AppFlavor.dev,
-          windowsMediaControls: () async => controls,
-        ).withMediaControls(onFailure: (_, _) => fail('should not fail'));
+        final platform =
+            await AppPlatform.assemble(
+              TargetPlatform.windows,
+              AppFlavor.dev,
+              windowsMediaControls: (_) async => controls,
+            ).withMediaControls(
+              log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+              onFailure: (_, _) => fail('should not fail'),
+            );
 
         expect(platform.mediaControls, same(controls));
         expect(platform.capabilities.mediaControls?.supportsSeek, isFalse);
@@ -172,11 +191,15 @@ void main() {
 
     test('a failed initialization is logged and declares none', () async {
       final failures = <Object>[];
-      final platform = await AppPlatform.assemble(
-        TargetPlatform.windows,
-        AppFlavor.dev,
-        windowsMediaControls: () async => throw StateError('no smtc'),
-      ).withMediaControls(onFailure: (error, _) => failures.add(error));
+      final platform =
+          await AppPlatform.assemble(
+            TargetPlatform.windows,
+            AppFlavor.dev,
+            windowsMediaControls: (_) async => throw StateError('no smtc'),
+          ).withMediaControls(
+            log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+            onFailure: (error, _) => failures.add(error),
+          );
 
       expect(failures, hasLength(1));
       expect(platform.mediaControls, isNull);

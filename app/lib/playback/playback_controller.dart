@@ -98,6 +98,7 @@ final class PlaybackController {
   final _queueStates = StreamController<QueueState>.broadcast();
   final _events = StreamController<PlaybackEvent>.broadcast();
   final _previews = StreamController<bool>.broadcast();
+  final _interruptionChanges = StreamController<bool>.broadcast();
   final _volumeChanges =
       StreamController<({double volume, bool muted})>.broadcast();
   final _outputDeviceStates = StreamController<OutputDeviceState>.broadcast();
@@ -134,6 +135,14 @@ final class PlaybackController {
   /// 目前的暫停是音訊中斷造成的：中斷結束時續播。使用者按播放或暫停、換一首
   /// 開始播、拔耳機、停下時清掉。
   bool _pausedByInterruption = false;
+
+  /// 中斷結束的續播已經發出（[play]），但後端還沒報出來：這段期間 [_state] 仍是
+  /// [Paused]，[pausedByInterruption] 要維持為真，系統媒體控制才不會在續播前一刻
+  /// 先被放掉。狀態離開 [Paused]、使用者暫停、停下時清掉。
+  bool _resumingFromInterruption = false;
+
+  /// 最近一次發給 [pausedByInterruptionChanges] 的值。
+  bool _interruptionAnnounced = false;
 
   /// 使用者的音量（0–1）；靜音時是取消靜音後回到的值。
   double _volume = 1;
@@ -193,6 +202,15 @@ final class PlaybackController {
 
   /// [previewing] 的變化（只在改變時發出）。
   Stream<bool> get previewChanges => _previews.stream;
+
+  /// 目前的暫停（或正要發生的暫停）是音訊中斷造成的，中斷結束會續播。使用者
+  /// 按播放或暫停、拔耳機、停下就變回假；中斷結束的續播發出後到後端報出播放前
+  /// 仍為真。`NowPlayingPublisher` 據此在這段期間讓系統媒體工作階段維持在播放。
+  bool get pausedByInterruption =>
+      _pausedByInterruption || _resumingFromInterruption;
+
+  /// [pausedByInterruption] 的變化（只在改變時發出）。
+  Stream<bool> get pausedByInterruptionChanges => _interruptionChanges.stream;
 
   /// 使用者的音量（0–1）；靜音時是取消靜音後回到的值。
   double get volume => _volume;
@@ -556,6 +574,7 @@ final class PlaybackController {
     await _queueStates.close();
     await _events.close();
     await _previews.close();
+    await _interruptionChanges.close();
     await _volumeChanges.close();
     await _speedChanges.close();
     await _outputDeviceStates.close();
@@ -676,7 +695,7 @@ final class PlaybackController {
     final track = _queue.state.current;
     if (track == null) return;
     final key = track.key;
-    final generation = _session.beginRequest();
+    final generation = _session.beginRequest(key, position: position);
     _cancelRetry();
     _resumeAt = position;
     _playedSinceLoad = Duration.zero;
@@ -754,12 +773,16 @@ final class PlaybackController {
         unawaited(pause());
         // pause 清掉了它（當成使用者的暫停）；這次是中斷造成的，結束時續播。
         _pausedByInterruption = true;
+        _announceInterruption();
       case ResumeAfterInterruption():
         _log.info('Audio interruption ended; resuming', tag: _tag);
+        // play() 清掉 _pausedByInterruption；後端報出播放之前仍算中斷。
+        _resumingFromInterruption = true;
         unawaited(play());
       case PauseWithoutResuming():
         _log.info(switch (event) {
           HeadphonesUnplugged() => 'Headphones unplugged; pausing',
+          AudioInterrupted() => 'Audio focus lost; pausing',
           _ => 'Audio interruption ended; staying paused',
         }, tag: _tag);
         unawaited(pause());
@@ -954,7 +977,7 @@ final class PlaybackController {
         ? _selectedOutputDevice
         : null;
     _emitEvent(OutputDeviceFailed(fellBack: failedDevice != null));
-    _pausedByInterruption = false;
+    _clearInterruption();
     var stopped = Future<void>.value();
     switch (_state) {
       case Idle() || Failed():
@@ -1057,7 +1080,7 @@ final class PlaybackController {
   Future<void> _stopWith(PlaybackState state) async {
     _restoredPosition = null;
     _keptRestored = null;
-    _pausedByInterruption = false;
+    _clearInterruption();
     _session.newGeneration();
     _cancelRetry();
     _countPlayOnAudible = false;
@@ -1078,6 +1101,10 @@ final class PlaybackController {
     // 沒有欄位的狀態是 const 單例；Retrying、Failed 每次都是新的。
     if (identical(state, _state)) return;
     _state = state;
+    if (state is! Paused && _resumingFromInterruption) {
+      _resumingFromInterruption = false;
+      _announceInterruption();
+    }
     _watchBuffering(state);
     _log.debug(
       'Playback state',
@@ -1119,6 +1146,22 @@ final class PlaybackController {
   void _setPlayWhenReady(bool value) {
     _playWhenReady = value;
     _pausedByInterruption = false;
+    // 中斷結束的續播（value 為真）要維持；使用者再暫停就不續了。
+    if (!value) _resumingFromInterruption = false;
+    _announceInterruption();
+  }
+
+  void _clearInterruption() {
+    _pausedByInterruption = false;
+    _resumingFromInterruption = false;
+    _announceInterruption();
+  }
+
+  void _announceInterruption() {
+    final now = pausedByInterruption;
+    if (now == _interruptionAnnounced) return;
+    _interruptionAnnounced = now;
+    if (!_interruptionChanges.isClosed) _interruptionChanges.add(now);
   }
 
   void _setPreview(TrackKeyParts? track) {

@@ -70,7 +70,12 @@ final class MediaStop extends MediaCommand {
 }
 
 /// 系統看到的播放階段。[idle] 時系統不顯示通知、不佔前景。
-enum MediaPhase { idle, loading, buffering, ready }
+///
+/// [interrupted]：因音訊中斷（來電等）暫停，中斷結束會續播。要求系統把工作階段
+/// 當成還在播放而不推算進度（Android 的前景服務因此不放掉，結束續播時不必從背景
+/// 重新啟動前景服務，那會被 Android 12 起拒絕）；對沒有這個問題的平台等同暫停。
+/// 此時 [NowPlaying.playing] 為真、按鈕是暫停鍵。
+enum MediaPhase { idle, loading, buffering, ready, interrupted }
 
 /// 推給系統的一份播放內容（不可變）。
 @immutable

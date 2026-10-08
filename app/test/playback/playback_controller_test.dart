@@ -1472,6 +1472,113 @@ void main() {
     });
   });
 
+  // 進度 stream 一直是目前這首的（`PlaybackSession` 的類別說明）：後端只保證
+  // 播放中與 seek 後回報，暫停中開的來源（ExoPlayer）到按播放前都不回報。
+  group('progress of the current song', () {
+    test('a song started while paused reports its own start', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(seconds: 60));
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 30));
+        unawaited(h.controller.pause());
+        h.settle();
+        final progress = <PlaybackProgress>[];
+        h.controller.progress.listen(progress.add);
+
+        unawaited(h.controller.next());
+        h.elapse(const Duration(seconds: 5));
+
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.state, isA<Paused>());
+        expect(progress, isNotEmpty);
+        expect(progress.last.position, Duration.zero);
+        expect(progress.last.duration, isNull);
+      });
+    });
+
+    test('while the next song is resolving the progress is its start', () {
+      fakeAsync((async) {
+        final slow = Completer<List<StreamCandidate>>();
+        final h = Harness(
+          async,
+          trackLength: const Duration(seconds: 60),
+          respond: (request) => request.sourceId == 'b'
+              ? slow.future
+              : [candidate('${request.sourceId}.m4a')],
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 30));
+        final progress = <PlaybackProgress>[];
+        h.controller.progress.listen(progress.add);
+
+        unawaited(h.controller.next());
+        h.elapse(const Duration(seconds: 1));
+
+        expect(h.controller.state, isA<Loading>());
+        expect(progress, hasLength(1));
+        expect(progress.single.position, Duration.zero);
+        expect(progress.single.duration, isNull);
+
+        slow.complete([candidate('b.m4a')]);
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(progress.last.duration, const Duration(seconds: 60));
+      });
+    });
+
+    test('a seek while resolving a song started paused is where it shows', () {
+      fakeAsync((async) {
+        final slow = Completer<List<StreamCandidate>>();
+        final h = Harness(
+          async,
+          trackLength: const Duration(seconds: 60),
+          respond: (request) => request.sourceId == 'b'
+              ? slow.future
+              : [candidate('${request.sourceId}.m4a')],
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 30));
+        unawaited(h.controller.pause());
+        h.settle();
+        final progress = <PlaybackProgress>[];
+        h.controller.progress.listen(progress.add);
+
+        unawaited(h.controller.next());
+        h.elapse(const Duration(seconds: 1));
+        unawaited(h.controller.seek(const Duration(seconds: 40)));
+        slow.complete([candidate('b.m4a')]);
+        h.elapse(const Duration(seconds: 1));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.backend.openedAt.last, const Duration(seconds: 40));
+        expect(progress.last.position, const Duration(seconds: 40));
+      });
+    });
+
+    test('reopening the same song (a retry) keeps its known length', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(seconds: 60));
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+        final progress = <PlaybackProgress>[];
+        h.controller.progress.listen(progress.add);
+
+        h.backend.interrupt();
+        h.settle();
+        expect(h.controller.state, isA<Retrying>());
+        h.elapse(const Duration(seconds: 1));
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Playing>());
+        expect(h.backend.opened, hasLength(2));
+        expect(progress, isNotEmpty);
+        for (final value in progress) {
+          expect(value.duration, const Duration(seconds: 60));
+        }
+      });
+    });
+  });
+
   group('temporary play', () {
     /// 佇列 a、b 播到 a 的 30 秒，臨時播放 x 播了 5 秒。
     Harness startTemporary(FakeAsync async, {bool pauseFirst = false}) {
@@ -1557,6 +1664,28 @@ void main() {
         expectBackAtA(h, atMs: 20000);
         expect(h.controller.state, isA<Paused>());
         expect(h.backend.playing, isFalse);
+      });
+    });
+
+    // M2 驗收（Android，2026-10-08）：ExoPlayer 不為暫停中開的來源回報位置，進度
+    // 一直是臨時曲目最後的那一筆，進度條顯示錯的歌、拖動依錯的時長換算。
+    test('a queue that was paused reports its own start, not the progress of '
+        'the temporary track', () {
+      fakeAsync((async) {
+        final h = startTemporary(async, pauseFirst: true);
+        final progress = <PlaybackProgress>[];
+        h.controller.progress.listen(progress.add);
+
+        unawaited(h.controller.next());
+        h.elapse(const Duration(seconds: 5));
+
+        expectBackAtA(h, atMs: 20000);
+        expect(h.controller.state, isA<Paused>());
+        expect(progress, isNotEmpty);
+        expect(progress.last.position.inMilliseconds, closeTo(20000, 100));
+        // a 的時長還沒回報過（不是 x 的）。
+        expect(progress.last.duration, isNull);
+        expect(h.controller.position, progress.last.position);
       });
     });
 
@@ -2121,6 +2250,118 @@ void main() {
         // 同一個來源接著播，沒有重新開流。
         expect(h.openedPaths, ['/a.m4a']);
         expect(h.logged('Audio interruption ended; resuming'), hasLength(1));
+      });
+    });
+
+    test('the flag is up from the interruption until the resumed song '
+        'plays', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        final changes = <bool>[];
+        // 每次變化時的播放狀態：續播發出後、後端報出播放前不能先變回假。
+        final statesAtChange = <PlaybackState>[];
+        h.controller.pausedByInterruptionChanges.listen((value) {
+          changes.add(value);
+          statesAtChange.add(h.controller.state);
+        });
+        expect(h.controller.pausedByInterruption, isFalse);
+
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isTrue);
+        expect(changes, [true]);
+
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.pausedByInterruption, isFalse);
+        expect(changes, [true, false]);
+        expect(statesAtChange.last, isA<Playing>());
+      });
+    });
+
+    test('pausing or playing during the interruption drops the flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        final changes = <bool>[];
+        h.controller.pausedByInterruptionChanges.listen(changes.add);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+
+        unawaited(h.controller.pause());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isFalse);
+        expect(changes, [true, false]);
+
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.pausedByInterruption, isFalse);
+      });
+    });
+
+    test('unplugged headphones and an end that does not resume drop the '
+        'flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+        h.backend.becameNoisy();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isFalse);
+
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+        h.backend.audioInterruptionEnded(resume: false);
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isFalse);
+      });
+    });
+
+    // 別的播放器開始播（AUDIOFOCUS_LOSS）之後不會有結束的事件：旗標留著的話系統
+    // 媒體控制一直裝成在播放，前景服務與喚醒鎖不放。
+    test('a permanent loss of focus pauses without raising the flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        final changes = <bool>[];
+        h.controller.pausedByInterruptionChanges.listen(changes.add);
+
+        h.backend.audioInterrupted(transient: false);
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isFalse);
+        expect(changes, isEmpty);
+        expect(h.logged('Audio focus lost; pausing'), hasLength(1));
+      });
+    });
+
+    test('losing focus for good during a call drops the flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+
+        h.backend.audioInterrupted(transient: false);
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isFalse);
       });
     });
 

@@ -265,7 +265,9 @@ final class JustAudioBackend implements AudioBackend {
       case InterruptionResponse.duck || InterruptionResponse.unduck:
         break;
       case InterruptionResponse.interrupted:
-        _add(_events, const Interrupted());
+        _add(_events, const Interrupted(transient: true));
+      case InterruptionResponse.lost:
+        _add(_events, const Interrupted(transient: false));
       case InterruptionResponse.endedResumable:
         _add(_events, const InterruptionEnded(resume: true));
       case InterruptionResponse.ended:

@@ -91,6 +91,7 @@ Future<void> main(List<String> arguments) async {
   }
   // 系統媒體控制在資料庫開好之後初始化；失敗就宣告為沒有，App 照常啟動。
   platform = await platform.withMediaControls(
+    log: log,
     onFailure: (error, stackTrace) => log.error(
       'Failed to start the system media controls',
       tag: 'platform',
