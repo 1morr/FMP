@@ -15,6 +15,7 @@ import 'generated/schema_v4.dart' as v4;
 import 'generated/schema_v5.dart' as v5;
 import 'generated/schema_v6.dart' as v6;
 import 'generated/schema_v7.dart' as v7;
+import 'generated/schema_v8.dart' as v8;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -646,5 +647,115 @@ void main() {
     addTearDown(db.close);
 
     await expectPluginLifecycleSchema(db);
+  });
+
+  // v8 新增 accounts 與 source_settings（ADR 0029 §決定 6）：既有的資料原樣保留，新表升級後是空的
+  // （帳號資料來自登入，不是 migration；使用者設定過的值不被動）。
+  test('migration from v7 to v8 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 7,
+      newVersion: 8,
+      createOld: v7.DatabaseAtV7.new,
+      createNew: v8.DatabaseAtV8.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v7.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.installedPlugins,
+          const v7.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+            enabled: 0,
+          ),
+        );
+        batch.insert(
+          oldDb.pluginStorage,
+          const v7.PluginStorageData(
+            pluginId: 'bilibili',
+            key: 'buvid3',
+            value: 'v',
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v8.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ]);
+        // 使用者停用的插件仍是停用，內容不變。
+        expect(await newDb.select(newDb.installedPlugins).get(), [
+          const v8.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+            enabled: 0,
+          ),
+        ]);
+        expect(await newDb.select(newDb.pluginStorage).get(), hasLength(1));
+        expect(await newDb.select(newDb.accounts).get(), isEmpty);
+        expect(await newDb.select(newDb.sourceSettings).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectAccountSchema(AppDatabase db) async {
+    // 主鍵是插件 id；沒有外鍵到 installed_plugins（插件移除後的清理由程式碼做）。
+    await db.customStatement(
+      "INSERT INTO accounts (plugin_id, user_id, display_name, status, "
+      "logged_in_at) VALUES ('p', 'u', 'n', 'active', 1)",
+    );
+    await expectLater(
+      db.customStatement(
+        "INSERT INTO accounts (plugin_id, user_id, display_name, status, "
+        "logged_in_at) VALUES ('p', 'u2', 'n2', 'active', 2)",
+      ),
+      throwsA(anything),
+    );
+    await db.customStatement(
+      "INSERT INTO source_settings (plugin_id) VALUES ('p')",
+    );
+    final setting = await db
+        .customSelect('SELECT browse_as_logged_in FROM source_settings')
+        .getSingle();
+    expect(setting.data['browse_as_logged_in'], equals(null));
+    await expectLater(
+      db.customStatement(
+        "INSERT INTO source_settings (plugin_id) VALUES ('p')",
+      ),
+      throwsA(anything),
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7]) {
+    test('migration from v$from to v8 adds the account schema', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 8);
+
+      await expectAccountSchema(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has the account schema', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectAccountSchema(db);
   });
 }

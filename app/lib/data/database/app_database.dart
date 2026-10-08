@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:fmp/data/database/app_database.steps.dart';
 import 'package:fmp/data/database/converters.dart';
 import 'package:fmp/data/database/tables.dart';
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
@@ -29,6 +30,8 @@ part 'app_database.g.dart';
     PlayerStateTable,
     PlayHistoryTable,
     LayoutStateTable,
+    AccountsTable,
+    SourceSettingsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -36,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -89,6 +92,10 @@ class AppDatabase extends _$AppDatabase {
                 schema.installedPlugins.checksJson,
               );
               await m.create(schema.pluginIndexes);
+            },
+            from7To8: (m, schema) async {
+              await m.create(schema.accounts);
+              await m.create(schema.sourceSettings);
             },
           ),
         );
