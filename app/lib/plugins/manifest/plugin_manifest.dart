@@ -86,6 +86,7 @@ final class PluginManifest {
     this.redaction = const PluginRedaction(),
     this.defaults = const {},
     this.icon,
+    this.description = '',
   });
 
   /// 解析 manifest 的 JSON 文字。
@@ -155,11 +156,16 @@ final class PluginManifest {
   /// `https` 網址（網域在 [allowedHosts] 內）或 `data:image/…;base64,` 網址。
   final Uri? icon;
 
+  /// 一句描述（插件頁與 index 顯示）；沒寫就是空字串，最多 [maxDescriptionLength] 字元。
+  final String description;
+
   /// id 的格式：1–[maxIdLength] 個小寫英數與 `-`，不以 `-` 開頭或結尾。它是
   /// 曲目鍵的第一段（`TrackKey`），所以不能有 `:`。
   static bool isValidId(String id) => _idPattern.hasMatch(id);
 
   static const maxIdLength = 32;
+
+  static const maxDescriptionLength = 200;
 }
 
 final _idPattern = RegExp(r'^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$');
@@ -193,6 +199,7 @@ const manifestShape = <String, bool>{
   'redaction': false,
   'defaults': false,
   'icon': false,
+  'description': false,
 };
 const retryShape = <String, bool>{
   'maxRetries': false,
@@ -266,7 +273,19 @@ PluginManifest _fromJson(Object? json) {
     redaction: _redaction(fields.optionalObject('redaction')),
     defaults: Map.unmodifiable(fields.optionalObject('defaults') ?? const {}),
     icon: _icon(fields.optionalString('icon'), allowedHosts),
+    description: _description(fields.optionalString('description')),
   );
+}
+
+String _description(String? value) {
+  if (value == null) return '';
+  if (value.runes.length > PluginManifest.maxDescriptionLength) {
+    throw const FormatException(
+      'manifest.description: must be at most '
+      '${PluginManifest.maxDescriptionLength} characters',
+    );
+  }
+  return value;
 }
 
 Set<PluginCapability> _capabilities(List<String> names) {
