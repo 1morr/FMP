@@ -67,7 +67,16 @@
 - **PR 18b 已合併**：#216（`a54b194a`）。擁有者定佇列入口在播放頁右上角；主對話定 `moveToNext`（移除再以下一首播放加回，隨機時排序也移過去）、移除不提示清空才提示、三處列選單共用 `TrackRowMenu`、底部面板包 `PlaybackShortcuts`（design §7.3 末段）。審查（opus）修了「compact 清空後提示壓在底部導覽上」「拖曳被取消後自動捲動永遠失效」，並補了幾條原本沒驗到東西的測試。`flutter test` 1772 通過、2 跳過；Windows 兩個整合測試通過。實機兩平台（重播）通過：Windows 隨機下「下一首播放」後 Ctrl+→ 播的就是它、拖曳目前這首仍是目前這首、F6／Tab 到列 Enter 跳到、焦點在列上空白鍵是暫停、移除不提示、清空確認後頁面關閉並提示、medium（1100 px）Ctrl+Q 開頁加面板、面板內空白鍵播放暫停、Esc 只關面板；Android 右上角入口開面板、把手拖曳、長按選單的「下一首播放」、「⋯」移除、返回鍵只關面板、清空的提示在導覽列之上。
 - **PR 16b 已合併**：#217（`54fa81b0`），CI 的 Windows runner 內建 Rust、不用改 `ci.yml`。實機（Windows）抓到三件，修好並重驗：`flutter_rust_bridge` 被解析成 2.13.0、與 `smtc_windows` 的 Rust 端 2.11.1 不符，啟動就初始化失敗（直接釘 2.11.1，加比對 lock 與 `Cargo.toml` 的閘門）；`file:///` 封面讀不到，改交 `https`（`NowPlaying.artworkUrl`）；停止鈕沒啟用，停止指令到不了 App。審查（opus）另修「下一首沒有上傳者時留著上一首的」「連接埠 > 65535 的封面網址讓 Rust panic」，補了 SMTC 呼叫順序的測試與 skill 的 `smtc_command.ps1`（只對 FMP 的 AUMID 送指令）。決定記在 design §8.4 末段。`flutter test` 1808 通過、2 跳過。實機：Windows（重播＋一次真實 B 站：搜尋 1、縮圖 10、`nav`／`wbi/view`／`playurl` 各 1；從歷史重播同一首再 `wbi/view`、`playurl` 各 1）idle 沒有工作階段、播放後曲名／上傳者／封面／狀態、toggle／next／stop、位置約每 5 秒；Android（重播）媒體工作階段與 MediaStyle 通知照常。
 - **PR 19 已合併**：#218（`acdd0d12`），CI 13/13 綠。子任務封存在 `archive/2026-10/10-08-now-playing-panel`。擁有者定收起後從播放列的圖示鈕展開；其他決定記在 design §9.4 末段。審查（opus）修了「視窗 > 4000dp 時寬度寫不進資料庫（CHECK ≤ 1600）」，並更正四處與實測不符的文件與註解（1000 寬時頁面是 compact、`OrderedTraversalPolicy` 沒有閘門、寫失敗回退沒有測試）。實機抓到把手的線 0 高看不到，紅→綠修好。`flutter test` 1853 通過、2 跳過；Windows 與 Android 的 `toast_layering_test.dart` 通過。實機兩平台（重播）通過：Windows（縮放 150%）拖寬寫入一次、拖過上限停在 40%、游標是左右調整、Tab 到把手 ←／→ 各 16dp 每按寫入、線平時灰聚焦變主色、三個入口（標題列、播放列圖示鈕、播放頁「⋯」）都寫 `panel_expanded`、收起重啟後仍收起（連拍 60 張沒看到面板閃出）、寬度重啟後還在、785dp 時面板與開關都消失、885dp 時面板夾到 354 且播放列「⋯」的勾選項可切換、放大回來仍是 490；Android `Medium_Phone` 橫向（914dp）面板 366dp、空狀態、加歌後是詳細、播放列「⋯」與標題列收起鈕切換、觸控拖曳寫入一次。
-- **下一步**：M2 里程碑驗收（本檔「里程碑驗收」一節）。PR 1–19 全部合併。
+- **M2 里程碑驗收**（2026-10-08，分支 `chore/m2-acceptance`）：
+  - 兩平台端到端（真實 B 站加測試插件），證據在 `research/m2-acceptance.md`。
+  - ADR 測試對照在 `research/m2-adr-tests.md`。
+  - 實機抓到三個 App 的 bug，都已修好並在實機重驗：
+    1. 暫停中回到佇列時，進度條是臨時那首的；
+    2. Android 返回鍵會 `finish` Activity；
+    3. 背景中斷後前景服務被拒，音樂幾分鐘後停（擁有者選「只在中斷時留住服務」）。
+  - 審查（opus）另修「永久失去焦點時旗標卡住、前景服務不放」。
+  - 後端契約 Windows、Android 各 17/17。
+- **下一步**：M3（`milestones.md`）。本任務在驗收 PR 裡 `finish`、`archive`。
 - **本機環境備忘**（2026-10-03 建、10-07 補）：
   - **模擬器**：`Medium_Phone`，序號會變：開機順序不同時是 `emulator-5554` 或 `emulator-5556`，先 `adb devices` 看。`ax_flatten.py` 要加 `--device <序號>`，`adb` 加 `-s <序號>`。藍屏或重開機後模擬器會關掉，要以分離程序重開（skill 的 android.md）。
   - **adb 可能多出別的裝置**（10-07 出現 `127.0.0.1:16384`，不是我們的模擬器）：一律 `export ANDROID_SERIAL=emulator-5554` 或 `adb -s`，`ax_flatten.py` 加 `--device`，不要碰別的裝置。
@@ -772,6 +781,16 @@ PR 19 留下的：
 - [ ] 寫入失敗時寬度改回儲存值的那一支沒有測試。
 - [ ] 整個 App 重開仍記得面板狀態只有實機驗，沒有端到端的測試。
 
+里程碑驗收留下的：
+
+- [ ] B 站插件的標題沒有解 HTML 實體（`&#x27;` 原樣顯示）：問題在 `1morr/fmp-plugins`。
+- [ ] Android 永久失去焦點（別的播放器搶走）沒有實機驗：模擬器的 Chrome、YouTube Music 都要先過第一次啟動或登入，以單元測試為證。
+- [ ] 有問題的 App 拿了暫時焦點卻一直不還時，「因中斷而暫停」的旗標一直在，前景服務就一直不放；沒有逾時上限。
+- [ ] Android 暫停中載入的那首，通知在按播放前沒有時長（進度條已改用曲目時長；publisher 可以照做）。
+- [ ] 中斷期間 Android 媒體卡片畫緩衝的轉圈，不能從卡片暫停。
+- [ ] 沒有實機驗：鎖定畫面的控制（模擬器沒設螢幕鎖）、Windows 的實體媒體鍵（會送到別的 App）、Windows 斷網（擁有者決定不動網路卡）。
+- [ ] Android 從暫停中拖曳或 Shift+→ 剛載入的那首，`progress.duration` 為空所以不夾到時長；ExoPlayer 自己會夾到結尾，看不出差別。
+
 （每個 PR 收尾時補；格式照 M1 的「PR n 留下的後續」各節。）
 
 ## 里程碑驗收（19 之後）
@@ -836,10 +855,10 @@ PR 19 留下的：
 | 0018 | lint：結束原因型別、窄介面 | 1 |
 | 0024 | 播放頁與播放列的 guideline、golden、快捷鍵與焦點 | 17、18a、18b、19 |
 
-- [ ] 上表逐項在 PR 描述或測試檔找到對應。
-- [ ] `milestones.md` 的 M2 狀態與兩個驗收勾選（ADR 0026 §如何確認：未打勾不能 archive）。
-- [ ] `app/AGENTS.md` 的播放、網路、介面、資料層段落與 M2 的實際一致（逐條有閘門或標明「沒有閘門，review 時看」）。
-- [ ] 本任務 `finish`、`archive`。
+- [x] 上表逐項在 PR 描述或測試檔找到對應（`research/m2-adr-tests.md`：41 項都有測試）。
+- [x] `milestones.md` 的 M2 狀態與兩個驗收勾選（ADR 0026 §如何確認：未打勾不能 archive）。
+- [x] `app/AGENTS.md` 的播放、網路、介面、資料層段落與 M2 的實際一致（逐條有閘門或標明「沒有閘門，review 時看」）。opus 審查改了 5 處事實錯誤，主對話補了 2 個閘門、標了 7 條沒有閘門的規則。
+- [x] 本任務 `finish`、`archive`。
 
 ## 待升級
 

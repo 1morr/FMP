@@ -44,19 +44,32 @@
 | 13. 錯誤 | `fail`：搜尋頁「搜尋失敗」加重試，提示「FMP Test Plugin 請求太頻繁，請稍後再試」；佇列只有同一首 `unavailable` 兩次：第一次 `skip`、第二次 `stop`，只提示一則「連續 2 首無法播放，已停止播放」；`preview`：開著時跳過並提示原因，關著時照播、播放列標「試聽」、提示「只有試聽片段」 | 同左（英文介面） |
 | 14. log 保留 | 輪替檔改成 8 天前與 6 天前，重開：`Deleted expired log files {count: 1}`，6 天前的留著 | 同左 |
 
-## 發現
+## 發現與修正
+
+前三個在本任務的驗收分支修好，並在實機重驗（模式：重播，測試插件；Windows 重驗時另有一次誤發的真實請求，見表後）。
 
 1. **暫停中回到佇列時進度條是臨時那首的**（Android 實測）：
    - 重現：佇列的歌暫停中，臨時播放另一首，按下一首結束。
    - 現象：log 是 `play: false`、位置 219049，`dumpsys` 的位置也對，但進度條顯示臨時那首的 0:29／1:06，按播放後才更正。
-   - 處理：見本任務「里程碑驗收」的修正。
+   - 根因：換來源時 session 不發新的進度。just_audio 在暫停中開新來源時不回報位置；假後端反而會回報，所以測試沒抓到。
+   - 修法：`61a19a79`。session 開新來源時先發那首的起點；`ProgressRow` 在有來源時，時長退回曲目時長；假後端改成和 ExoPlayer 一樣不回報。
+   - 重驗：Android 與 Windows 都以 2 秒測試音檔重現同一情境，進度條是佇列那首的 0:00／0:02。
 2. **Android 在「搜尋」按返回會結束 Activity**：
-   - 現象：`wm_finish_activity … app-request`、`wm_destroy_activity`，不是 `app/AGENTS.md` 寫的 `moveTaskToBack`。
-   - 播放中有服務留著引擎，所以看不出來。暫停時從桌面圖示再開，`main()` 會重跑，搜尋字與分頁都不見。重現兩次。
-   - 處理：同上。
-3. **背景續播時前景服務被拒**：來電結束、App 在背景續播時，`am_wtf … Background started FGS: Disallowed [callingPackage: com.personal.fmp.dev …]`。處理：同上。
-4. **B 站插件的標題沒有解 HTML 實體**：標題原樣顯示 `&#x27;`。問題在 `1morr/fmp-plugins`，不在 `app/`，記為插件的後續。
-5. **手機橫向開鍵盤時 `NavigationRail` 與搜尋頁溢出**：PR 19 已記，不是這次造成。這次的 log 沒有出現，因為步驟沒在橫向打字。
+   - 現象：`wm_finish_activity … app-request`、`wm_destroy_activity`。暫停時從桌面圖示再開，`main()` 重跑，搜尋字與分頁都不見。
+   - 根因：targetSdk 36 在 Android 16 預設開 predictive back。根 route 時 Flutter 把返回交給系統，系統只對從桌面啟動的 Activity 退到背景，所以 `popSystemNavigator` 沒被呼叫。
+   - 修法：`b2421e88`，`MainActivity` 覆寫 `setFrameworkHandlesBack`。
+   - 重驗：以 `am start` 啟動（刻意不從桌面），返回後只有 `wm_stop_activity`，從圖示回來沒有 `App started`，搜尋字還在；轉過螢幕後一樣。歷史頁、窄版設定頁、播放頁的返回照舊。
+3. **背景續播時前景服務被拒**：
+   - 現象：`ForegroundServiceStartNotAllowedException`。約 1 分鐘後 `am_stop_idle_service`、再約 1.5 分鐘 `am_freeze`，每 2 秒一圈的單曲循環在 2 分鐘內只多播了 16 圈，音樂停了。
+   - 修法：擁有者選「只在中斷時留住服務」，`a737e41c`；審查另修永久失去焦點，`2bfce093`。
+   - 重驗：通話中 `BUFFERING`、`isForeground=true`；掛斷後 `PLAYING`，沒有 `Disallowed`；關螢幕 3 分鐘多播了 90 圈，沒有停止或凍結。
+   - 已知限制：通話中媒體卡片畫轉圈，不能從卡片暫停。
+   - **永久失去焦點沒有實機驗**：模擬器的 Chrome 要先接受條款，沒有代為接受。
+4. **B 站插件的標題沒有解 HTML 實體**：標題原樣顯示 `&#x27;`。問題在 `1morr/fmp-plugins`，記為後續。
+5. **手機橫向開鍵盤時 `NavigationRail` 與搜尋頁溢出**：PR 19 已記，不是這次造成。
+
+- 改了播放後端（`2bfce093` 動到 just_audio 後端的事件對應），所以 `integration_test/audio_backend_contract_test.dart` 在 Windows 與 Android 模擬器各跑一次，都是 17/17。
+- **Windows 重驗時的真實請求**：B 站音源還選著時誤搜了一次 `abc`，共搜尋 1 次、縮圖 12 張。
 
 ## ADR 的測試
 
