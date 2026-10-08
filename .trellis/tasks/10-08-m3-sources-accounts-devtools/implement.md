@@ -219,13 +219,15 @@
 
 - [ ] 平台層 `lib/platform/secure_storage/`（`flutter_secure_storage` 11.2.0，`resetOnError: false`、鍵前綴與 `storageNamespace`），宣告 `secureStorage`。
 - [ ] schema：`accounts`、`source_settings`；repository 與 migration。
-- [ ] `lib/plugins/accounts/credential_store.dart`：讀取失敗的「暫時無法讀取」與 30 秒重讀、啟動對齊、遮蔽登記與取消、實作 `CredentialSource`；`fmp.credentials.get()` 回傳 `FmpLoginCredentials`（`d.ts` 與 shapes 同步）。
-- [ ] 認證攔截器：Cookie 三方合併（同名以憑證為準）、`authHeaders` 只在 attach；`HttpRequest.authHeaders` 進 `d.ts` 與 shapes；cookie 攔截器併 jar 時跳過已有的名稱。
+- [ ] `lib/plugins/accounts/credential_store.dart`：讀取失敗的「暫時無法讀取」與 30 秒重讀、啟動對齊、遮蔽登記與取消、實作 `CredentialSource`（`credentialMaterial` 回 cookie 表與標頭、`credentialCookieNames`，不回拼好的 `Cookie` 字串，design §6.1；取代 `credentialHeaders`）；`fmp.credentials.get()` 回傳 `FmpLoginCredentials`（`d.ts` 與 shapes 同步）。
+- [ ] 認證攔截器：Cookie 三方合併（同名以憑證為準）、`authHeaders` 只在 attach；`HttpRequest.authHeaders` 與 `HttpResponse.credentialsAttached` 進 `d.ts` 與 shapes（回應欄位由認證攔截器已有的 `credentialsAttached` 狀態帶出）；cookie 攔截器併 jar 時跳過 header 已有的名稱與 `credentialCookieNames` 的名稱（憑證的 cookie 不經 jar，design §6.3）。
 - [ ] 登出的資料面（`AccountService.logout`：憑證、帳號列、遮蔽、記憶體 jar；WebView 那一步在 PR 9 接上）。
 - [ ] `app/AGENTS.md` § 網路的認證段改寫；加 § 帳號。
 - 測試：
   - `auth_test.dart`：三種標記 × 三種狀態，以假的 `CredentialStore`（取代 `NoCredentials` 版本）；
   - 合併規則（三方同名、只有 jar、只有插件 header）；`authHeaders` 在 omit 與 refuse 時不出現；`invalidated` 時不帶；
+  - **jar 送出時不含憑證名稱的 cookie**（jar 先放同名 cookie，attach、omit、已失效三種都不從 jar 送出）；**`auth: 'never'` 的請求在登入後不帶憑證 cookie**；
+  - `HttpResponse.credentialsAttached` 只在帶了憑證時為真（attach 為真；omit、refuse、`never`、已失效為假），`source_http_client_test.dart`；
   - `credential_store_test.dart`：讀取失敗不刪、30 秒後重讀、啟動對齊兩種、遮蔽登記（log 與網路紀錄不出現假 cookie 值；短於 `Redactor.minimumSecretLength` 的值略過、不讓寫入失敗）；
   - 登出後 `CredentialStore` 為空、之後的請求不帶憑證（ADR 0012 §如何確認）；
   - migration 三種；`platform_test.dart` 的 `secureStorage`。
@@ -234,7 +236,7 @@
 
 ## 8. `login` 契約、QR 登入、帳號頁（design §4.3、§6.4、§6.7）
 
-- [ ] 宿主：manifest 的 `login` 欄位（M1 整個拒收的那段改成驗證 design §4.3 的形狀）；`SourcePlugin` 的 `loginQrStart`、`loginQrPoll`、`loginVerify`、`loginRefresh`；`checks.json` 的 `login` 案例（`loginVerify`）與 `requiresLogin`；`d.ts`、shapes。
+- [ ] 宿主：manifest 的 `login` 欄位（M1 整個拒收的那段改成驗證 design §4.3 的形狀）；`SourcePlugin` 的 `loginQrStart`、`loginQrPoll`、`loginVerify`、`loginRefresh`；`checks.json` 的 `login` 案例（`loginVerify`，標 `requiresLogin: true`）；`login*` 匯出執行期間該插件的 client 不把回應的 `Set-Cookie` 存進 cookie jar（design §4.3、§6.3）；`d.ts`、shapes。
 - [ ] `AccountService.login`：三種方式共用「`loginVerify` 通過才寫入」；QR 流程（`qr_flutter` 4.1.0、2 秒輪詢的一次性 `Timer` 接力、離開停止）。
 - [ ] 帳號頁（設定頁第一個區塊）：design §6.7 的列；登出確認；`automationRisk` 說明；離線。
 - [ ] fmp-plugins：B 站 `login`（QR）與網易 `login`（QR）、`loginVerify`（帳號資訊 API）、`checks.json` 的 `login` 案例（手寫的假憑證 fixture，`meta.edited`）；YouTube 的 `login`（`cookie`；`webView` 等 PR 9）與 `loginVerify`。
@@ -243,7 +245,9 @@
   - manifest 的 `login` 驗證（缺 `webView` 而 methods 含 `webView` 拒收等）；能力與匯出一致（宣告 `login` 沒匯出 `loginVerify` 拒載）；
   - `account_service_test.dart`：`loginVerify` 拋錯時什麼都不寫；成功時先憑證後帳號列；QR 的 `expired`、`scanned`、離開畫面不再輪詢（`fakeAsync` 下沒有待執行的計時器）；
   - 帳號頁的 widget 測試（methods ∩ 平台能力、已失效、暫時無法讀取、離線、guideline）；
-  - 三個插件的契約（`loginVerify` 的 fixture、憑證欄位都遮蔽）。
+  - 三個插件的契約（`loginVerify` 的 fixture、憑證欄位都遮蔽；案例標 `requiresLogin: true` 仍照常重播）；
+  - **jar 不存登入回應的 cookie**：`login*` 執行期間回應的 `Set-Cookie` 不進 jar，結束後一般回應照常存（design §6.3 的閘門）；
+  - 登入後 `auth: 'never'` 與開關關閉的請求不帶憑證 cookie（PR 7 的測試以真的 `login*` 流程再走一次，用 `fmp-test` 的假 QR）。
 - 實測：
   - 重播：兩平台以 `fmp-test` 的假 QR 走完登入、登出。
   - 真實（擁有者的帳號，擁有者自己掃 QR）：兩平台各登入 B 站、網易一次 → 一次帶憑證的搜尋（網路紀錄 `credentials: true`）→ 關掉「以登入身分瀏覽與播放」再搜尋一次（`false`）→ 登出（再搜尋 `false`）。截圖避開帳號列。
@@ -272,7 +276,7 @@ R1 通過時：
 - [ ] 啟動刷新：第一幀後、第一次 `Online` 時，對宣告 `refresh: 'onStartup'` 的插件各一次；帳號頁的最後刷新時間與結果。
 - [ ] fmp-plugins：B 站 `loginRefresh`（RSA-OAEP 純 JS、`correspond`、`refresh_csrf`）與「憑證無效」判定表（`-101`）；YouTube（401）與網易（`301`）的判定表；手寫的失效 fixture。
 - [ ] `fmp-test`：關鍵字 `expired` 回 `CredentialInvalid`，第二次成功（刷新路徑）。
-- 測試：design §6.5 的閘門（刷新後重跑帶新憑證、三個並行只刷新一次、不支援刷新時標失效、只提示一次、重新登入後再提示、限流與網路錯誤不標失效、啟動刷新等 `Online`）；三個插件的判定表契約。
+- 測試：design §6.5 的閘門（刷新後重跑帶新憑證、三個並行只刷新一次、不支援刷新時標失效、只提示一次、重新登入後再提示、限流與網路錯誤不標失效、啟動刷新等 `Online`）；三個插件的判定表契約（`credentialsAttached` 為假的同樣回應不判定）。
 - 實測：重播：兩平台以 `fmp-test` 的 `expired` 看刷新後成功與失效提示附「登入」；真實（擁有者的 B 站帳號）：重啟後啟動刷新跑一次（log 有 `loginRefresh` 的結果，帳號頁最後刷新時間更新）。
 - 依賴：8。模型：sonnet（流程已定；B 站刷新流程與舊版規格對不上時停下回報）。
 
@@ -301,12 +305,12 @@ R1 通過時：
 | 0012 | 刷新後重送帶新憑證；三個音源的「憑證無效」判定表；限流與網路錯誤不標失效 | 10 |
 | 0012 | 登出、移除插件後 `CredentialStore` 為空且請求不帶憑證（重設資料在 M3b PR 14） | 7、9 |
 | 0013 | 三個音源的錯誤對應（錄下或手改的錯誤 fixture） | 1、2、10 |
-| 0028 | `idempotent` 的 POST 重試、沒標的不重試；`login` 的檢查案例格式與 `requiresLogin`；型別定義一致 | 1、8 |
+| 0028 | `idempotent` 的 POST 重試、沒標的不重試；`credentialsAttached` 只在帶憑證時為真；`login` 的檢查案例格式與 `requiresLogin`；型別定義一致 | 1、7、8 |
 | 0014 | manifest 能力與匯出一致（含 `login`）、`apiVersion` 不相容拒載 | 1、8 |
 | 0014 | 三個插件的契約（遮蔽、媒體不帶憑證、錯誤對應）；lint `fmp_source_id_literal` 加兩個 id | 1、2、3 |
 | 0015 §決定 6 | 插件庫 CI 以固定 FMP 版本跑契約；fixture 掃描 | 3 |
 | 0016 | 插件頁、登入的離線狀態 | 5、6、8 |
-| 0029 | Cookie 合併、`authHeaders`、`loginVerify` 通過才寫入、讀取失敗不刪 | 7、8 |
+| 0029 | Cookie 合併、`authHeaders`、jar 不存登入回應的 cookie（8）、jar 送出時跳過憑證名稱與 `auth: never` 不帶憑證 cookie（7）、`loginVerify` 通過才寫入、讀取失敗不刪 | 7、8 |
 | 0030 | index 解析與 SHA、semver、啟用與停用、移除的每一步、能力增加要確認 | 4、5 |
 
 - [ ] 上表逐項在 PR 描述或測試檔找到對應，寫進 `research/m3-adr-tests.md` 的 M3a 段。
@@ -349,9 +353,9 @@ R1 通過時：
 
 - [ ] `PlaybackDiagnostics`（`PlaybackSession` 提供）與播放狀態區塊、複製快照。
 - [ ] 資料庫區塊：唯讀瀏覽、檢查、從備份還原。
-- [ ] 重設資料：`VACUUM INTO` 備份、二次確認、清空（資料庫、`SecureStorage.deleteAll`、WebView `clearAll`、快取）、重啟（Windows 自己重啟；Android 提示手動重開）。
+- [ ] 重設資料：`VACUUM INTO` 備份、二次確認、清空（資料庫、`SecureStorage.deleteAll`、WebView `clearAll`、快取）、重啟（Windows 自己重啟；Android 提示手動重開，並確認重開時 `main()` 重跑：`SystemNavigator.pop` 因 `AudioServiceActivity` 的 cached engine／前景服務沒重跑時，改成先停掉 audio_service 再結束 process，實作在這個 PR 決定、寫進 `app/AGENTS.md`，design §12.2）。
 - 測試：ADR 0025 §如何確認的資料檢查兩項、重設兩項、遮蔽（播放快照、資料庫瀏覽）；從備份還原後資料等於備份；重設後 `CredentialStore` 為空且請求不帶憑證（ADR 0012 §如何確認的「重設所有資料」）。
-- 實測（重播）：兩平台看播放狀態（重試中的下次重試時間）、瀏覽 `plugin_storage` 的值是 `***`、檢查乾淨；重設資料（先備份）→ 重開後是空的 → 從備份還原 → 資料回來、要重新登入。
+- 實測（重播）：兩平台看播放狀態（重試中的下次重試時間）、瀏覽 `plugin_storage` 的值是 `***`、檢查乾淨；重設資料（先備份）→ 重開後是空的 → 從備份還原 → 資料回來、要重新登入。Android 另確認重設並重開後 `main()` 重跑（log 出現新的 `App started`、不是沿用舊 process），沒有就走上面的 audio_service 方案再驗一次。
 - 依賴：11（重設要清的憑證與 WebView 在 M3a 已有）。模型：sonnet（ADR 0025 與 design 已定流程）。
 
 ## 15. 診斷包（design §12.4）
@@ -371,9 +375,9 @@ R1 通過時：
 - [ ] 健康檢查區塊：全部或單一插件、一次一個、略過、`health` tag。
 - [ ] 平台層：`files` 加 `getDirectoryPath`；宣告 `pluginDevTools`（Windows 真、Android 假）。
 - [ ] 插件開發區塊：選資料夾、開發中標記、重新載入、真實／錄製／重播切換、案例單跑全跑、以 App 內登入錄 fixture。
-- [ ] `plugin_dev_folder` 的 setter；關閉開發者模式時卸載。
-- [ ] fmp-plugins：以 App 內工具重錄需要登入的案例（如果有 `requiresLogin` 的案例）。
-- 測試：design §12.5 的閘門；M1 的契約測試全綠；lint 的 `restrictedImports` 案例。
+- [ ] `plugin_dev_folder` 的 setter；關閉開發者模式時卸載。載入開發資料夾的插件時 `installed_plugins` 補一列（沒有同 id 的已安裝列才補；來源標開發資料夾、`enabled` 為真，`plugin_storage` 的外鍵才寫得進去），移除開發資料夾時刪這列（cascade 掉 storage）；有同 id 的已安裝列時沿用、不覆寫、不刪（design §12.5；來源標記的存放方式與殘留列的清理在這個 PR 決定）。
+- [ ] fmp-plugins：以 App 內工具（已登入）重錄標 `requiresLogin` 的案例（M3 只有各插件的 `login` 案例）；fixture 的憑證欄位遮蔽後提交。
+- 測試：design §12.5 的閘門；M1 的契約測試全綠；lint 的 `restrictedImports` 案例；`requiresLogin` 的案例在已登入時以已存憑證跑、未登入標「略過」；開發資料夾的插件寫得進 `plugin_storage`、移除資料夾後那一列與 storage 都不在，沿用已安裝列的情況卸載後已安裝版的 manifest、腳本與 storage 不變。
 - 實測：Windows（重播＋真實各一次）：選 `fmp-plugins` 的本機 clone → B 站標「開發中」→ 重播模式全跑通過 → 改一行 log 重新載入看到新 log → 錄製模式跑 `search`（真實，一個案例）→ 檢查寫出的 fixture 沒有憑證 → 卸載；健康檢查全部跑一次（真實，三個插件各一輪，最少操作）。Android：插件開發區塊不出現、健康檢查跑一次 `fmp-test`。
 - 依賴：11、14。模型：opus（插件開發工具的版面與模式切換的互動沒有定稿）。
 

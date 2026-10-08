@@ -51,14 +51,17 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
    - `loginVerify(credentials) → {userId, displayName, avatar?}`：宿主在三種方式之後都先呼叫它，通過才寫入（ADR 0012 §決定 4）；
    - `loginRefresh(credentials) → credentials | null`：`null`＝不需要或沒有新的；刷新失敗拋 `CredentialInvalid`。
    - `loginVerify`、`loginRefresh` 呼叫時憑證還沒寫入，由插件以傳進來的憑證自己組 `Cookie`、請求標 `auth: 'never'`；宿主在呼叫前就把這組值登記到遮蔽函式。
+   - **`login*` 匯出（`loginQrStart`、`loginQrPoll`、`loginVerify`、`loginRefresh`）執行期間，該插件的 client 不把回應的 `Set-Cookie` 存進 cookie jar**。插件仍讀得到回應 header（QR 的 `done` 就是從那裡取憑證）；登入回應設的 cookie 是憑證，只經 `CredentialStore` 與注入送出（見決定 4）。
 3. **憑證的形狀**：`FmpLoginCredentials = {cookies: Record<string, string>, extra?: Record<string, string>}`，`fmp.credentials.get()` 回傳它或 `null`。`CredentialStore` 以 `credentials.<插件 id>` 存它的 JSON；dev 與 prod 以鍵前綴與命名空間分開（ADR 0015 §決定 8）。鍵只用檔名安全的字元：Windows 實作以鍵直接當檔名（`<鍵>.secure`），`:` 不合法。
 4. **注入**：認證攔截器只在 `decideAuth` 為 `attach` 時，把憑證的 `cookies` 合併進 `Cookie`，再加上請求的 `authHeaders`（插件從 cookie 算出的 header，例如 `SAPISIDHASH`；名稱一律進遮蔽的 header 名單）。**同名 cookie 以憑證為準**，其次是插件自己送的 header，最後是 cookie jar（舊版也是合併）。`omit`、`refuse` 時 `authHeaders` 整個丟掉。帶不帶憑證仍只由 `auth` 一處決定。
+   - **憑證的 cookie 不經 cookie jar**：`dio_cookie_manager` 的 `loadCookies` 把 jar 的 cookie 接在每個請求上、不看 `auth`，憑證若落進 jar，B 站 QR 登入後 `auth: 'never'` 的請求或關掉「以登入身分瀏覽與播放」時仍會帶出 `SESSDATA`，違反 ADR 0012。所以除了決定 2 的「登入時不存」，cookie jar 送出時還要**跳過憑證裡有的 cookie 名稱**，不論這次請求有沒有帶憑證、憑證有沒有失效。
+   - **`CredentialSource` 介面不回傳拼好的 `Cookie` 字串**，回傳 cookie 表（名稱對值）與要附加的標頭，另提供憑證裡的 cookie 名稱（已失效時照樣回傳）；合併在網路層做。
 5. **`CredentialStore`**：`flutter_secure_storage` 11.2.0，經平台層 `SecureStorage`；Android 一律 `resetOnError: false`。讀取失敗時狀態為「暫時無法讀取」（只在記憶體）、不帶憑證、30 秒後重讀，不刪除。載入、寫入時登記遮蔽（短於遮蔽函式下限的值略過，它們不是秘密），登出、移除時取消。
 6. **帳號表與每音源設定**：
    - `accounts(plugin_id 主鍵, user_id, display_name, avatar_json, status: active | invalidated, logged_in_at, last_refresh_at, last_refresh_result)`。是否登入只看 `CredentialStore`；啟動時帳號列與憑證不一致就刪掉多的那一邊。不存 VIP。
    - `source_settings(plugin_id 主鍵, browse_as_logged_in 可空)`：ADR 0011 §決定 7 的每音源設定表。
 7. **失效與刷新**：
-   - 「憑證無效」的判定表在各插件內（ADR 0013：錯誤在音源內轉換），判定成立時插件拋 `CredentialInvalid`；網路錯誤、限流、風控碼不算。
+   - 「憑證無效」的判定表在各插件內（ADR 0013：錯誤在音源內轉換），判定成立時插件拋 `CredentialInvalid`；網路錯誤、限流、風控碼不算。**只在 `HttpResponse.credentialsAttached`（ADR 0028 §決定 2）為真的回應上判定**：宿主說這次沒帶憑證的回應，401、`-101` 只是匿名請求被拒，不能標 `invalidated`。
    - 宿主在插件呼叫層單飛：同一插件同時只有一個刷新；宣告 `refresh` 的插件刷新成功就寫入並**重跑原呼叫一次**；不支援刷新、回 `null` 或刷新失敗就標 `invalidated`：保留憑證、停止帶它、提示一次附「登入」（ADR 0012 §決定 5、ADR 0013 的呈現表）。
    - 啟動刷新：宣告 `refresh: 'onStartup'` 的插件，在第一幀之後、網路狀態第一次是 `Online` 時呼叫一次 `loginRefresh`（ADR 0016「離線中不發背景請求」）。不做全面的帳號驗證。
 8. **登入方式**：UI 顯示「`methods` ∩ 平台有能力」。`qr`、`cookie` 不需要平台能力；`webView` 需要平台層宣告 `loginWebView`。官方插件：B 站與網易 `qr`；YouTube `webView` 與 `cookie`。
@@ -73,7 +76,7 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 ## 後果
 
 - 好的：登入流程隨插件更新；宿主沒有音源分支；匿名 cookie 不再被登入憑證蓋掉；憑證讀取失敗不會遺失；失效只提示一次並有刷新。
-- 壞的：每個插件要自己寫帳號資訊驗證、憑證無效判定表與刷新（B 站要純 JS 的 RSA-OAEP）；`loginVerify` 期間插件要自己組 `Cookie`；重跑整個插件呼叫比重送單一請求多花一點時間。
+- 壞的：每個插件要自己寫帳號資訊驗證、憑證無效判定表與刷新（B 站要純 JS 的 RSA-OAEP）；`loginVerify` 期間插件要自己組 `Cookie`；`login*` 執行期間同一個 client 上其他請求的 `Set-Cookie` 也不存（登入期間插件只做登入，可接受）；重跑整個插件呼叫比重送單一請求多花一點時間。
 - 之後要注意：
   - YouTube 的網頁登入可能隨 Google 的政策失效，屆時只剩貼上 cookie（manifest 拿掉 `webView` 即可，不必發 App）；
   - `flutter_inappwebview` 6.2.0 出 stable 時評估升級；
@@ -83,10 +86,10 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 ## 如何確認
 
 - `auth_test.dart`：`AuthRequirement` 三種 × 未登入／已登入且開關開／已登入且開關關（以假 `CredentialStore`）；`authHeaders` 只在 attach 時出現；已失效時不帶。
-- 認證與 cookie 攔截器的測試：同名 cookie 三方來源的合併結果。
+- 認證與 cookie 攔截器的測試：同名 cookie 三方來源的合併結果；cookie jar 送出時不含憑證名稱的 cookie（attach、omit、已失效三種）；`auth: 'never'` 的請求在登入後不帶憑證 cookie；`login*` 執行期間 jar 不存回應的 cookie、結束後一般回應照常存；`credentialsAttached` 只在帶了憑證時為真。
 - `credential_store_test.dart`：讀取失敗不刪、稍後重讀；啟動對齊；遮蔽登記（假 cookie 值不出現在 log、網路紀錄）；平台層的 `resetOnError: false` 以 `platform_test.dart` 斷言。
 - `account_service_test.dart`：`loginVerify` 拋錯時什麼都不寫；QR 的輪詢在離開畫面後停止（沒有待執行的計時器）。
 - 單飛刷新：刷新後重跑的請求帶新憑證；三個並行的呼叫只刷新一次；不支援刷新時標失效且只提示一次；限流與網路錯誤不標失效（ADR 0012 §如何確認）。
-- 三個官方插件的「憑證無效」判定表以手寫的錯誤 fixture 走契約測試。
+- 三個官方插件的「憑證無效」判定表以手寫的錯誤 fixture 走契約測試（`credentialsAttached` 為真才判定，為假的同樣回應不判定）。
 - 登出、移除插件、重設資料後 `CredentialStore` 為空，之後的請求不帶憑證。
 - 實機（ADR 0027，真實）：每個音源登入一次、帶憑證的搜尋、登出；YouTube 的網頁登入（或貼上 cookie）是 M3a 驗收的 §8 項目。

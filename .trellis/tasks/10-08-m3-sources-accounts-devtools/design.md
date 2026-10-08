@@ -191,7 +191,7 @@ lib/
 
 - **不建外鍵到 `installed_plugins`**：插件移除後曲目、電台都保留並標「音源未安裝」（ADR 0014 §決定 8、§16 第 10 條），`plugin_id` 只是字串。
 - **`accounts` 沒有「已登入」欄位**：是否登入只看 `CredentialStore`（ADR 0012 §決定 3）。啟動時有帳號列卻沒有憑證就刪那一列；憑證「暫時無法讀取」只在記憶體（§6.2）。
-- **`plugin_storage`** 已有 cascade（M1），移除插件時隨 `installed_plugins` 列刪掉。
+- **`plugin_storage`** 已有 cascade（M1），移除插件時隨 `installed_plugins` 列刪掉。開發資料夾的插件也要有一列才寫得進 storage（§12.5）。
 
 ### 3.2 schema 版本與測試
 
@@ -234,15 +234,17 @@ lib/
 - **同步點**：每加一個欄位或匯出，同一個 PR 改 `fmp-plugin.d.ts`、`manifestShapes`／`sourceDtoShapes`／`hostApiShapes`、`SourcePlugin` 的 Dart 方法、`FmpChecks`；閘門是 `type_definitions_test.dart`（M1）。
 - **`SourcePlugin` 只在引入的 PR 加方法**（檔頭的規則）：`login*`（PR 8）、`liveSearch`／`liveStatus`／`resolveLive`／`liveRoomFromUrl`（PR 18）、`mix`（PR 19）、`multiPart`（PR 20）、`trackDetail`（PR 21）。
 
-### 4.2 `HttpRequest` 的兩個欄位
+### 4.2 `HttpRequest` 的兩個欄位與 `HttpResponse` 的一個欄位
 
 | 欄位 | 內容 | PR |
 |---|---|---|
 | `idempotent?: boolean` | 空＝依方法（GET、HEAD 等冪等方法才自動重試，現況）；`true` 讓語意冪等的 POST（YouTube innertube、網易查詢）也重試。慣例：gRPC 的 per-method `idempotency_level`、RFC 9110 §9.2.2；ADR 0013 本來就允許「音源標為可重試者」。ADR 0013 §決定 4 加一行指到 ADR 0028 | 1 |
 | `authHeaders?: Record<string, string>` | 只在宿主判定要帶憑證（`decideAuth` 為 `attach`）時才加上的 header，例如 YouTube 從 `SAPISID` 算出的 `Authorization: SAPISIDHASH …`。名稱一律加進遮蔽的 header 名單（值是時間相關的雜湊，逐字登記沒有用）。帶不帶憑證仍只由 `auth` 一處決定 | 7 |
+| `HttpResponse.credentialsAttached?: boolean` | 宿主告訴插件這次請求有沒有真的帶憑證（`decideAuth` 為 `attach` 才為真；`omit`、`refuse` 與 `auth: 'never'` 為假）。插件的「憑證無效」判定（§6.5）只在它為真的回應上成立：未帶憑證的 401、`-101` 是匿名請求被拒，不是憑證失效，不判定就不會誤標 `invalidated`。選填、v1 內的擴充（§4.1）；定義在 ADR 0028 | 7 |
 
 - `idempotent: true` 只影響重試，不影響 `auth`、限流、網路紀錄。網路紀錄的 `retry` 欄位照常記。
-- 閘門：`source_http_client_test.dart` 的 `retry` 群組加「`idempotent` 的 POST 重試、沒標的 POST 不重試」；`auth` 群組加「`authHeaders` 只在 attach 時出現、omit 與 refuse 時不出現」。
+- 閘門：`source_http_client_test.dart` 的 `retry` 群組加「`idempotent` 的 POST 重試、沒標的 POST 不重試」；`auth` 群組加「`authHeaders` 只在 attach 時出現、omit 與 refuse 時不出現」「`credentialsAttached` 只在帶了憑證時為真（attach 為真；omit、refuse、`auth: 'never'`、已失效為假）」。
+- **`fmp-plugin.d.ts` 要改的清單**（同步點，§4.1）：`HttpRequest.idempotent`（PR 1）；`HttpRequest.authHeaders`、`HttpResponse.credentialsAttached`、`fmp.credentials.get()` 的回傳型別 `FmpLoginCredentials | null`（PR 7）；manifest 的 `login`、`FmpLoginCredentials`、四個 `login*` 匯出（PR 8）。各欄位同一個 PR 改 `hostApiShapes`／`manifestShapes`。
 
 ### 4.3 `login`（細節在 §6，ADR 0029）
 
@@ -275,6 +277,7 @@ login?: {
 - **憑證的形狀**：`FmpLoginCredentials = {cookies: Record<string, string>, extra?: Record<string, string> | null}`。`cookies` 是 cookie 名稱對值；`extra` 給不是 cookie 的東西（B 站刷新用的 `refresh_token`）。`fmp.credentials.get()` 回傳這個形狀或 `null`（現在回 `Record<string, string> | null`）。名稱不用 `FmpCredentials`：`fmp-plugin.d.ts` 裡它已是 `fmp.credentials` 那個宿主 API 物件的 interface。
 - **`loginVerify`／`loginRefresh` 自己帶憑證**：這兩個呼叫時新憑證還沒寫入，宿主沒得注入；插件以傳進來的 `credentials` 自己組 `Cookie` header，請求標 `auth: 'never'`。宿主在呼叫前就把這組憑證的值登記到遮蔽函式，失敗也不取消登記（值本來就是秘密）。
 - **QR 的 `done`**：插件從輪詢回應的 `Set-Cookie`（`HttpResponse.headers['set-cookie']`）取出憑證回傳。
+- **`login*` 執行期間，該插件的 client 不把回應的 `Set-Cookie` 存進 cookie jar**（`loginQrStart`、`loginQrPoll`、`loginVerify`、`loginRefresh`）：登入回應設的 cookie 是憑證，只經 `CredentialStore` 與注入送出，不能落在 jar 裡繞過 `auth`（§6.3）。插件仍讀得到回應的 `Set-Cookie` header。登入期間插件只做登入，同一個 client 上其他請求的 `Set-Cookie` 一併不存可以接受；B 站的匿名 `buvid3` 在插件自己的 storage（§5.3），不受影響。
 
 ### 4.4 `live`（ADR 0028）
 
@@ -324,8 +327,11 @@ TrackDetail = {
 
 ### 4.8 `checks.json` 的擴充
 
-- 每個新能力一個鍵，案例格式與 `search` 相同（`input`＋`expect`）。`login` 能力的案例是 `loginVerify`（輸入是 fixture 裡已遮蔽的假憑證；重播時不需要真登入）；`live` 是 `liveStatus`；`mix`、`multiPart`、`trackDetail` 各一條。
-- **`requiresLogin: true`**：案例要登入才有意義（例如 B 站高音質）。契約測試照常重播；健康檢查在未登入時標「略過」（ADR 0025 §決定 6）；命令列錄製略過它（只能在 App 內錄，ADR 0015 §決定 7）。
+- 每個新能力一個鍵，案例格式與 `search` 相同（`input`＋`expect`）。`login` 能力的案例是 `loginVerify`（重播時輸入是 fixture 裡已遮蔽的假憑證，不需要真登入）；`live` 是 `liveStatus`；`mix`、`multiPart`、`trackDetail` 各一條。
+- **`requiresLogin: true`**：案例要登入才有意義。M3 只有 `login` 能力的案例（`loginVerify`）標它。每個能力只有一條案例，不另外為「登入後才有的行為」加案例：它會擠掉該能力匿名的那一條（例如 `resolveStream`）。
+  - 契約測試照常重播 fixture（不需要真登入）。
+  - 健康檢查與 App 內錄製（§12.5）遇到 `requiresLogin`：該插件**已登入**就用已存的憑證跑（`loginVerify` 的輸入取 `CredentialStore` 的憑證，不用案例裡的假憑證）；**未登入**標「略過」（ADR 0025 §決定 6）。
+  - 命令列錄製略過它（命令列沒有憑證，ADR 0015 §決定 7）。
 - `FmpChecks` 型別與 `checks_test.dart` 同步；「只收 `SourcePlugin` 已有方法的能力」照舊，所以每個能力的案例跟著它的方法同一個 PR 加。
 
 ### 4.9 被取代請求的取消（§8.11）
@@ -344,7 +350,7 @@ TrackDetail = {
 - YouTube.js 18.1.0（探針版）以 esbuild 打成單一插件檔，Web API 以 `fmp.http.request` 補（M1 探針，`.trellis/tasks/archive/2026-09/09-30-youtubejs-probe/research/youtubejs-probe.md`）。打包腳本與 YouTube.js 的版本釘在 `fmp-plugins/youtube/`，產物與原始碼一起提交（index 只認單一 `.js`）。
 - `resolveStream`：先匿名（VISIONOS 等不需要 PO token 的 client），依 `formats` 與 `quality` 挑 opus／aac；`expiresAt` 從網址的 `expire` 參數讀（取代舊版寫死的 1 小時，D9）；`checks.json` 的 `expiresAtPattern` 是 `[?&]expire=(\d+)`。
 - innertube 的 POST 標 `idempotent: true`（§4.2）。
-- 錯誤對應表（ADR 0013 §決定 2，插件目錄內）：「確認你不是機器人」→ `VerificationRequired`；`LOGIN_REQUIRED`（年齡限制）→ `Unavailable(age)`；`UNPLAYABLE` 地區 → `Unavailable(region)`；429 由網路層轉 `RateLimited`。「憑證無效」判定表在 PR 10 加：帶憑證的請求回 401，或回應的 `responseContext` 表示已登出。
+- 錯誤對應表（ADR 0013 §決定 2，插件目錄內）：「確認你不是機器人」→ `VerificationRequired`；`LOGIN_REQUIRED`（年齡限制）→ `Unavailable(age)`；`UNPLAYABLE` 地區 → `Unavailable(region)`；429 由網路層轉 `RateLimited`。「憑證無效」判定表在 PR 10 加：帶憑證的請求（`HttpResponse.credentialsAttached` 為真）回 401，或回應的 `responseContext` 表示已登出。
 - 遮蔽名單：Google 帳號 cookie 名（`SAPISID`、`__Secure-1PSID`、`__Secure-3PSID`、`__Secure-3PAPISID`、`LOGIN_INFO` 等）與 `googlevideo.com` 的簽名參數已在 M1 的內建名單（`lib/core/redaction/redaction_lists.dart`），插件不必追加。
 - **`googlevideo.com` 的 `expire` 從內建的簽名參數移除**（PR 1）：它在內建名單裡，錄 fixture 時整個參數被拿掉（`redactor_test.dart` 的 googlevideo 案例），重播時插件讀不到期限，`expiresAtPattern` 的契約檢查必紅。`expire` 是公開的到期時間、不是憑證，與 B 站 `deadline` 不遮的理由相同（`redaction_lists.dart` 的註解）。閘門：`redactor_test.dart` 的 googlevideo 案例改成 `expire` 保留、`sig`、`ip` 等照拿掉。
 - 效能風險：約 800 KB 的插件在 QuickJS isolate 的載入時間，PR 1 以 `plugin_runtime_benchmark_test.dart` 兩平台量一次，寫進 PR 描述；超過 3 秒再談（延遲載入或縮小打包）。
@@ -357,7 +363,7 @@ TrackDetail = {
 - **候選備援順序不升為規範**（§8.13）：輸出本來就是「依優先序排好的候選串流」（ADR 0014 §決定 5），順序由各插件決定。
 - **`X-Real-IP`**（舊版對寫入請求附偽造的 `118.88.88.88`，B3）：PR 2 以匿名真實連線各測一次「不帶」與「帶」的搜尋與取流，結果寫進 PR 描述與插件 README；處理見 §16 第 14 條。
 - 音質對應 `high`→`exhigh`、`medium`→`standard`、`low`→`standard`（舊版的 `lossless` 需要 VIP，M3 不送；登入後的 VIP 音質之後再談）。
-- 錯誤對應：`code: -460`（風控）→ `VerificationRequired`；`code: 404`／空 `url` → `Unavailable`（原因依 `fee`）；「憑證無效」判定表（PR 10）：帶憑證的請求回 `code: 301`。
+- 錯誤對應：`code: -460`（風控）→ `VerificationRequired`；`code: 404`／空 `url` → `Unavailable`（原因依 `fee`）；「憑證無效」判定表（PR 10）：帶憑證的請求（`credentialsAttached` 為真）回 `code: 301`。
 - 同一個插件之後（M7）多宣告 `lyrics` 就是網易歌詞源（能力屬於插件，ADR 0014 §決定 2、4）。
 
 ### 5.3 B 站（既有，PR 3、8、10、18、20、21 跟著改）
@@ -387,7 +393,10 @@ TrackDetail = {
   - 讀取：啟動時每個裝了 `login` 插件各讀一次放記憶體；之後請求只讀記憶體。
   - **讀取失敗**：該插件狀態為「暫時無法讀取」（記憶體），不刪除、不帶憑證，30 秒後重讀一次（一次性 `Timer`），帳號頁顯示「暫時無法讀取，稍後重試」。
   - 載入或寫入時把每個 cookie 值與 `extra` 值登記到遮蔽函式；登出或移除時取消登記。短於 `Redactor.minimumSecretLength`（4）的值不登記：`registerSecret` 對它們拋 `ArgumentError`，而 B 站這類網站會一起回 `home_feed_column=5` 之類的短值，不略過的話登入整個失敗。這種值也不是秘密（真正的憑證 cookie 都更長）。
-- 實作 `CredentialSource`（`core/network/auth.dart`）：`credentialHeaders(pluginId)` 在 `status == invalidated` 或沒有憑證時回 `null`（已失效：保留憑證、停止帶它，ADR 0012 §決定 5）。
+- 實作 `CredentialSource`（`core/network/auth.dart`）。介面**不回傳拼好的 `Cookie` 字串**，改回傳材料，合併在網路層做（§6.3）：
+  - `credentialMaterial(pluginId)` → `({Map<String, String> cookies, Map<String, String> headers})?`：`cookies` 是 cookie 名稱對值，`headers` 是要附加的標頭（M3 的官方插件用不到，留給憑證不是 cookie 的音源；`authHeaders` 仍來自請求）。`status == invalidated`、沒有憑證或暫時無法讀取時回 `null`（已失效：保留憑證、停止帶它，ADR 0012 §決定 5）。取代 M1 的 `credentialHeaders(pluginId)`。
+  - `credentialCookieNames(pluginId)` → `Set<String>`：憑證裡有的 cookie 名稱，**已失效時照樣回傳**（保留的憑證名稱仍不准從 cookie jar 送出，§6.3）；沒有憑證回空集合。
+  - `browseAsLoggedIn(pluginId)` 照舊。
 
 ### 6.2 帳號表與每音源設定
 
@@ -398,13 +407,19 @@ TrackDetail = {
 
 ### 6.3 注入、Cookie 合併、遮蔽
 
-- 認證攔截器照 `decideAuth`：`attach` 時把憑證的 `cookies` 合併進請求的 `Cookie` header，再加上請求的 `authHeaders`。
+- 認證攔截器照 `decideAuth`：`attach` 時取 `credentialMaterial` 的 `cookies` 合併進請求的 `Cookie` header，再加上 `headers` 與請求的 `authHeaders`。`HttpResponse.credentialsAttached`（§4.2）由同一處設定。
 - **合併規則**（M2 待辦 12）：插件自己送的 `Cookie`（例如匿名 `buvid3`）、cookie jar 裡的、憑證的三者，**同名以憑證為準**，其次是插件 header，最後是 jar。實作上認證攔截器先合併前兩者，cookie 攔截器併 jar 時跳過 header 已有的名稱。舊版就是合併（`accounts-network.md` §1）。
+- **憑證的 cookie 只經注入送出，不經 cookie jar**（ADR 0029 §決定 4）。`dio_cookie_manager` 的 `loadCookies` 把 jar 的 cookie 接在每個請求上、不看 `auth`；憑證若落進 jar，B 站 QR 登入後 `auth: 'never'` 的請求，或「以登入身分瀏覽與播放」關掉時的 `userPreference` 請求，仍會帶出 `SESSDATA`，違反 ADR 0012。兩條規則一起守：
+  1. **登入時不存**：`login*` 匯出執行期間（§4.3），該插件的 client 不把回應的 `Set-Cookie` 存進 jar。
+  2. **送出時跳過**：cookie 攔截器併 jar 時，跳過 header 已有的名稱，**也跳過 `credentialCookieNames(pluginId)` 的名稱**——不論這次請求有沒有帶憑證（`auth: 'never'`、開關關閉、已失效都一樣）。非登入請求的回應若設了同名 cookie 照樣會存進 jar（`_OwnHostCookieJar` 的規則不變），但送出時被跳過。
+  - 實作位置（子類覆寫 `_OwnHostCookieManager` 的 `saveCookies`／`loadCookies`，或在 `_OwnHostCookieJar` 加過濾）與「登入中」旗標怎麼傳到 client，PR 7、8 決定；旗標的範圍是 client 層，不要求辨識是哪一次插件呼叫（§4.9 同樣的理由）。
 - `omit` 與 `refuse` 時 `authHeaders` 整個丟掉。
 - 網路紀錄的 `credentials` 欄位照舊記是否帶了憑證。
 - 閘門（`auth_test.dart`、`source_http_client_test.dart`）：
   - `AuthRequirement` 三種 × 未登入／已登入開關開／已登入開關關（ADR 0012 §如何確認；把現有 `NoCredentials` 版本換成假的 `CredentialStore`）；
   - 同名 cookie 三方來源的合併結果；`authHeaders` 只在 attach；
+  - **cookie jar 送出時不含憑證名稱的 cookie**（jar 裡先放一個與憑證同名的 cookie，`attach`、`omit`、已失效三種都斷言送出的 `Cookie` 沒有 jar 的那一個）；**`auth: 'never'` 的請求在登入後不帶憑證 cookie**（PR 7）；
+  - **jar 不存登入回應的 cookie**：`login*` 執行期間回應的 `Set-Cookie` 不進 jar，執行結束後的一般回應照常存（PR 8，`login*` 匯出在這個 PR 才有）；
   - 已失效時不帶；
   - 媒體 client 在已登入時仍不帶任何 `Cookie`／`Authorization`（M1 已有，三個插件的契約都跑）。
 
@@ -431,7 +446,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 
 ### 6.5 失效與刷新（ADR 0012 §決定 5，§8.24）
 
-- **判定在插件**：每個插件的「憑證無效」判定表在插件目錄內（§5），帶了憑證的請求才可能判定；判定成立時插件拋 `CredentialInvalid`。網路錯誤、限流、風控碼不算（ADR 0013）。
+- **判定在插件**：每個插件的「憑證無效」判定表在插件目錄內（§5），**只在 `HttpResponse.credentialsAttached` 為真的回應上判定**（§4.2；匿名請求被拒不是憑證失效）；判定成立時插件拋 `CredentialInvalid`。網路錯誤、限流、風控碼不算（ADR 0013）。
 - **單飛刷新在插件呼叫層**（不是 dio 的 `QueuedInterceptor`）：判定在 JS 內、dio 層看不到（§16 第 1 條）。
   - `lib/plugins/accounts/` 的 `AccountGuard` 包住對插件的每次呼叫：呼叫丟 `CredentialInvalid` 時，同一插件只有一個刷新在跑（`Future` 共用）。
   - 插件宣告 `refresh`：`loginRefresh(目前憑證)` → 拿到新憑證就寫入（`last_refresh_result = refreshed`）並**重跑原呼叫一次**（新的呼叫會帶新憑證，等同「以新憑證重建請求」）；回 `null` 或拋錯 → 標 `invalidated`。
@@ -442,7 +457,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 - **「需要重新登入」的入口**：帳號頁該列（狀態與「重新登入」）、失效提示的「登入」動作；搜尋 chip 不加標記。
 - 閘門：
   - 刷新後重跑的那次請求帶的是新憑證（ADR 0012 §如何確認）；同時三個呼叫失效只刷新一次；
-  - 每個音源的「憑證無效」判定表（契約 fixture：401／-101／301 各一）；限流與網路錯誤不標失效；
+  - 每個音源的「憑證無效」判定表（契約 fixture：401／-101／301 各一，`credentialsAttached` 為真；另各一條 `credentialsAttached` 為假的同樣回應，不判定）；限流與網路錯誤不標失效；
   - 啟動刷新在 `noInterface` 時不發、變 `Online` 後發一次。
 
 ### 6.6 登出、移除插件、重設資料
@@ -664,6 +679,8 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 - **備份格式**：SQLite 的 `VACUUM INTO` 把資料庫複製到資料目錄的 `backups/fmp-<UTC 時間>.db`（SQLite 官方的線上備份做法）。憑證不在資料庫（ADR 0012），所以備份不含憑證，還原後要重新登入。M4 的 E16 匯出格式另定（§16 第 7 條）。
 - **重設資料**（ADR 0025 §決定 9）：① 備份 ② 對話框列出備份路徑、二次確認 ③ 清空資料庫（刪檔重建）、`SecureStorage.deleteAll()`、WebView 全部資料、快取（`CacheStore.clear()`）④ 重啟 App。**備份失敗就不清空**。不動 log 檔（與已下載檔，M6）。
 - **重啟**：Windows 以同一個執行檔重新啟動自己再結束（單一實例鎖先釋放）；Android 以 `SystemNavigator.pop` 後由使用者再開（Android 沒有正規的「重啟自己」，舊版也沒有）。對話框寫明 Android 要手動重開。
+  - **Android 要確認重開時 `main()` 真的重跑**：`SystemNavigator.pop` 只結束 Activity；`AudioServiceActivity` 的 cached engine 或 audio_service 的前景服務可能讓 process 活著，使用者重開時 `main()` 不重跑，App 會拿著已被刪掉重建的資料庫與已清空的狀態繼續跑。PR 14 實測確認重設後重開，log 出現新的 `App started`。
+  - 沒重跑時改成：先停掉 audio_service（結束前景服務與 media session），再結束 process。實作在 PR 14 決定，寫進 `app/AGENTS.md`（含為什麼不能只靠 `SystemNavigator.pop`）。
 - **資料庫區塊**：
   - 唯讀瀏覽：`allTables` 與筆數；點進表 `select(table)` 每頁 50 列；每個值經遮蔽函式；`plugin_storage` 的值整欄遮蔽。
   - 「檢查」只報告：`PRAGMA integrity_check`、`PRAGMA foreign_key_check`、孤兒曲目數（M2 的 `deleteOrphans` 同一個查詢的計數版）；「檔案遺失的下載數」在 M6。有問題時提供「從備份還原」與「重設資料」。
@@ -691,13 +708,14 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 
 - **健康檢查**：對已安裝且啟用的插件，以真實連線跑它的檢查案例；手動觸發「全部」或單一插件，一次跑一個插件。
   - 案例來源：從 index 安裝的插件用 `installed_plugins.checks_json`；開發中的插件讀資料夾的 `checks.json`；從檔案或網址安裝的顯示「沒有檢查案例」（§16 第 12 條）。
-  - 結果：每案例通過／失敗、耗時、`AppError` 類別；`requiresLogin` 而未登入的標「略過」。結果以 tag `health` 經 log 門面寫入，不另存。
+  - 結果：每案例通過／失敗、耗時、`AppError` 類別；`requiresLogin` 而未登入的標「略過」，已登入的用已存憑證跑（§4.8）。結果以 tag `health` 經 log 門面寫入，不另存。
   - `checks.json` 的解析（`test/plugins/contract/checks.dart` 的 `parseChecks`、`checkShapes`）與契約執行器的「案例期望」判斷（成功筆數、非空欄位、錯誤類別）從 `test/plugins/contract/` 移到 `lib/plugins/health/`：健康檢查要讀 `installed_plugins.checks_json`，解析目前只在 `test/`。契約測試改為引用它，判斷只有一份；`type_definitions_test.dart` 比對 `checkShapes` 的位置跟著改。
 - **adapter 移進 `lib/core/network/fixture_adapters.dart`**（矛盾 10，M1 待辦 11）：錄製與重播的 `HttpClientAdapter` 從 `test/plugins/contract/fixture_adapters.dart` 移來，格式不變；它依賴的 `fixture.dart`（`FmpFixture` 的解析與 `fixtureShapes`）一起移到 `lib/core/network/`。`test/plugins/contract/` 改為引用它們。`restrictedImports` 只准 `lib/plugins/dev/` import（§2.2）。ADR 0015 §決定 6 的更正加一行。
   - `fixture.dart` 用 `lib/plugins/json_shape.dart` 的 `JsonShape`／`JsonFields`，而 `lib/core/` 不准 import `lib/plugins/`（`forbiddenLayerImports`）：`json_shape.dart` 先移到 `lib/core/`（它不依賴插件的任何東西），`lib/plugins/` 改 import 新位置。adapter 不能反過來放 `lib/plugins/dev/`：`dio` 只准在 `lib/core/network/`（`externalPackageOwners`）。
   - `SourceHttpClientFactory` 只接受一個外部給的 `HttpClientAdapter`，不 import `fixture_adapters.dart`；由 `lib/plugins/dev/` 建好 adapter 傳進去。
 - **插件開發**（只在宣告 `pluginDevTools` 的平台：Windows 真、Android 假）：
   - 「選擇資料夾」以 `file_picker` 的 `getDirectoryPath`，路徑存 `plugin_dev_folder`；資料夾裡的插件目錄（`.js` 加 `checks.json` 加 `fixtures/`，和契約執行器同一格式）標「開發中」，本次執行取代同 id 的已安裝插件，卸載後恢復已安裝版。
+  - **`installed_plugins` 要有一列**：`plugin_storage` 的外鍵指向它（M1），沒有這一列插件的 `fmp.storage.set` 寫不進去。載入開發資料夾的插件時，該 id 沒有已安裝列就補一列（manifest 與腳本取自資料夾、來源標開發資料夾、`source_index_url` 空、`enabled` 為真）；已有同 id 的已安裝列就沿用那一列，**不覆寫它的 manifest 與腳本**（卸載後要恢復的就是它），storage 也共用。移除開發資料夾（卸載、關閉開發者模式、換資料夾）時，只刪開發工具自己補的列，隨 `plugin_storage` cascade 清掉；沿用的已安裝列不動。來源標記的存放方式（記憶體集合或 `installed_plugins` 的欄位，後者要 migration）與 App 在載入中途結束後殘留列的清理，PR 16 決定。
   - 「重新載入」：拆掉該插件的 runtime 再重建（LX Music「切換＝銷毀重建」）。
   - 每插件的模式「真實｜錄製｜重播」：`SourceHttpClientFactory` 依模式掛 `fixture_adapters` 的錄製或重播 adapter，切換時重建該插件的 client。錄製的 fixture 經 `Redactor` 寫進資料夾的 `fixtures/<能力>/`（與命令列錄製同一個函式）。
   - 案例單跑或全跑，顯示已遮蔽的回傳值與錯誤；log 篩成該插件的 tag。
@@ -741,7 +759,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 
 | 文件 | 更正 | 何時 |
 |---|---|---|
-| ADR 0012 §決定 1 | 補充（M3）：匿名 cookie 由插件存在自己的 storage（`plugin_storage` 表）；登入後的 Cookie 與插件自己送的同名 cookie 以憑證為準合併（ADR 0029）（矛盾 6） | PR 0 |
+| ADR 0012 §決定 1 | 補充（M3）：匿名 cookie 由插件存在自己的 storage（`plugin_storage` 表）；登入後的 Cookie 與插件自己送的同名 cookie 以憑證為準合併；憑證的 cookie 不經 cookie jar（登入時不存、送出時跳過憑證的名稱），所以 `auth: never` 與開關關閉時不帶（ADR 0029）（矛盾 6，§6.3） | PR 0 |
 | ADR 0012 §決定 5 | 補充（M3）：「`QueuedInterceptor` 單飛」由 ADR 0029 細化：判定在插件內，單飛刷新與重送做在插件呼叫層，重跑整個插件呼叫（§6.5，§16 第 1 條） | PR 0 |
 | ADR 0013 §決定 4 | 補充（M3）：音源以 `HttpRequest.idempotent` 標語意冪等的 POST（ADR 0028） | PR 0 |
 | ADR 0014 §決定 5 | 補充（M3）：「發佈」指 `app/` 第一個 prod 版本對外發佈（M9 切換）；在那之前 v1 可加選填欄位與匯出，`fmp-plugins` 同一輪跟上（矛盾 11） | PR 0 |
