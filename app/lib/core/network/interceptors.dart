@@ -16,6 +16,7 @@ final class _Attempt {
     required this.pluginId,
     required this.auth,
     required this.retry,
+    this.authHeaders = const {},
   });
 
   static const _key = 'fmp.attempt';
@@ -29,6 +30,9 @@ final class _Attempt {
 
   /// 這是第幾次重試（原本那次為 0）。
   final int retry;
+
+  /// 請求的 `authHeaders`：只在認證攔截器判定 attach 時才加到 header。
+  final Map<String, String> authHeaders;
 
   bool credentialsAttached = false;
   DateTime? startedAt;
@@ -49,6 +53,10 @@ DioException _rejection(
 );
 
 /// 認證注入：只依請求宣告的 [AuthRequirement] 與 [decideAuth] 的表決定。
+///
+/// attach 時把憑證的 cookie 併進請求自己的 `Cookie` header（同名以憑證為準，
+/// ADR 0029 §決定 4），再加上憑證的 headers 與請求的 `authHeaders`。其他決定
+/// （omit、refuse、`never`）`authHeaders` 一個都不加。
 final class _AuthInterceptor extends Interceptor {
   _AuthInterceptor(this._credentials);
 
@@ -61,17 +69,26 @@ final class _AuthInterceptor extends Interceptor {
   ) async {
     final attempt = _Attempt.of(options);
     if (attempt.auth == AuthRequirement.never) return handler.next(options);
-    final headers = await _credentials.credentialHeaders(attempt.pluginId);
+    final material = await _credentials.credentialMaterial(attempt.pluginId);
     final decision = decideAuth(
       attempt.auth,
-      loggedIn: headers != null,
+      loggedIn: material != null,
       browseAsLoggedIn: await _credentials.browseAsLoggedIn(attempt.pluginId),
     );
     switch (decision) {
       case AuthDecision.attach:
-        // 蓋掉插件自己給的同名 header；cookie 管理之後會把 jar 的 cookie
-        // 併進 `Cookie`。
-        options.headers.addAll(headers!);
+        final cookies = {
+          ..._parseCookieHeader(options.headers[HttpHeaders.cookieHeader]),
+          ...material!.cookies,
+        };
+        if (cookies.isNotEmpty) {
+          options.headers[HttpHeaders.cookieHeader] = _cookieHeader(cookies);
+        }
+        // 蓋掉插件自己給的同名 header；cookie 管理之後會把 jar 的 cookie 併進
+        // `Cookie`（跳過已有的名稱）。
+        options.headers
+          ..addAll(material.headers)
+          ..addAll(attempt.authHeaders);
         attempt.credentialsAttached = true;
         handler.next(options);
       case AuthDecision.omit:
@@ -91,14 +108,56 @@ final class _AuthInterceptor extends Interceptor {
   }
 }
 
-/// cookie 管理：`dio_cookie_manager`，只改一處。
+/// `Cookie` header 的 `name=value; …` 轉成名稱對值（依出現順序）。
+Map<String, String> _parseCookieHeader(Object? header) {
+  final cookies = <String, String>{};
+  if (header is! String) return cookies;
+  for (final part in header.split(';')) {
+    final pair = part.trim();
+    if (pair.isEmpty) continue;
+    final equals = pair.indexOf('=');
+    if (equals < 0) continue;
+    cookies[pair.substring(0, equals).trim()] = pair.substring(equals + 1);
+  }
+  return cookies;
+}
+
+String _cookieHeader(Map<String, String> cookies) =>
+    [for (final MapEntry(:key, :value) in cookies.entries) '$key=$value']
+        .join('; ');
+
+/// cookie 管理：`dio_cookie_manager`，改兩處。
 ///
-/// 原版在 `followRedirects: false` 收到轉址時，會把這個回應的 `Set-Cookie`
-/// 也存到 `Location` 的 host 底下（`CookieManager.saveCookies`），跨網域的
-/// 下一跳就帶著上一個 host 設的 cookie。這裡只存到回應自己的網址（RFC 6265
-/// §5.3 的 request-uri）。
+/// 1. 原版在 `followRedirects: false` 收到轉址時，會把這個回應的 `Set-Cookie`
+///    也存到 `Location` 的 host 底下（`CookieManager.saveCookies`），跨網域的
+///    下一跳就帶著上一個 host 設的 cookie。這裡只存到回應自己的網址（RFC 6265
+///    §5.3 的 request-uri）。
+/// 2. 原版 `loadCookies` 把 jar 的 cookie 接在每個請求上、不看 `auth`。這裡併
+///    jar 時跳過兩種名稱：請求的 `Cookie` header 已有的（同名以 header 為準，
+///    header 已經併過憑證）、以及該插件憑證裡有的——不論這次請求有沒有帶憑證，
+///    憑證的 cookie 只經注入送出，不從 jar 送出（ADR 0029 §決定 4）。
 final class _OwnHostCookieManager extends CookieManager {
-  _OwnHostCookieManager(super.cookieJar);
+  _OwnHostCookieManager(super.cookieJar, this._pluginId, this._credentials);
+
+  final String _pluginId;
+  final CredentialSource _credentials;
+
+  @override
+  Future<String> loadCookies(RequestOptions options) async {
+    final own = _parseCookieHeader(options.headers[HttpHeaders.cookieHeader]);
+    final skipped = {
+      ...own.keys,
+      ...await _credentials.credentialCookieNames(_pluginId),
+    };
+    final saved = [
+      for (final cookie in await cookieJar.loadForRequest(options.uri))
+        if (!skipped.contains(cookie.name)) cookie,
+    ];
+    return [
+      if (own.isNotEmpty) _cookieHeader(own),
+      if (saved.isNotEmpty) CookieManager.getCookies(saved),
+    ].join('; ');
+  }
 
   @override
   Future<void> saveCookies(Response<Object?> response) {
