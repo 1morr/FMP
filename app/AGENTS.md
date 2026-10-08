@@ -234,7 +234,8 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   聽的是不是它、以及真的來電後前景服務有沒有留住，只能在 Android 模擬器驗：背景播放中
   `adb emu gsm call 5551234`、`gsm cancel 5551234`，掛斷後音樂續播，`logcat` 沒有 `Background started FGS:
   Disallowed`，`logcat -b events` 之後沒有 `am_stop_idle_service`、`am_freeze`；`dumpsys media_session` 在中斷期間
-  是 `BUFFERING`。
+  是 `BUFFERING`（2026-10-08 實測通過：關螢幕 3 分鐘照常播、前景服務一直在）。**已知限制**：Android 的媒體卡片對
+  `BUFFERING` 畫轉圈圖示、不是暫停鍵，通話期間不能從卡片暫停，掛斷後照常續播（實測）。
 - Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
   下面的覆寫**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
   - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
@@ -1062,7 +1063,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     有下一首或循環全部才有下一首。
   - 還沒按播放的 `Idle`（含啟動恢復後）是 `MediaPhase.idle`：系統不顯示通知、不搶前景。
   - 因音訊中斷而暫停（`Paused` 且 `pausedByInterruption`）是 `MediaPhase.interrupted`、`playing: true`、按鈕是
-    暫停鍵，位置照暫停（不外推）。理由在 § 平台層的 Android 前景服務：這段期間對 Android 要裝成還在播放，
+    暫停鍵（Android 的卡片實際畫成緩衝的轉圈，見 § 平台層），位置照暫停（不外推）。理由在 § 平台層的 Android 前景服務：這段期間對 Android 要裝成還在播放，
     前景服務才不會放掉。使用者從通知按暫停時控制器的 `pause()` 清掉旗標，phase 回到 `ready`、`playing: false`，
     前景服務照常放掉；平常的暫停（使用者按的、其他原因）不經這條，耗電行為不變。
   - 封面經 `artworkCacheManagerProvider`（design §4.3）取得本機檔、以 `file://` 交給平台（`artworkFile`，Android 用），晚於
