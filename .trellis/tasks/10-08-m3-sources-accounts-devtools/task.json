@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-08-m3-youtube-plugin"
+    "10-08-m3-youtube-plugin",
+    "10-08-m3-netease-plugin"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
