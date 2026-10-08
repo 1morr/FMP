@@ -670,7 +670,7 @@ class Translations$plugins$en extends Translations$plugins$zh_TW {
   String removeTitle({required Object name}) => 'Remove ${name}?';
   @override
   String get removeBody =>
-      'The plugin, its data and its cache are deleted. Songs stay and show "Source not installed".';
+      'The plugin, its data, its sign-in and its cache are deleted. Songs stay and show "Source not installed".';
   @override
   String get confirmRemove => 'Remove';
   @override

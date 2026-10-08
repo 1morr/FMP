@@ -231,7 +231,7 @@
     "confirmInstall": "Install",
     "confirmUpdate": "Update",
     "removeTitle": "Remove {name}?",
-    "removeBody": "The plugin, its data and its cache are deleted. Songs stay and show \"Source not installed\".",
+    "removeBody": "The plugin, its data, its sign-in and its cache are deleted. Songs stay and show \"Source not installed\".",
     "confirmRemove": "Remove",
     "installed": "Installed {name}",
     "updated": "Updated {name} to {version}",

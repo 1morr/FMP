@@ -816,8 +816,8 @@ class Translations$plugins$zh_TW {
   /// zh-TW: '移除「{name}」？'
   String removeTitle({required Object name}) => '移除「${name}」？';
 
-  /// zh-TW: '插件與它的資料、快取都會刪除。曲目會保留，顯示「音源未安裝」。'
-  String get removeBody => '插件與它的資料、快取都會刪除。曲目會保留，顯示「音源未安裝」。';
+  /// zh-TW: '插件與它的資料、登入、快取都會刪除。曲目會保留，顯示「音源未安裝」。'
+  String get removeBody => '插件與它的資料、登入、快取都會刪除。曲目會保留，顯示「音源未安裝」。';
 
   /// zh-TW: '移除'
   String get confirmRemove => '移除';

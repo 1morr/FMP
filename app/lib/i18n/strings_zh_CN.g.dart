@@ -656,7 +656,7 @@ class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
   @override
   String removeTitle({required Object name}) => '移除“${name}”？';
   @override
-  String get removeBody => '插件及其数据、缓存都会删除。曲目会保留，显示“音源未安装”。';
+  String get removeBody => '插件及其数据、登录、缓存都会删除。曲目会保留，显示“音源未安装”。';
   @override
   String get confirmRemove => '移除';
   @override

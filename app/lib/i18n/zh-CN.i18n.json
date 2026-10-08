@@ -231,7 +231,7 @@
     "confirmInstall": "安装",
     "confirmUpdate": "更新",
     "removeTitle": "移除“{name}”？",
-    "removeBody": "插件及其数据、缓存都会删除。曲目会保留，显示“音源未安装”。",
+    "removeBody": "插件及其数据、登录、缓存都会删除。曲目会保留，显示“音源未安装”。",
     "confirmRemove": "移除",
     "installed": "已安装“{name}”",
     "updated": "已将“{name}”更新到 {version}",
