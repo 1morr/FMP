@@ -1,0 +1,16 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/research/m3-decisions.md", "reason": "Owner decisions and technical decisions to check against"}
+{"file": "docs/adr/0028-host-api-m3-extensions.md", "reason": "Host API v1 additions to verify against d.ts and shapes"}
+{"file": "docs/adr/0029-login-credentials-accounts.md", "reason": "Credential handling: no reset on read error, cookie merge, redaction"}
+{"file": "docs/adr/0030-plugin-repository-and-lifecycle.md", "reason": "SHA check, semver, permission growth confirmation, removal steps"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "Radio and Mix behaviour to verify"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Credentials never reach media requests; how-to-verify list"}
+{"file": "docs/adr/0017-background-task-scheduler.md", "reason": "Scheduler how-to-verify list"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin quality check"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "Network quality check"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change quality check"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform capability quality check"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback quality check"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI quality check"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Redaction quality check"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint mutation tests and sentinel"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing quality check"}
