@@ -23,7 +23,7 @@ App 能以 `--fmp-dev-plugin` 裝上 YouTube 插件，匿名搜尋並播放 YouT
    - manifest 1.0.0，能力 `search`、`resolveStream`；innertube POST 標 `idempotent: true`。
    - `resolveStream`：匿名、不需要 PO token 的 client；依 `quality` 挑 opus／aac；`expiresAt` 從網址的 `expire` 參數讀。
    - 錯誤對應表：「確認你不是機器人」→ `VerificationRequired`；`LOGIN_REQUIRED`（年齡限制）→ `Unavailable(age)`；`UNPLAYABLE` 地區 → `Unavailable(region)`；429 由網路層轉 `RateLimited`。
-   - `checks.json`：`search` 與 `resolveStream`（含 `expiresAtPattern` `[?&]expire=(\d+)`）；以命令列錄 fixture（匿名，兩個案例）；手改的 `VerificationRequired`、`Unavailable(age)` fixture 各一。
+   - `checks.json`：`search` 與 `resolveStream`（含 `expiresAtPattern` `[?&]expire=(\d+)`）；以命令列錄 fixture（匿名，兩個案例）。錯誤對應表以 `test/errors.test.js`（`npm test`）守：契約每能力只有一條案例（ADR 0015 §決定 4），放不進錯誤案例。
    - README：能力、錯誤對應、打包方式。
 
 ## 不做
