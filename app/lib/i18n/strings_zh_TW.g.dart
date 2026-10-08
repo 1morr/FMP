@@ -65,6 +65,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$playback$zh_TW.internal(_root);
   late final Translations$network$zh_TW network =
       Translations$network$zh_TW.internal(_root);
+  late final Translations$sources$zh_TW sources =
+      Translations$sources$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
       Translations$errors$zh_TW.internal(_root);
 }
@@ -650,6 +652,21 @@ class Translations$network$zh_TW {
 
   /// zh-TW: '已清除快取'
   String get cleared => '已清除快取';
+}
+
+// Path: sources
+class Translations$sources$zh_TW {
+  Translations$sources$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '音源未安裝'
+  String get notInstalled => '音源未安裝';
+
+  /// zh-TW: '音源已停用'
+  String get disabled => '音源已停用';
 }
 
 // Path: errors

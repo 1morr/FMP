@@ -25,7 +25,7 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
-import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/settings/playback_settings.dart';

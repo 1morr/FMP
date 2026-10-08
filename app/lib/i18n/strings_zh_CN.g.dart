@@ -84,6 +84,9 @@ class TranslationsZhCn extends Translations
   late final Translations$network$zh_CN network =
       Translations$network$zh_CN.internal(_root);
   @override
+  late final Translations$sources$zh_CN sources =
+      Translations$sources$zh_CN.internal(_root);
+  @override
   late final Translations$errors$zh_CN errors =
       Translations$errors$zh_CN.internal(_root);
 }
@@ -531,6 +534,21 @@ class Translations$network$zh_CN extends Translations$network$zh_TW {
   String get cancel => '取消';
   @override
   String get cleared => '已清除缓存';
+}
+
+// Path: sources
+class Translations$sources$zh_CN extends Translations$sources$zh_TW {
+  Translations$sources$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get notInstalled => '音源未安装';
+  @override
+  String get disabled => '音源已停用';
 }
 
 // Path: errors

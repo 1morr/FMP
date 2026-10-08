@@ -8,9 +8,9 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 
 /// 提示的語意（ADR 0023 §決定 2）：決定顏色、圖示與時長。
 enum ToastKind {
@@ -130,13 +130,13 @@ final class Toaster {
 }
 
 /// App 的 [Toaster]。錯誤訊息用目前的介面語言，音源名稱取插件 manifest 的
-/// `name`，插件不在清單裡時用 `pluginId`（manifest 驗過格式）。
+/// `name`（`pluginNameProvider`；未安裝、停用的有自己的字樣），清單還沒載入完時用
+/// `pluginId`（manifest 驗過格式）。
 final toasterProvider = Provider<Toaster>((ref) {
   final toaster = Toaster(
     log: ref.watch(logProvider),
     translations: () => ref.read(translationsProvider),
-    sourceName: (pluginId) =>
-        ref.read(pluginRegistryProvider).value?[pluginId]?.manifest.name,
+    sourceName: (pluginId) => ref.read(pluginNameProvider(pluginId)),
   );
   ref.onDispose(toaster.dispose);
   return toaster;

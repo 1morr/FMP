@@ -78,6 +78,8 @@ class TranslationsEn extends Translations
   @override
   late final Translations$network$en network = Translations$network$en._(_root);
   @override
+  late final Translations$sources$en sources = Translations$sources$en._(_root);
+  @override
   late final Translations$errors$en errors = Translations$errors$en._(_root);
 }
 
@@ -541,6 +543,21 @@ class Translations$network$en extends Translations$network$zh_TW {
   String get cancel => 'Cancel';
   @override
   String get cleared => 'Cache cleared';
+}
+
+// Path: sources
+class Translations$sources$en extends Translations$sources$zh_TW {
+  Translations$sources$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get notInstalled => 'Source not installed';
+  @override
+  String get disabled => 'Source disabled';
 }
 
 // Path: errors

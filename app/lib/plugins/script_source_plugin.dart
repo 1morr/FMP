@@ -107,12 +107,14 @@ final class ScriptPluginLoader {
   /// [PluginRuntime.start]。
   Future<ScriptSourcePlugin> load(PluginFile file) async {
     final manifest = file.manifest;
-    // 遮蔽名單只增不減：插件更新或載入失敗都不收回（多遮的代價小於漏遮）。
-    _redactor.addRules(
-      headerNames: manifest.redaction.headerNames,
-      keyNames: manifest.redaction.keyNames,
-      mediaCdns: manifest.redaction.mediaCdns,
-    );
+    // header 與鍵名只增不減：插件更新或載入失敗都不收回（多遮的代價小於漏遮）。
+    // 媒體 CDN 以插件 id 為鍵取代，更新時不累加。
+    _redactor
+      ..addRules(
+        headerNames: manifest.redaction.headerNames,
+        keyNames: manifest.redaction.keyNames,
+      )
+      ..setMediaCdns(manifest.id, manifest.redaction.mediaCdns);
     final host = PluginHost(
       pluginId: manifest.id,
       http: _httpClients.create(

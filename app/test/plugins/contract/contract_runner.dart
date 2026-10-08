@@ -169,8 +169,8 @@ Redactor redactorFor(PluginManifest manifest) => Redactor()
   ..addRules(
     headerNames: manifest.redaction.headerNames,
     keyNames: manifest.redaction.keyNames,
-    mediaCdns: manifest.redaction.mediaCdns,
-  );
+  )
+  ..setMediaCdns(manifest.id, manifest.redaction.mediaCdns);
 
 /// 把 [error] 寫成一行：類別名與遮蔽過的原因（原因只有 `log.report` 讀得到）。
 String describeError(AppError error, [Log? log]) {

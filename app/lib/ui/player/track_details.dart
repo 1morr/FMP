@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/track_info.dart';
-import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -21,7 +21,7 @@ class TrackDetails extends ConsumerWidget {
     final t = ref.watch(translationsProvider).playerPage;
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
-    // 查不到（未安裝、還在載入）時用插件 id，同 `Toaster` 的作法。
+    // 清單還沒載入完時用插件 id，同 `Toaster` 的作法。
     final source =
         ref.watch(pluginNameProvider(track.sourceTypeId)) ?? track.sourceTypeId;
     final uploader = track.uploader;
