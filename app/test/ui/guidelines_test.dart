@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
@@ -9,6 +13,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -21,12 +26,6 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
-
-import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:fmp/core/endpoints.dart';
-import 'package:fmp/platform/files/files.dart';
 
 import '../playback/fake_audio_backend.dart';
 import '../support/memory_database.dart';

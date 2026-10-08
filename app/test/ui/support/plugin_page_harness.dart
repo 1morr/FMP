@@ -170,12 +170,14 @@ final class PluginPageHarness {
           .add(url, DateTime.utc(2026, 10, 9));
 
   /// 在 [url] 放一份 index，列出 [sources]（每個的 `.js` 放在 index 旁邊、SHA-256 照
-  /// 內容算）。[apiVersions] 改掉某個 id 在 index 裡寫的 `apiVersion`。
+  /// 內容算）。[apiVersions] 改掉某個 id 在 index 裡寫的 `apiVersion`；
+  /// [entryOverrides] 改掉某個 id 那一筆的任意欄位（index 與 `.js` 說法不一的情況）。
   void publish(
     List<String> sources, {
     String url = officialPluginIndexUrl,
     Map<String, int> apiVersions = const {},
     Map<String, String> sha256Overrides = const {},
+    Map<String, Map<String, Object?>> entryOverrides = const {},
   }) {
     final entries = <Map<String, Object?>>[];
     for (final source in sources) {
@@ -198,6 +200,7 @@ final class PluginPageHarness {
         'sha256':
             sha256Overrides[manifest.id] ??
             sha256.convert(utf8.encode(source)).toString(),
+        ...?entryOverrides[manifest.id],
       });
     }
     remote[url] = jsonEncode({'indexVersion': 1, 'plugins': entries});

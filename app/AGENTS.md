@@ -1304,26 +1304,29 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `invalidate` 重讀（ADR 0014 §決定 7：只在這兩個時候比對）。讀失敗是 `IndexFailed` 結果、`log.report` 一次，不丟出。
     更新只看插件自己的 `source_index_url`，而且那份要在目前的清單上（刪掉的自訂插件庫不再檢查）。閘門：
     `plugins_page_test.dart` 的 `updates` 群組（`opening the page shows updates…`、`a plugin is not updated from another
-    repository`、`check for updates reads the repositories again`）。
+    repository`、`an older version in the repository is never offered`、`check for updates reads the repositories again`）。
   - 標記：已停用（`installed_plugins.enabled`）、沒有回應（清單上那個實例的 `health`）、有更新（`updateStatus` 不是
     `none`）；`apiVersion` 不相容的新版本是停用的「需要更新 FMP」按鈕，可安裝那一筆同樣。「開發中」在 PR 16（開發資料夾）才有
     來源，現在沒有。閘門：`the installed tab`、`the available tab` 群組。
   - 啟用開關只經 `PluginRegistry.setEnabled`；開關自己是一個語意節點、名稱是「啟用「插件名」」（不包 container 的話會
-    併進 Card 的節點、名稱變成卡上所有的字）。閘門：`the switch disables and enables a plugin and writes it`。
+    併進 Card 的節點、名稱變成卡上所有的字）。搜尋頁的音源 chip 讀插件清單，停用就消失。閘門：`the switch disables and
+    enables a plugin and writes it`、`test/ui/search/search_sources_test.dart`。
   - 確認框（`plugin_dialogs.dart` 的 `confirmInstall`）：內容一律取自要裝的那份 `.js` 的 manifest（從 index 裝的是
     `prepare` 下載並驗過的），列名稱、作者、版本、翻譯過的能力（`capabilityName`，exhaustive）、網域與「以你的登入身分」
     警告；不是官方插件庫來的（自訂插件庫、檔案、網址）另加「非官方來源」；更新只在 `needsConfirmation` 時問、只列新增的能力與
     網域，「全部更新」逐個問這種、其餘直接更新；從檔案或網址裝到已安裝的 id 上時寫出被取代的版本。預期內的拒絕
-    （`PrepareRejected`）是警告提示、記 warning，不開確認框。移除先確認。閘門：`the available tab`（`installing asks with
-    the downloaded manifest…`、`… unofficial`、`a file that does not match the repository…`）、`updates`（`… lists only
-    those…`、`update all asks only…`）、`installing from a file or a URL`、`removing asks first…`。
+    （`PrepareRejected`）是警告提示、記 warning，不開確認框。移除先確認，經 `PluginInstaller.remove`（憑證與帳號列一起刪）。
+    閘門：`the available tab`（`installing asks with the downloaded manifest…`、`the confirmation shows the downloaded file…`、
+    `a repository whose … differs from the file…`、`… unofficial`、`a file that does not match the repository…`）、`updates`
+    （`… lists only those…`、`update all asks only…`）、`installing from a file or a URL`、`removing asks first…`。
   - 動作在等網路或資料庫時頁面頂端有進度條，其他動作停用（一次只做一件事，對話框開著不算）；動作用的 provider 在第一個
     `await` 之前讀好，之後只在 `mounted` 時碰 `ref`（對話框期間視窗跨斷點，設定頁會換位置重建這一頁）。這條沒有閘門，
     review 時看。
   - 離線：可安裝分頁所有 index 都讀不到時，不在 `online` 是共用的 `OfflineMessage` 加「重試」，在 `online` 是一般的失敗；
-    只有部分讀不到時那一段寫「無法讀取」加重試。已安裝分頁不受影響。閘門：`offline (…)` 兩例、`online but unreadable…`。
+    只有部分讀不到時那一段寫「無法讀取」加重試。已安裝分頁不受影響。閘門：`offline (…)` 兩例、`one unreadable repository…`、
+    `online but unreadable…`。
   - 管理插件庫：官方的一列不能刪；加入先提示「非官方來源」，只收 `https`（`parseHttpsUrl`：有主機、沒有 user info），已在
-    清單上的不重複加。閘門：`repositories` 群組、`only https URLs…`。
+    清單上的（含官方的）不重複加。閘門：`repositories`、`repositories already listed` 群組、`only https URLs…`。
 - 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
   曲名、「作者 · 播放時刻」。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -5,7 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/files/files.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/plugins/plugin_dialogs.dart';
 import 'package:material_ui/material_ui.dart';
@@ -154,7 +158,28 @@ void main() {
         await h.install(_a);
         await h.install(_b);
       });
+      // 憑證的存取排在 CredentialStore 在假時間 zone 建好的鏈上：在這個 zone 呼叫、
+      // pump 讓它跑完（在 runAsync 裡等它永遠等不到，見 PluginPageHarness.create）。
+      var saved = false;
+      unawaited(
+        h.plugins.credentials
+            .save(
+              Account(
+                pluginId: 'plugin-a',
+                userId: 'u',
+                displayName: 'Someone',
+                status: AccountStatus.active,
+                loggedInAt: DateTime.utc(2026, 10, 9),
+              ),
+              const LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA'}),
+            )
+            .then((_) => saved = true),
+      );
+      await tester.pump();
+      expect(saved, isTrue);
       await h.open(tester);
+      Iterable<String> stored() => h.plugins.secureStorage.values.keys;
+      expect(stored(), ['credentials.plugin-a']);
 
       await tester.tap(_inCard('Alpha', _button('Remove')));
       await tester.pumpAndSettle();
@@ -169,6 +194,7 @@ void main() {
         'plugin-a',
         'plugin-b',
       ]);
+      expect(stored(), ['credentials.plugin-a']);
 
       await tester.tap(_inCard('Alpha', _button('Remove')));
       await tester.pumpAndSettle();
@@ -182,6 +208,12 @@ void main() {
 
       expect((await h.stored(tester)).map((p) => p.id), ['plugin-b']);
       expect(h.registered(tester), {'plugin-b'});
+      // 經 PluginInstaller.remove：憑證與帳號列一起刪（PR 7 的步驟）。
+      expect(stored(), isEmpty);
+      expect(
+        await tester.runAsync(AccountRepository(h.plugins.database).list),
+        isEmpty,
+      );
       expect(find.text('Alpha'), findsNothing);
       expect(find.text('Removed Alpha'), findsOneWidget);
     });
@@ -274,6 +306,71 @@ void main() {
       expect(_inCard('Alpha', find.text('Installed')), findsOne);
     });
 
+    testWidgets('the confirmation shows the downloaded file, not what the '
+        'repository says about it', (tester) async {
+      // 名稱、作者、說明不在比對之列：index 可以寫別的，對話框照 `.js` 的標頭。
+      final h = (await PluginPageHarness.create(tester))
+        ..publish(
+          [_a],
+          entryOverrides: {
+            'plugin-a': {
+              'name': 'Trusted',
+              'author': 'Someone else',
+              'description': 'Harmless',
+            },
+          },
+        );
+      await h.open(tester);
+      await _openAvailable(tester, h);
+
+      await tester.tap(_inCard('Trusted', _button('Install')));
+      await h.settle(tester);
+      await tester.pumpAndSettle();
+
+      final dialog = find.byType(AlertDialog);
+      Finder inDialog(Finder f) => find.descendant(of: dialog, matching: f);
+      expect(inDialog(find.text('Install Alpha?')), findsOneWidget);
+      expect(inDialog(find.text('By FMP tests · version 1.0.0')), findsOne);
+      expect(inDialog(find.text('Plays Alpha songs')), findsOneWidget);
+      expect(inDialog(find.textContaining('Trusted')), findsNothing);
+      expect(inDialog(find.textContaining('Someone else')), findsNothing);
+      expect(inDialog(find.textContaining('Harmless')), findsNothing);
+    });
+
+    for (final (field, value) in [
+      ('id', 'plugin-z'),
+      ('version', '1.0.1'),
+      ('capabilities', ['search']),
+      ('allowedHosts', ['a.example.test', 'more.example.test']),
+    ]) {
+      testWidgets('a repository whose $field differs from the file is '
+          'refused before asking', (tester) async {
+        final h = (await PluginPageHarness.create(tester))
+          ..publish(
+            [_a],
+            entryOverrides: {
+              'plugin-a': {field: value},
+            },
+          );
+        await h.open(tester);
+        await _openAvailable(tester, h);
+
+        await tester.tap(_inCard('Alpha', _button('Install')));
+        await h.settle(tester);
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(
+          find.text(
+            "The plugin file doesn't match the repository; nothing was "
+            'installed',
+          ),
+          findsOneWidget,
+        );
+        expect(await h.stored(tester), isEmpty);
+        expect(h.registered(tester), isEmpty);
+      });
+    }
+
     testWidgets('a custom repository plugin is marked unofficial', (
       tester,
     ) async {
@@ -344,6 +441,25 @@ void main() {
         expect(find.text('Beta'), findsOneWidget);
       });
     }
+
+    testWidgets('one unreadable repository is a notice in its section; the '
+        'others are listed', (tester) async {
+      // 自訂的那份沒有放上去：讀它是 NetworkError。
+      final h = (await PluginPageHarness.create(tester))..publish([_a]);
+      await tester.runAsync(() => h.addIndex(_custom));
+      await h.open(tester);
+      await _openAvailable(tester, h);
+
+      expect(_inCard('Alpha', _button('Install')), findsOneWidget);
+      expect(find.text("Couldn't read this repository"), findsOneWidget);
+      expect(find.text('No network connection'), findsNothing);
+
+      h.publish([pluginScript('plugin-c', name: 'Gamma')], url: _custom);
+      await tester.tap(_button('Retry'));
+      await h.settle(tester);
+      expect(find.text('Gamma'), findsOneWidget);
+      expect(find.text("Couldn't read this repository"), findsNothing);
+    });
 
     testWidgets('online but unreadable is a failure, not the offline state', (
       tester,
@@ -491,6 +607,20 @@ void main() {
       final button = _inCard('Alpha', _button('Requires a newer FMP'));
       expect(button, findsOneWidget);
       expect(_enabled(tester, button), isFalse);
+      expect(_enabled(tester, _button('Update all')), isFalse);
+    });
+
+    testWidgets('an older version in the repository is never offered', (
+      tester,
+    ) async {
+      final h = (await PluginPageHarness.create(tester))..publish([_a]);
+      await tester.runAsync(
+        () => h.install(a11, indexUrl: officialPluginIndexUrl),
+      );
+      await h.open(tester);
+
+      expect(find.text('Update available'), findsNothing);
+      expect(find.textContaining('Update to'), findsNothing);
       expect(_enabled(tester, _button('Update all')), isFalse);
     });
 
@@ -689,6 +819,38 @@ void main() {
       expect(await tester.runAsync(repository.list), isEmpty);
       expect(find.text(_custom), findsNothing);
     });
+  });
+
+  group('repositories already listed', () {
+    for (final (name, url) in [
+      ('the official one', officialPluginIndexUrl),
+      ('a custom one', _custom),
+    ]) {
+      testWidgets('adding $name again is refused', (tester) async {
+        final h = await PluginPageHarness.create(tester);
+        await tester.runAsync(() => h.addIndex(_custom));
+        await h.open(tester);
+        final repository = h
+            .container(tester)
+            .read(pluginIndexRepositoryProvider);
+
+        await tester.tap(find.byTooltip('More options'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Manage repositories'));
+        await tester.pumpAndSettle();
+        await tester.tap(_button('Add repository'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), url);
+        await tester.tap(_button('Add'));
+        await h.settle(tester);
+        await tester.pumpAndSettle();
+
+        expect(find.text('This repository is already listed'), findsOneWidget);
+        expect((await tester.runAsync(repository.list))!.map((r) => r.url), [
+          _custom,
+        ]);
+      });
+    }
   });
 
   test('only https URLs with a host and no user info are accepted', () {
