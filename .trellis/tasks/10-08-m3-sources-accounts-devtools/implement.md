@@ -43,10 +43,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**：規劃中（2026-10-08）。prd／design／implement 與 ADR 0028–0031 草稿待擁有者核准；R1 已完成（通過，結果已回填）。
+- **狀態**：規劃已於 2026-10-08 由擁有者核准（ADR 0028–0031 已採納）；PR 0（文件更正與 milestones 拆分）進行中；R1 已完成（通過，結果已回填）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條 2026-10-08 確認，全部照建議。
 - **已合併進 `main`**：（無）
-- **下一步**：擁有者核准 → PR 0。
+- **下一步**：PR 0 合併後做 PR 1。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-plugin-lifecycle`）；
@@ -139,10 +139,10 @@
 
 ## 0. 規劃檔、ADR 與文件更正
 
-- [ ] 本任務的 `prd.md`、`design.md`、`implement.md`、`research/`（含 R1）commit。
-- [ ] ADR 0028–0031：依確認結果修訂，狀態改「已採納」、日期改核准日。
-- [ ] design §15 標「PR 0」的更正（§16 已全部確認，全部加）。
-- [ ] `milestones.md` § M3 拆成 M3a、M3b（範圍、驗收、依賴）。`09-26-fmp-rewrite/task.json` 的子任務清單已在規劃時加入本任務。
+- [x] 本任務的 `prd.md`、`design.md`、`implement.md`、`research/`（含 R1）commit。
+- [x] ADR 0028–0031：依確認結果修訂，狀態改「已採納」、日期改核准日。
+- [x] design §15 標「PR 0」的更正（§16 已全部確認，全部加）。
+- [x] `milestones.md` § M3 拆成 M3a、M3b（範圍、驗收、依賴）。`09-26-fmp-rewrite/task.json` 的子任務清單已在規劃時加入本任務。
 - 驗證：`main` 上有本任務目錄；`milestones.md` 的 M3a／M3b 範圍與 design §1.1 一致；`git grep` 新 ADR 的引用都對得上檔名。
 - 依賴：擁有者核准、R1。模型：sonnet（文件，照清單）。
 

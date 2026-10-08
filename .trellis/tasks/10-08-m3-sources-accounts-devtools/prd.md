@@ -1,7 +1,7 @@
 # M3 三音源、帳號與開發工具
 
 > 擁有者核准 prd／design／implement 之前不開工（ADR 0026 §決定 1）。技術決定在 `design.md`，PR 順序在 `implement.md`。
-> 新 ADR 0028–0031 是草稿（提議中），隨本規劃一起核准；0029 的 App 內網頁登入部分已依 R1 的結果定案。
+> 新 ADR 0028–0031 已隨本規劃於 2026-10-08 核准（已採納）；0029 的 App 內網頁登入部分已依 R1 的結果定案。
 
 ## 目標
 
@@ -12,7 +12,7 @@
 
 ## 背景
 
-- 範圍與驗收的來源：`../09-26-fmp-rewrite/milestones.md` § M3；行為以 ADR 0009–0027 為準，M3 新增的決定在 ADR 0028–0031（草稿）。
+- 範圍與驗收的來源：`../09-26-fmp-rewrite/milestones.md` § M3；行為以 ADR 0009–0027 為準，M3 新增的決定在 ADR 0028–0031。
 - M2 已完成（#196–#219），留給 M3 的待辦整理在 `research/m3-scope-digest.md` §2。
 - 研究：
   - `research/m3-scope-digest.md`：各 ADR 的 M3 範圍、14 條矛盾、33 條未定之處；

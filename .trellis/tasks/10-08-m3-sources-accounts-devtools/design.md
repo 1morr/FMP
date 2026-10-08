@@ -1,6 +1,6 @@
 # M3 設計
 
-各項行為以 ADR 0008–0027 為準；M3 新增的跨模組決定在 ADR 0028–0031（草稿，隨本設計核准）。這份只寫：
+各項行為以 ADR 0008–0027 為準；M3 新增的跨模組決定在 ADR 0028–0031（2026-10-08 擁有者核准，已採納）。這份只寫：
 
 - 跨 PR 的結構（模組邊界、資料表、宿主 API 的擴充）；
 - ADR 留給「開工時決定」的技術選擇；
@@ -771,7 +771,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 | ADR 0025 §決定 7、10 | 更正（M3）：`file_selector.getDirectoryPath`／`getSaveLocation` 改用 ADR 0009 §決定 6 的 `file_picker`（13.1.0）的 `getDirectoryPath`、`saveFile`；「file_picker 沒有 SAF」不成立（13.x 有 Android SAF 選項），Android 插件開發仍另立 ADR（矛盾 2） | PR 0 |
 | ADR 0025 §決定 9 | 更正（M3）：自動備份＝以 SQLite `VACUUM INTO` 把資料庫複製到 `backups/fmp-<時間>.db`；「從備份還原」＝換回該檔並重啟。憑證不在資料庫，還原後要重新登入。M4 的 E16 匯出格式另定（矛盾 1，§16 第 7 條） | PR 0 |
 | ADR 0026 §決定 3 | 修訂（2026-10-08，M3 規劃時擁有者決定）：M3 拆成 M3a「三音源與帳號」與 M3b「開發工具、排程器、電台、Mix、分 P」，M4 依賴 M3b；明細見 `milestones.md` | PR 0 |
-| ADR 0029 | 已依 R1 定案 App 內網頁登入的部分（套件、`login.webView` 欄位、UA 歸平台層、`loginWebView` 能力），狀態仍「提議中」直到核准 | 已完成（R1 後） |
+| ADR 0029 | 已依 R1 定案 App 內網頁登入的部分（套件、`login.webView` 欄位、UA 歸平台層、`loginWebView` 能力），狀態於 2026-10-08 核准時改「已採納」 | 已完成（R1 後、PR 0） |
 | `milestones.md` § M3 | 拆成 M3a、M3b 兩節與兩列（依賴：M3a←M2、M3b←M3a、M4←M3b）；範圍加「設定『關於』區塊的版本列（開發者模式入口；其餘內容 M9）」（矛盾 4）；驗收照 `prd.md`（加 ADR 測試的項目，矛盾 13） | PR 0 |
 | `09-26-fmp-rewrite/task.json` | 子任務清單加本任務 | 已在本規劃的 commit `f7736306` 加入 |
 | `app/AGENTS.md` | § 網路「目前（M2）的認證來源是 `NoCredentials`」、§ 插件的 `checks.json`「只收兩個能力」、§ 資料層、§ 平台層、§ Lint 隨各 PR 改寫；加 § 排程器、§ 帳號、§ 電台 | 各 PR |
