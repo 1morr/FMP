@@ -28,6 +28,7 @@ final class PlatformCapabilities {
     required this.playback,
     required this.networkInterfaces,
     required this.cache,
+    required this.secureStorage,
     this.mediaControls,
   });
 
@@ -39,6 +40,7 @@ final class PlatformCapabilities {
     playback: null,
     networkInterfaces: false,
     cache: null,
+    secureStorage: false,
     mediaControls: null,
   );
 
@@ -66,6 +68,10 @@ final class PlatformCapabilities {
   /// 維持 Flutter 的預設。
   final CacheSizes? cache;
 
+  /// 有 secure storage 的實作（`secure_storage/`）：憑證的唯一存放處（ADR 0012
+  /// §決定 3）。沒有時不能登入。
+  final bool secureStorage;
+
   /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
   /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
   final MediaControlsSupport? mediaControls;
@@ -78,5 +84,6 @@ final class PlatformCapabilities {
     playback: playback,
     networkInterfaces: networkInterfaces,
     cache: cache,
+    secureStorage: secureStorage,
   );
 }

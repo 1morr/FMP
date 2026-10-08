@@ -18,6 +18,7 @@ import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
+import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
 
 void main() {
   group('AppPlatform.assemble', () {
@@ -45,6 +46,8 @@ void main() {
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
       expect(platform.capabilities.cache, same(androidCacheSizes));
       expect(platform.cacheDirectory, isA<CacheDirectory>());
+      expect(platform.capabilities.secureStorage, isTrue);
+      expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
       // 系統依速度自己外推位置，不重推。
       expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
@@ -72,6 +75,8 @@ void main() {
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
       expect(platform.capabilities.cache, same(windowsCacheSizes));
       expect(platform.cacheDirectory, isA<CacheDirectory>());
+      expect(platform.capabilities.secureStorage, isTrue);
+      expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
       // SMTC：不能 seek、播放中每 5 秒重推位置；實作要啟動時初始化，所以
       // assemble 之後還沒有（withMediaControls）。
       expect(platform.capabilities.mediaControls?.supportsSeek, isFalse);
@@ -99,6 +104,8 @@ void main() {
         expect(platform.networkInterfaces, isNull);
         expect(platform.capabilities.cache, isNull);
         expect(platform.cacheDirectory, isNull);
+        expect(platform.capabilities.secureStorage, isFalse);
+        expect(platform.secureStorage, isNull);
         expect(platform.capabilities.mediaControls, isNull);
         expect(platform.mediaControls, isNull);
         for (final language in FontLanguage.values) {
