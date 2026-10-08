@@ -30,6 +30,7 @@
    限流與退避（策略由音源宣告）、網路紀錄（ADR 0011）。另有一個**媒體 client** 專抓音訊位元組，只加媒體 headers（Referer、UA），
    不掛認證攔截器與 cookie 管理。匿名用的非機密 cookie（例如 B 站 `buvid`）存資料庫。
    轉址：宿主 HTTP 跟隨轉址時每一跳都要在 manifest 網域內，最多 5 跳（舊版 `SourceUrlPolicy.resolveRedirects` 的做法）；媒體 client 跟隨轉址時每一跳只帶媒體 headers。
+   補充（2026-10-08，M3 PR 0）：匿名 cookie 由插件存在自己的 storage（`plugin_storage` 表）；登入後的 Cookie 與插件自己送的同名 cookie 以憑證為準合併；憑證的 cookie 不經 cookie jar（登入時不存、送出時跳過憑證的名稱），所以 `auth: never` 與開關關閉時不帶（ADR 0029）。
 2. **帶憑證的單一宣告點**：每個請求在音源插件的定義處宣告 `AuthRequirement`：
    - `required`：寫入遠端歌單、讀收藏夾與私人歌單；未登入就不發請求，直接回「需要登入」。
    - `userPreference`：搜尋、排行、詳情、串流解析、下載詳情、歌單刷新、電台、Mix；已登入且開關開啟才帶。
@@ -47,6 +48,7 @@
    - 遇到憑證無效：`QueuedInterceptor` 單飛，支援刷新就先刷新、**以新憑證重建請求**後重送一次；否則標記已失效。
    - 已失效：保留憑證、停止帶它、提示一次，帳號頁與相關入口顯示需要重新登入；重新登入後下一次失效會再提示。
    - 登出：清該音源憑證、該音源網域的 WebView cookie、記憶體 cookie、遮蔽登記。重設所有資料：清資料庫、全部憑證、全部 WebView 資料。
+   - 補充（2026-10-08，M3 PR 0）：上面「`QueuedInterceptor` 單飛」由 ADR 0029 細化：判定在插件內，單飛刷新與重送做在插件呼叫層，重跑整個插件呼叫。
 6. **「以登入身分瀏覽與播放」**：每個音源一個開關（每音源設定表，ADR 0011），控制所有 `userPreference` 請求，三個音源語意一致。
    預設由音源宣告，B 站、網易、YouTube 皆開；YouTube 旁附說明：以登入身分大量請求可能被視為自動化行為（推測）。
    legacy import 以舊開關值作為使用者設定；舊版開關範圍較窄，切換版本的發行說明寫明。

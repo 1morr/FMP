@@ -43,7 +43,8 @@
     "09-28-phase3-docs-cleanup",
     "09-28-m1-skeleton-tracer",
     "10-01-linux-platform",
-    "10-01-m2-full-playback"
+    "10-01-m2-full-playback",
+    "10-08-m3-sources-accounts-devtools"
   ],
   "parent": null,
   "relatedFiles": [],
