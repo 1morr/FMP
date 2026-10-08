@@ -14,7 +14,7 @@ lib/core/network/
   host_fetch.dart          # HostFetch：宿主自己的請求（index、插件檔、checks），底層是媒體 client
   http_rules.dart          # 兩種 client 共用：網域、轉址、限流語意、傳輸錯誤的對應
   network_log.dart         # networkLogTag、NetworkClient、NetworkRecordIds、writeNetworkRecord
-  auth.dart                # AuthRequirement、decideAuth、CredentialSource、NoCredentials
+  auth.dart                # AuthRequirement、decideAuth、CredentialSource、CredentialMaterial
   allowed_hosts.dart       # AllowedHosts：manifest 網域比對（請求與 cookie 的 Domain 共用）
   request_throttle.dart    # RequestThrottle：併發上限＋最小間隔
   media_headers.dart       # mediaRequestHeaders：媒體請求只留的 header
@@ -52,6 +52,27 @@ final response = await client.send(
 - 方法照 RFC 9110 大寫（`GET`），重試只看它判斷冪等；`get` 會被當成不冪等。
 - 網址寫在 `lib/core/endpoints.dart`（`fmp_url_literal`），插件的網址在插件裡。
 
+## 帶憑證的請求
+
+```dart
+final response = await client.send(
+  SourceRequest(
+    url,
+    auth: AuthRequirement.userPreference,
+    // 只在帶憑證時才加上：例如從 cookie 算出來的 SAPISIDHASH。
+    authHeaders: {'Authorization': hash},
+  ),
+);
+if (response.credentialsAttached && response.statusCode == 401) { /* 憑證無效 */ }
+```
+
+- 認證來源是 `SourceHttpClientFactory(credentials:)`，App 裡是 `CredentialStore`（`.trellis/spec/app/plugins/index.md`
+  § 帳號）。介面只回材料（cookie 表、標頭、憑證的 cookie 名稱），合併在 `interceptors.dart`：認證攔截器併請求自己的
+  `Cookie` 與憑證（同名憑證為準），cookie 管理（`_OwnHostCookieManager.loadCookies`）併 jar 時跳過 header 已有的名稱
+  與憑證的名稱。想改合併規則就改這兩處，不要在別處拼 `Cookie`。
+- 登出要清的記憶體 jar 在 client 內：`SourceHttpClientFactory.clearCookies(pluginId)`（工廠記著每個插件目前的 client，
+  client 關閉時自己移除，更新時新 client 先建、舊的後關）。
+
 ## 一次 `send` 的流程
 
 1. 檢查網域（`AllowedHosts.allows`）。
@@ -82,7 +103,7 @@ final harness = Harness(
     '/a' => redirect('/b'),
     _ => reply(200, body: '{}'),
   },
-  credentials: FakeCredentials(headers: {'Cookie': 'SESSDATA=FAKE_SESSDATA_123'}),
+  credentials: FakeCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA_123'}),
   retryPolicy: const RetryPolicy(maxRetries: 0),
 );
 await harness.get('https://example.test/a', auth: AuthRequirement.userPreference);
@@ -90,6 +111,10 @@ expect(harness.adapter.requests.last.headers['cookie'], ...);
 expect(harness.records.single.fields['status'], 200);
 ```
 
+- 認證來源：`harness.dart` 的 `FakeCredentials(cookies:, headers:, invalidatedCookies:, browseAsLoggedInValue:)`
+  （`cookies: null` 是未登入；`invalidatedCookies` 是已失效，不帶但名稱照樣回報）。沒有認證的場合用
+  `test/support/credentials.dart` 的 `NoCredentials`；要真的 `CredentialStore` 用同檔的 `credentialStoreFor`。
+  jar 先放 cookie 的寫法看 `auth_test.dart` 的 `_harnessWithJar`（對 `/seed/<名稱>` 打一次，讓回應設 cookie）。
 - `test/core/network/harness.dart`：client 加上 `test/support/fake_http_adapter.dart`
   的假 adapter（不聯網，記下送到最底層的 `RequestOptions`）、假時鐘（`waits` 記下每次
   等待，等待立刻完成並把時鐘往前撥）、固定種子的 `Random`、`LogLevel.debug` 的 log。

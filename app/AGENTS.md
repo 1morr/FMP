@@ -188,6 +188,12 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `createAudioBackend` 建後端）的 `output devices follow the platform declaration…` 在兩個平台
   手動跑時一起檢查。
 
+- Secure storage（`lib/platform/secure_storage/`，ADR 0012 §決定 3、ADR 0029 §決定 5）：`PlatformCapabilities.secureStorage`
+  （Android、Windows）。鍵只准小寫英數、`.`、`-`（Windows 直接當檔名），實作加上 `fmp-dev.`／`fmp.` 前綴，
+  `deleteAll` 只刪自己前綴的鍵、不呼叫套件的全刪。Android 的 `resetOnError` 一律關：套件預設讀取失敗就清空，
+  違反「讀取失敗不刪除」。`flutter_secure_storage` 只准在平台層（`platformPackages`）。閘門：
+  `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`）、
+  `platform_test.dart`；真的寫讀刪是 `integration_test/secure_storage_test.dart`（手動，Windows 另在 CI）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
   （`supportsSeek`）；Android 以 `audio_service` 實作。宣告在組裝點，實作在 `main()` 開好資料庫之後、
   `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
@@ -343,6 +349,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   檢查案例驗證不過時，舊版本的不留）。閘門：
   `migration_test.dart` 的 v6→v7 資料完整性與 `migration from v<N> to v7 adds the plugin lifecycle schema`
   （v1–v6 各一例）、`plugin_repository_test.dart` 的 `enabled and index source`、`custom indexes`。
+- `accounts` 與 `source_settings` 是 schema v8（ADR 0029 §決定 6）：帳號的非機密顯示資訊與每音源設定，主鍵
+  都是插件 id，**沒有外鍵到 `installed_plugins`**（插件移除後的清理由 `PluginInstaller.remove` 做）。是否登入只看
+  `CredentialStore`，`accounts` 不存「已登入」。新表升級後是空的，其他表的值不動。閘門：`migration_test.dart` 的
+  v7→v8 資料完整性與 `migration from v<N> to v8 adds the account schema`（v1–v7 各一例）、
+  `account_repository_test.dart`（含 `stored format`）。
 
 ### 快取庫
 
@@ -556,8 +567,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   client 測試的 `network log` 群組（欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體
   歷史與 log 檔）、`media_http_client_test.dart` 的 `no Cookie or Authorization…`（兩種
   client 的 id 接續）；provider 的接線沒有閘門，review 時看。
-- 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入。目前（M2）的認證來源是
-  `NoCredentials`（每個音源都未登入）。閘門：`auth_test.dart`（三種標記 × 三種狀態）。
+- 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入；認證來源是 `CredentialSource`
+  （實作是 `CredentialStore`，見 § 帳號），回傳憑證材料（cookie 表與標頭），不回拼好的 `Cookie` 字串。
+  attach 時把憑證的 cookie 併進請求自己的 `Cookie` header（同名憑證為準），再加憑證的標頭與請求的
+  `authHeaders`；omit、refuse、`never`、已失效時 `authHeaders` 一個都不加，跨 host 的轉址也丟掉。閘門：
+  `auth_test.dart`（三種標記 × 三種狀態、`Cookie` 三方合併、`authHeaders`）。
+- 憑證的 cookie 不從 cookie jar 送出（ADR 0029 §決定 4）：cookie 管理併 jar 時，跳過請求 `Cookie` header 已有的
+  名稱與該插件憑證的 cookie 名稱，不論這次有沒有帶憑證、憑證有沒有失效。閘門：`auth_test.dart` 的
+  `credential cookies never come from the jar`（jar 先放同名 cookie：attach、開關關閉、`never`、已失效）。
+  「登入期間 jar 不存回應的 `Set-Cookie`」是登入 PR 的事，到時加閘門。
+- `SourceResponse.credentialsAttached`（插件看到的 `HttpResponse.credentialsAttached`）只在這次送出的那一跳
+  真的 attach 時為真；插件的「憑證無效」判定只能在它為真的回應上成立。閘門：`auth_test.dart`、
+  `source_http_client_test.dart` 的 `credentialsAttached describes the hop…`。`authHeaders` 的名稱由
+  `PluginHost` 加進 `Redactor` 的 header 名單（`plugin_runtime_test.dart` 的 `the authHeaders names join…`）。
 - 網路狀態（`network_status.dart`，ADR 0016 §決定 6）：輸入只有平台層的介面變化與
   HTTP client 每次送出的結果（`RequestOutcomeSink`）。拿到回應不論狀態碼都是
   `responded`（被轉成 `RateLimited` 的 429 也是）；`NetworkError` 是失敗；沒送出的
@@ -639,6 +661,27 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   nothing`）、`timeouts`、`cancel` 群組，以及 `allowed hosts and redirects` 的
   `… is refused without a request`。
 
+## 帳號
+
+`lib/plugins/accounts/`（ADR 0012、0029）。登入流程、帳號頁在之後的 PR；這裡只有憑證存放與登出。
+
+- 憑證只有一個來源 `CredentialStore`：secure storage 的 `credentials.<插件 id>`（`LoginCredentials` 的 JSON）。
+  記憶體只放讀進來的狀態，請求只讀記憶體；每個查詢都等 `ready`（啟動載入完成），所以啟動時的請求不會在憑證
+  讀進來之前以匿名送出。是否登入只看它。
+- 讀取失敗（含內容壞掉）時該插件為 `unreadable`：不帶、**不刪**，30 秒後重讀一次（一次性 `Timer`），重讀仍失敗就
+  維持，不再排。啟動載入時帳號列與憑證不一致就刪掉多的那一邊並記 warning。載入、重讀、`save`、`delete` 排成一條
+  依序執行：重讀從 storage 拿到的舊值不能蓋掉期間的登出或重新登入（否則登出後又帶憑證）。閘門：
+  `credential_store_test.dart`（`a read failure`，含 `… during the re-read …` 兩例；`loading at startup`）。
+- 已失效（`accounts.status = invalidated`）的憑證保留、不帶，`fmp.credentials.get()` 也回 `null`，但它的 cookie 名稱
+  照樣擋在 jar 之外。閘門：`credential_store_test.dart`、`plugin_runtime_test.dart` 的 `credentials`。
+- 遮蔽：載入與寫入時把每個 cookie 值與 `extra` 值登記到 `Redactor`，登出與移除時取消；短於
+  `Redactor.minimumSecretLength` 的值略過（`registerSecret` 對它們會拋錯，而 B 站會一起回 `home_feed_column=5`）。
+  閘門：`credential_store_test.dart` 的 `redaction`。
+- 登出（`AccountService.logout`）：憑證 → `accounts` 列 → 該插件的記憶體 cookie jar；`source_settings` 保留。每一步
+  可重複。WebView 的 cookie 在網頁登入的 PR 接上。閘門：`credential_store_test.dart` 的 `logging out`。
+- 「以登入身分瀏覽與播放」讀 `source_settings.browse_as_logged_in`，空就是開（manifest 的預設在登入 PR）。
+  憑證的值只用假值寫測試（`FAKE_…`）。
+
 ## 插件
 
 `lib/plugins/`（ADR 0014）。怎麼寫插件、怎麼加宿主 API：`.trellis/spec/app/plugins/index.md`；
@@ -700,8 +743,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 停用（`PluginRegistry.setEnabled`）：存進資料庫、關閉 runtime 與媒體 client，憑證與 storage 保留；啟動不載入停用的
     插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫。更新停用中的插件寫進新版本但不加入清單。閘門：
     `plugin_registry_test.dart`、`plugin_installer_test.dart` 的 `updating a disabled plugin…`。
-  - 移除（`PluginInstaller.remove`）：關閉 runtime → `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
-    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。憑證、帳號、排程器的步驟由之後的 PR 加在刪列之前。閘門：
+  - 移除（`PluginInstaller.remove`）：關閉 runtime → 憑證與遮蔽登記、`accounts`、`source_settings`
+    （`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
+    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。WebView cookie、排程器的步驟由之後的 PR 加在刪列之前。閘門：
     `plugin_installer_test.dart` 的 `removing` 群組（含 `skips the cache step…`）。
   - 顯示名稱 `pluginNameProvider`（`lib/ui/plugins/plugin_name.dart`）：清單上是 manifest 的 `name`，停用的是
     「音源已停用」，沒安裝的是「音源未安裝」，清單未載入完是 `null`。閘門：`test/ui/plugins/plugin_name_test.dart`。
