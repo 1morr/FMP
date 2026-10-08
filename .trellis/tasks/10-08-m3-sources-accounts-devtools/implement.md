@@ -45,7 +45,8 @@
 
 - **狀態**：規劃已於 2026-10-08 由擁有者核准（ADR 0028–0031 已採納）；PR 0（文件更正與 milestones 拆分）進行中；R1 已完成（通過，結果已回填）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條 2026-10-08 確認，全部照建議。
-- **已合併進 `main`**：（無）
+- **已合併進 `main`**：PR 0（#220）。
+- **PR 1 未結的事**：Windows 播 YouTube 開串流回 403（VISIONOS `mp4/aac`，itag 139／140），之後本機被 YouTube 暫時標記「確認你不是機器人」，沒能查完；Android 已端到端通過。`fmp-plugins` 的 YouTube PR 等 Windows 驗過再合併；查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`（Node 對同一個網址比對 itag 139／140／251 與 UA，分辨「aac 被擋」與「播放器走了不同出口」）。
 - **下一步**：PR 0 合併後做 PR 1。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
 - **每個 PR 的固定流程**：
