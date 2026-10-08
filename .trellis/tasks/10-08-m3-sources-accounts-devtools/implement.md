@@ -487,6 +487,11 @@
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
 
+### PR 5 留下的
+
+1. **「開發中」標記沒做**：它的來源是開發資料夾（design §12.5），PR 16 才有；`--fmp-dev-plugin` 裝的插件在資料庫裡與從檔案裝的沒有分別。PR 16 加上。
+2. **已啟用卻載入失敗的插件沒有標記**：不在 registry 的插件清單、也不是停用，開關看起來是開著的。要做就由 registry 暴露載入失敗的狀態，插件頁加一個標記與測試。
+
 ### PR 7 留下的
 
 1. **prod 與舊版 App 共用 secure storage 檔**：Windows 的 `%APPDATA%/com.personal/fmp/flutter_secure_storage.dat` 舊版（`flutter_secure_storage` 10.x）也在用；新版 prod 以鍵前綴 `fmp.` 區分，`deleteAll` 只刪自己的前綴。切換（M9）前確認舊版的鍵沒有 `fmp.` 開頭，並決定舊版憑證要不要遷移或清掉。
