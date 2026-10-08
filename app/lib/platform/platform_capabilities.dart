@@ -29,6 +29,7 @@ final class PlatformCapabilities {
     required this.networkInterfaces,
     required this.cache,
     required this.secureStorage,
+    required this.files,
     this.mediaControls,
   });
 
@@ -41,6 +42,7 @@ final class PlatformCapabilities {
     networkInterfaces: false,
     cache: null,
     secureStorage: false,
+    files: false,
     mediaControls: null,
   );
 
@@ -72,6 +74,9 @@ final class PlatformCapabilities {
   /// §決定 3）。沒有時不能登入。
   final bool secureStorage;
 
+  /// 有檔案對話框的實作（`files/`）：插件頁的「從檔案安裝」依它出現。
+  final bool files;
+
   /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
   /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
   final MediaControlsSupport? mediaControls;
@@ -85,5 +90,6 @@ final class PlatformCapabilities {
     networkInterfaces: networkInterfaces,
     cache: cache,
     secureStorage: secureStorage,
+    files: files,
   );
 }

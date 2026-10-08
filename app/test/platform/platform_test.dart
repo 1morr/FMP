@@ -13,6 +13,7 @@ import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_android.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_windows.dart';
 import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
+import 'package:fmp/platform/files/file_picker_dialogs.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
@@ -24,7 +25,7 @@ void main() {
   group('AppPlatform.assemble', () {
     test('Android has a data directory, picks glyphs by locale, plays '
         'with just_audio without choosing an output device, sees network '
-        'interfaces and has a cache', () {
+        'interfaces, has a cache and file dialogs', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.android,
         AppFlavor.dev,
@@ -48,6 +49,8 @@ void main() {
       expect(platform.cacheDirectory, isA<CacheDirectory>());
       expect(platform.capabilities.secureStorage, isTrue);
       expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
+      expect(platform.capabilities.files, isTrue);
+      expect(platform.fileDialogs, isA<FilePickerDialogs>());
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
       // 系統依速度自己外推位置，不重推。
       expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
@@ -55,7 +58,7 @@ void main() {
 
     test('Windows has a data directory, a single instance, named fonts, '
         'plays with media_kit and chooses output devices, sees network '
-        'interfaces and has a cache', () {
+        'interfaces, has a cache and file dialogs', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.windows,
         AppFlavor.dev,
@@ -77,6 +80,8 @@ void main() {
       expect(platform.cacheDirectory, isA<CacheDirectory>());
       expect(platform.capabilities.secureStorage, isTrue);
       expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
+      expect(platform.capabilities.files, isTrue);
+      expect(platform.fileDialogs, isA<FilePickerDialogs>());
       // SMTC：不能 seek、播放中每 5 秒重推位置；實作要啟動時初始化，所以
       // assemble 之後還沒有（withMediaControls）。
       expect(platform.capabilities.mediaControls?.supportsSeek, isFalse);
@@ -106,6 +111,8 @@ void main() {
         expect(platform.cacheDirectory, isNull);
         expect(platform.capabilities.secureStorage, isFalse);
         expect(platform.secureStorage, isNull);
+        expect(platform.capabilities.files, isFalse);
+        expect(platform.fileDialogs, isNull);
         expect(platform.capabilities.mediaControls, isNull);
         expect(platform.mediaControls, isNull);
         for (final language in FontLanguage.values) {
@@ -156,6 +163,8 @@ void main() {
       // 其他能力不受影響。
       expect(platform.capabilities.playback, same(androidPlaybackSupport));
       expect(platform.dataDirectory, isA<AndroidAppDataDirectory>());
+      expect(platform.capabilities.files, isTrue);
+      expect(platform.fileDialogs, isA<FilePickerDialogs>());
     });
 
     test('a platform without the capability initializes nothing', () async {
