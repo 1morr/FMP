@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -9,6 +10,7 @@ import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/platform/files/files.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
@@ -83,13 +85,14 @@ final class UnresponsivePlugin implements SourcePlugin {
 /// `NetworkError`，不聯網）與假的檔案對話框。快取庫開不起來：移除插件時略過快取那一步
 /// （那一步由 `plugin_installer_test.dart` 守）。
 final class PluginPageHarness {
-  PluginPageHarness({FakeFileDialogs? dialogs}) : dialogs = dialogs {
+  PluginPageHarness._({this.dialogs}) {
     shell = ShellHarness(
       database: plugins.database,
       fileDialogs: dialogs,
       cacheUnavailable: true,
       extraOverrides: [
         redactorProvider.overrideWithValue(plugins.redactor),
+        credentialStoreProvider.overrideWithValue(plugins.credentials),
         sourceHttpClientFactoryProvider.overrideWithValue(plugins.httpClients),
         mediaHttpClientFactoryProvider.overrideWithValue(
           plugins.mediaHttpClients,
@@ -100,6 +103,26 @@ final class PluginPageHarness {
         ),
       ],
     );
+  }
+
+  /// 建好環境，並在 `testWidgets` 的假時間 zone 裡把憑證的載入跑完。
+  ///
+  /// [CredentialStore] 一建立就在當下的 zone 讀資料庫（[CredentialStore.ready]）。
+  /// 那是假時間 zone，它的 microtask 只在 `pump` 時執行；若測試先進 `runAsync` 寫資料庫，
+  /// 載入的查詢排在 drift 的鎖後面、輪到它時卻等不到 `pump`，後面的寫入就永遠等不到鎖。
+  /// 所以先 `pump` 一次讓它跑完（記憶體資料庫只需要 microtask）。
+  static Future<PluginPageHarness> create(
+    WidgetTester tester, {
+    FakeFileDialogs? dialogs,
+  }) async {
+    final harness = PluginPageHarness._(dialogs: dialogs);
+    var loaded = false;
+    unawaited(harness.plugins.credentials.ready.then((_) => loaded = true));
+    await tester.pump();
+    if (!loaded) {
+      throw StateError('The credential store did not finish loading');
+    }
+    return harness;
   }
 
   final plugins = PluginHarness();

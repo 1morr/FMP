@@ -236,7 +236,8 @@ try {
 - 加一個能力：`capabilityName` 的 `switch` 會指出要加的字串（`plugins.capabilityNames.<能力>`，三個語言）。
 - 測試用 `PluginPageHarness`（`test/ui/support/plugin_page_harness.dart`）：外殼的 `ShellHarness` 加上同一個資料庫上的真插件
   載入器（QuickJS）、查表的假下載（`publish` 放一份 index 與它的 `.js`，SHA 照內容算；沒列的網址是 `NetworkError`）、
-  假的檔案對話框。插件以 `install` 直接寫進資料庫（包 `tester.runAsync`），開頁後 `settle`（真的事件迴圈加 `pump`，背景
+  假的檔案對話框。以 `await PluginPageHarness.create(tester)` 建立：它在假時間 zone 裡先 `pump` 一次，讓
+  `CredentialStore` 一建立就開始的資料庫載入跑完，否則之後 `runAsync` 裡的寫入排在它後面、永遠等不到 drift 的鎖。插件以 `install` 直接寫進資料庫（包 `tester.runAsync`），開頁後 `settle`（真的事件迴圈加 `pump`，背景
   isolate 與 drift 都要它）；按鈕用 `find.bySubtype<ButtonStyleButton>()` 找（`widgetWithText` 只認確切型別）。沒有回應的
   插件以 `UnresponsivePlugin` 經 `PluginRegistry.register` 換上去，不跑真的看門狗。
 

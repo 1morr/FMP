@@ -48,7 +48,7 @@ void main() {
   group('the installed tab', () {
     testWidgets('lists installed plugins with version, author and '
         'description, enabled ones switched on', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await tester.runAsync(() async {
         await h.install(_a, indexUrl: officialPluginIndexUrl);
         await h.install(_b, enabled: false);
@@ -66,7 +66,7 @@ void main() {
 
     testWidgets('details show the translated capabilities, the hosts and '
         'the source', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await tester.runAsync(() async {
         await h.install(_a, indexUrl: officialPluginIndexUrl);
         await h.install(_b);
@@ -90,7 +90,7 @@ void main() {
     });
 
     testWidgets('a plugin that stopped responding is tagged', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await tester.runAsync(() => h.install(_b));
       await h.open(tester);
       expect(find.text('Not responding'), findsNothing);
@@ -110,7 +110,7 @@ void main() {
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await tester.runAsync(() => h.install(_b));
       await h.open(tester);
       expect(h.registered(tester), {'plugin-b'});
@@ -149,7 +149,7 @@ void main() {
     testWidgets('removing asks first; cancelling keeps the plugin', (
       tester,
     ) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await tester.runAsync(() async {
         await h.install(_a);
         await h.install(_b);
@@ -187,7 +187,7 @@ void main() {
     });
 
     testWidgets('nothing installed is an empty state', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await h.open(tester);
 
       expect(find.text('No plugins installed'), findsOneWidget);
@@ -197,7 +197,7 @@ void main() {
   group('the available tab', () {
     testWidgets('lists the official and custom repositories, marking '
         'installed plugins', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       h
         ..publish([_a, _b])
         ..publish([pluginScript('plugin-c', name: 'Gamma')], url: _custom);
@@ -220,7 +220,7 @@ void main() {
     });
 
     testWidgets('an entry for a newer FMP cannot be installed', (tester) async {
-      final h = PluginPageHarness()
+      final h = (await PluginPageHarness.create(tester))
         ..publish([_a], apiVersions: {'plugin-a': 2});
       await h.open(tester);
       await _openAvailable(tester, h);
@@ -232,7 +232,7 @@ void main() {
 
     testWidgets('installing asks with the downloaded manifest; cancelling '
         'installs nothing', (tester) async {
-      final h = PluginPageHarness()..publish([_a]);
+      final h = (await PluginPageHarness.create(tester))..publish([_a]);
       await h.open(tester);
       await _openAvailable(tester, h);
 
@@ -277,7 +277,8 @@ void main() {
     testWidgets('a custom repository plugin is marked unofficial', (
       tester,
     ) async {
-      final h = PluginPageHarness()..publish([_a], url: _custom);
+      final h = (await PluginPageHarness.create(tester))
+        ..publish([_a], url: _custom);
       await tester.runAsync(() => h.addIndex(_custom));
       await h.open(tester);
       await _openAvailable(tester, h);
@@ -294,7 +295,7 @@ void main() {
 
     testWidgets('a file that does not match the repository is refused with '
         'a hint', (tester) async {
-      final h = PluginPageHarness()
+      final h = (await PluginPageHarness.create(tester))
         ..publish([_a], sha256Overrides: {'plugin-a': 'a' * 64});
       await h.open(tester);
       await _openAvailable(tester, h);
@@ -316,7 +317,7 @@ void main() {
     ]) {
       testWidgets('offline (${status.name}): the shared offline state; the '
           'installed tab still works', (tester) async {
-        final h = PluginPageHarness();
+        final h = await PluginPageHarness.create(tester);
         await tester.runAsync(() => h.install(_b));
         await h.open(tester);
         await h.shell.setNetwork(tester, status);
@@ -347,7 +348,7 @@ void main() {
     testWidgets('online but unreadable is a failure, not the offline state', (
       tester,
     ) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await h.open(tester);
       await _openAvailable(tester, h);
 
@@ -377,7 +378,7 @@ void main() {
     );
 
     Future<PluginPageHarness> open(WidgetTester tester) async {
-      final h = PluginPageHarness()..publish([a11, b11]);
+      final h = (await PluginPageHarness.create(tester))..publish([a11, b11]);
       await tester.runAsync(() async {
         await h.install(_a, indexUrl: officialPluginIndexUrl);
         await h.install(_b, indexUrl: officialPluginIndexUrl);
@@ -480,7 +481,7 @@ void main() {
     testWidgets('a newer version for a newer FMP cannot be updated', (
       tester,
     ) async {
-      final h = PluginPageHarness()
+      final h = (await PluginPageHarness.create(tester))
         ..publish([a11], apiVersions: {'plugin-a': 2});
       await tester.runAsync(
         () => h.install(_a, indexUrl: officialPluginIndexUrl),
@@ -496,7 +497,7 @@ void main() {
     testWidgets('a plugin is not updated from another repository', (
       tester,
     ) async {
-      final h = PluginPageHarness()..publish([a11]);
+      final h = (await PluginPageHarness.create(tester))..publish([a11]);
       await tester.runAsync(() => h.install(_a, indexUrl: _custom));
       await h.open(tester);
 
@@ -507,7 +508,7 @@ void main() {
     testWidgets('check for updates reads the repositories again', (
       tester,
     ) async {
-      final h = PluginPageHarness()..publish([_a]);
+      final h = (await PluginPageHarness.create(tester))..publish([_a]);
       await tester.runAsync(
         () => h.install(_a, indexUrl: officialPluginIndexUrl),
       );
@@ -542,7 +543,7 @@ void main() {
           bytes: Uint8List.fromList(utf8.encode(_a)),
         ),
       );
-      final h = PluginPageHarness(dialogs: dialogs);
+      final h = await PluginPageHarness.create(tester, dialogs: dialogs);
       await h.open(tester);
 
       await openMenu(tester);
@@ -570,7 +571,8 @@ void main() {
     });
 
     testWidgets('a file that is not a plugin installs nothing', (tester) async {
-      final h = PluginPageHarness(
+      final h = await PluginPageHarness.create(
+        tester,
         dialogs: FakeFileDialogs(
           PickedFile(
             name: 'x.js',
@@ -590,7 +592,7 @@ void main() {
     });
 
     testWidgets('without file dialogs there is no file entry', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await h.open(tester);
 
       await openMenu(tester);
@@ -601,7 +603,7 @@ void main() {
 
     testWidgets('from a URL: only https, then unofficial and the replaced '
         'version', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       h.remote['https://files.test/alpha.js'] = pluginScript(
         'plugin-a',
         name: 'Alpha',
@@ -651,7 +653,7 @@ void main() {
     testWidgets('adding warns that it is unofficial; removing deletes it', (
       tester,
     ) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await h.open(tester);
 
       await tester.tap(find.byTooltip('More options'));

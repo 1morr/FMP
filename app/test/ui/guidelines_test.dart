@@ -352,21 +352,22 @@ void main() {
             capabilities: ['search', 'resolveStream'],
             description: 'Plays Alpha songs',
           );
-          final h =
-              PluginPageHarness(
-                dialogs: FakeFileDialogs(
-                  PickedFile(
-                    name: 'gamma.js',
-                    bytes: Uint8List.fromList(
-                      utf8.encode(pluginScript('plugin-c', name: 'Gamma')),
-                    ),
-                  ),
+          final h = await PluginPageHarness.create(
+            tester,
+            dialogs: FakeFileDialogs(
+              PickedFile(
+                name: 'gamma.js',
+                bytes: Uint8List.fromList(
+                  utf8.encode(pluginScript('plugin-c', name: 'Gamma')),
                 ),
-              )..publish([
-                pluginScript('plugin-a', name: 'Alpha', version: '1.1.0'),
-                pluginScript('plugin-b', name: 'Beta'),
-                pluginScript('plugin-d', name: 'Delta'),
-              ]);
+              ),
+            ),
+          );
+          h.publish([
+            pluginScript('plugin-a', name: 'Alpha', version: '1.1.0'),
+            pluginScript('plugin-b', name: 'Beta'),
+            pluginScript('plugin-d', name: 'Delta'),
+          ]);
           await tester.runAsync(() async {
             await h.install(alpha, indexUrl: officialPluginIndexUrl);
             await h.install(

@@ -145,7 +145,7 @@ void main() {
   for (final width in [1000.0, 400.0]) {
     testWidgets('$width wide: plugins come after network and open the plugin '
         'page', (tester) async {
-      final h = PluginPageHarness();
+      final h = await PluginPageHarness.create(tester);
       await h.shell.pumpShell(
         tester,
         size: Size(width, 800),
