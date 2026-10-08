@@ -447,6 +447,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `main()` 在解析資料目錄之後才接上，之前的錯誤走 Flutter 預設處理。閘門：
   `test/core/logging/uncaught_errors_test.dart`（預期內的 `AppError` 未捕捉仍是 `error`，
   原因經遮蔽寫出）。
+- 媒體 CDN 的名單同樣不遮 YouTube `googlevideo.com` 的 `expire`（到期的 unix 秒）：`sig`、`lsig`、
+  `ip` 等照樣拿掉。閘門：`redactor_test.dart` 的 `strips signed parameters and keeps the others`
+  的 googlevideo 案例。
 - 媒體 CDN 的名單刻意不遮 B 站的 `deadline`（到期的 unix 秒，公開的時間戳、不是憑證）：簽名
   與帶身分的參數（`e`、`upsig`、`uparams`、`mid`、`oi`、`trid`、`buvid`、`hdnts`）照樣拿掉，
   網址仍然不能用；fixture 留著期限，契約的 `expiresAtPattern` 才核對得了 `expiresAt`（見
@@ -512,7 +515,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   前後關係）、`a failed request gives its place back`。
 - 重試在 `SourceHttpClient` 的迴圈裡，不在攔截器：每次重試重新走整條攔截器鏈（重新
   判斷認證、重新排限流），每次送出各一筆網路紀錄。閘門：同一檔的 `retry` 群組（只重試
-  冪等請求、次數上限、`Retry-After`、取消不重試）。
+  冪等請求、次數上限、`Retry-After`、取消不重試）。語意冪等的 POST（innertube 查詢等）由
+  插件在請求標 `idempotent: true`（`false` 則連 GET 都不重試），只影響重試，不影響認證、限流、
+  網路紀錄（ADR 0028 §決定 2）。閘門：`retry` 群組的 `a POST marked idempotent…`、
+  `a GET marked not idempotent…`；`plugin_runtime_test.dart` 的 `http.request passes idempotent…`。
 - 網域：只准 `https`，host 等於 manifest 允許清單的項目或是它的子網域（帶百分比編碼的
   host 一律不准）；不符就不發請求，丟 `Unsupported`。轉址手動跟隨
   （`followRedirects: false`），每跳都檢查，最多 5 次，`Location` 解析不了也是
