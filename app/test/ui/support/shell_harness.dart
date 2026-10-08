@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_material.dart';
+import 'package:fmp/app/app_scope.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
@@ -12,12 +13,14 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
+import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
+import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_controller.dart';
@@ -67,6 +70,10 @@ final class ShellHarness {
     FakeOutputDevices? outputDevices,
     this.outputDeviceSelection = false,
     this.artworkManager,
+    this.database,
+    this.fileDialogs,
+    this.cacheUnavailable = false,
+    this.extraOverrides = const [],
   }) : backend = FakeAudioBackend(
          durationOf: (_) => const Duration(minutes: 3),
          outputDevices: outputDevices,
@@ -120,6 +127,19 @@ final class ShellHarness {
   /// 設定頁「網路」組用的快取庫；不給就是還沒開好（用量不顯示）。
   final CacheStore? cacheStore;
 
+  /// 快取庫開不起來（`cacheStoreProvider` 是錯誤）：移除插件時略過快取那一步，不會
+  /// 等一個永遠開不好的快取庫。
+  final bool cacheUnavailable;
+
+  /// 主資料庫；不給就是新的記憶體資料庫。要和別的元件（插件的載入器）共用時給。
+  final AppDatabase? database;
+
+  /// 平台的檔案對話框；給了平台就宣告 `files`。
+  final FileDialogs? fileDialogs;
+
+  /// 加在最後的 override（要和上面不重複）。
+  final List<Override> extraOverrides;
+
   final FakeSourcePlugin plugin;
   late final List<SourcePlugin> sources;
 
@@ -146,11 +166,12 @@ final class ShellHarness {
   final interfaces = FakeNetworkInterfaces();
 
   List<Override> get overrides => [
-    appDatabaseProvider.overrideWithValue(memoryDatabase()),
+    appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
     logProvider.overrideWithValue(log),
     toasterProvider.overrideWithValue(toaster),
     searchSourcesProvider.overrideWithValue(AsyncData(sources)),
     networkInterfacesProvider.overrideWithValue(interfaces),
+    fileDialogsProvider.overrideWithValue(fileDialogs),
     // 「網路」設定的預設上限讀平台宣告：128 MiB。
     platformCapabilitiesProvider.overrideWithValue(
       PlatformCapabilities(
@@ -166,6 +187,7 @@ final class ShellHarness {
               )
             : null,
         networkInterfaces: false,
+        files: fileDialogs != null,
         cache: const CacheSizes(
           defaultLimitMebibytes: 128,
           memoryImages: 1,
@@ -180,7 +202,9 @@ final class ShellHarness {
     if (artworkManager != null)
       artworkCacheManagerProvider.overrideWith((ref, _) => artworkManager),
     cacheStoreProvider.overrideWith(
-      (ref) => cacheStore ?? Completer<CacheStore>().future,
+      (ref) => cacheUnavailable
+          ? Future<CacheStore>.error(StateError('no cache store in the test'))
+          : cacheStore ?? Completer<CacheStore>().future,
     ),
     // 樹拆掉時停掉後端的計時器（測試結束時檢查沒有留下的計時器）。
     playbackControllerProvider.overrideWith((ref) {
@@ -205,6 +229,7 @@ final class ShellHarness {
       });
       return controller;
     }),
+    ...extraOverrides,
   ];
 
   /// 以 [size] 的視窗開 App 的外殼（和 `FmpApp` 同一份 `MaterialApp` 設定）。
@@ -239,7 +264,8 @@ final class ShellHarness {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      ProviderScope(
+      // 和 App 一樣關掉 Riverpod 的自動重試（appProviderScope）。
+      appProviderScope(
         overrides: overrides,
         child: fmpMaterialApp(
           title: 'FMP Dev',

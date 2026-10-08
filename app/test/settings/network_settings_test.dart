@@ -27,6 +27,7 @@ void main() {
           fontFallback: FontFallback.none,
           playback: null,
           networkInterfaces: false,
+          files: false,
           cache: CacheSizes(
             defaultLimitMebibytes: defaultLimit,
             memoryImages: 1,

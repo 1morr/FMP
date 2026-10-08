@@ -86,6 +86,7 @@ void main() {
               outputDeviceSelection: false,
             ),
             networkInterfaces: false,
+            files: false,
             cache: const CacheSizes(
               defaultLimitMebibytes: 1,
               memoryImages: 1,

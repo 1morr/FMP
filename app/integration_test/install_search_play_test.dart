@@ -260,6 +260,7 @@ final class _AppRun {
               fontFallback: FontFallback.none,
               playback: _playback,
               networkInterfaces: false,
+              files: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 16,
                 memoryImages: 50,

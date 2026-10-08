@@ -22,9 +22,16 @@ import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:fmp/core/endpoints.dart';
+import 'package:fmp/platform/files/files.dart';
+
 import '../playback/fake_audio_backend.dart';
 import '../support/memory_database.dart';
 import 'support/fake_artwork.dart';
+import 'support/plugin_page_harness.dart';
 import 'support/shell_harness.dart';
 
 // ADR 0024 §如何確認：淺色與深色主題下通過點擊區與對比度 guideline。示範畫面
@@ -327,6 +334,88 @@ void main() {
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.byType(NetworkControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // 插件頁（M3 PR 5）：已安裝（停用、有更新、展開詳細資料）、可安裝、安裝的確認框
+      // （兩則警告）。
+      for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        final width = size.width;
+
+        Future<PluginPageHarness> openPlugins(WidgetTester tester) async {
+          final alpha = pluginScript(
+            'plugin-a',
+            name: 'Alpha',
+            capabilities: ['search', 'resolveStream'],
+            description: 'Plays Alpha songs',
+          );
+          final h =
+              PluginPageHarness(
+                dialogs: FakeFileDialogs(
+                  PickedFile(
+                    name: 'gamma.js',
+                    bytes: Uint8List.fromList(
+                      utf8.encode(pluginScript('plugin-c', name: 'Gamma')),
+                    ),
+                  ),
+                ),
+              )..publish([
+                pluginScript('plugin-a', name: 'Alpha', version: '1.1.0'),
+                pluginScript('plugin-b', name: 'Beta'),
+                pluginScript('plugin-d', name: 'Delta'),
+              ]);
+          await tester.runAsync(() async {
+            await h.install(alpha, indexUrl: officialPluginIndexUrl);
+            await h.install(
+              pluginScript('plugin-b', name: 'Beta'),
+              enabled: false,
+            );
+          });
+          await h.shell.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.settle(tester);
+          await tester.tap(find.text('Plugins'));
+          await h.settle(tester);
+          await tester.pumpAndSettle();
+          return h;
+        }
+
+        testWidgets('the installed plugins at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openPlugins(tester);
+          await tester.tap(find.text('Details').first);
+          await tester.pumpAndSettle();
+          expect(find.text('Update available'), findsOneWidget);
+          expect(find.text('Disabled'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the available plugins at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openPlugins(tester);
+          await tester.tap(find.text('Available'));
+          await tester.pumpAndSettle();
+          await h.settle(tester);
+          expect(find.text('Delta'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the install confirmation at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openPlugins(tester);
+          await tester.tap(find.byTooltip('More options'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Install from file'));
+          await h.settle(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('Install Gamma?'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

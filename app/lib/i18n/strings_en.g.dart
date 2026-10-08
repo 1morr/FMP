@@ -80,6 +80,8 @@ class TranslationsEn extends Translations
   @override
   late final Translations$sources$en sources = Translations$sources$en._(_root);
   @override
+  late final Translations$plugins$en plugins = Translations$plugins$en._(_root);
+  @override
   late final Translations$errors$en errors = Translations$errors$en._(_root);
 }
 
@@ -268,6 +270,8 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   String get back => 'Back';
   @override
   String get playback => 'Playback';
+  @override
+  String get plugins => 'Plugins';
 }
 
 // Path: player
@@ -560,6 +564,199 @@ class Translations$sources$en extends Translations$sources$zh_TW {
   String get disabled => 'Source disabled';
 }
 
+// Path: plugins
+class Translations$plugins$en extends Translations$plugins$zh_TW {
+  Translations$plugins$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get tabInstalled => 'Installed';
+  @override
+  String get tabAvailable => 'Available';
+  @override
+  String get checkUpdates => 'Check for updates';
+  @override
+  String get updateAll => 'Update all';
+  @override
+  String get more => 'More options';
+  @override
+  String get installFromFile => 'Install from file';
+  @override
+  String get installFromUrl => 'Install from URL';
+  @override
+  String get manageIndexes => 'Manage repositories';
+  @override
+  String get working => 'Working';
+  @override
+  String get noneInstalled => 'No plugins installed';
+  @override
+  String get noneInstalledHint =>
+      'Pick plugins to install in the Available tab.';
+  @override
+  String versionAuthor({required Object version, required Object author}) =>
+      '${version} · ${author}';
+  @override
+  String get tagDisabled => 'Disabled';
+  @override
+  String get tagUnresponsive => 'Not responding';
+  @override
+  String get tagUpdate => 'Update available';
+  @override
+  String get tagInstalled => 'Installed';
+  @override
+  String enable({required Object name}) => 'Enable ${name}';
+  @override
+  String get showDetails => 'Details';
+  @override
+  String get hideDetails => 'Hide details';
+  @override
+  String get capabilities => 'Capabilities';
+  @override
+  String get hosts => 'Sites it connects to';
+  @override
+  String get source => 'Source';
+  @override
+  String get listSeparator => ', ';
+  @override
+  String get sourceOfficial => 'Official repository';
+  @override
+  String sourceCustom({required Object url}) => 'Custom repository: ${url}';
+  @override
+  String get sourceLocal => 'Installed from a file or URL';
+  @override
+  String get customIndex => 'Custom repository';
+  @override
+  String updateTo({required Object version}) => 'Update to ${version}';
+  @override
+  String get needsAppUpdate => 'Requires a newer FMP';
+  @override
+  String get remove => 'Remove';
+  @override
+  String get install => 'Install';
+  @override
+  String installTitle({required Object name}) => 'Install ${name}?';
+  @override
+  String updateTitle({required Object name}) => 'Update ${name}?';
+  @override
+  String byline({required Object author, required Object version}) =>
+      'By ${author} · version ${version}';
+  @override
+  String get addedAccess =>
+      'The new version asks for more than the installed one. It is only updated after you confirm.';
+  @override
+  String get addedCapabilities => 'New capabilities';
+  @override
+  String get addedHosts => 'New sites';
+  @override
+  String get loginWarning =>
+      'This script will access these sites as you, with your sign-in.';
+  @override
+  String get unofficial =>
+      'Unofficial source: FMP hasn\'t reviewed this plugin.';
+  @override
+  String replaces({required Object version}) =>
+      'It replaces the installed version ${version}.';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get confirmInstall => 'Install';
+  @override
+  String get confirmUpdate => 'Update';
+  @override
+  String removeTitle({required Object name}) => 'Remove ${name}?';
+  @override
+  String get removeBody =>
+      'The plugin, its data and its cache are deleted. Songs stay and show "Source not installed".';
+  @override
+  String get confirmRemove => 'Remove';
+  @override
+  String installed({required Object name}) => 'Installed ${name}';
+  @override
+  String updated({required Object name, required Object version}) =>
+      'Updated ${name} to ${version}';
+  @override
+  String updatedCount({required Object count}) => 'Plugins updated: ${count}';
+  @override
+  String removed({required Object name}) => 'Removed ${name}';
+  @override
+  String get upToDate => 'All plugins are up to date';
+  @override
+  String updatesFound({required Object count}) => 'Updates available: ${count}';
+  @override
+  String get checkFailed =>
+      'Some repositories couldn\'t be read; there may be more updates';
+  @override
+  String get hashMismatch =>
+      'The repository was just updated. Try again later.';
+  @override
+  String get manifestMismatch =>
+      'The plugin file doesn\'t match the repository; nothing was installed';
+  @override
+  String get appUpdateRequired => 'This plugin requires a newer FMP';
+  @override
+  String installFailed({required Object name, required Object reason}) =>
+      'Couldn\'t install ${name}: ${reason}';
+  @override
+  String installFileFailed({required Object reason}) =>
+      'Couldn\'t install the plugin: ${reason}';
+  @override
+  String updateFailed({required Object name, required Object reason}) =>
+      'Couldn\'t update ${name}: ${reason}';
+  @override
+  String removeFailed({required Object name, required Object reason}) =>
+      'Couldn\'t remove ${name}: ${reason}';
+  @override
+  String enableFailed({required Object name, required Object reason}) =>
+      'Couldn\'t enable ${name}: ${reason}';
+  @override
+  String disableFailed({required Object name, required Object reason}) =>
+      'Couldn\'t disable ${name}: ${reason}';
+  @override
+  String get indexLoadFailed => 'Couldn\'t read this repository';
+  @override
+  String get indexNeedsAppUpdate => 'This repository requires a newer FMP';
+  @override
+  String get indexEmpty => 'This repository has no plugins';
+  @override
+  String get allFailed => 'Couldn\'t read the plugin repositories';
+  @override
+  String get retry => 'Retry';
+  @override
+  String get urlLabel => 'Plugin file URL (https)';
+  @override
+  String get urlInvalid => 'Enter a URL that starts with https';
+  @override
+  String get download => 'Download';
+  @override
+  String get indexesTitle => 'Plugin repositories';
+  @override
+  String get addIndex => 'Add repository';
+  @override
+  String get indexUrlLabel => 'index.json URL (https)';
+  @override
+  String get indexWarning =>
+      'Unofficial source: FMP hasn\'t reviewed the plugins in this list.';
+  @override
+  String get add => 'Add';
+  @override
+  String get removeIndex => 'Remove this repository';
+  @override
+  String get indexAdded => 'Repository added';
+  @override
+  String get indexRemoved => 'Repository removed';
+  @override
+  String get indexExists => 'This repository is already listed';
+  @override
+  String get close => 'Close';
+  @override
+  late final Translations$plugins$capabilityNames$en capabilityNames =
+      Translations$plugins$capabilityNames$en._(_root);
+}
+
 // Path: errors
 class Translations$errors$en extends Translations$errors$zh_TW {
   Translations$errors$en._(TranslationsEn root)
@@ -601,6 +798,42 @@ class Translations$errors$en extends Translations$errors$zh_TW {
   @override
   late final Translations$errors$unavailableReasons$en unavailableReasons =
       Translations$errors$unavailableReasons$en._(_root);
+}
+
+// Path: plugins.capabilityNames
+class Translations$plugins$capabilityNames$en
+    extends Translations$plugins$capabilityNames$zh_TW {
+  Translations$plugins$capabilityNames$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get search => 'Search';
+  @override
+  String get resolveStream => 'Playback';
+  @override
+  String get trackDetail => 'Track details';
+  @override
+  String get multiPart => 'Multi-part videos';
+  @override
+  String get importPlaylist => 'Playlist import';
+  @override
+  String get libraryRead => 'Read your library';
+  @override
+  String get libraryWrite => 'Change your library';
+  @override
+  String get charts => 'Charts';
+  @override
+  String get live => 'Live streams';
+  @override
+  String get mix => 'Mix';
+  @override
+  String get lyrics => 'Lyrics';
+  @override
+  String get login => 'Sign-in';
 }
 
 // Path: errors.unavailableReasons
