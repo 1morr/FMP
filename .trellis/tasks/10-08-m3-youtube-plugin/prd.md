@@ -35,6 +35,6 @@ App 能以 `--fmp-dev-plugin` 裝上 YouTube 插件，匿名搜尋並播放 YouT
 ## 驗收
 
 - [ ] 測試：`source_http_client_test.dart` 的 `retry`：`idempotent` 的 POST 重試、沒標的 POST 不重試、`idempotent: false` 的 GET 不重試；`type_definitions_test.dart`；`redactor_test.dart` 的 googlevideo 案例（`expire` 保留、簽名參數拿掉）；`fmp_source_id_literal` 的案例；Android 時長未知時：`playback_session_test.dart` 斷言不呼叫 `setNext`、`completed` 換下一首。
-- [ ] YouTube 的契約（`FMP_PLUGIN_DIR=../fmp-plugins/youtube`）全綠：DTO、錯誤對應（兩個手改 fixture）、媒體請求不帶憑證、`expiresAt`。
+- [ ] YouTube 的契約（`FMP_PLUGIN_DIR=../fmp-plugins/youtube`）全綠：DTO、媒體請求不帶憑證、`expiresAt`；錯誤對應由 `fmp-plugins/youtube` 的 `npm test` 守（契約每能力只有一條案例，ADR 0015 §決定 4）。
 - [ ] 驗證清單全綠（`app/AGENTS.md` § 驗證）。
 - [ ] 實機（主對話做；**真實，匿名**）：兩平台以 `--fmp-dev-plugin` 裝 `youtube.js`、搜尋一次、播一首到交接下一首（記 Android 有沒有時長、交接是否無縫）；兩平台各跑一次 `plugin_runtime_benchmark_test.dart` 量載入時間，寫進 PR 描述（超過 3 秒另議）。
