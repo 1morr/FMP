@@ -2258,7 +2258,12 @@ void main() {
       fakeAsync((async) {
         final h = playing(async);
         final changes = <bool>[];
-        h.controller.pausedByInterruptionChanges.listen(changes.add);
+        // 每次變化時的播放狀態：續播發出後、後端報出播放前不能先變回假。
+        final statesAtChange = <PlaybackState>[];
+        h.controller.pausedByInterruptionChanges.listen((value) {
+          changes.add(value);
+          statesAtChange.add(h.controller.state);
+        });
         expect(h.controller.pausedByInterruption, isFalse);
 
         h.backend.audioInterrupted();
@@ -2272,6 +2277,7 @@ void main() {
         expect(h.controller.state, isA<Playing>());
         expect(h.controller.pausedByInterruption, isFalse);
         expect(changes, [true, false]);
+        expect(statesAtChange.last, isA<Playing>());
       });
     });
 
