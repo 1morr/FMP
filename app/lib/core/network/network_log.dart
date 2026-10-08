@@ -11,7 +11,11 @@ enum NetworkClient {
   source('source'),
 
   /// `MediaHttpClient`：抓圖片與檔案，不帶憑證。
-  media('media');
+  media('media'),
+
+  /// `HostFetch`：宿主自己的請求（插件 index、插件檔、checks.json），不屬於任何
+  /// 插件，`pluginId` 為空（ADR 0030 §決定 5）。
+  host('host');
 
   const NetworkClient(this.wireName);
 

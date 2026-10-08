@@ -89,4 +89,17 @@ void main() {
       isFalse,
     );
   });
+
+  test('exact lists allow the host itself and no subdomain', () {
+    final hosts = AllowedHosts(['raw.example.test'], exact: true);
+
+    expect(hosts.allows(Uri.parse('https://raw.example.test/a')), isTrue);
+    expect(hosts.allows(Uri.parse('https://sub.raw.example.test/a')), isFalse);
+    expect(hosts.allows(Uri.parse('https://example.test/a')), isFalse);
+    expect(
+      AllowedHosts(['example.test'])
+          .allows(Uri.parse('https://a.example.test/')),
+      isTrue,
+    );
+  });
 }

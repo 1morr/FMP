@@ -261,16 +261,37 @@ void main() {
       const url = 'https://cdn.fake-source.test/a.mp3?token2=FAKE_T&q=1';
       expect(redactor.redact(url), url);
 
-      redactor.addRules(
-        mediaCdns: [
-          const MediaCdn(
-            host: 'fake-source.test',
-            signedQueryParameters: {'token2'},
-          ),
-        ],
-      );
+      redactor.setMediaCdns('fake', [
+        const MediaCdn(
+          host: 'fake-source.test',
+          signedQueryParameters: {'token2'},
+        ),
+      ]);
 
       expect(redactor.redact(url), 'https://cdn.fake-source.test/a.mp3?q=1');
+    });
+
+    test('setting a plugin again replaces its rules and keeps the others', () {
+      const one = 'https://cdn.one.test/a.mp3?s1=FAKE_1&q=1';
+      const two = 'https://cdn.two.test/a.mp3?s2=FAKE_2&q=1';
+      redactor
+        ..setMediaCdns('one', [
+          const MediaCdn(host: 'one.test', signedQueryParameters: {'s1'}),
+        ])
+        ..setMediaCdns('two', [
+          const MediaCdn(host: 'two.test', signedQueryParameters: {'s2'}),
+        ]);
+      expect(redactor.redact(one), 'https://cdn.one.test/a.mp3?q=1');
+
+      // 更新後的 one 不再有這個 CDN；two 的規則與內建規則照舊。
+      redactor.setMediaCdns('one', const []);
+
+      expect(redactor.redact(one), one);
+      expect(redactor.redact(two), 'https://cdn.two.test/a.mp3?q=1');
+      expect(
+        redactor.redact('https://x.bilivideo.com/a.m4s?upsig=FAKE&q=1'),
+        'https://x.bilivideo.com/a.m4s?q=1',
+      );
     });
 
     test('Bilibili stream URLs lose the device id and the Akamai token', () {
@@ -287,14 +308,12 @@ void main() {
       const url =
           'https://upos-fake.bilivideo.com/a.m4s?upsig=FAKE_UP_3&fake_sig=FAKE_S&q=1';
 
-      redactor.addRules(
-        mediaCdns: [
-          const MediaCdn(
-            host: 'upos-fake.bilivideo.com',
-            signedQueryParameters: {'fake_sig'},
-          ),
-        ],
-      );
+      redactor.setMediaCdns('fake', [
+        const MediaCdn(
+          host: 'upos-fake.bilivideo.com',
+          signedQueryParameters: {'fake_sig'},
+        ),
+      ]);
 
       expect(redactor.redact(url), 'https://upos-fake.bilivideo.com/a.m4s?q=1');
     });
@@ -302,15 +321,10 @@ void main() {
     test('a signed path from any matching rule applies', () {
       const url = 'https://m1.fake-source.test/111/222/a.mp3?q=1';
 
-      redactor.addRules(
-        mediaCdns: [
-          const MediaCdn(
-            host: 'fake-source.test',
-            signedQueryParameters: {'x'},
-          ),
-          const MediaCdn(host: 'm1.fake-source.test', signedPath: true),
-        ],
-      );
+      redactor.setMediaCdns('fake', [
+        const MediaCdn(host: 'fake-source.test', signedQueryParameters: {'x'}),
+        const MediaCdn(host: 'm1.fake-source.test', signedPath: true),
+      ]);
 
       expect(
         redactor.redact(url),
