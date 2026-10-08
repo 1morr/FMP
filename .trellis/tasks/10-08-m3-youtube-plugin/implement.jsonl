@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "Sections 4.1-4.2 idempotent and host API sync points; 5.1 YouTube plugin and expire redaction; 5.4 Android unknown-duration lookahead"}
+{"file": "docs/adr/0028-host-api-m3-extensions.md", "reason": "HttpRequest.idempotent definition"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "Retry rules and the M3 idempotent supplement; error mapping in sources"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Plugin format, official plugin ids, YouTube.js Web API shims"}
+{"file": ".trellis/tasks/archive/2026-09/09-30-youtubejs-probe/research/youtubejs-probe.md", "reason": "YouTube.js 18.1.0 bundling and shims proven in the M1 probe"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "SourceHttpClient retry and redaction patterns"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Writing a plugin, checks.json, fixtures, contract tests"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "PlaybackSession lookahead and setNext"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Contract and recording tests"}
