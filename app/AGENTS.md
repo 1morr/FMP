@@ -62,7 +62,7 @@
   `flutter test --update-goldens <那個測試檔>`，看過 `goldens/ci/` 的圖再提交；比對失敗的差異圖
   寫在旁邊的 `failures/`（gitignore），CI 失敗時上傳成 artifact。
 - 插件執行環境的實機量測：`flutter test integration_test/plugin_runtime_benchmark_test.dart -d <裝置>`
-  （dev flavor；結果是 `FMP_BENCH` 開頭的行）。數字與方法在
+  （dev flavor；結果是 `FMP_BENCH` 開頭的行；`--dart-define=FMP_BENCH_PLUGIN=<路徑>` 另量一個外部插件的載入）。數字與方法在
   `.trellis/tasks/archive/2026-09/09-30-js-runtime/research/notes.md` §4。
 
 ### 實機驗證
