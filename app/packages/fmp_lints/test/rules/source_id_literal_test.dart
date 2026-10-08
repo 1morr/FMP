@@ -23,9 +23,14 @@ bool isBili(String id) => id == [!'bilibili'!];
 const id = [!"bilibili"!];
 ''');
 
+  Future<void> test_youtubeId() => assertLints('lib/ui/page.dart', '''
+bool isYoutube(String id) => id == [!'youtube'!];
+''');
+
   // 不報
 
   Future<void> test_allowedDirectories() async {
+    await assertLints('test/ui/page_test.dart', "const id = 'youtube';\n");
     await assertLints(
       'lib/legacy_import/source_map.dart',
       "const id = 'bilibili';\n",
@@ -36,6 +41,7 @@ const id = [!"bilibili"!];
   Future<void> test_otherStrings() => assertLints('lib/ui/page.dart', '''
 const label = 'Bilibili';
 const key = 'bilibili_cookie';
+const other = 'youtube_music';
 const sentence = 'from bilibili';
 ''');
 

@@ -16,6 +16,7 @@ const hostApiShapes = <String, JsonShape>{
     'headers': false,
     'body': false,
     'auth': false,
+    'idempotent': false,
   },
   'HttpResponse': {'status': true, 'url': true, 'headers': true, 'body': true},
 };
@@ -92,6 +93,7 @@ final class PluginHost {
         headers: fields.optionalStringMap('headers') ?? const {},
         body: fields.optionalString('body'),
         auth: _auth(fields.optionalString('auth')),
+        idempotent: fields.optionalBool('idempotent'),
       ),
       abortTrigger: _closed.future,
     );

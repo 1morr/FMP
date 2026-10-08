@@ -45,7 +45,8 @@
 
 - **狀態**：規劃已於 2026-10-08 由擁有者核准（ADR 0028–0031 已採納）；PR 0（文件更正與 milestones 拆分）進行中；R1 已完成（通過，結果已回填）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條 2026-10-08 確認，全部照建議。
-- **已合併進 `main`**：（無）
+- **已合併進 `main`**：PR 0（#220）。
+- **PR 1 未結的事**：Windows 播 YouTube 開串流回 403（VISIONOS `mp4/aac`，itag 139／140），之後本機被 YouTube 暫時標記「確認你不是機器人」，沒能查完；Android 已端到端通過。`fmp-plugins` 的 YouTube PR 等 Windows 驗過再合併；查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`（Node 對同一個網址比對 itag 139／140／251 與 UA，分辨「aac 被擋」與「播放器走了不同出口」）。
 - **下一步**：PR 0 合併後做 PR 1。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
 - **每個 PR 的固定流程**：
@@ -159,7 +160,8 @@
   - `source_http_client_test.dart` 的 `retry`：標 `idempotent` 的 POST 重試、沒標的不重試、`idempotent: false` 的 GET 不重試；
   - `type_definitions_test.dart`；
   - `playback_session_test.dart`：時長未知時不呼叫 `setNext`、`completed` 換下一首；
-  - YouTube 的契約（`FMP_PLUGIN_DIR`）：DTO、錯誤對應（手改的 `VerificationRequired`、`Unavailable(age)` fixture 各一）、媒體請求不帶憑證、`expiresAt`。
+  - YouTube 的契約（`FMP_PLUGIN_DIR`）：DTO、媒體請求不帶憑證、`expiresAt`。
+  - 錯誤對應：`fmp-plugins/youtube/test/errors.test.js`（`node:test`，`npm test`）。更正（PR 1 實作時）：原寫「手改的錯誤 fixture 走契約」與 ADR 0015 §決定 4「每能力最多一條案例」衝突，加錯誤案例就擠掉成功的那一條；改以插件 repo 內的 Node 測試守對應表，PR 3 的 CI 跑它。
 - 實測（真實，匿名）：兩平台以 `--fmp-dev-plugin` 裝 `youtube.js`、搜尋一次、播一首到交接下一首（記 Android 有沒有時長、交接是否無縫）；兩平台各跑一次 `plugin_runtime_benchmark_test.dart` 量載入時間，寫進 PR 描述。
 - 依賴：0。模型：opus（Android 時長未知是根因未知的調查：要在實機找載入訊號）。
 
@@ -175,7 +177,7 @@
 ## 3. `fmp-plugins`：CI、`index.json`、B 站修正（design §5.3、§7.1、§7.2）
 
 - [ ] `tool/build_index.dart`：讀每個插件目錄 `.js` 的 manifest、算 `.js` 與 `checks.json` 的 SHA-256，寫 `index.json`（design §7.1 的欄位）；`--check` 模式比對。
-- [ ] `.github/workflows/ci.yml`：`FMP_REF` 變數 checkout FMP、Flutter 3.47.5、每個插件目錄跑契約、`build_index.dart --check`、`.js` 改了而版本沒升就失敗。
+- [ ] `.github/workflows/ci.yml`：`FMP_REF` 變數 checkout FMP、Flutter 3.47.5、每個插件目錄跑契約、有 `package.json` 的插件目錄跑 `npm ci && npm test`（PR 1 起 YouTube 的錯誤對應表）、`build_index.dart --check`、`.js` 改了而版本沒升就失敗。
 - [ ] B 站：標題解 HTML 實體；封面多尺寸；manifest 升 1.0.0；fixture 重錄（匿名）。
 - [ ] README 改寫（index、CI、版本規則）。
 - [ ] FMP：`lib/core/endpoints.dart` 建檔，放官方 index 網址（`fmp_url_literal` 的允許檔第一次有內容）。
@@ -276,7 +278,7 @@
 
 - [ ] `AccountGuard`：插件呼叫丟 `CredentialInvalid` 時的單飛刷新、寫入、重跑一次；不支援刷新或刷新失敗就標 `invalidated` 並提示一次附「登入」。
 - [ ] 啟動刷新：第一幀後、第一次 `Online` 時，對宣告 `refresh: 'onStartup'` 的插件各一次；帳號頁的最後刷新時間與結果。
-- [ ] fmp-plugins：B 站 `loginRefresh`（RSA-OAEP 純 JS、`correspond`、`refresh_csrf`）與「憑證無效」判定表（`-101`）；YouTube（401）與網易（`301`）的判定表；手寫的失效 fixture。
+- [ ] fmp-plugins：B 站 `loginRefresh`（RSA-OAEP 純 JS、`correspond`、`refresh_csrf`）與「憑證無效」判定表（`-101`）；YouTube（401）與網易（`301`）的判定表；手寫的失效 fixture。注意（PR 1 發現）：契約每能力最多一條案例（ADR 0015 §決定 4），失效 fixture 不能和成功案例並存；照 PR 1 的做法以插件 repo 的 Node 測試守判定表（輸入回應與 `credentialsAttached`），或另提 ADR 0015 的修訂，在 PR 10 定。
 - [ ] `fmp-test`：關鍵字 `expired` 回 `CredentialInvalid`，第二次成功（刷新路徑）。
 - 測試：design §6.5 的閘門（刷新後重跑帶新憑證、三個並行只刷新一次、不支援刷新時標失效、只提示一次、重新登入後再提示、限流與網路錯誤不標失效、啟動刷新等 `Online`）；三個插件的判定表契約（`credentialsAttached` 為假的同樣回應不判定）。
 - 實測：重播：兩平台以 `fmp-test` 的 `expired` 看刷新後成功與失效提示附「登入」；真實（擁有者的 B 站帳號）：重啟後啟動刷新跑一次（log 有 `loginRefresh` 的結果，帳號頁最後刷新時間更新）。

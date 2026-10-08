@@ -233,9 +233,12 @@ void main() {
       expect(
         redactor.redact(
           'https://rr1---sn-fake.googlevideo.com/videoplayback'
-          '?expire=1700000000&ip=203.0.113.9&itag=251&sig=FAKE_SIG_123',
+          '?expire=1700000000&ip=203.0.113.9&itag=251&sig=FAKE_SIG_123'
+          '&lsig=FAKE_LSIG_123&sparams=expire,ip&pot=FAKE_POT',
         ),
-        'https://rr1---sn-fake.googlevideo.com/videoplayback?itag=251',
+        // expire 是公開的到期時間，留著給契約檢查核對 expiresAt。
+        'https://rr1---sn-fake.googlevideo.com/videoplayback'
+        '?expire=1700000000&itag=251',
       );
     });
 

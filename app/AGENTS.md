@@ -57,12 +57,14 @@
   每個案例的 fixture 整組重寫；有 `meta.edited` 的案例略過（手寫的錯誤案例不被蓋掉）；結果不符
   checks.json 期望的案例（例如連線失敗）什麼都不寫、原本的檔案不動。閘門：`record_test.dart`。
   錄完同一個測試以重播再跑一次。
+  錄製寫檔前（`Redactor` 之後）把 IP 位址（IPv4、全球單播 IPv6，含版本字串如 `Chrome/156.0.0.0`）換成文件位址（`test/plugins/contract/ip_scrub.dart`）；
+  手寫的 fixture 也受同一道檢查。閘門：`ip_scrub_test.dart`、`credential_scan.dart` 的 `ipProblems`（`contract_test.dart` 與 `fixture_scan_test.dart` 都經 `scanFixture`）。
 - golden 測試（`alchemist`）在裸 `flutter test` 裡，只比 CI 版（文字畫成色塊，Windows 產生的圖
   在 CI 的 Linux 上逐像素相同；平台版在 `test/flutter_test_config.dart` 關掉）。改了版面就
   `flutter test --update-goldens <那個測試檔>`，看過 `goldens/ci/` 的圖再提交；比對失敗的差異圖
   寫在旁邊的 `failures/`（gitignore），CI 失敗時上傳成 artifact。
 - 插件執行環境的實機量測：`flutter test integration_test/plugin_runtime_benchmark_test.dart -d <裝置>`
-  （dev flavor；結果是 `FMP_BENCH` 開頭的行）。數字與方法在
+  （dev flavor；結果是 `FMP_BENCH` 開頭的行；`--dart-define=FMP_BENCH_PLUGIN=<路徑>` 另量一個外部插件的載入）。數字與方法在
   `.trellis/tasks/archive/2026-09/09-30-js-runtime/research/notes.md` §4。
 
 ### 實機驗證
@@ -452,6 +454,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   網址仍然不能用；fixture 留著期限，契約的 `expiresAtPattern` 才核對得了 `expiresAt`（見
   「插件」）。閘門：`redactor_test.dart` 的 `strips signed parameters and keeps the others`
   （`deadline` 留著、其他參數拿掉，含 Akamai 的 `hdnts=exp=…~hmac=…`）。
+- 媒體 CDN 的名單同樣不遮 YouTube `googlevideo.com` 的 `expire`（到期的 unix 秒）：`sig`、`lsig`、
+  `ip` 等照樣拿掉。閘門：`redactor_test.dart` 的 `strips signed parameters and keeps the others`
+  的 googlevideo 案例。
 - 保留期限（`LogFile.deleteExpired`）：輪替出來的 `fmp.N.jsonl` 最後修改超過 7 天
   就刪，目前寫入的 `fmp.jsonl` 不動，與大小輪替並存，不做設定項。只動 `logs/` 這一層
   符合檔名的檔案。排在 `LogFile` 的寫入佇列裡，不和輪替的改名交錯；失敗交給呼叫端，
@@ -512,7 +517,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   前後關係）、`a failed request gives its place back`。
 - 重試在 `SourceHttpClient` 的迴圈裡，不在攔截器：每次重試重新走整條攔截器鏈（重新
   判斷認證、重新排限流），每次送出各一筆網路紀錄。閘門：同一檔的 `retry` 群組（只重試
-  冪等請求、次數上限、`Retry-After`、取消不重試）。
+  冪等請求、次數上限、`Retry-After`、取消不重試）。語意冪等的 POST（innertube 查詢等）由
+  插件在請求標 `idempotent: true`（`false` 則連 GET 都不重試），只影響重試，不影響認證、限流、
+  網路紀錄（ADR 0028 §決定 2）。閘門：`retry` 群組的 `a POST marked idempotent…`、
+  `a GET marked not idempotent…`；`plugin_runtime_test.dart` 的 `http.request passes idempotent…`。
 - 網域：只准 `https`，host 等於 manifest 允許清單的項目或是它的子網域（帶百分比編碼的
   host 一律不准）；不符就不發請求，丟 `Unsupported`。轉址手動跟隨
   （`followRedirects: false`），每跳都檢查，最多 5 次，`Location` 解析不了也是

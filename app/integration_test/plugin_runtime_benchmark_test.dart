@@ -28,8 +28,14 @@ import 'package:integration_test/integration_test.dart';
 //
 // 用 profile 以外的模式量到的是 debug（JIT）數字，Dart 端的部分偏慢；QuickJS
 // 本身是原生碼，不受影響。
+//
+// 另量一個外部插件（例如 fmp-plugins 的 youtube.js）的載入時間：加
+// `--dart-define=FMP_BENCH_PLUGIN=<插件檔的路徑>`。只載入、不呼叫，不連網。
+// Android 的 `flutter test` 會重裝 App、清掉私有目錄，所以檔案不在時最多等 60 秒，
+// 讓呼叫的人在安裝後以 `run-as` 把檔案複製進 App 的私有目錄（verify-on-device）。
 
 const _testPluginAsset = 'test/fixtures/plugins/test_plugin/test_plugin.js';
+const _externalPluginPath = String.fromEnvironment('FMP_BENCH_PLUGIN');
 
 /// 一個不做事的插件：只量 runtime、宿主 API 與 module 載入的固定成本。
 const _emptyPlugin = '''
@@ -125,6 +131,24 @@ void main() {
       testTimes.add(ms);
     }
     _report('load test plugin (median of 9) ms', _median(testTimes));
+
+    if (_externalPluginPath.isNotEmpty) {
+      final file = File(_externalPluginPath);
+      for (var i = 0; i < 60 && !file.existsSync(); i++) {
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+      final external = PluginFile.parse(await file.readAsString());
+      final externalTimes = <double>[];
+      for (var i = 0; i < 9; i++) {
+        final (plugin, ms) = await timedLoad(external);
+        plugin.close();
+        externalTimes.add(ms);
+      }
+      _report(
+        'load ${external.manifest.id} plugin (median of 9) ms',
+        _median(externalTimes),
+      );
+    }
 
     final (plugin, _) = await timedLoad(testPlugin);
     opened.add(plugin);

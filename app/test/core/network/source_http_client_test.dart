@@ -580,6 +580,56 @@ void main() {
       expect(harness.waits, isEmpty);
     });
 
+    test('a POST marked idempotent is retried like a GET', () async {
+      var calls = 0;
+      final harness = Harness(
+        (options) => ++calls < 3 ? throw refused(options) : reply(200),
+      );
+      final response = await harness.client.send(
+        SourceRequest(
+          Uri.parse('https://example.test/a'),
+          method: 'POST',
+          idempotent: true,
+        ),
+      );
+      expect(response.statusCode, 200);
+      expect(harness.adapter.requests, hasLength(3));
+      expect(harness.records.map((r) => r.fields['retry']), [0, 1, 2]);
+    });
+
+    test('a GET marked not idempotent is not retried', () async {
+      final harness = Harness((options) => throw refused(options));
+      final error = await errorOf(
+        harness.client.send(
+          SourceRequest(Uri.parse('https://example.test/a'), idempotent: false),
+        ),
+      );
+      expect(error, isA<NetworkError>());
+      expect(harness.adapter.requests, hasLength(1));
+      expect(harness.waits, isEmpty);
+    });
+
+    test('idempotent carries over a redirect that keeps the POST', () async {
+      var calls = 0;
+      final harness = Harness(
+        (options) => switch (options.uri.path) {
+          // 307 保留 POST：302 會改成 GET，GET 本來就重試，驗不到這條。
+          '/a' => redirect('/b', status: 307),
+          _ => ++calls < 2 ? throw refused(options) : reply(200),
+        },
+      );
+      final response = await harness.client.send(
+        SourceRequest(
+          Uri.parse('https://example.test/a'),
+          method: 'POST',
+          idempotent: true,
+        ),
+      );
+      expect(response.statusCode, 200);
+      // /a、/b 失敗一次、/b 重試成功。
+      expect(harness.adapter.requests, hasLength(3));
+    });
+
     test('Retry-After is respected (fake clock)', () async {
       var calls = 0;
       final harness = Harness(
