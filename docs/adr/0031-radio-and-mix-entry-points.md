@@ -1,6 +1,6 @@
 # 0031 — 電台是使用者存的直播間清單，有自己的導覽項；Mix 從曲目選單開始、取代佇列
 
-- 狀態：提議中
+- 狀態：已採納
 - 日期：2026-10-08
 - 影響範圍：`app/lib/radio/`、`app/lib/playback/`（`QueueMode.live`、`QueueMode.mix`、`MixSession`、佇列持久化）、資料表 `radio_stations`、`player_state`、`network_settings`、外殼的導覽、電台頁、搜尋頁的直播間模式、播放頁的直播版、曲目選單
 

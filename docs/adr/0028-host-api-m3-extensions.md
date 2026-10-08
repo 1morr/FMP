@@ -1,6 +1,6 @@
 # 0028 — 宿主 API v1 在發佈前擴充直播、Mix、分 P、曲目詳細與語意冪等，取消做在控制器層
 
-- 狀態：提議中
+- 狀態：已採納
 - 日期：2026-10-08
 - 影響範圍：`app/lib/plugins/`（`SourcePlugin`、`fmp-plugin.d.ts`、DTO 驗證、契約執行器的 `checks.json`）、`app/lib/core/network/`（重試判斷）、`app/lib/playback/`（被取代請求的處理）、`1morr/fmp-plugins` 的三個插件
 

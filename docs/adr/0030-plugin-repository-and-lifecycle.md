@@ -1,6 +1,6 @@
 # 0030 — 插件庫以 `fmp-plugins` 的 `main` 分支託管 `index.json`，插件可停用，安裝更新移除都先確認
 
-- 狀態：提議中
+- 狀態：已採納
 - 日期：2026-10-08
 - 影響範圍：`1morr/fmp-plugins`（`index.json`、產生腳本、CI）、`app/lib/plugins/`（registry、repository、安裝與移除）、`app/lib/core/network/host_fetch.dart`、`app/lib/core/endpoints.dart`、資料表 `installed_plugins`、`plugin_indexes`、插件頁、搜尋頁的首次啟動引導
 
