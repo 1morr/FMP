@@ -123,44 +123,56 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       header: true,
       child: Text(name(group), style: theme.textTheme.titleLarge),
     );
-    Widget detail(
-      SettingsSection group, {
+    // 設定組：控制項放在捲動的欄裡。
+    Widget scrolling(
+      SettingsSection group,
+      Widget controls, {
       required bool heading,
-    }) => switch (group) {
-      // 插件頁自己有分頁與捲動的清單：不包在捲動的欄裡，填滿剩下的高度。
-      SettingsSection.plugins => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    }) => SingleChildScrollView(
+      padding: EdgeInsets.all(spacing.x4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (heading)
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                spacing.x4,
-                spacing.x4,
-                spacing.x4,
-                0,
-              ),
-              child: sectionTitle(group),
-            ),
-          const Expanded(child: PluginsPage()),
+          if (heading) ...[sectionTitle(group), SizedBox(height: spacing.x4)],
+          controls,
         ],
       ),
-      SettingsSection.appearance ||
-      SettingsSection.playback ||
-      SettingsSection.network => SingleChildScrollView(
-        padding: EdgeInsets.all(spacing.x4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (heading) ...[sectionTitle(group), SizedBox(height: spacing.x4)],
-            switch (group) {
-              SettingsSection.appearance => const AppearanceControls(),
-              SettingsSection.playback => const PlaybackControls(),
-              _ => const NetworkControls(),
-            },
-          ],
-        ),
-      ),
-    };
+    );
+    Widget detail(SettingsSection group, {required bool heading}) =>
+        switch (group) {
+          // 插件頁自己有分頁與捲動的清單：不包在捲動的欄裡，填滿剩下的高度。
+          SettingsSection.plugins => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (heading)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    spacing.x4,
+                    spacing.x4,
+                    spacing.x4,
+                    0,
+                  ),
+                  child: sectionTitle(group),
+                ),
+              const Expanded(child: PluginsPage()),
+            ],
+          ),
+          SettingsSection.appearance => scrolling(
+            group,
+            const AppearanceControls(),
+            heading: heading,
+          ),
+          SettingsSection.playback => scrolling(
+            group,
+            const PlaybackControls(),
+            heading: heading,
+          ),
+          SettingsSection.network => scrolling(
+            group,
+            const NetworkControls(),
+            heading: heading,
+          ),
+        };
     return switch (WindowClass.of(context)) {
       WindowClass.compact || WindowClass.medium => switch (_selected) {
         null => list(null),
