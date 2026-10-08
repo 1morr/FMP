@@ -126,6 +126,7 @@
 7. **插件開發**
    - 以 `file_selector.getDirectoryPath` 選資料夾，路徑記在「開發者」組。
      - 資料夾中的插件標「開發中」，本次執行期間取代同 id 的已安裝插件；卸載後恢復已安裝版。
+   - 更正（2026-10-08，M3 PR 0）：上面的 `file_selector.getDirectoryPath` 改用 ADR 0009 §決定 6 的 `file_picker`（13.1.0）的 `getDirectoryPath`；「file_picker 沒有 SAF」不成立（13.x 有 Android SAF 選項），Android 插件開發仍另立 ADR。
    - 「重新載入」按鈕：拆掉該插件的 JS runtime 再重建。
    - 每插件可切換真實、錄製、重播；錄製的 fixture 經遮蔽後寫到插件資料夾的 `fixtures/`。
    - 案例可單跑或全跑，顯示已遮蔽的回傳值與錯誤；log 預設篩成該插件的 tag。
@@ -147,6 +148,7 @@
      2. 對話框列出備份位置，二次確認；
      3. 清空後重啟 App。
    - 備份失敗就不清空。
+   - 更正（2026-10-08，M3 PR 0）：自動備份＝以 SQLite `VACUUM INTO` 把資料庫複製到 `backups/fmp-<時間>.db`；「從備份還原」＝換回該檔並重啟。憑證不在資料庫，還原後要重新登入。M4 的 E16 匯出格式另定。
 10. **診斷包**
     - 內容：ADR 0011 §6 的欄位，產生時組裝一次，輸出 `diagnostics.txt`、`diagnostics.json`，加上目前的 log 檔。log 寫入時已經遮蔽。
     - 動作：
@@ -155,6 +157,7 @@
       - 「分享」：用 `share_plus`，只在平台層宣告能分享檔案的平台顯示（Linux 與 Windows RS5 以下不能）。
     - 第一次匯出時提醒「送出前請檢查」，和 ADR 0023 的回報提醒共用同一個「不再提醒」設定。
     - 暫存的 zip 分享後刪除，殘留的由啟動維護清單清掉。
+    - 更正（2026-10-08，M3 PR 0）：上面的 `file_selector.getSaveLocation` 改用 ADR 0009 §決定 6 的 `file_picker`（13.1.0）的 `saveFile`，理由同 §決定 7 的更正。
 
 採用的慣例：
 - Android 系統開發人員選項：連點版本號開啟、頁首總開關；
