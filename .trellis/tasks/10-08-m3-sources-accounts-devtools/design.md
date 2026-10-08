@@ -502,6 +502,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 
 - **託管**：`fmp-plugins` 的 `main` 分支，經 `raw.githubusercontent.com` 讀。index 與 `.js` 在同一個 commit 由腳本產生，CI 檢查 index 是最新的。慣例：Obsidian `community-plugins.json`、MusicFree 的訂閱 JSON。不用 GitHub Pages（要改 repo 設定，同樣有 CDN 延遲）。
 - **官方網址**放 `lib/core/endpoints.dart`（`fmp_url_literal`）。
+- 更正（M3 PR 3）：index 的 `description` 取自 manifest 的選填 `description`（上限 200 字元，空＝空字串）；manifest 原本沒有這個欄位。
 - **SHA-256 不符就拒裝**，提示「插件庫剛更新，請稍後再試」（raw 的 CDN 快取約 5 分鐘，index 與 `.js` 可能短暫不一致）。
 - **`checksUrl`／`checksSha256`**（本設計新增）：從 index 安裝或更新時一併下載並存進 `installed_plugins.checks_json`，健康檢查用它（§12.5，§16 第 12 條）。驗證不過就照樣安裝插件、只是不存 checks（健康檢查顯示「沒有檢查案例」）。
 - **欄位封閉**：不認得的欄位整個拒收（同 manifest 的規則），`indexVersion` 不是 1 就拒絕讀並提示「需要更新 FMP」。
